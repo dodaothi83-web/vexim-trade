@@ -1,0 +1,247 @@
+/**
+ * Helpers cho trang công khai (SSR). Mọi hàm ở đây đều an toàn import ở server
+ * components; KHÔNG import từ client components.
+ */
+import "server-only";
+
+import { getStore } from "@/lib/db";
+import { isExpired, productReadiness } from "@/lib/media/readiness";
+import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, Verification, VerificationLevel } from "@/lib/types";
+import { approvedL2Scope, approvedPartnerReviewSummary, approvedPublicReviewSummaries, approvedVerificationSteps, type PublicL2Scope, type PublicReviewSummaries } from "@/lib/verification-status";
+import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductCategorySlug } from "@/lib/public/product-selection";
+import { publicProductTitle } from "@/lib/public/display-name";
+
+/** Ngôn ngữ hiện tại của trang công khai. MVP chỉ có tiếng Anh; i18n theo subfolder /ja/.. làm sau. */
+export const DEFAULT_LOCALE = "en";
+
+/** Lấy chuỗi dịch theo ngôn ngữ, fallback về tiếng Anh. */
+export function t(i18n: Record<string, string> | null | undefined, locale: string = DEFAULT_LOCALE): string {
+  if (!i18n) return "";
+  return i18n[locale] ?? i18n[DEFAULT_LOCALE] ?? Object.values(i18n)[0] ?? "";
+}
+
+/** Nhãn hiển thị cho loại hình nhà cung cấp. */
+export const SUPPLIER_TYPE_LABEL: Record<SupplierType | "none", string> = {
+  manufacturer: "Manufacturer",
+  trading: "Trading company",
+  cooperative: "Cooperative",
+  none: "Supplier",
+};
+
+export function supplierTypeLabel(s: Supplier): string {
+  const key = (s.supplier_type ?? "none") as SupplierType | "none";
+  return SUPPLIER_TYPE_LABEL[key] ?? SUPPLIER_TYPE_LABEL.none;
+}
+
+export interface PublicSupplierCard extends Supplier {
+  categories: Category[];
+  primary_category: Category | null;
+  main_products: SupplierProduct[];
+  gallery_images: string[];      // storage_path các ảnh buyer-shareable
+  product_image_paths: Record<string, string>; // full approved image (detail and structured data)
+  product_card_image_paths: Record<string, string>; // approved thumbnail, falls back to full legacy image
+  public_review_summaries: PublicReviewSummaries;
+  approved_verification_steps: VerificationLevel[];
+  approved_l2_scope?: PublicL2Scope;
+  partner_review_summary?: string;
+}
+
+function buyerVisibleProduct(p: SupplierProduct, categories: Category[], demo = false): boolean {
+  if (!productReviewApproved(p) || (!p.ready_for_buyer && !demo) || isTestOnlyProduct(p.name)) return false;
+  const slug = publicProductCategorySlug(p, categories);
+  return categories.some((c) => c.slug === slug && c.status === "published" && c.is_published);
+}
+
+/**
+ * Lấy danh sách NCC công khai cho trang danh mục.
+ * Public site đọc trực tiếp bảng suppliers (chỉ status='published') để còn lọc linh
+ * hoạt theo cột; trong tuần 1 MVP, code lọc tay vì view v_public_suppliers ẩn tạm
+ * những supplier chưa published.
+ *
+ * Demo suppliers (is_demo=true) bị loại khỏi list công khai trừ khi:
+ *   - VEXIM_SHOW_DEMO="true" trên môi trường preview/staging, hoặc
+ *   - caller truyền includeDemo=true (chỉ dùng cho staff / trang preview nội bộ).
+ */
+export async function listPublicSuppliers(options?: {
+  categorySlug?: string;
+  includeDemo?: boolean;
+  /** Server-only preloaded rows, shared with the product catalogue. */
+  source?: { suppliers: Supplier[]; products: SupplierProduct[]; categories: Category[] };
+}): Promise<PublicSupplierCard[]> {
+  const showDemo =
+    options?.includeDemo === true ||
+    process.env.VEXIM_SHOW_DEMO === "true";
+  const store = getStore();
+  const [suppliers, products, categories] = options?.source
+    ? [options.source.suppliers, options.source.products, options.source.categories.filter((c) => c.is_published)]
+    : await Promise.all([
+      store.listSuppliers(),
+      store.listProducts(),
+      typeof store.listCategories === "function"
+        ? store.listCategories({ publishedOnly: true })
+        : Promise.resolve([] as Category[]),
+    ]);
+
+  const filtered = suppliers.filter((s) => {
+    if (s.status !== "published") return false;
+    if (s.is_demo && !showDemo) return false;
+    return true;
+  });
+  const bySupplier = new Map<string, SupplierProduct[]>();
+  for (const p of products) {
+    if (!bySupplier.has(p.supplier_id)) bySupplier.set(p.supplier_id, []);
+    bySupplier.get(p.supplier_id)!.push(p);
+  }
+
+  const baseCards = filtered.map((s) => ({
+    ...s,
+    categories: [] as Category[],
+    primary_category: null as Category | null,
+    main_products: (bySupplier.get(s.id) ?? []).filter((p) => buyerVisibleProduct(p, categories, !!s.is_demo)).slice(0, 4),
+    gallery_images: [] as string[],
+    product_image_paths: {} as Record<string, string>,
+    product_card_image_paths: {} as Record<string, string>,
+    public_review_summaries: {} as PublicReviewSummaries,
+    approved_verification_steps: [] as VerificationLevel[],
+    approved_l2_scope: null as PublicL2Scope,
+    partner_review_summary: undefined as string | undefined,
+  }));
+
+  // Read every approval, in bounded supplier batches when supported. A failed
+  // page must not silently turn a verified supplier into an unverified one.
+  const byVerificationSupplier = new Map<string, Verification[]>();
+  const batched = typeof store.listVerificationsForSuppliers === "function";
+  if (batched && baseCards.length) {
+    for (const row of await store.listVerificationsForSuppliers(baseCards.map((c) => c.id))) {
+      const group = byVerificationSupplier.get(row.supplier_id) ?? [];
+      if (!byVerificationSupplier.has(row.supplier_id)) byVerificationSupplier.set(row.supplier_id, group);
+      group.push(row);
+    }
+  }
+  for (let i = 0; i < baseCards.length; i += 40) {
+    await Promise.all(baseCards.slice(i, i + 40).map(async (c, offset) => {
+      const [media, vers] = await Promise.all([
+        i + offset < 50 ? store.listMedia("supplier", c.id) : Promise.resolve([] as MediaAsset[]),
+        batched ? Promise.resolve(byVerificationSupplier.get(c.id) ?? []) : store.listVerifications(c.id),
+      ]);
+      c.gallery_images = media
+        .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
+        .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+        .map((m) => m.storage_path!)
+        .slice(0, 6);
+      // Even demo listings must not imply a check from the legacy numeric maximum.
+      c.approved_verification_steps = approvedVerificationSteps(vers);
+      c.approved_l2_scope = approvedL2Scope(vers);
+      c.partner_review_summary = approvedPartnerReviewSummary(vers);
+      c.public_review_summaries = approvedPublicReviewSummaries(vers);
+    }));
+  }
+
+  let cards: PublicSupplierCard[] = baseCards;
+
+  if (options?.categorySlug) {
+    const cat = categories.find((c) => c.slug === options.categorySlug);
+    // Only an actual product in the requested category qualifies; supplier blurbs
+    // must never pull an unrelated product/supplier onto a category page.
+    cards = cat ? cards.filter((s) => (bySupplier.get(s.id) ?? []).some((p) =>
+      buyerVisibleProduct(p, categories, !!s.is_demo) && productBelongsToCategory(p, cat, categories)))
+      .map((s) => ({ ...s, main_products: s.main_products.filter((p) =>
+        productBelongsToCategory(p, cat, categories)) })) : [];
+  }
+
+  // Sort by actual approved review count, not the legacy maximum level.
+  cards.sort((a, b) => {
+    const av = a.approved_verification_steps.length;
+    const bv = b.approved_verification_steps.length;
+    if (bv !== av) return bv - av;
+    const score = (s: Supplier) =>
+      (s.products ? 1 : 0) + (s.province ? 1 : 0) + (s.moq_text ? 1 : 0) + (s.lead_time_days ? 1 : 0);
+    const aScore = score(a);
+    const bScore = score(b);
+    if (bScore !== aScore) return bScore - aScore;
+    return (a.display_name ?? a.name).localeCompare(b.display_name ?? b.name);
+  });
+
+  return cards;
+}
+
+export async function getPublicSupplierBySlug(slug: string, publicList?: PublicSupplierCard[]): Promise<PublicSupplierCard | null> {
+  const list = publicList ?? await listPublicSuppliers();
+  const supplier = list.find((s) => s.slug === slug || (!s.slug && s.id === slug)) ?? null;
+  if (!supplier) return null;
+  return getSupplierStorefront(supplier);
+}
+
+/**
+ * Dựng đúng dữ liệu mà trang công khai sẽ hiển thị cho MỘT nhà cung cấp, bất kể hồ sơ đã
+ * published hay chưa. Cổng NCC dùng hàm này cho trang “Trang của tôi” để nhà cung cấp đối
+ * chiếu đúng những gì buyer thấy, kể cả khi hồ sơ chưa lên sóng.
+ *
+ * Cùng phép lọc với trang công khai: sản phẩm phải duyệt nội dung, sẵn sàng cho buyer,
+ * thuộc danh mục đã publish và có tệp dùng được; chứng nhận và cấp xác minh lấy theo
+ * đúng quy tắc công bố.
+ */
+export async function getSupplierStorefront(supplier: Supplier & Partial<PublicSupplierCard>): Promise<PublicSupplierCard> {
+  const store = getStore();
+  // Thêm tất cả sản phẩm của NCC (listPublicSuppliers chỉ lấy 4)
+  const [products, categories, media, vers] = await Promise.all([
+    store.listProductsBySupplier(supplier.id),
+    store.listCategories({ publishedOnly: true }),
+    store.listMedia("supplier", supplier.id),
+    store.listVerifications(supplier.id),
+  ]);
+  const eligible = products.filter((p) => buyerVisibleProduct(p, categories, !!supplier.is_demo));
+  const productMedia = supplier.is_demo ? [] : await store.listMediaForProducts(eligible.map((p) => p.id));
+  const mediaByProduct = new Map<string, MediaAsset[]>();
+  for (const asset of productMedia) {
+    if (!asset.product_id) continue;
+    const group = mediaByProduct.get(asset.product_id) ?? [];
+    if (!mediaByProduct.has(asset.product_id)) mediaByProduct.set(asset.product_id, group);
+    group.push(asset);
+  }
+  const publicProducts = eligible.filter((p) => supplier.is_demo || productReadiness(mediaByProduct.get(p.id) ?? []).ready);
+  const productImagePaths: Record<string, string> = {};
+  const productCardImagePaths: Record<string, string> = {};
+  for (const p of publicProducts) {
+    const image = (mediaByProduct.get(p.id) ?? []).filter((m) => m.owner_type === "product" &&
+      m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
+      .sort((a, b) => Number(b.id === p.featured_media_id) - Number(a.id === p.featured_media_id) ||
+        a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))[0];
+    if (image?.storage_path) {
+      productImagePaths[p.id] = image.storage_path;
+      productCardImagePaths[p.id] = image.thumb_path || image.storage_path;
+    }
+  }
+  const gallery = media
+    .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
+    .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+    .map((m) => m.storage_path!)
+    .slice(0, 12);
+  return {
+    ...supplier,
+    categories: supplier.categories ?? [],
+    primary_category: supplier.primary_category ?? null,
+    main_products: publicProducts,
+    gallery_images: gallery,
+    product_image_paths: productImagePaths,
+    product_card_image_paths: productCardImagePaths,
+    approved_verification_steps: vers.length ? approvedVerificationSteps(vers) : (supplier.approved_verification_steps ?? []),
+    approved_l2_scope: vers.length ? approvedL2Scope(vers) : (supplier.approved_l2_scope ?? null),
+    partner_review_summary: vers.length ? approvedPartnerReviewSummary(vers) : supplier.partner_review_summary,
+    public_review_summaries: approvedPublicReviewSummaries(vers),
+  };
+}
+
+export async function getPublicSuppliersByIds(ids: string[]): Promise<PublicSupplierCard[]> {
+  const all = await listPublicSuppliers();
+  const map = new Map(all.map((s) => [s.id, s]));
+  return ids.map((id) => map.get(id)).filter((s): s is PublicSupplierCard => Boolean(s));
+}
+
+/** Tạo chuỗi sản phẩm chính để hiển thị trên card */
+export function mainProductNames(products: SupplierProduct[], max = 3): string {
+  return products
+    .slice(0, max)
+    .map((p) => publicProductTitle(p))
+    .join(" · ");
+}

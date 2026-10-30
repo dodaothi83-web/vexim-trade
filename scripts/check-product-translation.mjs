@@ -1,0 +1,158 @@
+// node scripts/check-product-translation.mjs — AI dịch sản phẩm sang tiếng Anh: parse kết quả,
+// phát hiện bản dịch đã cũ theo hash nội dung gốc, và các điểm gắn vào luồng nộp/duyệt/công khai.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import { createRequire } from 'node:module';
+import ts from 'typescript';
+import { loadProductDescription } from './product-description-test-utils.mjs';
+
+const realRequire = createRequire(import.meta.url);
+function load(file, mocks) {
+  const mod = { exports: {} };
+  const source = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  vm.runInNewContext(source, {
+    module: mod, exports: mod.exports, console, Date, process, JSON, Object, Array, String, Boolean, Promise, Error, RegExp, Map, Set,
+    require: (id) => {
+      if (id === 'server-only') return {};
+      if (id === 'node:crypto') return realRequire('node:crypto');
+      assert.ok(id in mocks, `${file}: unexpected import ${id}`);
+      return mocks[id];
+    },
+  }, { filename: file });
+  return mod.exports;
+}
+
+const { description: productDescription, format: productDescriptionFormat } = loadProductDescription();
+const ai = load('../lib/ai/translate-content.ts', {
+  '@/lib/ai/company-introduction': { readOutputText: () => '' },
+  '@/lib/products/product-description': productDescription,
+  '@/lib/products/product-description-format': productDescriptionFormat,
+  '@/lib/types': {},
+});
+
+const source = {
+  name: 'Hạt điều nhân trắng W320',
+  description: 'Hạt điều nhân trắng, độ ẩm ≤ 5%.',
+  spec: 'Size W320, đóng gói 25 kg',
+  description_detail: '',
+  packaging: 'Thùng carton 25 kg',
+  certifications: 'ISO 22000',
+  moq: '1 tấn',
+  monthly_capacity: '100 tấn',
+  payment_terms: 'T/T 30% cọc',
+  raw_material_region: 'Bình Phước và Đắk Lắk',
+  input_material_origin: 'Việt Nam và Campuchia',
+  incoterm_place: 'Hồ Chí Minh',
+  export_port: 'Cát Lái',
+};
+
+// Parse: JSON trong fence, trường model bỏ trống thì giữ nguyên nguồn thay vì mất nội dung.
+const parsed = ai.parseProductTranslation('```json\n{"name":"White cashew kernels W320","description":"White cashew kernels, moisture ≤ 5%.","spec":"","description_detail":"","packaging":"25 kg carton box","certifications":"ISO 22000","moq":"1 metric ton","monthly_capacity":"100 metric tons","payment_terms":"T/T 30% deposit","raw_material_region":"Binh Phuoc and Dak Lak","input_material_origin":"Vietnam and Cambodia","incoterm_place":"Ho Chi Minh City","export_port":"Cat Lai"}\n```', source);
+assert.equal(parsed.name, 'White cashew kernels W320');
+assert.equal(parsed.spec, 'Size W320, đóng gói 25 kg', 'trường dịch trống phải lùi về nội dung gốc');
+assert.equal(parsed.packaging, '25 kg carton box');
+assert.equal(parsed.monthly_capacity, '100 metric tons');
+assert.equal(parsed.payment_terms, 'T/T 30% deposit');
+assert.equal(parsed.raw_material_region, 'Binh Phuoc and Dak Lak');
+assert.equal(parsed.input_material_origin, 'Vietnam and Cambodia');
+assert.equal(parsed.incoterm_place, 'Ho Chi Minh City');
+assert.equal(parsed.export_port, 'Cat Lai');
+assert.throws(() => ai.parseProductTranslation('not json', source, { strict: true }), /không đúng định dạng/);
+assert.throws(() => ai.parseProductTranslation('{"name":"Only a name"}', source, { strict: true }), /thiếu|chưa trả về/,
+  'AI cannot silently mark missing commercial translations as current');
+
+// Rich detail keeps the approved structure, removes unsafe markup, and participates in source hashing.
+const richSource = {
+  ...source,
+  description_detail: '<h2>Nguồn gốc</h2><p><strong>Điều W320</strong></p><ul><li>Độ ẩm ≤ 5%</li></ul>',
+};
+const richParsed = ai.parseProductTranslation(JSON.stringify({
+  name: 'White cashew kernels W320', description: parsed.description,
+  spec: parsed.spec,
+  description_detail: '<h2 class="source">Origin</h2><p><strong onclick="bad()">Cashew W320</strong></p><ul><li>Moisture ≤ 5%</li></ul>',
+  packaging: parsed.packaging, certifications: parsed.certifications, moq: parsed.moq,
+  monthly_capacity: parsed.monthly_capacity, payment_terms: parsed.payment_terms,
+  raw_material_region: parsed.raw_material_region, input_material_origin: parsed.input_material_origin,
+  incoterm_place: parsed.incoterm_place, export_port: parsed.export_port,
+}), richSource);
+assert.equal(richParsed.description_detail, '<h2>Origin</h2><p><strong>Cashew W320</strong></p><ul><li>Moisture ≤ 5%</li></ul>');
+assert.match(fs.readFileSync(new URL('../lib/ai/translate-content.ts', import.meta.url), 'utf8'), /p, h2, h3, ul, li, strong, em and br/);
+const richPatch = ai.productTranslationPatch({
+  ...richParsed, description_detail: '<h3 class="draft">Processing</h3><p><em>Food grade</em></p>',
+}, richSource, 'staff');
+assert.equal(richPatch.description_detail_i18n.en, '<h3>Processing</h3><p><em>Food grade</em></p>');
+const legacyPatch = ai.productTranslationPatch({ ...parsed, description_detail: 'Long details\nApplication' }, source, 'ai');
+assert.equal(legacyPatch.description_detail_i18n.en, '<p>Long details<br />Application</p>',
+  'AI writes lazily migrate legacy plain English detail to the same canonical HTML format');
+assert.equal(legacyPatch.translation_meta.source_hash, ai.productSourceHash(source),
+  'Canonicalizing the English write does not change the legacy source hash');
+assert.throws(() => ai.productTranslationPatch({
+  ...richParsed, description_detail: `<p>${'x'.repeat(12001)}</p>`,
+}, richSource, 'ai'), /12[.,]000|12000/, 'AI writes reject oversized rich text instead of storing or slicing it');
+
+// Hash đổi khi nội dung gốc đổi, giữ nguyên khi nội dung không đổi.
+const hash1 = ai.productSourceHash(source);
+assert.equal(hash1, ai.productSourceHash({ ...source }));
+assert.notEqual(hash1, ai.productSourceHash({ ...source, spec: 'Size W240' }));
+assert.notEqual(hash1, ai.productSourceHash({ ...source, payment_terms: 'T/T 50% cọc' }));
+const legacyLongSource = { ...source, description_detail: `${'Legacy detail  '.repeat(500)}\nNext line` };
+const legacyClean = legacyLongSource.description_detail.replace(/\s+\n/g, '\n').trim().slice(0, 6000);
+const legacyHash = realRequire('node:crypto').createHash('sha256')
+  .update(JSON.stringify({ ...legacyLongSource, description_detail: legacyClean })).digest('hex').slice(0, 32);
+assert.equal(ai.productSourceHash(legacyLongSource), legacyHash,
+  'legacy plain-text hashing must not change when rich HTML support is introduced');
+assert.notEqual(hash1, ai.productSourceHash({ ...source, raw_material_region: 'Lâm Đồng' }), 'Editing this product region invalidates its English cache');
+assert.notEqual(hash1, ai.productSourceHash({ ...source, input_material_origin: 'Việt Nam' }), 'Editing this product input origin invalidates its English cache');
+const coreOnly = { name: source.name, description: source.description, spec: source.spec, description_detail: '', packaging: source.packaging, certifications: source.certifications };
+assert.equal(ai.productSourceHash(coreOnly), ai.productSourceHash({ ...coreOnly, moq: '', raw_material_region: '', input_material_origin: '' }), 'core-only records keep their legacy hash shape');
+
+// Patch + state: vừa dịch xong thì current; NCC sửa nội dung gốc thì bản dịch bị coi là đã cũ.
+const patch = ai.productTranslationPatch(parsed, source, 'ai', 'gpt-4.1-mini');
+assert.equal(patch.name_i18n.en, 'White cashew kernels W320');
+assert.equal(patch.translation_meta.origin, 'ai');
+assert.equal(patch.translation_meta.fields.moq, '1 metric ton');
+assert.equal(patch.translation_meta.fields.monthly_capacity, '100 metric tons');
+assert.equal(patch.translation_meta.fields.payment_terms, 'T/T 30% deposit');
+assert.equal(patch.translation_meta.fields.raw_material_region, 'Binh Phuoc and Dak Lak');
+assert.equal(patch.translation_meta.fields.input_material_origin, 'Vietnam and Cambodia');
+assert.equal(patch.translation_meta.fields.incoterm_place, 'Ho Chi Minh City');
+assert.equal(patch.translation_meta.fields.export_port, 'Cat Lai');
+const product = { ...source, ...patch };
+assert.deepEqual(
+  (({ hasEnglish, current, origin }) => ({ hasEnglish, current, origin }))(ai.productTranslationState(product)),
+  { hasEnglish: true, current: true, origin: 'ai' },
+);
+const edited = { ...product, name: 'Hạt điều nhân trắng W240' };
+const stale = ai.productTranslationState(edited);
+assert.equal(stale.hasEnglish, true);
+assert.equal(stale.current, false, 'sửa nội dung gốc phải làm bản dịch thành đã cũ');
+assert.equal(ai.productTranslationState({ ...product, raw_material_region: 'Lâm Đồng' }).current, false,
+  'A product-specific region edit marks only that product translation stale');
+assert.equal(ai.productTranslationState({ ...product, input_material_origin: 'Nguồn nhập khẩu mới' }).current, false);
+assert.equal(ai.productTranslationState({ ...source }).hasEnglish, false);
+
+// Các điểm gắn trong luồng thật.
+const submit = fs.readFileSync(new URL('../app/supplier/portal/product-actions.ts', import.meta.url), 'utf8');
+assert.match(submit, /ensureProductEnglishTranslation\(store, id/, 'nộp sản phẩm phải kích hoạt dịch tự động');
+
+const actions = fs.readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
+assert.match(actions, /chưa có bản dịch tiếng Anh/, 'bật sẵn sàng gửi buyer phải chặn khi chưa có bản dịch và AI chưa dịch được');
+
+const page = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
+assert.match(page, /description_i18n\?\.en/, 'trang buyer phải ưu tiên mô tả tiếng Anh');
+assert.match(page, /spec_i18n\?\.en/, 'trang buyer phải ưu tiên quy cách tiếng Anh');
+assert.match(page, /description_detail_i18n\?\.en/, 'trang buyer phải ưu tiên mô tả chi tiết tiếng Anh');
+
+const panel = fs.readFileSync(new URL('../app/crm/products/[slug]/edit/translation-panel.tsx', import.meta.url), 'utf8');
+assert.match(panel, /Dịch bằng AI|Dịch lại bằng AI/, 'CRM phải có nút dịch bằng AI');
+assert.match(panel, /Lưu bản dịch đã chốt/, 'CRM phải cho nhân viên chốt tay bản dịch');
+
+const migration = fs.readFileSync(new URL('../supabase/migrations/20261018_product_english_translation.sql', import.meta.url), 'utf8');
+for (const column of ['description_i18n', 'description_detail_i18n', 'spec_i18n', 'packaging_i18n', 'certifications_i18n', 'translation_meta']) {
+  assert.match(migration, new RegExp(column), `migration thiếu cột ${column}`);
+}
+
+console.log('✅ AI product translation: parse, freshness hash, submit trigger, ready gate, buyer display, CRM panel, migration.');

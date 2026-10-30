@@ -1,0 +1,54 @@
+import Link from "next/link";
+
+import { COMPANY } from "@/lib/config";
+import { CookieSettingsButton } from "@/components/cookie-consent";
+import { Logo } from "@/components/brand-logo";
+import { PlatformLegalStrip } from "@/components/platform-legal-strip";
+import { SocialLinks } from "@/components/social-links";
+
+/** Chân trang dùng chung cho trang chủ và trang blog. */
+export function SiteFooter() {
+  return (
+  <footer className="bg-ink-900 text-slate-400">
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-start md:justify-between">
+      <div>
+        {/* Footer luôn nằm trên nền navy (ink-900) -> dùng bản logo trắng */}
+        <Logo tone="white" className="h-20 w-20" />
+        <p className="mt-3 max-w-sm text-[12.5px] leading-relaxed">
+          Vexim Trade | VEXIM GLOBAL CO., LTD
+          <br />
+          {COMPANY.address}
+          <br />
+          {COMPANY.phone} · {COMPANY.contactEmail}
+        </p>
+        <p className="mt-3 text-[12.5px] italic text-slate-500">
+          We match the brief. The decision stays with you.
+        </p>
+        <SocialLinks className="mt-3" />
+      </div>
+      <div className="text-[12.5px]">
+        <p className="font-semibold text-slate-200">Vexim Global ecosystem</p>
+        <a
+          href="https://www.veximglobal.com/"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-block transition hover:text-white"
+        >
+          www.veximglobal.com
+        </a>
+        <p className="mt-4 font-semibold text-slate-200">Partners &amp; staff</p>
+        <a href="/login" className="mt-1 inline-block transition hover:text-white">
+          Supplier &amp; staff sign in
+        </a>
+        <div className="mt-4 flex flex-wrap gap-4">
+          <Link href="/privacy-policy" className="transition hover:text-white">Privacy Policy</Link>
+          <Link href="/cookie-policy" className="transition hover:text-white">Cookie Policy</Link>
+          <CookieSettingsButton className="transition hover:text-white" />
+          <Link href="/terms-of-service" className="transition hover:text-white">Terms of Service</Link>
+        </div>
+      </div>
+    </div>
+    <PlatformLegalStrip tone="dark" widthClass="max-w-5xl" />
+  </footer>
+  );
+}

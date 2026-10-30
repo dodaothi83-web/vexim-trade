@@ -1,0 +1,338 @@
+import type {
+  Activity,
+  ActivityType,
+  AppUser,
+  AppUserInput,
+  AppUserRecord,
+  AuditLogEntry,
+  Buyer,
+  BuyerInput,
+  Category,
+  Certificate,
+  Introduction,
+  Prospect,
+  ProspectInput,
+  ProspectActivity,
+  ProspectActivityChannel,
+  EmailAttachment,
+  EmailMessage,
+  MediaAsset,
+  MediaInput,
+  MediaOwnerType,
+  Rfq,
+  RfqAttachment,
+  RfqMatch,
+  SponsoredPush,
+  SponsoredPushDaily,
+  SponsoredPushInput,
+  SponsoredPushSurface,
+  SponsoredRequest,
+  SponsoredRequestInput,
+  SponsoredRequestStatus,
+  SupplierRfqInvitation,
+  SupplierNoticeRead,
+  Supplier,
+  SupplierInput,
+  SupplierSubmission,
+  SupplierSubmissionItem,
+  SupplierSubmissionLink,
+  SupplierVerificationRequest,
+  SupplierCategory,
+  SupplierProduct,
+  SupplierProductInput,
+  SupplierProductReviewStatus,
+  TemplateOverride,
+  ProspectOutreachTemplate,
+  Post,
+  PostInput,
+  PostStatus,
+  Verification,
+} from "@/lib/types";
+
+export type SupplierDraftDeleteResult =
+  | { status: "deleted"; paths: string[] }
+  | { status: "not_deletable" | "has_links" };
+
+export type SupplierMediaDeleteResult =
+  | { status: "deleted"; paths: string[]; kind: MediaAsset["kind"] }
+  | { status: "forbidden" | "state_changed" | "last_file" | "has_links" };
+
+export interface DataStore {
+  mode: "supabase" | "local";
+  listSuppliers(): Promise<Supplier[]>;
+  getSupplier(id: string): Promise<Supplier | null>;
+  createSupplier(input: SupplierInput): Promise<Supplier>;
+  updateSupplier(id: string, patch: Partial<SupplierInput>): Promise<Supplier>;
+  deleteSupplier(id: string): Promise<void>;
+  listSupplierVerificationRequests(supplierId?: string): Promise<SupplierVerificationRequest[]>;
+  createSupplierVerificationRequest(supplierId: string, level: 2 | 3): Promise<SupplierVerificationRequest>;
+  markSupplierVerificationContacted(supplierId: string, level: 2 | 3, actorId: string): Promise<SupplierVerificationRequest>;
+
+  listProducts(): Promise<SupplierProduct[]>;
+  getProduct(id: string): Promise<SupplierProduct | null>;
+  listProductsBySupplier(supplierId: string): Promise<SupplierProduct[]>;
+  createProduct(input: SupplierProductInput): Promise<SupplierProduct>;
+  updateProduct(id: string, patch: Partial<SupplierProductInput>): Promise<SupplierProduct>;
+  deleteProduct(id: string): Promise<void>;
+  /** Compare-and-set: không ghi đè trạng thái duyệt/ẩn vừa thay đổi ở một tab khác. */
+  updateSupplierProductIfState(
+    id: string, supplierId: string,
+    expected: { review: SupplierProductReviewStatus | null; ready: boolean },
+    patch: Partial<SupplierProductInput>,
+  ): Promise<SupplierProduct | null>;
+  /** Chỉ xóa nháp thuộc NCC, chưa có lịch sử liên quan; trả đường dẫn tệp để dọn kho. */
+  deleteSupplierDraftProduct(id: string, supplierId: string): Promise<SupplierDraftDeleteResult>;
+
+  listBuyers(): Promise<Buyer[]>;
+  getBuyer(id: string): Promise<Buyer | null>;
+  createBuyer(input: BuyerInput): Promise<Buyer>;
+  updateBuyer(id: string, patch: Partial<BuyerInput>): Promise<Buyer>;
+  deleteBuyer(id: string): Promise<void>;
+
+  // ----- Prospect lạnh -----
+  listProspects(): Promise<Prospect[]>;
+  getProspect(id: string): Promise<Prospect | null>;
+  createProspect(input: ProspectInput): Promise<Prospect>;
+  createProspects(inputs: ProspectInput[]): Promise<Prospect[]>;
+  updateProspect(id: string, patch: Partial<Omit<Prospect, "id" | "created_at" | "updated_at">>): Promise<Prospect>;
+  deleteProspect(id: string): Promise<void>;
+  listProspectActivities(prospectId: string): Promise<ProspectActivity[]>;
+  addProspectActivity(input: {
+    prospect_id: string;
+    channel: ProspectActivityChannel;
+    summary: string;
+    created_by?: string | null;
+  }): Promise<ProspectActivity>;
+  addProspectActivities(inputs: {
+    prospect_id: string;
+    channel: ProspectActivityChannel;
+    summary: string;
+    created_by?: string | null;
+  }[]): Promise<ProspectActivity[]>;
+
+  // ----- Người dùng & phân quyền -----
+  listUsers(): Promise<AppUser[]>;
+  countUsers(): Promise<number>;
+  /**
+   * Việc phía NCC đang chờ Vexim: tài khoản đã tạo mà chưa nộp hồ sơ, cộng hồ sơ đã nộp
+   * nhưng chưa được xác nhận quyền cổng. Badge menu Nhà cung cấp.
+   */
+  countSupplierAccountsPending(): Promise<number>;
+  /** Sản phẩm NCC đã gửi, chờ Vexim kiểm nội dung — badge menu Sản phẩm. */
+  countProductsPendingReview(): Promise<number>;
+  /** Đợt kiểm đã nộp, chờ người có quyền duyệt — badge menu Xác minh. */
+  countReviewsAwaitingApproval(): Promise<number>;
+  /** Hồ sơ NCC tự gửi đang chờ đối chiếu — badge riêng của menu Hồ sơ NCC tự gửi. */
+  countSubmissionsPendingReview(): Promise<number>;
+  getUser(id: string): Promise<AppUserRecord | null>;
+  getUserByEmail(email: string): Promise<AppUserRecord | null>;
+  /** Tài khoản đăng nhập đang gắn với một hồ sơ NCC (mỗi hồ sơ tối đa một tài khoản). */
+  getUserBySupplierId(supplierId: string): Promise<AppUserRecord | null>;
+  createUser(input: AppUserInput): Promise<AppUserRecord>;
+  updateUser(id: string, patch: Partial<AppUserRecord>): Promise<AppUserRecord>;
+  /** Atomic first-profile claim: prevents concurrent submissions creating multiple supplier pages. */
+  claimSupplierForUser(userId: string, supplierId: string): Promise<boolean>;
+  deleteUser(id: string): Promise<void>;
+  touchUserLogin(id: string): Promise<void>;
+
+  // ----- Đẩy sản phẩm -----
+  /**
+   * Các gói đang hiệu lực tại thời điểm `now`, đã lọc theo bề mặt và danh mục.
+   * Chỉ trả gói `approved`; nơi gọi vẫn kiểm lại thời hạn.
+   */
+  listSponsoredPushes(input: {
+    surface: SponsoredPushSurface;
+    categorySlug?: string | null;
+    now: string;
+  }): Promise<SponsoredPush[]>;
+  /**
+   * Toàn bộ gói cho màn quản trị, mọi trạng thái và mọi thời hạn.
+   *
+   * Khác `listSponsoredPushes` ở chỗ không lọc: người vận hành cần thấy cả gói
+   * chờ duyệt, gói đã tắt và gói đã hết hạn. Ném lỗi khi bảng chưa tồn tại, để
+   * màn quản trị nói được là chưa áp migration thay vì hiện danh sách rỗng.
+   */
+  listAllSponsoredPushes(): Promise<SponsoredPush[]>;
+  createSponsoredPush(input: SponsoredPushInput): Promise<SponsoredPush>;
+  /** Chỉ cập nhật nếu trạng thái vẫn như lúc đọc; null nghĩa là đã đổi hoặc bị xoá. */
+  updateSponsoredPushIfStatus(
+    id: string,
+    expected: SponsoredPush["status"],
+    patch: Partial<Pick<SponsoredPush,
+      "status" | "starts_at" | "ends_at" | "price_amount" | "price_currency" |
+      "note" | "approved_by" | "approved_at">>,
+  ): Promise<SponsoredPush | null>;
+  /** Xoá có điều kiện: không xoá gói vừa được duyệt ở một phiên khác. */
+  deleteSponsoredDraft(id: string): Promise<boolean>;
+  /** Số liệu theo ngày của các gói được chọn, từ `sinceDay` (yyyy-mm-dd, UTC). */
+  listSponsoredPushDaily(pushIds: string[], sinceDay: string): Promise<SponsoredPushDaily[]>;
+
+  /** Chỉ các gói của một NCC; không trả ghi chú nội bộ ra giao diện. */
+  listSponsoredPushesForSupplier(supplierId: string): Promise<SponsoredPush[]>;
+  /** Yêu cầu do NCC gửi; lỗi đọc/ghi không được chuyển sang dữ liệu khác. */
+  listSponsoredRequestsForSupplier(supplierId: string): Promise<SponsoredRequest[]>;
+  listSponsoredRequests(): Promise<SponsoredRequest[]>;
+  countNewSponsoredRequests(): Promise<number>;
+  createSponsoredRequest(input: SponsoredRequestInput): Promise<SponsoredRequest>;
+  updateSponsoredRequestIfStatus(id: string, expected: SponsoredRequestStatus,
+    status: SponsoredRequestStatus, userId: string): Promise<SponsoredRequest | null>;
+
+  // ----- Hình ảnh & tài liệu -----
+  listMedia(ownerType: MediaOwnerType, ownerId: string): Promise<MediaAsset[]>;
+  listMediaForProducts(productIds: string[]): Promise<MediaAsset[]>;
+  listMediaForSuppliers(supplierIds: string[]): Promise<MediaAsset[]>;
+  getMedia(id: string): Promise<MediaAsset | null>;
+  /** Tìm theo đường dẫn tệp (dùng cho route phục vụ tệp) */
+  getMediaByPath(storagePath: string): Promise<MediaAsset | null>;
+  createMedia(input: MediaInput): Promise<MediaAsset>;
+  updateMedia(id: string, patch: Partial<MediaInput>): Promise<MediaAsset>;
+  deleteMedia(id: string): Promise<void>;
+  /** Xóa tệp NCC trong transaction cùng kiểm tra trạng thái và tệp buyer cuối. */
+  deleteSupplierProductMedia(productId: string, supplierId: string, userId: string, mediaId: string): Promise<SupplierMediaDeleteResult>;
+
+  listActivities(buyerId?: string): Promise<Activity[]>;
+  addActivity(input: {
+    buyer_id: string;
+    type: ActivityType;
+    from_stage?: string | null;
+    to_stage?: string | null;
+    message: string;
+    created_by?: string | null;
+  }): Promise<Activity>;
+
+  listMessages(limit?: number): Promise<EmailMessage[]>;
+  listMessagesForRfq(rfqId: string): Promise<EmailMessage[]>;
+  getMessage(id: string): Promise<EmailMessage | null>;
+  addMessage(
+    input: Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null },
+  ): Promise<EmailMessage>;
+  updateMessage(
+    id: string,
+    patch: Partial<Omit<EmailMessage, "id" | "created_at">>,
+  ): Promise<EmailMessage>;
+
+  /* ---- tệp đính kèm email (chỉ metadata; nội dung ở Supabase Storage) ---- */
+  createAttachment(
+    input: Omit<EmailAttachment, "id" | "created_at" | "updated_at">,
+  ): Promise<EmailAttachment>;
+  getAttachment(id: string): Promise<EmailAttachment | null>;
+  listAttachments(ids: string[]): Promise<EmailAttachment[]>;
+  listAttachmentsForMessage(messageId: string): Promise<EmailAttachment[]>;
+  /** Tệp chưa gắn email nào và tạo trước mốc thời gian — dùng để dọn tệp mồ côi */
+  listOrphanAttachments(olderThanISO: string): Promise<EmailAttachment[]>;
+  updateAttachment(
+    id: string,
+    patch: Partial<Omit<EmailAttachment, "id" | "created_at">>,
+  ): Promise<EmailAttachment>;
+  deleteAttachment(id: string): Promise<void>;
+  deleteMessage(id: string): Promise<void>;
+  /** Ghi đè nội dung email theo giai đoạn (trang Templates) */
+  listTemplateOverrides(): Promise<TemplateOverride[]>;
+  saveTemplateOverride(
+    o: Omit<TemplateOverride, "updated_at">,
+  ): Promise<void>;
+  clearTemplateOverride(stage: string, dir: "buyer" | "supplier"): Promise<void>;
+  listProspectOutreachTemplateOverrides(): Promise<ProspectOutreachTemplate[]>;
+  saveProspectOutreachTemplateOverride(input: Omit<ProspectOutreachTemplate, "updated_at">): Promise<void>;
+  clearProspectOutreachTemplateOverride(id: string): Promise<void>;
+
+  /* ----------------------------- bài viết blog ----------------------------- */
+  listPosts(options?: { status?: PostStatus }): Promise<Post[]>;
+  getPost(id: string): Promise<Post | null>;
+  getPostBySlug(slug: string, options?: { publishedOnly?: boolean }): Promise<Post | null>;
+  createPost(input: PostInput): Promise<Post>;
+  updatePost(id: string, patch: Partial<PostInput>): Promise<Post>;
+  deletePost(id: string): Promise<void>;
+
+  /* ----------------------- RFQ FOUNDATION (GĐ0-GĐ2) ----------------------- */
+  // Categories (2 cấp)
+  listCategories(options?: { publishedOnly?: boolean }): Promise<Category[]>;
+  getCategory(id: string): Promise<Category | null>;
+  getCategoryBySlug(slug: string): Promise<Category | null>;
+  createCategory(input: Partial<Category>): Promise<Category>;
+  updateCategory(id: string, patch: Partial<Category>): Promise<Category>;
+  deleteCategory(id: string): Promise<void>;
+
+  // Supplier – category link
+  setSupplierCategories(supplierId: string, categoryIds: string[], primaryId?: string | null): Promise<void>;
+  listSupplierCategories(supplierId: string): Promise<SupplierCategory[]>;
+
+  // Certificates
+  listCertificates(supplierId: string): Promise<Certificate[]>;
+  /** Nhiều nhà cung cấp, chia lô và phân trang; chỉ dùng trên máy chủ. */
+  listCertificatesForSuppliers(supplierIds: string[]): Promise<Certificate[]>;
+  getCertificate(id: string): Promise<Certificate | null>;
+  createCertificate(input: Partial<Certificate>): Promise<Certificate>;
+  updateCertificate(id: string, patch: Partial<Certificate>): Promise<Certificate>;
+  deleteCertificate(id: string): Promise<void>;
+
+  // Verifications
+  listVerifications(supplierId?: string): Promise<Verification[]>;
+  /** Nhiều nhà cung cấp, chia lô và phân trang; chỉ dùng trên máy chủ. */
+  listVerificationsForSuppliers(supplierIds: string[]): Promise<Verification[]>;
+  getVerification(id: string): Promise<Verification | null>;
+  createVerification(input: Partial<Verification>): Promise<Verification>;
+  updateVerification(id: string, patch: Partial<Verification>): Promise<Verification>;
+
+  /* ---- Cổng NCC tự gửi bằng chứng L2 (nhà máy) / L3 (lịch sử xuất khẩu) ----
+   * Hồ sơ tự gửi KHÔNG phải kết quả xác minh; duyệt vẫn là đợt kiểm của nhân viên. */
+  listSubmissions(supplierId?: string, level?: 2 | 3): Promise<SupplierSubmission[]>;
+  getSubmission(id: string): Promise<SupplierSubmission | null>;
+  createSubmission(input: Partial<SupplierSubmission>): Promise<SupplierSubmission>;
+  updateSubmission(id: string, patch: Partial<SupplierSubmission>): Promise<SupplierSubmission>;
+  /** Chỉ đổi bản nháp/trả bổ sung; có thể yêu cầu đúng trạng thái đã đọc. */
+  updateEditableSubmission(id: string, patch: Partial<SupplierSubmission>, expectedStatus?: "draft" | "returned"): Promise<SupplierSubmission | null>;
+  listSubmissionItems(submissionId: string): Promise<SupplierSubmissionItem[]>;
+  getSubmissionItem(id: string): Promise<SupplierSubmissionItem | null>;
+  createSubmissionItem(input: Partial<SupplierSubmissionItem>): Promise<SupplierSubmissionItem>;
+  updateSubmissionItem(id: string, patch: Partial<SupplierSubmissionItem>): Promise<SupplierSubmissionItem>;
+  deleteSubmissionItem(id: string): Promise<void>;
+  listSubmissionLinks(submissionId: string): Promise<SupplierSubmissionLink[]>;
+  createSubmissionLink(input: Partial<SupplierSubmissionLink>): Promise<SupplierSubmissionLink>;
+  updateSubmissionLink(id: string, patch: Partial<SupplierSubmissionLink>): Promise<SupplierSubmissionLink>;
+  deleteSubmissionLink(id: string): Promise<void>;
+
+  // RFQs
+  listRfqs(options?: { status?: string; assignedTo?: string | null }): Promise<Rfq[]>;
+  getRfq(id: string): Promise<Rfq | null>;
+  getRfqByToken(token: string): Promise<Rfq | null>;
+  getRfqByCode(code: string): Promise<Rfq | null>;
+  createRfq(input: Partial<Rfq>): Promise<Rfq>;
+  updateRfq(id: string, patch: Partial<Rfq>): Promise<Rfq>;
+
+  // RFQ attachments
+  listRfqAttachments(rfqId: string): Promise<RfqAttachment[]>;
+  createRfqAttachment(input: Partial<RfqAttachment>): Promise<RfqAttachment>;
+  deleteRfqAttachment(id: string): Promise<void>;
+
+  // RFQ matches
+  listRfqMatches(rfqId: string): Promise<RfqMatch[]>;
+  /** Mọi lượt khớp của một NCC (cả trạng thái đề xuất), mới nhất trước. */
+  listRfqMatchesBySupplier(supplierId: string): Promise<RfqMatch[]>;
+  listSupplierRfqInvitations(supplierId: string): Promise<SupplierRfqInvitation[]>;
+  listSupplierNoticeReads(supplierId: string): Promise<SupplierNoticeRead[]>;
+  markSupplierNoticeRead(supplierId: string, noticeKey: string): Promise<void>;
+  getRfqMatch(id: string): Promise<RfqMatch | null>;
+  createRfqMatch(input: Partial<RfqMatch>): Promise<RfqMatch>;
+  updateRfqMatch(id: string, patch: Partial<RfqMatch>): Promise<RfqMatch>;
+  deleteRfqMatch(id: string): Promise<void>;
+
+  // Introductions (bảo vệ không vượt mặt)
+  findIntroduction(buyerId: string, supplierId: string): Promise<Introduction | null>;
+  createIntroduction(input: Partial<Introduction>): Promise<Introduction>;
+
+  // Audit log
+  /** Thời điểm các quyết định mở cổng hoặc yêu cầu NCC bổ sung hồ sơ. */
+  listSupplierOnboardingDecisions(): Promise<Pick<AuditLogEntry, "entity_id" | "action" | "created_at">[]>;
+  /** Lịch sử chạy nghiên cứu mùa vụ, dùng để luân phiên danh mục và tránh chạy kẹt ở một lỗi. */
+  listHarvestResearchRuns(): Promise<Pick<AuditLogEntry, "entity_id" | "action" | "created_at">[]>;
+  addAuditLog(entry: {
+    actor_id?: string | null;
+    actor_email?: string | null;
+    entity: string;
+    entity_id: string;
+    action: string;
+    before?: Record<string, unknown> | null;
+    after?: Record<string, unknown> | null;
+  }): Promise<AuditLogEntry>;
+}

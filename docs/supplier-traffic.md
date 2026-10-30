@@ -1,0 +1,13 @@
+# Lượt xem gian hàng nhà cung cấp
+
+Trang riêng `/supplier/portal/traffic` chỉ mở cho tài khoản NCC đã **được Vexim duyệt quyền sử dụng cổng**; không suy ra hồ sơ/sản phẩm đã được công khai hay xác minh. Khoảng thời gian 7/30/90 ngày UTC, tổng lượt xem hồ sơ, chi tiết sản phẩm, biểu đồ xu hướng, tối đa 5 sản phẩm được xem nhiều. Chỉ dữ liệu của NCC đang đăng nhập được đọc bằng `supplier_id` lấy từ liên kết tài khoản trên server, không nhận ID từ query của trang. Mục “Báo cáo” hiện có ở dashboard là báo cáo RFQ, **không** phải lượt xem.
+
+## Triển khai
+
+1. Sau các migration cổng NCC, chạy `supabase/migrations/20261017_supplier_traffic_daily.sql` trên **đúng project Supabase** trước khi deploy. Migration tạo bảng đếm theo ngày và RPC tăng nguyên tử, RLS bật; anon/authenticated không được đọc bảng hoặc gọi RPC. App dùng Supabase service role **trên server** (không công khai key). `VEXIM_LOCAL_FALLBACK=off` ở preview/staging/production. Không chạy `schema.sql` trực tiếp trên production.
+2. Deploy mã và kiểm tra trên staging: phiên ẩn danh mở trang hồ sơ **published** và sản phẩm buyer-ready đã được duyệt → số đếm tăng; tải lại cùng tab dưới 30 phút không tăng; phiên staff/NCC, trang demo/test, sản phẩm nháp, category chưa công khai, crawler phổ biến không tăng. Kiểm tra NCC A không đọc được số NCC B và tài khoản NCC đang pending/chưa liên kết không vào được trang. Thử đổi 7/30/90 ngày; tắt Supabase/thiếu migration thì trang báo **chưa có dữ liệu**, không giả vờ là 0.
+3. Chưa thể chạy migration hoặc đo truy cập production từ sandbox này. Lượt xem trước khi deploy **không** thể backfill từ các bản ghi hiện có. Offline: `node --experimental-strip-types --no-warnings scripts/check-supplier-traffic.mjs`, `npm run typecheck`, `npm run build`.
+
+## Phạm vi và giới hạn
+
+Chỉ đếm lượt mở trang *profile* và *product detail* từ trình duyệt có JavaScript. Không đếm impression thẻ trên danh mục, RFQ hoặc buyer duy nhất; không gắn GA hay cookie nhận diện. Beacon dùng sessionStorage của tab để giới hạn một lượt/trang mỗi 30 phút, không gửi IP/referrer/user-agent vào DB. Máy chủ kiểm tra origin, token ký hết hạn 10 phút, quyền công khai của resource trước khi ghi; bỏ qua phiên đăng nhập và bot phổ biến. Bảng chỉ lưu `supplier_id`, ngày UTC, loại trang, ID trang và tổng lượt; **không** lưu log lượt xem cá nhân. Do trình chặn JS, browser đóng nhanh, ad blocker, replay của token hoặc bot tinh vi, đây là số đo tham khảo, **không phải** unique buyers/kiểm toán traffic chống gian lận. Khi cần số người duy nhất, nguồn truy cập hoặc độ chính xác cao, hãy thiết kế chính sách đồng ý/cookie và chống gian lận riêng trước khi mở rộng, không suy diễn từ tổng lượt xem.

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Demo huy hiệu mức kiểm chứng nhà cung cấp · Vexim Trade</title>
+<style>
+  :root{
+    --brand-50:#f0fdfa; --brand-100:#ccfbf1; --brand-200:#99f6e4; --brand-300:#5eead4;
+    --brand-500:#14b8a6; --brand-600:#0d9488; --brand-700:#0f766e; --brand-800:#115e59; --brand-900:#134e4a;
+    --ink-50:#f8fafc; --ink-100:#f1f5f9; --ink-200:#e2e8f0; --ink-300:#cbd5e1;
+    --ink-400:#94a3b8; --ink-500:#64748b; --ink-600:#475569; --ink-700:#334155;
+    --ink-800:#1e293b; --ink-900:#0f172a;
+    --gold:#f59e0b; --gold-dark:#b45309;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--ink-100);color:var(--ink-900)}
+  .wrap{max-width:1024px;margin:0 auto;padding:28px 16px 64px}
+  h1.page{font-size:24px;margin:0 0 6px}
+  .lead{color:var(--ink-600);font-size:14.5px;line-height:1.65;margin:0 0 20px;max-width:780px}
+  .switcher{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .switcher button{border:1px solid var(--ink-300);background:#fff;border-radius:999px;padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--ink-700);cursor:pointer}
+  .switcher button:hover{border-color:var(--brand-600);color:var(--brand-800)}
+  .switcher button.active{background:var(--brand-700);border-color:var(--brand-700);color:#fff}
+  .note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:12px;padding:12px 16px;font-size:13.5px;line-height:1.6;margin:12px 0 20px}
+  .browser{background:#fff;border:1px solid var(--ink-200);border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.08)}
+  .browser-bar{display:flex;align-items:center;gap:8px;background:var(--ink-50);border-bottom:1px solid var(--ink-200);padding:9px 14px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--ink-300)}
+  .url{flex:1;background:#fff;border:1px solid var(--ink-200);border-radius:8px;padding:5px 10px;font-size:12.5px;color:var(--ink-500)}
+  .page-inner{padding:22px;background:#fdfdfc}
+  .profile-head{background:#fff;border:1px solid var(--ink-200);border-radius:14px;overflow:hidden}
+  /* Huy hiệu mức kiểm chứng: màu đậm dần theo mức */
+  .tier{display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--ink-200)}
+  .tier .medal{width:58px;height:58px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;border:3px solid rgba(255,255,255,.65);box-shadow:0 4px 12px rgba(15,23,42,.18);color:#fff}
+  .tier .medal b{font-size:19px;line-height:1}
+  .tier .medal span{font-size:8.5px;font-weight:800;letter-spacing:.08em}
+  .tier .tier-main{flex:1;min-width:220px}
+  .tier .kicker{font-size:10.5px;font-weight:800;letter-spacing:.14em;margin:0;text-transform:uppercase}
+  .tier .tier-title{font-size:20px;font-weight:800;margin:3px 0 3px;letter-spacing:-.01em}
+  .tier .tier-desc{font-size:13px;margin:0;line-height:1.55}
+  .tier .meter{display:flex;gap:5px;margin-top:9px;max-width:340px}
+  .tier .meter i{height:7px;flex:1;border-radius:99px;background:rgba(100,116,139,.25)}
+  .tier .score{font-size:13px;font-weight:800;text-align:right;white-space:nowrap}
+  .tier .score b{display:block;font-size:24px;line-height:1.1}
+  .tier-0{background:var(--ink-50)} .tier-0 .medal{background:var(--ink-400)} .tier-0 .kicker{color:var(--ink-500)} .tier-0 .tier-title{color:var(--ink-700)} .tier-0 .tier-desc{color:var(--ink-500)} .tier-0 .score{color:var(--ink-500)}
+  .tier-1{background:var(--brand-50)} .tier-1 .medal{background:var(--brand-500)} .tier-1 .kicker{color:var(--brand-600)} .tier-1 .tier-title{color:var(--brand-900)} .tier-1 .tier-desc{color:var(--ink-600)} .tier-1 .score{color:var(--brand-700)} .tier-1 .meter i.on{background:var(--brand-500)}
+  .tier-2{background:linear-gradient(90deg,var(--brand-100),var(--brand-50))} .tier-2 .medal{background:var(--brand-700)} .tier-2 .kicker{color:var(--brand-700)} .tier-2 .tier-title{color:var(--brand-900)} .tier-2 .tier-desc{color:var(--ink-700)} .tier-2 .score{color:var(--brand-800)} .tier-2 .meter i.on{background:var(--brand-700)}
+  .tier-3{background:linear-gradient(90deg,var(--brand-900),var(--brand-700));color:#fff} .tier-3 .medal{background:var(--gold);color:#451a03;border-color:#fde68a} .tier-3 .kicker{color:var(--brand-200)} .tier-3 .tier-title{color:#fff} .tier-3 .tier-desc{color:#e0fdf7} .tier-3 .score{color:#fff} .tier-3 .meter i{background:rgba(255,255,255,.28)} .tier-3 .meter i.on{background:var(--gold)}
+  .head-body{padding:18px 20px 20px}
+  .head-row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .avatar{width:68px;height:68px;border-radius:16px;background:var(--ink-100);border:1px solid var(--ink-200);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:var(--ink-400);flex-shrink:0}
+  .head-main{flex:1;min-width:240px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:700}
+  .chip-type{background:var(--ink-100);color:var(--ink-700)}
+  .chip-tier-0{background:var(--ink-100);color:var(--ink-500);border:1px solid var(--ink-200)}
+  .chip-tier-1{background:var(--brand-50);color:var(--brand-800);border:1px solid var(--brand-200)}
+  .chip-tier-2{background:var(--brand-100);color:var(--brand-900);border:1px solid var(--brand-300)}
+  .chip-tier-3{background:var(--brand-800);color:#fef3c7;border:1px solid var(--brand-800)}
+  .sup-name{font-size:24px;font-weight:800;margin:9px 0 6px;letter-spacing:-.02em}
+  .meta{font-size:13.5px;color:var(--ink-600);display:flex;flex-wrap:wrap;gap:6px 18px}
+  .cta{margin-left:auto;display:flex;flex-direction:column;gap:8px}
+  .btn-primary{background:var(--brand-700);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer}
+  .btn-ghost{background:#fff;color:var(--ink-800);border:1px solid var(--ink-200);border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:600;cursor:pointer}
+  section.blk{background:#fff;border:1px solid var(--ink-200);border-radius:14px;padding:18px 20px;margin-top:16px}
+  section.blk h2{font-size:16.5px;margin:0 0 4px}
+  .approved-text{font-size:13.5px;font-weight:700;color:var(--brand-800);margin:8px 0 0}
+  .summary-text{font-size:13.5px;line-height:1.65;color:var(--ink-700);margin:6px 0 0}
+  .fineprint{font-size:11.5px;color:var(--ink-500);margin:8px 0 0;line-height:1.55}
+  .empty-text{font-size:13.5px;color:var(--ink-600);margin:8px 0 0;line-height:1.6}
+  .products{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+  .pcard{border:1px solid var(--ink-200);border-radius:12px;background:#fff;overflow:hidden}
+  .pimg{height:110px;background:linear-gradient(135deg,#fef3c7,#fde68a);display:flex;align-items:center;justify-content:center;font-size:13px;color:#92400e;font-weight:700}
+  .pbody{padding:12px 14px 14px}
+  .pname{font-size:14px;font-weight:700;margin:0}
+  .price{font-size:16px;font-weight:800;color:var(--brand-800);margin:6px 0 2px}
+  .pricesub{font-size:11.5px;color:var(--ink-500);margin:0}
+  .suprow{margin-top:10px}
+  .scale{margin-top:30px;background:#fff;border:1px solid var(--ink-200);border-radius:14px;padding:18px 20px}
+  .scale h2{font-size:17px;margin:0 0 6px}
+  .scale p{font-size:13.5px;color:var(--ink-600);line-height:1.65;margin:0}
+  .scalebar{display:flex;gap:5px;margin:16px 0 10px}
+  .scalebar div{flex:1;border-radius:10px;padding:12px 10px;text-align:center;color:#fff}
+  .scalebar b{display:block;font-size:13px}
+  .scalebar span{font-size:11px;line-height:1.45;display:block;margin-top:3px}
+  .sb0{background:var(--ink-400)} .sb1{background:var(--brand-500)} .sb2{background:var(--brand-700)} .sb3{background:linear-gradient(135deg,var(--brand-900),var(--brand-700));box-shadow:inset 0 0 0 2px var(--gold)}
+  .callouts{margin-top:16px;background:#fff;border:1px solid var(--ink-200);border-radius:14px;padding:18px 20px}
+  .callouts h2{font-size:17px;margin:0 0 8px}
+  .callouts li{font-size:14px;line-height:1.7;color:var(--ink-700);margin-bottom:4px}
+  @media (max-width:760px){ .products{grid-template-columns:1fr} .scalebar{flex-wrap:wrap} .scalebar div{flex:1 1 42%} .cta{margin-left:0} .tier{flex-wrap:wrap} .tier .score{text-align:left} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page">Demo bản mới: huy hiệu mức kiểm chứng ở đầu hồ sơ</h1>
+  <p class="lead">Bản này bỏ hẳn 3 ô card check như anh góp ý. Thay vào đó, ngay trên cùng của hồ sơ là một dải huy hiệu duy nhất: màu xám khi chưa kiểm, xanh ngọc nhạt khi mới kiểm giấy tờ, xanh đậm hơn khi có thêm lịch sử giao hàng, và xanh đậm viền vàng kèm huy chương vàng khi đủ cả nhà máy và giao hàng. Số vòng kiểm đã đạt vẫn ghi rõ bằng chữ để buyer hiểu đúng phạm vi.</p>
+
+  <div class="switcher" role="tablist" aria-label="Chọn trường hợp hiển thị">
+    <button type="button" data-scenario="none">A. Chưa qua vòng kiểm nào</button>
+    <button type="button" data-scenario="l1">B. Chỉ kiểm giấy tờ</button>
+    <button type="button" data-scenario="l13">C. Giấy tờ + lịch sử giao hàng</button>
+    <button type="button" data-scenario="full" class="active">D. Đủ 3 vòng: giấy tờ + nhà máy + giao hàng</button>
+  </div>
+
+  <div class="note" id="scenarioNote"></div>
+
+  <div class="browser">
+    <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">veximtrade.com/suppliers/minh-phat-cashew</span></div>
+    <div class="page-inner">
+
+      <div class="profile-head">
+        <div class="tier tier-3" id="tierBanner">
+          <div class="medal"><b id="medalNum">3</b><span>CHECKS</span></div>
+          <div class="tier-main">
+            <p class="kicker">Vexim verification level</p>
+            <p class="tier-title" id="tierTitle">Complete verification</p>
+            <p class="tier-desc" id="tierDesc"></p>
+            <div class="meter" id="tierMeter"><i></i><i></i><i></i></div>
+          </div>
+          <div class="score"><b id="tierScore">3/3</b>checks approved</div>
+        </div>
+        <div class="head-body">
+          <div class="head-row">
+            <div class="avatar">M</div>
+            <div class="head-main">
+              <div class="chips">
+                <span class="chip chip-type">Manufacturer</span>
+                <span class="chip chip-tier-3" id="tierPill">Level 3 · Complete</span>
+              </div>
+              <p class="sup-name">Minh Phat Cashew Co., Ltd</p>
+              <div class="meta"><span>Binh Phuoc, Vietnam</span><span>Founded 2012</span><span>120 employees</span></div>
+            </div>
+            <div class="cta">
+              <button type="button" class="btn-primary">Request a quote</button>
+              <button type="button" class="btn-ghost">Browse products</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="blk" aria-labelledby="ftitle">
+        <h2 id="ftitle">Facilities visited by Vexim</h2>
+        <div id="factoryBody"></div>
+      </section>
+
+      <section class="blk" aria-labelledby="dtitle">
+        <h2 id="dtitle">Export &amp; delivery evidence</h2>
+        <p class="summary-text">Supplier-stated markets (not independently verified): India, United Arab Emirates, Netherlands</p>
+        <div id="deliveryBody"></div>
+      </section>
+
+      <section class="blk" aria-labelledby="ptitle">
+        <h2 id="ptitle">Products</h2>
+        <div class="products" id="products"></div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="scale">
+    <h2>Thang màu từ thấp lên cao</h2>
+    <p>Bốn mức dùng chung một thang màu để buyer nhìn lướt là biết hồ sơ đang ở đâu. Mức cao nhất mới được dùng huy chương vàng và nền xanh đậm, tạo cảm giác tin cậy rõ rệt so với các mức dưới.</p>
+    <div class="scalebar">
+      <div class="sb0"><b>Mức 0</b><span>Chưa kiểm chứng<br />Under audit</span></div>
+      <div class="sb1"><b>Mức 1</b><span>Đã kiểm giấy tờ<br />Basic verification</span></div>
+      <div class="sb2"><b>Mức 2</b><span>Có thêm giao hàng hoặc nhà máy<br />Advanced verification</span></div>
+      <div class="sb3"><b>Mức 3</b><span>Đủ giấy tờ, nhà máy, giao hàng<br />Complete verification</span></div>
+    </div>
+    <p>Mức được tính theo số vòng kiểm Vexim đã duyệt. Phần chữ ngay dưới tên mức liệt kê cụ thể đã kiểm những gì, để mức cao trông uy tín hơn nhưng không gây hiểu nhầm thành bảo chứng cho mọi sản phẩm.</p>
+  </div>
+
+  <div class="callouts">
+    <h2>Tóm tắt thay đổi so với bản trước</h2>
+    <ul>
+      <li>Bỏ 3 ô card check ở giữa hồ sơ như anh yêu cầu.</li>
+      <li>Đưa một huy hiệu mức duy nhất lên đầu hồ sơ, ngay phía trên tên nhà cung cấp: có huy chương tròn ghi số vòng kiểm, thanh mức 3 nấc và màu nền đậm dần theo mức.</li>
+      <li>Trên thẻ sản phẩm, hàng biểu tượng rời rạc được gọn lại thành một nhãn mức nhỏ cùng màu, để buyer lướt danh mục vẫn nhận ra ngay hồ sơ mạnh hay yếu.</li>
+      <li>Hai mục nội dung thật (tóm tắt chuyến xác thực nhà máy và tóm tắt lô hàng đã kiểm) vẫn giữ ở dưới, vì đây là phần nội dung làm nên độ tin cậy khi buyer đọc sâu.</li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+  var LABELS = { 1: "documents checked", 2: "factory verification", 3: "delivery history reviewed" };
+  var SCENARIOS = {
+    none: {
+      levels: [], tier: 0,
+      title: "Not yet verified", pill: "Under audit",
+      note: "<b>Trường hợp A: chưa qua vòng kiểm nào.</b> Dải huy hiệu để xám, huy chương số 0, thanh mức trống. Buyer nhìn vào biết ngay hồ sơ chưa được Vexim kiểm, không bị nhầm với hồ sơ đã kiểm."
+    },
+    l1: {
+      levels: [1], tier: 1,
+      title: "Basic verification", pill: "Level 1 · Basic",
+      note: "<b>Trường hợp B: chỉ kiểm giấy tờ.</b> Dải huy hiệu chuyển xanh ngọc nhạt, huy chương số 1, thanh mức sáng nấc đầu tiên. Trông đã khác hẳn hồ sơ chưa kiểm nhưng vẫn nhẹ hơn các mức trên."
+    },
+    l13: {
+      levels: [1, 3], tier: 2,
+      title: "Advanced verification", pill: "Level 2 · Advanced",
+      note: "<b>Trường hợp C: giấy tờ cộng lịch sử giao hàng, chưa xác thực nhà máy.</b> Màu xanh đậm lên rõ rệt, huy chương số 2, thanh mức sáng 2 nấc. Phần chữ ghi rõ đã kiểm giấy tờ và lịch sử giao hàng, không tự suy ra là đã xác thực nhà máy."
+    },
+    full: {
+      levels: [1, 2, 3], tier: 3,
+      title: "Complete verification", pill: "Level 3 · Complete",
+      note: "<b>Trường hợp D: đủ 3 vòng như anh hỏi.</b> Đây là mức nổi bật nhất: nền xanh đậm, huy chương vàng số 3, thanh mức đầy và có viền vàng. Đặt cạnh trường hợp B sẽ thấy chênh lệch uy tín rất rõ ngay từ đầu hồ sơ."
+    }
+  };
+  var FACTORY_SUMMARY = "Vexim visited the processing facility in Binh Phuoc on 12 September 2026. The visit covered the drying yard, the steam sterilization line and the metal detection step before packing. The facility operates two peeling lines with about 120 workers at the time of the visit.";
+  var DELIVERY_SUMMARY = "Vexim reviewed documents for three completed shipments in 2025 and 2026, including bills of lading, packing lists and phytosanitary certificates for buyers in India and the Netherlands. Quantities and product descriptions matched the documents provided.";
+
+  function render(key){
+    var sc = SCENARIOS[key];
+    var levels = sc.levels;
+    document.getElementById("scenarioNote").innerHTML = sc.note;
+
+    var banner = document.getElementById("tierBanner");
+    banner.className = "tier tier-" + sc.tier;
+    document.getElementById("medalNum").textContent = String(sc.tier);
+    document.getElementById("tierTitle").textContent = sc.title;
+    document.getElementById("tierScore").textContent = levels.length + "/3";
+    document.getElementById("tierDesc").textContent = levels.length
+      ? "Approved by Vexim: " + levels.map(function(l){ return LABELS[l]; }).join(" · ")
+      : "No Vexim check has been approved for this supplier yet.";
+    document.getElementById("tierMeter").innerHTML = [1,2,3].map(function(n){
+      return '<i class="' + (n <= levels.length ? "on" : "") + '"></i>';
+    }).join("");
+
+    var pill = document.getElementById("tierPill");
+    pill.className = "chip chip-tier-" + sc.tier;
+    pill.textContent = sc.pill;
+
+    document.getElementById("factoryBody").innerHTML = levels.indexOf(2) !== -1
+      ? '<p class="approved-text">Factory verification approved</p><p class="summary-text">' + FACTORY_SUMMARY + '</p><p class="fineprint">Only the site described in a published summary was reviewed. This is not a certification of other facilities or products.</p>'
+      : '<p class="empty-text">No approved factory verification is available.</p>';
+
+    document.getElementById("deliveryBody").innerHTML = levels.indexOf(3) !== -1
+      ? '<p class="approved-text">Delivery evidence review approved</p><p class="summary-text">' + DELIVERY_SUMMARY + '</p><p class="fineprint">A reviewed delivery is not proof of the supplier’s entire export history or a guarantee of future shipments.</p>'
+      : '<p class="empty-text">No approved delivery evidence review is available. Stated markets are not a Vexim-verified export history.</p>';
+
+    var miniChip = '<span class="chip chip-tier-' + sc.tier + '">' + sc.pill + "</span>";
+    var products = [
+      { name: "Cashew kernels WW320", price: "USD 7.10 / kg", sub: "Reference price · MOQ 5 MT" },
+      { name: "Cashew kernels LP", price: "USD 4.85 / kg", sub: "Reference price · MOQ 2 MT" }
+    ];
+    document.getElementById("products").innerHTML = products.map(function(p){
+      return '<div class="pcard"><div class="pimg">Ảnh sản phẩm</div><div class="pbody">' +
+        '<p class="pname">' + p.name + '</p><p class="price">' + p.price + '</p><p class="pricesub">' + p.sub + "</p>" +
+        '<div class="suprow">' + miniChip + "</div>" +
+        "</div></div>";
+    }).join("");
+
+    document.querySelectorAll(".switcher button").forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-scenario") === key);
+    });
+  }
+
+  document.querySelectorAll(".switcher button").forEach(function(b){
+    b.addEventListener("click", function(){ render(b.getAttribute("data-scenario")); });
+  });
+  render("full");
+</script>
+</body>
+</html>

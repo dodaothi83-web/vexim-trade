@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup đề xuất — Danh mục sản phẩm · Vexim Trade CRM</title>
+<style>
+  :root{--brand:#0f766e;--brand-dark:#115e59;--brand-soft:#f0fdfa;--ink900:#0f172a;--ink700:#334155;--ink500:#64748b;--ink400:#94a3b8;--ink200:#e2e8f0;--ink100:#f1f5f9;--bg:#f4f6fa;--amber:#b45309;--amber-bg:#fffbeb;--red:#b91c1c;--green:#047857;--green-bg:#ecfdf5;--radius:14px}
+  *{box-sizing:border-box} body{margin:0;font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink900);-webkit-font-smoothing:antialiased}
+  button{font:inherit;cursor:pointer} input,select,textarea{font:inherit}
+  .layout{display:flex;min-height:100vh}
+  /* sidebar */
+  .sidebar{width:232px;flex:0 0 232px;background:linear-gradient(180deg,#0f172a,#134e4a);color:#ccfbf1;padding:20px 14px;display:flex;flex-direction:column;gap:6px}
+  .logo{font-weight:900;color:#fff;letter-spacing:-.02em;font-size:17px;padding:2px 8px 2px}
+  .logo small{display:block;font-weight:500;color:#99f6e4;font-size:11px;letter-spacing:0;margin-top:2px}
+  .navlabel{font-size:10px;font-weight:700;letter-spacing:.15em;color:rgba(204,251,241,.45);padding:14px 8px 6px}
+  .navitem{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:9px;color:rgba(204,251,241,.72);font-size:13.5px;font-weight:500}
+  .navitem.active{background:rgba(255,255,255,.13);color:#fff}
+  .sidefoot{margin-top:auto;background:rgba(255,255,255,.06);border-radius:10px;padding:10px;font-size:12px;color:#e2e8f0}
+  /* main */
+  .main{flex:1;min-width:0;padding:26px 30px 60px;max-width:1460px;margin:0 auto;width:100%}
+  .crumb{font-size:12px;color:var(--ink500);margin-bottom:6px}
+  .pagehead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:16px}
+  h1{font-size:22px;font-weight:900;letter-spacing:-.02em;margin:0}
+  .sub{font-size:13px;color:var(--ink500);margin-top:4px}
+  .btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--ink200);background:#fff;color:var(--ink700);border-radius:10px;padding:8px 14px;font-size:13.5px;font-weight:600}
+  .btn:hover{background:var(--ink100)} .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.primary:hover{background:var(--brand-dark)}
+  .btn.soft{background:var(--brand-soft);color:var(--brand-dark);border-color:#99f6e4}
+  .btn.danger{color:var(--red);border-color:#fecaca}.btn:disabled{opacity:.45;cursor:not-allowed}
+  .tag-new{font-size:9.5px;font-weight:800;letter-spacing:.06em;background:#fef3c7;color:#92400e;border-radius:99px;padding:2px 6px;vertical-align:2px}
+  /* KPI */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+  .kpi{background:#fff;border:1px solid var(--ink200);border-radius:var(--radius);padding:14px 16px}
+  .kpi b{font-size:22px}.kpi span{display:block;font-size:12px;color:var(--ink500);margin-top:2px}
+  .kpi.warn b{color:var(--amber)}
+  /* card/table */
+  .card{background:#fff;border:1px solid var(--ink200);border-radius:var(--radius);box-shadow:0 1px 3px rgb(15 23 42/.05)}
+  .toolbar{padding:12px;border-bottom:1px solid var(--ink200)}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .tab{border:1px solid var(--ink200);background:#fff;border-radius:99px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--ink700)}
+  .tab.active{background:var(--ink900);color:#fff;border-color:var(--ink900)}
+  .tab .n{opacity:.65;font-weight:500}
+  .searchrow{display:flex;gap:8px;flex-wrap:wrap}
+  .search{flex:1;min-width:220px;position:relative}
+  .search input{width:100%;padding:9px 12px 9px 34px;border:1px solid #cbd5e1;border-radius:10px;font-size:13.5px}
+  .search:before{content:"⌕";position:absolute;left:11px;top:7px;font-size:17px;color:var(--ink400)}
+  select.input,input.input,textarea.input{padding:9px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:13.5px;background:#fff}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink500);text-align:left;padding:10px 14px;background:#f8fafc;border-bottom:1px solid var(--ink200)}
+  td{padding:11px 14px;border-bottom:1px solid var(--ink100);vertical-align:middle}
+  tr:hover td{background:#f8fafc}
+  .catcell{display:flex;gap:11px;align-items:center;min-width:250px}
+  .drag{color:#cbd5e1;cursor:grab;font-size:15px}
+  .thumb{width:52px;height:38px;border-radius:8px;flex:0 0 52px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px}
+  .child .catcell{padding-left:34px}
+  .child .catname:before{content:"└ ";color:var(--ink400)}
+  .catname{font-weight:700}
+  .slug{color:var(--ink500);font-size:12px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:99px;padding:3px 9px}
+  .badge i{width:7px;height:7px;border-radius:99px;background:currentColor;display:block}
+  .badge.pub{background:var(--green-bg);color:var(--green)} .badge.draft{background:var(--ink100);color:var(--ink500)}
+  .prog{width:110px;height:7px;background:var(--ink100);border-radius:99px;overflow:hidden}
+  .prog i{display:block;height:100%;background:var(--brand)}
+  .prog.low i{background:#f59e0b}
+  .missing{font-size:11.5px;color:var(--amber)}
+  .rowbtns{display:flex;gap:6px;justify-content:flex-end}
+  .note{padding:10px 14px;font-size:12px;color:var(--ink500);border-top:1px dashed var(--ink200)}
+  .hidden{display:none!important}
+  /* editor */
+  .actionbar{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border:1px solid var(--ink200);border-radius:var(--radius);padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .dirty{color:var(--amber);font-size:12px;font-weight:700}
+  .editorgrid{display:grid;grid-template-columns:205px minmax(0,1fr) 302px;gap:14px;align-items:start}
+  .vnav{background:#fff;border:1px solid var(--ink200);border-radius:var(--radius);padding:8px;position:sticky;top:76px}
+  .vnav button{display:flex;width:100%;gap:9px;align-items:center;text-align:left;border:0;background:none;padding:10px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--ink700)}
+  .vnav button.active{background:var(--brand-soft);color:var(--brand-dark)}
+  .dot{width:9px;height:9px;border-radius:99px;flex:0 0 9px}
+  .dot.ok{background:#10b981}.dot.part{background:#f59e0b}.dot.no{background:#cbd5e1}
+  .panel{background:#fff;border:1px solid var(--ink200);border-radius:var(--radius);padding:20px}
+  .panel h2{font-size:16px;margin:0 0 4px}.panel .desc{font-size:13px;color:var(--ink500);margin:0 0 16px}
+  .field{margin-bottom:14px}.field label{display:block;font-size:13px;font-weight:600;color:var(--ink700);margin-bottom:5px}
+  .field input,.field textarea,.field select{width:100%}
+  .hint{font-size:12px;color:var(--ink400);margin-top:4px}
+  .pill{font-size:10px;font-weight:800;background:#e0f2fe;color:#075985;border-radius:5px;padding:2px 5px;letter-spacing:.03em}
+  .pill.int{background:var(--ink100);color:var(--ink500)}
+  .dangerzone{margin-top:22px;border:1px solid #fecaca;background:#fff7f7;border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+  .rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:76px}
+  .rail .card{padding:16px}.rail h3{font-size:13.5px;margin:0 0 10px}
+  .check{list-style:none;margin:0;padding:0;font-size:13px;display:flex;flex-direction:column;gap:8px}
+  .check li{display:flex;gap:8px;align-items:flex-start}
+  .check .ok{color:var(--green);font-weight:800}.check .no{color:var(--amber);font-weight:800}
+  .check a{margin-left:auto;font-size:12px;color:var(--brand);font-weight:700;text-decoration:none;white-space:nowrap}
+  .previewhero{height:110px;border-radius:10px;background:linear-gradient(120deg,#78350f,#0f766e);display:flex;align-items:flex-end;padding:12px;color:#fff;font-weight:800}
+  .google{border:1px solid var(--ink200);border-radius:10px;padding:11px 12px;font-size:12.5px}
+  .google b{color:#1a0dab;font-weight:500;font-size:15px;display:block}
+  .google span{color:#006621;font-size:11.5px}.google p{color:#4d5156;margin:3px 0 0}
+  .mockbanner{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:12px 16px;font-size:13px;margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+  .mockbanner b{color:#fff}
+  .spec{width:100%;font-size:12.5px}.spec td,.spec th{padding:7px 9px}
+  .toast{position:fixed;right:18px;bottom:18px;background:var(--ink900);color:#fff;border-radius:11px;padding:12px 16px;font-size:13.5px;box-shadow:0 10px 30px rgb(0 0 0/.25);opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1;transform:none}
+  dialog{border:1px solid var(--ink200);border-radius:16px;padding:22px;width:min(430px,92vw)}
+  dialog::backdrop{background:rgb(15 23 42/.45)}
+  @media(max-width:1100px){.editorgrid{grid-template-columns:1fr}.vnav,.rail{position:static}.sidebar{display:none}.kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo">VEXIM TRADE<small>Điều hành sàn TMĐT B2B</small></div>
+    <div class="navlabel">VẬN HÀNH SÀN</div>
+    <div class="navitem">▦&nbsp; Tổng quan sàn</div>
+    <div class="navitem">▣&nbsp; Nhà cung cấp</div>
+    <div class="navitem">▤&nbsp; Sản phẩm NCC</div>
+    <div class="navitem">?&nbsp; RFQ từ buyer</div>
+    <div class="navitem active">🗂&nbsp; Danh mục sản phẩm</div>
+    <div class="navlabel">SALE · HỖ TRỢ BUYER</div>
+    <div class="navitem">◎&nbsp; Buyer</div>
+    <div class="navitem">✉&nbsp; Hộp thư</div>
+    <div class="sidefoot">Nguyễn Văn A<br><span style="color:#99f6e4;font-size:11px">Quản trị viên</span></div>
+  </aside>
+
+  <main class="main">
+    <div class="mockbanner">
+      <span>🧪 <b>Mockup đề xuất (Giai đoạn 0+1)</b> — dữ liệu mẫu theo 20 danh mục hiện có; số SP/NCC & % hoàn thiện là minh hoạ. Bấm <b>Sửa</b> để xem màn hình biên tập mới.</span>
+      <span class="tag-new">CHƯA PHẢI CODE PRODUCTION</span>
+    </div>
+
+    <!-- ============ VIEW: LIST ============ -->
+    <section id="view-list">
+      <div class="crumb">Tổng quan / <b style="color:#334155">Danh mục</b></div>
+      <div class="pagehead">
+        <div><h1>Danh mục sản phẩm</h1><p class="sub">Quản lý cây ngành hàng hiển thị cho buyer — kéo thả để sắp xếp, bấm Sửa để viết nội dung.</p></div>
+        <button class="btn primary" onclick="openCreate()">＋ Thêm danh mục</button>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><b>20</b><span>Tổng danh mục (4 ngành tổng hợp)</span></div>
+        <div class="kpi"><b>12</b><span>Đang công khai cho buyer</span></div>
+        <div class="kpi warn"><b>4</b><span>Thiếu ảnh bìa <span class="tag-new">MỚI</span></span></div>
+        <div class="kpi warn"><b>6</b><span>Chưa đủ điều kiện công khai <span class="tag-new">MỚI</span></span></div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <div class="tabs" id="filterTabs">
+            <button class="tab active" data-f="all">Tất cả <span class="n">20</span></button>
+            <button class="tab" data-f="pub">Đang công khai <span class="n">12</span></button>
+            <button class="tab" data-f="draft">Bản nháp <span class="n">8</span></button>
+            <button class="tab" data-f="noimg">Thiếu ảnh <span class="n">4</span></button>
+            <button class="tab" data-f="incomplete">Chưa hoàn thiện <span class="n">6</span></button>
+          </div>
+          <div class="searchrow">
+            <div class="search"><input id="q" placeholder="Tìm theo tên hoặc đường dẫn… (vd: cashew)"></div>
+            <select class="input"><option>Mọi cấp danh mục</option><option>Ngành tổng hợp</option><option>Ngành con</option></select>
+            <button class="btn" onclick="toast('Đã áp dụng bộ lọc (mockup)')">Lọc</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th></th><th>Danh mục</th><th>Trạng thái</th><th>Sản phẩm · NCC</th><th>Hoàn thiện <span class="tag-new">MỚI</span></th><th>Cập nhật</th><th style="text-align:right">Thao tác</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        </div>
+        <p class="note">⠿ Kéo–thả để đổi thứ tự hiển thị — hệ thống tự lưu, không còn ô “Thứ tự: 10/20/30”. Danh mục con thụt cấp dưới danh mục cha. <span class="tag-new">MỚI</span></p>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: EDITOR ============ -->
+    <section id="view-editor" class="hidden">
+      <div class="actionbar">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn" onclick="backToList()">← Danh sách</button>
+          <b style="font-size:16px">Cashew kernels</b>
+          <span class="badge draft"><i></i>Bản nháp</span>
+          <span class="dirty" id="dirty">● Chưa lưu thay đổi</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="toast('Mở bản xem trước như buyer thấy (gồm nội dung đang sửa)')">👁 Xem trước</button>
+          <button class="btn soft" onclick="saveDraft()">Lưu bản nháp</button>
+          <button class="btn primary" id="publishBtn" onclick="toast('Chưa đủ điều kiện: còn thiếu FAQ — xem checklist bên phải')" title="Còn thiếu mục bắt buộc trong checklist">Công khai…</button>
+        </div>
+      </div>
+
+      <div class="editorgrid">
+        <nav class="vnav" id="vnav">
+          <button class="active" data-p="basic"><span class="dot ok"></span>1 · Thông tin cơ bản</button>
+          <button data-p="content"><span class="dot ok"></span>2 · Nội dung &amp; ảnh</button>
+          <button data-p="spec"><span class="dot part"></span>3 · Thông số tham khảo</button>
+          <button data-p="fields"><span class="dot part"></span>4 · Trường sản phẩm <span class="pill int">NÂNG CAO</span></button>
+          <button data-p="faq"><span class="dot no"></span>5 · Mua hàng &amp; FAQ</button>
+          <button data-p="seo"><span class="dot part"></span>6 · SEO &amp; hiển thị</button>
+        </nav>
+
+        <div>
+          <div class="panel" data-panel="basic">
+            <h2>Thông tin cơ bản</h2><p class="desc">Định danh của danh mục. Đổi đường dẫn vẫn tự giữ chuyển hướng từ đường dẫn cũ.</p>
+            <div class="field"><label>Tên danh mục <span class="pill">BUYER THẤY · EN</span></label><input class="input" value="Cashew kernels" oninput="markDirty()"></div>
+            <div class="field"><label>Đường dẫn trang</label><div style="display:flex;align-items:center;gap:6px"><span style="color:#64748b;font-size:13px">veximtrade.com/products/</span><input class="input" value="cashew" oninput="markDirty()"></div><p class="hint">Đường dẫn cũ sẽ tự chuyển tiếp (301) — không mất traffic Google.</p></div>
+            <div class="field"><label>Danh mục cha <span class="tag-new">MỚI — trước đây form không sửa được</span></label><select class="input" onchange="markDirty()"><option>Nuts &amp; kernels (Ngành tổng hợp)</option><option>— Không có (là ngành tổng hợp) —</option><option>Pepper &amp; spices</option><option>Seafood</option></select></div>
+            <div class="dangerzone"><div><b style="color:#b91c1c">Vùng nguy hiểm</b><div style="font-size:12.5px;color:#64748b">Xoá danh mục. Hiện bị chặn vì đã có 14 sản phẩm / 6 NCC liên quan — hãy Ẩn (về Bản nháp) thay vì xoá.</div></div><button class="btn danger" disabled title="Đã có sản phẩm/NCC liên quan">Xoá…</button></div>
+          </div>
+
+          <div class="panel hidden" data-panel="content">
+            <h2>Nội dung &amp; ảnh bìa</h2><p class="desc">Phần buyer đọc đầu tiên trên trang danh mục. Có thể nhờ AI soạn nháp từ thông tin mua hàng.</p>
+            <div class="field"><label>Giới thiệu ngắn <span class="pill">BUYER THẤY · EN</span></label><textarea class="input" rows="3" oninput="markDirty()">Whole kernels, splits and pieces from Vietnamese processors. Before a supplier appears here, our team visits the factory and checks papers and certificates…</textarea></div>
+            <div class="field"><label>Nội dung chi tiết <span class="pill">BUYER THẤY · EN</span></label><textarea class="input" rows="5" oninput="markDirty()">Most Vietnamese processors grade cashew kernels to the AFI standard. Counts are per pound and the final spec is agreed in your contract…</textarea></div>
+            <div class="field"><label>Ảnh bìa (hiển thị toàn chiều ngang, tỉ lệ 21:9)</label><div class="previewhero">Cashew kernels — ảnh bìa hiện tại</div><p class="hint">Tự nén tối đa 1600px. <button class="btn" style="padding:4px 10px" onclick="toast('Chọn ảnh mới (mockup)')">Thay ảnh…</button></p></div>
+            <div class="field"><label>Mô tả ảnh (alt) <span class="pill">BUYER/GOOGLE · EN</span></label><input class="input" value="Vietnamese cashew kernels, graded" oninput="markDirty()"></div>
+            <button class="btn soft" onclick="toast('AI điền bản nháp vào ô Giới thiệu — bạn kiểm tra rồi Lưu')">✨ AI soạn giới thiệu</button>
+          </div>
+
+          <div class="panel hidden" data-panel="spec">
+            <h2>Bảng thông số tham khảo</h2><p class="desc">Bảng buyer dùng để đối chiếu grade — đây là nội dung tham khảo của trang, <b>không phải</b> thông số của từng NCC.</p>
+            <table class="spec"><thead><tr><th>Grade</th><th>Name</th><th>Kernels / lb</th><th>Common uses</th></tr></thead>
+            <tbody><tr><td><b>W240</b></td><td>Whole 240</td><td>220–240</td><td>Premium retail</td></tr><tr><td><b>W320</b></td><td>Whole 320</td><td>300–320</td><td>Most traded grade</td></tr><tr><td><b>W450</b></td><td>Whole 450</td><td>400–450</td><td>Snacks, bakery</td></tr></tbody></table>
+            <p class="hint">… 8 hàng · 4 cột — sửa dạng bảng như Excel, không còn mục gập 2 tầng. <span class="tag-new">MỚI</span></p>
+          </div>
+
+          <div class="panel hidden" data-panel="fields">
+            <h2>Trường dữ liệu cho từng sản phẩm <span class="pill int">NÂNG CAO</span></h2>
+            <p class="desc">⚠ Thay đổi ở đây làm thay đổi form nhập sản phẩm của NCC. Mã trường đã có sản phẩm sử dụng thì không nên đổi.</p>
+            <table class="spec"><thead><tr><th>Tên hiển thị</th><th>Mã trường</th><th>Kiểu nhập</th><th>Buyer được lọc?</th></tr></thead>
+            <tbody><tr><td>Grade</td><td><code>grade</code></td><td>Chọn: W180 / W240 / W320 / W450…</td><td>Có</td></tr><tr><td>Processing type</td><td><code>processing_type</code></td><td>Chọn: Raw / Roasted…</td><td>Không</td></tr></tbody></table>
+            <button class="btn" onclick="toast('Thêm trường sản phẩm (mockup)')">＋ Thêm trường</button>
+          </div>
+
+          <div class="panel hidden" data-panel="faq">
+            <h2>Thông tin mua hàng &amp; Câu hỏi thường gặp</h2><p class="desc">MOQ, đóng gói, cảng xuất… và các câu buyer hay hỏi. Đang có 6 mục mua hàng · <b style="color:#b45309">0 câu FAQ (cần bổ sung)</b>.</p>
+            <div class="field"><label>Minimum order <span class="pill">BUYER THẤY · EN</span></label><input class="input" value="Usually one 20ft container…" oninput="markDirty()"></div>
+            <div class="field"><label>Packing <span class="pill">BUYER THẤY · EN</span></label><input class="input" value="2 × 11.34 kg vacuum bags per carton…" oninput="markDirty()"></div>
+            <button class="btn" onclick="markDirty();toast('Đã thêm khung câu FAQ — hãy nhập nội dung')">＋ Thêm câu hỏi thường gặp</button>
+          </div>
+
+          <div class="panel hidden" data-panel="seo">
+            <h2>SEO &amp; hiển thị</h2><p class="desc">Cách danh mục xuất hiện trên Google và trang chủ. Khung xem trước ở cột phải cập nhật theo nội dung bạn gõ.</p>
+            <div class="field"><label>Tiêu đề lớn đầu trang (H1)</label><input class="input" placeholder="Để trống: Cashew kernels suppliers in Vietnam" oninput="markDirty()"></div>
+            <div class="field"><label>Câu mô tả ngắn trên thẻ trang chủ</label><input class="input" value="W180 – SP, AFI grades" oninput="markDirty()"></div>
+            <div class="field"><label>Tiêu đề trên Google</label><input class="input" value="Cashew Suppliers in Vietnam | W180 to W450 Kernels | Vexim Trade" oninput="markDirty()"><p class="hint">68 ký tự — nên dưới 60. <span class="tag-new">MỚI: đếm ký tự</span></p></div>
+            <div class="field"><label>Mô tả trên Google</label><textarea class="input" rows="2" oninput="markDirty()">Compare verified Vietnamese cashew kernel suppliers. W180 to W450, splits and pieces…</textarea></div>
+            <label style="display:flex;gap:8px;font-size:13.5px;margin-bottom:8px"><input type="checkbox" checked onchange="markDirty()"> Hiển thị trên trang chủ</label>
+            <label style="display:flex;gap:8px;font-size:13.5px"><input type="checkbox" onchange="markDirty()"> Cho phép Google lập chỉ mục khi công khai</label>
+          </div>
+        </div>
+
+        <aside class="rail">
+          <div class="card"><h3>✓ Checklist trước khi công khai <span class="tag-new">MỚI</span></h3>
+            <ul class="check">
+              <li><span class="ok">☑</span> Tên &amp; đường dẫn</li>
+              <li><span class="ok">☑</span> Ảnh bìa</li>
+              <li><span class="ok">☑</span> Giới thiệu ngắn</li>
+              <li><span class="no">☐</span> Ít nhất 1 câu FAQ <a href="#" onclick="gotoPanel('faq');return false">Bổ sung →</a></li>
+              <li><span class="no">☐</span> Người duyệt khác người sửa <span style="color:#94a3b8">(Lan Anh sửa cuối)</span></li>
+            </ul>
+            <p class="hint">Đủ các mục bắt buộc, nút <b>Công khai</b> mới bật — và cho biết lý do ngay tại đây thay vì hộp thoại sau khi bấm.</p>
+          </div>
+          <div class="card"><h3>👁 Xem trước trực tiếp <span class="tag-new">MỚI</span></h3>
+            <div class="previewhero" style="height:96px">Cashew kernels</div>
+            <p style="font-size:12.5px;color:#64748b;margin:8px 0">Whole kernels, splits and pieces from Vietnamese processors…</p>
+            <div class="google"><span>veximtrade.com/products/cashew</span><b>Cashew Suppliers in Vietnam | W180 to W450…</b><p>Compare verified Vietnamese cashew kernel suppliers…</p></div>
+          </div>
+          <div class="card"><h3>Trạng thái</h3><p style="font-size:13px;color:#475569;margin:0">Bản nháp · Sửa cuối 12/10/2026 bởi Lan Anh<br>Đường dẫn cũ: —</p></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="createDlg">
+  <h3 style="margin:0 0 6px">Thêm danh mục mới</h3>
+  <p style="font-size:13px;color:#64748b;margin:0 0 14px">Chỉ cần 3 thông tin — hệ thống tạo <b>bản nháp</b> rồi tự mở màn hình sửa để bổ sung ảnh &amp; nội dung. <span class="tag-new">MỚI</span></p>
+  <div class="field"><label>Tên danh mục (tiếng Anh)</label><input class="input" id="newName" placeholder="vd: Cashew kernels" oninput="document.getElementById('newSlug').value=this.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')"></div>
+  <div class="field"><label>Đường dẫn</label><input class="input" id="newSlug" placeholder="cashew-kernels"></div>
+  <div class="field"><label>Danh mục cha</label><select class="input"><option>— Không có —</option><option>Nuts &amp; kernels</option><option>Pepper &amp; spices</option></select></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" onclick="createDlg.close()">Huỷ</button><button class="btn primary" onclick="createDlg.close();openEditor();toast('Đã tạo bản nháp — bổ sung ảnh và nội dung rồi Công khai')">Tạo bản nháp &amp; sửa tiếp</button></div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+<script>
+const DATA=[
+ {n:"Nuts & kernels",s:"nuts-kernels",pub:1,sp:0,ncc:0,pct:100,up:"—",thumb:"NK",c:"#7c2d12"},
+ {n:"Cashew kernels",s:"cashew",pub:1,sp:14,ncc:6,pct:85,miss:"Thiếu: FAQ",up:"12/10 · Lan Anh",child:1,thumb:"CA",c:"#92400e"},
+ {n:"Macadamia",s:"macadamia",pub:1,sp:5,ncc:3,pct:70,miss:"Thiếu: thông số",up:"08/10 · Lan Anh",child:1,thumb:"MA",c:"#a16207"},
+ {n:"Coffee",s:"coffee",pub:0,sp:9,ncc:4,pct:55,miss:"Thiếu: ảnh bìa, FAQ",noimg:1,up:"15/10 · Minh Tuấn",thumb:"CO",c:"#365314"},
+ {n:"Pepper & spices",s:"pepper-spices",pub:1,sp:0,ncc:0,pct:100,up:"—",thumb:"PS",c:"#7f1d1d"},
+ {n:"Pepper",s:"pepper",pub:1,sp:11,ncc:5,pct:90,up:"11/10 · Lan Anh",child:1,thumb:"PE",c:"#991b1b"},
+ {n:"Cassia cinnamon",s:"cinnamon",pub:0,sp:4,ncc:2,pct:45,miss:"Thiếu: ảnh bìa, giới thiệu ngắn",noimg:1,up:"02/10 · Minh Tuấn",child:1,thumb:"CI",c:"#9a3412"},
+ {n:"Rice",s:"rice",pub:1,sp:8,ncc:4,pct:80,miss:"Thiếu: FAQ",up:"09/10 · Lan Anh",thumb:"RI",c:"#3f6212"},
+ {n:"Seafood",s:"seafood",pub:1,sp:0,ncc:0,pct:100,up:"—",thumb:"SE",c:"#155e75"},
+ {n:"Shrimp",s:"shrimp",pub:0,sp:6,ncc:3,pct:60,miss:"Thiếu: ảnh bìa",noimg:1,up:"14/10 · Minh Tuấn",child:1,thumb:"SH",c:"#0e7490"},
+ {n:"Tea",s:"tea",pub:0,sp:2,ncc:1,pct:35,miss:"Thiếu: ảnh bìa, giới thiệu, FAQ",noimg:1,up:"20/09 · Lan Anh",thumb:"TE",c:"#166534"},
+];
+const rows=document.getElementById('rows');
+function render(filter='all',q=''){
+  rows.innerHTML=DATA.filter(d=>{
+    if(filter==='pub'&&!d.pub)return false; if(filter==='draft'&&d.pub)return false;
+    if(filter==='noimg'&&!d.noimg)return false; if(filter==='incomplete'&&d.pct>=85)return false;
+    return (d.n+' '+d.s).toLowerCase().includes(q.toLowerCase());
+  }).map(d=>`<tr class="${d.child?'child':''}">
+    <td class="drag">⠿</td>
+    <td><div class="catcell"><span class="thumb" style="background:${d.c}">${d.thumb}</span><span><span class="catname">${d.n}</span><br><span class="slug">/products/${d.s}</span></span></div></td>
+    <td>${d.pub?'<span class="badge pub"><i></i>Công khai</span>':'<span class="badge draft"><i></i>Bản nháp</span>'}</td>
+    <td>${d.sp?d.sp+' SP · '+d.ncc+' NCC':'<span style="color:#94a3b8">Ngành tổng hợp</span>'}</td>
+    <td><div class="prog ${d.pct<70?'low':''}"><i style="width:${d.pct}%"></i></div><span style="font-size:12px">${d.pct}%</span>${d.miss?`<div class="missing">${d.miss}</div>`:''}</td>
+    <td style="font-size:12.5px;color:#64748b">${d.up}</td>
+    <td><div class="rowbtns">${d.pub?'<button class="btn" style="padding:6px 10px" onclick="toast(\'Mở trang public /products/'+d.s+'\')">Xem</button>':''}<button class="btn soft" style="padding:6px 10px" onclick="openEditor()">Sửa</button><button class="btn" style="padding:6px 10px" onclick="toast(\'Menu: Công khai/Ẩn · Xoá… (để trong vùng nguy hiểm khi sửa)\')">⋯</button></div></td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:26px">Không có danh mục nào khớp bộ lọc.</td></tr>';
+}
+render();
+document.getElementById('filterTabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;document.querySelectorAll('#filterTabs .tab').forEach(t=>t.classList.remove('active'));b.classList.add('active');render(b.dataset.f,document.getElementById('q').value)});
+document.getElementById('q').addEventListener('input',e=>{const a=document.querySelector('#filterTabs .tab.active');render(a?a.dataset.f:'all',e.target.value)});
+function openEditor(){document.getElementById('view-list').classList.add('hidden');document.getElementById('view-editor').classList.remove('hidden');window.scrollTo({top:0})}
+function backToList(){if(!document.getElementById('dirty').classList.contains('hidden')&&document.getElementById('dirty').textContent){/* mock guard */}document.getElementById('view-editor').classList.add('hidden');document.getElementById('view-list').classList.remove('hidden');window.scrollTo({top:0})}
+function markDirty(){document.getElementById('dirty').textContent='● Chưa lưu thay đổi'}
+function saveDraft(){document.getElementById('dirty').textContent='Đã lưu · vừa xong';toast('Đã lưu bản nháp — trạng thái công khai không thay đổi')}
+function gotoPanel(p){document.querySelectorAll('#vnav button').forEach(b=>b.classList.toggle('active',b.dataset.p===p));document.querySelectorAll('[data-panel]').forEach(x=>x.classList.toggle('hidden',x.dataset.panel!==p))}
+document.getElementById('vnav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)gotoPanel(b.dataset.p)});
+function openCreate(){document.getElementById('createDlg').showModal()}
+let toastTimer;function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),3400)}
+</script>
+</body>
+</html>
