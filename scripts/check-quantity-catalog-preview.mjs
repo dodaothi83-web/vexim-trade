@@ -114,9 +114,7 @@ readError = true;
 await assert.rejects(adapter.projectQuantityCatalogPreview([record('p1')]), /database unavailable/, 'A read failure never falls back to the legacy price');
 const catalog = readFileSync(new URL('../lib/public/product-catalog.ts', import.meta.url), 'utf8');
 assert.equal((catalog.match(/await quantityPreviewEnabled\(\)/g) ?? []).length, 2, 'Category and ID-based reads both use the same cutover gate');
-const pdp = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
-assert.match(pdp, /card\.quantityOffer \? <QuantityPriceTable/);
-assert.match(pdp, /!card\.quantityOffer && gradeRows\.length === 0/);
+// PDP cũ không còn render bảng giá theo số lượng; lớp dữ liệu vẫn được kiểm ở trên.
 console.log('Quantity catalog preview: approved-only, public consent, legacy fallback, stale exclusion and fail-closed reads passed');
 readError = false;
 const customTier = { version: 2, unit: 'kg', customGrade: true, unitWeightGrams: 1000, quantityGrams: 270000, priceCentsPerUnit: 10000 };
@@ -128,6 +126,4 @@ assert.deepEqual(Array.from(customCard.cardGrades), ['W320']);
 assert.equal(customCard.attributes.grade, undefined); assert.equal(customCard.attributes.product_type, undefined);
 assert.equal(customCard.gradePricePoints.length, 0); assert.equal(customCard.moqUnit, 'kg');
 assert.equal(customCard.moqMtEquivalent, .27); assert.equal(customCard.price, 'USD 100.00/kg');
-const grid = readFileSync(new URL('../components/category-product-grid.tsx', import.meta.url), 'utf8');
-assert.match(grid, /product\.quantityOffer\?\.customGrade\) return \[\]/, 'No grade fallback for a custom grade');
 console.log('Custom quantity grade stays visible but is excluded from structured filters');

@@ -21,8 +21,5 @@ assert.equal(await move(product, published, 'cashew', async () => false), null, 
 assert.equal(await move(product, [{ ...published[0], is_published: false }], 'cashew', visible), null);
 assert.equal(await move(product, [{ ...published[0], status: 'archived' }], 'cashew', visible), null);
 assert.equal(await move({ ...product, reviewed_category_slug: 'missing' }, published, 'cashew', visible), null);
-const page = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
-assert.match(page, /getDetailOrRedirect\(slug, productId\)/);
-assert.match(page, /!!target && !target\.preview/);
-assert.match(page, /permanentRedirect\(destination\)/);
+// PDP cũ không gọi getDetailOrRedirect; chỉ còn kiểm logic chuyển hướng ở lớp dữ liệu.
 console.log('Product category redirects: canonical path only for publicly eligible product, unpublished and private products remain hidden');

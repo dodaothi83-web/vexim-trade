@@ -42,7 +42,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-14">
         <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Compare suppliers" }]} />
-        <h1 className="mt-4 text-[32px] font-bold leading-tight tracking-tight text-ink-900 sm:text-[46px]">
+        <h1 className="mt-4 text-[32px] font-bold leading-tight text-ink-900 sm:text-[46px]" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}>
           Compare suppliers
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-600 sm:text-[15px]">
@@ -127,7 +127,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-14">
       <ProductComparisonSync products={selections} fromUrl={sp?.products !== undefined} />
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Compare products" }]} />
-      <h1 className="mt-4 text-[32px] font-bold leading-tight tracking-tight text-ink-900 sm:text-[46px]">
+      <h1 className="mt-4 text-[32px] font-bold leading-tight text-ink-900 sm:text-[46px]" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', letterSpacing: "-0.01em" }}>
         Compare products
       </h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-600 sm:text-[15px]">

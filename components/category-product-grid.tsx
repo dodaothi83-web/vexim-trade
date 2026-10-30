@@ -15,44 +15,17 @@ import { fieldsFor } from "@/lib/product-attributes";
 import type { PilotPlacement } from "@/lib/sponsored/pilot";
 import { withoutSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
-import { classifyMoqFilterGroup } from "@/lib/products/grade-pricing";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
-function productGradesOf(product: PublicCategoryProduct): string[] {
-  if (product.quantityOffer?.customGrade) return [];
-  if (Array.isArray(product.grades) && product.grades.length > 0) return product.grades;
-  return product.grade ? [product.grade] : [];
-}
-
-function productMatchesFieldOption(
-  product: PublicCategoryProduct,
-  fieldKey: string,
-  option: string,
-): boolean {
-  if (fieldKey === "grade" || fieldKey === "product_type") {
-    return productGradesOf(product).includes(option) || product.attributes?.[fieldKey] === option;
-  }
-  return product.attributes?.[fieldKey] === option;
-}
-
-function productMatchesMoqGroup(product: PublicCategoryProduct, targetGroup: string): boolean {
-  if (Array.isArray(product.gradeRows) && product.gradeRows.length > 0) {
-    return product.gradeRows.some(
-      (row) =>
-        classifyMoqFilterGroup({
-          moqUnit: row.moqUnit,
-          moqMtEquivalent: row.moqMtEquivalent,
-          moqText: row.moq,
-        }) === targetGroup,
-    );
-  }
-  return (
-    classifyMoqFilterGroup({
-      moqUnit: product.moqUnit,
-      moqMtEquivalent: product.moqMtEquivalent,
-      moqText: product.moq,
-    }) === targetGroup
-  );
+function moqGroup(value: string): string {
+  const text = value.toLowerCase();
+  if (/fcl|container|\bcont\b|20\s*(?:ft|')/.test(text)) return "container";
+  const quantity = /([\d.,]+)\s*(kg|tons?|tonnes?|mt|t)\b/i.exec(text);
+  if (!quantity) return "ask";
+  const number = Number(quantity[1].replace(/,/g, ""));
+  if (!Number.isFinite(number)) return "ask";
+  const tons = quantity[2].toLowerCase() === "kg" ? number / 1000 : number;
+  return tons <= 1 ? "small" : tons <= 5 ? "medium" : "large";
 }
 
 export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [], comparisonEnabled = true }: {
@@ -63,49 +36,23 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   // thì vùng đẩy ẩn, và sản phẩm trả phí quay lại lưới như mọi sản phẩm khác.
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
-  const attributeFilters = fieldsFor({ product_fields: productFields }).filter((f) => f.type === "select" && f.filterable && products.some((p) =>
-    f.key === "grade" || f.key === "product_type"
-      ? productGradesOf(p).length > 0 || !!p.attributes?.[f.key]
-      : !!p.attributes?.[f.key],
-  ));
-  const hasStructuredGrade = attributeFilters.some((f) => f.key === "grade" || f.key === "product_type");
+  const attributeFilters = fieldsFor({ product_fields: productFields }).filter((f) => f.type === "select" && f.filterable && products.some((p) => !!p.attributes?.[f.key]));
+  const hasStructuredGrade = attributeFilters.some((f) => f.key === "grade");
   const [moq, setMoq] = useState("");
   const [province, setProvince] = useState("");
   const [verified, setVerified] = useState(0);
-  const [oemOdmOnly, setOemOdmOnly] = useState(false);
-  const [samplesOnly, setSamplesOnly] = useState(false);
   // Grade chips/filters come only from the CRM category configuration
   // (filters + product_fields). No hardcoded commodity demo values.
   const quick = hasStructuredGrade ? [] : grades.map((g) => ({ label: g, grades: [g] }));
   const allGrades = hasStructuredGrade ? [] : grades;
-  const activeGrades = useMemo(
-    () =>
-      [selectedAttributes.grade, selectedAttributes.product_type, ...selectedGrades].filter(
-        (g): g is string => Boolean(g),
-      ),
-    [selectedAttributes.grade, selectedAttributes.product_type, selectedGrades],
-  );
-  const active =
-    selectedGrades.length > 0 ||
-    Object.values(selectedAttributes).some(Boolean) ||
-    !!moq ||
-    !!province ||
-    verified > 0 ||
-    oemOdmOnly ||
-    samplesOnly;
+  const active = selectedGrades.length > 0 || Object.values(selectedAttributes).some(Boolean) || !!moq || !!province || verified > 0;
   const provinces = [...new Set(products.map((p) => p.province))].sort();
-  const visible = useMemo(() => products.filter((p) => {
-    const pGrades = productGradesOf(p);
-    return (
-      (!selectedGrades.length || selectedGrades.some((g) => pGrades.includes(g))) &&
-      attributeFilters.every((field) => !selectedAttributes[field.key] || productMatchesFieldOption(p, field.key, selectedAttributes[field.key])) &&
-      (!moq || productMatchesMoqGroup(p, moq)) &&
-      (!province || p.province === province) &&
-      matchesVerificationFilter(p.verificationSteps, p.l2Scope, verified) &&
-      (!oemOdmOnly || p.oem || p.odm) &&
-      (!samplesOnly || p.samples)
-    );
-  }), [products, selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly, attributeFilters]);
+  const visible = useMemo(() => products.filter((p) =>
+    (!selectedGrades.length || (p.grade && selectedGrades.includes(p.grade))) &&
+    attributeFilters.every((field) => !selectedAttributes[field.key] || p.attributes?.[field.key] === selectedAttributes[field.key]) &&
+    (!moq || moqGroup(p.moq) === moq) &&
+    (!province || p.province === province) && matchesVerificationFilter(p.verificationSteps, p.l2Scope, verified),
+  ), [products, selectedGrades, selectedAttributes, moq, province, verified, attributeFilters]);
   // Trần thẻ của một nhà cung cấp trong danh sách tự nhiên bên dưới, KHÔNG tính
   // vùng đẩy phía trên. Vùng đẩy là suất cộng thêm (additive slot): nhà cung cấp
   // mua gói giữ nguyên ba thẻ dưới lưới và có thêm một thẻ ở trên. Người trả tiền
@@ -126,15 +73,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   const comparisonOffers = useMemo(() => visible.map((product) => ({
     id: product.id, supplierId: product.supplierId, categorySlug, isDemo: product.isDemo,
   })), [visible, categorySlug]);
-  const reset = () => {
-    setSelectedAttributes({});
-    setSelectedGrades([]);
-    setMoq("");
-    setProvince("");
-    setVerified(0);
-    setOemOdmOnly(false);
-    setSamplesOnly(false);
-  };
+  const reset = () => { setSelectedAttributes({}); setSelectedGrades([]); setMoq(""); setProvince(""); setVerified(0); };
   const fields = <div className="space-y-5 text-sm">
     {attributeFilters.filter((field) => !field.showWhen || !selectedAttributes[field.showWhen.key] ||
       selectedAttributes[field.showWhen.key] === field.showWhen.value).map((field) => <label key={field.key} className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">{field.label}</span>
@@ -143,7 +82,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
         for (const child of attributeFilters) if (child.showWhen?.key === field.key && child.showWhen.value !== e.target.value) delete next[child.key];
         return next;
       })}>
-        <option value="">All</option>{field.options.filter((option) => products.some((p) => productMatchesFieldOption(p, field.key, option))).map((option) => <option key={option} value={option}>{option}</option>)}
+        <option value="">All</option>{field.options.filter((option) => products.some((p) => p.attributes?.[field.key] === option)).map((option) => <option key={option} value={option}>{option}</option>)}
       </select>
     </label>)}
     {allGrades.length > 0 && <fieldset><legend className="mb-2 text-xs font-bold uppercase tracking-widest text-ink-500">Grade / type</legend>
@@ -168,20 +107,6 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
         <option value={2}>Factory verification</option><option value={4}>Partner factory contract reviewed</option><option value={3}>Delivery history reviewed</option>
       </select>
     </label>
-    <fieldset>
-      <legend className="mb-2 text-xs font-bold uppercase tracking-widest text-ink-500">Product options</legend>
-      <div className="space-y-2">
-        <label className="flex cursor-pointer items-center gap-2 text-ink-700">
-          <input type="checkbox" checked={oemOdmOnly} onChange={(e) => setOemOdmOnly(e.target.checked)} />
-          <span>OEM / ODM</span>
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 text-ink-700">
-          <input type="checkbox" checked={samplesOnly} onChange={(e) => setSamplesOnly(e.target.checked)} />
-          <span>Samples</span>
-        </label>
-      </div>
-      <p className="mt-1.5 text-[11px] leading-4 text-ink-400">Stated by the supplier</p>
-    </fieldset>
     {active && <button type="button" onClick={reset} className="font-semibold text-brand-700 underline">Clear filters</button>}
   </div>;
 
@@ -216,27 +141,18 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
           : sponsored && <SponsoredPilotSlot product={sponsored.product} ticket={sponsored.ticket}
               campaignId={sponsored.campaignId} categorySlug={categorySlug} />)}
         {visible.length ? <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {shown.map((p) => {
-            const pGrades = productGradesOf(p);
-            const prefillGrade = activeGrades.find((g) => pGrades.includes(g)) ?? activeGrades[0] ?? "";
-            const quoteHref = p.isDemo
-              ? undefined
-              : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}${prefillGrade ? `&grade=${encodeURIComponent(prefillGrade)}` : ""}`;
-            return <div key={p.id} className="min-w-0">
-              <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
-                imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} grades={p.cardGrades} gradeRows={p.gradeRows}
-                stalePriceDays={p.quantityOffer?.stale ? p.quantityOffer.daysSinceConfirmed : undefined}
-              volumePricing={p.quantityOffer?.hasVolumePricing}
-                highlightedGrades={activeGrades} moq={p.moq} price={p.price} incoterm={p.incoterm} fob={p.incoterm?.toUpperCase() === "FOB"}
-                leadTimeDays={p.leadTimeDays} leadTimeText={p.leadTimeText} supplierName={p.supplierName}
-                supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
-                quoteHref={quoteHref}
-                verificationSteps={p.verificationSteps} l2Scope={p.l2Scope} test={p.isDemo}
-                comparison={comparisonEnabled && hasProductComparisonPeer(comparisonOffers, {
-                  id: p.id, supplierId: p.supplierId, categorySlug, isDemo: p.isDemo,
-                }) ? { id: p.id, categorySlug } : undefined} />
-            </div>;
-          })}
+          {shown.map((p) => <div key={p.id} className="min-w-0">
+            <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
+              imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} moq={p.moq} price={p.price} fob={p.incoterm?.toUpperCase() === "FOB"}
+              leadTimeDays={p.leadTimeDays} supplierName={p.supplierName}
+              supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
+              quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}
+              oem={p.oem} odm={p.odm} samples={p.samples}
+              verificationSteps={p.verificationSteps} l2Scope={p.l2Scope} test={p.isDemo}
+              comparison={comparisonEnabled && hasProductComparisonPeer(comparisonOffers, {
+                id: p.id, supplierId: p.supplierId, categorySlug, isDemo: p.isDemo,
+              }) ? { id: p.id, categorySlug } : undefined} />
+          </div>)}
         </div> : <div className="rounded-xl border border-ink-200 bg-white p-8 text-center">
           <h3 className="font-bold text-ink-900">No products match these filters</h3>
           <p className="mt-2 text-sm text-ink-600">Try another grade or tell us what you need.</p>

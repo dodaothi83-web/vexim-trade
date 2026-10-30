@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin, MessageCircle } from "lucide-react";
 
@@ -12,16 +12,14 @@ import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { listPublicCategoryProducts, shareableProductImages } from "@/lib/public/product-catalog";
-import { fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
+import { fieldsFor, publicProductAttributes, supplierFieldsFor } from "@/lib/product-attributes";
 import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
 import { StickyProductColumn } from "@/components/sticky-product-column";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
 import { PublicProductCard } from "@/components/public-product-card";
 import { ProductDescription } from "@/components/public/product-description";
-import { QuantityPriceTable } from "@/components/public/quantity-price-table";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
-import { movedProductDestination } from "@/lib/public/product-category-redirect";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
 import { SITE_URL } from "@/lib/site";
@@ -50,26 +48,9 @@ async function getDetail(slug: string, productId: string) {
   return { category, card, product, relatedProducts, preview: !published };
 }
 
-async function getDetailOrRedirect(slug: string, productId: string) {
-  const detail = await getDetail(slug, productId);
-  if (detail) return detail;
-  // An old indexed category path must continue working when staff approve a
-  // category change. Never redirect to an unpublished or ineligible product.
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId)) return null;
-  const store = getStore();
-  const [product, categories] = await Promise.all([store.getProduct(productId), store.listCategories({ publishedOnly: true })]);
-  if (!product) return null;
-  const destination = await movedProductDestination(product, categories, slug, async (targetSlug) => {
-    const target = await getDetail(targetSlug, product.id);
-    return !!target && !target.preview;
-  });
-  if (!destination) return null;
-  permanentRedirect(destination);
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, productId } = await params;
-  const detail = await getDetailOrRedirect(slug, productId);
+  const detail = await getDetail(slug, productId);
   if (!detail) return { title: "Product not found | Vexim Trade", robots: { index: false } };
   const title = `${detail.card.name} | Vietnam ${detail.category.name_i18n.en || slug} | Vexim Trade`;
   const description = `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${detail.card.province}. Request a quote from Vexim Trade.`;
@@ -99,35 +80,19 @@ function Spec({ label, value }: { label: string; value: string | number | null |
   </div>;
 }
 
-function renderGradeRowPrice(rawPriceText: string | null | undefined) {
-  const safe = withoutDirectContacts(rawPriceText || "").trim();
-  if (!safe) return "On request";
-  const compact = safe
-    .replace(/(\d)\s+to\s+(\d)/gi, "$1–$2")
-    .replace(/(\d)\s*-\s*(\d)/g, "$1–$2");
-  const unitMatch = compact.match(/^(.*?)(\/[A-Za-z]+)$/);
-  if (!unitMatch) return compact;
-  return (
-    <>
-      <span>{unitMatch[1]}</span>
-      <span className="text-[12.5px] font-medium text-ink-500">{unitMatch[2]}</span>
-    </>
-  );
-}
-
 export default async function PublicProductDetail({ params }: Props) {
   const { slug, productId } = await params;
-  const detail = await getDetailOrRedirect(slug, productId);
+  const detail = await getDetail(slug, productId);
   if (!detail) notFound();
   const { category, card, product: p, relatedProducts, preview } = detail;
   // Product eligibility was checked above; project only buyer-shareable images and safe video embeds.
   const media = await getStore().listMedia("product", p.id);
-  const images = card.usesFormGallery ? card.imagePaths : shareableProductImages(media, p.id, p.featured_media_id, 24);
-  const thumbnails = card.usesFormGallery ? (card.imageThumbnailPaths ?? card.imagePaths) : shareableProductImages(media, p.id, p.featured_media_id, 24, true);
+  const images = shareableProductImages(media, p.id, p.featured_media_id, 24);
+  const thumbnails = shareableProductImages(media, p.id, p.featured_media_id, 24, true);
   const video = shareableProductVideo(media, p.id);
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}`;
   const questionRfq = `${rfq}&intent=question`;
-  const approvedAttributes = card.attributes;
+  const approvedAttributes = publicProductAttributes(category, p.specs);
   const configuredKeys = new Set(fieldsFor(category).map((f) => f.key));
   // Thông số NCC tự thêm chưa được Vexim duyệt thành trường của danh mục: không tự lên trang buyer.
   const supplierKeys = new Set(supplierFieldsFor(category).map((f) => f.key));
@@ -146,10 +111,9 @@ export default async function PublicProductDetail({ params }: Props) {
   const parsedSpecifications = parseProductSpecification(enSpec);
   const detailRows = parsedSpecifications.filter((row) => !["grade", "minimum order quantity (moq)", "packaging specification"].includes(row.key));
   const detailedPackaging = parsedSpecifications.find((row) => row.key === "packaging specification")?.value;
-  const gradeRows = card.gradeRows ?? [];
   const occupiedSpecKeys = new Set([
     ...parsedSpecifications.map((row) => row.key),
-    "grade", "product type", "product_type", "moq", "minimum order quantity (moq)", "packaging", "packaging specification",
+    "grade", "moq", "minimum order quantity (moq)", "packaging", "packaging specification",
     "reference price", "lead time", "incoterm", "export port", "loading port",
   ]);
   const additionalSpecs = specs.filter(([label]) => !occupiedSpecKeys.has(productSpecificationKey(label)));
@@ -172,9 +136,9 @@ export default async function PublicProductDetail({ params }: Props) {
     if (structuredProperties.some((item) => item.name.toLowerCase() === name.toLowerCase())) return;
     structuredProperties.push({ "@type": "PropertyValue", name, value: v });
   };
-  const structuredMoq = card.moq !== "On request" ? card.moq : publicProductMoqDisplay(p.moq);
+  const structuredMoq = publicProductMoqDisplay(p.moq);
   if (structuredMoq) pushProperty("MOQ", structuredMoq);
-  if (card.leadTimeText && card.leadTimeText !== "On request") pushProperty("Lead time", card.leadTimeText);
+  if (card.leadTimeDays !== null) pushProperty("Lead time", `${card.leadTimeDays} days`);
   for (const f of fieldsFor(category)) {
     if (approvedAttributes[f.key]) pushProperty(f.label, approvedAttributes[f.key]);
   }
@@ -244,75 +208,25 @@ export default async function PublicProductDetail({ params }: Props) {
       </StickyProductColumn>
       <div className="min-w-0">
         <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Vietnam · {category.name_i18n.en || slug}</p>
-        <h1 className="mt-2 break-words text-xl font-semibold leading-snug tracking-tight text-ink-900 sm:text-2xl">{card.name}</h1>
+        <h1 className="mt-2 break-words text-2xl font-bold leading-snug tracking-tight text-ink-900 sm:text-3xl">{card.name}</h1>
         {enDescription && <p className="mt-4 text-sm leading-relaxed text-ink-700">{withoutDirectContacts(enDescription)}</p>}
-        {card.quantityOffer ? <QuantityPriceTable offer={card.quantityOffer} /> : gradeRows.length > 0 ? (
-          <div id="reference-price" className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
-            <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
-              <h2 className="text-sm font-bold text-ink-900">Grades &amp; reference pricing</h2>
-              <p className="mt-0.5 text-xs text-ink-500">Per-grade indicative pricing, Incoterm and minimum order quantity</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse text-left text-sm">
-                <thead className="border-b border-ink-100 bg-ink-50/40 text-[11px] font-bold uppercase tracking-wider text-ink-500">
-                  <tr>
-                    <th className="px-5 py-2.5">Grade</th>
-                    <th className="px-4 py-2.5">Reference price</th>
-                    <th className="px-4 py-2.5">Incoterm</th>
-                    <th className="px-5 py-2.5">MOQ</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ink-100">
-                  {gradeRows.map((row, index) => (
-                    <tr key={`${row.grade}-${index}`}>
-                      <td className="px-5 py-3 font-semibold text-ink-900">
-                        {withoutDirectContacts(row.grade)}
-                        {row.isCustom && (
-                          <span className="ml-2 rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-600">
-                            Supplier grade
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        className={`whitespace-nowrap px-4 py-3 ${
-                          row.priceText
-                            ? "font-bold tabular-nums tracking-tight text-brand-800"
-                            : "font-medium text-ink-500"
-                        }`}
-                      >
-                        {renderGradeRowPrice(row.priceText)}
-                      </td>
-                      <td className="px-4 py-3 text-ink-800">{withoutDirectContacts(row.incoterm || "FOB")}</td>
-                      <td className="px-5 py-3 text-ink-800">{withoutDirectContacts(row.moq || "On request")}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : (
-          <div id="reference-price" className="mt-5 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">Reference price</p>
-            <p className={`mt-0.5 break-words text-lg font-bold leading-snug text-brand-800 sm:text-xl ${card.price ? "tabular-nums tracking-tight" : ""}`}>{withoutDirectContacts(card.price || "On request")}</p>
-          </div>
-        )}
+        <div id="reference-price" className="mt-5 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Reference price</p>
+          <p className="mt-1 break-words text-3xl font-black leading-tight text-brand-900 sm:text-4xl">{withoutDirectContacts(card.price || "On request")}</p>
+        </div>
         {(p.oem || p.odm || p.samples) && <div className="mt-4"><ProductTradeLabels oem={p.oem} odm={p.odm} samples={p.samples} />
-          <p className="mt-1.5 text-xs text-ink-500">Stated by the supplier. Confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
+          <p className="mt-1.5 text-xs text-ink-500">Product options stated in the listing; confirm availability, scope and sample costs with Vexim in your RFQ.</p></div>}
         <div className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
           <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
             <h2 className="text-sm font-bold text-ink-900">Key terms</h2>
             <p className="mt-0.5 text-xs text-ink-500">Commercial details for your RFQ</p>
           </div>
           <dl className="px-5">
-            {!card.quantityOffer && gradeRows.length === 0 && (
-              <>
-                <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} />
-                <Spec label="MOQ" value={card.moq} />
-              </>
-            )}
+            <Spec label="Grade" value={approvedAttributes.grade ?? card.grade} />
+            <Spec label="MOQ" value={card.moq} />
             <Spec label="Packaging" value={detailedPackaging || enPackaging} />
-            <Spec label="Lead time" value={card.leadTimeText || (card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request")} />
-            {!card.quantityOffer && gradeRows.length === 0 && <Spec label="Incoterm" value={card.incoterm} />}
+            <Spec label="Lead time" value={card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request"} />
+            <Spec label="Incoterm" value={card.incoterm} />
             <Spec label="Loading port" value={publicProductExportPortDisplay(p)} />
             <Spec label="Raw material region" value={card.rawMaterialRegion} />
             <Spec label="Input material origin" value={card.inputMaterialOrigin} />
@@ -349,12 +263,11 @@ export default async function PublicProductDetail({ params }: Props) {
       <ul className="mt-5 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {relatedProducts.map((related) => <li key={related.id} className="min-w-0">
           <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
-            imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={related.cardGrades} gradeRows={related.gradeRows} moq={related.moq}
-            stalePriceDays={related.quantityOffer?.stale ? related.quantityOffer.daysSinceConfirmed : undefined}
-              volumePricing={related.quantityOffer?.hasVolumePricing}
-            price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays} leadTimeText={related.leadTimeText}
+            imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} moq={related.moq}
+            price={related.price} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays}
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
             quoteHref={`/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(related.supplierId)}&product=${encodeURIComponent(related.name)}&product_id=${encodeURIComponent(related.id)}`}
+            oem={related.oem} odm={related.odm} samples={related.samples}
             verificationSteps={related.verificationSteps} l2Scope={related.l2Scope}
             comparison={!preview && hasProductComparisonPeer(relatedComparisonOffers, {
               id: related.id, supplierId: related.supplierId, categorySlug: slug, isDemo: related.isDemo,

@@ -128,14 +128,11 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
             ))}
 
             <Section label="Commercial terms" count={products.length} />
-            <Row label="Reference price" products={products}>{(product) => product.price ? <span className="break-words font-bold tabular-nums tracking-tight text-brand-800">{product.price}</span> : <Missing>On request</Missing>}</Row>
+            <Row label="Reference price" products={products}>{(product) => product.price ? <span className="break-words font-black text-brand-800">{product.price}</span> : <Missing>On request</Missing>}</Row>
             <Row label="Price valid until" products={products}>{(product) => product.price ? <Value value={product.priceValidUntil} /> : <Missing>On request</Missing>}</Row>
             <Row label="MOQ" products={products}>{(product) => <Value value={product.moq} />}</Row>
             <Row label="Packaging" products={products}>{(product) => <Value value={product.packaging} />}</Row>
-            <Row label="Lead time" products={products}>{(product) => {
-              const lt = product.leadTimeText?.trim() || (product.leadTimeDays !== null ? `${product.leadTimeDays} days` : "");
-              return lt && lt !== "On request" ? lt : <Missing>On request</Missing>;
-            }}</Row>
+            <Row label="Lead time" products={products}>{(product) => product.leadTimeDays !== null ? `${product.leadTimeDays} days` : <Missing>On request</Missing>}</Row>
             <Row label="Incoterm" products={products}>{(product) => <Value value={product.incoterm} />}</Row>
             <Row label="Named place" products={products}>{(product) => <Value value={product.incotermPlace} />}</Row>
             <Row label="Loading port" products={products}>{(product) => <Value value={product.exportPort} />}</Row>

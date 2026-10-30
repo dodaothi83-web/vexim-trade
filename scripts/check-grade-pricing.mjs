@@ -272,11 +272,8 @@ const legacyPepperInKg = gradePricing.projectPublicGradeData(
 );
 assert.equal(legacyPepperInKg.summaryPrice, "USD 5,800/MT", "Legacy kg product in an MT category converts to unified /MT");
 
-// PDP layout: no duplicate giant Reference price box above grade table, lighter H1, and no duplicate Grade/MOQ/Incoterm in Key terms
-const pdpSource = readFileSync(new URL("../app/(public)/products/[slug]/[productId]/page.tsx", import.meta.url), "utf8");
-assert.match(pdpSource, /<h1 className="mt-2 break-words text-xl font-semibold leading-snug tracking-tight text-ink-900 sm:text-2xl">/);
-assert.match(pdpSource, /gradeRows\.length > 0 \?/);
-assert.match(pdpSource, /gradeRows\.length === 0 && <Spec label="Incoterm"/);
+// PDP đã quay về bản trước tái thiết kế (không còn bảng Grades & reference pricing),
+// nên phần kiểm ở đây chỉ còn dữ liệu công khai của lib.
 
 // Public projection WITHOUT price consent (must redact every row price)
 const publicBlocked = gradePricing.projectPublicGradeData(productRecord, { slug: "cashew-kernels" }, {

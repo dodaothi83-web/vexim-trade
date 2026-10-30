@@ -686,7 +686,7 @@ export default async function HomeContent({
             {faqs.map((f, i) => (
               <li key={f.q} className="p-5 sm:p-6">
                 <h3 className="flex items-start gap-3 text-[15.5px] font-bold text-ink-900">
-                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-black tabular-nums text-amber-900">
+                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 font-mono text-xs font-black text-amber-900">
                     0{i + 1}
                   </span>
                   <span>{f.q}</span>
@@ -746,7 +746,7 @@ export default async function HomeContent({
               </li>
               <li>
                 <Link href="/login" prefetch={false} className="hover:text-brand-700">
-                  {isVi ? "Đăng nhập NCC" : "Supplier sign in"}
+                  {isVi ? "Đăng nhập" : "Sign in"}
                 </Link>
               </li>
               <li>
@@ -776,11 +776,6 @@ export default async function HomeContent({
 
             <FooterCol title={isVi ? "Khách mua hàng" : "For Buyers"}>
               <li>
-                <Link href={isVi ? "/how-it-works?lang=vi" : "/how-it-works"} className="hover:text-brand-700">
-                  {isVi ? "Cách hoạt động" : "How it works"}
-                </Link>
-              </li>
-              <li>
                 <Link href="/rfq" className="hover:text-brand-700">
                   {isVi ? "Gửi yêu cầu báo giá (Request a quote)" : "Request a quote"}
                 </Link>
@@ -793,6 +788,24 @@ export default async function HomeContent({
               <li>
                 <Link href="/blog" className="hover:text-brand-700">
                   {isVi ? "Tin tức & Cẩm nang nguồn hàng" : "Market Insights & Guides"}
+                </Link>
+              </li>
+              <li>
+                <Link href={isVi ? "/how-it-works?lang=vi" : "/how-it-works"} className="hover:text-brand-700">
+                  {isVi ? "Cách Vexim Trade vận hành" : "How it works"}
+                </Link>
+              </li>
+            </FooterCol>
+
+            <FooterCol title={isVi ? "Nhà cung cấp" : "For Suppliers"}>
+              <li>
+                <Link href="/for-suppliers" className="hover:text-brand-700">
+                  {isVi ? "Đăng ký bán hàng" : "Become a supplier"}
+                </Link>
+              </li>
+              <li>
+                <Link href="/login" className="hover:text-brand-700">
+                  {isVi ? "Đăng nhập NCC" : "Supplier sign in"}
                 </Link>
               </li>
             </FooterCol>
