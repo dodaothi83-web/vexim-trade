@@ -4,7 +4,25 @@ import { Breadcrumbs } from "@/components/ui";
 import { getStore } from "@/lib/db";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { listPublicSuppliers } from "@/lib/public/catalog";
-import type { Category, CategoryFilter } from "@/lib/types";
+import type { Category } from "@/lib/types";
+
+/** CMS data can contain legacy object filters as well as the current array shape. */
+function filterValues(filters: unknown, key: "grade" | "certifications"): string[] {
+  let options: unknown;
+  if (Array.isArray(filters)) {
+    const entry = filters.find((item) => item && typeof item === "object" && item.key === key);
+    options = entry?.options;
+  } else if (filters && typeof filters === "object") {
+    const legacy = filters as Record<string, unknown>;
+    options = legacy[key === "grade" ? "grades" : "certifications"];
+  }
+  if (!Array.isArray(options)) return [];
+  return options.flatMap((option: unknown) => {
+    const value = typeof option === "string" ? option :
+      option && typeof option === "object" ? (option as { value?: unknown }).value : null;
+    return typeof value === "string" && value.trim() ? [value] : [];
+  });
+}
 
 export const metadata = {
   title: "Request a quote | Veximtrade",
@@ -62,10 +80,10 @@ export default async function RfqPage({
         categories={categories.map((c: Category) => ({ slug: c.slug, name: c.name_i18n?.en ?? c.slug }))}
         categorySpecs={Object.fromEntries(categories.map((c: Category) => {
           const standardGrades = standardGradesForCategory(c);
-          const legacyGrades = (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "grade")?.options.map((o) => o.value) ?? [];
+          const legacyGrades = filterValues(c.filters, "grade");
           return [c.slug, {
             grades: standardGrades.length > 0 ? standardGrades : legacyGrades,
-            certs: (c.filters as CategoryFilter[] | null)?.find((f) => f.key === "certifications")?.options.map((o) => o.value) ?? [],
+            certs: filterValues(c.filters, "certifications"),
           }];
         }))}
         initialCategory={sp?.category ?? null}
