@@ -47,14 +47,22 @@ function normalizeOptions(raw: unknown): { value: string; label: string }[] {
 }
 
 /** Bản CRM cũ lưu số nhiều; form RFQ và bộ lọc đọc đúng số ít. */
-const FILTER_KEY_ALIASES: Record<string, string> = {
-  grades: "grade",
-  certs: "certifications",
-  certificates: "certifications",
+const FILTER_KEYS: Record<string, { key: string; label: string }> = {
+  grades: { key: "grade", label: "Grades" },
+  grade: { key: "grade", label: "Grade" },
+  certs: { key: "certifications", label: "Certifications" },
+  certificates: { key: "certifications", label: "Certifications" },
+  certifications: { key: "certifications", label: "Certifications" },
 };
 
 function canonicalKey(key: string): string {
-  return FILTER_KEY_ALIASES[key] ?? key;
+  return FILTER_KEYS[key]?.key ?? key;
+}
+
+/** A filter stored without its label still reads like a heading in the CRM. */
+function readableLabel(key: string): string {
+  const known = FILTER_KEYS[key]?.label;
+  return known ?? key.charAt(0).toUpperCase() + key.slice(1);
 }
 
 function normalizeFilter(raw: unknown, fallbackKey?: string): CategoryFilter | null {
@@ -64,7 +72,7 @@ function normalizeFilter(raw: unknown, fallbackKey?: string): CategoryFilter | n
   if (!stored) return null;
   const key = canonicalKey(stored);
   const options = normalizeOptions(record.options ?? record.values ?? record.items);
-  const label = typeof record.label === "string" && record.label.trim() ? record.label : stored;
+  const label = typeof record.label === "string" && record.label.trim() ? record.label : readableLabel(stored);
   return { key, label, options };
 }
 

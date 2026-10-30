@@ -35,14 +35,14 @@ const rows = async () => Object.fromEntries((await db.query('select slug, filter
 const after = await rows();
 // Map cũ {"grades": [...]} thành mảng chuẩn, và số nhiều đổi về key mà form RFQ đọc.
 assert.deepEqual(after['cashew-kernels'], [
-  { key: 'grade', label: 'grades', options: [{ value: 'W180', label: 'W180' }, { value: 'W240', label: 'W240' }, { value: 'W320', label: 'W320' }] },
+  { key: 'grade', label: 'Grades', options: [{ value: 'W180', label: 'W180' }, { value: 'W240', label: 'W240' }, { value: 'W320', label: 'W320' }] },
 ], 'A {"grades": [...]} map becomes a canonical filter list');
 assert.deepEqual(after['pepper'], [
   { key: 'grade', label: 'Grades', options: [{ value: '500 g/L', label: '500 g/L' }] },
 ], 'An already canonical row keeps its label and options');
 assert.deepEqual(after['dried-fruits'], [], 'An empty list stays empty');
 assert.deepEqual(after['cinnamon'], [
-  { key: 'certifications', label: 'certs', options: [{ value: 'HACCP', label: 'HACCP' }, { value: 'BRC', label: 'BRC' }] },
+  { key: 'certifications', label: 'Certifications', options: [{ value: 'HACCP', label: 'HACCP' }, { value: 'BRC', label: 'BRC' }] },
 ], 'Bare string options become {value,label} objects and certs maps to certifications');
 assert.deepEqual(after['rice'], [
   { key: 'grade', label: 'Grades', options: [{ value: 'ST25', label: 'ST25' }] },
@@ -75,7 +75,7 @@ new Function('module', 'exports', 'require', source)(mod, mod.exports, () => ({}
 const { normalizeCategoryFilters, categoryFilterValues } = mod.exports;
 
 assert.deepEqual(normalizeCategoryFilters({ grades: ['W180', 'W240'] }), [
-  { key: 'grade', label: 'grades', options: [{ value: 'W180', label: 'W180' }, { value: 'W240', label: 'W240' }] },
+  { key: 'grade', label: 'Grades', options: [{ value: 'W180', label: 'W180' }, { value: 'W240', label: 'W240' }] },
 ], 'The app reads a map without throwing and matches the migration key');
 assert.deepEqual(categoryFilterValues({ grades: ['W180'] }, 'grade'), ['W180'], 'The app finds plural grades under the canonical key');
 assert.deepEqual(categoryFilterValues([{ key: 'certs', options: ['BRC'] }], 'certifications'), ['BRC'], 'certs becomes certifications');

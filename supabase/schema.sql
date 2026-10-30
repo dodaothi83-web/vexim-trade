@@ -2090,7 +2090,14 @@ as $$
         when 'certificates' then 'certifications'
         else btrim(raw_key)
       end as key,
-      coalesce(nullif(btrim(raw_label), ''), btrim(raw_key)) as label,
+      coalesce(nullif(btrim(raw_label), ''), case lower(btrim(raw_key))
+        when 'grades' then 'Grades'
+        when 'grade' then 'Grade'
+        when 'certs' then 'Certifications'
+        when 'certificates' then 'Certifications'
+        when 'certifications' then 'Certifications'
+        else btrim(raw_key)
+      end) as label,
       raw_options
     from shaped
     where raw_key is not null and btrim(raw_key) <> ''
