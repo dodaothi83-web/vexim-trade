@@ -15,7 +15,8 @@ const db = {
     async limit() { readCalls.push({ table, filters }); return { data: table === 'product_form_submissions' ? pendingRows : [], error: failure }; },
     async maybeSingle() { readCalls.push({ table, filters }); return { data: row, error: failure }; } }; },
 };
-const mocks = {
+let stagingAllowed = true;
+const mocks = { '@/lib/products/product-form-staging-access': { isSyntheticProductFormStaging: () => stagingAllowed },
   'next/cache': { revalidatePath() {} },
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getProduct: async () => product, listMedia: async () => [] } },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access },
@@ -64,4 +65,6 @@ row = { revision: 2, payload: input, image_selection: [] }; result = await load(
 row = { revision: 2, payload: {}, image_selection: [] }; assert.equal((await load(productId)).ok, false, 'Malformed stored payload fails closed');
 row = { revision: 2, payload: { ...input, descriptionDetail: '<script>alert(1)</script>' }, image_selection: [] };
 assert.equal((await load(productId)).ok, false, 'Unsafe persisted HTML is rejected on load as well as save');
+stagingAllowed = false; const priorCalls = rpcCalls.length; assert.equal((await create(requestId, input)).ok, false);
+assert.equal(rpcCalls.length, priorCalls, 'Production never reaches private draft RPC');
 console.log('Product form draft actions: authorization, idempotent creation, CAS and private reads passed');

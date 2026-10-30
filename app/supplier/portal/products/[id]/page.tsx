@@ -9,6 +9,10 @@ import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/suppli
 import { PageHeader } from "@/components/page-header";
 import { SupplierProductEditor } from "../product-editor";
 import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
+import { isSyntheticProductFormStaging } from "@/lib/products/product-form-staging-access";
+import { loadProductFormDraftAction } from "@/app/supplier/portal/product-form-draft-actions";
+import { readNewQuantityPolicies } from "@/lib/products/quantity-new-config";
+import { SupplierProductFormStagingEditor } from "../product-form-staging-editor";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Quản lý sản phẩm", robots: { index: false, follow: false } };
@@ -32,6 +36,21 @@ export default async function OwnProductPage({ params, searchParams }: { params:
   ]);
   const media = supplierVisibleProductMedia(allMedia, access.supplier.id, access.user.id);
   const options = categoryProposalOptions(allCategories);
+  if (isSyntheticProductFormStaging()) {
+    const draftResult = await loadProductFormDraftAction(id);
+    if (!draftResult.ok) return <><PageHeader title={product.name || "Quản lý sản phẩm"} />
+      <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{draftResult.message}</p></>;
+    if (draftResult.draft) {
+      const policies = await readNewQuantityPolicies(options).catch(() => null);
+      return <><PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title={draftResult.draft.name || "Quản lý sản phẩm"}
+        sub="Hoàn thiện thông tin sản phẩm và theo dõi phản hồi duyệt." />
+        {policies ? <SupplierProductFormStagingEditor initialDraft={draftResult.draft} productId={id} revision={draftResult.revision}
+          images={draftResult.images ?? []} availableImages={draftResult.availableImages} pending={draftResult.pending}
+          readOnly={draftResult.pending && !["approved", "paused"].includes(product.supplier_review_status ?? "")}
+          categories={options} policies={policies} /> :
+          <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">Không tải được cấu hình bảng giá. Hãy tải lại trang.</p>}</>;
+    }
+  }
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
   const categoryScope = allowedSupplierCategories(access.supplier, options, linked).map((item) => item.slug);
   const quantityEditor = await (async () => {

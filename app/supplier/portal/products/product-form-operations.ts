@@ -4,6 +4,7 @@ import { createProductFormDraftAction, saveProductFormDraftAction } from "@/app/
 import { setProductFormImagesAction } from "@/app/supplier/portal/product-form-image-actions";
 import { uploadProductFormImageAction } from "@/app/supplier/portal/product-form-upload-action";
 import { snapshotProductFormImagesAction } from "@/app/supplier/portal/product-form-snapshot-action";
+import { productFormSubmitAvailabilityAction, submitProductFormDraftAction } from "@/app/supplier/portal/product-form-submit-action";
 import type { ProductFormSessionOperations } from "@/lib/products/product-form-session";
 
 /**
@@ -16,10 +17,10 @@ export function supplierProductFormOperations(): ProductFormSessionOperations {
     newRequestId: () => crypto.randomUUID(),
     create: createProductFormDraftAction,
     save: saveProductFormDraftAction,
-    // Block before the session persists or snapshots anything. Keep the second
-    // guard in submit as defense in depth until atomic approval is complete.
-    async prepareSubmit() { return { ok: false, message: "Chức năng gửi duyệt cho form mới chưa sẵn sàng." }; },
-    async submit() { return { ok: false, message: "Chức năng gửi duyệt cho form mới chưa sẵn sàng." }; },
+    // Check the project boundary before the session persists or snapshots any
+    // images. The submit action repeats the check after all asynchronous work.
+    prepareSubmit: productFormSubmitAvailabilityAction,
+    submit: submitProductFormDraftAction,
     snapshotImages: snapshotProductFormImagesAction,
     setImages: setProductFormImagesAction,
     // Never call the legacy media endpoint, which publishes immediately.
