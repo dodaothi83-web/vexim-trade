@@ -434,8 +434,8 @@ assert.match(source, /const canUpload = !locked &&/, 'Ô chọn tệp không đ�
 assert.doesNotMatch(source, /canUpload = !!product/, 'Đã bỏ điều kiện phải có sản phẩm trước khi tải tệp');
 assert.match(source, /async function persist\(\): Promise<string \| null>/, 'Lưu và trả về id dùng chung cho nút Lưu và lúc tạo sản phẩm');
 assert.match(source, /fetch\("\/api\/supplier-portal\/media", \{ method: "POST", body \}\)/, 'Ảnh mới tải đi vào kho ảnh riêng');
-assert.match(source, /setPickedBank\(\(current\) => Array\.from\(new Set\(\[\.\.\.current, \.\.\.added\]\)\)\.slice\(0, 8\)\)/, 'Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo');
-assert.match(source, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 8\)\)\)/, 'Ảnh đã chọn được gửi kèm khi lưu');
+assert.match(source, /setPickedBank\(\(current\) => Array\.from\(new Set\(\[\.\.\.current, \.\.\.added\]\)\)\.slice\(0, 6\)\)/, 'Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo');
+assert.match(source, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 6\)\)\)/, 'Ảnh đã chọn được gửi kèm khi lưu');
 assert.doesNotMatch(source, /ensureDraft/, 'Không quay lại cơ chế lưu nháp trước khi tải ảnh');
 assert.doesNotMatch(source, /Lưu nháp rồi tải ảnh|Lưu thay đổi rồi tải ảnh|saveIntent/, 'Không còn bắt người bán bấm lưu trước khi tải ảnh');
 assert.match(source, /Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu\./, 'Nói trước là ảnh vào kho rồi gắn khi lưu');
@@ -444,5 +444,31 @@ assert.match(newProductMedia, /Kho ảnh của bạn/, 'Sản phẩm mới thấ
 assert.match(newProductMedia, /Kho đang trống\. Tải ảnh ở ô bên dưới, không cần lưu sản phẩm trước\./, 'Kho trống vẫn chỉ rõ tải ảnh ngay được');
 assert.match(newProductMedia, /aria-label="Chọn ảnh sản phẩm hoặc catalogue"/, 'Sản phẩm mới vẫn thấy nút chọn tệp');
 assert.match(newProductMedia, /Kéo thả hoặc <label[^>]*>chọn ảnh|Kéo thả hoặc/, 'Sản phẩm mới thấy vùng kéo thả ảnh');
+
+// 18. Ảnh chọn trong kho ảnh phải hiện ngay trong 6 ô; ảnh chọn đầu tiên là ảnh chính,
+// nên ảnh đại diện không còn trống trước khi bấm Lưu (lỗi người bán báo).
+assert.match(source, /const pickedImages = pickedBank/, 'Ảnh đang chọn trong kho được dựng thành danh sách ảnh');
+assert.match(source, /const cover = product \? savedCover : pickedImages\[0\] \?\? null;/,
+  'Sản phẩm mới lấy ảnh chọn đầu tiên làm ảnh đại diện');
+assert.match(source, /: pickedImages\.slice\(0, 6\);/, 'Sáu ô ảnh của sản phẩm mới lấy từ ảnh đang chọn trong kho');
+assert.match(source, /const hasAnyImage = product \? hasMedia : pickedImages\.length > 0;/,
+  'Đã chọn ảnh trong kho thì mục Ảnh & tệp được tính là đã có ảnh');
+assert.match(source, /\[mediaId, \.\.\.current\.filter\(\(id\) => id !== mediaId\)\]/,
+  'Bấm ngôi sao đưa ảnh lên đầu danh sách chọn, tức đổi ảnh chính ngay');
+assert.doesNotMatch(source, /if \(!product \|\| busy \|\| mediaId === cover\?\.id\) return;/,
+  'Bấm ngôi sao không còn bị chặn khi sản phẩm chưa lưu');
+assert.match(source, /function dropImage\(asset: MediaAsset\)/, 'Bỏ ảnh dùng chung cho ảnh đã lưu và ảnh đang chọn');
+assert.match(source, /\{product \? "Xóa ảnh đại diện" : "Bỏ chọn ảnh đại diện"\}/,
+  'Nút bỏ ảnh đại diện nói đúng việc đang làm với ảnh chưa gắn');
+assert.match(source, /Đang chọn \{pickedImages\.length\} ảnh\./, 'Nói rõ số ảnh đang chọn và việc bấm Lưu để gắn');
+const bankAsset = (id, path) => ({ id, owner_type: 'supplier', supplier_id: 'sup-1', created_by: 'u1',
+  audience: 'internal', kind: 'image', storage_path: path, caption: id, sort_order: 0,
+  created_at: '2026-10-30T00:00:00Z' });
+const bankNew = render({ product: undefined, media: [],
+  bankMedia: [bankAsset('b1', 'bank/a.jpg'), bankAsset('b2', 'bank/b.jpg')] });
+assert.match(bankNew, /Ảnh chọn đầu tiên là ảnh chính/, 'Kho ảnh nói rõ ảnh chọn đầu tiên là ảnh chính');
+assert.match(bankNew, /Tự lấy ảnh đầu tiên bạn chọn trong kho ảnh\./,
+  'Ảnh đại diện trống hướng dẫn lấy ảnh chọn đầu tiên');
+assert.match(bankNew, /Đã chọn 0\/6/, 'Bộ đếm ảnh đang chọn khớp 6 ô');
 
 console.log('✅ Product page: một trang, mục lục neo, đủ khối, gửi duyệt và quản lý tệp.');

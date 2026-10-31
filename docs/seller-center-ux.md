@@ -200,9 +200,12 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
 
 - **Một kho ảnh cho mỗi tài khoản**, tối đa 12 ảnh, nằm trong `media_assets` với `owner_type = 'supplier'`,
   `product_id = null`, `audience = 'internal'`. Bảng đã cho phép từ trước nên **không cần migration mới**.
-- **Tải trước, gắn sau.** Người bán chọn ảnh trong kho và bấm **Lưu**; lúc tạo sản phẩm, server gắn tối đa 8 ảnh
-  đã chọn vào sản phẩm (đổi `owner_type` sang `product`, `product_id` = sản phẩm mới, vẫn `internal`).
-  Ảnh không chọn vẫn nằm trong kho cho sản phẩm khác.
+- **Tải trước, gắn sau.** Người bán chọn ảnh trong kho và bấm **Lưu**; lúc tạo sản phẩm, server gắn ảnh
+  đã chọn vào sản phẩm theo đúng thứ tự chọn (đổi `owner_type` sang `product`, `product_id` = sản phẩm mới,
+  vẫn `internal`); giao diện chọn tối đa **6 ảnh** vì có 6 ô ảnh. Ảnh không chọn vẫn nằm trong kho cho sản phẩm khác.
+- **Chọn ảnh là thấy ngay trong 6 ô.** Ảnh đang chọn hiện ở ô 1…6, **ảnh chọn đầu tiên là ảnh chính** và tự
+  thành **Ảnh đại diện** — không phải lưu trước mới thấy. Nút ★ trong ô đưa ảnh đó lên đầu danh sách chọn nên
+  đổi ảnh chính được ngay trước khi bấm Lưu; nút ✕ chỉ bỏ ảnh khỏi lần gắn này, ảnh vẫn còn trong kho.
 - **Ảnh trong kho không bao giờ công khai.** Tệp ở namespace `supplier-media/<supplier_id>/` — không nằm trong
   danh sách đường dẫn của `/public-media`, còn `/api/media/file` chỉ trả cho chính người đã tải lên.
 - **Thứ tự thao tác:** kho ảnh → chọn ảnh → điền thông tin → Lưu. Ảnh chưa gắn không chặn việc gửi duyệt;

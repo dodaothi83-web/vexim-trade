@@ -37,8 +37,18 @@ assert.match(editor, /fetch\("\/api\/supplier-portal\/media", \{ method: "POST",
 assert.match(editor, /Kho ảnh của bạn/, 'khối ảnh phải có tên kho ảnh');
 assert.match(editor, /Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu\./,
   'phải nói rõ ảnh vào kho trước rồi gắn khi lưu');
-assert.match(editor, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 8\)\)\)/,
-  'ảnh đã chọn phải gửi kèm khi lưu');
+assert.match(editor, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 6\)\)\)/,
+  'ảnh đã chọn phải gửi kèm khi lưu, tối đa 6 ô ảnh');
+// Ảnh chọn trong kho phải hiện ngay trong 6 ô: ảnh đầu tiên là ảnh chính, nên ảnh đại diện
+// không còn trống trước khi bấm Lưu.
+assert.match(editor, /const pickedImages = pickedBank/,
+  'ảnh đang chọn trong kho phải được dựng thành danh sách ảnh để hiện trong 6 ô');
+assert.match(editor, /const cover = product \? savedCover : pickedImages\[0\] \?\? null;/,
+  'sản phẩm mới lấy ảnh chọn đầu tiên làm ảnh đại diện');
+assert.match(editor, /: pickedImages\.slice\(0, 6\);/,
+  'sáu ô ảnh của sản phẩm mới lấy từ ảnh đang chọn trong kho');
+assert.match(editor, /\[mediaId, \.\.\.current\.filter\(\(id\) => id !== mediaId\)\]/,
+  'bấm ngôi sao phải đổi được ảnh chính trước khi lưu');
 assert.ok(!editor.includes('ensureDraft'), 'không được quay lại cơ chế lưu nháp trước khi tải ảnh');
 assert.ok(!editor.includes('Lưu nháp rồi tải ảnh'), 'không được có nút lưu nháp trước khi tải ảnh');
 assert.ok(!editor.includes('Bản nháp được lưu tự động khi bạn bấm tải tệp'),

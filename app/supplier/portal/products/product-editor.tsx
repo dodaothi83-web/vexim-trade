@@ -275,6 +275,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const imageCount = media.filter((m) => m.kind === "image").length;
   const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
   const hasMedia = media.some((m) => m.kind === "image" && !!m.storage_path && m.supplier_id === product?.supplier_id);
+  // Ảnh đang chọn trong kho ảnh, giữ đúng thứ tự chọn: ảnh chọn đầu tiên là ảnh chính.
+  const pickedImages = pickedBank
+    .map((id) => bankMedia.find((asset) => asset.id === id && asset.kind === "image" && privateMediaUrl(asset)))
+    .filter((asset): asset is MediaAsset => !!asset);
+  /** Đã có ảnh dùng được chưa: sản phẩm đã lưu thì tính ảnh trên sản phẩm, sản phẩm mới tính ảnh đang chọn. */
+  const hasAnyImage = product ? hasMedia : pickedImages.length > 0;
+  /** Số ảnh đang hiện trong 6 ô, dùng cho nhãn mục và các dòng nhắc. */
+  const shownImageCount = product ? imageCount : pickedImages.length;
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
   // Tải ảnh không cần sản phẩm đã tồn tại: ảnh vào kho ảnh của nhà cung cấp trước,
   // rồi gắn vào sản phẩm đúng lúc bấm Lưu (xem upload + pickedBank).
@@ -302,7 +310,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     switch (id) {
       case "sec-category": return selectedCategory ? { text: "Hoàn tất", tone: "ok" as const } : { text: "Chưa chọn", tone: "muted" as const };
       case "sec-basic": return { text: `${basicFilled}/3 trường`, tone: "muted" as const };
-      case "sec-media": return { text: `${imageCount}/6 ảnh`, tone: "muted" as const };
+      case "sec-media": return { text: `${Math.min(shownImageCount, 6)}/6 ảnh`, tone: "muted" as const };
       case "sec-spec": return { text: `${specFilled}/4 trường`, tone: "muted" as const };
       case "sec-price": return priceIssueCount > 0 ? { text: `${priceIssueCount} lỗi`, tone: "error" as const } : { text: "Hoàn tất", tone: "ok" as const };
       case "sec-shipping": return { text: `${shippingFilled}/9 trường`, tone: "muted" as const };
@@ -314,7 +322,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     switch (id) {
       case "sec-category": return !selectedCategory;
       case "sec-basic": return !(snapshot.name ?? "").trim();
-      case "sec-media": return !hasMedia;
+      case "sec-media": return !hasAnyImage;
       case "sec-price": return priceIssueCount > 0;
       default: return false;
     }
@@ -508,15 +516,18 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       const form = new FormData(formElement);
       if (product) {
         form.set("product_id", product.id);
-      } else if (newQuantity) {
-        creationRequestId.current ??= crypto.randomUUID();
-        form.set("quantity_creation_request_id", creationRequestId.current);
-        form.set("quantity_grade", newQuantity.grade);
-        form.set("quantity_incoterm", newQuantity.incoterm);
-        form.set("quantity_currency", newQuantity.currency ?? "USD");
-        form.set("quantity_tiers_json", JSON.stringify(newQuantity.tiers));
-        if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
-        if (pickedBank.length) form.set("bank_media_ids", JSON.stringify(pickedBank.slice(0, 8)));
+      } else {
+        if (newQuantity) {
+          creationRequestId.current ??= crypto.randomUUID();
+          form.set("quantity_creation_request_id", creationRequestId.current);
+          form.set("quantity_grade", newQuantity.grade);
+          form.set("quantity_incoterm", newQuantity.incoterm);
+          form.set("quantity_currency", newQuantity.currency ?? "USD");
+          form.set("quantity_tiers_json", JSON.stringify(newQuantity.tiers));
+          if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
+        }
+        // Ảnh đang chọn trong kho ảnh luôn đi kèm, kể cả khi bảng giá chưa đủ để tạo sản phẩm.
+        if (pickedBank.length) form.set("bank_media_ids", JSON.stringify(pickedBank.slice(0, 6)));
       }
       const response = await saveSupplierProductAction(form);
       setToast(response);
@@ -549,7 +560,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     const blockers: string[] = [];
     if (!product) blockers.push("Lưu thông tin sản phẩm trước khi gửi.");
     if (!hasDetails) blockers.push("Bổ sung mô tả hoặc quy cách ở mục Tên & từ khoá.");
-    if (!hasMedia) blockers.push("Tải ít nhất một ảnh sản phẩm ở mục Ảnh & tệp.");
+    if (!hasAnyImage) blockers.push("Tải ít nhất một ảnh sản phẩm ở mục Ảnh & tệp.");
     if (priceIssueCount > 0 && !quantityPreview?.grade.trim()) blockers.push("Chọn grade chuẩn của danh mục.");
     if (priceIssueCount > 0 && quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()))
       blockers.push("Nhập đơn giá cho dòng giá đầu tiên.");
@@ -567,7 +578,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     if (blockers.length) {
       setSubmitHint(blockers);
       setToast(null);
-      if (!hasMedia) { scrollToSection("sec-media"); return; }
+      if (!hasAnyImage) { scrollToSection("sec-media"); return; }
       if (!hasDetails) { scrollToSection("sec-basic"); return; }
       if (!product || dirty) { scrollToSection("sec-basic"); return; }
       return;
@@ -666,7 +677,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           uploaded++;
         }
         // Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo để bấm Lưu là xong.
-        if (added.length) setPickedBank((current) => Array.from(new Set([...current, ...added])).slice(0, 8));
+        if (added.length) setPickedBank((current) => Array.from(new Set([...current, ...added])).slice(0, 6));
         setSelected([]);
         setToast({ ok: true, message: `Đã thêm ${uploaded} ảnh vào kho ảnh. Ảnh được gắn vào sản phẩm khi bạn bấm Lưu.` });
         router.refresh();
@@ -701,11 +712,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     }
   }
 
-  /** Bật/tắt một ảnh trong kho ảnh cho lần lưu này. */
+  /** Bật/tắt một ảnh trong kho ảnh cho lần lưu này; chọn tối đa 6 ảnh vì có 6 ô ảnh. */
   function toggleBank(mediaId: string) {
     setPickedBank((current) => current.includes(mediaId)
       ? current.filter((id) => id !== mediaId)
-      : current.length >= 8 ? current : [...current, mediaId]);
+      : current.length >= 6 ? current : [...current, mediaId]);
   }
 
   /** Xóa ảnh khỏi kho khi nó chưa gắn vào sản phẩm nào. */
@@ -725,9 +736,24 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       setBusy(false);
     }
   }
-  /** Kéo ảnh khác vào ô ảnh đại diện (hoặc bấm nút sao) để thay; ảnh cũ tự về lại danh sách. */
+  /** Bỏ một ảnh khỏi sản phẩm: ảnh đã lưu thì xóa khỏi sản phẩm, ảnh vừa chọn trong kho thì bỏ chọn. */
+  function dropImage(asset: MediaAsset) {
+    if (product) void removeMedia(asset.id);
+    else toggleBank(asset.id);
+  }
+  /**
+   * Đặt ảnh chính. Sản phẩm đã lưu thì gọi API đổi ảnh đại diện; sản phẩm mới thì
+   * đưa ảnh lên đầu danh sách đang chọn, nên đổi được ngay trước khi bấm Lưu.
+   */
   async function makeCover(mediaId: string) {
-    if (!product || busy || mediaId === cover?.id) return;
+    if (busy || mediaId === cover?.id) return;
+    if (!product) {
+      setPickedBank((current) => current[0] === mediaId
+        ? current
+        : [mediaId, ...current.filter((id) => id !== mediaId)]);
+      setToast({ ok: true, message: "Đã đặt ảnh này làm ảnh chính." });
+      return;
+    }
     setBusy(true);
     try {
       const response = await fetch(`/api/supplier-portal/products/${product.id}/media`, {
@@ -803,11 +829,17 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
   const status = PRODUCT_STATUS[review];
   const statusLabel = review === "approved" && !live ? "Đã duyệt, chờ đăng" : status.label;
-  const cover = media.find((m) => m.id === product?.featured_media_id && m.kind === "image" && privateMediaUrl(m)) ??
+  /** Ảnh chính của sản phẩm đã lưu: ảnh được gắn làm ảnh đại diện, không có thì ảnh đầu tiên. */
+  const savedCover = media.find((m) => m.id === product?.featured_media_id && m.kind === "image" && privateMediaUrl(m)) ??
     media.find((m) => m.kind === "image" && privateMediaUrl(m));
+  // Sản phẩm mới chưa lưu: ảnh chính là ảnh chọn đầu tiên trong kho ảnh, nên chọn ảnh là thấy ngay.
+  const cover = product ? savedCover : pickedImages[0] ?? null;
   const coverUrl = cover ? privateMediaUrl(cover) : null;
   /** Sáu ô ảnh như sàn TMĐT: ô đầu là ảnh chính, phần còn lại là ảnh chi tiết. */
-  const imageSlots = [cover, ...media.filter((m) => m.kind === "image" && privateMediaUrl(m) && m.id !== cover?.id)].slice(0, 6);
+  const imageSlots: MediaAsset[] = product
+    ? [savedCover, ...media.filter((m) => m.kind === "image" && privateMediaUrl(m) && m.id !== savedCover?.id)]
+      .filter((m): m is MediaAsset => !!m).slice(0, 6)
+    : pickedImages.slice(0, 6);
   const savedPriceValue = product?.ref_price != null
     ? formatGradeRowPriceVi(
         product.ref_price,
@@ -834,7 +866,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     switch (id) {
       case "sec-category": return !!selectedCategory;
       case "sec-basic": return !!(snapshot.name ?? "").trim();
-      case "sec-media": return hasMedia;
+      case "sec-media": return hasAnyImage;
       case "sec-spec": return !!((snapshot.spec ?? "").trim() || (snapshot.description ?? "").trim());
       case "sec-price": return product
         ? product.ref_price != null || !!quantityEditor
@@ -1020,10 +1052,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <div>
               {/* Sản phẩm chưa tồn tại thì ảnh nằm trong kho riêng của nhà cung cấp.
                   Tải ảnh không cần lưu nháp trước; chọn ảnh nào là gắn ảnh đó khi bấm Lưu. */}
-              {!product && <Row label="Kho ảnh" hint="Bấm vào ảnh để chọn hoặc bỏ chọn. Ảnh không chọn vẫn nằm trong kho cho sản phẩm khác.">
+              {!product && <Row label="Kho ảnh"
+                hint="Bấm vào ảnh để chọn hoặc bỏ chọn. Ảnh chọn đầu tiên là ảnh chính; ảnh không chọn vẫn nằm trong kho.">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-[12px] font-semibold text-ink-700">Kho ảnh của bạn</p>
-                  <p className="text-[11.5px] font-semibold tabular-nums text-brand-800">Đã chọn {pickedBank.length}/8</p>
+                  <p className="text-[11.5px] font-semibold tabular-nums text-brand-800">Đã chọn {pickedBank.length}/6</p>
                 </div>
                 <p className="mt-0.5 text-[11.5px] leading-4 text-ink-500">Tải ảnh lên trước rồi chọn ảnh cần dùng. Ảnh được gắn vào sản phẩm khi bạn bấm Lưu.</p>
                 {bankMedia.length ? <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
@@ -1040,7 +1073,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                             : <span className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-4" aria-hidden="true" /></span>}
                         </span>
                       </button>
-                      {picked && <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-brand-700 px-1.5 py-0.5 text-[9px] font-bold text-white">Gắn</span>}
+                      {picked && <span className="pointer-events-none absolute top-1 left-1 flex items-center gap-0.5 rounded-full bg-brand-700 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                        {asset.id === cover?.id ? <><Star className="size-2.5 fill-current" aria-hidden="true" /> Ảnh chính</> : "Gắn"}
+                      </span>}
                       <button type="button" disabled={busy} onClick={() => void removeBank(asset.id)}
                         aria-label="Xóa ảnh khỏi kho" title="Xóa ảnh khỏi kho"
                         className="absolute top-1 right-1 rounded-full bg-white/95 p-1 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
@@ -1073,18 +1108,21 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <div className="min-w-0 flex-1">
                     <p className="text-[12px] leading-5 text-ink-600">{coverUrl
                       ? "Ảnh này hiện đầu tiên với người mua. Bấm ngôi sao ở ô ảnh bên dưới để đổi ảnh đại diện."
-                      : "Tự lấy ảnh chính. Tải ảnh ở mục Ảnh sản phẩm bên dưới."}</p>
-                    {cover && canDeleteAsset(cover) && <button type="button" disabled={busy} onClick={() => void removeMedia(cover.id)}
-                      aria-label="Xóa ảnh đại diện" title="Xóa ảnh đại diện"
+                      : product
+                        ? "Tự lấy ảnh chính. Tải ảnh ở mục Ảnh sản phẩm bên dưới."
+                        : "Tự lấy ảnh đầu tiên bạn chọn trong kho ảnh."}</p>
+                    {cover && (product ? canDeleteAsset(cover) : true) && <button type="button" disabled={busy} onClick={() => dropImage(cover)}
+                      aria-label={product ? "Xóa ảnh đại diện" : "Bỏ chọn ảnh đại diện"}
+                      title={product ? "Xóa ảnh đại diện" : "Bỏ chọn ảnh này"}
                       className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50">
-                      <Trash2 className="size-3" aria-hidden="true" /> Xóa ảnh
+                      <Trash2 className="size-3" aria-hidden="true" /> {product ? "Xóa ảnh" : "Bỏ ảnh"}
                     </button>}
                   </div>
                 </div>
               </Row>
 
               {/* Sáu ô ảnh sản phẩm: ô đầu là ảnh chính. */}
-              <Row label="Ảnh sản phẩm" required error={!hasMedia}>
+              <Row label="Ảnh sản phẩm" required error={!!product && !hasMedia}>
                 <ul aria-label="6 ô ảnh sản phẩm" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                   {Array.from({ length: 6 }).map((_, index) => {
                     const asset = imageSlots[index];
@@ -1098,19 +1136,20 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                             <Plus className="size-5" aria-hidden="true" />
                             <span className="text-[10px] font-semibold">{index === 0 ? "Ảnh chính" : `Ảnh ${index + 1}`}</span>
                           </span>}
-                        {asset && (isCover || canUpload || canDeleteAsset(asset)) && <div className="absolute inset-x-1 top-1 flex items-start justify-between gap-1">
+                        {asset && (isCover || canUpload || (product ? canDeleteAsset(asset) : true)) && <div className="absolute inset-x-1 top-1 flex items-start justify-between gap-1">
                           <span>{isCover && <span role="img" aria-label="Ảnh chính" title="Ảnh chính"
                             className="flex size-[18px] items-center justify-center rounded-full bg-brand-700 text-white shadow-sm">
                             <Star className="size-[11px] fill-current" aria-hidden="true" />
                           </span>}</span>
                           <span className="flex shrink-0 items-center gap-1">
-                            {canUpload && !isCover && <button type="button" disabled={busy} onClick={() => void makeCover(asset.id)}
+                            {(product ? canUpload : true) && !isCover && <button type="button" disabled={busy} onClick={() => void makeCover(asset.id)}
                               aria-label={`Đặt ${index === 0 ? "ảnh này" : `ảnh ${index + 1}`} làm ảnh đại diện`} title="Đặt làm ảnh đại diện"
                               className="rounded-full bg-white/95 p-1 text-brand-700 shadow-sm hover:bg-brand-50 disabled:opacity-50">
                               <Star className="size-3" aria-hidden="true" />
                             </button>}
-                            {canDeleteAsset(asset) && <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)}
-                              aria-label={`Xóa ảnh ${index + 1}`} title="Xóa ảnh"
+                            {(product ? canDeleteAsset(asset) : true) && <button type="button" disabled={busy} onClick={() => dropImage(asset)}
+                              aria-label={product ? `Xóa ảnh ${index + 1}` : `Bỏ chọn ảnh ${index + 1}`}
+                              title={product ? "Xóa ảnh" : "Bỏ chọn ảnh"}
                               className="rounded-full bg-white/95 p-1 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
                               <X className="size-3" aria-hidden="true" />
                             </button>}
@@ -1120,7 +1159,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     </li>;
                   })}
                 </ul>
-                {imageCount >= 6 && <p className="mt-1.5 text-[11.5px] text-ink-500">Đã đủ 6 ô. Xóa bớt ảnh nếu muốn thay ảnh khác.</p>}
+                {shownImageCount >= 6 && <p className="mt-1.5 text-[11.5px] text-ink-500">Đã đủ 6 ô. Xóa bớt ảnh nếu muốn thay ảnh khác.</p>}
+                {!product && pickedImages.length > 0 && <p className="mt-1.5 text-[11.5px] text-ink-600">
+                  Đang chọn {pickedImages.length} ảnh. Bấm Lưu để gắn vào sản phẩm; bấm ngôi sao để đổi ảnh chính.
+                </p>}
 
                 {/* Một chỗ tải tệp duy nhất: ngay dưới 6 ô ảnh. */}
                 {canUpload ? <>
@@ -1408,7 +1450,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   action: "Lưu ngay", run: () => formRef.current?.requestSubmit() },
                 { ok: hasDetails, label: "Bổ sung mô tả ngắn hoặc quy cách",
                   action: "Đi tới mục 2", run: () => scrollToSection("sec-basic") },
-                { ok: hasMedia, label: "Tải ít nhất một ảnh sản phẩm hoặc catalogue",
+                { ok: hasAnyImage, label: "Tải ít nhất một ảnh sản phẩm hoặc catalogue",
                   action: "Đi tới mục 3", run: () => scrollToSection("sec-media") },
                 { ok: priceIssueCount === 0 && !!quantityPreview, label: "Chọn grade và nhập giá",
                   action: "Đi tới mục 5", run: () => scrollToSection("sec-price") },
