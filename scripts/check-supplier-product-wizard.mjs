@@ -440,8 +440,8 @@ assert.doesNotMatch(source, /ensureDraft/, 'Không quay lại cơ chế lưu nh�
 assert.doesNotMatch(source, /Lưu nháp rồi tải ảnh|Lưu thay đổi rồi tải ảnh|saveIntent/, 'Không còn bắt người bán bấm lưu trước khi tải ảnh');
 assert.match(source, /Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu\./, 'Nói trước là ảnh vào kho rồi gắn khi lưu');
 const newProductMedia = render({ product: undefined, media: [] });
-assert.match(newProductMedia, /Kho ảnh của bạn/, 'Sản phẩm mới thấy kho ảnh của nhà cung cấp');
-assert.match(newProductMedia, /Kho đang trống\. Tải ảnh ở ô bên dưới, không cần lưu sản phẩm trước\./, 'Kho trống vẫn chỉ rõ tải ảnh ngay được');
+assert.doesNotMatch(newProductMedia, /Kho ảnh của bạn/, 'Không còn khối kho ảnh riêng trùng với 6 ô ảnh');
+assert.match(newProductMedia, /Kho có 0\/12 ảnh\. Ảnh vào kho ảnh trước/, 'Kho trống vẫn chỉ rõ tải ảnh ngay được');
 assert.match(newProductMedia, /aria-label="Chọn ảnh sản phẩm hoặc catalogue"/, 'Sản phẩm mới vẫn thấy nút chọn tệp');
 assert.match(newProductMedia, /Kéo thả hoặc <label[^>]*>chọn ảnh|Kéo thả hoặc/, 'Sản phẩm mới thấy vùng kéo thả ảnh');
 
@@ -466,9 +466,9 @@ const bankAsset = (id, path) => ({ id, owner_type: 'supplier', supplier_id: 'sup
   created_at: '2026-10-30T00:00:00Z' });
 const bankNew = render({ product: undefined, media: [],
   bankMedia: [bankAsset('b1', 'bank/a.jpg'), bankAsset('b2', 'bank/b.jpg')] });
-assert.match(bankNew, /Ảnh chọn đầu tiên là ảnh chính/, 'Kho ảnh nói rõ ảnh chọn đầu tiên là ảnh chính');
+assert.match(bankNew, /Ảnh có sẵn trong kho/, 'Ảnh chưa dùng trong kho hiện thành dải riêng dưới 6 ô');
+assert.doesNotMatch(bankNew, /Kho ảnh của bạn/, 'Không lặp lại khối kho ảnh ở đầu mục');
 assert.match(bankNew, /Tự lấy ảnh đầu tiên bạn chọn trong kho ảnh\./,
   'Ảnh đại diện trống hướng dẫn lấy ảnh chọn đầu tiên');
-assert.match(bankNew, /Đã chọn 0\/6/, 'Bộ đếm ảnh đang chọn khớp 6 ô');
 
 console.log('✅ Product page: một trang, mục lục neo, đủ khối, gửi duyệt và quản lý tệp.');

@@ -279,6 +279,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const pickedImages = pickedBank
     .map((id) => bankMedia.find((asset) => asset.id === id && asset.kind === "image" && privateMediaUrl(asset)))
     .filter((asset): asset is MediaAsset => !!asset);
+  /** Ảnh còn trong kho mà chưa chọn cho sản phẩm này — chỉ hiện phần chưa dùng nên không lặp ảnh đã chọn. */
+  const unusedBank = bankMedia.filter((asset) => asset.kind === "image" && !!privateMediaUrl(asset) &&
+    !pickedBank.includes(asset.id));
   /** Đã có ảnh dùng được chưa: sản phẩm đã lưu thì tính ảnh trên sản phẩm, sản phẩm mới tính ảnh đang chọn. */
   const hasAnyImage = product ? hasMedia : pickedImages.length > 0;
   /** Số ảnh đang hiện trong 6 ô, dùng cho nhãn mục và các dòng nhắc. */
@@ -1050,42 +1053,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   ? "JPG, PNG, WebP ≤ 8 MB hoặc PDF ≤ 15 MB. Tệp ở chế độ nội bộ khi chờ đăng."
                   : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
             <div>
-              {/* Sản phẩm chưa tồn tại thì ảnh nằm trong kho riêng của nhà cung cấp.
-                  Tải ảnh không cần lưu nháp trước; chọn ảnh nào là gắn ảnh đó khi bấm Lưu. */}
-              {!product && <Row label="Kho ảnh"
-                hint="Bấm vào ảnh để chọn hoặc bỏ chọn. Ảnh chọn đầu tiên là ảnh chính; ảnh không chọn vẫn nằm trong kho.">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-[12px] font-semibold text-ink-700">Kho ảnh của bạn</p>
-                  <p className="text-[11.5px] font-semibold tabular-nums text-brand-800">Đã chọn {pickedBank.length}/6</p>
-                </div>
-                <p className="mt-0.5 text-[11.5px] leading-4 text-ink-500">Tải ảnh lên trước rồi chọn ảnh cần dùng. Ảnh được gắn vào sản phẩm khi bạn bấm Lưu.</p>
-                {bankMedia.length ? <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
-                  {bankMedia.map((asset) => {
-                    const url = privateMediaUrl(asset);
-                    const picked = pickedBank.includes(asset.id);
-                    return <li key={asset.id} className="relative">
-                      <button type="button" disabled={busy} onClick={() => toggleBank(asset.id)} aria-pressed={picked}
-                        aria-label={picked ? "Bỏ chọn ảnh này" : "Chọn ảnh này cho sản phẩm"}
-                        className={`block w-full overflow-hidden rounded-md border transition ${picked ? "border-brand-600 ring-2 ring-brand-200" : "border-ink-200 hover:border-brand-300"}`}>
-                        <span className="block aspect-square overflow-hidden bg-ink-100">
-                          {url
-                            ? <img src={url} alt="" className="size-full object-cover" />
-                            : <span className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-4" aria-hidden="true" /></span>}
-                        </span>
-                      </button>
-                      {picked && <span className="pointer-events-none absolute top-1 left-1 flex items-center gap-0.5 rounded-full bg-brand-700 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                        {asset.id === cover?.id ? <><Star className="size-2.5 fill-current" aria-hidden="true" /> Ảnh chính</> : "Gắn"}
-                      </span>}
-                      <button type="button" disabled={busy} onClick={() => void removeBank(asset.id)}
-                        aria-label="Xóa ảnh khỏi kho" title="Xóa ảnh khỏi kho"
-                        className="absolute top-1 right-1 rounded-full bg-white/95 p-1 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
-                        <X className="size-3" aria-hidden="true" />
-                      </button>
-                    </li>;
-                  })}
-                </ul> : <p className="mt-2 rounded-md border border-dashed border-ink-300 bg-white px-3 py-3 text-center text-[11.5px] text-ink-600">Kho đang trống. Tải ảnh ở ô bên dưới, không cần lưu sản phẩm trước.</p>}
-              </Row>}
-
               {/* Ảnh đại diện đứng trước: người mua thấy ảnh này đầu tiên trong kết quả tìm kiếm. */}
               <Row label="Ảnh đại diện" hint="Người mua thấy ảnh này đầu tiên · nên dùng nền trắng, ≥ 800×800 px.">
                 <div
@@ -1163,6 +1130,35 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 {!product && pickedImages.length > 0 && <p className="mt-1.5 text-[11.5px] text-ink-600">
                   Đang chọn {pickedImages.length} ảnh. Bấm Lưu để gắn vào sản phẩm; bấm ngôi sao để đổi ảnh chính.
                 </p>}
+
+                {/* Kho ảnh chỉ hiện phần chưa dùng, nên ảnh đã chọn không bị lặp lại ở hai chỗ. */}
+                {!product && unusedBank.length > 0 && <div className="mt-2 rounded-md border border-ink-200 bg-white px-2.5 py-2">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                    <p className="text-[11.5px] font-semibold text-ink-700">Ảnh có sẵn trong kho</p>
+                    <p className="text-[11px] text-ink-500">Bấm ảnh để thêm vào ô trống · ảnh chọn đầu tiên là ảnh chính</p>
+                  </div>
+                  <ul className="mt-1.5 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+                    {unusedBank.map((asset) => {
+                      const url = privateMediaUrl(asset);
+                      return <li key={asset.id} className="relative">
+                        <button type="button" disabled={busy || pickedImages.length >= 6} onClick={() => toggleBank(asset.id)}
+                          aria-label="Thêm ảnh này vào sản phẩm" title="Thêm vào sản phẩm"
+                          className="block w-full overflow-hidden rounded-md border border-ink-200 transition hover:border-brand-400 disabled:opacity-50">
+                          <span className="block aspect-square overflow-hidden bg-ink-100">
+                            {url
+                              ? <img src={url} alt="" className="size-full object-cover" />
+                              : <span className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-4" aria-hidden="true" /></span>}
+                          </span>
+                        </button>
+                        <button type="button" disabled={busy} onClick={() => void removeBank(asset.id)}
+                          aria-label="Xóa ảnh khỏi kho" title="Xóa ảnh khỏi kho"
+                          className="absolute top-1 right-1 rounded-full bg-white/95 p-1 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
+                          <X className="size-3" aria-hidden="true" />
+                        </button>
+                      </li>;
+                    })}
+                  </ul>
+                </div>}
 
                 {/* Một chỗ tải tệp duy nhất: ngay dưới 6 ô ảnh. */}
                 {canUpload ? <>

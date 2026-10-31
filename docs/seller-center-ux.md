@@ -206,6 +206,9 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
 - **Chọn ảnh là thấy ngay trong 6 ô.** Ảnh đang chọn hiện ở ô 1…6, **ảnh chọn đầu tiên là ảnh chính** và tự
   thành **Ảnh đại diện** — không phải lưu trước mới thấy. Nút ★ trong ô đưa ảnh đó lên đầu danh sách chọn nên
   đổi ảnh chính được ngay trước khi bấm Lưu; nút ✕ chỉ bỏ ảnh khỏi lần gắn này, ảnh vẫn còn trong kho.
+- **Kho ảnh không có khối riêng, không lặp ảnh.** Bỏ khối "Kho ảnh của bạn" ở đầu mục (trùng đúng ảnh vừa hiện
+  trong 6 ô): ảnh đã chọn chỉ nằm trong 6 ô, còn ảnh **chưa dùng** trong kho hiện thành dải "Ảnh có sẵn trong kho"
+  ngay dưới lưới, bấm để thêm vào ô trống, ✕ để xoá khỏi kho. Hết ảnh chưa dùng thì dải này tự ẩn.
 - **Ảnh trong kho không bao giờ công khai.** Tệp ở namespace `supplier-media/<supplier_id>/` — không nằm trong
   danh sách đường dẫn của `/public-media`, còn `/api/media/file` chỉ trả cho chính người đã tải lên.
 - **Thứ tự thao tác:** kho ảnh → chọn ảnh → điền thông tin → Lưu. Ảnh chưa gắn không chặn việc gửi duyệt;
@@ -220,8 +223,9 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
 - **Dấu `*` đỏ đứng trước nhãn** cho trường bắt buộc; lỗi của khối tô viền/khung đỏ và gợi ý chuyển sang màu đỏ.
 - **Khối 03**: **một chỗ duy nhất cho ảnh** — thứ tự trên xuống: **Ảnh đại diện** (ô lớn, người mua thấy đầu tiên) →
   **6 ô ảnh sản phẩm** (mỗi ô có ★ đổi ảnh đại diện và ✕ xoá ngay tại ô; ô đang là ảnh chính đánh dấu bằng **ngôi sao**,
-  không dùng chữ đè lên ảnh nhỏ) → vùng tải tệp → Catalogue PDF chỉ hiện khi có tệp. Nhà cung cấp không có nút chọn chia sẻ cho người mua, nên copy không được hứa hẹn điều đó. Kho ảnh riêng của nhà cung cấp nằm ở
-  dòng đầu khi sản phẩm chưa tồn tại.
+  không dùng chữ đè lên ảnh nhỏ) → dải "Ảnh có sẵn trong kho" (chỉ khi còn ảnh chưa dùng, xem §5.2) → vùng tải tệp →
+  Catalogue PDF chỉ hiện khi có tệp. Nhà cung cấp không có nút chọn chia sẻ cho người mua, nên copy không được
+  hứa hẹn điều đó.
 - **Chốt 31/10/2026 — bỏ bước duyệt ảnh**: ảnh nhà cung cấp tải lên được chia sẻ cho người mua ngay (người mua
   chỉ thấy khi sản phẩm đã đăng). CRM không còn "Đã kiểm tra / Chưa xác minh" hay nút duyệt ảnh hàng loạt; chỉ còn một
   công tắc `Hiện với người mua / Ẩn (nội bộ)` để staff gỡ ảnh xấu. Cổng duyệt trước khi đăng chỉ đòi **ít nhất một ảnh

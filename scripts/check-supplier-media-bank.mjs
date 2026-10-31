@@ -34,7 +34,11 @@ assert.match(editor, /const \[pickedBank, setPickedBank\] = useState<string\[\]>
   'form phải giữ danh sách ảnh sẽ gắn');
 assert.match(editor, /fetch\("\/api\/supplier-portal\/media", \{ method: "POST", body \}\)/,
   'ảnh mới tải phải đi vào kho ảnh khi sản phẩm chưa tồn tại');
-assert.match(editor, /Kho ảnh của bạn/, 'khối ảnh phải có tên kho ảnh');
+// Kho ảnh không còn khối riêng ở đầu mục: ảnh đã chọn hiện trong 6 ô, chỉ ảnh chưa dùng
+// mới hiện thành dải "Ảnh có sẵn trong kho" nên không có ảnh nào bị lặp hai lần.
+assert.match(editor, /Ảnh có sẵn trong kho/, 'kho ảnh có tên riêng cho phần ảnh chưa dùng');
+assert.match(editor, /const unusedBank = bankMedia\.filter/, 'kho ảnh chỉ lấy ảnh chưa chọn');
+assert.doesNotMatch(editor, /Kho ảnh của bạn/, 'đã bỏ khối "Kho ảnh của bạn" trùng với 6 ô ảnh');
 assert.match(editor, /Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu\./,
   'phải nói rõ ảnh vào kho trước rồi gắn khi lưu');
 assert.match(editor, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 6\)\)\)/,
