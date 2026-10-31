@@ -59,16 +59,16 @@ export default async function QuantityReviewPage() {
       const legacyIncoterms = [...new Set(legacyRows.map((row) => typeof row.incoterm === "string" ? row.incoterm : "").filter(Boolean))].join(" / ");
       return <article key={revision.id} className="rounded-lg border border-ink-200 p-4 text-sm">
         <p className="font-semibold text-ink-900">{product?.name ?? "Sản phẩm không còn tồn tại"}</p>
-        <p className="mt-1 text-xs text-ink-600">NCC: {supplier?.name ?? "Không xác định"} · Gửi: {revision.created_at ? new Date(revision.created_at).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "Không xác định"}</p>
+        <p className="mt-1 text-xs text-ink-600">Nhà cung cấp: {supplier?.name ?? "Không xác định"} · Gửi: {revision.created_at ? new Date(revision.created_at).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "Không xác định"}</p>
         {product && <Link href={`/crm/products/${product.id}/edit`} className="mt-1 inline-block text-xs font-semibold text-brand-700 underline">Mở hồ sơ sản phẩm</Link>}
         {kind === "price" ? <div className="mt-3 text-xs">
           <p>Grade: <strong>{revision.grade || "—"}</strong> · Incoterm: <strong>{legacyIncoterms || revision.incoterm || "—"}</strong> · Tiền tệ: <strong>{legacyCurrency}</strong></p>
-          {v2?.customGrade && <p className="mt-1 text-ink-600">Grade do NCC tự nhập, không thuộc bộ lọc grade chuẩn.</p>}
+          {v2?.customGrade && <p className="mt-1 text-ink-600">Grade do nhà cung cấp tự nhập, không thuộc bộ lọc grade chuẩn.</p>}
           {versioned && !v2 ? <p role="alert" className="mt-2 text-rose-700">Dữ liệu bảng giá không hợp lệ. Không thể duyệt.</p> : <table className="mt-2 w-full text-left"><thead><tr><th className="py-1">{v2 ? "Số lượng từ" : "Số lượng từ (kg)"}</th><th className="py-1">{v2 ? "Giá theo đơn vị gốc" : "Incoterm"}</th><th className="py-1">{v2 ? "Giá theo đơn vị gốc" : `Giá (${legacyCurrency}/kg)`}</th></tr></thead>
             <tbody>{v2 ? v2.tiers.map((row, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{v2QuantityLabel(row.quantityGrams, v2)}</td><td className="py-1 tabular-nums">{v2PriceLabel(row.priceCentsPerUnit, v2.unit)}</td></tr>) : rows.map((raw, index) => { const row = raw && typeof raw === "object" ? raw as Record<string, unknown> : {}; return <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{typeof row.minKg === "number" ? row.minKg.toLocaleString("en-US") : "Không hợp lệ"}</td><td className="py-1">{typeof row.incoterm === "string" ? row.incoterm : revision.incoterm || "—"}</td><td className="py-1 tabular-nums">{typeof row.priceUsdPerKg === "number" ? row.priceUsdPerKg.toFixed(2) : "Không hợp lệ"}</td></tr>; })}</tbody></table>}
           {warnings.length > 0 && <p className="mt-2 font-semibold text-amber-800">Có mức giá ngoài ngưỡng cấu hình, cần đối chiếu trước khi duyệt.</p>}
-        </div> : <div className="mt-3 space-y-1 text-xs"><p>Tên gốc: {revision.source_name || "—"}</p><p>Tên buyer đề xuất: <strong>{revision.english_name || "—"}</strong></p><p>Nguồn: {revision.origin || "—"}</p></div>}
-        {product && revision.product_updated_at !== product.updated_at && <p className="mt-2 text-xs font-semibold text-amber-800">{revision.product_context ? "Sản phẩm đã được cập nhật sau khi gửi; hệ thống sẽ kiểm tra các thay đổi liên quan khi duyệt." : "Sản phẩm đã đổi sau khi gửi. Cần từ chối và yêu cầu NCC gửi lại."}</p>}
+        </div> : <div className="mt-3 space-y-1 text-xs"><p>Tên gốc: {revision.source_name || "—"}</p><p>Tên tiếng Anh đề xuất: <strong>{revision.english_name || "—"}</strong></p><p>Nguồn: {revision.origin || "—"}</p></div>}
+        {product && revision.product_updated_at !== product.updated_at && <p className="mt-2 text-xs font-semibold text-amber-800">{revision.product_context ? "Sản phẩm đã được cập nhật sau khi gửi; hệ thống sẽ kiểm tra các thay đổi liên quan khi duyệt." : "Sản phẩm đã đổi sau khi gửi. Cần từ chối và yêu cầu nhà cung cấp gửi lại."}</p>}
         {product && <QuantityReviewControls productId={product.id} revisionId={revision.id} updatedAt={product.updated_at} kind={kind} />}
       </article>;
     })}</div>}
@@ -76,7 +76,7 @@ export default async function QuantityReviewPage() {
   return <>
     <PageHeader title="Rà soát giá và tên sản phẩm" sub="Hai hàng chờ độc lập; thao tác không thay đổi trạng thái duyệt nội dung sản phẩm." />
     <Link href="/crm/products" className="text-sm font-semibold text-brand-700">← Về danh sách sản phẩm</Link>
-    <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Form NCC đã dùng bảng giá mới. Hiển thị buyer theo mô hình mới chưa được bật mặc định; duyệt tại đây không thay đổi giá hoặc tên buyer đang thấy khi chưa bật mô hình.</p>
-    {failed ? <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Chưa tải được hàng chờ. Kiểm tra kết nối và các migration 20261053–20261056.</p> : <div className="mt-4 grid items-start gap-5 xl:grid-cols-2">{renderQueue(prices, "price")}{renderQueue(names, "name")}</div>}
+    <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bảng giá mới đã lưu. Người mua vẫn thấy giá đã duyệt trước đó; duyệt tại đây không đổi giá người mua.</p>
+    {failed ? <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Chưa tải được hàng chờ. Kiểm tra kết nối rồi thử lại.</p> : <div className="mt-4 grid items-start gap-5 xl:grid-cols-2">{renderQueue(prices, "price")}{renderQueue(names, "name")}</div>}
   </>;
 }

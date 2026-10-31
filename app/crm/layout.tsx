@@ -85,12 +85,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // không bao giờ lệch nhau. Chỉ đưa vào chuông hàng đang có việc.
   const queues = [
     { href: "/crm/suppliers", label: "Nhà cung cấp chờ xác nhận quyền cổng", count: pendingSuppliers },
-    { href: "/crm/products?view=pending", label: "Sản phẩm NCC chờ kiểm nội dung", count: pendingProducts },
+    { href: "/crm/products?view=pending", label: "Sản phẩm nhà cung cấp chờ kiểm nội dung", count: pendingProducts },
     { href: "/crm/verifications", label: "Đợt kiểm chờ duyệt", count: pendingReviews },
-    { href: "/crm/verifications/submissions", label: "Hồ sơ NCC tự gửi chờ đối chiếu", count: pendingSubmissions },
+    { href: "/crm/verifications/submissions", label: "Hồ sơ nhà cung cấp tự gửi chờ đối chiếu", count: pendingSubmissions },
     { href: "/crm/sponsored#yeu-cau-ncc", label: "Yêu cầu đẩy sản phẩm mới", count: pendingSponsoredRequests ?? 0 },
     { href: "/crm/mail", label: "Thư chưa đọc", count: unreadMail },
-    { href: "/crm/buyers", label: "Buyer mới chưa xử lý", count: newBuyers },
+    { href: "/crm/buyers", label: "Người mua mới chưa xử lý", count: newBuyers },
   ].filter((queue) => queue.count > 0);
 
   let dbMode: "supabase" | "local" = "local";

@@ -20,8 +20,6 @@ import {
 } from "lucide-react";
 
 import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/actions";
-import { checkProductImagesAction } from "@/app/crm/products/[slug]/edit/bulk-media-review-action";
-import { checkSelectedImages } from "@/lib/media/bulk-review";
 import { setFeaturedProductImageAction } from "@/app/crm/products/[slug]/edit/featured-image-action";
 import { MEDIA_ACCEPT, prepareImage } from "@/lib/media/client-image";
 import { readUploadResponse } from "@/lib/media/upload-response";
@@ -31,11 +29,9 @@ import type { MediaAsset, MediaAudience, MediaKind, MediaOwnerType, MediaStatus 
 import { Badge, Button, cx, formatDate } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
-const STATUS_META: Record<MediaStatus, { label: string; className: string }> = {
-  unverified: { label: "Chưa xác minh", className: "bg-amber-50 text-amber-700" },
-  checked: { label: "Đã kiểm tra", className: "bg-emerald-50 text-emerald-700" },
-  expired: { label: "Hết hạn", className: "bg-red-50 text-red-700" },
-};
+// Không còn trạng thái "chờ kiểm tra / đã kiểm tra": ảnh nhà cung cấp tải lên là chia sẻ
+// cho người mua ngay. Chỉ còn hết hạn theo ngày.
+const EXPIRED_META = { label: "Hết hạn", className: "bg-red-50 text-red-700" };
 
 const KIND_ICON: Record<MediaKind, typeof ImageIcon> = {
   image: ImageIcon,
@@ -87,29 +83,6 @@ export function MediaManager({
   const [videoUrl, setVideoUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
-  const [reviewFailures, setReviewFailures] = useState<{ id: string; message: string }[]>([]);
-  const selectableImages = ownerType === "product" && !readOnly
-    ? items.filter((item) => item.owner_type === "product" && item.product_id === ownerId && item.kind === "image" && !!item.storage_path && !isExpired(item)) : [];
-  const selectableIds = new Set(selectableImages.map((item) => item.id));
-  const selectedIds = selectedImages.filter((id) => selectableIds.has(id));
-  const allSelected = selectableImages.length > 0 && selectedIds.length === selectableImages.length;
-
-  async function checkImages() {
-    if (!selectedIds.length || busy) return;
-    setBusy(true);
-    setReviewFailures([]);
-    const result = await checkSelectedImages(ownerId, selectedIds, checkProductImagesAction);
-    const completed = new Set(result.checked);
-    setSelectedImages((current) => current.filter((id) => !completed.has(id)));
-    setReviewFailures(result.failed);
-    toast.push({ kind: result.failed.length ? "error" : "success", title: result.failed.length
-      ? `Đã kiểm tra ${result.checked.length} ảnh; ${result.failed.length} ảnh chưa xử lý được.`
-      : `Đã đánh dấu ${result.checked.length} ảnh là đã kiểm tra.` });
-    setBusy(false);
-    router.refresh();
-  }
-
   const effectiveAudience: MediaAudience = ownerType === "verification" || kind === "document" ? "internal" : audience;
   const accept = kind === "image" ? MEDIA_ACCEPT.split(",").slice(0, 3).join(",") : MEDIA_ACCEPT;
 
@@ -229,7 +202,7 @@ export function MediaManager({
     <div className="card overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3">
         <ImageIcon className="h-4 w-4 text-brand-700" />
-        <h2 className="text-[15px] font-bold text-ink-900">{title ?? (ownerType === "verification" ? "Bằng chứng riêng của đợt kiểm" : ownerType === "supplier" ? "Kho ảnh & tài liệu chung của NCC" : "Ảnh & tài liệu sản phẩm")}</h2>
+        <h2 className="text-[15px] font-bold text-ink-900">{title ?? (ownerType === "verification" ? "Bằng chứng riêng của đợt kiểm" : ownerType === "supplier" ? "Kho ảnh & tài liệu chung của nhà cung cấp" : "Ảnh & tài liệu sản phẩm")}</h2>
         <span className="text-[12px] text-ink-500">
           {items.length ? `${items.length} tệp` : "chưa có tệp nào"}
         </span>
@@ -237,7 +210,7 @@ export function MediaManager({
       </div>
       {scopeHint && <p className="border-b border-brand-100 bg-brand-50/60 px-4 py-3 text-[12.5px] leading-relaxed text-brand-900">{scopeHint}</p>}
       {ownerType === "product" && !readOnly && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-100 bg-brand-50/50 px-4 py-3 text-[12.5px] text-brand-900">
-        <p>Ảnh đại diện sản phẩm: chọn trong các ảnh đã <strong>chia sẻ buyer</strong> bên dưới. Nếu chưa chọn, dùng ảnh hợp lệ đầu tiên. Chọn ảnh không tự công khai sản phẩm.</p>
+        <p>Ảnh đại diện sản phẩm: chọn trong các ảnh đã <strong>chia sẻ người mua</strong> bên dưới. Nếu chưa chọn, dùng ảnh hợp lệ đầu tiên. Chọn ảnh không tự công khai sản phẩm.</p>
         {featuredMediaId && <button type="button" disabled={busy} onClick={() => void chooseCover(null)} className="shrink-0 font-semibold underline disabled:opacity-50">Dùng ảnh đầu tiên</button>}
       </div>}
 
@@ -377,20 +350,6 @@ export function MediaManager({
         )}
       </div>}
 
-      {selectableImages.length > 0 && <div className="flex flex-wrap items-center gap-3 border-b border-ink-200 bg-ink-50/60 px-4 py-3">
-        <label className="flex items-center gap-2 text-[12.5px] font-semibold text-ink-700">
-          <input type="checkbox" checked={allSelected} disabled={busy} onChange={(event) => setSelectedImages(event.target.checked ? selectableImages.map((item) => item.id) : [])} />
-          Chọn tất cả ảnh
-        </label>
-        <span className="text-[12px] text-ink-500">Đã chọn {selectedIds.length} ảnh</span>
-        <Button type="button" disabled={busy || !selectedIds.length} onClick={() => void checkImages()}>
-          {busy ? "Đang kiểm tra…" : "Đánh dấu đã kiểm tra"}
-        </Button>
-      </div>}
-      {reviewFailures.length > 0 && <div role="alert" className="border-b border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-800">
-        <p className="font-semibold">Các ảnh sau chưa xử lý được; ảnh khác đã lưu vẫn giữ nguyên:</p>
-        <ul className="mt-1 list-inside list-disc">{reviewFailures.map((failure) => <li key={failure.id}>{items.find((item) => item.id === failure.id)?.caption || failure.id}: {failure.message}</li>)}</ul>
-      </div>}
       {/* Danh sách tệp */}
       {items.length === 0 ? (
         <p className="px-4 py-4 text-[12.5px] text-ink-500">
@@ -404,9 +363,6 @@ export function MediaManager({
               asset={m}
               readOnly={readOnly}
               busy={busy}
-              selectable={selectableIds.has(m.id)}
-              selected={selectedIds.includes(m.id)}
-              onSelect={(selected) => setSelectedImages((current) => selected ? [...current.filter((id) => id !== m.id), m.id] : current.filter((id) => id !== m.id))}
               featured={ownerType === "product" && m.id === featuredMediaId}
               canChooseCover={ownerType === "product" && !readOnly && !busy && m.kind === "image" && m.audience === "buyer" && !!m.storage_path && !isExpired(m)}
               onChooseCover={() => void chooseCover(m.id)}
@@ -424,9 +380,6 @@ function MediaRow({
   asset,
   readOnly,
   busy,
-  selectable,
-  selected,
-  onSelect,
   featured,
   canChooseCover,
   onChooseCover,
@@ -436,9 +389,6 @@ function MediaRow({
   asset: MediaAsset;
   readOnly: boolean;
   busy: boolean;
-  selectable: boolean;
-  selected: boolean;
-  onSelect: (selected: boolean) => void;
   featured: boolean;
   canChooseCover: boolean;
   onChooseCover: () => void;
@@ -467,8 +417,6 @@ function MediaRow({
 
   return (
     <li className="flex flex-wrap items-start gap-3 px-4 py-3">
-      {selectable && <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={selected} disabled={busy}
-        onChange={(event) => onSelect(event.target.checked)} aria-label={`Chọn ${previewName} để kiểm tra`} />}
       <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-ink-200 bg-ink-50">
         {canPreview ? (
           <button
@@ -493,13 +441,11 @@ function MediaRow({
           <Badge className="bg-ink-100 text-ink-600">
             {MEDIA_KINDS.find((k) => k.value === asset.kind)?.label ?? asset.kind}
           </Badge>
-          <Badge className={status === "checked" ? STATUS_META.checked.className : status === "expired" ? STATUS_META.expired.className : STATUS_META.unverified.className}>
-            {STATUS_META[status].label}
-          </Badge>
+          {status === "expired" && <Badge className={EXPIRED_META.className}>{EXPIRED_META.label}</Badge>}
           {asset.audience === "internal" ? (
-            <Badge className="bg-ink-900 text-white">Nội bộ</Badge>
+            <Badge className="bg-ink-900 text-white">Ẩn với người mua</Badge>
           ) : (
-            <Badge className="bg-brand-50 text-brand-700">Chia sẻ buyer</Badge>
+            <Badge className="bg-brand-50 text-brand-700">Hiện với người mua</Badge>
           )}
           {featured && <Badge className="bg-amber-50 font-semibold text-amber-800">Ảnh đại diện</Badge>}
           {canChooseCover && !featured && <button type="button" onClick={onChooseCover} className="rounded-full border border-brand-200 px-2.5 py-0.5 text-[11.5px] font-semibold text-brand-800 hover:border-brand-500 hover:bg-brand-50">Chọn làm ảnh đại diện</button>}
@@ -520,16 +466,6 @@ function MediaRow({
               if (!readOnly && (asset.caption ?? "") !== caption) onPatch({ caption: caption || null });
             }}
           />
-          <select
-            className="input w-auto py-1 text-[12px]"
-            value={asset.status}
-            disabled={readOnly || busy}
-            onChange={(e) => onPatch({ status: e.target.value as MediaStatus })}
-          >
-            <option value="unverified">Chưa xác minh</option>
-            <option value="checked">Đã kiểm tra</option>
-            <option value="expired">Hết hạn</option>
-          </select>
           {asset.owner_type !== "verification" && asset.kind !== "document" && (
             <select
               className="input w-auto py-1 text-[12px]"
@@ -537,8 +473,8 @@ function MediaRow({
               disabled={readOnly || busy}
               onChange={(e) => onPatch({ audience: e.target.value as MediaAudience })}
             >
-              <option value="buyer">Chia sẻ buyer</option>
-              <option value="internal">Nội bộ</option>
+              <option value="buyer">Hiện với người mua</option>
+              <option value="internal">Ẩn (nội bộ)</option>
             </select>
           )}
           {asset.kind === "video" && asset.external_url && (
@@ -658,8 +594,8 @@ export function ReadyHint({ ready, shareable }: { ready: boolean; shareable: num
           </>
         ) : (
           <>
-            Chưa thể đánh dấu <strong>“Sẵn sàng gửi buyer”</strong>: cần ít nhất 1 ảnh sản phẩm
-            hoặc catalogue ở chế độ <strong>Chia sẻ buyer</strong> và chưa hết hạn.
+            Chưa thể đánh dấu <strong>“Sẵn sàng gửi người mua”</strong>: cần ít nhất 1 ảnh sản phẩm
+            hoặc catalogue ở chế độ <strong>Chia sẻ người mua</strong> và chưa hết hạn.
           </>
         )}
       </span>

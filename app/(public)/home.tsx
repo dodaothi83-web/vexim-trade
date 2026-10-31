@@ -95,27 +95,27 @@ const FAQ_EN = [
 const FAQ_VI = [
   {
     q: "Tìm kiếm sản phẩm và gửi yêu cầu báo giá (RFQ) trên Vexim Trade có mất phí không?",
-    a: "Hoàn toàn miễn phí cho người mua hàng. Bạn có thể tra cứu theo từng nhóm ngành thực phẩm, xem hồ sơ nhà cung cấp đã được kiểm duyệt và gửi yêu cầu báo giá trực tiếp cho nhà cung cấp mình chọn hoặc nhờ Vexim sàng lọc nhà máy phù hợp.",
+    a: "Hoàn toàn miễn phí cho người mua hàng. Bạn có thể tra cứu theo từng nhóm ngành thực phẩm, xem hồ sơ nhà cung cấp đã được kiểm duyệt và gửi yêu cầu báo giá trực tiếp cho nhà cung cấp mình chọn hoặc nhờ Vexim sàng lọc nhà máy phù hợp.",  // copy-allow: FAQ công khai, câu dài có chủ đích
   },
   {
     q: "Làm sao biết chứng nhận trên hồ sơ nhà cung cấp là chính chủ hay của đơn vị đối tác?",
-    a: "Khi nhà cung cấp tải chứng nhận (ATTP, HACCP, ISO 22000, BRC, Halal, FDA...) lên hệ thống, công nghệ nhận diện tự động của Vexim quét tên đơn vị được cấp và ngày hết hạn: nếu khớp pháp nhân sẽ hiển thị 'Chính chủ', nếu đứng tên nhà máy gia công/liên kết sẽ ghi rõ 'Đơn vị đối tác' kèm ngày hết hiệu lực.",
+    a: "Khi nhà cung cấp tải chứng nhận (ATTP, HACCP, ISO 22000, BRC, Halal, FDA...) lên hệ thống, công nghệ nhận diện tự động của Vexim quét tên đơn vị được cấp và ngày hết hạn: nếu khớp pháp nhân sẽ hiển thị 'Chính chủ', nếu đứng tên nhà máy gia công/liên kết sẽ ghi rõ 'Đơn vị đối tác' kèm ngày hết hiệu lực.",  // copy-allow: FAQ công khai, câu dài có chủ đích
   },
   {
     q: "Quy trình xác thực nhà cung cấp của Vexim gồm những hạng mục nào?",
-    a: "Vexim đánh giá độc lập qua 3 hạng mục: (1) Kiểm tra giấy tờ pháp lý doanh nghiệp & nhận diện tự động chứng nhận chất lượng, (2) Xác thực nhà máy thực tế qua bộ ảnh chụp hiện trường sản xuất kèm toạ độ và mã xác minh, và (3) Đối chiếu chứng từ lịch sử lô hàng đã xuất khẩu.",
+    a: "Vexim đánh giá độc lập qua 3 hạng mục: (1) Kiểm tra giấy tờ pháp lý doanh nghiệp & nhận diện tự động chứng nhận chất lượng, (2) Xác thực nhà máy thực tế qua bộ ảnh chụp hiện trường sản xuất kèm toạ độ và mã xác minh, và (3) Đối chiếu chứng từ lịch sử lô hàng đã xuất khẩu.",  // copy-allow: FAQ công khai, câu dài có chủ đích
   },
   {
     q: "Doanh nghiệp thực phẩm tại Việt Nam đăng ký lên sàn như thế nào?",
-    a: "Doanh nghiệp chỉ cần bấm nút 'Đăng ký lên sàn miễn phí' ở mục Dịch vụ phía trên để gửi thông tin, hoặc tạo tài khoản nhà cung cấp để khai báo hồ sơ pháp nhân, tải giấy phép kinh doanh và đăng tải sản phẩm.",
+    a: "Doanh nghiệp chỉ cần bấm nút 'Đăng ký lên sàn miễn phí' ở mục Dịch vụ phía trên để gửi thông tin, hoặc tạo tài khoản nhà cung cấp để khai báo hồ sơ pháp nhân, tải giấy phép kinh doanh và đăng tải sản phẩm.",  // copy-allow: FAQ công khai, câu dài có chủ đích
   },
   {
     q: "Khi chứng nhận ATTP / HACCP / ISO sắp hết hạn thì cập nhật lại như thế nào?",
-    a: "Trước khi chứng nhận hết hạn 60, 30, 7 và 1 ngày, hệ thống tự động gửi thông báo và email nhắc nhà cung cấp. Doanh nghiệp chỉ cần vào mục Giấy tờ trên cổng nhà cung cấp tải bản gia hạn mới lên, hệ thống sẽ tự động nhận diện lại ngày hết hạn mới và cập nhật hiển thị.",
+    a: "Trước khi chứng nhận hết hạn 60, 30, 7 và 1 ngày, hệ thống tự động gửi thông báo và email nhắc nhà cung cấp. Doanh nghiệp chỉ cần vào mục Giấy tờ trên cổng nhà cung cấp tải bản gia hạn mới lên, hệ thống sẽ tự động nhận diện lại ngày hết hạn mới và cập nhật hiển thị.",  // copy-allow: FAQ công khai, câu dài có chủ đích
   },
   {
     q: "Tôi muốn đăng ký gói Thiết kế website quốc tế, Quảng cáo nổi bật hoặc Tuân thủ pháp lý FDA thì làm thế nào?",
-    a: "Hãy điền biểu mẫu trên thẻ dịch vụ tương ứng. Với Quảng cáo nổi bật, đội ngũ Vexim sẽ liên hệ tư vấn về banner doanh nghiệp.",
+    a: "Điền biểu mẫu trên thẻ dịch vụ tương ứng. Với Quảng cáo nổi bật, Vexim sẽ liên hệ tư vấn banner doanh nghiệp.",
   },
 ];
 
@@ -284,7 +284,7 @@ export default async function HomeContent({
 
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/90 sm:text-base">
               {isVi
-                ? "Tra cứu trực tiếp danh mục ngành hàng nông sản & thực phẩm chế biến, đối chiếu hồ sơ pháp lý, năng lực nhà máy, lịch sử xuất khẩu và kết nối báo giá nhanh."
+                ? "Tra cứu danh mục nông sản & thực phẩm chế biến, đối chiếu hồ sơ pháp lý, năng lực nhà máy và kết nối báo giá nhanh."
                 : HOME_HERO_LINE}
             </p>
 
@@ -709,7 +709,7 @@ export default async function HomeContent({
               </div>
               <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-ink-500">
                 {isVi
-                  ? "Nền tảng kết nối nguồn hàng thực phẩm & nông sản Việt Nam với khách mua trong nước và quốc tế."
+                  ? "Nền tảng kết nối nguồn hàng thực phẩm & nông sản Việt Nam với người mua trong nước và quốc tế."
                   : "B2B sourcing platform connecting global and domestic buyers with verified Vietnamese food & agricultural suppliers."}
               </p>
               <p className="mt-5 text-[12.5px] text-ink-400">
@@ -746,7 +746,7 @@ export default async function HomeContent({
               </li>
               <li>
                 <Link href="/login" prefetch={false} className="hover:text-brand-700">
-                  {isVi ? "Đăng nhập NCC" : "Supplier sign in"}
+                  {isVi ? "Đăng nhập nhà cung cấp" : "Supplier sign in"}
                 </Link>
               </li>
               <li>
@@ -774,7 +774,7 @@ export default async function HomeContent({
               </li>
             </FooterCol>
 
-            <FooterCol title={isVi ? "Khách mua hàng" : "For Buyers"}>
+            <FooterCol title={isVi ? "Người mua hàng" : "For Buyers"}>
               <li>
                 <Link href={isVi ? "/how-it-works?lang=vi" : "/how-it-works"} className="hover:text-brand-700">
                   {isVi ? "Cách hoạt động" : "How it works"}

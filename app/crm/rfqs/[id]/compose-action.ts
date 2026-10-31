@@ -15,7 +15,7 @@ import { notifySelectedSupplier } from "@/lib/rfq/outreach";
 import type { EmailMessage } from "@/lib/types";
 
 /**
- * Gửi email thủ công cho một NCC liên quan đến một RFQ match (VD: nhắc phản hồi, hỏi thêm thông tin).
+ * Gửi email thủ công cho một nhà cung cấp liên quan đến một RFQ match (VD: nhắc phản hồi, hỏi thêm thông tin).
  * Ghi lại vào bảng messages và timeline.
  */
 export async function composeMatchEmailAction(fd: FormData): Promise<void> {
@@ -38,11 +38,11 @@ export async function composeMatchEmailAction(fd: FormData): Promise<void> {
   if (!rfq) throw new Error("RFQ không tồn tại.");
   if (!match || match.rfq_id !== rfqId) throw new Error("Match không thuộc RFQ này.");
   const supplier = await store.getSupplier(match.supplier_id);
-  if (!supplier) throw new Error("Không tìm thấy NCC.");
-  if (!(await canInviteSupplier(supplier, store))) throw new Error("Tài khoản NCC chưa được Vexim xác nhận; chưa thể gửi RFQ.");
+  if (!supplier) throw new Error("Không tìm thấy nhà cung cấp.");
+  if (!(await canInviteSupplier(supplier, store))) throw new Error("Tài khoản nhà cung cấp chưa được xác nhận; chưa thể gửi RFQ.");
 
   const to = toOverride || supplier.email;
-  if (!to) throw new Error("NCC chưa có email — vui lòng điền địa chỉ nhận.");
+  if (!to) throw new Error("Nhà cung cấp chưa có email. Hãy điền địa chỉ nhận.");
 
   const toEmails = to.split(",").map((s) => s.trim()).filter(Boolean);
   const ccEmails = ccRaw.split(",").map((s) => s.trim()).filter(Boolean);
@@ -63,7 +63,7 @@ export async function composeMatchEmailAction(fd: FormData): Promise<void> {
       "X-RFQ-Match": match.id,
     },
   });
-  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được email NCC: ${delivery.error ?? "Resend chưa gửi thật"}`);
+  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được email cho nhà cung cấp: ${delivery.error ?? "chưa gửi thật"}`);
 
   await store.addMessage({
     buyer_id: null,
@@ -104,7 +104,7 @@ export async function markSamplingAction(fd: FormData): Promise<void> {
   if (!before) throw new Error("RFQ không tồn tại.");
   if (selectedMatchId) {
     const m = await store.getRfqMatch(selectedMatchId);
-    if (!m || m.rfq_id !== rfqId) throw new Error("NCC đã chọn không thuộc RFQ này.");
+    if (!m || m.rfq_id !== rfqId) throw new Error("Nhà cung cấp đã chọn không thuộc RFQ này.");
     if (before.status !== "sampling" && m.status !== "selected") {
       await store.updateRfqMatch(m.id, { status: "selected" });
       const actor = await getSession();
@@ -126,7 +126,7 @@ export async function markSamplingAction(fd: FormData): Promise<void> {
   revalidatePath("/crm/rfqs");
   revalidatePath(`/crm/rfqs/${rfqId}`);
   if (!notified.sent && notified.reason !== "already_sent" && notified.reason !== "pending") {
-    throw new Error("Đã lưu trạng thái sampling nhưng chưa gửi được thông báo buyer. Vui lòng thử lại.");
+    throw new Error("Đã lưu trạng thái sampling nhưng chưa gửi được thông báo cho người mua. Hãy thử lại.");
   }
 }
 
@@ -159,11 +159,11 @@ export async function markLostAction(fd: FormData): Promise<void> {
   revalidatePath("/crm/rfqs");
   revalidatePath(`/crm/rfqs/${rfqId}`);
   if (!notified.sent && notified.reason !== "already_sent" && notified.reason !== "pending") {
-    throw new Error("Đã lưu trạng thái lost nhưng chưa gửi được thông báo buyer. Vui lòng thử lại.");
+    throw new Error("Đã lưu trạng thái lost nhưng chưa gửi được thông báo cho người mua. Hãy thử lại.");
   }
 }
 
-/** Gửi nhắc nhở NCC đã được gửi RFQ nhưng chưa phản hồi sau X ngày (gửi ngay cho một NCC chỉ định). */
+/** Gửi nhắc nhở nhà cung cấp đã nhận RFQ nhưng chưa phản hồi sau X ngày (gửi ngay cho một nhà cung cấp chỉ định). */
 export async function sendFollowUpAction(fd: FormData): Promise<void> {
   const g = await guard("rfq.manage");
   if (g) redirect("/crm/dashboard");
@@ -176,13 +176,13 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
   const match = await store.getRfqMatch(matchId);
   if (!rfq || !match || match.rfq_id !== rfqId) throw new Error("RFQ/match không hợp lệ.");
   const sup = await store.getSupplier(match.supplier_id);
-  if (!sup || !sup.email) throw new Error("NCC chưa có email.");
-  if (!(await canInviteSupplier(sup, store))) throw new Error("Tài khoản NCC chưa được Vexim xác nhận; chưa thể gửi RFQ.");
+  if (!sup || !sup.email) throw new Error("Nhà cung cấp chưa có email.");
+  if (!(await canInviteSupplier(sup, store))) throw new Error("Tài khoản nhà cung cấp chưa được xác nhận; chưa thể gửi RFQ.");
 
   const subject = `Nhắc: ${rfq.code} — vui lòng phản hồi báo giá`;
   const deadline = new Date(); deadline.setDate(deadline.getDate() + 2);
   const deadlineStr = deadline.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" });
-  const body = `Kính gửi Anh/Chị ${sup.contact_name ?? sup.name},\n\nPhòng Xuất khẩu Vexim xin nhắc lại yêu cầu báo giá ${rfq.code} (${rfq.product_text}, ${rfq.quantity ?? ""} ${rfq.unit ?? ""}) đã gửi trước đó.\n\nNếu không thể tham gia chào giá lần này, rất mong Anh/Chị phản hồi ngắn gọn để chúng tôi thông báo cho buyer. Nếu có thể chào giá, vui lòng hồi âm trước ${deadlineStr}.\n\nTrân trọng,\nPhòng Xuất khẩu · Vexim Trade`;
+  const body = `Kính gửi Anh/Chị ${sup.contact_name ?? sup.name},\n\nPhòng Xuất khẩu Vexim xin nhắc lại yêu cầu báo giá ${rfq.code} (${rfq.product_text}, ${rfq.quantity ?? ""} ${rfq.unit ?? ""}) đã gửi trước đó.\n\nNếu không thể tham gia chào giá lần này, rất mong Anh/Chị phản hồi ngắn gọn để chúng tôi thông báo cho người mua. Nếu có thể chào giá, vui lòng hồi âm trước ${deadlineStr}.\n\nTrân trọng,\nPhòng Xuất khẩu · Vexim Trade`;
 
   const html = wrapPlainEmail({
     title: subject,
@@ -198,7 +198,7 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
     text: body,
     headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Match": match.id },
   });
-  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được email nhắc NCC: ${delivery.error ?? "Resend chưa gửi thật"}`);
+  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được email nhắc nhà cung cấp: ${delivery.error ?? "chưa gửi thật"}`);
   await store.addMessage({
     buyer_id: null,
     supplier_id: sup.id,

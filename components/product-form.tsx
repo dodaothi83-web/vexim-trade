@@ -93,7 +93,7 @@ function initAttributes(p?: SupplierProduct | null): Record<string, string> {
 }
 
 const TABS: Array<{ key: ProductTab; label: string; hint: string }> = [
-  { key: "info", label: "Thông tin & mô tả", hint: "Tên, danh mục, mô tả cho buyer" },
+  { key: "info", label: "Thông tin & mô tả", hint: "Tên, danh mục, mô tả cho người mua" },
   { key: "spec", label: "Quy cách & năng lực", hint: "Bảng Grade & giá, thông số, năng lực, đóng gói" },
   { key: "trade", label: "Giá & thương mại", hint: "Công khai giá, hiệu lực giá, địa điểm Incoterm, thanh toán" },
 ];
@@ -187,10 +187,10 @@ export function ProductForm({
     attributes: primaryDraftGrade ? { ...attributes, grade: primaryDraftGrade } : attributes,
   });
 
-  // Tên hiển thị cho buyer: soạn từ danh mục, quy cách, tỉnh và thuộc tính còn lại.
+  // Tên hiển thị cho khách mua: soạn từ danh mục, quy cách, tỉnh và thuộc tính còn lại.
   const attributeLabels = Object.fromEntries(nonGradeProductFields(effectiveFieldsFor(activeCategory)).map((f) => [f.key, f.label]));
   const attributeInputFields = nonGradeProductFields(effectiveFieldsFor(activeCategory))
-    .map((field) => field.supplier_added ? { ...field, label: `${field.label} (NCC tự thêm)` } : field);
+    .map((field) => field.supplier_added ? { ...field, label: `${field.label} (nhà cung cấp tự thêm)` } : field);
   const suggestedDisplayName = composeDisplayName({
     categoryLabel: activeCategory ? activeCategory.name_i18n.en || activeCategory.slug : null,
     grade: primaryDraftGrade ?? grade.value,
@@ -316,7 +316,7 @@ export function ProductForm({
       <div className="sticky top-2 z-20 rounded-2xl border border-ink-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2.5">
           <Link href={product ? `/crm/products/${product.id}` : `/crm/suppliers/${supplier.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[13px]">
-            <ArrowLeft className="h-4 w-4" /> {product ? "Chi tiết" : "Hồ sơ NCC"}
+            <ArrowLeft className="h-4 w-4" /> {product ? "Chi tiết" : "Hồ sơ nhà cung cấp"}
           </Link>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-black tracking-tight text-ink-900">{v("name") || (product ? product.name : "Sản phẩm mới")}</p>
@@ -364,7 +364,7 @@ export function ProductForm({
         <section id="product-panel-info" role="tabpanel" aria-labelledby="product-tab-info" className="card space-y-4 p-5">
           <div>
             <h2 className="text-sm font-bold text-ink-900">Nhận diện sản phẩm</h2>
-            <p className="mt-0.5 text-xs text-ink-500">Tên gốc được giữ riêng; tên hiển thị cho buyer có thể chỉnh bên dưới.</p>
+            <p className="mt-0.5 text-xs text-ink-500">Tên gốc được giữ riêng; tên hiển thị cho người mua có thể chỉnh bên dưới.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Tên gốc của sản phẩm" required className="sm:col-span-2 lg:col-span-3">
@@ -411,7 +411,7 @@ export function ProductForm({
           </div>
 
           {supplierCategories.length > 0 && (
-            <Field label="Danh mục cho sản phẩm" hint="Chỉ chọn trong phạm vi NCC đã đăng ký. Đổi danh mục thì danh sách grade đổi theo. Nếu tên/quy cách cho thấy ngành khác, hệ thống ưu tiên nhận diện từ sản phẩm; chọn không tự duyệt hoặc công khai.">
+            <Field label="Danh mục cho sản phẩm" hint={"Chỉ chọn trong phạm vi nhà cung cấp đã đăng ký. Đổi danh mục thì danh sách grade đổi theo." + " Nếu tên, quy cách cho thấy ngành khác, hệ thống ưu tiên nhận diện từ sản phẩm; chọn không tự duyệt."}>
               <select className="input mt-1" value={selectedCategory} onChange={(e) => onCategoryChange(e.target.value)}>
                 <option value="">Tự nhận diện theo tên/quy cách</option>
                 {categories.filter((category) => supplierCategories.includes(category.slug)).map((category) => <option key={category.id} value={category.slug}>{category.name_i18n.en || category.slug}</option>)}
@@ -420,8 +420,8 @@ export function ProductForm({
           )}
           <div className="rounded-xl border border-ink-200 bg-ink-50/60 p-3">
             <Field
-              label="Tên hiển thị cho buyer"
-              hint="Trang buyer đọc tên này. Để trống thì dùng tên sản phẩm ở trên; tên gốc không bị thay đổi."
+              label="Tên hiển thị cho người mua"
+              hint="Trang người mua đọc tên này. Để trống thì dùng tên sản phẩm ở trên; tên gốc không đổi."
             >
               <input
                 className={`input ${displayNamePlaceholder ? "border-amber-400 bg-amber-50/40" : ""}`}
@@ -464,9 +464,9 @@ export function ProductForm({
           <h2 className="mb-4 text-sm font-bold text-ink-900">Quy cách &amp; năng lực</h2>
           <div className="mb-5 space-y-4">
             {product && <div className="space-y-3 rounded-xl border border-brand-200 bg-white p-4">
-              <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng · mô hình mới</h3>
+              <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng</h3>
               {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
-                data={quantityEditor} actor="staff" disabled={busy} dirty={dirty} />
+                data={quantityEditor} actor="staff" disabled={busy} dirty={dirty} publishPreview />
                 : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra kết nối và danh mục đã xuất bản; dữ liệu giá cũ không bị thay đổi.</p>}
             </div>}
             {!product && <GradePricingTable rows={gradeRows} onChange={setGradeRows} category={activeCategorySource} disabled={busy} showErrors={showGradeErrors} />}
@@ -604,7 +604,7 @@ export function ProductForm({
                   title={
                     mediaState.ready
                       ? "Khách đã có ảnh/catalogue để xem"
-                      : "Cần ít nhất 1 ảnh hoặc catalogue ở chế độ Chia sẻ buyer"
+                      : "Cần ít nhất 1 ảnh hoặc catalogue ở chế độ Chia sẻ cho người mua"
                   }
                 >
                   <input
@@ -614,14 +614,14 @@ export function ProductForm({
                     checked={Boolean(form.ready_for_buyer)}
                     onChange={(e) => set("ready_for_buyer", e.target.checked)}
                   />
-                  Sẵn sàng gửi buyer
+                  Sẵn sàng gửi người mua
                   {!mediaState.ready && !form.ready_for_buyer && (
                     <span className="font-normal">(cần thêm ảnh/catalogue)</span>
                   )}
                 </label>
               )}
             </div>
-            <Field label="Chứng nhận / tiêu chuẩn (tự khai; không tự tạo nhãn buyer)" hint="Nhãn chứng nhận chỉ lấy từ tệp NCC nộp, Vexim kiểm bản sao và quyết định công bố riêng tại hồ sơ NCC → Chứng nhận." className="sm:col-span-2 lg:col-span-3">
+            <Field label="Chứng nhận / tiêu chuẩn (tự khai; không tự tạo nhãn cho người mua)" hint="Nhãn chứng nhận lấy từ tệp nhà cung cấp nộp. Vexim kiểm rồi công bố ở mục Chứng nhận." className="sm:col-span-2 lg:col-span-3">
               <input
                 className="input"
                 value={v("certifications")}
@@ -637,7 +637,7 @@ export function ProductForm({
         <section id="product-panel-trade" role="tabpanel" aria-labelledby="product-tab-trade" className="card p-5">
           <h2 className="text-sm font-bold text-ink-900">Điều kiện thương mại tham khảo</h2>
           <p className="mt-0.5 mb-4 text-xs text-ink-600">
-            Quyền chia sẻ giá trong hồ sơ doanh nghiệp là sự đồng ý chung của NCC (hiệu lực 180 ngày). Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
+            Quyền chia sẻ giá là đồng ý chung của nhà cung cấp, hiệu lực 180 ngày. Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
           </p>
           {product ? <div className="mb-4 rounded-xl border border-ink-200 bg-ink-50/50 p-3.5 text-xs">
             <p className="font-bold text-ink-900">Grade, Incoterm và bảng giá theo số lượng nằm tại mục Quy cách &amp; năng lực.</p>
@@ -699,16 +699,16 @@ export function ProductForm({
             </Field>
             <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-ink-200 bg-ink-50/60 p-3 text-sm">
               <label className="flex items-start gap-2 font-semibold text-ink-800"><input type="checkbox" checked={form.price_publicly_visible === true}
-                onChange={(e) => set("price_publicly_visible", e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-brand-700" /> Hiển thị giá tham khảo của sản phẩm này cho buyer khi đủ điều kiện</label>
-              <p className="mt-1 text-xs text-ink-600">{supplierPriceConsentCurrent(supplier) ? "NCC đã đồng ý chia sẻ giá; vẫn cần chọn riêng từng sản phẩm." : "NCC chưa có quyền chia sẻ giá còn hiệu lực; tích ô này không thay thế sự đồng ý của NCC."} Thay đổi chỉ có hiệu lực sau khi lưu.</p>
+                onChange={(e) => set("price_publicly_visible", e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-brand-700" /> Hiển thị giá tham khảo của sản phẩm này cho người mua khi đủ điều kiện</label>
+              <p className="mt-1 text-xs text-ink-600">{supplierPriceConsentCurrent(supplier) ? "Nhà cung cấp đã đồng ý chia sẻ giá; vẫn cần chọn riêng từng sản phẩm." : "Nhà cung cấp chưa có quyền chia sẻ giá còn hiệu lực; tích ô này không thay thế sự đồng ý."} Thay đổi chỉ có hiệu lực sau khi lưu.</p>
               {product && savedPrice && <div className={"mt-3 rounded-md px-3 py-2 text-xs " + (savedPrice.buyerPrice ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950")} role="status">
-                <p className="font-semibold">Giá buyer · bản đã lưu: {savedPrice.buyerPrice ? <span className="font-mono tabular-nums">{savedPrice.buyerPrice}</span> : savedPrice.publicProduct ? "On request" : "Sản phẩm chưa công khai"}</p>
+                <p className="font-semibold">Giá người mua · bản đã lưu: {savedPrice.buyerPrice ? <span className="font-mono tabular-nums">{savedPrice.buyerPrice}</span> : savedPrice.publicProduct ? "On request" : "Sản phẩm chưa công khai"}</p>
                 {dirty && <p className="mt-1">Bạn đang sửa form; dòng trên vẫn là trạng thái đã lưu.</p>}
                 {!savedPrice.buyerPrice && <>
                   <ul className="mt-1 list-disc space-y-0.5 pl-4">{savedPrice.blockers.map((reason) => <li key={reason}>{reason}</li>)}
-                    {!savedPrice.publicProduct && <li>Sản phẩm chưa đủ điều kiện công bố ở checklist phía trên (duyệt, danh mục, NCC, ảnh/catalogue hoặc buyer-ready).</li>}
+                    {!savedPrice.publicProduct && <li>Sản phẩm chưa đủ điều kiện công bố ở checklist phía trên: thiếu duyệt, danh mục, ảnh/catalogue hoặc trạng thái sẵn sàng.</li>}
                   </ul>
-                  {savedPrice.blockers.some((reason) => reason.includes("NCC")) && <Link href={`/crm/suppliers/${supplier.id}/edit#price-sharing`} className="mt-2 inline-block font-semibold text-brand-700 underline">Kiểm tra quyền chia sẻ giá trong hồ sơ NCC</Link>}
+                  {savedPrice.blockers.some((reason) => reason.includes("chia sẻ giá")) && <Link href={`/crm/suppliers/${supplier.id}/edit#price-sharing`} className="mt-2 inline-block font-semibold text-brand-700 underline">Kiểm tra quyền chia sẻ giá trong hồ sơ nhà cung cấp</Link>}
                 </>}
               </div>}
             </div>
@@ -734,12 +734,12 @@ export function ProductForm({
               <p className="text-xs font-semibold text-brand-700">{activeCategory?.name_i18n.en || activeCategory?.slug || "Chưa có danh mục"}</p>
               <h3 className="mt-1 line-clamp-2 text-[15px] font-bold leading-snug text-ink-900">{previewName}</h3>
               <dl className="mt-3 space-y-1.5 text-xs">
-                <div className="flex justify-between gap-3"><dt className="text-ink-500">{product ? "Giá buyer đang thấy" : "Giá trong form"}</dt><dd className="text-right font-semibold tabular-nums text-ink-800">{product ? (savedPrice ? savedPrice.buyerPrice ?? "Price on request" : "Chưa kiểm tra") : previewPrice}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-ink-500">{product ? "Giá người mua đang thấy" : "Giá trong form"}</dt><dd className="text-right font-semibold tabular-nums text-ink-800">{product ? (savedPrice ? savedPrice.buyerPrice ?? "Price on request" : "Chưa kiểm tra") : previewPrice}</dd></div>
                 {!product && <div className="flex justify-between gap-3"><dt className="text-ink-500">MOQ</dt><dd className="text-right font-semibold text-ink-800">{previewMoq}</dd></div>}
               </dl>
             </div>
           </div>
-          <p className="mt-3 max-w-md text-xs leading-5 text-ink-500">Đây là preview nội dung đang nhập, không phải trạng thái đã đăng. Ảnh đại diện và điều kiện hiển thị giá thực tế vẫn theo dữ liệu đã lưu.</p>
+          <p className="mt-3 max-w-md text-xs leading-5 text-ink-500">{"Bản xem trước nội dung đang nhập, không phải trạng thái đã đăng." + " Ảnh và điều kiện hiện giá vẫn theo dữ liệu đã lưu."}</p>
         </div>
       </details>
     </form>

@@ -13,7 +13,7 @@ export async function decideSupplierOnboardingAction(form: FormData): Promise<Re
   const denied = await guard("suppliers.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "reviewer")) return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được xác nhận tài khoản NCC." };
+  if (!session || (session.role !== "admin" && session.role !== "reviewer")) return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được xác nhận tài khoản nhà cung cấp." };
   const id = String(form.get("supplier_id") ?? "");
   const decision = String(form.get("decision") ?? "");
   const note = String(form.get("note") ?? "").trim().slice(0, 1000);
@@ -26,7 +26,7 @@ export async function decideSupplierOnboardingAction(form: FormData): Promise<Re
     if (decision === "approved") {
       const owner = await store.getUserBySupplierId(id);
       if (!owner || owner.role !== "supplier" || !owner.is_active || owner.supplier_id !== id) {
-        return { ok: false, message: "Không tìm thấy tài khoản NCC đang hoạt động liên kết hồ sơ này." };
+        return { ok: false, message: "Không tìm thấy tài khoản nhà cung cấp đang hoạt động liên kết hồ sơ này." };
       }
       const review = (await store.listVerifications(id)).find((v) => v.target_level === 1);
       if (!supplier.name || !supplier.products || !supplier.phone || !supplier.tax_id || !supplier.supplier_type ||
@@ -46,7 +46,7 @@ export async function decideSupplierOnboardingAction(form: FormData): Promise<Re
     revalidatePath("/crm/suppliers");
     revalidatePath("/supplier/portal");
     refreshCrmBadges();
-    return { ok: true, message: (decision === "approved" ? "Đã mở quyền cổng NCC. Chưa duyệt xác minh/công khai hồ sơ." : "Đã lưu yêu cầu bổ sung hồ sơ.") + (mail === "sent" ? "" : " Email NCC chưa gửi được; quyết định đã lưu trên cổng.") };
+    return { ok: true, message: (decision === "approved" ? "Đã mở quyền cổng nhà cung cấp. Chưa duyệt xác minh/công khai hồ sơ." : "Đã lưu yêu cầu bổ sung hồ sơ.") + (mail === "sent" ? "" : " Email nhà cung cấp chưa gửi được; quyết định đã lưu trên cổng.") };
   } catch (error) {
     console.error("[supplier-onboarding] staff decision failed", error);
     return { ok: false, message: "Không lưu được quyết định. Vui lòng kiểm tra hồ sơ và thử lại." };

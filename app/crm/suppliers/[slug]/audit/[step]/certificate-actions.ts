@@ -56,7 +56,7 @@ async function rescanCertificate(supplierId: string, certificateId: string) {
     store.getCertificate(certificateId),
   ]);
   if (!supplier || !cert || cert.supplier_id !== supplier.id) {
-    return result(false, "Không tìm thấy chứng nhận của NCC này.");
+    return result(false, "Không tìm thấy chứng nhận của nhà cung cấp này.");
   }
   if (!cert.file_media_id) {
     return result(false, "Chứng nhận chưa đính kèm tệp gốc để AI quét.");
@@ -122,7 +122,7 @@ async function toggleCertificateHidden(
     store.getCertificate(certificateId),
   ]);
   if (!supplier || !cert || cert.supplier_id !== supplier.id) {
-    return result(false, "Không tìm thấy chứng nhận của NCC này.");
+    return result(false, "Không tìm thấy chứng nhận của nhà cung cấp này.");
   }
 
   const nextHidden = Boolean(hide);

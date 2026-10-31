@@ -18,7 +18,7 @@ const mocks = {
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent' },
   '@/lib/ai/product-translation-service': {}, '@/lib/ai/translate-content': {}, '@/lib/products/product-description': {},
   '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] }, '@/lib/products/quantity-pricing': { nameContainsGrade: (name, grades) => grades.some((grade) => name.includes(grade)) },
-  '@/lib/media/readiness': { productPublicationMediaState: () => ({ verifiedBuyerImages: true, uncheckedBuyerFiles: 0 }) },
+  '@/lib/media/readiness': { productPublicationMediaState: () => ({ buyerImages: 1, buyerFiles: 1, ready: true }) },
   '@/lib/public/product-selection': { isTestOnlyProduct: () => false }, '@/lib/public/supplier-seo': { isSyntheticSupplier: () => false },
 };
 const exports = {}, process = { env: {} };
@@ -27,7 +27,7 @@ vm.runInNewContext(code, { exports, console, process, FormData, require: (key) =
 const form = new FormData(); form.set('product_id', id); form.set('decision', 'approved'); form.set('reviewed_category_slug', 'cashew');
 let response = await exports.decideSupplierProductAction(form);
 assert.equal(response.ok, false); assert.match(response.message, /duyệt bảng giá/i); assert.equal(requests[0].args.p_buyer_enabled, false);
-status = 'buyer_not_enabled'; response = await exports.decideSupplierProductAction(form); assert.match(response.message, /chưa được bật/);
+status = 'buyer_not_enabled'; response = await exports.decideSupplierProductAction(form); assert.match(response.message, /Chưa bật trang giá cho người mua/);
 status = 'price_changed'; response = await exports.decideSupplierProductAction(form); assert.match(response.message, /gửi lại/);
 status = 'category_changed'; response = await exports.decideSupplierProductAction(form); assert.match(response.message, /Danh mục/);
 status = 'saved'; process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true'; response = await exports.decideSupplierProductAction(form);

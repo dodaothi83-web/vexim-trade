@@ -223,6 +223,15 @@ export interface SupplierProduct {
   /** Bao bì / đóng gói */
   packaging: string | null;
   packaging_i18n?: I18nString;
+  /** Phase 2: tối đa 3 từ khoá tiếng Anh để người mua tìm thấy sản phẩm. */
+  keywords?: string[];
+  /** Phase 2: giá một mẫu hàng tính bằng USD; null khi không bán mẫu. */
+  sample_price_usd?: number | null;
+  /** Phase 2: kiện đóng gói (bao, thùng, hộp…) và kích thước đo được. */
+  package_type?: string | null;
+  package_weight_kg?: number | null;
+  package_size?: string | null;
+  units_per_carton?: number | null;
   /** Nhận làm nhãn riêng */
   oem: boolean;
   /** Thiết kế và sản xuất theo yêu cầu; NCC tự khai, không phải xác minh. */

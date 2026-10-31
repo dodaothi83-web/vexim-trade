@@ -72,7 +72,7 @@ export default async function SupplierProfilePage() {
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Hồ sơ doanh nghiệp"
-      sub="Đây là hồ sơ buyer và bộ phận duyệt nhìn thấy, kèm tình trạng từng cấp xác minh. Mỗi cấp là một kết luận riêng."
+      sub="Đây là hồ sơ người mua và bộ phận duyệt nhìn thấy, kèm tình trạng từng cấp xác minh. Mỗi cấp là một kết luận riêng."
       actions={<>
         <span className="rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-800">Bước tiếp theo: {nextGoal}</span>
         <Link href="/supplier/portal/profile/edit" className="btn btn-primary">
@@ -91,7 +91,7 @@ export default async function SupplierProfilePage() {
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <div className="space-y-5">
         <Panel icon={<FileText className="h-4 w-4 text-brand-700" />} title="Thông tin trên hồ sơ"
-          sub="Bạn có thể cập nhật thông tin liên hệ, giới thiệu và thương mại. Tên pháp nhân, mã số thuế và kết quả xác minh do Vexim quản lý.">
+          sub="Bạn cập nhật được thông tin liên hệ, giới thiệu và thương mại. Tên pháp nhân, mã số thuế do Vexim giữ.">
           <p className="text-[10.5px] font-bold tracking-[0.14em] text-ink-400 uppercase">Doanh nghiệp</p>
           <dl className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
             <Info label="Tên pháp nhân" value={supplier.name} />
@@ -127,11 +127,11 @@ export default async function SupplierProfilePage() {
             <Info label="Zalo" value={supplier.zalo} />
             <Info label="Website" value={supplier.website} />
           </dl>
-          <p className="mt-4 text-[11px] leading-5 text-ink-500">Tên hiển thị, phần giới thiệu và thông tin thương mại là nội dung do bạn cung cấp. Email, điện thoại và giấy tờ nội bộ không hiển thị cho buyer.</p>
+          <p className="mt-4 text-[11px] leading-5 text-ink-500">Tên hiển thị, giới thiệu và thông tin thương mại do bạn cung cấp. Email, điện thoại và giấy tờ nội bộ được giữ kín.</p>
         </Panel>
 
         <Panel icon={<BadgeCheck className="h-4 w-4 text-brand-700" />} title="Giới thiệu trên trang công khai"
-          sub="Phần buyer đọc đầu tiên trên trang công khai.">
+          sub="Phần người mua đọc đầu tiên trên trang công khai.">
           {about
             ? <p className="text-[13px] leading-6 whitespace-pre-line text-ink-700">{about}</p>
             : <p className="text-[13px] leading-6 text-ink-500">Chưa có phần giới thiệu. Gửi nội dung để bổ sung trước khi hồ sơ công khai.</p>}
@@ -163,7 +163,7 @@ export default async function SupplierProfilePage() {
           <Link href="/supplier/portal/verification/factory" className="btn btn-soft btn-sm">{l2Scope === "partner_contract" ? "Nộp hợp đồng đối tác" : "Nộp bằng chứng nhà máy"}</Link>
           <Link href="/supplier/portal/verification/export" className="btn btn-soft btn-sm">Nộp chứng từ xuất khẩu</Link>
         </div>
-        <p className="mt-3 text-[11px] leading-5 text-ink-500">Nhãn xác minh trên trang buyer chỉ xuất hiện cho từng đánh giá đã được kiểm và phê duyệt.</p>
+        <p className="mt-3 text-[11px] leading-5 text-ink-500">Nhãn xác minh trên trang người mua chỉ xuất hiện cho từng đánh giá đã được kiểm và phê duyệt.</p>
       </Panel>
     </div>
   </>;

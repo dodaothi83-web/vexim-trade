@@ -1,6 +1,7 @@
 import type { Certificate, MediaAsset } from "@/lib/types";
 import { isExpired } from "@/lib/media/readiness";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { approvedProductCertificateIds } from "@/lib/public/product-certificate-links";
 
 export interface PublicSupplierCertificate {
   id: string;
@@ -68,4 +69,24 @@ export function publicSupplierCertificates(
       validUntil: c.valid_until!,
     }))
     .slice(0, 16);
+}
+
+/**
+ * Chứng nhận hiển thị riêng trên trang một sản phẩm: giao của danh sách đã công
+ * khai ở trên với `approved_product_ids` mà nhân viên đã duyệt cho sản phẩm đó.
+ *
+ * Dùng đúng bộ lọc của hồ sơ nhà cung cấp trước rồi mới lọc theo sản phẩm, nên
+ * không thể lộ chứng nhận chưa duyệt/chưa công khai/đã hết hạn.
+ */
+export function publicProductCertificates(
+  supplierId: string,
+  productId: string,
+  certificates: Certificate[],
+  media: MediaAsset[] = [],
+  today = new Date().toISOString().slice(0, 10),
+): PublicSupplierCertificate[] {
+  const linked = approvedProductCertificateIds(certificates, supplierId, productId);
+  if (!linked.size) return [];
+  return publicSupplierCertificates(supplierId, certificates, media, today)
+    .filter((certificate) => linked.has(certificate.id));
 }

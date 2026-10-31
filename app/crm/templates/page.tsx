@@ -68,7 +68,7 @@ export default async function TemplatesPage({
     <>
       <PageHeader
         title="Templates nội dung email"
-        sub="Mỗi giai đoạn có một bộ nội dung riêng cho buyer (tiếng Anh) và cho nhà cung cấp (tiếng Việt). Xem, chỉnh sửa và lưu lại — email tự động lần sau sẽ dùng bản đã sửa."
+        sub="Mỗi giai đoạn có nội dung riêng: tiếng Anh cho người mua, tiếng Việt cho nhà cung cấp. Lưu lại để email dùng bản mới."
       />
 
       <div className="mb-5">
@@ -122,13 +122,13 @@ export default async function TemplatesPage({
         </Card>
 
         <div className="space-y-4">
-          {/* Chuyển buyer / NCC */}
+          {/* Chuyển người mua / nhà cung cấp */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex overflow-hidden rounded-lg border border-ink-300 bg-white">
               {(
                 [
-                  ["buyer", "Gửi BUYER (tiếng Anh)"],
-                  ["supplier", "Gửi NCC (tiếng Việt)"],
+                  ["buyer", "Gửi người mua (tiếng Anh)"],
+                  ["supplier", "Gửi nhà cung cấp (tiếng Việt)"],
                 ] as const
               ).map(([key, label]) => (
                 <Link
@@ -185,7 +185,10 @@ export default async function TemplatesPage({
                     fields={copyToFields(dir, copy)}
                     defaults={copyToFields(dir, STAGE_CONTENT[stage])}
                     hasOverride={hasOverride}
-                    placeholders="Placeholder sẽ được thay bằng dữ liệu đơn: {product} {quantity} {spec} {country} {port} {incoterm} {shipdate} {ref} {supplier} {payment} (tiếng Anh) / {payment_vi} (tiếng Việt)."
+                    placeholders={
+                      "Placeholder sẽ được thay bằng dữ liệu đơn. Bản tiếng Anh nhận {product} {quantity} {spec} {country} {port} {incoterm} " +
+                      "{shipdate} {ref} {supplier} {payment}; bản tiếng Việt nhận thêm {payment_vi}."
+                    }
                   />
                 ) : (
                   <p className="text-[13px] text-ink-500">
@@ -200,7 +203,7 @@ export default async function TemplatesPage({
           <Card>
             <div className="border-b border-ink-200 px-4 py-3">
               <h2 className="text-[15px] font-bold text-ink-900">
-                {dir === "buyer" ? "Nội dung gửi buyer" : "Nội dung gửi nhà cung cấp"}
+                {dir === "buyer" ? "Nội dung gửi người mua" : "Nội dung gửi nhà cung cấp"}
               </h2>
               <p className="mt-0.5 text-xs text-ink-500">
                 Nội dung đang hiệu lực (mặc định hoặc bản đã lưu ở khối “Chỉnh sửa template”)
@@ -239,7 +242,7 @@ export default async function TemplatesPage({
                 ) : (
                   <>
                     <div>
-                      <p className="label">Việc NCC cần làm</p>
+                      <p className="label">Việc nhà cung cấp cần làm</p>
                       <ol className="list-decimal space-y-1 rounded-lg border-l-4 border-amber-500 bg-amber-50 px-3 py-2 pl-7 text-[13px] text-amber-900">
                         {copy.supplier.tasks.map((t, i) => (
                           <li key={i}>{t}</li>
@@ -267,7 +270,7 @@ export default async function TemplatesPage({
               {sample && (
                 <span className="text-[11.5px] text-ink-500">
                   dữ liệu mẫu: {sample.company}
-                  {dir === "supplier" && supplier ? ` · NCC ${supplier.name}` : ""}
+                  {dir === "supplier" && supplier ? ` · nhà cung cấp ${supplier.name}` : ""}
                 </span>
               )}
             </div>

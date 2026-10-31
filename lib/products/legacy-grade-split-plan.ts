@@ -67,7 +67,7 @@ export function planLegacyGradeSplit(input: LegacySplitInput): Result {
   const errors: string[] = [];
   const p = input.product;
   if (!uuid.test(p.id) || !uuid.test(p.supplier_id) || !uuid.test(input.newProductId) || p.id.toLowerCase() === input.newProductId.toLowerCase())
-    errors.push("Mã sản phẩm hoặc NCC không hợp lệ.");
+    errors.push("Mã sản phẩm hoặc nhà cung cấp không hợp lệ.");
   // The public route is resolved by catalog rules, not necessarily p.category.
   // A trusted caller must supply the current resolved slug and verify the URL.
   const category = str(input.resolvedCategorySlug);
@@ -110,7 +110,7 @@ export function planLegacyGradeSplit(input: LegacySplitInput): Result {
     if (!mapping || !main || !["jpg", "jpeg", "png", "webp"].includes(main.extension) ||
         (asset.thumb_path && (!thumb || !["jpg", "jpeg", "png", "webp"].includes(thumb.extension))) ||
         asset.owner_type !== "product" || asset.product_id !== p.id || asset.supplier_id !== p.supplier_id) {
-      errors.push("Ảnh thiếu ánh xạ, không thuộc sản phẩm/NCC hoặc đường dẫn không an toàn.");
+      errors.push("Ảnh thiếu ánh xạ, không thuộc sản phẩm/nhà cung cấp hoặc đường dẫn không an toàn.");
       continue;
     }
     assetCopies.push({ sourceId: asset.id, newId: mapping.newId, sourcePath: asset.storage_path!,

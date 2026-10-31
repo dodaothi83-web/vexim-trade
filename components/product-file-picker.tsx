@@ -112,7 +112,7 @@ export function ProductFilePicker({
         <div className="flex items-center justify-between border-b border-ink-200 px-5 py-4">
           <div>
             <h3 className="text-[15px] font-semibold text-ink-900">Đính kèm từ hồ sơ sản phẩm</h3>
-            <p className="text-[12px] text-ink-500">Chỉ hiện ảnh và catalogue đã chia sẻ cho buyer, chưa hết hạn.</p>
+            <p className="text-[12px] text-ink-500">Chỉ hiện ảnh và catalogue đã chia sẻ cho người mua, chưa hết hạn.</p>
           </div>
           <button type="button" onClick={onClose} className="text-ink-400 hover:text-ink-700" aria-label="Đóng">
             <X className="h-4 w-4" />
@@ -128,7 +128,7 @@ export function ProductFilePicker({
             <div className="flex gap-2">
               <input
                 className="input flex-1"
-                placeholder="Tìm sản phẩm hoặc NCC…"
+                placeholder="Tìm sản phẩm hoặc nhà cung cấp…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />

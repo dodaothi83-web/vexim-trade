@@ -31,19 +31,19 @@ export default async function TeamPage() {
     <>
       <PageHeader
         title="KPI cá nhân"
-        sub={`Tháng ${monthLabel} · tính theo buyer đang phụ trách · hoa hồng sẽ bổ sung khi có dữ liệu thanh toán`}
+        sub={`Tháng ${monthLabel} · tính theo người mua đang phụ trách · hoa hồng sẽ bổ sung khi có dữ liệu thanh toán`}
       />
       <Card className="overflow-x-auto p-0">
         <table className="w-full text-left text-[13px]">
           <thead className="border-b border-ink-100 text-ink-500">
             <tr>
               <th className="px-4 py-3 font-medium">Người phụ trách</th>
-              <th className="px-4 py-3 text-right font-medium">Buyer đang phụ trách</th>
-              <th className="px-4 py-3 text-right font-medium">Buyer đã liên hệ</th>
+              <th className="px-4 py-3 text-right font-medium">Người mua đang phụ trách</th>
+              <th className="px-4 py-3 text-right font-medium">Người mua đã liên hệ</th>
               <th className="px-4 py-3 text-right font-medium">Email đã gửi</th>
-              <th className="px-4 py-3 text-right font-medium">Buyer đã phản hồi</th>
+              <th className="px-4 py-3 text-right font-medium">Người mua đã phản hồi</th>
               <th className="px-4 py-3 text-right font-medium">Tỷ lệ phản hồi</th>
-              <th className="px-4 py-3 text-right font-medium">Buyer đã gán NCC</th>
+              <th className="px-4 py-3 text-right font-medium">Người mua đã gán nhà cung cấp</th>
               <th className="px-4 py-3 font-medium">Hoa hồng</th>
             </tr>
           </thead>
@@ -82,7 +82,7 @@ export default async function TeamPage() {
         </p>
       )}
       <p className="mt-3 text-[12px] text-ink-400">
-        Email và phản hồi tính trong tháng hiện tại (giờ Việt Nam). Buyer đã gán NCC là số buyer đang có nhà cung cấp tại thời điểm xem.
+        Email và phản hồi tính trong tháng hiện tại (giờ Việt Nam). Người mua đã gán nhà cung cấp là số người mua đang có nhà cung cấp tại thời điểm xem.
       </p>
     </>
   );

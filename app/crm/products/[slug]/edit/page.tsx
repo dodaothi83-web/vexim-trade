@@ -17,10 +17,15 @@ import { isExpired, productPublicationMediaState, productReadiness } from "@/lib
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { SupplierProductReviewControls } from "./review-controls";
+import { packagingSummary } from "@/lib/products/product-extras";
+import { certificateProductState } from "@/lib/products/product-certificates";
+import { decideProductCertificateFormAction } from "../certificate-actions";
 import { ProductTranslationPanel } from "./translation-panel";
 import { productTranslationState } from "@/lib/ai/translate-content";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { ProductEditWorkspace } from "./edit-workspace";
+import { QuantityPreviewCard } from "@/components/products/quantity-preview-card";
+import type { QuantityPreviewSnapshot } from "@/components/products/quantity-preview-store";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +43,16 @@ export default async function EditProductPage({
   if (!product) notFound();
   const supplier = await store.getSupplier(product.supplier_id);
   if (!supplier) notFound();
+  // Chứng nhận theo sản phẩm: dùng lại certificates.requested_product_ids / approved_product_ids.
+  const productCertificates = await store.listCertificates(product.supplier_id)
+    .then((rows) => rows
+      .map((certificate) => ({ id: certificate.id, name: certificate.name, issuer: certificate.issuer,
+        valid_until: certificate.valid_until, state: certificateProductState(certificate, product.id) }))
+      .filter((certificate) => certificate.state !== "none"))
+    .catch((error) => {
+      console.error("[product-certificate] crm list", error);
+      return [];
+    });
   const [media, categories] = await Promise.all([store.listMedia("product", id), store.listCategories({ publishedOnly: false })]);
   const readiness = productReadiness(media);
   const publicationMedia = productPublicationMediaState(media, product.id, product.supplier_id);
@@ -57,7 +72,7 @@ export default async function EditProductPage({
   // Match the category catalog: a published test profile is still not a real commercial supplier.
   const commercialSupplier = !isSyntheticSupplier(supplier) ||
     (!!supplier.is_demo && process.env.VEXIM_SHOW_DEMO === "true");
-  // Cả sản phẩm CRM cũ đã được NCC tạm ẩn đều phải qua luồng duyệt khi đăng lại.
+  // Cả sản phẩm CRM cũ đã được nhà cung cấp tạm ẩn đều phải qua luồng duyệt khi đăng lại.
   const supplierReviewedListing = !!(product.supplier_originated || product.supplier_category_proposal || product.supplier_review_status === "paused");
   const needsPublicationRetry = supplierReviewedListing && product.supplier_review_status === "approved" && !product.ready_for_buyer;
   const needsPublicationAction = supplierReviewedListing && (product.supplier_review_status === "pending" || needsPublicationRetry);
@@ -83,24 +98,33 @@ export default async function EditProductPage({
     console.error("[quantity-pricing] CRM editor", error);
     return null;
   });
+  // Thẻ "Người mua sẽ thấy" nằm ở cột phải: dựng sẵn bằng dữ liệu đã lưu để không nhấp nháy,
+  // sau khi form thuỷ hoá thì cập nhật theo bảng giá đang nhập.
+  const quantityPreviewInitial: QuantityPreviewSnapshot | null = quantityEditor ? {
+    value: { grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, currency: quantityEditor.currency,
+      nameVi: product.name ?? "", nameEn: "", tiers: quantityEditor.tiers },
+    standardGrades: quantityEditor.standardGrades,
+    policy: quantityEditor.policy,
+    buyerPriceUnit: quantityEditor.buyerPriceUnit,
+    pricePubliclyVisible: quantityEditor.pricePubliclyVisible,
+  } : null;
   const translationState = productTranslationState(product);
   const websiteChecks: Array<{ done: boolean; label: string; automatic?: boolean; href?: string }> = supplierReviewedListing ? [
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đang xuất bản` },
-    { done: supplier.status === "published", label: "Hồ sơ NCC đang công khai" },
+    { done: supplier.status === "published", label: "Hồ sơ nhà cung cấp đang công khai" },
     { done: commercialSupplier, label: "Hồ sơ không phải dữ liệu thử nghiệm" },
-    { done: publicationMedia.verifiedBuyerImages > 0, label: "Ít nhất một ảnh đã kiểm tra và chia sẻ buyer", href: "#product-media" },
-    { done: publicationMedia.uncheckedBuyerFiles === 0, label: "Mọi tệp chia sẻ buyer đã được xác minh", href: "#product-media" },
+    { done: publicationMedia.buyerImages > 0, label: "Có ít nhất một ảnh người mua thấy được", href: "#product-media" },
     { done: productReviewApproved(product) && !!product.ready_for_buyer, label: "Sản phẩm đã được duyệt và đăng", automatic: needsPublicationAction },
     { done: !isTestOnlyProduct(product.name), label: "Tên sản phẩm không phải dữ liệu thử nghiệm" },
   ] : [
     // CRM-created products keep their existing checklist and manual posting flow.
     { done: translationState.current, label: translationState.hasEnglish ? "Bản dịch tiếng Anh cần cập nhật theo nội dung gốc" : "Cần có bản dịch tiếng Anh trước khi công khai", href: "#product-translation" },
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đã đăng` },
-    { done: supplier.status === "published", label: "NCC đã đăng (không tự chuyển trạng thái khi lưu)" },
-    { done: commercialSupplier, label: "Hồ sơ NCC không phải dữ liệu thử nghiệm (tên, slug hoặc giới thiệu có TEST / DO NOT CONTACT; hồ sơ demo chỉ xem khi bật chế độ demo)" },
-    { done: readiness.ready, label: "Thêm ít nhất một ảnh hoặc catalogue chia sẻ buyer", href: "#product-media" },
-    { done: productReviewApproved(product), label: "Vexim đã xác nhận nội dung và danh mục sản phẩm NCC" },
-    { done: !!product.ready_for_buyer, label: "Đã bật “Sẵn sàng gửi buyer” và lưu hồ sơ" },
+    { done: supplier.status === "published", label: "Nhà cung cấp đã đăng (không tự đổi trạng thái khi lưu)" },
+    { done: commercialSupplier, label: "Hồ sơ nhà cung cấp không phải dữ liệu thử nghiệm (không có TEST / DO NOT CONTACT)." + " Hồ sơ demo chỉ xem khi bật chế độ demo." },
+    { done: readiness.ready, label: "Thêm ít nhất một ảnh hoặc catalogue chia sẻ cho người mua", href: "#product-media" },
+    { done: productReviewApproved(product), label: "Vexim đã xác nhận nội dung và danh mục sản phẩm" },
+    { done: !!product.ready_for_buyer, label: "Đã bật “Sẵn sàng gửi người mua” và lưu hồ sơ" },
     { done: !isTestOnlyProduct(product.name), label: "Tên không bắt đầu bằng TEST ONLY" },
   ];
   // Chỉ hiển thị điều kiện còn thiếu. Sản phẩm đã đủ điều kiện dùng một trạng thái
@@ -114,7 +138,7 @@ export default async function EditProductPage({
         breadcrumbs={
           <Breadcrumbs
             items={[
-              { label: "Sản phẩm NCC", href: "/crm/products" },
+              { label: "Sản phẩm nhà cung cấp", href: "/crm/products" },
               { label: product.name, href: `/crm/products/${product.id}` },
               { label: "Chỉnh sửa" },
             ]}
@@ -123,8 +147,7 @@ export default async function EditProductPage({
         title={`Sửa: ${product.name}`}
         sub={`Nhà cung cấp: ${supplier.name}`}
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Link className="btn btn-soft" href={`/crm/products/${encodeURIComponent(product.id)}/mapping-preview`}>Đối chiếu form mới</Link>
+          <div className="flex flex-wrap justify-end gap-2">
             {hasPermission(session.role, "products.delete") && <DeleteProductButton productId={product.id} name={product.name} supplierId={supplier.id} />}
           </div>
         }
@@ -150,7 +173,7 @@ export default async function EditProductPage({
               supplierId={supplier.id}
               items={media}
               featuredMediaId={product.featured_media_id}
-              note={supplierReviewedListing ? "Trước khi đăng: chọn Đã kiểm tra và Chia sẻ buyer cho từng tệp công khai. Tệp Nội bộ vẫn riêng tư." : "Ảnh/catalogue chia sẻ buyer · giấy tờ nội bộ chỉ dùng trong nhà"}
+              note={supplierReviewedListing ? "Ảnh nhà cung cấp tải lên đã chia sẻ cho người mua; chuyển về Nội bộ nếu cần ẩn. Không còn bước kiểm tra từng ảnh." : "Ảnh/catalogue chia sẻ cho người mua · giấy tờ nội bộ chỉ dùng trong nhà"}
             />
           </div>
           <ProductTranslationPanel
@@ -192,12 +215,12 @@ export default async function EditProductPage({
             origin={translationState.origin}
           />
           {product.supplier_review_status && (product.supplier_review_status !== "approved" || needsPublicationRetry) && <section id="product-review" className="card scroll-mt-24 border-amber-200 bg-amber-50 p-5 text-sm">
-            <h2 className="font-bold text-ink-900">{needsPublicationAction ? "Duyệt và đăng" : product.supplier_review_status === "changes_requested" ? "Cần chỉnh sửa" : product.supplier_review_status === "paused" ? "NCC đã tạm ẩn" : "Bản nháp"}</h2>
+            <h2 className="font-bold text-ink-900">{needsPublicationAction ? "Duyệt và đăng" : product.supplier_review_status === "changes_requested" ? "Cần chỉnh sửa" : product.supplier_review_status === "paused" ? "Nhà cung cấp đã tạm ẩn" : "Bản nháp"}</h2>
             <p className="mt-1 text-ink-700">{needsPublicationAction
               ? "Kiểm tra nội dung, danh mục và tệp. Một thao tác sẽ hoàn tất việc đăng sản phẩm."
               : product.supplier_review_status === "paused"
-                ? "Sản phẩm đang ẩn. NCC phải gửi duyệt lại trước khi Vexim có thể đăng."
-                : "Sản phẩm chưa được đăng. NCC cần chỉnh sửa và gửi duyệt lại."}</p>
+                ? "Sản phẩm đang ẩn. Nhà cung cấp phải gửi duyệt lại trước khi có thể đăng."
+                : "Sản phẩm chưa được đăng. Nhà cung cấp cần chỉnh sửa và gửi duyệt lại."}</p>
             {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
             {typeof product.specs?.price_review_summary === "string" && product.supplier_review_status === "pending" && (
               <p className="mt-2 rounded-lg border border-amber-300 bg-white/80 px-3 py-2 text-xs font-semibold text-amber-950">
@@ -222,7 +245,7 @@ export default async function EditProductPage({
           {showWebsiteSection && <section id="product-publication-status" className="card order-1 scroll-mt-24 p-4" aria-label="Trạng thái công khai sản phẩm">
             <h2 className="mb-2 text-sm font-bold text-ink-900">{canView ? "Trạng thái đăng" : "Còn thiếu trước khi đăng"}</h2>
             {canView
-              ? <p className="flex items-start gap-2 text-[13px] text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Sản phẩm đang hiển thị với buyer.</p>
+              ? <p className="flex items-start gap-2 text-[13px] text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Sản phẩm đang hiển thị với người mua.</p>
               : <ul className="space-y-2.5">
                 {missingWebsiteChecks.map((item) => (
                   <li key={item.label} className="flex items-start gap-2 text-[13px] leading-snug">
@@ -233,12 +256,37 @@ export default async function EditProductPage({
                   </li>
                 ))}
               </ul>}
-            {(!supplierReviewedListing || canView) && readiness.ready && !productImages.length && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{supplierReviewedListing ? "Sản phẩm chỉ có catalogue. Thêm ảnh để thẻ sản phẩm có hình." : "Catalogue đủ điều kiện gửi buyer nhưng thẻ chưa có ảnh: tải thêm ảnh sản phẩm chia sẻ buyer để không chỉ hiện biểu tượng trống."}</p>}
+            {(!supplierReviewedListing || canView) && readiness.ready && !productImages.length && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{supplierReviewedListing ? "Sản phẩm chỉ có catalogue. Thêm ảnh để thẻ sản phẩm có hình." : "Catalogue đã đủ điều kiện nhưng thẻ chưa có ảnh. Thêm ảnh chia sẻ cho người mua để thẻ có hình."}</p>}
             {canView && category && <p className="mt-3 border-t border-ink-100 pt-3"><Link className="text-[13px] font-semibold text-brand-700 underline" href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`} target="_blank">{supplierReviewedListing ? "Xem sản phẩm đã đăng" : "Xem trang sản phẩm công khai ↗"}</Link></p>}
           </section>}
+          <div className="order-2 contents xl:block">
+            <QuantityPreviewCard initial={quantityPreviewInitial} imageUrl={previewImage} />
+          </div>
           <section className="card order-3 p-4 text-[13px] leading-relaxed text-ink-600">
-            <h2 className="mb-1 text-sm font-bold text-ink-900">Chứng nhận của NCC</h2>
-            <p>Chứng nhận không lấy từ ô sản phẩm tự khai. <Link href={`/crm/suppliers/${supplier.id}/audit/documents`} className="font-semibold text-brand-700 underline">Xem giấy tờ và chứng nhận NCC →</Link></p>
+            <h2 className="mb-1 text-sm font-bold text-ink-900">Từ khoá và đóng gói</h2>
+            <p><strong className="text-ink-900">Từ khoá:</strong> {product.keywords?.length ? product.keywords.join(", ") : "chưa khai"}</p>
+            <p><strong className="text-ink-900">Đóng gói:</strong> {packagingSummary(product) || product.packaging || "chưa khai"}</p>
+            <p><strong className="text-ink-900">Giá mẫu:</strong> {product.sample_price_usd == null ? "chưa khai" : `USD ${product.sample_price_usd}`}</p>
+          </section>
+          <section className="card order-3 p-4 text-[13px] leading-relaxed text-ink-600">
+            <h2 className="mb-1 text-sm font-bold text-ink-900">Chứng nhận của nhà cung cấp</h2>
+            <p>Chứng nhận không lấy từ ô sản phẩm tự khai. Nhà cung cấp xin gắn từ hồ sơ Giấy tờ; Vexim duyệt ở đây.</p>
+            {productCertificates.length === 0
+              ? <p className="mt-2 text-ink-500">Chưa có chứng nhận nào được xin gắn cho sản phẩm này.</p>
+              : <ul className="mt-2 space-y-2">
+                {productCertificates.map((certificate) => <li key={certificate.id} className="rounded-lg border border-ink-200 px-3 py-2">
+                  <p className="font-semibold text-ink-900">{certificate.name}{certificate.issuer ? ` · ${certificate.issuer}` : ""}</p>
+                  <p className="text-ink-500">{certificate.state === "approved" ? "Đã duyệt gắn" : "Nhà cung cấp xin gắn"}{certificate.valid_until ? ` · hết hạn ${certificate.valid_until}` : ""}</p>
+                  <form action={decideProductCertificateFormAction} className="mt-2 flex gap-2">
+                    <input type="hidden" name="product_id" value={product.id} />
+                    <input type="hidden" name="certificate_id" value={certificate.id} />
+                    <input type="hidden" name="decision" value={certificate.state === "approved" ? "revoke" : "approve"} />
+                    <button type="submit" className="btn btn-sm btn-primary">
+                      {certificate.state === "approved" ? "Bỏ liên kết" : "Duyệt liên kết"}
+                    </button>
+                  </form>
+                </li>)}
+              </ul>}
           </section>
         </aside>
       </div>

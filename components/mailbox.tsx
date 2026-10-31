@@ -121,8 +121,8 @@ export function Mailbox({
           onChange={(e) => setFilter(e.target.value as Filter)}
         >
           <option value="all">Tất cả</option>
-          <option value="buyer">Gửi buyer</option>
-          <option value="supplier">Gửi NCC</option>
+          <option value="buyer">Gửi người mua</option>
+          <option value="supplier">Gửi nhà cung cấp</option>
           <option value="auto">Email tự động theo giai đoạn</option>
           <option value="manual">Email đội ngũ tự soạn</option>
         </select>
@@ -173,7 +173,7 @@ export function Mailbox({
                       ? "bg-brand-50 text-brand-700"
                       : "bg-amber-50 text-amber-700",
                   )}
-                  title={m.direction === "buyer" ? "Gửi buyer" : "Gửi nhà cung cấp"}
+                  title={m.direction === "buyer" ? "Gửi người mua" : "Gửi nhà cung cấp"}
                 >
                   {m.direction === "buyer" ? (
                     <Mail className="h-4 w-4" />

@@ -1102,7 +1102,7 @@ export const localStore: DataStore = {
   },
   async createSupplierVerificationRequest(supplierId, level) {
     return mutate((db) => {
-      if (!db.suppliers.some((s) => s.id === supplierId)) throw new Error("Không tìm thấy NCC.");
+      if (!db.suppliers.some((s) => s.id === supplierId)) throw new Error("Không tìm thấy nhà cung cấp.");
       if (level !== 2 && level !== 3) throw new Error("Chỉ nhận yêu cầu xác thực nhà máy hoặc lịch sử giao hàng.");
       if (db.supplier_verification_requests.some((r) => r.supplier_id === supplierId && r.target_level === level)) throw new Error("Đã gửi yêu cầu này.");
       const row: SupplierVerificationRequest = {
@@ -1393,7 +1393,7 @@ export const localStore: DataStore = {
         (u) => u.email.trim().toLowerCase() === input.email.trim().toLowerCase(),
       );
       if (exists) throw new Error("Email này đã có tài khoản.");
-      if (input.supplier_id && db.users.some((u) => u.supplier_id === input.supplier_id)) throw new Error("NCC này đã có tài khoản.");
+      if (input.supplier_id && db.users.some((u) => u.supplier_id === input.supplier_id)) throw new Error("Nhà cung cấp này đã có tài khoản.");
       const row: AppUserRecord = {
         ...input,
         id: randomUUID(),
@@ -1652,7 +1652,7 @@ export const localStore: DataStore = {
         return { status: "state_changed" };
       const asset = db.media.find((m) => m.id === mediaId);
       if (!asset || asset.owner_type !== "product" || asset.product_id !== productId || asset.supplier_id !== supplierId ||
-          asset.created_by !== userId || (product.supplier_review_status === "draft" && asset.audience !== "internal"))
+          asset.created_by !== userId)
         return { status: "forbidden" };
       if (product.supplier_review_status === "approved" && product.ready_for_buyer && asset.audience === "buyer") {
         const replacement = db.media.some((m) => m.id !== mediaId && m.owner_type === "product" && m.product_id === productId &&

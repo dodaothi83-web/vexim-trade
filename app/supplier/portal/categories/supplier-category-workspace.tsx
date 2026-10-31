@@ -255,7 +255,7 @@ export function SupplierCategoryWorkspace({
           </h2>
           <ul className="mt-2 space-y-1.5 text-[11.5px] leading-4 text-ink-600">
             <li>Chỉ chọn được danh mục đang mở; bạn không tự tạo danh mục mới.</li>
-            <li>Phạm vi này là thông tin tham khảo khi staff duyệt sản phẩm.</li>
+            <li>Phạm vi này là thông tin tham khảo khi nhân viên duyệt sản phẩm.</li>
             <li>Lưu danh mục không duyệt sản phẩm, không công khai gian hàng.</li>
             <li>Bỏ danh mục còn sản phẩm sẽ bị chặn cho tới khi chuyển sản phẩm.</li>
           </ul>

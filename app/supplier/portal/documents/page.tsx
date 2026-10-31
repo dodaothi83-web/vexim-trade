@@ -95,7 +95,7 @@ export default async function SupplierDocumentsPage() {
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · Xác minh L1" title="Giấy tờ & chứng nhận L1"
-      sub="Đăng ký doanh nghiệp và giấy an toàn thực phẩm được đối chiếu thủ công. Chứng nhận được AI đọc đơn vị đứng tên và ngày hết hạn."
+      sub="Đăng ký doanh nghiệp và giấy an toàn thực phẩm do nhân viên đối chiếu. Chứng nhận được AI đọc tên đơn vị và hạn dùng."
       actions={<Link href="/supplier/portal" className="btn btn-ghost btn-sm">
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />Tổng quan
       </Link>} />
@@ -294,7 +294,7 @@ export default async function SupplierDocumentsPage() {
         <section aria-labelledby="summary-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
           <h3 id="summary-title" className="text-[14px] font-bold text-ink-900">Tóm tắt bước 1</h3>
           <p className="mt-1 text-[11.5px] leading-5 text-ink-600">{l1Approved
-            ? "Đã đối chiếu xong. Chứng nhận hết hạn sẽ tự rơi khỏi trang buyer cho tới khi bạn tải bản mới."
+            ? "Đã đối chiếu xong. Chứng nhận hết hạn sẽ tự rơi khỏi trang người mua cho tới khi bạn tải bản mới."
             : "Đợt kiểm giấy tờ do nhân viên mở và đối chiếu; tải lên không tự cấp huy hiệu L1."}</p>
 
           <dl className="mt-3 grid grid-cols-2 gap-2 text-center">

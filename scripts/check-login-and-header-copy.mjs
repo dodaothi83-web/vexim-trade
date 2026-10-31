@@ -63,7 +63,7 @@ assert.doesNotMatch(loginPage, /Tạo tài khoản nhà cung cấp/);
 const registerPage = read("app/(auth)/supplier/register/page.tsx");
 assert.match(registerPage, /cần Vexim duyệt/);
 const portalPage = read("app/supplier/portal/page.tsx");
-assert.match(portalPage, /cần Vexim duyệt/);
+assert.match(portalPage, /Vexim duyệt hồ sơ/);
 
 // 4. Login form: email@congty.com placeholder, "Quên mật khẩu?" link, removed Google note
 const loginForm = read("components/login-form.tsx");

@@ -68,5 +68,5 @@ const supplierDetail = readFileSync(new URL('../app/crm/suppliers/[slug]/page.ts
 const productEditor = readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
 assert.doesNotMatch(supplierDetail, /SupplierCategoryControls|Ngành tự gán/, 'No duplicate staff supplier-category approval panel');
 assert.doesNotMatch(productEditor, /Danh mục sản phẩm đề xuất|Danh mục Vexim đã chốt/, 'One product category dropdown');
-assert.match(productEditor, /name="supplier_category_proposal" className="input" required/, 'Product selection is required');
+assert.match(productEditor, /name="supplier_category_proposal" className="input[^"]*" required/, 'Product selection is required');
 console.log('✅ Supplier scope: CMS-only selection, legacy compatibility, product restriction and independent approval.');

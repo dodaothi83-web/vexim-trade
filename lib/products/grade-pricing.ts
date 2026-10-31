@@ -961,7 +961,7 @@ function validateReasonableConvertedPrice(
   }
   if (maxPerKg > MAX_REASONABLE_PRICE_PER_KG) {
     return unitMeta.primary === "kg"
-      ? "Giá cao bất thường cho đơn vị USD/kg (tối đa 500 USD/kg). Kiểm tra xem bạn có đang nhập nhầm giá theo tấn hoặc VNĐ không."
+      ? "Giá cao bất thường cho đơn vị USD/kg (tối đa 500 USD/kg). Kiểm tra xem có nhập nhầm giá theo tấn hoặc VNĐ không."
       : "Giá cao bất thường cho đơn vị USD/MT (tối đa 500,000 USD/MT). Kiểm tra xem bạn có đang nhập nhầm sang VNĐ không.";
   }
   if (exceedsMaxPriceSpread(parsedMin, parsedMax)) {
@@ -1829,8 +1829,8 @@ export function describePriceChangeForReview(
   const before = summarizeComparablePrice(existing, category);
   const after = summarizeComparablePrice(next, category);
   if (before === after && !existing.price_publicly_visible && next.price_publicly_visible) {
-    return `NCC bật công khai giá tham khảo (${after}) - chờ kiểm tra lại giá.`;
+    return `Nhà cung cấp bật công khai giá tham khảo (${after}) - chờ kiểm tra lại giá.`;
   }
-  return `NCC cập nhật giá tham khảo (${before} -> ${after}) - chờ kiểm tra lại giá.`;
+  return `Nhà cung cấp cập nhật giá tham khảo (${before} -> ${after}) - chờ kiểm tra lại giá.`;
 }
 

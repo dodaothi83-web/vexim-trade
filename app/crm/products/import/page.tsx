@@ -18,7 +18,7 @@ export default async function ProductExcelImportPage() {
     return (
       <>
         <PageHeader
-          breadcrumbs={<Breadcrumbs items={[{ label: "Sản phẩm NCC", href: "/crm/products" }, { label: "Nhập từ Excel" }]} />}
+          breadcrumbs={<Breadcrumbs items={[{ label: "Sản phẩm nhà cung cấp", href: "/crm/products" }, { label: "Nhập từ Excel" }]} />}
           title="Nhập sản phẩm từ Excel"
         />
         <Card className="p-6 text-sm text-ink-600">Tài khoản của bạn không có quyền quản lý sản phẩm.</Card>
@@ -35,9 +35,9 @@ export default async function ProductExcelImportPage() {
   return (
     <>
       <PageHeader
-        breadcrumbs={<Breadcrumbs items={[{ label: "Sản phẩm NCC", href: "/crm/products" }, { label: "Nhập từ Excel" }]} />}
+        breadcrumbs={<Breadcrumbs items={[{ label: "Sản phẩm nhà cung cấp", href: "/crm/products" }, { label: "Nhập từ Excel" }]} />}
         title="Nhập sản phẩm từ Excel"
-        sub="Dành cho nhân viên Vexim nhập hộ danh mục sản phẩm của nhà cung cấp. File mẫu sinh theo từng danh mục; sản phẩm nhập vào là bản nháp chờ duyệt, chưa hiển thị cho buyer."
+        sub="Nhân viên Vexim nhập hộ sản phẩm của nhà cung cấp. File mẫu sinh theo danh mục; sản phẩm nhập vào là bản nháp chờ duyệt."
       />
       <ImportClient
         suppliers={suppliers.map((s) => ({ id: s.id, name: s.display_name || s.name, province: s.province ?? null }))}

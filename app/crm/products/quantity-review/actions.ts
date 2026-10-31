@@ -44,7 +44,7 @@ export async function decideQuantityRevisionAction(form: FormData): Promise<Quan
       // Context-aware revisions are checked atomically by the database. Older
       // revisions without a captured context retain the stricter version check.
       if (product.updated_at !== expectedUpdatedAt || (!revision.product_context && revision.product_updated_at !== product.updated_at)) {
-        return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi gửi. NCC cần gửi lại trước khi duyệt." };
+        return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi gửi. Nhà cung cấp cần gửi lại trước khi duyệt." };
       }
       const slug = product.reviewed_category_slug || product.supplier_category_proposal || product.category;
       const category = slug ? await supabaseStore.getCategoryBySlug(slug) : null;
@@ -53,7 +53,7 @@ export async function decideQuantityRevisionAction(form: FormData): Promise<Quan
       if (kind === "name") {
         if (revision.source_name !== product.name || typeof revision.english_name !== "string" || !revision.english_name.trim() ||
             nameContainsGrade(product.name, grades) || nameContainsGrade(revision.english_name, grades)) {
-          return { ok: false, message: "Tên đã đổi, chưa có bản tiếng Anh hoặc chứa grade. NCC cần sửa và gửi lại." };
+          return { ok: false, message: "Tên đã đổi, chưa có bản tiếng Anh hoặc chứa grade. Nhà cung cấp cần sửa và gửi lại." };
         }
       } else {
         const versioned = Array.isArray(revision.tiers) && revision.tiers.some((row: unknown) => row && typeof row === "object" && "version" in row);
@@ -88,7 +88,7 @@ export async function decideQuantityRevisionAction(form: FormData): Promise<Quan
     });
     if (error) throw new Error(error.message);
     if (data !== (decision === "approve" ? "approved" : "rejected")) {
-      return { ok: false, message: data === "product_changed" ? "Sản phẩm đã đổi; NCC cần gửi lại trước khi duyệt." : "Bản chờ duyệt đã thay đổi. Hãy tải lại trang." };
+      return { ok: false, message: data === "product_changed" ? "Sản phẩm đã đổi; nhà cung cấp cần gửi lại trước khi duyệt." : "Bản chờ duyệt đã thay đổi. Hãy tải lại trang." };
     }
     await supabaseStore.addAuditLog({ actor_id: actor.id, actor_email: actor.email, entity: "product", entity_id: productId,
       action: `quantity_pricing.${kind}_${decision}`, before: { revision_id: revisionId, status: "pending" },
@@ -97,9 +97,9 @@ export async function decideQuantityRevisionAction(form: FormData): Promise<Quan
     revalidatePath("/crm/products/quantity-review");
     revalidatePath(`/crm/products/${productId}/edit`);
     revalidatePath(`/supplier/portal/products/${productId}`);
-    return { ok: true, message: decision === "approve" ? "Đã duyệt phiên bản. Hiển thị buyer cho mô hình mới chưa được bật." : "Đã từ chối phiên bản; bản đã duyệt trước đó không thay đổi." };
+    return { ok: true, message: decision === "approve" ? "Đã duyệt phiên bản. Người mua vẫn thấy giá đã duyệt trước đó." : "Đã từ chối phiên bản; bản đã duyệt trước đó không thay đổi." };
   } catch (error) {
     console.error("[quantity-review] decision", error);
-    return { ok: false, message: "Không lưu được quyết định. Kiểm tra kết nối và migration 20261056." };
+    return { ok: false, message: "Không lưu được quyết định. Kiểm tra kết nối rồi thử lại." };
   }
 }

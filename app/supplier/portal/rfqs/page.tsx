@@ -46,7 +46,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="RFQ & báo giá"
-      sub="Chỉ những yêu cầu báo giá đã được chuyển tới doanh nghiệp. Thông tin buyer được giữ kín."
+      sub="Chỉ những yêu cầu báo giá đã được chuyển tới doanh nghiệp. Thông tin người mua được giữ kín."
       actions={<>
         <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{board.tasks.length} cần phản hồi</span>
         <span className="rounded-full bg-ink-100 px-3 py-1 text-[11px] font-bold text-ink-700">{board.invites.length} lời mời</span>
@@ -60,7 +60,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
 
     <div className="space-y-5">
       <Panel icon={<Mail className="h-4 w-4 text-brand-700" />} title="Cần bạn phản hồi" count={board.tasks.length}
-        sub="Trả lời thư mời chào giá trong hộp thư của bạn. Không liên hệ buyer trực tiếp." flush>
+        sub="Trả lời thư mời chào giá trong hộp thư của bạn. Không liên hệ người mua trực tiếp." flush>
         {board.tasks.length ? <ul className="divide-y divide-ink-100">
           {board.tasks.map((task) => {
             const overdue = !!task.dueAt && Date.parse(task.dueAt) < Date.now();
@@ -120,7 +120,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
             </tr>)}</tbody>
           </table>
         </div> : <EmptyRow>Chưa có lời mời trong {days} ngày qua.</EmptyRow>}
-        <p className="border-t border-ink-200 px-5 py-2.5 text-[11px] leading-4 text-ink-500">RFQ chung hoặc RFQ không có liên kết sản phẩm xác thực được nhóm riêng; không suy đoán từ tên sản phẩm buyer tự nhập.</p>
+        <p className="border-t border-ink-200 px-5 py-2.5 text-[11px] leading-4 text-ink-500">RFQ chung hoặc RFQ không gắn sản phẩm xác thực được nhóm riêng; không suy đoán từ tên sản phẩm người mua tự nhập.</p>
       </Panel>
     </div>
   </>;

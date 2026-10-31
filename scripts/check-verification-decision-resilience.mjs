@@ -153,13 +153,13 @@ for (const [code, hint] of [['L1_AUTO_PUBLICATION_PORTAL_NOT_APPROVED', /mở qu
   assert.equal(result.ok, false); assert.match(result.message, hint); assert.equal(review.status, 'submitted');
 }
 
-/* 2. CSDL thiếu cột (hay gặp khi production chưa chạy migration): trả lỗi mềm + gợi ý. */
+/* 2. CSDL thiếu cột (production lệch mã nguồn): trả lỗi mềm + chỉ người xử lý. */
 reset();
 updateError = new Error("Could not find the 'approved_by' column of 'verifications' in the schema cache");
 result = await approve();
 assert.equal(result.ok, false);
 assert.match(result.message, /Chưa lưu được quyết định duyệt/);
-assert.match(result.message, /migration/, 'phải gợi ý chạy migration');
+assert.match(result.message, /người phụ trách kỹ thuật/, 'phải chỉ đúng người xử lý khi CSDL lệch');
 assert.equal(review.status, 'submitted', 'bản kiểm vẫn ở trạng thái chờ duyệt');
 
 /* 3. UPDATE khớp 0 dòng (RLS chặn ghi): nói rõ khoá máy chủ không có quyền ghi. */
@@ -176,14 +176,14 @@ result = await approve();
 assert.equal(result.ok, false);
 assert.match(result.message, /người duyệt khác người kiểm/);
 
-/* 4b. Khi schema cũ chưa cho trưởng kiểm duyệt tự duyệt thì hướng dẫn migration mới. */
+/* 4b. Khi schema cũ chưa cho trưởng kiểm duyệt tự duyệt thì chỉ người phụ trách kỹ thuật. */
 reset();
 admin.role = 'reviewer';
 review.inspector_id = admin.uid;
 updateError = new Error('Only an active admin can self-approve a verification');
 result = await approve(review.id, true);
 assert.equal(result.ok, false);
-assert.match(result.message, /20261049_review_lead_and_sourcing_hold/);
+assert.match(result.message, /người phụ trách kỹ thuật/);
 assert.equal(review.status, 'submitted');
 
 /* 5. Lỗi phiên đăng nhập trước khi ghi: vẫn là thông báo, không phải trang lỗi. */
@@ -201,7 +201,7 @@ revalidateError = new Error('Invariant: static generation store missing');
 mailError = new Error('SMTP 535 auth failed');
 result = await approve();
 assert.equal(result.ok, true, 'đã ghi CSDL thì không được báo thất bại');
-assert.match(result.message, /Email NCC chưa gửi được/);
+assert.match(result.message, /Email nhà cung cấp chưa gửi được/);
 
 /* 7. Trả về bổ sung cũng không được ném lỗi. */
 reset();
@@ -283,7 +283,7 @@ reset();
 selfApprovedColumnMissing = true;
 result = await approve(review.id, true);
 assert.equal(result.ok, false);
-assert.match(result.message, /migration/);
+assert.match(result.message, /người phụ trách kỹ thuật/);
 assert.equal(review.status, 'submitted');
 
 /* 12. A self-sufficient inspector does not generate a redundant reviewer email. */

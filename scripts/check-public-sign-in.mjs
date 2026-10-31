@@ -58,7 +58,7 @@ assert.match(html, /href="\/for-suppliers"/);
 
 params = new URLSearchParams('lang=vi');
 html = renderToStaticMarkup(React.createElement(PublicHeaderControls));
-assertSignIn(html, 'vi', 'Đăng nhập NCC');
+assertSignIn(html, 'vi', 'Đăng nhập nhà cung cấp');
 assert.match(html, /href="\/rfq"[^>]*aria-label="Yêu cầu báo giá"/);
 assert.match(html, /href="\/\?lang=vi#categories"/);
 assert.match(html, /Báo giá/);
@@ -90,7 +90,7 @@ for (const file of ['../app/blog/layout.tsx', '../app/(legal)/layout.tsx']) {
 }
 
 const home = fs.readFileSync(new URL('../app/(public)/home.tsx', import.meta.url), 'utf8');
-assert.match(home, /href="\/login"[\s\S]{0,100}isVi \? "Đăng nhập NCC" : "Supplier sign in"/, 'Homepage footer has a bilingual supplier sign-in entry');
+assert.match(home, /href="\/login"[\s\S]{0,100}isVi \? "Đăng nhập nhà cung cấp" : "Supplier sign in"/, 'Homepage footer has a bilingual supplier sign-in entry');
 const supplierPage = fs.readFileSync(new URL('../app/(public)/for-suppliers/page.tsx', import.meta.url), 'utf8');
 assert.match(supplierPage, /Already have an account\?[\s\S]{0,120}href="\/login"/, 'Existing suppliers can sign in from the supplier application section');
 

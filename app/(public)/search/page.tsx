@@ -275,6 +275,9 @@ async function findResults(tokens: string[], categories: Category[], selected: C
           grade: searchText([product.grade, ...(product.grades ?? [])]),
           structuredGrade: searchText(product.hasGradeRows ? (product.grades ?? []) : [gradeFromAttributes(product.attributes)]),
           category: categoryText,
+          // Từ khoá nhà cung cấp khai cho sản phẩm: giúp người mua gõ đúng từ mà
+          // người bán dùng, nhưng không thay thế tên/grade và không phải cổng công bố.
+          keywords: searchText(product.keywords ?? []),
           supplier: searchText([product.supplierName, supplierText.get(product.supplierId)]),
         });
         if (!relevance) continue;

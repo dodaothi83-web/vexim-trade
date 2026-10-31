@@ -6,6 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as productExtras from '../lib/products/product-extras.ts';
 
 function load(file, mocks, globals = {}) {
   const code = ts.transpileModule(fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), {
@@ -53,6 +54,7 @@ const client = { from(table) {
 } };
 const remote = load('lib/db/supabase.ts', {
   '@supabase/supabase-js': { createClient: () => client }, '@/lib/public/product-selection': {},
+  '@/lib/products/product-extras': productExtras,
 }, { process: { env: { SUPABASE_URL: 'https://mock.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'fake' } } }).supabaseStore;
 
 for (const [name, store, reset, read] of [

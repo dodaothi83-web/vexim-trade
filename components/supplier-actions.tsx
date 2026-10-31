@@ -26,7 +26,7 @@ export function DeleteSupplierButton({
 
   async function remove() {
     const extra = linked
-      ? `\n\nNCC này đang gắn với ${linked} đơn — các đơn đó sẽ trở về trạng thái "Chưa chọn NCC".`
+      ? `\n\nNCC này đang gắn với ${linked} đơn — các đơn đó sẽ trở về trạng thái "Chưa chọn nhà cung cấp".`
       : "";
     if (!window.confirm(`Xoá nhà cung cấp "${name}"?${extra}`)) return;
     setBusy(true);
@@ -87,7 +87,7 @@ export function SupplierWorkflowControls({ supplierId, status, canManage, canPub
     const preparation = isPreparationTarget(next);
     if (!preparation) {
       const text = next === "published"
-        ? "Công khai hồ sơ NCC? Xác minh giấy tờ chưa được duyệt sẽ vẫn hiển thị Chưa xác minh."
+        ? "Công khai hồ sơ nhà cung cấp? Xác minh giấy tờ chưa được duyệt sẽ vẫn hiển thị Chưa xác minh."
         : `Chuyển hồ sơ sang ${next === "suspended" ? "tạm ẩn" : "lưu trữ"}?`;
       if (!window.confirm(text)) return;
     }
@@ -106,7 +106,7 @@ export function SupplierWorkflowControls({ supplierId, status, canManage, canPub
   }
 
   if (!choices.length) return null;
-  return <div className="flex flex-wrap gap-2" aria-label="Các bước xử lý hồ sơ NCC">
+  return <div className="flex flex-wrap gap-2" aria-label="Các bước xử lý hồ sơ nhà cung cấp">
     {choices.map((next) => <Button key={next} variant={next === "published" ? "primary" : "soft"} disabled={busy} onClick={() => void decide(next)}>
       {STATUS_ACTION_LABELS[next] ?? `Chuyển sang ${next}`}
     </Button>)}

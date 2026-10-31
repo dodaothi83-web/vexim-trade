@@ -22,7 +22,7 @@ export async function setFeaturedProductImageAction(productId: string, mediaId: 
       if (!asset || asset.owner_type !== "product" || asset.product_id !== productId ||
         (asset.supplier_id && asset.supplier_id !== product.supplier_id) || asset.kind !== "image" ||
         asset.audience !== "buyer" || !asset.storage_path || isExpired(asset))
-        return { ok: false, message: "Chỉ được chọn ảnh của đúng sản phẩm đã chia sẻ buyer và còn hiệu lực." };
+        return { ok: false, message: "Chỉ được chọn ảnh của đúng sản phẩm đã chia sẻ người mua và còn hiệu lực." };
     }
     if ((product.featured_media_id ?? null) === mediaId) return { ok: true, message: "Ảnh đại diện không thay đổi." };
     await store.updateProduct(productId, { featured_media_id: mediaId });
@@ -33,7 +33,7 @@ export async function setFeaturedProductImageAction(productId: string, mediaId: 
     }).catch((error) => console.error("[product-cover] audit", error));
     revalidatePath(`/crm/products/${productId}/edit`);
     revalidatePath("/products", "layout");
-    return { ok: true, message: mediaId ? "Đã chọn ảnh đại diện. Sản phẩm chỉ hiện khi các điều kiện công khai khác đã đạt." : "Đã bỏ lựa chọn; hệ thống dùng ảnh chia sẻ buyer đầu tiên." };
+    return { ok: true, message: mediaId ? "Đã chọn ảnh đại diện. Sản phẩm chỉ hiện khi các điều kiện công khai khác đã đạt." : "Đã bỏ lựa chọn; hệ thống dùng ảnh chia sẻ người mua đầu tiên." };
   } catch (error) {
     console.error("[product-cover]", error);
     return { ok: false, message: "Không lưu được ảnh đại diện." };

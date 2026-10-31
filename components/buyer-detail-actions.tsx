@@ -85,7 +85,7 @@ export function SupplierPicker({
         </div>
         {canCreateSupplier && (
           <a href="/crm/suppliers/new" className="btn btn-ghost" target="_blank" rel="noreferrer">
-            + Thêm NCC
+            + Thêm nhà cung cấp
           </a>
         )}
       </div>
@@ -128,10 +128,10 @@ export function SupplierPicker({
         <span>
           <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-800">
             <ShieldCheck className="h-4 w-4 text-brand-600" />
-            Ẩn danh buyer trong email gửi NCC
+            Ẩn danh người mua trong email gửi nhà cung cấp
           </span>
           <span className="mt-0.5 block text-[11.5px] leading-relaxed text-ink-500">
-            Email cho NCC chỉ nêu “Khách hàng thị trường {buyer.country || "nước ngoài"}” thay vì tên
+            Email cho nhà cung cấp chỉ nêu “Khách hàng thị trường {buyer.country || "nước ngoài"}” thay vì tên
             buyer. Bỏ tích nếu buyer cho phép công khai.
           </span>
         </span>
@@ -208,7 +208,7 @@ export function DeleteBuyerButton({
   const [busy, setBusy] = useState(false);
 
   async function remove() {
-    if (!window.confirm(`Xoá buyer "${company}" và toàn bộ lịch sử? Hành động này không hoàn tác được.`)) {
+    if (!window.confirm(`Xoá người mua "${company}" và toàn bộ lịch sử? Hành động này không hoàn tác được.`)) {
       return;
     }
     setBusy(true);

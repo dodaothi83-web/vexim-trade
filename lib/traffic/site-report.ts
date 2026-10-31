@@ -24,7 +24,7 @@ export function buildSiteTrafficReport(rows: SiteTrafficRow[], days: 7 | 30 | 90
   const breakdown = [
     { key: "home", label: "Trang chủ", views: sum("home") },
     { key: "category", label: "Danh mục sản phẩm", views: categories },
-    { key: "supplier", label: "Hồ sơ NCC", views: sum("supplier_profile") },
+    { key: "supplier", label: "Hồ sơ nhà cung cấp", views: sum("supplier_profile") },
     { key: "product", label: "Chi tiết sản phẩm", views: sum("product_detail") },
     { key: "rfq", label: "Trang RFQ", views: sum("rfq") },
     { key: "blog", label: "Blog", views: blog },

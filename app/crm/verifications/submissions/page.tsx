@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 const TABS: { key: string; label: string; filter: (s: SupplierSubmission) => boolean }[] = [
   { key: "pending_review", label: "Chờ xét duyệt", filter: (s) => s.status === "pending_review" },
   { key: "returned", label: "Cần bổ sung", filter: (s) => s.status === "returned" },
-  { key: "draft", label: "NCC đang soạn", filter: (s) => s.status === "draft" },
+  { key: "draft", label: "Nhà cung cấp đang soạn", filter: (s) => s.status === "draft" },
   { key: "accepted", label: "Đã nhận vào đợt kiểm", filter: (s) => s.status === "accepted" },
   { key: "all", label: "Tất cả", filter: () => true },
 ];
@@ -53,10 +53,10 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
   const counts = Object.fromEntries(TABS.map((t) => [t.key, submissions.filter(t.filter).length]));
 
   return <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-    <Breadcrumbs items={[{ label: "Tổng quan", href: "/crm/dashboard" }, { label: "Xác minh NCC", href: "/crm/verifications" }, { label: "Hồ sơ NCC tự gửi" }]} />
+    <Breadcrumbs items={[{ label: "Tổng quan", href: "/crm/dashboard" }, { label: "Xác minh nhà cung cấp", href: "/crm/verifications" }, { label: "Hồ sơ nhà cung cấp tự gửi" }]} />
     <PageHeader
-      title="Hồ sơ bằng chứng NCC tự gửi"
-      sub="L2 nhà máy: ảnh; L2 đối tác: hợp đồng do nhân viên đối chiếu. L3: chứng từ xuất khẩu do nhân viên đối chiếu. Nhận hồ sơ không tự cấp xác minh."
+      title="Hồ sơ bằng chứng nhà cung cấp tự gửi"
+      sub="L2 nhà máy: ảnh. L2 đối tác: hợp đồng. L3: chứng từ xuất khẩu. Nhân viên đối chiếu và nhận hồ sơ không tự cấp xác minh."
       actions={<Link href="/crm/verifications" className="btn btn-ghost">Hàng đợi xác minh <ArrowRight className="h-4 w-4" /></Link>}
     />
 
@@ -114,7 +114,7 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
         </li>;
       })}
     </ul> : <EmptyState icon={<Factory className="h-5 w-5" />} title="Chưa có hồ sơ nào ở tab này"
-      sub="Nhà cung cấp tự gửi bằng chứng qua Cổng NCC → Xác thực L2·L3. Hồ sơ nộp xong sẽ vào đây để nhân viên đối chiếu." />}
+      sub="Nhà cung cấp tự gửi bằng chứng qua Cổng nhà cung cấp → Xác thực L2·L3. Hồ sơ nộp xong sẽ vào đây để nhân viên đối chiếu." />}
 
     <Card className="mt-6 bg-ink-50 p-4 text-xs text-ink-600">
       <strong className="text-ink-900">Ranh giới nghiệp vụ:</strong> Hợp đồng L2 đối tác và chứng từ L3 do nhân viên đối chiếu; AI và cờ ảnh nhà máy chỉ là tín hiệu.

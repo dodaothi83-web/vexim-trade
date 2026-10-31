@@ -25,13 +25,18 @@ export default async function NewSupplierProductPage() {
     if (!strictAccess || !portalApproved(strictAccess.supplier) || strictAccess.supplier.id !== access.supplier.id) throw new Error("Supplier verification failed");
     return readNewQuantityPolicies(options);
   })().catch((error) => { console.error("[quantity-pricing] new product settings", error); return null; });
+  // Kho ảnh: ảnh nhà cung cấp đã tải lên nhưng chưa gắn sản phẩm nào.
+  const bankMedia = (await access.store.listMedia("supplier", access.supplier.id).catch((error) => {
+    console.error("[supplier-product] media bank", error);
+    return [];
+  })).filter((asset) => asset.kind === "image" && !!asset.storage_path);
   return <>
     <PageHeader
       eyebrow="Cổng nhà cung cấp · riêng tư"
       title="Thêm sản phẩm"
-      sub="Bắt đầu từ tên và quy cách. Bạn có thể lưu bản nháp trước, bổ sung ảnh sau."
+      sub="Điền theo thứ tự từ trên xuống. Trường có dấu * là bắt buộc để gửi duyệt; bạn lưu nháp bất cứ lúc nào."
       breadcrumbs={<nav aria-label="Đường dẫn" className="flex items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-ink-800">Thêm mới</span></nav>}
     />
-    <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} quantityPolicies={quantityPolicies} />
+    <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} quantityPolicies={quantityPolicies} bankMedia={bankMedia} />
   </>;
 }

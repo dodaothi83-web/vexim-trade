@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { PRODUCT_EXTRAS_COLUMNS, type ProductExtrasColumn } from "@/lib/products/product-extras";
 
 import type {
   Activity,
@@ -246,7 +247,9 @@ function missingProductPriceRangeColumn(error: { code?: string; message: string 
 
 function priceRangeMigrationRequired(): never {
   // Never silently discard an entered upper bound: the buyer could see a false single price.
-  throw new Error("Chưa lưu giá đến: PostgREST chưa nhận diện cột supplier_products.ref_price_max (migration chưa áp dụng hoặc schema cache chưa cập nhật). Vexim cần kiểm tra đúng project, áp dụng migration 20261017_product_reference_price_range.sql nếu thiếu cột hoặc nạp lại schema cache nếu cột đã có; các thay đổi trong lần lưu này chưa được ghi.");
+  // Chi tiết kỹ thuật: PostgREST chưa có cột supplier_products.ref_price_max (migration
+  // 20261017_product_reference_price_range.sql chưa áp dụng hoặc schema cache chưa cập nhật).
+  throw new Error("Chưa lưu được giá đến. Báo người phụ trách kỹ thuật rồi thử lại.");
 }
 
 /** Same single-retry rule for the optional buyer display name column. */
@@ -256,7 +259,41 @@ function missingDisplayNameColumn(error: { code?: string; message: string } | nu
 }
 
 function displayNameMigrationRequired(): never {
-  throw new Error("Chưa lưu tên hiển thị cho buyer: PostgREST chưa nhận diện cột supplier_products.display_name (migration chưa áp dụng hoặc schema cache chưa cập nhật). Vexim cần áp dụng migration 20261030_product_display_name.sql hoặc nạp lại schema cache; các thay đổi trong lần lưu này chưa được ghi.");
+  // Chi tiết kỹ thuật: PostgREST chưa có cột supplier_products.display_name (migration
+  // 20261030_product_display_name.sql chưa áp dụng hoặc schema cache chưa cập nhật).
+  throw new Error("Chưa lưu được tên hiển thị. Báo người phụ trách kỹ thuật rồi thử lại.");
+}
+
+/**
+ * Phase 2: PostgREST chưa thấy một trong các cột từ khoá / giá mẫu / đóng gói.
+ * Xử lý giống `ref_price_max`: chỉ bỏ qua khi giá trị đang rỗng, không bao giờ
+ * âm thầm nuốt dữ liệu người dùng vừa nhập.
+ */
+function missingProductExtrasColumn(error: { code?: string; message: string } | null): boolean {
+  if (!error || !(error.code === "PGRST204" || /schema cache/i.test(error.message))) return false;
+  if (!/supplier_products/.test(error.message)) return false;
+  return PRODUCT_EXTRAS_COLUMNS.some((column) => error.message.includes(`'${column}'`) ||
+    error.message.includes(`"${column}"`) || error.message.includes(`.${column}`));
+}
+
+function productExtrasMigrationRequired(): never {
+  // Chi tiết kỹ thuật: PostgREST chưa có cột keywords / sample_price_usd / package_* /
+  // units_per_carton (migration 20261072_product_keywords_sample_price_packaging.sql
+  // chưa áp dụng hoặc schema cache chưa cập nhật).
+  throw new Error("Chưa lưu được từ khoá và đóng gói. Báo người phụ trách kỹ thuật rồi thử lại.");
+}
+
+/** Bỏ các cột Phase 2 đang rỗng; trả null khi không còn gì để bỏ. */
+function withoutEmptyProductExtras<T extends Partial<Record<ProductExtrasColumn, unknown>>>(payload: T): T | null {
+  const empty = PRODUCT_EXTRAS_COLUMNS.filter((column) => {
+    const value = payload[column];
+    if (value === undefined || value === null) return true;
+    return Array.isArray(value) && value.length === 0;
+  });
+  if (!empty.length) return null;
+  const rest = { ...payload };
+  for (const column of empty) delete rest[column];
+  return rest as T;
 }
 
 /** Bỏ cột tùy chọn khi nó đang rỗng, để cơ sở dữ liệu cũ vẫn lưu được phần còn lại. */
@@ -410,6 +447,11 @@ export const supabaseStore: DataStore = {
       void _missing;
       result = await write(legacy);
     }
+    if (missingProductExtrasColumn(result.error)) {
+      const legacy = withoutEmptyProductExtras(result.error ? (input as Record<string, unknown>) : {});
+      if (!legacy) productExtrasMigrationRequired();
+      result = await write(legacy as SupplierProductInput);
+    }
     if (result.error) fail("createProduct", result.error);
     return result.data as SupplierProduct;
   },
@@ -428,6 +470,11 @@ export const supabaseStore: DataStore = {
       // Retrying only a missing NULL preserves old single-price saves without weakening other gates.
       const { ref_price_max: _missing, ...legacy } = fields;
       void _missing;
+      result = await write(legacy);
+    }
+    if (missingProductExtrasColumn(result.error)) {
+      const legacy = withoutEmptyProductExtras(fields);
+      if (!legacy) productExtrasMigrationRequired();
       result = await write(legacy);
     }
     if (result.error) fail("updateProduct", result.error);

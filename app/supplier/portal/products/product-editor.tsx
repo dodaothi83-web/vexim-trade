@@ -10,11 +10,12 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  Eye,
   EyeOff,
   FileText,
   ImageIcon,
-  LockKeyhole,
   Pencil,
+  Plus,
   Save,
   Send,
   Star,
@@ -37,6 +38,7 @@ import { QuantityBuyerPreview, QuantityPricingEditor } from "@/components/produc
 import { nameContainsGrade, validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
+import { productCompleteness } from "@/lib/products/completeness";
 import {
   LEAD_TIME_UNIT_OPTIONS,
   categoryMarketPriceUnit,
@@ -56,6 +58,8 @@ type EditorProps = {
   quantityEditor?: QuantityEditorData | null;
   quantityPolicies?: Record<string, QuantityPricingPolicy> | null;
   media?: MediaAsset[];
+  /** Ảnh trong kho riêng của nhà cung cấp, chưa gắn sản phẩm nào. */
+  bankMedia?: MediaAsset[];
   userId?: string;
   categories: CategoryProposalOption[];
   /** Nhóm hàng đã đăng ký chỉ dùng để cảnh báo, không giới hạn lựa chọn. */
@@ -67,15 +71,20 @@ type EditorProps = {
 
 type Step = 1 | 2 | 3;
 
-const STEPS: { step: Step; title: string; short: string; hint: string }[] = [
-  { step: 1, title: "Thông tin sản phẩm", short: "Thông tin", hint: "Tên, quy cách, thương mại" },
-  { step: 2, title: "Ảnh và catalogue", short: "Hình ảnh", hint: "Ảnh và tài liệu thật" },
-  { step: 3, title: "Xem lại và gửi", short: "Xem lại", hint: "Đọc lại rồi gửi duyệt" },
-];
-
-const BASE_FIELDS = [
-  ["monthly_capacity", "Năng lực mỗi tháng", "Ví dụ: 200 tấn/tháng", 180],
-  ["packaging", "Bao bì / đóng gói", "Ví dụ: túi hút chân không 25 kg", 300],
+/**
+ * Tám khối của một trang duy nhất, xếp theo mạch người bán điền hồ sơ: chọn ngành hàng,
+ * đặt tên, đưa ảnh lên, khai quy cách, giá, đóng gói, viết mô tả, rồi xem lại và gửi.
+ * `id` cũng là đích neo cho mục lục trái và các nút "Sửa" ở khối xem lại.
+ */
+const FORM_SECTIONS = [
+  { id: "sec-category", label: "Ngành hàng", hint: "Chọn đúng nhóm hàng" },
+  { id: "sec-basic", label: "Tên & từ khoá", hint: "Người mua gõ gì để thấy" },
+  { id: "sec-media", label: "Ảnh & tệp", hint: "Ảnh thật, catalogue" },
+  { id: "sec-spec", label: "Quy cách & năng lực", hint: "Thông số, OEM, mẫu" },
+  { id: "sec-price", label: "Giá & điều kiện bán", hint: "Bảng giá, MOQ, Incoterm" },
+  { id: "sec-shipping", label: "Đóng gói & giao hàng", hint: "Kiện, thời gian, cảng" },
+  { id: "sec-detail", label: "Nội dung chi tiết", hint: "Bài mô tả cho người mua" },
+  { id: "sec-review", label: "Xem lại & gửi", hint: "Kiểm rồi gửi duyệt" },
 ] as const;
 
 // Chứng nhận không khai ở đây: hồ sơ Giấy tờ L1 là nguồn duy nhất (AI quét đơn vị đứng tên
@@ -174,11 +183,10 @@ export function snapshotFromForm(form: HTMLFormElement | null, previous: Record<
   return next;
 }
 
-/** Ô bắt buộc đầu tiên còn trống/sai trong một bước (bỏ qua ô đã khoá và ô ẩn). */
-function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElement | null {
-  const panel = form?.querySelector(`[data-step-panel="${step}"]`);
-  if (!panel) return null;
-  for (const element of panel.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input, select, textarea")) {
+/** Ô bắt buộc đầu tiên còn trống/sai trên trang (bỏ qua ô đã khoá và ô ẩn). */
+function firstInvalidField(form: HTMLFormElement | null): HTMLElement | null {
+  if (!form) return null;
+  for (const element of form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input, select, textarea")) {
     if (element.form !== form || element.disabled || (element instanceof HTMLInputElement && element.type === "hidden")) continue;
     if (!element.checkValidity()) return element;
   }
@@ -186,25 +194,24 @@ function firstInvalidField(form: HTMLFormElement | null, step: Step): HTMLElemen
 }
 
 /**
- * Trang sản phẩm của NCC theo bố cục sàn TMĐT: thanh bước ở trên, mỗi lần chỉ mở MỘT
- * bước, thanh hành động dính ở đáy màn hình để đi tiếp/quay lại mà không phải cuộn.
+ * Trang sản phẩm của NCC theo bố cục Seller Center của Alibaba: **một trang dài** với
+ * mục lục neo bên trái, không chia bước. Người bán đi theo mạch ngành hàng → tên & từ khoá
+ * → ảnh → quy cách → giá → đóng gói → mô tả → xem lại, rồi bấm Gửi duyệt ở thanh dính đáy.
  *
- * Bước 1 gộp toàn bộ nội dung và **thông tin thương mại & xuất khẩu hiện ngay**, không
- * giấu sau mũi tên gập, vì đó là phần Vexim và buyer cần thấy đầu tiên.
+ * Lý do bỏ wizard: bản thân Alibaba không có bước 2/3 — ảnh là trường của khối thông tin
+ * cơ bản, còn "xem lại" chỉ là thanh xác nhận trước khi gửi. Wizard cũ bắt người bán bấm
+ * ba lần cho một sản phẩm và giấu mất yêu cầu ảnh cho tới khi nhập xong phần chữ.
  *
- * Hành vi cũ giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
+ * Hành vi giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], bankMedia = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
   const router = useRouter();
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
-  // Bước sẽ mở sau khi lưu thành công; null = chỉ lưu rồi ở lại.
-  const advanceTo = useRef<Step | null>(null);
   const creationRequestId = useRef<string | null>(null);
   const [quantityConsent, setQuantityConsent] = useState(false);
 
-  const [step, setStep] = useState<Step>(initialStep);
   const [busy, setBusy] = useState(false);
   const [quantityPreview, setQuantityPreview] = useState<QuantityPricingInput | null>(() => quantityEditor ? {
     grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, currency: quantityEditor.currency,
@@ -218,9 +225,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const [showGradeErrors, setShowGradeErrors] = useState(false);
   // Thông báo nổi sau mỗi hành động (lưu, gửi duyệt, tải/xóa tệp) thay cho các dòng chữ tĩnh khó để ý.
   const [toast, setToast] = useState<{ ok: boolean; message: string; warning?: boolean } | null>(null);
-  const [stepError, setStepError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [coverHover, setCoverHover] = useState(false);
   const [selected, setSelected] = useState<File[]>([]);
+  // Kho ảnh: ảnh đã tải lên nhưng chưa thuộc sản phẩm nào. Ảnh được gắn vào sản phẩm
+  // đúng lúc bấm Lưu, nên người bán không phải lưu nháp trước mới tải được ảnh.
+  const [pickedBank, setPickedBank] = useState<string[]>([]);
+  // Điều kiện thanh toán: ô nhập và các chip gợi ý phải dùng chung một giá trị.
+  const [paymentTerm, setPaymentTerm] = useState(product?.payment_terms ?? "");
   const [progress, setProgress] = useState("");
   // Bản nháp dùng cho bước 3: cập nhật theo từng lần nhập nên NCC đọc lại đúng nội dung
   // đang có, kể cả phần chưa lưu (kèm cảnh báo phải lưu trước khi gửi).
@@ -258,10 +270,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
   const hasMedia = media.some((m) => m.kind === "image" && !!m.storage_path && m.supplier_id === product?.supplier_id);
   const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
-  const canUpload = !!product && !locked && !dirty &&
-    (!["approved", "paused"].includes(review) || product.supplier_originated === true);
-  const canDeleteAsset = (asset: MediaAsset) => canUpload && !!userId && asset.created_by === userId &&
-    (asset.audience === "internal" || review === "approved" || review === "paused" || review === "changes_requested");
+  // Tải ảnh không cần sản phẩm đã tồn tại: ảnh vào kho ảnh của nhà cung cấp trước,
+  // rồi gắn vào sản phẩm đúng lúc bấm Lưu (xem upload + pickedBank).
+  const canUpload = !locked && (!["approved", "paused"].includes(review) || product?.supplier_originated === true);
+  // Ảnh tải lên đã chia sẻ cho người mua ngay, nên người tải lên luôn xoá được tệp của mình.
+  const canDeleteAsset = (asset: MediaAsset) => canUpload && !!userId && asset.created_by === userId;
   const canDeleteDraft = !!product && review === "draft" && product.supplier_originated === true &&
     !product.ready_for_buyer && product.reviewed_category_slug == null;
   const categoryLocked = review === "approved" || (review === "paused" && !!product?.reviewed_category_slug);
@@ -269,6 +282,37 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const activeCategory = categories.find((c) => c.slug === activeCategorySlug);
   const activeCategorySource = activeCategory ?? (activeCategorySlug ? { slug: activeCategorySlug } : null);
   const newPolicy = !product && activeCategory ? quantityPolicies?.[activeCategory.slug] : undefined;
+  // Số lỗi giá: thiếu grade và thiếu đơn giá dòng đầu là hai lỗi chặn gửi duyệt.
+  const priceIssueCount = (quantityPreview ? (quantityPreview.grade.trim() ? 0 : 1) : 0) +
+    (quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()) ? 1 : 0);
+  const catalogueAssets = media.filter((asset) => asset.kind !== "image");
+  const basicFilled = [snapshot.name, snapshot.keywords, snapshot.description].filter((value) => (value ?? "").trim()).length;
+  const specFilled = [snapshot.spec, snapshot.monthly_capacity, snapshot.raw_material_region, snapshot.input_material_origin]
+    .filter((value) => (value ?? "").trim()).length;
+  const shippingFilled = [snapshot.packaging, snapshot.package_type, snapshot.package_weight_kg, snapshot.package_size,
+    snapshot.units_per_carton, snapshot.export_port, snapshot.lead_time_value, snapshot.incoterm_place, snapshot.payment_terms]
+    .filter((value) => (value ?? "").trim()).length;
+  const sectionPill = (id: string) => {
+    switch (id) {
+      case "sec-category": return selectedCategory ? { text: "Hoàn tất", tone: "ok" as const } : { text: "Chưa chọn", tone: "muted" as const };
+      case "sec-basic": return { text: `${basicFilled}/3 trường`, tone: "muted" as const };
+      case "sec-media": return { text: `${imageCount}/6 ảnh`, tone: "muted" as const };
+      case "sec-spec": return { text: `${specFilled}/4 trường`, tone: "muted" as const };
+      case "sec-price": return priceIssueCount > 0 ? { text: `${priceIssueCount} lỗi`, tone: "error" as const } : { text: "Hoàn tất", tone: "ok" as const };
+      case "sec-shipping": return { text: `${shippingFilled}/9 trường`, tone: "muted" as const };
+      case "sec-detail": return { text: (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim() ? "Đã có nội dung" : "Trống", tone: "muted" as const };
+      default: return undefined;
+    }
+  };
+  const sectionBlocked = (id: string) => {
+    switch (id) {
+      case "sec-category": return !selectedCategory;
+      case "sec-basic": return !(snapshot.name ?? "").trim();
+      case "sec-media": return !hasMedia;
+      case "sec-price": return priceIssueCount > 0;
+      default: return false;
+    }
+  };
   const newGrades = standardGradesForCategory(activeCategorySource);
   const newBuyerUnit = displayUnitsForCategory(activeCategorySlug, activeCategory?.price_unit).primary === "mt" ? "mt" : "kg";
   const newQuantity = !product && quantityPreview ? { ...quantityPreview, nameVi: snapshot.name ?? "" } : null;
@@ -400,42 +444,60 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     return null;
   }
 
-  function goToStep(next: Step) {
-    setStep(next);
-    setStepError(null);
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  /** Nhảy tới một khối trên trang; mục lục và các nút "Sửa" dùng chung hàm này. */
+  function scrollToSection(id: string) {
+    setFormError(null);
+    if (typeof document === "undefined") return;
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+
+  // `?step=2` sau khi tạo sản phẩm mới: cuộn thẳng tới khối ảnh thay vì mở một bước riêng.
+  useEffect(() => {
+    if (initialStep === 2 && typeof document !== "undefined") {
+      document.getElementById("sec-media")?.scrollIntoView({ block: "start" });
+    }
+  }, [initialStep]);
 
   function detailUrl(id: string) {
     return `/supplier/portal/products/${id}`;
   }
 
-  async function save(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const target = advanceTo.current;
-    advanceTo.current = null;
+  /**
+   * Lưu form hiện tại thành bản nháp và trả về id sản phẩm.
+   * Dùng cho cả nút "Lưu nháp" lẫn lúc tải tệp: tải ảnh cần một sản phẩm đã có, nên form
+   * được lưu ngầm ngay tại chỗ thay vì bắt người bán đi lưu trước rồi quay lại.
+   */
+  async function persist(): Promise<string | null> {
+    const formElement = formRef.current;
+    if (!formElement) return product?.id ?? null;
+    const invalid = firstInvalidField(formElement);
+    if (invalid) {
+      setFormError("Còn trường bắt buộc chưa điền hoặc chưa đúng định dạng. Trang đã cuộn tới ô đó.");
+      invalid.focus();
+      invalid.scrollIntoView({ block: "center", behavior: "smooth" });
+      return null;
+    }
     const gradeError = validateCurrentGradeRows();
     if (gradeError) {
       setShowGradeErrors(true);
-      setStepError(gradeError);
+      setFormError(gradeError);
       setToast({ ok: false, message: gradeError });
       if (typeof document !== "undefined") {
         document.getElementById("new-quantity-pricing")?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-      return;
+      return null;
     }
     const precheckForm = new FormData(formElement);
     if (!supplierPriceConsentCurrent(supplier) && precheckForm.get("price_publicly_visible") === "yes" && precheckForm.get("confirm_supplier_price_consent") !== "yes") {
-      const consentMsg = "Vui lòng tick xác nhận đồng ý chia sẻ giá tham khảo khi bật công khai giá (hoặc bỏ chọn công khai giá).";
-      setStepError(consentMsg);
+      const consentMsg = "Bật công khai giá cần tick đồng ý chia sẻ giá tham khảo.";
+      setFormError(consentMsg);
       setToast({ ok: false, message: consentMsg });
       formElement.querySelector<HTMLInputElement>('input[name="confirm_supplier_price_consent"]')?.focus();
-      return;
+      return null;
     }
     setBusy(true);
     setToast(null);
-    setStepError(null);
+    setFormError(null);
     try {
       const form = new FormData(formElement);
       if (product) {
@@ -448,78 +510,49 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         form.set("quantity_currency", newQuantity.currency ?? "USD");
         form.set("quantity_tiers_json", JSON.stringify(newQuantity.tiers));
         if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
+        if (pickedBank.length) form.set("bank_media_ids", JSON.stringify(pickedBank.slice(0, 8)));
       }
       const response = await saveSupplierProductAction(form);
       setToast(response);
-      if (!response.ok) return;
+      if (!response.ok) return null;
       setShowGradeErrors(false);
       setSubmitHint(null);
       const saved = snapshotFromForm(formElement, snapshot);
       setSnapshot(saved);
       setBaseline(saved);
-      const id = response.id ?? product?.id;
-      if (!product) {
-        // Sản phẩm mới: đi tiếp sang trang chi tiết, mở đúng bước vừa chọn.
-        router.push(`${detailUrl(id ?? "")}${target ? `?step=${target}` : ""}`);
-        return;
-      }
-      router.refresh();
-      if (target) goToStep(target);
+      if (product) router.refresh();
+      return response.id ?? product?.id ?? null;
     } catch (error) {
       setToast(reportActionError(error, "Lưu sản phẩm"));
+      return null;
     } finally {
       setBusy(false);
     }
   }
 
-  /** Rời bước 1: kiểm tra trường bắt buộc, lưu nếu có thay đổi rồi mới mở bước sau. */
-  function leaveInfoFor(target: Step) {
-    if (locked) { goToStep(target); return; }
-    const bad = firstInvalidField(formRef.current, 1);
-    if (bad) {
-      setStepError("Còn trường bắt buộc chưa điền hoặc chưa đúng định dạng ở bước này.");
-      bad.focus();
-      bad.scrollIntoView({ block: "center", behavior: "smooth" });
-      return;
-    }
-    const gradeError = validateCurrentGradeRows();
-    if (gradeError) {
-      setShowGradeErrors(true);
-      setStepError(gradeError);
-      if (typeof document !== "undefined") {
-        document.getElementById("new-quantity-pricing")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-      return;
-    }
-    if (product && !dirty) { goToStep(target); return; }
-    advanceTo.current = target;
-    formRef.current?.requestSubmit();
-  }
-
-  function selectStep(target: Step) {
-    if (target === step) return;
-    if (target > 1 && !product) {
-      // Chưa lưu lần nào thì chưa có sản phẩm để tải tệp/nộp: lưu rồi đi tiếp.
-      if (target === 2) leaveInfoFor(2);
-      else { setStepError("Lưu thông tin sản phẩm trước khi gửi duyệt."); }
-      return;
-    }
-    if (step === 1 && target > 1) { leaveInfoFor(target); return; }
-    goToStep(target);
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const id = await persist();
+    if (!id) return;
+    // Sản phẩm mới: sang trang chi tiết để tiếp tục tải ảnh và gửi duyệt.
+    if (!product) router.push(detailUrl(id));
   }
 
   /** Danh sách việc còn thiếu trước khi gửi - dùng cho cả nút bấm và khối nhắc. */
   function submitBlockers(): string[] {
     const blockers: string[] = [];
-    if (!product) blockers.push("Lưu sản phẩm ở bước 1 trước khi gửi.");
-    if (!hasDetails) blockers.push("Bổ sung mô tả hoặc quy cách ở bước 1.");
-    if (!hasMedia) blockers.push("Tải ít nhất một ảnh sản phẩm ở bước 2.");
-    if (dirty) blockers.push("Lưu thay đổi ở bước 1 trước khi gửi.");
+    if (!product) blockers.push("Lưu thông tin sản phẩm trước khi gửi.");
+    if (!hasDetails) blockers.push("Bổ sung mô tả hoặc quy cách ở mục Tên & từ khoá.");
+    if (!hasMedia) blockers.push("Tải ít nhất một ảnh sản phẩm ở mục Ảnh & tệp.");
+    if (priceIssueCount > 0 && !quantityPreview?.grade.trim()) blockers.push("Chọn grade chuẩn của danh mục.");
+    if (priceIssueCount > 0 && quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()))
+      blockers.push("Nhập đơn giá cho dòng giá đầu tiên.");
+    if (dirty) blockers.push("Lưu thay đổi trước khi gửi.");
     return blockers;
   }
 
   /**
-   * Nút gửi luôn bấm được: nếu còn thiếu thì nói rõ thiếu gì và đưa tới đúng bước,
+   * Nút gửi luôn bấm được: nếu còn thiếu thì nói rõ thiếu gì và cuộn tới đúng khối,
    * thay vì để một nút xám không phản hồi.
    */
   function requestSubmit() {
@@ -528,12 +561,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     if (blockers.length) {
       setSubmitHint(blockers);
       setToast(null);
-      // Đưa tới đúng bước cần sửa; nếu đang ở đúng bước đó thì chỉ hiện lời nhắc.
-      if (!product || !hasDetails || dirty) {
-        if (step !== 1) goToStep(1);
-        return;
-      }
-      if (!hasMedia && step !== 2) goToStep(2);
+      if (!hasMedia) { scrollToSection("sec-media"); return; }
+      if (!hasDetails) { scrollToSection("sec-basic"); return; }
+      if (!product || dirty) { scrollToSection("sec-basic"); return; }
       return;
     }
     void submit();
@@ -544,7 +574,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     setBusy(true);
     setSubmitHint(null);
     setToast(null);
-    setStepError(null);
+    setFormError(null);
     try {
       const form = new FormData();
       form.set("product_id", product.id);
@@ -567,6 +597,28 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     return null;
   }
   function chooseFiles(files: File[]) {
+    if (!product) {
+      // Chưa có sản phẩm: tệp đi vào kho ảnh, nên chỉ nhận ảnh và đếm theo kho.
+      const bankCount = bankMedia.filter((asset) => !userId || asset.created_by === userId).length;
+      if (files.some((file) => uploadKind(file) !== "image")) {
+        setToast({ ok: false, message: "Kho ảnh chỉ nhận ảnh JPG, PNG hoặc WebP. Catalogue tải được sau khi lưu sản phẩm." });
+        setSelected([]);
+        return;
+      }
+      if (bankCount + files.length > 12) {
+        setToast({ ok: false, message: `Kho ảnh tối đa 12 ảnh; hiện bạn đã có ${bankCount} ảnh.` });
+        setSelected([]);
+        return;
+      }
+      const tooBig = files.find((file) => file.size > 8 * 1024 * 1024);
+      if (tooBig) {
+        setToast({ ok: false, message: `Ảnh “${tooBig.name}” quá 8 MB. Chọn ảnh nhẹ hơn.` });
+        setSelected([]);
+        return;
+      }
+      setSelected(files);
+      return;
+    }
     if (imageCount + files.filter((file) => uploadKind(file) === "image").length > 8) {
       setToast({ ok: false, message: `Tối đa 8 ảnh sản phẩm; hiện có ${imageCount} ảnh.` });
       setSelected([]);
@@ -586,10 +638,35 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     setSelected(files);
   }
   async function upload() {
-    if (!product || !canUpload || !selected.length) return;
+    if (!canUpload || !selected.length) return;
     setBusy(true);
     let uploaded = 0;
     try {
+      // Chưa có sản phẩm: ảnh vào kho ảnh riêng, gắn vào sản phẩm ngay khi bấm Lưu.
+      if (!product) {
+        const added: string[] = [];
+        for (let index = 0; index < selected.length; index++) {
+          const file = selected[index];
+          if (uploadKind(file) !== "image") throw Error("Kho ảnh chỉ nhận ảnh JPG, PNG hoặc WebP.");
+          setProgress(`Đang tải ${index + 1}/${selected.length}: ${file.name}`);
+          const body = new FormData();
+          body.set("file", file);
+          const response = await fetch("/api/supplier-portal/media", { method: "POST", body });
+          // Trang lỗi (404/413/500...) trả HTML: đọc .json() sẽ ném — bắt lại để giữ mã HTTP thật.
+          const data = await response.json().catch(() => null) as
+            { ok?: boolean; message?: string; image?: { id?: string } } | null;
+          if (!response.ok || !data?.ok) throw Error(data?.message || `Không tải được ảnh (HTTP ${response.status}).`);
+          if (data.image?.id) added.push(data.image.id);
+          uploaded++;
+        }
+        // Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo để bấm Lưu là xong.
+        if (added.length) setPickedBank((current) => Array.from(new Set([...current, ...added])).slice(0, 8));
+        setSelected([]);
+        setToast({ ok: true, message: `Đã thêm ${uploaded} ảnh vào kho ảnh. Ảnh được gắn vào sản phẩm khi bạn bấm Lưu.` });
+        router.refresh();
+        return;
+      }
+      const productId = product.id;
       for (let index = 0; index < selected.length; index++) {
         const file = selected[index];
         const kind = uploadKind(file);
@@ -598,8 +675,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         const body = new FormData();
         body.set("kind", kind);
         body.set("file", file);
-        const response = await fetch(`/api/supplier-portal/products/${product.id}/media`, { method: "POST", body });
-        // Trang lỗi (404/413/500...) trả HTML: đọc .json() sẽ ném — bắt lại để giữ mã HTTP thật.
+        const response = await fetch(`/api/supplier-portal/products/${productId}/media`, { method: "POST", body });
         const data = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
         if (!response.ok || !data?.ok) throw Error(data?.message || `Không tải được tệp (HTTP ${response.status}).`);
         uploaded++;
@@ -608,6 +684,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       setToast({ ok: true, message: live
         ? `Đã tải ${uploaded} tệp lên sản phẩm đã đăng.`
         : `Đã tải ${uploaded} tệp. Tệp sẽ được kiểm tra khi duyệt.` });
+      router.refresh();
     } catch (error) {
       if (uploaded) setSelected(selected.slice(uploaded));
       const failure = reportActionError(error, "Tải tệp");
@@ -615,7 +692,31 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     } finally {
       setProgress("");
       setBusy(false);
-      if (uploaded) router.refresh();
+    }
+  }
+
+  /** Bật/tắt một ảnh trong kho ảnh cho lần lưu này. */
+  function toggleBank(mediaId: string) {
+    setPickedBank((current) => current.includes(mediaId)
+      ? current.filter((id) => id !== mediaId)
+      : current.length >= 8 ? current : [...current, mediaId]);
+  }
+
+  /** Xóa ảnh khỏi kho khi nó chưa gắn vào sản phẩm nào. */
+  async function removeBank(mediaId: string) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/supplier-portal/media?media_id=${encodeURIComponent(mediaId)}`, { method: "DELETE" });
+      const data = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
+      if (!response.ok || !data?.ok) throw Error(data?.message || `Không xóa được ảnh (HTTP ${response.status}).`);
+      setPickedBank((current) => current.filter((id) => id !== mediaId));
+      setToast({ ok: true, message: "Đã xóa ảnh khỏi kho ảnh." });
+      router.refresh();
+    } catch (failure) {
+      setToast(reportActionError(failure, "Xóa ảnh"));
+    } finally {
+      setBusy(false);
     }
   }
   /** Kéo ảnh khác vào ô ảnh đại diện (hoặc bấm nút sao) để thay; ảnh cũ tự về lại danh sách. */
@@ -682,7 +783,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
   async function pauseProduct() {
     if (!product || busy || dirty || review !== "approved" || !window.confirm(
-      `Tạm ẩn “${product.name}” khỏi buyer? Sản phẩm và lịch sử được giữ. Khi muốn đăng lại, bạn cần gửi duyệt và chờ phê duyệt.`,
+      `Tạm ẩn “${product.name}” khỏi người mua? Sản phẩm và lịch sử được giữ. Khi muốn đăng lại, bạn cần gửi duyệt và chờ phê duyệt.`,
     )) return;
     setBusy(true);
     try {
@@ -699,6 +800,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const cover = media.find((m) => m.id === product?.featured_media_id && m.kind === "image" && privateMediaUrl(m)) ??
     media.find((m) => m.kind === "image" && privateMediaUrl(m));
   const coverUrl = cover ? privateMediaUrl(cover) : null;
+  /** Sáu ô ảnh như sàn TMĐT: ô đầu là ảnh chính, phần còn lại là ảnh chi tiết. */
+  const imageSlots = [cover, ...media.filter((m) => m.kind === "image" && privateMediaUrl(m) && m.id !== cover?.id)].slice(0, 6);
   const savedPriceValue = product?.ref_price != null
     ? formatGradeRowPriceVi(
         product.ref_price,
@@ -708,6 +811,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     : product
       ? "Báo giá theo yêu cầu"
       : "-";
+  /** Độ hoàn thiện chỉ đọc, tính từ bản đã lưu và tệp hiện có; không phải cổng chặn đăng. */
+  const completeness = productCompleteness(product ?? {}, media);
   const commercial = [
     { label: "Giá tham khảo", value: savedPriceValue },
     { label: "MOQ", value: product ? formatProductMoqVi(product) : "-" },
@@ -718,194 +823,393 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     { label: "Thanh toán", value: product?.payment_terms || "-" },
   ];
 
-  return <div className="mt-5 space-y-4">
-    {/* Thanh bước kiểu sàn TMĐT: luôn thấy mình đang ở đâu, bấm được để chuyển bước. */}
-    <nav aria-label="Các bước hoàn thiện sản phẩm" className="rounded-xl border border-ink-200 bg-white p-2 shadow-sm">
-      <ol className="grid gap-1.5 sm:grid-cols-3">
-        {STEPS.map((item) => {
-          const done = item.step === 1 ? !!product : item.step === 2 ? hasMedia : review === "pending" || review === "approved";
-          const active = step === item.step;
-          return <li key={item.step}>
-            <button type="button" onClick={() => selectStep(item.step)}
-              aria-current={active ? "step" : undefined}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition ${active ? "bg-brand-50 ring-1 ring-brand-300" : "hover:bg-ink-50"}`}>
-              <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${done ? "bg-brand-700 text-white" : active ? "bg-brand-100 text-brand-800 ring-1 ring-brand-400" : "bg-ink-100 text-ink-500"}`}>
-                {done ? <Check className="size-3.5" aria-hidden="true" /> : item.step}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className={`block truncate text-[12.5px] font-bold ${active ? "text-brand-900" : "text-ink-800"}`}>{item.title}</span>
-                <span className="block truncate text-[10.5px] text-ink-500">{item.hint}</span>
-              </span>
-              <span className="shrink-0 text-[10px] font-bold tracking-wider text-ink-400 uppercase">{active ? "Đang mở" : `B${item.step}`}</span>
-            </button>
-          </li>;
-        })}
-      </ol>
-    </nav>
+  /** Mục đích của từng khối: dùng cho mục lục bên trái và nút "Sửa" ở phần xem lại. */
+  function sectionDone(id: string): boolean {
+    switch (id) {
+      case "sec-category": return !!selectedCategory;
+      case "sec-basic": return !!(snapshot.name ?? "").trim();
+      case "sec-media": return hasMedia;
+      case "sec-spec": return !!((snapshot.spec ?? "").trim() || (snapshot.description ?? "").trim());
+      case "sec-price": return product
+        ? product.ref_price != null || !!quantityEditor
+        : !!newQuantity?.tiers.some((tier) => tier.priceUsdPerKg.trim());
+      case "sec-shipping": return !!((snapshot.packaging ?? "") || (snapshot.package_type ?? "") || (snapshot.payment_terms ?? ""));
+      case "sec-detail": return (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim().length > 0;
+      default: return false;
+    }
+  }
 
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_312px]">
-      <div className="min-w-0">
-        {/* Chỉ trạng thái cần NCC hành động mới hiện thanh: "Đã đăng" đã có nhãn ở thanh đáy và panel bước 3,
-            không lặp khối tĩnh sát thanh chọn bước. Kết quả mỗi hành động bắn qua thông báo nổi. */}
+  return <div className="mt-3 rounded-xl bg-[#f6f7f9] p-3 sm:p-4">
+    <div className="mx-auto grid max-w-[1240px] items-start gap-3.5 lg:grid-cols-[216px_minmax(0,1fr)_304px]">
+      {/* Mục lục neo: giống Seller Center, không chặn đường đi, bấm là nhảy tới khối. */}
+      <nav aria-label="Mục lục hồ sơ sản phẩm" className="hidden lg:sticky lg:top-4 lg:block">
+        <div className="rounded-lg border border-ink-200 bg-white p-2">
+          <p className="px-2 pt-1 pb-1.5 text-[11px] font-bold tracking-[0.14em] text-ink-500 uppercase">Hồ sơ sản phẩm</p>
+          <ol className="space-y-0.5">
+            {FORM_SECTIONS.map((item, index) => {
+              const done = sectionDone(item.id);
+              const blocked = sectionBlocked(item.id);
+              return <li key={item.id}>
+                <a href={`#${item.id}`} className="group flex items-start gap-2.5 rounded-md px-2 py-1.5 transition hover:bg-ink-50">
+                  <span aria-hidden="true" className={`mt-0.5 flex size-[22px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums ${done
+                    ? "bg-emerald-600 text-white"
+                    : blocked ? "border border-rose-500 bg-white text-[10px] font-black text-rose-600" : "border border-ink-300 bg-white text-ink-500"}`}>
+                    {done ? <Check className="size-3" aria-hidden="true" /> : blocked ? "!" : index + 1}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[13px] leading-4.5 font-bold text-ink-800 group-hover:text-brand-800">{item.label}</span>
+                    <span className="block text-[11px] leading-4 text-ink-500">{item.hint}</span>
+                  </span>
+                </a>
+              </li>;
+            })}
+          </ol>
+        </div>
+        <p className="mt-2 px-2 text-[11px] leading-4 text-ink-500">Bấm một mục để nhảy tới. Mọi khối nằm trên cùng một trang.</p>
+      </nav>
+
+      <div className="min-w-0 space-y-3 [&_.input]:rounded-md [&_.input]:py-1.5 [&_.input]:text-[12.5px] [&_.input]:leading-5">
         {(review === "pending" || review === "changes_requested" || review === "paused") && <section aria-label="Trạng thái xét duyệt"
-          className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-4 py-2.5 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : review === "paused" ? "border-slate-300 bg-slate-50" : "border-amber-200 bg-amber-50"}`}>
+          className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2 ${review === "changes_requested" ? "border-rose-200 bg-rose-50" : review === "paused" ? "border-slate-300 bg-slate-50" : "border-amber-200 bg-amber-50"}`}>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{statusLabel}</span>
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
             {review === "pending"
               ? product?.reviewed_category_slug
-                ? "Sản phẩm đang chờ kiểm tra lại giá sau khi cập nhật. Bạn có thể xem nhưng chưa thể chỉnh sửa thêm cho đến khi hoàn tất rà soát."
+                ? "Đang rà soát lại giá. Bạn xem được nhưng chưa sửa cho tới khi xong."
                 : "Đã gửi duyệt. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp."
               : review === "paused"
-                ? "Sản phẩm đang ẩn khỏi buyer. Muốn đăng lại, hãy gửi duyệt ở bước 3 và chờ phê duyệt."
+                ? "Sản phẩm đang ẩn khỏi người mua. Gửi duyệt lại khi muốn đăng."
                 : "Xem góp ý, chỉnh sửa, lưu lại rồi gửi duyệt lần nữa."}
           </p>
         </section>}
 
-        {legacyManaged && <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12px] leading-5 text-amber-900">
+        {legacyManaged && <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-900">
           Sản phẩm này được quản lý từ trước. Để cập nhật nội dung, hãy tạm ẩn rồi gửi duyệt lại, hoặc liên hệ bộ phận hỗ trợ.
         </p>}
 
-        {product?.supplier_review_note && <p className="mt-2.5 whitespace-pre-wrap rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-rose-800">
+        {product?.supplier_review_note && <p className="whitespace-pre-wrap rounded-lg border border-rose-200 bg-white px-3 py-2 text-[12.5px] font-semibold text-rose-800">
           <AlertCircle className="mr-1 inline size-4" aria-hidden="true" /> Yêu cầu chỉnh sửa: {product.supplier_review_note}
         </p>}
 
+        {formError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2 text-[12.5px] font-semibold text-rose-900">{formError}</p>}
+
         <form id="product-info" ref={formRef} onSubmit={save} onChange={onFormChange} noValidate>
-          <section data-step-panel={1} className={step === 1 ? "space-y-4" : "hidden"} aria-label="Bước 1: Thông tin sản phẩm">
-            <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead title="Thông tin cơ bản" hint="Tên, danh mục và mô tả - phần buyer đọc đầu tiên." />
-              <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <Field label="Tên sản phẩm" hint="Không ghi grade trong tên. Vexim dịch tên sang tiếng Anh khi duyệt." required>
-                    <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn" defaultValue={product?.name ?? ""} disabled={locked}
-                      aria-invalid={nameGradeError ? true : undefined} />
-                    {nameGradeError && <span className="mt-1 block text-xs text-rose-700">{nameGradeError}</span>}
-                  </Field>
-                </div>
-                <Field label="Danh mục sản phẩm" required className="md:col-span-2" hint="Chọn danh mục gần nhất. Danh mục sẽ được kiểm tra khi duyệt. Đổi danh mục thì danh sách grade đổi theo.">
-                  <select name="supplier_category_proposal" className="input" required value={selectedCategory} onChange={(e) => onCategorySelect(e.target.value)} disabled={locked || categoryLocked || !categories.length}>
+          {/* 01 — Ngành hàng */}
+          <section id="sec-category" data-form-section="sec-category" aria-label="Ngành hàng"
+            className="scroll-mt-24 rounded-lg border border-ink-200 bg-white">
+            <SectionHead index="1" title="Ngành hàng" pill={sectionPill("sec-category")}
+              hint="Quyết định grade, bảng giá và thông số" />
+            <div>
+              <Row label="Danh mục sản phẩm" required error={!selectedCategory}
+                hint={selectedCategory
+                  ? "Chọn danh mục phù hợp với sản phẩm. Danh mục được kiểm tra khi duyệt; đổi danh mục thì grade đổi theo."
+                  : "Chọn danh mục phù hợp với sản phẩm để mở grade và bảng giá."}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select name="supplier_category_proposal" className="input min-w-0 flex-1" required value={selectedCategory}
+                    onChange={(e) => onCategorySelect(e.target.value)} disabled={locked || categoryLocked || !categories.length}>
                     <option value="" disabled>Chọn danh mục sản phẩm</option>
                     {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} / ` : ""}{c.label}</option>)}
                   </select>
                   {categoryLocked && <input type="hidden" name="supplier_category_proposal" value={selectedCategory} />}
-                  {categoryLocked && <p className="mt-1 text-[11.5px] text-ink-500">Danh mục đã được chốt khi duyệt.</p>}
-                  {!categoryLocked && selectedCategory && categoryScope.length > 0 && !categoryScope.includes(selectedCategory) &&
-                    <p className="mt-1 text-[11.5px] text-amber-800">Danh mục nằm ngoài nhóm hàng đã đăng ký. Bạn vẫn có thể gửi duyệt.</p>}
-                </Field>
-                {!categories.length && <p role="status" className="self-center rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900 md:col-span-2">
-                  Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm</Link>
-                </p>}
-                <div className="md:col-span-2">
-                  {product && <div className="mb-4 space-y-3 rounded-xl border border-brand-200 p-4">
-                    {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
-                      data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview} />
-                      : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra danh mục và kết nối; giá đang hiển thị không bị thay đổi.</p>}
-                  </div>}
-                  {!product && <div id="new-quantity-pricing" className="space-y-3 rounded-xl border border-brand-200 p-4">
-                    {!activeCategory ? <p className="text-xs text-ink-600">Chọn danh mục để nhập grade và bảng giá.</p> : !newPolicy || !newQuantity ?
-                      <p role="alert" className="text-xs text-rose-700">Chưa tải được cấu hình bảng giá. Vui lòng kiểm tra kết nối trước khi lưu.</p> : <>
-                        <p className="text-xs text-ink-600">Không ghi grade trong tên sản phẩm. Tên tiếng Anh sẽ được dịch sau khi bạn gửi duyệt và được kiểm tra bởi quản trị viên.</p>
-                        {newQuantity && <QuantityPricingEditor value={newQuantity} onChange={onNewQuantityChange} standardGrades={newGrades} policy={newPolicy}
-                          buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"}
-                          isolated showPreview={false} showTitle={false} validateEnglishName={false} showErrors={showGradeErrors} consentChecked={quantityConsent} onConsentChange={setQuantityConsent} />}
-                      </>}
-                  </div>}
-                  {review === "approved" && (
-                    <p className="mt-1.5 text-[11.5px] leading-5 text-ink-600">
-                      Lưu ý: Nếu bạn chỉnh sửa giá trên sản phẩm đã duyệt, sản phẩm sẽ được kiểm tra lại giá trước khi hiển thị công khai.
-                    </p>
-                  )}
+                  <Link href="/supplier/portal/categories" className="btn btn-ghost btn-sm">Gợi ý theo tên</Link>
                 </div>
-                {/* Chỉ hiện thêm khối thông số khi danh mục còn thông số khác ngoài Grade. */}
-                {!!selectedCategory && (officialAttributeFields.length > 0 || supplierAttributeFields.length > 0) &&
-                  <div className="md:col-span-2">
-                    <SupplierAttributeInputs key={selectedCategory} disabled={locked}
-                      officialFields={officialAttributeFields}
-                      supplierFields={supplierAttributeFields}
-                      values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}}
-                      onCommit={onAttributesCommit} />
-                  </div>}
-                <Field label="Mô tả ngắn" hint="Tóm tắt vài câu bên cạnh ảnh sản phẩm">
-                  <textarea name="description" className="input min-h-28 resize-y" rows={4} maxLength={1500} placeholder="Giới thiệu ngắn gọn về sản phẩm..." defaultValue={product?.description ?? ""} disabled={locked} />
-                </Field>
-                <Field label="Quy cách / tiêu chuẩn" hint="Cần ít nhất một trong hai ô mô tả hoặc quy cách để gửi duyệt">
-                  <textarea name="spec" className="input min-h-28 resize-y" rows={4} maxLength={800} placeholder="Ví dụ: Size W320, độ ẩm ≤ 5%, đóng gói 25 kg..." defaultValue={product?.spec ?? ""} disabled={locked} />
-                </Field>
-                <Field label="Vùng nguyên liệu" hint="Chọn tỉnh/thành hoặc nhập vùng cụ thể; có thể ghi nhiều vùng cho sản phẩm này.">
-                  <RawMaterialRegionInput defaultValue={product?.raw_material_region ?? ""} disabled={locked} />
-                </Field>
-                <Field label="Xuất xứ nguyên liệu đầu vào" hint="Nguồn trong nước, nhập khẩu hoặc kết hợp của sản phẩm này.">
-                  <input name="input_material_origin" className="input" maxLength={300} placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp" defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
-                </Field>
-                <div className="md:col-span-2">
-                  <div className="text-[12.5px]">
-                    <span className="mb-1 block font-semibold text-ink-800">Mô tả chi tiết</span>
-                    <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
-                      value={snapshot.description_detail} onChange={onDescriptionDetailChange} disabled={locked || busy} />
-                    <span className="mt-1 block text-[11px] leading-4 text-ink-500">Dùng tiêu đề, in đậm, in nghiêng và danh sách để buyer dễ đọc. Không nhập thông tin liên hệ trực tiếp.</span>
-                  </div>
-                </div>
-              </div>
+                {categoryLocked && <p className="mt-1 text-[11.5px] text-ink-500">Danh mục đã được chốt khi duyệt.</p>}
+                {!categoryLocked && selectedCategory && categoryScope.length > 0 && !categoryScope.includes(selectedCategory) &&
+                  <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11.5px] leading-4 text-amber-900">
+                    Danh mục nằm ngoài nhóm hàng đã đăng ký. Bạn vẫn có thể gửi duyệt.
+                  </p>}
+              </Row>
+              {!categories.length && <div className="px-4 py-2 sm:px-5"><p role="status" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                Bạn chưa chọn danh mục kinh doanh đang mở. <Link href="/supplier/portal/categories" className="font-semibold underline">Chọn danh mục trước khi thêm sản phẩm</Link>
+              </p></div>}
             </div>
+          </section>
 
-            {/* Không còn mũi tên gập: thương mại & xuất khẩu hiện ngay từ bước 1. */}
-            <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead title="Thông tin thương mại & xuất khẩu" />
-              <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2 xl:grid-cols-3">
-                <Field label="Thời gian giao hàng">
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      name="lead_time_value"
-                      type="number"
-                      min={1}
-                      max={leadTimeUnit === "weeks" ? 52 : 365}
-                      className="input w-24 shrink-0 font-mono tabular-nums disabled:bg-ink-50 disabled:text-ink-400"
-                      placeholder={leadTimeUnit === "on_request" ? "-" : leadTimeUnit === "weeks" ? "VD: 2" : "VD: 15"}
-                      value={leadTimeUnit === "on_request" ? "" : leadTimeValue}
-                      onChange={(e) => updateLeadTime(e.target.value, leadTimeUnit)}
-                      disabled={locked || leadTimeUnit === "on_request"}
-                    />
-                    <select
-                      name="lead_time_unit"
-                      aria-label="Đơn vị thời gian giao hàng"
-                      className="input min-w-0 flex-1"
-                      value={leadTimeUnit}
-                      onChange={(e) => updateLeadTime(leadTimeValue, e.target.value as LeadTimeUnit)}
-                      disabled={locked}
-                    >
-                      {LEAD_TIME_UNIT_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.viLabel}</option>
-                      ))}
-                    </select>
-                    <input type="hidden" name="lead_time_days" value={computedLeadTimeDays} readOnly />
+          {/* 02 — Tên & từ khoá */}
+          <section id="sec-basic" data-form-section="sec-basic" aria-label="Tên và từ khoá"
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
+            <SectionHead index="2" title="Tên &amp; từ khoá" pill={sectionPill("sec-basic")}
+              hint="Người mua gõ gì để thấy sản phẩm này" />
+            <div>
+              <Row label="Tên sản phẩm" required hint="Không ghi grade trong tên. Tên tiếng Anh do Vexim dịch khi duyệt.">
+                <div className="flex items-start gap-2">
+                  <input name="name" className="input" required maxLength={180} minLength={3} placeholder="Nhập tên mặt hàng của bạn"
+                    defaultValue={product?.name ?? ""} disabled={locked} aria-invalid={nameGradeError ? true : undefined} />
+                  <span className="shrink-0 pt-2 font-mono text-[11px] tabular-nums text-ink-400">
+                    {(snapshot.name ?? "").length}/180
+                  </span>
+                </div>
+                {nameGradeError && <span className="mt-1 block text-[11.5px] text-rose-700">{nameGradeError}</span>}
+              </Row>
+              <Row label="Từ khoá tìm kiếm" hint="1–3 từ tiếng Anh, cách nhau bằng dấu phẩy.">
+                <input name="keywords" className="input" maxLength={120} placeholder="cashew, w320, vietnam"
+                  defaultValue={(product?.keywords ?? []).join(", ")} disabled={locked} />
+              </Row>
+              <Row label="Mô tả ngắn" hint="Một tới hai câu, hiện cạnh ảnh sản phẩm.">
+                <textarea name="description" className="input min-h-[76px] resize-y" rows={3} maxLength={1500}
+                  placeholder="Giới thiệu ngắn gọn về sản phẩm..." defaultValue={product?.description ?? ""} disabled={locked} />
+              </Row>
+            </div>
+          </section>
+
+          {/* 03 — Ảnh & tệp */}
+          <section id="sec-media" data-form-section="sec-media" aria-label="Ảnh và tệp"
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
+            <SectionHead index="3" title="Ảnh &amp; tệp" pill={sectionPill("sec-media")}
+              hint={live
+                ? "JPG, PNG, WebP ≤ 8 MB hoặc PDF ≤ 15 MB. Tệp hiện cho người mua khi sản phẩm đăng."
+                : review === "approved"
+                  ? "JPG, PNG, WebP ≤ 8 MB hoặc PDF ≤ 15 MB. Tệp ở chế độ nội bộ khi chờ đăng."
+                  : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
+            <div>
+              {/* Sản phẩm chưa tồn tại thì ảnh nằm trong kho riêng của nhà cung cấp.
+                  Tải ảnh không cần lưu nháp trước; chọn ảnh nào là gắn ảnh đó khi bấm Lưu. */}
+              {!product && <Row label="Kho ảnh" hint="Bấm vào ảnh để chọn hoặc bỏ chọn. Ảnh không chọn vẫn nằm trong kho cho sản phẩm khác.">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-[12px] font-semibold text-ink-700">Kho ảnh của bạn</p>
+                  <p className="text-[11.5px] font-semibold tabular-nums text-brand-800">Đã chọn {pickedBank.length}/8</p>
+                </div>
+                <p className="mt-0.5 text-[11.5px] leading-4 text-ink-500">Tải ảnh lên trước rồi chọn ảnh cần dùng. Ảnh được gắn vào sản phẩm khi bạn bấm Lưu.</p>
+                {bankMedia.length ? <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                  {bankMedia.map((asset) => {
+                    const url = privateMediaUrl(asset);
+                    const picked = pickedBank.includes(asset.id);
+                    return <li key={asset.id} className="relative">
+                      <button type="button" disabled={busy} onClick={() => toggleBank(asset.id)} aria-pressed={picked}
+                        aria-label={picked ? "Bỏ chọn ảnh này" : "Chọn ảnh này cho sản phẩm"}
+                        className={`block w-full overflow-hidden rounded-md border transition ${picked ? "border-brand-600 ring-2 ring-brand-200" : "border-ink-200 hover:border-brand-300"}`}>
+                        <span className="block aspect-square overflow-hidden bg-ink-100">
+                          {url
+                            ? <img src={url} alt="" className="size-full object-cover" />
+                            : <span className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-4" aria-hidden="true" /></span>}
+                        </span>
+                      </button>
+                      {picked && <span className="pointer-events-none absolute top-1 left-1 rounded-full bg-brand-700 px-1.5 py-0.5 text-[9px] font-bold text-white">Gắn</span>}
+                      <button type="button" disabled={busy} onClick={() => void removeBank(asset.id)}
+                        aria-label="Xóa ảnh khỏi kho" title="Xóa ảnh khỏi kho"
+                        className="absolute top-1 right-1 rounded-full bg-white/95 p-1 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
+                        <X className="size-3" aria-hidden="true" />
+                      </button>
+                    </li>;
+                  })}
+                </ul> : <p className="mt-2 rounded-md border border-dashed border-ink-300 bg-white px-3 py-3 text-center text-[11.5px] text-ink-600">Kho đang trống. Tải ảnh ở ô bên dưới, không cần lưu sản phẩm trước.</p>}
+              </Row>}
+
+              {/* Ảnh đại diện đứng trước: người mua thấy ảnh này đầu tiên trong kết quả tìm kiếm. */}
+              <Row label="Ảnh đại diện" hint="Người mua thấy ảnh này đầu tiên · nên dùng nền trắng, ≥ 800×800 px.">
+                <div
+                  onDragOver={(event) => { if (canUpload) { event.preventDefault(); setCoverHover(true); } }}
+                  onDragLeave={() => setCoverHover(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setCoverHover(false);
+                    if (!canUpload || event.dataTransfer.files.length) return;
+                    const dragged = event.dataTransfer.getData("text/plain");
+                    if (dragged) void makeCover(dragged);
+                  }}
+                  className="flex flex-wrap items-center gap-3"
+                >
+                  <div className={`size-[92px] shrink-0 overflow-hidden rounded-md border transition ${coverHover ? "border-brand-500 ring-2 ring-brand-200" : "border-dashed border-ink-300"} bg-white`}>
+                    {coverUrl
+                      ? <img src={coverUrl} alt="Ảnh đại diện" className="size-full object-cover" />
+                      : <span className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-6" aria-hidden="true" /></span>}
                   </div>
-                </Field>
-                <Field label="Điều kiện thanh toán">
-                  <input name="payment_terms" className="input" maxLength={200} placeholder="Ví dụ: T/T 30% cọc" defaultValue={product?.payment_terms ?? ""} disabled={locked} />
-                </Field>
-                {EXPORT_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}>
-                  <input name={key} className="input" maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} />
-                </Field>)}
-              </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] leading-5 text-ink-600">{coverUrl
+                      ? "Ảnh này hiện đầu tiên với người mua. Bấm ngôi sao ở ô ảnh bên dưới để đổi ảnh đại diện."
+                      : "Tự lấy ảnh chính. Tải ảnh ở mục Ảnh sản phẩm bên dưới."}</p>
+                    {cover && canDeleteAsset(cover) && <button type="button" disabled={busy} onClick={() => void removeMedia(cover.id)}
+                      aria-label="Xóa ảnh đại diện" title="Xóa ảnh đại diện"
+                      className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50">
+                      <Trash2 className="size-3" aria-hidden="true" /> Xóa ảnh
+                    </button>}
+                  </div>
+                </div>
+              </Row>
 
-              <div className="mx-4 mb-4 rounded-lg border border-brand-200 bg-brand-50/50 p-3.5 text-[12.5px] text-ink-700 sm:mx-5">
+              {/* Sáu ô ảnh sản phẩm: ô đầu là ảnh chính. */}
+              <Row label="Ảnh sản phẩm" required error={!hasMedia}>
+                <ul aria-label="6 ô ảnh sản phẩm" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {Array.from({ length: 6 }).map((_, index) => {
+                    const asset = imageSlots[index];
+                    const src = asset ? privateMediaUrl(asset) : null;
+                    const isCover = !!asset && asset.id === cover?.id;
+                    return <li key={asset?.id ?? `empty-${index}`} className="relative">
+                      <div className={`relative aspect-square overflow-hidden rounded-md border ${asset ? "border-ink-200 bg-white" : "border-dashed border-ink-300 bg-white"}`}>
+                        {src
+                          ? <img src={src} alt="" className="size-full object-cover" />
+                          : <span className="flex size-full flex-col items-center justify-center gap-0.5 text-ink-400">
+                            <Plus className="size-5" aria-hidden="true" />
+                            <span className="text-[10px] font-semibold">{index === 0 ? "Ảnh chính" : `Ảnh ${index + 1}`}</span>
+                          </span>}
+                        {asset && (isCover || canUpload || canDeleteAsset(asset)) && <div className="absolute inset-x-1 top-1 flex items-start justify-between gap-1">
+                          <span>{isCover && <span role="img" aria-label="Ảnh chính" title="Ảnh chính"
+                            className="flex size-[18px] items-center justify-center rounded-full bg-brand-700 text-white shadow-sm">
+                            <Star className="size-[11px] fill-current" aria-hidden="true" />
+                          </span>}</span>
+                          <span className="flex shrink-0 items-center gap-1">
+                            {canUpload && !isCover && <button type="button" disabled={busy} onClick={() => void makeCover(asset.id)}
+                              aria-label={`Đặt ${index === 0 ? "ảnh này" : `ảnh ${index + 1}`} làm ảnh đại diện`} title="Đặt làm ảnh đại diện"
+                              className="rounded-full bg-white/95 p-1 text-brand-700 shadow-sm hover:bg-brand-50 disabled:opacity-50">
+                              <Star className="size-3" aria-hidden="true" />
+                            </button>}
+                            {canDeleteAsset(asset) && <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)}
+                              aria-label={`Xóa ảnh ${index + 1}`} title="Xóa ảnh"
+                              className="rounded-full bg-white/95 p-1 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
+                              <X className="size-3" aria-hidden="true" />
+                            </button>}
+                          </span>
+                        </div>}
+                      </div>
+                    </li>;
+                  })}
+                </ul>
+                {imageCount >= 6 && <p className="mt-1.5 text-[11.5px] text-ink-500">Đã đủ 6 ô. Xóa bớt ảnh nếu muốn thay ảnh khác.</p>}
+
+                {/* Một chỗ tải tệp duy nhất: ngay dưới 6 ô ảnh. */}
+                {canUpload ? <>
+                  <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseFiles(Array.from(e.dataTransfer.files)); }}
+                    className="mt-2 rounded-md border border-dashed border-ink-300 bg-white px-4 py-3 text-center transition hover:border-brand-400 focus-within:border-brand-600">
+                    <p className="text-[12px] text-ink-600">Kéo thả hoặc{" "}
+                      <label className="cursor-pointer font-semibold text-brand-700 underline">{product ? "chọn ảnh hoặc PDF" : "chọn ảnh"}
+                        <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" className="sr-only" aria-label="Chọn ảnh sản phẩm hoặc catalogue"
+                          onChange={(e) => { chooseFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+                      </label>
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-ink-500">{product
+                      ? `Đã tải ${ownedCount}/12 tệp. Ảnh vào 6 ô, PDF vào mục catalogue.`
+                      : `Kho có ${bankMedia.length}/12 ảnh. Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu.`}</p>
+                  </div>
+                  {selected.length > 0 && <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2.5">
+                    <p className="text-[12px] font-semibold text-brand-900">Đã chọn {selected.length} tệp</p>
+                    <ul className="mt-1 max-h-24 space-y-0.5 overflow-auto text-[11px] text-brand-900">{selected.map((file, index) => <li key={`${file.name}-${index}`} className="truncate">{file.name} - {(file.size / 1024 / 1024).toFixed(1)} MB</li>)}</ul>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button type="button" disabled={busy} onClick={upload} className="btn btn-primary btn-sm"><UploadCloud className="size-4" aria-hidden="true" /> {product ? `Tải ${selected.length} tệp` : `Thêm ${selected.length} ảnh vào kho`}</button>
+                      <button type="button" disabled={busy} onClick={() => setSelected([])} className="btn btn-ghost btn-sm">Bỏ chọn</button>
+                    </div>
+                  </div>}
+                </> : <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-900">
+                  {locked ? "Đang chờ duyệt nên tạm khoá tải tệp. Duyệt xong hoặc bị trả về, bạn tải thêm được ngay."
+                    : "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."}
+                </div>}
+                {progress && <p role="status" className="mt-1.5 text-[12px] font-semibold text-brand-800">{progress}</p>}
+              </Row>
+
+              {/* Chỉ còn một chỗ tải ảnh: 6 ô ở trên. Danh sách dưới đây chỉ để xem lại
+                  catalogue PDF đã tải, không lặp lại ảnh. */}
+              {catalogueAssets.length > 0 && <Row label="Catalogue PDF">
+                <ul className="space-y-1.5">
+                  {catalogueAssets.map((asset) => {
+                    const url = privateMediaUrl(asset);
+                    return <li key={asset.id} className="flex flex-wrap items-center gap-2 rounded-md border border-ink-200 bg-white px-2.5 py-2">
+                      <FileText className="size-4 shrink-0 text-brand-700" aria-hidden="true" />
+                      <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-ink-900">{asset.caption || "Catalogue"}</span>
+                      {url && <a href={url} target="_blank" rel="noreferrer" className="shrink-0 text-[11.5px] font-semibold text-brand-700 underline">Xem tệp</a>}
+                      {canDeleteAsset(asset) && <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)}
+                        aria-label={`Xóa ${asset.caption || "tệp"}`} title="Xóa tệp"
+                        className="shrink-0 rounded-md border border-rose-200 bg-white p-1 text-rose-700 hover:bg-rose-50 disabled:opacity-50">
+                        <X className="size-3" aria-hidden="true" />
+                      </button>}
+                    </li>;
+                  })}
+                </ul>
+                <p className="mt-1.5 text-[11.5px] leading-4 text-ink-500">Catalogue chỉ là tệp đính kèm; ảnh sản phẩm vẫn nằm ở 6 ô phía trên.</p>
+              </Row>}
+            </div>
+          </section>
+
+          {/* 04 — Quy cách & năng lực */}
+          <section id="sec-spec" data-form-section="sec-spec" aria-label="Quy cách và năng lực"
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
+            <SectionHead index="4" title="Quy cách &amp; năng lực" pill={sectionPill("sec-spec")}
+              hint="Thông số người mua so sánh" />
+            <div>
+              <Row label="Quy cách / tiêu chuẩn" hint="Cần ít nhất một trong hai: mô tả ngắn hoặc quy cách.">
+                <textarea name="spec" className="input min-h-[76px] resize-y" rows={3} maxLength={800}
+                  placeholder="Ví dụ: Size W320, độ ẩm ≤ 5%, đóng gói 25 kg..." defaultValue={product?.spec ?? ""} disabled={locked} />
+              </Row>
+              <Row label="Năng lực mỗi tháng">
+                <input className="input max-w-[280px]" name="monthly_capacity" maxLength={180} placeholder="Ví dụ: 200 tấn/tháng"
+                  defaultValue={product?.monthly_capacity ?? ""} disabled={locked} />
+              </Row>
+              <Row label="Vùng nguyên liệu" hint="Có thể ghi nhiều vùng cho sản phẩm này.">
+                <RawMaterialRegionInput defaultValue={product?.raw_material_region ?? ""} disabled={locked} />
+              </Row>
+              <Row label="Xuất xứ nguyên liệu đầu vào" hint="Nguồn trong nước, nhập khẩu hoặc kết hợp.">
+                <input name="input_material_origin" className="input" maxLength={300}
+                  placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp" defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
+              </Row>
+              {!!selectedCategory && (officialAttributeFields.length > 0 || supplierAttributeFields.length > 0) &&
+                <Row label="Thông số riêng ngành hàng">
+                  {/* Chỉ hiện thêm khối thông số khi danh mục còn thông số khác ngoài Grade. */}
+                  <SupplierAttributeInputs key={selectedCategory} disabled={locked}
+                    officialFields={officialAttributeFields}
+                    supplierFields={supplierAttributeFields}
+                    values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}}
+                    onCommit={onAttributesCommit} />
+                </Row>}
+              <Row label="Dịch vụ">
+                <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12.5px] text-ink-700">
+                  <label className="inline-flex items-center gap-2"><input type="checkbox" name="oem" value="yes" defaultChecked={product?.oem ?? false} disabled={locked} className="size-4 accent-brand-700" /> Nhận gia công OEM</label>
+                  <label className="inline-flex items-center gap-2"><input type="checkbox" name="odm" value="yes" defaultChecked={product?.odm ?? false} disabled={locked} className="size-4 accent-brand-700" /> Có dịch vụ thiết kế &amp; sản xuất ODM</label>
+                  <label className="inline-flex w-full items-center gap-2"><input type="checkbox" name="samples" value="yes" defaultChecked={product?.samples ?? false} disabled={locked} className="size-4 accent-brand-700" /> Có thể gửi mẫu</label>
+                </div>
+              </Row>
+            </div>
+          </section>
+
+          {/* 05 — Giá & điều kiện bán */}
+          <section id="sec-price" data-form-section="sec-price" aria-label="Giá và điều kiện bán"
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
+            <SectionHead index="5" title="Giá &amp; điều kiện bán" pill={sectionPill("sec-price")}
+              hint="Bảng giá bậc, MOQ, Incoterm, giá mẫu" />
+            <div>
+              <Row label="Giá theo số lượng" required error={priceIssueCount > 0}
+                hint={priceIssueCount > 0 ? "Chọn grade và nhập đơn giá để tiếp tục." : "Số lượng dòng đầu là MOQ (đơn hàng tối thiểu)."}>
+              {product ? <div className="rounded-md border border-ink-200 p-3">
+                {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
+                  data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview} />
+                  : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra danh mục và kết nối; giá đang hiển thị không bị thay đổi.</p>}
+              </div> : <div id="new-quantity-pricing" className="space-y-3 rounded-md border border-ink-200 p-3">
+                {!activeCategory ? <p className="text-xs text-ink-600">Chọn danh mục để nhập grade và bảng giá.</p> : !newPolicy || !newQuantity ?
+                  <p role="alert" className="text-xs text-rose-700">Chưa tải được cấu hình bảng giá. Vui lòng kiểm tra kết nối trước khi lưu.</p> : <>
+                    <p className="text-xs text-ink-600">Không ghi grade trong tên sản phẩm. Tên tiếng Anh sẽ được dịch sau khi bạn gửi duyệt và được kiểm tra bởi quản trị viên.</p>
+                    {newQuantity && <QuantityPricingEditor value={newQuantity} onChange={onNewQuantityChange} standardGrades={newGrades} policy={newPolicy}
+                      buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"}
+                      isolated showPreview={false} showTitle={false} validateEnglishName={false} showErrors={showGradeErrors} consentChecked={quantityConsent} onConsentChange={setQuantityConsent} />}
+                  </>}
+              </div>}
+              </Row>
+
+              <Row label="Giá mẫu (USD)" hint="Bỏ trống nếu không bán mẫu.">
+                <input className="input max-w-[200px]" name="sample_price_usd" inputMode="decimal" placeholder="Ví dụ: 5"
+                  defaultValue={product?.sample_price_usd ?? ""} disabled={locked} />
+              </Row>
+
+              <Row label="Hiển thị giá">
+                <div className="text-[12px] text-ink-700">
                 <label className="flex items-start gap-2 font-semibold">
                   <input type="checkbox" name="price_publicly_visible" value="yes" defaultChecked={priceOptInDefault(product)} disabled={locked} className="mt-0.5 size-4 accent-brand-700" />
-                  Cho phép công khai giá tham khảo của sản phẩm này khi đủ điều kiện
+                  Cho phép công khai giá tham khảo khi đủ điều kiện
                 </label>
                 {!product && <p className="mt-1 pl-6 text-[11px] leading-4 text-ink-500">Được chọn sẵn. Bỏ chọn nếu chưa muốn chia sẻ giá.</p>}
-                {product && <div className="mt-2.5 rounded-md bg-white p-2.5 text-[11.5px] leading-5" role="status">
-                  <strong>Tình trạng giá đã lưu:</strong> {productPriceBlockers(product, supplier).length === 0 ? "Sản phẩm và doanh nghiệp đã cho phép chia sẻ giá." : "Buyer vẫn thấy On request."}
+                {product && <div className="mt-2 rounded-md bg-white p-2.5 text-[11px] leading-4" role="status">
+                  <strong>Tình trạng giá đã lưu:</strong> {productPriceBlockers(product, supplier).length === 0 ? "Sản phẩm và doanh nghiệp đã cho phép chia sẻ giá." : "Người mua vẫn thấy On request."}
                   <ul className="mt-1 list-disc pl-5">{productPriceBlockers(product, supplier).map((reason) => <li key={reason}>{reason}</li>)}
                     {(review !== "approved" || !product.ready_for_buyer || supplier.status !== "published") && <li>Sản phẩm chưa đủ điều kiện công khai hoặc hồ sơ doanh nghiệp chưa được xuất bản.</li>}
                   </ul>
                   {dirty && <p className="mt-1 font-semibold text-amber-800">Thay đổi ở form chưa lưu; dòng trên là tình trạng trước khi lưu.</p>}
                 </div>}
-                <p className="mt-2 text-[11.5px] leading-5">
-                  Sản phẩm cần có ảnh/catalogue, danh mục và hồ sơ doanh nghiệp đã được duyệt trước khi hiển thị cho buyer.
+                <p className="mt-1.5 text-[11px] leading-4 text-ink-600">
+                  Cần ảnh/catalogue, danh mục và hồ sơ doanh nghiệp được duyệt trước khi người mua thấy.
                   {supplierPriceConsentCurrent(supplier) ? " Xác nhận chia sẻ giá đang còn hiệu lực." : ""}
                 </p>
-                {!supplierPriceConsentCurrent(supplier) && <div className="mt-2.5 rounded-md bg-white p-2.5 ring-1 ring-brand-200">
-                  <label className="flex items-start gap-2 text-[11.5px] font-medium text-brand-900">
+                </div>
+              </Row>
+
+              <Row label="Xác nhận" required={snapshot.price_publicly_visible === "yes"}>
+                {!supplierPriceConsentCurrent(supplier) && <div className="rounded-md border border-ink-200 bg-white p-3">
+                  <label className="flex items-start gap-2 text-[11px] font-medium text-brand-900">
                     <input
                       type="checkbox"
                       name="confirm_supplier_price_consent"
@@ -924,323 +1228,343 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     <Link href="/dieu-khoan-su-dung" className="font-semibold text-brand-800 underline">Điều khoản</Link>
                   </p>
                 </div>}
-              </div>
+              </Row>
+            </div>
+          </section>
 
-              <div className="mx-4 mb-4 flex flex-wrap gap-x-5 gap-y-2 rounded-lg bg-ink-50 px-3.5 py-2.5 text-[12.5px] text-ink-700 sm:mx-5">
-                <label className="inline-flex items-center gap-2"><input type="checkbox" name="oem" value="yes" defaultChecked={product?.oem ?? false} disabled={locked} className="size-4 accent-brand-700" /> Nhận gia công/OEM</label>
-                <label className="inline-flex items-center gap-2"><input type="checkbox" name="odm" value="yes" defaultChecked={product?.odm ?? false} disabled={locked} className="size-4 accent-brand-700" /> Có dịch vụ thiết kế & sản xuất ODM</label>
-                <label className="inline-flex items-center gap-2"><input type="checkbox" name="samples" value="yes" defaultChecked={product?.samples ?? false} disabled={locked} className="size-4 accent-brand-700" /> Có thể gửi mẫu</label>
+          {/* 06 — Đóng gói & giao hàng */}
+          <section id="sec-shipping" data-form-section="sec-shipping" aria-label="Đóng gói và giao hàng"
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
+            <SectionHead index="6" title="Đóng gói &amp; giao hàng" pill={sectionPill("sec-shipping")}
+              hint="Kiện hàng, thời gian, cảng, thanh toán" />
+            <div>
+              <Row label="Đóng gói">
+                <div className="space-y-3">
+                  <SubField label="Bao bì / đóng gói">
+                    <input className="input" name="packaging" maxLength={300} placeholder="Ví dụ: túi hút chân không 25 kg"
+                      defaultValue={product?.packaging ?? ""} disabled={locked} />
+                  </SubField>
+                  <p className="-mt-1.5 text-[11.5px] leading-4 text-ink-500">Mô tả bằng lời.</p>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <SubField label="Loại kiện">
+                      <input className="input" name="package_type" maxLength={40} placeholder="bao, thùng, pallet"
+                        defaultValue={product?.package_type ?? ""} disabled={locked} />
+                    </SubField>
+                    <SubField label="Khối lượng mỗi kiện (kg)">
+                      <input className="input" name="package_weight_kg" inputMode="decimal" placeholder="25"
+                        defaultValue={product?.package_weight_kg ?? ""} disabled={locked} />
+                    </SubField>
+                    <SubField label="Số đơn vị mỗi thùng">
+                      <input className="input" name="units_per_carton" inputMode="numeric" placeholder="20"
+                        defaultValue={product?.units_per_carton ?? ""} disabled={locked} />
+                    </SubField>
+                  </div>
+                  <SubField label="Kích thước kiện (cm)">
+                    <input className="input max-w-[300px]" name="package_size" maxLength={60} placeholder="60 × 40 × 40"
+                      defaultValue={product?.package_size ?? ""} disabled={locked} />
+                  </SubField>
+                  <p className="-mt-1.5 text-[11.5px] leading-4 text-ink-500">Dài × rộng × cao, tính bằng cm.</p>
+                </div>
+              </Row>
+
+              <Row label="Thời gian giao hàng"
+                hint="Số ngày hoặc tuần từ lúc xác nhận đơn đến khi hàng sẵn sàng giao, chưa tính vận chuyển.">
+                <div className="flex items-center gap-2">
+                  <input
+                    name="lead_time_value"
+                    type="number"
+                    min={1}
+                    max={leadTimeUnit === "weeks" ? 52 : 365}
+                    className="input w-[120px] shrink-0 font-mono tabular-nums disabled:bg-ink-50 disabled:text-ink-400"
+                    placeholder={leadTimeUnit === "on_request" ? "-" : leadTimeUnit === "weeks" ? "VD: 2" : "VD: 15"}
+                    value={leadTimeUnit === "on_request" ? "" : leadTimeValue}
+                    onChange={(e) => updateLeadTime(e.target.value, leadTimeUnit)}
+                    disabled={locked || leadTimeUnit === "on_request"}
+                  />
+                  <select
+                    name="lead_time_unit"
+                    aria-label="Đơn vị thời gian giao hàng"
+                    className="input w-[120px] shrink-0"
+                    value={leadTimeUnit}
+                    onChange={(e) => updateLeadTime(leadTimeValue, e.target.value as LeadTimeUnit)}
+                    disabled={locked}
+                  >
+                    {LEAD_TIME_UNIT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.viLabel}</option>
+                    ))}
+                  </select>
+                  <input type="hidden" name="lead_time_days" value={computedLeadTimeDays} readOnly />
+                </div>
+              </Row>
+
+              <Row label="Vận chuyển">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <SubField label="Cảng xuất">
+                    <input name="export_port" className="input" maxLength={120} placeholder="Ví dụ: Cát Lái"
+                      defaultValue={String(product?.export_port ?? "")} disabled={locked} />
+                  </SubField>
+                  <SubField label="Địa điểm Incoterm">
+                    <input name="incoterm_place" className="input" maxLength={100} placeholder="Ví dụ: Hồ Chí Minh"
+                      defaultValue={String(product?.incoterm_place ?? "")} disabled={locked} />
+                  </SubField>
+                </div>
+              </Row>
+
+              <Row label="Điều kiện thanh toán">
+                <input name="payment_terms" className="input" maxLength={200} placeholder="Ví dụ: T/T 30% cọc"
+                  value={paymentTerm} onChange={(e) => setPaymentTerm(e.target.value)} disabled={locked} />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {["T/T 30% cọc", "L/C at sight", "D/P"].map((option) => <button key={option} type="button" disabled={locked}
+                    onClick={() => setPaymentTerm(option)}
+                    className="rounded-full border border-ink-200 bg-white px-2.5 py-1 text-[11.5px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800 disabled:opacity-50">
+                    {option}
+                  </button>)}
+                </div>
+              </Row>
+            </div>
+          </section>
+
+          {/* 07 — Nội dung chi tiết */}
+          <section id="sec-detail" data-form-section="sec-detail" aria-label="Nội dung chi tiết"
+            className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
+            <SectionHead index="7" title="Nội dung chi tiết" pill={sectionPill("sec-detail")}
+              hint="Bài người mua đọc kỹ trước khi hỏi giá" />
+            <div className="px-4 py-4 sm:px-5">
+              <div className="text-[12px]">
+                <span className="mb-1.5 block text-[13px] font-semibold text-ink-700">Mô tả chi tiết</span>
+                <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
+                  value={snapshot.description_detail} onChange={onDescriptionDetailChange} disabled={locked || busy} />
+                <span className="mt-1 block text-[11px] leading-4 text-ink-500">Dùng tiêu đề, in đậm, danh sách cho dễ đọc. Không nhập thông tin liên hệ trực tiếp.</span>
               </div>
             </div>
-
-            <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-              <SectionHead title="Đặt hàng & năng lực" />
-              <div className="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-2">
-                {BASE_FIELDS.map(([key, label, placeholder, max]) => <Field key={key} label={label}>
-                  <input className="input" name={key} maxLength={max} placeholder={placeholder} defaultValue={String(product?.[key] ?? "")} disabled={locked} />
-                </Field>)}
-              </div>
-            </div>
-
-            {stepError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-[13px] font-semibold text-rose-900">{stepError}</p>}
           </section>
         </form>
 
-        <section data-step-panel={2} className={step === 2 ? "space-y-3" : "hidden"} aria-label="Bước 2: Ảnh và catalogue" id="product-media">
-          <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-            <SectionHead step="Bước 2" title="Ảnh và catalogue"
-              hint={live
-                ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên sẽ hiển thị với buyer trên sản phẩm đã đăng."
-                : review === "approved"
-                  ? "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp tải lên ở chế độ nội bộ khi chờ đăng."
-                  : "JPG, PNG, WebP tối đa 8 MB hoặc PDF tối đa 15 MB. Tệp được kiểm tra khi duyệt."} />
-            <div className="space-y-4 px-4 py-4 sm:px-5">
-              {/* Ô ảnh đại diện riêng: kéo một ảnh khác từ danh sách vào ô này là thay ngay, ảnh cũ tự về lại danh sách. */}
-              <div
-                onDragOver={(event) => { if (canUpload) { event.preventDefault(); setCoverHover(true); } }}
-                onDragLeave={() => setCoverHover(false)}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setCoverHover(false);
-                  if (!canUpload || event.dataTransfer.files.length) return;
-                  const dragged = event.dataTransfer.getData("text/plain");
-                  if (dragged) void makeCover(dragged);
-                }}
-                className={`flex flex-wrap items-center gap-4 rounded-xl border-2 border-dashed p-4 transition ${coverHover ? "border-brand-500 bg-brand-50" : canUpload ? "border-brand-200 bg-brand-50/40" : "border-ink-200 bg-ink-50"}`}
-              >
-                <div className="size-24 shrink-0 overflow-hidden rounded-lg border border-ink-200 bg-white sm:size-28">
-                  {coverUrl
-                    ? <img src={coverUrl} alt="Ảnh đại diện" className="size-full object-cover" />
-                    : <span className="flex size-full flex-col items-center justify-center gap-1 text-ink-400"><ImageIcon className="size-6" aria-hidden="true" /><span className="text-[10px] font-semibold">Chưa có ảnh</span></span>}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-bold text-ink-900">Ảnh đại diện</p>
-                  <p className="mt-0.5 text-[12px] leading-5 text-ink-600">{canUpload
-                    ? "Ảnh này hiện đầu tiên với buyer. Kéo ảnh khác vào ô này (hoặc bấm nút sao) để thay; bạn cũng có thể xóa ảnh do mình tải."
-                    : "Ảnh này hiện đầu tiên với buyer."}</p>
-                </div>
-                {cover && canDeleteAsset(cover) && <button type="button" disabled={busy} onClick={() => void removeMedia(cover.id)}
-                  aria-label="Xóa ảnh đại diện" title="Xóa ảnh đại diện"
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50">
-                  <Trash2 className="size-3.5" aria-hidden="true" /> Xóa ảnh
-                </button>}
-              </div>
-              {media.filter((asset) => asset.id !== cover?.id).length > 0
-                ? <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{media.filter((asset) => asset.id !== cover?.id).map((asset) => {
-                  const url = privateMediaUrl(asset);
-                  return <li key={asset.id} className="group relative overflow-hidden rounded-lg border border-ink-200 bg-white"
-                    draggable={canUpload && asset.kind === "image"}
-                    onDragStart={(event) => { event.dataTransfer.setData("text/plain", asset.id); event.dataTransfer.effectAllowed = "move"; }}>
-                    <div className="relative block aspect-square overflow-hidden bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
-                      {asset.kind === "image" && url
-                        ? <img src={url} alt={`Ảnh ${asset.caption || product?.name || "sản phẩm"}`} loading="lazy" className="size-full object-cover" />
-                        : <span className="flex size-full items-center justify-center text-brand-700"><FileText className="size-8" aria-hidden="true" /></span>}
-                      <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
-                        <span className={`truncate rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${asset.audience === "buyer" ? "bg-emerald-100 text-emerald-800" : "bg-white/95 text-ink-700"}`}>
-                          {asset.audience === "buyer" ? "Chia sẻ buyer" : "Nội bộ"}
-                        </span>
-                        {(canUpload && asset.kind === "image" || canDeleteAsset(asset)) && (
-                          <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
-                            {canUpload && asset.kind === "image" &&
-                              <button type="button" disabled={busy} onClick={() => void makeCover(asset.id)} aria-label={`Đặt ${asset.caption || "ảnh này"} làm ảnh đại diện`} title="Đặt làm ảnh đại diện"
-                                className="rounded-full bg-white/95 p-1.5 text-brand-700 shadow-sm hover:bg-brand-50 disabled:opacity-50">
-                                <Star className="size-3.5" aria-hidden="true" />
-                              </button>}
-                            {canDeleteAsset(asset) &&
-                              <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)} aria-label={`Xóa ${asset.caption || "tệp"}`} title="Xóa tệp"
-                                className="rounded-full bg-white/95 p-1.5 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
-                                <X className="size-3.5" aria-hidden="true" />
-                              </button>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="px-3 py-2">
-                      <p className="truncate text-[12.5px] font-semibold text-ink-900">{asset.caption || (asset.kind === "image" ? "Ảnh sản phẩm" : "Catalogue")}</p>
-                      {url && <a href={url} target="_blank" rel="noreferrer" className="text-[11.5px] font-semibold text-brand-700 underline">Xem tệp</a>}
-                    </div>
-                  </li>;
-                })}</ul>
-                : <p className="rounded-lg bg-ink-50 px-3.5 py-6 text-center text-[13px] text-ink-600">{media.length
-                  ? "Ảnh đại diện đang là ảnh duy nhất của sản phẩm. Tải thêm ảnh hoặc catalogue nếu cần."
-                  : "Chưa có tệp nào. Thêm ít nhất một ảnh hoặc catalogue thật để gửi duyệt."}</p>}
+        {/* 08 — Xem lại & gửi */}
+        <section id="sec-review" data-form-section="sec-review" aria-label="Xem lại và gửi"
+          className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
+          <SectionHead index="8" title="Xem lại &amp; gửi" />
+          <div className="space-y-2.5 px-3 py-2.5 sm:px-3.5">
+            {/* Danh sách kiểm tra: mỗi dòng một việc, bên phải là hành động tương ứng. */}
+            <ul className="space-y-2 px-4 py-4 sm:px-5">
+              {([
+                { ok: !!product && !dirty, label: "Lưu thông tin sản phẩm trước khi gửi",
+                  action: "Lưu ngay", run: () => formRef.current?.requestSubmit() },
+                { ok: hasDetails, label: "Bổ sung mô tả ngắn hoặc quy cách",
+                  action: "Đi tới mục 2", run: () => scrollToSection("sec-basic") },
+                { ok: hasMedia, label: "Tải ít nhất một ảnh sản phẩm hoặc catalogue",
+                  action: "Đi tới mục 3", run: () => scrollToSection("sec-media") },
+                { ok: priceIssueCount === 0 && !!quantityPreview, label: "Chọn grade và nhập giá",
+                  action: "Đi tới mục 5", run: () => scrollToSection("sec-price") },
+                { ok: !!(snapshot.name ?? "").trim() && !!selectedCategory, label: "Tên và danh mục đã điền",
+                  action: "Sửa", run: () => scrollToSection("sec-category") },
+              ]).map((row) => <li key={row.label}
+                className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md border border-ink-200 px-3 py-2.5">
+                {row.ok
+                  ? <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                  : <AlertCircle className="size-4 shrink-0 text-amber-600" aria-hidden="true" />}
+                <span className={`min-w-0 flex-1 text-[12.5px] ${row.ok ? "text-ink-700" : "font-semibold text-ink-900"}`}>{row.label}</span>
+                <button type="button" onClick={row.run}
+                  className="shrink-0 text-[12px] font-bold text-brand-800 underline decoration-brand-300 underline-offset-2 hover:text-brand-900">
+                  {row.ok ? "Sửa" : row.action}
+                </button>
+              </li>)}
+            </ul>
 
-              {canUpload ? <>
-                <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseFiles(Array.from(e.dataTransfer.files)); }}
-                  className="rounded-lg border-2 border-dashed border-brand-200 bg-brand-50/40 px-4 py-6 text-center transition hover:border-brand-400 focus-within:border-brand-600">
-                  <UploadCloud className="mx-auto size-8 text-brand-700" aria-hidden="true" />
-                  <p className="mt-1.5 text-[13px] font-semibold text-ink-800">Kéo thả ảnh hoặc catalogue vào đây</p>
-                  <p className="mt-0.5 text-[11.5px] text-ink-500">hoặc chọn tệp từ thiết bị. Đã tải {ownedCount}/12 tệp</p>
-                  <label className="btn btn-soft relative mt-3 cursor-pointer">Chọn tệp
-                    <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" className="sr-only" aria-label="Chọn ảnh sản phẩm hoặc catalogue"
-                      onChange={(e) => { chooseFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} /></label>
-                </div>
-                {selected.length > 0 && <div className="rounded-lg border border-brand-200 bg-brand-50 p-3.5">
-                  <p className="text-[13px] font-semibold text-brand-900">Đã chọn {selected.length} tệp</p>
-                  <ul className="mt-1.5 max-h-24 space-y-0.5 overflow-auto text-[11.5px] text-brand-900">{selected.map((file, index) => <li key={`${file.name}-${index}`} className="truncate">{file.name} - {(file.size / 1024 / 1024).toFixed(1)} MB</li>)}</ul>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" disabled={busy} onClick={upload} className="btn btn-primary btn-sm"><UploadCloud className="size-4" aria-hidden="true" /> Tải {selected.length} tệp</button>
-                    <button type="button" disabled={busy} onClick={() => setSelected([])} className="btn btn-ghost btn-sm">Bỏ chọn</button>
-                  </div>
-                </div>}
-              </> : <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12.5px] leading-5 text-amber-900">
-                {!product ? "Lưu thông tin sản phẩm ở bước 1 trước; sau đó quay lại đây để tải ảnh và catalogue."
-                  : dirty ? "Có thay đổi ở bước 1 chưa lưu. Quay lại bước 1 bấm Lưu, rồi chuyển sang bước 2 để quản lý tệp."
-                  : legacyManaged ? "Sản phẩm này được quản lý từ trước nên tài khoản chưa tự sửa được tệp. Liên hệ bộ phận hỗ trợ nếu cần bổ sung ảnh hoặc catalogue."
-                  : locked ? "Sản phẩm đang chờ duyệt nên tạm khoá tải tệp - nội dung đang duyệt không thay đổi giữa chừng. Khi được duyệt hoặc bị trả về, bạn tải thêm được ngay."
-                  : "Sản phẩm này được quản lý từ trước nên tài khoản chưa tự sửa được tệp. Liên hệ bộ phận hỗ trợ nếu cần bổ sung ảnh hoặc catalogue."}
-              </div>}
-              {progress && <p role="status" className="text-[12.5px] font-semibold text-brand-800">{progress}</p>}
-            </div>
-          </div>
-        </section>
-
-        <section data-step-panel={3} className={step === 3 ? "space-y-3" : "hidden"} aria-label="Bước 3: Xem lại và gửi" id="product-review">
-          <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
-            <SectionHead step="Bước 3" title="Xem lại toàn bộ hồ sơ"
-              hint="Đọc lại đúng nội dung ở bước 1 và 2. Sửa được ngay tại đây, gửi xong hồ sơ mới chuyển sang bước duyệt." />
-            <div className="space-y-3 px-4 py-4 sm:px-5">
-              {dirty && <p className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] font-semibold text-amber-900">
-                Có thay đổi chưa lưu - nội dung dưới đây là bản đang nhập.
-                <button type="button" onClick={() => leaveInfoFor(3)} className="underline">Lưu ngay</button>
-                <button type="button" onClick={() => { if (window.confirm("Bỏ các thay đổi chưa lưu và tải lại nội dung đã lưu?")) window.location.reload(); }} className="underline">Bỏ thay đổi</button>
-              </p>}
-
-              <ul className="grid gap-2 sm:grid-cols-3">
-                {([[!!product, "Đã lưu sản phẩm"], [hasDetails, "Có mô tả/quy cách"], [hasMedia, "Có ảnh/catalogue"]] as const).map(([ready, label]) =>
-                  <li key={label} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-semibold ${ready ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
-                    {ready ? <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" /> : <AlertCircle className="size-4 shrink-0" aria-hidden="true" />}
-                    {label}
-                  </li>)}
-              </ul>
-
-              {/* Bước 1 - nội dung */}
-              <div className="rounded-lg border border-ink-200">
-                <ReviewHead title="Thông tin sản phẩm" onEdit={() => goToStep(1)} />
-                <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-2">
-                  <div className="sm:col-span-2"><ReviewField label="Tên sản phẩm" value={snapshot.name} strong /></div>
-                  <div className="sm:col-span-2"><ReviewField label="Danh mục" value={categoryLabel} /></div>
+            <details className="mx-4 mb-4 rounded-md border border-ink-200 sm:mx-5">
+              <summary className="cursor-pointer px-3 py-2 text-[12.5px] font-bold text-ink-700">Xem lại nội dung đã nhập</summary>
+              <div className="space-y-2.5 px-3 pb-3">
+            <div className="rounded-lg border border-ink-200">
+              <ReviewHead title="Tên, danh mục &amp; mô tả" onEdit={() => scrollToSection("sec-basic")} />
+              <dl className="grid gap-x-4 gap-y-2 px-3.5 py-2.5 text-[12px] sm:grid-cols-2">
+                <div className="sm:col-span-2"><ReviewField label="Tên sản phẩm" value={snapshot.name} strong /></div>
+                <div className="sm:col-span-2"><ReviewField label="Danh mục" value={categoryLabel} /></div>
+                <div><ReviewField label="Từ khoá" value={snapshot.keywords} /></div>
+                <div><ReviewField label="Mô tả ngắn" value={snapshot.description} /></div>
+                <div><ReviewField label="Quy cách / tiêu chuẩn" value={snapshot.spec} /></div>
+                <div><ReviewField label="Năng lực mỗi tháng" value={snapshot.monthly_capacity} /></div>
+                <div><ReviewField label="Vùng nguyên liệu" value={snapshot.raw_material_region} /></div>
+                <div><ReviewField label="Xuất xứ nguyên liệu đầu vào" value={snapshot.input_material_origin} /></div>
+                {attributeRows.length > 0 && (
                   <div className="sm:col-span-2">
-                    <dt className="text-[11px] font-semibold text-ink-500">Bảng giá</dt>
-                    <dd className="mt-1 rounded-lg border border-ink-200 p-3">
-                      {quantityEditor?.v2 ? <>
-                        <p>Grade: <strong>{quantityEditor.grade}</strong> · Incoterm: <strong>{quantityEditor.incoterm}</strong></p>
-                        <table className="mt-2 w-full text-left text-xs"><thead><tr><th>Số lượng ({quantityEditor.v2.unit === "mt" ? "MT" : "kg"})</th><th>Giá (USD/{quantityEditor.v2.unit === "mt" ? "MT" : "kg"})</th></tr></thead>
-                          <tbody>{quantityEditor.v2.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{tier.quantity}</td><td className="py-1 tabular-nums">{tier.price}</td></tr>)}</tbody>
-                        </table>
-                        <p className="mt-1 text-xs text-ink-500">{quantityEditor.pendingPriceId ? "Bảng giá đang chờ duyệt." : "Bảng giá đã duyệt."}</p>
-                      </> : quantityEditor && quantityPreview ? <>
-                        <p>Grade: <strong>{quantityPreview.grade || "Chưa chọn"}</strong> · Tiền tệ: <strong>{quantityPreview.currency ?? "USD"}</strong></p>
-                        <table className="mt-2 w-full text-left text-xs"><thead><tr><th>Incoterm</th><th>Số lượng từ (kg)</th><th>Giá ({quantityPreview.currency ?? "USD"}/kg)</th></tr></thead>
-                          <tbody>{quantityPreview.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1">{tier.incoterm || quantityPreview.incoterm || "—"}</td><td className="py-1 tabular-nums">{tier.minKg || "—"}</td><td className="py-1 tabular-nums">{tier.priceUsdPerKg || "—"}</td></tr>)}</tbody>
-                        </table>
-                        <p className="mt-1 text-xs text-ink-500">Bảng giá cần được duyệt.</p>
-                      </> : <span>Chưa tải được bảng giá mới.</span>}
-                    </dd>
+                    <dt className="text-[11px] font-semibold text-ink-500">Thông số theo nhóm hàng</dt>
+                    <dd className="mt-1 flex flex-wrap gap-1.5">{attributeRows.map(([label, value]) =>
+                      <span key={label} className="rounded-md bg-ink-100 px-1.5 py-0.5 text-[11px] text-ink-800"><strong className="font-semibold">{label}:</strong> {value}</span>)}</dd>
                   </div>
-                  {attributeRows.length > 0 && (
-                    <div className="sm:col-span-2">
-                      <dt className="text-[11px] font-semibold text-ink-500">Thông số theo nhóm hàng</dt>
-                      <dd className="mt-1 flex flex-wrap gap-1.5">{attributeRows.map(([label, value]) =>
-                        <span key={label} className="rounded-md bg-ink-100 px-1.5 py-0.5 text-[11.5px] text-ink-800"><strong className="font-semibold">{label}:</strong> {value}</span>)}</dd>
-                    </div>
-                  )}
-                  <div><ReviewField label="Mô tả ngắn" value={snapshot.description} /></div>
-                  <div><ReviewField label="Quy cách / tiêu chuẩn" value={snapshot.spec} /></div>
-                  <div><ReviewField label="Vùng nguyên liệu" value={snapshot.raw_material_region} /></div>
-                  <div><ReviewField label="Xuất xứ nguyên liệu đầu vào" value={snapshot.input_material_origin} /></div>
-                  <div className="min-w-0 sm:col-span-2">
-                    <dt className="text-[11px] font-semibold text-ink-500">Mô tả chi tiết</dt>
-                    <dd className="mt-1 rounded-lg bg-ink-50 px-3 py-2"><ProductDescriptionPreview value={snapshot.description_detail} /></dd>
-                  </div>
-                </dl>
-              </div>
+                )}
+                <div className="min-w-0 sm:col-span-2">
+                  <dt className="text-[11px] font-semibold text-ink-500">Mô tả chi tiết</dt>
+                  <dd className="mt-1 rounded-lg bg-ink-50 px-2.5 py-1.5"><ProductDescriptionPreview value={snapshot.description_detail} /></dd>
+                </div>
+              </dl>
+            </div>
 
-              {/* Bước 1 - thương mại & xuất khẩu */}
-              <div className="rounded-lg border border-ink-200">
-                <ReviewHead title="Thông tin thương mại & xuất khẩu" onEdit={() => goToStep(1)} />
-                <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-2">
-                  {REVIEW_COMMERCIAL.map(([key, label]) => {
-                    const displayValue = key === "lead_time_days"
-                      ? (leadTimeUnit === "on_request" || !leadTimeValue.trim()
-                          ? "Theo yêu cầu"
-                          : leadTimeUnit === "weeks"
-                            ? `${leadTimeValue.trim()} tuần`
-                            : `${leadTimeValue.trim()} ngày`)
-                      : snapshot[key];
-                    return <div key={key}><ReviewField label={label} value={displayValue} /></div>;
-                  })}
-                </dl>
-                <div className="flex flex-wrap gap-1.5 border-t border-ink-100 px-3.5 py-2.5">
+            <div className="rounded-lg border border-ink-200">
+              <ReviewHead title="Giá, MOQ &amp; điều kiện bán" onEdit={() => scrollToSection("sec-price")} />
+              <div className="px-3.5 py-2.5 text-[12px]">
+                {quantityEditor?.v2 ? <>
+                  <p>Grade: <strong>{quantityEditor.grade}</strong> · Incoterm: <strong>{quantityEditor.incoterm}</strong></p>
+                  <table className="mt-1.5 w-full text-left text-[11.5px]"><thead><tr><th>Số lượng ({quantityEditor.v2.unit === "mt" ? "MT" : "kg"})</th><th>Giá (USD/{quantityEditor.v2.unit === "mt" ? "MT" : "kg"})</th></tr></thead>
+                    <tbody>{quantityEditor.v2.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{tier.quantity}</td><td className="py-1 tabular-nums">{tier.price}</td></tr>)}</tbody>
+                  </table>
+                  <p className="mt-1 text-[11px] text-ink-500">{quantityEditor.pendingPriceId ? "Bảng giá đang chờ duyệt." : "Bảng giá đã duyệt."}</p>
+                </> : quantityEditor && quantityPreview ? <>
+                  <p>Grade: <strong>{quantityPreview.grade || "Chưa chọn"}</strong> · Tiền tệ: <strong>{quantityPreview.currency ?? "USD"}</strong></p>
+                  <table className="mt-1.5 w-full text-left text-[11.5px]"><thead><tr><th>Incoterm</th><th>Số lượng từ (kg)</th><th>Giá ({quantityPreview.currency ?? "USD"}/kg)</th></tr></thead>
+                    <tbody>{quantityPreview.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1">{tier.incoterm || quantityPreview.incoterm || "—"}</td><td className="py-1 tabular-nums">{tier.minKg || "—"}</td><td className="py-1 tabular-nums">{tier.priceUsdPerKg || "—"}</td></tr>)}</tbody>
+                  </table>
+                  <p className="mt-1 text-[11px] text-ink-500">Bảng giá cần được duyệt.</p>
+                </> : <span>Chưa tải được bảng giá mới.</span>}
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {([
                     [snapshot.price_publicly_visible === "yes", "Công khai giá khi đủ điều kiện"],
                     [snapshot.oem === "yes", "Nhận gia công/OEM"],
                     [snapshot.odm === "yes", "Thiết kế & sản xuất ODM"],
                     [snapshot.samples === "yes", "Có thể gửi mẫu"],
-                  ] as const).map(([on, label]) => <span key={label} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${on ? "bg-brand-50 text-brand-900 ring-1 ring-brand-200" : "bg-ink-100 text-ink-500 line-through"}`}>{label}</span>)}
+                  ] as const).map(([on, label]) => <span key={label} className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${on ? "bg-brand-50 text-brand-900 ring-1 ring-brand-200" : "bg-ink-100 text-ink-500 line-through"}`}>{label}</span>)}
                 </div>
               </div>
-
-              {/* Bước 1 - đặt hàng & năng lực */}
-              <div className="rounded-lg border border-ink-200">
-                <ReviewHead title="Đặt hàng & năng lực" onEdit={() => goToStep(1)} />
-                <dl className="grid gap-x-4 gap-y-2 px-3.5 py-3 text-[12.5px] sm:grid-cols-3">
-                  {REVIEW_ORDER.map(([key, label]) => <div key={key}><ReviewField label={label} value={snapshot[key]} /></div>)}
-                </dl>
-              </div>
-
-              {/* Bước 2 - ảnh & catalogue */}
-              <div className="rounded-lg border border-ink-200">
-                <ReviewHead title={`Ảnh và catalogue (${media.length} tệp)`} onEdit={() => goToStep(2)} />
-                <div className="px-3.5 py-3">
-                  {media.length
-                    ? <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                      {media.slice(0, 8).map((asset) => {
-                        const url = privateMediaUrl(asset);
-                        return <li key={asset.id} className="relative overflow-hidden rounded-md border border-ink-200 bg-ink-50">
-                          <span className="block aspect-square">
-                            {asset.kind === "image" && url
-                              ? <img src={url} alt={asset.caption || "Ảnh sản phẩm"} className="size-full object-cover" />
-                              : <span className="flex size-full items-center justify-center text-brand-700"><FileText className="size-6" aria-hidden="true" /></span>}
-                          </span>
-                          <span className={`absolute bottom-1 left-1 rounded px-1 py-0.5 text-[9.5px] font-bold ${asset.audience === "buyer" ? "bg-emerald-100 text-emerald-800" : "bg-white/95 text-ink-600"}`}>
-                            {asset.audience === "buyer" ? "Buyer" : "Nội bộ"}
-                          </span>
-                        </li>;
-                      })}
-                    </ul>
-                    : <p className="rounded-md bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">Chưa có tệp. Quay lại bước 2 để tải ảnh hoặc catalogue thật.</p>}
-                  {media.length > 8 && <p className="mt-1.5 text-[11px] text-ink-500">và {media.length - 8} tệp khác - xem đủ ở bước 2.</p>}
-                </div>
-              </div>
-
-              {sent || review === "pending"
-                ? <div role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[13px] font-semibold text-emerald-900">
-                  <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="min-w-0 flex-1">Đã gửi duyệt. Bạn sẽ nhận thông báo khi sản phẩm được đăng.</span>
-                  <Link href="/supplier/portal/products" className="underline">Về danh sách</Link>
-                </div>
-                : review === "approved"
-                  ? <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[13px] font-semibold text-emerald-800"><Check className="size-4" aria-hidden="true" /> {live ? "Sản phẩm đã đăng. Bạn có thể tiếp tục quản lý." : "Sản phẩm đã duyệt và đang chờ đăng."}</p>
-                  : <div className="space-y-2">
-                    <div id="submit-blockers" aria-live="polite">
-                      {submitHint?.length
-                        ? <ul role="alert" className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-900">
-                          {submitHint.map((hint) => <li key={hint} className="flex gap-1.5"><AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{hint}</li>)}
-                        </ul>
-                        : canSubmit
-                          ? <p className="text-[12px] text-ink-600">Hồ sơ đủ điều kiện để gửi duyệt - bấm Gửi duyệt ở thanh dưới cùng.</p>
-                          : submitBlockers().length
-                            ? <ul className="space-y-1 text-[12px] text-ink-600">
-                              {submitBlockers().map((hint) => <li key={hint} className="flex gap-1.5"><span className="mt-1.5 size-1 shrink-0 rounded-full bg-ink-400" aria-hidden="true" />{hint}</li>)}
-                            </ul>
-                            : null}
-                    </div>
-                  </div>}
-              <p className="text-[11.5px] leading-5 text-ink-500">{quantityEditor?.pendingNameId ? "Tên tiếng Anh đang chờ duyệt riêng." : quantityEditor?.hasApprovedName ? "Đã có tên tiếng Anh được duyệt riêng." : "Tên tiếng Anh được kiểm tra trong quá trình duyệt sản phẩm."}</p>
             </div>
+
+            <div className="rounded-lg border border-ink-200">
+              <ReviewHead title="Đóng gói &amp; giao hàng" onEdit={() => scrollToSection("sec-shipping")} />
+              <dl className="grid gap-x-4 gap-y-2 px-3.5 py-2.5 text-[12px] sm:grid-cols-2">
+                <div><ReviewField label="Bao bì / đóng gói" value={snapshot.packaging} /></div>
+                <div><ReviewField label="Loại kiện" value={snapshot.package_type} /></div>
+                <div><ReviewField label="Khối lượng mỗi kiện (kg)" value={snapshot.package_weight_kg} /></div>
+                <div><ReviewField label="Kích thước kiện" value={snapshot.package_size} /></div>
+                <div><ReviewField label="Số đơn vị mỗi thùng" value={snapshot.units_per_carton} /></div>
+                {REVIEW_COMMERCIAL.map(([key, label]) => {
+                  const displayValue = key === "lead_time_days"
+                    ? (leadTimeUnit === "on_request" || !leadTimeValue.trim()
+                        ? "Theo yêu cầu"
+                        : leadTimeUnit === "weeks"
+                          ? `${leadTimeValue.trim()} tuần`
+                          : `${leadTimeValue.trim()} ngày`)
+                    : snapshot[key];
+                  return <div key={key}><ReviewField label={label} value={displayValue} /></div>;
+                })}
+              </dl>
+            </div>
+
+            <div className="rounded-lg border border-ink-200">
+              <ReviewHead title={`Ảnh và catalogue (${media.length} tệp)`} onEdit={() => scrollToSection("sec-media")} />
+              <div className="px-3.5 py-2.5">
+                {media.length
+                  ? <ul className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+                    {media.slice(0, 6).map((asset) => {
+                      const url = privateMediaUrl(asset);
+                      return <li key={asset.id} className="relative overflow-hidden rounded-md border border-ink-200 bg-ink-50">
+                        <span className="block aspect-square">
+                          {asset.kind === "image" && url
+                            ? <img src={url} alt={asset.caption || "Ảnh sản phẩm"} className="size-full object-cover" />
+                            : <span className="flex size-full items-center justify-center text-brand-700"><FileText className="size-5" aria-hidden="true" /></span>}
+                        </span>
+                      </li>;
+                    })}
+                  </ul>
+                  : <p className="rounded-md bg-amber-50 px-3 py-1.5 text-[12px] text-amber-900">Chưa có tệp. Bổ sung ảnh hoặc catalogue thật ở mục Ảnh và tệp.</p>}
+                {media.length > 6 && <p className="mt-1 text-[10.5px] text-ink-500">và {media.length - 6} tệp khác - xem đủ ở mục Ảnh và tệp.</p>}
+              </div>
+            </div>
+              </div>
+            </details>
+
+            {sent || review === "pending"
+              ? <div role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] font-semibold text-emerald-900">
+                <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1">Đã gửi duyệt. Bạn sẽ nhận thông báo khi sản phẩm được đăng.</span>
+                <Link href="/supplier/portal/products" className="underline">Về danh sách</Link>
+              </div>
+              : review === "approved"
+                ? <p className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[12.5px] font-semibold text-emerald-800"><Check className="size-4" aria-hidden="true" /> {live ? "Sản phẩm đã đăng. Bạn có thể tiếp tục quản lý." : "Sản phẩm đã duyệt và đang chờ đăng."}</p>
+                : <div className="space-y-2">
+                  <div id="submit-blockers" aria-live="polite">
+                    {submitHint?.length
+                      ? <ul role="alert" className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+                        {submitHint.map((hint) => <li key={hint} className="flex gap-1.5"><AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{hint}</li>)}
+                      </ul>
+                      : canSubmit
+                        ? <p className="text-[11.5px] text-ink-600">Hồ sơ đủ điều kiện để gửi duyệt - bấm Gửi duyệt ở thanh dưới cùng.</p>
+                        : null}
+                  </div>
+                </div>}
+            {quantityEditor?.pendingNameId
+              ? <p className="text-[11px] leading-4 text-ink-500">Tên tiếng Anh đang chờ duyệt riêng.</p>
+              : quantityEditor?.hasApprovedName
+                ? <p className="text-[11px] leading-4 text-ink-500">Đã có tên tiếng Anh được duyệt riêng.</p>
+                : null}
           </div>
         </section>
 
-        {step === 2 && stepError && <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-[13px] font-semibold text-rose-900">{stepError}</p>}
-
-        {/* Thanh điều hướng dính đáy màn hình: luôn thấy nút Trở về / Tiếp tục. */}
-        <div className="sticky bottom-0 z-20 mt-3 flex items-center gap-2 rounded-xl border border-ink-200 bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur">
-          {step === 1
-            ? <Link href="/supplier/portal/products" className="btn btn-ghost btn-sm"><ArrowLeft className="size-3.5" aria-hidden="true" /> Hủy</Link>
-            : <button type="button" onClick={() => goToStep((step - 1) as Step)} className="btn btn-ghost btn-sm"><ArrowLeft className="size-3.5" aria-hidden="true" /> Trở về bước {step - 1}</button>}
-
-          <span className="hidden min-w-0 flex-1 truncate px-1 text-[11.5px] text-ink-500 sm:block">
-            {step === 1 ? (dirty ? "Có thay đổi chưa lưu" : product ? "Thông tin đã lưu" : "Chưa lưu sản phẩm")
-              : step === 2 ? `${media.length} tệp đã tải`
-                : review === "pending" ? "Đang chờ duyệt" : "Xem lại rồi gửi duyệt"}
+        {/* Thanh dính đáy: lưu nháp và gửi duyệt, luôn trong tầm tay. */}
+        {/* Thanh đính đáy: huỷ + trạng thái bên trái, ba nút hành động bên phải. */}
+        <div className="sticky bottom-0 z-20 mt-2.5 flex flex-wrap items-center gap-2 rounded-lg border border-ink-200 bg-white/95 px-3 py-2 shadow-[0_-2px_12px_rgba(15,23,42,0.08)] backdrop-blur">
+          <Link href="/supplier/portal/products" className="text-[13px] font-semibold text-ink-600 hover:text-ink-900">Hủy</Link>
+          <span className="hidden min-w-0 items-center gap-1.5 truncate text-[12px] text-ink-500 sm:flex">
+            <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${dirty ? "bg-amber-500" : review === "changes_requested" ? "bg-rose-500" : "bg-emerald-500"}`} />
+            <span className="truncate">
+              {dirty ? "Có thay đổi chưa lưu" : product ? `${media.length} tệp · thông tin đã lưu` : "Chưa lưu sản phẩm"}
+            </span>
           </span>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {step === 1 && !locked && product && dirty &&
-              <button type="submit" form="product-info" onClick={() => { advanceTo.current = null; }} disabled={busy}
-                className="btn btn-ghost btn-sm"><Save className="size-3.5" aria-hidden="true" /> {review === "approved" ? "Lưu thay đổi" : "Lưu nháp"}</button>}
-            {step === 1 && (locked
-              ? <button type="button" onClick={() => goToStep(2)} className="btn btn-primary btn-sm">Xem tệp <ArrowRight className="size-3.5" aria-hidden="true" /></button>
-              : product && !dirty
-                ? <button type="button" onClick={() => leaveInfoFor(2)} className="btn btn-primary btn-sm">Tiếp tục <ArrowRight className="size-3.5" aria-hidden="true" /></button>
-                : <button type="submit" form="product-info" onClick={() => { advanceTo.current = 2; }} disabled={busy}
-                  className="btn btn-primary btn-sm">{busy ? "Đang lưu..." : "Lưu và tiếp tục"} <ArrowRight className="size-3.5" aria-hidden="true" /></button>)}
-            {step === 2 && <button type="button" onClick={() => goToStep(3)} className="btn btn-primary btn-sm">Sang bước 3 <ArrowRight className="size-3.5" aria-hidden="true" /></button>}
-            {step === 3 && (review === "pending" || review === "approved" || sent
-              ? <span className="text-[11.5px] font-semibold text-emerald-800">{review === "approved" ? (live ? "Đã đăng" : "Đã duyệt, chờ đăng") : "Đã gửi duyệt"}</span>
-              : <button type="button" onClick={requestSubmit} disabled={busy} aria-describedby="submit-blockers" className="btn btn-primary btn-sm">
+            <button type="button" onClick={() => scrollToSection("sec-review")}
+              className="inline-flex items-center gap-1.5 rounded-md border border-ink-300 bg-white px-3 py-1.5 text-[12.5px] font-bold text-ink-800 hover:bg-ink-50">
+              <Eye className="size-3.5" aria-hidden="true" /> Xem trước
+            </button>
+            {!locked && dirty &&
+              <button type="submit" form="product-info" disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded-md border border-ink-300 bg-white px-3 py-1.5 text-[12.5px] font-bold text-ink-800 hover:bg-ink-50 disabled:opacity-50">
+                <Save className="size-3.5" aria-hidden="true" /> {review === "approved" ? "Lưu thay đổi" : "Lưu nháp"}
+              </button>}
+            {review === "pending" || review === "approved" || sent
+              ? <span className="text-[12px] font-semibold text-emerald-800">{review === "approved" ? (live ? "Đã đăng" : "Đã duyệt, chờ đăng") : "Đã gửi duyệt"}</span>
+              : <button type="button" onClick={requestSubmit} disabled={busy} aria-describedby="submit-blockers"
+                className="inline-flex items-center gap-1.5 rounded-md bg-brand-700 px-3.5 py-1.5 text-[12.5px] font-bold text-white hover:bg-brand-800 disabled:opacity-70">
                 {busy
                   ? <><span className="size-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> Đang gửi...</>
                   : <><Send className="size-3.5" aria-hidden="true" /> Gửi duyệt</>}
-              </button>)}
+              </button>}
           </div>
         </div>
       </div>
 
-      {/* Cột phải: thẻ xem nhanh - thương mại & xuất khẩu đọc được ngay, kể cả khi cuộn. */}
-      <aside className="space-y-3 lg:sticky lg:top-6">
-        <div className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+      {/* Cột phải: thẻ xem nhanh - đọc được ngay cả khi cuộn giữa trang. */}
+      <aside className="space-y-3 lg:sticky lg:top-4">
+        {/* Thẻ điểm chất lượng đứng trước để thấy ngay việc cần bổ sung. */}
+        {product && <section aria-label="Độ hoàn thiện hồ sơ" className="rounded-lg border border-ink-200 bg-white p-3.5">
+          <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Điểm chất lượng</p>
+          <div className="mt-2 flex items-center gap-3">
+            <div className="relative size-[52px] shrink-0">
+              <svg viewBox="0 0 36 36" className="size-full" aria-hidden="true">
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e2e8f0" strokeWidth="3.4" />
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#0f766e" strokeWidth="3.4" strokeLinecap="round"
+                  strokeDasharray="97.4" strokeDashoffset={97.4 - (Math.max(0, Math.min(100, completeness.score)) / 100) * 97.4}
+                  transform="rotate(-90 18 18)" />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center font-mono text-[13px] font-black tabular-nums text-brand-800">{completeness.score}</span>
+            </div>
+            <p className="min-w-0 text-[13px] font-bold text-ink-900">{completeness.score >= 85 ? "Cao" : completeness.score >= 60 ? "Trung bình" : "Thấp"}</p>
+          </div>
+          {completeness.next ? <>
+            <p className="mt-2.5 text-[10.5px] font-bold tracking-wider text-ink-500 uppercase">Việc cần làm tiếp</p>
+            <ul className="mt-1 space-y-1 text-[11.5px] leading-4 text-ink-600">
+              {completeness.missing.slice(0, 3).map((item) => <li key={item.key} className="flex items-start gap-1.5">
+                <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+                <span className="min-w-0 flex-1"><strong className="font-semibold text-ink-800">{item.label}</strong> · {item.hint}</span>
+                <span className="shrink-0 rounded bg-brand-50 px-1 py-0.5 font-mono text-[9.5px] font-bold text-brand-800">+{item.weight}</span>
+              </li>)}
+            </ul>
+            {completeness.missing.length > 3 && <p className="mt-1.5 text-[11px] text-ink-500">Còn {completeness.missing.length - 3} mục nữa.</p>}
+            <button type="button" onClick={() => scrollToSection(completeness.next!.step === 2 ? "sec-media" : "sec-basic")} className="btn btn-soft btn-sm mt-2">
+              Bổ sung: {completeness.next.label}
+            </button>
+          </> : <p className="mt-2 text-[11.5px] leading-4 text-emerald-700">Hồ sơ đã đủ các mục cần thiết.</p>}
+          <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{dirty ? "Lưu thay đổi để cập nhật số liệu." : "Số liệu tính từ bản đã lưu."}</p>
+        </section>}
+
+        <div className="overflow-hidden rounded-lg border border-ink-200 bg-white">
           <div className="relative aspect-square bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
             {coverUrl
               ? <img src={coverUrl} alt="" className="size-full object-cover" />
@@ -1252,11 +1576,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             {newQuantity && newPolicy ? <div className="mt-2">
               <QuantityBuyerPreview value={newQuantity} standardGrades={newGrades} policy={newPolicy}
                 buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} />
-              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước, chưa phải nội dung đang hiển thị cho buyer. Bảng giá và tên tiếng Anh cần được duyệt.</p>
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Bản xem trước, chưa phải nội dung người mua đang thấy. Bảng giá và tên cần được duyệt.</p>
             </div> : quantityEditor && quantityPreview ? <div className="mt-2">
               <QuantityBuyerPreview value={quantityPreview} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
                 buyerPriceUnit={quantityEditor.buyerPriceUnit} pricePubliclyVisible={quantityEditor.pricePubliclyVisible} />
-              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Đây là bản xem trước theo dữ liệu đang nhập, không phải giá đang hiển thị cho buyer. Giá hiện tại chỉ thay đổi khi mô hình mới được triển khai và bản giá được duyệt.</p>
+              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">Bản xem trước từ dữ liệu bạn đang nhập. Giá thật chỉ đổi sau khi bản giá được duyệt.</p>
             </div> : <h2 className="mt-0.5 line-clamp-2 text-[13.5px] font-black text-ink-900">{product?.name ?? "Sản phẩm mới"}</h2>}
             <dl className="mt-2.5 space-y-1 border-t border-ink-100 pt-2.5 text-[11.5px]">
               {commercial.filter((row) => !((quantityEditor && quantityPreview) || (newQuantity && newPolicy)) || !["Giá tham khảo", "MOQ", "Incoterm"].includes(row.label)).map((row) => <div key={row.label} className="flex items-baseline justify-between gap-2">
@@ -1268,7 +1592,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           </div>
         </div>
 
-        {product && (canDeleteDraft || review === "approved") && <section aria-label="Quản lý sản phẩm" className="rounded-xl border border-ink-200 bg-white p-3.5">
+        {product && (canDeleteDraft || review === "approved") && <section aria-label="Quản lý sản phẩm" className="rounded-lg border border-ink-200 bg-white p-3">
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Quản lý sản phẩm</p>
           {canDeleteDraft ? <>
             <p className="mt-2 text-[11.5px] leading-5 text-ink-600">Xóa vĩnh viễn bản nháp chưa duyệt và tệp của sản phẩm. Không thể hoàn tác.</p>
@@ -1276,7 +1600,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               <Trash2 className="size-3.5" aria-hidden="true" /> Xóa bản nháp
             </button>
           </> : <>
-            <p className="mt-2 text-[11.5px] leading-5 text-ink-600">Ẩn khỏi buyer, giữ lịch sử. Muốn đăng lại cần gửi duyệt.</p>
+            <p className="mt-2 text-[11.5px] leading-5 text-ink-600">Ẩn khỏi người mua, giữ lịch sử. Muốn đăng lại cần gửi duyệt.</p>
             <button type="button" disabled={busy || dirty} onClick={() => void pauseProduct()} className="btn btn-ghost btn-sm mt-2 text-ink-700 disabled:opacity-50">
               <EyeOff className="size-3.5" aria-hidden="true" /> Tạm ẩn sản phẩm
             </button>
@@ -1284,17 +1608,27 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           {dirty && <p className="mt-2 text-[11px] text-amber-800">Lưu hoặc bỏ thay đổi chưa lưu trước khi tiếp tục.</p>}
         </section>}
 
-        <div className="rounded-xl border border-ink-200 bg-ink-50/70 p-3.5">
+        <details className="rounded-lg border border-ink-200 bg-white">
+          <summary className="cursor-pointer px-3 py-2.5 text-[12.5px] font-bold text-ink-800">Ví dụ điền mẫu</summary>
+          <ul className="space-y-1 px-3 pb-3 text-[11.5px] leading-4 text-ink-600">
+            <li><strong className="font-semibold text-ink-800">Tên:</strong> Hạt điều nhân trắng (không ghi grade).</li>
+            <li><strong className="font-semibold text-ink-800">MOQ:</strong> 1.000 kg dễ nhận hỏi giá hơn 5 tấn.</li>
+            <li><strong className="font-semibold text-ink-800">Đóng gói:</strong> bao 25 kg, 20 đơn vị mỗi thùng.</li>
+            <li><strong className="font-semibold text-ink-800">Từ khoá:</strong> cashew w320, vietnam cashew.</li>
+          </ul>
+          <p className="px-3 pb-3 text-[10.5px] leading-4 text-ink-500">Ví dụ minh hoạ, không phải số liệu của bạn.</p>
+        </details>
+
+        <div className="rounded-lg border border-ink-200 bg-ink-50/70 p-3.5">
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Luồng duyệt</p>
-          <ol className="mt-2 space-y-1.5 text-[11.5px] leading-4 text-ink-600">
-            <li className="flex gap-1.5"><span className="font-bold text-brand-700">1.</span>Bạn lưu thông tin và tải tệp thật.</li>
-            <li className="flex gap-1.5"><span className="font-bold text-brand-700">2.</span>Gửi duyệt nội dung.</li>
-            <li className="flex gap-1.5"><span className="font-bold text-brand-700">3.</span>Chọn tệp chia sẻ buyer và bật sẵn sàng.</li>
+          <ol className="mt-2 space-y-2 text-[11.5px] leading-4 text-ink-600">
+            <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-brand-700 text-[10px] font-bold text-white">1</span>Bạn lưu thông tin và tải tệp thật.</li>
+            <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">2</span>Gửi duyệt nội dung.</li>
+            <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">3</span>Nội dung được duyệt rồi sản phẩm mới đăng.</li>
           </ol>
-          <p className="mt-2 flex items-start gap-1.5 text-[11px] text-ink-500"><LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Tệp ở chế độ nội bộ cho tới khi được chọn chia sẻ.</p>
         </div>
 
-        <Link href="/supplier/portal/products" className="flex items-center justify-between gap-2 rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-[12px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800">
+        <Link href="/supplier/portal/products" className="flex items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[12px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800">
           Danh sách sản phẩm <ChevronRight className="size-3.5" aria-hidden="true" />
         </Link>
       </aside>
@@ -1320,13 +1654,17 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
  * Các thẻ con trong bước 1 để trống để không lặp lại chữ “Bước 1” ba lần trên cùng
  * một màn hình - bước đang mở đã hiện ở thanh bước phía trên.
  */
-function SectionHead({ step, title, hint }: { step?: string; title: string; hint?: string }) {
-  return <div className="flex flex-wrap items-baseline justify-between gap-1 border-b border-ink-100 px-4 py-3 sm:px-5">
-    <div className="min-w-0">
-      {step && <p className="text-[10px] font-bold tracking-[0.14em] text-brand-700 uppercase">{step}</p>}
-      <h2 className="text-[15px] font-black text-ink-900">{title}</h2>
-    </div>
-    {hint && <p className="max-w-md text-[11.5px] leading-4 text-ink-500">{hint}</p>}
+function SectionHead({ index, title, hint, pill }: { index?: string; title: string; hint?: string;
+  pill?: { text: string; tone: "ok" | "muted" | "error" } }) {
+  const tone = pill?.tone === "ok"
+    ? "bg-emerald-50 text-emerald-800"
+    : pill?.tone === "error" ? "bg-rose-50 text-rose-700" : "bg-ink-100 text-ink-600";
+  return <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-ink-100 px-4 py-3 sm:px-5">
+    <h2 className="text-[15.5px] leading-6 font-black text-ink-900">
+      {index && <span className="mr-1 tabular-nums">{index}.</span>}{title}
+    </h2>
+    {pill && <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${tone}`}>{pill.text}</span>}
+    {hint && <p className="ml-auto max-w-[330px] text-right text-[12px] leading-4 text-ink-500">{hint}</p>}
   </div>;
 }
 
@@ -1345,6 +1683,32 @@ function ReviewField({ label, value, strong, mono }: { label: string; value?: st
     <dt className="text-[11px] font-semibold text-ink-500">{label}</dt>
     <dd className={`mt-0.5 break-words whitespace-pre-wrap ${strong ? "text-[13px] font-bold text-ink-900" : "text-[12.5px] text-ink-800"} ${shown && mono ? "font-mono tabular-nums" : ""} ${shown ? "" : "text-ink-400"}`}>{shown || "Chưa nhập"}</dd>
   </div>;
+}
+
+/**
+ * Một dòng nhập: nhãn nằm trên, ô nhập chiếm hết bề rộng thẻ.
+ * Nhãn không được dựng thành cột riêng — cột nhãn đẩy ô nhập sang phải và bóp hẹp ô.
+ */
+function Row({ label, hint, required, children, error }: {
+  label: string; hint?: string; required?: boolean; children: React.ReactNode; error?: boolean;
+}) {
+  return <div className="border-t border-ink-100 px-4 py-3 first:border-t-0 sm:px-5">
+    <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">
+      {required && <span className="mr-1 text-rose-600" aria-hidden="true">*</span>}{label}
+    </span>
+    <div className="min-w-0">
+      {children}
+      {hint && <p className={`mt-1.5 text-[11.5px] leading-4 ${error ? "text-rose-700" : "text-ink-500"}`}>{hint}</p>}
+    </div>
+  </div>;
+}
+
+/** Nhãn nhỏ phía trên ô trong cùng một dòng (dùng cho nhóm nhiều ô). */
+function SubField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block min-w-0">
+    <span className="mb-1 block text-[12px] font-semibold text-ink-700">{label}</span>
+    {children}
+  </label>;
 }
 
 function Field({ label, hint, required, className, children }: { label: string; hint?: string; required?: boolean; className?: string; children: React.ReactNode }) {

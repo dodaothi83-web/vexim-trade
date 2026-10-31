@@ -4,26 +4,31 @@
  * versioned persistence and both review workflows are in place.
  *
  * Quantities are whole kg; the end of a tier is the next minimum minus one kg.
- * Each tier keeps its own Incoterm and the table keeps one currency (USD, VND or
- * EUR) with at most two decimal places. The field name `priceUsdPerKg` is kept
- * for stored records; the amount is per kg in the tier's own currency.
+ * Each tier keeps its own Incoterm and the table keeps one currency (USD, VND,
+ * EUR, CNY or JPY) with at most two decimal places. The field name
+ * `priceUsdPerKg` is kept for stored records; the amount is per kg in the
+ * tier's own currency.
  */
-export const PRICE_CURRENCIES = ["USD", "VND", "EUR"] as const;
+export const PRICE_CURRENCIES = ["USD", "VND", "EUR", "CNY", "JPY"] as const;
 export type PriceCurrency = (typeof PRICE_CURRENCIES)[number];
 export const DEFAULT_PRICE_CURRENCY: PriceCurrency = "USD";
 
-/** Tiền tệ được phép nhập mới (quyết định 30/10/2026: tạm thời chỉ USD).
- *  Dữ liệu VND/EUR đã lưu vẫn đọc và hiển thị bình thường; ràng buộc DB hiện tại
- *  cũng chỉ nhận USD. Mở lại VND/EUR bằng cách thêm mã vào mảng này sau khi áp
- *  migration tiền tệ — không phải sửa chỗ nào khác. */
-export const ENTRY_PRICE_CURRENCIES: readonly PriceCurrency[] = ["USD"];
+/** Tiền tệ được phép nhập mới (quyết định 31/10/2026: mở USD, VND, EUR, CNY, JPY).
+ *  Cần áp migration `20261073_trade_currencies.sql` để hàm duyệt sản phẩm nhận đủ
+ *  năm mã; tắt lại một mã bằng cách bỏ khỏi mảng này, không phải sửa chỗ khác. */
+export const ENTRY_PRICE_CURRENCIES: readonly PriceCurrency[] = ["USD", "VND", "EUR", "CNY", "JPY"];
+
+/** Số chữ số thập phân khi hiển thị: VND và JPY không dùng phần lẻ. */
+export function currencyDecimals(currency: PriceCurrency): number {
+  return currency === "VND" || currency === "JPY" ? 0 : 2;
+}
 
 /** Lý do từ chối tiền tệ ở luồng nhập giá, hoặc null nếu được phép. */
 export function entryCurrencyIssue(raw: string | null | undefined): string | null {
   const code = normalizePriceCurrency(raw) ?? null;
-  if (!code) return "Chọn tiền tệ USD.";
+  if (!code) return "Chọn tiền tệ cho bảng giá.";
   return ENTRY_PRICE_CURRENCIES.includes(code) ? null
-    : `Tạm thời chỉ nhập giá bằng USD; bảng ${code} chưa được mở.`;
+    : `Bảng giá ${code} chưa được mở để nhập mới.`;
 }
 
 /** Only the three trade currencies are accepted; anything else fails closed. */
@@ -144,10 +149,12 @@ export function validateQuantityPricing(
     return { errors: [{ code: "invalid_policy", message: "Cấu hình kiểm tra giá không hợp lệ." }], warnings, value: null };
   }
   const grade = standardGrades.find((g) => normalized(g) === normalized(input.grade)) ?? "";
-  if (!grade) errors.push({ code: "grade", message: "Chọn một grade chuẩn của danh mục." });
+  if (!grade) errors.push({ code: "grade", message: standardGrades.length
+    ? "Chọn grade chuẩn của danh mục để tiếp tục."
+    : "Danh mục chưa có grade. Gửi Vexim bổ sung." });
   const fallbackIncoterm = input.incoterm.trim().toUpperCase();
   const currency = normalizePriceCurrency(input.currency ?? DEFAULT_PRICE_CURRENCY);
-  if (!currency) errors.push({ code: "currency", message: "Chọn tiền tệ USD, VND hoặc EUR." });
+  if (!currency) errors.push({ code: "currency", message: "Chọn tiền tệ cho bảng giá." });
   const gradeInName = [...standardGrades, input.grade].find((g) => nameContainsGrade(input.nameVi, [g]));
   if (gradeInName) errors.push({ code: "name_vi_grade", message: `Bỏ grade (${gradeInName}) ra khỏi tên sản phẩm.` });
   if (nameContainsGrade(input.nameEn, [...standardGrades, input.grade])) errors.push({ code: "name_en_grade", message: "Không ghi grade trong tên sản phẩm tiếng Anh." });
@@ -239,7 +246,7 @@ export function quantityTierRanges(tiers: readonly QuantityPriceTier[]): Array<Q
 
 export function formatQuantityPriceBuyer(pricePerKg: number, unit: "kg" | "mt", currency: PriceCurrency = DEFAULT_PRICE_CURRENCY): string {
   const value = unit === "mt" ? pricePerKg * 1000 : pricePerKg;
-  const digits = unit === "mt" ? 0 : 2;
+  const digits = unit === "mt" ? 0 : currencyDecimals(currency);
   return `${currency} ${new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)}/${unit === "mt" ? "MT" : "kg"}`;
 }
 

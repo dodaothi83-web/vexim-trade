@@ -71,7 +71,7 @@ assert.match(detailHtml, /AI nghi ngờ ảnh bị chỉnh sửa hoặc dàn d�
 assert.match(detailHtml, /Đây là gợi ý, không phải kết luận/);
 assert.match(detailHtml, /Nhận vào đợt kiểm/);
 assert.match(detailHtml, /Trả hồ sơ/);
-assert.match(detailHtml, /hồ sơ NCC tự gửi không bao giờ tự thành huy hiệu/);
+assert.match(detailHtml, /hồ sơ nhà cung cấp tự gửi không bao giờ tự thành huy hiệu/);
 assert.doesNotMatch(detailHtml, /AI: không đạt/);
 // Replacement after the scan keeps the historical result but marks it uncertain.
 items[0].storage_path = 'photos/new-gate.jpg';

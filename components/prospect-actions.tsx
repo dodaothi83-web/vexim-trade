@@ -114,17 +114,17 @@ export function ProspectConversion({
     if (response.ok) router.push(`/crm/buyers/${buyerId}`);
   }
   if (status === "converted" && matchedBuyerId) {
-    return <a className="btn btn-primary" href={`/crm/buyers/${matchedBuyerId}`}><ArrowRightLeft className="h-4 w-4" />Mở Buyer đã liên kết</a>;
+    return <a className="btn btn-primary" href={`/crm/buyers/${matchedBuyerId}`}><ArrowRightLeft className="h-4 w-4" />Mở Người mua đã liên kết</a>;
   }
   return (
     <div className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4">
       <div>
-        <h2 className="text-[13px] font-bold text-brand-900">Đưa đầu mối đủ điều kiện vào pipeline Buyer</h2>
-        <p className="mt-1 text-[12px] leading-relaxed text-brand-800">Chỉ thực hiện sau khi xác nhận nhu cầu sourcing thực tế. Hệ thống đối chiếu email hoặc LinkedIn trước khi tạo Buyer mới.</p>
+        <h2 className="text-[13px] font-bold text-brand-900">Đưa đầu mối đủ điều kiện vào pipeline người mua</h2>
+        <p className="mt-1 text-[12px] leading-relaxed text-brand-800">Chỉ làm sau khi xác nhận nhu cầu tìm nguồn thực tế. Hệ thống đối chiếu email hoặc LinkedIn trước khi tạo người mua mới.</p>
       </div>
       {matchCandidates.length > 0 && status !== "converted" && (
         <div className="space-y-2 rounded-lg bg-white p-3">
-          <p className="text-[12px] font-semibold text-amber-800">Có Buyer cùng công ty. Có thể liên kết để tránh tạo hồ sơ công ty trùng:</p>
+          <p className="text-[12px] font-semibold text-amber-800">Có Người mua cùng công ty. Có thể liên kết để tránh tạo hồ sơ công ty trùng:</p>
           {matchCandidates.map((buyer) => (
             <div key={buyer.id} className="flex items-center justify-between gap-3 text-[12px]">
               <div className="min-w-0">
@@ -138,7 +138,7 @@ export function ProspectConversion({
       )}
       <Button disabled={busy || status !== "qualified"} onClick={() => void convert()}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
-        {status === "qualified" ? "Tạo hoặc ghép Buyer" : "Xác nhận nhu cầu trước"}
+        {status === "qualified" ? "Tạo hoặc ghép Người mua" : "Xác nhận nhu cầu trước"}
       </Button>
     </div>
   );

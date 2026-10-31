@@ -70,17 +70,27 @@ const perTier = validate({ tiers: [
 assert.deepEqual(perTier.value.tiers.map((tier) => tier.incoterm), ['FOB', 'CIF'], 'Mỗi bậc giá giữ Incoterm riêng');
 assert.equal(perTier.value.incoterm, 'FOB', 'Incoterm của bảng lấy theo mức đầu (cột lưu trữ cũ)');
 assert.ok(codes(validate({ tiers: [{ minKg: '1000', priceUsdPerKg: '6', incoterm: 'XYZ' }] })).includes('incoterm'));
-assert.ok(codes(validate({ currency: 'GBP' })).includes('currency'), 'Chỉ nhận USD, VND hoặc EUR');
+assert.ok(codes(validate({ currency: 'GBP' })).includes('currency'), 'Chỉ nhận 5 tiền tệ đã mở');
 const vnd = validate({ currency: 'VND', tiers: [{ minKg: '1000', priceUsdPerKg: '65000' }, { minKg: '5000', priceUsdPerKg: '62000' }] }, bounds);
 assert.deepEqual(vnd.warnings, [], 'Ngưỡng tham khảo USD/kg không áp cho bảng VND');
 assert.equal(vnd.value.currency, 'VND');
 assert.equal(vnd.value.tiers[0].currency, 'VND');
-assert.equal(formatQuantityPriceBuyer(62000, 'kg', 'VND'), 'VND 62,000.00/kg');
+// VND/JPY không dùng phần lẻ khi hiển thị.
+assert.equal(formatQuantityPriceBuyer(62000, 'kg', 'VND'), 'VND 62,000/kg');
+assert.equal(formatQuantityPriceBuyer(1250, 'kg', 'JPY'), 'JPY 1,250/kg');
+assert.equal(formatQuantityPriceBuyer(6.4, 'kg', 'CNY'), 'CNY 6.40/kg');
 assert.equal(formatQuantityPriceBuyer(1.5, 'mt', 'EUR'), 'EUR 1,500/MT');
+assert.equal(validateQuantityPricing({ ...input, grade: '' }, grades).errors.find((issue) => issue.code === 'grade').message,
+  'Chọn grade chuẩn của danh mục để tiếp tục.', 'Lỗi grade nói rõ việc cần làm');
+assert.match(validateQuantityPricing({ ...input, grade: '' }, []).errors.find((issue) => issue.code === 'grade').message,
+  /Danh mục chưa có grade/, 'Danh mục chưa cấu hình grade được báo riêng');
 assert.equal(entryCurrencyIssue('USD'), null, 'USD được nhập');
-assert.match(entryCurrencyIssue('VND'), /chỉ nhập giá bằng USD/, 'Tạm thời chặn VND khi nhập mới');
-assert.match(entryCurrencyIssue('EUR'), /chỉ nhập giá bằng USD/, 'Tạm thời chặn EUR khi nhập mới');
-assert.deepEqual([...ENTRY_PRICE_CURRENCIES], ['USD'], 'Một chỗ duy nhất để mở lại VND/EUR sau này');
+assert.equal(entryCurrencyIssue('VND'), null, 'VND nhập mới được');
+assert.equal(entryCurrencyIssue('EUR'), null, 'EUR nhập mới được');
+assert.equal(entryCurrencyIssue('CNY'), null, 'Nhân dân tệ nhập mới được');
+assert.equal(entryCurrencyIssue('JPY'), null, 'Yên Nhật nhập mới được');
+assert.match(entryCurrencyIssue('GBP'), /Chọn tiền tệ/, 'Tiền tệ ngoài danh sách vẫn bị chặn');
+assert.deepEqual([...ENTRY_PRICE_CURRENCIES], ['USD', 'VND', 'EUR', 'CNY', 'JPY'], 'Năm tiền tệ nhập mới, một chỗ duy nhất');
 const drafting = previewQuantityTiers({ grade: '', incoterm: 'FOB', currency: 'USD', tiers: [
   { minKg: '100', priceUsdPerKg: '2' }, { minKg: '', priceUsdPerKg: '1.5' }, { minKg: '500', priceUsdPerKg: 'abc' },
 ] });

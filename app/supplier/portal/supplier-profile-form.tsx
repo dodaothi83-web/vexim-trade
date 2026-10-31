@@ -28,7 +28,7 @@ function coreDocChosen(form: HTMLFormElement): boolean {
     Boolean(form.querySelector<HTMLInputElement>(`input[name="doc:${key}"]`)?.files?.length));
 }
 
-const STEP_TITLES = ["Thông tin doanh nghiệp", "Giấy tờ bước đầu", "Hiển thị cho buyer & gửi hồ sơ"] as const;
+const STEP_TITLES = ["Thông tin doanh nghiệp", "Giấy tờ bước đầu", "Hiển thị cho người mua & gửi hồ sơ"] as const;
 
 export function SupplierProfileFields({ supplier, email, categories, step }: { supplier?: Supplier; email: string; categories: CategoryProposalOption[]; step: number }) {
   const [supplierType, setSupplierType] = useState<SupplierType | "">(supplier?.supplier_type ?? "");
@@ -67,7 +67,7 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
     </div>
     <div data-step-panel={2} className={step === 2 ? "space-y-7" : "hidden"}>
     <section><h2 className="text-xl font-black text-ink-900">Giấy tờ bước đầu · Kiểm tra giấy tờ</h2>
-      <p className="mt-1 text-sm text-ink-600">Chọn ít nhất một trong ba giấy có dấu *: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal. Giấy phải đứng tên doanh nghiệp bạn đã khai ở bước 1, giấy đứng tên đơn vị khác không được tính. Ảnh/PDF tối đa 15 MB/tệp, tổng 5 tệp, tải lên không tự duyệt.</p>
+      <p className="mt-1 text-sm text-ink-600">Chọn ít nhất một trong ba giấy có dấu *: Đăng ký doanh nghiệp, ATTP hoặc HACCP/ISO/Halal.<br />Giấy phải đứng tên doanh nghiệp bạn khai ở bước 1; giấy đứng tên đơn vị khác không tính.<br />Ảnh hoặc PDF tối đa 15 MB/tệp, tổng 5 tệp; tải lên không tự duyệt.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">{INITIAL_DOCUMENT_KEYS.map((key) => {
         const core = (CORE_DOC_KEYS as readonly string[]).includes(key);
         return <FilePicker
@@ -95,7 +95,7 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
     </div>
     <div data-step-panel={3} className={step === 3 ? "space-y-7" : "hidden"}>
     <section><h2 className="text-xl font-black text-ink-900">Thông tin hiển thị trên trang doanh nghiệp</h2>
-      <p className="mt-1 text-sm text-ink-600">Các trường này dựng nên trang giới thiệu doanh nghiệp. Chỉ hiện công khai khi hồ sơ được xuất bản; sản phẩm và ảnh sản phẩm khai riêng sau khi tài khoản được duyệt. Cứ nhập bằng tiếng Việt - MOQ, thị trường xuất khẩu và phần giới thiệu sẽ được dịch tự động sang tiếng Anh cho buyer.</p>
+      <p className="mt-1 text-sm text-ink-600">Các trường này dựng nên trang giới thiệu doanh nghiệp.<br />Chỉ hiện công khai khi hồ sơ được xuất bản; sản phẩm và ảnh khai riêng sau khi được duyệt.<br />Cứ nhập bằng tiếng Việt: MOQ, thị trường xuất khẩu và phần giới thiệu sẽ được dịch sang tiếng Anh.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Tên hiển thị trên trang" name="display_name" maxLength={180} defaultValue={supplier?.display_name ?? ""} />
         <Field label="Website (https://...)" name="website" maxLength={250} defaultValue={supplier?.website ?? ""} />
@@ -125,7 +125,7 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
         </label>
         <label className="flex items-start gap-2 text-sm leading-6 text-ink-700">
           <input type="checkbox" name="information_accuracy" value="yes" required className="mt-1 h-4 w-4 shrink-0 accent-brand-700" />
-          <span>Tôi chịu trách nhiệm về tính trung thực của thông tin đã cung cấp, gồm tên sản phẩm, giá sản phẩm và thời gian giao hàng, và cam kết thực hiện đúng với những thông tin này.</span>
+          <span>Tôi chịu trách nhiệm về tính trung thực của thông tin đã cung cấp.<br />Thông tin gồm tên sản phẩm, giá và thời gian giao hàng; tôi cam kết thực hiện đúng.</span>
         </label>
       </div>
     </section>
@@ -135,7 +135,7 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
 
 function CategoryProposals({ categories, supplier }: { categories: CategoryProposalOption[]; supplier?: Supplier }) {
   return <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">Danh mục kinh doanh</h2>
-    <p className="mt-1 text-sm text-ink-600">Chọn trong các danh mục đang mở. Sau khi tài khoản được duyệt, sản phẩm chỉ được gắn trong phạm vi này; từng sản phẩm vẫn được duyệt trước khi công khai.</p>
+    <p className="mt-1 text-sm text-ink-600">Chọn trong các danh mục đang mở.<br />Sau khi tài khoản được duyệt, sản phẩm chỉ gắn trong phạm vi này và vẫn phải duyệt trước khi công khai.</p>
     {categories.length ? <SupplierCategoryPicker categories={categories} initial={supplier?.requested_category_slugs ?? []} /> :
       <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Chưa có danh mục nào đang mở. Liên hệ bộ phận hỗ trợ trước khi gửi hồ sơ.</p>}
   </section>;

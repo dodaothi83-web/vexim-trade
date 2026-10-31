@@ -136,11 +136,11 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
     : level === 2 ? "/supplier/portal/verification/factory" : "/supplier/portal/verification/export";
   const CERT_HREF = "/supplier/portal/documents#chung-nhan";
   if (input.supplier?.id === supplierId && input.supplier.onboarding_status === "approved") {
-    add(`onboarding-approved:${supplierId}`, "Tài khoản NCC đã được mở quyền", "Bạn có thể dùng cổng NCC. Việc duyệt xác minh và công khai hồ sơ là quyết định riêng.", input.supplier.updated_at, "verification", "/supplier/portal");
+    add(`onboarding-approved:${supplierId}`, "Tài khoản nhà cung cấp đã được mở quyền", "Bạn có thể dùng cổng nhà cung cấp. Việc duyệt xác minh và công khai hồ sơ là quyết định riêng.", input.supplier.updated_at, "verification", "/supplier/portal");
   }
   for (const m of relevant) {
     add(`rfq:${m.id}`, `Yêu cầu báo giá ${m.rfq!.code} đã được chuyển tới`, "Mở danh sách RFQ để xem hạn phản hồi; trả lời email mời báo giá đã nhận.", m.sent_to_supplier_at!, "rfq", "/supplier/portal/rfqs");
-    if (m.status === "selected") add(`selected:${m.id}`, `Hồ sơ ${m.rfq!.code} đã được chọn`, "Bộ phận phụ trách sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin buyer tại đây.", m.updated_at, "rfq", "/supplier/portal/rfqs");
+    if (m.status === "selected") add(`selected:${m.id}`, `Hồ sơ ${m.rfq!.code} đã được chọn`, "Bộ phận phụ trách sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin người mua tại đây.", m.updated_at, "rfq", "/supplier/portal/rfqs");
   }
   for (const v of reviews.filter((v) => v.supplier_id === supplierId)) {
     const label = v.target_level === 1 ? "Kiểm tra giấy tờ" : v.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng";
@@ -152,7 +152,7 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
     if (p.supplier_review_status === "approved") {
       const live = p.supplier_originated === true && p.ready_for_buyer === true;
       add(`product-approved:${p.id}`, live ? `Sản phẩm đã đăng: ${p.name}` : `Sản phẩm đã duyệt, chờ đăng: ${p.name}`,
-        live ? "Sản phẩm đang hiển thị với buyer. Bạn có thể quản lý thông tin và hình ảnh."
+        live ? "Sản phẩm đang hiển thị với người mua. Bạn có thể quản lý thông tin và hình ảnh."
           : "Sản phẩm đã duyệt. Quản trị viên sẽ hoàn tất đăng sản phẩm.",
         p.updated_at, "product", `/supplier/portal/products/${p.id}`);
     }
@@ -162,7 +162,7 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
   for (const c of (input.certificates ?? []).filter((c) => c.supplier_id === supplierId)) {
     if (c.review_status === "approved") {
       if (c.publicly_visible) add(`cert-published:${c.id}`, `Chứng nhận được phép hiển thị: ${c.name}`, "Chỉ hiện nhãn trên sản phẩm đúng phạm vi nếu đủ điều kiện; tệp nội bộ vẫn riêng tư.", c.updated_at, "certificate", CERT_HREF);
-      else add(`cert-approved:${c.id}`, `Đã xét duyệt bản sao: ${c.name}`, "Chưa công bố. Việc hiển thị trên trang buyer cần được quyết định riêng.", c.checked_at || c.updated_at, "certificate", CERT_HREF);
+      else add(`cert-approved:${c.id}`, `Đã xét duyệt bản sao: ${c.name}`, "Chưa công bố. Việc hiển thị trên trang người mua cần được quyết định riêng.", c.checked_at || c.updated_at, "certificate", CERT_HREF);
     }
     if (c.review_status === "changes_requested") add(`cert-changes:${c.id}`, `Chứng nhận cần bổ sung: ${c.name}`, c.review_note || "Mở mục Kiểm tra giấy tờ L1 để cập nhật lại.", c.updated_at, "certificate", CERT_HREF);
     if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, `Chứng nhận không được chấp thuận: ${c.name}`, c.review_note || "Mở mục Kiểm tra giấy tờ L1 để xem phản hồi.", c.updated_at, "certificate", CERT_HREF);

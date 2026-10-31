@@ -37,7 +37,7 @@ export default async function SupplierCategoriesPage() {
     <PageHeader
       eyebrow="Cổng nhà cung cấp · riêng tư"
       title="Danh mục kinh doanh"
-      sub="Chọn nhóm hàng trong danh sách đang mở. Phạm vi giúp staff xem xét sản phẩm; thêm danh mục không đăng gian hàng hay duyệt sản phẩm."
+      sub="Chọn nhóm hàng trong danh sách đang mở. Phạm vi giúp nhân viên xem xét sản phẩm; thêm danh mục không đăng gian hàng hay duyệt sản phẩm."
       actions={<Link href="/supplier/portal/products" className="btn btn-ghost btn-sm">Sản phẩm của tôi</Link>}
     />
 

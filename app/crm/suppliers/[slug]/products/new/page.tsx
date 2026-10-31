@@ -39,7 +39,7 @@ export default async function NewProductPage({
           />
         }
         title="Thêm hồ sơ sản phẩm"
-        sub="Một hồ sơ cho mỗi dòng sản phẩm / quy cách để dễ so khớp với RFQ của buyer."
+        sub="Một hồ sơ cho mỗi dòng sản phẩm / quy cách để dễ so khớp với RFQ của người mua."
       />
       <div className="mx-auto max-w-4xl">
         <ProductForm supplier={supplier} categories={categories} supplierCategories={supplierCategories} />

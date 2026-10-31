@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import * as pricing from '../lib/products/quantity-pricing.ts';
+import * as productExtras from '../lib/products/product-extras.ts';
 const supplierId = '55555555-5555-5555-5555-555555555555', productId = '22222222-2222-2222-2222-222222222222';
 const category = { id: 'cat', slug: 'cashew', product_fields: [], supplier_product_fields: [], status: 'published', is_published: true };
 let supplier = { id: supplierId, fob_publicly_visible: true, fob_updated_at: '2026-10-29' }, user = { id: 'owner', email: 'owner@example.com' };
@@ -43,6 +44,7 @@ const mocks = {
   '@/lib/product-attributes': { attributesFromForm: () => ({}), mergeSupplierAttributePool: () => [], sanitizeSupplierAttributePool: () => [], saveProductAttributes: () => ({}), supplierAttributePoolSignature: () => '' },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async () => 'sent' },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (v) => v },
+  '@/lib/products/product-extras': productExtras,
   '@/lib/products/grade-pricing': grade,
   '@/lib/ai/product-translation-service': { ensureProductEnglishTranslation: async (_store, _id, _actor, _source, options) => {
     translations++; assert.ok(options.forbiddenGrades.includes('W320'));
@@ -67,7 +69,7 @@ for (const changes of [
   { quantity_grade: 'W999' }, { quantity_incoterm: '' }, { name: 'Nhân điều W320' },
   { confirm_quantity_price_consent: '' }, { quantity_creation_request_id: 'bad' }, { grade_rows_json: '[]' },
   { quantity_tiers_json: JSON.stringify([{ minKg: '5000', priceUsdPerKg: '6' }, { minKg: '1000', priceUsdPerKg: '7' }]) },
-  { quantity_currency: 'VND' }, { quantity_currency: 'EUR' },
+  { quantity_currency: 'GBP' },
 ]) { assert.equal((await exports.saveSupplierProductAction(form(changes))).ok, false); assert.equal(calls.length, 0); }
 strict = false;
 assert.equal((await exports.saveSupplierProductAction(form())).ok, false); strict = true;

@@ -11,6 +11,7 @@ import {
 } from "@/lib/product-attributes";
 import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
+import { productExtrasFromForm } from "@/lib/products/product-extras";
 import {
   applyLeadTimeToSpecs,
   describePriceChangeForReview,
@@ -49,6 +50,13 @@ function attributePoolFromForm(form: FormData): unknown[] {
 function parseProduct(form: FormData, supplierId: string, existing: SupplierProduct | null = null): SupplierProductInput {
   const name = text(form, "name", 180);
   if (name.length < 3) throw new Error("Tên sản phẩm cần ít nhất 3 ký tự.");
+  // Phase 2: từ khoá, giá mẫu và đóng gói có cấu trúc. Form cũ (không có ô) thì giữ
+  // nguyên giá trị đã lưu, không xoá trắng dữ liệu.
+  const extras = productExtrasFromForm(
+    (name) => form.get(name),
+    (name) => form.has(name),
+    existing,
+  );
   const daysRaw = text(form, "lead_time_days", 5);
   if (daysRaw && (!/^\d+$/.test(daysRaw) || Number(daysRaw) > 3650)) throw new Error("Thời gian giao hàng không hợp lệ.");
   return {
@@ -72,6 +80,7 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
     payment_terms: text(form, "payment_terms", 200) || null,
     ready_for_buyer: false, supplier_review_status: "draft", supplier_review_note: null,
     supplier_originated: true, supplier_category_proposal: null, reviewed_category_slug: null, images: [],
+    ...extras,
   };
 }
 
@@ -81,6 +90,20 @@ async function approvedAccess() {
 }
 
 /** Supplier manages its own products. Drafts need Vexim review; an approved product stays on the marketplace while its owner updates it. */
+/** Mã ảnh trong kho ảnh gửi kèm khi lưu sản phẩm mới: tối đa 8, chỉ nhận UUID. */
+function parseBankMediaIds(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((value): value is string => typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value))
+      .slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
 export async function saveSupplierProductAction(form: FormData): Promise<Result> {
   let createdId: string | undefined;
   const access = await approvedAccess();
@@ -244,6 +267,24 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       }
       saved = data as SupplierProduct;
       createdId = saved.id;
+      // Ảnh trong kho ảnh được gắn vào sản phẩm vừa tạo, nên người bán tải ảnh
+      // trước khi có sản phẩm mà không phải lưu nháp. Ảnh gắn vào là chung với người mua
+      // (không còn bước duyệt ảnh); người mua chỉ thấy khi sản phẩm được đăng.
+      const bankIds = parseBankMediaIds(form.get("bank_media_ids"));
+      let bankOrder = 0;
+      for (const mediaId of bankIds) {
+        if (bankOrder >= 8) break;
+        try {
+          const asset = await store.getMedia(mediaId);
+          if (!asset || asset.owner_type !== "supplier" || asset.supplier_id !== access.supplier.id ||
+            asset.kind !== "image" || !asset.storage_path) continue;
+          await store.updateMedia(mediaId, { owner_type: "product", product_id: saved.id, supplier_id: null,
+            audience: "buyer", sort_order: bankOrder });
+          bankOrder++;
+        } catch (error) {
+          console.error("[supplier-product] attach media bank", error);
+        }
+      }
     }
     if (!saved) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi lưu." };
     // Preserve the approved English name when Vietnamese content changes.
@@ -364,7 +405,7 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
         p_product_id: id, p_supplier_id: access.supplier.id, p_expected_updated_at: product.updated_at,
         p_expected_review: previousReview, p_expected_ready: product.ready_for_buyer, p_proposal: proposal,
       });
-      if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá hoặc trạng thái sản phẩm. Kiểm tra migration và thử lại." };
+      if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá hoặc trạng thái sản phẩm. Kiểm tra kết nối và thử lại." };
       if (data.status === "price_changed" || data.status === "price_missing")
         return { ok: false, message: "Bảng giá chưa có hoặc không còn khớp thông tin sản phẩm. Hãy gửi lại bảng giá trước khi gửi duyệt." };
       if (data.status !== "submitted" || !data.product) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi gửi duyệt." };

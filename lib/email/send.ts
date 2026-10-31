@@ -179,7 +179,7 @@ export async function sendStageUpdate(
 
   // ---------- 1. Email cho buyer (tiếng Anh) ----------
   if (params.skipBuyer) {
-    messages.push("Bỏ qua email buyer theo lựa chọn của người gửi.");
+    messages.push("Bỏ qua email người mua theo lựa chọn của người gửi.");
   } else if (buyer.email && buyer.email.trim()) {
     // From là địa chỉ cá nhân của người phụ trách đơn (buyer.owner); thư NCC vẫn
     // đi từ địa chỉ chức năng vì đó là thông báo của hệ thống, không phải thư tay.
@@ -207,8 +207,8 @@ export async function sendStageUpdate(
     failed = failed || !res.ok;
     messages.push(
       res.ok
-        ? `${res.status === "simulated" ? "[DEMO] Đã tạo" : "Đã gửi"} email buyer → ${buyer.email}${cc.length ? ` (cc: ${cc.join(", ")})` : ""}`
-        : `Gửi email buyer thất bại: ${res.error}`,
+        ? `${res.status === "simulated" ? "[DEMO] Đã tạo" : "Đã gửi"} email người mua → ${buyer.email}${cc.length ? ` (cc: ${cc.join(", ")})` : ""}`
+        : `Gửi email người mua thất bại: ${res.error}`,
     );
     await saveAutoMessage({
       buyer,
@@ -221,16 +221,16 @@ export async function sendStageUpdate(
       res,
     });
   } else {
-    messages.push("Buyer chưa có email — bỏ qua email buyer.");
+    messages.push("Người mua chưa có email — bỏ qua email người mua.");
   }
 
   // ---------- 2. Email cho NCC (tiếng Việt) ----------
   if (params.skipSupplier) {
     messages.push("Bỏ qua email nhà cung cấp theo lựa chọn của người gửi.");
   } else if (!supplier) {
-    messages.push("Chưa gắn nhà cung cấp cho khách này — email chỉ gửi tới buyer.");
+    messages.push("Chưa gắn nhà cung cấp cho khách này — email chỉ gửi tới người mua.");
   } else if (!supplier.email || !supplier.email.trim()) {
-    messages.push(`NCC "${supplier.name}" chưa có email — bỏ qua email NCC.`);
+    messages.push(`Nhà cung cấp "${supplier.name}" chưa có email — bỏ qua email nhà cung cấp.`);
   } else {
     const payload = buildSupplierEmail({
       buyer,
@@ -245,8 +245,8 @@ export async function sendStageUpdate(
     failed = failed || !res.ok;
     messages.push(
       res.ok
-        ? `${res.status === "simulated" ? "[DEMO] Đã tạo" : "Đã gửi"} email NCC → ${supplier.email}`
-        : `Gửi email NCC thất bại: ${res.error}`,
+        ? `${res.status === "simulated" ? "[DEMO] Đã tạo" : "Đã gửi"} email nhà cung cấp → ${supplier.email}`
+        : `Gửi email nhà cung cấp thất bại: ${res.error}`,
     );
     await saveAutoMessage({
       buyer,

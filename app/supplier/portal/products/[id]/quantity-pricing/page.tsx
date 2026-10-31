@@ -61,7 +61,7 @@ export default async function QuantityPricingPreviewPage({ params }: { params: P
     return <>
       <PageHeader title="Thử nghiệm giá theo số lượng" sub={product.name} />
       <Link href={`/supplier/portal/products/${id}`} className="text-sm font-semibold text-brand-700">← Về sản phẩm</Link>
-      <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">Đây là trang thử nghiệm nội bộ. Bản gửi đi vào hàng duyệt riêng, nhưng chưa thay đổi sản phẩm hoặc giá buyer đang thấy. Form sản phẩm chính vẫn dùng cơ chế cũ.</p>
+      <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">Trang này chỉ để thử. Bảng gửi đi vào hàng duyệt riêng, chưa đổi giá người mua đang thấy.</p>
       <QuantityPricingPreviewForm productId={id} updatedAt={product.updated_at} nameVi={product.name} currency={currency}
         nameEn={pendingName?.english_name || approvedName?.english_name || product.name_i18n?.en || ""}
         pendingPriceId={pendingPrice?.id ?? null} pendingNameId={pendingName?.id ?? null}
@@ -72,6 +72,6 @@ export default async function QuantityPricingPreviewPage({ params }: { params: P
     </>;
   } catch (error) {
     console.error("[quantity-pricing-preview]", error);
-    return <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Chưa tải được cấu hình hoặc bản giá. Kiểm tra kết nối, danh mục và các migration 20261053–20261056. <Link href={`/supplier/portal/products/${id}`} className="underline">Quay lại sản phẩm</Link></p>;
+    return <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Chưa tải được cấu hình hoặc bản giá. Kiểm tra kết nối và danh mục rồi thử lại. <Link href={`/supplier/portal/products/${id}`} className="underline">Quay lại sản phẩm</Link></p>;
   }
 }

@@ -235,7 +235,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
       return;
     }
     const typeChanged = Boolean(supplier && (form.supplier_type ?? null) !== (saved.supplier_type ?? null));
-    if (typeChanged && !window.confirm("Bạn đã đối chiếu loại hình của đúng doanh nghiệp? Hồ sơ và kết quả L2 cũ giữ nguyên phạm vi, không tự chuyển sang loại hình mới. Cần xem lại các hồ sơ đang mở.")) return;
+    if (typeChanged && !window.confirm("Bạn đã đối chiếu loại hình của đúng doanh nghiệp? Kết quả L2 cũ giữ nguyên phạm vi, không tự chuyển sang loại hình mới.")) return;
     setBusy(true);
     const summary_en = str("summary_en").trim();
     const next = { ...form, status: (saved.status as SupplierStatus) ?? "draft" };
@@ -298,7 +298,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
     return (
       <form onSubmit={(e) => void save(e)} className="space-y-4">
         <div className="sticky top-2 z-20 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-ink-200 bg-white/95 px-3.5 py-2.5 shadow-sm backdrop-blur">
-          <Link href="/crm/suppliers" className="btn btn-ghost btn-sm px-2.5 py-1.5 text-[13px]">← Danh sách NCC</Link>
+          <Link href="/crm/suppliers" className="btn btn-ghost btn-sm px-2.5 py-1.5 text-[13px]">← Danh sách nhà cung cấp</Link>
           <div className="flex items-center gap-2">
             <Link href="/crm/suppliers" className="btn btn-ghost">Huỷ</Link>
             <Button type="submit" variant="primary" disabled={busy}>
@@ -310,7 +310,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <section className="card p-5">
             <h2 className="text-base font-bold text-ink-900">Thông tin cần lúc tạo</h2>
-            <p className="mb-2 mt-0.5 text-[13px] text-ink-500">Hồ sơ mới luôn ở trạng thái <b>Bản nháp</b> — chưa hiển thị cho buyer cho tới khi được duyệt và công khai.</p>
+            <p className="mb-2 mt-0.5 text-[13px] text-ink-500">Hồ sơ mới luôn ở trạng thái <b>Bản nháp</b> — chưa hiển thị cho người mua cho tới khi được duyệt và công khai.</p>
 
             <p className="mb-2.5 mt-5 text-[11px] font-extrabold uppercase tracking-widest text-brand-700">Doanh nghiệp</p>
             <div className="space-y-4">
@@ -367,7 +367,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
               <Field label="Người liên hệ"><input className="input" value={str("contact_name")} onChange={(e) => set("contact_name", e.target.value)} /></Field>
               <Field label="Chức vụ"><input className="input" value={str("contact_title")} onChange={(e) => set("contact_title", e.target.value)} placeholder="vd: Giám đốc kinh doanh" /></Field>
               <Field label="Điện thoại"><input className="input" value={str("phone")} onChange={(e) => set("phone", e.target.value)} placeholder="09xx xxx xxx" /></Field>
-              <Field label="Zalo" hint="Kênh liên hệ chính với nhiều NCC Việt Nam."><input className="input" value={str("zalo")} onChange={(e) => set("zalo", e.target.value)} placeholder="Số Zalo (nếu khác điện thoại)" /></Field>
+              <Field label="Zalo" hint="Kênh liên hệ chính với nhiều nhà cung cấp Việt Nam."><input className="input" value={str("zalo")} onChange={(e) => set("zalo", e.target.value)} placeholder="Số Zalo (nếu khác điện thoại)" /></Field>
               <Field label="Email">
                 <input
                   className={`input ${fieldErrors.email ? "border-rose-400 bg-rose-50/40" : ""}`}
@@ -396,7 +396,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
                   { n: 1, title: "Tạo hồ sơ nháp", desc: "Trang này, chỉ cần tên.", now: true },
                   { n: 2, title: "Thêm sản phẩm", desc: "Mặt hàng, quy cách, ảnh/catalogue.", now: false },
                   { n: 3, title: "Kiểm giấy tờ & nhà máy", desc: "Đội Vexim xét duyệt riêng.", now: false },
-                  { n: 4, title: "Nộp duyệt → Công khai", desc: "Buyer mới thấy hồ sơ.", now: false },
+                  { n: 4, title: "Nộp duyệt → Công khai", desc: "Người mua mới thấy hồ sơ.", now: false },
                 ].map((s) => (
                   <li key={s.n} className="flex gap-2.5 py-1.5 text-[13px]">
                     <span className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11.5px] font-extrabold ${s.now ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-500"}`}>{s.n}</span>
@@ -416,7 +416,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
             </div>
             <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-[12.5px] leading-relaxed text-amber-800">
               <p className="font-bold">Thói quen tốt</p>
-              <p className="mt-0.5">Tìm tên NCC trong danh sách trước khi tạo — tránh trùng hồ sơ khiến sản phẩm và xác minh bị chia đôi.</p>
+              <p className="mt-0.5">Tìm tên nhà cung cấp trong danh sách trước khi tạo — tránh trùng hồ sơ khiến sản phẩm và xác minh bị chia đôi.</p>
             </div>
           </aside>
         </div>
@@ -430,7 +430,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
     { label: "Email liên hệ đúng định dạng", done: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str("email").trim()) },
     { label: "Mặt hàng chính", done: Boolean(str("products").trim()) },
     { label: "Mã số thuế", done: Boolean(str("tax_id").trim()) },
-    { label: "Giới thiệu cho buyer", done: Boolean(str("intro_source").trim() || str("summary_en").trim()) },
+    { label: "Giới thiệu cho người mua", done: Boolean(str("intro_source").trim() || str("summary_en").trim()) },
     { label: "Điều kiện thương mại (MOQ hoặc thị trường xuất khẩu)", done: Boolean(str("moq_text").trim() || arr("export_markets").length > 0) },
     { label: "Ảnh đại diện", done: Boolean(supplier?.profile_image) },
   ];
@@ -488,7 +488,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
           </section>
 
           <section className="card p-5">
-            <SectionHead icon={Phone} title="Liên hệ" sub="Đầu mối để đội Vexim và buyer liên lạc với nhà cung cấp." />
+            <SectionHead icon={Phone} title="Liên hệ" sub="Đầu mối để đội Vexim và người mua liên lạc với nhà cung cấp." />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Người liên hệ"><input className="input" value={str("contact_name")} onChange={(e) => set("contact_name", e.target.value)} /></Field>
               <Field label="Chức vụ người liên hệ"><input className="input" value={str("contact_title")} onChange={(e) => set("contact_title", e.target.value)} /></Field>
@@ -505,7 +505,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
           <section className="card p-5">
             <SectionHead
               icon={Globe2}
-              title="Hiển thị cho buyer"
+              title="Hiển thị cho người mua"
               sub="Chỉ xuất hiện trên website khi hồ sơ được công khai."
               action={aiEnabled ? (
                 <Button type="button" size="sm" disabled={drafting || busy} onClick={() => void writeIntroduction()}>
@@ -518,9 +518,9 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
               <Field label="Đường dẫn (slug)"><input className="input" value={str("slug")} onChange={(e) => set("slug", slugify(e.target.value))} placeholder="Tự tạo nếu để trống" /></Field>
             </div>
             <div className="mt-4 space-y-4">
-              <Field label="Giới thiệu về công ty do NCC tự viết (bản gốc)">
+              <Field label="Giới thiệu về công ty do nhà cung cấp tự viết (bản gốc)">
                 <textarea rows={3} className="input" value={str("intro_source")} onChange={(e) => set("intro_source", e.target.value)} placeholder="Mô tả về điểm khác biệt của công ty hay sản phẩm của bạn." />
-                <span className="mt-1 block text-xs leading-5 text-ink-500">Câu chuyện NCC kể trên form đăng ký. Khi lưu, AI dịch lại bản tiếng Anh bên dưới từ nội dung này.</span>
+                <span className="mt-1 block text-xs leading-5 text-ink-500">Câu chuyện nhà cung cấp kể trên form đăng ký. Khi lưu, AI dịch lại bản tiếng Anh bên dưới từ nội dung này.</span>
               </Field>
               <Field label="Giới thiệu ngắn (tiếng Anh)">
                 <textarea rows={3} className="input" value={str("summary_en")} onChange={(e) => set("summary_en", e.target.value)} placeholder="A Vietnam-based supplier of..." />
@@ -529,7 +529,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
           </section>
 
           <section className="card p-5">
-            <SectionHead icon={Truck} title="Điều kiện thương mại" sub="Điều kiện bán hàng hiển thị cho buyer khi hồ sơ công khai." />
+            <SectionHead icon={Truck} title="Điều kiện thương mại" sub="Điều kiện bán hàng hiển thị cho người mua khi hồ sơ công khai." />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="MOQ"><input className="input" value={str("moq_text")} onChange={(e) => set("moq_text", e.target.value)} /></Field>
               <Field label="Công suất mỗi tháng"><input className="input" value={str("capacity_per_month")} onChange={(e) => set("capacity_per_month", e.target.value)} /></Field>
@@ -547,7 +547,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
           </section>
 
           <section className="card p-5">
-            <SectionHead icon={FileText} title="Pháp lý và ghi chú nội bộ" sub="Thông tin nội bộ, không hiển thị cho buyer." />
+            <SectionHead icon={FileText} title="Pháp lý và ghi chú nội bộ" sub="Thông tin nội bộ, không hiển thị cho người mua." />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Mã số thuế"><input className="input" value={str("tax_id")} onChange={(e) => set("tax_id", e.target.value)} /></Field>
               <Field label="Vai trò"><select className="input" value={str("role")} onChange={(e) => set("role", e.target.value)}>{SUPPLIER_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select></Field>
@@ -571,17 +571,17 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
                 {dirty && <span className="text-xs font-medium text-amber-700">Có thay đổi chưa lưu</span>}
               </div>
               <a href={`/crm/suppliers/${supplier.id}?tab=review#supplier-review`} className="btn btn-ghost mt-3 w-full justify-center"><ExternalLink className="h-4 w-4" /> Mở trung tâm xét duyệt</a>
-              <p className="mt-3 border-t border-ink-100 pt-3 text-xs leading-5 text-ink-500">Giấy tờ, nhà máy và lịch sử giao hàng được xét duyệt ở các trang kiểm toán riêng. Hồ sơ công khai chưa duyệt giấy tờ sẽ hiện “Chưa xác minh”.</p>
+              <p className="mt-3 border-t border-ink-100 pt-3 text-xs leading-5 text-ink-500">Giấy tờ, nhà máy và lịch sử giao hàng duyệt ở trang kiểm toán riêng. Hồ sơ chưa duyệt giấy tờ hiện “Chưa xác minh”.</p>
             </section>
           )}
 
           <section id="price-sharing" className="card scroll-mt-24 p-4">
             <h2 className="text-sm font-bold text-ink-900">Quyền hiển thị giá của sản phẩm</h2>
-            <p className="mt-1 text-xs leading-5 text-ink-600">Không nhập giá ở hồ sơ NCC. Giá tham khảo, đơn vị và hạn giá được nhập riêng trong từng sản phẩm; chỉ hiện công khai khi NCC đã chấp thuận bằng văn bản.</p>
-            <label className="mt-3 flex items-start gap-2 text-sm text-ink-700"><input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-brand-700" checked={Boolean(form.fob_publicly_visible)} onChange={(e) => setForm((f) => ({ ...f, fob_publicly_visible: e.target.checked, fob_updated_at: e.target.checked ? new Date().toISOString() : f.fob_updated_at }))} /> NCC đã chấp thuận công khai giá sản phẩm</label>
+            <p className="mt-1 text-xs leading-5 text-ink-600">Không nhập giá ở hồ sơ nhà cung cấp. Giá tham khảo và hạn giá nhập trong từng sản phẩm, chỉ công khai khi có chấp thuận.</p>
+            <label className="mt-3 flex items-start gap-2 text-sm text-ink-700"><input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-brand-700" checked={Boolean(form.fob_publicly_visible)} onChange={(e) => setForm((f) => ({ ...f, fob_publicly_visible: e.target.checked, fob_updated_at: e.target.checked ? new Date().toISOString() : f.fob_updated_at }))} /> Nhà cung cấp đã chấp thuận công khai giá sản phẩm</label>
             {Boolean(form.fob_publicly_visible) && (
               <p className="mt-2 text-xs leading-5 text-ink-600">
-                {consentExpired ? "Lần xác nhận đã quá 180 ngày hoặc không hợp lệ — giá sản phẩm chưa được công khai. Kiểm tra lại chấp thuận bằng văn bản rồi xác nhận lại." : "Chấp thuận có hiệu lực tối đa 180 ngày từ lần xác nhận; giá từng sản phẩm cũng phải còn hạn."}
+                {consentExpired ? "Lần xác nhận đã quá 180 ngày hoặc không hợp lệ — giá chưa được công khai. Kiểm tra lại chấp thuận rồi xác nhận lại." : "Chấp thuận có hiệu lực tối đa 180 ngày từ lần xác nhận; giá từng sản phẩm cũng phải còn hạn."}
               </p>
             )}
             {consentExpired && <button type="button" className="mt-2 text-xs font-semibold text-brand-700 underline" onClick={() => set("fob_updated_at", new Date().toISOString())}>Đã kiểm tra văn bản, xác nhận lại quyền</button>}

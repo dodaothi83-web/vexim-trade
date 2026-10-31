@@ -10,13 +10,14 @@ import { Badge, Breadcrumbs, Card, EmptyState, formatDate, formatMoney } from "@
 import { PageHeader } from "@/components/page-header";
 import { MediaThumb } from "@/components/media-gallery";
 import { productReadiness } from "@/lib/media/readiness";
+import { completenessSummary, productCompleteness } from "@/lib/products/completeness";
 import { auditProductStructuredUnits } from "@/lib/products/grade-pricing";
 import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
 import { loadCrmReviewInbox } from "@/lib/crm/product-review-inbox";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Sản phẩm NCC" };
+export const metadata = { title: "Sản phẩm nhà cung cấp" };
 
 function tokensOf(text: string): string[] {
   const m = text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
@@ -88,6 +89,8 @@ export default async function ProductsPage({
     if (!thumbByProduct.has(m.product_id)) thumbByProduct.set(m.product_id, m);
   }
   const hasShareableMedia = (id: string) => productReadiness(mediaByProduct.get(id) ?? []).ready;
+  /** Độ hoàn thiện hồ sơ: chỉ đọc, tính từ bản đã lưu + tệp hiện có. */
+  const completenessByProduct = new Map(all.map((r) => [r.id, productCompleteness(r, mediaByProduct.get(r.id) ?? [])]));
   const categoryFor = (r: ProductWithSupplier) => r.category;
   const nameFor = (r: ProductWithSupplier) => r.name;
   const categories = [...new Set(all.map(categoryFor).filter(Boolean))] as string[];
@@ -141,9 +144,9 @@ export default async function ProductsPage({
   };
   const viewTabs: Array<{ key: ProductView; label: string }> = [
     { key: "all", label: "Tất cả" },
-    { key: "ready", label: "Sẵn sàng gửi buyer" },
+    { key: "ready", label: "Sẵn sàng gửi người mua" },
     { key: "pending", label: "Chờ Vexim kiểm tra" },
-    { key: "changes", label: "Cần NCC sửa" },
+    { key: "changes", label: "Chờ nhà cung cấp sửa" },
     { key: "nomedia", label: "Thiếu ảnh/catalogue" },
     { key: "unit_review", label: "Cần chuẩn hóa đơn vị" },
   ];
@@ -151,16 +154,16 @@ export default async function ProductsPage({
   return (
     <>
       <PageHeader
-        breadcrumbs={<Breadcrumbs items={[{ label: "Sản phẩm NCC" }]} />}
+        breadcrumbs={<Breadcrumbs items={[{ label: "Sản phẩm nhà cung cấp" }]} />}
         title="Sản phẩm nhà cung cấp"
-        sub={`${all.length} hồ sơ sản phẩm · giá chỉ là tham khảo có thời hạn, báo giá chính thức do NCC xác nhận theo từng RFQ`}
+        sub={`${all.length} hồ sơ sản phẩm · giá tham khảo có thời hạn; báo giá chính thức do nhà cung cấp xác nhận theo RFQ`}
         actions={canManage ? (
           <div className="flex flex-wrap gap-2">
             <Link href="/crm/products/import" className="btn btn-soft">
               Nhập từ Excel
             </Link>
             <Link href="/crm/suppliers" className="btn btn-primary">
-              Thêm sản phẩm qua hồ sơ NCC
+              Thêm sản phẩm qua hồ sơ nhà cung cấp
             </Link>
           </div>
         ) : undefined}
@@ -175,9 +178,9 @@ export default async function ProductsPage({
       <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
           { value: viewCounts.all, label: "Tổng hồ sơ sản phẩm" },
-          { value: viewCounts.ready, label: "Sẵn sàng gửi buyer" },
+          { value: viewCounts.ready, label: "Sẵn sàng gửi người mua" },
           { value: viewCounts.pending, label: "Sản phẩm chờ kiểm tra", warn: viewCounts.pending > 0 },
-          { value: viewCounts.nomedia, label: "Chưa có ảnh/catalogue chia sẻ buyer", warn: viewCounts.nomedia > 0 },
+          { value: viewCounts.nomedia, label: "Chưa có ảnh/catalogue chia sẻ cho người mua", warn: viewCounts.nomedia > 0 },
         ].map((k) => (
           <div key={k.label} className="card px-4 py-3.5">
             <p className={`text-[22px] font-black leading-none ${k.warn ? "text-amber-600" : "text-ink-900"}`}>{k.value}</p>
@@ -194,7 +197,7 @@ export default async function ProductsPage({
               <p className="text-[13px] font-bold text-ink-900">
                 Đang so khớp cho RFQ: {buyer.company}
                 <span className="ml-2 font-normal text-ink-500">
-                  (<Link className="text-brand-700 hover:underline" href={`/crm/buyers/${buyer.id}`}>xem buyer</Link>)
+                  (<Link className="text-brand-700 hover:underline" href={`/crm/buyers/${buyer.id}`}>xem người mua</Link>)
                 </span>
               </p>
               <p className="mt-1 text-[12.5px] text-ink-700">
@@ -206,7 +209,7 @@ export default async function ProductsPage({
               </p>
               <p className="mt-1.5 text-[11.5px] text-ink-500">
                 Hệ thống sắp xếp sản phẩm trùng nhóm hàng lên trước — người vận hành duyệt thủ công rồi mới
-                gửi yêu cầu báo giá cho NCC.
+                gửi yêu cầu báo giá cho nhà cung cấp.
               </p>
             </div>
             <Link href={`/crm/products`} className="btn btn-ghost">
@@ -241,7 +244,7 @@ export default async function ProductsPage({
               className="input pl-9"
               name="q"
               defaultValue={q}
-              placeholder="Tìm sản phẩm, quy cách, NCC..."
+              placeholder="Tìm sản phẩm, quy cách, nhà cung cấp..."
             />
           </div>
           <select className="input w-auto" name="category" defaultValue={category}>
@@ -255,7 +258,7 @@ export default async function ProductsPage({
           <input className="input w-[160px]" name="cert" defaultValue={cert} placeholder="Chứng nhận: BRC, EU..." />
           <label className="flex cursor-pointer items-center gap-1.5 text-[12.5px] font-semibold text-ink-700">
             <input type="checkbox" name="verified" value="1" defaultChecked={verifiedOnly} className="h-4 w-4 accent-[#0f766e]" />
-            Chỉ NCC đã xác minh
+            Chỉ nhà cung cấp đã xác minh
           </label>
           <button type="submit" className="btn btn-primary">
             Lọc
@@ -270,7 +273,7 @@ export default async function ProductsPage({
           <EmptyState
             icon={<Boxes className="h-5 w-5" />}
             title="Không có sản phẩm nào khớp bộ lọc"
-            sub="Thử từ khoá khác, hoặc thêm hồ sơ sản phẩm từ trang chi tiết NCC."
+            sub="Thử từ khoá khác, hoặc thêm hồ sơ sản phẩm từ trang chi tiết nhà cung cấp."
           />
         ) : (
           <ul className="divide-y divide-ink-100">
@@ -294,22 +297,27 @@ export default async function ProductsPage({
                             <Link className="font-semibold text-ink-700 hover:text-brand-700 hover:underline" href={`/crm/suppliers/${r.supplier.id}`}>
                               {r.supplier.name}
                             </Link>
-                          ) : "Chưa có NCC"}
+                          ) : "Chưa có nhà cung cấp"}
                           <span aria-hidden="true"> · </span>{displayCategory}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {matched && <Badge className="bg-brand-50 text-brand-700"><Sparkles className="h-3 w-3" /> Khớp nhu cầu</Badge>}
                           {r.supplier_review_status === "pending" && <Badge className="bg-amber-100 text-amber-900">Chờ Vexim kiểm tra</Badge>}
                           {legacyReview && <Badge className="bg-amber-100 text-amber-900">Chờ rà soát giá hoặc tên</Badge>}
-                          {r.supplier_review_status === "changes_requested" && <Badge className="bg-orange-50 text-orange-800">Cần NCC sửa</Badge>}
+                          {r.supplier_review_status === "changes_requested" && <Badge className="bg-orange-50 text-orange-800">Chờ nhà cung cấp sửa</Badge>}
                           {r.supplier_review_status === "paused" ? (
-                            <Badge className="bg-slate-200 text-slate-800">NCC đã tạm ẩn</Badge>
+                            <Badge className="bg-slate-200 text-slate-800">Nhà cung cấp đã tạm ẩn</Badge>
                           ) : r.ready_for_buyer ? (
-                            <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
+                            <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi người mua</Badge>
                           ) : shareable ? (
-                            <Badge className="bg-ink-100 text-ink-600">Chưa sẵn sàng gửi buyer</Badge>
+                            <Badge className="bg-ink-100 text-ink-600">Chưa sẵn sàng gửi người mua</Badge>
                           ) : (
                             <Badge className="bg-amber-50 text-amber-700">Thiếu ảnh/catalogue</Badge>
+                          )}
+                          {completenessByProduct.get(r.id)?.next && (
+                            <Badge className="bg-ink-100 text-ink-700" title={completenessSummary(completenessByProduct.get(r.id)!)}>
+                              Hồ sơ {completenessByProduct.get(r.id)!.score}%
+                            </Badge>
                           )}
                           {unitAuditByProduct.get(r.id)?.needsReview && (
                             <Badge className="bg-amber-100 text-amber-900">

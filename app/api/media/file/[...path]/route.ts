@@ -46,7 +46,7 @@ export async function GET(
     const user = await store.getUser(session.uid);
     const supplier = user?.supplier_id ? await store.getSupplier(user.supplier_id) : null;
     if (!user?.is_active || user.role !== "supplier" || user.email.toLowerCase() !== session.email.toLowerCase() ||
-        !supplier || !portalApproved(supplier)) return new NextResponse("Tài khoản NCC chưa được Vexim xác nhận", { status: 403 });
+        !supplier || !portalApproved(supplier)) return new NextResponse("Tài khoản nhà cung cấp chưa được Vexim xác nhận", { status: 403 });
   }
   const asset = await store.getMediaByPath(rel);
   if (!asset) {
@@ -71,7 +71,12 @@ export async function GET(
     const ownDocument = ownsDocumentReview(user, review) && !!asset.checklist_key;
     const ownCertificate = !!user && user.role === "supplier" && asset.owner_type === "supplier" &&
       asset.kind === "certificate" && asset.created_by === user.id && asset.supplier_id === user.supplier_id;
-    if ((!ownDocument && !ownProductFile && !ownCertificate) || user?.email.toLowerCase() !== session.email.toLowerCase()) {
+    // Ảnh trong kho ảnh của chính nhà cung cấp: chưa gắn sản phẩm nào nên chỉ
+    // người tải lên xem được, không lộ ra ngoài.
+    const ownBankImage = !!user && user.role === "supplier" && asset.owner_type === "supplier" &&
+      asset.kind === "image" && !asset.product_id && asset.created_by === user.id &&
+      asset.supplier_id === user.supplier_id;
+    if ((!ownDocument && !ownProductFile && !ownCertificate && !ownBankImage) || user?.email.toLowerCase() !== session.email.toLowerCase()) {
       return new NextResponse("Bạn không có quyền xem tài liệu nội bộ", { status: 403 });
     }
   }

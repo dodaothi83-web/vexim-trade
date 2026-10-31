@@ -152,7 +152,7 @@ const onboardingAction = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/on
 assert.match(onboardingAction, /getUserBySupplierId/, 'duyệt mở cổng phải tra tài khoản theo hồ sơ, không theo email liên hệ');
 
 const usersPage = fs.readFileSync(new URL('../app/auth-actions.ts', import.meta.url), 'utf8');
-assert.match(usersPage, /Tài khoản cổng nhà cung cấp trong trang chi tiết nhà cung cấp/, 'luồng tạo tài khoản nội bộ phải trỏ về đúng nơi cấp tài khoản NCC');
+assert.match(usersPage, /nhân viên cấp trong trang chi tiết nhà cung cấp/, 'luồng tạo tài khoản nội bộ phải trỏ về đúng nơi cấp tài khoản NCC');
 
 assert.match(action, /confirmAuthUser: confirmSupabaseEmail/, 'action cấp tài khoản phải nối bước xác nhận email cho tài khoản tự đăng ký');
 

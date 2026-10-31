@@ -22,9 +22,9 @@ export const THUMB_MAX_SIDE = 400;
 
 export const MEDIA_KINDS: { value: MediaKind; label: string; hint: string }[] = [
   { value: "image", label: "Ảnh", hint: "Ảnh sản phẩm, bao bì, nhãn, nhà máy" },
-  { value: "catalogue", label: "Catalogue / bảng thông số", hint: "Tệp PDF gửi buyer xem chi tiết" },
+  { value: "catalogue", label: "Catalogue / bảng thông số", hint: "Tệp PDF gửi người mua xem chi tiết" },
   { value: "certificate", label: "Chứng nhận", hint: "PDF hoặc ảnh, có thể đặt ngày hết hạn" },
-  { value: "document", label: "Giấy tờ nội bộ", hint: "Giấy phép, xác minh NCC — chỉ nội bộ xem" },
+  { value: "document", label: "Giấy tờ nội bộ", hint: "Giấy phép, xác minh nhà cung cấp — chỉ nội bộ xem" },
   { value: "video", label: "Video (link)", hint: "Dán link YouTube / Drive, hệ thống không tải tệp" },
 ];
 

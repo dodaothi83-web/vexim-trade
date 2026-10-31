@@ -68,7 +68,7 @@ export async function setRfqStatusAction(fd: FormData) {
     if (status === "sampling" || status === "lost") {
       const notified = await notifyBuyerRfqStatus(after, status);
       if (!notified.sent && !["already_sent", "pending"].includes(notified.reason ?? "")) {
-        return { ok: false, message: "Đã lưu trạng thái nhưng chưa gửi được thông báo buyer. Hãy thử lại." };
+        return { ok: false, message: "Đã lưu trạng thái nhưng chưa gửi được thông báo người mua. Hãy thử lại." };
       }
     }
     return { ok: true };

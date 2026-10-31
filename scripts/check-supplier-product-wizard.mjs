@@ -27,6 +27,19 @@ function load(file, mocks) {
 }
 
 const icons = new Proxy({}, { get: (_target, name) => (props) => React.createElement('span', { 'data-icon': String(name), className: props.className }, null) });
+/** Nạp module thật để test bằng đúng thang điểm đang chạy. */
+const completenessExports = (() => {
+  const mod = { exports: {} };
+  const isExpired = (asset) => asset.status === 'expired' ||
+    Boolean(asset.expires_on && asset.expires_on < new Date().toISOString().slice(0, 10));
+  const source = ts.transpileModule(fs.readFileSync(new URL('../lib/products/completeness.ts', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  vm.runInNewContext(source, { module: mod, exports: mod.exports,
+    require: (id) => { assert.equal(id, '@/lib/media/readiness'); return { isExpired }; } }, { filename: 'completeness.ts' });
+  return mod.exports;
+})();
+
 const Link = ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children);
 
 const view = {
@@ -67,6 +80,7 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/supplier-portal/category-proposals': {},
   '@/lib/supplier-portal/product-view': view,
   '@/lib/products/grade-pricing': gradePricing,
+  '@/lib/products/completeness': completenessExports,
   '@/lib/public/price-units': priceUnits,
   '@/lib/products/quantity-pricing': { validateQuantityPricing: () => ({ value: null, errors: [], warnings: [] }) },
   '@/components/products/grade-pricing-table': gradePricingTable,
@@ -124,101 +138,118 @@ const render = (props = {}) => renderToStaticMarkup(React.createElement(Supplier
 }));
 
 const source = read('../app/supplier/portal/products/product-editor.tsx');
-const step1 = render();
+const page = render();
 const quantityEditor = { productId: 'p1', updatedAt: '2026-10-20', nameVi: 'Nhân điều', nameEn: 'Cashew kernels',
   pendingPriceId: null, pendingNameId: null, hasApprovedPrice: false, hasApprovedName: false,
   grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: '1000', priceUsdPerKg: '6.40' }], standardGrades: ['W320'],
   policy: { maxTiers: 4, maxPriceRatio: 1.5, maxLastMoqRatio: 100 }, buyerPriceUnit: 'kg', pricePubliclyVisible: true };
 const withQuantity = render({ quantityEditor });
-assert.match(withQuantity, /data-sidebar-preview="true"/, 'The quantity editor sends its live draft to the sidebar');
-assert.equal((withQuantity.match(/data-buyer-preview="1"/g) ?? []).length, 1, 'The buyer preview occupies the existing card');
-assert.match(withQuantity, /không phải giá đang hiển thị cho buyer/, 'A draft preview must not be confused with the live buyer price');
-assert.doesNotMatch(withQuantity, />Giá tham khảo<\//, 'The legacy price is not repeated beside the new preview');
-assert.match(withQuantity, />Năng lực \/ tháng<\//, 'Other saved commercial details remain visible');
 
-// 1. Ba bước, mỗi lần chỉ mở MỘT bước; các bước khác vẫn nằm trong DOM (hidden) để
-//    không mất dữ liệu khi gửi form.
-assert.match(step1, /Bước 1: Thông tin sản phẩm|data-step-panel="1"/, 'Có panel bước 1');
-assert.match(step1, /data-step-panel="2"/, 'Panel bước 2 tồn tại');
-assert.match(step1, /data-step-panel="3"/, 'Panel bước 3 tồn tại');
-assert.match(step1, /data-step-panel="1"[^>]*class="space-y-4"|class="space-y-4"[^>]*data-step-panel="1"/, 'Bước 1 đang mở');
-assert.equal((step1.match(/data-step-panel="(2|3)"/g) ?? []).length, 2, 'Đủ ba panel');
-for (const panel of ['2', '3']) {
-  assert.match(step1, new RegExp(`data-step-panel="${panel}" class="hidden"`), `Bước ${panel} bị ẩn, không đẩy nội dung dài xuống`);
+// 1. Một trang duy nhất, tám khối, mục lục neo bên trái — không còn wizard ba bước.
+const SECTION_IDS = ['sec-category', 'sec-basic', 'sec-media', 'sec-spec', 'sec-price', 'sec-shipping', 'sec-detail', 'sec-review'];
+const sectionHtml = (html, id) => {
+  const at = html.indexOf(`data-form-section="${id}"`);
+  assert.ok(at > 0, `Có khối ${id}`);
+  const rest = html.slice(at + 20);
+  const next = rest.indexOf('data-form-section="');
+  return rest.slice(0, next > 0 ? next : rest.length);
+};
+for (const id of SECTION_IDS) sectionHtml(page, id);
+assert.doesNotMatch(source, /data-step-panel/, 'Không còn panel theo bước');
+assert.doesNotMatch(page, />Bước \d</, 'Không còn nhãn Bước 1/2/3 trong nội dung');
+assert.doesNotMatch(source, /STEPS|goToStep|selectStep|leaveInfoFor|advanceTo/, 'Đã bỏ toàn bộ máy móc chuyển bước');
+assert.match(page, /<nav aria-label="Mục lục hồ sơ sản phẩm"/, 'Có mục lục neo bên trái');
+for (const id of SECTION_IDS) {
+  assert.match(page, new RegExp(`href="#${id}"`), `Mục lục có liên kết tới ${id}`);
+  assert.match(page, new RegExp(`scroll-mt-24[^"]*"\\s*aria-label|<section id="${id}"[^>]*scroll-mt-24`), `Khối ${id} có khoảng cuộn cho thanh dính`);
 }
-assert.doesNotMatch(source, /Bảng giá cũ \(cơ chế hiện tại\)|GradePricingTable|grade_rows_json/, 'Supplier wizard no longer renders or saves legacy price tables');
-assert.match(step1, /Thông tin thương mại &amp; xuất khẩu/);
-assert.match(source, /<QuantityPricingEditor value=\{newQuantity\}/, 'New products use the quantity editor');
-assert.match(source, /quantity_creation_request_id/, 'New products submit with an idempotency token');
-assert.match(source, /quantity_tiers_json/, 'The new tier table is submitted');
-for (const field of ['lead_time_days', 'payment_terms', 'export_port', 'incoterm_place']) {
-  assert.ok(step1.includes(`name="${field}"`), `Ô ${field} nằm ngay trong bước 1`);
-}
-for (const field of ['raw_material_region', 'input_material_origin']) {
-  assert.ok(step1.includes(`name="${field}"`), `Thông tin nguyên liệu của sản phẩm nằm trong bước 1: ${field}`);
-}
-assert.match(step1, /Vùng nguyên liệu/);
-assert.match(step1, /Xuất xứ nguyên liệu đầu vào/);
-// Chứng nhận chỉ đến từ hồ sơ Giấy tờ L1: không còn ô tự khai, không còn dòng nhắc về nó.
-assert.ok(!source.includes('name="certifications"'), 'Bỏ ô chứng nhận sản phẩm tự khai');
-assert.ok(!source.includes('Chứng nhận sản phẩm (tự khai)'), 'Bỏ nhãn chứng nhận tự khai');
-assert.ok(!source.includes('Giấy tờ L1 để AI tự quét'), 'Bỏ dòng nhắc tải chứng nhận ở L1');
-assert.ok(!source.includes('Điều kiện bán và giao hàng buyer cần thấy'), 'Bỏ mô tả dài ở khối thương mại');
-assert.ok(!source.includes('Số liệu cung ứng giúp buyer'), 'Bỏ mô tả dài ở khối đặt hàng & năng lực');
-assert.match(step1, /<h2 class="text-\[15px\] font-black text-ink-900">Thông tin thương mại &amp; xuất khẩu<\/h2>/, 'Khối thương mại chỉ còn tiêu đề');
-assert.match(step1, /<h2 class="text-\[15px\] font-black text-ink-900">Đặt hàng &amp; năng lực<\/h2>/, 'Khối đặt hàng chỉ còn tiêu đề');
-// Nhãn "Bước 1" chỉ hiện ở thanh bước, không lặp lại trên từng thẻ con trong bước 1.
-assert.equal((step1.match(/>Bước 1</g) ?? []).length, 0, 'Không lặp nhãn Bước 1 trên các thẻ con');
-assert.equal((step1.match(/Bước 1/g) ?? []).length, 1, 'Chỉ còn một nhãn Bước 1 (cho trình đọc màn hình của panel)');
-assert.match(step1, /data-step-panel="1" class="space-y-4" aria-label="Bước 1: Thông tin sản phẩm"/, 'Panel bước 1 vẫn được đánh nhãn cho trình đọc màn hình');
-assert.ok(step1.indexOf('Thông tin thương mại &amp; xuất khẩu') > 0, 'Khối thương mại nằm trong bước 1 đang mở');
-assert.ok(step1.includes('Nhận gia công/OEM') && step1.includes('Có thể gửi mẫu'), 'Ba lựa chọn thương mại hiện ngay');
+assert.match(page, /Mọi khối nằm trên cùng một trang/, 'Nói rõ cho người bán biết đây là một trang');
 
-// 3. Điều hướng dưới đáy: quay lại / tiếp tục, thanh dính đáy màn hình.
-assert.match(step1, /sticky bottom-0[^"]*backdrop-blur/, 'Thanh hành động dính đáy màn hình');
-assert.match(step1, /Tiếp tục/, 'Bước 1 có nút đi tiếp');
-assert.equal((step1.match(/name="payment_terms"/g) ?? []).length, 1, 'Không lặp ô điều kiện thanh toán');
-assert.match(step1, /href="\/supplier\/portal\/products"/, 'Bước 1 có lối hủy về danh sách');
-const onStep2 = render({ initialStep: 2 });
-assert.equal((onStep2.match(/>Bước 2</g) ?? []).length, 1, 'Thẻ của bước 2 vẫn giữ đúng một nhãn bước');
-assert.match(onStep2, /Trở về bước 1/, 'Bước 2 có nút Trở về bước 1');
-assert.match(onStep2, /Sang bước 3/, 'Bước 2 có nút sang bước 3');
-const onStep3 = render({ initialStep: 3 });
-assert.equal((onStep3.match(/>Bước 3</g) ?? []).length, 1, 'Thẻ của bước 3 vẫn giữ đúng một nhãn bước');
-assert.match(onStep3, /Trở về bước 2/, 'Bước 3 có nút Trở về bước 2');
-assert.match(onStep3, /Gửi duyệt/, 'Bước 3 có nút gửi hồ sơ');
+// 2. Trường nằm đúng khối theo mạch: ngành hàng → tên → ảnh → quy cách → giá → đóng gói → mô tả.
+const inSection = (id, html, marker) => assert.ok(sectionHtml(html, id).includes(marker), `${marker} nằm trong ${id}`);
+inSection('sec-category', page, 'name="supplier_category_proposal"');
+for (const marker of ['name="name"', 'name="keywords"', 'name="description"']) inSection('sec-basic', page, marker);
+assert.ok(sectionHtml(page, 'sec-basic').indexOf('name="keywords"') < sectionHtml(page, 'sec-basic').indexOf('name="description"'),
+  'Từ khoá đứng ngay sau tên, trước mô tả ngắn');
+for (const marker of ['6 ô ảnh sản phẩm', 'Ảnh chính', 'aria-label="Xóa ảnh đại diện"', 'aria-label="Chọn ảnh sản phẩm hoặc catalogue"']) inSection('sec-media', page, marker);
+for (const marker of ['name="spec"', 'name="monthly_capacity"', 'name="raw_material_region"', 'name="input_material_origin"',
+  'name="oem"', 'name="odm"', 'name="samples"']) inSection('sec-spec', page, marker);
+for (const marker of ['name="sample_price_usd"', 'name="price_publicly_visible"']) inSection('sec-price', page, marker);
+inSection('sec-price', withQuantity, 'data-quantity-editor="1"');
+assert.match(withQuantity, /data-sidebar-preview="true"/, 'Bảng giá đẩy bản nháp sang thẻ xem nhanh');
+assert.equal((withQuantity.match(/data-buyer-preview="1"/g) ?? []).length, 1, 'Bản xem trước của người mua nằm trong thẻ có sẵn');
+assert.match(withQuantity, /Giá thật chỉ đổi sau khi bản giá được duyệt/, 'Bản xem trước không bị nhầm với giá thật');
+assert.doesNotMatch(withQuantity, />Giá tham khảo<\//, 'Không lặp giá cũ cạnh bản xem trước');
+for (const marker of ['name="packaging"', 'name="package_type"', 'name="package_weight_kg"', 'name="package_size"',
+  'name="units_per_carton"', 'name="lead_time_value"', 'name="lead_time_unit"', 'name="lead_time_days"',
+  'name="export_port"', 'name="incoterm_place"', 'name="payment_terms"']) inSection('sec-shipping', page, marker);
+inSection('sec-detail', page, 'name="description_detail"');
+assert.equal((page.match(/name="payment_terms"/g) ?? []).length, 1, 'Không lặp ô điều kiện thanh toán');
+assert.ok(page.indexOf('data-form-section="sec-media"') > page.indexOf('data-form-section="sec-basic"'), 'Ảnh nằm ngay sau tên & từ khoá');
+assert.ok(page.indexOf('data-form-section="sec-price"') < page.indexOf('data-form-section="sec-shipping"'), 'Giá đứng trước đóng gói & giao hàng');
+assert.ok(page.indexOf('data-form-section="sec-detail"') > page.indexOf('data-form-section="sec-shipping"'), 'Mô tả chi tiết đặt cuối, như Alibaba');
 
-// 3b. Bước 3 là bước XEM LẠI: hiển thị lại toàn bộ dữ liệu bước 1 và tệp của bước 2.
-assert.match(onStep3, /Xem lại toàn bộ hồ sơ/, 'Bước 3 là bước xem lại');
-assert.match(onStep3, /Bước 3: Xem lại và gửi/, 'Nhãn bước 3 nói rõ xem lại rồi gửi');
-for (const label of ['Thông tin sản phẩm', 'Thông tin thương mại &amp; xuất khẩu', 'Đặt hàng &amp; năng lực', 'Ảnh và catalogue']) {
-  assert.ok(onStep3.includes(label), `Bước 3 đọc lại khối ${label}`);
+// 3. Khối xem lại: đọc lại đủ bốn nhóm, mỗi nhóm một nút Sửa cuộn về đúng khối.
+const review = sectionHtml(page, 'sec-review');
+assert.match(review, /Xem lại/, 'Có khối xem lại');
+for (const title of ['Tên, danh mục &amp; mô tả', 'Giá, MOQ &amp; điều kiện bán', 'Đóng gói &amp; giao hàng', 'Ảnh và catalogue'])
+  assert.ok(review.includes(title), `Khối xem lại có nhóm ${title}`);
+assert.ok((review.match(/Sửa<\/button>/g) ?? []).length >= 4, 'Mỗi nhóm xem lại có nút Sửa');
+for (const target of ['sec-basic', 'sec-price', 'sec-shipping', 'sec-media']) {
+  assert.ok(source.includes(`scrollToSection(\"${target}\")`), `Nút Sửa của nhóm trỏ về ${target}`);
 }
-for (const value of ['Hạt điều nhân W320', 'Hạt &amp; hạt nhân / Hạt điều', 'Hạt điều trắng', 'W320', '7.2', '200 tấn',
+for (const value of ['Hạt điều nhân W320', 'Hạt &amp; hạt nhân / Hạt điều', 'Hạt điều trắng', 'W320', '200 tấn',
   'Cát Lái', 'FOB', 'T/T 30%', 'Carton 22.68kg', 'Đắk Lắk, vùng Buôn Ma Thuột', 'Việt Nam và Campuchia', 'products/p1/a.jpg']) {
-  assert.ok(onStep3.includes(value), `Bước 3 hiển thị giá trị đã nhập: ${value}`);
+  assert.ok(page.includes(value), `Khối xem lại hiển thị giá trị đã nhập: ${value}`);
 }
-assert.equal((onStep3.match(/Sửa<\/button>/g) ?? []).length, 4, 'Mỗi khối ở bước 3 có nút Sửa quay lại đúng bước');
 assert.match(source, /ReviewField/, 'Có thành phần đọc lại từng trường');
 assert.match(source, /snapshotFromForm/, 'Bản xem lại cập nhật theo nội dung đang nhập');
-assert.doesNotMatch(source, /QuantityPricingV2Editor|QuantityGradeV2Field|QuantityBuyerV2Preview|quantityV2FormEnabled|onV2PreviewChange/, 'The v2 pricing UI is unreachable from the supplier wizard');
-assert.doesNotMatch(source, /form\.set\("quantity_version", "2"\)/, 'The wizard never submits a v2 revision');
-const newPage = read('../app/supplier/portal/products/new/page.tsx');
-assert.doesNotMatch(newPage, /VEXIM_QUANTITY_V2_STAGING|quantityV2FormEnabled/, 'The new-product page has no v2 flag');
-assert.match(source, /price_publicly_visible === "yes"/, 'Cờ thương mại hiện thành chip ở bước 3');
 
-// Giá của sản phẩm mới mặc định được chia sẻ, nhưng lựa chọn tắt đã lưu không bị bật lại.
+// 4. Nút gửi: luôn phản hồi, liệt kê việc còn thiếu, thanh dính đáy.
+assert.match(page, /sticky bottom-0[^"]*backdrop-blur/, 'Thanh hành động dính đáy màn hình');
+assert.match(source, /<button type="submit" form="product-info"/, 'Nút lưu submit đúng form');
+assert.doesNotMatch(source, /onClick=\{submit\} disabled=\{busy \|\| !canSubmit\}/, 'Nút gửi không bị khoá im lặng');
+assert.match(source, /function requestSubmit\(\)/, 'Nút gửi đi qua requestSubmit để luôn phản hồi');
+assert.match(source, /submitBlockers\(\)/, 'Có danh sách việc còn thiếu');
+assert.match(source, /setSubmitHint\(blockers\)/, 'Bấm gửi khi thiếu sẽ hiện lời nhắc thay vì không làm gì');
+assert.match(source, /Đang gửi\.\.\./, 'Nút có trạng thái đang gửi');
+assert.match(source, /animate-spin/, 'Có vòng xoay khi đang gửi');
+assert.match(page, /id="submit-blockers"/, 'Nút gửi liên kết tới phần giải thích điều kiện');
+assert.match(page, /<div id="submit-blockers" aria-live="polite">/, 'Danh sách việc cần làm có aria-live');
+assert.match(page, /Hồ sơ đủ điều kiện/, 'Đủ điều kiện thì báo rõ trước khi gửi');
+const missingMedia = render({ media: [] });
+assert.match(source, /Tải ít nhất một ảnh sản phẩm ở mục Ảnh & tệp\./, 'Nói rõ thiếu tệp ở mục nào khi bấm gửi');
+assert.doesNotMatch(missingMedia, /Tải ít nhất một ảnh sản phẩm ở mục Ảnh &amp; tệp/,
+  'Không còn liệt kê sẵn việc thiếu dưới mục 8; chỉ hiện sau khi bấm gửi');
+assert.doesNotMatch(source, /Tên tiếng Anh được kiểm tra trong quá trình duyệt sản phẩm/,
+  'Bỏ câu nhắc tên tiếng Anh ở mục xem lại');
+const sendButton = (missingMedia.match(/<button[^>]*aria-describedby="submit-blockers"[^>]*>/) ?? [''])[0];
+assert.ok(sendButton && !/\sdisabled(?:=""|=|\s|>)/.test(sendButton), 'Thiếu điều kiện vẫn không khoá nút gửi');
+for (const hint of ['requestSubmit', 'scrollToSection("sec-media")', 'scrollToSection("sec-basic")']) {
+  assert.ok(source.includes(hint), `Thiếu gì thì đưa tới đúng khối: ${hint}`);
+}
+assert.match(page, /Đã gửi duyệt|Gửi duyệt/, 'Có nhãn gửi duyệt');
+assert.doesNotMatch(source, /Trở về bước|Sang bước|Tiếp tục/, 'Không còn nút chuyển bước');
+
+// 5. Độ hoàn thiện: chỉ đọc, gợi ý theo mục chứ không theo bước.
+assert.match(page, /Độ hoàn thiện/, 'Cột phải có khối độ hoàn thiện');
+assert.match(page, /Hồ sơ \d+%|Độ hoàn thiện/, 'Điểm hoàn thiện hiển thị trong cột phải');
+assert.match(page, /Bổ sung: Ảnh thật|Bổ sung: /, 'Nút bổ sung gọi tên mục còn thiếu');
+assert.doesNotMatch(page, /Bổ sung ở bước/, 'Không còn địa chỉ theo bước');
+assert.match(source, /scrollToSection\(completeness\.next!\.step === 2 \? "sec-media" : "sec-basic"\)/, 'Nút bổ sung cuộn tới đúng khối');
+
+// 6. Giá của sản phẩm mới: mặc định chia sẻ, nhưng lựa chọn đã lưu không bị bật lại.
 const priceCheckbox = (html) => {
   const tag = html.match(/<input[^>]*name="price_publicly_visible"[^>]*>/)?.[0];
   assert.ok(tag, 'Có checkbox chia sẻ giá của sản phẩm');
   return tag;
 };
-const newProductStep1 = render({ product: undefined, media: [] });
-assert.doesNotMatch(newProductStep1, /Giá theo số lượng|Tên tiếng Anh \(tùy chọn\)/);
-assert.match(newProductStep1, /Tên sản phẩm/);
-assert.match(newProductStep1, /Chọn danh mục để nhập grade và bảng giá/);
-assert.doesNotMatch(newProductStep1, /Bảng giá cũ|Thêm grade|name="grade_rows_json"|name="price_valid_until"/);
-assert.match(priceCheckbox(newProductStep1), /checked=""/, 'Sản phẩm mới được tick sẵn');
+const newProduct = render({ product: undefined, media: [] });
+// Nhãn dòng "Giá theo số lượng" là của form; chỉ cấm tiêu đề cũ lặp lại trong bảng giá.
+assert.doesNotMatch(newProduct, /Bảng giá theo số lượng|Tên tiếng Anh \(tùy chọn\)/);
+assert.match(newProduct, /Chọn danh mục để nhập grade và bảng giá/);
+assert.doesNotMatch(newProduct, /Bảng giá cũ|Thêm grade|name="grade_rows_json"|name="price_valid_until"/);
+assert.match(priceCheckbox(newProduct), /checked=""/, 'Sản phẩm mới được tick sẵn');
 for (const savedProduct of [product, { ...product, price_publicly_visible: false }]) {
   assert.doesNotMatch(priceCheckbox(render({ product: savedProduct })), /checked=""/,
     'Bản ghi cũ thiếu cờ hoặc đã tắt giá vẫn giữ trạng thái riêng tư');
@@ -227,65 +258,134 @@ assert.match(priceCheckbox(render({ product: { ...product, price_publicly_visibl
   'Lựa chọn chia sẻ giá đã lưu vẫn được giữ');
 const priceReviewChip = (html) => {
   const chip = html.match(/<span class="([^"]*)">Công khai giá khi đủ điều kiện<\/span>/);
-  assert.ok(chip, 'Bước xem lại có trạng thái chia sẻ giá');
+  assert.ok(chip, 'Khối xem lại có trạng thái chia sẻ giá');
   return chip[1];
 };
-assert.match(priceReviewChip(onStep3), /line-through/, 'Bước xem lại không tự bật giá cho sản phẩm đã lưu ở trạng thái tắt');
-const newProductStep3 = render({ product: undefined, media: [], initialStep: 3 });
-assert.doesNotMatch(priceReviewChip(newProductStep3), /line-through/, 'Bước xem lại khớp lựa chọn mặc định của sản phẩm mới');
+assert.match(priceReviewChip(page), /line-through/, 'Khối xem lại không tự bật giá cho sản phẩm đã lưu ở trạng thái tắt');
+assert.doesNotMatch(priceReviewChip(newProduct), /line-through/, 'Khối xem lại khớp lựa chọn mặc định của sản phẩm mới');
 
-// 3c. Nút gửi luôn phản hồi: không phải nút chết khi còn thiếu điều kiện.
-assert.doesNotMatch(source, /onClick=\{submit\} disabled=\{busy \|\| !canSubmit\}/, 'Nút gửi không bị khoá im lặng');
-assert.match(source, /function requestSubmit\(\)/, 'Nút gửi đi qua requestSubmit để luôn phản hồi');
-assert.match(source, /submitBlockers\(\)/, 'Có danh sách việc còn thiếu');
-assert.match(source, /setSubmitHint\(blockers\)/, 'Bấm gửi khi thiếu sẽ hiện lời nhắc thay vì không làm gì');
-assert.match(source, /Đang gửi.../, 'Nút có trạng thái đang gửi');
-assert.match(source, /animate-spin/, 'Có vòng xoay khi đang gửi');
-assert.match(source, /Đã gửi duyệt/, 'Gửi xong có xác nhận rõ ràng');
-assert.match(source, /aria-live="polite"/, 'Lời nhắc được đọc bởi trình đọc màn hình');
-assert.match(source, /id="submit-blockers"/, 'Nút gửi liên kết tới phần giải thích điều kiện');
+// 7. Xác nhận chia sẻ giá.
+const noConsent = render({ supplier: { ...supplier, fob_publicly_visible: false } });
+inSection('sec-price', noConsent, 'name="confirm_supplier_price_consent"');
+assert.match(noConsent, /Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai\./, 'Xác nhận chia sẻ giá gọn một dòng');
+assert.match(noConsent, /Hiệu lực 180 ngày kể từ khi lưu; giá tham khảo không phải báo giá chính thức/, 'Điều kiện ngắn nằm dưới checkbox');
+assert.match(noConsent, /href="\/dieu-khoan-su-dung"[^>]*>Điều khoản</, 'Có link điều khoản thay vì nhồi văn bản pháp lý');
+const noConsentOptedIn = render({ product: { ...product, price_publicly_visible: true }, supplier: { ...supplier, fob_publicly_visible: false } });
+assert.match(noConsentOptedIn.match(/<input[^>]*name="confirm_supplier_price_consent"[^>]*>/)?.[0] ?? '', /required=""/,
+  'Ô xác nhận chia sẻ giá là bắt buộc khi bật công khai giá');
+assert.doesNotMatch(noConsent.match(/<input[^>]*name="confirm_supplier_price_consent"[^>]*>/)?.[0] ?? '', /required=""/,
+  'Không bắt buộc tick xác nhận khi công khai giá đang tắt');
 
-// 3d. Sẵn sàng thì nói rõ; thiếu thì nút vẫn bấm được và liệt kê việc cần làm.
-assert.match(onStep3, /Hồ sơ đủ điều kiện/, 'Đủ điều kiện thì báo rõ trước khi gửi');
-const missingMedia = render({ initialStep: 3, media: [] });
-const sendButton = (missingMedia.match(/<button[^>]*>[\s\S]{0,80}lucide-send|<button[^>]*aria-describedby="submit-blockers"/) ?? [''])[0];
-assert.ok(sendButton && !/disabled/.test(sendButton.split('>')[0]), 'Thiếu điều kiện vẫn không khoá nút gửi');
-assert.match(missingMedia, /Tải ít nhất một ảnh sản phẩm ở bước 2/, 'Nói rõ thiếu tệp ở đâu');
-assert.match(missingMedia, /<div id="submit-blockers" aria-live="polite">/, 'Danh sách việc cần làm có aria-live');
-assert.match(onStep2, /data-step-panel="1" class="hidden"/, 'Bước 2 ẩn hẳn form bước 1 (không kéo dài trang) nhưng vẫn giữ dữ liệu để gửi form');
-assert.match(onStep2, /data-step-panel="2" class="space-y-3"/, 'Bước 2 đang mở');
-assert.equal((onStep2.match(/aria-current="step"/g) ?? []).length, 1, 'Ở bước 2 chỉ đánh dấu bước 2');
-assert.equal((onStep3.match(/data-step-panel="1"/g) ?? []).length, 1, 'Panel bước 1 vẫn tồn tại (chỉ ẩn) ở bước 3');
+// 8. Không đưa UI giá v2 hay bảng giá cũ trở lại cổng NCC.
+assert.doesNotMatch(source, /Bảng giá cũ \(cơ chế hiện tại\)|GradePricingTable|grade_rows_json/, 'Không còn bảng giá cũ');
+assert.match(source, /<QuantityPricingEditor value=\{newQuantity\}/, 'Sản phẩm mới dùng bảng giá theo số lượng');
+assert.match(source, /quantity_creation_request_id/, 'Sản phẩm mới gửi kèm mã chống trùng');
+assert.match(source, /quantity_tiers_json/, 'Bảng giá bậc được gửi lên');
+assert.doesNotMatch(source, /QuantityPricingV2Editor|QuantityGradeV2Field|QuantityBuyerV2Preview|quantityV2FormEnabled|onV2PreviewChange/, 'Không mở UI giá v2 ở cổng NCC');
+assert.doesNotMatch(source, /form\.set\("quantity_version", "2"\)/, 'Không tự gửi bản giá v2');
+const newPage = read('../app/supplier/portal/products/new/page.tsx');
+assert.doesNotMatch(newPage, /VEXIM_QUANTITY_V2_STAGING|quantityV2FormEnabled/, 'Trang tạo mới không có cờ v2');
 
-// 4. Thanh bước đánh dấu đúng bước đang mở.
-assert.match(step1, /aria-current="step"/, 'Thanh bước đánh dấu bước hiện tại');
-assert.equal((step1.match(/aria-current="step"/g) ?? []).length, 1, 'Chỉ một bước được đánh dấu');
-assert.match(source, /selectStep/, 'Bấm vào thanh bước để chuyển bước');
+// 9. Chứng nhận chỉ đến từ hồ sơ Giấy tờ L1.
+assert.ok(!source.includes('name="certifications"'), 'Bỏ ô chứng nhận sản phẩm tự khai');
+assert.ok(!source.includes('Chứng nhận sản phẩm (tự khai)'), 'Bỏ nhãn chứng nhận tự khai');
 
-// 5. Hành vi cũ còn nguyên: lưu, kiểm tra trường bắt buộc, cảnh báo mất dữ liệu, nộp, tải tệp.
+// 10. Hành vi cũ còn nguyên.
 assert.match(source, /saveSupplierProductAction\(form\)/, 'Vẫn lưu qua saveSupplierProductAction');
 assert.match(source, /submitSupplierProductAction\(form\)/, 'Vẫn nộp qua submitSupplierProductAction');
 assert.match(source, /productCanSubmit\(product, media\) && !dirty/, 'Nút nộp vẫn phụ thuộc điều kiện dữ liệu');
-assert.doesNotMatch(source, /Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Sửa sản phẩm đã duyệt không còn tự rút khỏi sàn');
-assert.ok(source.includes('!["approved", "paused"].includes(review) || product.supplier_originated === true'),
+assert.doesNotMatch(source, /Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Sửa sản phẩm đã duyệt không tự rút khỏi sàn');
+assert.ok(source.includes('!["approved", "paused"].includes(review) || product?.supplier_originated === true'),
   'Sản phẩm NCC đã duyệt hoặc tạm ẩn vẫn quản lý được ảnh của mình');
 assert.ok(source.includes('useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "")'),
   'Danh mục staff đã duyệt được ưu tiên khi mở lại editor');
 assert.match(source, /Bạn có thay đổi chưa lưu/, 'Vẫn cảnh báo rời trang khi chưa lưu');
-assert.match(source, /firstInvalidField\(formRef\.current, 1\)/, 'Chặn sang bước khi còn trường bắt buộc');
-assert.match(source, /requestSubmit\(\)/, 'Đi tiếp được sau khi lưu thành công');
+assert.match(source, /firstInvalidField\(formElement\)/, 'Vẫn kiểm tra trường bắt buộc trên cả trang');
+assert.match(source, /invalid\.scrollIntoView/, 'Lưu thiếu trường bắt buộc thì cuộn tới đúng ô');
 assert.match(source, /\/api\/supplier-portal\/products\/\$\{product\.id\}\/media/, 'Vẫn tải tệp qua API riêng');
 assert.match(source, /method: "DELETE"/, 'Vẫn xoá được tệp nháp');
-assert.match(source, /form="product-info"/, 'Nút ở thanh đáy submit đúng form bước 1');
-assert.match(source, /if \(!product\)[\s\S]{0,400}\?step=/, 'Sản phẩm mới lưu xong mở thẳng bước tiếp theo');
+assert.match(source, /data\?\.message \|\| `Xóa tệp thất bại \(HTTP/, 'Lỗi xóa hiển thị lý do API hoặc HTTP nếu không có JSON');
+assert.match(source, /data\?\.message \|\| `Đặt ảnh đại diện thất bại \(HTTP/, 'Lỗi đổi ảnh hiển thị lý do API');
+assert.doesNotMatch(source, /snapshotFromForm\(event\.currentTarget/, 'Không đọc event.currentTarget bên trong state updater');
+assert.match(source, /function onFormChange\(\) \{\s*const form = formRef\.current;/, 'onFormChange đọc form qua ref ngay trong handler');
+assert.match(source, /const formElement = formRef\.current;/, 'persist() đọc form qua ref, không giữ event sau await');
+assert.match(source, /new FormData\(formElement\)/, 'save() dùng phần tử đã giữ, không dùng lại event sau await');
+assert.match(source, /function snapshotFromForm\(form: HTMLFormElement \| null/, 'snapshotFromForm chấp nhận form null');
+assert.deepEqual(snapshotFromForm(null, { name: 'giữ nguyên' }), { name: 'giữ nguyên' }, 'Chưa có form thì giữ bản nháp cũ, không ném lỗi');
+assert.match(source, /for \(const key of checkKeys\) if \(form\.querySelector/, 'Checkbox không tick vẫn được ghi nhận là trống');
+assert.match(source, /Yêu cầu chỉnh sửa:/, 'Phản hồi duyệt gọi đúng việc phải làm');
 
-// 6. Đọc ?step= ở trang chi tiết để mở đúng bước sau khi tạo mới.
+// 11. ?step=2 sau khi tạo mới vẫn dùng được: cuộn thẳng tới khối ảnh.
+const onStep2 = render({ initialStep: 2 });
+assert.match(source, /initialStep === 2[\s\S]{0,120}sec-media/, 'Đọc ?step=2 và cuộn tới khối ảnh');
 const detailPage = read('../app/supplier/portal/products/[id]/page.tsx');
-assert.match(detailPage, /searchParams/, 'Trang chi tiết đọc searchParams');
 assert.match(detailPage, /initialStep=\{step\}/, 'Truyền bước mở đầu cho editor');
 assert.match(detailPage, /value === 2 \? 2 : value === 3 \? 3 : 1/, 'Chỉ nhận bước 1–3');
 
-// 7. Danh sách sản phẩm: nhãn danh mục tiếng Việt + cảnh báo ngoài phạm vi.
+// 12. Trạng thái: nháp không lặp thanh trạng thái; đang duyệt/tạm ẩn có hướng dẫn.
+for (const draftHtml of [page, newProduct]) {
+  assert.doesNotMatch(draftHtml, /aria-label="Trạng thái xét duyệt"/, 'Bản nháp không hiện thanh trạng thái trùng lặp');
+  assert.equal((draftHtml.match(/>Bản nháp</g) ?? []).length, 1, 'Chỉ giữ nhãn Bản nháp trên ảnh');
+}
+const pendingHtml = render({ product: { ...product, supplier_review_status: 'pending' } });
+assert.match(pendingHtml, /aria-label="Trạng thái xét duyệt"/, 'Các trạng thái cần hướng dẫn vẫn giữ thanh trạng thái');
+assert.match(pendingHtml, /Đã gửi duyệt\. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp\./);
+const approvedHtml = render({ product: { ...product, supplier_review_status: 'approved', ready_for_buyer: true, reviewed_category_slug: 'cashew' },
+  media: [{ ...media[0], audience: 'buyer' }] });
+assert.match(approvedHtml, /Sản phẩm đã đăng/);
+assert.match(approvedHtml, /type="hidden" name="supplier_category_proposal"/);
+assert.doesNotMatch(approvedHtml, /Trạng thái công khai|Hiển thị với buyer/);
+
+// 13. Ảnh và thao tác tệp theo đúng người và trạng thái.
+const ownDraft = { ...product, supplier_originated: true, featured_media_id: 'm1' };
+const oneCover = render({ product: ownDraft, media });
+assert.match(oneCover, /aria-label="Xóa ảnh đại diện"/, 'Có thể xóa trực tiếp ảnh đại diện duy nhất của bản nháp');
+assert.match(oneCover, /Xóa bản nháp/, 'Nháp do NCC tạo có thao tác xóa vĩnh viễn');
+assert.doesNotMatch(render({ product: ownDraft, media: [{ ...media[0], created_by: 'someone-else' }] }), /aria-label="Xóa ảnh đại diện"/,
+  'Không có nút xóa tệp do người khác tải');
+assert.doesNotMatch(render({ product: { ...ownDraft, supplier_review_status: 'pending' } }), /aria-label="Xóa ảnh đại diện"|Xóa bản nháp/,
+  'Đang duyệt khoá xóa ảnh và sản phẩm');
+const ownApproved = { ...ownDraft, supplier_review_status: 'approved', ready_for_buyer: true, reviewed_category_slug: 'cashew' };
+const approvedOwnHtml = render({ product: ownApproved, media: [{ ...media[0], audience: 'buyer' }] });
+assert.match(approvedOwnHtml, /aria-label="Xóa ảnh đại diện"/, 'Ảnh do mình tải có nút xóa cả khi đang đăng');
+assert.match(approvedOwnHtml, /Tạm ẩn sản phẩm/);
+assert.doesNotMatch(approvedOwnHtml, /Xóa bản nháp/);
+// Chốt 31/10/2026: bỏ dòng nhắc dài về việc kiểm tra lại giá.
+assert.doesNotMatch(approvedOwnHtml, /chỉnh sửa giá trên sản phẩm đã duyệt/, 'Không còn dòng nhắc kiểm tra lại giá');
+const pausedHtml = render({ product: { ...ownApproved, supplier_review_status: 'paused', ready_for_buyer: false },
+  media: [{ ...media[0], audience: 'buyer' }] });
+assert.match(pausedHtml, /Đã tạm ẩn/);
+assert.match(pausedHtml, /Gửi duyệt lại khi muốn đăng/);
+assert.match(pausedHtml, /aria-label="Xóa ảnh đại diện"/);
+assert.doesNotMatch(pausedHtml, /Xóa bản nháp|Tạm ẩn sản phẩm/);
+const legacyPaused = render({ product: { ...ownApproved, supplier_originated: false, supplier_review_status: 'paused',
+  supplier_category_proposal: null, reviewed_category_slug: null, ready_for_buyer: false } });
+assert.match(legacyPaused, /Gửi duyệt/, 'Sản phẩm staff tạo cũ vẫn có luồng gửi duyệt lại');
+assert.doesNotMatch(legacyPaused, /aria-label="Xóa ảnh đại diện"/, 'Tệp staff quản lý vẫn bị khóa');
+
+// 14. Một chỗ cho ảnh: lưới 6 ô, không lặp lại danh sách ảnh; catalogue chỉ chứa tệp PDF.
+const multiBuyerMedia = [
+  { ...media[0], id: 'm1', audience: 'buyer', caption: 'cover.png' },
+  { ...media[0], id: 'm2', audience: 'buyer', storage_path: 'products/p1/b.png', caption: '6 (5).png' },
+];
+const multiHtml = render({ product: ownApproved, media: multiBuyerMedia });
+assert.doesNotMatch(source, /\bleft-11\b/, 'Không dùng vị trí cứng left-11 khiến nút X đè lên nhãn');
+assert.match(multiHtml, /aria-label="6 ô ảnh sản phẩm"/, 'Ảnh sản phẩm nằm trong lưới 6 ô');
+assert.match(multiHtml, /aria-label="Ảnh chính"/, 'Ô ảnh chính có dấu hiệu riêng cho trình đọc màn hình');
+assert.doesNotMatch(multiHtml, />Ảnh chính</, 'Không dùng chữ Ảnh chính đè lên ảnh nhỏ');
+assert.doesNotMatch(multiHtml, /Catalogue PDF/, 'Chỉ có ảnh thì không hiện khối catalogue');
+// Ảnh đại diện đứng trước lưới ảnh sản phẩm, và lưới phải có nút đổi ảnh đại diện / xoá ảnh.
+assert.ok(multiHtml.indexOf('Ảnh đại diện') < multiHtml.indexOf('6 ô ảnh sản phẩm'), 'Ảnh đại diện nằm trên ảnh sản phẩm');
+assert.match(multiHtml, /title="Đặt làm ảnh đại diện"/, 'Mỗi ô ảnh đổi được ảnh đại diện');
+assert.match(multiHtml, /aria-label="Đặt [^"]*làm ảnh đại diện"/, 'Nút đổi ảnh đại diện có nhãn đọc được');
+assert.match(multiHtml, /title="Xóa ảnh"/, 'Mỗi ô ảnh xoá được ngay tại ô');
+assert.doesNotMatch(source, /chọn chia sẻ|chọn tệp chia sẻ/, 'Nhà cung cấp không có nút chia sẻ nên không được hướng dẫn chọn chia sẻ');
+const pdfMedia = [...multiBuyerMedia, { ...media[0], id: 'pdf1', kind: 'catalogue', caption: 'catalogue.pdf' }];
+const pdfHtml = render({ product: ownApproved, media: pdfMedia });
+assert.match(pdfHtml, /Catalogue PDF/, 'Có tệp PDF thì hiện khối catalogue');
+assert.match(pdfHtml, /catalogue\.pdf/, 'Khối catalogue gọi tên tệp PDF');
+
+// 15. Danh sách sản phẩm: nhãn danh mục tiếng Việt + cảnh báo ngoài phạm vi.
 const storefront = read('../app/supplier/portal/products/product-storefront.tsx');
 assert.match(storefront, /categoryLabels\?: Record<string, string>/, 'Danh sách nhận nhãn danh mục');
 assert.match(storefront, /categoryLabels\[slug\] \?\? slug/, 'Hiện nhãn thay vì slug thô');
@@ -296,134 +396,31 @@ assert.match(listPage, /categoryLabels=/, 'Trang danh sách truyền nhãn danh 
 assert.match(listPage, /scope=\{\[?scope/, 'Trang danh sách truyền phạm vi danh mục');
 assert.match(listPage, /allowedSupplierCategories/, 'Phạm vi lấy từ đúng lớp dữ liệu danh mục');
 
-// 9b. Copy B2B: không lạm dụng tên nền tảng ngoài dòng nhắc đối chiếu báo giá bắt buộc dưới Grade & giá.
-const brandMentions = (step1.match(/Vexim/g) ?? []).length;
+// 16. Copy: không lạm dụng tên nền tảng, không giọng hành chính.
+const brandMentions = (page.match(/Vexim/g) ?? []).length;
 assert.ok(brandMentions <= 3, `Chỉ nhắc tên nền tảng khi thật cần (đang ${brandMentions} lần)`);
-for (const phrase of [
-  'Vexim duyệt', 'Vexim kiểm tra', 'Vexim xác nhận', 'cho Vexim', 'Chờ Vexim',
-  'Tôi đại diện NCC xác nhận đồng ý cho', 'không tự duyệt sản phẩm',
-]) {
+for (const phrase of ['Vexim duyệt', 'Vexim kiểm tra', 'Vexim xác nhận', 'cho Vexim', 'Chờ Vexim', 'Tôi đại diện NCC xác nhận đồng ý cho', 'không tự duyệt sản phẩm']) {
   assert.ok(!source.includes(phrase), `Bỏ giọng hành chính/lặp thương hiệu: ${phrase}`);
 }
-assert.match(step1, /Chọn danh mục gần nhất\. Danh mục sẽ được kiểm tra khi duyệt\./,
-  'Hint danh mục nói đúng mức cần thiết');
-// The shared quantity editor contains the warning; tested in check-quantity-pricing-editor.
-assert.match(source, /<QuantityPricingEditor/);
-// Chỉ hiện khi chưa có xác nhận chia sẻ giá còn hiệu lực, và bắt buộc tick khi bật công khai giá.
-const noConsent = render({ supplier: { ...supplier, fob_publicly_visible: false } });
-assert.match(noConsent, /Tôi đồng ý chia sẻ giá tham khảo của những sản phẩm tôi chọn công khai\./,
-  'Xác nhận chia sẻ giá gọn một dòng');
-assert.match(noConsent, /Hiệu lực 180 ngày kể từ khi lưu; giá tham khảo không phải báo giá chính thức/,
-  'Điều kiện ngắn nằm dưới checkbox');
-assert.match(noConsent, /href="\/dieu-khoan-su-dung"[^>]*>Điều khoản</, 'Có link điều khoản thay vì nhồi văn bản pháp lý');
-const noConsentOptedIn = render({
-  product: { ...product, price_publicly_visible: true },
-  supplier: { ...supplier, fob_publicly_visible: false },
-});
-const consentCheckboxTag = noConsentOptedIn.match(/<input[^>]*name="confirm_supplier_price_consent"[^>]*>/)?.[0] ?? '';
-assert.match(consentCheckboxTag, /required=""/, 'Ô xác nhận chia sẻ giá là bắt buộc khi bật công khai giá');
-const consentCheckboxPrivateTag = noConsent.match(/<input[^>]*name="confirm_supplier_price_consent"[^>]*>/)?.[0] ?? '';
-assert.doesNotMatch(consentCheckboxPrivateTag, /required=""/, 'Không bắt buộc tick xác nhận khi công khai giá đang tắt');
-assert.doesNotMatch(noConsent, /Tôi đại diện NCC xác nhận/, 'Bỏ câu cam kết dài kiểu hợp đồng');
-assert.match(source, /Gửi duyệt/, 'Nút gửi dùng từ trung tính');
-assert.match(source, /Yêu cầu chỉnh sửa:/, 'Phản hồi duyệt gọi đúng việc phải làm');
+assert.match(page, /Chọn danh mục phù hợp với sản phẩm\. Danh mục được kiểm tra khi duyệt/, 'Hint danh mục nói đúng mức cần thiết');
+assert.match(source, /Chọn danh mục phù hợp với sản phẩm để mở grade và bảng giá\./, 'Câu mở grade dùng "phù hợp với sản phẩm"');
+assert.doesNotMatch(source, /mục cần sửa trước khi gửi duyệt/, 'Đã bỏ khối nhắc đầu trang về các mục cần sửa');
+assert.doesNotMatch(page, /mục cần sửa trước khi gửi duyệt/, 'Không còn khối nhắc đầu trang khi render');
 
-// 9d. Bố cục bước 1: danh mục chiếm trọn hàng để Mô tả ngắn luôn nằm chung hàng
-//     với Quy cách / tiêu chuẩn, kể cả khi nhóm hàng có hoặc không có thông số.
-const labelTag = (name) => `<label class="block text-[12.5px]"><span class="mb-1 block font-semibold text-ink-800">${name}`;
-assert.ok(step1.includes('<label class="block text-[12.5px] md:col-span-2"><span class="mb-1 block font-semibold text-ink-800">Danh mục sản phẩm'),
-  'Danh mục sản phẩm chiếm trọn hàng');
-assert.ok(step1.includes(labelTag('Mô tả ngắn')), 'Mô tả ngắn là ô nửa hàng');
-assert.ok(step1.includes(labelTag('Quy cách / tiêu chuẩn')), 'Quy cách là ô nửa hàng');
-const iDesc = step1.indexOf('name="description"');
-const iSpec = step1.indexOf('name="spec"');
-assert.ok(iDesc > 0 && iSpec > iDesc, 'Mô tả ngắn đứng ngay trước Quy cách để cùng hàng');
-assert.ok(step1.indexOf('name="supplier_category_proposal"') < iDesc, 'Danh mục đứng trước, không chen giữa hai ô này');
-// Bước 3 đọc lại theo đúng bố cục đó: danh mục một hàng, mô tả ngắn và quy cách cùng hàng.
-assert.ok(source.includes('<div className="sm:col-span-2"><ReviewField label="Danh mục"'), 'Bước 3: danh mục chiếm trọn hàng');
-assert.ok(source.includes('<div><ReviewField label="Mô tả ngắn"'), 'Bước 3: mô tả ngắn là ô nửa hàng');
-assert.ok(source.includes('<div><ReviewField label="Quy cách / tiêu chuẩn"'), 'Bước 3: quy cách là ô nửa hàng');
+// 17. Kho ảnh: tải ảnh trước khi có sản phẩm, gắn vào sản phẩm ngay khi bấm Lưu.
+assert.match(source, /const canUpload = !locked &&/, 'Ô chọn tệp không đòi sản phẩm đã tồn tại');
+assert.doesNotMatch(source, /canUpload = !!product/, 'Đã bỏ điều kiện phải có sản phẩm trước khi tải tệp');
+assert.match(source, /async function persist\(\): Promise<string \| null>/, 'Lưu và trả về id dùng chung cho nút Lưu và lúc tạo sản phẩm');
+assert.match(source, /fetch\("\/api\/supplier-portal\/media", \{ method: "POST", body \}\)/, 'Ảnh mới tải đi vào kho ảnh riêng');
+assert.match(source, /setPickedBank\(\(current\) => Array\.from\(new Set\(\[\.\.\.current, \.\.\.added\]\)\)\.slice\(0, 8\)\)/, 'Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo');
+assert.match(source, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 8\)\)\)/, 'Ảnh đã chọn được gửi kèm khi lưu');
+assert.doesNotMatch(source, /ensureDraft/, 'Không quay lại cơ chế lưu nháp trước khi tải ảnh');
+assert.doesNotMatch(source, /Lưu nháp rồi tải ảnh|Lưu thay đổi rồi tải ảnh|saveIntent/, 'Không còn bắt người bán bấm lưu trước khi tải ảnh');
+assert.match(source, /Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu\./, 'Nói trước là ảnh vào kho rồi gắn khi lưu');
+const newProductMedia = render({ product: undefined, media: [] });
+assert.match(newProductMedia, /Kho ảnh của bạn/, 'Sản phẩm mới thấy kho ảnh của nhà cung cấp');
+assert.match(newProductMedia, /Kho đang trống\. Tải ảnh ở ô bên dưới, không cần lưu sản phẩm trước\./, 'Kho trống vẫn chỉ rõ tải ảnh ngay được');
+assert.match(newProductMedia, /aria-label="Chọn ảnh sản phẩm hoặc catalogue"/, 'Sản phẩm mới vẫn thấy nút chọn tệp');
+assert.match(newProductMedia, /Kéo thả hoặc <label[^>]*>chọn ảnh|Kéo thả hoặc/, 'Sản phẩm mới thấy vùng kéo thả ảnh');
 
-// 9c. Không lặp nhãn bước trên các thẻ con của bước 1.
-assert.equal((step1.match(/>Bước 1</g) ?? []).length, 0, 'Không có chữ "Bước 1" lặp trong nội dung bước 1');
-assert.equal((step1.match(/Bước 1/g) ?? []).length, 1, 'Chỉ panel giữ nhãn Bước 1 cho trình đọc màn hình');
-
-// 10. Gõ vào bất kỳ ô nào cũng không được làm vỡ trang: handler đọc form qua ref,
-//    vì React dọn `event.currentTarget` về null trước khi state updater chạy.
-assert.doesNotMatch(source, /snapshotFromForm\(event\.currentTarget/,
-  'Không đọc event.currentTarget bên trong state updater (gây FormData(null))');
-assert.doesNotMatch(source, /snapshotFromForm\([^)]*currentTarget/,
-  'Mọi lời gọi snapshotFromForm đều dùng phần tử form đã lấy sẵn');
-assert.match(source, /function onFormChange\(\) \{\s*const form = formRef\.current;/,
-  'onFormChange đọc form qua ref ngay trong handler');
-assert.match(source, /const formElement = event\.currentTarget;/,
-  'save() giữ phần tử form trước khi await');
-assert.match(source, /new FormData\(formElement\)/, 'save() dùng phần tử đã giữ, không dùng lại event sau await');
-assert.match(source, /function snapshotFromForm\(form: HTMLFormElement \| null/,
-  'snapshotFromForm chấp nhận form null');
-assert.deepEqual(snapshotFromForm(null, { name: 'giữ nguyên' }), { name: 'giữ nguyên' },
-  'Chưa có form thì giữ bản nháp cũ, không ném lỗi');
-assert.match(source, /for \(const key of checkKeys\) if \(form\.querySelector/,
-  'Checkbox không tick vẫn được ghi nhận là trống');
-
-// 11. Bản nháp chỉ có nhãn trên ảnh, không lặp cả thanh trạng thái phía trên form.
-for (const draftHtml of [step1, newProductStep1]) {
-  assert.doesNotMatch(draftHtml, /aria-label="Trạng thái xét duyệt"/, 'Bản nháp không hiện thanh trạng thái trùng lặp');
-  assert.doesNotMatch(draftHtml, /Sản phẩm còn riêng tư\. Điền thông tin, thêm tệp rồi gửi duyệt\./);
-  assert.equal((draftHtml.match(/>Bản nháp</g) ?? []).length, 1, 'Chỉ giữ nhãn Bản nháp trên ảnh');
-}
-const pending = render({ product: { ...product, supplier_review_status: 'pending' } });
-assert.match(pending, /aria-label="Trạng thái xét duyệt"/, 'Các trạng thái cần hướng dẫn vẫn giữ thanh trạng thái');
-assert.match(pending, /Đã gửi duyệt\. Bạn có thể xem nhưng chưa thể chỉnh sửa hoặc tải tệp\./);
-
-// 12. Sau xác nhận, NCC quản lý sản phẩm đang trên sàn; không còn panel trạng thái riêng.
-const approved = render({ product: { ...product, supplier_review_status: 'approved', ready_for_buyer: true, reviewed_category_slug: 'cashew' },
-  media: [{ ...media[0], audience: 'buyer' }] });
-assert.match(approved, /đã đăng/);
-assert.match(approved, /type="hidden" name="supplier_category_proposal"/);
-assert.match(approved, /Sản phẩm đã đăng/);
-assert.doesNotMatch(approved, /Trạng thái công khai|Hiển thị với buyer/);
-
-// 13. Ảnh đại diện (kể cả ảnh duy nhất) có thao tác xóa khi đúng người và trạng thái.
-const ownDraft = { ...product, supplier_originated: true, featured_media_id: 'm1' };
-const oneCover = render({ product: ownDraft, media, initialStep: 2 });
-assert.match(oneCover, /aria-label="Xóa ảnh đại diện"/, 'Có thể xóa trực tiếp ảnh đại diện duy nhất của bản nháp');
-assert.match(oneCover, /Xóa bản nháp/, 'Nháp do NCC tạo có thao tác xóa vĩnh viễn');
-assert.doesNotMatch(render({ product: ownDraft, media: [{ ...media[0], created_by: 'someone-else' }] }), /aria-label="Xóa ảnh đại diện"/,
-  'Không có nút xóa tệp do người khác tải');
-assert.doesNotMatch(render({ product: { ...ownDraft, supplier_review_status: 'pending' } }), /aria-label="Xóa ảnh đại diện"|Xóa bản nháp/,
-  'Đang duyệt khóa xóa ảnh và sản phẩm');
-const ownApproved = { ...ownDraft, supplier_review_status: 'approved', ready_for_buyer: true, reviewed_category_slug: 'cashew' };
-const approvedOwnHtml = render({ product: ownApproved, media: [{ ...media[0], audience: 'buyer' }] });
-assert.match(approvedOwnHtml, /aria-label="Xóa ảnh đại diện"/, 'Ảnh do mình tải có nút xóa cả khi đang đăng (server kiểm tra tệp cuối)');
-assert.match(approvedOwnHtml, /Tạm ẩn sản phẩm/);
-assert.doesNotMatch(approvedOwnHtml, /Xóa bản nháp/);
-assert.match(approvedOwnHtml, /chỉnh sửa giá trên sản phẩm đã duyệt, sản phẩm sẽ được kiểm tra lại giá/, 'Nhắc rõ sửa giá sản phẩm đã duyệt sẽ được kiểm tra lại giá');
-const paused = render({ product: { ...ownApproved, supplier_review_status: 'paused', ready_for_buyer: false },
-  media: [{ ...media[0], audience: 'buyer' }], initialStep: 3 });
-assert.match(paused, /Đã tạm ẩn/);
-assert.match(paused, /gửi duyệt ở bước 3 và chờ phê duyệt/);
-assert.match(paused, /aria-label="Xóa ảnh đại diện"/);
-assert.doesNotMatch(paused, /Xóa bản nháp|Tạm ẩn sản phẩm/);
-const returned = render({ product: { ...ownApproved, supplier_review_status: 'changes_requested', ready_for_buyer: false },
-  media: [{ ...media[0], audience: 'buyer' }] });
-assert.match(returned, /aria-label="Xóa ảnh đại diện"/, 'Tệp buyer cũ của chính mình vẫn sửa được khi được yêu cầu chỉnh sửa');
-assert.doesNotMatch(returned, /Xóa bản nháp/);
-const legacyPaused = render({ product: { ...ownApproved, supplier_originated: false, supplier_review_status: 'paused',
-  supplier_category_proposal: null, reviewed_category_slug: null, ready_for_buyer: false }, initialStep: 3 });
-assert.match(legacyPaused, /Gửi duyệt/, 'Sản phẩm staff tạo cũ vẫn có luồng gửi duyệt lại');
-assert.doesNotMatch(legacyPaused, /aria-label="Xóa ảnh đại diện"/, 'Tệp staff quản lý vẫn bị khóa');
-assert.match(source, /data\?\.message \|\| `Xóa tệp thất bại \(HTTP/, 'Lỗi xóa hiển thị lý do API hoặc HTTP nếu không có JSON');
-assert.match(source, /data\?\.message \|\| `Đặt ảnh đại diện thất bại \(HTTP/, 'Lỗi đổi ảnh hiển thị lý do API');
-
-// 14. Thẻ ảnh phụ ở bước 2: nhãn "Chia sẻ buyer" nằm bên trái, cụm nút Sao + X nằm bên phải (không dùng left-11 đè lên chữ).
-const multiBuyerMedia = [
-  { ...media[0], id: 'm1', audience: 'buyer', caption: 'cover.png' },
-  { ...media[0], id: 'm2', audience: 'buyer', storage_path: 'products/p1/b.png', caption: '6 (5).png' },
-];
-const step2MultiHtml = render({ product: ownApproved, media: multiBuyerMedia, initialStep: 2 });
-assert.doesNotMatch(source, /\bleft-11\b/, 'Không dùng vị trí cứng left-11 khiến nút X đè lên nhãn Chia sẻ buyer');
-assert.match(step2MultiHtml, /inset-x-2 top-2 flex items-start justify-between gap-2/, 'Thanh trên thẻ ảnh tách nhãn bên trái và nút thao tác bên phải');
-assert.match(step2MultiHtml, /Chia sẻ buyer<\/span><div class="pointer-events-auto flex shrink-0 items-center gap-1\.5">/, 'Nút đặt ảnh đại diện và nút xóa gom về cụm bên phải sau nhãn');
-
-console.log('✅ Product page: wizard, cover deletion, draft deletion and pause/review controls.');
+console.log('✅ Product page: một trang, mục lục neo, đủ khối, gửi duyệt và quản lý tệp.');

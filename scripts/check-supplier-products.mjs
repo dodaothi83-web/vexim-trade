@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { loadProductDescription } from './product-description-test-utils.mjs';
+import * as productExtras from '../lib/products/product-extras.ts';
 function load(file, mocks) {
   const mod = { exports: {} };
   const source = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), {
@@ -82,8 +83,8 @@ const store = {
           (['approved', 'paused'].includes(product.supplier_review_status) && product.supplier_originated === true)))
       return { status: 'state_changed' };
     const asset = files.find((m) => m.id === mid);
-    if (!asset || asset.owner_type !== 'product' || asset.product_id !== pid || asset.supplier_id !== sid || asset.created_by !== uid ||
-        (product.supplier_review_status === 'draft' && asset.audience !== 'internal')) return { status: 'forbidden' };
+    if (!asset || asset.owner_type !== 'product' || asset.product_id !== pid || asset.supplier_id !== sid || asset.created_by !== uid)
+      return { status: 'forbidden' };
     if (product.supplier_review_status === 'approved' && product.ready_for_buyer && asset.audience === 'buyer' &&
         !files.some((m) => m.id !== mid && m.owner_type === 'product' && m.product_id === pid && m.supplier_id === sid &&
           ['image', 'catalogue'].includes(m.kind) && m.audience === 'buyer' && m.storage_path && !mediaReadiness.isExpired(m)))
@@ -119,6 +120,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async (_supplier, item) => { notices.push(['submitted', item.id]); return 'sent'; } },
   '@/lib/products/product-description': productDescription,
+  '@/lib/products/product-extras': productExtras,
   '@/lib/media/storage': storage,
   '@/lib/ai/product-translation-service': {
     ensureProductEnglishTranslation: async (storeArg, id) => {
@@ -216,7 +218,9 @@ assert.equal(await postMedia(), 409, 'Concurrent ninth image is rejected by the 
 assert.equal(guardedCalls, 1); assert.equal(files.length, 0); assert.equal(storedBytes, 0, 'Rejected upload cleans up both files');
 mediaDb = null;
 assert.equal(await postMedia(), 200);
-assert.equal(files[0].audience, 'internal'); assert.equal(files[0].status, 'unverified');
+// Chốt 31/10/2026: bỏ bước duyệt ảnh — tệp nhà cung cấp tải lên chia sẻ cho người mua ngay,
+// trạng thái kiểm tra không còn ý nghĩa nên giữ nguyên "unverified".
+assert.equal(files[0].audience, 'buyer'); assert.equal(files[0].status, 'unverified');
 assert.equal(lastMediaResponse.image.id, files[0].id);
 assert.equal(lastMediaResponse.image.url, `/api/media/file/${files[0].storage_path}`);
 assert.match(files[0].storage_path, /\.webp$/); assert.match(files[0].thumb_path, /-thumb\.webp$/);
@@ -261,9 +265,10 @@ assert.equal((await upload.DELETE(new Request(deleteUrl, { method: 'DELETE' }), 
 assert.equal(storedBytes, 0);
 assert.equal(await postMedia(), 200);
 const submitted = new FormData(); submitted.set('product_id', productId);
-files[0].created_by = 'staff';
+// Tệp nội bộ của Vexim không hiện với nhà cung cấp nên không tính là tệp để gửi duyệt.
+files[0].created_by = 'staff'; files[0].audience = 'internal';
 assert.equal((await actions.submitSupplierProductAction(submitted)).ok, false, 'Hidden staff-internal file does not satisfy supplier submission');
-files[0].created_by = user.id;
+files[0].created_by = user.id; files[0].audience = 'buyer';
 const submissionResult = await actions.submitSupplierProductAction(submitted);
 assert.equal(submissionResult.ok, true);
 assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
@@ -301,28 +306,15 @@ approve.set('reviewed_category_slug', 'not-in-catalogue');
 assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Staff must choose a published category');
 approve.set('reviewed_category_slug', 'cashew');
 product.name = 'Jasmine Rice';
+files[0].audience = 'internal';
 const internalMediaDecision = await review.decideSupplierProductAction(approve);
-assert.equal(internalMediaDecision.ok, false, 'An internal unverified image cannot be published automatically');
-assert.match(internalMediaDecision.message, /Đã kiểm tra và Chia sẻ buyer/);
+assert.equal(internalMediaDecision.ok, false, 'Phải có ít nhất một ảnh chia sẻ cho người mua trước khi đăng');
+assert.match(internalMediaDecision.message, /ít nhất một ảnh chia sẻ cho người mua/);
 assert.equal(product.supplier_review_status, 'pending'); assert.equal(product.ready_for_buyer, false);
-assert.equal(files[0].audience, 'internal'); assert.equal(files[0].status, 'unverified');
+// Chốt 31/10/2026: bỏ bước duyệt ảnh. Ảnh chia sẻ cho người mua là đủ, không còn cổng "đã kiểm tra".
 files[0].audience = 'buyer';
-assert.equal((await review.decideSupplierProductAction(approve)).ok, false, 'Buyer sharing alone does not verify an image');
-assert.equal(product.ready_for_buyer, false);
-files[0].status = 'checked';
-const uncheckedPublicFile = { ...files[0], id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', audience: 'buyer', status: 'unverified', storage_path: 'products/unchecked.jpg' };
-files.push(uncheckedPublicFile);
-const mixedMediaDecision = await review.decideSupplierProductAction(approve);
-assert.equal(mixedMediaDecision.ok, false, 'Every buyer-shared file must be checked');
-assert.match(mixedMediaDecision.message, /Còn 1 tệp chia sẻ buyer chưa được xác minh/);
-uncheckedPublicFile.audience = 'internal';
-assert.equal((await review.decideSupplierProductAction(approve)).ok, true, 'Keyword mismatch is a warning; staff category is final');
-assert.equal(uncheckedPublicFile.audience, 'internal'); assert.equal(uncheckedPublicFile.status, 'unverified',
-  'Publication never promotes or verifies another internal file');
-files.pop();
+assert.equal((await review.decideSupplierProductAction(approve)).ok, true, 'Có ảnh chia sẻ là đăng được, không cần xác minh riêng');
 product.name = 'Cashew kernels';
-assert.equal(product.supplier_review_status, 'approved'); assert.equal(product.ready_for_buyer, true);
-assert.equal(files[0].audience, 'buyer'); assert.equal(files[0].status, 'checked');
 assert.equal(notices.at(-1)[0], 'product_approved');
 assert.equal(product.supplier_category_proposal, 'cashew');
 assert.equal(product.reviewed_category_slug, 'cashew', 'Staff saves the final published category');

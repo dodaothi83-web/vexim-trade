@@ -44,12 +44,12 @@ export const dynamic = "force-dynamic";
 
 const RFQ_MATCH_LABELS: Record<string, string> = {
   proposed: "Đã khớp, chờ gửi",
-  sent_to_supplier: "Đã gửi cho NCC",
+  sent_to_supplier: "Đã gửi nhà cung cấp",
   quoted: "Đã có báo giá",
-  declined: "NCC từ chối",
+  declined: "Nhà cung cấp từ chối",
   no_response: "Không phản hồi",
-  presented_to_buyer: "Đã trình buyer",
-  selected: "Buyer chọn",
+  presented_to_buyer: "Đã trình người mua",
+  selected: "Người mua chọn",
   not_selected: "Không được chọn",
 };
 
@@ -109,7 +109,7 @@ export default async function SupplierDetailPage({
     store.listVerifications(id),
     store.listSupplierVerificationRequests(id).catch((error) => { console.error("[supplier-requests] migration/query failed", error); return []; }),
   ]);
-  // Ảnh đại diện cho từng sản phẩm (ưu tiên ảnh chia sẻ buyer, chưa hết hạn)
+  // Ảnh đại diện cho từng sản phẩm (ưu tiên ảnh chia sẻ cho khách mua, chưa hết hạn)
   const thumbByProduct = new Map<string, typeof productMedia[number]>();
   for (const m of productMedia) {
     if (!m.product_id || m.kind !== "image" || m.audience !== "buyer") continue;
@@ -154,7 +154,7 @@ export default async function SupplierDetailPage({
     `${nextPage > 1 ? `/crm/suppliers/${id}?page=${nextPage}` : `/crm/suppliers/${id}`}#supplier-products`;
   const detailTabs = [
     { key: "overview", label: "Tổng quan", href: `/crm/suppliers/${id}` },
-    { key: "review", label: "Xét duyệt NCC", href: `/crm/suppliers/${id}?tab=review` },
+    { key: "review", label: "Xét duyệt nhà cung cấp", href: `/crm/suppliers/${id}?tab=review` },
   ] as const;
 
   return (
@@ -298,7 +298,7 @@ export default async function SupplierDetailPage({
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm">
               <p className="text-ink-700">
                 <Link href={`/crm/suppliers/${id}/audit/documents`} className="font-bold text-brand-800 underline">Kiểm tra giấy tờ L1 & chứng nhận AI quét</Link>
-                <span className="mt-0.5 block text-[13px] text-ink-600 sm:inline sm:before:content-['·_']">AI tự quét đơn vị đứng tên (chính chủ / đối tác) và ngày hết hạn của chứng nhận L1; tự nhắc NCC trước 60 / 30 / 7 / 1 ngày.</span>
+                <span className="mt-0.5 block text-[13px] text-ink-600 sm:inline sm:before:content-['·_']">AI tự quét đơn vị đứng tên và ngày hết hạn của chứng nhận L1; tự nhắc nhà cung cấp trước 60 / 30 / 7 / 1 ngày.</span>
               </p>
             </div>
           )}
@@ -323,7 +323,7 @@ export default async function SupplierDetailPage({
         <div className="min-w-0 space-y-4">
           {canSeeRfqs && (
             <Card className="p-5">
-              <SectionHead icon={Send} title="RFQ đã gửi cho NCC này" sub="Các yêu cầu báo giá trong hệ thống RFQ đã khớp với nhà cung cấp này." />
+              <SectionHead icon={Send} title="RFQ đã gửi cho nhà cung cấp này" sub="Các yêu cầu báo giá trong hệ thống RFQ đã khớp với nhà cung cấp này." />
               {rfqRows.length === 0 ? (
                 <EmptyState
                   icon={<Send className="h-5 w-5" />}
@@ -333,7 +333,7 @@ export default async function SupplierDetailPage({
               ) : (
                 <ul className="divide-y divide-ink-100">
                   {rfqRows.map(({ match, rfq }) => {
-                    const buyer = buyerById.get(rfq.buyer_id);
+                    const rfqBuyer = buyerById.get(rfq.buyer_id);
                     return (
                       <li key={match.id}>
                         <Link href={`/crm/rfqs/${rfq.id}`} className="block rounded-lg px-2 py-3 transition hover:bg-brand-50/40">
@@ -344,7 +344,7 @@ export default async function SupplierDetailPage({
                           <span className="mt-0.5 block truncate text-[13px] font-medium text-ink-800">{rfq.product_text}</span>
                           <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
                             {[
-                              buyer ? (buyer.hide_buyer_from_supplier ? `Khách thị trường ${buyer.country || "nước ngoài"} (ẩn danh)` : buyer.company) : null,
+                              rfqBuyer ? (rfqBuyer.hide_buyer_from_supplier ? `Khách thị trường ${rfqBuyer.country || "nước ngoài"} (ẩn danh)` : rfqBuyer.company) : null,
                               rfq.quantity ? `${rfq.quantity} ${rfq.unit ?? ""}`.trim() : null,
                               rfq.destination_country,
                               formatDate(rfq.created_at),
@@ -364,14 +364,14 @@ export default async function SupplierDetailPage({
             <Card className="p-5">
               <SectionHead
                 icon={Users}
-                title="Đơn hàng đang giao cho NCC này"
+                title="Đơn hàng đang giao cho nhà cung cấp này"
                 sub={`Tổng giá trị ${formatMoney(attached.reduce((sum, b) => sum + (b.deal_value ?? 0), 0))}`}
               />
               {attached.length === 0 ? (
                 <EmptyState
                   icon={<ShieldCheck className="h-5 w-5" />}
-                  title="Chưa có đơn nào gắn NCC này"
-                  sub="Vào trang buyer hoặc pipeline, chọn NCC ở cột “Nhà cung cấp” để gắn."
+                  title="Chưa có đơn nào gắn nhà cung cấp này"
+                  sub="Vào trang người mua hoặc pipeline, chọn nhà cung cấp ở cột “Nhà cung cấp” để gắn."
                 />
               ) : (
                 <ul className="divide-y divide-ink-100">
@@ -407,7 +407,7 @@ export default async function SupplierDetailPage({
               )}
               <p className="mt-3 rounded-xl bg-ink-50 px-3.5 py-2.5 text-[11.5px] leading-5 text-ink-500">
                 <ShieldCheck className="mr-1 inline h-3 w-3" />
-                Đơn đánh dấu “ẩn danh” sẽ không tiết lộ tên buyer trong email gửi NCC.
+                Đơn đánh dấu “ẩn danh” sẽ không lộ tên người mua trong email gửi nhà cung cấp.
               </p>
             </Card>
           )}
@@ -459,11 +459,11 @@ export default async function SupplierDetailPage({
                         {pr.supplier_review_status === "pending" ? (
                           <Badge className="bg-amber-100 text-amber-900">Chờ Vexim kiểm tra</Badge>
                         ) : pr.supplier_review_status === "changes_requested" ? (
-                          <Badge className="bg-orange-50 text-orange-800">Cần NCC sửa</Badge>
+                          <Badge className="bg-orange-50 text-orange-800">Chờ nhà cung cấp sửa</Badge>
                         ) : pr.supplier_review_status === "paused" ? (
-                          <Badge className="bg-slate-200 text-slate-800">NCC đã tạm ẩn</Badge>
+                          <Badge className="bg-slate-200 text-slate-800">Nhà cung cấp đã tạm ẩn</Badge>
                         ) : pr.ready_for_buyer ? (
-                          <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi buyer</Badge>
+                          <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi người mua</Badge>
                         ) : null}
                         <Link href={`/crm/products/${pr.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[12px]">
                           <Eye className="h-3.5 w-3.5" /> Xem
@@ -479,7 +479,7 @@ export default async function SupplierDetailPage({
                 </ul>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-3">
                   <p className="text-[11.5px] text-ink-500">Hiển thị {firstProduct}-{lastProduct} trong {products.length} sản phẩm. Mỗi trang tối đa {CRM_PRODUCTS_PAGE_SIZE} sản phẩm.</p>
-                  {productPageCount > 1 && <nav aria-label="Phân trang sản phẩm của NCC" className="flex items-center gap-2">
+                  {productPageCount > 1 && <nav aria-label="Phân trang sản phẩm của nhà cung cấp" className="flex items-center gap-2">
                     {productPage > 1 && <Link href={productPageHref(productPage - 1)} className="btn btn-ghost px-2.5 py-1.5" aria-label="Trang sản phẩm trước">
                       <ChevronLeft className="h-4 w-4" /> Trước
                     </Link>}
@@ -495,8 +495,8 @@ export default async function SupplierDetailPage({
 
           <MediaGallery
             items={supplierMedia}
-            title="Kho ảnh & tài liệu chung của NCC"
-            scopeHint="Chỉ tệp lưu trong hồ sơ chung. Bằng chứng kiểm tra giấy tờ, xác thực nhà máy và giao hàng được quản lý riêng ở từng bước kiểm; tệp ở đây không tự được AI phân tích."
+            title="Kho ảnh & tài liệu chung của nhà cung cấp"
+            scopeHint={"Chỉ tệp lưu trong hồ sơ chung. Bằng chứng kiểm tra giấy tờ, xác thực nhà máy và giao hàng nằm ở từng bước kiểm." + " Tệp ở đây không được AI phân tích."}
             showInternal={canSeeInternal}
             manageHref={canManage ? `/crm/suppliers/${id}/edit` : undefined}
             emptyHint="Chưa có tệp chung. Thêm ở trang Sửa, hoặc vào từng bước kiểm để đính kèm bằng chứng."
@@ -507,8 +507,8 @@ export default async function SupplierDetailPage({
           <Card className="p-4">
             <SectionHead icon={UserRound} title="Tài khoản cổng nhà cung cấp" />
             <p className="text-sm leading-6 text-ink-600">{accountUser
-              ? "Tài khoản đăng nhập đang gắn với hồ sơ này. Nhà cung cấp dùng tài khoản này để vào cổng, bổ sung hồ sơ và quản lý sản phẩm của mình. Khi đã có địa chỉ email của doanh nghiệp, bàn giao ở mục bên dưới."
-              : "Hồ sơ này chưa có tài khoản đăng nhập. Nhà cung cấp chưa thể tự quản lý hồ sơ và sản phẩm trên cổng cho đến khi được cấp tài khoản hoặc tự đăng ký."}</p>
+              ? "Tài khoản đăng nhập đang gắn với hồ sơ này. Nhà cung cấp dùng tài khoản để vào cổng, bổ sung hồ sơ và quản lý sản phẩm." + " Khi đã có email của doanh nghiệp, bàn giao ở mục bên dưới."
+              : "Hồ sơ này chưa có tài khoản đăng nhập. Nhà cung cấp chưa thể tự quản lý hồ sơ và sản phẩm trên cổng." + " Cần cấp tài khoản hoặc để họ tự đăng ký."}</p>
             <SupplierAccountControls
               supplierId={id}
               defaultEmail={supplier.email ?? ""}
@@ -547,7 +547,7 @@ export default async function SupplierDetailPage({
             )}
             {!supplier.email && (
               <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] leading-5 text-amber-900">
-                NCC chưa có email nên <strong>không nhận được</strong> thông báo tiến độ tự động. Hãy bổ
+                Nhà cung cấp chưa có email nên <strong>không nhận được</strong> thông báo tiến độ tự động. Hãy bổ
                 sung email ở nút “Sửa”.
               </div>
             )}

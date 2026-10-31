@@ -24,7 +24,7 @@ export async function addMatchAction(fd: FormData) {
   const store = getStore();
   const rfq = await store.getRfq(rfqId);
   if (rfq?.source_page === "/rfq?intent=question" || rfq?.specs?.inquiry_kind === "supplier_question") {
-    throw new Error("Chỉ liên hệ NCC buyer đã chọn cho câu hỏi này. Tạo RFQ mới sau khi buyer đồng ý nếu cần thêm NCC khác.");
+    throw new Error("Chỉ liên hệ nhà cung cấp mà người mua đã chọn. Cần thêm nhà cung cấp khác thì tạo RFQ mới sau khi người mua đồng ý.");
   }
   const existing = await store.listRfqMatches(rfqId);
   if (existing.some((m) => m.supplier_id === supplierId)) {
@@ -79,7 +79,7 @@ export async function updateMatchStatusAction(fd: FormData) {
   const status = String(fd.get("status") || "proposed") as RfqMatchStatus;
   if (!matchId || !rfqId) return;
   // Selection is a business event: use selectSupplierAction so the portal and email stay in sync.
-  if (status === "selected" || !MATCH_STATUS_VALUES.includes(status)) throw new Error("Dùng nút Chọn NCC này cho quyết định chọn NCC.");
+  if (status === "selected" || !MATCH_STATUS_VALUES.includes(status)) throw new Error("Chọn nhà cung cấp này ở nút Chọn nhà cung cấp để chốt quyết định.");
   const store = getStore();
   await store.updateRfqMatch(matchId, { status });
   revalidatePath(`/crm/rfqs/${rfqId}`);

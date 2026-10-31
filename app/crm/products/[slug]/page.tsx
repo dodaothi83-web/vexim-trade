@@ -72,7 +72,7 @@ export default async function ProductDetailPage({
     <>
       <PageHeader
         breadcrumbs={
-          <Breadcrumbs items={[{ label: "Sản phẩm NCC", href: "/crm/products" }, { label: product.name }]} />
+          <Breadcrumbs items={[{ label: "Sản phẩm nhà cung cấp", href: "/crm/products" }, { label: product.name }]} />
         }
         title={product.name}
         sub={supplier ? `Nhà cung cấp: ${supplier.name}` : undefined}
@@ -89,7 +89,7 @@ export default async function ProductDetailPage({
         <Card className="p-5">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <Badge className={cx(readiness.ready ? "bg-emerald-600 text-white" : "bg-amber-100 text-amber-800")}>
-              {readiness.ready ? "Sẵn sàng gửi buyer" : "Chưa sẵn sàng gửi buyer"}
+              {readiness.ready ? "Sẵn sàng gửi người mua" : "Chưa sẵn sàng gửi người mua"}
             </Badge>
             {product.oem && <Badge className="bg-ink-100 text-ink-700">Nhận làm nhãn riêng</Badge>}
             {product.samples && <Badge className="bg-ink-100 text-ink-700">Có thể gửi mẫu</Badge>}

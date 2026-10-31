@@ -67,8 +67,8 @@ export default async function EditSupplierPage({ params }: { params: Promise<{ s
         <section className="card p-5">
           <SectionHead icon={FolderOpen} title="Kho ảnh và tài liệu chung" sub="Tệp thuộc hồ sơ chung của nhà cung cấp." />
           <MediaManager ownerType="supplier" ownerId={id} items={media}
-            scopeHint="Tệp ở đây thuộc hồ sơ chung, không được dùng làm bằng chứng hoặc gửi AI trong các bước kiểm. Muốn kiểm giấy tờ, hãy đính kèm tại trang Kiểm tra giấy tờ."
-            note="Ảnh chia sẻ buyer hoặc tài liệu nội bộ" />
+            scopeHint="Tệp ở đây thuộc hồ sơ chung, không dùng làm bằng chứng khi kiểm. Muốn kiểm giấy tờ, đính kèm tại trang Kiểm tra giấy tờ."
+            note="Ảnh chia sẻ người mua hoặc tài liệu nội bộ" />
           {canInspect && <Link href={`/crm/suppliers/${id}/audit/documents`} className="mt-3 inline-block text-sm font-semibold text-brand-700 hover:underline">Mở bước Kiểm tra giấy tờ để đính kèm bằng chứng →</Link>}
         </section>
       </div>

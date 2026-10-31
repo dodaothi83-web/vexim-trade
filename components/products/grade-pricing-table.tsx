@@ -367,8 +367,8 @@ export function GradePricingTable({
                     {showConvertedHint && (
                       <p className="text-[11px] leading-4 text-ink-600">
                         {requiresWeight
-                          ? `Quy đổi: ${formatStructuredMoqVi(parsedQty, moqControls.unit, parsedWeight)} | Buyer: ${formatStructuredMoqBuyer(parsedQty, moqControls.unit, parsedWeight)}`
-                          : `Buyer: ${formatStructuredMoqBuyer(parsedQty, moqControls.unit, null)} (nhóm Full container)`}
+                          ? `Quy đổi: ${formatStructuredMoqVi(parsedQty, moqControls.unit, parsedWeight)} | Người mua: ${formatStructuredMoqBuyer(parsedQty, moqControls.unit, parsedWeight)}`
+                          : `Người mua: ${formatStructuredMoqBuyer(parsedQty, moqControls.unit, null)} (nhóm Full container)`}
                       </p>
                     )}
 

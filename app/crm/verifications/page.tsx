@@ -53,7 +53,7 @@ export default async function VerificationsPage({
     store.listSuppliers(),
     store.listUsers().catch(() => [] as AppUser[]),
     store.listSupplierVerificationRequests().catch((error) => { console.error("[verification-requests] migration/query failed", error); return []; }),
-    store.listSubmissions().catch((error) => { console.error("[self-submissions] chưa có bảng supplier_submissions (migration?)", error); return []; }),
+    store.listSubmissions().catch((error) => { console.error("[self-submissions] chưa đọc được bảng supplier_submissions (chưa cấu hình?)", error); return []; }),
   ]);
   const supMap = new Map(suppliers.map((s) => [s.id, s]));
   const userMap = new Map(users.map((u) => [u.id, u]));
@@ -77,18 +77,18 @@ export default async function VerificationsPage({
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
       <Breadcrumbs items={[
         { label: "Tổng quan", href: "/crm/dashboard" },
-        { label: "Xác minh NCC" },
+        { label: "Xác minh nhà cung cấp" },
       ]} />
       <PageHeader
-        title="Hàng đợi xác minh NCC"
-        sub="Kiểm tra giấy tờ, xác thực nhà máy và lịch sử giao hàng. Một nhân sự đủ quyền có thể kiểm và duyệt; AI chỉ hỗ trợ đối chiếu."
+        title="Hàng đợi xác minh nhà cung cấp"
+        sub="Kiểm giấy tờ, xác thực nhà máy và lịch sử giao hàng. Một nhân sự đủ quyền vừa kiểm vừa duyệt; AI chỉ hỗ trợ đối chiếu."
       />
 
       <section className="mt-5 rounded-xl border border-teal-200 bg-teal-50/60 p-4 sm:p-5">
-        <h2 className="font-bold text-ink-900">Hồ sơ NCC tự gửi qua cổng L2 · L3 ({pendingSubmissions.length} chờ xét)</h2>
-        <p className="mt-1 text-sm text-ink-700">L2 nhà máy có thể dùng AI để xem ảnh. L2 đối tác và chứng từ L3 do nhân viên kiểm tra. Nhận hồ sơ chỉ tạo đợt kiểm, không tự cấp huy hiệu.</p>
+        <h2 className="font-bold text-ink-900">Hồ sơ nhà cung cấp tự gửi qua cổng L2 · L3 ({pendingSubmissions.length} chờ xét)</h2>
+        <p className="mt-1 text-sm text-ink-700">L2 nhà máy có thể dùng AI xem ảnh. L2 đối tác và L3 do nhân viên kiểm. Nhận hồ sơ chỉ mở đợt kiểm.</p>
         {pendingSubmissions.length ? <ul className="mt-4 space-y-2">{pendingSubmissions.slice(0, 8).map((sub) => <li key={sub.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
-          <div className="min-w-[180px] flex-1"><Link href={`/crm/verifications/submissions/${sub.id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(sub.supplier_id)?.name ?? "NCC"}</Link>
+          <div className="min-w-[180px] flex-1"><Link href={`/crm/verifications/submissions/${sub.id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(sub.supplier_id)?.name ?? "Nhà cung cấp"}</Link>
             <p className="mt-0.5 text-xs text-ink-500">{isPartnerL2(sub) ? "L2 · nhà máy đối tác" : sub.target_level === 2 ? "L2 · xác thực nhà máy" : "L3 · lịch sử xuất khẩu"} · {sub.status === "pending_review" ? "chờ xét duyệt" : sub.status === "returned" ? "cần bổ sung" : "đang soạn"}{sub.ai_scanned_at ? ` · ${sub.target_level === 3 ? "AI cũ" : "AI đã quét"} ${new Date(sub.ai_scanned_at).toLocaleDateString("vi-VN")}` : sub.target_level === 2 && !isPartnerL2(sub) ? " · chưa quét AI" : " · nhân viên kiểm tra"}</p></div>
           <Link href={`/crm/verifications/submissions/${sub.id}`} className="btn btn-ghost btn-sm">Đối chiếu bằng chứng →</Link>
         </li>)}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có hồ sơ tự gửi nào chờ xét.</p>}
@@ -97,9 +97,9 @@ export default async function VerificationsPage({
 
       <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50/60 p-4 sm:p-5">
         <h2 className="font-bold text-ink-900">Yêu cầu Vexim liên hệ để xác minh thêm ({openRequests.length})</h2>
-        <p className="mt-1 text-sm text-ink-700">NCC chỉ chọn nhu cầu; nhân viên liên hệ sớm để lên kế hoạch, tự thu thập/tải bằng chứng. Không tự duyệt hay cấp nhãn.</p>
+        <p className="mt-1 text-sm text-ink-700">Nhà cung cấp chỉ chọn nhu cầu; nhân viên liên hệ sớm và tự thu thập bằng chứng. Không tự duyệt hay cấp nhãn.</p>
         {openRequests.length ? <ul className="mt-4 space-y-2">{openRequests.map((r) => <li key={`${r.supplier_id}-${r.target_level}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
-          <div className="min-w-[180px] flex-1"><Link href={`/crm/suppliers/${r.supplier_id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(r.supplier_id)?.name ?? "NCC"}</Link>
+          <div className="min-w-[180px] flex-1"><Link href={`/crm/suppliers/${r.supplier_id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(r.supplier_id)?.name ?? "Nhà cung cấp"}</Link>
             <p className="mt-0.5 text-xs text-ink-500">{r.target_level === 2 ? supMap.get(r.supplier_id)?.supplier_type === "trading" ? "Nhà máy đối tác" : "Xác thực nhà máy" : "Lịch sử giao hàng"} · {r.status === "contacted" ? "Đã liên hệ" : "Cần liên hệ"} · {new Date(r.requested_at).toLocaleDateString("vi-VN")}</p></div>
           {canInspect && r.status === "requested" && <ContactRequestButton supplierId={r.supplier_id} level={r.target_level} />}
           <Link href={auditHref(r.supplier_id, r.target_level)} className="btn btn-ghost btn-sm">Mở trang đánh giá →</Link>
@@ -171,7 +171,7 @@ export default async function VerificationsPage({
                       )}
                     </div>
                     <p className="mt-2 text-[14.5px] font-semibold text-ink-900">
-                      {sup?.name ?? "(NCC đã xoá)"}
+                      {sup?.name ?? "(Nhà cung cấp đã xoá)"}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-ink-500">
                       <span className="inline-flex items-center gap-1">

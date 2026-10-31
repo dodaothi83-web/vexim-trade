@@ -14,7 +14,7 @@ const SPAM_FLAG_DETAILS: Record<string, SpamFlagDetail> = {
   },
   webmail_domain: {
     label: "Dùng email miễn phí",
-    description: "Buyer dùng Gmail, Yahoo, Outlook hoặc dịch vụ tương tự thay vì email tên miền công ty. Đây không phải bằng chứng spam.",
+    description: "Người mua dùng Gmail, Yahoo, Outlook thay vì email tên miền công ty. Đây không phải bằng chứng spam.",
   },
   missing_company: {
     label: "Thiếu tên công ty",
@@ -22,15 +22,15 @@ const SPAM_FLAG_DETAILS: Record<string, SpamFlagDetail> = {
   },
   invalid_phone: {
     label: "Số điện thoại cần kiểm tra",
-    description: "Buyer chưa nhập số điện thoại, hoặc số nhập vào có ít hơn 7 chữ số. Nên đối chiếu trước khi liên hệ.",
+    description: "Người mua chưa nhập số điện thoại, hoặc số nhập vào có ít hơn 7 chữ số. Nên đối chiếu trước khi liên hệ.",
   },
   too_short: {
     label: "Nội dung yêu cầu quá ngắn",
-    description: "Thông tin sản phẩm và nhu cầu còn quá ít để đánh giá. Cần đọc kỹ hoặc yêu cầu buyer bổ sung.",
+    description: "Thông tin sản phẩm và nhu cầu còn quá ít để đánh giá. Cần đọc kỹ hoặc yêu cầu người mua bổ sung.",
   },
   contains_link: {
     label: "Nội dung có liên kết",
-    description: "Yêu cầu chứa đường dẫn. Cần kiểm tra đích liên kết trước khi mở hoặc chuyển cho NCC.",
+    description: "Yêu cầu chứa đường dẫn. Cần kiểm tra đích liên kết trước khi mở hoặc chuyển cho nhà cung cấp.",
   },
   spam_keyword: {
     label: "Có từ khóa thường gặp trong spam",
@@ -38,7 +38,7 @@ const SPAM_FLAG_DETAILS: Record<string, SpamFlagDetail> = {
   },
   missing_name: {
     label: "Thiếu tên người liên hệ",
-    description: "Tên người liên hệ bị bỏ trống hoặc quá ngắn. Cần đối chiếu thông tin buyer.",
+    description: "Tên người liên hệ bị bỏ trống hoặc quá ngắn. Cần đối chiếu thông tin người mua.",
   },
   rate_limit_not_configured: {
     label: "Chưa cấu hình giới hạn lượt gửi",

@@ -215,7 +215,7 @@ export function MailThreads({
     return (
       <div className="rounded-2xl border border-ink-200 bg-white p-10 text-center text-[13px] text-ink-500">
         <Inbox className="mx-auto mb-2 h-6 w-6 text-ink-300" />
-        Chưa có hội thoại nào. Thư gửi đi và thư buyer/NCC trả lời (qua Resend Inbound)
+        Chưa có hội thoại nào. Thư gửi đi và thư người mua/nhà cung cấp trả lời (qua Resend Inbound)
         sẽ xuất hiện ở đây.
       </div>
     );

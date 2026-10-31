@@ -70,7 +70,7 @@ const decided = dashboard.buildSupplierDashboard({ ...input,
     { id: 'c-b', supplier_id: 's-b', name: 'SECRET factory certificate', review_status: 'approved',
       publicly_visible: true, updated_at: now.toISOString() }],
 });
-assert.ok(decided.notices.some((n) => n.key === 'product-approved:p-a' && n.title.includes('đã đăng') && n.detail.includes('hiển thị với buyer')));
+assert.ok(decided.notices.some((n) => n.key === 'product-approved:p-a' && n.title.includes('đã đăng') && n.detail.includes('hiển thị với người mua')));
 assert.ok(decided.notices.some((n) => n.key === 'cert-approved:c-a' && n.detail.includes('Chưa công bố')));
 assert.ok(!JSON.stringify(decided).includes('SECRET factory certificate'), 'Foreign certificate cannot appear');
 const accountNotice = dashboard.buildSupplierDashboard({ ...input, supplier: { id: 's-a', onboarding_status: 'approved', updated_at: now.toISOString() } });
@@ -198,7 +198,7 @@ const matchActions = load('../app/crm/rfqs/[id]/actions.ts', {
 });
 const forgedSelection = new FormData(); forgedSelection.set('match_id', storedMatch.id);
 forgedSelection.set('rfq_id', rfq.id); forgedSelection.set('status', 'selected');
-await assert.rejects(matchActions.updateMatchStatusAction(forgedSelection), /Chọn NCC này/);
+await assert.rejects(matchActions.updateMatchStatusAction(forgedSelection), /Chọn nhà cung cấp này/);
 assert.equal(storedMatch.status, 'sent_to_supplier', 'Generic status action cannot bypass selection notification');
 
 let accessEnabled = true;

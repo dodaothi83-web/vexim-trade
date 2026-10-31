@@ -15,6 +15,7 @@ const code = ts.transpileModule(readFileSync(new URL('../components/products/qua
 vm.runInNewContext(code, { exports, Intl, Number, Math, console, require(key) {
   if (key === 'react/jsx-runtime') return nodeRequire('react/jsx-runtime');
   if (key === 'next/link') return { default: ({ children, ...props }) => React.createElement('a', props, children) };
+  if (key === 'lucide-react') return new Proxy({}, { get: (_target, name) => (props) => React.createElement('svg', { 'data-icon': String(name), ...props }) });
   if (key === '@/lib/products/quantity-pricing') return pricing;
   throw Error(`Unexpected import ${key}`);
 } });
@@ -28,8 +29,16 @@ const props = {
 };
 const render = (override = {}) => renderToStaticMarkup(React.createElement(QuantityPricingEditor, { ...props, ...override }));
 const html = render();
-for (const text of ['Incoterm', 'Từ (kg)', 'Đến (kg)', 'Giá (USD/kg)', 'Tiền tệ', 'Tạm thời chỉ nhập giá USD', 'VND/EUR', '4,999', 'trở lên', 'Buyer sẽ thấy', 'Cashew kernels', 'USD 6.00–6.40/kg', '1 MT', 'FOB', 'Quy chế hoạt động']) assert.ok(html.includes(text), text);
-assert.doesNotMatch(html, /<select[^>]*aria-label="Tiền tệ"/, 'Tiền tệ tạm thời cố định USD, không còn select VND/EUR');
+for (const text of ['Incoterm', 'Từ (kg)', 'Đến (kg)', 'Giá (USD/kg)', 'Tiền tệ', '4,999', 'Người mua sẽ thấy', 'Cashew kernels', 'USD 6.00–6.40/kg', '1 MT', 'FOB', 'Quy chế hoạt động']) assert.ok(html.includes(text), text);
+// Chốt 31/10/2026: mở 5 tiền tệ, ô Tiền tệ chọn được; bảng không còn câu giải thích dài.
+assert.doesNotMatch(html, /Tạm thời chỉ nhập giá USD|VND\/EUR|Chỉ nhập số lượng/, 'Đã bỏ các dòng giải thích dài');
+assert.match(html, /<select[^>]*aria-label="Tiền tệ"/, 'Tiền tệ chọn được');
+for (const code of ['USD', 'VND', 'EUR', 'CNY', 'JPY']) assert.ok(html.includes(`>${code}</option>`), `Có ${code}`);
+assert.match(html, /<p aria-live="polite"[^>]*>—<\/p>/, 'Mức cuối của cột đến để dấu gạch');
+assert.doesNotMatch(html, />trở lên</, 'Không còn chữ trở lên trong cột đến');
+const noGrades = render({ standardGrades: [] });
+assert.match(noGrades, /Danh mục này chưa có grade\. Gửi Vexim bổ sung\./, 'Danh mục chưa có grade được giải thích thay vì ô chọn rỗng');
+assert.match(noGrades, /<select[^>]*aria-label="Grade"[^>]*disabled=""/, 'Ô grade bị khoá khi danh mục chưa có grade');
 const drafting = render({ value: { grade: '', incoterm: 'FOB', currency: 'USD', nameVi: 'Nhân điều', nameEn: '', tiers: [
   { minKg: '100', priceUsdPerKg: '2.00', incoterm: 'FOB' }, { minKg: '101', priceUsdPerKg: '1.50', incoterm: 'FOB' },
 ] } });
@@ -42,10 +51,11 @@ assert.match(html, /<input[^>]*required[^>]*name="confirm_quantity_price_consent
 assert.match(html, /href="\/quy-che-hoat-dong"/);
 assert.match(html, /\+ Thêm mức giá/);
 const isolated = render({ isolated: true, consentChecked: false, onConsentChange() {} });
-assert.equal((isolated.match(/form="quantity-pricing-separate"/g) ?? []).length, 8, 'All editable inputs are detached from the enclosing product form');
+// 9 = grade, tiền tệ, incoterm + số lượng + giá của 1 mức, nút thêm/xoá mức và ô cam kết.
+assert.equal((isolated.match(/form="quantity-pricing-separate"/g) ?? []).length, 9, 'All editable inputs are detached from the enclosing product form');
 assert.match(isolated, /type="checkbox"[^>]*name="confirm_quantity_price_consent"/);
 const withoutInlinePreview = render({ showPreview: false });
-assert.doesNotMatch(withoutInlinePreview, /Buyer sẽ thấy|Cashew kernels/, 'When the page supplies a sidebar preview, the form has no duplicate');
+assert.doesNotMatch(withoutInlinePreview, /Người mua sẽ thấy|Cashew kernels/, 'When the page supplies a sidebar preview, the form has no duplicate');
 assert.match(withoutInlinePreview, /Từ \(kg\)/, 'Hiding the duplicate does not remove the editor');
 const mt = render({ buyerPriceUnit: 'mt' });
 assert.ok(mt.includes('USD 6,000–6,400/MT'));
@@ -65,4 +75,9 @@ assert.ok(!overPolicy.includes('+ Thêm mức giá'), 'The supplier form never o
 const invalid = render({ showErrors: true, value: { ...props.value, tiers: [{ minKg: '', priceUsdPerKg: '' }] } });
 assert.ok(invalid.includes('role="alert"'));
 assert.ok(invalid.includes('Price on request'));
+// Bố cục ô nhập: tiền tệ hẹp, ba cột số lượng/giá chia đều.
+assert.match(html, /sm:grid-cols-\[minmax\(0,1fr\)_136px\]/, 'Ô tiền tệ hẹp, không chiếm nửa khung');
+assert.match(html, /table-fixed/, 'Bảng bậc giá dùng cột cố định');
+assert.equal((html.match(/<col class="w-\[96px\]"\/>/g) ?? []).length, 1, 'Cột Incoterm cố định 96px');
+assert.equal((html.match(/<col\/>/g) ?? []).length, 3, 'Từ / Đến / Giá chia đều nhau');
 console.log('Quantity pricing editor: required fields, kg inputs, limits, live buyer preview and consent passed');

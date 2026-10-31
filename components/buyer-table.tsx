@@ -115,7 +115,7 @@ function SupplierPicker({
         )}
         title={selected?.name ?? "Chưa gắn nhà cung cấp"}
       >
-        <span className="truncate">{selected?.name ?? "Chưa gắn NCC"}</span>
+        <span className="truncate">{selected?.name ?? "Chưa gắn nhà cung cấp"}</span>
         <ChevronDown className={cx("h-3.5 w-3.5 shrink-0 transition", open && "rotate-180")} />
       </button>
       {open && menuPosition && typeof document !== "undefined" && createPortal(
@@ -256,7 +256,7 @@ export function BuyerTable({
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-400" />
           <input
             className="input pl-9"
-            placeholder="Tìm buyer, mặt hàng, quốc gia, email..."
+            placeholder="Tìm người mua, mặt hàng, quốc gia, email..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -287,7 +287,7 @@ export function BuyerTable({
             checked={noSupplier}
             onChange={(e) => setNoSupplier(e.target.checked)}
           />
-          Chưa gắn NCC
+          Chưa gắn nhà cung cấp
         </label>
 
         <div className="ml-auto flex items-center gap-1.5">
@@ -314,7 +314,7 @@ export function BuyerTable({
           Tổng giá trị: <strong className="font-mono tabular-nums text-ink-900">{formatMoney(totalValue)}</strong>
         </span>
         <span>
-          Chưa gắn NCC:{" "}
+          Chưa gắn nhà cung cấp:{" "}
           <strong className="text-ink-900">{rows.filter((b) => !b.supplier_id).length}</strong>
         </span>
         <span>
@@ -326,10 +326,10 @@ export function BuyerTable({
       {rows.length === 0 ? (
         <EmptyState
           icon={<Globe2 className="h-5 w-5" />}
-          title={buyers.length === 0 ? "Chưa có buyer nào" : "Không tìm thấy buyer phù hợp"}
+          title={buyers.length === 0 ? "Chưa có người mua nào" : "Không tìm thấy người mua phù hợp"}
           sub={
             buyers.length === 0
-              ? "Thêm buyer đầu tiên để bắt đầu theo dõi pipeline xuất khẩu."
+              ? "Thêm người mua đầu tiên để bắt đầu theo dõi pipeline xuất khẩu."
               : "Thử bỏ bớt bộ lọc hoặc từ khoá tìm kiếm."
           }
           action={
@@ -360,7 +360,7 @@ export function BuyerTable({
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                <th className="table-th">Buyer</th>
+                <th className="table-th">Người mua</th>
                 <th className="table-th">Mặt hàng &amp; số lượng</th>
                 <th className="table-th">Nhà cung cấp</th>
                 <th className="table-th">Trạng thái</th>

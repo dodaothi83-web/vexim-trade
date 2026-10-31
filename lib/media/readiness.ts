@@ -1,7 +1,7 @@
 import type { MediaAsset } from "@/lib/types";
 
 /**
- * Quy tắc "sẵn sàng gửi buyer" của một hồ sơ sản phẩm.
+ * Quy tắc "sẵn sàng gửi người mua" của một hồ sơ sản phẩm.
  *
  * Chốt với Vexim: KHÔNG bắt buộc ảnh/video khi mới tạo hồ sơ NCC, nhưng trước
  * khi đánh dấu sản phẩm *sẵn sàng gửi buyer* thì phải có ít nhất một ảnh sản
@@ -9,7 +9,7 @@ import type { MediaAsset } from "@/lib/types";
  */
 
 export const READY_REQUIREMENT =
-  "cần ít nhất 1 ảnh sản phẩm hoặc catalogue đã chia sẻ cho buyer";
+  "cần ít nhất 1 ảnh sản phẩm hoặc catalogue đã chia sẻ cho người mua";
 
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -30,16 +30,18 @@ export interface ReadinessResult {
 }
 
 export interface ProductPublicationMediaState {
-  /** Ảnh đã được nhân sự kiểm tra và chủ động chia sẻ cho buyer. */
-  verifiedBuyerImages: number;
-  /** Ảnh/catalogue đang chia sẻ buyer nhưng còn ở trạng thái chưa kiểm tra. */
-  uncheckedBuyerFiles: number;
+  /** Ảnh đang chia sẻ cho người mua (còn hạn, có tệp thật). */
+  buyerImages: number;
+  /** Tệp bất kỳ (ảnh hoặc catalogue) đang chia sẻ cho người mua. */
+  buyerFiles: number;
   ready: boolean;
 }
 
 /**
- * Cổng bắt buộc trước khi duyệt và đăng sản phẩm NCC.
- * Không tự nâng quyền tệp nội bộ và không coi catalogue là ảnh đã xác minh.
+ * Cổng duy nhất trước khi duyệt và đăng sản phẩm NCC: phải có ít nhất một ảnh người mua thấy được.
+ *
+ * Chốt 31/10/2026: bỏ bước "đã kiểm tra" từng ảnh. Ảnh nhà cung cấp tải lên được chia sẻ cho
+ * người mua ngay, nên không còn khái niệm ảnh chờ xác minh và không có cổng thứ hai nào ở đây.
  */
 export function productPublicationMediaState(
   media: Pick<MediaAsset, "owner_type" | "product_id" | "supplier_id" | "kind" | "audience" | "status" | "expires_on" | "storage_path">[],
@@ -48,11 +50,9 @@ export function productPublicationMediaState(
 ): ProductPublicationMediaState {
   const files = media.filter((asset) => asset.owner_type === "product" && asset.product_id === productId &&
     asset.supplier_id === supplierId && (asset.kind === "image" || asset.kind === "catalogue") &&
-    !!asset.storage_path && !isExpired(asset));
-  const buyerFiles = files.filter((asset) => asset.audience === "buyer");
-  const verifiedBuyerImages = buyerFiles.filter((asset) => asset.kind === "image" && asset.status === "checked").length;
-  const uncheckedBuyerFiles = buyerFiles.filter((asset) => asset.status !== "checked").length;
-  return { verifiedBuyerImages, uncheckedBuyerFiles, ready: verifiedBuyerImages > 0 && uncheckedBuyerFiles === 0 };
+    !!asset.storage_path && !isExpired(asset) && asset.audience === "buyer");
+  const buyerImages = files.filter((asset) => asset.kind === "image").length;
+  return { buyerImages, buyerFiles: files.length, ready: buyerImages > 0 };
 }
 
 export function productReadiness(
@@ -69,7 +69,7 @@ export function productReadiness(
     return {
       ready: true,
       shareable,
-      message: `Đủ điều kiện: ${shareable} tệp chia sẻ được cho buyer.`,
+      message: `Đủ điều kiện: ${shareable} tệp chia sẻ được cho người mua.`,
     };
   }
 

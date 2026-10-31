@@ -1,6 +1,6 @@
 // node scripts/check-supplier-detail-layout.mjs — trang chi tiết NCC trong CRM dùng bố cục
 // giống trang công khai và các trang CRM đã làm mới: đầu trang có ảnh bìa, ảnh đại diện,
-// huy hiệu xác minh và chỉ số nhanh; hai tab tách Tổng quan khỏi Xét duyệt NCC; tab tổng quan
+// huy hiệu xác minh và chỉ số nhanh; hai tab tách Tổng quan khỏi Xét duyệt nhà cung cấp; tab tổng quan
 // ưu tiên RFQ/đơn hàng/sản phẩm và giữ tài khoản cổng, hồ sơ doanh nghiệp ở cột phải.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -37,20 +37,20 @@ assert.match(page, /xl:sticky xl:top-6/, 'cột phải phải cố định khi c
 // Hai tab tách nội dung vận hành khỏi luồng xét duyệt.
 assert.match(page, /sp\.tab === "review"/, 'tab phải đọc trạng thái từ URL để giữ đúng tab sau khi refresh');
 assert.match(page, /key: "overview", label: "Tổng quan"/);
-assert.match(page, /key: "review", label: "Xét duyệt NCC"/);
+assert.match(page, /key: "review", label: "Xét duyệt nhà cung cấp"/);
 assert.match(page, /\?tab=review/, 'phải có đường dẫn mở trực tiếp tab xét duyệt');
 const reviewBranchStart = page.indexOf('{activeTab === "review" ? (');
 const overviewBranchStart = page.indexOf(') : (', reviewBranchStart);
 assert.ok(reviewBranchStart >= 0 && overviewBranchStart > reviewBranchStart, 'hai tab phải render hai nhánh nội dung riêng');
 const reviewBranch = page.slice(reviewBranchStart, overviewBranchStart);
 const overviewBranch = page.slice(overviewBranchStart);
-assert.ok(reviewBranch.includes('<VerificationPanel') && !reviewBranch.includes('title="RFQ đã gửi cho NCC này"'),
+assert.ok(reviewBranch.includes('<VerificationPanel') && !reviewBranch.includes('title="RFQ đã gửi cho nhà cung cấp này"'),
   'tab xét duyệt chỉ chứa khu vực xét duyệt');
 assert.ok(!overviewBranch.includes('<VerificationPanel'), 'tab tổng quan không lặp trung tâm xét duyệt');
 
 // Một trung tâm xét duyệt gom mở cổng, xác minh và trạng thái/công khai.
 assert.match(page, /VerificationPanel/, 'phải giữ panel xét duyệt');
-assert.match(reviewPanel, /Trung tâm xét duyệt NCC/);
+assert.match(reviewPanel, /Trung tâm xét duyệt nhà cung cấp/);
 assert.match(reviewPanel, /Hồ sơ & quyền cổng/);
 assert.match(reviewPanel, /OnboardingControls/, 'vẫn xác nhận mở cổng được khi hồ sơ chờ duyệt');
 assert.match(reviewPanel, /Xác minh L1–L3/);
@@ -64,13 +64,13 @@ assert.ok(!page.includes('<OnboardingControls') && !page.includes('<SupplierWork
 
 // Cột chính giữ nguyên các khối nghiệp vụ.
 assert.match(page, /Sản phẩm \(\$\{products\.length\}\)/, 'phải giữ danh sách sản phẩm');
-assert.match(page, /Đơn hàng đang giao cho NCC này/, 'phải giữ danh sách đơn hàng gắn NCC');
-assert.match(page, /Kho ảnh & tài liệu chung của NCC/, 'phải giữ kho ảnh và tài liệu chung');
+assert.match(page, /Đơn hàng đang giao cho nhà cung cấp này/, 'phải giữ danh sách đơn hàng gắn nhà cung cấp');
+assert.match(page, /Kho ảnh & tài liệu chung của nhà cung cấp/, 'phải giữ kho ảnh và tài liệu chung');
 assert.match(page, /MediaGallery/, 'vẫn dùng thư viện tệp hiện có');
 
 // Trong tab Tổng quan, cột chính vẫn ưu tiên RFQ, đơn hàng rồi sản phẩm.
-const rfqPosition = overviewBranch.indexOf('title="RFQ đã gửi cho NCC này"');
-const orderPosition = overviewBranch.indexOf('title="Đơn hàng đang giao cho NCC này"');
+const rfqPosition = overviewBranch.indexOf('title="RFQ đã gửi cho nhà cung cấp này"');
+const orderPosition = overviewBranch.indexOf('title="Đơn hàng đang giao cho nhà cung cấp này"');
 const productPosition = overviewBranch.indexOf('id="supplier-products"');
 assert.ok(rfqPosition >= 0 && rfqPosition < orderPosition && orderPosition < productPosition,
   'tab tổng quan phải sắp xếp RFQ trước đơn hàng và sản phẩm');
@@ -96,7 +96,7 @@ assert.match(productSection, /#supplier-products|supplier-products/, 'chuyển t
 assert.match(productSection, /MediaThumb/);
 assert.match(productSection, /pr\.category/);
 assert.match(productSection, /title=\{pr\.name\}/, 'tên dài vẫn có tooltip và link mở hồ sơ đầy đủ');
-for (const label of ['Chờ Vexim kiểm tra', 'Cần NCC sửa', 'Sẵn sàng gửi buyer']) {
+for (const label of ['Chờ Vexim kiểm tra', 'Chờ nhà cung cấp sửa', 'Sẵn sàng gửi người mua']) {
   assert.ok(productSection.includes(label), `thiếu trạng thái cơ bản: ${label}`);
 }
 for (const detail of ['pr.spec', 'pr.moq', 'pr.monthly_capacity', 'pr.lead_time_days', 'pr.ref_price', 'price_valid_until', 'shareableCount', 'Thông tin thương mại', 'Giá & trạng thái']) {

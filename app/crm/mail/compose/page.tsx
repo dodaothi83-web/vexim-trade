@@ -197,7 +197,7 @@ export default async function ComposePage({
             ? `Gửi tới ${buyer.company} — nội dung đã nạp sẵn theo giai đoạn hiện tại, bạn có thể sửa tự do.`
             : prospect
               ? `Tiếp cận doanh nghiệp mục tiêu ${prospect.company}. Cá nhân hóa nội dung trước khi gửi.`
-              : "Chọn người nhận từ danh sách buyer (gõ vào ô Tới)."
+              : "Chọn người nhận từ danh sách người mua (gõ vào ô Tới)."
           : supplier
             ? `Gửi tới ${supplier.name} — nội dung tiếng Việt đã nạp sẵn theo giai đoạn hiện tại.`
             : "Chọn người nhận từ danh sách nhà cung cấp."

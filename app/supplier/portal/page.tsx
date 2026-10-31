@@ -38,7 +38,7 @@ export default async function SupplierPortal() {
       <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Tổng quan" sub={account.user.email} />
       <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
         <h2 className="text-base font-bold">Bước 2/2 · Xác minh doanh nghiệp</h2>
-        <p className="mt-2 leading-6">Tài khoản mới hiện chỉ dùng được trang tổng quan và biểu mẫu hồ sơ bên dưới. Hồ sơ doanh nghiệp cần Vexim duyệt trước khi mở quản lý sản phẩm, xem RFQ và các chức năng khác.</p>
+        <p className="mt-2 leading-6">Tài khoản mới chỉ dùng được trang tổng quan và biểu mẫu hồ sơ. Vexim duyệt hồ sơ xong mới mở quản lý sản phẩm và RFQ.</p>
       </div>
       <div className="mt-5"><SupplierProfileForm email={account.user.email} categories={categories} /></div>
     </>;
@@ -57,7 +57,7 @@ export default async function SupplierPortal() {
     {canSubmitProfile(supplier) ? <>
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
         {supplier.onboarding_status === "changes_requested" ? "Hồ sơ cần bổ sung thông tin. Vui lòng cập nhật và gửi lại để Vexim duyệt." :
-          "Tài khoản mới hiện chỉ dùng được trang tổng quan và biểu mẫu hồ sơ; hồ sơ doanh nghiệp cần Vexim duyệt trước khi mở quản lý sản phẩm, RFQ và các chức năng khác."}
+          "Tài khoản mới chỉ dùng được trang tổng quan và biểu mẫu hồ sơ; Vexim duyệt hồ sơ xong mới mở quản lý sản phẩm và RFQ."}
         {supplier.onboarding_status === "changes_requested" && supplier.onboarding_note &&
           <p className="mt-2 whitespace-pre-wrap font-semibold">Nội dung cần bổ sung: {supplier.onboarding_note}</p>}
       </div>
@@ -200,7 +200,7 @@ export default async function SupplierPortal() {
 
     <footer className="mt-8 flex items-start gap-2 border-t border-ink-200 pt-4 text-[11px] leading-5 text-ink-500">
       <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span>Thông tin buyer chỉ được chia sẻ sau khi hai bên đồng ý giới thiệu. Mọi trao đổi đi qua cổng này.</span>
+      <span>Thông tin người mua chỉ được chia sẻ sau khi hai bên đồng ý giới thiệu. Mọi trao đổi đi qua cổng này.</span>
     </footer>
   </>;
 }

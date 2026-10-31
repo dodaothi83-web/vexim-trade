@@ -24,7 +24,7 @@ export async function POST(
   const { id } = await params;
   const store = getStore();
   const sup = await store.getSupplier(id);
-  if (!sup) return NextResponse.json({ ok: false, message: "Không tìm thấy NCC." }, { status: 404 });
+  if (!sup) return NextResponse.json({ ok: false, message: "Không tìm thấy nhà cung cấp." }, { status: 404 });
 
   let form: FormData;
   try { form = await request.formData(); }
@@ -72,7 +72,7 @@ export async function DELETE(
   const { id } = await params;
   const store = getStore();
   const sup = await store.getSupplier(id);
-  if (!sup) return NextResponse.json({ ok: false, message: "Không tìm thấy NCC." }, { status: 404 });
+  if (!sup) return NextResponse.json({ ok: false, message: "Không tìm thấy nhà cung cấp." }, { status: 404 });
   const q = new URL(_request.url).searchParams;
   const kind = q.get("kind") === "cover" ? "cover" : "profile";
   const patch: Record<string, null> = {};

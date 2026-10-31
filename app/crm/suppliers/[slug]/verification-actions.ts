@@ -42,7 +42,7 @@ function briefReason(error: unknown): string {
 
 /** The same publication gate applies during approval and later summary edits. */
 function publicSummaryValidationError(summary: string, confirmed: boolean): string | null {
-  if (!summary) return "Hãy viết tóm tắt công khai bằng tiếng Anh để buyer hiểu phạm vi đợt kiểm.";
+  if (!summary) return "Hãy viết tóm tắt công khai bằng tiếng Anh để người mua hiểu phạm vi đợt kiểm.";
   if (summary.length > 1000) return "Tóm tắt công khai tối đa 1000 ký tự.";
   if (!confirmed) return "Hãy xác nhận đã đối chiếu tóm tắt với bằng chứng và loại bỏ thông tin nhạy cảm.";
   if (/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary) || /https?:\/\/|www\./i.test(summary) || /(?:\+?\d[\s().-]?){9,15}\d/.test(summary)) {
@@ -54,7 +54,7 @@ function publicSummaryValidationError(summary: string, confirmed: boolean): stri
 /** Gợi ý đúng việc cần làm khi CSDL chưa khớp mã nguồn (lỗi hay gặp ở production). */
 function technicalHint(message: string): string {
   if (/schema cache|PGRST204|does not exist|column .* of relation/i.test(message)) {
-    return " CSDL có thể chưa chạy migration mới; chạy migration rồi thử lại.";
+    return " Chưa đọc được dữ liệu cần thiết. Báo người phụ trách kỹ thuật rồi thử lại.";
   }
   // PostgREST trả lỗi này khi UPDATE khớp 0 dòng, thường vì khoá đang dùng bị RLS chặn ghi.
   if (/PGRST116|JSON object requested|0 rows|no rows/i.test(message)) {
@@ -224,8 +224,8 @@ export async function approveVerificationAction(fd: FormData): Promise<{ ok: boo
   } catch (error) {
     console.error("[verification] approve action failed", error);
     const reason = briefReason(error);
-    if (!committed && /L1_AUTO_PUBLICATION_PORTAL_NOT_APPROVED/i.test(reason)) return { ok: false, message: "Chưa duyệt L1: cần mở quyền cổng NCC trước khi công khai hồ sơ mới. Sau đó duyệt lại." };
-    if (!committed && /L1_AUTO_PUBLICATION_PROFILE_INCOMPLETE/i.test(reason)) return { ok: false, message: "Chưa duyệt L1: tài khoản NCC phải hoạt động và hồ sơ cần đủ tên, số điện thoại, mã số thuế, sản phẩm và loại hình. Kiểm tra rồi duyệt lại." };
+    if (!committed && /L1_AUTO_PUBLICATION_PORTAL_NOT_APPROVED/i.test(reason)) return { ok: false, message: "Chưa duyệt L1: cần mở quyền cổng nhà cung cấp trước khi công khai hồ sơ mới. Sau đó duyệt lại." };
+    if (!committed && /L1_AUTO_PUBLICATION_PROFILE_INCOMPLETE/i.test(reason)) return { ok: false, message: "Chưa duyệt L1: hồ sơ cần đủ tên, số điện thoại, mã số thuế, sản phẩm và loại hình, tài khoản phải hoạt động." + " Kiểm tra rồi duyệt lại." };
     if (!committed && /L1_AUTO_PUBLICATION_TEST_PROFILE/i.test(reason)) return { ok: false, message: "Chưa duyệt L1: hồ sơ demo hoặc thử nghiệm không được tự công khai. Hãy kiểm tra lại hồ sơ." };
     return committed
       ? { ok: true, message: "Đã duyệt bước kiểm tra. Trang chưa tự cập nhật; tải lại trang để thấy kết quả và mở bước tiếp theo." }
@@ -243,16 +243,16 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
   const bankNumber = (before.bank_account_number ?? "").trim();
   if (before.target_level === 1 && (!/^[0-9]{1,32}$/.test(before.tax_number ?? "") ||
       (bankNumber && !/^[0-9]{1,34}$/.test(bankNumber)))) {
-    return { ok: false, message: "Cần nhập mã số thuế bằng chữ số; số tài khoản ngân hàng là mục tùy chọn nhưng nếu có thì phải là chữ số. Không cần tải ảnh cho hai mục này. Trả lại để bổ sung nếu bản kiểm đã nộp." };
+    return { ok: false, message: "Cần nhập mã số thuế bằng chữ số; số tài khoản ngân hàng là mục tùy chọn nhưng nếu có cũng phải là chữ số." + " Không cần tải ảnh cho hai mục này. Trả lại để bổ sung nếu bản kiểm đã nộp." };
   }
   const selfApproval = Boolean(before.inspector_id && before.inspector_id === session?.uid &&
     canSelfApproveVerification(session?.role));
   const singlePersonDecision = !before.inspector_id || selfApproval;
   if (selfApproval && fd.get("confirm_self_review") !== "yes") {
-    return { ok: false, message: "Bạn đang duyệt bản kiểm do chính mình thực hiện. Hãy xác nhận đã tự đối chiếu lại bằng chứng; hệ thống sẽ ghi rõ đây là quyết định kiểm và duyệt bởi một người." };
+    return { ok: false, message: "Bạn đang duyệt bản kiểm do chính mình thực hiện. Hãy xác nhận đã tự đối chiếu lại bằng chứng." + " Hệ thống sẽ ghi rõ đây là quyết định kiểm và duyệt bởi một người." };
   }
   if (!before.inspector_id && fd.get("confirm_self_review") !== "yes") {
-    return { ok: false, message: "Đợt này do nhà cung cấp tự tải lên nên chưa có người kiểm tách biệt. Đánh dấu xác nhận bạn đã tự đối chiếu từng giấy tờ rồi duyệt lần nữa; hệ thống sẽ ghi rõ một người vừa đối chiếu vừa duyệt." };
+    return { ok: false, message: "Đợt này do nhà cung cấp tự tải lên nên chưa có người kiểm tách biệt." + " Đánh dấu xác nhận đã tự đối chiếu từng giấy tờ rồi duyệt lần nữa; hệ thống ghi rõ một người vừa kiểm vừa duyệt." };
   }
   if (requiredAuditItems(before.target_level).some((it) => before.checklist[it.key] !== true && before.checklist[it.key] !== false)) {
     return { ok: false, message: "Còn mục chưa kiểm; trả lại để bổ sung." };
@@ -263,13 +263,13 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
     if (requiredAuditItems(1).some((it) => before.checklist[it.key] !== true)) return { ok: false, message: "Chưa nhập mã số thuế. Mục này bắt buộc ghi nhận trước khi duyệt." };
     // Giấy pháp nhân sai tên là điểm dừng, không phải một lựa chọn thay thế.
     if (before.checklist.business_license === false) {
-      return { ok: false, message: "Đăng ký doanh nghiệp đang đánh dấu Không đạt. Không duyệt bước giấy tờ khi giấy pháp nhân không khớp; trả lại để NCC bổ sung." };
+      return { ok: false, message: "Đăng ký doanh nghiệp đang đánh dấu Không đạt." + " Không duyệt bước giấy tờ khi giấy pháp nhân không khớp; trả lại để nhà cung cấp bổ sung." };
     }
     if (!coreDocsVerified(before.checklist)) {
-      return { ok: false, message: "Cần đánh dấu Đạt ít nhất một trong ba giấy xác minh: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal. Giấy phải đứng tên pháp nhân đã đăng ký." };
+      return { ok: false, message: "Cần đánh dấu Đạt ít nhất một trong ba giấy: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal." + " Giấy phải đứng tên pháp nhân đã đăng ký." };
     }
     if (!hasDocumentAuditEvidence(media)) {
-      return { ok: false, message: "Chưa có ảnh chụp giấy tờ hoặc PDF trong bằng chứng của đợt Kiểm tra giấy tờ này. Tệp ở kho chung NCC không được tính; hãy tải vào đúng đợt kiểm (hoặc trả lại để bổ sung)." };
+      return { ok: false, message: "Chưa có ảnh chụp giấy tờ hoặc PDF trong bằng chứng của đợt kiểm này." + " Tệp ở kho chung nhà cung cấp không được tính; hãy tải vào đúng đợt kiểm hoặc trả lại để bổ sung." };
     }
   } else if (before.target_level === 2) {
     const supplier = await store.getSupplier(before.supplier_id);
@@ -285,9 +285,9 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
       return { ok: false, message: "Cần ít nhất một ảnh nhà máy trong đúng đợt xác thực trước khi duyệt. Các mục và ô thông tin khác có thể để trống." };
     }
   } else {
-    // Giữ điều kiện cũ; chứng từ NCC tự gửi phải được nhân viên đánh dấu đã kiểm.
+    // Giữ điều kiện cũ; chứng từ nhà cung cấp tự gửi phải được nhân viên đánh dấu đã kiểm.
     if (!hasDeliveryAuditEvidence(media)) {
-      return { ok: false, message: "Cần chứng từ phù hợp trong đúng đợt kiểm. Hãy đối chiếu và đánh dấu chứng từ NCC tự gửi đã kiểm, hoặc gắn chứng từ vào mục vận chuyển/giao nhận." };
+      return { ok: false, message: "Cần chứng từ phù hợp trong đúng đợt kiểm." + " Hãy đánh dấu chứng từ nhà cung cấp tự gửi đã kiểm, hoặc gắn vào mục vận chuyển/giao nhận." };
     }
   }
   const publicSummary = before.target_level > 1 ? String(fd.get("public_summary") || "").trim() : "";
@@ -316,7 +316,7 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
     if (error instanceof Error && /verifications_four_eyes|check_verification_self_approval|Only an active admin/i.test(error.message)) {
       console.error("[verification] database rejected the verification approval");
       if (singlePersonDecision) {
-        return { ok: false, message: "CSDL chưa mở quy trình kiểm và duyệt bởi một người. Chạy migration 20261049_review_lead_and_sourcing_hold.sql rồi thử lại; bản kiểm vẫn đang chờ duyệt." };
+        return { ok: false, message: "Chưa mở được quy trình kiểm và duyệt bởi một người. Báo người phụ trách kỹ thuật; bản kiểm vẫn chờ duyệt." };
       }
       return { ok: false, message: "CSDL yêu cầu người duyệt khác người kiểm. Nhờ tài khoản khác xét duyệt; bản kiểm vẫn đang chờ duyệt." };
     }
@@ -324,24 +324,24 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
   }
   await auditChange(before, "approved", "approve", publication);
   const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? isPartnerL2(before) ? "Nhà máy đối tác" : "Xác thực nhà máy" : "Lịch sử giao hàng";
-  const mail = await softEffect("email duyệt gửi NCC",
+  const mail = await softEffect("email duyệt gửi nhà cung cấp",
     () => notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_approved", name })) ?? "failed";
   if (mail !== "sent") console.warn("[verification] supplier approval email not sent; decision saved", mail);
   await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
   const supplier = (publication || before.target_level === 1)
-    ? await softEffect("đọc hồ sơ NCC", () => store.getSupplier(before.supplier_id)) : null;
-  if (supplier?.status === "published") await softEffect("làm mới trang NCC công khai", () => {
+    ? await softEffect("đọc hồ sơ nhà cung cấp", () => store.getSupplier(before.supplier_id)) : null;
+  if (supplier?.status === "published") await softEffect("làm mới trang nhà cung cấp công khai", () => {
     revalidatePath(`/suppliers/${supplier.slug || supplier.id}`);
     revalidatePath("/suppliers");
     revalidatePath("/");
   });
-  const message = publication ? "Đã duyệt bước kiểm tra và công khai tóm tắt cho buyer."
+  const message = publication ? "Đã duyệt bước kiểm tra và công khai tóm tắt cho người mua."
     : before.target_level === 1 ? supplier?.status === "published"
       ? "Đã duyệt L1; hồ sơ doanh nghiệp đang công khai. Sản phẩm vẫn cần xét duyệt riêng."
       : supplier ? "Đã duyệt L1; hồ sơ chưa công khai. Hồ sơ cũ hoặc đã ẩn cần người có quyền kiểm tra và quyết định công khai riêng."
       : "Đã duyệt L1; chưa đọc lại được trạng thái công khai, hãy tải lại hồ sơ để kiểm tra."
     : "Đã duyệt bước kiểm tra.";
-  return { ok: true, message: message + (mail === "sent" ? "" : " Email NCC chưa gửi được; kết quả vẫn lưu trên cổng.") };
+  return { ok: true, message: message + (mail === "sent" ? "" : " Email nhà cung cấp chưa gửi được; kết quả vẫn lưu trên cổng.") };
 }
 
 /** Later summary edits remain a separate, explicit reviewer decision. */
@@ -385,7 +385,7 @@ async function savePublicSummary(fd: FormData) {
     after: { verification_id: before.id, published_at: publishedAt, summary: mode === "hide" ? before.public_summary_i18n?.en ?? "" : summary },
   }).catch((err) => console.error("[audit] summary publication log failed", err));
   await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
-  const supplier = await softEffect("đọc hồ sơ NCC",
+  const supplier = await softEffect("đọc hồ sơ nhà cung cấp",
     () => store.getSupplier(before.supplier_id));
   if (supplier?.status === "published") await softEffect("làm mới trang công khai",
     () => revalidatePath(`/suppliers/${supplier.slug || supplier.id}`));
@@ -426,8 +426,8 @@ async function assignEvidence(mediaId: string, key: AuditEvidenceKey | null) {
     await store.updateMedia(mediaId, { checklist_key: key });
   } catch (error) {
     if (error instanceof Error && /media_checklist_key_ck/.test(error.message)) {
-      console.error("[verification] missing factory/delivery inline evidence migration");
-      return { ok: false, message: "CSDL chưa cập nhật mục bằng chứng. Cần chạy migration 20261017_factory_delivery_inline_evidence.sql và 20261020_supplier_self_verification_submissions.sql (danh mục 9 ảnh L2) trước khi gắn tệp." };
+      console.error("[verification] missing migration: 20261017_factory_delivery_inline_evidence.sql / 20261020_supplier_self_verification_submissions.sql");
+      return { ok: false, message: "Chưa gắn được tệp vào mục bằng chứng. Báo người phụ trách kỹ thuật rồi thử lại." };
     }
     throw error;
   }
@@ -469,9 +469,9 @@ async function returnReview(fd: FormData, markCommitted: () => void) {
   markCommitted();
   await auditChange(before, "returned", "return");
   const name = before.target_level === 1 ? "Kiểm tra giấy tờ" : before.target_level === 2 ? isPartnerL2(before) ? "Nhà máy đối tác" : "Xác thực nhà máy" : "Lịch sử giao hàng";
-  const mail = await softEffect("email trả về gửi NCC",
+  const mail = await softEffect("email trả về gửi nhà cung cấp",
     () => notifySupplierDecision({ supplierId: before.supplier_id, decision: "verification_returned", name, note: reason })) ?? "failed";
   if (mail !== "sent") console.warn("[verification] supplier return email not sent; decision saved", mail);
   await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
-  return { ok: true, message: "Đã trả về để bổ sung." + (mail === "sent" ? "" : " Email NCC chưa gửi được; kết quả vẫn lưu trên cổng.") };
+  return { ok: true, message: "Đã trả về để bổ sung." + (mail === "sent" ? "" : " Email nhà cung cấp chưa gửi được; kết quả vẫn lưu trên cổng.") };
 }

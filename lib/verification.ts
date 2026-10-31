@@ -8,8 +8,8 @@ import { DELIVERY_ITEMS, L1_DOC_ITEMS, L2_PARTNER_REVIEW_ITEMS, L2_VISIT_ITEMS, 
 
 export const AUDIT_STEPS = [
   { level: 1, path: "documents", title: "Kiểm tra giấy tờ", short: "Giấy tờ", description: "Đối chiếu giấy phép, chứng nhận và bằng chứng đính kèm." },
-  { level: 2, path: "factory", title: "Xác thực nhà máy", short: "Nhà máy", description: "Đối chiếu theo danh mục 9 ảnh nhà máy (chuẩn chung với cổng NCC tự gửi); ghi nhận địa chỉ, GPS và hình ảnh thực tế." },
-  { level: 3, path: "deliveries", title: "Lịch sử giao hàng", short: "Giao hàng", description: "Đối chiếu chứng từ phù hợp của một lô hàng; chứng từ xuất khẩu không mặc nhiên xác nhận buyer cuối đã nhận." },
+  { level: 2, path: "factory", title: "Xác thực nhà máy", short: "Nhà máy", description: "Đối chiếu 9 ảnh nhà máy theo chuẩn chung với cổng nhà cung cấp; ghi nhận địa chỉ, GPS và hình ảnh thực tế." },
+  { level: 3, path: "deliveries", title: "Lịch sử giao hàng", short: "Giao hàng", description: "Đối chiếu chứng từ phù hợp của một lô hàng; chứng từ xuất khẩu không mặc nhiên xác nhận người mua cuối đã nhận." },
 ] as const;
 
 export function auditStep(level: number) { return AUDIT_STEPS.find((s) => s.level === level); }

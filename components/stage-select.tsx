@@ -366,8 +366,8 @@ export function ConfirmSheet({
                 disabled={!target.buyerEmail}
                 onChange={setSendBuyer}
                 icon={<Mail className="h-4 w-4" />}
-                title="Buyer (tiếng Anh)"
-                detail={target.buyerEmail ?? "Chưa có email buyer"}
+                title="Người mua (tiếng Anh)"
+                detail={target.buyerEmail ?? "Chưa có email người mua"}
                 extra={target.buyerCc ? `cc: ${target.buyerCc}` : undefined}
               />
               <RecipientRow
@@ -381,7 +381,7 @@ export function ConfirmSheet({
                     ? `${target.supplierName} · ${target.supplierEmail}`
                     : target.supplierName
                       ? `${target.supplierName} · chưa có email`
-                      : "Chưa gắn nhà cung cấp — chỉ gửi buyer"
+                      : "Chưa gắn nhà cung cấp — chỉ gửi người mua"
                 }
               />
             </div>

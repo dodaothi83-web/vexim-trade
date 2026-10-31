@@ -36,6 +36,7 @@ import { pickSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsore
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { t } from "@/lib/public/i18n";
 import { normalizeCategoryFilters } from "@/lib/category-filters";
+import { categoryKeywordSearches } from "@/lib/public/category-searches";
 import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -508,6 +509,9 @@ function StateA({
 }) {
   // Lịch mùa vụ: chuẩn hóa để dữ liệu cũ hoặc thiếu trường không làm vỡ trang.
   const harvest = normalizeHarvest(cat.harvest);
+  // Gợi ý tìm kiếm lấy từ từ khoá nhà cung cấp đã khai trên sản phẩm trong danh mục;
+  // rỗng thì không hiện khối này.
+  const relatedSearches = categoryKeywordSearches(products, { categoryName });
   const unitConfig = displayUnitsForCategory(cat.slug, cat.price_unit);
   const priceRange = buildPriceBlock(pricePointsFrom(products), {
     unit: unitConfig.primary,
@@ -544,6 +548,18 @@ function StateA({
         <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
 
         <PriceRangeStrip outcome={priceRange} categoryName={categoryName} rfqHref={rfqHref} />
+
+        {relatedSearches.length > 0 && (
+          <nav aria-label="Related searches" className="mt-4 flex flex-wrap items-center gap-2 text-[12.5px]">
+            <span className="font-semibold text-ink-500">Related searches:</span>
+            {relatedSearches.map((keyword) => (
+              <Link key={keyword} href={`/search?q=${encodeURIComponent(keyword)}&cat=${encodeURIComponent(cat.slug)}`}
+                className="rounded-full border border-ink-200 bg-white px-3 py-1 font-medium text-ink-700 transition hover:border-brand-400 hover:text-brand-800">
+                {keyword}
+              </Link>
+            ))}
+          </nav>
+        )}
 
         <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored}
           sponsoredBand={sponsoredBand} productFields={cat.product_fields ?? []} comparisonEnabled={comparisonEnabled} />

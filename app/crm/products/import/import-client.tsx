@@ -174,7 +174,7 @@ export function ImportClient({ suppliers, categories }: {
                 {busy === "commit" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 Nhập {result.validCount} dòng hợp lệ thành sản phẩm nháp
               </button>
-              <p className="text-xs text-ink-500">Các dòng lỗi sẽ bị bỏ qua. Sản phẩm nhập vào chưa sẵn sàng gửi buyer cho tới khi bổ sung ảnh và duyệt.</p>
+              <p className="text-xs text-ink-500">Các dòng lỗi sẽ bị bỏ qua. Sản phẩm nhập vào chưa sẵn sàng gửi người mua cho tới khi bổ sung ảnh và duyệt.</p>
             </div>
           )}
         </section>

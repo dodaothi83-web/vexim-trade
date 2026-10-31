@@ -39,11 +39,11 @@ function priceLabel(push: SponsoredPush): string {
 }
 
 const MESSAGES: Record<string, { text: string; bad: boolean }> = {
-  created: { text: "Đã tạo gói. Gói chờ duyệt nên chưa hiện với buyer.", bad: false },
+  created: { text: "Đã tạo gói. Gói chờ duyệt nên chưa hiện với người mua.", bad: false },
   approved: { text: "Đã duyệt. Gói bắt đầu tính 168 giờ và có thể được chọn trên trang danh mục.", bad: false },
   paused: { text: "Đã dừng gói do vi phạm và lưu lý do. Gói rời vùng đẩy ở lượt dựng trang kế tiếp.", bad: false },
   "stop-invalid": { text: "Vui lòng nhập lý do vi phạm từ 5 đến 400 ký tự.", bad: true },
-  "stop-error": { text: "Chưa xác nhận được việc dừng gói. Hãy tải lại và kiểm tra; cần áp migration 20261048.", bad: true },
+  "stop-error": { text: "Chưa xác nhận được việc dừng gói. Tải lại trang rồi thử lại.", bad: true },
   resumed: { text: "Đã chạy lại gói; thời hạn cũ không thay đổi.", bad: false },
   deleted: { text: "Đã xoá gói nháp.", bad: false },
   unsupported: { text: "Trang chủ chưa có vị trí tài trợ; không thể tạo, duyệt hoặc chạy lại gói này. Hãy đối soát gói cũ với khách.", bad: true },
@@ -105,7 +105,7 @@ export default async function SponsoredPage({
     pushes = await store.listAllSponsoredPushes();
   } catch (error) {
     console.error("[sponsored] could not load packages", error);
-    loadError = "Chưa tải được danh sách gói. Vui lòng thử lại; nếu vẫn lỗi, kiểm tra kết nối và migration 20261028_sponsored_product_push.sql.";
+    loadError = "Chưa tải được danh sách gói. Thử lại; nếu vẫn lỗi, báo người phụ trách kỹ thuật.";
   }
 
   let daily: SponsoredPushDaily[] = [];
@@ -201,7 +201,7 @@ export default async function SponsoredPage({
         </div>
       )}
 
-      {session.role === "admin" && (offerSettings ? <OfferSettingsForm settings={offerSettings} /> : <div role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Chưa tải được cấu hình gói. Kiểm tra kết nối và migration 20261047 trước khi chỉnh sửa.</div>)}
+      {session.role === "admin" && (offerSettings ? <OfferSettingsForm settings={offerSettings} /> : <div role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Chưa tải được cấu hình gói. Báo người phụ trách kỹ thuật rồi thử lại.</div>)}
 
       {requestFlash && <div role={requestFlash.bad ? "alert" : "status"} className={`mb-4 rounded-xl px-4 py-3 text-sm ${requestFlash.bad ? "border border-amber-200 bg-amber-50 text-amber-900" : "border border-brand-200 bg-brand-50 text-brand-900"}`}>{requestFlash.text}</div>}
       <SponsoredRequestInbox requests={requests} available={requestsAvailable} canManage={hasPermission(session.role, "sponsored.requests.manage")} />

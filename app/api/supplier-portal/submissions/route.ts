@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 /** Danh sách hồ sơ tự gửi của chính doanh nghiệp đang đăng nhập. */
 export async function GET() {
   const access = await supplierLevelAccess(2);
-  if (!access) return NextResponse.json({ ok: false, message: "Tài khoản NCC chưa được Vexim mở quyền." }, { status: 403 });
+  if (!access) return NextResponse.json({ ok: false, message: "Tài khoản nhà cung cấp chưa được Vexim mở quyền." }, { status: 403 });
   const submissions = await access.store.listSubmissions(access.supplier.id);
   return NextResponse.json({
     ok: true,
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   try { body = await request.json() as { level?: unknown }; } catch { body = {}; }
   const level = Number(body.level) === 3 ? 3 : 2;
   const access = await supplierLevelAccess(level);
-  if (!access) return NextResponse.json({ ok: false, message: "Tài khoản NCC chưa được Vexim mở quyền." }, { status: 403 });
+  if (!access) return NextResponse.json({ ok: false, message: "Tài khoản nhà cung cấp chưa được Vexim mở quyền." }, { status: 403 });
   try {
     const submission = await getOrCreateSubmission(access.store, {
       supplierId: access.supplier.id, level, userId: access.user.id, supplierType: access.supplier.supplier_type,
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, submission: bundle.submission, readiness: check }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[submissions] không tạo được hồ sơ", error);
-    const message = error instanceof Error && error.message.includes("chưa có loại hình") ? error.message : "Chưa mở được hồ sơ. Kiểm tra migration supplier_submissions rồi thử lại.";
+    const message = error instanceof Error && error.message.includes("chưa có loại hình") ? error.message : "Chưa mở được hồ sơ. Báo người phụ trách kỹ thuật rồi thử lại.";
     return NextResponse.json({ ok: false, message }, { status: 503 });
   }
 }

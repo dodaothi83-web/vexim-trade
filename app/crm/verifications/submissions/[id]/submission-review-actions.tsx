@@ -31,7 +31,7 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
   async function decide(decision: "accept" | "return") {
     if (busy) return;
     if (decision === "return" && note.trim().length < 8) {
-      setMessage({ ok: false, text: "Hãy ghi rõ lý do trả hồ sơ để NCC bổ sung đúng thứ (tối thiểu 8 ký tự)." });
+      setMessage({ ok: false, text: "Hãy ghi rõ lý do trả hồ sơ để nhà cung cấp bổ sung đúng thứ (tối thiểu 8 ký tự)." });
       return;
     }
     if (decision === "accept" && !window.confirm(
@@ -80,13 +80,13 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
     {decidable && <>
       <p className="mt-2 text-xs text-ink-600">
         Nhận hồ sơ sẽ tạo một <strong>đợt kiểm của nhân viên</strong> kèm toàn bộ bằng chứng. Duyệt hay không là bước sau,
-        do người có quyền duyệt quyết định — hồ sơ NCC tự gửi không bao giờ tự thành huy hiệu.
+        do người có quyền duyệt quyết định — hồ sơ nhà cung cấp tự gửi không bao giờ tự thành huy hiệu.
       </p>
       <label className="mt-3 block text-xs font-semibold text-ink-700">Ghi chú / lý do (bắt buộc khi trả hồ sơ)
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={1200} className="input mt-1"
           placeholder={status === "returned"
             ? partner ? "Ví dụ: hợp đồng chưa thể hiện rõ doanh nghiệp và nhà máy đối tác." : level === 3 ? "Ví dụ: chứng từ chưa thể hiện vai trò của doanh nghiệp trong lô hàng." : "Ví dụ: ảnh cổng nhà máy không thấy biển tên; cần chụp lại đúng mã VX-..."
-            : "Ghi chú chuyển cho người kiểm tiếp theo (không hiển thị cho NCC)"} />
+            : "Ghi chú chuyển cho người kiểm tiếp theo (không hiển thị cho nhà cung cấp)"} />
       </label>
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" disabled={busy !== ""} onClick={() => void decide("accept")}

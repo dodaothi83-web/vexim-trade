@@ -58,21 +58,21 @@ const submit = fs.readFileSync(new URL('../lib/rfq/submit.ts', import.meta.url),
 assert.match(submit, /createPreferredSupplierMatches\(store, rfq\.id, preferredIds\)/, 'submit RFQ phải tự tạo lượt khớp cho NCC chỉ định');
 assert.match(submit, /rfqStatus === "new" && preferredIds\.length > 0/, 'không tự khớp khi RFQ bị cách ly hoặc cần duyệt tay');
 
-// Trang RFQ trong CRM phải cho nhân viên thấy chỉ định của buyer.
+// Trang RFQ trong CRM phải cho nhân viên thấy chỉ định của người mua.
 const rfqPage = fs.readFileSync(new URL('../app/crm/rfqs/[id]/page.tsx', import.meta.url), 'utf8');
-assert.match(rfqPage, /Buyer chỉ định nhà cung cấp/, 'trang RFQ phải có hộp thông tin NCC buyer chỉ định');
-assert.match(rfqPage, /preferred_supplier_ids/, 'trang RFQ phải đọc danh sách NCC chỉ định từ RFQ');
-assert.match(rfqPage, />Buyer chỉ định</, 'lượt khớp của NCC chỉ định phải có nhãn riêng');
+assert.match(rfqPage, /Người mua chỉ định nhà cung cấp/, 'trang RFQ phải có hộp thông tin nhà cung cấp do người mua chỉ định');
+assert.match(rfqPage, /preferred_supplier_ids/, 'trang RFQ phải đọc danh sách nhà cung cấp chỉ định từ RFQ');
+assert.match(rfqPage, />Người mua chỉ định</, 'lượt khớp của nhà cung cấp được chỉ định phải có nhãn riêng');
 
 // Trang chi tiết NCC liệt kê các RFQ đã khớp kèm trạng thái xử lý.
 const supplierPage = fs.readFileSync(new URL('../app/crm/suppliers/[slug]/page.tsx', import.meta.url), 'utf8');
-assert.match(supplierPage, /RFQ đã gửi cho NCC này/, 'trang chi tiết NCC phải có mục RFQ đã gửi');
-assert.match(supplierPage, /listRfqMatchesBySupplier/, 'mục RFQ phải lấy lượt khớp theo NCC');
+assert.match(supplierPage, /RFQ đã gửi cho nhà cung cấp này/, 'trang chi tiết NCC phải có mục RFQ đã gửi');
+assert.match(supplierPage, /listRfqMatchesBySupplier/, 'mục RFQ phải lấy lượt khớp theo nhà cung cấp');
 assert.match(supplierPage, /Đã khớp, chờ gửi/, 'phải phân biệt RFQ đã khớp nhưng chưa gửi');
 
 // Form RFQ công khai: có NCC chỉ định thì nói rõ gửi cho ai; form chung thì báo Vexim tìm NCC.
 const form = fs.readFileSync(new URL('../app/(public)/rfq/rfq-form.tsx', import.meta.url), 'utf8');
-assert.match(form, /You are requesting a quote from/, 'form phải nói rõ NCC buyer đang xin báo giá');
+assert.match(form, /You are requesting a quote from/, 'form phải nói rõ nhà cung cấp mà người mua đang xin báo giá');
 assert.match(form, /Your request goes to this supplier first\. If they can’t meet it, we’ll ask you before suggesting anyone else\./, 'form chỉ định phải nói rõ NCC chỉ định được nhận yêu cầu trước và chỉ gợi ý đơn vị khác sau khi hỏi buyer');
 assert.match(form, /Not sure which supplier fits\? Tell us what you need\. Vexim will select verified suppliers that match your specs, quantity and market, and send you their quotes to compare\./, 'form chung phải thông báo Vexim chọn NCC theo yêu cầu để buyer so sánh báo giá');
 assert.match(form, /Suppliers are matched on your requirements only\. Paid listings never affect who we recommend\./, 'form chung phải nói rõ việc ghép NCC không bị ảnh hưởng bởi tin trả phí');

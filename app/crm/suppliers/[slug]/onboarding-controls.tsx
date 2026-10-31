@@ -20,7 +20,7 @@ export function OnboardingControls({ supplierId }: { supplierId: string }) {
   return <div className="mt-4">
     <div className="flex flex-wrap items-end gap-4">
       <form onSubmit={decide}><input type="hidden" name="supplier_id" value={supplierId} /><input type="hidden" name="decision" value="approved" />
-        <button type="submit" disabled={busy} className="btn btn-primary">Xác nhận tài khoản · mở cổng NCC</button></form>
+        <button type="submit" disabled={busy} className="btn btn-primary">Xác nhận tài khoản · mở cổng nhà cung cấp</button></form>
       <form onSubmit={decide} className="flex flex-wrap items-end gap-2"><input type="hidden" name="supplier_id" value={supplierId} /><input type="hidden" name="decision" value="changes_requested" />
         <label className="text-sm font-semibold text-ink-700">Nội dung cần bổ sung <input name="note" required maxLength={1000} className="input mt-1" placeholder="VD: bổ sung địa chỉ nhà máy" /></label>
         <button type="submit" disabled={busy} className="btn btn-soft">Yêu cầu chỉnh sửa</button></form>

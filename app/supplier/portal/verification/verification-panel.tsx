@@ -224,7 +224,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
     if (busy || evidenceBusy || (manual && !submit)) return;
     if (submit && !window.confirm(manual
       ? "Nộp hồ sơ để nhân viên kiểm tra? Chứng từ sẽ tạm khóa trong khi xét."
-      : "Nộp hồ sơ để nhân viên đối chiếu? Ảnh có thể được gửi tới dịch vụ AI để quét sơ bộ. AI chỉ nêu điểm cần kiểm tra, không tự trả hay duyệt; bằng chứng tạm khóa sau khi nộp.")) return;
+      : "Nộp hồ sơ để nhân viên đối chiếu? Ảnh có thể gửi tới AI quét sơ bộ; AI chỉ nêu điểm cần kiểm, không tự duyệt.")) return;
     setBusy(submit ? "submit" : "scan"); setMessage(null); setScan(null);
     try {
       const response = await fetch(`/api/supplier-portal/submissions/${encodeURIComponent(view.id)}/ai-scan`, {
@@ -429,7 +429,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
                   </p>
                 </>
               : <div>
-                  <p className="text-[12px] leading-5 text-ink-600">Bấm nút để hệ thống phát hành mã. Sau đó tải tờ mã về, in ra giấy và chụp cùng cảnh ở 3 ảnh có 🔖 (cổng nhà máy, dây chuyền, kho thành phẩm).</p>
+                  <p className="text-[12px] leading-5 text-ink-600">Bấm nút để hệ thống phát hành mã. Tải tờ mã về, in ra và chụp cùng cảnh ở 3 ảnh có 🔖 (cổng nhà máy, dây chuyền, kho).</p>
                   <button type="button" disabled={busy === "code" || !view.editable} onClick={() => void issueCode()}
                     className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-brand-800 disabled:bg-ink-300">
                     {busy === "code" ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="size-3.5" aria-hidden="true" />} Tạo mã xác minh
@@ -447,7 +447,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
               </h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Thông tin do doanh nghiệp tự khai, dùng để đối chiếu với chứng từ bạn tải lên.</p>
             </div>
-            <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">NCC tự khai</span>
+            <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">Nhà cung cấp tự khai</span>
           </div>
           <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] leading-4 text-emerald-900">
             <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
@@ -476,10 +476,10 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
               </h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
                 {partner
-                  ? "Hợp đồng là bắt buộc; ảnh đối tác là tùy chọn. Hợp đồng nhận ảnh hoặc PDF, ảnh đối tác nhận JPG/PNG/WebP. Mỗi mục giữ tối đa 3 tệp. Chứng từ được giữ nội bộ, không hiển thị công khai."
+                  ? "Hợp đồng bắt buộc, ảnh đối tác tùy chọn. Mỗi mục nhận ảnh hoặc PDF, tối đa 3 tệp. Chứng từ giữ nội bộ, không công khai."
                   : level === 2
                     ? "Chạm vào từng ô để chụp hoặc chọn ảnh có sẵn. Ảnh đã gửi qua Zalo vẫn nhận; ba mục 🔖 phải có tờ mã trong khung hình."
-                    : "Tải ít nhất một chứng từ phù hợp dạng ảnh hoặc PDF; không bắt buộc vận đơn. Nhân viên sẽ xem chứng từ có đủ căn cứ và thể hiện vai trò doanh nghiệp hay không. Mỗi mục giữ tối đa 3 tệp; xóa một tệp nếu cần tải tệp khác."}
+                    : "Tải ít nhất một chứng từ dạng ảnh hoặc PDF; không bắt buộc vận đơn. Tối đa 3 tệp mỗi mục."}
               </p>
             </div>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${view.ready ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>

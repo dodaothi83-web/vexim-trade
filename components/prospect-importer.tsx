@@ -263,7 +263,7 @@ export function ProspectImporter({ owners = [] }: { owners?: string[] }) {
           <p className="font-semibold text-ink-900">{result.message}</p>
           {result.matchedBuyers.length > 0 && (
             <div>
-              <p className="font-semibold text-amber-800">Đã khớp Buyer hiện có, các dòng này không được nhập:</p>
+              <p className="font-semibold text-amber-800">Đã khớp Người mua hiện có, các dòng này không được nhập:</p>
               <ul className="mt-1 list-inside list-disc text-ink-600">{result.matchedBuyers.slice(0, 20).map((item, i) => <li key={i}>{item}</li>)}</ul>
             </div>
           )}

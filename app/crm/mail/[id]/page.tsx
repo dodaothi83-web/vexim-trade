@@ -53,7 +53,7 @@ export default async function MessagePage({
 
   const buyer = msg.buyer_id ? await store.getBuyer(msg.buyer_id) : null;
   const supplier = msg.supplier_id ? await store.getSupplier(msg.supplier_id) : null;
-  const who = msg.direction === "buyer" ? (buyer?.company ?? "Buyer") : (supplier?.name ?? "NCC");
+  const who = msg.direction === "buyer" ? (buyer?.company ?? "Người mua") : (supplier?.name ?? "Nhà cung cấp");
 
   const replyHref =
     msg.direction === "buyer"

@@ -166,6 +166,8 @@ function ThumbGrid({ items }: { items: MediaAsset[] }) {
 function StatusBadge({ asset }: { asset: MediaAsset }) {
   const expired = isExpired(asset);
   if (expired) return <Badge className="bg-red-50 text-red-700">Hết hạn</Badge>;
+  // Ảnh sản phẩm không còn bước kiểm tra riêng (chốt 31/10/2026) nên không gắn nhãn xác minh.
+  if (asset.owner_type === "product") return null;
   if (asset.status === "checked") return <Badge className="bg-emerald-50 text-emerald-700">Đã kiểm tra</Badge>;
   return <Badge className={cx("bg-amber-50 text-amber-700")}>Chưa xác minh</Badge>;
 }

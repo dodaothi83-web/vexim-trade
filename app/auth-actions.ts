@@ -166,7 +166,7 @@ export async function createUserAction(input: {
   if (input.role === "sourcing") return { ok: false, message: "Vai trò Thu mua đang tạm khóa, không thể cấp mới." };
   const clean = (input.email ?? "").trim();
   if (!EMAIL_RE.test(clean)) return { ok: false, message: "Email không hợp lệ." };
-  if (!isRole(input.role) || input.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp được tạo qua luồng đăng ký NCC, hoặc nhân viên cấp tại mục Tài khoản cổng nhà cung cấp trong trang chi tiết nhà cung cấp ở CRM." };
+  if (!isRole(input.role) || input.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp tạo qua luồng đăng ký nhà cung cấp, hoặc nhân viên cấp trong trang chi tiết nhà cung cấp ở CRM." };
   const problem = passwordProblem(input.password ?? "");
   if (problem) return { ok: false, message: problem };
 
@@ -220,7 +220,7 @@ export async function updateUserAction(
 
   const session = await getSession();
   if (patch.role === "sourcing" || (target.role === "sourcing" && patch.is_active === true)) return { ok: false, message: "Vai trò Thu mua đang tạm khóa, không thể cấp hoặc mở lại." };
-  if (patch.role && (!isRole(patch.role) || patch.role === "supplier" || target.role === "supplier")) return { ok: false, message: "Không thể chuyển vai trò tài khoản doanh nghiệp đã liên kết hồ sơ NCC." };
+  if (patch.role && (!isRole(patch.role) || patch.role === "supplier" || target.role === "supplier")) return { ok: false, message: "Không thể chuyển vai trò tài khoản doanh nghiệp đã liên kết hồ sơ nhà cung cấp." };
 
   // Không cho tự hạ quyền / tự khoá chính mình
   if (session?.uid === id) {
@@ -485,7 +485,7 @@ export async function saveMySenderEmailAction(address: string | null): Promise<A
       return {
         ok: false,
         message:
-          "Chưa có cột sender_email trong cơ sở dữ liệu. Chạy một lần supabase/migrations/20261012_user_sender_email.sql rồi thử lại.",
+          "Chưa lưu được email gửi. Báo người phụ trách kỹ thuật rồi thử lại.",
         details: ["Lỗi gốc: " + raw],
       };
     }
@@ -622,7 +622,7 @@ export async function updateMyProfileAction(input: {
 
   revalidatePath("/", "layout");
   const notes: string[] = [];
-  if (nameChanged && moved > 0) notes.push(`đã chuyển ${moved} buyer/khách hàng mục tiêu sang tên mới`);
+  if (nameChanged && moved > 0) notes.push(`đã chuyển ${moved} Người mua/khách hàng mục tiêu sang tên mới`);
   if (pinSender) notes.push(`giữ nguyên địa chỉ gửi ${pinSender} dù đã đổi tên`);
   return {
     ok: true,

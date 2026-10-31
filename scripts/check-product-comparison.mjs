@@ -18,6 +18,7 @@ import {
   productDetailHref,
   toggleProductComparisonSelection,
 } from "../lib/public/product-comparison.ts";
+import { approvedProductCertificateIds } from "../lib/public/product-certificate-links.ts";
 import { VERIFICATION_LABELS, verificationLabel } from "../lib/verification-status.ts";
 import {
   publicExportPortDisplay,
@@ -205,6 +206,7 @@ const internalMedia = [{ id: "evidence", supplier_id: "A", audience: "internal",
 const certificateModule = compile("../lib/public/certificates.ts", {
   "@/lib/media/readiness": { isExpired: () => false },
   "@/lib/public/product-selection": { withoutDirectContacts },
+  "@/lib/public/product-certificate-links": { approvedProductCertificateIds },
 });
 const record = {
   card: {

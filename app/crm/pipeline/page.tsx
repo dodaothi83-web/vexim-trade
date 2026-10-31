@@ -30,7 +30,7 @@ export default async function PipelinePage({
     <>
       <PageHeader
         title="Pipeline"
-        sub={`${active.length} đơn đang chạy · giá trị ${value.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })} · kéo thả thẻ để đổi trạng thái, hệ thống sẽ gửi email cập nhật cho buyer và NCC`}
+        sub={`${active.length} đơn đang chạy · giá trị ${value.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })} · kéo thả thẻ để đổi trạng thái, hệ thống sẽ gửi email cập nhật cho người mua và nhà cung cấp`}
         actions={
           <>
             <Link href="/crm/buyers" className="btn btn-ghost">
