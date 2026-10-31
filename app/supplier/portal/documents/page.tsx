@@ -5,6 +5,8 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, FileCheck2, FileText, Fi
 import { PageHeader } from "@/components/page-header";
 import { FilePicker } from "@/components/file-picker";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
+import { approvedL2Scope } from "@/lib/verification-status";
+import { visibleLegacyCertificateFiles } from "@/lib/supplier-portal/legacy-certificate-files";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { COMPANY_DOCUMENT_KEYS, INITIAL_DOCUMENT_KEYS, QUALITY_CERTIFICATE_DOC_KEYS } from "@/lib/supplier-portal/policy";
 import { L1_DOC_ITEMS } from "@/lib/types";
@@ -51,7 +53,7 @@ export default async function SupplierDocumentsPage() {
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
-  const { supplier, review, user, store } = access;
+  const { supplier, review, reviews, user, store } = access;
 
   const degraded: string[] = [];
   async function optional<T>(label: string, fallback: T, run: () => Promise<T>): Promise<T> {
@@ -87,12 +89,24 @@ export default async function SupplierDocumentsPage() {
    * mà cũng không hiện trùng với danh sách chứng nhận.
    */
   const certificateMediaIds = new Set(certificates.map((certificate) => certificate.file_media_id).filter((id): id is string => Boolean(id)));
-  const legacyCertFiles = mine
-    .filter((m) => (QUALITY_CERTIFICATE_DOC_KEYS as readonly string[]).includes(m.checklist_key ?? "") && !certificateMediaIds.has(m.id))
-    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+  /* Tệp cũ đã được thay bằng một bản ghi chứng nhận cùng loại giấy thì ẩn dòng nhắc tải lại:
+   * giữ lại chỉ khiến nhà cung cấp tưởng còn thiếu giấy. Tệp vẫn nằm trong kho. */
+  const legacyCertFiles = visibleLegacyCertificateFiles(
+    mine.filter((m) => (QUALITY_CERTIFICATE_DOC_KEYS as readonly string[]).includes(m.checklist_key ?? "") && !certificateMediaIds.has(m.id))
+      .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? "")),
+    certificates.filter((certificate) => certificate.review_status !== "rejected").map((certificate) => certificate.name),
+  );
   const uploadedDocs = docRows.filter((row) => row.files.length > 0);
   const missingDocs = docRows.filter((row) => row.files.length === 0);
   const docProgress = Math.round((uploadedDocs.length / docRows.length) * 100);
+
+  /* Đơn vị thương mại chưa có L2 nhà máy đối tác thì chưa có căn cứ đối chiếu giấy, nên ô
+   * tải chứng nhận đóng sẵn kèm lý do — không để nhà cung cấp chọn tệp rồi mới nhận lỗi. */
+  const l2Scope = approvedL2Scope(reviews);
+  const partnerContractApproved = l2Scope === "partner_contract" || l2Scope === "both";
+  const certificateUploadBlockedReason = supplier.supplier_type === "trading" && !partnerContractApproved
+    ? "Xác thực hợp đồng nhà máy đối tác ở bước 2 trước khi tải chứng nhận. Sản phẩm vẫn đăng bán bình thường."
+    : null;
 
   const l1Approved = review?.status === "approved";
   const l1Returned = review?.status === "returned";
@@ -355,7 +369,8 @@ export default async function SupplierDocumentsPage() {
 
           <SupplierCertificateUpload certificates={certificates
             .filter((c) => !c.superseded_by_certificate_id)
-            .map((c) => ({ id: c.id, name: c.name, valid_until: c.valid_until }))} />
+            .map((c) => ({ id: c.id, name: c.name, valid_until: c.valid_until }))}
+            blockedReason={certificateUploadBlockedReason} />
         </section>
 
         {/* Bảng giấy tờ L1 suy ra từ giấy đã duyệt — không phải ô nhà cung cấp tự chọn. */}

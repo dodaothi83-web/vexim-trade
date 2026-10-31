@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     revalidatePath("/supplier/portal");
     revalidatePath(`/crm/suppliers/${access.supplier.id}`);
     revalidatePath(`/crm/suppliers/${access.supplier.id}/audit/documents`);
-    return NextResponse.json({ ok: true, message: "Đã tải giấy tờ để Vexim đối chiếu; chứng nhận (nếu có) đã được đưa qua bước AI quét." });
+    return NextResponse.json({ ok: true, message: "Đã tải giấy tờ để Vexim đối chiếu." });
   } catch (error) {
     console.error("[supplier-portal] upload error", error);
     return NextResponse.json({ ok: false, message: "Không lưu được tệp. Kiểm tra định dạng JPG/PNG/WebP/PDF và migration CSDL; thử lại sau." }, { status: 503 });

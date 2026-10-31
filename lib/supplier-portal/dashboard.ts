@@ -173,7 +173,7 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
         add(
           `cert-expiring:${c.id}`,
           `Chứng nhận sắp hết hạn (còn ${daysLeft} ngày): ${c.name}`,
-          `Hết hạn ngày ${c.valid_until}. Vào mục Kiểm tra giấy tờ L1 để tải bản mới - AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`,
+          `Hết hạn ngày ${c.valid_until}. Vào mục Kiểm tra giấy tờ L1 để tải bản mới; hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.`,
           c.updated_at || now.toISOString(),
           "certificate",
           CERT_HREF,

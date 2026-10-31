@@ -43,6 +43,12 @@ Nhà cung cấp chọn "Gia hạn" một giấy đã có khi tải tệp mới. 
 
 Hai ô tải giấy (trang **Giấy tờ & chứng nhận L1** và khối "Chứng nhận áp dụng" ở trang sản phẩm) dùng chung một bộ câu: cùng tiêu đề "Tải lên hoặc gia hạn chứng nhận", cùng lựa chọn "Gia hạn giấy đã có (tùy chọn)" / "+ Giấy mới", cùng nhãn "Tên trên giấy (không bắt buộc)", cùng gợi ý tệp và cùng câu nhận kết quả. Không nói AI, không dùng mã bước nội bộ (L1/L2), không hứa "đã hiển thị": giấy vào hồ sơ trước, nhân viên đối chiếu rồi mới chọn phạm vi áp dụng. Ghi chú của nhân viên (`review_note`) không hiện ở cổng; thẻ chứng nhận dùng `supplierCertificateNote()` trong `lib/certificate-supplier-copy.ts`. Trang thêm sản phẩm chỉ hiện khối "Chứng nhận theo danh mục" (đọc trước khi lưu); trang sửa sản phẩm để khối "Chứng nhận áp dụng" lo việc bỏ tick, nên không lặp thông tin.
 
+## Trang Giấy tờ & chứng nhận L1 của nhà cung cấp
+
+- **Tệp cũ ≠ chứng nhận.** Tệp tải theo luồng cũ (ô HACCP/chứng chỉ sản phẩm) chỉ là tệp: không hạn nhắc, không nhãn, không phạm vi. Trang liệt kê chúng ở khối "Tệp chứng nhận đã tải trước đây"; khi kho đã có bản ghi cùng loại giấy, dòng đó **tự ẩn** (`lib/supplier-portal/legacy-certificate-files.ts`, so theo từ sau khi bỏ dấu; khác năm trên giấy thì giữ lại để không ẩn nhầm). Không xoá tệp, không backfill bản ghi.
+- **Đơn vị thương mại chưa có L2 nhà máy đối tác**: ô tải chứng nhận đóng sẵn, hiện lý do và lối sang bước 2 — không để chọn tệp rồi mới nhận lỗi 403. Sản phẩm vẫn đăng bán bình thường.
+- **Không nhắc "AI quét"** ở câu nhà cung cấp thấy: thông báo tải giấy tờ, email nhắc hạn, việc trên bảng điều khiển đều ghi "hệ thống đọc lại/hệ thống nhắc"; ghi chú nội bộ của nhân viên (`review_note`) vẫn giữ nguyên và không hiện ở cổng.
+
 ## CRM
 
 - Hàng đợi `/crm/certificates`: số đếm giấy chưa phân loại, chờ duyệt, sắp hết hạn 60 ngày, yêu cầu mở rộng phạm vi. Mục menu "Giấy tờ & chứng nhận" có huy hiệu **N chờ** = số giấy `review_status = 'pending'` (`countCertificatesPendingReview`), cùng nguồn số với chuông CRM; giấy chưa phân loại và yêu cầu mở rộng phạm vi không cộng vào huy hiệu mà hiện thành từng mục trong trang. Duyệt/ẩn giấy, đổi phạm vi, và NCC tải giấy mới đều gọi `refreshCrmBadges()` để số tự trừ/tăng.
