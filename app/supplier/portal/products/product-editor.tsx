@@ -1469,7 +1469,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             </div>
               </div>
             </details>
-            <p className="px-4 pb-3 text-[11.5px] leading-4 text-ink-500 sm:px-5">Tên tiếng Anh được kiểm tra trong quá trình duyệt sản phẩm.</p>
 
             {sent || review === "pending"
               ? <div role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] font-semibold text-emerald-900">
@@ -1487,14 +1486,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                       </ul>
                       : canSubmit
                         ? <p className="text-[11.5px] text-ink-600">Hồ sơ đủ điều kiện để gửi duyệt - bấm Gửi duyệt ở thanh dưới cùng.</p>
-                        : submitBlockers().length
-                          ? <ul className="space-y-1 text-[11.5px] text-ink-600">
-                            {submitBlockers().map((hint) => <li key={hint} className="flex gap-1.5"><span className="mt-1.5 size-1 shrink-0 rounded-full bg-ink-400" aria-hidden="true" />{hint}</li>)}
-                          </ul>
-                          : null}
+                        : null}
                   </div>
                 </div>}
-            <p className="text-[11px] leading-4 text-ink-500">{quantityEditor?.pendingNameId ? "Tên tiếng Anh đang chờ duyệt riêng." : quantityEditor?.hasApprovedName ? "Đã có tên tiếng Anh được duyệt riêng." : "Tên tiếng Anh được kiểm tra trong quá trình duyệt sản phẩm."}</p>
+            {quantityEditor?.pendingNameId
+              ? <p className="text-[11px] leading-4 text-ink-500">Tên tiếng Anh đang chờ duyệt riêng.</p>
+              : quantityEditor?.hasApprovedName
+                ? <p className="text-[11px] leading-4 text-ink-500">Đã có tên tiếng Anh được duyệt riêng.</p>
+                : null}
           </div>
         </section>
 

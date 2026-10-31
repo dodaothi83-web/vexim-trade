@@ -218,7 +218,11 @@ assert.match(page, /id="submit-blockers"/, 'Nút gửi liên kết tới phần 
 assert.match(page, /<div id="submit-blockers" aria-live="polite">/, 'Danh sách việc cần làm có aria-live');
 assert.match(page, /Hồ sơ đủ điều kiện/, 'Đủ điều kiện thì báo rõ trước khi gửi');
 const missingMedia = render({ media: [] });
-assert.match(missingMedia, /Tải ít nhất một ảnh sản phẩm ở mục Ảnh &amp; tệp/, 'Nói rõ thiếu tệp ở mục nào');
+assert.match(source, /Tải ít nhất một ảnh sản phẩm ở mục Ảnh & tệp\./, 'Nói rõ thiếu tệp ở mục nào khi bấm gửi');
+assert.doesNotMatch(missingMedia, /Tải ít nhất một ảnh sản phẩm ở mục Ảnh &amp; tệp/,
+  'Không còn liệt kê sẵn việc thiếu dưới mục 8; chỉ hiện sau khi bấm gửi');
+assert.doesNotMatch(source, /Tên tiếng Anh được kiểm tra trong quá trình duyệt sản phẩm/,
+  'Bỏ câu nhắc tên tiếng Anh ở mục xem lại');
 const sendButton = (missingMedia.match(/<button[^>]*aria-describedby="submit-blockers"[^>]*>/) ?? [''])[0];
 assert.ok(sendButton && !/\sdisabled(?:=""|=|\s|>)/.test(sendButton), 'Thiếu điều kiện vẫn không khoá nút gửi');
 for (const hint of ['requestSubmit', 'scrollToSection("sec-media")', 'scrollToSection("sec-basic")']) {
