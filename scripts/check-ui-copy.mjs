@@ -15,6 +15,7 @@ const SCOPE = [
   'app/supplier/portal/product-actions.ts',
   'app/supplier/portal/quantity-revision-actions.ts',
   'components/products/quantity-pricing-editor.tsx',
+  'components/products/buyer-preview-dialog.tsx',
   'components/products/quantity-pricing-inline.tsx',
   'app/crm/products/quantity-review/page.tsx',
   'app/crm/products/quantity-review/actions.ts',

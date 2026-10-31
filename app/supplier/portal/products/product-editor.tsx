@@ -35,7 +35,8 @@ import { ProductDescriptionEditor } from "@/components/products/product-descript
 import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
 import { QuantityPricingInline } from "@/components/products/quantity-pricing-inline";
 import { QuantityBuyerPreview, QuantityPricingEditor } from "@/components/products/quantity-pricing-editor";
-import { nameContainsGrade, validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
+import { BuyerPreviewDialog } from "@/components/products/buyer-preview-dialog";
+import { draftPublicQuantityOffer, nameContainsGrade, validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { productCompleteness } from "@/lib/products/completeness";
@@ -65,6 +66,8 @@ type EditorProps = {
   /** Nhóm hàng đã đăng ký chỉ dùng để cảnh báo, không giới hạn lựa chọn. */
   categoryScope?: string[];
   supplier: Supplier;
+  /** Chứng nhận Vexim đã duyệt gắn cho sản phẩm — bản xem trước hiện đúng những gì người mua thấy. */
+  certificates?: Array<{ id: string; name: string; valid_until?: string | null }>;
   /** Trang có thể mở thẳng một bước bằng `?step=2` (sau khi tạo sản phẩm mới). */
   initialStep?: Step;
 };
@@ -205,7 +208,7 @@ function firstInvalidField(form: HTMLFormElement | null): HTMLElement | null {
  * Hành vi giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], bankMedia = [], userId, categories, categoryScope = [], supplier, initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], bankMedia = [], userId, categories, categoryScope = [], supplier, certificates = [], initialStep = 1 }: EditorProps) {
   const router = useRouter();
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
@@ -241,6 +244,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   );
   const [submitHint, setSubmitHint] = useState<string[] | null>(null);
   const [sent, setSent] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   // Mốc "đã lưu": gieo một lần sau khi mount, cập nhật sau mỗi lần lưu thành công.
   // dirty suy ra từ snapshot so với mốc nên sự kiện change ảo không thể làm cờ kẹt true.
   const [baseline, setBaseline] = useState<Record<string, string> | null>(null);
@@ -838,6 +842,37 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       default: return false;
     }
   }
+
+  /**
+   * Nội dung của bản xem trước: đúng thứ người mua thấy trên trang công khai.
+   * Nhãn tiếng Anh vì trang sản phẩm công khai viết cho người mua nước ngoài; giá trị
+   * là nội dung nhà cung cấp đang nhập, không suy đoán thêm gì.
+   */
+  const buyerPreviewNameEn = (quantityPreview?.nameEn ?? "").trim();
+  const buyerPreviewLeadTime = leadTimeUnit === "on_request" || !leadTimeValue.trim()
+    ? "On request"
+    : leadTimeUnit === "weeks" ? `${leadTimeValue.trim()} weeks` : `${leadTimeValue.trim()} days`;
+  const packageWeight = (snapshot.package_weight_kg ?? "").trim();
+  const buyerPreviewDetails = [
+    { label: "Specification", value: (snapshot.spec ?? "").trim() },
+    // Trang công khai chỉ đọc thông số của danh mục, không hiện thông số nhà cung cấp tự thêm.
+    ...nonGradeProductFields(fieldsFor(activeCategory)).map((field) => ({
+      label: field.label,
+      value: String(snapshot[`attribute:${field.key}`] ?? product?.specs?.[field.key] ?? "").trim(),
+    })),
+    { label: "Monthly capacity", value: (snapshot.monthly_capacity ?? "").trim() },
+    { label: "Payment terms", value: (snapshot.payment_terms ?? "").trim() },
+  ].filter((row) => row.value);
+  const buyerPreviewShipping = [
+    { label: "Packaging", value: (snapshot.packaging ?? "").trim() },
+    { label: "Package type", value: (snapshot.package_type ?? "").trim() },
+    { label: "Weight per package", value: packageWeight ? `${packageWeight} kg` : "" },
+    { label: "Package size", value: (snapshot.package_size ?? "").trim() },
+    { label: "Units per carton", value: (snapshot.units_per_carton ?? "").trim() },
+    { label: "Lead time", value: buyerPreviewLeadTime === "On request" ? "" : buyerPreviewLeadTime },
+    { label: "Export port", value: (snapshot.export_port ?? "").trim() },
+  ].filter((row) => row.value);
+  const buyerPreviewPriceVisible = (snapshot.price_publicly_visible ?? "") === "yes";
 
   return <div className="mt-3 rounded-xl bg-[#f6f7f9] p-3 sm:p-4">
     <div className="mx-auto grid max-w-[1240px] items-start gap-3.5 lg:grid-cols-[216px_minmax(0,1fr)_304px]">
@@ -1509,7 +1544,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           </span>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <button type="button" onClick={() => scrollToSection("sec-review")}
+            {/* Mở bản xem trước đúng những gì người mua thấy; không rời trang nên giữ nguyên phần đang nhập. */}
+            <button type="button" onClick={() => setPreviewOpen(true)} aria-haspopup="dialog"
               className="inline-flex items-center gap-1.5 rounded-md border border-ink-300 bg-white px-3 py-1.5 text-[12.5px] font-bold text-ink-800 hover:bg-ink-50">
               <Eye className="size-3.5" aria-hidden="true" /> Xem trước
             </button>
@@ -1646,6 +1682,33 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       <button type="button" onClick={() => setToast(null)} aria-label="Đóng thông báo"
         className="shrink-0 rounded p-0.5 opacity-60 transition hover:opacity-100"><X className="size-4" aria-hidden="true" /></button>
     </div>}
+
+    {/* Bản xem trước: dùng chính component của trang người mua, dựng từ nội dung đang nhập. */}
+    {previewOpen && <BuyerPreviewDialog open onClose={() => setPreviewOpen(false)} data={{
+      title: buyerPreviewNameEn || (snapshot.name ?? "").trim(),
+      hasEnglishTitle: !!buyerPreviewNameEn,
+      categoryLabel: activeCategory?.label ?? "Chưa chọn danh mục",
+      description: (snapshot.description ?? "").trim(),
+      detail: snapshot.description_detail ?? "",
+      images: imageSlots.filter((asset): asset is MediaAsset => !!asset)
+        .map((asset) => privateMediaUrl(asset)).filter((url): url is string => !!url),
+      offer: quantityPreview ? draftPublicQuantityOffer(quantityPreview, {
+        priceUnit: quantityEditor?.buyerPriceUnit ?? newBuyerUnit,
+        pricePubliclyVisible: buyerPreviewPriceVisible,
+        standardGrades: quantityEditor?.standardGrades ?? newGrades,
+        englishName: buyerPreviewNameEn,
+      }) : null,
+      pricePubliclyVisible: buyerPreviewPriceVisible,
+      trade: { oem: snapshot.oem === "yes", odm: snapshot.odm === "yes", samples: snapshot.samples === "yes" },
+      details: buyerPreviewDetails,
+      shipping: buyerPreviewShipping,
+      certificates: certificates.map((certificate) => ({
+        id: certificate.id, name: certificate.name, validUntil: certificate.valid_until ?? null,
+      })),
+      supplierName: supplier.display_name || supplier.trade_name || supplier.name,
+      supplierProvince: supplier.province ?? "",
+      dirty,
+    }} />}
   </div>;
 }
 

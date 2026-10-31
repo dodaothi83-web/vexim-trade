@@ -82,7 +82,14 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/products/grade-pricing': gradePricing,
   '@/lib/products/completeness': completenessExports,
   '@/lib/public/price-units': priceUnits,
-  '@/lib/products/quantity-pricing': { validateQuantityPricing: () => ({ value: null, errors: [], warnings: [] }) },
+  '@/lib/products/quantity-pricing': {
+    validateQuantityPricing: () => ({ value: null, errors: [], warnings: [] }),
+    draftPublicQuantityOffer: () => null,
+    nameContainsGrade: () => false,
+  },
+  '@/components/products/buyer-preview-dialog': {
+    BuyerPreviewDialog: (props) => React.createElement('div', { 'data-buyer-page-preview': '1' }, props.data.title),
+  },
   '@/components/products/grade-pricing-table': gradePricingTable,
   '@/components/products/quantity-pricing-inline': { QuantityPricingInline: (props) => React.createElement('div', { 'data-quantity-editor': '1', 'data-sidebar-preview': String(!!props.onPreviewChange) }) },
   '@/components/products/quantity-pricing-editor': { QuantityBuyerPreview: (props) => React.createElement('div', { 'data-buyer-preview': '1' }, props.value.nameEn), QuantityPricingEditor: () => React.createElement('div', { 'data-new-quantity': '1' }) },
@@ -229,6 +236,21 @@ for (const hint of ['requestSubmit', 'scrollToSection("sec-media")', 'scrollToSe
   assert.ok(source.includes(hint), `Thiếu gì thì đưa tới đúng khối: ${hint}`);
 }
 assert.match(page, /Đã gửi duyệt|Gửi duyệt/, 'Có nhãn gửi duyệt');
+// Nút Xem trước phải mở bản xem trước thật, không chỉ cuộn trang.
+assert.match(source, /onClick=\{\(\) => setPreviewOpen\(true\)\}/, 'Nút Xem trước mở hộp xem trước');
+assert.match(source, /aria-haspopup="dialog"/, 'Nút Xem trước báo trước là mở hộp thoại');
+assert.doesNotMatch(source, /onClick=\{\(\) => scrollToSection\("sec-review"\)\}/, 'Nút Xem trước không còn chỉ cuộn tới mục 8');
+assert.match(source, /\{previewOpen && <BuyerPreviewDialog open onClose=/, 'Hộp xem trước được dựng từ component dùng chung');
+const dialog = read('../components/products/buyer-preview-dialog.tsx');
+assert.match(dialog, /role="dialog" aria-modal="true"/, 'Hộp xem trước có ngữ nghĩa hộp thoại');
+assert.match(dialog, /event\.key === "Escape"/, 'Đóng được bằng Escape');
+assert.match(dialog, /Đóng bản xem trước/, 'Có nút đóng có nhãn đọc được');
+assert.match(dialog, /<QuantityPriceTable offer=\{data\.offer\}/, 'Bảng giá dùng đúng component của trang người mua');
+assert.match(dialog, /<ProductTradeLabels oem=/, 'Nhãn OEM/ODM/mẫu giống trang người mua');
+assert.match(dialog, /Bản xem trước/);
+assert.match(source, /certificates: certificates\.map\(\(certificate\) => \(\{/, 'Bản xem trước nhận chứng nhận đã duyệt từ trang sản phẩm');
+assert.match(read('../app/supplier/portal/products/[id]/page.tsx'), /certificates=\{approvedCertificates\}/,
+  'Trang sản phẩm truyền chứng nhận đã duyệt vào bản xem trước');
 assert.doesNotMatch(source, /Trở về bước|Sang bước|Tiếp tục/, 'Không còn nút chuyển bước');
 
 // 5. Độ hoàn thiện: chỉ đọc, gợi ý theo mục chứ không theo bước.

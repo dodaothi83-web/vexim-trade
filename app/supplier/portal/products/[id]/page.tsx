@@ -62,6 +62,10 @@ export default async function OwnProductPage({ params, searchParams }: { params:
     console.error("[quantity-pricing] supplier editor", error);
     return null;
   });
+  // Bản xem trước người mua chỉ hiện chứng nhận Vexim đã duyệt gắn cho sản phẩm này.
+  const approvedCertificates = certificateOptions
+    .filter((certificate) => certificate.state === "approved")
+    .map((certificate) => ({ id: certificate.id, name: certificate.name, valid_until: certificate.valid_until ?? null }));
   return <>
     <PageHeader
       eyebrow="Cổng nhà cung cấp · riêng tư"
@@ -72,7 +76,8 @@ export default async function OwnProductPage({ params, searchParams }: { params:
     {process.env.VEXIM_QUANTITY_PRICING_PREVIEW === "true" && <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
       <Link href={`/supplier/portal/products/${id}/quantity-pricing`} className="font-semibold underline">Mở trang thử nghiệm giá theo số lượng</Link>. Trang thử nghiệm chưa thay đổi thông tin buyer đang thấy.
     </p>}
-    <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options} categoryScope={categoryScope} supplier={access.supplier} initialStep={step} />
+    <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options}
+      categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} initialStep={step} />
     <ProductCertificatesForm productId={id} certificates={certificateOptions} />
   </>;
 }

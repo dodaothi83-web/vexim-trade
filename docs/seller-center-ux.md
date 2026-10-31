@@ -227,8 +227,13 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   Thời gian giao hàng, Vận chuyển (cảng xuất + địa điểm Incoterm), Điều kiện thanh toán kèm chip gợi ý.
 - **Khối 08**: danh sách kiểm tra từng dòng (biểu tượng đạt/chưa đạt + hành động `Lưu ngay` / `Đi tới mục N` / `Sửa`);
   phần đọc lại chi tiết gấp trong "Xem lại nội dung đã nhập" để trang không dài thêm.
-- **Dải đỏ trên cùng**: `N mục cần sửa trước khi gửi duyệt:` kèm đích danh từng mục, thay cho câu nhắc chung.
 - **Thanh đáy**: Hủy + đèn trạng thái · `Xem trước` · `Lưu nháp` · `Gửi duyệt`.
+- **`Xem trước` mở bản xem trước người mua** (31/10/2026): hộp thoại dựng từ nội dung đang nhập, dùng chính
+  component của trang công khai (`QuantityPriceTable`, `ProductTradeLabels`, `ProductDescriptionPreview`) nên bảng giá,
+  nhãn OEM/ODM/mẫu và mô tả hiện đúng như người mua thấy. Bảng giá dựng bằng `draftPublicQuantityOffer`
+  (`lib/products/quantity-pricing.ts`) — cùng cách ghi đơn vị, số lẻ và khoảng giá với bản đã duyệt; chưa có grade hoặc
+  chưa có dòng giá thì người mua thấy `Price on request`, bản xem trước cũng vậy. Chứng nhận chỉ hiện những cái Vexim
+  đã duyệt gắn. Không rời trang nên phần đang nhập còn nguyên; có ghi chú khi còn thay đổi chưa lưu.
 - **Cột phải**: Điểm chất lượng (vòng điểm + mức Thấp/Trung bình/Cao, chỉ để nhắc) · Việc cần làm tiếp kèm `+N` ·
   thẻ Người mua sẽ thấy · Ví dụ điền mẫu (gấp) · Luồng duyệt · Danh sách sản phẩm.
 - Không đổi dữ liệu, cổng duyệt, quyền hay luồng lưu; mọi guard hành vi giữ nguyên.
