@@ -55,7 +55,7 @@ export async function requestProductCertificatesAction(form: FormData): Promise<
     return {
       ok: true,
       message: expired
-        ? "Chứng nhận đã hết hạn nên chưa gắn được. Cập nhật giấy mới ở mục Giấy tờ rồi thử lại."
+        ? "Giấy đã hết hạn nên chưa xin mở rộng được. Tải bản gia hạn ở mục Giấy tờ rồi thử lại."
         : "Danh sách chứng nhận không thay đổi.",
     };
   }
@@ -64,8 +64,8 @@ export async function requestProductCertificatesAction(form: FormData): Promise<
   return {
     ok: true,
     message: expired
-      ? `Đã gửi ${changed} chứng nhận để Vexim duyệt gắn. ${expired} chứng nhận hết hạn nên bỏ qua.`
-      : `Đã gửi ${changed} chứng nhận để Vexim duyệt gắn. Vexim phản hồi trong 24 giờ.`,
+      ? `Đã gửi yêu cầu mở rộng phạm vi cho ${changed} giấy. ${expired} giấy hết hạn nên bỏ qua.`
+      : `Đã gửi yêu cầu mở rộng phạm vi cho ${changed} giấy. Nhân viên xem và cập nhật sau khi đối chiếu.`,
   };
 }
 

@@ -952,7 +952,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 </div>
                 {categoryLocked && <p className="mt-1 text-[11.5px] text-ink-500">Danh mục đã được chốt khi duyệt.</p>}
                 {selectedCategory && (certificateInheritance[selectedCategory] ?? []).length > 0 && <div className="mt-2 rounded-lg border border-teal-200 bg-teal-50/60 px-3 py-2">
-                  <p className="text-[11px] font-bold tracking-wider text-teal-900 uppercase">Chứng nhận áp dụng</p>
+                  <p className="text-[11px] font-bold tracking-wider text-teal-900 uppercase">Chứng nhận theo danh mục</p>
                   <ul className="mt-1 space-y-0.5">
                     {(certificateInheritance[selectedCategory] ?? []).map((certificate) => (
                       <li key={certificate.id} className="flex items-start gap-1.5 text-[12px] text-ink-800">
@@ -966,8 +966,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     ))}
                   </ul>
                   <p className="mt-1 text-[11px] leading-4 text-ink-600">
-                    Danh mục này đã có giấy được duyệt nên sản phẩm tự nhận.
-                    Bỏ tick giấy không đúng ở trang sản phẩm sau khi lưu nháp.
+                    Danh mục này đã có giấy được duyệt nên sản phẩm tự nhận sau khi lưu.
+                    Bỏ tick giấy không đúng ở mục Chứng nhận áp dụng của trang sản phẩm.
                   </p>
                 </div>}
                 {!categoryLocked && selectedCategory && categoryScope.length > 0 && !categoryScope.includes(selectedCategory) &&

@@ -18,6 +18,8 @@ export interface ProductCertificateOption {
   /** Loại giấy người mua thấy (HACCP, Halal…), null khi chưa phân loại. */
   schemeLabel?: string | null;
   state: "approved" | "requested" | "none";
+  /** Đã có bản gia hạn mới hơn: không gia hạn lại. */
+  superseded?: boolean;
   /** Giấy chất lượng đã xếp loại: gắn phạm vi được. */
   scopeable?: boolean;
   /** Phạm vi gắn thẳng sản phẩm này (nhân viên đã xác nhận). */
@@ -67,8 +69,8 @@ export function ProductCertificatesForm({
     ? (partnerContractApproved
       ? { blocked: false, text: partnerFactoryName
         ? `Giấy phải đứng tên nhà máy đối tác: ${partnerFactoryName}.`
-        : "Giấy đứng tên nhà máy đối tác sẽ được đối chiếu hợp đồng L2 trước khi đăng." }
-      : { blocked: true, text: "Chưa xác thực L2 nhà máy đối tác: giấy đứng tên nhà máy khác chưa dùng được." })
+        : "Giấy đứng tên nhà máy đối tác sẽ được đối chiếu hợp đồng trước khi đăng." }
+      : { blocked: true, text: "Chưa xác thực nhà máy đối tác: giấy đứng tên nhà máy khác chưa dùng được." })
     : supplierType === "manufacturer" || supplierType === "cooperative"
       ? { blocked: false, text: "Chứng nhận phải đứng tên nhà máy của bạn." }
       : null;
@@ -85,7 +87,8 @@ export function ProductCertificatesForm({
   const quality = all.filter((certificate) => certificate.scopeable !== false && (certificate.scopeable || certificate.applies));
   const applied = quality.filter((certificate) => certificate.applies || certificate.directScope || certificate.optedOut);
   const outside = quality.filter((certificate) => !certificate.applies && !certificate.optedOut && !certificate.directScope);
-  const others = all.filter((certificate) => !quality.includes(certificate));
+  const pendingUploads = all.filter((certificate) => justUploaded.some((item) => item.id === certificate.id));
+  const others = all.filter((certificate) => !quality.includes(certificate) && !pendingUploads.includes(certificate));
 
   async function onUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -113,7 +116,7 @@ export function ProductCertificatesForm({
         ]);
         setUploadMessage({
           ok: true,
-          text: payload.message ?? "Đã tải chứng nhận. Vexim phân loại và xác nhận phạm vi trước khi hiện cho người mua.",
+          text: payload.message ?? "Đã nhận chứng nhận. Nhân viên phân loại và chọn phạm vi trước khi hiện cho người mua.",
         });
         element.reset();
       } else {
@@ -131,8 +134,8 @@ export function ProductCertificatesForm({
       <h2 className="text-[15px] font-black text-ink-900">Chứng nhận áp dụng</h2>
       <p className="mt-1 text-[12.5px] leading-5 text-ink-600">
         {holderRule?.blocked
-          ? "Chứng nhận của nhà máy đối tác cần xác thực L2 trước khi gắn vào sản phẩm."
-          : "Giấy đã được Vexim duyệt cho danh mục này tự áp cho sản phẩm. Bỏ tick giấy không đúng với sản phẩm."}
+          ? "Chứng nhận của nhà máy đối tác cần xác thực nhà máy trước khi gắn vào sản phẩm."
+          : "Giấy đã duyệt cho danh mục này tự áp cho sản phẩm. Bỏ tick giấy không đúng với sản phẩm."}
       </p>
 
       {applied.length > 0 && <form action={optAction} className="mt-3 space-y-2">
@@ -157,10 +160,10 @@ export function ProductCertificatesForm({
                 </span>
                 <span id={`cert-${certificate.id}-note`} className="mt-0.5 block text-[11.5px] leading-4 text-ink-500">
                   {certificate.directScope
-                    ? "Vexim đã xác nhận riêng cho sản phẩm này."
+                    ? "Nhân viên đã xác nhận riêng cho sản phẩm này."
                     : certificate.inheritedFrom
-                      ? `Thừa hưởng từ danh mục ${certificate.inheritedFrom}.`
-                      : "Vexim đã xác nhận phạm vi cho sản phẩm này."}
+                      ? `Áp theo danh mục ${certificate.inheritedFrom}.`
+                      : "Nhân viên đã xác nhận phạm vi cho sản phẩm này."}
                   {certificate.expired ? " Giấy đã hết hạn nên tạm không áp dụng." : ""}
                 </span>
               </span>
@@ -176,7 +179,7 @@ export function ProductCertificatesForm({
       </form>}
 
       {applied.length === 0 && <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[12.5px] text-ink-700">
-        Sản phẩm chưa có chứng nhận chất lượng nào áp dụng. Tải giấy bên dưới; Vexim phân loại và gán phạm vi sau khi duyệt.
+        Sản phẩm chưa có chứng nhận chất lượng nào áp dụng. Tải giấy bên dưới; nhân viên phân loại và chọn phạm vi sau khi duyệt.
       </p>}
 
       {outside.length > 0 && <div className="mt-4 space-y-1.5">
@@ -184,7 +187,7 @@ export function ProductCertificatesForm({
         {outside.slice(0, 8).map((certificate) => <div key={certificate.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-ink-200 bg-ink-50/40 px-3 py-2 text-[12.5px] text-ink-500">
           <span className="font-semibold">{certificate.name}</span>
           {certificate.schemeLabel && <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-600 ring-1 ring-ink-200">{certificate.schemeLabel}</span>}
-          <span>Chưa áp dụng cho danh mục này.</span>
+          <span>{certificate.expired ? "Giấy đã hết hạn nên chưa áp dụng cho danh mục này." : "Chưa áp dụng cho danh mục này."}</span>
           <form action={action} className="ml-auto">
             <input type="hidden" name="product_id" value={productId} />
             <input type="hidden" name="certificate_ids" value={certificate.id} />
@@ -200,8 +203,16 @@ export function ProductCertificatesForm({
         {result.message}
       </p>}
 
+      {pendingUploads.length > 0 && <div className="mt-4 space-y-1.5">
+        {pendingUploads.map((certificate) => <p key={certificate.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+          <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
+          <span className="font-semibold">{certificate.name}</span>
+          <span>vừa tải lên, chờ nhân viên đối chiếu và chọn phạm vi áp dụng.</span>
+        </p>)}
+      </div>}
+
       {others.length > 0 && <p className="mt-4 rounded-lg bg-ink-50 px-3 py-2 text-[11.5px] leading-4 text-ink-600">
-        {others.length} giấy khác trên hồ sơ (giấy pháp lý, giấy theo lô hoặc chưa phân loại) không gắn vào sản phẩm.
+        {others.length} giấy khác trên hồ sơ không gắn vào sản phẩm này (giấy pháp lý, giấy theo lô hoặc chờ phân loại).
         {others.slice(0, 3).map((certificate) => ` ${certificateLabel(certificate)}`).join(" ·")}
       </p>}
 
@@ -210,27 +221,38 @@ export function ProductCertificatesForm({
           <Lock className="size-3.5" aria-hidden="true" /> Chưa tải chứng nhận được
         </p>
         <p className="mt-1 text-[12px] leading-5 text-amber-900">{holderRule.text}</p>
-        <p className="mt-1 text-[11.5px] leading-4 text-amber-900">Hoàn tất xác thực nhà máy đối tác ở mục Xác thực nhà máy, bước 2.</p>
+        <p className="mt-1 text-[11.5px] leading-4 text-amber-900">Hoàn tất xác thực nhà máy đối tác ở mục Xác thực nhà máy.</p>
         <p className="mt-1 text-[11.5px] leading-4 text-amber-900">Sản phẩm vẫn lưu, gửi duyệt và đăng bán bình thường.</p>
       </div>}
 
       {!holderRule?.blocked && <form onSubmit={onUpload} className="mt-4 grid gap-3 rounded-lg border border-brand-200 bg-brand-50/50 p-3.5 sm:grid-cols-3">
         <div className="sm:col-span-3">
-          <p className="text-[11px] font-bold tracking-wider text-brand-900 uppercase">Tải lên hoặc gia hạn</p>
+          <p className="text-[11px] font-bold tracking-wider text-brand-900 uppercase">Tải lên hoặc gia hạn chứng nhận</p>
           <p className="mt-0.5 text-[11.5px] leading-4 text-ink-600">
-            Chỉ cần tệp: hệ thống đọc tên đơn vị và ngày hết hạn. Vexim phân loại loại giấy, phạm vi và công khai.
+            Chỉ cần tải tệp. Nhân viên phân loại loại giấy và chọn phạm vi danh mục trước khi hiện cho người mua.
           </p>
           {holderRule && <p className="mt-1 text-[11.5px] leading-4 text-ink-600">{holderRule.text}</p>}
         </div>
+        <label className="block text-[12px] sm:col-span-1">
+          <span className="mb-1 block font-semibold text-ink-800">Gia hạn giấy đã có (tùy chọn)</span>
+          <select name="certificate_id" className="input text-sm" defaultValue="">
+            <option value="">+ Giấy mới</option>
+            {all.filter((certificate) => !certificate.superseded).map((certificate) => (
+              <option key={certificate.id} value={certificate.id}>
+                Gia hạn: {certificate.name}{certificate.valid_until ? ` (hạn ${certificate.valid_until})` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="block text-[12px] sm:col-span-2">
           <span className="mb-1 block font-semibold text-ink-800">Tên trên giấy (không bắt buộc)</span>
           <input name="label" type="text" maxLength={140} placeholder="VD: ISO 22000:2018" className="input text-sm" />
         </label>
-        <div className="block sm:col-span-1">
+        <div className="block sm:col-span-2">
           <FilePicker name="file" accept=".pdf,image/jpeg,image/png,image/webp" required busy={uploadBusy}
-            compact title="Tệp PDF hoặc ảnh" hint="Tối đa 15 MB." />
+            compact title="Tệp PDF hoặc ảnh" hint="Tối đa 15 MB. Tệp chỉ hiện với người mua sau khi được duyệt." />
         </div>
-        <div className="flex items-end sm:col-span-3">
+        <div className="flex items-end sm:col-span-1">
           <button type="submit" disabled={uploadBusy} className="btn btn-primary btn-sm">
             {uploadBusy ? "Đang tải lên…" : "Tải lên"}
           </button>

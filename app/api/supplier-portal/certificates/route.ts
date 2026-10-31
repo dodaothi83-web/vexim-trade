@@ -8,7 +8,6 @@ import { validateUpload, extensionFor } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import {
   defaultCertificateLabelForKey,
-  holderMatchBadgeLabel,
   ingestCertificateScan,
   isL1CertificateKey,
 } from "@/lib/certificate-service";
@@ -24,12 +23,13 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * NCC tải giấy chứng nhận trong luồng L1: chỉ cần tệp PDF/ảnh (+ nhãn hoặc mã chứng nhận cần cập nhật lại).
- * AI tự quét đơn vị đứng tên (chính chủ hay đối tác) và ngày hết hạn để hiển thị lên trang công khai.
+ * Hệ thống đọc đơn vị đứng tên (chính chủ hay đối tác) và ngày hết hạn; nhân viên vẫn là
+ * người duyệt và chọn phạm vi trước khi giấy hiện với người mua.
  */
 export async function POST(request: Request) {
   const access = await supplierPortalAccess();
   if (!access || !portalApproved(access.supplier)) {
-    return fail("Tài khoản nhà cung cấp chưa được Vexim xác nhận.", 403);
+    return fail("Tài khoản nhà cung cấp chưa được xác nhận.", 403);
   }
   if (Number(request.headers.get("content-length") ?? 0) > 16 * 1024 * 1024) {
     return fail("Tệp vượt quá 15 MB.", 413);
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const scope = approvedL2Scope(access.reviews);
     if (scope !== "partner_contract" && scope !== "both") {
       return fail(
-        "Đơn vị thương mại cần xác thực L2 nhà máy đối tác trước khi tải chứng nhận. Sản phẩm vẫn đăng bán bình thường.",
+        "Đơn vị thương mại cần xác thực nhà máy đối tác trước khi tải chứng nhận. Sản phẩm vẫn đăng bán bình thường.",
         403,
       );
     }
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
     });
     mediaId = media.id;
 
-    const { certificate, decision } = await ingestCertificateScan({
+    const { certificate } = await ingestCertificateScan({
       supplier: currentSupplier,
       mediaId: media.id,
       bytes,
@@ -145,10 +145,9 @@ export async function POST(request: Request) {
       revalidatePath(`/suppliers/${currentSupplier.slug}`);
     }
 
-    const holderBadge = holderMatchBadgeLabel(certificate.holder_match, certificate.holder_name);
-    const message = decision.autoPublish
-      ? `AI đã quét “${certificate.name}”: ${holderBadge} · hết hạn ${certificate.valid_until}. Đã tự động hiển thị trên hồ sơ.`
-      : `Đã lưu “${certificate.name}”. ${decision.review_note}`;
+    /* Cùng một câu cho mọi trường hợp: giấy vào hồ sơ, còn lên sản phẩm hay không là do
+     * nhân viên chọn phạm vi — không hứa "đã hiển thị" khi sản phẩm chưa có phạm vi. */
+    const message = `Đã nhận “${certificate.name}”. Nhân viên đối chiếu và chọn phạm vi áp dụng trước khi giấy lên sản phẩm.`;
 
     return NextResponse.json({
       ok: true,

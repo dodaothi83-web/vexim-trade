@@ -11,6 +11,7 @@ import { L1_DOC_ITEMS } from "@/lib/types";
 import { daysUntilExpiry } from "@/lib/certificate-service";
 import { deriveL1Rows } from "@/lib/certificate-l1";
 import { certificateSchemeLabel, isCertificateChipScheme } from "@/lib/certificate-scheme";
+import { supplierCertificateNote } from "@/lib/certificate-supplier-copy";
 import { t } from "@/lib/public/i18n";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { L1DocUpload } from "../l1-doc-upload";
@@ -33,7 +34,7 @@ export const metadata = { title: "Giấy tờ & chứng nhận L1", robots: { in
 const GUIDE = [
   { title: "Chuẩn bị giấy tờ", body: "Bản chụp hoặc PDF còn hiệu lực. Tên trên giấy phải khớp tên doanh nghiệp đã khai." },
   { title: "Tải từng mục", body: "Tải tệp ngay trong thẻ của từng giấy tờ, tối đa 15 MB mỗi tệp. Tệp mới thay bản cũ của chính bạn." },
-  { title: "Đối chiếu thủ công", body: "AI chỉ đọc đơn vị đứng tên và ngày hết hạn. Kết quả L1 do người có quyền duyệt quyết định." },
+  { title: "Đối chiếu thủ công", body: "Nhân viên đối chiếu đơn vị đứng tên và ngày hết hạn. Kết quả L1 do người có quyền duyệt quyết định." },
 ] as const;
 
 /** Ngày tải tệp, đọc nhanh trong thẻ. */
@@ -115,7 +116,8 @@ export default async function SupplierDocumentsPage() {
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · Xác minh L1" title="Giấy tờ & chứng nhận L1"
-      sub="Đăng ký doanh nghiệp và giấy an toàn thực phẩm do nhân viên đối chiếu. Chứng nhận được AI đọc tên đơn vị và hạn dùng."
+      sub={"Đăng ký doanh nghiệp và giấy an toàn thực phẩm do nhân viên đối chiếu. "
+        + "Chứng nhận đối chiếu xong mới hiện cho người mua."}
       actions={<Link href="/supplier/portal" className="btn btn-ghost btn-sm">
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />Tổng quan
       </Link>} />
@@ -251,10 +253,10 @@ export default async function SupplierDocumentsPage() {
                       // Đợt đã khóa vẫn giữ nguyên khung tải tệp (mờ đi) thay vì một dòng
                       // chữ nhỏ: nhà cung cấp thấy ngay ô tải ở đâu và vì sao chưa dùng được.
                       : <FilePicker compact disabled accept=".pdf,image/jpeg,image/png,image/webp"
-                        title={l1Approved ? "Đã đối chiếu xong" : l1Submitted ? "Đang chờ Vexim đối chiếu" : "Chưa mở được ô tải"}
+                        title={l1Approved ? "Đã đối chiếu xong" : l1Submitted ? "Đang chờ nhân viên đối chiếu" : "Chưa mở được ô tải"}
                         hint={l1Approved ? "Đã đối chiếu xong. Tải chứng nhận mới ở khối bên dưới nếu cần."
                           : l1Submitted ? "Ô tải mở lại khi hồ sơ được yêu cầu bổ sung."
-                            : "Cần Vexim xác nhận tài khoản trước khi tải giấy tờ."} />}
+                            : "Cần nhân viên xác nhận tài khoản trước khi tải giấy tờ."} />}
                   </div>
                 </div>
               </article>;
@@ -262,7 +264,7 @@ export default async function SupplierDocumentsPage() {
           </div>
         </section>
 
-        {/* Chứng nhận ngành hàng: AI đọc đơn vị đứng tên và ngày hết hạn, người duyệt vẫn là người quyết định. */}
+        {/* Chứng nhận ngành hàng: nhân viên đối chiếu đơn vị đứng tên và ngày hết hạn trước khi công khai. */}
         <section id="chung-nhan" style={{ scrollMarginTop: "5rem" }} aria-labelledby="certs-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
@@ -271,7 +273,7 @@ export default async function SupplierDocumentsPage() {
                 <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{certificates.length}</span>
               </h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
-                AI đọc đơn vị đứng tên (chính chủ hay đối tác) và ngày hết hạn; hệ thống nhắc trước 60 / 30 / 7 / 1 ngày.
+                Nhân viên đối chiếu đơn vị đứng tên và ngày hết hạn; hệ thống nhắc trước 60 / 30 / 7 / 1 ngày.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-[10.5px] font-bold text-ink-700">{liveCerts.length} đang hiển thị</span>
@@ -280,41 +282,34 @@ export default async function SupplierDocumentsPage() {
           {certificates.length ? <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {certificates.map((c) => {
               const left = daysUntilExpiry(c.valid_until);
-              const live = Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden && left !== null && left >= 0 && (c.holder_match === "owner" || c.holder_match === "partner"));
               return <article key={c.id} className="flex flex-col gap-1.5 rounded-xl border border-ink-200 bg-white p-3 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <h4 className="min-w-0 text-[13px] leading-4 font-bold text-ink-900">
-                    {c.name}{c.number ? <span className="font-semibold text-ink-500"> · #{c.number}</span> : null}
-                  </h4>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${c.staff_hidden ? "bg-rose-100 text-rose-800" : live ? "bg-emerald-100 text-emerald-800" : "bg-ink-100 text-ink-700"}`}>
-                    {c.staff_hidden ? "Đang tạm ẩn" : live ? "Đang hiển thị" : "Chưa công khai"}
-                  </span>
-                </div>
+                <h4 className="min-w-0 text-[13px] leading-4 font-bold text-ink-900">
+                  {c.name}{c.number ? <span className="font-semibold text-ink-500"> · #{c.number}</span> : null}
+                </h4>
                 <p className="text-[10.5px] leading-4 text-ink-600">
                   {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` (${c.holder_name})` : ""}`
-                    : c.holder_match === "partner" ? `Đối tác: ${c.holder_name || "-"}`
+                    : c.holder_match === "partner" ? `Đơn vị đối tác: ${c.holder_name || "-"}`
                       : "Chưa rõ đơn vị đứng tên"}
                 </p>
                 <p className="flex flex-wrap items-center gap-1 text-[10.5px] leading-4 text-ink-600">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${c.certificate_scheme ? "bg-teal-50 text-teal-800 ring-1 ring-teal-200" : "bg-amber-50 text-amber-900 ring-1 ring-amber-200"}`}>
-                    {certificateSchemeLabel(c.certificate_scheme ?? null, "vi") ?? "Chờ Vexim phân loại"}
+                    {certificateSchemeLabel(c.certificate_scheme ?? null, "vi") ?? "Chờ phân loại"}
                   </span>
                   {certificateScopes.filter((scope) => scope.certificate_id === c.id).map((scope) => (
                     <span key={scope.id} className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-700">
                       {scopeLabelFor(scope)}
                     </span>
                   ))}
-                  {c.superseded_by_certificate_id && <span className="text-ink-500">Đã có bản mới hơn</span>}
                   {c.supersedes_certificate_id && <span className="text-ink-500">Bản gia hạn</span>}
                 </p>
                 <span className={`self-start rounded-full px-2 py-0.5 text-[10px] font-semibold ${left === null ? "bg-ink-100 text-ink-700" : left < 0 ? "bg-rose-100 text-rose-800" : left <= 60 ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-800"}`}>
-                  {c.valid_until ? `Hết hạn ${c.valid_until}${left !== null ? ` · còn ${left} ngày` : ""}` : "Chưa đọc được ngày hết hạn"}
+                  {c.valid_until ? `Hết hạn ${c.valid_until}${left !== null ? ` · còn ${left} ngày` : ""}` : "Chưa ghi ngày hết hạn"}
                 </span>
-                {(c.review_note || c.ai_summary) && <p className="text-[10.5px] leading-4 text-ink-600">{c.review_note || c.ai_summary}</p>}
+                <p className="text-[10.5px] leading-4 text-ink-600">{supplierCertificateNote(c)}</p>
               </article>;
             })}
           </div> : <p className="mt-3 rounded-lg border border-dashed border-ink-300 bg-ink-50/50 px-3 py-6 text-center text-[11.5px] text-ink-500">
-            Chưa có chứng nhận nào trên hồ sơ. Tải PDF hoặc ảnh bên dưới để AI tự quét.
+            Chưa có chứng nhận nào trên hồ sơ. Tải PDF hoặc ảnh bên dưới để bắt đầu.
           </p>}
 
           <SupplierCertificateUpload certificates={certificates
@@ -326,7 +321,8 @@ export default async function SupplierDocumentsPage() {
         <section aria-labelledby="l1-table-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
           <h3 id="l1-table-title" className="text-[15px] font-bold text-ink-900">Giấy tờ L1 tính từ giấy đã duyệt</h3>
           <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
-            Mỗi giấy bạn tải lên được Vexim phân loại và tự vào đúng mục dưới đây. Không cần chọn mục khi tải.
+            {"Chứng nhận tải ở ô phía trên được phân loại và tự vào đúng mục dưới đây, "
+              + "không cần chọn mục khi tải. Giấy tờ doanh nghiệp vẫn tải trong thẻ của từng mục."}
           </p>
           <table className="mt-3 w-full text-left text-[11.5px]">
             <thead>

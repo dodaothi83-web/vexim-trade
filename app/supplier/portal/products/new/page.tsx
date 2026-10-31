@@ -19,7 +19,7 @@ export default async function NewSupplierProductPage() {
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
   const publishedCategories = await access.store.listCategories({ publishedOnly: true });
   const options = categoryProposalOptions(publishedCategories);
-  // Giấy đã duyệt cho danh mục: form hiện sẵn "Chứng nhận áp dụng" để nhà cung cấp biết
+  // Giấy đã duyệt cho danh mục: form hiện sẵn "Chứng nhận theo danh mục" để nhà cung cấp biết
   // sản phẩm sẽ tự nhận giấy nào, không phải chọn ngăn.
   const certificateInheritance = await certificateInheritanceByCategory(
     access.store, access.supplier.id, publishedCategories,

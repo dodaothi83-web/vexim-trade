@@ -173,10 +173,59 @@ const crmQueue = read("app/crm/certificates/page.tsx");
 assert.match(crmQueue, /Giấy chưa phân loại/, "CRM có hàng đợi giấy chưa phân loại");
 assert.match(crmQueue, /certificateSchemeLabel/, "hàng đợi hiện loại giấy");
 const editor = read("app/supplier/portal/products/product-editor.tsx");
-assert.match(editor, /Chứng nhận áp dụng/, "form thêm sản phẩm hiện khối chứng nhận áp dụng");
+assert.match(editor, /Chứng nhận theo danh mục/, "form thêm sản phẩm hiện khối chứng nhận theo danh mục");
+assert.match(editor, /mục Chứng nhận áp dụng của trang sản phẩm/, "chỉ sang khối bỏ tick ở trang sản phẩm");
+assert.doesNotMatch(read("app/supplier/portal/products/[id]/page.tsx"), /certificateInheritance=/,
+  "trang sửa sản phẩm không lặp lại khối giấy theo danh mục");
 assert.match(editor, /certificateInheritance/, "khối đó lấy từ giấy đã duyệt cho danh mục");
 assert.match(read("app/supplier/portal/products/new/page.tsx"), /certificateInheritanceByCategory/,
   "trang thêm sản phẩm nạp giấy thừa hưởng theo danh mục");
+/* 7. Câu chữ ở cổng nhà cung cấp: cùng một giọng, không mã bước nội bộ, không nói AI. */
+const documentsPage = read("app/supplier/portal/documents/page.tsx");
+const uploadBox = read("app/supplier/portal/certificate-upload.tsx");
+const portalCertForm = read("app/supplier/portal/products/product-certificates-form.tsx");
+const uploadRoute = read("app/api/supplier-portal/certificates/route.ts");
+/** Chuỗi tiếng Việt hiển thị trong file — bỏ qua chú thích và tên biến. */
+function visibleStrings(src) {
+  const vi = /[À-ỹ]/;
+  const out = [];
+  for (const match of src.matchAll(/"([^"\n]*)"|`([^`\n]*)`/g)) {
+    const text = match[1] ?? match[2] ?? "";
+    if (vi.test(text)) out.push(text);
+  }
+  return out;
+}
+for (const [name, src] of [
+  ["trang Giấy tờ", documentsPage],
+  ["ô tải ở trang Giấy tờ", uploadBox],
+  ["khối chứng nhận ở trang sản phẩm", portalCertForm],
+  ["API tải chứng nhận", uploadRoute],
+]) {
+  const showing = visibleStrings(src).filter((text) => /\bAI\b|\bL2\b/.test(text));
+  assert.deepEqual(showing, [], `${name}: câu nhà cung cấp đọc không nhắc AI hay mã bước nội bộ`);
+}
+assert.match(uploadBox, /Gia hạn giấy đã có \(tùy chọn\)/, "ô tải ở trang Giấy tờ có chọn gia hạn");
+assert.match(portalCertForm, /name="certificate_id"/, "ô tải ở trang sản phẩm gia hạn được ngay tại chỗ");
+assert.match(portalCertForm, /Gia hạn giấy đã có \(tùy chọn\)/, "hai ô tải dùng cùng nhãn gia hạn");
+assert.match(uploadBox, /Tên trên giấy \(không bắt buộc\)/, "ô tải gọi đúng tên trường nhập");
+assert.match(portalCertForm, /Tên trên giấy \(không bắt buộc\)/, "hai ô tải gọi cùng tên trường");
+assert.match(portalCertForm, /pendingUploads/, "giấy vừa tải hiện riêng là đang chờ phân loại");
+assert.doesNotMatch(documentsPage, /review_note \|\| c\.ai_summary/, "không đưa ghi chú nội bộ cho nhà cung cấp đọc");
+assert.match(documentsPage, /supplierCertificateNote/, "thẻ chứng nhận dùng câu trạng thái viết cho nhà cung cấp");
+
+const { supplierCertificateNote } = loadTs("lib/certificate-supplier-copy.ts");
+const today = "2026-10-31";
+assert.equal(supplierCertificateNote({ review_status: "pending", publicly_visible: false, staff_hidden: false,
+  valid_until: "2027-05-01", superseded_by_certificate_id: null }, today), "Đang chờ nhân viên đối chiếu.");
+assert.equal(supplierCertificateNote({ review_status: "approved", publicly_visible: true, staff_hidden: false,
+  valid_until: "2027-05-01", superseded_by_certificate_id: null }, today), "Đã duyệt và đang hiện với người mua.");
+assert.match(supplierCertificateNote({ review_status: "approved", publicly_visible: true, staff_hidden: false,
+  valid_until: "2026-01-01", superseded_by_certificate_id: null }, today), /hết hạn/);
+assert.match(supplierCertificateNote({ review_status: "approved", publicly_visible: true, staff_hidden: false,
+  valid_until: "2027-05-01", superseded_by_certificate_id: "cert-new" }, today), /Bản cũ/);
+assert.match(supplierCertificateNote({ review_status: "approved", publicly_visible: true, staff_hidden: true,
+  valid_until: "2027-05-01", superseded_by_certificate_id: null }, today), /tạm ẩn/);
+
 const auditForm = read("app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx");
 assert.match(auditForm, /contributedChecklistKey/, "mục L1 nhận giấy theo loại đã chốt");
 assert.match(auditForm, /checklistMismatch/, "cảnh báo khi loại giấy lệch mục checklist");
