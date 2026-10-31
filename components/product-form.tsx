@@ -104,8 +104,8 @@ function initAttributes(p?: SupplierProduct | null): Record<string, string> {
 
 const TABS: Array<{ key: ProductTab; label: string; hint: string }> = [
   { key: "info", label: "Thông tin & mô tả", hint: "Tên, danh mục, mô tả cho người mua" },
-  { key: "spec", label: "Quy cách & năng lực", hint: "Bảng Grade & giá, thông số, năng lực, đóng gói" },
-  { key: "trade", label: "Giá & thương mại", hint: "Công khai giá, hiệu lực giá, địa điểm Incoterm, thanh toán" },
+  { key: "spec", label: "Quy cách & năng lực", hint: "Thông số, năng lực/tháng, vùng nguyên liệu, đóng gói" },
+  { key: "trade", label: "Giá & thương mại", hint: "Bảng giá theo số lượng, công khai giá, hiệu lực giá, Incoterm, thanh toán" },
 ];
 
 export function ProductForm({
@@ -240,7 +240,7 @@ export function ProductForm({
     }
     if (priceRangeError) {
       setShowGradeErrors(true);
-      setTab("spec");
+      setTab("trade");
       requestAnimationFrame(() => document.getElementById("grade-pricing-table")?.scrollIntoView({ behavior: "smooth", block: "center" }));
       toast.push({ kind: "error", title: priceRangeError });
       return;
@@ -483,24 +483,11 @@ export function ProductForm({
       {tab === "spec" && (
         <section id="product-panel-spec" role="tabpanel" aria-labelledby="product-tab-spec" className="card p-5">
           <h2 className="mb-4 text-sm font-bold text-ink-900">Quy cách &amp; năng lực</h2>
-          <div className="mb-5 space-y-4">
-            {product && <div className="space-y-3 rounded-xl border border-brand-200 bg-white p-4">
-              <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng</h3>
-              {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
-                data={quantityEditor} actor="staff" disabled={busy} dirty={dirty} publishPreview />
-                : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra kết nối và danh mục đã xuất bản; dữ liệu giá cũ không bị thay đổi.</p>}
-            </div>}
-            {!product && <GradePricingTable rows={gradeRows} onChange={setGradeRows} category={activeCategorySource} disabled={busy} showErrors={showGradeErrors} />}
-            {attributeInputFields.length > 0 && (
+          {attributeInputFields.length > 0 && (
+            <div className="mb-5">
               <ProductAttributeInputs fields={attributeInputFields} values={attributes} onChange={setAttributes} />
-            )}
-            {!product && grade.fromName && standardDraftGrades.length > 0 && !standardDraftGrades.some((item) => gradeKey(item) === gradeKey(grade.fromName!)) && (
-              <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                Tên gốc ghi <strong>{grade.fromName}</strong> nhưng bảng Grade &amp; giá đang là{" "}
-                <strong>{standardDraftGrades.join(", ")}</strong>. Khi công khai, hệ thống lấy theo bảng Grade &amp; giá. Sửa lại nếu cần khớp.
-              </p>
-            )}
-          </div>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Thông tin kỹ thuật bổ sung" hint="Nhập thông tin chưa có trường cấu trúc ở trên." className="sm:col-span-2">
               <input
@@ -699,48 +686,25 @@ export function ProductForm({
 
       {tab === "trade" && (
         <section id="product-panel-trade" role="tabpanel" aria-labelledby="product-tab-trade" className="card p-5">
-          <h2 className="text-sm font-bold text-ink-900">Điều kiện thương mại tham khảo</h2>
+          <h2 className="text-sm font-bold text-ink-900">Giá &amp; điều kiện thương mại</h2>
+          <div className="mb-5 space-y-4">
+            {product && <div className="space-y-3 rounded-xl border border-brand-200 bg-white p-4">
+              <h3 className="text-sm font-bold text-ink-900">Giá theo số lượng</h3>
+              {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
+                data={quantityEditor} actor="staff" disabled={busy} dirty={dirty} publishPreview />
+                : <p role="alert" className="text-xs text-rose-700">Chưa tải được bảng giá mới. Kiểm tra kết nối và danh mục đã xuất bản; dữ liệu giá cũ không bị thay đổi.</p>}
+            </div>}
+            {!product && <GradePricingTable rows={gradeRows} onChange={setGradeRows} category={activeCategorySource} disabled={busy} showErrors={showGradeErrors} />}
+            {!product && grade.fromName && standardDraftGrades.length > 0 && !standardDraftGrades.some((item) => gradeKey(item) === gradeKey(grade.fromName!)) && (
+              <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                Tên gốc ghi <strong>{grade.fromName}</strong> nhưng bảng Grade &amp; giá đang là{" "}
+                <strong>{standardDraftGrades.join(", ")}</strong>. Khi công khai, hệ thống lấy theo bảng Grade &amp; giá. Sửa lại nếu cần khớp.
+              </p>
+            )}
+          </div>
           <p className="mt-0.5 mb-4 text-xs text-ink-600">
             Quyền chia sẻ giá là đồng ý chung của nhà cung cấp, hiệu lực 180 ngày. Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
           </p>
-          {product ? <div className="mb-4 rounded-xl border border-ink-200 bg-ink-50/50 p-3.5 text-xs">
-            <p className="font-bold text-ink-900">Grade, Incoterm và bảng giá theo số lượng nằm tại mục Quy cách &amp; năng lực.</p>
-            <button type="button" onClick={() => setTab("spec")} className="mt-2 font-bold text-brand-700 underline">Mở bảng giá theo số lượng</button>
-          </div> : <>          <div className="mb-4 rounded-xl border border-ink-200 bg-ink-50/50 p-3.5 text-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-bold text-ink-900">Grade, giá ({unitMeta.unitLabel}), Incoterm và MOQ nằm tại mục Quy cách &amp; năng lực</p>
-              <button
-                type="button"
-                onClick={() => setTab("spec")}
-                className="font-bold text-brand-700 underline"
-              >
-                Mở bảng Grade &amp; giá ({gradeRows.length} dòng)
-              </button>
-            </div>
-            <ul className="mt-2 space-y-1 text-ink-700">
-              {gradeRows.map((row) => {
-                const isCustom = row.selectedGrade === CUSTOM_GRADE_OPTION;
-                const label = (isCustom ? row.customGrade : row.selectedGrade).trim() || "Chưa chọn grade";
-                const minNum = row.priceMin.trim() ? Number(row.priceMin.trim()) : null;
-                const maxNum = row.priceMax.trim() ? Number(row.priceMax.trim()) : null;
-                const validPrice = minNum !== null && maxNum !== null && Number.isFinite(minNum) && Number.isFinite(maxNum) && minNum > 0 && maxNum >= minNum;
-                return (
-                  <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="font-semibold text-ink-900">{label}{isCustom && row.customGrade.trim() ? " (Tự nhập)" : ""}</span>
-                    <span>
-                      <span className={validPrice ? "font-mono font-semibold tabular-nums text-ink-900" : "text-ink-500"}>
-                        {validPrice ? formatGradeRowPriceVi(minNum, maxNum, unitMeta.unitLabel) : "Báo giá theo yêu cầu"}
-                      </span>
-                      {" | "}
-                      {row.incoterm || "FOB"}
-                      {row.moq.trim() ? ` | MOQ ${row.moq.trim()}` : ""}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-</>}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {!product && <Field label="Giá hiệu lực đến">
               <input type="date" className="input" value={v("price_valid_until")} onChange={(e) => set("price_valid_until", e.target.value)} />
