@@ -14,7 +14,7 @@ export function QuantityPreviewCard({ initial, imageUrl }: {
     return <section className="card p-4" aria-label="Người mua sẽ thấy">
       <h2 className="text-sm font-bold text-ink-900">Người mua sẽ thấy</h2>
       <p className="mt-2 text-[13px] leading-relaxed text-ink-600">
-        Sản phẩm chưa có bảng giá theo số lượng. Nhập ở mục Quy cách &amp; năng lực để xem trước thẻ người mua.
+        Sản phẩm chưa có bảng giá theo số lượng. Nhập ở tab Giá &amp; thương mại để xem trước thẻ người mua.
       </p>
     </section>;
   }

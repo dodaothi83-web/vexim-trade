@@ -35,6 +35,10 @@
   định** (✓ xanh / ○ hổ phách) kèm thẻ Chứng nhận NCC; nội dung và điều kiện
   hiển thị trang công khai giữ nguyên từng mục.
 - Lỗi thiếu tên sản phẩm hiện tại ô + tự nhảy về tab Thông tin.
+- **Bảng giá nằm ở tab Giá & thương mại**, không phải tab Quy cách: với sản phẩm đã
+  lưu là khối "Giá theo số lượng" (`QuantityPricingInline`), với sản phẩm mới là bảng
+  Grade & giá. Lỗi giá (ví dụ khoảng giá ngược) cũng nhảy về tab này. Tab Quy cách chỉ
+  còn thông số, thuộc tính danh mục, vùng nguyên liệu đầu vào, năng lực và đóng gói.
 - Form dùng chung với trang thêm sản phẩm trong hồ sơ NCC vẫn hoạt động (thanh
   hành động tự đổi nhãn "Thêm sản phẩm", quay lại hồ sơ NCC).
 
