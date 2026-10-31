@@ -1279,7 +1279,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 </div>
               </Row>
 
-              <Row label="Thời gian giao hàng">
+              <Row label="Thời gian giao hàng"
+                hint="Số ngày hoặc tuần từ lúc xác nhận đơn đến khi hàng sẵn sàng giao, chưa tính vận chuyển.">
                 <div className="flex items-center gap-2">
                   <input
                     name="lead_time_value"
@@ -1354,8 +1355,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         {/* 08 — Xem lại & gửi */}
         <section id="sec-review" data-form-section="sec-review" aria-label="Xem lại và gửi"
           className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
-          <SectionHead index="8" title="Xem lại &amp; gửi"
-            hint="Gửi xong hồ sơ chuyển sang bước duyệt và tạm khoá sửa" />
+          <SectionHead index="8" title="Xem lại &amp; gửi" />
           <div className="space-y-2.5 px-3 py-2.5 sm:px-3.5">
             {/* Danh sách kiểm tra: mỗi dòng một việc, bên phải là hành động tương ứng. */}
             <ul className="space-y-2 px-4 py-4 sm:px-5">
@@ -1545,6 +1545,38 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
       {/* Cột phải: thẻ xem nhanh - đọc được ngay cả khi cuộn giữa trang. */}
       <aside className="space-y-3 lg:sticky lg:top-4">
+        {/* Thẻ điểm chất lượng đứng trước để thấy ngay việc cần bổ sung. */}
+        {product && <section aria-label="Độ hoàn thiện hồ sơ" className="rounded-lg border border-ink-200 bg-white p-3.5">
+          <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Điểm chất lượng</p>
+          <div className="mt-2 flex items-center gap-3">
+            <div className="relative size-[52px] shrink-0">
+              <svg viewBox="0 0 36 36" className="size-full" aria-hidden="true">
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e2e8f0" strokeWidth="3.4" />
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#0f766e" strokeWidth="3.4" strokeLinecap="round"
+                  strokeDasharray="97.4" strokeDashoffset={97.4 - (Math.max(0, Math.min(100, completeness.score)) / 100) * 97.4}
+                  transform="rotate(-90 18 18)" />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center font-mono text-[13px] font-black tabular-nums text-brand-800">{completeness.score}</span>
+            </div>
+            <p className="min-w-0 text-[13px] font-bold text-ink-900">{completeness.score >= 85 ? "Cao" : completeness.score >= 60 ? "Trung bình" : "Thấp"}</p>
+          </div>
+          {completeness.next ? <>
+            <p className="mt-2.5 text-[10.5px] font-bold tracking-wider text-ink-500 uppercase">Việc cần làm tiếp</p>
+            <ul className="mt-1 space-y-1 text-[11.5px] leading-4 text-ink-600">
+              {completeness.missing.slice(0, 3).map((item) => <li key={item.key} className="flex items-start gap-1.5">
+                <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+                <span className="min-w-0 flex-1"><strong className="font-semibold text-ink-800">{item.label}</strong> · {item.hint}</span>
+                <span className="shrink-0 rounded bg-brand-50 px-1 py-0.5 font-mono text-[9.5px] font-bold text-brand-800">+{item.weight}</span>
+              </li>)}
+            </ul>
+            {completeness.missing.length > 3 && <p className="mt-1.5 text-[11px] text-ink-500">Còn {completeness.missing.length - 3} mục nữa.</p>}
+            <button type="button" onClick={() => scrollToSection(completeness.next!.step === 2 ? "sec-media" : "sec-basic")} className="btn btn-soft btn-sm mt-2">
+              Bổ sung: {completeness.next.label}
+            </button>
+          </> : <p className="mt-2 text-[11.5px] leading-4 text-emerald-700">Hồ sơ đã đủ các mục cần thiết.</p>}
+          <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{dirty ? "Lưu thay đổi để cập nhật số liệu." : "Số liệu tính từ bản đã lưu."}</p>
+        </section>}
+
         <div className="overflow-hidden rounded-lg border border-ink-200 bg-white">
           <div className="relative aspect-square bg-gradient-to-br from-ink-100 via-brand-50 to-ink-100">
             {coverUrl
@@ -1572,40 +1604,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{quantityEditor && quantityPreview ? "Các thông tin thương mại bên dưới bảng giá lấy từ bản đã lưu." : <>Số liệu lấy từ bản đã lưu{dirty ? "; thay đổi đang nhập chưa hiển thị ở đây." : "."}</>}</p>
           </div>
         </div>
-
-        {product && <section aria-label="Độ hoàn thiện hồ sơ" className="rounded-lg border border-ink-200 bg-white p-3.5">
-          <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Điểm chất lượng</p>
-          <div className="mt-2 flex items-center gap-3">
-            <div className="relative size-[52px] shrink-0">
-              <svg viewBox="0 0 36 36" className="size-full" aria-hidden="true">
-                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e2e8f0" strokeWidth="3.4" />
-                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#0f766e" strokeWidth="3.4" strokeLinecap="round"
-                  strokeDasharray="97.4" strokeDashoffset={97.4 - (Math.max(0, Math.min(100, completeness.score)) / 100) * 97.4}
-                  transform="rotate(-90 18 18)" />
-              </svg>
-              <span className="absolute inset-0 flex items-center justify-center font-mono text-[13px] font-black tabular-nums text-brand-800">{completeness.score}</span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-bold text-ink-900">{completeness.score >= 85 ? "Cao" : completeness.score >= 60 ? "Trung bình" : "Thấp"}</p>
-              <p className="text-[11px] leading-4 text-ink-500">Chỉ để nhắc thêm; không chặn việc gửi duyệt.</p>
-            </div>
-          </div>
-          {completeness.next ? <>
-            <p className="mt-2.5 text-[10.5px] font-bold tracking-wider text-ink-500 uppercase">Việc cần làm tiếp</p>
-            <ul className="mt-1 space-y-1 text-[11.5px] leading-4 text-ink-600">
-              {completeness.missing.slice(0, 3).map((item) => <li key={item.key} className="flex items-start gap-1.5">
-                <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
-                <span className="min-w-0 flex-1"><strong className="font-semibold text-ink-800">{item.label}</strong> · {item.hint}</span>
-                <span className="shrink-0 rounded bg-brand-50 px-1 py-0.5 font-mono text-[9.5px] font-bold text-brand-800">+{item.weight}</span>
-              </li>)}
-            </ul>
-            {completeness.missing.length > 3 && <p className="mt-1.5 text-[11px] text-ink-500">Còn {completeness.missing.length - 3} mục nữa.</p>}
-            <button type="button" onClick={() => scrollToSection(completeness.next!.step === 2 ? "sec-media" : "sec-basic")} className="btn btn-soft btn-sm mt-2">
-              Bổ sung: {completeness.next.label}
-            </button>
-          </> : <p className="mt-2 text-[11.5px] leading-4 text-emerald-700">Hồ sơ đã đủ các mục cần thiết.</p>}
-          <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{dirty ? "Lưu thay đổi để cập nhật số liệu." : "Số liệu tính từ bản đã lưu."}</p>
-        </section>}
 
         {product && (canDeleteDraft || review === "approved") && <section aria-label="Quản lý sản phẩm" className="rounded-lg border border-ink-200 bg-white p-3">
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Quản lý sản phẩm</p>

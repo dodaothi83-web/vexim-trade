@@ -109,6 +109,12 @@ for (const [name, file] of [['editor', editor], ['storefront', storefront], ['CR
   assert.match(file, /productCompleteness/, `${name} phải dùng productCompleteness`);
 }
 assert.match(editor, /Độ hoàn thiện hồ sơ/, 'editor có khối độ hoàn thiện');
+const asideStart = editor.indexOf('<aside className="space-y-3 lg:sticky');
+const qualityCardAt = editor.indexOf('aria-label="Độ hoàn thiện hồ sơ"', asideStart);
+const previewCardAt = editor.indexOf('relative aspect-square', asideStart);
+assert.ok(asideStart > -1 && qualityCardAt > asideStart && previewCardAt > qualityCardAt,
+  'thẻ điểm chất lượng đứng trước thẻ ảnh sản phẩm xem trước');
+assert.doesNotMatch(editor, /Chỉ để nhắc thêm/, 'thẻ điểm chất lượng không còn câu nhắc "chỉ để nhắc thêm"');
 assert.match(editor, /Bổ sung: \{completeness\.next\.label\}/, 'editor gọi tên mục cần bổ sung');
 assert.match(editor, /scrollToSection\(completeness\.next!\.step === 2 \? "sec-media" : "sec-basic"\)/,
   'nút bổ sung cuộn tới đúng khối trên trang một-bước');

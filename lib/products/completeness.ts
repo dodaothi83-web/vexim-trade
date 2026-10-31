@@ -78,7 +78,7 @@ export const COMPLETENESS_ITEMS: CompletenessItem[] = [
   { key: "moq", label: "MOQ", required: true, weight: 9, step: 1, hint: "Cho biết số lượng đặt tối thiểu." },
   { key: "spec", label: "Quy cách", required: true, weight: 9, step: 1, hint: "Ghi quy cách chính để người mua so sánh." },
   { key: "packaging", label: "Đóng gói", required: false, weight: 9, step: 1, hint: "Cách đóng gói và khối lượng mỗi kiện." },
-  { key: "lead_time", label: "Thời gian giao", required: false, weight: 7, step: 1, hint: "Số ngày từ khi xác nhận đơn đến lúc giao." },
+  { key: "lead_time", label: "Thời gian giao", required: false, weight: 7, step: 1, hint: "Số ngày từ khi xác nhận đơn đến khi hàng sẵn sàng giao." },
   { key: "description", label: "Mô tả", required: false, weight: 7, step: 1, hint: "Ba đến năm câu về sản phẩm và ứng dụng." },
   { key: "name_en", label: "Tên tiếng Anh", required: false, weight: 5, step: 1, hint: "Tên hiển thị cho người mua trên trang công khai." },
   // Phase 2: ba mục dưới đây là cột mới (migration 20261072). Trống thì chỉ mất điểm,
