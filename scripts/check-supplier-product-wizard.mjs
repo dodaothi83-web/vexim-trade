@@ -315,7 +315,15 @@ assert.ok(!source.includes('Chứng nhận sản phẩm (tự khai)'), 'Bỏ nh�
 // 10. Hành vi cũ còn nguyên.
 assert.match(source, /saveSupplierProductAction\(form\)/, 'Vẫn lưu qua saveSupplierProductAction');
 assert.match(source, /submitSupplierProductAction\(form\)/, 'Vẫn nộp qua submitSupplierProductAction');
-assert.match(source, /productCanSubmit\(product, media\) && !dirty/, 'Nút nộp vẫn phụ thuộc điều kiện dữ liệu');
+// Gửi duyệt không còn đòi bấm Lưu trước: nút gửi tự lưu rồi nộp.
+assert.match(source, /const submitReady = /, 'Điều kiện gửi đọc nội dung đang nhập, không đòi bản đã lưu');
+assert.match(source, /const id = product && !dirty \? product\.id : await persist\(\);/,
+  'Bấm Gửi duyệt tự lưu trước rồi gửi');
+assert.doesNotMatch(source, /Lưu thông tin sản phẩm trước khi gửi|Lưu thay đổi trước khi gửi/,
+  'Không còn bắt người bán lưu thông tin trước khi gửi');
+assert.doesNotMatch(source, /label: "Lưu thông tin sản phẩm trước khi gửi"/, 'Mục 8 không còn dòng nhắc lưu');
+assert.match(source, /const hasDetails = !!\(\(snapshot\.spec/,
+  'Mô tả ngắn / quy cách đọc từ nội dung đang nhập nên hết nhắc sau khi gõ');
 assert.doesNotMatch(source, /Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Sửa sản phẩm đã duyệt không tự rút khỏi sàn');
 assert.ok(source.includes('!["approved", "paused"].includes(review) || product?.supplier_originated === true'),
   'Sản phẩm NCC đã duyệt hoặc tạm ẩn vẫn quản lý được ảnh của mình');

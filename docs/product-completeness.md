@@ -69,6 +69,8 @@ Quy tắc:
 | Việc | Ở đâu |
 | --- | --- |
 | 6 cột mới + ràng buộc + chỉ mục GIN | `supabase/migrations/20261072_product_keywords_sample_price_packaging.sql` |
+| Hàm tạo sản phẩm nhận 6 cột Phase 2 (sửa P0001 "Invalid new product payload") | `supabase/migrations/20261077_quantity_new_product_extras_columns.sql` |
+| Giữ allow-list của hàm khớp khoá form gửi lên | `scripts/check-quantity-new-product-columns.mjs` |
 | Đọc/kiểm tra dữ liệu dùng chung | `lib/products/product-extras.ts` (thuần, có `sanitizeKeywords`, `productExtrasFromForm`, `packagingSummary`) |
 | Ghi có dự phòng | `lib/db/supabase.ts`: thiếu cột thì chỉ bỏ cột **đang rỗng** rồi thử lại; nếu người dùng đã nhập giá trị thì báo “Báo người phụ trách kỹ thuật rồi thử lại.” |
 | Form 3 bước (bước 1) | ô Từ khoá, Loại kiện, Khối lượng mỗi kiện, Kích thước kiện, Số đơn vị mỗi thùng, Giá mẫu (USD) |

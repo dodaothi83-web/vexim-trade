@@ -232,9 +232,13 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   chia sẻ cho người mua**; ảnh cũ giữ nguyên hiển thị, không cần duyệt lại.
 - **Khối 06**: dòng "Đóng gói" gộp nhãn con (bao bì · loại kiện/khối lượng/số đơn vị · kích thước), rồi các dòng
   Thời gian giao hàng, Vận chuyển (cảng xuất + địa điểm Incoterm), Điều kiện thanh toán kèm chip gợi ý.
-- **Khối 08**: danh sách kiểm tra từng dòng (biểu tượng đạt/chưa đạt + hành động `Lưu ngay` / `Đi tới mục N` / `Sửa`);
-  phần đọc lại chi tiết gấp trong "Xem lại nội dung đã nhập" để trang không dài thêm.
-- **Thanh đáy**: Hủy + đèn trạng thái · `Xem trước` · `Lưu nháp` · `Gửi duyệt`.
+- **Khối 08**: danh sách kiểm tra từng dòng (biểu tượng đạt/chưa đạt + hành động `Đi tới mục N` / `Sửa`), chỉ còn
+  việc **nội dung**; phần đọc lại chi tiết gấp trong "Xem lại nội dung đã nhập" để trang không dài thêm.
+  Mỗi dòng đọc từ **nội dung đang nhập** (`snapshot`) chứ không phải bản đã lưu, nên gõ mô tả ngắn là hết nhắc ngay.
+- **Chốt 31/10/2026 — Gửi duyệt tự lưu**: bấm `Gửi duyệt` là lưu rồi nộp trong một lần (`persist()` rồi
+  `submitSupplierProductAction`), không còn dòng "Lưu thông tin sản phẩm trước khi gửi" hay "Lưu thay đổi trước khi gửi".
+  Nếu nội dung chưa qua kiểm tra bắt buộc thì `persist()` dừng lại, chỉ đúng ô cần sửa và không gửi gì.
+- **Thanh đáy**: Hủy + đèn trạng thái · `Xem trước` · `Lưu nháp` (chỉ hiện khi có thay đổi) · `Gửi duyệt`.
 - **`Xem trước` mở bản xem trước người mua** (31/10/2026): hộp thoại dựng từ nội dung đang nhập, dùng chính
   component của trang công khai (`QuantityPriceTable`, `ProductTradeLabels`, `ProductDescriptionPreview`) nên bảng giá,
   nhãn OEM/ODM/mẫu và mô tả hiện đúng như người mua thấy. Bảng giá dựng bằng `draftPublicQuantityOffer`

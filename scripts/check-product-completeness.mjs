@@ -123,7 +123,8 @@ assert.match(storefront, /completenessSummary\(completeness\)/, 'thẻ sản ph�
 assert.match(crmList, /completenessSummary/, 'CRM thấy cùng số liệu');
 
 /* 9. Không phải cổng chặn đăng: cổng thật vẫn ở lib/media/readiness. */
-assert.match(editor, /productCanSubmit/, 'gửi duyệt vẫn theo cổng cũ');
+// Nút gửi tự lưu trước, nhưng cổng thật vẫn ở server: tên, mô tả/quy cách, danh mục, ảnh.
+assert.match(editor, /submitSupplierProductAction\(form\)/, 'gửi duyệt vẫn qua cổng thật ở server');
 assert.doesNotMatch(editor, /completeness\.score\s*[<>=]+\s*100[^\n]*disabled/, 'không chặn nút theo điểm hoàn thiện');
 
 console.log('✅ Độ hoàn thiện hồ sơ: trọng số 100, quy tắc ảnh, gợi ý đúng bước, nhắc chỉ trong cổng và CRM.');

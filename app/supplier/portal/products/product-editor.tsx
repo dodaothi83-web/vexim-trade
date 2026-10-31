@@ -26,7 +26,7 @@ import {
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
 import { productPriceBlockers, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
-import { PRODUCT_STATUS, privateMediaUrl, productCanSubmit, productReview } from "@/lib/supplier-portal/product-view";
+import { PRODUCT_STATUS, privateMediaUrl, productReview } from "@/lib/supplier-portal/product-view";
 import { deleteSupplierDraftProductAction, pauseSupplierProductAction, saveSupplierProductAction, submitSupplierProductAction } from "../product-actions";
 import { useToast } from "@/components/toast";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
@@ -273,7 +273,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const dirty = baseline !== null && !snapshotsEqual(snapshot, baseline);
   const ownedCount = media.filter((m) => m.created_by === userId).length;
   const imageCount = media.filter((m) => m.kind === "image").length;
-  const hasDetails = !!product && !!(product.spec?.trim() || product.description?.trim());
+  // Đọc nội dung đang nhập chứ không phải bản đã lưu: gõ mô tả ngắn là mục 8 hết nhắc.
+  const hasDetails = !!((snapshot.spec ?? "").trim() || (snapshot.description ?? "").trim());
   const hasMedia = media.some((m) => m.kind === "image" && !!m.storage_path && m.supplier_id === product?.supplier_id);
   // Ảnh đang chọn trong kho ảnh, giữ đúng thứ tự chọn: ảnh chọn đầu tiên là ảnh chính.
   const pickedImages = pickedBank
@@ -286,7 +287,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const hasAnyImage = product ? hasMedia : pickedImages.length > 0;
   /** Số ảnh đang hiện trong 6 ô, dùng cho nhãn mục và các dòng nhắc. */
   const shownImageCount = product ? imageCount : pickedImages.length;
-  const canSubmit = !!product && productCanSubmit(product, media) && !dirty;
   // Tải ảnh không cần sản phẩm đã tồn tại: ảnh vào kho ảnh của nhà cung cấp trước,
   // rồi gắn vào sản phẩm đúng lúc bấm Lưu (xem upload + pickedBank).
   const canUpload = !locked && (!["approved", "paused"].includes(review) || product?.supplier_originated === true);
@@ -302,6 +302,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   // Số lỗi giá: thiếu grade và thiếu đơn giá dòng đầu là hai lỗi chặn gửi duyệt.
   const priceIssueCount = (quantityPreview ? (quantityPreview.grade.trim() ? 0 : 1) : 0) +
     (quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()) ? 1 : 0);
+  /** Đủ nội dung để gửi duyệt: nút gửi tự lưu trước nên không đòi bản đã lưu. */
+  const submitReady = !!(snapshot.name ?? "").trim() && !!selectedCategory && hasDetails && hasAnyImage &&
+    priceIssueCount === 0 && (!!product || !!quantityPreview);
   const catalogueAssets = media.filter((asset) => asset.kind !== "image");
   const basicFilled = [snapshot.name, snapshot.keywords, snapshot.description].filter((value) => (value ?? "").trim()).length;
   const specFilled = [snapshot.spec, snapshot.monthly_capacity, snapshot.raw_material_region, snapshot.input_material_origin]
@@ -561,13 +564,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   /** Danh sách việc còn thiếu trước khi gửi - dùng cho cả nút bấm và khối nhắc. */
   function submitBlockers(): string[] {
     const blockers: string[] = [];
-    if (!product) blockers.push("Lưu thông tin sản phẩm trước khi gửi.");
-    if (!hasDetails) blockers.push("Bổ sung mô tả hoặc quy cách ở mục Tên & từ khoá.");
+    if (!hasDetails) blockers.push("Bổ sung mô tả ngắn hoặc quy cách ở mục Tên & từ khoá.");
     if (!hasAnyImage) blockers.push("Tải ít nhất một ảnh sản phẩm ở mục Ảnh & tệp.");
     if (priceIssueCount > 0 && !quantityPreview?.grade.trim()) blockers.push("Chọn grade chuẩn của danh mục.");
     if (priceIssueCount > 0 && quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()))
       blockers.push("Nhập đơn giá cho dòng giá đầu tiên.");
-    if (dirty) blockers.push("Lưu thay đổi trước khi gửi.");
     return blockers;
   }
 
@@ -583,27 +584,35 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       setToast(null);
       if (!hasAnyImage) { scrollToSection("sec-media"); return; }
       if (!hasDetails) { scrollToSection("sec-basic"); return; }
-      if (!product || dirty) { scrollToSection("sec-basic"); return; }
+      if (priceIssueCount > 0) { scrollToSection("sec-price"); return; }
+      if (!selectedCategory) { scrollToSection("sec-category"); return; }
       return;
     }
     void submit();
   }
 
+  /**
+   * Gửi duyệt tự lưu trước: đang nhập dở vẫn bấm Gửi duyệt được, không phải nhớ bấm Lưu
+   * rồi mới gửi. Lưu không qua được kiểm tra thì `persist` đã chỉ đúng ô cần sửa.
+   */
   async function submit() {
-    if (!product || busy) return;
-    setBusy(true);
+    if (busy) return;
     setSubmitHint(null);
     setToast(null);
     setFormError(null);
+    const creating = !product;
     try {
+      const id = product && !dirty ? product.id : await persist();
+      if (!id) return;
+      setBusy(true);
       const form = new FormData();
-      form.set("product_id", product.id);
+      form.set("product_id", id);
       const response = await submitSupplierProductAction(form);
       setToast(response);
-      if (response.ok) {
-        setSent(true);
-        router.refresh();
-      }
+      if (!response.ok) return;
+      if (creating) { router.push(detailUrl(id)); return; }
+      setSent(true);
+      router.refresh();
     } catch (error) {
       setToast(reportActionError(error, "Gửi duyệt"));
     } finally {
@@ -1442,13 +1451,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             {/* Danh sách kiểm tra: mỗi dòng một việc, bên phải là hành động tương ứng. */}
             <ul className="space-y-2 px-4 py-4 sm:px-5">
               {([
-                { ok: !!product && !dirty, label: "Lưu thông tin sản phẩm trước khi gửi",
-                  action: "Lưu ngay", run: () => formRef.current?.requestSubmit() },
                 { ok: hasDetails, label: "Bổ sung mô tả ngắn hoặc quy cách",
                   action: "Đi tới mục 2", run: () => scrollToSection("sec-basic") },
                 { ok: hasAnyImage, label: "Tải ít nhất một ảnh sản phẩm hoặc catalogue",
                   action: "Đi tới mục 3", run: () => scrollToSection("sec-media") },
-                { ok: priceIssueCount === 0 && !!quantityPreview, label: "Chọn grade và nhập giá",
+                { ok: priceIssueCount === 0 && (!!product || !!quantityPreview), label: "Chọn grade và nhập giá",
                   action: "Đi tới mục 5", run: () => scrollToSection("sec-price") },
                 { ok: !!(snapshot.name ?? "").trim() && !!selectedCategory, label: "Tên và danh mục đã điền",
                   action: "Sửa", run: () => scrollToSection("sec-category") },
@@ -1578,8 +1585,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                       ? <ul role="alert" className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
                         {submitHint.map((hint) => <li key={hint} className="flex gap-1.5"><AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{hint}</li>)}
                       </ul>
-                      : canSubmit
-                        ? <p className="text-[11.5px] text-ink-600">Hồ sơ đủ điều kiện để gửi duyệt - bấm Gửi duyệt ở thanh dưới cùng.</p>
+                      : submitReady
+                        ? <p className="text-[11.5px] text-ink-600">Hồ sơ đủ điều kiện. Bấm Gửi duyệt để lưu và gửi luôn.</p>
                         : null}
                   </div>
                 </div>}
