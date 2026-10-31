@@ -69,7 +69,7 @@ for (const changes of [
   { quantity_grade: 'W999' }, { quantity_incoterm: '' }, { name: 'Nhân điều W320' },
   { confirm_quantity_price_consent: '' }, { quantity_creation_request_id: 'bad' }, { grade_rows_json: '[]' },
   { quantity_tiers_json: JSON.stringify([{ minKg: '5000', priceUsdPerKg: '6' }, { minKg: '1000', priceUsdPerKg: '7' }]) },
-  { quantity_currency: 'VND' }, { quantity_currency: 'EUR' },
+  { quantity_currency: 'GBP' },
 ]) { assert.equal((await exports.saveSupplierProductAction(form(changes))).ok, false); assert.equal(calls.length, 0); }
 strict = false;
 assert.equal((await exports.saveSupplierProductAction(form())).ok, false); strict = true;

@@ -186,7 +186,12 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
 - **Cùng loại nội dung thì cùng bề rộng.** Khối 06 dùng lưới 6 cột ở `xl`: bao bì chiếm cả hàng (câu dài), còn
   loại kiện / khối lượng / kích thước / số đơn vị / cảng xuất / thời gian giao mỗi ô 2 cột — không còn cảnh ô
   kích thước rộng gấp đôi ô số đơn vị nằm cạnh nhau.
-- **Ô chỉ có một giá trị cố định thì hẹp.** Tiền tệ trong bảng giá là ô 136px (chỉ USD), giá mẫu là ô 188px.
+- **Ô chỉ có một giá trị cố định thì hẹp.** Tiền tệ trong bảng giá là ô 136px (chọn 1 trong 5 mã), giá mẫu là ô 188px.
+- **Năm tiền tệ nhập mới (31/10/2026)**: USD, VND, EUR, CNY (nhân dân tệ), JPY (yên Nhật). Một chỗ duy nhất để mở/khoá
+  là `ENTRY_PRICE_CURRENCIES` trong `lib/products/quantity-pricing.ts`; DB cần áp
+  `supabase/migrations/20261073_trade_currencies.sql` (ràng buộc tiền tệ + hàm duyệt nhận đủ 5 mã). Không tự quy đổi
+  giữa các tiền tệ; VND/JPY hiển thị không có phần lẻ.
+- **Cột “Đến” của bảng giá**: dòng cuối để dấu `—` (bỏ chữ “trở lên”); các dòng giữa vẫn tự tính bằng mức kế tiếp trừ 1.
 - **Bảng bậc giá dùng `table-fixed` + `colgroup`**: Incoterm 96px, nút xoá 44px, ba cột Từ / Đến / Giá chia đều.
 - **Tải ảnh không cần lưu nháp trước.** Ảnh của sản phẩm mới đi vào kho ảnh của nhà cung cấp (xem §5.2), nên
   không còn nút "Lưu nháp rồi tải ảnh" và không còn câu nhắc phải lưu trước.

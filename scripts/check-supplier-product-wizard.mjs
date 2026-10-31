@@ -346,7 +346,8 @@ const approvedOwnHtml = render({ product: ownApproved, media: [{ ...media[0], au
 assert.match(approvedOwnHtml, /aria-label="Xóa ảnh đại diện"/, 'Ảnh do mình tải có nút xóa cả khi đang đăng');
 assert.match(approvedOwnHtml, /Tạm ẩn sản phẩm/);
 assert.doesNotMatch(approvedOwnHtml, /Xóa bản nháp/);
-assert.match(approvedOwnHtml, /chỉnh sửa giá trên sản phẩm đã duyệt, sản phẩm sẽ được kiểm tra lại giá/, 'Nhắc rõ sửa giá sản phẩm đã duyệt sẽ được kiểm tra lại');
+// Chốt 31/10/2026: bỏ dòng nhắc dài về việc kiểm tra lại giá.
+assert.doesNotMatch(approvedOwnHtml, /chỉnh sửa giá trên sản phẩm đã duyệt/, 'Không còn dòng nhắc kiểm tra lại giá');
 const pausedHtml = render({ product: { ...ownApproved, supplier_review_status: 'paused', ready_for_buyer: false },
   media: [{ ...media[0], audience: 'buyer' }] });
 assert.match(pausedHtml, /Đã tạm ẩn/);

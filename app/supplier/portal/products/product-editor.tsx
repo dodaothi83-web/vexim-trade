@@ -282,7 +282,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const activeCategory = categories.find((c) => c.slug === activeCategorySlug);
   const activeCategorySource = activeCategory ?? (activeCategorySlug ? { slug: activeCategorySlug } : null);
   const newPolicy = !product && activeCategory ? quantityPolicies?.[activeCategory.slug] : undefined;
-  // Số lỗi giá: thiếu grade và thiếu đơn giá mức 1 là hai lỗi chặn gửi duyệt.
+  // Số lỗi giá: thiếu grade và thiếu đơn giá dòng đầu là hai lỗi chặn gửi duyệt.
   const priceIssueCount = (quantityPreview ? (quantityPreview.grade.trim() ? 0 : 1) : 0) +
     (quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()) ? 1 : 0);
   const catalogueAssets = media.filter((asset) => asset.kind !== "image");
@@ -547,7 +547,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     if (!hasMedia) blockers.push("Tải ít nhất một ảnh sản phẩm ở mục Ảnh & tệp.");
     if (priceIssueCount > 0 && !quantityPreview?.grade.trim()) blockers.push("Chọn grade chuẩn của danh mục.");
     if (priceIssueCount > 0 && quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()))
-      blockers.push("Mức 1: nhập đơn giá USD/kg.");
+      blockers.push("Nhập đơn giá cho dòng giá đầu tiên.");
     if (dirty) blockers.push("Lưu thay đổi trước khi gửi.");
     return blockers;
   }
@@ -1177,7 +1177,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               hint="Bảng giá bậc, MOQ, Incoterm, giá mẫu" />
             <div>
               <Row label="Giá theo số lượng" required error={priceIssueCount > 0}
-                hint={priceIssueCount > 0 ? "Chọn grade và nhập đơn giá mức 1 để tiếp tục." : "Số lượng của mức 1 là MOQ (đơn hàng tối thiểu)."}>
+                hint={priceIssueCount > 0 ? "Chọn grade và nhập đơn giá để tiếp tục." : "Số lượng dòng đầu là MOQ (đơn hàng tối thiểu)."}>
               {product ? <div className="rounded-md border border-ink-200 p-3">
                 {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
                   data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview} />
@@ -1191,11 +1191,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                       isolated showPreview={false} showTitle={false} validateEnglishName={false} showErrors={showGradeErrors} consentChecked={quantityConsent} onConsentChange={setQuantityConsent} />}
                   </>}
               </div>}
-              {review === "approved" && (
-                <p className="mt-2 text-[11px] leading-4 text-ink-600">
-                  Lưu ý: Nếu bạn chỉnh sửa giá trên sản phẩm đã duyệt, sản phẩm sẽ được kiểm tra lại giá trước khi hiển thị công khai.
-                </p>
-              )}
               </Row>
 
               <Row label="Giá mẫu (USD)" hint="Bỏ trống nếu không bán mẫu.">
@@ -1371,7 +1366,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   action: "Đi tới mục 2", run: () => scrollToSection("sec-basic") },
                 { ok: hasMedia, label: "Tải ít nhất một ảnh sản phẩm hoặc catalogue",
                   action: "Đi tới mục 3", run: () => scrollToSection("sec-media") },
-                { ok: priceIssueCount === 0 && !!quantityPreview, label: "Chọn grade và nhập giá mức 1",
+                { ok: priceIssueCount === 0 && !!quantityPreview, label: "Chọn grade và nhập giá",
                   action: "Đi tới mục 5", run: () => scrollToSection("sec-price") },
                 { ok: !!(snapshot.name ?? "").trim() && !!selectedCategory, label: "Tên và danh mục đã điền",
                   action: "Sửa", run: () => scrollToSection("sec-category") },

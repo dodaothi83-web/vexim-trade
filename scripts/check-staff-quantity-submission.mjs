@@ -41,7 +41,7 @@ assert.equal(calls[0].args.p_tiers[0].priceUsdPerKg, 6.4);
 assert.equal(calls[0].args.p_warnings.length, 1, 'Outliers go to review');
 assert.equal(audits[0].action, 'staff.quantity_price_revision_submitted');
 assert.equal(audits[0].after.supplier_confirmation_attested, true);
-for (const bad of [{ confirm_quantity_price_consent: '' }, { grade: 'OTHER' }, { expected_price_revision_id: 'bad' }, { quantity_currency: 'EUR' },
+for (const bad of [{ confirm_quantity_price_consent: '' }, { grade: 'OTHER' }, { expected_price_revision_id: 'bad' }, { quantity_currency: 'GBP' },
   { quantity_tiers_json: 'bad' }, { expected_product_updated_at: '2000-01-01T00:00:00Z' },
   { quantity_tiers_json: JSON.stringify([{ minKg: '1', priceUsdPerKg: '5' }, { minKg: '2', priceUsdPerKg: '6' }]) }]) {
   assert.equal((await exports.submitStaffQuantityPriceAction(form(bad))).ok, false);

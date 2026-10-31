@@ -6,7 +6,8 @@ import {
   formatQuantityBuyer,
   formatQuantityPriceBuyer,
   formatQuantityInput,
-  ENTRY_PRICE_CURRENCIES,
+  currencyDecimals,
+  PRICE_CURRENCIES,
   normalizePriceCurrency,
   parseQuantityKg,
   previewQuantityTiers,
@@ -58,10 +59,11 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
   const maxTiers = Math.min(policy.maxTiers, 4);
   const unitLabel = buyerPriceUnit === "mt" ? "MT" : "kg";
   const currency = preview.currency;
-  const number = (n: number) => new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: buyerPriceUnit === "mt" ? 0 : 2,
-    maximumFractionDigits: buyerPriceUnit === "mt" ? 0 : 2,
-  }).format(buyerPriceUnit === "mt" ? n * 1000 : n);
+  const number = (n: number) => {
+    const digits = buyerPriceUnit === "mt" ? 0 : currencyDecimals(preview.currency);
+    return new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })
+      .format(buyerPriceUnit === "mt" ? n * 1000 : n);
+  };
   const cardPrice = low !== null && high !== null
     ? `${currency} ${number(low)}${low !== high ? `–${number(high)}` : ""}/${unitLabel}` : "Price on request";
   const incoterms = [...new Set(preview.tiers.map((tier) => tier.incoterm).filter(Boolean))];
@@ -133,14 +135,14 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
             {!standardGrades.length && <span role="status" className="mt-1 block text-[11.5px] font-normal leading-4 text-amber-800">Danh mục này chưa có grade. Gửi Vexim bổ sung.</span>}
           </div>
           <div className="text-sm font-semibold text-ink-800">
-            <span>Tiền tệ <span className="text-rose-700">*</span></span>
-            <p aria-label="Tiền tệ" className="input mt-1 flex w-full items-center justify-center bg-ink-50 font-mono text-ink-800">{currency}</p>
+            <label htmlFor="quantity-currency">Tiền tệ <span className="text-rose-700">*</span></label>
+            <select id="quantity-currency" form={form} aria-label="Tiền tệ" className="input mt-1 w-full font-mono" disabled={disabled}
+              value={currency} onChange={(e) => onChange({ ...value, currency: e.target.value })}>
+              {PRICE_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+            </select>
           </div>
         </div>
-        <p className="text-[11.5px] leading-4 text-ink-600">Tạm thời chỉ nhập giá USD. VND/EUR sẽ mở lại khi dữ liệu giá cho phép.</p>
-        {!ENTRY_PRICE_CURRENCIES.includes(currency) && <p className="text-[11.5px] leading-4 text-amber-800">Bảng giá này đang lưu bằng {currency}; hãy nhập lại bảng mới bằng USD để gửi duyệt.</p>}
         {showTitle && <h3 className="text-sm font-bold text-ink-900">Bảng giá theo số lượng</h3>}
-        <p className="text-xs text-ink-600">Chỉ nhập số lượng <strong>từ</strong>; cột <strong>đến</strong> tự tính bằng mức kế tiếp trừ 1. Mức cuối là “trở lên”.</p>
         <div className="overflow-x-auto"><table className="w-full min-w-[520px] table-fixed text-left text-sm">
           <colgroup>
             <col className="w-[96px]" />
@@ -175,7 +177,7 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
               </td>
               <td className="p-1 align-top">
                 <p aria-live="polite" className="rounded-lg bg-ink-50 px-2.5 py-2 text-right font-mono text-sm tabular-nums text-ink-700">
-                  {index === value.tiers.length - 1 ? "trở lên" : upper ?? "—"}
+                  {upper ?? "—"}
                 </p>
               </td>
               <td className="p-1 align-top"><input form={form} aria-label={`Giá mức ${index + 1} (${currency}/kg)`} aria-invalid={invalid(["price", "price_order"])} className="input w-full text-right tabular-nums" type="text" inputMode="decimal" required disabled={disabled} value={tier.priceUsdPerKg} onChange={(e) => changeTier(index, { priceUsdPerKg: e.target.value })} onBlur={(e) => { const normalized = normalizePriceInput(e.target.value); if (normalized !== e.target.value) changeTier(index, { priceUsdPerKg: normalized }); }} />
