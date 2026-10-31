@@ -24,6 +24,7 @@ import {
 import { Breadcrumbs } from "@/components/ui";
 import { CategoryProductGrid } from "@/components/category-product-grid";
 import { CertificateFacetChips } from "@/components/certificate-facet-chips";
+import { readCategoryCertificateData } from "@/lib/public/category-certificate-data";
 import { HarvestCalendarSection } from "@/components/harvest-calendar";
 import { categoryFaqs } from "@/lib/public/category-faq";
 import { PriceRangeStrip } from "@/components/price-range";
@@ -46,7 +47,6 @@ import {
   type CertificateFacet,
 } from "@/lib/public/certificate-facets";
 import type { CertificateScheme } from "@/lib/certificate-scheme";
-import type { Certificate, CertificateScope, MediaAsset, ProductCertificateOptout } from "@/lib/types";
 import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -171,51 +171,6 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   };
 }
 
-/**
- * Chứng nhận + tệp của các nhà cung cấp đang có sản phẩm trong danh mục.
- *
- * Đọc theo từng nhà cung cấp đúng như trang sản phẩm vẫn làm; không đọc toàn bộ bảng
- * chứng nhận của sàn. Lỗi đọc chỉ làm bộ lọc trống, không làm hỏng trang danh mục.
- */
-async function categoryCertificateData(
-  products: PublicCategoryProduct[],
-): Promise<{
-  certificates: Certificate[];
-  media: MediaAsset[];
-  scopes: CertificateScope[];
-  optouts: ProductCertificateOptout[];
-}> {
-  const store = getStore();
-  if (typeof store.listCertificates !== "function" || products.length === 0) {
-    return { certificates: [], media: [], scopes: [], optouts: [] };
-  }
-  const supplierIds = [...new Set(products.map((product) => product.supplierId))];
-  const perSupplier = await Promise.all(
-    supplierIds.map(async (supplierId) => {
-      const certificates = await store.listCertificates(supplierId).catch(() => [] as Certificate[]);
-      const media = typeof store.listMedia === "function"
-        ? await store.listMedia("supplier", supplierId).catch(() => [] as MediaAsset[])
-        : [];
-      // Phạm vi + opt-out chỉ để biết giấy có áp cho sản phẩm nào; lỗi đọc thì coi như
-      // chưa có phạm vi (giấy vẫn dùng danh sách sản phẩm cũ) chứ không làm hỏng trang.
-      const scopes = typeof store.listCertificateScopes === "function" && certificates.length > 0
-        ? await store.listCertificateScopes(certificates.map((certificate) => certificate.id))
-          .catch(() => [] as CertificateScope[])
-        : [];
-      const optouts = typeof store.listCertificateOptouts === "function"
-        ? await store.listCertificateOptouts(supplierId).catch(() => [] as ProductCertificateOptout[])
-        : [];
-      return { certificates, media, scopes, optouts };
-    }),
-  );
-  return {
-    certificates: perSupplier.flatMap((item) => item.certificates),
-    media: perSupplier.flatMap((item) => item.media),
-    scopes: perSupplier.flatMap((item) => item.scopes),
-    optouts: perSupplier.flatMap((item) => item.optouts),
-  };
-}
-
 /** Tìm category theo slug hoặc previous_slug — nếu trúng previous_slug sẽ 301 sang slug hiện tại. */
 async function resolveCategory(slug: string) {
   const store = (await import("@/lib/db")).getStore();
@@ -306,7 +261,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     media: categoryCertificateMedia,
     scopes: categoryCertificateScopes,
     optouts: categoryCertificateOptouts,
-  } = await categoryCertificateData(products);
+  } = await readCategoryCertificateData(getStore(), products.map((product) => product.supplierId));
   const schemesByProduct = certificateSchemesByProduct(
     products.map((product) => ({
       id: product.id,

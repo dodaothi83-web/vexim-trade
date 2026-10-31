@@ -1978,6 +1978,10 @@ export const localStore: DataStore = {
   async listCertificateOptouts(supplierId) {
     return (load().product_certificate_optouts ?? []).filter((row) => row.supplier_id === supplierId);
   },
+  async listCertificateOptoutsForSuppliers(supplierIds) {
+    const ids = new Set(supplierIds);
+    return (load().product_certificate_optouts ?? []).filter((row) => ids.has(row.supplier_id));
+  },
   async setCertificateOptout(supplierId, productId, certificateId, on) {
     mutate((db) => {
       const rest = (db.product_certificate_optouts ?? []).filter(

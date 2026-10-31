@@ -279,6 +279,8 @@ export interface DataStore {
   createCertificateScope(input: Partial<CertificateScope>): Promise<CertificateScope>;
   deleteCertificateScope(id: string): Promise<void>;
   listCertificateOptouts(supplierId: string): Promise<ProductCertificateOptout[]>;
+  /** Nhiều nhà cung cấp, chia lô và phân trang; chỉ dùng trên máy chủ (bộ lọc chứng nhận). */
+  listCertificateOptoutsForSuppliers(supplierIds: string[]): Promise<ProductCertificateOptout[]>;
   /** Bật/tắt việc nhà cung cấp bỏ nhận một chứng nhận thừa hưởng từ danh mục. */
   setCertificateOptout(supplierId: string, productId: string, certificateId: string, on: boolean): Promise<void>;
 

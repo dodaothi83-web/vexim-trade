@@ -158,8 +158,10 @@ assert.equal(l1.checklistMismatch({ id: "x", name: "HACCP", checklist_key: "hacc
 /* 7. Nối dây: trang danh mục đọc phạm vi/opt-out; portal có opt-out; CRM có hàng đợi. */
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8");
 const categoryPage = read("app/(public)/products/[slug]/page.tsx");
-assert.match(categoryPage, /listCertificateScopes/, "trang danh mục đọc phạm vi chứng nhận");
-assert.match(categoryPage, /listCertificateOptouts/, "trang danh mục đọc lựa chọn bỏ nhận");
+const categoryCertificateData = read("lib/public/category-certificate-data.ts");
+assert.match(categoryCertificateData, /listCertificateScopes/, "dữ liệu danh mục đọc phạm vi chứng nhận");
+assert.match(categoryCertificateData, /listCertificateOptoutsForSuppliers/, "dữ liệu danh mục đọc lựa chọn bỏ nhận");
+assert.match(categoryPage, /readCategoryCertificateData\(/, "trang danh mục lấy phạm vi + opt-out từ một chỗ");
 assert.match(categoryPage, /certificateSchemesByProduct\(\s*products\.map/, "số đếm tính trên danh sách trước khi lọc theo chứng nhận");
 const pdp = read("app/(public)/products/[slug]/[productId]/page.tsx");
 assert.match(pdp, /listCertificateScopes/, "trang sản phẩm dùng cùng phạm vi");

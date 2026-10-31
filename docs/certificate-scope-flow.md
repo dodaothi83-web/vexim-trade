@@ -53,8 +53,14 @@ Hai ô tải giấy (trang **Giấy tờ & chứng nhận L1** và khối "Chứ
 
 Giữ nguyên mọi điều kiện của PR #48 (đã duyệt, công khai, không bị ẩn, còn hạn, có tệp nội bộ, đúng đơn vị đứng tên) và thay "được gắn cho sản phẩm" bằng: **phạm vi đã xác nhận chứa sản phẩm hoặc danh mục của nó, và sản phẩm không opt-out**. Số trên chip tính trên danh sách sản phẩm trước khi áp bộ lọc chứng nhận, nên bỏ chọn chip không làm số nhảy.
 
+**Chỗ duy nhất có bộ lọc:** dải chip "Certificates" trên `/products/<slug>`, ngay trên lưới sản phẩm, dưới dải khoảng giá và "Related searches". Tham số `?cert=haccp,halal`; trang đã lọc `noindex`, canonical về danh mục gốc. Không có ở `/search` (trang đó chưa có bộ lọc nào, kết quả trải nhiều danh mục nên số đếm khó hiểu, và phải lọc trước khi chia trang), không có ở trang nhà cung cấp (một nhà cung cấp thì chip chỉ lặp lại badge), trang sản phẩm đã có badge theo loại giấy.
+
+**Cách đọc dữ liệu (`lib/public/category-certificate-data.ts`):** trang danh mục không đọc từng nhà cung cấp nữa. Một lượt `listCertificatesForSuppliers` cho cả danh mục, một lượt `listCertificateScopes` cho đúng các giấy đó, một lượt `listCertificateOptoutsForSuppliers`, và chỉ đọc tệp cho **những nhà cung cấp thật sự có giấy**. Danh mục 50 nhà cung cấp mà 3 nhà cung cấp có giấy là 6 lượt đọc thay vì 200. Store không có hàm gộp thì tự lùi về cách đọc từng nhà cung cấp; lỗi đọc chỉ làm bộ lọc trống, không làm hỏng trang.
+
+**Để chip thực sự hiện:** chạy `20261075_certificate_scheme.sql` + `20261076_certificate_scope_flow.sql`, rồi nhân viên (1) phân loại `certificate_scheme` cho giấy trong `/crm/certificates` — giấy cũ để `NULL` hoặc `other` thì không bao giờ lên chip và **không backfill**, (2) duyệt giấy và xác nhận phạm vi danh mục/sản phẩm. Giấy pháp lý (GPKD, ATTP, GP xuất khẩu) và giấy theo lô (C/O, kiểm dịch, kiểm nghiệm) không lên chip dù có phạm vi.
+
 ## Trước khi deploy
 
 Chạy `supabase/migrations/20261076_certificate_scope_flow.sql` sau `20261075_certificate_scheme.sql`. Migration chỉ thêm cột/bảng/index, chuyển `approved_product_ids` cũ sang bảng phạm vi, **không** đổi loại giấy của dữ liệu cũ và không backfill loại.
 
-Kiểm thử: `npm run check:certificates` (gồm `check-product-certificates`, `check-certificate-filter`, `check-certificate-scope`), `npx tsc --noEmit`, `npm run build`.
+Kiểm thử: `npm run check:certificates` (gồm `check-product-certificates`, `check-certificate-filter`, `check-certificate-scope`, `check-certificate-facet-data`), `npx tsc --noEmit`, `npm run build`.

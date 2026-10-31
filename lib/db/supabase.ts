@@ -1324,6 +1324,11 @@ export const supabaseStore: DataStore = {
       "listCertificateOptouts", "product_certificate_optouts", "supplier_id", [supplierId],
     )).sort(newestFirst);
   },
+  async listCertificateOptoutsForSuppliers(supplierIds) {
+    return (await readByIds<ProductCertificateOptout>(
+      "listCertificateOptoutsForSuppliers", "product_certificate_optouts", "supplier_id", supplierIds,
+    )).sort(newestFirst);
+  },
   async setCertificateOptout(supplierId, productId, certificateId, on) {
     const client = must();
     if (!on) {
