@@ -25,6 +25,7 @@ import type {
 } from "@/lib/types";
 import { approvedL2Scope } from "@/lib/verification-status";
 import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
+import { detectCertificateScheme } from "@/lib/certificate-scheme";
 
 export const L1_CERTIFICATE_KEYS = [
   "food_safety",
@@ -316,6 +317,17 @@ export async function ingestCertificateScan(
   const expiryChanged =
     !existing || (existing.valid_until ?? null) !== (resolvedValidUntil ?? null);
 
+  // Loại chứng nhận đọc từ chính tên/tổ chức cấp/số giấy; chỉ nhận gợi ý của AI khi
+  // văn bản trên giấy không nêu mã nào mà AI đọc chắc (không lấy theo ô checklist).
+  // Nhân viên đã chọn loại cho đúng giấy này thì giữ lựa chọn đó khi quét lại; chỉ đọc
+  // lại khi tên giấy đổi (tức là tệp mới, không còn là giấy cũ).
+  const nameChanged = (existing?.name ?? "").trim() !== resolvedName.trim();
+  const certificateScheme =
+    (!nameChanged ? existing?.certificate_scheme ?? null : null) ??
+    detectCertificateScheme({ name: resolvedName, issuer: scan?.issuer, number: scan?.certificate_number }) ??
+    (scan && scan.confidence !== "low" ? scan.certificate_scheme : null) ??
+    null;
+
   const patch: Partial<Certificate> = {
     supplier_id: input.supplier.id,
     name: resolvedName.slice(0, 160),
@@ -331,6 +343,7 @@ export async function ingestCertificateScan(
     ai_confidence: scanOutcome.ok ? scanOutcome.data.confidence : (existing?.ai_confidence ?? null),
     source: input.source,
     checklist_key: input.checklistKey ?? existing?.checklist_key ?? null,
+    certificate_scheme: certificateScheme,
     verification_id: input.verificationId ?? existing?.verification_id ?? null,
     // Không bao giờ tự ghi đè cờ ẩn của nhân viên khi quét lại.
     staff_hidden: existing?.staff_hidden ?? false,

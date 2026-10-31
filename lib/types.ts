@@ -1,3 +1,5 @@
+import type { CertificateScheme } from "./certificate-scheme";
+
 export type Priority = "low" | "normal" | "high";
 
 export type SupplierRole = "manufacturer" | "trader" | "agent" | "exporter";
@@ -461,6 +463,12 @@ export interface Certificate {
   scope_text?: string | null;
   requested_product_ids?: string[];
   approved_product_ids?: string[];
+  /**
+   * Loại chứng nhận thật (HACCP, Halal, ISO 22000…) đọc từ tên/tổ chức cấp trên giấy,
+   * nhân viên sửa lại được. NULL = chưa phân loại; khác hẳn ô checklist L1 vốn gộp
+   * nhiều chuẩn vào một mục.
+   */
+  certificate_scheme?: CertificateScheme | null;
   review_status?: "unreviewed" | "pending" | "changes_requested" | "approved" | "rejected";
   review_note?: string | null;
   publicly_visible?: boolean;

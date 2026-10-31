@@ -2226,3 +2226,28 @@ create trigger guard_partner_review_approval before update of status on public.v
 
 commit;
 notify pgrst, 'reload schema';
+
+-- ---------------------------------------------------------------------------
+-- 5b. LOẠI CHỨNG NHẬN CHO BỘ LỌC NGƯỜI MUA
+--     (Bản đầy đủ: migrations/20261075_certificate_scheme.sql)
+--     Tách khỏi ô checklist L1 vốn gộp HACCP/ISO/FSSC/BRC/Halal. NULL = chưa phân loại.
+-- ---------------------------------------------------------------------------
+begin;
+
+alter table public.certificates add column if not exists certificate_scheme text;
+
+alter table public.certificates drop constraint if exists certificates_scheme_ck;
+alter table public.certificates add constraint certificates_scheme_ck check (
+  certificate_scheme is null or certificate_scheme in (
+    'haccp', 'iso_22000', 'fssc_22000', 'brc', 'ifs', 'iso_9001', 'gmp',
+    'halal', 'kosher', 'organic', 'fda', 'globalgap', 'rainforest',
+    'food_safety', 'export_license', 'origin', 'phytosanitary', 'other'
+  )
+) not valid;
+
+create index if not exists certificates_scheme_idx
+  on public.certificates (certificate_scheme)
+  where certificate_scheme is not null;
+
+commit;
+notify pgrst, 'reload schema';

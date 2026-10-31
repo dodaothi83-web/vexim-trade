@@ -4,9 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
 
+import { CERTIFICATE_SCHEMES } from "@/lib/certificate-scheme";
 import {
   approveCertificateAction,
   rescanCertificateAction,
+  setCertificateSchemeAction,
   toggleCertificateHiddenAction,
 } from "./certificate-actions";
 
@@ -16,6 +18,7 @@ export function CertificateRowControls({
   hasFile,
   staffHidden,
   published,
+  scheme,
   canInspect,
   canPublish,
 }: {
@@ -25,17 +28,28 @@ export function CertificateRowControls({
   staffHidden: boolean;
   /** AI đã duyệt và đang hiện trên trang người mua. */
   published: boolean;
+  /** Loại chứng nhận dùng cho bộ lọc người mua; null = chưa phân loại. */
+  scheme: string | null;
   canInspect: boolean;
   canPublish: boolean;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"scan" | "hide" | "approve" | null>(null);
+  const [busy, setBusy] = useState<"scan" | "hide" | "approve" | "scheme" | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function onRescan() {
     setBusy("scan");
     setMsg(null);
     const res = await rescanCertificateAction(supplierId, certificateId);
+    setBusy(null);
+    setMsg({ ok: res.ok, text: res.message });
+    if (res.ok) router.refresh();
+  }
+
+  async function onScheme(value: string) {
+    setBusy("scheme");
+    setMsg(null);
+    const res = await setCertificateSchemeAction(supplierId, certificateId, value);
     setBusy(null);
     setMsg({ ok: res.ok, text: res.message });
     if (res.ok) router.refresh();
@@ -63,6 +77,21 @@ export function CertificateRowControls({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
+      {canInspect && (
+        <label className="flex items-center gap-1 text-[11px] font-semibold text-ink-600">
+          Loại
+          <select
+            value={scheme ?? ""}
+            disabled={busy !== null}
+            onChange={(e) => void onScheme(e.target.value)}
+            className="input h-7 py-0 text-[11px]"
+            title="Loại chứng nhận dùng cho bộ lọc người mua; để trống nghĩa là chưa phân loại"
+          >
+            <option value="">Chưa phân loại</option>
+            {CERTIFICATE_SCHEMES.map((item) => <option key={item.code} value={item.code}>{item.vi}</option>)}
+          </select>
+        </label>
+      )}
       {canInspect && hasFile && (
         <button
           type="button"

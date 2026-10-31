@@ -23,6 +23,7 @@ import {
 
 import { Breadcrumbs } from "@/components/ui";
 import { CategoryProductGrid } from "@/components/category-product-grid";
+import { CertificateFacetChips } from "@/components/certificate-facet-chips";
 import { HarvestCalendarSection } from "@/components/harvest-calendar";
 import { categoryFaqs } from "@/lib/public/category-faq";
 import { PriceRangeStrip } from "@/components/price-range";
@@ -37,6 +38,15 @@ import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/pu
 import { t } from "@/lib/public/i18n";
 import { normalizeCategoryFilters } from "@/lib/category-filters";
 import { categoryKeywordSearches } from "@/lib/public/category-searches";
+import {
+  buildCertificateFacets,
+  certificateSchemesByProduct,
+  parseCertificateSchemeQuery,
+  productMatchesCertificateSchemes,
+  type CertificateFacet,
+} from "@/lib/public/certificate-facets";
+import type { CertificateScheme } from "@/lib/certificate-scheme";
+import type { Certificate, MediaAsset } from "@/lib/types";
 import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -56,6 +66,8 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  /** `?cert=haccp,halal` — bộ lọc chứng nhận đã kiểm cho danh sách sản phẩm. */
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 interface ChildCategoryWithCount {
@@ -136,8 +148,11 @@ function pricePointsFrom(products: PublicCategoryProduct[]): GradePricePoint[] {
     });
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  const query = (await searchParams) ?? {};
+  // Trang đã lọc là một cách xem khác của cùng danh mục; chỉ trang gốc được index.
+  const filtered = parseCertificateSchemeQuery(query.cert).length > 0;
   const { cat, resolvedSlug, isPreview } = await resolveCategory(slug);
   if (!cat) return { title: "Category not found | Vexim Trade", robots: { index: false, follow: false } };
   const name = categoryDisplayName(cat);
@@ -152,7 +167,36 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: { canonical: `/products/${resolvedSlug}` },
     openGraph: { title: seoTitle, description: seoDesc, url: `/products/${resolvedSlug}`, siteName: "Vexim Trade", type: "website", images },
     twitter: { card: "summary_large_image", title: seoTitle, description: seoDesc, images: [heroImage] },
-    robots: { index: indexable, follow: !isPreview },
+    robots: { index: indexable && !filtered, follow: !isPreview },
+  };
+}
+
+/**
+ * Chứng nhận + tệp của các nhà cung cấp đang có sản phẩm trong danh mục.
+ *
+ * Đọc theo từng nhà cung cấp đúng như trang sản phẩm vẫn làm; không đọc toàn bộ bảng
+ * chứng nhận của sàn. Lỗi đọc chỉ làm bộ lọc trống, không làm hỏng trang danh mục.
+ */
+async function categoryCertificateData(
+  products: PublicCategoryProduct[],
+): Promise<{ certificates: Certificate[]; media: MediaAsset[] }> {
+  const store = getStore();
+  if (typeof store.listCertificates !== "function" || products.length === 0) {
+    return { certificates: [], media: [] };
+  }
+  const supplierIds = [...new Set(products.map((product) => product.supplierId))];
+  const perSupplier = await Promise.all(
+    supplierIds.map(async (supplierId) => {
+      const certificates = await store.listCertificates(supplierId).catch(() => [] as Certificate[]);
+      const media = typeof store.listMedia === "function"
+        ? await store.listMedia("supplier", supplierId).catch(() => [] as MediaAsset[])
+        : [];
+      return { certificates, media };
+    }),
+  );
+  return {
+    certificates: perSupplier.flatMap((item) => item.certificates),
+    media: perSupplier.flatMap((item) => item.media),
   };
 }
 
@@ -175,8 +219,9 @@ async function resolveCategory(slug: string) {
   return { cat, allCategories: all, resolvedSlug: cat.slug, isStaff, isPreview: !isPublished };
 }
 
-export default async function CategoryPage({ params }: PageProps) {
+export default async function CategoryPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const query = (await searchParams) ?? {};
   const { cat, allCategories, isStaff, isPreview, resolvedSlug } = await resolveCategory(slug);
   if (!cat) notFound();
 
@@ -230,7 +275,24 @@ export default async function CategoryPage({ params }: PageProps) {
     }
   }
 
-  const sponsored = !isPreview ? await pilotPlacement(cat.slug, products) : null;
+  /*
+   * Bộ lọc chứng nhận: chỉ chứng nhận đã duyệt, công khai, còn hạn và được gắn cho
+   * đúng sản phẩm mới vào danh sách; số đếm trên chip tính từ tập sản phẩm này.
+   */
+  const { certificates: categoryCertificates, media: categoryCertificateMedia } =
+    await categoryCertificateData(products);
+  const schemesByProduct = certificateSchemesByProduct(
+    products,
+    categoryCertificates,
+    categoryCertificateMedia,
+  );
+  const certificateFacets = buildCertificateFacets(schemesByProduct);
+  const selectedSchemes = parseCertificateSchemeQuery(query.cert);
+  const visibleProducts = selectedSchemes.length === 0
+    ? products
+    : products.filter((product) => productMatchesCertificateSchemes(schemesByProduct, product.id, selectedSchemes));
+
+  const sponsored = !isPreview ? await pilotPlacement(cat.slug, visibleProducts) : null;
   /*
    * Vùng đẩy sản phẩm của gói bán thật, chọn theo cửa sổ mười phút. Gói chạy trên
    * kho local để xem được khi phát triển; lên production thì đọc từ bảng
@@ -247,8 +309,8 @@ export default async function CategoryPage({ params }: PageProps) {
   });
   const sponsoredBand = pickSponsoredBand({
     pushes: livePushes,
-    products,
-    slots: categorySponsoredSlots(products.filter((product) => !product.isDemo && !product.isDemoSupplier).length, categorySlotConfig()),
+    products: visibleProducts,
+    slots: categorySponsoredSlots(visibleProducts.filter((product) => !product.isDemo && !product.isDemoSupplier).length, categorySlotConfig()),
     surface: "category",
     categorySlug: cat.slug,
     nowMs,
@@ -307,11 +369,12 @@ export default async function CategoryPage({ params }: PageProps) {
     "@type": "BreadcrumbList",
     itemListElement: breadcrumbElements,
   };
-  const itemListJsonLd = hasProducts ? {
+  // JSON-LD bám đúng danh sách đang hiển thị: trang đã lọc chỉ khai báo sản phẩm còn lại.
+  const itemListJsonLd = visibleProducts.length > 0 ? {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: `${categoryName} products`,
-    itemListElement: products.map((p, index) => ({
+    itemListElement: visibleProducts.map((p, index) => ({
       "@type": "ListItem", position: index + 1, name: p.name,
       url: `${SITE_URL}/products/${encodeURIComponent(cat.slug)}/${encodeURIComponent(p.id)}`,
     })),
@@ -392,7 +455,10 @@ export default async function CategoryPage({ params }: PageProps) {
         {hasProducts ? (
           <StateA
             cat={cat}
-            products={products}
+            products={visibleProducts}
+            productCount={products.length}
+            certificateFacets={certificateFacets}
+            selectedCertificateSchemes={selectedSchemes}
             sponsored={sponsored}
             sponsoredBand={sponsoredBand}
             categoryName={categoryName}
@@ -494,10 +560,15 @@ function SubcategoryDirectory({
 /* ================== STATE A — đã có NCC ================== */
 
 function StateA({
-  cat, products, sponsored, sponsoredBand, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref, comparisonEnabled,
+  cat, products, productCount, certificateFacets, selectedCertificateSchemes,
+  sponsored, sponsoredBand, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref, comparisonEnabled,
 }: {
   cat: Category;
-  products: PublicCategoryProduct[]; sponsored: PilotPlacement | null; sponsoredBand: SponsoredBandItem[];
+  products: PublicCategoryProduct[];
+  /** Số sản phẩm của danh mục trước khi lọc, để báo "không có sản phẩm khớp". */
+  productCount: number;
+  certificateFacets: CertificateFacet[];
+  selectedCertificateSchemes: CertificateScheme[]; sponsored: PilotPlacement | null; sponsoredBand: SponsoredBandItem[];
   categoryName: string; h1: string; intro: string; childGroups: ChildCategoryWithCount[]; body: string | null;
   comparisonEnabled: boolean;
   columns: CategoryColumn[];
@@ -561,8 +632,23 @@ function StateA({
           </nav>
         )}
 
-        <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored}
-          sponsoredBand={sponsoredBand} productFields={cat.product_fields ?? []} comparisonEnabled={comparisonEnabled} />
+        <CertificateFacetChips slug={cat.slug} facets={certificateFacets} selected={selectedCertificateSchemes} />
+
+        {products.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-ink-200 bg-white p-6 text-center">
+            <p className="text-[15px] font-bold text-ink-900">No products match these certificates yet.</p>
+            <p className="mt-1 text-[13px] leading-6 text-ink-600">
+              {productCount} product{productCount === 1 ? "" : "s"} in this category, but none has a certificate Vexim has
+              checked, still valid and linked in the selected set.
+            </p>
+            <Link href={`/products/${encodeURIComponent(cat.slug)}`} className="btn btn-primary btn-sm mt-3">
+              Clear filter
+            </Link>
+          </div>
+        ) : (
+          <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored}
+            sponsoredBand={sponsoredBand} productFields={cat.product_fields ?? []} comparisonEnabled={comparisonEnabled} />
+        )}
       </section>
 
       {cat.hero_image && (

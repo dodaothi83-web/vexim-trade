@@ -20,7 +20,7 @@
     "check:copy": "node scripts/check-ui-copy.mjs",
     "check:completeness": "node --experimental-strip-types --no-warnings scripts/check-product-completeness.mjs",
     "check:extras": "node --experimental-strip-types --no-warnings scripts/check-product-extras.mjs",
-    "check:certificates": "node --experimental-strip-types --no-warnings scripts/check-product-certificates.mjs",
+    "check:certificates": "node --experimental-strip-types --no-warnings scripts/check-product-certificates.mjs && node --experimental-strip-types --no-warnings scripts/check-certificate-filter.mjs",
     "check:extras-buyer": "node --experimental-strip-types --no-warnings scripts/check-product-extras-buyer.mjs",
     "check:sponsored-retired": "node --experimental-strip-types --no-warnings scripts/check-sponsored-retired.mjs",
     "check:sponsored-offer": "node --experimental-strip-types --no-warnings scripts/check-sponsored-offer-settings.mjs",

@@ -2,6 +2,7 @@ import type { Certificate, MediaAsset } from "@/lib/types";
 import { isExpired } from "@/lib/media/readiness";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { approvedProductCertificateIds } from "@/lib/public/product-certificate-links";
+import { certificateSchemeLabel, isCertificateScheme, type CertificateScheme } from "@/lib/certificate-scheme";
 
 export interface PublicSupplierCertificate {
   id: string;
@@ -11,6 +12,9 @@ export interface PublicSupplierCertificate {
   holderMatch: "owner" | "partner";
   holderName: string | null;
   validUntil: string;
+  /** Loại chứng nhận cho bộ lọc; null khi chưa phân loại (hoặc loại "khác"). */
+  scheme: CertificateScheme | null;
+  schemeLabel: string | null;
 }
 
 /**
@@ -67,6 +71,8 @@ export function publicSupplierCertificates(
       holderMatch: (c.holder_match === "partner" ? "partner" : "owner") as "owner" | "partner",
       holderName: c.holder_name ? withoutDirectContacts(c.holder_name).slice(0, 140) : null,
       validUntil: c.valid_until!,
+      scheme: isCertificateScheme(c.certificate_scheme) && c.certificate_scheme !== "other" ? c.certificate_scheme : null,
+      schemeLabel: isCertificateScheme(c.certificate_scheme) ? certificateSchemeLabel(c.certificate_scheme, "en") : null,
     }))
     .slice(0, 16);
 }

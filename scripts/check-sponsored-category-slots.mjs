@@ -33,7 +33,7 @@ for (const env of [
 ]) assert.throws(() => categorySlotConfig(env));
 
 const page = readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8');
-assert.match(page, /categorySponsoredSlots\(products\.filter\(\(product\) => !product\.isDemo && !product\.isDemoSupplier\)\.length, categorySlotConfig\(\)\)/);
+assert.match(page, /categorySponsoredSlots\(visibleProducts\.filter\(\(product\) => !product\.isDemo && !product\.isDemoSupplier\)\.length, categorySlotConfig\(\)\)/);
 const band = readFileSync(new URL('../components/sponsored-product-band.tsx', import.meta.url), 'utf8');
 assert.match(band, /<PublicProductCard\s+href=\{href\}\s+sponsored/);
 

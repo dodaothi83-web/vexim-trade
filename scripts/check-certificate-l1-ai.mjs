@@ -132,6 +132,7 @@ const stubStore = {
       ai_confidence: patch.ai_confidence ?? null,
       source: patch.source ?? "manual",
       checklist_key: patch.checklist_key ?? null,
+      certificate_scheme: patch.certificate_scheme ?? null,
       verification_id: patch.verification_id ?? null,
       staff_hidden: Boolean(patch.staff_hidden),
       expiry_notified: patch.expiry_notified ?? {},
@@ -197,6 +198,8 @@ assert.equal(ownerScan.decision.autoPublish, true);
 assert.equal(ownerScan.certificate.review_status, "approved");
 assert.equal(ownerScan.certificate.publicly_visible, true);
 assert.equal(ownerScan.certificate.holder_match, "owner");
+// Loại chứng nhận lấy từ tên trên giấy, không lấy từ ô checklist đã chọn (haccp_or_brc).
+assert.equal(ownerScan.certificate.certificate_scheme, "haccp", "Đọc loại chứng nhận từ tên giấy");
 assert.equal(decisionsSent.length, 1);
 
 // 3b. Nhà máy tải giấy đứng tên doanh nghiệp khác: chờ duyệt, nêu rõ lý do.
@@ -269,6 +272,7 @@ const tradingNoL2 = await partnerScanFor("trading", null, "trading-no-l2");
 assert.equal(tradingNoL2.decision.autoPublish, false, "Thương mại chưa có L2 đối tác: không công bố");
 assert.match(tradingNoL2.certificate.review_note, /chưa xác thực L2 nhà máy đối tác/);
 const tradingWithL2 = await partnerScanFor("trading", "partner_contract", "trading-l2");
+assert.equal(tradingWithL2.certificate.certificate_scheme, "haccp", "Giấy HACCP của nhà máy đối tác cũng được phân loại");
 assert.equal(tradingWithL2.decision.autoPublish, true, "Giấy đứng tên đúng nhà máy đối tác trong hợp đồng L2");
 assert.equal(tradingWithL2.certificate.publicly_visible, true);
 assert.match(tradingWithL2.certificate.review_note, /trùng nhà máy đối tác/i);

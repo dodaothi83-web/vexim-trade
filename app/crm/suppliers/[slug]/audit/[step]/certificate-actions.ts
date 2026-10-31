@@ -8,6 +8,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { holderMatchBadgeLabel, ingestCertificateScan, todayISO } from "@/lib/certificate-service";
 import { approvedL2Scope } from "@/lib/verification-status";
 import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
+import { certificateSchemeLabel, isCertificateScheme } from "@/lib/certificate-scheme";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -185,6 +186,61 @@ async function approveCertificate(supplierId: string, certificateId: string) {
 
   await softRefresh(() => refresh(supplier.id, supplier.slug));
   return result(true, `Đã duyệt đăng “${cert.name}” (${holderMatchBadgeLabel(cert.holder_match, cert.holder_name)}).`);
+}
+
+/**
+ * Nhân viên chọn/sửa loại chứng nhận dùng cho bộ lọc người mua.
+ *
+ * Đây là phân loại, không phải kết luận xác minh và không mở cổng công bố nào: giấy
+ * vẫn phải đã duyệt, công khai, còn hạn và được gắn sản phẩm mới lên bộ lọc.
+ */
+export async function setCertificateSchemeAction(supplierId: string, certificateId: string, scheme: string) {
+  try {
+    return await setCertificateScheme(supplierId, certificateId, scheme);
+  } catch (error) {
+    console.error("[certificate] set scheme failed", error);
+    return result(false, `Chưa lưu được loại chứng nhận (${briefReason(error)}).`);
+  }
+}
+
+async function setCertificateScheme(supplierId: string, certificateId: string, scheme: string) {
+  if ((await guard("verifications.inspect")) !== null) {
+    return result(false, "Bạn không có quyền phân loại chứng nhận.");
+  }
+  const session = await getSession();
+  if (!session || !hasPermission(session.role, "verifications.inspect")) {
+    return result(false, "Bạn không có quyền phân loại chứng nhận.");
+  }
+  if (!uuid.test(certificateId)) return result(false, "Mã chứng nhận không hợp lệ.");
+  const next = scheme.trim() === "" ? null : scheme.trim();
+  if (next !== null && !isCertificateScheme(next)) return result(false, "Loại chứng nhận không hợp lệ.");
+  const store = getStore();
+  const [supplier, cert] = await Promise.all([
+    store.getSupplier(supplierId),
+    store.getCertificate(certificateId),
+  ]);
+  if (!supplier || !cert || cert.supplier_id !== supplier.id) {
+    return result(false, "Không tìm thấy chứng nhận của nhà cung cấp này.");
+  }
+  const updated = await store.updateCertificate(cert.id, { certificate_scheme: next });
+  if (!updated) return result(false, "Không cập nhật được loại chứng nhận.");
+
+  await store
+    .addAuditLog({
+      actor_id: session.uid,
+      actor_email: session.email,
+      entity: "supplier",
+      entity_id: supplier.id,
+      action: "certificate.scheme",
+      before: { id: cert.id, certificate_scheme: cert.certificate_scheme ?? null },
+      after: { id: cert.id, certificate_scheme: next },
+    })
+    .catch((err) => console.error("[certificate] scheme audit", err));
+
+  await softRefresh(() => refresh(supplier.id, supplier.slug));
+  return result(true, next
+    ? `Đã phân loại “${cert.name}” là ${certificateSchemeLabel(next, "vi")}.`
+    : `Đã bỏ phân loại của “${cert.name}”; giấy không còn trong bộ lọc theo chuẩn.`);
 }
 
 export async function toggleCertificateHiddenAction(

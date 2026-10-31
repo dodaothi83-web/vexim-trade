@@ -3,12 +3,18 @@ import { z } from "zod";
 import { readOutputText } from "@/lib/ai/company-introduction";
 import { sniffMime } from "@/lib/media/validate";
 import type { CertificateAiConfidence, CertificateHolderMatch } from "@/lib/types";
+import { CERTIFICATE_SCHEMES, isCertificateScheme, type CertificateScheme } from "@/lib/certificate-scheme";
+
+/** Danh sách mã chuẩn lấy từ một nguồn duy nhất để prompt không lệch với CSDL. */
+const SCHEME_CODES = CERTIFICATE_SCHEMES.map((scheme) => scheme.code).join(", ");
 
 export const MAX_CERT_SCAN_BYTES = 15 * 1024 * 1024;
 const ALLOWED_MIMES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
 
 export interface CertificateScanResult {
   certificate_name: string | null;
+  /** Chuẩn ghi trên giấy (HACCP, Halal, ISO 22000…); null khi giấy không nêu rõ. */
+  certificate_scheme: CertificateScheme | null;
   holder_name: string | null;
   holder_match: CertificateHolderMatch;
   issuer: string | null;
@@ -51,6 +57,7 @@ function normalizeIsoDate(value: unknown): string | null {
 
 const rawSchema = z.object({
   certificate_name: z.unknown().optional(),
+  certificate_scheme: z.unknown().optional(),
   holder_name: z.unknown().optional(),
   holder_match: z.unknown().optional(),
   issuer: z.unknown().optional(),
@@ -79,8 +86,10 @@ export function parseCertificateScan(raw: unknown): CertificateScanResult {
   const confidence: CertificateAiConfidence =
     rawConf === "high" || rawConf === "medium" || rawConf === "low" ? rawConf : "low";
 
+  const scheme = typeof parsed.certificate_scheme === "string" ? parsed.certificate_scheme.trim().toLowerCase() : "";
   return {
     certificate_name: cleanShort(parsed.certificate_name, 160),
+    certificate_scheme: isCertificateScheme(scheme) ? scheme : null,
     holder_name,
     holder_match,
     issuer: cleanShort(parsed.issuer, 160),
@@ -143,7 +152,8 @@ export async function scanCertificateFile(input: {
     "- Trả holder_match = \"unclear\" khi ảnh/PDF mờ, không phải giấy chứng nhận, hoặc không đọc được tên đơn vị được cấp.",
     "Trích ngày hết hạn (valid_until) theo đúng định dạng YYYY-MM-DD nếu trên giấy có ghi ngày hết hiệu lực; nếu không có hoặc không đọc rõ thì trả null (không tự cộng năm từ ngày cấp).",
     "confidence = \"high\" khi chữ rõ, đọc chắc chắn tên giấy, đơn vị đứng tên và ngày hết hạn; \"medium\" khi đọc được các trường chính nhưng có chi tiết hơi mờ; \"low\" khi tệp mờ, cắt góc, nghi ngờ không phải chứng nhận hoặc không đọc được thông tin cốt lõi.",
-    "Chỉ trả về JSON theo mẫu: {\"certificate_name\":\"...\",\"holder_name\":\"...\",\"holder_match\":\"owner|partner|unclear\",\"issuer\":\"...\",\"certificate_number\":\"...\",\"valid_until\":\"YYYY-MM-DD hoặc null\",\"summary\":\"Tóm tắt tiếng Việt 1-2 câu\",\"confidence\":\"high|medium|low\"}.",
+    `Trích certificate_scheme = chuẩn mà chính giấy ghi, chỉ một trong các mã: ${SCHEME_CODES}. Nếu giấy không ghi rõ chuẩn nào thì trả null; KHÔNG suy đoán theo ngành hàng và KHÔNG dùng nhãn mục người dùng chọn làm bằng chứng.`,
+    "Chỉ trả về JSON theo mẫu: {\"certificate_name\":\"...\",\"certificate_scheme\":\"mã chuẩn hoặc null\",\"holder_name\":\"...\",\"holder_match\":\"owner|partner|unclear\",\"issuer\":\"...\",\"certificate_number\":\"...\",\"valid_until\":\"YYYY-MM-DD hoặc null\",\"summary\":\"Tóm tắt tiếng Việt 1-2 câu\",\"confidence\":\"high|medium|low\"}.",
   ].join(" ");
 
   const userContent: Record<string, unknown>[] = [
