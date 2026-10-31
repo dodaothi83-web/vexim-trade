@@ -133,7 +133,7 @@ export function ProductCertificatesForm({ productId, certificates }: { productId
       <form onSubmit={onUpload} className="mt-4 grid gap-3 rounded-lg border border-brand-200 bg-brand-50/50 p-3.5 sm:grid-cols-3">
         <div className="sm:col-span-3">
           <p className="text-[11px] font-bold tracking-wider text-brand-900 uppercase">Tải chứng nhận mới</p>
-          <p className="mt-0.5 text-[11.5px] leading-4 text-ink-600">AI đọc tên đơn vị và ngày hết hạn. Tệp không tự hiện công khai.</p>
+          <p className="mt-0.5 text-[11.5px] leading-4 text-ink-600">Hệ thống tự đọc tên đơn vị và ngày hết hạn. Tệp không tự hiện công khai.</p>
         </div>
         <label className="block text-[12px]">
           <span className="mb-1 block font-semibold text-ink-800">Loại chứng nhận</span>
@@ -151,7 +151,7 @@ export function ProductCertificatesForm({ productId, certificates }: { productId
         </div>
         <div className="flex items-end sm:col-span-3">
           <button type="submit" disabled={uploadBusy} className="btn btn-primary btn-sm">
-            {uploadBusy ? "AI đang quét…" : "Tải lên & AI quét"}
+            {uploadBusy ? "Đang tải lên…" : "Tải lên"}
           </button>
         </div>
         {uploadMessage && <p role="status" className={`text-[12px] font-medium sm:col-span-3 ${uploadMessage.ok ? "text-emerald-800" : "text-rose-700"}`}>

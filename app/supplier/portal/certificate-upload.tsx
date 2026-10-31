@@ -55,10 +55,10 @@ export function SupplierCertificateUpload({
     >
       <div className="sm:col-span-3">
         <p className="text-xs font-bold uppercase tracking-wider text-brand-900">
-          Tải lên hoặc gia hạn chứng nhận L1 (AI tự quét)
+          Tải lên hoặc gia hạn chứng nhận L1
         </p>
         <p className="mt-0.5 text-xs text-ink-600">
-          AI sẽ đọc tên đơn vị trên giấy (khớp tên công ty = <strong>Chính chủ</strong>; tên nhà máy khác = <strong>Đơn vị đối tác</strong>) và ngày hết hạn để hiển thị lên trang. Khi sắp hết hạn (60 / 30 / 7 / 1 ngày), hệ thống tự nhắc để bạn vào đây tải bản mới.
+          Hệ thống đọc tên đơn vị trên giấy (khớp tên công ty = <strong>Chính chủ</strong>; tên nhà máy khác = <strong>Đơn vị đối tác</strong>) và ngày hết hạn để hiển thị lên trang. Khi sắp hết hạn (60 / 30 / 7 / 1 ngày), hệ thống tự nhắc để bạn vào đây tải bản mới.
         </p>
       </div>
       <label className="block text-xs">
@@ -106,7 +106,7 @@ export function SupplierCertificateUpload({
       </div>
       <div className="flex items-end">
         <button disabled={busy} className="btn btn-primary w-full" type="submit">
-          {busy ? "AI đang quét..." : "Tải lên & AI quét"}
+          {busy ? "Đang tải lên..." : "Tải lên"}
         </button>
       </div>
       {message && (

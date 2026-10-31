@@ -79,6 +79,7 @@ assert.match(portalForm, /fetch\("\/api\/supplier-portal\/certificates"/, 'khố
 assert.match(portalForm, /setJustUploaded/, 'chứng nhận vừa tải được ghép vào danh sách để gắn ngay');
 assert.doesNotMatch(portalForm, /<Link|href="\/supplier\/portal\/documents"/, 'không đẩy nhà cung cấp sang trang khác');
 assert.doesNotMatch(portalForm, /router\.(refresh|push)/, 'không điều hướng lại trang khi tải tệp');
+assert.doesNotMatch(portalForm, /AI quét|AI đang quét/, 'nút tải chỉ ghi "Tải lên", không nói AI với nhà cung cấp');
 const crmPage = read('app/crm/products/[slug]/edit/page.tsx');
 assert.match(crmPage, /Duyệt liên kết/, 'CRM có nút duyệt liên kết');
 
