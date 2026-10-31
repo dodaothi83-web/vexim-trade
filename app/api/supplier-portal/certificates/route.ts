@@ -12,6 +12,7 @@ import {
   ingestCertificateScan,
   isL1CertificateKey,
 } from "@/lib/certificate-service";
+import { approvedL2Scope } from "@/lib/verification-status";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,18 @@ export async function POST(request: Request) {
     form = await request.formData();
   } catch {
     return fail("Không đọc được biểu mẫu.");
+  }
+
+  // Đơn vị thương mại chưa xác thực L2 nhà máy đối tác thì chưa có căn cứ đối chiếu giấy
+  // chứng nhận, nên chưa nhận tệp. Việc đăng sản phẩm không phụ thuộc chứng nhận.
+  if (access.supplier.supplier_type === "trading") {
+    const scope = approvedL2Scope(access.reviews);
+    if (scope !== "partner_contract" && scope !== "both") {
+      return fail(
+        "Đơn vị thương mại cần xác thực L2 nhà máy đối tác trước khi tải chứng nhận. Sản phẩm vẫn đăng bán bình thường.",
+        403,
+      );
+    }
   }
 
   const file = form.get("file");

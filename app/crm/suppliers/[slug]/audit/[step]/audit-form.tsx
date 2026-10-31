@@ -351,6 +351,13 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
                 <Field label="GPS vĩ độ"><input type="number" step="any" name="visit_lat" defaultValue={v.visit_lat ?? ""} className="input" /></Field>
                 <Field label="GPS kinh độ"><input type="number" step="any" name="visit_lng" defaultValue={v.visit_lng ?? ""} className="input" /></Field>
               </div>}
+              {partner && it.key === "partner_identity_confirmed" && <div className="mt-3 space-y-1.5">
+                <Field label="Tên nhà máy đối tác trên hợp đồng">
+                  <input name="partner_factory_name" defaultValue={v.partner_factory_name ?? ""} maxLength={200}
+                    className="input max-w-md" placeholder="Tên nhà máy ghi trong hợp đồng" />
+                </Field>
+                <p className="text-xs text-ink-500">Đối chiếu với hợp đồng. Giấy chứng nhận chỉ được công bố khi đứng tên đúng nhà máy này.</p>
+              </div>}
               {v.target_level === 3 && it.key === "order_matched" && <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <Field label="Mã đơn / lô hàng"><input name="shipment_ref" defaultValue={v.shipment_ref ?? ""} className="input" placeholder="Mã đơn, nếu có" /></Field>
                 <Field label="Ngày giao thực tế"><input type="date" name="shipped_on" defaultValue={v.shipped_on ?? ""} className="input" /></Field>

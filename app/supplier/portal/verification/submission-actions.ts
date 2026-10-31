@@ -10,6 +10,7 @@ import { submissionEditable } from "@/lib/verification-submission";
 import {
   addSourceLink,
   issueCodeForSubmission,
+  savePartnerFactoryName,
   saveShipmentDetails,
 } from "@/lib/verification-submission-service";
 import type { MediaAsset } from "@/lib/types";
@@ -76,6 +77,26 @@ export async function saveShipmentAction(form: FormData): Promise<SubmissionActi
     });
     revalidate(id);
     return { ok: true, message: "Đã lưu thông tin lô hàng tự khai. Đây là khai báo của doanh nghiệp, không phải dữ liệu Hải quan." };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Không lưu được." };
+  }
+}
+
+/** Khai tên nhà máy đối tác đúng như trên hợp đồng L2 (dùng để đối chiếu giấy chứng nhận). */
+export async function savePartnerFactoryNameAction(form: FormData): Promise<SubmissionActionResult> {
+  const id = String(form.get("submission_id") ?? "");
+  const access = await supplierSubmissionAccess(id);
+  if (!access) return { ok: false, message: "Không mở được hồ sơ của doanh nghiệp bạn." };
+  try {
+    await savePartnerFactoryName(access.store, {
+      submission: access.submission,
+      partnerFactoryName: String(form.get("partner_factory_name") ?? ""),
+    });
+    revalidate(id);
+    return {
+      ok: true,
+      message: "Đã lưu tên nhà máy đối tác. Vexim đối chiếu tên này với hợp đồng và với giấy chứng nhận bạn tải lên.",
+    };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Không lưu được." };
   }

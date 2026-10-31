@@ -29,6 +29,7 @@ import {
   addSourceLinkAction,
   deleteSourceLinkAction,
   issueSubmissionCodeAction,
+  savePartnerFactoryNameAction,
   saveShipmentAction,
 } from "./submission-actions";
 import { SubmissionItemCard } from "./submission-item-card";
@@ -260,6 +261,21 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
     } finally { setBusy(""); }
   }
 
+  async function savePartnerName(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    const form = new FormData(event.currentTarget);
+    form.set("submission_id", view.id);
+    setBusy("link");
+    try {
+      const result = await savePartnerFactoryNameAction(form);
+      setMessage({ text: result.message, ok: result.ok });
+      refresh();
+    } catch {
+      setMessage({ text: "Không lưu được tên nhà máy đối tác.", ok: false });
+    } finally { setBusy(""); }
+  }
+
   async function addLink(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -438,6 +454,30 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
           </div>
         </section>}
 
+        {/* L2 đối tác · tên nhà máy ghi trên hợp đồng, dùng để đối chiếu giấy chứng nhận. */}
+        {partner && <section aria-labelledby="partner-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 id="partner-title" className="flex items-center gap-2 text-[14px] font-bold text-ink-900">
+                <Factory className="h-4 w-4 text-brand-700" aria-hidden="true" /> Nhà máy đối tác trên hợp đồng
+              </h3>
+              <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Ghi đúng tên nhà máy như trong hợp đồng. Chứng nhận bạn tải lên sau này chỉ dùng được khi đứng tên chính nhà máy này.</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">Nhà cung cấp tự khai</span>
+          </div>
+          <form onSubmit={(e) => void savePartnerName(e)} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <label className="min-w-0 text-xs font-semibold text-ink-700">
+              Tên nhà máy đối tác
+              <input name="partner_factory_name" defaultValue={view.partnerFactoryName ?? ""} maxLength={200} required
+                disabled={!view.editable} className="input mt-1" placeholder="VD: Nhà máy Chế biến Nông sản Tây Nguyên" />
+            </label>
+            <button type="submit" disabled={!view.editable || busy !== ""} className="btn btn-ghost text-xs">
+              {busy === "link" ? "Đang lưu…" : "Lưu tên nhà máy"}
+            </button>
+          </form>
+          <p className="mt-2 text-[10.5px] leading-4 text-ink-500">Vexim đối chiếu tên này với hợp đồng ở bước kiểm; đây không phải xác nhận sở hữu nhà máy.</p>
+        </section>}
+
         {/* L3 · lô hàng dùng làm bằng chứng, khai trước khi tải chứng từ. */}
         {level === 3 && <section aria-labelledby="shipment-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-2">
@@ -551,7 +591,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
             ? "Hồ sơ đang chờ xét hoặc đã được nhận - bằng chứng bị khóa."
             : view.ready
               ? factory ? "Đủ mục bắt buộc. Nộp để nhân viên đối chiếu; AI chỉ hỗ trợ kiểm tra." : "Đã có chứng từ. Nộp để nhân viên kiểm tra."
-              : partner ? "Tải hợp đồng với nhà máy đối tác." : level === 2 ? view.missing.length ? `Còn thiếu ${view.missing.length} mục bắt buộc.` : "Hãy kiểm tra mã xác minh." : "Tải ít nhất một chứng từ phù hợp."}</p>
+              : partner ? view.partnerFactoryName ? "Tải hợp đồng với nhà máy đối tác." : "Khai tên nhà máy đối tác và tải hợp đồng." : level === 2 ? view.missing.length ? `Còn thiếu ${view.missing.length} mục bắt buộc.` : "Hãy kiểm tra mã xác minh." : "Tải ít nhất một chứng từ phù hợp."}</p>
 
           <dl className="mt-3 grid grid-cols-2 gap-2 text-center">
             <div className="rounded-lg bg-ink-50 px-2 py-2">

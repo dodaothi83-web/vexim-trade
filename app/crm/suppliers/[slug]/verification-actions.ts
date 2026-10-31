@@ -164,8 +164,20 @@ async function saveChecklist(fd: FormData, markCommitted: () => void) {
     !Number.isFinite(Date.parse(shippedOn)) || shippedOn > new Date().toISOString().slice(0, 10))) {
     return { ok: false, message: "Ngày giao phải hợp lệ và không thể ở tương lai." };
   }
+  // Tên nhà máy đối tác: nhân viên đối chiếu hợp đồng rồi xác nhận/sửa lại tên nhà cung cấp khai.
+  let partnerFactoryName: string | null = null;
+  if (before.target_level === 2 && isPartnerL2(before)) {
+    partnerFactoryName = String(fd.get("partner_factory_name") ?? "").trim().slice(0, 200) || null;
+    if (partnerFactoryName && partnerFactoryName.length < 2) {
+      return { ok: false, message: "Tên nhà máy đối tác quá ngắn; ghi đúng tên như trên hợp đồng." };
+    }
+    if (nextStatus === "submitted" && !partnerFactoryName) {
+      return { ok: false, message: "Ghi tên nhà máy đối tác đúng như trên hợp đồng trước khi nộp duyệt." };
+    }
+  }
   const patch: Partial<Verification> = {
     checklist, checklist_notes: notes, status: nextStatus, return_reason: null,
+    ...(before.target_level === 2 && isPartnerL2(before) ? { partner_factory_name: partnerFactoryName } : {}),
     ...(before.target_level === 1 ? { tax_number: taxNumber || null, bank_account_number: bankAccountNumber || null } : {}),
     internal_notes: String(fd.get("internal_notes") || "").trim().slice(0, 5000) || null,
   };

@@ -53,10 +53,15 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       return [];
     });
   // Đơn vị thương mại chỉ dùng được chứng nhận của nhà máy khác khi đã có L2 nhà máy đối tác.
-  const l2Scope = await access.store.listVerifications(access.supplier.id)
-    .then((rows) => approvedL2Scope(rows))
-    .catch(() => null);
+  const verifications = await access.store.listVerifications(access.supplier.id).catch(() => []);
+  const l2Scope = approvedL2Scope(verifications);
   const partnerContractApproved = l2Scope === "partner_contract" || l2Scope === "both";
+  const partnerFactoryName = partnerContractApproved
+    ? verifications
+      .filter((v) => v.target_level === 2 && v.status === "approved" && v.l2_scope === "partner_contract")
+      .map((v) => v.partner_factory_name?.trim() ?? "")
+      .find((name) => name.length > 0) ?? null
+    : null;
   const quantityEditor = await (async () => {
     if (!getSupabaseClient()) return null;
     const strictAccess = await supplierPortalAccess(supabaseStore);
@@ -85,6 +90,7 @@ export default async function OwnProductPage({ params, searchParams }: { params:
     <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options}
       categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} initialStep={step} />
     <ProductCertificatesForm productId={id} certificates={certificateOptions}
-      supplierType={access.supplier.supplier_type ?? null} partnerContractApproved={partnerContractApproved} />
+      supplierType={access.supplier.supplier_type ?? null} partnerContractApproved={partnerContractApproved}
+      partnerFactoryName={partnerFactoryName} />
   </>;
 }

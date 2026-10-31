@@ -1999,6 +1999,8 @@ export const localStore: DataStore = {
         if (isPartnerL2(row)) {
           const checklist = patch.checklist ?? row.checklist;
           if (checklist.partner_identity_confirmed !== true || checklist.partner_scope_confirmed !== true) throw new Error("L2_PARTNER_SCOPE_CONFIRM_REQUIRED");
+          // Tên nhà máy đối tác là căn cứ đối chiếu giấy chứng nhận; không duyệt khi còn trống.
+          if (!(patch.partner_factory_name ?? row.partner_factory_name ?? "").trim()) throw new Error("L2_PARTNER_NAME_REQUIRED");
           if (!(db.media ?? []).some((m) => m.verification_id === row.id && m.supplier_id === row.supplier_id && m.owner_type === "verification" && m.checklist_key === "partner_factory_contract" && m.audience === "internal" && m.status === "checked" && m.storage_path && ["image", "document"].includes(m.kind))) throw new Error("L2_PARTNER_CONTRACT_CHECK_REQUIRED");
         }
       }
@@ -2284,6 +2286,8 @@ export const localStore: DataStore = {
       if (row.target_level === 2 && patch.status === "pending_review" && !l2ScopeMatchesSupplier(row, db.suppliers.find((supplier) => supplier.id === row.supplier_id)?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
       if (isPartnerL2(row) && patch.status === "pending_review" && !(db.supplier_submission_items ?? []).some((i) =>
         i.submission_id === id && i.supplier_id === row.supplier_id && i.checklist_key === "partner_factory_contract" && i.media_id && i.storage_path?.trim() && (db.media ?? []).some((m) => m.id === i.media_id && m.owner_type === "submission" && m.submission_id === id && m.supplier_id === row.supplier_id && m.checklist_key === i.checklist_key && m.storage_path === i.storage_path && m.audience === "internal" && ["image", "document"].includes(m.kind)))) throw new Error("L2_PARTNER_CONTRACT_REQUIRED");
+      if (isPartnerL2(row) && patch.status === "pending_review" && !(patch.partner_factory_name ?? row.partner_factory_name ?? "").trim()) throw new Error("L2_PARTNER_NAME_REQUIRED");
+      if (!isPartnerL2(row) && patch.partner_factory_name) throw new Error("L2_PARTNER_NAME_OUT_OF_SCOPE");
       if ((patch.supplier_id !== undefined && patch.supplier_id !== row.supplier_id) || (patch.target_level !== undefined && patch.target_level !== row.target_level) || (patch.l2_scope !== undefined && patch.l2_scope !== (row.l2_scope ?? null))) throw new Error("VERIFICATION_SCOPE_IMMUTABLE");
       guardFactoryPending(row, patch, db.supplier_submission_items ?? []);
       Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));

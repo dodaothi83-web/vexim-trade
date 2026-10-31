@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { BadgeCheck, Clock3 } from "lucide-react";
+import { BadgeCheck, Clock3, Lock } from "lucide-react";
 import { FilePicker } from "@/components/file-picker";
 import { certificateLabel, certificateLinkable, type ProductCertificateState } from "@/lib/products/product-certificates";
 import { requestProductCertificatesAction, type CertificateRequestResult } from "../product-certificate-actions";
@@ -32,13 +32,15 @@ const QUICK_CERT_TYPES = [
  * fetch nên trang không chuyển đi đâu, dữ liệu đang nhập ở các khối phía trên
  * vẫn còn nguyên.
  */
-export function ProductCertificatesForm({ productId, certificates, supplierType = null, partnerContractApproved = false }: {
+export function ProductCertificatesForm({ productId, certificates, supplierType = null, partnerContractApproved = false, partnerFactoryName = null }: {
   productId: string;
   certificates: ProductCertificateOption[];
   /** Loại hình đã đăng ký, để nói trước giấy đứng tên ai thì dùng được. */
   supplierType?: "manufacturer" | "trading" | "cooperative" | null;
   /** Đã có hồ sơ L2 nhà máy đối tác được duyệt. */
   partnerContractApproved?: boolean;
+  /** Tên nhà máy đối tác đã xác nhận ở L2; giấy phải đứng tên đúng tên này. */
+  partnerFactoryName?: string | null;
 }) {
   const [result, action, pending] = useActionState(
     async (_previous: CertificateRequestResult, form: FormData) => requestProductCertificatesAction(form),
@@ -48,7 +50,9 @@ export function ProductCertificatesForm({ productId, certificates, supplierType 
   // chỉ dùng giấy nhà máy khác khi đã xác thực L2 nhà máy đối tác, và vẫn chờ Vexim đối chiếu.
   const holderRule = supplierType === "trading"
     ? (partnerContractApproved
-      ? { blocked: false, text: "Giấy đứng tên nhà máy đối tác sẽ được đối chiếu hợp đồng L2 trước khi đăng." }
+      ? { blocked: false, text: partnerFactoryName
+        ? `Giấy phải đứng tên nhà máy đối tác: ${partnerFactoryName}.`
+        : "Giấy đứng tên nhà máy đối tác sẽ được đối chiếu hợp đồng L2 trước khi đăng." }
       : { blocked: true, text: "Chưa xác thực L2 nhà máy đối tác: giấy đứng tên nhà máy khác chưa dùng được." })
     : supplierType === "manufacturer" || supplierType === "cooperative"
       ? { blocked: false, text: "Chứng nhận phải đứng tên nhà máy của bạn." }
@@ -104,7 +108,9 @@ export function ProductCertificatesForm({ productId, certificates, supplierType 
     <section className="mt-4 rounded-xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Chứng nhận cho sản phẩm này">
       <h2 className="text-[15px] font-black text-ink-900">Chứng nhận cho sản phẩm này</h2>
       <p className="mt-1 text-[12.5px] leading-5 text-ink-600">
-        Chọn chứng nhận đã nộp, hoặc tải thêm ngay tại đây. Vexim duyệt liên kết trước khi hiện trên trang sản phẩm.
+        {holderRule?.blocked
+          ? "Chứng nhận của nhà máy đối tác cần xác thực L2 trước khi gắn vào sản phẩm."
+          : "Chọn chứng nhận đã nộp, hoặc tải thêm ngay tại đây. Vexim duyệt liên kết trước khi hiện trên trang sản phẩm."}
       </p>
 
       {approved.length > 0 && <ul className="mt-3 space-y-1.5">
@@ -138,7 +144,7 @@ export function ProductCertificatesForm({ productId, certificates, supplierType 
         </button>
       </form>}
 
-      {linkable.length === 0 && approved.length === 0 && pendingLinks.length === 0 && <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[12.5px] text-ink-700">
+      {linkable.length === 0 && approved.length === 0 && pendingLinks.length === 0 && !holderRule?.blocked && <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[12.5px] text-ink-700">
         Bạn chưa có chứng nhận còn hạn. Tải giấy tờ ngay bên dưới, không cần rời trang.
       </p>}
 
@@ -146,7 +152,16 @@ export function ProductCertificatesForm({ productId, certificates, supplierType 
         {result.message}
       </p>}
 
-      <form onSubmit={onUpload} className="mt-4 grid gap-3 rounded-lg border border-brand-200 bg-brand-50/50 p-3.5 sm:grid-cols-3">
+      {holderRule?.blocked && <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3.5">
+        <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-amber-900 uppercase">
+          <Lock className="size-3.5" aria-hidden="true" /> Chưa tải chứng nhận được
+        </p>
+        <p className="mt-1 text-[12px] leading-5 text-amber-900">{holderRule.text}</p>
+        <p className="mt-1 text-[11.5px] leading-4 text-amber-900">Hoàn tất xác thực nhà máy đối tác ở mục Xác thực nhà máy, bước 2.</p>
+        <p className="mt-1 text-[11.5px] leading-4 text-amber-900">Sản phẩm vẫn lưu, gửi duyệt và đăng bán bình thường.</p>
+      </div>}
+
+      {!holderRule?.blocked && <form onSubmit={onUpload} className="mt-4 grid gap-3 rounded-lg border border-brand-200 bg-brand-50/50 p-3.5 sm:grid-cols-3">
         <div className="sm:col-span-3">
           <p className="text-[11px] font-bold tracking-wider text-brand-900 uppercase">Tải chứng nhận mới</p>
           <p className="mt-0.5 text-[11.5px] leading-4 text-ink-600">Hệ thống tự đọc tên đơn vị và ngày hết hạn. Tệp không tự hiện công khai.</p>
@@ -176,7 +191,7 @@ export function ProductCertificatesForm({ productId, certificates, supplierType 
         {uploadMessage && <p role="status" className={`text-[12px] font-medium sm:col-span-3 ${uploadMessage.ok ? "text-emerald-800" : "text-rose-700"}`}>
           {uploadMessage.text}
         </p>}
-      </form>
+      </form>}
     </section>
   );
 }

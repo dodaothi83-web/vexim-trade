@@ -24,6 +24,7 @@ import type {
   SupplierType,
 } from "@/lib/types";
 import { approvedL2Scope } from "@/lib/verification-status";
+import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
 
 export const L1_CERTIFICATE_KEYS = [
   "food_safety",
@@ -94,19 +95,35 @@ export interface CertificateHolderContext {
   supplierType?: SupplierType | null;
   /** Đã có hồ sơ L2 nhà máy đối tác (partner_contract) được duyệt. */
   partnerContractApproved?: boolean;
+  /** Tên nhà máy đối tác đã khai và được nhân viên xác nhận trong hồ sơ L2 đó. */
+  partnerFactoryName?: string | null;
 }
 
-/** Câu giải thích vì sao giấy đứng tên đơn vị khác chưa được công bố. */
-function partnerHolderRule(context: CertificateHolderContext): string {
+/**
+ * Giấy đứng tên đơn vị khác có dùng được không, và nếu không thì vì sao.
+ *
+ * Chỉ một đường được duyệt tự động: đơn vị thương mại, hồ sơ L2 nhà máy đối tác đã
+ * duyệt, và tên trên giấy trùng tên nhà máy đối tác trong hợp đồng. Mọi trường hợp
+ * còn lại đều ở lại trạng thái chờ, kèm lý do đọc được.
+ */
+function partnerHolderRule(context: CertificateHolderContext, holderName: string): { ok: boolean; reason: string } {
   if (context.supplierType === "manufacturer" || context.supplierType === "cooperative") {
-    return "nhà máy chỉ dùng chứng nhận đứng tên chính mình";
+    return { ok: false, reason: "nhà máy chỉ dùng chứng nhận đứng tên chính mình" };
   }
-  if (context.supplierType === "trading") {
-    return context.partnerContractApproved
-      ? "Vexim đối chiếu với hợp đồng nhà máy đối tác ở L2"
-      : "chưa xác thực L2 nhà máy đối tác nên giấy này chưa dùng được";
+  if (context.supplierType !== "trading") {
+    return { ok: false, reason: "Vexim kiểm tra loại hình doanh nghiệp trước khi đăng" };
   }
-  return "Vexim kiểm tra loại hình doanh nghiệp trước khi đăng";
+  if (!context.partnerContractApproved) {
+    return { ok: false, reason: "chưa xác thực L2 nhà máy đối tác nên giấy này chưa dùng được" };
+  }
+  const partnerName = context.partnerFactoryName?.trim();
+  if (!partnerName) {
+    return { ok: false, reason: "hồ sơ L2 nhà máy đối tác chưa ghi tên nhà máy" };
+  }
+  if (!partnerFactoryNameMatches(holderName, partnerName)) {
+    return { ok: false, reason: `giấy không đứng tên nhà máy đối tác ${partnerName} đã xác thực ở L2` };
+  }
+  return { ok: true, reason: `trùng nhà máy đối tác ${partnerName} trong hợp đồng L2` };
 }
 
 export function decideCertificatePublication(
@@ -123,20 +140,29 @@ export function decideCertificatePublication(
     };
   }
 
-  // Chứng nhận đứng tên doanh nghiệp khác không bao giờ tự công bố: phải để Vexim
-  // đối chiếu loại hình nhà cung cấp (nhà máy hay thương mại) và hồ sơ L2 đối tác.
+  // Giấy đứng tên doanh nghiệp khác chỉ được công bố khi tên trên giấy trùng nhà máy
+  // đối tác đã khai trong hồ sơ L2 đã duyệt — không nhận giấy của doanh nghiệp bất kỳ.
   if (scan.holder_match === "partner" && scan.holder_name?.trim()) {
+    const holderName = scan.holder_name.trim();
+    const rule = partnerHolderRule(context, holderName);
     const reasons: string[] = [];
     if (!scan.valid_until) reasons.push("chưa đọc được ngày hết hạn");
     else if (scan.valid_until < today) reasons.push(`giấy đã hết hạn ngày ${scan.valid_until}`);
     if (!(scan.confidence === "high" || scan.confidence === "medium")) reasons.push("ảnh/PDF mờ hoặc độ tin cậy thấp");
-    const rule = partnerHolderRule(context);
+    if (rule.ok && reasons.length === 0) {
+      return {
+        autoPublish: true,
+        review_status: "approved",
+        publicly_visible: true,
+        review_note: `AI đã quét: Đơn vị đối tác: ${holderName} (${rule.reason}) · Hết hạn ${scan.valid_until}.`,
+      };
+    }
     return {
       autoPublish: false,
       review_status: "pending",
       publicly_visible: false,
-      review_note: `Chưa tự công bố: giấy đứng tên ${scan.holder_name.trim()} (${rule}).${
-        reasons.length ? ` Lưu ý: ${reasons.join("; ")}.` : " Vexim kiểm tra trước khi đăng."}`,
+      review_note: `Chưa tự công bố: giấy đứng tên ${holderName} (${rule.reason}).${
+        reasons.length ? ` Lưu ý: ${reasons.join("; ")}.` : ""}`,
     };
   }
 
@@ -251,9 +277,17 @@ export async function ingestCertificateScan(
     ? await store.listVerifications(input.supplier.id).catch(() => [])
     : [];
   const l2Scope = approvedL2Scope(verifications ?? []);
+  const partnerContractApproved = l2Scope === "partner_contract" || l2Scope === "both";
+  const partnerFactoryName = partnerContractApproved
+    ? (verifications ?? [])
+        .filter((v) => v.target_level === 2 && v.status === "approved" && v.l2_scope === "partner_contract")
+        .map((v) => v.partner_factory_name?.trim() ?? "")
+        .find((name) => name.length > 0) ?? null
+    : null;
   const decision = decideCertificatePublication(scan, today, {
     supplierType: input.supplier.supplier_type ?? null,
-    partnerContractApproved: l2Scope === "partner_contract" || l2Scope === "both",
+    partnerContractApproved,
+    partnerFactoryName,
   });
 
   const all = await store.listCertificates(input.supplier.id);

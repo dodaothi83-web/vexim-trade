@@ -199,7 +199,7 @@ assert.equal(ownerScan.certificate.publicly_visible, true);
 assert.equal(ownerScan.certificate.holder_match, "owner");
 assert.equal(decisionsSent.length, 1);
 
-// 3b. Partner match + future valid_until => auto-published with partner holder_name
+// 3b. Nhà máy tải giấy đứng tên doanh nghiệp khác: chờ duyệt, nêu rõ lý do.
 const partnerScan = await certService.ingestCertificateScan(
   {
     supplier,
@@ -244,16 +244,20 @@ assert.match(partnerScan.certificate.review_note, /nhà máy chỉ dùng chứng
 assert.equal(certs.length, 2);
 
 // 3b-bis. Đơn vị thương mại: chưa có L2 đối tác thì giấy nhà máy khác chưa dùng được;
-// có L2 đối tác vẫn phải chờ Vexim đối chiếu hợp đồng.
-const partnerScanFor = async (type, scope, key) => {
-  verifications = scope ? [{ id: "v1", supplier_id: "sup-1", target_level: 2, status: "approved", l2_scope: scope }] : [];
+// có L2 đối tác thì tên trên giấy phải trùng tên nhà máy đối tác đã khai trong hợp đồng.
+const PARTNER_FACTORY = "Nhà máy Chế biến Nông sản Tây Nguyên";
+const partnerScanFor = async (type, scope, key, partnerName = PARTNER_FACTORY, holder = PARTNER_FACTORY) => {
+  verifications = scope
+    ? [{ id: "v1", supplier_id: "sup-1", target_level: 2, status: "approved", l2_scope: scope,
+         partner_factory_name: partnerName }]
+    : [];
   return certService.ingestCertificateScan(
     // Không gắn checklist_key để mỗi ca tạo hồ sơ riêng, không ghi đè giấy của ca trước.
     { supplier: { ...supplier, supplier_type: type }, mediaId: `media-${key}`, bytes: new Uint8Array([9]),
       source: "l1-supplier" },
     { store: stubStore, today: "2026-10-21",
       scanFn: async () => ({ ok: true, data: {
-        certificate_name: "HACCP nhà máy đối tác", holder_name: "Nhà máy Chế biến Tây Nguyên",
+        certificate_name: "HACCP nhà máy đối tác", holder_name: holder,
         holder_match: "partner", issuer: "QUACERT", certificate_number: `P-${key}`,
         valid_until: "2027-06-01", summary: "Giấy của nhà máy đối tác.", confidence: "high",
       } }),
@@ -265,9 +269,28 @@ const tradingNoL2 = await partnerScanFor("trading", null, "trading-no-l2");
 assert.equal(tradingNoL2.decision.autoPublish, false, "Thương mại chưa có L2 đối tác: không công bố");
 assert.match(tradingNoL2.certificate.review_note, /chưa xác thực L2 nhà máy đối tác/);
 const tradingWithL2 = await partnerScanFor("trading", "partner_contract", "trading-l2");
-assert.equal(tradingWithL2.decision.autoPublish, false, "Có L2 đối tác vẫn chờ Vexim đối chiếu hợp đồng");
-assert.match(tradingWithL2.certificate.review_note, /đối chiếu với hợp đồng nhà máy đối tác/);
+assert.equal(tradingWithL2.decision.autoPublish, true, "Giấy đứng tên đúng nhà máy đối tác trong hợp đồng L2");
+assert.equal(tradingWithL2.certificate.publicly_visible, true);
+assert.match(tradingWithL2.certificate.review_note, /trùng nhà máy đối tác/i);
+
+// Giấy của một doanh nghiệp khác (dù cùng ngành) không được lọt: tên không trùng nhà máy đã ký.
+const tradingWrongFactory = await partnerScanFor("trading", "partner_contract", "trading-wrong",
+  PARTNER_FACTORY, "Công ty TNHH Chế biến Cà phê Đắk Lắk");
+assert.equal(tradingWrongFactory.decision.autoPublish, false, "Giấy doanh nghiệp khác: chờ duyệt");
+assert.match(tradingWrongFactory.certificate.review_note, /không đứng tên nhà máy đối tác/i);
+
+// Tên ghi khác hình thức pháp lý nhưng cùng nhà máy vẫn khớp.
+const tradingSameFactory = await partnerScanFor("trading", "partner_contract", "trading-same",
+  "Nhà máy Chế biến Nông sản Tây Nguyên", "Công ty TNHH Chế biến Nông sản Tây Nguyên");
+assert.equal(tradingSameFactory.decision.autoPublish, true, "Khác loại hình doanh nghiệp, cùng tên riêng");
+
+// Hồ sơ L2 cũ chưa ghi tên nhà máy đối tác (trước migration): chưa đối chiếu được.
+const tradingNoName = await partnerScanFor("trading", "partner_contract", "trading-no-name", null);
+assert.equal(tradingNoName.decision.autoPublish, false);
+assert.match(tradingNoName.certificate.review_note, /chưa ghi tên nhà máy/i);
+
 const manufacturerL2 = await partnerScanFor("manufacturer", "factory", "manufacturer-l2");
+assert.equal(manufacturerL2.decision.autoPublish, false, "Nhà máy không dùng giấy của doanh nghiệp khác");
 assert.match(manufacturerL2.certificate.review_note, /nhà máy chỉ dùng chứng nhận đứng tên chính mình/);
 verifications = [];
 
@@ -440,11 +463,12 @@ assert.deepEqual(
   "Chỉ giấy đã duyệt, còn hạn, đứng tên chính chủ hoặc đối tác có tên mới công khai",
 );
 
-// Giấy đứng tên doanh nghiệp khác không bao giờ tự vào danh sách công khai, vì AI không
-// tự duyệt giấy của đơn vị khác; muốn đăng phải do nhân viên Vexim duyệt tay.
+// Giấy đối tác chỉ được tự công bố khi đứng tên đúng nhà máy đã khai trong hồ sơ L2.
 const autoPublishedPartners = certs.filter((c) =>
   c.holder_match === "partner" && c.review_status === "approved" && c.publicly_visible === true);
-assert.deepEqual(autoPublishedPartners, [], "Không có giấy đối tác nào được AI tự công bố");
+assert.ok(autoPublishedPartners.every((c) => /Tây Nguyên/.test(c.holder_name ?? "")),
+  "Chỉ giấy đứng tên nhà máy đối tác đã xác thực mới được tự công bố");
+assert.ok(autoPublishedPartners.length >= 1, "Ca khớp tên có công bố để đối chiếu luật");
 
 // 6. Supplier dashboard cert-expiring notice within 60 days
 const { buildSupplierDashboard } = loadTs("lib/supplier-portal/dashboard.ts");
@@ -472,4 +496,26 @@ assert.ok(
   "Dashboard must surface cert-expiring notice when certificate expires within 60 days",
 );
 
-console.log("✅ L1 AI certificate scan: owner/partner labels, expiry auto-display, staff hide brake, and 60/30/7/1-day idempotent reminders.");
+// 7. Đối chiếu tên: chỉ nhận cùng một nhà máy, không nhận hai doanh nghiệp khác nhau.
+const { partnerFactoryNameMatches } = loadTs("lib/certificate-holder.ts");
+assert.equal(partnerFactoryNameMatches("Công ty TNHH Chế biến Nông sản Tây Nguyên", "Nhà máy Chế biến Nông sản Tây Nguyên"), true);
+assert.equal(partnerFactoryNameMatches("CÔNG TY CP CHẾ BIẾN NÔNG SẢN TÂY NGUYÊN", "Che bien nong san Tay Nguyen"), true);
+assert.equal(partnerFactoryNameMatches("Công ty TNHH Cà phê Ban Mê", "Nhà máy Chế biến Nông sản Tây Nguyên"), false);
+assert.equal(partnerFactoryNameMatches("Nhà máy Nông sản Tây Nguyên", "Nhà máy Thủy sản Tây Nguyên"), false);
+assert.equal(partnerFactoryNameMatches("", "Nhà máy Chế biến Nông sản Tây Nguyên"), false);
+assert.equal(partnerFactoryNameMatches("Công ty TNHH", "Công ty CP"), false, "Chỉ có loại hình doanh nghiệp thì không khớp");
+
+// 8. Đơn vị thương mại chưa xác thực L2 không tải được chứng nhận, nhưng sản phẩm
+//    không phụ thuộc chứng nhận nên vẫn lưu, gửi duyệt và đăng bán bình thường.
+const uploadRoute = fs.readFileSync(path.join(ROOT, "app/api/supplier-portal/certificates/route.ts"), "utf8");
+assert.match(uploadRoute, /supplier_type === "trading"/, "API chặn tải chứng nhận của đơn vị thương mại chưa xác thực");
+assert.match(uploadRoute, /approvedL2Scope\(access\.reviews\)/);
+assert.match(uploadRoute, /Sản phẩm vẫn đăng bán bình thường/);
+const certForm = fs.readFileSync(path.join(ROOT, "app/supplier/portal/products/product-certificates-form.tsx"), "utf8");
+assert.match(certForm, /holderRule\?\.blocked &&/, "Khối tải lên bị thay bằng lời giải thích");
+assert.match(certForm, /Hoàn tất xác thực nhà máy đối tác/, "Chỉ rõ bước cần làm, không đẩy sang trang khác");
+assert.doesNotMatch(certForm, /<Link|router\.(push|refresh)/, "Không điều hướng khỏi trang sản phẩm");
+const completeness = fs.readFileSync(path.join(ROOT, "lib/products/completeness.ts"), "utf8");
+assert.doesNotMatch(completeness, /certificate/i, "Hồ sơ sản phẩm không bắt buộc chứng nhận");
+
+console.log("✅ L1 AI certificate scan: owner/partner labels, partner-factory name match, expiry auto-display, staff hide brake, and 60/30/7/1-day idempotent reminders.");

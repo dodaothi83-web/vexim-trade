@@ -192,7 +192,8 @@ export function submissionEditable(status: SubmissionStatus): boolean {
 
 /** Đã đủ điều kiện kỹ thuật để chuyển sang chờ Vexim xét duyệt. */
 export function readiness(input: {
-  submission: Pick<SupplierSubmission, "target_level" | "verification_code" | "code_issued_at" | "l2_scope">;
+  submission: Pick<SupplierSubmission, "target_level" | "verification_code" | "code_issued_at" | "l2_scope"> &
+    Partial<Pick<SupplierSubmission, "partner_factory_name">>;
   items: (Pick<SupplierSubmissionItem, "checklist_key" | "media_id" | "flags"> & Partial<Pick<SupplierSubmissionItem, "storage_path">>)[];
   now?: Date;
 }): { ready: boolean; missing: string[]; blockers: string[]; warnings: string[] } {
@@ -210,6 +211,12 @@ export function readiness(input: {
   }
   if (factory && submission.verification_code && (!submission.code_issued_at || Number.isNaN(Date.parse(submission.code_issued_at)))) {
     structural.push("Không xác định được thời điểm phát hành mã. Hãy tạo mã mới và chụp lại các ảnh 🔖.");
+  }
+  // L2 đối tác: phải khai đúng tên nhà máy trên hợp đồng, vì giấy chứng nhận sau này
+  // chỉ được đối chiếu với chính tên đó.
+  if (submission.target_level === 2 && submission.l2_scope === "partner_contract" &&
+      !String(submission.partner_factory_name ?? "").trim()) {
+    structural.push("Chưa khai tên nhà máy đối tác ghi trên hợp đồng.");
   }
   if (missing.length) structural.push(`Còn thiếu ${missing.length} mục bắt buộc: ${missing.join("; ")}.`);
   const withMedia = items.filter((i) => i.media_id);

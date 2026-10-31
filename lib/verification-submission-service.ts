@@ -151,6 +151,23 @@ export async function saveShipmentDetails(store: DataStore, input: {
   });
 }
 
+/**
+ * Lưu tên nhà máy đối tác ghi trên hợp đồng L2. Đây là khai báo của nhà cung cấp để
+ * đối chiếu, không phải kết luận xác minh; nhân viên kiểm lại với hợp đồng khi duyệt.
+ */
+export async function savePartnerFactoryName(store: DataStore, input: {
+  submission: SupplierSubmission;
+  partnerFactoryName: string | null;
+}): Promise<SupplierSubmission> {
+  if (!submissionEditable(input.submission.status)) throw new Error("Hồ sơ đã nộp hoặc đã xét.");
+  if (!isPartnerL2(input.submission)) throw new Error("Mục này chỉ dành cho hồ sơ xác thực nhà máy đối tác.");
+  const name = clamp(input.partnerFactoryName, 200);
+  if (name && name.length < 2) throw new Error("Tên nhà máy đối tác quá ngắn.");
+  const updated = await store.updateEditableSubmission(input.submission.id, { partner_factory_name: name });
+  if (!updated) throw new Error("Hồ sơ đã nộp hoặc đã xét; không sửa được tên nhà máy đối tác.");
+  return updated;
+}
+
 function clamp(value: string | null | undefined, max: number): string | null {
   const text = (value ?? "").trim();
   if (!text) return null;
@@ -673,6 +690,8 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
     supplier_id: submission.supplier_id,
     target_level: submission.target_level,
     ...(submission.target_level === 2 ? { l2_scope: submission.l2_scope ?? "factory" } : {}),
+    // Tên nhà máy đối tác đi theo hồ sơ; nhân viên đối chiếu lại với hợp đồng trước khi duyệt.
+    ...(isPartnerL2(submission) ? { partner_factory_name: submission.partner_factory_name?.trim() || null } : {}),
     status: "in_progress",
     inspector_id: staffId,
     visit_date: submission.submitted_at ? submission.submitted_at.slice(0, 10) : null,

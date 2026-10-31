@@ -7,6 +7,7 @@ import { getSession, guard } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { holderMatchBadgeLabel, ingestCertificateScan, todayISO } from "@/lib/certificate-service";
 import { approvedL2Scope } from "@/lib/verification-status";
+import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -139,9 +140,21 @@ async function approveCertificate(supplierId: string, certificateId: string) {
     if (!holderName) {
       return result(false, "Giấy đứng tên đơn vị đối tác nhưng chưa đọc được tên; bổ sung tên trước khi đăng.");
     }
-    const scope = approvedL2Scope(await store.listVerifications(supplier.id));
+    const verifications = await store.listVerifications(supplier.id);
+    const scope = approvedL2Scope(verifications);
     if (scope !== "partner_contract" && scope !== "both") {
       return result(false, `Chưa có L2 nhà máy đối tác được duyệt nên chưa đăng được giấy đứng tên ${holderName}.`);
+    }
+    // Giấy phải đứng tên đúng nhà máy đã ký trong hợp đồng đối tác, không phải doanh nghiệp khác.
+    const partnerName = verifications
+      .filter((v) => v.target_level === 2 && v.status === "approved" && v.l2_scope === "partner_contract")
+      .map((v) => v.partner_factory_name?.trim() ?? "")
+      .find((name) => name.length > 0);
+    if (!partnerName) {
+      return result(false, "Hồ sơ L2 nhà máy đối tác chưa ghi tên nhà máy; ghi tên trong đợt kiểm trước khi đăng.");
+    }
+    if (!partnerFactoryNameMatches(holderName, partnerName)) {
+      return result(false, `Giấy đứng tên ${holderName}, không khớp nhà máy đối tác ${partnerName} trong hợp đồng L2.`);
     }
   }
 

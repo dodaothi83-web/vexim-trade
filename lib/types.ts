@@ -655,6 +655,11 @@ export interface SupplierSubmission {
   target_level: 2 | 3;
   /** Saved scope, never inferred later from the supplier’s current type. */
   l2_scope?: L2VerificationScope | null;
+  /**
+   * Tên nhà máy đối tác đúng như trên hợp đồng. Bắt buộc với L2 `partner_contract`;
+   * dùng để đối chiếu tên trên giấy chứng nhận, không phải xác nhận sở hữu nhà máy.
+   */
+  partner_factory_name?: string | null;
   status: SubmissionStatus;
   /** Người gửi (tài khoản supplier). */
   created_by: string | null;
@@ -757,6 +762,8 @@ export interface Verification {
   target_level: VerificationLevel;
   /** Scope of this individual L2 review, unchanged if the supplier type changes. */
   l2_scope?: L2VerificationScope | null;
+  /** Tên nhà máy đối tác đã đối chiếu với hợp đồng; chỉ dùng cho L2 `partner_contract`. */
+  partner_factory_name?: string | null;
   status: VerificationStatus;
   inspector_id: string | null;
   /** L1: ngày nhận đủ tài liệu; L2: ngày xác thực nhà máy */

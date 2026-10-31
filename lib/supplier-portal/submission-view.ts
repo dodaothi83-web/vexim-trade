@@ -83,6 +83,8 @@ export interface PortalSubmissionView {
   deviceLng: number | null;
   deviceAccuracy: number | null;
   shipmentRef: string | null;
+  /** Tên nhà máy đối tác khai trong hồ sơ L2 partner_contract (chưa phải kết luận). */
+  partnerFactoryName: string | null;
   shippedOn: string | null;
   shipmentDestination: string | null;
   supplierNote: string | null;
@@ -226,6 +228,7 @@ export function buildPortalSubmission(bundle: SubmissionBundle, options?: { forS
     deviceLng: submission.device_lng,
     deviceAccuracy: submission.device_accuracy_m,
     shipmentRef: submission.shipment_ref,
+    partnerFactoryName: partner ? submission.partner_factory_name?.trim() || null : null,
     shippedOn: submission.shipped_on,
     shipmentDestination: submission.shipment_destination,
     supplierNote: submission.supplier_note,
