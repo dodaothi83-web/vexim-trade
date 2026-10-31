@@ -55,13 +55,17 @@ export function BuyerPreviewDialog({ open, onClose, data }: {
   data: BuyerPreviewData;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  // Giữ bản mới nhất của onClose trong ref: mở/đóng chỉ phụ thuộc `open`, không phụ thuộc
+  // việc trang cha render lại mỗi lần người bán gõ phím.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
       }
     };
     const previousOverflow = document.body.style.overflow;
@@ -72,7 +76,7 @@ export function BuyerPreviewDialog({ open, onClose, data }: {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   const cover = data.images[0] ?? null;
