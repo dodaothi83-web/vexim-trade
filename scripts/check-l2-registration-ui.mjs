@@ -17,7 +17,8 @@ const mocks = {
   '@/lib/supplier': { SUPPLIER_TYPES: [
     { value: 'manufacturer', label: 'Nhà máy' }, { value: 'trading', label: 'Thương nhân' }, { value: 'cooperative', label: 'Hợp tác xã' },
   ] },
-  '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: ['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'] },
+  '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: ['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'],
+    COMPANY_DOCUMENT_KEYS: ['business_license'] },
   './supplier-category-picker': { SupplierCategoryPicker: () => null },
   '@/components/file-picker': { FilePicker: () => null },
 };

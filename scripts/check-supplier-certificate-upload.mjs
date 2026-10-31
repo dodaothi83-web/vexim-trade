@@ -66,4 +66,28 @@ assert.ok(!/AI sẽ tự quét lại/.test(dashboard), 'Việc trên bảng đi�
 assert.ok(notify.includes('hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.'));
 assert.ok(dashboard.includes('hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.'));
 
+/* 6. Bước xác thực doanh nghiệp chỉ còn đúng một giấy: Giấy chứng nhận đăng ký kinh doanh. */
+const policy = read('../lib/supplier-portal/policy.ts');
+const profile = read('../app/supplier/portal/supplier-profile-form.tsx');
+assert.match(policy, /COMPANY_DOCUMENT_KEYS = \["business_license"\] as const/);
+assert.ok(!/food_safety|export_license/.test(policy.slice(policy.indexOf('COMPANY_DOCUMENT_KEYS ='), policy.indexOf('COMPANY_DOCUMENT_KEYS =') + 120)),
+  'Không còn ô ATTP / giấy phép xuất khẩu trong bước xác thực doanh nghiệp');
+assert.match(profile, /COMPANY_DOCUMENT_KEYS\.map/, 'Form đăng ký dựng ô tải từ danh sách một giấy');
+assert.ok(!/INITIAL_DOCUMENT_KEYS\.map\(/.test(profile), 'Form đăng ký không còn 5 ô tải giấy tờ');
+assert.match(profile, /Giấy chứng nhận đăng ký kinh doanh/);
+assert.match(page, /Xác thực doanh nghiệp/);
+assert.match(page, /Chỉ cần Giấy chứng nhận đăng ký kinh doanh/);
+assert.match(page, /Chỉ tải chứng nhận chất lượng ở đây/);
+
+/* 7. Không còn mã bước nội bộ trong câu nhà cung cấp thấy (bỏ qua dòng chú thích). */
+const visibleLines = (text) => text.split("\n")
+  .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+  .filter((line) => /"[^"]*\bL1\b[^"]*"/.test(line));
+for (const [name, text] of [['documents', page], ['dashboard', dashboard],
+  ['portal home', read('../app/supplier/portal/page.tsx')], ['profile', read('../app/supplier/portal/profile/page.tsx')]]) {
+  assert.deepEqual(visibleLines(text), [], `${name}: không dùng mã bước L1 trong câu nhà cung cấp thấy`);
+}
+assert.ok(!visibleLines(notify).some((line) => /cổng nhà cung cấp/.test(line)),
+  'Email nhắc hạn không còn "giấy tờ L1" trong câu gửi nhà cung cấp');
+
 console.log('✅ Chứng nhận trên hồ sơ: ẩn tệp cũ đã có bản ghi, khoá ô tải với đơn vị thương mại chưa xác thực nhà máy đối tác.');

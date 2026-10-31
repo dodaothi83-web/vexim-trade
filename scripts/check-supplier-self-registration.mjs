@@ -28,11 +28,14 @@ const policy = load('../lib/supplier-portal/policy.ts', { '@/lib/verification': 
 const owner = { id: 'u1', email: 'owner@example.com', role: 'supplier', is_active: true, supplier_id: 's1' };
 const doc = { id: 'v1', target_level: 1, supplier_id: 's1', status: 'in_progress' };
 assert.equal(policy.canUploadOwnDocument(owner, doc, 'business_license'), true);
+assert.equal(policy.canUploadOwnDocument(owner, { ...doc, status: 'approved' }, 'business_license', { hasFile: false }), true,
+  'Đợt đã duyệt vẫn nhận bổ sung giấy đăng ký kinh doanh khi mục còn trống');
 for (const denied of [
   [owner, { ...doc, target_level: 2 }, 'business_license'],
   [owner, { ...doc, supplier_id: 's2' }, 'business_license'],
   [owner, doc, 'shipping_proof'],
-  [owner, { ...doc, status: 'approved' }, 'business_license'],
+  [owner, { ...doc, status: 'submitted' }, 'business_license'],
+  [owner, { ...doc, status: 'approved' }, 'business_license', { hasFile: true }],
   [{ ...owner, is_active: false }, doc, 'business_license'],
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
@@ -218,8 +221,8 @@ const forgedCategory = form(); forgedCategory.set('requested_category_slugs', 's
 assert.equal((await submitProfile(forgedCategory)).status, 400, 'No unpublished category in first business form');
 const noDocuments = form(); noDocuments.delete('doc:business_license');
 const refused = await submitProfile(noDocuments);
-assert.equal(refused.status, 400, 'First profile needs one of the three core documents');
-assert.match(refused.data.message, /ít nhất một trong ba giấy xác minh/);
+assert.equal(refused.status, 400, 'First profile needs the business registration certificate');
+assert.match(refused.data.message, /Giấy chứng nhận đăng ký kinh doanh/);
 const missingAccuracy = form(); missingAccuracy.delete('information_accuracy');
 assert.equal((await submitProfile(missingAccuracy)).status, 400, 'Profile requires the product information truthfulness confirmation');
 assert.equal(state.suppliers.length, 0, 'Reject invalid profile before creating supplier page');
@@ -323,7 +326,8 @@ const upload = load('../app/api/supplier-portal/evidence/route.ts', {
   'next/cache': { revalidatePath() {} },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => ({
     user: portalState.user, review: portalState.review, supplier: portalState.supplier,
-    store: { getVerification: async () => portalState.review, addAuditLog: async () => null },
+    store: { getVerification: async () => portalState.review, addAuditLog: async () => null,
+      listMedia: async (_type, id) => (portalState.review && portalState.review.id === id ? portalState.media ?? [] : []) },
   }) },
   '@/lib/supplier-portal/policy': policy,
   '@/lib/supplier-portal/onboarding': onboarding,
@@ -354,6 +358,15 @@ assert.equal(await uploadForm(), 403, 'Supplier cannot upload for a foreign supp
 portalState.review = doc;
 assert.equal(await uploadForm('shipping_proof'), 403, 'Supplier cannot submit delivery evidence');
 assert.equal(portalState.saved, 1);
+
+// Đợt đã duyệt: nhận bổ sung giấy đăng ký kinh doanh khi mục còn trống, không nhận khi đã có tệp.
+portalState.review = { ...doc, status: 'approved' };
+portalState.media = [];
+assert.equal(await uploadForm(), 200, 'Đợt đã duyệt vẫn nhận bổ sung giấy đăng ký kinh doanh khi mục còn trống');
+portalState.media = [{ id: 'old', verification_id: 'v1', checklist_key: 'business_license', storage_path: 'verifications/v1/old.pdf' }];
+assert.equal(await uploadForm(), 403, 'Đã có tệp trong đợt đã duyệt thì không cho thay');
+portalState.media = [];
+portalState.review = doc;
 
 const fileAsset = { audience: 'internal', supplier_id: 's1', owner_type: 'verification', checklist_key: 'business_license',
   verification_id: 'v1', created_by: owner.id, storage_path: 'verifications/v1/test.pdf' };

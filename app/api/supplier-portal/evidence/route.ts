@@ -22,14 +22,17 @@ export async function POST(request: Request) {
   try { form = await request.formData(); } catch { return NextResponse.json({ ok: false, message: "Không đọc được tệp." }, { status: 400 }); }
   const key = String(form.get("checklistKey") ?? "");
   const file = form.get("file");
-  if (!(file instanceof File) || !canUploadOwnDocument(access.user, access.review, key)) {
-    return NextResponse.json({ ok: false, message: "Chỉ được tải giấy tờ bước đầu của chính doanh nghiệp khi đợt kiểm còn mở." }, { status: 403 });
+  if (!(file instanceof File)) {
+    return NextResponse.json({ ok: false, message: "Chọn tệp giấy tờ cần tải." }, { status: 400 });
   }
   try {
     const prepared = await validateInitialDocument(file, key);
     const fresh = await access.store.getVerification(access.review.id);
-    if (!fresh || !canUploadOwnDocument(access.user, fresh, key)) {
-      return NextResponse.json({ ok: false, message: "Đợt kiểm đã khóa; không thể tải lên." }, { status: 403 });
+    // Đợt đã duyệt chỉ nhận bản bổ sung cho mục còn trống (giấy đăng ký kinh doanh).
+    const existing = fresh ? await access.store.listMedia("verification", fresh.id).catch(() => []) : [];
+    const hasFile = existing.some((asset) => asset.checklist_key === key && Boolean(asset.storage_path));
+    if (!fresh || !canUploadOwnDocument(access.user, fresh, key, { hasFile })) {
+      return NextResponse.json({ ok: false, message: "Ô này không mở để tải: đợt kiểm đã khóa hoặc mục đã có tệp." }, { status: 403 });
     }
     const row = await saveDocumentEvidence({ store: access.store, review: fresh, key: key as AuditEvidenceKey, file, prepared, createdBy: access.user.id });
     await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,

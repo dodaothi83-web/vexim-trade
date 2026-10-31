@@ -97,8 +97,8 @@ export async function notifySupplierCertificateExpiry(input: {
     const name = (input.certificateName || "Chứng nhận").replace(/[\r\n]/g, " ").slice(0, 140);
     const url = `${notificationOrigin()}/supplier/portal/documents`;
     const title = `Chứng nhận sắp hết hạn (còn ${input.daysLeft} ngày): ${name}`;
-    const explanation = `Chứng nhận “${name}” trên hồ sơ L1 của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang người mua. Vui lòng vào mục Giấy tờ L1 để tải bản gia hạn mới; hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.`;
-    const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Cập nhật giấy tờ L1 trên cổng nhà cung cấp →</a></p>`;
+    const explanation = `Chứng nhận “${name}” trên hồ sơ xác thực của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang người mua. Vui lòng vào mục Xác thực doanh nghiệp để tải bản gia hạn mới; hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.`;
+    const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Cập nhật giấy tờ xác thực trên cổng nhà cung cấp →</a></p>`;
     const res = await transport({
       to: recipients,
       subject: title,
@@ -213,7 +213,7 @@ export async function notifySupplierDecision(input: {
       product_approved: { title: `Sản phẩm đã đăng: ${name}`, explanation: "Sản phẩm đã được đăng và hiển thị cho người mua. Bạn có thể quản lý thông tin và hình ảnh trên cổng nhà cung cấp.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}` },
       product_changes_requested: { title: `Sản phẩm cần chỉnh sửa: ${name}`, explanation: "Hãy chỉnh sửa rồi gửi duyệt lại.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}`, showNote: true },
       certificate_approved: { title: `Đã kiểm bản sao chứng nhận: ${name}`, explanation: "Bản sao đã được duyệt. Chứng nhận chưa được công bố; việc hiển thị công khai là quyết định riêng.", path: "/supplier/portal/documents" },
-      certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Cần bổ sung thông tin chứng nhận trong mục Giấy tờ L1.", path: "/supplier/portal/documents", showNote: true },
+      certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Cần bổ sung thông tin chứng nhận trong mục Xác thực doanh nghiệp.", path: "/supplier/portal/documents", showNote: true },
       certificate_rejected: { title: `Chứng nhận không được chấp thuận: ${name}`, explanation: "Chứng nhận này chưa được chấp thuận.", path: "/supplier/portal/documents", showNote: true },
       certificate_published: { title: `Chứng nhận được phép hiển thị: ${name}`, explanation: "Chứng nhận đã được quét và cho phép hiển thị nhãn nếu sản phẩm công khai và chứng nhận còn hạn." + " Nhãn ghi rõ trạng thái chính chủ/đối tác và ngày hết hạn; bằng chứng nội bộ không công khai.", path: "/supplier/portal/documents" },
       certificate_withdrawn: { title: `Đã thu hồi hiển thị chứng nhận: ${name}`, explanation: "Nhãn chứng nhận đã được ngừng hiển thị trên trang người mua.", path: "/supplier/portal/documents" },
