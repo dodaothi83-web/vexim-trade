@@ -69,4 +69,24 @@ assert.match(read('app/api/supplier-portal/evidence/route.ts'), /notifyStaffDocu
   'NCC tải giấy tờ xong phải báo nhân viên');
 assert.match(notify, /Chưa có gì được duyệt/, 'Thư báo không được ngụ ý đã duyệt');
 
+/* 6. Giấy chứng nhận cũng là một hàng chờ: đếm giấy pending, gắn menu Giấy tờ & chứng nhận,
+   và tự trừ khi nhân viên duyệt. Giấy chưa phân loại / yêu cầu phạm vi nằm trong trang hub. */
+assert.match(types, /countCertificatesPendingReview\(\): Promise<number>;/, 'Store có đếm giấy chờ duyệt');
+const certCount = supabase.slice(supabase.indexOf('async countCertificatesPendingReview'));
+assert.match(certCount.slice(0, 400), /from\("certificates"\)[\s\S]{0,120}review_status/, 'Đếm trên bảng certificates theo review_status');
+assert.match(certCount.slice(0, 400), /head: true/, 'Đếm bằng head-count, không tải cả bảng');
+assert.match(read('lib/db/local.ts'), /async countCertificatesPendingReview\(\)/, 'Bản local cũng đếm được');
+assert.match(layout, /countCertificatesPendingReview\(\)/, 'Layout /crm đếm giấy chờ duyệt');
+assert.match(layout, /pendingCertificates=\{pendingCertificates\}/, 'Layout truyền số giấy cho sidebar');
+assert.match(layout, /href: "\/crm\/certificates", label: "Giấy chứng nhận chờ duyệt"/, 'Chuông CRM có hàng giấy chờ duyệt');
+assert.match(sidebar, /pendingCertificates\?: number;/, 'Sidebar nhận số giấy chờ duyệt');
+assert.match(sidebar, /item\.href === "\/crm\/certificates"[\s\S]{0,160}pendingCertificates/, 'Huy hiệu gắn đúng menu chứng nhận');
+for (const [file, reason] of [
+  ['app/crm/suppliers/[slug]/audit/[step]/certificate-actions.ts', 'duyệt/ẩn/đổi trạng thái giấy'],
+  ['app/crm/suppliers/[slug]/audit/[step]/certificate-scope-actions.ts', 'đổi phạm vi giấy'],
+  ['app/api/supplier-portal/certificates/route.ts', 'NCC tải giấy mới'],
+]) {
+  assert.match(read(file), /refreshCrmBadges\(\)/, `${reason} xong phải làm mới huy hiệu`);
+}
+
 console.log('✅ CRM: huy hiệu đếm đúng bảng, gắn đúng menu, tự trừ sau khi xử lý; sản phẩm có nút Xem; chuông hai chiều đã nối.');

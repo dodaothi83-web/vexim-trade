@@ -171,6 +171,17 @@ const portalDocuments = read("app/supplier/portal/documents/page.tsx");
 assert.match(portalDocuments, /deriveL1Rows/, "bảng L1 tính từ giấy đã duyệt");
 const crmQueue = read("app/crm/certificates/page.tsx");
 assert.match(crmQueue, /Giấy chưa phân loại/, "CRM có hàng đợi giấy chưa phân loại");
+
+/* 6b. Trang CRM mới là một route thật: tự chặn quyền, cùng quyền với mục menu. */
+assert.match(crmQueue, /requirePagePermission\("verifications\.view", "\/crm\/certificates"\)/,
+  "trang hàng đợi tự chặn quyền verifications.view");
+assert.match(crmQueue, /export const dynamic = "force-dynamic"/, "trang hàng đợi đọc dữ liệu mỗi lần mở");
+assert.match(crmQueue, /robots: \{ index: false, follow: false \}/, "trang nội bộ không cho máy tìm kiếm");
+const navRow = read("components/sidebar.tsx").split("\n").find((line) => line.includes('href: "/crm/certificates"'));
+assert.ok(navRow, "menu có mục Giấy tờ & chứng nhận");
+assert.match(navRow, /perm: "verifications\.view"/, "mục menu dùng đúng quyền như trang");
+assert.match(crmQueue, /href=\{`\/crm\/suppliers\/\$\{certificate\.supplier_id\}\/audit\/documents`\}/,
+  "hàng đợi mở đúng hồ sơ của nhà cung cấp");
 assert.match(crmQueue, /certificateSchemeLabel/, "hàng đợi hiện loại giấy");
 const editor = read("app/supplier/portal/products/product-editor.tsx");
 assert.match(editor, /Chứng nhận theo danh mục/, "form thêm sản phẩm hiện khối chứng nhận theo danh mục");

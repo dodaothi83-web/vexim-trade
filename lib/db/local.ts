@@ -1381,6 +1381,9 @@ export const localStore: DataStore = {
   async countSubmissionsPendingReview() {
     return (load().supplier_submissions ?? []).filter((s) => s.status === "pending_review").length;
   },
+  async countCertificatesPendingReview() {
+    return (load().certificates ?? []).filter((c) => c.review_status === "pending").length;
+  },
   async getUser(id) {
     return load().users.find((u) => u.id === id) ?? null;
   },

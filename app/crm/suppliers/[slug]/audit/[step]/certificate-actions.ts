@@ -11,6 +11,7 @@ import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
 import { certificateSchemeLabel, isCertificateScheme } from "@/lib/certificate-scheme";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { transferRenewalScope } from "@/lib/certificate-renewal";
+import { refreshCrmBadges } from "@/lib/crm/badges";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const result = (ok: boolean, message: string) => ({ ok, message });
@@ -27,8 +28,11 @@ async function softRefresh(work: () => void): Promise<void> {
 function refresh(supplierId: string, slug?: string | null) {
   revalidatePath(`/crm/suppliers/${supplierId}`);
   revalidatePath(`/crm/suppliers/${supplierId}/audit/documents`);
+  revalidatePath("/crm/certificates");
   revalidatePath("/supplier/portal");
   if (slug) revalidatePath(`/suppliers/${slug}`);
+  // Duyệt/ẩn/đổi trạng thái làm đổi số giấy chờ duyệt: huy hiệu ở layout /crm phải tự trừ.
+  refreshCrmBadges();
 }
 
 /** A thrown server action is HTTP 500 in production; certificates only ever return a soft result. */

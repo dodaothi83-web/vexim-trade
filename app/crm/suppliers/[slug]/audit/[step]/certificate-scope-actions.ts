@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { refreshCrmBadges } from "@/lib/crm/badges";
+
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -17,6 +19,7 @@ function refresh(supplierId: string, slug?: string | null) {
   revalidatePath("/supplier/portal");
   revalidatePath("/supplier/portal/documents");
   if (slug) revalidatePath(`/suppliers/${slug}`);
+  refreshCrmBadges();
 }
 
 function briefReason(error: unknown): string {

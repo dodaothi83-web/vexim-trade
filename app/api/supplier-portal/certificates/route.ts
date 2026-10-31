@@ -12,6 +12,7 @@ import {
   isL1CertificateKey,
 } from "@/lib/certificate-service";
 import { approvedL2Scope } from "@/lib/verification-status";
+import { refreshCrmBadges } from "@/lib/crm/badges";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -144,6 +145,9 @@ export async function POST(request: Request) {
     if (currentSupplier.slug) {
       revalidatePath(`/suppliers/${currentSupplier.slug}`);
     }
+    revalidatePath("/crm/certificates");
+    // Giấy vừa tải vào hàng chờ duyệt: huy hiệu sidebar của CRM phải tăng ngay.
+    refreshCrmBadges();
 
     /* Cùng một câu cho mọi trường hợp: giấy vào hồ sơ, còn lên sản phẩm hay không là do
      * nhân viên chọn phạm vi — không hứa "đã hiển thị" khi sản phẩm chưa có phạm vi. */

@@ -567,6 +567,12 @@ export const supabaseStore: DataStore = {
     if (error) return 0;
     return count ?? 0;
   },
+  async countCertificatesPendingReview() {
+    const { count, error } = await must()
+      .from("certificates").select("id", { count: "exact", head: true }).eq("review_status", "pending");
+    if (error) fail("countCertificatesPendingReview", error);
+    return count ?? 0;
+  },
   async getUser(id) {
     const { data, error } = await must()
       .from("app_users")

@@ -73,11 +73,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       return null; // unknown is not zero; the menu shows a warning instead
     }
   };
-  const [pendingSuppliers, pendingProducts, pendingReviews, pendingSubmissions, pendingSponsoredRequests] = await Promise.all([
+  const [pendingSuppliers, pendingProducts, pendingReviews, pendingSubmissions, pendingCertificates, pendingSponsoredRequests] = await Promise.all([
     canSuppliers ? countOrZero("nhà cung cấp", () => store.countSupplierAccountsPending()) : 0,
     canProducts ? countOrZero("sản phẩm", () => store.countProductsPendingReview()) : 0,
     canReviews ? countOrZero("đợt kiểm", () => store.countReviewsAwaitingApproval()) : 0,
     canReviews ? countOrZero("hồ sơ tự gửi", () => store.countSubmissionsPendingReview()) : 0,
+    canReviews ? countOrZero("giấy chứng nhận", () => store.countCertificatesPendingReview()) : 0,
     countSponsoredRequests(),
   ]);
 
@@ -88,6 +89,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     { href: "/crm/products?view=pending", label: "Sản phẩm nhà cung cấp chờ kiểm nội dung", count: pendingProducts },
     { href: "/crm/verifications", label: "Đợt kiểm chờ duyệt", count: pendingReviews },
     { href: "/crm/verifications/submissions", label: "Hồ sơ nhà cung cấp tự gửi chờ đối chiếu", count: pendingSubmissions },
+    { href: "/crm/certificates", label: "Giấy chứng nhận chờ duyệt", count: pendingCertificates },
     { href: "/crm/sponsored#yeu-cau-ncc", label: "Yêu cầu đẩy sản phẩm mới", count: pendingSponsoredRequests ?? 0 },
     { href: "/crm/mail", label: "Thư chưa đọc", count: unreadMail },
     { href: "/crm/buyers", label: "Người mua mới chưa xử lý", count: newBuyers },
@@ -121,6 +123,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         pendingProducts={pendingProducts}
         pendingReviews={pendingReviews}
         pendingSubmissions={pendingSubmissions}
+        pendingCertificates={pendingCertificates}
         pendingSponsoredRequests={pendingSponsoredRequests}
       />
       <div className="lg:pl-60">

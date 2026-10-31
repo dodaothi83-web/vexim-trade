@@ -37,7 +37,7 @@ Hai ô tải giấy (trang **Giấy tờ & chứng nhận L1** và khối "Chứ
 
 ## CRM
 
-- Hàng đợi `/crm/certificates`: số đếm giấy chưa phân loại, chờ duyệt, sắp hết hạn 60 ngày, yêu cầu mở rộng phạm vi.
+- Hàng đợi `/crm/certificates`: số đếm giấy chưa phân loại, chờ duyệt, sắp hết hạn 60 ngày, yêu cầu mở rộng phạm vi. Mục menu "Giấy tờ & chứng nhận" có huy hiệu **N chờ** = số giấy `review_status = 'pending'` (`countCertificatesPendingReview`), cùng nguồn số với chuông CRM; giấy chưa phân loại và yêu cầu mở rộng phạm vi không cộng vào huy hiệu mà hiện thành từng mục trong trang. Duyệt/ẩn giấy, đổi phạm vi, và NCC tải giấy mới đều gọi `refreshCrmBadges()` để số tự trừ/tăng.
 - Dòng chứng nhận trong hồ sơ L1: chọn loại giấy (nhóm pháp lý/chất lượng/theo lô), công khai/nội bộ, thêm–bỏ phạm vi danh mục, duyệt yêu cầu mở rộng, cảnh báo khi loại giấy lệch mục checklist L1 đã ghi.
 - Bảng L1 trong cổng nhà cung cấp tính từ giấy **đã duyệt** (`lib/certificate-l1.ts`), không phải ô tự chọn.
 

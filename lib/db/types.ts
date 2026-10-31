@@ -126,6 +126,12 @@ export interface DataStore {
   countReviewsAwaitingApproval(): Promise<number>;
   /** Hồ sơ NCC tự gửi đang chờ đối chiếu — badge riêng của menu Hồ sơ NCC tự gửi. */
   countSubmissionsPendingReview(): Promise<number>;
+  /**
+   * Giấy chứng nhận NCC đã tải, chờ nhân viên duyệt — badge menu Giấy tờ & chứng nhận.
+   * Chỉ đếm giấy `pending`; giấy chưa phân loại và yêu cầu mở rộng phạm vi là hàng đợi
+   * nằm trong trang `/crm/certificates`, không cộng vào huy hiệu.
+   */
+  countCertificatesPendingReview(): Promise<number>;
   getUser(id: string): Promise<AppUserRecord | null>;
   getUserByEmail(email: string): Promise<AppUserRecord | null>;
   /** Tài khoản đăng nhập đang gắn với một hồ sơ NCC (mỗi hồ sơ tối đa một tài khoản). */
