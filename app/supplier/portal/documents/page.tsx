@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, FileCheck2, FileText, FileUp, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, FileCheck2, FileText } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { FilePicker } from "@/components/file-picker";
@@ -9,7 +9,7 @@ import { approvedL2Scope } from "@/lib/verification-status";
 import { visibleLegacyCertificateFiles } from "@/lib/supplier-portal/legacy-certificate-files";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { canUploadOwnDocument, COMPANY_DOCUMENT_KEYS, INITIAL_DOCUMENT_KEYS, QUALITY_CERTIFICATE_DOC_KEYS } from "@/lib/supplier-portal/policy";
-import { L1_DOC_ITEMS } from "@/lib/types";
+import { L1_DOC_ITEMS, type MediaAsset } from "@/lib/types";
 import { daysUntilExpiry } from "@/lib/certificate-service";
 import { deriveL1Rows } from "@/lib/certificate-l1";
 import { certificateSchemeLabel, isCertificateChipScheme } from "@/lib/certificate-scheme";
@@ -26,18 +26,9 @@ export const metadata = { title: "Xác thực doanh nghiệp & chứng nhận", 
 /**
  * Bước 1 của quy trình xác minh: giấy tờ doanh nghiệp và chứng nhận ngành hàng.
  *
- * Trang dùng đúng ngôn ngữ thị giác của hai trang tự gửi L2/L3
- * (`verification/level-page.tsx` + `verification/verification-panel.tsx`): dải tab ba
- * bước, hướng dẫn ba bước, dải tổng quan (trạng thái + tiến độ), lưới thẻ bằng chứng có
- * ảnh thu nhỏ, cột tóm tắt dính bên phải. Khác L2/L3 ở chỗ bước này không có nút nộp:
- * nhân viên mở đợt kiểm và đối chiếu thủ công.
+ * Trang tập trung vào tiến độ, tệp cần bổ sung và chứng nhận đã nộp. Bước này không có
+ * nút nộp: nhân viên mở đợt kiểm và đối chiếu thủ công.
  */
-
-const GUIDE = [
-  { title: "Chuẩn bị giấy tờ", body: "Bản chụp hoặc PDF còn hiệu lực. Tên trên giấy phải khớp tên doanh nghiệp đã khai." },
-  { title: "Tải giấy đăng ký kinh doanh", body: "Chỉ một giấy: Giấy chứng nhận đăng ký kinh doanh. Chứng nhận chất lượng tải ở khối Chứng nhận." },
-  { title: "Đối chiếu thủ công", body: "Nhân viên đối chiếu đơn vị đứng tên và ngày hết hạn. Kết quả do người có quyền duyệt quyết định." },
-] as const;
 
 /** Ngày tải tệp, đọc nhanh trong thẻ. */
 function uploadedOn(iso: string | null | undefined): string {
@@ -48,6 +39,23 @@ function uploadedOn(iso: string | null | undefined): string {
 }
 
 const isImage = (mime: string | null) => Boolean(mime?.startsWith("image/"));
+
+function EvidenceThumbnail({ file, label }: { file: MediaAsset; label: string }) {
+  if (!file.storage_path) return null;
+  const href = `/api/media/file/${file.storage_path}`;
+  return <a href={href} target="_blank" rel="noreferrer" title={file.caption || label}
+    aria-label={`Mở tệp ${file.caption || label}`}
+    className="group/thumb relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-ink-200 bg-ink-50 shadow-sm transition hover:border-brand-300 hover:shadow">
+    {isImage(file.mime)
+      // eslint-disable-next-line @next/next/no-img-element
+      ? <img src={`/api/media/file/${file.thumb_path || file.storage_path}`} alt={file.caption || label}
+        className="h-full w-full object-cover transition group-hover/thumb:scale-105" />
+      : <span className="flex h-full flex-col items-center justify-center gap-1 text-ink-500">
+        <FileText className="size-5" aria-hidden="true" />
+        <span className="max-w-full truncate px-1 text-[8px] font-semibold">PDF</span>
+      </span>}
+  </a>;
+}
 
 export default async function SupplierDocumentsPage() {
   const access = await supplierPortalAccess();
@@ -63,11 +71,13 @@ export default async function SupplierDocumentsPage() {
       return fallback;
     }
   }
-  const [media, certificates] = await Promise.all([
+  const [media, certificates, supplierMedia] = await Promise.all([
     optional("giấy tờ của đợt kiểm", [] as Awaited<ReturnType<typeof store.listMedia>>,
       () => review ? store.listMedia("verification", review.id) : Promise.resolve([])),
     optional("chứng nhận", [] as Awaited<ReturnType<typeof store.listCertificates>>,
       () => store.listCertificates(supplier.id)),
+    optional("tệp chứng nhận", [] as Awaited<ReturnType<typeof store.listMedia>>,
+      () => store.listMedia("supplier", supplier.id)),
   ]);
 
   const mine = media.filter((m) => m.created_by === user.id && m.storage_path &&
@@ -79,11 +89,11 @@ export default async function SupplierDocumentsPage() {
   const docRows = COMPANY_DOCUMENT_KEYS.map((key) => {
     const item = L1_DOC_ITEMS.find((entry) => entry.key === key);
     const files = mine.filter((m) => m.checklist_key === key)
-      .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+      .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""));
     /* Ô tải mở theo từng mục: đợt đang mở nhận mọi giấy; đợt đã duyệt chỉ nhận bổ sung
      * giấy đăng ký kinh doanh khi mục đó còn trống. */
     const uploadable = canUploadOwnDocument(user, review, key, { hasFile: files.length > 0 });
-    return { key, label: item?.label ?? key, core: Boolean(item?.core), files, latest: files[0] ?? null, uploadable };
+    return { key, label: item?.label ?? key, core: Boolean(item?.core), files, latest: files.at(-1) ?? null, uploadable };
   });
   /*
    * Tệp chứng nhận đã tải theo luồng cũ (chọn ô HACCP/chứng chỉ sản phẩm) nhưng chưa có
@@ -141,6 +151,11 @@ export default async function SupplierDocumentsPage() {
   const derivedL1Rows = deriveL1Rows(certificates);
   const liveCerts = certificates.filter((c) => Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden &&
     (c.holder_match === "owner" || c.holder_match === "partner") && (daysUntilExpiry(c.valid_until) ?? -1) >= 0));
+  const certificateFiles = certificates.map((certificate) => ({
+    certificate,
+    file: supplierMedia.find((mediaFile) => mediaFile.id === certificate.file_media_id) ?? null,
+  })).filter((entry): entry is { certificate: typeof certificates[number]; file: MediaAsset } => Boolean(entry.file))
+    .sort((a, b) => (a.file.created_at ?? "").localeCompare(b.file.created_at ?? ""));
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · Bước 1" title="Xác thực doanh nghiệp & chứng nhận"
@@ -152,15 +167,7 @@ export default async function SupplierDocumentsPage() {
 
     <LevelTabs current={1} partner={supplier.supplier_type === "trading"} />
 
-    <ol className="mt-4 grid gap-2.5 sm:grid-cols-3" aria-label="Ba bước thực hiện">
-      {GUIDE.map((step, index) => <li key={step.title} className="flex gap-2.5 rounded-xl border border-ink-200 bg-white px-3.5 py-3 shadow-sm">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-black text-brand-800 ring-1 ring-brand-200">{index + 1}</span>
-        <span className="min-w-0">
-          <span className="block text-[12.5px] font-bold text-ink-900">{step.title}</span>
-          <span className="mt-0.5 block text-[11px] leading-4 text-ink-500">{step.body}</span>
-        </span>
-      </li>)}
-    </ol>
+
 
     {degraded.length > 0 && <div role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <p className="font-bold">Một phần dữ liệu giấy tờ chưa tải được</p>
@@ -179,14 +186,8 @@ export default async function SupplierDocumentsPage() {
             <div className="min-w-0">
               <p className="text-[10.5px] font-bold tracking-[0.14em] text-brand-700 uppercase">Hồ sơ · Bước 1/3</p>
               <h2 className="mt-0.5 text-[17px] leading-tight font-black tracking-tight text-ink-900">Xác thực doanh nghiệp</h2>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <div className="mt-2">
                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone}`}>{l1Status}</span>
-                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-ink-600 ring-1 ring-ink-200">
-                  {uploadedDocs.length}/{docRows.length} giấy tờ đã tải
-                </span>
-                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-ink-600 ring-1 ring-ink-200">
-                  {certificates.length} chứng nhận
-                </span>
               </div>
             </div>
           </div>
@@ -216,17 +217,14 @@ export default async function SupplierDocumentsPage() {
       </p>}
     </section>
 
-    <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
+    <div className="mt-4 max-w-5xl space-y-4">
       <div className="min-w-0 space-y-4">
 
         {/* Lưới thẻ giấy tờ: ảnh thu nhỏ + trạng thái + ô tải riêng, cùng nhịp với bộ ảnh L2. */}
         <section aria-labelledby="docs-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 id="docs-title" className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-ink-900">
-                Xác thực doanh nghiệp
-                <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{uploadedDocs.length}/{docRows.length}</span>
-              </h3>
+              <h3 id="docs-title" className="text-[15px] font-bold text-ink-900">Xác thực doanh nghiệp</h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
                 {"Chỉ cần Giấy chứng nhận đăng ký kinh doanh; đợt đã duyệt vẫn nhận bản bổ sung khi mục còn trống. "
                   + "Chứng nhận chất lượng tải một lần ở khối Chứng nhận bên dưới, không phải tải lại ở đây."}
@@ -237,67 +235,41 @@ export default async function SupplierDocumentsPage() {
             </span>
           </div>
 
-          <div className="mt-3 grid gap-3 sm:max-w-md">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {docRows.map((row) => {
               const latest = row.latest;
-              const thumb = latest && isImage(latest.mime) ? `/api/media/file/${latest.thumb_path || latest.storage_path}` : null;
-              return <article key={row.key} className="group flex flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm transition hover:shadow-md">
-                <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-ink-50">
-                  {latest
-                    ? (thumb
-                      ? <a href={`/api/media/file/${latest.storage_path}`} target="_blank" rel="noreferrer" className="block h-full w-full" aria-label={`Mở tệp ${row.label}`}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={thumb} alt={latest.caption || row.label} className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]" />
-                      </a>
-                      : <a href={`/api/media/file/${latest.storage_path}`} target="_blank" rel="noreferrer" className="flex h-full w-full flex-col items-center justify-center gap-1 bg-ink-50 text-ink-500">
-                        <FileText className="h-7 w-7" aria-hidden="true" />
-                        <span className="text-[11px] font-semibold">PDF đã tải</span>
-                      </a>)
-                    : <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-ink-50/80 text-ink-400">
-                      <FileUp className="h-7 w-7" aria-hidden="true" />
-                      <span className="text-[11px] font-semibold">Chưa có tệp</span>
-                    </div>}
-                  <span className={`absolute top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${latest ? "bg-emerald-600 text-white" : row.core ? "bg-white/95 text-amber-900 ring-1 ring-amber-300" : "bg-white/95 text-ink-600 ring-1 ring-ink-200"}`}>
-                    {latest ? "Đã có" : row.core ? "Giấy chính" : "Tùy chọn"}
-                  </span>
-                  {row.files.length > 1 && <span className="absolute right-2 bottom-2 rounded-full bg-ink-900/80 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">{row.files.length} tệp</span>}
-                </div>
-
-                <div className="flex flex-1 flex-col gap-2 p-3">
+              return <article key={row.key} className="rounded-xl border border-ink-200 bg-white p-3 shadow-sm transition hover:border-brand-200 hover:shadow-md">
+                <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h4 className="text-[13px] leading-4 font-bold text-ink-900">{row.label}</h4>
                     <p className="mt-0.5 text-[10.5px] leading-4 text-ink-500">
                       {latest ? `${latest.caption || "Tệp đã tải"}${uploadedOn(latest.created_at) ? ` · tải ${uploadedOn(latest.created_at)}` : ""}` : "PDF hoặc ảnh, tối đa 15 MB"}
                     </p>
-                    {/* Cùng một tệp cũng nằm trong kho chứng nhận: nói rõ để không tưởng là hai giấy. */}
-                    {latest && certificateMediaIds.has(latest.id) && <p className="text-[10px] leading-4 text-teal-800">
-                      Đã vào kho chứng nhận{certificates.find((certificate) => certificate.file_media_id === latest.id)?.valid_until
-                        ? ` · hạn ${certificates.find((certificate) => certificate.file_media_id === latest.id)?.valid_until}`
-                        : ""}
-                    </p>}
                   </div>
-
-                  {latest && <a href={`/api/media/file/${latest.storage_path}`} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1 self-start text-[11px] font-semibold text-brand-800 underline underline-offset-2">
-                    <FileText className="size-3" aria-hidden="true" /> Xem tệp
-                  </a>}
-
-                  <div className="mt-auto">
-                    {row.uploadable
-                      ? <L1DocUpload checklistKey={row.key} hasFile={Boolean(latest)} />
-                      // Đợt đã khóa vẫn giữ nguyên khung tải tệp (mờ đi) thay vì một dòng
-                      // chữ nhỏ: nhà cung cấp thấy ngay ô tải ở đâu và vì sao chưa dùng được.
-                      // Thẻ chưa có tệp thì không được ghi "Đã đối chiếu xong" — đợt đã duyệt
-                      // không có nghĩa là mục này có giấy.
-                      : <FilePicker compact disabled accept=".pdf,image/jpeg,image/png,image/webp"
-                        title={!latest ? "Chưa có tệp"
-                          : l1Approved ? "Đã đối chiếu xong" : l1Submitted ? "Đang chờ nhân viên đối chiếu" : "Chưa mở được ô tải"}
-                        hint={!latest
-                          ? (l1Approved ? "Đợt đã duyệt nên ô tải tạm khoá." : "Cần nhân viên xác nhận tài khoản trước khi tải.")
-                          : l1Approved ? "Đã đối chiếu xong. Tải chứng nhận mới ở khối bên dưới nếu cần."
-                            : l1Submitted ? "Ô tải mở lại khi hồ sơ được yêu cầu bổ sung."
-                              : "Cần nhân viên xác nhận tài khoản trước khi tải giấy tờ."} />}
-                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${latest ? "bg-emerald-50 text-emerald-800" : row.core ? "bg-amber-50 text-amber-900" : "bg-ink-100 text-ink-600"}`}>
+                    {latest ? "Đã có" : row.core ? "Giấy chính" : "Tùy chọn"}
+                  </span>
+                </div>
+                {row.files.length > 0 && <div className="mt-2 flex gap-2 overflow-x-auto pb-1" aria-label={`Tệp đã tải: ${row.label}`}>
+                  {row.files.map((file) => <EvidenceThumbnail key={file.id} file={file} label={row.label} />)}
+                </div>}
+                {row.files.length > 1 && <p className="mt-1 text-[10px] text-ink-500">{row.files.length} tệp · sắp xếp theo thời gian tải</p>}
+                {latest && certificateMediaIds.has(latest.id) && <p className="mt-1 text-[10px] leading-4 text-teal-800">
+                  Đã vào kho chứng nhận{certificates.find((certificate) => certificate.file_media_id === latest.id)?.valid_until
+                    ? ` · hạn ${certificates.find((certificate) => certificate.file_media_id === latest.id)?.valid_until}`
+                    : ""}
+                </p>}
+                <div className="mt-2">
+                  {row.uploadable
+                    ? <L1DocUpload checklistKey={row.key} hasFile={Boolean(latest)} />
+                    : <FilePicker compact disabled accept=".pdf,image/jpeg,image/png,image/webp"
+                      title={!latest ? "Chưa có tệp"
+                        : l1Approved ? "Đã đối chiếu xong" : l1Submitted ? "Đang chờ nhân viên đối chiếu" : "Chưa mở được ô tải"}
+                      hint={!latest
+                        ? (l1Approved ? "Đợt đã duyệt nên ô tải tạm khoá." : "Cần nhân viên xác nhận tài khoản trước khi tải.")
+                        : l1Approved ? "Đã đối chiếu xong. Tải chứng nhận mới ở khối bên dưới nếu cần."
+                          : l1Submitted ? "Ô tải mở lại khi hồ sơ được yêu cầu bổ sung."
+                            : "Cần nhân viên xác nhận tài khoản trước khi tải giấy tờ."} />}
                 </div>
               </article>;
             })}
@@ -318,6 +290,10 @@ export default async function SupplierDocumentsPage() {
             </div>
             <span className="shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-[10.5px] font-bold text-ink-700">{liveCerts.length} đang hiển thị</span>
           </div>
+
+          {certificateFiles.length > 0 && <div className="mt-3 flex gap-2 overflow-x-auto rounded-xl border border-ink-100 bg-ink-50/60 p-2" aria-label="Ảnh và tệp chứng nhận đã tải, theo thứ tự thời gian">
+            {certificateFiles.map(({ certificate, file }) => <EvidenceThumbnail key={certificate.id} file={file} label={certificate.name} />)}
+          </div>}
 
           {certificates.length ? <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {certificates.map((c) => {
@@ -424,52 +400,7 @@ export default async function SupplierDocumentsPage() {
         </section>
       </div>
 
-      {/* Cột tóm tắt dính: giữ tiến độ và việc còn thiếu trong tầm mắt khi lướt danh sách. */}
-      <aside className="space-y-4 lg:sticky lg:top-20">
-        <section aria-labelledby="summary-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
-          <h3 id="summary-title" className="text-[14px] font-bold text-ink-900">Tóm tắt bước 1</h3>
-          <p className="mt-1 text-[11.5px] leading-5 text-ink-600">{l1Approved
-            ? "Đã đối chiếu xong. Chứng nhận hết hạn sẽ tự rơi khỏi trang người mua cho tới khi bạn tải bản mới."
-            : "Đợt kiểm giấy tờ do nhân viên mở và đối chiếu; tải lên không tự cấp huy hiệu xác thực."}</p>
 
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-center">
-            <div className="rounded-lg bg-ink-50 px-2 py-2">
-              <dt className="text-[10px] font-semibold text-ink-500">Giấy tờ đã có</dt>
-              <dd className="text-[15px] font-black tabular-nums text-ink-900">{uploadedDocs.length}/{docRows.length}</dd>
-            </div>
-            <div className="rounded-lg bg-ink-50 px-2 py-2">
-              <dt className="text-[10px] font-semibold text-ink-500">Chứng nhận</dt>
-              <dd className="text-[15px] font-black tabular-nums text-ink-900">{certificates.length}</dd>
-            </div>
-          </dl>
-
-          {missingDocs.length > 0 && <div className="mt-3 rounded-lg border border-ink-100 bg-ink-50/70 px-3 py-2">
-            <p className="text-[11px] font-bold text-ink-700">{l1Approved ? "Mục chưa có tệp (không bắt buộc)" : "Mục còn trống"}</p>
-            <ul className="mt-1.5 space-y-1 text-[10.5px] leading-4 text-ink-600">
-              {missingDocs.map((row) => <li key={row.key} className="flex gap-1.5">
-                {l1Approved
-                  ? <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-ink-400" />
-                  : <AlertTriangle className="mt-0.5 size-3 shrink-0 text-amber-600" aria-hidden="true" />}
-                {row.label}
-              </li>)}
-            </ul>
-          </div>}
-
-          <p className="mt-3 text-[10px] leading-4 text-ink-500">Giấy chứng nhận đăng ký kinh doanh là giấy duy nhất của bước này; các mục khác không còn bắt buộc.</p>
-        </section>
-
-        <section aria-labelledby="tips-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
-          <h3 id="tips-title" className="flex items-center gap-1.5 text-[12.5px] font-bold text-brand-900">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" /> Mẹo giấy tờ
-          </h3>
-          <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[10.5px] leading-4 text-ink-600">
-            <li>Tên trên giấy phải khớp tên doanh nghiệp đã khai ở Hồ sơ doanh nghiệp.</li>
-            <li>Ảnh chụp hoặc PDF đều nhận; không cần bản gốc, nhưng phải đọc được số và ngày cấp.</li>
-            <li>Che số tài khoản ngân hàng và thông tin không liên quan trước khi tải.</li>
-          </ul>
-          <p className="mt-2 flex items-start gap-1 text-[10px] leading-4 text-brand-900"><ShieldCheck className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> Hồ sơ được đối chiếu thủ công; nhân sự đủ quyền có thể kiểm và duyệt sau khi xác nhận đối chiếu.</p>
-        </section>
-      </aside>
     </div>
   </>;
 }

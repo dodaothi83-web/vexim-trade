@@ -110,6 +110,7 @@ export function SupplierCertificateUpload({
       </label>
       <div className="block sm:col-span-2">
         <FilePicker
+          compact
           name="file"
           accept=".pdf,image/jpeg,image/png,image/webp"
           required

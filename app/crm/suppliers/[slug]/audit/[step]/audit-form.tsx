@@ -20,10 +20,10 @@ import { approveVerificationAction, assignVerificationEvidenceAction, returnVeri
 import { CertificateRowControls } from "./certificate-row-controls";
 
 export function AuditForm({
-  verification: v, autoPublishL1 = false, evidence, certificates = [], aiEnabled, canApprove, canInspect,
+  verification: v, autoPublishL1 = false, evidence, certificates = [], certificateMedia = [], aiEnabled, canApprove, canInspect,
   canPublish = false, currentUserId, canSelfApprove, scopes = [], categories = [], requestedProducts = [],
 }: {
-  verification: Verification; autoPublishL1?: boolean; evidence: MediaAsset[]; certificates?: Certificate[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; canSelfApprove: boolean;
+  verification: Verification; autoPublishL1?: boolean; evidence: MediaAsset[]; certificates?: Certificate[]; certificateMedia?: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; canSelfApprove: boolean;
   /** Phạm vi đã xác nhận của các giấy L1 và danh mục để chọn phạm vi. */
   scopes?: CertificateScope[];
   categories?: Array<{ id: string; name: string }>;
@@ -32,6 +32,8 @@ export function AuditForm({
 }) {
   const unclassifiedCertificates = certificates.filter((certificate) =>
     !contributedChecklistKey(certificate));
+  const certificateFileFor = (certificate: Certificate) => certificateMedia.find((asset) =>
+    asset.id === certificate.file_media_id && Boolean(asset.storage_path)) ?? null;
   const inScopeRow = (certificate: Certificate) => ({
     scopes: scopes
       .filter((scope) => scope.certificate_id === certificate.id)
@@ -60,7 +62,7 @@ export function AuditForm({
   // explicit re-check confirmation; the stored decision is marked self_approved.
   const [selfConfirm, setSelfConfirm] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
-  const [showOldEvidence, setShowOldEvidence] = useState(evidence.some((m) => !m.checklist_key));
+  const [showOldEvidence, setShowOldEvidence] = useState(false);
   // UI lạc quan cho nút "Đánh dấu đã kiểm": đổi nhãn ngay khi bấm, hoàn tác nếu server lỗi.
   const [statusOverrides, setStatusOverrides] = useState<Record<string, "checked" | "unverified">>({});
   const [markingId, setMarkingId] = useState<string | null>(null);
@@ -316,7 +318,7 @@ export function AuditForm({
         </button>}
       </li>)}</ul>
     </section>}
-    <details className="border-b border-ink-100 bg-ink-50/60 px-5 py-3 text-sm" open={showOldEvidence} onToggle={(e) => setShowOldEvidence(e.currentTarget.open)}>
+    {(v.target_level > 1 || unassignedEvidence.length > 0) && <details className="border-b border-ink-100 bg-ink-50/60 px-5 py-3 text-sm" open={showOldEvidence} onToggle={(e) => setShowOldEvidence(e.currentTarget.open)}>
       <summary className="cursor-pointer font-semibold text-ink-800">Tệp cũ chưa gắn mục & link video · {unassignedEvidence.length}</summary>
       <div className="mt-3 space-y-2">
         <p className="text-xs text-ink-600">{"Tệp thuộc đúng đợt kiểm vẫn dùng được. Gắn vào dòng bên dưới để dễ đối chiếu; không cần tải lại." + " Tệp kho chung nhà cung cấp không tự chuyển vào đây."}</p>
@@ -342,7 +344,7 @@ export function AuditForm({
           <Button type="button" size="sm" disabled={busy || !videoUrl.trim()} onClick={addVideo}>Thêm link</Button>
         </div>}
       </div>
-    </details>
+    </details>}
     <form ref={ref} onSubmit={(e) => { e.preventDefault(); save("in_progress"); }}>
         <div className="divide-y divide-ink-100">
           {items.map((it, i) => {
@@ -401,10 +403,14 @@ export function AuditForm({
             {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">{"Đối chiếu tên pháp nhân và mã số thuế trên giấy với hồ sơ nhà cung cấp." + " Nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú." + " Đánh dấu Không đạt khi tên không khớp."}</p>}
             {v.target_level === 1 && ["food_safety", "haccp_or_brc", "product_certs", "export_license"].includes(it.key) && <div className="space-y-1.5">
               <p className="text-xs font-semibold text-teal-800">Nhận diện tự động</p>
-              {certificates.filter((c) => contributedChecklistKey(c) === it.key).map((c) => (
-                <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-teal-200 bg-teal-50/50 px-3 py-1.5 text-xs">
+              {certificates.filter((c) => contributedChecklistKey(c) === it.key).map((c) => {
+                const sourceFile = certificateFileFor(c);
+                return <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-teal-200 bg-teal-50/50 px-3 py-1.5 text-xs">
                   <div className="flex flex-wrap items-center gap-1.5 text-ink-700">
                     <strong className="text-ink-900">{c.name}</strong>
+                    {sourceFile && <a href={`/api/media/file/${sourceFile.storage_path}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-brand-700 underline" title="Mở tệp gốc của chứng nhận">
+                      <FileText className="size-3" aria-hidden="true" />Mở giấy gốc
+                    </a>}
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${c.holder_match === "owner" ? "bg-emerald-100 text-emerald-800" : c.holder_match === "partner" ? "bg-amber-100 text-amber-900" : "bg-slate-200 text-slate-700"}`}>
                       {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` · ${c.holder_name}` : ""}` : c.holder_match === "partner" ? `Đơn vị đối tác: ${c.holder_name || "—"}` : "Chưa rõ đơn vị đứng tên"}
                     </span>
@@ -412,8 +418,8 @@ export function AuditForm({
                     {c.staff_hidden && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">Đang ẩn</span>}
                   </div>
                   <CertificateRowControls supplierId={v.supplier_id} certificateId={c.id} hasFile={Boolean(c.file_media_id)} staffHidden={Boolean(c.staff_hidden)} published={c.review_status === "approved" && Boolean(c.publicly_visible)} scheme={c.certificate_scheme ?? null} canInspect={canInspect} canPublish={canPublish} {...inScopeRow(c)} />
-                </div>
-              ))}
+                </div>;
+              })}
             </div>}
             {suggestion && <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-xs leading-relaxed text-ink-700">
               <strong className={suggestion.verdict === "pass" ? "text-emerald-800" : suggestion.verdict === "fail" ? "text-rose-700" : "text-amber-800"}>
@@ -479,9 +485,15 @@ export function AuditForm({
               Chọn loại giấy để giấy vào đúng mục L1, vào phạm vi sản phẩm hoặc để dành cho đơn hàng.
             </p>
             <ul className="mt-2 space-y-2">
-              {unclassifiedCertificates.map((certificate) => (
-                <li key={certificate.id} className="rounded-lg border border-ink-200 bg-white px-3 py-2">
-                  <p className="text-xs font-bold text-ink-900">{certificate.name}</p>
+              {unclassifiedCertificates.map((certificate) => {
+                const sourceFile = certificateFileFor(certificate);
+                return <li key={certificate.id} className="rounded-lg border border-ink-200 bg-white px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-bold text-ink-900">{certificate.name}</p>
+                    {sourceFile && <a href={`/api/media/file/${sourceFile.storage_path}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 underline">
+                      <FileText className="size-3" aria-hidden="true" />Mở giấy gốc
+                    </a>}
+                  </div>
                   <div className="mt-1">
                     <CertificateRowControls
                       supplierId={v.supplier_id} certificateId={certificate.id}
@@ -491,8 +503,8 @@ export function AuditForm({
                       canInspect={canInspect} canPublish={canPublish} {...inScopeRow(certificate)}
                     />
                   </div>
-                </li>
-              ))}
+                </li>;
+              })}
             </ul>
           </div>
         )}

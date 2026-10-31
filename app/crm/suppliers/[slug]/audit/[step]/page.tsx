@@ -9,7 +9,7 @@ import { AUDIT_STEPS, auditHref } from "@/lib/verification";
 import { effectiveL2Scope, isPartnerL2, l2ScopeForSupplier, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
 import { submissionStatusLabel } from "@/lib/verification-submission";
 import { canSelfApproveVerification } from "@/lib/verification-policy";
-import type { VerificationLevel } from "@/lib/types";
+import type { MediaAsset, VerificationLevel } from "@/lib/types";
 import { t } from "@/lib/public/i18n";
 import { Breadcrumbs, Badge, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -67,6 +67,13 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
   const title = partner ? "Nhà máy đối tác" : step.title;
   const description = partner ? "Đối chiếu hợp đồng với nhà máy đối tác; không suy ra sở hữu hay kiểm thực địa." : step.description;
   const media = current ? await store.listMedia("verification", current.id) : [];
+  const certificateMediaIds = new Set(certificates.map((certificate) => certificate.file_media_id).filter((id): id is string => Boolean(id)));
+  const certificateMedia = step.level === 1 && certificateMediaIds.size > 0
+    ? (await store.listMedia("supplier", supplierId).catch((error) => {
+      console.error("[certificates] source media query failed", error);
+      return [] as MediaAsset[];
+    })).filter((asset) => certificateMediaIds.has(asset.id) && Boolean(asset.storage_path))
+    : [];
   const canApprove = hasPermission(session.role, "verifications.approve");
   const canInspect = hasPermission(session.role, "verifications.inspect");
   const canPublish = hasPermission(session.role, "suppliers.publish");
@@ -118,7 +125,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
           <div className="max-w-5xl">
-            <AuditForm key={current.id + current.updated_at} verification={current} autoPublishL1={!!supplier.auto_publish_after_l1} evidence={media} certificates={certificates} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} scopes={certificateScopes} categories={scopeCategories.map((category) => ({ id: category.id, name: t(category.name_i18n) || category.slug }))} requestedProducts={requestedProducts} />
+            <AuditForm key={current.id + current.updated_at} verification={current} autoPublishL1={!!supplier.auto_publish_after_l1} evidence={media} certificates={certificates} certificateMedia={certificateMedia} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} scopes={certificateScopes} categories={scopeCategories.map((category) => ({ id: category.id, name: t(category.name_i18n) || category.slug }))} requestedProducts={requestedProducts} />
           </div>
         </>}
     </div>

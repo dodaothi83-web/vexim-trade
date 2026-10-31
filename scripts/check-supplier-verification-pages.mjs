@@ -61,13 +61,20 @@ assert.ok(!levelPage.includes('AI quét những gì'), 'Đã bỏ khối giải 
 const documents = read('app/supplier/portal/documents/page.tsx');
 assert.match(documents, /<LevelTabs current=\{1\} partner=/, 'Trang L1 dùng chung dải tab ba bước');
 assert.match(documents, /role="progressbar"/, 'L1 có dải tiến độ giấy tờ');
-assert.match(documents, /lg:grid-cols-\[minmax\(0,1fr\)_330px\]/, 'L1 có cột tóm tắt dính bên phải như L2/L3');
-assert.match(documents, /lg:sticky lg:top-20/, 'Cột tóm tắt L1 dính khi lướt');
+assert.doesNotMatch(documents, /lg:grid-cols-\[minmax\(0,1fr\)_330px\]|lg:sticky lg:top-20/, 'L1 không lặp cột tóm tắt/progress bên phải');
+assert.match(documents, /EvidenceThumbnail/, 'L1 hiển thị tệp dạng ảnh thu nhỏ');
+assert.match(documents, /certificateFiles\.map/, 'Chứng nhận được xếp thành dải ngang');
 assert.match(documents, /<L1DocUpload checklistKey=\{row\.key\}/, 'L1 tải được giấy tờ ngay trong từng thẻ');
 assert.match(documents, /<SupplierCertificateUpload certificates=/, 'L1 vẫn tải được chứng nhận');
 assert.match(documents, /Lý do cần bổ sung:/, 'L1 hiện lý do khi bị trả hồ sơ');
 assert.doesNotMatch(documents, /runScan|Nộp hồ sơ/, 'Bước 1 không có nút nộp: nhân viên mở đợt kiểm');
 assert.doesNotMatch(documents, /AI quét những gì/, 'Không lặp lại khối giải thích AI đã bỏ ở L2/L3');
+
+const auditPage = read('app/crm/suppliers/[slug]/audit/[step]/page.tsx');
+const auditForm = read('app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx');
+assert.match(auditPage, /certificateMedia=\{certificateMedia\}/, 'CRM chuyển đúng tệp gốc chứng nhận vào màn kiểm');
+assert.match(auditForm, /Mở giấy gốc/, 'Người kiểm CRM mở được tệp chứng nhận ngay tại checklist');
+assert.match(auditForm, /useState\(false\)/, 'Tệp cũ không gắn mục được thu gọn mặc định');
 
 /* 3. Giao diện mới nhưng giữ đủ chức năng của bảng điều khiển cũ. */
 const panel = read('app/supplier/portal/verification/verification-panel.tsx');
