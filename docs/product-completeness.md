@@ -88,11 +88,16 @@ Dùng lại `certificates.requested_product_ids` (nhà cung cấp xin gắn) và
 | Trạng thái liên kết, gộp theo sản phẩm, chỉ chứng nhận còn hạn | `lib/products/product-certificates.ts` (thuần) |
 | Nhà cung cấp xin gắn (chỉ ghi danh sách yêu cầu) | `app/supplier/portal/product-certificate-actions.ts` |
 | Khối chọn chứng nhận dưới form sản phẩm | `app/supplier/portal/products/product-certificates-form.tsx` |
+| Tải chứng nhận ngay trong khối (không rời trang) | cùng file: `fetch("/api/supplier-portal/certificates")` rồi ghép chứng nhận vừa quét vào danh sách chọn |
 | Nhân viên duyệt/bỏ duyệt liên kết | `app/crm/products/[slug]/certificate-actions.ts`, hiện ở thẻ “Chứng nhận của nhà cung cấp” |
 | Kiểm tra | `npm run check:certificates` (nằm trong `check:supplier-products`) |
 
 Không mở lại ô tự khai chứng nhận ở trang sản phẩm: hồ sơ Giấy tờ L1 (AI quét đơn vị đứng tên
 và ngày hết hạn) vẫn là nguồn duy nhất. Chứng nhận hết hạn không gắn được.
+
+Nhà cung cấp thiếu chứng nhận thì tải ngay trong khối, dùng đúng API của mục Giấy tờ. Tệp đi
+bằng `fetch` nên trang không chuyển đi đâu và dữ liệu đang nhập ở các khối phía trên còn nguyên;
+quét xong chứng nhận xuất hiện luôn trong danh sách để tích gửi duyệt gắn.
 
 ## 6. Đợt A+B (30/10/2026) — Phase 2 ra trang người mua và vào tìm kiếm
 

@@ -42,6 +42,7 @@ const SCOPE = [
   // Độ hoàn thiện hồ sơ (Phase 1, chỉ đọc) + thẻ sản phẩm trong cổng.
   'lib/products/completeness.ts',
   'app/supplier/portal/products/product-storefront.tsx',
+  'app/supplier/portal/products/product-certificates-form.tsx',
   // Đợt 3: toàn bộ màn hình CRM còn lại, cổng nhà cung cấp, email và thông báo.
   'app/(public)/home.tsx',
   'app/actions.ts',

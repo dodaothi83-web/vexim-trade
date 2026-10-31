@@ -74,6 +74,11 @@ assert.match(portalPage, /ProductCertificatesForm/, 'trang sản phẩm có kh�
 const portalForm = read('app/supplier/portal/products/product-certificates-form.tsx');
 assert.match(portalForm, /useActionState/, 'form báo kết quả cho nhà cung cấp');
 assert.doesNotMatch(portalForm, /\bbuyer\b|\bNCC\b/, 'chuỗi hiển thị dùng "người mua"/"nhà cung cấp"');
+/* Tải chứng nhận ngay trong khối: không rời trang nên dữ liệu đang nhập ở các khối trên còn nguyên. */
+assert.match(portalForm, /fetch\("\/api\/supplier-portal\/certificates"/, 'khối chứng nhận tự tải tệp lên');
+assert.match(portalForm, /setJustUploaded/, 'chứng nhận vừa tải được ghép vào danh sách để gắn ngay');
+assert.doesNotMatch(portalForm, /<Link|href="\/supplier\/portal\/documents"/, 'không đẩy nhà cung cấp sang trang khác');
+assert.doesNotMatch(portalForm, /router\.(refresh|push)/, 'không điều hướng lại trang khi tải tệp');
 const crmPage = read('app/crm/products/[slug]/edit/page.tsx');
 assert.match(crmPage, /Duyệt liên kết/, 'CRM có nút duyệt liên kết');
 
