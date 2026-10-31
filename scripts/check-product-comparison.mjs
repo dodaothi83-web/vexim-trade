@@ -204,8 +204,12 @@ const rawCertificates = [
 ];
 const internalMedia = [{ id: "evidence", supplier_id: "A", audience: "internal", storage_path: "internal/evidence.pdf", status: "checked", expires_on: null }];
 const certificateSchemeModule = compile("../lib/certificate-scheme.ts", {});
+const certificateScopeModule = compile("../lib/certificate-scope.ts", {
+  "./certificate-scheme": certificateSchemeModule,
+});
 const certificateModule = compile("../lib/public/certificates.ts", {
   "@/lib/certificate-scheme": certificateSchemeModule,
+  "@/lib/certificate-scope": certificateScopeModule,
   "@/lib/media/readiness": { isExpired: () => false },
   "@/lib/public/product-selection": { withoutDirectContacts },
   "@/lib/public/product-certificate-links": { approvedProductCertificateIds },

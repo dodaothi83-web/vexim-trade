@@ -50,3 +50,5 @@ Loại giấy được chuẩn hoá thành một mã duy nhất trong cột `cer
 Cách dùng: `?cert=haccp,halal`. Tham số được sắp lại theo đúng thứ tự chuẩn, mã lạ bị bỏ; nhiều mã là phép **hoặc**; bấm lại chip đang bật là bỏ lọc. Trang đã lọc đặt `robots.index = false` và canonical trỏ về danh mục gốc; lọc không còn sản phẩm thì hiện thông báo "No products match these certificates yet." kèm nút xoá lọc, chứ không rơi về trạng thái "danh mục chưa có nhà cung cấp". Vùng sản phẩm tài trợ và băng đẩy hàng cũng lấy từ danh sách đã lọc để không thẻ nào xuất hiện hai lần.
 
 **Trước khi deploy:** áp dụng `supabase/migrations/20261075_certificate_scheme.sql` (cột + check `NOT VALID` + index bộ phận). Không backfill: giấy cũ để `NULL` cho tới khi nhân viên phân loại. Test: `npm run check:certificates` cùng `node --experimental-strip-types --no-warnings scripts/check-certificate-l1-ai.mjs`.
+
+**GĐ2:** giấy không còn gắn rời từng sản phẩm mà theo **phạm vi** (danh mục hoặc sản phẩm) — xem `docs/certificate-scope-flow.md`.

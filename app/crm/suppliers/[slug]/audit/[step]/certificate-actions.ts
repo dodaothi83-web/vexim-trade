@@ -10,6 +10,7 @@ import { approvedL2Scope } from "@/lib/verification-status";
 import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
 import { certificateSchemeLabel, isCertificateScheme } from "@/lib/certificate-scheme";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
+import { transferRenewalScope } from "@/lib/certificate-renewal";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const result = (ok: boolean, message: string) => ({ ok, message });
@@ -165,6 +166,17 @@ async function approveCertificate(supplierId: string, certificateId: string) {
   });
   if (!updated) return result(false, "Không cập nhật được trạng thái chứng nhận.");
 
+  // Bản gia hạn: phạm vi của bản cũ chuyển sang bản mới, bản cũ ngừng hiện. Làm sau khi
+  // bản mới đã duyệt nên sản phẩm không bị mất nhãn trong lúc chờ.
+  const renewal = await transferRenewalScope(store, updated, {
+    id: session.uid,
+    email: session.email,
+    at: new Date().toISOString(),
+  }).catch((error) => {
+    console.error("[certificate] renewal scope transfer", error);
+    return { copied: 0, superseded: false };
+  });
+
   await store
     .addAuditLog({
       actor_id: session.uid,
@@ -185,7 +197,10 @@ async function approveCertificate(supplierId: string, certificateId: string) {
   }).catch(() => "failed");
 
   await softRefresh(() => refresh(supplier.id, supplier.slug));
-  return result(true, `Đã duyệt đăng “${cert.name}” (${holderMatchBadgeLabel(cert.holder_match, cert.holder_name)}).`);
+  const renewalNote = renewal.superseded
+    ? ` Đã thay bản cũ và chuyển ${renewal.copied} phạm vi sang bản này.`
+    : "";
+  return result(true, `Đã duyệt đăng “${cert.name}” (${holderMatchBadgeLabel(cert.holder_match, cert.holder_name)}).${renewalNote}`);
 }
 
 /**

@@ -28,7 +28,6 @@ import { SITE_URL } from "@/lib/site";
 import { safeJsonLd } from "@/lib/public/supplier-seo";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 import { packagingSummaryEnglish, samplePriceEnglish } from "@/lib/public/product-extras-display";
-import { approvedProductCertificateIds } from "@/lib/public/product-certificate-links";
 import { publicProductCertificates, type PublicSupplierCertificate } from "@/lib/public/certificates";
 
 export const dynamic = "force-dynamic";
@@ -77,13 +76,30 @@ async function getDetailOrRedirect(slug: string, productId: string) {
  * media chỉ chạy khi thật sự cần kiểm tra tệp. Bộ lọc công khai vẫn là của hồ sơ
  * nhà cung cấp, nên gắn sản phẩm không mở thêm cổng công bố nào.
  */
-async function productCertificatesFor(productId: string, supplierId: string): Promise<PublicSupplierCertificate[]> {
+async function productCertificatesFor(
+  productId: string,
+  supplierId: string,
+  categoryPath: readonly string[],
+): Promise<PublicSupplierCertificate[]> {
   const store = getStore();
   if (typeof store.listCertificates !== "function") return [];
   const raw = await store.listCertificates(supplierId).catch(() => []);
-  if (!approvedProductCertificateIds(raw, supplierId, productId).size) return [];
+  if (raw.length === 0) return [];
+  // Phạm vi đã xác nhận (theo danh mục hoặc theo sản phẩm) + lựa chọn bỏ nhận của
+  // nhà cung cấp quyết định giấy nào áp cho sản phẩm này.
+  const scopes = typeof store.listCertificateScopes === "function"
+    ? await store.listCertificateScopes(raw.map((certificate) => certificate.id)).catch(() => [])
+    : [];
+  const optouts = typeof store.listCertificateOptouts === "function"
+    ? await store.listCertificateOptouts(supplierId).catch(() => [])
+    : [];
   const media = typeof store.listMedia === "function" ? await store.listMedia("supplier", supplierId).catch(() => []) : [];
-  return publicProductCertificates(supplierId, productId, raw, media);
+  return publicProductCertificates(supplierId, productId, raw, media, undefined, {
+    scopes,
+    optouts,
+    categoryId: categoryPath[0] ?? null,
+    categoryPath,
+  });
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -141,7 +157,9 @@ export default async function PublicProductDetail({ params }: Props) {
   const { category, card, product: p, relatedProducts, preview } = detail;
   // Product eligibility was checked above; project only buyer-shareable images and safe video embeds.
   const media = await getStore().listMedia("product", p.id);
-  const productCertificates = await productCertificatesFor(p.id, p.supplier_id);
+  const parentCategory = category.parent_id ? await getStore().getCategory(category.parent_id) : null;
+  const categoryPath = [category.id, ...(parentCategory ? [parentCategory.id] : [])];
+  const productCertificates = await productCertificatesFor(p.id, p.supplier_id, categoryPath);
   const images = card.usesFormGallery ? card.imagePaths : shareableProductImages(media, p.id, p.featured_media_id, 24);
   const thumbnails = card.usesFormGallery ? (card.imageThumbnailPaths ?? card.imagePaths) : shareableProductImages(media, p.id, p.featured_media_id, 24, true);
   const video = shareableProductVideo(media, p.id);

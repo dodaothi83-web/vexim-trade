@@ -46,7 +46,7 @@ import {
   type CertificateFacet,
 } from "@/lib/public/certificate-facets";
 import type { CertificateScheme } from "@/lib/certificate-scheme";
-import type { Certificate, MediaAsset } from "@/lib/types";
+import type { Certificate, CertificateScope, MediaAsset, ProductCertificateOptout } from "@/lib/types";
 import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -179,10 +179,15 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
  */
 async function categoryCertificateData(
   products: PublicCategoryProduct[],
-): Promise<{ certificates: Certificate[]; media: MediaAsset[] }> {
+): Promise<{
+  certificates: Certificate[];
+  media: MediaAsset[];
+  scopes: CertificateScope[];
+  optouts: ProductCertificateOptout[];
+}> {
   const store = getStore();
   if (typeof store.listCertificates !== "function" || products.length === 0) {
-    return { certificates: [], media: [] };
+    return { certificates: [], media: [], scopes: [], optouts: [] };
   }
   const supplierIds = [...new Set(products.map((product) => product.supplierId))];
   const perSupplier = await Promise.all(
@@ -191,12 +196,23 @@ async function categoryCertificateData(
       const media = typeof store.listMedia === "function"
         ? await store.listMedia("supplier", supplierId).catch(() => [] as MediaAsset[])
         : [];
-      return { certificates, media };
+      // Phạm vi + opt-out chỉ để biết giấy có áp cho sản phẩm nào; lỗi đọc thì coi như
+      // chưa có phạm vi (giấy vẫn dùng danh sách sản phẩm cũ) chứ không làm hỏng trang.
+      const scopes = typeof store.listCertificateScopes === "function" && certificates.length > 0
+        ? await store.listCertificateScopes(certificates.map((certificate) => certificate.id))
+          .catch(() => [] as CertificateScope[])
+        : [];
+      const optouts = typeof store.listCertificateOptouts === "function"
+        ? await store.listCertificateOptouts(supplierId).catch(() => [] as ProductCertificateOptout[])
+        : [];
+      return { certificates, media, scopes, optouts };
     }),
   );
   return {
     certificates: perSupplier.flatMap((item) => item.certificates),
     media: perSupplier.flatMap((item) => item.media),
+    scopes: perSupplier.flatMap((item) => item.scopes),
+    optouts: perSupplier.flatMap((item) => item.optouts),
   };
 }
 
@@ -258,19 +274,25 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     productCount: items.length,
   }));
 
+  // Danh mục của từng sản phẩm (để khớp phạm vi chứng nhận duyệt theo danh mục). Nhóm
+  // cha phủ cả nhóm con nên đường dẫn luôn gồm danh mục hiện tại và danh mục cha.
+  const parentPath = parentCategory ? [cat.id, parentCategory.id] : [cat.id];
+  const categoryPathByProduct = new Map<string, string[]>();
   const seenProductIds = new Set<string>();
   const products: PublicCategoryProduct[] = [];
   for (const item of directProducts) {
     if (!seenProductIds.has(item.id)) {
       seenProductIds.add(item.id);
       products.push(item);
+      categoryPathByProduct.set(item.id, parentPath);
     }
   }
-  for (const { products: items } of childProductsList) {
+  for (const { child, products: items } of childProductsList) {
     for (const item of items) {
       if (!seenProductIds.has(item.id)) {
         seenProductIds.add(item.id);
         products.push(item);
+        categoryPathByProduct.set(item.id, [child.id, ...parentPath]);
       }
     }
   }
@@ -279,12 +301,23 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
    * Bộ lọc chứng nhận: chỉ chứng nhận đã duyệt, công khai, còn hạn và được gắn cho
    * đúng sản phẩm mới vào danh sách; số đếm trên chip tính từ tập sản phẩm này.
    */
-  const { certificates: categoryCertificates, media: categoryCertificateMedia } =
-    await categoryCertificateData(products);
+  const {
+    certificates: categoryCertificates,
+    media: categoryCertificateMedia,
+    scopes: categoryCertificateScopes,
+    optouts: categoryCertificateOptouts,
+  } = await categoryCertificateData(products);
   const schemesByProduct = certificateSchemesByProduct(
-    products,
+    products.map((product) => ({
+      id: product.id,
+      supplierId: product.supplierId,
+      categoryId: (categoryPathByProduct.get(product.id) ?? parentPath)[0],
+      categoryPath: categoryPathByProduct.get(product.id) ?? parentPath,
+    })),
     categoryCertificates,
     categoryCertificateMedia,
+    undefined,
+    { scopes: categoryCertificateScopes, optouts: categoryCertificateOptouts },
   );
   const certificateFacets = buildCertificateFacets(schemesByProduct);
   const selectedSchemes = parseCertificateSchemeQuery(query.cert);

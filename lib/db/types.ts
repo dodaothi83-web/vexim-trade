@@ -9,6 +9,8 @@ import type {
   BuyerInput,
   Category,
   Certificate,
+  CertificateScope,
+  ProductCertificateOptout,
   Introduction,
   Prospect,
   ProspectInput,
@@ -265,6 +267,14 @@ export interface DataStore {
   createCertificate(input: Partial<Certificate>): Promise<Certificate>;
   updateCertificate(id: string, patch: Partial<Certificate>): Promise<Certificate>;
   deleteCertificate(id: string): Promise<void>;
+
+  /* Phạm vi chứng nhận + opt-out của nhà cung cấp (GĐ2 giấy tờ & chứng nhận). */
+  listCertificateScopes(certificateIds: string[]): Promise<CertificateScope[]>;
+  createCertificateScope(input: Partial<CertificateScope>): Promise<CertificateScope>;
+  deleteCertificateScope(id: string): Promise<void>;
+  listCertificateOptouts(supplierId: string): Promise<ProductCertificateOptout[]>;
+  /** Bật/tắt việc nhà cung cấp bỏ nhận một chứng nhận thừa hưởng từ danh mục. */
+  setCertificateOptout(supplierId: string, productId: string, certificateId: string, on: boolean): Promise<void>;
 
   // Verifications
   listVerifications(supplierId?: string): Promise<Verification[]>;

@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, FileText, Loader2, LockKeyhole, RotateCcw, Save, Send, Sparkles } from "lucide-react";
 
-import { L1_DOC_ITEMS, L3_EXPORT_ITEMS, LEGACY_L2_VISIT_ITEMS, type AuditEvidenceKey, type Certificate, type MediaAsset, type Verification } from "@/lib/types";
+import {
+  L1_DOC_ITEMS, L3_EXPORT_ITEMS, LEGACY_L2_VISIT_ITEMS,
+  type AuditEvidenceKey, type Certificate, type CertificateScope, type MediaAsset, type SupplierProduct, type Verification,
+} from "@/lib/types";
+import { checklistMismatch, contributedChecklistKey } from "@/lib/certificate-l1";
 import { prepareImage } from "@/lib/media/client-image";
 import { readUploadResponse } from "@/lib/media/upload-response";
 import type { AiDocumentReview } from "@/lib/ai/document-audit";
@@ -15,9 +19,36 @@ import { addMediaLinkAction, deleteMediaAction, updateMediaAction } from "@/app/
 import { approveVerificationAction, assignVerificationEvidenceAction, returnVerificationAction, updateVerificationChecklistAction, updateVerificationPublicSummaryAction } from "../../verification-actions";
 import { CertificateRowControls } from "./certificate-row-controls";
 
-export function AuditForm({ verification: v, autoPublishL1 = false, evidence, certificates = [], aiEnabled, canApprove, canInspect, canPublish = false, currentUserId, canSelfApprove }: {
+export function AuditForm({
+  verification: v, autoPublishL1 = false, evidence, certificates = [], aiEnabled, canApprove, canInspect,
+  canPublish = false, currentUserId, canSelfApprove, scopes = [], categories = [], requestedProducts = [],
+}: {
   verification: Verification; autoPublishL1?: boolean; evidence: MediaAsset[]; certificates?: Certificate[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; canSelfApprove: boolean;
+  /** Phạm vi đã xác nhận của các giấy L1 và danh mục để chọn phạm vi. */
+  scopes?: CertificateScope[];
+  categories?: Array<{ id: string; name: string }>;
+  /** Sản phẩm nhà cung cấp xin mở rộng phạm vi. */
+  requestedProducts?: SupplierProduct[];
 }) {
+  const unclassifiedCertificates = certificates.filter((certificate) =>
+    !contributedChecklistKey(certificate));
+  const inScopeRow = (certificate: Certificate) => ({
+    scopes: scopes
+      .filter((scope) => scope.certificate_id === certificate.id)
+      .map((scope) => ({
+        id: scope.id,
+        label: scope.category_id
+          ? categories.find((category) => category.id === scope.category_id)?.name ?? "Danh mục"
+          : `Sản phẩm: ${requestedProducts.find((product) => product.id === scope.product_id)?.name ?? "đã chọn"}`,
+      })),
+    categories,
+    requests: (certificate.requested_product_ids ?? [])
+      .map((productId) => ({
+        productId,
+        name: requestedProducts.find((product) => product.id === productId)?.name ?? "sản phẩm của họ",
+      })),
+    mismatch: checklistMismatch(certificate),
+  });
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
   const [busy, setBusy] = useState(false);
@@ -370,7 +401,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
             {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">{"Đối chiếu tên pháp nhân và mã số thuế trên giấy với hồ sơ nhà cung cấp." + " Nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú." + " Đánh dấu Không đạt khi tên không khớp."}</p>}
             {v.target_level === 1 && ["food_safety", "haccp_or_brc", "product_certs", "export_license"].includes(it.key) && <div className="space-y-1.5">
               <p className="text-xs font-semibold text-teal-800">Nhận diện tự động</p>
-              {certificates.filter((c) => c.checklist_key === it.key || (!c.checklist_key && it.key === "product_certs")).map((c) => (
+              {certificates.filter((c) => contributedChecklistKey(c) === it.key).map((c) => (
                 <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-teal-200 bg-teal-50/50 px-3 py-1.5 text-xs">
                   <div className="flex flex-wrap items-center gap-1.5 text-ink-700">
                     <strong className="text-ink-900">{c.name}</strong>
@@ -380,7 +411,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
                     {c.valid_until && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">Hạn {c.valid_until}</span>}
                     {c.staff_hidden && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">Đang ẩn</span>}
                   </div>
-                  <CertificateRowControls supplierId={v.supplier_id} certificateId={c.id} hasFile={Boolean(c.file_media_id)} staffHidden={Boolean(c.staff_hidden)} published={c.review_status === "approved" && Boolean(c.publicly_visible)} scheme={c.certificate_scheme ?? null} canInspect={canInspect} canPublish={canPublish} />
+                  <CertificateRowControls supplierId={v.supplier_id} certificateId={c.id} hasFile={Boolean(c.file_media_id)} staffHidden={Boolean(c.staff_hidden)} published={c.review_status === "approved" && Boolean(c.publicly_visible)} scheme={c.certificate_scheme ?? null} canInspect={canInspect} canPublish={canPublish} {...inScopeRow(c)} />
                 </div>
               ))}
             </div>}
@@ -439,6 +470,32 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
           </div>;
           })}
         </div>
+        {/* Giấy chưa đóng góp mục checklist nào (chưa phân loại hoặc loại không thuộc
+            L1) vẫn phải phân loại được ngay tại đây, không cần đi tìm ở trang khác. */}
+        {v.target_level === 1 && unclassifiedCertificates.length > 0 && (
+          <div className="border-t border-ink-100 px-5 py-4">
+            <p className="text-sm font-semibold text-ink-900">Giấy chưa xếp vào mục nào</p>
+            <p className="mt-0.5 text-xs text-ink-600">
+              Chọn loại giấy để giấy vào đúng mục L1, vào phạm vi sản phẩm hoặc để dành cho đơn hàng.
+            </p>
+            <ul className="mt-2 space-y-2">
+              {unclassifiedCertificates.map((certificate) => (
+                <li key={certificate.id} className="rounded-lg border border-ink-200 bg-white px-3 py-2">
+                  <p className="text-xs font-bold text-ink-900">{certificate.name}</p>
+                  <div className="mt-1">
+                    <CertificateRowControls
+                      supplierId={v.supplier_id} certificateId={certificate.id}
+                      hasFile={Boolean(certificate.file_media_id)} staffHidden={Boolean(certificate.staff_hidden)}
+                      published={certificate.review_status === "approved" && Boolean(certificate.publicly_visible)}
+                      scheme={certificate.certificate_scheme ?? null}
+                      canInspect={canInspect} canPublish={canPublish} {...inScopeRow(certificate)}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {v.target_level === 2 && legacyL2.length > 0 && <details className="border-b border-ink-100 bg-ink-50/60 px-5 py-3 text-sm">
           <summary className="cursor-pointer font-semibold text-ink-800">Danh mục L2 cũ (trước 20/10/2026) · {legacyL2.length} mục có dữ liệu</summary>
           <p className="mt-2 text-xs text-ink-600">{"Đợt kiểm này lập theo danh mục cũ nên dữ liệu cũ được giữ nguyên để đối soát (chỉ đọc)." + " Đợt kiểm mới dùng danh mục 9 ảnh chung với cổng nhà cung cấp tự gửi."}</p>

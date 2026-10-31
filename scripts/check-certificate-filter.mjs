@@ -58,7 +58,10 @@ assert.equal(detect({ name: "ISO 9001:2015" }), "iso_9001", "ISO 9001 không b�
 assert.equal(detect({ name: "FSSC 22000 certificate" }), "fssc_22000", "FSSC đứng trước ISO 22000");
 assert.equal(detect({ name: "BRCGS Food Safety Issue 9" }), "brc");
 assert.equal(detect({ name: "Halal Certificate", issuer: "HCA" }), "halal");
-assert.equal(detect({ name: "EU Organic" }), "organic");
+assert.equal(detect({ name: "USDA Organic" }), "organic_usda", "hữu cơ Mỹ tách riêng");
+assert.equal(detect({ name: "EU Organic" }), "organic_eu", "hữu cơ EU tách riêng");
+assert.equal(detect({ name: "Giấy chứng nhận hữu cơ" }), "organic_other");
+assert.equal(detect({ name: "Phiếu kiểm nghiệm lô 12" }), "inspection_report");
 assert.equal(detect({ name: "FDA registration" }), "fda");
 assert.equal(detect({ name: "Giấy chứng nhận an toàn thực phẩm" }), "food_safety");
 assert.equal(detect({ name: "Giấy phép xuất khẩu số 123" }), "export_license");
@@ -70,6 +73,24 @@ assert.equal(schemes.isCertificateScheme("iso_22000"), true);
 assert.equal(schemes.isCertificateScheme("iso 22000"), false);
 assert.equal(schemes.certificateSchemeLabel("halal", "vi"), "Halal");
 assert.equal(schemes.certificateSchemeLabel("food_safety", "vi"), "ATTP");
+assert.equal(schemes.certificateSchemeLabel("fda"), "FDA registered", "FDA là đăng ký, không gọi là chứng nhận");
+assert.equal(schemes.certificateSchemeKind("business_license"), "legal");
+assert.equal(schemes.certificateSchemeKind("origin"), "shipment");
+assert.equal(schemes.certificateSchemeKind("haccp"), "quality");
+assert.equal(schemes.certificateSchemeKind(null), "other");
+assert.equal(schemes.isCertificateChipScheme("export_license"), false, "giấy phép xuất khẩu không lên chip");
+assert.equal(schemes.isCertificateChipScheme("origin"), false, "C/O không lên chip");
+assert.equal(schemes.isCertificateChipScheme("phytosanitary"), false);
+assert.equal(schemes.isCertificateChipScheme("food_safety"), false);
+assert.equal(schemes.isCertificateChipScheme("other"), false);
+assert.equal(schemes.isCertificateChipScheme("fda"), false, "FDA không phải chứng nhận nên không thành chip");
+assert.equal(schemes.isCertificateChipScheme("organic_usda"), true);
+assert.equal(schemes.isCertificateChipScheme("organic_eu"), true);
+const chipCodes = schemes.chipCertificateSchemes();
+assert.deepEqual(chipCodes, [
+  "haccp", "iso_22000", "fssc_22000", "brc", "ifs", "iso_9001", "gmp",
+  "globalgap", "halal", "kosher", "organic_usda", "organic_eu", "organic_other", "rainforest",
+], "danh sách chip đúng whitelist");
 assert.equal(schemes.certificateSchemeLabel("bogus"), null);
 
 // 2. Chỉ chứng nhận đã duyệt + công khai + còn hạn + gắn đúng sản phẩm mới vào bộ lọc.
@@ -89,6 +110,9 @@ const certificates = [
   cert({ id: "c-unlinked", name: "HACCP", certificate_scheme: "haccp", approved_product_ids: ["px"] }),
   cert({ id: "c-null", name: "Chứng nhận chung", certificate_scheme: null, approved_product_ids: ["p7"] }),
   cert({ id: "c-other", name: "Chứng nhận khác", certificate_scheme: "other", approved_product_ids: ["p8"] }),
+  cert({ id: "c-legal", name: "Giấy phép xuất khẩu", certificate_scheme: "export_license", approved_product_ids: ["p10"] }),
+  cert({ id: "c-co", name: "C/O Form B", certificate_scheme: "origin", approved_product_ids: ["p11"] }),
+  cert({ id: "c-fda", name: "FDA registration", certificate_scheme: "fda", approved_product_ids: ["p12"] }),
   cert({ id: "c-partner", supplier_id: "s2", name: "Halal nhà máy đối tác", certificate_scheme: "halal",
     holder_match: "partner", holder_name: "Nhà máy Chế biến Tây Nguyên", approved_product_ids: ["p6"] }),
   cert({ id: "c-wrong-supplier", supplier_id: "s9", name: "HACCP", certificate_scheme: "haccp", approved_product_ids: ["p1"] }),
@@ -97,6 +121,7 @@ const products = [
   { id: "p1", supplierId: "s1" }, { id: "p2", supplierId: "s1" }, { id: "p3", supplierId: "s1" },
   { id: "p4", supplierId: "s1" }, { id: "p5", supplierId: "s1" }, { id: "p6", supplierId: "s2" },
   { id: "p7", supplierId: "s1" }, { id: "p8", supplierId: "s1" }, { id: "p9", supplierId: "s1" },
+  { id: "p10", supplierId: "s1" }, { id: "p11", supplierId: "s1" }, { id: "p12", supplierId: "s1" },
 ];
 const map = facets.certificateSchemesByProduct(products, certificates, [], TODAY);
 const schemesOf = (id) => [...(map.get(id) ?? [])].sort().join(",");
@@ -109,6 +134,9 @@ assert.equal(schemesOf("p9"), "", "Giấy chưa được gắn cho sản phẩm 
 assert.equal(schemesOf("p7"), "", "Chưa phân loại thì không vào bộ lọc");
 assert.equal(schemesOf("p8"), "", "'Khác' không thành một mục lọc");
 assert.equal(schemesOf("p6"), "halal", "Giấy đứng tên nhà máy đối tác đã công khai vẫn lọc được");
+assert.equal(schemesOf("p10"), "", "Giấy phép xuất khẩu không bao giờ thành chip");
+assert.equal(schemesOf("p11"), "", "C/O không bao giờ thành chip");
+assert.equal(schemesOf("p12"), "", "FDA registered không lên chip");
 assert.equal(schemesOf("p1").includes("haccp") && schemesOf("p1").includes("halal"), false,
   "Chứng nhận của nhà cung cấp khác không lẫn sang sản phẩm");
 
@@ -129,6 +157,9 @@ assert.equal(products.filter((p) => facets.productMatchesCertificateSchemes(map,
 assert.deepEqual(facets.parseCertificateSchemeQuery("halal,haccp"), ["haccp", "halal"]);
 assert.deepEqual(facets.parseCertificateSchemeQuery(["halal", "haccp"]), ["haccp", "halal"]);
 assert.deepEqual(facets.parseCertificateSchemeQuery("haccp,bogus,other, haccp"), ["haccp"]);
+assert.deepEqual(facets.parseCertificateSchemeQuery("export_license,origin,haccp"), ["haccp"],
+  "giấy pháp lý và giấy theo lô không nhận làm bộ lọc");
+assert.deepEqual(facets.parseCertificateSchemeQuery("organic"), [], "giá trị hữu cơ cũ không tự thành chip");
 assert.deepEqual(facets.parseCertificateSchemeQuery(null), []);
 assert.deepEqual(facets.toggleCertificateScheme([], "halal"), ["halal"]);
 assert.deepEqual(facets.toggleCertificateScheme(["halal"], "halal"), []);
@@ -154,12 +185,13 @@ const pdp = fs.readFileSync(path.join(ROOT, "app/(public)/products/[slug]/[produ
 assert.match(pdp, /certificate\.schemeLabel/, "Trang sản phẩm hiện loại chứng nhận");
 
 // 7. CSDL: danh sách mã trong migration phải trùng đúng bộ mã trong mã nguồn.
-const migration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261075_certificate_scheme.sql"), "utf8");
+const migration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261076_certificate_scope_flow.sql"), "utf8");
 const listed = [...migration.matchAll(/'([a-z_0-9]+)'/g)].map((match) => match[1])
   .filter((code) => schemes.CERTIFICATE_SCHEMES.some((item) => item.code === code));
 assert.deepEqual([...new Set(listed)].sort(), schemes.CERTIFICATE_SCHEMES.map((item) => item.code).sort(),
   "Ràng buộc SQL và danh sách mã trong mã nguồn phải khớp nhau");
 assert.match(migration, /not valid/, "Không quét lại dữ liệu cũ");
+assert.doesNotMatch(migration, /update public\.certificates set certificate_scheme/i, "Không tự chốt loại cho giấy cũ");
 assert.match(fs.readFileSync(path.join(ROOT, "supabase/schema.sql"), "utf8"), /certificate_scheme text/,
   "Schema gộp có cột mới cho DB dựng mới");
 

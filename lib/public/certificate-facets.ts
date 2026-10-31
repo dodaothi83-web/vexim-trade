@@ -1,5 +1,6 @@
 import type { Certificate, MediaAsset } from "@/lib/types";
-import { CERTIFICATE_SCHEMES, isCertificateScheme, type CertificateScheme } from "@/lib/certificate-scheme";
+import { CERTIFICATE_SCHEMES, isCertificateChipScheme, type CertificateScheme } from "@/lib/certificate-scheme";
+import { type CertificateOptoutRow, type CertificateScopeRow } from "@/lib/certificate-scope";
 import { publicProductCertificates } from "@/lib/public/certificates";
 
 /**
@@ -26,6 +27,15 @@ export interface CertificateFacet {
 export interface FacetProduct {
   id: string;
   supplierId: string;
+  /** Danh mục hiện tại của sản phẩm (để khớp phạm vi giấy duyệt theo danh mục). */
+  categoryId?: string | null;
+  /** Danh mục của sản phẩm + danh mục cha. */
+  categoryPath?: readonly string[];
+}
+
+export interface FacetContext {
+  scopes?: readonly CertificateScopeRow[];
+  optouts?: readonly CertificateOptoutRow[];
 }
 
 /** Loại chứng nhận theo từng sản phẩm, đã qua mọi cổng công khai. */
@@ -34,6 +44,7 @@ export function certificateSchemesByProduct(
   certificates: readonly Certificate[],
   media: readonly MediaAsset[] = [],
   today = new Date().toISOString().slice(0, 10),
+  context: FacetContext = {},
 ): Map<string, Set<CertificateScheme>> {
   const result = new Map<string, Set<CertificateScheme>>();
   if (products.length === 0) return result;
@@ -64,6 +75,12 @@ export function certificateSchemesByProduct(
       own,
       mediaBySupplier.get(product.supplierId) ?? [],
       today,
+      {
+        scopes: context.scopes ?? [],
+        optouts: context.optouts ?? [],
+        categoryId: product.categoryId ?? null,
+        categoryPath: product.categoryPath ?? [],
+      },
     );
     const schemes = new Set<CertificateScheme>();
     for (const certificate of visible) if (certificate.scheme) schemes.add(certificate.scheme);
@@ -80,9 +97,11 @@ export function buildCertificateFacets(
   for (const schemes of schemesByProduct.values()) {
     for (const code of schemes) counts.set(code, (counts.get(code) ?? 0) + 1);
   }
+  // Chỉ loại nằm trong danh sách được lên chip; giấy pháp lý và giấy theo lô không bao
+  // giờ thành chip dù có phạm vi.
   return CERTIFICATE_SCHEMES
-    .filter((item) => item.code !== "other" && (counts.get(item.code) ?? 0) > 0)
-    .map((item) => ({ code: item.code, label: item.label, count: counts.get(item.code) ?? 0 }));
+    .filter((item) => isCertificateChipScheme(item.code) && (counts.get(item.code) ?? 0) > 0)
+    .map((item) => ({ code: item.code as CertificateScheme, label: item.label, count: counts.get(item.code) ?? 0 }));
 }
 
 /** Đọc `?cert=haccp,halal`; bỏ mã lạ, bỏ trùng, giữ thứ tự chuẩn để URL ổn định. */
@@ -90,14 +109,9 @@ export function parseCertificateSchemeQuery(
   raw: string | string[] | null | undefined,
 ): CertificateScheme[] {
   const text = Array.isArray(raw) ? raw.join(",") : raw ?? "";
-  const wanted = new Set<CertificateScheme>(
-    text
-      .split(",")
-      .map((value) => value.trim().toLowerCase())
-      .filter((value) => isCertificateScheme(value) && value !== "other") as CertificateScheme[],
-  );
+  const wanted = new Set<string>(text.split(",").map((value) => value.trim().toLowerCase()));
   return CERTIFICATE_SCHEMES.map((item) => item.code).filter(
-    (code): code is CertificateScheme => code !== "other" && wanted.has(code as CertificateScheme),
+    (code): code is CertificateScheme => isCertificateChipScheme(code) && wanted.has(code),
   );
 }
 
@@ -110,7 +124,7 @@ export function toggleCertificateScheme(
   if (next.has(code)) next.delete(code);
   else next.add(code);
   return CERTIFICATE_SCHEMES.map((item) => item.code).filter(
-    (item): item is CertificateScheme => next.has(item),
+    (item): item is CertificateScheme => next.has(item) && isCertificateChipScheme(item),
   );
 }
 

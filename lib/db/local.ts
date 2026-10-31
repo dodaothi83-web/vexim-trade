@@ -12,7 +12,9 @@ import type {
   BuyerInput,
   Category,
   Certificate,
+  CertificateScope,
   Introduction,
+  ProductCertificateOptout,
   Prospect,
   ProspectInput,
   ProspectActivity,
@@ -95,6 +97,8 @@ interface LocalShape {
   supplier_submission_items: SupplierSubmissionItem[];
   supplier_submission_links: SupplierSubmissionLink[];
   certificates: Certificate[];
+  certificate_scopes?: CertificateScope[];
+  product_certificate_optouts?: ProductCertificateOptout[];
   verifications: Verification[];
   rfqs: Rfq[];
   rfq_attachments: RfqAttachment[];
@@ -1938,6 +1942,53 @@ export const localStore: DataStore = {
   async deleteCertificate(id) {
     mutate((db) => {
       db.certificates = (db.certificates ?? []).filter((c) => c.id !== id);
+      db.certificate_scopes = (db.certificate_scopes ?? []).filter((row) => row.certificate_id !== id);
+      db.product_certificate_optouts = (db.product_certificate_optouts ?? []).filter((row) => row.certificate_id !== id);
+    });
+  },
+
+  async listCertificateScopes(certificateIds) {
+    const ids = new Set(certificateIds);
+    return (load().certificate_scopes ?? []).filter((row) => ids.has(row.certificate_id));
+  },
+  async createCertificateScope(input) {
+    const row = {
+      id: randomUUID(),
+      certificate_id: "",
+      category_id: null,
+      product_id: null,
+      verified_by: null,
+      verified_at: null,
+      created_at: new Date().toISOString(),
+      ...cleanPatch(input),
+    } as CertificateScope;
+    mutate((db) => {
+      db.certificate_scopes = [...(db.certificate_scopes ?? []), row];
+    });
+    return row;
+  },
+  async deleteCertificateScope(id) {
+    mutate((db) => {
+      db.certificate_scopes = (db.certificate_scopes ?? []).filter((row) => row.id !== id);
+    });
+  },
+  async listCertificateOptouts(supplierId) {
+    return (load().product_certificate_optouts ?? []).filter((row) => row.supplier_id === supplierId);
+  },
+  async setCertificateOptout(supplierId, productId, certificateId, on) {
+    mutate((db) => {
+      const rest = (db.product_certificate_optouts ?? []).filter(
+        (row) => !(row.product_id === productId && row.certificate_id === certificateId),
+      );
+      db.product_certificate_optouts = on
+        ? [...rest, {
+            id: randomUUID(),
+            supplier_id: supplierId,
+            product_id: productId,
+            certificate_id: certificateId,
+            created_at: new Date().toISOString(),
+          }]
+        : rest;
     });
   },
 

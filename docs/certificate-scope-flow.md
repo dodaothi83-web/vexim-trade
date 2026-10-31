@@ -1,0 +1,48 @@
+# Giấy tờ & chứng nhận — một luồng vào, đường ra theo loại giấy
+
+Nhà cung cấp **chỉ tải tệp lên một kho giấy** ở hồ sơ của họ (mục Giấy tờ & chứng nhận). Họ không chọn ngăn, không tự khai chứng nhận cho sản phẩm. Nhân viên Vexim phân loại trên CRM; loại giấy quyết định giấy đi đâu.
+
+## Ba đường ra
+
+| Nhóm | Ví dụ | Đường ra |
+| --- | --- | --- |
+| Pháp lý (`legal`) | GPKD, ATTP cơ sở, giấy phép xuất khẩu | Tính vào L1. **Không** gắn sản phẩm, **không** lên chip. |
+| Chất lượng (`quality`) | HACCP, ISO 22000, FSSC 22000, BRC, IFS, ISO 9001, GMP, GlobalG.A.P., Halal, Kosher, USDA/EU/hữu cơ khác, Rainforest | Gán phạm vi → badge trên trang sản phẩm + chip lọc. FDA là **đăng ký**, hiện nhãn "FDA registered" nhưng không thành chip. |
+| Theo lô (`shipment`) | C/O, kiểm dịch thực vật, phiếu kiểm nghiệm | Để dành cho đơn hàng/RFQ. Không gắn sản phẩm, không lên chip. |
+| Chưa xếp (`other`) | NULL, "Khác", giá trị cũ `organic` | Vào hàng đợi "Giấy chưa phân loại" của CRM; chỉ hiện trên hồ sơ. |
+
+Danh sách mã nằm ở `lib/certificate-scheme.ts`; migration `20261076_certificate_scope_flow.sql` giữ đúng danh sách đó và **không** tự chốt loại cho giấy cũ.
+
+## Phạm vi (`certificate_scopes`)
+
+Mỗi dòng là **hoặc** một `category_id` **hoặc** một `product_id`, kèm `verified_by`/`verified_at`. Chỉ dòng đã có người xác nhận mới có hiệu lực với người mua.
+
+- HACCP/ISO/BRC thường duyệt theo **danh mục**: sản phẩm thuộc danh mục (kể cả nhóm con của danh mục cha) **tự thừa hưởng**, không ai phải thao tác thêm khi đăng sản phẩm mới.
+- Halal/Hữu cơ thường duyệt theo **sản phẩm** sau khi AI khớp danh sách sản phẩm trên giấy; nhà cung cấp xin, nhân viên xác nhận.
+- Phạm vi cũ trong `approved_product_ids` được migration chuyển thành từng dòng sản phẩm; nếu một giấy chưa có dòng phạm vi nào thì trang công khai vẫn đọc danh sách cũ đó (dữ liệu trước migration).
+
+Nhà cung cấp bỏ tick một giấy thừa hưởng cho một sản phẩm → ghi `product_certificate_optouts`. Opt-out **không** ghi đè dòng phạm vi gắn thẳng sản phẩm (đó là quyết định của Vexim).
+
+## Ngoài phạm vi
+
+Trong khối "Chứng nhận áp dụng" ở trang sản phẩm của cổng nhà cung cấp, giấy chất lượng chưa phủ danh mục hiện mờ, ghi "Chưa áp dụng cho danh mục này", kèm nút **Yêu cầu mở rộng phạm vi**. Yêu cầu ghi vào `requested_product_ids`, hiện ở dòng chứng nhận trong CRM; nhân viên duyệt thì tạo dòng phạm vi cho sản phẩm, từ chối thì rút yêu cầu.
+
+## Gia hạn
+
+Nhà cung cấp chọn "Gia hạn" một giấy đã có khi tải tệp mới. Hệ thống tạo **bản ghi mới** (`supersedes_certificate_id` = giấy cũ) ở trạng thái chờ duyệt; bản cũ **vẫn hiệu lực, vẫn giữ phạm vi** nên sản phẩm không rơi khỏi chip. Khi nhân viên duyệt bản mới, phạm vi của bản cũ được sao sang bản mới và bản cũ nhận `superseded_by_certificate_id` (ngừng hiện). Nhắc hạn vẫn theo mốc 60/30/7/1 ngày.
+
+## CRM
+
+- Hàng đợi `/crm/certificates`: số đếm giấy chưa phân loại, chờ duyệt, sắp hết hạn 60 ngày, yêu cầu mở rộng phạm vi.
+- Dòng chứng nhận trong hồ sơ L1: chọn loại giấy (nhóm pháp lý/chất lượng/theo lô), công khai/nội bộ, thêm–bỏ phạm vi danh mục, duyệt yêu cầu mở rộng, cảnh báo khi loại giấy lệch mục checklist L1 đã ghi.
+- Bảng L1 trong cổng nhà cung cấp tính từ giấy **đã duyệt** (`lib/certificate-l1.ts`), không phải ô tự chọn.
+
+## Bộ lọc người mua
+
+Giữ nguyên mọi điều kiện của PR #48 (đã duyệt, công khai, không bị ẩn, còn hạn, có tệp nội bộ, đúng đơn vị đứng tên) và thay "được gắn cho sản phẩm" bằng: **phạm vi đã xác nhận chứa sản phẩm hoặc danh mục của nó, và sản phẩm không opt-out**. Số trên chip tính trên danh sách sản phẩm trước khi áp bộ lọc chứng nhận, nên bỏ chọn chip không làm số nhảy.
+
+## Trước khi deploy
+
+Chạy `supabase/migrations/20261076_certificate_scope_flow.sql` sau `20261075_certificate_scheme.sql`. Migration chỉ thêm cột/bảng/index, chuyển `approved_product_ids` cũ sang bảng phạm vi, **không** đổi loại giấy của dữ liệu cũ và không backfill loại.
+
+Kiểm thử: `npm run check:certificates` (gồm `check-product-certificates`, `check-certificate-filter`, `check-certificate-scope`), `npx tsc --noEmit`, `npm run build`.

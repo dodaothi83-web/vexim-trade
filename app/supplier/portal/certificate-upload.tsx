@@ -5,13 +5,6 @@ import { useState } from "react";
 
 import { FilePicker } from "@/components/file-picker";
 
-const CERT_KEY_OPTIONS = [
-  { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000" },
-  { key: "food_safety", label: "Giấy chứng nhận ATTP" },
-  { key: "product_certs", label: "Chứng chỉ sản phẩm (Halal, Organic, FDA...)" },
-  { key: "export_license", label: "Giấy phép xuất khẩu" },
-] as const;
-
 export function SupplierCertificateUpload({
   certificates,
 }: {
@@ -58,28 +51,19 @@ export function SupplierCertificateUpload({
           Tải lên hoặc gia hạn chứng nhận L1
         </p>
         <p className="mt-0.5 text-xs text-ink-600">
-          Hệ thống đọc tên đơn vị trên giấy (khớp tên công ty = <strong>Chính chủ</strong>; tên nhà máy khác = <strong>Đơn vị đối tác</strong>) và ngày hết hạn để hiển thị lên trang. Khi sắp hết hạn (60 / 30 / 7 / 1 ngày), hệ thống tự nhắc để bạn vào đây tải bản mới.
+          Chỉ cần tải tệp: hệ thống đọc tên đơn vị trên giấy (khớp tên công ty = <strong>Chính chủ</strong>; tên nhà máy khác = <strong>Đơn vị đối tác</strong>) và ngày hết hạn.
+          Vexim phân loại loại giấy và phạm vi trước khi hiện cho người mua. Khi sắp hết hạn (60 / 30 / 7 / 1 ngày), hệ thống tự nhắc để bạn vào đây tải bản mới.
         </p>
       </div>
       <label className="block text-xs">
-        <span className="mb-1 block font-semibold text-ink-800">Loại chứng nhận L1</span>
-        <select name="checklist_key" className="input text-sm" defaultValue="haccp_or_brc">
-          {CERT_KEY_OPTIONS.map((o) => (
-            <option key={o.key} value={o.key}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="block text-xs">
         <span className="mb-1 block font-semibold text-ink-800">
-          Cập nhật chứng nhận hiện có (tùy chọn)
+          Gia hạn giấy đã có (tùy chọn)
         </span>
         <select name="certificate_id" className="input text-sm" defaultValue="">
-          <option value="">+ Thêm mới / tự khớp theo loại hoặc số hiệu</option>
+          <option value="">+ Giấy mới</option>
           {certificates.map((c) => (
             <option key={c.id} value={c.id}>
-              Cập nhật: {c.name} {c.valid_until ? `(hạn ${c.valid_until})` : ""}
+              Gia hạn: {c.name} {c.valid_until ? `(hạn ${c.valid_until})` : ""}
             </option>
           ))}
         </select>

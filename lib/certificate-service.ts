@@ -215,6 +215,11 @@ export interface IngestCertificateInput {
   verificationId?: string | null;
   source: CertificateSource;
   existingCertificateId?: string | null;
+  /**
+   * Tải bản gia hạn cho một giấy đã có: tạo **bản mới** thay vì ghi đè bản cũ, để bản
+   * cũ vẫn hiệu lực tới khi bản mới được duyệt.
+   */
+  renewalOfId?: string | null;
   actor?: { id?: string | null; email?: string | null };
 }
 
@@ -292,15 +297,21 @@ export async function ingestCertificateScan(
   });
 
   const all = await store.listCertificates(input.supplier.id);
+  // Bản gia hạn: tìm giấy cũ để nối chuỗi phiên bản, nhưng không ghi đè nó.
+  const renewalSource = input.renewalOfId
+    ? all.find((c) => c.id === input.renewalOfId)
+    : undefined;
   let existing: Certificate | undefined;
-  if (input.existingCertificateId) {
+  if (renewalSource) {
+    existing = undefined;
+  } else if (input.existingCertificateId) {
     existing = all.find((c) => c.id === input.existingCertificateId);
   }
-  if (!existing && scan?.certificate_number) {
+  if (!renewalSource && !existing && scan?.certificate_number) {
     const numNorm = scan.certificate_number.trim().toLowerCase();
     existing = all.find((c) => c.number && c.number.trim().toLowerCase() === numNorm);
   }
-  if (!existing && input.checklistKey) {
+  if (!renewalSource && !existing && input.checklistKey) {
     existing = all.find(
       (c) =>
         c.checklist_key === input.checklistKey &&
@@ -349,9 +360,13 @@ export async function ingestCertificateScan(
     staff_hidden: existing?.staff_hidden ?? false,
     // Khi NCC tải bản mới có ngày hết hạn khác, đặt lại toàn bộ mốc nhắc 60/30/7/1 ngày.
     expiry_notified: expiryChanged ? {} : (existing?.expiry_notified ?? {}),
-    review_status: decision.review_status,
-    review_note: decision.review_note,
-    publicly_visible: decision.publicly_visible,
+    review_status: renewalSource ? "pending" : decision.review_status,
+    review_note: renewalSource
+      ? "Bản gia hạn chờ Vexim đối chiếu; giấy cũ vẫn hiệu lực tới khi bản này được duyệt."
+      : decision.review_note,
+    publicly_visible: renewalSource ? false : decision.publicly_visible,
+    supersedes_certificate_id: renewalSource?.id ?? existing?.supersedes_certificate_id ?? null,
+    superseded_by_certificate_id: existing?.superseded_by_certificate_id ?? null,
     checked_at: decision.autoPublish ? nowIso : (existing?.checked_at ?? null),
   };
 
@@ -365,6 +380,17 @@ export async function ingestCertificateScan(
   } else {
     certificate = await store.createCertificate(patch);
   }
+
+  // Bản gia hạn không bao giờ tự công bố: giấy cũ giữ hiệu lực tới khi nhân viên duyệt.
+  const effectiveDecision: CertificatePublicationDecision = renewalSource
+    ? {
+        ...decision,
+        autoPublish: false,
+        publicly_visible: false,
+        review_status: "pending",
+        review_note: "Bản gia hạn chờ Vexim đối chiếu; giấy cũ vẫn hiệu lực tới khi bản này được duyệt.",
+      }
+    : decision;
 
   await store
     .addAuditLog({
@@ -391,25 +417,25 @@ export async function ingestCertificateScan(
         holder_name: certificate.holder_name ?? null,
         valid_until: certificate.valid_until,
         ai_confidence: certificate.ai_confidence ?? null,
-        auto_published: decision.autoPublish,
+        auto_published: effectiveDecision.autoPublish,
         staff_hidden: Boolean(certificate.staff_hidden),
       },
     })
     .catch(() => null);
 
-  if (decision.autoPublish && !certificate.staff_hidden) {
+  if (effectiveDecision.autoPublish && !certificate.staff_hidden) {
     await notifyDecisionFn({
       supplierId: input.supplier.id,
       decision: "certificate_published",
       name: certificate.name,
       entityId: certificate.id,
-      note: decision.review_note,
+      note: effectiveDecision.review_note,
     }).catch(() => "failed");
   } else if (input.source !== "l1-staff") {
     await notifyStaffFn(input.supplier, certificate.name).catch(() => "failed");
   }
 
-  return { certificate, scanOutcome, decision };
+  return { certificate, scanOutcome, decision: effectiveDecision };
 }
 
 export function pickExpiryReminderThreshold(

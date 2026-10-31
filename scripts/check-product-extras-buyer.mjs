@@ -115,7 +115,7 @@ assert.match(detail, /structuredPackaging \|\| detailedPackaging \|\| enPackagin
 assert.match(detail, /\{samplePrice && <Spec label="Sample price"/, 'giá mẫu chỉ hiện khi có số');
 assert.match(detail, /productCertificates\.length > 0/, 'không có chứng nhận đã gắn thì không hiện khối');
 assert.match(detail, /hasCertification/, 'structured data có chứng nhận');
-assert.match(detail, /approvedProductCertificateIds/, 'chỉ dùng danh sách gắn đã được duyệt');
+assert.match(detail, /listCertificateScopes/, 'chỉ dùng phạm vi đã được nhân viên xác nhận');
 assert.doesNotMatch(detail, /requested_product_ids/, 'trang buyer không bao giờ đọc yêu cầu gắn của nhà cung cấp');
 assert.doesNotMatch(detail, /"@type": "Offer"/, 'không khai Offer cho giá tham khảo');
 assert.match(detail, /pushProperty\("Packaging", structuredPackaging\)/, 'đóng gói vào additionalProperty');
@@ -125,9 +125,10 @@ assert.match(detail, /Issuer:/, 'chứng nhận hiện đơn vị cấp');
 
 const certificates = read('lib/public/certificates.ts');
 assert.match(certificates, /export function publicProductCertificates/);
-assert.match(certificates, /publicSupplierCertificates\(supplierId, certificates, media, today\)\s*\n?\s*\.filter/,
+assert.match(certificates, /publicSupplierCertificates\(supplierId, \[\.\.\.own\], \[\.\.\.media\], today\)/,
   'lọc theo sản phẩm SAU khi đã áp bộ lọc công khai của hồ sơ nhà cung cấp');
-assert.match(certificates, /approvedProductCertificateIds/);
+assert.match(certificates, /certificateAppliesToProduct/,
+  'phạm vi đã xác nhận quyết định giấy nào áp cho sản phẩm');
 
 const searchPage = read('app/(public)/search/page.tsx');
 assert.match(searchPage, /keywords: searchText\(product\.keywords \?\? \[\]\)/, 'trang tìm kiếm đưa từ khoá vào xếp hạng');

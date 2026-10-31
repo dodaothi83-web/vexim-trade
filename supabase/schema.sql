@@ -2239,15 +2239,79 @@ alter table public.certificates add column if not exists certificate_scheme text
 alter table public.certificates drop constraint if exists certificates_scheme_ck;
 alter table public.certificates add constraint certificates_scheme_ck check (
   certificate_scheme is null or certificate_scheme in (
+    'business_license', 'food_safety', 'export_license',
+    'origin', 'phytosanitary', 'inspection_report',
     'haccp', 'iso_22000', 'fssc_22000', 'brc', 'ifs', 'iso_9001', 'gmp',
-    'halal', 'kosher', 'organic', 'fda', 'globalgap', 'rainforest',
-    'food_safety', 'export_license', 'origin', 'phytosanitary', 'other'
+    'globalgap', 'halal', 'kosher',
+    'organic_usda', 'organic_eu', 'organic_other',
+    'rainforest', 'fda',
+    'other'
   )
 ) not valid;
 
 create index if not exists certificates_scheme_idx
   on public.certificates (certificate_scheme)
   where certificate_scheme is not null;
+
+commit;
+notify pgrst, 'reload schema';
+
+-- ---------------------------------------------------------------------------
+-- 5c. PHẠM VI CHỨNG NHẬN + BẢN GIA HẠN + OPT-OUT CỦA NHÀ CUNG CẤP
+--     (Bản đầy đủ: migrations/20261076_certificate_scope_flow.sql)
+--     Mỗi dòng phạm vi là HOẶC một danh mục HOẶC một sản phẩm. Sản phẩm thuộc danh
+--     mục có phạm vi thì tự nhận giấy; NCC bỏ tick cho một sản phẩm thì ghi opt-out.
+--     Bản gia hạn: bản cũ giữ hiệu lực tới khi bản mới được duyệt.
+-- ---------------------------------------------------------------------------
+begin;
+
+alter table public.certificates
+  add column if not exists supersedes_certificate_id uuid references public.certificates(id) on delete set null,
+  add column if not exists superseded_by_certificate_id uuid references public.certificates(id) on delete set null;
+
+create index if not exists certificates_supersedes_idx
+  on public.certificates (supersedes_certificate_id)
+  where supersedes_certificate_id is not null;
+create index if not exists certificates_superseded_by_idx
+  on public.certificates (superseded_by_certificate_id)
+  where superseded_by_certificate_id is not null;
+
+create table if not exists public.certificate_scopes (
+  id             uuid primary key default gen_random_uuid(),
+  certificate_id uuid not null references public.certificates(id) on delete cascade,
+  category_id    uuid references public.categories(id) on delete cascade,
+  product_id     uuid references public.supplier_products(id) on delete cascade,
+  verified_by    text,
+  verified_at    timestamptz,
+  created_at     timestamptz not null default now(),
+  constraint certificate_scopes_one_target check ((category_id is null) <> (product_id is null))
+);
+create index if not exists certificate_scopes_certificate_idx
+  on public.certificate_scopes (certificate_id);
+create index if not exists certificate_scopes_category_idx
+  on public.certificate_scopes (category_id) where category_id is not null;
+create index if not exists certificate_scopes_product_idx
+  on public.certificate_scopes (product_id) where product_id is not null;
+create unique index if not exists certificate_scopes_certificate_category_key
+  on public.certificate_scopes (certificate_id, category_id) where category_id is not null;
+create unique index if not exists certificate_scopes_certificate_product_key
+  on public.certificate_scopes (certificate_id, product_id) where product_id is not null;
+alter table public.certificate_scopes enable row level security;
+revoke all on public.certificate_scopes from anon, authenticated;
+
+create table if not exists public.product_certificate_optouts (
+  id             uuid primary key default gen_random_uuid(),
+  supplier_id    uuid not null references public.suppliers(id) on delete cascade,
+  product_id     uuid not null references public.supplier_products(id) on delete cascade,
+  certificate_id uuid not null references public.certificates(id) on delete cascade,
+  created_at     timestamptz not null default now()
+);
+create unique index if not exists product_certificate_optouts_key
+  on public.product_certificate_optouts (product_id, certificate_id);
+create index if not exists product_certificate_optouts_supplier_idx
+  on public.product_certificate_optouts (supplier_id);
+alter table public.product_certificate_optouts enable row level security;
+revoke all on public.product_certificate_optouts from anon, authenticated;
 
 commit;
 notify pgrst, 'reload schema';

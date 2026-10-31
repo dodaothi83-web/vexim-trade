@@ -9,7 +9,10 @@ import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/suppli
 import { PageHeader } from "@/components/page-header";
 import { SupplierProductEditor } from "../product-editor";
 import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
-import { certificateLinkable, certificateProductState } from "@/lib/products/product-certificates";
+import { certificateProductState } from "@/lib/products/product-certificates";
+import { certificateScopeMatch, optoutKey, optoutKeys } from "@/lib/certificate-scope";
+import { certificateSchemeLabel, isScopeableCertificateScheme } from "@/lib/certificate-scheme";
+import { t } from "@/lib/public/i18n";
 import { approvedL2Scope } from "@/lib/verification-status";
 import { ProductCertificatesForm } from "../product-certificates-form";
 
@@ -37,17 +40,59 @@ export default async function OwnProductPage({ params, searchParams }: { params:
   const options = categoryProposalOptions(allCategories);
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
   const categoryScope = allowedSupplierCategories(access.supplier, options, linked).map((item) => item.slug);
-  // Chứng nhận theo sản phẩm: dùng lại certificates.requested_product_ids / approved_product_ids.
+  /*
+   * Chứng nhận áp cho sản phẩm: giấy chất lượng đã duyệt, có phạm vi phủ sản phẩm hoặc
+   * danh mục của nó, trừ giấy nhà cung cấp đã bỏ tick. Giấy ngoài phạm vi vẫn hiện (mờ)
+   * để nhà cung cấp xin mở rộng; giấy pháp lý/giấy theo lô chỉ đếm cho biết.
+   */
   const certificateOptions = await access.store.listCertificates(access.supplier.id)
-    .then((rows) => rows
-      .filter((certificate) => certificateProductState(certificate, id) !== "none" || certificateLinkable(certificate))
-      .map((certificate) => ({
-        id: certificate.id,
-        name: certificate.name,
-        issuer: certificate.issuer,
-        valid_until: certificate.valid_until,
-        state: certificateProductState(certificate, id),
-      })))
+    .then(async (rows) => {
+      const live = rows.filter((certificate) => certificate.review_status !== "rejected");
+      if (live.length === 0) return [];
+      const today = new Date().toISOString().slice(0, 10);
+      const scopes = typeof access.store.listCertificateScopes === "function"
+        ? await access.store.listCertificateScopes(live.map((certificate) => certificate.id)).catch(() => [])
+        : [];
+      const optouts = typeof access.store.listCertificateOptouts === "function"
+        ? await access.store.listCertificateOptouts(access.supplier.id).catch(() => [])
+        : [];
+      const optedOut = optoutKeys(optouts);
+      const categories = await access.store.listCategories({ publishedOnly: false }).catch(() => []);
+      const category = product.reviewed_category_slug
+        ? categories.find((item) => item.slug === product.reviewed_category_slug) ?? null
+        : null;
+      const parent = category?.parent_id ? categories.find((item) => item.id === category.parent_id) ?? null : null;
+      const categoryPath = category ? [category.id, ...(parent ? [parent.id] : [])] : [];
+      const categoryName = (categoryId: string | null) => {
+        if (!categoryId) return null;
+        const found = categories.find((item) => item.id === categoryId);
+        if (!found) return null;
+        return t(found.name_i18n) || found.slug;
+      };
+      return live.map((certificate) => {
+        const match = certificateScopeMatch(
+          certificate, scopes,
+          { id, categoryId: category?.id ?? null, categoryPath },
+          optedOut,
+        );
+        const categoryScope = scopes.find((scope) => scope.certificate_id === certificate.id &&
+          Boolean(scope.category_id) && categoryPath.includes(scope.category_id as string));
+        return {
+          id: certificate.id,
+          name: certificate.name,
+          issuer: certificate.issuer,
+          valid_until: certificate.valid_until,
+          schemeLabel: certificateSchemeLabel(certificate.certificate_scheme ?? null, "vi"),
+          state: certificateProductState(certificate, id),
+          scopeable: isScopeableCertificateScheme(certificate.certificate_scheme ?? null),
+          directScope: match.direct,
+          inheritedFrom: match.inherited ? categoryName(categoryScope?.category_id ?? null) : null,
+          optedOut: optedOut.has(optoutKey(id, certificate.id)),
+          applies: match.direct || match.inherited,
+          expired: Boolean(certificate.valid_until && certificate.valid_until < today),
+        };
+      });
+    })
     .catch((error) => {
       console.error("[product-certificate] list", error);
       return [];
@@ -75,7 +120,7 @@ export default async function OwnProductPage({ params, searchParams }: { params:
   });
   // Bản xem trước người mua chỉ hiện chứng nhận Vexim đã duyệt gắn cho sản phẩm này.
   const approvedCertificates = certificateOptions
-    .filter((certificate) => certificate.state === "approved")
+    .filter((certificate) => certificate.applies && !certificate.optedOut && !certificate.expired)
     .map((certificate) => ({ id: certificate.id, name: certificate.name, valid_until: certificate.valid_until ?? null }));
   return <>
     <PageHeader

@@ -10,6 +10,7 @@ import { effectiveL2Scope, isPartnerL2, l2ScopeForSupplier, l2ScopeMatchesSuppli
 import { submissionStatusLabel } from "@/lib/verification-submission";
 import { canSelfApproveVerification } from "@/lib/verification-policy";
 import type { VerificationLevel } from "@/lib/types";
+import { t } from "@/lib/public/i18n";
 import { Breadcrumbs, Badge, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { StartVerificationButton } from "../../start-verification-button";
@@ -34,6 +35,25 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
       .catch((error) => { console.error("[certificates] query failed", error); return []; }) : Promise.resolve([]),
   ]);
   if (!supplier) notFound();
+  // Phạm vi đã xác nhận của từng giấy + danh mục để chọn phạm vi + sản phẩm mà nhà
+  // cung cấp xin mở rộng. Lỗi đọc chỉ làm trống phần phạm vi, không chặn trang.
+  const [certificateScopes, scopeCategories] = step.level === 1
+    ? await Promise.all([
+      typeof store.listCertificateScopes === "function" && certificates.length > 0
+        ? store.listCertificateScopes(certificates.map((certificate) => certificate.id))
+          .catch((error) => { console.error("[certificates] scope query failed", error); return []; })
+        : Promise.resolve([]),
+      store.listCategories({ publishedOnly: false })
+        .catch((error) => { console.error("[certificates] category query failed", error); return []; }),
+    ])
+    : [[], []];
+  const requestedProductIds = step.level === 1
+    ? [...new Set(certificates.flatMap((certificate) => certificate.requested_product_ids ?? []))]
+    : [];
+  const requestedProducts = requestedProductIds.length
+    ? (await Promise.all(requestedProductIds.map((id) => store.getProduct(id).catch(() => null))))
+      .filter((product): product is NonNullable<typeof product> => Boolean(product))
+    : [];
   const forStep = [...all].filter((v) => v.target_level === step.level).sort((a, b) => b.created_at.localeCompare(a.created_at));
   // Đợt đang chờ duyệt phải hiện trước: nếu ưu tiên đợt đã duyệt thì một hồ sơ
   // mới nộp (ví dụ chu kỳ xác minh lại) không bao giờ tới được mắt người duyệt.
@@ -98,7 +118,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
           <div className="max-w-5xl">
-            <AuditForm key={current.id + current.updated_at} verification={current} autoPublishL1={!!supplier.auto_publish_after_l1} evidence={media} certificates={certificates} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} />
+            <AuditForm key={current.id + current.updated_at} verification={current} autoPublishL1={!!supplier.auto_publish_after_l1} evidence={media} certificates={certificates} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} scopes={certificateScopes} categories={scopeCategories.map((category) => ({ id: category.id, name: t(category.name_i18n) || category.slug }))} requestedProducts={requestedProducts} />
           </div>
         </>}
     </div>

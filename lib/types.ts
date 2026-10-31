@@ -469,6 +469,9 @@ export interface Certificate {
    * nhiều chuẩn vào một mục.
    */
   certificate_scheme?: CertificateScheme | null;
+  /** Bản gia hạn: giấy này thay cho giấy nào, và bị giấy nào thay thế. */
+  supersedes_certificate_id?: string | null;
+  superseded_by_certificate_id?: string | null;
   review_status?: "unreviewed" | "pending" | "changes_requested" | "approved" | "rejected";
   review_note?: string | null;
   publicly_visible?: boolean;
@@ -485,6 +488,29 @@ export interface Certificate {
   notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Phạm vi một chứng nhận: hoặc một danh mục, hoặc một sản phẩm (không bao giờ cả hai).
+ * Chỉ dòng đã có `verified_at` mới có hiệu lực với người mua.
+ */
+export interface CertificateScope {
+  id: string;
+  certificate_id: string;
+  category_id: string | null;
+  product_id: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+  created_at: string;
+}
+
+/** Nhà cung cấp bỏ tick một chứng nhận thừa hưởng từ danh mục cho một sản phẩm. */
+export interface ProductCertificateOptout {
+  id: string;
+  supplier_id: string;
+  product_id: string;
+  certificate_id: string;
+  created_at: string;
 }
 
 export type VerificationStatus = "scheduled" | "in_progress" | "submitted" | "approved" | "returned";

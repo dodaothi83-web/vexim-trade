@@ -11,6 +11,8 @@ const HINTS: Array<{ match: RegExp; migration: string }> = [
   { match: /l2_scope/i, migration: "supabase/migrations/20261040_l2_partner_contract.sql" },
   { match: /partner_factory_name/i, migration: "supabase/migrations/20261074_l2_partner_factory_name.sql" },
   { match: /certificate_scheme/i, migration: "supabase/migrations/20261075_certificate_scheme.sql" },
+  { match: /certificate_scopes|product_certificate_optouts/i, migration: "supabase/migrations/20261076_certificate_scope_flow.sql" },
+  { match: /superseded?_?by?_?certificate_id/i, migration: "supabase/migrations/20261076_certificate_scope_flow.sql" },
   // L3 mở thêm key chứng từ khác; CHECK cũ từ 20261020/20261031 chưa nhận key này.
   { match: /supplier_submission_items_key_ck/i, migration: "supabase/migrations/20261039_l3_other_export_evidence.sql và supabase/migrations/20261040_l2_partner_contract.sql" },
   { match: /media_checklist_key_ck/i, migration: "supabase/migrations/20261031_supplier_submission_media_owner.sql, supabase/migrations/20261039_l3_other_export_evidence.sql và supabase/migrations/20261040_l2_partner_contract.sql" },

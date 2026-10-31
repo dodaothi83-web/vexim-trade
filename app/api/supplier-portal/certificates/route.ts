@@ -58,21 +58,31 @@ export async function POST(request: Request) {
     return fail("Chọn PDF/ảnh chứng nhận, tối đa 15 MB.");
   }
 
+  // NCC chỉ tải tệp lên kho chung, không chọn ngăn: loại giấy do nhân viên phân loại.
+  // Mã checklist chỉ còn nhận từ luồng nội bộ (L1 staff) để giữ tương thích.
   const checklistKeyRaw = text(form, "checklist_key", 60) || text(form, "checklistKey", 60);
   const checklistKey = isL1CertificateKey(checklistKeyRaw) ? checklistKeyRaw : null;
   const label =
     text(form, "label", 140) ||
     text(form, "name", 140) ||
     (checklistKey ? defaultCertificateLabelForKey(checklistKey) : "Giấy chứng nhận");
+  /*
+   * `certificate_id` = tải bản mới cho giấy đã có (gia hạn). Bản mới là một bản ghi
+   * riêng chờ duyệt; bản cũ vẫn hiệu lực và vẫn giữ phạm vi cho tới khi bản mới được
+   * duyệt, nên sản phẩm không bị mất nhãn trong lúc chờ.
+   */
   const certificateIdRaw = text(form, "certificate_id", 40);
-  const existingCertificateId =
-    certificateIdRaw && uuid.test(certificateIdRaw) ? certificateIdRaw : null;
+  const renewalOfId = certificateIdRaw && uuid.test(certificateIdRaw) ? certificateIdRaw : null;
 
   const existingList = await access.store.listCertificates(access.supplier.id);
-  if (existingCertificateId && !existingList.some((c) => c.id === existingCertificateId)) {
+  const renewalSource = renewalOfId ? existingList.find((c) => c.id === renewalOfId) : null;
+  if (renewalOfId && !renewalSource) {
     return fail("Không tìm thấy chứng nhận cần cập nhật của doanh nghiệp bạn.", 404);
   }
-  if (!existingCertificateId && existingList.length >= 50) {
+  if (renewalSource?.superseded_by_certificate_id) {
+    return fail("Giấy này đã có bản mới hơn. Tải cho giấy mới nhất trong danh sách.", 409);
+  }
+  if (!renewalOfId && existingList.length >= 50) {
     return fail("Đã tới giới hạn 50 hồ sơ chứng nhận; hãy bấm cập nhật vào chứng nhận hiện có.", 409);
   }
 
@@ -122,7 +132,8 @@ export async function POST(request: Request) {
       declaredLabel: label,
       checklistKey,
       verificationId: access.review?.target_level === 1 ? access.review.id : null,
-      existingCertificateId,
+      existingCertificateId: null,
+      renewalOfId,
       source: "l1-supplier",
       actor: { id: access.user.id, email: access.user.email },
     });

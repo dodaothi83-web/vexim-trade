@@ -1,8 +1,13 @@
 import type { Certificate, MediaAsset } from "@/lib/types";
 import { isExpired } from "@/lib/media/readiness";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
-import { approvedProductCertificateIds } from "@/lib/public/product-certificate-links";
-import { certificateSchemeLabel, isCertificateScheme, type CertificateScheme } from "@/lib/certificate-scheme";
+import { certificateSchemeLabel, isCertificateChipScheme, isCertificateScheme, type CertificateScheme } from "@/lib/certificate-scheme";
+import {
+  certificateAppliesToProduct,
+  optoutKeys,
+  type CertificateOptoutRow,
+  type CertificateScopeRow,
+} from "@/lib/certificate-scope";
 
 export interface PublicSupplierCertificate {
   id: string;
@@ -12,9 +17,21 @@ export interface PublicSupplierCertificate {
   holderMatch: "owner" | "partner";
   holderName: string | null;
   validUntil: string;
-  /** Loại chứng nhận cho bộ lọc; null khi chưa phân loại (hoặc loại "khác"). */
+  /** Loại chứng nhận cho bộ lọc; null khi chưa phân loại (hoặc loại không lên chip). */
   scheme: CertificateScheme | null;
   schemeLabel: string | null;
+}
+
+/** Phạm vi + lựa chọn của nhà cung cấp để biết giấy có áp cho sản phẩm này không. */
+export interface ProductScopeContext {
+  /** Toàn bộ dòng phạm vi của các giấy đang xét (hàm tự lọc theo certificate_id). */
+  scopes?: readonly CertificateScopeRow[];
+  /** Nhà cung cấp đã bỏ tick giấy nào cho sản phẩm nào. */
+  optouts?: readonly CertificateOptoutRow[];
+  /** Danh mục hiện tại của sản phẩm. */
+  categoryId?: string | null;
+  /** Danh mục của sản phẩm + danh mục cha. */
+  categoryPath?: readonly string[];
 }
 
 /**
@@ -38,6 +55,7 @@ export function publicSupplierCertificates(
         c.review_status !== "approved" ||
         c.publicly_visible !== true ||
         c.staff_hidden === true ||
+        Boolean(c.superseded_by_certificate_id) ||
         !c.file_media_id ||
         !c.valid_until ||
         !/^\d{4}-\d{2}-\d{2}$/.test(c.valid_until) ||
@@ -71,7 +89,8 @@ export function publicSupplierCertificates(
       holderMatch: (c.holder_match === "partner" ? "partner" : "owner") as "owner" | "partner",
       holderName: c.holder_name ? withoutDirectContacts(c.holder_name).slice(0, 140) : null,
       validUntil: c.valid_until!,
-      scheme: isCertificateScheme(c.certificate_scheme) && c.certificate_scheme !== "other" ? c.certificate_scheme : null,
+      scheme: isCertificateChipScheme(c.certificate_scheme) && isCertificateScheme(c.certificate_scheme)
+        ? c.certificate_scheme : null,
       schemeLabel: isCertificateScheme(c.certificate_scheme) ? certificateSchemeLabel(c.certificate_scheme, "en") : null,
     }))
     .slice(0, 16);
@@ -79,20 +98,36 @@ export function publicSupplierCertificates(
 
 /**
  * Chứng nhận hiển thị riêng trên trang một sản phẩm: giao của danh sách đã công
- * khai ở trên với `approved_product_ids` mà nhân viên đã duyệt cho sản phẩm đó.
+ * khai ở trên với phạm vi đã xác nhận cho sản phẩm (hoặc danh mục của nó), trừ
+ * những giấy nhà cung cấp đã bỏ tick cho sản phẩm đó.
  *
- * Dùng đúng bộ lọc của hồ sơ nhà cung cấp trước rồi mới lọc theo sản phẩm, nên
+ * Giấy pháp lý (GPKD, phép xuất khẩu, ATTP cơ sở) và giấy theo lô (C/O, kiểm dịch,
+ * phiếu kiểm nghiệm) không bao giờ áp cho sản phẩm, kể cả khi dữ liệu cũ có gắn.
+ *
+ * Dùng đúng bộ lọc của hồ sơ nhà cung cấp trước rồi mới lọc theo phạm vi, nên
  * không thể lộ chứng nhận chưa duyệt/chưa công khai/đã hết hạn.
  */
 export function publicProductCertificates(
   supplierId: string,
   productId: string,
-  certificates: Certificate[],
-  media: MediaAsset[] = [],
+  certificates: Certificate[] | readonly Certificate[],
+  media: MediaAsset[] | readonly MediaAsset[] = [],
   today = new Date().toISOString().slice(0, 10),
+  context: ProductScopeContext = {},
 ): PublicSupplierCertificate[] {
-  const linked = approvedProductCertificateIds(certificates, supplierId, productId);
-  if (!linked.size) return [];
-  return publicSupplierCertificates(supplierId, certificates, media, today)
-    .filter((certificate) => linked.has(certificate.id));
+  const own = certificates.filter((certificate) => certificate.supplier_id === supplierId);
+  if (own.length === 0) return [];
+  const product = {
+    id: productId,
+    categoryId: context.categoryId ?? null,
+    categoryPath: context.categoryPath ?? [],
+  };
+  const optedOut = optoutKeys(context.optouts ?? []);
+  const scopes = context.scopes ?? [];
+  const visible = publicSupplierCertificates(supplierId, [...own], [...media], today);
+  return visible.filter((certificate) => {
+    const record = own.find((item) => item.id === certificate.id);
+    if (!record) return false;
+    return certificateAppliesToProduct(record, scopes, product, optedOut);
+  });
 }

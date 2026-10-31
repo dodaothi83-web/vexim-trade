@@ -9,6 +9,9 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
 import { L1_DOC_ITEMS } from "@/lib/types";
 import { daysUntilExpiry } from "@/lib/certificate-service";
+import { deriveL1Rows } from "@/lib/certificate-l1";
+import { certificateSchemeLabel, isCertificateChipScheme } from "@/lib/certificate-scheme";
+import { t } from "@/lib/public/i18n";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { L1DocUpload } from "../l1-doc-upload";
 import { SupplierCertificateUpload } from "../certificate-upload";
@@ -90,6 +93,23 @@ export default async function SupplierDocumentsPage() {
     : l1Returned ? "Hồ sơ cần bổ sung trước khi đối chiếu lại."
       : l1Submitted ? "Hồ sơ đang chờ đối chiếu thủ công."
         : missingDocs.length ? `Còn ${missingDocs.length} mục chưa có tệp.` : "Đã có tệp cho mọi mục.";
+  // Phạm vi + tên danh mục: cho nhà cung cấp biết giấy đang áp cho danh mục nào.
+  const [certificateScopes, allCategoriesForScope] = await Promise.all([
+    typeof store.listCertificateScopes === "function" && certificates.length > 0
+      ? store.listCertificateScopes(certificates.map((certificate) => certificate.id))
+        .catch((error) => { console.error("[supplier-portal] chứng nhận: phạm vi", error); return []; })
+      : Promise.resolve([]),
+    store.listCategories({ publishedOnly: false }).catch(() => []),
+  ]);
+  const scopeLabelFor = (scope: { category_id: string | null; product_id: string | null }) => {
+    if (scope.category_id) {
+      const found = allCategoriesForScope.find((item) => item.id === scope.category_id);
+      return found ? (t(found.name_i18n) || found.slug) : "một danh mục";
+    }
+    return "một sản phẩm";
+  };
+  // Bảng giấy tờ L1 tính từ giấy đã duyệt: nhà cung cấp không tự chọn ngăn.
+  const derivedL1Rows = deriveL1Rows(certificates);
   const liveCerts = certificates.filter((c) => Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden &&
     (c.holder_match === "owner" || c.holder_match === "partner") && (daysUntilExpiry(c.valid_until) ?? -1) >= 0));
 
@@ -275,6 +295,18 @@ export default async function SupplierDocumentsPage() {
                     : c.holder_match === "partner" ? `Đối tác: ${c.holder_name || "-"}`
                       : "Chưa rõ đơn vị đứng tên"}
                 </p>
+                <p className="flex flex-wrap items-center gap-1 text-[10.5px] leading-4 text-ink-600">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${c.certificate_scheme ? "bg-teal-50 text-teal-800 ring-1 ring-teal-200" : "bg-amber-50 text-amber-900 ring-1 ring-amber-200"}`}>
+                    {certificateSchemeLabel(c.certificate_scheme ?? null, "vi") ?? "Chờ Vexim phân loại"}
+                  </span>
+                  {certificateScopes.filter((scope) => scope.certificate_id === c.id).map((scope) => (
+                    <span key={scope.id} className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-700">
+                      {scopeLabelFor(scope)}
+                    </span>
+                  ))}
+                  {c.superseded_by_certificate_id && <span className="text-ink-500">Đã có bản mới hơn</span>}
+                  {c.supersedes_certificate_id && <span className="text-ink-500">Bản gia hạn</span>}
+                </p>
                 <span className={`self-start rounded-full px-2 py-0.5 text-[10px] font-semibold ${left === null ? "bg-ink-100 text-ink-700" : left < 0 ? "bg-rose-100 text-rose-800" : left <= 60 ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-800"}`}>
                   {c.valid_until ? `Hết hạn ${c.valid_until}${left !== null ? ` · còn ${left} ngày` : ""}` : "Chưa đọc được ngày hết hạn"}
                 </span>
@@ -285,7 +317,51 @@ export default async function SupplierDocumentsPage() {
             Chưa có chứng nhận nào trên hồ sơ. Tải PDF hoặc ảnh bên dưới để AI tự quét.
           </p>}
 
-          <SupplierCertificateUpload certificates={certificates.map((c) => ({ id: c.id, name: c.name, valid_until: c.valid_until }))} />
+          <SupplierCertificateUpload certificates={certificates
+            .filter((c) => !c.superseded_by_certificate_id)
+            .map((c) => ({ id: c.id, name: c.name, valid_until: c.valid_until }))} />
+        </section>
+
+        {/* Bảng giấy tờ L1 suy ra từ giấy đã duyệt — không phải ô nhà cung cấp tự chọn. */}
+        <section aria-labelledby="l1-table-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
+          <h3 id="l1-table-title" className="text-[15px] font-bold text-ink-900">Giấy tờ L1 tính từ giấy đã duyệt</h3>
+          <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
+            Mỗi giấy bạn tải lên được Vexim phân loại và tự vào đúng mục dưới đây. Không cần chọn mục khi tải.
+          </p>
+          <table className="mt-3 w-full text-left text-[11.5px]">
+            <thead>
+              <tr className="text-[10.5px] tracking-wide text-ink-500 uppercase">
+                <th scope="col" className="pb-1.5 font-bold">Mục L1</th>
+                <th scope="col" className="pb-1.5 font-bold">Giấy đã duyệt</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {L1_DOC_ITEMS.map((item) => {
+                const row = derivedL1Rows.find((entry) => entry.key === item.key);
+                return <tr key={item.key}>
+                  <th scope="row" className="py-1.5 pr-3 align-top font-semibold text-ink-800">{item.label}</th>
+                  <td className="py-1.5 align-top text-ink-600">
+                    {row && row.certificates.length > 0
+                      ? row.certificates.map((certificate) => (
+                        <span key={certificate.id} className="mr-2 inline-flex flex-wrap items-center gap-1">
+                          {certificate.name}
+                          {certificate.scheme && <span className="rounded-full bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-800">
+                            {certificateSchemeLabel(certificate.scheme, "vi")}
+                          </span>}
+                          {certificate.validUntil && <span className="text-ink-500">
+                            hạn {certificate.validUntil}{certificate.expired ? " · đã hết hạn" : ""}
+                          </span>}
+                          {certificate.scheme && !isCertificateChipScheme(certificate.scheme) && <span className="text-ink-500">
+                            không lên bộ lọc người mua
+                          </span>}
+                        </span>
+                      ))
+                      : <span className="text-ink-400">Chưa có giấy nào được duyệt cho mục này.</span>}
+                  </td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
         </section>
       </div>
 
