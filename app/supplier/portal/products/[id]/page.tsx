@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/page-header";
 import { SupplierProductEditor } from "../product-editor";
 import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { certificateLinkable, certificateProductState } from "@/lib/products/product-certificates";
+import { approvedL2Scope } from "@/lib/verification-status";
 import { ProductCertificatesForm } from "../product-certificates-form";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,11 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       console.error("[product-certificate] list", error);
       return [];
     });
+  // Đơn vị thương mại chỉ dùng được chứng nhận của nhà máy khác khi đã có L2 nhà máy đối tác.
+  const l2Scope = await access.store.listVerifications(access.supplier.id)
+    .then((rows) => approvedL2Scope(rows))
+    .catch(() => null);
+  const partnerContractApproved = l2Scope === "partner_contract" || l2Scope === "both";
   const quantityEditor = await (async () => {
     if (!getSupabaseClient()) return null;
     const strictAccess = await supplierPortalAccess(supabaseStore);
@@ -78,6 +84,7 @@ export default async function OwnProductPage({ params, searchParams }: { params:
     </p>}
     <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options}
       categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} initialStep={step} />
-    <ProductCertificatesForm productId={id} certificates={certificateOptions} />
+    <ProductCertificatesForm productId={id} certificates={certificateOptions}
+      supplierType={access.supplier.supplier_type ?? null} partnerContractApproved={partnerContractApproved} />
   </>;
 }

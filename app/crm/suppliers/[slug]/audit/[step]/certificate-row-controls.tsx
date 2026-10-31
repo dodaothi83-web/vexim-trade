@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
+import { BadgeCheck, Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
 
 import {
+  approveCertificateAction,
   rescanCertificateAction,
   toggleCertificateHiddenAction,
 } from "./certificate-actions";
@@ -14,6 +15,7 @@ export function CertificateRowControls({
   certificateId,
   hasFile,
   staffHidden,
+  published,
   canInspect,
   canPublish,
 }: {
@@ -21,17 +23,28 @@ export function CertificateRowControls({
   certificateId: string;
   hasFile: boolean;
   staffHidden: boolean;
+  /** AI đã duyệt và đang hiện trên trang người mua. */
+  published: boolean;
   canInspect: boolean;
   canPublish: boolean;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"scan" | "hide" | null>(null);
+  const [busy, setBusy] = useState<"scan" | "hide" | "approve" | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function onRescan() {
     setBusy("scan");
     setMsg(null);
     const res = await rescanCertificateAction(supplierId, certificateId);
+    setBusy(null);
+    setMsg({ ok: res.ok, text: res.message });
+    if (res.ok) router.refresh();
+  }
+
+  async function onApprove() {
+    setBusy("approve");
+    setMsg(null);
+    const res = await approveCertificateAction(supplierId, certificateId);
     setBusy(null);
     setMsg({ ok: res.ok, text: res.message });
     if (res.ok) router.refresh();
@@ -64,6 +77,22 @@ export function CertificateRowControls({
             <Sparkles className="h-3.5 w-3.5" />
           )}
           Quét lại AI
+        </button>
+      )}
+      {canPublish && !published && (
+        <button
+          type="button"
+          onClick={onApprove}
+          disabled={busy !== null}
+          className="btn btn-ghost btn-sm text-xs"
+          title="Đối chiếu tệp gốc rồi cho chứng nhận hiện trên trang người mua"
+        >
+          {busy === "approve" ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <BadgeCheck className="h-3.5 w-3.5" />
+          )}
+          Duyệt đăng
         </button>
       )}
       {canPublish && (

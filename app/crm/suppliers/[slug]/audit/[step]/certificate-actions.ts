@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { holderMatchBadgeLabel, ingestCertificateScan } from "@/lib/certificate-service";
+import { holderMatchBadgeLabel, ingestCertificateScan, todayISO } from "@/lib/certificate-service";
+import { approvedL2Scope } from "@/lib/verification-status";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -86,6 +87,91 @@ async function rescanCertificate(supplierId: string, certificateId: string) {
       ? `Đã quét lại: ${badge} · hết hạn ${certificate.valid_until}.`
       : `Đã quét lại. ${decision.review_note}`,
   );
+}
+
+export async function approveCertificateAction(supplierId: string, certificateId: string) {
+  try {
+    return await approveCertificate(supplierId, certificateId);
+  } catch (error) {
+    console.error("[certificate] approve action failed", error);
+    return result(false, `Chưa duyệt được chứng nhận (${briefReason(error)}). Chứng nhận giữ nguyên như trước.`);
+  }
+}
+
+/**
+ * Nhân viên duyệt đăng một chứng nhận AI chưa tự công bố.
+ *
+ * Giấy đứng tên đơn vị khác chỉ đăng được khi nhà cung cấp đã có L2 nhà máy đối tác được
+ * duyệt — người duyệt đối chiếu tên trên giấy với hợp đồng đối tác đó. Nhờ vậy không thể
+ * đẩy một giấy chứng nhận bất kỳ của doanh nghiệp không liên quan lên hồ sơ.
+ */
+async function approveCertificate(supplierId: string, certificateId: string) {
+  if ((await guard("suppliers.publish")) !== null) {
+    return result(false, "Bạn không có quyền duyệt đăng chứng nhận trên trang công khai.");
+  }
+  const session = await getSession();
+  if (!session || !hasPermission(session.role, "suppliers.publish")) {
+    return result(false, "Bạn không có quyền duyệt đăng chứng nhận trên trang công khai.");
+  }
+  if (!uuid.test(certificateId)) {
+    return result(false, "Mã chứng nhận không hợp lệ.");
+  }
+  const store = getStore();
+  const [supplier, cert] = await Promise.all([
+    store.getSupplier(supplierId),
+    store.getCertificate(certificateId),
+  ]);
+  if (!supplier || !cert || cert.supplier_id !== supplier.id) {
+    return result(false, "Không tìm thấy chứng nhận của nhà cung cấp này.");
+  }
+  if (!cert.file_media_id) {
+    return result(false, "Chứng nhận chưa có tệp gốc để đối chiếu; chưa đăng được.");
+  }
+  if (!cert.valid_until || !/^\d{4}-\d{2}-\d{2}$/.test(cert.valid_until)) {
+    return result(false, "Chưa có ngày hết hạn trên giấy; chưa đăng được.");
+  }
+  if (cert.valid_until < todayISO()) {
+    return result(false, `Giấy đã hết hạn ngày ${cert.valid_until}; chưa đăng được.`);
+  }
+
+  if (cert.holder_match === "partner") {
+    const holderName = cert.holder_name?.trim();
+    if (!holderName) {
+      return result(false, "Giấy đứng tên đơn vị đối tác nhưng chưa đọc được tên; bổ sung tên trước khi đăng.");
+    }
+    const scope = approvedL2Scope(await store.listVerifications(supplier.id));
+    if (scope !== "partner_contract" && scope !== "both") {
+      return result(false, `Chưa có L2 nhà máy đối tác được duyệt nên chưa đăng được giấy đứng tên ${holderName}.`);
+    }
+  }
+
+  const updated = await store.updateCertificate(cert.id, {
+    review_status: "approved",
+    publicly_visible: true,
+  });
+  if (!updated) return result(false, "Không cập nhật được trạng thái chứng nhận.");
+
+  await store
+    .addAuditLog({
+      actor_id: session.uid,
+      actor_email: session.email,
+      entity: "supplier",
+      entity_id: supplier.id,
+      action: "certificate.staff_approve",
+      before: { id: cert.id, review_status: cert.review_status, publicly_visible: Boolean(cert.publicly_visible) },
+      after: { id: cert.id, review_status: "approved", publicly_visible: true, holder_match: cert.holder_match ?? null },
+    })
+    .catch((err) => console.error("[certificate] staff approve audit", err));
+
+  await notifySupplierDecision({
+    supplierId: supplier.id,
+    decision: "certificate_published",
+    name: cert.name,
+    entityId: cert.id,
+  }).catch(() => "failed");
+
+  await softRefresh(() => refresh(supplier.id, supplier.slug));
+  return result(true, `Đã duyệt đăng “${cert.name}” (${holderMatchBadgeLabel(cert.holder_match, cert.holder_name)}).`);
 }
 
 export async function toggleCertificateHiddenAction(

@@ -32,11 +32,27 @@ const QUICK_CERT_TYPES = [
  * fetch nên trang không chuyển đi đâu, dữ liệu đang nhập ở các khối phía trên
  * vẫn còn nguyên.
  */
-export function ProductCertificatesForm({ productId, certificates }: { productId: string; certificates: ProductCertificateOption[] }) {
+export function ProductCertificatesForm({ productId, certificates, supplierType = null, partnerContractApproved = false }: {
+  productId: string;
+  certificates: ProductCertificateOption[];
+  /** Loại hình đã đăng ký, để nói trước giấy đứng tên ai thì dùng được. */
+  supplierType?: "manufacturer" | "trading" | "cooperative" | null;
+  /** Đã có hồ sơ L2 nhà máy đối tác được duyệt. */
+  partnerContractApproved?: boolean;
+}) {
   const [result, action, pending] = useActionState(
     async (_previous: CertificateRequestResult, form: FormData) => requestProductCertificatesAction(form),
     INITIAL,
   );
+  // Giấy đứng tên ai thì dùng được: nhà máy phải là giấy của chính mình; đơn vị thương mại
+  // chỉ dùng giấy nhà máy khác khi đã xác thực L2 nhà máy đối tác, và vẫn chờ Vexim đối chiếu.
+  const holderRule = supplierType === "trading"
+    ? (partnerContractApproved
+      ? { blocked: false, text: "Giấy đứng tên nhà máy đối tác sẽ được đối chiếu hợp đồng L2 trước khi đăng." }
+      : { blocked: true, text: "Chưa xác thực L2 nhà máy đối tác: giấy đứng tên nhà máy khác chưa dùng được." })
+    : supplierType === "manufacturer" || supplierType === "cooperative"
+      ? { blocked: false, text: "Chứng nhận phải đứng tên nhà máy của bạn." }
+      : null;
   const [justUploaded, setJustUploaded] = useState<ProductCertificateOption[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -134,6 +150,9 @@ export function ProductCertificatesForm({ productId, certificates }: { productId
         <div className="sm:col-span-3">
           <p className="text-[11px] font-bold tracking-wider text-brand-900 uppercase">Tải chứng nhận mới</p>
           <p className="mt-0.5 text-[11.5px] leading-4 text-ink-600">Hệ thống tự đọc tên đơn vị và ngày hết hạn. Tệp không tự hiện công khai.</p>
+          {holderRule && <p className={`mt-1 text-[11.5px] leading-4 ${holderRule.blocked ? "text-amber-900" : "text-ink-600"}`}>
+            {holderRule.text}
+          </p>}
         </div>
         <label className="block text-[12px]">
           <span className="mb-1 block font-semibold text-ink-800">Loại chứng nhận</span>

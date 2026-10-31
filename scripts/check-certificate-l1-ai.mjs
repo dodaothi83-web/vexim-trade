@@ -101,7 +101,10 @@ const supplier = {
   name: "Công ty TNHH Cà phê Ban Mê",
   trade_name: "Ban Me Coffee",
   display_name: "Ban Me Coffee Co.",
+  supplier_type: "manufacturer",
 };
+/** Hồ sơ xác thực L2 của nhà cung cấp — đổi theo từng ca kiểm tra bên dưới. */
+let verifications = [];
 const certs = [];
 const audits = [];
 const decisionsSent = [];
@@ -109,6 +112,7 @@ const staffAlerts = [];
 let seq = 1;
 const stubStore = {
   listSuppliers: async () => [supplier],
+  listVerifications: async () => verifications,
   listCertificates: async (sid) => certs.filter((c) => c.supplier_id === sid),
   getCertificate: async (id) => certs.find((c) => c.id === id) ?? null,
   createCertificate: async (patch) => {
@@ -227,13 +231,60 @@ const partnerScan = await certService.ingestCertificateScan(
     notifyStaffFn: async () => "sent",
   },
 );
-assert.equal(partnerScan.decision.autoPublish, true);
+// Giấy đứng tên doanh nghiệp khác không bao giờ tự công bố, kể cả khi còn hạn và đọc rõ.
+assert.equal(partnerScan.decision.autoPublish, false);
+assert.equal(partnerScan.certificate.review_status, "pending");
+assert.equal(partnerScan.certificate.publicly_visible, false);
 assert.equal(partnerScan.certificate.holder_match, "partner");
 assert.equal(
   partnerScan.certificate.holder_name,
   "Công ty Cổ phần Chế biến Nông sản Tây Nguyên",
 );
+assert.match(partnerScan.certificate.review_note, /nhà máy chỉ dùng chứng nhận đứng tên chính mình/i);
 assert.equal(certs.length, 2);
+
+// 3b-bis. Đơn vị thương mại: chưa có L2 đối tác thì giấy nhà máy khác chưa dùng được;
+// có L2 đối tác vẫn phải chờ Vexim đối chiếu hợp đồng.
+const partnerScanFor = async (type, scope, key) => {
+  verifications = scope ? [{ id: "v1", supplier_id: "sup-1", target_level: 2, status: "approved", l2_scope: scope }] : [];
+  return certService.ingestCertificateScan(
+    // Không gắn checklist_key để mỗi ca tạo hồ sơ riêng, không ghi đè giấy của ca trước.
+    { supplier: { ...supplier, supplier_type: type }, mediaId: `media-${key}`, bytes: new Uint8Array([9]),
+      source: "l1-supplier" },
+    { store: stubStore, today: "2026-10-21",
+      scanFn: async () => ({ ok: true, data: {
+        certificate_name: "HACCP nhà máy đối tác", holder_name: "Nhà máy Chế biến Tây Nguyên",
+        holder_match: "partner", issuer: "QUACERT", certificate_number: `P-${key}`,
+        valid_until: "2027-06-01", summary: "Giấy của nhà máy đối tác.", confidence: "high",
+      } }),
+      notifyDecisionFn: async () => "sent", notifyStaffFn: async () => "sent" },
+  );
+};
+verifications = [];
+const tradingNoL2 = await partnerScanFor("trading", null, "trading-no-l2");
+assert.equal(tradingNoL2.decision.autoPublish, false, "Thương mại chưa có L2 đối tác: không công bố");
+assert.match(tradingNoL2.certificate.review_note, /chưa xác thực L2 nhà máy đối tác/);
+const tradingWithL2 = await partnerScanFor("trading", "partner_contract", "trading-l2");
+assert.equal(tradingWithL2.decision.autoPublish, false, "Có L2 đối tác vẫn chờ Vexim đối chiếu hợp đồng");
+assert.match(tradingWithL2.certificate.review_note, /đối chiếu với hợp đồng nhà máy đối tác/);
+const manufacturerL2 = await partnerScanFor("manufacturer", "factory", "manufacturer-l2");
+assert.match(manufacturerL2.certificate.review_note, /nhà máy chỉ dùng chứng nhận đứng tên chính mình/);
+verifications = [];
+
+// 3b-owner vẫn tự công bố khi nhà cung cấp là đơn vị thương mại: giấy đứng tên chính họ.
+const tradingOwner = await certService.ingestCertificateScan(
+  { supplier: { ...supplier, supplier_type: "trading" }, mediaId: "media-trading-owner", bytes: new Uint8Array([10]),
+    checklistKey: "product_certs", source: "l1-supplier" },
+  { store: stubStore, today: "2026-10-21",
+    scanFn: async () => ({ ok: true, data: {
+      certificate_name: "ATTP Công ty Ban Mê", holder_name: "Công ty TNHH Cà phê Ban Mê",
+      holder_match: "owner", issuer: "Chi cục ATTP Đắk Lắk", certificate_number: "OWN-1",
+      valid_until: "2027-09-09", summary: "Giấy đứng tên chính nhà cung cấp.", confidence: "high",
+    } }),
+    notifyDecisionFn: async () => "sent", notifyStaffFn: async () => "sent" },
+);
+assert.equal(tradingOwner.decision.autoPublish, true, "Đơn vị thương mại vẫn công bố được giấy của chính mình");
+assert.equal(tradingOwner.certificate.publicly_visible, true);
 
 // 3c. Unclear / expired => stays pending, not publicly_visible, alerts staff
 const unclearScan = await certService.ingestCertificateScan(
@@ -367,25 +418,33 @@ assert.equal(renewed.certificate.valid_until, "2027-12-05");
 assert.deepEqual(renewed.certificate.expiry_notified, {}, "Renewed expiry date resets reminder markers");
 assert.equal(renewed.certificate.staff_hidden, true, "AI re-scan must never clear staff_hidden brake");
 
-// 5. Public supplier certificate filter
+// 5. Bộ lọc công khai: chỉ giấy đã duyệt, còn hạn, không bị nhân viên ẩn, đứng tên rõ ràng.
 const { publicSupplierCertificates } = loadTs("lib/public/certificates.ts");
-// While cert-1 has staff_hidden=true, only cert-2 (partner) is returned
-let pub = publicSupplierCertificates("sup-1", certs, [], "2026-12-04");
-assert.equal(pub.length, 1);
-assert.equal(pub[0].id, "cert-2");
-assert.equal(pub[0].holderMatch, "partner");
-
-// Unhide cert-1 -> both owner and partner certificates appear with expiry dates
-await stubStore.updateCertificate("cert-1", { staff_hidden: false });
-pub = publicSupplierCertificates("sup-1", certs, [], "2026-12-04");
-assert.equal(pub.length, 2);
+const publicRow = (patch) => ({
+  supplier_id: "sup-1", name: "HACCP", issuer: null, number: null, valid_until: "2027-08-01",
+  file_media_id: "m1", review_status: "approved", publicly_visible: true, staff_hidden: false,
+  holder_match: "owner", holder_name: "Công ty TNHH Cà phê Ban Mê", ...patch,
+});
 assert.deepEqual(
-  pub.map((c) => [c.id, c.holderMatch, c.validUntil]),
-  [
-    ["cert-1", "owner", "2027-12-05"],
-    ["cert-2", "partner", "2027-08-01"],
-  ],
+  publicSupplierCertificates("sup-1", [
+    publicRow({ id: "ok" }),
+    publicRow({ id: "expired", valid_until: "2026-01-01" }),
+    publicRow({ id: "hidden", staff_hidden: true }),
+    publicRow({ id: "unclear", holder_match: "unclear", holder_name: null }),
+    publicRow({ id: "partner-no-name", holder_match: "partner", holder_name: "  " }),
+    publicRow({ id: "pending", review_status: "pending" }),
+    publicRow({ id: "invisible", publicly_visible: false }),
+    publicRow({ id: "partner-ok", holder_match: "partner", holder_name: "Nhà máy Tây Nguyên" }),
+  ], [], "2026-12-04").map((c) => c.id),
+  ["ok", "partner-ok"],
+  "Chỉ giấy đã duyệt, còn hạn, đứng tên chính chủ hoặc đối tác có tên mới công khai",
 );
+
+// Giấy đứng tên doanh nghiệp khác không bao giờ tự vào danh sách công khai, vì AI không
+// tự duyệt giấy của đơn vị khác; muốn đăng phải do nhân viên Vexim duyệt tay.
+const autoPublishedPartners = certs.filter((c) =>
+  c.holder_match === "partner" && c.review_status === "approved" && c.publicly_visible === true);
+assert.deepEqual(autoPublishedPartners, [], "Không có giấy đối tác nào được AI tự công bố");
 
 // 6. Supplier dashboard cert-expiring notice within 60 days
 const { buildSupplierDashboard } = loadTs("lib/supplier-portal/dashboard.ts");

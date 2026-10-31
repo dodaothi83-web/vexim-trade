@@ -8,7 +8,7 @@ import {
   type CertificateScanResult,
 } from "@/lib/ai/certificate-scan";
 
-function todayISO(): string {
+export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 import {
@@ -21,7 +21,9 @@ import type {
   CertificateHolderMatch,
   CertificateSource,
   Supplier,
+  SupplierType,
 } from "@/lib/types";
+import { approvedL2Scope } from "@/lib/verification-status";
 
 export const L1_CERTIFICATE_KEYS = [
   "food_safety",
@@ -80,9 +82,37 @@ export interface CertificatePublicationDecision {
   review_note: string;
 }
 
+/**
+ * Ai đứng tên trên giấy và hồ sơ xác thực của chính nhà cung cấp.
+ *
+ * Nhà máy/HTX chỉ dùng được chứng nhận đứng tên chính mình. Đơn vị thương mại muốn
+ * dùng chứng nhận của nhà máy khác thì phải có hồ sơ L2 "nhà máy đối tác" đã duyệt —
+ * nếu không, giấy đó chỉ được lưu để đối chiếu chứ không công bố được. Nhờ vậy không
+ * thể tải bừa một giấy chứng nhận của doanh nghiệp bất kỳ lên hồ sơ.
+ */
+export interface CertificateHolderContext {
+  supplierType?: SupplierType | null;
+  /** Đã có hồ sơ L2 nhà máy đối tác (partner_contract) được duyệt. */
+  partnerContractApproved?: boolean;
+}
+
+/** Câu giải thích vì sao giấy đứng tên đơn vị khác chưa được công bố. */
+function partnerHolderRule(context: CertificateHolderContext): string {
+  if (context.supplierType === "manufacturer" || context.supplierType === "cooperative") {
+    return "nhà máy chỉ dùng chứng nhận đứng tên chính mình";
+  }
+  if (context.supplierType === "trading") {
+    return context.partnerContractApproved
+      ? "Vexim đối chiếu với hợp đồng nhà máy đối tác ở L2"
+      : "chưa xác thực L2 nhà máy đối tác nên giấy này chưa dùng được";
+  }
+  return "Vexim kiểm tra loại hình doanh nghiệp trước khi đăng";
+}
+
 export function decideCertificatePublication(
   scan: CertificateScanResult | null,
   today = todayISO(),
+  context: CertificateHolderContext = {},
 ): CertificatePublicationDecision {
   if (!scan) {
     return {
@@ -93,9 +123,24 @@ export function decideCertificatePublication(
     };
   }
 
-  const hasValidHolder =
-    scan.holder_match === "owner" ||
-    (scan.holder_match === "partner" && Boolean(scan.holder_name?.trim()));
+  // Chứng nhận đứng tên doanh nghiệp khác không bao giờ tự công bố: phải để Vexim
+  // đối chiếu loại hình nhà cung cấp (nhà máy hay thương mại) và hồ sơ L2 đối tác.
+  if (scan.holder_match === "partner" && scan.holder_name?.trim()) {
+    const reasons: string[] = [];
+    if (!scan.valid_until) reasons.push("chưa đọc được ngày hết hạn");
+    else if (scan.valid_until < today) reasons.push(`giấy đã hết hạn ngày ${scan.valid_until}`);
+    if (!(scan.confidence === "high" || scan.confidence === "medium")) reasons.push("ảnh/PDF mờ hoặc độ tin cậy thấp");
+    const rule = partnerHolderRule(context);
+    return {
+      autoPublish: false,
+      review_status: "pending",
+      publicly_visible: false,
+      review_note: `Chưa tự công bố: giấy đứng tên ${scan.holder_name.trim()} (${rule}).${
+        reasons.length ? ` Lưu ý: ${reasons.join("; ")}.` : " Vexim kiểm tra trước khi đăng."}`,
+    };
+  }
+
+  const hasValidHolder = scan.holder_match === "owner";
   const hasFutureExpiry = Boolean(scan.valid_until && scan.valid_until >= today);
   const hasConfidence = scan.confidence === "high" || scan.confidence === "medium";
 
@@ -201,7 +246,15 @@ export async function ingestCertificateScan(
       };
 
   const scan = scanOutcome.ok ? scanOutcome.data : null;
-  const decision = decideCertificatePublication(scan, today);
+  // Loại hình đăng ký + hồ sơ L2 quyết định giấy đứng tên đơn vị khác có dùng được không.
+  const verifications = typeof store.listVerifications === "function"
+    ? await store.listVerifications(input.supplier.id).catch(() => [])
+    : [];
+  const l2Scope = approvedL2Scope(verifications ?? []);
+  const decision = decideCertificatePublication(scan, today, {
+    supplierType: input.supplier.supplier_type ?? null,
+    partnerContractApproved: l2Scope === "partner_contract" || l2Scope === "both",
+  });
 
   const all = await store.listCertificates(input.supplier.id);
   let existing: Certificate | undefined;

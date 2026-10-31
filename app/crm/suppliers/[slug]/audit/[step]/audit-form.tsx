@@ -373,7 +373,7 @@ export function AuditForm({ verification: v, autoPublishL1 = false, evidence, ce
                     {c.valid_until && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">Hạn {c.valid_until}</span>}
                     {c.staff_hidden && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">Đang ẩn</span>}
                   </div>
-                  <CertificateRowControls supplierId={v.supplier_id} certificateId={c.id} hasFile={Boolean(c.file_media_id)} staffHidden={Boolean(c.staff_hidden)} canInspect={canInspect} canPublish={canPublish} />
+                  <CertificateRowControls supplierId={v.supplier_id} certificateId={c.id} hasFile={Boolean(c.file_media_id)} staffHidden={Boolean(c.staff_hidden)} published={c.review_status === "approved" && Boolean(c.publicly_visible)} canInspect={canInspect} canPublish={canPublish} />
                 </div>
               ))}
             </div>}
