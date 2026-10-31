@@ -49,7 +49,10 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
 ## 6. Số, đơn vị, tiền tệ
 
 - Luôn kèm đơn vị: “1.000 kg”, “8 MB”, “24 giờ”, “25 kg/bao”.
-- Tiền: `USD 6,40/kg` (dấu phẩy thập phân, mã tiền tệ đứng trước) khi hiển thị cho người mua.
+- Tiền hiển thị cho người mua: **ký hiệu** đứng sát số, không khoảng trắng — `$6.4/kg`, `$150,000–200,000/MT`, `₫62,000/kg`, `€1,500–1,900/MT`, `CN¥6.4/kg`, `JP¥1,250/kg`.
+  Số từ 10 trở lên in số nguyên; dưới 10 giữ tối đa hai chữ số thập phân (bỏ số 0 thừa) vì làm tròn 9,4–9,6 thành “9–10” là sai giá.
+  Dấu phẩy chỉ dùng để ngăn nghìn. Một chỗ duy nhất: `lib/products/price-display.ts`.
+- Câu nội bộ (email, hoá đơn, bảng đối chiếu của nhân viên) vẫn ghi đủ mã: `USD 1,234.00`.
 - Không dùng emoji trong câu; icon đứng riêng, có `aria-label`.
 
 ## 7. Những cặp câu đã sửa

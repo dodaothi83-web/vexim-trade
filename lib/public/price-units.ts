@@ -1,3 +1,5 @@
+import { formatMoney, priceRangeText } from "../products/price-display.ts";
+
 /**
  * Đơn vị giá: quy ước thị trường, không phải quy ước nội bộ.
  *
@@ -112,23 +114,15 @@ export function fromPricePerKg(pricePerKg: number, unit: PriceUnit): number {
   return pricePerKg * KG_PER_UNIT[unit];
 }
 
-/** Số chữ số thập phân hợp lý: tấn làm tròn tới 1, kg và pound tới 2. */
-export function decimalsForUnit(unit: PriceUnit): number {
-  return unit === "mt" ? 0 : 2;
-}
-
-/** Hiển thị một mức giá: "USD 7.90/kg". Luôn có đơn vị đi kèm, không bao giờ để số trần. */
+/**
+ * Hiển thị một mức giá: "$8/kg". Luôn có đơn vị đi kèm, không bao giờ để số trần.
+ * Ký hiệu tiền tệ và cách làm tròn dùng chung ở `lib/products/price-display.ts`.
+ */
 export function formatUnitPrice(value: number, unit: PriceUnit, currency = "USD"): string {
-  const decimals = decimalsForUnit(unit);
-  const rounded = value.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-  return `${currency} ${rounded}/${PRICE_UNIT_LABEL[unit].short}`;
+  return `${formatMoney(value, currency)}/${PRICE_UNIT_LABEL[unit].short}`;
 }
 
-/** Hiển thị một khoảng: "USD 7.60 to 8.40/kg". Một mức thì ghi một mức. */
+/** Hiển thị một khoảng: "$8–9/kg". Một mức thì ghi một mức. */
 export function formatUnitRange(low: number, high: number, unit: PriceUnit, currency = "USD"): string {
-  const decimals = decimalsForUnit(unit);
-  const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-  const suffix = `/${PRICE_UNIT_LABEL[unit].short}`;
-  if (Math.abs(high - low) < 10 ** -decimals / 2) return `${currency} ${fmt(low)}${suffix}`;
-  return `${currency} ${fmt(low)} to ${fmt(high)}${suffix}`;
+  return `${priceRangeText(low, high, currency)}/${PRICE_UNIT_LABEL[unit].short}`;
 }

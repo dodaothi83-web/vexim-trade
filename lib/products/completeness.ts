@@ -10,7 +10,8 @@ import { isExpired } from "@/lib/media/readiness";
  *    (ảnh đã kiểm tra) và luồng duyệt của Vexim. Đây là thang đo để nhà cung cấp
  *    biết còn thiếu gì, xếp theo mức ảnh hưởng tới việc người mua hiểu sản phẩm.
  *  - Nhắc trong cổng và CRM là đủ; không gửi email nhắc.
- *  - Số liệu tính từ bản đã lưu, không đoán từ dữ liệu đang nhập.
+ *  - Cổng sản phẩm truyền nội dung đang nhập vào (`supplierView`) để điểm đổi ngay khi
+ *    nhà cung cấp gõ; CRM vẫn tính trên bản đã lưu.
  */
 
 export type CompletenessStep = 1 | 2 | 3;
@@ -26,6 +27,11 @@ export interface CompletenessItem {
   step: CompletenessStep;
   /** Một câu nói rõ cần điền gì. */
   hint: string;
+  /**
+   * Nhà cung cấp không có ô nào để tự điền (Vexim chốt khi duyệt). Mục này vẫn tính điểm
+   * trong CRM nhưng không hiện thành việc phải làm trong cổng — xem `supplierView`.
+   */
+  auto?: boolean;
 }
 
 /** Phần dữ liệu sản phẩm mà thang đo cần; SupplierProduct thoả interface này. */
@@ -80,7 +86,8 @@ export const COMPLETENESS_ITEMS: CompletenessItem[] = [
   { key: "packaging", label: "Đóng gói", required: false, weight: 9, step: 1, hint: "Cách đóng gói và khối lượng mỗi kiện." },
   { key: "lead_time", label: "Thời gian giao", required: false, weight: 7, step: 1, hint: "Số ngày từ khi xác nhận đơn đến khi hàng sẵn sàng giao." },
   { key: "description", label: "Mô tả", required: false, weight: 7, step: 1, hint: "Ba đến năm câu về sản phẩm và ứng dụng." },
-  { key: "name_en", label: "Tên tiếng Anh", required: false, weight: 5, step: 1, hint: "Tên hiển thị cho người mua trên trang công khai." },
+  // Tên tiếng Anh do Vexim đặt khi duyệt (dịch từ tên nhà cung cấp nhập); cổng không có ô này.
+  { key: "name_en", label: "Tên tiếng Anh", required: false, weight: 5, step: 1, auto: true, hint: "Tên hiển thị cho người mua trên trang công khai." },
   // Phase 2: ba mục dưới đây là cột mới (migration 20261072). Trống thì chỉ mất điểm,
   // không chặn đăng, và không suy đoán giá trị từ cột văn bản cũ.
   { key: "keywords", label: "Từ khoá", required: false, weight: 5, step: 1, hint: "Thêm 1–3 từ khoá tiếng Anh để người mua tìm thấy sản phẩm." },
@@ -152,13 +159,28 @@ function hasAttribute(facts: CompletenessFacts, key: string): boolean {
   }
 }
 
+export interface CompletenessOptions {
+  /**
+   * Góc nhìn nhà cung cấp trong cổng sản phẩm: bỏ những mục họ không tự điền được
+   * (`auto`), cả khỏi danh sách thiếu lẫn khỏi mẫu số, để không tạo việc giả.
+   */
+  supplierView?: boolean;
+}
+
 /** Danh sách mục còn thiếu, đã sắp xếp: bắt buộc trước, rồi trọng số cao. */
-export function productCompleteness(facts: CompletenessFacts, media: CompletenessMedia[] = []): ProductCompleteness {
+export function productCompleteness(
+  facts: CompletenessFacts,
+  media: CompletenessMedia[] = [],
+  options: CompletenessOptions = {},
+): ProductCompleteness {
   const done: string[] = [];
   const missing: CompletenessItem[] = [];
   let earned = 0;
 
-  for (const item of COMPLETENESS_ITEMS) {
+  const items = options.supplierView ? COMPLETENESS_ITEMS.filter((item) => !item.auto) : COMPLETENESS_ITEMS;
+  const total = items.reduce((sum, item) => sum + item.weight, 0);
+
+  for (const item of items) {
     const ok = item.key === "photo" ? hasBuyerPhoto(media) : hasAttribute(facts, item.key);
     if (ok) {
       earned += item.weight;
@@ -171,15 +193,15 @@ export function productCompleteness(facts: CompletenessFacts, media: Completenes
   missing.sort((a, b) =>
     Number(b.required) - Number(a.required) ||
     b.weight - a.weight ||
-    COMPLETENESS_ITEMS.indexOf(a) - COMPLETENESS_ITEMS.indexOf(b));
+    items.indexOf(a) - items.indexOf(b));
 
   const missingByStep: Record<CompletenessStep, number> = { 1: 0, 2: 0, 3: 0 };
   for (const item of missing) missingByStep[item.step] += 1;
 
   return {
-    score: Math.round((earned / COMPLETENESS_TOTAL) * 100),
+    score: total > 0 ? Math.round((earned / total) * 100) : 0,
     earned,
-    total: COMPLETENESS_TOTAL,
+    total,
     missing,
     done,
     next: missing[0] ?? null,

@@ -6,7 +6,6 @@ import {
   formatQuantityBuyer,
   formatQuantityPriceBuyer,
   formatQuantityInput,
-  currencyDecimals,
   PRICE_CURRENCIES,
   normalizePriceCurrency,
   parseQuantityKg,
@@ -19,6 +18,7 @@ import {
   type QuantityPricingPolicy,
   type PriceCurrency,
 } from "@/lib/products/quantity-pricing";
+import { priceRangeText } from "@/lib/products/price-display";
 
 type Props = {
   value: QuantityPricingInput;
@@ -58,14 +58,9 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
   const high = prices.length ? Math.max(...prices) : null;
   const maxTiers = Math.min(policy.maxTiers, 4);
   const unitLabel = buyerPriceUnit === "mt" ? "MT" : "kg";
-  const currency = preview.currency;
-  const number = (n: number) => {
-    const digits = buyerPriceUnit === "mt" ? 0 : currencyDecimals(preview.currency);
-    return new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })
-      .format(buyerPriceUnit === "mt" ? n * 1000 : n);
-  };
+  const toBuyerUnit = (value: number) => (buyerPriceUnit === "mt" ? value * 1000 : value);
   const cardPrice = low !== null && high !== null
-    ? `${currency} ${number(low)}${low !== high ? `–${number(high)}` : ""}/${unitLabel}` : "Price on request";
+    ? `${priceRangeText(toBuyerUnit(low), toBuyerUnit(high), preview.currency)}/${unitLabel}` : "Price on request";
   const incoterms = [...new Set(preview.tiers.map((tier) => tier.incoterm).filter(Boolean))];
   const title = value.nameEn.trim() || value.nameVi.trim() || "Tên sản phẩm";
   return <div aria-label="Người mua sẽ thấy">

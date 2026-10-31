@@ -1,3 +1,5 @@
+import type { CertificateScheme } from "./certificate-scheme";
+
 export type Priority = "low" | "normal" | "high";
 
 export type SupplierRole = "manufacturer" | "trader" | "agent" | "exporter";
@@ -461,6 +463,15 @@ export interface Certificate {
   scope_text?: string | null;
   requested_product_ids?: string[];
   approved_product_ids?: string[];
+  /**
+   * Loại chứng nhận thật (HACCP, Halal, ISO 22000…) đọc từ tên/tổ chức cấp trên giấy,
+   * nhân viên sửa lại được. NULL = chưa phân loại; khác hẳn ô checklist L1 vốn gộp
+   * nhiều chuẩn vào một mục.
+   */
+  certificate_scheme?: CertificateScheme | null;
+  /** Bản gia hạn: giấy này thay cho giấy nào, và bị giấy nào thay thế. */
+  supersedes_certificate_id?: string | null;
+  superseded_by_certificate_id?: string | null;
   review_status?: "unreviewed" | "pending" | "changes_requested" | "approved" | "rejected";
   review_note?: string | null;
   publicly_visible?: boolean;
@@ -477,6 +488,29 @@ export interface Certificate {
   notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Phạm vi một chứng nhận: hoặc một danh mục, hoặc một sản phẩm (không bao giờ cả hai).
+ * Chỉ dòng đã có `verified_at` mới có hiệu lực với người mua.
+ */
+export interface CertificateScope {
+  id: string;
+  certificate_id: string;
+  category_id: string | null;
+  product_id: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+  created_at: string;
+}
+
+/** Nhà cung cấp bỏ tick một chứng nhận thừa hưởng từ danh mục cho một sản phẩm. */
+export interface ProductCertificateOptout {
+  id: string;
+  supplier_id: string;
+  product_id: string;
+  certificate_id: string;
+  created_at: string;
 }
 
 export type VerificationStatus = "scheduled" | "in_progress" | "submitted" | "approved" | "returned";
@@ -655,6 +689,11 @@ export interface SupplierSubmission {
   target_level: 2 | 3;
   /** Saved scope, never inferred later from the supplier’s current type. */
   l2_scope?: L2VerificationScope | null;
+  /**
+   * Tên nhà máy đối tác đúng như trên hợp đồng. Bắt buộc với L2 `partner_contract`;
+   * dùng để đối chiếu tên trên giấy chứng nhận, không phải xác nhận sở hữu nhà máy.
+   */
+  partner_factory_name?: string | null;
   status: SubmissionStatus;
   /** Người gửi (tài khoản supplier). */
   created_by: string | null;
@@ -757,6 +796,8 @@ export interface Verification {
   target_level: VerificationLevel;
   /** Scope of this individual L2 review, unchanged if the supplier type changes. */
   l2_scope?: L2VerificationScope | null;
+  /** Tên nhà máy đối tác đã đối chiếu với hợp đồng; chỉ dùng cho L2 `partner_contract`. */
+  partner_factory_name?: string | null;
   status: VerificationStatus;
   inspector_id: string | null;
   /** L1: ngày nhận đủ tài liệu; L2: ngày xác thực nhà máy */

@@ -41,13 +41,19 @@ Quy tắc:
 - Ảnh **nội bộ** hoặc **hết hạn** không tính. Catalogue không thay ảnh thật.
 - Ảnh chia sẻ cho người mua được tính kể cả khi chưa kiểm (việc kiểm là cổng riêng).
 - Mục còn thiếu sắp xếp: bắt buộc trước, rồi trọng số cao.
-- Số liệu tính từ **bản đã lưu**; đang sửa dở thì hiện "Lưu thay đổi để cập nhật số liệu."
+- Cổng sản phẩm tính trên **nội dung đang nhập** (`supplierView`): tên, quy cách, mô tả, giá,
+  MOQ, đóng gói… lấy từ form đang gõ, gõ tới đâu điểm đổi tới đó — không bắt lưu trước.
+  Giá/MOQ lấy từ bảng giá số lượng đang nhập khi sản phẩm dùng bảng giá đó. Ảnh vừa chọn từ
+  kho ảnh đã tính là ảnh chia sẻ cho người mua.
+- "Tên tiếng Anh" do Vexim đặt khi duyệt (cổng không có ô này) nên **không** tính vào thang
+  điểm của nhà cung cấp; mẫu số còn 95. CRM vẫn tính đủ 100 và vẫn thấy mục này.
+- CRM (`app/crm/products/page.tsx`) tính trên **bản đã lưu**, không đọc form.
 
 ## 3. Hiển thị ở đâu
 
 | Chỗ | Dạng |
 | --- | --- |
-| `app/supplier/portal/products/product-editor.tsx` | Khối "Độ hoàn thiện" ở cột phải: thanh tiến độ, 3 mục thiếu đầu tiên, nút "Bổ sung ở bước N" |
+| `app/supplier/portal/products/product-editor.tsx` | Khối "Độ hoàn thiện" ở cột phải: vòng điểm, 3 mục thiếu đầu tiên, nút "Bổ sung: …" cuộn tới đúng khối; số liệu theo nội dung đang nhập |
 | `app/supplier/portal/products/product-storefront.tsx` | Một dòng dưới quy cách: "Hồ sơ 70% · còn thiếu ảnh thật" |
 | `app/crm/products/page.tsx` | Chip "Hồ sơ 70%" trong thẻ sản phẩm; rê chuột thấy câu nhắc đầy đủ |
 
@@ -60,7 +66,9 @@ Quy tắc:
 - MOQ, lead time 0, tên và mô tả tiếng Anh chấp nhận dữ liệu cũ;
 - hồ sơ đủ → 100 điểm, không nhắc;
 - module thuần: không email, không CSDL, không `server-only`;
-- ba chỗ hiển thị dùng chung một nguồn.
+- ba chỗ hiển thị dùng chung một nguồn;
+- `supplierView` bỏ đúng mục nhà cung cấp không tự điền được và quy điểm về thang 95;
+- trang sửa đọc nội dung đang nhập (giá, MOQ, ảnh vừa chọn), không đọc bản đã lưu.
 
 ## 5. Phase 2 — từ khoá, giá mẫu, đóng gói có cấu trúc
 
@@ -69,14 +77,17 @@ Quy tắc:
 | Việc | Ở đâu |
 | --- | --- |
 | 6 cột mới + ràng buộc + chỉ mục GIN | `supabase/migrations/20261072_product_keywords_sample_price_packaging.sql` |
+| Hàm tạo sản phẩm nhận 6 cột Phase 2 (sửa P0001 "Invalid new product payload") | `supabase/migrations/20261077_quantity_new_product_extras_columns.sql` |
+| Giữ allow-list của hàm khớp khoá form gửi lên | `scripts/check-quantity-new-product-columns.mjs` |
 | Đọc/kiểm tra dữ liệu dùng chung | `lib/products/product-extras.ts` (thuần, có `sanitizeKeywords`, `productExtrasFromForm`, `packagingSummary`) |
 | Ghi có dự phòng | `lib/db/supabase.ts`: thiếu cột thì chỉ bỏ cột **đang rỗng** rồi thử lại; nếu người dùng đã nhập giá trị thì báo “Báo người phụ trách kỹ thuật rồi thử lại.” |
 | Form 3 bước (bước 1) | ô Từ khoá, Loại kiện, Khối lượng mỗi kiện, Kích thước kiện, Số đơn vị mỗi thùng, Giá mẫu (USD) |
 | CRM | khối “Từ khoá và đóng gói” trong trang sửa sản phẩm |
 | Kiểm tra | `npm run check:extras` (nằm trong `check:supplier-products`) |
 
-Nguyên tắc giữ nguyên: điểm chỉ để nhắc, **không chặn đăng**; số liệu tính từ bản đã lưu;
-form cũ không có ô mới thì giữ nguyên giá trị đã lưu, không xoá trắng.
+Nguyên tắc giữ nguyên: điểm chỉ để nhắc, **không chặn đăng**; CRM tính trên bản đã lưu, cổng
+sản phẩm tính trên nội dung đang nhập; form cũ không có ô mới thì giữ nguyên giá trị đã lưu,
+không xoá trắng.
 
 ### Chứng nhận theo từng sản phẩm (đã làm, không cần migration)
 
@@ -125,6 +136,20 @@ Quy tắc đã giữ:
   không đẩy nguyên văn tiếng Việt lên trang tiếng Anh.
 - Đóng gói có cấu trúc đứng trước mô tả đóng gói cũ (`packaging` / `spec`), chỉ lùi về
   mô tả cũ khi chưa khai cấu trúc.
+
+### C. Hai form sửa cùng một bộ dữ liệu
+
+CRM (`components/product-form.tsx`) và cổng nhà cung cấp (`app/supplier/portal/products/product-editor.tsx`)
+sửa **cùng** các cột Phase 2: `keywords`, `sample_price_usd`, `package_type`, `package_weight_kg`,
+`package_size`, `units_per_carton`. `createProductAction` / `updateProductAction` đọc chúng bằng đúng
+`productExtrasFromForm` mà cổng nhà cung cấp dùng: cùng cách bỏ dấu từ khoá, cùng giới hạn, và ô nào
+payload không gửi thì giữ giá trị đã lưu (không xoá trắng).
+
+Trước đây CRM chỉ có ô **Bao bì / đóng gói** (`packaging`, văn bản tự do). Vì trang người mua ưu tiên
+khối có cấu trúc, đổi bao bì sang 50kg ở CRM **không đổi gì** trên trang người mua khi sản phẩm đã khai
+`package_type`/`package_weight_kg` — đây là lỗi mapping giữa hai form, không phải lỗi lưu. Nay CRM sửa
+được đúng các ô đó và ghi chú ngay dưới ô văn bản tự do rằng người mua chỉ thấy dòng đó khi chưa khai
+cấu trúc. Kiểm: `node scripts/check-crm-product-extras.mjs` (nằm trong `npm run check:extras`).
 
 ### B. Từ khoá thật sự tìm được
 

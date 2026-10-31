@@ -160,6 +160,11 @@ await assert.rejects(localStore.createVerification({ supplier_id: 'trader', targ
 await assert.rejects(localStore.createMedia({ owner_type: 'submission', submission_id: partnerCase.id, supplier_id: 'other', audience: 'internal', kind: 'document', checklist_key: 'partner_factory_contract', storage_path: 'contract.pdf' }), /L2_PARTNER_PRIVATE_EVIDENCE/);
 const partnerMedia = await localStore.createMedia({ owner_type: 'submission', submission_id: partnerCase.id, supplier_id: 'trader', audience: 'internal', status: 'unverified', kind: 'document', checklist_key: 'partner_factory_contract', storage_path: 'contract.pdf' });
 const partnerItem = await localStore.createSubmissionItem({ submission_id: partnerCase.id, supplier_id: 'trader', checklist_key: 'partner_factory_contract', media_id: partnerMedia.id, storage_path: 'contract.pdf' });
+// Hợp đồng chưa đủ: hồ sơ đối tác phải khai tên nhà máy để đối chiếu giấy chứng nhận.
+await assert.rejects(localStore.updateEditableSubmission(partnerCase.id, { status: 'pending_review' }), /L2_PARTNER_NAME_REQUIRED/);
+assert.equal((await localStore.updateEditableSubmission(partnerCase.id, { partner_factory_name: 'Nhà máy Tây Nguyên' })).partner_factory_name,
+  'Nhà máy Tây Nguyên', 'Nhà cung cấp khai tên nhà máy khi hồ sơ còn mở');
+await assert.rejects(localStore.updateEditableSubmission(factoryCase.id, { partner_factory_name: 'Nhà máy khác' }), /L2_PARTNER_NAME_OUT_OF_SCOPE/);
 assert.equal((await localStore.updateEditableSubmission(partnerCase.id, { status: 'pending_review' })).status, 'pending_review');
 await assert.rejects(localStore.updateMedia(partnerMedia.id, { audience: 'buyer' }), /L3_SUBMISSION_LOCKED/);
 await assert.rejects(localStore.deleteMedia(partnerMedia.id), /L3_SUBMISSION_LOCKED/);
@@ -168,7 +173,11 @@ const partnerReview = await localStore.createVerification({ supplier_id: 'trader
 await assert.rejects(localStore.updateVerification(partnerReview.id, { status: 'approved' }), /L2_PARTNER_SCOPE_CONFIRM_REQUIRED/);
 const copy = await localStore.createMedia({ owner_type: 'verification', verification_id: partnerReview.id, supplier_id: 'trader', audience: 'internal', status: 'checked', kind: 'document', checklist_key: 'partner_factory_contract', storage_path: 'contract.pdf' });
 await localStore.updateVerification(partnerReview.id, { checklist: { partner_identity_confirmed: true, partner_scope_confirmed: true }, status: 'submitted' });
+// Duyệt đối tác bắt buộc có tên nhà máy đã đối chiếu với hợp đồng.
+await assert.rejects(localStore.updateVerification(partnerReview.id, { status: 'approved' }), /L2_PARTNER_NAME_REQUIRED/);
+await localStore.updateVerification(partnerReview.id, { partner_factory_name: 'Nhà máy Chế biến Nông sản Tây Nguyên' });
 await localStore.updateVerification(partnerReview.id, { status: 'approved' });
+assert.equal((await localStore.getVerification(partnerReview.id)).partner_factory_name, 'Nhà máy Chế biến Nông sản Tây Nguyên');
 await assert.rejects(localStore.updateMedia(copy.id, { audience: 'buyer' }), /L2_PARTNER_REVIEW_LOCKED/);
 await assert.rejects(localStore.updateVerification(partnerReview.id, { l2_scope: 'factory' }), /VERIFICATION_SCOPE_IMMUTABLE/);
 console.log('✅ Local L2 parity: private contract, immutable scope, locked queue and explicit approval.');

@@ -115,8 +115,9 @@ assert.ok(pagedHtml.includes('Trang 1 / 2'), 'The pager shows current and total 
 for (const label of ['Phân trang danh sách sản phẩm', 'Trang trước', 'Trang sau'])
   assert.ok(pagedHtml.includes(`aria-label="${label}"`), `Pager has accessible label: ${label}`);
 const editor = fs.readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
-assert.match(editor, /productCanSubmit\(product, media\) && !dirty/, 'Nút gửi vẫn phụ thuộc dữ liệu đã lưu');
-assert.match(editor, /productCanSubmit\(product, media\)/);
+assert.match(editor, /const id = product && !dirty \? product\.id : await persist\(\);/,
+  'Nút gửi tự lưu trước rồi gửi, không bắt người bán bấm Lưu');
+assert.match(editor, /submitSupplierProductAction\(form\)/, 'Cổng gửi duyệt vẫn ở server');
 assert.doesNotMatch(editor, /aria-label="Trạng thái công khai"/, 'The separate buyer-visibility panel is removed from the editor');
 assert.doesNotMatch(editor, /tạm khoá sửa/, 'The review step no longer warns about a lock the supplier cannot see');
 assert.match(editor, /label="Thời gian giao hàng"\s*\n\s*hint="Số ngày hoặc tuần từ lúc xác nhận đơn/,

@@ -8,10 +8,11 @@ import { validateUpload, extensionFor } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import {
   defaultCertificateLabelForKey,
-  holderMatchBadgeLabel,
   ingestCertificateScan,
   isL1CertificateKey,
 } from "@/lib/certificate-service";
+import { approvedL2Scope } from "@/lib/verification-status";
+import { refreshCrmBadges } from "@/lib/crm/badges";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,12 +24,13 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * NCC tải giấy chứng nhận trong luồng L1: chỉ cần tệp PDF/ảnh (+ nhãn hoặc mã chứng nhận cần cập nhật lại).
- * AI tự quét đơn vị đứng tên (chính chủ hay đối tác) và ngày hết hạn để hiển thị lên trang công khai.
+ * Hệ thống đọc đơn vị đứng tên (chính chủ hay đối tác) và ngày hết hạn; nhân viên vẫn là
+ * người duyệt và chọn phạm vi trước khi giấy hiện với người mua.
  */
 export async function POST(request: Request) {
   const access = await supplierPortalAccess();
   if (!access || !portalApproved(access.supplier)) {
-    return fail("Tài khoản nhà cung cấp chưa được Vexim xác nhận.", 403);
+    return fail("Tài khoản nhà cung cấp chưa được xác nhận.", 403);
   }
   if (Number(request.headers.get("content-length") ?? 0) > 16 * 1024 * 1024) {
     return fail("Tệp vượt quá 15 MB.", 413);
@@ -40,26 +42,48 @@ export async function POST(request: Request) {
     return fail("Không đọc được biểu mẫu.");
   }
 
+  // Đơn vị thương mại chưa xác thực L2 nhà máy đối tác thì chưa có căn cứ đối chiếu giấy
+  // chứng nhận, nên chưa nhận tệp. Việc đăng sản phẩm không phụ thuộc chứng nhận.
+  if (access.supplier.supplier_type === "trading") {
+    const scope = approvedL2Scope(access.reviews);
+    if (scope !== "partner_contract" && scope !== "both") {
+      return fail(
+        "Đơn vị thương mại cần xác thực nhà máy đối tác trước khi tải chứng nhận. Sản phẩm vẫn đăng bán bình thường.",
+        403,
+      );
+    }
+  }
+
   const file = form.get("file");
   if (!(file instanceof File) || !file.size || file.size > 15 * 1024 * 1024) {
     return fail("Chọn PDF/ảnh chứng nhận, tối đa 15 MB.");
   }
 
+  // NCC chỉ tải tệp lên kho chung, không chọn ngăn: loại giấy do nhân viên phân loại.
+  // Mã checklist chỉ còn nhận từ luồng nội bộ (L1 staff) để giữ tương thích.
   const checklistKeyRaw = text(form, "checklist_key", 60) || text(form, "checklistKey", 60);
   const checklistKey = isL1CertificateKey(checklistKeyRaw) ? checklistKeyRaw : null;
   const label =
     text(form, "label", 140) ||
     text(form, "name", 140) ||
     (checklistKey ? defaultCertificateLabelForKey(checklistKey) : "Giấy chứng nhận");
+  /*
+   * `certificate_id` = tải bản mới cho giấy đã có (gia hạn). Bản mới là một bản ghi
+   * riêng chờ duyệt; bản cũ vẫn hiệu lực và vẫn giữ phạm vi cho tới khi bản mới được
+   * duyệt, nên sản phẩm không bị mất nhãn trong lúc chờ.
+   */
   const certificateIdRaw = text(form, "certificate_id", 40);
-  const existingCertificateId =
-    certificateIdRaw && uuid.test(certificateIdRaw) ? certificateIdRaw : null;
+  const renewalOfId = certificateIdRaw && uuid.test(certificateIdRaw) ? certificateIdRaw : null;
 
   const existingList = await access.store.listCertificates(access.supplier.id);
-  if (existingCertificateId && !existingList.some((c) => c.id === existingCertificateId)) {
+  const renewalSource = renewalOfId ? existingList.find((c) => c.id === renewalOfId) : null;
+  if (renewalOfId && !renewalSource) {
     return fail("Không tìm thấy chứng nhận cần cập nhật của doanh nghiệp bạn.", 404);
   }
-  if (!existingCertificateId && existingList.length >= 50) {
+  if (renewalSource?.superseded_by_certificate_id) {
+    return fail("Giấy này đã có bản mới hơn. Tải cho giấy mới nhất trong danh sách.", 409);
+  }
+  if (!renewalOfId && existingList.length >= 50) {
     return fail("Đã tới giới hạn 50 hồ sơ chứng nhận; hãy bấm cập nhật vào chứng nhận hiện có.", 409);
   }
 
@@ -101,7 +125,7 @@ export async function POST(request: Request) {
     });
     mediaId = media.id;
 
-    const { certificate, decision } = await ingestCertificateScan({
+    const { certificate } = await ingestCertificateScan({
       supplier: currentSupplier,
       mediaId: media.id,
       bytes,
@@ -109,7 +133,8 @@ export async function POST(request: Request) {
       declaredLabel: label,
       checklistKey,
       verificationId: access.review?.target_level === 1 ? access.review.id : null,
-      existingCertificateId,
+      existingCertificateId: null,
+      renewalOfId,
       source: "l1-supplier",
       actor: { id: access.user.id, email: access.user.email },
     });
@@ -120,11 +145,13 @@ export async function POST(request: Request) {
     if (currentSupplier.slug) {
       revalidatePath(`/suppliers/${currentSupplier.slug}`);
     }
+    revalidatePath("/crm/certificates");
+    // Giấy vừa tải vào hàng chờ duyệt: huy hiệu sidebar của CRM phải tăng ngay.
+    refreshCrmBadges();
 
-    const holderBadge = holderMatchBadgeLabel(certificate.holder_match, certificate.holder_name);
-    const message = decision.autoPublish
-      ? `AI đã quét “${certificate.name}”: ${holderBadge} · hết hạn ${certificate.valid_until}. Đã tự động hiển thị trên hồ sơ.`
-      : `Đã lưu “${certificate.name}”. ${decision.review_note}`;
+    /* Cùng một câu cho mọi trường hợp: giấy vào hồ sơ, còn lên sản phẩm hay không là do
+     * nhân viên chọn phạm vi — không hứa "đã hiển thị" khi sản phẩm chưa có phạm vi. */
+    const message = `Đã nhận “${certificate.name}”. Nhân viên đối chiếu và chọn phạm vi áp dụng trước khi giấy lên sản phẩm.`;
 
     return NextResponse.json({
       ok: true,

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_QUANTITY_PRICING_POLICY as defaults, validateQuantityPricing, nameContainsGrade,
   quantityTierRanges, formatQuantityBuyer, formatQuantityPriceBuyer, referencePriceAge, formatQuantityInput, normalizePriceInput,
-  entryCurrencyIssue, ENTRY_PRICE_CURRENCIES, previewQuantityTiers,
+  entryCurrencyIssue, ENTRY_PRICE_CURRENCIES, previewQuantityTiers, draftPublicQuantityOffer,
 } from '../lib/products/quantity-pricing.ts';
 
 const grades = ['W180', 'W240', 'W320', 'WS', '550 g/L'];
@@ -33,8 +33,8 @@ assert.deepEqual(quantityTierRanges(result.value.tiers).map((row) => row.maxKg),
 assert.equal(formatQuantityBuyer(999), '999 kg');
 assert.equal(formatQuantityBuyer(1000), '1 MT');
 assert.equal(formatQuantityBuyer(1500), '1.5 MT');
-assert.equal(formatQuantityPriceBuyer(6.4, 'kg'), 'USD 6.40/kg');
-assert.equal(formatQuantityPriceBuyer(6.4, 'mt'), 'USD 6,400/MT');
+assert.equal(formatQuantityPriceBuyer(6.4, 'kg'), '$6.4/kg');
+assert.equal(formatQuantityPriceBuyer(6.4, 'mt'), '$6,400/MT');
 assert.ok(codes(validate({ grade: 'custom' })).includes('grade'));
 assert.ok(codes(validate({ incoterm: '' })).includes('incoterm'));
 assert.ok(codes(validate({ nameVi: 'Nhân điều W320' })).includes('name_vi_grade'));
@@ -76,10 +76,10 @@ assert.deepEqual(vnd.warnings, [], 'Ngưỡng tham khảo USD/kg không áp cho 
 assert.equal(vnd.value.currency, 'VND');
 assert.equal(vnd.value.tiers[0].currency, 'VND');
 // VND/JPY không dùng phần lẻ khi hiển thị.
-assert.equal(formatQuantityPriceBuyer(62000, 'kg', 'VND'), 'VND 62,000/kg');
-assert.equal(formatQuantityPriceBuyer(1250, 'kg', 'JPY'), 'JPY 1,250/kg');
-assert.equal(formatQuantityPriceBuyer(6.4, 'kg', 'CNY'), 'CNY 6.40/kg');
-assert.equal(formatQuantityPriceBuyer(1.5, 'mt', 'EUR'), 'EUR 1,500/MT');
+assert.equal(formatQuantityPriceBuyer(62000, 'kg', 'VND'), '₫62,000/kg');
+assert.equal(formatQuantityPriceBuyer(1250, 'kg', 'JPY'), 'JP¥1,250/kg');
+assert.equal(formatQuantityPriceBuyer(6.4, 'kg', 'CNY'), 'CN¥6.4/kg');
+assert.equal(formatQuantityPriceBuyer(1.5, 'mt', 'EUR'), '€1,500/MT');
 assert.equal(validateQuantityPricing({ ...input, grade: '' }, grades).errors.find((issue) => issue.code === 'grade').message,
   'Chọn grade chuẩn của danh mục để tiếp tục.', 'Lỗi grade nói rõ việc cần làm');
 assert.match(validateQuantityPricing({ ...input, grade: '' }, []).errors.find((issue) => issue.code === 'grade').message,
@@ -99,6 +99,29 @@ assert.equal(drafting.tiers[0].priceUsdPerKg, 2);
 assert.equal(drafting.grade, '', 'Chưa chọn grade không chặn xem trước');
 assert.equal(drafting.currency, 'USD');
 assert.equal(previewQuantityTiers({ grade: '', incoterm: '', currency: 'VND', tiers: [{ minKg: '1000', priceUsdPerKg: '62000' }] }).currency, 'VND', 'Bảng cũ VND vẫn xem trước được');
+/* Bản xem trước của nhà cung cấp phải định dạng y như bản đã duyệt mà người mua thấy. */
+const draftOffer = draftPublicQuantityOffer({ grade: 'w320', incoterm: 'fob', currency: 'USD', tiers: [
+  { minKg: '1000', priceUsdPerKg: '6.40' }, { minKg: '5000', priceUsdPerKg: '6.00' },
+] }, { priceUnit: 'kg', pricePubliclyVisible: true, standardGrades: grades, englishName: 'Cashew kernels W320' });
+assert.equal(draftOffer.grade, 'W320', 'Grade gõ tay được chuẩn hoá theo danh mục');
+assert.equal(draftOffer.title, 'Cashew kernels W320');
+assert.equal(draftOffer.price, '$6–6.4/kg', 'Cùng cách ghi khoảng giá với trang người mua');
+assert.equal(draftOffer.moq, '1 MT', 'MOQ đổi sang MT như bản đã duyệt');
+assert.deepEqual(draftOffer.tiers.map((tier) => `${tier.from}|${tier.to ?? '+'}|${tier.price}`),
+  ['1 MT|4.999 MT|$6.4/kg', '5 MT|+|$6/kg'], 'Các mức giá và cột đến giống bản thật');
+assert.equal(draftOffer.hasVolumePricing, true);
+assert.equal(draftOffer.confirmedAt, null, 'Bản nháp không có ngày xác nhận');
+assert.equal(draftOffer.priceRankingEligible, false, 'Bản nháp không đủ tư cách xếp hạng giá');
+assert.deepEqual(
+  draftPublicQuantityOffer({ grade: 'W320', incoterm: 'FOB', currency: 'USD', tiers: [{ minKg: '1000', priceUsdPerKg: '6.4' }] },
+    { priceUnit: 'kg', pricePubliclyVisible: false }).tiers, [], 'Tắt chia sẻ giá thì không có bảng giá');
+assert.equal(draftPublicQuantityOffer({ grade: '', incoterm: 'FOB', currency: 'USD', tiers: [{ minKg: '1000', priceUsdPerKg: '6.4' }] },
+  { priceUnit: 'kg', pricePubliclyVisible: true }), null, 'Chưa chọn grade thì người mua chưa thấy bảng giá');
+assert.equal(draftPublicQuantityOffer({ grade: 'W320', incoterm: 'FOB', currency: 'USD', tiers: [] },
+  { priceUnit: 'kg', pricePubliclyVisible: true }), null, 'Chưa có dòng giá thì chưa có bảng giá');
+assert.equal(draftPublicQuantityOffer({ grade: 'W320', incoterm: 'FOB', currency: 'VND', tiers: [{ minKg: '1000', priceUsdPerKg: '165000' }] },
+  { priceUnit: 'mt', pricePubliclyVisible: true }).price, '₫165,000,000/MT', 'Đơn vị MT nhân 1.000 kg và bỏ phần lẻ như trang người mua');
+
 const now = Date.parse('2026-10-29T00:00:00Z');
 const day = 86400000;
 assert.deepEqual(referencePriceAge(new Date(now - 90 * day).toISOString(), now), { days: 90, stale: false });

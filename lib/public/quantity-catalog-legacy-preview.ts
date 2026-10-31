@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getSupabaseClient } from "@/lib/db/supabase";
 import { readApprovedQuantityRevisions } from "@/lib/products/approved-quantity-revisions";
 import { readQuantityPriceSettings } from "@/lib/products/quantity-price-config";
 import { projectApprovedQuantityOffer } from "@/lib/products/quantity-public-projection";
@@ -8,10 +9,10 @@ import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import type { PublicProductRecord } from "@/lib/public/product-catalog";
 
 /**
- * Staging-only cutover experiment. Call only after public product, supplier and
- * media eligibility checks. A failed read for eligible records must never fall
- * back to legacy prices. Unmapped multi-grade records deliberately remain on
- * the legacy projection. Supplier storefronts and the main editor are not cut over.
+ * Buyer projection of approved quantity prices. Call only after public product,
+ * supplier and media eligibility checks. A failed read for eligible records must
+ * never fall back to legacy prices. Unmapped multi-grade records deliberately
+ * remain on the legacy projection. Supplier storefronts keep their own projection.
  */
 function hasUnmappedLegacyGrades(record: PublicProductRecord): boolean {
   const rows = record.product.specs?.grade_rows;
@@ -22,6 +23,9 @@ function hasUnmappedLegacyGrades(record: PublicProductRecord): boolean {
 }
 
 export async function projectQuantityCatalogPreview(records: PublicProductRecord[]): Promise<PublicProductRecord[]> {
+  // Quantity revisions live in Supabase. A local development store has none, and no
+  // public page may fail just because the pricing tables were never installed.
+  if (!getSupabaseClient()) return records;
   const eligible = records.filter((record) => !record.supplier.is_demo && !hasUnmappedLegacyGrades(record));
   if (!eligible.length) return records;
   const [revisions, settings] = await Promise.all([
@@ -42,8 +46,12 @@ export async function projectQuantityCatalogPreview(records: PublicProductRecord
       pricePubliclyVisible: product.price_publicly_visible === true && supplierPriceConsentCurrent(supplier, now),
       priceUnit: unit, now, staleAfterDays: settings.stale_days,
     });
-    // Never surface an older legacy price if an approved new revision is corrupt.
-    if (!offer) throw new Error(`Invalid approved quantity price for product ${product.id}`);
+    // One unusable approved revision must not take the public catalogue down: keep
+    // that product on its previous card and leave the row for staff to fix.
+    if (!offer) {
+      console.error(`[quantity-projection] approved price unusable for product ${product.id}`);
+      return record;
+    }
     const attributes = { ...card.attributes };
     // Old multi-grade attributes must not make this single-grade offer match a different grade.
     if (offer.customGrade) {

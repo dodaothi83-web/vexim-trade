@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Boxes,
+  FileCheck2,
   Globe2,
   BarChart3,
   LayoutDashboard,
@@ -44,6 +45,7 @@ const NAV: {
   { href: "/crm/rfqs", label: "RFQ từ người mua", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/verifications", label: "Xác minh nhà cung cấp", icon: ShieldCheck, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/verifications/submissions", label: "Hồ sơ nhà cung cấp tự gửi", icon: UploadCloud, perm: "verifications.view", group: "marketplace" },
+  { href: "/crm/certificates", label: "Giấy tờ & chứng nhận", icon: FileCheck2, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/categories", label: "Danh mục sản phẩm", icon: FolderTree, perm: "categories.view", group: "marketplace" },
   { href: "/crm/sponsored", label: "Đẩy sản phẩm", icon: Megaphone, perm: "sponsored.view", group: "marketplace" },
   { href: "/crm/traffic", label: "Lưu lượng truy cập", icon: ChartNoAxesColumn, perm: "traffic.view", group: "marketplace" },
@@ -72,6 +74,7 @@ export function Sidebar({
   pendingProducts = 0,
   pendingReviews = 0,
   pendingSubmissions = 0,
+  pendingCertificates = 0,
   pendingSponsoredRequests = 0,
 }: {
   dataMode: "supabase" | "local";
@@ -89,6 +92,8 @@ export function Sidebar({
   pendingReviews?: number;
   /** Hồ sơ nhà cung cấp tự gửi đang chờ đối chiếu — badge ở menu Hồ sơ nhà cung cấp tự gửi */
   pendingSubmissions?: number;
+  /** Giấy chứng nhận NCC đã tải, chờ duyệt — badge ở menu Giấy tờ & chứng nhận */
+  pendingCertificates?: number;
   /** Yêu cầu đẩy sản phẩm mới chờ liên hệ; null nếu chưa đếm được. */
   pendingSponsoredRequests?: number | null;
   session: { name: string; email: string; role: UserRole };
@@ -133,6 +138,7 @@ export function Sidebar({
                     : item.href === "/crm/products" ? (pendingProducts > 0 ? { text: `${pendingProducts} chờ`, title: "Sản phẩm chờ duyệt" } : null)
                     : item.href === "/crm/verifications" ? (pendingReviews > 0 ? { text: `${pendingReviews} chờ`, title: "Đợt kiểm chờ duyệt" } : null)
                     : item.href === "/crm/verifications/submissions" ? (pendingSubmissions > 0 ? { text: `${pendingSubmissions} chờ`, title: "Hồ sơ nhà cung cấp tự gửi chờ đối chiếu" } : null)
+                    : item.href === "/crm/certificates" ? (pendingCertificates > 0 ? { text: `${pendingCertificates} chờ`, title: "Giấy chứng nhận chờ duyệt" } : null)
                     : item.href === "/crm/sponsored" ? (pendingSponsoredRequests === null ? { text: "!", title: "Chưa tải được yêu cầu đẩy sản phẩm" } : pendingSponsoredRequests > 0 ? { text: `${pendingSponsoredRequests} mới`, title: "Yêu cầu đẩy sản phẩm mới" } : null)
                     : null;
                   return (

@@ -119,7 +119,7 @@ export async function POST(request: Request) {
   try {
     // Saving evidence does not approve the document check or publish the supplier.
     const review = await saveInitialEvidence({ store, supplierId: supplier.id, userId: user.id,
-      tax: parsed.patch.tax_id!, bank: parsed.bank, documents, requested: parsed.requested });
+      userEmail: user.email, tax: parsed.patch.tax_id!, bank: parsed.bank, documents, requested: parsed.requested });
     // The last write opens the staff queue, not the portal, RFQ inbox or public catalogue.
     supplier = await store.updateSupplier(supplier.id, { ...parsed.patch, ...proposals, categories_reviewed_at: null,
       onboarding_status: "pending", onboarding_note: null });

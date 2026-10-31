@@ -7,6 +7,10 @@ import { ProductCompareCheckbox } from "@/components/product-compare-checkbox";
 import { VerificationPips } from "@/components/verification-tier";
 import type { ProductComparisonSelection } from "@/lib/public/product-comparison";
 import type { VerificationLevel } from "@/lib/types";
+import { priceAmountText, priceCurrencySymbol } from "@/lib/products/price-display";
+
+/** Giá gốc của sản phẩm và bảng grade cũ được lưu bằng USD. */
+const CARD_CURRENCY = "USD";
 
 export interface PublicProductCardGradeRow {
   grade: string;
@@ -61,16 +65,9 @@ function extractUnitSuffix(priceText?: string | null, fallbackPrice?: string | n
   return "";
 }
 
-function formatCardNumber(value: number, unitSuffix: string): string {
-  if (unitSuffix.toUpperCase() === "/MT") {
-    return Math.round(value).toLocaleString("en-US", { maximumFractionDigits: 0 });
-  }
-  if (Number.isInteger(value)) {
-    return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
-  }
-  return value
-    .toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    .replace(/\.00$/, "");
+/** Số gọn cho thẻ: số không có phần lẻ để dòng giá không bị xuống hàng. */
+function formatCardNumber(value: number): string {
+  return priceAmountText(value);
 }
 
 function resolveCardOfferDisplay({
@@ -150,9 +147,10 @@ function resolveCardOfferDisplay({
 
     if (targetRows.length === 1) {
       const row = pricedRows[0];
-      const low = formatCardNumber(row.priceMin!, unitSuffix);
-      const high = formatCardNumber(row.priceMax!, unitSuffix);
-      const amount = low === high ? `USD ${low}${unitSuffix}` : `USD ${low}–${high}${unitSuffix}`;
+      const low = formatCardNumber(row.priceMin!);
+      const high = formatCardNumber(row.priceMax!);
+      const money = priceCurrencySymbol(CARD_CURRENCY);
+      const amount = low === high ? `${money}${low}${unitSuffix}` : `${money}${low}–${high}${unitSuffix}`;
       return {
         pricePrimary: amount,
         incotermText: term,
@@ -164,8 +162,8 @@ function resolveCardOfferDisplay({
     }
 
     const minVal = Math.min(...pricedRows.map((row) => row.priceMin!));
-    const low = formatCardNumber(minVal, unitSuffix);
-    const pricePrimary = `From USD ${low}${unitSuffix}`;
+    const low = formatCardNumber(minVal);
+    const pricePrimary = `From ${priceCurrencySymbol(CARD_CURRENCY)}${low}${unitSuffix}`;
     const gradeCountLabel = `${targetRows.length} grades`;
     const summaryParts = [pricePrimary, term, gradeCountLabel].filter(Boolean);
     return {

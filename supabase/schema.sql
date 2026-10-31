@@ -2135,3 +2135,183 @@ alter table public.categories add constraint categories_filters_is_array
 
 commit;
 notify pgrst, 'reload schema';
+
+-- ---------------------------------------------------------------------------
+-- 4c. L2 THƯƠNG MẠI: TÊN NHÀ MÁY ĐỐI TÁC
+--     (Bản đầy đủ: migrations/20261074_l2_partner_factory_name.sql)
+--     Hồ sơ L2 đối tác phải ghi tên nhà máy trên hợp đồng; giấy chứng nhận chỉ
+--     được công bố khi tên trên giấy trùng tên này. Không backfill dữ liệu cũ.
+-- ---------------------------------------------------------------------------
+begin;
+
+alter table public.supplier_submissions add column if not exists partner_factory_name text;
+alter table public.verifications add column if not exists partner_factory_name text;
+
+-- Chỉ L2 partner_contract mới có tên nhà máy đối tác; tên phải là chuỗi thật, không
+-- phải khoảng trắng. NOT VALID: không quét lại dữ liệu cũ, vẫn chặn mọi ghi mới.
+alter table public.supplier_submissions drop constraint if exists supplier_submissions_partner_name_ck;
+alter table public.supplier_submissions add constraint supplier_submissions_partner_name_ck check (
+  partner_factory_name is null or (
+    coalesce(l2_scope, '') = 'partner_contract' and char_length(btrim(partner_factory_name)) between 2 and 200
+  )
+) not valid;
+alter table public.verifications drop constraint if exists verifications_partner_name_ck;
+alter table public.verifications add constraint verifications_partner_name_ck check (
+  partner_factory_name is null or (
+    coalesce(l2_scope, '') = 'partner_contract' and char_length(btrim(partner_factory_name)) between 2 and 200
+  )
+) not valid;
+
+-- Nhà cung cấp chỉ sửa tên khi hồ sơ còn mở; đã nộp thì giữ nguyên để đối chiếu.
+create or replace function public.guard_partner_factory_name_edit()
+returns trigger language plpgsql set search_path = public, pg_temp as $$
+begin
+  if new.partner_factory_name is not distinct from old.partner_factory_name then return new; end if;
+  if tg_table_name = 'verifications' then
+    -- Kết quả đã duyệt là mốc đối chiếu của giấy chứng nhận; không đổi tên sau đó.
+    if old.status = 'approved' then
+      raise exception using errcode = 'P0001', message = 'L2_PARTNER_NAME_LOCKED';
+    end if;
+  elsif old.status not in ('draft', 'returned') then
+    raise exception using errcode = 'P0001', message = 'L2_PARTNER_NAME_LOCKED';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.guard_partner_factory_name_edit() from public;
+drop trigger if exists guard_submission_partner_name_edit on public.supplier_submissions;
+create trigger guard_submission_partner_name_edit before update of partner_factory_name on public.supplier_submissions
+  for each row execute function public.guard_partner_factory_name_edit();
+drop trigger if exists guard_review_partner_name_edit on public.verifications;
+create trigger guard_review_partner_name_edit before update of partner_factory_name on public.verifications
+  for each row execute function public.guard_partner_factory_name_edit();
+
+-- Duyệt L2 đối tác bắt buộc có tên nhà máy đối tác, cùng lúc với hợp đồng đã được
+-- nhân viên đánh dấu đã kiểm và hai ô xác nhận phạm vi.
+create or replace function public.guard_partner_review_approval()
+returns trigger language plpgsql set search_path = public, pg_temp as $$
+declare current_type text;
+begin
+  if new.target_level = 2 and new.status = 'approved' and old.status <> 'approved' then
+    select supplier_type into current_type from public.suppliers where id = new.supplier_id for share;
+    if (new.l2_scope = 'partner_contract' and current_type is distinct from 'trading') or
+       (coalesce(new.l2_scope, 'factory') = 'factory' and (current_type is null or current_type not in ('manufacturer', 'cooperative'))) then
+      raise exception using errcode = 'P0001', message = 'L2_SCOPE_TYPE_MISMATCH';
+    end if;
+  end if;
+  if new.target_level = 2 and new.l2_scope = 'partner_contract' and new.status = 'approved' and old.status <> 'approved' then
+    if not exists (
+      select 1 from public.media_assets m where m.verification_id = new.id and m.owner_type = 'verification'
+        and m.supplier_id = new.supplier_id and m.checklist_key = 'partner_factory_contract'
+        and m.kind in ('image', 'document') and m.audience = 'internal' and m.status = 'checked'
+        and nullif(btrim(m.storage_path), '') is not null
+    ) then
+      raise exception using errcode = 'P0001', message = 'L2_PARTNER_CONTRACT_CHECK_REQUIRED';
+    end if;
+    if new.checklist->>'partner_identity_confirmed' is distinct from 'true' or
+       new.checklist->>'partner_scope_confirmed' is distinct from 'true' then
+      raise exception using errcode = 'P0001', message = 'L2_PARTNER_SCOPE_CONFIRM_REQUIRED';
+    end if;
+    if nullif(btrim(coalesce(new.partner_factory_name, '')), '') is null then
+      raise exception using errcode = 'P0001', message = 'L2_PARTNER_NAME_REQUIRED';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.guard_partner_review_approval() from public;
+drop trigger if exists guard_partner_review_approval on public.verifications;
+create trigger guard_partner_review_approval before update of status on public.verifications
+  for each row execute function public.guard_partner_review_approval();
+
+commit;
+notify pgrst, 'reload schema';
+
+-- ---------------------------------------------------------------------------
+-- 5b. LOẠI CHỨNG NHẬN CHO BỘ LỌC NGƯỜI MUA
+--     (Bản đầy đủ: migrations/20261075_certificate_scheme.sql)
+--     Tách khỏi ô checklist L1 vốn gộp HACCP/ISO/FSSC/BRC/Halal. NULL = chưa phân loại.
+-- ---------------------------------------------------------------------------
+begin;
+
+alter table public.certificates add column if not exists certificate_scheme text;
+
+alter table public.certificates drop constraint if exists certificates_scheme_ck;
+alter table public.certificates add constraint certificates_scheme_ck check (
+  certificate_scheme is null or certificate_scheme in (
+    'business_license', 'food_safety', 'export_license',
+    'origin', 'phytosanitary', 'inspection_report',
+    'haccp', 'iso_22000', 'fssc_22000', 'brc', 'ifs', 'iso_9001', 'gmp',
+    'globalgap', 'halal', 'kosher',
+    'organic_usda', 'organic_eu', 'organic_other',
+    'rainforest', 'fda',
+    'other'
+  )
+) not valid;
+
+create index if not exists certificates_scheme_idx
+  on public.certificates (certificate_scheme)
+  where certificate_scheme is not null;
+
+commit;
+notify pgrst, 'reload schema';
+
+-- ---------------------------------------------------------------------------
+-- 5c. PHẠM VI CHỨNG NHẬN + BẢN GIA HẠN + OPT-OUT CỦA NHÀ CUNG CẤP
+--     (Bản đầy đủ: migrations/20261076_certificate_scope_flow.sql)
+--     Mỗi dòng phạm vi là HOẶC một danh mục HOẶC một sản phẩm. Sản phẩm thuộc danh
+--     mục có phạm vi thì tự nhận giấy; NCC bỏ tick cho một sản phẩm thì ghi opt-out.
+--     Bản gia hạn: bản cũ giữ hiệu lực tới khi bản mới được duyệt.
+-- ---------------------------------------------------------------------------
+begin;
+
+alter table public.certificates
+  add column if not exists supersedes_certificate_id uuid references public.certificates(id) on delete set null,
+  add column if not exists superseded_by_certificate_id uuid references public.certificates(id) on delete set null;
+
+create index if not exists certificates_supersedes_idx
+  on public.certificates (supersedes_certificate_id)
+  where supersedes_certificate_id is not null;
+create index if not exists certificates_superseded_by_idx
+  on public.certificates (superseded_by_certificate_id)
+  where superseded_by_certificate_id is not null;
+
+create table if not exists public.certificate_scopes (
+  id             uuid primary key default gen_random_uuid(),
+  certificate_id uuid not null references public.certificates(id) on delete cascade,
+  category_id    uuid references public.categories(id) on delete cascade,
+  product_id     uuid references public.supplier_products(id) on delete cascade,
+  verified_by    text,
+  verified_at    timestamptz,
+  created_at     timestamptz not null default now(),
+  constraint certificate_scopes_one_target check ((category_id is null) <> (product_id is null))
+);
+create index if not exists certificate_scopes_certificate_idx
+  on public.certificate_scopes (certificate_id);
+create index if not exists certificate_scopes_category_idx
+  on public.certificate_scopes (category_id) where category_id is not null;
+create index if not exists certificate_scopes_product_idx
+  on public.certificate_scopes (product_id) where product_id is not null;
+create unique index if not exists certificate_scopes_certificate_category_key
+  on public.certificate_scopes (certificate_id, category_id) where category_id is not null;
+create unique index if not exists certificate_scopes_certificate_product_key
+  on public.certificate_scopes (certificate_id, product_id) where product_id is not null;
+alter table public.certificate_scopes enable row level security;
+revoke all on public.certificate_scopes from anon, authenticated;
+
+create table if not exists public.product_certificate_optouts (
+  id             uuid primary key default gen_random_uuid(),
+  supplier_id    uuid not null references public.suppliers(id) on delete cascade,
+  product_id     uuid not null references public.supplier_products(id) on delete cascade,
+  certificate_id uuid not null references public.certificates(id) on delete cascade,
+  created_at     timestamptz not null default now()
+);
+create unique index if not exists product_certificate_optouts_key
+  on public.product_certificate_optouts (product_id, certificate_id);
+create index if not exists product_certificate_optouts_supplier_idx
+  on public.product_certificate_optouts (supplier_id);
+alter table public.product_certificate_optouts enable row level security;
+revoke all on public.product_certificate_optouts from anon, authenticated;
+
+commit;
+notify pgrst, 'reload schema';

@@ -185,16 +185,30 @@ try {
   assert.deepEqual(submitGrant, { auth: false, service: true });
   const publicationGuard = readFileSync(new URL('../supabase/migrations/20261060_quantity_product_publication_guard.sql', import.meta.url), 'utf8');
   await db.exec(publicationGuard); await db.exec(publicationGuard);
-  const approveProduct = async (stamp, category = 'cashew', enabled = true) => (await db.query(`select public.decide_supplier_product_with_quantity_guard($1::uuid,$2::uuid,$3::timestamptz,'pending',false,'approved',$4,null,$5::boolean) as result`, [created.id, supplier, stamp, category, enabled])).rows[0].result;
+  const firstPriceMigration = readFileSync(new URL('../supabase/migrations/20261078_quantity_first_price_with_product.sql', import.meta.url), 'utf8');
+  await db.exec(firstPriceMigration); await db.exec(firstPriceMigration);
+  const matches = async (stored, current) => (await db.query(`select public.quantity_product_review_context_matches($1::jsonb,$2::jsonb) as same`, [stored, current])).rows[0].same;
+  assert.equal(await matches('{"a":1}', '{"a":1,"b":null}'), true, 'A column added after the snapshot does not invalidate the price');
+  assert.equal(await matches('{"a":1}', '{"a":2}'), false);
+  assert.equal(await matches('{"a":1}', '{"a":null}'), false, 'Clearing a real value still invalidates the price');
+  assert.equal(await matches(null, '{"a":1}'), false, 'A revision without a context stays strict');
+  const approveProduct = async (stamp, category = 'cashew', buyerFlag = null) => (await db.query(`select public.decide_supplier_product_with_quantity_guard($1::uuid,$2::uuid,$3::timestamptz,'pending',false,'approved',$4,null,$5::boolean,$6::uuid) as result`, [created.id, supplier, stamp, category, buyerFlag, actor])).rows[0].result;
   const submittedStamp = (await db.query('select updated_at from public.supplier_products where id=$1', [created.id])).rows[0].updated_at.toISOString();
-  assert.equal((await approveProduct(submittedStamp, 'cashew', false)).status, 'buyer_not_enabled', 'Do not publish new products before buyer cutover');
-  assert.equal((await approveProduct(submittedStamp)).status, 'price_not_approved', 'New products cannot publish before price review');
-  assert.equal((await approveProduct(submittedStamp, 'rice')).status, 'category_changed', 'A reviewer cannot silently change the category of an approved price');
-  assert.equal((await db.query(`select public.decide_quantity_price_revision($1::uuid,$2::uuid,$3::uuid,true,$4::timestamptz) as result`, [created.id, reprice.revision_id, actor, submittedStamp])).rows[0].result, 'approved');
+  const pendingPriceRow = (await db.query(`select id from public.product_quantity_price_revisions where product_id=$1 and status='pending'`, [created.id])).rows[0];
+  assert.equal((await approveProduct(submittedStamp, 'rice')).status, 'category_changed', 'A reviewer cannot silently change the category of the price');
   assert.equal((await approveProduct(changedStamp)).status, 'changed', 'Stale publication decisions cannot race product updates');
-  assert.equal((await approveProduct(submittedStamp)).status, 'saved');
-  const publicationGrant = (await db.query(`select has_function_privilege('anon','public.decide_supplier_product_with_quantity_guard(uuid,uuid,timestamptz,text,boolean,text,text,text,boolean)','execute') as anon, has_function_privilege('service_role','public.decide_supplier_product_with_quantity_guard(uuid,uuid,timestamptz,text,boolean,text,text,text,boolean)','execute') as service`)).rows[0];
+  await db.exec(`update public.product_quantity_price_revisions set status='superseded' where id='${pendingPriceRow.id}'`);
+  assert.equal((await approveProduct(submittedStamp)).status, 'price_not_approved', 'Without any price there is nothing to approve together');
+  await db.exec(`update public.product_quantity_price_revisions set status='pending' where id='${pendingPriceRow.id}'`);
+  // The old buyer-cutover flag is ignored: publishing is not a deployment decision.
+  assert.equal((await approveProduct(submittedStamp, 'cashew', false)).status, 'saved', 'First upload publishes without a separate price step');
+  const firstApproved = (await db.query(`select id,status,reviewed_by,confirmed_at from public.product_quantity_price_revisions where product_id=$1 and status='approved'`, [created.id])).rows[0];
+  assert.equal(firstApproved.id, pendingPriceRow.id, 'The table uploaded with the product is the one approved');
+  assert.equal(firstApproved.reviewed_by, actor, 'The reviewer who published is recorded on the first price');
+  assert.ok(firstApproved.confirmed_at, 'Confirming the price is not renewed at approval time');
+  const publicationGrant = (await db.query(`select has_function_privilege('anon','public.decide_supplier_product_with_quantity_guard(uuid,uuid,timestamptz,text,boolean,text,text,text,boolean,uuid)','execute') as anon, has_function_privilege('service_role','public.decide_supplier_product_with_quantity_guard(uuid,uuid,timestamptz,text,boolean,text,text,text,boolean,uuid)','execute') as service`)).rows[0];
   assert.deepEqual(publicationGrant, { anon: false, service: true });
+  assert.equal((await db.query(`select has_function_privilege('authenticated','public.decide_supplier_product_with_quantity_guard(uuid,uuid,timestamptz,text,boolean,text,text,text,boolean,uuid)','execute') as auth`)).rows[0].auth, false);
   // V2 uses the existing private JSONB revision transaction, without rewriting v1.
   const v2tiers = [{ version: 2, unit: 'mt', customGrade: true, quantityGrams: 1234567, unitWeightGrams: 1000000, priceCentsPerUnit: 640100 }];
   const currentStamp = (await db.query('select updated_at from public.supplier_products where id=$1', [created.id])).rows[0].updated_at.toISOString();
@@ -211,6 +225,19 @@ try {
   const approvedV2 = (await db.query("select tiers from public.product_quantity_price_revisions where id=$1 and status='approved'", [nextV2.revision_id])).rows[0];
   assert.deepEqual(approvedV2.tiers, v2tiers, 'JSONB stores exact original unit, grams and cents');
   assert.equal((await db.query('select status from public.product_quantity_price_revisions where id=$1', [oldApproved.id])).rows[0].status, 'superseded');
+  // A published product that uploads a new price still needs that price reviewed:
+  // republishing keeps the approved table and leaves the pending one pending.
+  const liveStamp = (await db.query('select updated_at from public.supplier_products where id=$1', [created.id])).rows[0].updated_at.toISOString();
+  const laterPrice = (await db.query(`select public.submit_quantity_price_revision($1::uuid,$2::uuid,null,$3::timestamptz,'W320','FOB',$4::jsonb,'[]'::jsonb) as result`,
+    [created.id, supplier, liveStamp, JSON.stringify([{ minKg: 2000, priceUsdPerKg: 6.1 }])])).rows[0].result;
+  assert.equal(laterPrice.status, 'pending');
+  await db.exec(`update public.supplier_products set supplier_review_status='approved', ready_for_buyer=false where id='${created.id}'`);
+  const retryStamp = (await db.query('select updated_at from public.supplier_products where id=$1', [created.id])).rows[0].updated_at.toISOString();
+  const republish = (await db.query(`select public.decide_supplier_product_with_quantity_guard($1::uuid,$2::uuid,$3::timestamptz,'approved',false,'approved','cashew',null,null,$4::uuid) as result`,
+    [created.id, supplier, retryStamp, actor])).rows[0].result;
+  assert.equal(republish.status, 'saved', 'Republishing keeps the approved price');
+  assert.equal((await db.query('select status from public.product_quantity_price_revisions where id=$1', [laterPrice.revision_id])).rows[0].status, 'pending', 'A later price update keeps its own review step');
+  assert.equal((await db.query(`select id from public.product_quantity_price_revisions where product_id=$1 and status='approved'`, [created.id])).rows[0].id, nextV2.revision_id, 'The republished product keeps showing the approved table');
   console.log('Quantity pricing migrations: private revisions, ownership, context, reviews, atomic creation and guarded publication passed');
 } finally {
   await db.close();

@@ -6,9 +6,13 @@ import { PageHeader } from "@/components/page-header";
 import { FilePicker } from "@/components/file-picker";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
-import { INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
+import { COMPANY_DOCUMENT_KEYS, INITIAL_DOCUMENT_KEYS, QUALITY_CERTIFICATE_DOC_KEYS } from "@/lib/supplier-portal/policy";
 import { L1_DOC_ITEMS } from "@/lib/types";
 import { daysUntilExpiry } from "@/lib/certificate-service";
+import { deriveL1Rows } from "@/lib/certificate-l1";
+import { certificateSchemeLabel, isCertificateChipScheme } from "@/lib/certificate-scheme";
+import { supplierCertificateNote } from "@/lib/certificate-supplier-copy";
+import { t } from "@/lib/public/i18n";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { L1DocUpload } from "../l1-doc-upload";
 import { SupplierCertificateUpload } from "../certificate-upload";
@@ -29,8 +33,8 @@ export const metadata = { title: "Giấy tờ & chứng nhận L1", robots: { in
 
 const GUIDE = [
   { title: "Chuẩn bị giấy tờ", body: "Bản chụp hoặc PDF còn hiệu lực. Tên trên giấy phải khớp tên doanh nghiệp đã khai." },
-  { title: "Tải từng mục", body: "Tải tệp ngay trong thẻ của từng giấy tờ, tối đa 15 MB mỗi tệp. Tệp mới thay bản cũ của chính bạn." },
-  { title: "Đối chiếu thủ công", body: "AI chỉ đọc đơn vị đứng tên và ngày hết hạn. Kết quả L1 do người có quyền duyệt quyết định." },
+  { title: "Tải giấy tờ", body: "Giấy tờ doanh nghiệp tải trong thẻ của từng mục; chứng nhận chất lượng tải ở khối Chứng nhận. Tối đa 15 MB mỗi tệp." },
+  { title: "Đối chiếu thủ công", body: "Nhân viên đối chiếu đơn vị đứng tên và ngày hết hạn. Kết quả L1 do người có quyền duyệt quyết định." },
 ] as const;
 
 /** Ngày tải tệp, đọc nhanh trong thẻ. */
@@ -68,13 +72,24 @@ export default async function SupplierDocumentsPage() {
     INITIAL_DOCUMENT_KEYS.includes(m.checklist_key as typeof INITIAL_DOCUMENT_KEYS[number]));
   const allowedDocUpload = !!review && (review.status === "in_progress" || review.status === "returned");
 
-  /* Mỗi mục giấy tờ là một thẻ: ảnh thu nhỏ của tệp mới nhất, trạng thái và ô tải riêng. */
-  const docRows = INITIAL_DOCUMENT_KEYS.map((key) => {
+  /* Mỗi mục giấy tờ doanh nghiệp là một thẻ: ảnh thu nhỏ, trạng thái và ô tải riêng.
+   * Chứng nhận chất lượng không còn ô riêng ở đây — chúng đi qua kho chứng nhận bên dưới,
+   * nên một tệp chỉ có một đường vào và một bản ghi duy nhất. */
+  const docRows = COMPANY_DOCUMENT_KEYS.map((key) => {
     const item = L1_DOC_ITEMS.find((entry) => entry.key === key);
     const files = mine.filter((m) => m.checklist_key === key)
       .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
     return { key, label: item?.label ?? key, core: Boolean(item?.core), files, latest: files[0] ?? null };
   });
+  /*
+   * Tệp chứng nhận đã tải theo luồng cũ (chọn ô HACCP/chứng chỉ sản phẩm) nhưng chưa có
+   * bản ghi chứng nhận: vẫn cho xem lại và mời tải lại ở khối Chứng nhận, để không mất tệp
+   * mà cũng không hiện trùng với danh sách chứng nhận.
+   */
+  const certificateMediaIds = new Set(certificates.map((certificate) => certificate.file_media_id).filter((id): id is string => Boolean(id)));
+  const legacyCertFiles = mine
+    .filter((m) => (QUALITY_CERTIFICATE_DOC_KEYS as readonly string[]).includes(m.checklist_key ?? "") && !certificateMediaIds.has(m.id))
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
   const uploadedDocs = docRows.filter((row) => row.files.length > 0);
   const missingDocs = docRows.filter((row) => row.files.length === 0);
   const docProgress = Math.round((uploadedDocs.length / docRows.length) * 100);
@@ -86,16 +101,35 @@ export default async function SupplierDocumentsPage() {
   const statusTone = l1Approved ? "bg-emerald-100 text-emerald-900"
     : l1Returned ? "bg-rose-100 text-rose-900"
       : l1Submitted ? "bg-amber-100 text-amber-900" : "bg-ink-100 text-ink-700";
-  const progressNote = l1Approved ? "Không cần làm gì thêm ở bước này."
+  const progressNote = l1Approved
+    ? (missingDocs.length ? `Đã đối chiếu xong. Còn ${missingDocs.length} mục chưa có tệp.` : "Không cần làm gì thêm ở bước này.")
     : l1Returned ? "Hồ sơ cần bổ sung trước khi đối chiếu lại."
       : l1Submitted ? "Hồ sơ đang chờ đối chiếu thủ công."
         : missingDocs.length ? `Còn ${missingDocs.length} mục chưa có tệp.` : "Đã có tệp cho mọi mục.";
+  // Phạm vi + tên danh mục: cho nhà cung cấp biết giấy đang áp cho danh mục nào.
+  const [certificateScopes, allCategoriesForScope] = await Promise.all([
+    typeof store.listCertificateScopes === "function" && certificates.length > 0
+      ? store.listCertificateScopes(certificates.map((certificate) => certificate.id))
+        .catch((error) => { console.error("[supplier-portal] chứng nhận: phạm vi", error); return []; })
+      : Promise.resolve([]),
+    store.listCategories({ publishedOnly: false }).catch(() => []),
+  ]);
+  const scopeLabelFor = (scope: { category_id: string | null; product_id: string | null }) => {
+    if (scope.category_id) {
+      const found = allCategoriesForScope.find((item) => item.id === scope.category_id);
+      return found ? (t(found.name_i18n) || found.slug) : "một danh mục";
+    }
+    return "một sản phẩm";
+  };
+  // Bảng giấy tờ L1 tính từ giấy đã duyệt: nhà cung cấp không tự chọn ngăn.
+  const derivedL1Rows = deriveL1Rows(certificates);
   const liveCerts = certificates.filter((c) => Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden &&
     (c.holder_match === "owner" || c.holder_match === "partner") && (daysUntilExpiry(c.valid_until) ?? -1) >= 0));
 
   return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · Xác minh L1" title="Giấy tờ & chứng nhận L1"
-      sub="Đăng ký doanh nghiệp và giấy an toàn thực phẩm do nhân viên đối chiếu. Chứng nhận được AI đọc tên đơn vị và hạn dùng."
+      sub={"Đăng ký doanh nghiệp và giấy an toàn thực phẩm do nhân viên đối chiếu. "
+        + "Chứng nhận đối chiếu xong mới hiện cho người mua."}
       actions={<Link href="/supplier/portal" className="btn btn-ghost btn-sm">
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />Tổng quan
       </Link>} />
@@ -178,7 +212,8 @@ export default async function SupplierDocumentsPage() {
                 <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{uploadedDocs.length}/{docRows.length}</span>
               </h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
-                Mỗi mục có ô tải riêng ngay trong thẻ. Mỗi mục chỉ cần một tệp rõ ràng; tải lại sẽ thay bản cũ của chính bạn.
+                {"Mỗi mục có ô tải riêng ngay trong thẻ; tải lại sẽ thay bản cũ của chính bạn. "
+                  + "Chứng nhận chất lượng (HACCP, ISO, BRC, Halal, chứng chỉ sản phẩm) tải ở khối Chứng nhận bên dưới."}
               </p>
             </div>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${missingDocs.length && !l1Approved ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
@@ -207,7 +242,7 @@ export default async function SupplierDocumentsPage() {
                       <span className="text-[11px] font-semibold">Chưa có tệp</span>
                     </div>}
                   <span className={`absolute top-2 left-2 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm ${latest ? "bg-emerald-600 text-white" : row.core ? "bg-white/95 text-amber-900 ring-1 ring-amber-300" : "bg-white/95 text-ink-600 ring-1 ring-ink-200"}`}>
-                    {latest ? "Đã có" : row.core ? "Một trong ba" : "Tùy chọn"}
+                    {latest ? "Đã có" : row.core ? "Giấy chính" : "Tùy chọn"}
                   </span>
                   {row.files.length > 1 && <span className="absolute right-2 bottom-2 rounded-full bg-ink-900/80 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">{row.files.length} tệp</span>}
                 </div>
@@ -218,6 +253,12 @@ export default async function SupplierDocumentsPage() {
                     <p className="mt-0.5 text-[10.5px] leading-4 text-ink-500">
                       {latest ? `${latest.caption || "Tệp đã tải"}${uploadedOn(latest.created_at) ? ` · tải ${uploadedOn(latest.created_at)}` : ""}` : "PDF hoặc ảnh, tối đa 15 MB"}
                     </p>
+                    {/* Cùng một tệp cũng nằm trong kho chứng nhận: nói rõ để không tưởng là hai giấy. */}
+                    {latest && certificateMediaIds.has(latest.id) && <p className="text-[10px] leading-4 text-teal-800">
+                      Đã vào kho chứng nhận{certificates.find((certificate) => certificate.file_media_id === latest.id)?.valid_until
+                        ? ` · hạn ${certificates.find((certificate) => certificate.file_media_id === latest.id)?.valid_until}`
+                        : ""}
+                    </p>}
                   </div>
 
                   {latest && <a href={`/api/media/file/${latest.storage_path}`} target="_blank" rel="noreferrer"
@@ -230,11 +271,16 @@ export default async function SupplierDocumentsPage() {
                       ? <L1DocUpload checklistKey={row.key} hasFile={Boolean(latest)} />
                       // Đợt đã khóa vẫn giữ nguyên khung tải tệp (mờ đi) thay vì một dòng
                       // chữ nhỏ: nhà cung cấp thấy ngay ô tải ở đâu và vì sao chưa dùng được.
+                      // Thẻ chưa có tệp thì không được ghi "Đã đối chiếu xong" — đợt đã duyệt
+                      // không có nghĩa là mục này có giấy.
                       : <FilePicker compact disabled accept=".pdf,image/jpeg,image/png,image/webp"
-                        title={l1Approved ? "Đã đối chiếu xong" : l1Submitted ? "Đang chờ Vexim đối chiếu" : "Chưa mở được ô tải"}
-                        hint={l1Approved ? "Đã đối chiếu xong. Tải chứng nhận mới ở khối bên dưới nếu cần."
-                          : l1Submitted ? "Ô tải mở lại khi hồ sơ được yêu cầu bổ sung."
-                            : "Cần Vexim xác nhận tài khoản trước khi tải giấy tờ."} />}
+                        title={!latest ? "Chưa có tệp"
+                          : l1Approved ? "Đã đối chiếu xong" : l1Submitted ? "Đang chờ nhân viên đối chiếu" : "Chưa mở được ô tải"}
+                        hint={!latest
+                          ? (l1Approved ? "Đợt L1 đã đối chiếu xong nên ô này tạm khoá." : "Cần nhân viên xác nhận tài khoản trước khi tải.")
+                          : l1Approved ? "Đã đối chiếu xong. Tải chứng nhận mới ở khối bên dưới nếu cần."
+                            : l1Submitted ? "Ô tải mở lại khi hồ sơ được yêu cầu bổ sung."
+                              : "Cần nhân viên xác nhận tài khoản trước khi tải giấy tờ."} />}
                   </div>
                 </div>
               </article>;
@@ -242,7 +288,7 @@ export default async function SupplierDocumentsPage() {
           </div>
         </section>
 
-        {/* Chứng nhận ngành hàng: AI đọc đơn vị đứng tên và ngày hết hạn, người duyệt vẫn là người quyết định. */}
+        {/* Chứng nhận ngành hàng: nhân viên đối chiếu đơn vị đứng tên và ngày hết hạn trước khi công khai. */}
         <section id="chung-nhan" style={{ scrollMarginTop: "5rem" }} aria-labelledby="certs-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
@@ -251,7 +297,7 @@ export default async function SupplierDocumentsPage() {
                 <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{certificates.length}</span>
               </h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
-                AI đọc đơn vị đứng tên (chính chủ hay đối tác) và ngày hết hạn; hệ thống nhắc trước 60 / 30 / 7 / 1 ngày.
+                Nhân viên đối chiếu đơn vị đứng tên và ngày hết hạn; hệ thống nhắc trước 60 / 30 / 7 / 1 ngày.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-[10.5px] font-bold text-ink-700">{liveCerts.length} đang hiển thị</span>
@@ -260,32 +306,104 @@ export default async function SupplierDocumentsPage() {
           {certificates.length ? <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {certificates.map((c) => {
               const left = daysUntilExpiry(c.valid_until);
-              const live = Boolean(c.review_status === "approved" && c.publicly_visible && !c.staff_hidden && left !== null && left >= 0 && (c.holder_match === "owner" || c.holder_match === "partner"));
               return <article key={c.id} className="flex flex-col gap-1.5 rounded-xl border border-ink-200 bg-white p-3 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <h4 className="min-w-0 text-[13px] leading-4 font-bold text-ink-900">
-                    {c.name}{c.number ? <span className="font-semibold text-ink-500"> · #{c.number}</span> : null}
-                  </h4>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${c.staff_hidden ? "bg-rose-100 text-rose-800" : live ? "bg-emerald-100 text-emerald-800" : "bg-ink-100 text-ink-700"}`}>
-                    {c.staff_hidden ? "Đang tạm ẩn" : live ? "Đang hiển thị" : "Chưa công khai"}
-                  </span>
-                </div>
+                <h4 className="min-w-0 text-[13px] leading-4 font-bold text-ink-900">
+                  {c.name}{c.number ? <span className="font-semibold text-ink-500"> · #{c.number}</span> : null}
+                </h4>
                 <p className="text-[10.5px] leading-4 text-ink-600">
                   {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` (${c.holder_name})` : ""}`
-                    : c.holder_match === "partner" ? `Đối tác: ${c.holder_name || "-"}`
+                    : c.holder_match === "partner" ? `Đơn vị đối tác: ${c.holder_name || "-"}`
                       : "Chưa rõ đơn vị đứng tên"}
                 </p>
+                <p className="flex flex-wrap items-center gap-1 text-[10.5px] leading-4 text-ink-600">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${c.certificate_scheme ? "bg-teal-50 text-teal-800 ring-1 ring-teal-200" : "bg-amber-50 text-amber-900 ring-1 ring-amber-200"}`}>
+                    {certificateSchemeLabel(c.certificate_scheme ?? null, "vi") ?? "Chờ phân loại"}
+                  </span>
+                  {certificateScopes.filter((scope) => scope.certificate_id === c.id).map((scope) => (
+                    <span key={scope.id} className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-700">
+                      {scopeLabelFor(scope)}
+                    </span>
+                  ))}
+                  {c.supersedes_certificate_id && <span className="text-ink-500">Bản gia hạn</span>}
+                </p>
                 <span className={`self-start rounded-full px-2 py-0.5 text-[10px] font-semibold ${left === null ? "bg-ink-100 text-ink-700" : left < 0 ? "bg-rose-100 text-rose-800" : left <= 60 ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-800"}`}>
-                  {c.valid_until ? `Hết hạn ${c.valid_until}${left !== null ? ` · còn ${left} ngày` : ""}` : "Chưa đọc được ngày hết hạn"}
+                  {c.valid_until ? `Hết hạn ${c.valid_until}${left !== null ? ` · còn ${left} ngày` : ""}` : "Chưa ghi ngày hết hạn"}
                 </span>
-                {(c.review_note || c.ai_summary) && <p className="text-[10.5px] leading-4 text-ink-600">{c.review_note || c.ai_summary}</p>}
+                <p className="text-[10.5px] leading-4 text-ink-600">{supplierCertificateNote(c)}</p>
               </article>;
             })}
           </div> : <p className="mt-3 rounded-lg border border-dashed border-ink-300 bg-ink-50/50 px-3 py-6 text-center text-[11.5px] text-ink-500">
-            Chưa có chứng nhận nào trên hồ sơ. Tải PDF hoặc ảnh bên dưới để AI tự quét.
+            Chưa có chứng nhận nào trên hồ sơ. Tải PDF hoặc ảnh bên dưới để bắt đầu.
           </p>}
 
-          <SupplierCertificateUpload certificates={certificates.map((c) => ({ id: c.id, name: c.name, valid_until: c.valid_until }))} />
+          {legacyCertFiles.length > 0 && <div className="mt-3 rounded-xl border border-ink-200 bg-ink-50/70 px-3 py-2">
+            <p className="text-[11px] font-bold text-ink-700">Tệp chứng nhận đã tải trước đây</p>
+            <ul className="mt-1 space-y-0.5">
+              {legacyCertFiles.map((file) => <li key={file.id} className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-600">
+                <FileText className="size-3 shrink-0" aria-hidden="true" />
+                <a href={`/api/media/file/${file.storage_path}`} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                  {file.caption || "Tệp đã tải"}
+                </a>
+                {uploadedOn(file.created_at) && <span className="text-ink-500">· tải {uploadedOn(file.created_at)}</span>}
+              </li>)}
+            </ul>
+            <p className="mt-1 text-[10.5px] leading-4 text-ink-500">
+              Các tệp này chưa thành bản ghi chứng nhận nên chưa có hạn nhắc hay badge.
+              Tải lại ở ô bên dưới để giấy vào kho chứng nhận và được tính hạn.
+            </p>
+          </div>}
+
+          <SupplierCertificateUpload certificates={certificates
+            .filter((c) => !c.superseded_by_certificate_id)
+            .map((c) => ({ id: c.id, name: c.name, valid_until: c.valid_until }))} />
+        </section>
+
+        {/* Bảng giấy tờ L1 suy ra từ giấy đã duyệt — không phải ô nhà cung cấp tự chọn. */}
+        <section aria-labelledby="l1-table-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
+          <h3 id="l1-table-title" className="text-[15px] font-bold text-ink-900">Giấy tờ L1 tính từ giấy đã duyệt</h3>
+          <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
+            {"Chứng nhận tải ở ô phía trên được phân loại và tự vào đúng mục dưới đây, "
+              + "không cần chọn mục khi tải. Giấy tờ doanh nghiệp vẫn tải trong thẻ của từng mục."}
+          </p>
+          <table className="mt-3 w-full text-left text-[11.5px]">
+            <thead>
+              <tr className="text-[10.5px] tracking-wide text-ink-500 uppercase">
+                <th scope="col" className="pb-1.5 font-bold">Mục L1</th>
+                <th scope="col" className="pb-1.5 font-bold">Giấy đã duyệt</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {L1_DOC_ITEMS.filter((item) => (INITIAL_DOCUMENT_KEYS as readonly string[]).includes(item.key)).map((item) => {
+                const row = derivedL1Rows.find((entry) => entry.key === item.key);
+                return <tr key={item.key}>
+                  <th scope="row" className="py-1.5 pr-3 align-top font-semibold text-ink-800">{item.label}</th>
+                  <td className="py-1.5 align-top text-ink-600">
+                    {row && row.certificates.length > 0
+                      ? row.certificates.map((certificate) => (
+                        <span key={certificate.id} className="mr-2 inline-flex flex-wrap items-center gap-1">
+                          {certificate.name}
+                          {certificate.scheme && <span className="rounded-full bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-800">
+                            {certificateSchemeLabel(certificate.scheme, "vi")}
+                          </span>}
+                          {certificate.validUntil && <span className="text-ink-500">
+                            hạn {certificate.validUntil}{certificate.expired ? " · đã hết hạn" : ""}
+                          </span>}
+                          {certificate.scheme && !isCertificateChipScheme(certificate.scheme) && <span className="text-ink-500">
+                            không lên bộ lọc người mua
+                          </span>}
+                        </span>
+                      ))
+                      : mine.some((file) => file.checklist_key === item.key)
+                        ? <span className="text-ink-400">Đã có tệp tải lên, chưa có chứng nhận được duyệt cho mục này.</span>
+                        : <span className="text-ink-400">Chưa có giấy nào được duyệt cho mục này.</span>}
+                  </td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+          <p className="mt-2 text-[10.5px] leading-4 text-ink-500">
+            Mã số thuế và số tài khoản ngân hàng khai trong Hồ sơ doanh nghiệp, không phải chứng nhận nên không có trong bảng này.
+          </p>
         </section>
       </div>
 
@@ -309,15 +427,18 @@ export default async function SupplierDocumentsPage() {
           </dl>
 
           {missingDocs.length > 0 && <div className="mt-3 rounded-lg border border-ink-100 bg-ink-50/70 px-3 py-2">
-            <p className="text-[11px] font-bold text-ink-700">Mục còn trống</p>
+            <p className="text-[11px] font-bold text-ink-700">{l1Approved ? "Mục chưa có tệp (không bắt buộc)" : "Mục còn trống"}</p>
             <ul className="mt-1.5 space-y-1 text-[10.5px] leading-4 text-ink-600">
               {missingDocs.map((row) => <li key={row.key} className="flex gap-1.5">
-                <AlertTriangle className="mt-0.5 size-3 shrink-0 text-amber-600" aria-hidden="true" />{row.label}
+                {l1Approved
+                  ? <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-ink-400" />
+                  : <AlertTriangle className="mt-0.5 size-3 shrink-0 text-amber-600" aria-hidden="true" />}
+                {row.label}
               </li>)}
             </ul>
           </div>}
 
-          <p className="mt-3 text-[10px] leading-4 text-ink-500">Không bắt buộc đủ cả năm mục ngay từ đầu: một giấy phép kinh doanh rõ ràng đã đủ để bắt đầu đối chiếu.</p>
+          <p className="mt-3 text-[10px] leading-4 text-ink-500">Không bắt buộc đủ mọi mục: một trong ba giấy chính (đăng ký doanh nghiệp, ATTP, HACCP/ISO) đã đủ để bắt đầu đối chiếu.</p>
         </section>
 
         <section aria-labelledby="tips-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">

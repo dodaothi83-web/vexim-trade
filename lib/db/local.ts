@@ -12,7 +12,9 @@ import type {
   BuyerInput,
   Category,
   Certificate,
+  CertificateScope,
   Introduction,
+  ProductCertificateOptout,
   Prospect,
   ProspectInput,
   ProspectActivity,
@@ -95,6 +97,8 @@ interface LocalShape {
   supplier_submission_items: SupplierSubmissionItem[];
   supplier_submission_links: SupplierSubmissionLink[];
   certificates: Certificate[];
+  certificate_scopes?: CertificateScope[];
+  product_certificate_optouts?: ProductCertificateOptout[];
   verifications: Verification[];
   rfqs: Rfq[];
   rfq_attachments: RfqAttachment[];
@@ -1377,6 +1381,9 @@ export const localStore: DataStore = {
   async countSubmissionsPendingReview() {
     return (load().supplier_submissions ?? []).filter((s) => s.status === "pending_review").length;
   },
+  async countCertificatesPendingReview() {
+    return (load().certificates ?? []).filter((c) => c.review_status === "pending").length;
+  },
   async getUser(id) {
     return load().users.find((u) => u.id === id) ?? null;
   },
@@ -1911,7 +1918,8 @@ export const localStore: DataStore = {
       file_media_id: null,
       check_status: "on_file" as const,
       holder_name: null, holder_match: null, ai_scanned_at: null, ai_summary: null, ai_confidence: null,
-      source: "manual" as const, checklist_key: null, verification_id: null, staff_hidden: false, expiry_notified: {},
+      source: "manual" as const, checklist_key: null, certificate_scheme: null,
+      verification_id: null, staff_hidden: false, expiry_notified: {},
       scope_text: null, requested_product_ids: [], approved_product_ids: [],
       review_status: "unreviewed" as const, review_note: null, publicly_visible: false,
       checked_at: null,
@@ -1937,6 +1945,57 @@ export const localStore: DataStore = {
   async deleteCertificate(id) {
     mutate((db) => {
       db.certificates = (db.certificates ?? []).filter((c) => c.id !== id);
+      db.certificate_scopes = (db.certificate_scopes ?? []).filter((row) => row.certificate_id !== id);
+      db.product_certificate_optouts = (db.product_certificate_optouts ?? []).filter((row) => row.certificate_id !== id);
+    });
+  },
+
+  async listCertificateScopes(certificateIds) {
+    const ids = new Set(certificateIds);
+    return (load().certificate_scopes ?? []).filter((row) => ids.has(row.certificate_id));
+  },
+  async createCertificateScope(input) {
+    const row = {
+      id: randomUUID(),
+      certificate_id: "",
+      category_id: null,
+      product_id: null,
+      verified_by: null,
+      verified_at: null,
+      created_at: new Date().toISOString(),
+      ...cleanPatch(input),
+    } as CertificateScope;
+    mutate((db) => {
+      db.certificate_scopes = [...(db.certificate_scopes ?? []), row];
+    });
+    return row;
+  },
+  async deleteCertificateScope(id) {
+    mutate((db) => {
+      db.certificate_scopes = (db.certificate_scopes ?? []).filter((row) => row.id !== id);
+    });
+  },
+  async listCertificateOptouts(supplierId) {
+    return (load().product_certificate_optouts ?? []).filter((row) => row.supplier_id === supplierId);
+  },
+  async listCertificateOptoutsForSuppliers(supplierIds) {
+    const ids = new Set(supplierIds);
+    return (load().product_certificate_optouts ?? []).filter((row) => ids.has(row.supplier_id));
+  },
+  async setCertificateOptout(supplierId, productId, certificateId, on) {
+    mutate((db) => {
+      const rest = (db.product_certificate_optouts ?? []).filter(
+        (row) => !(row.product_id === productId && row.certificate_id === certificateId),
+      );
+      db.product_certificate_optouts = on
+        ? [...rest, {
+            id: randomUUID(),
+            supplier_id: supplierId,
+            product_id: productId,
+            certificate_id: certificateId,
+            created_at: new Date().toISOString(),
+          }]
+        : rest;
     });
   },
 
@@ -1999,6 +2058,8 @@ export const localStore: DataStore = {
         if (isPartnerL2(row)) {
           const checklist = patch.checklist ?? row.checklist;
           if (checklist.partner_identity_confirmed !== true || checklist.partner_scope_confirmed !== true) throw new Error("L2_PARTNER_SCOPE_CONFIRM_REQUIRED");
+          // Tên nhà máy đối tác là căn cứ đối chiếu giấy chứng nhận; không duyệt khi còn trống.
+          if (!(patch.partner_factory_name ?? row.partner_factory_name ?? "").trim()) throw new Error("L2_PARTNER_NAME_REQUIRED");
           if (!(db.media ?? []).some((m) => m.verification_id === row.id && m.supplier_id === row.supplier_id && m.owner_type === "verification" && m.checklist_key === "partner_factory_contract" && m.audience === "internal" && m.status === "checked" && m.storage_path && ["image", "document"].includes(m.kind))) throw new Error("L2_PARTNER_CONTRACT_CHECK_REQUIRED");
         }
       }
@@ -2284,6 +2345,8 @@ export const localStore: DataStore = {
       if (row.target_level === 2 && patch.status === "pending_review" && !l2ScopeMatchesSupplier(row, db.suppliers.find((supplier) => supplier.id === row.supplier_id)?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
       if (isPartnerL2(row) && patch.status === "pending_review" && !(db.supplier_submission_items ?? []).some((i) =>
         i.submission_id === id && i.supplier_id === row.supplier_id && i.checklist_key === "partner_factory_contract" && i.media_id && i.storage_path?.trim() && (db.media ?? []).some((m) => m.id === i.media_id && m.owner_type === "submission" && m.submission_id === id && m.supplier_id === row.supplier_id && m.checklist_key === i.checklist_key && m.storage_path === i.storage_path && m.audience === "internal" && ["image", "document"].includes(m.kind)))) throw new Error("L2_PARTNER_CONTRACT_REQUIRED");
+      if (isPartnerL2(row) && patch.status === "pending_review" && !(patch.partner_factory_name ?? row.partner_factory_name ?? "").trim()) throw new Error("L2_PARTNER_NAME_REQUIRED");
+      if (!isPartnerL2(row) && patch.partner_factory_name) throw new Error("L2_PARTNER_NAME_OUT_OF_SCOPE");
       if ((patch.supplier_id !== undefined && patch.supplier_id !== row.supplier_id) || (patch.target_level !== undefined && patch.target_level !== row.target_level) || (patch.l2_scope !== undefined && patch.l2_scope !== (row.l2_scope ?? null))) throw new Error("VERIFICATION_SCOPE_IMMUTABLE");
       guardFactoryPending(row, patch, db.supplier_submission_items ?? []);
       Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));

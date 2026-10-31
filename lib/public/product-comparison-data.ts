@@ -103,8 +103,9 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       grade: safe(declaredGrades ?? attributes.grade ?? card.grade),
       specifications,
       price: safe(publicProductPriceDisplay(card.price)),
+      // Người mua thấy ký hiệu ($, €) chứ không phải mã tiền tệ, nên mã lấy từ bảng giá đã duyệt.
       priceCurrency: card.quantityOffer && card.price
-        ? (/^[A-Z]{3}\b/.exec(card.price)?.[0] ?? "USD")
+        ? safe(card.quantityOffer.currency)
         : card.price && card.pricePoint ? safe(card.pricePoint.currency) : null,
       priceUnit: card.quantityOffer && card.price ? safe(card.price.match(/\/(kg|MT)$/)?.[1]) : card.price && card.pricePoint ? safe(publicProductUnitDisplay(card.pricePoint.unit)) : null,
       priceValidUntil: !card.quantityOffer && card.price && product.price_valid_until && /^\d{4}-\d{2}-\d{2}$/.test(product.price_valid_until)

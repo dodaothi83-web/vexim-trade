@@ -10,6 +10,7 @@ import { supplierTypeLabel, type PublicSupplierCard } from "@/lib/public/catalog
 import type { Category } from "@/lib/types";
 import { verificationExplanation, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 import { publicProductTitle } from "@/lib/public/display-name";
+import { formatMoney, priceRangeText } from "@/lib/products/price-display";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 
@@ -391,7 +392,7 @@ export function SupplierStorefront({
                 isCustom,
                 priceMin: validPrice ? minRaw : null,
                 priceMax: validPrice ? maxRaw : null,
-                priceText: validPrice ? `USD ${minRaw}${unitSuffix}` : null,
+                priceText: validPrice ? `${formatMoney(minRaw!, "USD")}${unitSuffix}` : null,
                 incoterm: rowIncoterm,
                 moq: rowMoq,
               };
@@ -420,13 +421,9 @@ export function SupplierStorefront({
               const highRaw = typeof p.ref_price_max === "number" && p.ref_price_max >= p.ref_price ? p.ref_price_max : p.ref_price;
               const highKg = highRaw / kgFactor;
               const targetFactor = isMtCategory ? 1000 : 1;
-              const decimals = isMtCategory ? 0 : 2;
               const lowVal = lowKg * targetFactor;
               const highVal = highKg * targetFactor;
-              const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-              return Math.abs(highVal - lowVal) < 10 ** -decimals / 2
-                ? `USD ${fmt(lowVal)}${unitSuffix}`
-                : `USD ${fmt(lowVal)} to ${fmt(highVal)}${unitSuffix}`;
+              return `${priceRangeText(lowVal, highVal, "USD")}${unitSuffix}`;
             }
             return rawPrice
               .replace(/\/\s*(mt|tonnes?|tons?|t|tấn|tan)(?=\s|$|[,;])/gi, "/MT")

@@ -5,8 +5,13 @@ import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { holderMatchBadgeLabel, ingestCertificateScan } from "@/lib/certificate-service";
+import { holderMatchBadgeLabel, ingestCertificateScan, todayISO } from "@/lib/certificate-service";
+import { approvedL2Scope } from "@/lib/verification-status";
+import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
+import { certificateSchemeLabel, isCertificateScheme } from "@/lib/certificate-scheme";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
+import { transferRenewalScope } from "@/lib/certificate-renewal";
+import { refreshCrmBadges } from "@/lib/crm/badges";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const result = (ok: boolean, message: string) => ({ ok, message });
@@ -23,8 +28,11 @@ async function softRefresh(work: () => void): Promise<void> {
 function refresh(supplierId: string, slug?: string | null) {
   revalidatePath(`/crm/suppliers/${supplierId}`);
   revalidatePath(`/crm/suppliers/${supplierId}/audit/documents`);
+  revalidatePath("/crm/certificates");
   revalidatePath("/supplier/portal");
   if (slug) revalidatePath(`/suppliers/${slug}`);
+  // Duyệt/ẩn/đổi trạng thái làm đổi số giấy chờ duyệt: huy hiệu ở layout /crm phải tự trừ.
+  refreshCrmBadges();
 }
 
 /** A thrown server action is HTTP 500 in production; certificates only ever return a soft result. */
@@ -86,6 +94,172 @@ async function rescanCertificate(supplierId: string, certificateId: string) {
       ? `Đã quét lại: ${badge} · hết hạn ${certificate.valid_until}.`
       : `Đã quét lại. ${decision.review_note}`,
   );
+}
+
+export async function approveCertificateAction(supplierId: string, certificateId: string) {
+  try {
+    return await approveCertificate(supplierId, certificateId);
+  } catch (error) {
+    console.error("[certificate] approve action failed", error);
+    return result(false, `Chưa duyệt được chứng nhận (${briefReason(error)}). Chứng nhận giữ nguyên như trước.`);
+  }
+}
+
+/**
+ * Nhân viên duyệt đăng một chứng nhận AI chưa tự công bố.
+ *
+ * Giấy đứng tên đơn vị khác chỉ đăng được khi nhà cung cấp đã có L2 nhà máy đối tác được
+ * duyệt — người duyệt đối chiếu tên trên giấy với hợp đồng đối tác đó. Nhờ vậy không thể
+ * đẩy một giấy chứng nhận bất kỳ của doanh nghiệp không liên quan lên hồ sơ.
+ */
+async function approveCertificate(supplierId: string, certificateId: string) {
+  if ((await guard("suppliers.publish")) !== null) {
+    return result(false, "Bạn không có quyền duyệt đăng chứng nhận trên trang công khai.");
+  }
+  const session = await getSession();
+  if (!session || !hasPermission(session.role, "suppliers.publish")) {
+    return result(false, "Bạn không có quyền duyệt đăng chứng nhận trên trang công khai.");
+  }
+  if (!uuid.test(certificateId)) {
+    return result(false, "Mã chứng nhận không hợp lệ.");
+  }
+  const store = getStore();
+  const [supplier, cert] = await Promise.all([
+    store.getSupplier(supplierId),
+    store.getCertificate(certificateId),
+  ]);
+  if (!supplier || !cert || cert.supplier_id !== supplier.id) {
+    return result(false, "Không tìm thấy chứng nhận của nhà cung cấp này.");
+  }
+  if (!cert.file_media_id) {
+    return result(false, "Chứng nhận chưa có tệp gốc để đối chiếu; chưa đăng được.");
+  }
+  if (!cert.valid_until || !/^\d{4}-\d{2}-\d{2}$/.test(cert.valid_until)) {
+    return result(false, "Chưa có ngày hết hạn trên giấy; chưa đăng được.");
+  }
+  if (cert.valid_until < todayISO()) {
+    return result(false, `Giấy đã hết hạn ngày ${cert.valid_until}; chưa đăng được.`);
+  }
+
+  if (cert.holder_match === "partner") {
+    const holderName = cert.holder_name?.trim();
+    if (!holderName) {
+      return result(false, "Giấy đứng tên đơn vị đối tác nhưng chưa đọc được tên; bổ sung tên trước khi đăng.");
+    }
+    const verifications = await store.listVerifications(supplier.id);
+    const scope = approvedL2Scope(verifications);
+    if (scope !== "partner_contract" && scope !== "both") {
+      return result(false, `Chưa có L2 nhà máy đối tác được duyệt nên chưa đăng được giấy đứng tên ${holderName}.`);
+    }
+    // Giấy phải đứng tên đúng nhà máy đã ký trong hợp đồng đối tác, không phải doanh nghiệp khác.
+    const partnerName = verifications
+      .filter((v) => v.target_level === 2 && v.status === "approved" && v.l2_scope === "partner_contract")
+      .map((v) => v.partner_factory_name?.trim() ?? "")
+      .find((name) => name.length > 0);
+    if (!partnerName) {
+      return result(false, "Hồ sơ L2 nhà máy đối tác chưa ghi tên nhà máy; ghi tên trong đợt kiểm trước khi đăng.");
+    }
+    if (!partnerFactoryNameMatches(holderName, partnerName)) {
+      return result(false, `Giấy đứng tên ${holderName}, không khớp nhà máy đối tác ${partnerName} trong hợp đồng L2.`);
+    }
+  }
+
+  const updated = await store.updateCertificate(cert.id, {
+    review_status: "approved",
+    publicly_visible: true,
+  });
+  if (!updated) return result(false, "Không cập nhật được trạng thái chứng nhận.");
+
+  // Bản gia hạn: phạm vi của bản cũ chuyển sang bản mới, bản cũ ngừng hiện. Làm sau khi
+  // bản mới đã duyệt nên sản phẩm không bị mất nhãn trong lúc chờ.
+  const renewal = await transferRenewalScope(store, updated, {
+    id: session.uid,
+    email: session.email,
+    at: new Date().toISOString(),
+  }).catch((error) => {
+    console.error("[certificate] renewal scope transfer", error);
+    return { copied: 0, superseded: false };
+  });
+
+  await store
+    .addAuditLog({
+      actor_id: session.uid,
+      actor_email: session.email,
+      entity: "supplier",
+      entity_id: supplier.id,
+      action: "certificate.staff_approve",
+      before: { id: cert.id, review_status: cert.review_status, publicly_visible: Boolean(cert.publicly_visible) },
+      after: { id: cert.id, review_status: "approved", publicly_visible: true, holder_match: cert.holder_match ?? null },
+    })
+    .catch((err) => console.error("[certificate] staff approve audit", err));
+
+  await notifySupplierDecision({
+    supplierId: supplier.id,
+    decision: "certificate_published",
+    name: cert.name,
+    entityId: cert.id,
+  }).catch(() => "failed");
+
+  await softRefresh(() => refresh(supplier.id, supplier.slug));
+  const renewalNote = renewal.superseded
+    ? ` Đã thay bản cũ và chuyển ${renewal.copied} phạm vi sang bản này.`
+    : "";
+  return result(true, `Đã duyệt đăng “${cert.name}” (${holderMatchBadgeLabel(cert.holder_match, cert.holder_name)}).${renewalNote}`);
+}
+
+/**
+ * Nhân viên chọn/sửa loại chứng nhận dùng cho bộ lọc người mua.
+ *
+ * Đây là phân loại, không phải kết luận xác minh và không mở cổng công bố nào: giấy
+ * vẫn phải đã duyệt, công khai, còn hạn và được gắn sản phẩm mới lên bộ lọc.
+ */
+export async function setCertificateSchemeAction(supplierId: string, certificateId: string, scheme: string) {
+  try {
+    return await setCertificateScheme(supplierId, certificateId, scheme);
+  } catch (error) {
+    console.error("[certificate] set scheme failed", error);
+    return result(false, `Chưa lưu được loại chứng nhận (${briefReason(error)}).`);
+  }
+}
+
+async function setCertificateScheme(supplierId: string, certificateId: string, scheme: string) {
+  if ((await guard("verifications.inspect")) !== null) {
+    return result(false, "Bạn không có quyền phân loại chứng nhận.");
+  }
+  const session = await getSession();
+  if (!session || !hasPermission(session.role, "verifications.inspect")) {
+    return result(false, "Bạn không có quyền phân loại chứng nhận.");
+  }
+  if (!uuid.test(certificateId)) return result(false, "Mã chứng nhận không hợp lệ.");
+  const next = scheme.trim() === "" ? null : scheme.trim();
+  if (next !== null && !isCertificateScheme(next)) return result(false, "Loại chứng nhận không hợp lệ.");
+  const store = getStore();
+  const [supplier, cert] = await Promise.all([
+    store.getSupplier(supplierId),
+    store.getCertificate(certificateId),
+  ]);
+  if (!supplier || !cert || cert.supplier_id !== supplier.id) {
+    return result(false, "Không tìm thấy chứng nhận của nhà cung cấp này.");
+  }
+  const updated = await store.updateCertificate(cert.id, { certificate_scheme: next });
+  if (!updated) return result(false, "Không cập nhật được loại chứng nhận.");
+
+  await store
+    .addAuditLog({
+      actor_id: session.uid,
+      actor_email: session.email,
+      entity: "supplier",
+      entity_id: supplier.id,
+      action: "certificate.scheme",
+      before: { id: cert.id, certificate_scheme: cert.certificate_scheme ?? null },
+      after: { id: cert.id, certificate_scheme: next },
+    })
+    .catch((err) => console.error("[certificate] scheme audit", err));
+
+  await softRefresh(() => refresh(supplier.id, supplier.slug));
+  return result(true, next
+    ? `Đã phân loại “${cert.name}” là ${certificateSchemeLabel(next, "vi")}.`
+    : `Đã bỏ phân loại của “${cert.name}”; giấy không còn trong bộ lọc theo chuẩn.`);
 }
 
 export async function toggleCertificateHiddenAction(

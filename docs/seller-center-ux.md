@@ -200,11 +200,24 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
 
 - **Một kho ảnh cho mỗi tài khoản**, tối đa 12 ảnh, nằm trong `media_assets` với `owner_type = 'supplier'`,
   `product_id = null`, `audience = 'internal'`. Bảng đã cho phép từ trước nên **không cần migration mới**.
-- **Tải trước, gắn sau.** Người bán chọn ảnh trong kho và bấm **Lưu**; lúc tạo sản phẩm, server gắn tối đa 8 ảnh
-  đã chọn vào sản phẩm (đổi `owner_type` sang `product`, `product_id` = sản phẩm mới, vẫn `internal`).
-  Ảnh không chọn vẫn nằm trong kho cho sản phẩm khác.
+- **Tải trước, gắn sau.** Người bán chọn ảnh trong kho và bấm **Lưu**; lúc tạo sản phẩm, server gắn ảnh
+  đã chọn vào sản phẩm theo đúng thứ tự chọn (đổi `owner_type` sang `product`, `product_id` = sản phẩm mới,
+  vẫn `internal`); giao diện chọn tối đa **6 ảnh** vì có 6 ô ảnh. Ảnh không chọn vẫn nằm trong kho cho sản phẩm khác.
+- **Chọn ảnh là thấy ngay trong 6 ô.** Ảnh đang chọn hiện ở ô 1…6, **ảnh chọn đầu tiên là ảnh chính** và tự
+  thành **Ảnh đại diện** — không phải lưu trước mới thấy. Nút ★ trong ô đưa ảnh đó lên đầu danh sách chọn nên
+  đổi ảnh chính được ngay trước khi bấm Lưu; nút ✕ chỉ bỏ ảnh khỏi lần gắn này, ảnh vẫn còn trong kho.
+- **Kho ảnh không có khối riêng, không lặp ảnh.** Bỏ khối "Kho ảnh của bạn" ở đầu mục (trùng đúng ảnh vừa hiện
+  trong 6 ô): ảnh đã chọn chỉ nằm trong 6 ô, còn ảnh **chưa dùng** trong kho hiện thành dải "Ảnh có sẵn trong kho"
+  ngay dưới lưới, bấm để thêm vào ô trống, ✕ để xoá khỏi kho. Hết ảnh chưa dùng thì dải này tự ẩn.
 - **Ảnh trong kho không bao giờ công khai.** Tệp ở namespace `supplier-media/<supplier_id>/` — không nằm trong
   danh sách đường dẫn của `/public-media`, còn `/api/media/file` chỉ trả cho chính người đã tải lên.
+- **Gắn ảnh = chép sang thư mục sản phẩm + giữ `supplier_id`** (sửa 31/10/2026): bước gắn chép tệp sang
+  `products/<product_id>/<media_id>.webp` (kèm bản thu nhỏ) rồi mới đổi chủ sở hữu, và **giữ nguyên
+  `supplier_id` của nhà cung cấp**. Bản cũ đặt `supplier_id = null` nên `supplierVisibleProductMedia` lọc mất ảnh
+  ngay sau khi bấm Lưu ("bấm Lưu là mất ảnh", dù tệp vẫn còn); tệp còn nằm trong `supplier-media/` thì người mua
+  cũng không tải được. Ảnh gắn bằng bản cũ được **tự sửa ngay khi mở trang sản phẩm, trang danh sách sản phẩm
+  hoặc khi bấm Lưu** (`repairAttachedBankMedia` trong `lib/supplier-portal/bank-media.ts`) nên người bán không phải
+  tải lại ảnh; chép tệp hỏng thì ảnh ở nguyên trong kho, không bị xoá.
 - **Thứ tự thao tác:** kho ảnh → chọn ảnh → điền thông tin → Lưu. Ảnh chưa gắn không chặn việc gửi duyệt;
   điều kiện gửi duyệt vẫn là sản phẩm có ít nhất một ảnh đã gắn.
 
@@ -217,18 +230,30 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
 - **Dấu `*` đỏ đứng trước nhãn** cho trường bắt buộc; lỗi của khối tô viền/khung đỏ và gợi ý chuyển sang màu đỏ.
 - **Khối 03**: **một chỗ duy nhất cho ảnh** — thứ tự trên xuống: **Ảnh đại diện** (ô lớn, người mua thấy đầu tiên) →
   **6 ô ảnh sản phẩm** (mỗi ô có ★ đổi ảnh đại diện và ✕ xoá ngay tại ô; ô đang là ảnh chính đánh dấu bằng **ngôi sao**,
-  không dùng chữ đè lên ảnh nhỏ) → vùng tải tệp → Catalogue PDF chỉ hiện khi có tệp. Nhà cung cấp không có nút chọn chia sẻ cho người mua, nên copy không được hứa hẹn điều đó. Kho ảnh riêng của nhà cung cấp nằm ở
-  dòng đầu khi sản phẩm chưa tồn tại.
+  không dùng chữ đè lên ảnh nhỏ) → dải "Ảnh có sẵn trong kho" (chỉ khi còn ảnh chưa dùng, xem §5.2) → vùng tải tệp →
+  Catalogue PDF chỉ hiện khi có tệp. Nhà cung cấp không có nút chọn chia sẻ cho người mua, nên copy không được
+  hứa hẹn điều đó.
 - **Chốt 31/10/2026 — bỏ bước duyệt ảnh**: ảnh nhà cung cấp tải lên được chia sẻ cho người mua ngay (người mua
   chỉ thấy khi sản phẩm đã đăng). CRM không còn "Đã kiểm tra / Chưa xác minh" hay nút duyệt ảnh hàng loạt; chỉ còn một
   công tắc `Hiện với người mua / Ẩn (nội bộ)` để staff gỡ ảnh xấu. Cổng duyệt trước khi đăng chỉ đòi **ít nhất một ảnh
   chia sẻ cho người mua**; ảnh cũ giữ nguyên hiển thị, không cần duyệt lại.
 - **Khối 06**: dòng "Đóng gói" gộp nhãn con (bao bì · loại kiện/khối lượng/số đơn vị · kích thước), rồi các dòng
   Thời gian giao hàng, Vận chuyển (cảng xuất + địa điểm Incoterm), Điều kiện thanh toán kèm chip gợi ý.
-- **Khối 08**: danh sách kiểm tra từng dòng (biểu tượng đạt/chưa đạt + hành động `Lưu ngay` / `Đi tới mục N` / `Sửa`);
-  phần đọc lại chi tiết gấp trong "Xem lại nội dung đã nhập" để trang không dài thêm.
-- **Dải đỏ trên cùng**: `N mục cần sửa trước khi gửi duyệt:` kèm đích danh từng mục, thay cho câu nhắc chung.
-- **Thanh đáy**: Hủy + đèn trạng thái · `Xem trước` · `Lưu nháp` · `Gửi duyệt`.
+- **Khối 08**: danh sách kiểm tra từng dòng (biểu tượng đạt/chưa đạt + hành động `Đi tới mục N` / `Sửa`), chỉ còn
+  việc **nội dung**; phần đọc lại chi tiết gấp trong "Xem lại nội dung đã nhập" để trang không dài thêm.
+  Mỗi dòng đọc từ **nội dung đang nhập** (`snapshot`) chứ không phải bản đã lưu, nên gõ mô tả ngắn là hết nhắc ngay.
+- **Chốt 31/10/2026 — Gửi duyệt tự lưu**: bấm `Gửi duyệt` là lưu rồi nộp trong một lần (`persist()` rồi
+  `submitSupplierProductAction`), không còn dòng "Lưu thông tin sản phẩm trước khi gửi" hay "Lưu thay đổi trước khi gửi".
+  Nếu nội dung chưa qua kiểm tra bắt buộc thì `persist()` dừng lại, chỉ đúng ô cần sửa và không gửi gì.
+- **Thanh đáy**: Hủy + đèn trạng thái · `Xem trước` · `Lưu nháp` (chỉ hiện khi có thay đổi) · `Gửi duyệt`.
+- **`Xem trước` mở bản xem trước người mua** (31/10/2026): hộp thoại dựng từ nội dung đang nhập, dùng chính
+  component của trang công khai (`QuantityPriceTable`, `ProductTradeLabels`, `ProductDescriptionPreview`) nên bảng giá,
+  nhãn OEM/ODM/mẫu và mô tả hiện đúng như người mua thấy. Bảng giá dựng bằng `draftPublicQuantityOffer`
+  (`lib/products/quantity-pricing.ts`) — cùng cách ghi đơn vị, số lẻ và khoảng giá với bản đã duyệt; chưa có grade hoặc
+  chưa có dòng giá thì người mua thấy `Price on request`, bản xem trước cũng vậy. Chứng nhận chỉ hiện những cái Vexim
+  đã duyệt gắn. Không rời trang nên phần đang nhập còn nguyên; có ghi chú khi còn thay đổi chưa lưu.
 - **Cột phải**: Điểm chất lượng (vòng điểm + mức Thấp/Trung bình/Cao, chỉ để nhắc) · Việc cần làm tiếp kèm `+N` ·
+  số liệu đọc **nội dung đang nhập** (giá/MOQ lấy từ bảng giá số lượng đang gõ, ảnh vừa chọn từ kho đã tính là ảnh
+  chia sẻ), "Tên tiếng Anh" không tính vì Vexim đặt khi duyệt nên không hiện thành việc phải làm ·
   thẻ Người mua sẽ thấy · Ví dụ điền mẫu (gấp) · Luồng duyệt · Danh sách sản phẩm.
 - Không đổi dữ liệu, cổng duyệt, quyền hay luồng lưu; mọi guard hành vi giữ nguyên.

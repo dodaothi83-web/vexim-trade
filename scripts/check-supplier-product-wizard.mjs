@@ -8,6 +8,7 @@ import ts from 'typescript';
 import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
+import * as priceDisplay from "../lib/products/price-display.ts";
 
 const read = (path) => fs.readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -57,7 +58,7 @@ const view = {
     media.some((m) => (m.kind === 'image' || m.kind === 'catalogue') && !!m.storage_path),
 };
 
-const priceUnits = load('../lib/public/price-units.ts', {});
+const priceUnits = load('../lib/public/price-units.ts', { '../products/price-display.ts': priceDisplay });
 const gradeResolution = load('../lib/public/grade-resolution.ts', {});
 const gradePricing = load('../lib/products/grade-pricing.ts', {
   '@/lib/public/price-units': priceUnits,
@@ -82,7 +83,14 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   '@/lib/products/grade-pricing': gradePricing,
   '@/lib/products/completeness': completenessExports,
   '@/lib/public/price-units': priceUnits,
-  '@/lib/products/quantity-pricing': { validateQuantityPricing: () => ({ value: null, errors: [], warnings: [] }) },
+  '@/lib/products/quantity-pricing': {
+    validateQuantityPricing: () => ({ value: null, errors: [], warnings: [] }),
+    draftPublicQuantityOffer: () => null,
+    nameContainsGrade: () => false,
+  },
+  '@/components/products/buyer-preview-dialog': {
+    BuyerPreviewDialog: (props) => React.createElement('div', { 'data-buyer-page-preview': '1' }, props.data.title),
+  },
   '@/components/products/grade-pricing-table': gradePricingTable,
   '@/components/products/quantity-pricing-inline': { QuantityPricingInline: (props) => React.createElement('div', { 'data-quantity-editor': '1', 'data-sidebar-preview': String(!!props.onPreviewChange) }) },
   '@/components/products/quantity-pricing-editor': { QuantityBuyerPreview: (props) => React.createElement('div', { 'data-buyer-preview': '1' }, props.value.nameEn), QuantityPricingEditor: () => React.createElement('div', { 'data-new-quantity': '1' }) },
@@ -229,6 +237,21 @@ for (const hint of ['requestSubmit', 'scrollToSection("sec-media")', 'scrollToSe
   assert.ok(source.includes(hint), `Thiếu gì thì đưa tới đúng khối: ${hint}`);
 }
 assert.match(page, /Đã gửi duyệt|Gửi duyệt/, 'Có nhãn gửi duyệt');
+// Nút Xem trước phải mở bản xem trước thật, không chỉ cuộn trang.
+assert.match(source, /onClick=\{\(\) => setPreviewOpen\(true\)\}/, 'Nút Xem trước mở hộp xem trước');
+assert.match(source, /aria-haspopup="dialog"/, 'Nút Xem trước báo trước là mở hộp thoại');
+assert.doesNotMatch(source, /onClick=\{\(\) => scrollToSection\("sec-review"\)\}/, 'Nút Xem trước không còn chỉ cuộn tới mục 8');
+assert.match(source, /\{previewOpen && <BuyerPreviewDialog open onClose=/, 'Hộp xem trước được dựng từ component dùng chung');
+const dialog = read('../components/products/buyer-preview-dialog.tsx');
+assert.match(dialog, /role="dialog" aria-modal="true"/, 'Hộp xem trước có ngữ nghĩa hộp thoại');
+assert.match(dialog, /event\.key === "Escape"/, 'Đóng được bằng Escape');
+assert.match(dialog, /Đóng bản xem trước/, 'Có nút đóng có nhãn đọc được');
+assert.match(dialog, /<QuantityPriceTable offer=\{data\.offer\}/, 'Bảng giá dùng đúng component của trang người mua');
+assert.match(dialog, /<ProductTradeLabels oem=/, 'Nhãn OEM/ODM/mẫu giống trang người mua');
+assert.match(dialog, /Bản xem trước/);
+assert.match(source, /certificates: certificates\.map\(\(certificate\) => \(\{/, 'Bản xem trước nhận chứng nhận đã duyệt từ trang sản phẩm');
+assert.match(read('../app/supplier/portal/products/[id]/page.tsx'), /certificates=\{approvedCertificates\}/,
+  'Trang sản phẩm truyền chứng nhận đã duyệt vào bản xem trước');
 assert.doesNotMatch(source, /Trở về bước|Sang bước|Tiếp tục/, 'Không còn nút chuyển bước');
 
 // 5. Độ hoàn thiện: chỉ đọc, gợi ý theo mục chứ không theo bước.
@@ -236,7 +259,7 @@ assert.match(page, /Độ hoàn thiện/, 'Cột phải có khối độ hoàn t
 assert.match(page, /Hồ sơ \d+%|Độ hoàn thiện/, 'Điểm hoàn thiện hiển thị trong cột phải');
 assert.match(page, /Bổ sung: Ảnh thật|Bổ sung: /, 'Nút bổ sung gọi tên mục còn thiếu');
 assert.doesNotMatch(page, /Bổ sung ở bước/, 'Không còn địa chỉ theo bước');
-assert.match(source, /scrollToSection\(completeness\.next!\.step === 2 \? "sec-media" : "sec-basic"\)/, 'Nút bổ sung cuộn tới đúng khối');
+assert.match(source, /scrollToSection\(SECTION_FOR_ITEM\[completeness\.next!\.key\] \?\? "sec-basic"\)/, 'Nút bổ sung cuộn tới đúng khối');
 
 // 6. Giá của sản phẩm mới: mặc định chia sẻ, nhưng lựa chọn đã lưu không bị bật lại.
 const priceCheckbox = (html) => {
@@ -293,7 +316,15 @@ assert.ok(!source.includes('Chứng nhận sản phẩm (tự khai)'), 'Bỏ nh�
 // 10. Hành vi cũ còn nguyên.
 assert.match(source, /saveSupplierProductAction\(form\)/, 'Vẫn lưu qua saveSupplierProductAction');
 assert.match(source, /submitSupplierProductAction\(form\)/, 'Vẫn nộp qua submitSupplierProductAction');
-assert.match(source, /productCanSubmit\(product, media\) && !dirty/, 'Nút nộp vẫn phụ thuộc điều kiện dữ liệu');
+// Gửi duyệt không còn đòi bấm Lưu trước: nút gửi tự lưu rồi nộp.
+assert.match(source, /const submitReady = /, 'Điều kiện gửi đọc nội dung đang nhập, không đòi bản đã lưu');
+assert.match(source, /const id = product && !dirty \? product\.id : await persist\(\);/,
+  'Bấm Gửi duyệt tự lưu trước rồi gửi');
+assert.doesNotMatch(source, /Lưu thông tin sản phẩm trước khi gửi|Lưu thay đổi trước khi gửi/,
+  'Không còn bắt người bán lưu thông tin trước khi gửi');
+assert.doesNotMatch(source, /label: "Lưu thông tin sản phẩm trước khi gửi"/, 'Mục 8 không còn dòng nhắc lưu');
+assert.match(source, /const hasDetails = !!\(\(snapshot\.spec/,
+  'Mô tả ngắn / quy cách đọc từ nội dung đang nhập nên hết nhắc sau khi gõ');
 assert.doesNotMatch(source, /Lưu thay đổi sẽ đưa sản phẩm về bản nháp/, 'Sửa sản phẩm đã duyệt không tự rút khỏi sàn');
 assert.ok(source.includes('!["approved", "paused"].includes(review) || product?.supplier_originated === true'),
   'Sản phẩm NCC đã duyệt hoặc tạm ẩn vẫn quản lý được ảnh của mình');
@@ -412,15 +443,41 @@ assert.match(source, /const canUpload = !locked &&/, 'Ô chọn tệp không đ�
 assert.doesNotMatch(source, /canUpload = !!product/, 'Đã bỏ điều kiện phải có sản phẩm trước khi tải tệp');
 assert.match(source, /async function persist\(\): Promise<string \| null>/, 'Lưu và trả về id dùng chung cho nút Lưu và lúc tạo sản phẩm');
 assert.match(source, /fetch\("\/api\/supplier-portal\/media", \{ method: "POST", body \}\)/, 'Ảnh mới tải đi vào kho ảnh riêng');
-assert.match(source, /setPickedBank\(\(current\) => Array\.from\(new Set\(\[\.\.\.current, \.\.\.added\]\)\)\.slice\(0, 8\)\)/, 'Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo');
-assert.match(source, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 8\)\)\)/, 'Ảnh đã chọn được gửi kèm khi lưu');
+assert.match(source, /setPickedBank\(\(current\) => Array\.from\(new Set\(\[\.\.\.current, \.\.\.added\]\)\)\.slice\(0, 6\)\)/, 'Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo');
+assert.match(source, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 6\)\)\)/, 'Ảnh đã chọn được gửi kèm khi lưu');
 assert.doesNotMatch(source, /ensureDraft/, 'Không quay lại cơ chế lưu nháp trước khi tải ảnh');
 assert.doesNotMatch(source, /Lưu nháp rồi tải ảnh|Lưu thay đổi rồi tải ảnh|saveIntent/, 'Không còn bắt người bán bấm lưu trước khi tải ảnh');
 assert.match(source, /Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu\./, 'Nói trước là ảnh vào kho rồi gắn khi lưu');
 const newProductMedia = render({ product: undefined, media: [] });
-assert.match(newProductMedia, /Kho ảnh của bạn/, 'Sản phẩm mới thấy kho ảnh của nhà cung cấp');
-assert.match(newProductMedia, /Kho đang trống\. Tải ảnh ở ô bên dưới, không cần lưu sản phẩm trước\./, 'Kho trống vẫn chỉ rõ tải ảnh ngay được');
+assert.doesNotMatch(newProductMedia, /Kho ảnh của bạn/, 'Không còn khối kho ảnh riêng trùng với 6 ô ảnh');
+assert.match(newProductMedia, /Kho có 0\/12 ảnh\. Ảnh vào kho ảnh trước/, 'Kho trống vẫn chỉ rõ tải ảnh ngay được');
 assert.match(newProductMedia, /aria-label="Chọn ảnh sản phẩm hoặc catalogue"/, 'Sản phẩm mới vẫn thấy nút chọn tệp');
 assert.match(newProductMedia, /Kéo thả hoặc <label[^>]*>chọn ảnh|Kéo thả hoặc/, 'Sản phẩm mới thấy vùng kéo thả ảnh');
+
+// 18. Ảnh chọn trong kho ảnh phải hiện ngay trong 6 ô; ảnh chọn đầu tiên là ảnh chính,
+// nên ảnh đại diện không còn trống trước khi bấm Lưu (lỗi người bán báo).
+assert.match(source, /const pickedImages = pickedBank/, 'Ảnh đang chọn trong kho được dựng thành danh sách ảnh');
+assert.match(source, /const cover = product \? savedCover : pickedImages\[0\] \?\? null;/,
+  'Sản phẩm mới lấy ảnh chọn đầu tiên làm ảnh đại diện');
+assert.match(source, /: pickedImages\.slice\(0, 6\);/, 'Sáu ô ảnh của sản phẩm mới lấy từ ảnh đang chọn trong kho');
+assert.match(source, /const hasAnyImage = product \? hasMedia : pickedImages\.length > 0;/,
+  'Đã chọn ảnh trong kho thì mục Ảnh & tệp được tính là đã có ảnh');
+assert.match(source, /\[mediaId, \.\.\.current\.filter\(\(id\) => id !== mediaId\)\]/,
+  'Bấm ngôi sao đưa ảnh lên đầu danh sách chọn, tức đổi ảnh chính ngay');
+assert.doesNotMatch(source, /if \(!product \|\| busy \|\| mediaId === cover\?\.id\) return;/,
+  'Bấm ngôi sao không còn bị chặn khi sản phẩm chưa lưu');
+assert.match(source, /function dropImage\(asset: MediaAsset\)/, 'Bỏ ảnh dùng chung cho ảnh đã lưu và ảnh đang chọn');
+assert.match(source, /\{product \? "Xóa ảnh đại diện" : "Bỏ chọn ảnh đại diện"\}/,
+  'Nút bỏ ảnh đại diện nói đúng việc đang làm với ảnh chưa gắn');
+assert.match(source, /Đang chọn \{pickedImages\.length\} ảnh\./, 'Nói rõ số ảnh đang chọn và việc bấm Lưu để gắn');
+const bankAsset = (id, path) => ({ id, owner_type: 'supplier', supplier_id: 'sup-1', created_by: 'u1',
+  audience: 'internal', kind: 'image', storage_path: path, caption: id, sort_order: 0,
+  created_at: '2026-10-30T00:00:00Z' });
+const bankNew = render({ product: undefined, media: [],
+  bankMedia: [bankAsset('b1', 'bank/a.jpg'), bankAsset('b2', 'bank/b.jpg')] });
+assert.match(bankNew, /Ảnh có sẵn trong kho/, 'Ảnh chưa dùng trong kho hiện thành dải riêng dưới 6 ô');
+assert.doesNotMatch(bankNew, /Kho ảnh của bạn/, 'Không lặp lại khối kho ảnh ở đầu mục');
+assert.match(bankNew, /Tự lấy ảnh đầu tiên bạn chọn trong kho ảnh\./,
+  'Ảnh đại diện trống hướng dẫn lấy ảnh chọn đầu tiên');
 
 console.log('✅ Product page: một trang, mục lục neo, đủ khối, gửi duyệt và quản lý tệp.');

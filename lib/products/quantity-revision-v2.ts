@@ -1,4 +1,5 @@
 import type { SupplierQuantityEntryResult, SupplierQuantityUnit } from "@/lib/products/quantity-entry";
+import { formatMoney } from "./price-display.ts";
 
 /** Exact supplier input stored in the existing private revision JSON array. */
 export type QuantityRevisionTierV2 = {
@@ -76,5 +77,5 @@ export function v2QuantityLabel(grams: number, revision: QuantityRevisionV2): st
   return `${v2FormatAmount(amount)} ${v2UnitLabel(revision.unit)}`;
 }
 export function v2PriceLabel(cents: number, unit: SupplierQuantityUnit): string {
-  return `USD ${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)}/${v2UnitLabel(unit)}`;
+  return `${formatMoney(cents / 100, "USD")}/${v2UnitLabel(unit)}`;
 }

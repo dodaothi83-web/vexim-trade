@@ -11,6 +11,8 @@ import type {
   BuyerInput,
   Category,
   Certificate,
+  CertificateScope,
+  ProductCertificateOptout,
   Introduction,
   Prospect,
   ProspectInput,
@@ -563,6 +565,12 @@ export const supabaseStore: DataStore = {
       .from("supplier_submissions").select("id", { count: "exact", head: true }).eq("status", "pending_review");
     // Bảng chưa có trên bản chưa chạy migration: không có việc gì để hiện, không làm hỏng badge khác.
     if (error) return 0;
+    return count ?? 0;
+  },
+  async countCertificatesPendingReview() {
+    const { count, error } = await must()
+      .from("certificates").select("id", { count: "exact", head: true }).eq("review_status", "pending");
+    if (error) fail("countCertificatesPendingReview", error);
     return count ?? 0;
   },
   async getUser(id) {
@@ -1296,6 +1304,43 @@ export const supabaseStore: DataStore = {
   async deleteCertificate(id) {
     const { error } = await must().from("certificates").delete().eq("id", id);
     if (error) fail("deleteCertificate", error);
+  },
+
+  async listCertificateScopes(certificateIds) {
+    return (await readByIds<CertificateScope>("listCertificateScopes", "certificate_scopes", "certificate_id", certificateIds))
+      .sort(newestFirst);
+  },
+  async createCertificateScope(input) {
+    const { data, error } = await must().from("certificate_scopes").insert(cleanPatch(input)).select().single();
+    if (error) fail("createCertificateScope", error);
+    return data as CertificateScope;
+  },
+  async deleteCertificateScope(id) {
+    const { error } = await must().from("certificate_scopes").delete().eq("id", id);
+    if (error) fail("deleteCertificateScope", error);
+  },
+  async listCertificateOptouts(supplierId) {
+    return (await readByIds<ProductCertificateOptout>(
+      "listCertificateOptouts", "product_certificate_optouts", "supplier_id", [supplierId],
+    )).sort(newestFirst);
+  },
+  async listCertificateOptoutsForSuppliers(supplierIds) {
+    return (await readByIds<ProductCertificateOptout>(
+      "listCertificateOptoutsForSuppliers", "product_certificate_optouts", "supplier_id", supplierIds,
+    )).sort(newestFirst);
+  },
+  async setCertificateOptout(supplierId, productId, certificateId, on) {
+    const client = must();
+    if (!on) {
+      const { error } = await client.from("product_certificate_optouts")
+        .delete().eq("product_id", productId).eq("certificate_id", certificateId);
+      if (error) fail("setCertificateOptout", error);
+      return;
+    }
+    const { error } = await client.from("product_certificate_optouts")
+      .upsert({ supplier_id: supplierId, product_id: productId, certificate_id: certificateId },
+        { onConflict: "product_id,certificate_id" });
+    if (error) fail("setCertificateOptout", error);
   },
 
   // --- Verifications ---

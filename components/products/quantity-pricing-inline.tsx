@@ -94,7 +94,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
   return <div ref={root} onChange={(event) => event.stopPropagation()} className="space-y-3">
     <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
       Bảng mới lưu riêng vào hàng chờ duyệt.{" "}
-      {data.buyerPreviewEnabled ? "Bảng đang chờ duyệt không thay thế bảng giá người mua đang thấy." : "Người mua vẫn thấy bảng giá đã duyệt. Bảng mới chỉ hiển thị sau khi được duyệt."}
+      Người mua vẫn thấy bảng giá đã duyệt; bảng đang chờ duyệt chỉ hiển thị sau khi được duyệt.
       {data.pendingPriceId ? " Giá mới đang chờ duyệt." : data.hasApprovedPrice ? " Đã có bảng giá mới được duyệt." : " Chưa có bảng giá mới được duyệt."}
     </p>
     {actor === "supplier" && <p className="text-xs text-ink-600">Nếu thay đổi thông tin liên quan đến sản phẩm sau khi gửi giá, hãy gửi lại bảng giá trước khi gửi sản phẩm duyệt.</p>}

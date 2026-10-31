@@ -5,13 +5,6 @@ import { useState } from "react";
 
 import { FilePicker } from "@/components/file-picker";
 
-const CERT_KEY_OPTIONS = [
-  { key: "haccp_or_brc", label: "HACCP / BRC / ISO 22000" },
-  { key: "food_safety", label: "Giấy chứng nhận ATTP" },
-  { key: "product_certs", label: "Chứng chỉ sản phẩm (Halal, Organic, FDA...)" },
-  { key: "export_license", label: "Giấy phép xuất khẩu" },
-] as const;
-
 export function SupplierCertificateUpload({
   certificates,
 }: {
@@ -35,7 +28,8 @@ export function SupplierCertificateUpload({
       const payload = (await res.json()) as { ok?: boolean; message?: string };
       setMessage({
         ok: Boolean(res.ok && payload.ok),
-        text: payload.message ?? (res.ok ? "Đã tải chứng nhận." : "Không lưu được tệp."),
+        text: payload.message ??
+          (res.ok ? "Đã nhận chứng nhận. Nhân viên phân loại và chọn phạm vi trước khi hiện cho người mua." : "Không lưu được tệp."),
       });
       if (res.ok && payload.ok) {
         element.reset();
@@ -55,37 +49,26 @@ export function SupplierCertificateUpload({
     >
       <div className="sm:col-span-3">
         <p className="text-xs font-bold uppercase tracking-wider text-brand-900">
-          Tải lên hoặc gia hạn chứng nhận L1
+          Tải lên hoặc gia hạn chứng nhận
         </p>
         <p className="mt-0.5 text-xs text-ink-600">
-          Hệ thống đọc tên đơn vị trên giấy (khớp tên công ty = <strong>Chính chủ</strong>; tên nhà máy khác = <strong>Đơn vị đối tác</strong>) và ngày hết hạn để hiển thị lên trang. Khi sắp hết hạn (60 / 30 / 7 / 1 ngày), hệ thống tự nhắc để bạn vào đây tải bản mới.
+          Chỉ cần tải tệp. Nhân viên phân loại loại giấy và chọn phạm vi danh mục trước khi hiện cho người mua.
+          Khi sắp hết hạn (60 / 30 / 7 / 1 ngày), hệ thống nhắc bạn vào đây tải bản mới.
         </p>
       </div>
       <label className="block text-xs">
-        <span className="mb-1 block font-semibold text-ink-800">Loại chứng nhận L1</span>
-        <select name="checklist_key" className="input text-sm" defaultValue="haccp_or_brc">
-          {CERT_KEY_OPTIONS.map((o) => (
-            <option key={o.key} value={o.key}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="block text-xs">
-        <span className="mb-1 block font-semibold text-ink-800">
-          Cập nhật chứng nhận hiện có (tùy chọn)
-        </span>
+        <span className="mb-1 block font-semibold text-ink-800">Gia hạn giấy đã có (tùy chọn)</span>
         <select name="certificate_id" className="input text-sm" defaultValue="">
-          <option value="">+ Thêm mới / tự khớp theo loại hoặc số hiệu</option>
+          <option value="">+ Giấy mới</option>
           {certificates.map((c) => (
             <option key={c.id} value={c.id}>
-              Cập nhật: {c.name} {c.valid_until ? `(hạn ${c.valid_until})` : ""}
+              Gia hạn: {c.name} {c.valid_until ? `(hạn ${c.valid_until})` : ""}
             </option>
           ))}
         </select>
       </label>
-      <label className="block text-xs">
-        <span className="mb-1 block font-semibold text-ink-800">Tên gợi ý (không bắt buộc)</span>
+      <label className="block text-xs sm:col-span-2">
+        <span className="mb-1 block font-semibold text-ink-800">Tên trên giấy (không bắt buộc)</span>
         <input
           name="label"
           type="text"
@@ -101,12 +84,12 @@ export function SupplierCertificateUpload({
           required
           busy={busy}
           title="Tệp PDF hoặc ảnh chứng nhận"
-          hint="Tối đa 15 MB. Tệp được quét sơ bộ, không tự công khai."
+          hint="Tối đa 15 MB. Tệp chỉ hiện với người mua sau khi được duyệt."
         />
       </div>
-      <div className="flex items-end">
+      <div className="flex items-end sm:col-span-1">
         <button disabled={busy} className="btn btn-primary w-full" type="submit">
-          {busy ? "Đang tải lên..." : "Tải lên"}
+          {busy ? "Đang tải lên…" : "Tải lên"}
         </button>
       </div>
       {message && (

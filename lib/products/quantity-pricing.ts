@@ -1,3 +1,6 @@
+import type { PublicQuantityOffer } from "@/lib/products/quantity-public-projection";
+import { formatMoney, priceRangeText } from "./price-display.ts";
+
 /**
  * Rules for the next supplier pricing model. This module is deliberately isolated
  * from the legacy multi-grade editor: it must not change published offers until
@@ -246,8 +249,7 @@ export function quantityTierRanges(tiers: readonly QuantityPriceTier[]): Array<Q
 
 export function formatQuantityPriceBuyer(pricePerKg: number, unit: "kg" | "mt", currency: PriceCurrency = DEFAULT_PRICE_CURRENCY): string {
   const value = unit === "mt" ? pricePerKg * 1000 : pricePerKg;
-  const digits = unit === "mt" ? 0 : currencyDecimals(currency);
-  return `${currency} ${new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)}/${unit === "mt" ? "MT" : "kg"}`;
+  return `${formatMoney(value, currency)}/${unit === "mt" ? "MT" : "kg"}`;
 }
 
 /** Unknown or future confirmation must not earn ranking/reference-price credit. */
@@ -258,4 +260,66 @@ export function referencePriceAge(confirmedAt: string | null | undefined, now: n
   }
   const age = now - timestamp;
   return { days: Math.floor(age / 86_400_000), stale: age > staleAfterDays * 86_400_000 };
+}
+
+export type DraftOfferOptions = {
+  priceUnit: "kg" | "mt";
+  pricePubliclyVisible: boolean;
+  /** Grade chuẩn của danh mục, để tên grade gõ tay khớp lại cách viết chuẩn. */
+  standardGrades?: readonly string[];
+  /** Tên tiếng Anh đang nhập; người mua thấy tên này làm tiêu đề. */
+  englishName?: string;
+};
+
+/**
+ * Bảng giá người mua thấy, dựng từ nội dung **đang nhập**.
+ *
+ * Định dạng phải giống hệt `projectApprovedQuantityOffer` (cùng đơn vị, cùng số lẻ,
+ * cùng cách ghi khoảng giá), nếu không bản xem trước sẽ hứa một thứ khác với bản
+ * thật trên trang sản phẩm. Vì vậy hàm này cố ý lặp lại cách định dạng của bản đã
+ * duyệt thay vì dùng chung một hàm "gần giống".
+ *
+ * Trả về `null` khi chưa có dòng giá nào hoặc chưa chọn grade: người mua không bao
+ * giờ thấy bảng giá thiếu grade, nên bản xem trước cũng không được bịa ra.
+ */
+export function draftPublicQuantityOffer(
+  input: Pick<QuantityPricingInput, "grade" | "incoterm" | "currency" | "tiers">,
+  options: DraftOfferOptions,
+): PublicQuantityOffer | null {
+  const preview = previewQuantityTiers(input, options.standardGrades ?? []);
+  const tiers = preview.tiers;
+  if (!tiers.length || !preview.grade.trim()) return null;
+
+  const factor = options.priceUnit === "mt" ? 1000 : 1;
+  const unit = options.priceUnit === "mt" ? "MT" : "kg";
+
+  // Bảng giá đi từ đơn giá thấp nhất tới cao nhất: mức số lượng lớn nhất đứng cuối.
+  const low = tiers[tiers.length - 1].priceUsdPerKg;
+  const high = tiers[0].priceUsdPerKg;
+  const currency = tiers[0].currency;
+  const incoterm = tiers[0].incoterm;
+  const visible = options.pricePubliclyVisible;
+  const englishName = options.englishName?.trim() ?? "";
+
+  return {
+    title: englishName || null,
+    grade: preview.grade,
+    currency,
+    incoterm,
+    moq: formatQuantityBuyer(tiers[0].minKg),
+    moqKg: tiers[0].minKg,
+    price: visible ? `${priceRangeText(low * factor, high * factor, currency)}/${unit}` : null,
+    hasVolumePricing: visible && tiers.length > 1 && low !== high,
+    tiers: visible ? tiers.map((tier, index) => ({
+      from: formatQuantityBuyer(tier.minKg),
+      to: tiers[index + 1] ? formatQuantityBuyer(tiers[index + 1].minKg - 1) : null,
+      price: `${formatMoney(tier.priceUsdPerKg * factor, tier.currency)}/${unit}${tier.incoterm !== incoterm ? ` ${tier.incoterm}` : ""}`,
+    })) : [],
+    // Chưa duyệt nên không có ngày xác nhận và không đủ tư cách xếp hạng giá.
+    confirmedAt: null,
+    daysSinceConfirmed: null,
+    stale: false,
+    priceRankingEligible: false,
+    pricePoint: null,
+  };
 }

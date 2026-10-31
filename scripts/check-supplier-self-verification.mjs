@@ -1289,7 +1289,19 @@ assert.notEqual(res.status, 200, 'Partner cannot upload factory-checklist items'
 res = await uploadRoute.POST(new Request('http://x/upload', { method: 'POST', body: formFor('partner_factory_contract', new File([pdfBytes], 'contract.pdf', { type: 'application/pdf' })) }), { params: Promise.resolve({ id: partnerSub.id }) });
 assert.equal(res.status, 200, 'A PDF contract is accepted');
 let partnerItems = await store.listSubmissionItems(partnerSub.id);
-assert.equal(rules.readiness({ submission: partnerSub, items: partnerItems }).ready, true, 'Contract is enough, without 9 photos, code or GPS');
+assert.equal(rules.readiness({ submission: partnerSub, items: partnerItems }).ready, false,
+  'Hợp đồng chưa đủ: phải khai tên nhà máy đối tác để sau này đối chiếu giấy chứng nhận');
+let partnerSubNamed = await manualService.savePartnerFactoryName(store, {
+  submission: partnerSub, partnerFactoryName: 'Nhà máy Chế biến Nông sản Tây Nguyên',
+});
+assert.equal(partnerSubNamed.partner_factory_name, 'Nhà máy Chế biến Nông sản Tây Nguyên');
+assert.equal(rules.readiness({ submission: partnerSubNamed, items: partnerItems }).ready, true,
+  'Tên nhà máy đối tác + hợp đồng là đủ, không cần 9 ảnh, mã hay GPS');
+assert.equal(rules.readiness({ submission: { ...partnerSubNamed, partner_factory_name: '   ' }, items: partnerItems }).ready, false,
+  'Tên rỗng không được tính là đã khai');
+await assert.rejects(manualService.savePartnerFactoryName(store, {
+  submission: await store.getSubmission(oldFactory.id), partnerFactoryName: 'Nhà máy nào đó',
+}), /nhà máy đối tác/i, 'Hồ sơ nhà máy không nhận tên nhà máy đối tác');
 assert.ok(partnerItems.every((item) => !item.flags?.length), 'No AI/EXIF flags on partner evidence');
 const partnerBundle = { submission: partnerSub, items: partnerItems, links: [] };
 const beforeAi = aiCalls;

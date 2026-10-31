@@ -404,7 +404,11 @@ Object.assign(row, { target_level: 2, l2_scope: 'partner_contract', status: 'in_
 records.splice(0, records.length, { id: 'legacy-factory', target_level: 2, l2_scope: null, status: 'approved' }, row);
 media.splice(0);
 const partnerForm = new FormData(); partnerForm.set('id', row.id); partnerForm.set('status', 'submitted');
+assert.match((await exports.updateVerificationChecklistAction(partnerForm)).message, /tên nhà máy đối tác/i,
+  'Partner review cannot be submitted without the contracted factory name');
+partnerForm.set('partner_factory_name', 'Nhà máy Chế biến Nông sản Tây Nguyên');
 assert.equal((await exports.updateVerificationChecklistAction(partnerForm)).ok, true, 'Factory approval must not block partner-scope submission');
+assert.equal(row.partner_factory_name, 'Nhà máy Chế biến Nông sản Tây Nguyên');
 assert.match((await exports.approveVerificationAction(form)).message, /hợp đồng/i);
 media.push({ id: 'contract', owner_type: 'verification', verification_id: row.id, supplier_id: 'other', checklist_key: 'partner_factory_contract', kind: 'document', audience: 'internal', status: 'checked', storage_path: 'contract.pdf' });
 assert.match((await exports.approveVerificationAction(form)).message, /hợp đồng/i, 'Contract from another supplier cannot qualify');

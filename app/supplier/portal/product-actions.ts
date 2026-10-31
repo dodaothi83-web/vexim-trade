@@ -26,6 +26,7 @@ import { entryCurrencyIssue, nameContainsGrade, validateQuantityPricing } from "
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 import type { QuantityRevisionTierV2 } from "@/lib/products/quantity-revision-v2";
 import { deleteObject } from "@/lib/media/storage";
+import { moveBankImageIntoProduct, removeBankOriginals, repairAttachedBankMedia } from "@/lib/supplier-portal/bank-media";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
 type Result = { ok: boolean; message: string; id?: string; warning?: boolean };
@@ -278,8 +279,13 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
           const asset = await store.getMedia(mediaId);
           if (!asset || asset.owner_type !== "supplier" || asset.supplier_id !== access.supplier.id ||
             asset.kind !== "image" || !asset.storage_path) continue;
-          await store.updateMedia(mediaId, { owner_type: "product", product_id: saved.id, supplier_id: null,
-            audience: "buyer", sort_order: bankOrder });
+          // Ảnh phải nằm trong thư mục sản phẩm mới đến được người mua; chép hỏng thì để nguyên trong kho.
+          const moved = await moveBankImageIntoProduct(asset, saved.id);
+          if (!moved) continue;
+          await store.updateMedia(mediaId, { owner_type: "product", product_id: saved.id,
+            supplier_id: access.supplier.id, audience: "buyer", sort_order: bankOrder,
+            storage_path: moved.storage_path, thumb_path: moved.thumb_path });
+          await removeBankOriginals(asset);
           bankOrder++;
         } catch (error) {
           console.error("[supplier-product] attach media bank", error);
@@ -287,6 +293,8 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       }
     }
     if (!saved) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi lưu." };
+    // Ảnh gắn từ kho bằng bản cũ bị mất chủ sở hữu và nằm sai namespace: sửa ngay lần lưu này.
+    await repairAttachedBankMedia(store, access.supplier.id, await store.listMedia("product", saved.id));
     // Preserve the approved English name when Vietnamese content changes.
     // Name revisions are reviewed separately and must not be overwritten by AI here.
     const translationWarning = keepPublished && existing?.name !== saved.name

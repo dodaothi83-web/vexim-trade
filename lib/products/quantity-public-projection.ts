@@ -1,4 +1,5 @@
 import { formatQuantityBuyer, normalizePriceCurrency, referencePriceAge, type QuantityPriceTier } from "@/lib/products/quantity-pricing";
+import { formatMoney, priceCurrencySymbol, priceRangeText } from "./price-display.ts";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { readQuantityRevisionV2, v2PriceLabel, v2PriceUsdPerKg, v2QuantityLabel } from "@/lib/products/quantity-revision-v2";
 
@@ -6,6 +7,8 @@ import { readQuantityRevisionV2, v2PriceLabel, v2PriceUsdPerKg, v2QuantityLabel 
 export type PublicQuantityOffer = {
   title: string | null;
   grade: string;
+  /** Mã tiền tệ của bảng giá đã duyệt (không suy ra từ chuỗi hiển thị). */
+  currency: string;
   incoterm: string;
   moq: string;
   /** Whole kilograms from the approved first tier, for structured MOQ filters. */
@@ -28,6 +31,8 @@ export type PriceRevision = { status: string; product_id: string; grade: unknown
 export type NameRevision = { status: string; product_id: string; english_name: unknown };
 
 const INCOTERM_SET = new Set(["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"]);
+/** V2 tiers carry no currency of their own; the editor only prices in USD. */
+const V2_CURRENCY = "USD";
 
 function validTiers(raw: unknown, fallbackIncoterm: string): QuantityPriceTier[] | null {
   if (!Array.isArray(raw) || raw.length < 1 || raw.length > 100) return null;
@@ -85,11 +90,10 @@ export function projectApprovedQuantityOffer(input: {
   if (v2) {
     const first = v2.tiers[0], last = v2.tiers[v2.tiers.length - 1];
     const unit = v2.unit === "mt" ? "MT" : v2.unit;
-    const amount = (cents: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100);
-    const price = visible ? `USD ${amount(last.priceCentsPerUnit)}${first.priceCentsPerUnit !== last.priceCentsPerUnit ? `–${amount(first.priceCentsPerUnit)}` : ""}/${unit}` : null;
+    const price = visible ? `${priceRangeText(last.priceCentsPerUnit / 100, first.priceCentsPerUnit / 100, V2_CURRENCY)}/${unit}` : null;
     const kgFactor = input.priceUnit === "mt" ? 1000 : 1;
     return {
-      title, grade, incoterm: revision.incoterm, customGrade: v2.customGrade, moqUnit: v2.unit,
+      title, grade, currency: V2_CURRENCY, incoterm: revision.incoterm, customGrade: v2.customGrade, moqUnit: v2.unit,
       moq: v2QuantityLabel(first.quantityGrams, v2), moqKg: first.quantityGrams / 1000, price,
       hasVolumePricing: visible && v2.tiers.length > 1 && first.priceCentsPerUnit !== last.priceCentsPerUnit,
       tiers: visible ? v2.tiers.map((tier, index) => ({
@@ -104,24 +108,22 @@ export function projectApprovedQuantityOffer(input: {
   }
   if (!tiers) return null;
   const factor = input.priceUnit === "mt" ? 1000 : 1;
-  const decimals = input.priceUnit === "mt" ? 0 : 2;
   const unitLabel = input.priceUnit === "mt" ? "MT" : "kg";
-  const format = (perKg: number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(perKg * factor);
   const low = tiers[tiers.length - 1].priceUsdPerKg;
   const high = tiers[0].priceUsdPerKg;
   const currency = tiers[0].currency;
   const incoterm = tiers[0].incoterm;
   // Only USD prices are comparable for ranking; other currencies stay display-only.
   const rankable = currency === "USD";
-  const price = visible ? `${currency} ${format(low)}${low !== high ? `–${format(high)}` : ""}/${unitLabel}` : null;
+  const price = visible ? `${priceRangeText(low * factor, high * factor, currency)}/${unitLabel}` : null;
   return {
-    title, grade, incoterm,
+    title, grade, currency, incoterm,
     moq: formatQuantityBuyer(tiers[0].minKg), moqKg: tiers[0].minKg,
     price, hasVolumePricing: visible && tiers.length > 1 && low !== high,
     tiers: visible ? tiers.map((tier, index) => ({
       from: formatQuantityBuyer(tier.minKg),
       to: tiers[index + 1] ? formatQuantityBuyer(tiers[index + 1].minKg - 1) : null,
-      price: `${currency} ${format(tier.priceUsdPerKg)}/${unitLabel}${tier.incoterm !== incoterm ? ` ${tier.incoterm}` : ""}`,
+      price: `${formatMoney(tier.priceUsdPerKg * factor, tier.currency)}/${unitLabel}${tier.incoterm !== incoterm ? ` ${tier.incoterm}` : ""}`,
     })) : [],
     confirmedAt: visible ? confirmedAt : null,
     daysSinceConfirmed: visible ? age.days : null,

@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { loadProductDescription } from './product-description-test-utils.mjs';
 import * as productExtras from '../lib/products/product-extras.ts';
+import * as priceDisplay from "../lib/products/price-display.ts";
 function load(file, mocks) {
   const mod = { exports: {} };
   const source = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), {
@@ -97,7 +98,7 @@ const store = {
 };
 const access = () => ({ store, supplier: { ...supplier }, user });
 const onboarding = load('../lib/supplier-portal/onboarding.ts', {});
-const priceUnits = load('../lib/public/price-units.ts', {});
+const priceUnits = load('../lib/public/price-units.ts', { '../products/price-display.ts': priceDisplay });
 const gradeResolution = load('../lib/public/grade-resolution.ts', {});
 const gradePricing = load('../lib/products/grade-pricing.ts', {
   '@/lib/public/price-units': priceUnits,
@@ -115,13 +116,14 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/products/grade-pricing': gradePricing,
   '@/lib/db/supabase': { getSupabaseClient: () => null, supabaseStore: store },
   '@/lib/products/quantity-price-config': { readQuantityPricingPolicy: async () => ({ maxTiers: 4, maxPriceRatio: 1.5, maxLastMoqRatio: 100 }) },
-  '@/lib/products/quantity-pricing': load('../lib/products/quantity-pricing.ts', {}),
+  '@/lib/products/quantity-pricing': load('../lib/products/quantity-pricing.ts', { './price-display.ts': priceDisplay }),
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible && !!s.fob_updated_at && Date.now() - new Date(s.fob_updated_at).getTime() < 180 * 86400_000 },
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => c.slug === (p.name.includes('Rice') ? 'rice' : 'cashew')) },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async (_supplier, item) => { notices.push(['submitted', item.id]); return 'sent'; } },
   '@/lib/products/product-description': productDescription,
   '@/lib/products/product-extras': productExtras,
   '@/lib/media/storage': storage,
+  '@/lib/supplier-portal/bank-media': { repairAttachedBankMedia: async (_store, _supplierId, media) => media },
   '@/lib/ai/product-translation-service': {
     ensureProductEnglishTranslation: async (storeArg, id) => {
       const current = await storeArg.getProduct(id);
@@ -199,6 +201,7 @@ const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
   '@/lib/media/readiness': mediaReadiness,
   '@/lib/supplier-portal/product-view': { privateMediaUrl: (asset) => asset.storage_path ? `/api/media/file/${asset.storage_path}` : null },
   '@/lib/media/storage': storage,
+  '@/lib/supplier-portal/bank-media': { repairAttachedBankMedia: async (_store, _supplierId, media) => media },
 });
 let lastMediaResponse = null;
 async function postMedia(id = productId) {
@@ -348,6 +351,7 @@ assert.equal(productView.productReview(product), 'approved');
 assert.equal(productView.privateMediaUrl(visibleFiles[0]), `/api/media/file/${visibleFiles[0].storage_path}`);
 assert.equal(productView.privateMediaUrl({ ...visibleFiles[0], storage_path: '../secret' }), null);
 const selection = load('../lib/public/product-selection.ts', {
+  '../products/price-display.ts': priceDisplay,
   '@/lib/public/category-assignment': { assignProductCategory: (p, choices) => choices.find((c) => p.name.includes('Cashew') && c.slug === 'cashew') ?? null },
 });
 assert.equal(selection.productReviewApproved(product), true);

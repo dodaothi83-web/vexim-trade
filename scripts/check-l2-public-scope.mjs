@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import vm from 'node:vm';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -35,7 +36,10 @@ function load(file) {
     if (id === '@/components/product-compare-checkbox') return { ProductCompareCheckbox: () => null };
     if (id === '@/components/product-trade-labels') return { ProductTradeLabels: () => null };
     if (id === '@/components/public/supplier-product-rail') return { SupplierProductRail: ({ children }) => React.createElement('ul', null, children) };
-    if (id.startsWith('@/')) return load(`${id.slice(2)}.tsx`.replace(/verification-status\.tsx$/, 'verification-status.ts'));
+    if (id.startsWith('@/')) {
+      const base = id.slice(2);
+      return load(base.endsWith('.ts') || base.endsWith('.tsx') ? base : existsSync(`${base}.tsx`) ? `${base}.tsx` : `${base}.ts`);
+    }
     return nativeRequire(id);
   };
   vm.runInThisContext(`(function(exports, require, module) { ${code}\n})`, { filename: absolute })(mod.exports, require, mod);

@@ -19,6 +19,9 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { SupplierProductReviewControls } from "./review-controls";
 import { packagingSummary } from "@/lib/products/product-extras";
 import { certificateProductState } from "@/lib/products/product-certificates";
+import { certificateScopeMatch, optoutKey, optoutKeys } from "@/lib/certificate-scope";
+import { certificateSchemeLabel } from "@/lib/certificate-scheme";
+import { t } from "@/lib/public/i18n";
 import { decideProductCertificateFormAction } from "../certificate-actions";
 import { ProductTranslationPanel } from "./translation-panel";
 import { productTranslationState } from "@/lib/ai/translate-content";
@@ -43,17 +46,61 @@ export default async function EditProductPage({
   if (!product) notFound();
   const supplier = await store.getSupplier(product.supplier_id);
   if (!supplier) notFound();
-  // Chứng nhận theo sản phẩm: dùng lại certificates.requested_product_ids / approved_product_ids.
+  const [media, categories] = await Promise.all([store.listMedia("product", id), store.listCategories({ publishedOnly: false })]);
+  // Chứng nhận áp cho sản phẩm: giấy chất lượng có phạm vi phủ sản phẩm/danh mục (thừa
+  // hưởng) hoặc giấy nhà cung cấp xin gắn. Một dòng "Thừa hưởng …" là đủ để người duyệt
+  // sản phẩm biết vì sao sản phẩm đã có nhãn mà không ai phải thao tác thêm.
+  const productCategory = product.reviewed_category_slug
+    ? categories.find((item) => item.slug === product.reviewed_category_slug) ?? null
+    : null;
+  const productParentCategory = productCategory?.parent_id
+    ? categories.find((item) => item.id === productCategory.parent_id) ?? null
+    : null;
+  const productCategoryPath = productCategory
+    ? [productCategory.id, ...(productParentCategory ? [productParentCategory.id] : [])]
+    : [];
   const productCertificates = await store.listCertificates(product.supplier_id)
-    .then((rows) => rows
-      .map((certificate) => ({ id: certificate.id, name: certificate.name, issuer: certificate.issuer,
-        valid_until: certificate.valid_until, state: certificateProductState(certificate, product.id) }))
-      .filter((certificate) => certificate.state !== "none"))
+    .then(async (rows) => {
+      if (rows.length === 0) return [];
+      const scopes = typeof store.listCertificateScopes === "function"
+        ? await store.listCertificateScopes(rows.map((certificate) => certificate.id)).catch(() => [])
+        : [];
+      const optouts = typeof store.listCertificateOptouts === "function"
+        ? await store.listCertificateOptouts(product.supplier_id).catch(() => [])
+        : [];
+      const optedOut = optoutKeys(optouts);
+      return rows
+        .map((certificate) => {
+          const match = certificateScopeMatch(
+            certificate, scopes,
+            { id: product.id, categoryId: productCategory?.id ?? null, categoryPath: productCategoryPath },
+            optedOut,
+          );
+          const inheritedScope = scopes.find((scope) => scope.certificate_id === certificate.id &&
+            Boolean(scope.category_id) && productCategoryPath.includes(scope.category_id as string));
+          const inheritedCategory = inheritedScope
+            ? categories.find((item) => item.id === inheritedScope.category_id) ?? null
+            : null;
+          return {
+            id: certificate.id,
+            name: certificate.name,
+            issuer: certificate.issuer,
+            valid_until: certificate.valid_until,
+            scheme: certificateSchemeLabel(certificate.certificate_scheme ?? null, "vi"),
+            state: certificateProductState(certificate, product.id),
+            applies: match.direct || match.inherited,
+            inheritedFrom: match.inherited && inheritedCategory
+              ? t(inheritedCategory.name_i18n) || inheritedCategory.slug
+              : null,
+            optedOut: optedOut.has(optoutKey(product.id, certificate.id)),
+          };
+        })
+        .filter((certificate) => certificate.state !== "none" || certificate.applies);
+    })
     .catch((error) => {
       console.error("[product-certificate] crm list", error);
       return [];
     });
-  const [media, categories] = await Promise.all([store.listMedia("product", id), store.listCategories({ publishedOnly: false })]);
   const readiness = productReadiness(media);
   const publicationMedia = productPublicationMediaState(media, product.id, product.supplier_id);
   const links = await store.listSupplierCategories(supplier.id).catch(() => []);
@@ -237,6 +284,7 @@ export default async function EditProductPage({
                 inferredCategory={inferredCategory?.slug ?? null}
                 mediaReview={publicationMedia}
                 allowChanges={product.supplier_review_status === "pending"}
+                firstPricePending={!!quantityEditor?.pendingPriceId && !quantityEditor.hasApprovedPrice}
               />}
           </section>}
         </div>
@@ -270,13 +318,20 @@ export default async function EditProductPage({
           </section>
           <section className="card order-3 p-4 text-[13px] leading-relaxed text-ink-600">
             <h2 className="mb-1 text-sm font-bold text-ink-900">Chứng nhận của nhà cung cấp</h2>
-            <p>Chứng nhận không lấy từ ô sản phẩm tự khai. Nhà cung cấp xin gắn từ hồ sơ Giấy tờ; Vexim duyệt ở đây.</p>
+            <p>Không lấy từ ô sản phẩm tự khai. Giấy đã duyệt cho danh mục thì sản phẩm tự thừa hưởng;
+              Vexim chỉ duyệt liên kết riêng khi cần.</p>
             {productCertificates.length === 0
-              ? <p className="mt-2 text-ink-500">Chưa có chứng nhận nào được xin gắn cho sản phẩm này.</p>
+              ? <p className="mt-2 text-ink-500">Chưa có chứng nhận nào áp cho sản phẩm này.</p>
               : <ul className="mt-2 space-y-2">
                 {productCertificates.map((certificate) => <li key={certificate.id} className="rounded-lg border border-ink-200 px-3 py-2">
                   <p className="font-semibold text-ink-900">{certificate.name}{certificate.issuer ? ` · ${certificate.issuer}` : ""}</p>
-                  <p className="text-ink-500">{certificate.state === "approved" ? "Đã duyệt gắn" : "Nhà cung cấp xin gắn"}{certificate.valid_until ? ` · hết hạn ${certificate.valid_until}` : ""}</p>
+                  <p className="text-ink-500">
+                    {certificate.inheritedFrom
+                      ? `Thừa hưởng ${certificate.scheme ?? certificate.name} · phạm vi ${certificate.inheritedFrom}`
+                      : certificate.state === "approved" ? "Đã duyệt gắn" : "Nhà cung cấp xin gắn"}
+                    {certificate.valid_until ? ` · hạn ${certificate.valid_until}` : ""}
+                    {certificate.optedOut ? " · nhà cung cấp đã bỏ nhận" : ""}
+                  </p>
                   <form action={decideProductCertificateFormAction} className="mt-2 flex gap-2">
                     <input type="hidden" name="product_id" value={product.id} />
                     <input type="hidden" name="certificate_id" value={certificate.id} />

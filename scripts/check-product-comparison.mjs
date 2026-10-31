@@ -19,6 +19,7 @@ import {
   toggleProductComparisonSelection,
 } from "../lib/public/product-comparison.ts";
 import { approvedProductCertificateIds } from "../lib/public/product-certificate-links.ts";
+import * as priceDisplay from "../lib/products/price-display.ts";
 import { VERIFICATION_LABELS, verificationLabel } from "../lib/verification-status.ts";
 import {
   publicExportPortDisplay,
@@ -52,6 +53,7 @@ function compile(path, mocks) {
 
 const selectionModule = compile("../lib/public/product-selection.ts", {
   "@/lib/public/category-assignment": { assignProductCategory: () => null },
+  "../products/price-display.ts": priceDisplay,
 });
 const { withoutDirectContacts } = selectionModule;
 const { description, format } = loadProductDescription();
@@ -203,7 +205,13 @@ const rawCertificates = [
     staff_hidden: false, file_media_id: "evidence", valid_until: "2099-01-01", holder_match: "owner", holder_name: "Company A" },
 ];
 const internalMedia = [{ id: "evidence", supplier_id: "A", audience: "internal", storage_path: "internal/evidence.pdf", status: "checked", expires_on: null }];
+const certificateSchemeModule = compile("../lib/certificate-scheme.ts", {});
+const certificateScopeModule = compile("../lib/certificate-scope.ts", {
+  "./certificate-scheme": certificateSchemeModule,
+});
 const certificateModule = compile("../lib/public/certificates.ts", {
+  "@/lib/certificate-scheme": certificateSchemeModule,
+  "@/lib/certificate-scope": certificateScopeModule,
   "@/lib/media/readiness": { isExpired: () => false },
   "@/lib/public/product-selection": { withoutDirectContacts },
   "@/lib/public/product-certificate-links": { approvedProductCertificateIds },

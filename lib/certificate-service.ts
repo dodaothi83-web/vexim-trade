@@ -8,7 +8,7 @@ import {
   type CertificateScanResult,
 } from "@/lib/ai/certificate-scan";
 
-function todayISO(): string {
+export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 import {
@@ -21,7 +21,11 @@ import type {
   CertificateHolderMatch,
   CertificateSource,
   Supplier,
+  SupplierType,
 } from "@/lib/types";
+import { approvedL2Scope } from "@/lib/verification-status";
+import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
+import { detectCertificateScheme } from "@/lib/certificate-scheme";
 
 export const L1_CERTIFICATE_KEYS = [
   "food_safety",
@@ -80,9 +84,53 @@ export interface CertificatePublicationDecision {
   review_note: string;
 }
 
+/**
+ * Ai đứng tên trên giấy và hồ sơ xác thực của chính nhà cung cấp.
+ *
+ * Nhà máy/HTX chỉ dùng được chứng nhận đứng tên chính mình. Đơn vị thương mại muốn
+ * dùng chứng nhận của nhà máy khác thì phải có hồ sơ L2 "nhà máy đối tác" đã duyệt —
+ * nếu không, giấy đó chỉ được lưu để đối chiếu chứ không công bố được. Nhờ vậy không
+ * thể tải bừa một giấy chứng nhận của doanh nghiệp bất kỳ lên hồ sơ.
+ */
+export interface CertificateHolderContext {
+  supplierType?: SupplierType | null;
+  /** Đã có hồ sơ L2 nhà máy đối tác (partner_contract) được duyệt. */
+  partnerContractApproved?: boolean;
+  /** Tên nhà máy đối tác đã khai và được nhân viên xác nhận trong hồ sơ L2 đó. */
+  partnerFactoryName?: string | null;
+}
+
+/**
+ * Giấy đứng tên đơn vị khác có dùng được không, và nếu không thì vì sao.
+ *
+ * Chỉ một đường được duyệt tự động: đơn vị thương mại, hồ sơ L2 nhà máy đối tác đã
+ * duyệt, và tên trên giấy trùng tên nhà máy đối tác trong hợp đồng. Mọi trường hợp
+ * còn lại đều ở lại trạng thái chờ, kèm lý do đọc được.
+ */
+function partnerHolderRule(context: CertificateHolderContext, holderName: string): { ok: boolean; reason: string } {
+  if (context.supplierType === "manufacturer" || context.supplierType === "cooperative") {
+    return { ok: false, reason: "nhà máy chỉ dùng chứng nhận đứng tên chính mình" };
+  }
+  if (context.supplierType !== "trading") {
+    return { ok: false, reason: "Vexim kiểm tra loại hình doanh nghiệp trước khi đăng" };
+  }
+  if (!context.partnerContractApproved) {
+    return { ok: false, reason: "chưa xác thực L2 nhà máy đối tác nên giấy này chưa dùng được" };
+  }
+  const partnerName = context.partnerFactoryName?.trim();
+  if (!partnerName) {
+    return { ok: false, reason: "hồ sơ L2 nhà máy đối tác chưa ghi tên nhà máy" };
+  }
+  if (!partnerFactoryNameMatches(holderName, partnerName)) {
+    return { ok: false, reason: `giấy không đứng tên nhà máy đối tác ${partnerName} đã xác thực ở L2` };
+  }
+  return { ok: true, reason: `trùng nhà máy đối tác ${partnerName} trong hợp đồng L2` };
+}
+
 export function decideCertificatePublication(
   scan: CertificateScanResult | null,
   today = todayISO(),
+  context: CertificateHolderContext = {},
 ): CertificatePublicationDecision {
   if (!scan) {
     return {
@@ -93,9 +141,33 @@ export function decideCertificatePublication(
     };
   }
 
-  const hasValidHolder =
-    scan.holder_match === "owner" ||
-    (scan.holder_match === "partner" && Boolean(scan.holder_name?.trim()));
+  // Giấy đứng tên doanh nghiệp khác chỉ được công bố khi tên trên giấy trùng nhà máy
+  // đối tác đã khai trong hồ sơ L2 đã duyệt — không nhận giấy của doanh nghiệp bất kỳ.
+  if (scan.holder_match === "partner" && scan.holder_name?.trim()) {
+    const holderName = scan.holder_name.trim();
+    const rule = partnerHolderRule(context, holderName);
+    const reasons: string[] = [];
+    if (!scan.valid_until) reasons.push("chưa đọc được ngày hết hạn");
+    else if (scan.valid_until < today) reasons.push(`giấy đã hết hạn ngày ${scan.valid_until}`);
+    if (!(scan.confidence === "high" || scan.confidence === "medium")) reasons.push("ảnh/PDF mờ hoặc độ tin cậy thấp");
+    if (rule.ok && reasons.length === 0) {
+      return {
+        autoPublish: true,
+        review_status: "approved",
+        publicly_visible: true,
+        review_note: `AI đã quét: Đơn vị đối tác: ${holderName} (${rule.reason}) · Hết hạn ${scan.valid_until}.`,
+      };
+    }
+    return {
+      autoPublish: false,
+      review_status: "pending",
+      publicly_visible: false,
+      review_note: `Chưa tự công bố: giấy đứng tên ${holderName} (${rule.reason}).${
+        reasons.length ? ` Lưu ý: ${reasons.join("; ")}.` : ""}`,
+    };
+  }
+
+  const hasValidHolder = scan.holder_match === "owner";
   const hasFutureExpiry = Boolean(scan.valid_until && scan.valid_until >= today);
   const hasConfidence = scan.confidence === "high" || scan.confidence === "medium";
 
@@ -143,6 +215,11 @@ export interface IngestCertificateInput {
   verificationId?: string | null;
   source: CertificateSource;
   existingCertificateId?: string | null;
+  /**
+   * Tải bản gia hạn cho một giấy đã có: tạo **bản mới** thay vì ghi đè bản cũ, để bản
+   * cũ vẫn hiệu lực tới khi bản mới được duyệt.
+   */
+  renewalOfId?: string | null;
   actor?: { id?: string | null; email?: string | null };
 }
 
@@ -201,18 +278,40 @@ export async function ingestCertificateScan(
       };
 
   const scan = scanOutcome.ok ? scanOutcome.data : null;
-  const decision = decideCertificatePublication(scan, today);
+  // Loại hình đăng ký + hồ sơ L2 quyết định giấy đứng tên đơn vị khác có dùng được không.
+  const verifications = typeof store.listVerifications === "function"
+    ? await store.listVerifications(input.supplier.id).catch(() => [])
+    : [];
+  const l2Scope = approvedL2Scope(verifications ?? []);
+  const partnerContractApproved = l2Scope === "partner_contract" || l2Scope === "both";
+  const partnerFactoryName = partnerContractApproved
+    ? (verifications ?? [])
+        .filter((v) => v.target_level === 2 && v.status === "approved" && v.l2_scope === "partner_contract")
+        .map((v) => v.partner_factory_name?.trim() ?? "")
+        .find((name) => name.length > 0) ?? null
+    : null;
+  const decision = decideCertificatePublication(scan, today, {
+    supplierType: input.supplier.supplier_type ?? null,
+    partnerContractApproved,
+    partnerFactoryName,
+  });
 
   const all = await store.listCertificates(input.supplier.id);
+  // Bản gia hạn: tìm giấy cũ để nối chuỗi phiên bản, nhưng không ghi đè nó.
+  const renewalSource = input.renewalOfId
+    ? all.find((c) => c.id === input.renewalOfId)
+    : undefined;
   let existing: Certificate | undefined;
-  if (input.existingCertificateId) {
+  if (renewalSource) {
+    existing = undefined;
+  } else if (input.existingCertificateId) {
     existing = all.find((c) => c.id === input.existingCertificateId);
   }
-  if (!existing && scan?.certificate_number) {
+  if (!renewalSource && !existing && scan?.certificate_number) {
     const numNorm = scan.certificate_number.trim().toLowerCase();
     existing = all.find((c) => c.number && c.number.trim().toLowerCase() === numNorm);
   }
-  if (!existing && input.checklistKey) {
+  if (!renewalSource && !existing && input.checklistKey) {
     existing = all.find(
       (c) =>
         c.checklist_key === input.checklistKey &&
@@ -229,6 +328,17 @@ export async function ingestCertificateScan(
   const expiryChanged =
     !existing || (existing.valid_until ?? null) !== (resolvedValidUntil ?? null);
 
+  // Loại chứng nhận đọc từ chính tên/tổ chức cấp/số giấy; chỉ nhận gợi ý của AI khi
+  // văn bản trên giấy không nêu mã nào mà AI đọc chắc (không lấy theo ô checklist).
+  // Nhân viên đã chọn loại cho đúng giấy này thì giữ lựa chọn đó khi quét lại; chỉ đọc
+  // lại khi tên giấy đổi (tức là tệp mới, không còn là giấy cũ).
+  const nameChanged = (existing?.name ?? "").trim() !== resolvedName.trim();
+  const certificateScheme =
+    (!nameChanged ? existing?.certificate_scheme ?? null : null) ??
+    detectCertificateScheme({ name: resolvedName, issuer: scan?.issuer, number: scan?.certificate_number }) ??
+    (scan && scan.confidence !== "low" ? scan.certificate_scheme : null) ??
+    null;
+
   const patch: Partial<Certificate> = {
     supplier_id: input.supplier.id,
     name: resolvedName.slice(0, 160),
@@ -244,14 +354,19 @@ export async function ingestCertificateScan(
     ai_confidence: scanOutcome.ok ? scanOutcome.data.confidence : (existing?.ai_confidence ?? null),
     source: input.source,
     checklist_key: input.checklistKey ?? existing?.checklist_key ?? null,
+    certificate_scheme: certificateScheme,
     verification_id: input.verificationId ?? existing?.verification_id ?? null,
     // Không bao giờ tự ghi đè cờ ẩn của nhân viên khi quét lại.
     staff_hidden: existing?.staff_hidden ?? false,
     // Khi NCC tải bản mới có ngày hết hạn khác, đặt lại toàn bộ mốc nhắc 60/30/7/1 ngày.
     expiry_notified: expiryChanged ? {} : (existing?.expiry_notified ?? {}),
-    review_status: decision.review_status,
-    review_note: decision.review_note,
-    publicly_visible: decision.publicly_visible,
+    review_status: renewalSource ? "pending" : decision.review_status,
+    review_note: renewalSource
+      ? "Bản gia hạn chờ Vexim đối chiếu; giấy cũ vẫn hiệu lực tới khi bản này được duyệt."
+      : decision.review_note,
+    publicly_visible: renewalSource ? false : decision.publicly_visible,
+    supersedes_certificate_id: renewalSource?.id ?? existing?.supersedes_certificate_id ?? null,
+    superseded_by_certificate_id: existing?.superseded_by_certificate_id ?? null,
     checked_at: decision.autoPublish ? nowIso : (existing?.checked_at ?? null),
   };
 
@@ -265,6 +380,17 @@ export async function ingestCertificateScan(
   } else {
     certificate = await store.createCertificate(patch);
   }
+
+  // Bản gia hạn không bao giờ tự công bố: giấy cũ giữ hiệu lực tới khi nhân viên duyệt.
+  const effectiveDecision: CertificatePublicationDecision = renewalSource
+    ? {
+        ...decision,
+        autoPublish: false,
+        publicly_visible: false,
+        review_status: "pending",
+        review_note: "Bản gia hạn chờ Vexim đối chiếu; giấy cũ vẫn hiệu lực tới khi bản này được duyệt.",
+      }
+    : decision;
 
   await store
     .addAuditLog({
@@ -291,25 +417,25 @@ export async function ingestCertificateScan(
         holder_name: certificate.holder_name ?? null,
         valid_until: certificate.valid_until,
         ai_confidence: certificate.ai_confidence ?? null,
-        auto_published: decision.autoPublish,
+        auto_published: effectiveDecision.autoPublish,
         staff_hidden: Boolean(certificate.staff_hidden),
       },
     })
     .catch(() => null);
 
-  if (decision.autoPublish && !certificate.staff_hidden) {
+  if (effectiveDecision.autoPublish && !certificate.staff_hidden) {
     await notifyDecisionFn({
       supplierId: input.supplier.id,
       decision: "certificate_published",
       name: certificate.name,
       entityId: certificate.id,
-      note: decision.review_note,
+      note: effectiveDecision.review_note,
     }).catch(() => "failed");
   } else if (input.source !== "l1-staff") {
     await notifyStaffFn(input.supplier, certificate.name).catch(() => "failed");
   }
 
-  return { certificate, scanOutcome, decision };
+  return { certificate, scanOutcome, decision: effectiveDecision };
 }
 
 export function pickExpiryReminderThreshold(

@@ -22,9 +22,13 @@ import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
 import { publicProductMoqDisplay, publicProductPlaceDisplay, publicProductPriceDisplay } from "@/lib/public/product-detail-display";
 import type { Certificate, Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
-/** The approved quantity price is projected only when the buyer preview is enabled. */
-async function quantityPreviewEnabled(): Promise<boolean> {
-  return process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true";
+/**
+ * Approved quantity prices are part of the buyer catalogue now that suppliers publish
+ * through the quantity flow. The old rollout flag survives only as an escape hatch:
+ * `VEXIM_QUANTITY_BUYER_PREVIEW=false` turns the projection off.
+ */
+async function quantityPriceProjectionEnabled(): Promise<boolean> {
+  return process.env.VEXIM_QUANTITY_BUYER_PREVIEW !== "false";
 }
 
 /** The client receives only a public projection — never supplier contacts, private media or internal notes. */
@@ -303,7 +307,7 @@ export async function listPublicCategoryProducts(category: Category, options?: {
       product, supplier: byId.get(product.supplier_id)!, category, media: byProduct.get(product.id) ?? [],
       card: projectPublicCategoryProduct(product, byId.get(product.supplier_id)!, category, byProduct.get(product.id) ?? [], evidenceBySupplier.get(product.supplier_id)!),
     }));
-  const projected = await quantityPreviewEnabled()
+  const projected = await quantityPriceProjectionEnabled()
     ? await (await import("@/lib/public/quantity-catalog-legacy-preview")).projectQuantityCatalogPreview(readyRecords)
     : readyRecords;
   return rankPublicCategoryProducts(projected.map(({ card }) => card), SPEC_RANKING_WEIGHTS);
@@ -354,7 +358,7 @@ export async function getPublicProductRecordsByIds(ids: readonly string[]): Prom
       media: media.filter((asset) => asset.product_id === product.id),
       card: projectPublicCategoryProduct(product, supplier, category, media.filter((asset) => asset.product_id === product.id)),
     }));
-  return await quantityPreviewEnabled()
+  return await quantityPriceProjectionEnabled()
     ? (await import("@/lib/public/quantity-catalog-legacy-preview")).projectQuantityCatalogPreview(readyRecords)
     : readyRecords;
 }

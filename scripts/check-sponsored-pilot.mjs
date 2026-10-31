@@ -110,7 +110,7 @@ assert.equal((await route.POST(request('click'))).status, 404);
 assert.equal(writes.length, 2, 'Disabled pilot cannot record');
 const categoryPage = readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8');
 const grid = readFileSync(new URL('../components/category-product-grid.tsx', import.meta.url), 'utf8');
-assert.match(categoryPage, /!isPreview \? await pilotPlacement\(cat\.slug, products\) : null/);
+assert.match(categoryPage, /!isPreview \? await pilotPlacement\(cat\.slug, visibleProducts\) : null/);
 // Vùng đẩy của gói bán thật đã thay bản thử nghiệm; bản thử nghiệm chỉ còn là
 // đường lùi khi danh mục chưa có gói nào, và vẫn phải nằm trên lưới tự nhiên.
 assert.match(grid, /!active && \(sponsoredBand\.length > 0[\s\S]*: sponsored && <SponsoredPilotSlot/);
