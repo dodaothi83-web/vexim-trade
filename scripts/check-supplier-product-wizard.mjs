@@ -368,6 +368,12 @@ assert.doesNotMatch(source, /\bleft-11\b/, 'Không dùng vị trí cứng left-1
 assert.match(multiHtml, /aria-label="6 ô ảnh sản phẩm"/, 'Ảnh sản phẩm nằm trong lưới 6 ô');
 assert.match(multiHtml, /Ảnh chính<\/span>/, 'Ô ảnh chính có nhãn riêng');
 assert.doesNotMatch(multiHtml, /Catalogue PDF/, 'Chỉ có ảnh thì không hiện khối catalogue');
+// Ảnh đại diện đứng trước lưới ảnh sản phẩm, và lưới phải có nút đổi ảnh đại diện / xoá ảnh.
+assert.ok(multiHtml.indexOf('Ảnh đại diện') < multiHtml.indexOf('6 ô ảnh sản phẩm'), 'Ảnh đại diện nằm trên ảnh sản phẩm');
+assert.match(multiHtml, /title="Đặt làm ảnh đại diện"/, 'Mỗi ô ảnh đổi được ảnh đại diện');
+assert.match(multiHtml, /aria-label="Đặt [^"]*làm ảnh đại diện"/, 'Nút đổi ảnh đại diện có nhãn đọc được');
+assert.match(multiHtml, /title="Xóa ảnh"/, 'Mỗi ô ảnh xoá được ngay tại ô');
+assert.doesNotMatch(source, /chọn chia sẻ|chọn tệp chia sẻ/, 'Nhà cung cấp không có nút chia sẻ nên không được hướng dẫn chọn chia sẻ');
 const pdfMedia = [...multiBuyerMedia, { ...media[0], id: 'pdf1', kind: 'catalogue', caption: 'catalogue.pdf' }];
 const pdfHtml = render({ product: ownApproved, media: pdfMedia });
 assert.match(pdfHtml, /Catalogue PDF/, 'Có tệp PDF thì hiện khối catalogue');

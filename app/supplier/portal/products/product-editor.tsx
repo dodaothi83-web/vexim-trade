@@ -1008,6 +1008,38 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 </ul> : <p className="mt-2 rounded-md border border-dashed border-ink-300 bg-white px-3 py-3 text-center text-[11.5px] text-ink-600">Kho đang trống. Tải ảnh ở ô bên dưới, không cần lưu sản phẩm trước.</p>}
               </Row>}
 
+              {/* Ảnh đại diện đứng trước: người mua thấy ảnh này đầu tiên trong kết quả tìm kiếm. */}
+              <Row label="Ảnh đại diện" hint="Hiện đầu tiên với người mua, dùng cho thẻ sản phẩm và kết quả tìm kiếm.">
+                <div
+                  onDragOver={(event) => { if (canUpload) { event.preventDefault(); setCoverHover(true); } }}
+                  onDragLeave={() => setCoverHover(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setCoverHover(false);
+                    if (!canUpload || event.dataTransfer.files.length) return;
+                    const dragged = event.dataTransfer.getData("text/plain");
+                    if (dragged) void makeCover(dragged);
+                  }}
+                  className="flex flex-wrap items-center gap-3"
+                >
+                  <div className={`size-[92px] shrink-0 overflow-hidden rounded-md border transition ${coverHover ? "border-brand-500 ring-2 ring-brand-200" : "border-dashed border-ink-300"} bg-white`}>
+                    {coverUrl
+                      ? <img src={coverUrl} alt="Ảnh đại diện" className="size-full object-cover" />
+                      : <span className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-6" aria-hidden="true" /></span>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] leading-5 text-ink-600">{coverUrl
+                      ? "Ảnh này hiện đầu tiên với người mua. Bấm ngôi sao ở ô ảnh bên dưới để đổi ảnh đại diện."
+                      : "Tự lấy ảnh chính. Tải ảnh ở mục Ảnh sản phẩm bên dưới."}</p>
+                    {cover && canDeleteAsset(cover) && <button type="button" disabled={busy} onClick={() => void removeMedia(cover.id)}
+                      aria-label="Xóa ảnh đại diện" title="Xóa ảnh đại diện"
+                      className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50">
+                      <Trash2 className="size-3" aria-hidden="true" /> Xóa ảnh
+                    </button>}
+                  </div>
+                </div>
+              </Row>
+
               {/* Sáu ô ảnh sản phẩm: ô đầu là ảnh chính. */}
               <Row label="Ảnh sản phẩm" required error={!hasMedia}
                 hint="Ô đầu là ảnh chính — ảnh người mua thấy trong kết quả tìm kiếm. Nên dùng nền trắng, ≥ 800×800 px.">
@@ -1024,7 +1056,21 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                             <Plus className="size-5" aria-hidden="true" />
                             <span className="text-[10px] font-semibold">{index === 0 ? "Ảnh chính" : `Ảnh ${index + 1}`}</span>
                           </span>}
-                        {isCover && <span className="absolute top-1 left-1 rounded-full bg-brand-700 px-1.5 py-0.5 text-[9px] font-bold text-white">Ảnh chính</span>}
+                        {asset && (isCover || canUpload || canDeleteAsset(asset)) && <div className="absolute inset-x-1 top-1 flex items-start justify-between gap-1">
+                          <span>{isCover && <span className="rounded-full bg-brand-700 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">Ảnh chính</span>}</span>
+                          <span className="flex shrink-0 items-center gap-1">
+                            {canUpload && !isCover && <button type="button" disabled={busy} onClick={() => void makeCover(asset.id)}
+                              aria-label={`Đặt ${index === 0 ? "ảnh này" : `ảnh ${index + 1}`} làm ảnh đại diện`} title="Đặt làm ảnh đại diện"
+                              className="rounded-full bg-white/95 p-1 text-brand-700 shadow-sm hover:bg-brand-50 disabled:opacity-50">
+                              <Star className="size-3" aria-hidden="true" />
+                            </button>}
+                            {canDeleteAsset(asset) && <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)}
+                              aria-label={`Xóa ảnh ${index + 1}`} title="Xóa ảnh"
+                              className="rounded-full bg-white/95 p-1 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
+                              <X className="size-3" aria-hidden="true" />
+                            </button>}
+                          </span>
+                        </div>}
                       </div>
                     </li>;
                   })}
@@ -1060,40 +1106,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 {progress && <p role="status" className="mt-1.5 text-[12px] font-semibold text-brand-800">{progress}</p>}
                 <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-4 text-ink-500">
                   <LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-                  Tệp ở chế độ nội bộ cho tới khi bạn chọn chia sẻ.
+                  Ảnh và tệp bạn tải lên được kiểm tra trước khi hiện với người mua.
                 </p>
-              </Row>
-
-              {/* Ảnh đại diện: kéo ảnh khác vào ô này là thay ngay. */}
-              <Row label="Ảnh đại diện">
-                <div
-                  onDragOver={(event) => { if (canUpload) { event.preventDefault(); setCoverHover(true); } }}
-                  onDragLeave={() => setCoverHover(false)}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    setCoverHover(false);
-                    if (!canUpload || event.dataTransfer.files.length) return;
-                    const dragged = event.dataTransfer.getData("text/plain");
-                    if (dragged) void makeCover(dragged);
-                  }}
-                  className="flex flex-wrap items-center gap-3"
-                >
-                  <div className={`size-[76px] shrink-0 overflow-hidden rounded-md border transition ${coverHover ? "border-brand-500 ring-2 ring-brand-200" : "border-dashed border-ink-300"} bg-white`}>
-                    {coverUrl
-                      ? <img src={coverUrl} alt="Ảnh đại diện" className="size-full object-cover" />
-                      : <span className="flex size-full items-center justify-center text-ink-400"><ImageIcon className="size-5" aria-hidden="true" /></span>}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11.5px] leading-4 text-ink-600">{canUpload
-                      ? "Ảnh này hiện đầu tiên với người mua. Mặc định lấy ảnh chính nếu để trống."
-                      : "Ảnh này hiện đầu tiên với người mua."}</p>
-                    {cover && canDeleteAsset(cover) && <button type="button" disabled={busy} onClick={() => void removeMedia(cover.id)}
-                      aria-label="Xóa ảnh đại diện" title="Xóa ảnh đại diện"
-                      className="mt-1 inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50">
-                      <Trash2 className="size-3" aria-hidden="true" /> Xóa ảnh
-                    </button>}
-                  </div>
-                </div>
               </Row>
 
               {/* Chỉ còn một chỗ tải ảnh: 6 ô ở trên. Danh sách dưới đây chỉ để xem lại
@@ -1633,9 +1647,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <ol className="mt-2 space-y-2 text-[11.5px] leading-4 text-ink-600">
             <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-brand-700 text-[10px] font-bold text-white">1</span>Bạn lưu thông tin và tải tệp thật.</li>
             <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">2</span>Gửi duyệt nội dung.</li>
-            <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">3</span>Chọn tệp chia sẻ cho người mua và bật sẵn sàng.</li>
+            <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">3</span>Tệp được kiểm tra, nội dung được duyệt rồi sản phẩm mới đăng.</li>
           </ol>
-          <p className="mt-2 flex items-start gap-1.5 text-[11px] text-ink-500"><LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Tệp ở chế độ nội bộ cho tới khi được chọn chia sẻ.</p>
+          <p className="mt-2 flex items-start gap-1.5 text-[11px] text-ink-500"><LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Tệp bạn tải lên chỉ hiện với người mua sau khi được duyệt.</p>
         </div>
 
         <Link href="/supplier/portal/products" className="flex items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[12px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800">

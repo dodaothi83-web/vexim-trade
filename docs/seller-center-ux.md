@@ -210,8 +210,9 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   gợi ý canh phải; **nhãn nằm trên ô, ô nhập chiếm hết bề rộng thân thẻ**. Không dựng cột nhãn trái: cột nhãn đẩy ô
   sang phải và bóp hẹp ô (thử ngày 30/10, bỏ ngày 31/10/2026). Ô một giá trị cố định vẫn hẹp theo §5.1.
 - **Dấu `*` đỏ đứng trước nhãn** cho trường bắt buộc; lỗi của khối tô viền/khung đỏ và gợi ý chuyển sang màu đỏ.
-- **Khối 03**: **một chỗ duy nhất cho ảnh** — 6 ô (ô đầu là ảnh chính) kèm vùng tải tệp ngay dưới; dòng Ảnh đại diện;
-  dòng Catalogue chỉ hiện khi có tệp PDF, không lặp lại ảnh đã nằm trong 6 ô. Kho ảnh riêng của nhà cung cấp nằm ở
+- **Khối 03**: **một chỗ duy nhất cho ảnh** — thứ tự trên xuống: **Ảnh đại diện** (ô lớn, người mua thấy đầu tiên) →
+  **6 ô ảnh sản phẩm** (mỗi ô có ★ đổi ảnh đại diện và ✕ xoá ngay tại ô) → vùng tải tệp → Catalogue PDF chỉ hiện khi có
+  tệp. Nhà cung cấp không có nút chọn chia sẻ cho người mua, nên copy không được hứa hẹn điều đó. Kho ảnh riêng của nhà cung cấp nằm ở
   dòng đầu khi sản phẩm chưa tồn tại.
 - **Khối 06**: dòng "Đóng gói" gộp nhãn con (bao bì · loại kiện/khối lượng/số đơn vị · kích thước), rồi các dòng
   Thời gian giao hàng, Vận chuyển (cảng xuất + địa điểm Incoterm), Điều kiện thanh toán kèm chip gợi ý.
