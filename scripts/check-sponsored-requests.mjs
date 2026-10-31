@@ -11,6 +11,7 @@ import * as display from '../lib/public/display-name.ts';
 import * as seo from '../lib/public/supplier-seo.ts';
 import * as supplierView from '../lib/sponsored/supplier-view.ts';
 import { hasPermission } from '../lib/auth/permissions.ts';
+import * as priceDisplay from "../lib/products/price-display.ts";
 
 const nodeRequire = createRequire(import.meta.url);
 function load(file, mocks, globals={}) {
@@ -19,7 +20,7 @@ function load(file, mocks, globals={}) {
   vm.runInNewContext(js,{module,exports:module.exports,console,Date,FormData,process,...globals,require:(id)=>{assert.ok(id in mocks,`Unexpected ${id} in ${file}`);return mocks[id];}},{filename:file});
   return module.exports;
 }
-const selection=load('lib/public/product-selection.ts',{'@/lib/public/category-assignment':{assignProductCategory}});
+const selection=load('lib/public/product-selection.ts',{'@/lib/public/category-assignment':{assignProductCategory},'../products/price-display.ts':priceDisplay});
 const supplier={id:'s1',name:'Real Supplier',slug:'real',status:'published',is_demo:false,summary_i18n:{},onboarding_status:'approved'};
 const categories=[{slug:'cashew',name_i18n:{en:'Cashew',vi:'Hạt điều'},status:'published',is_published:true},
   {slug:'rice',name_i18n:{en:'Rice',vi:'Gạo'},status:'published',is_published:true},
@@ -34,7 +35,7 @@ const media=products.map(p=>({id:`media-${p.id}`,owner_type:'product',product_id
 let calls=[];
 const store={mode:'supabase',async listProductsBySupplier(id){calls.push(['products',id]);return products;},async listCategories(){calls.push(['categories']);return categories;},
   async listMediaForProducts(ids){calls.push(['media',ids]);return media.filter(m=>ids.includes(m.product_id));},async listCertificatesForSuppliers(){return [];}};
-const priceUnits=load('lib/public/price-units.ts',{});
+const priceUnits=load('lib/public/price-units.ts',{'../products/price-display.ts':priceDisplay});
 const gradePricing=load('lib/products/grade-pricing.ts',{
   '@/lib/public/price-units':priceUnits,
   '@/lib/public/grade-resolution':{gradeKey:(v)=>String(v??'').toLowerCase(),resolveGrade:()=>({value:null})},

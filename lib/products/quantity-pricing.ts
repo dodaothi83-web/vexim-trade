@@ -1,4 +1,5 @@
 import type { PublicQuantityOffer } from "@/lib/products/quantity-public-projection";
+import { formatMoney, priceRangeText } from "./price-display.ts";
 
 /**
  * Rules for the next supplier pricing model. This module is deliberately isolated
@@ -248,8 +249,7 @@ export function quantityTierRanges(tiers: readonly QuantityPriceTier[]): Array<Q
 
 export function formatQuantityPriceBuyer(pricePerKg: number, unit: "kg" | "mt", currency: PriceCurrency = DEFAULT_PRICE_CURRENCY): string {
   const value = unit === "mt" ? pricePerKg * 1000 : pricePerKg;
-  const digits = unit === "mt" ? 0 : currencyDecimals(currency);
-  return `${currency} ${new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)}/${unit === "mt" ? "MT" : "kg"}`;
+  return `${formatMoney(value, currency)}/${unit === "mt" ? "MT" : "kg"}`;
 }
 
 /** Unknown or future confirmation must not earn ranking/reference-price credit. */
@@ -291,12 +291,7 @@ export function draftPublicQuantityOffer(
   if (!tiers.length || !preview.grade.trim()) return null;
 
   const factor = options.priceUnit === "mt" ? 1000 : 1;
-  const decimals = options.priceUnit === "mt" ? 0 : 2;
   const unit = options.priceUnit === "mt" ? "MT" : "kg";
-  const format = (perKg: number) => new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(perKg * factor);
 
   // Bảng giá đi từ đơn giá thấp nhất tới cao nhất: mức số lượng lớn nhất đứng cuối.
   const low = tiers[tiers.length - 1].priceUsdPerKg;
@@ -309,15 +304,16 @@ export function draftPublicQuantityOffer(
   return {
     title: englishName || null,
     grade: preview.grade,
+    currency,
     incoterm,
     moq: formatQuantityBuyer(tiers[0].minKg),
     moqKg: tiers[0].minKg,
-    price: visible ? `${currency} ${format(low)}${low !== high ? `–${format(high)}` : ""}/${unit}` : null,
+    price: visible ? `${priceRangeText(low * factor, high * factor, currency)}/${unit}` : null,
     hasVolumePricing: visible && tiers.length > 1 && low !== high,
     tiers: visible ? tiers.map((tier, index) => ({
       from: formatQuantityBuyer(tier.minKg),
       to: tiers[index + 1] ? formatQuantityBuyer(tiers[index + 1].minKg - 1) : null,
-      price: `${currency} ${format(tier.priceUsdPerKg)}/${unit}${tier.incoterm !== incoterm ? ` ${tier.incoterm}` : ""}`,
+      price: `${formatMoney(tier.priceUsdPerKg * factor, tier.currency)}/${unit}${tier.incoterm !== incoterm ? ` ${tier.incoterm}` : ""}`,
     })) : [],
     // Chưa duyệt nên không có ngày xác nhận và không đủ tư cách xếp hạng giá.
     confirmedAt: null,

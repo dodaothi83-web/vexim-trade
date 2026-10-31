@@ -20,6 +20,7 @@ import * as verification from "../lib/verification-status.ts";
 import * as categoryNames from "../lib/public/category-names.ts";
 import * as comparison from "../lib/public/product-comparison.ts";
 import * as supplierSeo from "../lib/public/supplier-seo.ts";
+import * as priceDisplay from "../lib/products/price-display.ts";
 
 const require = createRequire(import.meta.url);
 const jsx = require("react/jsx-runtime");
@@ -42,6 +43,7 @@ function load(path, mocks) {
 
 const selection = load("../lib/public/product-selection.ts", {
   "@/lib/public/category-assignment": { assignProductCategory },
+  "../products/price-display.ts": priceDisplay,
 });
 const english = load("../lib/public/supplier-english.ts", { "@/lib/public/product-detail-display": detail });
 const category = (id, en, vi, parent_id = null, extra = {}) => ({
@@ -151,7 +153,7 @@ const catalog = load("../lib/public/catalog.ts", {
   "@/lib/public/product-selection": selection,
   "@/lib/public/display-name": displayName,
 });
-const priceUnits = load("../lib/public/price-units.ts", {});
+const priceUnits = load("../lib/public/price-units.ts", { "../products/price-display.ts": priceDisplay });
 const gradePricing = load("../lib/products/grade-pricing.ts", {
   "@/lib/public/price-units": priceUnits,
   "@/lib/public/grade-resolution": grade,

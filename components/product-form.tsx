@@ -32,6 +32,7 @@ import {
   type LeadTimeUnit,
   type ProductGradeRowDraft,
 } from "@/lib/products/grade-pricing";
+import { formatMoney, priceRangeText } from "@/lib/products/price-display";
 import { effectiveFieldsFor } from "@/lib/product-attributes";
 import { gradeKey, resolveGrade } from "@/lib/public/grade-resolution";
 import { composeDisplayName, isPlaceholderDisplayName } from "@/lib/public/display-name";
@@ -212,7 +213,9 @@ export function ProductForm({
   const previewPrice = priceRangeError
     ? "Kiểm tra bảng Grade & giá"
     : form.price_publicly_visible && draftSummary?.ref_price != null
-      ? `USD ${draftSummary.ref_price}${draftSummary.ref_price_max != null && draftSummary.ref_price_max > draftSummary.ref_price ? `-${draftSummary.ref_price_max}` : ""}/${draftSummary.unit || unitMeta.tradeUnit}`
+      ? `${draftSummary.ref_price_max != null && draftSummary.ref_price_max > draftSummary.ref_price
+        ? priceRangeText(draftSummary.ref_price, draftSummary.ref_price_max, "USD")
+        : formatMoney(draftSummary.ref_price, "USD")}/${draftSummary.unit || unitMeta.tradeUnit}`
       : "On request";
   const previewMoq = draftSummary?.moq || gradeRows.find((r) => r.moq.trim())?.moq.trim() || "On request";
 

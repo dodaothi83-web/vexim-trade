@@ -39,9 +39,9 @@ assert.equal(packagingSummaryEnglish({}), '', 'chưa khai gì thì không hiện
 assert.equal(packagingSummaryEnglish({ package_weight_kg: 0, units_per_carton: 0 }), '', 'không nhận số 0 là dữ liệu thật');
 
 /* 2. Giá mẫu: đúng đơn vị tiền, không tự đổi 0 thành "miễn phí". */
-assert.equal(samplePriceEnglish({ sample_price_usd: 5 }), 'USD 5.00 per sample');
-assert.equal(samplePriceEnglish({ sample_price_usd: 12.5 }), 'USD 12.50 per sample');
-assert.equal(samplePriceEnglish({ sample_price_usd: 0 }), 'USD 0.00 per sample');
+assert.equal(samplePriceEnglish({ sample_price_usd: 5 }), '$5 per sample');
+assert.equal(samplePriceEnglish({ sample_price_usd: 12.5 }), '$13 per sample');
+assert.equal(samplePriceEnglish({ sample_price_usd: 0 }), '$0 per sample');
 assert.equal(samplePriceEnglish({ sample_price_usd: null }), null);
 assert.equal(samplePriceEnglish({}), null);
 assert.equal(samplePriceEnglish({ sample_price_usd: -1 }), null);

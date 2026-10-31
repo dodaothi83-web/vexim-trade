@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createRequire } from 'node:module';
 import { categorySlotConfig, categorySponsoredSlots } from '../lib/sponsored/category-slots.ts';
 import { rankForWindow } from '../lib/sponsored/rotation.ts';
+import * as priceDisplay from "../lib/products/price-display.ts";
 
 for (const [count, slots] of [[0, 0], [1, 1], [9, 1], [10, 2], [30, 2], [31, 3], [100, 3]]) {
   assert.equal(categorySponsoredSlots(count), slots, `count ${count}`);
@@ -50,6 +51,7 @@ function load(file, mocks) {
 const disclosure = load('../components/sponsored-disclosure.tsx', { 'react/jsx-runtime': jsx });
 const icon = () => null;
 const card = load('../components/public-product-card.tsx', {
+  '@/lib/products/price-display': priceDisplay,
   'react/jsx-runtime': jsx, 'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': new Proxy({}, { get: () => icon }),
   '@/components/sponsored-disclosure': disclosure,

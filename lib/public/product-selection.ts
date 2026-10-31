@@ -1,6 +1,7 @@
 import type { Category, SupplierProduct } from "@/lib/types";
 
 import { assignProductCategory } from "@/lib/public/category-assignment";
+import { formatMoney, priceRangeText } from "../products/price-display.ts";
 
 type CategoryProduct = Pick<SupplierProduct, "category" | "name"> & Partial<Pick<SupplierProduct, "spec" | "description" | "reviewed_category_slug" | "supplier_originated">>;
 type KnownCategory = Pick<Category, "slug" | "name_i18n">;
@@ -134,9 +135,10 @@ export function publicProductPrice(
   today: string = new Date().toISOString().slice(0, 10),
 ): string | null {
   if (productPriceBlockers(product, supplier, today).length) return null;
-  const currency = product.currency || "USD";
+  const [code, embeddedUnit] = (product.currency || "USD").split("/");
   // The CRM currency can already contain a unit (e.g. USD/kg); never invent a conversion to /ton.
-  const range = product.ref_price_max != null && product.ref_price_max > product.ref_price!
-    ? `-${product.ref_price_max.toLocaleString("en-US")}` : "";
-  return `${currency} ${product.ref_price!.toLocaleString("en-US")}${range}${currency.includes("/") ? "" : product.unit ? `/${product.unit}` : ""}`;
+  const unit = embeddedUnit ? `/${embeddedUnit}` : product.unit ? `/${product.unit}` : "";
+  const high = product.ref_price_max != null && product.ref_price_max > product.ref_price! ? product.ref_price_max : null;
+  const amount = high === null ? formatMoney(product.ref_price!, code) : priceRangeText(product.ref_price!, high, code);
+  return `${amount}${unit}`;
 }

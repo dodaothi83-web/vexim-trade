@@ -19,6 +19,7 @@ import {
   toggleProductComparisonSelection,
 } from "../lib/public/product-comparison.ts";
 import { approvedProductCertificateIds } from "../lib/public/product-certificate-links.ts";
+import * as priceDisplay from "../lib/products/price-display.ts";
 import { VERIFICATION_LABELS, verificationLabel } from "../lib/verification-status.ts";
 import {
   publicExportPortDisplay,
@@ -52,6 +53,7 @@ function compile(path, mocks) {
 
 const selectionModule = compile("../lib/public/product-selection.ts", {
   "@/lib/public/category-assignment": { assignProductCategory: () => null },
+  "../products/price-display.ts": priceDisplay,
 });
 const { withoutDirectContacts } = selectionModule;
 const { description, format } = loadProductDescription();

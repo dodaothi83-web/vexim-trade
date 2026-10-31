@@ -62,7 +62,7 @@ export type PriceRangeResult = {
   secondary?: { unit: PriceUnit; low: number; high: number };
   /** Quy cách của dòng này, khi khoảng giá được tách theo quy cách. */
   grade?: string;
-  /** Câu hiển thị sẵn, ví dụ "USD 7.60 to 8.40/kg". */
+  /** Câu hiển thị sẵn, ví dụ "$7.6–8.4/kg" (xem lib/products/price-display.ts). */
   lowText: string;
   highText: string;
   rangeText: string;

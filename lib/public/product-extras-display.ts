@@ -109,12 +109,18 @@ export function packagingSummaryEnglish(extras: Partial<PackagingExtrasLike>): s
 }
 
 /**
- * Giá mẫu hiển thị: "USD 5.00 per sample".
+ * Giá mẫu hiển thị: "$5 per sample".
  * 0 là giá trị hợp lệ nhà cung cấp đã nhập; không tự đổi thành "miễn phí".
+ *
+ * Giá mẫu luôn tính bằng USD. Cách viết tiền cho người mua (ký hiệu, không phần lẻ)
+ * dùng chung ở `lib/products/price-display.ts`; module này cố tình không import gì để
+ * script kiểm tra nạp thẳng bằng node, nên quy tắc được viết lại đúng một dòng ở đây.
  */
 export function samplePriceEnglish(extras: Partial<SamplePriceLike>): string | null {
   const value = extras.sample_price_usd;
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
-  const amount = value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `USD ${amount} per sample`;
+  // Cùng quy ước với lib/products/price-display.ts (tệp này không import để script kiểm tra
+  // nạp thẳng được): dưới 10 giữ phần lẻ, từ 10 trở lên in số nguyên.
+  const digits = value < 10 ? 2 : 0;
+  return `$${value.toLocaleString("en-US", { maximumFractionDigits: digits })} per sample`;
 }

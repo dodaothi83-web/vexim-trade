@@ -7,6 +7,7 @@ import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as pricing from '../lib/products/quantity-pricing.ts';
+import * as priceDisplay from '../lib/products/price-display.ts';
 function compile(path, mocks) {
  const exports = {};
  const code = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -15,7 +16,7 @@ function compile(path, mocks) {
 }
 const lucide = new Proxy({}, { get: (_target, name) => (props) => React.createElement('svg', { 'data-icon': String(name), ...props }) });
 const previewStore = { publishQuantityPreview() {} };
-const editor = compile('../components/products/quantity-pricing-editor.tsx', { 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing });
+const editor = compile('../components/products/quantity-pricing-editor.tsx', { 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing, '@/lib/products/price-display': priceDisplay });
 const inline = compile('../components/products/quantity-pricing-inline.tsx', { react: React, 'react/jsx-runtime': jsx,
  'next/navigation': { useRouter: () => ({ refresh() {} }) }, '@/components/products/quantity-pricing-editor': editor,
  '@/components/products/quantity-preview-store': previewStore,
@@ -39,7 +40,7 @@ const sidebarPreview = renderToStaticMarkup(React.createElement(React.Fragment, 
     standardGrades: data.standardGrades, policy: data.policy, buyerPriceUnit: 'kg', pricePubliclyVisible: true }),
 ));
 assert.equal((sidebarPreview.match(/>Người mua sẽ thấy</g) ?? []).length, 1, 'The input area and sidebar share exactly one buyer preview');
-assert.match(sidebarPreview, /USD 6\.40\/kg/);
+assert.match(sidebarPreview, /\$6\.4\/kg/);
 assert.match(sidebarPreview, /1 MT/);
 const previewForm = compile('../app/supplier/portal/products/[id]/quantity-pricing/preview-form.tsx', { react: React, 'react/jsx-runtime': jsx,
  'next/navigation': { useRouter: () => ({ refresh() {} }) }, '@/components/products/quantity-pricing-editor': editor,
@@ -54,7 +55,7 @@ assert.match(dirty, /Hãy lưu hoặc hoàn tác/);
 assert.match(dirty, /disabled=""[^>]*>Gửi bảng giá mới/);
 const v2data = { ...data, grade: 'Special', tiers: [], v2: { unit: 'mt', customGrade: true, tiers: [{ quantity: '1.234567', price: '6401' }] } };
 const v2html = renderToStaticMarkup(React.createElement('form', null, React.createElement(inline.QuantityPricingInline, { data: v2data, actor: 'supplier' })));
-assert.match(v2html, /1\.234567/); assert.match(v2html, /6401/); assert.match(v2html, /USD\/MT/);
+assert.match(v2html, /1\.234567/); assert.match(v2html, /6401/); assert.match(v2html, /\/MT/);
 assert.match(v2html, /chờ duyệt/); assert.doesNotMatch(v2html, /Gửi bảng giá mới để duyệt/, 'Old kg editor cannot overwrite v2');
 assert.doesNotMatch(v2html, /staged editor/, 'The v2 editing UI is gone from the supplier portal');
 console.log('Inline quantity editor: separate form controls, v2 read-only view and dirty-state lock passed');

@@ -177,9 +177,9 @@ assert.equal(publicAllowed.hasGradeRows, true);
 assert.deepEqual([...publicAllowed.standardGrades], ["W180", "W320", "LP"], "Custom grades excluded from standardGrades filter list");
 assert.deepEqual([...publicAllowed.cardGrades], ["W180", "W320", "LP"], "cardGrades exposes canonical standard grades from Grade & giá");
 assert.equal(publicAllowed.gradePricePoints.length, 2, "Only priced standard grades enter reference price points (LP unpriced + DW2 custom excluded)");
-assert.equal(publicAllowed.summaryPrice, "USD 6.50 to 9.00/kg");
+assert.equal(publicAllowed.summaryPrice, "$6.5–9/kg");
 assert.equal(publicAllowed.gradeRows.length, 4, "All 4 rows render in PDP Grades & reference pricing table");
-assert.equal(publicAllowed.gradeRows[0].priceText, "USD 8.50 to 9.00/kg");
+assert.equal(publicAllowed.gradeRows[0].priceText, "$8.5–9/kg");
 assert.equal(publicAllowed.gradeRows[2].priceText, null, "Unpriced row renders On request");
 assert.equal(publicAllowed.gradeRows[3].isCustom, true);
 
@@ -251,8 +251,8 @@ const pepperGradeData = gradePricing.projectPublicGradeData(
   { slug: "pepper" },
   { canShowPrice: true, sanitizeText: (s) => s, translateMoq: (m) => m || "" },
 );
-assert.equal(pepperGradeData.summaryPrice, "USD 1,500 to 1,900/MT", "MT categories format as /MT, never /t");
-assert.equal(pepperGradeData.gradeRows[0].priceText, "USD 1,500 to 1,600/MT");
+assert.equal(pepperGradeData.summaryPrice, "$1,500–1,900/MT", "MT categories format as /MT, never /t");
+assert.equal(pepperGradeData.gradeRows[0].priceText, "$1,500–1,600/MT");
 
 const legacyPepperInKg = gradePricing.projectPublicGradeData(
   {
@@ -270,7 +270,7 @@ const legacyPepperInKg = gradePricing.projectPublicGradeData(
   { slug: "pepper" },
   { canShowPrice: true, sanitizeText: (s) => s, translateMoq: (m) => m || "" },
 );
-assert.equal(legacyPepperInKg.summaryPrice, "USD 5,800/MT", "Legacy kg product in an MT category converts to unified /MT");
+assert.equal(legacyPepperInKg.summaryPrice, "$5,800/MT", "Legacy kg product in an MT category converts to unified /MT");
 
 // PDP layout: no duplicate giant Reference price box above grade table, lighter H1, and no duplicate Grade/MOQ/Incoterm in Key terms
 const pdpSource = readFileSync(new URL("../app/(public)/products/[slug]/[productId]/page.tsx", import.meta.url), "utf8");

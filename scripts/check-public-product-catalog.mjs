@@ -4,10 +4,12 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { assignProductCategory } from '../lib/public/category-assignment.ts';
+import * as priceDisplay from "../lib/products/price-display.ts";
 const selection = {};
 const selectionSource = readFileSync(new URL('../lib/public/product-selection.ts', import.meta.url), 'utf8');
 vm.runInNewContext(ts.transpileModule(selectionSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
-  { exports: selection, require: (path) => path === '@/lib/public/category-assignment' ? { assignProductCategory } : null, Date });
+  { exports: selection, require: (path) => path === '@/lib/public/category-assignment' ? { assignProductCategory }
+    : path === '../products/price-display.ts' ? priceDisplay : null, Date });
 const { isTestOnlyProduct, pepperGrade, productBelongsToCategory, productGrade, publicProductPrice, productPriceBlockers, withoutDirectContacts } = selection;
 
 const cats = [
@@ -54,10 +56,10 @@ assert.notEqual(pepperGrade('Black pepper 500 g/L, FAQ', null), pepperGrade('Bla
 assert.equal(pepperGrade('Cassia split, 4 mm', null), null);
 const price = { price_publicly_visible: true, ref_price: 8.4, currency: 'USD/kg', unit: 'kg', price_valid_until: '2099-01-01' };
 const consent = { fob_publicly_visible: true, fob_updated_at: new Date().toISOString() };
-assert.equal(publicProductPrice(price, consent), 'USD/kg 8.4');
-assert.equal(publicProductPrice({ ...price, ref_price: 2, ref_price_max: 2.5, currency: 'USD', unit: 'MT' }, consent), 'USD 2-2.5/MT', 'Optional upper bound renders a per-product range');
-assert.equal(publicProductPrice({ ...price, ref_price_max: price.ref_price }, consent), 'USD/kg 8.4', 'Equal bounds render one price');
-assert.equal(publicProductPrice({ ...price, ref_price_max: null }, consent), 'USD/kg 8.4', 'Historical single prices remain single');
+assert.equal(publicProductPrice(price, consent), '$8.4/kg');
+assert.equal(publicProductPrice({ ...price, ref_price: 2, ref_price_max: 2.5, currency: 'USD', unit: 'MT' }, consent), '$2–2.5/MT', 'Optional upper bound renders a per-product range');
+assert.equal(publicProductPrice({ ...price, ref_price_max: price.ref_price }, consent), '$8.4/kg', 'Equal bounds render one price');
+assert.equal(publicProductPrice({ ...price, ref_price_max: null }, consent), '$8.4/kg', 'Historical single prices remain single');
 assert.equal(publicProductPrice({ ...price, ref_price_max: 7 }, consent), null, 'Inverted range is not public');
 assert.match(productPriceBlockers({ ...price, ref_price_max: 7 }, consent).join(' '), /Giá tham khảo đến/, 'Invalid range is diagnosed');
 assert.equal(publicProductPrice({ ...price, ref_price_max: 9 }, { ...consent, fob_publicly_visible: false }), null, 'Range does not bypass supplier consent');

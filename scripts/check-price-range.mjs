@@ -71,10 +71,10 @@ assert.ok(Math.abs(units.toPricePerKg(1, "lb") - 2.2046226218) < 1e-9, "A price 
 assert.equal(units.toPricePerKg(0, "kg"), null, "Zero is not a price");
 assert.equal(units.toPricePerKg(5, null), null, "An unknown unit never becomes kg by default");
 assert.ok(Math.abs(units.fromPricePerKg(7.9, "mt") - 7900) < 1e-6, "A price per kilogram converts back to the tonne quote");
-assert.equal(units.formatUnitPrice(7.9, "kg"), "USD 7.90/kg");
-assert.equal(units.formatUnitPrice(4500, "mt"), "USD 4,500/MT");
-assert.equal(units.formatUnitRange(7.6, 8.4, "kg"), "USD 7.60 to 8.40/kg");
-assert.equal(units.formatUnitRange(420, 420, "mt"), "USD 420/MT", "A single level is not shown as a range");
+assert.equal(units.formatUnitPrice(7.9, "kg"), "$7.9/kg");
+assert.equal(units.formatUnitPrice(4500, "mt"), "$4,500/MT");
+assert.equal(units.formatUnitRange(7.6, 8.4, "kg"), "$7.6–8.4/kg");
+assert.equal(units.formatUnitRange(420, 420, "mt"), "$420/MT", "A single level is not shown as a range");
 
 /* ---------------- Quy ước hiển thị theo ngành ---------------- */
 
@@ -116,7 +116,7 @@ assert.equal(ok.range.median, 8);
 assert.equal(ok.range.sampleSize, 3);
 assert.equal(ok.range.lastUpdated, daysAgo(3).slice(0, 10));
 assert.equal(ok.range.stale, false);
-assert.equal(ok.range.rangeText, "USD 7.60 to 8.40/kg");
+assert.equal(ok.range.rangeText, "$7.6–8.4/kg");
 
 const tooFew = priceRange.buildPriceRange(
   [{ value: 7.6, unit: "kg", updatedAt: daysAgo(1) }, { value: 8.4, unit: "kg", updatedAt: daysAgo(2) }],
@@ -197,7 +197,7 @@ const riceRange = priceRange.priceRangeForCategory(
 );
 assert.equal(riceRange.status, "ok");
 assert.equal(riceRange.range.unit, "mt");
-assert.equal(riceRange.range.rangeText, "USD 420 to 450/MT");
+assert.equal(riceRange.range.rangeText, "$420–450/MT");
 
 const cashewRange = priceRange.priceRangeForCategory(
   "cashew",
@@ -285,7 +285,7 @@ const okBlock = priceRange.buildPriceBlock(
 const okHtml = renderToStaticMarkup(
   React.createElement(strip.PriceRangeStrip, { outcome: okBlock, categoryName: "Cashew", rfqHref: "/rfq?category=cashew" }),
 );
-assert.ok(okHtml.includes("USD 7.60 to 8.40/kg"), "The range reaches the page with its unit");
+assert.ok(okHtml.includes("$7.6–8.4/kg"), "The range reaches the page with its unit");
 assert.ok(okHtml.includes("3 published prices"), "The sample count is visible");
 assert.ok(okHtml.includes("not a binding offer"), "The disclaimer is always present");
 assert.ok(okHtml.includes('href="/rfq?category=cashew"'), "The block offers a quote path");
@@ -294,8 +294,8 @@ const gradeHtml = renderToStaticMarkup(
   React.createElement(strip.PriceRangeStrip, { outcome: byGrade, categoryName: "Cashew", rfqHref: "/rfq" }),
 );
 assert.ok(gradeHtml.includes("W180") && gradeHtml.includes("W320"), "Each grade is labelled on the page");
-assert.ok(gradeHtml.includes("USD 7.00 to 7.20/kg") && gradeHtml.includes("USD 9.40 to 9.60/kg"), "Each grade shows its own range");
-assert.ok(!gradeHtml.includes("USD 7.00 to 9.60/kg"), "Grades are never merged into one wide range");
+assert.ok(gradeHtml.includes("$7–7.2/kg") && gradeHtml.includes("$9.4–9.6/kg"), "Each grade shows its own range");
+assert.ok(!gradeHtml.includes("$7–9.6/kg"), "Grades are never merged into one wide range");
 assert.ok(gradeHtml.includes("not state a grade"), "Ungraded listings are disclosed");
 
 const staleBlock = priceRange.buildPriceBlock(

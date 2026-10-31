@@ -7,6 +7,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRequire } from 'node:module';
 import * as pricing from '../lib/products/quantity-pricing.ts';
+import * as priceDisplay from '../lib/products/price-display.ts';
 const nodeRequire = createRequire(import.meta.url);
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../components/products/quantity-pricing-editor.tsx', import.meta.url), 'utf8'), {
@@ -17,6 +18,7 @@ vm.runInNewContext(code, { exports, Intl, Number, Math, console, require(key) {
   if (key === 'next/link') return { default: ({ children, ...props }) => React.createElement('a', props, children) };
   if (key === 'lucide-react') return new Proxy({}, { get: (_target, name) => (props) => React.createElement('svg', { 'data-icon': String(name), ...props }) });
   if (key === '@/lib/products/quantity-pricing') return pricing;
+  if (key === '@/lib/products/price-display') return priceDisplay;
   throw Error(`Unexpected import ${key}`);
 } });
 const { QuantityPricingEditor } = exports;
@@ -29,7 +31,7 @@ const props = {
 };
 const render = (override = {}) => renderToStaticMarkup(React.createElement(QuantityPricingEditor, { ...props, ...override }));
 const html = render();
-for (const text of ['Incoterm', 'Từ (kg)', 'Đến (kg)', 'Giá (USD/kg)', 'Tiền tệ', '4,999', 'Người mua sẽ thấy', 'Cashew kernels', 'USD 6.00–6.40/kg', '1 MT', 'FOB', 'Quy chế hoạt động']) assert.ok(html.includes(text), text);
+for (const text of ['Incoterm', 'Từ (kg)', 'Đến (kg)', 'Giá (USD/kg)', 'Tiền tệ', '4,999', 'Người mua sẽ thấy', 'Cashew kernels', '$6–6.4/kg', '1 MT', 'FOB', 'Quy chế hoạt động']) assert.ok(html.includes(text), text);
 // Chốt 31/10/2026: mở 5 tiền tệ, ô Tiền tệ chọn được; bảng không còn câu giải thích dài.
 assert.doesNotMatch(html, /Tạm thời chỉ nhập giá USD|VND\/EUR|Chỉ nhập số lượng/, 'Đã bỏ các dòng giải thích dài');
 assert.match(html, /<select[^>]*aria-label="Tiền tệ"/, 'Tiền tệ chọn được');
@@ -42,8 +44,8 @@ assert.match(noGrades, /<select[^>]*aria-label="Grade"[^>]*disabled=""/, 'Ô gra
 const drafting = render({ value: { grade: '', incoterm: 'FOB', currency: 'USD', nameVi: 'Nhân điều', nameEn: '', tiers: [
   { minKg: '100', priceUsdPerKg: '2.00', incoterm: 'FOB' }, { minKg: '101', priceUsdPerKg: '1.50', incoterm: 'FOB' },
 ] } });
-assert.match(drafting, /USD 1\.50–2\.00\/kg/, 'Xem trước hiện giá ngay khi đang nhập, chưa cần chọn grade');
-assert.match(drafting, /USD 2\.00\/kg/, 'Từng mức giá hiện trong bảng xem trước');
+assert.match(drafting, /\$1\.5–2\/kg/, 'Xem trước hiện giá ngay khi đang nhập, chưa cần chọn grade');
+assert.match(drafting, /\$2\/kg/, 'Từng mức giá hiện trong bảng xem trước');
 assert.match(drafting, /Chưa chọn grade/, 'Thiếu grade là ghi chú, không xoá giá đã nhập');
 assert.match(drafting, /Chọn grade để hoàn tất bảng giá/);
 assert.doesNotMatch(drafting, /Price on request/, 'Có giá nhập vào thì không hiện Price on request');
@@ -58,13 +60,13 @@ const withoutInlinePreview = render({ showPreview: false });
 assert.doesNotMatch(withoutInlinePreview, /Người mua sẽ thấy|Cashew kernels/, 'When the page supplies a sidebar preview, the form has no duplicate');
 assert.match(withoutInlinePreview, /Từ \(kg\)/, 'Hiding the duplicate does not remove the editor');
 const mt = render({ buyerPriceUnit: 'mt' });
-assert.ok(mt.includes('USD 6,000–6,400/MT'));
-assert.ok(mt.includes('USD 6,400/MT'));
+assert.ok(mt.includes('$6,000–6,400/MT'));
+assert.ok(mt.includes('$6,400/MT'));
 const four = render({ value: { ...props.value, tiers: Array.from({ length: 4 }, (_, i) => ({ minKg: String((i + 1) * 1000), priceUsdPerKg: '6' })) } });
 assert.ok(!four.includes('+ Thêm mức giá'));
 const hidden = render({ pricePubliclyVisible: false });
 assert.ok(hidden.includes('Price on request'));
-assert.ok(!hidden.includes('USD 6.00–6.40/kg'));
+assert.ok(!hidden.includes('$6–6.4/kg'));
 assert.ok(!hidden.includes('name="confirm_quantity_price_consent"'));
 assert.ok(!hidden.includes('Mọi báo giá bạn gửi qua Vexim'), 'Hide price warning when visibility is off');
 assert.match(html, /inputMode="numeric"/); assert.match(html, /inputMode="decimal"/);

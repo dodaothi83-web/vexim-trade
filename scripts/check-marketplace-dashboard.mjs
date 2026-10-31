@@ -8,6 +8,7 @@ import { assignProductCategory } from '../lib/public/category-assignment.ts';
 import { productReadiness } from '../lib/media/readiness.ts';
 import { isSyntheticSupplier } from '../lib/public/supplier-seo.ts';
 import { hasPermission, permissionsFor } from '../lib/auth/permissions.ts';
+import * as priceDisplay from "../lib/products/price-display.ts";
 
 function load(file, mocks) {
   const exports = {};
@@ -21,6 +22,7 @@ function load(file, mocks) {
   return exports;
 }
 const selection = load('../lib/public/product-selection.ts', {
+  '../products/price-display.ts': priceDisplay,
   '@/lib/public/category-assignment': { assignProductCategory },
 });
 const { buildMarketplaceSnapshot } = load('../lib/dashboard/marketplace.ts', {

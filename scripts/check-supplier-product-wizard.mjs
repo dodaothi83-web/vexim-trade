@@ -8,6 +8,7 @@ import ts from 'typescript';
 import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
+import * as priceDisplay from "../lib/products/price-display.ts";
 
 const read = (path) => fs.readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -57,7 +58,7 @@ const view = {
     media.some((m) => (m.kind === 'image' || m.kind === 'catalogue') && !!m.storage_path),
 };
 
-const priceUnits = load('../lib/public/price-units.ts', {});
+const priceUnits = load('../lib/public/price-units.ts', { '../products/price-display.ts': priceDisplay });
 const gradeResolution = load('../lib/public/grade-resolution.ts', {});
 const gradePricing = load('../lib/products/grade-pricing.ts', {
   '@/lib/public/price-units': priceUnits,

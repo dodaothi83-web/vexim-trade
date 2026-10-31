@@ -9,6 +9,7 @@ import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as pricing from '../lib/products/quantity-pricing.ts';
+import * as priceDisplay from '../lib/products/price-display.ts';
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -29,7 +30,8 @@ const lucide = new Proxy({}, { get: (_target, name) => (props) => React.createEl
 const link = { default: ({ children, ...props }) => React.createElement('a', props, children) };
 const store = compile('../components/products/quantity-preview-store.ts', { react: React });
 const editor = compile('../components/products/quantity-pricing-editor.tsx',
-  { 'react/jsx-runtime': jsx, 'next/link': link, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing });
+  { 'react/jsx-runtime': jsx, 'next/link': link, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing,
+    '@/lib/products/price-display': priceDisplay });
 const card = compile('../components/products/quantity-preview-card.tsx',
   { 'react/jsx-runtime': jsx, '@/components/products/quantity-pricing-editor': editor, '@/components/products/quantity-preview-store': store });
 
@@ -50,7 +52,7 @@ const withImage = renderToStaticMarkup(React.createElement(card.QuantityPreviewC
 assert.match(withImage, /<img[^>]+src="\/api\/media\/file\/products\/p1\/cover\.jpg"/, 'Thẻ xem trước có ảnh đại diện');
 assert.match(withImage, /alt="Ảnh đại diện sản phẩm"/, 'Ảnh đại diện có alt đọc được');
 assert.match(withImage, /Người mua sẽ thấy/, 'Thẻ giữ tiêu đề Người mua sẽ thấy');
-assert.match(withImage, /USD 6\.00–6\.40\/kg/, 'Thẻ hiện khoảng giá người mua');
+assert.match(withImage, /\$6–6\.4\/kg/, 'Thẻ hiện khoảng giá người mua');
 assert.match(withImage, /Bản xem trước theo nội dung đang nhập/, 'Nói rõ đây là bản xem trước');
 
 // 2. Chưa có ảnh thì có ô giữ chỗ, không phải thẻ trống.
@@ -63,7 +65,7 @@ const legacy = renderToStaticMarkup(React.createElement(editor.QuantityBuyerPrev
   { value: initial.value, standardGrades: initial.standardGrades, policy: initial.policy,
     buyerPriceUnit: 'kg', pricePubliclyVisible: true }));
 assert.doesNotMatch(legacy, /Chưa có ảnh/, 'Không tự thêm ô ảnh rỗng khi nơi gọi không truyền ảnh');
-assert.match(legacy, /USD 6\.00–6\.40\/kg/, 'Vẫn hiện giá khi không có ảnh');
+assert.match(legacy, /\$6–6\.4\/kg/, 'Vẫn hiện giá khi không có ảnh');
 
 // 4. Chưa có bảng giá thì thẻ nói rõ, không hiện bảng rỗng.
 const empty = renderToStaticMarkup(React.createElement(card.QuantityPreviewCard, { initial: null, imageUrl: null }));
