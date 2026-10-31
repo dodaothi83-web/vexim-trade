@@ -12,6 +12,7 @@ import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { certificateProductState } from "@/lib/products/product-certificates";
 import { certificateScopeMatch, optoutKey, optoutKeys } from "@/lib/certificate-scope";
 import { certificateSchemeLabel, isScopeableCertificateScheme } from "@/lib/certificate-scheme";
+import { certificateInheritanceByCategory } from "@/lib/supplier-portal/certificate-inheritance";
 import { t } from "@/lib/public/i18n";
 import { approvedL2Scope } from "@/lib/verification-status";
 import { ProductCertificatesForm } from "../product-certificates-form";
@@ -38,6 +39,12 @@ export default async function OwnProductPage({ params, searchParams }: { params:
   ]);
   const media = supplierVisibleProductMedia(allMedia, access.supplier.id, access.user.id);
   const options = categoryProposalOptions(allCategories);
+  const certificateInheritance = await certificateInheritanceByCategory(
+    access.store, access.supplier.id, allCategories,
+  ).catch((error) => {
+    console.error("[supplier-product] chứng nhận thừa hưởng", error);
+    return {};
+  });
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
   const categoryScope = allowedSupplierCategories(access.supplier, options, linked).map((item) => item.slug);
   /*
@@ -133,7 +140,7 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       <Link href={`/supplier/portal/products/${id}/quantity-pricing`} className="font-semibold underline">Mở trang thử nghiệm giá theo số lượng</Link>. Trang thử nghiệm chưa thay đổi thông tin buyer đang thấy.
     </p>}
     <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options}
-      categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} initialStep={step} />
+      categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} certificateInheritance={certificateInheritance} initialStep={step} />
     <ProductCertificatesForm productId={id} certificates={certificateOptions}
       supplierType={access.supplier.supplier_type ?? null} partnerContractApproved={partnerContractApproved}
       partnerFactoryName={partnerFactoryName} />

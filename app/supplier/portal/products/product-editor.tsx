@@ -65,6 +65,8 @@ type EditorProps = {
   categories: CategoryProposalOption[];
   /** Nhóm hàng đã đăng ký chỉ dùng để cảnh báo, không giới hạn lựa chọn. */
   categoryScope?: string[];
+  /** Giấy chất lượng mà từng danh mục đang thừa hưởng (khoá = slug danh mục). */
+  certificateInheritance?: Record<string, Array<{ id: string; name: string; scheme: string | null; validUntil: string | null }>>;
   supplier: Supplier;
   /** Chứng nhận Vexim đã duyệt gắn cho sản phẩm — bản xem trước hiện đúng những gì người mua thấy. */
   certificates?: Array<{ id: string; name: string; valid_until?: string | null }>;
@@ -208,7 +210,7 @@ function firstInvalidField(form: HTMLFormElement | null): HTMLElement | null {
  * Hành vi giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], bankMedia = [], userId, categories, categoryScope = [], supplier, certificates = [], initialStep = 1 }: EditorProps) {
+export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], bankMedia = [], userId, categories, categoryScope = [], supplier, certificates = [], certificateInheritance = {}, initialStep = 1 }: EditorProps) {
   const router = useRouter();
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
@@ -949,6 +951,25 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <Link href="/supplier/portal/categories" className="btn btn-ghost btn-sm">Gợi ý theo tên</Link>
                 </div>
                 {categoryLocked && <p className="mt-1 text-[11.5px] text-ink-500">Danh mục đã được chốt khi duyệt.</p>}
+                {selectedCategory && (certificateInheritance[selectedCategory] ?? []).length > 0 && <div className="mt-2 rounded-lg border border-teal-200 bg-teal-50/60 px-3 py-2">
+                  <p className="text-[11px] font-bold tracking-wider text-teal-900 uppercase">Chứng nhận áp dụng</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {(certificateInheritance[selectedCategory] ?? []).map((certificate) => (
+                      <li key={certificate.id} className="flex items-start gap-1.5 text-[12px] text-ink-800">
+                        <span aria-hidden="true" className="mt-0.5 text-emerald-700">✓</span>
+                        <span>
+                          {certificate.name}
+                          {certificate.scheme ? ` · ${certificate.scheme}` : ""}
+                          {certificate.validUntil ? ` · hạn ${certificate.validUntil}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-[11px] leading-4 text-ink-600">
+                    Danh mục này đã có giấy được duyệt nên sản phẩm tự nhận.
+                    Bỏ tick giấy không đúng ở trang sản phẩm sau khi lưu nháp.
+                  </p>
+                </div>}
                 {!categoryLocked && selectedCategory && categoryScope.length > 0 && !categoryScope.includes(selectedCategory) &&
                   <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11.5px] leading-4 text-amber-900">
                     Danh mục nằm ngoài nhóm hàng đã đăng ký. Bạn vẫn có thể gửi duyệt.

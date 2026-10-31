@@ -172,6 +172,11 @@ assert.match(portalDocuments, /deriveL1Rows/, "bảng L1 tính từ giấy đã 
 const crmQueue = read("app/crm/certificates/page.tsx");
 assert.match(crmQueue, /Giấy chưa phân loại/, "CRM có hàng đợi giấy chưa phân loại");
 assert.match(crmQueue, /certificateSchemeLabel/, "hàng đợi hiện loại giấy");
+const editor = read("app/supplier/portal/products/product-editor.tsx");
+assert.match(editor, /Chứng nhận áp dụng/, "form thêm sản phẩm hiện khối chứng nhận áp dụng");
+assert.match(editor, /certificateInheritance/, "khối đó lấy từ giấy đã duyệt cho danh mục");
+assert.match(read("app/supplier/portal/products/new/page.tsx"), /certificateInheritanceByCategory/,
+  "trang thêm sản phẩm nạp giấy thừa hưởng theo danh mục");
 const auditForm = read("app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx");
 assert.match(auditForm, /contributedChecklistKey/, "mục L1 nhận giấy theo loại đã chốt");
 assert.match(auditForm, /checklistMismatch/, "cảnh báo khi loại giấy lệch mục checklist");
