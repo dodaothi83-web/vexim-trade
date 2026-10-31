@@ -366,7 +366,8 @@ const multiBuyerMedia = [
 const multiHtml = render({ product: ownApproved, media: multiBuyerMedia });
 assert.doesNotMatch(source, /\bleft-11\b/, 'Không dùng vị trí cứng left-11 khiến nút X đè lên nhãn');
 assert.match(multiHtml, /aria-label="6 ô ảnh sản phẩm"/, 'Ảnh sản phẩm nằm trong lưới 6 ô');
-assert.match(multiHtml, /Ảnh chính<\/span>/, 'Ô ảnh chính có nhãn riêng');
+assert.match(multiHtml, /aria-label="Ảnh chính"/, 'Ô ảnh chính có dấu hiệu riêng cho trình đọc màn hình');
+assert.doesNotMatch(multiHtml, />Ảnh chính</, 'Không dùng chữ Ảnh chính đè lên ảnh nhỏ');
 assert.doesNotMatch(multiHtml, /Catalogue PDF/, 'Chỉ có ảnh thì không hiện khối catalogue');
 // Ảnh đại diện đứng trước lưới ảnh sản phẩm, và lưới phải có nút đổi ảnh đại diện / xoá ảnh.
 assert.ok(multiHtml.indexOf('Ảnh đại diện') < multiHtml.indexOf('6 ô ảnh sản phẩm'), 'Ảnh đại diện nằm trên ảnh sản phẩm');

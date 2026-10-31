@@ -14,7 +14,6 @@ import {
   EyeOff,
   FileText,
   ImageIcon,
-  LockKeyhole,
   Pencil,
   Plus,
   Save,
@@ -1009,7 +1008,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               </Row>}
 
               {/* Ảnh đại diện đứng trước: người mua thấy ảnh này đầu tiên trong kết quả tìm kiếm. */}
-              <Row label="Ảnh đại diện" hint="Hiện đầu tiên với người mua, dùng cho thẻ sản phẩm và kết quả tìm kiếm.">
+              <Row label="Ảnh đại diện" hint="Người mua thấy ảnh này đầu tiên · nên dùng nền trắng, ≥ 800×800 px.">
                 <div
                   onDragOver={(event) => { if (canUpload) { event.preventDefault(); setCoverHover(true); } }}
                   onDragLeave={() => setCoverHover(false)}
@@ -1041,8 +1040,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               </Row>
 
               {/* Sáu ô ảnh sản phẩm: ô đầu là ảnh chính. */}
-              <Row label="Ảnh sản phẩm" required error={!hasMedia}
-                hint="Ô đầu là ảnh chính — ảnh người mua thấy trong kết quả tìm kiếm. Nên dùng nền trắng, ≥ 800×800 px.">
+              <Row label="Ảnh sản phẩm" required error={!hasMedia}>
                 <ul aria-label="6 ô ảnh sản phẩm" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                   {Array.from({ length: 6 }).map((_, index) => {
                     const asset = imageSlots[index];
@@ -1057,7 +1055,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                             <span className="text-[10px] font-semibold">{index === 0 ? "Ảnh chính" : `Ảnh ${index + 1}`}</span>
                           </span>}
                         {asset && (isCover || canUpload || canDeleteAsset(asset)) && <div className="absolute inset-x-1 top-1 flex items-start justify-between gap-1">
-                          <span>{isCover && <span className="rounded-full bg-brand-700 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">Ảnh chính</span>}</span>
+                          <span>{isCover && <span role="img" aria-label="Ảnh chính" title="Ảnh chính"
+                            className="flex size-[18px] items-center justify-center rounded-full bg-brand-700 text-white shadow-sm">
+                            <Star className="size-[11px] fill-current" aria-hidden="true" />
+                          </span>}</span>
                           <span className="flex shrink-0 items-center gap-1">
                             {canUpload && !isCover && <button type="button" disabled={busy} onClick={() => void makeCover(asset.id)}
                               aria-label={`Đặt ${index === 0 ? "ảnh này" : `ảnh ${index + 1}`} làm ảnh đại diện`} title="Đặt làm ảnh đại diện"
@@ -1104,10 +1105,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     : "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."}
                 </div>}
                 {progress && <p role="status" className="mt-1.5 text-[12px] font-semibold text-brand-800">{progress}</p>}
-                <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-4 text-ink-500">
-                  <LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-                  Ảnh bạn tải lên hiện với người mua ngay khi sản phẩm được đăng.
-                </p>
               </Row>
 
               {/* Chỉ còn một chỗ tải ảnh: 6 ô ở trên. Danh sách dưới đây chỉ để xem lại
@@ -1649,7 +1646,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">2</span>Gửi duyệt nội dung.</li>
             <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">3</span>Nội dung được duyệt rồi sản phẩm mới đăng.</li>
           </ol>
-          <p className="mt-2 flex items-start gap-1.5 text-[11px] text-ink-500"><LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Ảnh bạn tải lên hiện với người mua ngay khi sản phẩm được đăng.</p>
         </div>
 
         <Link href="/supplier/portal/products" className="flex items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[12px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800">

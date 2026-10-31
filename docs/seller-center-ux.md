@@ -211,8 +211,8 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   sang phải và bóp hẹp ô (thử ngày 30/10, bỏ ngày 31/10/2026). Ô một giá trị cố định vẫn hẹp theo §5.1.
 - **Dấu `*` đỏ đứng trước nhãn** cho trường bắt buộc; lỗi của khối tô viền/khung đỏ và gợi ý chuyển sang màu đỏ.
 - **Khối 03**: **một chỗ duy nhất cho ảnh** — thứ tự trên xuống: **Ảnh đại diện** (ô lớn, người mua thấy đầu tiên) →
-  **6 ô ảnh sản phẩm** (mỗi ô có ★ đổi ảnh đại diện và ✕ xoá ngay tại ô) → vùng tải tệp → Catalogue PDF chỉ hiện khi có
-  tệp. Nhà cung cấp không có nút chọn chia sẻ cho người mua, nên copy không được hứa hẹn điều đó. Kho ảnh riêng của nhà cung cấp nằm ở
+  **6 ô ảnh sản phẩm** (mỗi ô có ★ đổi ảnh đại diện và ✕ xoá ngay tại ô; ô đang là ảnh chính đánh dấu bằng **ngôi sao**,
+  không dùng chữ đè lên ảnh nhỏ) → vùng tải tệp → Catalogue PDF chỉ hiện khi có tệp. Nhà cung cấp không có nút chọn chia sẻ cho người mua, nên copy không được hứa hẹn điều đó. Kho ảnh riêng của nhà cung cấp nằm ở
   dòng đầu khi sản phẩm chưa tồn tại.
 - **Chốt 31/10/2026 — bỏ bước duyệt ảnh**: ảnh nhà cung cấp tải lên được chia sẻ cho người mua ngay (người mua
   chỉ thấy khi sản phẩm đã đăng). CRM không còn "Đã kiểm tra / Chưa xác minh" hay nút duyệt ảnh hàng loạt; chỉ còn một
