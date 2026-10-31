@@ -284,6 +284,7 @@ export default async function EditProductPage({
                 inferredCategory={inferredCategory?.slug ?? null}
                 mediaReview={publicationMedia}
                 allowChanges={product.supplier_review_status === "pending"}
+                firstPricePending={!!quantityEditor?.pendingPriceId && !quantityEditor.hasApprovedPrice}
               />}
           </section>}
         </div>

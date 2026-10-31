@@ -28,7 +28,9 @@ for (const bad of [
 ]) assert.equal(check(bad).value, null);
 for (const raw of [[], [{ ...custom.value.tiers[0], unit: 'bag' }], [{ ...custom.value.tiers[0], unitWeightGrams: 0 }], [{ ...custom.value.tiers[0], version: 3 }], [custom.value.tiers[0], { minKg: 5, priceUsdPerKg: 3 }]])
   assert.equal(v2.validateStoredV2('Special', 'FOB', raw, 'Nhân điều', ['W320'], policy).value, null);
-process.env.VEXIM_QUANTITY_V2_STAGING = 'true'; delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
-assert.equal(v2.v2StagingEnabled(), false); process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true'; assert.equal(v2.v2StagingEnabled(), true);
-delete process.env.VEXIM_QUANTITY_V2_STAGING; delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
+process.env.VEXIM_QUANTITY_V2_STAGING = 'true';
+assert.equal(v2.v2StagingEnabled(), true, 'V2 staging only needs its own flag');
+delete process.env.VEXIM_QUANTITY_V2_STAGING; process.env.VEXIM_QUANTITY_BUYER_PREVIEW = 'true';
+assert.equal(v2.v2StagingEnabled(), false, 'The buyer projection flag never switches V2 editing on');
+delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
 console.log('Quantity V2 validation: exact round-trip, custom grade, malformed input and staging gate passed');

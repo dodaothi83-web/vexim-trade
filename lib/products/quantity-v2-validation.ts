@@ -4,7 +4,7 @@ import type { QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 
 /** V2 is deliberately opt-in for isolated staging until all editors can read it. */
 export function v2StagingEnabled(): boolean {
-  return process.env.VEXIM_QUANTITY_V2_STAGING === "true" && process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true";
+  return process.env.VEXIM_QUANTITY_V2_STAGING === "true";
 }
 
 export type CheckedV2Proposal = {

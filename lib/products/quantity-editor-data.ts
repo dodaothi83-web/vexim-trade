@@ -15,7 +15,6 @@ export type QuantityEditorData = {
   /** Raw supplier-unit values. Older editors must not treat these as kg prices. */
   v2?: { unit: SupplierQuantityUnit; customGrade: boolean; tiers: Array<{ quantity: string; price: string }> } | null;
   standardGrades: string[]; policy: QuantityPricingPolicy; buyerPriceUnit: "kg" | "mt"; pricePubliclyVisible: boolean;
-  buyerPreviewEnabled: boolean;
 };
 
 /** Caller must authorize the product before requesting any private revision. */
@@ -63,6 +62,5 @@ export async function readQuantityEditorData(product: SupplierProduct): Promise<
     tiers, v2: revisionV2 ? { unit: revisionV2.unit, customGrade: revisionV2.customGrade, tiers: v2InputTiers(revisionV2) } : null,
     standardGrades: standardGradesForCategory(category), policy,
     buyerPriceUnit: primary === "mt" ? "mt" : "kg", pricePubliclyVisible: product.price_publicly_visible === true,
-    buyerPreviewEnabled: process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true",
   };
 }

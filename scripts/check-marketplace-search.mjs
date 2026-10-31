@@ -169,6 +169,9 @@ const productCatalog = load("../lib/public/product-catalog.ts", {
   "@/lib/public/display-name": displayName,
   "@/lib/public/supplier-english": english,
   "@/lib/public/product-detail-display": detail,
+  // Approved quantity prices are projected for buyers; this fixture has none, so the
+  // identity projection keeps the legacy cards this check compares.
+  "@/lib/public/quantity-catalog-legacy-preview": { projectQuantityCatalogPreview: async (records) => records },
 });
 
 // The shared snapshot must return exactly the same gated cards and order as the

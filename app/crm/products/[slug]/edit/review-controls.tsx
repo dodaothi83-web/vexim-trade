@@ -10,6 +10,7 @@ import { useProductEditWorkspace } from "./edit-workspace";
 /** Staff chọn danh mục cuối cùng và đăng sản phẩm trong một thao tác. */
 export function SupplierProductReviewControls({
   id, proposal, reviewed, categories, scope = [], inferredCategory = null, mediaReview, allowChanges = false,
+  firstPricePending = false,
 }: {
   id: string;
   proposal?: string | null;
@@ -21,6 +22,8 @@ export function SupplierProductReviewControls({
   inferredCategory?: string | null;
   mediaReview: ProductPublicationMediaState;
   allowChanges?: boolean;
+  /** Sản phẩm mới chưa có bảng giá nào được duyệt: duyệt sản phẩm là duyệt luôn bảng giá đầu tiên. */
+  firstPricePending?: boolean;
 }) {
   const router = useRouter();
   const { dirty } = useProductEditWorkspace();
@@ -76,6 +79,7 @@ export function SupplierProductReviewControls({
       </label>
       <button disabled={busy || !selected || dirty || !mediaReview.ready} className="btn btn-primary">{busy ? "Đang đăng..." : "Duyệt và đăng"}</button>
     </form>
+    {firstPricePending && !dirty && <p className="text-xs text-ink-600">Duyệt và đăng cũng duyệt bảng giá đầu tiên của sản phẩm. Các lần cập nhật giá sau vẫn có bước duyệt riêng.</p>}
     {dirty && <p role="alert" className="text-xs font-semibold text-amber-900">Lưu thay đổi trong hồ sơ và bản dịch trước khi duyệt và đăng.</p>}
     {!selected && <p className="text-xs text-amber-900">Chọn danh mục đang xuất bản trước khi duyệt.</p>}
     {outsideScope && <p className="text-xs text-amber-900">Danh mục nằm ngoài nhóm hàng nhà cung cấp đã đăng ký. Kiểm tra trước khi đăng.</p>}

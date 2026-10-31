@@ -106,12 +106,11 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       const { data, error } = await db.rpc("decide_supplier_product_with_quantity_guard", {
         p_product_id: id, p_supplier_id: product.supplier_id, p_expected_updated_at: product.updated_at,
         p_expected_review: previous.review, p_expected_ready: previous.ready, p_decision: decision,
-        p_category: reviewedCategory, p_note: note || null,
-        p_buyer_enabled: process.env.VEXIM_QUANTITY_BUYER_PREVIEW === "true",
+        p_category: reviewedCategory, p_note: note || null, p_actor_id: actor.id,
       });
       if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá trước khi đăng. Thử lại sau ít phút." };
-      if (data.status === "buyer_not_enabled") return { ok: false, message: "Chưa bật trang giá cho người mua; chưa thể đăng sản phẩm này." };
-      if (data.status === "price_not_approved") return { ok: false, message: "Hãy duyệt bảng giá theo số lượng trước khi đăng sản phẩm." };
+      // Bảng giá đầu tiên được duyệt cùng sản phẩm; chỉ bảng giá cập nhật mới có bước duyệt riêng.
+      if (data.status === "price_not_approved") return { ok: false, message: "Sản phẩm chưa có bảng giá nào để duyệt cùng. Yêu cầu nhà cung cấp gửi bảng giá trước khi đăng." };
       if (data.status === "price_changed") return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi duyệt giá. Cần yêu cầu nhà cung cấp gửi lại bảng giá." };
       if (data.status === "category_changed") return { ok: false, message: "Danh mục khác với bảng giá đã gửi. Hãy yêu cầu nhà cung cấp cập nhật danh mục và bảng giá." };
       updated = data.status === "saved" && data.product ? data.product as SupplierProduct : null;

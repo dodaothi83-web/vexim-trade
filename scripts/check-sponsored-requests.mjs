@@ -46,6 +46,8 @@ const categoryCatalog=load('lib/public/product-catalog.ts',{
   '@/lib/public/ranking':{evidenceValidVerificationSteps:()=>0,rankPublicCategoryProducts:(x)=>x,SPEC_RANKING_WEIGHTS:{}},
   '@/lib/public/display-name':display,'@/lib/public/supplier-english':{supplierProvinceDisplay:()=>null},
   '@/lib/public/product-detail-display':{publicProductMoqDisplay:()=>null,publicProductPlaceDisplay:()=>null},
+  // Giá số lượng đã duyệt được chiếu cho người mua; ở đây không có revision nên giữ nguyên thẻ cũ.
+  '@/lib/public/quantity-catalog-legacy-preview':{projectQuantityCatalogPreview:async (records)=>records},
 });
 let configured=false;
 const local={mode:'local'}, remote={mode:'supabase'};
