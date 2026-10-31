@@ -10,6 +10,7 @@ const supplierId = '55555555-5555-5555-5555-555555555555', productId = '22222222
 const category = { id: 'cat', slug: 'cashew', product_fields: [], supplier_product_fields: [], status: 'published', is_published: true };
 let supplier = { id: supplierId, fob_publicly_visible: true, fob_updated_at: '2026-10-29' }, user = { id: 'owner', email: 'owner@example.com' };
 let strict = true, saved = null, calls = [], failRpc = false, throwAudit = false, names = [], requests = [{ request_id: 'r' }], translations = 0, translationStatus = 'translated', race = false;
+const storage = { put: [], deleted: [] };
 const store = {
   getProduct: async () => saved, getCategoryBySlug: async () => category, listCategories: async () => [category],
   updateCategory: async () => {}, addAuditLog: async () => { if (throwAudit) throw Error('audit'); },
@@ -55,7 +56,11 @@ const mocks = {
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
   '@/lib/products/quantity-price-config': { readQuantityPricingPolicy: async () => ({ ...pricing.DEFAULT_QUANTITY_PRICING_POLICY, gradeBounds: { W320: { minUsdPerKg: 5, maxUsdPerKg: 6 } } }) },
   '@/lib/products/quantity-pricing': pricing,
-  '@/lib/media/storage': { deleteObject() {} },
+  '@/lib/media/storage': {
+    getObject: async (path) => (path.startsWith('supplier-media/') ? { data: new Uint8Array([1]), driver: 'local' } : null),
+    putObject: async (path) => { storage.put.push(path); return { driver: 'local', path }; },
+    deleteObject: async (path) => { storage.deleted.push(path); },
+  },
 };
 const exports = {};
 const source = ts.transpileModule(readFileSync(new URL('../app/supplier/portal/product-actions.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -135,3 +140,42 @@ assert.equal(calls[0].args.p_tiers[0].version, 2); assert.equal(calls[0].args.p_
 assert.equal(calls[0].args.p_tiers[0].priceCentsPerUnit, 7500); assert.equal(calls[0].args.p_english_name, null);
 delete process.env.VEXIM_QUANTITY_V2_STAGING; delete process.env.VEXIM_QUANTITY_BUYER_PREVIEW;
 console.log('New V2 product: staged gate and atomic creation with MT prices passed');
+
+// Ảnh gắn từ kho ảnh: phải giữ supplier_id (cổng lọc theo supplier nên xoá là "bấm Lưu mất ảnh")
+// và phải chép tệp sang products/<id>/ vì namespace supplier-media/ không công khai.
+const bankAsset = { id: '11111111-1111-1111-1111-111111111111', owner_type: 'supplier', supplier_id: supplierId,
+  kind: 'image', audience: 'internal', mime: 'image/webp', created_by: user.id,
+  storage_path: 'supplier-media/sup-1/a.webp', thumb_path: 'supplier-media/sup-1/a-thumb.webp' };
+const mediaUpdates = [];
+store.getMedia = async (id) => (id === bankAsset.id ? bankAsset : null);
+store.updateMedia = async (id, patch) => { mediaUpdates.push({ id, patch }); return { ...bankAsset, ...patch }; };
+saved = null; calls = []; storage.put = []; storage.deleted = [];
+const attached = await exports.saveSupplierProductAction(form({ bank_media_ids: JSON.stringify([bankAsset.id]) }));
+assert.equal(attached.ok, true);
+assert.equal(mediaUpdates.length, 1, 'ảnh chọn trong kho được gắn vào sản phẩm vừa tạo');
+assert.equal(mediaUpdates[0].patch.owner_type, 'product');
+assert.equal(mediaUpdates[0].patch.product_id, productId);
+assert.equal(mediaUpdates[0].patch.supplier_id, supplierId, 'ảnh gắn vào sản phẩm vẫn thuộc nhà cung cấp');
+assert.equal(mediaUpdates[0].patch.audience, 'buyer');
+assert.equal(mediaUpdates[0].patch.storage_path, `products/${productId}/${bankAsset.id}.webp`);
+assert.equal(mediaUpdates[0].patch.thumb_path, `products/${productId}/${bankAsset.id}-thumb.webp`);
+assert.ok(storage.put.includes(mediaUpdates[0].patch.storage_path), 'tệp ảnh được chép sang thư mục sản phẩm');
+assert.ok(storage.deleted.includes(bankAsset.storage_path), 'bản gốc trong kho ảnh được dọn sau khi chép');
+assert.ok(!mediaUpdates[0].patch.storage_path.startsWith('supplier-media/'), 'người mua tải được ảnh đã gắn');
+console.log('Bank media: attached image keeps its supplier and moves into the product namespace');
+
+// Ảnh đã gắn bằng bản cũ (supplier_id null, tệp còn trong namespace kho) được sửa khi lưu lại.
+const legacyBankMedia = { ...bankAsset, id: '33333333-3333-3333-3333-333333333333',
+  owner_type: 'product', product_id: productId, supplier_id: null };
+store.listMedia = async () => [legacyBankMedia];
+saved = { ...saved, id: productId, supplier_review_status: 'draft', supplier_originated: true,
+  name: 'Nhân điều', spec: 'Quy cách', supplier_category_proposal: 'cashew' };
+mediaUpdates.length = 0; storage.put = []; storage.deleted = [];
+const repaired = await exports.saveSupplierProductAction(form({ product_id: productId }));
+assert.equal(repaired.ok, true);
+const repairPatch = mediaUpdates.find((update) => update.id === legacyBankMedia.id)?.patch;
+assert.ok(repairPatch, 'lưu lại sản phẩm phải sửa ảnh gắn từ kho bằng bản cũ');
+assert.equal(repairPatch.supplier_id, supplierId, 'ảnh cũ được trả lại đúng nhà cung cấp');
+assert.equal(repairPatch.storage_path, `products/${productId}/${legacyBankMedia.id}.webp`);
+assert.ok(storage.deleted.includes(legacyBankMedia.storage_path), 'tệp cũ trong kho được dọn');
+console.log('Bank media: images attached before the fix are repaired on the next save');

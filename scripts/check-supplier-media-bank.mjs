@@ -64,8 +64,19 @@ assert.match(actions, /function parseBankMediaIds/, 'phải có bộ đọc mã 
 assert.match(actions, /parseBankMediaIds\(form\.get\("bank_media_ids"\)\)/, 'lưu sản phẩm phải đọc ảnh kho');
 assert.match(actions, /asset\.owner_type !== "supplier" \|\| asset\.supplier_id !== access\.supplier\.id/,
   'chỉ gắn ảnh thuộc đúng nhà cung cấp');
-assert.match(actions, /owner_type: "product", product_id: saved\.id, supplier_id: null/,
-  'ảnh gắn vào sản phẩm phải đổi chủ sở hữu sang sản phẩm');
+assert.match(actions, /owner_type: "product", product_id: saved\.id,\s*\n?\s*supplier_id: access\.supplier\.id/,
+  'ảnh gắn vào sản phẩm vẫn thuộc nhà cung cấp — xoá supplier_id thì cổng lọc mất ảnh ngay sau khi lưu');
+// Ảnh kho nằm ở namespace riêng, không công khai: gắn vào sản phẩm phải chép sang products/<id>/.
+assert.match(actions, /async function copyBankImageIntoProduct/,
+  'phải chép ảnh kho sang thư mục sản phẩm để người mua tải được');
+assert.match(actions, /products\/\$\{productId\}\/\$\{asset\.id\}/,
+  'bản sao phải nằm trong products/<product_id>/ và đặt tên theo mã ảnh');
+assert.match(actions, /async function repairAttachedBankMedia/,
+  'ảnh gắn bằng bản cũ (supplier_id null, đường dẫn kho) phải được sửa ở lần lưu kế tiếp');
+assert.match(actions, /if \(!moved\) continue;/, 'chép tệp hỏng thì giữ ảnh trong kho, không làm mất ảnh');
+const visibility = read('../lib/supplier-portal/product-view.ts');
+assert.match(visibility, /asset\.supplier_id === supplierId/,
+  'cổng nhà cung cấp chỉ hiện ảnh thuộc đúng nhà cung cấp — lý do ảnh mất sau khi lưu');
 assert.match(actions, /bankOrder >= 8/, 'tối đa 8 ảnh gắn vào một sản phẩm');
 
 // 6. Ảnh trong kho không bao giờ công khai.

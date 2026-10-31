@@ -211,6 +211,12 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   ngay dưới lưới, bấm để thêm vào ô trống, ✕ để xoá khỏi kho. Hết ảnh chưa dùng thì dải này tự ẩn.
 - **Ảnh trong kho không bao giờ công khai.** Tệp ở namespace `supplier-media/<supplier_id>/` — không nằm trong
   danh sách đường dẫn của `/public-media`, còn `/api/media/file` chỉ trả cho chính người đã tải lên.
+- **Gắn ảnh = chép sang thư mục sản phẩm + giữ `supplier_id`** (sửa 31/10/2026): bước gắn chép tệp sang
+  `products/<product_id>/<media_id>.webp` (kèm bản thu nhỏ) rồi mới đổi chủ sở hữu, và **giữ nguyên
+  `supplier_id` của nhà cung cấp**. Bản cũ đặt `supplier_id = null` nên `supplierVisibleProductMedia` lọc mất ảnh
+  ngay sau khi bấm Lưu ("bấm Lưu là mất ảnh", dù tệp vẫn còn); tệp còn nằm trong `supplier-media/` thì người mua
+  cũng không tải được. Ảnh gắn bằng bản cũ được **tự sửa ở lần lưu kế tiếp** của sản phẩm; chép tệp hỏng thì ảnh
+  ở nguyên trong kho, không bị xoá.
 - **Thứ tự thao tác:** kho ảnh → chọn ảnh → điền thông tin → Lưu. Ảnh chưa gắn không chặn việc gửi duyệt;
   điều kiện gửi duyệt vẫn là sản phẩm có ít nhất một ảnh đã gắn.
 
