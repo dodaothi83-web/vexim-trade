@@ -31,6 +31,14 @@ Trong khối "Chứng nhận áp dụng" ở trang sản phẩm của cổng nh�
 
 Nhà cung cấp chọn "Gia hạn" một giấy đã có khi tải tệp mới. Hệ thống tạo **bản ghi mới** (`supersedes_certificate_id` = giấy cũ) ở trạng thái chờ duyệt; bản cũ **vẫn hiệu lực, vẫn giữ phạm vi** nên sản phẩm không rơi khỏi chip. Khi nhân viên duyệt bản mới, phạm vi của bản cũ được sao sang bản mới và bản cũ nhận `superseded_by_certificate_id` (ngừng hiện). Nhắc hạn vẫn theo mốc 60/30/7/1 ngày.
 
+## Trang Giấy tờ & chứng nhận L1
+
+- Lưới thẻ chỉ còn **giấy tờ doanh nghiệp** (`COMPANY_DOCUMENT_KEYS`: đăng ký doanh nghiệp, ATTP, giấy phép xuất khẩu). Hai mục `haccp_or_brc` và `product_certs` bỏ khỏi lưới (`QUALITY_CERTIFICATE_DOC_KEYS`) để chứng nhận chất lượng chỉ có **một đường vào**: ô tải ở khối "Chứng nhận trên hồ sơ".
+- Chứng nhận nộp ở bước đăng ký doanh nghiệp cũng vào kho: `saveInitialEvidence` gọi `ingestCertificateScan` cho các key chứng nhận, nên hồ sơ không còn cảnh có tệp HACCP mà "0 chứng nhận".
+- Tệp chứng nhận tải theo luồng cũ, chưa có bản ghi, vẫn xem lại được ở khối "Tệp chứng nhận đã tải trước đây" kèm lời mời tải lại; thẻ giấy tờ nào đã vào kho thì ghi "Đã vào kho chứng nhận · hạn …" để không bị hiểu là hai giấy khác nhau.
+- Bảng "Giấy tờ L1 tính từ giấy đã duyệt" chỉ liệt kê 5 mục có chứng nhận tương ứng; mã số thuế và số tài khoản ngân hàng khai trong Hồ sơ doanh nghiệp. Dòng chưa có chứng nhận nhưng đã có tệp thì ghi rõ "Đã có tệp tải lên, chưa có chứng nhận được duyệt".
+- Thẻ chưa có tệp không bao giờ ghi "Đã đối chiếu xong" chỉ vì đợt L1 đã duyệt; tiến độ tính trên 3 giấy tờ doanh nghiệp, chứng nhận đếm riêng.
+
 ## Câu chữ ở cổng nhà cung cấp
 
 Hai ô tải giấy (trang **Giấy tờ & chứng nhận L1** và khối "Chứng nhận áp dụng" ở trang sản phẩm) dùng chung một bộ câu: cùng tiêu đề "Tải lên hoặc gia hạn chứng nhận", cùng lựa chọn "Gia hạn giấy đã có (tùy chọn)" / "+ Giấy mới", cùng nhãn "Tên trên giấy (không bắt buộc)", cùng gợi ý tệp và cùng câu nhận kết quả. Không nói AI, không dùng mã bước nội bộ (L1/L2), không hứa "đã hiển thị": giấy vào hồ sơ trước, nhân viên đối chiếu rồi mới chọn phạm vi áp dụng. Ghi chú của nhân viên (`review_note`) không hiện ở cổng; thẻ chứng nhận dùng `supplierCertificateNote()` trong `lib/certificate-supplier-copy.ts`. Trang thêm sản phẩm chỉ hiện khối "Chứng nhận theo danh mục" (đọc trước khi lưu); trang sửa sản phẩm để khối "Chứng nhận áp dụng" lo việc bỏ tick, nên không lặp thông tin.

@@ -37,7 +37,7 @@ for (const denied of [
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
 
-const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false, accountNotices: [] };
+const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], certIngest: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false, accountNotices: [] };
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
@@ -78,6 +78,11 @@ const profileEvidence = load('../lib/supplier-portal/profile-evidence.ts', {
     saveDocumentEvidence: async ({ review, key, createdBy }) => { const row = { id: `m${state.media.length}`, owner_type: 'verification', supplier_id: review.supplier_id, verification_id: review.id, audience: 'internal', checklist_key: key, created_by: createdBy, storage_path: `verifications/${review.id}/test.pdf` }; state.media.push(row); return row; },
   },
   '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: keys },
+  '@/lib/certificate-service': {
+    isL1CertificateKey: (key) => ['food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].includes(key),
+    defaultCertificateLabelForKey: (key) => `Giấy ${key}`,
+    ingestCertificateScan: async (input) => { state.certIngest.push(input); return { certificate: { id: 'cert-1' }, decision: {} }; },
+  },
   '@/lib/types': { L1_DOC_ITEMS: [{ key: 'business_license' }, { key: 'tax_certificate' }, { key: 'bank_letter' }] },
 });
 const mocks = {
@@ -273,6 +278,13 @@ assert.equal((await submitProfile(form())).status, 200, 'Returned profile can re
 assert.equal(state.suppliers[0].onboarding_status, 'pending');
 assert.equal(state.reviews.length, 1);
 assert.equal(state.requests.length, 1);
+// Giấy chứng nhận chất lượng nộp lúc đăng ký phải vào kho chứng nhận, không chỉ nằm trong media.
+state.suppliers[0].onboarding_status = 'changes_requested';
+const withHaccp = form(); withHaccp.set('doc:haccp_or_brc', file);
+assert.equal((await submitProfile(withHaccp)).status, 200, 'Returned profile can add a quality certificate');
+assert.equal(state.certIngest.length, 1, 'Quality certificate from registration goes into the certificate store');
+assert.equal(state.certIngest[0].checklistKey, 'haccp_or_brc');
+assert.equal(state.certIngest[0].supplier.id, 's1');
 store.mode = 'local';
 assert.equal((await post(accountForm('other@example.com'))).status, 503, 'No local public signup');
 assert.equal((await submitProfile(form())).status, 503, 'No local public business form');
