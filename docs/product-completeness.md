@@ -137,6 +137,20 @@ Quy tắc đã giữ:
 - Đóng gói có cấu trúc đứng trước mô tả đóng gói cũ (`packaging` / `spec`), chỉ lùi về
   mô tả cũ khi chưa khai cấu trúc.
 
+### C. Hai form sửa cùng một bộ dữ liệu
+
+CRM (`components/product-form.tsx`) và cổng nhà cung cấp (`app/supplier/portal/products/product-editor.tsx`)
+sửa **cùng** các cột Phase 2: `keywords`, `sample_price_usd`, `package_type`, `package_weight_kg`,
+`package_size`, `units_per_carton`. `createProductAction` / `updateProductAction` đọc chúng bằng đúng
+`productExtrasFromForm` mà cổng nhà cung cấp dùng: cùng cách bỏ dấu từ khoá, cùng giới hạn, và ô nào
+payload không gửi thì giữ giá trị đã lưu (không xoá trắng).
+
+Trước đây CRM chỉ có ô **Bao bì / đóng gói** (`packaging`, văn bản tự do). Vì trang người mua ưu tiên
+khối có cấu trúc, đổi bao bì sang 50kg ở CRM **không đổi gì** trên trang người mua khi sản phẩm đã khai
+`package_type`/`package_weight_kg` — đây là lỗi mapping giữa hai form, không phải lỗi lưu. Nay CRM sửa
+được đúng các ô đó và ghi chú ngay dưới ô văn bản tự do rằng người mua chỉ thấy dòng đó khi chưa khai
+cấu trúc. Kiểm: `node scripts/check-crm-product-extras.mjs` (nằm trong `npm run check:extras`).
+
 ### B. Từ khoá thật sự tìm được
 
 | Việc | Ở đâu |

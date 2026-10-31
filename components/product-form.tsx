@@ -84,6 +84,15 @@ function init(p?: SupplierProduct | null): FormState {
     incoterm: p?.incoterm ?? "FOB",
     incoterm_place: p?.incoterm_place ?? "",
     payment_terms: p?.payment_terms ?? "",
+    // Phase 2: từ khoá, giá mẫu và đóng gói có cấu trúc. Đây là thứ người mua thật sự
+    // thấy; trước đây CRM chỉ sửa được dòng "Bao bì / đóng gói" tự do nên đổi bao bì
+    // sang 50kg mà trang người mua vẫn hiện "bao 25 kg".
+    keywords: (p?.keywords ?? []).join(", "),
+    sample_price_usd: p?.sample_price_usd ?? "",
+    package_type: p?.package_type ?? "",
+    package_weight_kg: p?.package_weight_kg ?? "",
+    package_size: p?.package_size ?? "",
+    units_per_carton: p?.units_per_carton ?? "",
   };
 }
 
@@ -407,6 +416,15 @@ export function ProductForm({
                 placeholder="VD: Gạo thơm xay xát trong ngày, đánh bóng nhẹ"
               />
             </Field>
+            <Field label="Từ khoá tìm kiếm" hint="Tối đa 3 từ khoá tiếng Anh, cách nhau bằng dấu phẩy. Người mua gõ từ này để tìm sản phẩm." className="sm:col-span-2 lg:col-span-3">
+              <input
+                className="input"
+                maxLength={120}
+                value={v("keywords")}
+                onChange={(e) => set("keywords", e.target.value)}
+                placeholder="black pepper, pepper 570, vietnam pepper"
+              />
+            </Field>
             <Field label="Mô tả chi tiết" hint="Dùng tiêu đề, in đậm, in nghiêng và danh sách để nội dung dễ đọc trên trang sản phẩm." className="sm:col-span-2 lg:col-span-3">
               <ProductDescriptionEditor id="product-description-detail" value={v("description_detail")}
                 onChange={(html) => set("description_detail", html)} disabled={busy} minHeight="lg" />
@@ -566,7 +584,8 @@ export function ProductForm({
                 placeholder="VD: Cát Lái"
               />
             </Field>
-            <Field label="Bao bì / đóng gói" className="sm:col-span-2">
+            <Field label="Bao bì / đóng gói" className="sm:col-span-2"
+              hint="Mô tả tự do. Người mua chỉ thấy dòng này khi chưa khai đóng gói có cấu trúc bên dưới.">
               <input
                 className="input"
                 value={v("packaging")}
@@ -574,6 +593,48 @@ export function ProductForm({
                 placeholder="VD: Bao PP 25kg, thùng carton 5 lớp"
               />
             </Field>
+            <fieldset className="rounded-xl border border-ink-200 bg-ink-50/60 p-3 sm:col-span-2 lg:col-span-3">
+              <legend className="px-1 text-[12.5px] font-bold text-ink-800">Đóng gói người mua thấy</legend>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Loại kiện">
+                  <input
+                    className="input"
+                    maxLength={40}
+                    value={v("package_type")}
+                    onChange={(e) => set("package_type", e.target.value)}
+                    placeholder="bao, thùng, pallet"
+                  />
+                </Field>
+                <Field label="Khối lượng mỗi kiện (kg)">
+                  <input
+                    className="input font-mono tabular-nums"
+                    inputMode="decimal"
+                    value={v("package_weight_kg")}
+                    onChange={(e) => set("package_weight_kg", e.target.value)}
+                    placeholder="25"
+                  />
+                </Field>
+                <Field label="Số đơn vị mỗi thùng">
+                  <input
+                    className="input font-mono tabular-nums"
+                    inputMode="numeric"
+                    value={v("units_per_carton")}
+                    onChange={(e) => set("units_per_carton", e.target.value)}
+                    placeholder="20"
+                  />
+                </Field>
+                <Field label="Kích thước kiện (cm)">
+                  <input
+                    className="input"
+                    maxLength={60}
+                    value={v("package_size")}
+                    onChange={(e) => set("package_size", e.target.value)}
+                    placeholder="60 × 40 × 40"
+                  />
+                </Field>
+              </div>
+              <p className="mt-2 text-xs text-ink-600">Khối này thay cho dòng Bao bì ở trên khi đã khai loại kiện hoặc khối lượng.</p>
+            </fieldset>
             <div className="flex flex-wrap gap-3 sm:col-span-2 lg:col-span-3">
               <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-[12.5px] font-semibold text-ink-700">
                 <input
@@ -698,6 +759,15 @@ export function ProductForm({
                 value={v("payment_terms")}
                 onChange={(e) => set("payment_terms", e.target.value)}
                 placeholder="30% cọc, 70% khi có B/L"
+              />
+            </Field>
+            <Field label="Giá mẫu (USD)" hint="Bỏ trống nếu không bán mẫu. Số 0 nghĩa là mẫu miễn phí.">
+              <input
+                className="input font-mono tabular-nums"
+                inputMode="decimal"
+                value={v("sample_price_usd")}
+                onChange={(e) => set("sample_price_usd", e.target.value)}
+                placeholder="VD: 5"
               />
             </Field>
             <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-ink-200 bg-ink-50/60 p-3 text-sm">

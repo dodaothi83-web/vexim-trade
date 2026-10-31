@@ -8,6 +8,7 @@ import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/
 import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
 import { sanitizeProductDescriptionForSave, sanitizeProductDescriptionHtml } from "@/lib/products/product-description";
+import { productExtrasFromForm } from "@/lib/products/product-extras";
 import {
   MOQ_UNITS,
   applyGradeRowsToSpecs,
@@ -68,6 +69,7 @@ import type {
   EmailAttachment,
   Supplier,
   SupplierInput,
+  SupplierProduct,
   SupplierProductInput,
   Verification,
   Category,
@@ -1489,6 +1491,22 @@ function parseProductInput(
   };
 }
 
+/**
+ * Phase 2: từ khoá, giá mẫu và đóng gói có cấu trúc đi cùng payload nhưng nằm ngoài
+ * `SupplierProductInput` cũ. Dùng đúng bộ đọc của form nhà cung cấp để hai form hiểu
+ * giống nhau; ô nào payload không gửi thì giữ giá trị đã lưu, không xoá trắng.
+ */
+function productExtrasFromPayload(
+  raw: Record<string, unknown>,
+  existing: Partial<SupplierProduct> | null,
+) {
+  return productExtrasFromForm(
+    (key) => raw[key],
+    (key) => Object.prototype.hasOwnProperty.call(raw, key),
+    existing,
+  );
+}
+
 function priceRangeInputError(raw: Record<string, unknown>, input: SupplierProductInput): string | null {
   const upper = raw.ref_price_max;
   if (upper == null || String(upper).trim() === "") return null;
@@ -1573,6 +1591,7 @@ export async function createProductAction(
       input.moq_unit = summary.moq_unit;
       input.specs = applyGradeRowsToSpecs(input.specs ?? {}, parsedGradeRows.rows, categorySource);
     }
+    Object.assign(input, productExtrasFromPayload(raw, null));
     const created = await getStore().createProduct(input);
     const warning = await syncSupplierIndustries(created.supplier_id);
     revalidateAll();
@@ -1682,6 +1701,9 @@ export async function updateProductAction(
         }
       }
     }
+    // Đóng gói có cấu trúc là thứ người mua thấy; CRM phải lưu được nó, nếu không thì
+    // sửa "Bao bì 50kg" xong trang người mua vẫn hiện "bao 25 kg".
+    Object.assign(input, productExtrasFromPayload(raw, existing));
     const updated = await store.updateSupplierProductIfState(id, existing.supplier_id,
       { review: existing.supplier_review_status ?? null, ready: existing.ready_for_buyer }, input);
     if (!updated) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi lưu." };

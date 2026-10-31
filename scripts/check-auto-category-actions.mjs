@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { assignProductCategory, assignSupplierCategories } from '../lib/public/category-assignment.ts';
 import { saveProductAttributes } from '../lib/product-attributes.ts';
 import { loadProductDescription } from './product-description-test-utils.mjs';
+import { productExtrasFromForm } from '../lib/products/product-extras.ts';
 
 const source = readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
 const sync = source.slice(source.indexOf('async function syncSupplierIndustries('), source.indexOf('export async function createSupplierAction('));
@@ -46,7 +47,7 @@ vm.runInNewContext(js, {
   sanitizeProductDescriptionForSave: loadProductDescription().description.sanitizeProductDescriptionForSave,
   sanitizeProductDescriptionHtml: loadProductDescription().description.sanitizeProductDescriptionHtml,
   displayNameInput: (value) => typeof value === 'string' ? value.trim().slice(0, 120) || null : null,
-  productTranslationState: () => ({ current: true }),
+  productTranslationState: () => ({ current: true }), productExtrasFromForm,
 }, { filename: 'auto-category-actions.ts' });
 let result = await exports.createProductAction({ name: 'Cashew W320', supplier_id: supplier.id, ref_price: 10, ref_price_max: 9 });
 assert.equal(result.ok, false, 'Staff cannot save an inverted reference price range');
