@@ -122,6 +122,7 @@ const actions = load('../app/supplier/portal/product-actions.ts', {
   '@/lib/products/product-description': productDescription,
   '@/lib/products/product-extras': productExtras,
   '@/lib/media/storage': storage,
+  '@/lib/supplier-portal/bank-media': { repairAttachedBankMedia: async (_store, _supplierId, media) => media },
   '@/lib/ai/product-translation-service': {
     ensureProductEnglishTranslation: async (storeArg, id) => {
       const current = await storeArg.getProduct(id);
@@ -199,6 +200,7 @@ const upload = load('../app/api/supplier-portal/products/[id]/media/route.ts', {
   '@/lib/media/readiness': mediaReadiness,
   '@/lib/supplier-portal/product-view': { privateMediaUrl: (asset) => asset.storage_path ? `/api/media/file/${asset.storage_path}` : null },
   '@/lib/media/storage': storage,
+  '@/lib/supplier-portal/bank-media': { repairAttachedBankMedia: async (_store, _supplierId, media) => media },
 });
 let lastMediaResponse = null;
 async function postMedia(id = productId) {

@@ -11,6 +11,21 @@ const category = { id: 'cat', slug: 'cashew', product_fields: [], supplier_produ
 let supplier = { id: supplierId, fob_publicly_visible: true, fob_updated_at: '2026-10-29' }, user = { id: 'owner', email: 'owner@example.com' };
 let strict = true, saved = null, calls = [], failRpc = false, throwAudit = false, names = [], requests = [{ request_id: 'r' }], translations = 0, translationStatus = 'translated', race = false;
 const storage = { put: [], deleted: [] };
+const storageApi = {
+  getObject: async (path) => (path.startsWith('supplier-media/') ? { data: new Uint8Array([1]), driver: 'local' } : null),
+  putObject: async (path) => { storage.put.push(path); return { driver: 'local', path }; },
+  deleteObject: async (path) => { storage.deleted.push(path); },
+};
+/** Nạp đúng module thật để kiểm hành vi gắn ảnh kho, không mock nó. */
+const bankMedia = (() => {
+  const mod = { exports: {} };
+  const code = ts.transpileModule(readFileSync(new URL('../lib/supplier-portal/bank-media.ts', import.meta.url), 'utf8'),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  vm.runInNewContext(code, { module: mod, exports: mod.exports, console, Date, Uint8Array,
+    require: (id) => { if (id === '@/lib/media/storage') return storageApi; throw Error(`Unexpected ${id}`); } },
+    { filename: 'bank-media.ts' });
+  return mod.exports;
+})();
 const store = {
   getProduct: async () => saved, getCategoryBySlug: async () => category, listCategories: async () => [category],
   updateCategory: async () => {}, addAuditLog: async () => { if (throwAudit) throw Error('audit'); },
@@ -56,11 +71,8 @@ const mocks = {
   '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
   '@/lib/products/quantity-price-config': { readQuantityPricingPolicy: async () => ({ ...pricing.DEFAULT_QUANTITY_PRICING_POLICY, gradeBounds: { W320: { minUsdPerKg: 5, maxUsdPerKg: 6 } } }) },
   '@/lib/products/quantity-pricing': pricing,
-  '@/lib/media/storage': {
-    getObject: async (path) => (path.startsWith('supplier-media/') ? { data: new Uint8Array([1]), driver: 'local' } : null),
-    putObject: async (path) => { storage.put.push(path); return { driver: 'local', path }; },
-    deleteObject: async (path) => { storage.deleted.push(path); },
-  },
+  '@/lib/media/storage': storageApi,
+  '@/lib/supplier-portal/bank-media': bankMedia,
 };
 const exports = {};
 const source = ts.transpileModule(readFileSync(new URL('../app/supplier/portal/product-actions.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;

@@ -5,6 +5,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
+import { repairAttachedBankMedia } from "@/lib/supplier-portal/bank-media";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { PageHeader } from "@/components/page-header";
 import { SupplierProductEditor } from "../product-editor";
@@ -33,9 +34,12 @@ export default async function OwnProductPage({ params, searchParams }: { params:
   const step = readStep((await searchParams).step);
   const product = await access.store.getProduct(id);
   if (!product || product.supplier_id !== access.supplier.id) notFound();
-  const [allMedia, allCategories] = await Promise.all([
+  const [storedMedia, allCategories] = await Promise.all([
     access.store.listMedia("product", id), access.store.listCategories({ publishedOnly: true }),
   ]);
+  // Ảnh gắn từ kho ảnh bằng bản cũ bị thiếu supplier_id / nằm sai namespace nên bị lọc mất:
+  // sửa ngay khi mở trang để người bán thấy lại ảnh của mình, không phải chờ lưu.
+  const allMedia = await repairAttachedBankMedia(access.store, access.supplier.id, storedMedia);
   const media = supplierVisibleProductMedia(allMedia, access.supplier.id, access.user.id);
   const options = categoryProposalOptions(allCategories);
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);

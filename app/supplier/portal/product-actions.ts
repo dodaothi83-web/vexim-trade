@@ -25,7 +25,8 @@ import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config"
 import { entryCurrencyIssue, nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 import type { QuantityRevisionTierV2 } from "@/lib/products/quantity-revision-v2";
-import { deleteObject, getObject, putObject } from "@/lib/media/storage";
+import { deleteObject } from "@/lib/media/storage";
+import { moveBankImageIntoProduct, removeBankOriginals, repairAttachedBankMedia } from "@/lib/supplier-portal/bank-media";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 
 type Result = { ok: boolean; message: string; id?: string; warning?: boolean };
@@ -101,82 +102,6 @@ function parseBankMediaIds(raw: FormDataEntryValue | null): string[] {
       .slice(0, 8);
   } catch {
     return [];
-  }
-}
-
-/** Ảnh trong kho ảnh nằm ở namespace riêng `supplier-media/` — cố ý không phục vụ công khai. */
-const BANK_MEDIA_PREFIX = "supplier-media/";
-type PortalStore = NonNullable<Awaited<ReturnType<typeof approvedAccess>>>["store"];
-type MediaRow = NonNullable<Awaited<ReturnType<PortalStore["getMedia"]>>>;
-
-/**
- * Chép một ảnh từ kho ảnh sang thư mục của sản phẩm (`products/<id>/…`).
- *
- * Ảnh gắn vào sản phẩm mà vẫn nằm trong `supplier-media/` thì người mua không tải được
- * (`/public-media` chặn namespace này), còn `/api/media/file` chỉ mở cho người đã tải lên.
- * Chép hỏng thì trả `null` để ảnh ở nguyên trong kho — người bán không mất ảnh.
- */
-async function copyBankImageIntoProduct(asset: MediaRow, productId: string):
-  Promise<{ storage_path: string; thumb_path: string | null } | null> {
-  const source = asset.storage_path ?? "";
-  if (!source.startsWith(BANK_MEDIA_PREFIX)) return null;
-  const extension = /\.([a-z0-9]+)$/i.exec(source)?.[1]?.toLowerCase() ?? "webp";
-  // Đặt tên theo mã ảnh để lần sửa sau ghi đè đúng chỗ, không sinh bản sao mồ côi.
-  const base = `products/${productId}/${asset.id}`;
-  try {
-    const object = await getObject(source);
-    if (!object) return null;
-    const storagePath = `${base}.${extension}`;
-    await putObject(storagePath, object.data, asset.mime || "image/webp");
-    let thumbPath: string | null = null;
-    if (asset.thumb_path) {
-      const thumb = await getObject(asset.thumb_path).catch(() => null);
-      if (thumb) {
-        const candidate = `${base}-thumb.webp`;
-        thumbPath = await putObject(candidate, thumb.data, "image/webp")
-          .then(() => candidate)
-          .catch((error) => { console.error("[supplier-product] bank thumb copy", asset.id, error); return null; });
-      }
-    }
-    return { storage_path: storagePath, thumb_path: thumbPath };
-  } catch (error) {
-    console.error("[supplier-product] bank image copy", asset.id, error);
-    return null;
-  }
-}
-
-/** Dọn bản gốc trong kho ảnh sau khi bản sao ở thư mục sản phẩm đã được ghi vào CSDL. */
-async function deleteBankOriginals(asset: MediaRow) {
-  await Promise.all([asset.storage_path, asset.thumb_path]
-    .filter((path): path is string => !!path && path.startsWith(BANK_MEDIA_PREFIX))
-    .map((path) => deleteObject(path).catch((error) => console.error("[supplier-product] bank copy cleanup", path, error))));
-}
-
-/**
- * Ảnh đã gắn vào sản phẩm phải thuộc đúng nhà cung cấp và nằm trong thư mục sản phẩm.
- *
- * Bản cũ của bước gắn ảnh đặt `supplier_id = null` và để tệp trong `supplier-media/`, nên
- * `supplierVisibleProductMedia` lọc mất ảnh ngay sau khi lưu ("bấm Lưu là mất ảnh") và người
- * mua không tải được. Hàm này sửa những bản ghi đó ngay lần lưu kế tiếp của sản phẩm.
- */
-async function repairAttachedBankMedia(store: PortalStore, productId: string, supplierId: string) {
-  try {
-    const media = await store.listMedia("product", productId);
-    for (const asset of media) {
-      if (asset.owner_type !== "product" || asset.product_id !== productId) continue;
-      const wrongOwner = asset.supplier_id !== supplierId;
-      const stillInBank = (asset.storage_path ?? "").startsWith(BANK_MEDIA_PREFIX);
-      if (!wrongOwner && !stillInBank) continue;
-      const moved = stillInBank ? await copyBankImageIntoProduct(asset, productId) : null;
-      if (stillInBank && !moved) continue; // chép hỏng: giữ nguyên tệp, lần lưu sau thử lại
-      await store.updateMedia(asset.id, {
-        supplier_id: supplierId,
-        ...(moved ? { storage_path: moved.storage_path, thumb_path: moved.thumb_path } : {}),
-      });
-      if (moved) await deleteBankOriginals(asset);
-    }
-  } catch (error) {
-    console.error("[supplier-product] repair attached bank media", productId, error);
   }
 }
 
@@ -355,12 +280,12 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
           if (!asset || asset.owner_type !== "supplier" || asset.supplier_id !== access.supplier.id ||
             asset.kind !== "image" || !asset.storage_path) continue;
           // Ảnh phải nằm trong thư mục sản phẩm mới đến được người mua; chép hỏng thì để nguyên trong kho.
-          const moved = await copyBankImageIntoProduct(asset, saved.id);
+          const moved = await moveBankImageIntoProduct(asset, saved.id);
           if (!moved) continue;
           await store.updateMedia(mediaId, { owner_type: "product", product_id: saved.id,
             supplier_id: access.supplier.id, audience: "buyer", sort_order: bankOrder,
             storage_path: moved.storage_path, thumb_path: moved.thumb_path });
-          await deleteBankOriginals(asset);
+          await removeBankOriginals(asset);
           bankOrder++;
         } catch (error) {
           console.error("[supplier-product] attach media bank", error);
@@ -369,7 +294,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     }
     if (!saved) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi lưu." };
     // Ảnh gắn từ kho bằng bản cũ bị mất chủ sở hữu và nằm sai namespace: sửa ngay lần lưu này.
-    await repairAttachedBankMedia(store, saved.id, access.supplier.id);
+    await repairAttachedBankMedia(store, access.supplier.id, await store.listMedia("product", saved.id));
     // Preserve the approved English name when Vietnamese content changes.
     // Name revisions are reviewed separately and must not be overwritten by AI here.
     const translationWarning = keepPublished && existing?.name !== saved.name

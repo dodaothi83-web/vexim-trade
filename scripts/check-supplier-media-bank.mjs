@@ -67,13 +67,19 @@ assert.match(actions, /asset\.owner_type !== "supplier" \|\| asset\.supplier_id 
 assert.match(actions, /owner_type: "product", product_id: saved\.id,\s*\n?\s*supplier_id: access\.supplier\.id/,
   'ảnh gắn vào sản phẩm vẫn thuộc nhà cung cấp — xoá supplier_id thì cổng lọc mất ảnh ngay sau khi lưu');
 // Ảnh kho nằm ở namespace riêng, không công khai: gắn vào sản phẩm phải chép sang products/<id>/.
-assert.match(actions, /async function copyBankImageIntoProduct/,
+const bankMedia = read('../lib/supplier-portal/bank-media.ts');
+assert.match(actions, /moveBankImageIntoProduct/, 'bước gắn ảnh dùng chung hàm chép ảnh sang thư mục sản phẩm');
+assert.match(bankMedia, /export async function moveBankImageIntoProduct/,
   'phải chép ảnh kho sang thư mục sản phẩm để người mua tải được');
-assert.match(actions, /products\/\$\{productId\}\/\$\{asset\.id\}/,
+assert.match(bankMedia, /products\/\$\{productId\}\/\$\{asset\.id\}/,
   'bản sao phải nằm trong products/<product_id>/ và đặt tên theo mã ảnh');
-assert.match(actions, /async function repairAttachedBankMedia/,
-  'ảnh gắn bằng bản cũ (supplier_id null, đường dẫn kho) phải được sửa ở lần lưu kế tiếp');
-assert.match(actions, /if \(!moved\) continue;/, 'chép tệp hỏng thì giữ ảnh trong kho, không làm mất ảnh');
+assert.match(bankMedia, /export async function repairAttachedBankMedia/,
+  'ảnh gắn bằng bản cũ (supplier_id null, đường dẫn kho) phải được sửa lại');
+assert.match(bankMedia, /if \(stillInBank && !moved\) continue;/, 'chép tệp hỏng thì giữ ảnh trong kho, không làm mất ảnh');
+for (const page of ['../app/supplier/portal/products/[id]/page.tsx', '../app/supplier/portal/products/page.tsx']) {
+  const source = read(page);
+  assert.match(source, /repairAttachedBankMedia\(/, `${page}: phải sửa ảnh cũ ngay khi mở trang, không đợi người bán bấm Lưu`);
+}
 const visibility = read('../lib/supplier-portal/product-view.ts');
 assert.match(visibility, /asset\.supplier_id === supplierId/,
   'cổng nhà cung cấp chỉ hiện ảnh thuộc đúng nhà cung cấp — lý do ảnh mất sau khi lưu');

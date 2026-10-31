@@ -215,8 +215,9 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   `products/<product_id>/<media_id>.webp` (kèm bản thu nhỏ) rồi mới đổi chủ sở hữu, và **giữ nguyên
   `supplier_id` của nhà cung cấp**. Bản cũ đặt `supplier_id = null` nên `supplierVisibleProductMedia` lọc mất ảnh
   ngay sau khi bấm Lưu ("bấm Lưu là mất ảnh", dù tệp vẫn còn); tệp còn nằm trong `supplier-media/` thì người mua
-  cũng không tải được. Ảnh gắn bằng bản cũ được **tự sửa ở lần lưu kế tiếp** của sản phẩm; chép tệp hỏng thì ảnh
-  ở nguyên trong kho, không bị xoá.
+  cũng không tải được. Ảnh gắn bằng bản cũ được **tự sửa ngay khi mở trang sản phẩm, trang danh sách sản phẩm
+  hoặc khi bấm Lưu** (`repairAttachedBankMedia` trong `lib/supplier-portal/bank-media.ts`) nên người bán không phải
+  tải lại ảnh; chép tệp hỏng thì ảnh ở nguyên trong kho, không bị xoá.
 - **Thứ tự thao tác:** kho ảnh → chọn ảnh → điền thông tin → Lưu. Ảnh chưa gắn không chặn việc gửi duyệt;
   điều kiện gửi duyệt vẫn là sản phẩm có ít nhất một ảnh đã gắn.
 

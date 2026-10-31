@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
+import { repairAttachedBankMedia } from "@/lib/supplier-portal/bank-media";
 import { allowedSupplierCategories, categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 import { SupplierProductStorefront } from "./product-storefront";
 
@@ -17,7 +18,9 @@ export default async function SupplierProductsPage() {
     access.store.listCategories({ publishedOnly: true }),
   ]);
   // One scoped batch query, not one request per card; never send another supplier's internal files to the browser.
-  const allMedia = await access.store.listMediaForProducts(products.map((p) => p.id));
+  const storedMedia = await access.store.listMediaForProducts(products.map((p) => p.id));
+  // Ảnh gắn từ kho bằng bản cũ bị thiếu supplier_id nên thẻ sản phẩm trắng ảnh: sửa ngay khi mở trang.
+  const allMedia = await repairAttachedBankMedia(access.store, access.supplier.id, storedMedia);
   const media = supplierVisibleProductMedia(allMedia, access.supplier.id, access.user.id);
   // Nhãn danh mục + phạm vi đã chọn: trang sản phẩm nói cùng ngôn ngữ với trang Danh mục
   // kinh doanh thay vì hiện slug thô (cashew-kernels…).
