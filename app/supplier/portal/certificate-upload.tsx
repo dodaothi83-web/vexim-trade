@@ -1,14 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Lock } from "lucide-react";
 
 import { FilePicker } from "@/components/file-picker";
 
 export function SupplierCertificateUpload({
   certificates,
+  blockedReason = null,
 }: {
   certificates: Array<{ id: string; name: string; valid_until: string | null }>;
+  /** Có lý do thì ô tải đóng sẵn và nói vì sao — không để chọn tệp rồi mới nhận lỗi. */
+  blockedReason?: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -40,6 +45,32 @@ export function SupplierCertificateUpload({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (blockedReason) {
+    return (
+      <section
+        aria-label="Chưa mở được ô tải chứng nhận"
+        className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-4"
+      >
+        <p className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-amber-900 uppercase">
+          <Lock className="size-3.5" aria-hidden="true" /> Chưa mở được ô tải chứng nhận
+        </p>
+        <p className="mt-1 text-xs leading-5 text-amber-900">{blockedReason}</p>
+        <div className="mt-3">
+          <FilePicker
+            compact
+            disabled
+            accept=".pdf,image/jpeg,image/png,image/webp"
+            title="Tải chứng nhận"
+            hint="Hoàn tất xác thực nhà máy đối tác để mở ô này."
+          />
+        </div>
+        <Link href="/supplier/portal/verification/factory" className="mt-2 inline-block text-xs font-bold text-amber-900 underline">
+          Mở bước 2 · Nhà máy đối tác
+        </Link>
+      </section>
+    );
   }
 
   return (

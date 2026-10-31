@@ -7,10 +7,22 @@ export function ownsDocumentReview(user: Pick<AppUserRecord, "role" | "is_active
     !!review && review.target_level === 1 && user.supplier_id === review.supplier_id;
 }
 
-export function canUploadOwnDocument(user: Pick<AppUserRecord, "role" | "is_active" | "supplier_id"> | null, review: Verification | null, key: string): boolean {
-  return ownsDocumentReview(user, review) && !!review &&
-    (review.status === "in_progress" || review.status === "returned") &&
-    auditUploadKind(1, key as AuditEvidenceKey) === "file";
+export function canUploadOwnDocument(
+  user: Pick<AppUserRecord, "role" | "is_active" | "supplier_id"> | null,
+  review: Verification | null,
+  key: string,
+  options?: { hasFile?: boolean },
+): boolean {
+  if (!ownsDocumentReview(user, review) || !review) return false;
+  if (auditUploadKind(1, key as AuditEvidenceKey) !== "file") return false;
+  if (review.status === "in_progress" || review.status === "returned") return true;
+  /*
+   * Giấy chứng nhận đăng ký kinh doanh là giấy duy nhất của bước xác thực doanh nghiệp, và
+   * nhân viên không mở lại được đợt đã duyệt. Vì vậy đợt đã duyệt vẫn nhận **bản bổ sung**
+   * khi mục đó còn trống: không đổi kết quả xác thực, không mở lại đợt, nhân viên nhận mail
+   * như mọi lần tải. Đã có tệp rồi thì không cho thay để không đổi giấy sau khi duyệt.
+   */
+  return review.status === "approved" && key === "business_license" && !options?.hasFile;
 }
 
 /**
@@ -23,7 +35,10 @@ export const QUALITY_CERTIFICATE_DOC_KEYS = ["haccp_or_brc", "product_certs"] as
 
 export const INITIAL_DOCUMENT_KEYS = ["business_license", "food_safety", "haccp_or_brc", "product_certs", "export_license"] as const;
 
-/** Ba giấy tờ doanh nghiệp còn ô tải riêng trong lưới (pháp lý, không phải chứng nhận chất lượng). */
-export const COMPANY_DOCUMENT_KEYS = INITIAL_DOCUMENT_KEYS.filter(
-  (key) => !(QUALITY_CERTIFICATE_DOC_KEYS as readonly string[]).includes(key),
-);
+/**
+ * Giấy xác thực doanh nghiệp còn ô tải riêng: đúng **một** giấy là Giấy chứng nhận đăng ký
+ * kinh doanh. Giấy ATTP và giấy phép xuất khẩu không còn ô riêng; chứng nhận chất lượng
+ * (HACCP, ISO, BRC, Halal…) đi qua kho chứng nhận — một đường vào duy nhất, không phải tải
+ * hai lần ở hai chỗ. Key cũ vẫn nằm trong `INITIAL_DOCUMENT_KEYS` để đọc tệp đã tải trước đây.
+ */
+export const COMPANY_DOCUMENT_KEYS = ["business_license"] as const;

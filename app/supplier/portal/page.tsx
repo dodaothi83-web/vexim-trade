@@ -159,7 +159,7 @@ export default async function SupplierPortal() {
           <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold text-brand-800">Cổng đã mở</span>
         </div>
         <div className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11.5px] text-ink-600 sm:col-span-1 sm:col-start-2 sm:row-start-2 sm:gap-x-4">
-          <LevelChip label="L1 · Giấy tờ" on={l1Approved} pending={review?.status === "submitted" || review?.status === "in_progress"} />
+          <LevelChip label="Xác thực doanh nghiệp" on={l1Approved} pending={review?.status === "submitted" || review?.status === "in_progress"} />
           <LevelChip label={l2Label} on={l2Step?.state === "approved"} pending={l2Step?.state === "reviewing"} />
           <LevelChip label="L3 · Xuất khẩu" on={l3Approved} pending={submissions.some((s) => s.target_level === 3 && s.status === "pending_review")} />
           <span>{products.length} sản phẩm</span>

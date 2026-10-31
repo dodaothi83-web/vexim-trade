@@ -244,8 +244,11 @@ assert.match(supplierCertificateNote({ review_status: "approved", publicly_visib
 const policy = read("lib/supplier-portal/policy.ts");
 assert.match(policy, /QUALITY_CERTIFICATE_DOC_KEYS = \["haccp_or_brc", "product_certs"\]/,
   "hai mục chứng nhận chất lượng được tách khỏi lưới giấy tờ");
-assert.match(policy, /COMPANY_DOCUMENT_KEYS = INITIAL_DOCUMENT_KEYS\.filter/,
-  "lưới giấy tờ chỉ còn giấy tờ doanh nghiệp");
+assert.match(policy, /COMPANY_DOCUMENT_KEYS = \["business_license"\] as const/,
+  "lưới xác thực doanh nghiệp chỉ còn giấy chứng nhận đăng ký kinh doanh");
+assert.doesNotMatch(policy.slice(policy.indexOf("COMPANY_DOCUMENT_KEYS ="), policy.indexOf("COMPANY_DOCUMENT_KEYS =") + 200),
+  /food_safety|export_license|haccp_or_brc", "product_certs"/,
+  "giấy ATTP và giấy phép xuất khẩu không còn ô tải riêng");
 assert.match(documentsPage, /COMPANY_DOCUMENT_KEYS\.map/, "trang giấy tờ dựng lưới từ danh sách giấy tờ doanh nghiệp");
 assert.doesNotMatch(documentsPage, /INITIAL_DOCUMENT_KEYS\.map\(/,
   "không còn ô tải HACCP/chứng chỉ sản phẩm trong lưới");
@@ -254,8 +257,8 @@ assert.match(documentsPage, /title=\{!latest \? "Chưa có tệp"/,
   "thẻ chưa có tệp không ghi Đã đối chiếu xong");
 assert.match(documentsPage, /certificateMediaIds\.has\(latest\.id\)/,
   "thẻ giấy tờ nói rõ tệp đã vào kho chứng nhận");
-assert.match(documentsPage, /L1_DOC_ITEMS\.filter\(\(item\) => \(INITIAL_DOCUMENT_KEYS as readonly string\[\]\)\.includes\(item\.key\)\)/,
-  "bảng L1 bỏ hai mục khai tay (mã số thuế, số tài khoản)");
+assert.match(documentsPage, /L1_DOC_ITEMS\.filter\(\(item\) => \[\.\.\.COMPANY_DOCUMENT_KEYS, \.\.\.QUALITY_CERTIFICATE_DOC_KEYS\]\.includes/,
+  "bảng chỉ còn giấy đăng ký kinh doanh và chứng nhận chất lượng, bỏ hai mục khai tay");
 assert.match(documentsPage, /Mã số thuế và số tài khoản ngân hàng khai trong Hồ sơ doanh nghiệp/,
   "bảng L1 chỉ chỗ khai hai mục đó");
 const profileEvidence = read("lib/supplier-portal/profile-evidence.ts");

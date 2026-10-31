@@ -164,8 +164,8 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
       if (c.publicly_visible) add(`cert-published:${c.id}`, `Chứng nhận được phép hiển thị: ${c.name}`, "Chỉ hiện nhãn trên sản phẩm đúng phạm vi nếu đủ điều kiện; tệp nội bộ vẫn riêng tư.", c.updated_at, "certificate", CERT_HREF);
       else add(`cert-approved:${c.id}`, `Đã xét duyệt bản sao: ${c.name}`, "Chưa công bố. Việc hiển thị trên trang người mua cần được quyết định riêng.", c.checked_at || c.updated_at, "certificate", CERT_HREF);
     }
-    if (c.review_status === "changes_requested") add(`cert-changes:${c.id}`, `Chứng nhận cần bổ sung: ${c.name}`, c.review_note || "Mở mục Kiểm tra giấy tờ L1 để cập nhật lại.", c.updated_at, "certificate", CERT_HREF);
-    if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, `Chứng nhận không được chấp thuận: ${c.name}`, c.review_note || "Mở mục Kiểm tra giấy tờ L1 để xem phản hồi.", c.updated_at, "certificate", CERT_HREF);
+    if (c.review_status === "changes_requested") add(`cert-changes:${c.id}`, `Chứng nhận cần bổ sung: ${c.name}`, c.review_note || "Mở mục Xác thực doanh nghiệp để cập nhật lại.", c.updated_at, "certificate", CERT_HREF);
+    if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, `Chứng nhận không được chấp thuận: ${c.name}`, c.review_note || "Mở mục Xác thực doanh nghiệp để xem phản hồi.", c.updated_at, "certificate", CERT_HREF);
     if (c.review_status !== "rejected" && c.valid_until && /^\d{4}-\d{2}-\d{2}$/.test(c.valid_until)) {
       const endMs = Date.parse(`${c.valid_until}T00:00:00Z`);
       const daysLeft = Math.floor((endMs - todayMs) / 86_400_000);
@@ -173,7 +173,7 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
         add(
           `cert-expiring:${c.id}`,
           `Chứng nhận sắp hết hạn (còn ${daysLeft} ngày): ${c.name}`,
-          `Hết hạn ngày ${c.valid_until}. Vào mục Kiểm tra giấy tờ L1 để tải bản mới - AI sẽ tự quét lại ngày hết hạn và đơn vị đứng tên.`,
+          `Hết hạn ngày ${c.valid_until}. Vào mục Xác thực doanh nghiệp để tải bản mới; hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.`,
           c.updated_at || now.toISOString(),
           "certificate",
           CERT_HREF,

@@ -142,7 +142,7 @@ export default async function SupplierProfilePage() {
         sub="Ba đánh giá độc lập. Chỉ bộ phận duyệt có quyền xác nhận kết quả.">
         <ol className="space-y-2">
           {([
-            { level: 1, title: "Kiểm tra giấy tờ", status: l1Status, on: l1Approved, href: "/supplier/portal/documents", cta: "Tải giấy tờ L1" },
+            { level: 1, title: "Xác thực doanh nghiệp", status: l1Status, on: l1Approved, href: "/supplier/portal/documents", cta: "Tải giấy đăng ký kinh doanh" },
             { level: 2, title: l2Scope === "partner_contract" ? "Nhà máy đối tác" : "Xác thực nhà máy", status: l2Status, on: l2Approved, href: "/supplier/portal/verification/factory", cta: "Nộp bằng chứng L2" },
             { level: 3, title: "Lịch sử xuất khẩu", status: l3Status, on: l3Approved, href: "/supplier/portal/verification/export", cta: "Nộp bằng chứng L3" },
           ] as const).map((step) => <li key={step.level} className="relative">
@@ -159,7 +159,7 @@ export default async function SupplierProfilePage() {
             : <>Hồ sơ đã đủ ba cấp xác minh. Kết quả có thể được kiểm lại khi giấy tờ hết hạn hoặc có thay đổi.</>}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link href="/supplier/portal/documents" className="btn btn-ghost btn-sm">Giấy tờ L1</Link>
+          <Link href="/supplier/portal/documents" className="btn btn-ghost btn-sm">Xác thực doanh nghiệp</Link>
           <Link href="/supplier/portal/verification/factory" className="btn btn-soft btn-sm">{l2Scope === "partner_contract" ? "Nộp hợp đồng đối tác" : "Nộp bằng chứng nhà máy"}</Link>
           <Link href="/supplier/portal/verification/export" className="btn btn-soft btn-sm">Nộp chứng từ xuất khẩu</Link>
         </div>

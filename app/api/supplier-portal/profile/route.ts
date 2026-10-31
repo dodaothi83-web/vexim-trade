@@ -61,7 +61,8 @@ export async function POST(request: Request) {
       return fail("Chưa kiểm tra được lịch sử hồ sơ. Vui lòng thử lại hoặc liên hệ Vexim.", 503);
     }
   }
-  // Một trong ba giấy xác minh chính là bắt buộc. Giấy đã nộp ở đợt kiểm trước vẫn tính khi NCC bổ sung hồ sơ.
+  // Bước xác thực doanh nghiệp cần Giấy chứng nhận đăng ký kinh doanh (giấy lõi). Giấy đã nộp
+  // ở đợt kiểm trước vẫn tính khi NCC bổ sung hồ sơ; giấy chất lượng đi qua kho chứng nhận.
   if (!documents.some((document) => isL1CoreDoc(document.key))) {
     let existingCore = false;
     try {
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
       existingCore = media.some((asset) => asset.storage_path && isL1CoreDoc(asset.checklist_key));
     } catch (error) { console.error("[supplier-profile] cannot read prior documents", error); }
     if (!existingCore) {
-      return fail("Cần tải ít nhất một trong ba giấy xác minh: Đăng ký doanh nghiệp, Giấy ATTP, hoặc HACCP/ISO/FSSC/Halal. Giấy phải đứng tên doanh nghiệp bạn đã đăng ký.");
+      return fail("Cần tải Giấy chứng nhận đăng ký kinh doanh đứng tên doanh nghiệp bạn đã đăng ký.");
     }
   }
   let created = false;
