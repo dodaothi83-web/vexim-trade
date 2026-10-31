@@ -113,8 +113,7 @@ export default async function EditProductPage({
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đang xuất bản` },
     { done: supplier.status === "published", label: "Hồ sơ nhà cung cấp đang công khai" },
     { done: commercialSupplier, label: "Hồ sơ không phải dữ liệu thử nghiệm" },
-    { done: publicationMedia.verifiedBuyerImages > 0, label: "Ít nhất một ảnh đã kiểm tra và chia sẻ cho người mua", href: "#product-media" },
-    { done: publicationMedia.uncheckedBuyerFiles === 0, label: "Mọi tệp chia sẻ cho người mua đã được xác minh", href: "#product-media" },
+    { done: publicationMedia.buyerImages > 0, label: "Có ít nhất một ảnh người mua thấy được", href: "#product-media" },
     { done: productReviewApproved(product) && !!product.ready_for_buyer, label: "Sản phẩm đã được duyệt và đăng", automatic: needsPublicationAction },
     { done: !isTestOnlyProduct(product.name), label: "Tên sản phẩm không phải dữ liệu thử nghiệm" },
   ] : [
@@ -174,7 +173,7 @@ export default async function EditProductPage({
               supplierId={supplier.id}
               items={media}
               featuredMediaId={product.featured_media_id}
-              note={supplierReviewedListing ? "Trước khi đăng: chọn Đã kiểm tra và Chia sẻ cho người mua ở từng tệp công khai. Tệp Nội bộ vẫn riêng tư." : "Ảnh/catalogue chia sẻ cho người mua · giấy tờ nội bộ chỉ dùng trong nhà"}
+              note={supplierReviewedListing ? "Ảnh nhà cung cấp tải lên đã chia sẻ cho người mua; chuyển về Nội bộ nếu cần ẩn. Không còn bước kiểm tra từng ảnh." : "Ảnh/catalogue chia sẻ cho người mua · giấy tờ nội bộ chỉ dùng trong nhà"}
             />
           </div>
           <ProductTranslationPanel

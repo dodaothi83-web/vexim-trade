@@ -63,7 +63,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (prepared && thumbPath) await putObject(thumbPath, prepared.thumb, "image/webp");
     const asset = {
       owner_type: "product" as const, product_id: id, supplier_id: access.supplier.id, verification_id: null,
-      checklist_key: null, kind, audience: fresh.supplier_review_status === "approved" && fresh.ready_for_buyer ? "buyer" as const : "internal" as const, status: "unverified" as const, expires_on: null,
+      checklist_key: null, kind,
+      // Chốt 31/10/2026: bỏ bước duyệt ảnh. Ảnh/catalogue nhà cung cấp tải lên được chia sẻ
+      // cho người mua ngay; người mua chỉ thấy khi sản phẩm đã đăng. Staff vẫn ẩn được từng tệp.
+      audience: "buyer" as const, status: "unverified" as const, expires_on: null,
       caption: file.name.slice(0, 150), storage_path: path, thumb_path: thumbPath, external_url: null,
       mime: prepared ? "image/webp" : checked.mime, bytes: prepared?.main.length ?? bytes.length,
       width: prepared?.width ?? null, height: prepared?.height ?? null, sort_order: current.length,
@@ -97,8 +100,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
     return NextResponse.json({ ok: true, message: row.audience === "buyer"
-      ? "Đã tải tệp lên sản phẩm đang hiển thị với người mua."
-      : "Đã tải tệp nội bộ để kiểm tra; chưa chia sẻ cho người mua.",
+      ? "Đã tải tệp; tệp này chia sẻ cho người mua."
+      : "Đã tải tệp nội bộ; tệp chưa chia sẻ cho người mua.",
       ...(row.kind === "image" ? { image: { id: row.id, url: privateMediaUrl(row) } } : {}),
     });
   } catch (error) {
@@ -159,9 +162,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const mediaId = new URL(request.url).searchParams.get("media_id") ?? "";
   if (!/^[0-9a-f-]{36}$/i.test(mediaId)) return fail("Mã tệp không hợp lệ.");
   const asset = await access.store.getMedia(mediaId);
+  // Ảnh nhà cung cấp tải lên giờ luôn chia sẻ cho người mua, nên chỉ cần đúng người tải lên
+  // là xoá được; không còn điều kiện "nháp thì chỉ xoá tệp nội bộ".
   if (!asset || asset.owner_type !== "product" || asset.product_id !== id || asset.supplier_id !== access.supplier.id ||
-      asset.created_by !== access.user.id ||
-      (product.supplier_review_status === "draft" && asset.audience !== "internal"))
+      asset.created_by !== access.user.id)
     return fail("Không có quyền xóa tệp này.", 403);
   try {
     // Transaction kiểm tra lại quyền/trạng thái và tuần tự hóa hai lần xóa cùng

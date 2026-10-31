@@ -30,16 +30,18 @@ export interface ReadinessResult {
 }
 
 export interface ProductPublicationMediaState {
-  /** Ảnh đã được nhân sự kiểm tra và chủ động chia sẻ cho buyer. */
-  verifiedBuyerImages: number;
-  /** Ảnh/catalogue đang chia sẻ buyer nhưng còn ở trạng thái chưa kiểm tra. */
-  uncheckedBuyerFiles: number;
+  /** Ảnh đang chia sẻ cho người mua (còn hạn, có tệp thật). */
+  buyerImages: number;
+  /** Tệp bất kỳ (ảnh hoặc catalogue) đang chia sẻ cho người mua. */
+  buyerFiles: number;
   ready: boolean;
 }
 
 /**
- * Cổng bắt buộc trước khi duyệt và đăng sản phẩm NCC.
- * Không tự nâng quyền tệp nội bộ và không coi catalogue là ảnh đã xác minh.
+ * Cổng duy nhất trước khi duyệt và đăng sản phẩm NCC: phải có ít nhất một ảnh người mua thấy được.
+ *
+ * Chốt 31/10/2026: bỏ bước "đã kiểm tra" từng ảnh. Ảnh nhà cung cấp tải lên được chia sẻ cho
+ * người mua ngay, nên không còn khái niệm ảnh chờ xác minh và không có cổng thứ hai nào ở đây.
  */
 export function productPublicationMediaState(
   media: Pick<MediaAsset, "owner_type" | "product_id" | "supplier_id" | "kind" | "audience" | "status" | "expires_on" | "storage_path">[],
@@ -48,11 +50,9 @@ export function productPublicationMediaState(
 ): ProductPublicationMediaState {
   const files = media.filter((asset) => asset.owner_type === "product" && asset.product_id === productId &&
     asset.supplier_id === supplierId && (asset.kind === "image" || asset.kind === "catalogue") &&
-    !!asset.storage_path && !isExpired(asset));
-  const buyerFiles = files.filter((asset) => asset.audience === "buyer");
-  const verifiedBuyerImages = buyerFiles.filter((asset) => asset.kind === "image" && asset.status === "checked").length;
-  const uncheckedBuyerFiles = buyerFiles.filter((asset) => asset.status !== "checked").length;
-  return { verifiedBuyerImages, uncheckedBuyerFiles, ready: verifiedBuyerImages > 0 && uncheckedBuyerFiles === 0 };
+    !!asset.storage_path && !isExpired(asset) && asset.audience === "buyer");
+  const buyerImages = files.filter((asset) => asset.kind === "image").length;
+  return { buyerImages, buyerFiles: files.length, ready: buyerImages > 0 };
 }
 
 export function productReadiness(

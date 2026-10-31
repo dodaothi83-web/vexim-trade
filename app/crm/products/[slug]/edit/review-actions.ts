@@ -81,11 +81,9 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       }
       const media = await store.listMedia("product", id);
       const mediaReview = productPublicationMediaState(media, id, product.supplier_id);
-      if (!mediaReview.verifiedBuyerImages) {
-        return { ok: false, message: "Mở mục Ảnh & tài liệu sản phẩm. Đặt ít nhất một ảnh ở trạng thái Đã kiểm tra và Chia sẻ cho người mua trước khi đăng." };
-      }
-      if (mediaReview.uncheckedBuyerFiles) {
-        return { ok: false, message: "Còn " + mediaReview.uncheckedBuyerFiles + " tệp chia sẻ cho người mua chưa được xác minh. Chọn Đã kiểm tra hoặc chuyển về Nội bộ." };
+      // Một cổng duy nhất: phải có ảnh người mua thấy được. Không còn bước duyệt riêng cho từng ảnh.
+      if (!mediaReview.buyerImages) {
+        return { ok: false, message: "Mở mục Ảnh & tài liệu sản phẩm. Thêm ít nhất một ảnh chia sẻ cho người mua trước khi đăng." };
       }
     }
     const previous = { review: product.supplier_review_status ?? null, category: product.reviewed_category_slug, ready: product.ready_for_buyer };

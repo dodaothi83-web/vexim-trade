@@ -18,7 +18,7 @@ const mocks = {
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent' },
   '@/lib/ai/product-translation-service': {}, '@/lib/ai/translate-content': {}, '@/lib/products/product-description': {},
   '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] }, '@/lib/products/quantity-pricing': { nameContainsGrade: (name, grades) => grades.some((grade) => name.includes(grade)) },
-  '@/lib/media/readiness': { productPublicationMediaState: () => ({ verifiedBuyerImages: true, uncheckedBuyerFiles: 0 }) },
+  '@/lib/media/readiness': { productPublicationMediaState: () => ({ buyerImages: 1, buyerFiles: 1, ready: true }) },
   '@/lib/public/product-selection': { isTestOnlyProduct: () => false }, '@/lib/public/supplier-seo': { isSyntheticSupplier: () => false },
 };
 const exports = {}, process = { env: {} };

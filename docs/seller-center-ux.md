@@ -214,6 +214,10 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   **6 ô ảnh sản phẩm** (mỗi ô có ★ đổi ảnh đại diện và ✕ xoá ngay tại ô) → vùng tải tệp → Catalogue PDF chỉ hiện khi có
   tệp. Nhà cung cấp không có nút chọn chia sẻ cho người mua, nên copy không được hứa hẹn điều đó. Kho ảnh riêng của nhà cung cấp nằm ở
   dòng đầu khi sản phẩm chưa tồn tại.
+- **Chốt 31/10/2026 — bỏ bước duyệt ảnh**: ảnh nhà cung cấp tải lên được chia sẻ cho người mua ngay (người mua
+  chỉ thấy khi sản phẩm đã đăng). CRM không còn "Đã kiểm tra / Chưa xác minh" hay nút duyệt ảnh hàng loạt; chỉ còn một
+  công tắc `Hiện với người mua / Ẩn (nội bộ)` để staff gỡ ảnh xấu. Cổng duyệt trước khi đăng chỉ đòi **ít nhất một ảnh
+  chia sẻ cho người mua**; ảnh cũ giữ nguyên hiển thị, không cần duyệt lại.
 - **Khối 06**: dòng "Đóng gói" gộp nhãn con (bao bì · loại kiện/khối lượng/số đơn vị · kích thước), rồi các dòng
   Thời gian giao hàng, Vận chuyển (cảng xuất + địa điểm Incoterm), Điều kiện thanh toán kèm chip gợi ý.
 - **Khối 08**: danh sách kiểm tra từng dòng (biểu tượng đạt/chưa đạt + hành động `Lưu ngay` / `Đi tới mục N` / `Sửa`);

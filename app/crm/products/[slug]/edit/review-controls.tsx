@@ -30,11 +30,9 @@ export function SupplierProductReviewControls({
   const selected = categories.find((c) => c.slug === selectedSlug);
   const inferred = categories.find((c) => c.slug === inferredCategory);
   const outsideScope = !!selected && scope.length > 0 && !scope.includes(selected.slug);
-  const mediaBlocker = mediaReview.verifiedBuyerImages === 0
-    ? "Cần ít nhất một ảnh đã kiểm tra và được chia sẻ cho người mua."
-    : mediaReview.uncheckedBuyerFiles > 0
-      ? `Còn ${mediaReview.uncheckedBuyerFiles} tệp chia sẻ cho người mua chưa xác minh. Chọn Đã kiểm tra hoặc chuyển tệp về Nội bộ.`
-      : null;
+  const mediaBlocker = mediaReview.buyerImages === 0
+    ? "Cần ít nhất một ảnh chia sẻ cho người mua."
+    : null;
 
   async function decide(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -45,7 +43,7 @@ export function SupplierProductReviewControls({
       return;
     }
     if (data.get("decision") === "approved" && !mediaReview.ready) {
-      setResult({ ok: false, message: mediaBlocker ?? "Cần xác minh ảnh và tệp chia sẻ người mua trước khi đăng." });
+      setResult({ ok: false, message: mediaBlocker ?? "Thêm ảnh chia sẻ cho người mua trước khi đăng." });
       return;
     }
     setBusy(true);
@@ -63,7 +61,7 @@ export function SupplierProductReviewControls({
 
   return <div className="mt-4 space-y-4">
     {!mediaReview.ready && <div className="rounded-xl border border-amber-300 bg-white/70 px-3.5 py-3 text-[12.5px] leading-5 text-amber-950">
-      <p className="font-bold">Cần xử lý ảnh trước khi đăng</p>
+      <p className="font-bold">Cần thêm ảnh trước khi đăng</p>
       <p className="mt-0.5">{mediaBlocker}</p>
       <a href="#product-media" className="mt-1.5 inline-block font-semibold text-brand-800 underline underline-offset-2">Mở mục Ảnh &amp; tài liệu sản phẩm</a>
     </div>}

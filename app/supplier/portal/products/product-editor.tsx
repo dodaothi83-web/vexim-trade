@@ -274,8 +274,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   // Tải ảnh không cần sản phẩm đã tồn tại: ảnh vào kho ảnh của nhà cung cấp trước,
   // rồi gắn vào sản phẩm đúng lúc bấm Lưu (xem upload + pickedBank).
   const canUpload = !locked && (!["approved", "paused"].includes(review) || product?.supplier_originated === true);
-  const canDeleteAsset = (asset: MediaAsset) => canUpload && !!userId && asset.created_by === userId &&
-    (asset.audience === "internal" || review === "approved" || review === "paused" || review === "changes_requested");
+  // Ảnh tải lên đã chia sẻ cho người mua ngay, nên người tải lên luôn xoá được tệp của mình.
+  const canDeleteAsset = (asset: MediaAsset) => canUpload && !!userId && asset.created_by === userId;
   const canDeleteDraft = !!product && review === "draft" && product.supplier_originated === true &&
     !product.ready_for_buyer && product.reviewed_category_slug == null;
   const categoryLocked = review === "approved" || (review === "paused" && !!product?.reviewed_category_slug);
@@ -1106,7 +1106,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 {progress && <p role="status" className="mt-1.5 text-[12px] font-semibold text-brand-800">{progress}</p>}
                 <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-4 text-ink-500">
                   <LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-                  Ảnh và tệp bạn tải lên được kiểm tra trước khi hiện với người mua.
+                  Ảnh bạn tải lên hiện với người mua ngay khi sản phẩm được đăng.
                 </p>
               </Row>
 
@@ -1647,9 +1647,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <ol className="mt-2 space-y-2 text-[11.5px] leading-4 text-ink-600">
             <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-brand-700 text-[10px] font-bold text-white">1</span>Bạn lưu thông tin và tải tệp thật.</li>
             <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">2</span>Gửi duyệt nội dung.</li>
-            <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">3</span>Tệp được kiểm tra, nội dung được duyệt rồi sản phẩm mới đăng.</li>
+            <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">3</span>Nội dung được duyệt rồi sản phẩm mới đăng.</li>
           </ol>
-          <p className="mt-2 flex items-start gap-1.5 text-[11px] text-ink-500"><LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Tệp bạn tải lên chỉ hiện với người mua sau khi được duyệt.</p>
+          <p className="mt-2 flex items-start gap-1.5 text-[11px] text-ink-500"><LockKeyhole className="mt-0.5 size-3 shrink-0" aria-hidden="true" />Ảnh bạn tải lên hiện với người mua ngay khi sản phẩm được đăng.</p>
         </div>
 
         <Link href="/supplier/portal/products" className="flex items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[12px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800">

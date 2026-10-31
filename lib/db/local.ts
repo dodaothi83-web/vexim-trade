@@ -1652,7 +1652,7 @@ export const localStore: DataStore = {
         return { status: "state_changed" };
       const asset = db.media.find((m) => m.id === mediaId);
       if (!asset || asset.owner_type !== "product" || asset.product_id !== productId || asset.supplier_id !== supplierId ||
-          asset.created_by !== userId || (product.supplier_review_status === "draft" && asset.audience !== "internal"))
+          asset.created_by !== userId)
         return { status: "forbidden" };
       if (product.supplier_review_status === "approved" && product.ready_for_buyer && asset.audience === "buyer") {
         const replacement = db.media.some((m) => m.id !== mediaId && m.owner_type === "product" && m.product_id === productId &&

@@ -268,7 +268,8 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       saved = data as SupplierProduct;
       createdId = saved.id;
       // Ảnh trong kho ảnh được gắn vào sản phẩm vừa tạo, nên người bán tải ảnh
-      // trước khi có sản phẩm mà không phải lưu nháp. Ảnh luôn ở chế độ nội bộ.
+      // trước khi có sản phẩm mà không phải lưu nháp. Ảnh gắn vào là chung với người mua
+      // (không còn bước duyệt ảnh); người mua chỉ thấy khi sản phẩm được đăng.
       const bankIds = parseBankMediaIds(form.get("bank_media_ids"));
       let bankOrder = 0;
       for (const mediaId of bankIds) {
@@ -278,7 +279,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
           if (!asset || asset.owner_type !== "supplier" || asset.supplier_id !== access.supplier.id ||
             asset.kind !== "image" || !asset.storage_path) continue;
           await store.updateMedia(mediaId, { owner_type: "product", product_id: saved.id, supplier_id: null,
-            audience: "internal", sort_order: bankOrder });
+            audience: "buyer", sort_order: bankOrder });
           bankOrder++;
         } catch (error) {
           console.error("[supplier-product] attach media bank", error);

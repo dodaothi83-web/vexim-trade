@@ -135,7 +135,7 @@ const { SupplierProductReviewControls } = load('../app/crm/products/[slug]/edit/
 });
 const reviewProps = { id: 'p3', proposal: 'cashew', reviewed: 'cashew',
   categories: [{ slug: 'cashew', label: 'Hạt điều' }],
-  mediaReview: { verifiedBuyerImages: 1, uncheckedBuyerFiles: 0, ready: true } };
+  mediaReview: { buyerImages: 1, buyerFiles: 1, ready: true } };
 const retryHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, reviewProps));
 assert.ok(retryHtml.includes('Duyệt và đăng'), 'One staff action publishes pending and legacy products');
 assert.ok(retryHtml.includes('Danh mục đăng'), 'Staff can choose the final published category');
@@ -144,13 +144,13 @@ const pendingReviewHtml = renderToStaticMarkup(React.createElement(SupplierProdu
 assert.ok(pendingReviewHtml.includes('Duyệt và đăng') && pendingReviewHtml.includes('Yêu cầu chỉnh sửa'),
   'Pending review keeps both staff decisions');
 const blockedMediaHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, {
-  ...reviewProps, mediaReview: { verifiedBuyerImages: 0, uncheckedBuyerFiles: 1, ready: false },
+  ...reviewProps, mediaReview: { buyerImages: 0, buyerFiles: 0, ready: false },
 }));
-assert.ok(blockedMediaHtml.includes('Cần ít nhất một ảnh đã kiểm tra và được chia sẻ cho người mua'),
+assert.ok(blockedMediaHtml.includes('Cần ít nhất một ảnh chia sẻ cho người mua'),
   'The button explains the exact media settings required');
 assert.ok(blockedMediaHtml.includes('href="#product-media"'), 'The blocker opens the existing media workspace');
 assert.match(blockedMediaHtml, /<button disabled="" class="btn btn-primary">Duyệt và đăng<\/button>/,
-  'Publication stays disabled until media review is complete');
+  'Publication stays disabled until a buyer image exists');
 editorDirty = true;
 const dirtyReviewHtml = renderToStaticMarkup(React.createElement(SupplierProductReviewControls, reviewProps));
 assert.ok(dirtyReviewHtml.includes('Lưu thay đổi trong hồ sơ và bản dịch trước khi duyệt và đăng'),
