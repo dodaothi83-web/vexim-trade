@@ -253,5 +253,7 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   chưa có dòng giá thì người mua thấy `Price on request`, bản xem trước cũng vậy. Chứng nhận chỉ hiện những cái Vexim
   đã duyệt gắn. Không rời trang nên phần đang nhập còn nguyên; có ghi chú khi còn thay đổi chưa lưu.
 - **Cột phải**: Điểm chất lượng (vòng điểm + mức Thấp/Trung bình/Cao, chỉ để nhắc) · Việc cần làm tiếp kèm `+N` ·
+  số liệu đọc **nội dung đang nhập** (giá/MOQ lấy từ bảng giá số lượng đang gõ, ảnh vừa chọn từ kho đã tính là ảnh
+  chia sẻ), "Tên tiếng Anh" không tính vì Vexim đặt khi duyệt nên không hiện thành việc phải làm ·
   thẻ Người mua sẽ thấy · Ví dụ điền mẫu (gấp) · Luồng duyệt · Danh sách sản phẩm.
 - Không đổi dữ liệu, cổng duyệt, quyền hay luồng lưu; mọi guard hành vi giữ nguyên.

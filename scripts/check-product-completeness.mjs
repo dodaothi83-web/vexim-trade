@@ -95,6 +95,16 @@ for (const key of ['keywords', 'sample_price', 'package_measure']) {
 const weightSum = COMPLETENESS_ITEMS.reduce((sum, item) => sum + item.weight, 0);
 assert.equal(weightSum, 100, 'trọng số Phase 1 + Phase 2 vẫn cộng lại thành 100');
 
+/* 6c. Cổng sản phẩm không tạo việc giả: "Tên tiếng Anh" do Vexim đặt khi duyệt. */
+const supplierEmpty = productCompleteness({}, [], { supplierView: true });
+assert.equal(supplierEmpty.missing.length, COMPLETENESS_ITEMS.length - 1, 'bỏ mục nhà cung cấp không tự điền được');
+assert.ok(!supplierEmpty.missing.some((item) => item.key === 'name_en'), 'cổng không nhắc tên tiếng Anh');
+assert.equal(supplierEmpty.total, 95, 'mẫu số bỏ đúng trọng số của mục tự động');
+assert.ok(productCompleteness({}, []).missing.some((item) => item.key === 'name_en'), 'CRM vẫn thấy mục này');
+const supplierTyped = productCompleteness({ category: 'cashew', ref_price: 6.4, moq_qty: 500 }, [], { supplierView: true });
+assert.equal(supplierTyped.score, Math.round(((10 + 9 + 9) / 95) * 100), 'điểm quy về thang còn lại');
+assert.ok(!supplierTyped.done.includes('name_en'), 'mục tự động không nằm trong danh sách đã có');
+
 /* 7. Nhắc chỉ trong cổng/CRM: module thuần, không email, không CSDL. */
 assert.doesNotMatch(source, /notify|@\/lib\/email|resend/i, 'không gửi email nhắc ở Phase 1');
 assert.doesNotMatch(source, /server-only|@\/lib\/db|getStore/, 'thang đo phải thuần, dùng được ở client');
@@ -116,11 +126,24 @@ assert.ok(asideStart > -1 && qualityCardAt > asideStart && previewCardAt > quali
   'thẻ điểm chất lượng đứng trước thẻ ảnh sản phẩm xem trước');
 assert.doesNotMatch(editor, /Chỉ để nhắc thêm/, 'thẻ điểm chất lượng không còn câu nhắc "chỉ để nhắc thêm"');
 assert.match(editor, /Bổ sung: \{completeness\.next\.label\}/, 'editor gọi tên mục cần bổ sung');
-assert.match(editor, /scrollToSection\(completeness\.next!\.step === 2 \? "sec-media" : "sec-basic"\)/,
+assert.match(editor, /scrollToSection\(SECTION_FOR_ITEM\[completeness\.next!\.key\] \?\? "sec-basic"\)/,
   'nút bổ sung cuộn tới đúng khối trên trang một-bước');
+for (const [key, section] of [['price', 'sec-price'], ['moq', 'sec-price'], ['photo', 'sec-media'],
+  ['category', 'sec-category'], ['packaging', 'sec-shipping'], ['keywords', 'sec-basic']]) {
+  assert.match(editor, new RegExp(`${key}: "${section}"`), `${key} phải cuộn tới ${section}`);
+}
 assert.doesNotMatch(editor, /Bổ sung ở bước/, 'không còn địa chỉ theo bước');
 assert.match(storefront, /completenessSummary\(completeness\)/, 'thẻ sản phẩm trong cổng có câu nhắc');
 assert.match(crmList, /completenessSummary/, 'CRM thấy cùng số liệu');
+
+/* 8b. Cổng đọc nội dung đang nhập, không đọc bản đã lưu rồi bắt người bán chờ lưu. */
+assert.doesNotMatch(editor, /productCompleteness\(product \?\? \{\}, media\)/, 'editor không còn tính trên bản đã lưu');
+assert.match(editor, /ref_price: product\?\.ref_price \?\? livePrice/, 'giá đang nhập đi thẳng vào thang đo');
+assert.match(editor, /moq_qty: product\?\.moq_qty \?\? liveMoqQty/, 'MOQ đang nhập đi thẳng vào thang đo');
+assert.match(editor, /\}, liveMedia, \{ supplierView: true \}\)/, 'editor dùng góc nhìn nhà cung cấp');
+assert.match(storefront, /\{ supplierView: true \}/, 'thẻ sản phẩm dùng cùng góc nhìn');
+assert.match(editor, /Số liệu cập nhật theo nội dung đang nhập\./, 'câu ghi chú nói đúng là số liệu theo nội dung đang nhập');
+assert.doesNotMatch(editor, /Số liệu tính từ bản đã lưu\./, 'bỏ câu cũ trái với hành vi mới');
 
 /* 9. Không phải cổng chặn đăng: cổng thật vẫn ở lib/media/readiness. */
 // Nút gửi tự lưu trước, nhưng cổng thật vẫn ở server: tên, mô tả/quy cách, danh mục, ảnh.

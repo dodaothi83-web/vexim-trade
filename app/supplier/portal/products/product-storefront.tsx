@@ -60,7 +60,8 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
     const image = assets.find((m) => m.id === p.featured_media_id && m.kind === "image" && m.audience === "buyer" && privateMediaUrl(m)) ??
       assets.find((m) => m.kind === "image" && privateMediaUrl(m));
     const imageSrc = image && privateMediaUrl(image);
-    const completeness = productCompleteness(p, assets);
+    // Cùng thang điểm với trang sửa: bỏ mục nhà cung cấp không có ô để điền.
+    const completeness = productCompleteness(p, assets, { supplierView: true });
     const status = PRODUCT_STATUS[productReview(p)];
     const statusLabel = productReview(p) === "approved" && !p.ready_for_buyer ? "Đã duyệt, chờ đăng" : status.label;
     const outside = !!(scope && p.category && !scope.includes(p.category));

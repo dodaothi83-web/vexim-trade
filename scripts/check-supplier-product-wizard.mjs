@@ -258,7 +258,7 @@ assert.match(page, /Độ hoàn thiện/, 'Cột phải có khối độ hoàn t
 assert.match(page, /Hồ sơ \d+%|Độ hoàn thiện/, 'Điểm hoàn thiện hiển thị trong cột phải');
 assert.match(page, /Bổ sung: Ảnh thật|Bổ sung: /, 'Nút bổ sung gọi tên mục còn thiếu');
 assert.doesNotMatch(page, /Bổ sung ở bước/, 'Không còn địa chỉ theo bước');
-assert.match(source, /scrollToSection\(completeness\.next!\.step === 2 \? "sec-media" : "sec-basic"\)/, 'Nút bổ sung cuộn tới đúng khối');
+assert.match(source, /scrollToSection\(SECTION_FOR_ITEM\[completeness\.next!\.key\] \?\? "sec-basic"\)/, 'Nút bổ sung cuộn tới đúng khối');
 
 // 6. Giá của sản phẩm mới: mặc định chia sẻ, nhưng lựa chọn đã lưu không bị bật lại.
 const priceCheckbox = (html) => {

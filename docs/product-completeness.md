@@ -41,13 +41,19 @@ Quy tắc:
 - Ảnh **nội bộ** hoặc **hết hạn** không tính. Catalogue không thay ảnh thật.
 - Ảnh chia sẻ cho người mua được tính kể cả khi chưa kiểm (việc kiểm là cổng riêng).
 - Mục còn thiếu sắp xếp: bắt buộc trước, rồi trọng số cao.
-- Số liệu tính từ **bản đã lưu**; đang sửa dở thì hiện "Lưu thay đổi để cập nhật số liệu."
+- Cổng sản phẩm tính trên **nội dung đang nhập** (`supplierView`): tên, quy cách, mô tả, giá,
+  MOQ, đóng gói… lấy từ form đang gõ, gõ tới đâu điểm đổi tới đó — không bắt lưu trước.
+  Giá/MOQ lấy từ bảng giá số lượng đang nhập khi sản phẩm dùng bảng giá đó. Ảnh vừa chọn từ
+  kho ảnh đã tính là ảnh chia sẻ cho người mua.
+- "Tên tiếng Anh" do Vexim đặt khi duyệt (cổng không có ô này) nên **không** tính vào thang
+  điểm của nhà cung cấp; mẫu số còn 95. CRM vẫn tính đủ 100 và vẫn thấy mục này.
+- CRM (`app/crm/products/page.tsx`) tính trên **bản đã lưu**, không đọc form.
 
 ## 3. Hiển thị ở đâu
 
 | Chỗ | Dạng |
 | --- | --- |
-| `app/supplier/portal/products/product-editor.tsx` | Khối "Độ hoàn thiện" ở cột phải: thanh tiến độ, 3 mục thiếu đầu tiên, nút "Bổ sung ở bước N" |
+| `app/supplier/portal/products/product-editor.tsx` | Khối "Độ hoàn thiện" ở cột phải: vòng điểm, 3 mục thiếu đầu tiên, nút "Bổ sung: …" cuộn tới đúng khối; số liệu theo nội dung đang nhập |
 | `app/supplier/portal/products/product-storefront.tsx` | Một dòng dưới quy cách: "Hồ sơ 70% · còn thiếu ảnh thật" |
 | `app/crm/products/page.tsx` | Chip "Hồ sơ 70%" trong thẻ sản phẩm; rê chuột thấy câu nhắc đầy đủ |
 
@@ -60,7 +66,9 @@ Quy tắc:
 - MOQ, lead time 0, tên và mô tả tiếng Anh chấp nhận dữ liệu cũ;
 - hồ sơ đủ → 100 điểm, không nhắc;
 - module thuần: không email, không CSDL, không `server-only`;
-- ba chỗ hiển thị dùng chung một nguồn.
+- ba chỗ hiển thị dùng chung một nguồn;
+- `supplierView` bỏ đúng mục nhà cung cấp không tự điền được và quy điểm về thang 95;
+- trang sửa đọc nội dung đang nhập (giá, MOQ, ảnh vừa chọn), không đọc bản đã lưu.
 
 ## 5. Phase 2 — từ khoá, giá mẫu, đóng gói có cấu trúc
 
@@ -77,8 +85,9 @@ Quy tắc:
 | CRM | khối “Từ khoá và đóng gói” trong trang sửa sản phẩm |
 | Kiểm tra | `npm run check:extras` (nằm trong `check:supplier-products`) |
 
-Nguyên tắc giữ nguyên: điểm chỉ để nhắc, **không chặn đăng**; số liệu tính từ bản đã lưu;
-form cũ không có ô mới thì giữ nguyên giá trị đã lưu, không xoá trắng.
+Nguyên tắc giữ nguyên: điểm chỉ để nhắc, **không chặn đăng**; CRM tính trên bản đã lưu, cổng
+sản phẩm tính trên nội dung đang nhập; form cũ không có ô mới thì giữ nguyên giá trị đã lưu,
+không xoá trắng.
 
 ### Chứng nhận theo từng sản phẩm (đã làm, không cần migration)
 

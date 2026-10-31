@@ -861,8 +861,45 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     : product
       ? "Báo giá theo yêu cầu"
       : "-";
-  /** Độ hoàn thiện chỉ đọc, tính từ bản đã lưu và tệp hiện có; không phải cổng chặn đăng. */
-  const completeness = productCompleteness(product ?? {}, media);
+  /**
+   * Độ hoàn thiện chỉ đọc, nhưng đọc **nội dung đang nhập**: gõ giá hay MOQ là điểm đổi ngay,
+   * không phải lưu rồi mở lại. Ô nào đang có chữ thì lấy chữ đó, còn lại lấy bản đã lưu.
+   * Không phải cổng chặn đăng.
+   */
+  const liveNumber = (value: string | undefined): number | null => {
+    const raw = (value ?? "").trim().replace(",", ".");
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const liveTiers = quantityPreview?.tiers ?? [];
+  const livePrice = liveTiers.map((tier) => liveNumber(tier.priceUsdPerKg)).find((n) => n != null && n > 0) ?? null;
+  const liveMoqQty = liveTiers.map((tier) => liveNumber(tier.minKg)).find((n) => n != null && n > 0) ?? null;
+  const liveKeywords = (snapshot.keywords ?? "").split(",").map((word) => word.trim()).filter(Boolean);
+  /** Ảnh vừa chọn từ kho đã nằm trong lưới 6 ô và sẽ chia sẻ cho người mua khi lưu. */
+  const liveMedia = [...media, ...pickedImages.map((asset) => ({ ...asset, audience: "buyer" as const }))];
+  const completeness = productCompleteness({
+    name: snapshot.name ?? null,
+    display_name: product?.display_name ?? null,
+    name_i18n: product?.name_i18n ?? null,
+    category: selectedCategory || product?.category || null,
+    reviewed_category_slug: product?.reviewed_category_slug ?? null,
+    spec: snapshot.spec ?? null,
+    description: snapshot.description ?? null,
+    description_i18n: product?.description_i18n ?? null,
+    ref_price: product?.ref_price ?? livePrice,
+    moq: product?.moq ?? null,
+    moq_qty: product?.moq_qty ?? liveMoqQty,
+    packaging: snapshot.packaging ?? null,
+    lead_time_days: liveNumber(snapshot.lead_time_days) ?? product?.lead_time_days ?? null,
+    payment_terms: snapshot.payment_terms ?? null,
+    monthly_capacity: snapshot.monthly_capacity ?? null,
+    export_port: snapshot.export_port ?? null,
+    keywords: liveKeywords.length ? liveKeywords : product?.keywords ?? null,
+    sample_price_usd: liveNumber(snapshot.sample_price_usd) ?? product?.sample_price_usd ?? null,
+    package_type: snapshot.package_type ?? null,
+    package_weight_kg: liveNumber(snapshot.package_weight_kg) ?? product?.package_weight_kg ?? null,
+  }, liveMedia, { supplierView: true });
   const commercial = [
     { label: "Giá tham khảo", value: savedPriceValue },
     { label: "MOQ", value: product ? formatProductMoqVi(product) : "-" },
@@ -872,6 +909,27 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     { label: "Incoterm", value: [product?.incoterm, product?.incoterm_place].filter(Boolean).join(" / ") || "-" },
     { label: "Thanh toán", value: product?.payment_terms || "-" },
   ];
+
+  /**
+   * Mục còn thiếu nằm ở khối nào trên trang một-bước: bấm "Bổ sung" phải tới đúng ô,
+   * không phải khối chung. Giá và MOQ nằm trong khối giá (bảng giá số lượng), không phải ô chữ.
+   */
+  const SECTION_FOR_ITEM: Record<string, string> = {
+    category: "sec-category",
+    photo: "sec-media",
+    price: "sec-price",
+    moq: "sec-price",
+    sample_price: "sec-price",
+    spec: "sec-spec",
+    capacity: "sec-spec",
+    keywords: "sec-basic",
+    description: "sec-basic",
+    packaging: "sec-shipping",
+    package_measure: "sec-shipping",
+    lead_time: "sec-shipping",
+    export_port: "sec-shipping",
+    payment_terms: "sec-shipping",
+  };
 
   /** Mục đích của từng khối: dùng cho mục lục bên trái và nút "Sửa" ở phần xem lại. */
   function sectionDone(id: string): boolean {
@@ -1659,11 +1717,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               </li>)}
             </ul>
             {completeness.missing.length > 3 && <p className="mt-1.5 text-[11px] text-ink-500">Còn {completeness.missing.length - 3} mục nữa.</p>}
-            <button type="button" onClick={() => scrollToSection(completeness.next!.step === 2 ? "sec-media" : "sec-basic")} className="btn btn-soft btn-sm mt-2">
+            <button type="button" onClick={() => scrollToSection(SECTION_FOR_ITEM[completeness.next!.key] ?? "sec-basic")} className="btn btn-soft btn-sm mt-2">
               Bổ sung: {completeness.next.label}
             </button>
           </> : <p className="mt-2 text-[11.5px] leading-4 text-emerald-700">Hồ sơ đã đủ các mục cần thiết.</p>}
-          <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{dirty ? "Lưu thay đổi để cập nhật số liệu." : "Số liệu tính từ bản đã lưu."}</p>
+          <p className="mt-2 text-[10.5px] leading-4 text-ink-500">Số liệu cập nhật theo nội dung đang nhập.</p>
         </section>}
 
         <div className="overflow-hidden rounded-lg border border-ink-200 bg-white">
