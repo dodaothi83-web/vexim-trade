@@ -398,7 +398,10 @@ assert.ok(brandMentions <= 3, `Chỉ nhắc tên nền tảng khi thật cần (
 for (const phrase of ['Vexim duyệt', 'Vexim kiểm tra', 'Vexim xác nhận', 'cho Vexim', 'Chờ Vexim', 'Tôi đại diện NCC xác nhận đồng ý cho', 'không tự duyệt sản phẩm']) {
   assert.ok(!source.includes(phrase), `Bỏ giọng hành chính/lặp thương hiệu: ${phrase}`);
 }
-assert.match(page, /Chọn danh mục gần nhất\. Danh mục được kiểm tra khi duyệt/, 'Hint danh mục nói đúng mức cần thiết');
+assert.match(page, /Chọn danh mục phù hợp với sản phẩm\. Danh mục được kiểm tra khi duyệt/, 'Hint danh mục nói đúng mức cần thiết');
+assert.match(source, /Chọn danh mục phù hợp với sản phẩm để mở grade và bảng giá\./, 'Câu mở grade dùng "phù hợp với sản phẩm"');
+assert.doesNotMatch(source, /mục cần sửa trước khi gửi duyệt/, 'Đã bỏ khối nhắc đầu trang về các mục cần sửa');
+assert.doesNotMatch(page, /mục cần sửa trước khi gửi duyệt/, 'Không còn khối nhắc đầu trang khi render');
 
 // 17. Kho ảnh: tải ảnh trước khi có sản phẩm, gắn vào sản phẩm ngay khi bấm Lưu.
 assert.match(source, /const canUpload = !locked &&/, 'Ô chọn tệp không đòi sản phẩm đã tồn tại');

@@ -304,7 +304,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       default: return undefined;
     }
   };
-  const blockers = submitBlockers();
   const sectionBlocked = (id: string) => {
     switch (id) {
       case "sec-category": return !selectedCategory;
@@ -840,18 +839,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     }
   }
 
-  return <div className="mt-3 space-y-3 rounded-xl bg-[#f6f7f9] p-3 sm:p-4">
-    <div className="mx-auto max-w-[1240px] space-y-3">
-      {/* Mục cần sửa trước khi gửi duyệt: nêu đích danh, không chỉ báo "còn thiếu". */}
-      {blockers.length > 0 && !locked && <div role="status" className="flex flex-wrap items-start gap-x-2 gap-y-1 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-[12.5px] leading-5 text-rose-800">
-        <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        <span className="font-bold">{blockers.length} mục cần sửa trước khi gửi duyệt:</span>
-        <span className="min-w-0">{blockers.map((item, index) => <span key={item}>
-          {index > 0 && <span className="px-1 text-rose-400">·</span>}
-          <strong className="font-semibold">{item.replace(/\.$/, "")}</strong>
-        </span>)}</span>
-      </div>}
-    </div>
+  return <div className="mt-3 rounded-xl bg-[#f6f7f9] p-3 sm:p-4">
     <div className="mx-auto grid max-w-[1240px] items-start gap-3.5 lg:grid-cols-[216px_minmax(0,1fr)_304px]">
       {/* Mục lục neo: giống Seller Center, không chặn đường đi, bấm là nhảy tới khối. */}
       <nav aria-label="Mục lục hồ sơ sản phẩm" className="hidden lg:sticky lg:top-4 lg:block">
@@ -914,8 +902,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <div>
               <Row label="Danh mục sản phẩm" required error={!selectedCategory}
                 hint={selectedCategory
-                  ? "Chọn danh mục gần nhất. Danh mục được kiểm tra khi duyệt; đổi danh mục thì grade đổi theo."
-                  : "Chọn danh mục gần nhất để mở grade và bảng giá."}>
+                  ? "Chọn danh mục phù hợp với sản phẩm. Danh mục được kiểm tra khi duyệt; đổi danh mục thì grade đổi theo."
+                  : "Chọn danh mục phù hợp với sản phẩm để mở grade và bảng giá."}>
                 <div className="flex flex-wrap items-center gap-2">
                   <select name="supplier_category_proposal" className="input min-w-0 flex-1" required value={selectedCategory}
                     onChange={(e) => onCategorySelect(e.target.value)} disabled={locked || categoryLocked || !categories.length}>
