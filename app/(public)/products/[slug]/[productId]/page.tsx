@@ -183,7 +183,7 @@ export default async function PublicProductDetail({ params }: Props) {
   // Đóng gói có cấu trúc (Phase 2) là tiếng Anh, dựng từ số liệu nhà cung cấp đã khai.
   const structuredPackaging = packagingSummaryEnglish(p);
   const samplePrice = samplePriceEnglish(p);
-  const samplePriceDisplay = p.sample_price_usd === 0 ? "Nhận mẫu miễn phí" : samplePrice;
+  const samplePriceDisplay = p.sample_price_usd === 0 ? "Free sample" : samplePrice;
   const enDetail = p.description_detail_i18n?.en?.trim() || p.description_detail;
   const parsedSpecifications = parseProductSpecification(enSpec);
   const detailRows = parsedSpecifications.filter((row) => !["grade", "minimum order quantity (moq)", "packaging specification"].includes(row.key));

@@ -112,7 +112,7 @@ const detail = read('app/(public)/products/[slug]/[productId]/page.tsx');
 assert.match(detail, /packagingSummaryEnglish/, 'trang buyer dùng đóng gói có cấu trúc');
 assert.match(detail, /structuredPackaging \|\| detailedPackaging \|\| enPackaging/,
   'có đóng gói có cấu trúc thì ưu tiên, chưa có thì giữ mô tả cũ');
-assert.match(detail, /p\.sample_price_usd === 0 \? "Nhận mẫu miễn phí" : samplePrice/, 'giá trị 0 hiển thị nhận mẫu miễn phí');
+assert.match(detail, /p\.sample_price_usd === 0 \? "Free sample" : samplePrice/, 'giá trị 0 hiển thị nội dung tiếng Anh tương ứng');
 assert.match(detail, /\{samplePriceDisplay && <Spec label="Sample price" value=\{samplePriceDisplay\}/, 'giá mẫu hiển thị chỉ hiện khi có dữ liệu');
 assert.match(detail, /productCertificates\.length > 0/, 'không có chứng nhận đã gắn thì không hiện khối');
 assert.match(detail, /hasCertification/, 'structured data có chứng nhận');
