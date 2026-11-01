@@ -272,7 +272,7 @@ create index if not exists email_messages_created_idx on public.email_messages (
 -- Chạy lại đoạn này (idempotent) khi nâng cấp từ bản trước:
 alter table public.email_messages drop constraint if exists email_messages_kind_check;
 alter table public.email_messages add constraint email_messages_kind_check
-  check (kind in ('auto','manual','inbound','rfq_outreach','rfq_followup','shortlist_buyer','buyer_status_update'));
+  check (kind in ('auto','manual','inbound','rfq_outreach','rfq_followup','shortlist_buyer','buyer_status_update','supplier_reminder'));
 alter table public.email_messages drop constraint if exists email_messages_status_check;
 alter table public.email_messages add constraint email_messages_status_check
   check (status in ('draft','sent','failed','simulated','received'));

@@ -8,7 +8,7 @@ import { SITE_URL } from "@/lib/site";
 import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import type { Buyer, Rfq, Supplier } from "@/lib/types";
 
-const DESK_INBOX = process.env.RFQ_INTERNAL_EMAIL?.trim() || `sales@${MAIL_DOMAIN}`;
+const DESK_INBOX = process.env.RFQ_INTERNAL_EMAIL?.trim() || `hello@${MAIL_DOMAIN}`;
 
 /**
  * Supplier-first product question. Buyer explicitly shares name, company and
@@ -26,8 +26,8 @@ export function buildSupplierQuestionEmail(input: {
   const productUrl = input.productUrl?.startsWith(`${SITE_URL}/products/`) ? input.productUrl : null;
   const title = `Câu hỏi sản phẩm ${rfq.code}`;
   const body = `
-    <p>Kính gửi Anh/Chị ${escapeHtml(supplier.contact_name ?? supplier.name)},</p>
-    <p>Người mua đang xem sản phẩm của doanh nghiệp và gửi câu hỏi trực tiếp tới Anh/Chị.</p>
+    <p>Chào ${escapeHtml(supplier.contact_name ?? supplier.name)},</p>
+    <p>Người mua đang xem sản phẩm của doanh nghiệp và gửi câu hỏi trực tiếp tới bạn.</p>
     <table cellpadding="7" style="border-collapse:collapse;font-size:14px;">
       <tr><td style="color:#64748b;width:130px;">Mã câu hỏi</td><td><strong>${escapeHtml(rfq.code)}</strong></td></tr>
       <tr><td style="color:#64748b;">Sản phẩm</td><td><strong>${escapeHtml(product)}</strong></td></tr>

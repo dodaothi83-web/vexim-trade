@@ -18,6 +18,8 @@
     "check:public-sign-in": "node scripts/check-public-sign-in.mjs",
     "check:search": "node --experimental-strip-types --no-warnings scripts/check-search-relevance.mjs && node --experimental-strip-types --no-warnings scripts/check-marketplace-search.mjs && node --experimental-strip-types --no-warnings scripts/check-home-feed-order.mjs",
     "check:copy": "node scripts/check-ui-copy.mjs",
+    "check:email-copy": "node scripts/check-email-copy.mjs",
+    "check:email-lifecycle": "node scripts/check-supplier-reminders.mjs && node scripts/check-email-copy.mjs",
     "check:completeness": "node --experimental-strip-types --no-warnings scripts/check-product-completeness.mjs",
     "check:extras": "node --experimental-strip-types --no-warnings scripts/check-product-extras.mjs && node scripts/check-crm-product-extras.mjs",
     "check:certificates": "node --experimental-strip-types --no-warnings scripts/check-product-certificates.mjs && node --experimental-strip-types --no-warnings scripts/check-certificate-filter.mjs && node --experimental-strip-types --no-warnings scripts/check-certificate-scope.mjs && node --experimental-strip-types --no-warnings scripts/check-certificate-facet-data.mjs && node --experimental-strip-types --no-warnings scripts/check-certificate-crm-badge.mjs && node --experimental-strip-types --no-warnings scripts/check-supplier-certificate-upload.mjs",

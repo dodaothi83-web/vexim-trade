@@ -19,6 +19,7 @@ import { NextResponse } from "next/server";
 import { getStore } from "@/lib/db";
 import { sendSlaAlert } from "@/lib/email/rfq";
 import { sendCertificateExpiryReminders } from "@/lib/certificate-service";
+import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,19 @@ export async function GET(req: Request) {
     console.error("[cron] certificate expiry check failed", err);
   }
 
+  // Nhắc nhà cung cấp hoàn thiện hồ sơ xác minh (thư dịch vụ, tối đa 1 lần/14 ngày/NCC).
+  // Lỗi ở bước này không được làm hỏng cảnh báo SLA: chỉ ghi log và trả cờ riêng.
+  let supplierReminders = 0;
+  let supplierReminderError: string | null = null;
+  try {
+    const reminderReport = await sendSupplierProgressReminders({ store });
+    supplierReminders = reminderReport.sent;
+    supplierReminderError = reminderReport.error;
+  } catch (err) {
+    supplierReminderError = err instanceof Error ? err.message : String(err);
+    console.error("[cron] supplier reminders failed", err);
+  }
+
   return NextResponse.json({
     ok: errors.length === 0,
     provider: "cron-job.org (external)",
@@ -119,6 +133,8 @@ export async function GET(req: Request) {
     unassigned,
     due,
     certificatesReminded,
+    supplierReminders,
+    supplierReminderError: supplierReminderError ?? undefined,
     errors: errors.length ? errors : undefined,
   }, { status: errors.length ? 503 : 200 });
 }

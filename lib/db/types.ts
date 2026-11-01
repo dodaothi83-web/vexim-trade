@@ -18,6 +18,7 @@ import type {
   ProspectActivityChannel,
   EmailAttachment,
   EmailMessage,
+  MessageKind,
   MediaAsset,
   MediaInput,
   MediaOwnerType,
@@ -208,6 +209,8 @@ export interface DataStore {
   }): Promise<Activity>;
 
   listMessages(limit?: number): Promise<EmailMessage[]>;
+  /** Thư đã ghi theo đúng kind — dùng để chống gửi trùng (ví dụ nhắc NCC). */
+  listMessagesOfKind(kind: MessageKind): Promise<EmailMessage[]>;
   listMessagesForRfq(rfqId: string): Promise<EmailMessage[]>;
   getMessage(id: string): Promise<EmailMessage | null>;
   addMessage(

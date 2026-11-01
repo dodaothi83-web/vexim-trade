@@ -29,7 +29,7 @@ export function shortCode(id: string): string {
 }
 
 export function money(n: number | null | undefined): string {
-  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  if (n === null || n === undefined || Number.isNaN(n)) return "N/A";
   return `USD ${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
@@ -41,7 +41,7 @@ function fmtDate(d: string | null | undefined, locale: string): string {
 }
 
 function paymentStr(buyer: Buyer, fallback: string): string {
-  const s = [buyer.payment_method, buyer.payment_terms].filter(Boolean).join(" – ");
+  const s = [buyer.payment_method, buyer.payment_terms].filter(Boolean).join(", ");
   return s || fallback;
 }
 
@@ -181,7 +181,7 @@ export function statusPill(stageKey: string, lang: "en" | "vi"): string {
 
 export function summaryTable(rows: { label: string; value: string }[], header: string, labelWidth = "42%"): string {
   const body = rows
-    .filter((r) => r.value && r.value !== "—")
+    .filter((r) => r.value && !["—", "N/A", "Chưa có"].includes(r.value)) // copy-allow: "—" chỉ để ẩn placeholder cũ
     .map(
       (r) => `<tr>
         <td style="padding:9px 12px;border-bottom:1px solid ${LINE};color:${MUTED};font-size:13px;width:${labelWidth};">${escapeHtml(r.label)}</td>
@@ -244,11 +244,11 @@ export function buildBuyerEmail(opts: {
 
   const summary = summaryTable(
     [
-      { label: "Product", value: buyer.product ?? "—" },
-      { label: "Specification", value: buyer.spec ?? "—" },
-      { label: "Quantity", value: buyer.quantity ?? "—" },
-      { label: "Price term", value: buyer.incoterm ?? "—" },
-      { label: "Destination port", value: buyer.port ?? "—" },
+      { label: "Product", value: buyer.product ?? "N/A" },
+      { label: "Specification", value: buyer.spec ?? "N/A" },
+      { label: "Quantity", value: buyer.quantity ?? "N/A" },
+      { label: "Price term", value: buyer.incoterm ?? "N/A" },
+      { label: "Destination port", value: buyer.port ?? "N/A" },
       { label: "Expected shipment", value: fmtDate(buyer.expected_ship_date, "en-GB") || "To be confirmed" },
       { label: "Our reference", value: shortCode(buyer.id) },
     ],
@@ -316,15 +316,15 @@ export function buildSupplierEmail(opts: {
   const hidden = buyer.hide_buyer_from_supplier !== false;
   const buyerLabel = hidden
     ? `Khách hàng thị trường ${buyer.country || "nước ngoài"} (ẩn danh)`
-    : `${buyer.company}${buyer.country ? ` – ${buyer.country}` : ""}`;
+    : `${buyer.company}${buyer.country ? `, ${buyer.country}` : ""}`;
 
   const summary = summaryTable(
     [
       { label: "Buyer", value: buyerLabel },
-      { label: "Mặt hàng", value: buyer.product ?? "—" },
-      { label: "Quy cách", value: buyer.spec ?? "—" },
-      { label: "Số lượng", value: buyer.quantity ?? "—" },
-      { label: "Điều kiện giao", value: buyer.incoterm ?? "—" },
+      { label: "Mặt hàng", value: buyer.product ?? "Chưa có" },
+      { label: "Quy cách", value: buyer.spec ?? "Chưa có" },
+      { label: "Số lượng", value: buyer.quantity ?? "Chưa có" },
+      { label: "Điều kiện giao", value: buyer.incoterm ?? "Chưa có" },
       { label: "Ngày giao dự kiến", value: fmtDate(buyer.expected_ship_date, "vi-VN") || "Chờ xác nhận" },
       { label: "Mã đơn nội bộ", value: shortCode(buyer.id) },
     ],
@@ -348,7 +348,7 @@ export function buildSupplierEmail(opts: {
 
   const body = `
     ${statusPill(stage, "vi")}
-    <p style="font-size:15px;line-height:24px;margin:18px 0 0;">Kính gửi Anh/Chị ${escapeHtml(supplier.contact_name || supplier.name)},</p>
+    <p style="font-size:15px;line-height:24px;margin:18px 0 0;">Chào ${escapeHtml(supplier.contact_name || supplier.name)},</p>
     <p style="font-size:14px;line-height:22px;margin:10px 0 0;color:${MUTED};">
       Đơn <strong style="color:${INK};">${escapeHtml(shortCode(buyer.id))}</strong> · giai đoạn <strong style="color:${INK};">${escapeHtml(stageDef.label)}</strong>
     </p>
@@ -357,7 +357,7 @@ export function buildSupplierEmail(opts: {
     ${taskBox}
     ${opts.note ? `<p style="font-size:14px;line-height:22px;margin:18px 0 0;padding:12px 14px;background:${SOFT};border-radius:8px;color:#334155;"><strong>Ghi chú từ phòng sale:</strong><br/>${escapeHtml(opts.note)}</p>` : ""}
     ${hidden ? `<p style="font-size:12px;line-height:18px;color:${MUTED};margin:16px 0 0;">Thông tin người mua được giữ kín theo chính sách bảo mật của ${escapeHtml(COMPANY.name)}. Mọi trao đổi về giá và hợp đồng vui lòng làm việc trực tiếp với phòng sale.</p>` : ""}
-    <p style="font-size:14px;line-height:22px;margin:20px 0 0;">Trân trọng,</p>
+    <p style="font-size:14px;line-height:22px;margin:20px 0 0;">Cảm ơn bạn,</p>
     ${signature(buyer.owner, "Phòng Xuất khẩu")}`;
 
   const subject = `[${shortCode(buyer.id)}] ${fill(copy.subject, buyer, supplier)}`;
@@ -368,7 +368,7 @@ export function buildSupplierEmail(opts: {
     text: [
       subject,
       "",
-      `Kính gửi Anh/Chị ${supplier.contact_name || supplier.name},`,
+      `Chào ${supplier.contact_name || supplier.name},`,
       `Đơn ${shortCode(buyer.id)} - giai đoạn: ${stageDef.label}`,
       "",
       ...copy.body.map((p) => fill(p, buyer, supplier)),
@@ -384,7 +384,7 @@ export function buildSupplierEmail(opts: {
       "",
       opts.note ? `Ghi chú từ phòng sale: ${opts.note}` : "",
       "",
-      "Trân trọng,",
+      "Cảm ơn bạn,",
       `${buyer.owner || "Phòng Xuất khẩu"} - ${COMPANY.name}`,
       `${COMPANY.phone} | ${COMPANY.email}`,
     ]
@@ -424,16 +424,16 @@ export function buildSupplierAssignedEmail(opts: {
   const hidden = buyer.hide_buyer_from_supplier !== false;
   const buyerLabel = hidden
     ? `Khách hàng thị trường ${buyer.country || "nước ngoài"} (ẩn danh)`
-    : `${buyer.company}${buyer.country ? ` – ${buyer.country}` : ""}`;
+    : `${buyer.company}${buyer.country ? `, ${buyer.country}` : ""}`;
 
   const summary = summaryTable(
     [
       { label: "Buyer", value: buyerLabel },
-      { label: "Mặt hàng", value: buyer.product ?? "—" },
-      { label: "Quy cách", value: buyer.spec ?? "—" },
-      { label: "Số lượng", value: buyer.quantity ?? "—" },
-      { label: "Điều kiện giao", value: buyer.incoterm ?? "—" },
-      { label: "Cảng đến", value: buyer.port ?? "—" },
+      { label: "Mặt hàng", value: buyer.product ?? "Chưa có" },
+      { label: "Quy cách", value: buyer.spec ?? "Chưa có" },
+      { label: "Số lượng", value: buyer.quantity ?? "Chưa có" },
+      { label: "Điều kiện giao", value: buyer.incoterm ?? "Chưa có" },
+      { label: "Cảng đến", value: buyer.port ?? "Chưa có" },
       { label: "Ngày giao dự kiến", value: fmtDate(buyer.expected_ship_date, "vi-VN") || "Chờ xác nhận" },
       { label: "Mã đơn nội bộ", value: shortCode(buyer.id) },
     ],
@@ -460,18 +460,18 @@ export function buildSupplierAssignedEmail(opts: {
   </table>`;
 
   const body = `
-    <p style="font-size:15px;line-height:24px;margin:0;">Kính gửi Anh/Chị ${escapeHtml(supplier.contact_name || supplier.name)},</p>
+    <p style="font-size:15px;line-height:24px;margin:0;">Chào ${escapeHtml(supplier.contact_name || supplier.name)},</p>
     <p style="font-size:15px;line-height:24px;margin:12px 0 0;">
-      Phòng sale ${escapeHtml(COMPANY.name)} vừa <strong>kết nối một người mua mới</strong> với xưởng của Anh/Chị.
-      Từ thời điểm này, mọi cập nhật tiến độ của đơn sẽ được hệ thống tự động gửi tới Anh/Chị.
+      Phòng sale ${escapeHtml(COMPANY.name)} vừa <strong>kết nối một người mua mới</strong> với xưởng của bạn.
+      Từ thời điểm này, mọi cập nhật tiến độ của đơn sẽ được hệ thống tự động gửi tới bạn.
     </p>
     ${summary}
     ${taskBox}
     ${hidden ? `<p style="font-size:12px;line-height:18px;color:${MUTED};margin:16px 0 0;">Thông tin người mua được giữ kín theo chính sách bảo mật. Trao đổi về giá và hợp đồng, vui lòng làm việc với phòng sale.</p>` : ""}
-    <p style="font-size:14px;line-height:22px;margin:20px 0 0;">Trân trọng,</p>
+    <p style="font-size:14px;line-height:22px;margin:20px 0 0;">Cảm ơn bạn,</p>
     ${signature(buyer.owner, "Phòng Xuất khẩu")}`;
 
-  const subject = `[${shortCode(buyer.id)}] Người mua mới được kết nối – ${fill("{product}, {quantity}", buyer)}`;
+  const subject = `[${shortCode(buyer.id)}] Người mua mới được kết nối: ${fill("{product}, {quantity}", buyer)}`;
 
   return {
     subject,
@@ -479,7 +479,7 @@ export function buildSupplierAssignedEmail(opts: {
     text: [
       subject,
       "",
-      `Kính gửi Anh/Chị ${supplier.contact_name || supplier.name},`,
+      `Chào ${supplier.contact_name || supplier.name},`,
       `Phòng sale ${COMPANY.name} vừa kết nối một người mua mới với xưởng.`,
       "",
       `Buyer: ${buyerLabel}`,
@@ -491,7 +491,7 @@ export function buildSupplierAssignedEmail(opts: {
       ...tasks.map((t, i) => `${i + 1}. ${t}`),
       "Hạn: Phản hồi trong 2 ngày làm việc",
       "",
-      "Trân trọng,",
+      "Cảm ơn bạn,",
       `${buyer.owner || "Phòng Xuất khẩu"} - ${COMPANY.name}`,
       `${COMPANY.phone} | ${COMPANY.email}`,
     ]

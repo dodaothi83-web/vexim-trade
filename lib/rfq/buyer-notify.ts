@@ -29,8 +29,8 @@ const LOST_REASON_LABELS: Record<string, string> = {
 
 function buildSubject(kind: NotifKind, rfq: Rfq) {
   return kind === "sampling"
-    ? `[${rfq.code}] Cập nhật: Đã chọn nhà cung cấp để gửi mẫu — ${rfq.product_text}`
-    : `[${rfq.code}] Cập nhật: Đơn hàng tạm dừng — ${rfq.product_text}`;
+    ? `[${rfq.code}] Cập nhật: đã chọn nhà cung cấp để gửi mẫu, ${rfq.product_text}`
+    : `[${rfq.code}] Cập nhật: đơn hàng tạm dừng, ${rfq.product_text}`;
 }
 
 function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Supplier | null) {
@@ -47,28 +47,28 @@ function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Sup
     if (chosenSupplier) {
       const name = chosenSupplier.display_name ?? chosenSupplier.trade_name ?? chosenSupplier.name;
       body += `
-        <p>Chúng tôi đã chọn <strong>${escapeHtml(name)}</strong>${chosenSupplier.province ? ` (${escapeHtml(chosenSupplier.province)})` : ""}
+        <p>Vexim đã chọn <strong>${escapeHtml(name)}</strong>${chosenSupplier.province ? ` (${escapeHtml(chosenSupplier.province)})` : ""}
         để tiến hành gửi mẫu và đàm phán chi tiết. Danh tính của bạn vẫn được bảo mật ở giai đoạn này;
-        chúng tôi sẽ đứng ra điều phối việc vận chuyển mẫu, kết quả kiểm nghiệm và chứng chỉ liên quan.</p>`;
+        Vexim sẽ đứng ra điều phối việc vận chuyển mẫu, kết quả kiểm nghiệm và chứng chỉ liên quan.</p>`;
     } else {
-      body += `<p>Chúng tôi đang phối hợp với nhà cung cấp đã được chọn để sớm chuyển mẫu cho bạn đánh giá.</p>`;
+      body += `<p>Vexim đang phối hợp với nhà cung cấp đã được chọn để sớm chuyển mẫu cho bạn đánh giá.</p>`;
     }
     body += `
       <p>Các bước tiếp theo:</p>
       <ul>
-        <li>Mẫu sẽ được gửi theo địa chỉ bạn đã cung cấp; chúng tôi sẽ thông báo tracking khi có.</li>
+        <li>Mẫu sẽ được gửi theo địa chỉ bạn đã cung cấp. Vexim thông báo mã vận đơn khi có.</li>
         <li>Nếu bạn có yêu cầu bổ sung về quy cách / đóng gói / chứng chỉ, vui lòng trả lời email này.</li>
-        <li>Sau khi mẫu được duyệt, chúng tôi sẽ chốt điều khoản hợp đồng và lịch giao hàng.</li>
+        <li>Sau khi bạn duyệt mẫu, Vexim chốt điều khoản hợp đồng và lịch giao hàng.</li>
       </ul>`;
   } else {
     const reason = rfq.lost_reason ? LOST_REASON_LABELS[rfq.lost_reason] ?? "Chưa thể thống nhất điều kiện giao dịch" : "Chưa thể thống nhất điều kiện giao dịch";
     body += `
-      <p>Chúng tôi rất tiếc phải thông báo rằng đơn <strong>${escapeHtml(rfq.code)}</strong>
+      <p>Vexim rất tiếc phải báo đơn <strong>${escapeHtml(rfq.code)}</strong>
       (${escapeHtml(rfq.product_text)}${rfq.quantity ? `, ${escapeHtml(String(rfq.quantity))} ${escapeHtml(rfq.unit ?? "")}` : ""})
       tạm thời không thể tiếp tục trong đợt này.</p>
       <p><strong>Lý do:</strong> ${escapeHtml(reason)}.</p>
       <p>Nếu bạn vẫn quan tâm đến sản phẩm này trong tương lai hoặc muốn yêu cầu báo giá lại
-      với thông số điều chỉnh, vui lòng trả lời email này hoặc gửi yêu cầu mới — chúng tôi
+      với thông số điều chỉnh, vui lòng trả lời email này hoặc gửi yêu cầu mới. Vexim
       sẽ ưu tiên xử lý.</p>`;
   }
 
@@ -79,7 +79,7 @@ function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Sup
 
   return {
     subject: title,
-    html: wrapPlainEmail({ title, body, preheader: kind === "sampling" ? "Đã chọn nhà cung cấp gửi mẫu — chúng tôi sẽ điều phối tiếp." : "Đơn hàng tạm dừng." }),
+    html: wrapPlainEmail({ title, body, preheader: kind === "sampling" ? "Đã chọn nhà cung cấp gửi mẫu, Vexim điều phối tiếp." : "Đơn hàng tạm dừng." }),
     text: htmlToText(body),
   };
 }

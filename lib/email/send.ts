@@ -172,7 +172,7 @@ export async function sendStageUpdate(
 
   if (stageDef.silent && !force) {
     messages.push(
-      `Trạng thái "${stageDef.label}" không gửi email tự động — chỉ ghi nhận nội bộ.`,
+      `Trạng thái "${stageDef.label}" không gửi email tự động, chỉ ghi nhận nội bộ.`,
     );
     return { sent: false, buyerSent, supplierSent, simulated, failed, messages };
   }
@@ -207,7 +207,7 @@ export async function sendStageUpdate(
     failed = failed || !res.ok;
     messages.push(
       res.ok
-        ? `${res.status === "simulated" ? "[DEMO] Đã tạo" : "Đã gửi"} email người mua → ${buyer.email}${cc.length ? ` (cc: ${cc.join(", ")})` : ""}`
+        ? `${res.status === "simulated" ? "[DEMO] Đã tạo" : "Đã gửi"} email người mua tới ${buyer.email}${cc.length ? ` (cc: ${cc.join(", ")})` : ""}`
         : `Gửi email người mua thất bại: ${res.error}`,
     );
     await saveAutoMessage({
@@ -221,16 +221,16 @@ export async function sendStageUpdate(
       res,
     });
   } else {
-    messages.push("Người mua chưa có email — bỏ qua email người mua.");
+    messages.push("Người mua chưa có email, bỏ qua email người mua.");
   }
 
   // ---------- 2. Email cho NCC (tiếng Việt) ----------
   if (params.skipSupplier) {
     messages.push("Bỏ qua email nhà cung cấp theo lựa chọn của người gửi.");
   } else if (!supplier) {
-    messages.push("Chưa gắn nhà cung cấp cho khách này — email chỉ gửi tới người mua.");
+    messages.push("Chưa gắn nhà cung cấp cho khách này, email chỉ gửi tới người mua.");
   } else if (!supplier.email || !supplier.email.trim()) {
-    messages.push(`Nhà cung cấp "${supplier.name}" chưa có email — bỏ qua email nhà cung cấp.`);
+    messages.push(`Nhà cung cấp "${supplier.name}" chưa có email, bỏ qua email nhà cung cấp.`);
   } else {
     const payload = buildSupplierEmail({
       buyer,
@@ -245,7 +245,7 @@ export async function sendStageUpdate(
     failed = failed || !res.ok;
     messages.push(
       res.ok
-        ? `${res.status === "simulated" ? "[DEMO] Đã tạo" : "Đã gửi"} email nhà cung cấp → ${supplier.email}`
+        ? `${res.status === "simulated" ? "[DEMO] Đã tạo" : "Đã gửi"} email nhà cung cấp tới ${supplier.email}`
         : `Gửi email nhà cung cấp thất bại: ${res.error}`,
     );
     await saveAutoMessage({

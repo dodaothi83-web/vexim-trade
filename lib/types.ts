@@ -1125,7 +1125,12 @@ export interface Activity {
   created_at: string;
 }
 
-export type MessageKind = "auto" | "manual" | "inbound" | "rfq_outreach" | "rfq_followup" | "shortlist_buyer" | "buyer_status_update";
+/**
+ * `supplier_reminder` = thư nhắc việc dịch vụ cho tài khoản nhà cung cấp
+ * (hồ sơ xác minh còn bước dở). Không phải email quảng cáo; xem
+ * docs/email-lifecycle-plan.md.
+ */
+export type MessageKind = "auto" | "manual" | "inbound" | "rfq_outreach" | "rfq_followup" | "shortlist_buyer" | "buyer_status_update" | "supplier_reminder";
 export type MessageStatus = "draft" | "sent" | "failed" | "simulated" | "received";
 export type MessageDirection = "buyer" | "supplier";
 

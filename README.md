@@ -42,7 +42,7 @@ Lần đầu chạy sẽ thấy trang `/login` → bấm tạo **quản trị vi
 SUPABASE_URL=https://xxxxxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 RESEND_API_KEY=re_...
-EMAIL_FROM=sales@veximtrade.com
+EMAIL_FROM=hello@veximtrade.com
 EMAIL_FROM_NAME=Vexim Trade
 AUTH_SECRET=<chuỗi ngẫu nhiên 64 ký tự hex — xem mục Tài khoản & phân quyền>
 ```
@@ -336,6 +336,11 @@ nhóm hộp thư nhận đại trà: không đo được độ sạch của mail
 **Risky** và thư dễ bị Gmail/Outlook đẩy sang tab Quảng cáo. Vì vậy **mỗi nhân viên gửi
 bằng địa chỉ mang tên mình**.
 
+Địa chỉ chức năng mặc định là `hello@veximtrade.com` (biến `EMAIL_FROM`), không dùng
+`sales@`. Thư dịch vụ tự động gửi nhà cung cấp (nhắc hoàn thiện hồ sơ, quyết định
+duyệt/trả hồ sơ, chứng nhận sắp hết hạn) dùng `EMAIL_SERVICE_FROM`, mặc định
+`hello@veximtrade.com` (`lib/config.ts`: `SERVICE_FROM_ADDRESS`).
+
 1. **Quy tắc sinh** (`lib/email/sender.ts`): bỏ dấu tiếng Việt, lấy **tên chính** (từ cuối trong
    họ tên), viết thường → `Nguyễn Văn Dung` = `dung@veximtrade.com`. Trùng tên thì đánh số
    `dung2@`, `dung3@` (thứ tự theo ngày tạo tài khoản nên không đổi lung tung mỗi lần mở app).
@@ -356,8 +361,10 @@ bằng địa chỉ mang tên mình**.
    `v=DMARC1; p=none; rua=mailto:...` (hoặc policy mạnh hơn khi đã ổn định); thiếu DMARC là một
    tín hiệu bị chặn riêng theo yêu cầu của Google/Yahoo.
 6. **Phạm vi áp dụng**: thư **cho buyer** (tự động theo giai đoạn + tự soạn) và mọi thư đội ngũ
-   tự soạn → địa chỉ cá nhân của người gửi (kèm `Reply-To`). Thư **NCC** và **thư báo hệ thống**
-   vẫn đi từ `EMAIL_FROM`. Không tìm được tài khoản khớp tên phụ trách thì rơi về `EMAIL_FROM`.
+   tự soạn → địa chỉ cá nhân của người gửi (kèm `Reply-To`). Thư **dịch vụ tự động cho nhà
+   cung cấp** (nhắc hồ sơ, quyết định duyệt/trả, chứng nhận sắp hết hạn) → `EMAIL_SERVICE_FROM`,
+   mặc định `hello@veximtrade.com`. Không tìm được tài khoản khớp tên phụ trách thì rơi về
+   `EMAIL_FROM`.
 
 ### Chữ ký email cá nhân (kiểu Gmail/Zoho)
 

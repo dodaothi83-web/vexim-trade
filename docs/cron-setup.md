@@ -87,3 +87,12 @@ curl -i -H "Authorization: Bearer <CRON_SECRET>" \
 ```
 
 Response có `updated`, `unchanged` và chi tiết `results[].code`. `unchanged` không làm mất lịch hiện tại. Nguồn PDF hoặc trang không cho đọc HTML sẽ bị bỏ qua, không được thay bằng kiến thức từ bộ nhớ của model.
+
+## Cron 4: Nhắc nhà cung cấp hoàn thiện hồ sơ xác minh
+
+- **Không cần tạo job mới:** `/api/cron/rfq-sla` đã gọi kèm bước này trong cùng lần chạy, dùng chung `CRON_SECRET`. Response có thêm `supplierReminders`.
+- Muốn tách lịch riêng thì trỏ thêm một job vào `GET https://www.veximtrade.com/api/cron/supplier-reminders` với cùng header, gợi ý `0 2 * * *` (09:00 ICT).
+- Đây là **thư dịch vụ**, không phải email quảng cáo: chỉ nhắc bước nhà cung cấp đã tự bắt đầu hoặc đã tự yêu cầu kiểm định, không nhắc khi hồ sơ đang chờ Vexim duyệt.
+- Chống trùng: mỗi nhà cung cấp tối đa 1 thư/14 ngày, tối đa 6 thư, mỗi lượt tối đa 40 thư; nhật ký ghi vào `email_messages` với `kind = 'supplier_reminder'`.
+- **Chạy migration trước khi deploy:** `supabase/migrations/20261101_supplier_progress_reminders.sql` (chỉ mở rộng CHECK kind, không thêm bảng/cột). Chưa chạy thì route trả `ok: false` vì không ghi được nhật ký.
+- Kiểm thử offline: `npm run check:email-lifecycle`. Chi tiết chính sách: [email-lifecycle-plan.md](email-lifecycle-plan.md).

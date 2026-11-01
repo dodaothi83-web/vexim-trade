@@ -192,7 +192,7 @@ export default async function RfqStatusPage({
             <MailCheck className="h-4 w-4" /> Send another request
           </Link>
           <a
-            href={`mailto:sales@veximtrade.com?subject=${encodeURIComponent("Follow-up on " + rfq.code)}`}
+            href={`mailto:hello@veximtrade.com?subject=${encodeURIComponent("Follow-up on " + rfq.code)}`}
             className="inline-flex items-center gap-1.5 rounded-md border border-ink-300 px-4 py-2 text-[13.5px] font-semibold text-ink-800 hover:border-ink-900"
           >
             {isQuestion ? "Get help with this question" : "Reply to this email"}

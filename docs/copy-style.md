@@ -73,6 +73,10 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
 
 - `scripts/check-ui-copy.mjs` chặn hồi quy trên các file đã chuyển đổi: câu quá dài,
   còn “buyer”/“NCC” trong chuỗi tiếng Việt, lộ từ nội bộ.
+- `scripts/check-email-copy.mjs` (chạy trong `npm run check:email-lifecycle`) canh riêng phần
+  soạn thư: không gạch dài `—`, gạch ngắn `–`, mũi tên, emoji; không “chúng tôi”, “Kính gửi”,
+  “Trân trọng”, “Anh/Chị”. Quét 9 tệp soạn thư (mẫu thư, nội dung theo giai đoạn, thư RFQ,
+  thư nhà cung cấp, thông báo cổng NCC); miễn trừ bằng `// copy-allow: <lý do>` như trên.
 - Phạm vi đã chuyển đổi (đợt 1): form 3 bước của portal, bảng giá theo bậc, khung xem
   trước, trang danh sách sản phẩm NCC, hàng chờ duyệt giá của CRM, thông điệp trong
   `lib/media`, `lib/products/quantity-pricing`.
@@ -87,7 +91,7 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
   cung cấp (profile, documents, verification, traffic, rfqs, storefront), `components/**`
   (supplier-form, buyer-form, buyer-table, compose-*, mail-threads, prospect-actions…) và
   trang công khai tiếng Việt (`app/(public)/home.tsx`).
-- Phạm vi quét hiện tại: 130 file, 4.856 chuỗi tiếng Việt. Thêm file mới vào `SCOPE` khi
+- Phạm vi quét hiện tại: 133 file, 5.135 chuỗi tiếng Việt. Thêm file mới vào `SCOPE` khi
   chuyển đổi; đừng đưa `app/(legal)/**` hay bản tiếng Anh của trang công khai vào.
 
 ## 9. Ngoại lệ có chủ đích
