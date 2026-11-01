@@ -14,7 +14,7 @@
     "check:harvest": "node --experimental-strip-types --no-warnings scripts/check-harvest-calendar.mjs && node --experimental-strip-types --no-warnings scripts/check-harvest-research.mjs",
     "check:compare": "node --experimental-strip-types --no-warnings scripts/check-product-comparison.mjs && npm run check:loading-port",
     "check:loading-port": "node --experimental-strip-types --no-warnings scripts/check-product-detail-display.mjs && node --experimental-strip-types --no-warnings scripts/check-loading-port.mjs",
-    "check:category-filters": "node --experimental-strip-types --no-warnings scripts/check-category-filters-migration.mjs",
+    "check:category-filters": "node --experimental-strip-types --no-warnings scripts/check-category-filters-migration.mjs && node --experimental-strip-types --no-warnings scripts/check-category-grade-filter.mjs",
     "check:public-sign-in": "node scripts/check-public-sign-in.mjs",
     "check:search": "node --experimental-strip-types --no-warnings scripts/check-search-relevance.mjs && node --experimental-strip-types --no-warnings scripts/check-marketplace-search.mjs && node --experimental-strip-types --no-warnings scripts/check-home-feed-order.mjs",
     "check:product-card": "node scripts/check-product-card-grade.mjs",

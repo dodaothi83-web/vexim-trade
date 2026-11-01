@@ -74,9 +74,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   const [verified, setVerified] = useState(0);
   const [oemOdmOnly, setOemOdmOnly] = useState(false);
   const [samplesOnly, setSamplesOnly] = useState(false);
-  // Grade chips/filters come only from the CRM category configuration
-  // (filters + product_fields). No hardcoded commodity demo values.
-  const quick = hasStructuredGrade ? [] : grades.map((g) => ({ label: g, grades: [g] }));
+  // Grade chỉ lọc ở một chỗ: danh sách trong cột lọc của danh mục, dữ liệu lấy
+  // từ cấu hình CRM (filters + product_fields), không có grade demo cứng.
   const allGrades = hasStructuredGrade ? [] : grades;
   const activeGrades = useMemo(
     () =>
@@ -186,15 +185,6 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   </div>;
 
   return <>
-    {quick.length > 0 && <div className="mt-5 flex flex-wrap gap-2" aria-label="Quick grade filters">
-      {quick.map((chip) => {
-        const selected = selectedGrades.length === chip.grades.length && chip.grades.every((g) => selectedGrades.includes(g));
-        return <button key={chip.label} type="button" aria-pressed={selected} onClick={() => setSelectedGrades(selected ? [] : chip.grades)}
-          className={"rounded-full border px-3.5 py-1.5 text-xs font-bold transition " + (selected ? "border-brand-700 bg-brand-700 text-white" : "border-ink-200 bg-white text-ink-700 hover:border-brand-500")}>
-          {chip.label}
-        </button>;
-      })}
-    </div>}
     <div className="mt-7 grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)]">
       <aside className="hidden lg:block"><div className="sticky top-20 rounded-xl border border-ink-200 bg-white p-4">
         <h2 className="mb-5 flex items-center gap-2 font-bold text-ink-900"><Filter className="h-4 w-4" /> Filter products</h2>{fields}
