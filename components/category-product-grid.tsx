@@ -1,7 +1,7 @@
 "use client";
 
 import { matchesVerificationFilter } from "@/lib/verification-status";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, Filter } from "lucide-react";
 
@@ -14,7 +14,7 @@ import type { ProductAttributeField } from "@/lib/types";
 import { fieldsFor } from "@/lib/product-attributes";
 import type { PilotPlacement } from "@/lib/sponsored/pilot";
 import { withoutSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
-import { arrangeSupplierProducts } from "@/lib/public/supplier-product-order";
+import { arrangeSupplierProducts, categoryPageSlice } from "@/lib/public/supplier-product-order";
 import { classifyMoqFilterGroup } from "@/lib/products/grade-pricing";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
@@ -55,9 +55,14 @@ function productMatchesMoqGroup(product: PublicCategoryProduct, targetGroup: str
   );
 }
 
-export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [], comparisonEnabled = true }: {
+export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [],
+  comparisonEnabled = true, page: initialPage = 1, keepQuery = "" }: {
   products: PublicCategoryProduct[]; categorySlug: string; grades: string[]; productFields?: ProductAttributeField[];
   sponsored?: PilotPlacement | null; sponsoredBand?: SponsoredBandItem[]; comparisonEnabled?: boolean;
+  /** Trang đọc từ `?page=`, để máy tìm kiếm và người tắt JS vẫn nhận đúng trang. */
+  page?: number;
+  /** Tham số khác cần giữ khi chuyển trang, ví dụ `cert=haccp`. */
+  keepQuery?: string;
 }) {
   // Vùng đẩy đang hiện thì bỏ đúng những sản phẩm đó khỏi lưới tự nhiên. Đang lọc
   // thì vùng đẩy ẩn, và sản phẩm trả phí quay lại lưới như mọi sản phẩm khác.
@@ -122,6 +127,30 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     () => arrangeSupplierProducts(listPool, active ? null : supplierCap),
     [listPool, active, supplierCap],
   );
+  // Phân trang: cắt sau khi đã áp trần nhà cung cấp, nên trang hai không lặp lại
+  // nhà cung cấp vừa hết suất ở trang một. Đổi bộ lọc thì quay về trang một.
+  const [page, setPage] = useState(initialPage);
+  const filterSignature = JSON.stringify([selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly]);
+  const lastSignature = useRef(filterSignature);
+  useEffect(() => {
+    if (lastSignature.current === filterSignature) return;
+    lastSignature.current = filterSignature;
+    setPage(1);
+  }, [filterSignature]);
+  const paged = categoryPageSlice(shown, page);
+  const pageHref = (target: number) => {
+    const params = [keepQuery, `page=${target}`].filter(Boolean).join("&");
+    return `/products/${encodeURIComponent(categorySlug)}?${params}`;
+  };
+  // Chuyển trang ngay trong trình duyệt, không bắt máy chủ dựng lại cả danh mục.
+  // Địa chỉ vẫn đổi để chia sẻ và bấm Back ra đúng trang.
+  const goToPage = (target: number) => {
+    setPage(target);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", pageHref(target));
+      document.getElementById("category-products")?.scrollIntoView({ block: "start" });
+    }
+  };
   const comparisonOffers = useMemo(() => visible.map((product) => ({
     id: product.id, supplierId: product.supplierId, categorySlug, isDemo: product.isDemo,
   })), [visible, categorySlug]);
@@ -194,7 +223,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
           <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-sm font-bold text-ink-800"><span className="flex items-center gap-2"><Filter className="h-4 w-4" /> Filter products</span><ChevronDown className="h-4 w-4" /></summary>
           <div className="border-t border-ink-100 p-4">{fields}</div>
         </details>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600"><p><strong className="text-ink-900">{shown.length}</strong> of {visible.length} products{!active && listPool.length > shown.length ? ` · up to ${supplierCap} per supplier in the list below` : ""}</p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600"><p><strong className="text-ink-900">{shown.length}</strong> of {visible.length} products{!active && listPool.length > shown.length ? ` · up to ${supplierCap} per supplier in the list below` : ""}{paged.pages > 1 ? ` · page ${paged.page} of ${paged.pages}` : ""}</p>
           {active && <button type="button" className="text-xs font-semibold text-brand-700 underline" onClick={reset}>Show all</button>}
         </div>
         {/* Vùng đẩy chỉ hiện khi người xem chưa lọc gì. Đang lọc mà vẫn thấy thẻ
@@ -205,8 +234,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
           ? <SponsoredProductBand items={sponsoredBand} categorySlug={categorySlug} comparisonEnabled={comparisonEnabled} />
           : sponsored && <SponsoredPilotSlot product={sponsored.product} ticket={sponsored.ticket}
               campaignId={sponsored.campaignId} categorySlug={categorySlug} />)}
-        {visible.length ? <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {shown.map((p) => {
+        {visible.length ? <div id="category-products" className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 scroll-mt-24">
+          {paged.items.map((p) => {
             const pGrades = productGradesOf(p);
             const prefillGrade = activeGrades.find((g) => pGrades.includes(g)) ?? activeGrades[0] ?? "";
             const quoteHref = p.isDemo
@@ -232,6 +261,27 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
           <p className="mt-2 text-sm text-ink-600">Try another grade or tell us what you need.</p>
           <button type="button" className="mt-3 font-semibold text-brand-700 underline" onClick={reset}>Clear filters</button>
         </div>}
+        {paged.pages > 1 && <nav aria-label="Pagination" className="mt-6 flex flex-wrap items-center justify-center gap-1.5 text-sm">
+          {paged.page > 1 && <Link href={pageHref(paged.page - 1)} onClick={(event) => { event.preventDefault(); goToPage(paged.page - 1); }}
+            rel="prev" className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500">Previous</Link>}
+          {(() => {
+            // Chỉ hiện trang đầu, trang cuối và vùng quanh trang hiện tại; phần bị
+            // bỏ gộp thành dấu ba chấm để dãy số không dài quá một hàng.
+            const slots: Array<number | "gap"> = [];
+            for (let index = 1; index <= paged.pages; index += 1) {
+              if (index === 1 || index === paged.pages || Math.abs(index - paged.page) <= 1) slots.push(index);
+              else if (slots[slots.length - 1] !== "gap") slots.push("gap");
+            }
+            return slots.map((slot, slotIndex) => slot === "gap"
+              ? <span key={`gap-${slotIndex}`} className="px-1 text-ink-400" aria-hidden>...</span>
+              : slot === paged.page
+                ? <span key={slot} aria-current="page" className="rounded-lg border border-brand-700 bg-brand-700 px-3 py-1.5 font-bold text-white">{slot}</span>
+                : <Link key={slot} href={pageHref(slot)} onClick={(event) => { event.preventDefault(); goToPage(slot); }}
+                    aria-label={`Page ${slot}`} className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500">{slot}</Link>);
+          })()}
+          {paged.page < paged.pages && <Link href={pageHref(paged.page + 1)} onClick={(event) => { event.preventDefault(); goToPage(paged.page + 1); }}
+            rel="next" className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500">Next</Link>}
+        </nav>}
         {!active && hidden.size > 0 && <div className="mt-5 flex flex-wrap gap-2" aria-label="More products by supplier">
           {[...hidden].map(([supplierId, count]) => {
             const supplier = products.find((p) => p.supplierId === supplierId)!;

@@ -22,7 +22,8 @@ const mocks = {
   '@/lib/product-attributes': { fieldsFor: () => [] },
   '@/lib/sponsored/pilot': {},
   '@/lib/public/sponsored-band': { withoutSponsoredBand: (items) => items },
-  '@/lib/public/supplier-product-order': { arrangeSupplierProducts: (items) => ({ shown: items, hidden: new Map() }) },
+  '@/lib/public/supplier-product-order': { arrangeSupplierProducts: (items) => ({ shown: items, hidden: new Map() }),
+    categoryPageSlice: (items, page) => ({ items: items.slice(0, 12), page, pages: 1, total: items.length }) },
   '@/lib/products/grade-pricing': { classifyMoqFilterGroup: () => 'ask' },
   '@/lib/public/product-comparison': { hasProductComparisonPeer: () => false },
 };
