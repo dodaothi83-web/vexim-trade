@@ -122,6 +122,7 @@ async function renderHome(offers, categoryItems = [category], props = {}) {
     "@/lib/public/category-names": { getCategoryTitle },
     "@/lib/public/meta-copy": { HOME_HERO_LINE: "Verified Vietnamese suppliers" },
     "@/components/public-product-card": {
+      cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], 
       PublicProductCard: ({ name }) => React.createElement("div", { "data-product": name }, name),
     },
     "@/components/home-product-feed": {
@@ -218,6 +219,7 @@ const feedModule = compile("../components/home-product-feed.tsx", {
   "@/lib/public/supplier-product-order": { HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY, feedPerPage },
   "@/lib/public/product-comparison": { hasProductComparisonPeer },
   "@/components/public-product-card": {
+    cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], 
     PublicProductCard: ({ name }) => React.createElement("div", { "data-product": name }, name),
   },
 });

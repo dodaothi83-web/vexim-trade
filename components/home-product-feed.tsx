@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { PublicProductCard } from "@/components/public-product-card";
+import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY, feedPerPage } from "@/lib/public/supplier-product-order";
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
@@ -188,7 +188,7 @@ export function HomeProductFeed({
               href={`/products/${encodeURIComponent(p.categorySlug)}/${encodeURIComponent(p.id)}`}
               imagePath={p.cardImagePath ?? p.imagePaths[0]}
               name={p.name}
-              grades={p.cardGrades}
+              grades={cardTitleGrades(p)}
               gradeRows={p.gradeRows}
               stalePriceDays={p.quantityOffer?.stale ? p.quantityOffer.daysSinceConfirmed : undefined}
               volumePricing={p.quantityOffer?.hasVolumePricing}

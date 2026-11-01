@@ -36,23 +36,32 @@ function normalizeGradeKey(value: string): string {
 }
 
 /**
- * Grade nào chưa có trong tên sản phẩm. So sau khi bỏ dấu câu và khoảng trắng để
- * "570 g/L" khớp với "570g/l" mà người bán đã gõ, nhờ vậy tooltip không nhắc lại grade.
+ * Bỏ những grade đã có trong bảng Grade và giá khỏi tên hiển thị trên thẻ.
+ *
+ * Thẻ không còn chip grade, nên tên sản phẩm cũng không nhắc lại grade: người mua đọc
+ * grade ở bộ lọc và ở trang sản phẩm. Khoảng trắng và dấu "/" được nới để "570 g/L",
+ * "570g/l" và "570 g l" đều bị bỏ như nhau.
+ *
+ * Chỉ bỏ grade dạng quy cách, tức có số hoặc mã ngắn như "W320" hay "LP". Grade viết
+ * thành chữ như "Cassia split" hay "White pepper" chính là tên mặt hàng, bỏ đi thì tên
+ * còn lại chỉ là mảnh vụn ("bark, 2.5 mm"), nên giữ nguyên.
  */
-function gradeNotInTitle(name: string, grades: readonly (string | null | undefined)[]): string {
-  const compact = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const nameKey = compact(name);
-  const seen = new Set<string>();
-  const missing: string[] = [];
-  for (const raw of grades) {
-    const grade = raw?.trim();
-    if (!grade) continue;
-    const key = compact(grade);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    if (!nameKey.includes(key)) missing.push(grade);
+function titleWithoutGrades(name: string, grades: readonly string[]): string {
+  let result = name;
+  const specLike = (grade: string) => /\d/.test(grade) || grade.replace(/[^\p{L}]/gu, "").length <= 3;
+  for (const grade of [...grades].sort((a, b) => b.length - a.length)) {
+    if (!specLike(grade)) continue;
+    const parts = grade.trim().split(/\s+/).filter(Boolean)
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\//g, "\\s*/?\\s*"));
+    if (!parts.length) continue;
+    const match = new RegExp(`(^|[^\\p{L}\\p{N}])(?:grade\\s*)?${parts.join("\\s*")}(?=$|[^\\p{L}\\p{N}])`, "giu");
+    result = result.replace(match, "$1");
   }
-  return missing.join(", ");
+  if (result === name) return name;
+  const clean = result.replace(/\(\s*\)/g, "").replace(/\s*[,;|]\s*[,;|]+\s*/g, ", ")
+    .replace(/^\s*[,;|/:-]+\s*|\s*[,;|/:-]+\s*$/g, "")
+    .replace(/\s+([,;])/g, "$1").replace(/\s{2,}/g, " ").trim();
+  return clean || "Product";
 }
 
 function normalizeCompactRange(raw: string): string {
@@ -209,6 +218,20 @@ function resolveCardOfferDisplay({
   };
 }
 
+/**
+ * Grade nào cần bỏ khỏi tên trên thẻ: grade chuẩn của bảng Grade và giá, cộng grade chính
+ * của sản phẩm cũ (sản phẩm chưa có bảng nhiều grade chỉ lưu grade trong tên).
+ */
+export function cardTitleGrades(product: {
+  cardGrades?: readonly string[];
+  grade?: string | null;
+}): string[] {
+  const list = [...(product.cardGrades ?? [])];
+  const primary = product.grade?.trim();
+  if (primary) list.push(primary);
+  return list;
+}
+
 /** Standardized responsive product offer card shared across Category, Home, Search, Supplier Profile, and PDP. */
 export function PublicProductCard({
   href,
@@ -238,7 +261,7 @@ export function PublicProductCard({
   href: string;
   imagePath?: string | null;
   name: string;
-  /** Grade chuẩn từ bảng Grade và giá; chỉ dùng để nhắc trong tooltip khi tên chưa có grade. */
+  /** Grade chuẩn từ bảng Grade và giá; dùng để bỏ grade khỏi tên vì thẻ không hiện grade. */
   grades?: readonly string[];
   /** Optional per-grade rows for multi-grade vs filtered-grade price rendering. */
   gradeRows?: readonly PublicProductCardGradeRow[];
@@ -272,10 +295,8 @@ export function PublicProductCard({
 }) {
   const quote = !test && linkable ? quoteHref : undefined;
 
-  // Grade đã nằm trong tên sản phẩm nên thẻ không vẽ chip grade nữa. Danh sách grade chỉ
-  // còn để nhắc trong tooltip khi tên không nhắc tới grade nào, tránh mất thông tin.
-  const displayName = name.replace(/\s+/g, " ").trim() || "Product";
-  const gradeHint = test ? "" : gradeNotInTitle(displayName, [
+  // Thẻ không hiện grade ở đâu cả: không chip, không nhắc trong tên, không trong tooltip.
+  const displayName = titleWithoutGrades(name, [
     ...(grades ?? []),
     ...(gradeRows ?? []).map((row) => row.grade),
   ]);
@@ -355,7 +376,7 @@ export function PublicProductCard({
 
   const title = (
     <h3
-      title={gradeHint ? `${displayName} · ${gradeHint}` : displayName}
+      title={displayName}
       className="line-clamp-2 h-9 overflow-hidden break-words text-[13px] font-semibold leading-[18px] text-ink-900 group-hover/card:text-brand-700 sm:h-10 sm:text-sm sm:leading-5"
     >
       {displayName}

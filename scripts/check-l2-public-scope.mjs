@@ -32,7 +32,7 @@ function load(file) {
     if (id === '@/lib/public/supplier-english') return english;
     if (id === '@/lib/public/display-name') return { publicProductTitle: () => '' };
     if (id === '@/lib/public/product-selection') return { withoutDirectContacts: (value) => value, productBelongsToCategory: () => false, publicProductPrice: () => null };
-    if (id === '@/components/public-product-card') return { PublicProductCard: (props) => { capturedCards.push(props); return null; } };
+    if (id === '@/components/public-product-card') return { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard: (props) => { capturedCards.push(props); return null; } };
     if (id === '@/components/product-compare-checkbox') return { ProductCompareCheckbox: () => null };
     if (id === '@/components/product-trade-labels') return { ProductTradeLabels: () => null };
     if (id === '@/components/public/supplier-product-rail') return { SupplierProductRail: ({ children }) => React.createElement('ul', null, children) };

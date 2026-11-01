@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock3, Factory, FileCheck2, Globe2, Info, MapPin, Package, ShieldCheck, Ship, Truck, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { PublicProductCard } from "@/components/public-product-card";
+import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { SupplierProductRail } from "@/components/public/supplier-product-rail";
 import { VERIFICATION_LEVEL_ICONS, VERIFICATION_LEVEL_TONES, VerificationCoverSeal, VerificationTierBadge, approvedChecksSummary, verificationTier } from "@/components/verification-tier";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
@@ -323,7 +323,7 @@ export function SupplierStorefront({
             const productName = safe(approvedForm.name);
             return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
               <PublicProductCard href={href} imagePath={approvedForm.cardImagePath ?? approvedForm.imagePaths[0]}
-                name={productName} grades={approvedForm.cardGrades} gradeRows={approvedForm.gradeRows}
+                name={productName} grades={cardTitleGrades(approvedForm)} gradeRows={approvedForm.gradeRows}
                 moq={approvedForm.moq} price={synthetic ? null : approvedForm.price} incoterm={approvedForm.incoterm}
                 fob={approvedForm.incoterm?.toUpperCase() === "FOB"} volumePricing={approvedForm.quantityOffer?.hasVolumePricing}
                 stalePriceDays={approvedForm.quantityOffer?.stale ? approvedForm.quantityOffer.daysSinceConfirmed : undefined}
@@ -375,6 +375,10 @@ export function SupplierStorefront({
           const rawGradeRows = Array.isArray((p.specs as Record<string, unknown> | undefined)?.grade_rows)
             ? ((p.specs as Record<string, unknown>).grade_rows as Array<Record<string, unknown>>)
             : [];
+          // Sản phẩm cũ chỉ lưu grade trong thuộc tính; gom vào danh sách để bỏ khỏi tên thẻ.
+          const legacyGradeText = typeof (p.specs as Record<string, unknown> | undefined)?.grade === "string"
+            ? String((p.specs as Record<string, unknown>).grade).trim()
+            : "";
           const rawPrice = synthetic ? null : publicProductPrice(p, s);
           const canShowPrice = Boolean(rawPrice);
           const storefrontGradeRows = rawGradeRows
@@ -451,7 +455,7 @@ export function SupplierStorefront({
           })();
           return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
             <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
-              name={productName} grades={storefrontGrades} gradeRows={storefrontGradeRows} moq={storefrontMoq}
+              name={productName} grades={[...storefrontGrades, ...(legacyGradeText ? [legacyGradeText] : [])]} gradeRows={storefrontGradeRows} moq={storefrontMoq}
               price={storefrontPrice} incoterm={storefrontIncoterm} fob={storefrontIncoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.lead_time_days ?? null} leadTimeText={storefrontLeadTime} supplierName={name}
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
