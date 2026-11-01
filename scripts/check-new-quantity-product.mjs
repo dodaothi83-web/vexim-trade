@@ -32,8 +32,9 @@ const store = {
   listMedia: async () => [{ kind: 'image', storage_path: 'x', supplier_id: supplierId, created_by: user.id }],
   updateSupplierProductIfState: async (_id, _sid, _expected, patch) => (saved = { ...saved, ...patch }),
 };
+let submitStatus = 'submitted';
 const db = {
-  async rpc(name, args) { calls.push({ name, args }); if (failRpc) return { data: null, error: { message: 'offline' } }; if (name === 'submit_supplier_product_with_quantity_guard') { saved = { ...saved, supplier_review_status: 'pending' }; return { data: { status: 'submitted', product: saved }, error: null }; } saved = { ...args.p_product, id: productId, updated_at: '2026-10-29T00:00:00Z' }; return { data: saved, error: null }; },
+  async rpc(name, args) { calls.push({ name, args }); if (failRpc) return { data: null, error: { message: 'offline' } }; if (name === 'submit_supplier_product_with_quantity_guard') { if (submitStatus !== 'submitted') return { data: { status: submitStatus }, error: null }; saved = { ...saved, supplier_review_status: 'pending' }; return { data: { status: 'submitted', product: saved }, error: null }; } saved = { ...args.p_product, id: productId, updated_at: '2026-10-29T00:00:00Z' }; return { data: saved, error: null }; },
   from(table) {
     if (table === 'supplier_products') {
       let patch; const filters = {};
@@ -191,3 +192,22 @@ assert.equal(repairPatch.supplier_id, supplierId, 'ảnh cũ được trả lạ
 assert.equal(repairPatch.storage_path, `products/${productId}/${legacyBankMedia.id}.webp`);
 assert.ok(storage.deleted.includes(legacyBankMedia.storage_path), 'tệp cũ trong kho được dọn');
 console.log('Bank media: images attached before the fix are repaired on the next save');
+
+// Thiếu bảng giá và thông tin sản phẩm đổi sau khi gửi giá là hai chuyện khác nhau:
+// mỗi trường hợp phải ra một câu riêng, nêu đúng việc người bán phải làm.
+saved = { ...saved, supplier_review_status: 'draft', ready_for_buyer: false, name: 'Nhân điều', spec: 'Quy cách' };
+store.listMedia = async () => [{ kind: 'image', storage_path: 'products/x.webp', supplier_id: supplierId, created_by: user.id, audience: 'buyer' }];
+const submitForm = () => { const data = new FormData(); data.set('product_id', productId); return data; };
+submitStatus = 'price_missing';
+const missingPrice = await exports.submitSupplierProductAction(submitForm());
+assert.equal(missingPrice.ok, false);
+assert.match(missingPrice.message, /chưa có bảng giá nào đang chờ duyệt/);
+assert.doesNotMatch(missingPrice.message, /đã đổi sau khi gửi bảng giá/);
+submitStatus = 'price_changed';
+const changedProduct = await exports.submitSupplierProductAction(submitForm());
+assert.equal(changedProduct.ok, false);
+assert.match(changedProduct.message, /đã đổi sau khi gửi bảng giá/);
+assert.doesNotMatch(changedProduct.message, /chưa có bảng giá/);
+submitStatus = 'submitted';
+assert.equal((await exports.submitSupplierProductAction(submitForm())).ok, true);
+console.log('Quantity submit guard: missing price and changed product report different next steps');

@@ -414,8 +414,12 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
         p_expected_review: previousReview, p_expected_ready: product.ready_for_buyer, p_proposal: proposal,
       });
       if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá hoặc trạng thái sản phẩm. Kiểm tra kết nối và thử lại." };
-      if (data.status === "price_changed" || data.status === "price_missing")
-        return { ok: false, message: "Bảng giá chưa có hoặc không còn khớp thông tin sản phẩm. Hãy gửi lại bảng giá trước khi gửi duyệt." };
+      // Hai nguyên nhân khác hẳn nhau nên phải nói khác nhau: thiếu bảng giá (chưa gửi,
+      // hoặc bảng bị trả lại) khác với thông tin sản phẩm đổi sau khi đã gửi giá.
+      if (data.status === "price_missing")
+        return { ok: false, message: "Sản phẩm chưa có bảng giá nào đang chờ duyệt. Gửi bảng giá ở mục Giá và điều kiện bán, rồi bấm Gửi duyệt." };
+      if (data.status === "price_changed")
+        return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi gửi bảng giá. Gửi lại bảng giá theo thông tin hiện tại, rồi bấm Gửi duyệt." };
       if (data.status !== "submitted" || !data.product) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi gửi duyệt." };
       submitted = data.product as SupplierProduct;
     } else {

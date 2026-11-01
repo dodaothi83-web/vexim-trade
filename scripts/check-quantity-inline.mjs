@@ -33,6 +33,17 @@ assert.doesNotMatch(supplier, /Tên tiếng Anh \(tùy chọn\)|Gửi tên tiế
 assert.match(supplier, /Giá mới đang chờ duyệt/);
 assert.match(supplier, /Người mua vẫn thấy bảng giá đã duyệt/);
 assert.match(supplier, /Gửi bảng giá mới để duyệt/);
+// Sản phẩm chưa có bảng giá nào được duyệt: nhãn không được nói "mới", banner không được
+// nhắc tới "bảng giá đã duyệt" vì người mua chưa hề thấy bảng nào.
+const firstPrice = render({ actor: 'supplier', data: { ...data, pendingPriceId: null, hasApprovedPrice: false } });
+assert.match(firstPrice, /Bảng giá này đi cùng sản phẩm khi quản trị viên duyệt/);
+assert.match(firstPrice, /Gửi bảng giá để duyệt/);
+assert.doesNotMatch(firstPrice, /Gửi bảng giá mới để duyệt/, 'Lần gửi đầu không phải bảng giá mới');
+assert.doesNotMatch(firstPrice, /Người mua vẫn thấy bảng giá đã duyệt/, 'Chưa duyệt bảng nào thì không nói tới bảng đã duyệt');
+const pendingOnly = render({ actor: 'supplier', data: { ...data, hasApprovedPrice: false } });
+assert.match(pendingOnly, /Giá mới đang chờ duyệt/);
+assert.match(pendingOnly, /Gửi bảng giá để duyệt/);
+assert.doesNotMatch(pendingOnly, /Người mua vẫn thấy bảng giá đã duyệt/);
 assert.match(supplier, /Tôi xác nhận giá trên là giá tôi sẵn sàng/);
 const sidebarPreview = renderToStaticMarkup(React.createElement(React.Fragment, null,
   React.createElement('form', null, React.createElement(inline.QuantityPricingInline, { data, actor: 'supplier', onPreviewChange() {} })),

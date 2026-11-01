@@ -93,9 +93,10 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
   </div>;
   return <div ref={root} onChange={(event) => event.stopPropagation()} className="space-y-3">
     <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
-      Bảng mới lưu riêng vào hàng chờ duyệt.{" "}
-      Người mua vẫn thấy bảng giá đã duyệt; bảng đang chờ duyệt chỉ hiển thị sau khi được duyệt.
-      {data.pendingPriceId ? " Giá mới đang chờ duyệt." : data.hasApprovedPrice ? " Đã có bảng giá mới được duyệt." : " Chưa có bảng giá mới được duyệt."}
+      {data.hasApprovedPrice
+        ? <>Bảng mới lưu riêng vào hàng chờ duyệt.{" "}Người mua vẫn thấy bảng giá đã duyệt; bảng đang chờ duyệt chỉ hiển thị sau khi được duyệt.</>
+        : <>Bảng giá này đi cùng sản phẩm khi quản trị viên duyệt.{" "}Người mua chỉ thấy giá sau khi sản phẩm được duyệt.</>}
+      {data.pendingPriceId ? " Giá mới đang chờ duyệt." : ""}
     </p>
     {actor === "supplier" && <p className="text-xs text-ink-600">Nếu thay đổi thông tin liên quan đến sản phẩm sau khi gửi giá, hãy gửi lại bảng giá trước khi gửi sản phẩm duyệt.</p>}
     {dirty && <p role="status" className="text-xs font-semibold text-amber-800">Hãy lưu hoặc hoàn tác thay đổi thông tin sản phẩm trước khi gửi bảng giá riêng.</p>}
@@ -105,7 +106,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
       showPreview={!onPreviewChange && !publishPreview} showTitle={actor !== "supplier"} validateEnglishName={false}
       consentLabel={actor === "staff" ? "Tôi xác nhận nhà cung cấp đã cam kết giá này cho đúng grade, Incoterm và số lượng." : undefined} />
     <button type="button" disabled={disabled || dirty || busy} onClick={() => void submit()} className="btn btn-primary btn-sm">
-      {busy ? "Đang gửi…" : "Gửi bảng giá mới để duyệt"}
+      {busy ? "Đang gửi…" : data.hasApprovedPrice ? "Gửi bảng giá mới để duyệt" : "Gửi bảng giá để duyệt"}
     </button>
     {result && <p role={result.ok ? "status" : "alert"} className={`text-xs ${result.ok ? "text-emerald-700" : "text-rose-700"}`}>{result.message}</p>}
   </div>;
