@@ -76,8 +76,9 @@ assert.match(profile, /COMPANY_DOCUMENT_KEYS\.map/, 'Form đăng ký dựng ô t
 assert.ok(!/INITIAL_DOCUMENT_KEYS\.map\(/.test(profile), 'Form đăng ký không còn 5 ô tải giấy tờ');
 assert.match(profile, /Giấy chứng nhận đăng ký kinh doanh/);
 assert.match(page, /Xác thực doanh nghiệp/);
-assert.match(page, /Chỉ cần Giấy chứng nhận đăng ký kinh doanh/);
-assert.match(page, /Chỉ tải chứng nhận chất lượng ở đây/);
+assert.match(page, /Một tệp PDF hoặc ảnh, thấy rõ tên doanh nghiệp và mã số thuế\./,
+  'Trang Giấy tờ chỉ đòi Giấy chứng nhận đăng ký kinh doanh cho bước xác thực doanh nghiệp');
+assert.match(page, /Chứng nhận chất lượng/, 'Trang Giấy tờ cũng là nơi tải chứng nhận chất lượng');
 
 /* 7. Không còn mã bước nội bộ trong câu nhà cung cấp thấy (bỏ qua dòng chú thích). */
 const visibleLines = (text) => text.split("\n")
