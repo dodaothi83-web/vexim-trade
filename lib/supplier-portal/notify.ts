@@ -1,5 +1,6 @@
 import "server-only";
 
+import { SERVICE_FROM_ADDRESS } from "@/lib/config";
 import { getStore } from "@/lib/db";
 import { transport } from "@/lib/email/send";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
@@ -33,8 +34,8 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
     <p>Yêu cầu Vexim liên hệ để xác minh thêm: <strong>${escapeHtml(choices.join(", ") || "Không chọn")}</strong>.
     Nếu có yêu cầu, nhân sự kiểm duyệt vui lòng liên hệ sớm để lên kế hoạch và tự tải bằng chứng vào đúng đợt kiểm.</p>
     <p>Chuyên viên kiểm tra hồ sơ gốc/ảnh, sửa checklist thủ công, nộp và người có quyền duyệt mới xác nhận. AI chỉ gợi ý.</p>
-    <p><a href="${url}">Mở hồ sơ nhà cung cấp trong CRM →</a></p>`;
-  const result = await transport({ to: recipients, subject: title,
+    <p><a href="${url}">Mở hồ sơ nhà cung cấp trong CRM</a></p>`;
+  const result = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
     html: wrapPlainEmail({ title, body }), text: `${title}\nYêu cầu: ${choices.join(", ") || "Không chọn"}\n${url}` });
   return result.ok ? result.status : "failed";
 }
@@ -55,11 +56,11 @@ export async function notifyStaffSupplierAccount(input: { email: string; name?: 
     const url = `${staffOrigin}/crm/suppliers`;
     const title = `Tài khoản nhà cung cấp mới: ${email}`;
     const body = `<p>${escapeHtml(who)} vừa tạo tài khoản nhà cung cấp bằng ${input.provider === "google" ? "Google" : "email và mật khẩu"}. <strong>Tài khoản chưa có hồ sơ doanh nghiệp và chưa được mở quyền cổng.</strong></p>
-    "<p>Ở bước này chưa có gì để duyệt."
-      + " Khi họ nộp hồ sơ doanh nghiệp, Vexim nhận thêm một thông báo có link tới trang nhà cung cấp."
-      + " Nếu mãi không thấy hồ sơ, đây là danh sách để liên hệ lại.</p>"
-    <p><a href="${url}">Mở danh sách nhà cung cấp trong CRM →</a></p>`;
-    const result = await transport({ to: recipients, subject: title,
+    <p>Ở bước này chưa có gì để duyệt.</p>
+    <p>Khi họ nộp hồ sơ doanh nghiệp, Vexim nhận thêm thông báo kèm link tới hồ sơ.</p>
+    <p>Nếu mãi không thấy hồ sơ, danh sách này là chỗ để liên hệ lại.</p>
+    <p><a href="${url}">Mở danh sách nhà cung cấp trong CRM</a></p>`;
+    const result = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
       html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return result.ok ? result.status : "failed";
   } catch (error) { console.error("[supplier-notify] account registered", error); return "failed"; }
@@ -76,8 +77,8 @@ export async function notifySupplierCertificateSubmission(supplier: Supplier, na
   const title = `Chứng nhận trên hồ sơ cần kiểm tra: ${supplier.name}`;
   const body = `<p>Nhà cung cấp ${escapeHtml(supplier.name)} vừa tải chứng nhận “${escapeHtml(name)}” trong luồng Chứng nhận riêng. AI chưa đủ điều kiện tự công bố. <strong>Chưa công bố; chứng nhận này không thay thế GCN ĐKKD.</strong></p>
     <p>Nhân viên có thể xem bản gốc, bấm Quét lại AI hoặc kiểm tra trong khu vực chứng nhận của hồ sơ CRM.</p>
-    <p><a href="${url}">Mở hồ sơ chứng nhận trong CRM →</a></p>`;
-  const result = await transport({ to: recipients, subject: title,
+    <p><a href="${url}">Mở hồ sơ chứng nhận trong CRM</a></p>`;
+  const result = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
     html: wrapPlainEmail({ title, body }), text: `${title}\nChứng nhận: ${name}\n${url}` });
   return result.ok ? result.status : "failed";
 }
@@ -99,9 +100,10 @@ export async function notifySupplierCertificateExpiry(input: {
     const url = `${notificationOrigin()}/supplier/portal/documents`;
     const title = `Chứng nhận sắp hết hạn (còn ${input.daysLeft} ngày): ${name}`;
     const explanation = `Chứng nhận “${name}” trên hồ sơ xác thực của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang người mua. Vui lòng vào mục Xác thực doanh nghiệp để tải bản gia hạn mới; hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.`;
-    const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Cập nhật giấy tờ xác thực trên cổng nhà cung cấp →</a></p>`;
+    const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Cập nhật giấy tờ xác thực trên cổng nhà cung cấp</a></p>`;
     const res = await transport({
       to: recipients,
+      from: SERVICE_FROM_ADDRESS,
       subject: title,
       html: wrapPlainEmail({ title: escapeHtml(title), body }),
       text: `${title}\n${explanation}\n${url}`,
@@ -126,8 +128,8 @@ export async function notifyStaffVerificationSubmission(supplierId: string, leve
     const step = level === 1 ? "documents" : level === 2 ? "factory" : "deliveries";
     const url = `${notificationOrigin()}/crm/suppliers/${encodeURIComponent(supplierId)}/audit/${step}${reviewId ? `?review=${encodeURIComponent(reviewId)}` : ""}`;
     const title = `${label} chờ xét duyệt: ${supplier?.name ?? "nhà cung cấp"}`;
-    const body = `<p>Chuyên viên đã nộp bản kiểm ${escapeHtml(label)} của ${escapeHtml(supplier?.name ?? "nhà cung cấp")}. Nhân sự có quyền duyệt cần tự xem bằng chứng của đúng đợt kiểm và quyết định; nộp không tự phê duyệt.</p><p><a href="${url}">Mở bản kiểm trong CRM →</a></p>`;
-    const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    const body = `<p>Chuyên viên đã nộp bản kiểm ${escapeHtml(label)} của ${escapeHtml(supplier?.name ?? "nhà cung cấp")}. Nhân sự có quyền duyệt cần tự xem bằng chứng của đúng đợt kiểm và quyết định; nộp không tự phê duyệt.</p><p><a href="${url}">Mở bản kiểm trong CRM</a></p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] verification submission", error); return "failed"; }
 }
@@ -146,8 +148,8 @@ export async function notifyStaffSupplierSubmission(supplierId: string, level: 2
     const title = `Hồ sơ nhà cung cấp tự gửi chờ đối chiếu: ${supplier?.name ?? "nhà cung cấp"}`;
     const body = `<p>${escapeHtml(supplier?.name ?? "nhà cung cấp")} vừa nộp ${escapeHtml(label)}. <strong>Chưa duyệt và chưa công khai.</strong></p>
     <p>${level === 2 ? scope === "partner_contract" ? "Đối chiếu hợp đồng, hai bên và phạm vi đối tác; không suy ra sở hữu hay kiểm thực địa." : "Mở hồ sơ và đối chiếu ảnh; kết quả AI nếu có chỉ để tham khảo." : "Mở hồ sơ và tự kiểm tra chứng từ, căn cứ xuất khẩu và vai trò của doanh nghiệp."}</p>
-    <p><a href="${url}">Mở hàng chờ hồ sơ tự gửi →</a></p>`;
-    const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    <p><a href="${url}">Mở hàng chờ hồ sơ tự gửi</a></p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] supplier submission", error); return "failed"; }
 }
@@ -170,8 +172,8 @@ export async function notifyStaffDocumentUpload(input: {
     const title = `Nhà cung cấp bổ sung giấy tờ L1: ${who}`;
     const body = `<p>${escapeHtml(who)} vừa tải/thay <strong>${escapeHtml(input.label)}</strong> trong đợt kiểm giấy tờ.</p>
     <p><strong>Chưa có gì được duyệt.</strong> Đợt kiểm giữ nguyên trạng thái cho tới khi nhân viên đối chiếu bằng chứng và tự quyết định.</p>
-    <p><a href="${url}">Mở đợt kiểm giấy tờ trong CRM →</a></p>`;
-    const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    <p><a href="${url}">Mở đợt kiểm giấy tờ trong CRM</a></p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] document upload", error); return "failed"; }
 }
@@ -186,7 +188,7 @@ export async function notifyStaffProductSubmission(supplier: Supplier, product: 
     const url = `${notificationOrigin()}/crm/products/${encodeURIComponent(product.id)}/edit`;
     const title = `Sản phẩm chờ duyệt: ${product.name.replace(/[\r\n]/g, " ").slice(0, 140)}`;
     const body = `<p>${escapeHtml(supplier.name)} đã gửi duyệt sản phẩm ${escapeHtml(product.name)}. <strong>Sản phẩm chưa được đăng.</strong></p><p><a href="${url}">Mở sản phẩm trong CRM</a></p>`;
-    const res = await transport({ to: recipients, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] product submission", error); return "failed"; }
 }
@@ -224,8 +226,8 @@ export async function notifySupplierDecision(input: {
     const item = config[input.decision];
     const url = `${notificationOrigin()}${item.path}`;
     const note = item.showNote ? input.note?.trim().slice(0, 1000) : null;
-    const body = `<p>${escapeHtml(item.explanation)}</p>${note ? `<p>Phản hồi: ${escapeHtml(note)}</p>` : ""}<p><a href="${url}">Mở cổng nhà cung cấp →</a></p>`;
-    const res = await transport({ to: recipients, subject: item.title, html: wrapPlainEmail({ title: escapeHtml(item.title), body }), text: `${item.title}\n${item.explanation}${note ? `\nPhản hồi: ${note}` : ""}\n${url}` });
+    const body = `<p>${escapeHtml(item.explanation)}</p>${note ? `<p>Phản hồi: ${escapeHtml(note)}</p>` : ""}<p><a href="${url}">Mở cổng nhà cung cấp</a></p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: item.title, html: wrapPlainEmail({ title: escapeHtml(item.title), body }), text: `${item.title}\n${item.explanation}${note ? `\nPhản hồi: ${note}` : ""}\n${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] decision", error); return "failed"; }
 }

@@ -12,6 +12,33 @@ Tài liệu liên quan: [notification-email-audit.md](notification-email-audit.m
 4. **Uy tín tên miền là tài sản.** Vexim gửi cả báo giá và ack RFQ từ `veximtrade.com`; một đợt thư bị đánh spam sẽ kéo theo email giao dịch vào spam.
 5. **AI, dữ liệu tự khai và việc NCC tải tệp không tạo huy hiệu.** Email cũng không được ngụ ý điều đó.
 
+## 1b. Địa chỉ gửi
+
+- Thư **dịch vụ tự động** cho nhà cung cấp dùng `SERVICE_FROM_ADDRESS` (`lib/config.ts`), mặc định
+  `hello@veximtrade.com`, đổi bằng `EMAIL_SERVICE_FROM`. Không dùng `sales@`: hộp thư bán hàng bị
+  bộ lọc xếp vào nhóm hộp thư đại trà nên thư dễ rơi vào tab Quảng cáo.
+- Thư **giao dịch cho người mua** vẫn đi từ địa chỉ cá nhân của nhân viên phụ trách
+  (`lib/email/sender.ts`), vì đó là người mua đang trao đổi.
+- Chỉ nhận local-part của `MAIL_DOMAIN`; đặt domain khác trong `EMAIL_SERVICE_FROM` sẽ bị bỏ qua
+  để không làm hỏng việc gửi (Resend chỉ gửi được từ domain đã verify).
+
+## 1c. Văn phong thư
+
+Áp dụng cho mọi thư tiếng Việt gửi nhà cung cấp:
+
+- Không dùng gạch dài `—`, mũi tên `→`, dấu ngoặc kép cong, emoji trong câu. Đây là các dấu hiệu
+  khiến thư đọc như văn bản máy và cũng dễ bị bộ lọc chấm điểm xấu.
+- Tiêu đề nêu việc và con số, không dùng nhãn máy kiểu `[Thông báo]`, không viết hoa toàn bộ.
+- Thân thư nói ba việc: đang có gì, cần làm gì, ai làm. Câu ngắn, không mở bài dài.
+- Không dùng "chúng tôi", "quý khách", "kính mong"; Vexim gọi người nhận là "bạn" và tự xưng "Vexim".
+- Mỗi thư có một lý do nhận thư và một cách từ chối (trả lời thư, hoặc nút hủy khi đợt 2 xong).
+- Cách viết này đã có tiền lệ ở `lib/email/service-inquiry.ts`. Bài kiểm tra
+  `scripts/check-supplier-reminders.mjs` chặn hồi quy trên thư nhắc hồ sơ, còn
+  `scripts/check-email-copy.mjs` quét cả 9 tệp soạn thư (`lib/email/**`, `lib/rfq/outreach.ts`,
+  `lib/rfq/buyer-notify.ts`, `lib/rfq/supplier-question.ts`, `lib/supplier-portal/notify.ts`,
+  `lib/supplier-portal/reminders.ts`) để chặn `—`, `–`, `→`, emoji, “chúng tôi”, “Kính gửi”,
+  “Trân trọng”, “Anh/Chị”. Cả hai chạy trong `npm run check:email-lifecycle`.
+
 ## 2. Ba lớp email
 
 | Lớp | Ví dụ | Có nút hủy nhận? | Cần consent marketing? |
@@ -46,7 +73,7 @@ Chưa triển khai. Đây là điều kiện tiên quyết, không phải tính 
 | Hủy nhận 1-click | Endpoint có token, header `List-Unsubscribe` + `List-Unsubscribe-Post` (Gmail/Yahoo yêu cầu cho bulk sender) |
 | Trang tùy chọn | `/preferences/[token]`: chọn chủ đề (báo giá, nhà cung cấp mới, giá thay đổi) và tần suất; không cần tài khoản buyer |
 | Bounce/complaint | Mở rộng `app/api/webhooks/resend/route.ts` xử lý `email.delivered`/`bounced`/`complained` → tự thêm vào danh sách chặn |
-| Tên miền phụ | Gửi marketing bằng subdomain riêng để reputation của `sales@` không bị lây |
+| Tên miền phụ | Gửi marketing bằng subdomain riêng để reputation của hộp thư dịch vụ không bị lây |
 | Footer pháp lý | Tên pháp nhân + địa chỉ bưu chính (CAN-SPAM) + lý do nhận thư |
 | Đo lường | Đếm mở/click tối thiểu; không dùng pixel theo dõi cá nhân nếu chưa có consent |
 

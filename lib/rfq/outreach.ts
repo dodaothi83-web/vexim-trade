@@ -25,7 +25,7 @@ function rfqCode(rfq: Rfq) {
 }
 
 function shortQty(rfq: Rfq) {
-  return rfq.quantity && rfq.unit ? `${rfq.quantity} ${rfq.unit}` : "—";
+  return rfq.quantity && rfq.unit ? `${rfq.quantity} ${rfq.unit}` : "Chưa nêu";
 }
 
 function shortIncoterm(rfq: Rfq) {
@@ -33,7 +33,7 @@ function shortIncoterm(rfq: Rfq) {
 }
 
 function fmtDateTime(iso?: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "Chưa nêu";
   return new Date(iso).toLocaleString("vi-VN", { hour12: false });
 }
 
@@ -55,19 +55,17 @@ export function buildRfqSupplierEmail(input: {
     month: "2-digit",
     year: "numeric",
   });
-  const title = `Yêu cầu báo giá mật mã ${rfqCode(rfq)}`;
+  const title = `Yêu cầu báo giá ${rfqCode(rfq)}`;
   const dest = rfq.destination_country
     ? `thị trường <strong>${escapeHtml(rfq.destination_country)}</strong>`
     : "một thị trường xuất khẩu";
 
   const body = `
-    <p>Kính gửi Anh/Chị ${escapeHtml(supplier.contact_name ?? supplier.name)},</p>
-    <p>Phòng Xuất khẩu <strong>${escapeHtml(COMPANY.name)}</strong> đang làm việc với
-    một khách hàng ${dest} và muốn mời Anh/Chị tham gia chào giá cho đơn hàng sau.</p>
+    <p>Chào ${escapeHtml(supplier.contact_name ?? supplier.name)},</p>
+    <p>Vexim Trade đang tìm nhà cung cấp cho một đơn hàng sang ${dest} và muốn mời bạn chào giá.</p>
 
     <p style="color:#b91c1c;font-size:12.5px;">
-      ⚠ Thông tin danh tính buyer hiện được bảo mật và sẽ chỉ được tiết lộ khi hai bên
-      thống nhất điều khoản cơ bản. Vui lòng không yêu cầu thông tin buyer trong phản hồi đầu tiên.
+      Thông tin người mua đang được giữ kín. Vui lòng không hỏi danh tính người mua trong thư trả lời đầu tiên.
     </p>
 
     <table cellpadding="8" style="border-collapse:collapse;margin-top:10px;font-size:14px;">
@@ -77,34 +75,33 @@ export function buildRfqSupplierEmail(input: {
       <tr><td style="color:#64748b;">Điều kiện giao</td><td>${escapeHtml(shortIncoterm(rfq))}</td></tr>
       <tr><td style="color:#64748b;">Ngày giao mong muốn</td><td>${escapeHtml(rfq.needed_by ?? "Thương lượng")}</td></tr>
       <tr><td style="color:#64748b;">Giá mục tiêu</td>
-          <td>${rfq.target_price ? `${rfq.target_price} ${escapeHtml(rfq.target_price_currency ?? "")}` : "Chưa công khai — vui lòng chào giá tốt nhất"}</td></tr>
+          <td>${rfq.target_price ? `${rfq.target_price} ${escapeHtml(rfq.target_price_currency ?? "")}` : "Chưa công khai. Vui lòng chào giá tốt nhất."}</td></tr>
     </table>
 
-
     <div style="margin-top:18px;background:#fffbeb;border-left:4px solid #d97706;border-radius:8px;padding:12px 16px;">
-      <div style="font-size:11px;font-weight:800;color:#d97706;letter-spacing:.6px;">VIỆC CẦN LÀM — HẠN ${escapeHtml(deadlineStr)}</div>
+      <div style="font-size:13px;font-weight:700;color:#b45309;">Cần gửi trước ${escapeHtml(deadlineStr)}</div>
       <ol style="margin:8px 0 0;padding-left:18px;font-size:13px;line-height:21px;color:#78350f;">
         <li>Chào giá theo đơn vị tính, kèm điều kiện thanh toán và thời gian hiệu lực báo giá.</li>
-        <li>Xác nhận năng lực sản xuất / MOQ / thời gian giao hàng.</li>
+        <li>Xác nhận năng lực sản xuất, MOQ và thời gian giao hàng.</li>
         <li>Gửi chứng chỉ liên quan (SGS, HACCP, ISO, C/O...) nếu có.</li>
         ${rfq.wants_samples ? "<li>Nếu có thể gửi mẫu, vui lòng nêu rõ chi phí mẫu và cước vận chuyển.</li>" : ""}
-        ${rfq.wants_inspection ? "<li>Người mua có yêu cầu kiểm định trước giao hàng — vui lòng xác nhận có hỗ trợ.</li>" : ""}
+        ${rfq.wants_inspection ? "<li>Người mua có yêu cầu kiểm định trước giao hàng, vui lòng xác nhận có hỗ trợ.</li>" : ""}
         ${rfq.wants_video_call ? "<li>Nếu được, sắp xếp một cuộc gọi video ngắn để người mua xem nhà xưởng.</li>" : ""}
       </ol>
     </div>
 
     <p style="margin-top:18px;">
-      Vui lòng <strong>trả lời trực tiếp email này</strong> — toàn bộ hồi âm sẽ được chuyển
-      đến người phụ trách đơn hàng. Không sao chép hay chuyển tiếp cho bên thứ ba.
+      Vui lòng <strong>trả lời trực tiếp email này</strong>. Mọi hồi âm chuyển đến người phụ trách đơn hàng.
+      Không sao chép hay chuyển tiếp cho bên thứ ba.
     </p>
 
-    <p>Trân trọng,<br/>Phòng Xuất khẩu · ${escapeHtml(COMPANY.name)}</p>
+    <p>Vexim Trade<br/>Bộ phận xuất khẩu</p>
   `;
 
-  const subject = `[${rfq.code}] Yêu cầu báo giá — ${escapeHtml(productLabel)}`;
+  const subject = `[${rfq.code}] Yêu cầu báo giá: ${escapeHtml(productLabel)}`;
   return {
     subject,
-    html: wrapPlainEmail({ title, body, preheader: `Mời Anh/Chị chào giá cho đơn ${escapeHtml(productLabel)} — hạn ${deadlineStr}` }),
+    html: wrapPlainEmail({ title, body, preheader: `Mời bạn chào giá cho đơn ${escapeHtml(productLabel)}, hạn ${deadlineStr}` }),
     text: stripHtml(body),
   };
 }
@@ -126,8 +123,8 @@ export function buildRfqShortlistBuyerEmail(input: {
     const price = m.quote_price != null
       ? `${m.quote_price} ${m.quote_currency ?? ""}/${m.quote_unit ?? rfq.unit ?? ""}`
       : "Đang chào giá";
-    const lead = m.quote_lead_time_days ? `${m.quote_lead_time_days} ngày` : "—";
-    const incoterm = m.quote_incoterm ?? "—";
+    const lead = m.quote_lead_time_days ? `${m.quote_lead_time_days} ngày` : "Chưa có";
+    const incoterm = m.quote_incoterm ?? "Chưa có";
     const loc = m.supplier.province ?? m.supplier.country ?? "VN";
     return `<tr>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;"><strong>${escapeHtml(name)}</strong><br/><span style="color:#64748b;font-size:12px;">${escapeHtml(loc)}</span></td>
@@ -138,9 +135,9 @@ export function buildRfqShortlistBuyerEmail(input: {
   }).join("");
 
   const body = `
-    <p>Dear ${escapeHtml(buyer.contact_name?.split(" ")[0] ?? "there")},</p>
-    <p>Cảm ơn bạn đã chờ đợi. Dưới đây là bảng so sánh các nhà cung cấp chúng tôi đã rút gọn
-    cho yêu cầu <strong>${escapeHtml(rfq.code)}</strong> (${escapeHtml(rfq.product_text)},
+    <p>Chào ${escapeHtml(buyer.contact_name?.split(" ")[0] ?? "bạn")},</p>
+    <p>Cảm ơn bạn đã chờ. Dưới đây là bảng so sánh nhà cung cấp cho yêu cầu
+    <strong>${escapeHtml(rfq.code)}</strong> (${escapeHtml(rfq.product_text)},
     ${escapeHtml(shortQty(rfq))}).</p>
 
     <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-top:12px;font-size:13.5px;">
@@ -157,18 +154,18 @@ export function buildRfqShortlistBuyerEmail(input: {
 
     <p style="margin-top:18px;"><strong>Các bước tiếp theo:</strong></p>
     <ul>
-      <li>Cho chúng tôi biết 1–2 nhà cung cấp bạn muốn đi sâu (mẫu, chứng chỉ, điều chỉnh điều khoản).</li>
-      <li>Chúng tôi sẽ sắp xếp trao đổi, gửi mẫu và hỗ trợ kiểm định nếu cần.</li>
+      <li>Cho Vexim biết 1 hoặc 2 nhà cung cấp bạn muốn đi sâu (mẫu, chứng chỉ, điều chỉnh điều khoản).</li>
+      <li>Vexim sẽ sắp xếp trao đổi, gửi mẫu và hỗ trợ kiểm định nếu cần.</li>
       <li>Danh tính bạn vẫn được giữ kín đối với nhà cung cấp cho đến khi bạn chủ động đồng ý kết nối.</li>
     </ul>
 
     <p>Mọi phản hồi, vui lòng trả lời trực tiếp email này hoặc dùng link theo dõi:<br/>
     <a href="${SITE_URL}/rfq/status/${rfq.access_token}">${SITE_URL}/rfq/status/${rfq.access_token}</a></p>
 
-    <p>Best regards,<br/>Export Department · ${escapeHtml(COMPANY.name)}</p>
+    <p>${escapeHtml(COMPANY.name)}<br/>Bộ phận xuất khẩu</p>
   `;
 
-  const subject = `[${rfq.code}] Shortlist nhà cung cấp — ${escapeHtml(rfq.product_text)}`;
+  const subject = `[${rfq.code}] Bảng so sánh nhà cung cấp: ${escapeHtml(rfq.product_text)}`;
   return {
     subject,
     html: wrapPlainEmail({ title, body, preheader: `Bảng so sánh ${matches.length} nhà cung cấp cho yêu cầu ${rfq.code}` }),
@@ -410,9 +407,9 @@ export async function notifySelectedSupplier(rfq: Rfq, match: RfqMatch, actorId:
     if (supplier?.email && await canInviteSupplier(supplier, store)) {
       const sender = await requireRfqStaffSender(actorId);
       const subject = `[${rfq.code}] Vexim đã chọn hồ sơ của bạn`;
-      const body = `<p>Vexim đã chọn hồ sơ chào giá cho yêu cầu <strong>${escapeHtml(rfq.code)}</strong>. Chúng tôi sẽ liên hệ để thống nhất bước tiếp theo.</p>
+      const body = `<p>Vexim đã chọn hồ sơ chào giá của bạn cho yêu cầu <strong>${escapeHtml(rfq.code)}</strong>. Vexim sẽ liên hệ để thống nhất bước tiếp theo.</p>
         <p>Thông tin người mua chưa được chia sẻ trong email này. Vui lòng tiếp tục trao đổi qua Vexim.</p>
-        <p><a href="${SITE_URL}/supplier/portal/rfqs">Xem RFQ trong cổng nhà cung cấp →</a></p>`;
+        <p><a href="${SITE_URL}/supplier/portal/rfqs">Xem yêu cầu trong cổng nhà cung cấp</a></p>`;
       const delivery = await transport({ to: [supplier.email], from: sender.header,
         replyTo: supplierReplyAddress(rfq.code, match.id), subject,
         html: wrapPlainEmail({ title: escapeHtml(subject), body }),

@@ -13,14 +13,14 @@ import { SITE_URL } from "@/lib/site";
 import type { Rfq, Buyer } from "@/lib/types";
 import { transport } from "./send";
 
-const DESK_INBOX = process.env.RFQ_INTERNAL_EMAIL?.trim() || `sales@${MAIL_DOMAIN}`;
+const DESK_INBOX = process.env.RFQ_INTERNAL_EMAIL?.trim() || `hello@${MAIL_DOMAIN}`;
 
 function rfqUrl(token: string) {
   return `${SITE_URL}/rfq/status/${token}`;
 }
 
 function formatQuantity(rfq: Rfq): string {
-  return rfq.quantity && rfq.unit ? `${rfq.quantity} ${rfq.unit}` : "—";
+  return rfq.quantity && rfq.unit ? `${rfq.quantity} ${rfq.unit}` : "Not provided";
 }
 
 /* ---------------------------------------------------------------- */
@@ -47,15 +47,15 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
     <table cellpadding="6" style="border-collapse:collapse;font-size:14px;">
       <tr><td style="color:#64748b;width:140px;">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
       <tr><td style="color:#64748b;">Quantity</td><td>${escapeHtml(formatQuantity(rfq))}</td></tr>
-      <tr><td style="color:#64748b;">Destination</td><td>${escapeHtml(rfq.destination_country ?? "—")}</td></tr>
-      <tr><td style="color:#64748b;">Incoterm</td><td>${escapeHtml(rfq.incoterm ?? "—")}</td></tr>
-      <tr><td style="color:#64748b;">Needed by</td><td>${escapeHtml(rfq.needed_by ?? "—")}</td></tr>
+      <tr><td style="color:#64748b;">Destination</td><td>${escapeHtml(rfq.destination_country ?? "Not provided")}</td></tr>
+      <tr><td style="color:#64748b;">Incoterm</td><td>${escapeHtml(rfq.incoterm ?? "Not provided")}</td></tr>
+      <tr><td style="color:#64748b;">Needed by</td><td>${escapeHtml(rfq.needed_by ?? "Not provided")}</td></tr>
     </table>
     <p><strong>What happens next?</strong></p>
     <ul>
       <li>We will assign your request to a desk specialist within 4 business hours (Asia/Ho_Chi_Minh time).</li>
       ${rfq.status === "needs_review"
-        ? "<li>Your request is being reviewed manually to make sure it reaches the right desk — expect a reply within one business day.</li>"
+        ? "<li>Your request is being reviewed manually to make sure it reaches the right desk. Expect a reply within one business day.</li>"
         : ""}
       <li>${matchingStep}</li>
       ${hasPreferredSupplier ? "" : "<li>Suppliers are matched on your requirements only. Paid listings never affect who we recommend.</li>"}
@@ -68,7 +68,7 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
        <a href="${statusLink}">${statusLink}</a>
     </p>
     <p>If you have additional details to share (specification sheets, labelling requirements, target price),
-       simply reply to this email — it goes directly to the desk handling your request.</p>
+       simply reply to this email. It goes directly to the desk handling your request.</p>
     <p>Best regards,<br/>Export Department · ${escapeHtml(COMPANY.name)}</p>
   `;
 
@@ -76,7 +76,7 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
   await transport({
     to: buyer.email ? [buyer.email] : [],
     cc: buyer.cc_emails ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean) : undefined,
-    subject: `[${rfq.code}] Your sourcing request has been received – ${escapeHtml(COMPANY.name)}`,
+    subject: `[${rfq.code}] Your sourcing request has been received: ${escapeHtml(COMPANY.name)}`,
     html,
     text: stripHtml(body),
     headers: { "X-RFQ-Code": rfq.code },
@@ -94,10 +94,10 @@ export async function sendRfqNewInternal(input: { rfq: Rfq; buyer: Buyer }): Pro
   const isReview = rfq.status === "needs_review";
 
   const title = isSpam
-    ? `🚫 Spam quarantined — RFQ ${rfq.code} (score ${rfq.spam_score})`
+    ? `RFQ ${rfq.code} quarantined as spam (score ${rfq.spam_score})`
     : isReview
-      ? `⚠ RFQ ${rfq.code} flagged for manual review (score ${rfq.spam_score}) — ${escapeHtml(buyer.company)}`
-      : `New RFQ ${rfq.code} — ${escapeHtml(buyer.company)}`;
+      ? `RFQ ${rfq.code} needs manual review (score ${rfq.spam_score}): ${escapeHtml(buyer.company)}`
+      : `New RFQ ${rfq.code}: ${escapeHtml(buyer.company)}`;
 
   const body = `
     ${isSpam
@@ -114,20 +114,20 @@ export async function sendRfqNewInternal(input: { rfq: Rfq; buyer: Buyer }): Pro
     <table cellpadding="6" style="border-collapse:collapse;font-size:14px;">
       <tr><td style="color:#64748b;width:140px;">Company</td><td><strong>${escapeHtml(buyer.company)}</strong></td></tr>
       <tr><td style="color:#64748b;">Contact</td><td>${escapeHtml(buyer.contact_name ?? "")} · ${escapeHtml(buyer.email ?? "")} · ${escapeHtml(buyer.phone ?? "")}</td></tr>
-      <tr><td style="color:#64748b;">Country</td><td>${escapeHtml(buyer.country ?? "—")}</td></tr>
-      <tr><td style="color:#64748b;">Website</td><td>${escapeHtml(buyer.website ?? "—")}</td></tr>
+      <tr><td style="color:#64748b;">Country</td><td>${escapeHtml(buyer.country ?? "Not provided")}</td></tr>
+      <tr><td style="color:#64748b;">Website</td><td>${escapeHtml(buyer.website ?? "Not provided")}</td></tr>
       <tr><td style="color:#64748b;">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
       <tr><td style="color:#64748b;">Quantity</td><td>${escapeHtml(formatQuantity(rfq))}</td></tr>
-      <tr><td style="color:#64748b;">Destination</td><td>${escapeHtml(rfq.destination_country ?? "—")}</td></tr>
-      <tr><td style="color:#64748b;">Incoterm</td><td>${escapeHtml(rfq.incoterm ?? "—")}</td></tr>
-      <tr><td style="color:#64748b;">Needed by</td><td>${escapeHtml(rfq.needed_by ?? "—")}</td></tr>
+      <tr><td style="color:#64748b;">Destination</td><td>${escapeHtml(rfq.destination_country ?? "Not provided")}</td></tr>
+      <tr><td style="color:#64748b;">Incoterm</td><td>${escapeHtml(rfq.incoterm ?? "Not provided")}</td></tr>
+      <tr><td style="color:#64748b;">Needed by</td><td>${escapeHtml(rfq.needed_by ?? "Not provided")}</td></tr>
       <tr><td style="color:#64748b;">Samples / Inspection / Video</td>
           <td>${rfq.wants_samples ? "samples " : ""}${rfq.wants_inspection ? "inspection " : ""}${rfq.wants_video_call ? "video" : ""}</td></tr>
       <tr><td style="color:#64748b;">Target price</td>
-          <td>${rfq.target_price ? `${rfq.target_price} ${rfq.target_price_currency ?? ""}` : "—"}</td></tr>
+          <td>${rfq.target_price ? `${rfq.target_price} ${rfq.target_price_currency ?? ""}` : "Not provided"}</td></tr>
       <tr><td style="color:#64748b;">Notes</td><td>${escapeHtml(String((rfq.specs as Record<string, unknown>)?.notes ?? buyer.notes ?? ""))}</td></tr>
     </table>
-    <p><a href="${adminUrl}">Open in CRM →</a></p>
+    <p><a href="${adminUrl}">Open in CRM</a></p>
   `;
 
   const html = wrapPlainEmail({ title, body });
@@ -158,8 +158,8 @@ export async function sendSlaAlert(input: {
   const adminUrl = `${SITE_URL}/crm/rfqs/${rfq.id}`;
   const isUnassigned = kind === "unassigned_4h";
   const title = isUnassigned
-    ? `⏰ RFQ ${rfq.code} unassigned 4h after receipt`
-    : `⏰ RFQ ${rfq.code} first response due in ~4 hours`;
+    ? `RFQ ${rfq.code} unassigned 4h after receipt`
+    : `RFQ ${rfq.code} first response due in about 4 hours`;
   const body = `
     <p>${isUnassigned
       ? `This RFQ has been waiting for an owner for <strong>4 business hours</strong>. Please assign it now.`
@@ -173,7 +173,7 @@ export async function sendSlaAlert(input: {
       <tr><td style="color:#64748b;">Status</td><td>${escapeHtml(rfq.status)}</td></tr>
       <tr><td style="color:#64748b;">Received</td><td>${escapeHtml(rfq.created_at)}</td></tr>
     </table>
-    <p><a href="${adminUrl}">Open in CRM →</a></p>
+    <p><a href="${adminUrl}">Open in CRM</a></p>
   `;
   const html = wrapPlainEmail({ title, body });
   const to = [DESK_INBOX];

@@ -252,7 +252,7 @@ export default async function SettingsPage() {
               <li>
                 Thêm vào <code className="rounded bg-ink-100 px-1">.env.local</code>:
                 <pre className="mt-1 overflow-x-auto rounded bg-ink-50 p-2 text-[11.5px]">{`RESEND_API_KEY=re_...
-EMAIL_FROM=sales@veximtrade.com
+EMAIL_FROM=hello@veximtrade.com
 EMAIL_FROM_NAME=Vexim Trade`}</pre>
               </li>
               <li>Khởi động lại app. Các email đang ở trạng thái “demo” có thể bấm “Gửi lại”.</li>

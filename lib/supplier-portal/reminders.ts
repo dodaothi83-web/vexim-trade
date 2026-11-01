@@ -1,5 +1,6 @@
 import "server-only";
 
+import { SERVICE_FROM_ADDRESS } from "@/lib/config";
 import { getStore } from "@/lib/db";
 import type { DataStore } from "@/lib/db/types";
 import { transport } from "@/lib/email/send";
@@ -114,8 +115,8 @@ export function outstandingVerificationItems(input: {
         level: 2,
         title: partner ? "Nhà máy đối tác" : "Xác thực nhà máy",
         detail: partner
-          ? "Cần hợp đồng với nhà máy đối tác để Vexim đối chiếu; ảnh là tùy chọn."
-          : "Cần đủ 9 ảnh nhà máy theo danh mục chung, gồm tờ mã xác minh trong ba ảnh 🔖.",
+          ? "Cần hợp đồng với nhà máy đối tác để Vexim đối chiếu. Ảnh là tùy chọn."
+          : "Cần đủ 9 ảnh nhà máy, trong đó 3 ảnh có tờ mã xác minh.",
         href: "/supplier/portal/verification/factory",
         cta: partner ? "Tải hợp đồng đối tác" : "Tải ảnh nhà máy",
       });
@@ -151,30 +152,33 @@ export function buildSupplierReminderEmail(input: {
   origin: string;
 }): { subject: string; html: string; text: string } {
   const company = input.supplier.name?.trim() || "doanh nghiệp của bạn";
-  const greeting = input.supplier.contact_name?.trim() ? `Xin chào ${escapeHtml(input.supplier.contact_name.trim())},` : "Xin chào,";
-  const subject = `Nhắc hoàn thiện hồ sơ xác minh: ${input.items.map((item) => item.title).join(", ")}`;
+  const greeting = input.supplier.contact_name?.trim() ? `Chào ${escapeHtml(input.supplier.contact_name.trim())},` : "Chào bạn,";
+  const subject = `Hồ sơ xác minh còn ${input.items.length} bước: ${input.items.map((item) => item.title).join(", ")}`;
   const rows = input.items
     .map(
       (item) =>
-        `<li><strong>${escapeHtml(item.title)}</strong> — ${escapeHtml(item.detail)}<br/><a href="${escapeHtml(input.origin + item.href)}">${escapeHtml(item.cta)} →</a></li>`,
+        `<li><strong>${escapeHtml(item.title)}</strong><br/>${escapeHtml(item.detail)}<br/><a href="${escapeHtml(input.origin + item.href)}">${escapeHtml(item.cta)}</a></li>`,
     )
     .join("");
   const body = `<p>${greeting}</p>
-    <p>Hồ sơ xác minh của <strong>${escapeHtml(company)}</strong> trên Vexim Trade còn ${input.items.length} bước cần bạn bổ sung. Đây là thư nhắc việc dịch vụ cho tài khoản nhà cung cấp, không phải thư quảng cáo.</p>
+    <p>Hồ sơ xác minh của <strong>${escapeHtml(company)}</strong> trên Vexim Trade còn ${input.items.length} bước cần bổ sung:</p>
     <ul>${rows}</ul>
-    <p>Tải tệp lên không tự động cấp huy hiệu.</p>
-    <p>Nhân viên Vexim phải mở bằng chứng và duyệt từng bước; huy hiệu chỉ hiện sau bước duyệt đó.</p>
-    <p>Nếu bạn đã cập nhật hồ sơ hoặc không muốn nhận thư nhắc, hãy trả lời thư này.</p>
-    <p><a href="${escapeHtml(`${input.origin}/supplier/portal`)}">Mở cổng nhà cung cấp →</a></p>`;
+    <p>Tải tệp lên không tự cấp huy hiệu.</p>
+    <p>Nhân viên Vexim mở bằng chứng và duyệt từng bước, sau đó huy hiệu mới hiện trên hồ sơ công khai.</p>
+    <p>Thư này liên quan đến tài khoản nhà cung cấp của bạn.</p>
+    <p>Nếu hồ sơ đã cập nhật hoặc bạn không muốn nhận thư nhắc, trả lời thư này.</p>
+    <p><a href="${escapeHtml(`${input.origin}/supplier/portal`)}">Mở cổng nhà cung cấp</a></p>`;
   const text = [
     greeting,
     "",
-    `Hồ sơ xác minh của ${company} trên Vexim Trade còn ${input.items.length} bước cần bạn bổ sung. Đây là thư nhắc việc dịch vụ cho tài khoản nhà cung cấp, không phải thư quảng cáo.`,
+    `Hồ sơ xác minh của ${company} trên Vexim Trade còn ${input.items.length} bước cần bổ sung:`,
     "",
     ...input.items.map((item) => `- ${item.title}: ${item.detail} ${input.origin}${item.href}`),
     "",
-    "Tải tệp lên không tự động cấp huy hiệu: nhân viên Vexim phải mở bằng chứng và duyệt từng bước.",
-    "Nếu bạn đã cập nhật hồ sơ hoặc không muốn nhận thư nhắc, hãy trả lời thư này.",
+    "Tải tệp lên không tự cấp huy hiệu.",
+    "Nhân viên Vexim mở bằng chứng và duyệt từng bước, sau đó huy hiệu mới hiện trên hồ sơ công khai.",
+    "Thư này liên quan đến tài khoản nhà cung cấp của bạn.",
+    "Nếu hồ sơ đã cập nhật hoặc bạn không muốn nhận thư nhắc, trả lời thư này.",
     "",
     `${input.origin}/supplier/portal`,
   ].join("\n");
@@ -304,7 +308,7 @@ export async function sendSupplierProgressReminders(opts: {
     let provider: EmailMessage["provider"] = "local";
     let error: string | null = null;
     try {
-      const result = await send({ to: recipients, subject: email.subject, html: email.html, text: email.text });
+      const result = await send({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: email.subject, html: email.html, text: email.text });
       provider = result.provider;
       error = result.error;
       if (result.ok && (result.status === "sent" || result.status === "simulated")) {

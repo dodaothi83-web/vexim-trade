@@ -446,7 +446,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   }
 
   let message = "Yêu cầu đã được gửi! Kiểm tra email để theo dõi tiến độ.";
-  if (rfqStatus === "needs_review") message = "Yêu cầu đã được nhận. Chúng tôi đang xem xét thủ công và sẽ liên lạc lại trong vòng vài giờ làm việc.";
+  if (rfqStatus === "needs_review") message = "Yêu cầu đã được nhận. Vexim đang xem xét thủ công và sẽ liên lạc lại trong vòng vài giờ làm việc.";
   if (rfqStatus === "spam") message = "Yêu cầu đã được nhận và đang chờ duyệt.";
   if (isSupplierQuestion) {
     message = supplierDelivered

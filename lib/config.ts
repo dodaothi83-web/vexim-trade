@@ -9,7 +9,7 @@ const env: Record<string, string | undefined> =
 /** Thông tin công ty; email là hộp thư vận hành, contactEmail là liên hệ công khai trên website. */
 export const COMPANY = {
   name: env.EMAIL_FROM_NAME?.trim() || "Vexim Trade",
-  email: env.EMAIL_FROM?.trim() || "sales@veximtrade.com",
+  email: env.EMAIL_FROM?.trim() || "hello@veximtrade.com",
   website: env.COMPANY_WEBSITE?.trim() || "https://veximtrade.com",
   phone: env.COMPANY_PHONE?.trim() || "+84373685634",
   address:
@@ -65,6 +65,35 @@ export const ROLE_ADDRESS = COMPANY.email;
 
 /** Người gửi mặc định cho các email tự động không gắn với người cụ thể */
 export const FROM_ADDRESS = `${COMPANY.name} <${COMPANY.email}>`;
+
+/** Tách "Tên <a@b>" hoặc "a@b" thành local-part + domain, đã viết thường. */
+function splitAddress(input: string): { local: string; domain: string } {
+  const angle = input.match(/<([^>]+)>/);
+  const bare = (angle ? angle[1] : input).trim().toLowerCase();
+  const [local = "", domain = ""] = bare.split("@");
+  return { local: local.replace(/[^a-z0-9._-]/g, ""), domain: domain.trim() };
+}
+
+/**
+ * Địa chỉ gửi cho **thư dịch vụ tự động** gửi nhà cung cấp: nhắc hoàn thiện hồ sơ,
+ * quyết định duyệt/trả hồ sơ, chứng nhận sắp hết hạn.
+ *
+ * Vì sao không dùng hộp thư bán hàng: địa chỉ dạng `sales@` bị bộ lọc xếp vào nhóm
+ * hộp thư đại trà/quảng cáo, nên thư dễ rơi vào tab Quảng cáo. `hello@` đọc như thư
+ * từ bộ phận vận hành và không gắn với việc chào hàng.
+ *
+ * Chỉ nhận local-part của MAIL_DOMAIN; đặt domain khác (chưa verify trong Resend)
+ * sẽ bị bỏ qua để không làm hỏng việc gửi. Đổi qua `EMAIL_SERVICE_FROM`.
+ */
+export const SERVICE_ADDRESS: string = (() => {
+  const raw = env.EMAIL_SERVICE_FROM?.trim() || "hello";
+  const parsed = splitAddress(raw);
+  const local = parsed.local || "hello";
+  return `${local}@${parsed.domain && parsed.domain === MAIL_DOMAIN ? parsed.domain : MAIL_DOMAIN}`;
+})();
+
+/** Header From đầy đủ cho thư dịch vụ tự động, ví dụ `Vexim Trade <hello@veximtrade.com>` */
+export const SERVICE_FROM_ADDRESS = `${COMPANY.name} <${SERVICE_ADDRESS}>`;
 
 export function resendConfigured(): boolean {
   return Boolean(env.RESEND_API_KEY);

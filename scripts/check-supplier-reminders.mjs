@@ -10,7 +10,9 @@ const source = ts.transpileModule(readFileSync(new URL('../lib/supplier-portal/r
 
 const escapeHtml = (value) => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 const exports = {};
+const SERVICE_FROM = 'Vexim Trade <hello@veximtrade.com>';
 const mocks = {
+  '@/lib/config': { SERVICE_FROM_ADDRESS: SERVICE_FROM },
   '@/lib/db': { getStore: () => { throw new Error('store phải được inject trong bài kiểm tra'); } },
   '@/lib/email/send': { transport: async () => ({ ok: false, status: 'failed', provider: 'local', error: 'không inject' }) },
   '@/lib/email/templates': { escapeHtml, wrapPlainEmail: ({ title, body }) => `<h1>${title}</h1>${body}` },
@@ -68,11 +70,19 @@ const NOW = new Date('2026-11-01T02:00:00.000Z');
   assert.equal(report.sent, 1);
   assert.equal(sent.length, 1);
   assert.deepEqual(JSON.parse(JSON.stringify(sent[0].to)), ['owner@example.com'], 'Chỉ gửi cho tài khoản NCC đang hoạt động');
-  assert.match(sent[0].subject, /Nhắc hoàn thiện hồ sơ xác minh: Giấy tờ doanh nghiệp/);
-  assert.ok(sent[0].html.includes('không phải thư quảng cáo'));
-  assert.ok(sent[0].html.includes('Nhà máy &lt;A&gt;'), 'Tên NCC được escape');
+  assert.match(sent[0].subject, /Hồ sơ xác minh còn 1 bước: Giấy tờ doanh nghiệp/);
+  assert.equal(sent[0].from, SERVICE_FROM, 'Thư dịch vụ gửi từ hello@, không phải hộp thư bán hàng');
+  assert.match(sent[0].from, /hello@veximtrade\.com/);
+  assert.ok(!/sales@/.test(sent[0].from));
+  assert.ok(sent[0].html.includes('Nhà máy &lt;A&gt;'), 'Tên nhà cung cấp được escape');
   assert.ok(sent[0].html.includes('https://portal.example/supplier/portal/documents'));
   assert.ok(sent[0].text.includes('https://portal.example/supplier/portal'));
+  // Văn phong: không gạch dài, không mũi tên, không ngoặc cong, không emoji.
+  for (const [label, value] of [['subject', sent[0].subject], ['html', sent[0].html], ['text', sent[0].text]]) {
+    assert.doesNotMatch(value, /[—–→←“”‘’•]/, `${label} không dùng ký tự máy`);
+    assert.doesNotMatch(value, /\p{Extended_Pictographic}/u, `${label} không dùng emoji`);
+  }
+  assert.doesNotMatch(sent[0].html, /\{company\}|\$\{/, 'Không lộ biến chưa render');
   assert.equal(state.messages.length, 1, 'Mỗi thư được ghi nhật ký để chống trùng');
   assert.equal(state.messages[0].kind, 'supplier_reminder');
   assert.equal(state.messages[0].status, 'sent');
@@ -226,6 +236,22 @@ const NOW = new Date('2026-11-01T02:00:00.000Z');
   assert.match(route, /sendSupplierProgressReminders/);
   const sla = readFileSync(new URL('../app/api/cron/rfq-sla/route.ts', import.meta.url), 'utf8');
   assert.match(sla, /sendSupplierProgressReminders/);
+
+  // Địa chỉ gửi: mặc định hello@, không quay lại sales@; có biến riêng cho thư dịch vụ.
+  const config = readFileSync(new URL('../lib/config.ts', import.meta.url), 'utf8');
+  assert.match(config, /hello@veximtrade\.com/);
+  assert.doesNotMatch(config, /"sales@veximtrade\.com"/, 'Mặc định không còn sales@');
+  assert.match(config, /export const SERVICE_FROM_ADDRESS/);
+  assert.match(config, /EMAIL_SERVICE_FROM/);
+  const envExample = readFileSync(new URL('../.env.example', import.meta.url), 'utf8');
+  assert.match(envExample, /^EMAIL_FROM=hello@veximtrade\.com$/m);
+
+  // Thư dịch vụ khác trong notify.ts cũng gửi từ hello@ và không dùng mũi tên trong link.
+  const notify = readFileSync(new URL('../lib/supplier-portal/notify.ts', import.meta.url), 'utf8');
+  const transports = notify.match(/transport\(\{/g)?.length ?? 0;
+  const withFrom = notify.match(/from: SERVICE_FROM_ADDRESS/g)?.length ?? 0;
+  assert.ok(transports > 0 && transports === withFrom, 'Mọi thư dịch vụ phải chỉ rõ địa chỉ gửi hello@');
+  assert.doesNotMatch(notify, /<a href="\$\{url\}">[^<]*→/, 'Link trong thư không dùng mũi tên');
 }
 
 console.log('✅ Supplier reminders: chỉ nhắc việc NCC tự bắt đầu/yêu cầu, đúng người, 14 ngày/thư, tối đa 6 thư.');
