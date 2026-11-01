@@ -6,7 +6,8 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { SITE_URL } from "@/lib/site";
 import type { L2VerificationScope, Supplier } from "@/lib/types";
 
-function notificationOrigin(): string {
+/** Origin for supplier-facing links; exported so other supplier notices reuse the same staging override. */
+export function notificationOrigin(): string {
   try {
     const configured = process.env.SUPPLIER_SIGNUP_REDIRECT_URL;
     if (configured) {

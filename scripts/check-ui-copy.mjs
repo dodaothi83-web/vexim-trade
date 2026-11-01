@@ -87,6 +87,8 @@ const SCOPE = [
   'app/crm/templates/page.tsx',
   'app/crm/traffic/page.tsx',
   'app/crm/verifications/page.tsx',
+  'app/api/cron/supplier-reminders/route.ts',
+  'lib/supplier-portal/reminders.ts',
   'app/crm/verifications/submissions/[id]/submission-review-actions.tsx',
   'app/crm/verifications/submissions/page.tsx',
   'app/mail-attachment-actions.ts',

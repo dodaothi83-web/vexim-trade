@@ -1677,6 +1677,11 @@ export const localStore: DataStore = {
     );
     return rows.slice(0, limit);
   },
+  async listMessagesOfKind(kind) {
+    return [...load().messages]
+      .filter((m) => m.kind === kind)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  },
   async listMessagesForRfq(rfqId) {
     return [...load().messages]
       .filter((m) => (m as unknown as { rfq_id?: string | null }).rfq_id === rfqId)

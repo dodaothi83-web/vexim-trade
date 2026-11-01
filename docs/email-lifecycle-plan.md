@@ -1,0 +1,81 @@
+# Vòng đời email — dịch vụ trước, marketing sau
+
+Trạng thái: **đợt 1 đã triển khai trong mã** (thư nhắc nhà cung cấp hoàn thiện hồ sơ xác minh). Đợt 2 và 3 là kế hoạch, chưa có mã.
+
+Tài liệu liên quan: [notification-email-audit.md](notification-email-audit.md) (khoảng trống outbox/retry/delivery), [notification-phase2.md](notification-phase2.md) (email quyết định theo mốc nghiệp vụ), [cron-setup.md](cron-setup.md).
+
+## 1. Nguyên tắc
+
+1. **Chỉ gửi khi có lý do gắn với việc người nhận đang làm.** Không email "sản phẩm tương tự", không khuyến mãi theo mùa, không gửi hàng loạt theo hành vi duyệt web.
+2. **Email giao dịch luôn gửi; email dịch vụ theo sự kiện gửi có giới hạn; email marketing mặc định không gửi.** Ba lớp này không trộn vào nhau.
+3. **Nhà cung cấp trước, người mua sau.** Nhà cung cấp có tài khoản, có việc phải làm và trao đổi này là dịch vụ. Người mua chỉ có một email trong CRM, nên nội dung phải thật dày mới đáng gửi.
+4. **Uy tín tên miền là tài sản.** Vexim gửi cả báo giá và ack RFQ từ `veximtrade.com`; một đợt thư bị đánh spam sẽ kéo theo email giao dịch vào spam.
+5. **AI, dữ liệu tự khai và việc NCC tải tệp không tạo huy hiệu.** Email cũng không được ngụ ý điều đó.
+
+## 2. Ba lớp email
+
+| Lớp | Ví dụ | Có nút hủy nhận? | Cần consent marketing? |
+| --- | --- | --- | --- |
+| Giao dịch | ack RFQ, báo giá/shortlist, quyết định duyệt/từ chối hồ sơ, xác nhận tài khoản | Không (thư hệ quả của việc người nhận vừa làm) | Không |
+| Dịch vụ theo sự kiện | nhắc hoàn thiện hồ sơ, chứng nhận sắp hết hạn, hồ sơ bị trả | Chỉ cần "trả lời thư này" + tôn trọng yêu cầu | Không, nhưng chỉ gửi cho tài khoản đang hoạt động và chỉ nhắc việc họ đã bắt đầu/yêu cầu |
+| Marketing / bản tin | bản tin tuần cho buyer, gợi ý nhà cung cấp mới | Bắt buộc 1-click + trang tùy chọn | Có, mặc định không đăng ký |
+
+## 3. Đợt 1 — đã có trong mã (thư dịch vụ cho nhà cung cấp)
+
+| Sự kiện | Người nhận | Điều kiện | Giới hạn | Mã |
+| --- | --- | --- | --- | --- |
+| Hồ sơ xác minh còn bước dở | Tài khoản NCC đang hoạt động của đúng `supplier_id` | Cổng đã được duyệt; cấp đó NCC đã tự bắt đầu (có đợt kiểm/hồ sơ nháp/bị trả) hoặc đã tự gửi yêu cầu kiểm định; **không** nhắc khi đang `submitted`/`pending_review` | 1 thư/14 ngày/NCC, tối đa 6 thư/NCC, tối đa 40 thư/lượt | `lib/supplier-portal/reminders.ts`, `app/api/cron/supplier-reminders/route.ts`, gộp trong `app/api/cron/rfq-sla/route.ts` |
+| Chứng nhận sắp hết hạn | Tài khoản NCC | Có `valid_until`, chưa từng nhắc mốc đó | Mốc 60/30/7/1 ngày, mỗi mốc 1 lần | `lib/certificate-service.ts` → `notifySupplierCertificateExpiry` (đã có từ trước) |
+| Quyết định duyệt/trả hồ sơ, sản phẩm, chứng nhận | Tài khoản NCC | Sau khi DB đã đổi trạng thái | 1 thư/quyết định | `lib/supplier-portal/notify.ts` (đợt 2 trước đây) |
+
+Ghi chú triển khai:
+
+- Mỗi lần gửi được ghi vào `email_messages` với `kind = 'supplier_reminder'`, `direction = 'supplier'`, `created_by = null`. Chống trùng đọc từ chính bảng này (`store.listMessagesOfKind`), chỉ tính thư `sent`/`simulated`.
+- Phải chạy `supabase/migrations/20261101_supplier_progress_reminders.sql` **trước khi deploy**: migration chỉ mở rộng CHECK `email_messages_kind_check`, không thêm bảng/cột. Nếu chưa chạy, cron trả `failed` (không gửi sai, nhưng không chống trùng được).
+- Không cần thêm cron job: `/api/cron/rfq-sla` đã gọi kèm. Muốn tách lịch thì trỏ thêm một job vào `/api/cron/supplier-reminders` với cùng `CRON_SECRET`.
+- Thư tiếng Việt, một CTA, không có link hủy nhận giả: hướng dẫn trả lời thư. Đây là giới hạn có chủ đích cho tới khi có hạ tầng ở đợt 2.
+- Kiểm thử offline: `npm run check:email-lifecycle`.
+
+## 4. Đợt 2 — hạ tầng đồng ý & khả năng phát (bắt buộc trước mọi email marketing)
+
+Chưa triển khai. Đây là điều kiện tiên quyết, không phải tính năng phụ.
+
+| Hạng mục | Yêu cầu |
+| --- | --- |
+| Danh sách chặn | Bảng `email_suppressions` (email, lý do, nguồn, thời điểm); mọi lần gửi marketing kiểm tra trước |
+| Hủy nhận 1-click | Endpoint có token, header `List-Unsubscribe` + `List-Unsubscribe-Post` (Gmail/Yahoo yêu cầu cho bulk sender) |
+| Trang tùy chọn | `/preferences/[token]`: chọn chủ đề (báo giá, nhà cung cấp mới, giá thay đổi) và tần suất; không cần tài khoản buyer |
+| Bounce/complaint | Mở rộng `app/api/webhooks/resend/route.ts` xử lý `email.delivered`/`bounced`/`complained` → tự thêm vào danh sách chặn |
+| Tên miền phụ | Gửi marketing bằng subdomain riêng để reputation của `sales@` không bị lây |
+| Footer pháp lý | Tên pháp nhân + địa chỉ bưu chính (CAN-SPAM) + lý do nhận thư |
+| Đo lường | Đếm mở/click tối thiểu; không dùng pixel theo dõi cá nhân nếu chưa có consent |
+
+Căn cứ pháp lý khi bật bất kỳ email marketing nào: EU cần opt-in (không có ngoại lệ B2B thống nhất; Đức/Áo vẫn bắt buộc), Mỹ cần cơ chế hủy nhận + địa chỉ người gửi, Việt Nam (Nghị định 91/2020) cần đồng ý trước và cơ chế từ chối. Lấy mức chặt nhất.
+
+## 5. Đợt 3 — bản tin cho người mua (chỉ khi đủ điều kiện)
+
+| Sự kiện | Người nhận | Điều kiện |
+| --- | --- | --- |
+| Báo giá mới cho RFQ của họ | Buyer có RFQ đang mở | Đã gửi shortlist hoặc có match `quoted`; không lộ ghi chú nội bộ |
+| Giá thay đổi ở sản phẩm đang theo dõi | Buyer đã đăng ký theo dõi | Cần bảng theo dõi + lịch sử giá; chưa có |
+| Nhà cung cấp mới đã xác minh trong danh mục quan tâm | Buyer đã đăng ký nhận | Chỉ dùng đợt kiểm `approved`; gộp bản tin tuần |
+
+Điều kiện mở đợt 3 (theo thứ tự, đủ cả ba mới bật):
+
+1. Catalog đủ dày theo mục tiêu trong [marketing-supplier-aida.md](marketing-supplier-aida.md) — 12 sản phẩm/6 nhà cung cấp mỗi danh mục, ít nhất 2/3 danh mục.
+2. Ít nhất 50 buyer thật trong CRM có email hợp lệ và có nguồn rõ ràng.
+3. Có ít nhất 3–5 RFQ/tuần để bản tin có mục "báo giá mới" thật.
+
+Chưa đủ thì bản tin tuần sẽ rỗng và tự mất người nhận sau vài số.
+
+## 6. Không làm
+
+- Email "sản phẩm tương tự"/"nhà cung cấp phù hợp" dựa trên hành vi duyệt web: hiện `supplier_traffic_daily` và `vexim_site_traffic_daily` chỉ là bộ đếm tổng hợp theo ngày, **không lưu danh tính người xem**. Muốn cá nhân hóa phải thêm tracking cá nhân → cần consent banner và có rủi ro pháp lý, chưa đáng ở quy mô hiện tại.
+- Email khuyến mãi theo mùa kiểu Alibaba: không có lý do tồn tại khi số nhà cung cấp đã xác minh còn ít.
+- Bán vị trí trong email/bản tin: trái với cách xếp hạng đang công bố.
+
+## 7. Việc còn lại của đợt 1
+
+- Outbox/retry bền vững và webhook `delivered/bounced/complained` vẫn là khoảng trống chung (xem [notification-email-audit.md](notification-email-audit.md)). Nhắc NCC hiện dựa vào ghi nhật ký best-effort: ghi lỗi thì lần sau có thể nhắc lại (chấp nhận hơn là chặn cả lượt cron).
+- Chưa có trang để NCC tự tắt thư nhắc. Hiện chỉ tiếp nhận qua trả lời thư; khi có đợt 2 thì thêm công tắc vào trang tùy chọn của tài khoản NCC.
+- Không có email tự động mời NCC làm thêm L2/L3 khi họ chưa hề yêu cầu — đó là việc bán hàng, phải do nhân viên chủ động liên hệ.

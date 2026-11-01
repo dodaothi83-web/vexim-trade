@@ -22,10 +22,11 @@ import { RichEditor } from "@/components/rich-editor";
 import { SafeHtml } from "@/components/safe-html";
 import { Badge, Button, cx, formatDateTime } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import type { MessageKind } from "@/lib/types";
 
 export interface ThreadMessage {
   id: string;
-  kind: "auto" | "manual" | "inbound" | "rfq_outreach" | "rfq_followup" | "shortlist_buyer" | "buyer_status_update";
+  kind: MessageKind;
   status: string;
   subject: string;
   fromLabel: string;
