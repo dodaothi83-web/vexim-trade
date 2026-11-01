@@ -143,6 +143,7 @@ const outbound = load('../lib/rfq/outreach.ts', {
   '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/email/templates': { escapeHtml: (s) => s, wrapPlainEmail: ({ body }) => body },
   '@/lib/rfq/reply-routing': { supplierReplyAddress: () => 'reply@example.com', buyerReplyAddress: () => 'buyer-reply@example.com' },
+  '@/lib/email/threading': { mailTopic: (input) => `rfq.${input.rfqCode}`, openThread: async () => ({ messageId: '<rfq.test.1@example.com>', headers: {}, seq: 1 }) },
 });
 const privateMail = outbound.buildRfqSupplierEmail({ rfq: { ...rfq, product_text: 'contact buyer@example.com', specs: { notes: 'SECRET BUYER CONTACT' } },
   supplier: { name: 'Supplier A' }, deadline: now });

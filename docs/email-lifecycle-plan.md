@@ -32,6 +32,18 @@ Tài liệu liên quan: [notification-email-audit.md](notification-email-audit.m
 - Thân thư nói ba việc: đang có gì, cần làm gì, ai làm. Câu ngắn, không mở bài dài.
 - Không dùng "chúng tôi", "quý khách", "kính mong"; Vexim gọi người nhận là "bạn" và tự xưng "Vexim".
 - Mỗi thư có một lý do nhận thư và một cách từ chối (trả lời thư, hoặc nút hủy khi đợt 2 xong).
+### 1d. Tiêu đề và mạch thư
+
+- Mã RFQ **đặt ở cuối tiêu đề**, dạng `Quotation for Cashew Kernels W320, CIF Gothenburg (Ref RFQ-20261101-00042)`.
+  Không đặt mã trong ngoặc vuông ở đầu: hộp thư trên điện thoại chỉ hiện khoảng 40 ký tự
+  đầu, nên phần người mua cần thấy là mặt hàng và điều kiện giao, không phải mã đơn.
+- Một đơn dùng **một mã duy nhất** là mã RFQ (`lib/rfq/index.ts`); mã nội bộ `VXT-…`
+  (`shortCode()`) chỉ còn là phương án dự phòng khi hồ sơ người mua chưa có RFQ.
+- Thư tự động gửi kèm `Message-ID` do Vexim đặt (`lib/email/threading.ts`), dạng
+  `<rfq.rfq-20261101-00042.3@veximtrade.com>`, lưu vào `email_messages.rfc_message_id`.
+  Từ thư thứ hai trở đi, hệ thống gắn `In-Reply-To` và `References` trỏ tới các thư trước
+  trong cùng mạch, nên Gmail/Outlook gom cả quá trình thành một chuỗi. Chỉ thư đã tới nơi
+  (`sent`/`simulated`) mới được nối vào; bản nháp và thư gửi lỗi không tính.
 - Cách viết này đã có tiền lệ ở `lib/email/service-inquiry.ts`. Bài kiểm tra
   `scripts/check-supplier-reminders.mjs` chặn hồi quy trên thư nhắc hồ sơ, còn
   `scripts/check-email-copy.mjs` quét cả 9 tệp soạn thư (`lib/email/**`, `lib/rfq/outreach.ts`,

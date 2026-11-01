@@ -12,6 +12,7 @@ import {
 } from "@/lib/email/templates";
 import { getStage, type StageKey } from "@/lib/pipeline";
 import { mergeOverrides } from "@/lib/email/stage-content";
+import { mailTopic, openThread, rfqCodeForBuyer } from "@/lib/email/threading";
 import { loadForSend, toRef } from "@/lib/mail/attachments";
 import type { Buyer, EmailAttachment, Supplier } from "@/lib/types";
 
@@ -164,6 +165,10 @@ export async function sendStageUpdate(
   const content = mergeOverrides(
     await store.listTemplateOverrides().catch(() => []),
   )[stage];
+  // Mã tham chiếu + mạch thư: cả đơn dùng một mã RFQ, và các thư nối nhau bằng
+  // In-Reply-To/References để Gmail/Outlook gom thành một chuỗi.
+  const refCode = await rfqCodeForBuyer(buyer.id);
+  const mailThread = await openThread(mailTopic({ rfqCode: refCode, buyerId: buyer.id }));
   const messages: string[] = [];
   let buyerSent = false;
   let supplierSent = false;
@@ -187,6 +192,7 @@ export async function sendStageUpdate(
     const payload = buildBuyerEmail({
       buyer,
       stage,
+      refCode,
       note: params.messageToBuyer ?? params.note ?? null,
       content,
       senderEmail: sender?.address ?? null,
@@ -201,6 +207,7 @@ export async function sendStageUpdate(
       from: sender?.header ?? null,
       replyTo: sender?.address ?? null,
       ...payload,
+      headers: mailThread.headers,
     });
     buyerSent = res.ok;
     simulated = simulated || res.status === "simulated";
@@ -219,6 +226,7 @@ export async function sendStageUpdate(
       to: [buyer.email.trim()],
       cc,
       res,
+      rfcMessageId: mailThread.messageId,
     });
   } else {
     messages.push("Người mua chưa có email, bỏ qua email người mua.");
@@ -236,6 +244,7 @@ export async function sendStageUpdate(
       buyer,
       supplier,
       stage,
+      refCode,
       note: params.messageToSupplier ?? params.note ?? null,
       content,
     });
@@ -279,6 +288,8 @@ async function saveAutoMessage(opts: {
   to: string[];
   cc: string[];
   res: TransportResult;
+  /** Message-ID của thư trong mạch, để thư sau nối In-Reply-To/References */
+  rfcMessageId?: string | null;
 }) {
   await getStore()
     .addMessage({
@@ -288,6 +299,7 @@ async function saveAutoMessage(opts: {
       stage: opts.stage,
       direction: opts.direction,
       thread_id: threadId(opts.direction, opts.to[0] ?? ""),
+      rfc_message_id: opts.rfcMessageId ?? null,
       subject: opts.payload.subject,
       to_emails: opts.to,
       cc_emails: opts.cc,

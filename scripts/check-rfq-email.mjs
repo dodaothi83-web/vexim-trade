@@ -70,8 +70,13 @@ const transport = async (mail) => {
   sent.push(mail);
   return transportFailed ? { ok: false, status: 'failed', provider: 'resend' } : { ok: true, status: transportStatus, provider: 'resend' };
 };
+const threading = loadTS('../lib/email/threading.ts', {
+  '@/lib/config': { MAIL_DOMAIN: 'example.com' },
+  '@/lib/db': { getStore: () => store },
+});
 const mocks = {
   resend: { Resend: class {} },
+  '@/lib/email/threading': threading,
   '@/lib/config': { ...config, resendConfigured: () => false },
   '@/lib/email/sender': { bareAddress, findUserByAddress: () => null, isOwnMailAddress: () => false },
   '@/lib/db': { getStore: () => store },
@@ -122,8 +127,18 @@ assert.equal(sent.at(-1).replyTo, router.buyerReplyAddress(code));
 assert.equal(messages.at(-1).kind, 'buyer_status_update');
 assert.equal(messages.at(-1).rfq_match_id, null);
 assert.equal((await notifyBuyerRfqStatus(rfq, 'sampling', id)).reason, 'already_sent');
+const samplingMail = sent.at(-1);
+assert.ok(!samplingMail.subject.startsWith('['), 'mã không đứng đầu tiêu đề');
+assert.match(samplingMail.subject, /\(Ref RFQ-20261017-00001\)$/, 'mã đặt ở cuối tiêu đề');
+assert.equal(samplingMail.headers['In-Reply-To'], undefined, 'thư đầu mạch không có In-Reply-To');
+assert.match(samplingMail.headers['Message-ID'], /^<rfq\.rfq-20261017-00001\.1@example\.com>$/, 'Message-ID mang tên mạch + số thứ tự');
 assert.equal((await notifyBuyerRfqStatus(rfq, 'lost')).sent, true);
-assert.ok(sent.at(-1).html.includes('Giá chưa cạnh tranh'));
+const lostMail = sent.at(-1);
+assert.equal(lostMail.headers['In-Reply-To'], samplingMail.headers['Message-ID'], 'thư sau nối đúng thư trước');
+assert.equal(lostMail.headers['References'], samplingMail.headers['Message-ID'], 'References chứa thư trước');
+assert.match(lostMail.subject, /\(Ref RFQ-20261017-00001\)$/, 'cả mạch dùng chung một mã');
+assert.ok(sent.at(-1).html.includes('The quoted price was not competitive'), 'buyer mail carries the public reason');
+assert.ok(!/[àáảãạăâđêôơư]/i.test(sent.at(-1).html), 'buyer mail is English only');
 assert.ok(!sent.at(-1).html.includes('INTERNAL ONLY'), 'internal closed_reason must stay private');
 assert.equal((await notifyBuyerRfqStatus(rfq, 'lost')).reason, 'already_sent');
 assert.equal(messages.filter((m) => m.kind === 'buyer_status_update').length, 2);
