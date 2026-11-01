@@ -63,7 +63,13 @@ const NO_GPS: GpsState = { lat: null, lng: null, accuracy: null, at: null, state
  * hành động cố định ở đáy trên điện thoại. Toàn bộ hành vi giữ nguyên: tạo mã, tải/in
  * tờ mã, định vị, tải tệp, xóa tệp, khai link, AI quét thử, AI quét & nộp, khóa hồ sơ.
  */
-export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmissionView; specs: PortalItemSpec[] }) {
+import { VerificationBenefits } from "./benefits";
+export function VerificationSubmissionPanel({ view, specs, benefits }: {
+  view: PortalSubmissionView;
+  specs: PortalItemSpec[];
+  /** Năm giá trị nhà cung cấp nhận được, đặt trên cùng cột hẹp của bước này. */
+  benefits?: readonly string[];
+}) {
   const router = useRouter();
   const level = view.level;
   const partner = level === 2 && view.l2Scope === "partner_contract";
@@ -570,6 +576,7 @@ export function VerificationSubmissionPanel({ view, specs }: { view: PortalSubmi
 
       {/* Cột tóm tắt dính: luôn thấy tiến độ và nút nộp khi lướt danh sách dài. */}
       <aside className="space-y-4 lg:sticky lg:top-20">
+        {benefits?.length ? <VerificationBenefits items={benefits} /> : null}
         {factory && <section aria-labelledby="gps-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <h3 id="gps-title" className="flex items-center gap-1.5 text-[13px] font-bold text-ink-900">

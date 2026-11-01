@@ -35,7 +35,7 @@ assert.match(levelPage, /supplierLevelAccess\(level\)/, 'Quyền truy cập lấ
 assert.match(levelPage, /getOrCreateSubmission\(store, \{ supplierId: supplier\.id, level, userId: user\.id, supplierType: supplier\.supplier_type \}\)/,
   'Chỉ mở/tạo hồ sơ của đúng cấp');
 assert.match(levelPage, /level === 2 \? partner \? partnerSpecs\(\) : photoSpecs\(\) : exportSpecs\(\)/, 'Danh mục đi theo cấp');
-assert.match(levelPage, /<VerificationSubmissionPanel view=\{view\} specs=\{specs\} \/>/, 'Bảng điều khiển dùng đúng khung cũ');
+assert.match(levelPage, /<VerificationSubmissionPanel view=\{view\} specs=\{specs\}/, 'Bảng điều khiển dùng đúng khung cũ');
 assert.match(levelPage, /chưa mở được hồ sơ tự gửi/, 'Lỗi đọc hồ sơ có log');
 assert.match(levelPage, /Chưa mở được phần tải bằng chứng/, 'Thiếu bảng có màn hình báo cho NCC');
 assert.match(levelPage, /không phải lỗi tài khoản của bạn/, 'Câu báo lỗi nói rõ lỗi phía Vexim');
@@ -70,14 +70,20 @@ const mainColumn = documents.slice(documents.indexOf('<div className="min-w-0 sp
 assert.match(mainColumn, /<L1DocUpload checklistKey=\{row\.key\}/, 'Cột trái rộng là nơi tải giấy đăng ký kinh doanh');
 assert.match(mainColumn, /<SupplierCertificateUpload certificates=/, 'Cột trái rộng là nơi tải chứng nhận chất lượng');
 assert.match(mainColumn, /role="progressbar"/, 'Tiến độ giấy tờ nằm cạnh ô tải');
-assert.match(aside, /Bạn nhận được gì/, 'Cột phải nói nhà cung cấp nhận được gì');
+assert.match(aside, /<VerificationBenefits items=\{L1_BENEFITS\} \/>/, 'Cột phải nói nhà cung cấp nhận được gì');
 assert.match(aside, /Chứng nhận đã duyệt theo loại/, 'Cột phải liệt kê loại giấy đã duyệt');
 assert.match(documents, /EvidenceThumbnail/, 'L1 hiển thị tệp dạng ảnh thu nhỏ');
 
-// Phần giá trị: một khối riêng, chỉ gạch đầu dòng ngắn, đứng trên danh sách chứng nhận.
-const benefits = documents.slice(documents.indexOf("Bạn nhận được gì"), documents.indexOf("Chứng nhận đã duyệt theo loại"));
-assert.ok(benefits.length > 0, 'L1 nói rõ nhà cung cấp nhận được gì, đặt trên danh sách chứng nhận');
-assert.equal((benefits.match(/<li>/g) ?? []).length, 4, 'Đúng bốn gạch đầu dòng, không viết dài');
+// Phần giá trị: dùng chung một khối, nằm trong cột hẹp bên cạnh, trên danh sách chứng nhận.
+assert.match(documents, /<VerificationBenefits items=\{L1_BENEFITS\} \/>/, 'L1 dùng cùng khối giá trị với L2/L3');
+assert.ok(documents.indexOf('<VerificationBenefits') > documents.indexOf('<aside'), 'Khối giá trị nằm trong cột hẹp bên cạnh');
+const l1Benefits = documents.match(/const L1_BENEFITS = \[\n((?:\s+"[^"\n]+",\n)+)\] as const;/);
+assert.ok(l1Benefits, 'L1 khai báo danh sách giá trị ngay trên đầu trang');
+const l1Lines = l1Benefits[1].split('\n').filter((line) => line.trim());
+assert.equal(l1Lines.length, 5, 'Năm giá trị nổi bật, không viết dài');
+for (const line of l1Lines) {
+  assert.ok(line.trim().replace(/,$/, '').length <= 90, `Gạch đầu dòng quá dài: ${line.trim()}`);
+}
 assert.match(documents, /Chứng nhận đã duyệt theo loại/, 'Danh sách chứng nhận gom theo loại giấy');
 assert.match(documents, /approvedByKey\.map/, 'Chỉ loại có giấy đã duyệt mới được vẽ');
 assert.match(documents, /BadgeCheck/, 'Mỗi loại đã duyệt có dấu xác nhận');
@@ -88,25 +94,30 @@ assert.match(documents, /Lý do cần bổ sung:/, 'L1 hiện lý do khi bị tr
 assert.doesNotMatch(documents, /runScan|Nộp hồ sơ/, 'Bước 1 không có nút nộp: nhân viên mở đợt kiểm');
 assert.doesNotMatch(documents, /AI quét những gì/, 'Không lặp lại khối giải thích AI đã bỏ ở L2/L3');
 
-/* 2c. L2 và L3 nói rõ nhà cung cấp nhận được gì: một khối chung, ba gạch đầu dòng
-   ngắn, đặt ngay dưới dải tab để đọc trước khi bắt tay làm. */
-assert.ok(has('app/supplier/portal/verification/benefits.tsx'), 'Có khối giá trị dùng chung cho L2 và L3');
+/* 2c. L2 và L3 nói rõ nhà cung cấp nhận được gì: cùng một khối, năm gạch đầu dòng,
+   đặt trong cột hẹp bên cạnh như L1, trên thẻ nộp hồ sơ. Chỉ nói thứ người mua nhìn
+   thấy; không hứa đơn hàng và không nói nhân viên sẽ giới thiệu nhà cung cấp. */
+assert.ok(has('app/supplier/portal/verification/benefits.tsx'), 'Có khối giá trị dùng chung cho ba bước');
 const benefitsBlock = read('app/supplier/portal/verification/benefits.tsx');
 assert.match(benefitsBlock, /Bạn nhận được gì/, 'Khối giá trị có tiêu đề');
 assert.match(benefitsBlock, /Check className/, 'Mỗi dòng có dấu xác nhận');
-assert.match(benefitsBlock, /sm:grid-cols-3/, 'Ba dòng xếp ngang trên màn hình rộng');
-assert.match(levelPage, /<VerificationBenefits items=\{copy\.benefits\} \/>/, 'L2 và L3 dùng chung khối đó');
-const benefitsAt = levelPage.indexOf('<VerificationBenefits');
-assert.ok(benefitsAt > levelPage.indexOf('<LevelTabs'), 'Khối giá trị nằm ngay sau dải tab');
-assert.ok(benefitsAt < levelPage.indexOf('Ba bước thực hiện'), 'Khối giá trị đứng trước ba bước thực hiện');
+assert.match(benefitsBlock, /space-y-1/, 'Danh sách xếp dọc cho vừa cột hẹp');
+assert.match(levelPage, /benefits=\{copy\.benefits\}/, 'L2 và L3 truyền giá trị vào cột hẹp');
+assert.doesNotMatch(levelPage, /<VerificationBenefits/, 'Trang không tự vẽ khối, chỉ truyền dữ liệu');
+const levelPanel = read('app/supplier/portal/verification/verification-panel.tsx');
+const panelAside = levelPanel.slice(levelPanel.indexOf('<aside'), levelPanel.indexOf('</aside>', levelPanel.indexOf('<aside')));
+assert.match(panelAside, /<VerificationBenefits items=\{benefits\} \/>/, 'Cột hẹp của L2/L3 có khối giá trị');
+assert.ok(panelAside.indexOf('<VerificationBenefits') < panelAside.indexOf('Nộp hồ sơ'),
+  'Khối giá trị đứng trên thẻ nộp hồ sơ');
 const benefitBlocks = [...levelPage.matchAll(/benefits: \[\n((?:\s+"[^"\n]+",\n)+)\s+\]/g)];
 assert.equal(benefitBlocks.length, 3, 'Đủ ba biến thể: L2 nhà máy, L2 đối tác, L3 xuất khẩu');
 for (const [, body] of benefitBlocks) {
   const lines = body.split('\n').filter((line) => line.trim());
-  assert.equal(lines.length, 3, 'Mỗi cấp đúng ba gạch đầu dòng');
+  assert.equal(lines.length, 5, 'Mỗi cấp đúng năm giá trị');
   for (const line of lines) {
     assert.ok(line.trim().replace(/,$/, '').length <= 90, `Gạch đầu dòng quá dài: ${line.trim()}`);
     assert.doesNotMatch(line, /tăng đơn|chắc chắn có đơn|top 1|lên top/i, 'Không hứa đơn hàng hay thứ hạng tuyệt đối');
+    assert.doesNotMatch(line, /giới thiệu|nhân viên sẽ chọn|nhân viên chọn/i, 'Không nói nhân viên giới thiệu nhà cung cấp');
   }
 }
 

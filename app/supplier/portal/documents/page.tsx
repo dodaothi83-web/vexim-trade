@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, BadgeCheck, CheckCircle2, Clock, FileCheck2, FileText, ShieldCheck } from "lucide-react";
+import { ArrowLeft, BadgeCheck, CheckCircle2, Clock, FileCheck2, FileText } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { FilePicker } from "@/components/file-picker";
@@ -18,6 +18,16 @@ import { migrationHint } from "@/lib/db/migration-hints";
 import { L1DocUpload } from "../l1-doc-upload";
 import { SupplierCertificateUpload } from "../certificate-upload";
 import { LevelTabs } from "../verification/level-tabs";
+import { VerificationBenefits } from "../verification/benefits";
+
+/** Năm giá trị bước 1 đem lại, viết cho nhà cung cấp đọc nhanh. */
+const L1_BENEFITS = [
+  "Huy hiệu đã kiểm giấy tờ hiện trên hồ sơ và thẻ sản phẩm.",
+  "Người mua đọc được đúng mức đã kiểm, không phải một nhãn chung.",
+  "Đứng trên nhà cung cấp chưa xác thực khi người mua duyệt danh mục.",
+  "Chứng nhận chất lượng được tính vào điểm tin cậy của hồ sơ.",
+  "Người mua lọc riêng được nhóm đã kiểm giấy tờ.",
+] as const;
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Xác thực doanh nghiệp & chứng nhận", robots: { index: false, follow: false } };
@@ -276,18 +286,7 @@ export default async function SupplierDocumentsPage() {
 
       {/* Cột phải: nhà cung cấp nhận được gì và giấy nào đã duyệt. */}
       <aside className="space-y-4 lg:sticky lg:top-20">
-        {/* Giá trị nhận được: gạch đầu dòng ngắn, nói đúng thứ người mua nhìn thấy. */}
-        <section aria-labelledby="benefits-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
-          <h2 id="benefits-title" className="flex items-center gap-1.5 text-[13px] font-bold text-brand-900">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />Bạn nhận được gì
-          </h2>
-          <ul className="mt-2 list-disc space-y-1 pl-4 text-[11.5px] leading-5 text-ink-700">
-            <li>Huy hiệu đã kiểm giấy tờ trên hồ sơ và trên thẻ sản phẩm.</li>
-            <li>Đứng trên nhà cung cấp chưa xác thực khi người mua duyệt danh mục.</li>
-            <li>Chứng nhận chất lượng được tính vào điểm tin cậy của hồ sơ.</li>
-            <li>Hiện trong bộ lọc đã xác minh của người mua.</li>
-          </ul>
-        </section>
+        <VerificationBenefits items={L1_BENEFITS} />
 
         {/* Chứng nhận đã duyệt theo loại: chỉ loại có giấy mới hiện, màu xanh, có dấu xác nhận. */}
         <section aria-labelledby="approved-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">

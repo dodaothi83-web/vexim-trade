@@ -29,6 +29,7 @@ function load(file) {
     if (id === '@/lib/verification-submission') return { VERIFICATION_CODE_TTL_HOURS: 72, MAX_ITEMS_PER_KEY: 3 };
     if (id === './submission-actions') return actionStubs;
     if (id === './submission-item-card') return load(resolve(dirname(absolute), 'submission-item-card.tsx'));
+    if (id === './benefits') return { VerificationBenefits: () => null };
     return nativeRequire(id);
   };
   vm.runInThisContext(`(function(exports, require, module) { ${code}\n})`, { filename: absolute })(mod.exports, require, mod);
