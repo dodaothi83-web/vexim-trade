@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -11,6 +14,18 @@ import HomeContent from "./home";
 import { HOME_META_DESCRIPTION } from "@/lib/public/meta-copy";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Ảnh nền trang chủ do mình tự đặt: thả một trong các tệp dưới vào đúng thư mục là trang
+ * dùng ngay, không phải sửa mã. Chưa có tệp nào thì giữ ảnh thật trên Pexels.
+ * Kích thước nên xuất: 1600x1067, WebP hoặc JPG dưới 300 KB, chủ thể lệch phải.
+ * Xem thêm public/images/home/README.md.
+ */
+const HOME_HERO_LOCAL_FILES = [
+  "/images/home/hero-farmer.webp",
+  "/images/home/hero-farmer.jpg",
+  "/images/home/hero-farmer.png",
+] as const;
 
 const HOME_TITLE = "Vexim Trade – Find Verified Food & Agricultural Products and Suppliers in Vietnam";
 const HOME_DESCRIPTION = HOME_META_DESCRIPTION;
@@ -48,6 +63,9 @@ export default async function PublicHomePage({
 }: {
   searchParams?: Promise<{ q?: string; cat?: string; lang?: string }>;
 }) {
+  // Đọc mỗi lần render: thả ảnh vào public/images/home là trang đổi ngay, không phải restart.
+  const heroLocal = HOME_HERO_LOCAL_FILES.find((file) =>
+    existsSync(join(process.cwd(), "public", file))) ?? null;
   const session = await getSession();
   if (session) redirect("/crm/dashboard");
   const host = ((await headers()).get("host") ?? "").toLowerCase();
@@ -87,7 +105,7 @@ export default async function PublicHomePage({
     <>
       <GoogleTag />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
-      <HomeContent query={query} categoryFilter={categoryFilter} lang={lang} />
+      <HomeContent query={query} categoryFilter={categoryFilter} lang={lang} heroSrc={heroLocal} />
     </>
   );
 }

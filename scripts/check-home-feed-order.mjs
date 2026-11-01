@@ -165,7 +165,14 @@ assert.match(full, /loading="eager"/, "The LCP hero loads immediately");
 assert.match(full, /fetchPriority="high"/i, "The LCP hero keeps high fetch priority");
 const homeSource = readFileSync(new URL("../app/(public)/home.tsx", import.meta.url), "utf8");
 assert.doesNotMatch(homeSource, /loader=\{homeHeroLoader\}/, "The server homepage does not pass a loader function to a Client Component");
-assert.match(homeSource, /srcSet=\{HOME_HERO_SRCSET\}/, "The hero uses static responsive URLs instead of a function prop");
+assert.match(homeSource, /srcSet=\{heroSrc \? undefined : HOME_HERO_SRCSET\}/,
+  "The hero uses static responsive URLs instead of a function prop");
+/* Ảnh nền tự đặt: page kiểm tệp trong public/images/home rồi truyền xuống, không sửa home.tsx. */
+const pageSource = readFileSync(new URL("../app/(public)/page.tsx", import.meta.url), "utf8");
+assert.match(pageSource, /\/images\/home\/hero-farmer\.(?:webp|jpg|png)/, "The homepage looks for a self-hosted hero photo");
+assert.match(pageSource, /existsSync\(join\(process\.cwd\(\), "public", file\)\)/, "The check reads the real public folder");
+assert.match(pageSource, /heroSrc=\{heroLocal\}/, "The page hands the local hero down to the content component");
+assert.match(homeSource, /src=\{heroSrc \|\| HOME_HERO_SRC\}/, "A local hero wins over the stock photo");
 
 /* Ít hàng cũng giữ cùng vị trí, không còn ngưỡng chuyển xuống dưới. */
 const thin = await renderHome([offer("a1", "A"), offer("a2", "A")]);
