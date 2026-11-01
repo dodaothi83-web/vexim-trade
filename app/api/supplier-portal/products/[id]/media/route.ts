@@ -40,7 +40,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!checked.ok || !checked.mime) return fail(checked.message ?? "Tệp không hợp lệ.");
   const current = await access.store.listMedia("product", id);
   if (current.filter((m) => m.created_by === access.user.id).length >= 12) return fail("Tối đa 12 tệp trên mỗi sản phẩm.");
-  if (kind === "image" && current.filter((m) => m.kind === "image").length >= 8) return fail("Tối đa 8 ảnh trên mỗi sản phẩm.", 409);
+  if (kind === "image" && current.filter((m) => m.kind === "image").length >= 6) return fail("Tối đa 6 ảnh trên mỗi sản phẩm.", 409);
   const db = getSupabaseClient();
   if (db) {
     const strictAccess = await supplierPortalAccess(supabaseStore);
@@ -82,15 +82,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (error) throw new Error(`Không lưu được ảnh. Báo người phụ trách kỹ thuật rồi thử lại.`);
       if (data?.status !== "created" || !data.asset) {
         await Promise.all([path, thumbPath].filter((p): p is string => !!p).map((p) => deleteObject(p).catch(() => null)));
-        return fail(data?.status === "image_limit" ? "Tối đa 8 ảnh trên mỗi sản phẩm." : "Trạng thái sản phẩm đã thay đổi.", 409);
+        return fail(data?.status === "image_limit" ? "Tối đa 6 ảnh trên mỗi sản phẩm." : "Trạng thái sản phẩm đã thay đổi.", 409);
       }
       row = data.asset as Awaited<ReturnType<typeof access.store.createMedia>>;
     } else {
       // Local development fallback; Supabase writes always use the guarded RPC.
       const freshMedia = await access.store.listMedia("product", id);
-      if (kind === "image" && freshMedia.filter((m) => m.kind === "image").length >= 8) {
+      if (kind === "image" && freshMedia.filter((m) => m.kind === "image").length >= 6) {
         await Promise.all([path, thumbPath].filter((p): p is string => !!p).map((p) => deleteObject(p).catch(() => null)));
-        return fail("Tối đa 8 ảnh trên mỗi sản phẩm.", 409);
+        return fail("Tối đa 6 ảnh trên mỗi sản phẩm.", 409);
       }
       row = await access.store.createMedia(asset);
     }

@@ -299,6 +299,13 @@ assert.match(noConsentOptedIn.match(/<input[^>]*name="confirm_supplier_price_con
   'Ô xác nhận chia sẻ giá là bắt buộc khi bật công khai giá');
 assert.doesNotMatch(noConsent.match(/<input[^>]*name="confirm_supplier_price_consent"[^>]*>/)?.[0] ?? '', /required=""/,
   'Không bắt buộc tick xác nhận khi công khai giá đang tắt');
+assert.doesNotMatch(page, /name="confirm_supplier_price_consent"/,
+  'Cam kết chia sẻ giá còn hiệu lực thì không hiện hàng Xác nhận trống');
+// 7b. Cam kết grade và Incoterm được tick sẵn; sửa bảng giá không tự bỏ tick.
+assert.match(source, /const \[quantityConsent, setQuantityConsent\] = useState\(true\)/,
+  'Ô cam kết giá của sản phẩm mới được tick sẵn');
+assert.doesNotMatch(source, /setQuantityConsent\(false\)/,
+  'Đổi danh mục hay sửa mức giá không tự bỏ tick cam kết');
 
 // 8. Không đưa UI giá v2 hay bảng giá cũ trở lại cổng NCC.
 assert.doesNotMatch(source, /Bảng giá cũ \(cơ chế hiện tại\)|GradePricingTable|grade_rows_json/, 'Không còn bảng giá cũ');
@@ -444,14 +451,22 @@ assert.match(source, /const canUpload = !locked &&/, 'Ô chọn tệp không đ�
 assert.doesNotMatch(source, /canUpload = !!product/, 'Đã bỏ điều kiện phải có sản phẩm trước khi tải tệp');
 assert.match(source, /async function persist\(\): Promise<string \| null>/, 'Lưu và trả về id dùng chung cho nút Lưu và lúc tạo sản phẩm');
 assert.match(source, /fetch\("\/api\/supplier-portal\/media", \{ method: "POST", body \}\)/, 'Ảnh mới tải đi vào kho ảnh riêng');
-assert.match(source, /setPickedBank\(\(current\) => Array\.from\(new Set\(\[\.\.\.current, \.\.\.added\]\)\)\.slice\(0, 6\)\)/, 'Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo');
+assert.match(source, /if \(chosen\.length\) setPickedBank\(\(current\) => Array\.from\(new Set\(\[\.\.\.current, \.\.\.chosen\]\)\)\.slice\(0, 6\)\)/,
+  'Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo, tối đa 6 ô');
+assert.match(source, /const room = Math\.max\(0, 6 - pickedBank\.length\);/,
+  'Ảnh thứ 7 trở đi nằm lại kho vì sản phẩm chỉ hiện 6 ảnh');
 assert.match(source, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 6\)\)\)/, 'Ảnh đã chọn được gửi kèm khi lưu');
 assert.doesNotMatch(source, /ensureDraft/, 'Không quay lại cơ chế lưu nháp trước khi tải ảnh');
 assert.doesNotMatch(source, /Lưu nháp rồi tải ảnh|Lưu thay đổi rồi tải ảnh|saveIntent/, 'Không còn bắt người bán bấm lưu trước khi tải ảnh');
-assert.match(source, /Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu\./, 'Nói trước là ảnh vào kho rồi gắn khi lưu');
+assert.match(source, /Chọn ảnh là tải lên ngay và tự gắn vào ô trống\./, 'Nói trước là chọn ảnh là tải lên ngay');
+assert.match(source, /Một sản phẩm hiện tối đa 6 ảnh; ảnh thứ 7 trở đi nằm trong kho cho sản phẩm khác\./,
+  'Nói rõ ảnh thứ 7 trở đi nằm lại kho');
+assert.ok(!source.includes('Đã chọn {selected.length} tệp'),
+  'Không còn bước bấm nút tải sau khi chọn tệp');
 const newProductMedia = render({ product: undefined, media: [] });
 assert.doesNotMatch(newProductMedia, /Kho ảnh của bạn/, 'Không còn khối kho ảnh riêng trùng với 6 ô ảnh');
-assert.match(newProductMedia, /Kho có 0\/12 ảnh\. Ảnh vào kho ảnh trước/, 'Kho trống vẫn chỉ rõ tải ảnh ngay được');
+assert.match(newProductMedia, /Kho có 0\/12 ảnh\. Chọn ảnh là tải lên ngay và tự gắn vào ô trống\./,
+  'Kho trống vẫn chỉ rõ chọn ảnh là tải lên ngay');
 assert.match(newProductMedia, /aria-label="Chọn ảnh sản phẩm hoặc catalogue"/, 'Sản phẩm mới vẫn thấy nút chọn tệp');
 assert.match(newProductMedia, /Kéo thả hoặc <label[^>]*>chọn ảnh|Kéo thả hoặc/, 'Sản phẩm mới thấy vùng kéo thả ảnh');
 
