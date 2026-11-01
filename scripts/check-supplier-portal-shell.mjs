@@ -92,7 +92,7 @@ function renderSidebar(pathname, props) {
 const base = { supplierName: 'Dong Nai Cashew', email: 'ncc@example.com', userName: 'Nguyễn Thị B', approved: true, publicUrl: null };
 const html = renderSidebar('/supplier/portal/rfqs', base);
 for (const label of ['Tổng quan', 'Trang của tôi', 'Sản phẩm', 'Danh mục kinh doanh', 'Lượt xem gian hàng', 'RFQ &amp; báo giá',
-  'Giấy tờ &amp; chứng nhận L1', 'Xác thực nhà máy L2', 'Lịch sử xuất khẩu L3', 'Hồ sơ doanh nghiệp'])
+  'Xác thực doanh nghiệp &amp; chứng nhận', 'Xác thực nhà máy L2', 'Lịch sử xuất khẩu L3', 'Hồ sơ doanh nghiệp'])
   assert.ok(html.includes(label), `Menu có mục ${label}`);
 assert.match(html, /<a href="\/supplier\/portal\/rfqs" aria-current="page"/, 'Mục đang mở được đánh dấu');
 assert.match(html, /ncc@example\.com/, 'Menu hiện email đăng nhập');

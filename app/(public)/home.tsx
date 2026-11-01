@@ -72,11 +72,11 @@ const FAQ_EN = [
   },
   {
     q: "How can I tell if a certificate on a supplier profile belongs to the supplier or a partner factory?",
-    a: "When a supplier uploads certificates (HACCP, ISO 22000, BRC, Halal, FDA, Organic...), Vexim's automated recognition scans the certified holder name and expiration date: if it matches the supplier's legal entity, it is labeled 'Owner'; if issued to a co-packer or affiliated plant, it is transparently labeled 'Partner Entity' along with its valid-until date.",
+    a: "Vexim may use automated tools to read the certificate holder and expiry date. Eligible certificates may show the holder and expiry information, but this does not prove the issuing authority has authenticated the document. A certificate is linked to a product or category only after Vexim staff confirm its scope.",
   },
   {
     q: "How does Vexim verify suppliers listed on the platform?",
-    a: "Vexim conducts independent reviews across three areas: (1) Business registration documents & automated quality certificate recognition, (2) factory evidence or a partner-factory contract, depending on supplier type, and (3) export or shipment evidence checked by staff. A partner contract does not establish ownership or a factory inspection.",
+    a: "Vexim records three separate checks: (1) business registration review and the tax number supplied by the company; the tax number is not independently checked with the tax authority, (2) factory evidence or a partner-factory contract depending on the supplier, and (3) suitable shipment evidence. Quality certificates are reviewed separately. A partner contract does not prove ownership or an on-site factory inspection.",
   },
   {
     q: "How can a Vietnamese food manufacturer or exporter list products on Vexim Trade?",
@@ -99,11 +99,11 @@ const FAQ_VI = [
   },
   {
     q: "Làm sao biết chứng nhận trên hồ sơ nhà cung cấp là chính chủ hay của đơn vị đối tác?",
-    a: "Khi nhà cung cấp tải chứng nhận (ATTP, HACCP, ISO 22000, BRC, Halal, FDA...) lên hệ thống, công nghệ nhận diện tự động của Vexim quét tên đơn vị được cấp và ngày hết hạn: nếu khớp pháp nhân sẽ hiển thị 'Chính chủ', nếu đứng tên nhà máy gia công/liên kết sẽ ghi rõ 'Đơn vị đối tác' kèm ngày hết hiệu lực.",  // copy-allow: FAQ công khai, câu dài có chủ đích
+    a: "Vexim có thể dùng công cụ tự động để đọc đơn vị đứng tên và ngày hết hạn. Chứng nhận đủ điều kiện có thể hiển thị các thông tin này, nhưng việc quét không xác nhận tính thật của giấy. Chứng nhận chỉ gắn với danh mục hoặc sản phẩm sau khi nhân viên Vexim xác nhận phạm vi áp dụng.",  // copy-allow: FAQ công khai, câu dài có chủ đích
   },
   {
     q: "Quy trình xác thực nhà cung cấp của Vexim gồm những hạng mục nào?",
-    a: "Vexim đánh giá độc lập qua 3 hạng mục: (1) Kiểm tra giấy tờ pháp lý doanh nghiệp & nhận diện tự động chứng nhận chất lượng, (2) Xác thực nhà máy thực tế qua bộ ảnh chụp hiện trường sản xuất kèm toạ độ và mã xác minh, và (3) Đối chiếu chứng từ lịch sử lô hàng đã xuất khẩu.",  // copy-allow: FAQ công khai, câu dài có chủ đích
+    a: "Vexim ghi nhận riêng ba bước: (1) xem GCN ĐKKD và ghi nhận mã số thuế doanh nghiệp cung cấp; mã số thuế không được xác minh riêng với cơ quan thuế, (2) bằng chứng nhà máy hoặc hợp đồng nhà máy đối tác tùy loại hình, và (3) chứng từ giao hàng phù hợp. Chứng nhận chất lượng được xét riêng. Hợp đồng đối tác không chứng minh quyền sở hữu hay việc Vexim đã kiểm tra tại chỗ.",  // copy-allow: FAQ công khai, câu dài có chủ đích
   },
   {
     q: "Doanh nghiệp thực phẩm tại Việt Nam đăng ký lên sàn như thế nào?",
@@ -678,7 +678,7 @@ export default async function HomeContent({
             <p className="mt-2 text-sm text-ink-600">
               {isVi
                 ? "Những câu hỏi thường gặp về tra cứu nguồn hàng, cơ chế nhận diện chứng nhận tự động và dịch vụ dành cho doanh nghiệp."
-                : "Common questions about sourcing Vietnamese food products, automated certificate verification, and supplier solutions."}
+                : "Common questions about sourcing Vietnamese food products, supplier checks, certificates, and supplier solutions."}
             </p>
           </div>
 

@@ -1,13 +1,13 @@
 /**
- * Bảng giấy tờ L1 suy ra từ chính giấy đã được duyệt.
+ * Bảng phân loại các chứng nhận đã được duyệt.
  *
- * Nhà cung cấp chỉ tải giấy lên kho "Giấy tờ & chứng nhận"; nhân viên phân loại (loại
- * giấy, đơn vị đứng tên, hạn, công khai/nội bộ, phạm vi). Ô checklist L1 không còn là
- * thứ nhà cung cấp tự chọn, nên bảng L1 được tính lại từ giấy đã duyệt:
- * `checklistKeyForScheme` nói giấy đó đóng góp mục nào.
+ * Nhân viên phân loại chứng nhận trong kho riêng (loại giấy, đơn vị đứng tên, hạn,
+ * công khai/nội bộ, phạm vi). Khóa nhóm lịch sử từ `checklistKeyForScheme` chỉ dùng
+ * để trình bày bảng; không ghi vào checklist xác thực GCN ĐKKD và không quyết định
+ * kết quả duyệt doanh nghiệp.
  *
- * Mục nào không có giấy tương ứng thì để trống — bảng chỉ hiển thị, không tự đánh dấu
- * "đạt": kết quả L1 vẫn do người có quyền duyệt quyết định.
+ * Mục nào không có chứng nhận tương ứng thì để trống — bảng chỉ hiển thị tình trạng
+ * chứng nhận, không tự đánh dấu Đạt hoặc xác minh doanh nghiệp.
  *
  * Module thuần, không import gì ngoài module thuần khác.
  */
@@ -63,17 +63,17 @@ export function deriveL1Rows(
   return [...rows.entries()].map(([key, certificates]) => ({ key, certificates }));
 }
 
-/** Mục checklist mà giấy này đóng góp theo loại đã chọn (null = không đóng góp mục nào). */
+/** Khóa nhóm lịch sử dùng trong bảng chứng nhận (null = không gắn nhóm cũ). */
 export function contributedChecklistKey(certificate: L1CertificateLike): string | null {
   const scheme = isCertificateScheme(certificate.certificate_scheme) ? certificate.certificate_scheme : null;
   return checklistKeyForScheme(scheme) ?? certificate.checklist_key ?? null;
 }
 
 /**
- * Cảnh báo khi loại giấy nhân viên chọn lệch mục checklist đã ghi trên hồ sơ.
+ * Cảnh báo dữ liệu liên kết lịch sử không khớp với loại chứng nhận đã chọn.
  *
- * Ví dụ: giấy được ghi vào mục "HACCP/ISO/FSSC/BRC/Halal" nhưng loại chọn lại là
- * "Giấy phép xuất khẩu". Câu này chỉ để nhân viên soát lại, không tự sửa dữ liệu.
+ * Cảnh báo chỉ phục vụ rà soát metadata trong kho chứng nhận; không quyết định hoặc
+ * sửa kết quả xác thực doanh nghiệp.
  */
 export function checklistMismatch(certificate: L1CertificateLike): string | null {
   const recorded = (certificate.checklist_key ?? "").trim();

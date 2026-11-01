@@ -75,7 +75,7 @@ export default function ForSuppliersPage() {
           <StepItem
             n="4"
             title="Orders, introductions & follow-up"
-            body="When a buyer selects you we introduce both sides under a 12-month protection window and help with contracts, inspection and shipment follow-up."
+            body="When a buyer selects you, Vexim can coordinate an introduction and help the parties follow up. You and the buyer agree on contracts, inspection, payment and shipment directly."
           />
         </ol>
       </section>

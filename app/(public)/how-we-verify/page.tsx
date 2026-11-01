@@ -66,7 +66,7 @@ export default async function HowWeVerifyPage() {
 
       <ol className="mt-12 space-y-6">
         <Step n={1} icon={<ClipboardCheck className="h-5 w-5" />} title="Document review"
-          body="We review the supplier's business registration, tax code and other applicable documents. The result and the supporting evidence are recorded for each supplier." />
+          body="We review the supplier's business registration and record the tax number the company provides; we do not independently check tax numbers with the tax authority. Quality certificates are handled separately and cannot replace business registration." />
         <Step n={2} icon={<Factory className="h-5 w-5" />} title="Factory or partner contract review"
           body="Manufacturers and cooperatives can submit factory evidence. Trading companies can submit a contract with a partner factory. A partner contract review does not establish factory ownership or an on-site inspection." />
         <Step n={3} icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history review"

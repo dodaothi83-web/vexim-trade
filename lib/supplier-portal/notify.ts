@@ -72,10 +72,10 @@ export async function notifySupplierCertificateSubmission(supplier: Supplier, na
   if (!recipients.length) return "failed";
   const staffOrigin = notificationOrigin();
   const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}/audit/documents`;
-  const title = `Chứng nhận L1 cần kiểm tra: ${supplier.name}`;
-  const body = `<p>Nhà cung cấp ${escapeHtml(supplier.name)} vừa tải chứng nhận “${escapeHtml(name)}” trong luồng giấy tờ L1 nhưng AI chưa đủ điều kiện tự công bố. <strong>Chưa công bố.</strong></p>
-    <p>Nhân viên có thể xem bản gốc, bấm Quét lại AI hoặc kiểm tra trong trang Kiểm tra giấy tờ L1.</p>
-    <p><a href="${url}">Mở trang Kiểm tra giấy tờ L1 trong CRM →</a></p>`;
+  const title = `Chứng nhận trên hồ sơ cần kiểm tra: ${supplier.name}`;
+  const body = `<p>Nhà cung cấp ${escapeHtml(supplier.name)} vừa tải chứng nhận “${escapeHtml(name)}” trong luồng Chứng nhận riêng. AI chưa đủ điều kiện tự công bố. <strong>Chưa công bố; chứng nhận này không thay thế GCN ĐKKD.</strong></p>
+    <p>Nhân viên có thể xem bản gốc, bấm Quét lại AI hoặc kiểm tra trong khu vực chứng nhận của hồ sơ CRM.</p>
+    <p><a href="${url}">Mở hồ sơ chứng nhận trong CRM →</a></p>`;
   const result = await transport({ to: recipients, subject: title,
     html: wrapPlainEmail({ title, body }), text: `${title}\nChứng nhận: ${name}\n${url}` });
   return result.ok ? result.status : "failed";

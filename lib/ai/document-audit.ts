@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { L1_DOC_ITEMS } from "@/lib/types";
 
 export const MAX_AI_DOCUMENTS = 6;
 export const MAX_AI_FILE_BYTES = 4 * 1024 * 1024;
@@ -17,10 +16,10 @@ export type AiDocumentReview = { checks: AiDocumentCheck[]; summary: string };
 /** Treat model output as untrusted. Never promote an unreferenced claim to a pass/fail. */
 export function parseDocumentReview(raw: unknown, allowedIds: string[]): AiDocumentReview {
   const parsed = responseSchema.parse(raw);
-  const expected = L1_DOC_ITEMS.map((it) => it.key);
+  const expected = ["business_license"] as const;
   if (parsed.checks.length !== expected.length || new Set(parsed.checks.map((c) => c.key)).size !== expected.length ||
     parsed.checks.some((c) => !expected.includes(c.key as typeof expected[number]))) {
-    throw new Error("AI không trả đủ 7 mục kiểm theo đúng mẫu.");
+    throw new Error("AI không trả đúng mục đăng ký kinh doanh.");
   }
   const allowed = new Set(allowedIds);
   return {

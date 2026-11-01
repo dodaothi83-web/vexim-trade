@@ -54,7 +54,7 @@ const dashboard = load('app/supplier/portal/page.tsx', {
   '@/lib/supplier-portal/dashboard': { buildSupplierRfqBoard: () => ({ tasks: [], report: { sent: 0, responded: 0 } }) },
   '@/lib/supplier-portal/product-view': { productReview: () => 'draft' },
   '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: () => [] },
-  '@/lib/verification': { isL1CoreDoc: () => false },
+  '@/lib/verification': { isL1BusinessLicense: () => false },
   '@/lib/certificate-service': { daysUntilExpiry: () => null },
   '@/lib/db/migration-hints': { migrationHint: () => null },
   '@/lib/supplier-portal/verification-progress': progress, '@/lib/l2-scope': scope,

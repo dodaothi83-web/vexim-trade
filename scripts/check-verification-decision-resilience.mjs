@@ -68,7 +68,7 @@ const mocks = {
     auditHref: (id, level) => `/crm/suppliers/${id}/audit/${({ 1: 'documents', 2: 'factory', 3: 'deliveries' })[level]}`,
     auditItems: () => [],
     auditUploadKind: () => 'file',
-    coreDocsVerified: () => true,
+    businessLicenseVerified: () => true,
     requiredAuditItems: (level) => (level === 1
       ? [{ key: 'business_license' }, { key: 'food_safety' }, { key: 'tax_certificate' }]
       : [{ key: 'plant_photos' }]),

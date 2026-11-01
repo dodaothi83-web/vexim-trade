@@ -351,12 +351,12 @@ export default async function SupplierDocumentsPage() {
             blockedReason={certificateUploadBlockedReason} />
         </section>
 
-        {/* Bảng giấy tờ L1 suy ra từ giấy đã duyệt — không phải ô nhà cung cấp tự chọn. */}
+        {/* Bảng chứng nhận chất lượng đã duyệt — riêng với yêu cầu GCN ĐKKD. */}
         <section aria-labelledby="l1-table-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
-          <h3 id="l1-table-title" className="text-[15px] font-bold text-ink-900">Giấy tờ xác thực tính từ giấy đã duyệt</h3>
+          <h3 id="l1-table-title" className="text-[15px] font-bold text-ink-900">Chứng nhận đã duyệt theo loại</h3>
           <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
-            {"Chứng nhận tải ở ô phía trên được phân loại và tự vào đúng mục dưới đây, "
-              + "không cần chọn mục khi tải. Giấy chứng nhận đăng ký kinh doanh tải trong thẻ phía trên."}
+            {"Chứng nhận chất lượng được phân loại và theo dõi riêng; trạng thái ở bảng này không thay thế "
+              + "GCN ĐKKD trong mục Xác thực doanh nghiệp phía trên."}
           </p>
           <table className="mt-3 w-full text-left text-[11.5px]">
             <thead>

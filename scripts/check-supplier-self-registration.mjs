@@ -16,18 +16,20 @@ function load(path, mocks, extra = {}) {
   return mod.exports;
 }
 const keys = ['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'];
-const coreKeys = ['business_license', 'food_safety', 'haccp_or_brc'];
-const isL1CoreDoc = (key) => coreKeys.includes(key);
+const isL1BusinessLicense = (key) => key === 'business_license';
 const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
 const categories = [
   { id: 'c1', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều' }, status: 'published', is_published: true, sort_order: 1 },
   { id: 'c2', slug: 'rice', parent_id: null, name_i18n: { vi: 'Gạo' }, status: 'published', is_published: true, sort_order: 2 },
   { id: 'c3', slug: 'secret', parent_id: null, name_i18n: { vi: 'Nháp' }, status: 'draft', is_published: false, sort_order: 3 },
 ];
-const policy = load('../lib/supplier-portal/policy.ts', { '@/lib/verification': { auditUploadKind: (level, key) => level === 1 && keys.includes(key) ? 'file' : null } });
+const policy = load('../lib/supplier-portal/policy.ts', { '@/lib/verification': { auditUploadKind: (level, key) => level === 1 && key === 'business_license' ? 'file' : null } });
 const owner = { id: 'u1', email: 'owner@example.com', role: 'supplier', is_active: true, supplier_id: 's1' };
 const doc = { id: 'v1', target_level: 1, supplier_id: 's1', status: 'in_progress' };
 assert.equal(policy.canUploadOwnDocument(owner, doc, 'business_license'), true);
+for (const key of ['food_safety', 'haccp_or_brc', 'product_certs', 'export_license']) {
+  assert.equal(policy.canUploadOwnDocument(owner, doc, key), false, `${key} must use the separate certificate upload flow`);
+}
 assert.equal(policy.canUploadOwnDocument(owner, { ...doc, status: 'approved' }, 'business_license', { hasFile: false }), true,
   'Đợt đã duyệt vẫn nhận bổ sung giấy đăng ký kinh doanh khi mục còn trống');
 for (const denied of [
@@ -103,7 +105,7 @@ const mocks = {
     notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 1); return 'sent'; },
   },
   '@/lib/site': { SITE_URL: 'https://example.com' },
-  '@/lib/verification': { isL1CoreDoc },
+  '@/lib/verification': { isL1BusinessLicense },
 };
 const signupEnv = { SUPABASE_SERVICE_ROLE_KEY: 'mock', NODE_ENV: 'production' };
 const { POST } = load('../app/api/supplier-signup/route.ts', mocks, { process: { env: signupEnv } });
@@ -197,7 +199,7 @@ const profile = load('../app/api/supplier-portal/profile/route.ts', {
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
   '@/lib/supplier-portal/notify': mocks['@/lib/supplier-portal/notify'],
-  '@/lib/verification': { isL1CoreDoc },
+  '@/lib/verification': { isL1BusinessLicense },
   '@/lib/ai/supplier-translation-service': {
     ensureSupplierProfileEnglish: async (storeArg, id) => {
       const s = await storeArg.getSupplier(id);
@@ -223,6 +225,8 @@ const noDocuments = form(); noDocuments.delete('doc:business_license');
 const refused = await submitProfile(noDocuments);
 assert.equal(refused.status, 400, 'First profile needs the business registration certificate');
 assert.match(refused.data.message, /Giấy chứng nhận đăng ký kinh doanh/);
+const certificateAlone = form(); certificateAlone.delete('doc:business_license'); certificateAlone.set('doc:haccp_or_brc', file);
+assert.equal((await submitProfile(certificateAlone)).status, 400, 'A quality certificate cannot substitute for business registration');
 const missingAccuracy = form(); missingAccuracy.delete('information_accuracy');
 assert.equal((await submitProfile(missingAccuracy)).status, 400, 'Profile requires the product information truthfulness confirmation');
 assert.equal(state.suppliers.length, 0, 'Reject invalid profile before creating supplier page');

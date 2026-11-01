@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, RotateCcw, ScanSearch, Undo2 } from "lucide-react";
+import { CheckCircle2, Loader2, RotateCcw, Undo2 } from "lucide-react";
 
 /**
  * Hành động của nhân viên với hồ sơ NCC tự gửi.
@@ -12,17 +12,16 @@ import { CheckCircle2, Loader2, RotateCcw, ScanSearch, Undo2 } from "lucide-reac
  * (người nhận là inspector) và sao bằng chứng sang đó. Nhân sự đủ quyền có thể
  * tự hoàn tất sau xác nhận; reviewer độc lập là lựa chọn thêm.
  */
-export function SubmissionReviewActions({ submissionId, level, partner = false, status, canReview, verificationHref, aiEnabled }: {
+export function SubmissionReviewActions({ submissionId, level, partner = false, status, canReview, verificationHref }: {
   submissionId: string;
   level: 2 | 3;
   partner?: boolean;
   status: string;
   canReview: boolean;
   verificationHref: string | null;
-  aiEnabled: boolean;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"" | "accept" | "return" | "scan">("");
+  const [busy, setBusy] = useState<"" | "accept" | "return">("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [newVerificationHref, setNewVerificationHref] = useState<string | null>(null);
@@ -56,24 +55,6 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
     } finally { setBusy(""); }
   }
 
-  async function rescan() {
-    if (busy) return;
-    if (!window.confirm("Chạy lại AI trên toàn bộ bằng chứng của hồ sơ này? Ảnh sẽ được gửi tới nhà cung cấp AI để phân tích sơ bộ.")) return;
-    setBusy("scan"); setMessage(null);
-    try {
-      const response = await fetch(`/api/supplier-portal/submissions/${encodeURIComponent(submissionId)}/ai-scan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ submit: false }),
-      });
-      const data = await response.json() as { ok?: boolean; message?: string };
-      setMessage({ ok: Boolean(response.ok && data.ok), text: data.message ?? (response.ok && data.ok ? "Đã quét lại." : "Không quét được.") });
-      router.refresh();
-    } catch {
-      setMessage({ ok: false, text: "Không kết nối được máy chủ." });
-    } finally { setBusy(""); }
-  }
-
   return <div className="rounded-xl border border-ink-200 bg-white p-4">
     <h2 className="text-sm font-bold text-ink-900">Quyết định của nhân viên Vexim</h2>
     {!canReview && <p className="mt-2 text-xs text-ink-600">Tài khoản của bạn chỉ xem và đối chiếu; cần quyền kiểm tra xác minh để nhận/trả hồ sơ.</p>}
@@ -100,12 +81,7 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
       </div>
     </>}
     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
-      {level === 2 && !partner && aiEnabled
-        ? <button type="button" disabled={busy !== ""} onClick={() => void rescan()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800 disabled:opacity-50">
-            {busy === "scan" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />} Quét lại bằng AI
-          </button>
-        : level === 2 && !partner ? <span className="text-[11px] text-ink-500">Chưa cấu hình OPENAI_API_KEY nên không có quét tự động; đối chiếu thủ công.</span> : null}
+      <p className="w-full text-[11px] text-ink-600">Không cần AI. Nhân viên tự kiểm tra và có thể tải thêm bằng chứng trong đợt kiểm.</p>
       {(newVerificationHref || verificationHref) && <Link href={(newVerificationHref || verificationHref)!} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-300 bg-white px-3 py-2 text-xs font-semibold text-ink-700 hover:border-brand-400">
         <RotateCcw className="h-3.5 w-3.5" /> Mở đợt kiểm đã tạo
       </Link>}

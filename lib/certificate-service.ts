@@ -6,6 +6,7 @@ import {
   scanCertificateFile,
   type CertificateScanOutcome,
   type CertificateScanResult,
+  type CertificateScanCategoryOption,
 } from "@/lib/ai/certificate-scan";
 
 export function todayISO(): string {
@@ -25,7 +26,7 @@ import type {
 } from "@/lib/types";
 import { approvedL2Scope } from "@/lib/verification-status";
 import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
-import { detectCertificateScheme } from "@/lib/certificate-scheme";
+import { detectCertificateScheme, isScopeableCertificateScheme } from "@/lib/certificate-scheme";
 
 export const L1_CERTIFICATE_KEYS = [
   "food_safety",
@@ -265,10 +266,42 @@ export async function ingestCertificateScan(
 
   const fallbackLabel =
     input.declaredLabel?.trim() || defaultCertificateLabelForKey(input.checklistKey);
+  // Chỉ gửi taxonomy đang hoạt động để AI đối chiếu; lỗi taxonomy không được chặn upload.
+  const listedCategories = typeof store.listCategories === "function"
+    ? await store.listCategories({ publishedOnly: true }).catch((error) => {
+        console.error("[certificate-scan] category taxonomy query failed", error);
+        return [];
+      })
+    : [];
+  const activeCategories = listedCategories.filter((category) =>
+    category.is_published && (category.status == null || category.status === "published"),
+  );
+  const categoriesById = new Map(activeCategories.map((category) => [category.id, category]));
+  const categoryLabel = (categoryId: string): string => {
+    const category = categoriesById.get(categoryId);
+    if (!category) return "";
+    const parts = [category.name_i18n?.vi || category.name_i18n?.en || category.slug];
+    const visited = new Set([category.id]);
+    let parentId = category.parent_id;
+    while (parentId && !visited.has(parentId)) {
+      visited.add(parentId);
+      const parent = categoriesById.get(parentId);
+      if (!parent) break;
+      parts.unshift(parent.name_i18n?.vi || parent.name_i18n?.en || parent.slug);
+      parentId = parent.parent_id;
+    }
+    return parts.join(" › ");
+  };
+  const categoryOptions: CertificateScanCategoryOption[] = activeCategories.map((category) => ({
+    id: category.id,
+    slug: category.slug,
+    path: categoryLabel(category.id),
+  }));
 
   const scanOutcome: CertificateScanOutcome = bytes
     ? await scanFn({
         supplierNames,
+        categories: categoryOptions,
         file: { bytes, declaredLabel: fallbackLabel },
       })
     : {
@@ -338,6 +371,11 @@ export async function ingestCertificateScan(
     detectCertificateScheme({ name: resolvedName, issuer: scan?.issuer, number: scan?.certificate_number }) ??
     (scan && scan.confidence !== "low" ? scan.certificate_scheme : null) ??
     null;
+  // Keep the model's proposals only for a classified quality certificate. They remain
+  // separate from certificate_scopes and cannot affect products until staff confirms.
+  const aiCategorySuggestions = scan
+    ? isScopeableCertificateScheme(certificateScheme) ? scan.category_suggestions ?? [] : []
+    : existing?.ai_category_suggestions ?? [];
 
   const patch: Partial<Certificate> = {
     supplier_id: input.supplier.id,
@@ -352,6 +390,7 @@ export async function ingestCertificateScan(
     ai_scanned_at: scanOutcome.ok ? nowIso : (existing?.ai_scanned_at ?? null),
     ai_summary: scanOutcome.ok ? scanOutcome.data.summary : scanOutcome.message,
     ai_confidence: scanOutcome.ok ? scanOutcome.data.confidence : (existing?.ai_confidence ?? null),
+    ai_category_suggestions: aiCategorySuggestions,
     source: input.source,
     checklist_key: input.checklistKey ?? existing?.checklist_key ?? null,
     certificate_scheme: certificateScheme,

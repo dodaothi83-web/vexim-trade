@@ -6,22 +6,21 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
-const items = ['business_license', 'tax_certificate', 'bank_letter', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'].map((key) => ({ key, label: key }));
+const items = [{ key: 'business_license', label: 'Giấy chứng nhận đăng ký kinh doanh' }];
 const lib = {};
 const libCode = ts.transpileModule(readFileSync(new URL('../lib/ai/document-audit.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 vm.runInNewContext(libCode, {
-  exports: lib, require: (path) => path === 'zod' ? require('zod') : { L1_DOC_ITEMS: items },
+  exports: lib, require: (path) => { assert.equal(path, 'zod'); return require('zod'); },
   Error, Set,
 }, { filename: 'document-audit.ts' });
 const raw = { checks: items.map((it) => ({ key: it.key, verdict: 'pass', reason: 'Có dấu hiệu phù hợp', evidence_ids: [it.key === 'bank_letter' ? 'fabricated-id' : 'asset-1'] })), summary: 'Đọc sơ bộ' };
 const parsed = lib.parseDocumentReview(raw, ['asset-1']);
-assert.equal(parsed.checks.length, 7);
-assert.equal(parsed.checks.find((c) => c.key === 'bank_letter').verdict, 'uncertain', 'Unreferenced claims cannot pass');
-assert.equal(parsed.checks.find((c) => c.key === 'tax_certificate').verdict, 'pass');
-assert.throws(() => lib.parseDocumentReview({ ...raw, checks: raw.checks.slice(1) }, ['asset-1']), /đủ 7/);
-assert.throws(() => lib.parseDocumentReview({ ...raw, checks: raw.checks.map((c) => ({ ...c, key: 'tax_certificate' })) }, ['asset-1']), /đủ 7/);
+assert.equal(parsed.checks.length, 1);
+assert.equal(parsed.checks[0].verdict, 'pass');
+assert.throws(() => lib.parseDocumentReview({ ...raw, checks: [] }, ['asset-1']), /đúng mục đăng ký kinh doanh/);
+assert.throws(() => lib.parseDocumentReview({ ...raw, checks: [{ ...raw.checks[0], key: 'haccp_or_brc' }] }, ['asset-1']), /đúng mục đăng ký kinh doanh/);
 
 const route = {};
 const routeCode = ts.transpileModule(readFileSync(new URL('../app/api/verifications/[id]/ai-review/route.ts', import.meta.url), 'utf8'), {
@@ -84,13 +83,14 @@ assert.equal((await post()).status, 422);
 fileList = [
   { id: 'excluded-public', audience: 'buyer', kind: 'document', storage_path: 'verifications/review-1/public.pdf', bytes: 25, created_at: '2026-01-01' },
   { id: 'excluded-link', audience: 'internal', kind: 'video', external_url: 'https://example.org/sensitive', created_at: '2026-01-01' },
-  { id: 'excluded-large', audience: 'internal', kind: 'document', storage_path: 'verifications/review-1/large.pdf', bytes: 5 * 1024 * 1024, created_at: '2026-01-01' },
-  { id: 'asset-1', audience: 'internal', kind: 'document', storage_path: 'verifications/review-1/a.pdf', bytes: 25, caption: 'Business registration', created_at: '2026-01-01' },
+  { id: 'separate-certificate', checklist_key: 'haccp_or_brc', audience: 'internal', kind: 'document', storage_path: 'suppliers/supplier-1/certificates/haccp.pdf', created_at: '2026-01-01' },
+  { id: 'excluded-large', checklist_key: 'business_license', audience: 'internal', kind: 'document', storage_path: 'verifications/review-1/large.pdf', bytes: 5 * 1024 * 1024, created_at: '2026-01-01' },
+  { id: 'asset-1', checklist_key: 'business_license', audience: 'internal', kind: 'document', storage_path: 'verifications/review-1/a.pdf', bytes: 25, caption: 'Business registration', created_at: '2026-01-01' },
 ];
 const response = await post();
 assert.equal(response.status, 200);
 const result = await response.json();
-assert.equal(result.checks.find((c) => c.key === 'bank_letter').verdict, 'uncertain');
+assert.deepEqual(result.checks.map((c) => c.key), ['business_license']);
 assert.equal(calls, 1);
 assert.equal(reads, 1, 'Do not fetch public, oversized or linked media');
 assert.equal(auditCount, 1);
@@ -99,10 +99,9 @@ assert.equal(lastBody.store, false);
 assert.ok(lastBody.input[1].content.some((c) => c.type === 'input_file' && c.file_data.startsWith('data:application/pdf;base64,')));
 assert.ok(!JSON.stringify(lastBody).includes('example.org'));
 assert.ok(!JSON.stringify(result).includes('mock-file-content'), 'Never return raw document data');
-assert.equal(result.checks.find((c) => c.key === 'tax_certificate').verdict, 'uncertain', 'Never claim OCR confirms a numeric identifier');
-assert.deepEqual(result.checks.find((c) => c.key === 'tax_certificate').evidence_ids, []);
-assert.match(lastBody.input[0].content[0].text, /tax_certificate và bank_letter chỉ là ô nhập số thủ công/);
-assert.match(lastBody.input[0].content[0].text, /chỉ cần MỘT trong ba/, 'AI must treat the three core documents as alternatives');
+assert.ok(!result.checks.some((c) => c.key !== 'business_license'), 'AI only evaluates the business registration document');
+assert.match(lastBody.input[0].content[0].text, /không đánh giá chứng nhận chất lượng vì chúng được duyệt trong luồng riêng/);
+assert.match(lastBody.input[0].content[0].text, /không thay thế giấy đăng ký kinh doanh/);
 assert.match(lastBody.input[0].content[0].text, /NCC Mẫu/, 'AI needs the registered name to check who the document belongs to');
 assert.match(lastBody.input[0].content[0].text, /không trả pass/, 'A document standing in another company name must not pass');
 assert.equal((await post('review-1', { fileIds: ['missing'] })).status, 422, 'Cannot scan files outside this review');
@@ -110,8 +109,8 @@ assert.equal((await post('review-1', { fileIds: ['asset-1', 'asset-1'] })).statu
 assert.equal((await post('review-1', { fileIds: [] })).status, 400);
 const scopedResponse = await post('review-1', { fileIds: ['asset-1'] });
 assert.equal(scopedResponse.status, 200, 'Newly uploaded files can be scanned without waiting for a UI refresh');
-assert.equal((await scopedResponse.json()).checks.find((c) => c.key === 'bank_letter').verdict, 'uncertain');
+assert.deepEqual((await scopedResponse.json()).checks.map((c) => c.key), ['business_license']);
 assert.equal(reads, 2, 'Only explicitly selected readable file is opened');
 providerOk = false;
 assert.equal((await post()).status, 502, 'Provider failure does not mutate review');
-console.log('✅ AI document scan: permissions, internal evidence, seven-item validation and no auto-approval.');
+console.log('✅ AI document scan: permissions, business-license-only review, scoped evidence and no auto-approval.');

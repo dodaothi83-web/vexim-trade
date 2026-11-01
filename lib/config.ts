@@ -31,7 +31,7 @@ export const COMPANY = {
   /** Người chịu trách nhiệm sàn giao dịch thương mại điện tử, công khai ở chân trang và trang chủ quản */
   platformResponsible: env.COMPANY_PLATFORM_RESPONSIBLE?.trim() || "Lương Văn Học",
   /** Ngày hiệu lực của quy chế hoạt động đang công khai trên website */
-  platformRulesEffectiveDate: env.COMPANY_PLATFORM_RULES_EFFECTIVE_DATE?.trim() || "18/10/2026",
+  platformRulesEffectiveDate: env.COMPANY_PLATFORM_RULES_EFFECTIVE_DATE?.trim() || "01/11/2026",
   /** Số điện thoại hiển thị có khoảng trắng ở chân trang; trường phone giữ dạng dùng cho tel: */
   phoneDisplay: env.COMPANY_PHONE_DISPLAY?.trim() || "+84 373 685 634",
   /** Mã số doanh nghiệp, đồng thời là mã số thuế của công ty */

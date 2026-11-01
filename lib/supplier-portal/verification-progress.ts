@@ -9,7 +9,7 @@ import {
   type Verification,
 } from "@/lib/types";
 import { effectiveL2Scope, l2ScopeForSupplier } from "@/lib/l2-scope";
-import { INITIAL_DOCUMENT_KEYS } from "./policy";
+import { COMPANY_DOCUMENT_KEYS } from "./policy";
 
 /**
  * Tiến độ xác minh nhìn từ phía NHÀ CUNG CẤP.
@@ -105,8 +105,8 @@ const STATUS_EN: Record<VerificationState, string> = {
 const L2_TOTAL = L2_FACTORY_PHOTO_ITEMS.length;
 const L3_KEYS = L3_EXPORT_ITEMS.map((item) => item.key);
 
-const isInitialDocKey = (key: string | null | undefined): boolean =>
-  !!key && (INITIAL_DOCUMENT_KEYS as readonly string[]).includes(key);
+const isCompanyDocumentKey = (key: string | null | undefined): boolean =>
+  !!key && (COMPANY_DOCUMENT_KEYS as readonly string[]).includes(key);
 
 /** Đợt kiểm mới nhất của một cấp; ưu tiên bản đã duyệt khi có nhiều đợt. */
 function latestReview(reviews: Verification[], supplierId: string, level: 1 | 2 | 3) {
@@ -143,8 +143,8 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
   /* ------------------------------- Bước 1: giấy tờ ------------------------------- */
   const l1 = latestReview(input.reviews, input.supplierId, 1);
   const docs = (input.documents ?? []).filter((m) =>
-    !!m.storage_path && isInitialDocKey(m.checklist_key) && (!input.userId || m.created_by === input.userId));
-  const docCount = new Set(docs.map((m) => m.checklist_key)).size;
+    !!m.storage_path && isCompanyDocumentKey(m.checklist_key) && (!input.userId || m.created_by === input.userId));
+  const hasBusinessLicense = docs.length > 0;
   const l1Approved = input.reviews.some((v) => v.supplier_id === input.supplierId && v.target_level === 1 && v.status === "approved");
 
   const step1: VerificationProgressStep = {
@@ -153,9 +153,9 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     state: "not_started",
     status: "Chưa bắt đầu",
     statusEn: STATUS_EN.not_started,
-    note: "Tải giấy phép kinh doanh hoặc một trong các chứng nhận ATTP / HACCP / ISO / BRC. Chỉ cần một giấy xác minh chính.",
-    metric: docCount ? `Đã tải ${docCount} giấy tờ` : "Chưa có giấy tờ",
-    metricEn: docCount ? `${docCount} document${docCount === 1 ? "" : "s"} uploaded` : "No documents yet",
+    note: "Tải GCN đăng ký kinh doanh. Chứng nhận chất lượng được xét riêng và không thay thế giấy này.",
+    metric: hasBusinessLicense ? "Đã tải GCN ĐKKD" : "Chưa có GCN ĐKKD",
+    metricEn: hasBusinessLicense ? "Business registration uploaded" : "No business registration yet",
     action: "Bắt đầu bước 1",
     actionEn: "Start step 1",
     tone: "ink",
@@ -182,7 +182,7 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
       note: "Bạn đã nộp giấy tờ và hồ sơ đang được đối chiếu thủ công; tải lên không tự duyệt.",
       action: "Xem giấy tờ", actionEn: "View documents",
     } satisfies Partial<VerificationProgressStep>);
-  } else if (l1 || docCount > 0) {
+  } else if (l1 || hasBusinessLicense) {
     Object.assign(step1, {
       state: "action", status: "Đang hoàn thiện", statusEn: STATUS_EN.action, tone: "amber",
       action: "Tải giấy tờ", actionEn: "Upload documents",

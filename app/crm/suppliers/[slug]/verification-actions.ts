@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
-import { auditHref, auditItems, auditUploadKind, coreDocsVerified, requiredAuditItems } from "@/lib/verification";
+import { auditHref, auditItems, auditUploadKind, businessLicenseVerified, requiredAuditItems } from "@/lib/verification";
 import { isPartnerL2, l2ScopeMatchesSupplier, sameVerificationScope } from "@/lib/l2-scope";
 import { canSelfApproveVerification } from "@/lib/verification-policy";
 import { hasDeliveryAuditEvidence, hasDocumentAuditEvidence } from "@/lib/verification-evidence";
@@ -273,15 +273,12 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
   const media = await store.listMedia("verification", before.id);
   if (before.target_level === 1) {
     if (requiredAuditItems(1).some((it) => before.checklist[it.key] !== true)) return { ok: false, message: "Chưa nhập mã số thuế. Mục này bắt buộc ghi nhận trước khi duyệt." };
-    // Giấy pháp nhân sai tên là điểm dừng, không phải một lựa chọn thay thế.
-    if (before.checklist.business_license === false) {
-      return { ok: false, message: "Đăng ký doanh nghiệp đang đánh dấu Không đạt." + " Không duyệt bước giấy tờ khi giấy pháp nhân không khớp; trả lại để nhà cung cấp bổ sung." };
+    if (!businessLicenseVerified(before.checklist)) {
+      return { ok: false, message: "Cần đánh dấu Đạt Giấy chứng nhận đăng ký kinh doanh trước khi duyệt." + " Chứng nhận chất lượng được xét riêng và không thay thế giấy này." };
     }
-    if (!coreDocsVerified(before.checklist)) {
-      return { ok: false, message: "Cần đánh dấu Đạt ít nhất một trong ba giấy: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal." + " Giấy phải đứng tên pháp nhân đã đăng ký." };
-    }
-    if (!hasDocumentAuditEvidence(media)) {
-      return { ok: false, message: "Chưa có ảnh chụp giấy tờ hoặc PDF trong bằng chứng của đợt kiểm này." + " Tệp ở kho chung nhà cung cấp không được tính; hãy tải vào đúng đợt kiểm hoặc trả lại để bổ sung." };
+    const businessLicenseEvidence = media.filter((asset) => asset.checklist_key === "business_license");
+    if (!hasDocumentAuditEvidence(businessLicenseEvidence)) {
+      return { ok: false, message: "Chưa có ảnh hoặc PDF của Giấy chứng nhận đăng ký kinh doanh trong mục này." + " Tệp chứng nhận và tệp ở kho chung không thay thế bằng chứng ĐKKD của đúng đợt kiểm." };
     }
   } else if (before.target_level === 2) {
     const supplier = await store.getSupplier(before.supplier_id);

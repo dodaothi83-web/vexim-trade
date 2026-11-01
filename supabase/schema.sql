@@ -711,6 +711,7 @@ alter table public.certificates
   add column if not exists ai_scanned_at timestamptz,
   add column if not exists ai_summary text,
   add column if not exists ai_confidence text,
+  add column if not exists ai_category_suggestions jsonb not null default '[]'::jsonb,
   add column if not exists source text not null default 'manual',
   add column if not exists checklist_key text,
   add column if not exists verification_id uuid,
@@ -722,6 +723,9 @@ alter table public.certificates add constraint certificates_holder_match_check
 alter table public.certificates drop constraint if exists certificates_ai_confidence_check;
 alter table public.certificates add constraint certificates_ai_confidence_check
   check (ai_confidence is null or ai_confidence in ('low','medium','high'));
+alter table public.certificates drop constraint if exists certificates_ai_category_suggestions_check;
+alter table public.certificates add constraint certificates_ai_category_suggestions_check
+  check (jsonb_typeof(ai_category_suggestions) = 'array');
 alter table public.certificates drop constraint if exists certificates_source_check;
 alter table public.certificates add constraint certificates_source_check
   check (source in ('manual','l1-supplier','l1-staff'));

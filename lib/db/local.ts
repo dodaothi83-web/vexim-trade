@@ -1918,6 +1918,7 @@ export const localStore: DataStore = {
       file_media_id: null,
       check_status: "on_file" as const,
       holder_name: null, holder_match: null, ai_scanned_at: null, ai_summary: null, ai_confidence: null,
+      ai_category_suggestions: [],
       source: "manual" as const, checklist_key: null, certificate_scheme: null,
       verification_id: null, staff_hidden: false, expiry_notified: {},
       scope_text: null, requested_product_ids: [], approved_product_ids: [],
