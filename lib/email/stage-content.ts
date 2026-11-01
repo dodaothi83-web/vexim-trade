@@ -90,7 +90,7 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
         "The quotation covers product specification, packaging, {incoterm} delivery to {port}, and the validity period stated in the document.",
       ],
       action:
-        "Kindly review and revert with your comments. If you prefer to check quality before committing, we can arrange samples against your courier account.",
+        "Please review the offer and reply with your comments. If you prefer to check quality before committing, we can arrange samples against your courier account.",
     },
     supplier: {
       subject: "Đã gửi báo giá cho người mua, giữ giá {product}",
@@ -115,7 +115,7 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
         "Where a target cannot be met on the original specification, we will show the closest alternative together with its price impact, so you can decide with full information.",
       ],
       action:
-        "We will revert with a revised offer shortly. Please tell us if your shipment schedule has changed so we can secure capacity in time.",
+        "We will send a revised offer shortly. Please tell us if your shipment schedule has changed so we can secure capacity in time.",
     },
     supplier: {
       subject: "Cần giá tốt nhất: {product}, {quantity}",
