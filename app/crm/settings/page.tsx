@@ -70,6 +70,8 @@ export default async function SettingsPage() {
       {session.role === "admin" && <div className="mb-5 rounded-xl border border-ink-200 bg-white p-4 text-sm">
         <Link className="font-semibold text-brand-700" href="/crm/settings/quantity-pricing">Cấu hình giá theo số lượng</Link>
         <p className="mt-1 text-ink-500">Chuẩn bị tham số và ngưỡng theo grade cho mô hình giá mới; chưa bật áp dụng.</p>
+        <Link className="mt-3 inline-block font-semibold text-brand-700" href="/crm/settings/email-suppressions">Địa chỉ ngừng nhận thư</Link>
+        <p className="mt-1 text-ink-500">Địa chỉ bị chặn sau khi thư trả lại hoặc bị báo cáo thư rác. Gỡ để gửi lại sau khi hộp thư đã sửa.</p>
       </div>}
       <div className="grid gap-5 lg:grid-cols-2">
         <Card>

@@ -21,6 +21,7 @@ const mocks = {
     COMPANY_DOCUMENT_KEYS: ['business_license'] },
   './supplier-category-picker': { SupplierCategoryPicker: () => null },
   '@/components/file-picker': { FilePicker: () => null },
+  '@/lib/config': { COMPANY: { email: 'hello@veximtrade.com', phone: '+84373685634', phoneDisplay: '+84 373 685 634' } },
 };
 vm.runInThisContext(`(function(exports, require, module) { ${source}\n})`)(mod.exports, (id) => mocks[id] ?? require(id), mod);
 function render(supplier) {

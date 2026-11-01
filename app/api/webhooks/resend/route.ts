@@ -2,16 +2,20 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
 import { resendConfigured } from "@/lib/config";
+import { suppressionFromWebhookEvent } from "@/lib/email/suppression";
+import { recordSuppressions } from "@/lib/email/suppression-store";
 import { makeResendFetcher, processInboundEvent } from "@/lib/mail/inbound";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Webhook Resend — nhận sự kiện email.received (Resend Inbound).
+ * Webhook Resend — nhận thư đến (email.received) và sự kiện gửi thư hỏng.
  *
  * - Xác minh chữ ký Svix bằng RESEND_WEBHOOK_SECRET (whsec_...) ở môi trường production;
  *   ở môi trường dev (không có secret) chấp nhận payload trần để dễ phát triển.
  * - Payload chỉ có metadata; nội dung kéo bằng Receiving API (makeResendFetcher).
+ * - email.bounced (Permanent, Undetermined), email.complained và email.suppressed: ghi địa chỉ vào
+ *   danh sách ngừng gửi, tắt tài khoản nhà cung cấp dùng địa chỉ đó. Bounce Transient bỏ qua.
  * - Luôn trả 2xx khi đã xử lý xong để Resend không phát lại; chống trùng bằng email_id.
  */
 export async function POST(req: Request) {
@@ -55,8 +59,36 @@ export async function POST(req: Request) {
     }
   }
 
+  // Bounce cứng và báo cáo thư rác: ghi vào danh sách ngừng gửi và tắt tài khoản
+  // nhà cung cấp dùng địa chỉ đó. Bounce tạm (Transient) không cắt địa chỉ.
+  if (event?.type === "email.bounced" || event?.type === "email.complained" || event?.type === "email.suppressed") {
+    const suppression = suppressionFromWebhookEvent(event);
+    if (!suppression) {
+      return NextResponse.json({
+        ok: true,
+        matched: true,
+        type: event.type,
+        suppressed: [],
+        reason:
+          event.type === "email.bounced"
+            ? "Bounce tạm (Transient): hộp thư đầy hoặc máy chủ bận, chưa cắt địa chỉ này."
+            : "Không đọc được địa chỉ người nhận trong sự kiện.",
+      });
+    }
+    const outcome = await recordSuppressions(suppression);
+    return NextResponse.json({
+      ok: true,
+      matched: true,
+      type: event.type,
+      reason: suppression.reason,
+      suppressed: outcome.saved,
+      failed: outcome.skipped,
+      deactivatedAccounts: outcome.deactivatedAccounts,
+    });
+  }
+
   if (!event || event.type !== "email.received") {
-    // Các sự kiện vòng đời gửi (sent/delivered/bounced...) chưa xử lý ở đây
+    // Các sự kiện vòng đời khác (sent/delivered/delivery_delayed...) không cần ghi
     return NextResponse.json({ ok: true, matched: false, type: event?.type ?? null });
   }
 
@@ -88,6 +120,6 @@ export async function GET() {
     endpoint: "/api/webhooks/resend",
     webhookSecretSet: Boolean(process.env.RESEND_WEBHOOK_SECRET?.trim()),
     resendConfigured: resendConfigured(),
-    expects: "POST sự kiện email.received từ Resend (chữ ký Svix)",
+    expects: "POST sự kiện email.received và email.bounced/complained từ Resend (chữ ký Svix)",
   });
 }

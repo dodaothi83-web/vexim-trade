@@ -88,7 +88,7 @@ export function SupplierCertificateUpload({
         </p>
       </div>
       <label className="block text-xs">
-        <span className="mb-1 block font-semibold text-ink-800">Gia hạn giấy đã có (tùy chọn)</span>
+        <span className="mb-1 block font-semibold text-ink-800">Gia hạn giấy đã có</span>
         <select name="certificate_id" className="input text-sm" defaultValue="">
           <option value="">+ Giấy mới</option>
           {certificates.map((c) => (

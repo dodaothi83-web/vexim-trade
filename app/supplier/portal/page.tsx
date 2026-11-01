@@ -35,12 +35,9 @@ export default async function SupplierPortal() {
   if (!account.user.supplier_id) {
     const categories = categoryProposalOptions(await account.store.listCategories({ publishedOnly: true }));
     return <>
+      {/* Không đặt bước ở đây: biểu mẫu đã có một chỉ báo tiến trình duy nhất ở cột phải. */}
       <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Tổng quan" sub={account.user.email} />
-      <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
-        <h2 className="text-base font-bold">Bước 2/2 · Xác minh doanh nghiệp</h2>
-        <p className="mt-2 leading-6">Tài khoản mới chỉ dùng được trang tổng quan và biểu mẫu hồ sơ. Vexim duyệt hồ sơ xong mới mở quản lý sản phẩm và RFQ.</p>
-      </div>
-      <div className="mt-5"><SupplierProfileForm email={account.user.email} categories={categories} /></div>
+      <div className="mt-5"><SupplierProfileForm email={account.user.email} accountName={account.user.name} categories={categories} /></div>
     </>;
   }
   const access = await supplierPortalAccess();
@@ -55,13 +52,13 @@ export default async function SupplierPortal() {
   if (!portalApproved(supplier)) return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Tổng quan" sub={user.email} />
     {canSubmitProfile(supplier) ? <>
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-        {supplier.onboarding_status === "changes_requested" ? "Hồ sơ cần bổ sung thông tin. Vui lòng cập nhật và gửi lại để Vexim duyệt." :
-          "Tài khoản mới chỉ dùng được trang tổng quan và biểu mẫu hồ sơ; Vexim duyệt hồ sơ xong mới mở quản lý sản phẩm và RFQ."}
-        {supplier.onboarding_status === "changes_requested" && supplier.onboarding_note &&
-          <p className="mt-2 whitespace-pre-wrap font-semibold">Nội dung cần bổ sung: {supplier.onboarding_note}</p>}
-      </div>
-      <div className="mt-5"><SupplierProfileForm supplier={supplier} email={user.email} categories={categoryOptions} hasCoreDoc={hasCoreDoc} /></div>
+      {/* Chỉ giữ cảnh báo khi thật sự phải sửa; hồ sơ mới đọc tiến trình ở cột phải của biểu mẫu. */}
+      {supplier.onboarding_status === "changes_requested" && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+        <p className="font-semibold">Hồ sơ cần bổ sung thông tin. Vui lòng cập nhật và gửi lại để Vexim duyệt.</p>
+        {supplier.onboarding_note &&
+          <p className="mt-2 whitespace-pre-wrap">Nội dung cần bổ sung: {supplier.onboarding_note}</p>}
+      </div>}
+      <div className="mt-5"><SupplierProfileForm supplier={supplier} email={user.email} accountName={user.name} categories={categoryOptions} hasCoreDoc={hasCoreDoc} /></div>
     </> : <><PendingProfileRefresh /><div className="rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
       <h2 className="text-base font-bold text-amber-950">Hồ sơ đang chờ Vexim duyệt</h2>
       <p className="mt-2 text-sm text-amber-900">Hồ sơ {supplier.name} đã gửi và đang chờ Vexim duyệt. Bạn vẫn đăng nhập được để xem trạng thái; quản lý sản phẩm, RFQ, thông báo và báo cáo sẽ mở sau khi Vexim duyệt hồ sơ.</p>

@@ -62,6 +62,7 @@ function mount(view, response) {
     '@/lib/verification-submission': { VERIFICATION_CODE_TTL_HOURS: 72 },
     './submission-actions': {},
     './submission-item-card': { SubmissionItemCard: () => null },
+    './benefits': { VerificationBenefits: () => null },
   };
   const mod = { exports: {} };
   vm.runInNewContext(code, {

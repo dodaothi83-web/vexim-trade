@@ -32,6 +32,13 @@ const LEVELS = {
     title: "Xác thực nhà máy",
     eyebrow: "Cổng nhà cung cấp · Xác minh L2",
     description: "Chín ảnh nhà máy theo danh mục chung. Ba ảnh đánh dấu 🔖 phải có tờ mã xác minh do hệ thống phát hành.",
+    benefits: [
+      "Huy hiệu xác thực nhà máy hiện trên hồ sơ và thẻ sản phẩm.",
+      "Người mua đọc được đúng mức đã kiểm, không phải một nhãn chung.",
+      "Hồ sơ 2/3 luôn đứng trên hồ sơ 1/3 khi xếp hạng danh mục.",
+      "Người mua lọc riêng được nhóm đã xác thực nhà máy.",
+      "Nhận xét của nhân viên, nếu được duyệt, hiện trên hồ sơ công khai.",
+    ],
     guide: [
       { title: "Tạo và in tờ mã", body: "Bấm “Tạo mã xác minh” rồi tải tờ mã về (hoặc in ra). Đây là bước bắt buộc duy nhất về giấy tờ." },
       { title: "Chụp 9 ảnh tại nhà máy", body: "Đặt tờ mã cạnh cảnh ở 3 ảnh 🔖: cổng nhà máy, dây chuyền đang chạy, kho thành phẩm. Ảnh điện thoại, kể cả ảnh đã gửi qua Zalo, đều nhận." },
@@ -42,6 +49,13 @@ const LEVELS = {
     title: "Lịch sử xuất khẩu",
     eyebrow: "Cổng nhà cung cấp · Xác minh L3",
     description: "Tải chứng từ phù hợp của một lô hàng đã xuất để nhân viên đối chiếu.",
+    benefits: [
+      "Huy hiệu lịch sử xuất khẩu hiện trên hồ sơ và thẻ sản phẩm.",
+      "Người mua đọc được đúng mức đã kiểm, không phải một nhãn chung.",
+      "Hồ sơ 3/3 là nhóm cao nhất trên lưới danh mục.",
+      "Người mua lọc riêng được nhóm đã đối chiếu lịch sử xuất khẩu.",
+      "Nhận xét của nhân viên, nếu được duyệt, hiện trên hồ sơ công khai.",
+    ],
     guide: [
       { title: "Chọn một lô hàng", body: "Khai mã lô, ngày giao và nơi đến nếu có. RFQ trúng thầu không thay được chứng từ xuất hàng." },
       { title: "Tải chứng từ", body: "Tải ít nhất một chứng từ phù hợp; không bắt buộc vận đơn. Bạn có thể gửi thêm chứng từ để làm rõ giao dịch và vai trò của doanh nghiệp." },
@@ -54,6 +68,13 @@ const PARTNER_L2 = {
   title: "Nhà máy đối tác",
   eyebrow: "Cổng nhà cung cấp · Xác minh L2",
   description: "Đối chiếu hợp đồng giữa doanh nghiệp của bạn và nhà máy đối tác. Không mặc định nhà máy thuộc sở hữu của bạn hoặc đã được kiểm thực địa.",
+  benefits: [
+    "Huy hiệu nhà máy đối tác hiện trên hồ sơ và thẻ sản phẩm.",
+    "Người mua đọc được đúng mức đã đối chiếu, không phải một nhãn chung.",
+    "Hồ sơ 2/3 luôn đứng trên hồ sơ 1/3 khi xếp hạng danh mục.",
+    "Người mua lọc riêng được nhóm đã đối chiếu nhà máy đối tác.",
+    "Nhận xét của nhân viên, nếu được duyệt, hiện trên hồ sơ công khai.",
+  ],
   guide: [
     { title: "Tải hợp đồng", body: "Tải hợp đồng thể hiện doanh nghiệp của bạn và nhà máy đối tác. Có thể che giá và thông tin nhạy cảm, nhưng giữ đủ nội dung để đối chiếu." },
     { title: "Thêm ảnh nếu có", body: "Ảnh nhà máy đối tác là tùy chọn. Không cần bộ 9 ảnh hoặc tờ mã nhà máy." },
@@ -119,7 +140,7 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
     </ol>
 
     {view
-      ? <VerificationSubmissionPanel view={view} specs={specs} />
+      ? <VerificationSubmissionPanel view={view} specs={specs} benefits={copy.benefits} />
       : <div role="status" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
         Chưa mở được hồ sơ xác minh này. Thử tải lại trang; nếu vẫn lỗi, liên hệ bộ phận hỗ trợ.
       </div>}

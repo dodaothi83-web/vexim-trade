@@ -3,9 +3,11 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 import type { Supplier, SupplierType } from "@/lib/types";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { SUPPLIER_TYPES } from "@/lib/supplier";
+import { COMPANY } from "@/lib/config";
 import { COMPANY_DOCUMENT_KEYS, INITIAL_DOCUMENT_KEYS } from "@/lib/supplier-portal/policy";
 import { SupplierCategoryPicker } from "./supplier-category-picker";
 import { FilePicker } from "@/components/file-picker";
@@ -30,17 +32,28 @@ function coreDocChosen(form: HTMLFormElement): boolean {
 
 const STEP_TITLES = ["Thông tin doanh nghiệp", "Giấy tờ bước đầu", "Hiển thị cho người mua & gửi hồ sơ"] as const;
 
-export function SupplierProfileFields({ supplier, email, categories, step }: { supplier?: Supplier; email: string; categories: CategoryProposalOption[]; step: number }) {
+/** Nhãn ngắn trong cột tiến trình bên phải; một chỉ báo duy nhất cho cả biểu mẫu. */
+const PROGRESS_STEPS = ["Thông tin doanh nghiệp", "Giấy tờ", "Gửi duyệt"] as const;
+
+/** Việc mở ra sau khi hồ sơ được duyệt, viết ngắn để đọc lướt được. */
+const UNLOCK_ITEMS = [
+  "Đăng sản phẩm và ảnh lên gian hàng của bạn.",
+  "Nhận RFQ từ người mua và gửi báo giá.",
+  "Trang doanh nghiệp công khai, có huy hiệu đã kiểm.",
+  "Tải chứng nhận chất lượng cho hồ sơ.",
+] as const;
+
+export function SupplierProfileFields({ supplier, email, categories, step, accountName }: { supplier?: Supplier; email: string; categories: CategoryProposalOption[]; step: number; accountName?: string | null }) {
   const [supplierType, setSupplierType] = useState<SupplierType | "">(supplier?.supplier_type ?? "");
   const [visitRequested, setVisitRequested] = useState(false);
   const lockedType = supplier?.onboarding_status === "changes_requested";
   return <>
     <div data-step-panel={1} className={step === 1 ? "space-y-7" : "hidden"}>
-    <section><h2 className="text-xl font-black text-ink-900">Thông tin doanh nghiệp</h2>
-      <p className="mt-1 text-sm text-ink-600">Email đăng nhập: {email}. {lockedType ? "Loại hình đã gửi không tự sửa tại đây." : "Chọn loại hình để hồ sơ được xếp đúng nhóm doanh nghiệp; lựa chọn này không mở thêm quyền truy cập nào."}</p>
+    <section aria-labelledby="company-section-title"><h2 id="company-section-title" className="text-xl font-black text-ink-900">Thông tin doanh nghiệp</h2>
+      <p className="mt-1 text-sm text-ink-600">Khai đúng như trên giấy tờ. {lockedType ? "Loại hình đã gửi không tự sửa tại đây." : "Chọn loại hình để hồ sơ được xếp đúng nhóm doanh nghiệp; lựa chọn này không mở thêm quyền truy cập nào."}</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Field label="Tên pháp lý doanh nghiệp *" name="name" required maxLength={180} defaultValue={supplier?.name ?? ""} />
-        <Field label="Tên thương mại (nếu có)" name="trade_name" maxLength={180} defaultValue={supplier?.trade_name ?? ""} />
+        <Field label="Tên pháp lý doanh nghiệp *" name="name" required maxLength={180} placeholder="vd: Công ty TNHH Gạch Sài Gòn" defaultValue={supplier?.name ?? ""} />
+        <Field label="Tên thương mại (nếu có)" name="trade_name" maxLength={180} placeholder="vd: Gạch Sài Gòn" defaultValue={supplier?.trade_name ?? ""} />
         <label className="block text-sm"><span className="mb-1 block font-semibold">Loại hình nhà cung cấp *</span>
           {lockedType ? <>
             <input name="supplier_type" type="hidden" value={supplierType} />
@@ -54,13 +67,22 @@ export function SupplierProfileFields({ supplier, email, categories, step }: { s
             {SUPPLIER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
           </select>}
         </label>
-        <Field label="Mặt hàng chính *" name="products" required maxLength={1000} defaultValue={supplier?.products ?? ""} />
-        <Field label="Tỉnh / thành" name="province" maxLength={100} defaultValue={supplier?.province ?? ""} />
-        <Field label="Địa chỉ" name="address" maxLength={250} defaultValue={supplier?.address ?? ""} />
-        <Field label="Người liên hệ *" name="contact_name" required maxLength={120} defaultValue={supplier?.contact_name ?? ""} />
-        <Field label="Điện thoại *" name="phone" required maxLength={40} defaultValue={supplier?.phone ?? ""} />
-        <Field label="Mã số thuế (chỉ nhập số) *" name="tax_number" required maxLength={32} inputMode="numeric" pattern="[0-9]+" defaultValue={supplier?.tax_id ?? ""} />
-        <Field label="Số tài khoản ngân hàng" name="bank_account_number" maxLength={34} inputMode="numeric" pattern="[0-9]+" />
+        <Field label="Mặt hàng chính *" name="products" required maxLength={1000} placeholder="vd: Hạt điều W320, hồ tiêu đen" defaultValue={supplier?.products ?? ""} />
+        <Field label="Mã số thuế (chỉ nhập số) *" name="tax_number" required maxLength={32} inputMode="numeric" pattern="[0-9]+" placeholder="vd: 0103884103" defaultValue={supplier?.tax_id ?? ""} />
+        <Field label="Số tài khoản ngân hàng" name="bank_account_number" maxLength={34} inputMode="numeric" pattern="[0-9]+" placeholder="vd: 0123456789" />
+        <Field label="Tỉnh / thành" name="province" maxLength={100} placeholder="vd: Hà Nội" defaultValue={supplier?.province ?? ""} />
+        <Field label="Địa chỉ" name="address" maxLength={250} placeholder="vd: 25/6 Ngõ 51 Ngoạ Long, Tây Tựu" defaultValue={supplier?.address ?? ""} />
+      </div>
+    </section>
+    <section className="border-t border-ink-200 pt-6" aria-labelledby="contact-section-title"><h2 id="contact-section-title" className="text-base font-bold text-ink-900">Người liên hệ</h2>
+      <p className="mt-1 text-sm text-ink-600">Vexim gọi cho người này khi cần đối chiếu hồ sơ. Người mua chỉ thấy thông tin liên hệ sau khi hồ sơ được công khai.</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <Field label="Người liên hệ *" name="contact_name" required maxLength={120} placeholder="vd: Nguyễn Văn An" defaultValue={supplier?.contact_name ?? accountName ?? ""} />
+        <Field label="Điện thoại *" name="phone" required maxLength={40} placeholder="vd: 0987 654 321" defaultValue={supplier?.phone ?? ""} />
+        <label className="block text-sm"><span className="mb-1 block font-semibold">Email đăng nhập</span>
+          <span className="input block bg-ink-50 text-ink-600">{email}</span>
+          <span className="mt-1 block text-xs text-ink-500">Kết quả duyệt và mọi thông báo gửi về email này.</span>
+        </label>
       </div>
     </section>
     <CategoryProposals categories={categories} supplier={supplier} />
@@ -151,7 +173,7 @@ function firstInvalidField(form: HTMLFormElement, step: number): HTMLElement | n
   return null;
 }
 
-export function SupplierProfileForm({ supplier, email, categories, hasCoreDoc = false }: { supplier?: Supplier; email: string; categories: CategoryProposalOption[]; hasCoreDoc?: boolean }) {
+export function SupplierProfileForm({ supplier, email, categories, hasCoreDoc = false, accountName }: { supplier?: Supplier; email: string; categories: CategoryProposalOption[]; hasCoreDoc?: boolean; accountName?: string | null }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [step, setStep] = useState(1);
@@ -225,34 +247,105 @@ export function SupplierProfileForm({ supplier, email, categories, hasCoreDoc = 
     } catch { setResult({ ok: false, message: "Không kết nối được máy chủ. Vui lòng thử lại." }); }
     finally { setBusy(false); }
   }
-  return <form ref={formRef} noValidate onSubmit={submit} className="mt-6 space-y-7 rounded-xl border border-ink-200 bg-white p-5 sm:p-7">
-    <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-bold text-ink-900">Hoàn thành hồ sơ doanh nghiệp</p>
-        <p className="text-sm text-ink-500">Bước {step}/3 · {STEP_TITLES[step - 1]}</p>
+  // Biểu mẫu chiếm khoảng hai phần ba bề ngang, cột hướng dẫn một phần ba.
+  // Trần 1240px để trang rộng không kéo ô nhập dài hết tầm mắt.
+  return <form ref={formRef} noValidate onSubmit={submit} className="mt-6">
+    <div className="grid max-w-[1240px] items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+      <div className="min-w-0 rounded-xl border border-ink-200 bg-white p-5 sm:p-7">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-base font-black text-ink-900">Hoàn thành hồ sơ doanh nghiệp</p>
+          <p className="hidden text-sm text-ink-500 lg:block">Bước {step}/3</p>
+        </div>
+        {/* Mobile: cùng một tiến trình, thu gọn thành thanh trên đầu biểu mẫu. */}
+        <div className="mt-3 lg:hidden">
+          <p className="text-sm text-ink-600">Bước {step}/3 · {STEP_TITLES[step - 1]}</p>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-100" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={step} aria-label={`Bước ${step} trên 3`}>
+            <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${(step / 3) * 100}%` }} />
+          </div>
+        </div>
+        <div className="mt-6">
+          <SupplierProfileFields supplier={supplier} email={email} accountName={accountName} categories={categories} step={step} />
+        </div>
+        {stepError && <p role="alert" className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{stepError}</p>}
+        <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-5">
+          <button type="button" onClick={() => goToStep(step - 1)} disabled={step === 1 || busy} className="btn btn-ghost disabled:cursor-not-allowed disabled:opacity-50">Quay lại</button>
+          {step < 3
+            ? <button type="button" onClick={nextStep} disabled={busy} className="btn btn-primary">Tiếp tục</button>
+            : <button type="submit" disabled={busy || result?.ok} className="btn btn-primary">{busy ? "Đang nộp hồ sơ..." : "Gửi hồ sơ duyệt"}</button>}
+        </div>
+        {result && <div role="status" className={`mt-5 rounded-xl border p-4 text-sm ${result.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>
+          {result.message}{result.ok && result.notification !== "sent" && <p className="mt-1">Email thông báo nội bộ có thể chưa gửi; hồ sơ vẫn nằm trong hàng chờ duyệt.</p>}
+        </div>}
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-100" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={step} aria-label={`Bước ${step} trên 3`}>
-        <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${(step / 3) * 100}%` }} />
-      </div>
+      <OnboardingAside step={step} onStep={goToStep} />
     </div>
-    <SupplierProfileFields supplier={supplier} email={email} categories={categories} step={step} />
-    {stepError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{stepError}</p>}
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-5">
-      <button type="button" onClick={() => goToStep(step - 1)} disabled={step === 1 || busy} className="btn btn-ghost disabled:cursor-not-allowed disabled:opacity-50">Quay lại</button>
-      {step < 3
-        ? <button type="button" onClick={nextStep} disabled={busy} className="btn btn-primary">Tiếp tục</button>
-        : <button type="submit" disabled={busy || result?.ok} className="btn btn-primary">{busy ? "Đang nộp hồ sơ..." : "Gửi hồ sơ duyệt"}</button>}
-    </div>
-    {result && <div role="status" className={`rounded-xl border p-4 text-sm ${result.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>
-      {result.message}{result.ok && result.notification !== "sent" && <p className="mt-1">Email thông báo nội bộ có thể chưa gửi; hồ sơ vẫn nằm trong hàng chờ duyệt.</p>}
-    </div>}
   </form>;
 }
 
-function Field({ label, name, required, maxLength, inputMode, pattern, defaultValue }: {
-  label: string; name: string; required?: boolean; maxLength: number; inputMode?: "numeric"; pattern?: string; defaultValue?: string;
+/**
+ * Cột phụ bên phải: giúp doanh nghiệp đi hết biểu mẫu chứ không bán thêm gói dịch vụ.
+ * Desktop bám theo khi cuộn; mobile đẩy xuống dưới biểu mẫu, riêng tiến trình đã thu gọn
+ * thành thanh trên đầu nên không lặp lại hai chỉ báo bước.
+ */
+function OnboardingAside({ step, onStep }: { step: number; onStep: (step: number) => void }) {
+  return <aside aria-label="Hướng dẫn hoàn thành hồ sơ" className="min-w-0 space-y-4 lg:sticky lg:top-20">
+    <section className="hidden rounded-xl border border-brand-200 bg-brand-50/60 p-5 lg:block">
+      <h2 className="text-sm font-black text-ink-900">Tiến trình hồ sơ</h2>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={step} aria-label={`Bước ${step} trên 3`}>
+        <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${(step / 3) * 100}%` }} />
+      </div>
+      <ol className="mt-3 space-y-1.5 text-sm">
+        {PROGRESS_STEPS.map((title, index) => {
+          const number = index + 1;
+          const done = number < step;
+          const current = number === step;
+          return <li key={title} className="flex items-center gap-2">
+            <span aria-hidden className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${done ? "bg-emerald-600 text-white" : current ? "bg-brand-700 text-white" : "border border-ink-300 text-ink-500"}`}>
+              {done ? <Check className="h-3 w-3" /> : number}
+            </span>
+            {done
+              ? <button type="button" onClick={() => onStep(number)} className="text-left font-semibold text-brand-700 underline">{title}</button>
+              : <span className={current ? "font-bold text-ink-900" : "text-ink-500"}>{title}</span>}
+            <span className="ml-auto text-xs text-ink-500">{done ? "Đã xong" : current ? "Đang điền" : "Chưa tới"}</span>
+          </li>;
+        })}
+      </ol>
+      <p className="mt-3 text-xs text-ink-600">Bấm vào bước đã xong để sửa lại.</p>
+    </section>
+    <section className="rounded-xl border border-ink-200 bg-white p-5">
+      <h2 className="text-sm font-black text-ink-900">Cần chuẩn bị gì</h2>
+      <ul className="mt-3 space-y-2 text-sm text-ink-700">
+        <li>Mã số thuế của doanh nghiệp.</li>
+        <li>Ảnh hoặc PDF Giấy chứng nhận đăng ký kinh doanh.</li>
+        <li>Số điện thoại và Zalo của người liên hệ.</li>
+        <li>Tên danh mục hàng bạn muốn bán trên Vexim.</li>
+      </ul>
+      <p className="mt-3 text-xs text-ink-500">Giấy tờ phải đứng tên doanh nghiệp bạn khai ở bước 1.</p>
+    </section>
+    <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-5">
+      <h2 className="text-sm font-black text-ink-900">Sau khi hồ sơ được duyệt</h2>
+      <ul className="mt-3 space-y-2 text-sm text-ink-700">
+        {UNLOCK_ITEMS.map((item) => <li key={item} className="flex gap-2">
+          <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+          <span>{item}</span>
+        </li>)}
+      </ul>
+      <p className="mt-3 text-xs text-ink-600">Duyệt hồ sơ không đồng nghĩa xác thực nhà máy hay công khai giấy tờ.</p>
+    </section>
+    <section className="rounded-xl border border-ink-200 bg-white p-5">
+      <h2 className="text-sm font-black text-ink-900">Thời gian duyệt và hỗ trợ</h2>
+      <p className="mt-2 text-sm text-ink-700">Hồ sơ được xem theo thứ tự gửi đến, thường trong vài ngày làm việc.</p>
+      <p className="mt-1 text-sm text-ink-700">Kết quả duyệt gửi về email đăng nhập.</p>
+      <p className="mt-3 text-sm text-ink-700">Chưa rõ chỗ nào, gọi <a href={`tel:${COMPANY.phone}`} className="font-semibold text-brand-700 underline">{COMPANY.phoneDisplay}</a>.</p>
+      <p className="mt-1 text-sm text-ink-700">Hoặc viết về <a href={`mailto:${COMPANY.email}`} className="font-semibold text-brand-700 underline">{COMPANY.email}</a>.</p>
+    </section>
+  </aside>;
+}
+
+function Field({ label, name, required, maxLength, inputMode, pattern, defaultValue, placeholder }: {
+  label: string; name: string; required?: boolean; maxLength: number; inputMode?: "numeric"; pattern?: string; defaultValue?: string; placeholder?: string;
 }) {
   return <label className="block text-sm"><span className="mb-1 block font-semibold">{label}</span>
-    <input name={name} className="input" required={required} maxLength={maxLength} inputMode={inputMode} pattern={pattern} defaultValue={defaultValue} />
+    <input name={name} className="input" required={required} maxLength={maxLength} inputMode={inputMode} pattern={pattern} defaultValue={defaultValue} placeholder={placeholder} />
   </label>;
 }

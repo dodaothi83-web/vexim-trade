@@ -3,6 +3,8 @@ import { Resend } from "resend";
 import { FROM_ADDRESS, resendConfigured } from "@/lib/config";
 import { getStore } from "@/lib/db";
 import { formatFrom, senderAddressFor } from "@/lib/email/sender";
+import { planDelivery } from "@/lib/email/suppression";
+import { suppressedEmails } from "@/lib/email/suppression-store";
 import {
   buildBuyerEmail,
   buildSupplierAssignedEmail,
@@ -50,6 +52,16 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
   if (recipients.length === 0) {
     return { ok: false, status: "failed", provider: "local", error: "Không có người nhận" };
   }
+  // Địa chỉ đã bounce cứng hoặc đã báo cáo thư rác thì dừng ngay tại đây, trước
+  // khi chạm Resend: gửi tiếp chỉ làm giảm uy tín của domain hello@veximtrade.com
+  // cho mọi người nhận khác. Đây là chốt duy nhất cho mọi đường thư trong hệ thống.
+  const suppressed = await suppressedEmails([...recipients, ...(mail.cc ?? []), ...(mail.bcc ?? [])]);
+  const plan = planDelivery(mail, suppressed);
+  if (plan.blocked) {
+    return { ok: false, status: "failed", provider: "local", error: plan.reason ?? "Địa chỉ đã ngừng nhận thư." };
+  }
+  mail = plan.mail;
+  const to = mail.to;
   if (!resendConfigured()) {
     // Never report success for an email that production could not actually send.
     if (process.env.NODE_ENV === "production") return {
@@ -62,7 +74,7 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
     const { error } = await resend.emails.send({
       from: mail.from?.trim() || FROM_ADDRESS,
       replyTo: mail.replyTo?.trim() || undefined,
-      to: recipients,
+      to,
       cc: mail.cc?.length ? mail.cc.filter(Boolean) : undefined,
       bcc: mail.bcc?.length ? mail.bcc.filter(Boolean) : undefined,
       subject: mail.subject,
