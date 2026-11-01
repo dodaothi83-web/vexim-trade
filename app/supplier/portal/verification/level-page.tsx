@@ -10,6 +10,7 @@ import { buildPortalSubmission, exportSpecs, partnerSpecs, photoSpecs } from "@/
 import { l2ScopeForSupplier } from "@/lib/l2-scope";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { LevelTabs } from "./level-tabs";
+import { VerificationBenefits } from "./benefits";
 import { VerificationSubmissionPanel } from "./verification-panel";
 
 /**
@@ -32,6 +33,11 @@ const LEVELS = {
     title: "Xác thực nhà máy",
     eyebrow: "Cổng nhà cung cấp · Xác minh L2",
     description: "Chín ảnh nhà máy theo danh mục chung. Ba ảnh đánh dấu 🔖 phải có tờ mã xác minh do hệ thống phát hành.",
+    benefits: [
+      "Hồ sơ 2/3 luôn đứng trên hồ sơ 1/3 khi xếp hạng danh mục.",
+      "Huy hiệu xác thực nhà máy trên hồ sơ và thẻ sản phẩm.",
+      "Người mua lọc được riêng nhóm đã xác thực nhà máy.",
+    ],
     guide: [
       { title: "Tạo và in tờ mã", body: "Bấm “Tạo mã xác minh” rồi tải tờ mã về (hoặc in ra). Đây là bước bắt buộc duy nhất về giấy tờ." },
       { title: "Chụp 9 ảnh tại nhà máy", body: "Đặt tờ mã cạnh cảnh ở 3 ảnh 🔖: cổng nhà máy, dây chuyền đang chạy, kho thành phẩm. Ảnh điện thoại, kể cả ảnh đã gửi qua Zalo, đều nhận." },
@@ -42,6 +48,11 @@ const LEVELS = {
     title: "Lịch sử xuất khẩu",
     eyebrow: "Cổng nhà cung cấp · Xác minh L3",
     description: "Tải chứng từ phù hợp của một lô hàng đã xuất để nhân viên đối chiếu.",
+    benefits: [
+      "Hồ sơ 3/3 là nhóm cao nhất trên lưới danh mục.",
+      "Huy hiệu lịch sử xuất khẩu trên hồ sơ và thẻ sản phẩm.",
+      "Nếu được duyệt, nhận xét của nhân viên hiện trên hồ sơ công khai.",
+    ],
     guide: [
       { title: "Chọn một lô hàng", body: "Khai mã lô, ngày giao và nơi đến nếu có. RFQ trúng thầu không thay được chứng từ xuất hàng." },
       { title: "Tải chứng từ", body: "Tải ít nhất một chứng từ phù hợp; không bắt buộc vận đơn. Bạn có thể gửi thêm chứng từ để làm rõ giao dịch và vai trò của doanh nghiệp." },
@@ -54,6 +65,11 @@ const PARTNER_L2 = {
   title: "Nhà máy đối tác",
   eyebrow: "Cổng nhà cung cấp · Xác minh L2",
   description: "Đối chiếu hợp đồng giữa doanh nghiệp của bạn và nhà máy đối tác. Không mặc định nhà máy thuộc sở hữu của bạn hoặc đã được kiểm thực địa.",
+  benefits: [
+    "Hồ sơ 2/3 luôn đứng trên hồ sơ 1/3 khi xếp hạng danh mục.",
+    "Huy hiệu nhà máy đối tác trên hồ sơ và thẻ sản phẩm.",
+    "Người mua lọc được riêng nhóm đã đối chiếu nhà máy đối tác.",
+  ],
   guide: [
     { title: "Tải hợp đồng", body: "Tải hợp đồng thể hiện doanh nghiệp của bạn và nhà máy đối tác. Có thể che giá và thông tin nhạy cảm, nhưng giữ đủ nội dung để đối chiếu." },
     { title: "Thêm ảnh nếu có", body: "Ảnh nhà máy đối tác là tùy chọn. Không cần bộ 9 ảnh hoặc tờ mã nhà máy." },
@@ -107,6 +123,8 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
     />
 
     <LevelTabs current={level} partner={supplier.supplier_type === "trading"} />
+
+    <VerificationBenefits items={copy.benefits} />
 
     <ol className="mt-4 grid gap-2.5 sm:grid-cols-3" aria-label="Ba bước thực hiện">
       {copy.guide.map((step, index) => <li key={step.title} className="flex gap-2.5 rounded-xl border border-ink-200 bg-white px-3.5 py-3 shadow-sm">

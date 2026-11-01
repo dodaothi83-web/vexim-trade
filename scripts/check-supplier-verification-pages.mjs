@@ -88,6 +88,28 @@ assert.match(documents, /Lý do cần bổ sung:/, 'L1 hiện lý do khi bị tr
 assert.doesNotMatch(documents, /runScan|Nộp hồ sơ/, 'Bước 1 không có nút nộp: nhân viên mở đợt kiểm');
 assert.doesNotMatch(documents, /AI quét những gì/, 'Không lặp lại khối giải thích AI đã bỏ ở L2/L3');
 
+/* 2c. L2 và L3 nói rõ nhà cung cấp nhận được gì: một khối chung, ba gạch đầu dòng
+   ngắn, đặt ngay dưới dải tab để đọc trước khi bắt tay làm. */
+assert.ok(has('app/supplier/portal/verification/benefits.tsx'), 'Có khối giá trị dùng chung cho L2 và L3');
+const benefitsBlock = read('app/supplier/portal/verification/benefits.tsx');
+assert.match(benefitsBlock, /Bạn nhận được gì/, 'Khối giá trị có tiêu đề');
+assert.match(benefitsBlock, /Check className/, 'Mỗi dòng có dấu xác nhận');
+assert.match(benefitsBlock, /sm:grid-cols-3/, 'Ba dòng xếp ngang trên màn hình rộng');
+assert.match(levelPage, /<VerificationBenefits items=\{copy\.benefits\} \/>/, 'L2 và L3 dùng chung khối đó');
+const benefitsAt = levelPage.indexOf('<VerificationBenefits');
+assert.ok(benefitsAt > levelPage.indexOf('<LevelTabs'), 'Khối giá trị nằm ngay sau dải tab');
+assert.ok(benefitsAt < levelPage.indexOf('Ba bước thực hiện'), 'Khối giá trị đứng trước ba bước thực hiện');
+const benefitBlocks = [...levelPage.matchAll(/benefits: \[\n((?:\s+"[^"\n]+",\n)+)\s+\]/g)];
+assert.equal(benefitBlocks.length, 3, 'Đủ ba biến thể: L2 nhà máy, L2 đối tác, L3 xuất khẩu');
+for (const [, body] of benefitBlocks) {
+  const lines = body.split('\n').filter((line) => line.trim());
+  assert.equal(lines.length, 3, 'Mỗi cấp đúng ba gạch đầu dòng');
+  for (const line of lines) {
+    assert.ok(line.trim().replace(/,$/, '').length <= 90, `Gạch đầu dòng quá dài: ${line.trim()}`);
+    assert.doesNotMatch(line, /tăng đơn|chắc chắn có đơn|top 1|lên top/i, 'Không hứa đơn hàng hay thứ hạng tuyệt đối');
+  }
+}
+
 const auditPage = read('app/crm/suppliers/[slug]/audit/[step]/page.tsx');
 const auditForm = read('app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx');
 assert.match(auditPage, /certificateMedia=\{certificateMedia\}/, 'CRM chuyển đúng tệp gốc chứng nhận vào màn kiểm');
