@@ -58,3 +58,36 @@ export const HOME_FEED_WIDE_QUERY = "(min-width: 1024px)";
 export function feedPerPage(wide: boolean): number {
   return wide ? HOME_FEED_PER_PAGE_WIDE : HOME_FEED_PER_PAGE;
 }
+
+/**
+ * Số thẻ mỗi trang của lưới trang danh mục.
+ *
+ * Lưới danh mục chia bốn cột từ 1024px, nên 12 thẻ là đúng ba hàng đầy trên
+ * desktop; điện thoại một cột thì vẫn là mười hai thẻ, không cắt theo bề rộng để
+ * số trang và URL không đổi khi người mua xoay máy hay đổi cỡ cửa sổ.
+ */
+export const CATEGORY_PAGE_SIZE = 12;
+
+/** Số trang của một danh sách; danh sách rỗng vẫn là một trang. */
+export function categoryPageCount(total: number, perPage: number = CATEGORY_PAGE_SIZE): number {
+  if (!Number.isFinite(total) || total <= 0) return 1;
+  const size = Math.max(1, Math.floor(perPage));
+  return Math.max(1, Math.ceil(total / size));
+}
+
+/**
+ * Cắt một trang của danh sách. Trang ngoài phạm vi được kẹp về trang cuối thay vì
+ * trả về danh sách rỗng, để `?page=99` không thành một trang trắng.
+ */
+export function categoryPageSlice<T>(
+  items: readonly T[],
+  page: number,
+  perPage: number = CATEGORY_PAGE_SIZE,
+): { items: T[]; page: number; pages: number; total: number } {
+  const total = items.length;
+  const pages = categoryPageCount(total, perPage);
+  const size = Math.max(1, Math.floor(perPage));
+  const wanted = Number.isFinite(page) ? Math.floor(page) : 1;
+  const current = Math.min(Math.max(1, wanted), pages);
+  return { items: items.slice((current - 1) * size, current * size), page: current, pages, total };
+}

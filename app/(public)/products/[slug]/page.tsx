@@ -153,6 +153,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const query = (await searchParams) ?? {};
   // Trang đã lọc là một cách xem khác của cùng danh mục; chỉ trang gốc được index.
   const filtered = parseCertificateSchemeQuery(query.cert).length > 0;
+  const page = categoryPageParam(query.page);
   const { cat, resolvedSlug, isPreview } = await resolveCategory(slug);
   if (!cat) return { title: "Category not found | Vexim Trade", robots: { index: false, follow: false } };
   const name = categoryDisplayName(cat);
@@ -161,14 +162,33 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const indexable = !isPreview && !!cat.seo_indexable;
   const heroImage = cat.hero_image || "/images/home/hero-cashew-texture.jpg";
   const images = [{ url: heroImage, alt: `${name} products and verified suppliers in Vietnam` }];
+  // Trang hai trở đi tự trỏ canonical về chính nó, nếu không sẽ bị hiểu là bản trùng trang một.
+  const canonicalPath = page > 1 ? `/products/${resolvedSlug}?page=${page}` : `/products/${resolvedSlug}`;
   return {
-    title: { absolute: seoTitle },
+    title: { absolute: page > 1 ? `${seoTitle} · page ${page}` : seoTitle },
     description: seoDesc,
-    alternates: { canonical: `/products/${resolvedSlug}` },
-    openGraph: { title: seoTitle, description: seoDesc, url: `/products/${resolvedSlug}`, siteName: "Vexim Trade", type: "website", images },
+    alternates: { canonical: canonicalPath },
+    openGraph: { title: seoTitle, description: seoDesc, url: canonicalPath, siteName: "Vexim Trade", type: "website", images },
     twitter: { card: "summary_large_image", title: seoTitle, description: seoDesc, images: [heroImage] },
     robots: { index: indexable && !filtered, follow: !isPreview },
   };
+}
+
+/** `?page=` là số nguyên dương; giá trị lạ rơi về trang một. */
+function categoryPageParam(value: string | string[] | undefined): number {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 1;
+}
+
+/** Giữ các tham số lọc hiện có khi chuyển trang, bỏ chính `page`. */
+function withoutPageParam(query: Record<string, string | string[] | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (key === "page" || value == null) continue;
+    for (const item of Array.isArray(value) ? value : [value]) params.append(key, item);
+  }
+  return params.toString();
 }
 
 /** Tìm category theo slug hoặc previous_slug — nếu trúng previous_slug sẽ 301 sang slug hiện tại. */
@@ -461,6 +481,8 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             filters={filters}
             rfqHref={rfqHref}
             comparisonEnabled={!isPreview}
+            page={categoryPageParam(query.page)}
+            keepQuery={withoutPageParam(query)}
           />
         ) : (
           <StateB
@@ -550,6 +572,7 @@ function SubcategoryDirectory({
 function StateA({
   cat, products, productCount, certificateFacets, selectedCertificateSchemes,
   sponsored, sponsoredBand, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref, comparisonEnabled,
+  page, keepQuery,
 }: {
   cat: Category;
   products: PublicCategoryProduct[];
@@ -565,6 +588,8 @@ function StateA({
   faqs: Array<{ q: string; a: string }>;
   filters: CategoryFilter[];
   rfqHref: string;
+  page: number;
+  keepQuery: string;
 }) {
   // Lịch mùa vụ: chuẩn hóa để dữ liệu cũ hoặc thiếu trường không làm vỡ trang.
   const harvest = normalizeHarvest(cat.harvest);
@@ -635,7 +660,8 @@ function StateA({
           </div>
         ) : (
           <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored}
-            sponsoredBand={sponsoredBand} productFields={cat.product_fields ?? []} comparisonEnabled={comparisonEnabled} />
+            sponsoredBand={sponsoredBand} productFields={cat.product_fields ?? []} comparisonEnabled={comparisonEnabled}
+            page={page} keepQuery={keepQuery} />
         )}
       </section>
 
