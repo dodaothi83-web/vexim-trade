@@ -1342,7 +1342,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               </div>}
               </Row>
 
-              <Row label="Giá mẫu (USD)" hint="Bỏ trống nếu không bán mẫu.">
+              <Row label="Giá mẫu (USD)" hint="Bỏ trống nếu không bán mẫu. Nhập 0 nếu nhận mẫu miễn phí.">
                 <input className="input max-w-[200px]" name="sample_price_usd" inputMode="decimal" placeholder="Ví dụ: 5"
                   defaultValue={product?.sample_price_usd ?? ""} disabled={locked} />
               </Row>

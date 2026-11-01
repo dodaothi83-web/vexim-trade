@@ -183,6 +183,7 @@ for (const marker of ['6 ô ảnh sản phẩm', 'Ảnh chính', 'aria-label="X�
 for (const marker of ['name="spec"', 'name="monthly_capacity"', 'name="raw_material_region"', 'name="input_material_origin"',
   'name="oem"', 'name="odm"', 'name="samples"']) inSection('sec-spec', page, marker);
 for (const marker of ['name="sample_price_usd"', 'name="price_publicly_visible"']) inSection('sec-price', page, marker);
+assert.match(sectionHtml(page, 'sec-price'), /Nhập 0 nếu nhận mẫu miễn phí/, 'ghi rõ nhập 0 để nhận mẫu miễn phí');
 inSection('sec-price', withQuantity, 'data-quantity-editor="1"');
 assert.match(withQuantity, /data-sidebar-preview="true"/, 'Bảng giá đẩy bản nháp sang thẻ xem nhanh');
 assert.equal((withQuantity.match(/data-buyer-preview="1"/g) ?? []).length, 1, 'Bản xem trước của người mua nằm trong thẻ có sẵn');
