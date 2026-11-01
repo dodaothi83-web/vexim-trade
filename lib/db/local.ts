@@ -1117,14 +1117,6 @@ export const localStore: DataStore = {
       return row;
     });
   },
-  async markSupplierVerificationContacted(supplierId, level, actorId) {
-    return mutate((db) => {
-      const row = db.supplier_verification_requests.find((r) => r.supplier_id === supplierId && r.target_level === level);
-      if (!row) throw new Error("Không có yêu cầu này.");
-      if (row.status === "requested") Object.assign(row, { status: "contacted", contacted_at: new Date().toISOString(), contacted_by: actorId });
-      return row;
-    });
-  },
 
   async listProducts() {
     return [...load().products].sort((a, b) => a.name.localeCompare(b.name, "vi"));

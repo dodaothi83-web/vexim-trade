@@ -68,7 +68,6 @@ export interface DataStore {
   deleteSupplier(id: string): Promise<void>;
   listSupplierVerificationRequests(supplierId?: string): Promise<SupplierVerificationRequest[]>;
   createSupplierVerificationRequest(supplierId: string, level: 2 | 3): Promise<SupplierVerificationRequest>;
-  markSupplierVerificationContacted(supplierId: string, level: 2 | 3, actorId: string): Promise<SupplierVerificationRequest>;
 
   listProducts(): Promise<SupplierProduct[]>;
   getProduct(id: string): Promise<SupplierProduct | null>;
