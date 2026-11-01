@@ -217,9 +217,10 @@ for (const [name, src] of [
   const showing = visibleStrings(src).filter((text) => /\bAI\b|\bL2\b/.test(text));
   assert.deepEqual(showing, [], `${name}: câu nhà cung cấp đọc không nhắc AI hay mã bước nội bộ`);
 }
-assert.match(uploadBox, /Gia hạn giấy đã có \(tùy chọn\)/, "ô tải ở trang Giấy tờ có chọn gia hạn");
+assert.match(uploadBox, /Gia hạn giấy đã có<\/span>/, "ô tải ở trang Giấy tờ có chọn gia hạn");
+assert.doesNotMatch(uploadBox, /\(tùy chọn\)/, "nhãn chọn gia hạn không kèm chữ tùy chọn, để ô chọn thẳng hàng với ô nhập bên cạnh");
 assert.match(portalCertForm, /name="certificate_id"/, "ô tải ở trang sản phẩm gia hạn được ngay tại chỗ");
-assert.match(portalCertForm, /Gia hạn giấy đã có \(tùy chọn\)/, "hai ô tải dùng cùng nhãn gia hạn");
+assert.match(portalCertForm, /Gia hạn giấy đã có<\/span>/, "hai ô tải dùng cùng nhãn gia hạn");
 assert.match(uploadBox, /Tên trên giấy \(không bắt buộc\)/, "ô tải gọi đúng tên trường nhập");
 assert.match(portalCertForm, /Tên trên giấy \(không bắt buộc\)/, "hai ô tải gọi cùng tên trường");
 assert.match(portalCertForm, /pendingUploads/, "giấy vừa tải hiện riêng là đang chờ phân loại");
@@ -253,12 +254,16 @@ assert.match(documentsPage, /COMPANY_DOCUMENT_KEYS\.map/, "trang giấy tờ d�
 assert.doesNotMatch(documentsPage, /INITIAL_DOCUMENT_KEYS\.map\(/,
   "không còn ô tải HACCP/chứng chỉ sản phẩm trong lưới");
 assert.match(documentsPage, /legacyCertFiles/, "tệp chứng nhận tải theo luồng cũ vẫn xem lại được");
-assert.match(documentsPage, /title=\{!latest \? "Chưa có tệp"/,
+assert.match(documentsPage, /title=\{!row\.latest \? "Chưa có tệp"/,
   "thẻ chưa có tệp không ghi Đã đối chiếu xong");
-assert.match(documentsPage, /certificateMediaIds\.has\(latest\.id\)/,
+assert.match(documentsPage, /certificateMediaIds\.has\(row\.latest\.id\)/,
   "thẻ giấy tờ nói rõ tệp đã vào kho chứng nhận");
-assert.match(documentsPage, /L1_DOC_ITEMS\.filter\(\(item\) => \[\.\.\.COMPANY_DOCUMENT_KEYS, \.\.\.QUALITY_CERTIFICATE_DOC_KEYS\]\.includes/,
-  "bảng chỉ còn giấy đăng ký kinh doanh và chứng nhận chất lượng, bỏ hai mục khai tay");
+assert.match(documentsPage, /deriveL1Rows\(certificates\)\.map/,
+  "danh sách đã duyệt gom theo loại giấy, chỉ từ giấy đã được duyệt");
+assert.match(documentsPage, /certificate\.review_status === "approved" && !certificate\.staff_hidden/,
+  "chỉ giấy đã duyệt và không bị ẩn mới hiện trong danh sách");
+assert.doesNotMatch(documentsPage, /Giấy đã duyệt/,
+  "bỏ cột Giấy đã duyệt: mỗi dòng là một loại giấy, có dấu xác nhận là đã duyệt");
 assert.match(documentsPage, /Mã số thuế và số tài khoản ngân hàng khai trong Hồ sơ doanh nghiệp/,
   "bảng L1 chỉ chỗ khai hai mục đó");
 const profileEvidence = read("lib/supplier-portal/profile-evidence.ts");

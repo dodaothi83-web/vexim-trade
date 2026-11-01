@@ -234,7 +234,7 @@ export function ProductCertificatesForm({
           {holderRule && <p className="mt-1 text-[11.5px] leading-4 text-ink-600">{holderRule.text}</p>}
         </div>
         <label className="block text-[12px] sm:col-span-1">
-          <span className="mb-1 block font-semibold text-ink-800">Gia hạn giấy đã có (tùy chọn)</span>
+          <span className="mb-1 block font-semibold text-ink-800">Gia hạn giấy đã có</span>
           <select name="certificate_id" className="input text-sm" defaultValue="">
             <option value="">+ Giấy mới</option>
             {all.filter((certificate) => !certificate.superseded).map((certificate) => (

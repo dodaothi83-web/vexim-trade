@@ -61,9 +61,23 @@ assert.ok(!levelPage.includes('AI quét những gì'), 'Đã bỏ khối giải 
 const documents = read('app/supplier/portal/documents/page.tsx');
 assert.match(documents, /<LevelTabs current=\{1\} partner=/, 'Trang L1 dùng chung dải tab ba bước');
 assert.match(documents, /role="progressbar"/, 'L1 có dải tiến độ giấy tờ');
-assert.doesNotMatch(documents, /lg:grid-cols-\[minmax\(0,1fr\)_330px\]|lg:sticky lg:top-20/, 'L1 không lặp cột tóm tắt/progress bên phải');
+// Bước 1 dùng đúng bố cục hai cột của L2/L3 (nội dung bên trái, cột tóm tắt dính bên
+// phải), nhưng cột phải là nơi tải tệp chứ không phải nơi nộp hồ sơ.
+assert.match(documents, /lg:grid-cols-\[minmax\(0,1fr\)_330px\]/, 'L1 dùng lưới hai cột như L2/L3');
+assert.match(documents, /lg:sticky lg:top-20/, 'Cột phải dính khi lướt, như L2/L3');
+const aside = documents.slice(documents.indexOf("<aside"), documents.indexOf("</aside>"));
+assert.match(aside, /<L1DocUpload checklistKey=\{row\.key\}/, 'Cột phải tải được giấy đăng ký kinh doanh');
+assert.match(aside, /<SupplierCertificateUpload certificates=/, 'Cột phải tải được chứng nhận chất lượng');
 assert.match(documents, /EvidenceThumbnail/, 'L1 hiển thị tệp dạng ảnh thu nhỏ');
-assert.match(documents, /certificateFiles\.map/, 'Chứng nhận được xếp thành dải ngang');
+
+// Phần giá trị: một khối riêng, chỉ gạch đầu dòng ngắn, đứng trên danh sách chứng nhận.
+const benefits = documents.slice(documents.indexOf("Bạn nhận được gì"), documents.indexOf("Chứng nhận đã duyệt theo loại"));
+assert.ok(benefits.length > 0, 'L1 nói rõ nhà cung cấp nhận được gì, đặt trên danh sách chứng nhận');
+assert.equal((benefits.match(/<li>/g) ?? []).length, 4, 'Đúng bốn gạch đầu dòng, không viết dài');
+assert.match(documents, /Chứng nhận đã duyệt theo loại/, 'Danh sách chứng nhận gom theo loại giấy');
+assert.match(documents, /approvedByKey\.map/, 'Chỉ loại có giấy đã duyệt mới được vẽ');
+assert.match(documents, /BadgeCheck/, 'Mỗi loại đã duyệt có dấu xác nhận');
+assert.doesNotMatch(documents, /Giấy đã duyệt/, 'Đã bỏ cột Giấy đã duyệt khỏi bảng cũ');
 assert.match(documents, /<L1DocUpload checklistKey=\{row\.key\}/, 'L1 tải được giấy tờ ngay trong từng thẻ');
 assert.match(documents, /<SupplierCertificateUpload certificates=/, 'L1 vẫn tải được chứng nhận');
 assert.match(documents, /Lý do cần bổ sung:/, 'L1 hiện lý do khi bị trả hồ sơ');

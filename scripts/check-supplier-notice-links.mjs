@@ -49,7 +49,7 @@ assert.match(dashboard, /level === 2 \? "\/supplier\/portal\/verification\/facto
 assert.match(dashboard, /"\/supplier\/portal\/verification\/export"/, 'L3 trỏ về trang lịch sử xuất khẩu');
 assert.match(dashboard, /CERT_HREF = "\/supplier\/portal\/documents#chung-nhan"/, 'Chứng nhận trỏ đúng mục trên trang giấy tờ');
 assert.match(documents, /id="chung-nhan"/, 'Trang giấy tờ có mục chứng nhận để neo tới');
-assert.match(documents, /scrollMarginTop/, 'Mục chứng nhận chừa chỗ cho thanh trên khi nhảy tới');
+assert.match(documents, /scroll-mt-24|scrollMarginTop/, 'Mục chứng nhận chừa chỗ cho thanh trên khi nhảy tới');
 
 // 5. API trả kèm đích để chuông dùng.
 assert.match(api, /href: notice\.href|href: n\.href|href:/, 'API thông báo trả kèm href');
