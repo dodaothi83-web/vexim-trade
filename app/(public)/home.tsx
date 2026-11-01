@@ -123,10 +123,13 @@ export default async function HomeContent({
   query = "",
   categoryFilter = "",
   lang = "en",
+  heroSrc,
 }: {
   query?: string;
   categoryFilter?: string;
   lang?: HomeLocale;
+  /** Ảnh nền riêng trong public/images/home; không truyền thì dùng ảnh Pexels bên dưới. */
+  heroSrc?: string | null;
 } = {}) {
   const isVi = lang === "vi";
   const store = getStore();
@@ -255,8 +258,8 @@ export default async function HomeContent({
       <section className="relative overflow-hidden border-b-4 border-amber-400 bg-gradient-to-b from-brand-900 via-brand-900 to-ink-950 text-white">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={HOME_HERO_SRC}
-          srcSet={HOME_HERO_SRCSET}
+          src={heroSrc || HOME_HERO_SRC}
+          srcSet={heroSrc ? undefined : HOME_HERO_SRCSET}
           sizes="100vw"
           alt=""
           width={1600}
