@@ -237,6 +237,15 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   chỉ thấy khi sản phẩm đã đăng). CRM không còn "Đã kiểm tra / Chưa xác minh" hay nút duyệt ảnh hàng loạt; chỉ còn một
   công tắc `Hiện với người mua / Ẩn (nội bộ)` để staff gỡ ảnh xấu. Cổng duyệt trước khi đăng chỉ đòi **ít nhất một ảnh
   chia sẻ cho người mua**; ảnh cũ giữ nguyên hiển thị, không cần duyệt lại.
+- **Khối 05, thêm ngày 01/11/2026 — grade do nhà cung cấp tự thêm**: ô chọn `Grade` có thêm mục
+  `+ Thêm grade mới` ở cuối danh sách. Nhập mã rồi bấm `Lưu grade` là mã đó được lưu vào danh mục
+  (`categories.supplier_grade_options`) và dùng được ngay cho mọi sản phẩm cùng nhóm hàng; nhà cung cấp khác
+  trong cùng nhóm hàng cũng thấy, Vexim thấy khi duyệt. Danh sách chuẩn của Vexim (`BUILTIN_CATEGORY_GRADES`
+  và `product_fields` kiểu grade) không bị sửa, grade tự thêm luôn đứng cuối. Giới hạn: 12 mục mỗi danh mục,
+  mỗi mã tối đa 40 ký tự, chặn link, email, số điện thoại và HTML; mọi lần thêm ghi vào nhật ký
+  `supplier.grade_option_added`. Chỉ nhóm hàng trong phạm vi đăng bán của chính nhà cung cấp mới thêm được.
+  Một chỗ duy nhất trong `components/products/quantity-pricing-editor.tsx`, nên form tạo sản phẩm và trang
+  gửi bảng giá đều có.
 - **Khối 06**: dòng "Đóng gói" gộp nhãn con (bao bì · loại kiện/khối lượng/số đơn vị · kích thước), rồi các dòng
   Thời gian giao hàng, Vận chuyển (cảng xuất + địa điểm Incoterm), Điều kiện thanh toán kèm chip gợi ý.
 - **Khối 08**: danh sách kiểm tra từng dòng (biểu tượng đạt/chưa đạt + hành động `Đi tới mục N` / `Sửa`), chỉ còn

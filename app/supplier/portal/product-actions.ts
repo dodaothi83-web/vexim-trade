@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
-import { categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
+import { allowedSupplierCategories, categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import {
   attributesFromForm, mergeSupplierAttributePool, sanitizeSupplierAttributePool, saveProductAttributes,
   supplierAttributePoolSignature,
@@ -20,7 +20,9 @@ import {
 } from "@/lib/products/grade-pricing";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
-import { standardGradesForCategory } from "@/lib/products/grade-pricing";
+import {
+  cleanSupplierGrade, mergeSupplierGradeOptions, standardGradesForCategory, SUPPLIER_GRADE_LIMIT, supplierGradeOptions,
+} from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
 import { entryCurrencyIssue, nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
@@ -356,6 +358,57 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
   } catch (error) {
     if (createdId) return { ok: true, id: createdId, warning: true, message: "Đã tạo sản phẩm và bảng giá; một bước thông báo hoặc cập nhật phụ chưa hoàn tất. Hãy kiểm tra lại hồ sơ." };
     return { ok: false, message: error instanceof Error ? error.message : "Không lưu được sản phẩm." };
+  }
+}
+
+export type GradeOptionResult = { ok: boolean; message: string; grades?: string[] };
+
+/**
+ * Nhà cung cấp tự thêm một grade cho nhóm hàng ngay trong ô chọn grade.
+ *
+ * Danh sách grade chuẩn do Vexim khai, nhưng nhà máy có cách gọi quy cách riêng. Mục tự thêm
+ * lưu ở cấp danh mục (`categories.supplier_grade_options`) nên mọi sản phẩm cùng nhóm hàng
+ * dùng lại được ngay, và Vexim thấy khi duyệt. Không ghi đè danh sách chuẩn của Vexim.
+ */
+export async function addSupplierGradeOptionAction(input: { categorySlug?: unknown; grade?: unknown }): Promise<GradeOptionResult> {
+  const access = await approvedAccess();
+  if (!access) return { ok: false, message: "Tài khoản nhà cung cấp chưa được mở quyền sử dụng cổng." };
+  const slug = String(input?.categorySlug ?? "").trim().toLowerCase().slice(0, 80);
+  const grade = cleanSupplierGrade(input?.grade);
+  if (!slug) return { ok: false, message: "Chọn danh mục trước khi thêm grade." };
+  if (!grade) return { ok: false, message: "Nhập mã grade từ 2 đến 40 ký tự, không kèm link hay số điện thoại." };
+  try {
+    const store = access.store;
+    const category = await store.getCategoryBySlug(slug);
+    if (!category || category.status !== "published" || !category.is_published)
+      return { ok: false, message: "Danh mục này không còn mở để đăng bán." };
+    // Chỉ nhóm hàng nằm trong phạm vi đăng bán của chính nhà cung cấp này.
+    const published = await store.listCategories({ publishedOnly: true });
+    const linked = access.supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(access.supplier.id);
+    const allowed = allowedSupplierCategories(access.supplier, categoryProposalOptions(published), linked);
+    if (!allowed.some((option) => option.slug === slug))
+      return { ok: false, message: "Nhóm hàng này chưa nằm trong phạm vi đăng bán của bạn." };
+    const before = standardGradesForCategory(category);
+    if (before.some((option) => option.trim().toLowerCase() === grade.toLowerCase()))
+      return { ok: true, message: `${grade} đã có trong danh sách grade của nhóm hàng.`, grades: before };
+    const saved = supplierGradeOptions(category);
+    if (saved.length >= SUPPLIER_GRADE_LIMIT)
+      return { ok: false, message: `Nhóm hàng đã có ${SUPPLIER_GRADE_LIMIT} grade do nhà cung cấp thêm. Liên hệ Vexim để bổ sung tiếp.` };
+    const pool = mergeSupplierGradeOptions(category.supplier_grade_options, [...saved, grade]);
+    const updated = await store.updateCategory(category.id, { supplier_grade_options: pool });
+    const grades = standardGradesForCategory(updated);
+    await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
+      entity: "category", entity_id: category.id, action: "supplier.grade_option_added",
+      before: { supplier_grade_options: saved }, after: { supplier_grade_options: pool, grade },
+    }).catch((error) => console.error("[supplier-product] grade option audit", error));
+    revalidatePath("/supplier/portal/products", "layout");
+    revalidatePath("/supplier/portal/products/new");
+    revalidatePath("/crm/settings/quantity-pricing");
+    revalidatePath("/rfq");
+    return { ok: true, message: `Đã thêm ${grade}. Grade này dùng được cho mọi sản phẩm cùng nhóm hàng.`, grades };
+  } catch (error) {
+    console.error("[supplier-product] grade option", error);
+    return { ok: false, message: "Chưa lưu được grade mới. Kiểm tra kết nối rồi thử lại." };
   }
 }
 

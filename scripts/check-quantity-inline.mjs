@@ -16,7 +16,7 @@ function compile(path, mocks) {
 }
 const lucide = new Proxy({}, { get: (_target, name) => (props) => React.createElement('svg', { 'data-icon': String(name), ...props }) });
 const previewStore = { publishQuantityPreview() {} };
-const editor = compile('../components/products/quantity-pricing-editor.tsx', { 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing, '@/lib/products/price-display': priceDisplay });
+const editor = compile('../components/products/quantity-pricing-editor.tsx', { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing, '@/lib/products/price-display': priceDisplay });
 const inline = compile('../components/products/quantity-pricing-inline.tsx', { react: React, 'react/jsx-runtime': jsx,
  'next/navigation': { useRouter: () => ({ refresh() {} }) }, '@/components/products/quantity-pricing-editor': editor,
  '@/components/products/quantity-preview-store': previewStore,
@@ -55,7 +55,8 @@ assert.match(sidebarPreview, /\$6\.4\/kg/);
 assert.match(sidebarPreview, /1 MT/);
 const previewForm = compile('../app/supplier/portal/products/[id]/quantity-pricing/preview-form.tsx', { react: React, 'react/jsx-runtime': jsx,
  'next/navigation': { useRouter: () => ({ refresh() {} }) }, '@/components/products/quantity-pricing-editor': editor,
- '@/lib/products/quantity-pricing': pricing, '../../../quantity-revision-actions': {} });
+ '@/lib/products/quantity-pricing': pricing, '../../../quantity-revision-actions': {},
+ '../../../product-actions': { addSupplierGradeOptionAction: async () => ({ ok: true, message: '' }) } });
 const standalone = renderToStaticMarkup(React.createElement(previewForm.QuantityPricingPreviewForm, data));
 assert.doesNotMatch(standalone, /Tên tiếng Anh \(tùy chọn\)|Gửi tên tiếng Anh để duyệt|Bảng giá theo số lượng/);
 assert.match(standalone, /Gửi bảng giá để duyệt/);

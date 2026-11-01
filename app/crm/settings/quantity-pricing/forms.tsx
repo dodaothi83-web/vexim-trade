@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import type { QuantityPriceSettings } from "@/lib/products/quantity-price-settings";
-import { saveGradePriceBounds, saveQuantityPriceSettings, type PricingSettingsResult } from "./actions";
+import { removeSupplierGradeOption, saveGradePriceBounds, saveQuantityPriceSettings, type PricingSettingsResult } from "./actions";
 
 const initial: PricingSettingsResult = { ok: false, message: "" };
 const fields: Array<{ key: keyof QuantityPriceSettings; label: string; min: string; max: string; step: string }> = [
@@ -75,5 +75,31 @@ export function GradeBoundsForm({ categories }: { categories: GradeCategory[] })
           <button className="btn btn-primary btn-sm" disabled={pending || !grade}>{pending ? "Đang lưu…" : "Lưu ngưỡng grade"}</button>
         </div>
       </form>}
+  </section>;
+}
+
+/** Grade nhà cung cấp tự thêm: áp dụng ngay cho cả nhóm hàng nên cần nút gỡ khi mã gõ sai. */
+export function SupplierGradesList({ categories }: { categories: GradeCategory[] }) {
+  const [result, action, pending] = useActionState(removeSupplierGradeOption, initial);
+  return <section className="rounded-xl border border-ink-200 bg-white p-5">
+    <h2 className="font-bold text-ink-900">Grade do nhà cung cấp tự thêm</h2>
+    <div className="mt-1 space-y-1 text-sm leading-6 text-ink-600">
+      <p>Nhà cung cấp thêm trực tiếp trong ô chọn grade của họ.</p>
+      <p>Danh sách này dùng ngay cho mọi sản phẩm cùng nhóm hàng.</p>
+      <p>Gỡ mã gõ sai ở đây; sản phẩm đã dùng mã đó vẫn giữ nguyên grade.</p>
+    </div>
+    {categories.length === 0 ? <p className="mt-3 text-sm text-ink-500">Chưa có grade nào do nhà cung cấp thêm.</p> :
+      <ul className="mt-3 space-y-2">{categories.map((category) => <li key={category.id} className="rounded-lg border border-ink-200 px-3 py-2">
+        <p className="text-sm font-semibold text-ink-800">{category.name}</p>
+        <ul className="mt-1 flex flex-wrap gap-1.5">{category.grades.map((entry) => <li key={entry.name}>
+          <form action={action} className="inline-flex items-center gap-1 rounded-full border border-ink-200 bg-ink-50 py-0.5 pr-1 pl-2.5">
+            <input type="hidden" name="category_id" value={category.id} />
+            <input type="hidden" name="grade" value={entry.name} />
+            <span className="text-xs font-semibold text-ink-800">{entry.name}</span>
+            <button className="rounded-full px-1.5 text-[11px] font-semibold text-rose-700 disabled:opacity-50" disabled={pending} aria-label={`Gỡ grade ${entry.name} khỏi ${category.name}`}>Gỡ</button>
+          </form>
+        </li>)}</ul>
+      </li>)}</ul>}
+    <div className="mt-3"><ResultMessage result={result} /></div>
   </section>;
 }

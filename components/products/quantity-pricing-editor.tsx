@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ImageIcon } from "lucide-react";
 import {
@@ -40,7 +41,17 @@ type Props = {
   showTitle?: boolean;
   /** Supplier price submissions do not edit the English translation. */
   validateEnglishName?: boolean;
+  /** Nhóm hàng đang chọn; đổi danh mục thì bỏ danh sách grade tự thêm của nhóm trước. */
+  gradeScope?: string;
+  /**
+   * Có hàm này thì ô chọn grade hiện thêm lựa chọn "+ Thêm grade mới". Grade mới được lưu
+   * cho cả nhóm hàng nên nhà cung cấp khác và sản phẩm cùng danh mục dùng được ngay.
+   */
+  onAddGrade?: (grade: string) => Promise<{ ok: boolean; message: string; grades?: string[] }>;
 };
+
+/** Giá trị giả trong ô chọn: chọn mục này là mở ô nhập grade mới, không đổi grade hiện tại. */
+const NEW_GRADE_OPTION = "__new_grade__";
 
 const INCOTERMS = ["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"];
 
@@ -103,10 +114,42 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
 }
 
 /** Controlled editor; parent owns name and consent state and validates again on the server. */
-export function QuantityPricingEditor({ value, onChange, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible, disabled = false, showErrors = false, consentChecked, onConsentChange, consentLabel, isolated = false, showPreview = true, showTitle = true, validateEnglishName = true }: Props) {
-  const validation = validateQuantityPricing(validateEnglishName ? value : { ...value, nameEn: "" }, standardGrades, policy);
+export function QuantityPricingEditor({ value, onChange, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible, disabled = false, showErrors = false, consentChecked, onConsentChange, consentLabel, isolated = false, showPreview = true, showTitle = true, validateEnglishName = true, gradeScope, onAddGrade }: Props) {
   const currency = readCurrency(value);
   const form = isolated ? "quantity-pricing-separate" : undefined;
+  // Grade do chính nhà cung cấp vừa thêm trong phiên này; prop standardGrades chỉ đổi sau khi trang tải lại.
+  const [addedGrades, setAddedGrades] = useState<string[]>([]);
+  const [newGradeOpen, setNewGradeOpen] = useState(false);
+  const [newGradeDraft, setNewGradeDraft] = useState("");
+  const [newGradeBusy, setNewGradeBusy] = useState(false);
+  const [newGradeNote, setNewGradeNote] = useState<{ ok: boolean; text: string } | null>(null);
+  // Đổi danh mục là danh sách grade khác hẳn, nên bỏ grade đã thêm của nhóm trước.
+  useEffect(() => { setAddedGrades([]); setNewGradeOpen(false); setNewGradeDraft(""); setNewGradeNote(null); }, [gradeScope]);
+  const gradeOptions = [...standardGrades, ...addedGrades.filter((grade) =>
+    !standardGrades.some((option) => option.trim().toLowerCase() === grade.trim().toLowerCase()))];
+  // Kiểm tra ngay trên trình duyệt phải nhận cả grade vừa thêm, nếu không nút lưu vẫn báo thiếu grade.
+  const validation = validateQuantityPricing(validateEnglishName ? value : { ...value, nameEn: "" }, gradeOptions, policy);
+  async function submitNewGrade() {
+    if (!onAddGrade || newGradeBusy) return;
+    const grade = newGradeDraft.replace(/\s+/g, " ").trim();
+    if (grade.length < 2) { setNewGradeNote({ ok: false, text: "Nhập mã grade từ 2 ký tự." }); return; }
+    setNewGradeBusy(true);
+    try {
+      const result = await onAddGrade(grade);
+      setNewGradeNote({ ok: result.ok, text: result.message });
+      if (!result.ok) return;
+      const list = result.grades?.length ? result.grades : [...gradeOptions, grade];
+      setAddedGrades(list);
+      setNewGradeOpen(false);
+      setNewGradeDraft("");
+      // Chọn luôn grade vừa thêm để nhà cung cấp không phải mở lại ô chọn.
+      onChange({ ...value, grade: list.find((option) => option.trim().toLowerCase() === grade.toLowerCase()) ?? grade });
+    } catch {
+      setNewGradeNote({ ok: false, text: "Không kết nối được máy chủ." });
+    } finally {
+      setNewGradeBusy(false);
+    }
+  }
   /** Keep the table-level Incoterm in step with the first row so both persist the same reason. */
   function emitTiers(tiers: QuantityPricingInput["tiers"]) {
     onChange({ ...value, tiers, incoterm: (tiers[0]?.incoterm ?? value.incoterm ?? "").trim().toUpperCase() });
@@ -124,10 +167,31 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
         <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_136px]">
           <div className="text-sm font-semibold text-ink-800">
             <label htmlFor="quantity-grade">Grade <span className="text-rose-700">*</span></label>
-            <select id="quantity-grade" form={form} aria-label="Grade" className="input mt-1 w-full" required disabled={disabled || !standardGrades.length} value={value.grade} onChange={(e) => onChange({ ...value, grade: e.target.value })}>
-              <option value="">{standardGrades.length ? "Chọn grade" : "Danh mục chưa có grade"}</option>{standardGrades.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+            <select id="quantity-grade" form={form} aria-label="Grade" className="input mt-1 w-full" required
+              disabled={disabled || (!gradeOptions.length && !onAddGrade)} value={newGradeOpen ? NEW_GRADE_OPTION : value.grade}
+              onChange={(e) => {
+                if (e.target.value === NEW_GRADE_OPTION) { setNewGradeOpen(true); setNewGradeNote(null); setNewGradeDraft(""); return; }
+                setNewGradeOpen(false);
+                onChange({ ...value, grade: e.target.value });
+              }}>
+              <option value="">{gradeOptions.length ? "Chọn grade" : "Danh mục chưa có grade"}</option>{gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+              {onAddGrade && <option value={NEW_GRADE_OPTION}>+ Thêm grade mới</option>}
             </select>
-            {!standardGrades.length && <span role="status" className="mt-1 block text-[11.5px] font-normal leading-4 text-amber-800">Danh mục này chưa có grade. Gửi Vexim bổ sung.</span>}
+            {!gradeOptions.length && !onAddGrade && <span role="status" className="mt-1 block text-[11.5px] font-normal leading-4 text-amber-800">Danh mục này chưa có grade. Gửi Vexim bổ sung.</span>}
+            {/* Giữ lại câu xác nhận sau khi lưu để nhà cung cấp biết grade đã vào danh sách của nhóm hàng. */}
+            {!newGradeOpen && newGradeNote && <span role={newGradeNote.ok ? "status" : "alert"} className={`mt-1 block text-[11.5px] font-normal leading-4 ${newGradeNote.ok ? "text-emerald-700" : "text-rose-700"}`}>{newGradeNote.text}</span>}
+            {onAddGrade && newGradeOpen && <div className="mt-2 rounded-lg border border-brand-200 bg-brand-50 p-2.5 font-normal">
+              <label htmlFor="quantity-new-grade" className="text-[11.5px] font-semibold text-brand-900">Grade mới</label>
+              <input id="quantity-new-grade" className="input mt-1 w-full" value={newGradeDraft} maxLength={40} placeholder="VD: 600 g/L"
+                disabled={disabled || newGradeBusy} onChange={(e) => setNewGradeDraft(e.target.value)} />
+              <p className="mt-1 text-[11px] leading-4 text-brand-900">Grade này lưu cho cả nhóm hàng, nên sản phẩm cùng danh mục của bạn và nhà cung cấp khác dùng được ngay.</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <button type="button" className="btn btn-primary btn-sm" disabled={disabled || newGradeBusy} onClick={() => void submitNewGrade()}>{newGradeBusy ? "Đang lưu…" : "Lưu grade"}</button>
+                <button type="button" className="btn btn-ghost btn-sm" disabled={newGradeBusy}
+                  onClick={() => { setNewGradeOpen(false); setNewGradeDraft(""); setNewGradeNote(null); }}>Hủy</button>
+              </div>
+              {newGradeNote && <p role={newGradeNote.ok ? "status" : "alert"} className={`mt-1.5 text-[11.5px] font-normal ${newGradeNote.ok ? "text-emerald-700" : "text-rose-700"}`}>{newGradeNote.text}</p>}
+            </div>}
           </div>
           <div className="text-sm font-semibold text-ink-800">
             <label htmlFor="quantity-currency">Tiền tệ <span className="text-rose-700">*</span></label>
@@ -188,7 +252,7 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
         {validation.warnings.length > 0 && <p className="text-xs text-amber-800" role="status">Một số mức giá ngoài ngưỡng tham khảo của grade. Bạn vẫn có thể lưu; giá sẽ được rà soát.</p>}
       </div>
       {showPreview && <aside className="rounded-xl border border-ink-200 bg-ink-50 p-4">
-        <QuantityBuyerPreview value={value} standardGrades={standardGrades} policy={policy} buyerPriceUnit={buyerPriceUnit} pricePubliclyVisible={pricePubliclyVisible} />
+        <QuantityBuyerPreview value={value} standardGrades={gradeOptions} policy={policy} buyerPriceUnit={buyerPriceUnit} pricePubliclyVisible={pricePubliclyVisible} />
       </aside>}
     </div>
     {pricePubliclyVisible && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">Mọi báo giá bạn gửi đều được đối chiếu với giá đăng. Chênh lệch bất thường sẽ được rà soát theo <Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Quy chế hoạt động</Link>.</p>}

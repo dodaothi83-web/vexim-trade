@@ -14,6 +14,7 @@ const code = ts.transpileModule(readFileSync(new URL('../components/products/qua
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
 }).outputText;
 vm.runInNewContext(code, { exports, Intl, Number, Math, console, require(key) {
+  if (key === 'react') return React;
   if (key === 'react/jsx-runtime') return nodeRequire('react/jsx-runtime');
   if (key === 'next/link') return { default: ({ children, ...props }) => React.createElement('a', props, children) };
   if (key === 'lucide-react') return new Proxy({}, { get: (_target, name) => (props) => React.createElement('svg', { 'data-icon': String(name), ...props }) });
@@ -38,6 +39,11 @@ assert.match(html, /<select[^>]*aria-label="Tiền tệ"/, 'Tiền tệ chọn �
 for (const code of ['USD', 'VND', 'EUR', 'CNY', 'JPY']) assert.ok(html.includes(`>${code}</option>`), `Có ${code}`);
 assert.match(html, /<p aria-live="polite"[^>]*>—<\/p>/, 'Mức cuối của cột đến để dấu gạch');
 assert.doesNotMatch(html, />trở lên</, 'Không còn chữ trở lên trong cột đến');
+// Mục cuối ô chọn grade: chỉ hiện khi nơi gọi cho phép thêm grade mới cho cả nhóm hàng.
+const withAdd = render({ onAddGrade: async () => ({ ok: true, message: '' }) });
+assert.match(withAdd, /<option value="__new_grade__">\+ Thêm grade mới<\/option>/, 'Có mục thêm grade mới ở cuối danh sách');
+assert.doesNotMatch(html, /\+ Thêm grade mới/, 'Không có hàm thêm thì ô chọn giữ nguyên như cũ');
+assert.match(withAdd, /W320<\/option>[\s\S]{0,80}__new_grade__/, 'Mục thêm đứng sau các grade chuẩn');
 const noGrades = render({ standardGrades: [] });
 assert.match(noGrades, /Danh mục này chưa có grade\. Gửi Vexim bổ sung\./, 'Danh mục chưa có grade được giải thích thay vì ô chọn rỗng');
 assert.match(noGrades, /<select[^>]*aria-label="Grade"[^>]*disabled=""/, 'Ô grade bị khoá khi danh mục chưa có grade');

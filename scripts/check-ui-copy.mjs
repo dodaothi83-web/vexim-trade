@@ -143,6 +143,7 @@ const SCOPE = [
   'lib/verification.ts',
   'app/crm/mail/[id]/page.tsx',
   'app/crm/settings/quantity-pricing/page.tsx',
+  'app/crm/settings/quantity-pricing/forms.tsx',
   'components/mail-threads.tsx',
 ];
 

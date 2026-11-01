@@ -313,6 +313,12 @@ export interface Category {
    * đây thành `product_fields` chính thức khi muốn công bố cho buyer.
    */
   supplier_product_fields?: ProductAttributeField[];
+  /**
+   * Grade do nhà cung cấp tự thêm cho nhóm hàng này (không phải danh sách chuẩn của Vexim).
+   * Lưu ở cấp danh mục để mọi sản phẩm cùng nhóm hàng dùng lại; Vexim thấy trong CRM
+   * và có thể chuyển thành grade chuẩn khi muốn công bố rộng hơn.
+   */
+  supplier_grade_options?: string[];
   /** Các hàng trong bảng thông số. */
   spec_rows?: CategoryRow[];
   /** Các mục trong khối "thông tin mua hàng" (xem CategoryFact). */
