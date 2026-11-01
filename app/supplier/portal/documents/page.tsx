@@ -175,25 +175,13 @@ export default async function SupplierDocumentsPage() {
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
 
-    <nav aria-label="Hai phần giấy tờ" className="mt-4 grid max-w-5xl gap-2 sm:grid-cols-2">
-      <a href="#xac-thuc-doanh-nghiep" className="rounded-xl border border-ink-200 bg-white p-3 transition hover:border-brand-300 hover:bg-brand-50/40">
-        <span className="block text-[10px] font-bold uppercase tracking-wide text-brand-700">Phần 1</span>
-        <span className="mt-0.5 block text-sm font-bold text-ink-900">Xác thực doanh nghiệp</span>
-        <span className="mt-1 block text-[11px] text-ink-600">{l1Status} · {uploadedDocs.length}/{docRows.length} mục có tệp</span>
-      </a>
-      <a href="#chung-nhan" className="rounded-xl border border-ink-200 bg-white p-3 transition hover:border-brand-300 hover:bg-brand-50/40">
-        <span className="block text-[10px] font-bold uppercase tracking-wide text-teal-700">Phần 2</span>
-        <span className="mt-0.5 block text-sm font-bold text-ink-900">Chứng nhận trên hồ sơ</span>
-        <span className="mt-1 block text-[11px] text-ink-600">{certificates.length} chứng nhận · {liveCerts.length} đang hiển thị</span>
-      </a>
-    </nav>
-
-    <section id="xac-thuc-doanh-nghiep" aria-labelledby="business-documents-section-title" className="mt-4 max-w-5xl scroll-mt-24 space-y-3">
-      <div className="rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-3">
+    <div className="mt-4 grid max-w-7xl items-start gap-4 xl:grid-cols-2">
+    <section id="xac-thuc-doanh-nghiep" aria-labelledby="business-documents-section-title" className="min-w-0 scroll-mt-24 space-y-3">
+      <header className="border-b border-ink-200 pb-2">
         <p className="text-[10px] font-bold uppercase tracking-wide text-brand-700">Phần 1</p>
         <h2 id="business-documents-section-title" className="mt-0.5 text-base font-bold text-ink-900">Xác thực doanh nghiệp</h2>
         <p className="mt-1 text-[11px] leading-4 text-ink-600">Giấy tờ doanh nghiệp được đối chiếu riêng; chứng nhận chất lượng không thay thế GCN ĐKKD.</p>
-      </div>
+      </header>
 
       {/* Dải tổng quan: trạng thái đợt kiểm + tiến độ giấy tờ, cùng nhịp với L2/L3. */}
       <section aria-label="Tổng quan xác thực doanh nghiệp" className="overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
@@ -294,12 +282,12 @@ export default async function SupplierDocumentsPage() {
         </section>
     </section>
 
-    <section id="chung-nhan" aria-labelledby="certificates-section-title" className="mt-6 max-w-5xl scroll-mt-24 space-y-3">
-      <div className="rounded-xl border border-teal-100 bg-teal-50/50 px-4 py-3">
+    <section id="chung-nhan" aria-labelledby="certificates-section-title" className="min-w-0 scroll-mt-24 space-y-3">
+      <header className="border-b border-ink-200 pb-2">
         <p className="text-[10px] font-bold uppercase tracking-wide text-teal-700">Phần 2</p>
         <h2 id="certificates-section-title" className="mt-0.5 text-base font-bold text-ink-900">Chứng nhận trên hồ sơ</h2>
         <p className="mt-1 text-[11px] leading-4 text-ink-600">Tải một lần tại đây; nhân viên đối chiếu và chọn phạm vi áp dụng cho danh mục hoặc sản phẩm.</p>
-      </div>
+      </header>
 
       {/* Chứng nhận ngành hàng: nhân viên đối chiếu đơn vị đứng tên và ngày hết hạn trước khi công khai. */}
       <section aria-labelledby="certs-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
@@ -424,5 +412,6 @@ export default async function SupplierDocumentsPage() {
           </p>
       </section>
     </section>
+    </div>
   </>;
 }
