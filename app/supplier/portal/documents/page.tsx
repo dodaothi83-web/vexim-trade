@@ -175,8 +175,8 @@ export default async function SupplierDocumentsPage() {
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
 
-    <div className="mt-4 grid max-w-7xl items-start gap-4 xl:grid-cols-2">
-    <section id="xac-thuc-doanh-nghiep" aria-labelledby="business-documents-section-title" className="min-w-0 scroll-mt-24 space-y-3">
+    <div className="mt-4 grid w-full max-w-7xl grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+      <section id="xac-thuc-doanh-nghiep" aria-labelledby="business-documents-section-title" className="min-w-0 scroll-mt-24 space-y-3">
       <header className="border-b border-ink-200 pb-2">
         <p className="text-[10px] font-bold uppercase tracking-wide text-brand-700">Phần 1</p>
         <h2 id="business-documents-section-title" className="mt-0.5 text-base font-bold text-ink-900">Xác thực doanh nghiệp</h2>
@@ -282,7 +282,7 @@ export default async function SupplierDocumentsPage() {
         </section>
     </section>
 
-    <section id="chung-nhan" aria-labelledby="certificates-section-title" className="min-w-0 scroll-mt-24 space-y-3">
+      <section id="chung-nhan" aria-labelledby="certificates-section-title" className="min-w-0 scroll-mt-24 space-y-3">
       <header className="border-b border-ink-200 pb-2">
         <p className="text-[10px] font-bold uppercase tracking-wide text-teal-700">Phần 2</p>
         <h2 id="certificates-section-title" className="mt-0.5 text-base font-bold text-ink-900">Chứng nhận trên hồ sơ</h2>
@@ -364,54 +364,55 @@ export default async function SupplierDocumentsPage() {
             blockedReason={certificateUploadBlockedReason} />
         </section>
 
-        {/* Bảng chứng nhận chất lượng đã duyệt — riêng với yêu cầu GCN ĐKKD. */}
-        <section aria-labelledby="l1-table-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
-          <h3 id="l1-table-title" className="text-[15px] font-bold text-ink-900">Chứng nhận đã duyệt theo loại</h3>
-          <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
-            {"Chứng nhận chất lượng được phân loại và theo dõi riêng; trạng thái ở bảng này không thay thế "
-              + "GCN ĐKKD trong mục Xác thực doanh nghiệp phía trên."}
-          </p>
-          <table className="mt-3 w-full text-left text-[11.5px]">
-            <thead>
-              <tr className="text-[10.5px] tracking-wide text-ink-500 uppercase">
-                <th scope="col" className="pb-1.5 font-bold">Mục xác thực</th>
-                <th scope="col" className="pb-1.5 font-bold">Giấy đã duyệt</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink-100">
-              {L1_DOC_ITEMS.filter((item) => [...COMPANY_DOCUMENT_KEYS, ...QUALITY_CERTIFICATE_DOC_KEYS].includes(item.key as never)).map((item) => {
-                const row = derivedL1Rows.find((entry) => entry.key === item.key);
-                return <tr key={item.key}>
-                  <th scope="row" className="py-1.5 pr-3 align-top font-semibold text-ink-800">{item.label}</th>
-                  <td className="py-1.5 align-top text-ink-600">
-                    {row && row.certificates.length > 0
-                      ? row.certificates.map((certificate) => (
-                        <span key={certificate.id} className="mr-2 inline-flex flex-wrap items-center gap-1">
-                          {certificate.name}
-                          {certificate.scheme && <span className="rounded-full bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-800">
-                            {certificateSchemeLabel(certificate.scheme, "vi")}
-                          </span>}
-                          {certificate.validUntil && <span className="text-ink-500">
-                            hạn {certificate.validUntil}{certificate.expired ? " · đã hết hạn" : ""}
-                          </span>}
-                          {certificate.scheme && !isCertificateChipScheme(certificate.scheme) && <span className="text-ink-500">
-                            không lên bộ lọc người mua
-                          </span>}
-                        </span>
-                      ))
-                      : mine.some((file) => file.checklist_key === item.key)
-                        ? <span className="text-ink-400">Đã có tệp tải lên, chưa có chứng nhận được duyệt cho mục này.</span>
-                        : <span className="text-ink-400">Chưa có giấy nào được duyệt cho mục này.</span>}
-                  </td>
-                </tr>;
-              })}
-            </tbody>
-          </table>
-          <p className="mt-2 text-[10.5px] leading-4 text-ink-500">
-            Mã số thuế và số tài khoản ngân hàng khai trong Hồ sơ doanh nghiệp, không phải chứng nhận nên không có trong bảng này.
-          </p>
       </section>
-    </section>
     </div>
+
+    {/* Bảng chứng nhận chất lượng đã duyệt — riêng với yêu cầu GCN ĐKKD. */}
+    <section aria-labelledby="l1-table-title" className="mt-4 w-full max-w-7xl rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
+      <h3 id="l1-table-title" className="text-[15px] font-bold text-ink-900">Chứng nhận đã duyệt theo loại</h3>
+      <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
+        {"Chứng nhận chất lượng được phân loại và theo dõi riêng; trạng thái ở bảng này không thay thế "
+          + "GCN ĐKKD trong mục Xác thực doanh nghiệp phía trên."}
+      </p>
+      <table className="mt-3 w-full text-left text-[11.5px]">
+        <thead>
+          <tr className="text-[10.5px] tracking-wide text-ink-500 uppercase">
+            <th scope="col" className="pb-1.5 font-bold">Mục xác thực</th>
+            <th scope="col" className="pb-1.5 font-bold">Giấy đã duyệt</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-ink-100">
+          {L1_DOC_ITEMS.filter((item) => [...COMPANY_DOCUMENT_KEYS, ...QUALITY_CERTIFICATE_DOC_KEYS].includes(item.key as never)).map((item) => {
+            const row = derivedL1Rows.find((entry) => entry.key === item.key);
+            return <tr key={item.key}>
+              <th scope="row" className="py-1.5 pr-3 align-top font-semibold text-ink-800">{item.label}</th>
+              <td className="py-1.5 align-top text-ink-600">
+                {row && row.certificates.length > 0
+                  ? row.certificates.map((certificate) => (
+                    <span key={certificate.id} className="mr-2 inline-flex flex-wrap items-center gap-1">
+                      {certificate.name}
+                      {certificate.scheme && <span className="rounded-full bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-800">
+                        {certificateSchemeLabel(certificate.scheme, "vi")}
+                      </span>}
+                      {certificate.validUntil && <span className="text-ink-500">
+                        hạn {certificate.validUntil}{certificate.expired ? " · đã hết hạn" : ""}
+                      </span>}
+                      {certificate.scheme && !isCertificateChipScheme(certificate.scheme) && <span className="text-ink-500">
+                        không lên bộ lọc người mua
+                      </span>}
+                    </span>
+                  ))
+                  : mine.some((file) => file.checklist_key === item.key)
+                    ? <span className="text-ink-400">Đã có tệp tải lên, chưa có chứng nhận được duyệt cho mục này.</span>
+                    : <span className="text-ink-400">Chưa có giấy nào được duyệt cho mục này.</span>}
+              </td>
+            </tr>;
+          })}
+        </tbody>
+      </table>
+      <p className="mt-2 text-[10.5px] leading-4 text-ink-500">
+        Mã số thuế và số tài khoản ngân hàng khai trong Hồ sơ doanh nghiệp, không phải chứng nhận nên không có trong bảng này.
+      </p>
+    </section>
   </>;
 }
