@@ -81,15 +81,15 @@ export default async function VerificationsPage({
       ]} />
       <PageHeader
         title="Hàng đợi xác minh nhà cung cấp"
-        sub="Kiểm giấy tờ, xác thực nhà máy và lịch sử giao hàng. Một nhân sự đủ quyền vừa kiểm vừa duyệt; AI chỉ hỗ trợ đối chiếu."
+        sub="Kiểm giấy tờ, xác thực nhà máy và lịch sử giao hàng. L2/L3 do nhân viên đối chiếu thủ công, không cần AI."
       />
 
       <section className="mt-5 rounded-xl border border-teal-200 bg-teal-50/60 p-4 sm:p-5">
         <h2 className="font-bold text-ink-900">Hồ sơ nhà cung cấp tự gửi qua cổng L2 · L3 ({pendingSubmissions.length} chờ xét)</h2>
-        <p className="mt-1 text-sm text-ink-700">L2 nhà máy có thể dùng AI xem ảnh. L2 đối tác và L3 do nhân viên kiểm. Nhận hồ sơ chỉ mở đợt kiểm.</p>
+        <p className="mt-1 text-sm text-ink-700">L2/L3 không cần AI. Nhân viên tự tải ảnh, hợp đồng hoặc chứng từ vào đợt kiểm để đối chiếu.</p>
         {pendingSubmissions.length ? <ul className="mt-4 space-y-2">{pendingSubmissions.slice(0, 8).map((sub) => <li key={sub.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
           <div className="min-w-[180px] flex-1"><Link href={`/crm/verifications/submissions/${sub.id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(sub.supplier_id)?.name ?? "Nhà cung cấp"}</Link>
-            <p className="mt-0.5 text-xs text-ink-500">{isPartnerL2(sub) ? "L2 · nhà máy đối tác" : sub.target_level === 2 ? "L2 · xác thực nhà máy" : "L3 · lịch sử xuất khẩu"} · {sub.status === "pending_review" ? "chờ xét duyệt" : sub.status === "returned" ? "cần bổ sung" : "đang soạn"}{sub.ai_scanned_at ? ` · ${sub.target_level === 3 ? "AI cũ" : "AI đã quét"} ${new Date(sub.ai_scanned_at).toLocaleDateString("vi-VN")}` : sub.target_level === 2 && !isPartnerL2(sub) ? " · chưa quét AI" : " · nhân viên kiểm tra"}</p></div>
+            <p className="mt-0.5 text-xs text-ink-500">{isPartnerL2(sub) ? "L2 · nhà máy đối tác" : sub.target_level === 2 ? "L2 · xác thực nhà máy" : "L3 · lịch sử xuất khẩu"} · {sub.status === "pending_review" ? "chờ xét duyệt" : sub.status === "returned" ? "cần bổ sung" : "đang soạn"} · nhân viên kiểm tra thủ công</p></div>
           <Link href={`/crm/verifications/submissions/${sub.id}`} className="btn btn-ghost btn-sm">Đối chiếu bằng chứng →</Link>
         </li>)}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có hồ sơ tự gửi nào chờ xét.</p>}
         <Link href="/crm/verifications/submissions" className="mt-3 inline-block text-xs font-semibold text-brand-700 underline">Mở toàn bộ hàng đợi hồ sơ tự gửi →</Link>

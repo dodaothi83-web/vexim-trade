@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BadgeCheck, Eye, EyeOff, Loader2, Plus, Sparkles, X } from "lucide-react";
 
 import { CERTIFICATE_SCHEMES, certificateSchemeKind } from "@/lib/certificate-scheme";
+import type { CertificateAiConfidence, CertificateCategorySuggestion } from "@/lib/types";
 import {
   addCertificateScopeAction,
   answerCertificateScopeRequestAction,
@@ -21,6 +22,7 @@ import {
 export interface CertificateScopeChip {
   id: string;
   label: string;
+  categoryId?: string | null;
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -28,6 +30,12 @@ const KIND_LABEL: Record<string, string> = {
   quality: "Chất lượng · gắn phạm vi",
   shipment: "Theo lô · đơn hàng",
   other: "Chưa xếp được",
+};
+
+const CONFIDENCE_LABEL: Record<CertificateAiConfidence, string> = {
+  high: "Phù hợp cao",
+  medium: "Cần đối chiếu",
+  low: "Độ tin cậy thấp",
 };
 
 export function CertificateRowControls({
@@ -39,6 +47,7 @@ export function CertificateRowControls({
   scheme,
   scopes = [],
   categories = [],
+  categorySuggestions = [],
   requests = [],
   mismatch = null,
   canInspect,
@@ -56,6 +65,8 @@ export function CertificateRowControls({
   scopes?: CertificateScopeChip[];
   /** Danh mục có thể chọn làm phạm vi. */
   categories?: Array<{ id: string; name: string }>;
+  /** Gợi ý từ AI; không tạo phạm vi cho tới khi nhân viên chủ động chọn. */
+  categorySuggestions?: Array<CertificateCategorySuggestion & { label: string }>;
   /** Nhà cung cấp xin mở rộng phạm vi cho sản phẩm. */
   requests?: Array<{ productId: string; name: string }>;
   /** Loại giấy lệch mục checklist L1 đã ghi. */
@@ -206,6 +217,46 @@ export function CertificateRowControls({
               </button>
             </span>
           )}
+        </div>
+      )}
+
+      {scopeable && categorySuggestions.length > 0 && (
+        <div className="rounded-lg border border-violet-200 bg-violet-50/70 p-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-1">
+            <p className="text-[11px] font-bold text-violet-950">AI gợi ý danh mục</p>
+            <p className="text-[10px] text-violet-800">Chưa áp dụng · nhân viên đối chiếu nội dung giấy trước khi chọn</p>
+          </div>
+          <ul className="mt-1.5 space-y-1.5">
+            {categorySuggestions.map((suggestion) => {
+              const categoryExists = categories.some((category) => category.id === suggestion.category_id);
+              const alreadyApplied = scopes.some((scope) => scope.categoryId === suggestion.category_id);
+              return (
+                <li key={suggestion.category_id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white/80 px-2 py-1.5">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-ink-900">{suggestion.label}</p>
+                    <p className="text-[10px] leading-4 text-ink-600">{suggestion.reason}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <span className="text-[10px] text-violet-800">{CONFIDENCE_LABEL[suggestion.confidence]}</span>
+                    {alreadyApplied ? (
+                      <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-900">Đã chọn</span>
+                    ) : canInspect ? (
+                      <button
+                        type="button"
+                        disabled={busy !== null || !categoryExists}
+                        onClick={() => void run("scope", () => addCertificateScopeAction(supplierId, certificateId, { categoryId: suggestion.category_id }))}
+                        className="btn btn-ghost btn-sm text-[10px]"
+                        title="Chọn gợi ý này làm phạm vi áp dụng cho chứng nhận"
+                      >
+                        {busy === "scope" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                        Chọn phạm vi
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 

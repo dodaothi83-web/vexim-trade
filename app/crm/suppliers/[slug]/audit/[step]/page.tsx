@@ -102,7 +102,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
             <li key={sub.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2">
               <span className="text-xs text-ink-600">{step.level === 2 ? isPartnerL2(sub) ? "Đối tác · " : "Nhà máy · " : ""}{submissionStatusLabel(sub.status)}
                 {sub.verification_code ? ` · mã ${sub.verification_code}` : ""}
-                {sub.ai_scanned_at ? ` · ${step.level === 3 ? "AI cũ" : "AI quét"} ${new Date(sub.ai_scanned_at).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : step.level === 2 && !isPartnerL2(sub) ? " · chưa quét AI" : " · nhân viên kiểm tra"}
+                {" · nhân viên kiểm tra thủ công"}
                 {sub.verification_id ? " · đã sao bằng chứng sang đợt kiểm" : ""}</span>
               <Link href={`/crm/verifications/submissions/${sub.id}`} className="btn btn-ghost btn-sm">Đối chiếu bằng chứng →</Link>
             </li>))}</ul>

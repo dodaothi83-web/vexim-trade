@@ -1,15 +1,14 @@
 /**
- * Loại chứng nhận (scheme) — một trường riêng, không suy ra từ ô checklist L1.
+ * Loại chứng nhận (scheme) — trường riêng, không suy ra từ checklist xác thực GCN ĐKKD.
  *
- * Ô L1 gộp nhiều chuẩn vào một mục ("HACCP / ISO 22000 / FSSC / BRC / Halal"), nên
- * không thể dùng `checklist_key` để lọc cho người mua: chọn HACCP sẽ trả cả ISO lẫn
- * BRC. Ở đây loại chứng nhận được đọc từ chính tên/tổ chức cấp trên giấy; nhân viên
- * sửa lại được nếu bộ đọc hiểu sai.
+ * Các `checklist_key` cũ được giữ để đọc lịch sử và nhóm bản ghi trong bảng chứng nhận;
+ * chúng không quyết định hoặc thay thế kết quả xác thực doanh nghiệp. Ở đây loại giấy
+ * được đọc từ tên/tổ chức cấp trên giấy; nhân viên sửa lại được nếu bộ đọc hiểu sai.
  *
  * Mỗi loại có `kind` quyết định đường ra của giấy:
- *  - `legal`    — giấy pháp lý (GPKD, ATTP cơ sở, phép xuất khẩu): chỉ tính vào L1,
- *                 không bao giờ gắn sản phẩm, không lên chip.
- *  - `quality`  — chứng nhận chất lượng: gán phạm vi → badge + chip.
+ *  - `legal`    — giấy pháp lý (GPKD, ATTP cơ sở, phép xuất khẩu): lưu/xét trong kho
+ *                 chứng nhận riêng, không bao giờ gắn sản phẩm hoặc lên chip chất lượng.
+ *  - `quality`  — chứng nhận chất lượng: gán phạm vi → badge + chip sau khi duyệt riêng.
  *  - `shipment` — giấy theo lô (C/O, kiểm dịch, phiếu kiểm nghiệm): để dành cho đơn
  *                 hàng/RFQ, không gắn sản phẩm, không lên chip.
  *  - `other`    — chưa xếp được: hiện trên hồ sơ, không lên chip.
@@ -114,10 +113,10 @@ export function isUnclassifiedCertificateScheme(code: string | null | undefined)
 }
 
 /**
- * Mục checklist L1 mà một loại giấy đóng góp.
+ * Khóa nhóm lịch sử mà một loại giấy chứng nhận đóng góp.
  *
- * Dùng để suy bảng giấy tờ L1 từ chính giấy đã duyệt thay vì bắt NCC tự chọn ngăn,
- * và để cảnh báo khi nhân viên chọn loại lệch với mục checklist đã ghi.
+ * Chỉ dùng để nhóm/đối chiếu bản ghi trong bảng chứng nhận; không ghi kết quả vào
+ * checklist xác thực GCN ĐKKD và không làm giấy chứng nhận thành điều kiện duyệt L1.
  */
 export function checklistKeyForScheme(code: string | null | undefined): string | null {
   switch (code) {

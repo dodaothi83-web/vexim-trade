@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, FileText, Loader2, LockKeyhole, RotateCcw, Save, Send, Sparkles } from "lucide-react";
 
 import {
-  L1_DOC_ITEMS, L3_EXPORT_ITEMS, LEGACY_L2_VISIT_ITEMS,
-  type AuditEvidenceKey, type Certificate, type CertificateScope, type MediaAsset, type SupplierProduct, type Verification,
+  L3_EXPORT_ITEMS, LEGACY_L2_VISIT_ITEMS,
+  type AuditEvidenceKey, type Certificate, type CertificateCategorySuggestion, type CertificateScope, type MediaAsset, type SupplierProduct, type Verification,
 } from "@/lib/types";
-import { checklistMismatch, contributedChecklistKey } from "@/lib/certificate-l1";
+import { checklistMismatch } from "@/lib/certificate-l1";
 import { prepareImage } from "@/lib/media/client-image";
 import { readUploadResponse } from "@/lib/media/upload-response";
 import type { AiDocumentReview } from "@/lib/ai/document-audit";
@@ -30,8 +30,6 @@ export function AuditForm({
   /** Sản phẩm nhà cung cấp xin mở rộng phạm vi. */
   requestedProducts?: SupplierProduct[];
 }) {
-  const unclassifiedCertificates = certificates.filter((certificate) =>
-    !contributedChecklistKey(certificate));
   const certificateFileFor = (certificate: Certificate) => certificateMedia.find((asset) =>
     asset.id === certificate.file_media_id && Boolean(asset.storage_path)) ?? null;
   const inScopeRow = (certificate: Certificate) => ({
@@ -39,11 +37,16 @@ export function AuditForm({
       .filter((scope) => scope.certificate_id === certificate.id)
       .map((scope) => ({
         id: scope.id,
+        categoryId: scope.category_id,
         label: scope.category_id
           ? categories.find((category) => category.id === scope.category_id)?.name ?? "Danh mục"
           : `Sản phẩm: ${requestedProducts.find((product) => product.id === scope.product_id)?.name ?? "đã chọn"}`,
       })),
     categories,
+    categorySuggestions: (certificate.ai_category_suggestions ?? []).map((suggestion) => ({
+      ...suggestion,
+      label: categories.find((category) => category.id === suggestion.category_id)?.name ?? "Danh mục đã thay đổi",
+    })),
     requests: (certificate.requested_product_ids ?? [])
       .map((productId) => ({
         productId,
@@ -81,8 +84,6 @@ export function AuditForm({
     : v.target_level === 2
     ? "Nêu ngày kiểm, khu vực cơ sở và các hạng mục đã kiểm tra. Chỉ mô tả cơ sở thuộc đợt kiểm này."
     : "Nêu giai đoạn, loại chứng từ và phạm vi lô hàng đã kiểm tra. Tách rõ thị trường do nhà cung cấp tự khai.";
-  const requiredDocs = L1_DOC_ITEMS.filter((it) => it.required);
-  const optionalDocs = L1_DOC_ITEMS.filter((it) => !it.required);
   const recorded = (key: string) => v.checklist?.[key] === true || v.checklist?.[key] === false || v.checklist?.[key] === "not_applicable";
   // Dữ liệu đợt kiểm L2 lập theo danh mục CŨ: giữ hiển thị read-only để đối soát, không xóa.
   const legacyL2 = v.target_level === 2
@@ -92,7 +93,8 @@ export function AuditForm({
   const exportEvidence = v.target_level === 3
     ? evidence.filter((m) => m.storage_path && L3_EXPORT_ITEMS.some((item) => item.key === m.checklist_key))
     : [];
-  const readableEvidence = evidence.filter((m) => m.storage_path && ["document", "certificate", "image"].includes(m.kind));
+  const readableEvidence = evidence.filter((m) => m.storage_path && ["document", "certificate", "image"].includes(m.kind) &&
+    (v.target_level !== 1 || m.checklist_key === "business_license"));
   const evidenceFingerprint = readableEvidence.map((m) => `${m.id}:${m.storage_path}:${m.status}`).join("|");
   const previousEvidence = useRef(evidenceFingerprint);
   const justScannedIds = useRef<string[] | null>(null);
@@ -282,9 +284,9 @@ export function AuditForm({
     <div className="border-b border-ink-100 px-5 py-4">
       <h2 className="text-base font-bold text-ink-900">Bảng kiểm & kết quả</h2>
       <p className="mt-1 text-sm text-ink-500">{v.target_level === 1
-        ? `${requiredDocs.filter((it) => it.key === "tax_certificate" ? !!v.tax_number : recorded(it.key)).length}/${requiredDocs.length} mục bắt buộc đã ghi · ${optionalDocs.filter((it) => it.key === "bank_letter" ? !!v.bank_account_number : recorded(it.key)).length}/${optionalDocs.length} mục tùy chọn`
+        ? `ĐKKD: ${v.checklist.business_license === true ? "Đạt" : v.checklist.business_license === false ? "Không đạt" : "Chưa kiểm"} · Mã số thuế: ${v.tax_number ? "đã ghi" : "chưa ghi"}`
         : `${items.filter((it) => recorded(it.key)).length}/${items.length} mục đã ghi · không bắt buộc điền hết`}</p>
-      {v.target_level > 1 && <p className="mt-1 text-xs text-ink-600">{partner ? "Để duyệt: đánh dấu đã kiểm hợp đồng đúng đợt và phạm vi đối tác. Không suy ra sở hữu hay kiểm thực địa." : v.target_level === 2 ? "Để duyệt cần ít nhất một ảnh thực tế của đúng đợt kiểm." : "Để duyệt, đối chiếu chứng từ phù hợp trong đúng đợt kiểm; đánh dấu chứng từ nhà cung cấp tự gửi đã kiểm."} Lưu và nộp có thể để trống các ô khác.</p>}
+      {v.target_level > 1 && <p className="mt-1 text-xs text-ink-600">{partner ? "Không cần AI. Duyệt cần hợp đồng đã kiểm đúng đợt và xác nhận phạm vi." : v.target_level === 2 ? "Không cần AI. Duyệt cần ít nhất một ảnh thực tế của đúng đợt kiểm." : "Không cần AI. Duyệt cần chứng từ phù hợp trong đúng đợt kiểm."} Lưu và nộp có thể để trống các ô khác.</p>}
       {v.return_reason && <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">Cần bổ sung: {v.return_reason}</p>}
       {busy && <p role="status" className="mt-2 flex items-center gap-2 text-xs text-brand-700"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang xử lý…</p>}
       {feedback && <p role={feedback.ok ? "status" : "alert"} className={"mt-3 rounded-lg px-3 py-2 text-sm " + (feedback.ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800")}>{feedback.message}</p>}
@@ -359,7 +361,7 @@ export function AuditForm({
               <label htmlFor={`check-${it.key}`} className="block text-sm font-semibold text-ink-900">
                 {i + 1}. {it.label}{" "}
                 {v.target_level === 2 && "requires_code" in it && it.requires_code && <span title="Ảnh nhà cung cấp tự gửi phải kèm tờ giấy viết tay mã xác minh do Vexim phát hành">🔖</span>}{" "}
-                <span className={coreDoc ? "ml-1 text-xs font-semibold text-brand-700" : optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{partnerConfirmation ? "Bắt buộc đạt" : v.target_level === 2 ? "" : coreDoc ? "Bắt buộc 1 trong 3" : optional ? "Tùy chọn" : ["tax_certificate", "bank_letter"].includes(it.key) ? "Bắt buộc nhập" : "Bắt buộc đạt"}</span>
+                <span className={coreDoc ? "ml-1 text-xs font-semibold text-brand-700" : optional ? "ml-1 text-xs text-ink-500" : "ml-1 text-xs text-rose-700"}>{partnerConfirmation ? "Bắt buộc đạt" : v.target_level === 2 ? "" : coreDoc ? "Bắt buộc đạt" : optional ? "Tùy chọn" : ["tax_certificate", "bank_letter"].includes(it.key) ? "Bắt buộc nhập" : "Bắt buộc đạt"}</span>
               </label>
               {v.target_level === 2 && "requirement" in it && <p className="mt-0.5 text-xs text-ink-500">
                 {it.requirement}{partner ? " · đối chiếu bằng chứng của đúng đợt kiểm" : " · đối chiếu ảnh nhà cung cấp tự gửi cùng mục"}{("requires_code" in it && it.requires_code) ? " · 🔖 kiểm tra tờ mã viết tay trong ảnh" : ""}
@@ -397,30 +399,7 @@ export function AuditForm({
                 <Field label="Nơi giao / thị trường"><input name="shipment_destination" defaultValue={v.shipment_destination ?? ""} className="input" /></Field>
               </div>}
             </fieldset>
-            {v.target_level === 1 && coreDoc && <p className="text-xs text-ink-600">Chỉ cần đạt một trong ba giấy: Đăng ký doanh nghiệp, ATTP, hoặc HACCP/ISO/FSSC/Halal.{" "}
-              Giấy phải đứng tên pháp nhân đã đăng ký; giấy của nhà máy đối tác không thay được giấy xác minh chính.{" "}
-              AI không tự xác thực giấy tờ.</p>}
-            {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">{"Đối chiếu tên pháp nhân và mã số thuế trên giấy với hồ sơ nhà cung cấp." + " Nếu dùng tên thương mại khác, ghi rõ căn cứ trong ghi chú." + " Đánh dấu Không đạt khi tên không khớp."}</p>}
-            {v.target_level === 1 && ["food_safety", "haccp_or_brc", "product_certs", "export_license"].includes(it.key) && <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-teal-800">Nhận diện tự động</p>
-              {certificates.filter((c) => contributedChecklistKey(c) === it.key).map((c) => {
-                const sourceFile = certificateFileFor(c);
-                return <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-teal-200 bg-teal-50/50 px-3 py-1.5 text-xs">
-                  <div className="flex flex-wrap items-center gap-1.5 text-ink-700">
-                    <strong className="text-ink-900">{c.name}</strong>
-                    {sourceFile && <a href={`/api/media/file/${sourceFile.storage_path}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-brand-700 underline" title="Mở tệp gốc của chứng nhận">
-                      <FileText className="size-3" aria-hidden="true" />Mở giấy gốc
-                    </a>}
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${c.holder_match === "owner" ? "bg-emerald-100 text-emerald-800" : c.holder_match === "partner" ? "bg-amber-100 text-amber-900" : "bg-slate-200 text-slate-700"}`}>
-                      {c.holder_match === "owner" ? `Chính chủ${c.holder_name ? ` · ${c.holder_name}` : ""}` : c.holder_match === "partner" ? `Đơn vị đối tác: ${c.holder_name || "—"}` : "Chưa rõ đơn vị đứng tên"}
-                    </span>
-                    {c.valid_until && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">Hạn {c.valid_until}</span>}
-                    {c.staff_hidden && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">Đang ẩn</span>}
-                  </div>
-                  <CertificateRowControls supplierId={v.supplier_id} certificateId={c.id} hasFile={Boolean(c.file_media_id)} staffHidden={Boolean(c.staff_hidden)} published={c.review_status === "approved" && Boolean(c.publicly_visible)} scheme={c.certificate_scheme ?? null} canInspect={canInspect} canPublish={canPublish} {...inScopeRow(c)} />
-                </div>;
-              })}
-            </div>}
+            {v.target_level === 1 && it.key === "business_license" && <p className="text-xs text-ink-600">Đối chiếu GCN ĐKKD với pháp nhân đã đăng ký; chứng nhận chất lượng được xét riêng.</p>}
             {suggestion && <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-xs leading-relaxed text-ink-700">
               <strong className={suggestion.verdict === "pass" ? "text-emerald-800" : suggestion.verdict === "fail" ? "text-rose-700" : "text-amber-800"}>
                 AI: {suggestion.verdict === "pass" ? "Có vẻ phù hợp — cần đối chiếu" : suggestion.verdict === "fail" ? "Phát hiện điểm không khớp" : "Chưa đủ cơ sở"}
@@ -476,38 +455,6 @@ export function AuditForm({
           </div>;
           })}
         </div>
-        {/* Giấy chưa đóng góp mục checklist nào (chưa phân loại hoặc loại không thuộc
-            L1) vẫn phải phân loại được ngay tại đây, không cần đi tìm ở trang khác. */}
-        {v.target_level === 1 && unclassifiedCertificates.length > 0 && (
-          <div className="border-t border-ink-100 px-5 py-4">
-            <p className="text-sm font-semibold text-ink-900">Giấy chưa xếp vào mục nào</p>
-            <p className="mt-0.5 text-xs text-ink-600">
-              Chọn loại giấy để giấy vào đúng mục L1, vào phạm vi sản phẩm hoặc để dành cho đơn hàng.
-            </p>
-            <ul className="mt-2 space-y-2">
-              {unclassifiedCertificates.map((certificate) => {
-                const sourceFile = certificateFileFor(certificate);
-                return <li key={certificate.id} className="rounded-lg border border-ink-200 bg-white px-3 py-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs font-bold text-ink-900">{certificate.name}</p>
-                    {sourceFile && <a href={`/api/media/file/${sourceFile.storage_path}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 underline">
-                      <FileText className="size-3" aria-hidden="true" />Mở giấy gốc
-                    </a>}
-                  </div>
-                  <div className="mt-1">
-                    <CertificateRowControls
-                      supplierId={v.supplier_id} certificateId={certificate.id}
-                      hasFile={Boolean(certificate.file_media_id)} staffHidden={Boolean(certificate.staff_hidden)}
-                      published={certificate.review_status === "approved" && Boolean(certificate.publicly_visible)}
-                      scheme={certificate.certificate_scheme ?? null}
-                      canInspect={canInspect} canPublish={canPublish} {...inScopeRow(certificate)}
-                    />
-                  </div>
-                </li>;
-              })}
-            </ul>
-          </div>
-        )}
         {v.target_level === 2 && legacyL2.length > 0 && <details className="border-b border-ink-100 bg-ink-50/60 px-5 py-3 text-sm">
           <summary className="cursor-pointer font-semibold text-ink-800">Danh mục L2 cũ (trước 20/10/2026) · {legacyL2.length} mục có dữ liệu</summary>
           <p className="mt-2 text-xs text-ink-600">{"Đợt kiểm này lập theo danh mục cũ nên dữ liệu cũ được giữ nguyên để đối soát (chỉ đọc)." + " Đợt kiểm mới dùng danh mục 9 ảnh chung với cổng nhà cung cấp tự gửi."}</p>
@@ -534,6 +481,53 @@ export function AuditForm({
         <Button type="button" variant="primary" disabled={busy} onClick={() => save("submitted")}><Send className="h-4 w-4" /> Nộp duyệt</Button>
       </div>}
     </form>
+    {v.target_level === 1 && <section aria-labelledby="certificate-review-title" className="border-t border-ink-100 bg-ink-50/40 px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 id="certificate-review-title" className="text-sm font-bold text-ink-900">Luồng chứng nhận · xét riêng</h3>
+          <p className="mt-1 text-xs text-ink-600">Chứng nhận chất lượng không thay thế GCN ĐKKD và không phải điều kiện duyệt xác thực doanh nghiệp.</p>
+        </div>
+        <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink-600 ring-1 ring-ink-200">{certificates.length} chứng nhận</span>
+      </div>
+      {certificates.length > 0 ? <ul className="mt-3 space-y-2">
+        {certificates.map((certificate) => {
+          const sourceFile = certificateFileFor(certificate);
+          const certificateStatus = certificate.review_status === "rejected" ? "Từ chối"
+            : certificate.review_status === "approved" && certificate.publicly_visible && !certificate.staff_hidden ? "Đã duyệt · công khai"
+              : certificate.review_status === "approved" ? "Đã duyệt · nội bộ"
+                : certificate.review_status === "changes_requested" ? "Cần cập nhật" : "Chờ đối chiếu";
+          return <li key={certificate.id} className="rounded-xl border border-ink-200 bg-white p-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-bold text-ink-900">{certificate.name}{certificate.number ? ` · #${certificate.number}` : ""}</p>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${certificate.review_status === "rejected" ? "bg-rose-100 text-rose-800" : certificate.review_status === "approved" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{certificateStatus}</span>
+                </div>
+                <p className="mt-1 text-[11px] text-ink-600">
+                  {certificate.holder_match === "owner" ? `Chính chủ${certificate.holder_name ? ` · ${certificate.holder_name}` : ""}`
+                    : certificate.holder_match === "partner" ? `Đơn vị đối tác · ${certificate.holder_name || "chưa ghi tên"}`
+                      : "Chưa xác định đơn vị đứng tên"}
+                  {certificate.valid_until ? ` · Hạn ${certificate.valid_until}` : " · Chưa ghi hạn"}
+                </p>
+              </div>
+              {sourceFile ? <a href={`/api/media/file/${sourceFile.storage_path}`} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-brand-700 underline">
+                <FileText className="size-3.5" aria-hidden="true" />Mở tệp gốc
+              </a> : <span className="text-[11px] text-amber-800">Chưa có tệp gốc</span>}
+            </div>
+            {certificate.review_note && <p className="mt-1 text-[11px] text-ink-600">Ghi chú: {certificate.review_note}</p>}
+            <div className="mt-2 border-t border-ink-100 pt-2">
+              <CertificateRowControls supplierId={v.supplier_id} certificateId={certificate.id}
+                hasFile={Boolean(certificate.file_media_id)} staffHidden={Boolean(certificate.staff_hidden)}
+                published={certificate.review_status === "approved" && Boolean(certificate.publicly_visible)}
+                scheme={certificate.certificate_scheme ?? null} canInspect={canInspect} canPublish={canPublish}
+                {...inScopeRow(certificate)} />
+            </div>
+          </li>;
+        })}
+      </ul> : <p className="mt-3 rounded-lg border border-dashed border-ink-300 bg-white px-3 py-4 text-xs text-ink-500">
+        Chưa có chứng nhận nào được nộp. Có thể duyệt xác thực doanh nghiệp khi GCN ĐKKD đạt; chứng nhận sẽ được xét riêng khi có hồ sơ.
+      </p>}
+    </section>}
     {reviewer && <div className="space-y-3 border-t border-ink-100 bg-amber-50/50 p-5">
       <p className="text-sm font-semibold text-ink-900">Xét duyệt · đối chiếu bằng chứng ngay trong các mục bên trên</p>
       <label className="flex items-start gap-2 rounded-lg bg-white/80 p-3 text-xs leading-relaxed text-ink-700">

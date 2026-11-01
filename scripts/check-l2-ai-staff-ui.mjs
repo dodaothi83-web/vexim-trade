@@ -1,4 +1,4 @@
-// Render actual CRM queue/detail and supplier view from a simulated AI scan.
+// Render CRM queue/detail to verify that manual staff review does not depend on AI.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -61,22 +61,22 @@ const detail = load('app/crm/verifications/submissions/[id]/page.tsx', { ...comm
 });
 const queueHtml = renderToStaticMarkup(await queue.default({ searchParams: Promise.resolve({}) }));
 assert.match(queueHtml, /Nhà máy ABC/);
-assert.match(queueHtml, /AI lưu ý [1-9] điểm; nhân viên cần đối chiếu/);
 assert.match(queueHtml, /Đối chiếu &amp; xét/);
-assert.doesNotMatch(queueHtml, /Lần quét trước có thể không khớp/);
+assert.match(queueHtml, /Nhân viên đối chiếu thủ công; không cần AI để xét/);
+assert.doesNotMatch(queueHtml, /AI lưu ý|AI gợi ý|chưa quét AI|Lần quét trước/);
 const detailHtml = renderToStaticMarkup(await detail.default({ params: Promise.resolve({ id: submission.id }) }));
-assert.match(detailHtml, /AI lưu ý — cần nhân viên kiểm tra/);
-assert.match(detailHtml, /AI chưa thấy tờ mã/);
-assert.match(detailHtml, /AI nghi ngờ ảnh bị chỉnh sửa hoặc dàn dựng/);
-assert.match(detailHtml, /Đây là gợi ý, không phải kết luận/);
+assert.match(detailHtml, /Xét duyệt thủ công: không cần AI/);
 assert.match(detailHtml, /Nhận vào đợt kiểm/);
 assert.match(detailHtml, /Trả hồ sơ/);
-assert.match(detailHtml, /hồ sơ nhà cung cấp tự gửi không bao giờ tự thành huy hiệu/);
-assert.doesNotMatch(detailHtml, /AI: không đạt/);
-// Replacement after the scan keeps the historical result but marks it uncertain.
+assert.match(detailHtml, /Không cần AI\. Nhân viên tự kiểm tra/);
+assert.doesNotMatch(detailHtml, /AI lưu ý|AI chưa thấy tờ mã|AI nghi ngờ ảnh bị chỉnh sửa|Tóm tắt AI/);
+// Historical scans stay stored but never gate the CRM queue or staff decision screen.
 items[0].storage_path = 'photos/new-gate.jpg';
 const staleQueue = renderToStaticMarkup(await queue.default({ searchParams: Promise.resolve({}) }));
 const staleDetail = renderToStaticMarkup(await detail.default({ params: Promise.resolve({ id: submission.id }) }));
-assert.match(staleQueue, /Lần quét trước có thể không khớp ảnh hiện tại/);
-assert.match(staleDetail, /Kết quả AI từ lần quét trước có thể không khớp ảnh hiện tại/);
-console.log('✅ L2 staff queue/detail SSR: AI findings are visible, advisory and marked if stale; human controls remain.');
+assert.doesNotMatch(staleQueue, /Lần quét trước có thể không khớp ảnh hiện tại/);
+assert.doesNotMatch(staleDetail, /Kết quả AI từ lần quét trước/);
+const auditForm = readFileSync(new URL('../app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx', import.meta.url), 'utf8');
+assert.match(auditForm, /Không cần AI/);
+assert.match(auditForm, /v\.target_level === 1 && editable/, 'Only L1 shows the CRM document-AI panel');
+console.log('✅ L2/L3 CRM review: AI scan controls/results are bypassed; staff can review and upload evidence manually.');

@@ -59,10 +59,7 @@ tính server-side, chỉ là một tín hiệu trong cùng tầng xác minh; NCC
 1. **Tầng xác minh cứng trong lưới danh mục?** — GIỮ CỨNG (B2 vẫn là bậc đầu của comparator). Chứng nhận
    hết hạn đến mấy cũng không hạ tầng: NCC 3/3 hết hạn cả 3 bước vẫn đứng trên NCC 2/3
    dữ liệu đẹp (script đã kiểm cả vectơ này). Tìm kiếm có thêm bậc độ khớp và vòng NCC trước comparator.
-2. **Chứng nhận L1 hết hạn** — TRỪ ĐIỂM nhóm "tin cậy còn hiệu lực", KHÔNG đưa vào
-   cổng ẩn. Lý do: đổi cổng là thay đổi hiển thị lớn, cần số liệu quay lại từ cron nhắc hết
-   hạn 60/30/7/1 ngày trước khi tính; trừ điểm là hồi phục được (gia hạn giấy tờ là
-   thấy đường ngay), còn giấu listing thì NCC không biết đường nào mà sửa.
+2. **Chứng nhận hết hạn** — TRỪ một tín hiệu xếp hạng riêng khi NCC đã được duyệt xác thực doanh nghiệp và tất cả chứng nhận đã duyệt đều quá hạn; KHÔNG thu hồi quyết định ĐKKD, cũng KHÔNG đưa vào cổng ẩn. Lý do: đổi cổng là thay đổi hiển thị lớn, cần số liệu quay lại từ cron nhắc hết hạn 60/30/7/1 ngày trước khi tính; trừ điểm là hồi phục được khi gia hạn, còn giấu listing thì NCC không biết đường nào mà sửa.
 3. **Route `/search`** — ĐÃ LÀM (xem dưới).
 
 ## GĐ2 đã land
@@ -70,9 +67,9 @@ tính server-side, chỉ là một tín hiệu trong cùng tầng xác minh; NCC
 - **Evidence còn hiệu lực** (`evidenceValidVerificationSteps` trong ranking.ts, thuần,
   nhận `today` làm tham số để không đọc đồng hồ):
   - L2/L3 là xác minh theo sự kiện → đã duyệt là còn hiệu lực, không có khái niệm hết hạn.
-  - L1 dựa trên chứng nhận giấy tờ: chỉ trừ đúng 1 bước khi NCC đã duyệt L1, CÓ chứng
-    nhận đã duyệt (`review_status === "approved"`, không bị `staff_hidden`) mà TẤT CẢ
-    đều quá hạn (`valid_until` dạng YYYY-MM-DD < today).
+  - L1 duyệt xác thực doanh nghiệp dựa trên ĐKKD. Tách biệt với kết quả này, ranking chỉ trừ
+    một tín hiệu khi NCC đã duyệt L1, có chứng nhận đã duyệt (`review_status === "approved"`,
+    không bị `staff_hidden`) và TẤT CẢ đều quá hạn (`valid_until` dạng YYYY-MM-DD < today).
   - Fail-open có chủ đích: NCC legacy không có chứng nhận nào, chứng nhận bị ẩn hết,
     `valid_until` thiếu/sai dạng → không trừ. Lỗi đọc dữ liệu hiện được báo thay vì
     giả làm danh sách rỗng. Cổng hiển thị công khai vẫn là chuyện riêng của `publicSupplierCertificates` (publicly_visible,

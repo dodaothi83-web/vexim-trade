@@ -82,6 +82,21 @@ const parsedOwner = parseCertificateScan({
 assert.equal(parsedOwner.holder_match, "owner");
 assert.equal(parsedOwner.valid_until, "2027-05-20");
 assert.equal(parsedOwner.confidence, "high");
+const parsedSuggestions = parseCertificateScan({
+  certificate_name: "HACCP",
+  category_suggestions: [
+    { category_id: "cat-coffee", confidence: "high", reason: "Phạm vi có cà phê nhân." },
+    { category_id: "not-in-taxonomy", confidence: "high", reason: "Không thuộc danh mục hiện hành." },
+    { category_id: "cat-coffee", confidence: "medium", reason: "Lặp danh mục." },
+  ],
+}, ["cat-coffee", "cat-tea"]);
+assert.deepEqual(parsedSuggestions.category_suggestions, [
+  { category_id: "cat-coffee", confidence: "high", reason: "Phạm vi có cà phê nhân." },
+], "AI category suggestions must be unique and limited to the current taxonomy");
+const emptyTaxonomySuggestions = parseCertificateScan({
+  category_suggestions: [{ category_id: "cat-coffee", confidence: "high", reason: "test" }],
+});
+assert.deepEqual(emptyTaxonomySuggestions.category_suggestions, [], "Never accept suggestions when no taxonomy IDs were supplied");
 
 const partnerWithoutName = parseCertificateScan({
   certificate_name: "ISO 22000",
@@ -113,6 +128,7 @@ let seq = 1;
 const stubStore = {
   listSuppliers: async () => [supplier],
   listVerifications: async () => verifications,
+  listCategories: async () => [{ id: "cat-coffee", slug: "coffee", parent_id: null, name_i18n: { vi: "Cà phê", en: "Coffee" }, is_published: true, status: "published" }],
   listCertificates: async (sid) => certs.filter((c) => c.supplier_id === sid),
   getCertificate: async (id) => certs.find((c) => c.id === id) ?? null,
   createCertificate: async (patch) => {
@@ -130,6 +146,7 @@ const stubStore = {
       ai_scanned_at: patch.ai_scanned_at ?? null,
       ai_summary: patch.ai_summary ?? null,
       ai_confidence: patch.ai_confidence ?? null,
+      ai_category_suggestions: patch.ai_category_suggestions ?? [],
       source: patch.source ?? "manual",
       checklist_key: patch.checklist_key ?? null,
       certificate_scheme: patch.certificate_scheme ?? null,
@@ -160,6 +177,7 @@ const stubStore = {
 };
 
 // 3a. Owner match + future valid_until => auto-published
+let ownerScanInput;
 const ownerScan = await certService.ingestCertificateScan(
   {
     supplier,
@@ -171,19 +189,23 @@ const ownerScan = await certService.ingestCertificateScan(
   {
     store: stubStore,
     today: "2026-10-21",
-    scanFn: async () => ({
-      ok: true,
-      data: {
-        certificate_name: "HACCP Codex",
-        holder_name: "Công ty TNHH Cà phê Ban Mê",
-        holder_match: "owner",
-        issuer: "QUACERT",
-        certificate_number: "HC-001",
-        valid_until: "2026-12-05", // 45 days from 2026-10-21
-        summary: "Chính chủ Công ty TNHH Cà phê Ban Mê, hạn 2026-12-05.",
-        confidence: "high",
-      },
-    }),
+    scanFn: async (scanInput) => {
+      ownerScanInput = scanInput;
+      return {
+        ok: true,
+        data: {
+          certificate_name: "HACCP Codex",
+          holder_name: "Công ty TNHH Cà phê Ban Mê",
+          holder_match: "owner",
+          issuer: "QUACERT",
+          certificate_number: "HC-001",
+          valid_until: "2026-12-05", // 45 days from 2026-10-21
+          summary: "Chính chủ Công ty TNHH Cà phê Ban Mê, hạn 2026-12-05.",
+          confidence: "high",
+          category_suggestions: [{ category_id: "cat-coffee", confidence: "high", reason: "Giấy nêu rõ chứng nhận cho cà phê." }],
+        },
+      };
+    },
     notifyDecisionFn: async (payload) => {
       decisionsSent.push(payload);
       return "sent";
@@ -200,6 +222,10 @@ assert.equal(ownerScan.certificate.publicly_visible, true);
 assert.equal(ownerScan.certificate.holder_match, "owner");
 // Loại chứng nhận lấy từ tên trên giấy, không lấy từ ô checklist đã chọn (haccp_or_brc).
 assert.equal(ownerScan.certificate.certificate_scheme, "haccp", "Đọc loại chứng nhận từ tên giấy");
+assert.deepEqual(ownerScan.certificate.ai_category_suggestions, [
+  { category_id: "cat-coffee", confidence: "high", reason: "Giấy nêu rõ chứng nhận cho cà phê." },
+], "Store AI proposals separately without auto-applying any category scope");
+assert.deepEqual(ownerScanInput.categories, [{ id: "cat-coffee", slug: "coffee", path: "Cà phê" }], "Pass the active category taxonomy to the AI scanner");
 assert.equal(decisionsSent.length, 1);
 
 // 3b. Nhà máy tải giấy đứng tên doanh nghiệp khác: chờ duyệt, nêu rõ lý do.

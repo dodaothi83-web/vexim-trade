@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { COMPANY } from "@/lib/config";
 
@@ -13,11 +13,11 @@ type PlatformLegalStripProps = {
 };
 
 const PLATFORM_LINKS = [
-  { href: "/thong-tin-chu-quan", label: { en: "Platform Owner Information", vi: "Thông tin chủ quản" } },
-  { href: "/quy-che-hoat-dong", label: { en: "Platform Operating Regulations", vi: "Quy chế hoạt động" } },
-  { href: "/khieu-nai", label: { en: "Complaints and Violation Reports", vi: "Khiếu nại và báo cáo vi phạm" } },
-  { href: "/dieu-khoan-su-dung", label: { en: "Terms of Service", vi: "Điều khoản sử dụng" } },
-  { href: "/chinh-sach-bao-mat", label: { en: "Privacy Policy", vi: "Chính sách bảo mật" } },
+  { href: { en: "/thong-tin-chu-quan", vi: "/thong-tin-chu-quan" }, label: { en: "Platform Owner Information", vi: "Thông tin chủ quản" } },
+  { href: { en: "/platform-rules", vi: "/quy-che-hoat-dong" }, label: { en: "Platform Operating Rules", vi: "Quy chế hoạt động" } },
+  { href: { en: "/khieu-nai", vi: "/khieu-nai" }, label: { en: "Complaints and Violation Reports", vi: "Khiếu nại và báo cáo vi phạm" } },
+  { href: { en: "/terms-of-service", vi: "/dieu-khoan-su-dung" }, label: { en: "Terms of Service", vi: "Điều khoản sử dụng" } },
+  { href: { en: "/privacy-policy", vi: "/chinh-sach-bao-mat" }, label: { en: "Privacy Policy", vi: "Chính sách bảo mật" } },
 ] as const;
 
 const COPY = {
@@ -88,8 +88,8 @@ function PlatformLegalStripContent({
           <p className={`font-bold ${dark ? "text-slate-100" : "text-ink-900"}`}>{copy.navigationTitle}</p>
           <ul className="mt-2 space-y-1.5">
             {PLATFORM_LINKS.map((item) => (
-              <li key={item.href}>
-                <Link href={item.href} className={`underline-offset-2 hover:underline ${dark ? "hover:text-white" : "hover:text-brand-700"}`}>
+              <li key={item.href.en}>
+                <Link href={item.href[lang]} className={`underline-offset-2 hover:underline ${dark ? "hover:text-white" : "hover:text-brand-700"}`}>
                   {item.label[lang]}
                 </Link>
               </li>
@@ -102,8 +102,15 @@ function PlatformLegalStripContent({
 }
 
 function LocalizedPlatformLegalStrip(props: PlatformLegalStripProps) {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const lang: Language = searchParams.get("lang") === "vi" ? "vi" : "en";
+  const vietnameseRoutes = ["/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/thong-tin-chu-quan", "/khieu-nai"];
+  const englishRoutes = ["/platform-rules", "/terms-of-service", "/privacy-policy"];
+  const lang: Language = vietnameseRoutes.includes(pathname)
+    ? "vi"
+    : englishRoutes.includes(pathname)
+      ? "en"
+      : searchParams.get("lang") === "vi" ? "vi" : "en";
   return <PlatformLegalStripContent {...props} lang={lang} />;
 }
 

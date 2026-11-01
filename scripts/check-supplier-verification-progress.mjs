@@ -145,7 +145,7 @@ const foreign = buildVerificationProgress({
 });
 assert.equal(foreign.approvedCount, 0);
 assert.equal(foreign.steps.map((s) => s.state).join(','), 'not_started,not_started,not_started');
-assert.match(foreign.steps[0].metric, /Chưa có giấy tờ/);
+assert.match(foreign.steps[0].metric, /Chưa có GCN ĐKKD/);
 
 // 10. Đếm giấy tờ L1 theo mục (không đếm trùng tệp) và chỉ tệp của chính tài khoản.
 const docs = buildVerificationProgress({
@@ -154,8 +154,11 @@ const docs = buildVerificationProgress({
   userId: 'usr-1',
 });
 assert.equal(docs.steps[0].state, 'action');
-assert.equal(docs.steps[0].metric, 'Đã tải 1 giấy tờ');
+assert.equal(docs.steps[0].metric, 'Đã tải GCN ĐKKD');
 assert.equal(docs.steps[0].action, 'Tải giấy tờ');
+const certificateOnly = buildVerificationProgress({ ...empty, documents: [doc('food_safety')] });
+assert.equal(certificateOnly.steps[0].state, 'not_started', 'Quality certificates do not count as business registration');
+assert.equal(certificateOnly.steps[0].metric, 'Chưa có GCN ĐKKD');
 
 // 11. Nhãn tiếng Anh đủ để “Trang của tôi” không trộn ngôn ngữ.
 for (const step of none.steps) {

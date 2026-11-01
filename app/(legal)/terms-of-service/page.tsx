@@ -15,7 +15,7 @@ export default function TermsPage() {
     <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-700">Vexim Trade · Legal</p>
     <h1 className="mt-3 text-3xl font-black tracking-tight text-ink-900 sm:text-4xl">Terms of Service</h1>
     <p className="mt-3 text-sm text-ink-500">Effective date: October 18, 2026 · Version 1</p>
-    <p className="mt-6 text-sm leading-7 text-ink-700">These terms apply to the website <a href={SITE_URL} className="font-semibold text-brand-700 underline">{SITE_URL}</a> and the services provided through it by VEXIM GLOBAL CO., LTD (“Vexim Trade”, “Vexim”, “we” or “us”). Please read them before submitting an enquiry, creating an account or using the supplier portal. If you do not agree, do not use these services.</p>
+    <p className="mt-6 text-sm leading-7 text-ink-700">These terms apply to the website <a href={SITE_URL} className="font-semibold text-brand-700 underline">{SITE_URL}</a> and the services provided through it by VEXIM GLOBAL CO., LTD (“Vexim Trade”, “Vexim”, “we” or “us”). Please read them before submitting an enquiry, creating an account or using the supplier portal. If you do not agree, do not use these services. For a plain-language overview of how the platform operates, read the <Link href="/platform-rules" className="font-semibold text-brand-700 underline">Platform Operating Rules</Link>.</p>
 
     <section className="mt-9 space-y-3" aria-labelledby="terms-service">
       <h2 id="terms-service" className="text-xl font-bold text-ink-900">1. What Vexim Trade provides</h2>

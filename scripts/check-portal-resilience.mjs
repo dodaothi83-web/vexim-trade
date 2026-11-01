@@ -108,7 +108,7 @@ const sharedMocks = {
   '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: () => [] },
   '@/lib/db/migration-hints': { migrationHint: () => 'Có thể thiếu migration: chạy supabase/migrations/20261017_supplier_dashboard.sql' },
   '@/lib/certificate-service': { daysUntilExpiry: () => null },
-  '@/lib/verification': { isL1CoreDoc: () => false },
+  '@/lib/verification': { isL1BusinessLicense: () => false },
   '@/lib/rfq/reply-routing': { supplierReplyAddress: () => '' },
   '@/lib/types': { L1_DOC_ITEMS: [] },
   '@/lib/l2-scope': { l2ScopeForSupplier: (type) => type === 'trading' ? 'partner_contract' : ['manufacturer', 'cooperative'].includes(type) ? 'factory' : null },
@@ -119,6 +119,7 @@ const sharedMocks = {
   './portal-ui': ui,
   '../portal-ui': ui,
   './supplier-profile-form': { SupplierProfileForm: () => null },
+  './pending-profile-refresh': { PendingProfileRefresh: () => null },
   './notice-actions': { markSupplierNoticeReadAction: async () => {} },
   '../notice-actions': { markSupplierNoticeReadAction: async () => {} },
 };

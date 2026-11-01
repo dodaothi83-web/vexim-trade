@@ -448,6 +448,13 @@ export type CertificateHolderMatch = "owner" | "partner" | "unclear";
 export type CertificateAiConfidence = "low" | "medium" | "high";
 export type CertificateSource = "manual" | "l1-supplier" | "l1-staff";
 
+/** AI proposal only; never an applied certificate scope until a staff member confirms it. */
+export interface CertificateCategorySuggestion {
+  category_id: string;
+  confidence: CertificateAiConfidence;
+  reason: string;
+}
+
 export interface Certificate {
   /** Dedicated review/publication flow + L1 AI-scanned certificate columns. */
   holder_name?: string | null;
@@ -455,6 +462,8 @@ export interface Certificate {
   ai_scanned_at?: string | null;
   ai_summary?: string | null;
   ai_confidence?: CertificateAiConfidence | null;
+  /** Suggestions from the certificate scan; staff must explicitly apply any scope. */
+  ai_category_suggestions?: CertificateCategorySuggestion[];
   source?: CertificateSource;
   checklist_key?: string | null;
   verification_id?: string | null;
@@ -521,16 +530,16 @@ export type VerificationLevel = 1 | 2 | 3;
 export type L2VerificationScope = "factory" | "partner_contract";
 
 /**
- * Các hạng mục checklist L1 — giấy tờ doanh nghiệp & an toàn thực phẩm.
- * `core: true` là ba giấy xác minh chính, chọn MỘT trong ba là đủ: đăng ký doanh nghiệp,
- * ATTP, HACCP/ISO 22000/FSSC/BRC/Halal. `required` chỉ còn dùng cho ô số phải ghi nhận.
+ * Từ điển giấy tờ và chứng nhận L1, giữ key cũ để đọc dữ liệu lịch sử.
+ * Checklist xác thực doanh nghiệp hiện chỉ dùng ĐKKD và hai trường số; chứng nhận
+ * chất lượng được xử lý riêng trong kho certificates, không thay thế giấy ĐKKD.
  */
 export const L1_DOC_ITEMS = [
   { key: "business_license", label: "Giấy chứng nhận đăng ký kinh doanh", required: false, core: true },
   { key: "tax_certificate", label: "Mã số thuế", required: true, core: false },
   { key: "bank_letter", label: "Số tài khoản ngân hàng", required: false, core: false },
-  { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm", required: false, core: true },
-  { key: "haccp_or_brc", label: "HACCP / ISO 22000 / FSSC / BRC / Halal", required: false, core: true },
+  { key: "food_safety", label: "Giấy chứng nhận an toàn thực phẩm", required: false, core: false },
+  { key: "haccp_or_brc", label: "HACCP / ISO 22000 / FSSC / BRC / Halal", required: false, core: false },
   { key: "product_certs", label: "Chứng chỉ sản phẩm đã công bố", required: false, core: false },
   { key: "export_license", label: "Giấy phép xuất khẩu (nếu áp dụng)", required: false, core: false }
 ] as const;

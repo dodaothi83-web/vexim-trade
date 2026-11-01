@@ -297,8 +297,8 @@ export default async function SupplierDetailPage({
           {canViewReviews && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm">
               <p className="text-ink-700">
-                <Link href={`/crm/suppliers/${id}/audit/documents`} className="font-bold text-brand-800 underline">Kiểm tra giấy tờ L1 & chứng nhận AI quét</Link>
-                <span className="mt-0.5 block text-[13px] text-ink-600 sm:inline sm:before:content-['·_']">AI tự quét đơn vị đứng tên và ngày hết hạn của chứng nhận L1; tự nhắc nhà cung cấp trước 60 / 30 / 7 / 1 ngày.</span>
+                <Link href={`/crm/suppliers/${id}/audit/documents`} className="font-bold text-brand-800 underline">Xác thực doanh nghiệp & chứng nhận (xét riêng)</Link>
+                <span className="mt-0.5 block text-[13px] text-ink-600 sm:inline sm:before:content-['·_']">Chứng nhận được xét riêng; AI quét đơn vị đứng tên và ngày hết hạn, tự nhắc nhà cung cấp trước 60 / 30 / 7 / 1 ngày.</span>
               </p>
             </div>
           )}

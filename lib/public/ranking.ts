@@ -116,10 +116,11 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
  * Quy tắc (chốt GĐ2, quyết định 2 — trừ điểm, KHÔNG cổng ẩn):
  *   - L2/L3 là xác minh theo sự kiện (bằng chứng giao hàng, hồ sơ nhà máy đã duyệt):
  *     đã duyệt là còn hiệu lực, dữ liệu không có khái niệm hết hạn.
- *   - L1 là chứng nhận giấy tờ có ngày hết hạn. Chỉ trừ khi NCC ĐÃ duyệt L1, CÓ chứng
- *     nhận đã duyệt (đủ điều kiện đối chiếu) mà TẤT CẢ đều đã quá hạn.
- *   - Fail-open có chủ đích: NCC legacy được duyệt L1 khi chưa có bảng chứng nhận,
- *     hoặc lỗi đọc CSDL ở caller, thì giữ nguyên số bước — hết hạn là việc trừ điểm,
+ *   - Xác thực doanh nghiệp L1 dựa trên GCN ĐKKD. Tách biệt với quyết định đó, nếu NCC
+ *     có chứng nhận đã duyệt và TẤT CẢ đều quá hạn thì trừ một tín hiệu xếp hạng; việc này
+ *     không thu hồi hay thay đổi kết quả xác thực doanh nghiệp L1.
+ *   - Fail-open có chủ đích: NCC legacy được duyệt L1 khi chưa có chứng nhận đã duyệt,
+ *     hoặc lỗi đọc CSDL ở caller, thì giữ nguyên số bước — hết hạn là tín hiệu xếp hạng,
  *     không phải lý do giấu NCC khỏi lưới. Cổng hiển thị công khai vẫn là chuyện của
  *     publicSupplierCertificates (publicly_visible, file media, holder...), còn đây
  *     chỉ đo độ tin cậy.

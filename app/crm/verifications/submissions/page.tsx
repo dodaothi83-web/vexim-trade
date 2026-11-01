@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Factory, ScanSearch, Ship } from "lucide-react";
+import { AlertTriangle, ArrowRight, Factory, Ship } from "lucide-react";
 
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isPartnerL2 } from "@/lib/l2-scope";
-import { aiReviewFindings, aiReviewMayBeOutdated, readiness, submissionStatusLabel } from "@/lib/verification-submission";
+import { readiness, submissionStatusLabel } from "@/lib/verification-submission";
 import type { Supplier, SupplierSubmission, SupplierSubmissionItem } from "@/lib/types";
 import { Breadcrumbs, Badge, Card, EmptyState } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -22,8 +22,8 @@ const TABS: { key: string; label: string; filter: (s: SupplierSubmission) => boo
 
 /**
  * Hàng đợi hồ sơ do NHÀ CUNG CẤP TỰ GỬI (L2: 9 ảnh nhà máy, L3: chứng từ xuất khẩu).
- * Đây KHÔNG phải hàng đợi duyệt huy hiệu: nhận hồ sơ chỉ tạo đợt kiểm của nhân viên,
- * một nhân sự đủ quyền có thể kiểm và duyệt sau xác nhận; AI không tự duyệt.
+ * Đây KHÔNG phải hàng đợi duyệt huy hiệu: nhân viên nhận hồ sơ rồi kiểm tra thủ công,
+ * hoặc tự tạo đợt kiểm và tải bằng chứng. L2/L3 không cần bước AI.
  */
 export default async function SubmissionQueuePage({ searchParams }: { searchParams?: Promise<{ tab?: string; level?: string }> }) {
   const session = await requirePagePermission("verifications.view", "/crm/dashboard");
@@ -56,7 +56,7 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
     <Breadcrumbs items={[{ label: "Tổng quan", href: "/crm/dashboard" }, { label: "Xác minh nhà cung cấp", href: "/crm/verifications" }, { label: "Hồ sơ nhà cung cấp tự gửi" }]} />
     <PageHeader
       title="Hồ sơ bằng chứng nhà cung cấp tự gửi"
-      sub="L2 nhà máy: ảnh. L2 đối tác: hợp đồng. L3: chứng từ xuất khẩu. Nhân viên đối chiếu và nhận hồ sơ không tự cấp xác minh."
+      sub="L2 nhà máy: ảnh. L2 đối tác: hợp đồng. L3: chứng từ xuất khẩu. Nhân viên đối chiếu thủ công; không cần AI để xét."
       actions={<Link href="/crm/verifications" className="btn btn-ghost">Hàng đợi xác minh <ArrowRight className="h-4 w-4" /></Link>}
     />
 
@@ -83,7 +83,6 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
         const items = itemsBySubmission.get(s.id) ?? [];
         const check = readiness({ submission: s, items });
         const hard = items.flatMap((i) => i.flags ?? []).filter((f) => f.severity === "hard" && f.source !== "ai").length;
-        const aiFindings = s.target_level === 2 && !isPartnerL2(s) ? aiReviewFindings(s.ai_review, s.verification_code) : [];
         return <li key={s.id}>
           <Card className="p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -99,12 +98,9 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
                 <p className="mt-1 text-xs text-ink-600">
                   {items.filter((i) => i.media_id).length} bằng chứng · {check.missing.length ? `còn thiếu ${check.missing.length} mục bắt buộc` : "đủ mục bắt buộc"}
                   {s.target_level === 2 && !isPartnerL2(s) ? (s.verification_code ? ` · mã ${s.verification_code}` : " · chưa phát hành mã") : " · nhân viên kiểm tra"}
-                  {s.ai_scanned_at ? ` · ${s.target_level === 3 ? "AI cũ" : "AI quét"} ${new Date(s.ai_scanned_at).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}` : s.target_level === 2 && !isPartnerL2(s) ? " · chưa quét AI" : ""}
                 </p>
                 {hard > 0 && <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" /> {hard} điểm cần kiểm tra</p>}
-                {aiFindings.length > 0 && <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-amber-800"><AlertTriangle className="h-3.5 w-3.5" /> AI lưu ý {aiFindings.length} điểm; nhân viên cần đối chiếu</p>}
-                {s.target_level === 2 && !isPartnerL2(s) && itemsBySubmission.has(s.id) && aiReviewMayBeOutdated(s, items) && <p className="mt-1 text-xs font-semibold text-amber-800">Lần quét trước có thể không khớp ảnh hiện tại.</p>}
-                {s.ai_review?.summary && <p className="mt-1 line-clamp-2 max-w-3xl text-xs text-ink-600"><ScanSearch className="mr-1 inline h-3.5 w-3.5 text-violet-600" />{s.target_level === 3 ? "AI cũ, chỉ tham khảo: " : "AI gợi ý: "}{s.ai_review.summary}</p>}
+
               </div>
               <Link href={`/crm/verifications/submissions/${s.id}`} className={`btn ${canReview ? "btn-primary" : "btn-ghost"} shrink-0 text-xs`}>
                 {s.status === "pending_review" && canReview ? "Đối chiếu & xét" : "Xem hồ sơ"}
@@ -117,8 +113,8 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
       sub="Nhà cung cấp tự gửi bằng chứng qua Cổng nhà cung cấp → Xác thực L2·L3. Hồ sơ nộp xong sẽ vào đây để nhân viên đối chiếu." />}
 
     <Card className="mt-6 bg-ink-50 p-4 text-xs text-ink-600">
-      <strong className="text-ink-900">Ranh giới nghiệp vụ:</strong> Hợp đồng L2 đối tác và chứng từ L3 do nhân viên đối chiếu; AI và cờ ảnh nhà máy chỉ là tín hiệu.
-      Nhận hồ sơ tạo đợt kiểm kèm bằng chứng, không tự cấp huy hiệu. Kết quả do người có quyền duyệt quyết định.
+      <strong className="text-ink-900">Xét duyệt thủ công:</strong> Không cần AI cho L2/L3. Nhân viên có thể tự tạo đợt kiểm và tải ảnh, hợp đồng hoặc chứng từ trực tiếp.
+      Nhận hồ sơ tự gửi chỉ tạo đợt kiểm, không tự cấp xác minh; quyết định cuối thuộc người có quyền duyệt.
     </Card>
   </div>;
 }

@@ -9,7 +9,7 @@ import { canSubmitProfile, portalApproved } from "@/lib/supplier-portal/onboardi
 import { buildSupplierRfqBoard } from "@/lib/supplier-portal/dashboard";
 import { productReview } from "@/lib/supplier-portal/product-view";
 import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
-import { isL1CoreDoc } from "@/lib/verification";
+import { isL1BusinessLicense } from "@/lib/verification";
 import { daysUntilExpiry } from "@/lib/certificate-service";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { buildVerificationProgress } from "@/lib/supplier-portal/verification-progress";
@@ -50,7 +50,7 @@ export default async function SupplierPortal() {
     ? categoryProposalOptions(await store.listCategories({ publishedOnly: true })) : [];
   // Giấy xác minh đã có trong đợt kiểm trước thì không bắt NCC tải lại khi bổ sung hồ sơ.
   const hasCoreDoc = !portalApproved(supplier) && canSubmitProfile(supplier) && !!review &&
-    (await store.listMedia("verification", review.id)).some((m) => m.storage_path && isL1CoreDoc(m.checklist_key));
+    (await store.listMedia("verification", review.id)).some((m) => m.storage_path && isL1BusinessLicense(m.checklist_key));
   // Until Vexim explicitly approves this account, never query/render RFQs, reports or notices.
   if (!portalApproved(supplier)) return <>
     <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Tổng quan" sub={user.email} />

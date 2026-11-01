@@ -19,7 +19,7 @@ const simpleFooter = read("app/(public)/simple-footer.tsx");
 const siteFooter = read("components/site-footer.tsx");
 
 assert.match(config, /platformResponsible:.*Lương Văn Học/, "Platform responsible person defaults to Lương Văn Học");
-assert.match(config, /platformRulesEffectiveDate:.*18\/10\/2026/, "Platform rules effective date is configured");
+assert.match(config, /platformRulesEffectiveDate:.*01\/11\/2026/, "Platform rules effective date is configured");
 
 for (const text of [
   "Copyright ©",
@@ -83,10 +83,10 @@ const company = {
   registrationDate: "29/04/2025",
   legalRepresentative: "Lương Văn Học",
   platformResponsible: "Lương Văn Học",
-  platformRulesEffectiveDate: "18/10/2026",
+  platformRulesEffectiveDate: "01/11/2026",
 };
 
-function renderStrip(lang) {
+function renderStrip(lang, pathname = "/") {
   const exports = {};
   const code = ts.transpileModule(strip, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
@@ -95,7 +95,10 @@ function renderStrip(lang) {
     react: React,
     "react/jsx-runtime": jsxRuntime,
     "next/link": { default: ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children) },
-    "next/navigation": { useSearchParams: () => ({ get: (key) => key === "lang" ? lang : null }) },
+    "next/navigation": {
+      useSearchParams: () => ({ get: (key) => key === "lang" ? lang : null }),
+      usePathname: () => pathname,
+    },
     "@/lib/config": { COMPANY: company },
   };
   vm.runInNewContext(code, {
@@ -108,13 +111,13 @@ function renderStrip(lang) {
   return renderToStaticMarkup(React.createElement(exports.PlatformLegalStrip));
 }
 
-const english = renderStrip(undefined);
+const english = renderStrip(undefined, "/platform-rules");
 for (const text of [
   'lang="en"',
   "Enterprise Registration Certificate No. 0111040294, first issued on 29/04/2025.",
   "Legal representative: Mr. Lương Văn Học",
   "Person responsible for the e-commerce platform: Mr. Lương Văn Học",
-  "The Platform Operating Regulations are effective from 18/10/2026.",
+  "The Platform Operating Regulations are effective from 01/11/2026.",
   "Please credit “veximtrade.com” when republishing information from this website.",
   "Platform Regulations",
   "Platform Owner Information",
@@ -125,13 +128,13 @@ for (const text of [
 ]) assert.ok(english.includes(text), `English footer includes: ${text}`);
 assert.ok(!english.includes("Giấy chứng nhận đăng ký doanh nghiệp"), "Default footer does not mix Vietnamese legal copy into English");
 
-const vietnamese = renderStrip("vi");
+const vietnamese = renderStrip("vi", "/quy-che-hoat-dong");
 for (const text of [
   'lang="vi"',
   "Giấy chứng nhận đăng ký doanh nghiệp số 0111040294, cấp lần đầu ngày 29/04/2025.",
   "Người đại diện theo pháp luật: Ông Lương Văn Học",
   "Chịu trách nhiệm sàn giao dịch thương mại điện tử: Ông Lương Văn Học",
-  "Quy chế hoạt động có hiệu lực từ ngày 18/10/2026.",
+  "Quy chế hoạt động có hiệu lực từ ngày 01/11/2026.",
   "Ghi rõ nguồn “veximtrade.com” khi phát hành lại thông tin từ website này.",
   "Quy định của nền tảng",
   "Thông tin chủ quản",
@@ -141,8 +144,11 @@ for (const text of [
   company.address,
 ]) assert.ok(vietnamese.includes(text), `Vietnamese footer includes: ${text}`);
 assert.ok(!vietnamese.includes("Enterprise Registration Certificate"), "Vietnamese footer does not retain English legal copy");
-for (const href of ["/thong-tin-chu-quan", "/quy-che-hoat-dong", "/khieu-nai", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat"]) {
+for (const href of ["/thong-tin-chu-quan", "/khieu-nai"]) {
   assert.ok(english.includes(`href="${href}"`) && vietnamese.includes(`href="${href}"`), `Both languages preserve ${href}`);
+}
+for (const [enHref, viHref] of [["/platform-rules", "/quy-che-hoat-dong"], ["/terms-of-service", "/dieu-khoan-su-dung"], ["/privacy-policy", "/chinh-sach-bao-mat"]]) {
+  assert.ok(english.includes(`href="${enHref}"`) && vietnamese.includes(`href="${viHref}"`), `Localized legal links point to ${enHref} and ${viHref}`);
 }
 
 console.log("✅ Platform legal strip, responsible person, bilingual content and footer placement.");

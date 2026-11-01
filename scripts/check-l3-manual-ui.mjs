@@ -108,13 +108,14 @@ assert.match(needsCodeHtml, /Cần kiểm tra mã/);
 assert.doesNotMatch(needsCodeHtml, /thiếu 0 mục/i);
 
 
-const staffProps = { submissionId: 'sub', status: 'pending_review', canReview: true, verificationHref: null, aiEnabled: true };
+const staffProps = { submissionId: 'sub', status: 'pending_review', canReview: true, verificationHref: null };
 const staffL3 = renderToStaticMarkup(React.createElement(SubmissionReviewActions, { ...staffProps, level: 3 }));
 const staffL2 = renderToStaticMarkup(React.createElement(SubmissionReviewActions, { ...staffProps, level: 2 }));
 assert.doesNotMatch(staffL3, /Quét lại bằng AI/);
 assert.match(staffL3, /Nhận vào đợt kiểm/);
-assert.match(staffL2, /Quét lại bằng AI/);
-console.log('✅ L3 supplier/staff UI renders manual submit without AI; L2 AI controls remain.');
+assert.doesNotMatch(staffL2, /Quét lại bằng AI/);
+assert.match(staffL2, /Không cần AI/);
+console.log('✅ CRM L2/L3 staff review stays manual; supplier-side AI remains optional for L2 factory submissions.');
 
 const partnerView = { ...baseView, id: 'sub-partner', level: 2, l2Scope: 'partner_contract', ready: true, items: [{ ...row, key: 'partner_factory_contract', label: 'Hợp đồng với nhà máy đối tác' }] };
 const partnerSpecs = [

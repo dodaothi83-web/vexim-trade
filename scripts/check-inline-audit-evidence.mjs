@@ -15,7 +15,7 @@ assert.equal(L1_DOC_ITEMS.length, 7);
 assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'haccp_or_brc').required, false, 'Traders must not need HACCP to submit');
 assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'food_safety').required, false, 'Traders may not hold food-safety certificates either');
 assert.equal(JSON.stringify(L1_DOC_ITEMS.filter((item) => item.core).map((item) => item.key)),
-  JSON.stringify(['business_license', 'food_safety', 'haccp_or_brc']), 'One of three core documents is enough to verify');
+  JSON.stringify(['business_license']), 'Only business registration belongs to business verification');
 assert.equal(L1_DOC_ITEMS.find((item) => item.key === 'tax_certificate').required, true, 'Tax number is still recorded');
 const types = {};
 vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: types });
@@ -23,6 +23,12 @@ const policy = {};
 vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/verification.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, { exports: policy, require: (path) => path === './types' ? types : null });
+assert.equal(policy.auditItems(1).map((item) => item.key).join(','), 'business_license,tax_certificate,bank_letter');
+assert.equal(policy.auditUploadKind(1, 'business_license'), 'file');
+for (const key of ['food_safety', 'haccp_or_brc', 'product_certs', 'export_license']) {
+  assert.equal(policy.auditUploadKind(1, key), null, `${key} stays in the separate certificate flow`);
+}
+assert.equal(policy.requiredAuditItems(1).map((item) => item.key).join(','), 'tax_certificate');
 assert.equal(policy.requiredAuditItems(2).length, 0);
 assert.equal(policy.requiredAuditItems(3).length, 0);
 for (const [level, key, expected] of [[2, 'factory_gate', 'image'], [2, 'pest_control', 'image'], [3, 'shipping_proof', 'file'], [3, 'delivery_proof', 'file'], [2, 'photos_taken', null], [2, 'documents_original', null], [3, 'order_matched', null], [3, 'factory_gate', null]]) {
@@ -81,6 +87,9 @@ assert.equal((await exports.POST(request('supplier', 'business_license'))).statu
 assert.equal((await exports.POST(request('verification', 'invented'))).status, 400, 'Forged checklist key rejected');
 for (const key of ['tax_certificate', 'bank_letter']) {
   assert.equal((await exports.POST(request('verification', key))).status, 400, `${key} only accepts numeric entry, not a new attachment`);
+}
+for (const key of ['food_safety', 'haccp_or_brc', 'product_certs', 'export_license']) {
+  assert.equal((await exports.POST(request('verification', key))).status, 400, `${key} is kept out of business-review attachments`);
 }
 level = 2;
 assert.equal((await exports.POST(request('verification', 'business_license'))).status, 400, 'Cannot bind factory file to legal checklist');

@@ -267,8 +267,10 @@ assert.match(profileEvidence, /ingestCertificateScan\(\{/,
 assert.match(profileEvidence, /isL1CertificateKey\(key\)/, "chỉ giấy chứng nhận mới chạy bước phân loại");
 
 const auditForm = read("app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx");
-assert.match(auditForm, /contributedChecklistKey/, "mục L1 nhận giấy theo loại đã chốt");
-assert.match(auditForm, /checklistMismatch/, "cảnh báo khi loại giấy lệch mục checklist");
+assert.match(auditForm, /Luồng chứng nhận · xét riêng/, "chứng nhận được xét trong khu vực riêng");
+assert.match(auditForm, /certificateFileFor/, "người kiểm mở tệp gốc của chứng nhận ngay tại khu vực riêng");
+assert.match(auditForm, /checklistMismatch/, "cảnh báo phân loại cũ vẫn hiển thị riêng, không đổi checklist ĐKKD");
+assert.doesNotMatch(auditForm, /contributedChecklistKey/, "chứng nhận không được gán làm kết quả checklist doanh nghiệp");
 const approve = read("app/crm/suppliers/[slug]/audit/[step]/certificate-actions.ts");
 assert.match(approve, /transferRenewalScope/, "duyệt bản gia hạn thì chuyển phạm vi");
 const migration = read("supabase/migrations/20261076_certificate_scope_flow.sql");

@@ -31,13 +31,13 @@ Trong khối "Chứng nhận áp dụng" ở trang sản phẩm của cổng nh�
 
 Nhà cung cấp chọn "Gia hạn" một giấy đã có khi tải tệp mới. Hệ thống tạo **bản ghi mới** (`supersedes_certificate_id` = giấy cũ) ở trạng thái chờ duyệt; bản cũ **vẫn hiệu lực, vẫn giữ phạm vi** nên sản phẩm không rơi khỏi chip. Khi nhân viên duyệt bản mới, phạm vi của bản cũ được sao sang bản mới và bản cũ nhận `superseded_by_certificate_id` (ngừng hiện). Nhắc hạn vẫn theo mốc 60/30/7/1 ngày.
 
-## Trang Giấy tờ & chứng nhận L1
+## Trang Xác thực doanh nghiệp và chứng nhận riêng
 
 - Lưới thẻ chỉ còn **giấy tờ doanh nghiệp** (`COMPANY_DOCUMENT_KEYS`: đăng ký doanh nghiệp, ATTP, giấy phép xuất khẩu). Hai mục `haccp_or_brc` và `product_certs` bỏ khỏi lưới (`QUALITY_CERTIFICATE_DOC_KEYS`) để chứng nhận chất lượng chỉ có **một đường vào**: ô tải ở khối "Chứng nhận trên hồ sơ".
 - Chứng nhận nộp ở bước đăng ký doanh nghiệp cũng vào kho: `saveInitialEvidence` gọi `ingestCertificateScan` cho các key chứng nhận, nên hồ sơ không còn cảnh có tệp HACCP mà "0 chứng nhận".
 - Tệp chứng nhận tải theo luồng cũ, chưa có bản ghi, vẫn xem lại được ở khối "Tệp chứng nhận đã tải trước đây" kèm lời mời tải lại; thẻ giấy tờ nào đã vào kho thì ghi "Đã vào kho chứng nhận · hạn …" để không bị hiểu là hai giấy khác nhau.
-- Bảng "Giấy tờ L1 tính từ giấy đã duyệt" chỉ liệt kê 5 mục có chứng nhận tương ứng; mã số thuế và số tài khoản ngân hàng khai trong Hồ sơ doanh nghiệp. Dòng chưa có chứng nhận nhưng đã có tệp thì ghi rõ "Đã có tệp tải lên, chưa có chứng nhận được duyệt".
-- Thẻ chưa có tệp không bao giờ ghi "Đã đối chiếu xong" chỉ vì đợt L1 đã duyệt; tiến độ tính trên 3 giấy tờ doanh nghiệp, chứng nhận đếm riêng.
+- Bảng "Chứng nhận đã duyệt theo loại" chỉ liệt kê các mục chứng nhận tương ứng; mã số thuế và số tài khoản ngân hàng khai trong Hồ sơ doanh nghiệp. Dòng chưa có chứng nhận nhưng đã có tệp thì ghi rõ "Đã có tệp tải lên, chưa có chứng nhận được duyệt".
+- Trạng thái GCN ĐKKD và chứng nhận là hai luồng độc lập: duyệt xác thực doanh nghiệp không đồng nghĩa chứng nhận đã được duyệt; chứng nhận đã duyệt không thay thế GCN ĐKKD.
 
 ## Câu chữ ở cổng nhà cung cấp
 
@@ -55,8 +55,8 @@ Hai ô tải giấy (trang **Giấy tờ & chứng nhận L1** và khối "Chứ
 ## CRM
 
 - Hàng đợi `/crm/certificates`: số đếm giấy chưa phân loại, chờ duyệt, sắp hết hạn 60 ngày, yêu cầu mở rộng phạm vi. Mục menu "Giấy tờ & chứng nhận" có huy hiệu **N chờ** = số giấy `review_status = 'pending'` (`countCertificatesPendingReview`), cùng nguồn số với chuông CRM; giấy chưa phân loại và yêu cầu mở rộng phạm vi không cộng vào huy hiệu mà hiện thành từng mục trong trang. Duyệt/ẩn giấy, đổi phạm vi, và NCC tải giấy mới đều gọi `refreshCrmBadges()` để số tự trừ/tăng.
-- Dòng chứng nhận trong hồ sơ L1: chọn loại giấy (nhóm pháp lý/chất lượng/theo lô), công khai/nội bộ, thêm–bỏ phạm vi danh mục, duyệt yêu cầu mở rộng, cảnh báo khi loại giấy lệch mục checklist L1 đã ghi.
-- Bảng L1 trong cổng nhà cung cấp tính từ giấy **đã duyệt** (`lib/certificate-l1.ts`), không phải ô tự chọn.
+- Bản ghi trong luồng Chứng nhận riêng: chọn loại giấy (nhóm pháp lý/chất lượng/theo lô), công khai/nội bộ, thêm–bỏ phạm vi danh mục, duyệt yêu cầu mở rộng. Loại chứng nhận không là kết quả checklist ĐKKD.
+- Bảng chứng nhận trên cổng nhà cung cấp tính từ giấy **đã duyệt** (`lib/certificate-l1.ts`), không phải ô tự chọn; bảng không quyết định việc duyệt GCN ĐKKD.
 
 ## Bộ lọc người mua
 

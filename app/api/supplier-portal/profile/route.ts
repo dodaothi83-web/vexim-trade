@@ -9,7 +9,7 @@ import { prepareInitialDocuments, saveInitialEvidence } from "@/lib/supplier-por
 import { notifySupplierRegistration } from "@/lib/supplier-portal/notify";
 import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-service";
 import type { SupplierInput } from "@/lib/types";
-import { isL1CoreDoc } from "@/lib/verification";
+import { isL1BusinessLicense } from "@/lib/verification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,15 +61,15 @@ export async function POST(request: Request) {
       return fail("Chưa kiểm tra được lịch sử hồ sơ. Vui lòng thử lại hoặc liên hệ Vexim.", 503);
     }
   }
-  // Bước xác thực doanh nghiệp cần Giấy chứng nhận đăng ký kinh doanh (giấy lõi). Giấy đã nộp
-  // ở đợt kiểm trước vẫn tính khi NCC bổ sung hồ sơ; giấy chất lượng đi qua kho chứng nhận.
-  if (!documents.some((document) => isL1CoreDoc(document.key))) {
+  // Bước xác thực doanh nghiệp cần Giấy chứng nhận đăng ký kinh doanh. Giấy đã nộp ở
+  // đợt kiểm trước vẫn tính khi NCC bổ sung hồ sơ; giấy chất lượng đi qua luồng chứng nhận riêng.
+  if (!documents.some((document) => isL1BusinessLicense(document.key))) {
     let existingCore = false;
     try {
       const prior = freshUser.supplier_id ? await store.listVerifications(freshUser.supplier_id) : [];
       const open = prior.find((item) => item.target_level === 1 && (item.status === "in_progress" || item.status === "returned"));
       const media = open ? await store.listMedia("verification", open.id) : [];
-      existingCore = media.some((asset) => asset.storage_path && isL1CoreDoc(asset.checklist_key));
+      existingCore = media.some((asset) => asset.storage_path && isL1BusinessLicense(asset.checklist_key));
     } catch (error) { console.error("[supplier-profile] cannot read prior documents", error); }
     if (!existingCore) {
       return fail("Cần tải Giấy chứng nhận đăng ký kinh doanh đứng tên doanh nghiệp bạn đã đăng ký.");

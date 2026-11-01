@@ -73,7 +73,9 @@ assert.doesNotMatch(documents, /AI quét những gì/, 'Không lặp lại khố
 const auditPage = read('app/crm/suppliers/[slug]/audit/[step]/page.tsx');
 const auditForm = read('app/crm/suppliers/[slug]/audit/[step]/audit-form.tsx');
 assert.match(auditPage, /certificateMedia=\{certificateMedia\}/, 'CRM chuyển đúng tệp gốc chứng nhận vào màn kiểm');
-assert.match(auditForm, /Mở giấy gốc/, 'Người kiểm CRM mở được tệp chứng nhận ngay tại checklist');
+assert.match(auditForm, /Mở tệp gốc/, 'Người kiểm CRM mở được tệp chứng nhận trong luồng chứng nhận riêng');
+assert.match(auditForm, /Luồng chứng nhận · xét riêng/, 'Chứng nhận có khu vực riêng, không nằm trong checklist ĐKKD');
+assert.doesNotMatch(auditForm, /Bắt buộc 1 trong 3|một trong ba/, 'Bỏ điều kiện cũ một-trong-ba khỏi giao diện CRM');
 assert.match(auditForm, /useState\(false\)/, 'Tệp cũ không gắn mục được thu gọn mặc định');
 
 /* 3. Giao diện mới nhưng giữ đủ chức năng của bảng điều khiển cũ. */
