@@ -29,7 +29,7 @@ function fixture(marketingAllowed = true) {
   const mocks = {
     'react/jsx-runtime': jsx,
     react: { useRef: () => ({ current: {} }), useEffect: (effect) => { cleanup = effect(); } },
-    '@/components/public-product-card': { PublicProductCard: () => null },
+    '@/components/public-product-card': { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard: () => null },
     '@/components/cookie-consent': { useCookieConsent: () => ({ marketingAllowed }) },
     '@/lib/cookie-consent': { cookieConsentFromDocument: () => ({ marketing: cookieAllowed }) },
     '@/lib/public/product-comparison': { hasProductComparisonPeer: () => false },

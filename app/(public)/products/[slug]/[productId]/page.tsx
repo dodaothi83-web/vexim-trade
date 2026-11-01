@@ -17,7 +17,7 @@ import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
 import { StickyProductColumn } from "@/components/sticky-product-column";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
-import { PublicProductCard } from "@/components/public-product-card";
+import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { ProductDescription } from "@/components/public/product-description";
 import { QuantityPriceTable } from "@/components/public/quantity-price-table";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
@@ -436,7 +436,7 @@ export default async function PublicProductDetail({ params }: Props) {
       <ul className="mt-5 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
         {relatedProducts.map((related) => <li key={related.id} className="min-w-0">
           <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
-            imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={related.cardGrades} gradeRows={related.gradeRows} moq={related.moq}
+            imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={cardTitleGrades(related)} gradeRows={related.gradeRows} moq={related.moq}
             stalePriceDays={related.quantityOffer?.stale ? related.quantityOffer.daysSinceConfirmed : undefined}
               volumePricing={related.quantityOffer?.hasVolumePricing}
             price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays} leadTimeText={related.leadTimeText}

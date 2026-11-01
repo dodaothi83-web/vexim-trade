@@ -135,7 +135,7 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   '@/components/product-media-gallery': { ProductMediaGallery: Null },
   '@/components/sticky-product-column': { StickyProductColumn: Wrapper },
   '@/components/product-trade-labels': { ProductTradeLabels: Null },
-  '@/components/public-product-card': { PublicProductCard: Null },
+  '@/components/public-product-card': { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard: Null },
   '@/components/public/product-description': { ProductDescription: Null },
   '@/components/public/quantity-price-table': { QuantityPriceTable: Null },
   '@/lib/public/product-selection': { productBelongsToCategory: () => true, withoutDirectContacts: selection.withoutDirectContacts },

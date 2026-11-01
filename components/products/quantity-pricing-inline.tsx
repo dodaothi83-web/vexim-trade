@@ -8,6 +8,7 @@ import { validateQuantityPricing, type QuantityPricingInput } from "@/lib/produc
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { submitQuantityPriceRevisionAction } from "@/app/supplier/portal/quantity-revision-actions";
 import { submitStaffQuantityPriceAction } from "@/app/crm/products/quantity-review/submit-actions";
+import { adjustQuantityPriceAction } from "@/app/crm/products/[slug]/edit/price-actions";
 
 /** Independent revision submission inside an existing product form; never mutates legacy price fields. */
 export function QuantityPricingInline({ data, actor, disabled = false, dirty = false, onPreviewChange, publishPreview = false }: {
@@ -60,7 +61,7 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
       parentForm?.removeEventListener("submit", onSubmit, true);
     };
   }, [unsent]);
-  async function submit() {
+  async function submit(mode: "queue" | "apply" = "queue") {
     if (busy || disabled || dirty) return;
     setShowErrors(true);
     const checked = validateQuantityPricing({ ...value, nameEn: "" }, data.standardGrades, data.policy);
@@ -76,7 +77,9 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
     if (consent) form.set("confirm_quantity_price_consent", "yes");
     setBusy(true); setResult(null);
     try {
-      const response = actor === "supplier" ? await submitQuantityPriceRevisionAction(form) : await submitStaffQuantityPriceAction(form);
+      // Vexim nhập giá thay nhà cung cấp: chốt luôn, không đẩy sang hàng chờ duyệt.
+      const response = mode === "apply" ? await adjustQuantityPriceAction(form)
+        : actor === "supplier" ? await submitQuantityPriceRevisionAction(form) : await submitStaffQuantityPriceAction(form);
       setResult(response);
       if (response.ok) { setConsent(false); router.refresh(); }
     } catch { setResult({ ok: false, message: "Không kết nối được máy chủ. Hãy thử lại." }); }
@@ -105,9 +108,17 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
       showErrors={showErrors} disabled={disabled || dirty || busy} isolated consentChecked={consent} onConsentChange={setConsent}
       showPreview={!onPreviewChange && !publishPreview} showTitle={actor !== "supplier"} validateEnglishName={false}
       consentLabel={actor === "staff" ? "Tôi xác nhận nhà cung cấp đã cam kết giá này cho đúng grade, Incoterm và số lượng." : undefined} />
-    <button type="button" disabled={disabled || dirty || busy} onClick={() => void submit()} className="btn btn-primary btn-sm">
+    {actor === "staff" ? <div className="flex flex-wrap items-center gap-2">
+      <button type="button" disabled={disabled || dirty || busy} onClick={() => void submit("apply")} className="btn btn-primary btn-sm">
+        {busy ? "Đang lưu…" : "Chốt giá thay nhà cung cấp"}
+      </button>
+      <button type="button" disabled={disabled || dirty || busy} onClick={() => void submit()} className="btn btn-sm btn-ghost">
+        Gửi vào hàng chờ duyệt
+      </button>
+      <span className="text-xs text-ink-600">Vexim chốt giá thì giá áp dụng ngay cho người mua.</span>
+    </div> : <button type="button" disabled={disabled || dirty || busy} onClick={() => void submit()} className="btn btn-primary btn-sm">
       {busy ? "Đang gửi…" : data.hasApprovedPrice ? "Gửi bảng giá mới để duyệt" : "Gửi bảng giá để duyệt"}
-    </button>
+    </button>}
     {result && <p role={result.ok ? "status" : "alert"} className={`text-xs ${result.ok ? "text-emerald-700" : "text-rose-700"}`}>{result.message}</p>}
   </div>;
 }

@@ -8,6 +8,7 @@ import { Breadcrumbs } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { ProductForm } from "@/components/product-form";
 import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
+import { describePriceContextChanges, readPriceContextDiff } from "@/lib/products/price-context-diff";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { isTestOnlyProduct, productReviewApproved, productPriceBlockers, publicProductPrice } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
@@ -130,6 +131,8 @@ export default async function EditProductPage({
   const productImages = media.filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m));
   const previewMedia = productImages.find((item) => item.id === product.featured_media_id) ?? productImages[0] ?? null;
   const previewImage = previewMedia ? `/api/media/file/${previewMedia.thumb_path || previewMedia.storage_path}` : null;
+  // Giá đã chốt lệch thông tin sản phẩm thì nói rõ lệch ở đâu, ngay trên khối duyệt.
+  const priceContextDiff = needsPublicationAction ? await readPriceContextDiff(product.id) : null;
   const priceBlockers = productPriceBlockers(product, supplier);
   const visiblePrice = canView && !priceBlockers.length ? publicProductPrice(product, supplier) : null;
 
@@ -272,6 +275,13 @@ export default async function EditProductPage({
             {typeof product.specs?.price_review_summary === "string" && product.supplier_review_status === "pending" && (
               <p className="mt-2 rounded-lg border border-amber-300 bg-white/80 px-3 py-2 text-xs font-semibold text-amber-950">
                 {product.specs.price_review_summary}
+              </p>
+            )}
+            {priceContextDiff && (priceContextDiff.changed.length > 0 || priceContextDiff.missingContext) && (
+              <p className="mt-2 rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-amber-950">
+                {priceContextDiff.changed.length > 0
+                  ? `Giá đã chốt lệch thông tin hiện tại ở ${describePriceContextChanges(priceContextDiff.changed)}. Chốt lại giá rồi mới đăng được.`
+                  : "Bảng giá chưa gắn với thông tin sản phẩm hiện tại. Chốt lại giá rồi mới đăng được."}
               </p>
             )}
             {needsPublicationAction && (session.role === "admin" || session.role === "reviewer") &&

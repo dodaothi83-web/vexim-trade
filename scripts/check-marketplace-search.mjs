@@ -215,7 +215,7 @@ const page = load("../app/(public)/search/page.tsx", {
   "next/link": { default: Link },
   "lucide-react": icons,
   "@/components/ui": { Breadcrumbs: () => null },
-  "@/components/public-product-card": { PublicProductCard: Card },
+  "@/components/public-product-card": { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard: Card },
   "@/lib/db": db,
   "@/lib/public/category-names": categoryNames,
   "@/lib/public/grade-resolution": grade,

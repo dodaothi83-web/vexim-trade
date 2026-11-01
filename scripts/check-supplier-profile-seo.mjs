@@ -63,7 +63,7 @@ const { default: Profile, generateMetadata } = compile('../app/(public)/supplier
   '@/components/ui': { Breadcrumbs: () => React.createElement('nav') },
   '@/components/verification-tier': { VerificationCoverSeal: () => React.createElement('span'), VerificationPips: () => React.createElement('span'), VerificationTierBadge: () => React.createElement('span'), approvedChecksSummary: () => '', verificationTier: (levels) => levels.length },
   '@/lib/verification-status': { PRODUCT_VERIFICATION_EXPLANATIONS: { 1: 'Documents explanation', 2: '', 3: '' } },
-  '@/components/public-product-card': { PublicProductCard },
+  '@/components/public-product-card': { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard },
   '@/lib/public/catalog': { getPublicSupplierBySlug: lookup, listPublicSuppliers: async () => fixtures,
     supplierTypeLabel: () => 'Trading company', t: (texts) => texts?.en ?? '' },
   '@/lib/db': { getStore: () => ({ listCategories: async () => [category] }) },

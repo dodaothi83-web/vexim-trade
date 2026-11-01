@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { PublicProductCard } from "@/components/public-product-card";
+import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { useCookieConsent } from "@/components/cookie-consent";
 import { cookieConsentFromDocument } from "@/lib/cookie-consent";
 import type { SponsoredBandItem } from "@/lib/public/sponsored-band";
@@ -118,7 +118,7 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
         sponsored
         imagePath={product.cardImagePath ?? product.imagePaths[0]}
         name={product.name}
-        grades={product.cardGrades}
+        grades={cardTitleGrades(product)}
         gradeRows={product.gradeRows}
         stalePriceDays={product.quantityOffer?.stale ? product.quantityOffer.daysSinceConfirmed : undefined}
               volumePricing={product.quantityOffer?.hasVolumePricing}

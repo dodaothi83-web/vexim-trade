@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight, PackageSearch, Search, Users } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
-import { PublicProductCard } from "@/components/public-product-card";
+import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { getStore } from "@/lib/db";
 import { getCategoryTitle } from "@/lib/public/category-names";
 import { gradeFromAttributes } from "@/lib/public/grade-resolution";
@@ -392,7 +392,7 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
           </Link>
           <div className="min-w-0 flex-1">
             <PublicProductCard href={productHref} imagePath={product.cardImagePath ?? product.imagePaths[0]}
-              name={product.name} grades={product.cardGrades} gradeRows={product.gradeRows} moq={product.moq}
+              name={product.name} grades={cardTitleGrades(product)} gradeRows={product.gradeRows} moq={product.moq}
               stalePriceDays={product.quantityOffer?.stale ? product.quantityOffer.daysSinceConfirmed : undefined}
               volumePricing={product.quantityOffer?.hasVolumePricing}
               price={product.price} incoterm={product.incoterm} fob={product.incoterm?.toUpperCase() === "FOB"}

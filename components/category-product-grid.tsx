@@ -224,7 +224,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
               : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}${prefillGrade ? `&grade=${encodeURIComponent(prefillGrade)}` : ""}`;
             return <div key={p.id} className="min-w-0">
               <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
-                imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} grades={p.cardGrades} gradeRows={p.gradeRows}
+                imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} grades={productGradesOf(p)} gradeRows={p.gradeRows}
                 stalePriceDays={p.quantityOffer?.stale ? p.quantityOffer.daysSinceConfirmed : undefined}
               volumePricing={p.quantityOffer?.hasVolumePricing}
                 highlightedGrades={activeGrades} moq={p.moq} price={p.price} incoterm={p.incoterm} fob={p.incoterm?.toUpperCase() === "FOB"}
