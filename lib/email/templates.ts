@@ -320,7 +320,7 @@ export function buildSupplierEmail(opts: {
 
   const summary = summaryTable(
     [
-      { label: "Buyer", value: buyerLabel },
+      { label: "Người mua", value: buyerLabel },
       { label: "Mặt hàng", value: buyer.product ?? "Chưa có" },
       { label: "Quy cách", value: buyer.spec ?? "Chưa có" },
       { label: "Số lượng", value: buyer.quantity ?? "Chưa có" },
@@ -373,7 +373,7 @@ export function buildSupplierEmail(opts: {
       "",
       ...copy.body.map((p) => fill(p, buyer, supplier)),
       "",
-      `Buyer: ${buyerLabel}`,
+      `Người mua: ${buyerLabel}`,
       `Mặt hàng: ${buyer.product ?? "-"}`,
       `Quy cách: ${buyer.spec ?? "-"}`,
       `Số lượng: ${buyer.quantity ?? "-"}`,
@@ -428,7 +428,7 @@ export function buildSupplierAssignedEmail(opts: {
 
   const summary = summaryTable(
     [
-      { label: "Buyer", value: buyerLabel },
+      { label: "Người mua", value: buyerLabel },
       { label: "Mặt hàng", value: buyer.product ?? "Chưa có" },
       { label: "Quy cách", value: buyer.spec ?? "Chưa có" },
       { label: "Số lượng", value: buyer.quantity ?? "Chưa có" },
@@ -482,7 +482,7 @@ export function buildSupplierAssignedEmail(opts: {
       `Chào ${supplier.contact_name || supplier.name},`,
       `Phòng sale ${COMPANY.name} vừa kết nối một người mua mới với xưởng.`,
       "",
-      `Buyer: ${buyerLabel}`,
+      `Người mua: ${buyerLabel}`,
       `Mặt hàng: ${buyer.product ?? "-"}`,
       `Quy cách: ${buyer.spec ?? "-"}`,
       `Số lượng: ${buyer.quantity ?? "-"}`,

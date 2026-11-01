@@ -18,68 +18,66 @@ import type { Buyer, EmailMessage, Rfq, Supplier } from "@/lib/types";
 type NotifKind = "sampling" | "lost";
 
 const LOST_REASON_LABELS: Record<string, string> = {
-  no_response: "Nhà cung cấp không phản hồi sau nhiều lần nhắc",
-  price: "Giá chưa cạnh tranh",
-  lead_time: "Chưa đáp ứng thời gian giao hàng",
-  quality: "Chất lượng hoặc chứng chỉ chưa đáp ứng yêu cầu",
-  buyer_went_elsewhere: "Bạn đã chọn phương án khác",
-  cancelled: "Yêu cầu đã được huỷ",
-  other: "Chưa thể thống nhất điều kiện giao dịch",
+  no_response: "The supplier did not reply after several reminders",
+  price: "The quoted price was not competitive",
+  lead_time: "Lead time did not meet your delivery schedule",
+  quality: "Quality or certification did not meet your requirements",
+  buyer_went_elsewhere: "You chose another option",
+  cancelled: "The request was cancelled",
+  other: "We could not agree on terms",
 };
 
 function buildSubject(kind: NotifKind, rfq: Rfq) {
   return kind === "sampling"
-    ? `[${rfq.code}] Cập nhật: đã chọn nhà cung cấp để gửi mẫu, ${rfq.product_text}`
-    : `[${rfq.code}] Cập nhật: đơn hàng tạm dừng, ${rfq.product_text}`;
+    ? `[${rfq.code}] Update: supplier selected for sampling, ${rfq.product_text}`
+    : `[${rfq.code}] Update: request paused, ${rfq.product_text}`;
 }
 
 function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Supplier | null) {
   const title = buildSubject(kind, rfq);
   const trackUrl = `${SITE_URL}/rfq/status/${rfq.access_token}`;
   const first = buyer.contact_name?.split(" ")[0] ?? "there";
+  const qty = rfq.quantity ? `, ${escapeHtml(String(rfq.quantity))} ${escapeHtml(rfq.unit ?? "")}` : "";
   let body = `<p>Dear ${escapeHtml(first)},</p>`;
 
   if (kind === "sampling") {
     body += `
-      <p>Cảm ơn sự kiên nhẫn của bạn trong thời gian qua. Đơn <strong>${escapeHtml(rfq.code)}</strong>
-      (${escapeHtml(rfq.product_text)}${rfq.quantity ? `, ${escapeHtml(String(rfq.quantity))} ${escapeHtml(rfq.unit ?? "")}` : ""})
-      hiện đã bước vào giai đoạn <strong>gửi mẫu</strong>.</p>`;
+      <p>Thank you for your patience. Request <strong>${escapeHtml(rfq.code)}</strong>
+      (${escapeHtml(rfq.product_text)}${qty}) has moved to the <strong>sampling</strong> stage.</p>`;
     if (chosenSupplier) {
       const name = chosenSupplier.display_name ?? chosenSupplier.trade_name ?? chosenSupplier.name;
       body += `
-        <p>Vexim đã chọn <strong>${escapeHtml(name)}</strong>${chosenSupplier.province ? ` (${escapeHtml(chosenSupplier.province)})` : ""}
-        để tiến hành gửi mẫu và đàm phán chi tiết. Danh tính của bạn vẫn được bảo mật ở giai đoạn này;
-        Vexim sẽ đứng ra điều phối việc vận chuyển mẫu, kết quả kiểm nghiệm và chứng chỉ liên quan.</p>`;
+        <p>We have selected <strong>${escapeHtml(name)}</strong>${chosenSupplier.province ? ` (${escapeHtml(chosenSupplier.province)})` : ""}
+        to prepare the sample and negotiate the details. Your identity stays private at this stage.
+        Vexim coordinates the sample shipment, the test results and the certificates involved.</p>`;
     } else {
-      body += `<p>Vexim đang phối hợp với nhà cung cấp đã được chọn để sớm chuyển mẫu cho bạn đánh giá.</p>`;
+      body += `<p>Vexim is working with the selected supplier to send your sample as soon as possible.</p>`;
     }
     body += `
-      <p>Các bước tiếp theo:</p>
+      <p>What happens next</p>
       <ul>
-        <li>Mẫu sẽ được gửi theo địa chỉ bạn đã cung cấp. Vexim thông báo mã vận đơn khi có.</li>
-        <li>Nếu bạn có yêu cầu bổ sung về quy cách / đóng gói / chứng chỉ, vui lòng trả lời email này.</li>
-        <li>Sau khi bạn duyệt mẫu, Vexim chốt điều khoản hợp đồng và lịch giao hàng.</li>
+        <li>We ship the sample to the address you provided and send you the tracking number.</li>
+        <li>If you need changes to specification, packing or certificates, reply to this email.</li>
+        <li>Once you approve the sample, Vexim confirms the contract terms and the delivery schedule.</li>
       </ul>`;
   } else {
-    const reason = rfq.lost_reason ? LOST_REASON_LABELS[rfq.lost_reason] ?? "Chưa thể thống nhất điều kiện giao dịch" : "Chưa thể thống nhất điều kiện giao dịch";
+    const reason = (rfq.lost_reason && LOST_REASON_LABELS[rfq.lost_reason]) || "We could not agree on terms";
     body += `
-      <p>Vexim rất tiếc phải báo đơn <strong>${escapeHtml(rfq.code)}</strong>
-      (${escapeHtml(rfq.product_text)}${rfq.quantity ? `, ${escapeHtml(String(rfq.quantity))} ${escapeHtml(rfq.unit ?? "")}` : ""})
-      tạm thời không thể tiếp tục trong đợt này.</p>
-      <p><strong>Lý do:</strong> ${escapeHtml(reason)}.</p>
-      <p>Nếu bạn vẫn quan tâm đến sản phẩm này trong tương lai hoặc muốn yêu cầu báo giá lại
-      với thông số điều chỉnh, vui lòng trả lời email này hoặc gửi yêu cầu mới. Vexim
-      sẽ ưu tiên xử lý.</p>`;
+      <p>We are sorry to tell you that request <strong>${escapeHtml(rfq.code)}</strong>
+      (${escapeHtml(rfq.product_text)}${qty}) cannot continue in this round.</p>
+      <p><strong>Reason:</strong> ${escapeHtml(reason)}.</p>
+      <p>If you still need this product later, or want a new quote with adjusted specifications,
+      reply to this email or send a new request. We will handle it first.</p>`;
   }
 
   body += `
-    <p>Bạn có thể theo dõi trạng thái cập nhật tại link riêng:<br/>
+    <p>You can follow progress at your private link:<br/>
     <a href="${trackUrl}" style="color:#0f766e;">${trackUrl}</a></p>
     <p>Best regards,<br/>Export Department · ${escapeHtml(COMPANY.name)}</p>`;
 
   return {
     subject: title,
-    html: wrapPlainEmail({ title, body, preheader: kind === "sampling" ? "Đã chọn nhà cung cấp gửi mẫu, Vexim điều phối tiếp." : "Đơn hàng tạm dừng." }),
+    html: wrapPlainEmail({ title, body, preheader: kind === "sampling" ? "Supplier selected for sampling. Vexim coordinates the next step." : "Request paused." }),
     text: htmlToText(body),
   };
 }

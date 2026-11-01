@@ -73,6 +73,10 @@ Không áp cho: văn bản pháp lý (`app/(legal)/**`), nội dung sản phẩm
 
 - `scripts/check-ui-copy.mjs` chặn hồi quy trên các file đã chuyển đổi: câu quá dài,
   còn “buyer”/“NCC” trong chuỗi tiếng Việt, lộ từ nội bộ.
+- `scripts/check-buyer-email-language.mjs` (chạy trong `npm run check:email-lifecycle`) giữ đúng
+  ranh giới ngôn ngữ: 12 khối soạn thư gửi người mua (`lib/rfq/buyer-notify.ts`, bảng so sánh nhà
+  cung cấp ở `lib/rfq/outreach.ts`, thư xác nhận RFQ, thư theo giai đoạn và 8 khối `buyer` trong
+  `lib/email/stage-content.ts`) phải là tiếng Anh; thư nhà cung cấp vẫn tiếng Việt.
 - `scripts/check-email-copy.mjs` (chạy trong `npm run check:email-lifecycle`) canh riêng phần
   soạn thư: không gạch dài `—`, gạch ngắn `–`, mũi tên, emoji; không “chúng tôi”, “Kính gửi”,
   “Trân trọng”, “Anh/Chị”. Quét 9 tệp soạn thư (mẫu thư, nội dung theo giai đoạn, thư RFQ,

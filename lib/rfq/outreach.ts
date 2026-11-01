@@ -116,15 +116,15 @@ export function buildRfqShortlistBuyerEmail(input: {
   matches: Array<RfqMatch & { supplier: Supplier }>;
 }) {
   const { rfq, buyer, matches } = input;
-  const title = `Bảng so sánh nhà cung cấp cho yêu cầu ${rfq.code}`;
+  const title = `Supplier comparison for request ${rfq.code}`;
 
   const rows = matches.map((m) => {
     const name = m.supplier.display_name ?? m.supplier.trade_name ?? m.supplier.name;
     const price = m.quote_price != null
       ? `${m.quote_price} ${m.quote_currency ?? ""}/${m.quote_unit ?? rfq.unit ?? ""}`
-      : "Đang chào giá";
-    const lead = m.quote_lead_time_days ? `${m.quote_lead_time_days} ngày` : "Chưa có";
-    const incoterm = m.quote_incoterm ?? "Chưa có";
+      : "Quote pending";
+    const lead = m.quote_lead_time_days ? `${m.quote_lead_time_days} days` : "Not quoted";
+    const incoterm = m.quote_incoterm ?? "Not quoted";
     const loc = m.supplier.province ?? m.supplier.country ?? "VN";
     return `<tr>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;"><strong>${escapeHtml(name)}</strong><br/><span style="color:#64748b;font-size:12px;">${escapeHtml(loc)}</span></td>
@@ -135,40 +135,40 @@ export function buildRfqShortlistBuyerEmail(input: {
   }).join("");
 
   const body = `
-    <p>Chào ${escapeHtml(buyer.contact_name?.split(" ")[0] ?? "bạn")},</p>
-    <p>Cảm ơn bạn đã chờ. Dưới đây là bảng so sánh nhà cung cấp cho yêu cầu
+    <p>Dear ${escapeHtml(buyer.contact_name?.split(" ")[0] ?? "there")},</p>
+    <p>Thank you for your patience. Below is the supplier comparison for request
     <strong>${escapeHtml(rfq.code)}</strong> (${escapeHtml(rfq.product_text)},
     ${escapeHtml(shortQty(rfq))}).</p>
 
     <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-top:12px;font-size:13.5px;">
       <thead>
         <tr style="background:#f8fafc;color:#475569;font-size:11.5px;letter-spacing:.5px;text-transform:uppercase;">
-          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Nhà cung cấp</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Giá</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">ĐK giao</th>
+          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Supplier</th>
+          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Price</th>
+          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Incoterm</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Lead time</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
 
-    <p style="margin-top:18px;"><strong>Các bước tiếp theo:</strong></p>
+    <p style="margin-top:18px;"><strong>What happens next</strong></p>
     <ul>
-      <li>Cho Vexim biết 1 hoặc 2 nhà cung cấp bạn muốn đi sâu (mẫu, chứng chỉ, điều chỉnh điều khoản).</li>
-      <li>Vexim sẽ sắp xếp trao đổi, gửi mẫu và hỗ trợ kiểm định nếu cần.</li>
-      <li>Danh tính bạn vẫn được giữ kín đối với nhà cung cấp cho đến khi bạn chủ động đồng ý kết nối.</li>
+      <li>Tell us which one or two suppliers you want to explore further (samples, certificates, adjusted terms).</li>
+      <li>We arrange the introduction, the sample shipment and inspection support if you need it.</li>
+      <li>Your identity stays private from suppliers until you agree to be introduced.</li>
     </ul>
 
-    <p>Mọi phản hồi, vui lòng trả lời trực tiếp email này hoặc dùng link theo dõi:<br/>
+    <p>Reply to this email with any question, or follow the request at your private link:<br/>
     <a href="${SITE_URL}/rfq/status/${rfq.access_token}">${SITE_URL}/rfq/status/${rfq.access_token}</a></p>
 
-    <p>${escapeHtml(COMPANY.name)}<br/>Bộ phận xuất khẩu</p>
+    <p>${escapeHtml(COMPANY.name)}<br/>Export Department</p>
   `;
 
-  const subject = `[${rfq.code}] Bảng so sánh nhà cung cấp: ${escapeHtml(rfq.product_text)}`;
+  const subject = `[${rfq.code}] Supplier comparison: ${escapeHtml(rfq.product_text)}`;
   return {
     subject,
-    html: wrapPlainEmail({ title, body, preheader: `Bảng so sánh ${matches.length} nhà cung cấp cho yêu cầu ${rfq.code}` }),
+    html: wrapPlainEmail({ title, body, preheader: `Comparison of ${matches.length} suppliers for request ${rfq.code}` }),
     text: stripHtml(body),
   };
 }
