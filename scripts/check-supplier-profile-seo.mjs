@@ -108,7 +108,7 @@ assert.match(html, /USD 2\/MT/);
 assert.doesNotMatch(html, /"@type":"Offer"|makesOffer|Factory verification approved/);
 const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/)?.[1] ?? '{}');
 assert.equal(ld['@graph'][0]['@type'], 'Organization');
-assert.equal(ld['@graph'][2].itemListElement[0].item.url, 'https://www.veximtrade.com/products/cashew/p1');
+assert.equal(ld['@graph'][2].itemListElement[0].url, 'https://www.veximtrade.com/products/cashew/p1');
 const testHtml = renderToStaticMarkup(await Profile(params(synthetic.slug)));
 assert.match(testHtml, /Test profile/);
 assert.match(testHtml, /id="products"/);

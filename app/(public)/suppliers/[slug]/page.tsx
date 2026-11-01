@@ -66,7 +66,8 @@ export default async function SupplierProfile({ params }: PageProps) {
   const avatarUrl = s.profile_image ? mediaUrl(s.profile_image) : null;
   const steps = s.approved_verification_steps;
   const related = (await listPublicSuppliers()).filter((r) => r.id !== s.id && !isSyntheticSupplier(r)).slice(0, 4);
-  // A directory profile is not a checkout offer. Only list products that passed the existing public-product gates.
+  // A supplier directory lists links, not Product rich-result entities without offers/reviews.
+  // Keep the existing public-product gates; never invent prices or ratings for RFQ listings.
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -81,13 +82,12 @@ export default async function SupplierProfile({ params }: PageProps) {
         { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
         { "@type": "ListItem", position: 2, name, item: profileUrl },
       ] },
-      { "@type": "ItemList", name: `Products from ${name}`, itemListElement: s.main_products.flatMap((p, index) => {
+      { "@type": "ItemList", name: `Products from ${name}`, itemListElement: s.main_products.flatMap((p) => {
         const category = productCategory(p);
-        return category ? [{ "@type": "ListItem", position: index + 1,
-          item: { "@type": "Product", name: safe(s.form_product_cards?.[p.id]?.name ?? publicProductTitle(p)),
+        return category ? [{ "@type": "ListItem", name: safe(s.form_product_cards?.[p.id]?.name ?? publicProductTitle(p)),
             url: `${SITE_URL}/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}`,
-            ...(s.product_image_paths[p.id] ? { image: `${SITE_URL}${mediaUrl(s.product_image_paths[p.id])}` } : {}) } }] : [];
-      }) },
+            ...(s.product_image_paths[p.id] ? { image: `${SITE_URL}${mediaUrl(s.product_image_paths[p.id])}` } : {}) }] : [];
+      }).map((item, index) => ({ ...item, position: index + 1 })) },
     ],
   };
 
