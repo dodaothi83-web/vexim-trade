@@ -22,21 +22,6 @@ export interface PublicProductCardGradeRow {
   moq?: string | null;
 }
 
-/** Remove only known grade tokens from the card title, never mutate stored names. */
-function titleWithoutGrades(name: string, grades: readonly string[]): string {
-  let result = name;
-  for (const grade of [...grades].sort((a, b) => b.length - a.length)) {
-    const parts = grade.trim().split(/\s+/).filter(Boolean).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-    if (!parts.length) continue;
-    const match = new RegExp(`(^|[^\\p{L}\\p{N}])(?:grade\\s+)?${parts.join("\\s+")}(?=$|[^\\p{L}\\p{N}])`, "giu");
-    result = result.replace(match, "$1");
-  }
-  if (result === name) return name;
-  const clean = result.replace(/\(\s*\)/g, "").replace(/\s*[,;|]\s*[,;|]+\s*/g, ", ").replace(/^\s*[,;|/:-]+\s*|\s*[,;|/:-]+\s*$/g, "")
-    .replace(/\s+([,;])/g, "$1").replace(/\s{2,}/g, " ").trim();
-  return clean || "Product";
-}
-
 /** Only explicit weight MOQ is displayed; never guess container or package weight. */
 function cardWeightMoq(raw: string | null | undefined): string {
   const match = raw?.trim().match(/^((?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?)\s*(kg|mt|metric\s+tons?|tonnes?|tons?)$/i);
@@ -48,6 +33,26 @@ function cardWeightMoq(raw: string | null | undefined): string {
 
 function normalizeGradeKey(value: string): string {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/**
+ * Grade nào chưa có trong tên sản phẩm. So sau khi bỏ dấu câu và khoảng trắng để
+ * "570 g/L" khớp với "570g/l" mà người bán đã gõ, nhờ vậy tooltip không nhắc lại grade.
+ */
+function gradeNotInTitle(name: string, grades: readonly (string | null | undefined)[]): string {
+  const compact = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const nameKey = compact(name);
+  const seen = new Set<string>();
+  const missing: string[] = [];
+  for (const raw of grades) {
+    const grade = raw?.trim();
+    if (!grade) continue;
+    const key = compact(grade);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (!nameKey.includes(key)) missing.push(grade);
+  }
+  return missing.join(", ");
 }
 
 function normalizeCompactRange(raw: string): string {
@@ -233,11 +238,11 @@ export function PublicProductCard({
   href: string;
   imagePath?: string | null;
   name: string;
-  /** Standard grades strictly from the Grade & giá table in canonical category order. */
+  /** Grade chuẩn từ bảng Grade và giá; chỉ dùng để nhắc trong tooltip khi tên chưa có grade. */
   grades?: readonly string[];
   /** Optional per-grade rows for multi-grade vs filtered-grade price rendering. */
   gradeRows?: readonly PublicProductCardGradeRow[];
-  /** Active grade filter(s) selected by the buyer: moved first and highlighted. */
+  /** Grade người mua đang lọc: quyết định dòng giá nào được hiện trên thẻ. */
   highlightedGrades?: readonly string[];
   moq: string;
   price: string | null;
@@ -267,34 +272,13 @@ export function PublicProductCard({
 }) {
   const quote = !test && linkable ? quoteHref : undefined;
 
-  const activeGradeKeys = new Set(
-    (highlightedGrades ?? []).map(normalizeGradeKey).filter(Boolean),
-  );
-  const dedupedGrades: string[] = [];
-  const seenGrades = new Set<string>();
-  if (!test) {
-    for (const raw of [...(grades ?? []), ...(gradeRows ?? []).filter((row) => row.isCustom).map((row) => row.grade)]) {
-      const clean = raw?.trim();
-      if (!clean) continue;
-      const key = normalizeGradeKey(clean);
-      if (seenGrades.has(key)) continue;
-      seenGrades.add(key);
-      dedupedGrades.push(clean);
-    }
-  }
-  const orderedGrades =
-    activeGradeKeys.size > 0
-      ? [
-          ...dedupedGrades.filter((g) => activeGradeKeys.has(normalizeGradeKey(g))),
-          ...dedupedGrades.filter((g) => !activeGradeKeys.has(normalizeGradeKey(g))),
-        ]
-      : dedupedGrades;
-
-  const canFitThreeWhenWide =
-    orderedGrades.length >= 3 &&
-    orderedGrades[0].length + orderedGrades[1].length + orderedGrades[2].length <= 18;
-  const allGradesText = orderedGrades.join(", ");
-  const displayName = titleWithoutGrades(name, [...(grades ?? []), ...(gradeRows ?? []).map((row) => row.grade)]);
+  // Grade đã nằm trong tên sản phẩm nên thẻ không vẽ chip grade nữa. Danh sách grade chỉ
+  // còn để nhắc trong tooltip khi tên không nhắc tới grade nào, tránh mất thông tin.
+  const displayName = name.replace(/\s+/g, " ").trim() || "Product";
+  const gradeHint = test ? "" : gradeNotInTitle(displayName, [
+    ...(grades ?? []),
+    ...(gradeRows ?? []).map((row) => row.grade),
+  ]);
 
   const {
     pricePrimary,
@@ -371,28 +355,12 @@ export function PublicProductCard({
 
   const title = (
     <h3
-      title={displayName}
+      title={gradeHint ? `${displayName} · ${gradeHint}` : displayName}
       className="line-clamp-2 h-9 overflow-hidden break-words text-[13px] font-semibold leading-[18px] text-ink-900 group-hover/card:text-brand-700 sm:h-10 sm:text-sm sm:leading-5"
     >
       {displayName}
     </h3>
   );
-
-  const renderGradeBadge = (gradeItem: string, extraClass = "") => {
-    const isHighlighted = activeGradeKeys.has(normalizeGradeKey(gradeItem));
-    return (
-      <span
-        key={gradeItem}
-        className={`inline-flex h-5 max-w-[96px] shrink-0 items-center truncate rounded px-1.5 text-[10.5px] font-semibold leading-none ${
-          isHighlighted
-            ? "bg-brand-100 text-brand-900 ring-1 ring-inset ring-brand-400"
-            : "bg-ink-100 text-ink-700"
-        }${extraClass ? ` ${extraClass}` : ""}`}
-      >
-        <span className="truncate">{gradeItem}</span>
-      </span>
-    );
-  };
 
   return (
     <article
@@ -417,42 +385,6 @@ export function PublicProductCard({
           </Link>
         ) : (
           title
-        )}
-
-        {orderedGrades.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            {orderedGrades.slice(0, 2).map((gradeItem) => renderGradeBadge(gradeItem))}
-            {canFitThreeWhenWide && orderedGrades[2] && renderGradeBadge(orderedGrades[2], "hidden @[220px]:inline-flex")}
-            {orderedGrades.length > 2 && (
-              <span
-                className={`group/grades relative z-20 inline-flex shrink-0 ${
-                  canFitThreeWhenWide && orderedGrades.length === 3 ? "@[220px]:hidden" : ""
-                }`}
-              >
-                <button
-                  type="button"
-                  title={allGradesText}
-                  aria-label={`All grades: ${allGradesText}`}
-                  className="inline-flex h-5 cursor-pointer items-center rounded bg-ink-100 px-1.5 text-[10.5px] font-semibold leading-none text-ink-700 hover:bg-ink-200 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-700"
-                >
-                  {canFitThreeWhenWide && orderedGrades.length > 3 ? (
-                    <>
-                      <span className="@[220px]:hidden">+{orderedGrades.length - 2}</span>
-                      <span className="hidden @[220px]:inline">+{orderedGrades.length - 3}</span>
-                    </>
-                  ) : (
-                    `+${orderedGrades.length - 2}`
-                  )}
-                </button>
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute bottom-full left-0 z-40 mb-1.5 hidden w-max max-w-52 rounded-md bg-ink-900 px-2.5 py-1.5 text-left text-[11px] font-medium leading-4 text-white shadow-xl group-hover/grades:block group-focus-within/grades:block"
-                >
-                  {allGradesText}
-                </span>
-              </span>
-            )}
-          </div>
         )}
 
         {/* Prominent price with inline Incoterm (e.g. USD 7.55–7.80/kg FOB) */}

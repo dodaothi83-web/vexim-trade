@@ -17,6 +17,7 @@
     "check:category-filters": "node --experimental-strip-types --no-warnings scripts/check-category-filters-migration.mjs",
     "check:public-sign-in": "node scripts/check-public-sign-in.mjs",
     "check:search": "node --experimental-strip-types --no-warnings scripts/check-search-relevance.mjs && node --experimental-strip-types --no-warnings scripts/check-marketplace-search.mjs && node --experimental-strip-types --no-warnings scripts/check-home-feed-order.mjs",
+    "check:product-card": "node scripts/check-product-card-grade.mjs",
     "check:copy": "node scripts/check-ui-copy.mjs",
     "check:email-copy": "node scripts/check-email-copy.mjs",
     "check:buyer-email": "node scripts/check-buyer-email-language.mjs",
