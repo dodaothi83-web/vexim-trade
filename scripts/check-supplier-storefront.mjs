@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import React from 'react';
+import { supplierNameCase } from '../lib/public/supplier-name.ts';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -155,9 +156,26 @@ assert.doesNotMatch(shared, /Factory visit|Factory visited|Thăm nhà máy|thăm
   'The supplier profile never falls back to the old Level 2 terminology');
 assert.match(publicPage, /id="related-title" className="text-left text-base font-semibold/,
   'The related-supplier heading uses compact left-aligned typography');
-assert.match(publicPage, /flex items-center gap-3/, 'Related-supplier logos align with the text block');
-assert.match(publicPage, /break-words text-left text-sm font-semibold leading-5/,
-  'Related-supplier names use compact left-aligned typography');
+assert.match(publicPage, /flex items-start gap-3/, 'Related-supplier logos align with the top of the text block');
+// Tên NCC hay được nhập viết hoa toàn bộ: hạ kiểu chữ, cắt 2 dòng, tên đầy đủ nằm trong title.
+assert.match(publicPage, /line-clamp-2 break-words text-left text-base font-semibold leading-6/,
+  'Related-supplier names are 16px, semibold and clamp at two lines');
+assert.match(publicPage, /<p title=\{relatedName\}/, 'Related-supplier name keeps the full text in title');
+assert.match(publicPage, /const relatedName = supplierNameCase\(/, 'Related-supplier names leave ALL CAPS');
+// Thẻ là flex column, hàng huy hiệu ghim đáy để bốn thẻ thẳng hàng dù tên dài ngắn khác nhau.
+assert.match(publicPage, /className="flex h-full flex-col rounded-xl border border-ink-200 bg-white p-4/,
+  'Related-supplier card is a full-height flex column');
+assert.match(publicPage, /className="mt-auto flex flex-wrap items-center gap-1\.5 pt-3"/,
+  'Related-supplier badge row is pinned to the card bottom');
+// Tên thật trong CSDL hay viết hoa toàn bộ: hạ kiểu chữ nhưng giữ nguyên tên pháp lý.
+assert.equal(supplierNameCase('TINIMEX COMPANY LIMITED'), 'Tinimex Company Limited');
+assert.equal(supplierNameCase('AN KHANG FOOD PROCESSING AND PRODUCTION ONE MEMBER COMPANY LIMITED'),
+  'An Khang Food Processing And Production One Member Company Limited');
+assert.equal(supplierNameCase('CÔNG TY TNHH MTV AN KHANG'), 'Công Ty TNHH MTV An Khang',
+  'Giữ nguyên TNHH, MTV và dấu tiếng Việt');
+assert.equal(supplierNameCase('An Phat Foods JSC'), 'An Phat Foods JSC',
+  'Tên đã có chữ thường thì không bị sửa');
+assert.equal(supplierNameCase('GIA GIA NGUYEN 22000'), 'Gia Gia Nguyen 22000', 'Giữ nguyên số trong tên');
 assert.match(shared, /See the main products above or ask Vexim about specifications and availability/,
   'Hồ sơ chưa có listing vẫn dẫn buyer tới thông tin mặt hàng chính');
 assert.match(shared, /Supplier-declared - Not verified/,
