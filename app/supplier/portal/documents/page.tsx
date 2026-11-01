@@ -231,8 +231,7 @@ export default async function SupplierDocumentsPage() {
             <div className="min-w-0">
               <h3 id="docs-title" className="text-[15px] font-bold text-ink-900">Giấy tờ doanh nghiệp</h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
-                {"Chỉ cần Giấy chứng nhận đăng ký kinh doanh; đợt đã duyệt vẫn nhận bản bổ sung khi mục còn trống. "
-                  + "Chứng nhận chất lượng tải một lần ở khối Chứng nhận bên dưới, không phải tải lại ở đây."}
+                Tải giấy đăng ký kinh doanh để xác thực doanh nghiệp.
               </p>
             </div>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${missingDocs.length && !l1Approved ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
@@ -298,7 +297,7 @@ export default async function SupplierDocumentsPage() {
                 <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{certificates.length}</span>
               </h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
-                Chỉ tải chứng nhận chất lượng ở đây; Giấy chứng nhận đăng ký kinh doanh tải ở khối Xác thực doanh nghiệp phía trên. Hệ thống nhắc hạn trước 60 / 30 / 7 / 1 ngày.
+                Tải chứng nhận chất lượng để bổ sung thông tin năng lực cho hồ sơ doanh nghiệp.
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-[10.5px] font-bold text-ink-700">{liveCerts.length} đang hiển thị</span>
