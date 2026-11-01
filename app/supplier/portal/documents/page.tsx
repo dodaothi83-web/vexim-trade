@@ -29,8 +29,9 @@ export const metadata = { title: "Xác thực doanh nghiệp & chứng nhận", 
  * (nội dung bên trái, cột tóm tắt dính bên phải). Khác một điểm: bước này không có
  * nút nộp, nên cột phải là nơi tải tệp chứ không phải nơi nộp hồ sơ.
  *
- * Cột trái chỉ trả lời hai câu: bạn nhận được gì, và giấy nào đã được duyệt. Cột phải
- * gom mọi ô tải về một chỗ: GCN đăng ký kinh doanh và chứng nhận chất lượng.
+ * Cột trái là nơi làm việc: tình trạng hồ sơ và hai ô tải (GCN đăng ký kinh doanh,
+ * chứng nhận chất lượng). Cột phải trả lời hai câu ngắn: nhà cung cấp nhận được gì, và
+ * giấy nào đã được duyệt.
  */
 
 /** Ngày tải tệp, đọc nhanh trong thẻ. */
@@ -170,77 +171,6 @@ export default async function SupplierDocumentsPage() {
 
     <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
       <div className="min-w-0 space-y-4">
-
-        {/* Giá trị nhận được: gạch đầu dòng ngắn, nói đúng thứ người mua nhìn thấy. */}
-        <section aria-labelledby="benefits-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
-          <h2 id="benefits-title" className="flex items-center gap-1.5 text-[13px] font-bold text-brand-900">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />Bạn nhận được gì
-          </h2>
-          <ul className="mt-2 list-disc space-y-1 pl-4 text-[11.5px] leading-5 text-ink-700">
-            <li>Huy hiệu đã kiểm giấy tờ trên hồ sơ và trên thẻ sản phẩm.</li>
-            <li>Đứng trên nhà cung cấp chưa xác thực khi người mua duyệt danh mục.</li>
-            <li>Chứng nhận chất lượng được tính vào điểm tin cậy của hồ sơ.</li>
-            <li>Hiện trong bộ lọc đã xác minh của người mua.</li>
-          </ul>
-        </section>
-
-        {/* Chứng nhận đã duyệt theo loại: chỉ loại có giấy mới hiện, màu xanh, có dấu xác nhận. */}
-        <section aria-labelledby="approved-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h2 id="approved-title" className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-ink-900">
-                Chứng nhận đã duyệt theo loại
-                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800">{approvedCerts.length}</span>
-              </h2>
-              <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Chỉ hiện loại giấy đã được nhân viên đối chiếu.</p>
-            </div>
-          </div>
-
-          {approvedByKey.length > 0
-            ? <ul className="mt-3 space-y-2">
-              {approvedByKey.map((row) => <li key={row.key} className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2.5">
-                <div className="flex items-start gap-2">
-                  <BadgeCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="text-[12.5px] font-bold text-ink-900">{row.label}</p>
-                    <ul className="mt-1 space-y-0.5">
-                      {row.certificates.map((certificate) => {
-                        const original = certificates.find((item) => item.id === certificate.id);
-                        const left = daysUntilExpiry(certificate.validUntil);
-                        const scheme = certificateSchemeLabel(certificate.scheme, "vi");
-                        const note = original ? supplierCertificateNote(original) : "";
-                        return <li key={certificate.id} className="flex flex-wrap items-center gap-x-1.5 text-[11px] leading-4 text-ink-600">
-                          <span className="font-semibold text-ink-800">{certificate.name}</span>
-                          {scheme && <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-teal-800 ring-1 ring-teal-200">{scheme}</span>}
-                          {certificate.validUntil && <span className={certificate.expired ? "text-amber-800" : ""}>
-                            hạn {certificate.validUntil}{certificate.expired ? " · đã hết hạn" : left !== null ? ` · còn ${left} ngày` : ""}
-                          </span>}
-                          {note && note !== "Đã duyệt và đang hiện với người mua." && <span className="text-ink-500">{note}</span>}
-                        </li>;
-                      })}
-                    </ul>
-                  </div>
-                  <CheckCircle2 className="ml-auto size-4 shrink-0 text-emerald-500" aria-hidden="true" />
-                </div>
-              </li>)}
-            </ul>
-            : <p className="mt-3 rounded-lg border border-dashed border-ink-300 bg-ink-50/50 px-3 py-5 text-center text-[11.5px] text-ink-500">
-              Chưa có loại giấy nào được duyệt. Tải giấy ở cột bên phải để bắt đầu.
-            </p>}
-
-          {pendingCerts.length > 0 && <p className="mt-2 flex items-center gap-1.5 text-[11px] text-ink-500">
-            <Clock className="size-3.5 shrink-0" aria-hidden="true" />
-            {pendingCerts.length} chứng nhận đang chờ nhân viên đối chiếu.
-          </p>}
-
-          <p className="mt-3 border-t border-ink-100 pt-2 text-[10.5px] leading-4 text-ink-500">
-            Mã số thuế và số tài khoản ngân hàng khai trong Hồ sơ doanh nghiệp, không phải chứng nhận nên không có trong danh sách này.
-          </p>
-        </section>
-      </div>
-
-      {/* Cột phải: mọi ô tải nằm ở đây, dính khi lướt để không phải cuộn tìm. */}
-      <aside className="space-y-4 lg:sticky lg:top-20">
         <section aria-labelledby="status-title" className="overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
           <div className="bg-gradient-to-r from-brand-50 via-white to-white px-4 py-4">
             <div className="flex items-start gap-3">
@@ -269,7 +199,7 @@ export default async function SupplierDocumentsPage() {
             Giấy tờ đã được đối chiếu. Vẫn tải thêm hoặc gia hạn chứng nhận bất cứ lúc nào.
           </p>}
           {l1Returned && <p className="whitespace-pre-wrap border-t border-rose-100 bg-rose-50 px-4 py-2.5 text-[11.5px] leading-5 text-rose-900">
-            <strong>Lý do cần bổ sung:</strong> {review?.return_reason || "Xem từng mục bên dưới và tải lại bản đúng."}
+            <strong>Lý do cần bổ sung:</strong> {review?.return_reason || "Xem từng mục bên trên và tải lại bản đúng."}
           </p>}
           {l1Submitted && <p className="border-t border-amber-100 bg-amber-50 px-4 py-2.5 text-[11.5px] leading-5 text-amber-900">
             <Clock className="mr-1 inline size-3.5 align-[-2px]" aria-hidden="true" />
@@ -342,6 +272,76 @@ export default async function SupplierDocumentsPage() {
             blockedReason={certificateUploadBlockedReason} />
         </section>
 
+      </div>
+
+      {/* Cột phải: nhà cung cấp nhận được gì và giấy nào đã duyệt. */}
+      <aside className="space-y-4 lg:sticky lg:top-20">
+        {/* Giá trị nhận được: gạch đầu dòng ngắn, nói đúng thứ người mua nhìn thấy. */}
+        <section aria-labelledby="benefits-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
+          <h2 id="benefits-title" className="flex items-center gap-1.5 text-[13px] font-bold text-brand-900">
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" />Bạn nhận được gì
+          </h2>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-[11.5px] leading-5 text-ink-700">
+            <li>Huy hiệu đã kiểm giấy tờ trên hồ sơ và trên thẻ sản phẩm.</li>
+            <li>Đứng trên nhà cung cấp chưa xác thực khi người mua duyệt danh mục.</li>
+            <li>Chứng nhận chất lượng được tính vào điểm tin cậy của hồ sơ.</li>
+            <li>Hiện trong bộ lọc đã xác minh của người mua.</li>
+          </ul>
+        </section>
+
+        {/* Chứng nhận đã duyệt theo loại: chỉ loại có giấy mới hiện, màu xanh, có dấu xác nhận. */}
+        <section aria-labelledby="approved-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 id="approved-title" className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-ink-900">
+                Chứng nhận đã duyệt theo loại
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800">{approvedCerts.length}</span>
+              </h2>
+              <p className="mt-1 text-[11.5px] leading-5 text-ink-500">Chỉ hiện loại giấy đã được nhân viên đối chiếu.</p>
+            </div>
+          </div>
+
+          {approvedByKey.length > 0
+            ? <ul className="mt-3 space-y-2">
+              {approvedByKey.map((row) => <li key={row.key} className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2.5">
+                <div className="flex items-start gap-2">
+                  <BadgeCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-[12.5px] font-bold text-ink-900">{row.label}</p>
+                    <ul className="mt-1 space-y-0.5">
+                      {row.certificates.map((certificate) => {
+                        const original = certificates.find((item) => item.id === certificate.id);
+                        const left = daysUntilExpiry(certificate.validUntil);
+                        const scheme = certificateSchemeLabel(certificate.scheme, "vi");
+                        const note = original ? supplierCertificateNote(original) : "";
+                        return <li key={certificate.id} className="flex flex-wrap items-center gap-x-1.5 text-[11px] leading-4 text-ink-600">
+                          <span className="font-semibold text-ink-800">{certificate.name}</span>
+                          {scheme && <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-teal-800 ring-1 ring-teal-200">{scheme}</span>}
+                          {certificate.validUntil && <span className={certificate.expired ? "text-amber-800" : ""}>
+                            hạn {certificate.validUntil}{certificate.expired ? " · đã hết hạn" : left !== null ? ` · còn ${left} ngày` : ""}
+                          </span>}
+                          {note && note !== "Đã duyệt và đang hiện với người mua." && <span className="text-ink-500">{note}</span>}
+                        </li>;
+                      })}
+                    </ul>
+                  </div>
+                  <CheckCircle2 className="ml-auto size-4 shrink-0 text-emerald-500" aria-hidden="true" />
+                </div>
+              </li>)}
+            </ul>
+            : <p className="mt-3 rounded-lg border border-dashed border-ink-300 bg-ink-50/50 px-3 py-5 text-center text-[11.5px] text-ink-500">
+              Chưa có loại giấy nào được duyệt. Tải giấy ở cột bên trái để bắt đầu.
+            </p>}
+
+          {pendingCerts.length > 0 && <p className="mt-2 flex items-center gap-1.5 text-[11px] text-ink-500">
+            <Clock className="size-3.5 shrink-0" aria-hidden="true" />
+            {pendingCerts.length} chứng nhận đang chờ nhân viên đối chiếu.
+          </p>}
+
+          <p className="mt-3 border-t border-ink-100 pt-2 text-[10.5px] leading-4 text-ink-500">
+            Mã số thuế và số tài khoản ngân hàng khai trong Hồ sơ doanh nghiệp, không phải chứng nhận nên không có trong danh sách này.
+          </p>
+        </section>
         <section aria-labelledby="tips-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
           <h2 id="tips-title" className="text-[12.5px] font-bold text-brand-900">Mẹo chuẩn bị tệp</h2>
           <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[10.5px] leading-4 text-ink-600">

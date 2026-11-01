@@ -66,8 +66,12 @@ assert.match(documents, /role="progressbar"/, 'L1 có dải tiến độ giấy 
 assert.match(documents, /lg:grid-cols-\[minmax\(0,1fr\)_330px\]/, 'L1 dùng lưới hai cột như L2/L3');
 assert.match(documents, /lg:sticky lg:top-20/, 'Cột phải dính khi lướt, như L2/L3');
 const aside = documents.slice(documents.indexOf("<aside"), documents.indexOf("</aside>"));
-assert.match(aside, /<L1DocUpload checklistKey=\{row\.key\}/, 'Cột phải tải được giấy đăng ký kinh doanh');
-assert.match(aside, /<SupplierCertificateUpload certificates=/, 'Cột phải tải được chứng nhận chất lượng');
+const mainColumn = documents.slice(documents.indexOf('<div className="min-w-0 space-y-4">'), documents.indexOf("<aside"));
+assert.match(mainColumn, /<L1DocUpload checklistKey=\{row\.key\}/, 'Cột trái rộng là nơi tải giấy đăng ký kinh doanh');
+assert.match(mainColumn, /<SupplierCertificateUpload certificates=/, 'Cột trái rộng là nơi tải chứng nhận chất lượng');
+assert.match(mainColumn, /role="progressbar"/, 'Tiến độ giấy tờ nằm cạnh ô tải');
+assert.match(aside, /Bạn nhận được gì/, 'Cột phải nói nhà cung cấp nhận được gì');
+assert.match(aside, /Chứng nhận đã duyệt theo loại/, 'Cột phải liệt kê loại giấy đã duyệt');
 assert.match(documents, /EvidenceThumbnail/, 'L1 hiển thị tệp dạng ảnh thu nhỏ');
 
 // Phần giá trị: một khối riêng, chỉ gạch đầu dòng ngắn, đứng trên danh sách chứng nhận.
