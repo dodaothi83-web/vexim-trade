@@ -214,7 +214,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const creationRequestId = useRef<string | null>(null);
-  const [quantityConsent, setQuantityConsent] = useState(false);
+  // Chọn sẵn cam kết giá: người bán chỉ bỏ tick khi giá chưa phải giá sẵn sàng báo.
+  const [quantityConsent, setQuantityConsent] = useState(true);
 
   const [busy, setBusy] = useState(false);
   const [quantityPreview, setQuantityPreview] = useState<QuantityPricingInput | null>(() => quantityEditor ? {
@@ -440,16 +441,12 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
   function onCategorySelect(nextSlug: string) {
     setSelectedCategory(nextSlug);
-    if (!product) {
-      setQuantityPreview((previous) => previous ? { ...previous, grade: "" } : previous);
-      setQuantityConsent(false);
-    }
+    if (!product) setQuantityPreview((previous) => previous ? { ...previous, grade: "" } : previous);
     setSnapshot((previous) => ({ ...previous, supplier_category_proposal: nextSlug }));
   }
 
   function onNewQuantityChange(value: QuantityPricingInput) {
     setQuantityPreview(value);
-    setQuantityConsent(false);
     setSnapshot((previous) => ({ ...previous, quantity_draft: JSON.stringify(value) }));
   }
 
@@ -530,7 +527,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           form.set("quantity_incoterm", newQuantity.incoterm);
           form.set("quantity_currency", newQuantity.currency ?? "USD");
           form.set("quantity_tiers_json", JSON.stringify(newQuantity.tiers));
-          if (quantityConsent) form.set("confirm_quantity_price_consent", "yes");
+          // Cam kết giá chỉ có nghĩa khi giá được công khai, nên đừng gửi kèm khi đang tắt.
+          if (quantityConsent && snapshot.price_publicly_visible === "yes") form.set("confirm_quantity_price_consent", "yes");
         }
         // Ảnh đang chọn trong kho ảnh luôn đi kèm, kể cả khi bảng giá chưa đủ để tạo sản phẩm.
         if (pickedBank.length) form.set("bank_media_ids", JSON.stringify(pickedBank.slice(0, 6)));
@@ -1393,8 +1391,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 </div>
               </Row>
 
-              <Row label="Xác nhận" required={snapshot.price_publicly_visible === "yes"}>
-                {!supplierPriceConsentCurrent(supplier) && <div className="rounded-md border border-ink-200 bg-white p-3">
+              {/* Chỉ hiện khi chưa có cam kết còn hiệu lực; nếu không hàng này sẽ trống trơn. */}
+              {!supplierPriceConsentCurrent(supplier) && <Row label="Xác nhận" required={snapshot.price_publicly_visible === "yes"}>
+                <div className="rounded-md border border-ink-200 bg-white p-3">
                   <label className="flex items-start gap-2 text-[11px] font-medium text-brand-900">
                     <input
                       type="checkbox"
@@ -1413,8 +1412,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     Hiệu lực 180 ngày kể từ khi lưu; giá tham khảo không phải báo giá chính thức.{" "}
                     <Link href="/dieu-khoan-su-dung" className="font-semibold text-brand-800 underline">Điều khoản</Link>
                   </p>
-                </div>}
-              </Row>
+                </div>
+              </Row>}
             </div>
           </section>
 

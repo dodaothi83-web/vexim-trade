@@ -299,6 +299,13 @@ assert.match(noConsentOptedIn.match(/<input[^>]*name="confirm_supplier_price_con
   'Ô xác nhận chia sẻ giá là bắt buộc khi bật công khai giá');
 assert.doesNotMatch(noConsent.match(/<input[^>]*name="confirm_supplier_price_consent"[^>]*>/)?.[0] ?? '', /required=""/,
   'Không bắt buộc tick xác nhận khi công khai giá đang tắt');
+assert.doesNotMatch(page, /name="confirm_supplier_price_consent"/,
+  'Cam kết chia sẻ giá còn hiệu lực thì không hiện hàng Xác nhận trống');
+// 7b. Cam kết grade và Incoterm được tick sẵn; sửa bảng giá không tự bỏ tick.
+assert.match(source, /const \[quantityConsent, setQuantityConsent\] = useState\(true\)/,
+  'Ô cam kết giá của sản phẩm mới được tick sẵn');
+assert.doesNotMatch(source, /setQuantityConsent\(false\)/,
+  'Đổi danh mục hay sửa mức giá không tự bỏ tick cam kết');
 
 // 8. Không đưa UI giá v2 hay bảng giá cũ trở lại cổng NCC.
 assert.doesNotMatch(source, /Bảng giá cũ \(cơ chế hiện tại\)|GradePricingTable|grade_rows_json/, 'Không còn bảng giá cũ');
