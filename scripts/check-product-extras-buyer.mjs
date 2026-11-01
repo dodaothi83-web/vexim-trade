@@ -38,7 +38,7 @@ assert.equal(packagingSummaryEnglish({ units_per_carton: 1000 }), '1,000 units/c
 assert.equal(packagingSummaryEnglish({}), '', 'chưa khai gì thì không hiện dòng trống');
 assert.equal(packagingSummaryEnglish({ package_weight_kg: 0, units_per_carton: 0 }), '', 'không nhận số 0 là dữ liệu thật');
 
-/* 2. Giá mẫu: đúng đơn vị tiền, không tự đổi 0 thành "miễn phí". */
+/* 2. Giá mẫu: giữ cách viết USD; trang sản phẩm hiển thị 0 là mẫu miễn phí. */
 assert.equal(samplePriceEnglish({ sample_price_usd: 5 }), '$5 per sample');
 assert.equal(samplePriceEnglish({ sample_price_usd: 12.5 }), '$13 per sample');
 assert.equal(samplePriceEnglish({ sample_price_usd: 0 }), '$0 per sample');
@@ -112,7 +112,8 @@ const detail = read('app/(public)/products/[slug]/[productId]/page.tsx');
 assert.match(detail, /packagingSummaryEnglish/, 'trang buyer dùng đóng gói có cấu trúc');
 assert.match(detail, /structuredPackaging \|\| detailedPackaging \|\| enPackaging/,
   'có đóng gói có cấu trúc thì ưu tiên, chưa có thì giữ mô tả cũ');
-assert.match(detail, /\{samplePrice && <Spec label="Sample price"/, 'giá mẫu chỉ hiện khi có số');
+assert.match(detail, /p\.sample_price_usd === 0 \? "Free sample" : samplePrice/, 'giá trị 0 hiển thị nội dung tiếng Anh tương ứng');
+assert.match(detail, /\{samplePriceDisplay && <Spec label="Sample price" value=\{samplePriceDisplay\}/, 'giá mẫu hiển thị chỉ hiện khi có dữ liệu');
 assert.match(detail, /productCertificates\.length > 0/, 'không có chứng nhận đã gắn thì không hiện khối');
 assert.match(detail, /hasCertification/, 'structured data có chứng nhận');
 assert.match(detail, /listCertificateScopes/, 'chỉ dùng phạm vi đã được nhân viên xác nhận');

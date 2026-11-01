@@ -725,7 +725,7 @@ export function ProductForm({
                 placeholder="30% cọc, 70% khi có B/L"
               />
             </Field>
-            <Field label="Giá mẫu (USD)" hint="Bỏ trống nếu không bán mẫu. Số 0 nghĩa là mẫu miễn phí.">
+            <Field label="Giá mẫu (USD)" hint="Bỏ trống nếu không bán mẫu. Nhập 0 nếu nhận mẫu miễn phí.">
               <input
                 className="input font-mono tabular-nums"
                 inputMode="decimal"

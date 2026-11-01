@@ -91,7 +91,7 @@ export const COMPLETENESS_ITEMS: CompletenessItem[] = [
   // Phase 2: ba mục dưới đây là cột mới (migration 20261072). Trống thì chỉ mất điểm,
   // không chặn đăng, và không suy đoán giá trị từ cột văn bản cũ.
   { key: "keywords", label: "Từ khoá", required: false, weight: 5, step: 1, hint: "Thêm 1–3 từ khoá tiếng Anh để người mua tìm thấy sản phẩm." },
-  { key: "sample_price", label: "Giá mẫu", required: false, weight: 5, step: 1, hint: "Nêu giá mẫu nếu bạn bán mẫu." },
+  { key: "sample_price", label: "Giá mẫu", required: false, weight: 5, step: 1, hint: "Nhập 0 nếu nhận mẫu miễn phí; bỏ trống nếu không bán mẫu." },
   { key: "package_measure", label: "Kích thước kiện", required: false, weight: 5, step: 1, hint: "Ghi loại kiện và khối lượng mỗi kiện." },
   { key: "payment_terms", label: "Thanh toán", required: false, weight: 2, step: 1, hint: "Ví dụ: 30% đặt cọc, phần còn lại trước khi giao." },
   { key: "capacity", label: "Năng lực tháng", required: false, weight: 1, step: 1, hint: "Sản lượng cung cấp được mỗi tháng." },

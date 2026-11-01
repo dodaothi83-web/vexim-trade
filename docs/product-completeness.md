@@ -120,7 +120,7 @@ Hai việc làm cùng một đợt. Cả hai đều **chỉ đọc** dữ liệu
 | Hiển thị | Ở đâu | Nguồn |
 | --- | --- | --- |
 | Đóng gói có cấu trúc, ví dụ “25 kg bag · 60x40x40 cm · 20 units/carton” | dòng **Packaging** trong “Key terms” | `package_type`, `package_weight_kg`, `package_size`, `units_per_carton` qua `lib/public/product-extras-display.ts` |
-| Giá mẫu, ví dụ “USD 5.00 per sample” | dòng **Sample price**, chỉ hiện khi có số | `sample_price_usd` |
+| Giá mẫu, ví dụ “USD 5.00 per sample”; nhập 0 để hiển thị “Free sample” | dòng **Sample price**, chỉ hiện khi có số | `sample_price_usd` |
 | Chứng nhận gắn riêng cho sản phẩm | khối **Product certificates**: tên, đơn vị cấp, hạn dùng, đơn vị đứng tên | `certificates.approved_product_ids` |
 | JSON-LD | `additionalProperty` (Packaging, Sample price, MOQ…) + `hasCertification` | như trên |
 

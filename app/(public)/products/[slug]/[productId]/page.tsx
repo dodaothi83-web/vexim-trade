@@ -183,6 +183,7 @@ export default async function PublicProductDetail({ params }: Props) {
   // Đóng gói có cấu trúc (Phase 2) là tiếng Anh, dựng từ số liệu nhà cung cấp đã khai.
   const structuredPackaging = packagingSummaryEnglish(p);
   const samplePrice = samplePriceEnglish(p);
+  const samplePriceDisplay = p.sample_price_usd === 0 ? "Free sample" : samplePrice;
   const enDetail = p.description_detail_i18n?.en?.trim() || p.description_detail;
   const parsedSpecifications = parseProductSpecification(enSpec);
   const detailRows = parsedSpecifications.filter((row) => !["grade", "minimum order quantity (moq)", "packaging specification"].includes(row.key));
@@ -367,7 +368,7 @@ export default async function PublicProductDetail({ params }: Props) {
               </>
             )}
             <Spec label="Packaging" value={structuredPackaging || detailedPackaging || enPackaging} />
-            {samplePrice && <Spec label="Sample price" value={samplePrice} />}
+            {samplePriceDisplay && <Spec label="Sample price" value={samplePriceDisplay} />}
             <Spec label="Lead time" value={card.leadTimeText || (card.leadTimeDays !== null ? `${card.leadTimeDays} days` : "On request")} />
             {!card.quantityOffer && gradeRows.length === 0 && <Spec label="Incoterm" value={card.incoterm} />}
             <Spec label="Loading port" value={publicProductExportPortDisplay(p)} />
