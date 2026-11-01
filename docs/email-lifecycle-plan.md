@@ -115,6 +115,27 @@ Chưa đủ thì bản tin tuần sẽ rỗng và tự mất người nhận sau
 
 ## 7. Việc còn lại của đợt 1
 
-- Outbox/retry bền vững và webhook `delivered/bounced/complained` vẫn là khoảng trống chung (xem [notification-email-audit.md](notification-email-audit.md)). Nhắc NCC hiện dựa vào ghi nhật ký best-effort: ghi lỗi thì lần sau có thể nhắc lại (chấp nhận hơn là chặn cả lượt cron).
+- Outbox/retry bền vững vẫn là khoảng trống chung (xem [notification-email-audit.md](notification-email-audit.md)). Nhắc NCC hiện dựa vào ghi nhật ký best-effort: ghi lỗi thì lần sau có thể nhắc lại (chấp nhận hơn là chặn cả lượt cron).
+- Webhook `bounced/complained` đã xử lý, xem mục 8.
 - Chưa có trang để NCC tự tắt thư nhắc. Hiện chỉ tiếp nhận qua trả lời thư; khi có đợt 2 thì thêm công tắc vào trang tùy chọn của tài khoản NCC.
 - Không có email tự động mời NCC làm thêm L2/L3 khi họ chưa hề yêu cầu — đó là việc bán hàng, phải do nhân viên chủ động liên hệ.
+
+## 8. Thư trả lại (bounce) và báo cáo thư rác
+
+Một địa chỉ không tồn tại vẫn bị gửi tiếp thì mỗi lần gửi là một điểm trừ cho tên miền gửi `hello@veximtrade.com`, và điểm trừ đó ảnh hưởng tới thư gửi cho người mua thật. Vì vậy webhook Resend xử lý luôn sự kiện gửi hỏng, không chỉ thư đến.
+
+| Sự kiện Resend | Ghi vào `email_suppressions` | Tắt tài khoản NCC |
+| --- | --- | --- |
+| `email.bounced` kiểu Permanent | Có, lý do `hard_bounce` | Có |
+| `email.bounced` kiểu Undetermined hoặc thiếu kiểu | Có, lý do `hard_bounce` | Có |
+| `email.bounced` kiểu Transient (hộp thư đầy, máy chủ bận) | Không | Không |
+| `email.complained` | Có, lý do `complaint` | Có |
+| `email.suppressed` | Có, lý do `provider_suppressed` | Có |
+
+Điểm chặn duy nhất là `transport()` trong [lib/email/send.ts](../lib/email/send.ts), trước lệnh gọi Resend, nên mọi đường thư đều đi qua: thư RFQ cho NCC, hỏi NCC, thông báo cổng NCC, cập nhật giai đoạn, thư tay. Nếu mọi người nhận đều bị chặn, thư bị bỏ và ghi lỗi rõ địa chỉ; nếu chỉ cc hoặc một người trong nhóm bị chặn, thư vẫn tới người còn lại.
+
+Chỉ tài khoản vai trò `supplier` bị tắt; một cú bounce của hộp thư nhân viên không được khoá tài khoản quản trị. Mỗi lần tắt đều ghi `audit_log` với hành động `user.deactivated_email_bounce`.
+
+Xem và gỡ chặn: Cài đặt, mục Địa chỉ ngừng nhận thư (`/crm/settings/email-suppressions`). Gỡ chặn không tự bật lại tài khoản, nhân viên bật lại trong trang Người dùng sau khi xác nhận hộp thư đã sửa.
+
+Nếu bảng `email_suppressions` chưa được tạo (migration `20261104_email_bounce_suppression.sql` chưa chạy), việc đọc danh sách trả về rỗng và thư vẫn gửi bình thường; webhook trả `failed` cho địa chỉ chưa ghi được để thấy ngay là chưa bật.
