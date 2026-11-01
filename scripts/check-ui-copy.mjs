@@ -86,7 +86,6 @@ const SCOPE = [
   'app/crm/team/page.tsx',
   'app/crm/templates/page.tsx',
   'app/crm/traffic/page.tsx',
-  'app/crm/verifications/contact-request-button.tsx',
   'app/crm/verifications/page.tsx',
   'app/crm/verifications/submissions/[id]/submission-review-actions.tsx',
   'app/crm/verifications/submissions/page.tsx',

@@ -396,17 +396,6 @@ export const supabaseStore: DataStore = {
     if (error) fail("createSupplierVerificationRequest", error);
     return data as SupplierVerificationRequest;
   },
-  async markSupplierVerificationContacted(supplierId, level, actorId) {
-    const { data, error } = await must().from("supplier_verification_requests")
-      .update({ status: "contacted", contacted_at: new Date().toISOString(), contacted_by: actorId })
-      .eq("supplier_id", supplierId).eq("target_level", level).eq("status", "requested").select().maybeSingle();
-    if (error) fail("markSupplierVerificationContacted", error);
-    if (data) return data as SupplierVerificationRequest;
-    const existing = (await this.listSupplierVerificationRequests(supplierId)).find((r) => r.target_level === level);
-    if (!existing) throw new Error("Không có yêu cầu này.");
-    return existing;
-  },
-
   async listProducts() {
     const rows = await readAllById<SupplierProduct>("listProducts", (after) => {
       let query = must().from("supplier_products").select("*").order("id", { ascending: true }).limit(READ_PAGE_SIZE);

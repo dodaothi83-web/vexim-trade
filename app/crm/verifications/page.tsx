@@ -17,7 +17,6 @@ import { isPartnerL2, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
 import { inVnBounds } from "@/lib/verification";
 import type { AppUser, Verification } from "@/lib/types";
 import { auditHref, auditItems, auditStep } from "@/lib/verification";
-import { ContactRequestButton } from "./contact-request-button";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +44,6 @@ export default async function VerificationsPage({
   const tabKey = sp?.tab ?? "submitted";
   const tab = TABS.find((t) => t.key === tabKey) ?? TABS[0];
   const canApprove = hasPermission(session.role, "verifications.approve");
-  const canInspect = hasPermission(session.role, "verifications.inspect");
 
   const store = getStore();
   const [vers, suppliers, users, requests, submissions] = await Promise.all([
@@ -101,7 +99,6 @@ export default async function VerificationsPage({
         {openRequests.length ? <ul className="mt-4 space-y-2">{openRequests.map((r) => <li key={`${r.supplier_id}-${r.target_level}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white px-4 py-3 text-sm">
           <div className="min-w-[180px] flex-1"><Link href={`/crm/suppliers/${r.supplier_id}`} className="font-bold text-brand-700 hover:underline">{supMap.get(r.supplier_id)?.name ?? "Nhà cung cấp"}</Link>
             <p className="mt-0.5 text-xs text-ink-500">{r.target_level === 2 ? supMap.get(r.supplier_id)?.supplier_type === "trading" ? "Nhà máy đối tác" : "Xác thực nhà máy" : "Lịch sử giao hàng"} · {r.status === "contacted" ? "Đã liên hệ" : "Cần liên hệ"} · {new Date(r.requested_at).toLocaleDateString("vi-VN")}</p></div>
-          {canInspect && r.status === "requested" && <ContactRequestButton supplierId={r.supplier_id} level={r.target_level} />}
           <Link href={auditHref(r.supplier_id, r.target_level)} className="btn btn-ghost btn-sm">Mở trang đánh giá →</Link>
         </li>)}</ul> : <p className="mt-3 text-sm text-ink-500">Chưa có yêu cầu cần xử lý.</p>}
       </section>
