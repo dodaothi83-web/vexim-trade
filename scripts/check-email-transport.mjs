@@ -18,6 +18,7 @@ function load(mode, configured) {
     '@/lib/pipeline': {},
     '@/lib/email/stage-content': {},
     '@/lib/mail/attachments': {},
+    '@/lib/email/threading': {},
   };
   vm.runInNewContext(source, { exports, process: { env: { NODE_ENV: mode } }, console,
     require: (key) => { assert.ok(key in mocks, `Unexpected import ${key}`); return mocks[key]; },

@@ -35,7 +35,7 @@ export interface StageCopy {
 export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
   lead: {
     buyer: {
-      subject: "Thank you for your enquiry: {product}",
+      subject: "Thank you for your enquiry, {product}",
       body: [
         "Thank you for contacting Vexim Trade about {product}. Your enquiry has reached our export desk and is being reviewed by the specialist covering your market.",
         "We work directly with approved producers in Vietnam, which lets us control quality from raw material right through to container loading.",
@@ -84,7 +84,7 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
 
   quoted: {
     buyer: {
-      subject: "Quotation for {product}: {incoterm} {port}",
+      subject: "Quotation for {product}, {incoterm} {port}",
       body: [
         "Please find our offer for {product}, prepared on the specification and quantity you confirmed.",
         "The quotation covers product specification, packaging, {incoterm} delivery to {port}, and the validity period stated in the document.",
@@ -136,7 +136,7 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
 
   confirmed: {
     buyer: {
-      subject: "Order confirmed: deposit received for {product}",
+      subject: "Order confirmed, deposit received for {product}",
       body: [
         "We are pleased to confirm that your Proforma Invoice has been signed and the deposit has been received. Your order is now formally in our execution schedule.",
         "For your records, payment for this order follows the agreed terms: {payment}.",
@@ -163,7 +163,7 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
 
   production: {
     buyer: {
-      subject: "Production update: {product} is in progress",
+      subject: "Production update, {product} is in progress",
       body: [
         "Your order is now in production. Our QC staff follows the process on site so that every lot matches the sample you approved.",
         "Any deviation found during production is corrected before packing, not after arrival.",
@@ -189,7 +189,7 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
 
   shipping: {
     buyer: {
-      subject: "Your shipment has departed: documents for {product}",
+      subject: "Your shipment has departed, documents for {product}",
       body: [
         "We are pleased to confirm that your goods have been loaded and the shipment has departed for {port}. Vessel and voyage details are included in this notification.",
         "The full set of shipping documents is now being prepared for you.",
@@ -215,7 +215,7 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
 
   completed: {
     buyer: {
-      subject: "Order completed: thank you for your trust",
+      subject: "Order completed, thank you for your trust",
       body: [
         "Your order has been completed, the goods received and payment settled. Thank you for choosing Vexim Trade as your sourcing partner in Vietnam.",
         "We keep the full record of the specification and production lot used for this order, so a repeat order can start exactly where we finished.",

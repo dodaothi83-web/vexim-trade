@@ -50,6 +50,8 @@ export function fill(
   tpl: string,
   buyer: Buyer,
   supplier?: Supplier | null,
+  /** Mã tham chiếu in trong thư; mặc định là mã nội bộ của hồ sơ người mua */
+  ref?: string | null,
 ): string {
   const map: Record<string, string> = {
     product: buyer.product || "your order",
@@ -61,7 +63,7 @@ export function fill(
     shipdate: fmtDate(buyer.expected_ship_date, "en-GB") || "to be confirmed",
     payment: paymentStr(buyer, "as agreed"),
     payment_vi: paymentStr(buyer, "theo thỏa thuận"),
-    ref: shortCode(buyer.id),
+    ref: ref?.trim() || shortCode(buyer.id),
     company: buyer.company,
     supplier: supplier?.name ?? "our production partner",
   };
@@ -229,6 +231,11 @@ function paragraphs(list: string[]): string {
 export function buildBuyerEmail(opts: {
   buyer: Buyer;
   stage: StageKey;
+  /**
+   * Mã RFQ in ở cuối tiêu đề dạng "(Ref …)". Người mua tìm lại thư theo mã này,
+   * và cả đơn dùng chung một mã nên các thư gom được vào một mạch.
+   */
+  refCode?: string | null;
   note?: string | null;
   /** Bộ nội dung đã trộn ghi đè — mặc định dùng STAGE_CONTENT */
   content?: StageCopy;
@@ -241,6 +248,8 @@ export function buildBuyerEmail(opts: {
   const { buyer, stage } = opts;
   const copy = (opts.content ?? STAGE_CONTENT[stage]).buyer;
   const name = buyer.contact_name?.trim() || buyer.company;
+  const refCode = opts.refCode?.trim() || null;
+  const ref = refCode ?? shortCode(buyer.id);
 
   const summary = summaryTable(
     [
@@ -250,7 +259,7 @@ export function buildBuyerEmail(opts: {
       { label: "Price term", value: buyer.incoterm ?? "N/A" },
       { label: "Destination port", value: buyer.port ?? "N/A" },
       { label: "Expected shipment", value: fmtDate(buyer.expected_ship_date, "en-GB") || "To be confirmed" },
-      { label: "Our reference", value: shortCode(buyer.id) },
+      { label: "Our reference", value: ref },
     ],
     "ORDER DETAILS",
   );
@@ -258,7 +267,7 @@ export function buildBuyerEmail(opts: {
   const body = `
     ${statusPill(stage, "en")}
     <p style="font-size:15px;line-height:24px;margin:18px 0 0;">Dear ${escapeHtml(name)},</p>
-    ${paragraphs(copy.body.map((p) => fill(p, buyer)))}
+    ${paragraphs(copy.body.map((p) => fill(p, buyer, null, ref)))}
     ${progressBar(stage, "en")}
     ${summary}
     ${calloutBox("WHAT HAPPENS NEXT", escapeHtml(fill(copy.action, buyer)))}
@@ -266,11 +275,15 @@ export function buildBuyerEmail(opts: {
     <p style="font-size:14px;line-height:22px;margin:22px 0 0;">Please feel free to reply to this email if you need any clarification.<br/>Best regards,</p>
     ${signature(buyer.owner, "Export Department", opts.senderEmail)}`;
 
-  const subject = `[${shortCode(buyer.id)}] ${fill(copy.subject, buyer)}`;
+  // Mã đặt ở CUỐI tiêu đề: trên điện thoại hộp thư chỉ hiện ~40 ký tự đầu, phần
+  // người mua cần thấy là mặt hàng và điều kiện giao, không phải mã đơn.
+  const subject = refCode
+    ? `${fill(copy.subject, buyer, null, ref)} (Ref ${refCode})`
+    : fill(copy.subject, buyer, null, ref);
 
   return {
     subject,
-    html: wrapEmailShell({ title: subject, body, preheader: fill(copy.body[0] ?? "", buyer) }),
+    html: wrapEmailShell({ title: subject, body, preheader: fill(copy.body[0] ?? "", buyer, null, ref) }),
     text: [
       subject,
       "",
@@ -306,12 +319,15 @@ export function buildSupplierEmail(opts: {
   buyer: Buyer;
   supplier: Supplier;
   stage: StageKey;
+  /** Mã RFQ của đơn; thiếu thì dùng mã nội bộ của hồ sơ người mua */
+  refCode?: string | null;
   note?: string | null;
   /** Bộ nội dung đã trộn ghi đè — mặc định dùng STAGE_CONTENT */
   content?: StageCopy;
 }): EmailPayload {
   const { buyer, supplier, stage } = opts;
   const copy = (opts.content ?? STAGE_CONTENT[stage]).supplier;
+  const ref = opts.refCode?.trim() || shortCode(buyer.id);
   const stageDef = getStage(stage);
   const hidden = buyer.hide_buyer_from_supplier !== false;
   const buyerLabel = hidden
@@ -326,21 +342,21 @@ export function buildSupplierEmail(opts: {
       { label: "Số lượng", value: buyer.quantity ?? "Chưa có" },
       { label: "Điều kiện giao", value: buyer.incoterm ?? "Chưa có" },
       { label: "Ngày giao dự kiến", value: fmtDate(buyer.expected_ship_date, "vi-VN") || "Chờ xác nhận" },
-      { label: "Mã đơn nội bộ", value: shortCode(buyer.id) },
+      { label: "Mã đơn nội bộ", value: ref },
     ],
     "THÔNG TIN ĐƠN HÀNG",
     "38%",
   );
 
   const tasks = copy.tasks
-    .map((t) => `<li style="margin:0 0 7px;padding-left:2px;">${escapeHtml(fill(t, buyer, supplier))}</li>`)
+    .map((t) => `<li style="margin:0 0 7px;padding-left:2px;">${escapeHtml(fill(t, buyer, supplier, ref))}</li>`)
     .join("");
 
   const taskBox = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border-left:4px solid #d97706;border-radius:8px;margin-top:18px;">
     <tr><td style="padding:14px 16px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
         <td style="font-size:11px;font-weight:800;color:#d97706;letter-spacing:.6px;">VIỆC CẦN LÀM</td>
-        <td align="right" style="font-size:11px;font-weight:800;color:#b45309;">HẠN: ${escapeHtml(fill(copy.deadline, buyer, supplier))}</td>
+        <td align="right" style="font-size:11px;font-weight:800;color:#b45309;">HẠN: ${escapeHtml(fill(copy.deadline, buyer, supplier, ref))}</td>
       </tr></table>
       <ol style="margin:8px 0 0;padding-left:18px;font-size:13px;line-height:20px;color:#78350f;">${tasks}</ol>
     </td></tr>
@@ -350,9 +366,9 @@ export function buildSupplierEmail(opts: {
     ${statusPill(stage, "vi")}
     <p style="font-size:15px;line-height:24px;margin:18px 0 0;">Chào ${escapeHtml(supplier.contact_name || supplier.name)},</p>
     <p style="font-size:14px;line-height:22px;margin:10px 0 0;color:${MUTED};">
-      Đơn <strong style="color:${INK};">${escapeHtml(shortCode(buyer.id))}</strong> · giai đoạn <strong style="color:${INK};">${escapeHtml(stageDef.label)}</strong>
+      Đơn <strong style="color:${INK};">${escapeHtml(ref)}</strong> · giai đoạn <strong style="color:${INK};">${escapeHtml(stageDef.label)}</strong>
     </p>
-    ${paragraphs(copy.body.map((p) => fill(p, buyer, supplier)))}
+    ${paragraphs(copy.body.map((p) => fill(p, buyer, supplier, ref)))}
     ${summary}
     ${taskBox}
     ${opts.note ? `<p style="font-size:14px;line-height:22px;margin:18px 0 0;padding:12px 14px;background:${SOFT};border-radius:8px;color:#334155;"><strong>Ghi chú từ phòng sale:</strong><br/>${escapeHtml(opts.note)}</p>` : ""}
@@ -360,18 +376,18 @@ export function buildSupplierEmail(opts: {
     <p style="font-size:14px;line-height:22px;margin:20px 0 0;">Cảm ơn bạn,</p>
     ${signature(buyer.owner, "Phòng Xuất khẩu")}`;
 
-  const subject = `[${shortCode(buyer.id)}] ${fill(copy.subject, buyer, supplier)}`;
+  const subject = `[${ref}] ${fill(copy.subject, buyer, supplier, ref)}`;
 
   return {
     subject,
-    html: wrapEmailShell({ title: subject, body, preheader: fill(copy.body[0] ?? "", buyer, supplier) }),
+    html: wrapEmailShell({ title: subject, body, preheader: fill(copy.body[0] ?? "", buyer, supplier, ref) }),
     text: [
       subject,
       "",
       `Chào ${supplier.contact_name || supplier.name},`,
-      `Đơn ${shortCode(buyer.id)} - giai đoạn: ${stageDef.label}`,
+      `Đơn ${ref} - giai đoạn: ${stageDef.label}`,
       "",
-      ...copy.body.map((p) => fill(p, buyer, supplier)),
+      ...copy.body.map((p) => fill(p, buyer, supplier, ref)),
       "",
       `Người mua: ${buyerLabel}`,
       `Mặt hàng: ${buyer.product ?? "-"}`,
@@ -379,8 +395,8 @@ export function buildSupplierEmail(opts: {
       `Số lượng: ${buyer.quantity ?? "-"}`,
       "",
       "VIỆC CẦN LÀM:",
-      ...copy.tasks.map((t, i) => `${i + 1}. ${fill(t, buyer, supplier)}`),
-      `Hạn: ${fill(copy.deadline, buyer, supplier)}`,
+      ...copy.tasks.map((t, i) => `${i + 1}. ${fill(t, buyer, supplier, ref)}`),
+      `Hạn: ${fill(copy.deadline, buyer, supplier, ref)}`,
       "",
       opts.note ? `Ghi chú từ phòng sale: ${opts.note}` : "",
       "",
@@ -419,8 +435,11 @@ export function unwrapEmailShell(html: string): string {
 export function buildSupplierAssignedEmail(opts: {
   buyer: Buyer;
   supplier: Supplier;
+  /** Mã RFQ của đơn; thiếu thì dùng mã nội bộ của hồ sơ người mua */
+  refCode?: string | null;
 }): EmailPayload {
   const { buyer, supplier } = opts;
+  const ref = opts.refCode?.trim() || shortCode(buyer.id);
   const hidden = buyer.hide_buyer_from_supplier !== false;
   const buyerLabel = hidden
     ? `Khách hàng thị trường ${buyer.country || "nước ngoài"} (ẩn danh)`
@@ -435,7 +454,7 @@ export function buildSupplierAssignedEmail(opts: {
       { label: "Điều kiện giao", value: buyer.incoterm ?? "Chưa có" },
       { label: "Cảng đến", value: buyer.port ?? "Chưa có" },
       { label: "Ngày giao dự kiến", value: fmtDate(buyer.expected_ship_date, "vi-VN") || "Chờ xác nhận" },
-      { label: "Mã đơn nội bộ", value: shortCode(buyer.id) },
+      { label: "Mã đơn nội bộ", value: ref },
     ],
     "THÔNG TIN NGƯỜI MUA VỪA KẾT NỐI",
     "38%",
@@ -471,7 +490,7 @@ export function buildSupplierAssignedEmail(opts: {
     <p style="font-size:14px;line-height:22px;margin:20px 0 0;">Cảm ơn bạn,</p>
     ${signature(buyer.owner, "Phòng Xuất khẩu")}`;
 
-  const subject = `[${shortCode(buyer.id)}] Người mua mới được kết nối: ${fill("{product}, {quantity}", buyer)}`;
+  const subject = `[${ref}] Người mua mới được kết nối: ${fill("{product}, {quantity}", buyer, null, ref)}`;
 
   return {
     subject,

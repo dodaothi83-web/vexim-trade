@@ -21,6 +21,7 @@ const mocks = {
   '@/lib/email/templates': { escapeHtml: (v) => String(v).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
     wrapPlainEmail: ({ title, body }) => `<h1>${title}</h1>${body}` },
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
+  '@/lib/config': { MAIL_DOMAIN: 'veximtrade.com' },
 };
 const code = ts.transpileModule(readFileSync(new URL('../lib/supplier-portal/notify.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },

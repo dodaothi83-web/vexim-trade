@@ -18,6 +18,7 @@ import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { requireRfqStaffSender } from "@/lib/rfq/staff-sender";
 import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import { buyerReplyAddress, supplierReplyAddress } from "@/lib/rfq/reply-routing";
+import { mailTopic, openThread } from "@/lib/email/threading";
 import type { Buyer, EmailMessage, Rfq, RfqMatch, Supplier } from "@/lib/types";
 
 function rfqCode(rfq: Rfq) {
@@ -165,7 +166,7 @@ export function buildRfqShortlistBuyerEmail(input: {
     <p>${escapeHtml(COMPANY.name)}<br/>Export Department</p>
   `;
 
-  const subject = `[${rfq.code}] Supplier comparison: ${escapeHtml(rfq.product_text)}`;
+  const subject = `Supplier comparison for ${rfq.product_text} (Ref ${rfq.code})`;
   return {
     subject,
     html: wrapPlainEmail({ title, body, preheader: `Comparison of ${matches.length} suppliers for request ${rfq.code}` }),
@@ -310,6 +311,7 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
     .filter((x): x is RfqMatch & { supplier: Supplier } => !!x);
 
   const email = buildRfqShortlistBuyerEmail({ rfq, buyer, matches: matchesWithSup });
+  const mailThread = await openThread(mailTopic({ rfqCode: rfq.code, buyerId: buyer.id }));
   const delivery = await transport({
     to: [buyer.email],
     cc: buyer.cc_emails ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean) : undefined,
@@ -318,7 +320,7 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
     subject: email.subject,
     html: email.html,
     text: email.text,
-    headers: { "X-RFQ-Code": rfq.code },
+    headers: { "X-RFQ-Code": rfq.code, ...mailThread.headers },
   });
   // A simulated message is not a delivered shortlist; never advance match/RFQ status on it.
   if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được shortlist người mua: ${delivery.error ?? "Resend chưa gửi thật"}`);
@@ -345,7 +347,7 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
     body_html: email.html,
     body_text: email.text,
     attachments: [],
-    rfc_message_id: null,
+    rfc_message_id: mailThread.messageId,
     read_at: null,
     status: delivery.status,
     provider: delivery.provider,

@@ -9,7 +9,9 @@
  */
 import { COMPANY, FROM_ADDRESS, MAIL_DOMAIN } from "@/lib/config";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
+import { mailTopic, openThread } from "@/lib/email/threading";
 import { SITE_URL } from "@/lib/site";
+import { getStore } from "@/lib/db";
 import type { Rfq, Buyer } from "@/lib/types";
 import { transport } from "./send";
 
@@ -31,7 +33,7 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
   const { rfq, buyer } = input;
   const statusLink = rfqUrl(rfq.access_token);
 
-  const title = `Your sourcing request ${rfq.code} has been received`;
+  const title = `Sourcing request received, ${rfq.product_text} (Ref ${rfq.code})`;
   const hasPreferredSupplier = (rfq.preferred_supplier_ids ?? []).length > 0;
   const matchingStep = hasPreferredSupplier
     ? "Your request goes to your selected supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else."
@@ -73,14 +75,43 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
   `;
 
   const html = wrapPlainEmail({ title, body });
-  await transport({
+  const cc = buyer.cc_emails ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean) : [];
+  const mailThread = await openThread(mailTopic({ rfqCode: rfq.code, buyerId: rfq.buyer_id ?? buyer.id }));
+  const text = stripHtml(body);
+  const res = await transport({
     to: buyer.email ? [buyer.email] : [],
-    cc: buyer.cc_emails ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean) : undefined,
-    subject: `[${rfq.code}] Your sourcing request has been received: ${escapeHtml(COMPANY.name)}`,
+    cc: cc.length ? cc : undefined,
+    subject: title,
     html,
-    text: stripHtml(body),
-    headers: { "X-RFQ-Code": rfq.code },
+    text,
+    headers: { "X-RFQ-Code": rfq.code, ...mailThread.headers },
   });
+  // Ghi lại để thư sau nối được In-Reply-To/References và để hộp thư CRM thấy thư này.
+  await getStore()
+    .addMessage({
+      buyer_id: rfq.buyer_id ?? buyer.id,
+      supplier_id: null,
+      rfq_id: rfq.id,
+      rfq_match_id: null,
+      kind: "auto",
+      stage: null,
+      direction: "buyer",
+      thread_id: `rfq-${rfq.id}-buyer`,
+      subject: title,
+      to_emails: buyer.email ? [buyer.email] : [],
+      cc_emails: cc,
+      bcc_emails: [],
+      body_html: html,
+      body_text: text,
+      attachments: [],
+      rfc_message_id: mailThread.messageId,
+      status: res.status,
+      provider: res.provider,
+      error: res.error,
+      created_by: null,
+      sent_at: res.ok ? new Date().toISOString() : null,
+    })
+    .catch(() => null);
 }
 
 /* ---------------------------------------------------------------- */

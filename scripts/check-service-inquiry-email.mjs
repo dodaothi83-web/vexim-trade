@@ -115,7 +115,7 @@ assert.ok(!plainInternal.html.includes("undefined") && !plainInternal.text.inclu
 const ackVi = mail.buildServiceInquiryAcknowledgement(base);
 assert.ok(ackVi.subject.startsWith("Vexim Trade đã nhận đăng ký"), ackVi.subject);
 assert.ok(ackVi.subject.includes(base.reference), "ack subject carries the reference");
-assert.ok(ackVi.html.includes("Kính gửi anh/chị An"), "ack greets the contact by name");
+assert.ok(ackVi.html.includes("Chào An"), "ack greets the contact by name");
 assert.ok(ackVi.text.includes("1 ngày làm việc"), "ack states the response time");
 assert.ok(!ackVi.html.includes(base.note), "internal note never reaches the customer");
 assert.ok(!ackVi.text.includes(base.note), "internal note never reaches the customer (text)");

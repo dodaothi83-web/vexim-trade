@@ -13,6 +13,7 @@ import { FROM_ADDRESS, COMPANY, resendConfigured } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
 import { buyerReplyAddress } from "@/lib/rfq/reply-routing";
+import { mailTopic, openThread } from "@/lib/email/threading";
 import type { Buyer, EmailMessage, Rfq, Supplier } from "@/lib/types";
 
 type NotifKind = "sampling" | "lost";
@@ -29,8 +30,8 @@ const LOST_REASON_LABELS: Record<string, string> = {
 
 function buildSubject(kind: NotifKind, rfq: Rfq) {
   return kind === "sampling"
-    ? `[${rfq.code}] Update: supplier selected for sampling, ${rfq.product_text}`
-    : `[${rfq.code}] Update: request paused, ${rfq.product_text}`;
+    ? `Supplier selected for sampling, ${rfq.product_text} (Ref ${rfq.code})`
+    : `Request paused, ${rfq.product_text} (Ref ${rfq.code})`;
 }
 
 function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Supplier | null) {
@@ -112,6 +113,7 @@ export async function notifyBuyerRfqStatus(
     }
   }
   const email = buildBody(kind, rfq, buyer, chosenSupplier);
+  const mailThread = await openThread(mailTopic({ rfqCode: rfq.code, buyerId: buyer.id }));
   const ccEmails = buyer.cc_emails
     ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean)
     : [];
@@ -131,7 +133,7 @@ export async function notifyBuyerRfqStatus(
     body_html: email.html,
     body_text: email.text,
     attachments: [],
-    rfc_message_id: null,
+    rfc_message_id: mailThread.messageId,
     read_at: null,
     status: "draft" as const,
     provider: "resend" as const,
@@ -169,7 +171,7 @@ export async function notifyBuyerRfqStatus(
     subject: email.subject,
     html: email.html,
     text: email.text,
-    headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Notify": kind },
+    headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Notify": kind, ...mailThread.headers },
   }).catch((err) => {
     console.error(`[rfq-notify] gửi ${kind} cho người mua thất bại:`, err);
     return null;

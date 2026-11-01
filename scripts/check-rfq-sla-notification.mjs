@@ -25,6 +25,8 @@ const { sendSlaAlert } = load('../lib/email/rfq.ts', {
   '@/lib/config': { COMPANY: { name: 'Vexim' }, FROM_ADDRESS: 'Vexim <test@example.com>', MAIL_DOMAIN: 'example.com' },
   '@/lib/email/templates': { escapeHtml: String, wrapPlainEmail: ({ body }) => body },
   '@/lib/site': { SITE_URL: 'https://example.com' },
+  '@/lib/email/threading': { mailTopic: () => 'rfq.rfq-q-001', openThread: async () => ({ messageId: '<rfq.rfq-q-001.1@example.com>', headers: {}, seq: 1 }) },
+  '@/lib/db': { getStore: () => ({ addMessage: async () => ({}) }) },
   './send': { transport: async (msg) => { mail.push(msg); return status === 'failed'
     ? { ok: false, status, error: 'provider error' }
     : { ok: true, status, error: null }; } },
@@ -44,6 +46,7 @@ const { GET } = load('../app/api/cron/rfq-sla/route.ts', {
   '@/lib/db': { getStore: () => store },
   '@/lib/email/rfq': { sendSlaAlert },
   '@/lib/certificate-service': { sendCertificateExpiryReminders: async () => ({ checked: 0, reminded: 0, alreadyNotified: 0, failed: 0, details: [] }) },
+  '@/lib/supplier-portal/reminders': { sendSupplierProgressReminders: async () => ({ checked: 0, reminded: 0, skipped: 0 }) },
 }, { CRON_SECRET: 'only-for-test' });
 const request = new Request('https://example.com/api/cron/rfq-sla', { headers: { authorization: 'Bearer only-for-test' } });
 assert.equal((await GET(new Request(request.url))).status, 401);
