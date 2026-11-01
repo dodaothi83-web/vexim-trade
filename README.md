@@ -787,3 +787,20 @@ npm run typecheck  # kiểm tra TypeScript
 npm run check:mail # kiểm quy tắc hiển thị Hộp thư (lib/mail/visibility.ts)
 npm run check:supabase  # soi bảng/cột trong Supabase
 ```
+
+### Kiểm tra tự động trên GitHub
+
+`.github/workflows/ci.yml` chạy ba nhóm kiểm tra trên mọi PR và mỗi lần push vào `main`:
+
+| Nhóm | Lệnh | Chặn lỗi gì |
+| --- | --- | --- |
+| TypeScript | `npm run typecheck` | sai kiểu sau khi đổi mô hình dữ liệu |
+| Văn phong email | `npm run check:email-lifecycle` | nhắc hồ sơ nhà cung cấp sai người, thư người mua lẫn tiếng Việt, ký tự máy trong tiêu đề |
+| Văn phong giao diện | `npm run check:copy` | còn “buyer”/“NCC” trong chuỗi tiếng Việt, câu quá 120 ký tự, lộ từ nội bộ |
+
+Ba nhóm chạy song song, mỗi nhóm một job riêng nên PR hiện đúng nhóm nào hỏng. Muốn chặn merge
+thì bật **Settings → Branches → Require status checks to pass** và chọn ba job này; file workflow
+tự nó chỉ báo đỏ, không tự chặn nút Merge.
+
+Phần còn lại (xác minh nhà cung cấp, sponsored, sản phẩm…) vẫn chạy tay bằng `npm run check:*`
+vì cần dữ liệu hoặc Supabase thật.

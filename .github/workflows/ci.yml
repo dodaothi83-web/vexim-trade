@@ -1,0 +1,54 @@
+name: Kiểm tra
+
+# Cổng chặn tối thiểu cho mọi PR: kiểu dữ liệu, văn phong email, văn phong giao diện.
+# Ba nhóm này là thứ từng hỏng lặng lẽ (tiêu đề email lẫn tiếng Việt, câu quá dài,
+# gõ sai kiểu sau khi đổi mô hình dữ liệu) mà không ai thấy cho tới khi khách nhận thư.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Commit mới trên cùng nhánh thì huỷ lượt chạy cũ, không tốn runner cho bản đã lỗi thời.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verify:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: TypeScript
+            command: typecheck
+          - label: Văn phong email
+            command: check:email-lifecycle
+          - label: Văn phong giao diện
+            command: check:copy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` cài đúng theo package-lock.json và dừng nếu lock lệch package.json.
+      - name: Cài phụ thuộc
+        run: npm ci --no-audit --no-fund
+
+      - name: In phiên bản
+        run: node -v && npm -v
+
+      - name: npm run ${{ matrix.command }}
+        run: npm run ${{ matrix.command }}
