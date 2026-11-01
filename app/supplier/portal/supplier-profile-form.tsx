@@ -336,8 +336,8 @@ function OnboardingAside({ step, onStep }: { step: number; onStep: (step: number
       <h2 className="text-sm font-black text-ink-900">Thời gian duyệt và hỗ trợ</h2>
       <p className="mt-2 text-sm text-ink-700">Hồ sơ được xem theo thứ tự gửi đến, thường trong vài ngày làm việc.</p>
       <p className="mt-1 text-sm text-ink-700">Kết quả duyệt gửi về email đăng nhập.</p>
-      <p className="mt-3 text-sm text-ink-700">Chưa rõ chỗ nào, gọi <a href={`tel:${COMPANY.phone}`} className="font-semibold text-brand-700 underline">{COMPANY.phoneDisplay}</a>.</p>
-      <p className="mt-1 text-sm text-ink-700">Hoặc viết về <a href={`mailto:${COMPANY.email}`} className="font-semibold text-brand-700 underline">{COMPANY.email}</a>.</p>
+      <p className="mt-3 text-sm text-ink-700">Hotline: <a href={`tel:${COMPANY.phone}`} className="font-semibold text-brand-700 underline">{COMPANY.phoneDisplay}</a>.</p>
+      <p className="mt-1 text-sm text-ink-700">Email: <a href={`mailto:${COMPANY.contactEmail}`} className="font-semibold text-brand-700 underline">{COMPANY.contactEmail}</a></p>
     </section>
   </aside>;
 }
