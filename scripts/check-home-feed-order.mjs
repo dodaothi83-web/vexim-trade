@@ -169,7 +169,7 @@ assert.match(homeSource, /srcSet=\{heroSrc \? undefined : HOME_HERO_SRCSET\}/,
   "The hero uses static responsive URLs instead of a function prop");
 /* Ảnh nền tự đặt: page kiểm tệp trong public/images/home rồi truyền xuống, không sửa home.tsx. */
 const pageSource = readFileSync(new URL("../app/(public)/page.tsx", import.meta.url), "utf8");
-assert.match(pageSource, /\/images\/home\/hero-farmer\.(?:webp|jpg|png)/, "The homepage looks for a self-hosted hero photo");
+assert.match(pageSource, /\/images\/home\/hero\.(?:webp|jpg|png)/, "The homepage looks for a self-hosted hero photo");
 assert.match(pageSource, /existsSync\(join\(process\.cwd\(\), "public", file\)\)/, "The check reads the real public folder");
 assert.match(pageSource, /heroSrc=\{heroLocal\}/, "The page hands the local hero down to the content component");
 assert.match(homeSource, /src=\{heroSrc \|\| HOME_HERO_SRC\}/, "A local hero wins over the stock photo");

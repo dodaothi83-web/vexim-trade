@@ -256,6 +256,7 @@ export default async function HomeContent({
           SECTION 1: HERO + THANH TÌM KIẾM SẢN PHẨM
          ===================================================================== */}
       <section className="relative overflow-hidden border-b-4 border-amber-400 bg-gradient-to-b from-brand-900 via-brand-900 to-ink-950 text-white">
+        {/* Ảnh nội bộ 16:9, ảnh Pexels 3:2; khai đúng tỷ lệ để không nhảy khung khi tải. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={heroSrc || HOME_HERO_SRC}
@@ -263,7 +264,7 @@ export default async function HomeContent({
           sizes="100vw"
           alt=""
           width={1600}
-          height={1067}
+          height={heroSrc ? 900 : 1067}
           loading="eager"
           fetchPriority="high"
           className="absolute inset-0 h-full w-full object-cover object-[60%_center]"

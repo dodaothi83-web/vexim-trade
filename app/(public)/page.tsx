@@ -18,13 +18,13 @@ export const dynamic = "force-dynamic";
 /**
  * Ảnh nền trang chủ do mình tự đặt: thả một trong các tệp dưới vào đúng thư mục là trang
  * dùng ngay, không phải sửa mã. Chưa có tệp nào thì giữ ảnh thật trên Pexels.
- * Kích thước nên xuất: 1600x1067, WebP hoặc JPG dưới 300 KB, chủ thể lệch phải.
+ * Kích thước nên xuất: 1600x900, WebP dưới 300 KB, chủ thể lệch phải.
  * Xem thêm public/images/home/README.md.
  */
 const HOME_HERO_LOCAL_FILES = [
-  "/images/home/hero-farmer.webp",
-  "/images/home/hero-farmer.jpg",
-  "/images/home/hero-farmer.png",
+  "/images/home/hero.webp",
+  "/images/home/hero.jpg",
+  "/images/home/hero.png",
 ] as const;
 
 const HOME_TITLE = "Vexim Trade – Find Verified Food & Agricultural Products and Suppliers in Vietnam";
