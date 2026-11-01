@@ -84,7 +84,7 @@ export const STAGE_CONTENT: Record<StageKey, StageCopy> = {
 
   quoted: {
     buyer: {
-      subject: "Quotation for {product}, {incoterm} {port}",
+      subject: "Báo giá cho {product}, {incoterm} {port}",
       body: [
         "Please find our offer for {product}, prepared on the specification and quantity you confirmed.",
         "The quotation covers product specification, packaging, {incoterm} delivery to {port}, and the validity period stated in the document.",
