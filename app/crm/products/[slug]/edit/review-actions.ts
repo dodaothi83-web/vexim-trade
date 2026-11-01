@@ -14,6 +14,7 @@ import { sanitizeProductDescriptionForSave } from "@/lib/products/product-descri
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { nameContainsGrade } from "@/lib/products/quantity-pricing";
 import { productPublicationMediaState } from "@/lib/media/readiness";
+import { describePriceContextChanges, readPriceContextDiff } from "@/lib/products/price-context-diff";
 import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 
@@ -110,9 +111,16 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       });
       if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá trước khi đăng. Thử lại sau ít phút." };
       // Bảng giá đầu tiên được duyệt cùng sản phẩm; chỉ bảng giá cập nhật mới có bước duyệt riêng.
-      if (data.status === "price_not_approved") return { ok: false, message: "Sản phẩm chưa có bảng giá nào để duyệt cùng. Yêu cầu nhà cung cấp gửi bảng giá trước khi đăng." };
-      if (data.status === "price_changed") return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi duyệt giá. Cần yêu cầu nhà cung cấp gửi lại bảng giá." };
-      if (data.status === "category_changed") return { ok: false, message: "Danh mục khác với bảng giá đã gửi. Hãy yêu cầu nhà cung cấp cập nhật danh mục và bảng giá." };
+      if (data.status === "price_not_approved") return { ok: false, message: "Sản phẩm chưa có bảng giá nào để duyệt cùng. Nhập bảng giá ngay trên trang này rồi duyệt lại." };
+      if (data.status === "price_changed") {
+        // Nói rõ trường nào lệch để người duyệt sửa đúng chỗ, và nhắc rằng họ tự chốt
+        // giá được thay vì phải chờ nhà cung cấp gửi lại bảng giá.
+        const diff = await readPriceContextDiff(id);
+        const changed = diff && diff.changed.length ? ` Lệch ở: ${describePriceContextChanges(diff.changed)}.` : "";
+        return { ok: false, message: `Thông tin sản phẩm đã đổi sau khi duyệt giá.${changed} Chốt lại giá ở mục Giá và điều kiện thương mại rồi duyệt lại.` };
+      }
+      if (data.status === "category_changed")
+        return { ok: false, message: "Danh mục đang chọn khác danh mục của bảng giá. Chọn lại đúng danh mục, hoặc chốt lại giá theo danh mục mới." };
       updated = data.status === "saved" && data.product ? data.product as SupplierProduct : null;
     } else {
       updated = await store.updateSupplierProductIfState(id, product.supplier_id,

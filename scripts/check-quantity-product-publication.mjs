@@ -20,6 +20,12 @@ const mocks = {
   '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] }, '@/lib/products/quantity-pricing': { nameContainsGrade: (name, grades) => grades.some((grade) => name.includes(grade)) },
   '@/lib/media/readiness': { productPublicationMediaState: () => ({ buyerImages: 1, buyerFiles: 1, ready: true }) },
   '@/lib/public/product-selection': { isTestOnlyProduct: () => false }, '@/lib/public/supplier-seo': { isSyntheticSupplier: () => false },
+  'server-only': {},
+  // Chẩn đoán lệch giá: đọc bản chụp thật trong cơ sở dữ liệu, ở đây giả lập một trường lệch.
+  '@/lib/products/price-context-diff': {
+    readPriceContextDiff: async () => ({ revisionId: '11111111-1111-1111-1111-111111111111', revisionStatus: 'approved', changed: ['name'], missingContext: false }),
+    describePriceContextChanges: (changed) => changed.map((key) => key === 'name' ? 'tên sản phẩm' : key).join(', '),
+  },
 };
 const exports = {}, process = { env: {} };
 const code = ts.transpileModule(readFileSync(new URL('../app/crm/products/[slug]/edit/review-actions.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -29,7 +35,12 @@ let response = await exports.decideSupplierProductAction(form);
 assert.equal(response.ok, false); assert.match(response.message, /chưa có bảng giá nào để duyệt cùng/i);
 assert.equal(requests[0].args.p_actor_id, 'actor', 'Người duyệt được ghi vào bảng giá đầu tiên');
 assert.equal('p_buyer_enabled' in requests[0].args, false, 'Đăng sản phẩm không còn phụ thuộc cờ triển khai');
-status = 'price_changed'; response = await exports.decideSupplierProductAction(form); assert.match(response.message, /gửi lại/);
+// Thông tin sản phẩm đổi sau khi chốt giá: nói rõ lệch chỗ nào và chỉ việc chốt lại giá,
+// không còn đẩy nhà cung cấp vào vòng gửi lại bảng giá.
+status = 'price_changed'; response = await exports.decideSupplierProductAction(form);
+assert.match(response.message, /Chốt lại giá/);
+assert.doesNotMatch(response.message, /yêu cầu nhà cung cấp gửi lại/i);
+assert.match(response.message, /Lệch ở: tên sản phẩm/);
 status = 'category_changed'; response = await exports.decideSupplierProductAction(form); assert.match(response.message, /Danh mục/);
 status = 'saved'; response = await exports.decideSupplierProductAction(form);
 assert.equal(response.ok, true);

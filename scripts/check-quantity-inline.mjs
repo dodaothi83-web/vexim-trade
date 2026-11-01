@@ -21,7 +21,8 @@ const inline = compile('../components/products/quantity-pricing-inline.tsx', { r
  'next/navigation': { useRouter: () => ({ refresh() {} }) }, '@/components/products/quantity-pricing-editor': editor,
  '@/components/products/quantity-preview-store': previewStore,
  '@/components/products/quantity-preview-store': previewStore,
- '@/lib/products/quantity-pricing': pricing, '@/app/supplier/portal/quantity-revision-actions': {}, '@/app/crm/products/quantity-review/submit-actions': {} });
+ '@/lib/products/quantity-pricing': pricing, '@/app/supplier/portal/quantity-revision-actions': {}, '@/app/crm/products/quantity-review/submit-actions': {},
+ '@/app/crm/products/[slug]/edit/price-actions': {} });
 const data = { productId: 'p', updatedAt: '2026-10-29', nameVi: 'Nhân điều', nameEn: 'Cashew', pendingPriceId: 'pending', pendingNameId: null,
  hasApprovedPrice: true, hasApprovedName: false, grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: '1000', priceUsdPerKg: '6.40' }],
  standardGrades: ['W320'], policy: pricing.DEFAULT_QUANTITY_PRICING_POLICY, buyerPriceUnit: 'kg', pricePubliclyVisible: true };
@@ -45,6 +46,12 @@ assert.match(pendingOnly, /Giá mới đang chờ duyệt/);
 assert.match(pendingOnly, /Gửi bảng giá để duyệt/);
 assert.doesNotMatch(pendingOnly, /Người mua vẫn thấy bảng giá đã duyệt/);
 assert.match(supplier, /Tôi xác nhận giá trên là giá tôi sẵn sàng/);
+// Nhà cung cấp chỉ có một đường gửi giá; Vexim thấy thêm nút chốt giá thay nhà cung cấp.
+assert.doesNotMatch(supplier, /Chốt giá thay nhà cung cấp/);
+const staffView = render({ actor: 'staff' });
+assert.match(staffView, /Chốt giá thay nhà cung cấp/, 'Vexim chốt giá được ngay trên trang duyệt');
+assert.match(staffView, /Gửi vào hàng chờ duyệt/, 'Vẫn giữ đường gửi vào hàng chờ duyệt');
+assert.match(staffView, /giá áp dụng ngay cho người mua/);
 const sidebarPreview = renderToStaticMarkup(React.createElement(React.Fragment, null,
   React.createElement('form', null, React.createElement(inline.QuantityPricingInline, { data, actor: 'supplier', onPreviewChange() {} })),
   React.createElement(editor.QuantityBuyerPreview, { value: { grade: 'W320', incoterm: 'FOB', nameVi: 'Nhân điều', nameEn: 'Cashew', tiers: data.tiers },
