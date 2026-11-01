@@ -193,6 +193,19 @@ neo, 4 nút Sửa, danh sách chặn) thay vì canh panel bước; `check-produc
   giữa các tiền tệ; VND/JPY hiển thị không có phần lẻ.
 - **Cột “Đến” của bảng giá**: dòng cuối để dấu `—` (bỏ chữ “trở lên”); các dòng giữa vẫn tự tính bằng mức kế tiếp trừ 1.
 - **Bảng bậc giá dùng `table-fixed` + `colgroup`**: Incoterm 96px, nút xoá 44px, ba cột Từ / Đến / Giá chia đều.
+- **Chốt 01/11/2026, chọn ảnh là tải lên ngay.** Bỏ bước xác nhận thứ hai: chọn tệp hoặc kéo thả xong là
+  mỗi tệp được tải lên luôn (`uploadFiles`), không còn khối "Đã chọn N tệp" kèm nút "Thêm N ảnh vào kho" hay
+  "Tải N tệp". Trong lúc tải có dòng tiến trình; tải lỗi thì báo tệp nào chưa xong để chọn lại.
+- **Chốt 01/11/2026, một con số duy nhất cho ảnh sản phẩm là 6.** Trước đây giao diện có 6 ô, người mua nhận
+  tối đa 6 ảnh (`shareableProductImages(..., limit = 6)`) nhưng API và RPC vẫn cho 8, nên ảnh thứ 7 và thứ 8
+  được nhận mà không hiện ở đâu, vẫn tính vào hạn mức. Nay giới hạn là 6 ở cả `POST /api/supplier-portal/
+  products/[id]/media`, RPC `create_supplier_product_media_guarded` (migration
+  `20261102_product_image_six_limit.sql`) và bước gắn ảnh từ kho. Không xóa ảnh cũ: sản phẩm đang có 7 hoặc 8
+  ảnh giữ nguyên dữ liệu, chỉ không thêm ảnh mới cho tới khi số ảnh dưới 6, và các ảnh đó hiện thành dải
+  "Ảnh ngoài 6 ô" kèm nút xóa để không bị mất dấu.
+- **Ba hạn mức khác nhau, nói rõ để không nhầm:** 6 ảnh hiện với người mua trên mỗi sản phẩm; 12 tệp trên mỗi
+  sản phẩm (ảnh cộng catalogue PDF); 12 ảnh trong kho ảnh của mỗi tài khoản. Ảnh thứ 7 trở đi của một sản phẩm
+  mới nằm lại kho ảnh và dùng được cho sản phẩm khác.
 - **Tải ảnh không cần lưu nháp trước.** Ảnh của sản phẩm mới đi vào kho ảnh của nhà cung cấp (xem §5.2), nên
   không còn nút "Lưu nháp rồi tải ảnh" và không còn câu nhắc phải lưu trước.
 

@@ -39,8 +39,29 @@ assert.match(editor, /fetch\("\/api\/supplier-portal\/media", \{ method: "POST",
 assert.match(editor, /Ảnh có sẵn trong kho/, 'kho ảnh có tên riêng cho phần ảnh chưa dùng');
 assert.match(editor, /const unusedBank = bankMedia\.filter/, 'kho ảnh chỉ lấy ảnh chưa chọn');
 assert.doesNotMatch(editor, /Kho ảnh của bạn/, 'đã bỏ khối "Kho ảnh của bạn" trùng với 6 ô ảnh');
-assert.match(editor, /Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu\./,
-  'phải nói rõ ảnh vào kho trước rồi gắn khi lưu');
+assert.match(editor, /Chọn ảnh là tải lên ngay và tự gắn vào ô trống\./,
+  'phải nói rõ chọn ảnh là tải lên ngay, không có bước xác nhận thứ hai');
+assert.match(editor, /ảnh thứ 7 trở đi nằm trong kho cho sản phẩm khác\./,
+  'phải nói rõ ảnh thứ 7 trở đi nằm lại kho vì sản phẩm chỉ hiện 6 ảnh');
+assert.match(editor, /async function uploadFiles\(list: File\[\]\)/,
+  'tệp vừa chọn phải được tải lên ngay trong chooseFiles');
+assert.match(editor, /void uploadFiles\(files\);/,
+  'chọn tệp xong là tải luôn, không chờ bấm nút');
+assert.ok(!editor.includes('Thêm ${selected.length} ảnh vào kho'),
+  'đã bỏ nút xác nhận tải ảnh thủ công');
+// Ảnh cũ vượt quá 6 ô phải hiện ra kèm nút xóa, không được biến mất im lặng.
+assert.match(editor, /const overflowImages = product/, 'ảnh ngoài 6 ô được tính riêng để hiện ra');
+assert.match(editor, /Ảnh ngoài 6 ô/, 'ảnh ngoài 6 ô có dải riêng kèm nút xóa');
+assert.match(editor, /aria-label="Xóa ảnh ngoài 6 ô"/, 'xóa được ảnh ngoài 6 ô');
+// Ba hạn mức: 6 ảnh mỗi sản phẩm, 12 tệp mỗi sản phẩm, 12 ảnh mỗi kho.
+assert.match(editor, /if \(imageCount \+ incomingImages > 6\)/, 'chặn ảnh thứ 7 của một sản phẩm');
+assert.match(editor, /if \(ownedCount \+ files\.length > 12\)/, 'giữ hạn mức 12 tệp mỗi sản phẩm');
+assert.match(editor, /if \(bankOwnCount \+ files\.length > 12\)/, 'giữ hạn mức 12 ảnh mỗi kho');
+
+const mediaRoute = read('../app/api/supplier-portal/products/[id]/media/route.ts');
+assert.match(mediaRoute, /kind === "image" && current\.filter\(\(m\) => m\.kind === "image"\)\.length >= 6/,
+  'API cũng chặn ở 6 ảnh');
+assert.doesNotMatch(mediaRoute, /Tối đa 8 ảnh/, 'không còn thông báo 8 ảnh ở API');
 assert.match(editor, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 6\)\)\)/,
   'ảnh đã chọn phải gửi kèm khi lưu, tối đa 6 ô ảnh');
 // Ảnh chọn trong kho phải hiện ngay trong 6 ô: ảnh đầu tiên là ảnh chính, nên ảnh đại diện
@@ -83,7 +104,7 @@ for (const page of ['../app/supplier/portal/products/[id]/page.tsx', '../app/sup
 const visibility = read('../lib/supplier-portal/product-view.ts');
 assert.match(visibility, /asset\.supplier_id === supplierId/,
   'cổng nhà cung cấp chỉ hiện ảnh thuộc đúng nhà cung cấp — lý do ảnh mất sau khi lưu');
-assert.match(actions, /bankOrder >= 8/, 'tối đa 8 ảnh gắn vào một sản phẩm');
+assert.match(actions, /bankOrder >= 6/, 'tối đa 6 ảnh gắn vào một sản phẩm, khớp 6 ô ảnh');
 
 // 6. Ảnh trong kho không bao giờ công khai.
 const fileRoute = read('../app/api/media/file/[...path]/route.ts');

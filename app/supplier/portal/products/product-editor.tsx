@@ -20,7 +20,6 @@ import {
   Send,
   Star,
   Trash2,
-  UploadCloud,
   X,
 } from "lucide-react";
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
@@ -232,7 +231,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const [toast, setToast] = useState<{ ok: boolean; message: string; warning?: boolean } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [coverHover, setCoverHover] = useState(false);
-  const [selected, setSelected] = useState<File[]>([]);
   // Kho ảnh: ảnh đã tải lên nhưng chưa thuộc sản phẩm nào. Ảnh được gắn vào sản phẩm
   // đúng lúc bấm Lưu, nên người bán không phải lưu nháp trước mới tải được ảnh.
   const [pickedBank, setPickedBank] = useState<string[]>([]);
@@ -273,6 +271,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const dirty = baseline !== null && !snapshotsEqual(snapshot, baseline);
   const ownedCount = media.filter((m) => m.created_by === userId).length;
   const imageCount = media.filter((m) => m.kind === "image").length;
+  /** Ảnh trong kho ảnh của chính tài khoản này; kho là chỗ ảnh dừng trước khi gắn sản phẩm. */
+  const bankOwnCount = bankMedia.filter((asset) => !userId || asset.created_by === userId).length;
   // Đọc nội dung đang nhập chứ không phải bản đã lưu: gõ mô tả ngắn là mục 8 hết nhắc.
   const hasDetails = !!((snapshot.spec ?? "").trim() || (snapshot.description ?? "").trim());
   const hasMedia = media.some((m) => m.kind === "image" && !!m.storage_path && m.supplier_id === product?.supplier_id);
@@ -625,59 +625,63 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     if (/\.(jpg|jpeg|png|webp)$/i.test(file.name)) return "image";
     return null;
   }
+  /**
+   * Chọn tệp là tải lên ngay, không có bước xác nhận thứ hai.
+   *
+   * Sản phẩm đã lưu: ảnh vào thẳng 6 ô, catalogue vào mục catalogue.
+   * Sản phẩm mới: ảnh vào kho ảnh rồi tự gắn vào 6 ô; ảnh thứ 7 trở đi nằm lại kho
+   * để dành cho sản phẩm khác, vì người mua chỉ thấy 6 ảnh.
+   */
   function chooseFiles(files: File[]) {
+    if (!files.length || !canUpload) return;
     if (!product) {
       // Chưa có sản phẩm: tệp đi vào kho ảnh, nên chỉ nhận ảnh và đếm theo kho.
-      const bankCount = bankMedia.filter((asset) => !userId || asset.created_by === userId).length;
       if (files.some((file) => uploadKind(file) !== "image")) {
         setToast({ ok: false, message: "Kho ảnh chỉ nhận ảnh JPG, PNG hoặc WebP. Catalogue tải được sau khi lưu sản phẩm." });
-        setSelected([]);
         return;
       }
-      if (bankCount + files.length > 12) {
-        setToast({ ok: false, message: `Kho ảnh tối đa 12 ảnh; hiện bạn đã có ${bankCount} ảnh.` });
-        setSelected([]);
+      if (bankOwnCount + files.length > 12) {
+        setToast({ ok: false, message: `Kho ảnh tối đa 12 ảnh; hiện bạn đã có ${bankOwnCount} ảnh.` });
         return;
       }
       const tooBig = files.find((file) => file.size > 8 * 1024 * 1024);
       if (tooBig) {
-        setToast({ ok: false, message: `Ảnh “${tooBig.name}” quá 8 MB. Chọn ảnh nhẹ hơn.` });
-        setSelected([]);
+        setToast({ ok: false, message: `Ảnh "${tooBig.name}" quá 8 MB. Chọn ảnh nhẹ hơn.` });
         return;
       }
-      setSelected(files);
+      void uploadFiles(files);
       return;
     }
-    if (imageCount + files.filter((file) => uploadKind(file) === "image").length > 8) {
-      setToast({ ok: false, message: `Tối đa 8 ảnh sản phẩm; hiện có ${imageCount} ảnh.` });
-      setSelected([]);
+    // Sản phẩm đã lưu: 6 ô ảnh cũng là hạn mức ảnh người mua thấy.
+    const incomingImages = files.filter((file) => uploadKind(file) === "image").length;
+    if (imageCount + incomingImages > 6) {
+      setToast({ ok: false, message: `Sản phẩm đã có ${imageCount} ảnh; tối đa 6 ảnh. Xóa bớt ảnh cũ rồi chọn lại.` });
       return;
     }
     if (ownedCount + files.length > 12) {
-      setToast({ ok: false, message: `Chỉ được tải tối đa 12 tệp; hiện bạn đã có ${ownedCount} tệp.` });
-      setSelected([]);
+      setToast({ ok: false, message: `Mỗi sản phẩm tối đa 12 tệp; hiện bạn đã có ${ownedCount} tệp.` });
       return;
     }
     const invalid = files.find((file) => !uploadKind(file) || file.size > (uploadKind(file) === "catalogue" ? 15 : 8) * 1024 * 1024);
     if (invalid) {
-      setToast({ ok: false, message: `Tệp “${invalid.name}” không đúng định dạng hoặc quá dung lượng. Ảnh tối đa 8 MB, PDF tối đa 15 MB.` });
-      setSelected([]);
+      setToast({ ok: false, message: `Tệp "${invalid.name}" không đúng định dạng hoặc quá dung lượng. Ảnh tối đa 8 MB, PDF tối đa 15 MB.` });
       return;
     }
-    setSelected(files);
+    void uploadFiles(files);
   }
-  async function upload() {
-    if (!canUpload || !selected.length) return;
+  /** Tải danh sách tệp vừa chọn lên ngay khi người dùng chọn xong. */
+  async function uploadFiles(list: File[]) {
+    if (!canUpload || !list.length) return;
     setBusy(true);
     let uploaded = 0;
     try {
       // Chưa có sản phẩm: ảnh vào kho ảnh riêng, gắn vào sản phẩm ngay khi bấm Lưu.
       if (!product) {
         const added: string[] = [];
-        for (let index = 0; index < selected.length; index++) {
-          const file = selected[index];
+        for (let index = 0; index < list.length; index++) {
+          const file = list[index];
           if (uploadKind(file) !== "image") throw Error("Kho ảnh chỉ nhận ảnh JPG, PNG hoặc WebP.");
-          setProgress(`Đang tải ${index + 1}/${selected.length}: ${file.name}`);
+          setProgress(`Đang tải ${index + 1}/${list.length}: ${file.name}`);
           const body = new FormData();
           body.set("file", file);
           const response = await fetch("/api/supplier-portal/media", { method: "POST", body });
@@ -689,18 +693,22 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           uploaded++;
         }
         // Ảnh vừa tải được chọn sẵn cho sản phẩm đang tạo để bấm Lưu là xong.
-        if (added.length) setPickedBank((current) => Array.from(new Set([...current, ...added])).slice(0, 6));
-        setSelected([]);
-        setToast({ ok: true, message: `Đã thêm ${uploaded} ảnh vào kho ảnh. Ảnh được gắn vào sản phẩm khi bạn bấm Lưu.` });
+        const room = Math.max(0, 6 - pickedBank.length);
+        const chosen = added.slice(0, room);
+        const leftover = added.length - chosen.length;
+        if (chosen.length) setPickedBank((current) => Array.from(new Set([...current, ...chosen])).slice(0, 6));
+        setToast({ ok: true, message: leftover
+          ? `Đã thêm ${uploaded} ảnh vào kho và chọn ${chosen.length} ảnh cho sản phẩm này. ${leftover} ảnh nằm lại kho cho sản phẩm khác.`
+          : `Đã thêm ${uploaded} ảnh vào kho và chọn sẵn cho sản phẩm này.` });
         router.refresh();
         return;
       }
       const productId = product.id;
-      for (let index = 0; index < selected.length; index++) {
-        const file = selected[index];
+      for (let index = 0; index < list.length; index++) {
+        const file = list[index];
         const kind = uploadKind(file);
         if (!kind) throw Error("Tệp không đúng định dạng.");
-        setProgress(`Đang tải ${index + 1}/${selected.length}: ${file.name}`);
+        setProgress(`Đang tải ${index + 1}/${list.length}: ${file.name}`);
         const body = new FormData();
         body.set("kind", kind);
         body.set("file", file);
@@ -709,15 +717,13 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         if (!response.ok || !data?.ok) throw Error(data?.message || `Không tải được tệp (HTTP ${response.status}).`);
         uploaded++;
       }
-      setSelected([]);
       setToast({ ok: true, message: live
         ? `Đã tải ${uploaded} tệp lên sản phẩm đã đăng.`
         : `Đã tải ${uploaded} tệp. Tệp sẽ được kiểm tra khi duyệt.` });
       router.refresh();
     } catch (error) {
-      if (uploaded) setSelected(selected.slice(uploaded));
       const failure = reportActionError(error, "Tải tệp");
-      setToast({ ok: false, message: `${uploaded ? `Đã tải ${uploaded} tệp; chỉ còn tệp chưa hoàn tất trong danh sách chọn. ` : ""}${failure.message}` });
+      setToast({ ok: false, message: `${uploaded ? `Đã tải ${uploaded} tệp; tệp còn lại chưa xong. ` : ""}${failure.message}` });
     } finally {
       setProgress("");
       setBusy(false);
@@ -852,6 +858,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     ? [savedCover, ...media.filter((m) => m.kind === "image" && privateMediaUrl(m) && m.id !== savedCover?.id)]
       .filter((m): m is MediaAsset => !!m).slice(0, 6)
     : pickedImages.slice(0, 6);
+  /**
+   * Ảnh cũ vượt quá 6 ô: người mua chỉ thấy 6 ảnh đầu nên phần này phải hiện ra kèm nút xóa,
+   * nếu không nhà cung cấp không biết ảnh thứ 7, thứ 8 đang nằm đâu.
+   */
+  const slotIds = new Set(imageSlots.map((asset) => asset.id));
+  const overflowImages = product
+    ? media.filter((m) => m.kind === "image" && !!privateMediaUrl(m) && !slotIds.has(m.id))
+    : [];
   const savedPriceValue = product?.ref_price != null
     ? formatGradeRowPriceVi(
         product.ref_price,
@@ -1197,6 +1211,20 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 {!product && pickedImages.length > 0 && <p className="mt-1.5 text-[11.5px] text-ink-600">
                   Đang chọn {pickedImages.length} ảnh. Bấm Lưu để gắn vào sản phẩm; bấm ngôi sao để đổi ảnh chính.
                 </p>}
+                {overflowImages.length > 0 && <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2">
+                  <p className="text-[11.5px] font-semibold text-amber-900">Ảnh ngoài 6 ô</p>
+                  <p className="mt-0.5 text-[11px] leading-4 text-amber-900">Sản phẩm có {imageCount} ảnh; người mua chỉ thấy 6 ảnh đầu.</p>
+                  <p className="text-[11px] leading-4 text-amber-900">Xóa ảnh dưới đây nếu muốn thay bằng ảnh mới.</p>
+                  <ul className="mt-1.5 flex flex-wrap gap-1.5">{overflowImages.map((asset) => <li key={asset.id} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={privateMediaUrl(asset) ?? ""} alt="" className="size-12 rounded-md border border-amber-200 object-cover" />
+                    {canDeleteAsset(asset) && <button type="button" disabled={busy} onClick={() => void removeMedia(asset.id)}
+                      aria-label="Xóa ảnh ngoài 6 ô" title="Xóa ảnh"
+                      className="absolute -top-1.5 -right-1.5 rounded-full bg-white p-0.5 text-rose-700 shadow-sm hover:bg-rose-50 disabled:opacity-50">
+                      <X className="size-3" aria-hidden="true" />
+                    </button>}
+                  </li>)}</ul>
+                </div>}
 
                 {/* Kho ảnh chỉ hiện phần chưa dùng, nên ảnh đã chọn không bị lặp lại ở hai chỗ. */}
                 {!product && unusedBank.length > 0 && <div className="mt-2 rounded-md border border-ink-200 bg-white px-2.5 py-2">
@@ -1238,17 +1266,12 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                       </label>
                     </p>
                     <p className="mt-0.5 text-[11px] text-ink-500">{product
-                      ? `Đã tải ${ownedCount}/12 tệp. Ảnh vào 6 ô, PDF vào mục catalogue.`
-                      : `Kho có ${bankMedia.length}/12 ảnh. Ảnh vào kho ảnh trước, gắn vào sản phẩm khi bạn bấm Lưu.`}</p>
+                      ? `Đã tải ${ownedCount}/12 tệp. Tối đa 6 ảnh hiện trong 6 ô, PDF vào mục catalogue.`
+                      : `Kho có ${bankOwnCount}/12 ảnh. Chọn ảnh là tải lên ngay và tự gắn vào ô trống.`}</p>
+                    <p className="mt-0.5 text-[11px] text-ink-500">{product
+                      ? "Mỗi sản phẩm nhận tối đa 6 ảnh và 12 tệp, tính cả catalogue."
+                      : "Một sản phẩm hiện tối đa 6 ảnh; ảnh thứ 7 trở đi nằm trong kho cho sản phẩm khác."}</p>
                   </div>
-                  {selected.length > 0 && <div className="mt-2 rounded-md border border-brand-200 bg-brand-50 p-2.5">
-                    <p className="text-[12px] font-semibold text-brand-900">Đã chọn {selected.length} tệp</p>
-                    <ul className="mt-1 max-h-24 space-y-0.5 overflow-auto text-[11px] text-brand-900">{selected.map((file, index) => <li key={`${file.name}-${index}`} className="truncate">{file.name} - {(file.size / 1024 / 1024).toFixed(1)} MB</li>)}</ul>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button type="button" disabled={busy} onClick={upload} className="btn btn-primary btn-sm"><UploadCloud className="size-4" aria-hidden="true" /> {product ? `Tải ${selected.length} tệp` : `Thêm ${selected.length} ảnh vào kho`}</button>
-                      <button type="button" disabled={busy} onClick={() => setSelected([])} className="btn btn-ghost btn-sm">Bỏ chọn</button>
-                    </div>
-                  </div>}
                 </> : <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-900">
                   {locked ? "Đang chờ duyệt nên tạm khoá tải tệp. Duyệt xong hoặc bị trả về, bạn tải thêm được ngay."
                     : "Sản phẩm do Vexim quản lý từ trước nên bạn chưa sửa được tệp. Liên hệ hỗ trợ khi cần thêm ảnh."}

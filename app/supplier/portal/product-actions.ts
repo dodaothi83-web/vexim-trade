@@ -276,7 +276,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       const bankIds = parseBankMediaIds(form.get("bank_media_ids"));
       let bankOrder = 0;
       for (const mediaId of bankIds) {
-        if (bankOrder >= 8) break;
+        if (bankOrder >= 6) break;
         try {
           const asset = await store.getMedia(mediaId);
           if (!asset || asset.owner_type !== "supplier" || asset.supplier_id !== access.supplier.id ||
