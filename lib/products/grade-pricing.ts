@@ -101,7 +101,66 @@ export type CategoryGradeSource = {
   price_unit?: string | null;
   moq_units?: readonly string[] | null;
   product_fields?: ProductAttributeField[] | null;
+  /** Grade do nhà cung cấp tự thêm cho nhóm hàng (cột `supplier_grade_options`). */
+  supplier_grade_options?: readonly unknown[] | null;
 } | null | undefined;
+
+/**
+ * Grade do nhà cung cấp tự thêm.
+ *
+ * Bộ grade chuẩn do Vexim khai theo ngành hàng, nhưng nhà máy có cách gọi quy cách riêng
+ * (ví dụ 600 g/L, W240 hàng rang). Nhà cung cấp tự thêm grade ngay trong ô chọn của mình;
+ * grade đó lưu ở cấp danh mục nên mọi sản phẩm cùng nhóm hàng dùng lại được, và Vexim
+ * thấy trong CRM khi duyệt. Giới hạn an toàn giống thông số tự thêm: ngắn, không link,
+ * không số điện thoại, không trùng.
+ */
+export const SUPPLIER_GRADE_LIMIT = 12;
+const SUPPLIER_GRADE_LENGTH = 40;
+
+/** Làm sạch một grade tự nhập; trả chuỗi rỗng nếu không dùng được. */
+export function cleanSupplierGrade(raw: unknown): string {
+  // Chỉ nhận chuỗi: cột jsonb có thể chứa số hoặc null từ lần ghi lỗi.
+  if (typeof raw !== "string") return "";
+  const text = raw.replace(/\s+/g, " ").trim().slice(0, SUPPLIER_GRADE_LENGTH);
+  if (text.length < 2 || !/[a-z0-9]/i.test(text)) return "";
+  if (/[<>{}@]|https?:|www\.|\b[a-z0-9-]{2,}\.(?:com|vn|net|org|io|co|biz|info)\b|\+?\d[\d .()-]{7,}/i.test(text)) return "";
+  return text;
+}
+
+/** Danh sách grade NCC đã thêm cho danh mục, đã làm sạch và bỏ trùng. */
+export function supplierGradeOptions(category: CategoryGradeSource): string[] {
+  const rows = Array.isArray(category?.supplier_grade_options) ? category!.supplier_grade_options! : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const row of rows) {
+    if (out.length >= SUPPLIER_GRADE_LIMIT) break;
+    const grade = cleanSupplierGrade(row);
+    if (!grade) continue;
+    const key = gradeKey(grade);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(grade);
+  }
+  return out;
+}
+
+/** Gộp grade mới vào danh sách đã lưu: bỏ trùng theo gradeKey, giữ thứ tự thêm trước. */
+export function mergeSupplierGradeOptions(saved: unknown, incoming: unknown): string[] {
+  const seed = Array.isArray(saved) ? saved : [];
+  const extra = Array.isArray(incoming) ? incoming : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const row of [...seed, ...extra]) {
+    if (out.length >= SUPPLIER_GRADE_LIMIT) break;
+    const grade = cleanSupplierGrade(row);
+    if (!grade) continue;
+    const key = gradeKey(grade);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(grade);
+  }
+  return out;
+}
 
 const BUILTIN_CATEGORY_GRADES: Array<{ match: RegExp; grades: readonly string[] }> = [
   {
@@ -661,6 +720,9 @@ export function standardGradesForCategory(category: CategoryGradeSource): string
     if (!field || !isGradeFieldKey(field.key) || !Array.isArray(field.options)) continue;
     for (const option of field.options) push(option);
   }
+
+  // Grade NCC tự thêm đứng cuối để danh sách chuẩn của Vexim luôn ở trên cùng.
+  for (const option of supplierGradeOptions(category)) push(option);
 
   return result;
 }

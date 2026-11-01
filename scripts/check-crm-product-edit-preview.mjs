@@ -30,7 +30,7 @@ const lucide = new Proxy({}, { get: (_target, name) => (props) => React.createEl
 const link = { default: ({ children, ...props }) => React.createElement('a', props, children) };
 const store = compile('../components/products/quantity-preview-store.ts', { react: React });
 const editor = compile('../components/products/quantity-pricing-editor.tsx',
-  { 'react/jsx-runtime': jsx, 'next/link': link, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing,
+  { react: React, 'react/jsx-runtime': jsx, 'next/link': link, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing,
     '@/lib/products/price-display': priceDisplay });
 const card = compile('../components/products/quantity-preview-card.tsx',
   { 'react/jsx-runtime': jsx, '@/components/products/quantity-pricing-editor': editor, '@/components/products/quantity-preview-store': store });

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
-import { matchStandardGrade, standardGradesForCategory } from "@/lib/products/grade-pricing";
+import { matchStandardGrade, standardGradesForCategory, supplierGradeOptions } from "@/lib/products/grade-pricing";
 import { parseGradeBounds, parseQuantityPriceSettings } from "@/lib/products/quantity-price-settings";
 
 export type PricingSettingsResult = { ok: boolean; message: string };
@@ -71,5 +71,39 @@ export async function saveGradePriceBounds(_previous: PricingSettingsResult, fd:
   } catch (error) {
     console.error("[quantity-pricing] grade bounds update", error);
     return { ok: false, message: "Chưa lưu được ngưỡng giá. Kiểm tra kết nối và migration 20261053." };
+  }
+}
+
+/**
+ * Gỡ một grade do nhà cung cấp tự thêm khỏi danh mục.
+ *
+ * Grade tự thêm được áp dụng ngay cho cả nhóm hàng, nên phải có đường lùi khi mã bị gõ sai
+ * hoặc trùng nghĩa. Gỡ khỏi danh sách chỉ ngừng mời chọn; sản phẩm đã dùng mã đó giữ nguyên.
+ */
+export async function removeSupplierGradeOption(_previous: PricingSettingsResult, fd: FormData): Promise<PricingSettingsResult> {
+  try {
+    const access = await admin();
+    if (!access) return { ok: false, message: "Không xác nhận được quyền quản trị hoặc kết nối cơ sở dữ liệu." };
+    const categoryId = typeof fd.get("category_id") === "string" ? String(fd.get("category_id")) : "";
+    const grade = typeof fd.get("grade") === "string" ? String(fd.get("grade")) : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId) || !grade)
+      return { ok: false, message: "Chọn đúng danh mục và grade cần gỡ." };
+    const category = await supabaseStore.getCategory(categoryId);
+    if (!category) return { ok: false, message: "Không tìm thấy danh mục." };
+    const before = supplierGradeOptions(category);
+    const pool = before.filter((option) => option !== grade);
+    if (pool.length === before.length) return { ok: false, message: "Grade này không còn trong danh sách tự thêm." };
+    await supabaseStore.updateCategory(category.id, { supplier_grade_options: pool });
+    await supabaseStore.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
+      entity: "category", entity_id: category.id, action: "quantity_pricing.supplier_grade_removed",
+      before: { supplier_grade_options: before }, after: { supplier_grade_options: pool },
+    }).catch((error) => console.error("[quantity-pricing] supplier grade removal audit", error));
+    revalidatePath("/crm/settings/quantity-pricing");
+    revalidatePath("/supplier/portal/products", "layout");
+    revalidatePath("/rfq");
+    return { ok: true, message: `Đã gỡ ${grade}. Sản phẩm đang dùng mã này vẫn giữ nguyên grade.` };
+  } catch (error) {
+    console.error("[quantity-pricing] supplier grade removal", error);
+    return { ok: false, message: "Chưa gỡ được grade. Kiểm tra kết nối rồi thử lại." };
   }
 }

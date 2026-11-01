@@ -68,7 +68,8 @@ export default async function QuantityPricingPreviewPage({ params }: { params: P
         hasApprovedPrice={!!approvedPrice} hasApprovedName={!!approvedName}
         grade={typeof price?.grade === "string" ? price.grade : ""} incoterm={typeof price?.incoterm === "string" ? price.incoterm : ""}
         tiers={tiers} standardGrades={standardGradesForCategory(category)} policy={policy}
-        buyerPriceUnit={primary === "mt" ? "mt" : "kg"} pricePubliclyVisible={product.price_publicly_visible === true} />
+        buyerPriceUnit={primary === "mt" ? "mt" : "kg"} pricePubliclyVisible={product.price_publicly_visible === true}
+        categorySlug={category.slug} />
     </>;
   } catch (error) {
     console.error("[quantity-pricing-preview]", error);

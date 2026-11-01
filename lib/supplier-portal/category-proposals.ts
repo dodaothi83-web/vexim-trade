@@ -10,6 +10,8 @@ export type CategoryProposalOption = {
   product_fields?: Category["product_fields"];
   /** Thông số do NCC khác đã tự thêm cho nhóm hàng này - hiện sẵn để dùng lại. */
   supplier_product_fields?: Category["supplier_product_fields"];
+  /** Grade do NCC tự thêm cho nhóm hàng; form sản phẩm phải thấy để chọn lại được. */
+  supplier_grade_options?: Category["supplier_grade_options"];
   /** Mô tả ngắn của danh mục (CMS) - chỉ dùng để NCC nhận ra ngành hàng. */
   intro?: string | null;
 };
@@ -34,6 +36,7 @@ export function categoryProposalOptions(categories: Category[]): CategoryProposa
         moq_units: c.moq_units ?? null,
         product_fields: c.product_fields ?? [],
         supplier_product_fields: c.supplier_product_fields ?? [],
+        supplier_grade_options: c.supplier_grade_options ?? [],
         intro: pickVi(c.intro_i18n) };
     });
 }

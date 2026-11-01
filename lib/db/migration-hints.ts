@@ -26,6 +26,8 @@ const HINTS: Array<{ match: RegExp; migration: string }> = [
   },
   // Thông số NCC tự thêm cho nhóm hàng.
   { match: /supplier_product_fields/i, migration: "supabase/migrations/20261032_supplier_attribute_pool.sql" },
+  // Grade NCC tự thêm cho nhóm hàng.
+  { match: /supplier_grade_options/i, migration: "supabase/migrations/20261102_category_supplier_grade_options.sql" },
   // Bằng chứng hồ sơ tự gửi: thiếu cột submission_id / ràng buộc cũ chưa được nới
   // → lỗi khoá ngoại media_assets_verification_id_fkey khi NCC tải ảnh L2/L3.
   {

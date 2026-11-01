@@ -5,25 +5,29 @@ import { useRouter } from "next/navigation";
 import { QuantityPricingEditor } from "@/components/products/quantity-pricing-editor";
 import { validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import { submitQuantityPriceRevisionAction } from "../../../quantity-revision-actions";
+import { addSupplierGradeOptionAction } from "../../../product-actions";
 
 type Props = {
   productId: string; updatedAt: string; nameVi: string; nameEn: string;
   pendingPriceId: string | null; pendingNameId: string | null; hasApprovedPrice: boolean; hasApprovedName: boolean;
   grade: string; incoterm: string; currency: string; tiers: QuantityPricingInput["tiers"];
   standardGrades: string[]; policy: QuantityPricingPolicy; buyerPriceUnit: "kg" | "mt"; pricePubliclyVisible: boolean;
+  categorySlug: string;
 };
 type Result = { ok: boolean; message: string };
 
 export function QuantityPricingPreviewForm(props: Props) {
   const router = useRouter();
   const [value, setValue] = useState<QuantityPricingInput>({ grade: props.grade, incoterm: props.incoterm, currency: props.currency, nameVi: props.nameVi, nameEn: props.nameEn, tiers: props.tiers });
+  // Grade nhà cung cấp vừa thêm phải dùng được ngay ở lần gửi này, không chờ tải lại trang.
+  const [grades, setGrades] = useState(props.standardGrades);
   const [busy, setBusy] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [priceResult, setPriceResult] = useState<Result | null>(null);
   async function savePrice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    const validation = validateQuantityPricing({ ...value, nameEn: "" }, props.standardGrades, props.policy);
+    const validation = validateQuantityPricing({ ...value, nameEn: "" }, grades, props.policy);
     setShowErrors(true);
     if (!validation.value) { setPriceResult({ ok: false, message: validation.errors[0]?.message ?? "Kiểm tra bảng giá." }); return; }
     const form = new FormData(event.currentTarget);
@@ -45,8 +49,14 @@ export function QuantityPricingPreviewForm(props: Props) {
   return <div className="mt-4 space-y-4">
     <form noValidate onSubmit={(event) => void savePrice(event)} className="rounded-xl border border-ink-200 bg-white p-5">
       <p className="mb-4 text-xs text-ink-600">{props.pendingPriceId ? "Giá mới đang chờ Vexim xác nhận." : props.hasApprovedPrice ? "Đã có bảng giá mới được duyệt." : "Chưa có bảng giá mới được duyệt."}</p>
-      <QuantityPricingEditor value={value} onChange={setValue} standardGrades={props.standardGrades} policy={props.policy}
-        buyerPriceUnit={props.buyerPriceUnit} pricePubliclyVisible={props.pricePubliclyVisible} showTitle={false} validateEnglishName={false} showErrors={showErrors} disabled={busy} />
+      <QuantityPricingEditor value={value} onChange={setValue} standardGrades={grades} policy={props.policy}
+        buyerPriceUnit={props.buyerPriceUnit} pricePubliclyVisible={props.pricePubliclyVisible} showTitle={false} validateEnglishName={false} showErrors={showErrors} disabled={busy}
+        gradeScope={props.categorySlug}
+        onAddGrade={async (grade) => {
+          const result = await addSupplierGradeOptionAction({ categorySlug: props.categorySlug, grade });
+          if (result.ok && result.grades?.length) setGrades(result.grades);
+          return result;
+        }} />
       <button type="submit" disabled={busy} className="btn btn-primary btn-sm mt-4">{busy ? "Đang gửi…" : "Gửi bảng giá để duyệt"}</button>
       {priceResult && <p role={priceResult.ok ? "status" : "alert"} className={`mt-2 text-xs ${priceResult.ok ? "text-emerald-700" : "text-rose-700"}`}>{priceResult.message}</p>}
     </form>
