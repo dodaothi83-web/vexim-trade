@@ -6,6 +6,7 @@ import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { categoryFilterValues } from "@/lib/category-filters";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 import { supplierShortName } from "@/lib/public/supplier-name";
+import { loadRfqProductContext } from "@/lib/public/rfq-product-context";
 import type { Category } from "@/lib/types";
 
 export const metadata = {
@@ -44,6 +45,13 @@ export default async function RfqPage({
     // không bày tên pháp lý viết hoa toàn bộ lên đầu form.
     .map((s) => ({ id: s.id, name: supplierShortName({ name: s.name, trade_name: s.trade_name, display_name: s.display_name }) }));
   const isQuestion = sp?.intent === "question" && supplierIds.length === 1 && initialSuppliers.length === 1 && Boolean(sp?.product_id);
+  // Thẻ "You are asking about" chỉ có khi sản phẩm đã qua cổng công bố và đúng nhà cung
+  // cấp; mọi trường hợp khác trả null để form quay về trạng thái vào từ menu.
+  const contextProduct = await loadRfqProductContext({
+    categorySlug: sp?.category ?? null,
+    supplierId: supplierIds.length === 1 ? supplierIds[0] : null,
+    productId: sp?.product_id ?? null,
+  }).catch(() => null);
 
   return (
     <div className="mx-auto max-w-[1120px] px-5 py-10 sm:px-6 lg:px-8">
@@ -82,6 +90,7 @@ export default async function RfqPage({
         initialSuppliers={initialSuppliers}
         wantsSamples={sp?.sample === "1"}
         mode={isQuestion ? "question" : "quote"}
+        contextProduct={contextProduct}
       />
 
       <p className="mt-6 text-[12.5px] leading-relaxed text-ink-500">

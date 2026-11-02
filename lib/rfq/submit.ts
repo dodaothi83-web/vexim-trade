@@ -121,7 +121,8 @@ function supplierQuestionValidationError(raw: SubmitRfqInput): string | null {
   if (!company || !contactName || !email) return "Please enter your company, name and work email.";
   if (company.length > 200 || contactName.length > 120) return "Company or contact name is too long.";
   if (email.length > 254 || !SUPPLIER_QUESTION_EMAIL.test(email)) return "Please enter a valid work email address.";
-  if (!product || product.length > 180) return "The product name is missing or too long. Please reopen the product page.";
+  // Tên sản phẩm không lấy từ client nữa: server đọc lại theo source_product_id đã xác thực.
+  if (product.length > 180) return "The product name is too long. Please reopen the product page.";
   if (question.length < 4 || question.length > 4_000) return "Your question must be between 4 and 4,000 characters.";
   if (!Array.isArray(raw.preferred_supplier_ids) || raw.preferred_supplier_ids.length !== 1 ||
       typeof raw.preferred_supplier_ids[0] !== "string" || !raw.preferred_supplier_ids[0].trim() || raw.preferred_supplier_ids[0].length > 100 ||
@@ -149,6 +150,8 @@ function rejectWebmail(): boolean {
 
 export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   const isSupplierQuestion = raw.inquiry_kind === "supplier_question";
+  // Phần người mua tự viết (có thể rỗng khi họ vào từ trang sản phẩm).
+  const extraText = typeof raw.product_text === "string" ? raw.product_text.trim() : "";
   // 1) Rate limit per IP/UA
   gcRateLimit();
   const ip = (await firstHeader("x-forwarded-for"))?.split(",")[0]?.trim() ?? null;
@@ -191,7 +194,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     company: raw.company,
     website: raw.website,
     message: raw.message,
-    productText: raw.product_text,
+    productText: extraText,
     phone: raw.phone,
     honeypot: raw.honeypot,
     challengeOk,
@@ -228,19 +231,47 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   if (!raw.consent) {
     return { ok: false, message: "Bạn cần đồng ý với chính sách bảo mật." };
   }
-  if (!raw.product_text.trim()) {
-    return { ok: false, message: "Vui lòng mô tả sản phẩm cần báo giá." };
-  }
+  // Tên sản phẩm có thể do server dựng từ source_product_id đã xác thực; không lấy từ chuỗi client gửi.
   // Trần độ dài khớp bộ đếm trên form; chặn payload lớn chèn thẳng qua server action.
-  if (raw.product_text.length > 4_000 || (raw.message?.length ?? 0) > 4_000) {
+  if (extraText.length > 4_000 || (raw.message?.length ?? 0) > 4_000) {
     return { ok: false, message: "Mô tả quá dài. Vui lòng rút gọn dưới 4.000 ký tự." };
   }
   if (!raw.company.trim() || !raw.contact_name.trim() || !raw.email.trim()) {
     return { ok: false, message: "Vui lòng điền đầy đủ tên công ty, người liên hệ và email." };
   }
 
-  // 6) Upsert buyer theo email
+  // 5b) Xác thực sản phẩm nguồn TRƯỚC khi kiểm nội dung: RFQ mở từ trang sản phẩm không
+  //     bắt người mua gõ lại tên sản phẩm. Định danh lấy theo product_id (khớp sản phẩm
+  //     buyer-ready + đúng nhà cung cấp đã chỉ định + đúng danh mục), không so khớp tên.
   const store = getStore();
+  const category = raw.category_slug ? await store.getCategoryBySlug(raw.category_slug).catch(() => null) : null;
+  const categoryId = category?.id ?? null;
+
+  let preferredIds: string[] = [];
+  if (raw.preferred_supplier_ids && raw.preferred_supplier_ids.length > 0) {
+    const publ = await listPublicSuppliers().catch(() => []);
+    const pubIds = new Set(publ.map((s) => s.id));
+    preferredIds = raw.preferred_supplier_ids.filter((id) => pubIds.has(id));
+  }
+
+  const sourceProduct = category?.status === "published" && category.is_published && raw.source_product_id && preferredIds.length
+    ? ((await listPublicCategoryProducts(category).catch(() => []))
+        .find((p) => p.id === raw.source_product_id && preferredIds.includes(p.supplierId))) ?? null
+    : null;
+  const sourceProductId = sourceProduct?.id ?? null;
+  if (isSupplierQuestion && (!sourceProduct || preferredIds.length !== 1 || !category)) {
+    return { ok: false, message: "This product or supplier is no longer available. Please return to the product page and try again." };
+  }
+  // product_text = tên sản phẩm đã xác thực, nối thêm phần người mua tự viết (nếu có).
+  const productText = sourceProduct ? (extraText ? `${sourceProduct.name}. ${extraText}` : sourceProduct.name) : extraText;
+  if (!productText) {
+    return { ok: false, message: "Vui lòng mô tả sản phẩm cần báo giá." };
+  }
+  if (productText.length > 4_000) {
+    return { ok: false, message: "Mô tả quá dài. Vui lòng rút gọn dưới 4.000 ký tự." };
+  }
+
+  // 6) Upsert buyer theo email
   const web = normalizeCompanyWebsite(raw.website ?? null);
 
   let buyer: Buyer | null = null;
@@ -261,7 +292,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     website: web,
     linkedin: null,
     instagram: null,
-    product: raw.product_text.trim(),
+    product: productText,
     spec: [raw.grade, raw.packaging, raw.certifications].filter(Boolean).join(" · ") || null,
     quantity: raw.quantity && raw.unit ? `${raw.quantity} ${raw.unit}` : null,
     target_price:
@@ -301,14 +332,6 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     buyer = await store.createBuyer(buyerInput);
   }
 
-  // 7) Lấy category theo slug nếu có
-  let categoryId: string | null = null;
-  let category = null as Awaited<ReturnType<typeof store.getCategoryBySlug>>;
-  if (raw.category_slug) {
-    category = await store.getCategoryBySlug(raw.category_slug).catch(() => null);
-    categoryId = category?.id ?? null;
-  }
-
   // 8) Sinh code: tiền tố ngày và số thứ tự phải cùng một múi giờ (giờ Hà Nội).
   //    Lấy max(seq) của hôm nay + 1 và vòng lặp tránh mã đã tồn tại để không chèn trùng
   //    khi hai người gửi cùng lúc hoặc khi danh sách bị giới hạn số dòng.
@@ -328,24 +351,6 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     code = generateRfqCode(seq, dayKey);
   }
 
-  // Resolve preferred_supplier_ids (chỉ giữ những NCC published)
-  let preferredIds: string[] = [];
-  if (raw.preferred_supplier_ids && raw.preferred_supplier_ids.length > 0) {
-    const publ = await listPublicSuppliers().catch(() => []);
-    const pubIds = new Set(publ.map((s) => s.id));
-    preferredIds = raw.preferred_supplier_ids.filter((id) => pubIds.has(id));
-  }
-
-  // Attribution only when the URL names a real, published buyer-ready product of the preferred supplier.
-  // A buyer may edit product_text; never guess product identity from that free text.
-  const sourceProductId = category?.status === "published" && category.is_published && raw.source_product_id && preferredIds.length
-    ? (await listPublicCategoryProducts(category).catch(() => [])).some((p) => p.id === raw.source_product_id && preferredIds.includes(p.supplierId) &&
-        p.name.trim().toLowerCase() === raw.product_text.trim().toLowerCase())
-      ? raw.source_product_id : null
-    : null;
-  if (isSupplierQuestion && (preferredIds.length !== 1 || !sourceProductId || !category)) {
-    return { ok: false, message: "This product or supplier is no longer available. Please return to the product page and try again." };
-  }
   const productUrl = isSupplierQuestion && sourceProductId && category
     ? `${SITE_URL}/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(sourceProductId)}`
     : null;
@@ -360,8 +365,10 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     code,
     buyer_id: buyer.id,
     category_id: categoryId,
-    product_text: raw.product_text.trim(),
+    product_text: productText,
     specs: {
+      // Dấu vết sản phẩm đã xác thực (desk đối chiếu khi người mua sửa mô tả).
+      product_ref: sourceProduct ? { id: sourceProduct.id, name: sourceProduct.name } : null,
       grade: raw.grade ?? null,
       packaging: raw.packaging ?? null,
       certifications: raw.certifications ?? null,

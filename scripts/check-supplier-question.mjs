@@ -265,6 +265,36 @@ assert.equal(buyerUpdates.at(-1).patch.supplier_id, 'supplier-existing', 'A new 
 assert.equal(buyerUpdates.at(-1).patch.stage, 'contacted');
 assert.equal(buyerUpdates.at(-1).patch.owner, 'Sales Owner');
 
+// --- Ask supplier gửi thật: tên sản phẩm do server dựng, buyer không phải gõ lại ---
+listedBuyers = [];
+const productOnly = await submit.submitRfq({ ...rawQuestion, product_text: '' });
+assert.equal(productOnly.ok, true, 'Ask supplier vẫn gửi được khi ô mô tả để trống');
+assert.equal(productOnly.supplierDelivered, true);
+const askRow = createdRfqs.at(-1);
+assert.equal(askRow.product_text, 'Cashew W320', 'Tên sản phẩm lấy từ product_id đã xác thực');
+assert.equal(askRow.source_product_id, 'p-a', 'Câu hỏi trực tiếp giữ được sản phẩm nguồn');
+assert.deepEqual(JSON.parse(JSON.stringify(askRow.specs.product_ref)), { id: 'p-a', name: 'Cashew W320' });
+
+await submit.submitRfq({ ...rawQuestion, product_text: 'Need vacuum tins' });
+assert.equal(createdRfqs.at(-1).product_text, 'Cashew W320. Need vacuum tins', 'Phần buyer viết được nối sau tên sản phẩm');
+
+const wrongProduct = await submit.submitRfq({ ...rawQuestion, product_text: '', source_product_id: 'p-other' });
+assert.equal(wrongProduct.ok, false, 'product_id không khớp nhà cung cấp/sản phẩm công bố thì bị chặn');
+assert.match(wrongProduct.message, /no longer available/);
+
+// Quote từ trang sản phẩm: giữ attribution theo product_id, KHÔNG so khớp tên.
+const quoteFromProduct = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', share_contact_consent: false,
+  product_text: 'Other words entirely', quantity: 5, unit: 'MT', destination_country: 'US' });
+assert.equal(quoteFromProduct.ok, true);
+assert.equal(createdRfqs.at(-1).source_product_id, 'p-a', 'source_product_id theo product_id đã xác thực, không so tên');
+assert.equal(createdRfqs.at(-1).product_text, 'Cashew W320. Other words entirely');
+
+// Vào từ menu (không sản phẩm nguồn) thì mô tả vẫn bắt buộc.
+const emptyQuote = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', share_contact_consent: false,
+  product_text: '', source_product_id: null, preferred_supplier_ids: [] });
+assert.equal(emptyQuote.ok, false);
+assert.match(emptyQuote.message, /mô tả sản phẩm/);
+
 const productPage = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 const form = fs.readFileSync(new URL('../app/(public)/rfq/rfq-form.tsx', import.meta.url), 'utf8');
 const page = fs.readFileSync(new URL('../app/(public)/rfq/page.tsx', import.meta.url), 'utf8');

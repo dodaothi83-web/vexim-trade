@@ -18,6 +18,7 @@ import {
 import { submitRfqAction } from "./actions";
 import { FormChallenge } from "@/components/form-challenge";
 import { cx } from "@/components/ui";
+import type { RfqProductContext } from "@/lib/public/rfq-product-context";
 
 interface Option {
   slug: string;
@@ -41,6 +42,11 @@ interface Props {
   initialSuppliers?: Array<{ id: string; name: string }>;
   wantsSamples: boolean;
   mode?: "quote" | "question";
+  /**
+   * Sản phẩm buyer mở từ trang sản phẩm, đã qua cổng công bố. Có thẻ này thì ô mô tả
+   * chuyển thành "Your requirements" (tuỳ chọn) vì tên sản phẩm do server dựng.
+   */
+  contextProduct?: RfqProductContext | null;
 }
 
 const UNITS = ["MT", "kg", "lb", "container (20')", "container (40')", "pallet", "carton"];
@@ -79,6 +85,7 @@ export function RfqForm({
   initialSuppliers = [],
   wantsSamples,
   mode = "quote",
+  contextProduct = null,
 }: Props) {
   const router = useRouter();
   const isQuestion = mode === "question";
@@ -144,7 +151,8 @@ export function RfqForm({
   /** Chỉ kiểm đúng những ô đang hiển thị. Không có trường ẩn nào bị đòi. */
   function validateQuote(): Record<string, string> {
     const e: Record<string, string> = {};
-    if (!data.product_text.trim()) e.product_text = "Describe the product and grade you need.";
+    // Có thẻ sản phẩm thì server tự dựng tên sản phẩm; ô này chỉ là yêu cầu thêm.
+    if (!contextProduct && !data.product_text.trim()) e.product_text = "Describe the product and grade you need.";
     if (!data.quantity || Number(data.quantity) <= 0) e.quantity = "Enter a quantity.";
     if (!data.destination_country) e.destination_country = "Pick a destination.";
     if (!data.company.trim()) e.company = "Enter your company name.";
@@ -244,7 +252,9 @@ export function RfqForm({
 
   // Tiến độ các ô bắt buộc — hiển thị ngay để người mua biết còn thiếu gì.
   const requiredChecks = [
-    { key: "product_text", label: "What you need", done: Boolean(data.product_text.trim()) },
+    contextProduct
+      ? { key: "product", label: "Product", done: true }
+      : { key: "product_text", label: "What you need", done: Boolean(data.product_text.trim()) },
     { key: "quantity", label: "Quantity", done: Boolean(data.quantity) && Number(data.quantity) > 0 },
     { key: "destination_country", label: "Destination country", done: Boolean(data.destination_country.trim()) },
     { key: "company", label: "Company", done: Boolean(data.company.trim()) },
@@ -272,7 +282,7 @@ export function RfqForm({
       <form onSubmit={submit} className="mt-8">
         <div className="mb-6 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-700"><MessageCircle className="h-4 w-4" />Product question</p>
-          <p className="mt-2 break-words text-base font-bold text-ink-900">{initialProduct}</p>
+          <p className="mt-2 break-words text-base font-bold text-ink-900">{contextProduct?.name || initialProduct}</p>
           <p className="mt-1 text-sm text-ink-600">To: <strong className="text-ink-800">{supplierName}</strong></p>
         </div>
         {serverMsg && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-800">{serverMsg}</div>}
@@ -325,7 +335,65 @@ export function RfqForm({
   return (
     <form onSubmit={submit} className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_290px] lg:items-start">
       <div className="min-w-0 space-y-4">
-        {initialSuppliers.length > 0 ? (
+        {contextProduct ? (
+          <section aria-labelledby="rfq-product-context" className="card p-5 sm:p-6">
+            <div className="flex items-start gap-4">
+              {contextProduct.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={contextProduct.imageUrl} alt="" className="h-16 w-16 shrink-0 rounded-lg border border-ink-200 object-cover" />
+              ) : (
+                <span aria-hidden="true" className="h-16 w-16 shrink-0 rounded-lg border border-ink-200 bg-ink-50" />
+              )}
+              <div className="min-w-0">
+                <p className="text-[11.5px] text-ink-500">You are asking about</p>
+                <p id="rfq-product-context" className="break-words text-[15px] font-bold leading-snug text-ink-900">{contextProduct.name}</p>
+                <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-600">
+                  from <Link href={contextProduct.supplierHref} className="font-semibold text-brand-700 hover:underline">{contextProduct.supplierName}</Link>
+                  {contextProduct.checks.length > 0 && <> · <span className="text-emerald-700">{contextProduct.checks.map((c) => `✓ ${c}`).join(" · ")}</span></>}
+                </p>
+              </div>
+            </div>
+
+            {(contextProduct.grade || contextProduct.moq || contextProduct.referencePrice || contextProduct.exportPort) && (
+              <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[12.5px] text-ink-700">
+                {contextProduct.grade && <div><dt className="inline text-ink-500">Grade </dt><dd className="inline font-semibold text-ink-900">{contextProduct.grade}</dd></div>}
+                {contextProduct.moq && <div><dt className="inline text-ink-500">MOQ </dt><dd className="inline font-semibold text-ink-900">{contextProduct.moq}</dd></div>}
+                {contextProduct.referencePrice && (
+                  <div>
+                    <dt className="inline text-ink-500">Reference </dt>
+                    <dd className="inline font-semibold text-ink-900">{contextProduct.referencePrice}{contextProduct.incoterm ? ` ${contextProduct.incoterm}` : ""}</dd>
+                    {contextProduct.priceUpdatedAt && <span className="text-ink-500"> · updated {contextProduct.priceUpdatedAt}</span>}
+                  </div>
+                )}
+                {contextProduct.exportPort && <div><dt className="inline text-ink-500">Ships from </dt><dd className="inline font-semibold text-ink-900">{contextProduct.exportPort}</dd></div>}
+              </dl>
+            )}
+
+            {contextProduct.certificates.length > 0 && (
+              <p className="mt-3 flex flex-wrap items-center gap-1.5 text-[12.5px] text-ink-600">
+                <span>Supplier holds:</span>
+                {contextProduct.certificates.map((certificate) => (
+                  <span key={certificate} className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[11.5px] font-semibold text-teal-900">{certificate}</span>
+                ))}
+                <Link href={`${contextProduct.supplierHref}#certificates`} className="ml-1 font-semibold text-brand-700 underline">See certificates</Link>
+              </p>
+            )}
+
+            {(contextProduct.packaging || contextProduct.leadTime) && (
+              <details className="mt-3 rounded-lg border border-ink-200 px-3 py-2">
+                <summary className="cursor-pointer text-[12.5px] font-semibold text-ink-700">Packaging and lead time</summary>
+                <dl className="mt-2 space-y-1 text-[12.5px] text-ink-700">
+                  {contextProduct.packaging && <div><dt className="inline text-ink-500">Packaging </dt><dd className="inline">{contextProduct.packaging}</dd></div>}
+                  {contextProduct.leadTime && <div><dt className="inline text-ink-500">Lead time </dt><dd className="inline">{contextProduct.leadTime}</dd></div>}
+                </dl>
+              </details>
+            )}
+
+            <p className="mt-4 border-t border-ink-100 pt-3 text-[12.5px] leading-relaxed text-ink-600">
+              Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.
+            </p>
+          </section>
+        ) : initialSuppliers.length > 0 ? (
           <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-[13.5px] leading-relaxed text-ink-700">
             You are requesting a quote from <strong className="text-ink-900">{initialSuppliers.map((s) => s.name).join(", ")}</strong>.
             Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.
@@ -343,7 +411,12 @@ export function RfqForm({
 
         {/* Khối 1: sản phẩm + số lượng + liên hệ — gộp một card như mockup */}
         <section className="card space-y-5 p-5 sm:p-6">
-          <Field label="What do you need?" required error={errors.product_text} id="rfq-product_text">
+          <Field
+            label={contextProduct ? "Your requirements" : "What do you need?"}
+            required={!contextProduct}
+            error={errors.product_text}
+            id="rfq-product_text"
+          >
             <textarea
               id="rfq-product_text"
               rows={5}
@@ -351,7 +424,9 @@ export function RfqForm({
               className="input resize-y"
               value={data.product_text}
               onChange={(e) => update("product_text", e.target.value)}
-              placeholder="e.g. Cashew kernels W320, vacuum tins, HACCP required, shipment January"
+              placeholder={contextProduct
+                ? "Anything specific about this product? Packing, certificates, shipment month..."
+                : "e.g. Cashew kernels W320, vacuum tins, HACCP required, shipment January"}
             />
             <span className="mt-1 flex justify-end text-[11px] tabular-nums text-ink-400">{data.product_text.length}/4000</span>
           </Field>
@@ -363,7 +438,13 @@ export function RfqForm({
           <div className="@container">
             <div className="grid gap-4 @min-[640px]:grid-cols-2">
               <div className="max-w-[380px] @min-[640px]:col-span-2">
-                <Field label="Quantity" required error={errors.quantity} id="rfq-quantity">
+                <Field
+                  label="Quantity"
+                  required
+                  error={errors.quantity}
+                  id="rfq-quantity"
+                  hint={contextProduct?.moq ? `Supplier MOQ: ${contextProduct.moq}. Your quantity can be different.` : undefined}
+                >
                   <div className="flex">
                     <input
                       id="rfq-quantity"
@@ -399,7 +480,12 @@ export function RfqForm({
                   {COUNTRY_NAMES.map((c) => <option key={c} value={c} />)}
                 </datalist>
               </Field>
-              <Field label="Port (optional)">
+              <Field
+                label="Port (optional)"
+                hint={contextProduct?.exportPort
+                  ? `Your destination port. Supplier ships from ${contextProduct.exportPort}.`
+                  : undefined}
+              >
                 <input
                   className="input"
                   value={data.destination_port}
@@ -455,7 +541,12 @@ export function RfqForm({
                     ))}
                   </select>
                 </Field>
-                <Field label="Incoterm">
+                <Field
+                  label="Incoterm"
+                  hint={contextProduct?.incoterm
+                    ? `Supplier's reference price is ${contextProduct.incoterm}. Choose CIF/CFR if you need freight included.`
+                    : undefined}
+                >
                   <select className="input" value={data.incoterm} onChange={(e) => update("incoterm", e.target.value)}>
                     <option value="">Not sure yet</option>
                     {INCOTERMS.map((i) => <option key={i}>{i}</option>)}

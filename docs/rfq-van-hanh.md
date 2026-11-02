@@ -84,7 +84,44 @@ những ô đang hiển thị, cuộn và focus tới ô lỗi đầu tiên. `sc
 giữ luật này, đồng thời chặn việc đưa giá mục tiêu ra ngoài mục chi tiết hoặc đổi mặc định
 chia sẻ.
 
-Chế độ **câu hỏi trực tiếp** giữ nguyên một màn hình 4 ô như cũ.
+### Hai trạng thái của form
+
+**A. Mở từ trang sản phẩm** (`?category=…&suppliers=…&product_id=…&grade=…`)
+
+Server đọc lại sản phẩm (`lib/public/rfq-product-context.ts`) và chỉ dựng thẻ
+**"You are asking about"** khi sản phẩm đã qua cổng công bố: nằm trong danh sách buyer-ready
+của danh mục, đúng nhà cung cấp đã chỉ định, danh mục đã publish. Mọi trường hợp khác trả
+`null` và form rơi về trạng thái B — không đoán, không hiện dữ liệu chưa duyệt.
+
+Thẻ hiện: ảnh buyer-shareable · tên sản phẩm · tên ngắn nhà cung cấp (link hồ sơ) · **tên các
+bước xác minh đã duyệt** ("✓ Documents checked"), không dùng cách đếm "x/3 approved" ·
+grade · MOQ · giá tham khảo + incoterm + ngày cập nhật · cảng xuất · chip chứng nhận kèm link
+"See certificates" · đóng gói và lead time trong `<details>`. Không có popover.
+
+Khi có thẻ:
+- ô mô tả thành **"Your requirements"** và **không bắt buộc** — tên sản phẩm do server dựng;
+- dòng đầu checklist là **"Product"** và tự tick, nên vẫn là `N/6 required`;
+- gợi ý dưới các ô: MOQ của nhà cung cấp, cảng đích so với cảng xuất, incoterm của giá tham khảo.
+
+**B. Vào từ menu** — không có thẻ; ô **"What do you need?"** vẫn bắt buộc như trước.
+
+Thanh chuyển hai trạng thái trong bản thiết kế là công cụ của canvas, **không** đưa vào
+production.
+
+### product_text lấy từ đâu
+
+`source_product_id` được xác thực theo `product_id` (khớp sản phẩm buyer-ready + đúng nhà
+cung cấp + đúng danh mục), **không so khớp tên người mua gõ**. Nhờ vậy:
+
+- mở từ trang sản phẩm: `product_text` = tên sản phẩm (server dựng) + phần người mua viết
+  thêm, cách nhau bằng dấu chấm. Không cần gõ lại tên sản phẩm;
+- vào từ menu: vẫn bắt buộc mô tả;
+- câu hỏi trực tiếp ("Ask supplier") không còn phụ thuộc chuỗi client gửi lên — trước đây ô
+  mô tả để trống làm câu hỏi bị chặn ở server;
+- `specs.product_ref = { id, name }` giữ dấu vết sản phẩm đã xác thực để desk đối chiếu khi
+  người mua sửa mô tả.
+
+Chế độ **câu hỏi trực tiếp** giữ nguyên một màn hình 4 ô như cũ (dùng tên sản phẩm đã xác thực ở banner).
 
 ## 2. Luồng A — báo giá, từ đầu đến cuối
 
