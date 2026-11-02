@@ -333,8 +333,8 @@ assert.ok(
 
 const feedSource = readFileSync(new URL("../components/home-product-feed.tsx", import.meta.url), "utf8");
 assert.ok(feedSource.includes("prefers-reduced-motion"), "The rotation respects the reduced-motion setting");
-assert.ok(!feedSource.includes("visibilitychange"), "No app-level hidden-tab gate");
-assert.ok(!feedSource.includes("IntersectionObserver"), "Autoplay does not wait for off-screen visibility");
+assert.ok(feedSource.includes("visibilitychange"), "Hidden tabs pause autoplay");
+assert.ok(feedSource.includes("IntersectionObserver"), "Leaving the grid releases the touch hold");
 assert.ok(feedSource.includes("Pause autoplay"), "Buyer can explicitly pause autoplay");
 assert.ok(feedSource.includes('wide ? " lg:grid-cols-5" : ""'), "Desktop switches to five columns with the 15-card page size");
 
@@ -361,3 +361,12 @@ assert.deepEqual(balanceHomepageCategories([]), []);
 assert.deepEqual(balanceHomepageCategories([cashew], 0), []);
 assert.deepEqual(balanceHomepageCategories([pepper]), pepper, 'Single-category fallback stays ordered');
 console.log('Homepage category balance: skewed inventory, supplier caps, stable ranking, duplicates and empty categories passed');
+
+assert.equal(feedModule.AUTO_ADVANCE_MS, 20000);
+for (const reason of ['hovered', 'focused', 'touchHeld', 'hidden']) {
+  assert.equal(autoAdvanceAllowed({ pageCount: 4, stopped: false, [reason]: true }), false, `${reason} pauses rotation`);
+}
+assert.equal(autoAdvanceAllowed({ pageCount: 4, stopped: false, hovered: false, focused: false, touchHeld: false, hidden: false }), true);
+assert.ok(feedSource.includes('timerVersion'), 'Manual navigation resets the full countdown');
+assert.ok(feedSource.includes('onBlurCapture') && feedSource.includes('onPointerDown'), 'Keyboard and touch holds wired');
+assert.ok(feedSource.includes('progress}%'), 'Progress indicator reflects timer');
