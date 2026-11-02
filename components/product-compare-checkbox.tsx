@@ -4,11 +4,11 @@ import { useProductComparison } from "@/components/product-comparison-provider";
 import type { ProductComparisonSelection } from "@/lib/public/product-comparison";
 
 /** Image-corner comparison control expands on card hover or keyboard focus.
- * Remains a sibling of the product link, with a comfortable 40px hit target.
+ * Remains a sibling of the product link, with a compact 32px-high control inset from the image edge.
  */
 export function ProductCompareCheckbox({
   product,
-  className = "absolute right-0.5 top-0.5",
+  className = "absolute right-2 top-2",
 }: {
   product: ProductComparisonSelection;
   className?: string;
@@ -20,7 +20,7 @@ export function ProductCompareCheckbox({
   return (
     <label
       title={selected ? "Remove from comparison" : "Compare product"}
-      className={`${className} group/cmp z-20 flex min-h-10 min-w-10 items-center justify-end gap-1.5 rounded-full px-2 select-none transition-colors hover:bg-white/95 focus-within:bg-white/95 group-hover/card:bg-white/95 group-focus-within/card:bg-white/95 [@media(hover:none)]:bg-white/95 ${
+      className={`${className} group/cmp z-20 flex min-h-8 min-w-10 items-center justify-end gap-1.5 rounded-full px-2 select-none transition-colors hover:bg-white/95 focus-within:bg-white/95 group-hover/card:bg-white/95 group-focus-within/card:bg-white/95 [@media(hover:none)]:bg-white/95 ${
         ready ? "cursor-pointer" : "cursor-wait opacity-70"
       }`}
       onClick={(event) => event.stopPropagation()}
