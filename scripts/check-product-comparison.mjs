@@ -166,8 +166,8 @@ const { ProductCompareCheckbox } = compile("../components/product-compare-checkb
 const checkboxHtml = renderToStaticMarkup(React.createElement(ProductCompareCheckbox, { product: item("b") }));
 assert.match(checkboxHtml, /type="checkbox"/);
 assert.match(checkboxHtml, /aria-label="Add Product b to comparison"/);
-assert.match(checkboxHtml, /absolute right-0\.5 top-0\.5/);
-assert.match(checkboxHtml, /min-h-10 min-w-10/, "Expandable hit area stays at least 40x40px");
+assert.match(checkboxHtml, /absolute right-2 top-2/);
+assert.match(checkboxHtml, /min-h-8 min-w-10/, "Compact control is 32px high and at least 40px wide");
 assert.match(checkboxHtml, /(?:^|\s)size-\[21px\](?:\s|")/, "Visual checkbox is 21px (20-22px)");
 assert.match(checkboxHtml, /(?:^|\s)bg-white\/80(?:\s|")/, "Unchecked visual box uses semi-transparent white fill");
 assert.doesNotMatch(checkboxHtml, /\bshadow(?:-sm|-md|-lg|-xl|-2xl|-card|-pop)?\b/, "No drop shadow on compare checkbox");
