@@ -10,22 +10,10 @@ import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
 export type HomeFeedProduct = PublicCategoryProduct & { categorySlug: string };
 
-/** Homepage showcase rotates every twenty seconds unless explicitly paused. */
-export const AUTO_ADVANCE_MS = 20000;
-
 export function pageSlice<T>(items: T[], page: number, perPage: number = HOME_FEED_PER_PAGE) {
   const pageCount = Math.max(1, Math.ceil(items.length / perPage));
   const current = Math.min(Math.max(1, Math.trunc(page) || 1), pageCount);
   return { shown: items.slice((current - 1) * perPage, current * perPage), current, pageCount };
-}
-
-export function autoAdvanceAllowed(input: { pageCount: number; stopped: boolean; hovered?: boolean; focused?: boolean; touchHeld?: boolean; hidden?: boolean }): boolean {
-  return input.pageCount > 1 && !input.stopped && !input.hovered && !input.focused && !input.touchHeld && !input.hidden;
-}
-
-/** Trang kế tiếp khi tự chuyển: hết trang cuối thì quay lại trang đầu. */
-export function nextAutoPage(current: number, pageCount: number): number {
-  return current >= pageCount ? 1 : current + 1;
 }
 
 /**
@@ -69,13 +57,6 @@ export function HomeProductFeed({
   const wide = useSyncExternalStore(subscribeWide, readWide, serverWide);
   const size = perPage ?? feedPerPage(wide);
   const [page, setPage] = useState(1);
-  const [paused, setPaused] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [touchHeld, setTouchHeld] = useState(false);
-  const [hidden, setHidden] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [timerVersion, setTimerVersion] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
   const scrollWanted = useRef(false);
@@ -83,9 +64,8 @@ export function HomeProductFeed({
   // Đổi cỡ màn hình thì số thẻ mỗi trang đổi theo; pageSlice tự kẹp số trang,
   // nên không rơi vào trang rỗng khi số trang ít đi.
   const { shown, current, pageCount } = pageSlice(items, page, size);
-  const autoAdvance = autoAdvanceAllowed({ pageCount, stopped: paused, hovered, focused, touchHeld, hidden });
 
-  // Máy đặt giảm chuyển động thì không tự chuyển trang, và cũng không cuộn mượt.
+  // Respect reduced-motion preferences when scrolling after manual navigation.
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
     const sync = () => setReducedMotion(query.matches);
@@ -94,39 +74,7 @@ export function HomeProductFeed({
     return () => query.removeEventListener("change", sync);
   }, []);
 
-  useEffect(() => {
-    const sync = () => setHidden(document.visibilityState === "hidden");
-    sync();
-    document.addEventListener("visibilitychange", sync);
-    return () => document.removeEventListener("visibilitychange", sync);
-  }, []);
-
-  // A touch holds the showcase until it leaves view or the buyer resumes it.
-  useEffect(() => {
-    if (!touchHeld || !listRef.current || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry && !entry.isIntersecting) setTouchHeld(false);
-    });
-    observer.observe(listRef.current);
-    return () => observer.disconnect();
-  }, [touchHeld]);
-
-  useEffect(() => {
-    if (!autoAdvance) return;
-    setProgress(0);
-    const started = performance.now();
-    const id = window.setInterval(() => {
-      const elapsed = performance.now() - started;
-      setProgress(Math.min(100, elapsed / AUTO_ADVANCE_MS * 100));
-      if (elapsed >= AUTO_ADVANCE_MS) {
-        setPage((value) => nextAutoPage(Math.min(value, pageCount), pageCount));
-      }
-    }, 100);
-    return () => window.clearInterval(id);
-  }, [autoAdvance, pageCount, current, size, timerVersion]);
-
   // Sang trang do người xem bấm thì kéo lưới vào tầm mắt nếu đã ra khỏi màn hình.
-  // Automatic page changes never scroll the buyer away from their position.
   useEffect(() => {
     if (!scrollWanted.current) return;
     scrollWanted.current = false;
@@ -134,7 +82,6 @@ export function HomeProductFeed({
   }, [current, reducedMotion]);
 
   const goTo = (next: number) => {
-    setTimerVersion((value) => value + 1);
     scrollWanted.current = true;
     setPage(Math.min(Math.max(1, next), pageCount));
   };
@@ -143,11 +90,6 @@ export function HomeProductFeed({
     <>
       <ul
         ref={listRef}
-        onPointerEnter={(event) => { if (event.pointerType === "mouse") setHovered(true); }}
-        onPointerLeave={(event) => { if (event.pointerType === "mouse") setHovered(false); }}
-        onPointerDown={(event) => { if (event.pointerType === "touch" || event.pointerType === "pen") setTouchHeld(true); }}
-        onFocusCapture={() => setFocused(true)}
-        onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}
         // Năm cột và 15 thẻ chỉ bật cùng lúc sau khi trình duyệt xác nhận desktop.
         className={`mt-6 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3${
           wide ? " lg:grid-cols-5" : ""
@@ -194,18 +136,12 @@ export function HomeProductFeed({
           >
             <ChevronLeft className="h-4 w-4" aria-hidden />
           </button>
-          {/* Lượt tự chuyển không đọc lên, kẻo trình đọc màn hình ngắt lời người dùng. */}
-          <div className="flex min-w-14 flex-col items-center gap-1.5">
           <p
-            aria-live={autoAdvance ? "off" : "polite"}
+            aria-live="polite"
             className="min-w-14 text-center text-sm font-semibold tabular-nums text-ink-700"
           >
             {current}/{pageCount}
           </p>
-          <div aria-hidden="true" className="h-1 w-14 overflow-hidden rounded-full bg-ink-100">
-            <div className="h-full rounded-full bg-brand-600" style={{ width: `${progress}%`, transition: reducedMotion ? "none" : "width 100ms linear" }} />
-          </div>
-          </div>
           <button
             type="button"
             onClick={() => goTo(current + 1)}
@@ -214,13 +150,6 @@ export function HomeProductFeed({
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-700 transition hover:border-brand-500 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-ink-200 disabled:hover:text-ink-700"
           >
             <ChevronRight className="h-4 w-4" aria-hidden />
-          </button>
-          <button type="button" onClick={() => {
-            if (paused || touchHeld) { setPaused(false); setTouchHeld(false); setTimerVersion((value) => value + 1); }
-            else setPaused(true);
-          }} aria-pressed={paused || touchHeld}
-            className="rounded-lg px-3 py-2 text-xs font-semibold text-ink-600 hover:bg-ink-50 hover:text-brand-700">
-            {paused || touchHeld ? (isVi ? "Tiếp tục tự chuyển" : "Resume autoplay") : (isVi ? "Tạm dừng" : "Pause autoplay")}
           </button>
         </nav>
       )}

@@ -281,14 +281,7 @@ assert.equal(feedModule.pageSlice(twentyFour, 0).current, 1, "Page zero clamps t
 assert.equal(feedModule.pageSlice(twentyFour, 9).current, 4, "A page past the end clamps to the last page");
 assert.equal(feedModule.pageSlice([], 3).shown.length, 0, "An empty list has one empty page, not NaN");
 
-/* Autoplay is enabled on screen, with explicit pause rather than implicit stops. */
-const { autoAdvanceAllowed, nextAutoPage } = feedModule;
-assert.equal(autoAdvanceAllowed({ pageCount: 4, stopped: false }), true);
-assert.equal(autoAdvanceAllowed({ pageCount: 4, stopped: true }), false);
-assert.equal(autoAdvanceAllowed({ pageCount: 1, stopped: false }), false);
-assert.equal(nextAutoPage(1, 4), 2);
-assert.equal(nextAutoPage(3, 4), 4);
-assert.equal(nextAutoPage(4, 4), 1, "After the last page it starts over instead of getting stuck");
+
 
 /* ---------------- 3. Ô tìm kiếm đi đến trang kết quả ---------------- */
 
@@ -333,9 +326,6 @@ assert.ok(
 
 const feedSource = readFileSync(new URL("../components/home-product-feed.tsx", import.meta.url), "utf8");
 assert.ok(feedSource.includes("prefers-reduced-motion"), "The rotation respects the reduced-motion setting");
-assert.ok(feedSource.includes("visibilitychange"), "Hidden tabs pause autoplay");
-assert.ok(feedSource.includes("IntersectionObserver"), "Leaving the grid releases the touch hold");
-assert.ok(feedSource.includes("Pause autoplay"), "Buyer can explicitly pause autoplay");
 assert.ok(feedSource.includes('wide ? " lg:grid-cols-5" : ""'), "Desktop switches to five columns with the 15-card page size");
 
 console.log("check-home-feed-order: fixed section order, eight categories, 15-card desktop pages, and search route passed");
@@ -362,11 +352,4 @@ assert.deepEqual(balanceHomepageCategories([cashew], 0), []);
 assert.deepEqual(balanceHomepageCategories([pepper]), pepper, 'Single-category fallback stays ordered');
 console.log('Homepage category balance: skewed inventory, supplier caps, stable ranking, duplicates and empty categories passed');
 
-assert.equal(feedModule.AUTO_ADVANCE_MS, 20000);
-for (const reason of ['hovered', 'focused', 'touchHeld', 'hidden']) {
-  assert.equal(autoAdvanceAllowed({ pageCount: 4, stopped: false, [reason]: true }), false, `${reason} pauses rotation`);
-}
-assert.equal(autoAdvanceAllowed({ pageCount: 4, stopped: false, hovered: false, focused: false, touchHeld: false, hidden: false }), true);
-assert.ok(feedSource.includes('timerVersion'), 'Manual navigation resets the full countdown');
-assert.ok(feedSource.includes('onBlurCapture') && feedSource.includes('onPointerDown'), 'Keyboard and touch holds wired');
-assert.ok(feedSource.includes('progress}%'), 'Progress indicator reflects timer');
+assert.doesNotMatch(feedSource, /setInterval|AUTO_ADVANCE_MS|Pause autoplay|Resume autoplay|setProgress/, 'No automatic rotation, pause controls or progress timer');
