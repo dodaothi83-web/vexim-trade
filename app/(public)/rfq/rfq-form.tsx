@@ -92,7 +92,9 @@ export function RfqForm({
   const [data, setData] = useState(() => ({
     // Product
     category_slug: initialCategory ?? "",
-    product_text: initialProduct,
+    // Không điền sẵn tiêu đề sản phẩm: người mua tự mô tả nhu cầu bằng lời của họ.
+    // `initialProduct` chỉ còn dùng cho banner của chế độ câu hỏi trực tiếp.
+    product_text: "",
     source_product_id: initialProductId,
     grade: initialGrade,
     quantity: "",
@@ -133,8 +135,9 @@ export function RfqForm({
     setData((d) => ({
       ...d,
       [k]: v,
-      // Sửa nội dung sản phẩm/danh mục thì bỏ liên kết sản phẩm nguồn, tránh gán sai sản phẩm.
-      ...(k === "product_text" && v !== initialProduct ? { source_product_id: null } : {}),
+      // Đổi danh mục thì bỏ liên kết sản phẩm nguồn, tránh gán sai sản phẩm.
+      // Riêng mô tả sản phẩm: ô bắt đầu trống nên mọi lần gõ đều khác tiêu đề gốc; giữ
+      // `source_product_id` làm dấu vết "người mua đến từ trang sản phẩm nào".
       ...(k === "category_slug" && v !== initialCategory ? { source_product_id: null } : {}),
     }));
 
@@ -353,50 +356,58 @@ export function RfqForm({
             <span className="mt-1 flex justify-end text-[11px] tabular-nums text-ink-400">{data.product_text.length}/4000</span>
           </Field>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Quantity" required error={errors.quantity} id="rfq-quantity">
-              <div className="flex">
-                <input
-                  id="rfq-quantity"
-                  type="number"
-                  min={0}
-                  className="input rounded-r-none"
-                  value={data.quantity}
-                  onChange={(e) => update("quantity", e.target.value)}
-                  placeholder="e.g. 20"
-                />
-                <select
-                  aria-label="Unit"
-                  className="input w-[92px] shrink-0 rounded-l-none border-l-0"
-                  value={data.unit}
-                  onChange={(e) => update("unit", e.target.value)}
-                >
-                  {UNITS.map((u) => <option key={u}>{u}</option>)}
-                </select>
+          {/*
+            Container query thay cho 3 cột cố định: cột form hẹp thì mỗi ô một hàng. Khi
+            container ≥640px, hàng 1 là Quantity + Unit, hàng 2 là Destination | Port.
+          */}
+          <div className="@container">
+            <div className="grid gap-4 @min-[640px]:grid-cols-2">
+              <div className="max-w-[380px] @min-[640px]:col-span-2">
+                <Field label="Quantity" required error={errors.quantity} id="rfq-quantity">
+                  <div className="flex">
+                    <input
+                      id="rfq-quantity"
+                      type="number"
+                      min={0}
+                      className="input min-w-[120px] flex-1 rounded-r-none"
+                      value={data.quantity}
+                      onChange={(e) => update("quantity", e.target.value)}
+                      placeholder="e.g. 20"
+                    />
+                    <select
+                      aria-label="Unit"
+                      className="input w-[130px] shrink-0 rounded-l-none border-l-0"
+                      value={data.unit}
+                      onChange={(e) => update("unit", e.target.value)}
+                    >
+                      {UNITS.map((u) => <option key={u}>{u}</option>)}
+                    </select>
+                  </div>
+                </Field>
               </div>
-            </Field>
-            <Field label="Destination country" required error={errors.destination_country} id="rfq-destination_country">
-              <input
-                id="rfq-destination_country"
-                list="rfq-countries"
-                autoComplete="country-name"
-                className="input"
-                value={data.destination_country}
-                onChange={(e) => update("destination_country", e.target.value)}
-                placeholder="Search country"
-              />
-              <datalist id="rfq-countries">
-                {COUNTRY_NAMES.map((c) => <option key={c} value={c} />)}
-              </datalist>
-            </Field>
-            <Field label="Port (optional)">
-              <input
-                className="input"
-                value={data.destination_port}
-                onChange={(e) => update("destination_port", e.target.value)}
-                placeholder="e.g. Rotterdam"
-              />
-            </Field>
+              <Field label="Destination" required error={errors.destination_country} id="rfq-destination_country">
+                <input
+                  id="rfq-destination_country"
+                  list="rfq-countries"
+                  autoComplete="country-name"
+                  className="input"
+                  value={data.destination_country}
+                  onChange={(e) => update("destination_country", e.target.value)}
+                  placeholder="Search country"
+                />
+                <datalist id="rfq-countries">
+                  {COUNTRY_NAMES.map((c) => <option key={c} value={c} />)}
+                </datalist>
+              </Field>
+              <Field label="Port (optional)">
+                <input
+                  className="input"
+                  value={data.destination_port}
+                  onChange={(e) => update("destination_port", e.target.value)}
+                  placeholder="e.g. Rotterdam"
+                />
+              </Field>
+            </div>
           </div>
 
           <div className="border-t border-ink-100 pt-4">

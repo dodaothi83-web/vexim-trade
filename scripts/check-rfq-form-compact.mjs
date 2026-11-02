@@ -64,7 +64,7 @@ assert.match(form, /aria-expanded=\{detailsOpen\}/, 'Nút chi tiết phải côn
 assert.match(form, /useState\(Boolean\(initialGrade\) \|\| wantsSamples\)/, 'Mục chi tiết tự mở khi URL đã điền sẵn dữ liệu');
 
 /* 4. Trường lõi vẫn hiển thị trực tiếp, không cần mở chi tiết */
-for (const core of ['What do you need?', 'label="Quantity"', 'label="Destination country"', 'label="Company"', 'label="Your name"', 'label="Work email"']) {
+for (const core of ['What do you need?', 'label="Quantity"', 'label="Destination"', 'label="Company"', 'label="Your name"', 'label="Work email"']) {
   const at = form.indexOf(core);
   assert.ok(at > 0 && at < detailsAt, `${core} phải hiện ngay, không nằm trong mục chi tiết`);
 }
@@ -87,6 +87,18 @@ assert.match(form, /source_product_id/, 'Liên kết sản phẩm nguồn vẫn 
 const quoteStart = form.indexOf("{/* Khối 1: sản phẩm");
 const visibleFields = (form.slice(quoteStart, detailsAt).match(/<Field\b/g) ?? []).length;
 assert.ok(visibleFields <= 9, `Chỉ nên còn tối đa 9 ô hiện ngay, đang có ${visibleFields}`);
+
+/* 8b. Bố cục cột: trang rộng 1120px, sidebar 280-300px, hàng số lượng theo container query */
+const rfqPublicPage = readFileSync(path.join(root, 'app/(public)/rfq/page.tsx'), 'utf8');
+assert.match(rfqPublicPage, /max-w-\[1120px\]/, 'Khung trang RFQ rộng 1120px');
+assert.match(form, /lg:grid-cols-\[minmax\(0,1fr\)_290px\]/, 'Cột "Your request" rộng 290px');
+assert.match(form, /className="@container"/, 'Nhóm số lượng/điểm đến dùng container query, không dùng breakpoint màn hình');
+assert.match(form, /@min-\[640px\]:grid-cols-2/, 'Container ≥640px mới chia hai cột Destination | Port');
+assert.doesNotMatch(form, /grid gap-4 sm:grid-cols-3">\s*<Field label="Quantity"/, 'Không xếp Quantity/Destination/Port thành ba cột');
+
+/* 8c. Không điền sẵn tiêu đề sản phẩm vào ô mô tả */
+assert.match(form, /product_text: "",/, 'Ô "What do you need?" bắt đầu trống, không nhét tiêu đề sản phẩm vào');
+assert.doesNotMatch(form, /product_text: initialProduct/, 'Không prefill tiêu đề sản phẩm');
 
 /* 8. Thanh tiến độ + giá mục tiêu mặc định riêng tư (chính sách, không chỉ giao diện) */
 assert.match(form, /const requiredChecks = \[/, 'Có danh sách ô bắt buộc cho thanh tiến độ');

@@ -22,6 +22,16 @@ const mocks = {
   '@/lib/products/grade-pricing': { standardGradesForCategory: (category) => category.standardGrades ?? [] },
   '@/lib/public/catalog': { listPublicSuppliers: async () => suppliers },
 };
+// Tên nhà cung cấp hiện trên banner đi qua helper thật (module thuần, không import gì),
+// để kiểm này bắt luôn việc banner rơi về tên pháp nhân viết hoa.
+const supplierNameExports = {};
+vm.runInNewContext(
+  ts.transpileModule(readFileSync(new URL('../lib/public/supplier-name.ts', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText,
+  { exports: supplierNameExports, require: (key) => { throw Error(`Unexpected import in lib/public/supplier-name.ts: ${key}`); } },
+);
+mocks['@/lib/public/supplier-name'] = supplierNameExports;
 // Trang đọc cột jsonb qua bộ chuẩn hoá dùng chung, nên biên dịch luôn module đó
 // thật thay vì giả lập: kiểm này bao trọn cả hình dạng dữ liệu cũ.
 const filterExports = {};
@@ -83,6 +93,15 @@ suppliers = [{ id: 'supplier-1', name: 'Vendor', display_name: 'Public vendor' }
 props = await render({ intent: 'question', suppliers: 'supplier-1', product_id: 'product-1' });
 assert.equal(props.mode, 'question');
 assert.deepEqual(plain(props.initialSuppliers), [{ id: 'supplier-1', name: 'Public vendor' }]);
+// Banner phải dùng tên ngắn, không bày tên pháp nhân viết hoa toàn bộ.
+suppliers = [{ id: 'supplier-2', name: 'CÔNG TY TNHH CHẾ BIẾN HẠT ĐIỀU BÌNH PHƯỚC', trade_name: null, display_name: null }];
+props = await render({ suppliers: 'supplier-2' });
+assert.deepEqual(plain(props.initialSuppliers), [{ id: 'supplier-2', name: 'Chế Biến Hạt Điều Bình Phước' }],
+  'Banner dùng tên ngắn đã hạ kiểu chữ, bỏ tiền tố loại hình doanh nghiệp');
+suppliers = [{ id: 'supplier-3', name: 'CÔNG TY TNHH ABC', trade_name: 'ABC Nuts', display_name: null }];
+props = await render({ suppliers: 'supplier-3' });
+assert.deepEqual(plain(props.initialSuppliers), [{ id: 'supplier-3', name: 'ABC Nuts' }], 'Tên thương mại thắng tên pháp nhân');
+suppliers = [{ id: 'supplier-1', name: 'Vendor', display_name: 'Public vendor' }];
 props = await render({ intent: 'question', suppliers: 'unlisted', product_id: 'product-1' });
 assert.equal(props.mode, 'quote', 'An unavailable supplier cannot activate targeted question mode');
 listFailed = true;

@@ -5,6 +5,7 @@ import { getStore } from "@/lib/db";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { categoryFilterValues } from "@/lib/category-filters";
 import { listPublicSuppliers } from "@/lib/public/catalog";
+import { supplierShortName } from "@/lib/public/supplier-name";
 import type { Category } from "@/lib/types";
 
 export const metadata = {
@@ -39,11 +40,13 @@ export default async function RfqPage({
   const initialSuppliers = supplierIds
     .map((supId) => publicSuppliers.find((s) => s.id === supId))
     .filter((s): s is NonNullable<typeof s> => Boolean(s))
-    .map((s) => ({ id: s.id, name: s.display_name || s.name }));
+    // Dùng tên ngắn (tên hiển thị → tên thương mại → pháp nhân đã hạ kiểu chữ),
+    // không bày tên pháp lý viết hoa toàn bộ lên đầu form.
+    .map((s) => ({ id: s.id, name: supplierShortName({ name: s.name, trade_name: s.trade_name, display_name: s.display_name }) }));
   const isQuestion = sp?.intent === "question" && supplierIds.length === 1 && initialSuppliers.length === 1 && Boolean(sp?.product_id);
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1120px] px-5 py-10 sm:px-6 lg:px-8">
       <Breadcrumbs
         items={[
           { label: "Home", href: "/" },

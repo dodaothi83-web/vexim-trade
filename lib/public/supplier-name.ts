@@ -20,3 +20,24 @@ export function supplierNameCase(name: string): string {
     return lower.replace(/\p{L}/u, (letter) => letter.toLocaleUpperCase("vi"));
   }).join(" ");
 }
+
+/** Tiền tố loại hình doanh nghiệp — bỏ đi để còn lại tên gọi ngắn. */
+const LEGAL_FORM_PREFIX =
+  /^(?:c\.?\s?ty|cong\s?ty|công\s?ty)\s+(?:tnhh(?:\s+mtv)?|mtv|cp|cổ\s+phần|co\.?,?\s*ltd\.?|jsc|inc\.?|llc)\s*[-,:.]?\s+/iu;
+
+/**
+ * Tên ngắn để hiện cho người mua (banner form RFQ, câu "đang hỏi nhà cung cấp nào").
+ * Ưu tiên tên hiển thị rồi tên thương mại; nếu chỉ có tên pháp nhân thì hạ kiểu chữ và
+ * bỏ tiền tố "Công ty TNHH / CP / Co., Ltd" để câu không bắt đầu bằng tên giấy phép.
+ */
+export function supplierShortName(supplier: {
+  name: string;
+  trade_name?: string | null;
+  display_name?: string | null;
+}): string {
+  const preferred = (supplier.display_name ?? "").trim() || (supplier.trade_name ?? "").trim();
+  if (preferred) return supplierNameCase(preferred);
+  const legal = supplierNameCase(supplier.name ?? "");
+  const short = legal.replace(LEGAL_FORM_PREFIX, "").trim();
+  return short || legal;
+}
