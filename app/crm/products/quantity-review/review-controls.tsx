@@ -21,7 +21,13 @@ export function QuantityReviewControls({ productId, revisionId, updatedAt, kind,
     try {
       const result = await decideQuantityRevisionAction(form);
       setMessage(result);
-      if (result.ok) { setCompleted(true); router.refresh(); }
+      if (result.ok) {
+        setCompleted(true);
+        if (decision === "approve" && kind === "price") {
+          router.push(`/crm/products/${encodeURIComponent(productId)}/edit`);
+        }
+        router.refresh();
+      }
     } catch { setMessage({ ok: false, message: "Không kết nối được máy chủ." }); }
     finally { setBusy(false); }
   }
