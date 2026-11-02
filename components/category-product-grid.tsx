@@ -264,21 +264,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
         {paged.pages > 1 && <nav aria-label="Pagination" className="mt-6 flex flex-wrap items-center justify-center gap-1.5 text-sm">
           {paged.page > 1 && <Link href={pageHref(paged.page - 1)} onClick={(event) => { event.preventDefault(); goToPage(paged.page - 1); }}
             rel="prev" aria-label="Previous page" title="Previous page" className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></Link>}
-          {(() => {
-            // Chỉ hiện trang đầu, trang cuối và vùng quanh trang hiện tại; phần bị
-            // bỏ gộp thành dấu ba chấm để dãy số không dài quá một hàng.
-            const slots: Array<number | "gap"> = [];
-            for (let index = 1; index <= paged.pages; index += 1) {
-              if (index === 1 || index === paged.pages || Math.abs(index - paged.page) <= 1) slots.push(index);
-              else if (slots[slots.length - 1] !== "gap") slots.push("gap");
-            }
-            return slots.map((slot, slotIndex) => slot === "gap"
-              ? <span key={`gap-${slotIndex}`} className="px-1 text-ink-400" aria-hidden>...</span>
-              : slot === paged.page
-                ? <span key={slot} aria-current="page" className="rounded-lg border border-brand-700 bg-brand-700 px-3 py-1.5 font-bold text-white">{slot}</span>
-                : <Link key={slot} href={pageHref(slot)} onClick={(event) => { event.preventDefault(); goToPage(slot); }}
-                    aria-label={`Page ${slot}`} className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500">{slot}</Link>);
-          })()}
+          <span aria-current="page" aria-label={`Page ${paged.page} of ${paged.pages}`} className="px-3 py-1.5 font-semibold tabular-nums text-ink-900">{paged.page}/{paged.pages}</span>
           {paged.page < paged.pages && <Link href={pageHref(paged.page + 1)} onClick={(event) => { event.preventDefault(); goToPage(paged.page + 1); }}
             rel="next" aria-label="Next page" title="Next page" className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500"><ChevronRight className="h-5 w-5" aria-hidden="true" /></Link>}
         </nav>}
