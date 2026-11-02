@@ -81,3 +81,31 @@ assert.ok(editor.includes('immediatelyRender: false') && !editor.includes('dange
 const buyerRenderer = fs.readFileSync(new URL('../components/public/product-description.tsx', import.meta.url), 'utf8');
 assert.ok(!buyerRenderer.includes('@tiptap'), 'Buyer renderer does not import the editor bundle');
 console.log('✅ Product descriptions: legacy text, canonical HTML, limits, XSS and buyer rendering.');
+
+// Opening/locking the editor must not serialize legacy text into an unsolicited edit.
+assert.match(editor, /setEditable\(!disabled, false\)/);
+const updateBody = editor.match(/onUpdate\(\{ editor: currentEditor, transaction \}\) \{([\s\S]*?)\n    \},/)?.[1];
+assert.ok(updateBody, 'Editor update handler available');
+const emitted = [];
+const runUpdate = (docChanged) => vm.runInNewContext(`(() => {${updateBody}})()`, {
+  transaction: { docChanged },
+  currentEditor: { getHTML: () => '<p>Legacy description</p>' },
+  sanitizeProductDescriptionInBrowser: sanitizeProductDescriptionForSave,
+  onChangeRef: { current: (value) => emitted.push(value) },
+});
+runUpdate(false);
+assert.equal(emitted.length, 0, 'Editable/selection update does not dirty form');
+runUpdate(true);
+assert.equal(emitted[0], '<p>Legacy description</p>', 'Actual document edits still propagate');
+
+const actions = fs.readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8');
+const preserve = actions.slice(actions.indexOf('    const existingDescriptionDetail ='), actions.indexOf('    const identityChanged', actions.indexOf('    const existingDescriptionDetail =')));
+for (const original of ['Legacy description', '<p>Legacy description</p>', null]) {
+  const input = { description_detail: sanitizeProductDescriptionForSave(original) || null };
+  vm.runInNewContext(preserve, { input, existing: { description_detail: original }, sanitizeProductDescriptionHtml });
+  assert.equal(input.description_detail, original, 'Unrelated save preserves exact approved description context');
+}
+const changed = { description_detail: '<p>Changed specification</p>' };
+vm.runInNewContext(preserve, { input: changed, existing: { description_detail: 'Legacy description' }, sanitizeProductDescriptionHtml });
+assert.equal(changed.description_detail, '<p>Changed specification</p>', 'Real content changes are not hidden');
+console.log('✅ No-op editor events and unrelated saves preserve approved description context.');

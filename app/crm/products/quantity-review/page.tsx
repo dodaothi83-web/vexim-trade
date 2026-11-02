@@ -12,9 +12,15 @@ export const metadata = { title: "Rà soát giá và tên sản phẩm" };
 type Revision = { id: string; product_id: string; created_at: string; product_updated_at: string | null; product_context?: unknown;
   grade?: string; incoterm?: string; tiers?: unknown; warnings?: unknown; source_name?: string; english_name?: string; origin?: string };
 
-export default async function QuantityReviewPage() {
+export default async function QuantityReviewPage({ searchParams }: {
+  searchParams: Promise<{ product_id?: string | string[] }>;
+}) {
   const session = await requireSession();
   if (session.role !== "admin" && session.role !== "reviewer") redirect("/crm/products");
+  const params = await searchParams;
+  const productId = typeof params.product_id === "string" ? params.product_id : null;
+  // Invalid scoped links must never silently fall back to the global queue.
+  if (params.product_id !== undefined && (!productId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId))) redirect("/crm/products");
   let prices: Revision[] = [], names: Revision[] = [];
   let products: Awaited<ReturnType<typeof supabaseStore.listProducts>> = [];
   let suppliers: Awaited<ReturnType<typeof supabaseStore.listSuppliers>> = [];
@@ -27,8 +33,9 @@ export default async function QuantityReviewPage() {
     async function pending(table: string): Promise<Revision[]> {
       const rows: Revision[] = [];
       for (let offset = 0; ; offset += 500) {
-        const { data, error } = await db!.from(table).select("*").eq("status", "pending")
-          .order("created_at", { ascending: true }).order("id", { ascending: true }).range(offset, offset + 499);
+        let query = db!.from(table).select("*").eq("status", "pending");
+        if (productId) query = query.eq("product_id", productId);
+        const { data, error } = await query.order("created_at", { ascending: true }).order("id", { ascending: true }).range(offset, offset + 499);
         if (error || !data) throw new Error(error?.message ?? "Review queue unavailable");
         rows.push(...data as Revision[]);
         if (data.length < 500) return rows;
@@ -74,8 +81,12 @@ export default async function QuantityReviewPage() {
     })}</div>}
   </section>;
   return <>
-    <PageHeader title="Rà soát giá và tên sản phẩm" sub="Hai hàng chờ độc lập; thao tác không thay đổi trạng thái duyệt nội dung sản phẩm." />
+    <PageHeader title={productId ? "Rà soát giá và tên của sản phẩm" : "Rà soát giá và tên sản phẩm"} sub={productId ? "Chỉ hiển thị bản chờ duyệt của sản phẩm đang chọn. Duyệt giá không thay thế duyệt đăng sản phẩm." : "Hai hàng chờ độc lập; thao tác không thay đổi trạng thái duyệt nội dung sản phẩm."} />
     <Link href="/crm/products" className="text-sm font-semibold text-brand-700">← Về danh sách sản phẩm</Link>
+    {productId && <div className="mt-3 flex gap-4 text-sm font-semibold text-brand-700">
+      <Link href={`/crm/products/${productId}/edit`}>← Về duyệt sản phẩm này</Link>
+      <Link href="/crm/products/quantity-review">Xem toàn bộ hàng chờ</Link>
+    </div>}
     <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bảng giá mới đã lưu. Người mua vẫn thấy giá đã duyệt trước đó; duyệt tại đây không đổi giá người mua.</p>
     {failed ? <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Chưa tải được hàng chờ. Kiểm tra kết nối rồi thử lại.</p> : <div className="mt-4 grid items-start gap-5 xl:grid-cols-2">{renderQueue(prices, "price")}{renderQueue(names, "name")}</div>}
   </>;

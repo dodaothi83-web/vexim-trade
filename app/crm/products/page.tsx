@@ -284,7 +284,7 @@ export default async function ProductsPage({
               const displayName = nameFor(r) || "Sản phẩm chưa có tên";
               const displayCategory = categoryFor(r) || "Chưa phân loại";
               const legacyReview = legacyPrices.has(r.id) || legacyNames.has(r.id);
-              const reviewHref = legacyReview ? "/crm/products/quantity-review" : `/crm/products/${r.id}/edit`;
+              const reviewHref = legacyReview ? `/crm/products/quantity-review?product_id=${encodeURIComponent(r.id)}` : `/crm/products/${r.id}/edit`;
               return (
                 <li key={r.id} className={`px-4 py-4 ${matched ? "bg-brand-50/40" : ""}`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
