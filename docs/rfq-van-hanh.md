@@ -23,6 +23,33 @@ và *mốc Thời gian bảo hộ 12 tháng*.
 Phân biệt trong code bằng `rfq.specs.inquiry_kind === "supplier_question"` (hoặc
 `source_page === "/rfq?intent=question"`). Luồng B không bao giờ dùng nút "Gửi yêu cầu báo giá".
 
+## 1b. Form RFQ: một trang, 7 ô bắt buộc
+
+Form báo giá **không còn chia 3 bước**. Một trang duy nhất, và chỉ 7 ô hiện ra:
+
+| # | Ô | Vì sao bắt buộc |
+| --- | --- | --- |
+| 1 | What do you need? (mô tả tự do) | Nội dung email NCC + chấm điểm spam + ghép NCC |
+| 2 | Quantity | Email NCC in "Số lượng"; thiếu là NCC không báo giá được |
+| 3 | Destination | Email NCC nêu thị trường đích |
+| 4 | Company | Hồ sơ người mua, xác nhận danh tính |
+| 5 | Your name | Email xác nhận + thư cho NCC |
+| 6 | Work email | Nơi trả lời + kiểm tra MX |
+| 7 | Consent | Điều kiện pháp lý để xử lý và chia sẻ yêu cầu |
+
+Mọi thứ còn lại (category, grade, tần suất mua, giá mục tiêu, incoterm, ngày cần, bao bì,
+chứng chỉ, samples/inspection/video call, điện thoại, quốc gia, website, loại hình, ghi chú)
+nằm trong mục **"Add details"** — đóng mặc định, tự mở khi URL đã điền sẵn `grade` hoặc khi
+người mua đến từ link yêu cầu mẫu. Dữ liệu vẫn được gửi đủ như trước, chỉ khác là không bắt
+người mua nhìn thấy.
+
+Lý do sửa: bản 3 bước trước đây có lỗi chặn — `validateStep(2)` kiểm company/name/email/consent
+trong khi các ô đó chỉ render ở bước 3, nên bấm "Continue" ở bước 2 không đi tiếp được và
+**không hiện thông báo lỗi nào**. Giờ có một hàm validate duy nhất cho mỗi chế độ, kiểm đúng
+những ô đang hiển thị, cuộn và focus tới ô lỗi đầu tiên.
+
+Chế độ **câu hỏi trực tiếp** giữ nguyên một màn hình 4 ô như cũ.
+
 ## 2. Luồng A — báo giá, từ đầu đến cuối
 
 ```
