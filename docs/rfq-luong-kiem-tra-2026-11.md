@@ -18,7 +18,7 @@ và một nhóm sai lệch giữa tài liệu đặc tả với code. Bên dư�
 | Mức | Số mục | Ảnh hưởng |
 | --- | --- | --- |
 | P0 — chặn triển khai | 2 | Migration RFQ không tạo gì cả; mã RFQ có thể trùng và làm submit 500 |
-| P1 — sai dữ liệu / nghiệp vụ / bảo mật | 8 | Mất căn cứ hoa hồng, SLA sai giờ, chống spam không hiệu lực thật, mất dữ liệu khi >1000 dòng |
+| P1 — sai dữ liệu / nghiệp vụ / bảo mật | 8 | Mất bản ghi đồng ý chia sẻ liên hệ, SLA sai giờ, chống spam không hiệu lực thật, mất dữ liệu khi >1000 dòng |
 | P2 — chất lượng, nhất quán | 9 | Sao lưu/ghi chú mất dấu người thao tác, copy lẫn ngôn ngữ, UI hiển thị sai biểu tượng |
 
 ## 2. P0 — chặn triển khai
@@ -125,16 +125,31 @@ mẫu số chủ động.
 và chưa `supplier_replied_at`, đánh dấu `no_response` + gửi cảnh báo cho người phụ trách;
 giữ nguyên tắc idempotent và "chỉ ghi cờ sau khi Resend nhận thật" như `sendSlaAlert`.
 
-### P1-4. Chọn NCC qua luồng "sampling" không tạo `introductions` (ĐÃ SỬA)
+### P1-4. Chọn NCC qua luồng "sampling" không ghi bản ghi Giới thiệu (ĐÃ SỬA)
 
-`lib/rfq/outreach.ts` `selectSupplier()` tạo bản ghi `introductions` bảo hộ 12 tháng — đây là
-**căn cứ pháp lý để thu hoa hồng và chống nhà cung cấp vượt mặt Vexim**. Nhưng
-`app/crm/rfqs/[id]/compose-action.ts` `markSamplingAction()` (đường đi rất hay dùng: chốt NCC
-để gửi mẫu) lại chỉ `updateRfqMatch(selected)` rồi gửi email, **không** tạo Introduction và
-không chuyển các NCC còn lại sang `not_selected`.
+`lib/rfq/outreach.ts` `selectSupplier()` ghi bản ghi `introductions` (thời điểm Giới thiệu +
+thời gian bảo hộ 12 tháng). Bản ghi này **không phải căn cứ thu hoa hồng** — nền tảng không
+thu hoa hồng đơn hàng — nhưng vẫn cần cho hai việc:
+
+- **Bằng chứng đồng ý chia sẻ liên hệ.** Chính sách bảo mật và copy trên form cam kết email/
+  điện thoại/công ty của người mua chỉ được chia sẻ *sau khi người mua đồng ý*. Bản ghi Giới
+  thiệu là chỗ duy nhất lưu "đã có đồng ý, chia sẻ cho NCC nào, lúc nào" — thiếu nó thì không
+  chứng minh được đã tuân thủ cam kết đó.
+- **Mốc Thời gian bảo hộ 12 tháng** theo Điều 1.6 và Điều 7 Thỏa thuận nhà cung cấp, dùng khi
+  đối soát/tranh chấp về "thương vụ kết nối" (mức phí hiện hành là 0 đồng, nhưng mốc thời gian
+  vẫn được định nghĩa trong hợp đồng đang áp dụng).
+
+Vấn đề là `app/crm/rfqs/[id]/compose-action.ts` `markSamplingAction()` (đường đi rất hay dùng:
+chốt NCC để gửi mẫu) lại chỉ `updateRfqMatch(selected)` rồi gửi email, **không** ghi Introduction
+và không chuyển các NCC còn lại sang `not_selected`. Hai đường chốt cùng một NCC cho ra hai kết
+quả dữ liệu khác nhau, trong đó đường phổ biến hơn lại không để lại dấu vết.
 
 **Đã sửa**: tách `recordSupplierSelection(rfq, match)` trong `lib/rfq/outreach.ts` và dùng cho cả
 hai đường, nên mọi lần chốt NCC đều có cùng hệ quả dữ liệu.
+
+> Mức độ ưu tiên: khi phí dịch vụ đang là 0 đồng và không có hoa hồng, đây là lỗi **tuân thủ và
+> đối soát** (thiếu bằng chứng đồng ý của người mua), không phải lỗi thất thu. Mình vẫn xếp P1
+> nhưng nếu bạn muốn hạ xuống P2 thì chỉ cần đổi thứ tự xử lý.
 
 ### P1-5. Đính kèm RFQ ghi xuống đĩa cục bộ và im lặng khi thất bại (ĐÃ SỬA một phần)
 
@@ -235,6 +250,14 @@ theo giờ Hà Nội.
 `rfq-attachments` đã có trong migration và đặc tả, nhưng form 3 bước không có input file; chỉ CRM
 tải lên được. Hoặc bổ sung, hoặc ghi rõ trong đặc tả là ngoài phạm vi GĐ 2.
 
+**P2-11 (ĐÃ SỬA) — copy còn hứa "hoa hồng".** `app/crm/team/page.tsx` ghi phụ đề
+"tính theo người mua đang phụ trách · **hoa hồng sẽ bổ sung khi có dữ liệu thanh toán**" — trái với
+mô hình hiện tại (nền tảng không thu hoa hồng đơn hàng) và trái với chính bộ tài liệu pháp lý
+(`docs/chuong-trinh-nha-cung-cap-tien-phong/README.md` yêu cầu "không dùng khái niệm hoa hồng đơn
+hàng"). Đã đổi thành "nền tảng không thu hoa hồng đơn hàng". Nên rà thêm các tài liệu chào bán
+(`docs/de-an-dang-ky-tmdt/`, `docs/chuong-trinh-nha-cung-cap-tien-phong/`) theo đúng nguyên tắc đã
+ghi trong README của chương trình.
+
 **Ghi chú vận hành:** cổng `npm run check:copy` **đang đỏ sẵn trên `main`** vì một câu 144 ký tự ở
 `app/crm/categories/categories-manager.tsx:1484` (không liên quan RFQ). `scripts/check-permissions.mjs`
 cũng còn 4 cảnh báo thiếu guard ở module quantity-pricing (cũng có trước). Cả hai không do lần
@@ -247,12 +270,13 @@ rà soát này gây ra, nhưng sẽ làm CI đỏ cho PR bất kỳ.
 | `supabase/migrations/20261016_rfq_foundation.sql` | Khôi phục `\n`/`\"` thành ký tự thật → migration chạy được (P0-1) |
 | `lib/rfq/index.ts` | Thêm `RFQ_TIME_ZONE`, `rfqDayKey()`, `generateRfqCode(seq, dayKey)` (P0-2) |
 | `lib/rfq/submit.ts` | Sinh mã theo một múi giờ, `max(seq)+1`, chống trùng mã (P0-2) |
-| `lib/rfq/outreach.ts` | Tách `recordSupplierSelection()` dùng chung (P1-4) |
+| `lib/rfq/outreach.ts` | Tách `recordSupplierSelection()` dùng chung; sửa chú thích: bản ghi Giới thiệu là bằng chứng đồng ý chia sẻ liên hệ, không phải căn cứ hoa hồng (P1-4) |
 | `app/crm/rfqs/[id]/compose-action.ts` | Luồng sampling tạo Introduction + `not_selected` cho NCC khác (P1-4) |
 | `app/crm/rfqs/[id]/upload-action.ts` | Chặn path traversal, kiểm UUID (P1-5) |
 | `app/crm/rfqs/actions-inline.ts` | Allowlist trạng thái (P2-2) |
 | `app/crm/rfqs/page.tsx` | Khoá biểu tượng SLA khớp nhãn (P2-1) |
 | `app/crm/rfqs/[id]/note-action.ts` | Ghi chú lấy tác giả từ session (P2-4) |
+| `app/crm/team/page.tsx` | Bỏ câu "hoa hồng sẽ bổ sung" ở phụ đề KPI (P2-11) |
 | `app/(public)/rfq/status/[token]/page.tsx` | Bỏ `case "new"` trùng (P2-3) |
 | `scripts/check-rfq-migration.mjs`, `package.json`, `.github/workflows/ci.yml` | Cổng chặn hồi quy (P2-9) |
 | `scripts/check-supplier-{question,dashboard}.mjs` | Cập nhật mock theo helper mới |

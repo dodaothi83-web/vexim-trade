@@ -31,7 +31,7 @@ export default async function TeamPage() {
     <>
       <PageHeader
         title="KPI cá nhân"
-        sub={`Tháng ${monthLabel} · tính theo người mua đang phụ trách · hoa hồng sẽ bổ sung khi có dữ liệu thanh toán`}
+        sub={`Tháng ${monthLabel} · tính theo người mua đang phụ trách · nền tảng không thu hoa hồng đơn hàng`}
       />
       <Card className="overflow-x-auto p-0">
         <table className="w-full text-left text-[13px]">

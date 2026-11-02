@@ -364,11 +364,16 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
 
 /**
  * Chốt một NCC cho RFQ: match `selected`, các match khác `not_selected`,
- * và tạo `introductions` bảo hộ 12 tháng nếu chưa có.
+ * và ghi `introductions` (thời điểm Giới thiệu + thời gian bảo hộ 12 tháng) nếu chưa có.
  *
- * Dùng chung cho cả nút "Chọn nhà cung cấp" và luồng "Chuyển sang sampling",
- * vì trước đây luồng sampling bỏ qua bước tạo Introduction — mất căn cứ hoa hồng
- * và mất lớp bảo vệ "không vượt mặt" cho chính NCC đã được chọn.
+ * Vexim không thu hoa hồng đơn hàng. Bản ghi Giới thiệu vẫn cần vì hai lý do phi hoa hồng:
+ *   - Chính sách bảo mật cam kết chỉ chia sẻ tên/email/công ty của người mua SAU KHI người mua
+ *     đồng ý. Đây là bản ghi chứng minh đã có sự đồng ý và chia sẻ cho đúng một NCC nào.
+ *   - Thỏa thuận nhà cung cấp (Điều 1.6, Điều 7) tính Thời gian bảo hộ 12 tháng từ ngày Giới thiệu,
+ *     dùng để đối soát khi có tranh chấp về "thương vụ kết nối".
+ *
+ * Dùng chung cho cả nút "Chọn nhà cung cấp" và luồng "Chuyển sang sampling", vì trước đây
+ * luồng sampling bỏ qua bước này nên hai đường chốt NCC cho ra hai kết quả dữ liệu khác nhau.
  */
 export async function recordSupplierSelection(rfq: Rfq, match: RfqMatch): Promise<void> {
   const store = getStore();
@@ -394,7 +399,7 @@ export async function recordSupplierSelection(rfq: Rfq, match: RfqMatch): Promis
   }
 }
 
-/** Khi buyer chọn một NCC: đánh dấu selected, tạo Introduction protected 12 tháng. */
+/** Khi buyer chọn một NCC: đánh dấu selected và ghi bản ghi Giới thiệu (bảo hộ 12 tháng). */
 export async function selectSupplier(input: { rfqId: string; matchId: string; actorId: string }): Promise<{ selected: boolean; email: "sent" | "failed" | "skipped" }> {
   const store = getStore();
   const rfq = await store.getRfq(input.rfqId);
