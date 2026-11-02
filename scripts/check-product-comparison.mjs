@@ -167,7 +167,7 @@ const checkboxHtml = renderToStaticMarkup(React.createElement(ProductCompareChec
 assert.match(checkboxHtml, /type="checkbox"/);
 assert.match(checkboxHtml, /aria-label="Add Product b to comparison"/);
 assert.match(checkboxHtml, /absolute right-0\.5 top-0\.5/);
-assert.match(checkboxHtml, /(?:^|\s)size-10(?:\s|")/, "Hit area remains 40x40px");
+assert.match(checkboxHtml, /min-h-10 min-w-10/, "Expandable hit area stays at least 40x40px");
 assert.match(checkboxHtml, /(?:^|\s)size-\[21px\](?:\s|")/, "Visual checkbox is 21px (20-22px)");
 assert.match(checkboxHtml, /(?:^|\s)bg-white\/80(?:\s|")/, "Unchecked visual box uses semi-transparent white fill");
 assert.doesNotMatch(checkboxHtml, /\bshadow(?:-sm|-md|-lg|-xl|-2xl|-card|-pop)?\b/, "No drop shadow on compare checkbox");
@@ -384,7 +384,6 @@ const portalPreview = readFileSync(new URL("../app/supplier/portal/storefront/pa
 assert.doesNotMatch(portalPreview, /comparisonEnabled|comparison=/, "Supplier-portal previews never expose buyer selection");
 for (const file of [
   "../components/category-product-grid.tsx",
-  "../components/home-product-feed.tsx",
   "../components/sponsored-product-band.tsx",
   "../app/(public)/products/[slug]/[productId]/page.tsx",
 ]) {
@@ -399,3 +398,6 @@ const gallery = readFileSync(new URL("../components/product-media-gallery.tsx", 
 assert.doesNotMatch(gallery, /ProductCompareCheckbox|comparison/, "The shared gallery no longer owns comparison selection");
 
 console.log("✅ Product comparison: contextual checkbox, max 3, dedupe, safe public data, warnings, share links and independent supplier checks.");
+
+assert.match(checkboxHtml, /group-hover\/card:max-w-20/);
+assert.match(checkboxHtml, />Compare<\/span>/);

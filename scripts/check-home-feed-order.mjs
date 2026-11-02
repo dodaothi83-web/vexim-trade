@@ -353,3 +353,5 @@ assert.deepEqual(balanceHomepageCategories([pepper]), pepper, 'Single-category f
 console.log('Homepage category balance: skewed inventory, supplier caps, stable ranking, duplicates and empty categories passed');
 
 assert.doesNotMatch(feedSource, /setInterval|AUTO_ADVANCE_MS|Pause autoplay|Resume autoplay|setProgress/, 'No automatic rotation, pause controls or progress timer');
+
+assert.doesNotMatch(feedSource, /comparison=|hasProductComparisonPeer/, "Homepage cards do not offer comparison");

@@ -3,11 +3,8 @@
 import { useProductComparison } from "@/components/product-comparison-provider";
 import type { ProductComparisonSelection } from "@/lib/public/product-comparison";
 
-/**
- * Compact Alibaba-style image-corner checkbox:
- * - 40×40px (`size-10`) transparent hit target for comfortable touch/click
- * - 21×21px (`size-[21px]`) single visual box, thin border, semi-transparent white fill, no drop shadow
- * Always rendered as a sibling of the product link, never nested inside it.
+/** Image-corner comparison control expands on card hover or keyboard focus.
+ * Remains a sibling of the product link, with a comfortable 40px hit target.
  */
 export function ProductCompareCheckbox({
   product,
@@ -23,7 +20,7 @@ export function ProductCompareCheckbox({
   return (
     <label
       title={selected ? "Remove from comparison" : "Compare product"}
-      className={`${className} group/cmp z-20 flex size-10 items-center justify-center select-none ${
+      className={`${className} group/cmp z-20 flex min-h-10 min-w-10 items-center justify-end gap-1.5 rounded-full px-2 select-none transition-colors hover:bg-white/95 focus-within:bg-white/95 group-hover/card:bg-white/95 group-focus-within/card:bg-white/95 [@media(hover:none)]:bg-white/95 ${
         ready ? "cursor-pointer" : "cursor-wait opacity-70"
       }`}
       onClick={(event) => event.stopPropagation()}
@@ -36,9 +33,10 @@ export function ProductCompareCheckbox({
         aria-label={action}
         className="peer sr-only"
       />
+      <span aria-hidden="true" className={`overflow-hidden whitespace-nowrap text-[11px] font-semibold text-ink-800 transition-[max-width,opacity] ${selected ? "max-w-20 opacity-100" : "max-w-0 opacity-0 group-hover/card:max-w-20 group-hover/card:opacity-100 group-hover/cmp:max-w-20 group-hover/cmp:opacity-100 peer-focus-visible:max-w-20 peer-focus-visible:opacity-100 [@media(hover:none)]:max-w-20 [@media(hover:none)]:opacity-100"}`}>Compare</span>
       <span
         aria-hidden="true"
-        className={`flex size-[21px] items-center justify-center rounded-[5px] border transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand-600 peer-focus-visible:ring-offset-1 ${
+        className={`flex size-[21px] shrink-0 items-center justify-center rounded-[5px] border transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand-600 peer-focus-visible:ring-offset-1 ${
           selected
             ? "border-brand-700 bg-brand-700 text-white"
             : "border-ink-300/80 bg-white/80 group-hover/cmp:border-brand-600 group-hover/cmp:bg-white/95"
