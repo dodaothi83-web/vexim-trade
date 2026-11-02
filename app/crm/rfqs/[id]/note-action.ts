@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { guard } from "@/lib/auth/session";
+import { getSession, guard } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 
 /**
@@ -19,7 +19,9 @@ export async function addRfqNoteAction(fd: FormData): Promise<void> {
   const rfq = await store.getRfq(rfqId);
   if (!rfq) return;
   const ts = new Date().toLocaleString("vi-VN", { hour12: false });
-  const author = "Sale"; // TODO: lấy từ session user.name
+  // Ghi đúng người viết: ghi chú RFQ là bằng chứng nội bộ khi đối soát với người mua.
+  const session = await getSession();
+  const author = session?.name?.trim() || session?.email || "Không rõ";
   const line = `[${ts}] ${author}: ${text}`;
   const notes = (rfq.specs as Record<string, unknown>).notes_internal;
   const next = typeof notes === "string" && notes ? `${notes}\n${line}` : line;

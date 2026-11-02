@@ -362,23 +362,23 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
   return { sent: true, quotedCount: quoted.length };
 }
 
-/** Khi buyer chọn một NCC: đánh dấu selected, tạo Introduction protected 12 tháng. */
-export async function selectSupplier(input: { rfqId: string; matchId: string; actorId: string }): Promise<{ selected: boolean; email: "sent" | "failed" | "skipped" }> {
+/**
+ * Chốt một NCC cho RFQ: match `selected`, các match khác `not_selected`,
+ * và tạo `introductions` bảo hộ 12 tháng nếu chưa có.
+ *
+ * Dùng chung cho cả nút "Chọn nhà cung cấp" và luồng "Chuyển sang sampling",
+ * vì trước đây luồng sampling bỏ qua bước tạo Introduction — mất căn cứ hoa hồng
+ * và mất lớp bảo vệ "không vượt mặt" cho chính NCC đã được chọn.
+ */
+export async function recordSupplierSelection(rfq: Rfq, match: RfqMatch): Promise<void> {
   const store = getStore();
-  const rfq = await store.getRfq(input.rfqId);
-  if (!rfq) throw new Error("RFQ not found");
-  const match = await store.getRfqMatch(input.matchId);
-  if (!match || match.rfq_id !== rfq.id) return { selected: false, email: "skipped" };
-  const newlySelected = match.status !== "selected";
   await store.updateRfqMatch(match.id, { status: "selected" });
-  // Các NCC khác chuyển sang not_selected
   const others = (await store.listRfqMatches(rfq.id)).filter((m) => m.id !== match.id);
   for (const m of others) {
     if (m.status !== "selected" && m.status !== "declined") {
       await store.updateRfqMatch(m.id, { status: "not_selected" });
     }
   }
-  // Tạo Introduction bảo hộ 12 tháng nếu chưa có
   const existing = await store.findIntroduction(rfq.buyer_id, match.supplier_id);
   if (!existing) {
     const now = new Date();
@@ -392,6 +392,17 @@ export async function selectSupplier(input: { rfqId: string; matchId: string; ac
       protected_until: until.toISOString(),
     });
   }
+}
+
+/** Khi buyer chọn một NCC: đánh dấu selected, tạo Introduction protected 12 tháng. */
+export async function selectSupplier(input: { rfqId: string; matchId: string; actorId: string }): Promise<{ selected: boolean; email: "sent" | "failed" | "skipped" }> {
+  const store = getStore();
+  const rfq = await store.getRfq(input.rfqId);
+  if (!rfq) throw new Error("RFQ not found");
+  const match = await store.getRfqMatch(input.matchId);
+  if (!match || match.rfq_id !== rfq.id) return { selected: false, email: "skipped" };
+  const newlySelected = match.status !== "selected";
+  await recordSupplierSelection(rfq, match);
   await store.updateRfq(rfq.id, { status: "won" });
   const email = newlySelected ? await notifySelectedSupplier(rfq, match, input.actorId) : "skipped";
   return { selected: true, email };

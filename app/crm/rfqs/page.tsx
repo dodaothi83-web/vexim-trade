@@ -168,12 +168,17 @@ export default async function RfqsPage({
                 const meta = statusMeta(r.status, isSupplierQuestion(r));
                 const sl = slaInfo(r);
                 const assigned = r.assigned_to ? userMap.get(r.assigned_to) : null;
+                // Khoá phải khớp đúng nhãn do slaInfo() trả về, nếu không biểu tượng
+                // luôn rơi về đồng hồ mặc định.
                 const slaIcons: Record<string, React.ReactNode> = {
-                  "spam quarantine": <AlertTriangle className="h-3.5 w-3.5 text-red-600" />,
-                  "unassigned 4h+": <Timer className="h-3.5 w-3.5 text-red-600" />,
-                  "response due": <Clock className="h-3.5 w-3.5 text-amber-600" />,
-                  replied: <MailCheck className="h-3.5 w-3.5 text-emerald-600" />,
-                  closed: <Send className="h-3.5 w-3.5 text-ink-400" />,
+                  "cách ly spam": <AlertTriangle className="h-3.5 w-3.5 text-red-600" />,
+                  "chưa phân công 4h+": <Timer className="h-3.5 w-3.5 text-red-600" />,
+                  "hồi đáp sắp trễ": <Clock className="h-3.5 w-3.5 text-amber-600" />,
+                  "review overdue": <AlertTriangle className="h-3.5 w-3.5 text-red-600" />,
+                  "đã hồi đáp": <MailCheck className="h-3.5 w-3.5 text-emerald-600" />,
+                  "đã gửi trực tiếp": <MailCheck className="h-3.5 w-3.5 text-emerald-600" />,
+                  won: <Send className="h-3.5 w-3.5 text-emerald-600" />,
+                  lost: <Send className="h-3.5 w-3.5 text-ink-400" />,
                 };
                 return (
                   <tr key={r.id} className="transition hover:bg-ink-50/60">

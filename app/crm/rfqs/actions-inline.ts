@@ -35,6 +35,23 @@ export async function assignRfqInlineAction(fd: FormData) {
   revalidatePath(`/crm/rfqs/${id}`);
 }
 
+/**
+ * Trạng thái được phép ghi từ dropdown. Danh sách này phải khớp ràng buộc
+ * `rfqs_status_check` trong DB; trước đây action nhận mọi chuỗi nên môi trường
+ * local (không có ràng buộc) ghi được trạng thái rác.
+ */
+const ALLOWED_STATUS = [
+  "new",
+  "needs_review",
+  "in_progress",
+  "matching",
+  "quoted",
+  "sampling",
+  "won",
+  "lost",
+  "spam",
+] as const;
+
 /** Server action inline cho chuyển trạng thái (nút trong trang chi tiết). */
 export async function setRfqStatusAction(fd: FormData) {
   const g = await guard("rfq.manage");
@@ -42,6 +59,9 @@ export async function setRfqStatusAction(fd: FormData) {
   const session = await getSession();
   const id = String(fd.get("id"));
   const status = String(fd.get("status") || "");
+  if (!(ALLOWED_STATUS as readonly string[]).includes(status)) {
+    return { ok: false, message: "Trạng thái không hợp lệ." };
+  }
   const lostReason = String(fd.get("lost_reason") || "").trim();
   const store = getStore();
   const before = await store.getRfq(id);

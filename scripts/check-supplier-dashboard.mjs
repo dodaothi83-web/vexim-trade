@@ -266,7 +266,7 @@ const submit = load('../lib/rfq/submit.ts', {
   './supplier-question-rate-limit': { checkSupplierQuestionRateLimit: async () => ({ status: 'ok' }) },
   './supplier-question': { deliverSupplierQuestion: async () => ({ delivered: false }),
     sendSupplierQuestionAckBuyer: async () => null, sendSupplierQuestionExceptionInternal: async () => null },
-  '.': { emailDomain: () => 'example.com', fingerprint: () => 'test', generateAccessToken: () => 'private', generateRfqCode: () => 'RFQ-CODE',
+  '.': { emailDomain: () => 'example.com', fingerprint: () => 'test', generateAccessToken: () => 'private', rfqDayKey: () => '20261017', generateRfqCode: () => 'RFQ-CODE',
     hasMxRecord: async () => ({ ok: true }), isLikelyWebmail: () => false, normalizeCompanyWebsite: () => null,
     scoreSpam: () => ({ score: 0, flags: [] }) },
   './rate-limit': { gcRateLimit() {}, rateLimit: () => ({ ok: true }) },
