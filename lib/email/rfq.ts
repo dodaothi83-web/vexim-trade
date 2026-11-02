@@ -118,6 +118,32 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
 /* 2) Thông báo nội bộ                                              */
 /* ---------------------------------------------------------------- */
 
+/** Ô đích đến gồm cả cảng — port giúp desk chọn tuyến vận chuyển. */
+function deskDestination(rfq: Rfq): string {
+  const country = rfq.destination_country ?? "Not provided";
+  const port = String((rfq.specs as Record<string, unknown> | null)?.destination_port ?? "").trim();
+  return port ? `${country} · ${port}` : country;
+}
+
+/** Tháng giao hàng thay cho ngày chính xác; vẫn đọc needed_by của RFQ cũ. */
+function deskDelivery(rfq: Rfq): string {
+  const month = String((rfq.specs as Record<string, unknown> | null)?.shipment_month ?? "").trim();
+  if (/^\d{4}-\d{2}$/.test(month)) {
+    const [y, m] = month.split("-");
+    return `${m}/${y}`;
+  }
+  return rfq.needed_by ?? "Not provided";
+}
+
+/** Giá mục tiêu luôn hiện với desk, kèm nhãn cho biết NCC có thấy hay không. */
+function deskTargetPrice(rfq: Rfq): string {
+  if (!rfq.target_price) return "Not provided";
+  const specs = (rfq.specs ?? {}) as Record<string, unknown>;
+  const unit = String(specs.target_price_unit ?? "").trim();
+  const shared = specs.share_target_price === true;
+  return `${rfq.target_price} ${rfq.target_price_currency ?? ""}${unit ? ` / ${unit}` : ""}${shared ? "" : " (not shared with suppliers)"}`;
+}
+
 export async function sendRfqNewInternal(input: { rfq: Rfq; buyer: Buyer }): Promise<void> {
   const { rfq, buyer } = input;
   const adminUrl = `${SITE_URL}/crm/rfqs/${rfq.id}`;
@@ -149,13 +175,13 @@ export async function sendRfqNewInternal(input: { rfq: Rfq; buyer: Buyer }): Pro
       <tr><td style="color:#64748b;">Website</td><td>${escapeHtml(buyer.website ?? "Not provided")}</td></tr>
       <tr><td style="color:#64748b;">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
       <tr><td style="color:#64748b;">Quantity</td><td>${escapeHtml(formatQuantity(rfq))}</td></tr>
-      <tr><td style="color:#64748b;">Destination</td><td>${escapeHtml(rfq.destination_country ?? "Not provided")}</td></tr>
+      <tr><td style="color:#64748b;">Destination</td><td>${escapeHtml(deskDestination(rfq))}</td></tr>
       <tr><td style="color:#64748b;">Incoterm</td><td>${escapeHtml(rfq.incoterm ?? "Not provided")}</td></tr>
-      <tr><td style="color:#64748b;">Needed by</td><td>${escapeHtml(rfq.needed_by ?? "Not provided")}</td></tr>
+      <tr><td style="color:#64748b;">Delivery window</td><td>${escapeHtml(deskDelivery(rfq))}</td></tr>
       <tr><td style="color:#64748b;">Samples / Inspection / Video</td>
           <td>${rfq.wants_samples ? "samples " : ""}${rfq.wants_inspection ? "inspection " : ""}${rfq.wants_video_call ? "video" : ""}</td></tr>
-      <tr><td style="color:#64748b;">Target price</td>
-          <td>${rfq.target_price ? `${rfq.target_price} ${rfq.target_price_currency ?? ""}` : "Not provided"}</td></tr>
+      <tr><td style="color:#64748b;">Target price (internal)</td>
+          <td>${escapeHtml(deskTargetPrice(rfq))}</td></tr>
       <tr><td style="color:#64748b;">Notes</td><td>${escapeHtml(String((rfq.specs as Record<string, unknown>)?.notes ?? buyer.notes ?? ""))}</td></tr>
     </table>
     <p><a href="${adminUrl}">Open in CRM</a></p>

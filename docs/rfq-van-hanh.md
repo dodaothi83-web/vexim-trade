@@ -23,30 +23,52 @@ và *mốc Thời gian bảo hộ 12 tháng*.
 Phân biệt trong code bằng `rfq.specs.inquiry_kind === "supplier_question"` (hoặc
 `source_page === "/rfq?intent=question"`). Luồng B không bao giờ dùng nút "Gửi yêu cầu báo giá".
 
-## 1b. Form RFQ: một trang, 7 ô bắt buộc
+## 1b. Form RFQ: một trang, 2 cột, 6 ô bắt buộc + thanh tiến độ
 
-Form báo giá **không còn chia 3 bước**. Một trang duy nhất, và chỉ 7 ô hiện ra:
+Form báo giá **không còn chia 3 bước**. Một trang duy nhất, bố cục hai cột theo bản thiết kế
+đã duyệt: cột trái là nội dung, cột phải là khung **"Your request"** theo dõi tiến độ.
 
 | # | Ô | Vì sao bắt buộc |
 | --- | --- | --- |
-| 1 | What do you need? (mô tả tự do) | Nội dung email NCC + chấm điểm spam + ghép NCC |
-| 2 | Quantity | Email NCC in "Số lượng"; thiếu là NCC không báo giá được |
-| 3 | Destination | Email NCC nêu thị trường đích |
+| 1 | What do you need? (mô tả tự do, tối đa 4.000 ký tự, có bộ đếm) | Nội dung email NCC + chấm điểm spam + ghép NCC |
+| 2 | Quantity (+ đơn vị) | Email NCC in "Số lượng"; thiếu là NCC không báo giá được |
+| 3 | Destination country (gõ để tìm) | Email NCC nêu thị trường đích |
 | 4 | Company | Hồ sơ người mua, xác nhận danh tính |
 | 5 | Your name | Email xác nhận + thư cho NCC |
 | 6 | Work email | Nơi trả lời + kiểm tra MX |
-| 7 | Consent | Điều kiện pháp lý để xử lý và chia sẻ yêu cầu |
 
-Mọi thứ còn lại (category, grade, tần suất mua, giá mục tiêu, incoterm, ngày cần, bao bì,
-chứng chỉ, samples/inspection/video call, điện thoại, quốc gia, website, loại hình, ghi chú)
-nằm trong mục **"Add details"** — đóng mặc định, tự mở khi URL đã điền sẵn `grade` hoặc khi
-người mua đến từ link yêu cầu mẫu. Dữ liệu vẫn được gửi đủ như trước, chỉ khác là không bắt
-người mua nhìn thấy.
+Cộng thêm ô **consent** (điều kiện pháp lý) — vẫn bắt buộc nhưng là checkbox đồng ý, không
+tính vào thanh tiến độ. Khung bên phải hiện thanh tiến độ `N/6 required` và 6 dòng đánh dấu
+ô nào đã điền, để người mua biết còn thiếu gì **trước** khi bấm gửi. Trên mobile khung này
+đứng trước form.
+
+**Port (optional)** nằm ngay cạnh quốc gia: cảng giúp desk chọn tuyến và giúp NCC báo giá
+sát hơn, nhưng không bắt buộc vì nhiều người mua chỉ biết quốc gia.
+
+Mọi thứ còn lại nằm trong mục **"Add details (optional)"** — đóng mặc định, tự mở khi URL đã
+điền sẵn `grade` hoặc khi người mua đến từ link yêu cầu mẫu: category, grade/spec, incoterm
+(mặc định "Not sure yet"), **Shipment month** (thay cho ngày cần chính xác — người mua thường
+chỉ biết tháng), tần suất mua, bao bì/nhãn, chứng chỉ (chip chọn nhanh: HACCP, BRCGS,
+ISO 22000, FSSC 22000, Halal, Kosher, Organic), samples/inspection/video call, giá mục tiêu
+kèm đơn vị và ô chia sẻ, điện thoại, website, loại hình, ghi chú. Dữ liệu vẫn được gửi đủ
+như trước, chỉ khác là không bắt người mua nhìn thấy.
+
+**Giá mục tiêu mặc định là riêng tư.** `specs.share_target_price` mặc định `false`; email cho
+NCC chỉ ghi "Người mua chưa đồng ý chia sẻ giá mục tiêu. Vui lòng chào giá tốt nhất." Người
+mua phải tự tick "Share my target price with suppliers" thì con số mới được in. Lý do: nếu
+NCC thấy trần giá, họ sẽ chào đúng bằng trần. Email nội bộ cho desk thì luôn thấy giá, kèm
+nhãn "(internal)" và ghi chú "not shared with suppliers" khi người mua chưa đồng ý.
+
+Cuối form có ô tuỳ chọn **"Send me occasional sourcing updates from Vexim (optional)"**
+(`marketing_opt_in`, mặc định tắt) — tách khỏi consent xử lý yêu cầu, đúng nguyên tắc đồng ý
+riêng cho từng mục đích.
 
 Lý do sửa: bản 3 bước trước đây có lỗi chặn — `validateStep(2)` kiểm company/name/email/consent
 trong khi các ô đó chỉ render ở bước 3, nên bấm "Continue" ở bước 2 không đi tiếp được và
 **không hiện thông báo lỗi nào**. Giờ có một hàm validate duy nhất cho mỗi chế độ, kiểm đúng
-những ô đang hiển thị, cuộn và focus tới ô lỗi đầu tiên.
+những ô đang hiển thị, cuộn và focus tới ô lỗi đầu tiên. `scripts/check-rfq-form-compact.mjs`
+giữ luật này, đồng thời chặn việc đưa giá mục tiêu ra ngoài mục chi tiết hoặc đổi mặc định
+chia sẻ.
 
 Chế độ **câu hỏi trực tiếp** giữ nguyên một màn hình 4 ô như cũ.
 
@@ -54,7 +76,7 @@ Chế độ **câu hỏi trực tiếp** giữ nguyên một màn hình 4 ô nh�
 
 ```
 NGƯỜI MUA (không cần đăng nhập)
-  │  Form 3 bước: sản phẩm/số lượng → điều kiện giao → công ty
+  │  Form một trang: sản phẩm/số lượng/quốc gia/công ty + thanh tiến độ
   │  + honeypot + challenge chống bot + consent
   ▼
 submitRfq()  lib/rfq/submit.ts

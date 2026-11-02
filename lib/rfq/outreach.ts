@@ -38,6 +38,37 @@ function fmtDateTime(iso?: string | null) {
   return new Date(iso).toLocaleString("vi-VN", { hour12: false });
 }
 
+/** Tháng giao dạng YYYY-MM → "MM/YYYY"; ngày chính xác vẫn dùng được cho RFQ cũ. */
+function deliveryWindow(rfq: Rfq) {
+  const month = typeof rfq.specs?.shipment_month === "string" ? rfq.specs.shipment_month : null;
+  if (month && /^\d{4}-\d{2}$/.test(month)) return `${month.slice(5, 7)}/${month.slice(0, 4)}`;
+  return rfq.needed_by ?? "Thương lượng";
+}
+
+/** Điểm đến gồm quốc gia và cảng nếu người mua đã nêu. */
+function destinationLabel(rfq: Rfq) {
+  const port = typeof rfq.specs?.destination_port === "string" ? rfq.specs.destination_port.trim() : "";
+  const country = rfq.destination_country?.trim() ?? "";
+  if (country && port) return `${country} · ${port}`;
+  return country || port || null;
+}
+
+/**
+ * Giá mục tiêu của người mua KHÔNG được mặc định lộ cho nhà cung cấp.
+ * Chỉ in ra khi người mua đã tick "chia sẻ giá mục tiêu"; ngược lại ghi rõ là không công khai
+ * để NCC chào giá tốt nhất thay vì chào đúng mức trần của người mua.
+ */
+function targetPriceLabel(rfq: Rfq): { text: string; shared: boolean } {
+  if (!rfq.target_price) return { text: "Chưa công khai. Vui lòng chào giá tốt nhất.", shared: false };
+  if (rfq.specs?.share_target_price !== true) {
+    return { text: "Người mua chưa đồng ý chia sẻ giá mục tiêu. Vui lòng chào giá tốt nhất.", shared: false };
+  }
+  const unit = typeof rfq.specs?.target_price_unit === "string" && rfq.specs.target_price_unit.trim()
+    ? `/${rfq.specs.target_price_unit.trim()}`
+    : "";
+  return { text: `${rfq.target_price} ${rfq.target_price_currency ?? ""}${unit}`.trim(), shared: true };
+}
+
 /* ------------------------------------------------------------------ */
 /* 1) Gửi RFQ ẩn danh cho NCC                                          */
 /* ------------------------------------------------------------------ */
@@ -57,9 +88,11 @@ export function buildRfqSupplierEmail(input: {
     year: "numeric",
   });
   const title = `Yêu cầu báo giá ${rfqCode(rfq)}`;
-  const dest = rfq.destination_country
-    ? `thị trường <strong>${escapeHtml(rfq.destination_country)}</strong>`
+  const destination = destinationLabel(rfq);
+  const dest = destination
+    ? `thị trường <strong>${escapeHtml(destination)}</strong>`
     : "một thị trường xuất khẩu";
+  const targetPrice = targetPriceLabel(rfq);
 
   const body = `
     <p>Chào ${escapeHtml(supplier.contact_name ?? supplier.name)},</p>
@@ -74,9 +107,9 @@ export function buildRfqSupplierEmail(input: {
       <tr><td style="color:#64748b;">Mặt hàng</td><td><strong>${escapeHtml(productLabel)}</strong></td></tr>
       <tr><td style="color:#64748b;">Số lượng dự kiến</td><td>${escapeHtml(shortQty(rfq))}${rfq.frequency ? ` / ${escapeHtml(rfq.frequency)}` : ""}</td></tr>
       <tr><td style="color:#64748b;">Điều kiện giao</td><td>${escapeHtml(shortIncoterm(rfq))}</td></tr>
-      <tr><td style="color:#64748b;">Ngày giao mong muốn</td><td>${escapeHtml(rfq.needed_by ?? "Thương lượng")}</td></tr>
+      <tr><td style="color:#64748b;">Thời gian giao mong muốn</td><td>${escapeHtml(deliveryWindow(rfq))}</td></tr>
       <tr><td style="color:#64748b;">Giá mục tiêu</td>
-          <td>${rfq.target_price ? `${rfq.target_price} ${escapeHtml(rfq.target_price_currency ?? "")}` : "Chưa công khai. Vui lòng chào giá tốt nhất."}</td></tr>
+          <td>${escapeHtml(targetPrice.text)}</td></tr>
     </table>
 
     <div style="margin-top:18px;background:#fffbeb;border-left:4px solid #d97706;border-radius:8px;padding:12px 16px;">

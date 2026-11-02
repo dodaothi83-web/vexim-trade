@@ -74,6 +74,16 @@ const MATCH_STATUS: { value: string; label: string; dot: string }[] = [
   { value: "not_selected", label: "Không được chọn", dot: "bg-ink-300" },
 ];
 
+/** Tháng giao hàng dạng MM/YYYY; RFQ cũ vẫn dùng needed_by. */
+function deliveryLabel(rfq: { needed_by?: string | null; specs?: unknown }) {
+  const month = String((rfq.specs as Record<string, unknown> | null)?.shipment_month ?? "").trim();
+  if (/^\d{4}-\d{2}$/.test(month)) {
+    const [y, m] = month.split("-");
+    return `${m}/${y}`;
+  }
+  return rfq.needed_by ?? "—";
+}
+
 function fmtDate(iso?: string | null) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -215,11 +225,29 @@ export default async function RfqDetailPage({
                 {rfq.quantity && rfq.unit ? `${rfq.quantity} ${rfq.unit}` : "—"}
                 {rfq.frequency ? <span className="ml-1 text-ink-500">/ {rfq.frequency}</span> : null}
               </Field>
-              <Field icon={<MapPin className="h-4 w-4" />} label="Điểm đến">{rfq.destination_country ?? "—"}</Field>
+              <Field icon={<MapPin className="h-4 w-4" />} label="Điểm đến">
+                {rfq.destination_country ?? "—"}
+                {String((rfq.specs as Record<string, unknown> | null)?.destination_port ?? "") && (
+                  <span className="ml-1 text-ink-500">· {String((rfq.specs as Record<string, unknown>).destination_port)}</span>
+                )}
+              </Field>
               <Field icon={<Package className="h-4 w-4" />} label="Incoterm">{rfq.incoterm ?? "—"}</Field>
-              <Field icon={<CalendarClock className="h-4 w-4" />} label="Cần vào">{rfq.needed_by ?? "—"}</Field>
+              <Field icon={<CalendarClock className="h-4 w-4" />} label="Giao hàng">{deliveryLabel(rfq)}</Field>
               <Field icon={<Tag className="h-4 w-4" />} label="Giá mục tiêu">
-                {rfq.target_price ? `${rfq.target_price} ${rfq.target_price_currency ?? ""}` : "—"}
+                {rfq.target_price
+                  ? `${rfq.target_price} ${rfq.target_price_currency ?? ""}${
+                      String((rfq.specs as Record<string, unknown> | null)?.target_price_unit ?? "")
+                        ? ` / ${String((rfq.specs as Record<string, unknown>).target_price_unit)}`
+                        : ""
+                    }`
+                  : "—"}
+                {rfq.target_price && (
+                  <span className="ml-1 text-[11px] text-ink-500">
+                    {(rfq.specs as Record<string, unknown> | null)?.share_target_price === true
+                      ? "đã đồng ý chia sẻ cho nhà cung cấp"
+                      : "chưa chia sẻ cho nhà cung cấp"}
+                  </span>
+                )}
               </Field>
               <Field icon={<Timer className="h-4 w-4" />} label="Extras">
                 {[

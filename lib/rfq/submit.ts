@@ -42,9 +42,20 @@ export interface SubmitRfqInput {
   frequency?: string | null;
   incoterm?: string | null;
   destination_country?: string | null;
+  /** Cảng đích (tuỳ chọn) — lưu trong specs, không cần cột riêng. */
+  destination_port?: string | null;
   needed_by?: string | null;
+  /** Tháng giao mong muốn dạng YYYY-MM, thay cho ngày chính xác. */
+  shipment_month?: string | null;
   target_price?: number | null;
   target_price_currency?: string | null;
+  /** Đơn vị của giá mục tiêu (kg, MT...) để "6.90 USD/kg" không bị hiểu thành giá theo tấn. */
+  target_price_unit?: string | null;
+  /**
+   * Người mua có đồng ý cho NCC thấy giá mục tiêu hay không.
+   * Mặc định FALSE: giá mục tiêu chỉ để Vexim tham khảo nội bộ.
+   */
+  share_target_price?: boolean;
   wants_samples?: boolean;
   wants_inspection?: boolean;
   wants_video_call?: boolean;
@@ -62,6 +73,8 @@ export interface SubmitRfqInput {
   website?: string | null;
   business_type?: string | null;
   consent: boolean;
+  /** Đồng ý nhận thư giới thiệu nguồn hàng định kỳ (tuỳ chọn, không bắt buộc). */
+  marketing_opt_in?: boolean;
 
   // Metadata
   inquiry_kind?: "quote" | "supplier_question";
@@ -218,6 +231,10 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   if (!raw.product_text.trim()) {
     return { ok: false, message: "Vui lòng mô tả sản phẩm cần báo giá." };
   }
+  // Trần độ dài khớp bộ đếm trên form; chặn payload lớn chèn thẳng qua server action.
+  if (raw.product_text.length > 4_000 || (raw.message?.length ?? 0) > 4_000) {
+    return { ok: false, message: "Mô tả quá dài. Vui lòng rút gọn dưới 4.000 ký tự." };
+  }
   if (!raw.company.trim() || !raw.contact_name.trim() || !raw.email.trim()) {
     return { ok: false, message: "Vui lòng điền đầy đủ tên công ty, người liên hệ và email." };
   }
@@ -254,7 +271,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     payment_method: null,
     payment_terms: null,
     incoterm: raw.incoterm ?? null,
-    port: null,
+    port: raw.destination_port?.trim() || null,
     expected_ship_date: raw.needed_by ?? null,
     deal_value: null,
     supplier_id: null,
@@ -348,6 +365,12 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
       grade: raw.grade ?? null,
       packaging: raw.packaging ?? null,
       certifications: raw.certifications ?? null,
+      destination_port: raw.destination_port?.trim() || null,
+      shipment_month: /^\d{4}-\d{2}$/.test(raw.shipment_month ?? "") ? raw.shipment_month : null,
+      target_price_unit: raw.target_price_unit?.trim() || null,
+      // Mặc định không chia sẻ: chỉ Vexim thấy giá mục tiêu cho tới khi người mua đồng ý.
+      share_target_price: raw.share_target_price === true,
+      marketing_opt_in: raw.marketing_opt_in === true,
       ...(isSupplierQuestion ? {
         inquiry_kind: "supplier_question",
         contact_share_consent: true,

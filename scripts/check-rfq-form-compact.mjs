@@ -56,7 +56,7 @@ assert.ok(!quoteKeys.includes('phone'), 'Số điện thoại không được b�
 // Dùng thẻ div thật (không phải aria-controls của nút) để mốc so sánh đúng.
 const detailsAt = form.indexOf('<div id="rfq-details"');
 assert.ok(detailsAt > 0, 'Có mục chi tiết thu gọn');
-for (const heavy of ['label="Grade / spec"', 'label="Target price"', 'label="Incoterm"', 'label="Needed by"', 'label="Packaging / labelling"', 'label="Required certifications"', 'label="Website"', 'label="Business type"', 'label="Purchase frequency"', 'label="Notes for the desk"']) {
+for (const heavy of ['label="Grade / spec"', 'label="Target price"', 'label="Incoterm"', 'label="Shipment month"', 'label="Packaging / labelling"', 'label="Required certificates"', 'label="Website"', 'label="Business type"', 'label="Purchase frequency"', 'label="Notes for the desk"']) {
   const at = form.indexOf(heavy);
   assert.ok(at > detailsAt, `${heavy} phải nằm trong mục chi tiết (sau id="rfq-details")`);
 }
@@ -64,14 +64,14 @@ assert.match(form, /aria-expanded=\{detailsOpen\}/, 'Nút chi tiết phải côn
 assert.match(form, /useState\(Boolean\(initialGrade\) \|\| wantsSamples\)/, 'Mục chi tiết tự mở khi URL đã điền sẵn dữ liệu');
 
 /* 4. Trường lõi vẫn hiển thị trực tiếp, không cần mở chi tiết */
-for (const core of ['What do you need?', 'label="Quantity"', 'label="Destination"', 'label="Company"', 'label="Your name"', 'label="Work email"']) {
+for (const core of ['What do you need?', 'label="Quantity"', 'label="Destination country"', 'label="Company"', 'label="Your name"', 'label="Work email"']) {
   const at = form.indexOf(core);
   assert.ok(at > 0 && at < detailsAt, `${core} phải hiện ngay, không nằm trong mục chi tiết`);
 }
 
 /* 5. Không mất dữ liệu khi submit: mọi trường vẫn được gửi dù bị ẩn */
 const submitPayload = form.slice(form.indexOf('submitRfqAction({'), form.indexOf('});', form.indexOf('submitRfqAction({')));
-for (const field of ['quantity', 'unit', 'frequency', 'incoterm', 'destination_country', 'needed_by', 'target_price', 'target_price_currency', 'packaging', 'certifications', 'message', 'phone', 'website', 'business_type', 'wants_samples', 'wants_inspection', 'wants_video_call', 'preferred_supplier_ids', 'honeypot', 'challenge_token']) {
+for (const field of ['quantity', 'unit', 'frequency', 'incoterm', 'destination_country', 'destination_port', 'needed_by', 'shipment_month', 'target_price', 'target_price_currency', 'target_price_unit', 'share_target_price', 'marketing_opt_in', 'packaging', 'certifications', 'message', 'phone', 'website', 'business_type', 'wants_samples', 'wants_inspection', 'wants_video_call', 'preferred_supplier_ids', 'honeypot', 'challenge_token']) {
   assert.ok(new RegExp(`\\b${field}:`).test(submitPayload), `Payload còn gửi "${field}"`);
 }
 
@@ -84,8 +84,18 @@ assert.match(form, /source_product_id/, 'Liên kết sản phẩm nguồn vẫn 
 
 /* 7. Gọn thật: đếm số Field hiển thị ngay (trước mục chi tiết) */
 // Chỉ đếm phần báo giá; chế độ câu hỏi ở phía trên có bộ ô riêng.
-const quoteStart = form.indexOf("{/* 1. Sản phẩm");
+const quoteStart = form.indexOf("{/* Khối 1: sản phẩm");
 const visibleFields = (form.slice(quoteStart, detailsAt).match(/<Field\b/g) ?? []).length;
 assert.ok(visibleFields <= 9, `Chỉ nên còn tối đa 9 ô hiện ngay, đang có ${visibleFields}`);
+
+/* 8. Thanh tiến độ + giá mục tiêu mặc định riêng tư (chính sách, không chỉ giao diện) */
+assert.match(form, /const requiredChecks = \[/, 'Có danh sách ô bắt buộc cho thanh tiến độ');
+for (const key of ['product_text', 'quantity', 'destination_country', 'company', 'contact_name', 'email']) {
+  assert.match(form, new RegExp(`key: "${key}"`), `Thanh tiến độ theo dõi "${key}"`);
+}
+assert.match(form, /\{completed\}\/\{requiredChecks\.length\} required/, 'Hiện số ô đã điền trên tổng số');
+assert.match(form, /share_target_price: false/, 'Giá mục tiêu mặc định KHÔNG chia sẻ cho nhà cung cấp');
+assert.match(form, /Share my target price with suppliers/, 'Có ô chọn chia sẻ giá mục tiêu');
+assert.match(form, /maxLength=\{4000\}/, 'Mô tả sản phẩm bị giới hạn 4.000 ký tự');
 
 console.log(`✅ RFQ form compact: một trang, ${visibleFields} ô hiện ngay, mọi ô bị validate đều nhìn thấy được, chi tiết đóng mặc định.`);
