@@ -34,6 +34,15 @@ vm.runInNewContext(
 mocks['@/lib/public/supplier-name'] = supplierNameExports;
 // Thẻ ngữ cảnh sản phẩm: kiểm này chỉ cần biết trang có chuyển nguyên object xuống form.
 mocks['@/lib/public/rfq-product-context'] = { loadRfqProductContext: async () => productContext };
+// Danh sách tháng giao hàng do trang dựng; dùng module thật (thuần, không import gì).
+const shipmentMonthExports = {};
+vm.runInNewContext(
+  ts.transpileModule(readFileSync(new URL('../lib/public/shipment-months.ts', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText,
+  { exports: shipmentMonthExports, require: (key) => { throw Error(`Unexpected import in lib/public/shipment-months.ts: ${key}`); } },
+);
+mocks['@/lib/public/shipment-months'] = shipmentMonthExports;
 // Trang đọc cột jsonb qua bộ chuẩn hoá dùng chung, nên biên dịch luôn module đó
 // thật thay vì giả lập: kiểm này bao trọn cả hình dạng dữ liệu cũ.
 const filterExports = {};
@@ -113,6 +122,8 @@ assert.deepEqual(plain(props.contextProduct), productContext, 'Trang chuyển th
 productContext = null;
 props = await render({ category: 'cashew-kernels' });
 assert.equal(props.contextProduct, null, 'Vào từ menu không có thẻ ngữ cảnh');
+assert.ok(Array.isArray(props.shipmentMonths) && props.shipmentMonths.length > 0, 'Trang truyền danh sách tháng giao hàng xuống form');
+assert.match(props.shipmentMonths[0].value, /^\d{4}-(0[1-9]|1[0-2])$/, 'Tháng giao hàng dùng định dạng YYYY-MM');
 
 listFailed = true;
 props = await render();

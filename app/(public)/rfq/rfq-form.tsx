@@ -47,6 +47,8 @@ interface Props {
    * chuyển thành "Your requirements" (tuỳ chọn) vì tên sản phẩm do server dựng.
    */
   contextProduct?: RfqProductContext | null;
+  /** Tháng giao hàng (YYYY-MM) do server dựng, để ô chọn luôn là tiếng Anh. */
+  shipmentMonths?: Array<{ value: string; label: string }>;
 }
 
 const UNITS = ["MT", "kg", "lb", "container (20')", "container (40')", "pallet", "carton"];
@@ -86,6 +88,7 @@ export function RfqForm({
   wantsSamples,
   mode = "quote",
   contextProduct = null,
+  shipmentMonths = [],
 }: Props) {
   const router = useRouter();
   const isQuestion = mode === "question";
@@ -556,7 +559,14 @@ export function RfqForm({
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="Shipment month">
-                  <input type="month" className="input" value={data.shipment_month} onChange={(e) => update("shipment_month", e.target.value)} />
+                  {/* Ô chọn thay cho type="month": trình duyệt đặt placeholder theo ngôn ngữ máy
+                      (máy tiếng Việt hiện "---- năm ----") trong khi form là tiếng Anh. */}
+                  <select className="input" value={data.shipment_month} onChange={(e) => update("shipment_month", e.target.value)}>
+                    <option value="">Not sure yet</option>
+                    {shipmentMonths.map((month) => (
+                      <option key={month.value} value={month.value}>{month.label}</option>
+                    ))}
+                  </select>
                 </Field>
                 <Field label="Purchase frequency">
                   <select className="input" value={data.frequency} onChange={(e) => update("frequency", e.target.value)}>
@@ -666,10 +676,7 @@ export function RfqForm({
                 </div>
                 <label className="mt-2 flex items-start gap-2 text-[12.5px] text-ink-700">
                   <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.share_target_price} onChange={(e) => update("share_target_price", e.target.checked)} />
-                  <span>
-                    Share my target price with suppliers
-                    <span className="mt-0.5 block text-[11.5px] text-ink-500">Only Vexim sees it unless you tick this box.</span>
-                  </span>
+                  <span>Share my target price with suppliers</span>
                 </label>
               </Field>
 
