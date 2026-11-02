@@ -86,3 +86,7 @@ assert.match(render({ keepQuery: 'cert=haccp' }), /href="\/products\/cashew-kern
 // Số trang vượt phạm vi không tạo trang trắng.
 assert.equal(namesOn(render({ page: 99 })).length, 6, '?page=99 rơi về trang cuối');
 console.log('Category pagination: 12 thẻ mỗi trang, không lặp thẻ, số trang nằm trên ?page=');
+
+assert.doesNotMatch(firstPage, /more from|More products by supplier/, 'No redundant supplier overflow links');
+assert.match(firstPage, /aria-label="Next page"/, 'Icon next link retains accessible label');
+assert.match(lastPage, /aria-label="Previous page"/, 'Icon previous link retains accessible label');
