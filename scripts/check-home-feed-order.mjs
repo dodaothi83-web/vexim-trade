@@ -13,6 +13,7 @@ import { createRequire } from "node:module";
 
 import {
   arrangeSupplierProducts,
+  balanceHomepageCategories,
   HOME_FEED_PER_PAGE,
   HOME_FEED_PER_PAGE_WIDE,
   HOME_FEED_WIDE_QUERY,
@@ -115,6 +116,7 @@ async function renderHome(offers, categoryItems = [category], props = {}) {
     "@/lib/public/product-catalog": { loadPublicProductCatalogSnapshot: async () => ({}), listPublicCategoryProducts: async () => offers },
     "@/lib/public/supplier-product-order": {
       arrangeSupplierProducts,
+      balanceHomepageCategories,
       HOME_FEED_PER_PAGE,
       HOME_FEED_PER_SUPPLIER,
     },
@@ -279,27 +281,11 @@ assert.equal(feedModule.pageSlice(twentyFour, 0).current, 1, "Page zero clamps t
 assert.equal(feedModule.pageSlice(twentyFour, 9).current, 4, "A page past the end clamps to the last page");
 assert.equal(feedModule.pageSlice([], 3).shown.length, 0, "An empty list has one empty page, not NaN");
 
-/* Tự chuyển trang: chỉ khi lưới đã khuất, và mỗi điều kiện dừng đều chặn được. */
-const allowed = {
-  pageCount: 4,
-  seen: true,
-  stopped: false,
-  tabHidden: false,
-  onScreen: false,
-  reducedMotion: false,
-};
+/* Autoplay is enabled on screen, with explicit pause rather than implicit stops. */
 const { autoAdvanceAllowed, nextAutoPage } = feedModule;
-assert.equal(autoAdvanceAllowed(allowed), true, "A grid that has been seen and is now off-screen may advance");
-for (const [key, label] of [
-  ["seen", "The visitor has not seen the grid yet, so it must start at page one"],
-  ["stopped", "A click stops the rotation for good"],
-  ["tabHidden", "A hidden tab does not rotate"],
-  ["onScreen", "Never rotate while the cards are on screen"],
-  ["reducedMotion", "Reduced motion turns the rotation off entirely"],
-]) {
-  assert.equal(autoAdvanceAllowed({ ...allowed, [key]: !allowed[key] }), false, label);
-}
-assert.equal(autoAdvanceAllowed({ ...allowed, pageCount: 1 }), false, "One page needs no rotation");
+assert.equal(autoAdvanceAllowed({ pageCount: 4, stopped: false }), true);
+assert.equal(autoAdvanceAllowed({ pageCount: 4, stopped: true }), false);
+assert.equal(autoAdvanceAllowed({ pageCount: 1, stopped: false }), false);
 assert.equal(nextAutoPage(1, 4), 2);
 assert.equal(nextAutoPage(3, 4), 4);
 assert.equal(nextAutoPage(4, 4), 1, "After the last page it starts over instead of getting stuck");
@@ -347,8 +333,31 @@ assert.ok(
 
 const feedSource = readFileSync(new URL("../components/home-product-feed.tsx", import.meta.url), "utf8");
 assert.ok(feedSource.includes("prefers-reduced-motion"), "The rotation respects the reduced-motion setting");
-assert.ok(feedSource.includes("visibilitychange"), "The rotation pauses when the tab is hidden");
-assert.ok(feedSource.includes("IntersectionObserver"), "The rotation is driven by whether the grid is on screen");
+assert.ok(!feedSource.includes("visibilitychange"), "No app-level hidden-tab gate");
+assert.ok(!feedSource.includes("IntersectionObserver"), "Autoplay does not wait for off-screen visibility");
+assert.ok(feedSource.includes("Pause autoplay"), "Buyer can explicitly pause autoplay");
 assert.ok(feedSource.includes('wide ? " lg:grid-cols-5" : ""'), "Desktop switches to five columns with the 15-card page size");
 
 console.log("check-home-feed-order: fixed section order, eight categories, 15-card desktop pages, and search route passed");
+
+// Category balance is applied before the global supplier cap, not after flattening.
+const crop = (category, count, supplier = category) => Array.from({ length: count }, (_, i) => ({
+  id: `${category}-${i}`, supplierId: `${supplier}-${i}`, category,
+}));
+const cashew = crop('cashew', 20);
+const pepper = crop('pepper', 2);
+const cinnamon = crop('cinnamon', 1);
+const balanced = balanceHomepageCategories([cashew, pepper, cinnamon]);
+assert.deepEqual(balanced.slice(0, 6).map((p) => p.category), ['cashew', 'pepper', 'cinnamon', 'cashew', 'pepper', 'cashew']);
+assert.deepEqual(balanced.filter((p) => p.category === 'cashew').map((p) => p.id), cashew.map((p) => p.id), 'Preserve ranking within a category');
+const sharedSeller = balanceHomepageCategories([
+  [{ id: 'a1', supplierId: 'shared' }, { id: 'a2', supplierId: 'shared' }, { id: 'a3', supplierId: 'other' }],
+  [{ id: 'b1', supplierId: 'shared' }],
+]);
+assert.deepEqual(sharedSeller.map((p) => p.id), ['a1', 'b1', 'a3'], 'Other category gets a slot before earlier category consumes supplier cap');
+assert.equal(balanceHomepageCategories([cashew, cashew]).length, cashew.length, 'No duplicate product IDs');
+assert.deepEqual(balanceHomepageCategories([[], pepper]), pepper, 'Empty categories do not block the feed');
+assert.deepEqual(balanceHomepageCategories([]), []);
+assert.deepEqual(balanceHomepageCategories([cashew], 0), []);
+assert.deepEqual(balanceHomepageCategories([pepper]), pepper, 'Single-category fallback stays ordered');
+console.log('Homepage category balance: skewed inventory, supplier caps, stable ranking, duplicates and empty categories passed');

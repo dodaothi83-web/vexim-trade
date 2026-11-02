@@ -11,7 +11,7 @@ import {
 import { getStore } from "@/lib/db";
 import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, type PublicCategoryProduct } from "@/lib/public/product-catalog";
-import { arrangeSupplierProducts, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
+import { balanceHomepageCategories, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
 import { HomeProductFeed } from "@/components/home-product-feed";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
 import { CookieSettingsButton } from "@/components/cookie-consent";
@@ -167,18 +167,15 @@ export default async function HomeContent({
       products: await listPublicCategoryProducts(category, { snapshot: snapshot! }),
     })),
   );
-  const seen = new Set<string>();
-  const offers: Array<PublicCategoryProduct & { categorySlug: string }> = [];
-  for (const { category, products } of productGroups) {
-    for (const p of products) {
-      if (p.isDemo || seen.has(p.id)) continue;
-      seen.add(p.id);
-      offers.push({ ...p, categorySlug: category.slug });
-    }
-  }
-  // Thứ tự được chốt ở máy chủ rồi mới chia trang. Giới hạn hai thẻ mỗi nhà
-  // cung cấp được giữ nguyên để một công ty không chiếm toàn bộ lưới.
-  const arrangedOffers = arrangeSupplierProducts(offers, HOME_FEED_PER_SUPPLIER).shown;
+  // One offer per category per round; retain category-local ranking and public gates.
+  // Enforce the supplier cap during selection so earlier categories cannot take
+  // all available slots before other industries get a turn.
+  const arrangedOffers = balanceHomepageCategories(
+    productGroups.map(({ category, products }) => products
+      .filter((product) => !product.isDemo)
+      .map((product) => ({ ...product, categorySlug: category.slug }))),
+    HOME_FEED_PER_SUPPLIER,
+  );
   // Điều kiện duy nhất để hiện khối: có ít nhất một sản phẩm. Số thẻ mỗi trang do
   // HomeProductFeed tự tính theo bề rộng màn hình.
   const hasFeedProducts = arrangedOffers.length > 0;
