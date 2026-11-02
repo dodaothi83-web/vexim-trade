@@ -1662,7 +1662,12 @@ export async function updateProductAction(
       else delete input.specs[key];
     }
     const existingDescriptionDetail = sanitizeProductDescriptionHtml(existing.description_detail) || null;
-    const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || input.description_detail !== existingDescriptionDetail ||
+    // Do not migrate legacy text to HTML during an unrelated form save: quantity
+    // price approval compares the stored product context byte-for-byte. Preserve
+    // the stored value when sanitizing both sides yields the same description.
+    const descriptionDetailChanged = input.description_detail !== existingDescriptionDetail;
+    if (!descriptionDetailChanged) input.description_detail = existing.description_detail ?? null;
+    const identityChanged = input.name !== existing.name || input.spec !== existing.spec || input.description !== existing.description || descriptionDetailChanged ||
       JSON.stringify(input.specs) !== JSON.stringify(existing.specs ?? {});
     // The human-reviewed category outranks text inference. Supplier products
     // keep that staff decision and their internal readiness during ordinary saves.

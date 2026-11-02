@@ -64,7 +64,7 @@ assert.deepEqual(firstNames, ranked.slice(0, 12), 'Trang một là mười hai t
 assert.match(firstPage, /page 1 of 3/, 'Dòng đếm nói rõ đang ở trang nào');
 assert.match(firstPage, /href="\/products\/cashew-kernels\?page=2"/, 'Số trang là liên kết thật, máy tìm kiếm theo được');
 assert.match(firstPage, /aria-label="Pagination"/);
-assert.match(firstPage, /aria-current="page"[^>]*>1</, 'Trang hiện tại được đánh dấu');
+assert.match(firstPage, /aria-current="page"[^>]*>1\/3</, 'Trang hiện tại được đánh dấu');
 assert.doesNotMatch(firstPage, /rel="prev"/, 'Trang một không có Previous');
 
 const secondPage = render({ page: 2 });
@@ -86,3 +86,10 @@ assert.match(render({ keepQuery: 'cert=haccp' }), /href="\/products\/cashew-kern
 // Số trang vượt phạm vi không tạo trang trắng.
 assert.equal(namesOn(render({ page: 99 })).length, 6, '?page=99 rơi về trang cuối');
 console.log('Category pagination: 12 thẻ mỗi trang, không lặp thẻ, số trang nằm trên ?page=');
+
+assert.doesNotMatch(firstPage, /more from|More products by supplier/, 'No redundant supplier overflow links');
+assert.match(firstPage, /aria-label="Next page"/, 'Icon next link retains accessible label');
+assert.match(lastPage, /aria-label="Previous page"/, 'Icon previous link retains accessible label');
+
+assert.match(secondPage, /aria-current="page"[^>]*>2\/3</);
+assert.match(lastPage, /aria-current="page"[^>]*>3\/3</);

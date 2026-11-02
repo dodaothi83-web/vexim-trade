@@ -216,6 +216,8 @@ type ListFilter = "all" | "published" | "draft" | "noimg" | "incomplete";
 export function CategoriesManager({
   initialCategories,
   harvestReview = [],
+  harvestStatus = {},
+  harvestRunsReadable = false,
   canPublish = false,
   aiEnabled = false,
   stats = {},
@@ -225,6 +227,8 @@ export function CategoriesManager({
   initialCategories: Category[];
   /** Danh mục có lịch mùa vụ nhưng ngày rà soát trống hoặc đã cũ, tính ở phía máy chủ. */
   harvestReview?: HarvestReviewEntry[];
+  harvestStatus?: Record<string, string>;
+  harvestRunsReadable?: boolean;
   canPublish?: boolean;
   aiEnabled?: boolean;
   stats?: Record<string, CategoryStats>;
@@ -338,6 +342,9 @@ export function CategoriesManager({
       return;
     }
     const fd = toFormData(d);
+    // Unrelated category edits must not erase AI source provenance.
+    const original = initialCategories.find((category) => category.id === id);
+    if (original && JSON.stringify(d.harvest) === JSON.stringify(fromCategory(original).harvest)) fd.delete("harvest");
     const saved = await run(() => updateCategoryAction(id, Object.fromEntries(fd)));
     if (saved) pendingSyncRef.current.add(id);
   }
@@ -483,6 +490,7 @@ export function CategoriesManager({
         canPublish={canPublish}
         currentUserId={currentUserId}
         isAdmin={isAdmin}
+        harvestRun={harvestRunsReadable ? harvestStatus[c.id] ?? "Chưa ghi nhận lần chạy nào trong nhật ký hiện có." : "Không đọc được nhật ký cập nhật."}
         aiEnabled={aiEnabled}
       />
     );
@@ -894,7 +902,7 @@ function tabState(key: EditorTab, d: CategoryDraft): "ok" | "part" | "no" {
 }
 
 function CategoryEditor({
-  draft, setDraft, onSave, onPublish, onBack, onPreview, onDelete, busy, initialTab, savedCategory, parentOptions, stats, hasChildren, dirty, canPublish, currentUserId, isAdmin, aiEnabled,
+  draft, setDraft, onSave, onPublish, onBack, onPreview, onDelete, busy, initialTab, savedCategory, parentOptions, stats, hasChildren, dirty, canPublish, currentUserId, isAdmin, aiEnabled, harvestRun,
 }: {
   draft: CategoryDraft;
   setDraft: (updater: CategoryDraft | ((d: CategoryDraft) => CategoryDraft)) => void;
@@ -914,6 +922,7 @@ function CategoryEditor({
   currentUserId?: string;
   isAdmin?: boolean;
   aiEnabled?: boolean;
+  harvestRun?: string;
 }) {
   const set = <K extends keyof CategoryDraft>(k: K, v: CategoryDraft[K]) => setDraft((d) => ({ ...d, [k]: v }));
   const uploadUrl = draft.id ? `/api/categories/${encodeURIComponent(draft.id)}/hero-image` : "";
@@ -1262,11 +1271,12 @@ function CategoryEditor({
           {tab === "harvest" && (
             <section className="card p-5">
               <h2 className="text-base font-bold text-ink-900">Lịch mùa vụ</h2>
-              <p className="mb-4 mt-0.5 text-[13px] leading-relaxed text-ink-500">
-                Biểu đồ 12 tháng hiển thị trên trang danh mục, đặt sau danh sách nhà cung cấp. Mỗi cửa sổ là một vụ:
-                tháng bắt đầu lớn hơn tháng kết thúc nghĩa là vụ vắt qua năm mới. Danh mục chưa có cửa sổ nào thì khối này
-                ẩn hoàn toàn, không hiện biểu đồ rỗng.
-              </p>
+              <p className="mb-4 mt-1 text-sm text-ink-500">Lịch tham khảo cho người mua. Kiểm tra nguồn và ngày rà soát trước khi sử dụng.</p>
+              <div className="mb-5 rounded-xl border border-ink-200 bg-ink-50 p-4 text-sm">
+                <p className="font-semibold text-ink-900">Cập nhật từ nguồn</p>
+                <p className="mt-2 text-ink-600">{harvestRun}</p>
+                <p className="mt-2 text-xs leading-relaxed text-ink-500">{aiEnabled ? "Máy chủ có cấu hình khóa AI." : "Máy chủ chưa có cấu hình khóa AI."} Tác vụ cần lịch gọi bên ngoài; trạng thái này không xác nhận lịch tự động đang hoạt động. Không phải dữ liệu thời gian thực.</p>
+              </div>
               <HarvestEditor draft={draft} setDraft={setDraft} />
             </section>
           )}
@@ -1449,6 +1459,29 @@ function HarvestEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u
         </li>)}</ul>}
       </div>}
 
+      <div className="space-y-3">
+        <div className="flex flex-wrap justify-between gap-2 text-xs text-ink-500">
+          <span>{harvest.review_origin === "ai" ? "AI đối chiếu nguồn" : "Nhập / rà soát thủ công"}</span>
+          <span>Ngày rà soát: {harvest.reviewed_on || "Chưa có"}</span>
+        </div>
+        {harvest.windows.length === 0 && <p className="rounded-lg bg-ink-50 p-4 text-sm text-ink-500">Chưa có lịch mùa vụ. Trang công khai không hiển thị biểu đồ rỗng.</p>}
+        {harvest.windows.map((window) => <div key={window.id} className="rounded-xl border border-ink-200 p-4">
+          <p className="font-semibold text-ink-900">{window.label} {window.peak && <span className="text-xs text-brand-700">· Vụ chính</span>}</p>
+          <div className="mt-3 grid grid-cols-12 gap-1" aria-label={`${window.label}: ${window.start_month}–${window.end_month}`}>
+            {HARVEST_MONTH_LABELS.map((month, index) => {
+              const n = index + 1;
+              const active = window.start_month <= window.end_month ? n >= window.start_month && n <= window.end_month : n >= window.start_month || n <= window.end_month;
+              return <span key={month} className={`rounded py-2 text-center text-[10px] ${active ? "bg-brand-700 font-bold text-white" : "bg-ink-50 text-ink-500"}`} title={`${month}: ${active ? "Trong vụ" : "Ngoài vụ"}`}>{month}</span>;
+            })}
+          </div>
+          {(window.regions?.length ?? 0) > 0 && <p className="mt-2 text-xs text-ink-600">{window.regions?.join(", ")}</p>}
+          {window.note && <p className="mt-2 text-xs text-ink-500">{window.note}</p>}
+        </div>)}
+        {harvest.note_en && <p className="text-sm leading-relaxed text-ink-600">{harvest.note_en}</p>}
+      </div>
+      <details className="rounded-xl border border-ink-200 p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-ink-700">Chỉnh sửa thủ công</summary>
+        <p className="my-3 text-xs text-amber-800">Chỉ chỉnh sau khi đối chiếu nguồn. Lưu thay đổi lịch sẽ chuyển sang rà soát bởi nhân sự và bỏ nguồn AI cũ. Lưu bản nháp ở thanh trên để áp dụng.</p>
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
           <p className="text-[13px] font-semibold text-ink-700">Cửa sổ mùa vụ ({harvest.windows.length})</p>
@@ -1542,6 +1575,7 @@ function HarvestEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u
           />
         </Field>
       </div>
+      </details>
     </div>
   );
 }

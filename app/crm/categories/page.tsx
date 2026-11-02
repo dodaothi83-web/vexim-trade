@@ -51,15 +51,22 @@ export default async function CategoriesPage() {
     Object.entries(stats).map(([slug, s]) => [slug, { products: s.products, suppliers: s.suppliers }]),
   );
 
-  // Mùa vụ không tự cập nhật, nên danh mục có lịch nhưng ngày rà soát trống hoặc
+  // Lịch mùa vụ cần theo dõi độ mới, nên danh mục có lịch nhưng ngày rà soát trống hoặc
   // đã cũ được đưa lên đầu trang. Sửa và lưu là dòng nhắc tự mất, vì danh sách
   // tính lại từ dữ liệu mỗi lần tải trang.
+  const harvestRuns = await store.listHarvestResearchRuns().catch(() => null);
+  const harvestStatus: Record<string, string> = {};
+  if (harvestRuns) for (const run of [...harvestRuns].sort((a, b) => b.created_at.localeCompare(a.created_at))) {
+    if (!harvestStatus[run.entity_id]) harvestStatus[run.entity_id] = `${run.action.endsWith("_updated") ? "Đã cập nhật" : "Không cập nhật được; giữ lịch cũ"} · ${run.created_at}`;
+  }
   const harvestReview = harvestReviewQueue(categories, todayInVietnam());
 
   return (
     <CategoriesManager
       initialCategories={categories}
       harvestReview={harvestReview}
+      harvestStatus={harvestStatus}
+      harvestRunsReadable={harvestRuns !== null}
       canPublish={canPublish}
       aiEnabled={!!process.env.OPENAI_API_KEY}
       stats={cleanStats}

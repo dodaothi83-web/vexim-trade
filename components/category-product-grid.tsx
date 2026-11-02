@@ -3,7 +3,7 @@
 import { matchesVerificationFilter } from "@/lib/verification-status";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronDown, Filter } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Filter } from "lucide-react";
 
 import { PublicProductCard } from "@/components/public-product-card";
 import { SponsoredPilotSlot } from "@/components/sponsored-pilot-slot";
@@ -123,7 +123,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   );
   // Lọc xong thì hiện đủ, không áp trần, để người đang tìm một quy cách cụ thể
   // không bị giấu mất lựa chọn.
-  const { shown, hidden } = useMemo(
+  const { shown } = useMemo(
     () => arrangeSupplierProducts(listPool, active ? null : supplierCap),
     [listPool, active, supplierCap],
   );
@@ -263,34 +263,12 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
         </div>}
         {paged.pages > 1 && <nav aria-label="Pagination" className="mt-6 flex flex-wrap items-center justify-center gap-1.5 text-sm">
           {paged.page > 1 && <Link href={pageHref(paged.page - 1)} onClick={(event) => { event.preventDefault(); goToPage(paged.page - 1); }}
-            rel="prev" className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500">Previous</Link>}
-          {(() => {
-            // Chỉ hiện trang đầu, trang cuối và vùng quanh trang hiện tại; phần bị
-            // bỏ gộp thành dấu ba chấm để dãy số không dài quá một hàng.
-            const slots: Array<number | "gap"> = [];
-            for (let index = 1; index <= paged.pages; index += 1) {
-              if (index === 1 || index === paged.pages || Math.abs(index - paged.page) <= 1) slots.push(index);
-              else if (slots[slots.length - 1] !== "gap") slots.push("gap");
-            }
-            return slots.map((slot, slotIndex) => slot === "gap"
-              ? <span key={`gap-${slotIndex}`} className="px-1 text-ink-400" aria-hidden>...</span>
-              : slot === paged.page
-                ? <span key={slot} aria-current="page" className="rounded-lg border border-brand-700 bg-brand-700 px-3 py-1.5 font-bold text-white">{slot}</span>
-                : <Link key={slot} href={pageHref(slot)} onClick={(event) => { event.preventDefault(); goToPage(slot); }}
-                    aria-label={`Page ${slot}`} className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500">{slot}</Link>);
-          })()}
+            rel="prev" aria-label="Previous page" title="Previous page" className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></Link>}
+          <span aria-current="page" aria-label={`Page ${paged.page} of ${paged.pages}`} className="px-3 py-1.5 font-semibold tabular-nums text-ink-900">{paged.page}/{paged.pages}</span>
           {paged.page < paged.pages && <Link href={pageHref(paged.page + 1)} onClick={(event) => { event.preventDefault(); goToPage(paged.page + 1); }}
-            rel="next" className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500">Next</Link>}
+            rel="next" aria-label="Next page" title="Next page" className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 font-semibold text-ink-700 hover:border-brand-500"><ChevronRight className="h-5 w-5" aria-hidden="true" /></Link>}
         </nav>}
-        {!active && hidden.size > 0 && <div className="mt-5 flex flex-wrap gap-2" aria-label="More products by supplier">
-          {[...hidden].map(([supplierId, count]) => {
-            const supplier = products.find((p) => p.supplierId === supplierId)!;
-            return <Link key={supplierId} href={`/suppliers/${encodeURIComponent(supplier.supplierSlug || supplierId)}#products`}
-              className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-800 hover:border-brand-500">
-              +{count} more from {supplier.supplierName}<ArrowRight className="h-3 w-3" aria-hidden />
-            </Link>;
-          })}
-        </div>}
+
       </div>
     </div>
   </>;

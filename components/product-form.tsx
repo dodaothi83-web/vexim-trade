@@ -327,8 +327,8 @@ export function ProductForm({
       {/* Thanh hành động dính trên cùng — nơi duy nhất chứa nút Lưu */}
       <div className="sticky top-2 z-20 rounded-2xl border border-ink-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2.5">
-          <Link href={product ? `/crm/products/${product.id}` : `/crm/suppliers/${supplier.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[13px]">
-            <ArrowLeft className="h-4 w-4" /> {product ? "Chi tiết" : "Hồ sơ nhà cung cấp"}
+          <Link href={product ? "/crm/products" : `/crm/suppliers/${supplier.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[13px]">
+            <ArrowLeft className="h-4 w-4" /> {product ? "Danh sách sản phẩm" : "Hồ sơ nhà cung cấp"}
           </Link>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-black tracking-tight text-ink-900">{v("name") || (product ? product.name : "Sản phẩm mới")}</p>

@@ -6,54 +6,13 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { HOME_FEED_PER_PAGE, HOME_FEED_WIDE_QUERY, feedPerPage } from "@/lib/public/supplier-product-order";
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
-import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 
 export type HomeFeedProduct = PublicCategoryProduct & { categorySlug: string };
 
-/** Nhịp tự chuyển trang khi lưới đã ra khỏi màn hình. */
-export const AUTO_ADVANCE_MS = 7000;
-
-/**
- * Cắt danh sách thành trang. Tách khỏi phần giao diện để kiểm được bằng số, không
- * cần trình duyệt: trang ngoài dải thì kẹp về đầu hoặc cuối, không trả trang rỗng.
- */
 export function pageSlice<T>(items: T[], page: number, perPage: number = HOME_FEED_PER_PAGE) {
   const pageCount = Math.max(1, Math.ceil(items.length / perPage));
   const current = Math.min(Math.max(1, Math.trunc(page) || 1), pageCount);
-  const start = (current - 1) * perPage;
-  return { shown: items.slice(start, start + perPage), current, pageCount };
-}
-
-/**
- * Có được tự chuyển trang hay không.
- *
- * Chỉ chuyển khi lưới đã ra khỏi màn hình, vì đổi thẻ trước mặt người đang đọc là
- * cách chắc chắn nhất để họ bấm nhầm. Thêm bốn điều kiện dừng: người xem đã bấm
- * nút thì thôi không tự chuyển nữa, tab bị ẩn thì dừng, máy đặt giảm chuyển động
- * thì tắt hẳn, và phải đã nhìn thấy lưới ít nhất một lần trước đó. Điều kiện cuối
- * để người mở trang luôn gặp trang một, không rơi vào giữa vòng xoay.
- */
-export function autoAdvanceAllowed(input: {
-  pageCount: number;
-  seen: boolean;
-  stopped: boolean;
-  tabHidden: boolean;
-  onScreen: boolean;
-  reducedMotion: boolean;
-}): boolean {
-  return (
-    input.pageCount > 1 &&
-    input.seen &&
-    !input.stopped &&
-    !input.tabHidden &&
-    !input.onScreen &&
-    !input.reducedMotion
-  );
-}
-
-/** Trang kế tiếp khi tự chuyển: hết trang cuối thì quay lại trang đầu. */
-export function nextAutoPage(current: number, pageCount: number): number {
-  return current >= pageCount ? 1 : current + 1;
+  return { shown: items.slice((current - 1) * perPage, current * perPage), current, pageCount };
 }
 
 /**
@@ -97,10 +56,6 @@ export function HomeProductFeed({
   const wide = useSyncExternalStore(subscribeWide, readWide, serverWide);
   const size = perPage ?? feedPerPage(wide);
   const [page, setPage] = useState(1);
-  const [seen, setSeen] = useState(false);
-  const [interacted, setInteracted] = useState(false);
-  const [onScreen, setOnScreen] = useState(true);
-  const [tabHidden, setTabHidden] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
   const scrollWanted = useRef(false);
@@ -108,16 +63,8 @@ export function HomeProductFeed({
   // Đổi cỡ màn hình thì số thẻ mỗi trang đổi theo; pageSlice tự kẹp số trang,
   // nên không rơi vào trang rỗng khi số trang ít đi.
   const { shown, current, pageCount } = pageSlice(items, page, size);
-  const autoAdvance = autoAdvanceAllowed({
-    pageCount,
-    seen,
-    stopped: interacted,
-    tabHidden,
-    onScreen,
-    reducedMotion,
-  });
 
-  // Máy đặt giảm chuyển động thì không tự chuyển trang, và cũng không cuộn mượt.
+  // Respect reduced-motion preferences when scrolling after manual navigation.
   useEffect(() => {
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
     const sync = () => setReducedMotion(query.matches);
@@ -126,41 +73,7 @@ export function HomeProductFeed({
     return () => query.removeEventListener("change", sync);
   }, []);
 
-  // Tab bị ẩn thì dừng nhịp, để không đổi trang trong lúc không ai nhìn.
-  useEffect(() => {
-    const sync = () => setTabHidden(document.visibilityState === "hidden");
-    sync();
-    document.addEventListener("visibilitychange", sync);
-    return () => document.removeEventListener("visibilitychange", sync);
-  }, []);
-
-  // Theo dõi lưới còn trong màn hình hay không: tự chuyển chỉ chạy khi đã khuất.
-  useEffect(() => {
-    const node = listRef.current;
-    if (!node || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          setOnScreen(entry.isIntersecting);
-          if (entry.isIntersecting) setSeen(true);
-        }
-      },
-      { threshold: 0.15 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!autoAdvance) return;
-    const id = window.setInterval(() => {
-      setPage((value) => nextAutoPage(Math.min(value, pageCount), pageCount));
-    }, AUTO_ADVANCE_MS);
-    return () => window.clearInterval(id);
-  }, [autoAdvance, pageCount]);
-
   // Sang trang do người xem bấm thì kéo lưới vào tầm mắt nếu đã ra khỏi màn hình.
-  // Lượt tự chuyển không cuộn, vì lưới đang khuất và cuộn theo sẽ giật trang.
   useEffect(() => {
     if (!scrollWanted.current) return;
     scrollWanted.current = false;
@@ -168,7 +81,6 @@ export function HomeProductFeed({
   }, [current, reducedMotion]);
 
   const goTo = (next: number) => {
-    setInteracted(true);
     scrollWanted.current = true;
     setPage(Math.min(Math.max(1, next), pageCount));
   };
@@ -203,7 +115,6 @@ export function HomeProductFeed({
               quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(p.categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}
               verificationSteps={p.verificationSteps} l2Scope={p.l2Scope}
               test={p.isDemo}
-              comparison={hasProductComparisonPeer(items, p) ? { id: p.id, categorySlug: p.categorySlug } : undefined}
             />
           </li>
         ))}
@@ -223,9 +134,8 @@ export function HomeProductFeed({
           >
             <ChevronLeft className="h-4 w-4" aria-hidden />
           </button>
-          {/* Lượt tự chuyển không đọc lên, kẻo trình đọc màn hình ngắt lời người dùng. */}
           <p
-            aria-live={autoAdvance ? "off" : "polite"}
+            aria-live="polite"
             className="min-w-14 text-center text-sm font-semibold tabular-nums text-ink-700"
           >
             {current}/{pageCount}

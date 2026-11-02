@@ -91,3 +91,35 @@ export function categoryPageSlice<T>(
   const current = Math.min(Math.max(1, wanted), pages);
   return { items: items.slice((current - 1) * size, current * size), page: current, pages, total };
 }
+
+/** Homepage: give each category a turn before taking its next ranked offer.
+ * Apply the supplier cap during selection, never regroup by supplier afterwards
+ * (which would undo the category balance). Input category order breaks ties.
+ */
+export function balanceHomepageCategories<T extends { id: string; supplierId: string }>(
+  groups: readonly (readonly T[])[],
+  perSupplier: number = HOME_FEED_PER_SUPPLIER,
+): T[] {
+  const limit = Math.max(0, Math.floor(perSupplier));
+  if (!limit) return [];
+  const counts = new Map<string, number>();
+  const seen = new Set<string>();
+  const cursors = groups.map(() => 0);
+  const result: T[] = [];
+  let added: boolean;
+  do {
+    added = false;
+    groups.forEach((products, groupIndex) => {
+      while (cursors[groupIndex] < products.length) {
+        const product = products[cursors[groupIndex]++];
+        if (seen.has(product.id) || (counts.get(product.supplierId) ?? 0) >= limit) continue;
+        seen.add(product.id);
+        counts.set(product.supplierId, (counts.get(product.supplierId) ?? 0) + 1);
+        result.push(product);
+        added = true;
+        break;
+      }
+    });
+  } while (added);
+  return result;
+}

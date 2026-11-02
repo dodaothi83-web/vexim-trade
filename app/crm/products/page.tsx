@@ -284,14 +284,14 @@ export default async function ProductsPage({
               const displayName = nameFor(r) || "Sản phẩm chưa có tên";
               const displayCategory = categoryFor(r) || "Chưa phân loại";
               const legacyReview = legacyPrices.has(r.id) || legacyNames.has(r.id);
-              const reviewHref = legacyReview ? "/crm/products/quantity-review" : `/crm/products/${r.id}/edit`;
+              const reviewHref = legacyReview ? `/crm/products/quantity-review?product_id=${encodeURIComponent(r.id)}` : `/crm/products/${r.id}/edit`;
               return (
                 <li key={r.id} className={`px-4 py-4 ${matched ? "bg-brand-50/40" : ""}`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                     <div className="flex min-w-0 flex-1 items-start gap-3">
                       <MediaThumb asset={thumbByProduct.get(r.id) ?? null} size="h-14 w-14" />
                       <div className="min-w-0 flex-1">
-                        <Link href={`/crm/products/${r.id}`} className="break-words text-sm font-bold text-ink-900 hover:text-brand-700 hover:underline">{displayName}</Link>
+                        <Link href={`/crm/products/${r.id}/edit`} className="break-words text-sm font-bold text-ink-900 hover:text-brand-700 hover:underline">{displayName}</Link>
                         <p className="mt-1 break-words text-xs leading-5 text-ink-500">
                           {r.supplier ? (
                             <Link className="font-semibold text-ink-700 hover:text-brand-700 hover:underline" href={`/crm/suppliers/${r.supplier.id}`}>

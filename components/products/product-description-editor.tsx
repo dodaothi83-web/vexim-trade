@@ -78,7 +78,10 @@ export function ProductDescriptionEditor({
         class: `product-description product-description-input px-4 py-3 ${minHeight === "lg" ? "min-h-56" : "min-h-40"}`,
       },
     },
-    onUpdate({ editor: currentEditor }) {
+    onUpdate({ editor: currentEditor, transaction }) {
+      // Editable/selection transactions are not user edits. In particular, opening
+      // a legacy plain-text description must not write TipTap HTML back to the form.
+      if (!transaction.docChanged) return;
       onChangeRef.current?.(sanitizeProductDescriptionInBrowser(currentEditor.getHTML()));
     },
   });
@@ -91,7 +94,9 @@ export function ProductDescriptionEditor({
   }, [editor, value]);
 
   useEffect(() => {
-    editor?.setEditable(!disabled);
+    // TipTap defaults emitUpdate to true, which previously marked a newly
+    // opened form dirty and serialized legacy descriptions without any edit.
+    editor?.setEditable(!disabled, false);
   }, [disabled, editor]);
 
   return <div className={`overflow-hidden rounded-[0.625rem] border bg-white focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100 ${disabled ? "border-ink-200 bg-ink-50" : "border-ink-300"}`}>
