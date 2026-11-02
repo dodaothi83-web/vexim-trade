@@ -32,10 +32,24 @@ Form báo giá **không còn chia 3 bước**. Một trang duy nhất, bố cụ
 | --- | --- | --- |
 | 1 | What do you need? (mô tả tự do, tối đa 4.000 ký tự, có bộ đếm) | Nội dung email NCC + chấm điểm spam + ghép NCC |
 | 2 | Quantity (+ đơn vị) | Email NCC in "Số lượng"; thiếu là NCC không báo giá được |
-| 3 | Destination country (gõ để tìm) | Email NCC nêu thị trường đích |
+| 3 | Destination (gõ để tìm, nhãn ngắn cho vừa cột) | Email NCC nêu thị trường đích |
 | 4 | Company | Hồ sơ người mua, xác nhận danh tính |
 | 5 | Your name | Email xác nhận + thư cho NCC |
 | 6 | Work email | Nơi trả lời + kiểm tra MX |
+
+Bố cục: khung trang rộng **1120px**, cột phải "Your request" 290px, cột form nhận phần còn
+lại. Ba ô số lượng/điểm đến/cảng **không** xếp thành ba cột nữa (hẹp quá, chữ nhãn bị ép):
+nhóm này dùng **container query** — container ≥640px thì hàng 1 là Quantity (input tối thiểu
+120px) + Unit (130px), hàng 2 là Destination | Port; hẹp hơn thì mỗi ô một hàng. Dùng
+container query thay breakpoint màn hình để cột form co giãn đúng theo bề rộng thật của nó.
+
+Ô "What do you need?" **bắt đầu trống**, không điền sẵn tiêu đề sản phẩm: người mua tự mô tả
+nhu cầu bằng lời của họ. `source_product_id` vẫn được gửi làm dấu vết "đến từ trang sản phẩm
+nào"; chỉ khi đổi danh mục mới bỏ liên kết này (tránh gán sai sản phẩm).
+
+Banner nhà cung cấp chỉ định dùng **tên ngắn** — tên hiển thị → tên thương mại → tên pháp
+nhân đã hạ kiểu chữ và bỏ tiền tố "Công ty TNHH / CP / Co., Ltd" (`supplierShortName()` trong
+`lib/public/supplier-name.ts`), không bày tên giấy phép viết hoa toàn bộ lên đầu form.
 
 Cộng thêm ô **consent** (điều kiện pháp lý) — vẫn bắt buộc nhưng là checkbox đồng ý, không
 tính vào thanh tiến độ. Khung bên phải hiện thanh tiến độ `N/6 required` và 6 dòng đánh dấu
