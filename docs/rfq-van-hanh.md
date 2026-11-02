@@ -120,6 +120,47 @@ Nguyên tắc email: thư cho **NCC** gửi từ email cá nhân của nhân vi�
 `sales@`); thư cho **người mua** gửi từ địa chỉ công ty với Reply-To `buyer+{mã}@domain` để hồi âm
 tự gắn vào đúng RFQ.
 
+## 4b. AI chỉ là phần thêm — không bao giờ trên đường critical
+
+**Quy tắc bất biến:** AI lỗi, treo, trả rác hay chưa cấu hình thì RFQ **vẫn phải lưu, vẫn phải
+gửi email, vẫn trả về link theo dõi**. Không có ngoại lệ.
+
+Thứ tự thực thi trong `submitRfq()`:
+
+```
+validate → rate limit → spam score → MX → lưu buyer → lưu RFQ → audit → email → [after()] → response
+                                                                              ↑
+                                                     AI chạy SAU khi response đã gửi xong
+```
+
+Cơ chế bảo vệ, theo thứ tự từ ngoài vào trong:
+
+| Lớp | File | Nếu lớp này hỏng |
+| --- | --- | --- |
+| `try/catch` tại chỗ gọi | `lib/rfq/submit.ts` | Không throw ra ngoài; RFQ đã lưu từ trước đó |
+| `scheduleRfqEnrichment()` không throw | `lib/rfq/enrich.ts` | Thiếu `after()` → bỏ qua lần trích xuất |
+| `after()` của Next | `lib/rfq/enrich.ts` | Tác vụ chạy sau response, lỗi chỉ ghi log |
+| `enrichRfqAfterSubmit()` bọc toàn bộ | `lib/rfq/enrich.ts` | Trả `{ applied: false }` |
+| `extractRfqFields()` bọc toàn bộ + timeout cứng + AbortController | `lib/rfq/ai-extract.ts` | Trả `{ ok: false, reason }` |
+
+Thêm các ràng buộc dữ liệu:
+
+- **Mặc định tắt.** Cần cả `RFQ_AI_EXTRACT=true` và `OPENAI_API_KEY`.
+- **Chỉ điền ô trống.** Không ghi đè bất cứ gì người mua đã nhập hoặc nhân viên đã sửa.
+- **Chạy một lần.** Có `specs.ai_extract` là bỏ qua, không gọi lại model.
+- **Whitelist + ép kiểu.** JSON rác, khoá lạ, ngày không tồn tại, giá không phải số → bị loại.
+- **Không gửi PII.** Email/số điện thoại của người mua bị xoá trước khi gọi nhà cung cấp AI.
+- **Câu hỏi trực tiếp cho NCC** không chạy trích xuất (không có trường báo giá để điền).
+- **Có dấu vết để hoàn tác:** `specs.ai_extract = { ok, reason, model, at, filled, summary }`.
+
+Kiểm chứng tự động: `npm run check:rfq` chạy `scripts/check-rfq-ai-isolation.mjs`, mô phỏng
+model ném lỗi, model treo quá timeout, JSON rác, thiếu key, `after()` không khả dụng, store lỗi,
+và **module AI ném lỗi đồng bộ ngay khi submit gọi** — tất cả đều phải cho `ok: true` + RFQ đã lưu.
+
+> Lưu ý pháp lý: gửi nội dung RFQ của người mua sang nhà cung cấp AI là một mục xử lý dữ liệu mới.
+> Trước khi bật `RFQ_AI_EXTRACT=true` trên production, phải bổ sung mục này vào Chính sách bảo mật
+> và nêu rõ đã xoá thông tin liên hệ trước khi gửi.
+
 ## 5. Các điểm chạm email (bảng tra nhanh)
 
 | Khi nào | Gửi cho | Nội dung | Chống lặp |

@@ -148,6 +148,7 @@ const submit = load('../lib/rfq/submit.ts', {
     sendSupplierQuestionAckBuyer: async ({ delivered: wasDelivered }) => { questionAcks.push(wasDelivered); },
     sendSupplierQuestionExceptionInternal: async ({ reason }) => { exceptionReasons.push(reason); },
   },
+  './enrich': { scheduleRfqEnrichment: () => {} },
   './rate-limit': { gcRateLimit() {}, rateLimit: () => ({ ok: true }) },
   '@/lib/security/challenge': { verifyFormChallenge: ({ token }) => (token ? { ok: true } : { ok: false, reason: 'missing' }) },
 });

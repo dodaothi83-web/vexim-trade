@@ -25,6 +25,7 @@ import {
   scoreSpam,
 } from ".";
 import { createPreferredSupplierMatches } from "./auto-match";
+import { scheduleRfqEnrichment } from "./enrich";
 import { deliverSupplierQuestion, sendSupplierQuestionAckBuyer, sendSupplierQuestionExceptionInternal } from "./supplier-question";
 import { checkSupplierQuestionRateLimit } from "./supplier-question-rate-limit";
 import { verifyFormChallenge, type ChallengePurpose } from "@/lib/security/challenge";
@@ -467,6 +468,27 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
       : rfqStatus === "needs_review"
         ? "Your question was received and is being reviewed before it can be shared."
         : "Your question was saved. Delivery to the supplier is pending.";
+  }
+
+  // 9) AI trích xuất trường còn thiếu — TUỲ CHỌN và KHÔNG CHẶN.
+  //    Đặt ở đây, sau khi RFQ + buyer + audit + email đã xong, và chỉ hàng đợi bằng `after()`
+  //    để chạy sau khi response đã gửi. Hàm này không await và không throw; AI lỗi, timeout
+  //    hay thiếu key đều không thể làm hỏng yêu cầu đã lưu. Xem lib/rfq/enrich.ts.
+  if (!isSupplierQuestion && rfqStatus !== "spam") {
+    // Bọc thêm try/catch tại chỗ gọi: `scheduleRfqEnrichment` đã tự nuốt lỗi, nhưng nếu chính
+    // module AI có bug ném lỗi đồng bộ thì cũng không được phép làm hỏng yêu cầu đã lưu.
+    try {
+      scheduleRfqEnrichment({
+        rfqId: rfq.id,
+        productText: rfq.product_text,
+        message: raw.message ?? null,
+        categorySlug: category?.slug ?? null,
+        allowedCategories: category?.slug ? [category.slug] : [],
+        store,
+      });
+    } catch (err) {
+      console.warn("[rfq] bỏ qua AI enrichment, RFQ đã lưu:", err instanceof Error ? err.message : err);
+    }
   }
 
   return {
