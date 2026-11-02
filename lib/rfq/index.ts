@@ -22,14 +22,31 @@ export function generateAccessToken(bytes = 24): string {
   return randomBytes(bytes).toString("base64url");
 }
 
-/** Tạo code RFQ-YYYYMMDD-XXXXX dựa trên số thứ tự trong ngày (seq: 0..99999). */
-export function generateRfqCode(seqInDay: number): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
+/** Múi giờ văn phòng dùng cho mọi mốc ngày của RFQ (mã, SLA). */
+export const RFQ_TIME_ZONE = "Asia/Ho_Chi_Minh";
+
+/**
+ * Khoá ngày YYYYMMDD theo giờ Hà Nội.
+ *
+ * Trước đây tiền tố mã RFQ lấy theo ngày UTC còn số thứ tự lấy theo ngày máy chủ,
+ * nên trong khung 00:00–07:00 giờ Việt Nam hai bên lệch nhau và số thứ tự quay
+ * lại đè lên mã đã dùng trong ngày. Mọi nơi sinh mã phải dùng chung hàm này.
+ */
+export function rfqDayKey(date: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: RFQ_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}${get("month")}${get("day")}`;
+}
+
+/** Tạo code RFQ-YYYYMMDD-XXXXX theo khoá ngày (mặc định: hôm nay, giờ Hà Nội). */
+export function generateRfqCode(seqInDay: number, dayKey: string = rfqDayKey()): string {
   const seq = String(seqInDay).padStart(5, "0");
-  return `RFQ-${yyyy}${mm}${dd}-${seq}`;
+  return `RFQ-${dayKey}-${seq}`;
 }
 
 export function isLikelyWebmail(email: string, extra: string[] = []): boolean {

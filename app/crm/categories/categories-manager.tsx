@@ -1481,7 +1481,8 @@ function HarvestEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u
       </div>
       <details className="rounded-xl border border-ink-200 p-4">
         <summary className="cursor-pointer text-sm font-semibold text-ink-700">Chỉnh sửa thủ công</summary>
-        <p className="my-3 text-xs text-amber-800">Chỉ chỉnh sau khi đối chiếu nguồn. Lưu thay đổi lịch sẽ chuyển sang rà soát bởi nhân sự và bỏ nguồn AI cũ. Lưu bản nháp ở thanh trên để áp dụng.</p>
+        <p className="mt-3 text-xs text-amber-800">Chỉ chỉnh sau khi đối chiếu nguồn. Lưu thay đổi lịch sẽ chuyển sang rà soát bởi nhân sự và bỏ nguồn AI cũ.</p>
+        <p className="mb-3 mt-1 text-xs text-amber-800">Bấm lưu bản nháp ở thanh trên để áp dụng thay đổi.</p>
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
           <p className="text-[13px] font-semibold text-ink-700">Cửa sổ mùa vụ ({harvest.windows.length})</p>

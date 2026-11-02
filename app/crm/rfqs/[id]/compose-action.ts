@@ -11,7 +11,7 @@ import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { notifyBuyerRfqStatus } from "@/lib/rfq/buyer-notify";
-import { notifySelectedSupplier } from "@/lib/rfq/outreach";
+import { notifySelectedSupplier, recordSupplierSelection } from "@/lib/rfq/outreach";
 import type { EmailMessage } from "@/lib/types";
 
 /**
@@ -106,7 +106,9 @@ export async function markSamplingAction(fd: FormData): Promise<void> {
     const m = await store.getRfqMatch(selectedMatchId);
     if (!m || m.rfq_id !== rfqId) throw new Error("Nhà cung cấp đã chọn không thuộc RFQ này.");
     if (before.status !== "sampling" && m.status !== "selected") {
-      await store.updateRfqMatch(m.id, { status: "selected" });
+      // Cùng một quy tắc với nút "Chọn nhà cung cấp": có Introduction bảo hộ 12 tháng
+      // và các NCC còn lại chuyển not_selected.
+      await recordSupplierSelection(before, m);
       const actor = await getSession();
       const email = await notifySelectedSupplier(before, m, actor?.uid ?? "");
       if (email === "failed") console.warn("[rfq] supplier selection during sampling saved without email");

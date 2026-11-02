@@ -35,6 +35,8 @@ jobs:
             command: check:email-lifecycle
           - label: Văn phong giao diện
             command: check:copy
+          - label: Luồng RFQ
+            command: check:rfq
     steps:
       - uses: actions/checkout@v4
 

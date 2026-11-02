@@ -112,7 +112,7 @@ Chỉ admin được chuyển `suppliers.status → published` hoặc `suspended
 | `rfqs` | Yêu cầu báo giá công khai với spam_score/access_token/SLA. |
 | `rfq_attachments` | File đính kèm trong form RFQ (bucket private). |
 | `rfq_matches` | Một seller được ghép vào RFQ + báo giá nhận được. |
-| `introductions` | Bản ghi giới thiệu (cơ sở đòi hoa hồng, không vượt mặt). |
+| `introductions` | Bản ghi Giới thiệu: bằng chứng người mua đã đồng ý chia sẻ liên hệ + mốc Thời gian bảo hộ 12 tháng theo thỏa thuận NCC. Nền tảng không thu hoa hồng đơn hàng. |
 | `audit_log` | Nhật ký thay đổi nhạy cảm (bắt buộc). |
 
 ## Seed khởi đầu

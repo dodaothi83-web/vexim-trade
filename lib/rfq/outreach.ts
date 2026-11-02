@@ -38,6 +38,37 @@ function fmtDateTime(iso?: string | null) {
   return new Date(iso).toLocaleString("vi-VN", { hour12: false });
 }
 
+/** Tháng giao dạng YYYY-MM → "MM/YYYY"; ngày chính xác vẫn dùng được cho RFQ cũ. */
+function deliveryWindow(rfq: Rfq) {
+  const month = typeof rfq.specs?.shipment_month === "string" ? rfq.specs.shipment_month : null;
+  if (month && /^\d{4}-\d{2}$/.test(month)) return `${month.slice(5, 7)}/${month.slice(0, 4)}`;
+  return rfq.needed_by ?? "Thương lượng";
+}
+
+/** Điểm đến gồm quốc gia và cảng nếu người mua đã nêu. */
+function destinationLabel(rfq: Rfq) {
+  const port = typeof rfq.specs?.destination_port === "string" ? rfq.specs.destination_port.trim() : "";
+  const country = rfq.destination_country?.trim() ?? "";
+  if (country && port) return `${country} · ${port}`;
+  return country || port || null;
+}
+
+/**
+ * Giá mục tiêu của người mua KHÔNG được mặc định lộ cho nhà cung cấp.
+ * Chỉ in ra khi người mua đã tick "chia sẻ giá mục tiêu"; ngược lại ghi rõ là không công khai
+ * để NCC chào giá tốt nhất thay vì chào đúng mức trần của người mua.
+ */
+function targetPriceLabel(rfq: Rfq): { text: string; shared: boolean } {
+  if (!rfq.target_price) return { text: "Chưa công khai. Vui lòng chào giá tốt nhất.", shared: false };
+  if (rfq.specs?.share_target_price !== true) {
+    return { text: "Người mua chưa đồng ý chia sẻ giá mục tiêu. Vui lòng chào giá tốt nhất.", shared: false };
+  }
+  const unit = typeof rfq.specs?.target_price_unit === "string" && rfq.specs.target_price_unit.trim()
+    ? `/${rfq.specs.target_price_unit.trim()}`
+    : "";
+  return { text: `${rfq.target_price} ${rfq.target_price_currency ?? ""}${unit}`.trim(), shared: true };
+}
+
 /* ------------------------------------------------------------------ */
 /* 1) Gửi RFQ ẩn danh cho NCC                                          */
 /* ------------------------------------------------------------------ */
@@ -57,9 +88,11 @@ export function buildRfqSupplierEmail(input: {
     year: "numeric",
   });
   const title = `Yêu cầu báo giá ${rfqCode(rfq)}`;
-  const dest = rfq.destination_country
-    ? `thị trường <strong>${escapeHtml(rfq.destination_country)}</strong>`
+  const destination = destinationLabel(rfq);
+  const dest = destination
+    ? `thị trường <strong>${escapeHtml(destination)}</strong>`
     : "một thị trường xuất khẩu";
+  const targetPrice = targetPriceLabel(rfq);
 
   const body = `
     <p>Chào ${escapeHtml(supplier.contact_name ?? supplier.name)},</p>
@@ -74,9 +107,9 @@ export function buildRfqSupplierEmail(input: {
       <tr><td style="color:#64748b;">Mặt hàng</td><td><strong>${escapeHtml(productLabel)}</strong></td></tr>
       <tr><td style="color:#64748b;">Số lượng dự kiến</td><td>${escapeHtml(shortQty(rfq))}${rfq.frequency ? ` / ${escapeHtml(rfq.frequency)}` : ""}</td></tr>
       <tr><td style="color:#64748b;">Điều kiện giao</td><td>${escapeHtml(shortIncoterm(rfq))}</td></tr>
-      <tr><td style="color:#64748b;">Ngày giao mong muốn</td><td>${escapeHtml(rfq.needed_by ?? "Thương lượng")}</td></tr>
+      <tr><td style="color:#64748b;">Thời gian giao mong muốn</td><td>${escapeHtml(deliveryWindow(rfq))}</td></tr>
       <tr><td style="color:#64748b;">Giá mục tiêu</td>
-          <td>${rfq.target_price ? `${rfq.target_price} ${escapeHtml(rfq.target_price_currency ?? "")}` : "Chưa công khai. Vui lòng chào giá tốt nhất."}</td></tr>
+          <td>${escapeHtml(targetPrice.text)}</td></tr>
     </table>
 
     <div style="margin-top:18px;background:#fffbeb;border-left:4px solid #d97706;border-radius:8px;padding:12px 16px;">
@@ -362,23 +395,28 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
   return { sent: true, quotedCount: quoted.length };
 }
 
-/** Khi buyer chọn một NCC: đánh dấu selected, tạo Introduction protected 12 tháng. */
-export async function selectSupplier(input: { rfqId: string; matchId: string; actorId: string }): Promise<{ selected: boolean; email: "sent" | "failed" | "skipped" }> {
+/**
+ * Chốt một NCC cho RFQ: match `selected`, các match khác `not_selected`,
+ * và ghi `introductions` (thời điểm Giới thiệu + thời gian bảo hộ 12 tháng) nếu chưa có.
+ *
+ * Vexim không thu hoa hồng đơn hàng. Bản ghi Giới thiệu vẫn cần vì hai lý do phi hoa hồng:
+ *   - Chính sách bảo mật cam kết chỉ chia sẻ tên/email/công ty của người mua SAU KHI người mua
+ *     đồng ý. Đây là bản ghi chứng minh đã có sự đồng ý và chia sẻ cho đúng một NCC nào.
+ *   - Thỏa thuận nhà cung cấp (Điều 1.6, Điều 7) tính Thời gian bảo hộ 12 tháng từ ngày Giới thiệu,
+ *     dùng để đối soát khi có tranh chấp về "thương vụ kết nối".
+ *
+ * Dùng chung cho cả nút "Chọn nhà cung cấp" và luồng "Chuyển sang sampling", vì trước đây
+ * luồng sampling bỏ qua bước này nên hai đường chốt NCC cho ra hai kết quả dữ liệu khác nhau.
+ */
+export async function recordSupplierSelection(rfq: Rfq, match: RfqMatch): Promise<void> {
   const store = getStore();
-  const rfq = await store.getRfq(input.rfqId);
-  if (!rfq) throw new Error("RFQ not found");
-  const match = await store.getRfqMatch(input.matchId);
-  if (!match || match.rfq_id !== rfq.id) return { selected: false, email: "skipped" };
-  const newlySelected = match.status !== "selected";
   await store.updateRfqMatch(match.id, { status: "selected" });
-  // Các NCC khác chuyển sang not_selected
   const others = (await store.listRfqMatches(rfq.id)).filter((m) => m.id !== match.id);
   for (const m of others) {
     if (m.status !== "selected" && m.status !== "declined") {
       await store.updateRfqMatch(m.id, { status: "not_selected" });
     }
   }
-  // Tạo Introduction bảo hộ 12 tháng nếu chưa có
   const existing = await store.findIntroduction(rfq.buyer_id, match.supplier_id);
   if (!existing) {
     const now = new Date();
@@ -392,6 +430,17 @@ export async function selectSupplier(input: { rfqId: string; matchId: string; ac
       protected_until: until.toISOString(),
     });
   }
+}
+
+/** Khi buyer chọn một NCC: đánh dấu selected và ghi bản ghi Giới thiệu (bảo hộ 12 tháng). */
+export async function selectSupplier(input: { rfqId: string; matchId: string; actorId: string }): Promise<{ selected: boolean; email: "sent" | "failed" | "skipped" }> {
+  const store = getStore();
+  const rfq = await store.getRfq(input.rfqId);
+  if (!rfq) throw new Error("RFQ not found");
+  const match = await store.getRfqMatch(input.matchId);
+  if (!match || match.rfq_id !== rfq.id) return { selected: false, email: "skipped" };
+  const newlySelected = match.status !== "selected";
+  await recordSupplierSelection(rfq, match);
   await store.updateRfq(rfq.id, { status: "won" });
   const email = newlySelected ? await notifySelectedSupplier(rfq, match, input.actorId) : "skipped";
   return { selected: true, email };

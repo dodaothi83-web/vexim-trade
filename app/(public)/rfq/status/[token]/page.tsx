@@ -15,7 +15,6 @@ export const metadata = {
 function statusInfo(status: string) {
   switch (status) {
     case "new":
-    case "new":
       return {
         tone: "bg-sky-50 text-sky-800 ring-sky-200",
         dot: "bg-sky-500",

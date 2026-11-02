@@ -10,6 +10,8 @@ import { getStore } from "@/lib/db";
 
 const UPLOAD_DIR = path.join(process.cwd(), "data", "rfq-files");
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Upload attachment cho RFQ (chỉ dùng trong local dev / MVP).
  * Với Supabase mode thì sau này thay bằng storage.from("rfq-attachments").upload().
@@ -19,16 +21,19 @@ export async function uploadRfqAttachmentAction(fd: FormData): Promise<void> {
   if (g) return;
   const rfqId = String(fd.get("rfq_id") || "");
   const file = fd.get("file");
-  if (!rfqId) return;
+  // rfq_id đi thẳng vào đường dẫn đĩa, nên phải chặn "../" trước khi ghép path.
+  if (!UUID_RE.test(rfqId)) return;
   if (!(file instanceof File) || file.size === 0) return;
   if (file.size > 10 * 1024 * 1024) return;
 
   const rfqDir = path.join(UPLOAD_DIR, rfqId);
+  if (!path.resolve(rfqDir).startsWith(path.resolve(UPLOAD_DIR) + path.sep)) return;
   await mkdir(rfqDir, { recursive: true });
   const id = randomUUID();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
   const storagePath = `${id}-${safeName}`;
   const abs = path.join(rfqDir, storagePath);
+  if (!path.resolve(abs).startsWith(path.resolve(rfqDir) + path.sep)) return;
   const buf = Buffer.from(await file.arrayBuffer());
   await writeFile(abs, buf);
 
