@@ -446,7 +446,7 @@ export default async function SupplierDetailPage({
                         <MediaThumb asset={thumbByProduct.get(pr.id) ?? null} size="h-12 w-12" />
                         <div className="min-w-0">
                           <Link
-                            href={`/crm/products/${pr.id}`}
+                            href={`/crm/products/${pr.id}/edit`}
                             title={pr.name}
                             className="block truncate text-[14px] font-bold text-ink-900 hover:text-brand-700 hover:underline"
                           >
@@ -465,12 +465,12 @@ export default async function SupplierDetailPage({
                         ) : pr.ready_for_buyer ? (
                           <Badge className="bg-emerald-50 text-emerald-700">Sẵn sàng gửi người mua</Badge>
                         ) : null}
-                        <Link href={`/crm/products/${pr.id}`} className="btn btn-ghost px-2.5 py-1.5 text-[12px]">
+                        <Link href={`/crm/products/${pr.id}/edit`} className="btn btn-ghost px-2.5 py-1.5 text-[12px]">
                           <Eye className="h-3.5 w-3.5" /> Xem
                         </Link>
                         {canManageProducts && (
                           <Link href={`/crm/products/${pr.id}/edit`} className="btn btn-soft px-2.5 py-1.5 text-[12px]">
-                            <Pencil className="h-3.5 w-3.5" /> Sửa
+                            <Pencil className="h-3.5 w-3.5" /> Review sản phẩm
                           </Link>
                         )}
                       </div>

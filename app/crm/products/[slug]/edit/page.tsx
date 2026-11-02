@@ -33,7 +33,7 @@ import type { QuantityPreviewSnapshot } from "@/components/products/quantity-pre
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Sửa hồ sơ sản phẩm" };
+export const metadata = { title: "Review sản phẩm" };
 
 export default async function EditProductPage({
   params,
@@ -189,12 +189,12 @@ export default async function EditProductPage({
           <Breadcrumbs
             items={[
               { label: "Sản phẩm nhà cung cấp", href: "/crm/products" },
-              { label: product.name, href: `/crm/products/${product.id}` },
-              { label: "Chỉnh sửa" },
+              { label: product.name, href: `/crm/products/${product.id}/edit` },
+              { label: "Review sản phẩm" },
             ]}
           />
         }
-        title={`Sửa: ${product.name}`}
+        title={`Review sản phẩm: ${product.name}`}
         sub={`Nhà cung cấp: ${supplier.name}`}
         actions={
           <div className="flex flex-wrap justify-end gap-2">
