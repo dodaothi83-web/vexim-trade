@@ -100,6 +100,22 @@ assert.doesNotMatch(form, /grid gap-4 sm:grid-cols-3">\s*<Field label="Quantity"
 assert.match(form, /product_text: "",/, 'Ô "What do you need?" bắt đầu trống, không nhét tiêu đề sản phẩm vào');
 assert.doesNotMatch(form, /product_text: initialProduct/, 'Không prefill tiêu đề sản phẩm');
 
+/* 9. Hai trạng thái: có thẻ sản phẩm (từ PDP) và vào từ menu */
+assert.match(form, /label=\{contextProduct \? "Your requirements" : "What do you need\?"\}/, 'Có thẻ sản phẩm thì nhãn là "Your requirements", vào từ menu là "What do you need?"');
+assert.match(form, /required=\{!contextProduct\}/, 'Ô yêu cầu chỉ bắt buộc khi KHÔNG có thẻ sản phẩm');
+assert.match(form, /if \(!contextProduct && !data\.product_text\.trim\(\)\)/, 'Validate bỏ qua mô tả khi server đã biết sản phẩm');
+assert.match(form, /\{ key: "product", label: "Product", done: true \}/, 'Checklist tự tick dòng "Product" khi có thẻ ngữ cảnh');
+assert.match(form, /ContextProduct\.checks|contextProduct\.checks/, 'Hiện tên bước xác minh đã duyệt');
+assert.doesNotMatch(form, /\d\/3 approved/, 'Không hiện "x/3 approved" trên thẻ sản phẩm');
+assert.match(form, /Supplier holds:/, 'Có chip chứng nhận của nhà cung cấp');
+assert.match(form, /See certificates/, 'Có link xem chứng nhận trên hồ sơ nhà cung cấp');
+assert.match(form, /<details[^>]*>\s*<summary[^>]*>Packaging and lead time/, 'Đóng gói và lead time nằm trong <details>');
+assert.doesNotMatch(form, /preview=1|Opened from a product page/, 'Không có thanh chuyển trạng thái trong production');
+
+const productPage = readFileSync(path.join(root, 'app/(public)/products/[slug]/[productId]/page.tsx'), 'utf8');
+assert.match(productPage, /rfqGrade/ , 'Trang sản phẩm truyền grade sang form');
+assert.match(productPage, /&grade=\$\{encodeURIComponent\(rfqGrade\)\}/, 'Link RFQ từ trang sản phẩm mang theo grade');
+
 /* 8. Thanh tiến độ + giá mục tiêu mặc định riêng tư (chính sách, không chỉ giao diện) */
 assert.match(form, /const requiredChecks = \[/, 'Có danh sách ô bắt buộc cho thanh tiến độ');
 for (const key of ['product_text', 'quantity', 'destination_country', 'company', 'contact_name', 'email']) {

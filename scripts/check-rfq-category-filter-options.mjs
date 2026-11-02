@@ -7,7 +7,7 @@ import ts from 'typescript';
 import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 
-let categories = [], suppliers = [], listFailed = false;
+let categories = [], suppliers = [], listFailed = false, productContext = null;
 const RfqForm = () => null;
 const mocks = {
   'react/jsx-runtime': jsx,
@@ -32,6 +32,8 @@ vm.runInNewContext(
   { exports: supplierNameExports, require: (key) => { throw Error(`Unexpected import in lib/public/supplier-name.ts: ${key}`); } },
 );
 mocks['@/lib/public/supplier-name'] = supplierNameExports;
+// Thẻ ngữ cảnh sản phẩm: kiểm này chỉ cần biết trang có chuyển nguyên object xuống form.
+mocks['@/lib/public/rfq-product-context'] = { loadRfqProductContext: async () => productContext };
 // Trang đọc cột jsonb qua bộ chuẩn hoá dùng chung, nên biên dịch luôn module đó
 // thật thay vì giả lập: kiểm này bao trọn cả hình dạng dữ liệu cũ.
 const filterExports = {};
@@ -104,6 +106,14 @@ assert.deepEqual(plain(props.initialSuppliers), [{ id: 'supplier-3', name: 'ABC 
 suppliers = [{ id: 'supplier-1', name: 'Vendor', display_name: 'Public vendor' }];
 props = await render({ intent: 'question', suppliers: 'unlisted', product_id: 'product-1' });
 assert.equal(props.mode, 'quote', 'An unavailable supplier cannot activate targeted question mode');
+// Thẻ ngữ cảnh sản phẩm được chuyển nguyên xuống form, không tự dựng lại ở client.
+productContext = { id: 'product-1', name: 'Cashew Kernels W320', supplierName: 'Bình Phước Kernel Co.', checks: ['Documents checked'] };
+props = await render({ category: 'cashew-kernels', suppliers: 'supplier-1', product_id: 'product-1' });
+assert.deepEqual(plain(props.contextProduct), productContext, 'Trang chuyển thẻ ngữ cảnh sản phẩm xuống form');
+productContext = null;
+props = await render({ category: 'cashew-kernels' });
+assert.equal(props.contextProduct, null, 'Vào từ menu không có thẻ ngữ cảnh');
+
 listFailed = true;
 props = await render();
 assert.deepEqual(plain(props.categories), [], 'Existing category-read fallback remains intact');
