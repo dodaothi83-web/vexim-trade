@@ -47,8 +47,6 @@ interface Props {
    * chuyển thành "Your requirements" (tuỳ chọn) vì tên sản phẩm do server dựng.
    */
   contextProduct?: RfqProductContext | null;
-  /** Tháng giao hàng (YYYY-MM) do server dựng, để ô chọn luôn là tiếng Anh. */
-  shipmentMonths?: Array<{ value: string; label: string }>;
 }
 
 const UNITS = ["MT", "kg", "lb", "container (20')", "container (40')", "pallet", "carton"];
@@ -88,7 +86,6 @@ export function RfqForm({
   wantsSamples,
   mode = "quote",
   contextProduct = null,
-  shipmentMonths = [],
 }: Props) {
   const router = useRouter();
   const isQuestion = mode === "question";
@@ -559,14 +556,9 @@ export function RfqForm({
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="Shipment month">
-                  {/* Ô chọn thay cho type="month": trình duyệt đặt placeholder theo ngôn ngữ máy
-                      (máy tiếng Việt hiện "---- năm ----") trong khi form là tiếng Anh. */}
-                  <select className="input" value={data.shipment_month} onChange={(e) => update("shipment_month", e.target.value)}>
-                    <option value="">Not sure yet</option>
-                    {shipmentMonths.map((month) => (
-                      <option key={month.value} value={month.value}>{month.label}</option>
-                    ))}
-                  </select>
+                  {/* Ô chọn tháng của trình duyệt. Placeholder ("---- month ----" / "---- năm ----")
+                      do ngôn ngữ máy người dùng quyết định, không do trang; giá trị vẫn là YYYY-MM. */}
+                  <input type="month" className="input" value={data.shipment_month} onChange={(e) => update("shipment_month", e.target.value)} />
                 </Field>
                 <Field label="Purchase frequency">
                   <select className="input" value={data.frequency} onChange={(e) => update("frequency", e.target.value)}>

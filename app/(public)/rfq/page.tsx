@@ -7,7 +7,6 @@ import { categoryFilterValues } from "@/lib/category-filters";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 import { supplierShortName } from "@/lib/public/supplier-name";
 import { loadRfqProductContext } from "@/lib/public/rfq-product-context";
-import { buildShipmentMonths } from "@/lib/public/shipment-months";
 import type { Category } from "@/lib/types";
 
 export const metadata = {
@@ -48,8 +47,6 @@ export default async function RfqPage({
   const isQuestion = sp?.intent === "question" && supplierIds.length === 1 && initialSuppliers.length === 1 && Boolean(sp?.product_id);
   // Thẻ "You are asking about" chỉ có khi sản phẩm đã qua cổng công bố và đúng nhà cung
   // cấp; mọi trường hợp khác trả null để form quay về trạng thái vào từ menu.
-  // Danh sách tháng dựng ở server: không phụ thuộc ngôn ngữ trình duyệt, không lệch hydrate.
-  const shipmentMonths = buildShipmentMonths(new Date());
   const contextProduct = await loadRfqProductContext({
     categorySlug: sp?.category ?? null,
     supplierId: supplierIds.length === 1 ? supplierIds[0] : null,
@@ -94,7 +91,6 @@ export default async function RfqPage({
         wantsSamples={sp?.sample === "1"}
         mode={isQuestion ? "question" : "quote"}
         contextProduct={contextProduct}
-        shipmentMonths={shipmentMonths}
       />
 
       <p className="mt-6 text-[12.5px] leading-relaxed text-ink-500">

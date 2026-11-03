@@ -44,7 +44,6 @@ const baseProps = {
   initialProductId: 'p-1', initialCategory: 'cashew', initialProduct: 'Cashew Kernels W320',
   initialGrade: 'W320', initialSupplierIds: ['s-1'], initialSuppliers: [{ id: 's-1', name: 'Bình Phước Kernel Co.' }],
   wantsSamples: false, mode: 'quote',
-  shipmentMonths: [{ value: '2026-11', label: 'Nov 2026' }, { value: '2026-12', label: 'Dec 2026' }],
 };
 const contextProduct = {
   id: 'p-1', name: 'Cashew Kernels W320', imageUrl: '/public-media/x.jpg',
@@ -83,8 +82,7 @@ for (const needle of [
   assert.ok(withCard.includes(needle), `Thẻ sản phẩm phải render "${needle}"`);
 }
 assert.ok(!withCard.includes('1/3 approved'), 'Không được hiện "x/3 approved"');
-assert.ok(withCard.includes('Nov 2026') && withCard.includes('Dec 2026'), 'Ô tháng hiện nhãn tiếng Anh');
-assert.ok(!withCard.includes('năm'), 'Không lọt chữ "năm" của ô type=month vào form');
+assert.ok(withCard.includes('type="month"'), 'Shipment month dùng ô chọn tháng của trình duyệt');
 assert.ok(!withCard.includes('Only Vexim sees it'), 'Đã bỏ câu chú thích dưới ô chia sẻ giá mục tiêu');
 assert.ok(!withCard.includes('What do you need?'), 'Có thẻ sản phẩm thì không còn nhãn mô tả sản phẩm');
 assert.match(withCard, /Your requirements<\/label>|Your requirements/, 'Ô yêu cầu đổi nhãn');
