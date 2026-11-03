@@ -75,25 +75,17 @@ export const VERIFICATION_LEVEL_TONES: Record<VerificationLevel, {
 };
 
 /** A check that is not approved yet stays a grey outline: no colour implies progress. */
-export const VERIFICATION_PIP_OFF = "border border-ink-200 bg-white text-ink-300";
+export const VERIFICATION_PIP_OFF = "border border-ink-300 bg-ink-50 text-ink-500";
 
-/** All approved tiers use success green, separate from brand and warning colours. */
+/** Same approved colour at every count: colour indicates status, not rank. */
+export const VERIFICATION_PIP_ON = "border border-success bg-success-surface text-success";
 export const VERIFICATION_TIER_SHIELD_TONES: Record<Exclude<VerificationTier, 0>, {
   pip: string;
   status: string;
 }> = {
-  1: {
-    pip: "border border-emerald-300 bg-emerald-50 text-emerald-600",
-    status: "text-emerald-300",
-  },
-  2: {
-    pip: "border border-emerald-500 bg-emerald-100 text-emerald-800 shadow-2xs",
-    status: "text-emerald-300",
-  },
-  3: {
-    pip: "border border-emerald-500 bg-gradient-to-b from-emerald-100 to-emerald-200 text-emerald-900 shadow-xs ring-1 ring-emerald-300/70",
-    status: "text-emerald-300",
-  },
+  1: { pip: VERIFICATION_PIP_ON, status: "text-emerald-200" },
+  2: { pip: VERIFICATION_PIP_ON, status: "text-emerald-200" },
+  3: { pip: VERIFICATION_PIP_ON, status: "text-emerald-200" },
 };
 
 const BADGE_CLASSES: Record<VerificationTier, string> = {

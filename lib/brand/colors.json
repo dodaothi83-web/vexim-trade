@@ -12,5 +12,8 @@
   "warning": "#93370D",
   "warningSurface": "#FFF4DE",
   "error": "#B42318",
-  "errorSurface": "#FEF3F2"
+  "errorSurface": "#FEF3F2",
+  "controlBorder": "#7C899E",
+  "placeholder": "#657187",
+  "deepText": "#0D1526"
 }

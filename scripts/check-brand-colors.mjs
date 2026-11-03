@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const palette = JSON.parse(read('lib/brand/colors.json'));
@@ -11,6 +11,28 @@ function luminance(hex) {
 function contrast(a, b) { const values = [luminance(a), luminance(b)].sort((a, b) => b - a); return (values[0] + .05) / (values[1] + .05); }
 for (const key of ['primary', 'primaryHover', 'secondary', 'text', 'muted']) assert.ok(contrast(palette[key], '#FFFFFF') >= 4.5, `${key}: white contrast`);
 for (const key of ['success', 'warning', 'error']) assert.ok(contrast(palette[key], palette[`${key}Surface`]) >= 4.5, `${key}: semantic contrast`);
+assert.ok(contrast(palette.controlBorder, '#FFFFFF') >= 3, 'Input boundaries must be visible on white');
+assert.ok(contrast(palette.placeholder, '#FFFFFF') >= 4.5, 'Placeholder text stays legible');
+const theme = read('app/brand-colors.css');
+for (const shade of ['50','100','200','300','400','500','600','700','800','900','950']) {
+  assert.match(theme, new RegExp(`--color-ink-${shade}:`), `Missing ink-${shade} breaks form controls`);
+}
+function scan(directory) {
+  const base = new URL(`../${directory}/`, import.meta.url);
+  for (const entry of readdirSync(base, { withFileTypes: true })) {
+    if (entry.isDirectory()) scan(`${directory}/${entry.name}`);
+    else if (/\.(?:tsx|css)$/.test(entry.name)) {
+      const source = read(`${directory}/${entry.name}`);
+      for (const match of source.matchAll(/(?:--color-ink-|(?:text|border|bg|ring|placeholder:text)-ink-)(\d+)/g)) {
+        assert.match(theme, new RegExp(`--color-ink-${match[1]}:`), `${directory}/${entry.name}: missing ink-${match[1]}`);
+      }
+    }
+  }
+}
+scan('app'); scan('components');
+const verification = read('components/verification-tier.tsx');
+for (const tier of [1,2,3]) assert.match(verification, new RegExp(`${tier}: \{ pip: VERIFICATION_PIP_ON`), 'All approved pips share one colour');
+assert.match(verification, /VERIFICATION_PIP_OFF = "border border-ink-300 bg-ink-50 text-ink-500"/);
 assert.doesNotMatch(read('app/(public)/home.tsx'), /(?:amber|yellow)-\d/);
 for (const file of ['lib/email/templates.ts', 'lib/email/rfq.ts', 'lib/email/buyer-auth.ts', 'lib/email/service-inquiry.ts', 'lib/email/signature.ts', 'lib/rfq/buyer-notify.ts', 'lib/rfq/supplier-question.ts']) {
   assert.match(read(file), /@\/lib\/brand\/colors.json/);

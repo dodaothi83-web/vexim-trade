@@ -81,8 +81,9 @@
   }
   .input::placeholder {
     color: var(--color-ink-400);
+    opacity: 1;
   }
-  .input:hover:not(:disabled) {
+  .input:hover:not(:disabled):not([readonly]) {
     border-color: var(--color-ink-400);
   }
   .input:focus {
@@ -93,6 +94,18 @@
   .input:disabled {
     background: var(--color-ink-50);
     color: var(--color-ink-500);
+  }
+  .input[readonly] {
+    background: var(--color-ink-50);
+    color: var(--color-ink-600);
+  }
+  [data-invalid="true"] .input,
+  .input[aria-invalid="true"] {
+    border-color: var(--color-error);
+  }
+  [data-invalid="true"] .input:focus,
+  .input[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-error) 15%, transparent);
   }
   .label {
     display: block;
