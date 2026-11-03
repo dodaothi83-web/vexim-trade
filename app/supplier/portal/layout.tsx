@@ -7,6 +7,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { SupplierSidebar } from "@/components/supplier-sidebar";
 import { SupplierTopbar } from "@/components/supplier-topbar";
+import { getPortalMessages } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,10 @@ export default async function SupplierPortalLayout({ children }: { children: Rea
   const session = await requireSession();
   if (session.role !== "supplier") redirect("/crm/dashboard");
 
+  // Khung (menu + thanh trên) đọc ngôn ngữ từ cookie; nội dung từng trang chuyển dần ở
+  // các cụm sau, nên trong lúc chuyển có thể thấy menu tiếng Anh và nội dung tiếng Việt.
+  const { locale, intl, m } = await getPortalMessages();
+
   const store = getStore();
   let user: Awaited<ReturnType<typeof store.getUser>> | null = null;
   let supplier: Awaited<ReturnType<typeof store.getSupplier>> | null = null;
@@ -31,7 +36,8 @@ export default async function SupplierPortalLayout({ children }: { children: Rea
     supplier = user?.supplier_id ? await store.getSupplier(user.supplier_id) : null;
   } catch (error) {
     identityFailed = true;
-    console.error("[supplier-portal] chưa đọc được tên doanh nghiệp cho menu trái", error);
+    // Log cho người vận hành, không phải người dùng: giữ tiếng Anh như log máy chủ.
+    console.error("[supplier-portal] could not read the company name for the sidebar", error);
   }
 
   if (!identityFailed && (!user || !user.is_active || user.role !== "supplier")) redirect("/login");
@@ -44,15 +50,17 @@ export default async function SupplierPortalLayout({ children }: { children: Rea
   return (
     <>
       <SupplierSidebar
-        supplierName={supplier?.display_name || supplier?.trade_name || supplier?.name || "Chưa có hồ sơ doanh nghiệp"}
+        supplierName={supplier?.display_name || supplier?.trade_name || supplier?.name || m.shell.layout.noCompany}
         email={user?.email || session.email}
         userName={user?.name ?? session.name}
         approved={approved}
         partner={supplier?.supplier_type === "trading"}
         publicUrl={publicUrl}
+        messages={m.shell}
+        lang={locale}
       />
       <div className="lg:pl-60">
-        <SupplierTopbar />
+        <SupplierTopbar messages={m.shell} lang={locale} intl={intl} />
         <main className="mx-auto min-h-screen w-full max-w-[1500px] px-4 pt-6 pb-16 sm:px-6 lg:px-8">
           {children}
         </main>

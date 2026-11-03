@@ -6,8 +6,21 @@ import { Loader2, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui";
 import { FormChallenge } from "@/components/form-challenge";
+import type { AuthMessages } from "@/lib/i18n/auth";
+import type { Locale } from "@/lib/i18n/config";
 
-export function ForgotPasswordForm() {
+/** Chuỗi hiển thị do trang truyền xuống: client không tự chứa bản dịch. */
+export function ForgotPasswordForm({
+  messages: m,
+  lang,
+  emailLabel,
+  emailPlaceholder,
+}: {
+  messages: AuthMessages["forgot"];
+  lang: Locale;
+  emailLabel: string;
+  emailPlaceholder: string;
+}) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -22,10 +35,7 @@ export function ForgotPasswordForm() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!challengeToken) {
-      setMessage({
-        ok: false,
-        text: "Vui lòng hoàn tất bước kiểm tra bảo mật.",
-      });
+      setMessage({ ok: false, text: m.challengeMissing });
       return;
     }
 
@@ -41,17 +51,14 @@ export function ForgotPasswordForm() {
       if (!res.ok || !data?.ok) {
         setMessage({
           ok: false,
-          text: data?.message ?? "Chưa gửi được yêu cầu. Vui lòng thử lại.",
+          text: data?.message ?? m.failed,
         });
         resetChallenge();
         return;
       }
-      setMessage({ ok: true, text: data.message ?? "Đã gửi hướng dẫn đặt lại mật khẩu." });
+      setMessage({ ok: true, text: data.message ?? m.sent });
     } catch {
-      setMessage({
-        ok: false,
-        text: "Không gửi được yêu cầu. Vui lòng kiểm tra kết nối và thử lại.",
-      });
+      setMessage({ ok: false, text: m.networkError });
       resetChallenge();
     } finally {
       setBusy(false);
@@ -59,10 +66,10 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} lang={lang} className="space-y-4">
       <div>
         <label className="label" htmlFor="reset-email">
-          Email
+          {emailLabel}
         </label>
         <input
           id="reset-email"
@@ -74,7 +81,7 @@ export function ForgotPasswordForm() {
           maxLength={254}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="email@congty.com"
+          placeholder={emailPlaceholder}
           className="input"
         />
       </div>
@@ -108,7 +115,7 @@ export function ForgotPasswordForm() {
             <>
               {" "}
               <Link href="/login" className="font-semibold underline">
-                Về trang đăng nhập
+                {m.linkToLogin}
               </Link>
             </>
           )}
@@ -122,7 +129,7 @@ export function ForgotPasswordForm() {
         className="w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-        Gửi liên kết đặt lại mật khẩu
+        {m.submit}
       </Button>
     </form>
   );

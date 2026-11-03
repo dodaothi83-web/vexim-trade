@@ -10,7 +10,7 @@ function load(file, mocks, extras = {}) {
   const code = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  vm.runInNewContext(code, { module: mod, exports: mod.exports, Buffer, URL, Request, Response, Date, console,
+  vm.runInNewContext(code, { module: mod, exports: mod.exports, Buffer, URL, URLSearchParams, Request, Response, Date, console,
     process: { env: { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'server-secret', GOOGLE_OAUTH_SITE_URL: 'https://vexim.example' } },
     require: (name) => { if (name === 'server-only') return {}; assert.ok(name in mocks, `Unexpected ${name} in ${file}`); return mocks[name]; }, ...extras,
   }, { filename: file });
@@ -69,7 +69,7 @@ const start = load('../app/api/auth/google/start/route.ts', {
   '@/lib/db/supabase': { supabaseUrl: () => 'https://example.supabase.co' },
   '@/lib/site': { SITE_URL: 'https://vexim.example' },
 });
-assert.ok((await start.GET(new Request('https://other.example/api/auth/google/start?intent=signup'))).headers.get('location').endsWith('/supplier/register?oauth=origin'));
+assert.ok((await start.GET(new Request('https://other.example/api/auth/google/start?intent=signup'))).headers.get('location').endsWith('/supplier/register?type=supplier&oauth=origin'));
 assert.ok((await start.GET(new Request('https://vexim.example/api/auth/google/start?intent=bad'))).headers.get('location').endsWith('/login?oauth=invalid'));
 const started = await start.GET(new Request('https://vexim.example/api/auth/google/start?intent=signup'));
 assert.ok(started.headers.get('location').startsWith('https://example.supabase.co/auth/v1/authorize?'));

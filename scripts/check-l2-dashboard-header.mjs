@@ -22,6 +22,9 @@ function load(path, mocks = {}) {
   }, process, console, Date, Map, Set, Object }, { filename: path });
   return mod.exports;
 }
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
+import { loadFormat } from './lib/i18n-format.mjs';
+const portalCopy = loadPortalDictionary();
 const types = load('lib/types.ts');
 const scope = load('lib/l2-scope.ts');
 const policy = { INITIAL_DOCUMENT_KEYS: ['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'] };
@@ -31,8 +34,14 @@ const progress = load('lib/supplier-portal/verification-progress.ts', {
 const ui = load('app/supplier/portal/portal-ui.tsx', {
   'react/jsx-runtime': jsx, 'next/link': { default: Link },
 });
+// Cổng đọc chuỗi theo cookie ngôn ngữ; check này kiểm bản tiếng Việt nên mock trả `vi`.
+const i18n = {
+  getPortalMessages: async () => ({ locale: 'vi', intl: 'vi-VN', m: portalCopy.vi }),
+};
+const format = loadFormat();
 const progressUi = load('app/supplier/portal/verification-progress.tsx', {
   'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'lucide-react': icons, './portal-ui': ui,
+  '@/lib/i18n/format': format,
 });
 let subject;
 const user = { id: 'u1', email: 'owner@example.com', role: 'supplier', is_active: true, supplier_id: 's1' };
@@ -43,7 +52,7 @@ const store = {
 };
 const dashboard = load('app/supplier/portal/page.tsx', {
   'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'next/navigation': { redirect: () => { throw Error('Unexpected redirect'); } },
-  'lucide-react': icons,
+  'lucide-react': icons, '@/lib/i18n/server': i18n, '@/lib/i18n/format': format,
   '@/components/page-header': { PageHeader: ({ title, sub, actions }) => React.createElement('header', null, title, sub, actions) },
   '@/lib/auth/session': { requireSession: async () => user },
   '@/lib/supplier-portal/access': {

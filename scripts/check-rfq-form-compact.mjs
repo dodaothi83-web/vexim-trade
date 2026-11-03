@@ -126,4 +126,13 @@ assert.match(form, /share_target_price: false/, 'Giá mục tiêu mặc định 
 assert.match(form, /Share my target price with suppliers/, 'Có ô chọn chia sẻ giá mục tiêu');
 assert.match(form, /maxLength=\{4000\}/, 'Mô tả sản phẩm bị giới hạn 4.000 ký tự');
 
+/* 10. Ô tháng giao hàng và câu chú thích giá mục tiêu */
+// Chốt theo yêu cầu: giữ ô chọn tháng của trình duyệt. Placeholder ("---- month ----" /
+// "---- năm ----") do ngôn ngữ máy người dùng quyết định, không do trang — đây là đánh đổi
+// đã được chấp nhận, nên guard chỉ kiểm giá trị vẫn ở định dạng YYYY-MM.
+assert.match(form, /<input type="month"[^>]*value=\{data\.shipment_month\}/, 'Shipment month là ô chọn tháng của trình duyệt');
+assert.doesNotMatch(form, /shipmentMonths/, 'Không còn danh sách tháng tự dựng');
+assert.doesNotMatch(form, /Only Vexim sees it unless you tick this box/, 'Đã bỏ câu chú thích dưới ô chia sẻ giá mục tiêu');
+assert.match(form, /Share my target price with suppliers/, 'Vẫn giữ ô chia sẻ giá mục tiêu');
+
 console.log(`✅ RFQ form compact: một trang, ${visibleFields} ô hiện ngay, mọi ô bị validate đều nhìn thấy được, chi tiết đóng mặc định.`);

@@ -13,11 +13,14 @@ import { migrationHint } from "@/lib/db/migration-hints";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { buildVerificationProgress } from "@/lib/supplier-portal/verification-progress";
 import { StorefrontVerificationActions } from "../verification-progress";
+import { getPortalMessages } from "@/lib/i18n/server";
+import { fill } from "@/lib/i18n/format";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Trang của tôi", robots: { index: false, follow: false } };
-
-const CHECKS = [[1, "Documents checked"], [2, "Factory verification"], [3, "Delivery history"]] as const;
+export async function generateMetadata() {
+  const { m } = await getPortalMessages();
+  return { title: m.storefront.metaTitle, robots: { index: false, follow: false } };
+}
 
 /**
  * “Trang của tôi”: đúng giao diện buyer nhìn thấy, dựng từ cùng component với trang công
@@ -32,6 +35,9 @@ export default async function SupplierStorefrontPreviewPage() {
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
   const { supplier, store, review, reviews, user } = access;
+  const { m } = await getPortalMessages();
+  const copy = m.storefront;
+  const checks = [[1, copy.checks.documents], [2, copy.checks.factory], [3, copy.checks.delivery]] as const;
 
   // Thiếu migration thì báo ngay trên trang, không để cả cổng trắng: nhà cung cấp vẫn
   // vào được các mục khác và biết đây là lỗi dữ liệu chứ không phải hồ sơ của mình.
@@ -60,13 +66,13 @@ export default async function SupplierStorefrontPreviewPage() {
       }),
     };
   } catch (error) {
-    console.error(`[supplier-portal] chưa dựng được Trang của tôi. ${migrationHint(error) ?? ""}`.trim(), error);
+    console.error(`[supplier-portal] could not build the storefront preview. ${migrationHint(error) ?? ""}`.trim(), error);
   }
   if (!loaded) return <>
-    <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Trang của tôi" sub="Đúng nội dung người mua nhìn thấy trên hồ sơ công khai." />
+    <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
     <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
-      <p className="font-bold">Chưa dựng được bản xem trước</p>
-      <p className="mt-1 leading-6">Chưa đọc được dữ liệu hồ sơ. Hồ sơ của bạn không bị thay đổi. Thử tải lại trang; nếu vẫn lỗi, liên hệ bộ phận hỗ trợ.</p>
+      <p className="font-bold">{copy.loadError.title}</p>
+      <p className="mt-1 leading-6">{copy.loadError.body}</p>
     </div>
   </>;
   const { card, categories, certificates, progress } = loaded;
@@ -74,33 +80,32 @@ export default async function SupplierStorefrontPreviewPage() {
   const published = supplier.status === "published";
   const synthetic = isSyntheticSupplier(supplier);
   const steps = card.approved_verification_steps;
-  const approved = CHECKS.filter(([level]) => steps.includes(level)).map(([level, label]) => level === 2 ? verificationLabel(2, card.approved_l2_scope ?? null) : label);
-  const missing = CHECKS.filter(([level]) => !steps.includes(level)).map(([level, label]) => level === 2 && supplier.supplier_type === "trading" ? "Partner factory contract" : label);
+  const approved = checks.filter(([level]) => steps.includes(level)).map(([level, label]) => level === 2 ? verificationLabel(2, card.approved_l2_scope ?? null) : label);
+  const missing = checks.filter(([level]) => !steps.includes(level)).map(([level, label]) => level === 2 && supplier.supplier_type === "trading" ? copy.checks.partnerContract : label);
   const coverUrl = supplier.cover_image ? `/public-media/${supplier.cover_image.replace(/^\/+/, "")}` : null;
   const avatarUrl = supplier.profile_image ? `/public-media/${supplier.profile_image.replace(/^\/+/, "")}` : null;
 
   return <>
-    <PageHeader eyebrow="Cổng nhà cung cấp · riêng tư" title="Trang của tôi"
-      sub="Đúng nội dung người mua nhìn thấy trên hồ sơ công khai." />
-    <section aria-label="Preview status" className="rounded-xl border border-dashed border-brand-300 bg-brand-50/60 px-4 py-3">
+    <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
+    <section aria-label={copy.preview.aria} className="rounded-xl border border-dashed border-brand-300 bg-brand-50/60 px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[12.5px] leading-5 text-ink-700">
-          <b className="text-ink-900">Preview.</b> This is exactly what buyers see on your public page. Only you can see this screen.
+          <b className="text-ink-900">{copy.preview.lead}</b> {copy.preview.body}
         </p>
         {published
           ? <Link href={`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center rounded-full border border-brand-300 bg-white px-3 py-1 text-[11px] font-bold text-brand-800 hover:bg-brand-50">
-            Profile is live · Open public page
+            {copy.preview.live}
           </Link>
           : <span className="inline-flex items-center rounded-full bg-ink-100 px-3 py-1 text-[11px] font-bold text-ink-700">
-            Not published yet · buyers cannot open this page
+            {copy.preview.notPublished}
           </span>}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-brand-200/70 pt-2.5 text-[11.5px] text-ink-700">
-        <span className="font-bold text-ink-900">Verification: {approved.length} of 3 checks approved</span>
-        <span>Approved: {approved.length ? approved.join(", ") : "none yet"}</span>
-        <span className="text-ink-500">Not reviewed yet: {missing.length ? missing.join(", ") : "none, all three checks are approved"}</span>
+        <span className="font-bold text-ink-900">{fill(copy.preview.verification, { count: approved.length })}</span>
+        <span>{fill(copy.preview.approved, { list: approved.length ? approved.join(", ") : copy.preview.approvedNone })}</span>
+        <span className="text-ink-500">{fill(copy.preview.notReviewed, { list: missing.length ? missing.join(", ") : copy.preview.allApproved })}</span>
       </div>
     </section>
 

@@ -6,6 +6,8 @@ import vm from "node:vm";
 import { createRequire } from "node:module";
 import ts from "typescript";
 
+import { loadPortalDictionary } from "./lib/portal-dictionary.mjs";
+const portalCopy = loadPortalDictionary();
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const nodeRequire = createRequire(import.meta.url);
 
@@ -543,7 +545,8 @@ assert.match(uploadRoute, /approvedL2Scope\(access\.reviews\)/);
 assert.match(uploadRoute, /Sản phẩm vẫn đăng bán bình thường/);
 const certForm = fs.readFileSync(path.join(ROOT, "app/supplier/portal/products/product-certificates-form.tsx"), "utf8");
 assert.match(certForm, /holderRule\?\.blocked &&/, "Khối tải lên bị thay bằng lời giải thích");
-assert.match(certForm, /Hoàn tất xác thực nhà máy đối tác/, "Chỉ rõ bước cần làm, không đẩy sang trang khác");
+assert.match(certForm, /\{m\.lockedNext\}/, "Chỉ rõ bước cần làm, không đẩy sang trang khác");
+assert.match(portalCopy.vi.productEditor.certificates.lockedNext, /Hoàn tất xác thực nhà máy đối tác/, "Câu chỉ bước tiếp theo nằm trong từ điển");
 assert.doesNotMatch(certForm, /<Link|router\.(push|refresh)/, "Không điều hướng khỏi trang sản phẩm");
 const completeness = fs.readFileSync(path.join(ROOT, "lib/products/completeness.ts"), "utf8");
 assert.doesNotMatch(completeness, /certificate/i, "Hồ sơ sản phẩm không bắt buộc chứng nhận");

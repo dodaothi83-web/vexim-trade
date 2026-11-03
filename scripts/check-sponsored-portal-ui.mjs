@@ -6,6 +6,8 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
+import {loadPortalDictionary} from './lib/portal-dictionary.mjs';
+const portalDictionary=loadPortalDictionary();
 const jsx=createRequire(import.meta.url)('react/jsx-runtime');
 function load(path,mocks){
  const js=ts.transpileModule(readFileSync(new URL(`../${path}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
@@ -26,6 +28,8 @@ const page=load('app/supplier/portal/boost/page.tsx',{
  '@/lib/sponsored/admin':{},'@/lib/sponsored/requests':{sponsoredRequestStore:()=>store,eligibleSupplierPushProducts:forbiddenRead},
  '@/lib/sponsored/supplier-view':{},'@/lib/public/display-name':{},'@/lib/public/product-selection':{},
  '@/lib/sponsored/offer-settings':{readOfferSettings:forbiddenRead},'./request-form':{RequestForm:()=>{throw Error('Form must not render');}},
+ '@/lib/i18n/server':{getPortalMessages:async()=>({locale:'vi',intl:'vi-VN',m:portalDictionary.vi})},
+ '@/lib/i18n/format':{fill:(template,values)=>String(template).replace(/\{(\w+)\}/g,(all,key)=>key in values?String(values[key]):all)},
 });
 const html=renderToStaticMarkup(await page.default());
 assert.match(html,/chưa mở/i);assert.match(html,/chưa thể đăng ký hoặc mua gói/);
@@ -34,7 +38,7 @@ assert.equal(reads,0,'No offer, products, historical package or request read whi
 access=null;await assert.rejects(page.default(),/redirect:\/login/);
 access={supplier:{id:'s1'}};approved=false;await assert.rejects(page.default(),/redirect:\/supplier\/portal/);
 let session=null;
-const action=load('app/supplier/portal/boost/actions.ts',{'@/lib/auth/session':{getSession:async()=>session}});
+const action=load('app/supplier/portal/boost/actions.ts',{'@/lib/auth/session':{getSession:async()=>session},'@/lib/i18n/server':{getPortalMessages:async()=>({locale:'vi',intl:'vi-VN',m:portalDictionary.vi})}});
 const form=new FormData();form.set('product','forged');
 for(const role of [null,'admin','supplier']){
  session=role?{role}:null;

@@ -15,6 +15,63 @@ Tài liệu này mô tả kiểm soát trong mã. Cấu hình Production vẫn p
 
 Challenge chống bot là proof-of-work tự chủ (`lib/security/challenge.ts`): server phát challenge có chữ ký HMAC theo từng form, trình duyệt tính ngầm ~1 giây rồi submit kèm nonce; server kiểm chứng chữ ký, hạn dùng, kết quả băm và salt đã tiêu. KHÔNG còn phụ thuộc dịch vụ ngoài (Cloudflare) nên không có trạng thái mất kết nối. Token thiếu, sai, hết hạn hoặc dùng lại sẽ không tới bước xác thực mật khẩu hoặc tạo tài khoản. Form tạo challenge mới sau mỗi lần gửi lỗi vì một salt chỉ được tiêu một lần.
 
+## Cửa vào tài khoản
+
+Các trang tài khoản (`/login`, `/register`, `/supplier/register`) dùng chung một khung hai cột
+(`components/auth-split-shell.tsx`): cột trái là ảnh thật của đội Vexim trong xưởng
+(`/images/hero-scene.jpg`, ảnh có sẵn của site, không tải từ nguồn ngoài) kèm vài dòng mô tả;
+cột phải là **form thuần**. Mọi đoạn giải thích dài được đưa ra ngoài form — nội dung quy trình
+nằm ở màn chọn loại tài khoản và ở danh sách ghi chú của khung, không nhồi vào biểu mẫu.
+
+`/register` là trang chọn loại tài khoản duy nhất, tách rõ hai loại người dùng ngay từ đầu
+(hai thẻ radio + nút Continue, mặc định là Buyer):
+
+| Lựa chọn | Dẫn tới | Ghi chú |
+| --- | --- | --- |
+| Buyer | `/rfq` (gửi yêu cầu báo giá) | **Chưa có tài khoản người mua.** Trang phải nói thật điều này, không mời tạo tài khoản chưa tồn tại |
+| Supplier | `/supplier/register?type=supplier` (biểu mẫu đa ngôn ngữ, mặc định tiếng Anh) | Giữ nguyên hai bước: tài khoản → hồ sơ doanh nghiệp → Vexim duyệt |
+
+**Bước 1 luôn là chọn loại tài khoản.** Vào `/supplier/register` mà thiếu `?type=supplier`
+(bookmark cũ, link cũ) sẽ được `redirect("/register")`, nên không ai rơi thẳng vào biểu mẫu đăng
+ký bán hàng. Vì vậy mọi lối vào đăng ký (`/login`, `/for-suppliers`, `/supplier/apply`) đều trỏ
+về `/register`; riêng luồng Google đăng ký dùng `/supplier/register?type=supplier&oauth=...` để
+người dùng quay lại đúng biểu mẫu sau khi lỗi (query ghép bằng `URLSearchParams`, không nối
+chuỗi `?`).
+
+Lý do có trang này: header công khai chỉ có "Supplier sign in", nên người mua quốc tế bấm vào
+sẽ gặp biểu mẫu đăng ký bán hàng bằng tiếng Việt. Nay `/login` dẫn tiếp tới `/register`, và
+người mua được chỉ thẳng về phễu báo giá.
+
+Nguyên tắc không đổi: **gửi yêu cầu báo giá không cần tài khoản**. Không thêm bước đăng nhập
+vào phễu RFQ, kể cả khi mở tài khoản người mua ở giai đoạn sau; khi đó bảng riêng
+`buyer_accounts` (nối `auth_user_id` với `buyers.id`) sẽ được dùng, **không** thêm vai trò vào
+`app_users` vì bảng đó giữ mật khẩu băm và quyền nội bộ.
+
+`scripts/check-register-chooser.mjs` (chạy trong `npm run check:entry`, có trong CI) render thật
+cả trang và bộ chọn, rồi chặn: dẫn chéo giữa hai loại, trỏ tới route chưa tồn tại, hứa hẹn tài
+khoản người mua, nhồi lại đoạn văn dài vào form đăng ký nhà cung cấp, tải ảnh từ nguồn ngoài, và
+việc biến yêu cầu báo giá thành phải đăng nhập.
+
+## Ngôn ngữ của khu vực tài khoản
+
+Các trang tài khoản chạy bằng bộ từ điển (`lib/i18n/auth.ts`, đọc qua `lib/i18n/server.ts`),
+mặc định **tiếng Anh**, đổi sang tiếng Việt bằng công tắc EN/VI trong khung hai cột. Ngôn ngữ
+lưu ở cookie `vexim_locale`; **URL không đổi** (không có `/en/...`, `/vi/...`) nên link cũ,
+email đã gửi và hướng dẫn cho nhà cung cấp vẫn dùng được. Chi tiết và lộ trình: `docs/i18n.md`.
+
+Hai điểm dễ vỡ khi sửa phần này:
+
+- `<html lang>` trong `app/layout.tsx` phải **ưu tiên cookie** cho các đường dẫn thuộc
+  `isLocalizedAuthPath()`; nếu không, người chọn tiếng Anh vẫn bị trình đọc màn hình đọc theo
+  tiếng Việt.
+- Chuỗi mới phải thêm vào **cả hai** ngôn ngữ. Kiểu dữ liệu suy ra từ bản `en` nên thiếu khoá
+  là lỗi biên dịch, còn `npm run check:i18n` kiểm thêm: đủ khoá, không lẫn tiếng Việt trong bản
+  tiếng Anh, không còn chuỗi viết cứng trong component, không đổi URL.
+
+Thông báo lỗi trả về từ server action (`app/auth-actions.ts`) và API (`/api/supplier-signup`)
+vẫn là tiếng Việt ở giai đoạn 1; khi chuyển sang từ điển thì phải trả **mã lỗi** chứ không trả
+câu chữ.
+
 ## Giới hạn lượt
 
 Các bucket dùng fixed window và chỉ gửi SHA-256 fingerprint tới Redis, không gửi IP hoặc email thô.

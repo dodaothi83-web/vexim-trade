@@ -62,7 +62,10 @@ sát hơn, nhưng không bắt buộc vì nhiều người mua chỉ biết qu�
 Mọi thứ còn lại nằm trong mục **"Add details (optional)"** — đóng mặc định, tự mở khi URL đã
 điền sẵn `grade` hoặc khi người mua đến từ link yêu cầu mẫu: category, grade/spec, incoterm
 (mặc định "Not sure yet"), **Shipment month** (thay cho ngày cần chính xác — người mua thường
-chỉ biết tháng), tần suất mua, bao bì/nhãn, chứng chỉ (chip chọn nhanh: HACCP, BRCGS,
+chỉ biết tháng; dùng ô chọn tháng của trình duyệt `<input type="month">`, giá trị `YYYY-MM`).
+Lưu ý đã chấp nhận: placeholder của ô này do **ngôn ngữ máy người dùng** quyết định, không do
+trang — máy tiếng Việt hiện "---- năm ----", máy tiếng Anh hiện "---- month ----". Đã thử thay
+bằng ô chọn tự dựng và quyết định quay lại ô gốc vì thao tác chọn tháng quen thuộc hơn., tần suất mua, bao bì/nhãn, chứng chỉ (chip chọn nhanh: HACCP, BRCGS,
 ISO 22000, FSSC 22000, Halal, Kosher, Organic), samples/inspection/video call, giá mục tiêu
 kèm đơn vị và ô chia sẻ, điện thoại, website, loại hình, ghi chú. Dữ liệu vẫn được gửi đủ
 như trước, chỉ khác là không bắt người mua nhìn thấy.

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buildSupplierNoticeFeed } from "@/lib/supplier-portal/dashboard";
+import { getLocale } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +33,9 @@ export async function GET() {
     store.listSubmissions(supplier.id).catch(() => []),
   ]);
 
-  const feed = buildSupplierNoticeFeed({ supplierId: supplier.id, supplier, invites, reads, products, certificates, reviews, requests, submissions });
+  // Chuông là một phần của khung đã chuyển, nên nội dung thông báo theo ngôn ngữ đang chọn.
+  const language = await getLocale();
+  const feed = buildSupplierNoticeFeed({ supplierId: supplier.id, supplier, invites, reads, products, certificates, reviews, requests, submissions, language });
   return NextResponse.json({
     unread: readsKnown ? feed.unreadCount : 0,
     readsKnown,

@@ -2,6 +2,9 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock3, ShieldCheck } from "lucide-react";
 
 import type { VerificationProgress, VerificationProgressStep } from "@/lib/supplier-portal/verification-progress";
+import { fill } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
+import { OverviewMessages } from "@/lib/i18n/portal/overview";
 import { Panel } from "./portal-ui";
 
 /**
@@ -39,22 +42,31 @@ function StepDot({ step, size = "h-9 w-9 text-[12px]", icon = "h-4 w-4" }: {
   </span>;
 }
 
-/** Dải tiến độ trên trang tổng quan: trạng thái từng bước, việc đang chờ và nút đi tiếp. */
-export function VerificationProgressPanel({ progress }: { progress: VerificationProgress }) {
-  return <Panel
+/**
+ * Dải tiến độ trên trang tổng quan: trạng thái từng bước, việc đang chờ và nút đi tiếp.
+ *
+ * Câu của từng bước do mô hình `buildVerificationProgress` sinh theo `locale`; khung của
+ * khối (tiêu đề, ghi chú) đọc từ từ điển cổng.
+ */
+export function VerificationProgressPanel({ progress, messages, lang }: {
+  progress: VerificationProgress;
+  messages: OverviewMessages["verificationPanel"];
+  lang: Locale;
+}) {
+  return <div lang={lang}><Panel
     id="xac-minh"
     icon={<ShieldCheck className="h-4 w-4 text-brand-700" />}
-    title="Xác minh doanh nghiệp"
-    sub="Ba bước độc lập, xếp theo tiến độ. Mỗi bước có trang riêng để nộp bằng chứng và xem kết quả."
+    title={messages.title}
+    sub={messages.sub}
     action={<span className="rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-800">
-      {progress.approvedCount}/3 bước đã duyệt
+      {fill(messages.counter, { approved: progress.approvedCount })}
     </span>}
     flush
   >
     <div className="border-b border-ink-100 px-5 py-4">
       <div className="flex items-center gap-3">
         <div role="progressbar" aria-valuemin={0} aria-valuemax={3} aria-valuenow={progress.approvedCount}
-          aria-label="Số bước xác minh đã được duyệt" className="h-2 flex-1 overflow-hidden rounded-full bg-ink-100">
+          aria-label={messages.progressAria} className="h-2 flex-1 overflow-hidden rounded-full bg-ink-100">
           <div className={`h-full rounded-full ${progress.percent === 100 ? "bg-emerald-500" : "bg-brand-600"}`}
             style={{ width: `${progress.percent}%` }} />
         </div>
@@ -70,11 +82,13 @@ export function VerificationProgressPanel({ progress }: { progress: Verification
           <StepDot step={step} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-[10px] font-bold tracking-[0.12em] text-ink-400 uppercase">Bước {step.level}</span>
+              <span className="text-[10px] font-bold tracking-[0.12em] text-ink-400 uppercase">
+                {fill(messages.step, { level: step.level })}
+              </span>
               <h3 className="text-[13.5px] font-bold text-ink-900">{step.title}</h3>
               <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${CHIP[step.tone]}`}>{step.status}</span>
               <span className="rounded-full bg-ink-50 px-2 py-0.5 text-[10.5px] font-semibold text-ink-600 ring-1 ring-ink-200/70">{step.metric}</span>
-              {current && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-300">Đang ở đây</span>}
+              {current && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-300">{messages.here}</span>}
             </div>
             <p className="mt-1 text-[11.5px] leading-5 text-ink-500">{step.description}</p>
             <p className={`mt-1 text-[11.5px] leading-5 ${step.tone === "rose" ? "font-semibold text-rose-700" : step.tone === "emerald" ? "font-semibold text-emerald-800" : "text-ink-700"}`}>
@@ -89,10 +103,9 @@ export function VerificationProgressPanel({ progress }: { progress: Verification
     </ol>
 
     <p className="border-t border-ink-100 bg-ink-50/60 px-5 py-3 text-[11px] leading-5 text-ink-500">
-      Tải bằng chứng không tự cấp huy hiệu. Mỗi bước chỉ chuyển sang <b className="text-ink-700">Đã duyệt</b> khi
-      hồ sơ được đối chiếu thủ công và người có quyền duyệt phê kết quả.
+      {messages.footnote}
     </p>
-  </Panel>;
+  </Panel></div>;
 }
 
 /** Khối nút ngay dưới phần kiểm toán ở “Trang của tôi”. Chỉ NCC thấy, buyer không thấy. */

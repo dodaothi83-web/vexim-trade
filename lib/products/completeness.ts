@@ -20,6 +20,8 @@ export interface CompletenessItem {
   key: string;
   /** Nhãn 1–3 từ, dùng được trong chip và danh sách. */
   label: string;
+  /** Bản tiếng Anh của nhãn cho cổng nhà cung cấp; CRM vẫn dùng `label` (tiếng Việt). */
+  labelEn: string;
   /** Bắt buộc: thiếu là người mua khó hiểu hoặc khó so sánh sản phẩm. */
   required: boolean;
   weight: number;
@@ -78,24 +80,24 @@ export interface ProductCompleteness {
 
 /** Trọng số cộng lại đúng 100 để điểm đọc như phần trăm. */
 export const COMPLETENESS_ITEMS: CompletenessItem[] = [
-  { key: "photo", label: "Ảnh thật", required: true, weight: 16, step: 2, hint: "Tải ít nhất một ảnh sản phẩm và chia sẻ cho người mua." },
-  { key: "category", label: "Danh mục", required: true, weight: 10, step: 1, hint: "Chọn danh mục đúng ngành hàng." },
-  { key: "price", label: "Giá tham khảo", required: true, weight: 9, step: 1, hint: "Nhập giá theo đơn vị đã chọn." },
-  { key: "moq", label: "MOQ", required: true, weight: 9, step: 1, hint: "Cho biết số lượng đặt tối thiểu." },
-  { key: "spec", label: "Quy cách", required: true, weight: 9, step: 1, hint: "Ghi quy cách chính để người mua so sánh." },
-  { key: "packaging", label: "Đóng gói", required: false, weight: 9, step: 1, hint: "Cách đóng gói và khối lượng mỗi kiện." },
-  { key: "lead_time", label: "Thời gian giao", required: false, weight: 7, step: 1, hint: "Số ngày từ khi xác nhận đơn đến khi hàng sẵn sàng giao." },
-  { key: "description", label: "Mô tả", required: false, weight: 7, step: 1, hint: "Ba đến năm câu về sản phẩm và ứng dụng." },
+  { key: "photo", label: "Ảnh thật", labelEn: "Real photos", required: true, weight: 16, step: 2, hint: "Tải ít nhất một ảnh sản phẩm và chia sẻ cho người mua." },
+  { key: "category", label: "Danh mục", labelEn: "Category", required: true, weight: 10, step: 1, hint: "Chọn danh mục đúng ngành hàng." },
+  { key: "price", label: "Giá tham khảo", labelEn: "Reference price", required: true, weight: 9, step: 1, hint: "Nhập giá theo đơn vị đã chọn." },
+  { key: "moq", label: "MOQ", labelEn: "MOQ", required: true, weight: 9, step: 1, hint: "Cho biết số lượng đặt tối thiểu." },
+  { key: "spec", label: "Quy cách", labelEn: "Spec", required: true, weight: 9, step: 1, hint: "Ghi quy cách chính để người mua so sánh." },
+  { key: "packaging", label: "Đóng gói", labelEn: "Packaging", required: false, weight: 9, step: 1, hint: "Cách đóng gói và khối lượng mỗi kiện." },
+  { key: "lead_time", label: "Thời gian giao", labelEn: "Lead time", required: false, weight: 7, step: 1, hint: "Số ngày từ khi xác nhận đơn đến khi hàng sẵn sàng giao." },
+  { key: "description", label: "Mô tả", labelEn: "Description", required: false, weight: 7, step: 1, hint: "Ba đến năm câu về sản phẩm và ứng dụng." },
   // Tên tiếng Anh do Vexim đặt khi duyệt (dịch từ tên nhà cung cấp nhập); cổng không có ô này.
-  { key: "name_en", label: "Tên tiếng Anh", required: false, weight: 5, step: 1, auto: true, hint: "Tên hiển thị cho người mua trên trang công khai." },
+  { key: "name_en", label: "Tên tiếng Anh", labelEn: "English name", required: false, weight: 5, step: 1, auto: true, hint: "Tên hiển thị cho người mua trên trang công khai." },
   // Phase 2: ba mục dưới đây là cột mới (migration 20261072). Trống thì chỉ mất điểm,
   // không chặn đăng, và không suy đoán giá trị từ cột văn bản cũ.
-  { key: "keywords", label: "Từ khoá", required: false, weight: 5, step: 1, hint: "Thêm 1–3 từ khoá tiếng Anh để người mua tìm thấy sản phẩm." },
-  { key: "sample_price", label: "Giá mẫu", required: false, weight: 5, step: 1, hint: "Nhập 0 nếu nhận mẫu miễn phí; bỏ trống nếu không bán mẫu." },
-  { key: "package_measure", label: "Kích thước kiện", required: false, weight: 5, step: 1, hint: "Ghi loại kiện và khối lượng mỗi kiện." },
-  { key: "payment_terms", label: "Thanh toán", required: false, weight: 2, step: 1, hint: "Ví dụ: 30% đặt cọc, phần còn lại trước khi giao." },
-  { key: "capacity", label: "Năng lực tháng", required: false, weight: 1, step: 1, hint: "Sản lượng cung cấp được mỗi tháng." },
-  { key: "export_port", label: "Cảng xuất", required: false, weight: 1, step: 1, hint: "Cảng thường dùng để xuất hàng." },
+  { key: "keywords", label: "Từ khoá", labelEn: "Keywords", required: false, weight: 5, step: 1, hint: "Thêm 1–3 từ khoá tiếng Anh để người mua tìm thấy sản phẩm." },
+  { key: "sample_price", label: "Giá mẫu", labelEn: "Sample price", required: false, weight: 5, step: 1, hint: "Nhập 0 nếu nhận mẫu miễn phí; bỏ trống nếu không bán mẫu." },
+  { key: "package_measure", label: "Kích thước kiện", labelEn: "Pack measures", required: false, weight: 5, step: 1, hint: "Ghi loại kiện và khối lượng mỗi kiện." },
+  { key: "payment_terms", label: "Thanh toán", labelEn: "Payment", required: false, weight: 2, step: 1, hint: "Ví dụ: 30% đặt cọc, phần còn lại trước khi giao." },
+  { key: "capacity", label: "Năng lực tháng", labelEn: "Monthly capacity", required: false, weight: 1, step: 1, hint: "Sản lượng cung cấp được mỗi tháng." },
+  { key: "export_port", label: "Cảng xuất", labelEn: "Export port", required: false, weight: 1, step: 1, hint: "Cảng thường dùng để xuất hàng." },
 ];
 
 export const COMPLETENESS_TOTAL = COMPLETENESS_ITEMS.reduce((sum, item) => sum + item.weight, 0);
@@ -213,7 +215,21 @@ export function productCompleteness(
  * Câu nhắc ngắn cho thẻ sản phẩm và CRM. Không gửi email; chỉ hiện trong cổng.
  * Ví dụ: "Hồ sơ 70% · còn thiếu ảnh thật".
  */
-export function completenessSummary(result: ProductCompleteness): string {
-  if (!result.next) return `Hồ sơ đủ ${result.total}/${result.total} mục`;
-  return `Hồ sơ ${result.score}% · còn thiếu ${result.next.label.toLowerCase()}`;
+const SUMMARY_VI = { complete: "Hồ sơ đủ {total}/{total} mục", partial: "Hồ sơ {score}% · còn thiếu {next}" };
+
+export interface CompletenessSummaryCopy {
+  /** Câu "đã đủ", có `{total}`. Mặc định là bản tiếng Việt cho CRM. */
+  complete?: string;
+  /** Câu "còn thiếu", có `{score}` và `{next}`. */
+  partial?: string;
+  /** Chọn nhãn của mục còn thiếu: `en` dùng `labelEn` (cổng nhà cung cấp chuyển sang tiếng Anh). */
+  lang?: "vi" | "en";
+}
+
+export function completenessSummary(result: ProductCompleteness, copy: CompletenessSummaryCopy = {}): string {
+  const complete = copy.complete ?? SUMMARY_VI.complete;
+  const partial = copy.partial ?? SUMMARY_VI.partial;
+  if (!result.next) return complete.replaceAll("{total}", String(result.total));
+  const label = copy.lang === "en" ? result.next.labelEn : result.next.label;
+  return partial.replace("{score}", String(result.score)).replace("{next}", label.toLowerCase());
 }

@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { PageHeader } from "@/components/page-header";
+import { getPortalMessages } from "@/lib/i18n/server";
 import { SupplierProductEditor } from "../product-editor";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
@@ -11,12 +12,17 @@ import { readNewQuantityPolicies } from "@/lib/products/quantity-new-config";
 import { certificateInheritanceByCategory } from "@/lib/supplier-portal/certificate-inheritance";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Thêm sản phẩm", robots: { index: false, follow: false } };
+export async function generateMetadata() {
+  const { m } = await getPortalMessages();
+  return { title: m.productEditor.newPage.title, robots: { index: false, follow: false } };
+}
 
 export default async function NewSupplierProductPage() {
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
+  const { locale, m } = await getPortalMessages();
+  const copy = m.productEditor.newPage;
   const publishedCategories = await access.store.listCategories({ publishedOnly: true });
   const options = categoryProposalOptions(publishedCategories);
   // Giấy đã duyệt cho danh mục: form hiện sẵn "Chứng nhận theo danh mục" để nhà cung cấp biết
@@ -24,7 +30,7 @@ export default async function NewSupplierProductPage() {
   const certificateInheritance = await certificateInheritanceByCategory(
     access.store, access.supplier.id, publishedCategories,
   ).catch((error) => {
-    console.error("[supplier-product] chứng nhận thừa hưởng", error);
+    console.error("[supplier-product] inherited certificates", error);
     return {};
   });
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
@@ -42,11 +48,12 @@ export default async function NewSupplierProductPage() {
   })).filter((asset) => asset.kind === "image" && !!asset.storage_path);
   return <>
     <PageHeader
-      eyebrow="Cổng nhà cung cấp · riêng tư"
-      title="Thêm sản phẩm"
-      sub="Điền theo thứ tự từ trên xuống. Trường có dấu * là bắt buộc để gửi duyệt; bạn lưu nháp bất cứ lúc nào."
-      breadcrumbs={<nav aria-label="Đường dẫn" className="flex items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-ink-800">Thêm mới</span></nav>}
+      eyebrow={m.products.list.eyebrow}
+      title={copy.title}
+      sub={copy.sub}
+      breadcrumbs={<nav aria-label={copy.breadcrumbAria} className="flex items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="hover:text-brand-700">{copy.products}</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-ink-800">{copy.breadcrumb}</span></nav>}
     />
-    <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} quantityPolicies={quantityPolicies} bankMedia={bankMedia} certificateInheritance={certificateInheritance} />
+    <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} quantityPolicies={quantityPolicies} bankMedia={bankMedia} certificateInheritance={certificateInheritance}
+      messages={m.productEditor.editor} shared={m.productEditor.shared} statuses={m.products.statuses} lang={locale} />
   </>;
 }

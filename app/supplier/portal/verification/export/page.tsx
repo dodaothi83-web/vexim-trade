@@ -1,7 +1,11 @@
+import { getPortalMessages } from "@/lib/i18n/server";
 import { VerificationLevelPage } from "../level-page";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Lịch sử xuất khẩu (L3)", robots: { index: false, follow: false } };
+export async function generateMetadata() {
+  const { m } = await getPortalMessages();
+  return { title: m.verification.level.exportTitle, robots: { index: false, follow: false } };
+}
 
 /**
  * L3 - lịch sử xuất khẩu bằng chứng từ của một lô hàng đã giao.

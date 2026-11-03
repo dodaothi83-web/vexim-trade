@@ -34,6 +34,7 @@ vm.runInNewContext(
 mocks['@/lib/public/supplier-name'] = supplierNameExports;
 // Thẻ ngữ cảnh sản phẩm: kiểm này chỉ cần biết trang có chuyển nguyên object xuống form.
 mocks['@/lib/public/rfq-product-context'] = { loadRfqProductContext: async () => productContext };
+
 // Trang đọc cột jsonb qua bộ chuẩn hoá dùng chung, nên biên dịch luôn module đó
 // thật thay vì giả lập: kiểm này bao trọn cả hình dạng dữ liệu cũ.
 const filterExports = {};

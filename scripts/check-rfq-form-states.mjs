@@ -82,6 +82,8 @@ for (const needle of [
   assert.ok(withCard.includes(needle), `Thẻ sản phẩm phải render "${needle}"`);
 }
 assert.ok(!withCard.includes('1/3 approved'), 'Không được hiện "x/3 approved"');
+assert.ok(withCard.includes('type="month"'), 'Shipment month dùng ô chọn tháng của trình duyệt');
+assert.ok(!withCard.includes('Only Vexim sees it'), 'Đã bỏ câu chú thích dưới ô chia sẻ giá mục tiêu');
 assert.ok(!withCard.includes('What do you need?'), 'Có thẻ sản phẩm thì không còn nhãn mô tả sản phẩm');
 assert.match(withCard, /Your requirements<\/label>|Your requirements/, 'Ô yêu cầu đổi nhãn');
 

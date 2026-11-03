@@ -4,10 +4,15 @@ import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { categoryProposalOptions, parseSupplierCategoryProposals, productCategorySlug } from "@/lib/supplier-portal/category-proposals";
+import { getPortalMessages } from "@/lib/i18n/server";
+import { fill } from "@/lib/i18n/format";
 
 export async function saveSupplierCategoriesAction(form: FormData): Promise<{ ok: boolean; message: string }> {
+  // Server action không nhận `copy` từ client nên tự đọc locale đang chọn.
+  const { m } = await getPortalMessages();
+  const copy = m.categories.errors;
   const access = await supplierPortalAccess();
-  if (!access || !portalApproved(access.supplier)) return { ok: false, message: "Tài khoản nhà cung cấp chưa được mở quyền sử dụng cổng." };
+  if (!access || !portalApproved(access.supplier)) return { ok: false, message: copy.noAccess };
   try {
     const options = categoryProposalOptions(await access.store.listCategories({ publishedOnly: true }));
     const selected = parseSupplierCategoryProposals(form, options).requested_category_slugs;
@@ -16,7 +21,7 @@ export async function saveSupplierCategoriesAction(form: FormData): Promise<{ ok
       const slug = productCategorySlug(p);
       return slug && !selected.includes(slug);
     });
-    if (outside) return { ok: false, message: `Sản phẩm “${outside.name}” còn thuộc danh mục sẽ bỏ. Liên hệ bộ phận hỗ trợ để xử lý sản phẩm trước khi bỏ danh mục.` };
+    if (outside) return { ok: false, message: fill(copy.productOutside, { name: outside.name }) };
     const before = access.supplier.requested_category_slugs ?? [];
     await access.store.updateSupplier(access.supplier.id, {
       requested_category_slugs: selected, requested_category_other: null,
@@ -28,6 +33,6 @@ export async function saveSupplierCategoriesAction(form: FormData): Promise<{ ok
     revalidatePath("/supplier/portal/categories");
     revalidatePath("/supplier/portal/products");
     revalidatePath("/supplier/portal/products/new");
-    return { ok: true, message: "Đã lưu danh mục được phép chọn. Không tự duyệt hoặc công khai sản phẩm." };
-  } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không lưu được danh mục." }; }
+    return { ok: true, message: copy.saved };
+  } catch (error) { return { ok: false, message: error instanceof Error ? error.message : copy.saveFailed }; }
 }

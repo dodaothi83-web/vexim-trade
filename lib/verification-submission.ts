@@ -337,7 +337,13 @@ export function openSubmission<T extends Pick<SupplierSubmission, "target_level"
     (level !== 2 || (s.l2_scope ?? "factory") === (scope ?? "factory"))) ?? null;
 }
 
-export function submissionStatusLabel(status: SubmissionStatus): string {
+export function submissionStatusLabel(status: SubmissionStatus, language: "en" | "vi" = "vi"): string {
+  if (language === "en") {
+    return status === "draft" ? "Draft"
+      : status === "pending_review" ? "Waiting for Vexim review"
+        : status === "returned" ? "Changes needed"
+          : "Vexim accepted this into a check round";
+  }
   return status === "draft" ? "Đang soạn"
     : status === "pending_review" ? "Chờ Vexim xét duyệt"
       : status === "returned" ? "Cần bổ sung"

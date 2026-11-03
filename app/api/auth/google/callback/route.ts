@@ -16,26 +16,31 @@ export async function GET(request: Request) {
   if (!googleOriginAllowed(origin)) return clear(target("/login?oauth=origin"));
   const { cookies } = await import("next/headers");
   const flow = parseGoogleFlow((await cookies()).get(GOOGLE_FLOW_COOKIE)?.value);
-  const retry = flow?.intent === "signup" ? "/supplier/register" : "/login";
+  const signupIntent = flow?.intent === "signup";
+  const retry = signupIntent ? "/supplier/register" : "/login";
+  const retryUrl = (reason: string) => {
+    const params = new URLSearchParams(signupIntent ? { type: "supplier", oauth: reason } : { oauth: reason });
+    return `${retry}?${params.toString()}`;
+  };
   const code = url.searchParams.get("code");
-  if (!flow || !code || code.length > 2048 || url.searchParams.has("error")) return clear(target(`${retry}?oauth=cancelled`));
+  if (!flow || !code || code.length > 2048 || url.searchParams.has("error")) return clear(target(retryUrl("cancelled")));
   const client = googleClient(flow.items);
-  if (!client) return clear(target(`${retry}?oauth=unavailable`));
+  if (!client) return clear(target(retryUrl("unavailable")));
   try {
     // PKCE proves the callback belongs to the browser that started this flow; code is single-use.
     const flowId = url.searchParams.get("sb_flow_id") ?? undefined;
     const { data, error } = await client.auth.exchangeCodeForSession(code, flowId ? { flowId } : undefined);
-    if (error || !isVerifiedGoogleUser(data.user)) return clear(target(`${retry}?oauth=unverified`));
+    if (error || !isVerifiedGoogleUser(data.user)) return clear(target(retryUrl("unverified")));
     const google = data.user;
     const store = getStore();
-    if (store.mode !== "supabase") return clear(target(`${retry}?oauth=unavailable`));
+    if (store.mode !== "supabase") return clear(target(retryUrl("unavailable")));
     let user = await store.getUserByEmail(google.email);
     if (flow.intent === "signup") {
       if (user) return clear(target("/login?oauth=existing"));
       // Only an explicit supplier registration with a verified Google identity may create this
       // restricted role. Google login alone never provisions an app account or staff role.
       const admins = await store.listUsers();
-      if (!admins.some((a) => a.role === "admin" && a.is_active)) return clear(target(`${retry}?oauth=unavailable`));
+      if (!admins.some((a) => a.role === "admin" && a.is_active)) return clear(target(retryUrl("unavailable")));
       user = await store.createUser({ email: google.email.toLowerCase(),
         name: (typeof google.user_metadata?.full_name === "string" ? google.user_metadata.full_name.trim().slice(0, 120) : "") || google.email.split("@")[0],
         role: "supplier", supplier_id: null, auth_provider: "supabase", password_hash: null, is_active: true });
@@ -56,6 +61,6 @@ export async function GET(request: Request) {
     return res;
   } catch (error) {
     console.error("[google-oauth] callback", error);
-    return clear(target(`${retry}?oauth=failed`));
+    return clear(target(retryUrl("failed")));
   }
 }

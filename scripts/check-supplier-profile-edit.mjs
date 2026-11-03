@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 
+const portal = loadPortalDictionary();
+const copy = portal.en.profile.edit.result;
 const source = fs.readFileSync(new URL('../app/supplier/portal/profile/profile-actions.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const supplier = {
@@ -25,6 +28,7 @@ vm.runInNewContext(js, {
   module, exports: module.exports, console, Date, FormData, Object, String, Number, Boolean, RegExp, Error, Promise,
   require: (id) => {
     if (id === 'next/cache') return { revalidatePath: (path) => revalidated.push(path) };
+    if (id === '@/lib/i18n/server') return { getPortalMessages: async () => ({ locale: 'en', intl: 'en-GB', m: portal.en }) };
     if (id === '@/lib/supplier-portal/access') return { supplierPortalAccess: async () => access };
     if (id === '@/lib/supplier-portal/onboarding') return { portalApproved: (value) => value.onboarding_status === 'approved' };
     if (id === '@/lib/ai/supplier-translation-service') return { ensureSupplierProfileEnglish: async () => { translationCalls += 1; return { status: 'translated', supplier }; } };
@@ -41,6 +45,7 @@ for (const [key, value] of Object.entries({
 })) form.set(key, value);
 const result = await action(form);
 assert.equal(result.ok, true);
+assert.equal(result.message, copy.saved, 'Thông báo lưu hồ sơ theo ngôn ngữ đang chọn');
 assert.equal(patch.contact_name, 'New contact');
 assert.equal(patch.products, 'Cashew and pepper');
 assert.equal(JSON.stringify(patch.export_markets), JSON.stringify(['Hoa Kỳ', 'Nhật Bản']));
@@ -57,11 +62,12 @@ assert.equal((await action(form)).ok, false, 'Pending profiles cannot use the ap
 
 const profile = fs.readFileSync(new URL('../app/supplier/portal/profile/page.tsx', import.meta.url), 'utf8');
 assert.match(profile, /href="\/supplier\/portal\/profile\/edit"/);
-assert.match(profile, /Chỉnh sửa hồ sơ/);
+assert.equal(portal.vi.profile.view.edit, 'Chỉnh sửa hồ sơ', 'Nút sửa hồ sơ đọc từ từ điển');
 const editPage = fs.readFileSync(new URL('../app/supplier/portal/profile/edit/page.tsx', import.meta.url), 'utf8');
 assert.match(editPage, /portalApproved/);
 assert.match(editPage, /redirect\("\/supplier\/portal"\)/);
 const editForm = fs.readFileSync(new URL('../app/supplier/portal/profile/profile-edit-form.tsx', import.meta.url), 'utf8');
 assert.match(editForm, /saveSupplierProfileEditAction/);
-assert.match(editForm, /Tên pháp nhân, mã số thuế, địa chỉ đăng ký/);
+assert.match(portal.vi.profile.edit.lockedIntro, /Tên pháp nhân, mã số thuế, địa chỉ đăng ký/, 'Câu khoá thông tin pháp lý nằm trong từ điển');
+assert.match(editForm, /messages: ProfileMessages\["edit"\]/, 'Biểu mẫu chỉnh sửa nhận chuỗi từ từ điển');
 console.log('✅ Supplier profile edit: linked-owner access, locked legal/review fields, audit and translation trigger.');

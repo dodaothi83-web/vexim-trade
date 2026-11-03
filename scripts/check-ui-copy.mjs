@@ -121,6 +121,33 @@ const SCOPE = [
   'components/template-editor.tsx',
   'components/user-manager.tsx',
   'lib/auth/permissions.ts',
+  // Khu vực tài khoản đã chuyển sang từ điển: chuỗi tiếng Việt nằm ở đây, không còn trong
+  // component, nên kiểm văn phong phải trỏ vào từ điển.
+  'lib/i18n/auth.ts',
+  // Cụm 1 của cổng NCC (giai đoạn 2): khung + trang tổng quan.
+  'lib/i18n/portal/shell.ts',
+  'lib/i18n/portal/overview.ts',
+  'lib/i18n/portal/shared.ts',
+  'lib/i18n/portal/profile.ts',
+  'lib/i18n/portal/onboarding.ts',
+  'lib/i18n/portal/products.ts',
+  'lib/i18n/portal/product-editor.ts',
+  // Cụm 4 của cổng NCC: xác minh, giấy tờ doanh nghiệp, đẩy sản phẩm.
+  'lib/i18n/portal/verification.ts',
+  'lib/i18n/portal/documents.ts',
+  'lib/i18n/portal/boost.ts',
+  // Cụm 5 của cổng NCC: RFQ, danh mục, lượt xem gian hàng và trang xem trước.
+  'lib/i18n/portal/rfqs.ts',
+  'lib/i18n/portal/categories.ts',
+  'lib/i18n/portal/traffic.ts',
+  'lib/i18n/portal/storefront.ts',
+  'lib/i18n/portal/notices.ts',
+  'lib/i18n/portal/quantity.ts',
+  'app/supplier/portal/categories/page.tsx',
+  'app/supplier/portal/categories/actions.ts',
+  'app/supplier/portal/categories/supplier-category-workspace.tsx',
+  'app/supplier/portal/notice-actions.ts',
+  'app/supplier/portal/portal-ui.tsx',
   'lib/certificate-service.ts',
   'lib/db/local.ts',
   'lib/db/seed.ts',

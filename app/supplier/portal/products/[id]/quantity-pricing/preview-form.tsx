@@ -6,8 +6,11 @@ import { QuantityPricingEditor } from "@/components/products/quantity-pricing-ed
 import { validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import { submitQuantityPriceRevisionAction } from "../../../quantity-revision-actions";
 import { addSupplierGradeOptionAction } from "../../../product-actions";
+import type { Locale } from "@/lib/i18n/config";
+import type { ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 
 type Props = {
+  messages: ProductEditorMessages["quantityPage"]; shared: ProductEditorMessages["shared"]; lang: Locale;
   productId: string; updatedAt: string; nameVi: string; nameEn: string;
   pendingPriceId: string | null; pendingNameId: string | null; hasApprovedPrice: boolean; hasApprovedName: boolean;
   grade: string; incoterm: string; currency: string; tiers: QuantityPricingInput["tiers"];
@@ -17,6 +20,7 @@ type Props = {
 type Result = { ok: boolean; message: string };
 
 export function QuantityPricingPreviewForm(props: Props) {
+  const copy = props.messages;
   const router = useRouter();
   const [value, setValue] = useState<QuantityPricingInput>({ grade: props.grade, incoterm: props.incoterm, currency: props.currency, nameVi: props.nameVi, nameEn: props.nameEn, tiers: props.tiers });
   // Grade nhà cung cấp vừa thêm phải dùng được ngay ở lần gửi này, không chờ tải lại trang.
@@ -29,7 +33,7 @@ export function QuantityPricingPreviewForm(props: Props) {
     if (busy) return;
     const validation = validateQuantityPricing({ ...value, nameEn: "" }, grades, props.policy);
     setShowErrors(true);
-    if (!validation.value) { setPriceResult({ ok: false, message: validation.errors[0]?.message ?? "Kiểm tra bảng giá." }); return; }
+    if (!validation.value) { setPriceResult({ ok: false, message: validation.errors[0]?.message ?? copy.checkPricing }); return; }
     const form = new FormData(event.currentTarget);
     form.set("product_id", props.productId);
     form.set("expected_product_updated_at", props.updatedAt);
@@ -43,13 +47,13 @@ export function QuantityPricingPreviewForm(props: Props) {
       const result = await submitQuantityPriceRevisionAction(form);
       setPriceResult(result);
       if (result.ok) router.refresh();
-    } catch { setPriceResult({ ok: false, message: "Không kết nối được máy chủ." }); }
+    } catch { setPriceResult({ ok: false, message: copy.networkError }); }
     finally { setBusy(false); }
   }
   return <div className="mt-4 space-y-4">
     <form noValidate onSubmit={(event) => void savePrice(event)} className="rounded-xl border border-ink-200 bg-white p-5">
-      <p className="mb-4 text-xs text-ink-600">{props.pendingPriceId ? "Giá mới đang chờ Vexim xác nhận." : props.hasApprovedPrice ? "Đã có bảng giá mới được duyệt." : "Chưa có bảng giá mới được duyệt."}</p>
-      <QuantityPricingEditor value={value} onChange={setValue} standardGrades={grades} policy={props.policy}
+      <p className="mb-4 text-xs text-ink-600">{props.pendingPriceId ? copy.pendingNote : props.hasApprovedPrice ? copy.approvedNote : copy.noneNote}</p>
+      <QuantityPricingEditor value={value} onChange={setValue} copy={props.shared.quantityEditor} lang={props.lang} standardGrades={grades} policy={props.policy}
         buyerPriceUnit={props.buyerPriceUnit} pricePubliclyVisible={props.pricePubliclyVisible} showTitle={false} validateEnglishName={false} showErrors={showErrors} disabled={busy}
         gradeScope={props.categorySlug}
         onAddGrade={async (grade) => {
@@ -57,7 +61,7 @@ export function QuantityPricingPreviewForm(props: Props) {
           if (result.ok && result.grades?.length) setGrades(result.grades);
           return result;
         }} />
-      <button type="submit" disabled={busy} className="btn btn-primary btn-sm mt-4">{busy ? "Đang gửi…" : "Gửi bảng giá để duyệt"}</button>
+      <button type="submit" disabled={busy} className="btn btn-primary btn-sm mt-4">{busy ? copy.sending : copy.send}</button>
       {priceResult && <p role={priceResult.ok ? "status" : "alert"} className={`mt-2 text-xs ${priceResult.ok ? "text-emerald-700" : "text-rose-700"}`}>{priceResult.message}</p>}
     </form>
   </div>;

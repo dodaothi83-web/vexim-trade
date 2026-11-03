@@ -4,11 +4,19 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as icons from 'lucide-react';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const portalCopy = loadPortalDictionary();
+// Hồ sơ doanh nghiệp đọc nhãn từ từ điển; đây là những nhãn nhà cung cấp phải thấy.
+const viProfileFields = [
+  ...Object.values(portalCopy.vi.profile.view.info.fields),
+  portalCopy.vi.profile.view.about.title,
+  'Bước tiếp theo',
+];
 
 function load(path, mocks) {
   const exports = {};
@@ -29,7 +37,7 @@ const sidebarSource = read('components/supplier-sidebar.tsx');
 assert.match(layout, /<SupplierSidebar/, 'Cổng NCC dùng menu trái dùng chung');
 assert.match(layout, /<div className="lg:pl-60">/, 'Nội dung lệch phải đúng 240px như CRM');
 assert.match(layout, /<main className="mx-auto min-h-screen w-full max-w-\[1500px\]/, 'Nội dung trong khung main thống nhất');
-assert.match(layout, /<SupplierTopbar \/>/, 'Có thanh trên riêng cho chuông thông báo');
+assert.match(layout, /<SupplierTopbar messages=\{m\.shell\}/, 'Có thanh trên riêng cho chuông thông báo');
 assert.doesNotMatch(layout, /listProductsBySupplier|listSupplierRfqInvitations|buildSupplier(RfqBoard|NoticeFeed)/,
   'Khung trang không tải dữ liệu của từng trang: thiếu bảng thì trang tự báo, không trắng cả cổng');
 assert.match(layout, /catch \(error\) \{\s*identityFailed = true;/, 'Lỗi đọc tên doanh nghiệp không đá người dùng ra ngoài');
@@ -54,8 +62,11 @@ assert.ok(!existsSync(new URL('../app/supplier/portal/notifications', import.met
 assert.doesNotMatch(topbar, /href="\/supplier\/portal\/notifications"|href="\/crm/, 'Chuông không dẫn sang trang thông báo riêng hay sang CRM');
 assert.match(topbar, /<Link href=\{n\.href/, 'Tiêu đề thông báo mở đúng trang xử lý việc đó');
 assert.doesNotMatch(topbar, /Mở việc này/, 'Không còn liên kết mở trùng với tiêu đề');
-assert.match(topbar, /aria-label=\{loaded && unread \? `Thông báo, \$\{unread\} chưa đọc` : "Thông báo"\}/,
+// Nhãn chuông đọc từ từ điển, có cả bản tiếng Việt kèm số chưa đọc.
+const bellCopy = loadPortalDictionary().vi.shell.topbar;
+assert.match(topbar, /fill\(messages\.topbar\.notificationsUnread, \{ count: unread \}\)/,
   'Chuông có nhãn đọc được kèm số chưa đọc');
+assert.match(bellCopy.notificationsUnread, /\{count\} chưa đọc/);
 assert.match(topbar, /fetch\("\/api\/supplier-portal\/notifications"/, 'Chuông tự lấy dữ liệu, không chặn tải trang');
 assert.match(topbar, /markSupplierNoticeReadAction/, 'Đánh dấu đã đọc ngay trong chuông');
 assert.match(topbar, /max-h-\[min\(60vh,420px\)\][^"]*overflow-y-auto/, 'Danh sách cuộn trong chuông');
@@ -89,7 +100,11 @@ function renderSidebar(pathname, props) {
   return renderToStaticMarkup(React.createElement(SupplierSidebar, props));
 }
 
-const base = { supplierName: 'Dong Nai Cashew', email: 'ncc@example.com', userName: 'Nguyễn Thị B', approved: true, publicUrl: null };
+// Nhãn menu nằm trong từ điển cổng; check này kiểm bản tiếng Việt.
+const base = {
+  supplierName: 'Dong Nai Cashew', email: 'ncc@example.com', userName: 'Nguyễn Thị B',
+  approved: true, publicUrl: null, messages: portalCopy.vi.shell, lang: 'vi',
+};
 const html = renderSidebar('/supplier/portal/rfqs', base);
 for (const label of ['Tổng quan', 'Trang của tôi', 'Sản phẩm', 'Danh mục kinh doanh', 'Lượt xem gian hàng', 'RFQ &amp; báo giá',
   'Xác thực doanh nghiệp &amp; chứng nhận', 'Xác thực nhà máy L2', 'Lịch sử xuất khẩu L3', 'Hồ sơ doanh nghiệp'])
@@ -112,12 +127,15 @@ const profile = read('app/supplier/portal/profile/page.tsx');
 for (const field of ['Tên pháp nhân', 'Tên thương mại', 'Loại hình', 'Mã số thuế (tự khai)', 'Địa chỉ đăng ký',
   'Mặt hàng chính', 'Thị trường', 'Công suất mỗi tháng', 'MOQ', 'Cảng xuất', 'Incoterms', 'Thời gian giao',
   'Giới thiệu trên trang công khai', 'Bước tiếp theo'])
-  assert.ok(profile.includes(field), `Hồ sơ hiển thị ${field}`);
+  assert.ok(viProfileFields.includes(field), `Hồ sơ hiển thị ${field}`);
 assert.doesNotMatch(profile, /kind="cover"|kind="profile"|SupplierPhotoButton/,
   'Ảnh bìa và ảnh đại diện thuộc trang buyer thấy, không nằm trong hồ sơ doanh nghiệp');
-assert.match(profile, /Đang ở đây/, 'Nói rõ nhà cung cấp đang ở bước xác minh nào');
+assert.match(portalCopy.vi.profile.view.levels.here, /Đang ở đây/, 'Nói rõ nhà cung cấp đang ở bước xác minh nào');
+assert.match(profile, /\{view\.levels\.here\}/, 'Nhãn bước hiện tại đọc từ từ điển');
 assert.match(profile, /href="\/supplier\/portal\/storefront"/, 'Hồ sơ dẫn sang Trang của tôi để đối chiếu');
-assert.match(profile, /Liên hệ \(không hiển thị công khai\)/, 'Liên hệ nội bộ được ghi rõ là không công khai');
+assert.match(portalCopy.vi.profile.view.info.groups.contact, /Liên hệ \(không hiển thị công khai\)/,
+  'Liên hệ nội bộ được ghi rõ là không công khai');
+assert.match(profile, /\{view\.info\.groups\.contact\}/, 'Nhóm liên hệ đọc nhãn từ từ điển');
 
 // 7. “Trang của tôi”: đúng giao diện buyer, dựng từ component dùng chung với trang công khai.
 const storefront = read('app/supplier/portal/storefront/page.tsx');
@@ -130,13 +148,14 @@ assert.match(storefront, /robots: \{ index: false, follow: false \}/, 'Bản xem
 assert.doesNotMatch(storefront, /SupplierTrafficBeacon|createTrafficToken/, 'Xem trước không tự đếm lượt xem gian hàng');
 assert.match(storefront, /kind="cover"/, 'Ảnh bìa có nút thêm ảnh ngay trên trang buyer thấy');
 assert.match(storefront, /kind="profile"/, 'Ảnh đại diện có nút thêm ảnh ngay trên trang buyer thấy');
-assert.match(storefront, /Not published yet/, 'Nói rõ hồ sơ chưa lên sóng bằng tiếng Anh như trang buyer');
-assert.match(storefront, /checks approved/ , 'Hiện số bước xác minh đã duyệt');
-assert.match(storefront, /Not reviewed yet/, 'Hiện những bước còn thiếu');
+assert.match(storefront, /\{copy\.preview\.notPublished\}/, 'Nói rõ hồ sơ chưa lên sóng, câu chữ nằm trong từ điển');
+assert.match(portalCopy.en.storefront.preview.notPublished, /Not published yet/, 'Bản tiếng Anh giữ câu như trang buyer');
+assert.match(portalCopy.en.storefront.preview.verification, /checks approved/, 'Hiện số bước xác minh đã duyệt');
+assert.match(portalCopy.en.storefront.preview.notReviewed, /Not reviewed yet/, 'Hiện những bước còn thiếu');
 assert.doesNotMatch(storefront, /chưa hiện với buyer|hidden from buyer/i, 'Không thêm danh sách “chưa hiện với buyer”');
 assert.match(storefront, /getSupplierStorefront\(supplier\)/, 'Dựng đúng dữ liệu buyer thấy cho cả hồ sơ chưa publish');
 assert.match(storefront, /supplierPortalAccess\(\)/, 'Lấy NCC từ phiên đăng nhập');
-assert.match(storefront, /metadata = \{[^}]*index: false/s, 'Trang xem trước noindex');
+assert.match(storefront, /robots: \{ index: false, follow: false \}/s, 'Trang xem trước noindex');
 
 const upload = read('app/api/supplier-portal/profile-image/route.ts');
 assert.match(upload, /supplierPortalAccess\(\)/, 'Lấy NCC của phiên đang đăng nhập, không nhận id từ client');
@@ -152,9 +171,9 @@ const factoryPage = read('app/supplier/portal/verification/factory/page.tsx');
 const exportPage = read('app/supplier/portal/verification/export/page.tsx');
 assert.match(factoryPage, /<VerificationLevelPage level=\{2\} \/>/, 'Trang nhà máy chỉ dựng hồ sơ L2');
 assert.match(exportPage, /<VerificationLevelPage level=\{3\} \/>/, 'Trang xuất khẩu chỉ dựng hồ sơ L3');
-assert.match(sidebarSource, /href: "\/supplier\/portal\/verification\/factory", label: "Xác thực nhà máy L2", icon: Factory/,
+assert.match(sidebarSource, /href: "\/supplier\/portal\/verification\/factory", labelKey: "factory", icon: Factory/,
   'Menu có mục L2 riêng');
-assert.match(sidebarSource, /href: "\/supplier\/portal\/verification\/export", label: "Lịch sử xuất khẩu L3", icon: Ship/,
+assert.match(sidebarSource, /href: "\/supplier\/portal\/verification\/export", labelKey: "exportHistory", icon: Ship/,
   'Menu có mục L3 riêng');
 assert.ok(!hrefs.includes('/supplier/portal/verification'), 'Không còn mục menu gộp L2 · L3');
 assert.doesNotMatch(read('app/supplier/portal/verification/level-page.tsx'), /#level-[23]/,

@@ -1,6 +1,7 @@
 // node scripts/check-supplier-notice-links.mjs
 // Mỗi thông báo trong chuông phải mở đúng trang xử lý việc đó, và chuông phải tự nhảy số.
 import assert from 'node:assert/strict';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -66,8 +67,8 @@ assert.match(topbar, /window\.addEventListener\("focus"/, 'Quay lại cửa sổ
 assert.match(topbar, /<Link href=\{n\.href/, 'Tiêu đề thông báo mở đúng trang của việc đó');
 assert.doesNotMatch(topbar, /Mở việc này|router\.push\(notice\.href/, 'Không còn nút mở trùng với tiêu đề');
 assert.match(topbar, /markAllSupplierNoticesReadAction/, 'Có thao tác đánh dấu đã đọc tất cả');
-assert.match(topbar, /Đã đọc hết/);
-assert.match(topbar, /Chọn tiêu đề để mở trang cần xử lý\./, 'Hướng dẫn ngắn gọn, đúng thao tác');
+assert.match(loadPortalDictionary().vi.shell.topbar.markAllRead, /Đã đọc hết/);
+assert.match(loadPortalDictionary().vi.shell.topbar.footerHint, /Chọn tiêu đề để mở trang cần xử lý\./, 'Hướng dẫn ngắn gọn, đúng thao tác');
 assert.doesNotMatch(topbar, /Hộp thư Vexim/, 'Không dùng tên công ty trong hướng dẫn thông báo');
 assert.match(topbar, /panelRef\.current\.contains/, 'Bấm ra ngoài panel thì panel đóng');
 assert.match(topbar, /pointerdown/, 'Đóng panel bằng sự kiện bấm thật, không chỉ lớp phủ');

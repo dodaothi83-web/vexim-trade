@@ -9,6 +9,18 @@ import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as priceDisplay from "../lib/products/price-display.ts";
+import { loadPortalDictionary } from "./lib/portal-dictionary.mjs";
+import { loadFormat } from "./lib/i18n-format.mjs";
+
+const portal = loadPortalDictionary();
+/** Editor đọc từ điển cổng; render bằng bản tiếng Việt để giữ nguyên các câu đã khoá. */
+const editorCopy = {
+  messages: portal.vi.productEditor.editor,
+  shared: portal.vi.productEditor.shared,
+  statuses: portal.vi.products.statuses,
+  lang: "vi",
+  intl: "vi-VN",
+};
 
 const read = (path) => fs.readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -77,7 +89,11 @@ const { SupplierProductEditor, snapshotFromForm } = load('../app/supplier/portal
   'next/navigation': { useRouter: () => ({ push() {}, refresh() {}, replace() {} }) },
   'lucide-react': icons,
   '@/lib/types': {},
-  '@/lib/public/product-selection': { productPriceBlockers: () => [], supplierPriceConsentCurrent: (s) => s?.fob_publicly_visible !== false },
+  '@/lib/public/product-selection': { productPriceBlockers: () => [], productPriceBlockersEn: () => [],
+    supplierPriceConsentCurrent: (s) => s?.fob_publicly_visible !== false },
+  '@/lib/i18n/format': loadFormat(),
+  '@/lib/i18n/portal/product-editor': {},
+  '@/lib/i18n/config': {},
   '@/lib/supplier-portal/category-proposals': {},
   '@/lib/supplier-portal/product-view': view,
   '@/lib/products/grade-pricing': gradePricing,
@@ -142,7 +158,7 @@ const media = [{ id: 'm1', owner_type: 'product', product_id: 'p1', supplier_id:
   audience: 'internal', kind: 'image', storage_path: 'products/p1/a.jpg', caption: 'Ảnh nhà máy' }];
 
 const render = (props = {}) => renderToStaticMarkup(React.createElement(SupplierProductEditor, {
-  product, media, userId: 'u1', categories, supplier, ...props,
+  product, media, userId: 'u1', categories, supplier, ...editorCopy, ...props,
 }));
 
 const source = read('../app/supplier/portal/products/product-editor.tsx');
@@ -221,13 +237,15 @@ assert.doesNotMatch(source, /onClick=\{submit\} disabled=\{busy \|\| !canSubmit\
 assert.match(source, /function requestSubmit\(\)/, 'Nút gửi đi qua requestSubmit để luôn phản hồi');
 assert.match(source, /submitBlockers\(\)/, 'Có danh sách việc còn thiếu');
 assert.match(source, /setSubmitHint\(blockers\)/, 'Bấm gửi khi thiếu sẽ hiện lời nhắc thay vì không làm gì');
-assert.match(source, /Đang gửi\.\.\./, 'Nút có trạng thái đang gửi');
+assert.equal(portal.vi.productEditor.editor.footer.sending, 'Đang gửi...', 'Nút có trạng thái đang gửi');
+assert.match(source, /copy\.footer\.sending/, 'Nút đọc trạng thái đang gửi từ từ điển');
 assert.match(source, /animate-spin/, 'Có vòng xoay khi đang gửi');
 assert.match(page, /id="submit-blockers"/, 'Nút gửi liên kết tới phần giải thích điều kiện');
 assert.match(page, /<div id="submit-blockers" aria-live="polite">/, 'Danh sách việc cần làm có aria-live');
 assert.match(page, /Hồ sơ đủ điều kiện/, 'Đủ điều kiện thì báo rõ trước khi gửi');
 const missingMedia = render({ media: [] });
-assert.match(source, /Tải ít nhất một ảnh sản phẩm ở mục Ảnh & tệp\./, 'Nói rõ thiếu tệp ở mục nào khi bấm gửi');
+assert.equal(portal.vi.productEditor.editor.blockers.image, 'Tải ít nhất một ảnh sản phẩm ở mục Ảnh & tệp.', 'Nói rõ thiếu tệp ở mục nào khi bấm gửi');
+assert.match(source, /blockers\.image/, 'Câu thiếu tệp đọc từ từ điển');
 assert.doesNotMatch(missingMedia, /Tải ít nhất một ảnh sản phẩm ở mục Ảnh &amp; tệp/,
   'Không còn liệt kê sẵn việc thiếu dưới mục 8; chỉ hiện sau khi bấm gửi');
 assert.doesNotMatch(source, /Tên tiếng Anh được kiểm tra trong quá trình duyệt sản phẩm/,
@@ -246,7 +264,8 @@ assert.match(source, /\{previewOpen && <BuyerPreviewDialog open onClose=/, 'Hộ
 const dialog = read('../components/products/buyer-preview-dialog.tsx');
 assert.match(dialog, /role="dialog" aria-modal="true"/, 'Hộp xem trước có ngữ nghĩa hộp thoại');
 assert.match(dialog, /event\.key === "Escape"/, 'Đóng được bằng Escape');
-assert.match(dialog, /Đóng bản xem trước/, 'Có nút đóng có nhãn đọc được');
+assert.equal(portal.vi.productEditor.shared.buyerPreview.close, 'Đóng bản xem trước', 'Có nút đóng có nhãn đọc được');
+assert.match(dialog, /copy\.close/, 'Nhãn nút đóng đọc từ từ điển');
 assert.match(dialog, /<QuantityPriceTable offer=\{data\.offer\}/, 'Bảng giá dùng đúng component của trang người mua');
 assert.match(dialog, /<ProductTradeLabels oem=/, 'Nhãn OEM/ODM/mẫu giống trang người mua');
 assert.match(dialog, /Bản xem trước/);
@@ -338,13 +357,13 @@ assert.ok(source.includes('!["approved", "paused"].includes(review) || product?.
   'Sản phẩm NCC đã duyệt hoặc tạm ẩn vẫn quản lý được ảnh của mình');
 assert.ok(source.includes('useState(product?.reviewed_category_slug ?? product?.supplier_category_proposal ?? product?.category ?? "")'),
   'Danh mục staff đã duyệt được ưu tiên khi mở lại editor');
-assert.match(source, /Bạn có thay đổi chưa lưu/, 'Vẫn cảnh báo rời trang khi chưa lưu');
+assert.match(source, /\.unsavedLeave/, 'Vẫn cảnh báo rời trang khi chưa lưu');
 assert.match(source, /firstInvalidField\(formElement\)/, 'Vẫn kiểm tra trường bắt buộc trên cả trang');
 assert.match(source, /invalid\.scrollIntoView/, 'Lưu thiếu trường bắt buộc thì cuộn tới đúng ô');
 assert.match(source, /\/api\/supplier-portal\/products\/\$\{product\.id\}\/media/, 'Vẫn tải tệp qua API riêng');
 assert.match(source, /method: "DELETE"/, 'Vẫn xoá được tệp nháp');
-assert.match(source, /data\?\.message \|\| `Xóa tệp thất bại \(HTTP/, 'Lỗi xóa hiển thị lý do API hoặc HTTP nếu không có JSON');
-assert.match(source, /data\?\.message \|\| `Đặt ảnh đại diện thất bại \(HTTP/, 'Lỗi đổi ảnh hiển thị lý do API');
+assert.match(source, /data\?\.message \|\| fill\(copy\.errors\.deleteFileFailed/, 'Lỗi xóa hiển thị lý do API hoặc HTTP nếu không có JSON');
+assert.match(source, /data\?\.message \|\| fill\(copy\.errors\.coverFailed/, 'Lỗi đổi ảnh hiển thị lý do API');
 assert.doesNotMatch(source, /snapshotFromForm\(event\.currentTarget/, 'Không đọc event.currentTarget bên trong state updater');
 assert.match(source, /function onFormChange\(\) \{\s*const form = formRef\.current;/, 'onFormChange đọc form qua ref ngay trong handler');
 assert.match(source, /const formElement = formRef\.current;/, 'persist() đọc form qua ref, không giữ event sau await');
@@ -352,7 +371,7 @@ assert.match(source, /new FormData\(formElement\)/, 'save() dùng phần tử đ
 assert.match(source, /function snapshotFromForm\(form: HTMLFormElement \| null/, 'snapshotFromForm chấp nhận form null');
 assert.deepEqual(snapshotFromForm(null, { name: 'giữ nguyên' }), { name: 'giữ nguyên' }, 'Chưa có form thì giữ bản nháp cũ, không ném lỗi');
 assert.match(source, /for \(const key of checkKeys\) if \(form\.querySelector/, 'Checkbox không tick vẫn được ghi nhận là trống');
-assert.match(source, /Yêu cầu chỉnh sửa:/, 'Phản hồi duyệt gọi đúng việc phải làm');
+assert.match(source, /copy\.status\.changesRequested/, 'Phản hồi duyệt gọi đúng việc phải làm');
 
 // 11. ?step=2 sau khi tạo mới vẫn dùng được: cuộn thẳng tới khối ảnh.
 const onStep2 = render({ initialStep: 2 });
@@ -428,8 +447,8 @@ assert.match(pdfHtml, /catalogue\.pdf/, 'Khối catalogue gọi tên tệp PDF')
 const storefront = read('../app/supplier/portal/products/product-storefront.tsx');
 assert.match(storefront, /categoryLabels\?: Record<string, string>/, 'Danh sách nhận nhãn danh mục');
 assert.match(storefront, /categoryLabels\[slug\] \?\? slug/, 'Hiện nhãn thay vì slug thô');
-assert.match(storefront, /Ngoài phạm vi/, 'Sản phẩm ngoài phạm vi được đánh dấu');
-assert.match(storefront, /Chọn thêm danh mục/, 'Có lối sang trang Danh mục kinh doanh');
+assert.match(storefront, /copy\.outOfScope/, 'Sản phẩm ngoài phạm vi được đánh dấu, nhãn đọc từ từ điển');
+assert.match(storefront, /copy\.chooseMoreCategories/, 'Có lối sang trang Danh mục kinh doanh');
 const listPage = read('../app/supplier/portal/products/page.tsx');
 assert.match(listPage, /categoryLabels=/, 'Trang danh sách truyền nhãn danh mục');
 assert.match(listPage, /scope=\{\[?scope/, 'Trang danh sách truyền phạm vi danh mục');
@@ -442,7 +461,8 @@ for (const phrase of ['Vexim duyệt', 'Vexim kiểm tra', 'Vexim xác nhận', 
   assert.ok(!source.includes(phrase), `Bỏ giọng hành chính/lặp thương hiệu: ${phrase}`);
 }
 assert.match(page, /Chọn danh mục phù hợp với sản phẩm\. Danh mục được kiểm tra khi duyệt/, 'Hint danh mục nói đúng mức cần thiết');
-assert.match(source, /Chọn danh mục phù hợp với sản phẩm để mở grade và bảng giá\./, 'Câu mở grade dùng "phù hợp với sản phẩm"');
+assert.equal(portal.vi.productEditor.editor.category.hintEmpty, 'Chọn danh mục phù hợp với sản phẩm để mở grade và bảng giá.',
+  'Câu mở grade dùng "phù hợp với sản phẩm"');
 assert.doesNotMatch(source, /mục cần sửa trước khi gửi duyệt/, 'Đã bỏ khối nhắc đầu trang về các mục cần sửa');
 assert.doesNotMatch(page, /mục cần sửa trước khi gửi duyệt/, 'Không còn khối nhắc đầu trang khi render');
 
@@ -458,8 +478,9 @@ assert.match(source, /const room = Math\.max\(0, 6 - pickedBank\.length\);/,
 assert.match(source, /form\.set\("bank_media_ids", JSON\.stringify\(pickedBank\.slice\(0, 6\)\)\)/, 'Ảnh đã chọn được gửi kèm khi lưu');
 assert.doesNotMatch(source, /ensureDraft/, 'Không quay lại cơ chế lưu nháp trước khi tải ảnh');
 assert.doesNotMatch(source, /Lưu nháp rồi tải ảnh|Lưu thay đổi rồi tải ảnh|saveIntent/, 'Không còn bắt người bán bấm lưu trước khi tải ảnh');
-assert.match(source, /Chọn ảnh là tải lên ngay và tự gắn vào ô trống\./, 'Nói trước là chọn ảnh là tải lên ngay');
-assert.match(source, /Một sản phẩm hiện tối đa 6 ảnh; ảnh thứ 7 trở đi nằm trong kho cho sản phẩm khác\./,
+assert.match(portal.vi.productEditor.editor.media.countBank, /Chọn ảnh là tải lên ngay và tự gắn vào ô trống\./,
+  'Nói trước là chọn ảnh là tải lên ngay');
+assert.match(portal.vi.productEditor.editor.media.limitBank, /Một sản phẩm hiện tối đa 6 ảnh; ảnh thứ 7 trở đi nằm trong kho cho sản phẩm khác\./,
   'Nói rõ ảnh thứ 7 trở đi nằm lại kho');
 assert.ok(!source.includes('Đã chọn {selected.length} tệp'),
   'Không còn bước bấm nút tải sau khi chọn tệp');
@@ -483,9 +504,9 @@ assert.match(source, /\[mediaId, \.\.\.current\.filter\(\(id\) => id !== mediaId
 assert.doesNotMatch(source, /if \(!product \|\| busy \|\| mediaId === cover\?\.id\) return;/,
   'Bấm ngôi sao không còn bị chặn khi sản phẩm chưa lưu');
 assert.match(source, /function dropImage\(asset: MediaAsset\)/, 'Bỏ ảnh dùng chung cho ảnh đã lưu và ảnh đang chọn');
-assert.match(source, /\{product \? "Xóa ảnh đại diện" : "Bỏ chọn ảnh đại diện"\}/,
+assert.match(source, /product \? copy\.media\.coverDelete : copy\.media\.coverUnpick/,
   'Nút bỏ ảnh đại diện nói đúng việc đang làm với ảnh chưa gắn');
-assert.match(source, /Đang chọn \{pickedImages\.length\} ảnh\./, 'Nói rõ số ảnh đang chọn và việc bấm Lưu để gắn');
+assert.match(source, /fill\(copy\.media\.picking, \{ count: pickedImages\.length \}\)/, 'Nói rõ số ảnh đang chọn và việc bấm Lưu để gắn');
 const bankAsset = (id, path) => ({ id, owner_type: 'supplier', supplier_id: 'sup-1', created_by: 'u1',
   audience: 'internal', kind: 'image', storage_path: path, caption: id, sort_order: 0,
   created_at: '2026-10-30T00:00:00Z' });
@@ -495,5 +516,19 @@ assert.match(bankNew, /Ảnh có sẵn trong kho/, 'Ảnh chưa dùng trong kho 
 assert.doesNotMatch(bankNew, /Kho ảnh của bạn/, 'Không lặp lại khối kho ảnh ở đầu mục');
 assert.match(bankNew, /Tự lấy ảnh đầu tiên bạn chọn trong kho ảnh\./,
   'Ảnh đại diện trống hướng dẫn lấy ảnh chọn đầu tiên');
+
+// 19. Bản tiếng Anh: cùng component, chỉ đổi từ điển — không còn câu tiếng Việt do giao diện sinh ra.
+const englishPage = render({
+  messages: portal.en.productEditor.editor,
+  shared: portal.en.productEditor.shared,
+  statuses: portal.en.products.statuses,
+  lang: "en",
+  intl: "en-GB",
+});
+for (const phrase of ['Photos &amp; files', 'Name &amp; keywords', 'Packaging &amp; delivery', 'Lead time',
+  'Send for review', 'Preview', 'Review &amp; send', 'The numbers update as you type.'])
+  assert.ok(englishPage.includes(phrase), `Bản tiếng Anh còn thiếu: ${phrase}`);
+for (const phrase of ['Ảnh &amp; tệp', 'Tên &amp; từ khoá', 'Đóng gói &amp; giao hàng', 'Số liệu cập nhật', 'Gửi duyệt', 'Xem trước'])
+  assert.ok(!englishPage.includes(phrase), `Bản tiếng Anh còn câu tiếng Việt: ${phrase}`);
 
 console.log('✅ Product page: một trang, mục lục neo, đủ khối, gửi duyệt và quản lý tệp.');

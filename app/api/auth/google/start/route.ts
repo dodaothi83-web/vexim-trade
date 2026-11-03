@@ -12,22 +12,28 @@ export async function GET(request: Request) {
   const origin = googleRequestOrigin(request);
   const intent = url.searchParams.get("intent");
   if (intent !== "signup" && intent !== "login") return NextResponse.redirect(new URL("/login?oauth=invalid", origin));
+  // Đăng ký nhà cung cấp là bước 2 của màn chọn loại tài khoản, nên retry phải mang
+  // type=supplier; ghép query qua URLSearchParams để không sinh "?...?...".
   const retry = intent === "signup" ? "/supplier/register" : "/login";
+  const retryUrl = (reason: string) => {
+    const params = new URLSearchParams(intent === "signup" ? { type: "supplier", oauth: reason } : { oauth: reason });
+    return `${retry}?${params.toString()}`;
+  };
   const session = await getSession();
   if (session) return NextResponse.redirect(new URL(session.role === "supplier" ? "/supplier/portal" : "/crm/dashboard", origin));
   // Never hand an OAuth code back to an origin supplied by an arbitrary Host header.
-  if (!googleOriginAllowed(origin)) return NextResponse.redirect(new URL(`${retry}?oauth=origin`, origin));
+  if (!googleOriginAllowed(origin)) return NextResponse.redirect(new URL(retryUrl("origin"), origin));
   const rate = await checkAuthRateLimit({
     flow: intent === "signup" ? "supplier-signup" : "login",
     headers: request.headers,
   });
-  if (rate.status === "limited") return NextResponse.redirect(new URL(`${retry}?oauth=rate_limited`, origin));
+  if (rate.status === "limited") return NextResponse.redirect(new URL(retryUrl("rate_limited"), origin));
   if (rate.status === "degraded") {
     console.warn(`[google-oauth] distributed rate limit ${rate.reason}; local protection remains active`);
   }
   const items: Record<string, string> = {};
   const client = googleClient(items);
-  if (!client) return NextResponse.redirect(new URL(`${retry}?oauth=unavailable`, origin));
+  if (!client) return NextResponse.redirect(new URL(retryUrl("unavailable"), origin));
   const callback = new URL("/api/auth/google/callback", origin).toString();
   try {
     const { data, error } = await client.auth.signInWithOAuth({ provider: "google",
@@ -40,6 +46,6 @@ export async function GET(request: Request) {
     return res;
   } catch (error) {
     console.error("[google-oauth] start", error);
-    return NextResponse.redirect(new URL(`${retry}?oauth=unavailable`, origin));
+    return NextResponse.redirect(new URL(retryUrl("unavailable"), origin));
   }
 }

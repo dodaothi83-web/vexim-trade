@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const dashboardPage = read('app/supplier/portal/page.tsx');
@@ -18,15 +19,20 @@ const loaderOf = (source) => {
 const dashLoader = loaderOf(dashboardPage);
 assert.ok(dashLoader.length > 0, 'Trang tổng quan có khối tải dữ liệu');
 assert.equal((dashLoader.match(/optional\(/g) || []).length, 7, 'Mỗi nguồn dữ liệu của tổng quan đều đi qua optional');
-for (const label of ['sản phẩm', 'danh sách RFQ được chuyển', 'chứng nhận', 'hồ sơ tự gửi',
-  'yêu cầu kiểm định', 'giấy tờ đợt kiểm', 'bằng chứng đã nộp'])
-  assert.ok(dashLoader.includes(`optional("${label}"`), `Có nhãn cảnh báo cho ${label}`);
+// Nhãn cảnh báo nay nằm trong từ điển cổng (giai đoạn 2); trang chỉ truyền khoá vào `optional`.
+const portalCopy = loadPortalDictionary();
+for (const key of ['products', 'invites', 'certificates', 'submissions', 'requests', 'documents', 'items']) {
+  assert.ok(dashLoader.includes(`optional(copy.degraded.labels.${key}`), `Có nhãn cảnh báo cho ${key}`);
+  assert.ok(portalCopy.vi.overview.degraded.labels[key].length > 0, `Nhãn tiếng Việt cho ${key}`);
+  assert.ok(portalCopy.en.overview.degraded.labels[key].length > 0, `Nhãn tiếng Anh cho ${key}`);
+}
 
 // 2. Tách biệt chức năng: tổng quan không mang thông báo, không mang ô tải giấy tờ.
 assert.doesNotMatch(dashboardPage, /markSupplierNoticeReadAction|buildSupplierNoticeFeed/, 'Tổng quan không hiển thị thông báo');
 assert.doesNotMatch(dashboardPage, /SupplierCertificateUpload|SupplierPortalUpload/, 'Tổng quan không có ô tải giấy tờ');
 assert.doesNotMatch(dashboardPage, /supplierReplyAddress/, 'Tổng quan không mở danh sách RFQ, chỉ dẫn sang trang RFQ');
-assert.match(dashboardPage, /Một phần dữ liệu cổng chưa tải được/);
+assert.match(portalCopy.vi.overview.degraded.title, /Một phần dữ liệu cổng chưa tải được/);
+assert.match(dashboardPage, /\{copy\.degraded\.title\}/);
 assert.match(dashboardPage, /degraded\.map\(\(label\) => <li key=\{label\}>\{label\}<\/li>\)/);
 
 // 3. Thông báo nằm gọn trong chuông: endpoint nhẹ trả cả nội dung, không có trang riêng.
@@ -39,7 +45,7 @@ assert.doesNotMatch(read('components/supplier-topbar.tsx'), /href="\/supplier\/p
 // 4. Server action không được ném lỗi khi bảng dấu đã đọc chưa có.
 const action = read('app/supplier/portal/notice-actions.ts');
 assert.match(action, /try \{\s*await store\.markSupplierNoticeRead\(supplier\.id, key\);/, 'Ghi dấu đã đọc có bọc try');
-assert.match(action, /không lưu được dấu đã đọc thông báo/);
+assert.match(action, /could not store the notice read receipt/);
 
 // 5. Gợi ý migration nói đúng file cho từng lỗi thiếu bảng/cột.
 const mod = { exports: {} };
@@ -56,10 +62,13 @@ assert.equal(migrationHint(null), null);
 
 // 6. Trang xác thực L2/L3 cũng phải báo lỗi cấu hình thay vì trắng trang.
 const verifyPage = read('app/supplier/portal/verification/level-page.tsx');
-assert.match(verifyPage, /chưa mở được hồ sơ tự gửi/, 'Log trang xác thực nêu rõ phần lỗi');
-assert.match(verifyPage, /Chưa mở được phần tải bằng chứng/, 'Trang xác thực có màn hình báo lỗi cho NCC');
-assert.match(verifyPage, /Chưa mở được hồ sơ xác minh này/, 'Hồ sơ rỗng cũng có câu báo thay vì khung trống');
-assert.match(verifyPage, /không phải lỗi tài khoản của bạn/, 'Câu báo lỗi nói rõ lỗi phía Vexim');
+const verifyCopy = loadPortalDictionary().vi.verification.level;
+assert.match(verifyPage, /could not open the self-submission file/, 'Log trang xác thực nêu rõ phần lỗi');
+assert.match(verifyPage, /level\.loadErrorTitle/, 'Trang xác thực có màn hình báo lỗi cho NCC');
+assert.match(verifyCopy.loadErrorTitle, /Chưa mở được phần tải bằng chứng/, 'Câu báo lỗi nằm trong từ điển');
+assert.match(verifyPage, /level\.unavailable/, 'Hồ sơ rỗng cũng có câu báo thay vì khung trống');
+assert.match(verifyCopy.unavailable, /Chưa mở được hồ sơ xác minh này/, 'Câu báo hồ sơ rỗng nằm trong từ điển');
+assert.match(verifyCopy.loadErrorBody, /không phải lỗi tài khoản của bạn/, 'Câu báo lỗi nói rõ lỗi phía Vexim');
 
 /* ------------------------- render thật với bảng bị thiếu ------------------------- */
 
@@ -101,6 +110,8 @@ const sharedMocks = {
   '@/components/page-header': { PageHeader: PageHeaderMock },
   'next/navigation': { redirect: (target) => { throw new Error(`unexpected redirect ${target}`); } },
   'lucide-react': icons,
+  '@/lib/i18n/server': { getPortalMessages: async () => ({ locale: 'vi', intl: 'vi-VN', m: loadPortalDictionary().vi }) },
+  '@/lib/i18n/format': { fill: (template, values) => template.replace(/\{(\w+)\}/g, (whole, key) => (key in values ? String(values[key]) : whole)) },
   '@/lib/auth/session': { requireSession: async () => ({ uid: 'u1', email: 'ncc@example.com', role: 'supplier' }) },
   '@/lib/supplier-portal/onboarding': { canSubmitProfile: () => false, portalApproved: () => true },
   '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: [] },
@@ -152,6 +163,7 @@ assert.match(dashHtml, /data-progress="0"/, 'Dải tiến độ xác minh vẫn 
 // 6b. Chuông: thiếu bảng dấu đã đọc thì vẫn trả nội dung, chỉ báo readsKnown=false.
 const bellRoute = loadModule(noticeRoute, {
   'next/server': { NextResponse: { json: (body) => ({ body }) } },
+  '@/lib/i18n/server': { getLocale: async () => 'vi' },
   '@/lib/supplier-portal/access': {
     supplierPortalAccess: async () => ({ supplier, reviews: [], user: { id: 'u1' }, store: {
       listSupplierNoticeReads: async () => { throw thrown; },
@@ -175,6 +187,7 @@ assert.equal(degradedBell.body.unread, 0, 'Không báo số chưa đọc khi kh�
 
 const lostAccess = loadModule(noticeRoute, {
   'next/server': { NextResponse: { json: (body) => ({ body }) } },
+  '@/lib/i18n/server': { getLocale: async () => 'vi' },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => null },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => false },
   '@/lib/supplier-portal/dashboard': { buildSupplierNoticeFeed: () => ({ unreadCount: 0, notices: [] }) },

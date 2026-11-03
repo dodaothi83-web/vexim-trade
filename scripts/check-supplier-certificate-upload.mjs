@@ -7,6 +7,9 @@ import {
   visibleLegacyCertificateFiles,
 } from '../lib/supplier-portal/legacy-certificate-files.ts';
 
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
+
+const portalCopy = loadPortalDictionary();
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const page = read('../app/supplier/portal/documents/page.tsx');
 const upload = read('../app/supplier/portal/certificate-upload.tsx');
@@ -47,12 +50,14 @@ assert.match(page, /certificates\.filter\(\(certificate\) => certificate\.review
 /* 3. Đơn vị thương mại chưa có L2 nhà máy đối tác: ô tải đóng sẵn kèm lý do. */
 assert.match(page, /const l2Scope = approvedL2Scope\(reviews\);/);
 assert.match(page, /supplier\.supplier_type === "trading" && !partnerContractApproved/);
-assert.match(page, /Sản phẩm vẫn đăng bán bình thường\./);
+assert.match(loadPortalDictionary().vi.documents.contractBlocked, /Sản phẩm vẫn đăng bán bình thường\./, "Lý do khoá ô tải nằm trong từ điển");
+assert.match(page, /copy\.contractBlocked/);
 assert.match(page, /blockedReason=\{certificateUploadBlockedReason\}/);
 
 /* 4. Component: có lý do thì hiện khung khoá + lối sang bước 2, không render form tải. */
 const lockedBranch = upload.slice(upload.indexOf('if (blockedReason)'), upload.indexOf('<form'));
-assert.ok(lockedBranch.includes('Chưa mở được ô tải chứng nhận'), 'Khung khoá phải có tiêu đề');
+assert.ok(lockedBranch.includes('copy.blockedTitle'), 'Khung khoá phải có tiêu đề');
+assert.match(portalCopy.vi.documents.certUpload.blockedTitle, /Chưa mở được ô tải chứng nhận/, 'Tiêu đề khung khoá nằm trong từ điển');
 assert.ok(lockedBranch.includes('disabled'), 'Ô chọn tệp phải khoá');
 assert.ok(!lockedBranch.includes('onSubmit={onSubmit}'), 'Khung khoá không được chứa form tải');
 assert.match(upload, /href="\/supplier\/portal\/verification\/factory"/);
@@ -64,7 +69,8 @@ assert.ok(evidenceRoute.includes('Đã tải giấy tờ để Vexim đối chi�
 assert.ok(!/AI sẽ tự quét lại/.test(notify), 'Email nhắc hạn không được nhắc AI quét');
 assert.ok(!/AI sẽ tự quét lại/.test(dashboard), 'Việc trên bảng điều khiển không được nhắc AI quét');
 assert.ok(notify.includes('hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.'));
-assert.ok(dashboard.includes('hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.'));
+assert.ok(portalCopy.vi.notices.certificate.expiringDetail.includes('hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.'),
+  'Câu nhắc gia hạn chứng nhận nằm trong từ điển thông báo');
 
 /* 6. Bước xác thực doanh nghiệp chỉ còn đúng một giấy: Giấy chứng nhận đăng ký kinh doanh. */
 const policy = read('../lib/supplier-portal/policy.ts');
@@ -74,9 +80,12 @@ assert.ok(!/food_safety|export_license/.test(policy.slice(policy.indexOf('COMPAN
   'Không còn ô ATTP / giấy phép xuất khẩu trong bước xác thực doanh nghiệp');
 assert.match(profile, /COMPANY_DOCUMENT_KEYS\.map/, 'Form đăng ký dựng ô tải từ danh sách một giấy');
 assert.ok(!/INITIAL_DOCUMENT_KEYS\.map\(/.test(profile), 'Form đăng ký không còn 5 ô tải giấy tờ');
-assert.match(profile, /Giấy chứng nhận đăng ký kinh doanh/);
-assert.match(page, /Xác thực doanh nghiệp/);
-assert.match(page, /Một tệp PDF hoặc ảnh, thấy rõ tên doanh nghiệp và mã số thuế\./,
+assert.match(profile, /title=\{m\.docs\[/, 'Nhãn ô tải giấy đọc từ từ điển');
+assert.match(portalCopy.vi.onboarding.docs.business_license, /Giấy chứng nhận đăng ký kinh doanh/,
+  'Bản tiếng Việt giữ đúng tên giấy cũ');
+assert.match(portalCopy.vi.documents.title, /Xác thực doanh nghiệp/);
+assert.match(page, /title=\{copy\.title\}/, 'Tiêu đề trang đọc từ từ điển');
+assert.match(portalCopy.vi.documents.steps.bodies[0], /Một tệp PDF hoặc ảnh, thấy rõ tên doanh nghiệp và mã số thuế\./,
   'Trang Giấy tờ chỉ đòi Giấy chứng nhận đăng ký kinh doanh cho bước xác thực doanh nghiệp');
 assert.match(page, /Chứng nhận chất lượng/, 'Trang Giấy tờ cũng là nơi tải chứng nhận chất lượng');
 

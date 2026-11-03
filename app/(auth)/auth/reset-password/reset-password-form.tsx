@@ -6,8 +6,23 @@ import { Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui";
 import { FormChallenge } from "@/components/form-challenge";
+import type { AuthMessages } from "@/lib/i18n/auth";
+import type { Locale } from "@/lib/i18n/config";
 
-export function ResetPasswordForm({ token }: { token: string }) {
+/** Chuỗi hiển thị do trang truyền xuống: client không tự chứa bản dịch. */
+export function ResetPasswordForm({
+  token,
+  messages: m,
+  lang,
+  showPasswordLabel,
+  hidePasswordLabel,
+}: {
+  token: string;
+  messages: AuthMessages["reset"];
+  lang: Locale;
+  showPasswordLabel: string;
+  hidePasswordLabel: string;
+}) {
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -24,10 +39,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!challengeToken) {
-      setMessage({
-        ok: false,
-        text: "Vui lòng hoàn tất bước kiểm tra bảo mật.",
-      });
+      setMessage({ ok: false, text: m.challengeMissing });
       return;
     }
 
@@ -45,22 +57,16 @@ export function ResetPasswordForm({ token }: { token: string }) {
       if (!res.ok || !data?.ok) {
         setMessage({
           ok: false,
-          text: data?.message ?? "Chưa đặt lại được mật khẩu. Vui lòng thử lại.",
+          text: data?.message ?? m.failed,
         });
         resetChallenge();
         return;
       }
-      setMessage({
-        ok: true,
-        text: data.message ?? "Đã đặt lại mật khẩu thành công.",
-      });
+      setMessage({ ok: true, text: data.message ?? m.done });
       setPassword("");
       setPassword2("");
     } catch {
-      setMessage({
-        ok: false,
-        text: "Không gửi được yêu cầu. Vui lòng kiểm tra kết nối và thử lại.",
-      });
+      setMessage({ ok: false, text: m.networkError });
       resetChallenge();
     } finally {
       setBusy(false);
@@ -68,10 +74,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} lang={lang} className="space-y-4">
       <div>
         <label className="label" htmlFor="new-password">
-          Mật khẩu mới
+          {m.newPassword}
         </label>
         <div className="relative">
           <input
@@ -83,14 +89,14 @@ export function ResetPasswordForm({ token }: { token: string }) {
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Ít nhất 8 ký tự, gồm chữ và số"
+            placeholder={m.newPasswordPlaceholder}
             className="input pr-10"
           />
           <button
             type="button"
             onClick={() => setShowPw((v) => !v)}
             className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-ink-400 transition hover:text-ink-700"
-            aria-label={showPw ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+            aria-label={showPw ? hidePasswordLabel : showPasswordLabel}
           >
             {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
@@ -99,7 +105,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
       <div>
         <label className="label" htmlFor="new-password-confirm">
-          Nhập lại mật khẩu mới
+          {m.repeatPassword}
         </label>
         <input
           id="new-password-confirm"
@@ -110,7 +116,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           autoComplete="new-password"
           value={password2}
           onChange={(e) => setPassword2(e.target.value)}
-          placeholder="Nhập lại mật khẩu mới"
+          placeholder={m.repeatPassword}
           className="input"
         />
       </div>
@@ -135,7 +141,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
             <>
               {" "}
               <Link href="/login" className="font-semibold underline">
-                Đăng nhập ngay
+                {m.loginNow}
               </Link>
             </>
           )}
@@ -149,7 +155,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         className="w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-        Lưu mật khẩu mới
+        {m.submit}
       </Button>
     </form>
   );

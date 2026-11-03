@@ -66,8 +66,8 @@ for (const rel of [
 }
 
 for (const [rel, pattern] of [
-  ["app/supplier/portal/products/product-storefront.tsx", /font-mono text-\[13px\] font-bold tabular-nums text-ink-900">\{money\(p\)\}/],
-  ["app/supplier/portal/products/product-editor.tsx", /row\.label === "Giá tham khảo" && row\.value !== "-" \? "font-mono tabular-nums"/],
+  ["app/supplier/portal/products/product-storefront.tsx", /font-mono text-\[13px\] font-bold tabular-nums text-ink-900">\{money\(p, intl\)\}/],
+  ["app/supplier/portal/products/product-editor.tsx", /row\.label === copy\.reviewLabels\.price && row\.value !== "-" \? "font-mono tabular-nums"/],
 ]) {
   assert.match(read(rel), pattern, `${rel} renders internal portal numeric fields in JetBrains Mono`);
 }

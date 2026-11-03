@@ -5,6 +5,7 @@ import {
   type AiSubmissionReview,
   L3_EXPORT_ITEMS,
   SUBMISSION_FLAG_LABELS,
+  SUBMISSION_FLAG_LABELS_EN,
   type SupplierSubmission,
   type SupplierSubmissionItem,
   type SupplierSubmissionLink,
@@ -117,21 +118,30 @@ export interface PortalItemSpec {
   order: number;
 }
 
-export function photoSpecs(): PortalItemSpec[] {
+/** Ngôn ngữ của nội dung do dữ liệu danh mục sinh ra; mặc định tiếng Việt cho khu nội bộ. */
+export type SpecLanguage = "en" | "vi";
+
+export function photoSpecs(language: SpecLanguage = "vi"): PortalItemSpec[] {
   return L2_FACTORY_PHOTO_ITEMS.map((i) => ({
-    key: i.key, label: i.label, requirement: i.requirement, requiresCode: i.requires_code, required: true, order: i.order,
+    key: i.key, label: language === "en" ? i.labelEn : i.label,
+    requirement: language === "en" ? i.requirementEn : i.requirement,
+    requiresCode: i.requires_code, required: true, order: i.order,
   }));
 }
 
-export function partnerSpecs(): PortalItemSpec[] {
+export function partnerSpecs(language: SpecLanguage = "vi"): PortalItemSpec[] {
   return L2_PARTNER_ITEMS.map((i) => ({
-    key: i.key, label: i.label, requirement: i.requirement, requiresCode: false, required: i.required, order: i.order,
+    key: i.key, label: language === "en" ? i.labelEn : i.label,
+    requirement: language === "en" ? i.requirementEn : i.requirement,
+    requiresCode: false, required: i.required, order: i.order,
   }));
 }
 
-export function exportSpecs(): PortalItemSpec[] {
+export function exportSpecs(language: SpecLanguage = "vi"): PortalItemSpec[] {
   return L3_EXPORT_ITEMS.map((i, index) => ({
-    key: i.key, label: i.label, requirement: "Chọn nếu phù hợp", requiresCode: false, required: i.required, order: index + 1,
+    key: i.key, label: language === "en" ? i.labelEn : i.label,
+    requirement: language === "en" ? "Choose if it applies" : "Chọn nếu phù hợp",
+    requiresCode: false, required: i.required, order: index + 1,
   }));
 }
 
@@ -140,15 +150,16 @@ export function submissionFileHref(storagePath: string): string {
   return `/api/supplier-portal/submission-file/${storagePath.replace(/^\/+/, "")}`;
 }
 
-function itemView(item: SupplierSubmissionItem, level: 2 | 3, forStaff: boolean, partner: boolean, review: AiSubmissionReview | null): PortalItemView {
+function itemView(item: SupplierSubmissionItem, level: 2 | 3, forStaff: boolean, partner: boolean, review: AiSubmissionReview | null, language: SpecLanguage = "vi"): PortalItemView {
   const scannedItemIds = Array.isArray(review?.scanned_item_ids) ? review.scanned_item_ids : undefined;
   const showAi = ((level === 2 && !partner) || forStaff) && (!scannedItemIds || scannedItemIds.includes(item.id));
   // The submission-level review is authoritative when a per-item write failed.
   const currentAi = showAi && scannedItemIds ? review?.items?.[item.checklist_key] : null;
   const itemAiIsCurrent = !currentAi || (item.ai_verdict === currentAi.verdict && item.ai_reason === currentAi.reason &&
     item.ai_detected_text === currentAi.detected_text && item.ai_code_visible === currentAi.code_visible && item.ai_code_read === currentAi.code_read);
-  const specs = level === 2 ? partner ? partnerSpecs() : photoSpecs() : exportSpecs();
+  const specs = level === 2 ? partner ? partnerSpecs(language) : photoSpecs(language) : exportSpecs(language);
   const spec = specs.find((s) => s.key === item.checklist_key);
+  const flagLabels = language === "en" ? SUBMISSION_FLAG_LABELS_EN : SUBMISSION_FLAG_LABELS;
   const camera = [item.exif_camera_make, item.exif_camera_model].filter(Boolean).join(" ").trim();
   return {
     id: item.id,
@@ -175,7 +186,7 @@ function itemView(item: SupplierSubmissionItem, level: 2 | 3, forStaff: boolean,
     bytes: item.bytes,
     flags: (item.flags ?? []).filter((f) => f.source !== "ai" || (showAi && itemAiIsCurrent)).map((f) => ({
       flag: f.flag,
-      label: SUBMISSION_FLAG_LABELS[f.flag] ?? f.flag,
+      label: flagLabels[f.flag] ?? f.flag,
       severity: f.severity,
       source: f.source,
       detail: f.detail,
@@ -192,16 +203,17 @@ function itemView(item: SupplierSubmissionItem, level: 2 | 3, forStaff: boolean,
  * Dựng khung nhìn hồ sơ. `forStaff` cho phép kèm ghi chú xét duyệt của nhân viên;
  * bản gửi NCC vẫn thấy lý do trả hồ sơ (để họ sửa) nhưng không thấy nội bộ khác.
  */
-export function buildPortalSubmission(bundle: SubmissionBundle, options?: { forStaff?: boolean }): PortalSubmissionView {
+export function buildPortalSubmission(bundle: SubmissionBundle, options?: { forStaff?: boolean; language?: SpecLanguage }): PortalSubmissionView {
+  const language = options?.language ?? "vi";
   const { submission, items, links } = bundle;
   const level = submission.target_level;
   const partner = level === 2 && submission.l2_scope === "partner_contract";
-  const specs = level === 2 ? partner ? partnerSpecs() : photoSpecs() : exportSpecs();
+  const specs = level === 2 ? partner ? partnerSpecs(language) : photoSpecs(language) : exportSpecs(language);
   const check = readiness({ submission, items });
   const uploadedKeys = new Set(items.filter((i) => i.media_id && i.storage_path?.trim()).map((i) => i.checklist_key));
   const byKey = new Map<string, PortalItemView[]>();
   for (const item of items) {
-    const view = itemView(item, level, Boolean(options?.forStaff), partner, submission.ai_review);
+    const view = itemView(item, level, Boolean(options?.forStaff), partner, submission.ai_review, language);
     byKey.set(view.key, [...(byKey.get(view.key) ?? []), view]);
   }
   // Giữ đúng thứ tự checklist; ảnh mới nhất của mỗi mục đứng đầu.
@@ -218,7 +230,7 @@ export function buildPortalSubmission(bundle: SubmissionBundle, options?: { forS
     level,
     l2Scope: level === 2 ? submission.l2_scope ?? "factory" : null,
     status: submission.status,
-    statusLabel: submissionStatusLabel(submission.status),
+    statusLabel: submissionStatusLabel(submission.status, language),
     editable: submissionEditable(submission.status),
     code: submission.verification_code,
     codeIssuedAt: submission.code_issued_at,

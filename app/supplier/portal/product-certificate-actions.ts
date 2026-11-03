@@ -5,6 +5,8 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { certificateLinkable, withRequestedProduct } from "@/lib/products/product-certificates";
 import { certificateAppliesToCategory } from "@/lib/certificate-scope";
+import { getPortalMessages } from "@/lib/i18n/server";
+import { fill } from "@/lib/i18n/format";
 
 export type CertificateRequestResult = { ok: boolean; message: string };
 
@@ -18,15 +20,17 @@ export type CertificateRequestResult = { ok: boolean; message: string };
  *  - Không tạo chứng nhận mới ở đây: hồ sơ L1 vẫn là nguồn duy nhất.
  */
 export async function requestProductCertificatesAction(form: FormData): Promise<CertificateRequestResult> {
+  const { m } = await getPortalMessages();
+  const a = m.productEditor.productActions;
   const access = await supplierPortalAccess();
   if (!access || !portalApproved(access.supplier)) {
-    return { ok: false, message: "Tài khoản nhà cung cấp chưa được mở quyền sử dụng cổng." };
+    return { ok: false, message: a.noAccess };
   }
   const productId = String(form.get("product_id") ?? "").trim();
-  if (!productId) return { ok: false, message: "Thiếu sản phẩm cần gắn chứng nhận." };
+  if (!productId) return { ok: false, message: a.missingProductLink };
   const product = await access.store.getProduct(productId);
   if (!product || product.supplier_id !== access.supplier.id) {
-    return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
+    return { ok: false, message: a.productNotYours };
   }
 
   const selected = new Set(
@@ -55,8 +59,8 @@ export async function requestProductCertificatesAction(form: FormData): Promise<
     return {
       ok: true,
       message: expired
-        ? "Giấy đã hết hạn nên chưa xin mở rộng được. Tải bản gia hạn ở mục Giấy tờ rồi thử lại."
-        : "Danh sách chứng nhận không thay đổi.",
+        ? a.certificateExpired
+        : a.certificateUnchanged,
     };
   }
 
@@ -64,8 +68,8 @@ export async function requestProductCertificatesAction(form: FormData): Promise<
   return {
     ok: true,
     message: expired
-      ? `Đã gửi yêu cầu mở rộng phạm vi cho ${changed} giấy. ${expired} giấy hết hạn nên bỏ qua.`
-      : `Đã gửi yêu cầu mở rộng phạm vi cho ${changed} giấy. Nhân viên xem và cập nhật sau khi đối chiếu.`,
+      ? `${fill(a.scopeRequested, { count: changed })}${fill(a.scopeSkippedExpired, { count: expired })}`
+      : `${fill(a.scopeRequested, { count: changed })}${a.scopeRequestedStaff}`,
   };
 }
 
@@ -77,23 +81,25 @@ export async function requestProductCertificatesAction(form: FormData): Promise<
  * quyết định đó là của Vexim.
  */
 export async function setProductCertificateOptoutAction(form: FormData): Promise<CertificateRequestResult> {
+  const { m } = await getPortalMessages();
+  const a = m.productEditor.productActions;
   const access = await supplierPortalAccess();
   if (!access || !portalApproved(access.supplier)) {
-    return { ok: false, message: "Tài khoản nhà cung cấp chưa được mở quyền sử dụng cổng." };
+    return { ok: false, message: a.noAccess };
   }
   const productId = String(form.get("product_id") ?? "").trim();
-  if (!productId) return { ok: false, message: "Thiếu sản phẩm cần cập nhật chứng nhận." };
+  if (!productId) return { ok: false, message: a.missingProductUpdate };
   const product = await access.store.getProduct(productId);
   if (!product || product.supplier_id !== access.supplier.id) {
-    return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
+    return { ok: false, message: a.productNotYours };
   }
   const wanted = new Set(form.getAll("certificate_ids").map((value) => String(value)).filter(Boolean));
   const certificates = await access.store.listCertificates(access.supplier.id);
-  if (certificates.length === 0) return { ok: true, message: "Danh sách chứng nhận không thay đổi." };
+  if (certificates.length === 0) return { ok: true, message: a.certificateUnchanged };
   const scopes = typeof access.store.listCertificateScopes === "function"
     ? await access.store.listCertificateScopes(certificates.map((certificate) => certificate.id)).catch(() => [])
     : [];
-  if (scopes.length === 0) return { ok: true, message: "Danh sách chứng nhận không thay đổi." };
+  if (scopes.length === 0) return { ok: true, message: a.certificateUnchanged };
 
   // Đường dẫn danh mục của sản phẩm, để biết giấy nào đang thừa hưởng từ danh mục.
   const categories = await access.store.listCategories({ publishedOnly: false }).catch(() => []);
@@ -102,7 +108,7 @@ export async function setProductCertificateOptoutAction(form: FormData): Promise
     : null;
   const parent = category?.parent_id ? categories.find((item) => item.id === category.parent_id) ?? null : null;
   const categoryPath = category ? [category.id, ...(parent ? [parent.id] : [])] : [];
-  if (categoryPath.length === 0) return { ok: true, message: "Danh sách chứng nhận không thay đổi." };
+  if (categoryPath.length === 0) return { ok: true, message: a.certificateUnchanged };
 
   let changed = 0;
   for (const certificate of certificates) {
@@ -117,9 +123,9 @@ export async function setProductCertificateOptoutAction(form: FormData): Promise
   }
 
   revalidatePath(`/supplier/portal/products/${productId}`);
-  if (!changed) return { ok: true, message: "Danh sách chứng nhận không thay đổi." };
+  if (!changed) return { ok: true, message: a.certificateUnchanged };
   return {
     ok: true,
-    message: `Đã lưu lựa chọn chứng nhận cho sản phẩm. Chứng nhận bỏ tick sẽ không hiện cho người mua.`,
+    message: a.optoutSaved,
   };
 }

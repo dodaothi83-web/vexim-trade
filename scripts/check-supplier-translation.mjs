@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 import {
   publicExportPortDisplay,
   publicProductCapacityDisplay,
@@ -13,6 +14,7 @@ import {
   publicProductPlaceDisplay,
 } from '../lib/public/product-detail-display.ts';
 
+const portalCopy = loadPortalDictionary();
 const realRequire = createRequire(import.meta.url);
 function load(file, mocks, globals = {}) {
   const mod = { exports: {} };
@@ -292,8 +294,8 @@ assert.match(compare, /supplierProvinceDisplay\(s\)/, 'trang so sánh phải hi�
 assert.match(compare, /supplierPortsDisplay\(s\)/, 'trang so sánh phải hiển thị cảng bản tiếng Anh');
 
 const form = fs.readFileSync(new URL('../app/supplier/portal/supplier-profile-form.tsx', import.meta.url), 'utf8');
-assert.match(form, />Giới thiệu</, 'ô nhập phải là phần giới thiệu của NCC');
-assert.match(form, /Mô tả về điểm khác biệt của công ty hay sản phẩm của bạn\./, 'placeholder phải gợi ý kể điểm khác biệt');
+assert.match(form, /introLabel\}/, 'ô nhập phải là phần giới thiệu của NCC');
+assert.match(portalCopy.vi.onboarding.publicPage.introPlaceholder, /Mô tả về điểm khác biệt của công ty hay sản phẩm của bạn\./, 'placeholder phải gợi ý kể điểm khác biệt');
 assert.match(form, /name="intro_source"/, 'form phải gửi phần giới thiệu gốc, không gửi thẳng vào bản tiếng Anh');
 
 const profileInput = fs.readFileSync(new URL('../lib/supplier-portal/profile-input.ts', import.meta.url), 'utf8');

@@ -24,12 +24,15 @@ import {
   cleanSupplierGrade, mergeSupplierGradeOptions, standardGradesForCategory, SUPPLIER_GRADE_LIMIT, supplierGradeOptions,
 } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
-import { entryCurrencyIssue, nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { entryCurrencyIssue, issueMessage, nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 import type { QuantityRevisionTierV2 } from "@/lib/products/quantity-revision-v2";
 import { deleteObject } from "@/lib/media/storage";
 import { moveBankImageIntoProduct, removeBankOriginals, repairAttachedBankMedia } from "@/lib/supplier-portal/bank-media";
 import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
+import { getPortalMessages } from "@/lib/i18n/server";
+import type { ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
+import { fill } from "@/lib/i18n/format";
 
 type Result = { ok: boolean; message: string; id?: string; warning?: boolean };
 const text = (form: FormData, key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
@@ -50,9 +53,10 @@ function attributePoolFromForm(form: FormData): unknown[] {
 }
 
 
-function parseProduct(form: FormData, supplierId: string, existing: SupplierProduct | null = null): SupplierProductInput {
+function parseProduct(form: FormData, supplierId: string, existing: SupplierProduct | null = null,
+  a: ProductEditorMessages["productActions"]): SupplierProductInput {
   const name = text(form, "name", 180);
-  if (name.length < 3) throw new Error("Tên sản phẩm cần ít nhất 3 ký tự.");
+  if (name.length < 3) throw new Error(a.nameTooShort);
   // Phase 2: từ khoá, giá mẫu và đóng gói có cấu trúc. Form cũ (không có ô) thì giữ
   // nguyên giá trị đã lưu, không xoá trắng dữ liệu.
   const extras = productExtrasFromForm(
@@ -61,7 +65,7 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
     existing,
   );
   const daysRaw = text(form, "lead_time_days", 5);
-  if (daysRaw && (!/^\d+$/.test(daysRaw) || Number(daysRaw) > 3650)) throw new Error("Thời gian giao hàng không hợp lệ.");
+  if (daysRaw && (!/^\d+$/.test(daysRaw) || Number(daysRaw) > 3650)) throw new Error(a.badLeadTime);
   return {
     supplier_id: supplierId, name, slug: null, name_i18n: {}, category: null,
     description: text(form, "description", 1500) || null,
@@ -109,22 +113,24 @@ function parseBankMediaIds(raw: FormDataEntryValue | null): string[] {
 
 export async function saveSupplierProductAction(form: FormData): Promise<Result> {
   let createdId: string | undefined;
+  const { locale, m } = await getPortalMessages();
+  const a = m.productEditor.productActions;
   const access = await approvedAccess();
-  if (!access) return { ok: false, message: "Tài khoản nhà cung cấp chưa được mở quyền sử dụng cổng." };
+  if (!access) return { ok: false, message: a.noAccess };
   try {
     const id = text(form, "product_id", 80);
     const store = access.store;
     const existing: SupplierProduct | null = id ? await store.getProduct(id) : null;
-    if (id && (!existing || existing.supplier_id !== access.supplier.id)) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
-    if (form.has("grade_rows_json")) return { ok: false, message: "Bảng giá cũ không còn được lưu. Hãy tải lại trang và dùng bảng giá theo số lượng." };
-    if (existing?.supplier_review_status === "pending") return { ok: false, message: "Sản phẩm đang chờ duyệt; chưa thể sửa." };
+    if (id && (!existing || existing.supplier_id !== access.supplier.id)) return { ok: false, message: a.productNotYours };
+    if (form.has("grade_rows_json")) return { ok: false, message: a.legacyGradeTable };
+    if (existing?.supplier_review_status === "pending") return { ok: false, message: a.pendingReview };
     const existingReview = existing ? existing.supplier_review_status ?? "approved" : "draft";
     const keepPublished = existingReview === "approved" && !!(existing?.supplier_originated || existing?.supplier_category_proposal);
     const keepPaused = existingReview === "paused";
     const keepReviewed = keepPublished || keepPaused;
     if (existing && existingReview === "approved" && !keepPublished)
-      return { ok: false, message: "Sản phẩm này được quản lý từ trước. Hãy tạm ẩn rồi gửi duyệt lại để cập nhật, hoặc liên hệ bộ phận hỗ trợ." };
-    const input = parseProduct(form, access.supplier.id, existing);
+      return { ok: false, message: a.legacyManaged };
+    const input = parseProduct(form, access.supplier.id, existing, a);
     // Không biến sản phẩm lịch sử do staff tạo thành nháp do NCC tạo khi sửa.
     if (existing) input.supplier_originated = existing.supplier_originated === true;
     if (existingReview === "changes_requested" && existing) {
@@ -140,9 +146,9 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     input.supplier_category_proposal = parseProductCategoryProposal(form, options);
     input.category = input.supplier_category_proposal;
     if (keepReviewed && existing?.supplier_originated && !existing.reviewed_category_slug)
-      return { ok: false, message: "Sản phẩm cần được duyệt danh mục trước khi tiếp tục quản lý." };
+      return { ok: false, message: a.categoryNotReviewed };
     if (keepReviewed && existing?.reviewed_category_slug && input.supplier_category_proposal !== existing.reviewed_category_slug)
-      return { ok: false, message: "Danh mục đã được duyệt; vui lòng liên hệ bộ phận hỗ trợ nếu cần thay đổi." };
+      return { ok: false, message: a.categoryLocked };
     if (keepReviewed && existing) {
       // Lưu thông thường không được đăng lại sản phẩm đã tạm ẩn hoặc làm mất
       // quyết định danh mục trước đó; NCC phải gửi duyệt lại một cách tường minh.
@@ -155,7 +161,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     }
     let category = allCategories.find((c) => c.slug === input.category) ?? null;
     if (existing && input.name !== existing.name && category && nameContainsGrade(input.name, standardGradesForCategory(category)))
-      return { ok: false, message: "Không ghi grade trong tên sản phẩm tiếng Việt." };
+      return { ok: false, message: a.gradeInName };
     // New products and their private quantity table must be created together.
     // Validate everything against live category and policy, not client defaults.
     let newQuantity: { grade: string; incoterm: string; currency?: string; tiers: { minKg: number; priceUsdPerKg: number; incoterm?: string; currency?: string }[] | QuantityRevisionTierV2[]; warnings: unknown[]; requestId: string } | null = null;
@@ -163,45 +169,45 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     if (!existing) {
       const strictAccess = await supplierPortalAccess(supabaseStore);
       if (!strictAccess || !portalApproved(strictAccess.supplier) || strictAccess.supplier.id !== access.supplier.id || strictAccess.user.id !== access.user.id || !getSupabaseClient() || !category)
-        return { ok: false, message: "Không xác nhận được tài khoản, danh mục hoặc kết nối bảng giá mới." };
+        return { ok: false, message: a.configCheck };
       consentSupplier = strictAccess.supplier;
       const strictCategory = input.category ? await supabaseStore.getCategoryBySlug(input.category) : null;
       if (!strictCategory || strictCategory.status !== "published" || !strictCategory.is_published)
-        return { ok: false, message: "Danh mục không còn được xuất bản. Hãy tải lại trang." };
+        return { ok: false, message: a.categoryUnpublished };
       category = strictCategory;
       const requestId = String(form.get("quantity_creation_request_id") ?? "");
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) return { ok: false, message: "Phiên tạo sản phẩm không hợp lệ. Hãy tải lại trang." };
-      if (input.price_publicly_visible && form.get("confirm_quantity_price_consent") !== "yes") return { ok: false, message: "Hãy xác nhận cam kết giá trước khi công khai." };
-      if (input.price_publicly_visible && !supplierPriceConsentCurrent(consentSupplier) && form.get("confirm_supplier_price_consent") !== "yes") return { ok: false, message: "Hãy xác nhận đồng ý chia sẻ giá." };
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) return { ok: false, message: a.badSession };
+      if (input.price_publicly_visible && form.get("confirm_quantity_price_consent") !== "yes") return { ok: false, message: a.needQuantityConsent };
+      if (input.price_publicly_visible && !supplierPriceConsentCurrent(consentSupplier) && form.get("confirm_supplier_price_consent") !== "yes") return { ok: false, message: a.needShareConsent };
       // Never copy a quantity-tier price into legacy public fields or infer units.
       input.ref_price = null; input.ref_price_max = null; input.currency = null; input.unit = null;
       input.moq = null; input.moq_qty = null; input.moq_unit = null; input.incoterm = null; input.price_valid_until = null;
       const version = form.get("quantity_version");
-      if (version !== null && version !== "1" && version !== "2") return { ok: false, message: "Phiên bản bảng giá không hợp lệ." };
+      if (version !== null && version !== "1" && version !== "2") return { ok: false, message: a.badPriceVersion };
       if (version === "2") {
-        if (!v2StagingEnabled()) return { ok: false, message: "Đơn vị mới chưa sẵn sàng để sử dụng." };
-        if (!input.incoterm_place?.trim()) return { ok: false, message: "Nhập địa điểm Incoterm." };
+        if (!v2StagingEnabled()) return { ok: false, message: a.v2NotReady };
+        if (!input.incoterm_place?.trim()) return { ok: false, message: a.incotermPlace };
         const checked = validateV2Form(form, input.name, standardGradesForCategory(category), await readQuantityPricingPolicy(category.id), "quantity_");
-        if (!checked.value) return { ok: false, message: checked.errors[0]?.message ?? "Bảng giá không hợp lệ." };
+        if (!checked.value) return { ok: false, message: checked.errors[0] ? issueMessage(checked.errors[0], locale) : a.priceInvalid };
         newQuantity = { ...checked.value, warnings: checked.warnings, requestId };
       } else {
         const raw = form.get("quantity_tiers_json");
-        if (typeof raw !== "string" || raw.length > 12000) return { ok: false, message: "Bảng giá không hợp lệ." };
+        if (typeof raw !== "string" || raw.length > 12000) return { ok: false, message: a.priceInvalid };
         let rows: unknown;
-        try { rows = JSON.parse(raw); } catch { return { ok: false, message: "Bảng giá không hợp lệ." }; }
+        try { rows = JSON.parse(raw); } catch { return { ok: false, message: a.priceInvalid }; }
         if (!Array.isArray(rows) || rows.length > 100 || rows.some((row) => !row || typeof row !== "object" ||
           typeof (row as { minKg?: unknown }).minKg !== "string" || typeof (row as { priceUsdPerKg?: unknown }).priceUsdPerKg !== "string" ||
           (row as { minKg: string }).minKg.length > 32 || (row as { priceUsdPerKg: string }).priceUsdPerKg.length > 32 ||
           ((row as { incoterm?: unknown }).incoterm !== undefined && (typeof (row as { incoterm?: unknown }).incoterm !== "string" ||
             (row as { incoterm: string }).incoterm.length > 20))))
-          return { ok: false, message: "Bảng giá không hợp lệ." };
+          return { ok: false, message: a.priceInvalid };
         const currency = text(form, "quantity_currency", 3) || "USD";
         const currencyIssue = entryCurrencyIssue(currency);
         if (currencyIssue) return { ok: false, message: currencyIssue };
         const validation = validateQuantityPricing({ grade: text(form, "quantity_grade", 180), incoterm: text(form, "quantity_incoterm", 20),
           currency, nameVi: input.name, nameEn: "", tiers: rows },
           standardGradesForCategory(category), await readQuantityPricingPolicy(category.id));
-        if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? "Bảng giá không hợp lệ." };
+        if (!validation.value) return { ok: false, message: validation.errors[0] ? issueMessage(validation.errors[0], locale) : a.priceInvalid };
         newQuantity = { ...validation.value, warnings: validation.warnings, requestId };
       }
     }
@@ -256,9 +262,9 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
           ...input, slug: existing.slug, name_i18n: existing.name_i18n ?? {}, images: existing.images,
         });
     } else {
-      if (!newQuantity) return { ok: false, message: "Chưa có bảng giá theo số lượng." };
+      if (!newQuantity) return { ok: false, message: a.noQuantity };
       const db = getSupabaseClient();
-      if (!db) return { ok: false, message: "Không kết nối được cơ sở dữ liệu bảng giá." };
+      if (!db) return { ok: false, message: a.dbPrice };
       const { data, error } = await db.rpc("create_supplier_product_with_quantity", {
         p_request_id: newQuantity.requestId, p_supplier_id: access.supplier.id, p_product: input,
         p_grade: newQuantity.grade, p_incoterm: newQuantity.incoterm, p_tiers: newQuantity.tiers,
@@ -266,7 +272,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       });
       if (error || !data || typeof data.id !== "string") {
         console.error("[quantity-pricing] atomic product creation", error);
-        return { ok: false, message: "Chưa xác nhận được việc tạo sản phẩm. Hãy thử lại với cùng nội dung hoặc kiểm tra danh sách sản phẩm." };
+        return { ok: false, message: a.createUnconfirmed };
       }
       saved = data as SupplierProduct;
       createdId = saved.id;
@@ -294,13 +300,13 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
         }
       }
     }
-    if (!saved) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi lưu." };
+    if (!saved) return { ok: false, message: a.stateChangedSave };
     // Ảnh gắn từ kho bằng bản cũ bị mất chủ sở hữu và nằm sai namespace: sửa ngay lần lưu này.
     await repairAttachedBankMedia(store, access.supplier.id, await store.listMedia("product", saved.id));
     // Preserve the approved English name when Vietnamese content changes.
     // Name revisions are reviewed separately and must not be overwritten by AI here.
     const translationWarning = keepPublished && existing?.name !== saved.name
-      ? " Tên tiếng Anh đã duyệt được giữ nguyên; quản trị viên sẽ rà soát bản dịch."
+      ? a.translationKept
       : "";
     // Supplier-owned explicit consent is recorded only when the separate checkbox is checked.
     // A normal product save never silently refreshes the 180-day supplier consent.
@@ -314,7 +320,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
         await consentStore.updateSupplier(access.supplier.id, { fob_publicly_visible: true, fob_updated_at: stamp });
       } catch (error) {
         console.error("[supplier-product] consent update", error);
-        consentWarning = "Chưa ghi nhận được xác nhận chia sẻ giá: giá vẫn ẩn, vui lòng thử lưu lại.";
+        consentWarning = a.consentWarning;
       }
       if (!consentWarning) await consentStore.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
         entity: "supplier", entity_id: access.supplier.id, action: "supplier.price_consent_confirmed",
@@ -347,17 +353,17 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       revalidatePath(`/products/${saved.category}/${saved.id}`);
     }
     return { ok: true, id: saved.id, message: keepPaused
-      ? `Đã lưu thay đổi. Sản phẩm vẫn tạm ẩn; gửi duyệt khi muốn đăng lại.${consentWarning ? ` ${consentWarning}` : ""}`
+      ? `${a.savedPaused}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
       : priceChangedOnApproved
-        ? `Đã lưu thay đổi. Vì thông tin giá đã cập nhật, sản phẩm đang chờ kiểm tra lại giá trước khi hiển thị công khai.${translationWarning}${consentWarning ? ` ${consentWarning}` : ""}`
+        ? `${a.savedReprice}${translationWarning}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
         : keepPublished
-          ? `Đã lưu thay đổi sản phẩm.${translationWarning}${consentWarning ? ` ${consentWarning}` : ""}`
+          ? `${a.savedPlain}${translationWarning}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
           : existingReview === "changes_requested"
-            ? `Đã lưu thay đổi. Hãy gửi duyệt lại khi hoàn tất.${consentWarning ? ` ${consentWarning}` : ""}`
-            : `Đã lưu bản nháp. ${consentWarning || "Tải ảnh hoặc catalogue rồi gửi duyệt."}` };
+            ? `${a.savedResubmit}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
+            : `${a.savedDraft}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}` };
   } catch (error) {
-    if (createdId) return { ok: true, id: createdId, warning: true, message: "Đã tạo sản phẩm và bảng giá; một bước thông báo hoặc cập nhật phụ chưa hoàn tất. Hãy kiểm tra lại hồ sơ." };
-    return { ok: false, message: error instanceof Error ? error.message : "Không lưu được sản phẩm." };
+    if (createdId) return { ok: true, id: createdId, warning: true, message: a.createdPartial };
+    return { ok: false, message: error instanceof Error ? error.message : a.saveFailed };
   }
 }
 
@@ -371,29 +377,31 @@ export type GradeOptionResult = { ok: boolean; message: string; grades?: string[
  * dùng lại được ngay, và Vexim thấy khi duyệt. Không ghi đè danh sách chuẩn của Vexim.
  */
 export async function addSupplierGradeOptionAction(input: { categorySlug?: unknown; grade?: unknown }): Promise<GradeOptionResult> {
+  const { m } = await getPortalMessages();
+  const a = m.productEditor.productActions;
   const access = await approvedAccess();
-  if (!access) return { ok: false, message: "Tài khoản nhà cung cấp chưa được mở quyền sử dụng cổng." };
+  if (!access) return { ok: false, message: a.noAccess };
   const slug = String(input?.categorySlug ?? "").trim().toLowerCase().slice(0, 80);
   const grade = cleanSupplierGrade(input?.grade);
-  if (!slug) return { ok: false, message: "Chọn danh mục trước khi thêm grade." };
-  if (!grade) return { ok: false, message: "Nhập mã grade từ 2 đến 40 ký tự, không kèm link hay số điện thoại." };
+  if (!slug) return { ok: false, message: a.chooseCategory };
+  if (!grade) return { ok: false, message: a.badGrade };
   try {
     const store = access.store;
     const category = await store.getCategoryBySlug(slug);
     if (!category || category.status !== "published" || !category.is_published)
-      return { ok: false, message: "Danh mục này không còn mở để đăng bán." };
+      return { ok: false, message: a.categoryClosed };
     // Chỉ nhóm hàng nằm trong phạm vi đăng bán của chính nhà cung cấp này.
     const published = await store.listCategories({ publishedOnly: true });
     const linked = access.supplier.requested_category_slugs?.length ? [] : await store.listSupplierCategories(access.supplier.id);
     const allowed = allowedSupplierCategories(access.supplier, categoryProposalOptions(published), linked);
     if (!allowed.some((option) => option.slug === slug))
-      return { ok: false, message: "Nhóm hàng này chưa nằm trong phạm vi đăng bán của bạn." };
+      return { ok: false, message: a.gradeOutOfScope };
     const before = standardGradesForCategory(category);
     if (before.some((option) => option.trim().toLowerCase() === grade.toLowerCase()))
-      return { ok: true, message: `${grade} đã có trong danh sách grade của nhóm hàng.`, grades: before };
+      return { ok: true, message: fill(a.gradeExists, { grade }), grades: before };
     const saved = supplierGradeOptions(category);
     if (saved.length >= SUPPLIER_GRADE_LIMIT)
-      return { ok: false, message: `Nhóm hàng đã có ${SUPPLIER_GRADE_LIMIT} grade do nhà cung cấp thêm. Liên hệ Vexim để bổ sung tiếp.` };
+      return { ok: false, message: fill(a.gradeLimit, { count: SUPPLIER_GRADE_LIMIT }) };
     const pool = mergeSupplierGradeOptions(category.supplier_grade_options, [...saved, grade]);
     const updated = await store.updateCategory(category.id, { supplier_grade_options: pool });
     const grades = standardGradesForCategory(updated);
@@ -405,23 +413,25 @@ export async function addSupplierGradeOptionAction(input: { categorySlug?: unkno
     revalidatePath("/supplier/portal/products/new");
     revalidatePath("/crm/settings/quantity-pricing");
     revalidatePath("/rfq");
-    return { ok: true, message: `Đã thêm ${grade}. Grade này dùng được cho mọi sản phẩm cùng nhóm hàng.`, grades };
+    return { ok: true, message: fill(a.gradeAdded, { grade }), grades };
   } catch (error) {
     console.error("[supplier-product] grade option", error);
-    return { ok: false, message: "Chưa lưu được grade mới. Kiểm tra kết nối rồi thử lại." };
+    return { ok: false, message: a.gradeSaveFailed };
   }
 }
 
 export async function submitSupplierProductAction(form: FormData): Promise<Result> {
+  const { m } = await getPortalMessages();
+  const a = m.productEditor.productActions;
   const access = await approvedAccess();
-  if (!access) return { ok: false, message: "Tài khoản nhà cung cấp chưa được mở quyền sử dụng cổng." };
+  if (!access) return { ok: false, message: a.noAccess };
   const id = text(form, "product_id", 80);
   const store = access.store;
   try {
     const product = await store.getProduct(id);
-    if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
-    if (!["draft", "changes_requested", "paused"].includes(product.supplier_review_status ?? "")) return { ok: false, message: "Sản phẩm không ở trạng thái cho phép gửi duyệt." };
-    if (!product.name || !(product.spec || product.description)) return { ok: false, message: "Cần tên và mô tả hoặc quy cách." };
+    if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: a.productNotYours };
+    if (!["draft", "changes_requested", "paused"].includes(product.supplier_review_status ?? "")) return { ok: false, message: a.notSubmittable };
+    if (!product.name || !(product.spec || product.description)) return { ok: false, message: a.submitNeedNameSpec };
     const publishedCategories = await store.listCategories({ publishedOnly: true });
     const options = categoryProposalOptions(publishedCategories);
     // Sản phẩm đã tạm ẩn giữ danh mục Vexim từng duyệt; sản phẩm lịch sử có thể
@@ -430,14 +440,14 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
       ? product.reviewed_category_slug || product.supplier_category_proposal || product.category
       : product.supplier_category_proposal;
     if (!proposal || !options.some((c) => c.slug === proposal))
-      return { ok: false, message: "Chọn và lưu danh mục đang xuất bản trước khi gửi duyệt." };
+      return { ok: false, message: a.submitNeedCategory };
     const submissionCategory = publishedCategories.find((category) => category.slug === proposal);
     const includedGrade = submissionCategory && standardGradesForCategory(submissionCategory).find((grade) => nameContainsGrade(product.name, [grade]));
-    if (includedGrade) return { ok: false, message: `Bỏ grade (${includedGrade}) ra khỏi tên sản phẩm.` };
+    if (includedGrade) return { ok: false, message: fill(a.gradeInNameNamed, { grade: includedGrade }) };
     const media = await store.listMedia("product", id);
     if (!media.some((m) => m.kind === "image" && m.storage_path &&
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {
-      return { ok: false, message: "Cần ít nhất một ảnh sản phẩm trước khi gửi duyệt." };
+      return { ok: false, message: a.submitNeedImage };
     }
     // Preserve any historical name revision; the supplier can no longer create one.
     let supplierNameSubmitted = false;
@@ -446,17 +456,17 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     if (translationDb) {
       const strictAccess = await supplierPortalAccess(supabaseStore);
       if (!strictAccess || !portalApproved(strictAccess.supplier) || strictAccess.user.id !== access.user.id || strictAccess.supplier.id !== access.supplier.id)
-        return { ok: false, message: "Không xác nhận được quyền gửi sản phẩm." };
+        return { ok: false, message: a.submitNoPermission };
       const strictProduct = await supabaseStore.getProduct(id);
       if (!strictProduct || strictProduct.supplier_id !== strictAccess.supplier.id || strictProduct.updated_at !== product.updated_at)
-        return { ok: false, message: "Sản phẩm đã thay đổi hoặc không thuộc tài khoản của bạn." };
+        return { ok: false, message: a.submitProductChanged };
       const { data: names, error: namesError } = await translationDb.from("product_english_name_revisions")
         .select("id").eq("product_id", id).in("status", ["pending", "approved"]).limit(1);
-      if (namesError || !names) return { ok: false, message: "Chưa kiểm tra được bản tên tiếng Anh. Vui lòng thử lại." };
+      if (namesError || !names) return { ok: false, message: a.submitNamesFailed };
       supplierNameSubmitted = names.length > 0;
       const { data: requests, error: requestError } = await translationDb.from("quantity_product_creation_requests")
         .select("request_id").eq("product_id", id).limit(1);
-      if (requestError || !requests) return { ok: false, message: "Chưa kiểm tra được luồng bảng giá sản phẩm. Vui lòng thử lại." };
+      if (requestError || !requests) return { ok: false, message: a.submitFlowFailed };
       quantityCreated = requests.length > 0;
     }
     const previousReview = product.supplier_review_status ?? null;
@@ -466,14 +476,14 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
         p_product_id: id, p_supplier_id: access.supplier.id, p_expected_updated_at: product.updated_at,
         p_expected_review: previousReview, p_expected_ready: product.ready_for_buyer, p_proposal: proposal,
       });
-      if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá hoặc trạng thái sản phẩm. Kiểm tra kết nối và thử lại." };
+      if (error || !data) return { ok: false, message: a.submitPriceCheckFailed };
       // Hai nguyên nhân khác hẳn nhau nên phải nói khác nhau: thiếu bảng giá (chưa gửi,
       // hoặc bảng bị trả lại) khác với thông tin sản phẩm đổi sau khi đã gửi giá.
       if (data.status === "price_missing")
-        return { ok: false, message: "Sản phẩm chưa có bảng giá nào đang chờ duyệt. Gửi bảng giá ở mục Giá và điều kiện bán, rồi bấm Gửi duyệt." };
+        return { ok: false, message: a.submitNoPendingPrice };
       if (data.status === "price_changed")
-        return { ok: false, message: "Thông tin sản phẩm đã đổi sau khi gửi bảng giá. Gửi lại bảng giá theo thông tin hiện tại, rồi bấm Gửi duyệt." };
-      if (data.status !== "submitted" || !data.product) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi gửi duyệt." };
+        return { ok: false, message: a.submitPriceStale };
+      if (data.status !== "submitted" || !data.product) return { ok: false, message: a.submitStateChanged };
       submitted = data.product as SupplierProduct;
     } else {
       submitted = await store.updateSupplierProductIfState(id, access.supplier.id,
@@ -482,7 +492,7 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
           ...(previousReview === "paused" ? { supplier_category_proposal: proposal } : {}),
         });
     }
-    if (!submitted) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi gửi duyệt." };
+    if (!submitted) return { ok: false, message: a.submitStateChanged };
     await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "product", entity_id: id, action: "supplier.product_submitted",
       before: { review: previousReview }, after: { review: "pending" } }).catch((error) => console.error("[supplier-product] audit", error));
@@ -495,7 +505,7 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     if (!protectedEnglish && translationDb && submitted.updated_at) {
       try {
         const category = await supabaseStore.getCategoryBySlug(proposal);
-        if (!category) throw new Error("Không tải được danh mục để kiểm tra grade.");
+        if (!category) throw new Error(a.submitCategoryGrades);
         const result = await ensureProductEnglishTranslation(store, id, { id: access.user.id, email: access.user.email }, undefined, {
           forbiddenGrades: standardGradesForCategory(category),
           saveIfUnchanged: async (loaded, patch) => {
@@ -508,15 +518,15 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
           },
         });
         if (result.status === "unconfigured" || result.status === "failed")
-          translationNotice = " Chưa tự dịch được; quản trị viên sẽ kiểm tra và nhập bản tiếng Anh khi duyệt.";
+          translationNotice = a.translationFailed;
       } catch (error) {
         console.warn("[supplier-product] submission translation", error);
-        translationNotice = " Chưa tự dịch được; quản trị viên sẽ kiểm tra và nhập bản tiếng Anh khi duyệt.";
+        translationNotice = a.translationFailed;
       }
     } else if (protectedEnglish) {
-      translationNotice = " Bản tên tiếng Anh hiện có được giữ nguyên để quản trị viên kiểm tra.";
+      translationNotice = a.translationExistingKept;
     } else {
-      translationNotice = " Chưa tự dịch được; quản trị viên sẽ kiểm tra và nhập bản tiếng Anh khi duyệt.";
+      translationNotice = a.translationFailed;
     }
     const mail = await notifyStaffProductSubmission(access.supplier, product).catch((error) => {
       console.warn("[supplier-product] staff email", error); return "failed";
@@ -525,8 +535,8 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     revalidatePath("/supplier/portal/products");
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
-    return { ok: true, message: `Đã gửi duyệt. Bạn sẽ nhận thông báo khi sản phẩm được đăng.${translationNotice}` };
-  } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "Không nộp được sản phẩm." }; }
+    return { ok: true, message: `${a.submitted}${translationNotice}` };
+  } catch (error) { return { ok: false, message: error instanceof Error ? error.message : a.submitFailed }; }
 }
 
 const PRODUCT_ID = /^[0-9a-f-]{36}$/i;
@@ -544,20 +554,22 @@ function revalidateProductManagement(id: string) {
 
 /** Xóa hẳn nháp do NCC tạo; không được xóa sản phẩm đã duyệt hoặc có lịch sử liên quan. */
 export async function deleteSupplierDraftProductAction(id: string): Promise<Result> {
+  const { m } = await getPortalMessages();
+  const a = m.productEditor.productActions;
   const access = await approvedAccess();
-  if (!access) return { ok: false, message: "Tài khoản nhà cung cấp chưa được mở quyền sử dụng cổng." };
-  if (!PRODUCT_ID.test(id)) return { ok: false, message: "Mã sản phẩm không hợp lệ." };
+  if (!access) return { ok: false, message: a.noAccess };
+  if (!PRODUCT_ID.test(id)) return { ok: false, message: a.badProductId };
   try {
     const product = await access.store.getProduct(id);
-    if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
+    if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: a.productNotYours };
     if (product.supplier_review_status !== "draft" || product.supplier_originated !== true ||
         product.ready_for_buyer || product.reviewed_category_slug != null)
-      return { ok: false, message: "Chỉ xóa được bản nháp do bạn tạo và chưa có quyết định duyệt." };
+      return { ok: false, message: a.draftNotAllowed };
     // Thao tác CSDL khóa và kiểm tra lại trạng thái + các liên kết trong một giao dịch.
     const result = await access.store.deleteSupplierDraftProduct(id, access.supplier.id);
     if (result.status !== "deleted") return { ok: false, message: result.status === "has_links"
-      ? "Sản phẩm đã có dữ liệu liên quan cần giữ. Vui lòng liên hệ bộ phận hỗ trợ để xử lý."
-      : "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang." };
+      ? a.draftBlockedRelated
+      : a.draftStateChanged };
 
     const pendingPaths: string[] = [];
     await Promise.all(result.paths.map(async (path) => {
@@ -584,36 +596,38 @@ export async function deleteSupplierDraftProductAction(id: string): Promise<Resu
       .catch((error) => console.error("[supplier-product] audit", error));
     revalidateProductManagement(id);
     return { ok: true, warning: pendingPaths.length > 0, message: pendingPaths.length
-      ? "Đã xóa bản nháp khỏi hệ thống. Một số tệp chưa dọn được khỏi kho; vui lòng liên hệ bộ phận hỗ trợ để hoàn tất."
-      : "Đã xóa bản nháp và các tệp của sản phẩm." };
+      ? a.deletedWithLeftovers
+      : a.deleted };
   } catch (error) {
     console.error("[supplier-product] delete draft", error);
-    return { ok: false, message: "Không xóa được bản nháp. Vui lòng thử lại hoặc liên hệ bộ phận hỗ trợ." };
+    return { ok: false, message: a.deleteFailed };
   }
 }
 
 /** Tạm ẩn mà không xóa sản phẩm, tệp, RFQ hay lịch sử. Đăng lại cần gửi Vexim duyệt. */
 export async function pauseSupplierProductAction(id: string): Promise<Result> {
+  const { m } = await getPortalMessages();
+  const a = m.productEditor.productActions;
   const access = await approvedAccess();
-  if (!access) return { ok: false, message: "Tài khoản nhà cung cấp chưa được mở quyền sử dụng cổng." };
-  if (!PRODUCT_ID.test(id)) return { ok: false, message: "Mã sản phẩm không hợp lệ." };
+  if (!access) return { ok: false, message: a.noAccess };
+  if (!PRODUCT_ID.test(id)) return { ok: false, message: a.badProductId };
   try {
     const product = await access.store.getProduct(id);
-    if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: "Sản phẩm không thuộc tài khoản của bạn." };
+    if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: a.productNotYours };
     if ((product.supplier_review_status ?? "approved") !== "approved")
-      return { ok: false, message: "Chỉ có thể tạm ẩn sản phẩm đã được duyệt." };
+      return { ok: false, message: a.pauseNotApproved };
     const previous = { review: product.supplier_review_status ?? null, ready: product.ready_for_buyer };
     const paused = await access.store.updateSupplierProductIfState(id, access.supplier.id, previous,
       { supplier_review_status: "paused", ready_for_buyer: false });
-    if (!paused) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang." };
+    if (!paused) return { ok: false, message: a.draftStateChanged };
     await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "product", entity_id: id, action: "supplier.product_paused",
       before: { review: previous.review ?? "approved", ready: previous.ready },
       after: { review: "paused", ready: false } }).catch((error) => console.error("[supplier-product] audit", error));
     revalidateProductManagement(id);
-    return { ok: true, message: "Đã tạm ẩn sản phẩm. Lịch sử được giữ; hãy gửi duyệt lại khi muốn đăng." };
+    return { ok: true, message: a.paused };
   } catch (error) {
     console.error("[supplier-product] pause", error);
-    return { ok: false, message: "Không tạm ẩn được sản phẩm. Vui lòng thử lại hoặc liên hệ bộ phận hỗ trợ." };
+    return { ok: false, message: a.pauseFailed };
   }
 }

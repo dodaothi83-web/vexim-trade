@@ -5,7 +5,11 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, BellRing, CheckCheck } from "lucide-react";
 
+import { fill } from "@/lib/i18n/format";
 import { markAllSupplierNoticesReadAction, markSupplierNoticeReadAction } from "@/app/supplier/portal/notice-actions";
+import { LocaleSwitch } from "@/components/locale-switch";
+import type { ShellMessages } from "@/lib/i18n/portal/shell";
+import type { Locale } from "@/lib/i18n/config";
 
 type NoticeItem = {
   key: string;
@@ -21,10 +25,10 @@ type NoticeItem = {
 /** Nhịp làm mới chuông. Đủ nhanh để thấy việc mới mà không đập CSDL liên tục. */
 const POLL_MS = 20_000;
 
-function when(iso: string) {
+function when(iso: string, intl: string) {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return "";
-  return at.toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" });
+  return at.toLocaleString(intl, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" });
 }
 
 function NoticeIcon({ kind, unread }: { kind?: string; unread: boolean }) {
@@ -47,7 +51,17 @@ function NoticeIcon({ kind, unread }: { kind?: string; unread: boolean }) {
  * quyết định mới hiện ra mà nhà cung cấp không phải tải lại trang. Tiêu đề thông báo
  * mở đúng trang cần xử lý; bấm ra ngoài hoặc nhấn Esc thì danh sách tự đóng.
  */
-export function SupplierTopbar() {
+export function SupplierTopbar({
+  messages,
+  lang,
+  intl,
+}: {
+  /** Nhãn chuông và công tắc ngôn ngữ; layout đọc từ từ điển theo cookie. */
+  messages: ShellMessages;
+  lang: Locale;
+  /** Mã ngôn ngữ cho `Intl` (ngày tháng của thông báo). */
+  intl: string;
+}) {
   const pathname = usePathname();
   const [items, setItems] = useState<NoticeItem[]>([]);
   const [unread, setUnread] = useState(0);
@@ -155,11 +169,16 @@ export function SupplierTopbar() {
     if (next) await load();
   }
 
-  return <div className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur">
+  return <div lang={lang} className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur">
     <div className="mx-auto flex h-14 w-full max-w-[1500px] items-center justify-end gap-2 pr-4 pl-16 sm:pr-6 lg:pr-8 lg:pl-8">
+      <LocaleSwitch locale={lang} label={messages.topbar.language} />
       <div className="relative">
         <button type="button" onClick={() => void toggle()} aria-expanded={open}
-          aria-label={loaded && unread ? `Thông báo, ${unread} chưa đọc` : "Thông báo"}
+          aria-label={
+            loaded && unread
+              ? fill(messages.topbar.notificationsUnread, { count: unread })
+              : messages.topbar.notifications
+          }
           className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition hover:bg-ink-100 hover:text-ink-900 ${open ? "bg-ink-100 text-ink-900" : "text-ink-600"}`}>
           {loaded && unread > 0 ? <BellRing className="h-5 w-5" aria-hidden="true" /> : <Bell className="h-5 w-5" aria-hidden="true" />}
           {loaded && unread > 0 && <span className={`absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-ink-900 ${fresh ? "animate-pulse ring-2 ring-amber-200" : ""}`}>
@@ -171,16 +190,22 @@ export function SupplierTopbar() {
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden="true" />
           <div ref={panelRef} className="fixed inset-x-3 top-14 z-20 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[380px]">
             <div className="flex items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
-              <span className="text-[13px] font-bold text-ink-900">Thông báo</span>
+              <span className="text-[13px] font-bold text-ink-900">{messages.topbar.notifications}</span>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-ink-500">
-                  {!loaded ? "Đang tải" : !readsKnown ? "Chưa đọc được dấu đã đọc" : unread ? `${unread} chưa đọc` : "Đã đọc hết"}
+                  {!loaded
+                    ? messages.topbar.loading
+                    : !readsKnown
+                      ? messages.topbar.readsUnknown
+                      : unread
+                        ? fill(messages.topbar.unreadCount, { count: unread })
+                        : messages.topbar.allRead}
                 </span>
                 {loaded && readsKnown && unread > 0 && (
                   <button type="button" onClick={() => void markAllRead()} disabled={savingAll}
                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:underline disabled:opacity-50">
                     <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                    {savingAll ? "Đang lưu" : "Đã đọc hết"}
+                    {savingAll ? messages.topbar.saving : messages.topbar.markAllRead}
                   </button>
                 )}
               </div>
@@ -200,10 +225,10 @@ export function SupplierTopbar() {
                       </Link>
                       {n.detail && <p className="mt-0.5 text-[11.5px] leading-5 text-ink-600">{n.detail}</p>}
                       <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <span className="text-[10.5px] text-ink-400">{when(n.at)}</span>
+                        <span className="text-[10.5px] text-ink-400">{when(n.at, intl)}</span>
                         {isUnread && <button type="button" onClick={() => void markRead(n.key)} disabled={savingAll || saving === n.key}
                           className="text-[10.5px] font-semibold text-ink-500 hover:underline disabled:opacity-50">
-                          {saving === n.key ? "Đang lưu" : "Đánh dấu đã đọc"}
+                          {saving === n.key ? messages.topbar.saving : messages.topbar.markRead}
                         </button>}
                       </div>
                     </div>
@@ -211,11 +236,11 @@ export function SupplierTopbar() {
                 </li>;
               })}
             </ul> : <p className="px-4 py-10 text-center text-[12px] text-ink-500">
-              {loaded ? "Chưa có thông báo nào." : "Đang tải thông báo."}
+              {loaded ? messages.topbar.empty : messages.topbar.loadingNotifications}
             </p>}
 
             <p className="border-t border-ink-200 bg-ink-50 px-4 py-2.5 text-[10.5px] leading-4 text-ink-500">
-              Chọn tiêu đề để mở trang cần xử lý.
+              {messages.topbar.footerHint}
             </p>
           </div>
         </>}

@@ -7,14 +7,16 @@ import { ArrowRight, Check, CheckCircle2, ChevronDown, Package, Send } from "luc
 import { submitSponsoredRequestAction } from "./actions";
 import type { RequestResult } from "./types";
 import type { PushCandidate } from "@/lib/sponsored/eligibility";
+import type { BoostMessages } from "@/lib/i18n/portal/boost";
 
 const INITIAL: RequestResult = { ok: false, message: "" };
 
-export function RequestForm({ candidates, openProductIds, candidatesAvailable, requestStorageAvailable }: {
+export function RequestForm({ candidates, openProductIds, candidatesAvailable, requestStorageAvailable, copy }: {
   candidates: PushCandidate[];
   openProductIds: string[];
   candidatesAvailable: boolean;
   requestStorageAvailable: boolean;
+  copy: BoostMessages["form"];
 }) {
   const [state, action, pending] = useActionState(submitSponsoredRequestAction, INITIAL);
   const [selected, setSelected] = useState("");
@@ -60,17 +62,17 @@ export function RequestForm({ candidates, openProductIds, candidatesAvailable, r
     <div className="border-b border-ink-100 px-5 py-4 sm:px-6">
       <div className="flex items-center gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><Send className="size-5" aria-hidden="true" /></span>
-        <div><h2 id="request-title" className="text-[15px] font-bold text-ink-900">Gửi yêu cầu đẩy sản phẩm</h2>
-          <p className="mt-0.5 text-xs leading-5 text-ink-500">Nhân viên kiểm tra và liên hệ báo giá.</p></div>
+        <div><h2 id="request-title" className="text-[15px] font-bold text-ink-900">{copy.title}</h2>
+          <p className="mt-0.5 text-xs leading-5 text-ink-500">{copy.sub}</p></div>
       </div>
     </div>
     <div className="p-5 sm:p-6">
-      {!requestStorageAvailable ? <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm leading-6 text-amber-900">Chưa thể gửi yêu cầu lúc này. Vui lòng thử lại sau.</p>
-        : !candidatesAvailable ? <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm leading-6 text-amber-900">Chưa tải được danh sách sản phẩm. Hãy tải lại trang để thử lại.</p>
+      {!requestStorageAvailable ? <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm leading-6 text-amber-900">{copy.storageUnavailable}</p>
+        : !candidatesAvailable ? <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm leading-6 text-amber-900">{copy.candidatesUnavailable}</p>
         : !candidates.length ? <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50 p-4">
-          <p className="text-sm font-semibold text-ink-800">Chưa có sản phẩm đủ điều kiện</p>
-          <p className="mt-1 text-xs leading-5 text-ink-600">Sản phẩm và hồ sơ cần được công khai; sản phẩm cần có ảnh hoặc catalogue có thể chia sẻ.</p>
-          <Link href="/supplier/portal/products" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-brand-700 hover:text-brand-900">Kiểm tra sản phẩm <ArrowRight className="size-3.5" aria-hidden="true" /></Link>
+          <p className="text-sm font-semibold text-ink-800">{copy.emptyTitle}</p>
+          <p className="mt-1 text-xs leading-5 text-ink-600">{copy.emptyBody}</p>
+          <Link href="/supplier/portal/products" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-brand-700 hover:text-brand-900">{copy.checkProducts} <ArrowRight className="size-3.5" aria-hidden="true" /></Link>
         </div> : <form ref={form} action={action} onSubmit={(event) => {
           if (!chosen || open.has(chosen.productId)) {
             event.preventDefault();
@@ -79,7 +81,7 @@ export function RequestForm({ candidates, openProductIds, candidatesAvailable, r
             trigger.current?.focus();
           }
         }}>
-          <span id="boost-product-label" className="block text-xs font-bold text-ink-700">Sản phẩm <span className="text-rose-600" aria-hidden="true">*</span><span className="sr-only"> (bắt buộc)</span></span>
+          <span id="boost-product-label" className="block text-xs font-bold text-ink-700">{copy.productLabel} <span className="text-rose-600" aria-hidden="true">*</span><span className="sr-only">{copy.required}</span></span>
           <input type="hidden" name="product" value={selected} />
           <div ref={picker} className="relative mt-2 min-w-0">
             <button ref={trigger} id="boost-product" type="button" aria-labelledby="boost-product-label boost-product-value"
@@ -93,11 +95,11 @@ export function RequestForm({ candidates, openProductIds, candidatesAvailable, r
                   <span className="block break-words font-bold [overflow-wrap:anywhere]">{chosen.name}</span>
                   <span className="mt-0.5 block break-words text-xs text-ink-500 [overflow-wrap:anywhere]">{chosen.categoryName}</span>
                 </span>
-              </> : <span id="boost-product-value" className="min-w-0 flex-1 text-ink-500">Chọn sản phẩm</span>}
+              </> : <span id="boost-product-value" className="min-w-0 flex-1 text-ink-500">{copy.choose}</span>}
               {chosen && <span className="flex size-5 shrink-0 items-center justify-center self-start rounded-full bg-brand-700 text-white"><Check className="size-3" aria-hidden="true" /></span>}
               <ChevronDown className={`size-4 shrink-0 text-ink-500 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} aria-hidden="true" />
             </button>
-            {dropdownOpen && <div id="boost-product-options" role="group" aria-label="Danh sách sản phẩm" className="mt-2 max-h-72 w-full space-y-2 overflow-y-auto overscroll-contain rounded-xl border border-ink-200 bg-white p-2 shadow-sm">
+            {dropdownOpen && <div id="boost-product-options" role="group" aria-label={copy.listAria} className="mt-2 max-h-72 w-full space-y-2 overflow-y-auto overscroll-contain rounded-xl border border-ink-200 bg-white p-2 shadow-sm">
               {candidates.map((candidate) => {
                 const unavailable = open.has(candidate.productId);
                 const isSelected = selected === candidate.productId;
@@ -108,26 +110,26 @@ export function RequestForm({ candidates, openProductIds, candidatesAvailable, r
                   <span className="min-w-0 flex-1">
                     <span className="block break-words text-sm font-bold text-ink-900 [overflow-wrap:anywhere]">{candidate.name}</span>
                     <span className="mt-0.5 block break-words text-xs leading-5 text-ink-500 [overflow-wrap:anywhere]">{candidate.categoryName}</span>
-                    {unavailable && <span className="mt-1 block text-xs font-semibold text-amber-800">Đã gửi yêu cầu</span>}
+                    {unavailable && <span className="mt-1 block text-xs font-semibold text-amber-800">{copy.alreadyRequested}</span>}
                   </span>
                   {isSelected && <span className="absolute right-2.5 top-2.5 flex size-5 items-center justify-center rounded-full bg-brand-700 text-white"><Check className="size-3" aria-hidden="true" /></span>}
                 </button>;
               })}
             </div>}
           </div>
-          <p id="boost-product-help" className="mt-1.5 text-xs leading-5 text-ink-500">Chỉ hiện sản phẩm đủ điều kiện tại thời điểm tải trang.</p>
-          {selectionError && <p id="boost-product-error" role="alert" className="mt-1 text-xs font-semibold text-rose-600">Vui lòng chọn sản phẩm.</p>}
-          {!selectable && <p className="mt-2 text-xs font-semibold text-amber-800">Các sản phẩm này đều đã có yêu cầu đang xử lý.</p>}
-          <label htmlFor="boost-note" className="mt-5 block text-xs font-bold text-ink-700">Lời nhắn <span className="font-normal text-ink-500">(không bắt buộc)</span></label>
-          <textarea id="boost-note" name="note" rows={3} maxLength={500} placeholder="Ví dụ: thời gian bạn muốn chạy"
+          <p id="boost-product-help" className="mt-1.5 text-xs leading-5 text-ink-500">{copy.help}</p>
+          {selectionError && <p id="boost-product-error" role="alert" className="mt-1 text-xs font-semibold text-rose-600">{copy.selectionError}</p>}
+          {!selectable && <p className="mt-2 text-xs font-semibold text-amber-800">{copy.noneSelectable}</p>}
+          <label htmlFor="boost-note" className="mt-5 block text-xs font-bold text-ink-700">{copy.noteLabel} <span className="font-normal text-ink-500">{copy.noteOptional}</span></label>
+          <textarea id="boost-note" name="note" rows={3} maxLength={500} placeholder={copy.notePlaceholder}
             className="mt-2 block w-full resize-y rounded-lg border border-ink-300 bg-white px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-600 focus:outline-2 focus:outline-offset-2 focus:outline-brand-500" />
-          <p className="mt-1.5 text-xs text-ink-500">Tối đa 500 ký tự.</p>
+          <p className="mt-1.5 text-xs text-ink-500">{copy.noteMax}</p>
           {state.message && <div role={state.ok ? "status" : "alert"} className={`mt-4 flex items-start gap-2 rounded-lg p-3 text-xs leading-5 ${state.ok ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
             {state.ok && <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}{state.message}</div>}
           <button type="submit" disabled={pending || !selectable} className="btn btn-primary mt-5 w-full justify-center">
-            {pending ? "Đang gửi…" : "Gửi yêu cầu"}<ArrowRight className="size-4" aria-hidden="true" />
+            {pending ? copy.sending : copy.submit}<ArrowRight className="size-4" aria-hidden="true" />
           </button>
-          <p className="mt-3 text-center text-xs leading-5 text-ink-500">Gửi yêu cầu không tạo gói hoặc thanh toán.</p>
+          <p className="mt-3 text-center text-xs leading-5 text-ink-500">{copy.disclaimer}</p>
         </form>}
     </div>
   </section>;

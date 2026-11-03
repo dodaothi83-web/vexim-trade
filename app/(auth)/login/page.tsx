@@ -1,52 +1,18 @@
-import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { LoginForm } from "@/components/login-form";
+import { AuthSplitShell } from "@/components/auth-split-shell";
+import { getAuthMessages } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Đăng nhập · Cổng nhà cung cấp" };
-
-/** Lời giải thích khi bị đưa về /login dù cookie phiên vẫn còn */
-const REASON_BOX: Record<string, { title: string; body: ReactNode }> = {
-  not_found: {
-    title: "Phiên đăng nhập hợp lệ nhưng không tìm thấy tài khoản trong bảng app_users",
-    body: (
-      <>
-        Hai khả năng thường gặp:
-        <ul className="mt-1 ml-4 list-disc space-y-1">
-          <li>
-            Máy chủ đang kết nối Supabase bằng <strong>khoá anon</strong> trong khi bảng{" "}
-            <code>app_users</code> bật <strong>Row Level Security</strong>. RLS ẩn dòng chứ không báo
-            lỗi, nên app tưởng tài khoản không tồn tại. Cách sửa: thêm{" "}
-            <code>SUPABASE_SERVICE_ROLE_KEY</code> vào biến môi trường rồi khởi động lại app. Chính
-            sách RLS kiểu “người dùng đã đăng nhập chỉ xem hồ sơ của mình” <strong>không áp dụng cho
-            máy chủ app</strong> — máy chủ luôn truy vấn bằng khoá của app.
-          </li>
-          <li>Tài khoản vừa bị xoá hoặc email trong bảng app_users khác với email đang đăng nhập.</li>
-        </ul>
-      </>
-    ),
-  },
-  locked: {
-    title: "Tài khoản đã bị tạm khoá",
-    body: <>Nhờ quản trị viên mở khoá trong Cài đặt → Người dùng &amp; phân quyền.</>,
-  },
-  unreadable: {
-    title: "Máy chủ không đọc được bảng app_users",
-    body: (
-      <>
-        Thường là do bảng <code>app_users</code> bật Row Level Security nhưng khoá Supabase đang dùng
-        không bỏ qua được RLS. Thêm <code>SUPABASE_SERVICE_ROLE_KEY</code> (khoá service_role,{" "}
-        <strong>không phải anon</strong>) vào biến môi trường rồi khởi động lại app. Đừng tắt RLS để
-        dùng khoá anon — bảng này giữ mật khẩu đã băm.
-      </>
-    ),
-  },
-};
+export async function generateMetadata() {
+  const { m } = await getAuthMessages();
+  return { title: `${m.login.title} · ${m.shell.portalName}` };
+}
 
 export default async function LoginPage({
   searchParams,
@@ -57,60 +23,64 @@ export default async function LoginPage({
   if (session) redirect(session.role === "supplier" ? "/supplier/portal" : "/");
 
   const sp = await searchParams;
-  const reason = REASON_BOX[sp.reason ?? ""];
-  const oauthMessage: Record<string, string> = {
-    unavailable: "Chưa cấu hình Google OAuth hoặc Supabase; vui lòng đăng nhập bằng mật khẩu.",
-    origin: "Tên miền này chưa được cấu hình cho Google OAuth. Liên hệ quản trị Vexim.",
-    cancelled: "Đăng nhập Google bị hủy hoặc phiên đã hết hạn; vui lòng thử lại.",
-    unverified: "Google chưa xác thực email hoặc không trả về danh tính hợp lệ.",
-    existing: "Email này đã có tài khoản trong hệ thống. Hãy chọn Đăng nhập với Google ở đây.",
-    failed: "Không hoàn tất được xác thực Google. Vui lòng thử lại.",
-    invalid: "Yêu cầu đăng nhập Google không hợp lệ.",
-    rate_limited: "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.",
-  };
+  const { locale, m } = await getAuthMessages();
+  const reasonKey = sp.reason === "not_found" || sp.reason === "locked" || sp.reason === "unreadable" ? sp.reason : null;
+  const oauthKey = sp.oauth && sp.oauth in m.login.oauth ? (sp.oauth as keyof typeof m.login.oauth) : null;
 
-  const store = getStore();
   let needsSetup = false;
   try {
-    needsSetup = (await store.countUsers()) === 0;
+    needsSetup = (await getStore().countUsers()) === 0;
   } catch {
     needsSetup = false;
   }
 
   return (
-    <>
-      <h1 className="text-[18px] font-black text-ink-900">Đăng nhập</h1>
-      <p className="mt-1 mb-5 text-[12.5px] leading-relaxed text-ink-500">
-        Quản lý hồ sơ doanh nghiệp, sản phẩm và yêu cầu báo giá từ buyer.
-      </p>
+    <AuthSplitShell
+      caption={m.login.shellCaption}
+      points={m.login.shellPoints}
+    >
+      <h1 className="text-[18px] font-black text-ink-900">{m.login.title}</h1>
+      <p className="mt-1 mb-5 text-[12.5px] leading-relaxed text-ink-500">{m.login.subtitle}</p>
 
-      {reason && (
+      {reasonKey && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-red-900">
-          <p className="font-semibold">{reason.title}</p>
-          <div className="mt-1">{reason.body}</div>
+          <p className="font-semibold">{m.login.reasonTitles[reasonKey]}</p>
+          <div className="mt-1">{m.login.reasonBodies[reasonKey]}</div>
         </div>
       )}
 
       {sp.oauth === "not_allowed" ? (
         <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          Email này chưa có tài khoản nhà cung cấp.{" "}
-          <Link href="/supplier/register" className="font-semibold text-brand-700 underline">
-            Đăng ký tại đây.
+          {m.login.noSupplierAccount}{" "}
+          <Link href="/register" className="font-semibold text-brand-700 underline">
+            {m.login.registerHere}
           </Link>
         </p>
-      ) : sp.oauth && oauthMessage[sp.oauth] ? (
+      ) : oauthKey ? (
         <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          {oauthMessage[sp.oauth]}
+          {m.login.oauth[oauthKey]}
         </p>
       ) : null}
 
-      <LoginForm needsSetup={needsSetup} />
+      <LoginForm needsSetup={needsSetup} messages={m.login} lang={locale} />
+
       <p className="mt-5 text-center text-xs text-ink-600">
-        Doanh nghiệp chưa có tài khoản?{" "}
-        <Link href="/supplier/register" className="font-semibold text-brand-700 underline">
-          Đăng ký miễn phí
+        {m.login.noAccount}{" "}
+        <Link href="/register" className="font-semibold text-brand-700 underline">
+          {m.login.registerFree}
         </Link>
       </p>
-    </>
+      <p className="mt-2 text-center text-xs text-ink-500">
+        {m.login.buyerQuestion}{" "}
+        <Link href="/rfq" className="font-semibold text-brand-700 underline">
+          {m.login.sendQuoteRequest}
+        </Link>{" "}
+        {m.login.noSignInNeeded}, {m.login.orSeeTypes}{" "}
+        <Link href="/register" className="font-semibold text-brand-700 underline">
+          {m.login.seeAccountTypes}
+        </Link>
+        .
+      </p>
+    </AuthSplitShell>
   );
 }

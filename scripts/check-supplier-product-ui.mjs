@@ -6,6 +6,13 @@ import ts from 'typescript';
 import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
+import { loadFormat } from './lib/i18n-format.mjs';
+
+const portal = loadPortalDictionary();
+/** Cổng chuyển dần sang từ điển: render bằng bản tiếng Việt để giữ nguyên các câu đã khoá. */
+const viCopy = { messages: portal.vi.products, lang: 'vi', intl: 'vi-VN' };
+const enCopy = { messages: portal.en.products, lang: 'en', intl: 'en-GB' };
 
 function load(file, mocks) {
   const mod = { exports: {} };
@@ -37,6 +44,7 @@ const { SupplierProductStorefront } = load('../app/supplier/portal/products/prod
   react: React, 'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'lucide-react': icons,
   '@/lib/supplier-portal/product-view': view,
   '@/lib/products/completeness': completenessExports,
+  '@/lib/i18n/format': loadFormat(),
 });
 const product = (id, status, name) => ({ id, supplier_id: 'ours', name, description: 'True example product', spec: '25kg',
   supplier_review_status: status, ready_for_buyer: status === 'approved', ref_price: 5000, currency: 'USD', unit: 'tấn',
@@ -75,7 +83,7 @@ const scoped = view.supplierVisibleProductMedia([
   media('p1', 'other', 'owner', 'internal', 'products/p1/foreign.jpg'),
 ], 'ours', 'owner');
 assert.equal(scoped.length, 2);
-const html = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products, media: scoped, supplierPublished: false }));
+const html = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products, media: scoped, supplierPublished: false, ...viCopy }));
 for (const phrase of ['Cashew W320', 'Cashew W240', 'Cashew W180', 'Cashew paused', 'Bản nháp', 'Chờ duyệt', 'Đã đăng', 'Đã tạm ẩn', 'Trang nhà cung cấp chưa được công khai', 'Tìm sản phẩm của tôi', 'Thêm sản phẩm'])
   assert.ok(html.includes(phrase), `Missing UI content: ${phrase}`);
 assert.match(html, /left-3 top-1\/2 size-4 -translate-y-1\/2 text-ink-400/, 'The search icon is vertically centered in the input');
@@ -86,7 +94,7 @@ const completeProduct = { ...product('p9', 'approved', 'Cashew đủ hồ sơ'),
   keywords: ['cashew', 'w320'], sample_price_usd: 5, package_type: 'bao', package_weight_kg: 22.68 };
 const completeHtml = renderToStaticMarkup(React.createElement(SupplierProductStorefront, {
   products: [completeProduct], supplierPublished: true,
-  media: [media('p9', 'ours', 'staff', 'buyer', 'products/p9/a.jpg')],
+  media: [media('p9', 'ours', 'staff', 'buyer', 'products/p9/a.jpg')], ...viCopy,
 }));
 assert.doesNotMatch(completeHtml, /Hồ sơ \d+%/, 'Hồ sơ đã đủ thì không nhắc thêm');
 assert.doesNotMatch(html, /-tranink-y-1\/2/, 'The misspelled vertical-centering utility does not return');
@@ -100,7 +108,12 @@ assert.ok(html.includes('Sau khi duyệt, sản phẩm được đăng'), 'The l
 assert.ok(!html.includes('aria-label="Phân trang danh sách sản phẩm"'), 'Small product lists do not show an unnecessary pager');
 const pagedProducts = Array.from({ length: 16 }, (_, index) =>
   product(`p${index + 1}`, 'draft', `Cashew lot ${String(index + 1).padStart(2, '0')}`));
-const pagedHtml = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products: pagedProducts, media: [], supplierPublished: true }));
+const pagedHtml = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products: pagedProducts, media: [], supplierPublished: true, ...viCopy }));
+// Ngôn ngữ mặc định là tiếng Anh: cùng component, chỉ đổi từ điển.
+const englishHtml = renderToStaticMarkup(React.createElement(SupplierProductStorefront, { products, media: scoped, supplierPublished: false, ...enCopy }));
+for (const phrase of ['My products', 'Add product', 'Draft', 'In review', 'Needs changes', 'Live', 'Hidden', 'Search my products'])
+  assert.ok(englishHtml.includes(phrase), `Missing English UI content: ${phrase}`);
+assert.doesNotMatch(englishHtml, /Sản phẩm của tôi|Thêm sản phẩm|Chờ duyệt/, 'Bản tiếng Anh không còn câu tiếng Việt');
 assert.match(pagedHtml, /sm:grid-cols-2 sm:p-6 lg:hidden lg:grid-cols-3 xl:grid-cols-5/,
   'Màn hình nhỏ dùng thẻ gọn; từ lg trở lên danh sách chuyển sang bảng dày');
 assert.match(pagedHtml, /<table class="hidden w-full border-collapse text-left lg:table">/,
@@ -120,8 +133,12 @@ assert.match(editor, /const id = product && !dirty \? product\.id : await persis
 assert.match(editor, /submitSupplierProductAction\(form\)/, 'Cổng gửi duyệt vẫn ở server');
 assert.doesNotMatch(editor, /aria-label="Trạng thái công khai"/, 'The separate buyer-visibility panel is removed from the editor');
 assert.doesNotMatch(editor, /tạm khoá sửa/, 'The review step no longer warns about a lock the supplier cannot see');
-assert.match(editor, /label="Thời gian giao hàng"\s*\n\s*hint="Số ngày hoặc tuần từ lúc xác nhận đơn/,
+assert.equal(portal.vi.productEditor.editor.shipping.leadTime, "Thời gian giao hàng",
+  'Lead time keeps its established label');
+assert.match(portal.vi.productEditor.editor.shipping.leadTimeHint, /^Số ngày hoặc tuần từ lúc xác nhận đơn/,
   'Lead time carries one short line explaining what to enter');
+assert.match(editor, /label=\{copy\.shipping\.leadTime\} hint=\{copy\.shipping\.leadTimeHint\}/,
+  'Lead time label and hint come from the dictionary');
 assert.ok(editor.includes('!["approved", "paused"].includes(review) || product?.supplier_originated === true'),
   'Approved or paused supplier-originated products can manage their own media');
 assert.match(editor, /const categoryLocked = review === "approved"/, 'The reviewed category remains staff-controlled');

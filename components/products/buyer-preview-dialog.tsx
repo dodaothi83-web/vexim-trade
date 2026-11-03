@@ -7,6 +7,7 @@ import { ProductDescriptionPreview } from "@/components/products/product-descrip
 import { ProductTradeLabels } from "@/components/product-trade-labels";
 import { QuantityPriceTable } from "@/components/public/quantity-price-table";
 import type { PublicQuantityOffer } from "@/lib/products/quantity-public-projection";
+import { productEditorMessages, type ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 
 export type BuyerPreviewFact = { label: string; value: string };
 export type BuyerPreviewCertificate = { id: string; name: string; validUntil?: string | null };
@@ -49,10 +50,13 @@ function formatValidUntil(value?: string | null): string {
  * chung cách định dạng với bản đã duyệt. Khung ngoài giữ tiếng Việt cho các ghi chú
  * của cổng; phần nội dung giữ nguyên nhãn tiếng Anh như trang người mua.
  */
-export function BuyerPreviewDialog({ open, onClose, data }: {
+export function BuyerPreviewDialog({ open, onClose, data,
+  copy = productEditorMessages.vi.shared.buyerPreview }: {
   open: boolean;
   onClose: () => void;
   data: BuyerPreviewData;
+  /** Ghi chú khung cổng. Nội dung mô phỏng giữ nguyên nhãn tiếng Anh của trang người mua. */
+  copy?: ProductEditorMessages["shared"]["buyerPreview"];
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   // Giữ bản mới nhất của onClose trong ref: mở/đóng chỉ phụ thuộc `open`, không phụ thuộc
@@ -92,17 +96,17 @@ export function BuyerPreviewDialog({ open, onClose, data }: {
       <div className="sticky top-0 z-10 flex flex-wrap items-start gap-x-3 gap-y-1 border-b border-ink-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
         <div className="min-w-0 flex-1">
           <p className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-brand-800 uppercase">
-            <Eye className="size-3.5" aria-hidden="true" /> Bản xem trước
+            <Eye className="size-3.5" aria-hidden="true" /> {copy.badge}
           </p>
-          <h2 className="mt-0.5 text-[15px] leading-6 font-black text-ink-900">Người mua thấy sản phẩm như thế này</h2>
+          <h2 className="mt-0.5 text-[15px] leading-6 font-black text-ink-900">{copy.title}</h2>
           <p className="mt-0.5 text-[11.5px] leading-4 text-ink-500">
-            Dựng từ nội dung bạn đang nhập. Người mua chỉ thấy sau khi sản phẩm được duyệt và đăng.
+            {copy.intro}
           </p>
           {data.dirty && <p className="mt-1 text-[11.5px] leading-4 text-amber-800">
-            Có thay đổi chưa lưu: bản này đang dùng nội dung vừa nhập, chưa phải bản đã lưu.
+            {copy.dirty}
           </p>}
         </div>
-        <button ref={closeRef} type="button" onClick={onClose} aria-label="Đóng bản xem trước"
+        <button ref={closeRef} type="button" onClick={onClose} aria-label={copy.close}
           className="shrink-0 rounded-md border border-ink-200 p-1.5 text-ink-600 hover:bg-ink-50 hover:text-ink-900">
           <X className="size-4" aria-hidden="true" />
         </button>
@@ -117,7 +121,7 @@ export function BuyerPreviewDialog({ open, onClose, data }: {
               ? <img src={cover} alt="" className="size-full object-cover" />
               : <span className="flex size-full flex-col items-center justify-center gap-2 text-ink-400">
                 <ImageIcon className="size-9 stroke-1" aria-hidden="true" />
-                <span className="text-[11.5px] font-semibold">Chưa có ảnh sản phẩm</span>
+                <span className="text-[11.5px] font-semibold">{copy.noPhoto}</span>
               </span>}
           </div>
           {thumbs.length > 0 && <ul className="mt-2 grid grid-cols-5 gap-2">
@@ -134,7 +138,7 @@ export function BuyerPreviewDialog({ open, onClose, data }: {
               {data.supplierProvince && <p className="mt-1 text-[11.5px] font-medium text-ink-600">{data.supplierProvince}, Vietnam</p>}
             </div>
             <p className="px-4 py-3 text-[11px] leading-4 text-ink-500">
-              Liên hệ và báo giá đi qua Vexim; thông tin liên hệ của bạn không hiện ở đây.
+              {copy.contactVia}
             </p>
           </div>
         </div>
@@ -146,7 +150,7 @@ export function BuyerPreviewDialog({ open, onClose, data }: {
             {data.title || "Product name"}
           </h3>
           {!data.hasEnglishTitle && <p className="mt-1 text-[11.5px] leading-4 text-ink-500">
-            Chưa có tên tiếng Anh: người mua sẽ thấy tên này sau khi Vexim dịch và duyệt.
+            {copy.noEnglishName}
           </p>}
           {data.description.trim() && <p className="mt-3 text-[13.5px] leading-relaxed text-ink-700">{data.description}</p>}
 
@@ -156,12 +160,12 @@ export function BuyerPreviewDialog({ open, onClose, data }: {
               <p className="text-[11px] font-bold tracking-wider text-brand-700 uppercase">Reference price</p>
               <p className="mt-0.5 text-lg font-bold text-brand-800">Price on request</p>
               <p className="mt-1 text-[11.5px] leading-4 text-brand-900">
-                Chưa có bảng giá để hiện: người mua sẽ thấy “Price on request”.
+                {copy.noPricing}
               </p>
             </div>}
 
           {!data.pricePubliclyVisible && <p className="mt-2 text-[11.5px] leading-4 text-ink-500">
-            Bạn đang tắt chia sẻ giá nên người mua chỉ thấy “Price on request”.
+            {copy.priceOff}
           </p>}
 
           <div className="mt-4"><ProductTradeLabels oem={data.trade.oem} odm={data.trade.odm} samples={data.trade.samples} /></div>
@@ -169,7 +173,7 @@ export function BuyerPreviewDialog({ open, onClose, data }: {
           {(data.details.length > 0 || data.shipping.length > 0) && <div className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white">
             <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
               <h4 className="text-sm font-bold text-ink-900">Product details</h4>
-              <p className="mt-0.5 text-xs text-ink-500">Khai báo của bạn, người mua đọc đúng những dòng này</p>
+              <p className="mt-0.5 text-xs text-ink-500">{copy.declared}</p>
             </div>
             {data.details.length > 0 && <dl className="divide-y divide-ink-100">
               {data.details.map((fact) => <div key={`d-${fact.label}`} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 px-5 py-2.5 text-[13px]">
@@ -191,7 +195,7 @@ export function BuyerPreviewDialog({ open, onClose, data }: {
           {data.certificates.length > 0 && <div className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white">
             <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-3">
               <h4 className="text-sm font-bold text-ink-900">Certificates</h4>
-              <p className="mt-0.5 text-xs text-ink-500">Chỉ chứng nhận đã được Vexim duyệt gắn mới hiện ở đây</p>
+              <p className="mt-0.5 text-xs text-ink-500">{copy.certificates}</p>
             </div>
             <ul className="divide-y divide-ink-100">
               {data.certificates.map((certificate) => <li key={certificate.id} className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-2.5 text-[13px]">

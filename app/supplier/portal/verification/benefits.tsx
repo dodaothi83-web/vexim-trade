@@ -9,10 +9,10 @@ import { Check, ShieldCheck } from "lucide-react";
  * từng mức, tầng xếp hạng theo số cấp đã duyệt, bộ lọc của người mua, nhận xét đã
  * duyệt. Không hứa đơn hàng, không nói nhân viên sẽ giới thiệu nhà cung cấp.
  */
-export function VerificationBenefits({ items }: { items: readonly string[] }) {
+export function VerificationBenefits({ items, title }: { items: readonly string[]; title: string }) {
   return <section aria-labelledby="benefits-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
     <h2 id="benefits-title" className="flex items-center gap-1.5 text-[13px] font-bold text-brand-900">
-      <ShieldCheck className="h-4 w-4" aria-hidden="true" />Bạn nhận được gì
+      <ShieldCheck className="h-4 w-4" aria-hidden="true" />{title}
     </h2>
     <ul className="mt-2 space-y-1 text-[11.5px] leading-5 text-ink-700">
       {items.map((item) => <li key={item} className="flex items-start gap-1.5">

@@ -556,6 +556,8 @@ export function RfqForm({
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="Shipment month">
+                  {/* Ô chọn tháng của trình duyệt. Placeholder ("---- month ----" / "---- năm ----")
+                      do ngôn ngữ máy người dùng quyết định, không do trang; giá trị vẫn là YYYY-MM. */}
                   <input type="month" className="input" value={data.shipment_month} onChange={(e) => update("shipment_month", e.target.value)} />
                 </Field>
                 <Field label="Purchase frequency">
@@ -666,10 +668,7 @@ export function RfqForm({
                 </div>
                 <label className="mt-2 flex items-start gap-2 text-[12.5px] text-ink-700">
                   <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.share_target_price} onChange={(e) => update("share_target_price", e.target.checked)} />
-                  <span>
-                    Share my target price with suppliers
-                    <span className="mt-0.5 block text-[11.5px] text-ink-500">Only Vexim sees it unless you tick this box.</span>
-                  </span>
+                  <span>Share my target price with suppliers</span>
                 </label>
               </Field>
 
