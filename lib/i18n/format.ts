@@ -1,12 +1,11 @@
 /**
- * Thay giá trị vào chuỗi mẫu dạng `{ten}`.
+ * Thay chỗ giữ `{ten}` trong câu của từ điển.
  *
- * Cố ý không dùng thư viện i18n: chỉ cần nội suy một chiều, và `Intl` lo phần số/ngày.
- * Giá trị thiếu thì giữ nguyên chỗ trống trong ngoặc để lỗi lộ ra ngay trên giao diện,
- * thay vì in ra "undefined".
+ * Câu trong từ điển giữ nguyên chỗ trống thay vì nối chuỗi, để dịch giả đổi được thứ tự
+ * trong câu mà không phải sửa code. Khoá không có trong `values` thì giữ nguyên cả cụm
+ * `{ten}` — thà thấy lỗi ngay trên màn hình còn hơn nuốt mất câu.
  */
 export function fill(template: string, values: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (whole, key: string) =>
-    key in values ? String(values[key]) : whole,
-  );
+    key in values ? String(values[key]) : whole);
 }

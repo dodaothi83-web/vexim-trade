@@ -133,7 +133,7 @@ for (const [key, section] of [['price', 'sec-price'], ['moq', 'sec-price'], ['ph
   assert.match(editor, new RegExp(`${key}: "${section}"`), `${key} phải cuộn tới ${section}`);
 }
 assert.doesNotMatch(editor, /Bổ sung ở bước/, 'không còn địa chỉ theo bước');
-assert.match(storefront, /completenessSummary\(completeness\)/, 'thẻ sản phẩm trong cổng có câu nhắc');
+assert.match(storefront, /completenessSummary\(completeness, \{ \.\.\.m\.summary, lang \}\)/, 'thẻ sản phẩm trong cổng có câu nhắc, đọc từ từ điển theo ngôn ngữ');
 assert.match(crmList, /completenessSummary/, 'CRM thấy cùng số liệu');
 
 /* 8b. Cổng đọc nội dung đang nhập, không đọc bản đã lưu rồi bắt người bán chờ lưu. */

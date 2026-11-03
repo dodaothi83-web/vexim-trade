@@ -428,8 +428,8 @@ assert.match(pdfHtml, /catalogue\.pdf/, 'Khối catalogue gọi tên tệp PDF')
 const storefront = read('../app/supplier/portal/products/product-storefront.tsx');
 assert.match(storefront, /categoryLabels\?: Record<string, string>/, 'Danh sách nhận nhãn danh mục');
 assert.match(storefront, /categoryLabels\[slug\] \?\? slug/, 'Hiện nhãn thay vì slug thô');
-assert.match(storefront, /Ngoài phạm vi/, 'Sản phẩm ngoài phạm vi được đánh dấu');
-assert.match(storefront, /Chọn thêm danh mục/, 'Có lối sang trang Danh mục kinh doanh');
+assert.match(storefront, /copy\.outOfScope/, 'Sản phẩm ngoài phạm vi được đánh dấu, nhãn đọc từ từ điển');
+assert.match(storefront, /copy\.chooseMoreCategories/, 'Có lối sang trang Danh mục kinh doanh');
 const listPage = read('../app/supplier/portal/products/page.tsx');
 assert.match(listPage, /categoryLabels=/, 'Trang danh sách truyền nhãn danh mục');
 assert.match(listPage, /scope=\{\[?scope/, 'Trang danh sách truyền phạm vi danh mục');

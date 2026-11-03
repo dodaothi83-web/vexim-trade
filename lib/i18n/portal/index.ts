@@ -1,5 +1,6 @@
 import type { Locale } from "../config";
 import { shellMessages, type ShellMessages } from "./shell";
+import { productsMessages, type ProductsMessages } from "./products";
 import { overviewMessages, type OverviewMessages } from "./overview";
 import { profileMessages, type ProfileMessages } from "./profile";
 import { onboardingMessages, type OnboardingMessages } from "./onboarding";
@@ -15,6 +16,7 @@ export type PortalMessages = {
   shared: SharedMessages;
   shell: ShellMessages;
   overview: OverviewMessages;
+  products: ProductsMessages;
   profile: ProfileMessages;
   onboarding: OnboardingMessages;
 };
@@ -24,6 +26,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     shared: sharedMessages.en,
     shell: shellMessages.en,
     overview: overviewMessages.en,
+    products: productsMessages.en,
     profile: profileMessages.en,
     onboarding: onboardingMessages.en,
   },
@@ -31,6 +34,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     shared: sharedMessages.vi,
     shell: shellMessages.vi,
     overview: overviewMessages.vi,
+    products: productsMessages.vi,
     profile: profileMessages.vi,
     onboarding: onboardingMessages.vi,
   },

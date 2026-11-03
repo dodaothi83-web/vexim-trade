@@ -36,7 +36,7 @@ function leaves(value, trail) {
   if (Array.isArray(value)) return value.flatMap((item, index) => leaves(item, `${trail}[${index}]`));
   return Object.entries(value).flatMap(([key, item]) => leaves(item, trail ? `${trail}.${key}` : key));
 }
-for (const cluster of ["shared", "shell", "overview", "profile", "onboarding"]) {
+for (const cluster of ["shared", "shell", "overview", "profile", "onboarding", "products"]) {
   assert.deepEqual(
     shape(portal.vi[cluster], cluster),
     shape(portal.en[cluster], cluster),
@@ -66,6 +66,8 @@ const CONVERTED = [
   "app/supplier/portal/profile/profile-edit-form.tsx",
   "app/supplier/portal/profile/profile-actions.ts",
   "app/supplier/portal/profile/edit/page.tsx",
+  "app/supplier/portal/products/page.tsx",
+  "app/supplier/portal/products/product-storefront.tsx",
   "components/supplier-sidebar.tsx",
   "components/supplier-topbar.tsx",
 ];
@@ -181,6 +183,19 @@ const profileActions = read("app/supplier/portal/profile/profile-actions.ts");
 assert.match(profileActions, /getPortalMessages\(\)/, "Thông báo của server action theo ngôn ngữ đang chọn");
 assert.doesNotMatch(profileActions, /message: "/, "Không trả thông báo viết cứng từ server action");
 
+/* 3c. Cụm 3a: danh sách sản phẩm. */
+const listPage = read("app/supplier/portal/products/page.tsx");
+assert.match(listPage, /const \{ locale, intl, m \} = await getPortalMessages\(\)/, "Trang danh sách đọc từ điển một lần");
+assert.match(listPage, /messages=\{m\.products\}/, "Danh sách sản phẩm nhận chuỗi từ từ điển");
+assert.match(listPage, /intl=\{intl\}/, "Danh sách định dạng số và ngày theo ngôn ngữ");
+const storefront = read("app/supplier/portal/products/product-storefront.tsx");
+assert.doesNotMatch(storefront, /"(?:vi-VN)"/, "Danh sách không còn khoá cứng vi-VN cho số và ngày");
+assert.match(storefront, /useMemo\(\(\) => Object\.fromEntries/, "Bộ lọc dựng từ danh sách id, nhãn lấy từ từ điển");
+// Thang đo hoàn thiện dùng chung với CRM: CRM vẫn tiếng Việt, cổng đọc nhãn theo ngôn ngữ.
+const completeness = read("lib/products/completeness.ts");
+assert.match(completeness, /labelEn:/, "Mỗi mục hoàn thiện có nhãn tiếng Anh");
+assert.match(completeness, /copy\.lang === "en" \? result\.next\.labelEn/, "Câu nhắc chọn nhãn theo ngôn ngữ");
+
 /* 4. Ngôn ngữ của cổng lấy từ cookie, không đổi URL. */
 const layout = read("app/layout.tsx");
 assert.match(layout, /isLocalizedPath\(pathname\)/, "layout dùng đúng phạm vi đa ngôn ngữ");
@@ -214,4 +229,4 @@ const sidebar = read("components/supplier-sidebar.tsx");
 assert.match(sidebar, /labelKey: keyof ShellMessages\["nav"\]/, "menu giữ khoá, không giữ chữ");
 assert.doesNotMatch(sidebar, /label: "Tổng quan"/, "nhãn menu không còn viết cứng");
 
-console.log("✅ Portal i18n (cụm 1 + 2: khung, tổng quan, hồ sơ doanh nghiệp): đủ khoá, không lẫn tiếng Việt trong bản tiếng Anh, mô hình tiến độ nói được cả hai ngôn ngữ.");
+console.log("✅ Portal i18n (cụm 1 + 2 + 3a: khung, tổng quan, hồ sơ, danh sách sản phẩm): đủ khoá, không lẫn tiếng Việt trong bản tiếng Anh, mô hình tiến độ nói được cả hai ngôn ngữ.");

@@ -4,15 +4,20 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
 import { repairAttachedBankMedia } from "@/lib/supplier-portal/bank-media";
 import { allowedSupplierCategories, categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
+import { getPortalMessages } from "@/lib/i18n/server";
 import { SupplierProductStorefront } from "./product-storefront";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Sản phẩm của tôi", robots: { index: false, follow: false } };
+export async function generateMetadata() {
+  const { m } = await getPortalMessages();
+  return { title: m.products.list.title, robots: { index: false, follow: false } };
+}
 
 export default async function SupplierProductsPage() {
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
+  const { locale, intl, m } = await getPortalMessages();
   const [products, allCategories] = await Promise.all([
     access.store.listProductsBySupplier(access.supplier.id),
     access.store.listCategories({ publishedOnly: true }),
@@ -34,5 +39,8 @@ export default async function SupplierProductsPage() {
     supplierPublished={access.supplier.status === "published"}
     categoryLabels={categoryLabels}
     scope={scope}
+    messages={m.products}
+    lang={locale}
+    intl={intl}
   />;
 }
