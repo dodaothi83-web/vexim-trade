@@ -15,6 +15,28 @@ Tài liệu này mô tả kiểm soát trong mã. Cấu hình Production vẫn p
 
 Challenge chống bot là proof-of-work tự chủ (`lib/security/challenge.ts`): server phát challenge có chữ ký HMAC theo từng form, trình duyệt tính ngầm ~1 giây rồi submit kèm nonce; server kiểm chứng chữ ký, hạn dùng, kết quả băm và salt đã tiêu. KHÔNG còn phụ thuộc dịch vụ ngoài (Cloudflare) nên không có trạng thái mất kết nối. Token thiếu, sai, hết hạn hoặc dùng lại sẽ không tới bước xác thực mật khẩu hoặc tạo tài khoản. Form tạo challenge mới sau mỗi lần gửi lỗi vì một salt chỉ được tiêu một lần.
 
+## Cửa vào tài khoản
+
+`/register` là trang chọn loại tài khoản duy nhất, tách rõ hai loại người dùng ngay từ đầu:
+
+| Lựa chọn | Dẫn tới | Ghi chú |
+| --- | --- | --- |
+| Buyer | `/rfq` (gửi yêu cầu báo giá) | **Chưa có tài khoản người mua.** Trang phải nói thật điều này, không mời tạo tài khoản chưa tồn tại |
+| Supplier | `/supplier/register` (biểu mẫu tiếng Việt) | Giữ nguyên hai bước: tài khoản → hồ sơ doanh nghiệp → Vexim duyệt |
+
+Lý do có trang này: header công khai chỉ có "Supplier sign in", nên người mua quốc tế bấm vào
+sẽ gặp biểu mẫu đăng ký bán hàng bằng tiếng Việt. Nay `/login` dẫn tiếp tới `/register`, và
+người mua được chỉ thẳng về phễu báo giá.
+
+Nguyên tắc không đổi: **gửi yêu cầu báo giá không cần tài khoản**. Không thêm bước đăng nhập
+vào phễu RFQ, kể cả khi mở tài khoản người mua ở giai đoạn sau; khi đó bảng riêng
+`buyer_accounts` (nối `auth_user_id` với `buyers.id`) sẽ được dùng, **không** thêm vai trò vào
+`app_users` vì bảng đó giữ mật khẩu băm và quyền nội bộ.
+
+`scripts/check-register-chooser.mjs` (chạy trong `npm run check:entry`, có trong CI) chặn:
+dẫn chéo giữa hai loại, trỏ tới route chưa tồn tại, hứa hẹn tài khoản người mua, và việc biến
+yêu cầu báo giá thành phải đăng nhập.
+
 ## Giới hạn lượt
 
 Các bucket dùng fixed window và chỉ gửi SHA-256 fingerprint tới Redis, không gửi IP hoặc email thô.

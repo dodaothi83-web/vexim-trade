@@ -37,6 +37,8 @@ jobs:
             command: check:copy
           - label: Luồng RFQ
             command: check:rfq
+          - label: Lối vào tài khoản
+            command: check:entry
     steps:
       - uses: actions/checkout@v4
 

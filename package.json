@@ -16,6 +16,7 @@
     "check:loading-port": "node --experimental-strip-types --no-warnings scripts/check-product-detail-display.mjs && node --experimental-strip-types --no-warnings scripts/check-loading-port.mjs",
     "check:category-filters": "node --experimental-strip-types --no-warnings scripts/check-category-filters-migration.mjs && node --experimental-strip-types --no-warnings scripts/check-category-grade-filter.mjs && node --experimental-strip-types --no-warnings scripts/check-category-pagination.mjs",
     "check:public-sign-in": "node scripts/check-public-sign-in.mjs",
+    "check:entry": "node scripts/check-public-sign-in.mjs && node --experimental-strip-types --no-warnings scripts/check-register-chooser.mjs",
     "check:search": "node --experimental-strip-types --no-warnings scripts/check-search-relevance.mjs && node --experimental-strip-types --no-warnings scripts/check-marketplace-search.mjs && node --experimental-strip-types --no-warnings scripts/check-home-feed-order.mjs",
     "check:product-card": "node scripts/check-product-card-grade.mjs",
     "check:copy": "node scripts/check-ui-copy.mjs",

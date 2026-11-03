@@ -111,6 +111,17 @@ export default async function LoginPage({
           Đăng ký miễn phí
         </Link>
       </p>
+      <p className="mt-2 text-center text-xs text-ink-500">
+        Bạn là người mua?{" "}
+        <Link href="/rfq" className="font-semibold text-brand-700 underline">
+          Gửi yêu cầu báo giá
+        </Link>{" "}
+        không cần đăng nhập, hoặc{" "}
+        <Link href="/register" className="font-semibold text-brand-700 underline">
+          xem hai loại tài khoản
+        </Link>
+        .
+      </p>
     </>
   );
 }
