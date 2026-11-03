@@ -20,10 +20,20 @@ const LINK_ERRORS: Record<string, string> = {
   invalid: "That sign-in link is not valid. Request a new email.",
 };
 
+/** Lỗi từ luồng "Continue with Google", cũng đổi sang câu người dùng hiểu được. */
+const OAUTH_ERRORS: Record<string, string> = {
+  cancelled: "Google sign-in was cancelled. You can try again, or use an email code below.",
+  unverified: "That Google account has no verified email, so we cannot sign you in. Use your work email instead.",
+  unavailable: "Google sign-in is not available right now. Use your work email instead.",
+  rate_limited: "Too many attempts. Please wait a few minutes and try again.",
+  failed: "We could not finish signing you in with Google. Please try again, or use your work email.",
+  origin: "Google sign-in was not started from Vexim Trade. Please try again from this page.",
+};
+
 export default async function BuyerSignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; oauth?: string }>;
 }) {
   const sp = await searchParams;
   const next = safeNextPath(sp.next);
@@ -31,6 +41,7 @@ export default async function BuyerSignInPage({
   if (await getBuyerSession()) redirect(next ?? "/");
 
   const error = sp.error ? LINK_ERRORS[sp.error] ?? null : null;
+  const oauthError = sp.oauth ? OAUTH_ERRORS[sp.oauth] ?? null : null;
 
   return (
     <AuthSplitShell
@@ -48,7 +59,7 @@ export default async function BuyerSignInPage({
         We email you a 6-digit code. It works once and expires in 15 minutes.
       </p>
 
-      <BuyerSignInForm next={next} initialError={error} />
+      <BuyerSignInForm next={next} initialError={error} initialOauthError={oauthError} />
 
       <p className="mt-6 border-t border-ink-100 pt-4 text-[12px] leading-relaxed text-ink-500">
         Selling to buyers instead?{" "}

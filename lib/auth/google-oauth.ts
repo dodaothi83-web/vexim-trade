@@ -7,11 +7,20 @@ import { supabaseUrl } from "@/lib/db/supabase";
 import { SITE_URL } from "@/lib/site";
 
 export const GOOGLE_FLOW_COOKIE = "vxt_google_flow";
+/**
+ * Phiên OAuth của NGƯỜI MUA dùng cookie riêng.
+ *
+ * Dùng chung `vxt_google_flow` với luồng nhà cung cấp thì một tab đang đăng ký nhà cung cấp
+ * có thể bị callback của luồng người mua tiêu mất, và ngược lại. Tách cookie rẻ hơn nhiều
+ * so với việc gỡ hai luồng dính vào nhau.
+ */
+export const GOOGLE_BUYER_FLOW_COOKIE = "vxt_google_buyer_flow";
 export const GOOGLE_SIGNUP_COOKIE = "vxt_google_signup";
 export const GOOGLE_FLOW_AGE = 600;
 export const GOOGLE_SIGNUP_AGE = 1800;
 
-type Flow = { intent: "login" | "signup"; items: Record<string, string> };
+type Flow = { intent: GoogleFlowIntent; items: Record<string, string>; next?: string | null };
+export type GoogleFlowIntent = "login" | "signup" | "buyer";
 type Ticket = { id: string; email: string; exp: number };
 
 export function isVerifiedGoogleUser(user: User | null | undefined): user is User & { email: string } {
@@ -43,9 +52,11 @@ export function parseGoogleFlow(raw: string | undefined): Flow | null {
   try {
     if (!raw || raw.length > 6000) return null;
     const parsed = JSON.parse(raw) as Flow;
-    if (parsed.intent !== "login" && parsed.intent !== "signup") return null;
+    if (parsed.intent !== "login" && parsed.intent !== "signup" && parsed.intent !== "buyer") return null;
     if (!parsed.items || typeof parsed.items !== "object" || Object.keys(parsed.items).length > 8 ||
         !Object.entries(parsed.items).every(([key, val]) => key.length < 180 && typeof val === "string" && val.length < 1200)) return null;
+    // Đích quay lại của người mua: chỉ nhận đường dẫn nội bộ, chặn open redirect.
+    if (parsed.next !== undefined && parsed.next !== null && (typeof parsed.next !== "string" || parsed.next.length > 500 || !parsed.next.startsWith("/") || parsed.next.startsWith("//") || parsed.next.startsWith("/\\"))) return null;
     return parsed;
   } catch { return null; }
 }

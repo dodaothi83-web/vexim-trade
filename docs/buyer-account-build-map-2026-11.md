@@ -144,3 +144,21 @@ luồng đăng nhập chạy thật trước rồi mới quyết tiếp, mình d
 | 4 | Yêu thích lưu `jsonb` trên tài khoản (thay vì bảng riêng)? | **Có** — đủ dùng, ít code hơn hẳn; tách bảng sau nếu cần thống kê |
 
 Bạn chốt 4 câu này thì mình bắt đầu bước 1 và 2 ngay trong nhánh này.
+
+## 9. Đăng nhập / đăng ký bằng Google cho người mua (bổ sung 2026-11-03)
+
+Nút **Continue with Google** nằm ngay trên form email ở `/buyer/sign-in` (icon chữ G bốn màu
+chính thức, vẽ bằng SVG nội tuyến trong `components/google-g-icon.tsx`, không tải ảnh từ ngoài).
+
+| Phần | Tệp | Ghi chú |
+| --- | --- | --- |
+| Bắt đầu luồng | `app/api/auth/google/buyer/start/route.ts` | Kiểm phiên người mua, `safeNextPath(next)` nằm trong cookie phiên, rate limit dùng luồng `buyer-sign-in`, chỉ xin scope `email profile` |
+| Callback | `app/api/auth/google/buyer/callback/route.ts` | Đòi `isVerifiedGoogleUser`, tạo `buyer_users` nếu email chưa có (điền sẵn tên công ty từ `buyers`), cấp cookie `vxt_buyer` |
+| Cookie phiên OAuth | `vxt_google_buyer_flow` (`lib/auth/google-oauth.ts`) | **Tách khỏi** `vxt_google_flow` của nhà cung cấp: một tab đăng ký NCC không tiêu mất phiên của tab người mua và ngược lại. `parseGoogleFlow()` chỉ nhận thêm `intent: "buyer"` + `next` là đường dẫn nội bộ |
+| Icon | `components/google-g-icon.tsx` | Path chuẩn của Google, `aria-hidden`; nút luôn có nhãn chữ nên không phải icon trần |
+| Lỗi | `?oauth=cancelled\|unverified\|unavailable\|rate_limited\|failed\|origin` | Bảng `OAUTH_ERRORS` ở trang đăng nhập, hiện trong form như lỗi email |
+| Check | `scripts/check-buyer-google-sign-in.mjs` (`npm run check:buyer-google`, có trong `check:entry`) | Chặn: sai icon/màu, trỏ nhầm luồng nhà cung cấp, mất `next`, callback cấp `app_users`/`role`, thiếu cookie trong chính sách cookie |
+
+Nguyên tắc giữ nguyên: Google chỉ **xác thực email**, không cấp quyền nội bộ, không tạo hồ sơ
+nhà cung cấp, không đụng `app_users`. Đăng nhập và đăng ký vẫn là một bước như luồng mã 6 số:
+email Google đã xác minh mà chưa có tài khoản thì tạo luôn, `verified_at` đóng dấu ngay.
