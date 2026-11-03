@@ -44,6 +44,8 @@ import type {
   SupplierSubmissionLink,
   SupplierVerificationRequest,
   SupplierCategory,
+  SupplierCategoryRequest,
+  SupplierCategoryRequestInput,
   SupplierProduct,
   SupplierProductInput,
   SupplierProductReviewStatus,
@@ -144,6 +146,18 @@ export interface DataStore {
   // ----- Người dùng & phân quyền -----
   listUsers(): Promise<AppUser[]>;
   countUsers(): Promise<number>;
+  // ----- Ngành NCC tự khai (yêu cầu mở danh mục) -----
+  /** Yêu cầu còn chờ của một NCC; nộp lại chỉ cập nhật dòng cũ, không sinh hàng trùng. */
+  upsertSupplierCategoryRequests(supplierId: string, requests: SupplierCategoryRequestInput[]): Promise<SupplierCategoryRequest[]>;
+  /** Mọi yêu cầu của một NCC, mới nhất trước — NCC đọc được câu trả lời của mình. */
+  listSupplierCategoryRequests(supplierId: string): Promise<SupplierCategoryRequest[]>;
+  /** Toàn bộ yêu cầu còn chờ, cho trang gom nhóm của CRM. */
+  listPendingSupplierCategoryRequests(): Promise<SupplierCategoryRequest[]>;
+  /** Nhân viên chốt một yêu cầu: mở (kèm danh mục) hoặc từ chối (kèm lý do). */
+  decideSupplierCategoryRequest(input: {
+    id: string; status: "opened" | "rejected"; categorySlug: string | null; note: string | null; decidedBy: string | null;
+  }): Promise<SupplierCategoryRequest | null>;
+
   /**
    * Việc phía NCC đang chờ Vexim: tài khoản đã tạo mà chưa nộp hồ sơ, cộng hồ sơ đã nộp
    * nhưng chưa được xác nhận quyền cổng. Badge menu Nhà cung cấp.

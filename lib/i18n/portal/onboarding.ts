@@ -126,7 +126,7 @@ const en = {
       "Choose from the categories that are open.",
       "Once the account is approved, products can only be filed under these, and still need review before they go public.",
     ],
-    none: "No category is open yet. Contact support before sending the profile.",
+    none: "No category is open yet. Tell us what you sell in the box below so support can open it, then send the profile.",
   },
   picker: {
     aria: "Choose an open category",
@@ -137,6 +137,14 @@ const en = {
     counter: "{count}/5 chosen.",
     hint: "Picking one adds it straight away; press × to remove.",
     note: "Only open categories are listed, and your products must sit inside one of them.",
+    otherLabel: "My industry is not listed",
+    otherPlaceholder: "For example: coconut, bamboo",
+    otherHint: "Write at most 2 industries, separated by commas. This is a request for support to open the category: it does not add a category to your account or unlock products.",
+    otherPromise: "Vexim reviews this industry within 3 working days and replies by email. Your company profile is still reviewed, and you can publish products once the industry is open.",
+    requestsTitle: "Industries you asked us to open",
+    requestStatus: { pending: "Being reviewed", opened: "Opened", rejected: "Not opened yet" },
+    requestNote: "Reason: {note}",
+    requestOpenedIn: "Open as category: {category}",
   },
   form: {
     header: "Complete your company profile",
@@ -149,8 +157,8 @@ const en = {
     submit: "Send for review",
     errors: {
       requiredInStep: "A required field in this step is empty or malformed. Please check it again.",
-      noCategory: "Choose at least one business category in the box above.",
-      noCategorySubmit: "Choose at least one business category before sending the profile.",
+      noCategory: "Choose at least one business category, or write the industry you sell in.",
+      noCategorySubmit: "Choose at least one business category, or write the industry you sell in before sending.",
       noCoreDoc: "Upload the business registration certificate for your company.",
       consent: "Please tick the box agreeing to the Terms of Service before sending.",
       accuracy:
@@ -317,7 +325,7 @@ const vi: OnboardingMessages = {
       "Chọn trong các danh mục đang mở.",
       "Sau khi tài khoản được duyệt, sản phẩm chỉ gắn trong phạm vi này và vẫn phải duyệt trước khi công khai.",
     ],
-    none: "Chưa có danh mục nào đang mở. Liên hệ bộ phận hỗ trợ trước khi gửi hồ sơ.",
+    none: "Chưa có danh mục nào đang mở. Ghi ngành bạn bán ở ô bên dưới để bộ phận hỗ trợ mở, rồi gửi hồ sơ.",
   },
   picker: {
     aria: "Chọn danh mục đang mở",
@@ -328,6 +336,14 @@ const vi: OnboardingMessages = {
     counter: "Đã chọn {count}/5.",
     hint: "Chọn trong ô là danh mục được thêm ngay, bấm dấu × để bỏ.",
     note: "Chỉ chọn được danh mục đang mở; sản phẩm của bạn phải thuộc một trong các danh mục này.",
+    otherLabel: "Ngành của tôi chưa có trong danh sách",
+    otherPlaceholder: "Ví dụ: dừa, tre",
+    otherHint: "Ghi tối đa 2 ngành, cách nhau bằng dấu phẩy. Đây là yêu cầu mở danh mục: nó không thêm danh mục vào tài khoản và không mở quyền đăng sản phẩm.", // copy-allow: khối giải thích nhiều vế, cùng nội dung với bản tiếng Anh
+    otherPromise: "Vexim sẽ xem xét mở ngành này trong 3 ngày làm việc và báo bạn qua email. Hồ sơ doanh nghiệp vẫn được duyệt, sản phẩm đăng được khi ngành đã mở.", // copy-allow — câu cam kết do người đặt yêu cầu chốt, giữ nguyên văn
+    requestsTitle: "Ngành bạn đã đề nghị mở",
+    requestStatus: { pending: "Đang xem xét", opened: "Đã mở", rejected: "Chưa mở" },
+    requestNote: "Lý do: {note}",
+    requestOpenedIn: "Mở thành danh mục: {category}",
   },
   form: {
     header: "Hoàn thành hồ sơ doanh nghiệp",
@@ -340,8 +356,8 @@ const vi: OnboardingMessages = {
     submit: "Gửi hồ sơ duyệt",
     errors: {
       requiredInStep: "Còn trường bắt buộc chưa điền hoặc chưa đúng định dạng ở bước này. Vui lòng kiểm tra lại.",
-      noCategory: "Chọn ít nhất một danh mục kinh doanh ở ô phía trên.",
-      noCategorySubmit: "Chọn ít nhất một danh mục kinh doanh trước khi gửi hồ sơ.",
+      noCategory: "Chọn ít nhất một danh mục kinh doanh, hoặc ghi ngành bạn bán ở ô phía trên.",
+      noCategorySubmit: "Chọn ít nhất một danh mục kinh doanh, hoặc ghi ngành bạn bán trước khi gửi hồ sơ.",
       noCoreDoc: "Tải Giấy chứng nhận đăng ký kinh doanh của doanh nghiệp bạn.",
       consent: "Vui lòng tích ô đồng ý với Điều khoản sử dụng trước khi gửi hồ sơ.",
       accuracy:

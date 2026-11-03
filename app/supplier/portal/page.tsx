@@ -9,6 +9,7 @@ import { canSubmitProfile, portalApproved } from "@/lib/supplier-portal/onboardi
 import { buildSupplierRfqBoard } from "@/lib/supplier-portal/dashboard";
 import { productReview } from "@/lib/supplier-portal/product-view";
 import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
+import { categoryRequestViews } from "@/lib/supplier-portal/requested-category";
 import { isL1BusinessLicense } from "@/lib/verification";
 import { daysUntilExpiry } from "@/lib/certificate-service";
 import { migrationHint } from "@/lib/db/migration-hints";
@@ -41,6 +42,7 @@ export default async function SupplierPortal() {
   if (!account) redirect("/login");
   if (!account.user.supplier_id) {
     const categories = categoryProposalOptions(await account.store.listCategories({ publishedOnly: true }));
+    // Chưa có hồ sơ thì cũng chưa có yêu cầu ngành; tham số rỗng để form hiện đúng khung.
     return <>
       {/* Không đặt bước ở đây: biểu mẫu đã có một chỉ báo tiến trình duy nhất ở cột phải. */}
       <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={account.user.email} />
@@ -52,6 +54,14 @@ export default async function SupplierPortal() {
   const { supplier, review, reviews, user, store } = access;
   const categoryOptions = !portalApproved(supplier) && canSubmitProfile(supplier)
     ? categoryProposalOptions(await store.listCategories({ publishedOnly: true })) : [];
+  // Yêu cầu mở ngành đã gửi: NCC đọc được câu trả lời (đang xem xét / đã mở / lý do từ chối)
+  // ngay trong form. Bảng lỗi/thiếu migration không được làm hỏng trang.
+  const categoryRows = !portalApproved(supplier) && canSubmitProfile(supplier)
+    ? await store.listSupplierCategoryRequests(supplier.id).catch((error) => {
+        console.error("[supplier-portal] could not read category requests", error);
+        return [];
+      })
+    : [];
   // Giấy xác minh đã có trong đợt kiểm trước thì không bắt NCC tải lại khi bổ sung hồ sơ.
   const hasCoreDoc = !portalApproved(supplier) && canSubmitProfile(supplier) && !!review &&
     (await store.listMedia("verification", review.id)).some((m) => m.storage_path && isL1BusinessLicense(m.checklist_key));
@@ -65,12 +75,29 @@ export default async function SupplierPortal() {
         {supplier.onboarding_note &&
           <p className="mt-2 whitespace-pre-wrap">{fill(copy.changesRequested.note, { note: supplier.onboarding_note })}</p>}
       </div>}
-      <div className="mt-5"><SupplierProfileForm supplier={supplier} email={user.email} accountName={user.name} categories={categoryOptions} hasCoreDoc={hasCoreDoc} messages={m.onboarding} types={m.shared.supplierTypes} lang={locale} /></div>
+      <div className="mt-5"><SupplierProfileForm supplier={supplier} email={user.email} accountName={user.name} categories={categoryOptions}
+        categoryRequests={categoryRequestViews(categoryRows)} hasCoreDoc={hasCoreDoc} messages={m.onboarding} types={m.shared.supplierTypes} lang={locale} /></div>
     </> : <><PendingProfileRefresh lang={locale}>{copy.pendingRefresh}</PendingProfileRefresh><div className="rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
       <h2 className="text-base font-bold text-amber-950">{copy.pending.title}</h2>
       <p className="mt-2 text-sm text-amber-900">{fill(copy.pending.body, { company: supplier.name })}</p>
       <p className="mt-3 text-xs text-amber-800">{copy.pending.disclaimer}</p>
     </div>
+    {/* Hồ sơ đang chờ duyệt vẫn phải thấy câu trả lời về ngành họ đề nghị, nếu không họ sẽ
+        tưởng yêu cầu bị bỏ quên và đăng ký tài khoản thứ hai. */}
+    {categoryRows.length > 0 && <div className="mt-3 rounded-xl border border-ink-200 bg-white p-4">
+      <p className="text-sm font-bold text-ink-900">{m.onboarding.picker.requestsTitle}</p>
+      <ul className="mt-2 space-y-1 text-[12.5px] leading-snug">
+        {categoryRequestViews(categoryRows).map((request) => <li key={`${request.label}-${request.status}`} className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-semibold text-ink-800">{request.label}</span>
+          <span className={request.status === "opened" ? "font-semibold text-emerald-700"
+            : request.status === "rejected" ? "font-semibold text-rose-700" : "font-semibold text-amber-700"}>
+            {m.onboarding.picker.requestStatus[request.status]}
+          </span>
+          {request.status === "rejected" && request.note &&
+            <span className="text-ink-600">{fill(m.onboarding.picker.requestNote, { note: request.note })}</span>}
+        </li>)}
+      </ul>
+    </div>}
     <div className="mt-5"><PortalSteps stages={[
       { label: copy.pending.steps.submit.label, state: "done", note: copy.pending.steps.submit.note },
       { label: copy.pending.steps.review.label, state: "current", note: copy.pending.steps.review.note },
