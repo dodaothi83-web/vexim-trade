@@ -105,10 +105,11 @@ assert.match(loginForm, /href="\/auth\/forgot-password"/);
 assert.match(vi.login.forgotPassword, /Quên mật khẩu\?/);
 assert.doesNotMatch(loginForm, /Google chỉ xác thực email/);
 
-// 5. Buyer header button says "Supplier sign in"
+// 5. Public header opens the account chooser with an accessible icon
 const publicSignIn = read("components/public-sign-in-link.tsx");
-assert.match(publicSignIn, /"Supplier sign in"/);
-assert.doesNotMatch(publicSignIn, /:\s*"Sign in"/);
+assert.match(publicSignIn, /href="\/register"/);
+assert.match(publicSignIn, /aria-label=\{label\}/);
+assert.match(publicSignIn, /title=\{label\}/);
 
 // 6. Password-reset HMAC token single-use & expiry guarantees
 const resetLib = loadTs("lib/auth/password-reset.ts", {
