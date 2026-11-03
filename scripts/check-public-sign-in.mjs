@@ -103,6 +103,7 @@ const LoginPage = load('../app/(auth)/login/page.tsx', {
   '@/lib/auth/session': { getSession: async () => session },
   '@/lib/auth/authenticate': { supabaseAuthReachable: async () => true },
   '@/components/login-form': { LoginForm: () => React.createElement('form', { 'data-login-form': true }) },
+  '@/components/auth-split-shell': { AuthSplitShell: ({ children }) => React.createElement('div', null, children) },
 }).default;
 const props = { searchParams: Promise.resolve({}) };
 html = renderToStaticMarkup(await LoginPage(props));

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { LoginForm } from "@/components/login-form";
+import { AuthSplitShell } from "@/components/auth-split-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +79,14 @@ export default async function LoginPage({
   }
 
   return (
-    <>
+    <AuthSplitShell
+      caption="Đăng nhập để quản lý hồ sơ doanh nghiệp và yêu cầu báo giá."
+      points={[
+        "Dành cho nhà cung cấp và đội ngũ Vexim.",
+        "Người mua không cần đăng nhập để gửi yêu cầu báo giá.",
+        "Thông tin liên hệ của người mua chỉ chia sẻ khi họ đồng ý giới thiệu.",
+      ]}
+    >
       <h1 className="text-[18px] font-black text-ink-900">Đăng nhập</h1>
       <p className="mt-1 mb-5 text-[12.5px] leading-relaxed text-ink-500">
         Quản lý hồ sơ doanh nghiệp, sản phẩm và yêu cầu báo giá từ buyer.
@@ -122,6 +130,6 @@ export default async function LoginPage({
         </Link>
         .
       </p>
-    </>
+    </AuthSplitShell>
   );
 }

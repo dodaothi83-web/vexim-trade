@@ -17,7 +17,14 @@ Challenge chống bot là proof-of-work tự chủ (`lib/security/challenge.ts`)
 
 ## Cửa vào tài khoản
 
-`/register` là trang chọn loại tài khoản duy nhất, tách rõ hai loại người dùng ngay từ đầu:
+Các trang tài khoản (`/login`, `/register`, `/supplier/register`) dùng chung một khung hai cột
+(`components/auth-split-shell.tsx`): cột trái là ảnh thật của đội Vexim trong xưởng
+(`/images/hero-scene.jpg`, ảnh có sẵn của site, không tải từ nguồn ngoài) kèm vài dòng mô tả;
+cột phải là **form thuần**. Mọi đoạn giải thích dài được đưa ra ngoài form — nội dung quy trình
+nằm ở màn chọn loại tài khoản và ở danh sách ghi chú của khung, không nhồi vào biểu mẫu.
+
+`/register` là trang chọn loại tài khoản duy nhất, tách rõ hai loại người dùng ngay từ đầu
+(hai thẻ radio + nút Continue, mặc định là Buyer):
 
 | Lựa chọn | Dẫn tới | Ghi chú |
 | --- | --- | --- |
@@ -33,9 +40,10 @@ vào phễu RFQ, kể cả khi mở tài khoản người mua ở giai đoạn s
 `buyer_accounts` (nối `auth_user_id` với `buyers.id`) sẽ được dùng, **không** thêm vai trò vào
 `app_users` vì bảng đó giữ mật khẩu băm và quyền nội bộ.
 
-`scripts/check-register-chooser.mjs` (chạy trong `npm run check:entry`, có trong CI) chặn:
-dẫn chéo giữa hai loại, trỏ tới route chưa tồn tại, hứa hẹn tài khoản người mua, và việc biến
-yêu cầu báo giá thành phải đăng nhập.
+`scripts/check-register-chooser.mjs` (chạy trong `npm run check:entry`, có trong CI) render thật
+cả trang và bộ chọn, rồi chặn: dẫn chéo giữa hai loại, trỏ tới route chưa tồn tại, hứa hẹn tài
+khoản người mua, nhồi lại đoạn văn dài vào form đăng ký nhà cung cấp, tải ảnh từ nguồn ngoài, và
+việc biến yêu cầu báo giá thành phải đăng nhập.
 
 ## Giới hạn lượt
 

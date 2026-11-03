@@ -37,14 +37,20 @@ function loadTs(rel, mocks = {}) {
 
 import importCryptoSync from "node:crypto";
 
-// 1. Auth layout subtitle & Vietnamese legal links
+// 1. Khung trang tài khoản: hai cột, liên kết pháp lý tiếng Việt
+//    (layout chỉ còn là khung nền, nên kiểm văn phong ở khung dùng chung)
+const authShell = read("components/auth-split-shell.tsx");
+assert.match(authShell, /Chính sách bảo mật/);
+assert.match(authShell, /Điều khoản sử dụng/);
+assert.match(authShell, /href="\/chinh-sach-bao-mat"/);
+assert.match(authShell, /href="\/dieu-khoan-su-dung"/);
+assert.doesNotMatch(authShell, /href="\/privacy-policy"/);
+assert.doesNotMatch(authShell, /href="\/terms-of-service"/);
+assert.doesNotMatch(authShell, /Cổng nhân viên/);
+// Layout không được bọc thêm thẻ thứ hai quanh khung đã có
 const authLayout = read("app/(auth)/layout.tsx");
-assert.match(authLayout, /Cổng nhà cung cấp/);
-assert.doesNotMatch(authLayout, /Cổng nhân viên/);
-assert.match(authLayout, /href="\/chinh-sach-bao-mat"[^>]*>Chính sách bảo mật/);
-assert.match(authLayout, /href="\/dieu-khoan-su-dung"[^>]*>Điều khoản sử dụng/);
-assert.doesNotMatch(authLayout, /href="\/privacy-policy"/);
-assert.doesNotMatch(authLayout, /href="\/terms-of-service"/);
+assert.doesNotMatch(authLayout, /className="card/, "Layout không bọc thẻ lồng thẻ");
+assert.doesNotMatch(authLayout, /bg-gradient-to-br/, "Nền tối đã chuyển vào ảnh của khung hai cột");
 
 // 2. Login page copy, Google OAuth not_allowed error, and bottom registration CTA
 const loginPage = read("app/(auth)/login/page.tsx");

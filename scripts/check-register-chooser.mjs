@@ -14,7 +14,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import * as jsx from 'react/jsx-runtime';
 
 const root = new URL('..', import.meta.url);
-const file = 'app/(public)/register/page.tsx';
+const file = 'app/(auth)/register/page.tsx';
+const chooserFile = 'app/(auth)/register/account-type-chooser.tsx';
 const source = readFileSync(new URL(file, root), 'utf8');
 
 const Link = ({ href, children, prefetch: _prefetch, ...props }) => React.createElement('a', { href, ...props }, children);
@@ -34,6 +35,8 @@ vm.runInNewContext(
         'next/link': { default: Link },
         'lucide-react': icons,
         '@/components/ui': { Breadcrumbs: () => React.createElement('nav', { 'data-breadcrumbs': true }) },
+        '@/components/auth-split-shell': { AuthSplitShell: ({ children }) => React.createElement('div', { 'data-split-shell': true }, children) },
+        './account-type-chooser': { AccountTypeChooser: () => React.createElement('div', { 'data-chooser': true }) },
       };
       assert.ok(id in mocks, `${file}: unexpected import ${id}`);
       return mocks[id];
@@ -47,37 +50,61 @@ const Page = mod.exports.default;
 assert.equal(typeof Page, 'function', 'Thiếu component trang /register');
 const html = renderToStaticMarkup(React.createElement(Page));
 
-/* 1. Hai lựa chọn, mỗi lựa chọn là một mục có tiêu đề riêng */
-assert.match(html, /<h1[^>]*>Create an account<\/h1>/, 'Tiêu đề trang là "Create an account"');
-const sections = [...html.matchAll(/<section\b[^>]*aria-labelledby="register-(buyer|supplier)"[\s\S]*?<\/section>/g)];
-assert.equal(sections.length, 2, 'Phải có đúng hai thẻ lựa chọn: Buyer và Supplier');
-const buyerHtml = sections.find((m) => m[1] === 'buyer')[0];
-const supplierHtml = sections.find((m) => m[1] === 'supplier')[0];
-assert.match(buyerHtml, /<h2 id="register-buyer"[^>]*>Buyer<\/h2>/);
-assert.match(supplierHtml, /<h2 id="register-supplier"[^>]*>Supplier<\/h2>/);
+/* 1. Trang bọc trong khung hai cột và nhúng bộ chọn loại tài khoản */
+assert.match(html, /data-split-shell="true"/, 'Trang đăng ký dùng khung hai cột có ảnh bên trái');
+assert.match(html, /data-chooser="true"/, 'Trang đăng ký nhúng bộ chọn loại tài khoản');
 
-/* 2. Mỗi thẻ dẫn tới đúng việc, không dẫn chéo */
-assert.match(supplierHtml, /href="\/supplier\/register"/, 'Thẻ Supplier dẫn tới biểu mẫu đăng ký nhà cung cấp hiện có');
-assert.doesNotMatch(supplierHtml, /href="\/rfq"/, 'Thẻ Supplier không dẫn vào phễu báo giá');
-assert.match(buyerHtml, /href="\/rfq"/, 'Thẻ Buyer dẫn tới yêu cầu báo giá, không cần tài khoản');
-assert.doesNotMatch(buyerHtml, /href="\/supplier\/register"/, 'Người mua không bị dẫn vào biểu mẫu bán hàng');
-assert.match(html, /href="\/login"/, 'Có lối đăng nhập cho người đã có tài khoản');
+/* 2. Bộ chọn: hai lựa chọn, radio, đích dẫn riêng cho từng loại */
+const chooserSource = readFileSync(new URL(chooserFile, root), 'utf8');
+const chooser = { exports: {} };
+vm.runInNewContext(
+  ts.transpileModule(chooserSource, {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText,
+  {
+    module: chooser,
+    exports: chooser.exports,
+    require: (id) => {
+      const mocks = {
+        react: React,
+        'react/jsx-runtime': jsx,
+        'next/link': { default: Link },
+        'lucide-react': icons,
+        '@/components/ui': { cx: (...parts) => parts.filter(Boolean).join(' ') },
+      };
+      assert.ok(id in mocks, `${chooserFile}: unexpected import ${id}`);
+      return mocks[id];
+    },
+    console,
+  },
+  { filename: chooserFile },
+);
+const chooserHtml = renderToStaticMarkup(React.createElement(chooser.exports.AccountTypeChooser));
+assert.match(chooserHtml, /Which account would you like to create\?/, 'Có câu hỏi chọn loại tài khoản');
+assert.equal((chooserHtml.match(/type="radio"/g) ?? []).length, 2, 'Hai lựa chọn dạng radio');
+assert.match(chooserHtml, /value="buyer"/);
+assert.match(chooserHtml, /value="supplier"/);
+assert.match(chooserHtml, /access over|Send a quote request/i);
+assert.match(chooserHtml, />Continue</, 'Có nút Continue như màn đăng ký mẫu');
+assert.match(chooserHtml, /href="\/rfq"/, 'Mặc định (Buyer) dẫn tới yêu cầu báo giá');
+assert.match(chooserSource, /\/supplier\/register/, 'Chọn Supplier thì dẫn tới biểu mẫu đăng ký nhà cung cấp');
+assert.match(chooserHtml, /href="\/login"/, 'Có lối đăng nhập cho người đã có tài khoản');
 
 /* 3. Không hứa hẹn biểu mẫu chưa tồn tại */
 for (const missing of ['/register/buyer', '/buyer/register', '/api/buyer-signup', '/signup']) {
   assert.ok(!html.includes(`href="${missing}"`), `Không được trỏ tới ${missing} khi route đó chưa có`);
 }
-assert.ok(!existsSync(new URL('app/(public)/register/buyer', root)), 'Chưa có trang đăng ký tài khoản người mua');
-assert.ok(!existsSync(new URL('app/(auth)/register', root)), 'Chỉ có một trang /register duy nhất');
-assert.match(html, /Buyer accounts are still being built/, 'Phải nói thật là tài khoản người mua chưa mở');
-assert.doesNotMatch(html, /Create buyer account|Create your buyer account/i, 'Không được mời tạo tài khoản người mua khi chưa có');
+assert.ok(!existsSync(new URL('app/(public)/register', root)), 'Chỉ có một trang /register duy nhất');
+assert.ok(!existsSync(new URL('app/(auth)/register/buyer', root)), 'Chưa có trang đăng ký tài khoản người mua');
+assert.match(html, /Buyer accounts are still being built/, 'Nội dung giải thích nằm ở màn chọn loại tài khoản');
+assert.doesNotMatch(html + chooserHtml, /Create buyer account|Create your buyer account/i, 'Không được mời tạo tài khoản người mua khi chưa có');
 
 /* 4. Không chặn phễu báo giá: thẻ buyer phải nói rõ không cần đăng nhập */
-assert.match(buyerHtml, /no account needed to start/, 'Nói rõ gửi yêu cầu không cần tài khoản');
+assert.match(chooserHtml, /No account needed/i, 'Nói rõ gửi yêu cầu không cần tài khoản');
 
 /* 5. Văn phong: tiếng Anh, không gạch ngang dài, không số liệu marketing */
-assert.doesNotMatch(html, /—|–/, 'Không dùng gạch ngang dài trong copy hiển thị');
-assert.doesNotMatch(html, /200K|40 million|trusted suppliers/i, 'Không bịa số liệu marketing như trang mẫu');
+assert.doesNotMatch(html + chooserHtml, /—|–/, 'Không dùng gạch ngang dài trong copy hiển thị');
+assert.doesNotMatch(html + chooserHtml, /200K|40 million|trusted suppliers/i, 'Không bịa số liệu marketing như trang mẫu');
 
 /* 6. Không lập chỉ mục trang chưa mở xong */
 assert.match(source, /robots: \{ index: false, follow: true \}/, 'Trang chọn tài khoản không được lập chỉ mục');
@@ -85,6 +112,20 @@ assert.match(source, /robots: \{ index: false, follow: true \}/, 'Trang chọn t
 /* 7. Đi tới được từ trang đăng nhập (nếu không thì trang vô hình) */
 const loginPage = readFileSync(new URL('app/(auth)/login/page.tsx', root), 'utf8');
 assert.match(loginPage, /href="\/register"/, 'Trang đăng nhập phải có lối tới /register');
+assert.match(loginPage, /AuthSplitShell/, 'Trang đăng nhập dùng cùng khung hai cột');
+
+/* 7b. Form đăng ký nhà cung cấp chỉ còn form: đoạn giải thích dài đã chuyển sang màn chọn */
+const supplierRegister = readFileSync(new URL('app/(auth)/supplier/register/page.tsx', root), 'utf8');
+assert.match(supplierRegister, /AuthSplitShell/, 'Form đăng ký nhà cung cấp dùng cùng khung hai cột');
+assert.doesNotMatch(supplierRegister, /Đăng ký miễn phí bằng email hoặc Google\. Sau khi đăng nhập/, 'Đoạn văn dài đã được bỏ khỏi form');
+assert.match(supplierRegister, /href="\/register"/, 'Form có lối đổi loại tài khoản');
+
+/* 7c. Ảnh cột trái là ảnh có thật trong kho ảnh của site, không phải ảnh ngoài */
+const shell = readFileSync(new URL('components/auth-split-shell.tsx', root), 'utf8');
+assert.match(shell, /src="\/images\/existing|[a-z]/.source ? /\/images\/[a-z-]+\.jpg/ : /x/, 'Khung dùng ảnh trong /public/images');
+assert.match(shell, /hero-scene\.jpg/, 'Dùng ảnh hero có sẵn của site');
+assert.ok(existsSync(new URL('public/images/hero-scene.jpg', root)), 'Ảnh phải tồn tại trong repo');
+assert.doesNotMatch(shell, /https?:\/\//, 'Không tải ảnh từ nguồn ngoài');
 assert.match(loginPage, /href="\/rfq"/, 'Trang đăng nhập phải nói người mua gửi yêu cầu báo giá không cần đăng nhập');
 
 /* 8. Trang công khai khác vẫn giữ lối đăng ký nhà cung cấp */
