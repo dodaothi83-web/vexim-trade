@@ -16,6 +16,7 @@ import {
   verifySignInLink,
 } from "@/lib/buyer/sign-in-token";
 import { getStore } from "@/lib/db";
+import { migrationHint } from "@/lib/db/migration-hints";
 import { sendBuyerSignInEmail } from "@/lib/email/buyer-auth";
 import { verifyFormChallenge } from "@/lib/security/challenge";
 import { safeNextPath } from "@/lib/buyer/next-path";
@@ -68,7 +69,15 @@ export async function requestBuyerSignInAction(input: {
   // Redis hỏng thì vẫn gửi: đây là đường đăng nhập, không thể chặn người thật vì
   // hạ tầng phụ. Challenge PoW và giới hạn cục bộ vẫn đang canh.
 
-  const { linkToken, code } = await issueSignInToken(email);
+  let issued: Awaited<ReturnType<typeof issueSignInToken>>;
+  try {
+    issued = await issueSignInToken(email);
+  } catch (error) {
+    // Thường gặp nhất: chưa chạy migration bảng buyer_sign_in_tokens trên Supabase.
+    console.error(`[buyer-sign-in] could not issue a sign-in token. ${migrationHint(error) ?? ""}`.trim(), error);
+    return { ok: false, message: "Sign-in is temporarily unavailable. Please try again in a few minutes." };
+  }
+  const { linkToken, code } = issued;
   const next = safeNextPath(input.next);
   const mail = await sendBuyerSignInEmail({
     email,

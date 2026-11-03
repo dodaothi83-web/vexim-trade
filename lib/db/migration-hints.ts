@@ -26,6 +26,8 @@ const HINTS: Array<{ match: RegExp; migration: string }> = [
   },
   // Thông số NCC tự thêm cho nhóm hàng.
   { match: /supplier_product_fields/i, migration: "supabase/migrations/20261032_supplier_attribute_pool.sql" },
+  // Tài khoản người mua + thư đăng nhập magic link.
+  { match: /buyer_users|buyer_sign_in_tokens/i, migration: "supabase/migrations/20261105_buyer_accounts.sql" },
   // Grade NCC tự thêm cho nhóm hàng.
   { match: /supplier_grade_options/i, migration: "supabase/migrations/20261102_category_supplier_grade_options.sql" },
   // Bằng chứng hồ sơ tự gửi: thiếu cột submission_id / ràng buộc cũ chưa được nới
