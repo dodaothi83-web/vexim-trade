@@ -12,11 +12,15 @@ import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as jsx from 'react/jsx-runtime';
+import { loadAuthDictionary } from './lib/auth-dictionary.mjs';
 
 const root = new URL('..', import.meta.url);
 const file = 'app/(auth)/register/page.tsx';
 const chooserFile = 'app/(auth)/register/account-type-chooser.tsx';
 const source = readFileSync(new URL(file, root), 'utf8');
+// Trang đọc từ điển theo cookie ngôn ngữ; check chạy với bản tiếng Anh (mặc định).
+const authMessages = loadAuthDictionary();
+const i18nServer = { getAuthMessages: async () => ({ locale: 'en', m: authMessages.en }) };
 
 const Link = ({ href, children, prefetch: _prefetch, ...props }) => React.createElement('a', { href, ...props }, children);
 const icons = new Proxy({}, { get: () => (props) => React.createElement('svg', props) });
@@ -35,6 +39,7 @@ vm.runInNewContext(
         'next/link': { default: Link },
         'lucide-react': icons,
         '@/components/ui': { Breadcrumbs: () => React.createElement('nav', { 'data-breadcrumbs': true }) },
+        '@/lib/i18n/server': i18nServer,
         '@/components/auth-split-shell': { AuthSplitShell: ({ children }) => React.createElement('div', { 'data-split-shell': true }, children) },
         './account-type-chooser': { AccountTypeChooser: () => React.createElement('div', { 'data-chooser': true }) },
       };
@@ -48,7 +53,7 @@ vm.runInNewContext(
 
 const Page = mod.exports.default;
 assert.equal(typeof Page, 'function', 'Thiếu component trang /register');
-const html = renderToStaticMarkup(React.createElement(Page));
+const html = renderToStaticMarkup(await Page());
 
 /* 1. Trang bọc trong khung hai cột và nhúng bộ chọn loại tài khoản */
 assert.match(html, /data-split-shell="true"/, 'Trang đăng ký dùng khung hai cột có ảnh bên trái');
@@ -79,7 +84,9 @@ vm.runInNewContext(
   },
   { filename: chooserFile },
 );
-const chooserHtml = renderToStaticMarkup(React.createElement(chooser.exports.AccountTypeChooser));
+const chooserHtml = renderToStaticMarkup(
+  React.createElement(chooser.exports.AccountTypeChooser, { messages: authMessages.en.register, lang: 'en' }),
+);
 assert.match(chooserHtml, /Which account would you like to create\?/, 'Có câu hỏi chọn loại tài khoản');
 assert.equal((chooserHtml.match(/type="radio"/g) ?? []).length, 2, 'Hai lựa chọn dạng radio');
 assert.match(chooserHtml, /value="buyer"/);

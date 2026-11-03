@@ -6,6 +6,7 @@ import ts from 'typescript';
 import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { loadAuthDictionary } from './lib/auth-dictionary.mjs';
 
 function load(file, mocks) {
   const mod = { exports: {} };
@@ -96,6 +97,7 @@ assert.match(supplierPage, /Already have an account\?[\s\S]{0,120}href="\/login"
 
 // The shared link keeps using the existing role-aware login page.
 let session = null;
+const authMessages = loadAuthDictionary();
 const LoginPage = load('../app/(auth)/login/page.tsx', {
   ...common,
   'next/navigation': { redirect: (href) => { throw Object.assign(new Error('redirect'), { href }); } },
@@ -104,6 +106,7 @@ const LoginPage = load('../app/(auth)/login/page.tsx', {
   '@/lib/auth/authenticate': { supabaseAuthReachable: async () => true },
   '@/components/login-form': { LoginForm: () => React.createElement('form', { 'data-login-form': true }) },
   '@/components/auth-split-shell': { AuthSplitShell: ({ children }) => React.createElement('div', null, children) },
+  '@/lib/i18n/server': { getAuthMessages: async () => ({ locale: 'en', m: authMessages.en }) },
 }).default;
 const props = { searchParams: Promise.resolve({}) };
 html = renderToStaticMarkup(await LoginPage(props));

@@ -36,17 +36,26 @@ function loadTs(rel, mocks = {}) {
 }
 
 import importCryptoSync from "node:crypto";
+import { loadAuthDictionary } from "./lib/auth-dictionary.mjs";
+
+// Chuỗi hiển thị của khu vực tài khoản nay nằm trong từ điển (lib/i18n/auth.ts), không
+// còn viết cứng trong component. Kiểm văn phong đọc đúng bản tiếng Việt của từ điển để
+// không phải sửa test mỗi lần đổi câu chữ ở một ngôn ngữ.
+const authMessages = loadAuthDictionary();
+const vi = authMessages.vi;
 
 // 1. Khung trang tài khoản: hai cột, liên kết pháp lý tiếng Việt
 //    (layout chỉ còn là khung nền, nên kiểm văn phong ở khung dùng chung)
 const authShell = read("components/auth-split-shell.tsx");
-assert.match(authShell, /Chính sách bảo mật/);
-assert.match(authShell, /Điều khoản sử dụng/);
+assert.equal(vi.shell.privacy, "Chính sách bảo mật");
+assert.equal(vi.shell.terms, "Điều khoản sử dụng");
 assert.match(authShell, /href="\/chinh-sach-bao-mat"/);
 assert.match(authShell, /href="\/dieu-khoan-su-dung"/);
 assert.doesNotMatch(authShell, /href="\/privacy-policy"/);
 assert.doesNotMatch(authShell, /href="\/terms-of-service"/);
 assert.doesNotMatch(authShell, /Cổng nhân viên/);
+// Công tắc ngôn ngữ nằm trong khung để mọi trang tài khoản đổi được ngôn ngữ.
+assert.match(authShell, /LocaleSwitch/);
 // Layout không được bọc thêm thẻ thứ hai quanh khung đã có
 const authLayout = read("app/(auth)/layout.tsx");
 assert.doesNotMatch(authLayout, /className="card/, "Layout không bọc thẻ lồng thẻ");
@@ -54,29 +63,29 @@ assert.doesNotMatch(authLayout, /bg-gradient-to-br/, "Nền tối đã chuyển 
 
 // 2. Login page copy, Google OAuth not_allowed error, and bottom registration CTA
 const loginPage = read("app/(auth)/login/page.tsx");
-assert.match(
-  loginPage,
-  /Quản lý hồ sơ doanh nghiệp, sản phẩm và yêu cầu báo giá từ buyer\./,
-);
+assert.match(vi.login.subtitle, /Quản lý hồ sơ doanh nghiệp, sản phẩm và yêu cầu báo giá/);
 assert.doesNotMatch(loginPage, /Supabase Auth/);
 assert.doesNotMatch(loginPage, /Vexim phải duyệt trước khi mở các chức năng/);
-assert.match(loginPage, /Email này chưa có tài khoản nhà cung cấp\./);
-assert.match(loginPage, /href="\/register"[^>]*>\s*Đăng ký tại đây\.\s*<\/Link>/, "Lối đăng ký đi qua màn chọn loại tài khoản");
-assert.match(loginPage, /href="\/register"[^>]*>\s*Đăng ký miễn phí\s*<\/Link>/);
+assert.match(vi.login.noSupplierAccount, /Email này chưa có tài khoản nhà cung cấp\./);
+assert.match(loginPage, /href="\/register"[^>]*>\s*\{m\.login\.registerHere\}\s*<\/Link>/, "Lối đăng ký đi qua màn chọn loại tài khoản");
+assert.match(loginPage, /href="\/register"[^>]*>\s*\{m\.login\.registerFree\}\s*<\/Link>/);
+assert.doesNotMatch(loginPage, /\/supplier\/register/, "Trang đăng nhập không còn lối tắt vào form bán hàng");
 assert.doesNotMatch(loginPage, /Tạo tài khoản nhà cung cấp/);
 
 // 3. Approval note moved to supplier registration & post-login portal overview
 const registerPage = read("app/(auth)/supplier/register/page.tsx");
-assert.match(registerPage, /cần Vexim duyệt/);
+assert.match(vi.supplierRegister.note, /cần Vexim duyệt/);
+assert.match(registerPage, /note=\{copy\.note\}/, "Ghi chú duyệt hồ sơ hiện dưới thẻ của trang đăng ký");
 const portalPage = read("app/supplier/portal/page.tsx");
 assert.match(portalPage, /Vexim duyệt hồ sơ/);
 
 // 4. Login form: email@congty.com placeholder, "Quên mật khẩu?" link, removed Google note
 const loginForm = read("components/login-form.tsx");
-assert.match(loginForm, /placeholder="email@congty\.com"/);
+assert.equal(vi.login.emailPlaceholder, "email@congty.com");
+assert.match(loginForm, /placeholder=\{m\.emailPlaceholder\}/);
 assert.doesNotMatch(loginForm, /ten@veximtrade\.com/);
 assert.match(loginForm, /href="\/auth\/forgot-password"/);
-assert.match(loginForm, /Quên mật khẩu\?/);
+assert.match(vi.login.forgotPassword, /Quên mật khẩu\?/);
 assert.doesNotMatch(loginForm, /Google chỉ xác thực email/);
 
 // 5. Buyer header button says "Supplier sign in"

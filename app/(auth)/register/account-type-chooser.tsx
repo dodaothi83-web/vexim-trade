@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowRight, Factory, ShoppingBag } from "lucide-react";
 
 import { cx } from "@/components/ui";
+import type { AuthMessages } from "@/lib/i18n/auth";
+import type { Locale } from "@/lib/i18n/config";
 
 /**
  * Chọn loại tài khoản (Buyer / Supplier) ngay trong màn đăng ký.
@@ -15,42 +17,34 @@ import { cx } from "@/components/ui";
  */
 type Choice = "buyer" | "supplier";
 
-const OPTIONS: Array<{
-  id: Choice;
-  title: string;
-  summary: string;
-  href: string;
-  icon: React.ReactNode;
-}> = [
-  {
-    id: "buyer",
-    title: "Buyer",
-    summary: "Send a quote request and compare offers from matched Vietnamese suppliers. No account needed.",
-    href: "/rfq",
-    icon: <ShoppingBag className="h-5 w-5" aria-hidden="true" />,
-  },
-  {
-    id: "supplier",
-    title: "Supplier",
-    summary: "Create an account, complete your company profile and receive buyer requests once Vexim reviews it.",
-    href: "/supplier/register?type=supplier",
-    icon: <Factory className="h-5 w-5" aria-hidden="true" />,
-  },
-];
-
-export function AccountTypeChooser() {
+/** Chuỗi hiển thị do trang truyền xuống: client không tự chứa bản dịch. */
+export function AccountTypeChooser({ messages: m, lang }: { messages: AuthMessages["register"]; lang: Locale }) {
   const [choice, setChoice] = useState<Choice>("buyer");
   const name = useId();
-  const target = OPTIONS.find((option) => option.id === choice) ?? OPTIONS[0];
+  const options: Array<{ id: Choice; title: string; summary: string; href: string; icon: React.ReactNode }> = [
+    {
+      id: "buyer",
+      title: m.buyerTitle,
+      summary: m.buyerSummary,
+      href: "/rfq",
+      icon: <ShoppingBag className="h-5 w-5" aria-hidden="true" />,
+    },
+    {
+      id: "supplier",
+      title: m.supplierTitle,
+      summary: m.supplierSummary,
+      href: "/supplier/register?type=supplier",
+      icon: <Factory className="h-5 w-5" aria-hidden="true" />,
+    },
+  ];
+  const target = options.find((option) => option.id === choice) ?? options[0];
 
   return (
-    <div>
+    <div lang={lang}>
       <fieldset>
-        <legend className="text-[17px] font-black leading-snug text-ink-900">
-          Which account would you like to create?
-        </legend>
+        <legend className="text-[17px] font-black leading-snug text-ink-900">{m.legend}</legend>
         <div className="mt-4 space-y-3">
-          {OPTIONS.map((option) => {
+          {options.map((option) => {
             const selected = choice === option.id;
             return (
               <label
@@ -85,14 +79,14 @@ export function AccountTypeChooser() {
         href={target.href}
         className="btn btn-primary mt-5 min-h-12 w-full justify-center text-[15px] font-bold"
       >
-        Continue
+        {m.continue}
         <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </Link>
 
       <p className="mt-4 text-center text-[12.5px] text-ink-600">
-        Already have an account?{" "}
+        {m.alreadyHaveAccount}{" "}
         <Link href="/login" prefetch={false} className="font-semibold text-brand-700 underline">
-          Sign in
+          {m.signIn}
         </Link>
       </p>
     </div>

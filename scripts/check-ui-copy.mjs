@@ -121,6 +121,9 @@ const SCOPE = [
   'components/template-editor.tsx',
   'components/user-manager.tsx',
   'lib/auth/permissions.ts',
+  // Khu vực tài khoản đã chuyển sang từ điển: chuỗi tiếng Việt nằm ở đây, không còn trong
+  // component, nên kiểm văn phong phải trỏ vào từ điển.
+  'lib/i18n/auth.ts',
   'lib/certificate-service.ts',
   'lib/db/local.ts',
   'lib/db/seed.ts',

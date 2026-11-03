@@ -39,6 +39,8 @@ jobs:
             command: check:rfq
           - label: Lối vào tài khoản
             command: check:entry
+          - label: Đa ngôn ngữ khu vực tài khoản
+            command: check:i18n
     steps:
       - uses: actions/checkout@v4
 

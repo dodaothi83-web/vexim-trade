@@ -29,7 +29,7 @@ nằm ở màn chọn loại tài khoản và ở danh sách ghi chú của khun
 | Lựa chọn | Dẫn tới | Ghi chú |
 | --- | --- | --- |
 | Buyer | `/rfq` (gửi yêu cầu báo giá) | **Chưa có tài khoản người mua.** Trang phải nói thật điều này, không mời tạo tài khoản chưa tồn tại |
-| Supplier | `/supplier/register?type=supplier` (biểu mẫu tiếng Việt) | Giữ nguyên hai bước: tài khoản → hồ sơ doanh nghiệp → Vexim duyệt |
+| Supplier | `/supplier/register?type=supplier` (biểu mẫu đa ngôn ngữ, mặc định tiếng Anh) | Giữ nguyên hai bước: tài khoản → hồ sơ doanh nghiệp → Vexim duyệt |
 
 **Bước 1 luôn là chọn loại tài khoản.** Vào `/supplier/register` mà thiếu `?type=supplier`
 (bookmark cũ, link cũ) sẽ được `redirect("/register")`, nên không ai rơi thẳng vào biểu mẫu đăng
@@ -51,6 +51,26 @@ vào phễu RFQ, kể cả khi mở tài khoản người mua ở giai đoạn s
 cả trang và bộ chọn, rồi chặn: dẫn chéo giữa hai loại, trỏ tới route chưa tồn tại, hứa hẹn tài
 khoản người mua, nhồi lại đoạn văn dài vào form đăng ký nhà cung cấp, tải ảnh từ nguồn ngoài, và
 việc biến yêu cầu báo giá thành phải đăng nhập.
+
+## Ngôn ngữ của khu vực tài khoản
+
+Các trang tài khoản chạy bằng bộ từ điển (`lib/i18n/auth.ts`, đọc qua `lib/i18n/server.ts`),
+mặc định **tiếng Anh**, đổi sang tiếng Việt bằng công tắc EN/VI trong khung hai cột. Ngôn ngữ
+lưu ở cookie `vexim_locale`; **URL không đổi** (không có `/en/...`, `/vi/...`) nên link cũ,
+email đã gửi và hướng dẫn cho nhà cung cấp vẫn dùng được. Chi tiết và lộ trình: `docs/i18n.md`.
+
+Hai điểm dễ vỡ khi sửa phần này:
+
+- `<html lang>` trong `app/layout.tsx` phải **ưu tiên cookie** cho các đường dẫn thuộc
+  `isLocalizedAuthPath()`; nếu không, người chọn tiếng Anh vẫn bị trình đọc màn hình đọc theo
+  tiếng Việt.
+- Chuỗi mới phải thêm vào **cả hai** ngôn ngữ. Kiểu dữ liệu suy ra từ bản `en` nên thiếu khoá
+  là lỗi biên dịch, còn `npm run check:i18n` kiểm thêm: đủ khoá, không lẫn tiếng Việt trong bản
+  tiếng Anh, không còn chuỗi viết cứng trong component, không đổi URL.
+
+Thông báo lỗi trả về từ server action (`app/auth-actions.ts`) và API (`/api/supplier-signup`)
+vẫn là tiếng Việt ở giai đoạn 1; khi chuyển sang từ điển thì phải trả **mã lỗi** chứ không trả
+câu chữ.
 
 ## Giới hạn lượt
 

@@ -6,6 +6,7 @@ import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as icons from 'lucide-react';
+import { loadAuthDictionary } from './lib/auth-dictionary.mjs';
 
 function load(path, mocks) {
   const exports = {};
@@ -19,14 +20,21 @@ function load(path, mocks) {
   return exports;
 }
 const jsx = await import('react/jsx-runtime');
+// Trang/biểu mẫu nhận chuỗi từ từ điển; check chạy cả bản tiếng Anh (mặc định) và tiếng Việt.
+const authMessages = loadAuthDictionary();
+let activeLocale = 'en';
+const i18nServer = { getAuthMessages: async () => ({ locale: activeLocale, m: authMessages[activeLocale] }) };
 const link = { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) };
 const source = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const form = load('../app/(auth)/supplier/register/supplier-account-form.tsx', {
   'react/jsx-runtime': jsx, 'react': React, 'next/link': link, 'lucide-react': icons,
   '@/components/form-challenge': { FormChallenge: () => null },
 });
-const formHtml = renderToStaticMarkup(React.createElement(form.SupplierAccountForm));
-for (const fragment of ['name="email"', 'name="password"', 'name="password2"', 'name="consent"', 'intent=signup', 'Tạo tài khoản bằng email'])
+const formHtml = renderToStaticMarkup(React.createElement(form.SupplierAccountForm, {
+  messages: authMessages.en.supplierRegister.form,
+  lang: 'en',
+}));
+for (const fragment of ['name="email"', 'name="password"', 'name="password2"', 'name="consent"', 'intent=signup', 'Create account with email'])
   assert.ok(formHtml.includes(fragment), `Account form includes ${fragment}`);
 assert.doesNotMatch(formHtml, /name="tax_number"|name="supplier_type"|Đăng ký doanh nghiệp/, 'Company fields belong in the locked portal, not account creation');
 const signupSource = source('../app/api/supplier-signup/route.ts');
@@ -42,13 +50,20 @@ const register = load('../app/(auth)/supplier/register/page.tsx', {
   'next/navigation': { redirect: (href) => { throw Object.assign(Error('redirect'), { href }); } },
   '@/lib/auth/session': { getSession: async () => null }, './supplier-account-form': form,
   '@/components/auth-split-shell': { AuthSplitShell: ({ children }) => React.createElement('div', null, children) },
+  '@/lib/i18n/server': i18nServer,
 });
 // Thiếu ?type=supplier thì quay về màn chọn loại tài khoản.
 await assert.rejects(() => register.default({ searchParams: Promise.resolve({}) }), (error) => error.href === '/register');
 await assert.rejects(() => register.default({ searchParams: Promise.resolve({ oauth: 'failed' }) }), (error) => error.href === '/register');
 const registerHtml = renderToStaticMarkup(await register.default({ searchParams: Promise.resolve({ type: 'supplier' }) }));
-assert.match(registerHtml, /Bước 1\/2/);
+assert.match(registerHtml, /Step 1 of 2/, 'Bước 1 hiển thị bằng tiếng Anh khi ngôn ngữ là en');
 assert.match(registerHtml, /href="\/login"/);
+// Cùng trang, ngôn ngữ tiếng Việt: chuỗi phải đổi theo cookie chứ không cứng trong component.
+activeLocale = 'vi';
+const registerVi = renderToStaticMarkup(await register.default({ searchParams: Promise.resolve({ type: 'supplier' }) }));
+activeLocale = 'en';
+assert.match(registerVi, /Bước 1\/2/, 'Bản tiếng Việt vẫn giữ nguyên câu chữ cũ');
+assert.match(registerVi, /href="\/register"/);
 
 const user = { id: 'unlinked', email: 'new@example.com', role: 'supplier', is_active: true, supplier_id: null };
 let portalAccessCalls = 0;
