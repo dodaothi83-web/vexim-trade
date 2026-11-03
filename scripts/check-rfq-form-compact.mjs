@@ -45,7 +45,9 @@ for (const [fn, keys] of [
 }
 // Chế độ câu hỏi không được đòi số lượng/điểm đến
 const questionKeys = validatedKeys(form, 'validateQuestion');
-assert.ok(!questionKeys.includes('quantity') && !questionKeys.includes('destination_country'), 'Câu hỏi trực tiếp không đòi trường báo giá');
+assert.ok(!questionKeys.includes('destination_country'), 'Câu hỏi trực tiếp không đòi điểm đến');
+assert.match(form, /if \(data.quantity &&/, 'Chỉ kiểm tra số lượng khi người mua đã nhập');
+assert.match(form, /label="Quantity \(optional\)"/, 'Số lượng trong modal là tuỳ chọn');
 const quoteKeys = validatedKeys(form, 'validateQuote');
 for (const required of ['product_text', 'quantity', 'destination_country', 'company', 'contact_name', 'email', 'consent']) {
   assert.ok(quoteKeys.includes(required), `Báo giá vẫn phải bắt buộc "${required}"`);
