@@ -459,22 +459,20 @@ export function PublicProductCard({
           </div>
         </dl>
 
-        {/* Một hàng: tên người bán + huy hiệu xác minh. Huy hiệu là thông tin về người bán,
-            nên đứng cạnh tên chứ không tách thành hàng riêng dưới một đường kẻ. */}
-        <div className="mt-2 sm:mt-auto">
-          {/* Cho phép xuống dòng: tên dài giữ nguyên một dòng và huy hiệu rơi xuống dưới,
-              thay vì ép tên ngắn lại chỉ để vừa một hàng. */}
-          <div className="relative z-20 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+        {/* Đáy thẻ: một đường kẻ, rồi nhà cung cấp và ba khiên xác minh trên cùng một hàng. */}
+        <div className="mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2.5">
+          {/* Tên giữ một dòng và tự cắt bằng dấu ba chấm; khiên đứng ngay sau tên, không xuống hàng. */}
+          <div className="relative z-20 flex min-w-0 items-center gap-2">
             {supplierHref && linkable ? (
               <Link
                 href={supplierHref}
                 title={supplierName}
-                className="min-w-0 truncate text-[11px] font-bold leading-5 text-brand-700 hover:underline sm:text-xs"
+                className="min-w-0 flex-1 truncate text-[11px] font-bold leading-5 text-brand-700 hover:underline sm:text-xs"
               >
                 {supplierName}
               </Link>
             ) : (
-              <span title={supplierName} className="min-w-0 truncate text-[11px] font-bold leading-5 text-ink-800 sm:text-xs">
+              <span title={supplierName} className="min-w-0 flex-1 truncate text-[11px] font-bold leading-5 text-ink-800 sm:text-xs">
                 {supplierName}
               </span>
             )}
