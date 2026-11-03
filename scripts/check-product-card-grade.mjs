@@ -71,8 +71,10 @@ assert.match(plain, /Minh Long Coffee/, 'Tên người bán vẫn hiện trên t
 const cardSource = readFileSync(new URL('../components/public-product-card.tsx', import.meta.url), 'utf8');
 assert.doesNotMatch(cardSource, /quoteHref/, 'Thẻ không nhận quoteHref nữa');
 assert.doesNotMatch(cardSource, /min-h-9/, 'Bỏ min-h-9: chiều cao hàng cuối do huy hiệu quyết định, không do nút');
-// Tên và huy hiệu chung một hàng, được xuống dòng khi tên dài thay vì ép tên ngắn lại.
-assert.ok(cardSource.includes("flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1"),
-  'Tên người bán và huy hiệu nằm chung một hàng, được xuống dòng khi tên dài');
+// Đáy thẻ: đường kẻ ở trên, rồi nhà cung cấp và ba khiên trên đúng một hàng.
+assert.match(cardSource, /mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2\.5/, 'Đáy thẻ có đường kẻ phía trên nhà cung cấp');
+assert.ok(cardSource.includes("flex min-w-0 items-center gap-2"),
+  'Tên người bán và huy hiệu nằm chung một hàng, không xuống dòng');
+assert.match(cardSource, /min-w-0 flex-1 truncate text-\[11px\] font-bold leading-5/, 'Tên tự cắt bằng dấu ba chấm để nhường chỗ cho khiên');
 
 console.log('✅ Thẻ sản phẩm: không chip grade, không grade trong tên hay tooltip, hàng cuối chỉ còn tên người bán + huy hiệu.');
