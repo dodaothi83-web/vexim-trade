@@ -130,7 +130,6 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
         leadTimeText={product.leadTimeText}
         supplierName={product.supplierName}
         supplierHref={`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`}
-        quoteHref={product.isDemo ? undefined : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(product.supplierId)}&product=${encodeURIComponent(product.name)}&product_id=${encodeURIComponent(product.id)}`}
         verificationSteps={product.verificationSteps} l2Scope={product.l2Scope}
         test={product.isDemo}
         comparison={comparisonEnabled && !product.isDemo ? { id: product.id, categorySlug } : undefined}

@@ -59,7 +59,7 @@ const card = load('../components/public-product-card.tsx', {
   '@/components/product-trade-labels': { ProductTradeLabels: icon },
   '@/components/verification-tier': { VerificationPips: icon, VerificationTierBadge: icon },
 });
-const props = { href: '/product', name: 'Product', moq: '', price: null, leadTimeDays: null, supplierName: 'Supplier', verificationSteps: [], quoteHref: undefined };
+const props = { href: '/product', name: 'Product', moq: '', price: null, leadTimeDays: null, supplierName: 'Supplier', verificationSteps: [] };
 const paid = renderToStaticMarkup(React.createElement(card.PublicProductCard, { ...props, sponsored: true }));
 const organic = renderToStaticMarkup(React.createElement(card.PublicProductCard, props));
 assert.match(paid, /<article[\s\S]*Sponsored · Tài trợ[\s\S]*Why am I seeing this\?/);

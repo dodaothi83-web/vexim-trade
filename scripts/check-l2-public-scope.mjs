@@ -81,7 +81,7 @@ assert.match(icons, /not a product certification/);
 // not for type alone, pending checks, legacy factory cases or demo cards.
 const { PublicProductCard } = load('components/public-product-card.tsx');
 const cardProps = { href: '/products/cashew/p1', name: 'Cashew', moq: '1 MT', price: null, leadTimeDays: 14,
-  supplierName: 'Trading company', verificationSteps: [1, 2], quoteHref: undefined };
+  supplierName: 'Trading company', verificationSteps: [1, 2] };
 const renderCard = (extras) => renderToStaticMarkup(React.createElement(PublicProductCard, { ...cardProps, ...extras }));
 const label = /<span aria-hidden="true">Partner contract<\/span><span class="sr-only">Partner factory contract reviewed<\/span>/;
 assert.match(renderCard({ l2Scope: 'partner_contract' }), label);

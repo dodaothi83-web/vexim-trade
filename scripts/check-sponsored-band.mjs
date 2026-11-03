@@ -127,7 +127,10 @@ const band = readFileSync(new URL("../components/sponsored-product-band.tsx", im
 assert.match(band, /mt-3 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3/, "Sponsored cards use one phone column before the wider layouts");
 assert.match(band, /Sponsored · Tài trợ/, "Nhãn phải có cả hai thứ tiếng và hiện sẵn, không cần trỏ chuột");
 assert.match(band, /not a Vexim verification result/, "Nhãn phải nói rõ đây không phải kết quả xác minh");
-assert.match(band, /quoteHref=\{product\.isDemo \? undefined : `\/rfq\?category=/, "Thẻ tài trợ thật dùng CTA báo giá, thẻ demo không có RFQ");
+// Thẻ không còn nút báo giá riêng: suất tài trợ mua vị trí nổi bật, còn báo giá nằm ở trang sản phẩm.
+assert.doesNotMatch(band, /quoteHref=/, "Thẻ tài trợ không tự dựng CTA báo giá");
+assert.match(band, /const href = `\/products\/\$\{encodeURIComponent\(categorySlug\)\}/, "Thẻ tài trợ dẫn sang trang sản phẩm");
+assert.doesNotMatch(band, /\/rfq\?/, "Thẻ tài trợ không dựng link RFQ");
 assert.match(band, /grades=\{cardTitleGrades\(product\)\}/,
   "Thẻ tài trợ dùng đúng danh sách grade để bỏ grade khỏi tên: bảng Grade và giá cộng grade chính");
 assert.match(band, /gradeRows=\{product\.gradeRows\}/, "Thẻ tài trợ truyền đủ dòng giá theo grade");

@@ -251,7 +251,6 @@ export function PublicProductCard({
   supplierHref,
   verificationSteps,
   l2Scope,
-  quoteHref,
   test = false,
   linkable = true,
   comparison,
@@ -279,7 +278,6 @@ export function PublicProductCard({
   supplierHref?: string;
   verificationSteps: readonly VerificationLevel[];
   l2Scope?: PublicL2Scope;
-  quoteHref: string | undefined;
   oem?: boolean;
   odm?: boolean;
   samples?: boolean;
@@ -293,7 +291,6 @@ export function PublicProductCard({
   /** Present only for a visible stale reference price; null means its date is unknown. */
   stalePriceDays?: number | null;
 }) {
-  const quote = !test && linkable ? quoteHref : undefined;
 
   // Thẻ không hiện grade ở đâu cả: không chip, không nhắc trong tên, không trong tooltip.
   const displayName = titleWithoutGrades(name, [
@@ -462,47 +459,40 @@ export function PublicProductCard({
           </div>
         </dl>
 
-        {/* Bottom-pinned divider + Supplied by + tiered circular shields + Quote CTA */}
-        <div className="mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2.5">
-          <p className="flex min-w-0 items-baseline gap-1 text-[11px] leading-4 sm:text-xs">
-            <span className="shrink-0 text-ink-500">Supplied by</span>
+        {/* Một hàng: tên người bán + huy hiệu xác minh. Huy hiệu là thông tin về người bán,
+            nên đứng cạnh tên chứ không tách thành hàng riêng dưới một đường kẻ. */}
+        <div className="mt-2 sm:mt-auto">
+          {/* Cho phép xuống dòng: tên dài giữ nguyên một dòng và huy hiệu rơi xuống dưới,
+              thay vì ép tên ngắn lại chỉ để vừa một hàng. */}
+          <div className="relative z-20 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
             {supplierHref && linkable ? (
               <Link
                 href={supplierHref}
                 title={supplierName}
-                className="relative z-20 min-w-0 flex-1 truncate font-bold text-brand-700 hover:underline"
+                className="min-w-0 truncate text-[11px] font-bold leading-5 text-brand-700 hover:underline sm:text-xs"
               >
                 {supplierName}
               </Link>
             ) : (
-              <span title={supplierName} className="min-w-0 flex-1 truncate font-bold text-ink-800">
+              <span title={supplierName} className="min-w-0 truncate text-[11px] font-bold leading-5 text-ink-800 sm:text-xs">
                 {supplierName}
               </span>
             )}
-          </p>
-          <div className="mt-2 flex min-h-9 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
-            <div className="relative z-20 flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="shrink-0">
               <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} variant="marketplace" shortTooltips />
-              {partnerContractReviewed && (
-                <span
-                  title="The supplier's partner factory contract was reviewed; this is not a factory inspection."
-                  className="inline-flex items-center rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-brand-800 ring-1 ring-brand-200"
-                >
-                  <span aria-hidden="true">Partner contract</span>
-                  <span className="sr-only">Partner factory contract reviewed</span>
-                </span>
-              )}
-            </div>
-            {quote && (
-              <Link
-                href={quote}
-                aria-label={`Request a quote for ${displayName}`}
-                className="relative z-20 inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-brand-400 bg-white px-2.5 text-[13px] font-bold text-brand-800 transition hover:border-brand-600 hover:bg-brand-50/70 hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 @[11.5rem]:px-3.5"
-              >
-                Quote
-              </Link>
-            )}
+            </span>
           </div>
+          {partnerContractReviewed && (
+            <p className="relative z-20 mt-1">
+              <span
+                title="The supplier's partner factory contract was reviewed; this is not a factory inspection."
+                className="inline-flex items-center rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-brand-800 ring-1 ring-brand-200"
+              >
+                <span aria-hidden="true">Partner contract</span>
+                <span className="sr-only">Partner factory contract reviewed</span>
+              </span>
+            </p>
+          )}
         </div>
       </div>
     </article>

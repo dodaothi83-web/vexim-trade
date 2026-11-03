@@ -383,7 +383,6 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
       {shownProducts.map(({ product, category, categoryName: name }) => {
         const slug = encodeURIComponent(category.slug);
         const productHref = localHref(`/products/${slug}/${encodeURIComponent(product.id)}`, state.lang);
-        const quoteHref = localHref(`/rfq?category=${slug}&suppliers=${encodeURIComponent(product.supplierId)}&product=${encodeURIComponent(product.name)}&product_id=${encodeURIComponent(product.id)}`, state.lang);
         return <li key={product.id} className="flex min-w-0 flex-col">
           <Link href={localHref(`/products/${slug}`, state.lang)} title={name}
             aria-label={isVi ? `Xem danh mục ${name}` : `View ${name} category`}
@@ -398,7 +397,6 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
               price={product.price} incoterm={product.incoterm} fob={product.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={product.leadTimeDays} leadTimeText={product.leadTimeText} supplierName={product.supplierName}
               supplierHref={localHref(`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`, state.lang)}
-              quoteHref={quoteHref}
               verificationSteps={product.verificationSteps} l2Scope={product.l2Scope}
               comparison={hasProductComparisonPeer(comparisonOffers, { id: product.id, supplierId: product.supplierId, categorySlug: category.slug, isDemo: product.isDemo })
                 ? { id: product.id, categorySlug: category.slug } : undefined} />
