@@ -153,7 +153,8 @@ assert.ok(promise.includes("sản phẩm đăng được khi ngành đã mở"),
 assert.ok(rc.REQUESTED_CATEGORY_PROMISE_EN.includes("3 working days"));
 
 const onboarding = read("lib/i18n/portal/onboarding.ts");
-assert.ok(onboarding.includes(promise), "chuỗi tiếng Việt trong từ điển phải đúng nguyên văn cam kết");
+assert.ok(onboarding.includes("Bạn nhận phản hồi qua email trong 3 ngày làm việc. Hồ sơ vẫn được duyệt; sản phẩm chỉ đăng khi ngành đã mở."),
+  "ghi chú ngắn gọn phải giữ thời hạn, email và điều kiện đăng sản phẩm");
 assert.ok(onboarding.includes("3 working days"), "bản tiếng Anh cũng phải có cam kết");
 assert.match(onboarding, /requestStatus: \{ pending: "Being reviewed"/);
 assert.match(onboarding, /requestStatus: \{ pending: "Đang xem xét"/);

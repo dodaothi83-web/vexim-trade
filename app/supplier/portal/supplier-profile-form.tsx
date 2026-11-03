@@ -80,7 +80,6 @@ export function SupplierProfileFields({ supplier, email, categories, categoryReq
         </label>
         <Field label={m.company.labels.products} name="products" required maxLength={1000} placeholder={m.company.placeholders.products} defaultValue={supplier?.products ?? ""} />
         <Field label={m.company.labels.taxNumber} name="tax_number" required maxLength={32} inputMode="numeric" pattern="[0-9]+" placeholder={m.company.placeholders.taxNumber} defaultValue={supplier?.tax_id ?? ""} />
-        <Field label={m.company.labels.bankAccount} name="bank_account_number" maxLength={34} inputMode="numeric" pattern="[0-9]+" placeholder={m.company.placeholders.bankAccount} />
         <Field label={m.company.labels.province} name="province" maxLength={100} placeholder={m.company.placeholders.province} defaultValue={supplier?.province ?? ""} />
         <Field label={m.company.labels.address} name="address" maxLength={250} placeholder={m.company.placeholders.address} defaultValue={supplier?.address ?? ""} />
       </div>
@@ -168,11 +167,11 @@ export function SupplierProfileFields({ supplier, email, categories, categoryReq
 function CategoryProposals({ categories, supplier, requests, messages: m }: {
   categories: CategoryProposalOption[]; supplier?: Supplier; requests: CategoryRequestView[]; messages: OnboardingMessages;
 }) {
-  return <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">{m.categories.title}</h2>
-    <p className="mt-1 text-sm text-ink-600">{m.categories.intro.map((line, index) => <span key={line}>{index > 0 && <br />}{line}</span>)}</p>
+  return <section className="border-t border-ink-200 pt-6">
     {!categories.length && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{m.categories.none}</p>}
     <SupplierCategoryPicker categories={categories} initial={supplier?.requested_category_slugs ?? []}
-      other={supplier?.requested_category_other ?? ""} requests={requests} messages={m.picker} />
+      other={supplier?.requested_category_other ?? ""} requests={requests} messages={m.picker}
+      title={m.categories.title} intro={m.categories.intro} />
   </section>;
 }
 

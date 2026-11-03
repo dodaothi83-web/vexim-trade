@@ -14,7 +14,9 @@ import type { OnboardingMessages } from "@/lib/i18n/portal/onboarding";
  * bằng chữ, hệ thống ghi thành YÊU CẦU (không phải phạm vi) và Vexim trả lời qua email trong
  * 3 ngày làm việc. Câu hứa đó in nguyên văn ngay dưới ô, không diễn giải lại.
  */
-export function SupplierCategoryPicker({ categories, initial = [], other = "", requests = [], messages: m }: {
+export function SupplierCategoryPicker({ categories, initial = [], other = "", requests = [], messages: m, title, intro }: {
+  title: string;
+  intro: readonly string[];
   categories: CategoryProposalOption[];
   initial?: string[];
   /** Ngành NCC đã ghi bằng chữ ở lần gửi trước (chưa mở danh mục). */
@@ -32,8 +34,11 @@ export function SupplierCategoryPicker({ categories, initial = [], other = "", r
     setSelected((old) => [...old, slug]);
   }
   const labelOf = (slug: string) => categories.find((c) => c.slug === slug)?.label ?? slug;
-  return <div className="mt-4 space-y-3">
-    <select aria-label={m.aria} className="input max-w-sm" value=""
+  return <div className="space-y-3">
+    <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
+    <div>
+    <label htmlFor="business-categories" className="mb-1 block text-sm font-semibold">{title}</label>
+    <select id="business-categories" aria-label={m.aria} className="input w-full" value=""
       disabled={!available.length || atLimit} onChange={(event) => add(event.target.value)}>
       <option value="">{atLimit ? m.atLimit : available.length ? m.choose : m.allChosen}</option>
       {available.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} · ` : ""}{c.label}</option>)}
@@ -44,7 +49,10 @@ export function SupplierCategoryPicker({ categories, initial = [], other = "", r
       <input type="hidden" name="requested_category_slugs" value={slug} />
     </span>)}</div>
 
-    <label className="block max-w-xl text-sm">
+    <p className="mt-2 text-xs text-ink-500">{fill(m.counter, { count: selected.length })} {m.hint}</p>
+    {intro.map((line) => <p key={line} className="mt-1 text-xs text-ink-500">{line}</p>)}
+    </div>
+    <label className="block text-sm">
       <span className="mb-1 block font-semibold">{m.otherLabel}</span>
       <input name="requested_category_other" type="text" maxLength={260} value={note}
         onChange={(event) => setNote(event.target.value)} className="input"
@@ -52,6 +60,7 @@ export function SupplierCategoryPicker({ categories, initial = [], other = "", r
       <span id="requested-category-other-hint" className="mt-1 block text-[11.5px] font-normal leading-snug text-ink-500">{m.otherHint}</span>
       <span className="mt-1 block rounded-lg bg-brand-50 px-3 py-2 text-[12px] font-medium leading-snug text-brand-900">{m.otherPromise}</span>
     </label>
+    </div>
 
     {requests.length > 0 && <div className="max-w-xl rounded-lg border border-ink-200 bg-white p-3">
       <p className="text-[12.5px] font-bold text-ink-900">{m.requestsTitle}</p>
@@ -70,6 +79,6 @@ export function SupplierCategoryPicker({ categories, initial = [], other = "", r
       </ul>
     </div>}
 
-    <p className="text-xs text-ink-500">{fill(m.counter, { count: selected.length })} {m.hint} {m.note}</p>
+
   </div>;
 }
