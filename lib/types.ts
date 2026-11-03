@@ -1085,6 +1085,78 @@ export interface MediaAsset {
 
 export type MediaInput = Omit<MediaAsset, "id" | "created_at" | "updated_at">;
 
+/* ------------------------------------------------------------------ */
+/* TÀI KHOẢN NGƯỜI MUA                                                  */
+/*                                                                     */
+/* Người mua đăng nhập bằng magic link để gửi yêu cầu, xem lại yêu cầu  */
+/* của mình và lưu sản phẩm. Họ KHÔNG nằm trong `app_users` (bảng nhân  */
+/* viên, có vai trò và quyền nội bộ) và KHÔNG nằm trong `buyers` (bảng  */
+/* hồ sơ kinh doanh do nhân viên đọc). Tách ba nơi để không phải thêm   */
+/* nhánh người mua vào đúng chỗ phân quyền nhạy cảm nhất.              */
+/* ------------------------------------------------------------------ */
+
+/** Một món đã lưu trên lưới sản phẩm — đủ để vẽ lại thẻ mà không truy vấn thêm. */
+export interface BuyerSavedProduct {
+  id: string;
+  name: string;
+  /** Đường dẫn trang sản phẩm tại thời điểm lưu. */
+  href: string;
+  imagePath: string | null;
+  categorySlug: string;
+  supplierName?: string;
+}
+
+/** Một bộ so sánh đã lưu; mở lại bằng `/compare?products=…`. */
+export interface BuyerSavedComparison {
+  id: string;
+  productIds: string[];
+  /** Nhãn ngắn do người mua nhìn thấy, sinh từ tên sản phẩm đầu tiên. */
+  label: string;
+  created_at: string;
+}
+
+/** Ảnh chụp danh sách đã lưu, gộp từ localStorage khi đăng nhập lần đầu. */
+export interface BuyerSavedList {
+  products: BuyerSavedProduct[];
+  comparisons: BuyerSavedComparison[];
+}
+
+export interface BuyerUser {
+  id: string;
+  /** Luôn lưu chữ thường; đây là khoá nhận diện duy nhất của người mua. */
+  email: string;
+  company_name: string | null;
+  /** null = chưa bấm link/mã trong thư; chỉ khi có mốc này mới mở phiên được. */
+  verified_at: string | null;
+  /** Mặc định TẮT: chỉ nhận thư khi tự bật. */
+  marketing_opt_in: boolean;
+  saved: BuyerSavedList;
+  created_at: string;
+  last_seen_at: string | null;
+}
+
+export type BuyerUserInput = Pick<BuyerUser, "email"> &
+  Partial<Pick<BuyerUser, "company_name" | "verified_at" | "marketing_opt_in" | "saved" | "last_seen_at">>;
+
+/**
+ * Một lần phát thư đăng nhập: link và mã 6 số nằm cùng dòng nên cả hai
+ * cùng hết hạn và cùng bị tiêu một lần.
+ *
+ * Chỉ lưu HASH của link và mã — không lưu bản rõ, để đọc được bảng này
+ * cũng không đăng nhập được.
+ */
+export interface BuyerSignInToken {
+  id: string;
+  email: string;
+  link_hash: string;
+  code_hash: string;
+  /** Số lần nhập mã sai; chạm trần thì token chết, phải xin thư mới. */
+  attempts: number;
+  expires_at: string;
+  consumed_at: string | null;
+  created_at: string;
+}
+
 export interface Buyer {
   id: string;
   company: string;

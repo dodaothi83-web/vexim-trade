@@ -10,6 +10,12 @@ import type {
   AuditLogEntry,
   Buyer,
   BuyerInput,
+  BuyerSavedComparison,
+  BuyerSavedList,
+  BuyerSavedProduct,
+  BuyerSignInToken,
+  BuyerUser,
+  BuyerUserInput,
   Category,
   Certificate,
   CertificateScope,
@@ -106,9 +112,16 @@ interface LocalShape {
   supplier_portal_notice_reads?: SupplierNoticeRead[];
   introductions: Introduction[];
   audit_log: AuditLogEntry[];
+  /** Tài khoản người mua — tách khỏi `users` (nhân viên) và `buyers` (hồ sơ CRM). */
+  buyer_users?: BuyerUser[];
+  buyer_sign_in_tokens?: BuyerSignInToken[];
 }
 
 const FILE = path.join(process.cwd(), "data", "local-db.json");
+
+/** Trần danh sách đã lưu: đủ rộng để dùng thật, đủ hẹp để một dòng JSON không phình. */
+const MAX_BUYER_SAVED_PRODUCTS = 100;
+const MAX_BUYER_SAVED_COMPARISONS = 30;
 
 const g = globalThis as unknown as { __veximLocal?: LocalShape };
 
@@ -886,6 +899,7 @@ function load(): LocalShape {
     if (!Array.isArray(c.rfq_matches)) c.rfq_matches = [];
     if (!Array.isArray(c.introductions)) c.introductions = [];
     if (!Array.isArray(c.audit_log)) c.audit_log = [];
+    migrateBuyerAccountDefaults(c);
     ensureSeedCategories(c);
     migrateCategoryDefaults(c);
     migrateRfqDefaults(c);
@@ -935,6 +949,7 @@ function load(): LocalShape {
         if (!Array.isArray(parsed.rfq_matches)) parsed.rfq_matches = [];
         if (!Array.isArray(parsed.introductions)) parsed.introductions = [];
         if (!Array.isArray(parsed.audit_log)) parsed.audit_log = [];
+        migrateBuyerAccountDefaults(parsed);
         ensureSeedCategories(parsed);
         migrateCategoryDefaults(parsed);
         migrateRfqDefaults(parsed);
@@ -979,6 +994,55 @@ function persist(db: LocalShape) {
 
 /** Ẩn hash mật khẩu trước khi trả ra ngoài */
 /** Bỏ các khoá undefined khỏi patch để không vô tình ghi đè mất dữ liệu cũ. */
+/**
+ * Danh sách đã lưu là dữ liệu hiển thị do trình duyệt gửi lên, nên phải làm sạch
+ * trước khi ghi: chỉ giữ đúng hình dạng, cắt theo trần, bỏ mục trùng và mục rỗng.
+ */
+function normalizeBuyerSaved(raw: unknown): BuyerSavedList {
+  const source = (raw ?? {}) as { products?: unknown; comparisons?: unknown };
+  const products: BuyerSavedProduct[] = [];
+  const seenProducts = new Set<string>();
+  for (const item of Array.isArray(source.products) ? source.products : []) {
+    const row = item as Partial<BuyerSavedProduct> | null;
+    const id = typeof row?.id === "string" ? row.id.trim() : "";
+    if (!id || seenProducts.has(id) || products.length >= MAX_BUYER_SAVED_PRODUCTS) continue;
+    seenProducts.add(id);
+    products.push({
+      id,
+      name: typeof row?.name === "string" ? row.name.slice(0, 300) : "",
+      href: typeof row?.href === "string" ? row.href.slice(0, 500) : "",
+      imagePath: typeof row?.imagePath === "string" ? row.imagePath.slice(0, 500) : null,
+      categorySlug: typeof row?.categorySlug === "string" ? row.categorySlug.slice(0, 120) : "",
+      ...(typeof row?.supplierName === "string" ? { supplierName: row.supplierName.slice(0, 200) } : {}),
+    });
+  }
+  const comparisons: BuyerSavedComparison[] = [];
+  const seenComparisons = new Set<string>();
+  for (const item of Array.isArray(source.comparisons) ? source.comparisons : []) {
+    const row = item as Partial<BuyerSavedComparison> | null;
+    const ids = (Array.isArray(row?.productIds) ? row.productIds : [])
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0 && value.length <= 120)
+      .slice(0, 10);
+    if (ids.length < 2) continue;
+    const signature = [...ids].sort().join(",");
+    if (seenComparisons.has(signature) || comparisons.length >= MAX_BUYER_SAVED_COMPARISONS) continue;
+    seenComparisons.add(signature);
+    comparisons.push({
+      id: typeof row?.id === "string" && row.id ? row.id.slice(0, 120) : signature,
+      productIds: ids,
+      label: typeof row?.label === "string" ? row.label.slice(0, 200) : "",
+      created_at: typeof row?.created_at === "string" ? row.created_at : new Date().toISOString(),
+    });
+  }
+  return { products, comparisons };
+}
+
+/** File dữ liệu cũ chưa có hai mảng này; thêm rỗng để không phải khởi tạo lại. */
+function migrateBuyerAccountDefaults(db: LocalShape) {
+  if (!Array.isArray(db.buyer_users)) db.buyer_users = [];
+  if (!Array.isArray(db.buyer_sign_in_tokens)) db.buyer_sign_in_tokens = [];
+}
+
 function cleanPatch<T extends Record<string, unknown>>(patch: T): Partial<T> {
   return Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Partial<T>;
 }
@@ -1198,6 +1262,11 @@ export const localStore: DataStore = {
   async getBuyer(id) {
     return load().buyers.find((b) => b.id === id) ?? null;
   },
+  async getBuyerByEmail(email) {
+    const needle = email.trim().toLowerCase();
+    if (!needle) return null;
+    return load().buyers.find((b) => (b.email ?? "").trim().toLowerCase() === needle) ?? null;
+  },
   async createBuyer(input) {
     return mutate((db) => {
       const row: Buyer = {
@@ -1223,6 +1292,109 @@ export const localStore: DataStore = {
       db.buyers = db.buyers.filter((b) => b.id !== id);
       db.activities = db.activities.filter((a) => a.buyer_id !== id);
       db.messages = db.messages.filter((e) => e.buyer_id !== id);
+    });
+  },
+
+  // ----- Tài khoản người mua -----
+  async getBuyerUser(id) {
+    return (load().buyer_users ?? []).find((u) => u.id === id) ?? null;
+  },
+  async getBuyerUserByEmail(email) {
+    const needle = email.trim().toLowerCase();
+    if (!needle) return null;
+    return (load().buyer_users ?? []).find((u) => u.email === needle) ?? null;
+  },
+  async createBuyerUser(input) {
+    return mutate((db) => {
+      const now = new Date().toISOString();
+      const row: BuyerUser = {
+        id: randomUUID(),
+        email: input.email.trim().toLowerCase(),
+        company_name: input.company_name ?? null,
+        verified_at: input.verified_at ?? null,
+        marketing_opt_in: input.marketing_opt_in ?? false,
+        saved: normalizeBuyerSaved(input.saved),
+        created_at: now,
+        last_seen_at: input.last_seen_at ?? null,
+      };
+      db.buyer_users = [...(db.buyer_users ?? []), row];
+      return row;
+    });
+  },
+  async updateBuyerUser(id, patch) {
+    return mutate((db) => {
+      const row = (db.buyer_users ?? []).find((u) => u.id === id);
+      if (!row) throw new Error("Không tìm thấy tài khoản người mua");
+      if (patch.company_name !== undefined) row.company_name = patch.company_name;
+      if (patch.verified_at !== undefined) row.verified_at = patch.verified_at;
+      if (patch.marketing_opt_in !== undefined) row.marketing_opt_in = patch.marketing_opt_in;
+      if (patch.last_seen_at !== undefined) row.last_seen_at = patch.last_seen_at;
+      if (patch.saved !== undefined) row.saved = normalizeBuyerSaved(patch.saved);
+      return row;
+    });
+  },
+  async deleteBuyerUser(id) {
+    mutate((db) => {
+      const row = (db.buyer_users ?? []).find((u) => u.id === id);
+      db.buyer_users = (db.buyer_users ?? []).filter((u) => u.id !== id);
+      if (row) {
+        db.buyer_sign_in_tokens = (db.buyer_sign_in_tokens ?? []).filter((t) => t.email !== row.email);
+      }
+    });
+  },
+  async createBuyerSignInToken(input) {
+    return mutate((db) => {
+      const now = new Date().toISOString();
+      const email = input.email.trim().toLowerCase();
+      // Mỗi email chỉ có một thư còn sống: xin lại thì thư cũ chết ngay.
+      db.buyer_sign_in_tokens = (db.buyer_sign_in_tokens ?? []).filter(
+        (t) => t.email !== email || t.consumed_at !== null,
+      );
+      const row: BuyerSignInToken = {
+        id: randomUUID(),
+        email,
+        link_hash: input.link_hash,
+        code_hash: input.code_hash,
+        attempts: 0,
+        expires_at: input.expires_at,
+        consumed_at: null,
+        created_at: now,
+      };
+      db.buyer_sign_in_tokens.push(row);
+      return row;
+    });
+  },
+  async findBuyerSignInToken(email) {
+    const needle = email.trim().toLowerCase();
+    const now = Date.now();
+    return (load().buyer_sign_in_tokens ?? [])
+      .filter((t) => t.email === needle && t.consumed_at === null && new Date(t.expires_at).getTime() > now)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
+  },
+  async getBuyerSignInTokenByLinkHash(linkHash) {
+    if (!linkHash) return null;
+    return (load().buyer_sign_in_tokens ?? []).find((t) => t.link_hash === linkHash) ?? null;
+  },
+  async consumeBuyerSignInToken(id) {
+    return mutate((db) => {
+      const row = (db.buyer_sign_in_tokens ?? []).find((t) => t.id === id);
+      if (!row || row.consumed_at) return false;
+      row.consumed_at = new Date().toISOString();
+      return true;
+    });
+  },
+  async bumpBuyerSignInAttempts(id) {
+    return mutate((db) => {
+      const row = (db.buyer_sign_in_tokens ?? []).find((t) => t.id === id);
+      if (!row) return 0;
+      row.attempts += 1;
+      return row.attempts;
+    });
+  },
+  async deleteBuyerSignInTokens(email) {
+    const needle = email.trim().toLowerCase();
+    mutate((db) => {
+      db.buyer_sign_in_tokens = (db.buyer_sign_in_tokens ?? []).filter((t) => t.email !== needle);
     });
   },
 
@@ -2080,6 +2252,7 @@ export const localStore: DataStore = {
   async listRfqs(options) {
     let rows = [...(load().rfqs ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at));
     if (options?.status) rows = rows.filter((r) => r.status === options.status);
+    if (options?.buyerId !== undefined) rows = rows.filter((r) => r.buyer_id === options.buyerId);
     if (options?.assignedTo !== undefined) {
       rows = rows.filter((r) => r.assigned_to === options.assignedTo);
     }

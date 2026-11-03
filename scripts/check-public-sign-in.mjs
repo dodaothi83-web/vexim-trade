@@ -43,23 +43,26 @@ const { PublicHeaderControls } = load('../components/public-header-controls.tsx'
 });
 
 function assertSignIn(html, lang, label) {
-  const link = html.match(/<a\b[^>]*href="\/login"[^>]*>[\s\S]*?<\/a>/)?.[0];
-  assert.ok(link, 'A sign-in link must point to the existing /login form');
+  const link = html.match(/<a\b[^>]*href="\/register"[^>]*>[\s\S]*?<\/a>/)?.[0];
+  assert.ok(link, 'A sign-in link must point to the account chooser');
   assert.match(link, new RegExp(`lang="${lang}"`));
-  assert.ok(link.includes(label), `Sign-in link should say ${label}`);
+  assert.ok(link.includes(`aria-label="${label}"`));
+  assert.ok(link.includes(`title="${label}"`));
+  assert.match(link, /<svg\b/);
+  assert.doesNotMatch(link, />[^<]+<\/a>/, "Sign-in link is icon-only");
   const openingTag = link.slice(0, link.indexOf('>'));
   assert.doesNotMatch(openingTag, /(?:^|\s)(?:hidden|sm:hidden|md:hidden|lg:hidden)(?:\s|"|$)/, 'Sign-in itself must not be hidden at any breakpoint');
 }
 
 let html = renderToStaticMarkup(React.createElement(PublicHeaderControls));
-assertSignIn(html, 'en', 'Supplier sign in');
+assertSignIn(html, 'en', 'Sign in');
 assert.match(html, /href="\/rfq"[^>]*aria-label="Request a quote"/);
 assert.match(html, /Language switcher \/ Chuyển đổi ngôn ngữ/);
 assert.match(html, /href="\/for-suppliers"/);
 
 params = new URLSearchParams('lang=vi');
 html = renderToStaticMarkup(React.createElement(PublicHeaderControls));
-assertSignIn(html, 'vi', 'Đăng nhập nhà cung cấp');
+assertSignIn(html, 'vi', 'Đăng nhập');
 assert.match(html, /href="\/rfq"[^>]*aria-label="Yêu cầu báo giá"/);
 assert.match(html, /href="\/\?lang=vi#categories"/);
 assert.match(html, /Báo giá/);
@@ -67,7 +70,7 @@ assert.match(html, /Báo giá/);
 // The Suspense fallback must remain usable while search parameters are loading.
 suspend = true;
 html = renderToStaticMarkup(React.createElement(PublicHeaderControls));
-assertSignIn(html, 'en', 'Supplier sign in');
+assertSignIn(html, 'en', 'Sign in');
 assert.match(html, /href="\/rfq"[^>]*aria-label="Request a quote"/);
 suspend = false;
 
@@ -87,7 +90,7 @@ for (const file of ['../app/blog/layout.tsx', '../app/(legal)/layout.tsx']) {
   html = renderToStaticMarkup(React.createElement(Layout, null, 'Content'));
   const header = html.match(/<header\b[\s\S]*?<\/header>/)?.[0];
   assert.ok(header, `${file} needs a header`);
-  assertSignIn(header, 'en', 'Supplier sign in');
+  assertSignIn(header, 'en', 'Sign in');
 }
 
 const home = fs.readFileSync(new URL('../app/(public)/home.tsx', import.meta.url), 'utf8');
@@ -95,7 +98,7 @@ assert.match(home, /href="\/login"[\s\S]{0,100}isVi \? "Đăng nhập nhà cung 
 const supplierPage = fs.readFileSync(new URL('../app/(public)/for-suppliers/page.tsx', import.meta.url), 'utf8');
 assert.match(supplierPage, /Already have an account\?[\s\S]{0,120}href="\/login"/, 'Existing suppliers can sign in from the supplier application section');
 
-// The shared link keeps using the existing role-aware login page.
+// The supplier login page still preserves its role-aware redirects.
 let session = null;
 const authMessages = loadAuthDictionary();
 const LoginPage = load('../app/(auth)/login/page.tsx', {

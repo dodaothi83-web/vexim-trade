@@ -9,6 +9,10 @@ import type {
   AuditLogEntry,
   Buyer,
   BuyerInput,
+  BuyerSavedList,
+  BuyerSignInToken,
+  BuyerUser,
+  BuyerUserInput,
   Category,
   Certificate,
   CertificateScope,
@@ -850,6 +854,20 @@ export const supabaseStore: DataStore = {
     if (error) fail("getBuyer", error);
     return (data as Buyer) ?? null;
   },
+  async getBuyerByEmail(email) {
+    const needle = email.trim().toLowerCase();
+    if (!needle) return null;
+    // buyers.email không có unique index: lấy bản mới nhất nếu dữ liệu cũ có trùng.
+    const { data, error } = await must()
+      .from("buyers")
+      .select("*")
+      .ilike("email", needle)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) fail("getBuyerByEmail", error);
+    return (data as Buyer) ?? null;
+  },
   async createBuyer(input: BuyerInput) {
     const { data, error } = await must()
       .from("buyers")
@@ -872,6 +890,140 @@ export const supabaseStore: DataStore = {
   async deleteBuyer(id) {
     const { error } = await must().from("buyers").delete().eq("id", id);
     if (error) fail("deleteBuyer", error);
+  },
+
+  // ----- Tài khoản người mua -----
+  async getBuyerUser(id) {
+    const { data, error } = await must().from("buyer_users").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getBuyerUser", error);
+    return (data as BuyerUser | null) ?? null;
+  },
+  async getBuyerUserByEmail(email) {
+    const needle = email.trim().toLowerCase();
+    if (!needle) return null;
+    const { data, error } = await must()
+      .from("buyer_users")
+      .select("*")
+      .eq("email", needle)
+      .maybeSingle();
+    if (error) fail("getBuyerUserByEmail", error);
+    return (data as BuyerUser | null) ?? null;
+  },
+  async createBuyerUser(input) {
+    const { data, error } = await must()
+      .from("buyer_users")
+      .insert({
+        email: input.email.trim().toLowerCase(),
+        company_name: input.company_name ?? null,
+        verified_at: input.verified_at ?? null,
+        marketing_opt_in: input.marketing_opt_in ?? false,
+        saved: input.saved ?? { products: [], comparisons: [] },
+        last_seen_at: input.last_seen_at ?? null,
+      })
+      .select()
+      .single();
+    if (error) fail("createBuyerUser", error);
+    return data as BuyerUser;
+  },
+  async updateBuyerUser(id, patch) {
+    const body: Record<string, unknown> = {};
+    if (patch.company_name !== undefined) body.company_name = patch.company_name;
+    if (patch.verified_at !== undefined) body.verified_at = patch.verified_at;
+    if (patch.marketing_opt_in !== undefined) body.marketing_opt_in = patch.marketing_opt_in;
+    if (patch.last_seen_at !== undefined) body.last_seen_at = patch.last_seen_at;
+    if (patch.saved !== undefined) body.saved = patch.saved satisfies BuyerSavedList;
+    const { data, error } = await must()
+      .from("buyer_users")
+      .update(body)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) fail("updateBuyerUser", error);
+    return data as BuyerUser;
+  },
+  async deleteBuyerUser(id) {
+    // Token đăng nhập của email đó không còn lý do tồn tại.
+    const { data } = await must().from("buyer_users").select("email").eq("id", id).maybeSingle();
+    const email = (data as { email?: string } | null)?.email;
+    if (email) await this.deleteBuyerSignInTokens(email);
+    const { error } = await must().from("buyer_users").delete().eq("id", id);
+    if (error) fail("deleteBuyerUser", error);
+  },
+  async createBuyerSignInToken(input) {
+    const email = input.email.trim().toLowerCase();
+    // Mỗi email một thư còn sống: xin lại thì thư cũ chết ngay.
+    await this.deleteBuyerSignInTokens(email);
+    const { data, error } = await must()
+      .from("buyer_sign_in_tokens")
+      .insert({
+        email,
+        link_hash: input.link_hash,
+        code_hash: input.code_hash,
+        expires_at: input.expires_at,
+      })
+      .select()
+      .single();
+    if (error) fail("createBuyerSignInToken", error);
+    return data as BuyerSignInToken;
+  },
+  async findBuyerSignInToken(email) {
+    const needle = email.trim().toLowerCase();
+    if (!needle) return null;
+    const { data, error } = await must()
+      .from("buyer_sign_in_tokens")
+      .select("*")
+      .eq("email", needle)
+      .is("consumed_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) fail("findBuyerSignInToken", error);
+    return (data as BuyerSignInToken | null) ?? null;
+  },
+  async getBuyerSignInTokenByLinkHash(linkHash) {
+    if (!linkHash) return null;
+    const { data, error } = await must()
+      .from("buyer_sign_in_tokens")
+      .select("*")
+      .eq("link_hash", linkHash)
+      .maybeSingle();
+    if (error) fail("getBuyerSignInTokenByLinkHash", error);
+    return (data as BuyerSignInToken | null) ?? null;
+  },
+  async consumeBuyerSignInToken(id) {
+    // `.is("consumed_at", null)` là điều kiện nguyên tử: hai lời gọi song song,
+    // chỉ một cái nhận được dòng và trả về mảng khác rỗng.
+    const { data, error } = await must()
+      .from("buyer_sign_in_tokens")
+      .update({ consumed_at: new Date().toISOString() })
+      .eq("id", id)
+      .is("consumed_at", null)
+      .select("id");
+    if (error) fail("consumeBuyerSignInToken", error);
+    return Array.isArray(data) && data.length > 0;
+  },
+  async bumpBuyerSignInAttempts(id) {
+    const { data, error } = await must()
+      .from("buyer_sign_in_tokens")
+      .select("attempts")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) fail("bumpBuyerSignInAttempts", error);
+    const current = Number((data as { attempts?: number } | null)?.attempts ?? 0);
+    const next = current + 1;
+    const { error: updError } = await must()
+      .from("buyer_sign_in_tokens")
+      .update({ attempts: next })
+      .eq("id", id);
+    if (updError) fail("bumpBuyerSignInAttempts", updError);
+    return next;
+  },
+  async deleteBuyerSignInTokens(email) {
+    const needle = email.trim().toLowerCase();
+    if (!needle) return;
+    const { error } = await must().from("buyer_sign_in_tokens").delete().eq("email", needle);
+    if (error) fail("deleteBuyerSignInTokens", error);
   },
 
   async listProspects() {
@@ -1486,6 +1638,7 @@ export const supabaseStore: DataStore = {
   async listRfqs(options) {
     let q = must().from("rfqs").select("*").order("created_at", { ascending: false });
     if (options?.status) q = q.eq("status", options.status);
+    if (options?.buyerId !== undefined) q = q.eq("buyer_id", options.buyerId);
     if (options?.assignedTo !== undefined) {
       if (options.assignedTo === null) q = q.is("assigned_to", null);
       else q = q.eq("assigned_to", options.assignedTo);

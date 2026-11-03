@@ -11,8 +11,8 @@ import type { Locale } from "@/lib/i18n/config";
 /**
  * Chọn loại tài khoản (Buyer / Supplier) ngay trong màn đăng ký.
  *
- * Đích đến khác nhau nên không thể gộp một form: người mua không cần tài khoản, họ đi
- * thẳng vào phễu báo giá; người bán đi vào biểu mẫu đăng ký nhà cung cấp hiện có. Nút
+ * Đích đến khác nhau: người mua đăng nhập bằng email trước khi tới form báo giá;
+ * người bán đi vào biểu mẫu đăng ký nhà cung cấp hiện có. Nút
  * Continue là một Link thật nên vẫn dùng được khi JavaScript chưa tải xong.
  */
 type Choice = "buyer" | "supplier";
@@ -26,7 +26,7 @@ export function AccountTypeChooser({ messages: m, lang }: { messages: AuthMessag
       id: "buyer",
       title: m.buyerTitle,
       summary: m.buyerSummary,
-      href: "/rfq",
+      href: "/buyer/sign-in?next=/rfq",
       icon: <ShoppingBag className="h-5 w-5" aria-hidden="true" />,
     },
     {
@@ -85,7 +85,7 @@ export function AccountTypeChooser({ messages: m, lang }: { messages: AuthMessag
 
       <p className="mt-4 text-center text-[12.5px] text-ink-600">
         {m.alreadyHaveAccount}{" "}
-        <Link href="/login" prefetch={false} className="font-semibold text-brand-700 underline">
+        <Link href={choice === "buyer" ? "/buyer/sign-in?next=/rfq" : "/login"} prefetch={false} className="font-semibold text-brand-700 underline">
           {m.signIn}
         </Link>
       </p>

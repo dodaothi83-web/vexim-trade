@@ -37,7 +37,9 @@ export type ChallengePurpose =
   | "admin-setup"
   | "password-reset"
   | "service-inquiry"
-  | "rfq";
+  | "rfq"
+  /** Trang đăng nhập của người mua — khác form nhân viên nên cần challenge riêng. */
+  | "buyer-sign-in";
 
 export const CHALLENGE_PURPOSES: readonly ChallengePurpose[] = [
   "login",
@@ -46,6 +48,7 @@ export const CHALLENGE_PURPOSES: readonly ChallengePurpose[] = [
   "password-reset",
   "service-inquiry",
   "rfq",
+  "buyer-sign-in",
 ];
 
 export type FormChallengeCheck =

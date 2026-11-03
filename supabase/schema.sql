@@ -2317,5 +2317,53 @@ create index if not exists product_certificate_optouts_supplier_idx
 alter table public.product_certificate_optouts enable row level security;
 revoke all on public.product_certificate_optouts from anon, authenticated;
 
+-- ---------------------------------------------------------------------------
+-- TÀI KHOẢN NGƯỜI MUA (xem supabase/migrations/20261105_buyer_accounts.sql)
+--
+-- Người mua KHÔNG nằm trong app_users và KHÔNG nằm trong buyers. Liên kết với yêu cầu
+-- báo giá là EMAIL: buyers.email đã lưu chữ thường khi tạo yêu cầu, nên xác minh email
+-- là thấy đủ yêu cầu cũ, không cần bước "claim".
+-- ---------------------------------------------------------------------------
+create table if not exists public.buyer_users (
+  id               uuid primary key default gen_random_uuid(),
+  email            text not null,
+  company_name     text,
+  verified_at      timestamptz,
+  marketing_opt_in boolean not null default false,
+  saved            jsonb not null default '{"products":[],"comparisons":[]}'::jsonb,
+  created_at       timestamptz not null default now(),
+  last_seen_at     timestamptz,
+  check (email = lower(btrim(email)) and length(email) <= 320),
+  check (jsonb_typeof(saved) = 'object')
+);
+create unique index if not exists buyer_users_email_key on public.buyer_users (email);
+create index if not exists buyer_users_created_idx on public.buyer_users (created_at desc);
+
+create table if not exists public.buyer_sign_in_tokens (
+  id           uuid primary key default gen_random_uuid(),
+  email        text not null,
+  link_hash    text not null,
+  code_hash    text not null,
+  attempts     integer not null default 0 check (attempts >= 0),
+  expires_at   timestamptz not null,
+  consumed_at  timestamptz,
+  created_at   timestamptz not null default now(),
+  check (email = lower(btrim(email)) and length(email) <= 320)
+);
+create index if not exists buyer_sign_in_tokens_email_idx
+  on public.buyer_sign_in_tokens (email, created_at desc);
+create index if not exists buyer_sign_in_tokens_live_idx
+  on public.buyer_sign_in_tokens (email) where consumed_at is null;
+
+alter table public.buyer_users enable row level security;
+revoke all on table public.buyer_users from public, anon, authenticated;
+grant select, insert, update, delete on table public.buyer_users to service_role;
+
+alter table public.buyer_sign_in_tokens enable row level security;
+revoke all on table public.buyer_sign_in_tokens from public, anon, authenticated;
+grant select, insert, update, delete on table public.buyer_sign_in_tokens to service_role;
+
+create index if not exists buyers_email_lower_idx on public.buyers (lower(email));
+
 commit;
 notify pgrst, 'reload schema';

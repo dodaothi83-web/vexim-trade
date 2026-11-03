@@ -1,10 +1,6 @@
 // node --experimental-strip-types scripts/check-register-chooser.mjs
 //
 // Trang /register là cửa vào tài khoản duy nhất và phải tách rõ hai loại người dùng.
-// Kiểm này chặn đúng những lỗi đã có thật:
-//  - người mua bị dẫn vào biểu mẫu đăng ký bán hàng (header chỉ có "Supplier sign in");
-//  - hứa hẹn một biểu mẫu tài khoản người mua chưa tồn tại;
-//  - biến việc gửi yêu cầu báo giá thành phải đăng nhập.
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -91,24 +87,18 @@ assert.match(chooserHtml, /Which account would you like to create\?/, 'Có câu 
 assert.equal((chooserHtml.match(/type="radio"/g) ?? []).length, 2, 'Hai lựa chọn dạng radio');
 assert.match(chooserHtml, /value="buyer"/);
 assert.match(chooserHtml, /value="supplier"/);
-assert.match(chooserHtml, /access over|Send a quote request/i);
-assert.match(chooserHtml, />Continue</, 'Có nút Continue như màn đăng ký mẫu');
-assert.match(chooserHtml, /href="\/rfq"/, 'Mặc định (Buyer) dẫn tới yêu cầu báo giá');
-assert.match(chooserSource, /\/supplier\/register\?type=supplier/, 'Chọn Supplier dẫn tới biểu mẫu kèm dấu type=supplier');
-assert.match(chooserSource, /href: "\/rfq"/, 'Chọn Buyer đi thẳng vào phễu báo giá');
-assert.match(chooserHtml, /href="\/login"/, 'Có lối đăng nhập cho người đã có tài khoản');
-
-/* 3. Không hứa hẹn biểu mẫu chưa tồn tại */
-for (const missing of ['/register/buyer', '/buyer/register', '/api/buyer-signup', '/signup']) {
-  assert.ok(!html.includes(`href="${missing}"`), `Không được trỏ tới ${missing} khi route đó chưa có`);
-}
+assert.match(chooserHtml, />Continue</, 'Có nút Continue');
+assert.match(chooserHtml, /href="\/buyer\/sign-in\?next=\/rfq"/, 'Buyer đăng nhập trước khi tới form báo giá');
+assert.match(chooserSource, /\/supplier\/register\?type=supplier/, 'Supplier dẫn tới biểu mẫu');
+assert.match(chooserSource, /choice === "buyer" \? "\/buyer\/sign-in\?next=\/rfq" : "\/login"/, 'Lối đăng nhập theo loại tài khoản');
 assert.ok(!existsSync(new URL('app/(public)/register', root)), 'Chỉ có một trang /register duy nhất');
-assert.ok(!existsSync(new URL('app/(auth)/register/buyer', root)), 'Chưa có trang đăng ký tài khoản người mua');
-assert.match(html, /Buyer accounts are still being built/, 'Nội dung giải thích nằm ở màn chọn loại tài khoản');
-assert.doesNotMatch(html + chooserHtml, /Create buyer account|Create your buyer account/i, 'Không được mời tạo tài khoản người mua khi chưa có');
-
-/* 4. Không chặn phễu báo giá: thẻ buyer phải nói rõ không cần đăng nhập */
-assert.match(chooserHtml, /No account needed/i, 'Nói rõ gửi yêu cầu không cần tài khoản');
+assert.doesNotMatch(html + chooserHtml, /Buyer accounts are still being built|No account needed/i);
+for (const [locale, copy] of Object.entries(authMessages)) {
+  const rendered = renderToStaticMarkup(React.createElement(chooser.exports.AccountTypeChooser, { messages: copy.register, lang: locale }));
+  assert.match(rendered, /href="\/buyer\/sign-in\?next=\/rfq"/);
+  assert.match(copy.register.buyerSummary, locale === 'vi' ? /miễn phí.*email.*không cần mật khẩu/i : /free.*email.*no password/i);
+  assert.doesNotMatch(copy.register.buyerNoteLead + copy.register.buyerNote, /đang được xây dựng|still being built/i);
+}
 
 /* 5. Văn phong: tiếng Anh, không gạch ngang dài, không số liệu marketing */
 assert.doesNotMatch(html + chooserHtml, /—|–/, 'Không dùng gạch ngang dài trong copy hiển thị');
@@ -146,4 +136,4 @@ assert.match(loginPage, /href="\/rfq"/, 'Trang đăng nhập phải nói ngườ
 const forSuppliers = readFileSync(new URL('app/(public)/for-suppliers/page.tsx', root), 'utf8');
 assert.match(forSuppliers, /href="\/register"/, 'Lối đăng ký nhà cung cấp từ trang /for-suppliers đi qua màn chọn loại');
 
-console.log('✅ Register chooser: hai loại tài khoản, đúng đích dẫn, không hứa biểu mẫu chưa có, không chặn phễu báo giá.');
+console.log('✅ Register chooser: hai loại tài khoản, đúng đích dẫn và nội dung tài khoản người mua.');

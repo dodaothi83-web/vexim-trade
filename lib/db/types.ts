@@ -7,6 +7,9 @@ import type {
   AuditLogEntry,
   Buyer,
   BuyerInput,
+  BuyerSignInToken,
+  BuyerUser,
+  BuyerUserInput,
   Category,
   Certificate,
   CertificateScope,
@@ -87,9 +90,35 @@ export interface DataStore {
 
   listBuyers(): Promise<Buyer[]>;
   getBuyer(id: string): Promise<Buyer | null>;
+  /** Hồ sơ CRM của người mua, tra theo email đã lưu chữ thường. */
+  getBuyerByEmail(email: string): Promise<Buyer | null>;
   createBuyer(input: BuyerInput): Promise<Buyer>;
   updateBuyer(id: string, patch: Partial<BuyerInput>): Promise<Buyer>;
   deleteBuyer(id: string): Promise<void>;
+
+  // ----- Tài khoản người mua (khác app_users và khác buyers) -----
+  getBuyerUser(id: string): Promise<BuyerUser | null>;
+  getBuyerUserByEmail(email: string): Promise<BuyerUser | null>;
+  createBuyerUser(input: BuyerUserInput): Promise<BuyerUser>;
+  updateBuyerUser(id: string, patch: Partial<BuyerUserInput>): Promise<BuyerUser>;
+  deleteBuyerUser(id: string): Promise<void>;
+  /** Phát một thư đăng nhập: link và mã 6 số cùng một dòng, đã băm. */
+  createBuyerSignInToken(input: {
+    email: string;
+    link_hash: string;
+    code_hash: string;
+    expires_at: string;
+  }): Promise<BuyerSignInToken>;
+  /** Token còn sống mới nhất của email (chưa tiêu, chưa hết hạn). */
+  findBuyerSignInToken(email: string): Promise<BuyerSignInToken | null>;
+  /** Token theo băm của link — luồng bấm link trong thư không biết email trước. */
+  getBuyerSignInTokenByLinkHash(linkHash: string): Promise<BuyerSignInToken | null>;
+  /** Tiêu token theo kiểu nguyên tử: chỉ một lời gọi thắng. */
+  consumeBuyerSignInToken(id: string): Promise<boolean>;
+  /** Tăng số lần nhập sai; trả về số lần sau khi tăng. */
+  bumpBuyerSignInAttempts(id: string): Promise<number>;
+  /** Huỷ ngay token của email (dùng khi vượt trần số lần thử). */
+  deleteBuyerSignInTokens(email: string): Promise<void>;
 
   // ----- Prospect lạnh -----
   listProspects(): Promise<Prospect[]>;
@@ -313,7 +342,7 @@ export interface DataStore {
   deleteSubmissionLink(id: string): Promise<void>;
 
   // RFQs
-  listRfqs(options?: { status?: string; assignedTo?: string | null }): Promise<Rfq[]>;
+  listRfqs(options?: { status?: string; assignedTo?: string | null; buyerId?: string }): Promise<Rfq[]>;
   getRfq(id: string): Promise<Rfq | null>;
   getRfqByToken(token: string): Promise<Rfq | null>;
   getRfqByCode(code: string): Promise<Rfq | null>;
