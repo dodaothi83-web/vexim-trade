@@ -376,8 +376,10 @@ export default async function HomeContent({
               const href = `/products/${c.slug}`;
               const childCategories = getChildCategories(c, allCategories);
               const visibleChildren = childCategories.slice(0, 4);
-              const hasProducts = Boolean(
-                c.public_page_ready || childCategories.some((ch) => ch.public_page_ready),
+              // Readiness alone does not mean a supplier has a public offer.
+              const categoryIds = new Set([c.id, ...childCategories.map((child) => child.id)]);
+              const hasProducts = productGroups.some(({ category, products }) =>
+                categoryIds.has(category.id) && products.some((product) => !product.isDemo),
               );
               const primaryTitle = getCategoryTitle(c, lang);
               const kicker = i18n(c.homepage_kicker_i18n, lang, "");
@@ -397,9 +399,8 @@ export default async function HomeContent({
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-ink-950/75 via-ink-950/20 to-transparent" />
                       {hasProducts && (
-                        <span className="absolute left-3.5 top-3.5 hidden items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white shadow sm:inline-flex">
-                          <span className="h-1.5 w-1.5 rounded-full bg-white" />{" "}
-                          {isVi ? "Có sẵn nguồn hàng" : "Suppliers available"}
+                        <span className="absolute left-3.5 top-3.5 hidden items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-brand-700 shadow-sm sm:inline-flex">
+                          {isVi ? "Có nhà cung cấp" : "Suppliers available"}
                         </span>
                       )}
                       <div className="absolute inset-x-3 bottom-3 text-white sm:inset-x-4">

@@ -795,7 +795,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="block" htmlFor={id}>
+    <label className="block" htmlFor={id} data-invalid={error ? "true" : undefined}>
       <span className="mb-1 block text-[12.5px] font-semibold text-ink-700">
         {label} {required && <span className="text-red-500">*</span>}
       </span>

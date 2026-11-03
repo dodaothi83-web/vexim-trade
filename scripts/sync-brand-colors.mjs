@@ -8,6 +8,7 @@ const tokens = {
   'brand-600': colors.secondary, 'brand-700': colors.primary, 'brand-800': colors.primaryHover,
   'brand-900': '#14284D', 'brand-950': '#0D1C36',
   'ink-50': colors.surface, 'ink-100': colors.selected, 'ink-200': colors.border,
+  'ink-300': colors.controlBorder, 'ink-400': colors.placeholder, 'ink-950': colors.deepText,
   'ink-500': colors.muted, 'ink-600': colors.muted, 'ink-700': colors.muted,
   'ink-800': colors.text, 'ink-900': colors.text,
   ...Object.fromEntries(['50','100','300','400','500','600','700'].map((shade) => [`accent-${shade}`, Number(shade) < 300 ? colors.selected : Number(shade) < 600 ? colors.secondary : colors.primary])),

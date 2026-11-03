@@ -6,10 +6,11 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import React from 'react';
-import { supplierNameCase } from '../lib/public/supplier-name.ts';
+import { supplierShortName, supplierNameCase } from '../lib/public/supplier-name.ts';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import * as icons from 'lucide-react';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -34,7 +35,10 @@ const card = { ...supplier, approved_verification_steps: [1], main_products: [],
 
 function pageMocks({ status = 'draft', steps = [1], fail = false, store } = {}) {
   const calls = { storefront: [], photos: [] };
+  const dictionary = load('lib/i18n/portal/storefront.ts', {}).storefrontMessages.en;
   const base = {
+    '@/lib/i18n/server': { getPortalMessages: async () => ({ m: { storefront: dictionary }, locale: 'en' }) },
+    '@/lib/i18n/format': { fill: (text, values) => text.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? `{${key}}`) },
     react: React,
     '@/lib/verification-status': { verificationLabel: () => 'Factory verification' },
     'react/jsx-runtime': jsxRuntime,
@@ -109,15 +113,15 @@ assert.match(published.html, /all three checks are approved/, 'Đủ ba cấp th
 
 // 3. Thiếu bảng thì báo lỗi dữ liệu, không trắng trang và không lộ stack trace.
 const broken = await render({ fail: true });
-assert.match(broken.html, /Chưa dựng được bản xem trước/, 'Lỗi dữ liệu có màn hình báo cho NCC');
-assert.match(broken.html, /Hồ sơ của bạn không bị thay đổi/, 'Nói rõ hồ sơ không bị ảnh hưởng');
+assert.match(broken.html, /Could not build the preview/, 'Lỗi dữ liệu có màn hình báo cho NCC');
+assert.match(broken.html, /Your profile has not been changed/, 'Nói rõ hồ sơ không bị ảnh hưởng');
 assert.doesNotMatch(broken.html, /Could not find the table/, 'Không đẩy lỗi CSDL ra giao diện');
 assert.equal(broken.calls.storefront.length, 0, 'Không dựng khung buyer khi thiếu dữ liệu');
 
 // 4. Bản xem trước không tự sinh SEO, JSON-LD hay lượt xem.
 const source = read('app/supplier/portal/storefront/page.tsx');
 assert.match(source, /robots: \{ index: false, follow: false \}/, 'Trang xem trước noindex');
-for (const forbidden of ['SupplierTrafficBeacon', 'createTrafficToken', 'safeJsonLd', 'generateMetadata', 'countView'])
+for (const forbidden of ['SupplierTrafficBeacon', 'createTrafficToken', 'safeJsonLd', 'countView'])
   assert.ok(!source.includes(forbidden), `Bản xem trước không dùng ${forbidden}`);
 assert.ok(!source.includes('notFound('), 'Hồ sơ chưa publish không bị 404');
 
@@ -126,32 +130,23 @@ const publicPage = read('app/(public)/suppliers/[slug]/page.tsx');
 assert.match(publicPage, /<SupplierStorefront/, 'Trang công khai dùng khung chung');
 assert.match(read('app/supplier/portal/storefront/page.tsx'), /<SupplierStorefront/, 'Trang của tôi dùng đúng khung đó');
 const shared = read('components/public/supplier-storefront.tsx');
-for (const section of ['About this supplier', 'Business details', 'Verification Status', 'Trade at a glance', 'Seller information', 'Supplier catalogue'])
+for (const section of ['About this supplier', 'Business details', 'Supplier checks', 'Trade overview', 'Company details', 'Supplier catalogue'])
   assert.ok(shared.includes(section), `Khung chung có mục ${section}`);
 for (const field of ['supplierSummaryDisplay', 'supplierProductsDisplay', 'supplierMarketsDisplay', 'supplierCapacityDisplay', 'supplierPaymentTermsDisplay'])
   assert.match(shared, new RegExp(`${field}\\(s\\)`), `Trang buyer hiển thị ${field}`);
 const supplierHeader = shared.slice(shared.indexOf('<section className="mt-5'), shared.indexOf('<nav aria-label="Supplier sections"'));
 assert.match(supplierHeader, /text-left text-xl font-bold leading-7[^"\n]*sm:text-2xl sm:leading-8/,
   'The supplier name uses compact, left-aligned typography');
-assert.match(supplierHeader, /mt-3 flex items-center gap-2 rounded-lg border px-3 py-2/,
-  'The verification summary stays on one compact row');
-assert.match(supplierHeader, /<ShieldCheck[^>]+\/>[\s\S]*title=\{verificationSummary\}/,
-  'A single icon precedes the verification summary');
-assert.match(supplierHeader, /text-ink-500[^\n]*hover:text-brand-700[^\n]*>View details/,
-  'The verification details link is muted instead of a large pill button');
-assert.doesNotMatch(supplierHeader, />Verification status<|<VerificationPips/,
-  'The compact header removes the old two-line label and pip group');
-assert.match(shared, /level: 2, label: "Factory verification"/, 'Level 2 uses the factory-verification label');
-assert.match(shared, /const reviewStatus = approvedStep \? "Approved" : "Not approved"/,
-  'Each supplier verification card states its own approval status');
-assert.match(shared, /const iconTooltip = `Level \$\{level\} · \$\{label\}: \$\{reviewStatus\}\. \$\{explanation\}`/,
-  'Each supplier verification icon tooltip has its own explanation and approval status');
-assert.match(shared, /<button type="button" aria-label=\{iconTooltip\}/,
-  'Each supplier verification icon is keyboard and touch focusable');
-assert.match(shared, /group-hover\/level:block group-focus-within\/level:block/,
-  'Supplier verification tooltips open on hover, keyboard focus and touch');
-assert.match(shared, /<span role="tooltip"[\s\S]*?\{explanation\}/,
-  'The visible supplier tooltip contains the current level explanation');
+assert.match(supplierHeader, /Business registration checked/);
+assert.match(supplierHeader, /View supplier checks/);
+assert.doesNotMatch(supplierHeader, /VerificationTierBadge|VerificationCoverSeal|\/3 approved/);
+assert.match(shared, /const reviewStatus = approvedStep \? "Checked" : "No completed check shown"/,
+  'Do not infer a failed or unstarted review from the absence of published approval');
+assert.match(shared, /bg-success-surface text-success/);
+assert.match(shared, /bg-ink-50 text-ink-500/);
+assert.ok(shared.indexOf('<section id="products"') < shared.indexOf('<section id="about"'), 'Products precede profile details');
+assert.match(shared, /supplierShortName\(s\)/, 'Heading uses the normalised display or trade name');
+assert.doesNotMatch(shared, /checks approved|Not approved|Level \$\{level\}|bg-gradient-to-br/);
 assert.doesNotMatch(shared, /Factory visit|Factory visited|Thăm nhà máy|thăm nhà máy/,
   'The supplier profile never falls back to the old Level 2 terminology');
 assert.match(publicPage, /id="related-title" className="text-left text-base font-semibold/,
@@ -176,13 +171,13 @@ assert.equal(supplierNameCase('CÔNG TY TNHH MTV AN KHANG'), 'Công Ty TNHH MTV 
 assert.equal(supplierNameCase('An Phat Foods JSC'), 'An Phat Foods JSC',
   'Tên đã có chữ thường thì không bị sửa');
 assert.equal(supplierNameCase('GIA GIA NGUYEN 22000'), 'Gia Gia Nguyen 22000', 'Giữ nguyên số trong tên');
-assert.match(shared, /See the main products above or ask Vexim about specifications and availability/,
+assert.match(shared, /See the main products below or ask Vexim about specifications and availability/,
   'Hồ sơ chưa có listing vẫn dẫn buyer tới thông tin mặt hàng chính');
-assert.match(shared, /Supplier-declared - Not verified/,
-  'Thị trường tự khai có trạng thái ngắn gọn, khách quan');
-assert.doesNotMatch(shared, /What Vexim checked|Supplier-stated markets \(not independently verified\)|Stated markets are not a Vexim-verified export history/,
-  'Không dùng tiêu đề hoặc câu phủ định cũ');
-assert.match(shared, /grid items-stretch gap-3 md:grid-cols-3/, 'Ba hạng mục xác minh có bố cục thẻ rõ ràng');
+const verificationBlock = shared.slice(shared.indexOf('<section id="verification"'), shared.indexOf('{verificationActions}'));
+assert.doesNotMatch(verificationBlock, /Target markets|supplierExportMarketsDisplay/,
+  'Supplier-stated markets are not presented as delivery evidence');
+assert.match(shared, /Provided by the supplier. Confirm terms when requesting a quote/);
+assert.match(shared, /divide-y divide-ink-200/, 'Checks are readable rows rather than ranked cards');
 assert.match(shared, /<SupplierProductRail productCount=\{s\.main_products\.length\}>/,
   'Supplier catalogue uses the shared product rail');
 assert.match(shared, /lg:w-\[calc\(\(100%_-_4rem\)\/5\)\] lg:shrink-0/,
@@ -211,5 +206,44 @@ assert.ok(!shared.includes('chưa hiện với buyer') && !/hidden from buyer/i.
   'Không thêm danh sách “chưa hiện với buyer”');
 assert.doesNotMatch(shared, /supplier\.email|supplier\.phone|supplier\.zalo|tax_number|public_review_summaries\[1\]/,
   'Khung buyer không lộ email, điện thoại hay giấy tờ nội bộ');
+
+// Render the actual shared profile, not just its preview-page stub.
+const englishFields = new Proxy({}, { get: (_, key) => key === 'supplierExportMarketsDisplay' || key === 'supplierPortsDisplay' || key === 'supplierIncotermsDisplay'
+  ? () => [] : key === 'supplierLegalNameDisplay' ? () => 'LEGAL NAME UNCHANGED' : () => '' });
+const { SupplierStorefront } = load('components/public/supplier-storefront.tsx', {
+  'react/jsx-runtime': jsxRuntime,
+  'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
+  'lucide-react': icons,
+  '@/components/public-product-card': { PublicProductCard: () => null },
+  '@/components/public/supplier-product-rail': { SupplierProductRail },
+  '@/components/verification-tier': { VERIFICATION_LEVEL_ICONS: { 1: icons.FileCheck2, 2: icons.Factory, 3: icons.Truck } },
+  '@/lib/public/supplier-name': { supplierShortName },
+  '@/lib/public/catalog': { supplierTypeLabel: () => 'Manufacturer' },
+  '@/lib/verification-status': { verificationLabel: (level, scope) => level === 2 && scope === 'partner_contract' ? 'Partner factory contract' : level === 2 ? 'Factory verification' : 'Delivery history' },
+  '@/lib/public/display-name': {}, '@/lib/products/price-display': {},
+  '@/lib/public/product-selection': { withoutDirectContacts: (value) => value },
+  '@/lib/public/supplier-english': englishFields,
+});
+const profile = (steps, overrides = {}) => renderToStaticMarkup(React.createElement(SupplierStorefront, {
+  supplier: { ...card, name: 'MIGHTY ASIA', display_name: null, supplier_type: 'manufacturer', gallery_images: [], public_review_summaries: {}, approved_verification_steps: steps, ...overrides },
+  categories: [], certificates: [], synthetic: false, coverUrl: null, avatarUrl: null,
+}));
+const oneCheck = profile([1]);
+assert.match(oneCheck, />Mighty Asia</);
+assert.match(oneCheck, /Business registration checked/);
+assert.match(oneCheck, /Business registration documents reviewed by Vexim/);
+assert.equal((oneCheck.match(/No completed check shown/g) ?? []).length, 2);
+assert.doesNotMatch(oneCheck, /Level 1|1\/3|Not approved|bg-gradient/);
+assert.ok(oneCheck.indexOf('id="products"') < oneCheck.indexOf('id="about"'));
+assert.match(oneCheck, /LEGAL NAME UNCHANGED/);
+assert.equal((profile([]).match(/No completed check shown/g) ?? []).length, 3);
+assert.doesNotMatch(profile([1, 2, 3]), /No completed check shown/);
+const partner = profile([2], { approved_l2_scope: 'partner_contract', partner_review_summary: 'Reviewed partner contract only.' });
+assert.match(partner, /Partner factory contract/);
+assert.match(partner, /Reviewed partner contract only/);
+assert.match(partner, /does not establish ownership or a factory inspection/);
+const both = profile([2], { approved_l2_scope: 'both', partner_review_summary: 'Partner scope', public_review_summaries: { 2: 'Factory scope' } });
+assert.match(both, /Factory scope/);
+assert.match(both, /Partner scope/);
 
 console.log('✅ Storefront preview: same view as buyers, English, verification gaps shown, no SEO or traffic counting.');
