@@ -75,7 +75,10 @@ assert.doesNotMatch(loginPage, /Tạo tài khoản nhà cung cấp/);
 // 3. Approval note moved to supplier registration & post-login portal overview
 const registerPage = read("app/(auth)/supplier/register/page.tsx");
 // Văn phong: nói việc xem hồ sơ diễn ra nhanh, không lấy tên thương hiệu làm trọng tâm câu.
-assert.match(vi.supplierRegister.note, /Hồ sơ doanh nghiệp được xem trong thời gian ngắn/);
+// Thời gian xác minh phải nói thật (1 ngày làm việc) chứ không hứa "vài phút".
+assert.match(vi.supplierRegister.note, /xác minh trong 1 ngày làm việc/);
+assert.match(vi.supplierRegister.shellPoints.join(" "), /xác minh trong 1 ngày làm việc/);
+assert.doesNotMatch(vi.supplierRegister.shellLede, /duyệt trong vài phút|xác minh trong vài phút/);
 for (const text of [vi.supplierRegister.note, vi.supplierRegister.shellCaption, ...vi.supplierRegister.shellPoints, vi.register.supplierSummary]) {
   assert.doesNotMatch(text, /Vexim duyệt|để Vexim|cho Vexim/, `Câu đăng ký không nhắc Vexim như người duyệt: ${text}`);
 }

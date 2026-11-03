@@ -23,6 +23,7 @@ export default async function SupplierRegisterPage({ searchParams }: { searchPar
   const oauthKey = oauth && oauth in copy.oauth ? (oauth as keyof typeof copy.oauth) : null;
   return <AuthSplitShell
     caption={copy.shellCaption}
+    lede={copy.shellLede}
     points={copy.shellPoints}
     note={copy.note}
   >

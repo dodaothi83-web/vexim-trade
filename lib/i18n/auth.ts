@@ -76,7 +76,7 @@ const en = {
     buyerTitle: "Buyer",
     buyerSummary: "Send a quote request and compare offers from matched Vietnamese suppliers. No account needed.",
     supplierTitle: "Supplier",
-    supplierSummary: "List your products and receive quote requests from buyers sourcing from Vietnam.",
+    supplierSummary: "Sell to international buyers. Free to join, verified within one working day.",
     continue: "Continue",
     alreadyHaveAccount: "Already have an account?",
     signIn: "Sign in",
@@ -85,11 +85,11 @@ const en = {
       "Until they open, your quote request and its private status link work without signing in.",
     supplierNoteLead: "Supplier accounts",
     supplierNote:
-      "start with an account and an email or Google confirmation. We look at the company profile shortly, then products and buyer requests open. The supplier application form is in Vietnamese.",
+      "are free to open and verified within one working day; once your profile is approved you list products and receive quote requests. The supplier application form is in Vietnamese.",
     shellCaption: "Meet the team that checks the factory before you do.",
     shellPoints: [
       "Buyers: send a request for a quote and get offers from matched Vietnamese suppliers.",
-      "Suppliers: sign up in a few minutes to list products and receive quote requests.",
+      "Suppliers: sign up free, get verified within one working day, then list products and receive quote requests.",
       "Buyers pay nothing and contract directly with the supplier they choose.",
     ],
   },
@@ -97,18 +97,20 @@ const en = {
     metaTitle: "Create a supplier account",
     step: "Supplier · Step 1 of 2",
     title: "Create an account",
-    note: "We look at your company profile shortly before products and buyer requests open.",
+    note: "Profiles are verified within one working day. Once approved, you list products and receive quote requests.",
     loginQuestion: "Already have an account?",
     login: "Sign in",
     buyerQuestion: "Buying?",
     sendQuoteRequest: "Send a quote request",
     noSignInNeeded: "without an account, or",
     changeType: "change the account type",
-    shellCaption: "Sign up in a few minutes, then list products and hear from buyers.",
+    shellCaption: "Sell to international buyers",
+    shellLede: "Sign up free in a few minutes. Complete your profile and you can list products and receive quote requests.",
     shellPoints: [
-      "Email or Google is all you need; no card, no setup fee.",
-      "Enter your company details once and reuse them for products, certificates and quotes.",
-      "Free under the pioneer supplier programme.",
+      "Sign up quickly with email or Google",
+      "Add your business details and upload your business licence",
+      "Your profile is verified within one working day, so buyers trust you sooner",
+      "Free for suppliers who join early",
     ],
     oauth: {
       unavailable: "Google sign-up is not configured on this domain. You can create an account with email.",
@@ -243,6 +245,7 @@ type AuthMessages = {
     noSignInNeeded: string;
     changeType: string;
     shellCaption: string;
+    shellLede: string;
     shellPoints: readonly string[];
     oauth: {
       unavailable: string;
@@ -372,7 +375,7 @@ const vi: AuthMessages = {
     buyerTitle: "Người mua",
     buyerSummary: "Gửi yêu cầu báo giá và so sánh báo giá từ nhà cung cấp Việt Nam phù hợp. Không cần tài khoản.",
     supplierTitle: "Nhà cung cấp",
-    supplierSummary: "Đăng sản phẩm và nhận yêu cầu báo giá từ người mua đang tìm nguồn hàng Việt Nam.",
+    supplierSummary: "Bán hàng cho người mua quốc tế. Đăng ký miễn phí, xác minh trong 1 ngày làm việc.",
     continue: "Tiếp tục",
     alreadyHaveAccount: "Đã có tài khoản?",
     signIn: "Đăng nhập",
@@ -380,11 +383,11 @@ const vi: AuthMessages = {
     buyerNote: "Trong lúc chờ, yêu cầu báo giá và liên kết trạng thái riêng vẫn hoạt động không cần đăng nhập.",
     supplierNoteLead: "Tài khoản nhà cung cấp",
     supplierNote:
-      "bắt đầu bằng tài khoản và bước xác nhận qua email hoặc Google. Hồ sơ doanh nghiệp được xem trong thời gian ngắn, rồi tài khoản mở đăng sản phẩm và nhận yêu cầu báo giá. Hồ sơ lưu nháp được, nộp khi đã đủ giấy tờ.", // copy-allow: đoạn giải thích dài, hiển thị thành khối riêng
+      "đăng ký miễn phí và được xác minh trong 1 ngày làm việc; khi hồ sơ được duyệt, bạn đăng sản phẩm và nhận yêu cầu báo giá. Hồ sơ lưu nháp được, nộp khi đã đủ giấy tờ.", // copy-allow: đoạn giải thích dài, hiển thị thành khối riêng
     shellCaption: "Gặp đội ngũ kiểm tra nhà máy trước khi bạn đặt hàng.",
     shellPoints: [
       "Người mua: gửi yêu cầu báo giá và nhận báo giá từ nhà cung cấp Việt Nam phù hợp.",
-      "Nhà cung cấp: đăng ký trong vài phút để đăng sản phẩm và nhận yêu cầu báo giá.",
+      "Nhà cung cấp: đăng ký miễn phí, xác minh trong 1 ngày làm việc, rồi đăng sản phẩm và nhận yêu cầu báo giá.",
       "Người mua không mất phí và ký hợp đồng trực tiếp với nhà cung cấp mình chọn.",
     ],
   },
@@ -392,18 +395,20 @@ const vi: AuthMessages = {
     metaTitle: "Tạo tài khoản nhà cung cấp",
     step: "Nhà cung cấp · Bước 1/2",
     title: "Tạo tài khoản",
-    note: "Hồ sơ doanh nghiệp được xem trong thời gian ngắn trước khi mở đăng sản phẩm và nhận báo giá.",
+    note: "Hồ sơ được xác minh trong 1 ngày làm việc. Ngay khi được duyệt, bạn đăng sản phẩm và nhận yêu cầu báo giá.",
     loginQuestion: "Đã có tài khoản?",
     login: "Đăng nhập",
     buyerQuestion: "Bạn là người mua?",
     sendQuoteRequest: "Gửi yêu cầu báo giá",
     noSignInNeeded: "không cần tài khoản, hoặc",
     changeType: "đổi loại tài khoản",
-    shellCaption: "Đăng ký trong vài phút, rồi đăng sản phẩm và nhận yêu cầu báo giá từ người mua.",
+    shellCaption: "Bán hàng cho người mua quốc tế",
+    shellLede: "Đăng ký miễn phí trong vài phút. Hoàn thiện hồ sơ là bạn có thể đăng sản phẩm và nhận yêu cầu báo giá.",
     shellPoints: [
-      "Chỉ cần email hoặc tài khoản Google, không cần thẻ thanh toán.",
-      "Khai hồ sơ doanh nghiệp một lần, dùng cho sản phẩm, chứng nhận và báo giá.",
-      "Miễn phí trong chương trình nhà cung cấp tiên phong.",
+      "Đăng ký nhanh bằng email hoặc Google",
+      "Điền thông tin doanh nghiệp và tải giấy đăng ký kinh doanh",
+      "Hồ sơ được xác minh trong 1 ngày làm việc, giúp người mua tin tưởng bạn hơn",
+      "Miễn phí cho nhà cung cấp tham gia sớm",
     ],
     oauth: {
       unavailable: "Google OAuth chưa được cấu hình trên tên miền này. Bạn có thể tạo tài khoản bằng email.",
