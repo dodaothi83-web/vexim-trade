@@ -138,7 +138,7 @@ for (const locale of ["en", "vi"]) {
 /* 5. <html lang> và phạm vi đường dẫn đa ngôn ngữ. */
 const layout = read("app/layout.tsx");
 assert.match(layout, /LOCALE_COOKIE/, "layout đọc cookie ngôn ngữ");
-assert.match(layout, /isLocalizedAuthPath\(pathname\)/, "layout ưu tiên cookie cho khu vực tài khoản");
+assert.match(layout, /isLocalizedPath\(pathname\)/, "layout ưu tiên cookie cho mọi khu vực đã chuyển ngôn ngữ");
 const { isLocalizedAuthPath } = await import("../lib/i18n/config.ts");
 for (const route of ["/login", "/register", "/auth/forgot-password", "/auth/reset-password", "/supplier/register"]) {
   assert.equal(isLocalizedAuthPath(route), true, `${route} thuộc khu vực đa ngôn ngữ`);

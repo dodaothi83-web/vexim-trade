@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const dashboardPage = read('app/supplier/portal/page.tsx');
@@ -18,15 +19,20 @@ const loaderOf = (source) => {
 const dashLoader = loaderOf(dashboardPage);
 assert.ok(dashLoader.length > 0, 'Trang tổng quan có khối tải dữ liệu');
 assert.equal((dashLoader.match(/optional\(/g) || []).length, 7, 'Mỗi nguồn dữ liệu của tổng quan đều đi qua optional');
-for (const label of ['sản phẩm', 'danh sách RFQ được chuyển', 'chứng nhận', 'hồ sơ tự gửi',
-  'yêu cầu kiểm định', 'giấy tờ đợt kiểm', 'bằng chứng đã nộp'])
-  assert.ok(dashLoader.includes(`optional("${label}"`), `Có nhãn cảnh báo cho ${label}`);
+// Nhãn cảnh báo nay nằm trong từ điển cổng (giai đoạn 2); trang chỉ truyền khoá vào `optional`.
+const portalCopy = loadPortalDictionary();
+for (const key of ['products', 'invites', 'certificates', 'submissions', 'requests', 'documents', 'items']) {
+  assert.ok(dashLoader.includes(`optional(copy.degraded.labels.${key}`), `Có nhãn cảnh báo cho ${key}`);
+  assert.ok(portalCopy.vi.overview.degraded.labels[key].length > 0, `Nhãn tiếng Việt cho ${key}`);
+  assert.ok(portalCopy.en.overview.degraded.labels[key].length > 0, `Nhãn tiếng Anh cho ${key}`);
+}
 
 // 2. Tách biệt chức năng: tổng quan không mang thông báo, không mang ô tải giấy tờ.
 assert.doesNotMatch(dashboardPage, /markSupplierNoticeReadAction|buildSupplierNoticeFeed/, 'Tổng quan không hiển thị thông báo');
 assert.doesNotMatch(dashboardPage, /SupplierCertificateUpload|SupplierPortalUpload/, 'Tổng quan không có ô tải giấy tờ');
 assert.doesNotMatch(dashboardPage, /supplierReplyAddress/, 'Tổng quan không mở danh sách RFQ, chỉ dẫn sang trang RFQ');
-assert.match(dashboardPage, /Một phần dữ liệu cổng chưa tải được/);
+assert.match(portalCopy.vi.overview.degraded.title, /Một phần dữ liệu cổng chưa tải được/);
+assert.match(dashboardPage, /\{copy\.degraded\.title\}/);
 assert.match(dashboardPage, /degraded\.map\(\(label\) => <li key=\{label\}>\{label\}<\/li>\)/);
 
 // 3. Thông báo nằm gọn trong chuông: endpoint nhẹ trả cả nội dung, không có trang riêng.
@@ -101,6 +107,8 @@ const sharedMocks = {
   '@/components/page-header': { PageHeader: PageHeaderMock },
   'next/navigation': { redirect: (target) => { throw new Error(`unexpected redirect ${target}`); } },
   'lucide-react': icons,
+  '@/lib/i18n/server': { getPortalMessages: async () => ({ locale: 'vi', intl: 'vi-VN', m: loadPortalDictionary().vi }) },
+  '@/lib/i18n/format': { fill: (template, values) => template.replace(/\{(\w+)\}/g, (whole, key) => (key in values ? String(values[key]) : whole)) },
   '@/lib/auth/session': { requireSession: async () => ({ uid: 'u1', email: 'ncc@example.com', role: 'supplier' }) },
   '@/lib/supplier-portal/onboarding': { canSubmitProfile: () => false, portalApproved: () => true },
   '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: [] },

@@ -13,6 +13,13 @@ export const DEFAULT_LOCALE: Locale = "en";
 
 export const LOCALE_COOKIE = "vexim_locale";
 
+/** Mã ngôn ngữ cho `Intl` (số, ngày). Không dùng locale của máy chủ: nó đổi theo môi trường. */
+const INTL_LOCALE: Record<Locale, string> = { en: "en-GB", vi: "vi-VN" };
+
+export function intlLocale(locale: Locale): string {
+  return INTL_LOCALE[locale];
+}
+
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
@@ -31,4 +38,20 @@ export function resolveLocale(value: string | null | undefined): Locale {
  */
 export function isLocalizedAuthPath(pathname: string): boolean {
   return /^\/(?:login|register|auth|supplier\/register)(?:\/|$)/.test(pathname);
+}
+
+/**
+ * Cổng nhà cung cấp đã chuyển đa ngôn ngữ theo từng cụm (giai đoạn 2).
+ *
+ * Cả cổng nằm trong danh sách này vì khung (menu, thanh trên) đã chuyển cùng cụm đầu:
+ * để riêng từng trang sẽ ra cảnh menu tiếng Anh mà nội dung tiếng Việt. Trang nào chưa
+ * chuyển nội dung thì vẫn đọc tiếng Việt như trước, chỉ khung là đổi theo cookie.
+ */
+export function isLocalizedPortalPath(pathname: string): boolean {
+  return /^\/supplier\/portal(?:\/|$)/.test(pathname);
+}
+
+/** Mọi khu vực đọc ngôn ngữ từ cookie. */
+export function isLocalizedPath(pathname: string): boolean {
+  return isLocalizedAuthPath(pathname) || isLocalizedPortalPath(pathname);
 }

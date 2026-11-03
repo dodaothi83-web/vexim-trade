@@ -7,6 +7,8 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as icons from 'lucide-react';
 import { loadAuthDictionary } from './lib/auth-dictionary.mjs';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
+import { loadFormat } from './lib/i18n-format.mjs';
 
 function load(path, mocks) {
   const exports = {};
@@ -22,8 +24,16 @@ function load(path, mocks) {
 const jsx = await import('react/jsx-runtime');
 // Trang/biểu mẫu nhận chuỗi từ từ điển; check chạy cả bản tiếng Anh (mặc định) và tiếng Việt.
 const authMessages = loadAuthDictionary();
+const portalCopy = loadPortalDictionary();
 let activeLocale = 'en';
-const i18nServer = { getAuthMessages: async () => ({ locale: activeLocale, m: authMessages[activeLocale] }) };
+const i18nServer = {
+  getAuthMessages: async () => ({ locale: activeLocale, m: authMessages[activeLocale] }),
+  getPortalMessages: async () => ({
+    locale: activeLocale,
+    intl: activeLocale === 'vi' ? 'vi-VN' : 'en-GB',
+    m: portalCopy[activeLocale],
+  }),
+};
 const link = { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) };
 const source = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const form = load('../app/(auth)/supplier/register/supplier-account-form.tsx', {
@@ -69,7 +79,7 @@ const user = { id: 'unlinked', email: 'new@example.com', role: 'supplier', is_ac
 let portalAccessCalls = 0;
 const portal = load('../app/supplier/portal/page.tsx', {
   'react/jsx-runtime': jsx, 'next/link': link, 'next/navigation': { redirect: () => { throw Error('unexpected redirect'); } },
-  'lucide-react': icons,
+  'lucide-react': icons, '@/lib/i18n/server': i18nServer, '@/lib/i18n/format': loadFormat(),
   '@/components/page-header': { PageHeader: ({ title, sub, eyebrow }) => React.createElement('header', null,
     eyebrow ? React.createElement('p', null, eyebrow) : null, React.createElement('h1', null, title), sub ?? null) }, '@/lib/auth/session': { requireSession: async () => user },
   '@/app/auth-actions': { logoutAction: async () => {} },
@@ -98,7 +108,7 @@ const portal = load('../app/supplier/portal/page.tsx', {
   './notice-actions': { markSupplierNoticeReadAction: async () => {} },
 });
 const html = renderToStaticMarkup(await portal.default({}));
-assert.match(html, /Tổng quan/);
+assert.match(html, /Overview/, 'Trang tổng quan đọc tiêu đề từ từ điển theo cookie (mặc định tiếng Anh)');
 assert.doesNotMatch(html, /Bước 2\/2/, 'Trang không đánh số bước thứ hai chồng lên biểu mẫu');
 assert.doesNotMatch(html, /chỉ dùng được trang tổng quan và biểu mẫu hồ sơ/, 'Không lặp lại lời nhắc đã có ở cột phải biểu mẫu');
 assert.match(html, /Company profile form/);

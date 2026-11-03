@@ -76,8 +76,13 @@ assert.doesNotMatch(loginPage, /Tạo tài khoản nhà cung cấp/);
 const registerPage = read("app/(auth)/supplier/register/page.tsx");
 assert.match(vi.supplierRegister.note, /cần Vexim duyệt/);
 assert.match(registerPage, /note=\{copy\.note\}/, "Ghi chú duyệt hồ sơ hiện dưới thẻ của trang đăng ký");
-const portalPage = read("app/supplier/portal/page.tsx");
-assert.match(portalPage, /Vexim duyệt hồ sơ/);
+{
+  // Câu "chờ Vexim duyệt" nay nằm trong từ điển cổng; trang chỉ nội suy tên doanh nghiệp.
+  const { loadPortalDictionary } = await import("./lib/portal-dictionary.mjs");
+  const portalCopy = loadPortalDictionary();
+  assert.match(portalCopy.vi.overview.pending.body, /Vexim duyệt hồ sơ/);
+  assert.match(read("app/supplier/portal/page.tsx"), /copy\.pending\.body/);
+}
 
 // 4. Login form: email@congty.com placeholder, "Quên mật khẩu?" link, removed Google note
 const loginForm = read("components/login-form.tsx");

@@ -9,8 +9,12 @@ import type { ReactNode } from "react";
  * không thể làm hỏng khung của toàn cổng.
  */
 
-export function date(value: string) {
-  return new Date(value).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" });
+/**
+ * Ngày giờ theo ngôn ngữ của người đang xem. Mặc định tiếng Việt để các trang chưa chuyển
+ * (giai đoạn 2, cụm sau) giữ nguyên như trước; trang đã chuyển thì truyền `intl` vào.
+ */
+export function date(value: string, intl = "vi-VN") {
+  return new Date(value).toLocaleString(intl, { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" });
 }
 
 /** Khung nội dung một mục: tiêu đề, mô tả, số đếm và hành động ở góc phải. */
@@ -41,13 +45,15 @@ export function Panel({ id, icon, title, sub, count, action, children, flush }: 
 }
 
 /** Ô số liệu bấm được ở đầu trang tổng quan. */
-export function Kpi({ href, icon, label, value, note, attention = false }: {
+export function Kpi({ href, icon, label, value, note, attention = false, intl = "vi-VN" }: {
   href: string;
   icon: ReactNode;
   label: string;
   value: number;
   note: string;
   attention?: boolean;
+  /** Mã ngôn ngữ cho `Intl` khi in số (1.234 so với 1,234). */
+  intl?: string;
 }) {
   return <Link href={href} className="group flex min-h-[136px] flex-col rounded-xl border border-ink-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md">
     <span className="flex items-center">
@@ -56,7 +62,7 @@ export function Kpi({ href, icon, label, value, note, attention = false }: {
         <path d="M5 11 11 5M11 5H6.5M11 5v4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </span>
-    <span className="mt-3 block text-[26px] leading-none font-black tracking-tight tabular-nums text-ink-900">{value.toLocaleString("vi-VN")}</span>
+    <span className="mt-3 block text-[26px] leading-none font-black tracking-tight tabular-nums text-ink-900">{value.toLocaleString(intl)}</span>
     <span className="mt-1.5 block text-[13px] leading-4 font-bold text-ink-800">{label}</span>
     <span className="mt-auto block pt-1 text-[11px] leading-4 text-ink-500">{note}</span>
   </Link>;
@@ -68,8 +74,14 @@ export function EmptyRow({ children }: { children: ReactNode }) {
 }
 
 /** Trạng thái ba cấp xác minh, dùng lại ở trang tổng quan và trang hồ sơ. */
-export function LevelChip({ label, on, pending }: { label: string; on: boolean; pending?: boolean }) {
-  const status = on ? "Đã duyệt" : pending ? "Đang chờ xét" : "Chưa duyệt";
+export function LevelChip({ label, on, pending, messages }: {
+  label: string;
+  on: boolean;
+  pending?: boolean;
+  /** Nhãn trạng thái theo ngôn ngữ; thiếu thì dùng tiếng Việt (trang chưa chuyển). */
+  messages?: { approved: string; pending: string; off: string };
+}) {
+  const status = on ? (messages?.approved ?? "Đã duyệt") : pending ? (messages?.pending ?? "Đang chờ xét") : (messages?.off ?? "Chưa duyệt");
   return <span title={status} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${on ? "bg-emerald-50 text-emerald-800" : pending ? "bg-amber-50 text-amber-800" : "bg-ink-100 text-ink-600"}`}>
     <span className={`h-1.5 w-1.5 rounded-full ${on ? "bg-emerald-600" : pending ? "bg-amber-500" : "bg-ink-400"}`} aria-hidden="true" />
     {label}<span className="sr-only">: {status}</span>

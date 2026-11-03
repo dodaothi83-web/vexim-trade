@@ -3,8 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+import type { Locale } from "@/lib/i18n/config";
+
 /** Mounted only on the read-only waiting screen, never over an editable form. */
-export function PendingProfileRefresh() {
+export function PendingProfileRefresh({ children, lang }: { children: React.ReactNode; lang: Locale }) {
   const router = useRouter();
   useEffect(() => {
     const refresh = () => { if (document.visibilityState === "visible") router.refresh(); };
@@ -17,5 +19,5 @@ export function PendingProfileRefresh() {
       window.removeEventListener("focus", refresh);
     };
   }, [router]);
-  return <p className="mb-3 text-xs text-ink-500">Trạng thái tự cập nhật khi trang đang mở.</p>;
+  return <p lang={lang} className="mb-3 text-xs text-ink-500">{children}</p>;
 }

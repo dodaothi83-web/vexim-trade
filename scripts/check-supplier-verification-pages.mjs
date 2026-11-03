@@ -2,6 +2,7 @@
 // Hai cấp xác minh tự gửi phải là HAI trang riêng, mỗi trang một mục menu, và việc
 // tách trang không được làm mất bất kỳ chức năng nào của cổng cũ.
 import assert from 'node:assert/strict';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -178,11 +179,18 @@ assert.match(card, /Mở ảnh gốc|Mở PDF/, 'Bấm mở được tệp gốc
 
 /* 5. Menu tách hai mục, và các lối vào khác trỏ đúng trang. */
 const sidebar = read('components/supplier-sidebar.tsx');
-assert.match(sidebar, /href: "\/supplier\/portal\/verification\/factory", label: "Xác thực nhà máy L2", icon: Factory/,
+// Nhãn menu nay nằm trong từ điển cổng (giai đoạn 2): menu giữ khoá, từ điển giữ chữ.
+assert.match(sidebar, /href: "\/supplier\/portal\/verification\/factory", labelKey: "factory", icon: Factory/,
   'Menu có mục L2');
-assert.match(sidebar, /href: "\/supplier\/portal\/verification\/export", label: "Lịch sử xuất khẩu L3", icon: Ship/,
+assert.match(sidebar, /href: "\/supplier\/portal\/verification\/export", labelKey: "exportHistory", icon: Ship/,
   'Menu có mục L3');
-assert.doesNotMatch(sidebar, /label: "Xác thực nhà máy L2 · L3"/, 'Không còn mục menu gộp');
+{
+  const portalCopy = loadPortalDictionary();
+  assert.match(portalCopy.vi.shell.nav.factory, /Xác thực nhà máy L2/, 'Nhãn L2 tiếng Việt');
+  assert.match(portalCopy.vi.shell.nav.exportHistory, /Lịch sử xuất khẩu L3/, 'Nhãn L3 tiếng Việt');
+  assert.doesNotMatch(portalCopy.en.shell.nav.factory + portalCopy.vi.shell.nav.factory, /L2 · L3/,
+    'Không còn mục menu gộp');
+}
 
 const progress = read('lib/supplier-portal/verification-progress.ts');
 assert.match(progress, /href: "\/supplier\/portal\/verification\/factory"/, 'Dải tiến độ dẫn tới trang L2');

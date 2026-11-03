@@ -124,6 +124,9 @@ const SCOPE = [
   // Khu vực tài khoản đã chuyển sang từ điển: chuỗi tiếng Việt nằm ở đây, không còn trong
   // component, nên kiểm văn phong phải trỏ vào từ điển.
   'lib/i18n/auth.ts',
+  // Cụm 1 của cổng NCC (giai đoạn 2): khung + trang tổng quan.
+  'lib/i18n/portal/shell.ts',
+  'lib/i18n/portal/overview.ts',
   'lib/certificate-service.ts',
   'lib/db/local.ts',
   'lib/db/seed.ts',
