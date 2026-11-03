@@ -31,15 +31,10 @@ export function SupplierAccountForm({
     event.preventDefault();
     const element = event.currentTarget;
     const form = new FormData(element);
-    if (form.get("password") !== form.get("password2")) {
-      setMessage({ ok: false, text: m.mismatch });
-      return;
-    }
     if (!challengeToken) {
       setMessage({ ok: false, text: m.challengeMissing });
       return;
     }
-    form.delete("password2");
     form.set("challenge_token", challengeToken);
     setBusy(true);
     setMessage(null);
@@ -72,10 +67,6 @@ export function SupplierAccountForm({
           </button>
         </span>
         <span id="password-hint" className="mt-1 block text-[11.5px] leading-snug font-normal text-ink-500">{m.passwordHint}</span>
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1 block font-semibold">{m.repeatPassword}</span>
-        <input name="password2" type={show ? "text" : "password"} className="input" required minLength={8} maxLength={128} autoComplete="new-password" />
       </label>
       <label className="flex items-start gap-2 text-xs text-ink-700">
         <input name="consent" type="checkbox" value="yes" required className="mt-0.5" />
