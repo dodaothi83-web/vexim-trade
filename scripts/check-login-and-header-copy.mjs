@@ -74,7 +74,11 @@ assert.doesNotMatch(loginPage, /Tạo tài khoản nhà cung cấp/);
 
 // 3. Approval note moved to supplier registration & post-login portal overview
 const registerPage = read("app/(auth)/supplier/register/page.tsx");
-assert.match(vi.supplierRegister.note, /cần Vexim duyệt/);
+// Văn phong: nói việc xem hồ sơ diễn ra nhanh, không lấy tên thương hiệu làm trọng tâm câu.
+assert.match(vi.supplierRegister.note, /Hồ sơ doanh nghiệp được xem trong thời gian ngắn/);
+for (const text of [vi.supplierRegister.note, vi.supplierRegister.shellCaption, ...vi.supplierRegister.shellPoints, vi.register.supplierSummary]) {
+  assert.doesNotMatch(text, /Vexim duyệt|để Vexim|cho Vexim/, `Câu đăng ký không nhắc Vexim như người duyệt: ${text}`);
+}
 assert.match(registerPage, /note=\{copy\.note\}/, "Ghi chú duyệt hồ sơ hiện dưới thẻ của trang đăng ký");
 {
   // Câu "chờ Vexim duyệt" nay nằm trong từ điển cổng; trang chỉ nội suy tên doanh nghiệp.
