@@ -119,9 +119,9 @@ const en = {
       rate_limited: "Too many attempts. Please try again later.",
     },
     form: {
-      name: "Your full name",
       email: "Sign-in email",
-      password: "Password (8 to 128 characters, letters and numbers)",
+      password: "Password",
+      passwordHint: "8 to 128 characters, with both letters and numbers.",
       repeatPassword: "Repeat password",
       showPassword: "Show password",
       hidePassword: "Hide password",
@@ -253,9 +253,9 @@ type AuthMessages = {
       rate_limited: string;
     };
     form: {
-      name: string;
       email: string;
       password: string;
+      passwordHint: string;
       repeatPassword: string;
       showPassword: string;
       hidePassword: string;
@@ -414,9 +414,9 @@ const vi: AuthMessages = {
       rate_limited: "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.",
     },
     form: {
-      name: "Họ tên người đăng ký",
       email: "Email đăng nhập",
-      password: "Mật khẩu (8-128 ký tự, gồm chữ và số)",
+      password: "Mật khẩu",
+      passwordHint: "8-128 ký tự, gồm cả chữ và số.",
       repeatPassword: "Nhập lại mật khẩu",
       showPassword: "Hiện mật khẩu",
       hidePassword: "Ẩn mật khẩu",

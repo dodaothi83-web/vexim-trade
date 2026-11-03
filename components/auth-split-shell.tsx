@@ -12,6 +12,9 @@ import { getAuthMessages } from "@/lib/i18n/server";
  * làm gì. Ảnh chỉ để tạo bối cảnh, không phải bằng chứng: mọi khẳng định về xác minh vẫn
  * nằm ở trang /how-we-verify. Cột phải là form thuần, không nhồi đoạn văn dài vào trong.
  *
+ * Ảnh là một tấm bo góc, thụt vào so với mép trên và hai bên (kiểu Alibaba): trang không
+ * bị "dán" ảnh sát thanh địa chỉ, mà vẫn giữ được bối cảnh rộng khi cuộn.
+ *
  * Mobile: ảnh ẩn, chỉ còn logo + form, để người dùng tập trung vào việc cần làm.
  * Ngôn ngữ đọc từ cookie nên mọi chuỗi trong khung đổi cùng lúc với phần form.
  */
@@ -35,8 +38,8 @@ export async function AuthSplitShell({
 
   return (
     <div className="min-h-screen bg-ink-50">
-      <div className="mx-auto grid min-h-screen max-w-6xl lg:grid-cols-2">
-        <aside aria-hidden="true" className="relative hidden overflow-hidden lg:block">
+      <div className="mx-auto grid min-h-screen max-w-6xl lg:min-h-[calc(100vh_-_4rem)] lg:grid-cols-2 lg:gap-10 lg:p-8">
+        <aside aria-hidden="true" className="relative hidden overflow-hidden rounded-3xl lg:block">
           {/* Ảnh có sẵn của site: đội Vexim dẫn người mua tham quan xưởng. */}
           <img
             src="/images/hero-scene.jpg"
