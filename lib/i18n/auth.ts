@@ -110,7 +110,6 @@ const en = {
       "Sign up quickly with email or Google",
       "Add your business details and upload your business licence",
       "Your profile is verified within one working day, so buyers trust you sooner",
-      "Free for suppliers who join early",
     ],
     oauth: {
       unavailable: "Google sign-up is not configured on this domain. You can create an account with email.",
@@ -408,7 +407,6 @@ const vi: AuthMessages = {
       "Đăng ký nhanh bằng email hoặc Google",
       "Điền thông tin doanh nghiệp và tải giấy đăng ký kinh doanh",
       "Hồ sơ được xác minh trong 1 ngày làm việc, giúp người mua tin tưởng bạn hơn",
-      "Miễn phí cho nhà cung cấp tham gia sớm",
     ],
     oauth: {
       unavailable: "Google OAuth chưa được cấu hình trên tên miền này. Bạn có thể tạo tài khoản bằng email.",
