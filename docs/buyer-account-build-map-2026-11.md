@@ -109,6 +109,10 @@ chấp nhận được; nếu sau này cần thống kê theo sản phẩm thì 
 
 ## 6. Thứ tự build (mỗi bước một commit, một PR)
 
+**Tiến độ:** ① xong (`09d8519`), ② xong (`85e7c3a`) — PR #81. Đăng nhập chạy thật trên dev
+server: phát mã, nhập sai, nhập đúng, dùng lại, link, link dùng lại, tạo/đọc/xoá tài khoản.
+Còn ③④⑤⑥⑦.
+
 1. **Nền dữ liệu**: 2 bảng, 7 hàm store, `getBuyerByEmail`, migration. Chưa có giao diện.
 2. **Đăng nhập**: `sign-in-token`, `buyer-session`, abuse-protection, challenge purpose, thư, trang
    `/buyer/sign-in`, form mã 6 số. *Đây là bước dài nhất; dừng lại cho bạn thử luồng thật.*
