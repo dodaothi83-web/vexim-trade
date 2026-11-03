@@ -38,6 +38,24 @@ create table if not exists public.suppliers (
 
 alter table public.suppliers add column if not exists requested_category_slugs text[] not null default '{}';
 alter table public.suppliers add column if not exists requested_category_other text;
+
+-- Ngành NCC tự khai, chờ nhân viên mở hoặc từ chối (migration 20261106).
+create table if not exists public.supplier_category_requests (
+  id uuid primary key default gen_random_uuid(),
+  supplier_id uuid not null references public.suppliers(id) on delete cascade,
+  label text not null,
+  normalized text not null,
+  status text not null default 'pending' check (status in ('pending', 'opened', 'rejected')),
+  category_slug text,
+  note text,
+  decided_by uuid,
+  decided_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint supplier_category_requests_label_len check (char_length(label) between 1 and 120),
+  constraint supplier_category_requests_one_pending unique (supplier_id, normalized, status)
+);
+create index if not exists supplier_category_requests_pending_idx on public.supplier_category_requests (normalized) where status = 'pending';
 alter table public.suppliers add column if not exists categories_reviewed_at timestamptz;
 create index if not exists suppliers_name_idx on public.suppliers (name);
 

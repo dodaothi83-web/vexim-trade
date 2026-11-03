@@ -38,6 +38,7 @@ import type {
   SupplierNoticeRead,
   Supplier,
   SupplierCategory,
+  SupplierCategoryRequest,
   SupplierInput,
   SupplierSubmission,
   SupplierSubmissionItem,
@@ -98,6 +99,7 @@ interface LocalShape {
   // RFQ FOUNDATION
   categories: Category[];
   supplier_categories: SupplierCategory[];
+  supplier_category_requests: SupplierCategoryRequest[];
   supplier_verification_requests: SupplierVerificationRequest[];
   supplier_submissions: SupplierSubmission[];
   supplier_submission_items: SupplierSubmissionItem[];
@@ -352,6 +354,7 @@ function seed(): LocalShape {
     prospects: [],
     prospect_activities: [],
     suppliers,
+    supplier_category_requests: [],
     products,
     media: preview.media,
     sponsored_pushes: preview.sponsoredPushes,
@@ -867,6 +870,7 @@ function load(): LocalShape {
   if (g.__veximLocal) {
     const c = g.__veximLocal;
     if (!Array.isArray(c.messages)) c.messages = [];
+    if (!Array.isArray(c.supplier_category_requests)) c.supplier_category_requests = [];
     if (!Array.isArray(c.prospects)) c.prospects = [];
     normalizeProspects(c.prospects);
     if (!Array.isArray(c.prospect_activities)) c.prospect_activities = [];
@@ -2063,6 +2067,51 @@ export const localStore: DataStore = {
   },
   async listSupplierCategories(supplierId) {
     return (load().supplier_categories ?? []).filter((sc) => sc.supplier_id === supplierId);
+  },
+  // --- Ngành NCC tự khai (yêu cầu mở danh mục) ---
+  async upsertSupplierCategoryRequests(supplierId, requests) {
+    if (!requests.length) return [];
+    return mutate((db) => {
+      const now = new Date().toISOString();
+      const rows: SupplierCategoryRequest[] = [];
+      for (const request of requests) {
+        let row = db.supplier_category_requests.find((item) => item.supplier_id === supplierId &&
+          item.normalized === request.normalized && item.status === "pending");
+        if (!row) {
+          row = {
+            id: randomUUID(), supplier_id: supplierId, label: request.label, normalized: request.normalized,
+            status: "pending", category_slug: null, note: null, decided_by: null, decided_at: null,
+            created_at: now, updated_at: now,
+          };
+          db.supplier_category_requests.push(row);
+        }
+        rows.push(row);
+      }
+      return rows;
+    });
+  },
+  async listSupplierCategoryRequests(supplierId) {
+    return load().supplier_category_requests
+      .filter((row) => row.supplier_id === supplierId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
+  async listPendingSupplierCategoryRequests() {
+    return load().supplier_category_requests
+      .filter((row) => row.status === "pending")
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  },
+  async decideSupplierCategoryRequest({ id, status, categorySlug, note, decidedBy }) {
+    return mutate((db) => {
+      const row = db.supplier_category_requests.find((item) => item.id === id && item.status === "pending");
+      if (!row) return null;
+      row.status = status;
+      row.category_slug = status === "opened" ? categorySlug : null;
+      row.note = note ?? null;
+      row.decided_by = decidedBy;
+      row.decided_at = new Date().toISOString();
+      row.updated_at = row.decided_at;
+      return row;
+    });
   },
 
   async listCertificates(supplierId) {

@@ -5,8 +5,9 @@ import { supplierAccountAccess } from "@/lib/supplier-portal/access";
 import { canSubmitProfile } from "@/lib/supplier-portal/onboarding";
 import { parseSupplierProfile } from "@/lib/supplier-portal/profile-input";
 import { categoryProposalOptions, parseSupplierCategoryProposals } from "@/lib/supplier-portal/category-proposals";
+import { getPortalMessages } from "@/lib/i18n/server";
 import { prepareInitialDocuments, saveInitialEvidence } from "@/lib/supplier-portal/profile-evidence";
-import { notifySupplierRegistration } from "@/lib/supplier-portal/notify";
+import { notifyStaffCategoryRequest, notifySupplierRegistration } from "@/lib/supplier-portal/notify";
 import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-service";
 import type { SupplierInput } from "@/lib/types";
 import { isL1BusinessLicense } from "@/lib/verification";
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
   try { choices = categoryProposalOptions(await store.listCategories({ publishedOnly: true })); }
   catch { return fail("Không đọc được danh mục Vexim. Vui lòng thử lại sau.", 503); }
   let proposals: ReturnType<typeof parseSupplierCategoryProposals>;
-  try { proposals = parseSupplierCategoryProposals(form, choices); }
+  try { proposals = parseSupplierCategoryProposals(form, choices, (await getPortalMessages()).locale); }
   catch (error) { return fail(error instanceof Error ? error.message : "Danh mục không hợp lệ."); }
 
   // Account can exist without a company. Re-read the DB link on every request, never trust submitted owner/status.
@@ -121,14 +122,24 @@ export async function POST(request: Request) {
     // Saving evidence does not approve the document check or publish the supplier.
     const review = await saveInitialEvidence({ store, supplierId: supplier.id, userId: user.id,
       userEmail: user.email, tax: parsed.patch.tax_id!, bank: parsed.bank, documents, requested: parsed.requested });
+    // Ngành tự khai là YÊU CẦU, không phải phạm vi: ghi vào bảng riêng để nhân viên trả lời.
+    // Lỗi ở bước này không được chặn hồ sơ — chữ vẫn còn ở `requested_category_other`.
+    const categoryRequests = await store.upsertSupplierCategoryRequests(supplier.id, proposals.category_requests)
+      .catch((error) => { console.error("[supplier-profile] category requests failed", error); return []; });
     // The last write opens the staff queue, not the portal, RFQ inbox or public catalogue.
-    supplier = await store.updateSupplier(supplier.id, { ...parsed.patch, ...proposals, categories_reviewed_at: null,
-      onboarding_status: "pending", onboarding_note: null });
+    supplier = await store.updateSupplier(supplier.id, {
+      ...parsed.patch,
+      requested_category_slugs: proposals.requested_category_slugs,
+      requested_category_other: proposals.requested_category_other,
+      categories_reviewed_at: null,
+      onboarding_status: "pending", onboarding_note: null,
+    });
     await store.addAuditLog({ actor_id: user.id, actor_email: user.email,
       entity: "supplier", entity_id: supplier.id, action: created ? "supplier.first_profile_submitted" : "supplier.profile_submitted",
       before: { onboarding_status: created ? null : previousStatus },
       after: { onboarding_status: "pending", review_id: review.id, documents: documents.length,
         requested_steps: parsed.requested, category_proposals: proposals.requested_category_slugs,
+        category_requests: categoryRequests.map((request) => request.label),
         supplier_commitments: {
           terms_of_service: { accepted: parsed.commitments.terms_of_service_accepted, version: "v1", path: "/terms-of-service" },
           information_accuracy: { confirmed: parsed.commitments.information_accuracy_confirmed,
@@ -138,6 +149,12 @@ export async function POST(request: Request) {
       .catch((error) => console.error("[supplier-profile] audit log failed", error));
     // AI dịch MOQ và thị trường xuất khẩu sang tiếng Anh, đồng thời soạn phần giới thiệu
     // tiếng Anh từ dữ kiện hồ sơ nếu NCC để trống. Lỗi dịch không chặn việc nộp hồ sơ.
+    // Ngành chưa mở là việc có hạn 3 ngày làm việc: báo nhân viên ngay, lỗi thư không chặn hồ sơ.
+    if (categoryRequests.length) {
+      await notifyStaffCategoryRequest({ supplierId: supplier.id, supplierName: supplier.name,
+        labels: categoryRequests.map((request) => request.label), note: proposals.requested_category_other })
+        .catch((error) => console.error("[supplier-profile] category request notice failed", error));
+    }
     await ensureSupplierProfileEnglish(store, supplier.id, { id: user.id, email: user.email })
       .catch((error) => console.error("[supplier-profile] translation failed", error));
     let notification: "sent" | "simulated" | "failed" = "failed";

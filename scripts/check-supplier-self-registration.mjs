@@ -17,7 +17,9 @@ function load(path, mocks, extra = {}) {
 }
 const keys = ['business_license', 'food_safety', 'haccp_or_brc', 'product_certs', 'export_license'];
 const isL1BusinessLicense = (key) => key === 'business_license';
-const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', {});
+// `category-proposals` nay đọc `../requested-category`; nạp cả hai để hàm thật vẫn chạy.
+const requestedCategory = load('../lib/supplier-portal/requested-category.ts', {});
+const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', { './requested-category': requestedCategory });
 const categories = [
   { id: 'c1', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều' }, status: 'published', is_published: true, sort_order: 1 },
   { id: 'c2', slug: 'rice', parent_id: null, name_i18n: { vi: 'Gạo' }, status: 'published', is_published: true, sort_order: 2 },
@@ -42,7 +44,7 @@ for (const denied of [
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
 
-const state = { users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], certIngest: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false, accountNotices: [] };
+const state = { categoryRequests: [], categoryRequestRows: [], users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], certIngest: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false, accountNotices: [] };
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
@@ -69,6 +71,22 @@ const store = {
     const r = { supplier_id: id, target_level, status: 'requested' }; state.requests.push(r); return r;
   },
   addAuditLog: async (entry) => { state.audit.push(entry); },
+  upsertSupplierCategoryRequests: async (supplierId, requests) => {
+    const rows = [];
+    for (const request of requests) {
+      let row = state.categoryRequestRows.find((item) => item.supplier_id === supplierId && item.normalized === request.normalized && item.status === 'pending');
+      if (!row) {
+        row = { id: `cr${state.categoryRequestRows.length + 1}`, supplier_id: supplierId, label: request.label,
+          normalized: request.normalized, status: 'pending', category_slug: null, note: null,
+          decided_by: null, decided_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        state.categoryRequestRows.push(row);
+      }
+      rows.push(row);
+    }
+    return rows;
+  },
+  listSupplierCategoryRequests: async (supplierId) => state.categoryRequestRows.filter((row) => row.supplier_id === supplierId),
+  listPendingSupplierCategoryRequests: async () => state.categoryRequestRows.filter((row) => row.status === 'pending'),
   deleteUser: async (id) => { state.users = state.users.filter((u) => u.id !== id); },
   deleteSupplier: async (id) => { state.suppliers = state.suppliers.filter((s) => s.id !== id); state.reviews = state.reviews.filter((r) => r.supplier_id !== id); state.requests = state.requests.filter((r) => r.supplier_id !== id); },
 };
@@ -95,6 +113,7 @@ const mocks = {
   '@/lib/db': { getStore: () => store },
   '@/lib/db/supabase': { getSupabaseAuthClient: () => auth, getSupabaseClient: () => ({ from: () => ({ select: () => ({ limit: async () => ({ error: state.schemaMissing ? Error('missing') : null }) }) }) }) },
   '@/lib/auth/session': { getSession: async () => null },
+  '@/lib/i18n/server': { getPortalMessages: async () => ({ locale: 'vi', intl: 'vi-VN', m: {} }) },
   '@/lib/auth/password': { passwordProblem: (p) => p.length < 8 ? 'short' : null },
   '@/lib/auth/abuse-protection': { protectPasswordAuth: async () => ({ ok: true }) },
   '@/lib/supplier-portal/profile-input': profileInput,
@@ -103,6 +122,8 @@ const mocks = {
   '@/lib/supplier-portal/notify': {
     notifyStaffSupplierAccount: async (input) => { state.accountNotices.push(input.email); return 'sent'; },
     notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 1); return 'sent'; },
+    notifyStaffCategoryRequest: async (input) => { state.categoryRequests.push(...input.labels); return 'sent'; },
+    notifyCategoryRequestDecision: async () => 'sent',
   },
   '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/verification': { isL1BusinessLicense },
@@ -199,6 +220,7 @@ const profile = load('../app/api/supplier-portal/profile/route.ts', {
   '@/lib/supplier-portal/category-proposals': categoryProposals,
   '@/lib/supplier-portal/profile-evidence': profileEvidence,
   '@/lib/supplier-portal/notify': mocks['@/lib/supplier-portal/notify'],
+  '@/lib/i18n/server': { getPortalMessages: async () => ({ locale: 'vi', intl: 'vi-VN', m: {} }) },
   '@/lib/verification': { isL1BusinessLicense },
   '@/lib/ai/supplier-translation-service': {
     ensureSupplierProfileEnglish: async (storeArg, id) => {
@@ -275,9 +297,23 @@ assert.equal((await submitProfile(forgedCorrectionVisit)).status, 409, 'Type can
 assert.equal(state.suppliers[0].supplier_type, 'trading');
 const forgedTax = form(); forgedTax.set('tax_number', '99999999');
 assert.equal((await submitProfile(forgedTax)).status, 409, 'A different tax identity cannot inherit existing evidence');
+// Ngành chưa mở: hồ sơ VẪN gửi được (ca dừa từng treo), nhưng chỉ thành YÊU CẦU:
+// không danh mục nào được gắn, không phạm vi nào được mở.
+state.suppliers[0].onboarding_status = 'changes_requested';
+const openByName = form(); openByName.delete('requested_category_slugs'); openByName.set('requested_category_other', 'Hạt điều');
+assert.equal((await submitProfile(openByName)).status, 400, 'Ngành đã mở thì phải chọn trong danh sách, không ghi bằng chữ');
 const otherCategory = form(); otherCategory.delete('requested_category_slugs'); otherCategory.set('requested_category_other', 'Macca tách vỏ');
-assert.equal((await submitProfile(otherCategory)).status, 400, 'Cannot open a free-text category');
-assert.equal(state.suppliers[0].requested_category_other, null);
+const otherResult = await submitProfile(otherCategory);
+assert.equal(otherResult.status, 200, 'Ngành chưa mở vẫn gửi được hồ sơ');
+assert.equal(JSON.stringify(state.suppliers[0].requested_category_slugs), JSON.stringify([]), 'Ghi ngành không tự thêm danh mục');
+assert.equal(state.suppliers[0].requested_category_other, 'Macca tách vỏ');
+assert.equal(state.categoryRequestRows.length, 1, 'Yêu cầu được ghi thành dòng riêng');
+assert.equal(state.categoryRequestRows[0].status, 'pending');
+assert.equal(state.categoryRequestRows[0].category_slug, null, 'Yêu cầu chưa mở thì chưa có danh mục');
+assert.deepEqual(state.categoryRequests, ['Macca tách vỏ'], 'Nhân viên nhận thông báo ngành cần mở');
+assert.equal(state.categoryRequestRows.length, 1, 'Nộp lại không sinh yêu cầu trùng');
+// Hồ sơ đã sang `pending` sau lần gửi trên: mở lại để thử nhánh giữ giấy tờ đợt trước.
+state.suppliers[0].onboarding_status = 'changes_requested';
 const noNewDocs = form(); noNewDocs.delete('doc:business_license');
 assert.equal((await submitProfile(noNewDocs)).status, 200, 'Returned profile keeps the document already in the review');
 state.suppliers[0].onboarding_status = 'changes_requested';
@@ -411,6 +447,22 @@ const decisions = load('../app/crm/suppliers/[slug]/onboarding-actions.ts', {
     listVerifications: async () => state.reviews,
     updateSupplier: async (_id, patch) => Object.assign(staffSupplier, patch),
     addAuditLog: async (entry) => { state.audit.push(entry); },
+  upsertSupplierCategoryRequests: async (supplierId, requests) => {
+    const rows = [];
+    for (const request of requests) {
+      let row = state.categoryRequestRows.find((item) => item.supplier_id === supplierId && item.normalized === request.normalized && item.status === 'pending');
+      if (!row) {
+        row = { id: `cr${state.categoryRequestRows.length + 1}`, supplier_id: supplierId, label: request.label,
+          normalized: request.normalized, status: 'pending', category_slug: null, note: null,
+          decided_by: null, decided_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        state.categoryRequestRows.push(row);
+      }
+      rows.push(row);
+    }
+    return rows;
+  },
+  listSupplierCategoryRequests: async (supplierId) => state.categoryRequestRows.filter((row) => row.supplier_id === supplierId),
+  listPendingSupplierCategoryRequests: async () => state.categoryRequestRows.filter((row) => row.status === 'pending'),
   }) },
   '@/lib/auth/session': { guard: async () => denyApproval ? { message: 'denied' } : null,
     getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'reviewer' }) },

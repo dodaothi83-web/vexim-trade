@@ -117,6 +117,8 @@ const sharedMocks = {
   '@/lib/supplier-portal/policy': { INITIAL_DOCUMENT_KEYS: [] },
   '@/lib/supplier-portal/product-view': { productReview: () => 'draft' },
   '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: () => [] },
+  // Yêu cầu mở ngành là dữ liệu tuỳ chọn của trang: thiếu bảng thì khối đó trống, trang vẫn chạy.
+  '@/lib/supplier-portal/requested-category': { categoryRequestViews: (rows) => rows },
   '@/lib/db/migration-hints': { migrationHint: () => 'Có thể thiếu migration: chạy supabase/migrations/20261017_supplier_dashboard.sql' },
   '@/lib/certificate-service': { daysUntilExpiry: () => null },
   '@/lib/verification': { isL1BusinessLicense: () => false },

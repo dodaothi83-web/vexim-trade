@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { FormChallenge } from "@/components/form-challenge";
+import { GoogleGIcon } from "@/components/google-g-icon";
 import type { AuthMessages } from "@/lib/i18n/auth";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -89,8 +90,9 @@ export function SupplierAccountForm({
         </p>
       )}
       <div className="flex items-center gap-3 text-xs text-ink-500"><span className="h-px flex-1 bg-ink-200" />{m.or}<span className="h-px flex-1 bg-ink-200" /></div>
-      <a href="/api/auth/google/start?intent=signup" className="flex w-full items-center justify-center gap-2 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50">
-        <span aria-hidden="true" className="text-base font-black text-blue-600">G</span> {m.google}
+      <a href="/api/auth/google/start?intent=signup" className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50">
+        <GoogleGIcon />
+        {m.google}
       </a>
       <p className="text-center text-xs leading-5 text-ink-500">{m.googleNoteBefore} <Link href="/chinh-sach-bao-mat" className="font-semibold text-brand-700 underline">{m.googleNotePrivacy}</Link> {m.googleNoteBetween} <Link href="/dieu-khoan-su-dung" className="font-semibold text-brand-700 underline">{m.googleNoteTerms}</Link>{m.googleNoteAfter}</p>
     </form>

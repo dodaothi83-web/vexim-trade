@@ -1304,6 +1304,36 @@ export interface BuyerWithSupplier extends Buyer {
 }
 
 export type BuyerInput = Omit<Buyer, "id" | "created_at" | "updated_at">;
+/**
+ * Ngành NCC tự khai mà Vexim CHƯA mở danh mục, chờ nhân viên quyết định.
+ *
+ * Đây là yêu cầu, không phải quyền: `category_slug` chỉ được điền khi nhân viên đã mở danh
+ * mục, và ngay cả khi đó phạm vi bán hàng vẫn là `suppliers.requested_category_slugs`.
+ */
+export interface SupplierCategoryRequest {
+  id: string;
+  supplier_id: string;
+  /** Chữ NCC gõ, đã chuẩn hoá khoảng trắng. */
+  label: string;
+  /** Bỏ dấu + viết thường, dùng để gom "Dừa"/"dua"/"cơm dừa sấy". */
+  normalized: string;
+  status: "pending" | "opened" | "rejected";
+  /** Danh mục nhân viên chọn khi mở ngành (slug), để NCC biết sản phẩm sẽ nằm ở đâu. */
+  category_slug: string | null;
+  /** Lý do từ chối; bắt buộc khi `status = "rejected"`. */
+  note: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Dòng NCC gửi lên khi khai ngành chưa có trong danh mục. */
+export interface SupplierCategoryRequestInput {
+  label: string;
+  normalized: string;
+}
+
 export type SupplierInput = Omit<Supplier, "id" | "created_at" | "updated_at">;
 
 export type ProspectStatus =

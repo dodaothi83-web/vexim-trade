@@ -175,3 +175,29 @@ Kiểm tra offline: `node scripts/check-auth-security.mjs`, `node scripts/check-
 - Staging sau migration: NCC tải PDF/ảnh chứng nhận ở luồng riêng, AI quét và gắn nhãn **Chính chủ** hoặc **Đơn vị đối tác** kèm ngày hết hạn; tệp gốc vẫn lưu ở `/api/media/file` nội bộ (không ra `/public-media`); cron `/api/cron/certificate-expiry` nhắc trước 60 / 30 / 7 / 1 ngày; offline script: `node scripts/check-certificate-l1-ai.mjs`.
 qua RFQ. Sản phẩm mới staff tạo mặc định `samples=false`, không ngầm hứa gửi mẫu. Rà soát các sản phẩm cũ có `samples=true` trước khi coi đó là cam kết vẫn còn hiệu lực.
 - Staging sau migration: NCC A nộp PDF/ảnh, sản phẩm của NCC B bị từ chối, tệp không ra `/public-media`, NCC B không xem được URL nội bộ; trưởng kiểm duyệt kiểm và duyệt bản sao nhưng chưa hiện buyer; admin bật hiện cho một sản phẩm thì chỉ sản phẩm đó có nhãn; rút công bố, xóa/hết hạn tệp hoặc chứng nhận thì nhãn biến mất. Thử giấy của nhà máy đối tác/đăng ký FDA để xác nhận nội dung hiển thị không nhận nhầm phạm vi. Cần tài khoản/staging Supabase thật để xác nhận email, Storage và RLS; Cần bổ sung kiểm thử workflow đầu-cuối trên staging; script `check-certificate-workflow.mjs` chưa có trong repo.
+
+## Ngành NCC tự khai: yêu cầu, không phải quyền (2026-11)
+
+**Vấn đề đã xảy ra.** Một doanh nghiệp dừa tạo tài khoản, tới bước hồ sơ doanh nghiệp thì danh mục chỉ có hạt điều, gia vị… nên không có gì để chọn. Nút "Tiếp tục" và "Gửi hồ sơ" đều bắt chọn danh mục, hồ sơ treo ở `not_started`, NCC bỏ đi và nhân viên cũng không biết họ bán gì.
+
+**Cách chữa.** Ngay dưới dropdown danh mục có ô *"Ngành của tôi chưa có trong danh sách"* (tối đa 2 ngành, mỗi ngành 120 ký tự). Ghi ngành là đủ để gửi hồ sơ. Câu cam kết in nguyên văn dưới ô, lấy từ hằng số `REQUESTED_CATEGORY_PROMISE_VI`/`_EN` (`lib/supplier-portal/requested-category.ts`): Vexim xem xét trong 3 ngày làm việc và trả lời qua email; hồ sơ vẫn được duyệt; sản phẩm đăng được khi ngành đã mở.
+
+**Ranh giới không đổi.** Yêu cầu ngành chỉ là yêu cầu:
+
+- lưu ở bảng riêng `supplier_category_requests` (`pending` → `opened` | `rejected`), **không** ghi vào `supplier_categories`;
+- không cấp phạm vi, không mở sản phẩm, không hiện với buyer, chỉ CRM đọc;
+- gõ đúng tên một ngành **đã mở** (kể cả tiếng Anh hoặc không dấu) thì bị từ chối kèm câu "chọn trong danh sách";
+- phạm vi bán hàng vẫn là `suppliers.requested_category_slugs`, do NCC chọn trong danh mục đã publish.
+
+**So khớp gần đúng.** `matchOpenCategory()` bỏ dấu, viết thường và so cả từ: "coconut", "cơm dừa", "dừa sấy" đều trỏ về danh mục *Dừa*. CRM dùng gợi ý này để nhân viên mở đúng danh mục thay vì tạo trùng.
+
+**Trả lời NCC.**
+
+- Nhân viên: `/crm/suppliers` → khối *Ngành nhà cung cấp đề nghị mở*, gom theo ngành, kèm số NCC, các cách gọi khác và gợi ý danh mục. Nút *Đã mở, báo nhà cung cấp* (chọn danh mục **đã xuất bản**) hoặc *Chưa mở, gửi lý do* (lý do bắt buộc).
+- NCC: thấy trạng thái ngay trong form hồ sơ và ở trang tổng quan khi hồ sơ đang chờ; nhận email `notifyCategoryRequestDecision()` (mở kèm danh mục tương ứng, từ chối kèm lý do).
+- Nhân viên nhận email `notifyStaffCategoryRequest()` ngay khi NCC khai ngành, vì việc này có hạn 3 ngày làm việc.
+- Audit: `supplier.category_request_opened` / `supplier.category_request_rejected`.
+
+**Migration.** `supabase/migrations/20261106_supplier_category_requests.sql` (chạy trước khi deploy mã mới; `notify pgrst, 'reload schema'`). Migration chuyển các giá trị `suppliers.requested_category_other` cũ thành yêu cầu `pending` để hồ sơ đang treo không mất dữ liệu.
+
+**Kiểm tra offline.** `npm run check:category-requests` (nằm trong `check:supplier-verification`): chặn ghi ngành đã mở bằng chữ, chặn `supplier_categories`/`setSupplierCategories` trong đường nộp hồ sơ, đòi lý do khi từ chối, đòi danh mục đã xuất bản khi mở, và chặn yêu cầu ngành lọt sang trang buyer.

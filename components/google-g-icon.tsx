@@ -5,6 +5,11 @@
  * máy chủ thứ ba để vẽ nút đăng nhập; (2) đây là hình khối hình học chuẩn, chép đúng path
  * của Google chứ không phải hình do AI vẽ lại, nên không bị lệch tỉ lệ hay sai màu.
  *
+ * MỘT icon cho mọi nút Google của site: đăng nhập nhân viên (`components/login-form.tsx`),
+ * đăng ký nhà cung cấp (`app/(auth)/supplier/register/supplier-account-form.tsx`) và
+ * người mua (`components/buyer-sign-in-form.tsx`). Đừng thay bằng chữ "G" tô màu ở nơi khác:
+ * dùng chữ cái thay logo là sai nhận diện thương hiệu của Google và lệch nhau giữa các form.
+ *
  * Dùng kèm nhãn chữ ("Continue with Google"): biểu tượng một mình không nói rõ hành động.
  */
 export function GoogleGIcon({ className }: { className?: string }) {

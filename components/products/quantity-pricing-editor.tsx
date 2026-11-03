@@ -261,6 +261,7 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
           })}</tbody>
         </table></div>
         <p className="text-xs text-ink-600">{copy.firstTierMoq}</p>
+        <p className="text-xs text-ink-600">{fill(copy.lastTierMoqLimit, { ratio: policy.maxLastMoqRatio })}</p>
         {value.tiers.length < Math.min(policy.maxTiers, 4) && <button type="button" disabled={disabled} onClick={addTier} className="text-sm font-semibold text-brand-700">{copy.addTier}</button>}
         {showErrors && validation.errors.length > 0 && <ul role="alert" className="list-disc space-y-1 pl-5 text-xs text-rose-700">{validation.errors.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.tierIndex === undefined ? "" : fill(copy.tierPrefix, { index: issue.tierIndex + 1 })}{issueMessage(issue, lang)}</li>)}</ul>}
         {validation.warnings.length > 0 && <p className="text-xs text-amber-800" role="status">{copy.warnings}</p>}

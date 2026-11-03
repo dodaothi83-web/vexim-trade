@@ -43,6 +43,7 @@ import type {
   SupplierSubmissionLink,
   SupplierVerificationRequest,
   SupplierCategory,
+  SupplierCategoryRequest,
   SupplierProduct,
   SupplierProductInput,
   TemplateOverride,
@@ -1423,6 +1424,65 @@ export const supabaseStore: DataStore = {
       .eq("supplier_id", supplierId);
     if (error) fail("listSupplierCategories", error);
     return (data ?? []) as SupplierCategory[];
+  },
+
+  // --- Ngành NCC tự khai (yêu cầu mở danh mục) ---
+  async upsertSupplierCategoryRequests(supplierId, requests) {
+    if (!requests.length) return [];
+    const rows = requests.map((request) => ({
+      supplier_id: supplierId,
+      label: request.label,
+      normalized: request.normalized,
+      // Nộp lại không mở lại dòng đã chốt: chỉ đụng tới yêu cầu còn chờ.
+      status: "pending" as const,
+    }));
+    const { error } = await must()
+      .from("supplier_category_requests")
+      .upsert(rows, { onConflict: "supplier_id,normalized,status", ignoreDuplicates: true });
+    if (error) fail("upsertSupplierCategoryRequests", error);
+    const { data, error: readError } = await must()
+      .from("supplier_category_requests")
+      .select("*")
+      .eq("supplier_id", supplierId)
+      .in("normalized", requests.map((request) => request.normalized));
+    if (readError) fail("upsertSupplierCategoryRequests:read", readError);
+    return (data ?? []) as SupplierCategoryRequest[];
+  },
+  async listSupplierCategoryRequests(supplierId) {
+    const { data, error } = await must()
+      .from("supplier_category_requests")
+      .select("*")
+      .eq("supplier_id", supplierId)
+      .order("created_at", { ascending: false });
+    if (error) fail("listSupplierCategoryRequests", error);
+    return (data ?? []) as SupplierCategoryRequest[];
+  },
+  async listPendingSupplierCategoryRequests() {
+    const { data, error } = await must()
+      .from("supplier_category_requests")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
+    if (error) fail("listPendingSupplierCategoryRequests", error);
+    return (data ?? []) as SupplierCategoryRequest[];
+  },
+  async decideSupplierCategoryRequest({ id, status, categorySlug, note, decidedBy }) {
+    const { data, error } = await must()
+      .from("supplier_category_requests")
+      .update({
+        status,
+        category_slug: status === "opened" ? categorySlug : null,
+        note: note ?? null,
+        decided_by: decidedBy,
+        decided_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("status", "pending")
+      .select()
+      .maybeSingle();
+    if (error) fail("decideSupplierCategoryRequest", error);
+    return (data as SupplierCategoryRequest | null) ?? null;
   },
 
   // --- Certificates ---

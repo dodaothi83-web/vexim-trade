@@ -13,14 +13,23 @@ import { fill } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/config";
 import type { OnboardingMessages } from "@/lib/i18n/portal/onboarding";
 import type { SharedMessages } from "@/lib/i18n/portal/shared";
+import type { CategoryRequestView } from "@/lib/supplier-portal/requested-category";
 import { SupplierCategoryPicker } from "./supplier-category-picker";
 import { FilePicker } from "@/components/file-picker";
 
 /** Bước xác thực doanh nghiệp chỉ nhận một giấy; giấy phải đứng tên doanh nghiệp đã khai. */
 const CORE_DOC_KEYS = ["business_license"] as const;
 
+/**
+ * Bước 1 chỉ cần MỘT trong hai: chọn danh mục đang mở, hoặc ghi ngành chưa mở.
+ *
+ * Cho phép chỉ ghi ngành là chủ ý: đó chính là ca từng làm hồ sơ treo (ngành chưa mở thì
+ * không có gì để chọn). Yêu cầu ngành không cấp phạm vi — sản phẩm vẫn chờ danh mục mở.
+ */
 function categoriesChosen(form: HTMLFormElement): boolean {
-  return form.querySelectorAll('input[name="requested_category_slugs"]').length > 0;
+  if (form.querySelectorAll('input[name="requested_category_slugs"]').length > 0) return true;
+  const other = form.querySelector<HTMLInputElement>('input[name="requested_category_other"]');
+  return Boolean(other?.value.trim());
 }
 
 function coreDocChosen(form: HTMLFormElement): boolean {
@@ -34,10 +43,12 @@ function coreDocChosen(form: HTMLFormElement): boolean {
  * Mọi chuỗi đến từ `lib/i18n/portal/onboarding.ts` — component chỉ giữ cấu trúc và luật
  * kiểm tra, để bản tiếng Anh và tiếng Việt không thể lệch nhau.
  */
-export function SupplierProfileFields({ supplier, email, categories, step, accountName, messages: m, types }: {
+export function SupplierProfileFields({ supplier, email, categories, categoryRequests = [], step, accountName, messages: m, types }: {
   supplier?: Supplier;
   email: string;
   categories: CategoryProposalOption[];
+  /** Yêu cầu mở ngành đã gửi, để NCC thấy câu trả lời của Vexim ngay trong form. */
+  categoryRequests?: CategoryRequestView[];
   step: number;
   accountName?: string | null;
   messages: OnboardingMessages;
@@ -69,7 +80,6 @@ export function SupplierProfileFields({ supplier, email, categories, step, accou
         </label>
         <Field label={m.company.labels.products} name="products" required maxLength={1000} placeholder={m.company.placeholders.products} defaultValue={supplier?.products ?? ""} />
         <Field label={m.company.labels.taxNumber} name="tax_number" required maxLength={32} inputMode="numeric" pattern="[0-9]+" placeholder={m.company.placeholders.taxNumber} defaultValue={supplier?.tax_id ?? ""} />
-        <Field label={m.company.labels.bankAccount} name="bank_account_number" maxLength={34} inputMode="numeric" pattern="[0-9]+" placeholder={m.company.placeholders.bankAccount} />
         <Field label={m.company.labels.province} name="province" maxLength={100} placeholder={m.company.placeholders.province} defaultValue={supplier?.province ?? ""} />
         <Field label={m.company.labels.address} name="address" maxLength={250} placeholder={m.company.placeholders.address} defaultValue={supplier?.address ?? ""} />
       </div>
@@ -85,7 +95,7 @@ export function SupplierProfileFields({ supplier, email, categories, step, accou
         </label>
       </div>
     </section>
-    <CategoryProposals categories={categories} supplier={supplier} messages={m} />
+    <CategoryProposals categories={categories} supplier={supplier} requests={categoryRequests} messages={m} />
     </div>
     <div data-step-panel={2} className={step === 2 ? "space-y-7" : "hidden"}>
     <section><h2 className="text-xl font-black text-ink-900">{m.documents.title}</h2>
@@ -154,11 +164,14 @@ export function SupplierProfileFields({ supplier, email, categories, step, accou
   </>;
 }
 
-function CategoryProposals({ categories, supplier, messages: m }: { categories: CategoryProposalOption[]; supplier?: Supplier; messages: OnboardingMessages }) {
-  return <section className="border-t border-ink-200 pt-6"><h2 className="text-base font-bold text-ink-900">{m.categories.title}</h2>
-    <p className="mt-1 text-sm text-ink-600">{m.categories.intro.map((line, index) => <span key={line}>{index > 0 && <br />}{line}</span>)}</p>
-    {categories.length ? <SupplierCategoryPicker categories={categories} initial={supplier?.requested_category_slugs ?? []} messages={m.picker} /> :
-      <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{m.categories.none}</p>}
+function CategoryProposals({ categories, supplier, requests, messages: m }: {
+  categories: CategoryProposalOption[]; supplier?: Supplier; requests: CategoryRequestView[]; messages: OnboardingMessages;
+}) {
+  return <section className="border-t border-ink-200 pt-6">
+    {!categories.length && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{m.categories.none}</p>}
+    <SupplierCategoryPicker categories={categories} initial={supplier?.requested_category_slugs ?? []}
+      other={supplier?.requested_category_other ?? ""} requests={requests} messages={m.picker}
+      title={m.categories.title} intro={m.categories.intro} />
   </section>;
 }
 
@@ -173,10 +186,11 @@ function firstInvalidField(form: HTMLFormElement, step: number): HTMLElement | n
   return null;
 }
 
-export function SupplierProfileForm({ supplier, email, categories, hasCoreDoc = false, accountName, messages: m, types, lang }: {
+export function SupplierProfileForm({ supplier, email, categories, categoryRequests = [], hasCoreDoc = false, accountName, messages: m, types, lang }: {
   supplier?: Supplier;
   email: string;
   categories: CategoryProposalOption[];
+  categoryRequests?: CategoryRequestView[];
   hasCoreDoc?: boolean;
   accountName?: string | null;
   messages: OnboardingMessages;
@@ -273,7 +287,7 @@ export function SupplierProfileForm({ supplier, email, categories, hasCoreDoc = 
           </div>
         </div>
         <div className="mt-6">
-          <SupplierProfileFields supplier={supplier} email={email} accountName={accountName} categories={categories} step={step} messages={m} types={types} />
+          <SupplierProfileFields supplier={supplier} email={email} accountName={accountName} categories={categories} categoryRequests={categoryRequests} step={step} messages={m} types={types} />
         </div>
         {stepError && <p role="alert" className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{stepError}</p>}
         <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-5">

@@ -201,6 +201,65 @@ export type SupplierDecision =
 
 /** A decision is emailed only to an active supplier account linked to this supplier ID.
  * The email never contains internal evidence, buyer identity or staff-only notes. */
+/**
+ * Thư trả lời cho NCC khi Vexim mở hoặc từ chối ngành họ đề nghị.
+ *
+ * Đây là lời hứa "3 ngày làm việc, báo qua email" trong form: không có thư này thì NCC chỉ
+ * biết kết quả nếu tự vào cổng xem, và lời hứa thành sai. Thư đi qua `transport()` như mọi
+ * thư khác, gửi tới đúng tài khoản đang gắn hồ sơ, không gửi cho người khác.
+ */
+export async function notifyCategoryRequestDecision(input: {
+  supplierId: string;
+  label: string;
+  status: "opened" | "rejected";
+  note?: string | null;
+  categoryLabel?: string | null;
+}): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const users = await getStore().listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && u.role === "supplier" && u.supplier_id === input.supplierId)
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const label = (input.label || "Ngành").replace(/[\r\n]/g, " ").slice(0, 140);
+    const opened = input.status === "opened";
+    const title = opened ? `Đã mở ngành: ${label}` : `Chưa mở được ngành: ${label}`;
+    const where = input.categoryLabel ? ` Danh mục tương ứng: ${escapeHtml(input.categoryLabel)}.` : "";
+    const explanation = opened
+      ? `Vexim đã mở ngành này.${where} Bạn chọn danh mục đó trong mục Danh mục kinh doanh để đăng sản phẩm; sản phẩm vẫn được duyệt trước khi hiển thị.`
+      // Thư trả lời: nhiều vế cần đọc liền mạch nên để nguyên một câu dài (copy-allow bên dưới).
+      : `Vexim chưa mở được ngành này.${input.note ? ` Lý do: ${escapeHtml(input.note.trim().slice(0, 1000))}` : ""} Hồ sơ doanh nghiệp của bạn vẫn được xét bình thường; nếu ngành của bạn còn thiếu, bạn có thể bổ sung cách gọi khác trong mục Danh mục kinh doanh.`; // copy-allow: câu của thư trả lời cho nhà cung cấp
+    const url = `${notificationOrigin()}/supplier/portal/categories`;
+    const body = `<p>${explanation}</p><p><a href="${url}">Mở mục danh mục kinh doanh</a></p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
+      html: wrapPlainEmail({ title: escapeHtml(title), body }),
+      text: `${title}\n${explanation}\n${url}` });
+    return res.ok ? res.status : "failed";
+  } catch (error) { console.error("[supplier-notify] category request decision", error); return "failed"; }
+}
+
+/** Thư cho nhân viên khi NCC khai một ngành chưa mở: đây là việc có hạn 3 ngày làm việc. */
+export async function notifyStaffCategoryRequest(input: {
+  supplierId: string; supplierName: string; labels: readonly string[]; note?: string | null;
+}): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const users = await getStore().listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "reviewer" || u.role === "admin"))
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length || !input.labels.length) return "failed";
+    const staffOrigin = notificationOrigin();
+    const title = `Ngành cần mở: ${input.labels.join(", ")}`;
+    // copy-allow: câu của thư nội bộ, nêu cam kết 3 ngày làm việc
+    const body = `<p>Nhà cung cấp ${escapeHtml(input.supplierName)} vừa khai ngành chưa có trong danh mục: <strong>${escapeHtml(input.labels.join(", "))}</strong>.</p>
+    <p>Cam kết với nhà cung cấp: xem xét trong 3 ngày làm việc và trả lời qua email.
+    Hồ sơ doanh nghiệp vẫn được duyệt bình thường; họ chỉ đăng được sản phẩm sau khi ngành được mở.</p>
+    <p><a href="${staffOrigin}/crm/suppliers#industries">Mở danh sách ngành được yêu cầu</a></p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
+      html: wrapPlainEmail({ title: escapeHtml(title), body }),
+      text: `${title}\nNhà cung cấp: ${input.supplierName}\n${staffOrigin}/crm/suppliers` });
+    return res.ok ? res.status : "failed";
+  } catch (error) { console.error("[supplier-notify] category request", error); return "failed"; }
+}
+
 export async function notifySupplierDecision(input: {
   supplierId: string; decision: SupplierDecision; name?: string; entityId?: string; note?: string;
 }): Promise<"sent" | "simulated" | "failed"> {
