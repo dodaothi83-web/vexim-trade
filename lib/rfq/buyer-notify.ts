@@ -1,3 +1,4 @@
+import brandColors from "@/lib/brand/colors.json";
 /**
  * Tự động thông báo cho buyer khi có chuyển biến quan trọng trong vòng đời RFQ:
  *   - RFQ vào sampling (đã chọn 1 NCC để gửi mẫu / đàm phán sâu)
@@ -73,7 +74,7 @@ function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Sup
 
   body += `
     <p>You can follow progress at your private link:<br/>
-    <a href="${trackUrl}" style="color:#0f766e;">${trackUrl}</a></p>
+    <a href="${trackUrl}" style="color:${brandColors.primary};">${trackUrl}</a></p>
     <p>Best regards,<br/>Export Department · ${escapeHtml(COMPANY.name)}</p>`;
 
   return {

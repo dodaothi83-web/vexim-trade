@@ -1,3 +1,4 @@
+import brandColors from "@/lib/brand/colors.json";
 import { COMPANY, type CompanyInfo } from "@/lib/config";
 import { STAGE_CONTENT, type StageCopy } from "@/lib/email/stage-content";
 import { FUNNEL_STAGES, getStage, stageIndex, type StageKey } from "@/lib/pipeline";
@@ -70,11 +71,11 @@ export function fill(
   return tpl.replace(/\{(\w+)\}/g, (_, k: string) => map[k] ?? `{${k}}`);
 }
 
-const BRAND = "#0f766e";
-const INK = "#0f172a";
-const MUTED = "#64748b";
-const LINE = "#e2e8f0";
-const SOFT = "#f8fafc";
+const BRAND = brandColors.primary;
+const INK = brandColors.text;
+const MUTED = brandColors.muted;
+const LINE = brandColors.border;
+const SOFT = brandColors.surface;
 
 /** Khung email THƯƠNG HIỆU cho email TỰ ĐỘNG (cập nhật tiến độ, thông báo hệ thống):
  *  banner + card + một footer duy nhất ở cuối card. */
@@ -95,9 +96,9 @@ export function wrapEmailShell(opts: {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(opts.title)}</title>
   </head>
-  <body style="margin:0;padding:0;background:#eef2f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${INK};">
+  <body style="margin:0;padding:0;background:${brandColors.surface};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${INK};">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(opts.preheader ?? opts.title)}</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f6;padding:24px 12px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${brandColors.surface};padding:24px 12px;">
       <tr>
         <td align="center">
           <table role="presentation" width="620" cellpadding="0" cellspacing="0" style="width:100%;max-width:620px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ${LINE};">
@@ -106,7 +107,7 @@ export function wrapEmailShell(opts: {
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:.4px;">${escapeHtml(brand.name.toUpperCase())}</td>
-                    <td align="right" style="color:#a7f3d0;font-size:12px;">${escapeHtml(brand.tagline)}</td>
+                    <td align="right" style="color:${brandColors.selected};font-size:12px;">${escapeHtml(brand.tagline)}</td>
                   </tr>
                 </table>
               </td>
@@ -158,8 +159,8 @@ export function progressBar(stageKey: string, lang: "en" | "vi"): string {
   const cells = FUNNEL_STAGES.map((s, i) => {
     const done = i < current && !isLost;
     const active = i === current && !isLost;
-    const bg = active ? BRAND : done ? "#99f6e4" : "#e2e8f0";
-    const fg = active ? "#ffffff" : done ? "#0f766e" : "#94a3b8";
+    const bg = active ? BRAND : done ? brandColors.selected : brandColors.border;
+    const fg = active ? "#ffffff" : done ? brandColors.primary : "#94a3b8";
     const label = lang === "vi" ? s.label : s.labelEn;
     return `<td align="center" style="width:${Math.floor(100 / FUNNEL_STAGES.length)}%;padding:0 2px;vertical-align:top;">
       <div style="background:${bg};color:${fg};border-radius:999px;font-size:11px;font-weight:700;padding:5px 2px;white-space:nowrap;overflow:hidden;">${done ? "&#10003;" : i + 1}</div>
@@ -168,8 +169,8 @@ export function progressBar(stageKey: string, lang: "en" | "vi"): string {
   }).join("");
 
   if (isLost) {
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;">
-      <tr><td style="padding:12px 16px;color:#b91c1c;font-size:13px;font-weight:600;">${lang === "vi" ? "Đơn hàng đang tạm hoãn." : "This order is currently on hold."}</td></tr>
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${brandColors.errorSurface};border:1px solid #fecaca;border-radius:10px;">
+      <tr><td style="padding:12px 16px;color:${brandColors.error};font-size:13px;font-weight:600;">${lang === "vi" ? "Đơn hàng đang tạm hoãn." : "This order is currently on hold."}</td></tr>
     </table>`;
   }
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 22px;"><tr>${cells}</tr></table>`;
@@ -198,7 +199,7 @@ export function summaryTable(rows: { label: string; value: string }[], header: s
 }
 
 function calloutBox(title: string, html: string, tone: "brand" | "amber" = "brand"): string {
-  const c = tone === "brand" ? { bg: "#ecfeff", border: BRAND, fg: "#134e4a" } : { bg: "#fffbeb", border: "#d97706", fg: "#78350f" };
+  const c = tone === "brand" ? { bg: brandColors.selected, border: BRAND, fg: brandColors.primaryHover } : { bg: brandColors.warningSurface, border: brandColors.warning, fg: brandColors.warning };
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.bg};border-left:4px solid ${c.border};border-radius:8px;margin-top:18px;">
     <tr><td style="padding:14px 16px;">
       <div style="font-size:11px;font-weight:800;color:${c.border};letter-spacing:.6px;margin-bottom:6px;">${escapeHtml(title)}</div>
@@ -271,7 +272,7 @@ export function buildBuyerEmail(opts: {
     ${progressBar(stage, "en")}
     ${summary}
     ${calloutBox("WHAT HAPPENS NEXT", escapeHtml(fill(copy.action, buyer)))}
-    ${opts.note ? `<p style="font-size:14px;line-height:22px;margin:18px 0 0;padding:12px 14px;background:${SOFT};border-radius:8px;color:#334155;"><strong>Message from our team:</strong><br/>${escapeHtml(opts.note)}</p>` : ""}
+    ${opts.note ? `<p style="font-size:14px;line-height:22px;margin:18px 0 0;padding:12px 14px;background:${SOFT};border-radius:8px;color:${brandColors.muted};"><strong>Message from our team:</strong><br/>${escapeHtml(opts.note)}</p>` : ""}
     <p style="font-size:14px;line-height:22px;margin:22px 0 0;">Please feel free to reply to this email if you need any clarification.<br/>Best regards,</p>
     ${signature(buyer.owner, "Export Department", opts.senderEmail)}`;
 
@@ -352,13 +353,13 @@ export function buildSupplierEmail(opts: {
     .map((t) => `<li style="margin:0 0 7px;padding-left:2px;">${escapeHtml(fill(t, buyer, supplier, ref))}</li>`)
     .join("");
 
-  const taskBox = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border-left:4px solid #d97706;border-radius:8px;margin-top:18px;">
+  const taskBox = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${brandColors.warningSurface};border-left:4px solid ${brandColors.warning};border-radius:8px;margin-top:18px;">
     <tr><td style="padding:14px 16px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-        <td style="font-size:11px;font-weight:800;color:#d97706;letter-spacing:.6px;">VIỆC CẦN LÀM</td>
-        <td align="right" style="font-size:11px;font-weight:800;color:#b45309;">HẠN: ${escapeHtml(fill(copy.deadline, buyer, supplier, ref))}</td>
+        <td style="font-size:11px;font-weight:800;color:${brandColors.warning};letter-spacing:.6px;">VIỆC CẦN LÀM</td>
+        <td align="right" style="font-size:11px;font-weight:800;color:${brandColors.warning};">HẠN: ${escapeHtml(fill(copy.deadline, buyer, supplier, ref))}</td>
       </tr></table>
-      <ol style="margin:8px 0 0;padding-left:18px;font-size:13px;line-height:20px;color:#78350f;">${tasks}</ol>
+      <ol style="margin:8px 0 0;padding-left:18px;font-size:13px;line-height:20px;color:${brandColors.warning};">${tasks}</ol>
     </td></tr>
   </table>`;
 
@@ -371,7 +372,7 @@ export function buildSupplierEmail(opts: {
     ${paragraphs(copy.body.map((p) => fill(p, buyer, supplier, ref)))}
     ${summary}
     ${taskBox}
-    ${opts.note ? `<p style="font-size:14px;line-height:22px;margin:18px 0 0;padding:12px 14px;background:${SOFT};border-radius:8px;color:#334155;"><strong>Ghi chú từ phòng sale:</strong><br/>${escapeHtml(opts.note)}</p>` : ""}
+    ${opts.note ? `<p style="font-size:14px;line-height:22px;margin:18px 0 0;padding:12px 14px;background:${SOFT};border-radius:8px;color:${brandColors.muted};"><strong>Ghi chú từ phòng sale:</strong><br/>${escapeHtml(opts.note)}</p>` : ""}
     ${hidden ? `<p style="font-size:12px;line-height:18px;color:${MUTED};margin:16px 0 0;">Thông tin người mua được giữ kín theo chính sách bảo mật của ${escapeHtml(COMPANY.name)}. Mọi trao đổi về giá và hợp đồng vui lòng làm việc trực tiếp với phòng sale.</p>` : ""}
     <p style="font-size:14px;line-height:22px;margin:20px 0 0;">Cảm ơn bạn,</p>
     ${signature(buyer.owner, "Phòng Xuất khẩu")}`;
@@ -466,13 +467,13 @@ export function buildSupplierAssignedEmail(opts: {
     "Cho biết thời gian giao hàng tính từ ngày nhận cọc",
   ];
 
-  const taskBox = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border-left:4px solid #d97706;border-radius:8px;margin-top:18px;">
+  const taskBox = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${brandColors.warningSurface};border-left:4px solid ${brandColors.warning};border-radius:8px;margin-top:18px;">
     <tr><td style="padding:14px 16px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-        <td style="font-size:11px;font-weight:800;color:#d97706;letter-spacing:.6px;">VIỆC CẦN LÀM</td>
-        <td align="right" style="font-size:11px;font-weight:800;color:#b45309;">HẠN: Phản hồi trong 2 ngày làm việc</td>
+        <td style="font-size:11px;font-weight:800;color:${brandColors.warning};letter-spacing:.6px;">VIỆC CẦN LÀM</td>
+        <td align="right" style="font-size:11px;font-weight:800;color:${brandColors.warning};">HẠN: Phản hồi trong 2 ngày làm việc</td>
       </tr></table>
-      <ol style="margin:8px 0 0;padding-left:18px;font-size:13px;line-height:20px;color:#78350f;">${tasks
+      <ol style="margin:8px 0 0;padding-left:18px;font-size:13px;line-height:20px;color:${brandColors.warning};">${tasks
         .map((t) => `<li style="margin:0 0 7px;padding-left:2px;">${escapeHtml(t)}</li>`)
         .join("")}</ol>
     </td></tr>

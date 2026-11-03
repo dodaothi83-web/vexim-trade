@@ -13,6 +13,7 @@ function loadTS(file, mocks) {
   vm.runInNewContext(source, {
     module, exports: module.exports, process, console, Date, Set, Map, Intl, Math, String, JSON,
     require: (id) => {
+      if (id === "@/lib/brand/colors.json") return { default: JSON.parse(fs.readFileSync(new URL("../lib/brand/colors.json", import.meta.url), "utf8")) };
       assert.ok(id in mocks, `Unexpected import ${id} in ${file}`);
       return mocks[id];
     },

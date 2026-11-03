@@ -10,7 +10,7 @@ function load(file, mocks, env = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   vm.runInNewContext(code, { exports, Request, Response, Headers, Date, process: { env }, console,
-    require: (key) => { assert.ok(key in mocks, `Unexpected import ${key} in ${file}`); return mocks[key]; },
+    require: (key) => { if (key === "@/lib/brand/colors.json") return { default: JSON.parse(readFileSync(new URL("../lib/brand/colors.json", import.meta.url), "utf8")) }; assert.ok(key in mocks, `Unexpected import ${key} in ${file}`); return mocks[key]; },
   }, { filename: file });
   return exports;
 }

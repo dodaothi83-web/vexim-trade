@@ -28,11 +28,7 @@ export const VERIFICATION_LEVEL_ICONS: Record<VerificationLevel, typeof ShieldCh
   3: Truck,
 };
 
-/**
- * One hue per check: blue for documents, gold for the factory review, violet for
- * delivery history. The colour never carries the meaning by itself — the icon,
- * the label and the tooltip always say which check passed.
- */
+/** Approved checks use success green; icons and labels identify the check. */
 export const VERIFICATION_LEVEL_TONES: Record<VerificationLevel, {
   /** Approved shield on a light card or header. */
   pip: string;
@@ -50,73 +46,68 @@ export const VERIFICATION_LEVEL_TONES: Record<VerificationLevel, {
   status: string;
 }> = {
   1: {
-    pip: "border-2 border-sky-400 bg-sky-100 text-sky-700",
-    seal: "bg-sky-600 text-white ring-sky-100",
-    pill: "bg-sky-50 text-sky-800 ring-sky-300",
-    chip: "border-sky-300 bg-sky-50 text-sky-800",
-    card: "border-sky-300 bg-sky-50/70",
-    bar: "bg-sky-400",
-    status: "text-sky-300",
+    pip: "border-2 border-emerald-400 bg-emerald-100 text-emerald-700",
+    seal: "bg-emerald-600 text-white ring-emerald-100",
+    pill: "bg-emerald-50 text-emerald-800 ring-emerald-300",
+    chip: "border-emerald-300 bg-emerald-50 text-emerald-800",
+    card: "border-emerald-300 bg-emerald-50/70",
+    bar: "bg-emerald-400",
+    status: "text-emerald-300",
   },
   2: {
-    pip: "border-2 border-amber-400 bg-amber-100 text-amber-700",
-    seal: "bg-amber-400 text-amber-950 ring-amber-100",
-    pill: "bg-amber-50 text-amber-900 ring-amber-300",
-    chip: "border-amber-300 bg-amber-50 text-amber-900",
-    card: "border-amber-300 bg-amber-50/70",
-    bar: "bg-amber-300",
-    status: "text-amber-300",
+    pip: "border-2 border-emerald-400 bg-emerald-100 text-emerald-700",
+    seal: "bg-emerald-700 text-white ring-emerald-100",
+    pill: "bg-emerald-50 text-emerald-900 ring-emerald-300",
+    chip: "border-emerald-300 bg-emerald-50 text-emerald-900",
+    card: "border-emerald-300 bg-emerald-50/70",
+    bar: "bg-emerald-300",
+    status: "text-emerald-300",
   },
   3: {
-    pip: "border-2 border-violet-400 bg-violet-100 text-violet-700",
-    seal: "bg-violet-600 text-white ring-violet-100",
-    pill: "bg-violet-700 text-white ring-violet-300",
-    chip: "border-violet-300 bg-violet-50 text-violet-800",
-    card: "border-violet-300 bg-violet-50/70",
-    bar: "bg-violet-400",
-    status: "text-violet-300",
+    pip: "border-2 border-emerald-400 bg-emerald-100 text-emerald-700",
+    seal: "bg-emerald-600 text-white ring-emerald-100",
+    pill: "bg-emerald-700 text-white ring-emerald-300",
+    chip: "border-emerald-300 bg-emerald-50 text-emerald-800",
+    card: "border-emerald-300 bg-emerald-50/70",
+    bar: "bg-emerald-400",
+    status: "text-emerald-300",
   },
 };
 
 /** A check that is not approved yet stays a grey outline: no colour implies progress. */
 export const VERIFICATION_PIP_OFF = "border border-ink-200 bg-white text-ink-300";
 
-/**
- * Progressive shield palette keyed by total approved check count (tier 1 → 2 → 3):
- * - 1 shield: clean cool sky blue (entry tier)
- * - 2 shields: rich signature Vexim emerald-teal (higher tier)
- * - 3 shields: warm prestige gold with subtle sheen (highest tier)
- */
+/** All approved tiers use success green, separate from brand and warning colours. */
 export const VERIFICATION_TIER_SHIELD_TONES: Record<Exclude<VerificationTier, 0>, {
   pip: string;
   status: string;
 }> = {
   1: {
-    pip: "border border-sky-300 bg-sky-50 text-sky-600",
-    status: "text-sky-300",
+    pip: "border border-emerald-300 bg-emerald-50 text-emerald-600",
+    status: "text-emerald-300",
   },
   2: {
-    pip: "border border-brand-500 bg-brand-100 text-brand-800 shadow-2xs",
+    pip: "border border-emerald-500 bg-emerald-100 text-emerald-800 shadow-2xs",
     status: "text-emerald-300",
   },
   3: {
-    pip: "border border-amber-500 bg-gradient-to-b from-amber-100 to-amber-200 text-amber-900 shadow-xs ring-1 ring-amber-300/70",
-    status: "text-amber-300",
+    pip: "border border-emerald-500 bg-gradient-to-b from-emerald-100 to-emerald-200 text-emerald-900 shadow-xs ring-1 ring-emerald-300/70",
+    status: "text-emerald-300",
   },
 };
 
 const BADGE_CLASSES: Record<VerificationTier, string> = {
   0: "bg-ink-100 text-ink-500 ring-ink-200",
-  1: "bg-sky-50 text-sky-800 ring-sky-200",
-  2: "bg-brand-100 text-brand-900 ring-brand-300",
-  3: "bg-amber-100 text-amber-900 ring-amber-300",
+  1: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+  2: "bg-emerald-100 text-emerald-900 ring-emerald-300",
+  3: "bg-emerald-100 text-emerald-900 ring-emerald-300",
 };
 
 const SEAL_CLASSES: Record<VerificationTier, string> = {
   0: "bg-ink-400 text-white ring-white/70",
-  1: "bg-sky-500 text-white ring-white/70",
-  2: "bg-brand-600 text-white ring-white/70",
-  3: "bg-amber-400 text-amber-950 ring-amber-200",
+  1: "bg-emerald-700 text-white ring-white/70",
+  2: "bg-emerald-600 text-white ring-white/70",
+  3: "bg-emerald-700 text-white ring-emerald-200",
 };
 
 /** Compact pill shown next to the supplier name, product page or list row. */
@@ -138,8 +129,7 @@ export function VerificationTierBadge({ levels, className = "" }: {
  * Three circular shield-check pips, one per independent verification check.
  *
  * All three positions keep the shield icon (`ShieldCheck`). Approved shields
- * step up in visual prestige by total approved count (1 → sky, 2 → rich teal,
- * 3 → prestige gold), while unapproved checks remain muted grey outlines and
+ * use success green, while unapproved checks remain muted grey outlines and
  * each shield's tooltip names the specific check without "Level 1/2/3" labels.
  */
 export function VerificationPips({ levels, compact = false, shortTooltips = false, l2Scope, variant = "default" }: {

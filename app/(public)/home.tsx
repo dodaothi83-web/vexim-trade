@@ -6,6 +6,10 @@ import {
   FileStack,
   HelpCircle,
   Search,
+  ShieldCheck,
+  Clock3,
+  LockKeyhole,
+  Plus,
 } from "lucide-react";
 
 import { getStore } from "@/lib/db";
@@ -252,133 +256,54 @@ export default async function HomeContent({
       {/* =====================================================================
           SECTION 1: HERO + THANH TÌM KIẾM SẢN PHẨM
          ===================================================================== */}
-      <section className="relative overflow-hidden border-b-4 border-amber-400 bg-gradient-to-b from-brand-900 via-brand-900 to-ink-950 text-white">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={heroSrc || HOME_HERO_SRC}
-          srcSet={heroSrc ? undefined : HOME_HERO_SRCSET}
-          sizes="100vw"
-          alt=""
-          width={1600}
-          height={1067}
-          loading="eager"
-          fetchPriority="high"
-          className="absolute inset-0 h-full w-full object-cover object-[60%_center]"
-        />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-950/85 via-brand-900/65 to-ink-950/75" />
+      <section aria-labelledby="home-hero-title" className="border-b border-ink-200 bg-brand-50 text-ink-900">
+        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 sm:py-12 lg:px-8">
+          <h1 id="home-hero-title" className="max-w-[960px] text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl lg:text-[44px]">
+            {isVi
+              ? "Tìm nguồn hạt điều, hồ tiêu, gia vị và trái cây sấy từ nhà cung cấp Việt Nam đã kiểm tra."
+              : "Source cashew, pepper, spices and dried fruit from checked Vietnamese suppliers."}
+          </h1>
+          <p className="mt-4 max-w-5xl text-base leading-relaxed text-ink-700">
+            {isVi
+              ? "So sánh sản phẩm, yêu cầu báo giá qua Vexim và kết nối trực tiếp với nhà cung cấp bạn chọn."
+              : "Compare products, request quotes through Vexim, and connect directly with the supplier you choose."}
+          </p>
 
-        <div className="relative mx-auto max-w-6xl px-5 py-14 sm:px-6 sm:py-20 lg:px-8">
-          <div className="mx-auto max-w-4xl text-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-3.5 py-1 text-xs font-black uppercase tracking-[0.16em] text-ink-950 shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-brand-900" />
-              {isVi
-                ? "Vexim Trade · Kết nối giao thương thực phẩm & nông sản Việt Nam"
-                : "Vexim Trade · Verified Vietnam Food & Agriculture Sourcing"}
-            </span>
-
-            <h1 className="mt-5 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl lg:text-[44px]">
-              {isVi
-                ? "Tìm sản phẩm và nhà cung cấp nguồn hàng thực phẩm tại Việt Nam"
-                : "Find Verified Food & Agricultural Products and Suppliers in Vietnam"}
-            </h1>
-
-            <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/90 sm:text-base">
-              {isVi
-                ? "Tra cứu danh mục nông sản & thực phẩm chế biến, đối chiếu hồ sơ pháp lý, năng lực nhà máy và kết nối báo giá nhanh."
-                : HOME_HERO_LINE}
-            </p>
-
-            {/* THANH TÌM KIẾM SẢN PHẨM */}
-            <form
-              action="/search"
-              method="get"
-              role="search"
-              aria-label={
-                isVi
-                  ? "Tìm kiếm sản phẩm và nhà cung cấp"
-                  : "Search food products and verified suppliers"
-              }
-              className="mt-8 rounded-2xl border-2 border-amber-400 bg-white p-2 shadow-2xl shadow-black/35 sm:p-2.5"
-            >
-              <input type="hidden" name="lang" value={lang} />
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[220px_minmax(0,1fr)_auto]">
-                <label className="sr-only" htmlFor="home-search-category">
-                  {isVi ? "Chọn danh mục ngành hàng" : "Select product category"}
-                </label>
-                <select
-                  id="home-search-category"
-                  name="cat"
-                  defaultValue={categoryFilter}
-                  className="h-12 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-semibold text-ink-800 focus:border-brand-600 focus:bg-white focus:outline-none"
-                >
-                  <option value="">{isVi ? "Tất cả danh mục" : "All categories"}</option>
-                  {activeCategories.map((c) => (
-                    <option key={c.slug} value={c.slug}>
-                      {getCategoryTitle(c, lang)}
-                    </option>
-                  ))}
-                </select>
-
-                <div className="relative flex min-w-0 items-center">
-                  <Search className="pointer-events-none absolute left-3.5 h-5 w-5 text-slate-400" aria-hidden="true" />
-                  <label htmlFor="home-search-query" className="sr-only">
-                    {isVi ? "Tên sản phẩm, quy cách hoặc nhà cung cấp" : "Product, grade or supplier"}
-                  </label>
-                  <input
-                    id="home-search-query"
-                    type="search"
-                    name="q"
-                    maxLength={120}
-                    defaultValue={query}
-                    placeholder={
-                      isVi
-                        ? "Tên sản phẩm, quy cách hoặc nhà cung cấp"
-                        : "Product, grade or supplier name"
-                    }
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-ink-900 placeholder:text-slate-400 focus:border-brand-600 focus:outline-none"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-amber-400 px-6 text-sm font-black text-ink-950 shadow-sm transition hover:bg-amber-300"
-                >
-                  <Search className="h-4 w-4" />
-                  {isVi ? "Tìm kiếm" : "Search"}
-                </button>
-              </div>
-            </form>
-
-            {/* Từ khóa phổ biến: chỉ hiện chip của danh mục đang có trang thật. */}
-            {popularKeywords.length > 0 && <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-white/90">
-              <span className="font-semibold text-amber-300">
-                {isVi ? "Tìm nhanh:" : "Popular searches:"}
-              </span>
-              {popularKeywords.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="rounded-full border border-white/20 bg-white/10 px-3 py-1 font-medium text-white transition hover:border-amber-300 hover:bg-amber-400/20"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>}
-
-            {supCount >= 10 && (
-              <p className="mt-4 text-xs text-white/80">
-                {isVi ? (
-                  <>
-                    Đang niêm yết <strong>{supCount}</strong> hồ sơ nhà cung cấp công khai · Phản hồi báo giá trong 1 ngày làm việc.
-                  </>
-                ) : (
-                  <>
-                    Featuring <strong>{supCount}</strong> published Vietnamese supplier profiles · Quote response within 1 business day.
-                  </>
-                )}
-              </p>
-            )}
-          </div>
+          <form action="/search" method="get" role="search" aria-label={isVi ? "Tìm sản phẩm" : "Search products"}
+            className="mt-6 max-w-[1000px] overflow-hidden rounded-xl border border-ink-300 bg-white shadow-sm focus-within:ring-2 focus-within:ring-brand-500">
+            <input type="hidden" name="lang" value={lang} />
+            <div className="grid grid-cols-1 sm:grid-cols-[210px_minmax(0,1fr)_auto]">
+              <label className="sr-only" htmlFor="home-search-category">{isVi ? "Danh mục" : "Category"}</label>
+              <select id="home-search-category" name="cat" defaultValue={categoryFilter}
+                className="h-14 w-full min-w-0 border-b border-ink-200 bg-white px-4 text-sm font-semibold text-ink-900 focus-visible:outline-offset-[-3px] sm:border-r sm:border-b-0">
+                <option value="">{isVi ? "Tất cả danh mục" : "All categories"}</option>
+                {activeCategories.map((c) => <option key={c.slug} value={c.slug}>{getCategoryTitle(c, lang)}</option>)}
+              </select>
+              <label htmlFor="home-search-query" className="sr-only">{isVi ? "Sản phẩm hoặc quy cách" : "Product or grade"}</label>
+              <input id="home-search-query" type="search" name="q" maxLength={120} defaultValue={query}
+                placeholder={isVi ? "Tìm sản phẩm hoặc quy cách, ví dụ: W320, 550 g/l, quế" : "Search a product or grade, e.g. W320, 550 g/l, cassia"}
+                className="h-14 w-full min-w-0 bg-white px-4 text-sm text-ink-900 placeholder:text-ink-500 focus-visible:outline-offset-[-3px]" />
+              <button type="submit" className="inline-flex h-14 items-center justify-center gap-2 bg-brand-700 px-7 text-sm font-bold text-white transition hover:bg-brand-800 focus-visible:outline-offset-[-3px]">
+                <Search className="h-4 w-4" aria-hidden="true" />{isVi ? "Tìm kiếm" : "Search"}
+              </button>
+            </div>
+          </form>
+          <p className="mt-3 text-sm text-ink-700">
+            {isVi ? "Chưa biết tìm gì? " : "Not sure what to search for? "}
+            <Link href="/rfq" className="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800">
+              {isVi ? "Cho biết bạn cần gì" : "Tell us what you need"} <span aria-hidden="true">→</span>
+            </Link>
+          </p>
+          <ul className="mt-7 grid gap-x-7 gap-y-4 text-[13px] leading-5 text-ink-700 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:justify-between">
+            {[
+              { Icon: ShieldCheck, text: isVi ? "Giấy đăng ký kinh doanh của mỗi nhà cung cấp đã được Vexim kiểm tra" : "Business registration checked by Vexim for every listed supplier" },
+              { Icon: Clock3, text: isVi ? "Phản hồi trong 1 ngày làm việc" : "Reply within one business day" },
+              { Icon: LockKeyhole, text: isVi ? "Thông tin liên hệ được giữ riêng đến khi bạn đồng ý kết nối" : "Your contact stays private until you connect" },
+              { Icon: Plus, text: isVi ? "Miễn phí cho người mua" : "Free for buyers" },
+            ].map(({ Icon, text }) => <li key={text} className="flex items-start gap-2">
+              <Icon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" /><span>{text}</span>
+            </li>)}
+          </ul>
         </div>
       </section>
 
@@ -392,7 +317,7 @@ export default async function HomeContent({
         <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5">
             <div>
-              <span className="inline-block rounded-md bg-amber-100 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wider text-amber-900">
+              <span className="inline-block rounded-md bg-brand-100 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wider text-brand-900">
                 {isVi ? "Danh mục nguồn hàng Vexim Trade" : "Vexim Trade Sourcing Directory"}
               </span>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
@@ -416,7 +341,7 @@ export default async function HomeContent({
           </div>
 
           {(query || categoryFilter) && (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-300 bg-brand-50 px-4 py-3 text-sm text-brand-950">
               <span>
                 {isVi ? (
                   <>
@@ -460,7 +385,7 @@ export default async function HomeContent({
 
               return (
                 <li key={c.slug} className="flex">
-                  <div className="group flex w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-lg">
+                  <div className="group flex w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-400 hover:shadow-lg">
                     {/* Ảnh danh mục + Nhãn trạng thái */}
                     <Link href={href} className="relative aspect-[4/3] overflow-hidden bg-slate-100 sm:aspect-[16/9]">
                       <Image
@@ -479,11 +404,11 @@ export default async function HomeContent({
                       )}
                       <div className="absolute inset-x-3 bottom-3 text-white sm:inset-x-4">
                         {kicker && (
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-300 sm:text-[11px]">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-brand-200 sm:text-[11px]">
                             {kicker}
                           </p>
                         )}
-                        <h3 className="mt-0.5 text-sm font-black leading-snug text-white group-hover:text-amber-200 sm:text-lg">
+                        <h3 className="mt-0.5 text-sm font-black leading-snug text-white group-hover:text-brand-200 sm:text-lg">
                           {primaryTitle}
                         </h3>
                       </div>
@@ -505,9 +430,9 @@ export default async function HomeContent({
                               <li key={child.id}>
                                 <Link
                                   href={`/products/${child.slug}`}
-                                  className="flex items-start gap-2 rounded-lg px-1.5 py-1 text-[13.5px] leading-snug text-ink-700 transition hover:bg-amber-50 hover:text-brand-800"
+                                  className="flex items-start gap-2 rounded-lg px-1.5 py-1 text-[13.5px] leading-snug text-ink-700 transition hover:bg-brand-50 hover:text-brand-800"
                                 >
-                                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
                                   <span className="line-clamp-1 font-medium">
                                     {getCategoryTitle(child, lang)}
                                   </span>
@@ -550,7 +475,7 @@ export default async function HomeContent({
         <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="max-w-2xl">
-              <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-amber-700">
+              <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-brand-700">
                 {isVi ? "Tin tức & Cẩm nang nguồn hàng" : "Market Insights & Sourcing Guides"}
               </p>
               <h2
@@ -615,7 +540,7 @@ export default async function HomeContent({
                         {post.published_at && (
                           <time
                             dateTime={post.published_at}
-                            className="text-[10px] font-bold uppercase tracking-wide text-amber-700 sm:text-[11px]"
+                            className="text-[10px] font-bold uppercase tracking-wide text-brand-700 sm:text-[11px]"
                           >
                             {formatPostDate(post.published_at, lang)}
                           </time>
@@ -686,7 +611,7 @@ export default async function HomeContent({
             {faqs.map((f, i) => (
               <li key={f.q} className="p-5 sm:p-6">
                 <h3 className="flex items-start gap-3 text-[15.5px] font-bold text-ink-900">
-                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-black tabular-nums text-amber-900">
+                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-black tabular-nums text-brand-900">
                     0{i + 1}
                   </span>
                   <span>{f.q}</span>

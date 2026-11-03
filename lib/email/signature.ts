@@ -1,3 +1,4 @@
+import brandColors from "@/lib/brand/colors.json";
 import { COMPANY } from "@/lib/config";
 import { escapeHtml } from "@/lib/email/templates";
 import { SITE_URL } from "@/lib/site";
@@ -29,11 +30,11 @@ export function buildSignature(
   const legal = escapeHtml(COMPANY.legalName);
   return [
     `<p style="font-size:14px;line-height:22px;margin:28px 0 0;">Best regards,</p>`,
-    `<p style="margin:10px 0 0;font-size:13px;line-height:20px;color:#475569;">`,
-    `<strong style="font-size:14px;color:#0f172a;">${name}</strong><br/>`,
+    `<p style="margin:10px 0 0;font-size:13px;line-height:20px;color:${brandColors.muted};">`,
+    `<strong style="font-size:14px;color:${brandColors.text};">${name}</strong><br/>`,
     `Export Department &middot; ${escapeHtml(COMPANY.name)}<br/>`,
     `${personalPhone}${contactEmail}<br/>`,
-    `<a href="${SITE_URL}" style="color:#0f766e;text-decoration:none;">${websiteHost}</a><br/>`,
+    `<a href="${SITE_URL}" style="color:${brandColors.primary};text-decoration:none;">${websiteHost}</a><br/>`,
     // Pháp nhân đứng ngay trên địa chỉ: buyer cần đúng tên này khi ký hợp đồng và
     // khi tra hoá đơn, còn "Vexim Trade" ở trên chỉ là thương hiệu.
     `${legal}<br/>`,

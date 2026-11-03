@@ -11,6 +11,7 @@ let categories = [], suppliers = [], listFailed = false, productContext = null;
 const RfqForm = () => null;
 const mocks = {
   'react/jsx-runtime': jsx,
+  'next/navigation': { redirect: (url) => { throw new Error(`REDIRECT:${url}`); } },
   'next/link': { default: () => null },
   './rfq-form': { RfqForm },
   '@/components/ui': { Breadcrumbs: () => null },
@@ -93,9 +94,7 @@ assert.equal(props.initialGrade, 'W320');
 assert.equal(props.mode, 'quote');
 
 suppliers = [{ id: 'supplier-1', name: 'Vendor', display_name: 'Public vendor' }];
-props = await render({ intent: 'question', suppliers: 'supplier-1', product_id: 'product-1' });
-assert.equal(props.mode, 'question');
-assert.deepEqual(plain(props.initialSuppliers), [{ id: 'supplier-1', name: 'Public vendor' }]);
+await assert.rejects(() => render({ intent: 'question', suppliers: 'supplier-1', product_id: 'product-1' }), /REDIRECT:\/rfq/);
 // Banner phải dùng tên ngắn, không bày tên pháp nhân viết hoa toàn bộ.
 suppliers = [{ id: 'supplier-2', name: 'CÔNG TY TNHH CHẾ BIẾN HẠT ĐIỀU BÌNH PHƯỚC', trade_name: null, display_name: null }];
 props = await render({ suppliers: 'supplier-2' });
@@ -105,10 +104,10 @@ suppliers = [{ id: 'supplier-3', name: 'CÔNG TY TNHH ABC', trade_name: 'ABC Nut
 props = await render({ suppliers: 'supplier-3' });
 assert.deepEqual(plain(props.initialSuppliers), [{ id: 'supplier-3', name: 'ABC Nuts' }], 'Tên thương mại thắng tên pháp nhân');
 suppliers = [{ id: 'supplier-1', name: 'Vendor', display_name: 'Public vendor' }];
-props = await render({ intent: 'question', suppliers: 'unlisted', product_id: 'product-1' });
-assert.equal(props.mode, 'quote', 'An unavailable supplier cannot activate targeted question mode');
+await assert.rejects(() => render({ intent: 'question', suppliers: 'unlisted', product_id: 'product-1' }), /REDIRECT:\/rfq/);
 // Thẻ ngữ cảnh sản phẩm được chuyển nguyên xuống form, không tự dựng lại ở client.
 productContext = { id: 'product-1', name: 'Cashew Kernels W320', supplierName: 'Bình Phước Kernel Co.', checks: ['Documents checked'] };
+await assert.rejects(() => render({ intent: 'question', category: 'cashew-kernels', suppliers: 'supplier-1', product_id: 'product-1' }), /REDIRECT:\/products\/cashew-kernels\/product-1\?ask=1/);
 props = await render({ category: 'cashew-kernels', suppliers: 'supplier-1', product_id: 'product-1' });
 assert.deepEqual(plain(props.contextProduct), productContext, 'Trang chuyển thẻ ngữ cảnh sản phẩm xuống form');
 productContext = null;

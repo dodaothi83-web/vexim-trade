@@ -363,7 +363,7 @@ export function PublicProductCard({
         image
       )}
       {test && (
-        <span className="absolute left-2 top-2 z-20 rounded bg-amber-200 px-2 py-1 text-[10px] font-bold text-amber-950">
+        <span className="absolute left-2 top-2 z-20 rounded bg-brand-100 px-2 py-1 text-[10px] font-bold text-brand-700">
           TEST · Not an offer
         </span>
       )}

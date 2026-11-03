@@ -1,7 +1,9 @@
+import { Suspense } from "react";
+import { AskSupplierDialog } from "@/components/products/ask-supplier-dialog";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin, MessageCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
 import { ProductVerificationIcons } from "@/components/product-verification-icons";
@@ -133,7 +135,7 @@ export default async function PublicProductDetail({ params }: Props) {
   // Grade đi kèm để form chọn sẵn đúng chip; tên sản phẩm thì server tự dựng từ product_id.
   const rfqGrade = (card.quantityOffer?.grade ?? card.grade ?? card.gradeRows[0]?.grade ?? "").trim();
   const rfq = `/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(card.supplierId)}&product=${encodeURIComponent(card.name)}&product_id=${encodeURIComponent(card.id)}${rfqGrade ? `&grade=${encodeURIComponent(rfqGrade)}` : ""}`;
-  const questionRfq = `${rfq}&intent=question`;
+
   const approvedAttributes = card.attributes;
   const configuredKeys = new Set(fieldsFor(category).map((f) => f.key));
   // Thông số NCC tự thêm chưa được Vexim duyệt thành trường của danh mục: không tự lên trang buyer.
@@ -377,7 +379,10 @@ export default async function PublicProductDetail({ params }: Props) {
         <p className="mt-2 text-xs leading-5 text-ink-500">Product details and reference prices are supplier-provided and reviewed for listing. Confirm current specifications, availability and final terms in your RFQ.</p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <Link href={rfq} className="btn btn-primary min-h-12 w-full justify-center px-2 text-sm font-bold shadow-lg shadow-brand-900/20 sm:px-4 sm:text-base">Request a quote <ArrowRight className="hidden h-5 w-5 sm:block" /></Link>
-          <Link href={questionRfq} aria-label={`Ask supplier about ${card.name}`} className="btn btn-soft min-h-12 w-full justify-center px-2 text-sm font-bold sm:px-4 sm:text-base"><MessageCircle className="h-5 w-5 shrink-0" />Ask supplier</Link>
+          <Suspense fallback={<button disabled className="btn btn-soft min-h-12 w-full justify-center">Ask supplier</button>}>
+            <AskSupplierDialog category={slug} productId={card.id} productName={card.name} supplierId={card.supplierId} supplierName={card.supplierName} grade={rfqGrade}
+              imageUrl={images[0] ? `/public-media/${images[0].replace(/^\/+/, "")}` : null} quoteHref={rfq} />
+          </Suspense>
         </div>
         <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>
       </div>

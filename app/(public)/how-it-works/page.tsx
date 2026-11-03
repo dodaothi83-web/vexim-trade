@@ -328,7 +328,7 @@ export default async function HowItWorksPage({
         <div className="mt-4 flex flex-wrap items-center gap-3 sm:mt-0 sm:shrink-0">
           <Link
             href={categoriesHref}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent-500 px-4 py-2.5 text-sm font-semibold text-ink-950 transition hover:bg-accent-400"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-800"
           >
             {isVi ? "Xem danh mục" : "Browse categories"}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />

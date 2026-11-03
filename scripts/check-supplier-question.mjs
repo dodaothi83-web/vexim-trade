@@ -10,7 +10,8 @@ function load(path, mocks) {
   }).outputText;
   const mod = { exports: {} };
   vm.runInNewContext(output, { module: mod, exports: mod.exports, process, console, Date, Map, Set, URLSearchParams,
-    require: (key) => { assert.ok(key in mocks, `Unexpected ${key} in ${path}`); return mocks[key]; },
+    require: (key) => {
+      if (key === "@/lib/brand/colors.json") return { default: JSON.parse(fs.readFileSync(new URL("../lib/brand/colors.json", import.meta.url), "utf8")) }; assert.ok(key in mocks, `Unexpected ${key} in ${path}`); return mocks[key]; },
   }, { filename: path });
   return mod.exports;
 }
@@ -304,12 +305,22 @@ const crmList = fs.readFileSync(new URL('../app/crm/rfqs/page.tsx', import.meta.
 const crmActions = fs.readFileSync(new URL('../app/crm/rfqs/[id]/actions.ts', import.meta.url), 'utf8');
 const outreach = fs.readFileSync(new URL('../lib/rfq/outreach.ts', import.meta.url), 'utf8');
 assert.match(productPage, /grid grid-cols-2 gap-3/);
-assert.match(productPage, /const questionRfq = `\$\{rfq\}&intent=question`/);
-assert.match(productPage, /href=\{questionRfq\}/);
+assert.match(productPage, /<AskSupplierDialog/);
+assert.doesNotMatch(productPage, /href=\{questionRfq\}/);
+const dialog = fs.readFileSync(new URL('../components/products/ask-supplier-dialog.tsx', import.meta.url), 'utf8');
+assert.match(dialog, /<dialog/);
+assert.match(dialog, /showModal\(\)/);
+assert.match(dialog, /aria-labelledby="ask-supplier-title"/);
+assert.match(dialog, /mode="question"/);
+assert.match(dialog, /onQuestionSuccess=\{setSuccessUrl\}/);
+assert.match(dialog, /params.get\("ask"\) === "1"/);
 assert.match(form, /I agree to share my name, company, email and this question/);
-assert.match(form, /Send to supplier/);
+assert.match(form, /Send question/);
 assert.match(form, /Request a quote instead/);
-assert.match(page, /mode=\{isQuestion \? "question" : "quote"\}/);
+assert.match(page, /mode="quote"/);
+assert.match(page, /if \(sp\?.intent === "question"\)/);
+assert.match(page, /redirect\(`\/products\/.*\?ask=1`\)/);
+assert.doesNotMatch(page, /Ask the supplier/);
 const questionUi = form.slice(form.indexOf('if (isQuestion) {'), form.indexOf('\n  return (', form.indexOf('if (isQuestion) {')));
 assert.match(questionUi, /label="Your question"/);
 assert.doesNotMatch(questionUi, /label="Quantity"|label="Destination"/);

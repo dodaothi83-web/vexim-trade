@@ -1,3 +1,4 @@
+import brandColors from "@/lib/brand/colors.json";
 import { FROM_ADDRESS, MAIL_DOMAIN } from "@/lib/config";
 import { getStore } from "@/lib/db";
 import { htmlToText } from "@/lib/email/privacy";
@@ -29,19 +30,19 @@ export function buildSupplierQuestionEmail(input: {
     <p>Chào ${escapeHtml(supplier.contact_name ?? supplier.name)},</p>
     <p>Người mua đang xem sản phẩm của doanh nghiệp và gửi câu hỏi trực tiếp tới bạn.</p>
     <table cellpadding="7" style="border-collapse:collapse;font-size:14px;">
-      <tr><td style="color:#64748b;width:130px;">Mã câu hỏi</td><td><strong>${escapeHtml(rfq.code)}</strong></td></tr>
-      <tr><td style="color:#64748b;">Sản phẩm</td><td><strong>${escapeHtml(product)}</strong></td></tr>
-      <tr><td style="color:#64748b;">Người mua</td><td>${escapeHtml(buyer.contact_name ?? "")}<br/>${escapeHtml(buyer.company)}</td></tr>
-      <tr><td style="color:#64748b;">Email phản hồi</td><td>${escapeHtml(buyer.email ?? "")}</td></tr>
+      <tr><td style="color:${brandColors.muted};width:130px;">Mã câu hỏi</td><td><strong>${escapeHtml(rfq.code)}</strong></td></tr>
+      <tr><td style="color:${brandColors.muted};">Sản phẩm</td><td><strong>${escapeHtml(product)}</strong></td></tr>
+      <tr><td style="color:${brandColors.muted};">Người mua</td><td>${escapeHtml(buyer.contact_name ?? "")}<br/>${escapeHtml(buyer.company)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Email phản hồi</td><td>${escapeHtml(buyer.email ?? "")}</td></tr>
     </table>
     ${productUrl ? `<p><a href="${escapeHtml(productUrl)}">Xem đúng sản phẩm người mua đang hỏi</a></p>` : ""}
-    <div style="margin-top:18px;border-left:4px solid #0f766e;background:#f0fdfa;padding:12px 16px;">
-      <div style="font-size:12px;font-weight:700;color:#0f766e;">CÂU HỎI CỦA NGƯỜI MUA</div>
+    <div style="margin-top:18px;border-left:4px solid ${brandColors.primary};background:${brandColors.surface};padding:12px 16px;">
+      <div style="font-size:12px;font-weight:700;color:${brandColors.primary};">CÂU HỎI CỦA NGƯỜI MUA</div>
       <div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(question)}</div>
     </div>
     <p style="margin-top:18px;"><strong>Vui lòng phản hồi trực tiếp email này.</strong>
       Địa chỉ Reply-To là email của buyer. Họ đã đồng ý chia sẻ tên, công ty và email với doanh nghiệp cho câu hỏi này.</p>
-    <p style="color:#64748b;font-size:12.5px;">Vexim không phản hồi thay doanh nghiệp về thông số hoặc điều kiện thương mại.
+    <p style="color:${brandColors.muted};font-size:12.5px;">Vexim không phản hồi thay doanh nghiệp về thông số hoặc điều kiện thương mại.
       Không chia sẻ thông tin liên hệ của buyer cho bên thứ ba.</p>
   `;
   return {
@@ -149,9 +150,9 @@ export async function sendSupplierQuestionAckBuyer(input: {
     <p>Dear ${escapeHtml(buyer.contact_name?.split(" ")[0] ?? "there")},</p>
     <p>${escapeHtml(next)}</p>
     <table cellpadding="6" style="border-collapse:collapse;font-size:14px;">
-      <tr><td style="color:#64748b;width:110px;">Reference</td><td><strong>${escapeHtml(rfq.code)}</strong></td></tr>
-      <tr><td style="color:#64748b;">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
-      <tr><td style="color:#64748b;">Question</td><td style="white-space:pre-wrap;">${escapeHtml(question)}</td></tr>
+      <tr><td style="color:${brandColors.muted};width:110px;">Reference</td><td><strong>${escapeHtml(rfq.code)}</strong></td></tr>
+      <tr><td style="color:${brandColors.muted};">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Question</td><td style="white-space:pre-wrap;">${escapeHtml(question)}</td></tr>
     </table>
     <p>You approved sharing your name, company and email with the selected supplier for this question, not with other suppliers.</p>
     <p>Private status link: <a href="${statusLink}">${statusLink}</a></p>
@@ -184,12 +185,12 @@ export async function sendSupplierQuestionExceptionInternal(input: {
       : "Direct supplier delivery was not confirmed. Help deliver the original question to the selected supplier."}</p>
     <p>Do not treat this as a quote request or contact other suppliers without the buyer's consent.</p>
     <table cellpadding="6" style="border-collapse:collapse;font-size:14px;">
-      <tr><td style="color:#64748b;width:110px;">Company</td><td>${escapeHtml(buyer.company)}</td></tr>
-      <tr><td style="color:#64748b;">Contact</td><td>${escapeHtml(buyer.contact_name ?? "")}<br/>${escapeHtml(buyer.email ?? "")}</td></tr>
-      <tr><td style="color:#64748b;">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
-      <tr><td style="color:#64748b;">Question</td><td style="white-space:pre-wrap;">${escapeHtml(question)}</td></tr>
-      <tr><td style="color:#64748b;">Status</td><td>${escapeHtml(rfq.status)}</td></tr>
-      <tr><td style="color:#64748b;">Reason</td><td>${escapeHtml(input.reason || (review ? "manual review" : "delivery not confirmed"))}</td></tr>
+      <tr><td style="color:${brandColors.muted};width:110px;">Company</td><td>${escapeHtml(buyer.company)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Contact</td><td>${escapeHtml(buyer.contact_name ?? "")}<br/>${escapeHtml(buyer.email ?? "")}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Question</td><td style="white-space:pre-wrap;">${escapeHtml(question)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Status</td><td>${escapeHtml(rfq.status)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Reason</td><td>${escapeHtml(input.reason || (review ? "manual review" : "delivery not confirmed"))}</td></tr>
     </table>
     <p><a href="${adminUrl}">Open the question in CRM</a></p>
   `;
