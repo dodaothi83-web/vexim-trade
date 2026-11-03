@@ -154,8 +154,10 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
   const tier = verificationTier(approved);
   const activeTone = tier > 0 ? VERIFICATION_TIER_SHIELD_TONES[tier as Exclude<VerificationTier, 0>] : null;
   const marketplace = variant === "marketplace";
-  const pipSize = marketplace ? "h-7 w-7" : compact ? "h-5 w-5" : "h-6 w-6";
-  const iconSize = marketplace ? "h-4 w-4" : compact ? "h-3 w-3" : "h-3.5 w-3.5";
+  // Trong lưới sản phẩm, huy hiệu đứng chung một hàng với tên người bán: 24px trên điện thoại
+  // (vẫn đủ lớn để chạm) và 28px từ `sm`, khi thẻ chuyển sang bố cục dọc và có chỗ thở hơn.
+  const pipSize = marketplace ? "h-6 w-6 sm:h-7 sm:w-7" : compact ? "h-5 w-5" : "h-6 w-6";
+  const iconSize = marketplace ? "h-3.5 w-3.5 sm:h-4 sm:w-4" : compact ? "h-3 w-3" : "h-3.5 w-3.5";
   return (
     <span className={`inline-flex items-center ${marketplace ? "gap-1 @[11.5rem]:gap-1.5" : "gap-1"}`} role="group"
       aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => verificationLabel(l, l2Scope)).join(", ")}` : "No verification checks approved yet"}>
@@ -173,7 +175,7 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
               className={`${pipClass} cursor-help focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700`}>
               {icon}
             </button>
-            <span role="tooltip" className={`pointer-events-none absolute bottom-full z-40 mb-2 hidden w-48 max-w-[calc(100vw-2rem)] rounded-md bg-ink-900 px-2.5 py-2 text-left font-normal shadow-xl group-hover/pip:block group-focus-within/pip:block ${level === 1 ? "left-0" : "left-1/2 -translate-x-1/2"}`}>
+            <span role="tooltip" className={`pointer-events-none absolute bottom-full z-40 mb-2 hidden w-48 max-w-[calc(100vw-2rem)] rounded-md bg-ink-900 px-2.5 py-2 text-left font-normal shadow-xl group-hover/pip:block group-focus-within/pip:block ${level === 1 ? "left-0" : level === 3 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
               <strong className="block text-[11px] font-bold leading-4 text-white">{label}</strong>
               <span className={`block text-[10px] font-semibold leading-4 ${on && activeTone ? activeTone.status : "text-ink-300"}`}>{status}</span>
               <span className="mt-0.5 block text-[10px] leading-4 text-ink-200">{explanation}</span>

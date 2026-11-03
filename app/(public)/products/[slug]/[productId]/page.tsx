@@ -410,7 +410,6 @@ export default async function PublicProductDetail({ params }: Props) {
               volumePricing={related.quantityOffer?.hasVolumePricing}
             price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays} leadTimeText={related.leadTimeText}
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
-            quoteHref={`/rfq?category=${encodeURIComponent(slug)}&suppliers=${encodeURIComponent(related.supplierId)}&product=${encodeURIComponent(related.name)}&product_id=${encodeURIComponent(related.id)}`}
             verificationSteps={related.verificationSteps} l2Scope={related.l2Scope}
             comparison={!preview && hasProductComparisonPeer(relatedComparisonOffers, {
               id: related.id, supplierId: related.supplierId, categorySlug: slug, isDemo: related.isDemo,

@@ -112,7 +112,6 @@ export function HomeProductFeed({
               leadTimeText={p.leadTimeText}
               supplierName={p.supplierName}
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
-              quoteHref={p.isDemo ? undefined : `/rfq?category=${encodeURIComponent(p.categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}`}
               verificationSteps={p.verificationSteps} l2Scope={p.l2Scope}
               test={p.isDemo}
             />

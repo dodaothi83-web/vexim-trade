@@ -236,11 +236,6 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
               campaignId={sponsored.campaignId} categorySlug={categorySlug} />)}
         {visible.length ? <div id="category-products" className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 scroll-mt-24">
           {paged.items.map((p) => {
-            const pGrades = productGradesOf(p);
-            const prefillGrade = activeGrades.find((g) => pGrades.includes(g)) ?? activeGrades[0] ?? "";
-            const quoteHref = p.isDemo
-              ? undefined
-              : `/rfq?category=${encodeURIComponent(categorySlug)}&suppliers=${encodeURIComponent(p.supplierId)}&product=${encodeURIComponent(p.name)}&product_id=${encodeURIComponent(p.id)}${prefillGrade ? `&grade=${encodeURIComponent(prefillGrade)}` : ""}`;
             return <div key={p.id} className="min-w-0">
               <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
                 imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} grades={productGradesOf(p)} gradeRows={p.gradeRows}
@@ -249,7 +244,6 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
                 highlightedGrades={activeGrades} moq={p.moq} price={p.price} incoterm={p.incoterm} fob={p.incoterm?.toUpperCase() === "FOB"}
                 leadTimeDays={p.leadTimeDays} leadTimeText={p.leadTimeText} supplierName={p.supplierName}
                 supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
-                quoteHref={quoteHref}
                 verificationSteps={p.verificationSteps} l2Scope={p.l2Scope} test={p.isDemo}
                 comparison={comparisonEnabled && hasProductComparisonPeer(comparisonOffers, {
                   id: p.id, supplierId: p.supplierId, categorySlug, isDemo: p.isDemo,

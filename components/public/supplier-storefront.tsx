@@ -329,7 +329,6 @@ export function SupplierStorefront({
                 stalePriceDays={approvedForm.quantityOffer?.stale ? approvedForm.quantityOffer.daysSinceConfirmed : undefined}
                 leadTimeDays={approvedForm.leadTimeDays} leadTimeText={approvedForm.leadTimeText} supplierName={name}
                 supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
-                quoteHref={productLinks && rfqActions && !synthetic && category ? `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(productName)}&product_id=${encodeURIComponent(p.id)}` : undefined}
                 verificationSteps={steps} l2Scope={l2Scope} test={synthetic} linkable={productLinks} />
             </li>;
           }
@@ -459,7 +458,6 @@ export function SupplierStorefront({
               price={storefrontPrice} incoterm={storefrontIncoterm} fob={storefrontIncoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.lead_time_days ?? null} leadTimeText={storefrontLeadTime} supplierName={name}
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
-              quoteHref={productLinks && rfqActions && !synthetic && category ? `/rfq?category=${encodeURIComponent(category.slug)}&suppliers=${encodeURIComponent(s.id)}&product=${encodeURIComponent(productName)}&product_id=${encodeURIComponent(p.id)}` : undefined}
               verificationSteps={steps} l2Scope={l2Scope} test={synthetic} linkable={productLinks} />
           </li>;
         })}

@@ -36,7 +36,7 @@ const { PublicProductCard } = load('../components/public-product-card.tsx', {
   '@/components/verification-tier': { VerificationPips: icon, VerificationTierBadge: icon },
 });
 
-const base = { href: '/p/1', moq: '1 MT', price: '$1,500–2,000/MT', incoterm: 'FOB', leadTimeDays: 19, supplierName: 'Supplier', verificationSteps: [1], quoteHref: '/rfq' };
+const base = { href: '/p/1', moq: '1 MT', price: '$1,500–2,000/MT', incoterm: 'FOB', leadTimeDays: 19, supplierName: 'Supplier', verificationSteps: [1] };
 const render = (props) => renderToStaticMarkup(React.createElement(PublicProductCard, { ...base, ...props }));
 
 // 1. Tên viết liền "570g/l" vẫn bị bỏ, không chỉ chip mà cả trong tiêu đề và tooltip.
@@ -62,4 +62,17 @@ assert.match(wordGrade, /title="Cassia split, bark 2.5 mm"/, 'Giữ nguyên grad
 // 5. Ô test không nhắc grade.
 assert.doesNotMatch(render({ name: 'Test item', test: true, grades: ['W320'] }), /W320/, 'Thẻ test không nhắc grade');
 
-console.log('✅ Thẻ sản phẩm: không chip grade, không grade trong tên hay tooltip.');
+// 6. Hàng cuối chỉ còn tên người bán; không còn nút báo giá riêng, không còn nhãn "Supplied by".
+const plain = render({ supplierName: 'Minh Long Coffee' });
+assert.doesNotMatch(plain, /Request a quote for|>Quote</, 'Thẻ không còn nút báo giá riêng');
+assert.doesNotMatch(plain, /Supplied by/, 'Bỏ nhãn "Supplied by": tên người bán đứng một mình ở hàng cuối');
+assert.match(plain, /Minh Long Coffee/, 'Tên người bán vẫn hiện trên thẻ');
+
+const cardSource = readFileSync(new URL('../components/public-product-card.tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(cardSource, /quoteHref/, 'Thẻ không nhận quoteHref nữa');
+assert.doesNotMatch(cardSource, /min-h-9/, 'Bỏ min-h-9: chiều cao hàng cuối do huy hiệu quyết định, không do nút');
+// Tên và huy hiệu chung một hàng, được xuống dòng khi tên dài thay vì ép tên ngắn lại.
+assert.ok(cardSource.includes("flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1"),
+  'Tên người bán và huy hiệu nằm chung một hàng, được xuống dòng khi tên dài');
+
+console.log('✅ Thẻ sản phẩm: không chip grade, không grade trong tên hay tooltip, hàng cuối chỉ còn tên người bán + huy hiệu.');
