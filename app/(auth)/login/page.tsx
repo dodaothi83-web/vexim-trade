@@ -102,7 +102,7 @@ export default async function LoginPage({
       {sp.oauth === "not_allowed" ? (
         <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           Email này chưa có tài khoản nhà cung cấp.{" "}
-          <Link href="/supplier/register" className="font-semibold text-brand-700 underline">
+          <Link href="/register" className="font-semibold text-brand-700 underline">
             Đăng ký tại đây.
           </Link>
         </p>
@@ -115,7 +115,7 @@ export default async function LoginPage({
       <LoginForm needsSetup={needsSetup} />
       <p className="mt-5 text-center text-xs text-ink-600">
         Doanh nghiệp chưa có tài khoản?{" "}
-        <Link href="/supplier/register" className="font-semibold text-brand-700 underline">
+        <Link href="/register" className="font-semibold text-brand-700 underline">
           Đăng ký miễn phí
         </Link>
       </p>

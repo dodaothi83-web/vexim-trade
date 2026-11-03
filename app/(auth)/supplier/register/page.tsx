@@ -7,10 +7,13 @@ import { SupplierAccountForm } from "./supplier-account-form";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tạo tài khoản nhà cung cấp", robots: { index: false, follow: false } };
 
-export default async function SupplierRegisterPage({ searchParams }: { searchParams: Promise<{ oauth?: string }> }) {
+export default async function SupplierRegisterPage({ searchParams }: { searchParams: Promise<{ oauth?: string; type?: string }> }) {
   const session = await getSession();
   if (session) redirect(session.role === "supplier" ? "/supplier/portal" : "/crm/dashboard");
-  const { oauth } = await searchParams;
+  const { oauth, type } = await searchParams;
+  // Bước 1 luôn là chọn loại tài khoản. Vào thẳng URL này (bookmark, link cũ) thì quay về
+  // màn chọn để người mua không rơi nhầm vào biểu mẫu đăng ký bán hàng.
+  if (type !== "supplier") redirect("/register");
   const oauthMessages: Record<string, string> = {
     unavailable: "Google OAuth chưa được cấu hình trên tên miền này. Bạn có thể tạo tài khoản bằng email.",
     origin: "Tên miền này chưa được phép dùng Google OAuth. Vui lòng dùng email để đăng ký.",

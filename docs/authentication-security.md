@@ -29,7 +29,14 @@ nằm ở màn chọn loại tài khoản và ở danh sách ghi chú của khun
 | Lựa chọn | Dẫn tới | Ghi chú |
 | --- | --- | --- |
 | Buyer | `/rfq` (gửi yêu cầu báo giá) | **Chưa có tài khoản người mua.** Trang phải nói thật điều này, không mời tạo tài khoản chưa tồn tại |
-| Supplier | `/supplier/register` (biểu mẫu tiếng Việt) | Giữ nguyên hai bước: tài khoản → hồ sơ doanh nghiệp → Vexim duyệt |
+| Supplier | `/supplier/register?type=supplier` (biểu mẫu tiếng Việt) | Giữ nguyên hai bước: tài khoản → hồ sơ doanh nghiệp → Vexim duyệt |
+
+**Bước 1 luôn là chọn loại tài khoản.** Vào `/supplier/register` mà thiếu `?type=supplier`
+(bookmark cũ, link cũ) sẽ được `redirect("/register")`, nên không ai rơi thẳng vào biểu mẫu đăng
+ký bán hàng. Vì vậy mọi lối vào đăng ký (`/login`, `/for-suppliers`, `/supplier/apply`) đều trỏ
+về `/register`; riêng luồng Google đăng ký dùng `/supplier/register?type=supplier&oauth=...` để
+người dùng quay lại đúng biểu mẫu sau khi lỗi (query ghép bằng `URLSearchParams`, không nối
+chuỗi `?`).
 
 Lý do có trang này: header công khai chỉ có "Supplier sign in", nên người mua quốc tế bấm vào
 sẽ gặp biểu mẫu đăng ký bán hàng bằng tiếng Việt. Nay `/login` dẫn tiếp tới `/register`, và

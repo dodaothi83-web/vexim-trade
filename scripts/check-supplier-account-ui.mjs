@@ -32,14 +32,21 @@ assert.doesNotMatch(formHtml, /name="tax_number"|name="supplier_type"|Đăng ký
 const signupSource = source('../app/api/supplier-signup/route.ts');
 assert.doesNotMatch(signupSource, /createSupplier\(|saveInitialEvidence\(/);
 assert.match(signupSource, /supplier_id: null/);
-assert.match(source('../app/(auth)/login/page.tsx'), /href="\/supplier\/register"/);
-assert.match(source('../app/supplier/apply/page.tsx'), /"\/supplier\/register"/);
+// Bước 1 luôn là chọn loại tài khoản: mọi lối vào đăng ký đều qua /register.
+assert.match(source('../app/(auth)/login/page.tsx'), /href="\/register"/);
+assert.match(source('../app/supplier/apply/page.tsx'), /"\/register"/);
+assert.match(source('../app/(auth)/register/account-type-chooser.tsx'), /\/supplier\/register\?type=supplier/);
 
 const register = load('../app/(auth)/supplier/register/page.tsx', {
-  'react/jsx-runtime': jsx, 'next/link': link, 'next/navigation': { redirect: () => { throw Error('unexpected redirect'); } },
+  'react/jsx-runtime': jsx, 'next/link': link,
+  'next/navigation': { redirect: (href) => { throw Object.assign(Error('redirect'), { href }); } },
   '@/lib/auth/session': { getSession: async () => null }, './supplier-account-form': form,
+  '@/components/auth-split-shell': { AuthSplitShell: ({ children }) => React.createElement('div', null, children) },
 });
-const registerHtml = renderToStaticMarkup(await register.default({ searchParams: Promise.resolve({}) }));
+// Thiếu ?type=supplier thì quay về màn chọn loại tài khoản.
+await assert.rejects(() => register.default({ searchParams: Promise.resolve({}) }), (error) => error.href === '/register');
+await assert.rejects(() => register.default({ searchParams: Promise.resolve({ oauth: 'failed' }) }), (error) => error.href === '/register');
+const registerHtml = renderToStaticMarkup(await register.default({ searchParams: Promise.resolve({ type: 'supplier' }) }));
 assert.match(registerHtml, /Bước 1\/2/);
 assert.match(registerHtml, /href="\/login"/);
 

@@ -115,7 +115,7 @@ export default function ForSuppliersPage() {
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <Link
-            href="/supplier/register"
+            href="/register"
             className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-2.5 text-[14px] font-semibold text-ink-900 hover:bg-ink-100"
           >
             Create supplier account <ArrowRight className="h-4 w-4" />

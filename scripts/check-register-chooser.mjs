@@ -87,7 +87,8 @@ assert.match(chooserHtml, /value="supplier"/);
 assert.match(chooserHtml, /access over|Send a quote request/i);
 assert.match(chooserHtml, />Continue</, 'Có nút Continue như màn đăng ký mẫu');
 assert.match(chooserHtml, /href="\/rfq"/, 'Mặc định (Buyer) dẫn tới yêu cầu báo giá');
-assert.match(chooserSource, /\/supplier\/register/, 'Chọn Supplier thì dẫn tới biểu mẫu đăng ký nhà cung cấp');
+assert.match(chooserSource, /\/supplier\/register\?type=supplier/, 'Chọn Supplier dẫn tới biểu mẫu kèm dấu type=supplier');
+assert.match(chooserSource, /href: "\/rfq"/, 'Chọn Buyer đi thẳng vào phễu báo giá');
 assert.match(chooserHtml, /href="\/login"/, 'Có lối đăng nhập cho người đã có tài khoản');
 
 /* 3. Không hứa hẹn biểu mẫu chưa tồn tại */
@@ -119,6 +120,12 @@ const supplierRegister = readFileSync(new URL('app/(auth)/supplier/register/page
 assert.match(supplierRegister, /AuthSplitShell/, 'Form đăng ký nhà cung cấp dùng cùng khung hai cột');
 assert.doesNotMatch(supplierRegister, /Đăng ký miễn phí bằng email hoặc Google\. Sau khi đăng nhập/, 'Đoạn văn dài đã được bỏ khỏi form');
 assert.match(supplierRegister, /href="\/register"/, 'Form có lối đổi loại tài khoản');
+// Bước 1 luôn là chọn loại: vào thẳng URL này mà thiếu ?type=supplier thì quay về màn chọn.
+assert.match(supplierRegister, /type !== "supplier"\s*\)\s*redirect\("\/register"\)|if \(type !== "supplier"\) redirect\("\/register"\)/,
+  'Trang form phải redirect về /register khi thiếu type=supplier');
+const loginSource = readFileSync(new URL('app/(auth)/login/page.tsx', root), 'utf8');
+assert.match(loginSource, /href="\/register"/, 'Lối đăng ký từ trang đăng nhập đi qua màn chọn loại');
+assert.doesNotMatch(loginSource, /href="\/supplier\/register"/, 'Không còn lối tắt nhảy thẳng vào form bán hàng');
 
 /* 7c. Ảnh cột trái là ảnh có thật trong kho ảnh của site, không phải ảnh ngoài */
 const shell = readFileSync(new URL('components/auth-split-shell.tsx', root), 'utf8');
@@ -130,6 +137,6 @@ assert.match(loginPage, /href="\/rfq"/, 'Trang đăng nhập phải nói ngườ
 
 /* 8. Trang công khai khác vẫn giữ lối đăng ký nhà cung cấp */
 const forSuppliers = readFileSync(new URL('app/(public)/for-suppliers/page.tsx', root), 'utf8');
-assert.match(forSuppliers, /href="\/supplier\/register"/);
+assert.match(forSuppliers, /href="\/register"/, 'Lối đăng ký nhà cung cấp từ trang /for-suppliers đi qua màn chọn loại');
 
 console.log('✅ Register chooser: hai loại tài khoản, đúng đích dẫn, không hứa biểu mẫu chưa có, không chặn phễu báo giá.');

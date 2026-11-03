@@ -40,7 +40,7 @@ for (const file of [
   assert.match(read(file), /href="\/terms-of-service"/, `${file} links to terms`);
 }
 
-// Auth shell uses Vietnamese legal policy links (/chinh-sach-bao-mat & /dieu-khoan-su-dung).
-assert.match(read('app/(auth)/layout.tsx'), /href="\/chinh-sach-bao-mat"/, 'auth layout links to Vietnamese privacy policy');
-assert.match(read('app/(auth)/layout.tsx'), /href="\/dieu-khoan-su-dung"/, 'auth layout links to Vietnamese terms of service');
+// Khung trang tài khoản dùng liên kết pháp lý tiếng Việt (/chinh-sach-bao-mat & /dieu-khoan-su-dung).
+assert.match(read('components/auth-split-shell.tsx'), /href="\/chinh-sach-bao-mat"/, 'auth shell links to Vietnamese privacy policy');
+assert.match(read('components/auth-split-shell.tsx'), /href="\/dieu-khoan-su-dung"/, 'auth shell links to Vietnamese terms of service');
 console.log('✅ Public legal pages, OAuth data disclosure, discoverability and crawlability.');

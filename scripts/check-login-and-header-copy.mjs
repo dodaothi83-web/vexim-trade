@@ -61,8 +61,8 @@ assert.match(
 assert.doesNotMatch(loginPage, /Supabase Auth/);
 assert.doesNotMatch(loginPage, /Vexim phải duyệt trước khi mở các chức năng/);
 assert.match(loginPage, /Email này chưa có tài khoản nhà cung cấp\./);
-assert.match(loginPage, /href="\/supplier\/register"[^>]*>\s*Đăng ký tại đây\.\s*<\/Link>/);
-assert.match(loginPage, /href="\/supplier\/register"[^>]*>\s*Đăng ký miễn phí\s*<\/Link>/);
+assert.match(loginPage, /href="\/register"[^>]*>\s*Đăng ký tại đây\.\s*<\/Link>/, "Lối đăng ký đi qua màn chọn loại tài khoản");
+assert.match(loginPage, /href="\/register"[^>]*>\s*Đăng ký miễn phí\s*<\/Link>/);
 assert.doesNotMatch(loginPage, /Tạo tài khoản nhà cung cấp/);
 
 // 3. Approval note moved to supplier registration & post-login portal overview

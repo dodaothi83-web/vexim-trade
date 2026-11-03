@@ -33,7 +33,7 @@ const OPTIONS: Array<{
     id: "supplier",
     title: "Supplier",
     summary: "Create an account, complete your company profile and receive buyer requests once Vexim reviews it.",
-    href: "/supplier/register",
+    href: "/supplier/register?type=supplier",
     icon: <Factory className="h-5 w-5" aria-hidden="true" />,
   },
 ];
