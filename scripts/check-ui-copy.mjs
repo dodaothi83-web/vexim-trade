@@ -127,6 +127,9 @@ const SCOPE = [
   // Cụm 1 của cổng NCC (giai đoạn 2): khung + trang tổng quan.
   'lib/i18n/portal/shell.ts',
   'lib/i18n/portal/overview.ts',
+  'lib/i18n/portal/shared.ts',
+  'lib/i18n/portal/profile.ts',
+  'lib/i18n/portal/onboarding.ts',
   'lib/certificate-service.ts',
   'lib/db/local.ts',
   'lib/db/seed.ts',

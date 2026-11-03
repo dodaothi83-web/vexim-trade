@@ -22,10 +22,13 @@ function load(rel) {
 
 /** @returns {Record<'en' | 'vi', { shell: any, overview: any }>} */
 export function loadPortalDictionary() {
+  const shared = load('shared.ts').sharedMessages;
   const shell = load('shell.ts').shellMessages;
   const overview = load('overview.ts').overviewMessages;
+  const profile = load('profile.ts').profileMessages;
+  const onboarding = load('onboarding.ts').onboardingMessages;
   return {
-    en: { shell: shell.en, overview: overview.en },
-    vi: { shell: shell.vi, overview: overview.vi },
+    en: { shared: shared.en, shell: shell.en, overview: overview.en, profile: profile.en, onboarding: onboarding.en },
+    vi: { shared: shared.vi, shell: shell.vi, overview: overview.vi, profile: profile.vi, onboarding: onboarding.vi },
   };
 }

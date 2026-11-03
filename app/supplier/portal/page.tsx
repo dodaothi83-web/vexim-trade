@@ -44,7 +44,7 @@ export default async function SupplierPortal() {
     return <>
       {/* Không đặt bước ở đây: biểu mẫu đã có một chỉ báo tiến trình duy nhất ở cột phải. */}
       <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={account.user.email} />
-      <div className="mt-5"><SupplierProfileForm email={account.user.email} accountName={account.user.name} categories={categories} /></div>
+      <div className="mt-5"><SupplierProfileForm email={account.user.email} accountName={account.user.name} categories={categories} messages={m.onboarding} types={m.shared.supplierTypes} lang={locale} /></div>
     </>;
   }
   const access = await supplierPortalAccess();
@@ -65,7 +65,7 @@ export default async function SupplierPortal() {
         {supplier.onboarding_note &&
           <p className="mt-2 whitespace-pre-wrap">{fill(copy.changesRequested.note, { note: supplier.onboarding_note })}</p>}
       </div>}
-      <div className="mt-5"><SupplierProfileForm supplier={supplier} email={user.email} accountName={user.name} categories={categoryOptions} hasCoreDoc={hasCoreDoc} /></div>
+      <div className="mt-5"><SupplierProfileForm supplier={supplier} email={user.email} accountName={user.name} categories={categoryOptions} hasCoreDoc={hasCoreDoc} messages={m.onboarding} types={m.shared.supplierTypes} lang={locale} /></div>
     </> : <><PendingProfileRefresh lang={locale}>{copy.pendingRefresh}</PendingProfileRefresh><div className="rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
       <h2 className="text-base font-bold text-amber-950">{copy.pending.title}</h2>
       <p className="mt-2 text-sm text-amber-900">{fill(copy.pending.body, { company: supplier.name })}</p>

@@ -21,6 +21,8 @@ const root = path.join(import.meta.dirname, "..");
 const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
 const portal = loadPortalDictionary();
 
+const overviewPageSource = read("app/supplier/portal/page.tsx");
+
 const VIETNAMESE = /[àáảãạăằắẳẵặâầấẩẫậđêềếểễệôồốổỗộơờớởỡợưừứửữựỳýỷỹỵ]/i;
 
 /* 1. Hai ngôn ngữ phải cùng bộ khoá, cùng kiểu. */
@@ -34,8 +36,13 @@ function leaves(value, trail) {
   if (Array.isArray(value)) return value.flatMap((item, index) => leaves(item, `${trail}[${index}]`));
   return Object.entries(value).flatMap(([key, item]) => leaves(item, trail ? `${trail}.${key}` : key));
 }
-assert.deepEqual(shape(portal.vi.shell, "shell"), shape(portal.en.shell, "shell"), "shell: khoá tiếng Việt khớp tiếng Anh");
-assert.deepEqual(shape(portal.vi.overview, "overview"), shape(portal.en.overview, "overview"), "overview: khoá tiếng Việt khớp tiếng Anh");
+for (const cluster of ["shared", "shell", "overview", "profile", "onboarding"]) {
+  assert.deepEqual(
+    shape(portal.vi[cluster], cluster),
+    shape(portal.en[cluster], cluster),
+    `${cluster}: khoá tiếng Việt khớp tiếng Anh`,
+  );
+}
 
 for (const [key, text] of leaves(portal.en, "")) {
   assert.doesNotMatch(text, VIETNAMESE, `Chuỗi tiếng Anh ${key} còn dấu tiếng Việt`);
@@ -53,6 +60,12 @@ const CONVERTED = [
   "app/supplier/portal/layout.tsx",
   "app/supplier/portal/pending-profile-refresh.tsx",
   "app/supplier/portal/verification-progress.tsx",
+  "app/supplier/portal/supplier-profile-form.tsx",
+  "app/supplier/portal/supplier-category-picker.tsx",
+  "app/supplier/portal/profile/page.tsx",
+  "app/supplier/portal/profile/profile-edit-form.tsx",
+  "app/supplier/portal/profile/profile-actions.ts",
+  "app/supplier/portal/profile/edit/page.tsx",
   "components/supplier-sidebar.tsx",
   "components/supplier-topbar.tsx",
 ];
@@ -150,6 +163,24 @@ for (const [name, input] of Object.entries(scenarios)) {
 // Mặc định vẫn là tiếng Việt: trang chưa chuyển không được đổi tiếng.
 assert.match(buildVerificationProgress(base).headline, /Bước tiếp theo/, "Mặc định giữ tiếng Việt");
 
+/* 3b. Cụm 2: ngôn ngữ phải chảy tới tận biểu mẫu và thông báo của server action. */
+assert.match(
+  overviewPageSource,
+  /<SupplierProfileForm[^>]*messages=\{m\.onboarding\}/,
+  "Biểu mẫu hồ sơ nhận chuỗi từ từ điển (nếu quên, biểu mẫu vẫn tiếng Việt)",
+);
+assert.match(
+  overviewPageSource,
+  /<SupplierProfileForm[^>]*types=\{m\.shared\.supplierTypes\}/,
+  "Loại hình trong biểu mẫu dùng chung một bộ nhãn với trang hồ sơ",
+);
+assert.match(overviewPageSource, /<SupplierProfileForm[^>]*lang=\{locale\}/, "Biểu mẫu khai đúng ngôn ngữ");
+const editPage = read("app/supplier/portal/profile/edit/page.tsx");
+assert.match(editPage, /<SupplierProfileEditForm[^>]*messages=\{copy\}/, "Trang chỉnh sửa truyền chuỗi xuống biểu mẫu");
+const profileActions = read("app/supplier/portal/profile/profile-actions.ts");
+assert.match(profileActions, /getPortalMessages\(\)/, "Thông báo của server action theo ngôn ngữ đang chọn");
+assert.doesNotMatch(profileActions, /message: "/, "Không trả thông báo viết cứng từ server action");
+
 /* 4. Ngôn ngữ của cổng lấy từ cookie, không đổi URL. */
 const layout = read("app/layout.tsx");
 assert.match(layout, /isLocalizedPath\(pathname\)/, "layout dùng đúng phạm vi đa ngôn ngữ");
@@ -164,7 +195,7 @@ assert.equal(isLocalizedPortalPath("/supplier/portal/rfqs"), true);
 assert.equal(isLocalizedPortalPath("/supplier/portalx"), false);
 
 /* 5. Ngôn ngữ phải được truyền vào mô hình tiến độ, không chỉ vào khung của khối. */
-const overviewPage = read("app/supplier/portal/page.tsx");
+const overviewPage = overviewPageSource;
 assert.match(
   overviewPage,
   /buildVerificationProgress\(\{[\s\S]{0,400}?\n\s+locale,/,
@@ -183,4 +214,4 @@ const sidebar = read("components/supplier-sidebar.tsx");
 assert.match(sidebar, /labelKey: keyof ShellMessages\["nav"\]/, "menu giữ khoá, không giữ chữ");
 assert.doesNotMatch(sidebar, /label: "Tổng quan"/, "nhãn menu không còn viết cứng");
 
-console.log("✅ Portal i18n (cụm 1: khung + tổng quan): đủ khoá, không lẫn tiếng Việt trong bản tiếng Anh, mô hình tiến độ nói được cả hai ngôn ngữ.");
+console.log("✅ Portal i18n (cụm 1 + 2: khung, tổng quan, hồ sơ doanh nghiệp): đủ khoá, không lẫn tiếng Việt trong bản tiếng Anh, mô hình tiến độ nói được cả hai ngôn ngữ.");

@@ -10,6 +10,13 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import * as icons from 'lucide-react';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const portalCopy = loadPortalDictionary();
+// Hồ sơ doanh nghiệp đọc nhãn từ từ điển; đây là những nhãn nhà cung cấp phải thấy.
+const viProfileFields = [
+  ...Object.values(portalCopy.vi.profile.view.info.fields),
+  portalCopy.vi.profile.view.about.title,
+  'Bước tiếp theo',
+];
 
 function load(path, mocks) {
   const exports = {};
@@ -94,7 +101,6 @@ function renderSidebar(pathname, props) {
 }
 
 // Nhãn menu nằm trong từ điển cổng; check này kiểm bản tiếng Việt.
-const portalCopy = loadPortalDictionary();
 const base = {
   supplierName: 'Dong Nai Cashew', email: 'ncc@example.com', userName: 'Nguyễn Thị B',
   approved: true, publicUrl: null, messages: portalCopy.vi.shell, lang: 'vi',
@@ -121,12 +127,15 @@ const profile = read('app/supplier/portal/profile/page.tsx');
 for (const field of ['Tên pháp nhân', 'Tên thương mại', 'Loại hình', 'Mã số thuế (tự khai)', 'Địa chỉ đăng ký',
   'Mặt hàng chính', 'Thị trường', 'Công suất mỗi tháng', 'MOQ', 'Cảng xuất', 'Incoterms', 'Thời gian giao',
   'Giới thiệu trên trang công khai', 'Bước tiếp theo'])
-  assert.ok(profile.includes(field), `Hồ sơ hiển thị ${field}`);
+  assert.ok(viProfileFields.includes(field), `Hồ sơ hiển thị ${field}`);
 assert.doesNotMatch(profile, /kind="cover"|kind="profile"|SupplierPhotoButton/,
   'Ảnh bìa và ảnh đại diện thuộc trang buyer thấy, không nằm trong hồ sơ doanh nghiệp');
-assert.match(profile, /Đang ở đây/, 'Nói rõ nhà cung cấp đang ở bước xác minh nào');
+assert.match(portalCopy.vi.profile.view.levels.here, /Đang ở đây/, 'Nói rõ nhà cung cấp đang ở bước xác minh nào');
+assert.match(profile, /\{view\.levels\.here\}/, 'Nhãn bước hiện tại đọc từ từ điển');
 assert.match(profile, /href="\/supplier\/portal\/storefront"/, 'Hồ sơ dẫn sang Trang của tôi để đối chiếu');
-assert.match(profile, /Liên hệ \(không hiển thị công khai\)/, 'Liên hệ nội bộ được ghi rõ là không công khai');
+assert.match(portalCopy.vi.profile.view.info.groups.contact, /Liên hệ \(không hiển thị công khai\)/,
+  'Liên hệ nội bộ được ghi rõ là không công khai');
+assert.match(profile, /\{view\.info\.groups\.contact\}/, 'Nhóm liên hệ đọc nhãn từ từ điển');
 
 // 7. “Trang của tôi”: đúng giao diện buyer, dựng từ component dùng chung với trang công khai.
 const storefront = read('app/supplier/portal/storefront/page.tsx');

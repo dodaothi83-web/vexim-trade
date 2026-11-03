@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-service";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { getPortalMessages } from "@/lib/i18n/server";
 import type { SupplierInput } from "@/lib/types";
 
 type Result = { ok: boolean; message: string };
@@ -13,32 +14,35 @@ const text = (form: FormData, key: string, max: number) => String(form.get(key) 
 const list = (form: FormData, key: string) => text(form, key, 800)
   .split(/[,;\n]/).map((value) => value.trim()).filter(Boolean).slice(0, 12);
 
-function positiveInt(form: FormData, key: string, max: number): number | null {
-  const raw = text(form, key, 12);
-  if (!raw) return null;
-  if (!/^\d+$/.test(raw) || Number(raw) > max) throw new Error("Có một số thông tin chưa đúng định dạng. Vui lòng kiểm tra lại.");
-  return Number(raw);
-}
-
 /**
  * NCC được cập nhật nội dung vận hành của chính mình sau khi đã mở cổng.
  * Không nhận status, quyền truy cập, tên pháp nhân, mã số thuế hoặc kết quả xác minh từ form.
+ *
+ * Thông báo trả về đi theo ngôn ngữ đang chọn: đây là chữ người dùng đọc, không phải log.
  */
 export async function saveSupplierProfileEditAction(form: FormData): Promise<Result> {
+  const { m } = await getPortalMessages();
+  const copy = m.profile.edit.result;
   const access = await supplierPortalAccess();
-  if (!access) return { ok: false, message: "Vui lòng đăng nhập lại bằng tài khoản nhà cung cấp." };
+  if (!access) return { ok: false, message: copy.login };
   const { supplier, store, user } = access;
-  if (!portalApproved(supplier)) return { ok: false, message: "Hồ sơ chưa được mở quyền chỉnh sửa." };
+  if (!portalApproved(supplier)) return { ok: false, message: copy.notOpen };
+
+  function positiveInt(form: FormData, key: string, max: number): number | null {
+    const raw = text(form, key, 12);
+    if (!raw) return null;
+    if (!/^\d+$/.test(raw) || Number(raw) > max) throw new Error(copy.badNumber);
+    return Number(raw);
+  }
 
   try {
     const contactName = text(form, "contact_name", 120);
     const phone = text(form, "phone", 40);
     const products = text(form, "products", 1000);
-    if (!contactName || !phone || !products)
-      return { ok: false, message: "Cần thông tin liên hệ, số điện thoại và mặt hàng chính." };
+    if (!contactName || !phone || !products) return { ok: false, message: copy.missingRequired };
     const website = text(form, "website", 250);
-    if (website && !/^https?:\/\/[^\s.]+(?:\.[^\s.]+)+(?:[:\/?#][^\s]*)?$/i.test(website))
-      return { ok: false, message: "Website phải là URL http(s) hợp lệ." };
+    if (website && !/^https?:\/\/[^\s.]+(?:\.[^\s.]+)+(?:[:/?#][^\s]*)?$/i.test(website))
+      return { ok: false, message: copy.badWebsite };
 
     const patch: Partial<SupplierInput> = {
       trade_name: text(form, "trade_name", 180) || null,
@@ -76,11 +80,10 @@ export async function saveSupplierProfileEditAction(form: FormData): Promise<Res
     let translationNote = "";
     try {
       const translated = await ensureSupplierProfileEnglish(store, supplier.id, { id: user.id, email: user.email });
-      if (translated.status === "failed" || translated.status === "unconfigured")
-        translationNote = " Bản dịch tiếng Anh chưa cập nhật được; thông tin gốc đã được lưu.";
+      if (translated.status === "failed" || translated.status === "unconfigured") translationNote = ` ${copy.translationPending}`;
     } catch (error) {
       console.error("[supplier-profile] owner edit translation", error);
-      translationNote = " Bản dịch tiếng Anh chưa cập nhật được; thông tin gốc đã được lưu.";
+      translationNote = ` ${copy.translationPending}`;
     }
 
     revalidatePath("/supplier/portal");
@@ -90,9 +93,9 @@ export async function saveSupplierProfileEditAction(form: FormData): Promise<Res
     revalidatePath(`/suppliers/${supplier.slug || supplier.id}`);
     revalidatePath(`/crm/suppliers/${supplier.slug || supplier.id}`);
     revalidatePath(`/crm/suppliers/${supplier.id}`);
-    return { ok: true, message: `Đã lưu hồ sơ.${translationNote}` };
+    return { ok: true, message: `${copy.saved}${translationNote}` };
   } catch (error) {
     console.error("[supplier-profile] owner edit", error);
-    return { ok: false, message: error instanceof Error ? error.message : "Không lưu được hồ sơ. Vui lòng thử lại." };
+    return { ok: false, message: error instanceof Error ? error.message : copy.saveFailed };
   }
 }

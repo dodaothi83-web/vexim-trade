@@ -7,6 +7,9 @@ import {
   visibleLegacyCertificateFiles,
 } from '../lib/supplier-portal/legacy-certificate-files.ts';
 
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
+
+const portalCopy = loadPortalDictionary();
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const page = read('../app/supplier/portal/documents/page.tsx');
 const upload = read('../app/supplier/portal/certificate-upload.tsx');
@@ -74,7 +77,9 @@ assert.ok(!/food_safety|export_license/.test(policy.slice(policy.indexOf('COMPAN
   'Không còn ô ATTP / giấy phép xuất khẩu trong bước xác thực doanh nghiệp');
 assert.match(profile, /COMPANY_DOCUMENT_KEYS\.map/, 'Form đăng ký dựng ô tải từ danh sách một giấy');
 assert.ok(!/INITIAL_DOCUMENT_KEYS\.map\(/.test(profile), 'Form đăng ký không còn 5 ô tải giấy tờ');
-assert.match(profile, /Giấy chứng nhận đăng ký kinh doanh/);
+assert.match(profile, /title=\{m\.docs\[/, 'Nhãn ô tải giấy đọc từ từ điển');
+assert.match(portalCopy.vi.onboarding.docs.business_license, /Giấy chứng nhận đăng ký kinh doanh/,
+  'Bản tiếng Việt giữ đúng tên giấy cũ');
 assert.match(page, /Xác thực doanh nghiệp/);
 assert.match(page, /Một tệp PDF hoặc ảnh, thấy rõ tên doanh nghiệp và mã số thuế\./,
   'Trang Giấy tờ chỉ đòi Giấy chứng nhận đăng ký kinh doanh cho bước xác thực doanh nghiệp');
