@@ -20,10 +20,16 @@ function load(file, mocks = {}) {
   return mod.exports;
 }
 const types = load('lib/types.ts');
-const rules = load('lib/verification-submission.ts', { 'node:crypto': require('node:crypto'), '@/lib/types': types });
+const format = { fill: (template, values) => String(template).replace(/\{(\w+)\}/g, (whole, key) => (key in values ? String(values[key]) : whole)) };
+const evidence = load('lib/i18n/portal/evidence.ts');
+const rules = load('lib/verification-submission.ts', {
+  'node:crypto': require('node:crypto'), '@/lib/types': types,
+  '@/lib/i18n/format': format, '@/lib/i18n/portal/evidence': evidence,
+});
 const scope = load('lib/l2-scope.ts');
 const view = load('lib/supplier-portal/submission-view.ts', {
   '@/lib/types': types, '@/lib/verification-submission': rules, '@/lib/media/image-integrity': { formatDaylight: () => 'time' },
+  '@/lib/i18n/format': format, '@/lib/i18n/portal/verification': load('lib/i18n/portal/verification.ts'),
 });
 const Link = ({ children, ...props }) => React.createElement('a', props, children);
 const block = ({ children, className }) => React.createElement('div', { className }, children);

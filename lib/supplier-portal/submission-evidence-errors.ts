@@ -1,16 +1,22 @@
-/** Lỗi bảo vệ hồ sơ L3 từ CSDL, đổi thành hướng dẫn ngắn cho NCC. */
-export function submissionEvidenceErrorMessage(error: unknown): string | null {
+import { evidenceMessages } from "@/lib/i18n/portal/evidence";
+
+/**
+ * Lỗi bảo vệ hồ sơ L2/L3 từ CSDL, đổi thành hướng dẫn ngắn cho NCC.
+ * Mặc định tiếng Việt để khu nội bộ không đổi; cổng NCC truyền ngôn ngữ đang chọn.
+ */
+export function submissionEvidenceErrorMessage(error: unknown, language: "en" | "vi" = "vi"): string | null {
+  const text = evidenceMessages[language].upload.errors;
   const message = error instanceof Error ? error.message : String(error ?? "");
-  if (message.includes("L2_PARTNER_CONTRACT_REQUIRED")) return "Hãy tải hợp đồng với nhà máy đối tác trước khi nộp.";
-  if (message.includes("L2_SCOPE_TYPE_MISMATCH")) return "Loại hình doanh nghiệp chưa rõ hoặc đã thay đổi. Liên hệ nhân viên để kiểm tra lại hồ sơ.";
-  if (message.includes("L2_PARTNER_PRIVATE_EVIDENCE")) return "Tệp không thuộc đúng hồ sơ hoặc không được lưu nội bộ. Hãy kiểm tra lại.";
-  if (message.includes("L2_PARTNER_KEY_MISMATCH")) return "Mục bằng chứng không đúng với phạm vi hồ sơ.";
-  if (message.includes("L2_FACTORY_LOCKED")) return "Hồ sơ đang chờ xét hoặc đã được nhận; không thể thay đổi ảnh.";
-  if (message.includes("L2_FACTORY_PHOTOS_REQUIRED")) return "Hồ sơ đã thay đổi. Hãy kiểm tra đủ 9 ảnh trước khi nộp.";
-  if (message.includes("L2_FACTORY_CODE_REQUIRED")) return "Hãy kiểm tra mã xác minh còn hiệu lực và 3 ảnh có tờ mã.";
-  if (message.includes("L2_FACTORY_ITEM_INVALID")) return "Ảnh không thuộc đúng hồ sơ hoặc mục yêu cầu.";
-  if (message.includes("L3_SUBMISSION_LOCKED")) return "Hồ sơ đang chờ xét hoặc đã được nhận; không thể thay đổi chứng từ.";
-  if (message.includes("L3_EVIDENCE_LIMIT")) return "Mỗi mục giữ tối đa 3 tệp. Hãy xóa một tệp trước khi tải thêm.";
-  if (message.includes("L3_EVIDENCE_REQUIRED")) return "Hồ sơ đã thay đổi. Hãy tải ít nhất một chứng từ trước khi nộp.";
+  if (message.includes("L2_PARTNER_CONTRACT_REQUIRED")) return text.partnerContractRequired;
+  if (message.includes("L2_SCOPE_TYPE_MISMATCH")) return text.scopeTypeMismatch;
+  if (message.includes("L2_PARTNER_PRIVATE_EVIDENCE")) return text.partnerPrivate;
+  if (message.includes("L2_PARTNER_KEY_MISMATCH")) return text.partnerKeyMismatch;
+  if (message.includes("L2_FACTORY_LOCKED")) return text.factoryLocked;
+  if (message.includes("L2_FACTORY_PHOTOS_REQUIRED")) return text.photosRequired;
+  if (message.includes("L2_FACTORY_CODE_REQUIRED")) return text.codeRequired;
+  if (message.includes("L2_FACTORY_ITEM_INVALID")) return text.itemInvalid;
+  if (message.includes("L3_SUBMISSION_LOCKED")) return text.l3Locked;
+  if (message.includes("L3_EVIDENCE_LIMIT")) return text.l3Limit;
+  if (message.includes("L3_EVIDENCE_REQUIRED")) return text.l3Required;
   return null;
 }

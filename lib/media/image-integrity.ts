@@ -1,4 +1,6 @@
 import { distanceMeters, parseExif, softwareSignal, type ExifInfo } from "./exif";
+import { fill } from "@/lib/i18n/format";
+import { evidenceMessages } from "@/lib/i18n/portal/evidence";
 import { inVnBounds } from "@/lib/verification";
 import { L2_FACTORY_PHOTO_ITEMS, SUBMISSION_FLAG_LABELS, type SubmissionFlag, type SubmissionIntegrityFlag } from "@/lib/types";
 
@@ -73,46 +75,71 @@ export function photoIntegrityFlags(input: {
   codeIssuedAt: string | null;
 }): SubmissionIntegrityFlag[] {
   const flags: SubmissionIntegrityFlag[] = [];
-  const push = (flag: SubmissionFlag, severity: "hard" | "warning", source: SubmissionIntegrityFlag["source"], detail: string | null) => {
-    if (!flags.some((f) => f.flag === flag)) flags.push({ flag, severity, source, detail });
+  const vi = evidenceMessages.vi.integrity;
+  const en = evidenceMessages.en.integrity;
+  /** Mỗi cờ lưu cả câu tiếng Việt và tiếng Anh: cổng NCC chọn theo ngôn ngữ, CRM đọc bản Việt. */
+  const push = (flag: SubmissionFlag, severity: "hard" | "warning", source: SubmissionIntegrityFlag["source"],
+    detail: string | null, detailEn: string | null) => {
+    if (!flags.some((f) => f.flag === flag)) flags.push({ flag, severity, source, detail, detailEn });
   };
-  const item = L2_FACTORY_PHOTO_ITEMS.find((i) => i.key === input.checklistKey);
   // `item` chỉ dùng để nhận diện mục; từ 21/10/2026 mọi cờ kỹ thuật đều ở mức warning,
   // vì điều kiện bắt buộc duy nhất còn lại là tờ mã xác minh trong ảnh 🔖.
+  const clock = (iso: string | null) => {
+    const date = vietnamClock(iso);
+    if (!date) return null;
+    return { date: date.dateText, time: `${String(date.hour).padStart(2, "0")}:${String(date.minute).padStart(2, "0")}` };
+  };
 
   if (!input.exif.has_exif) {
-    push("no_exif", "warning", "exif", "Tệp không còn dữ liệu ảnh gốc, thường là ảnh đã gửi qua Zalo/Facebook. Vẫn nhận; người duyệt xem kỹ hơn một chút.");
+    push("no_exif", "warning", "exif", vi.noExif, en.noExif);
   } else {
     const signal = softwareSignal(input.exif.software);
-    if (signal === "editor") push("edited_software", "warning", "exif", `Dữ liệu ảnh ghi phần mềm chỉnh sửa: ${input.exif.software}. Chỉ để người duyệt lưu ý.`);
-    if (signal === "messenger") push("shared_via_app", "warning", "exif", `Dữ liệu ảnh ghi ứng dụng chat/mạng xã hội: ${input.exif.software}. Không ảnh hưởng việc nộp.`);
+    const software = input.exif.software ?? "";
+    if (signal === "editor") push("edited_software", "warning", "exif",
+      fill(vi.editedSoftware, { software }), fill(en.editedSoftware, { software }));
+    if (signal === "messenger") push("shared_via_app", "warning", "exif",
+      fill(vi.sharedViaApp, { software }), fill(en.sharedViaApp, { software }));
   }
 
   const exifLat = input.exif.lat;
   const exifLng = input.exif.lng;
   if (exifLat == null || exifLng == null) {
-    push("no_gps", "warning", "gps", "Ảnh không kèm toạ độ. Không sao, chỉ là ảnh không tự chứng minh được vị trí.");
+    push("no_gps", "warning", "gps", vi.noGps, en.noGps);
   } else {
-    if (inVnBounds(exifLat, exifLng) === false) push("gps_outside_vn", "warning", "gps", `GPS EXIF ${exifLat.toFixed(4)},${exifLng.toFixed(4)} ngoài phạm vi Việt Nam — kiểm tra lại cơ sở.`);
+    if (inVnBounds(exifLat, exifLng) === false) {
+      push("gps_outside_vn", "warning", "gps",
+        fill(vi.gpsOutsideVn, { lat: exifLat.toFixed(4), lng: exifLng.toFixed(4) }),
+        fill(en.gpsOutsideVn, { lat: exifLat.toFixed(4), lng: exifLng.toFixed(4) }));
+    }
     const gap = distanceMeters(exifLat, exifLng, input.capture.lat, input.capture.lng);
     if (gap != null && gap > GPS_TOLERANCE_M) {
-      push("gps_mismatch", "warning", "gps", `GPS trong ảnh lệch vị trí trình duyệt ${gap.toLocaleString("vi-VN")} m (chênh > ${GPS_TOLERANCE_M.toLocaleString("vi-VN")} m).`);
+      const values = { gap: gap.toLocaleString("vi-VN"), tolerance: GPS_TOLERANCE_M.toLocaleString("vi-VN") };
+      push("gps_mismatch", "warning", "gps", fill(vi.gpsMismatch, values), fill(en.gpsMismatch, values));
     }
   }
 
   const capturedAt = input.exif.captured_at;
   if (!capturedAt) {
-    push("no_capture_time", "warning", "time", "Không đọc được thời điểm chụp từ EXIF; chỉ có thời điểm tải lên.");
+    push("no_capture_time", "warning", "time", vi.noCaptureTime, en.noCaptureTime);
   } else {
-    if (isDaylight(capturedAt) === false) push("not_daylight", "warning", "time", `Ảnh chụp lúc ${formatDaylight(capturedAt)}, ngoài khung 06:00–18:00. Chỉ là ghi chú.`);
-    if (input.codeIssuedAt && Date.parse(capturedAt) < Date.parse(input.codeIssuedAt) - 60_000) {
-      push("capture_before_code", "warning", "time", `Dữ liệu ảnh cho thấy chụp trước khi phát hành mã (${formatDaylight(input.codeIssuedAt)}). Người duyệt sẽ xem lại tờ mã trong ảnh.`);
+    const captured = clock(capturedAt);
+    if (isDaylight(capturedAt) === false && captured) {
+      push("not_daylight", "warning", "time",
+        fill(vi.notDaylight, { time: fill(vi.daylight, captured) }),
+        fill(en.notDaylight, { time: fill(en.daylight, captured) }));
+    }
+    const issued = input.codeIssuedAt ? clock(input.codeIssuedAt) : null;
+    if (input.codeIssuedAt && issued && Date.parse(capturedAt) < Date.parse(input.codeIssuedAt) - 60_000) {
+      push("capture_before_code", "warning", "time",
+        fill(vi.beforeCode, { time: fill(vi.daylight, issued) }),
+        fill(en.beforeCode, { time: fill(en.daylight, issued) }));
     }
   }
 
   const edge = Math.min(input.width ?? Number.POSITIVE_INFINITY, input.height ?? Number.POSITIVE_INFINITY);
   if (Number.isFinite(edge) && edge < MIN_EDGE_PX) {
-    push("resolution_low", "warning", "system", `Ảnh chỉ ${input.width}×${input.height}px — khó đối chiếu biển tên/nhãn mác.`);
+    const values = { width: input.width ?? 0, height: input.height ?? 0 };
+    push("resolution_low", "warning", "system", fill(vi.lowResolution, values), fill(en.lowResolution, values));
   }
   return flags;
 }

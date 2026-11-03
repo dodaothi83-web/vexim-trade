@@ -48,6 +48,9 @@ function makeLoader(stubs = {}) {
       if (id in stubs) return stubs[id];
       if (id in builtins) return builtins[id];
       if (id === 'server-only') return {};
+      // Trong VM không có request context: route đọc cookie để trả câu đúng ngôn ngữ,
+      // nên cố định tiếng Việt ở đây thay vì đọc `next/headers`.
+      if (id === '@/lib/i18n/server') return { getLocale: async () => 'vi' };
       if (id.startsWith('@/')) return load(path.relative(ROOT, path.join(ROOT, id.slice(2))));
       if (id.startsWith('.')) return load(path.relative(ROOT, path.join(path.dirname(file), id)));
       return globalThis.__cjsRequire(id);
@@ -400,6 +403,8 @@ const sharpStub = () => {
 
 const uploadRoute = makeLoader({
   'next/server': { NextResponse: { json: (body, init) => Response.json(body, init) } },
+  // Route đọc cookie để trả câu báo đúng ngôn ngữ; trong VM thì cố định tiếng Việt.
+  '@/lib/i18n/server': { getLocale: async () => 'vi' },
   'next/cache': { revalidatePath: () => {} },
   '@/lib/db': { getStore: () => store },
   '@/lib/supplier-portal/submission-access': { supplierSubmissionAccess: async () => currentAccess, supplierLevelAccess: async () => null, staffSubmissionAccess: async () => null },

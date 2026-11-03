@@ -8,6 +8,9 @@ import { migrationHint } from "@/lib/db/migration-hints";
 import { submissionEvidenceErrorMessage } from "@/lib/supplier-portal/submission-evidence-errors";
 import { saveSubmissionEvidence, submissionSizeGate } from "@/lib/supplier-portal/submission-evidence";
 import { maxBytesFor } from "@/lib/supplier-portal/submission-evidence";
+import { getLocale } from "@/lib/i18n/server";
+import { fill } from "@/lib/i18n/format";
+import { evidenceMessages } from "@/lib/i18n/portal/evidence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +21,7 @@ interface UploadResponse {
   ok: boolean;
   message: string;
   itemId?: string;
-  flags?: { flag: string; severity: string; detail: string | null }[];
+  flags?: { flag: string; severity: string; detail: string | null; detailEn?: string | null }[];
   readiness?: ReturnType<typeof readiness>;
 }
 
@@ -54,27 +57,30 @@ function readCapture(form: FormData) {
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Câu báo lỗi và nhãn bằng chứng theo ngôn ngữ người đang tải ảnh.
+  const language = await getLocale();
+  const text = evidenceMessages[language].upload;
   const access = await supplierSubmissionAccess(id);
-  if (!access) return json({ ok: false, message: "Không mở được hồ sơ của doanh nghiệp bạn." }, 403);
+  if (!access) return json({ ok: false, message: text.noAccess }, 403);
   const { submission } = access;
 
-  const gate = submissionSizeGate(submission.target_level, Number(request.headers.get("content-length") ?? 0) || null);
-  if (!gate.ok) return json({ ok: false, message: gate.message ?? "Tệp quá lớn." }, 413);
+  const gate = submissionSizeGate(submission.target_level, Number(request.headers.get("content-length") ?? 0) || null, language);
+  if (!gate.ok) return json({ ok: false, message: gate.message ?? text.tooLargeBody }, 413);
 
   let form: FormData;
-  try { form = await request.formData(); } catch { return json({ ok: false, message: "Không đọc được dữ liệu tải lên." }, 400); }
+  try { form = await request.formData(); } catch { return json({ ok: false, message: text.noData }, 400); }
 
   const key = String(form.get("checklistKey") ?? "").trim();
   const file = form.get("file");
-  if (!(file instanceof File)) return json({ ok: false, message: submission.target_level === 3 || submission.l2_scope === "partner_contract" ? "Thiếu tệp bằng chứng." : "Thiếu tệp ảnh." }, 400);
+  if (!(file instanceof File)) return json({ ok: false, message: submission.target_level === 3 || submission.l2_scope === "partner_contract" ? text.noFileDoc : text.noFilePhoto }, 400);
   if (file.size > maxBytesFor(submission.target_level, submission.l2_scope, key)) {
-    return json({ ok: false, message: `Tệp vượt giới hạn ${Math.round(maxBytesFor(submission.target_level, submission.l2_scope, key) / 1024 / 1024)} MB.` }, 413);
+    return json({ ok: false, message: fill(text.tooLarge, { mb: Math.round(maxBytesFor(submission.target_level, submission.l2_scope, key) / 1024 / 1024) }) }, 413);
   }
 
   try {
     const capture = readCapture(form);
     const saved = await saveSubmissionEvidence({
-      store: access.store, submission, key, file, capture, createdBy: access.userId,
+      store: access.store, submission, key, file, capture, createdBy: access.userId, language,
     });
     // Ghi GPS của trình duyệt lên hồ sơ nếu đây là lần tải đầu tiên có toạ độ.
     if (submission.target_level === 2 && submission.l2_scope !== "partner_contract" && capture.lat != null && capture.lng != null && submission.device_lat == null) {
@@ -105,22 +111,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return json({
       ok: true,
       message: saved.replaced
-        ? `Đã thay ${submission.target_level === 3 ? "tệp" : "ảnh"} cũ của mục này (giữ tối đa vài bản). ${saved.flags.length ? "Có điểm cần lưu ý bên dưới." : ""}`
+        ? fill(saved.flags.length ? text.savedReplacedFlagged : text.savedReplaced, { kind: submission.target_level === 3 ? text.kindFile : text.kindPhoto })
         : saved.flags.length
-          ? "Đã tải ảnh. Có vài điểm ghi chú bên dưới, không ảnh hưởng việc nộp."
-          : submission.target_level === 3 || submission.l2_scope === "partner_contract" ? "Đã tải bằng chứng." : "Đã tải ảnh.",
+          ? text.savedFlagged
+          : submission.target_level === 3 || submission.l2_scope === "partner_contract" ? text.savedFile : text.savedPhoto,
       itemId: saved.item.id,
-      flags: saved.flags.map((f) => ({ flag: f.flag, severity: f.severity, detail: f.detail })),
-      readiness: readiness({ submission: fresh, items }),
+      flags: saved.flags.map((f) => ({ flag: f.flag, severity: f.severity, detail: f.detail, detailEn: f.detailEn ?? null })),
+      readiness: readiness({ submission: fresh, items, language }),
     });
   } catch (error) {
-    console.error("[submission-upload] lỗi", error, migrationHint(error) ?? "");
+    console.error("[submission-upload] upload failed", error, migrationHint(error) ?? "");
     const raw = error instanceof Error ? error.message : "";
     // Lỗi ràng buộc CSDL (vd. thiếu migration media_assets.submission_id) không
     // đẩy nguyên văn tiếng Anh ra cho nhà cung cấp; chỉ báo thử lại và ghi log hint.
-    const message = submissionEvidenceErrorMessage(error) ?? (/violates (foreign key|check) constraint|duplicate key value/i.test(raw)
-      ? "Hệ thống chưa lưu được bằng chứng lúc này. Vexim đã ghi nhận lỗi — bạn thử lại sau ít phút."
-      : raw || "Không lưu được tệp.");
+    const message = submissionEvidenceErrorMessage(error, language) ?? (/violates (foreign key|check) constraint|duplicate key value/i.test(raw)
+      ? text.dbFailed
+      : raw || text.saveFailed);
     return json({ ok: false, message }, 400);
   }
 }

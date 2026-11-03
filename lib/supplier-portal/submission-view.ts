@@ -10,6 +10,7 @@ import {
   type SupplierSubmissionItem,
   type SupplierSubmissionLink,
 } from "@/lib/types";
+import { verificationMessages } from "@/lib/i18n/portal/verification";
 import {
   aiReviewFindings,
   aiReviewMayBeOutdated,
@@ -189,7 +190,8 @@ function itemView(item: SupplierSubmissionItem, level: 2 | 3, forStaff: boolean,
       label: flagLabels[f.flag] ?? f.flag,
       severity: f.severity,
       source: f.source,
-      detail: f.detail,
+      // Cờ cũ trong dữ liệu chỉ có bản tiếng Việt; bản tiếng Anh có từ 11/2026.
+      detail: language === "en" ? f.detailEn ?? f.detail : f.detail,
     })),
     aiVerdict: showAi ? currentAi ? currentAi.verdict : item.ai_verdict : null,
     aiReason: showAi ? currentAi ? currentAi.reason : item.ai_reason : null,
@@ -209,7 +211,7 @@ export function buildPortalSubmission(bundle: SubmissionBundle, options?: { forS
   const level = submission.target_level;
   const partner = level === 2 && submission.l2_scope === "partner_contract";
   const specs = level === 2 ? partner ? partnerSpecs(language) : photoSpecs(language) : exportSpecs(language);
-  const check = readiness({ submission, items });
+  const check = readiness({ submission, items, language });
   const uploadedKeys = new Set(items.filter((i) => i.media_id && i.storage_path?.trim()).map((i) => i.checklist_key));
   const byKey = new Map<string, PortalItemView[]>();
   for (const item of items) {
@@ -246,13 +248,13 @@ export function buildPortalSubmission(bundle: SubmissionBundle, options?: { forS
     supplierNote: submission.supplier_note,
     reviewNote: options?.forStaff ? submission.review_note : submission.status !== "returned" ? null
       : (level === 3 || (level === 2 && !partner)) && submission.ai_scanned_at && !submission.reviewed_by
-        ? `${submission.review_note ? `Ghi chú trước đây: ${submission.review_note} ` : ""}Bạn có thể nộp lại để nhân viên kiểm tra.`
+        ? `${submission.review_note ? `${verificationMessages[language].panel.previousNotePrefix}${submission.review_note} ` : ""}${verificationMessages[language].panel.resubmitNote}`
         : submission.review_note,
     submittedAt: submission.submitted_at,
     // Giữ lịch sử AI cho nhân viên, nhưng không trình bày kết quả cũ như điều kiện L3 mới.
     aiScannedAt: (level === 2 && !partner) || options?.forStaff ? submission.ai_scanned_at : null,
     aiSummary: (level === 2 && !partner) || options?.forStaff ? submission.ai_review?.summary ?? null : null,
-    aiFindings: level === 2 && !partner ? aiReviewFindings(submission.ai_review, submission.verification_code) : [],
+    aiFindings: level === 2 && !partner ? aiReviewFindings(submission.ai_review, submission.verification_code, language) : [],
     aiFindingsMayBeOutdated: level === 2 && !partner && aiReviewMayBeOutdated(submission, items),
     aiManipulation: (level === 2 && !partner) || options?.forStaff ? submission.ai_review?.manipulation_suspected ?? null : null,
     aiModel: (level === 2 && !partner) || options?.forStaff ? submission.ai_review?.model ?? null : null,

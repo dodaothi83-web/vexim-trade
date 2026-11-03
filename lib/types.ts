@@ -682,7 +682,10 @@ export interface SubmissionIntegrityFlag {
   /** Mức gợi ý hiển thị. Cờ AI, kể cả `hard` trong dữ liệu cũ, không quyết định nộp hay duyệt. */
   severity: "hard" | "warning";
   source: SubmissionFlagSource;
+  /** Câu giải thích tiếng Việt; cờ cũ trong dữ liệu có thể chỉ có trường này. */
   detail: string | null;
+  /** Cùng câu ở tiếng Anh, để cổng NCC hiện đúng ngôn ngữ đang chọn. */
+  detailEn?: string | null;
 }
 
 /** Kết quả AI đọc MỘT ảnh/chứng từ. Không bao giờ là quyết định duyệt. */

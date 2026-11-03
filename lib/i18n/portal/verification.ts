@@ -94,6 +94,8 @@ export const en = {
   },
   panel: {
     levelTitles: { factory: "Factory verification", partner: "Partner factory", export: "Export history" },
+    previousNotePrefix: "Earlier note: ",
+    resubmitNote: "You can resubmit so staff check it again.",
     overview: {
       aria: "Overview of file L{level}",
       selfSubmitted: "Self-submitted file · Step {level}/3",
@@ -472,6 +474,8 @@ const vi: VerificationMessages = {
   },
   panel: {
     levelTitles: { factory: "Xác thực nhà máy", partner: "Nhà máy đối tác", export: "Lịch sử xuất khẩu" },
+    previousNotePrefix: "Ghi chú trước đây: ",
+    resubmitNote: "Bạn có thể nộp lại để nhân viên kiểm tra.",
     overview: {
       aria: "Tổng quan hồ sơ L{level}",
       selfSubmitted: "Hồ sơ tự gửi · Bước {level}/3",
