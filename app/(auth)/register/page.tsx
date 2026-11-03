@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: m.register.metaTitle,
     description:
-      "Create a supplier account to list Vietnamese products, or send a sourcing request as a buyer without creating an account.",
+      "Create a buyer account with your email, or a supplier account to list Vietnamese products.",
     robots: { index: false, follow: true },
   };
 }
