@@ -59,7 +59,9 @@ export default function CookiePolicyPage() {
         <CookieTable rows={[
           ["vexim_cookie_consent", "Vexim Trade", "Remembers your cookie choices so we do not ask on every page.", "12 months"],
           ["vxt_session", "Vexim Trade", "Keeps a signed in account session secure. It is used only for account areas.", "7 days"],
-          ["vxt_google_flow and vxt_google_signup", "Vexim Trade", "Completes the Google sign in flow securely.", "10 minutes"],
+          ["vxt_google_flow and vxt_google_signup", "Vexim Trade", "Completes the Google sign in or supplier registration flow securely.", "10 minutes"],
+          ["vxt_google_buyer_flow", "Vexim Trade", "Completes the Google sign in flow for a buyer account securely.", "10 minutes"],
+          ["vxt_buyer", "Vexim Trade", "Keeps a signed in buyer account session secure. It is used only for buyer account areas.", "30 days"],
         ]} />
       </section>
 
