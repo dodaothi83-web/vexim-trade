@@ -3,6 +3,11 @@
 Ngày: 2026-11-03 · Nhánh: `arena/1e84407a-vexim-trade` · Gộp chung nhánh với "Yêu thích"
 Đối chiếu với code tại `fd13383`.
 
+> **Đọc kèm `docs/buyer-account-build-map-2026-11.md`.** Bản đó là phương án thi công tái dùng
+> hạ tầng: bỏ 3 bảng và 1 cột so với bản này (yêu thích lưu `jsonb` trên tài khoản, truy vấn theo
+> `buyers.email` thay vì `buyer_user_id`, chống gửi trùng bằng Upstash `SET NX`, đo phễu ghi vào
+> `audit_log`). Nhờ vậy bước "claim" ở §8 biến mất. Bản này giữ nguyên giá trị ở phần rủi ro (§4).
+
 ---
 
 ## 1. Kết luận
@@ -78,7 +83,7 @@ Tầng dữ liệu có hai cài đặt song song (`lib/db/supabase.ts` 1.685 dò
 Cho 3 bảng dưới đây là ~15 điểm sửa. **`listRfqs()` hiện chỉ lọc theo `status` và `assignedTo`,
 không có `buyerId`** → phải thêm tham số, nếu không `/my` phải tải toàn bộ RFQ rồi lọc.
 
-### 3.3 Ba bảng đề xuất
+### 3.3 Ba bảng đề xuất (bản phân tích; phương án thi công rút còn 2 — xem tài liệu build-map)
 
 ```sql
 buyer_users
@@ -97,8 +102,8 @@ buyer_saved_products          -- Yêu thích + so sánh đã lưu
   created_at,  unique (buyer_user_id, product_id)
 ```
 
-Thêm **một cột** vào `rfqs`: `buyer_user_id uuid null`. Không bắt buộc để chạy, nhưng rẻ khi làm
-bây giờ và khiến `/my` không phải join theo email mỗi lần. Backfill lúc claim.
+Bản thi công bỏ `buyer_saved_products` (thay bằng `buyer_users.saved jsonb`) và bỏ cột
+`rfqs.buyer_user_id` (truy vấn theo `buyers.email`, vốn đã lưu lowercase) — xem build-map §1.
 
 ### 3.4 Hai đầu việc dễ bị coi nhẹ
 
@@ -123,9 +128,10 @@ nhưng trang lỗi):
 - người mua tưởng mình gửi hỏng nên gửi thêm lần nữa.
 
 **Cách chặn (bắt buộc, làm cùng lúc với §4.1):** sinh `intent_id` (UUID) ở client **trước** khi
-hiện bước đăng nhập, gửi kèm payload; server `createRfq` kiểm `intent_id` đã tồn tại → trả lại
-RFQ cũ thay vì tạo mới. Tức là thêm cột `intent_id text unique` vào `rfqs` + một `getRfqByIntent()`.
-Không có bước này thì không nên làm tính năng tự gửi tiếp.
+hiện bước đăng nhập, gửi kèm payload; server kiểm `intent_id` đã dùng chưa → trả lại RFQ cũ thay
+vì tạo mới. Bản thi công dùng Upstash `SET NX` (TTL 10 phút, lưu id RFQ vừa tạo) nên **không cần
+cột mới**; đường lùi khi không có Upstash: cùng email + cùng `product_text` trong 90 giây → trả
+RFQ cũ. Không có bước này thì không nên làm tính năng tự gửi tiếp.
 
 Kèm theo: token PoW **tiêu một lần** — sau khi quay lại từ đăng nhập phải phát challenge mới;
 draft phải lưu `sessionStorage` (không phải localStorage: dữ liệu khách hàng không nên sống
@@ -226,9 +232,9 @@ source text ('modal_1_supplier'|'compare'|'rfq_page'|'rfq_menu'), buyer_user_id 
 | 3 | Cổng gửi: chặn khi chưa đăng nhập, lưu/nhận draft, `intent_id`, bỏ 3 ô company/name/email khi đã đăng nhập, hỏi Tên công ty lần đầu | `rfq-form.tsx`, `submit.ts`, `actions.ts` | Lớn |
 | 4 | Header + lối vào: "Sign in" 2 lựa chọn, menu người mua, `/register` buyer card, đảo toàn bộ chuỗi + 3 guard "no account needed" | `public-sign-in-link`, `public-header-controls`, 2 layout, `lib/i18n/auth.ts`, 3 script | Vừa |
 | 5 | `/my`: yêu cầu + trạng thái + mã, báo giá đã nhận + bảng so sánh, xoá tài khoản, đăng xuất, tuỳ chọn email | trang mới + projection `BuyerRfqQuote` | Vừa |
-| 6 | Claim khi xác minh email (gắn RFQ cũ) | `buyer_users` + backfill | Nhỏ |
+| ~~6~~ | ~~Claim khi xác minh email~~ — **bỏ**: RFQ vốn thuộc buyer theo email, truy vấn trực tiếp | — | — |
 | 7 | Yêu thích: localStorage → đồng bộ khi đăng nhập (gộp, không ghi đè) + so sánh đã lưu + link chia sẻ | provider mới, `product-card`, `/my` | Vừa |
-| 8 | Đo phễu + báo cáo CRM | bảng mới, 3 điểm ghi, 1 trang | Nhỏ |
+| 8 | Đo phễu + báo cáo CRM | `audit_log` sẵn có, 3 điểm ghi | Nhỏ |
 | 9 | Tài liệu + chính sách: `rfq-van-hanh.md`, `authentication-security.md`, chính sách bảo mật (xoá tài khoản) | docs + 1 trang legal | Nhỏ |
 
 Ước lượng thẳng: **đây là 4–6 ngày làm việc**, không phải một buổi. Bước 2 và 3 là hai phần khó
