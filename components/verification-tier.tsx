@@ -75,10 +75,10 @@ export const VERIFICATION_LEVEL_TONES: Record<VerificationLevel, {
 };
 
 /** A check that is not approved yet stays a grey outline: no colour implies progress. */
-export const VERIFICATION_PIP_OFF = "text-ink-500";
+export const VERIFICATION_PIP_OFF = "border border-ink-300 bg-ink-50 text-ink-500";
 
 /** Same approved colour at every count: colour indicates status, not rank. */
-export const VERIFICATION_PIP_ON = "text-success";
+export const VERIFICATION_PIP_ON = "border border-success bg-success-surface text-success";
 export const VERIFICATION_TIER_SHIELD_TONES: Record<Exclude<VerificationTier, 0>, {
   pip: string;
   status: string;
@@ -118,7 +118,7 @@ export function VerificationTierBadge({ levels, className = "" }: {
 }
 
 /**
- * Three bare shield-check icons, one per independent verification check.
+ * Three circular shield-check pips, one per independent verification check.
  *
  * All three positions keep the shield icon (`ShieldCheck`). Approved shields
  * use success green, while unapproved checks remain muted grey outlines and
@@ -149,7 +149,7 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
         const status = on ? "Approved" : "Not approved";
         const explanation = verificationExplanation(level, l2Scope);
         const accessibleName = `${label}: ${status}. ${explanation}`;
-        const pipClass = `inline-flex items-center justify-center transition ${pipSize} ${on && activeTone ? activeTone.pip : VERIFICATION_PIP_OFF}`;
+        const pipClass = `inline-flex items-center justify-center rounded-full transition ${pipSize} ${on && activeTone ? activeTone.pip : VERIFICATION_PIP_OFF}`;
         const icon = <ShieldCheck className={iconSize} aria-hidden="true" />;
         if (shortTooltips) return (
           <span key={level} className="group/pip relative inline-flex">
