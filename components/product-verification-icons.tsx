@@ -1,6 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 
-import { VERIFICATION_LEVEL_ICONS, VERIFICATION_PIP_ON, VERIFICATION_PIP_OFF } from "@/components/verification-tier";
+import { VERIFICATION_LEVEL_ICONS, VERIFICATION_LEVEL_TONES, VERIFICATION_PIP_OFF } from "@/components/verification-tier";
 import type { VerificationLevel } from "@/lib/types";
 import { verificationExplanation, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 
@@ -20,7 +20,7 @@ export function ProductVerificationIcons({ levels, compact = false, l2Scope }: {
         return <div key={level} className="group shrink-0">
           <details className="peer">
             <summary aria-label={`${label}. ${explanation}`}
-              className={`inline-flex h-7 w-7 cursor-help list-none items-center justify-center transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 [&::-webkit-details-marker]:hidden ${VERIFICATION_PIP_ON}`}>
+              className={`inline-flex h-7 w-7 cursor-help list-none items-center justify-center rounded-full transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 [&::-webkit-details-marker]:hidden ${VERIFICATION_LEVEL_TONES[level].pip}`}>
               <Icon className="h-4 w-4" aria-hidden="true" />
             </summary>
           </details>
@@ -28,7 +28,7 @@ export function ProductVerificationIcons({ levels, compact = false, l2Scope }: {
             <strong className="block font-bold">{label}</strong>{explanation}
           </span>
         </div>;
-      }) : <div className="flex items-center gap-1.5"><span className={`inline-flex h-7 w-7 items-center justify-center ${VERIFICATION_PIP_OFF}`}><ShieldCheck className="h-4 w-4" aria-hidden="true" /></span><span className="text-[11px] text-ink-500">No approved checks yet</span></div>}
+      }) : <div className="flex items-center gap-1.5"><span className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${VERIFICATION_PIP_OFF}`}><ShieldCheck className="h-4 w-4" aria-hidden="true" /></span><span className="text-[11px] text-ink-500">No approved checks yet</span></div>}
     </div>
   </div>;
 }
