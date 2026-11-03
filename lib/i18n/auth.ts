@@ -110,7 +110,6 @@ const en = {
       "Sign up quickly with email or Google",
       "Add your business details and upload your business licence",
       "Your profile is verified within one working day, so buyers trust you sooner",
-      "Free for suppliers who join early",
     ],
     oauth: {
       unavailable: "Google sign-up is not configured on this domain. You can create an account with email.",
@@ -124,14 +123,12 @@ const en = {
       email: "Sign-in email",
       password: "Password",
       passwordHint: "8 to 128 characters, with both letters and numbers.",
-      repeatPassword: "Repeat password",
       showPassword: "Show password",
       hidePassword: "Hide password",
       consent: "I agree to create an account and submit a company profile for review.",
       submit: "Create account with email",
       submitting: "Creating the account…",
       goToLogin: "Go to the sign-in page",
-      mismatch: "The two passwords do not match.",
       challengeMissing: "Please complete the security check.",
       genericError: "Could not reach the server. Please try again.",
       or: "or",
@@ -259,14 +256,12 @@ type AuthMessages = {
       email: string;
       password: string;
       passwordHint: string;
-      repeatPassword: string;
       showPassword: string;
       hidePassword: string;
       consent: string;
       submit: string;
       submitting: string;
       goToLogin: string;
-      mismatch: string;
       challengeMissing: string;
       genericError: string;
       or: string;
@@ -408,7 +403,6 @@ const vi: AuthMessages = {
       "Đăng ký nhanh bằng email hoặc Google",
       "Điền thông tin doanh nghiệp và tải giấy đăng ký kinh doanh",
       "Hồ sơ được xác minh trong 1 ngày làm việc, giúp người mua tin tưởng bạn hơn",
-      "Miễn phí cho nhà cung cấp tham gia sớm",
     ],
     oauth: {
       unavailable: "Google OAuth chưa được cấu hình trên tên miền này. Bạn có thể tạo tài khoản bằng email.",
@@ -422,14 +416,12 @@ const vi: AuthMessages = {
       email: "Email đăng nhập",
       password: "Mật khẩu",
       passwordHint: "8-128 ký tự, gồm cả chữ và số.",
-      repeatPassword: "Nhập lại mật khẩu",
       showPassword: "Hiện mật khẩu",
       hidePassword: "Ẩn mật khẩu",
       consent: "Tôi đồng ý tạo tài khoản để gửi hồ sơ doanh nghiệp đi duyệt.",
       submit: "Tạo tài khoản bằng email",
       submitting: "Đang tạo tài khoản…",
       goToLogin: "Đến trang đăng nhập",
-      mismatch: "Hai lần nhập mật khẩu không khớp.",
       challengeMissing: "Vui lòng hoàn tất bước kiểm tra bảo mật.",
       genericError: "Không kết nối được máy chủ. Vui lòng thử lại.",
       or: "hoặc",

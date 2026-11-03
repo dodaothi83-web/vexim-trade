@@ -44,8 +44,10 @@ const formHtml = renderToStaticMarkup(React.createElement(form.SupplierAccountFo
   messages: authMessages.en.supplierRegister.form,
   lang: 'en',
 }));
-for (const fragment of ['name="email"', 'name="password"', 'name="password2"', 'name="consent"', 'intent=signup', 'Create account with email'])
+for (const fragment of ['name="email"', 'name="password"', 'name="consent"', 'intent=signup', 'Create account with email'])
   assert.ok(formHtml.includes(fragment), `Account form includes ${fragment}`);
+// Chỉ hai ô nhập: nhập lại mật khẩu là bước thừa, mật khẩu hiện được bằng nút con mắt.
+assert.doesNotMatch(formHtml, /name="password2"|Repeat password|Nhập lại mật khẩu/, 'Bỏ ô nhập lại mật khẩu');
 assert.doesNotMatch(formHtml, /name="tax_number"|name="supplier_type"|Đăng ký doanh nghiệp/, 'Company fields belong in the locked portal, not account creation');
 const signupSource = source('../app/api/supplier-signup/route.ts');
 assert.doesNotMatch(signupSource, /createSupplier\(|saveInitialEvidence\(/);
