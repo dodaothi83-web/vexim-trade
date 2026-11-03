@@ -8,6 +8,7 @@ import { supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view"
 import { repairAttachedBankMedia } from "@/lib/supplier-portal/bank-media";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { PageHeader } from "@/components/page-header";
+import { getPortalMessages } from "@/lib/i18n/server";
 import { SupplierProductEditor } from "../product-editor";
 import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { certificateProductState } from "@/lib/products/product-certificates";
@@ -18,7 +19,10 @@ import { approvedL2Scope } from "@/lib/verification-status";
 import { ProductCertificatesForm } from "../product-certificates-form";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Quản lý sản phẩm", robots: { index: false, follow: false } };
+export async function generateMetadata() {
+  const { m } = await getPortalMessages();
+  return { title: m.products.list.pageTitle, robots: { index: false, follow: false } };
+}
 
 /** `?step=2|3` cho phép mở thẳng một bước sau khi lưu sản phẩm mới. */
 function readStep(raw: string | undefined): 1 | 2 | 3 {
@@ -30,6 +34,8 @@ export default async function OwnProductPage({ params, searchParams }: { params:
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
+  const { locale, m } = await getPortalMessages();
+  const copy = m.productEditor.productPage;
   const { id } = await params;
   const step = readStep((await searchParams).step);
   const product = await access.store.getProduct(id);
@@ -86,7 +92,7 @@ export default async function OwnProductPage({ params, searchParams }: { params:
           name: certificate.name,
           issuer: certificate.issuer,
           valid_until: certificate.valid_until,
-          schemeLabel: certificateSchemeLabel(certificate.certificate_scheme ?? null, "vi"),
+          schemeLabel: certificateSchemeLabel(certificate.certificate_scheme ?? null, locale),
           state: certificateProductState(certificate, id),
           superseded: Boolean(certificate.superseded_by_certificate_id),
           scopeable: isScopeableCertificateScheme(certificate.certificate_scheme ?? null),
@@ -129,17 +135,17 @@ export default async function OwnProductPage({ params, searchParams }: { params:
     .map((certificate) => ({ id: certificate.id, name: certificate.name, valid_until: certificate.valid_until ?? null }));
   return <>
     <PageHeader
-      eyebrow="Cổng nhà cung cấp · riêng tư"
+      eyebrow={m.products.list.eyebrow}
       title={product.name}
-      sub="Hoàn thiện thông tin, kiểm tra tệp đã tải và theo dõi phản hồi duyệt."
-      breadcrumbs={<nav aria-label="Đường dẫn" className="flex min-w-0 items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="shrink-0 hover:text-brand-700">Sản phẩm</Link><ChevronRight className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate font-semibold text-ink-800">{product.name}</span></nav>}
+      sub={copy.sub}
+      breadcrumbs={<nav aria-label={copy.breadcrumbAria} className="flex min-w-0 items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="shrink-0 hover:text-brand-700">{copy.products}</Link><ChevronRight className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate font-semibold text-ink-800">{product.name}</span></nav>}
     />
     {process.env.VEXIM_QUANTITY_PRICING_PREVIEW === "true" && <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-      <Link href={`/supplier/portal/products/${id}/quantity-pricing`} className="font-semibold underline">Mở trang thử nghiệm giá theo số lượng</Link>. Trang thử nghiệm chưa thay đổi thông tin buyer đang thấy.
+      <Link href={`/supplier/portal/products/${id}/quantity-pricing`} className="font-semibold underline">{copy.previewNotice}</Link>{copy.previewNoticeAfter}
     </p>}
     <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options}
       categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} initialStep={step} />
-    <ProductCertificatesForm productId={id} certificates={certificateOptions}
+    <ProductCertificatesForm productId={id} certificates={certificateOptions} messages={m.productEditor.certificates} lang={locale}
       supplierType={access.supplier.supplier_type ?? null} partnerContractApproved={partnerContractApproved}
       partnerFactoryName={partnerFactoryName} />
   </>;

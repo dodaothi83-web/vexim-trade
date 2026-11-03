@@ -1,6 +1,7 @@
 import type { Locale } from "../config";
 import { shellMessages, type ShellMessages } from "./shell";
 import { productsMessages, type ProductsMessages } from "./products";
+import { productEditorMessages, type ProductEditorMessages } from "./product-editor";
 import { overviewMessages, type OverviewMessages } from "./overview";
 import { profileMessages, type ProfileMessages } from "./profile";
 import { onboardingMessages, type OnboardingMessages } from "./onboarding";
@@ -17,6 +18,7 @@ export type PortalMessages = {
   shell: ShellMessages;
   overview: OverviewMessages;
   products: ProductsMessages;
+  productEditor: ProductEditorMessages;
   profile: ProfileMessages;
   onboarding: OnboardingMessages;
 };
@@ -27,6 +29,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     shell: shellMessages.en,
     overview: overviewMessages.en,
     products: productsMessages.en,
+    productEditor: productEditorMessages.en,
     profile: profileMessages.en,
     onboarding: onboardingMessages.en,
   },
@@ -35,9 +38,10 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     shell: shellMessages.vi,
     overview: overviewMessages.vi,
     products: productsMessages.vi,
+    productEditor: productEditorMessages.vi,
     profile: profileMessages.vi,
     onboarding: onboardingMessages.vi,
   },
 };
 
-export type { SharedMessages, ShellMessages, OverviewMessages, ProfileMessages, OnboardingMessages };
+export type { SharedMessages, ShellMessages, OverviewMessages, ProfileMessages, OnboardingMessages, ProductsMessages, ProductEditorMessages };

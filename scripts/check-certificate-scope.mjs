@@ -167,7 +167,7 @@ const pdp = read("app/(public)/products/[slug]/[productId]/page.tsx");
 assert.match(pdp, /listCertificateScopes/, "trang sản phẩm dùng cùng phạm vi");
 const portalForm = read("app/supplier/portal/products/product-certificates-form.tsx");
 assert.match(portalForm, /setProductCertificateOptoutAction/, "nhà cung cấp bỏ tick được giấy thừa hưởng");
-assert.match(portalForm, /Yêu cầu mở rộng phạm vi/, "giấy ngoài phạm vi có nút xin mở rộng");
+assert.match(portalForm, /m\.requestScope/, "giấy ngoài phạm vi có nút xin mở rộng (nhãn trong từ điển)");
 assert.doesNotMatch(portalForm, /name="checklist_key"/, "nhà cung cấp không chọn ngăn khi tải giấy");
 const portalDocuments = read("app/supplier/portal/documents/page.tsx");
 assert.match(portalDocuments, /deriveL1Rows/, "bảng L1 tính từ giấy đã duyệt");

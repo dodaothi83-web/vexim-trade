@@ -19,6 +19,7 @@ const en = {
   list: {
     eyebrow: "Supplier portal · private",
     title: "My products",
+    pageTitle: "Manage product",
     sub: "Create a listing, add real photos and send it for review. This area is private; buyers cannot see it.",
     addProduct: "Add product",
     outsideScopeTitle: "{count} products sit outside your categories",
@@ -107,6 +108,7 @@ const vi: ProductsMessages = {
   list: {
     eyebrow: "Cổng nhà cung cấp · riêng tư",
     title: "Sản phẩm của tôi",
+    pageTitle: "Quản lý sản phẩm",
     sub: "Tạo hồ sơ, thêm ảnh thực tế và gửi duyệt. Đây là khu vực riêng, người mua không thấy.",
     addProduct: "Thêm sản phẩm",
     outsideScopeTitle: "{count} sản phẩm nằm ngoài phạm vi danh mục",

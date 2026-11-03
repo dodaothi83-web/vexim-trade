@@ -131,6 +131,7 @@ const SCOPE = [
   'lib/i18n/portal/profile.ts',
   'lib/i18n/portal/onboarding.ts',
   'lib/i18n/portal/products.ts',
+  'lib/i18n/portal/product-editor.ts',
   'lib/certificate-service.ts',
   'lib/db/local.ts',
   'lib/db/seed.ts',

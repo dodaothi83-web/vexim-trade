@@ -4,6 +4,9 @@ import { useActionState, useState } from "react";
 import { BadgeCheck, Clock3, Lock, MoveRight } from "lucide-react";
 import { FilePicker } from "@/components/file-picker";
 import { certificateLabel } from "@/lib/products/product-certificates";
+import { fill } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
+import type { ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 import {
   requestProductCertificatesAction,
   setProductCertificateOptoutAction,
@@ -48,7 +51,10 @@ const INITIAL: CertificateRequestResult = { ok: true, message: "" };
  */
 export function ProductCertificatesForm({
   productId, certificates, supplierType = null, partnerContractApproved = false, partnerFactoryName = null,
+  messages: m, lang,
 }: {
+  messages: ProductEditorMessages["certificates"];
+  lang: Locale;
   productId: string;
   certificates: ProductCertificateOption[];
   supplierType?: "manufacturer" | "trading" | "cooperative" | null;
@@ -68,11 +74,11 @@ export function ProductCertificatesForm({
   const holderRule = supplierType === "trading"
     ? (partnerContractApproved
       ? { blocked: false, text: partnerFactoryName
-        ? `Giấy phải đứng tên nhà máy đối tác: ${partnerFactoryName}.`
-        : "Giấy đứng tên nhà máy đối tác sẽ được đối chiếu hợp đồng trước khi đăng." }
-      : { blocked: true, text: "Chưa xác thực nhà máy đối tác: giấy đứng tên nhà máy khác chưa dùng được." })
+        ? fill(m.holderPartner, { factory: partnerFactoryName })
+        : m.holderPartnerPending }
+      : { blocked: true, text: m.holderBlocked })
     : supplierType === "manufacturer" || supplierType === "cooperative"
-      ? { blocked: false, text: "Chứng nhận phải đứng tên nhà máy của bạn." }
+      ? { blocked: false, text: m.holderOwn }
       : null;
   const [justUploaded, setJustUploaded] = useState<ProductCertificateOption[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
@@ -116,27 +122,23 @@ export function ProductCertificatesForm({
         ]);
         setUploadMessage({
           ok: true,
-          text: payload.message ?? "Đã nhận chứng nhận. Nhân viên phân loại và chọn phạm vi trước khi hiện cho người mua.",
+          text: payload.message ?? m.uploaded,
         });
         element.reset();
       } else {
-        setUploadMessage({ ok: false, text: payload.message ?? "Không lưu được tệp." });
+        setUploadMessage({ ok: false, text: payload.message ?? m.uploadFailed });
       }
     } catch {
-      setUploadMessage({ ok: false, text: "Không kết nối được máy chủ. Vui lòng thử lại." });
+      setUploadMessage({ ok: false, text: m.networkError });
     } finally {
       setUploadBusy(false);
     }
   }
 
   return (
-    <section className="mt-4 rounded-xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Chứng nhận cho sản phẩm này">
-      <h2 className="text-[15px] font-black text-ink-900">Chứng nhận áp dụng</h2>
-      <p className="mt-1 text-[12.5px] leading-5 text-ink-600">
-        {holderRule?.blocked
-          ? "Chứng nhận của nhà máy đối tác cần xác thực nhà máy trước khi gắn vào sản phẩm."
-          : "Giấy đã duyệt cho danh mục này tự áp cho sản phẩm. Bỏ tick giấy không đúng với sản phẩm."}
-      </p>
+    <section className="mt-4 rounded-xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5" aria-label={m.aria} lang={lang}>
+      <h2 className="text-[15px] font-black text-ink-900">{m.title}</h2>
+      <p className="mt-1 text-[12.5px] leading-5 text-ink-600">{holderRule?.blocked ? m.subBlocked : m.sub}</p>
 
       {applied.length > 0 && <form action={optAction} className="mt-3 space-y-2">
         <input type="hidden" name="product_id" value={productId} />
@@ -160,40 +162,41 @@ export function ProductCertificatesForm({
                 </span>
                 <span id={`cert-${certificate.id}-note`} className="mt-0.5 block text-[11.5px] leading-4 text-ink-500">
                   {certificate.directScope
-                    ? "Nhân viên đã xác nhận riêng cho sản phẩm này."
+                    ? m.confirmedForProduct
                     : certificate.inheritedFrom
-                      ? `Áp theo danh mục ${certificate.inheritedFrom}.`
-                      : "Nhân viên đã xác nhận phạm vi cho sản phẩm này."}
-                  {certificate.expired ? " Giấy đã hết hạn nên tạm không áp dụng." : ""}
+                      ? fill(m.inheritedFrom, { category: certificate.inheritedFrom })
+                      : m.confirmedScope}
+                  {certificate.expired ? m.expiredNote : ""}
                 </span>
               </span>
             </li>;
           })}
         </ul>
         <button type="submit" disabled={optPending} className="btn btn-ghost btn-sm">
-          {optPending ? "Đang lưu…" : "Lưu lựa chọn"}
+          {optPending ? m.saving : m.saveChoice}
         </button>
         {optResult.message && <p role="status" className={`rounded-lg px-3 py-2 text-[12.5px] ${optResult.ok ? "bg-emerald-50 text-emerald-900" : "bg-rose-50 text-rose-900"}`}>
           {optResult.message}
         </p>}
       </form>}
 
-      {applied.length === 0 && <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[12.5px] text-ink-700">
-        Sản phẩm chưa có chứng nhận chất lượng nào áp dụng. Tải giấy bên dưới; nhân viên phân loại và chọn phạm vi sau khi duyệt.
-      </p>}
+      {applied.length === 0 && <div className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[12.5px] text-ink-700">
+        <p>{m.none}</p>
+        <p className="mt-1">{m.noneHint}</p>
+      </div>}
 
       {outside.length > 0 && <div className="mt-4 space-y-1.5">
-        <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">Giấy khác trên hồ sơ</p>
+        <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">{m.othersTitle}</p>
         {outside.slice(0, 8).map((certificate) => <div key={certificate.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-ink-200 bg-ink-50/40 px-3 py-2 text-[12.5px] text-ink-500">
           <span className="font-semibold">{certificate.name}</span>
           {certificate.schemeLabel && <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-600 ring-1 ring-ink-200">{certificate.schemeLabel}</span>}
-          <span>{certificate.expired ? "Giấy đã hết hạn nên chưa áp dụng cho danh mục này." : "Chưa áp dụng cho danh mục này."}</span>
+          <span>{certificate.expired ? m.othersExpired : m.othersPending}</span>
           <form action={action} className="ml-auto">
             <input type="hidden" name="product_id" value={productId} />
             <input type="hidden" name="certificate_ids" value={certificate.id} />
             <button type="submit" disabled={pending || certificate.expired} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 underline">
               <MoveRight className="size-3.5" aria-hidden="true" />
-              {certificate.state === "requested" ? "Đã xin mở rộng phạm vi" : "Yêu cầu mở rộng phạm vi"}
+              {certificate.state === "requested" ? m.requestedScope : m.requestScope}
             </button>
           </form>
         </div>)}
@@ -207,54 +210,54 @@ export function ProductCertificatesForm({
         {pendingUploads.map((certificate) => <p key={certificate.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
           <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="font-semibold">{certificate.name}</span>
-          <span>vừa tải lên, chờ nhân viên đối chiếu và chọn phạm vi áp dụng.</span>
+          <span>{m.pendingUpload}</span>
         </p>)}
       </div>}
 
       {others.length > 0 && <p className="mt-4 rounded-lg bg-ink-50 px-3 py-2 text-[11.5px] leading-4 text-ink-600">
-        {others.length} giấy khác trên hồ sơ không gắn vào sản phẩm này (giấy pháp lý, giấy theo lô hoặc chờ phân loại).
+        {fill(m.othersCount, { count: others.length })}
         {others.slice(0, 3).map((certificate) => ` ${certificateLabel(certificate)}`).join(" ·")}
       </p>}
 
       {holderRule?.blocked && <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3.5">
         <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-amber-900 uppercase">
-          <Lock className="size-3.5" aria-hidden="true" /> Chưa tải chứng nhận được
+          <Lock className="size-3.5" aria-hidden="true" /> {m.lockedTitle}
         </p>
         <p className="mt-1 text-[12px] leading-5 text-amber-900">{holderRule.text}</p>
-        <p className="mt-1 text-[11.5px] leading-4 text-amber-900">Hoàn tất xác thực nhà máy đối tác ở mục Xác thực nhà máy.</p>
-        <p className="mt-1 text-[11.5px] leading-4 text-amber-900">Sản phẩm vẫn lưu, gửi duyệt và đăng bán bình thường.</p>
+        <p className="mt-1 text-[11.5px] leading-4 text-amber-900">{m.lockedNext}</p>
+        <p className="mt-1 text-[11.5px] leading-4 text-amber-900">{m.lockedKeep}</p>
       </div>}
 
       {!holderRule?.blocked && <form onSubmit={onUpload} className="mt-4 grid gap-3 rounded-lg border border-brand-200 bg-brand-50/50 p-3.5 sm:grid-cols-3">
         <div className="sm:col-span-3">
-          <p className="text-[11px] font-bold tracking-wider text-brand-900 uppercase">Tải lên hoặc gia hạn chứng nhận</p>
-          <p className="mt-0.5 text-[11.5px] leading-4 text-ink-600">
-            Chỉ cần tải tệp. Nhân viên phân loại loại giấy và chọn phạm vi danh mục trước khi hiện cho người mua.
-          </p>
+          <p className="text-[11px] font-bold tracking-wider text-brand-900 uppercase">{m.uploadTitle}</p>
+          <p className="mt-0.5 text-[11.5px] leading-4 text-ink-600">{m.uploadSub}</p>
           {holderRule && <p className="mt-1 text-[11.5px] leading-4 text-ink-600">{holderRule.text}</p>}
         </div>
         <label className="block text-[12px] sm:col-span-1">
-          <span className="mb-1 block font-semibold text-ink-800">Gia hạn giấy đã có</span>
+          <span className="mb-1 block font-semibold text-ink-800">{m.renewLabel}</span>
           <select name="certificate_id" className="input text-sm" defaultValue="">
-            <option value="">+ Giấy mới</option>
+            <option value="">{m.renewNew}</option>
             {all.filter((certificate) => !certificate.superseded).map((certificate) => (
               <option key={certificate.id} value={certificate.id}>
-                Gia hạn: {certificate.name}{certificate.valid_until ? ` (hạn ${certificate.valid_until})` : ""}
+                {certificate.valid_until
+                  ? fill(m.renewOptionExpiry, { name: certificate.name, date: certificate.valid_until })
+                  : fill(m.renewOption, { name: certificate.name })}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-[12px] sm:col-span-2">
-          <span className="mb-1 block font-semibold text-ink-800">Tên trên giấy (không bắt buộc)</span>
-          <input name="label" type="text" maxLength={140} placeholder="VD: ISO 22000:2018" className="input text-sm" />
+          <span className="mb-1 block font-semibold text-ink-800">{m.labelLabel}</span>
+          <input name="label" type="text" maxLength={140} placeholder={m.labelPlaceholder} className="input text-sm" />
         </label>
         <div className="block sm:col-span-2">
           <FilePicker name="file" accept=".pdf,image/jpeg,image/png,image/webp" required busy={uploadBusy}
-            compact title="Tệp PDF hoặc ảnh" hint="Tối đa 15 MB. Tệp chỉ hiện với người mua sau khi được duyệt." />
+            compact title={m.fileTitle} hint={m.fileHint} />
         </div>
         <div className="flex items-end sm:col-span-1">
           <button type="submit" disabled={uploadBusy} className="btn btn-primary btn-sm">
-            {uploadBusy ? "Đang tải lên…" : "Tải lên"}
+            {uploadBusy ? m.uploading : m.upload}
           </button>
         </div>
         {uploadMessage && <p role="status" className={`text-[12px] font-medium sm:col-span-3 ${uploadMessage.ok ? "text-emerald-800" : "text-rose-700"}`}>

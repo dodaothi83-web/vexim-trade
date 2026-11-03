@@ -26,10 +26,11 @@ export function loadPortalDictionary() {
   const shell = load('shell.ts').shellMessages;
   const overview = load('overview.ts').overviewMessages;
   const products = load('products.ts').productsMessages;
+  const productEditor = load('product-editor.ts').productEditorMessages;
   const profile = load('profile.ts').profileMessages;
   const onboarding = load('onboarding.ts').onboardingMessages;
   return {
-    en: { shared: shared.en, shell: shell.en, overview: overview.en, profile: profile.en, onboarding: onboarding.en, products: products.en },
-    vi: { shared: shared.vi, shell: shell.vi, overview: overview.vi, profile: profile.vi, onboarding: onboarding.vi, products: products.vi },
+    en: { shared: shared.en, shell: shell.en, overview: overview.en, profile: profile.en, onboarding: onboarding.en, products: products.en, productEditor: productEditor.en },
+    vi: { shared: shared.vi, shell: shell.vi, overview: overview.vi, profile: profile.vi, onboarding: onboarding.vi, products: products.vi, productEditor: productEditor.vi },
   };
 }
