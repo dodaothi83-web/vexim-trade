@@ -13,6 +13,15 @@ export const DEFAULT_LOCALE: Locale = "en";
 
 export const LOCALE_COOKIE = "vexim_locale";
 
+/**
+ * Tên mỗi ngôn ngữ **viết bằng chính ngôn ngữ đó**, không dịch.
+ *
+ * Ô chọn ngôn ngữ phải đọc được với người chưa biết ngôn ngữ đang bật: người Việt tìm "Tiếng
+ * Việt" chứ không tìm "Vietnamese". Vì vậy đây là dữ liệu của danh sách ngôn ngữ, không phải
+ * chuỗi giao diện nằm trong từ điển.
+ */
+export const LOCALE_NAMES: Record<Locale, string> = { en: "English", vi: "Tiếng Việt" };
+
 /** Mã ngôn ngữ cho `Intl` (số, ngày). Không dùng locale của máy chủ: nó đổi theo môi trường. */
 const INTL_LOCALE: Record<Locale, string> = { en: "en-GB", vi: "vi-VN" };
 

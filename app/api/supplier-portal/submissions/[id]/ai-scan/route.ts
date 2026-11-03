@@ -8,6 +8,9 @@ import { supplierSubmissionAccess, staffSubmissionAccess } from "@/lib/supplier-
 import { isPartnerL2 } from "@/lib/l2-scope";
 import { submissionEditable } from "@/lib/verification-submission";
 import { scanAndQueueSubmission } from "@/lib/verification-submission-service";
+import { getLocale } from "@/lib/i18n/server";
+import { fill } from "@/lib/i18n/format";
+import { evidenceMessages } from "@/lib/i18n/portal/evidence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +27,9 @@ export const maxDuration = 180;
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Câu trả về theo ngôn ngữ người đang nộp/quét.
+  const language = await getLocale();
+  const text = evidenceMessages[language].submit;
   let submit = false;
   if (request.headers.get("content-type")?.includes("application/json")) {
     try { submit = (await request.json() as { submit?: unknown }).submit === true; } catch { submit = false; }
@@ -36,15 +42,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const own = staff ? null : await supplierSubmissionAccess(id);
   const access = staff ?? own;
   if (!access) {
-    return NextResponse.json({ ok: false, message: "Không mở được hồ sơ hoặc bạn không có quyền quét." }, { status: 403 });
+    return NextResponse.json({ ok: false, message: text.noAccessScan }, { status: 403 });
   }
   const isStaff = Boolean(staff);
   const manualExport = access.submission.target_level === 3 || isPartnerL2(access.submission);
   if (manualExport && (isStaff || !submit)) {
-    return NextResponse.json({ ok: false, message: isPartnerL2(access.submission) ? "Hợp đồng đối tác do nhân viên kiểm tra, không quét bằng AI." : "Chứng từ L3 do nhân viên kiểm tra, không quét bằng AI." }, { status: 409 });
+    return NextResponse.json({ ok: false, message: isPartnerL2(access.submission) ? text.manualNoAiPartner : text.manualNoAiExport }, { status: 409 });
   }
   if (!isStaff && !submissionEditable(access.submission.status)) {
-    return NextResponse.json({ ok: false, message: "Hồ sơ đang chờ xét duyệt hoặc đã được nhận; không thể thay đổi." }, { status: 409 });
+    return NextResponse.json({ ok: false, message: text.scanLocked }, { status: 409 });
   }
 
   const actorKey = isStaff ? `staff:${session?.uid}` : `supplier:${access.submission.supplier_id}`;
@@ -54,7 +60,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const submitLimit = rateLimit(`${manualExport ? "submission-manual" : "submission-factory-submit"}:${actorKey}`, { windowMs: 30 * 60 * 1000, max: 12 });
     if (!submitLimit.ok) return NextResponse.json({
       ok: false,
-      message: `Bạn đã nộp quá nhiều lần. Hãy thử lại sau khoảng ${Math.ceil(submitLimit.resetInMs / 60000)} phút.`,
+      message: fill(text.tooManySubmits, { minutes: Math.ceil(submitLimit.resetInMs / 60000) }),
     }, { status: 429 });
   }
   let skipAi = false;
@@ -62,12 +68,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const scanLimit = rateLimit(`submission-scan:${actorKey}`, { windowMs: 30 * 60 * 1000, max: isStaff ? 12 : 4 });
     if (!scanLimit.ok && !submit) return NextResponse.json({
       ok: false,
-      message: `Đã hết lượt quét AI trong 30 phút (thử lại sau ~${Math.ceil(scanLimit.resetInMs / 60000)} phút).`,
+      message: fill(text.scanQuota, { minutes: Math.ceil(scanLimit.resetInMs / 60000) }),
     }, { status: 429 });
     skipAi = !scanLimit.ok;
   }
   const supplier = await access.store.getSupplier(access.submission.supplier_id);
-  if (!supplier) return NextResponse.json({ ok: false, message: "Không tìm thấy hồ sơ doanh nghiệp." }, { status: 404 });
+  if (!supplier) return NextResponse.json({ ok: false, message: text.supplierMissing }, { status: 404 });
 
   try {
     const result = await scanAndQueueSubmission(access.store, {
@@ -77,6 +83,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       actorEmail: isStaff ? session?.email ?? null : own?.userEmail ?? null,
       submit,
       skipAi,
+      language,
     });
     // Refresh is a side effect: never report a saved submission as failed if it throws.
     try {

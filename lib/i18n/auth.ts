@@ -76,7 +76,7 @@ const en = {
     buyerTitle: "Buyer",
     buyerSummary: "Send a quote request and compare offers from matched Vietnamese suppliers. No account needed.",
     supplierTitle: "Supplier",
-    supplierSummary: "Create an account, complete your company profile and receive buyer requests once Vexim reviews it.",
+    supplierSummary: "Sell to international buyers. Free to join, verified within one working day.",
     continue: "Continue",
     alreadyHaveAccount: "Already have an account?",
     signIn: "Sign in",
@@ -85,11 +85,11 @@ const en = {
       "Until they open, your quote request and its private status link work without signing in.",
     supplierNoteLead: "Supplier accounts",
     supplierNote:
-      "start with an account and an email or Google confirmation. The account only opens the overview and the company profile form; Vexim reviews the profile before product management and RFQs are enabled. The supplier application form is in Vietnamese.",
+      "are free to open and verified within one working day; once your profile is approved you list products and receive quote requests. The supplier application form is in Vietnamese.",
     shellCaption: "Meet the team that checks the factory before you do.",
     shellPoints: [
       "Buyers: send a request for a quote and get offers from matched Vietnamese suppliers.",
-      "Suppliers: create an account, then complete the company profile for Vexim to review.",
+      "Suppliers: sign up free, get verified within one working day, then list products and receive quote requests.",
       "Buyers pay nothing and contract directly with the supplier they choose.",
     ],
   },
@@ -97,18 +97,20 @@ const en = {
     metaTitle: "Create a supplier account",
     step: "Supplier · Step 1 of 2",
     title: "Create an account",
-    note: "Vexim reviews the company profile before product management and buyer requests are enabled.",
+    note: "Profiles are verified within one working day. Once approved, you list products and receive quote requests.",
     loginQuestion: "Already have an account?",
     login: "Sign in",
     buyerQuestion: "Buying?",
     sendQuoteRequest: "Send a quote request",
     noSignInNeeded: "without an account, or",
     changeType: "change the account type",
-    shellCaption: "Create a supplier account, then complete the company profile for Vexim to review.",
+    shellCaption: "Sell to international buyers",
+    shellLede: "Sign up free in a few minutes. Complete your profile and you can list products and receive quote requests.",
     shellPoints: [
-      "Step 1 creates the account, step 2 is the company profile.",
-      "Vexim reviews the profile before product management and buyer requests open.",
-      "Free under the pioneer supplier programme.",
+      "Sign up quickly with email or Google",
+      "Add your business details and upload your business licence",
+      "Your profile is verified within one working day, so buyers trust you sooner",
+      "Free for suppliers who join early",
     ],
     oauth: {
       unavailable: "Google sign-up is not configured on this domain. You can create an account with email.",
@@ -119,9 +121,9 @@ const en = {
       rate_limited: "Too many attempts. Please try again later.",
     },
     form: {
-      name: "Your full name",
       email: "Sign-in email",
-      password: "Password (8 to 128 characters, letters and numbers)",
+      password: "Password",
+      passwordHint: "8 to 128 characters, with both letters and numbers.",
       repeatPassword: "Repeat password",
       showPassword: "Show password",
       hidePassword: "Hide password",
@@ -243,6 +245,7 @@ type AuthMessages = {
     noSignInNeeded: string;
     changeType: string;
     shellCaption: string;
+    shellLede: string;
     shellPoints: readonly string[];
     oauth: {
       unavailable: string;
@@ -253,9 +256,9 @@ type AuthMessages = {
       rate_limited: string;
     };
     form: {
-      name: string;
       email: string;
       password: string;
+      passwordHint: string;
       repeatPassword: string;
       showPassword: string;
       hidePassword: string;
@@ -372,7 +375,7 @@ const vi: AuthMessages = {
     buyerTitle: "Người mua",
     buyerSummary: "Gửi yêu cầu báo giá và so sánh báo giá từ nhà cung cấp Việt Nam phù hợp. Không cần tài khoản.",
     supplierTitle: "Nhà cung cấp",
-    supplierSummary: "Tạo tài khoản, hoàn thiện hồ sơ doanh nghiệp và nhận yêu cầu từ người mua sau khi Vexim duyệt.",
+    supplierSummary: "Bán hàng cho người mua quốc tế. Đăng ký miễn phí, xác minh trong 1 ngày làm việc.",
     continue: "Tiếp tục",
     alreadyHaveAccount: "Đã có tài khoản?",
     signIn: "Đăng nhập",
@@ -380,11 +383,11 @@ const vi: AuthMessages = {
     buyerNote: "Trong lúc chờ, yêu cầu báo giá và liên kết trạng thái riêng vẫn hoạt động không cần đăng nhập.",
     supplierNoteLead: "Tài khoản nhà cung cấp",
     supplierNote:
-      "bắt đầu bằng tài khoản và bước xác nhận qua email hoặc Google. Tài khoản chỉ mở trang tổng quan và biểu mẫu hồ sơ doanh nghiệp; hồ sơ cần Vexim duyệt trước khi mở quản lý sản phẩm và nhận yêu cầu báo giá. Biểu mẫu đăng ký nhà cung cấp dùng tiếng Việt.", // copy-allow: đoạn giải thích dài, hiển thị thành khối riêng
+      "đăng ký miễn phí và được xác minh trong 1 ngày làm việc; khi hồ sơ được duyệt, bạn đăng sản phẩm và nhận yêu cầu báo giá. Hồ sơ lưu nháp được, nộp khi đã đủ giấy tờ.", // copy-allow: đoạn giải thích dài, hiển thị thành khối riêng
     shellCaption: "Gặp đội ngũ kiểm tra nhà máy trước khi bạn đặt hàng.",
     shellPoints: [
       "Người mua: gửi yêu cầu báo giá và nhận báo giá từ nhà cung cấp Việt Nam phù hợp.",
-      "Nhà cung cấp: tạo tài khoản, sau đó hoàn thiện hồ sơ doanh nghiệp để Vexim duyệt.",
+      "Nhà cung cấp: đăng ký miễn phí, xác minh trong 1 ngày làm việc, rồi đăng sản phẩm và nhận yêu cầu báo giá.",
       "Người mua không mất phí và ký hợp đồng trực tiếp với nhà cung cấp mình chọn.",
     ],
   },
@@ -392,18 +395,20 @@ const vi: AuthMessages = {
     metaTitle: "Tạo tài khoản nhà cung cấp",
     step: "Nhà cung cấp · Bước 1/2",
     title: "Tạo tài khoản",
-    note: "Hồ sơ cần Vexim duyệt trước khi mở quản lý sản phẩm và nhận yêu cầu báo giá.",
+    note: "Hồ sơ được xác minh trong 1 ngày làm việc. Ngay khi được duyệt, bạn đăng sản phẩm và nhận yêu cầu báo giá.",
     loginQuestion: "Đã có tài khoản?",
     login: "Đăng nhập",
     buyerQuestion: "Bạn là người mua?",
     sendQuoteRequest: "Gửi yêu cầu báo giá",
     noSignInNeeded: "không cần tài khoản, hoặc",
     changeType: "đổi loại tài khoản",
-    shellCaption: "Tạo tài khoản nhà cung cấp, sau đó hoàn thiện hồ sơ doanh nghiệp để Vexim duyệt.",
+    shellCaption: "Bán hàng cho người mua quốc tế",
+    shellLede: "Đăng ký miễn phí trong vài phút. Hoàn thiện hồ sơ là bạn có thể đăng sản phẩm và nhận yêu cầu báo giá.",
     shellPoints: [
-      "Bước 1 tạo tài khoản, bước 2 khai hồ sơ doanh nghiệp.",
-      "Hồ sơ cần Vexim duyệt trước khi mở quản lý sản phẩm và nhận yêu cầu báo giá.",
-      "Miễn phí trong chương trình nhà cung cấp tiên phong.",
+      "Đăng ký nhanh bằng email hoặc Google",
+      "Điền thông tin doanh nghiệp và tải giấy đăng ký kinh doanh",
+      "Hồ sơ được xác minh trong 1 ngày làm việc, giúp người mua tin tưởng bạn hơn",
+      "Miễn phí cho nhà cung cấp tham gia sớm",
     ],
     oauth: {
       unavailable: "Google OAuth chưa được cấu hình trên tên miền này. Bạn có thể tạo tài khoản bằng email.",
@@ -414,9 +419,9 @@ const vi: AuthMessages = {
       rate_limited: "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.",
     },
     form: {
-      name: "Họ tên người đăng ký",
       email: "Email đăng nhập",
-      password: "Mật khẩu (8-128 ký tự, gồm chữ và số)",
+      password: "Mật khẩu",
+      passwordHint: "8-128 ký tự, gồm cả chữ và số.",
       repeatPassword: "Nhập lại mật khẩu",
       showPassword: "Hiện mật khẩu",
       hidePassword: "Ẩn mật khẩu",

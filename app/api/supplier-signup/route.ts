@@ -50,11 +50,12 @@ export async function POST(request: Request) {
   if (String(form.get("website_hp") ?? "")) return accepted();
   if (form.get("consent") !== "yes") return fail("Vui lòng đồng ý tạo tài khoản nhà cung cấp.");
   const email = String(form.get("email") ?? "").trim().toLowerCase();
-  const name = String(form.get("name") ?? "").trim();
+  // Bước này chỉ cần email + mật khẩu: tên người liên hệ được khai ở hồ sơ doanh nghiệp,
+  // còn tài khoản tạo bằng Google đã có tên từ Google. Tài khoản để trống tên, CRM hiện email.
+  const name = "";
   const password = String(form.get("password") ?? "");
   const challengeToken = String(form.get("challenge_token") ?? "").trim();
   if (email.length > 254 || !EMAIL.test(email)) return fail("Email không hợp lệ.");
-  if (name.length < 2 || name.length > 120) return fail("Vui lòng nhập tên người đăng ký (2–120 ký tự).");
   if (password.length > 128 || passwordProblem(password)) return fail("Mật khẩu cần 8–128 ký tự, gồm cả chữ và số.");
 
   const protection = await protectPasswordAuth({ flow: "supplier-signup", headers: request.headers, email, token: challengeToken });

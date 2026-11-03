@@ -37,9 +37,10 @@ const VI = loadPortalDictionary().vi;
 const withCopy = (source, subtree) => `${source}\n${JSON.stringify(subtree)}`;
 const levelPage = withCopy(read('app/supplier/portal/verification/level-page.tsx'), VI.verification.level);
 assert.match(levelPage, /supplierLevelAccess\(level\)/, 'Quyền truy cập lấy theo đúng cấp');
-assert.match(levelPage, /getOrCreateSubmission\(store, \{ supplierId: supplier\.id, level, userId: user\.id, supplierType: supplier\.supplier_type \}\)/,
-  'Chỉ mở/tạo hồ sơ của đúng cấp');
-assert.match(levelPage, /level === 2 \? partner \? partnerSpecs\(\) : photoSpecs\(\) : exportSpecs\(\)/, 'Danh mục đi theo cấp');
+assert.match(levelPage, /getOrCreateSubmission\(store, \{ supplierId: supplier\.id, level, userId: user\.id, supplierType: supplier\.supplier_type, language: locale \}\)/,
+  'Chỉ mở/tạo hồ sơ của đúng cấp, câu lỗi theo ngôn ngữ đang chọn');
+assert.match(levelPage, /level === 2 \? partner \? partnerSpecs\(locale\) : photoSpecs\(locale\) : exportSpecs\(locale\)/, 'Danh mục đi theo cấp, nhãn từng mục theo ngôn ngữ đang chọn');
+assert.match(levelPage, /buildPortalSubmission\(bundle, \{ language: locale \}\)/, 'Hồ sơ dựng theo ngôn ngữ đang chọn');
 assert.match(levelPage, /<VerificationSubmissionPanel view=\{view\} specs=\{specs\}/, 'Bảng điều khiển dùng đúng khung cũ');
 const portalCopy = loadPortalDictionary();
 assert.match(levelPage, /could not open the self-submission file/, 'Lỗi đọc hồ sơ có log (tiếng Anh, cho log máy đọc)');

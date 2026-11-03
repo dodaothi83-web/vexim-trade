@@ -60,21 +60,18 @@ export function SupplierAccountForm({
   return (
     <form onSubmit={submit} lang={lang} className="mt-6 space-y-4">
       <label className="block text-sm">
-        <span className="mb-1 block font-semibold">{m.name}</span>
-        <input name="name" className="input" required minLength={2} maxLength={120} autoComplete="name" />
-      </label>
-      <label className="block text-sm">
         <span className="mb-1 block font-semibold">{m.email}</span>
         <input name="email" type="email" className="input" required maxLength={254} autoComplete="email" />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold">{m.password}</span>
         <span className="relative block">
-          <input name="password" type={show ? "text" : "password"} className="input pr-10" required minLength={8} maxLength={128} autoComplete="new-password" />
+          <input name="password" type={show ? "text" : "password"} className="input pr-10" required minLength={8} maxLength={128} autoComplete="new-password" aria-describedby="password-hint" />
           <button type="button" onClick={() => setShow(!show)} aria-label={show ? m.hidePassword : m.showPassword} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-500">
             {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </span>
+        <span id="password-hint" className="mt-1 block text-[11.5px] leading-snug font-normal text-ink-500">{m.passwordHint}</span>
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-semibold">{m.repeatPassword}</span>

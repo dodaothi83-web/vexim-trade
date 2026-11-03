@@ -23,6 +23,12 @@ async function actionCopy() {
   return m.verification.panel.card.actions;
 }
 
+/** Locale đang chọn, để câu lỗi lấy từ CSDL cũng nói đúng ngôn ngữ. */
+async function actionLanguage(): Promise<"en" | "vi"> {
+  const { locale } = await getPortalMessages();
+  return locale;
+}
+
 export interface SubmissionActionResult {
   ok: boolean;
   message: string;
@@ -58,6 +64,7 @@ export async function issueSubmissionCodeAction(form: FormData): Promise<Submiss
       userId: access.userId,
       userEmail: access.userEmail,
       supplierName: supplier?.name ?? "",
+      language: await actionLanguage(),
     });
     revalidate(id);
     return {
@@ -84,6 +91,7 @@ export async function saveShipmentAction(form: FormData): Promise<SubmissionActi
       shippedOn: String(form.get("shipped_on") ?? ""),
       destination: String(form.get("destination") ?? ""),
       note: String(form.get("note") ?? ""),
+      language: await actionLanguage(),
     });
     revalidate(id);
     return { ok: true, message: copy.shipmentSaved };
@@ -102,6 +110,7 @@ export async function savePartnerFactoryNameAction(form: FormData): Promise<Subm
     await savePartnerFactoryName(access.store, {
       submission: access.submission,
       partnerFactoryName: String(form.get("partner_factory_name") ?? ""),
+      language: await actionLanguage(),
     });
     revalidate(id);
     return {
@@ -125,6 +134,7 @@ export async function addSourceLinkAction(form: FormData): Promise<SubmissionAct
       url: String(form.get("url") ?? ""),
       label: String(form.get("label") ?? "") || null,
       userId: access.userId,
+      language: await actionLanguage(),
     });
     await access.store.addAuditLog({
       actor_id: access.userId, actor_email: access.userEmail,
@@ -183,6 +193,6 @@ export async function deleteSubmissionItemAction(form: FormData): Promise<Submis
     revalidate(id);
     return { ok: true, message: copy.evidenceDeleted };
   } catch (error) {
-    return { ok: false, message: submissionEvidenceErrorMessage(error) ?? (error instanceof Error ? error.message : copy.evidenceFailed) };
+    return { ok: false, message: submissionEvidenceErrorMessage(error, await actionLanguage()) ?? (error instanceof Error ? error.message : copy.evidenceFailed) };
   }
 }

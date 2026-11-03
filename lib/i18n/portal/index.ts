@@ -15,6 +15,7 @@ import { trafficMessages, type TrafficMessages } from "./traffic";
 import { storefrontMessages, type StorefrontMessages } from "./storefront";
 import { noticesMessages, type NoticesMessages } from "./notices";
 import { quantityMessages, type QuantityMessages } from "./quantity";
+import { evidenceMessages, type EvidenceMessages } from "./evidence";
 
 /**
  * Từ điển cổng nhà cung cấp, chia theo cụm để chuyển dần (giai đoạn 2).
@@ -39,6 +40,7 @@ export type PortalMessages = {
   storefront: StorefrontMessages;
   notices: NoticesMessages;
   quantity: QuantityMessages;
+  evidence: EvidenceMessages;
 };
 
 export const portalMessages: Record<Locale, PortalMessages> = {
@@ -59,6 +61,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     storefront: storefrontMessages.en,
     notices: noticesMessages.en,
     quantity: quantityMessages.en,
+    evidence: evidenceMessages.en,
   },
   vi: {
     shared: sharedMessages.vi,
@@ -77,7 +80,8 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     storefront: storefrontMessages.vi,
     notices: noticesMessages.vi,
     quantity: quantityMessages.vi,
+    evidence: evidenceMessages.vi,
   },
 };
 
-export type { SharedMessages, ShellMessages, OverviewMessages, ProfileMessages, OnboardingMessages, ProductsMessages, ProductEditorMessages, VerificationMessages, DocumentsMessages, BoostMessages, RfqsMessages, CategoriesMessages, TrafficMessages, StorefrontMessages, NoticesMessages, QuantityMessages };
+export type { SharedMessages, ShellMessages, OverviewMessages, ProfileMessages, OnboardingMessages, ProductsMessages, ProductEditorMessages, VerificationMessages, DocumentsMessages, BoostMessages, RfqsMessages, CategoriesMessages, TrafficMessages, StorefrontMessages, NoticesMessages, QuantityMessages, EvidenceMessages };

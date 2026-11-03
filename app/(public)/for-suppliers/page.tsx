@@ -59,23 +59,23 @@ export default function ForSuppliersPage() {
         <ol className="mt-5 space-y-5 text-[15px] text-ink-700">
           <StepItem
             n="1"
-            title="Create an account, then submit your company profile"
-            body="Sign up with email or Google. In your locked supplier dashboard, enter company details and upload documents for Vexim review. Account creation alone does not create or publish a supplier page."
+            title="Create your account and add company details"
+            body="Sign up with email or Google. Your dashboard stays private while you add company details and documents; an account on its own does not publish a supplier page."
           />
           <StepItem
             n="2"
-            title="Our staff reviews your documents"
-            body="Vexim separately decides when to enable your dashboard tools. Document checks, factory verification and delivery-history reviews are conducted independently by authorised staff; none passes automatically when you upload files."
+            title="Your documents are checked within 1 working day"
+            body="Authorised staff review your documents, factory records and delivery history. Each check is marked separately on your profile, and nothing is published or approved automatically when you upload a file."
           />
           <StepItem
             n="3"
-            title="Go live and receive RFQs"
-            body="Once Vexim separately approves publication and prepares buyer-ready products, published profiles can receive matched RFQs via our desk. We coordinate buyer communication and samples."
+            title="Go live and start receiving RFQs"
+            body="When your products are buyer-ready, your published profile can receive matched RFQs. Our desk coordinates buyer questions and sample requests."
           />
           <StepItem
             n="4"
-            title="Orders, introductions & follow-up"
-            body="When a buyer selects you, Vexim can coordinate an introduction and help the parties follow up. You and the buyer agree on contracts, inspection, payment and shipment directly."
+            title="You decide how far to go"
+            body="When a buyer selects you, we can introduce both sides and help them follow up. Contract, inspection, payment and shipment are agreed directly between you and the buyer."
           />
         </ol>
       </section>

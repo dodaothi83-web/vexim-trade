@@ -51,7 +51,8 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
   const { locale, intl, m } = await getPortalMessages();
   const partner = level === 2 && scope === "partner_contract";
   const copy = levelCopy(level, partner, m.verification.level);
-  const specs = level === 2 ? partner ? partnerSpecs() : photoSpecs() : exportSpecs();
+  // Nhãn từng ảnh/chứng từ là dữ liệu danh mục, phải theo ngôn ngữ đang chọn.
+  const specs = level === 2 ? partner ? partnerSpecs(locale) : photoSpecs(locale) : exportSpecs(locale);
   if (level === 2 && !scope) return <>
     <PageHeader eyebrow={m.verification.level.eyebrowL2} title={m.verification.level.unknownTypeTitle} />
     <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
@@ -61,9 +62,9 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
 
   let view: Awaited<ReturnType<typeof buildPortalSubmission>> | null = null;
   try {
-    const submission = await getOrCreateSubmission(store, { supplierId: supplier.id, level, userId: user.id, supplierType: supplier.supplier_type });
+    const submission = await getOrCreateSubmission(store, { supplierId: supplier.id, level, userId: user.id, supplierType: supplier.supplier_type, language: locale });
     const bundle = await loadSubmissionBundle(store, submission.id);
-    view = bundle ? buildPortalSubmission(bundle) : null;
+    view = bundle ? buildPortalSubmission(bundle, { language: locale }) : null;
   } catch (error) {
     // Bảng hồ sơ tự gửi chưa có trên môi trường này: báo cho NCC một câu rõ ràng
     // thay vì để trang trắng. Người vận hành đọc log để biết file migration cần chạy.

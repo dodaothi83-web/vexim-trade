@@ -12,18 +12,24 @@ import { getAuthMessages } from "@/lib/i18n/server";
  * làm gì. Ảnh chỉ để tạo bối cảnh, không phải bằng chứng: mọi khẳng định về xác minh vẫn
  * nằm ở trang /how-we-verify. Cột phải là form thuần, không nhồi đoạn văn dài vào trong.
  *
+ * Ảnh là một tấm bo góc, thụt vào so với mép trên và hai bên (kiểu Alibaba): trang không
+ * bị "dán" ảnh sát thanh địa chỉ, mà vẫn giữ được bối cảnh rộng khi cuộn.
+ *
  * Mobile: ảnh ẩn, chỉ còn logo + form, để người dùng tập trung vào việc cần làm.
  * Ngôn ngữ đọc từ cookie nên mọi chuỗi trong khung đổi cùng lúc với phần form.
  */
 export async function AuthSplitShell({
   children,
   caption,
+  lede,
   points,
   note,
 }: {
   children: ReactNode;
-  /** Một dòng mô tả ảnh, hiện đè lên ảnh ở cột trái. */
+  /** Tiêu đề trên ảnh, hiện đè lên ảnh ở cột trái. */
   caption?: string;
+  /** Một câu dẫn dưới tiêu đề: lợi ích cụ thể, không phải mô tả quy trình. */
+  lede?: string;
   points?: readonly string[];
   /**
    * Ghi chú ngắn dưới thẻ, hiện ở mọi cỡ màn hình. Dùng cho thông tin người dùng phải biết
@@ -35,8 +41,8 @@ export async function AuthSplitShell({
 
   return (
     <div className="min-h-screen bg-ink-50">
-      <div className="mx-auto grid min-h-screen max-w-6xl lg:grid-cols-2">
-        <aside aria-hidden="true" className="relative hidden overflow-hidden lg:block">
+      <div className="mx-auto grid min-h-screen max-w-6xl lg:min-h-[calc(100vh_-_4rem)] lg:grid-cols-2 lg:gap-10 lg:p-8">
+        <aside aria-hidden="true" className="relative hidden overflow-hidden rounded-3xl lg:block">
           {/* Ảnh có sẵn của site: đội Vexim dẫn người mua tham quan xưởng. */}
           <img
             src="/images/hero-scene.jpg"
@@ -54,6 +60,7 @@ export async function AuthSplitShell({
               <p className="border-l-2 border-white/60 pl-3 text-[20px] font-bold leading-snug text-white">
                 {caption ?? m.register.shellCaption}
               </p>
+              {lede && <p className="mt-2.5 pl-3 text-[13px] leading-relaxed text-white/85">{lede}</p>}
               <ul className="mt-4 space-y-1.5">
                 {(points ?? m.register.shellPoints).map((point) => (
                   <li key={point} className="text-[12.5px] leading-relaxed text-white/80">

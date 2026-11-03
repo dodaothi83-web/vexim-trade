@@ -8,6 +8,8 @@ import { deleteObject, putObject } from "@/lib/media/storage";
 import { extensionFor, sniffMime } from "@/lib/media/validate";
 import { parseExif } from "@/lib/media/exif";
 import { photoIntegrityFlags, type GpsSample } from "@/lib/media/image-integrity";
+import { fill } from "@/lib/i18n/format";
+import { evidenceMessages } from "@/lib/i18n/portal/evidence";
 import {
   MAX_AI_SUBMISSION_FILE_BYTES,
 } from "@/lib/ai/evidence-review";
@@ -60,11 +62,11 @@ export function maxBytesFor(level: 2 | 3, scope?: L2VerificationScope | null, ke
 }
 
 /** Chặn sớm theo `content-length` để không đọc body vượt hạn mức. */
-export function submissionSizeGate(level: 2 | 3, contentLength: number | null): SubmissionFileCheck {
+export function submissionSizeGate(level: 2 | 3, contentLength: number | null, language: "en" | "vi" = "vi"): SubmissionFileCheck {
   const limit = maxBytesFor(level);
   if (contentLength == null) return { ok: true };
   if (contentLength > limit + 1024 * 1024) {
-    return { ok: false, message: `Tệp vượt giới hạn ${Math.round(limit / 1024 / 1024)} MB cho bước này.` };
+    return { ok: false, message: fill(evidenceMessages[language].upload.sizeGate, { mb: Math.round(limit / 1024 / 1024) }) };
   }
   return { ok: true };
 }
@@ -74,27 +76,25 @@ export function validItemKey(level: 2 | 3, key: string, scope?: L2VerificationSc
 }
 
 /** Đọc và kiểm tra tệp ảnh/chứng từ TRƯỚC khi ghi vào kho. */
-export async function readSubmissionFile(level: 2 | 3, key: string, file: File, scope?: L2VerificationScope | null): Promise<{
+export async function readSubmissionFile(level: 2 | 3, key: string, file: File, scope?: L2VerificationScope | null,
+  language: "en" | "vi" = "vi"): Promise<{
   bytes: Uint8Array;
   mime: string;
   kind: "image" | "document";
   exif: ReturnType<typeof parseExif>;
   message?: string;
 }> {
-  if (!validItemKey(level, key, scope)) throw new Error("Mục bằng chứng không hợp lệ.");
-  if (!file.size) throw new Error("Tệp rỗng.");
+  const text = evidenceMessages[language].upload;
+  if (!validItemKey(level, key, scope)) throw new Error(text.badItem);
+  if (!file.size) throw new Error(text.emptyFile);
   const limit = maxBytesFor(level, scope, key);
-  if (file.size > limit) throw new Error(`Tệp vượt giới hạn ${Math.round(limit / 1024 / 1024)} MB.`);
+  if (file.size > limit) throw new Error(fill(text.tooLarge, { mb: Math.round(limit / 1024 / 1024) }));
   const bytes = new Uint8Array(await file.arrayBuffer());
   const mime = sniffMime(bytes);
   const allowed = allowedMimes(level, scope, key);
-  if (!mime) throw new Error(allowed.includes("application/pdf")
-    ? "Không nhận dạng được tệp. Hãy gửi ảnh JPG/PNG/WebP hoặc PDF."
-    : "Không nhận dạng được tệp. Hãy gửi ảnh JPG/PNG/WebP.");
+  if (!mime) throw new Error(allowed.includes("application/pdf") ? text.unknownFilePdf : text.unknownFileImage);
   if (!allowed.includes(mime)) {
-    throw new Error(allowed.includes("application/pdf")
-      ? `Mục này nhận ảnh JPG/PNG/WebP hoặc PDF, tệp này là ${mime}.`
-      : `Mục này chỉ nhận ảnh JPG/PNG/WebP, tệp này là ${mime}.`);
+    throw new Error(fill(allowed.includes("application/pdf") ? text.wrongTypePdf : text.wrongTypeImage, { mime }));
   }
   const exif = mime === "application/pdf" ? parseExif(new Uint8Array()) : parseExif(bytes);
   return { bytes, mime, kind: mime === "application/pdf" ? "document" : "image", exif };
@@ -149,6 +149,8 @@ export function submissionAcceptsUploads(submission: SupplierSubmission): boolea
  *  - L3 giữ tối đa ba tệp mỗi mục, không tự xoá chứng từ đã tải
  */
 export async function saveSubmissionEvidence(input: {
+  /** Ngôn ngữ để câu báo lỗi khớp giao diện đang mở; mặc định tiếng Việt cho khu nội bộ. */
+  language?: "en" | "vi";
   store: DataStore;
   submission: SupplierSubmission;
   key: string;
@@ -157,17 +159,18 @@ export async function saveSubmissionEvidence(input: {
   createdBy: string | null;
 }): Promise<{ item: SupplierSubmissionItem; media: MediaAsset; flags: SubmissionIntegrityFlag[]; replaced: number }> {
   const { store, submission, key, capture } = input;
-  if (!submissionAcceptsUploads(submission)) throw new Error("Hồ sơ đã nộp/đã xét; không thể tải thêm bằng chứng.");
+  const text = evidenceMessages[input.language ?? "vi"].upload;
+  if (!submissionAcceptsUploads(submission)) throw new Error(text.locked);
   const manual = submission.target_level === 3 || isPartnerL2(submission);
-  if (!validItemKey(submission.target_level, key, submission.l2_scope)) throw new Error("Mục bằng chứng không hợp lệ.");
+  if (!validItemKey(submission.target_level, key, submission.l2_scope)) throw new Error(text.badItem);
   if (manual) {
     const current = (await store.listSubmissionItems(submission.id)).filter((item) => item.checklist_key === key && item.media_id);
     if (current.length >= MAX_ITEMS_PER_KEY) {
-      throw new Error(`Mỗi mục giữ tối đa ${MAX_ITEMS_PER_KEY} tệp. Hãy xóa một tệp trước khi tải thêm.`);
+      throw new Error(fill(text.itemMax, { max: MAX_ITEMS_PER_KEY }));
     }
   }
 
-  const read = await readSubmissionFile(submission.target_level, key, input.file, submission.l2_scope);
+  const read = await readSubmissionFile(submission.target_level, key, input.file, submission.l2_scope, input.language);
   const previews = await derivePreviews(read.mime, read.bytes, !manual);
 
   const flags = !manual
@@ -186,7 +189,8 @@ export async function saveSubmissionEvidence(input: {
       flag: "code_missing",
       severity: "hard",
       source: "system",
-      detail: "Mục này cần tờ mã xác minh nhưng hồ sơ chưa phát hành mã. Bấm “Tạo mã xác minh”, tải tờ mã về rồi chụp lại.",
+      detail: evidenceMessages.vi.upload.codeMissingDetail,
+      detailEn: evidenceMessages.en.upload.codeMissingDetail,
     });
   }
 
@@ -238,7 +242,7 @@ export async function saveSubmissionEvidence(input: {
   try {
     // Kiểm lại trước khi thay ảnh: hồ sơ có thể vừa được nộp ở một tab khác.
     const freshBeforeReplacement = await store.getSubmission(submission.id);
-    if (!freshBeforeReplacement || !submissionAcceptsUploads(freshBeforeReplacement)) throw new Error("Hồ sơ đã nộp/đã xét; không thể tải thêm bằng chứng.");
+    if (!freshBeforeReplacement || !submissionAcceptsUploads(freshBeforeReplacement)) throw new Error(text.locked);
     // Giữ nguyên cách thay ảnh L2; L3 chỉ xoá khi NCC chủ động chọn tệp.
     if (!manual) {
       const existing = (await store.listSubmissionItems(submission.id))
@@ -254,10 +258,10 @@ export async function saveSubmissionEvidence(input: {
     // Bảo vệ trường hợp trạng thái đổi trong lúc tải. Lần kiểm thứ hai cũng
     // tránh nhận tệp thứ tư khi một tab khác vừa tải xong.
     const fresh = await store.getSubmission(submission.id);
-    if (!fresh || !submissionAcceptsUploads(fresh)) throw new Error("Hồ sơ đã nộp/đã xét; không thể tải thêm bằng chứng.");
+    if (!fresh || !submissionAcceptsUploads(fresh)) throw new Error(text.locked);
     if (manual) {
       const current = (await store.listSubmissionItems(submission.id)).filter((row) => row.checklist_key === key && row.media_id);
-      if (current.length >= MAX_ITEMS_PER_KEY) throw new Error(`Mỗi mục giữ tối đa ${MAX_ITEMS_PER_KEY} tệp. Hãy xóa một tệp trước khi tải thêm.`);
+      if (current.length >= MAX_ITEMS_PER_KEY) throw new Error(fill(text.itemMax, { max: MAX_ITEMS_PER_KEY }));
     }
     item = await store.createSubmissionItem({
       submission_id: submission.id,

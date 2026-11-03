@@ -3,6 +3,8 @@ import "server-only";
 import { isPartnerL2, l2ScopeForSupplier, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
 
 import { submissionEvidenceErrorMessage } from "@/lib/supplier-portal/submission-evidence-errors";
+import { evidenceMessages } from "@/lib/i18n/portal/evidence";
+import { fill } from "@/lib/i18n/format";
 
 import {
   AI_SUBMISSION_DEFAULT_MODEL,
@@ -77,9 +79,11 @@ export async function getOrCreateSubmission(store: DataStore, input: {
   level: 2 | 3;
   userId: string | null;
   supplierType: SupplierType | null | undefined;
+  /** Ngôn ngữ của câu trả về; mặc định tiếng Việt cho khu nội bộ. */
+  language?: "en" | "vi";
 }): Promise<SupplierSubmission> {
   const scope = input.level === 2 ? l2ScopeForSupplier(input.supplierType) : null;
-  if (input.level === 2 && !scope) throw new Error("Hồ sơ chưa có loại hình nhà cung cấp. Liên hệ nhân viên để cập nhật trước khi mở L2.");
+  if (input.level === 2 && !scope) throw new Error(evidenceMessages[input.language ?? "vi"].draft.scopeMissing);
   const existing = await store.listSubmissions(input.supplierId, input.level);
   const open = openSubmission(existing, input.level, scope);
   if (open) return open;
@@ -108,12 +112,14 @@ export async function issueCodeForSubmission(store: DataStore, input: {
   userId: string | null;
   userEmail: string | null;
   supplierName: string;
+  language?: "en" | "vi";
 }): Promise<{ code: string; issuedAt: string }> {
+  const copy = evidenceMessages[input.language ?? "vi"].draft;
   if (isPartnerL2(input.submission)) {
-    throw new Error("Hồ sơ đối tác không cần mã ảnh nhà máy.");
+    throw new Error(copy.partnerNoCode);
   }
   if (!submissionEditable(input.submission.status)) {
-    throw new Error("Hồ sơ đã nộp hoặc đã xét; không thể phát hành mã mới.");
+    throw new Error(copy.codeNotAllowed);
   }
   const code = issueVerificationCode(input.submission.target_level);
   const issuedAt = new Date().toISOString();
@@ -121,7 +127,7 @@ export async function issueCodeForSubmission(store: DataStore, input: {
     verification_code: code,
     code_issued_at: issuedAt,
   }, input.submission.status as "draft" | "returned");
-  if (!saved) throw new Error("Hồ sơ vừa thay đổi hoặc đã nộp. Hãy tải lại trang để kiểm tra.");
+  if (!saved) throw new Error(copy.codeRace);
   await store.addAuditLog({
     actor_id: input.userId, actor_email: input.userEmail,
     entity: "supplier", entity_id: input.submission.supplier_id,
@@ -139,10 +145,12 @@ export async function saveShipmentDetails(store: DataStore, input: {
   shippedOn: string | null;
   destination: string | null;
   note: string | null;
+  language?: "en" | "vi";
 }): Promise<SupplierSubmission> {
-  if (!submissionEditable(input.submission.status)) throw new Error("Hồ sơ đã nộp hoặc đã xét.");
+  const copy = evidenceMessages[input.language ?? "vi"].draft;
+  if (!submissionEditable(input.submission.status)) throw new Error(copy.locked);
   const date = input.shippedOn?.trim() ? input.shippedOn.trim() : null;
-  if (date && Number.isNaN(Date.parse(date))) throw new Error("Ngày giao hàng không hợp lệ.");
+  if (date && Number.isNaN(Date.parse(date))) throw new Error(copy.badDate);
   return store.updateSubmission(input.submission.id, {
     shipment_ref: clamp(input.shipmentRef, 120),
     shipped_on: date,
@@ -158,13 +166,15 @@ export async function saveShipmentDetails(store: DataStore, input: {
 export async function savePartnerFactoryName(store: DataStore, input: {
   submission: SupplierSubmission;
   partnerFactoryName: string | null;
+  language?: "en" | "vi";
 }): Promise<SupplierSubmission> {
-  if (!submissionEditable(input.submission.status)) throw new Error("Hồ sơ đã nộp hoặc đã xét.");
-  if (!isPartnerL2(input.submission)) throw new Error("Mục này chỉ dành cho hồ sơ xác thực nhà máy đối tác.");
+  const copy = evidenceMessages[input.language ?? "vi"].draft;
+  if (!submissionEditable(input.submission.status)) throw new Error(copy.locked);
+  if (!isPartnerL2(input.submission)) throw new Error(copy.partnerOnly);
   const name = clamp(input.partnerFactoryName, 200);
-  if (name && name.length < 2) throw new Error("Tên nhà máy đối tác quá ngắn.");
+  if (name && name.length < 2) throw new Error(copy.partnerNameShort);
   const updated = await store.updateEditableSubmission(input.submission.id, { partner_factory_name: name });
-  if (!updated) throw new Error("Hồ sơ đã nộp hoặc đã xét; không sửa được tên nhà máy đối tác.");
+  if (!updated) throw new Error(copy.partnerNameLocked);
   return updated;
 }
 
@@ -176,17 +186,20 @@ function clamp(value: string | null | undefined, max: number): string | null {
 
 /** Lưu link nguồn công khai của L3; chỉ domain allowlist mới được máy chủ quét. */
 export async function addSourceLink(store: DataStore, input: {
+  language?: "en" | "vi";
   submission: SupplierSubmission;
   url: string;
   label: string | null;
   userId: string | null;
 }): Promise<{ link: SupplierSubmissionLink; assessment: ReturnType<typeof assessSourceLink> }> {
-  if (!submissionEditable(input.submission.status)) throw new Error("Hồ sơ đã nộp hoặc đã xét.");
-  const assessment = assessSourceLink(input.url);
+  const text = evidenceMessages[input.language ?? "vi"];
+  if (!submissionEditable(input.submission.status)) throw new Error(text.draft.locked);
+  const copy = text.links;
+  const assessment = assessSourceLink(input.url, input.language ?? "vi");
   if (!assessment.ok) throw new Error(assessment.reason);
   const links = await store.listSubmissionLinks(input.submission.id);
-  if (links.length >= 8) throw new Error("Mỗi hồ sơ tối đa 8 link nguồn.");
-  if (links.some((l) => l.url === input.url.trim())) throw new Error("Link này đã được khai.");
+  if (links.length >= 8) throw new Error(copy.maxLinks);
+  if (links.some((l) => l.url === input.url.trim())) throw new Error(copy.duplicate);
   const link = await store.createSubmissionLink({
     submission_id: input.submission.id,
     url: input.url.trim(),
@@ -204,11 +217,12 @@ export async function addSourceLink(store: DataStore, input: {
  * (trang còn sống, có nhắc tên doanh nghiệp hay không) — không lưu nội dung,
  * không đi theo redirect ra ngoài allowlist, không truy cập mạng nội bộ.
  */
-export async function probeSourceLink(input: { url: string; supplierName: string }): Promise<{
+export async function probeSourceLink(input: { url: string; supplierName: string; language?: "en" | "vi" }): Promise<{
   status: "fetched" | "failed" | "blocked";
   note: string;
 }> {
-  const assessment = assessSourceLink(input.url);
+  const copy = evidenceMessages[input.language ?? "vi"].links;
+  const assessment = assessSourceLink(input.url, input.language ?? "vi");
   if (!assessment.ok || !assessment.allowed) return { status: "blocked", note: assessment.reason };
   try {
     const controller = new AbortController();
@@ -221,9 +235,9 @@ export async function probeSourceLink(input: { url: string; supplierName: string
     });
     clearTimeout(timer);
     if (response.status >= 300 && response.status < 400) {
-      return { status: "blocked", note: "Link chuyển hướng; hệ thống không tự theo redirect ra ngoài danh sách nguồn công khai." };
+      return { status: "blocked", note: copy.redirect };
     }
-    if (!response.ok) return { status: "failed", note: `Nguồn trả về HTTP ${response.status}.` };
+    if (!response.ok) return { status: "failed", note: fill(copy.httpStatus, { status: response.status }) };
     const text = (await response.text()).slice(0, 400_000);
     const title = /<title[^>]*>([^<]{0,200})<\/title>/i.exec(text)?.[1]?.trim() ?? null;
     const normalized = text.replace(/\s+/g, " ").toLowerCase();
@@ -232,13 +246,13 @@ export async function probeSourceLink(input: { url: string; supplierName: string
     return {
       status: "fetched",
       note: [
-        title ? `Tiêu đề trang: “${title.slice(0, 140)}”` : "Không đọc được tiêu đề trang",
-        mentions ? "Có thấy tên doanh nghiệp nhà cung cấp khai trên trang" : "Không thấy tên doanh nghiệp nhà cung cấp khai trên trang",
-        "Nội dung trang là dữ liệu nhà cung cấp/người khác đăng; không phải xác nhận của cơ quan nhà nước.",
+        title ? fill(copy.pageTitle, { title: title.slice(0, 140) }) : copy.noTitle,
+        mentions ? copy.nameFound : copy.nameNotFound,
+        copy.thirdParty,
       ].join(" · "),
     };
   } catch (error) {
-    return { status: "failed", note: `Không truy cập được nguồn (${error instanceof Error ? error.name : "lỗi mạng"}). Nhân viên Vexim sẽ tự mở link.` };
+    return { status: "failed", note: fill(copy.unreachable, { reason: error instanceof Error ? error.name : copy.networkError }) };
   }
 }
 
@@ -264,31 +278,35 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
   submit: boolean;
   /** Skip an optional scan when its separate rate limit is exhausted. */
   skipAi?: boolean;
+  /** Ngôn ngữ của câu trả về; mặc định tiếng Việt cho khu nội bộ. */
+  language?: "en" | "vi";
 }): Promise<SubmissionScanResult> {
   const { bundle, supplier } = input;
   const submission = bundle.submission;
+  const language = input.language ?? "vi";
+  const text = evidenceMessages[language].submit;
   const partner = isPartnerL2(submission);
-  const preCheck = readiness({ submission, items: bundle.items });
+  const preCheck = readiness({ submission, items: bundle.items, language });
   if (!l2ScopeMatchesSupplier(submission, supplier.supplier_type)) return {
     ok: false, status: submission.status, aiReview: null, reasons: [], missing: preCheck.missing, warnings: preCheck.warnings,
-    message: "Loại hình doanh nghiệp chưa rõ hoặc đã thay đổi. Liên hệ nhân viên để kiểm tra lại hồ sơ L2.",
+    message: text.scopeUnknown,
   };
   if (submission.target_level === 3 || partner) {
     // Chặn cả các caller cũ và caller server, không chỉ ẩn nút trên giao diện.
     if (!input.submit) return {
       ok: false, status: submission.status, aiReview: null, reasons: [],
       missing: preCheck.missing, warnings: preCheck.warnings,
-      message: partner ? "Hợp đồng đối tác do nhân viên kiểm tra, không quét bằng AI." : "Chứng từ L3 do nhân viên kiểm tra, không quét bằng AI.",
+      message: partner ? text.manualNoAiPartner : text.manualNoAiExport,
     };
     if (!submissionEditable(submission.status)) return {
       ok: false, status: submission.status, aiReview: null, reasons: [],
       missing: preCheck.missing, warnings: preCheck.warnings,
-      message: "Hồ sơ đã nộp hoặc đã xét. Hãy tải lại trang để xem trạng thái.",
+      message: text.lockedReload,
     };
     if (!preCheck.ready) return {
       ok: false, status: submission.status, aiReview: null, reasons: preCheck.blockers,
       missing: preCheck.missing, warnings: preCheck.warnings,
-      message: partner ? "Hãy tải hợp đồng với nhà máy đối tác trước khi nộp." : "Hãy tải ít nhất một chứng từ xuất khẩu trước khi nộp.",
+      message: partner ? text.needContract : text.needExportEvidence,
     };
     const now = new Date().toISOString();
     const beforeStatus = submission.status;
@@ -302,7 +320,7 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
         status: "pending_review", submitted_at: now, review_note: null,
       });
     } catch (error) {
-      const message = submissionEvidenceErrorMessage(error);
+      const message = submissionEvidenceErrorMessage(error, input.language);
       if (!message) throw error;
       return { ok: false, status: submission.status, aiReview: null, reasons: [message],
         missing: preCheck.missing, warnings: preCheck.warnings, message };
@@ -310,7 +328,7 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
     if (!updated) return {
       ok: false, status: (await store.getSubmission(submission.id))?.status ?? submission.status,
       aiReview: null, reasons: [], missing: [], warnings: preCheck.warnings,
-      message: "Trạng thái hồ sơ đã thay đổi. Hãy tải lại trang để xem kết quả.",
+      message: text.statusChangedReload,
     };
     // Kết quả AI cũ và cờ cũ vẫn được giữ để đối soát lịch sử, không sử dụng ở đây.
     await store.addAuditLog({
@@ -326,19 +344,19 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
     return {
       ok: true, status: updated.status, aiReview: null, reasons: [], missing: [],
       warnings: preCheck.warnings,
-      message: partner ? "Đã nộp hồ sơ. Nhân viên sẽ đối chiếu hợp đồng với nhà máy đối tác và phản hồi." : "Đã nộp hồ sơ. Nhân viên sẽ kiểm tra chứng từ và phản hồi.",
+      message: partner ? text.submittedPartner : text.submittedExport,
     };
   }
   if (input.submit && !submissionEditable(submission.status)) return {
     ok: false, status: submission.status, aiReview: null, reasons: [],
     missing: preCheck.missing, warnings: preCheck.warnings,
-    message: "Hồ sơ đã nộp hoặc đã xét. Hãy tải lại trang để xem trạng thái.",
+    message: text.lockedReload,
   };
   if (input.submit && !preCheck.ready) return {
     // No AI verdict can make the case unready: only actual required files/code.
     ok: false, status: submission.status, aiReview: null,
     reasons: preCheck.blockers, missing: preCheck.missing, warnings: preCheck.warnings,
-    message: "Chưa nộp được: hồ sơ còn thiếu mục bắt buộc hoặc thiếu mã xác minh.",
+    message: text.blocked,
   };
 
   const beforeStatus = submission.status;
@@ -351,7 +369,7 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
   let aiReview: AiSubmissionReview | null = null;
   if (!input.skipAi) {
     try {
-      const result = await runEvidenceScan({ bundle, supplier });
+      const result = await runEvidenceScan({ bundle, supplier, language });
       aiReview = result ? { ...result, evidence_snapshot: snapshot } : null;
     } catch (error) {
       console.error("[submission-scan] AI scan failed", error instanceof Error ? error.message : error);
@@ -364,22 +382,22 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
   let currentItems = await store.listSubmissionItems(submission.id);
   const changedResult = (status: SupplierSubmission["status"]): SubmissionScanResult => ({
     ok: false, status, aiReview: null, reasons: [], missing: [], warnings: [],
-    message: "Hồ sơ vừa thay đổi. Hãy tải lại trang, kiểm tra rồi thử lại.",
+    message: text.changedRetry,
   });
   if (!current || evidenceSnapshot(current, currentItems) !== snapshot || (input.submit && current.status !== beforeStatus)) {
     return changedResult(current?.status ?? beforeStatus);
   }
   const itemsAfter = aiReview
-    ? await applyAiReviewToItems(store, { ...bundle, submission: current, items: currentItems }, aiReview)
+    ? await applyAiReviewToItems(store, { ...bundle, submission: current, items: currentItems }, aiReview, language)
     : currentItems;
-  const check = readiness({ submission: current, items: itemsAfter });
+  const check = readiness({ submission: current, items: itemsAfter, language });
   if (input.submit && !check.ready) return {
     ok: false, status: current.status, aiReview: null, reasons: check.blockers,
     missing: check.missing, warnings: check.warnings,
-    message: "Chưa nộp được: hồ sơ còn thiếu mục bắt buộc hoặc thiếu mã xác minh.",
+    message: text.blocked,
   };
 
-  let findings = aiReviewFindings(aiReview, current.verification_code);
+  let findings = aiReviewFindings(aiReview, current.verification_code, language);
   let failed = failedItemLabels(aiReview, current.target_level);
   let aiSaveFailed = false;
   const flags = mergeFlags(itemsAfter.map((i) => i.flags ?? []));
@@ -409,7 +427,7 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
         ...scanPatch, status: "pending_review", submitted_at: now, review_note: null,
       }, beforeStatus as "draft" | "returned");
     } catch (error) {
-      const message = submissionEvidenceErrorMessage(error);
+      const message = submissionEvidenceErrorMessage(error, input.language);
       if (message) return { ok: false, status: current.status, aiReview: null, reasons: [message],
         missing: check.missing, warnings: check.warnings, message };
       if (!aiReview) throw error;
@@ -483,7 +501,9 @@ export async function scanAndQueueSubmission(store: DataStore, input: {
 export async function runEvidenceScan(input: {
   bundle: SubmissionBundle;
   supplier: Supplier;
+  language?: "en" | "vi";
 }): Promise<AiSubmissionReview | null> {
+  const text = evidenceMessages[input.language ?? "vi"].submit;
   // Phòng vệ cho mọi caller, kể cả khi bỏ qua scanAndQueueSubmission.
   if (input.bundle.submission.target_level === 3 || isPartnerL2(input.bundle.submission)) return null;
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -562,9 +582,7 @@ export async function runEvidenceScan(input: {
   });
   if (!response.ok) {
     console.error("[submission-ai] provider HTTP", response.status);
-    throw new Error(response.status === 429
-      ? "AI đang giới hạn lượt quét. Hãy thử lại sau vài phút."
-      : "AI chưa đọc được bằng chứng. Hồ sơ vẫn được lưu; thử quét lại sau.");
+    throw new Error(response.status === 429 ? text.rateLimited : text.unreadable);
   }
   const payload = await response.json() as Record<string, unknown>;
   const review = parseSubmissionReview(JSON.parse(readOutputText(payload)), submission.target_level, model);
@@ -579,7 +597,7 @@ export async function runEvidenceScan(input: {
     if (scannedKeys.has(key)) continue;
     review.items[key] = {
       ...item, verdict: "uncertain", reason: uploadedKeys.has(key as SupplierSubmissionItem["checklist_key"])
-        ? "AI chưa quét được ảnh này; nhân viên sẽ kiểm tra." : null,
+        ? text.notScanned : null,
       detected_text: null, code_visible: null, code_read: null, flags: [],
     };
   }
@@ -587,7 +605,8 @@ export async function runEvidenceScan(input: {
 }
 
 /** Ghi kết quả AI xuống từng mục và đối chiếu mã viết tay với mã đã phát hành. */
-async function applyAiReviewToItems(store: DataStore, bundle: SubmissionBundle, review: AiSubmissionReview): Promise<SupplierSubmissionItem[]> {
+async function applyAiReviewToItems(store: DataStore, bundle: SubmissionBundle, review: AiSubmissionReview,
+  language: "en" | "vi" = "vi"): Promise<SupplierSubmissionItem[]> {
   const submission = bundle.submission;
   const out: SupplierSubmissionItem[] = [];
   for (const item of bundle.items) {
@@ -609,8 +628,11 @@ async function applyAiReviewToItems(store: DataStore, bundle: SubmissionBundle, 
           severity: "warning",
           source: "ai",
           detail: matches === false
-            ? `AI đọc được “${(verdict.code_read ?? "").slice(0, 24)}” nhưng không khớp mã hệ thống phát hành.`
-            : "AI không thấy tờ giấy viết tay mã xác minh trong ảnh bắt buộc.",
+            ? fill(evidenceMessages.vi.submit.codeMismatch, { code: (verdict.code_read ?? "").slice(0, 24) })
+            : evidenceMessages.vi.submit.codeAbsent,
+          detailEn: matches === false
+            ? fill(evidenceMessages.en.submit.codeMismatch, { code: (verdict.code_read ?? "").slice(0, 24) })
+            : evidenceMessages.en.submit.codeAbsent,
         });
       }
     }

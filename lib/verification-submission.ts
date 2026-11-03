@@ -13,6 +13,8 @@ import {
   type SupplierSubmission,
   type SupplierSubmissionItem,
 } from "@/lib/types";
+import { fill } from "@/lib/i18n/format";
+import { evidenceMessages } from "@/lib/i18n/portal/evidence";
 
 /**
  * Luật của cổng NHÀ CUNG CẤP TỰ GỬI bằng chứng L2 (nhà máy) / L3 (lịch sử xuất khẩu).
@@ -112,10 +114,17 @@ export function submissionItemKeys(level: 2 | 3, scope?: L2VerificationScope | n
   return level === 2 ? scope === "partner_contract" ? L2_PARTNER_ITEMS.map((i) => i.key) : [...requiredPhotoKeys()] : L3_EXPORT_ITEMS.map((i) => i.key);
 }
 
-export function submissionItemLabel(level: 2 | 3, key: string): string {
-  if (level === 3 && key === "any_export_evidence") return "Ít nhất một chứng từ xuất khẩu";
-  if (level === 2) return L2_PARTNER_ITEMS.find((i) => i.key === key)?.label ?? L2_FACTORY_PHOTO_ITEMS.find((i) => i.key === key)?.label ?? key;
-  return L3_EXPORT_ITEMS.find((i) => i.key === key)?.label ?? key;
+/**
+ * Nhãn một mục bằng chứng. Mặc định tiếng Việt để CRM giữ nguyên; cổng NCC truyền ngôn ngữ
+ * người đang xem vì nhãn này hiện ngay trên ô tải ảnh.
+ */
+export function submissionItemLabel(level: 2 | 3, key: string, language: "en" | "vi" = "vi"): string {
+  const english = language === "en";
+  if (level === 3 && key === "any_export_evidence") return evidenceMessages[language].itemLabels.anyExportEvidence;
+  if (level === 2) return (english
+    ? L2_PARTNER_ITEMS.find((i) => i.key === key)?.labelEn ?? L2_FACTORY_PHOTO_ITEMS.find((i) => i.key === key)?.labelEn
+    : L2_PARTNER_ITEMS.find((i) => i.key === key)?.label ?? L2_FACTORY_PHOTO_ITEMS.find((i) => i.key === key)?.label) ?? key;
+  return (english ? L3_EXPORT_ITEMS.find((i) => i.key === key)?.labelEn : L3_EXPORT_ITEMS.find((i) => i.key === key)?.label) ?? key;
 }
 
 export function submissionItemRequirement(key: string): string | null {
@@ -146,28 +155,29 @@ export function aiReviewMayBeOutdated(submission: SupplierSubmission, items: Sup
 }
 
 /** Findings are suggestions for a person, never a reason to return or block a case. */
-export function aiReviewFindings(review: AiSubmissionReview | null, issuedCode: string | null): string[] {
+export function aiReviewFindings(review: AiSubmissionReview | null, issuedCode: string | null, language: "en" | "vi" = "vi"): string[] {
   if (!review) return [];
+  const copy = evidenceMessages[language].findings;
   const findings: string[] = [];
   for (const [key, item] of Object.entries(review.items ?? {})) {
     if (!item || typeof item !== "object") continue;
     const details: string[] = [];
     const flags = Array.isArray(item.flags) ? item.flags : [];
     if (item.verdict === "fail" || (item.verdict === "uncertain" && Boolean(item.reason)) || flags.includes("content_mismatch")) {
-      details.push(item.reason || "Ảnh có thể chưa phù hợp với mục này.");
+      details.push(item.reason || copy.mismatchFallback);
     }
     if (requiresHandwrittenCode(key)) {
       const mismatch = codeMatches(issuedCode, item.code_read) === false || flags.includes("code_mismatch");
       const missing = item.code_visible === false || flags.includes("code_missing");
-      if (mismatch) details.push("AI đọc mã có thể không khớp mã đã phát hành.");
-      else if (missing) details.push("AI chưa thấy tờ mã trong ảnh.");
+      if (mismatch) details.push(copy.codeMismatch);
+      else if (missing) details.push(copy.codeMissing);
     }
-    if (details.length) findings.push(`${submissionItemLabel(2, key)}: ${[...new Set(details)].join(" ")}`);
+    if (details.length) findings.push(`${submissionItemLabel(2, key, language)}: ${[...new Set(details)].join(" ")}`);
   }
   if (review.unscanned_extra_count && Number.isInteger(review.unscanned_extra_count) && review.unscanned_extra_count > 0) {
-    findings.push(`AI chưa quét thêm ${review.unscanned_extra_count} ảnh; nhân viên sẽ kiểm tra.`);
+    findings.push(fill(copy.unscannedExtra, { count: review.unscanned_extra_count }));
   }
-  if (review.manipulation_suspected) findings.push("AI nghi ngờ ảnh bị chỉnh sửa hoặc dàn dựng.");
+  if (review.manipulation_suspected) findings.push(copy.manipulation);
   return findings;
 }
 
@@ -196,31 +206,35 @@ export function readiness(input: {
     Partial<Pick<SupplierSubmission, "partner_factory_name">>;
   items: (Pick<SupplierSubmissionItem, "checklist_key" | "media_id" | "flags"> & Partial<Pick<SupplierSubmissionItem, "storage_path">>)[];
   now?: Date;
+  language?: "en" | "vi";
 }): { ready: boolean; missing: string[]; blockers: string[]; warnings: string[] } {
   const { submission, items } = input;
+  const language = input.language ?? "vi";
+  const text = evidenceMessages[language].readiness;
+  const label = (key: string) => submissionItemLabel(submission.target_level, key, language);
   const factory = submission.target_level === 2 && submission.l2_scope !== "partner_contract";
-  const missing = missingKeys(submission, items).map((key) => submissionItemLabel(submission.target_level, key));
+  const missing = missingKeys(submission, items).map(label);
   /** `structural` = thiếu mục/thiếu mã: chặn nộp. Cờ liêm chính chỉ cảnh báo. */
   const structural: string[] = [];
   const warnings: string[] = [];
   if (factory && !submission.verification_code) {
-    structural.push("Chưa tạo mã xác minh. Bấm “Tạo mã xác minh”, in/viết tay mã lên giấy rồi chụp cùng các ảnh có đánh dấu 🔖.");
+    structural.push(text.noCode);
   }
   if (factory && codeExpired(submission, input.now)) {
-    structural.push(`Mã xác minh đã quá ${VERIFICATION_CODE_TTL_HOURS} giờ. Hãy tạo mã mới và chụp lại các ảnh 🔖.`);
+    structural.push(fill(text.codeExpired, { hours: VERIFICATION_CODE_TTL_HOURS }));
   }
   if (factory && submission.verification_code && (!submission.code_issued_at || Number.isNaN(Date.parse(submission.code_issued_at)))) {
-    structural.push("Không xác định được thời điểm phát hành mã. Hãy tạo mã mới và chụp lại các ảnh 🔖.");
+    structural.push(text.codeIssuedUnknown);
   }
   // L2 đối tác: phải khai đúng tên nhà máy trên hợp đồng, vì giấy chứng nhận sau này
   // chỉ được đối chiếu với chính tên đó.
   if (submission.target_level === 2 && submission.l2_scope === "partner_contract" &&
       !String(submission.partner_factory_name ?? "").trim()) {
-    structural.push("Chưa khai tên nhà máy đối tác ghi trên hợp đồng.");
+    structural.push(text.partnerNameMissing);
   }
-  if (missing.length) structural.push(`Còn thiếu ${missing.length} mục bắt buộc: ${missing.join("; ")}.`);
+  if (missing.length) structural.push(fill(text.missingItems, { count: missing.length, list: missing.join("; ") }));
   const withMedia = items.filter((i) => i.media_id);
-  if (!withMedia.length) structural.push("Chưa có bằng chứng nào được tải lên.");
+  if (!withMedia.length) structural.push(text.noEvidence);
 
   // A system flag can identify an image uploaded before any code was issued.
   // AI reading a missing/wrong code, including an old `hard` flag, is only a
@@ -229,11 +243,9 @@ export function readiness(input: {
     const codeProblems = withMedia
       .filter((i) => requiresHandwrittenCode(i.checklist_key))
       .filter((i) => (i.flags ?? []).some((f) => f.source !== "ai" && f.severity === "hard" && (f.flag === "code_missing" || f.flag === "code_mismatch")))
-      .map((i) => submissionItemLabel(2, i.checklist_key));
+      .map((i) => label(i.checklist_key));
     if (codeProblems.length) {
-      structural.push(
-        `Tờ mã xác minh chưa đúng ở: ${codeProblems.join("; ")}. In hoặc chép tờ mã ra giấy, đặt cạnh cảnh rồi chụp lại; mã trong ảnh phải khớp mã ${submission.verification_code}.`,
-      );
+      structural.push(fill(text.codeProblems, { list: codeProblems.join("; "), code: submission.verification_code ?? "" }));
     }
   }
 
@@ -245,8 +257,8 @@ export function readiness(input: {
       // Structural code flags are already explained above; all other historic
       // EXIF/GPS/time flags, even if marked hard, are notes rather than gates.
       if (factory && requiresHandwrittenCode(item.checklist_key) && flag.source !== "ai" && flag.severity === "hard" && (flag.flag === "code_missing" || flag.flag === "code_mismatch")) continue;
-      const text = `${flag.source === "ai" ? "AI lưu ý · " : ""}${submissionItemLabel(submission.target_level, item.checklist_key)}: ${flag.detail ?? flag.flag}`;
-      warnings.push(text);
+      const flagDetail = language === "en" ? flag.detailEn ?? flag.detail : flag.detail;
+      warnings.push(`${flag.source === "ai" ? text.aiWarningPrefix : ""}${label(item.checklist_key)}: ${flagDetail ?? flag.flag}`);
     }
   }
   return {
@@ -296,18 +308,19 @@ export interface SourceLinkAssessment {
 }
 
 /** Kiểm tra link NCC khai: giao thức công khai + domain; không bao giờ theo redirect lạ. */
-export function assessSourceLink(raw: string): SourceLinkAssessment {
+export function assessSourceLink(raw: string, language: "en" | "vi" = "vi"): SourceLinkAssessment {
+  const copy = evidenceMessages[language].links;
   const text = (raw ?? "").trim();
-  if (!text) return { ok: false, hostname: null, allowed: false, reason: "Link trống." };
-  if (text.length > 800) return { ok: false, hostname: null, allowed: false, reason: "Link quá dài." };
+  if (!text) return { ok: false, hostname: null, allowed: false, reason: copy.empty };
+  if (text.length > 800) return { ok: false, hostname: null, allowed: false, reason: copy.tooLong };
   let url: URL;
   try {
     url = new URL(text);
   } catch {
-    return { ok: false, hostname: null, allowed: false, reason: "Link không hợp lệ." };
+    return { ok: false, hostname: null, allowed: false, reason: copy.invalid };
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") {
-    return { ok: false, hostname: url.hostname, allowed: false, reason: "Chỉ nhận link http/https." };
+    return { ok: false, hostname: url.hostname, allowed: false, reason: copy.scheme };
   }
   const hostname = url.hostname.toLowerCase().replace(/^\[[^\]]+\]$/, "");
   // Chặn dứt khoát địa chỉ riêng / nội bộ dù ai đó thêm vào allowlist.
@@ -315,19 +328,17 @@ export function assessSourceLink(raw: string): SourceLinkAssessment {
       /^127\./.test(hostname) || /^10\./.test(hostname) || /^192\.168\./.test(hostname) ||
       /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) || /^169\.254\./.test(hostname) ||
       /^0\./.test(hostname) || hostname.includes("::")) {
-    return { ok: false, hostname, allowed: false, reason: "Không nhận địa chỉ nội bộ/máy cục bộ." };
+    return { ok: false, hostname, allowed: false, reason: copy.local };
   }
   if (/(?:^|\.)(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
-    return { ok: false, hostname, allowed: false, reason: "Không nhận link dạng địa chỉ IP." };
+    return { ok: false, hostname, allowed: false, reason: copy.ip };
   }
   const allowed = PUBLIC_SOURCE_ALLOWLIST.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
   return {
     ok: true,
     hostname,
     allowed,
-    reason: allowed
-      ? "Nguồn công khai được phép quét tự động."
-      : `Domain chưa nằm trong danh sách nguồn công khai của Vexim; link được lưu để nhân viên tự mở và đối chiếu.`,
+    reason: allowed ? copy.allowed : copy.notListed,
   };
 }
 

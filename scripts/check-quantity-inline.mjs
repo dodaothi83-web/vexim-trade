@@ -8,6 +8,9 @@ import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as pricing from '../lib/products/quantity-pricing.ts';
 import * as priceDisplay from '../lib/products/price-display.ts';
+// Hai component giá theo bậc lấy từ điển làm mặc định cho khu CRM; VM chỉ cần đúng hình dạng
+// khoá mà component đọc, không cần nội dung câu chữ.
+import { productEditorMessages } from '../lib/i18n/portal/product-editor.ts';
 function compile(path, mocks) {
  const exports = {};
  const code = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -16,14 +19,18 @@ function compile(path, mocks) {
 }
 const lucide = new Proxy({}, { get: (_target, name) => (props) => React.createElement('svg', { 'data-icon': String(name), ...props }) });
 const previewStore = { publishQuantityPreview() {} };
-const editor = compile('../components/products/quantity-pricing-editor.tsx', { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing, '@/lib/products/price-display': priceDisplay });
+const editor = compile('../components/products/quantity-pricing-editor.tsx', { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing, '@/lib/products/price-display': priceDisplay,
+ '@/lib/i18n/portal/product-editor': { productEditorMessages }, '@/lib/i18n/format': { fill: (t, v) => String(t).replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m)) } });
 const inline = compile('../components/products/quantity-pricing-inline.tsx', { react: React, 'react/jsx-runtime': jsx,
  'next/navigation': { useRouter: () => ({ refresh() {} }) }, '@/components/products/quantity-pricing-editor': editor,
  '@/components/products/quantity-preview-store': previewStore,
  '@/components/products/quantity-preview-store': previewStore,
- '@/lib/products/quantity-pricing': pricing, '@/app/supplier/portal/quantity-revision-actions': {}, '@/app/crm/products/quantity-review/submit-actions': {},
+ '@/lib/products/quantity-pricing': pricing, '@/lib/i18n/portal/product-editor': { productEditorMessages },
+ '@/lib/i18n/format': { fill: (t, v) => String(t).replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m)) },
+ '@/app/supplier/portal/quantity-revision-actions': {}, '@/app/crm/products/quantity-review/submit-actions': {},
  '@/app/crm/products/[slug]/edit/price-actions': {} });
-const data = { productId: 'p', updatedAt: '2026-10-29', nameVi: 'Nhân điều', nameEn: 'Cashew', pendingPriceId: 'pending', pendingNameId: null,
+const data = { messages: productEditorMessages.vi.quantityPage, shared: productEditorMessages.vi.shared, lang: 'vi',
+ productId: 'p', updatedAt: '2026-10-29', nameVi: 'Nhân điều', nameEn: 'Cashew', pendingPriceId: 'pending', pendingNameId: null,
  hasApprovedPrice: true, hasApprovedName: false, grade: 'W320', incoterm: 'FOB', tiers: [{ minKg: '1000', priceUsdPerKg: '6.40' }],
  standardGrades: ['W320'], policy: pricing.DEFAULT_QUANTITY_PRICING_POLICY, buyerPriceUnit: 'kg', pricePubliclyVisible: true };
 const render = (props) => renderToStaticMarkup(React.createElement('form', { id: 'parent' }, React.createElement(inline.QuantityPricingInline, { data, ...props })));
@@ -51,7 +58,7 @@ assert.doesNotMatch(supplier, /Chốt giá thay nhà cung cấp/);
 const staffView = render({ actor: 'staff' });
 assert.match(staffView, /Chốt giá thay nhà cung cấp/, 'Vexim chốt giá được ngay trên trang duyệt');
 assert.match(staffView, /Gửi vào hàng chờ duyệt/, 'Vẫn giữ đường gửi vào hàng chờ duyệt');
-assert.match(staffView, /giá áp dụng ngay cho người mua/);
+assert.match(staffView, /Giá được duyệt là áp dụng ngay cho người mua/);
 const sidebarPreview = renderToStaticMarkup(React.createElement(React.Fragment, null,
   React.createElement('form', null, React.createElement(inline.QuantityPricingInline, { data, actor: 'supplier', onPreviewChange() {} })),
   React.createElement(editor.QuantityBuyerPreview, { value: { grade: 'W320', incoterm: 'FOB', nameVi: 'Nhân điều', nameEn: 'Cashew', tiers: data.tiers },

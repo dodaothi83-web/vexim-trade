@@ -316,6 +316,10 @@ assert.doesNotMatch(questionUi, /label="Quantity"|label="Destination"/);
 assert.doesNotMatch(questionUi, /—/);
 assert.match(status, /function questionStatusInfo/);
 assert.match(status, /Supplier replies go to your email and are not shown here/);
+// Người mua tự ký hợp đồng và tự thanh toán: trạng thái sau khi chọn nhà cung cấp không được
+// nói Vexim nhận đơn hay điều phối sản xuất/vận chuyển (trái Điều khoản sử dụng).
+assert.doesNotMatch(status, /Order confirmed|coordinate production and shipment/);
+assert.match(status, /agreed directly between you and the supplier/);
 assert.match(crm, /canManageRfq && !isSupplierQuestion/);
 assert.match(crmList, /Câu hỏi nhà cung cấp/);
 assert.match(crmList, /return !isSupplierQuestion\(rfq\) && rfq\.status === tab/);

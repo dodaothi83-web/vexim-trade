@@ -45,8 +45,8 @@ function statusInfo(status: string) {
       return {
         tone: "bg-emerald-50 text-emerald-800 ring-emerald-200",
         dot: "bg-emerald-500",
-        title: "Order confirmed",
-        body: "Your order has been confirmed with the chosen supplier. We will coordinate production and shipment.",
+        title: "Supplier selected",
+        body: "You chose a supplier and, with your approval, we passed your details on. Contract, payment and shipment are agreed directly between you and the supplier.",
         icon: CheckCircle2,
       };
     case "lost":

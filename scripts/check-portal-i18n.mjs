@@ -272,7 +272,7 @@ assert.doesNotMatch(sidebar, /label: "Tổng quan"/, "nhãn menu không còn vi�
 const levelPage = read("app/supplier/portal/verification/level-page.tsx");
 assert.match(levelPage, /const \{ locale, intl, m \} = await getPortalMessages\(\)/, "Khung L2/L3 đọc từ điển một lần");
 assert.match(levelPage, /<VerificationSubmissionPanel[\s\S]{0,400}?intl=\{intl\} lang=\{locale\}/, "Bảng điều khiển nhận ngôn ngữ để in ngày giờ và tờ mã");
-assert.match(levelPage, /buildPortalSubmission\(bundle\)/, "Hồ sơ L2/L3 dựng từ dữ liệu danh mục");
+assert.match(levelPage, /buildPortalSubmission\(bundle, \{ language: locale \}\)/, "Hồ sơ L2/L3 dựng từ dữ liệu danh mục, nhãn mục theo ngôn ngữ đang chọn");
 const panel = read("app/supplier/portal/verification/verification-panel.tsx");
 assert.match(panel, /<html lang="\$\{lang\}"/, "Tờ mã in ra khai đúng ngôn ngữ");
 assert.doesNotMatch(panel, /toLocaleString\("vi-VN"/, "Bảng điều khiển không khoá cứng vi-VN");
@@ -284,6 +284,18 @@ assert.match(documentsPage, /supplierCertificateNote\(original, undefined, local
 const submissionActions = read("app/supplier/portal/verification/submission-actions.ts");
 assert.match(submissionActions, /getPortalMessages\(\)/, "Thông báo của server action xác minh theo ngôn ngữ đang chọn");
 assert.doesNotMatch(submissionActions, /message: "/, "Không trả thông báo viết cứng từ server action xác minh");
+// Giai đoạn 2: câu do server viết trong luồng tải/nộp bằng chứng L2/L3 cũng theo ngôn ngữ.
+const evidenceSource = read("lib/verification-submission-service.ts");
+assert.match(evidenceSource, /evidenceMessages\[input\.language \?\? "vi"\]\.draft/, "Lỗi phát hành mã / lưu lô hàng lấy từ từ điển, mặc định tiếng Việt");
+assert.doesNotMatch(evidenceSource, /throw new Error\("Hồ sơ đã nộp hoặc đã xét\."\)/, "Không còn câu khoá hồ sơ viết cứng");
+// Cổng NCC không được hứa "vài ngày làm việc" khi màn đăng ký đã hứa "1 ngày làm việc".
+const onboardingCopy = read("lib/i18n/portal/onboarding.ts");
+assert.match(onboardingCopy, /usually within 1 working day/);
+assert.doesNotMatch(onboardingCopy, /a few working days|vài ngày làm việc/);
+const uploadRoute = read("app/api/supplier-portal/submissions/[id]/upload/route.ts");
+assert.match(uploadRoute, /getLocale\(\)/, "Route tải bằng chứng đọc ngôn ngữ đang chọn");
+const aiScanRoute = read("app/api/supplier-portal/submissions/[id]/ai-scan/route.ts");
+assert.match(aiScanRoute, /scanAndQueueSubmission\([\s\S]{0,400}?language\b/, "Kết quả quét AI trả về theo ngôn ngữ đang chọn");
 const boostPage = read("app/supplier/portal/boost/page.tsx");
 assert.match(boostPage, /const \{ intl, m \} = await getPortalMessages\(\)/, "Trang đẩy sản phẩm đọc từ điển một lần");
 assert.doesNotMatch(boostPage, /toLocaleString\("vi-VN"/, "Trang đẩy sản phẩm không khoá cứng vi-VN");

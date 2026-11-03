@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { supplierLevelAccess } from "@/lib/supplier-portal/submission-access";
 import { getOrCreateSubmission, loadSubmissionBundle } from "@/lib/verification-submission-service";
 import { readiness } from "@/lib/verification-submission";
+import { getLocale } from "@/lib/i18n/server";
+import { evidenceMessages } from "@/lib/i18n/portal/evidence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +12,7 @@ export const dynamic = "force-dynamic";
 /** Danh sách hồ sơ tự gửi của chính doanh nghiệp đang đăng nhập. */
 export async function GET() {
   const access = await supplierLevelAccess(2);
-  if (!access) return NextResponse.json({ ok: false, message: "Tài khoản nhà cung cấp chưa được Vexim mở quyền." }, { status: 403 });
+  if (!access) return NextResponse.json({ ok: false, message: evidenceMessages[await getLocale()].submit.supplierMissing }, { status: 403 });
   const submissions = await access.store.listSubmissions(access.supplier.id);
   return NextResponse.json({
     ok: true,
@@ -29,19 +31,21 @@ export async function POST(request: Request) {
   let body: { level?: unknown };
   try { body = await request.json() as { level?: unknown }; } catch { body = {}; }
   const level = Number(body.level) === 3 ? 3 : 2;
+  const language = await getLocale();
+  const text = evidenceMessages[language].submit;
   const access = await supplierLevelAccess(level);
-  if (!access) return NextResponse.json({ ok: false, message: "Tài khoản nhà cung cấp chưa được Vexim mở quyền." }, { status: 403 });
+  if (!access) return NextResponse.json({ ok: false, message: text.supplierMissing }, { status: 403 });
   try {
     const submission = await getOrCreateSubmission(access.store, {
-      supplierId: access.supplier.id, level, userId: access.user.id, supplierType: access.supplier.supplier_type,
+      supplierId: access.supplier.id, level, userId: access.user.id, supplierType: access.supplier.supplier_type, language,
     });
     const bundle = await loadSubmissionBundle(access.store, submission.id);
-    if (!bundle) return NextResponse.json({ ok: false, message: "Không mở được hồ sơ." }, { status: 500 });
-    const check = readiness({ submission: bundle.submission, items: bundle.items });
+    if (!bundle) return NextResponse.json({ ok: false, message: evidenceMessages[language].upload.noAccess }, { status: 500 });
+    const check = readiness({ submission: bundle.submission, items: bundle.items, language });
     return NextResponse.json({ ok: true, submission: bundle.submission, readiness: check }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[submissions] không tạo được hồ sơ", error);
-    const message = error instanceof Error && error.message.includes("chưa có loại hình") ? error.message : "Chưa mở được hồ sơ. Báo người phụ trách kỹ thuật rồi thử lại.";
+    const message = error instanceof Error && error.message === evidenceMessages.vi.draft.scopeMissing ? error.message : evidenceMessages[language].upload.noAccessFallback;
     return NextResponse.json({ ok: false, message }, { status: 503 });
   }
 }

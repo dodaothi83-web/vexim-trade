@@ -74,13 +74,25 @@ assert.doesNotMatch(loginPage, /Tạo tài khoản nhà cung cấp/);
 
 // 3. Approval note moved to supplier registration & post-login portal overview
 const registerPage = read("app/(auth)/supplier/register/page.tsx");
-assert.match(vi.supplierRegister.note, /cần Vexim duyệt/);
+// Văn phong: nói việc xem hồ sơ diễn ra nhanh, không lấy tên thương hiệu làm trọng tâm câu.
+// Thời gian xác minh phải nói thật (1 ngày làm việc) chứ không hứa "vài phút".
+assert.match(vi.supplierRegister.note, /xác minh trong 1 ngày làm việc/);
+assert.match(vi.supplierRegister.shellPoints.join(" "), /xác minh trong 1 ngày làm việc/);
+assert.doesNotMatch(vi.supplierRegister.shellLede, /duyệt trong vài phút|xác minh trong vài phút/);
+for (const text of [vi.supplierRegister.note, vi.supplierRegister.shellCaption, ...vi.supplierRegister.shellPoints, vi.register.supplierSummary]) {
+  assert.doesNotMatch(text, /Vexim duyệt|để Vexim|cho Vexim/, `Câu đăng ký không nhắc Vexim như người duyệt: ${text}`);
+}
 assert.match(registerPage, /note=\{copy\.note\}/, "Ghi chú duyệt hồ sơ hiện dưới thẻ của trang đăng ký");
 {
-  // Câu "chờ Vexim duyệt" nay nằm trong từ điển cổng; trang chỉ nội suy tên doanh nghiệp.
+  // Trạng thái chờ duyệt nằm trong từ điển cổng; trang chỉ nội suy tên doanh nghiệp.
+  // Câu chữ nói việc của chính NCC ("hồ sơ đang chờ duyệt"), không lấy tên thương hiệu
+  // làm chủ ngữ của việc duyệt — cùng chuẩn với màn đăng ký.
   const { loadPortalDictionary } = await import("./lib/portal-dictionary.mjs");
   const portalCopy = loadPortalDictionary();
-  assert.match(portalCopy.vi.overview.pending.body, /Vexim duyệt hồ sơ/);
+  assert.match(portalCopy.vi.overview.pending.body, /đang chờ duyệt/);
+  for (const text of [portalCopy.vi.overview.pending.title, portalCopy.vi.overview.pending.body, portalCopy.en.overview.pending.title]) {
+    assert.doesNotMatch(text, /Vexim duyệt|Vexim review|waiting for Vexim|chờ Vexim/i, `Câu chờ duyệt không nhắc Vexim như người duyệt: ${text}`);
+  }
   assert.match(read("app/supplier/portal/page.tsx"), /copy\.pending\.body/);
 }
 
