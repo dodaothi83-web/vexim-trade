@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { RfqForm } from "./rfq-form";
 import { Breadcrumbs } from "@/components/ui";
@@ -44,7 +45,7 @@ export default async function RfqPage({
     // Dùng tên ngắn (tên hiển thị → tên thương mại → pháp nhân đã hạ kiểu chữ),
     // không bày tên pháp lý viết hoa toàn bộ lên đầu form.
     .map((s) => ({ id: s.id, name: supplierShortName({ name: s.name, trade_name: s.trade_name, display_name: s.display_name }) }));
-  const isQuestion = sp?.intent === "question" && supplierIds.length === 1 && initialSuppliers.length === 1 && Boolean(sp?.product_id);
+
   // Thẻ "You are asking about" chỉ có khi sản phẩm đã qua cổng công bố và đúng nhà cung
   // cấp; mọi trường hợp khác trả null để form quay về trạng thái vào từ menu.
   const contextProduct = await loadRfqProductContext({
@@ -53,21 +54,27 @@ export default async function RfqPage({
     productId: sp?.product_id ?? null,
   }).catch(() => null);
 
+  // Old question links now open the product modal, never a separate question page.
+  if (sp?.intent === "question") {
+    if (contextProduct && sp.category && sp.product_id) {
+      redirect(`/products/${encodeURIComponent(sp.category)}/${encodeURIComponent(sp.product_id)}?ask=1`);
+    }
+    redirect("/rfq");
+  }
+
   return (
     <div className="mx-auto max-w-[1120px] px-5 py-10 sm:px-6 lg:px-8">
       <Breadcrumbs
         items={[
           { label: "Home", href: "/" },
-          { label: isQuestion ? "Ask supplier" : "Request a quote" },
+          { label: "Request a quote" },
         ]}
       />
       <h1 className="mt-4 text-[34px] font-bold leading-tight tracking-tight text-ink-900 sm:text-[44px]">
-        {isQuestion ? "Ask the supplier" : "Request a quote"}
+        Request a quote
       </h1>
       <p className="mt-3 max-w-2xl text-[15.5px] leading-relaxed text-ink-700">
-        {isQuestion
-          ? `Send your product question directly to ${initialSuppliers[0].name}. They can reply to your email.`
-          : "Tell us what you need: grade, volume, destination and timeline."}
+        Tell us what you need: grade, volume, destination and timeline.
       </p>
 
       <RfqForm
@@ -89,17 +96,15 @@ export default async function RfqPage({
         initialSupplierIds={supplierIds}
         initialSuppliers={initialSuppliers}
         wantsSamples={sp?.sample === "1"}
-        mode={isQuestion ? "question" : "quote"}
+        mode="quote"
         contextProduct={contextProduct}
       />
 
       <p className="mt-6 text-[12.5px] leading-relaxed text-ink-500">
-        {isQuestion ? <>
-          By submitting, you agree to share your name, company, email and question with the selected supplier so they can reply directly. Vexim processes this information to deliver and support the enquiry. Read our <Link href="/privacy-policy" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and <Link href="/terms-of-service" className="font-semibold text-brand-700 underline">Terms of Service</Link>.
-        </> : <>
+
           By submitting, you acknowledge our <Link href="/privacy-policy" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and agree to our <Link href="/terms-of-service" className="font-semibold text-brand-700 underline">Terms of Service</Link>. We share your request only with the suppliers we contact about it,
           and your email/phone/company are <strong>not</strong> disclosed to suppliers until you approve an introduction.
-        </>}
+
       </p>
     </div>
   );

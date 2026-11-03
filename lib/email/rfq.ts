@@ -1,3 +1,4 @@
+import brandColors from "@/lib/brand/colors.json";
 /**
  * Email templates cho luồng RFQ (GĐ2):
  *   - rfqAckBuyer: xác nhận cho buyer kèm link theo dõi trạng thái.
@@ -47,11 +48,11 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
     has been received by our Hanoi export desk and is being reviewed.</p>
     <p><strong>Quick summary of what you shared:</strong></p>
     <table cellpadding="6" style="border-collapse:collapse;font-size:14px;">
-      <tr><td style="color:#64748b;width:140px;">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
-      <tr><td style="color:#64748b;">Quantity</td><td>${escapeHtml(formatQuantity(rfq))}</td></tr>
-      <tr><td style="color:#64748b;">Destination</td><td>${escapeHtml(rfq.destination_country ?? "Not provided")}</td></tr>
-      <tr><td style="color:#64748b;">Incoterm</td><td>${escapeHtml(rfq.incoterm ?? "Not provided")}</td></tr>
-      <tr><td style="color:#64748b;">Needed by</td><td>${escapeHtml(rfq.needed_by ?? "Not provided")}</td></tr>
+      <tr><td style="color:${brandColors.muted};width:140px;">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Quantity</td><td>${escapeHtml(formatQuantity(rfq))}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Destination</td><td>${escapeHtml(rfq.destination_country ?? "Not provided")}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Incoterm</td><td>${escapeHtml(rfq.incoterm ?? "Not provided")}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Needed by</td><td>${escapeHtml(rfq.needed_by ?? "Not provided")}</td></tr>
     </table>
     <p><strong>What happens next?</strong></p>
     <ul>
@@ -158,31 +159,31 @@ export async function sendRfqNewInternal(input: { rfq: Rfq; buyer: Buyer }): Pro
 
   const body = `
     ${isSpam
-      ? `<p style="color:#b91c1c;"><strong>This request was quarantined automatically as spam.</strong>
+      ? `<p style="color:${brandColors.error};"><strong>This request was quarantined automatically as spam.</strong>
          Spam score: ${rfq.spam_score}. Flags: ${escapeHtml(rfq.spam_flags.join(", ") || "none")}.<br/>
          Buyer was NOT sent a confirmation email. Open CRM to delete or mark legitimate.</p>`
       : isReview
-        ? `<p style="color:#b45309;"><strong>This request was flagged for manual review (score ${rfq.spam_score}).</strong>
+        ? `<p style="color:${brandColors.warning};"><strong>This request was flagged for manual review (score ${rfq.spam_score}).</strong>
            Flags: ${escapeHtml(rfq.spam_flags.join(", ") || "none")}.<br/>
            Buyer has already received a “we are reviewing” acknowledgement. Please triage within 4 business hours
            and either assign to a desk specialist or mark as spam.</p>`
         : `<p>A new sourcing request is ready for triage. Reply target: <strong>24h</strong>
            from receipt (Asia/Ho_Chi_Minh business hours). Assign within <strong>4 hours</strong>.</p>`}
     <table cellpadding="6" style="border-collapse:collapse;font-size:14px;">
-      <tr><td style="color:#64748b;width:140px;">Company</td><td><strong>${escapeHtml(buyer.company)}</strong></td></tr>
-      <tr><td style="color:#64748b;">Contact</td><td>${escapeHtml(buyer.contact_name ?? "")} · ${escapeHtml(buyer.email ?? "")} · ${escapeHtml(buyer.phone ?? "")}</td></tr>
-      <tr><td style="color:#64748b;">Country</td><td>${escapeHtml(buyer.country ?? "Not provided")}</td></tr>
-      <tr><td style="color:#64748b;">Website</td><td>${escapeHtml(buyer.website ?? "Not provided")}</td></tr>
-      <tr><td style="color:#64748b;">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
-      <tr><td style="color:#64748b;">Quantity</td><td>${escapeHtml(formatQuantity(rfq))}</td></tr>
-      <tr><td style="color:#64748b;">Destination</td><td>${escapeHtml(deskDestination(rfq))}</td></tr>
-      <tr><td style="color:#64748b;">Incoterm</td><td>${escapeHtml(rfq.incoterm ?? "Not provided")}</td></tr>
-      <tr><td style="color:#64748b;">Delivery window</td><td>${escapeHtml(deskDelivery(rfq))}</td></tr>
-      <tr><td style="color:#64748b;">Samples / Inspection / Video</td>
+      <tr><td style="color:${brandColors.muted};width:140px;">Company</td><td><strong>${escapeHtml(buyer.company)}</strong></td></tr>
+      <tr><td style="color:${brandColors.muted};">Contact</td><td>${escapeHtml(buyer.contact_name ?? "")} · ${escapeHtml(buyer.email ?? "")} · ${escapeHtml(buyer.phone ?? "")}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Country</td><td>${escapeHtml(buyer.country ?? "Not provided")}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Website</td><td>${escapeHtml(buyer.website ?? "Not provided")}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Quantity</td><td>${escapeHtml(formatQuantity(rfq))}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Destination</td><td>${escapeHtml(deskDestination(rfq))}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Incoterm</td><td>${escapeHtml(rfq.incoterm ?? "Not provided")}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Delivery window</td><td>${escapeHtml(deskDelivery(rfq))}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Samples / Inspection / Video</td>
           <td>${rfq.wants_samples ? "samples " : ""}${rfq.wants_inspection ? "inspection " : ""}${rfq.wants_video_call ? "video" : ""}</td></tr>
-      <tr><td style="color:#64748b;">Target price (internal)</td>
+      <tr><td style="color:${brandColors.muted};">Target price (internal)</td>
           <td>${escapeHtml(deskTargetPrice(rfq))}</td></tr>
-      <tr><td style="color:#64748b;">Notes</td><td>${escapeHtml(String((rfq.specs as Record<string, unknown>)?.notes ?? buyer.notes ?? ""))}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Notes</td><td>${escapeHtml(String((rfq.specs as Record<string, unknown>)?.notes ?? buyer.notes ?? ""))}</td></tr>
     </table>
     <p><a href="${adminUrl}">Open in CRM</a></p>
   `;
@@ -223,12 +224,12 @@ export async function sendSlaAlert(input: {
       : `First response SLA runs out in about <strong>4 hours</strong>. Make sure a shortlist is sent to the buyer in time.`}
     </p>
     <table cellpadding="6" style="border-collapse:collapse;font-size:14px;">
-      <tr><td style="color:#64748b;width:140px;">Code</td><td>${escapeHtml(rfq.code)}</td></tr>
-      <tr><td style="color:#64748b;">Company</td><td>${escapeHtml(buyer.company)}</td></tr>
-      <tr><td style="color:#64748b;">Contact</td><td>${escapeHtml(buyer.email ?? "")}</td></tr>
-      <tr><td style="color:#64748b;">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
-      <tr><td style="color:#64748b;">Status</td><td>${escapeHtml(rfq.status)}</td></tr>
-      <tr><td style="color:#64748b;">Received</td><td>${escapeHtml(rfq.created_at)}</td></tr>
+      <tr><td style="color:${brandColors.muted};width:140px;">Code</td><td>${escapeHtml(rfq.code)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Company</td><td>${escapeHtml(buyer.company)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Contact</td><td>${escapeHtml(buyer.email ?? "")}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Product</td><td>${escapeHtml(rfq.product_text)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Status</td><td>${escapeHtml(rfq.status)}</td></tr>
+      <tr><td style="color:${brandColors.muted};">Received</td><td>${escapeHtml(rfq.created_at)}</td></tr>
     </table>
     <p><a href="${adminUrl}">Open in CRM</a></p>
   `;

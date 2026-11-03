@@ -34,10 +34,10 @@ export default async function PublicLayout({ children }: { children: ReactNode }
             <Logo className="h-12 w-12" />
             <span className="hidden flex-col leading-tight sm:flex md:hidden xl:flex">
               <span
-                className="text-[16.5px] font-black tracking-tight text-brand-800"
+                className="text-[16.5px] font-black tracking-tight text-brand-700"
                 style={{ letterSpacing: "-0.01em" }}
               >
-                Vexim <span className="text-ink-900">Trade</span>
+                Vexim Trade
               </span>
               <span className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                 Verified Vietnam Sourcing

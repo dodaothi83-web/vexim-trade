@@ -1,0 +1,16 @@
+{
+  "primary": "#1F3E74",
+  "primaryHover": "#162E58",
+  "secondary": "#4471AC",
+  "surface": "#F2F5FA",
+  "selected": "#E8EEF8",
+  "border": "#DFE5EE",
+  "text": "#141C2E",
+  "muted": "#4E586B",
+  "success": "#0E7A4E",
+  "successSurface": "#E7F5EF",
+  "warning": "#93370D",
+  "warningSurface": "#FFF4DE",
+  "error": "#B42318",
+  "errorSurface": "#FEF3F2"
+}

@@ -31,6 +31,9 @@ interface CategorySpec {
 }
 
 interface Props {
+  questionImageUrl?: string | null;
+  questionQuoteHref?: string;
+  onQuestionSuccess?: (url: string) => void;
   categories: Option[];
   categorySpecs: Record<string, CategorySpec>;
   initialProductId: string | null;
@@ -75,6 +78,9 @@ const DEFAULT_CERTS = ["HACCP", "BRCGS", "ISO 22000", "FSSC 22000", "Halal", "Ko
  * thông báo lỗi nào. Một trang + một hàm validate duy nhất loại bỏ hẳn loại lỗi đó.
  */
 export function RfqForm({
+  questionImageUrl,
+  questionQuoteHref,
+  onQuestionSuccess,
   categories,
   categorySpecs,
   initialCategory,
@@ -164,6 +170,7 @@ export function RfqForm({
 
   function validateQuestion(): Record<string, string> {
     const e: Record<string, string> = {};
+    if (data.quantity && (!Number.isFinite(Number(data.quantity)) || Number(data.quantity) <= 0)) e.quantity = "Enter a quantity greater than zero.";
     if (!data.message.trim()) e.message = "Enter your question for the supplier.";
     if (!data.company.trim()) e.company = "Enter your company name.";
     if (!data.contact_name.trim()) e.contact_name = "Enter your name.";
@@ -246,7 +253,10 @@ export function RfqForm({
         setServerMsg(res.message);
         return;
       }
-      if (res.statusPageUrl) router.push(res.statusPageUrl);
+      if (res.statusPageUrl) {
+        if (isQuestion && onQuestionSuccess) onQuestionSuccess(res.statusPageUrl);
+        else router.push(res.statusPageUrl);
+      }
     });
   }
 
@@ -282,7 +292,9 @@ export function RfqForm({
       <form onSubmit={submit} className="mt-8">
         <div className="mb-6 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-700"><MessageCircle className="h-4 w-4" />Product question</p>
+          {questionImageUrl && <img src={questionImageUrl} alt="" className="mt-3 h-16 w-16 rounded-lg object-cover" />}
           <p className="mt-2 break-words text-base font-bold text-ink-900">{contextProduct?.name || initialProduct}</p>
+          {initialGrade && <p className="mt-1 text-sm text-ink-600">Grade: {initialGrade}</p>}
           <p className="mt-1 text-sm text-ink-600">To: <strong className="text-ink-800">{supplierName}</strong></p>
         </div>
         {serverMsg && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-800">{serverMsg}</div>}
@@ -294,9 +306,18 @@ export function RfqForm({
               className="input resize-y"
               value={data.message}
               onChange={(e) => update("message", e.target.value)}
-              placeholder="Ask about specifications, availability, packaging, samples or other product details."
+              maxLength={4000}
+              placeholder="What would you like to know about this product?"
             />
           </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Quantity (optional)" error={errors.quantity} id="rfq-quantity">
+              <input id="rfq-quantity" type="number" min="0" step="any" className="input" value={data.quantity} onChange={(e) => update("quantity", e.target.value)} />
+            </Field>
+            <Field label="Unit" id="question-unit">
+              <select id="question-unit" className="input" value={data.unit} onChange={(e) => update("unit", e.target.value)}>{UNITS.map((unit) => <option key={unit}>{unit}</option>)}</select>
+            </Field>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Company" required error={errors.company} id="rfq-company">
               <input id="rfq-company" autoComplete="organization" className="input" value={data.company} onChange={(e) => update("company", e.target.value)} placeholder="Your company name" />
@@ -324,9 +345,9 @@ export function RfqForm({
           </p>
           <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold" disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
-            Send to supplier
+            Send question
           </button>
-          <p className="text-center text-[13px] text-ink-600">Need prices or commercial terms? <Link href={quoteHref} className="font-semibold text-brand-700 underline">Request a quote instead</Link>.</p>
+          <p className="text-center text-[13px] text-ink-600">Need prices or commercial terms? <Link href={questionQuoteHref ?? quoteHref} className="font-semibold text-brand-700 underline">Request a quote instead</Link>.</p>
         </div>
       </form>
     );

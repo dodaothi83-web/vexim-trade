@@ -178,7 +178,7 @@ export function SupplierStorefront({
           <div className="bg-gradient-to-br from-ink-950 via-brand-900 to-brand-800 p-5 text-white sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-5">
               <div className="flex max-w-xl items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10"><ShieldCheck className="h-5 w-5 text-amber-200" /></span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10"><ShieldCheck className="h-5 w-5 text-brand-200" /></span>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-100">Supplier trust profile</p>
                   <h2 id="verification-title" className="mt-1 text-xl font-bold tracking-tight text-white">Verification Status</h2>

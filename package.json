@@ -4,6 +4,8 @@
   "private": true,
   "description": "CRM phòng sale xuất khẩu - Vexim Trade",
   "scripts": {
+    "brand:sync": "node scripts/sync-brand-colors.mjs",
+    "check:brand": "node scripts/check-brand-colors.mjs",
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",

@@ -1,3 +1,4 @@
+import brandColors from "@/lib/brand/colors.json";
 /**
  * Email cho form "Đăng ký dịch vụ" ở Section 4 trang chủ (4 dịch vụ của Vexim).
  *
@@ -215,19 +216,19 @@ export function buildServiceInquiryInternalEmail(input: ServiceInquiryInput): Se
     ${details}
     ${
       note
-        ? `<div style="margin-top:18px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-             <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px;">Khách ghi thêm</div>
-             <div style="font-size:14px;line-height:22px;color:#334155;white-space:pre-line;">${escapeHtml(note)}</div>
+        ? `<div style="margin-top:18px;padding:14px 16px;background:${brandColors.surface};border:1px solid ${brandColors.border};border-radius:10px;">
+             <div style="font-size:12px;font-weight:700;color:${brandColors.text};margin-bottom:6px;">Khách ghi thêm</div>
+             <div style="font-size:14px;line-height:22px;color:${brandColors.muted};white-space:pre-line;">${escapeHtml(note)}</div>
            </div>`
-        : `<p style="font-size:13px;line-height:20px;color:#64748b;margin:14px 0 0;">Khách không ghi thêm yêu cầu cụ thể.</p>`
+        : `<p style="font-size:13px;line-height:20px;color:${brandColors.muted};margin:14px 0 0;">Khách không ghi thêm yêu cầu cụ thể.</p>`
     }
     <p style="font-size:14px;font-weight:700;margin:22px 0 6px;">Việc cần làm</p>
-    <ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:#334155;">
+    <ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:${brandColors.muted};">
       <li>Gọi lại cho ${escapeHtml(contact)} trong vòng <strong>1 ngày làm việc</strong>.</li>
       <li>Bấm <strong>Trả lời</strong> thư này để đi thẳng tới ${escapeHtml(email)}, không cần chép tay địa chỉ.</li>
       <li>Ghi mã <strong>${escapeHtml(input.reference)}</strong> khi trao đổi nội bộ để tra lại lịch sử.</li>
     </ul>
-    <p style="font-size:12px;line-height:18px;color:#64748b;margin:22px 0 0;">
+    <p style="font-size:12px;line-height:18px;color:${brandColors.muted};margin:22px 0 0;">
       Thư tự động từ form đăng ký dịch vụ trên trang chủ Vexim Trade.
     </p>`;
 
@@ -324,7 +325,7 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
     </p>
     ${details}
     <p style="font-size:14px;font-weight:700;margin:22px 0 6px;">Bước tiếp theo</p>
-    <ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:#334155;">
+    <ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:${brandColors.muted};">
       <li>Chuyên viên Vexim Trade tại Hà Nội sẽ liên hệ bạn trong <strong>1 ngày làm việc</strong> qua số ${escapeHtml(phone)}.</li>
       <li>${escapeHtml(nextStep)}</li>
       <li>Mọi chi phí được báo bằng văn bản trước; Vexim chỉ bắt đầu khi bạn đồng ý.</li>
@@ -336,8 +337,8 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
     <p style="font-size:14px;line-height:22px;margin:18px 0 0;">
       Cảm ơn bạn,<br/>
       <strong>${escapeHtml(COMPANY.name)}</strong><br/>
-      <span style="color:#64748b;">${escapeHtml(COMPANY.phoneDisplay ?? COMPANY.phone)} &middot;
-      <a href="${escapeHtml(COMPANY.website)}" style="color:#0f766e;text-decoration:none;">${escapeHtml(COMPANY.website.replace(/^https?:\/\//, ""))}</a></span>
+      <span style="color:${brandColors.muted};">${escapeHtml(COMPANY.phoneDisplay ?? COMPANY.phone)} &middot;
+      <a href="${escapeHtml(COMPANY.website)}" style="color:${brandColors.primary};text-decoration:none;">${escapeHtml(COMPANY.website.replace(/^https?:\/\//, ""))}</a></span>
     </p>`
     : `
     <p style="font-size:15px;line-height:24px;margin:0;">Dear ${escapeHtml(firstName(contact))},</p>
@@ -347,7 +348,7 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
     </p>
     ${details}
     <p style="font-size:14px;font-weight:700;margin:22px 0 6px;">What happens next</p>
-    <ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:#334155;">
+    <ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:${brandColors.muted};">
       <li>A Vexim Trade consultant in Hanoi will contact you within <strong>one business day</strong> on ${escapeHtml(phone)}.</li>
       <li>${escapeHtml(nextStep)}</li>
       <li>Costs are always quoted in writing first; we start only after you agree.</li>
@@ -359,8 +360,8 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
     <p style="font-size:14px;line-height:22px;margin:18px 0 0;">
       Best regards,<br/>
       <strong>${escapeHtml(COMPANY.name)}</strong><br/>
-      <span style="color:#64748b;">${escapeHtml(COMPANY.phoneDisplay ?? COMPANY.phone)} &middot;
-      <a href="${escapeHtml(COMPANY.website)}" style="color:#0f766e;text-decoration:none;">${escapeHtml(COMPANY.website.replace(/^https?:\/\//, ""))}</a></span>
+      <span style="color:${brandColors.muted};">${escapeHtml(COMPANY.phoneDisplay ?? COMPANY.phone)} &middot;
+      <a href="${escapeHtml(COMPANY.website)}" style="color:${brandColors.primary};text-decoration:none;">${escapeHtml(COMPANY.website.replace(/^https?:\/\//, ""))}</a></span>
     </p>`;
 
   const text = isVi
