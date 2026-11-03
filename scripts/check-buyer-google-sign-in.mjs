@@ -5,6 +5,8 @@
 // Vì sao cần check riêng:
 //  - Icon Google phải là chữ G bốn màu CHÍNH THỨC (path của Google), không phải chữ "G"
 //    tô màu hay ảnh tải từ nguồn ngoài. Sai icon là sai nhận diện thương hiệu Google.
+//  - Cùng một icon phải dùng ở CẢ BA nút Google của site (nhân viên, nhà cung cấp, người mua);
+//    không nơi nào được quay lại chữ "G" tô màu.
 //  - Nút phải dẫn vào luồng của NGƯỜI MUA (`/api/auth/google/buyer/start`), không phải
 //    luồng nhà cung cấp, và phải mang theo `next` để không mất ngữ cảnh sau khi quay lại.
 //  - Luồng người mua không được cấp quyền nội bộ: callback chỉ ghi `buyer_users` và cookie
@@ -79,8 +81,10 @@ assert.match(link, /Continue with Google/, "Nút Google phải có nhãn chữ, 
 assert.match(link, /<svg\b/, "Nút Google phải kèm icon Google");
 assert.match(link, /#4285F4/, "Nút Google phải dùng icon Google thật (xanh Google)");
 assert.doesNotMatch(link, /text-blue-600/, 'Không dùng chữ "G" tô màu thay cho icon Google');
-// Nút Google đứng trước ô email, và form email vẫn còn nguyên.
-assert.ok(html.indexOf("Continue with Google") < html.indexOf("Work email"), "Nút Google đứng trên form email");
+// Nút Google đứng DƯỚI nút gửi mã và dưới cả dòng "First time here?".
+assert.ok(html.indexOf("Work email") < html.indexOf("Email me a code"), "Form email vẫn đứng trước");
+assert.ok(html.indexOf("Email me a code") < html.indexOf("Continue with Google"), "Nút Google đứng dưới nút Email me a code");
+assert.ok(html.indexOf("First time here?") < html.indexOf("Continue with Google"), "Nút Google nằm cuối nhóm, dưới lời nhắc tạo tài khoản");
 assert.match(html, /Email me a code/, "Luồng email + mã 6 số vẫn giữ nguyên");
 assert.doesNotMatch(html, /\/api\/auth\/google\/start\b/, "Không trỏ nhầm vào luồng Google của nhà cung cấp");
 
@@ -90,6 +94,41 @@ assert.match(
   /href="\/api\/auth\/google\/buyer\/start\?next=%2Fmy%2Frfqs%3Ftab%3Dopen"/,
   "Nút Google phải mang theo đích quay lại",
 );
+
+/* 2b. Mọi nút Google của site dùng chung icon này, không dùng chữ "G" tô màu. */
+const { LoginForm } = load("components/login-form.tsx", {
+  ...common,
+  "next/link": { default: ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children) },
+  next: { useRouter: () => ({ push() {}, replace() {}, refresh() {} }) },
+  "@/app/auth-actions": { loginAction: async () => ({ ok: true, message: "", redirectTo: "/" }) },
+  "@/components/ui": { Button: ({ children, ...props }) => React.createElement("button", props, children) },
+  "@/components/google-g-icon": { GoogleGIcon },
+});
+const staffHtml = renderToStaticMarkup(React.createElement(LoginForm, {
+  messages: { email: "Email", password: "Password", submit: "Sign in", google: "Continue with Google", or: "or",
+    forgotPassword: "Forgot?", hidePassword: "Hide", showPassword: "Show", challengeMissing: "", setupNotice: "", setupLink: "Set up" },
+  lang: "en",
+}));
+for (const [name, markup] of [["staff login", staffHtml], ["buyer sign-in", renderToStaticMarkup(React.createElement(BuyerSignInForm, {}))]]) {
+  assert.match(markup, /#4285F4/, `${name}: nút Google phải dùng icon Google thật`);
+  assert.doesNotMatch(markup, /text-blue-600/, `${name}: không dùng chữ "G" tô màu thay cho icon Google`);
+}
+
+const { SupplierAccountForm } = load("app/(auth)/supplier/register/supplier-account-form.tsx", {
+  ...common,
+  "next/link": { default: ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children) },
+  "@/components/google-g-icon": { GoogleGIcon },
+});
+const supplierHtml = renderToStaticMarkup(React.createElement(SupplierAccountForm, {
+  messages: { email: "Email", password: "Password", consent: "I agree", submit: "Create", submitting: "Creating",
+    goToLogin: "Sign in", or: "or", google: "Continue with Google", googleNoteBefore: "", googleNotePrivacy: "Privacy",
+    googleNoteBetween: "", googleNoteTerms: "Terms", googleNoteAfter: ".", challengeMissing: "", genericError: "",
+    passwordHint: "", hidePassword: "", showPassword: "" },
+  lang: "en",
+}));
+assert.match(supplierHtml, /#4285F4/, "supplier register: nút Google phải dùng icon Google thật");
+assert.doesNotMatch(supplierHtml, /text-blue-600/, 'supplier register: không dùng chữ "G" tô màu');
+assert.match(supplierHtml, /href="\/api\/auth\/google\/start\?intent=signup"/, "supplier register: vẫn dùng luồng đăng ký nhà cung cấp");
 
 /* 3. Lỗi OAuth hiện lại đúng chỗ, bằng câu người dùng hiểu được. */
 html = renderToStaticMarkup(React.createElement(BuyerSignInForm, { initialOauthError: "Google sign-in was cancelled." }));

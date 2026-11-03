@@ -71,22 +71,6 @@ export function BuyerSignInForm({
   if (step === "email") {
     return (
       <div className="mt-6">
-        <a
-          href={googleStartHref}
-          rel="nofollow"
-          className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50"
-        >
-          <GoogleGIcon />
-          Continue with Google
-        </a>
-        <p className="mt-1.5 text-center text-[11px] leading-snug text-ink-400">
-          We receive only your verified email and basic profile.
-        </p>
-        <div className="my-4 flex items-center gap-3 text-[11.5px] font-semibold uppercase tracking-wide text-ink-400">
-          <span className="h-px flex-1 bg-ink-200" />
-          or
-          <span className="h-px flex-1 bg-ink-200" />
-        </div>
         {error && (
           <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-red-900">
             {error}
@@ -120,6 +104,24 @@ export function BuyerSignInForm({
 
           <p className="text-center text-[12px] leading-relaxed text-ink-500">
             First time here? This also creates your account.
+          </p>
+
+          <div className="flex items-center gap-3 pt-1 text-[11.5px] font-semibold uppercase tracking-wide text-ink-400">
+            <span className="h-px flex-1 bg-ink-200" />
+            or
+            <span className="h-px flex-1 bg-ink-200" />
+          </div>
+
+          <a
+            href={googleStartHref}
+            rel="nofollow"
+            className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+          >
+            <GoogleGIcon />
+            Continue with Google
+          </a>
+          <p className="text-center text-[11px] leading-snug text-ink-400">
+            We receive only your verified email and basic profile.
           </p>
         </form>
       </div>

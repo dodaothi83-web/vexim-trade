@@ -8,6 +8,7 @@ import { Eye, EyeOff, Loader2, LogIn, ShieldCheck } from "lucide-react";
 import { loginAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui";
 import { FormChallenge } from "@/components/form-challenge";
+import { GoogleGIcon } from "@/components/google-g-icon";
 import type { AuthMessages } from "@/lib/i18n/auth";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -138,9 +139,7 @@ export function LoginForm({
         href="/api/auth/google/start?intent=login"
         className="flex w-full items-center justify-center gap-2 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50"
       >
-        <span className="text-base font-black text-blue-600" aria-hidden="true">
-          G
-        </span>{" "}
+        <GoogleGIcon />
         {m.google}
       </a>
 
