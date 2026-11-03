@@ -62,10 +62,13 @@ assert.equal(migrationHint(null), null);
 
 // 6. Trang xác thực L2/L3 cũng phải báo lỗi cấu hình thay vì trắng trang.
 const verifyPage = read('app/supplier/portal/verification/level-page.tsx');
-assert.match(verifyPage, /chưa mở được hồ sơ tự gửi/, 'Log trang xác thực nêu rõ phần lỗi');
-assert.match(verifyPage, /Chưa mở được phần tải bằng chứng/, 'Trang xác thực có màn hình báo lỗi cho NCC');
-assert.match(verifyPage, /Chưa mở được hồ sơ xác minh này/, 'Hồ sơ rỗng cũng có câu báo thay vì khung trống');
-assert.match(verifyPage, /không phải lỗi tài khoản của bạn/, 'Câu báo lỗi nói rõ lỗi phía Vexim');
+const verifyCopy = loadPortalDictionary().vi.verification.level;
+assert.match(verifyPage, /could not open the self-submission file/, 'Log trang xác thực nêu rõ phần lỗi');
+assert.match(verifyPage, /level\.loadErrorTitle/, 'Trang xác thực có màn hình báo lỗi cho NCC');
+assert.match(verifyCopy.loadErrorTitle, /Chưa mở được phần tải bằng chứng/, 'Câu báo lỗi nằm trong từ điển');
+assert.match(verifyPage, /level\.unavailable/, 'Hồ sơ rỗng cũng có câu báo thay vì khung trống');
+assert.match(verifyCopy.unavailable, /Chưa mở được hồ sơ xác minh này/, 'Câu báo hồ sơ rỗng nằm trong từ điển');
+assert.match(verifyCopy.loadErrorBody, /không phải lỗi tài khoản của bạn/, 'Câu báo lỗi nói rõ lỗi phía Vexim');
 
 /* ------------------------- render thật với bảng bị thiếu ------------------------- */
 

@@ -7,6 +7,9 @@ import vm from 'node:vm';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
+
+const portalCopy = loadPortalDictionary();
 
 const nativeRequire = createRequire(import.meta.url);
 const root = resolve(new URL('..', import.meta.url).pathname);
@@ -30,6 +33,7 @@ function load(file) {
     if (id === './submission-actions') return actionStubs;
     if (id === './submission-item-card') return load(resolve(dirname(absolute), 'submission-item-card.tsx'));
     if (id === './benefits') return { VerificationBenefits: () => null };
+    if (id === '@/lib/i18n/format') return { fill: (template, values) => String(template).replace(/\{(\w+)\}/g, (all, key) => (key in values ? String(values[key]) : all)) };
     return nativeRequire(id);
   };
   vm.runInThisContext(`(function(exports, require, module) { ${code}\n})`, { filename: absolute })(mod.exports, require, mod);
@@ -57,7 +61,11 @@ const baseView = {
   requiredTotal: 1, uploadedTotal: 1, items: [row], links: [],
 };
 const exportSpecs = [{ key: 'other_export_evidence', label: 'Chứng từ xuất khẩu khác', requirement: 'Chọn nếu phù hợp', requiresCode: false, required: false, order: 1 }];
-const exportHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: baseView, specs: exportSpecs }));
+const panelProps = {
+  copy: portalCopy.vi.verification.panel, benefitsTitle: portalCopy.vi.verification.benefits.title,
+  intl: 'vi-VN', lang: 'vi',
+};
+const exportHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: baseView, specs: exportSpecs, ...panelProps }));
 assert.match(exportHtml, /Nộp hồ sơ/);
 assert.match(exportHtml, /aria-label="Nộp hồ sơ"/, 'Mobile action is a manual submit');
 assert.match(exportHtml, /không bắt buộc vận đơn/i);
@@ -68,14 +76,14 @@ assert.match(exportHtml, /không hiển thị công khai/i);
 assert.doesNotMatch(exportHtml, /\bAI\b/i, 'L3 must not render AI buttons or AI results');
 assert.doesNotMatch(exportHtml, /vận đơn và tờ khai hải quan là bắt buộc/i);
 const fullHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, {
-  view: { ...baseView, items: [row, { ...row, id: 'item-2' }, { ...row, id: 'item-3' }] }, specs: exportSpecs,
+  view: { ...baseView, items: [row, { ...row, id: 'item-2' }, { ...row, id: 'item-3' }] }, specs: exportSpecs, ...panelProps,
 }));
 assert.match(fullHtml, /Đã đủ 3 tệp/);
 assert.match(fullHtml, /Xóa một tệp nếu cần tải tệp khác/);
 
 const l2View = { ...baseView, id: 'sub-2', level: 2, ready: false, items: [], requiredTotal: 9, uploadedTotal: 0 };
 const l2Specs = [{ key: 'factory_gate', label: 'Cổng nhà máy', requirement: 'Biển tên', requiresCode: true, required: true, order: 1 }];
-const l2Html = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: l2View, specs: l2Specs }));
+const l2Html = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: l2View, specs: l2Specs, ...panelProps }));
 assert.match(l2Html, /AI quét thử/);
 assert.match(l2Html, /AI quét &amp; nộp hồ sơ/);
 assert.match(l2Html, /Tờ mã xác minh/);
@@ -94,7 +102,7 @@ const aiRow = { ...row, key: 'factory_gate', label: 'Cổng nhà máy', mime: 'i
   aiVerdict: 'fail', aiReason: 'AI chưa thấy tờ mã', aiCodeVisible: false };
 const aiView = { ...l2View, ready: true, code: 'VX-L2-ABCD-EFGH', items: [aiRow], uploadedTotal: 1,
   aiSummary: 'AI tóm tắt lần quét', aiFindings: ['AI nghi ảnh dàn dựng'], aiFindingsMayBeOutdated: true };
-const aiHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: aiView, specs: l2Specs }));
+const aiHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: aiView, specs: l2Specs, ...panelProps }));
 assert.match(aiHtml, /AI:.*cần kiểm tra/);
 assert.match(aiHtml, /AI lưu ý/);
 assert.match(aiHtml, /2 điểm cần lưu ý/);
@@ -104,7 +112,7 @@ assert.match(aiHtml, /AI tóm tắt lần quét/);
 assert.match(aiHtml, /AI nghi ảnh dàn dựng/, 'Gợi ý AI vẫn hiển thị sau khi tải lại trang');
 assert.match(aiHtml, /Kết quả quét trước có thể không khớp ảnh hiện tại/);
 const needsCodeView = { ...l2View, missing: [], ready: false };
-const needsCodeHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: needsCodeView, specs: l2Specs }));
+const needsCodeHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: needsCodeView, specs: l2Specs, ...panelProps }));
 assert.match(needsCodeHtml, /Cần kiểm tra mã/);
 assert.doesNotMatch(needsCodeHtml, /thiếu 0 mục/i);
 
@@ -123,7 +131,7 @@ const partnerSpecs = [
   { key: 'partner_factory_contract', label: 'Hợp đồng với nhà máy đối tác', requirement: 'Đúng hai bên', required: true, requiresCode: false, order: 1 },
   { key: 'partner_factory_photos', label: 'Ảnh nhà máy đối tác', requirement: 'Tùy chọn', required: false, requiresCode: false, order: 2 },
 ];
-const partnerHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: partnerView, specs: partnerSpecs }));
+const partnerHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: partnerView, specs: partnerSpecs, ...panelProps }));
 assert.match(partnerHtml, /Hợp đồng với nhà máy đối tác/);
 assert.match(partnerHtml, /Nộp hồ sơ/);
 assert.doesNotMatch(partnerHtml, /AI quét|Tờ mã xác minh|Vị trí khi chụp/, 'Partner flow is manual and has no factory code or GPS');
@@ -131,3 +139,20 @@ assert.match(partnerHtml, /application\/pdf/, 'Contract accepts PDF');
 const partnerStaff = renderToStaticMarkup(React.createElement(SubmissionReviewActions, { ...staffProps, level: 2, partner: true }));
 assert.doesNotMatch(partnerStaff, /Quét lại bằng AI|chưa cấu hình OPENAI/i);
 console.log('✅ L2 partner UI renders a manual contract upload without factory-only controls.');
+
+/* Bản tiếng Anh: khung và thẻ bằng chứng không được còn dấu tiếng Việt.
+ * Dữ liệu nghiệp vụ (tên mục, trạng thái) do mô hình đã dịch sẵn nên ở đây truyền bản EN. */
+const VIETNAMESE = /[àáảãạăằắẳẵặâầấẩẫậđêềếểễệôồốổỗộơờớởỡợưừứửữựỳýỷỹỵ]/i;
+const enSpecs = [
+  { key: 'other_export_evidence', label: 'Other export evidence', requirement: 'Choose if it applies', requiresCode: false, required: false, order: 1 },
+];
+const enView = { ...baseView, statusLabel: 'Draft', items: [], links: [], missing: [], blockers: [] };
+const enProps = {
+  copy: portalCopy.en.verification.panel, benefitsTitle: portalCopy.en.verification.benefits.title,
+  intl: 'en-GB', lang: 'en',
+};
+const enHtml = renderToStaticMarkup(React.createElement(VerificationSubmissionPanel, { view: enView, specs: enSpecs, ...enProps }));
+assert.doesNotMatch(enHtml, VIETNAMESE, 'Bảng điều khiển không còn tiếng Việt khi ngôn ngữ là tiếng Anh');
+assert.match(enHtml, /Submit/, 'Nút nộp có nhãn tiếng Anh');
+assert.match(enHtml, /Submit the file|Submit/, 'Nút nộp (thanh dưới) có nhãn tiếng Anh');
+console.log('✅ Verification panel in English: no Vietnamese left in the shell or the evidence card.');

@@ -7,6 +7,10 @@ import path from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
 
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
+
+const portalDictionary = loadPortalDictionary();
+
 const ROOT = new URL('..', import.meta.url).pathname;
 
 /* ------------------------------ loader TS tối giản ------------------------------ */
@@ -1063,6 +1067,8 @@ assert.equal((await store.getSubmission(l3.id)).status, 'draft');
 const actions = makeLoader({
   'next/cache': { revalidatePath: () => {} },
   '@/lib/db': { getStore: () => store },
+  '@/lib/i18n/server': { getPortalMessages: async () => ({ locale: 'vi', intl: 'vi-VN', m: portalDictionary.vi }) },
+  '@/lib/i18n/format': { fill: (template, values) => String(template).replace(/\{(\w+)\}/g, (all, key) => (key in values ? String(values[key]) : all)) },
   '@/lib/supplier-portal/submission-access': { supplierSubmissionAccess: async () => currentAccess },
   '@/lib/media/storage': {
     putObject: async (p, data) => { storage.set(p, data); return { driver: 'local', path: p }; },
@@ -1222,14 +1228,20 @@ const panel = readPage('app/supplier/portal/verification/verification-panel.tsx'
 const portalPage = readPage('app/supplier/portal/verification/level-page.tsx');
 const itemCard = readPage('app/supplier/portal/verification/submission-item-card.tsx');
 
-assert.ok(panel.includes('Tải tờ mã về'), 'Cổng NCC phải có nút tải tờ mã về');
+// Chuỗi hiển thị nằm trong từ điển: kiểm tra cả câu chữ (bản tiếng Việt) và chỗ nối chuỗi.
+const viPanel = portalDictionary.vi.verification.panel;
+const viLevel = portalDictionary.vi.verification.level;
+assert.equal(viPanel.code.download, 'Tải tờ mã về', 'Cổng NCC phải có nút tải tờ mã về');
 assert.ok(panel.includes('downloadCodeSheet') && panel.includes('toBlob'), 'Tờ mã phải tải được thành tệp, không chỉ in');
-assert.ok(panel.includes('Vị trí khi chụp') && panel.includes('Không bắt buộc'), 'Định vị không còn là bước bắt buộc');
-assert.ok(panel.includes('Tờ mã xác minh') && panel.includes('Bắt buộc'), 'Tờ mã vẫn là bước bắt buộc');
-assert.ok(portalPage.includes('kể cả ảnh đã gửi qua Zalo, đều nhận'), 'Trang NCC phải nói rõ ảnh qua Zalo vẫn nhận');
+assert.ok(panel.includes('copy.gps.title') && panel.includes('copy.gps.optional'), 'Định vị không còn là bước bắt buộc');
+assert.match(viPanel.gps.title, /Vị trí khi chụp/, 'Khối định vị giữ đúng tiêu đề');
+assert.equal(viPanel.gps.optional, 'Không bắt buộc', 'Định vị là tuỳ chọn');
+assert.match(viPanel.code.title + viPanel.code.statusRequired, /Tờ mã xác minh.*Bắt buộc/s, 'Tờ mã vẫn là bước bắt buộc');
+assert.match(viLevel.factoryGuideBodies.join(' '), /kể cả ảnh đã gửi qua Zalo, đều nhận/, 'Trang NCC phải nói rõ ảnh qua Zalo vẫn nhận');
 assert.ok(!portalPage.includes('Gửi <strong>ảnh gốc'), 'Trang NCC không còn đòi ảnh gốc');
 assert.ok(!itemCard.includes('capture={level === 2'), 'Ô chọn tệp không ép mở camera, NCC chọn được ảnh từ thư viện');
-assert.ok(itemCard.includes('bắt buộc có tờ mã xác minh đặt cạnh cảnh'), 'Ảnh 🔖 phải nhắc tờ mã ngay dưới nút tải');
+assert.match(viPanel.card.needsCodeHint, /bắt buộc có tờ mã xác minh đặt cạnh cảnh/, 'Ảnh 🔖 phải nhắc tờ mã ngay dưới nút tải');
+assert.match(itemCard, /copy\.needsCodeHint/, 'Thẻ bằng chứng đọc câu nhắc từ từ điển');
 
 /* ---------------- 10. FK: bằng chứng tự gửi không mượn verification_id ---------------- */
 

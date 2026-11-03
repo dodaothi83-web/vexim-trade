@@ -7,6 +7,9 @@ import vm from 'node:vm';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
+
+const portalCopy = loadPortalDictionary();
 
 const require = createRequire(import.meta.url);
 const jsx = require('react/jsx-runtime');
@@ -63,6 +66,7 @@ function mount(view, response) {
     './submission-actions': {},
     './submission-item-card': { SubmissionItemCard: () => null },
     './benefits': { VerificationBenefits: () => null },
+    '@/lib/i18n/format': { fill: (template, values) => String(template).replace(/\{(\w+)\}/g, (all, key) => (key in values ? String(values[key]) : all)) },
   };
   const mod = { exports: {} };
   vm.runInNewContext(code, {
@@ -76,7 +80,13 @@ function mount(view, response) {
     },
     console, Date,
   }, { filename: 'verification-panel.tsx' });
-  const render = () => { cursor = 0; return mod.exports.VerificationSubmissionPanel({ view, specs: [] }); };
+  const render = () => {
+    cursor = 0;
+    return mod.exports.VerificationSubmissionPanel({
+      view, specs: [], copy: portalCopy.vi.verification.panel,
+      benefitsTitle: portalCopy.vi.verification.benefits.title, intl: 'vi-VN', lang: 'vi',
+    });
+  };
   return {
     render,
     getRequests: () => requests,

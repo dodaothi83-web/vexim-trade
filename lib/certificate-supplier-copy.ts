@@ -11,18 +11,33 @@ export function supplierCertificateNote(
   certificate: Pick<Certificate,
     "review_status" | "publicly_visible" | "staff_hidden" | "valid_until" | "superseded_by_certificate_id">,
   today = new Date().toISOString().slice(0, 10),
+  language: "en" | "vi" = "vi",
 ): string {
-  if (certificate.superseded_by_certificate_id) return "Bản cũ, đã thay bằng bản gia hạn mới hơn.";
-  if (certificate.staff_hidden) return "Nhân viên đang tạm ẩn giấy này. Liên hệ hỗ trợ nếu cần làm rõ.";
+  const en = language === "en";
+  if (certificate.superseded_by_certificate_id) {
+    return en ? "Older copy, replaced by a newer renewal." : "Bản cũ, đã thay bằng bản gia hạn mới hơn.";
+  }
+  if (certificate.staff_hidden) {
+    return en ? "Staff have hidden this certificate for now. Contact support if you need to clarify."
+      : "Nhân viên đang tạm ẩn giấy này. Liên hệ hỗ trợ nếu cần làm rõ.";
+  }
   const expired = Boolean(certificate.valid_until && certificate.valid_until < today);
   if (certificate.review_status === "rejected") {
-    return "Chưa được duyệt. Tải bản rõ hơn hoặc liên hệ hỗ trợ.";
+    return en ? "Not approved. Upload a clearer copy or contact support." : "Chưa được duyệt. Tải bản rõ hơn hoặc liên hệ hỗ trợ.";
   }
   if (certificate.review_status === "approved") {
-    if (expired) return "Đã hết hạn nên tạm không hiện với người mua. Tải bản gia hạn để hiện lại.";
-    if (!certificate.publicly_visible) return "Đã duyệt, chờ chọn phạm vi danh mục để hiện với người mua.";
-    return "Đã duyệt và đang hiện với người mua.";
+    if (expired) {
+      return en ? "Expired, so it is hidden from buyers for now. Upload a renewal to show it again."
+        : "Đã hết hạn nên tạm không hiện với người mua. Tải bản gia hạn để hiện lại.";
+    }
+    if (!certificate.publicly_visible) {
+      return en ? "Approved, waiting for a category scope before it shows to buyers."
+        : "Đã duyệt, chờ chọn phạm vi danh mục để hiện với người mua.";
+    }
+    return en ? "Approved and showing to buyers." : "Đã duyệt và đang hiện với người mua.";
   }
-  if (expired) return "Đã hết hạn. Tải bản gia hạn để chờ duyệt.";
-  return "Đang chờ nhân viên đối chiếu.";
+  if (expired) {
+    return en ? "Expired. Upload a renewal to send it for review." : "Đã hết hạn. Tải bản gia hạn để chờ duyệt.";
+  }
+  return en ? "Waiting for a staff check." : "Đang chờ nhân viên đối chiếu.";
 }

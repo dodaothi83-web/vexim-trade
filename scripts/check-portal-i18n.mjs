@@ -36,7 +36,7 @@ function leaves(value, trail) {
   if (Array.isArray(value)) return value.flatMap((item, index) => leaves(item, `${trail}[${index}]`));
   return Object.entries(value).flatMap(([key, item]) => leaves(item, trail ? `${trail}.${key}` : key));
 }
-for (const cluster of ["shared", "shell", "overview", "profile", "onboarding", "products", "productEditor"]) {
+for (const cluster of ["shared", "shell", "overview", "profile", "onboarding", "products", "productEditor", "verification", "documents", "boost"]) {
   assert.deepEqual(
     shape(portal.vi[cluster], cluster),
     shape(portal.en[cluster], cluster),
@@ -84,6 +84,21 @@ const CONVERTED = [
   "components/products/buyer-preview-dialog.tsx",
   "components/supplier-sidebar.tsx",
   "components/supplier-topbar.tsx",
+  "app/supplier/portal/verification/page.tsx",
+  "app/supplier/portal/verification/factory/page.tsx",
+  "app/supplier/portal/verification/export/page.tsx",
+  "app/supplier/portal/verification/level-page.tsx",
+  "app/supplier/portal/verification/level-tabs.tsx",
+  "app/supplier/portal/verification/benefits.tsx",
+  "app/supplier/portal/verification/verification-panel.tsx",
+  "app/supplier/portal/verification/submission-item-card.tsx",
+  "app/supplier/portal/verification/submission-actions.ts",
+  "app/supplier/portal/documents/page.tsx",
+  "app/supplier/portal/l1-doc-upload.tsx",
+  "app/supplier/portal/certificate-upload.tsx",
+  "app/supplier/portal/boost/page.tsx",
+  "app/supplier/portal/boost/request-form.tsx",
+  "app/supplier/portal/boost/actions.ts",
 ];
 const withoutComments = (source) =>
   source
@@ -243,4 +258,26 @@ const sidebar = read("components/supplier-sidebar.tsx");
 assert.match(sidebar, /labelKey: keyof ShellMessages\["nav"\]/, "menu giữ khoá, không giữ chữ");
 assert.doesNotMatch(sidebar, /label: "Tổng quan"/, "nhãn menu không còn viết cứng");
 
-console.log("✅ Portal i18n (cụm 1 + 2 + 3a + 3b + 3c: khung, tổng quan, hồ sơ, danh sách và trình soạn sản phẩm): đủ khoá, không lẫn tiếng Việt trong bản tiếng Anh, mô hình tiến độ nói được cả hai ngôn ngữ.");
+/* 7. Cụm 4: khu xác minh, giấy tờ doanh nghiệp và trang đẩy sản phẩm. */
+const levelPage = read("app/supplier/portal/verification/level-page.tsx");
+assert.match(levelPage, /const \{ locale, intl, m \} = await getPortalMessages\(\)/, "Khung L2/L3 đọc từ điển một lần");
+assert.match(levelPage, /<VerificationSubmissionPanel[\s\S]{0,400}?intl=\{intl\} lang=\{locale\}/, "Bảng điều khiển nhận ngôn ngữ để in ngày giờ và tờ mã");
+assert.match(levelPage, /buildPortalSubmission\(bundle\)/, "Hồ sơ L2/L3 dựng từ dữ liệu danh mục");
+const panel = read("app/supplier/portal/verification/verification-panel.tsx");
+assert.match(panel, /<html lang="\$\{lang\}"/, "Tờ mã in ra khai đúng ngôn ngữ");
+assert.doesNotMatch(panel, /toLocaleString\("vi-VN"/, "Bảng điều khiển không khoá cứng vi-VN");
+const documentsPage = read("app/supplier/portal/documents/page.tsx");
+assert.match(documentsPage, /<LevelTabs current=\{1\} partner=\{[^}]+\} copy=\{m\.verification\.tabs\} \/>/, "Bước 1 dùng chung dải tab có chuỗi từ từ điển");
+assert.match(documentsPage, /copy=\{copy\.l1Upload\}/, "Ô tải giấy đăng ký kinh doanh nhận chuỗi từ từ điển");
+assert.match(documentsPage, /copy=\{copy\.certUpload\}/, "Ô tải chứng nhận nhận chuỗi từ từ điển");
+assert.match(documentsPage, /supplierCertificateNote\(original, undefined, locale\)/, "Câu trạng thái chứng nhận theo ngôn ngữ đang xem");
+const submissionActions = read("app/supplier/portal/verification/submission-actions.ts");
+assert.match(submissionActions, /getPortalMessages\(\)/, "Thông báo của server action xác minh theo ngôn ngữ đang chọn");
+assert.doesNotMatch(submissionActions, /message: "/, "Không trả thông báo viết cứng từ server action xác minh");
+const boostPage = read("app/supplier/portal/boost/page.tsx");
+assert.match(boostPage, /const \{ intl, m \} = await getPortalMessages\(\)/, "Trang đẩy sản phẩm đọc từ điển một lần");
+assert.doesNotMatch(boostPage, /toLocaleString\("vi-VN"/, "Trang đẩy sản phẩm không khoá cứng vi-VN");
+const boostActions = read("app/supplier/portal/boost/actions.ts");
+assert.doesNotMatch(boostActions, /message: "/, "Thông báo của server action đẩy sản phẩm không viết cứng");
+
+console.log("✅ Portal i18n (cụm 1 + 2 + 3a + 3b + 3c + 4: khung, tổng quan, hồ sơ, danh sách, trình soạn sản phẩm, khu xác minh, giấy tờ doanh nghiệp và trang đẩy sản phẩm): đủ khoá, không lẫn tiếng Việt trong bản tiếng Anh, mô hình tiến độ nói được cả hai ngôn ngữ.");

@@ -50,12 +50,14 @@ assert.match(page, /certificates\.filter\(\(certificate\) => certificate\.review
 /* 3. Đơn vị thương mại chưa có L2 nhà máy đối tác: ô tải đóng sẵn kèm lý do. */
 assert.match(page, /const l2Scope = approvedL2Scope\(reviews\);/);
 assert.match(page, /supplier\.supplier_type === "trading" && !partnerContractApproved/);
-assert.match(page, /Sản phẩm vẫn đăng bán bình thường\./);
+assert.match(loadPortalDictionary().vi.documents.contractBlocked, /Sản phẩm vẫn đăng bán bình thường\./, "Lý do khoá ô tải nằm trong từ điển");
+assert.match(page, /copy\.contractBlocked/);
 assert.match(page, /blockedReason=\{certificateUploadBlockedReason\}/);
 
 /* 4. Component: có lý do thì hiện khung khoá + lối sang bước 2, không render form tải. */
 const lockedBranch = upload.slice(upload.indexOf('if (blockedReason)'), upload.indexOf('<form'));
-assert.ok(lockedBranch.includes('Chưa mở được ô tải chứng nhận'), 'Khung khoá phải có tiêu đề');
+assert.ok(lockedBranch.includes('copy.blockedTitle'), 'Khung khoá phải có tiêu đề');
+assert.match(portalCopy.vi.documents.certUpload.blockedTitle, /Chưa mở được ô tải chứng nhận/, 'Tiêu đề khung khoá nằm trong từ điển');
 assert.ok(lockedBranch.includes('disabled'), 'Ô chọn tệp phải khoá');
 assert.ok(!lockedBranch.includes('onSubmit={onSubmit}'), 'Khung khoá không được chứa form tải');
 assert.match(upload, /href="\/supplier\/portal\/verification\/factory"/);
@@ -80,8 +82,9 @@ assert.ok(!/INITIAL_DOCUMENT_KEYS\.map\(/.test(profile), 'Form đăng ký không
 assert.match(profile, /title=\{m\.docs\[/, 'Nhãn ô tải giấy đọc từ từ điển');
 assert.match(portalCopy.vi.onboarding.docs.business_license, /Giấy chứng nhận đăng ký kinh doanh/,
   'Bản tiếng Việt giữ đúng tên giấy cũ');
-assert.match(page, /Xác thực doanh nghiệp/);
-assert.match(page, /Một tệp PDF hoặc ảnh, thấy rõ tên doanh nghiệp và mã số thuế\./,
+assert.match(portalCopy.vi.documents.title, /Xác thực doanh nghiệp/);
+assert.match(page, /title=\{copy\.title\}/, 'Tiêu đề trang đọc từ từ điển');
+assert.match(portalCopy.vi.documents.steps.bodies[0], /Một tệp PDF hoặc ảnh, thấy rõ tên doanh nghiệp và mã số thuế\./,
   'Trang Giấy tờ chỉ đòi Giấy chứng nhận đăng ký kinh doanh cho bước xác thực doanh nghiệp');
 assert.match(page, /Chứng nhận chất lượng/, 'Trang Giấy tờ cũng là nơi tải chứng nhận chất lượng');
 

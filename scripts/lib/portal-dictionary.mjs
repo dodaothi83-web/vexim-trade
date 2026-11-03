@@ -29,8 +29,11 @@ export function loadPortalDictionary() {
   const productEditor = load('product-editor.ts').productEditorMessages;
   const profile = load('profile.ts').profileMessages;
   const onboarding = load('onboarding.ts').onboardingMessages;
+  const verification = load('verification.ts').verificationMessages;
+  const documents = load('documents.ts').documentsMessages;
+  const boost = load('boost.ts').boostMessages;
   return {
-    en: { shared: shared.en, shell: shell.en, overview: overview.en, profile: profile.en, onboarding: onboarding.en, products: products.en, productEditor: productEditor.en },
-    vi: { shared: shared.vi, shell: shell.vi, overview: overview.vi, profile: profile.vi, onboarding: onboarding.vi, products: products.vi, productEditor: productEditor.vi },
+    en: { shared: shared.en, shell: shell.en, overview: overview.en, profile: profile.en, onboarding: onboarding.en, products: products.en, productEditor: productEditor.en, verification: verification.en, documents: documents.en, boost: boost.en },
+    vi: { shared: shared.vi, shell: shell.vi, overview: overview.vi, profile: profile.vi, onboarding: onboarding.vi, products: products.vi, productEditor: productEditor.vi, verification: verification.vi, documents: documents.vi, boost: boost.vi },
   };
 }

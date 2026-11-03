@@ -132,6 +132,10 @@ const SCOPE = [
   'lib/i18n/portal/onboarding.ts',
   'lib/i18n/portal/products.ts',
   'lib/i18n/portal/product-editor.ts',
+  // Cụm 4 của cổng NCC: xác minh, giấy tờ doanh nghiệp, đẩy sản phẩm.
+  'lib/i18n/portal/verification.ts',
+  'lib/i18n/portal/documents.ts',
+  'lib/i18n/portal/boost.ts',
   'lib/certificate-service.ts',
   'lib/db/local.ts',
   'lib/db/seed.ts',

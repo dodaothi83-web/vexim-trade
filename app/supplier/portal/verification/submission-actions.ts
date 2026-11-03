@@ -14,6 +14,14 @@ import {
   saveShipmentDetails,
 } from "@/lib/verification-submission-service";
 import type { MediaAsset } from "@/lib/types";
+import { getPortalMessages } from "@/lib/i18n/server";
+import { fill } from "@/lib/i18n/format";
+
+/** Câu trả về của action nói cùng ngôn ngữ với giao diện đang mở (cookie `vexim_locale`). */
+async function actionCopy() {
+  const { m } = await getPortalMessages();
+  return m.verification.panel.card.actions;
+}
 
 export interface SubmissionActionResult {
   ok: boolean;
@@ -36,11 +44,12 @@ function revalidate(submissionId: string) {
  * chụp cùng 3 ảnh có đánh dấu 🔖. Mã sinh ở server, có hạn dùng và ghi audit.
  */
 export async function issueSubmissionCodeAction(form: FormData): Promise<SubmissionActionResult> {
+  const copy = await actionCopy();
   const id = String(form.get("submission_id") ?? "");
   const access = await supplierSubmissionAccess(id);
-  if (!access) return { ok: false, message: "Không mở được hồ sơ của doanh nghiệp bạn." };
+  if (!access) return { ok: false, message: copy.noAccess };
   if (!submissionEditable(access.submission.status)) {
-    return { ok: false, message: "Hồ sơ đang chờ xét duyệt hoặc đã được nhận nên không phát hành mã mới." };
+    return { ok: false, message: copy.codeLocked };
   }
   try {
     const supplier = await access.store.getSupplier(access.supplierId);
@@ -54,19 +63,20 @@ export async function issueSubmissionCodeAction(form: FormData): Promise<Submiss
     return {
       ok: true,
       code: issued.code,
-      message: `Đã phát hành mã ${issued.code}. Viết tay mã này lên giấy, cầm vào khung hình khi chụp các ảnh có 🔖. Ảnh 🔖 chụp trước thời điểm phát hành sẽ bị nêu cờ.`,
+      message: fill(copy.codeIssued, { code: issued.code }),
     };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Không phát hành được mã." };
+    return { ok: false, message: error instanceof Error ? error.message : copy.codeFailed };
   }
 }
 
 /** Lưu thông tin lô hàng L3 do NCC tự khai (supplier-stated, chưa xác minh). */
 export async function saveShipmentAction(form: FormData): Promise<SubmissionActionResult> {
+  const copy = await actionCopy();
   const id = String(form.get("submission_id") ?? "");
   const access = await supplierSubmissionAccess(id);
-  if (!access) return { ok: false, message: "Không mở được hồ sơ của doanh nghiệp bạn." };
-  if (access.submission.target_level !== 3) return { ok: false, message: "Mục này chỉ dành cho hồ sơ lịch sử xuất khẩu." };
+  if (!access) return { ok: false, message: copy.noAccess };
+  if (access.submission.target_level !== 3) return { ok: false, message: copy.exportOnly };
   try {
     await saveShipmentDetails(access.store, {
       submission: access.submission,
@@ -76,17 +86,18 @@ export async function saveShipmentAction(form: FormData): Promise<SubmissionActi
       note: String(form.get("note") ?? ""),
     });
     revalidate(id);
-    return { ok: true, message: "Đã lưu thông tin lô hàng tự khai. Đây là khai báo của doanh nghiệp, không phải dữ liệu Hải quan." };
+    return { ok: true, message: copy.shipmentSaved };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Không lưu được." };
+    return { ok: false, message: error instanceof Error ? error.message : copy.saveFailed };
   }
 }
 
 /** Khai tên nhà máy đối tác đúng như trên hợp đồng L2 (dùng để đối chiếu giấy chứng nhận). */
 export async function savePartnerFactoryNameAction(form: FormData): Promise<SubmissionActionResult> {
+  const copy = await actionCopy();
   const id = String(form.get("submission_id") ?? "");
   const access = await supplierSubmissionAccess(id);
-  if (!access) return { ok: false, message: "Không mở được hồ sơ của doanh nghiệp bạn." };
+  if (!access) return { ok: false, message: copy.noAccess };
   try {
     await savePartnerFactoryName(access.store, {
       submission: access.submission,
@@ -95,18 +106,19 @@ export async function savePartnerFactoryNameAction(form: FormData): Promise<Subm
     revalidate(id);
     return {
       ok: true,
-      message: "Đã lưu tên nhà máy đối tác. Vexim đối chiếu tên này với hợp đồng và với giấy chứng nhận bạn tải lên.",
+      message: copy.partnerSaved,
     };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Không lưu được." };
+    return { ok: false, message: error instanceof Error ? error.message : copy.saveFailed };
   }
 }
 
 /** Khai link nguồn công khai cho lịch sử xuất khẩu. */
 export async function addSourceLinkAction(form: FormData): Promise<SubmissionActionResult> {
+  const copy = await actionCopy();
   const id = String(form.get("submission_id") ?? "");
   const access = await supplierSubmissionAccess(id);
-  if (!access) return { ok: false, message: "Không mở được hồ sơ của doanh nghiệp bạn." };
+  if (!access) return { ok: false, message: copy.noAccess };
   try {
     const { assessment } = await addSourceLink(access.store, {
       submission: access.submission,
@@ -124,37 +136,39 @@ export async function addSourceLinkAction(form: FormData): Promise<SubmissionAct
     return {
       ok: true,
       message: assessment.allowed
-        ? "Đã lưu link nguồn công khai để nhân viên đối chiếu."
-        : `Đã lưu link. ${assessment.reason}`,
+        ? copy.linkSaved
+        : fill(copy.linkSavedWithReason, { reason: assessment.reason }),
     };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Không lưu được link." };
+    return { ok: false, message: error instanceof Error ? error.message : copy.linkFailed };
   }
 }
 
 export async function deleteSourceLinkAction(form: FormData): Promise<SubmissionActionResult> {
+  const copy = await actionCopy();
   const id = String(form.get("submission_id") ?? "");
   const linkId = String(form.get("link_id") ?? "");
   const access = await supplierSubmissionAccess(id);
-  if (!access) return { ok: false, message: "Không mở được hồ sơ của doanh nghiệp bạn." };
-  if (!submissionEditable(access.submission.status)) return { ok: false, message: "Hồ sơ đã nộp hoặc đã xét." };
-  if (!access.links.some((l) => l.id === linkId)) return { ok: false, message: "Link không thuộc hồ sơ này." };
+  if (!access) return { ok: false, message: copy.noAccess };
+  if (!submissionEditable(access.submission.status)) return { ok: false, message: copy.linkLocked };
+  if (!access.links.some((l) => l.id === linkId)) return { ok: false, message: copy.linkNotYours };
   await access.store.deleteSubmissionLink(linkId);
   revalidate(id);
-  return { ok: true, message: "Đã xoá link." };
+  return { ok: true, message: copy.linkDeleted };
 }
 
 /** Xoá bằng chứng đã tải (chỉ khi hồ sơ còn mở và tệp thuộc đúng hồ sơ). */
 export async function deleteSubmissionItemAction(form: FormData): Promise<SubmissionActionResult> {
+  const copy = await actionCopy();
   const id = String(form.get("submission_id") ?? "");
   const itemId = String(form.get("item_id") ?? "");
   const access = await supplierSubmissionAccess(id);
-  if (!access) return { ok: false, message: "Không mở được hồ sơ của doanh nghiệp bạn." };
+  if (!access) return { ok: false, message: copy.noAccess };
   if (!submissionEditable(access.submission.status)) {
-    return { ok: false, message: "Hồ sơ đang chờ xét duyệt hoặc đã được nhận; bằng chứng bị khoá." };
+    return { ok: false, message: copy.evidenceLocked };
   }
   const item = access.items.find((i) => i.id === itemId);
-  if (!item) return { ok: false, message: "Không tìm thấy bằng chứng trong hồ sơ này." };
+  if (!item) return { ok: false, message: copy.evidenceNotFound };
   try {
     await removeSubmissionItem(access.store, item);
     // Tệp của hồ sơ tự gửi không nằm trong kho ảnh công khai của NCC.
@@ -167,8 +181,8 @@ export async function deleteSubmissionItemAction(form: FormData): Promise<Submis
       before: null, after: { submission_id: id, item_id: itemId, checklist_key: item.checklist_key },
     });
     revalidate(id);
-    return { ok: true, message: "Đã xoá bằng chứng khỏi hồ sơ." };
+    return { ok: true, message: copy.evidenceDeleted };
   } catch (error) {
-    return { ok: false, message: submissionEvidenceErrorMessage(error) ?? (error instanceof Error ? error.message : "Không xoá được.") };
+    return { ok: false, message: submissionEvidenceErrorMessage(error) ?? (error instanceof Error ? error.message : copy.evidenceFailed) };
   }
 }

@@ -31,35 +31,48 @@ assert.doesNotMatch(chooser, /VerificationSubmissionPanel|SupplierPortalUpload|b
   'Bảng chọn cấp không nhúng biểu mẫu nộp bằng chứng');
 
 /* 2. Khung chung: mỗi lần mở chỉ tải đúng cấp, đúng danh mục, đúng bộ thông số. */
-const levelPage = read('app/supplier/portal/verification/level-page.tsx');
+// Chuỗi hiển thị nằm trong từ điển (giai đoạn 2): nối bản tiếng Việt vào nguồn để các
+// assertion câu chữ vẫn kiểm đúng nội dung người dùng đọc, còn nguồn vẫn kiểm được chỗ nối.
+const VI = loadPortalDictionary().vi;
+const withCopy = (source, subtree) => `${source}\n${JSON.stringify(subtree)}`;
+const levelPage = withCopy(read('app/supplier/portal/verification/level-page.tsx'), VI.verification.level);
 assert.match(levelPage, /supplierLevelAccess\(level\)/, 'Quyền truy cập lấy theo đúng cấp');
 assert.match(levelPage, /getOrCreateSubmission\(store, \{ supplierId: supplier\.id, level, userId: user\.id, supplierType: supplier\.supplier_type \}\)/,
   'Chỉ mở/tạo hồ sơ của đúng cấp');
 assert.match(levelPage, /level === 2 \? partner \? partnerSpecs\(\) : photoSpecs\(\) : exportSpecs\(\)/, 'Danh mục đi theo cấp');
 assert.match(levelPage, /<VerificationSubmissionPanel view=\{view\} specs=\{specs\}/, 'Bảng điều khiển dùng đúng khung cũ');
-assert.match(levelPage, /chưa mở được hồ sơ tự gửi/, 'Lỗi đọc hồ sơ có log');
-assert.match(levelPage, /Chưa mở được phần tải bằng chứng/, 'Thiếu bảng có màn hình báo cho NCC');
-assert.match(levelPage, /không phải lỗi tài khoản của bạn/, 'Câu báo lỗi nói rõ lỗi phía Vexim');
-assert.match(levelPage, /Chưa mở được hồ sơ xác minh này/, 'Hồ sơ rỗng cũng có câu báo');
+const portalCopy = loadPortalDictionary();
+assert.match(levelPage, /could not open the self-submission file/, 'Lỗi đọc hồ sơ có log (tiếng Anh, cho log máy đọc)');
+assert.match(levelPage, /level\.loadErrorTitle/, 'Thiếu bảng có màn hình báo cho NCC');
+assert.match(portalCopy.vi.verification.level.loadErrorBody, /không phải lỗi tài khoản của bạn/, 'Câu báo lỗi nói rõ lỗi phía Vexim');
+assert.match(portalCopy.en.verification.level.loadErrorBody, /not a problem with your account/i, 'Câu báo lỗi có bản tiếng Anh');
+assert.match(levelPage, /level\.unavailable/, 'Hồ sơ rỗng cũng có câu báo');
+assert.match(portalCopy.vi.verification.level.unavailable, /Chưa mở được hồ sơ xác minh này/, 'Câu báo hồ sơ rỗng nằm trong từ điển');
 
 // Tab chuyển bước: ba bước dùng chung một dải tab, đánh dấu bước đang mở, mỗi bước
 // vẫn là một trang riêng.
 assert.match(levelPage, /<LevelTabs current=\{level\} partner=/, 'Trang L2/L3 dùng dải tab chung');
-const levelTabs = read('app/supplier/portal/verification/level-tabs.tsx');
+const levelTabs = withCopy(read('app/supplier/portal/verification/level-tabs.tsx'), VI.verification.tabs);
 assert.match(levelTabs, /aria-current=\{active \? "page" : undefined\}/, 'Tab đang mở được đánh dấu');
 assert.match(levelTabs, /VERIFICATION_STEPS\.map/, 'Tab vẽ đủ các bước');
 for (const step of ['/supplier/portal/documents', '/supplier/portal/verification/factory', '/supplier/portal/verification/export'])
   assert.ok(levelTabs.includes(step), `Tab dẫn tới ${step}`);
-assert.match(levelTabs, /Bước \{step\.level\}\/3/, 'Mỗi tab ghi rõ bước mấy trên ba');
-assert.match(levelTabs, /Đang mở/, 'Tab nói rõ bước đang mở');
-for (const copy of ['Tạo và in tờ mã', 'Chụp 9 ảnh tại nhà máy', 'Chọn một lô hàng', 'Nộp hồ sơ'])
-  assert.ok(levelPage.includes(copy), `Có hướng dẫn “${copy}”`);
-assert.ok(levelPage.includes('kể cả ảnh đã gửi qua Zalo, đều nhận'), 'L2 nói rõ ảnh qua Zalo vẫn nhận');
+// Nhãn tab và hướng dẫn nằm trong từ điển (giai đoạn 2, cụm 4); trang chỉ nối chuỗi.
+const viTabs = loadPortalDictionary().vi.verification.tabs;
+assert.match(levelTabs, /fill\(copy\.step, \{ level: step\.level \}\)/, 'Mỗi tab ghi rõ bước mấy trên ba');
+assert.match(levelTabs, /active \? copy\.current : copy\.open/, 'Tab nói rõ bước đang mở');
+assert.match(viTabs.step, /Bước \{level\}\/3/, 'Câu đánh số bước nằm trong từ điển');
+assert.equal(viTabs.current, 'Đang mở', 'Nhãn bước đang mở nằm trong từ điển');
+const viLevelCopy = loadPortalDictionary().vi.verification.level;
+for (const text of ['Tạo và in tờ mã', 'Chụp 9 ảnh tại nhà máy', 'Chọn một lô hàng'])
+  assert.ok(viLevelCopy.factoryGuideTitles.concat(viLevelCopy.partnerGuideTitles, viLevelCopy.exportGuideTitles).includes(text), `Có hướng dẫn “${text}”`);
+assert.ok(loadPortalDictionary().vi.verification.panel.submit.submit === 'Nộp hồ sơ', 'Có nhãn “Nộp hồ sơ”');
+assert.ok(viLevelCopy.factoryGuideBodies.join(' ').includes('kể cả ảnh đã gửi qua Zalo, đều nhận'), 'L2 nói rõ ảnh qua Zalo vẫn nhận');
 assert.ok(!levelPage.includes('Gửi <strong>ảnh gốc'), 'Không đòi ảnh gốc');
 assert.ok(!levelPage.includes('AI quét những gì'), 'Đã bỏ khối giải thích AI khỏi trang L2/L3');
 
 /* 2b. Bước 1 (giấy tờ) dùng đúng ngôn ngữ thị giác của L2/L3 nhưng không có nút nộp. */
-const documents = read('app/supplier/portal/documents/page.tsx');
+const documents = withCopy(read('app/supplier/portal/documents/page.tsx'), VI.documents);
 assert.match(documents, /<LevelTabs current=\{1\} partner=/, 'Trang L1 dùng chung dải tab ba bước');
 assert.match(documents, /role="progressbar"/, 'L1 có dải tiến độ giấy tờ');
 // Bước 1 dùng đúng bố cục hai cột của L2/L3 (nội dung bên trái, cột tóm tắt dính bên
@@ -71,21 +84,20 @@ const mainColumn = documents.slice(documents.indexOf('<div className="min-w-0 sp
 assert.match(mainColumn, /<L1DocUpload checklistKey=\{row\.key\}/, 'Cột trái rộng là nơi tải giấy đăng ký kinh doanh');
 assert.match(mainColumn, /<SupplierCertificateUpload certificates=/, 'Cột trái rộng là nơi tải chứng nhận chất lượng');
 assert.match(mainColumn, /role="progressbar"/, 'Tiến độ giấy tờ nằm cạnh ô tải');
-assert.match(aside, /<VerificationBenefits items=\{L1_BENEFITS\} \/>/, 'Cột phải nói nhà cung cấp nhận được gì');
-assert.match(aside, /Chứng nhận đã duyệt theo loại/, 'Cột phải liệt kê loại giấy đã duyệt');
+assert.match(aside, /<VerificationBenefits items=\{copy\.benefits\.items\} title=\{copy\.benefits\.title\} \/>/, 'Cột phải nói nhà cung cấp nhận được gì');
+assert.match(aside, /copy\.approved\.title/, 'Cột phải liệt kê loại giấy đã duyệt');
+assert.match(loadPortalDictionary().vi.documents.approved.title, /Chứng nhận đã duyệt theo loại/, 'Tiêu đề khối đã duyệt nằm trong từ điển');
 assert.match(documents, /EvidenceThumbnail/, 'L1 hiển thị tệp dạng ảnh thu nhỏ');
 
 // Phần giá trị: dùng chung một khối, nằm trong cột hẹp bên cạnh, trên danh sách chứng nhận.
-assert.match(documents, /<VerificationBenefits items=\{L1_BENEFITS\} \/>/, 'L1 dùng cùng khối giá trị với L2/L3');
+assert.match(documents, /<VerificationBenefits items=\{copy\.benefits\.items\}/, 'L1 dùng cùng khối giá trị với L2/L3');
 assert.ok(documents.indexOf('<VerificationBenefits') > documents.indexOf('<aside'), 'Khối giá trị nằm trong cột hẹp bên cạnh');
-const l1Benefits = documents.match(/const L1_BENEFITS = \[\n((?:\s+"[^"\n]+",\n)+)\] as const;/);
-assert.ok(l1Benefits, 'L1 khai báo danh sách giá trị ngay trên đầu trang');
-const l1Lines = l1Benefits[1].split('\n').filter((line) => line.trim());
-assert.equal(l1Lines.length, 5, 'Năm giá trị nổi bật, không viết dài');
-for (const line of l1Lines) {
-  assert.ok(line.trim().replace(/,$/, '').length <= 90, `Gạch đầu dòng quá dài: ${line.trim()}`);
+const l1Benefits = loadPortalDictionary().vi.documents.benefits;
+assert.equal(l1Benefits.items.length, 5, 'Năm giá trị nổi bật, không viết dài');
+for (const line of l1Benefits.items) {
+  assert.ok(line.length <= 90, `Gạch đầu dòng quá dài: ${line}`);
 }
-assert.match(documents, /Chứng nhận đã duyệt theo loại/, 'Danh sách chứng nhận gom theo loại giấy');
+assert.match(documents, /copy\.approved\.title/, 'Danh sách chứng nhận gom theo loại giấy');
 assert.match(documents, /approvedByKey\.map/, 'Chỉ loại có giấy đã duyệt mới được vẽ');
 assert.match(documents, /BadgeCheck/, 'Mỗi loại đã duyệt có dấu xác nhận');
 assert.doesNotMatch(documents, /Giấy đã duyệt/, 'Đã bỏ cột Giấy đã duyệt khỏi bảng cũ');
@@ -99,24 +111,23 @@ assert.doesNotMatch(documents, /AI quét những gì/, 'Không lặp lại khố
    đặt trong cột hẹp bên cạnh như L1, trên thẻ nộp hồ sơ. Chỉ nói thứ người mua nhìn
    thấy; không hứa đơn hàng và không nói nhân viên sẽ giới thiệu nhà cung cấp. */
 assert.ok(has('app/supplier/portal/verification/benefits.tsx'), 'Có khối giá trị dùng chung cho ba bước');
-const benefitsBlock = read('app/supplier/portal/verification/benefits.tsx');
+const benefitsBlock = withCopy(read('app/supplier/portal/verification/benefits.tsx'), VI.verification.benefits);
 assert.match(benefitsBlock, /Bạn nhận được gì/, 'Khối giá trị có tiêu đề');
 assert.match(benefitsBlock, /Check className/, 'Mỗi dòng có dấu xác nhận');
 assert.match(benefitsBlock, /space-y-1/, 'Danh sách xếp dọc cho vừa cột hẹp');
 assert.match(levelPage, /benefits=\{copy\.benefits\}/, 'L2 và L3 truyền giá trị vào cột hẹp');
 assert.doesNotMatch(levelPage, /<VerificationBenefits/, 'Trang không tự vẽ khối, chỉ truyền dữ liệu');
-const levelPanel = read('app/supplier/portal/verification/verification-panel.tsx');
+const levelPanel = withCopy(read('app/supplier/portal/verification/verification-panel.tsx'), VI.verification.panel);
 const panelAside = levelPanel.slice(levelPanel.indexOf('<aside'), levelPanel.indexOf('</aside>', levelPanel.indexOf('<aside')));
-assert.match(panelAside, /<VerificationBenefits items=\{benefits\} \/>/, 'Cột hẹp của L2/L3 có khối giá trị');
-assert.ok(panelAside.indexOf('<VerificationBenefits') < panelAside.indexOf('Nộp hồ sơ'),
+assert.match(panelAside, /<VerificationBenefits items=\{benefits\} title=\{benefitsTitle\} \/>/, 'Cột hẹp của L2/L3 có khối giá trị');
+assert.ok(panelAside.indexOf('<VerificationBenefits') < panelAside.indexOf('copy.submit.title'),
   'Khối giá trị đứng trên thẻ nộp hồ sơ');
-const benefitBlocks = [...levelPage.matchAll(/benefits: \[\n((?:\s+"[^"\n]+",\n)+)\s+\]/g)];
-assert.equal(benefitBlocks.length, 3, 'Đủ ba biến thể: L2 nhà máy, L2 đối tác, L3 xuất khẩu');
-for (const [, body] of benefitBlocks) {
-  const lines = body.split('\n').filter((line) => line.trim());
+const benefitGroups = [VI.verification.level.factoryBenefits, VI.verification.level.partnerBenefits, VI.verification.level.exportBenefits];
+assert.equal(benefitGroups.length, 3, 'Đủ ba biến thể: L2 nhà máy, L2 đối tác, L3 xuất khẩu');
+for (const lines of benefitGroups) {
   assert.equal(lines.length, 5, 'Mỗi cấp đúng năm giá trị');
   for (const line of lines) {
-    assert.ok(line.trim().replace(/,$/, '').length <= 90, `Gạch đầu dòng quá dài: ${line.trim()}`);
+    assert.ok(line.length <= 90, `Gạch đầu dòng quá dài: ${line}`);
     assert.doesNotMatch(line, /tăng đơn|chắc chắn có đơn|top 1|lên top/i, 'Không hứa đơn hàng hay thứ hạng tuyệt đối');
     assert.doesNotMatch(line, /giới thiệu|nhân viên sẽ chọn|nhân viên chọn/i, 'Không nói nhân viên giới thiệu nhà cung cấp');
   }
@@ -131,7 +142,7 @@ assert.doesNotMatch(auditForm, /Bắt buộc 1 trong 3|một trong ba/, 'Bỏ đ
 assert.match(auditForm, /useState\(false\)/, 'Tệp cũ không gắn mục được thu gọn mặc định');
 
 /* 3. Giao diện mới nhưng giữ đủ chức năng của bảng điều khiển cũ. */
-const panel = read('app/supplier/portal/verification/verification-panel.tsx');
+const panel = withCopy(read('app/supplier/portal/verification/verification-panel.tsx'), VI.verification.panel);
 for (const [label, pattern] of [
   ['tạo mã xác minh', /issueSubmissionCodeAction/],
   ['tải tờ mã', /downloadCodeSheet|Tải tờ mã về/],
@@ -149,10 +160,10 @@ for (const [label, pattern] of [
   assert.match(panel, pattern, `Bảng điều khiển còn chức năng ${label}`);
 
 const shipmentCard = panel.slice(panel.indexOf('{/* L3 · lô hàng'), panel.indexOf('{/* Bộ bằng chứng'));
-for (const copy of [
-  'Chứng từ của bạn được bảo mật và không hiển thị công khai.',
-  'Chọn một lô hàng đã xuất và tải chứng từ của lô đó để nhân viên kiểm tra.',
-]) assert.ok(shipmentCard.includes(copy), `Ghi chú L3 có câu “${copy}”`);
+assert.match(VI.verification.panel.shipment.privacy,
+  /Chứng từ của bạn được bảo mật và không hiển thị công khai\.[\s\S]*Chọn một lô hàng đã xuất và tải chứng từ của lô đó để nhân viên kiểm tra\./,
+  'Ghi chú L3 nói rõ bảo mật và việc cần làm');
+assert.match(shipmentCard, /copy\.shipment\.privacy/, 'Thẻ lô hàng đọc ghi chú từ từ điển');
 assert.match(shipmentCard, /level === 3 &&/, 'Ghi chú bảo mật chỉ thuộc luồng xuất khẩu L3');
 
 // Nộp chỉ mở khi đủ mục và hồ sơ còn sửa được; nút nộp không bị biến thành nút chết.
@@ -163,7 +174,7 @@ assert.match(panel, /sticky bottom-0[^"]*lg:hidden/, 'Điện thoại có thanh 
 assert.match(panel, /xl:grid-cols-3/, 'Bằng chứng xếp thành lưới thẻ như sàn TMĐT');
 
 /* 4. Thẻ bằng chứng: ảnh thu nhỏ, tải tệp, xóa tệp, chi tiết kỹ thuật, không ép camera. */
-const card = read('app/supplier/portal/verification/submission-item-card.tsx');
+const card = withCopy(read('app/supplier/portal/verification/submission-item-card.tsx'), VI.verification.panel.card);
 assert.match(card, /\/api\/supplier-portal\/submissions\/\$\{encodeURIComponent\(submissionId\)\}\/upload/,
   'Thẻ tải tệp lên đúng route cũ');
 assert.match(card, /deleteSubmissionItemAction/, 'Thẻ vẫn xóa được bằng chứng');
@@ -172,7 +183,9 @@ assert.match(card, /level === 3 \|\| \(partner && spec\.key === "partner_factory
   'L2 nhà máy chỉ ảnh, hợp đồng và L3 nhận thêm PDF');
 assert.doesNotMatch(card, /capture=\{level === 2/, 'Không ép mở camera');
 assert.match(card, /Chi tiết kỹ thuật/, 'L2 vẫn xem được chi tiết kỹ thuật/AI');
-assert.match(card, /level === 2 && !partner \? "Chi tiết kỹ thuật & AI" : "Chi tiết tệp"/, 'L3 không hiện nhãn AI trong chi tiết tệp');
+assert.match(card, /level === 2 && !partner \? copy\.detailsTech : copy\.detailsFile/, 'L3 không hiện nhãn AI trong chi tiết tệp');
+assert.match(VI.verification.panel.card.detailsTech, /Chi tiết kỹ thuật & AI/, 'Nhãn chi tiết L2 nằm trong từ điển');
+assert.equal(VI.verification.panel.card.detailsFile, 'Chi tiết tệp', 'Nhãn chi tiết L3 nằm trong từ điển');
 assert.match(card, /hardFlags/, 'Cờ bắt buộc vẫn nổi bật trên thẻ');
 assert.match(card, /bắt buộc có tờ mã xác minh đặt cạnh cảnh/, 'Ảnh 🔖 nhắc tờ mã ngay trong thẻ');
 assert.match(card, /Mở ảnh gốc|Mở PDF/, 'Bấm mở được tệp gốc qua route kiểm quyền');

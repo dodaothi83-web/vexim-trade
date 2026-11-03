@@ -588,23 +588,23 @@ export type DeliveryKey = typeof DELIVERY_ITEMS[number]["key"];
  * chụp cùng cảnh. Đây là điều kiện bắt buộc duy nhất của ảnh — EXIF, GPS, giờ chụp chỉ là ghi chú.
  */
 export const L2_FACTORY_PHOTO_ITEMS = [
-  { key: "factory_gate", label: "Cổng nhà máy", requirement: "Thấy rõ biển tên công ty", requires_code: true, order: 1 },
-  { key: "raw_material_warehouse", label: "Kho nguyên liệu", requirement: "Chụp rộng, thấy quy mô kho", requires_code: false, order: 2 },
-  { key: "production_line_running", label: "Dây chuyền chính đang chạy", requirement: "Có công nhân đang làm việc", requires_code: true, order: 3 },
-  { key: "packing_area", label: "Khu đóng gói", requirement: "Thấy khu vực đóng gói đang hoạt động", requires_code: false, order: 4 },
-  { key: "finished_goods_warehouse", label: "Kho thành phẩm", requirement: "Hàng đã đóng thùng", requires_code: true, order: 5 },
-  { key: "open_carton_lot_label", label: "Một thùng hàng mở ra", requirement: "Thấy sản phẩm và nhãn có mã lô", requires_code: false, order: 6 },
-  { key: "hygiene_station", label: "Khu rửa tay, thay đồ bảo hộ", requirement: "Trước khi vào xưởng", requires_code: false, order: 7 },
-  { key: "worker_ppe", label: "Công nhân mặc bảo hộ", requirement: "Mũ, khẩu trang, găng tay, áo bảo hộ", requires_code: false, order: 8 },
-  { key: "pest_control", label: "Bẫy / trạm kiểm soát côn trùng, chuột", requirement: "Thấy bẫy hoặc trạm đang đặt tại xưởng", requires_code: false, order: 9 },
+  { key: "factory_gate", label: "Cổng nhà máy", labelEn: "Factory gate", requirement: "Thấy rõ biển tên công ty", requirementEn: "Company sign clearly visible", requires_code: true, order: 1 },
+  { key: "raw_material_warehouse", label: "Kho nguyên liệu", labelEn: "Raw material warehouse", requirement: "Chụp rộng, thấy quy mô kho", requirementEn: "Wide shot showing the size of the warehouse", requires_code: false, order: 2 },
+  { key: "production_line_running", label: "Dây chuyền chính đang chạy", labelEn: "Main production line running", requirement: "Có công nhân đang làm việc", requirementEn: "Workers at work", requires_code: true, order: 3 },
+  { key: "packing_area", label: "Khu đóng gói", labelEn: "Packing area", requirement: "Thấy khu vực đóng gói đang hoạt động", requirementEn: "Packing area in operation", requires_code: false, order: 4 },
+  { key: "finished_goods_warehouse", label: "Kho thành phẩm", labelEn: "Finished goods warehouse", requirement: "Hàng đã đóng thùng", requirementEn: "Goods packed in cartons", requires_code: true, order: 5 },
+  { key: "open_carton_lot_label", label: "Một thùng hàng mở ra", labelEn: "One carton opened", requirement: "Thấy sản phẩm và nhãn có mã lô", requirementEn: "Product and lot label visible", requires_code: false, order: 6 },
+  { key: "hygiene_station", label: "Khu rửa tay, thay đồ bảo hộ", labelEn: "Handwashing and PPE station", requirement: "Trước khi vào xưởng", requirementEn: "At the entrance to the plant", requires_code: false, order: 7 },
+  { key: "worker_ppe", label: "Công nhân mặc bảo hộ", labelEn: "Workers in protective gear", requirement: "Mũ, khẩu trang, găng tay, áo bảo hộ", requirementEn: "Hairnet, mask, gloves, protective clothing", requires_code: false, order: 8 },
+  { key: "pest_control", label: "Bẫy / trạm kiểm soát côn trùng, chuột", labelEn: "Pest control traps and stations", requirement: "Thấy bẫy hoặc trạm đang đặt tại xưởng", requirementEn: "Trap or station installed in the plant", requires_code: false, order: 9 },
 ] as const;
 
 export type FactoryPhotoKey = typeof L2_FACTORY_PHOTO_ITEMS[number]["key"];
 
 /** Commercial suppliers: contract with a partner factory is required; photos are optional. */
 export const L2_PARTNER_ITEMS = [
-  { key: "partner_factory_contract", label: "Hợp đồng với nhà máy đối tác", requirement: "Thể hiện doanh nghiệp của bạn và nhà máy đối tác", required: true, order: 1 },
-  { key: "partner_factory_photos", label: "Ảnh nhà máy đối tác (nếu có)", requirement: "Ảnh bổ sung, không bắt buộc", required: false, order: 2 },
+  { key: "partner_factory_contract", label: "Hợp đồng với nhà máy đối tác", labelEn: "Contract with the partner factory", requirement: "Thể hiện doanh nghiệp của bạn và nhà máy đối tác", requirementEn: "Names your company and the partner factory", required: true, order: 1 },
+  { key: "partner_factory_photos", label: "Ảnh nhà máy đối tác (nếu có)", labelEn: "Partner factory photos (if any)", requirement: "Ảnh bổ sung, không bắt buộc", requirementEn: "Extra photos, optional", required: false, order: 2 },
 ] as const;
 export type PartnerEvidenceKey = typeof L2_PARTNER_ITEMS[number]["key"];
 
@@ -624,13 +624,13 @@ export const L2_VISIT_ITEMS = L2_FACTORY_PHOTO_ITEMS;
 
 /** Các loại chứng từ L3. Cần ít nhất một tệp, không bắt buộc loại cụ thể. */
 export const L3_EXPORT_ITEMS = [
-  { key: "bill_of_lading", label: "Vận đơn đường biển / hàng không (B/L, AWB)", required: false },
-  { key: "customs_declaration", label: "Tờ khai hải quan xuất khẩu", required: false },
-  { key: "commercial_invoice", label: "Hóa đơn thương mại", required: false },
-  { key: "packing_list", label: "Phiếu đóng gói", required: false },
-  { key: "certificate_of_origin", label: "C/O (giấy chứng nhận xuất xứ)", required: false },
-  { key: "phytosanitary_or_health", label: "Kiểm dịch / y tế / hun trùng", required: false },
-  { key: "other_export_evidence", label: "Chứng từ xuất khẩu khác", required: false },
+  { key: "bill_of_lading", label: "Vận đơn đường biển / hàng không (B/L, AWB)", labelEn: "Sea or air waybill (B/L, AWB)", required: false },
+  { key: "customs_declaration", label: "Tờ khai hải quan xuất khẩu", labelEn: "Export customs declaration", required: false },
+  { key: "commercial_invoice", label: "Hóa đơn thương mại", labelEn: "Commercial invoice", required: false },
+  { key: "packing_list", label: "Phiếu đóng gói", labelEn: "Packing list", required: false },
+  { key: "certificate_of_origin", label: "C/O (giấy chứng nhận xuất xứ)", labelEn: "Certificate of origin (C/O)", required: false },
+  { key: "phytosanitary_or_health", label: "Kiểm dịch / y tế / hun trùng", labelEn: "Phytosanitary / health / fumigation", required: false },
+  { key: "other_export_evidence", label: "Chứng từ xuất khẩu khác", labelEn: "Other export evidence", required: false },
 ] as const;
 
 export type ExportDocKey = typeof L3_EXPORT_ITEMS[number]["key"];
@@ -653,6 +653,23 @@ export const SUBMISSION_FLAG_LABELS: Record<string, string> = {
   code_mismatch: "Mã viết tay trong ảnh không khớp mã hệ thống phát hành",
   content_mismatch: "Nội dung ảnh không đúng với mục yêu cầu (AI)",
   resolution_low: "Độ phân giải ảnh thấp bất thường",
+};
+
+/** Nhãn tiếng Anh của cùng bộ cờ; chi tiết cờ vẫn là dữ liệu đã lưu lúc tải ảnh. */
+export const SUBMISSION_FLAG_LABELS_EN: Record<string, string> = {
+  no_exif: "The file has no original photo data (often because it was sent through Zalo or Facebook); still accepted",
+  edited_software: "Photo data names editing software; for the checker to note only",
+  shared_via_app: "The photo passed through a chat or social app; still accepted",
+  no_gps: "The photo carries no coordinates; not required",
+  gps_outside_vn: "The coordinates in the photo are outside Vietnam",
+  gps_mismatch: "The photo coordinates are far from the location the browser reported",
+  not_daylight: "Taken outside 06:00-18:00 Vietnam time; for the checker to note only",
+  no_capture_time: "The photo does not say when it was taken; not required",
+  capture_before_code: "Photo data suggests it was taken before the verification code was issued",
+  code_missing: "No handwritten verification code sheet found in a photo that requires one",
+  code_mismatch: "The handwritten code in the photo does not match the code the system issued",
+  content_mismatch: "The photo content does not match the required item (AI)",
+  resolution_low: "Unusually low photo resolution",
 };
 
 export type SubmissionFlag = keyof typeof SUBMISSION_FLAG_LABELS;

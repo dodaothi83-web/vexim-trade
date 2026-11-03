@@ -1,7 +1,11 @@
+import { getPortalMessages } from "@/lib/i18n/server";
 import { VerificationLevelPage } from "../level-page";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Xác minh L2", robots: { index: false, follow: false } };
+export async function generateMetadata() {
+  const { m } = await getPortalMessages();
+  return { title: m.verification.level.factoryTitle, robots: { index: false, follow: false } };
+}
 
 /**
  * L2 - xác thực nhà máy bằng 9 ảnh tự chụp.
