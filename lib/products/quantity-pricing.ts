@@ -67,8 +67,15 @@ export type QuantityPricingInput = {
 export type QuantityPricingIssue = {
   code: string;
   message: string;
+  /** Câu tiếng Anh cho cổng nhà cung cấp; CRM dùng `message`. Bảng giá v2 chưa có bản dịch. */
+  messageEn?: string;
   tierIndex?: number;
 };
+
+/** Chọn câu theo ngôn ngữ đang xem; mặc định giữ tiếng Việt cho CRM. */
+export function issueMessage(issue: QuantityPricingIssue, lang: "vi" | "en" = "vi"): string {
+  return lang === "en" ? issue.messageEn ?? issue.message : issue.message;
+}
 export type QuantityPricingResult = {
   errors: QuantityPricingIssue[];
   warnings: QuantityPricingIssue[];
@@ -149,21 +156,28 @@ export function validateQuantityPricing(
   if (!Number.isSafeInteger(policy.maxTiers) || policy.maxTiers < 1 || policy.maxTiers > 100 ||
       !Number.isFinite(policy.maxPriceRatio) || policy.maxPriceRatio < 1 ||
       !Number.isFinite(policy.maxLastMoqRatio) || policy.maxLastMoqRatio < 1) {
-    return { errors: [{ code: "invalid_policy", message: "Cấu hình kiểm tra giá không hợp lệ." }], warnings, value: null };
+    return { errors: [{ code: "invalid_policy", message: "Cấu hình kiểm tra giá không hợp lệ.",
+      messageEn: "The price check configuration is not valid." }], warnings, value: null };
   }
   const grade = standardGrades.find((g) => normalized(g) === normalized(input.grade)) ?? "";
   if (!grade) errors.push({ code: "grade", message: standardGrades.length
     ? "Chọn grade chuẩn của danh mục để tiếp tục."
-    : "Danh mục chưa có grade. Gửi Vexim bổ sung." });
+    : "Danh mục chưa có grade. Gửi Vexim bổ sung.",
+    messageEn: standardGrades.length
+      ? "Choose the standard grade for this category to continue."
+      : "This category has no grade yet. Ask Vexim to add one." });
   const fallbackIncoterm = input.incoterm.trim().toUpperCase();
   const currency = normalizePriceCurrency(input.currency ?? DEFAULT_PRICE_CURRENCY);
-  if (!currency) errors.push({ code: "currency", message: "Chọn tiền tệ cho bảng giá." });
+  if (!currency) errors.push({ code: "currency", message: "Chọn tiền tệ cho bảng giá.", messageEn: "Choose the currency for the price table." });
   const gradeInName = [...standardGrades, input.grade].find((g) => nameContainsGrade(input.nameVi, [g]));
-  if (gradeInName) errors.push({ code: "name_vi_grade", message: `Bỏ grade (${gradeInName}) ra khỏi tên sản phẩm.` });
-  if (nameContainsGrade(input.nameEn, [...standardGrades, input.grade])) errors.push({ code: "name_en_grade", message: "Không ghi grade trong tên sản phẩm tiếng Anh." });
+  if (gradeInName) errors.push({ code: "name_vi_grade", message: `Bỏ grade (${gradeInName}) ra khỏi tên sản phẩm.`,
+    messageEn: `Remove the grade (${gradeInName}) from the product name.` });
+  if (nameContainsGrade(input.nameEn, [...standardGrades, input.grade])) errors.push({ code: "name_en_grade", message: "Không ghi grade trong tên sản phẩm tiếng Anh.",
+    messageEn: "Do not put the grade in the English product name." });
   const maxTiers = Math.min(policy.maxTiers, 4);
   if (input.tiers.length < 1 || input.tiers.length > maxTiers) {
-    errors.push({ code: "tier_count", message: `Nhập từ 1 đến ${maxTiers} mức giá.` });
+    errors.push({ code: "tier_count", message: `Nhập từ 1 đến ${maxTiers} mức giá.`,
+      messageEn: `Enter between 1 and ${maxTiers} price tiers.` });
     return { errors, warnings, value: null };
   }
   const tiers: QuantityPriceTier[] = [];
@@ -173,10 +187,13 @@ export function validateQuantityPricing(
     const cents = centsFromText(row.priceUsdPerKg);
     const tierIncoterm = (row.incoterm ?? fallbackIncoterm).trim().toUpperCase();
     if (kg === null) {
-      errors.push({ code: "quantity", tierIndex, message: "Số lượng từ phải là số kg nguyên lớn hơn 0." });
+      errors.push({ code: "quantity", tierIndex, message: "Số lượng từ phải là số kg nguyên lớn hơn 0.",
+        messageEn: "The from quantity must be a whole number of kg greater than 0." });
     }
-    if (cents === null) errors.push({ code: "price", tierIndex, message: `Nhập đơn giá ${currency ?? "USD"}/kg lớn hơn 0, tối đa 2 chữ số thập phân.` });
-    if (!INCOTERMS.has(tierIncoterm)) errors.push({ code: "incoterm", tierIndex, message: `Chọn Incoterm cho mức giá ${tierIndex + 1}.` });
+    if (cents === null) errors.push({ code: "price", tierIndex, message: `Nhập đơn giá ${currency ?? "USD"}/kg lớn hơn 0, tối đa 2 chữ số thập phân.`,
+        messageEn: `Enter a unit price in ${currency ?? "USD"}/kg greater than 0, with at most 2 decimals.` });
+    if (!INCOTERMS.has(tierIncoterm)) errors.push({ code: "incoterm", tierIndex, message: `Chọn Incoterm cho mức giá ${tierIndex + 1}.`,
+        messageEn: `Choose an Incoterm for price tier ${tierIndex + 1}.` });
     if (kg === null || cents === null || !currency || !INCOTERMS.has(tierIncoterm)) return;
     tiers.push({ minKg: kg, priceUsdPerKg: cents / 100, incoterm: tierIncoterm, currency });
     centsList.push(cents);
@@ -184,14 +201,18 @@ export function validateQuantityPricing(
   // Avoid comparing across a malformed or missing row.
   if (tiers.length === input.tiers.length && tiers.length) {
     for (let i = 1; i < tiers.length; i++) {
-      if (tiers[i].minKg <= tiers[i - 1].minKg) errors.push({ code: "quantity_order", tierIndex: i, message: "Số lượng dòng sau phải lớn hơn dòng trước." });
-      if (centsList[i] > centsList[i - 1]) errors.push({ code: "price_order", tierIndex: i, message: "Giá dòng sau phải thấp hơn hoặc bằng dòng trước." });
+      if (tiers[i].minKg <= tiers[i - 1].minKg) errors.push({ code: "quantity_order", tierIndex: i, message: "Số lượng dòng sau phải lớn hơn dòng trước.",
+        messageEn: "Each tier must start above the previous one." });
+      if (centsList[i] > centsList[i - 1]) errors.push({ code: "price_order", tierIndex: i, message: "Giá dòng sau phải thấp hơn hoặc bằng dòng trước.",
+        messageEn: "Each tier price must be the same or lower than the previous one." });
     }
     const max = Math.max(...centsList);
     const min = Math.min(...centsList);
-    if (max / min > policy.maxPriceRatio + 1e-12) errors.push({ code: "price_spread", message: "Chênh lệch giữa giá cao nhất và thấp nhất vượt giới hạn." });
+    if (max / min > policy.maxPriceRatio + 1e-12) errors.push({ code: "price_spread", message: "Chênh lệch giữa giá cao nhất và thấp nhất vượt giới hạn.",
+        messageEn: "The gap between the highest and lowest price is too wide." });
     if (tiers[tiers.length - 1].minKg / tiers[0].minKg > policy.maxLastMoqRatio + 1e-12) {
-      errors.push({ code: "quantity_spread", message: "Số lượng từ của dòng cuối vượt giới hạn so với MOQ." });
+      errors.push({ code: "quantity_spread", message: "Số lượng từ của dòng cuối vượt giới hạn so với MOQ.",
+        messageEn: "The last tier starts too far above the MOQ." });
     }
     // Reference bounds are stored in USD/kg; other currencies are reviewed by staff.
     const boundsEntry = currency === "USD"
@@ -201,11 +222,13 @@ export function validateQuantityPricing(
     if (bounds) {
       if (!Number.isFinite(bounds.minUsdPerKg) || !Number.isFinite(bounds.maxUsdPerKg) ||
           bounds.minUsdPerKg <= 0 || bounds.maxUsdPerKg < bounds.minUsdPerKg) {
-        errors.push({ code: "invalid_grade_bounds", message: "Ngưỡng giá của grade chưa được cấu hình hợp lệ." });
+        errors.push({ code: "invalid_grade_bounds", message: "Ngưỡng giá của grade chưa được cấu hình hợp lệ.",
+          messageEn: "The reference range for this grade is not configured correctly." });
       } else {
         tiers.forEach((tier, tierIndex) => {
           if (tier.priceUsdPerKg < bounds.minUsdPerKg || tier.priceUsdPerKg > bounds.maxUsdPerKg) {
-            warnings.push({ code: "grade_price_outlier", tierIndex, message: "Giá nằm ngoài ngưỡng tham khảo của grade và cần được rà soát." });
+            warnings.push({ code: "grade_price_outlier", tierIndex, message: "Giá nằm ngoài ngưỡng tham khảo của grade và cần được rà soát.",
+              messageEn: "This price is outside the reference range for the grade and will be reviewed." });
           }
         });
       }

@@ -118,14 +118,15 @@ const crmList = readFileSync(new URL('../app/crm/products/page.tsx', import.meta
 for (const [name, file] of [['editor', editor], ['storefront', storefront], ['CRM list', crmList]]) {
   assert.match(file, /productCompleteness/, `${name} phải dùng productCompleteness`);
 }
-assert.match(editor, /Độ hoàn thiện hồ sơ/, 'editor có khối độ hoàn thiện');
+assert.match(editor, /aria-label=\{copy\.side\.qualityAria\}/, 'editor có khối độ hoàn thiện, nhãn đọc từ từ điển');
 const asideStart = editor.indexOf('<aside className="space-y-3 lg:sticky');
-const qualityCardAt = editor.indexOf('aria-label="Độ hoàn thiện hồ sơ"', asideStart);
+const qualityCardAt = editor.indexOf('aria-label={copy.side.qualityAria}', asideStart);
 const previewCardAt = editor.indexOf('relative aspect-square', asideStart);
 assert.ok(asideStart > -1 && qualityCardAt > asideStart && previewCardAt > qualityCardAt,
   'thẻ điểm chất lượng đứng trước thẻ ảnh sản phẩm xem trước');
 assert.doesNotMatch(editor, /Chỉ để nhắc thêm/, 'thẻ điểm chất lượng không còn câu nhắc "chỉ để nhắc thêm"');
-assert.match(editor, /Bổ sung: \{completeness\.next\.label\}/, 'editor gọi tên mục cần bổ sung');
+assert.match(editor, /fill\(copy\.side\.addNext, \{ label: lang === "en" \? completeness\.next\.labelEn : completeness\.next\.label \}\)/,
+  'editor gọi tên mục cần bổ sung');
 assert.match(editor, /scrollToSection\(SECTION_FOR_ITEM\[completeness\.next!\.key\] \?\? "sec-basic"\)/,
   'nút bổ sung cuộn tới đúng khối trên trang một-bước');
 for (const [key, section] of [['price', 'sec-price'], ['moq', 'sec-price'], ['photo', 'sec-media'],
@@ -142,7 +143,7 @@ assert.match(editor, /ref_price: product\?\.ref_price \?\? livePrice/, 'giá đa
 assert.match(editor, /moq_qty: product\?\.moq_qty \?\? liveMoqQty/, 'MOQ đang nhập đi thẳng vào thang đo');
 assert.match(editor, /\}, liveMedia, \{ supplierView: true \}\)/, 'editor dùng góc nhìn nhà cung cấp');
 assert.match(storefront, /\{ supplierView: true \}/, 'thẻ sản phẩm dùng cùng góc nhìn');
-assert.match(editor, /Số liệu cập nhật theo nội dung đang nhập\./, 'câu ghi chú nói đúng là số liệu theo nội dung đang nhập');
+assert.match(editor, /copy\.side\.liveNumbers/, 'câu ghi chú nói đúng là số liệu theo nội dung đang nhập');
 assert.doesNotMatch(editor, /Số liệu tính từ bản đã lưu\./, 'bỏ câu cũ trái với hành vi mới');
 
 /* 9. Không phải cổng chặn đăng: cổng thật vẫn ở lib/media/readiness. */

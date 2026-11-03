@@ -88,22 +88,58 @@ export function supplierPriceConsentCurrent(supplier: { fob_publicly_visible?: b
 type PriceFields = Pick<SupplierProduct, "ref_price" | "currency" | "price_valid_until" | "unit" | "price_publicly_visible"> & Partial<Pick<SupplierProduct, "ref_price_max">>;
 type PriceConsent = { fob_publicly_visible?: boolean; fob_updated_at?: string | null };
 
+/** Một lý do chặn giá, tách khỏi câu chữ để cổng nhà cung cấp đọc được bản tiếng Anh. */
+type PriceBlockerFact =
+  | { code: "hidden" }
+  | { code: "fromPrice" }
+  | { code: "toPrice" }
+  | { code: "expired"; date: string }
+  | { code: "consentMissing" }
+  | { code: "consentExpired" };
+
+function priceBlockerFacts(
+  product: PriceFields, supplier: PriceConsent,
+  today: string = new Date().toISOString().slice(0, 10), now = Date.now(),
+): PriceBlockerFact[] {
+  const facts: PriceBlockerFact[] = [];
+  if (!product.price_publicly_visible) facts.push({ code: "hidden" });
+  if (product.ref_price == null || !Number.isFinite(product.ref_price) || product.ref_price <= 0) facts.push({ code: "fromPrice" });
+  if (product.ref_price_max != null && (!Number.isFinite(product.ref_price_max) || product.ref_price_max <= 0 || product.ref_price == null || product.ref_price_max < product.ref_price))
+    facts.push({ code: "toPrice" });
+  if (product.price_valid_until && product.price_valid_until < today) facts.push({ code: "expired", date: product.price_valid_until });
+  if (!supplier.fob_publicly_visible) facts.push({ code: "consentMissing" });
+  else if (!supplierPriceConsentCurrent(supplier, now)) facts.push({ code: "consentExpired" });
+  return facts;
+}
+
 /** Private editor diagnostics, in the exact same order and with the same checks as the public price gate. */
 export function productPriceBlockers(
   product: PriceFields, supplier: PriceConsent,
   today: string = new Date().toISOString().slice(0, 10), now = Date.now(),
 ): string[] {
-  const blockers: string[] = [];
-  if (!product.price_publicly_visible) blockers.push("Chưa bật công khai giá cho riêng sản phẩm này và lưu thay đổi.");
-  if (product.ref_price == null || !Number.isFinite(product.ref_price) || product.ref_price <= 0)
-    blockers.push("Giá tham khảo từ của sản phẩm phải lớn hơn 0.");
-  if (product.ref_price_max != null && (!Number.isFinite(product.ref_price_max) || product.ref_price_max <= 0 || product.ref_price == null || product.ref_price_max < product.ref_price))
-    blockers.push("Giá tham khảo đến phải lớn hơn hoặc bằng giá từ; để trống nếu chỉ có một mức giá.");
-  if (product.price_valid_until && product.price_valid_until < today)
-    blockers.push(`Giá tham khảo đã hết hạn (${product.price_valid_until}).`);
-  if (!supplier.fob_publicly_visible) blockers.push("Doanh nghiệp chưa xác nhận chia sẻ giá; ô công khai của sản phẩm không thay thế xác nhận này.");
-  else if (!supplierPriceConsentCurrent(supplier, now)) blockers.push("Xác nhận chia sẻ giá đã hết hiệu lực (quá 180 ngày hoặc ngày xác nhận không hợp lệ); cần xác nhận lại.");
-  return blockers;
+  return priceBlockerFacts(product, supplier, today, now).map((fact) => {
+    if (fact.code === "hidden") return "Chưa bật công khai giá cho riêng sản phẩm này và lưu thay đổi.";
+    if (fact.code === "fromPrice") return "Giá tham khảo từ của sản phẩm phải lớn hơn 0.";
+    if (fact.code === "toPrice") return "Giá tham khảo đến phải lớn hơn hoặc bằng giá từ; để trống nếu chỉ có một mức giá.";
+    if (fact.code === "expired") return `Giá tham khảo đã hết hạn (${fact.date}).`;
+    if (fact.code === "consentMissing") return "Doanh nghiệp chưa xác nhận chia sẻ giá; ô công khai của sản phẩm không thay thế xác nhận này.";
+    return "Xác nhận chia sẻ giá đã hết hiệu lực (quá 180 ngày hoặc ngày xác nhận không hợp lệ); cần xác nhận lại.";
+  });
+}
+
+/** Cùng các lý do trên, viết bằng tiếng Anh cho cổng nhà cung cấp. */
+export function productPriceBlockersEn(
+  product: PriceFields, supplier: PriceConsent,
+  today: string = new Date().toISOString().slice(0, 10), now = Date.now(),
+): string[] {
+  return priceBlockerFacts(product, supplier, today, now).map((fact) => {
+    if (fact.code === "hidden") return "Price sharing is off for this product. Turn it on and save the change.";
+    if (fact.code === "fromPrice") return "The product's from price must be greater than 0.";
+    if (fact.code === "toPrice") return "The to price must be at least the from price; leave it empty for a single price.";
+    if (fact.code === "expired") return `The reference price expired on ${fact.date}.`;
+    if (fact.code === "consentMissing") return "The company has not confirmed price sharing; the product switch does not replace that confirmation.";
+    return "The price sharing confirmation has expired (over 180 days or an invalid date); please confirm again.";
+  });
 }
 
 /**

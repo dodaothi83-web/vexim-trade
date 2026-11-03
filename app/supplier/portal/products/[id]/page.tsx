@@ -144,7 +144,8 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       <Link href={`/supplier/portal/products/${id}/quantity-pricing`} className="font-semibold underline">{copy.previewNotice}</Link>{copy.previewNoticeAfter}
     </p>}
     <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options}
-      categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} initialStep={step} />
+      categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} initialStep={step}
+      messages={m.productEditor.editor} shared={m.productEditor.shared} statuses={m.products.statuses} lang={locale} />
     <ProductCertificatesForm productId={id} certificates={certificateOptions} messages={m.productEditor.certificates} lang={locale}
       supplierType={access.supplier.supplier_type ?? null} partnerContractApproved={partnerContractApproved}
       partnerFactoryName={partnerFactoryName} />

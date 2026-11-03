@@ -35,10 +35,12 @@ export type LeadTimeUnit = (typeof LEAD_TIME_UNITS)[number];
 export const LEAD_TIME_UNIT_OPTIONS: ReadonlyArray<{
   value: LeadTimeUnit;
   viLabel: string;
+  /** Nhãn tiếng Anh cho cổng nhà cung cấp; CRM vẫn đọc `viLabel`. */
+  enLabel: string;
 }> = [
-  { value: "days", viLabel: "ngày" },
-  { value: "weeks", viLabel: "tuần" },
-  { value: "on_request", viLabel: "Theo yêu cầu" },
+  { value: "days", viLabel: "ngày", enLabel: "days" },
+  { value: "weeks", viLabel: "tuần", enLabel: "weeks" },
+  { value: "on_request", viLabel: "Theo yêu cầu", enLabel: "On request" },
 ];
 
 export type ProductGradeRow = {
@@ -596,6 +598,16 @@ export function formatLeadTimeBuyer(
   return "On request";
 }
 
+/** Bản tiếng Anh của `formatLeadTimeVi`, dùng cho cổng nhà cung cấp khi locale là `en`. */
+export function formatLeadTimeEn(
+  product: Pick<SupplierProduct, "lead_time_days" | "specs"> | null | undefined,
+): string {
+  const lt = readProductLeadTime(product);
+  if (lt.unit === "weeks" && lt.value !== null) return lt.value === 1 ? "1 week" : `${lt.value} weeks`;
+  if (lt.unit === "days" && lt.value !== null) return lt.value === 1 ? "1 day" : `${lt.value} days`;
+  return "On request";
+}
+
 export function formatProductMoqVi(
   product: Pick<SupplierProduct, "moq" | "moq_qty" | "moq_unit" | "specs"> | null | undefined,
 ): string {
@@ -623,6 +635,28 @@ export function formatProductMoqVi(
     return product.moq;
   }
   return "Theo yêu cầu";
+}
+
+/** Bản tiếng Anh của `formatProductMoqVi`; rỗng khi sản phẩm chưa khai MOQ. */
+export function formatProductMoqEn(
+  product: Pick<SupplierProduct, "moq" | "moq_qty" | "moq_unit" | "specs"> | null | undefined,
+): string {
+  if (!product) return "";
+  const rows = readStoredGradeRows(product.specs);
+  for (const row of rows) {
+    if (row.moq_qty && row.moq_unit) {
+      return formatStructuredMoqBuyer(row.moq_qty, row.moq_unit, row.moq_unit_weight_kg) || "On request";
+    }
+    if (row.moq) return row.moq;
+  }
+  const specWeight = product.specs && typeof product.specs === "object" && typeof (product.specs as Record<string, unknown>).moq_unit_weight_kg === "number"
+    ? ((product.specs as Record<string, unknown>).moq_unit_weight_kg as number)
+    : null;
+  if (typeof product.moq_qty === "number" && product.moq_qty > 0 && isMoqUnit(product.moq_unit)) {
+    return formatStructuredMoqBuyer(product.moq_qty, product.moq_unit, specWeight) || "On request";
+  }
+  if (product.moq) return product.moq;
+  return "On request";
 }
 
 export function auditProductStructuredUnits(
@@ -1498,9 +1532,11 @@ export function formatGradeRowPriceVi(
   priceMin: number | null,
   priceMax: number | null,
   unitLabel: "USD/kg" | "USD/MT",
+  /** Câu thay thế khi chưa có giá; cổng nhà cung cấp truyền bản tiếng Anh. */
+  emptyLabel = "Báo giá theo yêu cầu",
 ): string {
   if (priceMin === null || priceMax === null || priceMin <= 0 || priceMax < priceMin) {
-    return "Báo giá theo yêu cầu";
+    return emptyLabel;
   }
   const fmt = (n: number) =>
     new Intl.NumberFormat("en-US", {

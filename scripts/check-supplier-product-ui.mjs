@@ -133,8 +133,12 @@ assert.match(editor, /const id = product && !dirty \? product\.id : await persis
 assert.match(editor, /submitSupplierProductAction\(form\)/, 'Cổng gửi duyệt vẫn ở server');
 assert.doesNotMatch(editor, /aria-label="Trạng thái công khai"/, 'The separate buyer-visibility panel is removed from the editor');
 assert.doesNotMatch(editor, /tạm khoá sửa/, 'The review step no longer warns about a lock the supplier cannot see');
-assert.match(editor, /label="Thời gian giao hàng"\s*\n\s*hint="Số ngày hoặc tuần từ lúc xác nhận đơn/,
+assert.equal(portal.vi.productEditor.editor.shipping.leadTime, "Thời gian giao hàng",
+  'Lead time keeps its established label');
+assert.match(portal.vi.productEditor.editor.shipping.leadTimeHint, /^Số ngày hoặc tuần từ lúc xác nhận đơn/,
   'Lead time carries one short line explaining what to enter');
+assert.match(editor, /label=\{copy\.shipping\.leadTime\} hint=\{copy\.shipping\.leadTimeHint\}/,
+  'Lead time label and hint come from the dictionary');
 assert.ok(editor.includes('!["approved", "paused"].includes(review) || product?.supplier_originated === true'),
   'Approved or paused supplier-originated products can manage their own media');
 assert.match(editor, /const categoryLocked = review === "approved"/, 'The reviewed category remains staff-controlled');

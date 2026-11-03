@@ -69,6 +69,19 @@ const CONVERTED = [
   "app/supplier/portal/products/page.tsx",
   "app/supplier/portal/products/product-storefront.tsx",
   "app/supplier/portal/products/product-certificates-form.tsx",
+  "app/supplier/portal/products/product-editor.tsx",
+  "app/supplier/portal/products/new/page.tsx",
+  "app/supplier/portal/products/[id]/page.tsx",
+  "app/supplier/portal/products/[id]/quantity-pricing/page.tsx",
+  "app/supplier/portal/products/[id]/quantity-pricing/preview-form.tsx",
+  "app/supplier/portal/product-actions.ts",
+  "app/supplier/portal/product-certificate-actions.ts",
+  "components/raw-material-region-input.tsx",
+  "components/supplier-attribute-inputs.tsx",
+  "components/products/product-description-editor.tsx",
+  "components/products/quantity-pricing-inline.tsx",
+  "components/products/quantity-pricing-editor.tsx",
+  "components/products/buyer-preview-dialog.tsx",
   "components/supplier-sidebar.tsx",
   "components/supplier-topbar.tsx",
 ];
@@ -230,4 +243,4 @@ const sidebar = read("components/supplier-sidebar.tsx");
 assert.match(sidebar, /labelKey: keyof ShellMessages\["nav"\]/, "menu giữ khoá, không giữ chữ");
 assert.doesNotMatch(sidebar, /label: "Tổng quan"/, "nhãn menu không còn viết cứng");
 
-console.log("✅ Portal i18n (cụm 1 + 2 + 3a: khung, tổng quan, hồ sơ, danh sách sản phẩm): đủ khoá, không lẫn tiếng Việt trong bản tiếng Anh, mô hình tiến độ nói được cả hai ngôn ngữ.");
+console.log("✅ Portal i18n (cụm 1 + 2 + 3a + 3b + 3c: khung, tổng quan, hồ sơ, danh sách và trình soạn sản phẩm): đủ khoá, không lẫn tiếng Việt trong bản tiếng Anh, mô hình tiến độ nói được cả hai ngôn ngữ.");

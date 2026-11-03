@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { sanitizeProductDescriptionInBrowser } from "./product-description-browser";
+import { productEditorMessages, type ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 
 type EditorProps = {
   id?: string;
@@ -17,6 +18,8 @@ type EditorProps = {
   disabled?: boolean;
   ariaLabel?: string;
   minHeight?: "md" | "lg";
+  /** Nhãn thanh công cụ. CRM không truyền nên dùng bản tiếng Việt. */
+  copy?: ProductEditorMessages["shared"]["description"];
 };
 
 function ToolbarButton({ label, active = false, disabled = false, onClick, children }: {
@@ -45,9 +48,11 @@ export function ProductDescriptionEditor({
   value,
   onChange,
   disabled = false,
-  ariaLabel = "Mô tả chi tiết sản phẩm",
+  ariaLabel,
   minHeight = "md",
+  copy = productEditorMessages.vi.shared.description,
 }: EditorProps) {
+  const label = ariaLabel ?? copy.aria;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const editor = useEditor({
@@ -73,7 +78,7 @@ export function ProductDescriptionEditor({
       attributes: {
         ...(id ? { id } : {}),
         role: "textbox",
-        "aria-label": ariaLabel,
+        "aria-label": label,
         "aria-multiline": "true",
         class: `product-description product-description-input px-4 py-3 ${minHeight === "lg" ? "min-h-56" : "min-h-40"}`,
       },
@@ -100,17 +105,17 @@ export function ProductDescriptionEditor({
   }, [disabled, editor]);
 
   return <div className={`overflow-hidden rounded-[0.625rem] border bg-white focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100 ${disabled ? "border-ink-200 bg-ink-50" : "border-ink-300"}`}>
-    <div className="flex items-center gap-0.5 overflow-x-auto border-b border-ink-200 bg-ink-50 px-2 py-1.5" role="toolbar" aria-label="Định dạng mô tả chi tiết">
-      <ToolbarButton label="Đoạn văn" active={editor?.isActive("paragraph")} disabled={disabled || !editor} onClick={() => editor?.chain().focus().setParagraph().run()}><Pilcrow className="size-4" /></ToolbarButton>
-      <ToolbarButton label="Tiêu đề 2" active={editor?.isActive("heading", { level: 2 })} disabled={disabled || !editor} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 className="size-4" /></ToolbarButton>
-      <ToolbarButton label="Tiêu đề 3" active={editor?.isActive("heading", { level: 3 })} disabled={disabled || !editor} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}><Heading3 className="size-4" /></ToolbarButton>
+    <div className="flex items-center gap-0.5 overflow-x-auto border-b border-ink-200 bg-ink-50 px-2 py-1.5" role="toolbar" aria-label={copy.toolbar}>
+      <ToolbarButton label={copy.paragraph} active={editor?.isActive("paragraph")} disabled={disabled || !editor} onClick={() => editor?.chain().focus().setParagraph().run()}><Pilcrow className="size-4" /></ToolbarButton>
+      <ToolbarButton label={copy.heading2} active={editor?.isActive("heading", { level: 2 })} disabled={disabled || !editor} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 className="size-4" /></ToolbarButton>
+      <ToolbarButton label={copy.heading3} active={editor?.isActive("heading", { level: 3 })} disabled={disabled || !editor} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}><Heading3 className="size-4" /></ToolbarButton>
       <span className="mx-1 h-5 w-px shrink-0 bg-ink-200" aria-hidden="true" />
-      <ToolbarButton label="In đậm (Ctrl+B)" active={editor?.isActive("bold")} disabled={disabled || !editor} onClick={() => editor?.chain().focus().toggleBold().run()}><Bold className="size-4" /></ToolbarButton>
-      <ToolbarButton label="In nghiêng (Ctrl+I)" active={editor?.isActive("italic")} disabled={disabled || !editor} onClick={() => editor?.chain().focus().toggleItalic().run()}><Italic className="size-4" /></ToolbarButton>
-      <ToolbarButton label="Danh sách gạch đầu dòng" active={editor?.isActive("bulletList")} disabled={disabled || !editor} onClick={() => editor?.chain().focus().toggleBulletList().run()}><List className="size-4" /></ToolbarButton>
+      <ToolbarButton label={copy.bold} active={editor?.isActive("bold")} disabled={disabled || !editor} onClick={() => editor?.chain().focus().toggleBold().run()}><Bold className="size-4" /></ToolbarButton>
+      <ToolbarButton label={copy.italic} active={editor?.isActive("italic")} disabled={disabled || !editor} onClick={() => editor?.chain().focus().toggleItalic().run()}><Italic className="size-4" /></ToolbarButton>
+      <ToolbarButton label={copy.bulletList} active={editor?.isActive("bulletList")} disabled={disabled || !editor} onClick={() => editor?.chain().focus().toggleBulletList().run()}><List className="size-4" /></ToolbarButton>
       <span className="mx-1 h-5 w-px shrink-0 bg-ink-200" aria-hidden="true" />
-      <ToolbarButton label="Hoàn tác" disabled={disabled || !editor?.can().undo()} onClick={() => editor?.chain().focus().undo().run()}><Undo2 className="size-4" /></ToolbarButton>
-      <ToolbarButton label="Làm lại" disabled={disabled || !editor?.can().redo()} onClick={() => editor?.chain().focus().redo().run()}><Redo2 className="size-4" /></ToolbarButton>
+      <ToolbarButton label={copy.undo} disabled={disabled || !editor?.can().undo()} onClick={() => editor?.chain().focus().undo().run()}><Undo2 className="size-4" /></ToolbarButton>
+      <ToolbarButton label={copy.redo} disabled={disabled || !editor?.can().redo()} onClick={() => editor?.chain().focus().redo().run()}><Redo2 className="size-4" /></ToolbarButton>
     </div>
     {editor
       ? <EditorContent editor={editor} />
