@@ -36,7 +36,7 @@ function leaves(value, trail) {
   if (Array.isArray(value)) return value.flatMap((item, index) => leaves(item, `${trail}[${index}]`));
   return Object.entries(value).flatMap(([key, item]) => leaves(item, trail ? `${trail}.${key}` : key));
 }
-for (const cluster of ["shared", "shell", "overview", "profile", "onboarding", "products", "productEditor", "verification", "documents", "boost"]) {
+for (const cluster of ["shared", "shell", "overview", "profile", "onboarding", "products", "productEditor", "verification", "documents", "boost", "rfqs", "categories", "traffic", "storefront", "notices", "quantity"]) {
   assert.deepEqual(
     shape(portal.vi[cluster], cluster),
     shape(portal.en[cluster], cluster),
@@ -99,6 +99,16 @@ const CONVERTED = [
   "app/supplier/portal/boost/page.tsx",
   "app/supplier/portal/boost/request-form.tsx",
   "app/supplier/portal/boost/actions.ts",
+  "app/supplier/portal/portal-ui.tsx",
+  "app/supplier/portal/rfqs/page.tsx",
+  "app/supplier/portal/traffic/page.tsx",
+  "app/supplier/portal/storefront/page.tsx",
+  "app/supplier/portal/categories/page.tsx",
+  "app/supplier/portal/categories/actions.ts",
+  "app/supplier/portal/categories/supplier-category-workspace.tsx",
+  "app/supplier/portal/notice-actions.ts",
+  "app/supplier/portal/quantity-revision-actions.ts",
+  "lib/supplier-portal/dashboard.ts",
 ];
 const withoutComments = (source) =>
   source
@@ -280,4 +290,28 @@ assert.doesNotMatch(boostPage, /toLocaleString\("vi-VN"/, "Trang đẩy sản ph
 const boostActions = read("app/supplier/portal/boost/actions.ts");
 assert.doesNotMatch(boostActions, /message: "/, "Thông báo của server action đẩy sản phẩm không viết cứng");
 
-console.log("✅ Portal i18n (cụm 1 + 2 + 3a + 3b + 3c + 4: khung, tổng quan, hồ sơ, danh sách, trình soạn sản phẩm, khu xác minh, giấy tờ doanh nghiệp và trang đẩy sản phẩm): đủ khoá, không lẫn tiếng Việt trong bản tiếng Anh, mô hình tiến độ nói được cả hai ngôn ngữ.");
+/* 8. Cụm 5: RFQ, danh mục, lượt xem gian hàng và trang xem trước. */
+const rfqPage = read("app/supplier/portal/rfqs/page.tsx");
+assert.match(rfqPage, /language: locale/, "Trang RFQ truyền locale vào mô hình dựng danh sách");
+assert.match(rfqPage, /const \{ locale, intl, m \} = await getPortalMessages\(\)/, "Trang RFQ đọc từ điển một lần");
+const rfqModel = read("lib/supplier-portal/dashboard.ts");
+assert.match(rfqModel, /export function buildSupplierRfqBoard\(input: \{[\s\S]{0,200}language\?: Locale/, "Mô hình RFQ nhận ngôn ngữ nhưng vẫn mặc định tiếng Việt");
+assert.match(rfqModel, /input\.language \?\? "vi"/, "Thiếu ngôn ngữ thì giữ tiếng Việt như trước");
+const trafficPage = read("app/supplier/portal/traffic/page.tsx");
+assert.doesNotMatch(trafficPage, /"vi-VN"/, "Trang lượt xem không khoá cứng vi-VN cho số");
+assert.match(trafficPage, /new Intl\.NumberFormat\(intl\)/, "Số đọc theo ngôn ngữ đang chọn");
+const categoriesPage = read("app/supplier/portal/categories/page.tsx");
+assert.match(categoriesPage, /statuses=\{m\.products\.statuses\}/, "Nhãn trạng thái sản phẩm lấy từ từ điển, không dùng nhãn tiếng Việt dùng chung với CRM");
+const categoriesWorkspace = read("app/supplier/portal/categories/supplier-category-workspace.tsx");
+assert.match(categoriesWorkspace, /copy: CategoriesMessages/, "Khung danh mục nhận chuỗi từ từ điển");
+const categoriesActions = read("app/supplier/portal/categories/actions.ts");
+assert.match(categoriesActions, /getPortalMessages\(\)/, "Thông báo của server action danh mục theo ngôn ngữ đang chọn");
+assert.doesNotMatch(categoriesActions, /message: "/, "Không trả thông báo viết cứng từ server action danh mục");
+const quantityActions = read("app/supplier/portal/quantity-revision-actions.ts");
+assert.doesNotMatch(quantityActions, /message: "/, "Không trả thông báo viết cứng từ server action duyệt lại bảng giá");
+const storefrontPage = read("app/supplier/portal/storefront/page.tsx");
+assert.match(storefrontPage, /const checks = \[\[1, copy\.checks\.documents\]/, "Nhãn ba bước xác minh lấy từ từ điển");
+const notificationsApi = read("app/api/supplier-portal/notifications/route.ts");
+assert.match(notificationsApi, /await getLocale\(\)/, "Chuông thông báo dùng cùng ngôn ngữ với khung");
+
+console.log("✅ Portal i18n (cụm 1 + 2 + 3a + 3b + 3c + 4 + 5: khung, tổng quan, hồ sơ, danh sách, trình soạn sản phẩm, khu xác minh, giấy tờ doanh nghiệp, trang đẩy sản phẩm, RFQ, danh mục, lượt xem và trang xem trước): đủ khoá, không lẫn tiếng Việt trong bản tiếng Anh, mô hình tiến độ nói được cả hai ngôn ngữ.");

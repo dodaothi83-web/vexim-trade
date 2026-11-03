@@ -32,8 +32,16 @@ export function loadPortalDictionary() {
   const verification = load('verification.ts').verificationMessages;
   const documents = load('documents.ts').documentsMessages;
   const boost = load('boost.ts').boostMessages;
+  const rfqs = load('rfqs.ts').rfqsMessages;
+  const categories = load('categories.ts').categoriesMessages;
+  const traffic = load('traffic.ts').trafficMessages;
+  const storefront = load('storefront.ts').storefrontMessages;
+  const notices = load('notices.ts').noticesMessages;
+  const quantity = load('quantity.ts').quantityMessages;
   return {
-    en: { shared: shared.en, shell: shell.en, overview: overview.en, profile: profile.en, onboarding: onboarding.en, products: products.en, productEditor: productEditor.en, verification: verification.en, documents: documents.en, boost: boost.en },
-    vi: { shared: shared.vi, shell: shell.vi, overview: overview.vi, profile: profile.vi, onboarding: onboarding.vi, products: products.vi, productEditor: productEditor.vi, verification: verification.vi, documents: documents.vi, boost: boost.vi },
+    en: { shared: shared.en, shell: shell.en, overview: overview.en, profile: profile.en, onboarding: onboarding.en, products: products.en, productEditor: productEditor.en, verification: verification.en, documents: documents.en, boost: boost.en,
+      rfqs: rfqs.en, categories: categories.en, traffic: traffic.en, storefront: storefront.en, notices: notices.en, quantity: quantity.en },
+    vi: { shared: shared.vi, shell: shell.vi, overview: overview.vi, profile: profile.vi, onboarding: onboarding.vi, products: products.vi, productEditor: productEditor.vi, verification: verification.vi, documents: documents.vi, boost: boost.vi,
+      rfqs: rfqs.vi, categories: categories.vi, traffic: traffic.vi, storefront: storefront.vi, notices: notices.vi, quantity: quantity.vi },
   };
 }

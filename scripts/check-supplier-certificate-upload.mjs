@@ -69,7 +69,8 @@ assert.ok(evidenceRoute.includes('Đã tải giấy tờ để Vexim đối chi�
 assert.ok(!/AI sẽ tự quét lại/.test(notify), 'Email nhắc hạn không được nhắc AI quét');
 assert.ok(!/AI sẽ tự quét lại/.test(dashboard), 'Việc trên bảng điều khiển không được nhắc AI quét');
 assert.ok(notify.includes('hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.'));
-assert.ok(dashboard.includes('hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.'));
+assert.ok(portalCopy.vi.notices.certificate.expiringDetail.includes('hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.'),
+  'Câu nhắc gia hạn chứng nhận nằm trong từ điển thông báo');
 
 /* 6. Bước xác thực doanh nghiệp chỉ còn đúng một giấy: Giấy chứng nhận đăng ký kinh doanh. */
 const policy = read('../lib/supplier-portal/policy.ts');

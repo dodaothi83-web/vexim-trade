@@ -148,13 +148,14 @@ assert.match(storefront, /robots: \{ index: false, follow: false \}/, 'Bản xem
 assert.doesNotMatch(storefront, /SupplierTrafficBeacon|createTrafficToken/, 'Xem trước không tự đếm lượt xem gian hàng');
 assert.match(storefront, /kind="cover"/, 'Ảnh bìa có nút thêm ảnh ngay trên trang buyer thấy');
 assert.match(storefront, /kind="profile"/, 'Ảnh đại diện có nút thêm ảnh ngay trên trang buyer thấy');
-assert.match(storefront, /Not published yet/, 'Nói rõ hồ sơ chưa lên sóng bằng tiếng Anh như trang buyer');
-assert.match(storefront, /checks approved/ , 'Hiện số bước xác minh đã duyệt');
-assert.match(storefront, /Not reviewed yet/, 'Hiện những bước còn thiếu');
+assert.match(storefront, /\{copy\.preview\.notPublished\}/, 'Nói rõ hồ sơ chưa lên sóng, câu chữ nằm trong từ điển');
+assert.match(portalCopy.en.storefront.preview.notPublished, /Not published yet/, 'Bản tiếng Anh giữ câu như trang buyer');
+assert.match(portalCopy.en.storefront.preview.verification, /checks approved/, 'Hiện số bước xác minh đã duyệt');
+assert.match(portalCopy.en.storefront.preview.notReviewed, /Not reviewed yet/, 'Hiện những bước còn thiếu');
 assert.doesNotMatch(storefront, /chưa hiện với buyer|hidden from buyer/i, 'Không thêm danh sách “chưa hiện với buyer”');
 assert.match(storefront, /getSupplierStorefront\(supplier\)/, 'Dựng đúng dữ liệu buyer thấy cho cả hồ sơ chưa publish');
 assert.match(storefront, /supplierPortalAccess\(\)/, 'Lấy NCC từ phiên đăng nhập');
-assert.match(storefront, /metadata = \{[^}]*index: false/s, 'Trang xem trước noindex');
+assert.match(storefront, /robots: \{ index: false, follow: false \}/s, 'Trang xem trước noindex');
 
 const upload = read('app/api/supplier-portal/profile-image/route.ts');
 assert.match(upload, /supplierPortalAccess\(\)/, 'Lấy NCC của phiên đang đăng nhập, không nhận id từ client');

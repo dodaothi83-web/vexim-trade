@@ -9,6 +9,12 @@ import { sharedMessages, type SharedMessages } from "./shared";
 import { verificationMessages, type VerificationMessages } from "./verification";
 import { documentsMessages, type DocumentsMessages } from "./documents";
 import { boostMessages, type BoostMessages } from "./boost";
+import { rfqsMessages, type RfqsMessages } from "./rfqs";
+import { categoriesMessages, type CategoriesMessages } from "./categories";
+import { trafficMessages, type TrafficMessages } from "./traffic";
+import { storefrontMessages, type StorefrontMessages } from "./storefront";
+import { noticesMessages, type NoticesMessages } from "./notices";
+import { quantityMessages, type QuantityMessages } from "./quantity";
 
 /**
  * Từ điển cổng nhà cung cấp, chia theo cụm để chuyển dần (giai đoạn 2).
@@ -27,6 +33,12 @@ export type PortalMessages = {
   verification: VerificationMessages;
   documents: DocumentsMessages;
   boost: BoostMessages;
+  rfqs: RfqsMessages;
+  categories: CategoriesMessages;
+  traffic: TrafficMessages;
+  storefront: StorefrontMessages;
+  notices: NoticesMessages;
+  quantity: QuantityMessages;
 };
 
 export const portalMessages: Record<Locale, PortalMessages> = {
@@ -41,6 +53,12 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     verification: verificationMessages.en,
     documents: documentsMessages.en,
     boost: boostMessages.en,
+    rfqs: rfqsMessages.en,
+    categories: categoriesMessages.en,
+    traffic: trafficMessages.en,
+    storefront: storefrontMessages.en,
+    notices: noticesMessages.en,
+    quantity: quantityMessages.en,
   },
   vi: {
     shared: sharedMessages.vi,
@@ -53,7 +71,13 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     verification: verificationMessages.vi,
     documents: documentsMessages.vi,
     boost: boostMessages.vi,
+    rfqs: rfqsMessages.vi,
+    categories: categoriesMessages.vi,
+    traffic: trafficMessages.vi,
+    storefront: storefrontMessages.vi,
+    notices: noticesMessages.vi,
+    quantity: quantityMessages.vi,
   },
 };
 
-export type { SharedMessages, ShellMessages, OverviewMessages, ProfileMessages, OnboardingMessages, ProductsMessages, ProductEditorMessages, VerificationMessages, DocumentsMessages, BoostMessages };
+export type { SharedMessages, ShellMessages, OverviewMessages, ProfileMessages, OnboardingMessages, ProductsMessages, ProductEditorMessages, VerificationMessages, DocumentsMessages, BoostMessages, RfqsMessages, CategoriesMessages, TrafficMessages, StorefrontMessages, NoticesMessages, QuantityMessages };

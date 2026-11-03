@@ -78,10 +78,10 @@ export function LevelChip({ label, on, pending, messages }: {
   label: string;
   on: boolean;
   pending?: boolean;
-  /** Nhãn trạng thái theo ngôn ngữ; thiếu thì dùng tiếng Việt (trang chưa chuyển). */
-  messages?: { approved: string; pending: string; off: string };
+  /** Nhãn trạng thái theo ngôn ngữ; mọi trang dùng khối này đều đã chuyển nên bắt buộc. */
+  messages: { approved: string; pending: string; off: string };
 }) {
-  const status = on ? (messages?.approved ?? "Đã duyệt") : pending ? (messages?.pending ?? "Đang chờ xét") : (messages?.off ?? "Chưa duyệt");
+  const status = on ? messages.approved : pending ? messages.pending : messages.off;
   return <span title={status} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${on ? "bg-emerald-50 text-emerald-800" : pending ? "bg-amber-50 text-amber-800" : "bg-ink-100 text-ink-600"}`}>
     <span className={`h-1.5 w-1.5 rounded-full ${on ? "bg-emerald-600" : pending ? "bg-amber-500" : "bg-ink-400"}`} aria-hidden="true" />
     {label}<span className="sr-only">: {status}</span>

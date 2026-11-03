@@ -11,11 +11,15 @@ import {
   productCategorySlug,
 } from "@/lib/supplier-portal/category-proposals";
 import { productReview } from "@/lib/supplier-portal/product-view";
+import { getPortalMessages } from "@/lib/i18n/server";
 
 import { SupplierCategoryWorkspace } from "./supplier-category-workspace";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Danh mục kinh doanh", robots: { index: false, follow: false } };
+export async function generateMetadata() {
+  const { m } = await getPortalMessages();
+  return { title: m.categories.metaTitle, robots: { index: false, follow: false } };
+}
 
 /**
  * Phạm vi bán hàng của NCC. Trang chỉ ĐỌC dữ liệu rồi chuyển cho một client component
@@ -27,6 +31,8 @@ export default async function SupplierCategoriesPage() {
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
 
+  const { m } = await getPortalMessages();
+  const copy = m.categories;
   const options = categoryProposalOptions(await access.store.listCategories({ publishedOnly: true }));
   // Hồ sơ cũ chưa có `requested_category_slugs` chỉ được dùng liên kết staff từng chốt.
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
@@ -35,14 +41,16 @@ export default async function SupplierCategoriesPage() {
 
   return <>
     <PageHeader
-      eyebrow="Cổng nhà cung cấp · riêng tư"
-      title="Danh mục kinh doanh"
-      sub="Chọn nhóm hàng trong danh sách đang mở. Phạm vi giúp nhân viên xem xét sản phẩm; thêm danh mục không đăng gian hàng hay duyệt sản phẩm."
-      actions={<Link href="/supplier/portal/products" className="btn btn-ghost btn-sm">Sản phẩm của tôi</Link>}
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      sub={copy.sub}
+      actions={<Link href="/supplier/portal/products" className="btn btn-ghost btn-sm">{copy.backToProducts}</Link>}
     />
 
     {options.length
       ? <SupplierCategoryWorkspace
+        copy={copy}
+        statuses={m.products.statuses}
         options={options}
         initial={allowed}
         products={products.map((product) => ({
@@ -54,10 +62,10 @@ export default async function SupplierCategoriesPage() {
         }))}
       />
       : <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-        <h2 className="text-base font-bold">Chưa có danh mục nào để chọn</h2>
-        <p className="mt-2">Bạn không tự tạo được danh mục mới. Liên hệ bộ phận hỗ trợ nếu ngành hàng của bạn chưa có trong danh sách; khi được mở, danh mục sẽ hiện ở đây để bạn chọn phạm vi bán hàng.</p>
-        <p className="mt-2">Sản phẩm, RFQ và thông báo ở các mục khác vẫn dùng bình thường.</p>
-        <Link href="/supplier/portal" className="mt-3 inline-block font-semibold text-amber-900 underline">Về bảng điều khiển</Link>
+        <h2 className="text-base font-bold">{copy.emptyTitle}</h2>
+        <p className="mt-2">{copy.emptyBody}</p>
+        <p className="mt-2">{copy.emptyFoot}</p>
+        <Link href="/supplier/portal" className="mt-3 inline-block font-semibold text-amber-900 underline">{copy.backToDashboard}</Link>
       </div>}
   </>;
 }

@@ -45,7 +45,7 @@ assert.doesNotMatch(read('components/supplier-topbar.tsx'), /href="\/supplier\/p
 // 4. Server action không được ném lỗi khi bảng dấu đã đọc chưa có.
 const action = read('app/supplier/portal/notice-actions.ts');
 assert.match(action, /try \{\s*await store\.markSupplierNoticeRead\(supplier\.id, key\);/, 'Ghi dấu đã đọc có bọc try');
-assert.match(action, /không lưu được dấu đã đọc thông báo/);
+assert.match(action, /could not store the notice read receipt/);
 
 // 5. Gợi ý migration nói đúng file cho từng lỗi thiếu bảng/cột.
 const mod = { exports: {} };
@@ -163,6 +163,7 @@ assert.match(dashHtml, /data-progress="0"/, 'Dải tiến độ xác minh vẫn 
 // 6b. Chuông: thiếu bảng dấu đã đọc thì vẫn trả nội dung, chỉ báo readsKnown=false.
 const bellRoute = loadModule(noticeRoute, {
   'next/server': { NextResponse: { json: (body) => ({ body }) } },
+  '@/lib/i18n/server': { getLocale: async () => 'vi' },
   '@/lib/supplier-portal/access': {
     supplierPortalAccess: async () => ({ supplier, reviews: [], user: { id: 'u1' }, store: {
       listSupplierNoticeReads: async () => { throw thrown; },
@@ -186,6 +187,7 @@ assert.equal(degradedBell.body.unread, 0, 'Không báo số chưa đọc khi kh�
 
 const lostAccess = loadModule(noticeRoute, {
   'next/server': { NextResponse: { json: (body) => ({ body }) } },
+  '@/lib/i18n/server': { getLocale: async () => 'vi' },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => null },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => false },
   '@/lib/supplier-portal/dashboard': { buildSupplierNoticeFeed: () => ({ unreadCount: 0, notices: [] }) },

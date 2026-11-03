@@ -32,7 +32,7 @@ export async function markSupplierNoticeReadAction(form: FormData): Promise<void
   try {
     await store.markSupplierNoticeRead(supplier.id, key);
   } catch (error) {
-    console.error("[supplier-portal] không lưu được dấu đã đọc thông báo", error);
+    console.error("[supplier-portal] could not store the notice read receipt", error);
   }
 }
 
@@ -43,5 +43,5 @@ export async function markAllSupplierNoticesReadAction(): Promise<void> {
   const { store, supplier } = access;
   const keys = await visibleNoticeKeys(access);
   await Promise.all(keys.map((key) => store.markSupplierNoticeRead(supplier.id, key)
-    .catch((error) => console.error("[supplier-portal] không lưu được dấu đã đọc tất cả thông báo", error))));
+    .catch((error) => console.error("[supplier-portal] could not store all notice read receipts", error))));
 }
