@@ -21,6 +21,9 @@ const ALWAYS_NOINDEX_PREFIXES = [
   "/compare",
   "/login",
   "/auth",
+  // Đăng nhập người mua và trang riêng của họ: không có gì để Google đọc.
+  "/buyer",
+  "/my",
   "/crm", // back-office CRM
   "/supplier", // đăng ký và cổng NCC không được index
   "/api",

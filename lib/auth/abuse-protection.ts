@@ -7,7 +7,16 @@ import { Redis } from "@upstash/redis";
 import { gcRateLimit, rateLimit } from "@/lib/rfq/rate-limit";
 import { verifyFormChallenge } from "@/lib/security/challenge";
 
-export type ProtectedFlow = "login" | "supplier-signup" | "admin-setup" | "password-reset" | "service-inquiry";
+export type ProtectedFlow =
+  | "login"
+  | "supplier-signup"
+  | "admin-setup"
+  | "password-reset"
+  | "service-inquiry"
+  /** Xin thư đăng nhập của người mua (magic link + mã 6 số). */
+  | "buyer-sign-in"
+  /** Gửi yêu cầu báo giá khi đã có tài khoản người mua. */
+  | "buyer-rfq";
 type Window = "15 m" | "1 h" | "24 h";
 type Policy = { name: "ip" | "account"; limit: number; windowMs: number; window: Window };
 
@@ -33,6 +42,18 @@ const POLICIES: Record<ProtectedFlow, Policy[]> = {
   "service-inquiry": [
     { name: "ip", limit: 5, windowMs: 60 * 60_000, window: "1 h" },
     { name: "account", limit: 3, windowMs: 24 * 60 * 60_000, window: "24 h" },
+  ],
+  // Mỗi lần xin thư là một thư thật rời hệ thống: chặn theo IP để một máy không
+  // bắn thư hàng loạt, và theo email để không ai làm ngập hộp thư người khác.
+  "buyer-sign-in": [
+    { name: "ip", limit: 8, windowMs: 60 * 60_000, window: "1 h" },
+    { name: "account", limit: 4, windowMs: 15 * 60_000, window: "15 m" },
+  ],
+  // Trần theo TÀI KHOẢN là trần thật của người mua (một máy có thể là cả gia đình,
+  // một văn phòng dùng chung IP). IP chỉ để chặn bắn phá.
+  "buyer-rfq": [
+    { name: "ip", limit: 30, windowMs: 24 * 60 * 60_000, window: "24 h" },
+    { name: "account", limit: 10, windowMs: 24 * 60 * 60_000, window: "24 h" },
   ],
 };
 
@@ -155,6 +176,12 @@ export type AuthProtectionResult =
   | { ok: true }
   | { ok: false; status: number; message: string };
 
+/**
+ * Luồng có form challenge riêng. `buyer-rfq` không nằm ở đây vì form gửi yêu cầu đã
+ * mang challenge purpose `"rfq"`; nó chỉ dùng `checkAuthRateLimit()`.
+ */
+export type ChallengeFlow = Exclude<ProtectedFlow, "buyer-rfq">;
+
 /** Shared server-side challenge and throttling for public account and enquiry forms. */
 export async function protectPublicRequest({
   flow,
@@ -162,7 +189,7 @@ export async function protectPublicRequest({
   email,
   token,
 }: {
-  flow: ProtectedFlow;
+  flow: ChallengeFlow;
   headers: HeaderReader;
   email: string;
   token: string;

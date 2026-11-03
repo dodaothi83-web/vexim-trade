@@ -32,37 +32,47 @@ function b64url(input: Buffer | string): string {
   return Buffer.from(input).toString("base64url");
 }
 
-function sign(payloadB64: string): string {
+export function signPayloadB64(payloadB64: string): string {
   return crypto.createHmac("sha256", getAuthSecret()).update(payloadB64).digest("base64url");
 }
 
-export function createSessionToken(user: Omit<SessionUser, "exp">, days = SESSION_DAYS): string {
-  const payload: SessionUser = {
-    ...user,
-    exp: Date.now() + days * 24 * 60 * 60 * 1000,
-  };
+/**
+ * Ký một payload bất kỳ bằng đúng khoá và đúng thuật toán của phiên nhân viên.
+ *
+ * Tách ra để loại phiên thứ hai (người mua, `lib/auth/buyer-session.ts`) dùng lại
+ * thay vì tự dựng một cơ chế ký riêng — hai cơ chế ký là hai chỗ để sai.
+ */
+export function signPayload<T extends object>(payload: T): string {
   const body = b64url(JSON.stringify(payload));
-  return `${body}.${sign(body)}`;
+  return `${body}.${signPayloadB64(body)}`;
 }
 
-export function verifySessionToken(token: string | undefined | null): SessionUser | null {
+/** Trả payload nếu chữ ký đúng; KHÔNG kiểm hạn dùng (nơi gọi tự kiểm trường của mình). */
+export function readSignedPayload<T extends object>(token: string | undefined | null): T | null {
   if (!token) return null;
   const [body, mac] = token.split(".");
   if (!body || !mac) return null;
 
-  const expected = sign(body);
   const a = Buffer.from(mac);
-  const b = Buffer.from(expected);
+  const b = Buffer.from(signPayloadB64(body));
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
 
   try {
-    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as SessionUser;
-    if (!payload?.uid || !payload?.role || !payload?.exp) return null;
-    if (payload.exp < Date.now()) return null;
-    return payload;
+    return JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as T;
   } catch {
     return null;
   }
+}
+
+export function createSessionToken(user: Omit<SessionUser, "exp">, days = SESSION_DAYS): string {
+  return signPayload<SessionUser>({ ...user, exp: Date.now() + days * 24 * 60 * 60 * 1000 });
+}
+
+export function verifySessionToken(token: string | undefined | null): SessionUser | null {
+  const payload = readSignedPayload<SessionUser>(token);
+  if (!payload?.uid || !payload?.role || !payload.exp) return null;
+  if (payload.exp < Date.now()) return null;
+  return payload;
 }
 
 /**
@@ -131,7 +141,7 @@ export async function getSession(): Promise<SessionUser | null> {
  * Secure → đăng nhập thành công nhưng mọi trang sau đó đều quay về /login.
  * Giờ xét theo giao thức thật của request, có thể ép bằng AUTH_COOKIE_SECURE.
  */
-async function cookieSecure(): Promise<boolean> {
+export async function cookieSecure(): Promise<boolean> {
   const override = (process.env.AUTH_COOKIE_SECURE ?? "").trim().toLowerCase();
   if (override === "1" || override === "true") return true;
   if (override === "0" || override === "false") return false;
