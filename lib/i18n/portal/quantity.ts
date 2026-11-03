@@ -15,7 +15,7 @@ const en = {
   invalidTableVersion: "Invalid price table version.",
   newUnitUnavailable: "The new unit is not ready to use yet.",
   invalidTable: "Invalid price table.",
-  submitted: "The new price is waiting for Vexim to confirm.",
+  submitted: "The new price is waiting for review.",
   saveFailed: "Could not save the price. Check the connection and the price settings, then try again.",
   englishNameBlocked: "Suppliers do not enter an English name. An administrator checks the translation at review.",
 };
@@ -40,7 +40,7 @@ const vi: QuantityMessages = {
   invalidTableVersion: "Phiên bản bảng giá không hợp lệ.",
   newUnitUnavailable: "Đơn vị mới chưa sẵn sàng để sử dụng.",
   invalidTable: "Bảng giá không hợp lệ.",
-  submitted: "Giá mới đang chờ Vexim xác nhận.",
+  submitted: "Giá mới đang chờ duyệt.",
   saveFailed: "Không lưu được giá. Kiểm tra kết nối và cấu hình giá trước khi thử lại.",
   englishNameBlocked: "Nhà cung cấp không nhập tên tiếng Anh. Quản trị viên sẽ kiểm tra bản dịch khi duyệt.",
 };

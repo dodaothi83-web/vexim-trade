@@ -11,19 +11,19 @@ const en = {
     addProduct: "Add product",
   },
   changesRequested: {
-    title: "Your profile needs more information. Please update it and resubmit for Vexim to review.",
+    title: "Your profile needs more information. Update it and resubmit for review.",
     note: "What to add: {note}",
   },
   pending: {
-    title: "Profile awaiting Vexim review",
+    title: "Profile awaiting review",
     body:
-      "The profile for {company} has been sent and is waiting for Vexim to review. You can still sign in to check the status; product management, RFQs, notifications and reports open once Vexim reviews the profile.",
+      "Your profile for {company} has been sent and is waiting for review. You can sign in to follow the status; products, RFQs, notifications and reports open as soon as the profile is approved.",
     disclaimer:
       "Confirming the account does not approve documents, verify the factory, confirm delivery history or publish the profile.",
     steps: {
       submit: { label: "Submit profile", note: "Sent" },
-      review: { label: "Profile review", note: "Waiting for Vexim" },
-      open: { label: "Portal opens", note: "When Vexim confirms" },
+      review: { label: "Profile review", note: "Waiting for review" },
+      open: { label: "Portal opens", note: "When the profile is approved" },
       products: { label: "Add products and receive RFQs", note: "After the portal opens" },
     },
   },
@@ -114,19 +114,19 @@ const vi: OverviewMessages = {
     addProduct: "Thêm sản phẩm",
   },
   changesRequested: {
-    title: "Hồ sơ cần bổ sung thông tin. Vui lòng cập nhật và gửi lại để Vexim duyệt.",
+    title: "Hồ sơ cần bổ sung thông tin. Cập nhật và gửi lại để được xét duyệt.",
     note: "Nội dung cần bổ sung: {note}",
   },
   pending: {
-    title: "Hồ sơ đang chờ Vexim duyệt",
+    title: "Hồ sơ đang chờ duyệt",
     body:
-      "Hồ sơ {company} đã gửi và đang chờ Vexim duyệt. Bạn vẫn đăng nhập được để xem trạng thái; quản lý sản phẩm, RFQ, thông báo và báo cáo sẽ mở sau khi Vexim duyệt hồ sơ.", // copy-allow: khối giải thích dài, hiển thị thành đoạn riêng
+      "Hồ sơ {company} đã gửi và đang chờ duyệt. Bạn vẫn đăng nhập được để theo dõi trạng thái; sản phẩm, RFQ, thông báo và báo cáo sẽ mở ngay khi hồ sơ được duyệt.", // copy-allow: khối giải thích dài, hiển thị thành đoạn riêng
     disclaimer:
       "Xác nhận tài khoản không đồng nghĩa duyệt giấy tờ, xác thực nhà máy, lịch sử giao hàng hoặc công khai hồ sơ.",
     steps: {
       submit: { label: "Khai hồ sơ", note: "Đã gửi" },
-      review: { label: "Xác nhận hồ sơ", note: "Đang chờ Vexim" },
-      open: { label: "Mở cổng nhà cung cấp", note: "Khi Vexim xác nhận" },
+      review: { label: "Xác nhận hồ sơ", note: "Đang chờ duyệt" },
+      open: { label: "Mở cổng nhà cung cấp", note: "Khi hồ sơ được duyệt" },
       products: { label: "Thêm sản phẩm & nhận RFQ", note: "Sau khi mở cổng" },
     },
   },
