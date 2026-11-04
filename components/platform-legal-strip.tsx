@@ -4,10 +4,13 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
+import { CookieSettingsButton } from "@/components/cookie-consent";
+import { SocialLinks } from "@/components/social-links";
 import { COMPANY } from "@/lib/config";
 
 type Language = "en" | "vi";
 type PlatformLegalStripProps = {
+  variant?: "strip" | "footer";
   tone?: "light" | "dark";
   widthClass?: string;
 };
@@ -43,11 +46,62 @@ const COPY = {
   },
 } as const;
 
+/** One footer, with navigation separated from the legal disclosure. */
+function UnifiedFooter({ lang }: { lang: Language }) {
+  const vi = lang === "vi";
+  const copy = COPY[lang];
+  const explore = [
+    { href: vi ? "/how-it-works?lang=vi" : "/how-it-works", label: vi ? "Cách hoạt động" : "How it works" },
+    { href: "/how-we-verify", label: vi ? "Quy trình xác thực" : "How we verify" },
+    { href: "/for-suppliers", label: vi ? "Dành cho nhà cung cấp" : "For suppliers" },
+    { href: "/login", label: vi ? "Đăng nhập nhà cung cấp" : "Supplier sign in" },
+  ];
+  const linkClass = "inline-block py-1 underline-offset-4 hover:text-brand-700 hover:underline";
+  return <footer lang={lang} className="mt-16 border-t border-ink-200 bg-white pb-28 text-sm text-ink-600">
+    <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+      <div className="grid gap-8 py-10 md:grid-cols-[1.3fr_0.8fr_1fr] md:gap-12">
+        <section aria-labelledby="footer-company-title">
+          <h2 id="footer-company-title" className="text-lg font-bold text-brand-700">Vexim Trade</h2>
+          <p className="mt-3 font-semibold text-ink-900">{COMPANY.legalName}</p>
+          <p className="mt-2 max-w-sm leading-6">{vi ? COMPANY.address : COMPANY.addressEn}</p>
+          <div className="mt-2 flex flex-col items-start gap-1">
+            <a href={`mailto:${COMPANY.contactEmail}`} className={linkClass}>{COMPANY.contactEmail}</a>
+            <a href={`tel:${COMPANY.phone}`} className={linkClass}>{COMPANY.phoneDisplay}</a>
+          </div>
+          <SocialLinks className="mt-3" />
+        </section>
+        <nav aria-label={vi ? "Khám phá" : "Explore"}>
+          <h2 className="font-bold text-ink-900">{vi ? "Khám phá" : "Explore"}</h2>
+          <ul className="mt-3 space-y-1">{explore.map((item) => <li key={item.href}><Link href={item.href} prefetch={false} className={linkClass}>{item.label}</Link></li>)}</ul>
+        </nav>
+        <nav aria-label={vi ? "Chính sách và hỗ trợ" : "Policies and support"}>
+          <h2 className="font-bold text-ink-900">{vi ? "Chính sách và hỗ trợ" : "Policies & support"}</h2>
+          <ul className="mt-3 space-y-1">
+            {PLATFORM_LINKS.map((item) => <li key={item.href.en}><Link href={item.href[lang]} className={linkClass}>{item.label[lang]}</Link></li>)}
+            <li><Link href="/cookie-policy" className={linkClass}>{vi ? "Chính sách cookie" : "Cookie Policy"}</Link></li>
+            <li><CookieSettingsButton className={linkClass}>{vi ? "Cài đặt cookie" : "Cookie settings"}</CookieSettingsButton></li>
+          </ul>
+        </nav>
+      </div>
+      <section aria-label={copy.sectionLabel} className="border-t border-ink-200 pt-6 text-xs leading-6">
+        <p>{copy.registration(COMPANY.taxCode, COMPANY.registrationDate)}</p>
+        <p className="mt-2">{copy.legalRepresentative(COMPANY.legalRepresentative)}</p>
+        <p>{copy.platformResponsible(COMPANY.platformResponsible)}</p>
+        <p>{copy.rulesEffective(COMPANY.platformRulesEffectiveDate)}</p>
+        <p className="mt-2">{copy.sourceCredit}</p>
+        <p className="mt-4 font-semibold text-ink-700">Copyright © {new Date().getFullYear()} Vexim Trade</p>
+      </section>
+    </div>
+  </footer>;
+}
+
 function PlatformLegalStripContent({
+  variant = "strip",
   tone = "light",
   widthClass = "max-w-7xl",
   lang,
 }: PlatformLegalStripProps & { lang: Language }) {
+  if (variant === "footer") return <UnifiedFooter lang={lang} />;
   const copyrightYear = new Date().getFullYear();
   const dark = tone === "dark";
   const copy = COPY[lang];

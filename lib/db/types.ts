@@ -10,6 +10,7 @@ import type {
   BuyerSignInToken,
   BuyerUser,
   BuyerUserInput,
+  BuyerSavedProduct,
   Category,
   Certificate,
   CertificateScope,
@@ -104,6 +105,8 @@ export interface DataStore {
   createBuyerUser(input: BuyerUserInput): Promise<BuyerUser>;
   updateBuyerUser(id: string, patch: Partial<BuyerUserInput>): Promise<BuyerUser>;
   deleteBuyerUser(id: string): Promise<void>;
+  setBuyerSavedProduct(accountId: string, product: BuyerSavedProduct, saved: boolean): Promise<void>;
+  listBuyerRfqsByEmail(email: string): Promise<Rfq[]>;
   /** Phát một thư đăng nhập: link và mã 6 số cùng một dòng, đã băm. */
   createBuyerSignInToken(input: {
     email: string;

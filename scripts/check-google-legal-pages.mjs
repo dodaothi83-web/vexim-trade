@@ -34,7 +34,6 @@ for (const route of ["thong-tin-chu-quan", "quy-che-hoat-dong", "dieu-khoan-su-d
 // Biểu mẫu đăng ký NCC nằm trong khung tài khoản đa ngôn ngữ nên dùng liên kết pháp lý
 // tiếng Việt như khung (xem khối kiểm ngay dưới), không dùng trang tiếng Anh.
 for (const file of [
-  'app/(public)/home.tsx', 'app/(public)/simple-footer.tsx', 'components/site-footer.tsx',
   'app/(public)/rfq/page.tsx', 'app/(public)/rfq/rfq-form.tsx',
 ]) {
   assert.match(read(file), /href="\/privacy-policy"/, `${file} links to privacy`);
@@ -47,3 +46,10 @@ assert.match(read('components/auth-split-shell.tsx'), /href="\/dieu-khoan-su-dun
 assert.match(read('app/(auth)/supplier/register/supplier-account-form.tsx'), /href="\/chinh-sach-bao-mat"/, 'supplier signup links to Vietnamese privacy policy');
 assert.match(read('app/(auth)/supplier/register/supplier-account-form.tsx'), /href="\/dieu-khoan-su-dung"/, 'supplier signup links to Vietnamese terms of service');
 console.log('✅ Public legal pages, OAuth data disclosure, discoverability and crawlability.');
+
+for (const file of ['app/(public)/home.tsx', 'app/(public)/simple-footer.tsx', 'components/site-footer.tsx', 'app/(legal)/layout.tsx']) {
+  assert.match(read(file), /<PlatformLegalStrip variant="footer"/, `${file} delegates legal navigation to the shared footer`);
+}
+const footer = read('components/platform-legal-strip.tsx');
+assert.match(footer, /en: "\/privacy-policy"/);
+assert.match(footer, /en: "\/terms-of-service"/);

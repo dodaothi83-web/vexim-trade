@@ -1337,6 +1337,21 @@ export const localStore: DataStore = {
       return row;
     });
   },
+  async setBuyerSavedProduct(accountId, product, saved) {
+    mutate((db) => {
+      const account = (db.buyer_users ?? []).find((row) => row.id === accountId);
+      if (!account) throw new Error("Buyer account not found");
+      const list = normalizeBuyerSaved(account.saved);
+      const products = list.products.filter((row) => row.id !== product.id);
+      if (saved && products.length >= 100) throw new Error("Saved product limit reached");
+      account.saved = { ...list, products: saved ? [...products, product] : products };
+    });
+  },
+  async listBuyerRfqsByEmail(email) {
+    const db = load();
+    const ids = new Set(db.buyers.filter((b) => b.email?.trim().toLowerCase() === email.trim().toLowerCase()).map((b) => b.id));
+    return db.rfqs.filter((r) => ids.has(r.buyer_id)).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
   async deleteBuyerUser(id) {
     mutate((db) => {
       const row = (db.buyer_users ?? []).find((u) => u.id === id);

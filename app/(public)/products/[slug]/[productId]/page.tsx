@@ -1,3 +1,4 @@
+import { SaveProductButton } from "@/components/buyer-saved-products";
 import { Suspense } from "react";
 import { AskSupplierDialog } from "@/components/products/ask-supplier-dialog";
 import Link from "next/link";
@@ -232,6 +233,7 @@ export default async function PublicProductDetail({ params }: Props) {
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
       <StickyProductColumn>
         <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video} />
+        {!preview && !card.isDemo && <div className="mt-3"><SaveProductButton id={card.id} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(card.id)}`} /></div>}
         <aside className="mt-6 overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card" aria-labelledby="supplier-card-title">
           <div className="border-b border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5">
             <div className="flex items-start gap-3">
