@@ -99,6 +99,8 @@ for (const broken of [null, undefined, 42, true, 'not json', {}, [], { grade: 'x
   let formProps = null;
   const pageModule = { exports: {} };
   new Function('module', 'exports', 'require', compiled)(pageModule, pageModule.exports, (id) => {
+    if (id === '@/lib/auth/buyer-session') return { getBuyerSession: async () => ({ email: 'buyer@example.com' }) };
+    if (id === '@/components/buyer-enquiry-auth') return { BuyerEnquiryEntry: () => null };
     if (id === 'react/jsx-runtime') return require('react/jsx-runtime');
     if (id === 'next/link') return { __esModule: true, default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) };
     if (id === '@/components/ui') return { Breadcrumbs: () => React.createElement('nav') };

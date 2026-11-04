@@ -9,7 +9,11 @@ import * as jsx from 'react/jsx-runtime';
 
 let categories = [], suppliers = [], listFailed = false, productContext = null;
 const RfqForm = () => null;
+let buyerSession = { uid: 'buyer-account', email: 'buyer@example.com' };
+const BuyerEnquiryEntry = () => null;
 const mocks = {
+  '@/lib/auth/buyer-session': { getBuyerSession: async () => buyerSession },
+  '@/components/buyer-enquiry-auth': { BuyerEnquiryEntry },
   'react/jsx-runtime': jsx,
   'next/navigation': { redirect: (url) => { throw new Error(`REDIRECT:${url}`); } },
   'next/link': { default: () => null },
@@ -50,7 +54,7 @@ const exports = {};
 const js = ts.transpileModule(readFileSync(new URL('../app/(public)/rfq/page.tsx', import.meta.url), 'utf8'), {
   compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-vm.runInNewContext(js, { exports, require: (key) => {
+vm.runInNewContext(js, { exports, URLSearchParams, require: (key) => {
   if (!(key in mocks)) throw Error(`Unexpected import: ${key}`);
   return mocks[key];
 } });
@@ -118,3 +122,12 @@ listFailed = true;
 props = await render();
 assert.deepEqual(plain(props.categories), [], 'Existing category-read fallback remains intact');
 console.log('RFQ page: object and array category filters, malformed data, grade precedence and targeted supplier behavior passed.');
+
+buyerSession = null;
+const gated = await exports.default({ searchParams: Promise.resolve({ product_id: 'product-1', suppliers: 'supplier-1', sample: '1', grade: 'W320' }) });
+assert.equal(gated.type, BuyerEnquiryEntry);
+assert.equal(findForm(gated), null, 'No quote form before authentication');
+assert.match(gated.props.next, /product_id=product-1/);
+assert.match(gated.props.next, /suppliers=supplier-1/);
+assert.match(gated.props.next, /sample=1/);
+assert.match(gated.props.next, /grade=W320/);

@@ -1601,3 +1601,21 @@ export interface SponsoredPushInput {
   price_currency?: string | null;
   note?: string | null;
 }
+
+
+export type SourcingStatus = "new" | "in_progress" | "needs_info" | "closed";
+export interface SourcingAttachment { id: string; name: string; size: number; mime: string; key: string }
+export interface SourcingRequest {
+  id: string;
+  buyer_email: string;
+  submission_key: string;
+  content: string;
+  attachments: SourcingAttachment[];
+  status: SourcingStatus;
+  assigned_to: string | null;
+  internal_note: string | null;
+  buyer_reply: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}

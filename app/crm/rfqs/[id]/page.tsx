@@ -1,3 +1,4 @@
+import { RfqMatchStatusSelect } from "@/components/rfq-match-status-select";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -167,7 +168,7 @@ export default async function RfqDetailPage({
 
 
 
-  const statusLink = `${SITE_URL}/rfq/status/${rfq.access_token}`;
+  const statusLink = `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
   const isSupplierQuestion = rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
   const currentStatus = STATUS_FLOW.find((s) => s.value === rfq.status) ?? STATUS_FLOW[0];
 
@@ -342,7 +343,8 @@ export default async function RfqDetailPage({
             )}
 
 {canManageRfq && !isSupplierQuestion && (
-            <form action={sendRfqToSuppliersAction} className="mt-4 rounded-md border border-ink-200 bg-ink-50/50 p-3">
+            <section className="mt-4 rounded-md border border-ink-200 bg-ink-50/50 p-3">
+            <form id="rfq-dispatch" action={sendRfqToSuppliersAction}>
               <input type="hidden" name="rfq_id" value={rfq.id} />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[12.5px] text-ink-600">
@@ -364,6 +366,7 @@ export default async function RfqDetailPage({
                 </div>
               </div>
 
+            </form>
               <div className="mt-4 divide-y divide-ink-100">
                 {matches.length === 0 && (
                   <p className="py-6 text-center text-[13px] text-ink-500">Chưa ghép nhà cung cấp nào.</p>
@@ -383,6 +386,7 @@ export default async function RfqDetailPage({
                           <input
                             type="checkbox"
                             name="match_ids"
+                            form="rfq-dispatch"
                             value={m.id}
                             className="h-4 w-4 rounded border-ink-300 text-brand-600"
                           />
@@ -533,23 +537,15 @@ export default async function RfqDetailPage({
                         <input type="hidden" name="rfq_id" value={rfq.id} />
                         <label className="flex flex-col text-[11px] text-ink-500">
                           Trạng thái
-                          <select
-                            name="status"
-                            defaultValue={m.status}
-                            onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                            className="input mt-1 py-1 text-[13px]"
-                          >
-                            {MATCH_STATUS.filter((s) => s.value !== "selected" || m.status === "selected").map((s) => (
-                              <option key={s.value} value={s.value}>{s.label}</option>
-                            ))}
-                          </select>
+                          <RfqMatchStatusSelect status={m.status}
+                            options={MATCH_STATUS.filter((item) => item.value !== "selected" || m.status === "selected").map(({ value, label }) => ({ value, label }))} />
                         </label>
                       </form>)}
                     </div>
                   );
                 })}
               </div>
-            </form>
+            </section>
             )}
 
 

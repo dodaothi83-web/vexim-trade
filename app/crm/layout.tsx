@@ -1,3 +1,4 @@
+import { sourcingStore } from "@/lib/sourcing/store";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
@@ -82,9 +83,19 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     countSponsoredRequests(),
   ]);
 
+  const pendingSourcing = hasPermission(session.role, "rfq.view") ? await (async () => {
+    try { return await sourcingStore().countNewSourcingRequests(); }
+    catch (error) { console.error("[crm] sourcing count unavailable", error); return null; }
+  })() : 0;
+  const pendingRfqs = hasPermission(session.role, "rfq.view")
+    ? await countOrZero("yêu cầu người mua", () => store.countPendingRfqs())
+    : 0;
+
   // Chuông thông báo của CRM: cùng nguồn số với huy hiệu sidebar, nên hai nơi
   // không bao giờ lệch nhau. Chỉ đưa vào chuông hàng đang có việc.
   const queues = [
+    { href: "/crm/sourcing?status=new", label: "Yêu cầu tìm nguồn mới", count: pendingSourcing ?? 0 },
+    { href: "/crm/rfqs", label: "Yêu cầu người mua đang chờ xử lý", count: pendingRfqs },
     { href: "/crm/suppliers", label: "Nhà cung cấp chờ xác nhận quyền cổng", count: pendingSuppliers },
     { href: "/crm/products?view=pending", label: "Sản phẩm nhà cung cấp chờ kiểm nội dung", count: pendingProducts },
     { href: "/crm/verifications", label: "Đợt kiểm chờ duyệt", count: pendingReviews },
@@ -125,6 +136,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         pendingSubmissions={pendingSubmissions}
         pendingCertificates={pendingCertificates}
         pendingSponsoredRequests={pendingSponsoredRequests}
+        pendingSourcing={pendingSourcing}
+        pendingRfqs={pendingRfqs}
       />
       <div className="lg:pl-60">
         <CrmTopbar queues={queues} />

@@ -1,3 +1,5 @@
+import { BuyerEnquiryAuthProvider } from "@/components/buyer-enquiry-auth";
+import { buyerAuthMessages } from "@/lib/i18n/buyer-auth";
 import { BuyerGoogleOneTap } from "@/components/buyer-google-one-tap";
 import { googleOneTapClientId, hasOneTapSession } from "@/lib/auth/google-one-tap";
 import { BuyerSavedProductsProvider } from "@/components/buyer-saved-products";
@@ -19,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Public site layout.
- *  - Header: logo · nav · Language Switcher (EN/VI, default EN) · sign in · CTA "Request a quote".
+ *  - Header: logo · nav · Language Switcher (EN/VI, default EN) · sign in · CTA "Sourcing request".
  *  - Trang chủ (/) tự render hero + sections + footer đầy đủ trong home.tsx
  *    (industries, links, contact). Các trang khác dùng SimpleFooter gọn
  *    (SimpleFooter tự ẩn ở pathname "/").
@@ -37,6 +39,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
 
   return (
     <BuyerSavedProductsProvider sessionKey={buyerSession?.email ?? "guest"} isVi={locale === "vi"}>
+    <BuyerEnquiryAuthProvider buyerEmail={buyerSession?.email ?? null} locale={locale} messages={buyerAuthMessages[locale]}>
     <ProductComparisonProvider>
     <div lang="en" className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
@@ -69,6 +72,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
       <SimpleFooter />
     </div>
     </ProductComparisonProvider>
+    </BuyerEnquiryAuthProvider>
     </BuyerSavedProductsProvider>
   );
 }

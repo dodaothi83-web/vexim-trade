@@ -1,3 +1,4 @@
+import { getBuyerSession } from "@/lib/auth/buyer-session";
 /**
  * Xử lý submit RFQ form (server action / API). Không phải server action trực tiếp
  * để có thể gọi từ cả Route Handler lẫn Server Action.
@@ -24,6 +25,7 @@ import {
   rfqDayKey,
   scoreSpam,
 } from ".";
+import { releaseTargetedQuoteToPortal } from "./targeted-portal";
 import { createPreferredSupplierMatches } from "./auto-match";
 import { scheduleRfqEnrichment } from "./enrich";
 import { deliverSupplierQuestion, sendSupplierQuestionAckBuyer, sendSupplierQuestionExceptionInternal } from "./supplier-question";
@@ -149,6 +151,14 @@ function rejectWebmail(): boolean {
 }
 
 export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
+  // The shared service protects both server actions and any route-handler callers.
+  // Identity comes from the signed buyer session, never from a typed email or staff cookie.
+  const session = await getBuyerSession();
+  if (!session) return { ok: false, message: "Please sign in to send your enquiry." };
+  if (typeof raw.email !== "string" || raw.email.trim().toLowerCase() !== session.email) {
+    return { ok: false, message: "Please use your signed-in email address." };
+  }
+  raw = { ...raw, email: session.email };
   const isSupplierQuestion = raw.inquiry_kind === "supplier_question";
   // Phần người mua tự viết (có thể rỗng khi họ vào từ trang sản phẩm).
   const extraText = typeof raw.product_text === "string" ? raw.product_text.trim() : "";
@@ -251,13 +261,17 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   if (raw.preferred_supplier_ids && raw.preferred_supplier_ids.length > 0) {
     const publ = await listPublicSuppliers().catch(() => []);
     const pubIds = new Set(publ.map((s) => s.id));
-    preferredIds = raw.preferred_supplier_ids.filter((id) => pubIds.has(id));
+    preferredIds = [...new Set(raw.preferred_supplier_ids.filter((id) => pubIds.has(id)))];
   }
 
-  const sourceProduct = category?.status === "published" && category.is_published && raw.source_product_id && preferredIds.length
-    ? ((await listPublicCategoryProducts(category).catch(() => []))
-        .find((p) => p.id === raw.source_product_id && preferredIds.includes(p.supplierId))) ?? null
-    : null;
+  const publishedSource = category?.status === "published" && category.is_published && raw.source_product_id
+    ? (await listPublicCategoryProducts(category).catch(() => [])).find((p) => p.id === raw.source_product_id) ?? null : null;
+  // Resolve a missing supplier from the published product, never from buyer-entered text.
+  if (publishedSource && !(raw.preferred_supplier_ids?.length)) {
+    const publicSuppliers = await listPublicSuppliers().catch(() => []);
+    if (publicSuppliers.some((supplier) => supplier.id === publishedSource.supplierId)) preferredIds = [publishedSource.supplierId];
+  }
+  const sourceProduct = publishedSource && preferredIds.includes(publishedSource.supplierId) ? publishedSource : null;
   const sourceProductId = sourceProduct?.id ?? null;
   if (isSupplierQuestion && (!sourceProduct || preferredIds.length !== 1 || !category)) {
     return { ok: false, message: "This product or supplier is no longer available. Please return to the product page and try again." };
@@ -425,12 +439,14 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     // audit lỗi không làm hỏng luồng submit
   }
 
+  let portalReleased = 0;
   // RFQ gửi từ trang sản phẩm hoặc trang NCC có sẵn nhà cung cấp buyer chỉ định:
   // tạo sẵn lượt khớp ở trạng thái đề xuất để nhân viên chỉ việc kiểm tra rồi gửi.
   // Không áp dụng khi RFQ đang bị cách ly spam hoặc phải duyệt tay trước.
   if (rfqStatus === "new" && preferredIds.length > 0) {
     try {
       await createPreferredSupplierMatches(store, rfq.id, preferredIds);
+      if (!isSupplierQuestion && sourceProduct && preferredIds.length === 1) portalReleased = await releaseTargetedQuoteToPortal(store, rfq);
     } catch (err) {
       console.warn("[rfq] preferred supplier auto-match failed, RFQ already saved:", err);
     }
@@ -462,7 +478,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
       console.warn(`[rfq] supplier question ${rfq.code} delivered but buyer supplier link failed:`, err);
     }
   }
-  const finalStatus: Rfq["status"] = supplierDelivered ? "matching" : rfqStatus;
+  const finalStatus: Rfq["status"] = supplierDelivered || portalReleased ? "matching" : rfqStatus;
 
   // Gửi email (best-effort; lỗi gửi không làm mất RFQ vì đã lưu vào DB).
   if (isSupplierQuestion) {
@@ -526,11 +542,11 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     message,
     rfqId: rfq.id,
     buyerId: buyer.id,
-    status: isSupplierQuestion ? finalStatus : rfq.status,
+    status: finalStatus,
     supplierDelivered: isSupplierQuestion ? supplierDelivered : undefined,
     accessToken: rfq.access_token,
     // spam RFQ không tiết lộ link theo dõi (không có ack).
-    statusPageUrl: rfqStatus === "spam" ? undefined : `/rfq/status/${rfq.access_token}`,
+    statusPageUrl: rfqStatus === "spam" ? undefined : `/buyer/account/requests/${encodeURIComponent(rfq.id)}`,
     spam: { score: spamScore, flags, quarantine: rfqStatus === "spam", needsReview: rfqStatus === "needs_review" },
   };
 }

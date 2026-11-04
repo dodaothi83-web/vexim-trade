@@ -18,8 +18,8 @@ import { transport } from "./send";
 
 const DESK_INBOX = process.env.RFQ_INTERNAL_EMAIL?.trim() || `hello@${MAIL_DOMAIN}`;
 
-function rfqUrl(token: string) {
-  return `${SITE_URL}/rfq/status/${token}`;
+function rfqUrl(id: string) {
+  return `${SITE_URL}/buyer/account/requests/${encodeURIComponent(id)}`;
 }
 
 function formatQuantity(rfq: Rfq): string {
@@ -32,7 +32,7 @@ function formatQuantity(rfq: Rfq): string {
 
 export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promise<void> {
   const { rfq, buyer } = input;
-  const statusLink = rfqUrl(rfq.access_token);
+  const statusLink = rfqUrl(rfq.id);
 
   const title = `Sourcing request received, ${rfq.product_text} (Ref ${rfq.code})`;
   const hasPreferredSupplier = (rfq.preferred_supplier_ids ?? []).length > 0;
@@ -67,8 +67,8 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
       <li>You sign the contract directly with the supplier you choose. Vexim never holds your payment.</li>
       <li>Requesting a quote is free for buyers.</li>
     </ul>
-    <p>You can check progress any time without logging in using this private link:<br/>
-       <a href="${statusLink}">${statusLink}</a>
+    <p>View your request in your buyer account:<br/>
+       <a href="${statusLink}">View enquiry</a>
     </p>
     <p>If you have additional details to share (specification sheets, labelling requirements, target price),
        simply reply to this email. It goes directly to the desk handling your request.</p>

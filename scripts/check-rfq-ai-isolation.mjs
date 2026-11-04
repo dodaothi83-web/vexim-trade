@@ -193,6 +193,7 @@ const submitStore = {
   addAuditLog: async () => null,
 };
 const submit = load('../lib/rfq/submit.ts', {
+  '@/lib/auth/buyer-session': { getBuyerSession: async () => ({ uid: 'buyer-account', email: 'jane@buyer.com' }) },
   'next/headers': { headers: async () => ({ get: () => null }) },
   '@/lib/db': { getStore: () => submitStore },
   '@/lib/public/catalog': { listPublicSuppliers: async () => [] },
@@ -205,6 +206,7 @@ const submit = load('../lib/rfq/submit.ts', {
     hasMxRecord: async () => ({ ok: true }), isLikelyWebmail: () => false, normalizeCompanyWebsite: () => null,
     scoreSpam: () => ({ score: 0, flags: [] }),
   },
+  './targeted-portal': { releaseTargetedQuoteToPortal: async () => 0 },
   './auto-match': { createPreferredSupplierMatches: async () => 0 },
   './supplier-question-rate-limit': { checkSupplierQuestionRateLimit: async () => ({ status: 'ok' }) },
   './supplier-question': {
@@ -223,7 +225,7 @@ const submitted = await submit.submitRfq({
   product_text: 'Cashew W320', quantity: 100, unit: 'MT', destination_country: 'Germany', challenge_token: 'ok',
 });
 assert.equal(submitted.ok, true, 'AI ném lỗi không được biến submit thành thất bại');
-assert.equal(submitted.statusPageUrl, '/rfq/status/tok-1');
+assert.equal(submitted.statusPageUrl, '/buyer/account/requests/r-1');
 assert.equal(createdRfqs.length, 1, 'RFQ vẫn được lưu');
 assert.equal(createdBuyers.length, 1, 'Hồ sơ người mua vẫn được tạo');
 assert.equal(acks.length, 1, 'Email xác nhận cho người mua vẫn gửi');

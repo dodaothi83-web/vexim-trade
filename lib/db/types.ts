@@ -1,3 +1,4 @@
+import type { SourcingRequest } from "@/lib/types";
 import type {
   Activity,
   ActivityType,
@@ -358,7 +359,19 @@ export interface DataStore {
   updateSubmissionLink(id: string, patch: Partial<SupplierSubmissionLink>): Promise<SupplierSubmissionLink>;
   deleteSubmissionLink(id: string): Promise<void>;
 
+  // Private buyer sourcing requests, independent from RFQs.
+  listSourcingRequests(email?: string): Promise<SourcingRequest[]>;
+  getSourcingRequest(id: string): Promise<SourcingRequest | null>;
+  findSourcingSubmission(email: string, key: string): Promise<SourcingRequest | null>;
+  createSourcingRequest(input: SourcingRequest): Promise<SourcingRequest>;
+  updateSourcingRequest(id: string, version: number, patch: Pick<SourcingRequest, "status" | "assigned_to" | "internal_note" | "buyer_reply">): Promise<SourcingRequest | null>;
+  countNewSourcingRequests(): Promise<number>;
+  putSourcingFile(key: string, bytes: Uint8Array, mime: string): Promise<void>;
+  getSourcingFile(key: string): Promise<Uint8Array>;
+  deleteSourcingFile(key: string): Promise<void>;
+
   // RFQs
+  countPendingRfqs(): Promise<number>;
   listRfqs(options?: { status?: string; assignedTo?: string | null; buyerId?: string }): Promise<Rfq[]>;
   getRfq(id: string): Promise<Rfq | null>;
   getRfqByToken(token: string): Promise<Rfq | null>;

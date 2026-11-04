@@ -13,6 +13,7 @@ export type ProtectedFlow =
   | "admin-setup"
   | "password-reset"
   | "service-inquiry"
+  | "sourcing-request"
   /** Xin thư đăng nhập của người mua (magic link + mã 6 số). */
   | "buyer-sign-in"
   /** Gửi yêu cầu báo giá khi đã có tài khoản người mua. */
@@ -38,6 +39,10 @@ const POLICIES: Record<ProtectedFlow, Policy[]> = {
   "password-reset": [
     { name: "ip", limit: 8, windowMs: 15 * 60_000, window: "15 m" },
     { name: "account", limit: 4, windowMs: 60 * 60_000, window: "1 h" },
+  ],
+  "sourcing-request": [
+    { name: "ip", limit: 30, windowMs: 24 * 60 * 60_000, window: "24 h" },
+    { name: "account", limit: 10, windowMs: 24 * 60 * 60_000, window: "24 h" },
   ],
   "service-inquiry": [
     { name: "ip", limit: 5, windowMs: 60 * 60_000, window: "1 h" },

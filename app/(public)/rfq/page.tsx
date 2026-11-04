@@ -1,3 +1,5 @@
+import { getBuyerSession } from "@/lib/auth/buyer-session";
+import { BuyerEnquiryEntry } from "@/components/buyer-enquiry-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { RfqForm } from "./rfq-form";
@@ -32,6 +34,12 @@ export default async function RfqPage({
   }>;
 }) {
   const sp = await searchParams;
+  const session = await getBuyerSession();
+  if (!session) {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(sp ?? {})) if (typeof value === "string") query.set(key, value);
+    return <BuyerEnquiryEntry next={`/rfq${query.size ? `?${query}` : ""}`} />;
+  }
   const store = getStore();
   const categories = await store.listCategories({ publishedOnly: true }).catch(() => []);
   const supplierIds = (sp?.suppliers ?? "")
@@ -77,7 +85,7 @@ export default async function RfqPage({
         Tell us what you need: grade, volume, destination and timeline.
       </p>
 
-      <RfqForm
+      <RfqForm buyerEmail={session.email}
         categories={categories.map((c: Category) => ({ slug: c.slug, name: c.name_i18n?.en ?? c.slug }))}
         categorySpecs={Object.fromEntries(categories.map((c: Category) => {
           const standardGrades = standardGradesForCategory(c);

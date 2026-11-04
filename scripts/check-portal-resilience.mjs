@@ -152,7 +152,7 @@ const dashHtml = renderToStaticMarkup(await loadModule(dashboardPage, {
       listSubmissionItems: async () => [],
     } }),
   },
-  '@/lib/supplier-portal/dashboard': { buildSupplierRfqBoard: () => ({
+  '@/lib/supplier-portal/dashboard': { buildSupplierRfqBoard: () => ({ tasks: [] }), buildSupplierRfqBoard: () => ({
     invites: [], tasks: [], report: { sent: 0, responded: 0, quoted: 0, selected: 0, byProduct: [] },
   }) },
 }).default({}));
@@ -177,7 +177,7 @@ const bellRoute = loadModule(noticeRoute, {
     } }),
   },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
-  '@/lib/supplier-portal/dashboard': { buildSupplierNoticeFeed: () => ({
+  '@/lib/supplier-portal/dashboard': { buildSupplierRfqBoard: () => ({ tasks: [] }), buildSupplierNoticeFeed: () => ({
     unreadCount: 1,
     notices: [{ key: 'approved:1', title: 'Đã duyệt', detail: 'Hồ sơ đã duyệt', at: '2026-10-23T08:00:00Z', read: false, kind: 'verification' }],
   }) },
@@ -192,9 +192,9 @@ const lostAccess = loadModule(noticeRoute, {
   '@/lib/i18n/server': { getLocale: async () => 'vi' },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => null },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => false },
-  '@/lib/supplier-portal/dashboard': { buildSupplierNoticeFeed: () => ({ unreadCount: 0, notices: [] }) },
+  '@/lib/supplier-portal/dashboard': { buildSupplierRfqBoard: () => ({ tasks: [] }), buildSupplierNoticeFeed: () => ({ unreadCount: 0, notices: [] }) },
 });
-assert.deepEqual(JSON.parse(JSON.stringify((await lostAccess.GET()).body)), { unread: 0, readsKnown: true, items: [] },
+assert.deepEqual(JSON.parse(JSON.stringify((await lostAccess.GET()).body)), { unread: 0, readsKnown: true, pendingRfqs: 0, rfqsKnown: true, items: [] },
   'Mất phiên thì chuông trả rỗng, không lỗi 500');
 
 console.log('✅ Portal resilience: mỗi chức năng một trang, chuông tự chịu lỗi, partial loads, không nút chết.');

@@ -3,26 +3,10 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, Globe } from "lucide-react";
+import { Check, Globe } from "lucide-react";
 
+import { SourcingComposerTrigger } from "@/components/sourcing-composer";
 import { PublicSignInLink } from "@/components/public-sign-in-link";
-
-function QuoteLink({ isVi = false }: { isVi?: boolean }) {
-  const label = isVi ? "Yêu cầu báo giá" : "Request a quote";
-
-  return (
-    <Link
-      href="/rfq"
-      aria-label={label}
-      lang={isVi ? "vi" : "en"}
-      className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-brand-700 px-3 text-[12px] font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 sm:px-4 sm:text-[13.5px]"
-    >
-      <span className="xl:hidden">{isVi ? "Báo giá" : "Quote"}</span>
-      <span className="hidden xl:inline">{label}</span>
-      <ArrowRight className="hidden h-3.5 w-3.5 xl:block" aria-hidden="true" />
-    </Link>
-  );
-}
 
 function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: string | null; buyerCompanyName?: string | null }) {
   const pathname = usePathname() || "/";
@@ -142,7 +126,7 @@ function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: st
         </div>
 
         <PublicSignInLink lang={lang} buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
-        <QuoteLink isVi={isVi} />
+        <SourcingComposerTrigger isVi={isVi} />
       </div>
     </>
   );
@@ -168,7 +152,7 @@ function HeaderControlsFallback({ buyerEmail, buyerCompanyName }: { buyerEmail?:
         </button>
 
         <PublicSignInLink buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
-        <QuoteLink />
+        <SourcingComposerTrigger />
       </div>
     </>
   );

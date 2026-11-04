@@ -25,7 +25,11 @@ export function BuyerSignInForm({
   next,
   initialError,
   initialOauthError,
+  compact = false,
+  onSignedIn,
 }: {
+  compact?: boolean;
+  onSignedIn?: (email: string) => void;
   messages: BuyerAuthMessages;
   lang: Locale;
   next?: string | null;
@@ -72,6 +76,7 @@ export function BuyerSignInForm({
         setErrorKey(res.errorKey ?? "generic");
         return;
       }
+      if (onSignedIn) { onSignedIn(email.trim().toLowerCase()); return; }
       router.replace(res.redirectTo ?? "/");
       router.refresh();
     });
@@ -88,7 +93,7 @@ export function BuyerSignInForm({
             {error}
           </p>
         )}
-        <form onSubmit={sendCode} className="space-y-4" noValidate>
+        <form onSubmit={sendCode} className={compact ? "flex flex-col gap-4" : "space-y-4"} noValidate>
           <label className="block text-sm">
             <span className="mb-1 block font-semibold">{m.email}</span>
             <input
@@ -102,9 +107,7 @@ export function BuyerSignInForm({
               className="input"
               placeholder="you@company.com"
             />
-            <span className="mt-1 block text-[11.5px] font-normal leading-snug text-ink-500">
-              {m.emailHint}
-            </span>
+            {!compact && <span className="mt-1 block text-[11.5px] font-normal leading-snug text-ink-500">{m.emailHint}</span>}
           </label>
 
           <FormChallenge key={challengeVersion} purpose="buyer-sign-in" messages={m.challenge} onChange={(token) => setChallengeToken(token ?? "")} />
@@ -114,11 +117,9 @@ export function BuyerSignInForm({
             {m.sendCode}
           </button>
 
-          <p className="text-center text-[12px] leading-relaxed text-ink-500">
-            {m.firstTime}
-          </p>
+          {!compact && <p className="text-center text-[12px] leading-relaxed text-ink-500">{m.firstTime}</p>}
 
-          <div className="flex items-center gap-3 pt-1 text-[11.5px] font-semibold uppercase tracking-wide text-ink-400">
+          <div className={`${compact ? "-order-1" : ""} flex items-center gap-3 pt-1 text-[11.5px] font-semibold uppercase tracking-wide text-ink-400`}>
             <span className="h-px flex-1 bg-ink-200" />
             {m.or}
             <span className="h-px flex-1 bg-ink-200" />
@@ -127,14 +128,12 @@ export function BuyerSignInForm({
           <a
             href={googleStartHref}
             rel="nofollow"
-            className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+            className={`${compact ? "-order-2" : ""} flex min-h-12 w-full items-center justify-center gap-2.5 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50`}
           >
             <GoogleGIcon />
             {m.google}
           </a>
-          <p className="text-center text-[11px] leading-snug text-ink-400">
-            {m.googleHint}
-          </p>
+          {!compact && <p className="text-center text-[11px] leading-snug text-ink-400">{m.googleHint}</p>}
         </form>
       </div>
     );

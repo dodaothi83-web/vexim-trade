@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, BellRing, CheckCheck } from "lucide-react";
 
@@ -63,6 +63,8 @@ export function SupplierTopbar({
   intl: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const previousRfqs = useRef<number | null>(null);
   const [items, setItems] = useState<NoticeItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [readsKnown, setReadsKnown] = useState(true);
@@ -80,6 +82,10 @@ export function SupplierTopbar({
       if (!res.ok) return;
       const data = await res.json();
       const nextUnread = Number(data.unread) || 0;
+      const pendingRfqs = data.rfqsKnown === false ? null : Math.max(0, Number(data.pendingRfqs) || 0);
+      window.dispatchEvent(new CustomEvent("vexim:supplier-rfqs", { detail: { count: pendingRfqs } }));
+      if (pendingRfqs !== null && previousRfqs.current !== null && pendingRfqs !== previousRfqs.current) router.refresh();
+      previousRfqs.current = pendingRfqs;
       // Nhảy số mới thì nháy chuông một nhịp để người dùng biết vừa có thay đổi.
       if (previousUnread.current !== null && nextUnread > previousUnread.current) {
         setFresh(true);
@@ -93,7 +99,7 @@ export function SupplierTopbar({
     } catch {
       /* chuông im lặng khi không đọc được */
     }
-  }, []);
+  }, [router]);
 
   // Tự làm mới: theo nhịp khi tab đang hiện, và ngay lập tức khi quay lại tab.
   useEffect(() => {

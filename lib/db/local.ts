@@ -1,3 +1,4 @@
+import type { SourcingRequest } from "@/lib/types";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -80,6 +81,7 @@ function guardFactoryPending(row: SupplierSubmission, patch: Partial<SupplierSub
 }
 
 interface LocalShape {
+  sourcing_requests?: SourcingRequest[];
   users: AppUserRecord[];
   buyers: Buyer[];
   prospects: Prospect[];
@@ -2313,6 +2315,44 @@ export const localStore: DataStore = {
     return (load().verifications ?? []).find((v) => v.id === id) ?? null;
   },
 
+  async listSourcingRequests(email) {
+    return (load().sourcing_requests ?? []).filter((r) => !email || r.buyer_email === email.trim().toLowerCase()).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
+  async getSourcingRequest(id) { return (load().sourcing_requests ?? []).find((r) => r.id === id) ?? null; },
+  async findSourcingSubmission(email, key) { return (load().sourcing_requests ?? []).find((r) => r.buyer_email === email.trim().toLowerCase() && r.submission_key === key) ?? null; },
+  async createSourcingRequest(input) {
+    return mutateSponsoredRequest((db) => {
+      const rows = db.sourcing_requests ??= [];
+      const existing = rows.find((r) => r.buyer_email === input.buyer_email && r.submission_key === input.submission_key);
+      if (existing) return existing;
+      rows.push(input); return input;
+    });
+  },
+  async updateSourcingRequest(id, version, patch) {
+    return mutateSponsoredRequest((db) => {
+      const row = db.sourcing_requests?.find((r) => r.id === id && r.version === version);
+      if (!row) return null;
+      Object.assign(row, patch, { version: version + 1, updated_at: new Date().toISOString() });
+      return row;
+    });
+  },
+  async countNewSourcingRequests() { return (load().sourcing_requests ?? []).filter((r) => r.status === "new").length; },
+  async putSourcingFile(key, bytes) {
+    if (!/^[a-f0-9-]{36}\/[a-f0-9-]{36}$/.test(key)) throw new Error("Invalid sourcing file key");
+    const dest = path.join(process.cwd(), "data", "sourcing-files", key);
+    fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.writeFileSync(dest, bytes, { flag: "wx" });
+  },
+  async getSourcingFile(key) {
+    if (!/^[a-f0-9-]{36}\/[a-f0-9-]{36}$/.test(key)) throw new Error("Invalid sourcing file key");
+    return new Uint8Array(fs.readFileSync(path.join(process.cwd(), "data", "sourcing-files", key)));
+  },
+  async deleteSourcingFile(key) {
+    if (!/^[a-f0-9-]{36}\/[a-f0-9-]{36}$/.test(key)) throw new Error("Invalid sourcing file key");
+    fs.rmSync(path.join(process.cwd(), "data", "sourcing-files", key), { force: true });
+  },
+  async countPendingRfqs() {
+    return load().rfqs.filter((rfq) => ["new", "needs_review", "in_progress", "matching"].includes(rfq.status)).length;
+  },
   async listRfqs(options) {
     let rows = [...(load().rfqs ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at));
     if (options?.status) rows = rows.filter((r) => r.status === options.status);
