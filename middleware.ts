@@ -20,6 +20,7 @@ const ALWAYS_NOINDEX_PREFIXES = [
   "/rfq",
   "/compare",
   "/login",
+  "/sign-in",
   "/auth",
   // Đăng nhập người mua và trang riêng của họ: không có gì để Google đọc.
   "/buyer",

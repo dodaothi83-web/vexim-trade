@@ -88,12 +88,12 @@ try {
 // Các trường hồ sơ khác cũng được dịch và làm mới khi nội dung gốc thay đổi.
 const fullSource = ai.supplierProfileSource({
   moq_text: '1 tấn', export_markets: ['Hoa Kỳ'], province: 'Bình Phước', address: 'Số 1, đường A',
-  products: 'Hạt điều', markets: 'Việt Nam', capacity_per_month: '10 tấn/tháng', payment_terms: 'Thanh toán sau',
+  products: 'Hạt điều', markets: 'Việt Nam', capacity_per_month: '10 tấn/tháng', annual_output: '95 tấn/năm', payment_terms: 'Thanh toán sau',
   ports: ['Cát Lái'], incoterms: ['FOB'],
 });
 const fullTranslation = ai.parseSupplierProfileTranslation(JSON.stringify({
   moq_en: '1 MT', export_markets_en: ['United States'], province_en: 'Binh Phuoc', address_en: '1 A Street',
-  products_en: 'Cashew kernels', markets_en: 'Vietnam', capacity_per_month_en: '10 MT/month', payment_terms_en: 'Deferred payment',
+  products_en: 'Cashew kernels', markets_en: 'Vietnam', capacity_per_month_en: '10 MT/month', annual_output_en: '95 MT/year', payment_terms_en: 'Deferred payment',
   ports_en: ['Cat Lai'], incoterms_en: ['FOB'], summary_en: '',
 }), fullSource);
 assert.equal(fullTranslation.province_en, 'Binh Phuoc');
@@ -182,7 +182,7 @@ const translationService = load('../lib/ai/supplier-translation-service.ts', {
           legal_name_en: 'VIET THIEN PHU INDUSTRIAL PRODUCTION COMPANY LIMITED',
           moq_en: '1 MT', export_markets_en: ['United States'], province_en: 'Binh Phuoc',
           address_en: '1 A Street', products_en: 'Cashew kernels', markets_en: 'Vietnam',
-          capacity_per_month_en: '10 MT/month', payment_terms_en: 'Deferred payment',
+          capacity_per_month_en: '10 MT/month', annual_output_en: '95 MT/year', payment_terms_en: 'Deferred payment',
           ports_en: ['Cat Lai'], incoterms_en: ['FOB'],
           summary_en: story ? 'A faithful English introduction.' : '',
         }), source, { strict: true, requireSummary: Boolean(story) || draftSummary }),
@@ -227,6 +227,7 @@ translatedRow.summary_i18n = { en: 'Staff-approved English introduction.' };
 translatedRow.profile_translation_meta = { ...translatedRow.profile_translation_meta, summary_source_hash: 'stale' };
 ensured = await translationService.ensureSupplierProfileEnglish(translationStore, translatedRow.id, null, { preserveSummary: true });
 assert.equal(translatedRow.summary_i18n.en, 'Staff-approved English introduction.');
+assert.equal(translatedRow.profile_translation_meta.annual_output_source, fullSource.annual_output, 'Staff summary edits retain annual-output cache provenance');
 assert.equal(translatedRow.profile_translation_meta.summary_source_hash,
   ai.supplierSummarySourceHash(translatedRow.intro_source), 'Preserve the staff decision for later supplier edits');
 translatedRow.products = 'Hạt điều hữu cơ';
@@ -309,3 +310,17 @@ const introMigration = fs.readFileSync(new URL('../supabase/migrations/20261018_
 assert.match(introMigration, /intro_source/, 'migration phải có cột intro_source');
 
 console.log('✅ Supplier profile translation: parse, freshness hash, submit/staff triggers, summary drafting, buyer display, migration.');
+
+// Annual output never inherits a monthly quantity or a stale annual translation.
+assert.equal(fullTranslation.annual_output_en, '95 MT/year');
+assert.notEqual(ai.supplierProfileSourceHash(fullSource), ai.supplierProfileSourceHash({ ...fullSource, annual_output: '96 tấn/năm' }));
+const annualPatch = ai.supplierProfilePatch(fullTranslation, fullSource, 'ai');
+assert.equal(annualPatch.profile_translation_meta.fields.annual_output, '95 MT/year');
+assert.equal(annualPatch.profile_translation_meta.annual_output_source, '95 tấn/năm');
+assert.equal(english.supplierAnnualOutputDisplay({ annual_output: fullSource.annual_output, ...annualPatch }), '95 MT/year');
+assert.equal(english.supplierAnnualOutputDisplay({ ...annualPatch, annual_output: '96 tấn/năm' }), '96 metric tons per year');
+assert.equal(english.supplierAnnualOutputDisplay({ ...annualPatch, annual_output: null }), '');
+assert.equal(english.supplierAnnualOutputDisplay({ capacity_per_month: '10 tấn/tháng' }), '');
+assert.equal(english.supplierAnnualOutputDisplay({ annual_output: '95 tấn mỗi năm' }), '95 metric tons per year');
+assert.throws(() => ai.parseSupplierProfileTranslation(JSON.stringify({ capacity_per_month_en: '10 MT/month' }), { annual_output: '95 tấn/năm' }, { strict: true }), /thiếu nội dung/);
+console.log('✅ Annual output translation: independent source/hash/cache, strict parsing, stale cache fallback, units preserved.');

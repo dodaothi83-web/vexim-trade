@@ -13,7 +13,7 @@ import { verificationLabel, type PublicL2Scope } from "@/lib/verification-status
 import { publicProductTitle } from "@/lib/public/display-name";
 import { formatMoney, priceRangeText } from "@/lib/products/price-display";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
-import { supplierAddressDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
+import { supplierAddressDisplay, supplierCapacityDisplay, supplierAnnualOutputDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
@@ -396,7 +396,7 @@ export function SupplierStorefront({
           <dl className="mt-2"><Fact icon={Package} label="Minimum order" value={supplierMoqDisplay(s)} />
             <Fact icon={Ship} label="Export ports / Incoterms" value={[...supplierPortsDisplay(s), ...supplierIncotermsDisplay(s)].join(" · ")} />
             <Fact icon={Clock3} label="Lead time" value={s.lead_time_days ? `${s.lead_time_days} days` : ""} />
-            <Fact icon={Package} label="Monthly capacity" value={supplierCapacityDisplay(s)} />
+            <Fact icon={Package} label={s.annual_output?.trim() ? "Annual output" : "Monthly capacity"} value={s.annual_output?.trim() ? supplierAnnualOutputDisplay(s) : supplierCapacityDisplay(s)} />
             <Fact icon={Info} label="Payment terms" value={supplierPaymentTermsDisplay(s)} />
             <Fact icon={Globe2} label="Export markets" value={supplierExportMarketsDisplay(s).join(", ")} /></dl>
           {rfqActions && !synthetic && <div className="mt-4 space-y-2"><Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>

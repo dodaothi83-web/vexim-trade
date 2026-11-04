@@ -41,7 +41,7 @@ export function supplierTranslationFailureMessage(error: unknown): string {
 
 /**
  * Bảo đảm các nội dung hồ sơ NCC hiển thị cho buyer có bản tiếng Anh:
- * MOQ, địa điểm, địa chỉ, mặt hàng, thị trường, công suất, điều khoản, cảng và Incoterms
+ * MOQ cũ, địa điểm, địa chỉ, mặt hàng, thị trường, công suất tháng cũ, sản lượng năm, điều khoản, cảng và Incoterms
  * được dịch cùng phần giới thiệu. NCC sửa nội dung gốc thì toàn bộ bản dịch được làm mới.
  * Chỉ khi NCC không viết phần giới thiệu, AI mới soạn nháp từ dữ kiện hồ sơ.
  * Lỗi dịch không chặn nghiệp vụ nộp hoặc công khai hồ sơ.
@@ -73,6 +73,7 @@ export async function ensureSupplierProfileEnglish(
         model: supplier.profile_translation_meta?.model ?? null,
         summary_generated: false,
         summary_source_hash: supplierSummarySourceHash(story),
+        annual_output_source: supplier.profile_translation_meta?.annual_output_source,
         fields: supplier.profile_translation_meta?.fields,
       },
     }).catch((error) => console.error("[supplier-translation] preserve summary", error));

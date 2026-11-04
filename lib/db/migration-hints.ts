@@ -6,6 +6,7 @@
  * Chỉ dùng để ghi log. Không đưa nội dung này ra giao diện cho buyer hoặc nhà cung cấp.
  */
 const HINTS: Array<{ match: RegExp; migration: string }> = [
+  { match: /annual_output/i, migration: "supabase/migrations/20261108_supplier_annual_output.sql" },
   { match: /supplier_portal_notice_reads/i, migration: "supabase/migrations/20261017_supplier_dashboard.sql" },
   { match: /response_due_at|supplier_replied_at|source_product_id/i, migration: "supabase/migrations/20261017_supplier_dashboard.sql" },
   { match: /l2_scope/i, migration: "supabase/migrations/20261040_l2_partner_contract.sql" },

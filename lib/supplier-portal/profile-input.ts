@@ -47,8 +47,8 @@ export function parseSupplierProfile(form: FormData): {
       intro_source: text(form, "intro_source", 1500) || null,
       founded_year: positiveInt(form, "founded_year", new Date().getFullYear()),
       employees: positiveInt(form, "employees", 1000000),
-      capacity_per_month: text(form, "capacity_per_month", 180) || null,
-      moq_text: text(form, "moq_text", 180) || null,
+      // Missing fields from an older client must not clear existing annual output or legacy terms.
+      ...(form.has("annual_output") ? { annual_output: text(form, "annual_output", 180) || null } : {}),
       lead_time_days: positiveInt(form, "lead_time_days", 3650),
       payment_terms: text(form, "payment_terms", 200) || null,
       ports: list(form, "ports"), incoterms: list(form, "incoterms"), export_markets: list(form, "export_markets"),

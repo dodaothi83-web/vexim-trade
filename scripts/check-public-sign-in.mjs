@@ -43,8 +43,8 @@ const { PublicHeaderControls } = load('../components/public-header-controls.tsx'
 });
 
 function assertSignIn(html, lang, label) {
-  const link = html.match(/<a\b[^>]*href="\/register"[^>]*>[\s\S]*?<\/a>/)?.[0];
-  assert.ok(link, 'A sign-in link must point to the account chooser');
+  const link = html.match(/<a\b[^>]*href="\/sign-in"[^>]*>[\s\S]*?<\/a>/)?.[0];
+  assert.ok(link, 'A sign-in link must point to the sign-in entrance');
   assert.match(link, new RegExp(`lang="${lang}"`));
   assert.ok(link.includes(`aria-label="${label}"`));
   assert.ok(link.includes(`title="${label}"`));
@@ -81,12 +81,12 @@ for (const lang of ['en', 'vi']) {
   assert.match(signedIn, /buyer@example.test/);
   assert.match(signedIn, /<details/);
   assert.match(signedIn, lang === 'vi' ? /Đăng xuất/ : /Sign out/);
-  assert.doesNotMatch(signedIn, /href="\/register"/);
+  assert.doesNotMatch(signedIn, /href="\/sign-in"/);
 }
 suspend = true;
 const signedFallback = renderToStaticMarkup(React.createElement(PublicHeaderControls, { buyerEmail: 'buyer@example.test' }));
 assert.match(signedFallback, /buyer@example.test/);
-assert.doesNotMatch(signedFallback, /href="\/register"/);
+assert.doesNotMatch(signedFallback, /href="\/sign-in"/);
 suspend = false;
 
 const nothing = () => null;

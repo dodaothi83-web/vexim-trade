@@ -1264,6 +1264,7 @@ function parseSupplierInput(
     intro_source: str(raw.intro_source)?.slice(0, 1500) ?? null,
     moq_text: str(raw.moq_text),
     capacity_per_month: str(raw.capacity_per_month),
+    ...(raw.annual_output === undefined ? {} : { annual_output: str(raw.annual_output)?.slice(0, 180) ?? null }),
     ports: arr(raw.ports),
     incoterms: arr(raw.incoterms),
     export_markets: arr(raw.export_markets),

@@ -2,18 +2,18 @@
 
 ## Single-image gallery
 
-The zoom button now absolutely fills the aspect-ratio image container, rather than
-using a percentage height in normal flow. This removes dependence on percentage-height
-resolution for a single-image gallery without the thumbnail grid. The empty-photo
-placeholder fills the same container. Multi-image thumbnails, swipe, lightbox and
-save/share controls are retained.
+After a further iPhone report in which thumbnails remained visible but the hero
+collapsed, the gallery no longer uses CSS Grid for the mobile image/thumbnail stack.
+Mobile uses a flex column; the two-column grid is retained only from the `sm` breakpoint.
+The hero's height is reserved by an in-flow `padding-top: 100%` spacer, not `aspect-ratio`.
+The zoom button, image layers and empty-photo placeholder fill that reserved box.
+This addresses both single-image and multi-image layouts without percentage-height
+resolution depending on an intrinsically sized grid row.
 
-Responsive Chromium checks used the actual React gallery with production Tailwind CSS
-and fixture images at widths 320, 375, 390, 768 and 1280px. The main image had nonzero,
-square bounds; mobile tap/lightbox and the multi-photo rail also passed. These are
-isolated component checks, not a physical iPhone/Safari or production-data verification.
-The previous normal-flow layout also rendered in Chromium, so the reported mobile
-failure was not independently reproduced on the user's browser.
+The original absolute-button change alone was insufficient on the reported device.
+Current regression checks verify the flex-column layout, physical spacer, desktop rail,
+image projection, swipe and lightbox behavior. Physical iPhone/WebKit verification of
+this follow-up is still needed; do not infer it from the previous Chromium checks.
 
 ## PDF export
 

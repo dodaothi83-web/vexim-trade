@@ -116,9 +116,9 @@ const noVideoHtml = renderToStaticMarkup(React.createElement(ProductMediaGallery
   thumbnails: ['products/abc/cover-thumb.webp', 'products/abc/detail-thumb.webp'], video: null,
 }));
 assert.doesNotMatch(noVideoHtml, /Product video|No buyer-shareable video/, 'An absent video leaves no dead panel');
-assert.ok(noVideoHtml.includes('grid grid-cols-1 items-stretch gap-2 sm:grid-cols-[4rem_minmax(0,1fr)]'),
-  'Mobile uses one full-width image column and the two-column rail returns from sm');
-assert.match(noVideoHtml, /relative aspect-square[^\"]*sm:order-2/, 'The main image is first on mobile and moves right on larger screens');
+assert.ok(noVideoHtml.includes('flex flex-col items-stretch gap-2 sm:grid sm:grid-cols-[4rem_minmax(0,1fr)]'),
+  'Mobile avoids grid row sizing; the two-column rail returns from sm');
+assert.match(noVideoHtml, /relative w-full min-w-0[^\"]*sm:order-2/, 'The main image is first on mobile and moves right on larger screens');
 assert.match(noVideoHtml, /relative min-w-0 sm:order-1/, 'The thumbnail rail moves left only from sm');
 assert.match(noVideoHtml, /w-full min-w-0 overflow-x-auto pb-1 sm:absolute sm:inset-0 sm:overflow-x-hidden sm:overflow-y-auto/,
   'Mobile thumbnails scroll horizontally and the desktop rail remains bounded with vertical scrolling');
@@ -160,3 +160,6 @@ assert.match(migration, /featured_media_id uuid/);
 console.log('✅ Product media: staff-only cover, safe public image/video projection, inline zoom/lightbox and gallery slots.');
 
 assert.match(singleImageHtml, /group absolute inset-0 h-full w-full cursor-zoom-in/, 'Single-photo hero fills the aspect-ratio box without percentage-height flow collapse');
+
+assert.match(singleImageHtml, /padding-top:100%/, 'Single image reserves physical in-flow height on Safari');
+assert.doesNotMatch(singleImageHtml, /relative aspect-square/, 'Hero height no longer depends on grid aspect-ratio resolution');

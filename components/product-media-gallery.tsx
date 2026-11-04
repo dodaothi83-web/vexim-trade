@@ -115,8 +115,11 @@ export function ProductMediaGallery({ name, images, thumbnails, video, actions }
     setOpen(true);
   };
   return <div className="min-w-0">
-    <div className={hasThumbnails ? "grid grid-cols-1 items-stretch gap-2 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-3" : ""}>
-      <div className="relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-ink-50 sm:order-2">
+    <div className={hasThumbnails ? "flex flex-col items-stretch gap-2 sm:grid sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-3" : ""}>
+      <div className="relative w-full min-w-0 overflow-hidden rounded-2xl border border-ink-200 bg-ink-50 sm:order-2">
+        {/* A real in-flow square spacer prevents Safari grid rows collapsing when
+            all image/zoom children are absolutely positioned. */}
+        <div aria-hidden="true" style={{ paddingTop: "100%" }} />
         {actions && <div className="absolute right-3 top-3 z-20 flex flex-col items-end gap-2">{actions}</div>}
         {selected ? <button ref={heroRef} type="button" onClick={openHero}
           onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}

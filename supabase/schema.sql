@@ -578,6 +578,7 @@ alter table public.suppliers
   add column if not exists export_markets_i18n jsonb not null default '{}'::jsonb,
   add column if not exists profile_translation_meta jsonb,
   add column if not exists capacity_per_month text,
+  add column if not exists annual_output text,
   add column if not exists ports text[] not null default '{}',
   add column if not exists incoterms text[] not null default '{}',
   add column if not exists export_markets text[] not null default '{}',
@@ -1355,7 +1356,8 @@ select
   case when false then s.fob_currency end as fob_currency,
   s.fob_updated_at,
   s.lead_time_days,
-  s.updated_at
+  s.updated_at,
+  s.annual_output
 from public.suppliers s
 where s.status = 'published';
 
