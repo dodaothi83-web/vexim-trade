@@ -406,3 +406,13 @@ assert.match(checkboxHtml, /group-hover\/card:max-w-20/);
 assert.match(checkboxHtml, />Compare<\/span>/);
 assert.match(checkboxHtml, /hidden sm:inline overflow-hidden/, "Compare text stays hidden on mobile, including hover and selected states");
 assert.match(selectedCheckboxHtml, /hidden sm:inline overflow-hidden/, "Selected mobile card still shows only the checkbox");
+
+// Mobile must not acquire an outer pill on touch, focus, hover or selection.
+for (const markup of [checkboxHtml, selectedCheckboxHtml]) {
+  const outerClass = markup.match(/<label[^>]*class="([^"]*)"/)[1];
+  const classes = outerClass.split(/\s+/);
+  assert.ok(classes.includes('sm:rounded-full'), 'Desktop retains the comparison pill');
+  assert.ok(!classes.includes('rounded-full'), 'No rounded outer shell on mobile');
+  assert.ok(classes.filter((value) => value.includes('bg-')).every((value) => value.startsWith('sm:')), 'Outer background applies only at desktop breakpoints, including touch/focus states');
+}
+console.log('✅ Mobile comparison: checkbox only, no outer background or pill; selected state and desktop styling retained.');

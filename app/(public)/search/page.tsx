@@ -196,8 +196,8 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
               </option>)}
             </select>
           </label>
-          <button type="submit" className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-brand-700 sm:h-12 sm:w-auto sm:rounded-xl sm:px-6 text-sm font-bold text-white hover:bg-brand-800">
-            <Search className="h-4 w-4" aria-hidden="true" /><span className="sr-only sm:not-sr-only">{isVi ? "Tìm kiếm" : "Search"}</span>
+          <button type="submit" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand-700 px-3 sm:h-12 sm:w-auto sm:rounded-xl sm:px-6 text-sm font-bold text-white hover:bg-brand-800">
+            <Search className="hidden h-4 w-4 sm:block" aria-hidden="true" /><span>{isVi ? "Tìm kiếm" : "Search"}</span>
           </button>
         </div>
       </form>
