@@ -158,3 +158,5 @@ assert.match(managerSource, /previousFocus\?\.focus\(\)/, 'Closing the preview r
 const migration = readFileSync(new URL('../supabase/migrations/20261017_product_featured_image.sql', import.meta.url), 'utf8');
 assert.match(migration, /featured_media_id uuid/);
 console.log('✅ Product media: staff-only cover, safe public image/video projection, inline zoom/lightbox and gallery slots.');
+
+assert.match(singleImageHtml, /group absolute inset-0 h-full w-full cursor-zoom-in/, 'Single-photo hero fills the aspect-ratio box without percentage-height flow collapse');

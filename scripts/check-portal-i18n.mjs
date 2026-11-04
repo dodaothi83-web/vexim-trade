@@ -290,7 +290,7 @@ assert.match(evidenceSource, /evidenceMessages\[input\.language \?\? "vi"\]\.dra
 assert.doesNotMatch(evidenceSource, /throw new Error\("Hồ sơ đã nộp hoặc đã xét\."\)/, "Không còn câu khoá hồ sơ viết cứng");
 // Cổng NCC không được hứa "vài ngày làm việc" khi màn đăng ký đã hứa "1 ngày làm việc".
 const onboardingCopy = read("lib/i18n/portal/onboarding.ts");
-assert.match(onboardingCopy, /usually within 1 working day/);
+assert.match(onboardingCopy, /Your profile is verified within 1 working day\./, "Review-time check matches the approved one-working-day copy");
 assert.doesNotMatch(onboardingCopy, /a few working days|vài ngày làm việc/);
 const uploadRoute = read("app/api/supplier-portal/submissions/[id]/upload/route.ts");
 assert.match(uploadRoute, /getLocale\(\)/, "Route tải bằng chứng đọc ngôn ngữ đang chọn");

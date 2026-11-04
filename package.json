@@ -16,6 +16,7 @@
     "check:ai-crawl": "node scripts/check-ai-crawlability.mjs",
     "check:mail": "node --experimental-strip-types --no-warnings scripts/check-mail-visibility.mjs",
     "check:harvest": "node --experimental-strip-types --no-warnings scripts/check-harvest-calendar.mjs && node --experimental-strip-types --no-warnings scripts/check-harvest-research.mjs",
+    "check:comparison-pdf": "node scripts/check-comparison-pdf.mjs",
     "check:compare": "node --experimental-strip-types --no-warnings scripts/check-product-comparison.mjs && npm run check:loading-port",
     "check:loading-port": "node --experimental-strip-types --no-warnings scripts/check-product-detail-display.mjs && node --experimental-strip-types --no-warnings scripts/check-loading-port.mjs",
     "check:category-filters": "node --experimental-strip-types --no-warnings scripts/check-category-filters-migration.mjs && node --experimental-strip-types --no-warnings scripts/check-category-grade-filter.mjs && node --experimental-strip-types --no-warnings scripts/check-category-pagination.mjs",
@@ -62,6 +63,7 @@
     "dompurify": "^3.4.17",
     "lucide-react": "1.52.0",
     "next": "16.4.3",
+    "pdfmake": "^0.3.13",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "resend": "6.32.1",
@@ -77,9 +79,11 @@
     "@tailwindcss/postcss": "4.3.3",
     "@types/dompurify": "^3.0.5",
     "@types/node": "22.19.1",
+    "@types/pdfmake": "^0.3.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@types/sanitize-html": "^2.16.2",
+    "pdfjs-dist": "^6.5.438",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3"
   }
