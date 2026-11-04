@@ -24,7 +24,7 @@ function QuoteLink({ isVi = false }: { isVi?: boolean }) {
   );
 }
 
-function HeaderControlsInner({ buyerEmail }: { buyerEmail?: string | null }) {
+function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: string | null; buyerCompanyName?: string | null }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -141,14 +141,14 @@ function HeaderControlsInner({ buyerEmail }: { buyerEmail?: string | null }) {
           )}
         </div>
 
-        <PublicSignInLink lang={lang} buyerEmail={buyerEmail} />
+        <PublicSignInLink lang={lang} buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
         <QuoteLink isVi={isVi} />
       </div>
     </>
   );
 }
 
-function HeaderControlsFallback({ buyerEmail }: { buyerEmail?: string | null }) {
+function HeaderControlsFallback({ buyerEmail, buyerCompanyName }: { buyerEmail?: string | null; buyerCompanyName?: string | null }) {
   return (
     <>
       <nav className="ml-3 hidden items-center gap-3 whitespace-nowrap text-[12px] font-medium text-ink-700 md:flex lg:ml-6 lg:gap-5 lg:text-[13.5px]">
@@ -167,17 +167,17 @@ function HeaderControlsFallback({ buyerEmail }: { buyerEmail?: string | null }) 
           <Globe className="h-4.5 w-4.5" />
         </button>
 
-        <PublicSignInLink buyerEmail={buyerEmail} />
+        <PublicSignInLink buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
         <QuoteLink />
       </div>
     </>
   );
 }
 
-export function PublicHeaderControls({ buyerEmail = null }: { buyerEmail?: string | null }) {
+export function PublicHeaderControls({ buyerEmail = null, buyerCompanyName = null }: { buyerEmail?: string | null; buyerCompanyName?: string | null }) {
   return (
-    <Suspense fallback={<HeaderControlsFallback buyerEmail={buyerEmail} />}>
-      <HeaderControlsInner buyerEmail={buyerEmail} />
+    <Suspense fallback={<HeaderControlsFallback buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />}>
+      <HeaderControlsInner buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
     </Suspense>
   );
 }

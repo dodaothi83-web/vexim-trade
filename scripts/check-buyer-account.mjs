@@ -109,6 +109,36 @@ for (const locale of ['en', 'vi']) {
 redirectAttempt = true;
 await assert.rejects(dashboard.default({ searchParams: Promise.resolve({ tab: 'saved' }) }), /redirect/);
 
+// Saved-list removal is a compact action, not a toggle that could re-save stale state.
+let pendingRemoval;
+let removeArgs;
+let savedContext = { state: { authenticated: true, ids: [] }, isVi: false, update: () => {} };
+const removal = load('components/buyer-saved-products.tsx', {
+  react: { createContext: () => ({}), useContext: () => savedContext, useState: () => [false, () => {}], useTransition: () => [false, (callback) => { pendingRemoval = callback(); }] },
+  'react/jsx-runtime': jsx,
+  'next/navigation': { useRouter: () => ({ refresh() {} }) },
+  'next/link': { default: icon },
+  'lucide-react': { Heart: icon, Trash2: () => React.createElement('svg', { 'data-trash': true }) },
+  '@/app/(public)/buyer/account/actions': { setSavedProductAction: async (...args) => { removeArgs = args; return { ok: true }; } },
+});
+for (const isVi of [false, true]) {
+  savedContext = { ...savedContext, isVi };
+  const tree = removal.SaveProductButton({ id: 'saved', href: '/buyer/account?tab=saved', removeOnly: true });
+  const button = tree.props.children[0];
+  assert.equal(button.props.title, isVi ? 'Bỏ lưu sản phẩm' : 'Remove saved product');
+  assert.equal(button.props['aria-label'], button.props.title);
+  assert.equal(button.props['aria-pressed'], undefined);
+  assert.match(button.props.className, /h-9 w-9/);
+  const markup = renderToStaticMarkup(tree);
+  assert.match(markup, /data-trash="true"/);
+  assert.doesNotMatch(markup, />Remove saved product<|>Bỏ lưu sản phẩm</);
+  button.props.onClick();
+  await pendingRemoval;
+  assert.equal(removeArgs[0], 'saved');
+  assert.equal(removeArgs[1], false, 'Removal never re-saves even if the provider state is stale');
+}
+assert.match(read('app/(public)/buyer/account/page.tsx'), /<SaveProductButton id=\{saved.id\} href=\{href\} removeOnly/);
+
 // Database mutations must be atomic, server-only, preserve comparisons, and scoped by account ID.
 const sql = read('supabase/migrations/20261107_buyer_saved_products.sql');
 assert.match(sql, /for update/i);

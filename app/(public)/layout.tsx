@@ -1,6 +1,6 @@
 import { BuyerSavedProductsProvider } from "@/components/buyer-saved-products";
 import { getLocale } from "@/lib/i18n/server";
-import { getBuyerSession } from "@/lib/auth/buyer-session";
+import { getBuyerSession, getBuyerUser } from "@/lib/auth/buyer-session";
 import type { ReactNode } from "react";
 import Link from "next/link";
 
@@ -25,6 +25,8 @@ export const dynamic = "force-dynamic";
  */
 export default async function PublicLayout({ children }: { children: ReactNode }) {
   const buyerSession = await getBuyerSession();
+  // A profile lookup failure must not prevent public pages from loading.
+  const buyerAccount = buyerSession ? await getBuyerUser().catch(() => null) : null;
   const store = getStore();
   await store.listCategories({ publishedOnly: true }); // warm cache
 
@@ -50,7 +52,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
             </span>
           </Link>
 
-          <PublicHeaderControls buyerEmail={buyerSession?.email ?? null} />
+          <PublicHeaderControls buyerEmail={buyerSession?.email ?? null} buyerCompanyName={buyerAccount?.company_name ?? null} />
         </div>
       </header>
 

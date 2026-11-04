@@ -143,15 +143,25 @@ const effects = [];
 const inside = {};
 const outside = {};
 let focusCount = 0;
+let refIndex = 0;
+let timerId = 0;
+const timers = new Map();
+const documentMock = {
+  activeElement: outside,
+  addEventListener: (type, handler, capture) => { assert.equal(capture, true); listeners.set(type, handler); },
+  removeEventListener: (type, handler, capture) => { assert.equal(listeners.get(type), handler); assert.equal(capture, true); removed.push(type); },
+};
 const menu = { open: true, contains: (target) => target === inside, querySelector: () => ({ focus: () => focusCount++ }) };
 const interactive = load('../components/public-sign-in-link.tsx', {
   ...common,
-  react: { useRef: () => ({ current: menu }), useEffect: (effect) => effects.push(effect) },
+  react: { useRef: (initial) => ({ current: refIndex++ % 3 === 0 ? menu : initial }), useEffect: (effect) => effects.push(effect) },
   '@/app/(public)/buyer/sign-in/actions': { signOutBuyerAction: async () => {} },
-}, { document: {
-  addEventListener: (type, handler, capture) => { assert.equal(capture, true); listeners.set(type, handler); },
-  removeEventListener: (type, handler, capture) => { assert.equal(listeners.get(type), handler); assert.equal(capture, true); removed.push(type); },
-} });
+}, {
+  document: documentMock,
+  window: { matchMedia: () => ({ matches: true }) },
+  setTimeout: (callback, delay) => { assert.equal(delay, 250); timers.set(++timerId, callback); return timerId; },
+  clearTimeout: (id) => timers.delete(id),
+});
 const tree = interactive.PublicSignInLink({ buyerEmail: 'buyer@example.test' });
 const cleanup = effects.pop()();
 listeners.get('pointerdown')({ target: inside });
@@ -168,7 +178,7 @@ assert.equal(menu.open, true, 'Keyboard focus inside keeps the menu open');
 tree.props.onKeyDown({ key: 'Escape', currentTarget: menu });
 assert.equal(menu.open, false);
 assert.equal(focusCount, 1, 'Escape returns focus to the account trigger');
-const panel = tree.props.children[1];
+const panel = tree.props.children[1].props.children;
 const accountNav = panel.props.children.find((child) => child?.type === 'nav');
 for (const link of accountNav.props.children) {
   menu.open = true;
@@ -178,8 +188,52 @@ for (const link of accountNav.props.children) {
 menu.open = true;
 panel.props.children.find((child) => child?.type === 'form').props.onSubmit();
 assert.equal(menu.open, false, 'Signing out closes the menu');
+// Mouse hover opens; touch and pen retain native click/tap behavior.
+menu.open = false;
+tree.props.onPointerEnter({ pointerType: 'touch' });
+assert.equal(menu.open, false);
+tree.props.onPointerEnter({ pointerType: 'pen' });
+assert.equal(menu.open, false);
+tree.props.onPointerEnter({ pointerType: 'mouse' });
+assert.equal(menu.open, true);
+tree.props.onPointerLeave({ pointerType: 'mouse' });
+assert.equal(menu.open, true, 'Leaving does not close immediately');
+assert.equal(timers.size, 1);
+tree.props.onPointerEnter({ pointerType: 'mouse' });
+assert.equal(timers.size, 0, 'Crossing back into the menu cancels delayed dismissal');
+tree.props.onPointerLeave({ pointerType: 'mouse' });
+const finishTimer = () => { const [id, callback] = timers.entries().next().value; timers.delete(id); callback(); };
+finishTimer();
+assert.equal(menu.open, false, 'Leaving the entire menu closes after 250ms');
+tree.props.onPointerEnter({ pointerType: 'mouse' });
+tree.props.onKeyDown({ key: 'Tab', currentTarget: menu });
+documentMock.activeElement = inside;
+tree.props.onPointerLeave({ pointerType: 'mouse' });
+finishTimer();
+assert.equal(menu.open, true, 'Mouse leaving must not disrupt keyboard navigation inside');
+documentMock.activeElement = outside;
+listeners.get('focusin')({ target: outside });
+assert.equal(menu.open, false);
+tree.props.onPointerEnter({ pointerType: 'mouse' });
+tree.props.onPointerLeave({ pointerType: 'mouse' });
+assert.equal(timers.size, 1);
 cleanup();
+assert.equal(timers.size, 0, 'Unmount also clears the hover timer');
 assert.equal(removed.sort().join(','), 'focusin,pointerdown', 'Listeners are cleaned up on unmount or session change');
 interactive.PublicSignInLink({ buyerEmail: null });
 assert.equal(effects.pop()(), undefined, 'Guest header does not register document listeners');
 console.log('✓ Buyer account menu: outside pointer/focus, inside interactions, navigation, Escape and listener cleanup.');
+
+for (const [company, email, initial] of [['Vexim Global', 'buyer@example.test', 'V'], ['  ', 'buyer@example.test', 'B'], ['Đại Việt', 'buyer@example.test', 'Đ']]) {
+  const accountHtml = renderToStaticMarkup(React.createElement(signIn.PublicSignInLink, { buyerEmail: email, buyerCompanyName: company, lang: 'vi' }));
+  assert.match(accountHtml, /rounded-full bg-brand-700/);
+  assert.ok(accountHtml.includes(`aria-hidden="true">${initial}</span>`));
+  assert.match(accountHtml, /Đã đăng nhập/);
+}
+const forwarded = renderToStaticMarkup(React.createElement(PublicHeaderControls, { buyerEmail: 'buyer@example.test', buyerCompanyName: 'Company' }));
+assert.match(forwarded, /aria-hidden="true">C<\/span>/);
+suspend = true;
+const fallbackAvatar = renderToStaticMarkup(React.createElement(PublicHeaderControls, { buyerEmail: 'buyer@example.test', buyerCompanyName: 'Company' }));
+assert.match(fallbackAvatar, /aria-hidden="true">C<\/span>/);
+suspend = false;
+console.log('✓ Signed-in avatar: company/email initials, EN/VI, header fallback and mouse-only hover with a cancellable 250ms close delay.');
