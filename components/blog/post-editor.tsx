@@ -347,6 +347,7 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
 
           <section className="card space-y-4 p-4">
             <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink-500">Ảnh bìa</h2>
+            <p className="text-[12px] text-ink-500">Ảnh nên có tỷ lệ 4:3, kích thước khuyến nghị 1200 × 900 px.</p>
             {featuredImage ? (
               <div className="space-y-2">
                 {/* Xem trước ảnh bìa */}
