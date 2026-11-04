@@ -7,7 +7,7 @@ import {
   HelpCircle,
   Search,
   ShieldCheck,
-  Clock3,
+  SlidersHorizontal,
   LockKeyhole,
   Plus,
 } from "lucide-react";
@@ -260,13 +260,13 @@ export default async function HomeContent({
         <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 sm:py-12 lg:px-8">
           <h1 id="home-hero-title" className="max-w-[960px] text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl lg:text-[44px]">
             {isVi
-              ? "Tìm nguồn hạt điều, hồ tiêu, gia vị và trái cây sấy từ nhà cung cấp Việt Nam đã kiểm tra."
-              : "Source cashew, pepper, spices and dried fruit from checked Vietnamese suppliers."}
+              ? "Tìm nguồn thực phẩm từ nhà cung cấp Việt Nam đã được kiểm tra."
+              : "Source food from checked Vietnamese suppliers."}
           </h1>
           <p className="mt-4 max-w-5xl text-base leading-relaxed text-ink-700">
             {isVi
-              ? "So sánh sản phẩm, yêu cầu báo giá qua Vexim và kết nối trực tiếp với nhà cung cấp bạn chọn."
-              : "Compare products, request quotes through Vexim, and connect directly with the supplier you choose."}
+              ? "So sánh sản phẩm, gửi yêu cầu báo giá và kết nối trực tiếp với nhà cung cấp bạn chọn."
+              : "Compare products, request quotes, and connect directly with the supplier you choose."}
           </p>
 
           <form action="/search" method="get" role="search" aria-label={isVi ? "Tìm sản phẩm" : "Search products"}
@@ -294,12 +294,12 @@ export default async function HomeContent({
               {isVi ? "Cho biết bạn cần gì" : "Tell us what you need"} <span aria-hidden="true">→</span>
             </Link>
           </p>
-          <ul className="mt-7 grid gap-x-7 gap-y-4 text-[13px] leading-5 text-ink-700 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:justify-between">
+          <ul className="mt-7 grid gap-x-7 gap-y-4 text-[13px] leading-5 text-ink-700 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { Icon: ShieldCheck, text: isVi ? "Giấy đăng ký kinh doanh của mỗi nhà cung cấp đã được Vexim kiểm tra" : "Business registration checked by Vexim for every listed supplier" },
-              { Icon: Clock3, text: isVi ? "Phản hồi trong 1 ngày làm việc" : "Reply within one business day" },
-              { Icon: LockKeyhole, text: isVi ? "Thông tin liên hệ được giữ riêng đến khi bạn đồng ý kết nối" : "Your contact stays private until you connect" },
-              { Icon: Plus, text: isVi ? "Miễn phí cho người mua" : "Free for buyers" },
+              { Icon: ShieldCheck, text: isVi ? "Xem rõ từng hạng mục đã kiểm tra" : "See which supplier checks are complete" },
+              { Icon: SlidersHorizontal, text: isVi ? "So sánh quy cách, giá tham khảo và số lượng tối thiểu" : "Compare specifications, reference prices and minimum quantities" },
+              { Icon: LockKeyhole, text: isVi ? "Thông tin liên hệ được giữ riêng đến khi bạn đồng ý kết nối" : "Your contact details stay private until you agree to connect" },
+              { Icon: Plus, text: isVi ? "Gửi yêu cầu báo giá miễn phí" : "Send quote requests free of charge" },
             ].map(({ Icon, text }) => <li key={text} className="flex items-start gap-2">
               <Icon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" /><span>{text}</span>
             </li>)}

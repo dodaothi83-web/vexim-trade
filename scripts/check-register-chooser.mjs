@@ -88,14 +88,14 @@ assert.equal((chooserHtml.match(/type="radio"/g) ?? []).length, 2, 'Hai lựa ch
 assert.match(chooserHtml, /value="buyer"/);
 assert.match(chooserHtml, /value="supplier"/);
 assert.match(chooserHtml, />Continue</, 'Có nút Continue');
-assert.match(chooserHtml, /href="\/buyer\/sign-in\?next=\/rfq"/, 'Buyer đăng nhập trước khi tới form báo giá');
+assert.match(chooserHtml, /href="\/buyer\/sign-in"/, 'Buyer đăng nhập không bị ép sang form báo giá');
 assert.match(chooserSource, /\/supplier\/register\?type=supplier/, 'Supplier dẫn tới biểu mẫu');
-assert.match(chooserSource, /choice === "buyer" \? "\/buyer\/sign-in\?next=\/rfq" : "\/login"/, 'Lối đăng nhập theo loại tài khoản');
+assert.match(chooserSource, /choice === "buyer" \? "\/buyer\/sign-in" : "\/login"/, 'Lối đăng nhập theo loại tài khoản');
 assert.ok(!existsSync(new URL('app/(public)/register', root)), 'Chỉ có một trang /register duy nhất');
 assert.doesNotMatch(html + chooserHtml, /Buyer accounts are still being built|No account needed/i);
 for (const [locale, copy] of Object.entries(authMessages)) {
   const rendered = renderToStaticMarkup(React.createElement(chooser.exports.AccountTypeChooser, { messages: copy.register, lang: locale }));
-  assert.match(rendered, /href="\/buyer\/sign-in\?next=\/rfq"/);
+  assert.match(rendered, /href="\/buyer\/sign-in"/);
   assert.match(copy.register.buyerSummary, locale === 'vi' ? /miễn phí.*email.*không cần mật khẩu/i : /free.*email.*no password/i);
   assert.doesNotMatch(copy.register.buyerNoteLead + copy.register.buyerNote, /đang được xây dựng|still being built/i);
 }

@@ -1,5 +1,8 @@
 "use client";
 
+import type { BuyerAuthMessages, BuyerAuthErrorKey } from "@/lib/i18n/buyer-auth";
+import type { Locale } from "@/lib/i18n/config";
+import { fill } from "@/lib/i18n/format";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Loader2, MailCheck } from "lucide-react";
@@ -17,10 +20,14 @@ import { requestBuyerSignInAction, verifyBuyerCodeAction } from "@/app/(public)/
  * làm hỏng gì vì mã vẫn còn.
  */
 export function BuyerSignInForm({
+  messages: m,
+  lang,
   next,
   initialError,
   initialOauthError,
 }: {
+  messages: BuyerAuthMessages;
+  lang: Locale;
   next?: string | null;
   initialError?: string | null;
   /** Lỗi từ luồng Google (?oauth=...), đổi sẵn thành câu người dùng hiểu được. */
@@ -31,37 +38,42 @@ export function BuyerSignInForm({
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(initialError ?? initialOauthError ?? null);
+  const [notice, setNotice] = useState(false);
+  const [errorKey, setErrorKey] = useState<BuyerAuthErrorKey | null>(null);
+  const [dismissInitial, setDismissInitial] = useState(false);
+  const error = errorKey ? m.errors[errorKey] : !dismissInitial ? initialError ?? initialOauthError : null;
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [challengeVersion, setChallengeVersion] = useState(0);
 
   function sendCode(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    setErrorKey(null);
+    setDismissInitial(true);
     start(async () => {
       const res = await requestBuyerSignInAction({ email, challengeToken, next });
       // Challenge chỉ dùng được một lần: đổi khoá để widget phát cái mới kể cả khi lỗi.
       setChallengeVersion((v) => v + 1);
       if (!res.ok) {
-        setError(res.message);
+        setErrorKey(res.errorKey ?? "generic");
         return;
       }
       setStep("code");
-      setNotice(res.message);
+      setNotice(true);
     });
   }
 
   function submitCode(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    setErrorKey(null);
+    setDismissInitial(true);
     start(async () => {
       const res = await verifyBuyerCodeAction({ email, code, next });
       if (!res.ok) {
-        setError(res.message);
+        setErrorKey(res.errorKey ?? "generic");
         return;
       }
       router.replace(res.redirectTo ?? "/");
+      router.refresh();
     });
   }
 
@@ -70,7 +82,7 @@ export function BuyerSignInForm({
 
   if (step === "email") {
     return (
-      <div className="mt-6">
+      <div lang={lang} className="mt-6">
         {error && (
           <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-red-900">
             {error}
@@ -78,7 +90,7 @@ export function BuyerSignInForm({
         )}
         <form onSubmit={sendCode} className="space-y-4" noValidate>
           <label className="block text-sm">
-            <span className="mb-1 block font-semibold">Work email</span>
+            <span className="mb-1 block font-semibold">{m.email}</span>
             <input
               name="email"
               type="email"
@@ -91,24 +103,24 @@ export function BuyerSignInForm({
               placeholder="you@company.com"
             />
             <span className="mt-1 block text-[11.5px] font-normal leading-snug text-ink-500">
-              We send a 6-digit code. No password to remember.
+              {m.emailHint}
             </span>
           </label>
 
-          <FormChallenge key={challengeVersion} purpose="buyer-sign-in" onChange={(token) => setChallengeToken(token ?? "")} />
+          <FormChallenge key={challengeVersion} purpose="buyer-sign-in" messages={m.challenge} onChange={(token) => setChallengeToken(token ?? "")} />
 
           <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold" disabled={busy || !email.trim()}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
-            Email me a code
+            {m.sendCode}
           </button>
 
           <p className="text-center text-[12px] leading-relaxed text-ink-500">
-            First time here? This also creates your account.
+            {m.firstTime}
           </p>
 
           <div className="flex items-center gap-3 pt-1 text-[11.5px] font-semibold uppercase tracking-wide text-ink-400">
             <span className="h-px flex-1 bg-ink-200" />
-            or
+            {m.or}
             <span className="h-px flex-1 bg-ink-200" />
           </div>
 
@@ -118,10 +130,10 @@ export function BuyerSignInForm({
             className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50"
           >
             <GoogleGIcon />
-            Continue with Google
+            {m.google}
           </a>
           <p className="text-center text-[11px] leading-snug text-ink-400">
-            We receive only your verified email and basic profile.
+            {m.googleHint}
           </p>
         </form>
       </div>
@@ -129,10 +141,10 @@ export function BuyerSignInForm({
   }
 
   return (
-    <form onSubmit={submitCode} className="mt-6 space-y-4" noValidate>
+    <form lang={lang} onSubmit={submitCode} className="mt-6 space-y-4" noValidate>
       {notice && (
         <p className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-brand-900">
-          {notice}
+          {m.sent}
         </p>
       )}
       {error && (
@@ -141,7 +153,7 @@ export function BuyerSignInForm({
         </p>
       )}
       <label className="block text-sm">
-        <span className="mb-1 block font-semibold">6-digit code</span>
+        <span className="mb-1 block font-semibold">{m.code}</span>
         <input
           name="code"
           inputMode="numeric"
@@ -156,13 +168,13 @@ export function BuyerSignInForm({
           placeholder="000000"
         />
         <span className="mt-1 block text-[11.5px] font-normal leading-snug text-ink-500">
-          Sent to {email}. The code and the link in the email both work once, for 15 minutes.
+          {fill(m.codeHint, { email })}
         </span>
       </label>
 
       <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold" disabled={busy || code.length !== 6}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-        Sign in
+        {m.signIn}
       </button>
 
       <button
@@ -171,12 +183,13 @@ export function BuyerSignInForm({
         onClick={() => {
           setStep("email");
           setCode("");
-          setNotice(null);
-          setError(null);
+          setNotice(false);
+          setErrorKey(null);
+          setDismissInitial(true);
         }}
       >
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-        Use a different email
+        {m.differentEmail}
       </button>
     </form>
   );

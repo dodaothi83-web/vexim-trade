@@ -1,3 +1,4 @@
+import { getBuyerSession } from "@/lib/auth/buyer-session";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
@@ -7,7 +8,8 @@ import { PublicSignInLink } from "@/components/public-sign-in-link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteTrafficBeacon } from "@/components/site-traffic-beacon";
 
-export default function BlogLayout({ children }: { children: ReactNode }) {
+export default async function BlogLayout({ children }: { children: ReactNode }) {
+  const buyerSession = await getBuyerSession();
   return (
     <div className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
@@ -21,7 +23,7 @@ export default function BlogLayout({ children }: { children: ReactNode }) {
             <Link href="/blog" className="transition hover:text-brand-700">News</Link>
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-3 md:ml-0">
-            <PublicSignInLink />
+            <PublicSignInLink buyerEmail={buyerSession?.email ?? null} />
             <Link
               href="/#send"
               aria-label="Request a quote"

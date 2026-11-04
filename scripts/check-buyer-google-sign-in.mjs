@@ -45,7 +45,9 @@ function load(rel, mocks) {
 }
 
 const nothing = () => null;
+const { buyerAuthMessages } = load("lib/i18n/buyer-auth.ts", {});
 const common = {
+  "@/lib/i18n/format": { fill: (text, values) => text.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "") },
   react: React,
   "react/jsx-runtime": jsx,
   "next/navigation": { useRouter: () => ({ replace() {}, push() {} }) },
@@ -69,11 +71,12 @@ assert.match(icon, /aria-hidden="true"/, "Icon trang trí phải ẩn với trì
 assert.doesNotMatch(icon, /<img|https?:\/\//, "Icon không được tải từ nguồn ngoài");
 
 /* 2. Form: nút Google nằm trên form email, đúng đích, có nhãn chữ. */
-const { BuyerSignInForm } = load("components/buyer-sign-in-form.tsx", {
+const { BuyerSignInForm: RawBuyerSignInForm } = load("components/buyer-sign-in-form.tsx", {
   ...common,
   "@/components/google-g-icon": { GoogleGIcon },
 });
 
+const BuyerSignInForm = (props) => React.createElement(RawBuyerSignInForm, { messages: buyerAuthMessages.en, lang: "en", ...props });
 let html = renderToStaticMarkup(React.createElement(BuyerSignInForm, {}));
 const link = html.match(/<a\b[^>]*href="\/api\/auth\/google\/buyer\/start[^"]*"[^>]*>[\s\S]*?<\/a>/)?.[0];
 assert.ok(link, "Form người mua phải có nút Continue with Google");
@@ -136,9 +139,9 @@ assert.match(html, /role="alert"[\s\S]*Google sign-in was cancelled\./, "Lỗi G
 
 /* 4. Trang đăng nhập: bảng lỗi ?oauth=... có thật. */
 const page = read("app/(public)/buyer/sign-in/page.tsx");
-assert.match(page, /OAUTH_ERRORS/, "Trang đăng nhập người mua phải dịch mã lỗi ?oauth=");
+assert.match(page, /m.oauthErrors/, "Trang đăng nhập người mua phải dịch mã lỗi ?oauth=");
 for (const reason of ["cancelled", "unverified", "unavailable", "rate_limited", "failed", "origin"]) {
-  assert.match(page, new RegExp(`${reason}:`), `Thiếu câu cho lỗi oauth=${reason}`);
+  assert.match(read("lib/i18n/buyer-auth.ts"), new RegExp(`${reason}:`), `Thiếu câu cho lỗi oauth=${reason}`);
 }
 assert.match(page, /initialOauthError=\{oauthError\}/, "Trang phải truyền lỗi Google xuống form");
 
