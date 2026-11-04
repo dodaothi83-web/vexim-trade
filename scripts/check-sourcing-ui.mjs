@@ -45,6 +45,22 @@ await act(async () => {
   textarea.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
 });
 assert.equal(document.querySelector('button[type=submit]').disabled, false, 'Short nonempty requirements allowed');
+const fileInput = document.querySelector('input[type=file]');
+const attached = new dom.window.File(['%PDF-1.7'], 'requirements.pdf', { type: 'application/pdf' });
+Object.defineProperty(fileInput, 'files', { configurable: true, value: [attached] });
+await act(async () => fileInput.dispatchEvent(new dom.window.Event('change', { bubbles: true })));
+assert.match(dialog.textContent, /requirements\.pdf/);
+// Native file-picker cancellation can reach React's ancestor onCancel handler.
+await act(async () => fileInput.dispatchEvent(new dom.window.Event('cancel', { bubbles: true })));
+assert.equal(document.querySelector('dialog'), dialog, 'Cancelling the file picker must not unmount the composer');
+assert.ok(dialog.hasAttribute('open'), 'Composer remains open after cancelling file selection');
+assert.equal(document.querySelector('textarea').value, 'Rice', 'File picker cancellation preserves the draft');
+assert.equal(document.body.style.overflow, 'hidden', 'File picker cancellation keeps the modal scroll lock');
+assert.match(dialog.textContent, /requirements\.pdf/, 'Existing attachments survive picker cancellation');
+Object.defineProperty(fileInput, 'files', { configurable: true, value: [] });
+await act(async () => fileInput.dispatchEvent(new dom.window.Event('change', { bubbles: true })));
+assert.equal(document.querySelector('textarea').value, 'Rice', 'Empty file selection does not clear the draft');
+
 await act(async () => document.querySelector('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
 assert.equal(sent[0].url, '/api/buyer/sourcing'); assert.equal(sent[0].options.body.get('content'), 'Rice');
 assert.equal(document.querySelector('textarea').value, 'Rice', 'Failure retains draft');
@@ -55,5 +71,10 @@ assert.equal(sent[0].options.body.get('submission_key'), sent[1].options.body.ge
 assert.match(dialog.textContent, /Vexim đã nhận yêu cầu/); assert.match(dialog.querySelector('a').getAttribute('href'), /buyer\/account\/sourcing\/saved-request/);
 await act(async () => dialog.querySelector('button[aria-label="Đóng"]').click());
 assert.equal(document.querySelector('dialog'), null); assert.equal(document.body.style.overflow, '');
+await act(async () => trigger.click());
+dialog = document.querySelector('dialog');
+await act(async () => dialog.dispatchEvent(new dom.window.Event('cancel', { bubbles: false, cancelable: true })));
+assert.equal(document.querySelector('dialog'), null, 'Genuine dialog Escape cancellation still closes the composer');
+assert.equal(document.body.style.overflow, '');
 await act(async () => root.unmount());
 console.log('Sourcing composer real React checks passed: login first, bottom-right, short content, retry, history, close/scroll.');
