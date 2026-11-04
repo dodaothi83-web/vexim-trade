@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, BadgeCheck, CheckCircle2, Clock, FileCheck2, FileText } from "lucide-react";
+import { ArrowLeft, BadgeCheck, CheckCircle2, Clock, FileText } from "lucide-react";
+import { VeximDocumentIcon as FileCheck2 } from "@/components/brand/vexim-icons";
 
 import { PageHeader } from "@/components/page-header";
 import { FilePicker } from "@/components/file-picker";

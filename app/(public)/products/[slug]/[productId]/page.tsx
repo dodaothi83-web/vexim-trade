@@ -1,3 +1,4 @@
+import { VeximTradeIcon } from "@/components/brand/vexim-icons";
 import { ShareProductButton } from "@/components/share-product-button";
 import { getLocale } from "@/lib/i18n/server";
 import { SaveProductButton } from "@/components/buyer-saved-products";
@@ -248,7 +249,7 @@ export default async function PublicProductDetail({ params }: Props) {
                 {supplierImageUrl ? <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={supplierImageUrl} alt="" className="h-full w-full object-cover" />
-                </> : <Building2 className="h-6 w-6" aria-hidden="true" />}
+                </> : <VeximTradeIcon className="h-6 w-6" aria-hidden="true" />}
               </Link>
               <div className="min-w-0 flex-1">
                 <h2 id="supplier-card-title" className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">Supplied by</h2>

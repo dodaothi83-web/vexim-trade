@@ -31,6 +31,8 @@ jobs:
         include:
           - label: Tên sản phẩm và grade
             command: check:product-names
+          - label: Bộ nhận diện Vexim
+            command: check:brand
           - label: TypeScript
             command: typecheck
           - label: Văn phong email

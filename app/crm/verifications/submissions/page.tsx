@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Factory, Ship } from "lucide-react";
+import { AlertTriangle, ArrowRight } from "lucide-react";
+import { VeximInspectionIcon as Factory, VeximDeliveryIcon as Ship } from "@/components/brand/vexim-icons";
 
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";

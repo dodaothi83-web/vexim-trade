@@ -2,7 +2,8 @@
 
 import { useId, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Factory, ShoppingBag } from "lucide-react";
+import { ArrowRight, ShoppingBag } from "lucide-react";
+import { VeximTradeIcon as Factory } from "@/components/brand/vexim-icons";
 
 import { cx } from "@/components/ui";
 import type { AuthMessages } from "@/lib/i18n/auth";

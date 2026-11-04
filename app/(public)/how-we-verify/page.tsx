@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Check, ClipboardCheck, Factory, FileCheck2, ShieldCheck, Truck } from "lucide-react";
+import { ArrowRight, Check, ClipboardCheck, ShieldCheck } from "lucide-react";
+import { VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
 
 import { Breadcrumbs } from "@/components/ui";
 import { VERIFICATION_LEVEL_TONES, VerificationTierBadge } from "@/components/verification-tier";

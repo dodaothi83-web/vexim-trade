@@ -1,3 +1,4 @@
+import { brandIcons } from './lib/vexim-icons.mjs';
 // node --experimental-strip-types scripts/check-register-chooser.mjs
 //
 // Trang /register là cửa vào tài khoản duy nhất và phải tách rõ hai loại người dùng.
@@ -33,7 +34,8 @@ vm.runInNewContext(
         react: React,
         'react/jsx-runtime': jsx,
         'next/link': { default: Link },
-        'lucide-react': icons,
+        '@/components/brand/vexim-icons': brandIcons,
+  'lucide-react': icons,
         '@/components/ui': { Breadcrumbs: () => React.createElement('nav', { 'data-breadcrumbs': true }) },
         '@/lib/i18n/server': i18nServer,
         '@/components/auth-split-shell': { AuthSplitShell: ({ children }) => React.createElement('div', { 'data-split-shell': true }, children) },
@@ -70,7 +72,8 @@ vm.runInNewContext(
         react: React,
         'react/jsx-runtime': jsx,
         'next/link': { default: Link },
-        'lucide-react': icons,
+        '@/components/brand/vexim-icons': brandIcons,
+  'lucide-react': icons,
         '@/components/ui': { cx: (...parts) => parts.filter(Boolean).join(' ') },
       };
       assert.ok(id in mocks, `${chooserFile}: unexpected import ${id}`);

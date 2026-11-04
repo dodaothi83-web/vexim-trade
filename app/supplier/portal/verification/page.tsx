@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Factory, Ship } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { VeximInspectionIcon as Factory, VeximDeliveryIcon as Ship } from "@/components/brand/vexim-icons";
 
 import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";

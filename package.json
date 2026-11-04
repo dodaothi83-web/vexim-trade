@@ -7,7 +7,7 @@
     "brand:sync": "node scripts/sync-brand-colors.mjs",
     "check:buyer-account": "node scripts/check-buyer-account.mjs && node scripts/check-buyer-account-local.mjs",
     "check:buyer-auth-i18n": "node scripts/check-buyer-auth-i18n.mjs",
-    "check:brand": "node scripts/check-brand-colors.mjs",
+    "check:brand": "node scripts/check-brand-colors.mjs && node scripts/check-brand-identity.mjs",
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
