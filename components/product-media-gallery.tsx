@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type TouchEvent } from "react";
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ImageIcon, PlayCircle, X, ZoomIn } from "lucide-react";
 import type { PublicProductVideo } from "@/lib/public/product-video";
@@ -17,8 +17,8 @@ export function productGallerySwipeStep(startX: number, startY: number, endX: nu
 }
 
 /** Only buyer-shareable URLs projected by the server may reach this component. */
-export function ProductMediaGallery({ name, images, thumbnails, video }: {
-  name: string; images: string[]; thumbnails?: string[]; video: PublicProductVideo | null;
+export function ProductMediaGallery({ name, images, thumbnails, video, actions }: {
+  name: string; images: string[]; thumbnails?: string[]; video: PublicProductVideo | null; actions?: ReactNode;
 }) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
@@ -117,6 +117,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video }: {
   return <div className="min-w-0">
     <div className={hasThumbnails ? "grid grid-cols-1 items-stretch gap-2 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-3" : ""}>
       <div className="relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-ink-50 sm:order-2">
+        {actions && <div className="absolute right-3 top-3 z-20 flex flex-col items-end gap-2">{actions}</div>}
         {selected ? <button ref={heroRef} type="button" onClick={openHero}
           onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
           onTouchCancel={() => { touchStart.current = null; suppressClick.current = false; }}

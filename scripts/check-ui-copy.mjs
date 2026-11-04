@@ -8,6 +8,7 @@ import { readFileSync, existsSync } from 'node:fs';
 
 /** Đợt 1: form 3 bước, bảng giá, xem trước, danh sách sản phẩm, duyệt giá CRM, media. */
 const SCOPE = [
+  'components/share-product-button.tsx',
   'app/(public)/buyer/account/page.tsx',
   'app/(public)/buyer/account/error.tsx',
   'components/buyer-account-profile.tsx',

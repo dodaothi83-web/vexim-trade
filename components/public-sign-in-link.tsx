@@ -1,14 +1,37 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { signOutBuyerAction } from "@/app/(public)/buyer/sign-in/actions";
 import { UserRound } from "lucide-react";
 
 /** Lối vào chọn loại tài khoản từ header công khai. */
 export function PublicSignInLink({ lang = "en", buyerEmail = null }: { lang?: "en" | "vi"; buyerEmail?: string | null }) {
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  const closeMenu = () => {
+    if (menuRef.current) menuRef.current.open = false;
+  };
+
+  useEffect(() => {
+    if (!buyerEmail) return;
+    const dismissOutside = (event: PointerEvent | FocusEvent) => {
+      const menu = menuRef.current;
+      if (menu?.open && event.target && !menu.contains(event.target as Node)) {
+        menu.open = false;
+      }
+    };
+    // Capture also handles clicks in components that stop event propagation.
+    document.addEventListener("pointerdown", dismissOutside, true);
+    document.addEventListener("focusin", dismissOutside, true);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside, true);
+      document.removeEventListener("focusin", dismissOutside, true);
+    };
+  }, [buyerEmail]);
+
   const label = lang === "vi" ? "Đăng nhập" : "Sign in";
   if (buyerEmail) return (
-    <details className="group relative" onKeyDown={(event) => {
+    <details ref={menuRef} className="group relative" onKeyDown={(event) => {
       if (event.key === "Escape") {
         event.currentTarget.open = false;
         event.currentTarget.querySelector('summary')?.focus();
@@ -22,12 +45,12 @@ export function PublicSignInLink({ lang = "en", buyerEmail = null }: { lang?: "e
         <p className="text-xs text-ink-500">{lang === "vi" ? "Đã đăng nhập" : "Signed in"}</p>
         <p className="mt-1 break-all font-semibold">{buyerEmail}</p>
         <nav aria-label={lang === "vi" ? "Tài khoản" : "Account"} className="mt-3 flex flex-col gap-1 border-t border-ink-200 pt-2">
-          <Link href="/buyer/account" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Tổng quan" : "Overview"}</Link>
-          <Link href="/buyer/account?tab=requests" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Yêu cầu của tôi" : "My requests"}</Link>
-          <Link href="/buyer/account?tab=saved" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Sản phẩm đã lưu" : "Saved products"}</Link>
-          <Link href="/buyer/account?tab=profile" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Thông tin tài khoản" : "Account details"}</Link>
+          <Link onClick={closeMenu} href="/buyer/account" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Tổng quan" : "Overview"}</Link>
+          <Link onClick={closeMenu} href="/buyer/account?tab=requests" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Yêu cầu của tôi" : "My requests"}</Link>
+          <Link onClick={closeMenu} href="/buyer/account?tab=saved" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Sản phẩm đã lưu" : "Saved products"}</Link>
+          <Link onClick={closeMenu} href="/buyer/account?tab=profile" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Thông tin tài khoản" : "Account details"}</Link>
         </nav>
-        <form action={signOutBuyerAction} className="mt-3 border-t border-ink-200 pt-3">
+        <form onSubmit={closeMenu} action={signOutBuyerAction} className="mt-3 border-t border-ink-200 pt-3">
           <button type="submit" className="btn btn-ghost w-full justify-center">{lang === "vi" ? "Đăng xuất" : "Sign out"}</button>
         </form>
       </div>

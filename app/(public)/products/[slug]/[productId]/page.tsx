@@ -1,3 +1,5 @@
+import { ShareProductButton } from "@/components/share-product-button";
+import { getLocale } from "@/lib/i18n/server";
 import { SaveProductButton } from "@/components/buyer-saved-products";
 import { Suspense } from "react";
 import { AskSupplierDialog } from "@/components/products/ask-supplier-dialog";
@@ -121,6 +123,7 @@ function renderGradeRowPrice(rawPriceText: string | null | undefined) {
 }
 
 export default async function PublicProductDetail({ params }: Props) {
+  const isVi = (await getLocale()) === "vi";
   const { slug, productId } = await params;
   const detail = await getDetailOrRedirect(slug, productId);
   if (!detail) notFound();
@@ -232,8 +235,11 @@ export default async function PublicProductDetail({ params }: Props) {
     <Link href={`/products/${slug}`} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand-700"><ArrowLeft className="h-4 w-4" /> Back to products</Link>
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
       <StickyProductColumn>
-        <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video} />
-        {!preview && !card.isDemo && <div className="mt-3"><SaveProductButton id={card.id} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(card.id)}`} /></div>}
+        <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video}
+          actions={!preview && !card.isDemo ? <>
+            <SaveProductButton id={card.id} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(card.id)}`} iconOnly />
+            <ShareProductButton title={card.name} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(card.id)}`} isVi={isVi} />
+          </> : undefined} />
         <aside className="mt-6 overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card" aria-labelledby="supplier-card-title">
           <div className="border-b border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5">
             <div className="flex items-start gap-3">

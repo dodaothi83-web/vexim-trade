@@ -135,6 +135,8 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   '@/components/product-media-gallery': { ProductMediaGallery: Null },
   '@/components/sticky-product-column': { StickyProductColumn: Wrapper },
   '@/components/product-trade-labels': { ProductTradeLabels: Null },
+  '@/components/share-product-button': { ShareProductButton: () => null },
+  '@/lib/i18n/server': { getLocale: async () => 'en' },
   '@/components/buyer-saved-products': { SaveProductButton: () => null },
   '@/components/public-product-card': { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard: Null },
   '@/components/public/product-description': { ProductDescription: Null },
