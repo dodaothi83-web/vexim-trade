@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { brandIcons } from './lib/vexim-icons.mjs';
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const render = (Icon, props = {}) => renderToStaticMarkup(React.createElement(Icon, props));
-const symbols = ['factory', 'trade', 'cooperative', 'document', 'inspection', 'delivery'];
+const symbols = ['factory', 'trade', 'cooperative', 'document', 'inspection', 'delivery', 'minimum-order', 'export-port', 'lead-time', 'capacity', 'payment', 'markets'];
 for (const name of symbols) {
   for (const size of [20, 24, 48]) {
     const html = render(brandIcons.VeximIcon, { name, size });
@@ -61,4 +61,4 @@ for (const levels of [[], [1], [1, 2, 3]]) {
   assert.equal((html.match(/: Approved\./g) ?? []).length, levels.length);
 }
 for (const file of ['app/(auth)/sign-in/page.tsx', 'app/(auth)/register/account-type-chooser.tsx', 'components/public/supplier-storefront.tsx', 'app/supplier/portal/verification/level-tabs.tsx', 'app/crm/verifications/submissions/page.tsx']) assert.match(read(file), /@\/components\/brand\/vexim-icons/);
-console.log('✅ Approved brand direction 02: six real vectors/exports, neutral versus approved documents, type mapping, accessibility, original logo and small verification shields preserved.');
+console.log('✅ Approved brand direction 02: twelve real vectors/exports, neutral versus approved documents, type mapping, accessibility, original logo and small verification shields preserved.');

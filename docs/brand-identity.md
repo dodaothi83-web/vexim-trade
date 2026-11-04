@@ -64,3 +64,25 @@ Passed locally: brand vectors/export/accessibility checks, palette check, accoun
 Additional older checks are not all green: `check-display-name.mjs` expects an old catalog call signature; `check-l2-public-scope.mjs` expects old per-level sky colours instead of the existing shared success colour; `check-supplier-category-picker.mjs` omits required intro data; `check-supplier-account-ui.mjs` lacks its Google icon mock; `check-product-raw-material-profile.mjs` lacks an i18n mock. These assertions/fixtures are not rewritten to claim a full-suite pass. The palette, catalog, picker, signup form and raw-material component behind those failures were not changed in this rollout.
 
 Production deployment and device-level visual review remain outstanding. No remote configuration, database migration or live records were changed.
+
+
+## Commercial facts extension (approved 2026-11-04)
+
+The user requested six matching direction-02 icons with slightly bolder strokes to balance the adjacent text. These are neutral commercial facts, not completed checks:
+
+| Export | Fact |
+|---|---|
+| VeximMinimumOrderIcon | Minimum order — rounded carton |
+| VeximExportPortIcon | Export ports / Incoterms — rounded vessel |
+| VeximLeadTimeIcon | Lead time — clock |
+| VeximCapacityIcon | Monthly capacity / annual output — rounded capacity columns |
+| VeximPaymentIcon | Payment terms — neutral payment card (does not imply supported payment methods) |
+| VeximMarketsIcon | Export markets — globe |
+
+Use the same 48px grid, 0.09 duotone fill, rounded caps/joins and currentColor. In the shared supplier storefront commercial facts only, render at **20px with source strokeWidth 2.6** (rather than the original 16px slot / 1.8 stroke), retaining navy and adjacent readable labels. Do not globally thicken the existing six business/verification icons or change generic action/status icons. The capacity icon covers both annual and monthly branches without changing their data selection. All text, stored values, fallbacks and permissions remain unchanged. The supplier portal preview uses the same component as the public profile.
+
+## Vexim shield study (2026-11-04 — visual approval pending)
+
+The user requested a proprietary Vexim shield following the proposed soft shape and negative-space V. Review page: `docs/brand-preview/shield.html`; component: `components/brand/vexim-shield.tsx`; SVG exports: `shield-compact.svg` and `shield-duotone.svg`. Regenerate the page/exports with `node scripts/preview-vexim-shield.mjs`. The cutout uses even-odd fill, not a white overlay, so it works on dark/tinted backgrounds. This is a new identity motif, not a redraw of the official logo. It contains no checkmark or approval assertion.
+
+As promised before the user's go-ahead, show compact and large samples for visual approval **before replacing the current production shields**. This study is not yet wired into verification-tier.tsx. Existing circles, colours, labels, tooltips and verification rules stay authoritative; the compact-shield exception above remains effective until visual approval and integration.

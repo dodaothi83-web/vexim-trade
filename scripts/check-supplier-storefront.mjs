@@ -250,3 +250,20 @@ assert.match(both, /Factory scope/);
 assert.match(both, /Partner scope/);
 
 console.log('✅ Storefront preview: same view as buyers, English, verification gaps shown, no SEO or traffic counting.');
+
+// The six commercial facts have distinct neutral direction-02 artwork with a locally heavier stroke.
+for (const html of [oneCheck, profile([], { annual_output: '6000 tons', lead_time_days: 10 })]) {
+  const facts = [...html.matchAll(/<dl[^>]*>([\s\S]*?)<\/dl>/g)].map((m) => m[1]).find((block) => block.includes('Minimum order'));
+  assert.ok(facts, 'Commercial facts remain a definition list');
+  const expected = ['minimum-order', 'export-port', 'lead-time', 'capacity', 'payment', 'markets'];
+  assert.deepEqual([...facts.matchAll(/data-vexim-icon="([^"]+)"/g)].map((m) => m[1]), expected);
+  assert.equal((facts.match(/stroke-width="2.6"/g) ?? []).length, 6);
+  assert.equal((facts.match(/aria-hidden="true"/g) ?? []).length, 6);
+  assert.equal((facts.match(/h-5 w-5/g) ?? []).length, 6);
+  for (const label of ['Minimum order', 'Export ports / Incoterms', 'Lead time', 'Payment terms', 'Export markets']) assert.ok(facts.includes(label));
+  assert.doesNotMatch(facts, /text-emerald|text-green|Approved/);
+}
+assert.match(profile([], { annual_output: '6000 tons' }), /Annual output/);
+assert.match(profile([], { annual_output: '' }), /Monthly capacity/);
+assert.match(profile([], { lead_time_days: 10 }), /10 days/);
+console.log('✅ Six commercial fact icons: distinct semantics, 20px/2.6 stroke, neutral colours, labels and annual/monthly/lead-time logic retained.');
