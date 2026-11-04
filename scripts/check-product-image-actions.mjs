@@ -59,9 +59,9 @@ console.log('✓ Product image actions: top-right save/share, native sharing, ca
 
 const shareButton = render().props.children[0];
 assert.match(shareButton.props.className, /cursor-pointer/);
-assert.match(shareButton.props.className, /h-11 w-11/);
-assert.match(shareButton.props.children.props.className, /h-6 w-6/);
+assert.match(shareButton.props.className, /h-9 w-9/);
+assert.match(shareButton.props.children.props.className, /h-5 w-5/);
 const saveSource = read('components/buyer-saved-products.tsx');
-assert.match(saveSource, /iconOnly \? "h-6 w-6" : "h-4 w-4"/);
+assert.match(saveSource, /iconOnly \? "h-5 w-5" : "h-4 w-4"/);
 assert.match(saveSource, /\$\{variantClasses\} cursor-pointer/);
-console.log('✓ Image controls: matching 44px circles, 24px icons and explicit pointer cursors.');
+console.log('✓ Image controls: matching 36px circles, 20px icons and explicit pointer cursors.');
