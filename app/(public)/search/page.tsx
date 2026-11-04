@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, PackageSearch, Search, Users } from "lucide-react";
+import { ArrowRight, PackageSearch, Search, SlidersHorizontal, Users } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
@@ -176,27 +176,28 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
       </p>
 
       <form action="/search" method="get" role="search" aria-label={isVi ? "Tìm kiếm sản phẩm và nhà cung cấp" : "Search products and suppliers"}
-        className="mt-6 rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
+        className="mt-6 rounded-full border border-ink-200 bg-white p-1 shadow-sm focus-within:ring-2 focus-within:ring-brand-500 sm:rounded-2xl sm:p-4">
         <input type="hidden" name="lang" value={lang} />
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,220px)_auto] sm:items-end">
-          <label className="block min-w-0 text-sm font-semibold text-ink-800">
-            {isVi ? "Từ khóa" : "Search terms"}
+        <div className="flex items-center sm:grid sm:gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,220px)_auto] sm:items-end">
+          <label className="block min-w-0 flex-1 text-sm font-semibold text-ink-800">
+            <span className="sr-only sm:not-sr-only">{isVi ? "Từ khóa" : "Search terms"}</span>
             <input type="search" name="q" maxLength={MAX_QUERY_LENGTH} defaultValue={query}
               placeholder={isVi ? "Sản phẩm, quy cách hoặc nhà cung cấp" : "Product, grade or supplier"}
-              className="mt-1.5 h-12 w-full min-w-0 rounded-xl border border-ink-200 px-3 text-sm font-normal text-ink-900 focus:border-brand-600 focus:outline-none" />
+              className="h-11 w-full min-w-0 border-0 px-2 text-base font-normal text-ink-900 focus:outline-none sm:mt-1.5 sm:h-12 sm:rounded-xl sm:border sm:border-ink-200 sm:px-3 sm:text-sm sm:focus:border-brand-600" />
           </label>
-          <label className="block min-w-0 text-sm font-semibold text-ink-800">
-            {isVi ? "Danh mục" : "Category"}
+          <label className="relative order-first block h-11 w-11 min-w-0 shrink-0 rounded-full focus-within:ring-2 focus-within:ring-inset focus-within:ring-brand-600 sm:rounded-none text-sm font-semibold text-ink-800 sm:order-none sm:h-auto sm:w-auto">
+            <span className="sr-only sm:not-sr-only">{isVi ? "Danh mục" : "Category"}</span>
+            <SlidersHorizontal aria-hidden="true" className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-brand-700 sm:hidden" />
             <select name="cat" defaultValue={selected?.slug ?? ""}
-              className="mt-1.5 h-12 w-full min-w-0 rounded-xl border border-ink-200 bg-white px-3 text-sm font-normal text-ink-900 focus:border-brand-600 focus:outline-none">
+              className="absolute inset-0 h-full w-full min-w-0 cursor-pointer rounded-full border-0 bg-white px-3 text-base font-normal text-ink-900 opacity-0 focus:outline-none sm:static sm:mt-1.5 sm:h-12 sm:rounded-xl sm:border sm:border-ink-200 sm:text-sm sm:opacity-100 sm:focus:border-brand-600">
               <option value="">{isVi ? "Tất cả danh mục" : "All categories"}</option>
               {visibleCategories.map((category) => <option key={category.id} value={category.slug}>
                 {category.parent_id ? "— " : ""}{categoryName(category, lang)}
               </option>)}
             </select>
           </label>
-          <button type="submit" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-brand-700 px-6 text-sm font-bold text-white hover:bg-brand-800">
-            <Search className="h-4 w-4" aria-hidden="true" />{isVi ? "Tìm kiếm" : "Search"}
+          <button type="submit" className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-brand-700 sm:h-12 sm:w-auto sm:rounded-xl sm:px-6 text-sm font-bold text-white hover:bg-brand-800">
+            <Search className="h-4 w-4" aria-hidden="true" /><span className="sr-only sm:not-sr-only">{isVi ? "Tìm kiếm" : "Search"}</span>
           </button>
         </div>
       </form>

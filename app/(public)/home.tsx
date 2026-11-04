@@ -267,21 +267,24 @@ export default async function HomeContent({
           </p>
 
           <form action="/search" method="get" role="search" aria-label={isVi ? "Tìm sản phẩm" : "Search products"}
-            className="mt-6 max-w-[1000px] overflow-hidden rounded-xl border border-ink-300 bg-white shadow-sm focus-within:ring-2 focus-within:ring-brand-500">
+            className="mt-6 max-w-[1000px] overflow-hidden rounded-full border border-ink-300 bg-white shadow-sm sm:rounded-xl focus-within:ring-2 focus-within:ring-brand-500">
             <input type="hidden" name="lang" value={lang} />
-            <div className="grid grid-cols-1 sm:grid-cols-[210px_minmax(0,1fr)_auto]">
+            <div className="flex items-center p-1 sm:grid sm:grid-cols-[210px_minmax(0,1fr)_auto] sm:p-0">
               <label className="sr-only" htmlFor="home-search-category">{isVi ? "Danh mục" : "Category"}</label>
+              <div className="relative h-11 w-11 shrink-0 rounded-full focus-within:ring-2 focus-within:ring-inset focus-within:ring-brand-600 sm:h-14 sm:w-auto sm:rounded-none">
+                <SlidersHorizontal aria-hidden="true" className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-brand-700 sm:hidden" />
               <select id="home-search-category" name="cat" defaultValue={categoryFilter}
-                className="h-14 w-full min-w-0 border-b border-ink-200 bg-white px-4 text-sm font-semibold text-ink-900 focus-visible:outline-offset-[-3px] sm:border-r sm:border-b-0">
+                className="absolute inset-0 h-full w-full min-w-0 cursor-pointer rounded-full border-0 bg-white px-4 text-base font-semibold text-ink-900 opacity-0 focus-visible:outline-offset-[-3px] sm:static sm:rounded-none sm:border-r sm:border-ink-200 sm:text-sm sm:opacity-100">
                 <option value="">{isVi ? "Tất cả danh mục" : "All categories"}</option>
                 {activeCategories.map((c) => <option key={c.slug} value={c.slug}>{getCategoryTitle(c, lang)}</option>)}
               </select>
+              </div>
               <label htmlFor="home-search-query" className="sr-only">{isVi ? "Sản phẩm hoặc quy cách" : "Product or grade"}</label>
               <input id="home-search-query" type="search" name="q" maxLength={120} defaultValue={query}
                 placeholder={isVi ? "Tìm sản phẩm hoặc quy cách, ví dụ: W320, 550 g/l, quế" : "Search a product or grade, e.g. W320, 550 g/l, cassia"}
-                className="h-14 w-full min-w-0 bg-white px-4 text-sm text-ink-900 placeholder:text-ink-500 focus-visible:outline-offset-[-3px]" />
-              <button type="submit" className="inline-flex h-14 items-center justify-center gap-2 bg-brand-700 px-7 text-sm font-bold text-white transition hover:bg-brand-800 focus-visible:outline-offset-[-3px]">
-                <Search className="h-4 w-4" aria-hidden="true" />{isVi ? "Tìm kiếm" : "Search"}
+                className="h-11 w-full min-w-0 flex-1 bg-white px-2 text-base text-ink-900 sm:h-14 sm:px-4 sm:text-sm placeholder:text-ink-500 focus-visible:outline-offset-[-3px]" />
+              <button type="submit" className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-brand-700 sm:h-14 sm:w-auto sm:rounded-none sm:px-7 text-sm font-bold text-white transition hover:bg-brand-800 focus-visible:outline-offset-[-3px]">
+                <Search className="h-4 w-4" aria-hidden="true" /><span className="sr-only sm:not-sr-only">{isVi ? "Tìm kiếm" : "Search"}</span>
               </button>
             </div>
           </form>

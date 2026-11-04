@@ -404,3 +404,5 @@ console.log("✅ Product comparison: contextual checkbox, max 3, dedupe, safe pu
 
 assert.match(checkboxHtml, /group-hover\/card:max-w-20/);
 assert.match(checkboxHtml, />Compare<\/span>/);
+assert.match(checkboxHtml, /hidden sm:inline overflow-hidden/, "Compare text stays hidden on mobile, including hover and selected states");
+assert.match(selectedCheckboxHtml, /hidden sm:inline overflow-hidden/, "Selected mobile card still shows only the checkbox");
