@@ -79,3 +79,14 @@ assert.ok(cardSource.includes("flex min-w-0 items-center gap-2"),
 assert.match(cardSource, /min-w-0 flex-1 truncate text-\[11px\] font-bold leading-5/, 'Tên tự cắt bằng dấu ba chấm để nhường chỗ cho khiên');
 
 console.log('✅ Thẻ sản phẩm: không chip grade, không grade trong tên hay tooltip, hàng cuối chỉ còn tên người bán + huy hiệu.');
+
+// Explicit corners avoid overlapping responsive side-radius utilities resetting top-left.
+assert.match(clean, /overflow-hidden rounded-tl-xl rounded-bl-xl bg-ink-50 sm:rounded-bl-none sm:rounded-tr-xl/);
+assert.doesNotMatch(clean, /sm:rounded-l-none/);
+assert.match(clean, /overflow-visible rounded-xl/, 'Verification tooltips remain unclipped by the card');
+console.log('✓ Product image corners: top-left retained on desktop, mobile left corners and tooltip overflow preserved.');
+
+assert.doesNotMatch(readFileSync(new URL('../components/public-product-card.tsx', import.meta.url), 'utf8'), /SaveProductButton|saveProduct/, 'Listing cards do not expose save controls');
+const detailSource = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
+assert.match(detailSource, /<SaveProductButton[^>]*iconOnly/, 'Product detail keeps its save heart');
+console.log('✓ Listing cards omit save hearts; product detail retains its save control.');
