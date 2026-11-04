@@ -31,8 +31,8 @@ export function ShareProductButton({ title, href, isVi = false }: { title: strin
     } finally { setBusy(false); }
   }
   return <div className="relative">
-    <button type="button" aria-label={label} title={label} disabled={busy} onClick={share} className="inline-flex cursor-pointer h-11 w-11 items-center justify-center rounded-full border border-ink-200 bg-white text-brand-700 shadow-sm hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-wait disabled:opacity-60">
-      {status === "copied" ? <Check className="h-6 w-6" aria-hidden /> : <Share2 className="h-6 w-6" aria-hidden />}
+    <button type="button" aria-label={label} title={label} disabled={busy} onClick={share} className="inline-flex cursor-pointer h-9 w-9 items-center justify-center rounded-full border border-ink-200 bg-white text-brand-700 shadow-sm hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 disabled:cursor-wait disabled:opacity-60">
+      {status === "copied" ? <Check className="h-5 w-5" aria-hidden /> : <Share2 className="h-5 w-5" aria-hidden />}
     </button>
     {status !== "idle" && <div className="absolute right-14 top-0 w-60 rounded-lg border border-ink-200 bg-white p-3 text-sm text-ink-700 shadow-sm">
       <p role="status">{status === "copied" ? (isVi ? "Đã sao chép liên kết." : "Link copied.") : (isVi ? "Chọn và sao chép liên kết bên dưới." : "Select and copy the link below.")}</p>
