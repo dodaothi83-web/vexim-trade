@@ -1423,11 +1423,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <div>
               <Row label={copy.shipping.packaging}>
                 <div className="space-y-3">
-                  <SubField label={copy.shipping.packagingText}>
-                    <input className="input" name="packaging" maxLength={300} placeholder={copy.shipping.packagingPlaceholder}
-                      defaultValue={product?.packaging ?? ""} disabled={locked} />
-                  </SubField>
-                  <p className="-mt-1.5 text-[11.5px] leading-4 text-ink-500">{copy.shipping.packagingNote}</p>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <SubField label={copy.shipping.packageType}>
                       <input className="input" name="package_type" maxLength={40} placeholder={copy.shipping.packageTypePlaceholder}

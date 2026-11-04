@@ -215,3 +215,14 @@ assert.doesNotMatch(changedProduct.message, /chưa có bảng giá/);
 submitStatus = 'submitted';
 assert.equal((await exports.submitSupplierProductAction(submitForm())).ok, true);
 console.log('Quantity submit guard: missing price and changed product report different next steps');
+
+// Removing the legacy packaging control must not erase previously saved packaging.
+saved = { ...saved, id: productId, supplier_id: supplierId, name: 'Nhân điều', packaging: 'Legacy packaging', supplier_review_status: 'draft', supplier_originated: true };
+const packagingEdit = form({ product_id: productId, name: 'Nhân điều W320' });
+assert.equal(packagingEdit.has('packaging'), false);
+assert.equal((await exports.saveSupplierProductAction(packagingEdit)).ok, true);
+assert.equal(saved.packaging, 'Legacy packaging');
+const editorSource = readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(editorSource, /name="packaging"/);
+for (const field of ['package_type', 'package_weight_kg', 'units_per_carton', 'package_size']) assert.ok(editorSource.includes(`name="${field}"`));
+console.log('Packaging input removed; remaining fields and previously saved packaging preserved.');
