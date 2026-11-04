@@ -12,6 +12,15 @@ function load(file, mocks, extra = {}) {
   return mod.exports;
 }
 const fileRules = load('lib/sourcing/files.ts', {});
+const statusLabels = load('lib/sourcing/status.ts', {});
+assert.equal(statusLabels.sourcingCrmStatusLabel('new'), 'Mới — chưa tiếp nhận');
+assert.equal(statusLabels.sourcingCrmStatusLabel('in_progress'), 'Đang xử lý');
+assert.equal(statusLabels.sourcingStatusLabel('new', true), 'Đã nhận', 'Buyer acknowledgement remains unchanged');
+assert.equal(statusLabels.sourcingStatusLabel('new', false), 'Received');
+const crmPage = fs.readFileSync('app/crm/sourcing/page.tsx', 'utf8');
+assert.match(crmPage, /sourcingCrmStatusLabel\(r.status\)/, 'CRM card uses the staff-facing work state');
+assert.match(crmPage, /sourcingCrmStatusLabel\(s\)/, 'CRM selector uses the same work-state label');
+
 assert.equal(fileRules.sourcingMime(new TextEncoder().encode('<script>evil</script>')), null);
 assert.equal(fileRules.sourcingMime(new TextEncoder().encode('%PDF-1.7 test')), 'application/pdf');
 assert.equal(fileRules.sourcingMime(Uint8Array.from([137,80,78,71,13,10,26,10])), 'image/png');
