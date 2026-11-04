@@ -1,4 +1,4 @@
-import { getBuyerSession } from "@/lib/auth/buyer-session";
+import { getBuyerSession, getBuyerUser } from "@/lib/auth/buyer-session";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
@@ -10,6 +10,8 @@ import { SiteTrafficBeacon } from "@/components/site-traffic-beacon";
 
 export default async function BlogLayout({ children }: { children: ReactNode }) {
   const buyerSession = await getBuyerSession();
+  // A profile lookup failure must not prevent public pages from loading.
+  const buyerAccount = buyerSession ? await getBuyerUser().catch(() => null) : null;
   return (
     <div className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
@@ -23,7 +25,7 @@ export default async function BlogLayout({ children }: { children: ReactNode }) 
             <Link href="/blog" className="transition hover:text-brand-700">News</Link>
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-3 md:ml-0">
-            <PublicSignInLink buyerEmail={buyerSession?.email ?? null} />
+            <PublicSignInLink buyerEmail={buyerSession?.email ?? null} buyerCompanyName={buyerAccount?.company_name ?? null} />
             <Link
               href="/#send"
               aria-label="Request a quote"
