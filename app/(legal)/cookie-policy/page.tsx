@@ -60,6 +60,8 @@ export default function CookiePolicyPage() {
           ["vexim_cookie_consent", "Vexim Trade", "Remembers your cookie choices so we do not ask on every page.", "12 months"],
           ["vxt_session", "Vexim Trade", "Keeps a signed in account session secure. It is used only for account areas.", "7 days"],
           ["vxt_google_flow and vxt_google_signup", "Vexim Trade", "Completes the Google sign in or supplier registration flow securely.", "10 minutes"],
+          ["vxt_google_buyer_nonce", "Vexim Trade", "Binds a buyer Google One Tap sign-in to the browser that requested it.", "5 minutes"],
+          ["vxt_buyer_google_prompt_after (local storage)", "Vexim Trade", "Limits the buyer Google sign-in invitation to once per 24 hours in this browser. It contains only a time, not Google credentials.", "24 hours before another invitation is eligible; the stored time remains until replaced or cleared"],
           ["vxt_google_buyer_flow", "Vexim Trade", "Completes the Google sign in flow for a buyer account securely.", "10 minutes"],
           ["vxt_buyer", "Vexim Trade", "Keeps a signed in buyer account session secure. It is used only for buyer account areas.", "30 days"],
         ]} />
@@ -82,6 +84,7 @@ export default function CookiePolicyPage() {
 
       <section className="mt-9 space-y-3" aria-labelledby="cookie-third-party">
         <h2 id="cookie-third-party" className="text-xl font-bold text-ink-900">5. Third party content and links</h2>
+        <p className="text-sm leading-7 text-ink-700">When Google One Tap is enabled, eligible signed-out visitors may see a Google buyer sign-in invitation after resolving the cookie-choice banner. This authentication feature loads Google Identity Services, independently of analytics and advertising choices. Google may process browser and account information under its own privacy policy. The invitation does not sign you in until you choose to continue. You may dismiss it or use the existing email sign-in option.</p>
         <p className="text-sm leading-7 text-ink-700">Product videos load from a video provider only after you press play. The provider may use cookies or similar technologies under its own policy. Links to services such as WhatsApp, LinkedIn and Facebook do not set their cookies on Vexim Trade; after you follow a link, the other service handles your visit under its own policy.</p>
       </section>
 

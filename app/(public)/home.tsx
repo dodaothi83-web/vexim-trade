@@ -6,10 +6,7 @@ import {
   FileStack,
   HelpCircle,
   Search,
-  ShieldCheck,
   SlidersHorizontal,
-  LockKeyhole,
-  Plus,
 } from "lucide-react";
 
 import { getStore } from "@/lib/db";
@@ -294,16 +291,14 @@ export default async function HomeContent({
               {isVi ? "Cho biết bạn cần gì" : "Tell us what you need"} <span aria-hidden="true">→</span>
             </Link>
           </p>
-          <ul className="mt-7 grid gap-x-7 gap-y-4 text-[13px] leading-5 text-ink-700 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { Icon: ShieldCheck, text: isVi ? "Xem rõ từng hạng mục đã kiểm tra" : "See which supplier checks are complete" },
-              { Icon: SlidersHorizontal, text: isVi ? "So sánh chi tiết từng sản phẩm" : "Compare product details" },
-              { Icon: LockKeyhole, text: isVi ? "Giữ kín thông tin đến khi bạn đồng ý kết nối" : "Your contact details stay private until you agree to connect" },
-              { Icon: Plus, text: isVi ? "Gửi yêu cầu báo giá miễn phí" : "Send quote requests free of charge" },
-            ].map(({ Icon, text }) => <li key={text} className="flex items-start gap-2">
-              <Icon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" /><span>{text}</span>
-            </li>)}
-          </ul>
+          {homeCategories.length > 0 && <nav aria-label={isVi ? "Tìm nhiều" : "Popular searches"} className="mt-5 flex flex-wrap items-center gap-2 text-sm">
+            <span className="mr-1 font-semibold text-ink-700">{isVi ? "Tìm nhiều:" : "Popular searches:"}</span>
+            {homeCategories.slice(0, 5).map((category) => <Link key={category.id}
+              href={`/search?cat=${encodeURIComponent(category.slug)}&lang=${lang}`}
+              className="inline-flex min-h-11 items-center rounded-full border border-ink-200 bg-white px-4 py-2 text-sm font-medium text-ink-800 transition hover:border-brand-500 hover:bg-brand-50 hover:text-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+              {getCategoryTitle(category, lang)}
+            </Link>)}
+          </nav>}
         </div>
       </section>
 

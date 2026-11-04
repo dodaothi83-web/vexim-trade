@@ -1,3 +1,5 @@
+import { BuyerGoogleOneTap } from "@/components/buyer-google-one-tap";
+import { googleOneTapClientId, hasOneTapSession } from "@/lib/auth/google-one-tap";
 import { BuyerSavedProductsProvider } from "@/components/buyer-saved-products";
 import { getLocale } from "@/lib/i18n/server";
 import { getBuyerSession, getBuyerUser } from "@/lib/auth/buyer-session";
@@ -25,16 +27,20 @@ export const dynamic = "force-dynamic";
  */
 export default async function PublicLayout({ children }: { children: ReactNode }) {
   const buyerSession = await getBuyerSession();
+  const oneTapClientId = googleOneTapClientId();
+  const showOneTap = oneTapClientId && !buyerSession && !(await hasOneTapSession());
+  const locale = await getLocale();
   // A profile lookup failure must not prevent public pages from loading.
   const buyerAccount = buyerSession ? await getBuyerUser().catch(() => null) : null;
   const store = getStore();
   await store.listCategories({ publishedOnly: true }); // warm cache
 
   return (
-    <BuyerSavedProductsProvider key={buyerSession?.email ?? "guest"} isVi={(await getLocale()) === "vi"}>
+    <BuyerSavedProductsProvider sessionKey={buyerSession?.email ?? "guest"} isVi={locale === "vi"}>
     <ProductComparisonProvider>
     <div lang="en" className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
+      {showOneTap && <BuyerGoogleOneTap clientId={oneTapClientId} isVi={locale === "vi"} />}
       <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-3 sm:gap-4 sm:px-6 lg:px-8">
           <Link href="/" aria-label="Veximtrade home" className="flex shrink-0 items-center gap-2.5">

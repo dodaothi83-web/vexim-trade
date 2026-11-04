@@ -147,6 +147,6 @@ assert.match(sql, /where id = p_account_id/);
 assert.match(sql, /revoke all[\s\S]*from public, anon, authenticated/);
 assert.match(sql, /grant execute[\s\S]*to service_role/);
 assert.match(read('lib/db/supabase.ts'), /replace\(\/\[\\\\%_\]\/g/);
-assert.match(read('app/(public)/layout.tsx'), /key=\{buyerSession\?\.email/);
+assert.match(read('app/(public)/layout.tsx'), /sessionKey=\{buyerSession\?\.email/);
 assert.match(read('app/(public)/buyer/account/page.tsx'), /index: false/);
 console.log('✅ Buyer account: authenticated EN/VI tabs, own requests, safe saves/removal, profile validation and category recommendations.');
