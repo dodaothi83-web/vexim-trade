@@ -33,7 +33,7 @@ export function ProductCompareCheckbox({
         aria-label={action}
         className="peer sr-only"
       />
-      <span aria-hidden="true" className={`overflow-hidden whitespace-nowrap text-[11px] font-semibold text-ink-800 transition-[max-width,opacity] ${selected ? "max-w-20 opacity-100" : "max-w-0 opacity-0 group-hover/card:max-w-20 group-hover/card:opacity-100 group-hover/cmp:max-w-20 group-hover/cmp:opacity-100 peer-focus-visible:max-w-20 peer-focus-visible:opacity-100 [@media(hover:none)]:max-w-20 [@media(hover:none)]:opacity-100"}`}>Compare</span>
+      <span aria-hidden="true" className={`hidden sm:inline overflow-hidden whitespace-nowrap text-[11px] font-semibold text-ink-800 transition-[max-width,opacity] ${selected ? "max-w-20 opacity-100" : "max-w-0 opacity-0 group-hover/card:max-w-20 group-hover/card:opacity-100 group-hover/cmp:max-w-20 group-hover/cmp:opacity-100 peer-focus-visible:max-w-20 peer-focus-visible:opacity-100 [@media(hover:none)]:max-w-20 [@media(hover:none)]:opacity-100"}`}>Compare</span>
       <span
         aria-hidden="true"
         className={`flex size-[21px] shrink-0 items-center justify-center rounded-[5px] border transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand-600 peer-focus-visible:ring-offset-1 ${
