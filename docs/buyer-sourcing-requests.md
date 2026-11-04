@@ -30,3 +30,9 @@ Sourcing uses the configured Supabase adapter directly, with **no live-to-local 
 - `npm run check:rfq`, typecheck and production build for regression coverage.
 
 Live Supabase storage/RLS, production identity providers and deployment are not validated by these local tests. No production data, supplier messages or database migrations are sent automatically.
+
+## Workflow clarity and composer completion
+
+CRM labels a new record **Mới — chưa tiếp nhận**, both on its card and in the status selector. The buyer-facing acknowledgement remains **Đã nhận / Received**. The inbox explains that badges count `new` requests, not unread views: opening a request or saving a reply does not implicitly change its workflow state. Staff explicitly choose the assignee/status and save; no existing records are transitioned automatically.
+
+After a confirmed successful submission, the composer now closes immediately, releases the scroll lock and returns focus to its trigger. A separate dismissible success notification contains the account-owned request link. Reopening starts an empty composer, not the previous success screen. Failed submissions retain the open form, message, attachments and retry key; cancelling the native file picker also preserves them. The success notice is not a modal and does not auto-expire, so its link remains accessible until dismissed or the composer is reopened.

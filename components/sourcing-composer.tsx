@@ -29,7 +29,7 @@ export function SourcingComposerTrigger({ isVi = false }: { isVi?: boolean }) {
   function close() { if (!busy) { setOpen(false); trigger.current?.focus(); } }
   function begin() {
     const next = window.location.pathname + window.location.search;
-    requireBuyer(next, () => { if (!key) setKey(crypto.randomUUID()); setOpen(true); });
+    requireBuyer(next, () => { setSentId(""); if (!key) setKey(crypto.randomUUID()); setOpen(true); });
   }
   function attach(incoming: FileList | null) {
     if (!incoming) return;
@@ -55,6 +55,7 @@ export function SourcingComposerTrigger({ isVi = false }: { isVi?: boolean }) {
       }
       if (!response.ok || typeof data.id !== "string") throw new Error(data.error || (vi ? "Chưa gửi được. Vui lòng thử lại." : "Could not send. Please retry."));
       setSentId(data.id); setContent(""); setFiles([]); setKey(crypto.randomUUID());
+      setOpen(false); trigger.current?.focus();
     } catch (cause) { setError(cause instanceof Error ? cause.message : (vi ? "Mất kết nối. Nội dung vẫn được giữ." : "Connection lost. Your draft is kept.")); }
     finally { setBusy(false); setChallenge(null); setAttempt((n) => n + 1); }
   }
@@ -69,7 +70,7 @@ export function SourcingComposerTrigger({ isVi = false }: { isVi?: boolean }) {
       e.preventDefault(); close();
     }} className="fixed inset-auto bottom-0 right-0 m-0 max-h-[94dvh] w-full max-w-none overflow-hidden rounded-t-2xl border border-ink-200 bg-white p-0 text-ink-900 shadow-2xl backdrop:bg-ink-950/30 sm:bottom-5 sm:right-5 sm:w-[min(680px,calc(100vw-40px))] sm:rounded-2xl" lang={vi ? "vi" : "en"}>
       <div className="flex items-center justify-between border-b border-ink-100 px-5 py-4 sm:px-7"><div><h2 id="sourcing-title" className="text-lg font-bold">{label}</h2><p className="mt-0.5 text-xs text-ink-500">Vexim Trade</p></div><button type="button" disabled={busy} onClick={close} aria-label={vi ? "Đóng" : "Close"} className="rounded-lg p-2 text-ink-500 hover:bg-ink-50 disabled:opacity-40"><X className="h-5 w-5" /></button></div>
-      {sentId ? <div className="p-7"><span className="inline-flex rounded-full bg-emerald-50 p-3 text-emerald-700"><Check className="h-6 w-6" /></span><h3 className="mt-4 text-xl font-bold">{vi ? "Vexim đã nhận yêu cầu" : "Vexim received your request"}</h3><p className="mt-2 text-sm leading-6 text-ink-600">{vi ? "Bạn có thể xem trạng thái và phản hồi trong Yêu cầu của tôi." : "Track its status and our response in My enquiries."}</p><Link href={`/buyer/account/sourcing/${sentId}${vi ? "?lang=vi" : ""}`} onClick={close} className="mt-6 inline-flex rounded-lg bg-brand-700 px-5 py-3 text-sm font-semibold text-white">{vi ? "Xem yêu cầu" : "View request"}</Link><button type="button" onClick={() => { setSentId(""); setError(""); }} className="ml-4 text-sm font-semibold text-brand-700">{vi ? "Gửi yêu cầu khác" : "Send another"}</button></div> : <form onSubmit={submit} aria-busy={busy}>
+      <form onSubmit={submit} aria-busy={busy}>
         <div className="max-h-[calc(94dvh-185px)] overflow-y-auto px-5 pt-5 sm:px-7 sm:pt-6">
           <label htmlFor="sourcing-content" className="mb-3 block text-sm font-semibold">{vi ? "Bạn đang cần tìm nguồn hàng gì?" : "What would you like us to source?"}</label>
           <textarea id="sourcing-content" autoFocus required minLength={1} maxLength={6000} disabled={busy} value={content} onChange={(e) => setContent(e.target.value)} placeholder={vi ? "Mô tả sản phẩm bạn cần, số lượng, tiêu chuẩn, nơi giao hàng và thời gian dự kiến…" : "Tell us about the product, quantity, specifications, delivery destination and timeline…"} className="min-h-[230px] w-full resize-y rounded-xl border border-ink-200 bg-white p-4 text-[15px] leading-7 outline-none placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:min-h-[280px]" />
@@ -82,7 +83,12 @@ export function SourcingComposerTrigger({ isVi = false }: { isVi?: boolean }) {
           <div><input ref={input} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" className="sr-only" tabIndex={-1} onChange={(e) => attach(e.target.files)} /><button type="button" onClick={() => input.current?.click()} disabled={busy || files.length >= SOURCING_MAX_FILES} className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700 disabled:opacity-40"><Paperclip className="h-4 w-4" />{vi ? "Đính kèm tệp" : "Attach files"}</button><p className="mt-1 text-[11px] text-ink-500">{vi ? "Tối đa 3 tệp · 2 MB/tệp" : "Up to 3 files · 2 MB each"}</p></div>
           <button type="submit" disabled={busy || !challenge || content.trim().length < 1} className="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-40">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{busy ? (vi ? "Đang gửi…" : "Sending…") : (vi ? "Gửi yêu cầu" : "Send request")}</button>
         </div>
-      </form>}
+      </form>
     </dialog>}
+    {sentId && !open && <div role="status" lang={vi ? "vi" : "en"} className="fixed bottom-5 right-4 z-50 flex max-w-[calc(100vw-2rem)] items-start gap-3 rounded-xl border border-emerald-200 bg-white p-4 text-ink-900 shadow-xl sm:right-5">
+      <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" aria-hidden />
+      <div><p className="text-sm font-semibold">{vi ? "Đã gửi yêu cầu tìm nguồn." : "Sourcing request sent."}</p><Link href={`/buyer/account/sourcing/${sentId}${vi ? "?lang=vi" : ""}`} className="mt-1 inline-block text-sm font-semibold text-brand-700 underline">{vi ? "Xem yêu cầu" : "View request"}</Link></div>
+      <button type="button" onClick={() => setSentId("")} aria-label={vi ? "Ẩn thông báo" : "Dismiss notification"} className="rounded-md p-1 text-ink-500 hover:bg-ink-50"><X className="h-4 w-4" /></button>
+    </div>}
   </>;
 }
