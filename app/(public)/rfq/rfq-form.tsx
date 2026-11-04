@@ -52,7 +52,8 @@ interface Props {
   contextProduct?: RfqProductContext | null;
 }
 
-const UNITS = ["MT", "kg", "lb", "container (20')", "container (40')", "pallet", "carton"];
+// New enquiries use comparable weight units; packaging belongs in the request details.
+const UNITS = ["MT", "kg"];
 const INCOTERMS = ["FOB", "CIF", "CFR", "EXW", "DAP", "FCA"];
 const FREQUENCIES = ["One-time", "Monthly", "Quarterly", "Spot", "Contract"];
 const COUNTRIES = ["US", "EU", "UK", "Japan", "Korea", "China", "Middle East", "Australia", "Canada", "Other"];

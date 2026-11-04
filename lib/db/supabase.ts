@@ -942,6 +942,20 @@ export const supabaseStore: DataStore = {
     if (error) fail("updateBuyerUser", error);
     return data as BuyerUser;
   },
+  async setBuyerSavedProduct(accountId, product, saved) {
+    const { error } = await must().rpc("set_buyer_saved_product", { p_account_id: accountId, p_product: product, p_saved: saved });
+    if (error) fail("setBuyerSavedProduct", error);
+  },
+  async listBuyerRfqsByEmail(email) {
+    // Escape ILIKE metacharacters: verified emails containing % or _ must match literally.
+    const needle = email.trim().toLowerCase().replace(/[\\%_]/g, (value) => "\\" + value);
+    const { data: buyers, error: buyerError } = await must().from("buyers").select("id").ilike("email", needle);
+    if (buyerError) fail("listBuyerRfqsByEmail.buyers", buyerError);
+    if (!buyers?.length) return [];
+    const { data, error } = await must().from("rfqs").select("*").in("buyer_id", buyers.map((b) => b.id)).order("created_at", { ascending: false });
+    if (error) fail("listBuyerRfqsByEmail", error);
+    return (data ?? []) as Rfq[];
+  },
   async deleteBuyerUser(id) {
     // Token đăng nhập của email đó không còn lý do tồn tại.
     const { data } = await must().from("buyer_users").select("email").eq("id", id).maybeSingle();

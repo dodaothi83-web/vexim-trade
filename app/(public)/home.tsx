@@ -18,13 +18,10 @@ import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, type Publ
 import { balanceHomepageCategories, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
 import { HomeProductFeed } from "@/components/home-product-feed";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
-import { CookieSettingsButton } from "@/components/cookie-consent";
 import { buildPopularSearches } from "@/lib/public/popular-searches";
 import { getCategoryTitle } from "@/lib/public/category-names";
 import { HOME_HERO_LINE } from "@/lib/public/meta-copy";
-import { Logo } from "@/components/brand-logo";
 import { PlatformLegalStrip } from "@/components/platform-legal-strip";
-import { SocialLinks } from "@/components/social-links";
 import type { Category } from "@/lib/types";
 
 /** Ảnh placeholder khi category chưa upload hero_image */
@@ -297,8 +294,8 @@ export default async function HomeContent({
           <ul className="mt-7 grid gap-x-7 gap-y-4 text-[13px] leading-5 text-ink-700 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { Icon: ShieldCheck, text: isVi ? "Xem rõ từng hạng mục đã kiểm tra" : "See which supplier checks are complete" },
-              { Icon: SlidersHorizontal, text: isVi ? "So sánh quy cách, giá tham khảo và số lượng tối thiểu" : "Compare specifications, reference prices and minimum quantities" },
-              { Icon: LockKeyhole, text: isVi ? "Thông tin liên hệ được giữ riêng đến khi bạn đồng ý kết nối" : "Your contact details stay private until you agree to connect" },
+              { Icon: SlidersHorizontal, text: isVi ? "So sánh chi tiết từng sản phẩm" : "Compare product details" },
+              { Icon: LockKeyhole, text: isVi ? "Giữ kín thông tin đến khi bạn đồng ý kết nối" : "Your contact details stay private until you agree to connect" },
               { Icon: Plus, text: isVi ? "Gửi yêu cầu báo giá miễn phí" : "Send quote requests free of charge" },
             ].map(({ Icon, text }) => <li key={text} className="flex items-start gap-2">
               <Icon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" /><span>{text}</span>
@@ -624,108 +621,7 @@ export default async function HomeContent({
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="border-t border-ink-200 bg-white text-[13px] text-ink-600">
-        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
-          <div className="grid gap-10 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
-            <div>
-              <div className="flex items-center gap-2">
-                <Logo className="h-10 w-10" />
-                <span className="text-[16px] font-black tracking-tight text-ink-900">Vexim Trade</span>
-              </div>
-              <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-ink-500">
-                {isVi
-                  ? "Nền tảng kết nối nguồn hàng thực phẩm & nông sản Việt Nam với người mua trong nước và quốc tế."
-                  : "B2B sourcing platform connecting global and domestic buyers with verified Vietnamese food & agricultural suppliers."}
-              </p>
-              <p className="mt-5 text-[12.5px] text-ink-400">
-                © 2026 Vexim Global Co., Ltd., Hanoi, Vietnam
-              </p>
-              <SocialLinks className="mt-2" />
-            </div>
-
-            <FooterCol title={isVi ? "Danh mục ngành hàng" : "Product Categories"}>
-              {activeCategories.map((c) => (
-                <li key={c.slug}>
-                  <Link href={`/products/${c.slug}`} className="hover:text-brand-700">
-                    {getCategoryTitle(c, lang)}
-                  </Link>
-                </li>
-              ))}
-              <li>
-                <Link href="/rfq" className="hover:text-brand-700">
-                  {isVi ? "Gửi yêu cầu mặt hàng khác →" : "Request other products →"}
-                </Link>
-              </li>
-            </FooterCol>
-
-            <FooterCol title={isVi ? "Dịch vụ & Nền tảng" : "Platform & Verification"}>
-              <li>
-                <Link href="/how-we-verify" className="hover:text-brand-700">
-                  {isVi ? "Quy trình xác thực nhà cung cấp" : "How we verify suppliers"}
-                </Link>
-              </li>
-              <li>
-                <Link href="/for-suppliers" className="hover:text-brand-700">
-                  {isVi ? "Dành cho nhà cung cấp" : "For suppliers"}
-                </Link>
-              </li>
-              <li>
-                <Link href="/login" prefetch={false} className="hover:text-brand-700">
-                  {isVi ? "Đăng nhập nhà cung cấp" : "Supplier sign in"}
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy-policy" className="hover:text-brand-700">
-                  {isVi ? "Chính sách bảo mật (Privacy Policy)" : "Privacy Policy"}
-                </Link>
-              </li>
-              <li>
-                <Link href="/cookie-policy" className="hover:text-brand-700">
-                  Cookie Policy
-                </Link>
-              </li>
-              <li>
-                <CookieSettingsButton className="hover:text-brand-700" />
-              </li>
-              <li>
-                <Link href="/terms-of-service" className="hover:text-brand-700">
-                  {isVi ? "Điều khoản dịch vụ (Terms of Service)" : "Terms of Service"}
-                </Link>
-              </li>
-              <li>
-                <a href="mailto:contact@veximglobal.com" className="hover:text-brand-700">
-                  contact@veximglobal.com
-                </a>
-              </li>
-            </FooterCol>
-
-            <FooterCol title={isVi ? "Người mua hàng" : "For Buyers"}>
-              <li>
-                <Link href={isVi ? "/how-it-works?lang=vi" : "/how-it-works"} className="hover:text-brand-700">
-                  {isVi ? "Cách hoạt động" : "How it works"}
-                </Link>
-              </li>
-              <li>
-                <Link href="/rfq" className="hover:text-brand-700">
-                  {isVi ? "Gửi yêu cầu báo giá (Request a quote)" : "Request a quote"}
-                </Link>
-              </li>
-              <li>
-                <Link href="/compare" className="hover:text-brand-700">
-                  {isVi ? "So sánh nhà cung cấp" : "Compare suppliers"}
-                </Link>
-              </li>
-              <li>
-                <Link href="/blog" className="hover:text-brand-700">
-                  {isVi ? "Tin tức & Cẩm nang nguồn hàng" : "Market Insights & Guides"}
-                </Link>
-              </li>
-            </FooterCol>
-          </div>
-        </div>
-        <PlatformLegalStrip />
-      </footer>
+      <PlatformLegalStrip variant="footer" />
     </div>
   );
 }
@@ -737,13 +633,4 @@ function formatPostDate(iso: string, lang: HomeLocale): string {
     day: "2-digit",
     timeZone: "UTC",
   });
-}
-
-function FooterCol({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h4 className="text-[11.5px] font-bold uppercase tracking-[0.18em] text-ink-900">{title}</h4>
-      <ul className="mt-3 space-y-2 text-[13px] text-ink-500">{children}</ul>
-    </div>
-  );
 }

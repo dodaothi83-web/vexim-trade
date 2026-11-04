@@ -1,3 +1,5 @@
+import { BuyerSavedProductsProvider } from "@/components/buyer-saved-products";
+import { getLocale } from "@/lib/i18n/server";
 import { getBuyerSession } from "@/lib/auth/buyer-session";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -27,6 +29,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
   await store.listCategories({ publishedOnly: true }); // warm cache
 
   return (
+    <BuyerSavedProductsProvider key={buyerSession?.email ?? "guest"} isVi={(await getLocale()) === "vi"}>
     <ProductComparisonProvider>
     <div lang="en" className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
@@ -58,5 +61,6 @@ export default async function PublicLayout({ children }: { children: ReactNode }
       <SimpleFooter />
     </div>
     </ProductComparisonProvider>
+    </BuyerSavedProductsProvider>
   );
 }

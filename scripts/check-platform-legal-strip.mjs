@@ -61,8 +61,7 @@ for (const [name, file] of [
 }
 
 for (const [name, file] of [
-  ["simple footer", simpleFooter],
-  ["site footer", siteFooter],
+  ["shared footer", strip],
   ["home structured data", read("app/(public)/page.tsx")],
   ["landing contact", read("components/landing-site.tsx")],
   ["cashew contact", read("components/cashew-landing.tsx")],
@@ -70,7 +69,7 @@ for (const [name, file] of [
   assert.ok(file.includes("COMPANY.contactEmail"), `${name} uses the standard public contact email`);
   assert.doesNotMatch(file, /COMPANY\.email/, `${name} does not expose the operational mailbox as the public contact`);
 }
-assert.ok(home.includes('href="mailto:contact@veximglobal.com"'), "Home footer displays the standard public contact email");
+assert.ok(home.includes('<PlatformLegalStrip variant="footer"'), "Home uses the shared contact and legal footer");
 
 const company = {
   legalName: "VEXIM GLOBAL CO., LTD",
@@ -86,7 +85,7 @@ const company = {
   platformRulesEffectiveDate: "01/11/2026",
 };
 
-function renderStrip(lang, pathname = "/") {
+function renderStrip(lang, pathname = "/", variant = "strip") {
   const exports = {};
   const code = ts.transpileModule(strip, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
@@ -94,12 +93,14 @@ function renderStrip(lang, pathname = "/") {
   const mocks = {
     react: React,
     "react/jsx-runtime": jsxRuntime,
-    "next/link": { default: ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children) },
+    "next/link": { default: ({ href, children, prefetch, ...props }) => React.createElement("a", { href, ...props }, children) },
     "next/navigation": {
       useSearchParams: () => ({ get: (key) => key === "lang" ? lang : null }),
       usePathname: () => pathname,
     },
     "@/lib/config": { COMPANY: company },
+    "@/components/cookie-consent": { CookieSettingsButton: ({ children, ...props }) => React.createElement("button", props, children) },
+    "@/components/social-links": { SocialLinks: () => React.createElement("nav", { "aria-label": "social media" }) },
   };
   vm.runInNewContext(code, {
     exports, module: { exports }, Date,
@@ -108,7 +109,7 @@ function renderStrip(lang, pathname = "/") {
       return mocks[key];
     },
   });
-  return renderToStaticMarkup(React.createElement(exports.PlatformLegalStrip));
+  return renderToStaticMarkup(React.createElement(exports.PlatformLegalStrip, { variant }));
 }
 
 const english = renderStrip(undefined, "/platform-rules");
@@ -150,5 +151,20 @@ for (const href of ["/thong-tin-chu-quan", "/khieu-nai"]) {
 for (const [enHref, viHref] of [["/platform-rules", "/quy-che-hoat-dong"], ["/terms-of-service", "/dieu-khoan-su-dung"], ["/privacy-policy", "/chinh-sach-bao-mat"]]) {
   assert.ok(english.includes(`href="${enHref}"`) && vietnamese.includes(`href="${viHref}"`), `Localized legal links point to ${enHref} and ${viHref}`);
 }
+
+for (const lang of ["en", "vi"]) {
+  const html = renderStrip(lang, "/products/cashew-kernels", "footer");
+  assert.equal((html.match(/<footer\b/g) ?? []).length, 1);
+  assert.equal((html.match(/Copyright ©/g) ?? []).length, 1);
+  for (const text of [company.legalName, company.taxCode, company.registrationDate, company.platformRulesEffectiveDate]) assert.ok(html.includes(text), text);
+  assert.ok(html.includes(lang === "vi" ? company.address : company.addressEn));
+  for (const href of ["mailto:" + company.contactEmail, "tel:" + company.phone, "/cookie-policy", lang === "vi" ? "/chinh-sach-bao-mat" : "/privacy-policy", lang === "vi" ? "/dieu-khoan-su-dung" : "/terms-of-service"]) {
+    assert.equal(html.split(`href="${href}"`).length - 1, 1, `Duplicate ${href}`);
+  }
+  assert.ok(html.includes(lang === "vi" ? "Cài đặt cookie" : "Cookie settings"));
+  assert.match(html, /pb-28/);
+  assert.match(html, /md:grid-cols-/);
+}
+for (const file of [home, simpleFooter, siteFooter]) assert.match(file, /<PlatformLegalStrip variant="footer"/);
 
 console.log("✅ Platform legal strip, responsible person, bilingual content and footer placement.");

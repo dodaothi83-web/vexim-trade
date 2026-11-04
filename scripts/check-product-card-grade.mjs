@@ -31,6 +31,7 @@ const { PublicProductCard } = load('../components/public-product-card.tsx', {
   'next/link': { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) },
   'lucide-react': new Proxy({}, { get: () => icon }),
   '@/components/sponsored-disclosure': { SponsoredDisclosure: icon },
+  '@/components/buyer-saved-products': { SaveProductButton: icon },
   '@/components/product-compare-checkbox': { ProductCompareCheckbox: icon },
   '@/components/product-trade-labels': { ProductTradeLabels: icon },
   '@/components/verification-tier': { VerificationPips: icon, VerificationTierBadge: icon },

@@ -1,3 +1,4 @@
+import { SaveProductButton } from "@/components/buyer-saved-products";
 import type { PublicL2Scope } from "@/lib/verification-status";
 import Link from "next/link";
 import { ImageIcon } from "lucide-react";
@@ -254,6 +255,7 @@ export function PublicProductCard({
   test = false,
   linkable = true,
   comparison,
+  saveProduct,
   sponsored = false,
   stalePriceDays,
 }: {
@@ -286,6 +288,7 @@ export function PublicProductCard({
   linkable?: boolean;
   /** Only public, non-demo offers receive a comparison checkbox. */
   comparison?: { id: string; categorySlug: string };
+  saveProduct?: { id: string };
   /** Paid placement disclosure belongs inside each sponsored card. */
   sponsored?: boolean;
   /** Present only for a visible stale reference price; null means its date is unknown. */
@@ -368,6 +371,7 @@ export function PublicProductCard({
         </span>
       )}
       {comparisonItem && <ProductCompareCheckbox product={comparisonItem} />}
+      {linkable && !test && (saveProduct || comparison) && <SaveProductButton id={(saveProduct ?? comparison)!.id} href={href} compact />}
     </div>
   );
 

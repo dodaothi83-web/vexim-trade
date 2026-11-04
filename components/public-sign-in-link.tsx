@@ -21,6 +21,12 @@ export function PublicSignInLink({ lang = "en", buyerEmail = null }: { lang?: "e
       <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-ink-200 bg-white p-4 text-sm text-ink-900 shadow-pop">
         <p className="text-xs text-ink-500">{lang === "vi" ? "Đã đăng nhập" : "Signed in"}</p>
         <p className="mt-1 break-all font-semibold">{buyerEmail}</p>
+        <nav aria-label={lang === "vi" ? "Tài khoản" : "Account"} className="mt-3 flex flex-col gap-1 border-t border-ink-200 pt-2">
+          <Link href="/buyer/account" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Tổng quan" : "Overview"}</Link>
+          <Link href="/buyer/account?tab=requests" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Yêu cầu của tôi" : "My requests"}</Link>
+          <Link href="/buyer/account?tab=saved" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Sản phẩm đã lưu" : "Saved products"}</Link>
+          <Link href="/buyer/account?tab=profile" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Thông tin tài khoản" : "Account details"}</Link>
+        </nav>
         <form action={signOutBuyerAction} className="mt-3 border-t border-ink-200 pt-3">
           <button type="submit" className="btn btn-ghost w-full justify-center">{lang === "vi" ? "Đăng xuất" : "Sign out"}</button>
         </form>

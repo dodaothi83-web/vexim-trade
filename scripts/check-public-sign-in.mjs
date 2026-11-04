@@ -109,8 +109,8 @@ for (const file of ['../app/blog/layout.tsx', '../app/(legal)/layout.tsx']) {
   assertSignIn(header, 'en', 'Sign in');
 }
 
-const home = fs.readFileSync(new URL('../app/(public)/home.tsx', import.meta.url), 'utf8');
-assert.match(home, /href="\/login"[\s\S]{0,100}isVi \? "Đăng nhập nhà cung cấp" : "Supplier sign in"/, 'Homepage footer has a bilingual supplier sign-in entry');
+const footer = fs.readFileSync(new URL('../components/platform-legal-strip.tsx', import.meta.url), 'utf8');
+assert.match(footer, /href: "\/login", label: vi \? "Đăng nhập nhà cung cấp" : "Supplier sign in"/, 'Shared footer has a bilingual supplier sign-in entry');
 const supplierPage = fs.readFileSync(new URL('../app/(public)/for-suppliers/page.tsx', import.meta.url), 'utf8');
 assert.match(supplierPage, /Already have an account\?[\s\S]{0,120}href="\/login"/, 'Existing suppliers can sign in from the supplier application section');
 
