@@ -1,3 +1,4 @@
+import { DownloadComparisonPdf } from "@/components/download-comparison-pdf";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ImageIcon, Info, Minus, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
@@ -86,7 +87,10 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-semibold text-ink-600">{products.length} products selected</p>
-        <CopyComparisonLink productIds={products.map((product) => product.id)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <CopyComparisonLink productIds={products.map((product) => product.id)} />
+          <DownloadComparisonPdf products={products} />
+        </div>
       </div>
 
       <p id="comparison-scroll-hint" className="mt-4 text-xs font-medium leading-5 text-ink-500 sm:hidden">Swipe horizontally to see each product. Criteria stay visible.</p>

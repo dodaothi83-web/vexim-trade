@@ -126,7 +126,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video, actions }
             setZoomPoint(`${Math.max(0, Math.min(100, (event.clientX - rect.left) / rect.width * 100))}% ${Math.max(0, Math.min(100, (event.clientY - rect.top) / rect.height * 100))}%`);
           }}
           onMouseLeave={() => setZoomPoint("50% 50%")}
-          className="group relative h-full w-full cursor-zoom-in touch-pan-y overflow-hidden text-left" aria-label={`Enlarge photo of ${name} on this page`}>
+          className="group absolute inset-0 h-full w-full cursor-zoom-in touch-pan-y overflow-hidden text-left" aria-label={`Enlarge photo of ${name} on this page`}>
           {/* Hai lớp ảnh: lớp dưới là ảnh đã vẽ xong, lớp trên fade vào khi
               tải xong — đổi ảnh không bao giờ nháy trống. Hover-zoom áp lên
               wrapper để cả hai lớp phóng cùng nhau. */}
@@ -156,7 +156,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video, actions }
             )}
           </div>
           <span className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink-900/80 px-3 py-1.5 text-xs font-semibold text-white"><ZoomIn className="h-3.5 w-3.5" aria-hidden="true" /> <span className="hidden sm:inline">Hover to zoom · Click to enlarge</span><span className="sm:hidden">Tap to enlarge</span></span>
-        </button> : <div className="flex h-full items-center justify-center gap-2 text-sm text-ink-400"><ImageIcon className="h-9 w-9" aria-hidden="true" />No product photo available</div>}
+        </button> : <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-ink-400"><ImageIcon className="h-9 w-9" aria-hidden="true" />No product photo available</div>}
       </div>
 
       {hasThumbnails && <section className="relative min-w-0 sm:order-1" aria-label="Product photos">

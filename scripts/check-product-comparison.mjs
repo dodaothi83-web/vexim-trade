@@ -324,6 +324,7 @@ const compared = (id, extra = {}) => ({
 });
 const Link = ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children);
 const tableModule = compile("../components/public/product-comparison-table.tsx", {
+  "@/components/download-comparison-pdf": { DownloadComparisonPdf: ({ products }) => React.createElement("button", { "data-pdf-count": products.length }, "Download PDF") },
   "react/jsx-runtime": jsx,
   "next/link": { default: Link },
   "lucide-react": require("lucide-react"),
@@ -344,6 +345,8 @@ for (const text of ["Reference price", "USD 7/kg", "On request", "Price valid un
   "Copy comparison link", "Request a quote", "do not certify these products or a specific lot"]) {
   assert.ok(tableHtml.includes(text), `Comparison table includes ${text}`);
 }
+assert.match(tableHtml, /data-pdf-count="2"/);
+assert.match(tableHtml, /Download PDF/);
 assert.match(tableHtml, /overflow-x-auto/);
 assert.match(tableHtml, /sticky left-0/);
 assert.match(tableHtml, /min-w-48/);
