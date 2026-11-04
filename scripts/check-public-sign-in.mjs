@@ -8,7 +8,7 @@ import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { loadAuthDictionary } from './lib/auth-dictionary.mjs';
 
-function load(file, mocks) {
+function load(file, mocks, globals = {}) {
   const mod = { exports: {} };
   const source = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
@@ -19,7 +19,7 @@ function load(file, mocks) {
       assert.ok(id in mocks, `${file}: unexpected ${id}`);
       return mocks[id];
     },
-    console, URLSearchParams,
+    console, URLSearchParams, ...globals,
   }, { filename: file });
   return mod.exports;
 }
@@ -135,3 +135,51 @@ await assert.rejects(() => LoginPage(props), (error) => error.href === '/supplie
 session = { role: 'admin' };
 await assert.rejects(() => LoginPage(props), (error) => error.href === '/');
 console.log('✓ Public sign-in links, EN/VI labels, quote access, fallback and existing role redirects.');
+
+// Exercise the actual menu's listeners and handlers without a browser/database.
+const listeners = new Map();
+const removed = [];
+const effects = [];
+const inside = {};
+const outside = {};
+let focusCount = 0;
+const menu = { open: true, contains: (target) => target === inside, querySelector: () => ({ focus: () => focusCount++ }) };
+const interactive = load('../components/public-sign-in-link.tsx', {
+  ...common,
+  react: { useRef: () => ({ current: menu }), useEffect: (effect) => effects.push(effect) },
+  '@/app/(public)/buyer/sign-in/actions': { signOutBuyerAction: async () => {} },
+}, { document: {
+  addEventListener: (type, handler, capture) => { assert.equal(capture, true); listeners.set(type, handler); },
+  removeEventListener: (type, handler, capture) => { assert.equal(listeners.get(type), handler); assert.equal(capture, true); removed.push(type); },
+} });
+const tree = interactive.PublicSignInLink({ buyerEmail: 'buyer@example.test' });
+const cleanup = effects.pop()();
+listeners.get('pointerdown')({ target: inside });
+assert.equal(menu.open, true, 'Clicks inside must not dismiss the menu');
+listeners.get('pointerdown')({ target: outside });
+assert.equal(menu.open, false, 'Outside pointer/touch dismisses the menu');
+assert.equal(focusCount, 0, 'Outside interaction must not steal focus');
+menu.open = true;
+listeners.get('focusin')({ target: outside });
+assert.equal(menu.open, false, 'Tabbing outside dismisses the menu');
+menu.open = true;
+listeners.get('focusin')({ target: inside });
+assert.equal(menu.open, true, 'Keyboard focus inside keeps the menu open');
+tree.props.onKeyDown({ key: 'Escape', currentTarget: menu });
+assert.equal(menu.open, false);
+assert.equal(focusCount, 1, 'Escape returns focus to the account trigger');
+const panel = tree.props.children[1];
+const accountNav = panel.props.children.find((child) => child?.type === 'nav');
+for (const link of accountNav.props.children) {
+  menu.open = true;
+  link.props.onClick();
+  assert.equal(menu.open, false, 'Every navigation item closes the menu, including the current route');
+}
+menu.open = true;
+panel.props.children.find((child) => child?.type === 'form').props.onSubmit();
+assert.equal(menu.open, false, 'Signing out closes the menu');
+cleanup();
+assert.equal(removed.sort().join(','), 'focusin,pointerdown', 'Listeners are cleaned up on unmount or session change');
+interactive.PublicSignInLink({ buyerEmail: null });
+assert.equal(effects.pop()(), undefined, 'Guest header does not register document listeners');
+console.log('✓ Buyer account menu: outside pointer/focus, inside interactions, navigation, Escape and listener cleanup.');
