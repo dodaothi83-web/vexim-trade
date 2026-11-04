@@ -35,7 +35,7 @@ import { ProductDescriptionPreview } from "@/components/products/product-descrip
 import { QuantityPricingInline } from "@/components/products/quantity-pricing-inline";
 import { QuantityBuyerPreview, QuantityPricingEditor } from "@/components/products/quantity-pricing-editor";
 import { BuyerPreviewDialog } from "@/components/products/buyer-preview-dialog";
-import { draftPublicQuantityOffer, nameContainsGrade, validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
+import { draftPublicQuantityOffer, validateQuantityPricing, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { productCompleteness } from "@/lib/products/completeness";
@@ -349,8 +349,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const newGrades = standardGradesForCategory(activeCategorySource);
   const newBuyerUnit = displayUnitsForCategory(activeCategorySlug, activeCategory?.price_unit).primary === "mt" ? "mt" : "kg";
   const newQuantity = !product && quantityPreview ? { ...quantityPreview, nameVi: snapshot.name ?? "" } : null;
-  const nameGradeError = showGradeErrors && newQuantity
-    ? newGrades.find((grade) => nameContainsGrade(snapshot.name ?? "", [grade])) : undefined;
   const unitMeta = categoryMarketPriceUnit(activeCategorySlug, activeCategory?.price_unit);
   const categoryLabel = activeCategory?.label ?? product?.category ?? copy.review.notChosen;
   const officialAttributeFields = nonGradeProductFields(fieldsFor(activeCategory));
@@ -1112,12 +1110,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               <Row label={copy.basic.name} required hint={copy.basic.nameHint}>
                 <div className="flex items-start gap-2">
                   <input name="name" className="input" required maxLength={180} minLength={3} placeholder={copy.basic.namePlaceholder}
-                    defaultValue={product?.name ?? ""} disabled={locked} aria-invalid={nameGradeError ? true : undefined} />
+                    defaultValue={product?.name ?? ""} disabled={locked} />
                   <span className="shrink-0 pt-2 font-mono text-[11px] tabular-nums text-ink-400">
                     {(snapshot.name ?? "").length}/180
                   </span>
                 </div>
-                {nameGradeError && <span className="mt-1 block text-[11.5px] text-rose-700">{nameGradeError}</span>}
               </Row>
               <Row label={copy.basic.keywords} hint={copy.basic.keywordsHint}>
                 <input name="keywords" className="input" maxLength={120} placeholder="cashew, w320, vietnam"
@@ -1426,11 +1423,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <div>
               <Row label={copy.shipping.packaging}>
                 <div className="space-y-3">
-                  <SubField label={copy.shipping.packagingText}>
-                    <input className="input" name="packaging" maxLength={300} placeholder={copy.shipping.packagingPlaceholder}
-                      defaultValue={product?.packaging ?? ""} disabled={locked} />
-                  </SubField>
-                  <p className="-mt-1.5 text-[11.5px] leading-4 text-ink-500">{copy.shipping.packagingNote}</p>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <SubField label={copy.shipping.packageType}>
                       <input className="input" name="package_type" maxLength={40} placeholder={copy.shipping.packageTypePlaceholder}

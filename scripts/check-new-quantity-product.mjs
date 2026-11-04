@@ -1,4 +1,5 @@
 // node --experimental-strip-types --no-warnings scripts/check-new-quantity-product.mjs
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 import { v2Validation } from './quantity-v2-test-utils.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -51,20 +52,22 @@ const db = {
 };
 const grade = { hasProductPricingChanged: () => false, standardGradesForCategory: () => ['W320', 'W240'], parseLeadTimeInput: () => ({ ok: true, value: null, unit: 'on_request', daysEquivalent: null }), applyLeadTimeToSpecs: (x) => x };
 const mocks = {
+  '@/lib/i18n/server': { getPortalMessages: async () => ({ locale: 'vi', m: loadPortalDictionary().vi }) },
+  '@/lib/i18n/format': { fill: (text, values) => text.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? '') },
   '@/lib/products/quantity-v2-validation': v2Validation,
   'next/cache': { revalidatePath() {} },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async (which) => which && !strict ? null : ({ supplier, user, store }) },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   '@/lib/supplier-portal/product-price-options': { isSupplierPriceCurrency: () => true, isSupplierPriceUnit: () => true, normalizeSupplierPriceCurrency: (s) => s, normalizeSupplierPriceUnit: (s) => s },
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible },
-  '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: (c) => c, parseProductCategoryProposal: (f) => f.get('supplier_category_proposal') },
+  '@/lib/supplier-portal/category-proposals': { allowedSupplierCategories: (_s, c) => c, categoryProposalOptions: (c) => c, parseProductCategoryProposal: (f) => f.get('supplier_category_proposal') },
   '@/lib/product-attributes': { attributesFromForm: () => ({}), mergeSupplierAttributePool: () => [], sanitizeSupplierAttributePool: () => [], saveProductAttributes: () => ({}), supplierAttributePoolSignature: () => '' },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async () => 'sent' },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (v) => v },
   '@/lib/products/product-extras': productExtras,
   '@/lib/products/grade-pricing': grade,
   '@/lib/ai/product-translation-service': { ensureProductEnglishTranslation: async (_store, _id, _actor, _source, options) => {
-    translations++; assert.ok(options.forbiddenGrades.includes('W320'));
+    translations++; assert.equal(options.forbiddenGrades, undefined);
     if (translationStatus !== 'translated') return { status: translationStatus, product: saved };
     const updated = await options.saveIfUnchanged(saved, { name_i18n: { en: 'Cashew kernels' }, translation_meta: { origin: 'ai' } });
     return { status: updated ? 'translated' : 'failed', product: updated || saved };
@@ -84,7 +87,7 @@ function form(changes = {}) {
   return f;
 }
 for (const changes of [
-  { quantity_grade: 'W999' }, { quantity_incoterm: '' }, { name: 'Nhân điều W320' },
+  { quantity_grade: 'W999' }, { quantity_incoterm: '' },
   { confirm_quantity_price_consent: '' }, { quantity_creation_request_id: 'bad' }, { grade_rows_json: '[]' },
   { quantity_tiers_json: JSON.stringify([{ minKg: '5000', priceUsdPerKg: '6' }, { minKg: '1000', priceUsdPerKg: '7' }]) },
   { quantity_currency: 'GBP' },
@@ -97,9 +100,10 @@ supplier.fob_publicly_visible = true;
 failRpc = true;
 assert.equal((await exports.saveSupplierProductAction(form())).ok, false, 'RPC failure is not reported as success');
 failRpc = false; calls = [];
-const result = await exports.saveSupplierProductAction(form({ ref_price: '7', ref_price_max: '8', unit: 'kg', currency: 'USD', price_valid_until: '2030-01-01' }));
+const result = await exports.saveSupplierProductAction(form({ name: 'Nhân điều W240, W320', ref_price: '7', ref_price_max: '8', unit: 'kg', currency: 'USD', price_valid_until: '2030-01-01' }));
 assert.equal(result.ok, true); assert.equal(result.id, productId); assert.equal(calls.length, 1);
 assert.equal(calls[0].name, 'create_supplier_product_with_quantity');
+assert.equal(calls[0].args.p_product.name, 'Nhân điều W240, W320');
 assert.equal(calls[0].args.p_product.ref_price, null); assert.equal(calls[0].args.p_product.price_valid_until, null);
 assert.equal(calls[0].args.p_tiers[0].minKg, 1000); assert.equal(calls[0].args.p_english_name, null, 'Old English payload is ignored');
 assert.ok(calls[0].args.p_warnings.length, 'Price outside grade bounds is a warning, not a block');
@@ -140,7 +144,7 @@ assert.equal(saved.unit, 'MT'); assert.equal(saved.moq, 'Container'); assert.equ
 assert.equal(saved.specs.grade_rows[0].price_min, 7); assert.equal(saved.specs.grade, 'W320');
 assert.equal(saved.name_i18n.en, 'Old approved name', 'Approved English name is not overwritten during a normal edit');
 assert.equal(translations, count);
-assert.equal((await exports.saveSupplierProductAction(form({ product_id: productId, name: 'Nhân điều W320' }))).ok, false, 'Changing the name cannot add grade');
+assert.equal((await exports.saveSupplierProductAction(form({ product_id: productId, name: 'Nhân điều W320' }))).ok, true, 'Changing the name may include grade');
 console.log('New quantity product: server validation, strict ownership, consent, atomic RPC, AI trigger, guarded writes and preserved legacy buyer price passed');
 saved = null; calls = [];
 const v2input = { quantity_version: '2', quantity_grade: 'Special', quantity_unit: 'mt', quantity_custom_grade: 'yes', incoterm_place: 'Hồ Chí Minh', quantity_tiers_json: JSON.stringify([{ quantity: '100', price: '75.00' }]) };
@@ -211,3 +215,14 @@ assert.doesNotMatch(changedProduct.message, /chưa có bảng giá/);
 submitStatus = 'submitted';
 assert.equal((await exports.submitSupplierProductAction(submitForm())).ok, true);
 console.log('Quantity submit guard: missing price and changed product report different next steps');
+
+// Removing the legacy packaging control must not erase previously saved packaging.
+saved = { ...saved, id: productId, supplier_id: supplierId, name: 'Nhân điều', packaging: 'Legacy packaging', supplier_review_status: 'draft', supplier_originated: true };
+const packagingEdit = form({ product_id: productId, name: 'Nhân điều W320' });
+assert.equal(packagingEdit.has('packaging'), false);
+assert.equal((await exports.saveSupplierProductAction(packagingEdit)).ok, true);
+assert.equal(saved.packaging, 'Legacy packaging');
+const editorSource = readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(editorSource, /name="packaging"/);
+for (const field of ['package_type', 'package_weight_kg', 'units_per_carton', 'package_size']) assert.ok(editorSource.includes(`name="${field}"`));
+console.log('Packaging input removed; remaining fields and previously saved packaging preserved.');

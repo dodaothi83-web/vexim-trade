@@ -27,7 +27,7 @@ res = check({ unit: 'kg', tiers: [{ quantity: '1,5', price: '6' }] }); assert.ok
 res = check({ unit: 'kg', tiers: [{ quantity: '1000', price: '6.401' }] }); assert.ok(res.errors.some((e) => e.code === 'price'));
 res = check({ unit: 'kg', tiers: [{ quantity: '1', price: '6.00' }, { quantity: '1', price: '7' }] }); assert.ok(res.errors.some((e) => e.code === 'price_order')); assert.ok(res.errors.some((e) => e.code === 'quantity_order'));
 res = check({ unit: 'kg', tiers: [{ quantity: '1', price: '6.01' }, { quantity: '101', price: '4' }] }); assert.ok(res.errors.some((e) => e.code === 'price_spread')); assert.ok(res.errors.some((e) => e.code === 'quantity_spread'));
-res = check({ nameVi: 'Hạt điều W320' }); assert.ok(res.errors.some((e) => e.code === 'name_vi_grade'));
+res = check({ nameVi: 'Hạt điều W320, W240' }); assert.equal(res.errors.length, 0);
 res = check({ grade: 'AA-custom', customGrade: true, nameVi: 'Nhân điều', tiers: [{ quantity: '1000', price: '1' }] }); assert.equal(res.value.customGrade, true); assert.equal(res.warnings.length, 0);
 res = check({ grade: 'W320', customGrade: true }); assert.ok(res.errors.some((e) => e.code === 'grade'), 'Standard grade must not masquerade as unverified custom grade');
 res = check({ tiers: Array.from({ length: 5 }, (_, i) => ({ quantity: String(i + 1), price: '6' })) }, { ...policy, maxTiers: 20 }); assert.ok(res.errors.some((e) => e.code === 'tier_count'));

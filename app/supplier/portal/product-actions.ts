@@ -24,7 +24,7 @@ import {
   cleanSupplierGrade, mergeSupplierGradeOptions, standardGradesForCategory, SUPPLIER_GRADE_LIMIT, supplierGradeOptions,
 } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
-import { entryCurrencyIssue, issueMessage, nameContainsGrade, validateQuantityPricing } from "@/lib/products/quantity-pricing";
+import { entryCurrencyIssue, issueMessage, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 import type { QuantityRevisionTierV2 } from "@/lib/products/quantity-revision-v2";
 import { deleteObject } from "@/lib/media/storage";
@@ -75,7 +75,8 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
     moq_qty: existing?.moq_qty ?? null, moq_unit: existing?.moq_unit ?? null, monthly_capacity: text(form, "monthly_capacity", 180) || null,
     raw_material_region: text(form, "raw_material_region", 180) || null,
     input_material_origin: text(form, "input_material_origin", 300) || null,
-    lead_time_days: daysRaw ? Number(daysRaw) : null, packaging: text(form, "packaging", 300) || null,
+    lead_time_days: daysRaw ? Number(daysRaw) : null,
+    packaging: form.has("packaging") ? text(form, "packaging", 300) || null : existing?.packaging ?? null,
     oem: form.get("oem") === "yes", odm: form.get("odm") === "yes", samples: form.get("samples") === "yes",
     // Không còn ô chứng nhận tự khai ở trang sản phẩm: hồ sơ Giấy tờ L1 (AI quét đơn vị đứng tên
     // và ngày hết hạn) là nguồn duy nhất. Giữ giá trị cũ nếu đã được ghi trước đây.
@@ -160,8 +161,6 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       input.category = existing.reviewed_category_slug ?? input.category;
     }
     let category = allCategories.find((c) => c.slug === input.category) ?? null;
-    if (existing && input.name !== existing.name && category && nameContainsGrade(input.name, standardGradesForCategory(category)))
-      return { ok: false, message: a.gradeInName };
     // New products and their private quantity table must be created together.
     // Validate everything against live category and policy, not client defaults.
     let newQuantity: { grade: string; incoterm: string; currency?: string; tiers: { minKg: number; priceUsdPerKg: number; incoterm?: string; currency?: string }[] | QuantityRevisionTierV2[]; warnings: unknown[]; requestId: string } | null = null;
@@ -441,9 +440,6 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
       : product.supplier_category_proposal;
     if (!proposal || !options.some((c) => c.slug === proposal))
       return { ok: false, message: a.submitNeedCategory };
-    const submissionCategory = publishedCategories.find((category) => category.slug === proposal);
-    const includedGrade = submissionCategory && standardGradesForCategory(submissionCategory).find((grade) => nameContainsGrade(product.name, [grade]));
-    if (includedGrade) return { ok: false, message: fill(a.gradeInNameNamed, { grade: includedGrade }) };
     const media = await store.listMedia("product", id);
     if (!media.some((m) => m.kind === "image" && m.storage_path &&
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {
@@ -507,7 +503,6 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
         const category = await supabaseStore.getCategoryBySlug(proposal);
         if (!category) throw new Error(a.submitCategoryGrades);
         const result = await ensureProductEnglishTranslation(store, id, { id: access.user.id, email: access.user.email }, undefined, {
-          forbiddenGrades: standardGradesForCategory(category),
           saveIfUnchanged: async (loaded, patch) => {
             if (loaded.updated_at !== submitted!.updated_at) return null;
             const { data, error } = await translationDb.from("supplier_products").update({ ...patch, updated_at: new Date().toISOString() })

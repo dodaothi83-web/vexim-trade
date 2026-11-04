@@ -24,19 +24,22 @@ const translation = {
 };
 const service = compile('../lib/ai/product-translation-service.ts', { 'server-only': {}, '@/lib/ai/translate-content': translation, '@/lib/products/quantity-pricing': pricing });
 const invoke = (options) => service.ensureProductEnglishTranslation(store, product.id, { id: 'staff', email: 'staff@example.com' }, undefined, options);
-let result = await invoke({ forbiddenGrades: ['W320'], saveIfUnchanged: async (loaded, patch) => { assert.equal(loaded.updated_at, 'v1'); return { ...loaded, ...patch }; } });
+let result = await invoke({ saveIfUnchanged: async (loaded, patch) => { assert.equal(loaded.updated_at, 'v1'); return { ...loaded, ...patch }; } });
 assert.equal(result.status, 'translated'); assert.equal(result.product.name_i18n.en, 'Cashew kernels'); assert.equal(writes, 0); assert.equal(audits, 1);
 aiName = 'Cashew kernels W320';
-result = await invoke({ forbiddenGrades: ['W320'], saveIfUnchanged: async () => { throw Error('must not save invalid name'); } });
-assert.equal(result.status, 'failed'); assert.match(result.message, /grade/); assert.equal(audits, 1);
+result = await invoke({ saveIfUnchanged: async (loaded, patch) => ({ ...loaded, ...patch }) });
+assert.equal(result.status, 'translated'); assert.equal(result.product.name_i18n.en, 'Cashew kernels W320'); assert.equal(audits, 2);
+aiName = '';
+result = await invoke({ saveIfUnchanged: async () => { throw Error('must not save empty name'); } });
+assert.equal(result.status, 'failed');
 aiName = 'Cashew kernels';
-result = await invoke({ forbiddenGrades: ['W320'], saveIfUnchanged: async () => null });
+result = await invoke({ saveIfUnchanged: async () => null });
 assert.equal(result.status, 'failed'); assert.match(result.message, /đã thay đổi/); assert.equal(writes, 0);
 configured = false; result = await invoke(); assert.equal(result.status, 'unconfigured');
 configured = true; throwAi = true; result = await invoke(); assert.equal(result.status, 'failed'); assert.equal(writes, 0);
 throwAi = false; current = true; result = await invoke(); assert.equal(result.status, 'current'); assert.equal(writes, 0);
 product = { ...product, name_i18n: { en: 'Cashew W320' } };
-result = await invoke({ forbiddenGrades: ['W320'] }); assert.equal(result.status, 'failed'); assert.match(result.message, /grade/);
+result = await invoke(); assert.equal(result.status, 'current');
 
 let staffPatch = null;
 const crmStore = { getProduct: async () => ({ ...product, category: 'cashew' }), getCategoryBySlug: async () => ({ slug: 'cashew' }), updateProduct: async (_id, patch) => { staffPatch = patch; return { ...product, ...patch }; }, addAuditLog: async () => {} };
@@ -45,10 +48,10 @@ const crm = compile('../app/crm/products/[slug]/edit/review-actions.ts', {
   '@/lib/db': { getStore: () => crmStore }, '@/lib/db/supabase': {}, '@/lib/supplier-portal/category-proposals': {}, '@/lib/crm/badges': {}, '@/lib/supplier-portal/notify': {},
   '@/lib/ai/product-translation-service': service, '@/lib/ai/translate-content': { productTranslationPatch: (value) => ({ name_i18n: { en: value.name } }) },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (value) => value }, '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] }, '@/lib/products/quantity-pricing': pricing,
-  '@/lib/media/readiness': {}, '@/lib/public/product-selection': {}, '@/lib/public/supplier-seo': {},
+  '@/lib/products/price-context-diff': {}, '@/lib/media/readiness': {}, '@/lib/public/product-selection': {}, '@/lib/public/supplier-seo': {},
 });
 const form = new FormData(); form.set('product_id', product.id); form.set('name_en', 'Cashew kernels W320');
-result = await crm.saveProductEnglishAction(form); assert.equal(result.ok, false); assert.match(result.message, /grade/); assert.equal(staffPatch, null);
+result = await crm.saveProductEnglishAction(form); assert.equal(result.ok, true); assert.equal(staffPatch.name_i18n.en, 'Cashew kernels W320');
 form.set('name_en', 'Vietnamese cashew kernels'); result = await crm.saveProductEnglishAction(form);
 assert.equal(result.ok, true); assert.equal(staffPatch.name_i18n.en, 'Vietnamese cashew kernels');
-console.log('Supplier AI translation: configured/failure, grade validation, guarded writes and staff edits passed');
+console.log('Supplier AI translation: configured/failure, grade-preserving titles, guarded writes and staff edits passed');

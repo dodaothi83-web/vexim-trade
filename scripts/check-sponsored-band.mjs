@@ -132,7 +132,7 @@ assert.doesNotMatch(band, /quoteHref=/, "Thẻ tài trợ không tự dựng CTA
 assert.match(band, /const href = `\/products\/\$\{encodeURIComponent\(categorySlug\)\}/, "Thẻ tài trợ dẫn sang trang sản phẩm");
 assert.doesNotMatch(band, /\/rfq\?/, "Thẻ tài trợ không dựng link RFQ");
 assert.match(band, /grades=\{cardTitleGrades\(product\)\}/,
-  "Thẻ tài trợ dùng đúng danh sách grade để bỏ grade khỏi tên: bảng Grade và giá cộng grade chính");
+  "Thẻ tài trợ truyền grade độc lập với tên sản phẩm");
 assert.match(band, /gradeRows=\{product\.gradeRows\}/, "Thẻ tài trợ truyền đủ dòng giá theo grade");
 assert.match(band, /incoterm=\{product\.incoterm\}/, "Thẻ tài trợ truyền đủ Incoterm");
 

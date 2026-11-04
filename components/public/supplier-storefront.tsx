@@ -210,7 +210,7 @@ export function SupplierStorefront({
           const rawGradeRows = Array.isArray((p.specs as Record<string, unknown> | undefined)?.grade_rows)
             ? ((p.specs as Record<string, unknown>).grade_rows as Array<Record<string, unknown>>)
             : [];
-          // Sản phẩm cũ chỉ lưu grade trong thuộc tính; gom vào danh sách để bỏ khỏi tên thẻ.
+          // Giữ metadata grade của sản phẩm cũ; tên hiển thị không bị xóa grade.
           const legacyGradeText = typeof (p.specs as Record<string, unknown> | undefined)?.grade === "string"
             ? String((p.specs as Record<string, unknown>).grade).trim()
             : "";
