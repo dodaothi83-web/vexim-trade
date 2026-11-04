@@ -42,6 +42,7 @@ export type SupplierProfileEnglishFields = {
   products?: string;
   markets?: string;
   capacity_per_month?: string;
+  annual_output?: string;
   payment_terms?: string;
   ports?: string[];
   incoterms?: string[];
@@ -113,6 +114,8 @@ export interface Supplier {
     /** Phiên bản parser dịch; cache thiếu phiên bản được xem là cần kiểm tra lại. */
     version?: number;
     source_hash: string;
+    /** Source snapshot for annual-output cache freshness during asynchronous translation. */
+    annual_output_source?: string;
     translated_at: string;
     origin: "ai" | "staff";
     model?: string | null;
@@ -123,7 +126,9 @@ export interface Supplier {
     /** Cache bản tiếng Anh của các trường hồ sơ khác, nằm trong JSONB hiện có để không cần thêm cột. */
     fields?: SupplierProfileEnglishFields;
   } | null;
-  /** Công suất tháng mô tả text */
+  /** Supplier-declared annual output, with its stated unit. Never inferred from monthly capacity. */
+  annual_output?: string | null;
+  /** Legacy monthly capacity, retained without annual conversion. */
   capacity_per_month?: string | null;
   /** Cảng xuất (mảng) */
   ports?: string[];

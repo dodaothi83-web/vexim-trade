@@ -46,7 +46,7 @@ export function resolveLocale(value: string | null | undefined): Locale {
  * không nằm trong danh sách này.
  */
 export function isLocalizedAuthPath(pathname: string): boolean {
-  return /^\/(?:login|register|auth|supplier\/register)(?:\/|$)/.test(pathname);
+  return /^\/(?:login|sign-in|register|auth|supplier\/register)(?:\/|$)/.test(pathname);
 }
 
 /**

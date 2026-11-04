@@ -67,3 +67,14 @@ export function supplierPortsDisplay(supplier: Pick<Supplier, "ports" | "profile
 export function supplierIncotermsDisplay(supplier: Pick<Supplier, "incoterms" | "profile_translation_meta">): string[] {
   return listDisplay(supplier.profile_translation_meta?.fields?.incoterms, supplier.incoterms);
 }
+
+/** Annual output has its own source/cache; never reuse a monthly translation. */
+export function supplierAnnualOutputDisplay(supplier: Pick<Supplier, "annual_output" | "profile_translation_meta">): string {
+  if (!supplier.annual_output?.trim()) return "";
+  const source = supplier.annual_output.replace(/\s+/g, " ").trim();
+  const meta = supplier.profile_translation_meta;
+  const english = meta?.annual_output_source === source ? meta.fields?.annual_output?.trim() : "";
+  return publicProductCapacityDisplay(english || source)
+    .replace(/\s*\/\s*năm\b/gi, " per year")
+    .replace(/\bmỗi\s+năm\b/gi, "per year");
+}

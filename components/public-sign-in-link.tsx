@@ -89,7 +89,7 @@ export function PublicSignInLink({ lang = "en", buyerEmail = null, buyerCompanyN
   );
   return (
     <Link
-      href="/register"
+      href="/sign-in"
       prefetch={false}
       lang={lang}
       aria-label={label}

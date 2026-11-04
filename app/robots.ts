@@ -41,6 +41,8 @@ export default function robots(): MetadataRoute.Robots {
     "/auth/",
     "/login",
     "/login/",
+    "/sign-in",
+    "/sign-in/",
     "/_next/",
   ];
 

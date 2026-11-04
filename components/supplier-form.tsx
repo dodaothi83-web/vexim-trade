@@ -74,6 +74,7 @@ function init(s?: Supplier | null): FormState {
     intro_source: s?.intro_source ?? "",
     moq_text: s?.moq_text ?? "",
     capacity_per_month: s?.capacity_per_month ?? "",
+    annual_output: s?.annual_output ?? "",
     ports: s?.ports ?? [],
     incoterms: s?.incoterms ?? [],
     export_markets: s?.export_markets ?? [],
@@ -532,7 +533,8 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
             <SectionHead icon={Truck} title="Điều kiện thương mại" sub="Điều kiện bán hàng hiển thị cho người mua khi hồ sơ công khai." />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="MOQ"><input className="input" value={str("moq_text")} onChange={(e) => set("moq_text", e.target.value)} /></Field>
-              <Field label="Công suất mỗi tháng"><input className="input" value={str("capacity_per_month")} onChange={(e) => set("capacity_per_month", e.target.value)} /></Field>
+              <Field label="Sản lượng hàng năm"><input className="input" maxLength={180} value={str("annual_output")} onChange={(e) => set("annual_output", e.target.value)} /></Field>
+              <Field label="Công suất tháng (dữ liệu cũ)"><input className="input" readOnly value={str("capacity_per_month")} /></Field>
               <Field label="Thời gian giao hàng (ngày)"><input type="number" className="input" value={str("lead_time_days")} onChange={(e) => set("lead_time_days", e.target.value)} /></Field>
               <Field label="Điều khoản thanh toán"><input className="input" value={str("payment_terms")} onChange={(e) => set("payment_terms", e.target.value)} /></Field>
               <Field label="Thị trường đã phục vụ" className="sm:col-span-2"><input className="input" value={str("markets")} onChange={(e) => set("markets", e.target.value)} /></Field>

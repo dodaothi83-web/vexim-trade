@@ -118,8 +118,7 @@ export default async function SupplierProfilePage() {
           <dl className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
             <Info label={f.products} value={supplier.products} />
             <Info label={f.markets} value={marketText} />
-            <Info label={f.capacity} value={supplier.capacity_per_month} />
-            <Info label={f.moq} value={supplier.moq_text} />
+            <Info label={f.annualOutput} value={supplier.annual_output} />
             <Info label={f.paymentTerms} value={supplier.payment_terms} />
             <Info label={f.ports} value={join(supplier.ports)} />
             <Info label={f.incoterms} value={join(supplier.incoterms)} />

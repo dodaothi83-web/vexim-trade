@@ -78,8 +78,7 @@ export function SupplierProfileEditForm({ supplier, email, messages: m, types, l
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <Field label={m.labels.foundedYear} name="founded_year" type="number" min={0} max={new Date().getFullYear()} defaultValue={String(supplier.founded_year ?? "")} />
         <Field label={m.labels.employees} name="employees" type="number" min={0} max={1000000} defaultValue={String(supplier.employees ?? "")} />
-        <Field label={m.labels.capacity} name="capacity_per_month" maxLength={180} defaultValue={supplier.capacity_per_month ?? ""} />
-        <Field label={m.labels.moq} name="moq_text" maxLength={180} defaultValue={supplier.moq_text ?? ""} />
+        <Field label={m.labels.annualOutput} name="annual_output" placeholder={m.labels.annualOutputPlaceholder} maxLength={180} defaultValue={supplier.annual_output ?? ""} />
         <Field label={m.labels.leadTime} name="lead_time_days" type="number" min={0} max={3650} defaultValue={String(supplier.lead_time_days ?? "")} />
         <Field label={m.labels.markets} name="markets" maxLength={800} defaultValue={supplier.markets ?? ""} />
         <Field label={m.labels.exportMarkets} name="export_markets" maxLength={800} defaultValue={supplier.export_markets?.join(", ") ?? ""} />
@@ -102,11 +101,11 @@ function Readonly({ label, value, empty }: { label: string; value: string | null
   return <div><dt className="text-xs font-semibold text-ink-500">{label}</dt><dd className="mt-1 break-words font-medium text-ink-800">{value || empty}</dd></div>;
 }
 
-function Field({ label, name, required, maxLength, defaultValue, type = "text", min, max }: {
+function Field({ label, name, required, maxLength, defaultValue, type = "text", min, max, placeholder }: {
   label: string; name: string; required?: boolean; maxLength?: number; defaultValue?: string;
-  type?: string; min?: number; max?: number;
+  type?: string; min?: number; max?: number; placeholder?: string;
 }) {
   return <label className="block text-sm"><span className="mb-1 block font-semibold">{label}</span>
-    <input name={name} type={type} required={required} maxLength={maxLength} min={min} max={max} defaultValue={defaultValue} className="input" />
+    <input name={name} placeholder={placeholder} type={type} required={required} maxLength={maxLength} min={min} max={max} defaultValue={defaultValue} className="input" />
   </label>;
 }

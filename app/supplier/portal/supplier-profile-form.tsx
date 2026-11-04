@@ -135,8 +135,7 @@ export function SupplierProfileFields({ supplier, email, categories, categoryReq
         <Field label={m.publicPage.labels.zalo} name="zalo" maxLength={40} defaultValue={supplier?.zalo ?? ""} />
         <Field label={m.publicPage.labels.foundedYear} name="founded_year" maxLength={4} inputMode="numeric" defaultValue={String(supplier?.founded_year ?? "")} />
         <Field label={m.publicPage.labels.employees} name="employees" maxLength={8} inputMode="numeric" defaultValue={String(supplier?.employees ?? "")} />
-        <Field label={m.publicPage.labels.capacity} name="capacity_per_month" maxLength={180} defaultValue={supplier?.capacity_per_month ?? ""} />
-        <Field label={m.publicPage.labels.moq} name="moq_text" maxLength={180} defaultValue={supplier?.moq_text ?? ""} />
+        <Field label={m.publicPage.labels.annualOutput} name="annual_output" placeholder={m.publicPage.labels.annualOutputPlaceholder} maxLength={180} defaultValue={supplier?.annual_output ?? ""} />
         <Field label={m.publicPage.labels.leadTime} name="lead_time_days" maxLength={5} inputMode="numeric" defaultValue={String(supplier?.lead_time_days ?? "")} />
         <Field label={m.publicPage.labels.markets} name="markets" maxLength={800} defaultValue={supplier?.markets ?? ""} />
         <Field label={m.publicPage.labels.exportMarkets} name="export_markets" maxLength={800} defaultValue={supplier?.export_markets?.join(", ") ?? ""} />
