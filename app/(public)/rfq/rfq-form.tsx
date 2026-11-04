@@ -31,6 +31,7 @@ interface CategorySpec {
 }
 
 interface Props {
+  buyerEmail?: string;
   questionImageUrl?: string | null;
   questionQuoteHref?: string;
   onQuestionSuccess?: (url: string) => void;
@@ -79,6 +80,7 @@ const DEFAULT_CERTS = ["HACCP", "BRCGS", "ISO 22000", "FSSC 22000", "Halal", "Ko
  * thông báo lỗi nào. Một trang + một hàm validate duy nhất loại bỏ hẳn loại lỗi đó.
  */
 export function RfqForm({
+  buyerEmail = "",
   questionImageUrl,
   questionQuoteHref,
   onQuestionSuccess,
@@ -134,7 +136,7 @@ export function RfqForm({
     // Company
     company: "",
     contact_name: "",
-    email: "",
+    email: buyerEmail,
     phone: "",
     country: "",
     website: "",
@@ -328,7 +330,7 @@ export function RfqForm({
             </Field>
           </div>
           <Field label="Work email" required error={errors.email} hint="Supplier replies go to this email." id="rfq-email">
-            <input id="rfq-email" autoComplete="email" type="email" className="input" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="jane@company.com" />
+            <input id="rfq-email" readOnly={Boolean(buyerEmail)} autoComplete="email" type="email" className="input" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="jane@company.com" />
           </Field>
           {honeypotControl}
           {challengeControl}
@@ -528,7 +530,7 @@ export function RfqForm({
                 <input id="rfq-contact_name" autoComplete="name" className="input" value={data.contact_name} onChange={(e) => update("contact_name", e.target.value)} />
               </Field>
               <Field label="Work email" required error={errors.email} id="rfq-email">
-                <input id="rfq-email" autoComplete="email" type="email" className="input" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="name@company.com" />
+                <input id="rfq-email" readOnly={Boolean(buyerEmail)} autoComplete="email" type="email" className="input" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="name@company.com" />
               </Field>
             </div>
           </div>

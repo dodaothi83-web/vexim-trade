@@ -42,6 +42,7 @@ const NAV: {
   { href: "/crm/dashboard", label: "Tổng quan sàn", icon: LayoutDashboard, group: "marketplace" },
   { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view", group: "marketplace" },
   { href: "/crm/products", label: "Sản phẩm nhà cung cấp", icon: Boxes, perm: "products.view", group: "marketplace" },
+  { href: "/crm/sourcing", label: "Yêu cầu tìm nguồn", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/rfqs", label: "RFQ từ người mua", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/verifications", label: "Xác minh nhà cung cấp", icon: ShieldCheck, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/verifications/submissions", label: "Hồ sơ nhà cung cấp tự gửi", icon: UploadCloud, perm: "verifications.view", group: "marketplace" },
@@ -76,6 +77,8 @@ export function Sidebar({
   pendingSubmissions = 0,
   pendingCertificates = 0,
   pendingSponsoredRequests = 0,
+  pendingSourcing = 0,
+  pendingRfqs = 0,
 }: {
   dataMode: "supabase" | "local";
   dataDegraded?: boolean;
@@ -96,6 +99,8 @@ export function Sidebar({
   pendingCertificates?: number;
   /** Yêu cầu đẩy sản phẩm mới chờ liên hệ; null nếu chưa đếm được. */
   pendingSponsoredRequests?: number | null;
+  pendingSourcing?: number | null;
+  pendingRfqs?: number;
   session: { name: string; email: string; role: UserRole };
   permissions: Permission[];
 }) {
@@ -133,6 +138,8 @@ export function Sidebar({
                   const Icon = item.icon;
                   // Badge = số việc đang chờ đúng khu vực đó, giống số thư chưa đọc.
                   const badge = item.href === "/crm/mail" ? (unreadMail > 0 ? { text: String(unreadMail), title: "Thư đến chưa đọc" } : null)
+                    : item.href === "/crm/sourcing" ? (pendingSourcing === null ? { text: "!", title: "Chưa tải được yêu cầu tìm nguồn" } : pendingSourcing > 0 ? { text: `${pendingSourcing} mới`, title: "Yêu cầu tìm nguồn mới" } : null)
+                    : item.href === "/crm/rfqs" ? (pendingRfqs > 0 ? { text: `${pendingRfqs} chờ`, title: "Yêu cầu người mua đang chờ xử lý" } : null)
                     : item.href === "/crm/buyers" ? (newBuyers > 0 ? { text: `${newBuyers} mới`, title: "Người mua mới chưa xử lý" } : null)
                     : item.href === "/crm/suppliers" ? (pendingSuppliers > 0 ? { text: `${pendingSuppliers} mới`, title: "Tài khoản nhà cung cấp chưa nộp hồ sơ hoặc chờ xác nhận" } : null)
                     : item.href === "/crm/products" ? (pendingProducts > 0 ? { text: `${pendingProducts} chờ`, title: "Sản phẩm chờ duyệt" } : null)

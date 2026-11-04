@@ -193,8 +193,8 @@ export function buildRfqShortlistBuyerEmail(input: {
       <li>Your identity stays private from suppliers until you agree to be introduced.</li>
     </ul>
 
-    <p>Reply to this email with any question, or follow the request at your private link:<br/>
-    <a href="${SITE_URL}/rfq/status/${rfq.access_token}">${SITE_URL}/rfq/status/${rfq.access_token}</a></p>
+    <p>Reply to this email with any question, or view the request in your buyer account:<br/>
+    <a href="${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}">View enquiry</a></p>
 
     <p>${escapeHtml(COMPANY.name)}<br/>Export Department</p>
   `;

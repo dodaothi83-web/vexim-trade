@@ -69,14 +69,25 @@ assert.equal(profileWrites.at(-1)[1].company_name, 'My company');
 const icon = () => null;
 let lang = 'en';
 let redirectAttempt = false;
+const sourcingStatus = load('lib/sourcing/status.ts', {});
+const SourcingHistory = load('components/buyer-sourcing-history.tsx', {
+  'react/jsx-runtime': jsx,
+  'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
+  '@/lib/sourcing/status': sourcingStatus,
+});
 const dashboard = load('app/(public)/buyer/account/page.tsx', {
+  '@/components/buyer-sourcing-history': SourcingHistory,
+  '@/lib/sourcing/store': { sourcingStore: () => ({ listSourcingRequests: async (email) => {
+    assert.equal(email, session.email);
+    return [{ id: 'my-sourcing', content: 'My sourcing requirement', status: 'new', created_at: '2026-11-04T00:00:00Z', internal_note: 'SOURCING SECRET', assigned_to: 'PRIVATE ASSIGNEE' }];
+  } }) },
   'react/jsx-runtime': jsx,
   'next/link': { default: ({ children, prefetch, ...props }) => React.createElement('a', props, children) },
   'lucide-react': new Proxy({}, { get: () => icon }),
   '@/lib/auth/buyer-session': { requireBuyerSession: async (next) => { assert.ok(next.startsWith('/buyer/account')); if (redirectAttempt) throw new Error('redirect'); return session; } },
   '@/lib/db': { getStore: () => ({
     getBuyerUserByEmail: async () => ({ email: session.email, company_name: 'My company', verified_at: 'today', saved: { products: [{ id: 'hidden', href: 'javascript:evil()', name: 'PRIVATE SNAPSHOT' }], comparisons: [] } }),
-    listBuyerRfqsByEmail: async (email) => { assert.equal(email, session.email); return [{ id: 'mine', code: 'RFQ-1', product_text: 'My product request', status: 'new', created_at: '2026-11-04T00:00:00Z', access_token: 'my-token', internal_notes: 'NEVER RENDER THIS' }]; },
+    listBuyerRfqsByEmail: async (email) => { assert.equal(email, session.email); return [{ id: 'mine', code: 'RFQ-1', product_text: 'My product request', status: 'new', created_at: '2026-11-04T00:00:00Z', access_token: 'my-token', internal_notes: 'NEVER RENDER THIS' }, { id: 'my-question', code: 'RFQ-2', product_text: 'My product question', status: 'matching', created_at: '2026-11-04T00:00:00Z', access_token: 'question-token', specs: { inquiry_kind: 'supplier_question' } }]; },
     listCategories: async () => [],
   }) },
   '@/lib/i18n/server': { getLocale: async () => lang },
@@ -100,8 +111,14 @@ for (const locale of ['en', 'vi']) {
     const tree = await dashboard.default({ searchParams: Promise.resolve({ tab }) });
     const html = renderToStaticMarkup(await resolve(tree));
     assert.ok(html.includes(`lang="${locale}"`));
-    assert.doesNotMatch(html, /NEVER RENDER THIS|javascript:|PRIVATE SNAPSHOT|href="\/products"/);
-    if (tab === 'requests' || tab === 'overview') assert.match(html, /\/rfq\/status\/my-token/);
+    assert.doesNotMatch(html, /NEVER RENDER THIS|SOURCING SECRET|PRIVATE ASSIGNEE|javascript:|PRIVATE SNAPSHOT|href="\/products"/);
+    if (tab === 'requests' || tab === 'overview') {
+      assert.match(html, /\/buyer\/account\/sourcing\/my-sourcing/);
+      assert.match(html, /\/buyer\/account\/requests\/mine/);
+      assert.match(html, /\/buyer\/account\/requests\/my-question/);
+      assert.ok(html.includes(locale === 'vi' ? 'Câu hỏi sản phẩm' : 'Product enquiry'));
+      assert.ok(html.includes(locale === 'vi' ? 'Yêu cầu báo giá' : 'Quote request'));
+    }
     if (tab === 'saved') assert.match(html, /data-remove-id="hidden"/);
     if (tab === 'profile') assert.match(html, /me@example.com/);
   }

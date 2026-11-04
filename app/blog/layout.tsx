@@ -1,7 +1,9 @@
 import { getBuyerSession, getBuyerUser } from "@/lib/auth/buyer-session";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
+import { BuyerEnquiryAuthProvider } from "@/components/buyer-enquiry-auth";
+import { SourcingComposerTrigger } from "@/components/sourcing-composer";
+import { buyerAuthMessages } from "@/lib/i18n/buyer-auth";
 
 import { Logo } from "@/components/brand-logo";
 import { PublicSignInLink } from "@/components/public-sign-in-link";
@@ -13,6 +15,7 @@ export default async function BlogLayout({ children }: { children: ReactNode }) 
   // A profile lookup failure must not prevent public pages from loading.
   const buyerAccount = buyerSession ? await getBuyerUser().catch(() => null) : null;
   return (
+    <BuyerEnquiryAuthProvider buyerEmail={buyerSession?.email ?? null} locale="en" messages={buyerAuthMessages.en}>
     <div className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
       <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 backdrop-blur">
@@ -26,15 +29,7 @@ export default async function BlogLayout({ children }: { children: ReactNode }) 
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-3 md:ml-0">
             <PublicSignInLink buyerEmail={buyerSession?.email ?? null} buyerCompanyName={buyerAccount?.company_name ?? null} />
-            <Link
-              href="/#send"
-              aria-label="Request a quote"
-              className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-md bg-brand-600 px-3 text-[12px] font-semibold text-white transition hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 sm:px-5 sm:text-[15px]"
-            >
-              <span className="sm:hidden">Quote</span>
-              <span className="hidden sm:inline">Request a quote</span>
-              <ArrowRight className="hidden h-4 w-4 sm:block" aria-hidden="true" />
-            </Link>
+            <SourcingComposerTrigger />
           </div>
         </div>
       </header>
@@ -43,5 +38,6 @@ export default async function BlogLayout({ children }: { children: ReactNode }) 
 
       <SiteFooter />
     </div>
+    </BuyerEnquiryAuthProvider>
   );
 }

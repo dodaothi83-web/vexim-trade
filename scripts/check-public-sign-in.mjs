@@ -28,6 +28,13 @@ const Link = ({ href, children, prefetch: _prefetch, ...props }) => React.create
 const icons = new Proxy({}, { get: () => (props) => React.createElement('svg', props) });
 const common = { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'lucide-react': icons };
 const signIn = load('../components/public-sign-in-link.tsx', { ...common, '@/app/(public)/buyer/sign-in/actions': { signOutBuyerAction: async () => {} } });
+const sourcingComposer = load('../components/sourcing-composer.tsx', {
+  ...common,
+  '@/components/buyer-enquiry-auth': { useBuyerEnquiryAuth: () => ({ requireBuyer() {} }) },
+  '@/components/form-challenge': { FormChallenge: () => null },
+  '@/lib/browser/dialog-scroll-lock': { lockDialogScroll: () => () => {} },
+  '@/lib/sourcing/files': { SOURCING_MAX_FILES: 3, SOURCING_MAX_FILE_BYTES: 2097152 },
+});
 let params = new URLSearchParams();
 let suspend = false;
 const nav = {
@@ -39,7 +46,7 @@ const nav = {
   },
 };
 const { PublicHeaderControls } = load('../components/public-header-controls.tsx', {
-  ...common, 'next/navigation': nav, '@/components/public-sign-in-link': signIn,
+  ...common, 'next/navigation': nav, '@/components/public-sign-in-link': signIn, '@/components/sourcing-composer': sourcingComposer,
 });
 
 function assertSignIn(html, lang, label) {
@@ -56,22 +63,24 @@ function assertSignIn(html, lang, label) {
 
 let html = renderToStaticMarkup(React.createElement(PublicHeaderControls));
 assertSignIn(html, 'en', 'Sign in');
-assert.match(html, /href="\/rfq"[^>]*aria-label="Request a quote"/);
+assert.match(html, /<button[^>]*aria-label="Sourcing request"/);
+assert.doesNotMatch(html, /href="\/rfq"/);
 assert.match(html, /Language switcher \/ Chuyển đổi ngôn ngữ/);
 assert.match(html, /href="\/for-suppliers"/);
 
 params = new URLSearchParams('lang=vi');
 html = renderToStaticMarkup(React.createElement(PublicHeaderControls));
 assertSignIn(html, 'vi', 'Đăng nhập');
-assert.match(html, /href="\/rfq"[^>]*aria-label="Yêu cầu báo giá"/);
+assert.match(html, /<button[^>]*aria-label="Yêu cầu tìm nguồn"/);
 assert.match(html, /href="\/\?lang=vi#categories"/);
-assert.match(html, /Báo giá/);
+assert.match(html, /Tìm nguồn/);
 
 // The Suspense fallback must remain usable while search parameters are loading.
 suspend = true;
 html = renderToStaticMarkup(React.createElement(PublicHeaderControls));
 assertSignIn(html, 'en', 'Sign in');
-assert.match(html, /href="\/rfq"[^>]*aria-label="Request a quote"/);
+assert.match(html, /<button[^>]*aria-label="Sourcing request"/);
+assert.doesNotMatch(html, /href="\/rfq"/);
 suspend = false;
 
 // Authenticated header opens account details rather than routing back to registration.
@@ -91,6 +100,9 @@ suspend = false;
 
 const nothing = () => null;
 const layoutMocks = {
+  '@/components/sourcing-composer': sourcingComposer,
+  '@/components/buyer-enquiry-auth': { BuyerEnquiryAuthProvider: ({ children }) => children },
+  '@/lib/i18n/buyer-auth': { buyerAuthMessages: { en: {} } },
   '@/lib/auth/buyer-session': { getBuyerSession: async () => null },
   ...common,
   '@/components/brand-logo': { Logo: nothing },

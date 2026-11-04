@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
   Building2,
@@ -83,6 +83,12 @@ export function SupplierSidebar({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [pendingRfqs, setPendingRfqs] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    const update = (event: Event) => setPendingRfqs((event as CustomEvent<{ count: number | null }>).detail.count);
+    window.addEventListener("vexim:supplier-rfqs", update);
+    return () => window.removeEventListener("vexim:supplier-rfqs", update);
+  }, []);
   // Mỗi mục là một trang thật; mục dài nhất khớp tiền tố đường dẫn sẽ được chọn.
   const activeHref = NAV.map((item) => item.href)
     .filter((href) => href !== "/supplier/portal" && (pathname === href || pathname.startsWith(`${href}/`)))
@@ -126,6 +132,9 @@ export function SupplierSidebar({
                           ? messages.nav.factoryPartner
                           : messages.nav[item.labelKey]}
                       </span>
+                      {approved && item.href === "/supplier/portal/rfqs" && pendingRfqs === null && <span title={messages.topbar.rfqsUnknown} className="font-bold text-amber-300">!</span>}
+                      {approved && item.href === "/supplier/portal/rfqs" && typeof pendingRfqs === "number" && pendingRfqs > 0 &&
+                        <span className="rounded-full bg-amber-300 px-1.5 text-[11px] font-bold text-ink-900">{pendingRfqs > 99 ? "99+" : pendingRfqs}</span>}
                     </Link>
                   );
                 })}

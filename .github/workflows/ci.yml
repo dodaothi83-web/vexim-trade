@@ -41,6 +41,8 @@ jobs:
             command: check:copy
           - label: Luồng RFQ
             command: check:rfq
+          - label: Tài khoản và yêu cầu người mua
+            command: check:buyer-account
           - label: Lối vào tài khoản
             command: check:entry
           - label: PDF so sánh sản phẩm

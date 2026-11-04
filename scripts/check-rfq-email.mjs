@@ -129,6 +129,8 @@ assert.equal(messages.at(-1).kind, 'buyer_status_update');
 assert.equal(messages.at(-1).rfq_match_id, null);
 assert.equal((await notifyBuyerRfqStatus(rfq, 'sampling', id)).reason, 'already_sent');
 const samplingMail = sent.at(-1);
+assert.match(samplingMail.html, /\/buyer\/account\/requests\/rfq-1/);
+assert.doesNotMatch(samplingMail.html, /secret-token|\/rfq\/status\//);
 assert.ok(!samplingMail.subject.startsWith('['), 'mã không đứng đầu tiêu đề');
 assert.match(samplingMail.subject, /\(Ref RFQ-20261017-00001\)$/, 'mã đặt ở cuối tiêu đề');
 assert.equal(samplingMail.headers['In-Reply-To'], undefined, 'thư đầu mạch không có In-Reply-To');

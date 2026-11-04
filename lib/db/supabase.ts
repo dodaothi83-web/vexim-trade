@@ -1,3 +1,4 @@
+import type { SourcingRequest } from "@/lib/types";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { PRODUCT_EXTRAS_COLUMNS, type ProductExtrasColumn } from "@/lib/products/product-extras";
 
@@ -1709,6 +1710,61 @@ export const supabaseStore: DataStore = {
   },
 
   // --- RFQs ---
+  async listSourcingRequests(email) {
+    const rows = await readAllById<SourcingRequest>("listSourcingRequests", (after) => {
+      let q = must().from("sourcing_requests").select("*").order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (email) q = q.eq("buyer_email", email.trim().toLowerCase());
+      if (after) q = q.gt("id", after);
+      return q;
+    });
+    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
+  async getSourcingRequest(id) {
+    const { data, error } = await must().from("sourcing_requests").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getSourcingRequest", error); return data as SourcingRequest | null;
+  },
+  async findSourcingSubmission(email, key) {
+    const { data, error } = await must().from("sourcing_requests").select("*").eq("buyer_email", email.trim().toLowerCase()).eq("submission_key", key).maybeSingle();
+    if (error) fail("findSourcingSubmission", error); return data as SourcingRequest | null;
+  },
+  async createSourcingRequest(input) {
+    const { data, error } = await must().from("sourcing_requests").insert(input).select().single();
+    if (error?.code === "23505") {
+      const existing = await supabaseStore.findSourcingSubmission(input.buyer_email, input.submission_key);
+      if (existing) return existing;
+    }
+    if (error) fail("createSourcingRequest", error); return data as SourcingRequest;
+  },
+  async updateSourcingRequest(id, version, patch) {
+    const { data, error } = await must().from("sourcing_requests").update({ ...patch, version: version + 1, updated_at: new Date().toISOString() })
+      .eq("id", id).eq("version", version).select().maybeSingle();
+    if (error) fail("updateSourcingRequest", error); return data as SourcingRequest | null;
+  },
+  async countNewSourcingRequests() {
+    const { count, error } = await must().from("sourcing_requests").select("id", { count: "exact", head: true }).eq("status", "new");
+    if (error) fail("countNewSourcingRequests", error);
+    if (count === null) throw new Error("countNewSourcingRequests: missing count");
+    return count;
+  },
+  async putSourcingFile(key, bytes, mime) {
+    const { error } = await must().storage.from("sourcing-files").upload(key, bytes, { contentType: mime, upsert: false });
+    if (error) fail("putSourcingFile", error);
+  },
+  async getSourcingFile(key) {
+    const { data, error } = await must().storage.from("sourcing-files").download(key);
+    if (error) fail("getSourcingFile", error); if (!data) throw new Error("Missing sourcing file");
+    return new Uint8Array(await data.arrayBuffer());
+  },
+  async deleteSourcingFile(key) {
+    const { error } = await must().storage.from("sourcing-files").remove([key]);
+    if (error) fail("deleteSourcingFile", error);
+  },
+  async countPendingRfqs() {
+    const { count, error } = await must().from("rfqs").select("id", { count: "exact", head: true })
+      .in("status", ["new", "needs_review", "in_progress", "matching"]);
+    if (error) fail("countPendingRfqs", error);
+    return count ?? 0;
+  },
   async listRfqs(options) {
     let q = must().from("rfqs").select("*").order("created_at", { ascending: false });
     if (options?.status) q = q.eq("status", options.status);

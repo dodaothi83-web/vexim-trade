@@ -1,3 +1,5 @@
+import { BuyerSourcingHistory } from "@/components/buyer-sourcing-history";
+import { sourcingStore } from "@/lib/sourcing/store";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LayoutDashboard, ClipboardList, Heart, UserRound, ArrowRight, Search, Headphones, PackageSearch } from "lucide-react";
@@ -38,15 +40,21 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
     Promise.all(Array.from({ length: Math.ceil(account.saved.products.length / 20) }, (_, i) =>
       getPublicProductRecordsByIds(account.saved.products.slice(i * 20, i * 20 + 20).map((p) => p.id)))),
   ]);
+  let sourcingUnavailable = false;
+  const sourcing = await (async () => {
+    try { return await sourcingStore().listSourcingRequests(session.email); }
+    catch (error) { console.error("[buyer] sourcing history unavailable", error); sourcingUnavailable = true; return []; }
+  })();
   const savedRecords = savedGroups.flat();
   const savedById = new Map(savedRecords.map((r) => [r.card.id, r]));
   const titles = {
     overview: vi ? "Tổng quan" : "Overview",
-    requests: vi ? "Yêu cầu của tôi" : "My requests",
+    requests: vi ? "Yêu cầu của tôi" : "My enquiries",
     saved: vi ? "Sản phẩm đã lưu" : "Saved products",
     profile: vi ? "Thông tin tài khoản" : "Account details",
   };
   const nav = [{ id: "overview", icon: LayoutDashboard }, { id: "requests", icon: ClipboardList }, { id: "saved", icon: Heart }, { id: "profile", icon: UserRound }] as const;
+  const activeSourcing = sourcing.filter((r) => r.status !== "closed").length;
   const activeRequests = requests.filter((r) => r.status !== "won" && r.status !== "lost").length;
   const savedSection = (preview: boolean) => <section className={panel} aria-label={titles.saved}>
     <div className="flex items-center justify-between gap-3"><h2 className="font-bold text-ink-900">{titles.saved}</h2>{preview && account.saved.products.length > 0 && <Link href="/buyer/account?tab=saved" className="text-xs font-semibold text-brand-700">{vi ? "Xem tất cả" : "View all"}</Link>}</div>
@@ -76,14 +84,15 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
         <div className="min-w-0 space-y-5">
           <section className={panel}>
             <div className="flex flex-wrap items-start justify-between gap-4"><div className="flex min-w-0 items-center gap-3"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"><UserRound className="h-6 w-6" /></span><div className="min-w-0"><h1 className="text-xl font-bold text-ink-900">{titles[tab as keyof typeof titles]}</h1><p className="mt-1 break-all text-sm text-ink-500">{account.company_name || account.email}</p></div></div><a href={`mailto:${COMPANY.contactEmail}`} className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700"><Headphones className="h-4 w-4" />{vi ? "Liên hệ hỗ trợ" : "Contact support"}</a></div>
-            <div className="mt-6 grid grid-cols-3 divide-x divide-ink-200 border-t border-ink-100 pt-5">{[{ value: requests.length, label: titles.requests, tab: "requests" }, { value: activeRequests, label: vi ? "Đang xử lý" : "In progress", tab: "requests" }, { value: account.saved.products.length, label: titles.saved, tab: "saved" }].map((stat, i) => <Link key={i} href={`/buyer/account?tab=${stat.tab}`} className="px-2 text-center"><strong className="block text-2xl text-ink-900">{stat.value}</strong><span className="mt-1 block text-xs text-ink-500 sm:text-sm">{stat.label}</span></Link>)}</div>
+            <div className="mt-6 grid grid-cols-3 divide-x divide-ink-200 border-t border-ink-100 pt-5">{[{ value: sourcingUnavailable ? `${requests.length}+` : requests.length + sourcing.length, label: titles.requests, tab: "requests" }, { value: sourcingUnavailable ? `${activeRequests}+` : activeRequests + activeSourcing, label: vi ? "Đang xử lý" : "In progress", tab: "requests" }, { value: account.saved.products.length, label: titles.saved, tab: "saved" }].map((stat, i) => <Link key={i} href={`/buyer/account?tab=${stat.tab}`} className="px-2 text-center"><strong className="block text-2xl text-ink-900">{stat.value}</strong><span className="mt-1 block text-xs text-ink-500 sm:text-sm">{stat.label}</span></Link>)}</div>
           </section>
           {(tab === "overview" || tab === "requests") && <section className={panel}>
             <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">{titles.requests}</h2><Link href="/rfq" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700">{vi ? "Gửi yêu cầu báo giá" : "Request a quote"}<ArrowRight className="h-4 w-4" /></Link></div>
-            {!requests.length ? <div className="py-12 text-center"><ClipboardList className="mx-auto h-10 w-10 text-brand-300" aria-hidden /><p className="mt-4 font-semibold">{vi ? "Bạn chưa gửi yêu cầu nào." : "You have not sent any requests yet."}</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-500">{vi ? "Chọn sản phẩm hoặc mô tả nhu cầu để nhận báo giá." : "Choose a product or describe what you need to request quotes."}</p></div> : <ul className="mt-4 divide-y divide-ink-100">{(tab === "overview" ? requests.slice(0, 5) : requests).map((r) => <li key={r.id} className="py-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-ink-500">{r.code} · {new Intl.DateTimeFormat(vi ? "vi-VN" : "en-GB", { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(r.created_at))}</p><span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">{requestStatus(r.status, vi)}</span></div><p className="mt-2 font-semibold">{r.product_text}</p>{r.access_token && <Link href={`/rfq/status/${encodeURIComponent(r.access_token)}`} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-700">{vi ? "Xem chi tiết" : "View details"}<ArrowRight className="h-3 w-3" /></Link>}</li>)}</ul>}
+            {!requests.length ? <div className="py-12 text-center"><ClipboardList className="mx-auto h-10 w-10 text-brand-300" aria-hidden /><p className="mt-4 font-semibold">{vi ? "Chưa có yêu cầu báo giá hoặc câu hỏi sản phẩm." : "No quote or product enquiries yet."}</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-500">{vi ? "Chọn sản phẩm hoặc mô tả nhu cầu để nhận báo giá." : "Choose a product or describe what you need to request quotes."}</p></div> : <ul className="mt-4 divide-y divide-ink-100">{(tab === "overview" ? requests.slice(0, 5) : requests).map((r) => <li key={r.id} className="py-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-ink-500">{r.code} · {new Intl.DateTimeFormat(vi ? "vi-VN" : "en-GB", { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(r.created_at))}</p><span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">{requestStatus(r.status, vi)}</span></div><p className="mt-2 text-xs font-semibold text-brand-700">{r.specs?.inquiry_kind === "supplier_question" ? (vi ? "Câu hỏi sản phẩm" : "Product enquiry") : (vi ? "Yêu cầu báo giá" : "Quote request")}</p><p className="mt-2 font-semibold">{r.product_text}</p><Link href={`/buyer/account/requests/${encodeURIComponent(r.id)}`} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-700">{vi ? "Xem chi tiết" : "View details"}<ArrowRight className="h-3 w-3" /></Link></li>)}</ul>}
             {tab === "overview" && requests.length > 5 && <Link href="/buyer/account?tab=requests" className="mt-4 inline-block text-sm font-semibold text-brand-700">{vi ? "Xem tất cả yêu cầu" : "View all requests"}</Link>}
             <p className="mt-4 rounded-xl bg-ink-50 p-3 text-xs leading-5 text-ink-500">{vi ? "Vexim hỗ trợ kết nối. Bạn thỏa thuận và ký hợp đồng trực tiếp với nhà cung cấp." : "Vexim helps you connect. You agree terms and sign contracts directly with the supplier."}</p>
           </section>}
+          {(tab === "overview" || tab === "requests") && <BuyerSourcingHistory rows={sourcing} vi={vi} unavailable={sourcingUnavailable} preview={tab === "overview"} />}
           {tab === "saved" && savedSection(false)}
           {tab === "profile" && <section className={panel}><h2 className="font-bold">{titles.profile}</h2><BuyerAccountProfile email={account.email} company={account.company_name ?? ""} isVi={vi} /></section>}
         </div>

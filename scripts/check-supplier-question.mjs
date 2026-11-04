@@ -69,6 +69,8 @@ assert.equal(messages[0].sent_at, match.sent_to_supplier_at);
 
 await questionMail.sendSupplierQuestionAckBuyer({ rfq, buyer, delivered: true });
 assert.equal(sent[1].to[0], buyer.email);
+assert.match(sent[1].html, /\/buyer\/account\/requests\/r-q/);
+assert.doesNotMatch(sent[1].html, /private-token|\/rfq\/status\//);
 assert.match(sent[1].html, /reply directly to your email/);
 assert.doesNotMatch(sent[1].html, /export desk|contact details stay private/i);
 await questionMail.sendSupplierQuestionExceptionInternal({ rfq, buyer, reason: 'provider rejected' });
@@ -132,7 +134,9 @@ const submitStore = {
   createRfq: async (input) => { createdRfqs.push(input); return { ...input, id: `r-${createdRfqs.length}`, access_token: 'private-token' }; },
   addAuditLog: async () => null,
 };
+let buyerSession = { uid: 'buyer-account', email: 'buyer@example.com' };
 const submit = load('../lib/rfq/submit.ts', {
+  '@/lib/auth/buyer-session': { getBuyerSession: async () => buyerSession },
   'next/headers': { headers: async () => ({ get: () => null }) },
   '@/lib/db': { getStore: () => submitStore },
   '@/lib/public/catalog': { listPublicSuppliers: async () => [{ id: supplier.id }] },
@@ -142,6 +146,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '.': { emailDomain: () => 'example.com', fingerprint: () => 'test', generateAccessToken: () => 'private-token', rfqDayKey: () => '20261017', generateRfqCode: () => 'RFQ-Q-1',
     hasMxRecord: async () => ({ ok: true }), isLikelyWebmail: () => false, normalizeCompanyWebsite: () => null,
     scoreSpam: (input) => ({ score: spamScore + (input.challengeOk ? 0 : 60), flags: input.challengeOk ? [] : ['challenge_missing'] }) },
+  './targeted-portal': { releaseTargetedQuoteToPortal: async () => 0 },
   './auto-match': { createPreferredSupplierMatches: async () => { autoMatches++; return []; } },
   './supplier-question-rate-limit': { checkSupplierQuestionRateLimit: async () => { distributedCalls++; return distributedResult; } },
   './supplier-question': {
@@ -159,6 +164,16 @@ const rawQuestion = {
   inquiry_kind: 'supplier_question', share_contact_consent: true,
   message: 'Can you confirm the peroxide value and available packaging?',
 };
+// Neither a forged email nor a staff/supplier-only (no buyer cookie) request may write or send.
+for (const inquiry_kind of ['quote', 'supplier_question']) {
+  buyerSession = null;
+  assert.equal((await submit.submitRfq({ ...rawQuestion, inquiry_kind })).ok, false);
+  buyerSession = { uid: 'buyer-account', email: 'other@example.com' };
+  assert.equal((await submit.submitRfq({ ...rawQuestion, inquiry_kind })).ok, false);
+}
+assert.equal(createdRfqs.length, 0);
+assert.equal(directCalls + genericAcks + genericInternal + questionAcks.length, 0);
+buyerSession = { uid: 'buyer-account', email: 'buyer@example.com' };
 const direct = await submit.submitRfq(rawQuestion);
 assert.equal(direct.ok, true);
 assert.equal(direct.status, 'matching');
@@ -299,7 +314,7 @@ assert.match(emptyQuote.message, /mô tả sản phẩm/);
 const productPage = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 const form = fs.readFileSync(new URL('../app/(public)/rfq/rfq-form.tsx', import.meta.url), 'utf8');
 const page = fs.readFileSync(new URL('../app/(public)/rfq/page.tsx', import.meta.url), 'utf8');
-const status = fs.readFileSync(new URL('../app/(public)/rfq/status/[token]/page.tsx', import.meta.url), 'utf8');
+const status = fs.readFileSync(new URL('../components/buyer-enquiry-detail.tsx', import.meta.url), 'utf8');
 const crm = fs.readFileSync(new URL('../app/crm/rfqs/[id]/page.tsx', import.meta.url), 'utf8');
 const crmList = fs.readFileSync(new URL('../app/crm/rfqs/page.tsx', import.meta.url), 'utf8');
 const crmActions = fs.readFileSync(new URL('../app/crm/rfqs/[id]/actions.ts', import.meta.url), 'utf8');

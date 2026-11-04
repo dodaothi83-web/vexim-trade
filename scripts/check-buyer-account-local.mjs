@@ -18,7 +18,7 @@ const state = { buyers: [], suppliers: [], products: [], media: [], rfqs: [], sp
 const config = { intro: '', seo_desc: '', spec_columns: [], spec_rows: [], buying_facts: [], faqs: [], filters: [], product_fields: [] };
 const mocks = {
   'node:crypto': crypto,
-  'node:fs': { existsSync: () => false, mkdirSync() {}, writeFileSync() {} },
+  'node:fs': { existsSync: () => false, mkdirSync() {}, writeFileSync() {}, renameSync() {}, unlinkSync() {} },
   'node:path': path,
   '@/lib/db/seed': { SEED_BUYERS: [], SEED_PRODUCTS: [], SEED_SUPPLIERS: [] },
   '@/lib/db/preview-seed': { PREVIEW_PEPPER_HARVEST: null, previewCategories: () => [], previewSeedRows: () => ({ suppliers: [], products: [] }) },
@@ -31,7 +31,7 @@ const mocks = {
   './category-seed': { CASHEW_CATEGORY_CONFIG: config, DEFAULT_CATEGORY_CONFIG: config, PEPPER_CATEGORY_CONFIG: config },
 };
 const mod = { exports: {} };
-vm.runInNewContext(source, { module: mod, exports: mod.exports, __veximLocal: state, console, Date,
+vm.runInNewContext(source, { module: mod, exports: mod.exports, __veximLocal: state, console, Date, structuredClone,
   process: { cwd: () => '/virtual', env: {} },
   require: (id) => { assert.ok(id in mocks, `Unexpected local store import: ${id}`); return mocks[id]; },
 }, { filename: 'lib/db/local.ts' });
@@ -60,3 +60,23 @@ assert.equal((await store.listBuyerRfqsByEmail('me@example.com')).map((r) => r.i
 assert.equal((await store.listBuyerRfqsByEmail('m_@example.com')).map((r) => r.id).join(','), 'literal');
 assert.equal((await store.listBuyerRfqsByEmail('%@example.com')).length, 0);
 console.log('✅ Buyer local store: exact email ownership, duplicate CRM profiles, atomic and bounded saves.');
+
+
+// Separate sourcing persistence, exact ownership, durable rollback and optimistic CRM updates.
+const sourcing = { id: crypto.randomUUID(), buyer_email: account.email, submission_key: crypto.randomUUID(), content: 'Rice', attachments: [], status: 'new', assigned_to: null, internal_note: null, buyer_reply: null, version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+await store.createSourcingRequest(sourcing);
+assert.equal((await store.createSourcingRequest({ ...sourcing, id: crypto.randomUUID() })).id, sourcing.id, 'Unique buyer/submission key');
+assert.equal((await store.listSourcingRequests(other.email)).length, 0, 'Other buyer has no sourcing history');
+assert.equal((await store.listSourcingRequests(account.email.toUpperCase())).length, 1);
+assert.equal(await store.countNewSourcingRequests(), 1);
+const patch = { status: 'in_progress', assigned_to: null, internal_note: 'Private', buyer_reply: 'We are checking suppliers.' };
+const updates = await Promise.all([store.updateSourcingRequest(sourcing.id, 1, patch), store.updateSourcingRequest(sourcing.id, 1, { ...patch, status: 'closed' })]);
+assert.equal(updates.filter(Boolean).length, 1, 'Stale CRM save cannot overwrite newer version');
+assert.equal((await store.getSourcingRequest(sourcing.id)).version, 2);
+assert.equal(await store.countNewSourcingRequests(), 0);
+const writer = mocks['node:fs'].writeFileSync;
+mocks['node:fs'].writeFileSync = () => { throw new Error('Disk full'); };
+await assert.rejects(store.createSourcingRequest({ ...sourcing, id: crypto.randomUUID(), submission_key: crypto.randomUUID() }), /Disk full/);
+mocks['node:fs'].writeFileSync = writer;
+assert.equal((await store.listSourcingRequests(account.email)).length, 1, 'Failed disk write rolls back request instead of acknowledging it');
+console.log('Sourcing local persistence, exact ownership, deduplication, CAS and disk-error rollback passed.');

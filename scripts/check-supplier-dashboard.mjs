@@ -1,5 +1,7 @@
 // node scripts/check-supplier-dashboard.mjs — supplier isolation, truthful analytics, mail gating.
 import assert from 'node:assert/strict';
+import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
+import { loadFormat } from './lib/i18n-format.mjs';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
@@ -15,7 +17,11 @@ function load(path, mocks) {
   return mod.exports;
 }
 const onlyContacts = (v) => v.replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, '[contact via Vexim]');
-const dashboard = load('../lib/supplier-portal/dashboard.ts', { '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts } });
+const dictionary = loadPortalDictionary();
+const dashboard = load('../lib/supplier-portal/dashboard.ts', {
+  '@/lib/i18n/format': loadFormat(),
+  '@/lib/i18n/portal/notices': { noticesMessages: { vi: dictionary.vi.notices, en: dictionary.en.notices } },
+  '@/lib/i18n/portal/rfqs': { rfqsMessages: { vi: dictionary.vi.rfqs, en: dictionary.en.rfqs } }, '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts } });
 const now = new Date('2026-10-17T12:00:00Z');
 const idA = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const idB = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -255,6 +261,7 @@ const submitStore = { listBuyers: async () => [], createBuyer: async () => ({ id
   createRfq: async (input) => { createdRfqs.push(input); return { ...input, id: 'new-rfq', status: 'new', access_token: 'private' }; },
   addAuditLog: async () => null };
 const submit = load('../lib/rfq/submit.ts', {
+  '@/lib/auth/buyer-session': { getBuyerSession: async () => ({ uid: 'buyer-account', email: 'buyer@example.com' }) },
   'next/headers': { headers: async () => ({ get: () => null }) },
   '@/lib/db': { getStore: () => submitStore },
   '@/lib/public/catalog': { listPublicSuppliers: async () => [{ id: 's-a' }, { id: 's-b' }] },
@@ -262,6 +269,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/security/challenge': { verifyFormChallenge: () => ({ ok: true }) },
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => null, sendRfqNewInternal: async () => null },
+  './targeted-portal': { releaseTargetedQuoteToPortal: async () => 0 },
   './auto-match': { createPreferredSupplierMatches: async () => [] },
   './supplier-question-rate-limit': { checkSupplierQuestionRateLimit: async () => ({ status: 'ok' }) },
   './supplier-question': { deliverSupplierQuestion: async () => ({ delivered: false }),
@@ -277,9 +285,14 @@ const raw = { company: 'Buyer', contact_name: 'Jane', email: 'buyer@example.com'
 assert.equal((await submit.submitRfq(raw)).ok, true);
 assert.equal(createdRfqs.at(-1).source_product_id, 'p-a');
 await submit.submitRfq({ ...raw, product_text: 'Rice' });
-assert.equal(createdRfqs.at(-1).source_product_id, null, 'Edited buyer product text cannot claim the old product');
+assert.equal(createdRfqs.at(-1).source_product_id, 'p-a', 'Free-text requirements cannot replace the validated source-product attribution');
+assert.match(createdRfqs.at(-1).product_text, /Cashew W320.*Rice/);
 await submit.submitRfq({ ...raw, preferred_supplier_ids: ['s-b'] });
 assert.equal(createdRfqs.at(-1).source_product_id, null, 'Other supplier cannot claim product attribution');
+
+await submit.submitRfq({ ...raw, preferred_supplier_ids: [] });
+assert.equal(createdRfqs.at(-1).source_product_id, 'p-a');
+assert.equal(createdRfqs.at(-1).preferred_supplier_ids.join(','), 's-a', 'Published product owner is recovered when the client omits supplier IDs');
 
 const productPage = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(productPage, /product_id=\$\{encodeURIComponent\(card\.id\)\}/);

@@ -135,7 +135,7 @@ export async function sendSupplierQuestionAckBuyer(input: {
 }): Promise<void> {
   const { rfq, buyer, delivered } = input;
   if (!buyer.email) return;
-  const statusLink = `${SITE_URL}/rfq/status/${rfq.access_token}`;
+  const statusLink = `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
   const review = rfq.status === "needs_review";
   const title = delivered
     ? `Your question ${rfq.code} was sent to the supplier`
@@ -155,7 +155,7 @@ export async function sendSupplierQuestionAckBuyer(input: {
       <tr><td style="color:${brandColors.muted};">Question</td><td style="white-space:pre-wrap;">${escapeHtml(question)}</td></tr>
     </table>
     <p>You approved sharing your name, company and email with the selected supplier for this question, not with other suppliers.</p>
-    <p>Private status link: <a href="${statusLink}">${statusLink}</a></p>
+    <p>View your enquiry: <a href="${statusLink}">View enquiry</a></p>
     <p>Best regards,<br/>Vexim Trade</p>
   `;
   await transport({

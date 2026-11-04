@@ -37,7 +37,7 @@ function buildSubject(kind: NotifKind, rfq: Rfq) {
 
 function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Supplier | null) {
   const title = buildSubject(kind, rfq);
-  const trackUrl = `${SITE_URL}/rfq/status/${rfq.access_token}`;
+  const trackUrl = `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
   const first = buyer.contact_name?.split(" ")[0] ?? "there";
   const qty = rfq.quantity ? `, ${escapeHtml(String(rfq.quantity))} ${escapeHtml(rfq.unit ?? "")}` : "";
   let body = `<p>Dear ${escapeHtml(first)},</p>`;
@@ -73,8 +73,8 @@ function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Sup
   }
 
   body += `
-    <p>You can follow progress at your private link:<br/>
-    <a href="${trackUrl}" style="color:${brandColors.primary};">${trackUrl}</a></p>
+    <p>View your enquiry in your buyer account:<br/>
+    <a href="${trackUrl}" style="color:${brandColors.primary};">View enquiry</a></p>
     <p>Best regards,<br/>Export Department · ${escapeHtml(COMPANY.name)}</p>`;
 
   return {
