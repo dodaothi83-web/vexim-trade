@@ -1,3 +1,4 @@
+import { getBuyerSession } from "@/lib/auth/buyer-session";
 import type { ReactNode } from "react";
 import Link from "next/link";
 
@@ -21,6 +22,7 @@ export const dynamic = "force-dynamic";
  *  - Back-office /crm/* ở route group riêng, không bị bọc bởi layout này.
  */
 export default async function PublicLayout({ children }: { children: ReactNode }) {
+  const buyerSession = await getBuyerSession();
   const store = getStore();
   await store.listCategories({ publishedOnly: true }); // warm cache
 
@@ -45,7 +47,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
             </span>
           </Link>
 
-          <PublicHeaderControls />
+          <PublicHeaderControls buyerEmail={buyerSession?.email ?? null} />
         </div>
       </header>
 

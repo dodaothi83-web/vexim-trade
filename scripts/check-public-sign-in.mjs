@@ -27,7 +27,7 @@ function load(file, mocks) {
 const Link = ({ href, children, prefetch: _prefetch, ...props }) => React.createElement('a', { href, ...props }, children);
 const icons = new Proxy({}, { get: () => (props) => React.createElement('svg', props) });
 const common = { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'lucide-react': icons };
-const signIn = load('../components/public-sign-in-link.tsx', common);
+const signIn = load('../components/public-sign-in-link.tsx', { ...common, '@/app/(public)/buyer/sign-in/actions': { signOutBuyerAction: async () => {} } });
 let params = new URLSearchParams();
 let suspend = false;
 const nav = {
@@ -74,8 +74,24 @@ assertSignIn(html, 'en', 'Sign in');
 assert.match(html, /href="\/rfq"[^>]*aria-label="Request a quote"/);
 suspend = false;
 
+// Authenticated header opens account details rather than routing back to registration.
+for (const lang of ['en', 'vi']) {
+  params = new URLSearchParams(lang === 'vi' ? 'lang=vi' : '');
+  const signedIn = renderToStaticMarkup(React.createElement(PublicHeaderControls, { buyerEmail: 'buyer@example.test' }));
+  assert.match(signedIn, /buyer@example.test/);
+  assert.match(signedIn, /<details/);
+  assert.match(signedIn, lang === 'vi' ? /Đăng xuất/ : /Sign out/);
+  assert.doesNotMatch(signedIn, /href="\/register"/);
+}
+suspend = true;
+const signedFallback = renderToStaticMarkup(React.createElement(PublicHeaderControls, { buyerEmail: 'buyer@example.test' }));
+assert.match(signedFallback, /buyer@example.test/);
+assert.doesNotMatch(signedFallback, /href="\/register"/);
+suspend = false;
+
 const nothing = () => null;
 const layoutMocks = {
+  '@/lib/auth/buyer-session': { getBuyerSession: async () => null },
   ...common,
   '@/components/brand-logo': { Logo: nothing },
   '@/components/public-sign-in-link': signIn,
@@ -87,7 +103,7 @@ const layoutMocks = {
 };
 for (const file of ['../app/blog/layout.tsx', '../app/(legal)/layout.tsx']) {
   const Layout = load(file, layoutMocks).default;
-  html = renderToStaticMarkup(React.createElement(Layout, null, 'Content'));
+  html = renderToStaticMarkup(await Layout({ children: 'Content' }));
   const header = html.match(/<header\b[\s\S]*?<\/header>/)?.[0];
   assert.ok(header, `${file} needs a header`);
   assertSignIn(header, 'en', 'Sign in');

@@ -24,7 +24,7 @@ function QuoteLink({ isVi = false }: { isVi?: boolean }) {
   );
 }
 
-function HeaderControlsInner() {
+function HeaderControlsInner({ buyerEmail }: { buyerEmail?: string | null }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -141,14 +141,14 @@ function HeaderControlsInner() {
           )}
         </div>
 
-        <PublicSignInLink lang={lang} />
+        <PublicSignInLink lang={lang} buyerEmail={buyerEmail} />
         <QuoteLink isVi={isVi} />
       </div>
     </>
   );
 }
 
-function HeaderControlsFallback() {
+function HeaderControlsFallback({ buyerEmail }: { buyerEmail?: string | null }) {
   return (
     <>
       <nav className="ml-3 hidden items-center gap-3 whitespace-nowrap text-[12px] font-medium text-ink-700 md:flex lg:ml-6 lg:gap-5 lg:text-[13.5px]">
@@ -167,17 +167,17 @@ function HeaderControlsFallback() {
           <Globe className="h-4.5 w-4.5" />
         </button>
 
-        <PublicSignInLink />
+        <PublicSignInLink buyerEmail={buyerEmail} />
         <QuoteLink />
       </div>
     </>
   );
 }
 
-export function PublicHeaderControls() {
+export function PublicHeaderControls({ buyerEmail = null }: { buyerEmail?: string | null }) {
   return (
-    <Suspense fallback={<HeaderControlsFallback />}>
-      <HeaderControlsInner />
+    <Suspense fallback={<HeaderControlsFallback buyerEmail={buyerEmail} />}>
+      <HeaderControlsInner buyerEmail={buyerEmail} />
     </Suspense>
   );
 }

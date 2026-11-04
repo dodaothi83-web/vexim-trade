@@ -57,7 +57,8 @@ export async function solveFormChallenge(challenge: string): Promise<string | nu
  * Giao diện HOÀN TOÀN ẨN khi chạy bình thường (chỉ còn sr-only cho trình đọc màn
  * hình); một dòng lỗi + thử lại chỉ xuất hiện khi challenge không chạy được.
  */
-export function FormChallenge({ purpose, onChange }: {
+export function FormChallenge({ purpose, onChange, messages }: {
+  messages?: { loading: string; success: string; error: string; retry: string };
   purpose: string;
   onChange: (token: string | null) => void;
 }) {
@@ -120,18 +121,18 @@ export function FormChallenge({ purpose, onChange }: {
     <div data-form-challenge-status={status}>
       {status !== "error" && (
         <p role="status" className="sr-only">
-          {status === "success" ? "Security check complete" : "Loading security check…"}
+          {status === "success" ? (messages?.success ?? "Security check complete") : (messages?.loading ?? "Loading security check…")}
         </p>
       )}
       {status === "error" && (
         <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[12.5px] text-ink-600">
           <span className="inline-flex items-center gap-1.5">
             <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
-            We couldn’t complete the security check.
+            {messages?.error ?? "We couldn’t complete the security check."}
           </span>
           <button type="button" onClick={retry} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-bold text-brand-700 transition hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700">
             <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-            Try again
+            {messages?.retry ?? "Try again"}
           </button>
         </div>
       )}

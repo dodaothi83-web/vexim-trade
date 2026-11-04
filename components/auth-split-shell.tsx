@@ -40,7 +40,7 @@ export async function AuthSplitShell({
   const { locale, m } = await getAuthMessages();
 
   return (
-    <div className="min-h-screen bg-ink-50">
+    <div lang={locale} className="min-h-screen bg-ink-50">
       <div className="mx-auto grid min-h-screen max-w-6xl lg:min-h-[calc(100vh_-_4rem)] lg:grid-cols-2 lg:gap-10 lg:p-8">
         <aside aria-hidden="true" className="relative hidden overflow-hidden rounded-3xl lg:block">
           {/* Ảnh có sẵn của site: đội Vexim dẫn người mua tham quan xưởng. */}

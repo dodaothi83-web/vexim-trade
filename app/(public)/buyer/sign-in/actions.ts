@@ -1,5 +1,6 @@
 "use server";
 
+import type { BuyerAuthErrorKey } from "@/lib/i18n/buyer-auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -32,6 +33,7 @@ import { SITE_URL } from "@/lib/site";
 export interface BuyerSignInActionResult {
   ok: boolean;
   message: string;
+  errorKey?: BuyerAuthErrorKey;
   /** Chỉ để hiện lại đúng email người dùng vừa gõ khi phải nhập mã. */
   email?: string;
 }
@@ -46,7 +48,7 @@ export async function requestBuyerSignInAction(input: {
 }): Promise<BuyerSignInActionResult> {
   const email = normalizeBuyerEmail(input.email ?? "");
   if (!isDeliverableEmail(email)) {
-    return { ok: false, message: "Enter a valid email address so we can send your code." };
+    return { ok: false, errorKey: "email", message: "Enter a valid email address so we can send your code." };
   }
 
   // Challenge chống bot trước, rồi mới tới giới hạn lượt: một form bị đăng ký tự động
@@ -55,6 +57,7 @@ export async function requestBuyerSignInAction(input: {
   if (!challenge.ok) {
     return {
       ok: false,
+      errorKey: challenge.reason === "expired" || challenge.reason === "replayed" ? "challengeExpired" : "challengeFailed",
       message: challenge.reason === "expired" || challenge.reason === "replayed"
         ? "The security check expired. Please try again."
         : "We could not verify the security check. Please try again.",
@@ -63,7 +66,7 @@ export async function requestBuyerSignInAction(input: {
 
   const rate = await checkAuthRateLimit({ flow: "buyer-sign-in", headers: await headers(), email });
   if (rate.status === "limited") {
-    return { ok: false, message: "Too many attempts. Please wait a few minutes and try again." };
+    return { ok: false, errorKey: "rateLimited", message: "Too many attempts. Please wait a few minutes and try again." };
   }
   // Redis hỏng thì vẫn gửi: đây là đường đăng nhập, không thể chặn người thật vì
   // hạ tầng phụ. Challenge PoW và giới hạn cục bộ vẫn đang canh.
@@ -80,7 +83,7 @@ export async function requestBuyerSignInAction(input: {
   if (!mail.ok && mail.status === "failed") {
     // Không nói chi tiết lỗi hạ tầng ra ngoài; nhân viên xem log.
     console.error("[buyer-sign-in] send failed", mail.error);
-    return { ok: false, message: "We could not send the email just now. Please try again in a minute." };
+    return { ok: false, errorKey: "sendFailed", message: "We could not send the email just now. Please try again in a minute." };
   }
 
   return { ok: true, message: GENERIC_SENT, email };
@@ -89,6 +92,7 @@ export async function requestBuyerSignInAction(input: {
 export interface BuyerVerifyResult {
   ok: boolean;
   message: string;
+  errorKey?: BuyerAuthErrorKey;
   redirectTo?: string;
 }
 
@@ -130,7 +134,9 @@ export async function verifyBuyerCodeAction(input: {
           : result.reason === "used"
             ? "That code was already used. Request a new one."
             : `Check the code and try again. You have ${MAX_CODE_ATTEMPTS} tries before it expires.`;
-    return { ok: false, message };
+    const errorKey: BuyerAuthErrorKey = result.reason === "too_many_attempts" ? "tooManyCodes"
+      : result.reason === "no_token" ? "codeExpired" : result.reason === "used" ? "codeUsed" : "wrongCode";
+    return { ok: false, message, errorKey };
   }
   return finishSignIn(result.email, safeNextPath(input.next));
 }
