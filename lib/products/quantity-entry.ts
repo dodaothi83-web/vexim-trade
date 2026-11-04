@@ -3,7 +3,7 @@
  * Used by the gated revision workflow; the new supplier editor is not enabled yet.
  * Keep the original unit prices and weights: USD/kg can be a repeating fraction.
  */
-import { nameContainsGrade, type QuantityPricingIssue, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
+import { type QuantityPricingIssue, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
 
 export type SupplierQuantityUnit = "kg" | "mt";
 export type SupplierQuantityEntry = {
@@ -69,8 +69,6 @@ export function validateSupplierQuantityEntry(input: SupplierQuantityEntry, stan
   const standardGrade = standardGrades.find((grade) => normalized(grade) === normalized(suppliedGrade));
   const grade = input.customGrade ? suppliedGrade : standardGrade ?? "";
   if (!grade || grade.length > 80 || (input.customGrade && standardGrade)) errors.push({ code: "grade", message: "Chọn grade hoặc nhập grade khác hợp lệ." });
-  const foundGrade = [...standardGrades, grade].find((item) => nameContainsGrade(input.nameVi, [item]));
-  if (foundGrade) errors.push({ code: "name_vi_grade", message: `Bỏ grade (${foundGrade}) ra khỏi tên sản phẩm.` });
   const term = input.incoterm.trim().toUpperCase();
   if (!TERMS.has(term)) errors.push({ code: "incoterm", message: "Chọn Incoterm hợp lệ." });
   if (!UNIT_NAMES.has(input.unit)) errors.push({ code: "unit", message: "Chọn đơn vị số lượng hợp lệ." });

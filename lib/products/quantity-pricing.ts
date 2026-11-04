@@ -169,11 +169,6 @@ export function validateQuantityPricing(
   const fallbackIncoterm = input.incoterm.trim().toUpperCase();
   const currency = normalizePriceCurrency(input.currency ?? DEFAULT_PRICE_CURRENCY);
   if (!currency) errors.push({ code: "currency", message: "Chọn tiền tệ cho bảng giá.", messageEn: "Choose the currency for the price table." });
-  const gradeInName = [...standardGrades, input.grade].find((g) => nameContainsGrade(input.nameVi, [g]));
-  if (gradeInName) errors.push({ code: "name_vi_grade", message: `Bỏ grade (${gradeInName}) ra khỏi tên sản phẩm.`,
-    messageEn: `Remove the grade (${gradeInName}) from the product name.` });
-  if (nameContainsGrade(input.nameEn, [...standardGrades, input.grade])) errors.push({ code: "name_en_grade", message: "Không ghi grade trong tên sản phẩm tiếng Anh.",
-    messageEn: "Do not put the grade in the English product name." });
   const maxTiers = Math.min(policy.maxTiers, 4);
   if (input.tiers.length < 1 || input.tiers.length > maxTiers) {
     errors.push({ code: "tier_count", message: `Nhập từ 1 đến ${maxTiers} mức giá.`,

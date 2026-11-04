@@ -29,6 +29,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - label: Tên sản phẩm và grade
+            command: check:product-names
           - label: TypeScript
             command: typecheck
           - label: Văn phong email
