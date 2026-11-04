@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock3, Globe2, Info, MapPin, Package, Users } from "lucide-react";
-import { supplierTypeIcon, VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Ship, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
+import { ArrowRight, CheckCircle2, Clock3, Info, MapPin, Package, Users } from "lucide-react";
+import { supplierTypeIcon, VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
+import { VeximMinimumOrderIcon, VeximExportPortIcon, VeximLeadTimeIcon, VeximCapacityIcon, VeximPaymentIcon, VeximMarketsIcon } from "@/components/brand/vexim-icons";
 import type { ReactNode } from "react";
 
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
@@ -37,7 +38,7 @@ const VERIFICATION_ITEMS = [
 
 function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: string; value: string }) {
   return <div className="flex gap-3 border-b border-ink-100 py-3 last:border-0">
-    <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" />
+    <Icon aria-hidden size={20} strokeWidth={2.6} className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
     <div className="min-w-0"><dt className="text-xs text-ink-500">{label}</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(value) || "On request"}</dd></div>
   </div>;
 }
@@ -395,12 +396,12 @@ export function SupplierStorefront({
         <div className="rounded-xl border border-ink-200 bg-white p-5 shadow-card">
           <h2 className="text-base font-bold text-ink-900">Trade overview</h2>
           <p className="mt-2 text-xs leading-5 text-ink-500">Provided by the supplier. Confirm terms when requesting a quote.</p>
-          <dl className="mt-2"><Fact icon={Package} label="Minimum order" value={supplierMoqDisplay(s)} />
-            <Fact icon={Ship} label="Export ports / Incoterms" value={[...supplierPortsDisplay(s), ...supplierIncotermsDisplay(s)].join(" · ")} />
-            <Fact icon={Clock3} label="Lead time" value={s.lead_time_days ? `${s.lead_time_days} days` : ""} />
-            <Fact icon={Package} label={s.annual_output?.trim() ? "Annual output" : "Monthly capacity"} value={s.annual_output?.trim() ? supplierAnnualOutputDisplay(s) : supplierCapacityDisplay(s)} />
-            <Fact icon={Info} label="Payment terms" value={supplierPaymentTermsDisplay(s)} />
-            <Fact icon={Globe2} label="Export markets" value={supplierExportMarketsDisplay(s).join(", ")} /></dl>
+          <dl className="mt-2"><Fact icon={VeximMinimumOrderIcon} label="Minimum order" value={supplierMoqDisplay(s)} />
+            <Fact icon={VeximExportPortIcon} label="Export ports / Incoterms" value={[...supplierPortsDisplay(s), ...supplierIncotermsDisplay(s)].join(" · ")} />
+            <Fact icon={VeximLeadTimeIcon} label="Lead time" value={s.lead_time_days ? `${s.lead_time_days} days` : ""} />
+            <Fact icon={VeximCapacityIcon} label={s.annual_output?.trim() ? "Annual output" : "Monthly capacity"} value={s.annual_output?.trim() ? supplierAnnualOutputDisplay(s) : supplierCapacityDisplay(s)} />
+            <Fact icon={VeximPaymentIcon} label="Payment terms" value={supplierPaymentTermsDisplay(s)} />
+            <Fact icon={VeximMarketsIcon} label="Export markets" value={supplierExportMarketsDisplay(s).join(", ")} /></dl>
           {rfqActions && !synthetic && <div className="mt-4 space-y-2"><Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>
             <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}&sample=1`} className="flex items-center justify-center rounded-lg border border-ink-200 px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50">Ask about samples</Link></div>}
           {!rfqActions && !synthetic && <div className="mt-4 space-y-2"><span className="flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>

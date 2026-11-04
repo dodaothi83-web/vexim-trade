@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import type { LucideProps } from "lucide-react";
 
 /** Approved direction 02. See docs/brand-identity.md before modifying these shapes. */
-export type VeximIconName = "factory" | "trade" | "cooperative" | "document" | "inspection" | "delivery";
+export type VeximIconName = "factory" | "trade" | "cooperative" | "document" | "inspection" | "delivery" | "minimum-order" | "export-port" | "lead-time" | "capacity" | "payment" | "markets";
 export type VeximIconProps = LucideProps & { name: VeximIconName; approved?: boolean };
 
 function Artwork({ name, approved }: { name: VeximIconName; approved: boolean }) {
@@ -26,6 +26,21 @@ function Artwork({ name, approved }: { name: VeximIconName; approved: boolean })
     case "delivery": return <><path d="m13 15 11-6 13 7v18c0 2-1 3-3 4l-10 5-11-6c-2-1-3-2-3-4V20c0-2 1-4 3-5Z" fill="currentColor" fillOpacity="0.09" stroke="none"/>
 <path d="m11 17 11-6a4 4 0 0 1 4 0l10 5a4 4 0 0 1 2 3.5V28M11 17l13 7 14-7M24 24v15M11 17v15a4 4 0 0 0 2 3.5l8 4a6 6 0 0 0 5.5 0L30 38M18 14l13 7v5"/>
 <path d="M10 7H7a3 3 0 0 0-3 3v10M4 10l3 3m-3-3-3 3M34 40h5a5 5 0 0 0 5-5v-3m-3 3 3-3 3 3" stroke="currentColor"/></>;
+    case "minimum-order": return <><rect x="9" y="13" width="30" height="27" rx="7" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<path d="M9 19a5 5 0 0 1 3-4.6l10-4.5a5 5 0 0 1 4 0l10 4.5a5 5 0 0 1 3 4.6v14a5 5 0 0 1-3 4.6l-10 4.5a5 5 0 0 1-4 0l-10-4.5A5 5 0 0 1 9 33Z"/>
+<path d="m10 17 14 6 14-6M24 23v18M18 12l14 6v8M15 29l4 2"/></>;
+    case "export-port": return <><path d="M8 29h32l-5 10H16Z" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<path d="M9 27l13-4a7 7 0 0 1 4 0l13 4-4 10M13 37l-4-10M15 25V14a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v11M21 11V7h6v4M21 17h6M24 24v9M7 39c3 3 6 3 9 0 3 3 6 3 9 0 3 3 6 3 9 0 3 3 5 3 7 1"/></>;
+    case "lead-time": return <><circle cx="25" cy="25" r="16" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<circle cx="24" cy="24" r="16"/><path d="M24 14v10l7 4M10 10l-3 3M38 10l3 3"/></>;
+    case "capacity": return <><rect x="7" y="28" width="9" height="12" rx="4" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<rect x="20" y="20" width="9" height="20" rx="4" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<rect x="33" y="10" width="9" height="30" rx="4" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<rect x="7" y="27" width="8" height="12" rx="3"/><rect x="20" y="19" width="8" height="20" rx="3"/><rect x="33" y="9" width="8" height="30" rx="3"/></>;
+    case "payment": return <><rect x="8" y="13" width="34" height="26" rx="7" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<rect x="7" y="11" width="34" height="26" rx="6"/><path d="M8 20h32M14 29h7m8 0h5"/></>;
+    case "markets": return <><circle cx="25" cy="25" r="16" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<circle cx="24" cy="24" r="16"/><ellipse cx="24" cy="24" rx="7" ry="16"/><path d="M9 19h30M9 29h30"/></>;
   }
 }
 
@@ -61,3 +76,11 @@ export function supplierTypeIcon(type: string | null | undefined) {
   return type === "manufacturer" ? VeximFactoryIcon : type === "trading" ? VeximTradeIcon
     : type === "cooperative" ? VeximCooperativeIcon : VeximDocumentIcon;
 }
+
+// Commercial facts are neutral metadata, never verification guarantees.
+export const VeximMinimumOrderIcon = namedIcon("minimum-order");
+export const VeximExportPortIcon = namedIcon("export-port");
+export const VeximLeadTimeIcon = namedIcon("lead-time");
+export const VeximCapacityIcon = namedIcon("capacity");
+export const VeximPaymentIcon = namedIcon("payment");
+export const VeximMarketsIcon = namedIcon("markets");
