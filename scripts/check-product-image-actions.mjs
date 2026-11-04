@@ -56,3 +56,12 @@ const gallery = read('components/product-media-gallery.tsx');
 assert.match(gallery, /absolute right-3 top-3 z-20 flex flex-col/);
 assert.ok(gallery.indexOf('{actions &&') < gallery.indexOf('{selected ? <button'), 'Actions are siblings, not nested inside the zoom button');
 console.log('✓ Product image actions: top-right save/share, native sharing, cancellation, clipboard and manual fallback.');
+
+const shareButton = render().props.children[0];
+assert.match(shareButton.props.className, /cursor-pointer/);
+assert.match(shareButton.props.className, /h-11 w-11/);
+assert.match(shareButton.props.children.props.className, /h-6 w-6/);
+const saveSource = read('components/buyer-saved-products.tsx');
+assert.match(saveSource, /iconOnly \? "h-6 w-6" : "h-4 w-4"/);
+assert.match(saveSource, /\$\{variantClasses\} cursor-pointer/);
+console.log('✓ Image controls: matching 44px circles, 24px icons and explicit pointer cursors.');
