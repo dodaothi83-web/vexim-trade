@@ -99,7 +99,6 @@ export function HomeProductFeed({
             <PublicProductCard
               href={`/products/${encodeURIComponent(p.categorySlug)}/${encodeURIComponent(p.id)}`}
               imagePath={p.cardImagePath ?? p.imagePaths[0]}
-              saveProduct={{ id: p.id }}
               name={p.name}
               grades={cardTitleGrades(p)}
               gradeRows={p.gradeRows}
