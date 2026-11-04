@@ -14,8 +14,9 @@ for (const file of ['app/(public)/home.tsx', 'app/(public)/search/page.tsx']) {
   assert.match(form, /name="q"/, `${file}: preserve query submission`);
   assert.match(form, /name="lang"/, `${file}: preserve language`);
   assert.match(form, /min-w-0 flex-1|flex-1 bg-white/, `${file}: query can shrink on narrow screens`);
-  assert.match(form, /h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-brand-700/, `${file}: inset navy search button with 44px target`);
-  assert.match(form, /sr-only sm:not-sr-only/, `${file}: mobile icon control keeps accessible text`);
+  assert.match(form, /h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand-700 px-3/, `${file}: inset navy text search button with 44px height`);
+  assert.match(form, /<span>\{isVi \? "Tìm kiếm" : "Search"\}<\/span>/, `${file}: search text is visible on mobile`);
+  assert.match(form, /<Search className="hidden h-4 w-4 sm:block"/, `${file}: magnifying glass is desktop-only`);
   assert.match(form, /sm:grid/, `${file}: desktop grid retained`);
   if (file.endsWith('home.tsx')) assert.ok(form.indexOf('name="cat"') < form.indexOf('name="q"'));
   else assert.match(form, /order-first.*sm:order-none/, `${file}: category first on mobile only`);

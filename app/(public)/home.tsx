@@ -283,8 +283,8 @@ export default async function HomeContent({
               <input id="home-search-query" type="search" name="q" maxLength={120} defaultValue={query}
                 placeholder={isVi ? "Tìm sản phẩm hoặc quy cách, ví dụ: W320, 550 g/l, quế" : "Search a product or grade, e.g. W320, 550 g/l, cassia"}
                 className="h-11 w-full min-w-0 flex-1 bg-white px-2 text-base text-ink-900 sm:h-14 sm:px-4 sm:text-sm placeholder:text-ink-500 focus-visible:outline-offset-[-3px]" />
-              <button type="submit" className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-brand-700 sm:h-14 sm:w-auto sm:rounded-none sm:px-7 text-sm font-bold text-white transition hover:bg-brand-800 focus-visible:outline-offset-[-3px]">
-                <Search className="h-4 w-4" aria-hidden="true" /><span className="sr-only sm:not-sr-only">{isVi ? "Tìm kiếm" : "Search"}</span>
+              <button type="submit" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand-700 px-3 sm:h-14 sm:w-auto sm:rounded-none sm:px-7 text-sm font-bold text-white transition hover:bg-brand-800 focus-visible:outline-offset-[-3px]">
+                <Search className="hidden h-4 w-4 sm:block" aria-hidden="true" /><span>{isVi ? "Tìm kiếm" : "Search"}</span>
               </button>
             </div>
           </form>
