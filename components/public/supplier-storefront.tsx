@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock3, Factory, FileCheck2, Globe2, Info, MapPin, Package, Ship, Truck, Users } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Globe2, Info, MapPin, Package, Users } from "lucide-react";
+import { supplierTypeIcon, VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Ship, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
 import type { ReactNode } from "react";
 
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
@@ -85,6 +86,7 @@ export function SupplierStorefront({
   ].filter((item) => item.value);
   const steps = s.approved_verification_steps;
   const l2Scope: PublicL2Scope = s.approved_l2_scope ?? null;
+  const SupplierTypeIcon = supplierTypeIcon(s.supplier_type);
   const plannedL2Scope: PublicL2Scope = s.supplier_type === "trading" ? "partner_contract" : s.supplier_type === "manufacturer" || s.supplier_type === "cooperative" ? "factory" : null;
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
@@ -103,7 +105,7 @@ export function SupplierStorefront({
           {avatarAction}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-ink-100 px-2.5 py-1 text-xs font-semibold text-ink-700">{supplierTypeLabel(s)}</span>
+          <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}</span>
             {s.private_label && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">Private label stated</span>}
           </div>
           <NameTag id="supplier-name" className="mt-2 break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>

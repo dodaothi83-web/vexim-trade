@@ -1,3 +1,4 @@
+import { brandIcons } from './lib/vexim-icons.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -18,6 +19,7 @@ let locale = 'en';
 const entry = load('app/(auth)/sign-in/page.tsx', {
   'react/jsx-runtime': jsx,
   'next/link': { default: ({ href, children, prefetch, ...props }) => React.createElement('a', { href, ...props }, children) },
+  '@/components/brand/vexim-icons': brandIcons,
   'lucide-react': { ArrowRight: () => null, Factory: () => null, ShoppingBag: () => null },
   '@/components/auth-split-shell': { AuthSplitShell: ({ children }) => React.createElement('main', null, children) },
   '@/lib/i18n/server': { getLocale: async () => locale },

@@ -1,4 +1,5 @@
-import { Factory, FileCheck2, HelpCircle, ShieldCheck, Truck } from "lucide-react";
+import { HelpCircle, ShieldCheck } from "lucide-react";
+import { VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
 
 import type { VerificationLevel } from "@/lib/types";
 import { verificationExplanation, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";

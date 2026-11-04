@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { AlertTriangle, Clock3, FileCheck2, HelpCircle, Maximize2 } from "lucide-react";
+import { AlertTriangle, Clock3, HelpCircle, Maximize2 } from "lucide-react";
+import { VeximDocumentIcon as FileCheck2 } from "@/components/brand/vexim-icons";
 
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";

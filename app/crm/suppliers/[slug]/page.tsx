@@ -1,3 +1,4 @@
+import { VeximDocumentIcon } from "@/components/brand/vexim-icons";
 import { approvedL2Scope } from "@/lib/verification-status";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -526,7 +527,7 @@ export default async function SupplierDetailPage({
 
           <Card className="overflow-hidden">
             <div className="p-4 pb-0">
-              <SectionHead icon={Building2} title="Hồ sơ doanh nghiệp" />
+              <SectionHead icon={VeximDocumentIcon} title="Hồ sơ doanh nghiệp" />
             </div>
             <ul className="divide-y divide-ink-100">
               <Row icon={<UserRound className="h-3.5 w-3.5" />} label="Người liên hệ" value={[supplier.contact_name, supplier.contact_title].filter(Boolean).join(" · ")} />

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, Factory, ShoppingBag } from "lucide-react";
+import { ArrowRight, ShoppingBag } from "lucide-react";
+import { VeximTradeIcon as Factory } from "@/components/brand/vexim-icons";
 import { AuthSplitShell } from "@/components/auth-split-shell";
 import { getLocale } from "@/lib/i18n/server";
 import { signInEntryMessages } from "@/lib/i18n/sign-in-entry";

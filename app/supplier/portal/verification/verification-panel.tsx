@@ -2,26 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertTriangle,
-  Camera,
-  CheckCircle2,
-  Clock,
-  Crosshair,
-  Download,
-  Factory,
-  FileText,
-  Link2,
-  Loader2,
-  MapPin,
-  Printer,
-  RefreshCw,
-  ScanSearch,
-  Send,
-  ShieldCheck,
-  Ship,
-  Sparkles,
-} from "lucide-react";
+import { AlertTriangle, Camera, CheckCircle2, Clock, Crosshair, Download, FileText, Link2, Loader2, MapPin, Printer, RefreshCw, ScanSearch, Send, ShieldCheck, Sparkles } from "lucide-react";
+import { VeximInspectionIcon as Factory, VeximDeliveryIcon as Ship } from "@/components/brand/vexim-icons";
 
 import { VERIFICATION_CODE_TTL_HOURS } from "@/lib/verification-submission";
 import type { PortalItemSpec, PortalSubmissionView } from "@/lib/supplier-portal/submission-view";

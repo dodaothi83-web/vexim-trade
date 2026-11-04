@@ -1,3 +1,4 @@
+import { VeximDocumentIcon, VeximInspectionIcon, VeximDeliveryIcon } from "@/components/brand/vexim-icons";
 import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -873,9 +874,9 @@ function VerificationSection() {
           </Link>
         </div>
         <ol className="grid gap-3 sm:grid-cols-3">
-          <Level n="01" icon={<ClipboardCheck className="h-5 w-5" />} title="Documents & certificates checked" body="Business registration is reviewed and quality certificates (HACCP, ISO 22000, BRC, Halal, FDA…) are scanned for holder status (Owner or Partner Entity) and validity date." />
-          <Level n="02" icon={<Factory className="h-5 w-5" />} title="Factory or partner contract review" tone="brand" body="Factory evidence and partner-factory contracts are reviewed separately. A contract review does not imply ownership or an on-site inspection." />
-          <Level n="03" icon={<FileCheck2 className="h-5 w-5" />} title="Delivery history reviewed" body="Suitable export or shipment evidence is reviewed. It does not by itself prove an end buyer received the goods; a won enquiry alone does not qualify." />
+          <Level n="01" icon={<VeximDocumentIcon className="h-5 w-5" />} title="Documents & certificates checked" body="Business registration is reviewed and quality certificates (HACCP, ISO 22000, BRC, Halal, FDA…) are scanned for holder status (Owner or Partner Entity) and validity date." />
+          <Level n="02" icon={<VeximInspectionIcon className="h-5 w-5" />} title="Factory or partner contract review" tone="brand" body="Factory evidence and partner-factory contracts are reviewed separately. A contract review does not imply ownership or an on-site inspection." />
+          <Level n="03" icon={<VeximDeliveryIcon className="h-5 w-5" />} title="Delivery history reviewed" body="Suitable export or shipment evidence is reviewed. It does not by itself prove an end buyer received the goods; a won enquiry alone does not qualify." />
         </ol>
       </div>
     </section>

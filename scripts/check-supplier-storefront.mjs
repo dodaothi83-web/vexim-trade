@@ -1,3 +1,4 @@
+import { brandIcons } from './lib/vexim-icons.mjs';
 // node scripts/check-supplier-storefront.mjs — “Trang của tôi” là đúng giao diện buyer thấy:
 // dựng từ component dùng chung, không SEO, không đếm lượt xem, và không trắng trang khi
 // thiếu dữ liệu.
@@ -183,7 +184,8 @@ assert.match(shared, /<SupplierProductRail productCount=\{s\.main_products\.leng
 assert.match(shared, /lg:w-\[calc\(\(100%_-_4rem\)\/5\)\] lg:shrink-0/,
   'Each desktop rail item takes one fifth of the visible width after gaps');
 const { SupplierProductRail } = load('components/public/supplier-product-rail.tsx', {
-  react: React, 'react/jsx-runtime': jsxRuntime, 'lucide-react': { ChevronLeft, ChevronRight },
+  react: React, 'react/jsx-runtime': jsxRuntime, '@/components/brand/vexim-icons': brandIcons,
+  'lucide-react': { ChevronLeft, ChevronRight },
 });
 const railItems = (count) => Array.from({ length: count }, (_, index) => React.createElement('li', { key: index }, `Product ${index + 1}`));
 const sixProductRail = renderToStaticMarkup(React.createElement(SupplierProductRail, { productCount: 6 }, railItems(6)));
@@ -213,6 +215,7 @@ const englishFields = new Proxy({}, { get: (_, key) => key === 'supplierExportMa
 const { SupplierStorefront } = load('components/public/supplier-storefront.tsx', {
   'react/jsx-runtime': jsxRuntime,
   'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
+  '@/components/brand/vexim-icons': brandIcons,
   'lucide-react': icons,
   '@/components/public-product-card': { PublicProductCard: () => null },
   '@/components/public/supplier-product-rail': { SupplierProductRail },

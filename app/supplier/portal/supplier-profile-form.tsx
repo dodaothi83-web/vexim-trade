@@ -1,5 +1,7 @@
 "use client";
 
+import { supplierTypeIcon } from "@/components/brand/vexim-icons";
+
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -56,6 +58,7 @@ export function SupplierProfileFields({ supplier, email, categories, categoryReq
 }) {
   const [supplierType, setSupplierType] = useState<SupplierType | "">(supplier?.supplier_type ?? "");
   const [visitRequested, setVisitRequested] = useState(false);
+  const SupplierTypeIcon = supplierTypeIcon(supplierType);
   const lockedType = supplier?.onboarding_status === "changes_requested";
   const typeLabel = (value: SupplierType | "") => (value ? types[value] : types.unset);
   return <>
@@ -65,7 +68,7 @@ export function SupplierProfileFields({ supplier, email, categories, categoryReq
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label={m.company.labels.name} name="name" required maxLength={180} placeholder={m.company.placeholders.name} defaultValue={supplier?.name ?? ""} />
         <Field label={m.company.labels.tradeName} name="trade_name" maxLength={180} placeholder={m.company.placeholders.tradeName} defaultValue={supplier?.trade_name ?? ""} />
-        <label className="block text-sm"><span className="mb-1 block font-semibold">{m.company.labels.supplierType}</span>
+        <label className="block text-sm"><span className="mb-1 inline-flex items-center gap-2 font-semibold"><SupplierTypeIcon className="h-5 w-5 text-brand-700" aria-hidden="true" />{m.company.labels.supplierType}</span>
           {lockedType ? <>
             <input name="supplier_type" type="hidden" value={supplierType} />
             <span className="input block bg-ink-50">{typeLabel(supplierType)}</span>

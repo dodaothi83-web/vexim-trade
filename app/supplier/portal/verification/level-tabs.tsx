@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Factory, FileCheck2, Ship } from "lucide-react";
+import { VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Ship } from "@/components/brand/vexim-icons";
 
 import { fill } from "@/lib/i18n/format";
 import type { VerificationMessages } from "@/lib/i18n/portal/verification";

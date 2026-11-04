@@ -1,3 +1,4 @@
+import { brandIcons } from './lib/vexim-icons.mjs';
 // Account-first flow UI: one login, account signup in the auth shell, locked dashboard until staff approval.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -37,7 +38,8 @@ const i18nServer = {
 const link = { default: ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children) };
 const source = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const form = load('../app/(auth)/supplier/register/supplier-account-form.tsx', {
-  'react/jsx-runtime': jsx, 'react': React, 'next/link': link, 'lucide-react': icons,
+  'react/jsx-runtime': jsx, 'react': React, 'next/link': link, '@/components/brand/vexim-icons': brandIcons,
+  'lucide-react': icons,
   '@/components/form-challenge': { FormChallenge: () => null },
 });
 const formHtml = renderToStaticMarkup(React.createElement(form.SupplierAccountForm, {
@@ -81,6 +83,7 @@ const user = { id: 'unlinked', email: 'new@example.com', role: 'supplier', is_ac
 let portalAccessCalls = 0;
 const portal = load('../app/supplier/portal/page.tsx', {
   'react/jsx-runtime': jsx, 'next/link': link, 'next/navigation': { redirect: () => { throw Error('unexpected redirect'); } },
+  '@/components/brand/vexim-icons': brandIcons,
   'lucide-react': icons, '@/lib/i18n/server': i18nServer, '@/lib/i18n/format': loadFormat(),
   '@/components/page-header': { PageHeader: ({ title, sub, eyebrow }) => React.createElement('header', null,
     eyebrow ? React.createElement('p', null, eyebrow) : null, React.createElement('h1', null, title), sub ?? null) }, '@/lib/auth/session': { requireSession: async () => user },
