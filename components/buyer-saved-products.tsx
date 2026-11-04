@@ -9,8 +9,11 @@ import { getSavedProductsState, setSavedProductAction } from "@/app/(public)/buy
 type SavedState = { authenticated: boolean; ids: string[] };
 const SavedContext = createContext<{ state: SavedState | null; update: (id: string, saved: boolean) => void; isVi: boolean; loadError: boolean; reload: () => void } | null>(null);
 
-export function BuyerSavedProductsProvider({ children, isVi }: { children: ReactNode; isVi: boolean }) {
-  const [state, setState] = useState<SavedState | null>(null);
+export function BuyerSavedProductsProvider({ children, isVi, sessionKey = "guest" }: { children: ReactNode; isVi: boolean; sessionKey?: string }) {
+  // Scope the cache to the account, not a React key around the whole public page.
+  // Changing accounts clears visible saved IDs immediately without destroying unfinished forms.
+  const [snapshot, setSnapshot] = useState<{ owner: string; state: SavedState } | null>(null);
+  const state = snapshot?.owner === sessionKey ? snapshot.state : null;
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
   const pathname = usePathname();
@@ -22,10 +25,10 @@ export function BuyerSavedProductsProvider({ children, isVi }: { children: React
   useEffect(() => {
     let active = true;
     setLoadError(false);
-    getSavedProductsState().then((value) => { if (active) setState(value); }).catch(() => { if (active) setLoadError(true); });
+    getSavedProductsState().then((value) => { if (active) setSnapshot({ owner: sessionKey, state: value }); }).catch(() => { if (active) setLoadError(true); });
     return () => { active = false; };
-  }, [retry, pathname]);
-  return <SavedContext.Provider value={{ state, isVi, loadError, reload: () => setRetry((value) => value + 1), update: (id, saved) => setState((previous) => previous ? { ...previous, ids: saved ? [...new Set([...previous.ids, id])] : previous.ids.filter((value) => value !== id) } : previous) }}>{children}</SavedContext.Provider>;
+  }, [retry, pathname, sessionKey]);
+  return <SavedContext.Provider value={{ state, isVi, loadError, reload: () => setRetry((value) => value + 1), update: (id, saved) => setSnapshot((previous) => previous?.owner === sessionKey ? { owner: sessionKey, state: { ...previous.state, ids: saved ? [...new Set([...previous.state.ids, id])] : previous.state.ids.filter((value) => value !== id) } } : previous) }}>{children}</SavedContext.Provider>;
 }
 
 export function SaveProductButton({ id, href, compact = false, iconOnly = false, removeOnly = false }: { id: string; href: string; compact?: boolean; iconOnly?: boolean; removeOnly?: boolean }) {
