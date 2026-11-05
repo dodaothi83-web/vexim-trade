@@ -29,6 +29,7 @@ const CLOSED: Array<Rfq["status"]> = ["won", "lost", "spam"];
 
 /** Tab theo bước công việc thay vì một tab cho mỗi trạng thái. */
 const VIEWS: { key: string; label: string; match: (r: Rfq) => boolean }[] = [
+  { key: "all", label: "Tất cả", match: () => true },
   { key: "open", label: "Đang mở", match: (r) => !isSupplierQuestion(r) && !CLOSED.includes(r.status) },
   { key: "todo", label: "Cần xử lý", match: (r) => !isSupplierQuestion(r) && ["new", "needs_review", "in_progress"].includes(r.status) },
   { key: "matching", label: "Đang ghép nhà cung cấp", match: (r) => !isSupplierQuestion(r) && r.status === "matching" },
@@ -36,7 +37,6 @@ const VIEWS: { key: string; label: string; match: (r: Rfq) => boolean }[] = [
   { key: "question", label: "Câu hỏi nhà cung cấp", match: (r) => isSupplierQuestion(r) },
   { key: "closed", label: "Đã đóng", match: (r) => !isSupplierQuestion(r) && (r.status === "won" || r.status === "lost") },
   { key: "spam", label: "Cách ly", match: (r) => r.status === "spam" },
-  { key: "all", label: "Tất cả", match: () => true },
 ];
 
 /** Bộ lọc phụ, mở từ các ô cảnh báo ở đầu trang. */
