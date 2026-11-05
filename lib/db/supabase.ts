@@ -1765,6 +1765,13 @@ export const supabaseStore: DataStore = {
     if (error) fail("countPendingRfqs", error);
     return count ?? 0;
   },
+  async listPendingRfqRouting() {
+    const { data, error } = await must().from("rfqs")
+      .select("id,status,source_page,specs,preferred_supplier_ids,source_product_id")
+      .in("status", ["new", "needs_review", "in_progress", "matching"]);
+    if (error) fail("listPendingRfqRouting", error);
+    return (data ?? []) as Pick<Rfq, "id" | "status" | "source_page" | "specs" | "preferred_supplier_ids" | "source_product_id">[];
+  },
   async listRfqs(options) {
     let q = must().from("rfqs").select("*").order("created_at", { ascending: false });
     if (options?.status) q = q.eq("status", options.status);

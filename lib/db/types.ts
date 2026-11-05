@@ -372,6 +372,8 @@ export interface DataStore {
 
   // RFQs
   countPendingRfqs(): Promise<number>;
+  /** RFQ đang chờ (vài cột để phân luồng), dùng đếm huy hiệu RFQ trực tiếp và Tìm nguồn riêng. */
+  listPendingRfqRouting(): Promise<Pick<Rfq, "id" | "status" | "source_page" | "specs" | "preferred_supplier_ids" | "source_product_id">[]>;
   listRfqs(options?: { status?: string; assignedTo?: string | null; buyerId?: string }): Promise<Rfq[]>;
   getRfq(id: string): Promise<Rfq | null>;
   getRfqByToken(token: string): Promise<Rfq | null>;
