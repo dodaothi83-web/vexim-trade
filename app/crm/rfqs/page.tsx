@@ -100,7 +100,7 @@ export default async function RfqsPage({
   const session = await requirePagePermission("rfq.view", "/crm/dashboard");
   const canManage = hasPermission(session.role, "rfq.manage");
   const sp = await searchParams;
-  const statusFilter = sp?.status ?? "open";
+  const statusFilter = sp?.status ?? "all";
 
   const store = getStore();
   const [allRfqs, users, buyers] = await Promise.all([
@@ -158,7 +158,7 @@ export default async function RfqsPage({
           return (
             <Link
               key={t.key}
-              href={t.key === "open" ? "/crm/rfqs" : `/crm/rfqs?status=${t.key}`}
+              href={t.key === "all" ? "/crm/rfqs" : `/crm/rfqs?status=${t.key}`}
               aria-current={active ? "page" : undefined}
               className={
                 "inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] font-semibold transition " +
