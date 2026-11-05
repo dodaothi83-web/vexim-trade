@@ -9,13 +9,15 @@ import type { RfqsMessages } from "@/lib/i18n/portal/rfqs";
 const INITIAL: SupplierQuoteState = { error: null };
 
 /** Form báo giá gọn, mở ngay dưới lời mời. Quyền và kiểm tra dữ liệu nằm ở server action. */
-export function SupplierQuoteForm({ matchId, code, defaults, currencies, incoterms, editing, copy }: {
+export function SupplierQuoteForm({ matchId, code, defaults, currencies, incoterms, editing, direct = false, copy }: {
   matchId: string;
   code: string;
   defaults: { price: string; currency: string; unit: string; incoterm: string; leadTimeDays: string; validUntil: string };
   currencies: readonly string[];
   incoterms: readonly string[];
   editing: boolean;
+  /** Báo giá gửi thẳng tới người mua (RFQ trực tiếp). */
+  direct?: boolean;
   copy: RfqsMessages["quote"];
 }) {
   const [state, action, pending] = useActionState(submitSupplierQuoteAction, INITIAL);
@@ -59,7 +61,7 @@ export function SupplierQuoteForm({ matchId, code, defaults, currencies, incoter
         </label>
         {state.error && <p role="alert" className="mt-2 text-[12.5px] font-semibold text-rose-700">{state.error}</p>}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11.5px] text-ink-500">{copy.privacy}</p>
+          <p className="text-[11.5px] text-ink-500">{direct ? copy.privacyDirect : copy.privacy}</p>
           <div className="flex flex-wrap gap-2">
             {!editing && (
               <button type="submit" name="intent" value="decline" formNoValidate disabled={pending} className="btn btn-ghost btn-sm"

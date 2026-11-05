@@ -1,6 +1,7 @@
 import type { DataStore } from "@/lib/db/types";
 import type { EmailMessage, RfqMatch, RfqMatchStatus, Supplier } from "@/lib/types";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { rfqChannel } from "@/lib/rfq/channel";
 
 /**
  * Báo giá nhà cung cấp tự nhập trên cổng. Chỉ ghi vào lời mời của chính nhà cung cấp,
@@ -57,7 +58,7 @@ export async function recordSupplierPortalQuote(input: {
   actorEmail: string;
   matchId: string;
   quote: SupplierQuoteInput;
-}): Promise<{ code: string; intent: SupplierQuoteInput["intent"] }> {
+}): Promise<{ code: string; rfqId: string; intent: SupplierQuoteInput["intent"]; direct: boolean }> {
   const { store, supplier, quote } = input;
   const match = await store.getRfqMatch(input.matchId);
   // Lời mời của nhà cung cấp khác hay chưa được gửi thì coi như không tồn tại.
@@ -130,5 +131,6 @@ export async function recordSupplierPortalQuote(input: {
     after: { status: patch.status, quote_price: patch.quote_price ?? null },
   }).catch((err) => console.error("[supplier-portal] quote audit failed", err));
 
-  return { code: rfq.code, intent: quote.intent };
+  // RFQ trực tiếp (người mua chọn đúng nhà cung cấp này): nơi gọi tự trình báo giá cho người mua.
+  return { code: rfq.code, rfqId: rfq.id, intent: quote.intent, direct: rfqChannel(rfq) === "direct" };
 }
