@@ -2353,6 +2353,11 @@ export const localStore: DataStore = {
   async countPendingRfqs() {
     return load().rfqs.filter((rfq) => ["new", "needs_review", "in_progress", "matching"].includes(rfq.status)).length;
   },
+  async listPendingRfqRouting() {
+    return load().rfqs.filter((rfq) => ["new", "needs_review", "in_progress", "matching"].includes(rfq.status))
+      .map(({ id, status, source_page, specs, preferred_supplier_ids, source_product_id }) =>
+        ({ id, status, source_page, specs, preferred_supplier_ids, source_product_id }));
+  },
   async listRfqs(options) {
     let rows = [...(load().rfqs ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at));
     if (options?.status) rows = rows.filter((r) => r.status === options.status);

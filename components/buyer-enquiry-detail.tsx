@@ -120,7 +120,10 @@ function questionStatusInfo(status: string) {
   }
 }
 
-export function BuyerEnquiryDetail({ rfq, buyer }: { rfq: Rfq; buyer: Buyer }) {
+/** Báo giá đã gửi tới người mua: chỉ tên hiển thị và khu vực nhà cung cấp, không có liên hệ. */
+export type BuyerQuote = { id: string; supplier: string; location: string | null; price: string; incoterm: string | null; leadTimeDays: number | null; validUntil: string | null };
+
+export function BuyerEnquiryDetail({ rfq, buyer, quotes = [] }: { rfq: Rfq; buyer: Buyer; quotes?: BuyerQuote[] }) {
   const isQuestion = rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
   const info = isQuestion ? questionStatusInfo(rfq.status) : statusInfo(rfq.status);
   const Icon = info.icon;
@@ -151,6 +154,26 @@ export function BuyerEnquiryDetail({ rfq, buyer }: { rfq: Rfq; buyer: Buyer }) {
             <p className="text-[14px] leading-relaxed text-ink-700">{info.body}</p>
           </div>
         </div>
+
+        {!isQuestion && quotes.length > 0 && (
+          <section className="mt-6 border-t border-ink-100 pt-5" aria-labelledby="quotes-title">
+            <h2 id="quotes-title" className="text-[14px] font-bold text-ink-900">Quotes received ({quotes.length})</h2>
+            <ul className="mt-3 space-y-2">
+              {quotes.map((q) => (
+                <li key={q.id} className="rounded-lg border border-ink-200 px-4 py-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-[14px] font-semibold text-ink-900">{q.supplier}{q.location && <span className="ml-1.5 text-[12px] font-normal text-ink-500">{q.location}</span>}</p>
+                    <p className="text-[15px] font-bold text-brand-800">{q.price}</p>
+                  </div>
+                  <p className="mt-1 text-[12.5px] text-ink-600">
+                    {[q.incoterm, q.leadTimeDays != null ? `${q.leadTimeDays} days lead time` : null, q.validUntil ? `valid until ${q.validUntil}` : null].filter(Boolean).join(" · ") || "Details in the quote email"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[12px] text-ink-500">Reply to the quote email to choose a supplier. Your contact details are shared only with the supplier you choose.</p>
+          </section>
+        )}
 
         <dl className="mt-6 grid gap-3 border-t border-ink-100 pt-5 text-[13.5px] sm:grid-cols-2">
           <Row k="Product" v={rfq.product_text} />

@@ -8,6 +8,7 @@ import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { RfqAssignmentSelect } from "./assignment-select";
 import { assigneeLabel, rfqAssigneeOptions } from "@/lib/rfq/assignees";
+import { rfqChannel } from "@/lib/rfq/channel";
 import type { AppUser, Buyer, Rfq } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -102,11 +103,14 @@ export default async function RfqsPage({
   const statusFilter = sp?.status ?? "open";
 
   const store = getStore();
-  const [rfqs, users, buyers] = await Promise.all([
+  const [allRfqs, users, buyers] = await Promise.all([
     store.listRfqs(),
     store.listUsers().catch(() => [] as AppUser[]),
     store.listBuyers().catch(() => [] as Buyer[]),
   ]);
+  // RFQ chung (không chọn nhà cung cấp) cần Vexim ghép: nằm ở hộp thư Tìm nguồn.
+  const rfqs = allRfqs.filter((r) => rfqChannel(r) !== "sourcing");
+  const sourcingCount = allRfqs.length - rfqs.length;
   const buyerMap = new Map(buyers.map((b) => [b.id, b]));
   const userMap = new Map(users.map((u) => [u.id, u]));
   const assignmentUsers = rfqAssigneeOptions(users);
@@ -124,9 +128,15 @@ export default async function RfqsPage({
         { label: "RFQ" },
       ]} />
       <PageHeader
-        title="Hộp thư RFQ"
-        sub="Phân công trong 4 giờ, phản hồi người mua trong 24 giờ làm việc. Câu hỏi trực tiếp không tính SLA báo giá."
+        title="RFQ trực tiếp"
+        sub="Gửi thẳng tới một nhà cung cấp từ trang sản phẩm hoặc doanh nghiệp. Câu hỏi trực tiếp không tính SLA báo giá."
       />
+      {sourcingCount > 0 && (
+        <p className="mt-2 text-[12.5px] text-ink-600">
+          {sourcingCount} yêu cầu không chọn nhà cung cấp nằm ở{" "}
+          <Link href="/crm/sourcing" className="font-semibold text-brand-700 hover:underline">Tìm nguồn</Link>, nơi Vexim ghép nhà cung cấp.
+        </p>
+      )}
 
       {alertCounts.some((a) => a.count > 0) && (
         <div className="mt-3 flex flex-wrap gap-2">

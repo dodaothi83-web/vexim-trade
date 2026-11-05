@@ -446,7 +446,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   if (rfqStatus === "new" && preferredIds.length > 0) {
     try {
       await createPreferredSupplierMatches(store, rfq.id, preferredIds);
-      if (!isSupplierQuestion && sourceProduct && preferredIds.length === 1) portalReleased = await releaseTargetedQuoteToPortal(store, rfq);
+      if (!isSupplierQuestion && preferredIds.length === 1) portalReleased = await releaseTargetedQuoteToPortal(store, rfq);
     } catch (err) {
       console.warn("[rfq] preferred supplier auto-match failed, RFQ already saved:", err);
     }

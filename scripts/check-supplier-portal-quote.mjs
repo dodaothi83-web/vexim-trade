@@ -12,6 +12,7 @@ function load(file, mocks) {
 }
 const quote = load("lib/supplier-portal/quote.ts", {
   "@/lib/public/product-selection": { withoutDirectContacts: (s) => String(s).replace(/[\w.+-]+@[\w.-]+|\+?\d[\d ]{7,}/g, "[redacted]") },
+  "@/lib/rfq/channel": load("lib/rfq/channel.ts", {}),
 });
 const form = (o) => { const fd = new FormData(); for (const [k, v] of Object.entries(o)) fd.set(k, v); return fd; };
 const good = { price: "6,25", currency: "usd", unit: "kg", incoterm: "fob", lead_time_days: "21", valid_until: "", note: "Carton 10kg" };
@@ -50,7 +51,8 @@ const record = (matchId, value, supplierId = "s1") => quote.recordSupplierPortal
 await assert.rejects(record("other", ok.value), /notFound/, "cannot quote another supplier's invitation");
 await assert.rejects(record("missing", ok.value), /notFound/);
 assert.equal(matches.other.status, "sent_to_supplier");
-await record("m1", ok.value);
+const generalResult = await record("m1", ok.value);
+assert.equal(generalResult.direct, false, "RFQ chung (Tìm nguồn): Vexim xem lại trước khi trình người mua");
 assert.equal(matches.m1.status, "quoted");
 assert.equal(matches.m1.quote_price, 6.25);
 assert.equal(matches.m1.quote_lead_time_days, 21);
@@ -79,6 +81,11 @@ matches.m1.sent_to_supplier_at = null;
 await assert.rejects(record("m1", ok.value), /notFound/, "unsent invitation is not visible");
 matches.m1.sent_to_supplier_at = "2026-11-01";
 
+// RFQ trực tiếp (người mua chọn đúng nhà cung cấp này): nơi gọi tự trình báo giá cho người mua.
+Object.assign(rfqs.r1, { preferred_supplier_ids: ["s1"], source_product_id: "p1" });
+assert.equal((await record("m1", { ...ok.value, price: 6.2 })).direct, true);
+Object.assign(rfqs.r1, { preferred_supplier_ids: [], source_product_id: null });
+
 // Từ chối
 await record("m1", { intent: "decline", note: "Hết hàng" });
 assert.equal(matches.m1.status, "declined");
@@ -91,5 +98,7 @@ assert.match(action, /^"use server"/);
 assert.match(action, /supplierPortalAccess\(\)/);
 assert.match(action, /portalApproved\(access\.supplier\)/);
 assert.match(read("app/supplier/portal/rfqs/quote-form.tsx"), /^"use client"/);
+assert.match(action, /result\.intent === "quote" && result\.direct[\s\S]*presentShortlistToBuyer/, "chỉ RFQ trực tiếp mới tự gửi người mua");
+assert.match(action, /catch \(error\)[\s\S]*buyer delivery failed/, "gửi người mua lỗi không làm mất báo giá đã lưu");
 assert.match(read("app/supplier/portal/rfqs/page.tsx"), /<SupplierQuoteForm/);
 console.log("✅ Supplier portal quote: validation, ownership, revise-before-presentation lock, decline, timeline and audit; RFQ status untouched.");

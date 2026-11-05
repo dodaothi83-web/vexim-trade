@@ -62,6 +62,7 @@ import {
   SELECTABLE_MATCH_STATUSES,
   isSupplierQuestionRfq,
 } from "@/lib/rfq/workflow";
+import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
 
 export const dynamic = "force-dynamic";
 
@@ -214,6 +215,9 @@ export default async function RfqDetailPage({
   const specs = (rfq.specs as Record<string, unknown> | null) ?? {};
   const statusLink = `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
   const isSupplierQuestion = isSupplierQuestionRfq(rfq);
+  // RFQ không chọn nhà cung cấp (hoặc tạo từ yêu cầu tìm nguồn) thuộc hộp thư Tìm nguồn.
+  const isSourcing = rfqChannel(rfq) === "sourcing";
+  const sourcingRequestId = linkedSourcingRequestId(rfq);
   const isClosed = CLOSED_RFQ_STATUSES.includes(rfq.status);
   const canAct = canManageRfq && !isSupplierQuestion && !isClosed;
   const statusInfo = isSupplierQuestion && rfq.status === "matching"
@@ -264,6 +268,7 @@ export default async function RfqDetailPage({
     };
     if (presented.length > 0) return { text: <>Chờ người mua chọn. Khi có phản hồi, bấm <strong>Gửi mẫu</strong> hoặc <strong>Chốt</strong> ở dòng nhà cung cấp tương ứng.</> };
     if (sendable.length > 0) return { text: <>Có <strong>{sendable.length}</strong> nhà cung cấp chưa nhận yêu cầu. Gửi yêu cầu báo giá ẩn danh ở danh sách bên dưới.</>, action: <a href="#suppliers" className="btn btn-primary btn-sm">Đến danh sách <ArrowRight className="h-3.5 w-3.5" /></a> };
+    if (awaiting.length > 0 && rfqChannel(rfq) === "direct") return { text: <>Đã gửi tới nhà cung cấp người mua chọn. Báo giá họ gửi trên cổng <strong>tự tới người mua</strong>; Vexim chỉ theo dõi và nhắc khi quá hạn.</> };
     if (awaiting.length > 0) return { text: <>Đang chờ <strong>{awaiting.length}</strong> nhà cung cấp báo giá. Nhập giá khi nhận được, hoặc bấm Nhắc phản hồi.</> };
     return { text: "Chưa có nhà cung cấp phù hợp. Thêm nhà cung cấp vào shortlist để bắt đầu.", action: <a href="#suppliers" className="btn btn-primary btn-sm">Thêm nhà cung cấp <ArrowRight className="h-3.5 w-3.5" /></a> };
   })();
@@ -274,14 +279,14 @@ export default async function RfqDetailPage({
     <div className="min-w-0">
       <Breadcrumbs items={[
         { label: "Tổng quan", href: "/crm/dashboard" },
-        { label: "RFQ", href: "/crm/rfqs" },
+        isSourcing ? { label: "Tìm nguồn", href: "/crm/sourcing?status=working" } : { label: "RFQ", href: "/crm/rfqs" },
         { label: rfq.code },
       ]} />
 
       {/* Đầu trang: mã, trạng thái, người chủ trì */}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-          <Link href="/crm/rfqs" className="btn btn-ghost btn-sm" aria-label="Quay lại hộp thư RFQ">
+          <Link href={isSourcing ? "/crm/sourcing?status=working" : "/crm/rfqs"} className="btn btn-ghost btn-sm" aria-label={isSourcing ? "Quay lại hộp thư tìm nguồn" : "Quay lại hộp thư RFQ"}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <h1 className="font-mono text-xl font-bold text-ink-900">{rfq.code}</h1>
@@ -290,6 +295,7 @@ export default async function RfqDetailPage({
             {statusInfo.label}
           </Badge>
           {isSupplierQuestion && <Badge color="#0f766e">Câu hỏi trực tiếp cho nhà cung cấp</Badge>}
+          {isSourcing && <Badge color="#0f766e">Tìm nguồn · Vexim ghép nhà cung cấp</Badge>}
           {rfq.status === "spam" && (
             <Badge color="#b91c1c" className="inline-flex items-center gap-1">
               <ShieldAlert className="h-3.5 w-3.5" /> Điểm rủi ro {rfq.spam_score}
@@ -380,9 +386,15 @@ export default async function RfqDetailPage({
                 ].filter(Boolean).join(", ") || "—"}
               </Field>
               <Field icon={<CalendarClock className="h-4 w-4" />} label="Nhận lúc">{fmtDate(rfq.created_at)}</Field>
+              {sourcingRequestId && (
+                <p className="sm:col-span-2 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-[12.5px] text-teal-900">
+                  Tạo từ yêu cầu tìm nguồn {sourcingRequestId.slice(0, 8).toUpperCase()}.{" "}
+                  <Link href={`/crm/sourcing?status=all&open=${sourcingRequestId}`} className="font-semibold underline">Xem yêu cầu gốc và tệp đính kèm</Link>
+                </p>
+              )}
               {String(specs.notes ?? "") && (
                 <div className="sm:col-span-2">
-                  <dt className="text-[11px] uppercase tracking-wider text-ink-400">{isSupplierQuestion ? "Câu hỏi từ người mua" : "Ghi chú từ người mua"}</dt>
+                  <dt className="text-[11px] uppercase tracking-wider text-ink-400">{isSupplierQuestion ? "Câu hỏi từ người mua" : sourcingRequestId ? "Nội dung yêu cầu tìm nguồn" : "Ghi chú từ người mua"}</dt>
                   <dd className="mt-1 whitespace-pre-line rounded-md bg-ink-50 p-3 text-[13px] text-ink-700">{String(specs.notes)}</dd>
                 </div>
               )}

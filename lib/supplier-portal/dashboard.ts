@@ -30,6 +30,8 @@ export interface PortalInvite {
   productId: string | null;
   /** Còn nhận báo giá trên cổng: lời mời đang mở và Vexim chưa trình người mua. */
   canQuote: boolean;
+  /** Người mua chọn đúng nhà cung cấp này: báo giá gửi thẳng tới người mua, không chờ Vexim. */
+  directToBuyer: boolean;
   /** Giá trị điền sẵn cho form báo giá (giá đã ghi trước đó hoặc theo yêu cầu). */
   quoteDefaults: { price: string; currency: string; unit: string; incoterm: string; leadTimeDays: string; validUntil: string };
 }
@@ -84,6 +86,7 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
       productId: product?.id ?? null,
       canQuote: ["sent_to_supplier", "no_response", "quoted"].includes(m.status) && !m.sent_to_buyer_at &&
         !["won", "lost", "spam"].includes(m.rfq!.status ?? ""),
+      directToBuyer: !!m.rfq!.source_product_id || (m.rfq!.preferred_supplier_ids ?? []).length > 0,
       quoteDefaults: {
         price: m.quote_price != null ? String(m.quote_price) : "",
         currency: m.quote_currency || "USD",
