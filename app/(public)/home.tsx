@@ -5,7 +5,6 @@ import {
   ArrowRight,
   ChevronRight,
   FileStack,
-  HelpCircle,
   Search,
   SlidersHorizontal,
 } from "lucide-react";
@@ -63,60 +62,6 @@ function getChildCategories(cat: Category, allCategories: Category[]): Category[
     .filter((c) => c.parent_id === cat.id)
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.slug.localeCompare(b.slug));
 }
-
-const FAQ_EN = [
-  {
-    q: "Is searching products and submitting a Request for Quotation (RFQ) free for buyers?",
-    a: "Yes, 100% free for buyers. You can browse verified Vietnamese food & agricultural suppliers, request a quote directly from the supplier you choose, or send your open requirements so we can look for factories that match.",
-  },
-  {
-    q: "How can I tell if a certificate on a supplier profile belongs to the supplier or a partner factory?",
-    a: "Vexim may use automated tools to read the certificate holder and expiry date. Eligible certificates may show the holder and expiry information, but this does not prove the issuing authority has authenticated the document. A certificate is linked to a product or category only after Vexim staff confirm its scope.",
-  },
-  {
-    q: "How does Vexim verify suppliers listed on the platform?",
-    a: "Vexim records three separate checks: (1) business registration review and the tax number supplied by the company; the tax number is not independently checked with the tax authority, (2) factory evidence or a partner-factory contract depending on the supplier, and (3) suitable shipment evidence. Quality certificates are reviewed separately. A partner contract does not prove ownership or an on-site factory inspection.",
-  },
-  {
-    q: "How can a Vietnamese food manufacturer or exporter list products on Vexim Trade?",
-    a: "Simply click 'Register Free Listing' in the Business Solutions section above to submit your company details, or create a supplier account to upload your business license, factory evidence, and product catalog.",
-  },
-  {
-    q: "What happens when a supplier's food safety certificate is approaching expiration?",
-    a: "Our system automatically sends renewal notifications and emails to the supplier 60, 30, 7, and 1 day before expiration. Once the supplier uploads the renewed certificate in their portal, the new expiration date is automatically recognized and updated.",
-  },
-  {
-    q: "How do I register for International Trade Website Design, Featured Placement, or US FDA Compliance?",
-    a: "Use the inquiry form on the relevant service card. For Featured Placement, our team will discuss your business banner advertising inquiry.",
-  },
-];
-
-const FAQ_VI = [
-  {
-    q: "Tìm kiếm sản phẩm và gửi yêu cầu báo giá (RFQ) trên Vexim Trade có mất phí không?",
-    a: "Hoàn toàn miễn phí cho người mua hàng. Bạn có thể tra cứu theo từng nhóm ngành thực phẩm, xem hồ sơ nhà cung cấp đã được kiểm duyệt và gửi yêu cầu báo giá trực tiếp cho nhà cung cấp mình chọn hoặc nhờ Vexim sàng lọc nhà máy phù hợp.",  // copy-allow: FAQ công khai, câu dài có chủ đích
-  },
-  {
-    q: "Làm sao biết chứng nhận trên hồ sơ nhà cung cấp là chính chủ hay của đơn vị đối tác?",
-    a: "Vexim có thể dùng công cụ tự động để đọc đơn vị đứng tên và ngày hết hạn. Chứng nhận đủ điều kiện có thể hiển thị các thông tin này, nhưng việc quét không xác nhận tính thật của giấy. Chứng nhận chỉ gắn với danh mục hoặc sản phẩm sau khi nhân viên Vexim xác nhận phạm vi áp dụng.",  // copy-allow: FAQ công khai, câu dài có chủ đích
-  },
-  {
-    q: "Quy trình xác thực nhà cung cấp của Vexim gồm những hạng mục nào?",
-    a: "Vexim ghi nhận riêng ba bước: (1) xem GCN ĐKKD và ghi nhận mã số thuế doanh nghiệp cung cấp; mã số thuế không được xác minh riêng với cơ quan thuế, (2) bằng chứng nhà máy hoặc hợp đồng nhà máy đối tác tùy loại hình, và (3) chứng từ giao hàng phù hợp. Chứng nhận chất lượng được xét riêng. Hợp đồng đối tác không chứng minh quyền sở hữu hay việc Vexim đã kiểm tra tại chỗ.",  // copy-allow: FAQ công khai, câu dài có chủ đích
-  },
-  {
-    q: "Doanh nghiệp thực phẩm tại Việt Nam đăng ký lên sàn như thế nào?",
-    a: "Doanh nghiệp chỉ cần bấm nút 'Đăng ký lên sàn miễn phí' ở mục Dịch vụ phía trên để gửi thông tin, hoặc tạo tài khoản nhà cung cấp để khai báo hồ sơ pháp nhân, tải giấy phép kinh doanh và đăng tải sản phẩm.",  // copy-allow: FAQ công khai, câu dài có chủ đích
-  },
-  {
-    q: "Khi chứng nhận ATTP / HACCP / ISO sắp hết hạn thì cập nhật lại như thế nào?",
-    a: "Trước khi chứng nhận hết hạn 60, 30, 7 và 1 ngày, hệ thống tự động gửi thông báo và email nhắc nhà cung cấp. Doanh nghiệp chỉ cần vào mục Giấy tờ trên cổng nhà cung cấp tải bản gia hạn mới lên, hệ thống sẽ tự động nhận diện lại ngày hết hạn mới và cập nhật hiển thị.",  // copy-allow: FAQ công khai, câu dài có chủ đích
-  },
-  {
-    q: "Tôi muốn đăng ký gói Thiết kế website quốc tế, Quảng cáo nổi bật hoặc Tuân thủ pháp lý FDA thì làm thế nào?",
-    a: "Điền biểu mẫu trên thẻ dịch vụ tương ứng. Với Quảng cáo nổi bật, Vexim sẽ liên hệ tư vấn banner doanh nghiệp.",
-  },
-];
 
 export default async function HomeContent({
   query = "",
@@ -215,7 +160,6 @@ export default async function HomeContent({
     lang,
     titleFor: (category) => getCategoryTitle(category as Category, lang),
   });
-  const faqs = isVi ? FAQ_VI : FAQ_EN;
 
   // Khai báo một lần và luôn đặt trước danh mục khi có sản phẩm.
   const productFeedSection = hasFeedProducts ? (
@@ -465,8 +409,6 @@ export default async function HomeContent({
         </div>
       </section>
 
-      <ConnectionOverview isVi={isVi} />
-
       {/* =====================================================================
           SECTION 3: DANH SÁCH BLOG (4 BÀI / HÀNG)
          ===================================================================== */}
@@ -586,41 +528,8 @@ export default async function HomeContent({
         lang={lang}
       />
 
-      {/* =====================================================================
-          SECTION 5: BỘ CÂU HỎI VÀ TRẢ LỜI (FAQ)
-         ===================================================================== */}
-      <section id="faq" className="border-t border-slate-200 bg-slate-50 py-16 sm:py-20">
-        <div className="mx-auto max-w-4xl px-5 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-3 py-1 text-xs font-bold uppercase tracking-widest text-brand-800">
-              <HelpCircle className="h-3.5 w-3.5" />{" "}
-              {isVi ? "Giải đáp thắc mắc" : "Frequently Asked Questions"}
-            </span>
-            <h2 className="mt-2.5 text-2xl font-black tracking-tight text-ink-900 sm:text-3xl">
-              {isVi ? "Bộ câu hỏi và trả lời" : "Questions & Answers"}
-            </h2>
-            <p className="mt-2 text-sm text-ink-600">
-              {isVi
-                ? "Những câu hỏi thường gặp về tra cứu nguồn hàng, cơ chế nhận diện chứng nhận tự động và dịch vụ dành cho doanh nghiệp."
-                : "Common questions about sourcing Vietnamese food products, supplier checks, certificates, and supplier solutions."}
-            </p>
-          </div>
-
-          <ul className="mt-10 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {faqs.map((f, i) => (
-              <li key={f.q} className="p-5 sm:p-6">
-                <h3 className="flex items-start gap-3 text-[15.5px] font-bold text-ink-900">
-                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-black tabular-nums text-brand-900">
-                    0{i + 1}
-                  </span>
-                  <span>{f.q}</span>
-                </h3>
-                <p className="mt-2 pl-9 text-sm leading-relaxed text-ink-600">{f.a}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      {/* Connection overview replaces the former homepage FAQ block. */}
+      <ConnectionOverview isVi={isVi} />
 
       <PlatformLegalStrip variant="footer" />
     </div>
