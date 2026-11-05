@@ -10,6 +10,7 @@ Migration `20261048_sponsored_retire_manual.sql` chặn tạo mới và duyệt/
 
 - Một gói dành cho **một sản phẩm đủ điều kiện công khai**, tại khu vực tài trợ ở đầu trang danh mục **khi người xem chưa bật bộ lọc**. Số ô theo tổng sản phẩm công khai không phải demo trước lọc: 1 ô khi dưới 10, 2 ô khi 10–30 và 3 ô khi trên 30; danh mục rỗng không có ô. Các ngưỡng và số ô là cấu hình triển khai. Mỗi thẻ có nhãn “Sponsored · Tài trợ” và phần giải thích.
 - Chưa có vùng tài trợ trên **trang chủ** hoặc trong **kết quả tìm kiếm**; không bán, tạo, duyệt hay chạy lại gói trang chủ. Không có huy hiệu “gian hàng nổi bật” trả phí.
+- Chỉ nhà cung cấp có L1 và ít nhất một trong L2 hoặc L3 mới được chọn sản phẩm để đẩy. Thẻ trong vùng đẩy hiện đúng các khiên xác minh như lưới tự nhiên, không thêm huy hiệu riêng.
 - Quảng cáo không thay đổi kết quả xác minh, điểm hay thứ hạng tự nhiên. Khi thẻ tài trợ đang hiện, cùng sản phẩm không lặp trong lưới tự nhiên; khi có bộ lọc, vùng tài trợ ẩn và sản phẩm trở lại lưới theo điều kiện thông thường.
 - Gói còn hạn cũng không hiện nếu sản phẩm, nhà cung cấp hoặc danh mục không còn đủ điều kiện công khai. Do luân phiên, một gói không nằm trong mọi cửa sổ; người xem có thể không gặp thẻ.
 
@@ -37,7 +38,7 @@ Con số này **không phải 252 lượt xem, lượt truy cập hay số ngư�
 
 ## 5. Lưới tự nhiên hiện tại — không đổi trong giai đoạn 0/1
 
-- Xác minh được xét theo tầng trước, sau đó so điểm trong cùng tầng và tên; sản phẩm tiếp tục được xen kẽ theo nhà cung cấp. Quy tắc này hiện vẫn tính L1, L2 và L3; phương án mới chưa được chốt hoặc bật.
+- Xác minh được xét theo tầng trước, sau đó so điểm trong cùng tầng; sản phẩm tiếp tục được xen kẽ theo nhà cung cấp. Thẻ cùng tầng và cùng điểm luân phiên theo ngày UTC (băm mã sản phẩm và ngày), không xếp theo tên A-Z. Thẻ điểm cao hơn không bao giờ bị xếp dưới; tiền không chạm phần luân phiên này. Quy tắc này hiện vẫn tính L1, L2 và L3; phương án mới chưa được chốt hoặc bật.
 - Điểm hiện tại gồm 30 xác minh còn hiệu lực, 30 giá công khai, 15 quy cách, 15 độ đầy đủ, 10 OEM/ODM/mẫu. Cần rà các tín hiệu trước khi đề xuất công thức mới; đây không phải điểm Google.
 - Khi chưa lọc, danh mục giới hạn ba thẻ tự nhiên mỗi nhà cung cấp, hoặc hai nếu chỉ có một nhà cung cấp. Thẻ tài trợ được lấy ra trước khi áp trần đó; khi lọc thì ẩn vùng tài trợ và bỏ trần. Quảng cáo không thay đổi dải giá tham khảo.
 - Đọc đủ dữ liệu có thể làm xuất hiện thêm thẻ trước đây bị giới hạn; thứ tự khi các thẻ hoà hoàn toàn có thể thay đổi theo thứ tự nguồn. Xem giới hạn và yêu cầu so sánh staging trong `docs/catalog-pagination-phase01.md`.

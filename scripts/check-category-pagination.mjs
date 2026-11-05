@@ -106,5 +106,5 @@ assert.match(cappedHtml, /href="\/suppliers\/big-co"[^>]*>\+2 more from Big Co</
 
 // Danh mục cha gộp sản phẩm các danh mục con rồi xếp hạng lại cả danh sách.
 assert.match(readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8'),
-  /products\.sort\(\(a, b\) => compareRankedProducts\(a, b, SPEC_RANKING_WEIGHTS\)\)/,
+  /products\.sort\(\(a, b\) => compareRankedProducts\(a, b, SPEC_RANKING_WEIGHTS, undefined, tieBreak\)\)/,
   'Danh mục cha xếp hạng lại sau khi gộp danh mục con');

@@ -14,7 +14,7 @@ import {
 } from "@/lib/public/product-catalog";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
-import { compareRankedProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
+import { categoryTieWindow, compareRankedProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { orderSearchProducts, productSearchRelevance, type SearchRelevance } from "@/lib/public/search-ranking";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
@@ -308,7 +308,9 @@ async function findResults(tokens: string[], categories: Category[], selected: C
     }));
   // Xếp trên toàn bộ danh mục trước khi chia trang: độ khớp trước, sau đó mỗi
   // vòng một thẻ/NCC; tầng và điểm hiện tại chỉ quyết định thứ tự trong vòng.
-  const products = orderSearchProducts(matches, (a, b) => compareRankedProducts(a, b, SPEC_RANKING_WEIGHTS));
+  // Cùng độ khớp, cùng tầng và cùng điểm thì luân phiên theo ngày như trang danh mục.
+  const tieBreak = { window: categoryTieWindow(Date.now()) };
+  const products = orderSearchProducts(matches, (a, b) => compareRankedProducts(a, b, SPEC_RANKING_WEIGHTS, undefined, tieBreak));
   return { products, suppliers, directSupplierMatch, exactSupplierNameMatch, incomplete };
 }
 

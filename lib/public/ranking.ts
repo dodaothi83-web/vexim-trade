@@ -13,8 +13,8 @@
  *                        không vượt NCC 3/3. Không cộng dồn điểm qua tầng.
  *   B3 điểm chất lượng → 0-100, chỉ so SÁU TRONG CÙNG TÀNG. GĐ2: trang danh mục
  *                        truyền SPEC_RANKING_WEIGHTS (30/30/15/15/10).
- *   B4 xử lý hoà       → giữ nguyên thứ tự vào (sort ổn định). Băm fnv1a(product.id)
- *                        vẫn để dự phòng, KHÔNG dùng — không bật ngầm.
+ *   B4 xử lý hoà       → trang danh mục truyền `tieBreak`: thẻ cùng tầng, cùng điểm
+ *                        luân phiên theo ngày (băm id + ngày). Không truyền thì tên A-Z.
  *   B5 xen kẽ NCC      → arrangeSupplierProducts (lib/public/supplier-product-order.ts).
  *
  * LỜI HỨA VẪN CÒN: với ZERO_RANKING_WEIGHTS, rankPublicCategoryProducts cho ra đúng
@@ -218,32 +218,72 @@ export function rankingScore(card: RankableProductCard, weights: RankingWeights,
 }
 
 /**
- * Bộ so sánh đầy đủ: tầng → điểm → tên A-Z → giữ thứ tự vào.
+ * Luân phiên khi hoà hoàn toàn (B4). Chỉ những thẻ CÙNG TẦNG và CÙNG ĐIỂM mới đổi
+ * chỗ cho nhau; thẻ điểm cao hơn không bao giờ bị xếp dưới. Thay cho tên A-Z, vì xếp
+ * theo tên làm nhà cung cấp có tên bắt đầu bằng chữ A luôn đứng đầu và khuyến khích
+ * đổi tên sản phẩm để leo hạng.
+ *
+ * Trang danh mục xoay theo NGÀY (UTC) để phân trang và việc so sánh trong một buổi
+ * không bị đảo giữa chừng. Thứ tự mỗi ngày là băm (id + ngày), không xoay vòng tròn,
+ * nên không ai bị khoá vào một thứ trong tuần. "Ngày" do caller truyền vào: module
+ * vẫn không đọc đồng hồ.
+ */
+export interface RankingTieBreak {
+  /** Mã cửa sổ luân phiên, ví dụ categoryTieWindow(Date.now()). */
+  window: number;
+}
+
+/** Độ dài cửa sổ luân phiên khi hoà ở trang danh mục, tính bằng giờ. */
+export const CATEGORY_TIE_ROTATION_HOURS = 24;
+
+/** Mã cửa sổ luân phiên khi hoà ở trang danh mục tại thời điểm `nowMs`. */
+export function categoryTieWindow(nowMs: number, hours: number = CATEGORY_TIE_ROTATION_HOURS): number {
+  return Math.floor(nowMs / (Math.max(1, Math.trunc(hours)) * 3_600_000));
+}
+
+/** Khoá luân phiên của một thẻ: FNV-1a rồi trộn fmix32 để các chuỗi chỉ khác đuôi vẫn tản đều. */
+export function rankingTieKey(id: string, window: number): number {
+  let value = fnv1a(`${id}:${window}`);
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x85ebca6b);
+  value ^= value >>> 13;
+  value = Math.imul(value, 0xc2b2ae35);
+  value ^= value >>> 16;
+  return value >>> 0;
+}
+
+/**
+ * Bộ so sánh đầy đủ: tầng → điểm → (luân phiên khi có `tieBreak`, không thì tên A-Z) → giữ thứ tự vào.
  * Với ZERO_RANKING_WEIGHTS, hai bậc đầu trung hoà (điểm mọi thẻ = 0) nên kết quả
  * rơi về đúng `b.verificationCount - a.verificationCount || a.name.localeCompare(b.name)`
  * của product-catalog hôm nay — kể cả hành vi sort ổn định khi trùng hoàn toàn.
  */
 export function compareRankedProducts<T extends RankableProductCard>(
-  a: T, b: T, weights: RankingWeights = ZERO_RANKING_WEIGHTS, context?: RankingContext,
+  a: T, b: T, weights: RankingWeights = ZERO_RANKING_WEIGHTS, context?: RankingContext, tieBreak?: RankingTieBreak,
 ): number {
   const tier = rankingTier(b) - rankingTier(a);
   if (tier !== 0) return tier;
   const score = rankingScore(b, weights, context) - rankingScore(a, weights, context);
   if (score !== 0) return score;
+  if (tieBreak) {
+    const rotated = rankingTieKey(a.id, tieBreak.window) - rankingTieKey(b.id, tieBreak.window);
+    if (rotated !== 0) return rotated;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  }
   return a.name.localeCompare(b.name);
 }
 
 /** Xếp hạng lưới tự nhiên — thuần: không đổi mảng đầu vào. */
 export function rankPublicCategoryProducts<T extends RankableProductCard>(
-  cards: readonly T[], weights: RankingWeights = ZERO_RANKING_WEIGHTS, context?: RankingContext,
+  cards: readonly T[], weights: RankingWeights = ZERO_RANKING_WEIGHTS, context?: RankingContext, tieBreak?: RankingTieBreak,
 ): T[] {
-  return [...cards].sort((a, b) => compareRankedProducts(a, b, weights, context));
+  return [...cards].sort((a, b) => compareRankedProducts(a, b, weights, context, tieBreak));
 }
 
 /**
- * B4 (dự phòng, chưa dùng) — băm ổn định FNV-1a 32-bit: cùng id luôn ra cùng số,
- * trên mọi máy. KHÔNG dùng trong bộ so sánh để giữ lời hứa tái tạo thứ tự cũ;
- * bật khi cần thứ tự hoà không phụ thuộc thứ tự đọc từ CSDL.
+ * Băm ổn định FNV-1a 32-bit: cùng chuỗi luôn ra cùng số, trên mọi máy. Dùng cho
+ * luân phiên khi hoà (rankingTieKey); không có `tieBreak` thì bộ so sánh vẫn xếp
+ * theo tên như cũ, giữ lời hứa tái tạo thứ tự cũ với ZERO_RANKING_WEIGHTS.
  */
 export function fnv1a(text: string): number {
   let hash = 0x811c9dc5;

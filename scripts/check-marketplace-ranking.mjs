@@ -22,6 +22,7 @@ const {
   rankPublicCategoryProducts, compareRankedProducts, rankingScore, rankingTier, trustAliveSignal,
   evidenceValidVerificationSteps,
   ZERO_RANKING_WEIGHTS, SPEC_RANKING_WEIGHTS, fnv1a,
+  CATEGORY_TIE_ROTATION_HOURS, categoryTieWindow, rankingTieKey,
 } = compile('../lib/public/ranking.ts');
 
 /* ---------- 1. Nối vào hệ thống thật ---------- */
@@ -174,4 +175,38 @@ assert.equal(rankPublicCategoryProducts([tier2Full, tier3AllStale], SPEC_RANKING
 
 console.log('✓ Tầng cứng 3/2/1/0, điểm chỉ so trong tầng, tín hiệu server-side, sort ổn định, băm deterministic');
 console.log('✓ GĐ2 evidence: L1 hết hạn trừ đúng 1 bước, L2/L3 không hết hạn, fail-open cho NCC legacy và dữ liệu lỗi');
+/* ---------- B4: luân phiên khi hoà ở trang danh mục ---------- */
+assert.equal(CATEGORY_TIE_ROTATION_HOURS, 24, 'Trang danh mục luân phiên khi hoà theo ngày');
+const day0 = Date.UTC(2026, 10, 5, 0, 0, 0);
+assert.equal(categoryTieWindow(day0), categoryTieWindow(day0 + 86_400_000 - 1), 'Trong cùng một ngày UTC thứ tự không đổi');
+assert.equal(categoryTieWindow(day0 + 86_400_000), categoryTieWindow(day0) + 1, 'Sang ngày mới là cửa sổ mới');
+assert.equal(rankingTieKey('x', 1), rankingTieKey('x', 1), 'Khoá luân phiên deterministic');
+
+// Sáu nhà cung cấp cùng 3/3, cùng điểm tối đa; tên khác nhau để thấy A-Z không còn quyết định.
+const tiedNames = ['Alpha Cashew', 'Bao Cashew', 'Cuong Cashew', 'Dat Cashew', 'Minh Cashew', 'Zeta Cashew'];
+const tied = tiedNames.map((name, index) => card({ id: `tie-${index}`, name }));
+const weaker = card({ id: 'weak', name: 'AAA Cashew', incoterm: null });
+const lowerTier = card({ id: 'tier2', name: 'AAA Cashew', verificationCount: 2 });
+const pool = [lowerTier, weaker, ...tied];
+assert.ok(rankingScore(weaker, SPEC_RANKING_WEIGHTS) < rankingScore(tied[0], SPEC_RANKING_WEIGHTS), 'Thẻ thiếu incoterm có điểm thấp hơn');
+const tieLeaders = new Map();
+for (let w = 0; w < 360; w++) {
+  const ranked = rankPublicCategoryProducts(pool, SPEC_RANKING_WEIGHTS, undefined, { window: w });
+  assert.equal(ranked.slice(-2).map((c) => c.id).join(','), 'weak,tier2',
+    'Thẻ điểm thấp hơn và tầng thấp hơn luôn đứng sau, đổi tên thành AAA cũng không leo được');
+  assert.equal(rankPublicCategoryProducts(pool, SPEC_RANKING_WEIGHTS, undefined, { window: w }).map((c) => c.id).join(','),
+    ranked.map((c) => c.id).join(','), 'Cùng ngày thì cùng thứ tự');
+  tieLeaders.set(ranked[0].id, (tieLeaders.get(ranked[0].id) ?? 0) + 1);
+}
+assert.equal(tieLeaders.size, 6, 'Mọi sản phẩm hoà đều có ngày đứng đầu');
+for (const [id, count] of tieLeaders) assert.ok(count > 30 && count < 95, `${id} đứng đầu ${count}/360 ngày, gần đều 60`);
+assert.notEqual(tieLeaders.get('tie-0'), 360, 'Tên bắt đầu bằng chữ A không còn luôn đứng đầu');
+// Không truyền tieBreak thì giữ hành vi cũ (tên A-Z), để lời hứa tái tạo thứ tự cũ còn nguyên.
+assert.equal(rankPublicCategoryProducts(tied, SPEC_RANKING_WEIGHTS)[0].id, 'tie-0');
+
+const categoryPageSource = readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8');
+assert.match(categoryPageSource, /tieBreak = \{ window: categoryTieWindow\(Date\.now\(\)\) \}/, 'Trang danh mục truyền cửa sổ theo ngày');
+const searchPageSource = readFileSync(new URL('../app/(public)/search/page.tsx', import.meta.url), 'utf8');
+assert.match(searchPageSource, /compareRankedProducts\(a, b, SPEC_RANKING_WEIGHTS, undefined, tieBreak\)/, 'Trang tìm kiếm cũng luân phiên khi hoà, không xếp theo tên');
+console.log('✓ B4 luân phiên khi hoà: chỉ thẻ cùng tầng cùng điểm đổi chỗ, theo ngày, chia đều, không leo hạng bằng tên');
 console.log('✅ Marketplace ranking GĐ1+GĐ2: hàm thuần tách đúng, trọng số 0 tái tạo thứ tự cũ, đặc tả 30/30/15/15/10 đã bật ở trang danh mục.');

@@ -10,6 +10,8 @@ import * as readiness from '../lib/media/readiness.ts';
 import * as display from '../lib/public/display-name.ts';
 import * as seo from '../lib/public/supplier-seo.ts';
 import * as supplierView from '../lib/sponsored/supplier-view.ts';
+import * as verificationGate from '../lib/sponsored/verification-gate.ts';
+import * as verificationStatus from '../lib/verification-status.ts';
 import { hasPermission } from '../lib/auth/permissions.ts';
 import * as priceDisplay from "../lib/products/price-display.ts";
 
@@ -34,7 +36,9 @@ let products=[{...base,id:'ok'},{...base,id:'catalogue'}, {...base,id:'private'}
 const media=products.map(p=>({id:`media-${p.id}`,owner_type:'product',product_id:p.id,supplier_id:p.supplier_id,kind:p.id==='catalogue'?'catalogue':'image',audience:p.id==='private'?'internal':'buyer',status:p.id==='expired'?'expired':'checked',expires_on:null,storage_path:`${p.id}.jpg`,thumb_path:null,sort_order:0,created_at:'2026-01-01T00:00:00Z'}));
 let calls=[];
 const store={mode:'supabase',async listProductsBySupplier(id){calls.push(['products',id]);return products;},async listCategories(){calls.push(['categories']);return categories;},
-  async listMediaForProducts(ids){calls.push(['media',ids]);return media.filter(m=>ids.includes(m.product_id));},async listCertificatesForSuppliers(){return [];}};
+  async listMediaForProducts(ids){calls.push(['media',ids]);return media.filter(m=>ids.includes(m.product_id));},async listCertificatesForSuppliers(){return [];},
+  async listVerifications(id){calls.push(['verifications',id]);return verifications.filter(v=>v.supplier_id===id);}};
+let verifications=[{supplier_id:'s1',target_level:1,status:'approved'},{supplier_id:'s1',target_level:2,status:'approved'}];
 const priceUnits=load('lib/public/price-units.ts',{'../products/price-display.ts':priceDisplay});
 const gradePricing=load('lib/products/grade-pricing.ts',{
   '@/lib/public/price-units':priceUnits,
@@ -56,12 +60,14 @@ const requestLib=load('lib/sponsored/requests.ts',{
   'server-only':{},'@/lib/db/local':{localStore:local},'@/lib/db/supabase':{supabaseConfigured:()=>configured,supabaseStore:remote},
   '@/lib/media/readiness':readiness,'@/lib/public/product-catalog':categoryCatalog,'@/lib/public/display-name':display,
   '@/lib/public/supplier-seo':seo,'@/lib/public/product-selection':selection,
+  '@/lib/sponsored/verification-gate':verificationGate,'@/lib/verification-status':verificationStatus,
 },{process:{env:{NODE_ENV:'development'}}});
 assert.equal(requestLib.sponsoredRequestStore(),local); configured=true; assert.equal(requestLib.sponsoredRequestStore(),remote); configured=false;
 const prodLib=load('lib/sponsored/requests.ts',{
   'server-only':{},'@/lib/db/local':{localStore:local},'@/lib/db/supabase':{supabaseConfigured:()=>false,supabaseStore:remote},
   '@/lib/media/readiness':readiness,'@/lib/public/product-catalog':categoryCatalog,'@/lib/public/display-name':display,
   '@/lib/public/supplier-seo':seo,'@/lib/public/product-selection':selection,
+  '@/lib/sponsored/verification-gate':verificationGate,'@/lib/verification-status':verificationStatus,
 },{process:{env:{NODE_ENV:'production'}}});
 assert.equal(prodLib.sponsoredRequestStore(),null,'Missing production Supabase never accepts local requests');
 const got=await requestLib.eligibleSupplierPushProducts(store,supplier);
@@ -76,6 +82,26 @@ assert.deepEqual([...got].map(x=>x.productId).sort(),live.map(x=>x.id).sort(),'S
 assert.equal((await requestLib.eligibleSupplierPushProducts(store,{...supplier,status:'draft'})).length,0);
 assert.equal((await requestLib.eligibleSupplierPushProducts(store,{...supplier,is_demo:true})).length,0);
 assert.equal((await requestLib.eligibleSupplierPushProducts(store,{...supplier,slug:'test-supplier'})).length,0);
+// Điều kiện xác minh: L1 + (L2 hoặc L3). Chỉ L1, hoặc L2 + L3 thiếu L1, không được chọn sản phẩm nào.
+assert.equal(verificationGate.sponsoredVerificationGate([1,2]),'ok');
+assert.equal(verificationGate.sponsoredVerificationGate([1,3]),'ok');
+assert.equal(verificationGate.sponsoredVerificationGate([1,2,3]),'ok');
+assert.equal(verificationGate.sponsoredVerificationGate([1]),'needs_l2_or_l3');
+assert.equal(verificationGate.sponsoredVerificationGate([2,3]),'needs_l1','L2 + L3 mà thiếu L1 vẫn không được quảng cáo');
+assert.equal(verificationGate.sponsoredVerificationGate([]),'needs_l1');
+const savedVerifications=verifications;
+verifications=[{supplier_id:'s1',target_level:1,status:'approved'}];
+assert.equal((await requestLib.eligibleSupplierPushProducts(store,supplier)).length,0,'Chỉ có L1 thì không có sản phẩm để đẩy');
+assert.equal(await requestLib.supplierSponsoredGate(store,'s1'),'needs_l2_or_l3');
+verifications=[{supplier_id:'s1',target_level:1,status:'approved'},{supplier_id:'s1',target_level:3,status:'submitted'}];
+assert.equal((await requestLib.eligibleSupplierPushProducts(store,supplier)).length,0,'L3 chưa duyệt không được tính');
+verifications=[{supplier_id:'s1',target_level:2,status:'approved'},{supplier_id:'s1',target_level:3,status:'approved'}];
+assert.equal(await requestLib.supplierSponsoredGate(store,'s1'),'needs_l1');
+verifications=[{supplier_id:'s1',target_level:1,status:'approved'},{supplier_id:'s1',target_level:3,status:'approved'},{supplier_id:'s2',target_level:2,status:'approved'}];
+assert.equal((await requestLib.eligibleSupplierPushProducts(store,supplier)).length,3,'L1 + L3 đủ điều kiện; xác minh của nhà cung cấp khác không được tính');
+await assert.rejects(requestLib.eligibleSupplierPushProducts({...store,listVerifications:async()=>{throw Error('network');}},supplier),/network/,
+  'Lỗi đọc xác minh không bao giờ thành "không đủ điều kiện"');
+verifications=savedVerifications;
 const failStore={...store,listMediaForProducts:async()=>{throw Error('network');}};
 await assert.rejects(requestLib.eligibleSupplierPushProducts(failStore,supplier),/network/,'Read errors never become an empty catalogue');
 

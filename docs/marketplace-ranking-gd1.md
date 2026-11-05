@@ -95,3 +95,21 @@ tính server-side, chỉ là một tín hiệu trong cùng tầng xác minh; NCC
   xếp hạng để structuredMatch có filter thật — hiện lọc xảy ra sau xếp hạng ở client.
 - Bật `fnv1a` cho hoà tuyệt đối khi cần thứ tự không phụ thuộc thứ tự đọc từ CSDL.
 - Theo dõi số liệu thực tế sau khi bật 30/30/15/15/10 để hiệu chỉnh nếu cần.
+
+## B4 đã bật: luân phiên khi hoà (trang danh mục)
+
+Nhiều nhà cung cấp hoàn tất cả 3 bước xác minh và điền đủ hồ sơ sẽ cùng đạt điểm tối đa.
+Trước đây những thẻ hoà này xếp theo tên A-Z, nên tên bắt đầu bằng chữ A luôn đứng đầu và
+nhà cung cấp có lý do đổi tên sản phẩm để leo hạng.
+
+- Trang danh mục truyền `tieBreak = { window: categoryTieWindow(Date.now()) }` vào
+  `compareRankedProducts`. Chỉ thẻ cùng tầng, cùng điểm đổi chỗ; khoá là `rankingTieKey`
+  (FNV-1a + fmix32 trên `id:ngày`), không xoay vòng tròn nên không khoá vào thứ trong tuần.
+- Cửa sổ dài một ngày UTC (`CATEGORY_TIE_ROTATION_HOURS = 24`) để phân trang và việc so sánh
+  trong một buổi không bị đảo giữa chừng. Trang chủ có luân phiên riêng theo giờ
+  (`lib/public/supplier-product-order.ts`).
+- Trang tìm kiếm truyền cùng `tieBreak`: trong cùng mức khớp từ khoá, thẻ cùng tầng, cùng điểm
+  cũng luân phiên theo ngày.
+- Không truyền `tieBreak` thì vẫn tên A-Z, nên `ZERO_RANKING_WEIGHTS` vẫn tái tạo thứ tự cũ.
+- Kiểm tra: `scripts/check-marketplace-ranking.mjs` mục B4 (360 ngày mô phỏng, thẻ điểm thấp
+  hơn đặt tên "AAA" vẫn đứng sau, mỗi thẻ hoà đứng đầu gần đều).
