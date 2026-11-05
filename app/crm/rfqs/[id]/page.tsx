@@ -13,7 +13,6 @@ import {
   Globe,
   Inbox,
   Mail,
-  MailPlus,
   MapPin,
   Package,
   Phone,
@@ -24,8 +23,10 @@ import {
   Trophy,
 } from "lucide-react";
 
-import { Breadcrumbs, Badge, Button } from "@/components/ui";
+import { Breadcrumbs, Badge } from "@/components/ui";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { ActionForm, PendingButton } from "@/components/action-form";
+import { ComposeEmailDialog } from "@/components/compose-email-dialog";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { updateRfqStatusFormAction } from "../actions";
@@ -540,7 +541,7 @@ export default async function RfqDetailPage({
                           {quote ? "Sửa báo giá · email · thao tác khác" : "Nhập báo giá · email · thao tác khác"}
                         </summary>
                         <div className="mt-2 space-y-3 rounded-md border border-ink-100 bg-ink-50/50 p-3">
-                          <form action={updateMatchQuoteAction} className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+                          <ActionForm action={updateMatchQuoteAction} successText="Đã lưu báo giá" className="grid grid-cols-2 gap-2 sm:grid-cols-6">
                             <input type="hidden" name="match_id" value={m.id} />
                             <input type="hidden" name="rfq_id" value={rfq.id} />
                             <QuoteInput label="Giá" name="quote_price" type="number" step="0.01" defaultValue={m.quote_price ?? ""} placeholder="vd 3.20" />
@@ -548,11 +549,11 @@ export default async function RfqDetailPage({
                             <QuoteInput label="ĐVT" name="quote_unit" defaultValue={m.quote_unit ?? rfq.unit ?? ""} />
                             <QuoteInput label="Incoterm" name="quote_incoterm" defaultValue={m.quote_incoterm ?? rfq.incoterm ?? ""} />
                             <QuoteInput label="Lead time (ngày)" name="quote_lead_time_days" type="number" defaultValue={m.quote_lead_time_days ?? ""} />
-                            <div className="flex items-end"><Button type="submit" size="sm" className="w-full">Lưu báo giá</Button></div>
-                          </form>
+                            <div className="flex items-end"><PendingButton className="w-full">Lưu báo giá</PendingButton></div>
+                          </ActionForm>
 
                           <div className="flex flex-wrap items-end gap-2 border-t border-ink-100 pt-3">
-                            <form action={updateMatchStatusAction} className="flex items-end gap-1.5">
+                            <ActionForm action={updateMatchStatusAction} successText="Đã cập nhật trạng thái" className="flex items-end gap-1.5">
                               <input type="hidden" name="match_id" value={m.id} />
                               <input type="hidden" name="rfq_id" value={rfq.id} />
                               <label className="flex flex-col text-[11px] text-ink-500">
@@ -562,25 +563,14 @@ export default async function RfqDetailPage({
                                   {MANUAL_MATCH_STATUSES.map((v) => <option key={v} value={v}>{MATCH_STATUS[v].label}</option>)}
                                 </select>
                               </label>
-                              <Button type="submit" size="sm">Lưu</Button>
-                            </form>
-                            <details className="relative">
-                              <summary className="btn btn-ghost btn-sm cursor-pointer list-none"><MailPlus className="h-3.5 w-3.5" /> Soạn email</summary>
-                              <form action={composeMatchEmailAction} className="absolute left-0 z-20 mt-1 w-[440px] max-w-[calc(100vw-2rem)] rounded-lg border border-ink-200 bg-white p-3 shadow-lg">
-                                <input type="hidden" name="rfq_id" value={rfq.id} />
-                                <input type="hidden" name="match_id" value={m.id} />
-                                <label className="flex flex-col text-[11px] text-ink-600">
-                                  Tiêu đề
-                                  <input name="subject" required className="input mt-1 py-1 text-[13px]" defaultValue={`[Vexim] Về yêu cầu ${rfq.code} – ${rfq.product_text}`} />
-                                </label>
-                                <label className="mt-2 flex flex-col text-[11px] text-ink-600">
-                                  Nội dung email (tối đa 2000 từ)
-                                  <textarea name="body" required rows={6} className="input mt-1 text-[13px]" defaultValue={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${rfq.product_text} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${deliveryText}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
-                                </label>
-                                <p className="mt-1 text-[10.5px] text-ink-400">Thư trả lời sẽ tự gắn vào timeline của nhà cung cấp này.</p>
-                                <div className="mt-2 flex justify-end"><Button type="submit" size="sm">Gửi email</Button></div>
-                              </form>
-                            </details>
+                              <PendingButton>Lưu</PendingButton>
+                            </ActionForm>
+                            <div>
+                              <ComposeEmailDialog action={composeMatchEmailAction} hidden={{ rfq_id: rfq.id, match_id: m.id }}
+                                recipientName={name} recipientEmail={sup?.email ?? null}
+                                defaultSubject={`[Vexim] Về yêu cầu ${rfq.code} – ${rfq.product_text}`}
+                                defaultBody={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${rfq.product_text} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${deliveryText}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
+                            </div>
                             <form action={removeMatchAction} className="ml-auto">
                               <input type="hidden" name="match_id" value={m.id} />
                               <input type="hidden" name="rfq_id" value={rfq.id} />
@@ -611,7 +601,7 @@ export default async function RfqDetailPage({
             </ul>
 
             {canAct && (
-              <form action={addMatchAction} className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
+              <ActionForm action={addMatchAction} successText="Đã thêm vào shortlist" className="flex flex-wrap items-center gap-2" wrapperClassName="mt-3 border-t border-ink-100 pt-3">
                 <input type="hidden" name="rfq_id" value={rfq.id} />
                 <select name="supplier_id" required aria-label="Thêm nhà cung cấp đã duyệt" className="input min-w-0 flex-1 py-1.5 text-[13px] sm:max-w-sm">
                   <option value="">+ Thêm nhà cung cấp đã duyệt…</option>
@@ -619,8 +609,8 @@ export default async function RfqDetailPage({
                     <option key={s.id} value={s.id}>{supplierName(s, s.id)}{s.country ? ` (${s.country})` : ""}</option>
                   ))}
                 </select>
-                <Button type="submit" size="sm">Thêm vào shortlist</Button>
-              </form>
+                <PendingButton>Thêm vào shortlist</PendingButton>
+              </ActionForm>
             )}
           </section>
 
@@ -704,11 +694,11 @@ export default async function RfqDetailPage({
               </pre>
             )}
             {canManageRfq ? (
-              <form action={addRfqNoteAction} className="mt-3 space-y-2">
+              <ActionForm action={addRfqNoteAction} successText="Đã thêm ghi chú" resetOnSuccess className="space-y-2" wrapperClassName="mt-3">
                 <input type="hidden" name="rfq_id" value={rfq.id} />
                 <textarea name="note" rows={2} required placeholder="Ghi chú chỉ đội ngũ nhìn thấy…" className="input text-[13px]" />
-                <div className="flex justify-end"><Button type="submit" size="sm" variant="soft">Thêm ghi chú</Button></div>
-              </form>
+                <div className="flex justify-end"><PendingButton variant="soft">Thêm ghi chú</PendingButton></div>
+              </ActionForm>
             ) : !String(specs.notes_internal ?? "") && <p className="mt-3 text-[12.5px] text-ink-500">Chưa có ghi chú.</p>}
           </section>
 
@@ -724,18 +714,18 @@ export default async function RfqDetailPage({
               <p className="mt-3 text-[12.5px] text-ink-500">Chưa có spec sheet, catalogue hay báo giá đính kèm.</p>
             )}
             {canManageRfq && (
-              <form action={uploadRfqAttachmentAction} className="mt-3 flex flex-wrap items-center gap-2">
+              <ActionForm action={uploadRfqAttachmentAction} successText="Đã tải tệp lên" resetOnSuccess className="flex flex-wrap items-center gap-2" wrapperClassName="mt-3">
                 <input type="hidden" name="rfq_id" value={rfq.id} />
                 <input name="file" type="file" required aria-label="Chọn tệp (tối đa 10MB)" className="min-w-0 flex-1 text-[12.5px]" />
-                <Button type="submit" size="sm" variant="soft">Tải lên</Button>
-              </form>
+                <PendingButton variant="soft" pendingText="Đang tải lên…">Tải lên</PendingButton>
+              </ActionForm>
             )}
           </section>
 
           {canManageRfq && (
             <section className="card p-4 sm:p-5">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Thao tác khác</h2>
-              <form action={updateRfqStatusFormAction} className="mt-3 flex items-end gap-2">
+              <ActionForm action={updateRfqStatusFormAction} successText="Đã cập nhật trạng thái" className="flex items-end gap-2" wrapperClassName="mt-3">
                 <input type="hidden" name="id" value={rfq.id} />
                 <label className="flex min-w-0 flex-1 flex-col text-[12px] text-ink-600">
                   Trạng thái hành chính
@@ -746,8 +736,8 @@ export default async function RfqDetailPage({
                     ))}
                   </select>
                 </label>
-                <Button type="submit" size="sm" variant="soft">Lưu</Button>
-              </form>
+                <PendingButton variant="soft">Lưu</PendingButton>
+              </ActionForm>
               <p className="mt-1.5 text-[11px] leading-4 text-ink-500">
                 Trình người mua, gửi mẫu, thành công và thất bại chỉ đổi bằng nút nghiệp vụ để người mua và nhà cung cấp nhận đúng email.
               </p>
