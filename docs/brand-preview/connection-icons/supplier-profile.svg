@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Hồ sơ nhà cung cấp"><rect x="8" y="12" width="48" height="42" rx="9" fill="#EBEFF5"/>
+<path d="M8 22v-1a9 9 0 0 1 9-9h30a9 9 0 0 1 9 9v1Z" fill="#203B60"/>
+<circle cx="17" cy="17" r="1.5" fill="white"/><circle cx="23" cy="17" r="1.5" fill="white"/>
+<rect x="15" y="29" width="15" height="18" rx="4" fill="#478C87"/>
+<path d="M19 34h1m5 0h1m-7 5h1m5 0h1m-4 8v-4" stroke="white" stroke-width="2" stroke-linecap="round"/>
+<path d="M37 31h11m-11 7h11m-11 7h7" stroke="#203B60" stroke-width="3" stroke-linecap="round"/></svg>
