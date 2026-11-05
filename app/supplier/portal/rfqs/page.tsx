@@ -11,6 +11,7 @@ import { migrationHint } from "@/lib/db/migration-hints";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
 import { EmptyRow, Panel, date } from "../portal-ui";
+import { SupplierRfqReply } from "@/components/supplier-rfq-reply";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -81,9 +82,13 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
                   {overdue ? copy.tasks.overdue : copy.tasks.due}{task.dueAt ? date(task.dueAt, intl) : copy.tasks.dueFallback}
                 </span>
               </span>
-              <a href={`mailto:${supplierReplyAddress(task.code, task.matchId)}?subject=${encodeURIComponent(fill(copy.tasks.subject, { code: task.code }))}`} className="btn btn-ghost btn-sm">{copy.tasks.reply}</a>
+              <SupplierRfqReply address={supplierReplyAddress(task.code, task.matchId)} subject={fill(copy.tasks.subject, { code: task.code })}
+                labels={{ gmail: copy.tasks.replyGmail, app: copy.tasks.replyApp, copy: copy.tasks.copyAddress, copied: copy.tasks.copied }} />
             </li>;
           })}</ul> : <EmptyRow>{copy.tasks.empty}</EmptyRow>}
+        {board.tasks.length > 0 && <p className={`border-t border-ink-100 px-5 py-2.5 text-[11.5px] leading-4 ${supplier.email ? "text-ink-500" : "font-semibold text-rose-700"}`}>
+          {supplier.email ? fill(copy.tasks.replyHint, { email: supplier.email }) : copy.tasks.replyHintNoEmail}
+        </p>}
       </Panel>
 
       <Panel icon={<PackageSearch className="h-4 w-4 text-brand-700" />} title={copy.invites.title} count={board.invites.length}
