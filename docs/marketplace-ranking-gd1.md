@@ -108,6 +108,8 @@ nhà cung cấp có lý do đổi tên sản phẩm để leo hạng.
 - Cửa sổ dài một ngày UTC (`CATEGORY_TIE_ROTATION_HOURS = 24`) để phân trang và việc so sánh
   trong một buổi không bị đảo giữa chừng. Trang chủ có luân phiên riêng theo giờ
   (`lib/public/supplier-product-order.ts`).
+- Trang tìm kiếm truyền cùng `tieBreak`: trong cùng mức khớp từ khoá, thẻ cùng tầng, cùng điểm
+  cũng luân phiên theo ngày.
 - Không truyền `tieBreak` thì vẫn tên A-Z, nên `ZERO_RANKING_WEIGHTS` vẫn tái tạo thứ tự cũ.
 - Kiểm tra: `scripts/check-marketplace-ranking.mjs` mục B4 (360 ngày mô phỏng, thẻ điểm thấp
   hơn đặt tên "AAA" vẫn đứng sau, mỗi thẻ hoà đứng đầu gần đều).

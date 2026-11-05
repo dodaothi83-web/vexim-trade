@@ -206,5 +206,7 @@ assert.equal(rankPublicCategoryProducts(tied, SPEC_RANKING_WEIGHTS)[0].id, 'tie-
 
 const categoryPageSource = readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8');
 assert.match(categoryPageSource, /tieBreak = \{ window: categoryTieWindow\(Date\.now\(\)\) \}/, 'Trang danh mục truyền cửa sổ theo ngày');
+const searchPageSource = readFileSync(new URL('../app/(public)/search/page.tsx', import.meta.url), 'utf8');
+assert.match(searchPageSource, /compareRankedProducts\(a, b, SPEC_RANKING_WEIGHTS, undefined, tieBreak\)/, 'Trang tìm kiếm cũng luân phiên khi hoà, không xếp theo tên');
 console.log('✓ B4 luân phiên khi hoà: chỉ thẻ cùng tầng cùng điểm đổi chỗ, theo ngày, chia đều, không leo hạng bằng tên');
 console.log('✅ Marketplace ranking GĐ1+GĐ2: hàm thuần tách đúng, trọng số 0 tái tạo thứ tự cũ, đặc tả 30/30/15/15/10 đã bật ở trang danh mục.');
