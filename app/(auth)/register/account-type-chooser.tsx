@@ -2,8 +2,8 @@
 
 import { useId, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ShoppingBag } from "lucide-react";
-import { VeximTradeIcon as Factory } from "@/components/brand/vexim-icons";
+import { ArrowRight } from "lucide-react";
+import { VeximBuyerAccountIcon, VeximSupplierAccountIcon } from "@/components/brand/account-role-icons";
 
 import { cx } from "@/components/ui";
 import type { AuthMessages } from "@/lib/i18n/auth";
@@ -28,14 +28,14 @@ export function AccountTypeChooser({ messages: m, lang }: { messages: AuthMessag
       title: m.buyerTitle,
       summary: m.buyerSummary,
       href: "/buyer/sign-in",
-      icon: <ShoppingBag className="h-5 w-5" aria-hidden="true" />,
+      icon: <VeximBuyerAccountIcon className="h-8 w-8" aria-hidden="true" />,
     },
     {
       id: "supplier",
       title: m.supplierTitle,
       summary: m.supplierSummary,
       href: "/supplier/register?type=supplier",
-      icon: <Factory className="h-5 w-5" aria-hidden="true" />,
+      icon: <VeximSupplierAccountIcon className="h-8 w-8" aria-hidden="true" />,
     },
   ];
   const target = options.find((option) => option.id === choice) ?? options[0];
@@ -65,7 +65,7 @@ export function AccountTypeChooser({ messages: m, lang }: { messages: AuthMessag
                 />
                 <span className="min-w-0">
                   <span className="flex items-center gap-2 text-[14.5px] font-bold text-ink-900">
-                    <span className={selected ? "text-brand-700" : "text-ink-400"}>{option.icon}</span>
+                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">{option.icon}</span>
                     {option.title}
                   </span>
                   <span className="mt-0.5 block text-[12.5px] leading-relaxed text-ink-600">{option.summary}</span>
