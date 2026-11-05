@@ -47,11 +47,11 @@ const en = {
     unpublished: "Profile is not public",
     portalOpen: "Portal open",
     checks: {
-      business: "Business verification",
-      l2Partner: "L2 · Partner factory",
-      l2Factory: "L2 · Factory",
-      l2Unknown: "L2 · Supplier type unknown",
-      l3: "L3 · Export",
+      business: "Documents check",
+      l2Partner: "Partner factory",
+      l2Factory: "Factory verification",
+      l2Unknown: "Supplier type needed",
+      l3: "Delivery history",
     },
     products: "{count} products",
     certificates: "{count} certificates",
@@ -60,7 +60,7 @@ const en = {
   },
   kpi: {
     aria: "Storefront numbers",
-    approved: { label: "Products with approved content", note: "Out of {total} products in the storefront" },
+    approved: { label: "Approved products", note: "Out of {total} products" },
     pending: { label: "Awaiting review", note: "{draft} drafts · {changes} need changes · {paused} hidden" },
     rfqs: {
       label: "RFQs waiting for your reply",
@@ -72,8 +72,7 @@ const en = {
   },
   work: {
     title: "Waiting for you",
-    sub: "Only items with work to do appear here. Open each page to handle the details.",
-    empty: "Nothing is waiting. Products, documents and RFQs are all in good shape.",
+    empty: "Nothing needs your attention.",
     rows: {
       changes: "Products needing changes from feedback",
       pending: "Products awaiting content review",
@@ -82,18 +81,18 @@ const en = {
       submissions: "Verification profiles awaiting review",
     },
   },
-  footer: "Buyer details are shared only after both sides agree to an introduction. All messages go through this portal.",
+  footer: "Buyer contact details are shared only when the buyer chooses you.",
   levelChip: { approved: "Approved", pending: "Under review", off: "Not approved" },
   pendingRefresh: "The status refreshes on its own while this page stays open.",
   verificationPanel: {
     title: "Business verification",
-    sub: "Three independent steps, in order of progress. Each step has its own page to submit evidence and see the result.",
+    sub: "Complete verification to earn buyer trust.",
     counter: "{approved}/3 steps approved",
     progressAria: "Number of verification steps approved",
     step: "Step {level}",
     here: "You are here",
     footnote:
-      "Uploading evidence does not grant a badge. A step only turns Approved once the profile is checked by hand and someone with approval rights signs off.",
+      "Badges appear after Vexim approves each step.",
   },
 };
 
@@ -150,11 +149,11 @@ const vi: OverviewMessages = {
     unpublished: "Hồ sơ chưa công khai",
     portalOpen: "Cổng đã mở",
     checks: {
-      business: "Xác thực doanh nghiệp",
-      l2Partner: "L2 · Nhà máy đối tác",
-      l2Factory: "L2 · Nhà máy",
-      l2Unknown: "L2 · Chưa rõ loại hình",
-      l3: "L3 · Xuất khẩu",
+      business: "Kiểm tra giấy tờ",
+      l2Partner: "Nhà máy đối tác",
+      l2Factory: "Xác thực nhà máy",
+      l2Unknown: "Chưa rõ loại hình",
+      l3: "Lịch sử giao hàng",
     },
     products: "{count} sản phẩm",
     certificates: "{count} chứng nhận",
@@ -163,7 +162,7 @@ const vi: OverviewMessages = {
   },
   kpi: {
     aria: "Số liệu gian hàng",
-    approved: { label: "Sản phẩm đã duyệt nội dung", note: "Trên {total} sản phẩm trong gian hàng" },
+    approved: { label: "Sản phẩm đã duyệt", note: "Trên {total} sản phẩm" },
     pending: { label: "Đang chờ duyệt", note: "{draft} bản nháp · {changes} cần chỉnh sửa · {paused} tạm ẩn" },
     rfqs: {
       label: "RFQ cần bạn phản hồi",
@@ -175,8 +174,7 @@ const vi: OverviewMessages = {
   },
   work: {
     title: "Việc đang chờ bạn",
-    sub: "Chỉ hiện mục đang có việc. Mở từng trang để xử lý chi tiết.",
-    empty: "Không có việc nào đang chờ. Sản phẩm, giấy tờ và RFQ đều đang ở trạng thái ổn.",
+    empty: "Không có việc cần xử lý.",
     rows: {
       changes: "Sản phẩm cần chỉnh sửa theo góp ý",
       pending: "Sản phẩm đang chờ duyệt nội dung",
@@ -185,18 +183,18 @@ const vi: OverviewMessages = {
       submissions: "Hồ sơ xác thực đang chờ xét",
     },
   },
-  footer: "Thông tin người mua chỉ được chia sẻ sau khi hai bên đồng ý giới thiệu. Mọi trao đổi đi qua cổng này.",
+  footer: "Liên hệ người mua chỉ được chia sẻ khi người mua chọn bạn.",
   levelChip: { approved: "Đã duyệt", pending: "Đang chờ xét", off: "Chưa duyệt" },
   pendingRefresh: "Trạng thái tự cập nhật khi trang đang mở.",
   verificationPanel: {
     title: "Xác minh doanh nghiệp",
-    sub: "Ba bước độc lập, xếp theo tiến độ. Mỗi bước có trang riêng để nộp bằng chứng và xem kết quả.",
+    sub: "Hoàn tất xác minh để người mua tin tưởng hơn.",
     counter: "{approved}/3 bước đã duyệt",
     progressAria: "Số bước xác minh đã được duyệt",
     step: "Bước {level}",
     here: "Đang ở đây",
     footnote:
-      "Tải bằng chứng không tự cấp huy hiệu. Mỗi bước chỉ chuyển sang Đã duyệt khi hồ sơ được đối chiếu thủ công và người có quyền duyệt phê kết quả.", // copy-allow: khối giải thích dài, hiển thị thành đoạn riêng
+      "Huy hiệu hiển thị sau khi Vexim duyệt.",
   },
 };
 

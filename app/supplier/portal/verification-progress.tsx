@@ -63,39 +63,27 @@ export function VerificationProgressPanel({ progress, messages, lang }: {
     </span>}
     flush
   >
-    <div className="border-b border-ink-100 px-5 py-4">
-      <div className="flex items-center gap-3">
-        <div role="progressbar" aria-valuemin={0} aria-valuemax={3} aria-valuenow={progress.approvedCount}
-          aria-label={messages.progressAria} className="h-2 flex-1 overflow-hidden rounded-full bg-ink-100">
-          <div className={`h-full rounded-full ${progress.percent === 100 ? "bg-emerald-500" : "bg-brand-600"}`}
-            style={{ width: `${progress.percent}%` }} />
-        </div>
-        <span className="shrink-0 text-[11px] font-bold tabular-nums text-ink-600">{progress.percent}%</span>
-      </div>
-      <p className="mt-2 text-[11.5px] leading-5 text-ink-600">{progress.headline}</p>
-    </div>
-
+    {/* Gọn: bước đã duyệt một dòng; chỉ bước đang làm mở mô tả, ghi chú và nút chính. */}
     <ol className="divide-y divide-ink-100">
       {progress.steps.map((step) => {
         const current = progress.currentLevel === step.level;
-        return <li key={step.level} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 px-5 py-4 sm:flex">
-          <StepDot step={step} />
+        return <li key={step.level} aria-current={current ? "step" : undefined}
+          className={`grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 px-5 sm:flex sm:items-center ${current ? "bg-brand-50/40 py-4" : "py-3"}`}>
+          <StepDot step={step} size={current ? "h-9 w-9 text-[12px]" : "h-7 w-7 text-[11px]"} icon={current ? "h-4 w-4" : "h-3.5 w-3.5"} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-[10px] font-bold tracking-[0.12em] text-ink-400 uppercase">
-                {fill(messages.step, { level: step.level })}
-              </span>
+              <span className="sr-only">{fill(messages.step, { level: step.level })}</span>
               <h3 className="text-[13.5px] font-bold text-ink-900">{step.title}</h3>
               <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${CHIP[step.tone]}`}>{step.status}</span>
-              <span className="rounded-full bg-ink-50 px-2 py-0.5 text-[10.5px] font-semibold text-ink-600 ring-1 ring-ink-200/70">{step.metric}</span>
-              {current && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-300">{messages.here}</span>}
+              <span className="text-[11px] text-ink-500">{step.metric}</span>
             </div>
-            <p className="mt-1 text-[11.5px] leading-5 text-ink-500">{step.description}</p>
-            <p className={`mt-1 text-[11.5px] leading-5 ${step.tone === "rose" ? "font-semibold text-rose-700" : step.tone === "emerald" ? "font-semibold text-emerald-800" : "text-ink-700"}`}>
-              {step.note}
-            </p>
+            {current && <>
+              <p className="mt-1 text-[12px] leading-5 text-ink-600">{step.description}</p>
+              {step.note && <p className={`mt-0.5 text-[12px] leading-5 ${step.tone === "rose" ? "font-semibold text-rose-700" : "text-ink-700"}`}>{step.note}</p>}
+            </>}
+            {!current && step.tone === "rose" && step.note && <p className="mt-0.5 text-[12px] font-semibold leading-5 text-rose-700">{step.note}</p>}
           </div>
-          <Link href={step.href} className={`${current ? "btn btn-primary" : "btn btn-ghost"} btn-sm col-start-2 justify-self-start sm:shrink-0 sm:self-center`}>
+          <Link href={step.href} className={`${current ? "btn btn-primary" : "btn btn-ghost"} btn-sm col-start-2 justify-self-start sm:shrink-0`}>
             {step.action}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </li>;
