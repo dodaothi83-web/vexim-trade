@@ -86,3 +86,15 @@ Use the same 48px grid, 0.09 duotone fill, rounded caps/joins and currentColor. 
 The user requested a proprietary Vexim shield following the proposed soft shape and negative-space V. Review page: `docs/brand-preview/shield.html`; component: `components/brand/vexim-shield.tsx`; SVG exports: `shield-compact.svg` and `shield-duotone.svg`. Regenerate the page/exports with `node scripts/preview-vexim-shield.mjs`. The cutout uses even-odd fill, not a white overlay, so it works on dark/tinted backgrounds. This is a new identity motif, not a redraw of the official logo. It contains no checkmark or approval assertion.
 
 As promised before the user's go-ahead, show compact and large samples for visual approval **before replacing the current production shields**. This study is not yet wired into verification-tier.tsx. Existing circles, colours, labels, tooltips and verification rules stay authoritative; the compact-shield exception above remains effective until visual approval and integration.
+
+## Supplier-declared product capabilities — OEM / ODM / Samples
+
+Use the same direction-02 artwork in `components/brand/vexim-icons.tsx` and its standalone SVG exports:
+
+- `VeximOemIcon`: specification sheet with manufactured item — manufacturing to buyer specifications.
+- `VeximOdmIcon`: design sheet and pencil — design and manufacturing scope, not an artist's paintbrush.
+- `VeximSamplesIcon`: open sample box and small item — sample goods, not a laboratory test tube or a tested-product claim.
+
+`ProductTradeLabels` is the single shared label renderer for public product details and buyer previews. Render these neutral metadata icons at 16px with source strokeWidth 2.6, rounded joins/caps and 0.09 currentColor duotone fill, matching the existing commercial-fact direction. Keep the existing grey/navy label surfaces, labels and supplier-stated tooltips; no green approval marks, shields or guarantees. Samples availability does not imply free samples. Compact labels intentionally remain text-only, retaining the existing OEM/ODM combination and card spacing. Do not add capability icons to unrelated controls or replace comparison-table availability indicators. Do not modify underlying capability booleans, permissions or verification artwork.
+
+Capability-icon validation: `check:brand`, `typecheck`, production build and `check-product-card-grade.mjs` pass. Brand checks render all capability combinations (including compact/null states), retain supplier-stated semantics and compare standalone SVG paths with the real React artwork. The extra `check-supplier-product-wizard.mjs` still expects the removed legacy `name="packaging"` input in `sec-shipping`; it fails there before its later assertions. That form/test is not changed by this icon update.
