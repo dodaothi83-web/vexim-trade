@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Catalogue sản phẩm"><rect x="15" y="5" width="37" height="46" rx="7" fill="#DFEEEC"/>
+<rect x="8" y="12" width="39" height="46" rx="7" fill="#203B60"/>
+<path d="M16 21h22" stroke="white" stroke-width="3" stroke-linecap="round"/>
+<rect x="16" y="28" width="10" height="10" rx="3" fill="#478C87"/><rect x="30" y="28" width="10" height="10" rx="3" fill="#DFEEEC"/>
+<rect x="16" y="42" width="10" height="10" rx="3" fill="#DFEEEC"/><rect x="30" y="42" width="10" height="10" rx="3" fill="#478C87"/></svg>

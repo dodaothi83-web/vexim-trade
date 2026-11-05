@@ -1,4 +1,3 @@
-import { brandIcons } from './lib/vexim-icons.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -13,13 +12,14 @@ function load(file, mocks = {}) {
   }).outputText, { exports: mod.exports, module: mod, require(id) { assert.ok(id in mocks, id); return mocks[id]; } });
   return mod.exports;
 }
+const accountIcons = load('components/brand/account-role-icons.tsx', { 'react/jsx-runtime': jsx });
 const dictionary = load('lib/i18n/sign-in-entry.ts');
 const nextPaths = load('lib/buyer/next-path.ts');
 let locale = 'en';
 const entry = load('app/(auth)/sign-in/page.tsx', {
   'react/jsx-runtime': jsx,
   'next/link': { default: ({ href, children, prefetch, ...props }) => React.createElement('a', { href, ...props }, children) },
-  '@/components/brand/vexim-icons': brandIcons,
+  '@/components/brand/account-role-icons': accountIcons,
   'lucide-react': { ArrowRight: () => null, Factory: () => null, ShoppingBag: () => null },
   '@/components/auth-split-shell': { AuthSplitShell: ({ children }) => React.createElement('main', null, children) },
   '@/lib/i18n/server': { getLocale: async () => locale },
@@ -36,6 +36,9 @@ function resolve(tree) {
 for (locale of ['en', 'vi']) {
   for (const next of [undefined, '/rfq?category=pepper', '//evil.example', '/\\evil.example', 'https://evil.example', 'x'.repeat(501)]) {
     const html = renderToStaticMarkup(resolve(await entry.default({ searchParams: Promise.resolve({ next }) })));
+    assert.match(html, /data-vexim-account-icon="buyer-account"/);
+    assert.match(html, /data-vexim-account-icon="supplier-account"/);
+    assert.equal((html.match(/viewBox="0 0 64 64"/g) || []).length, 2);
     assert.match(html, /href="\/login"/);
     assert.match(html, /href="\/register"/);
     const target = nextPaths.safeNextPath(next);

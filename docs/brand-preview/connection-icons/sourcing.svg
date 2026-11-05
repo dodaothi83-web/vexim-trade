@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Tìm nguồn"><rect x="9" y="10" width="35" height="42" rx="9" fill="#EBEFF5"/>
+<rect x="15" y="16" width="24" height="6" rx="3" fill="#203B60"/>
+<path d="M16 29h12M16 36h9M16 43h8" stroke="#203B60" stroke-width="3" stroke-linecap="round"/>
+<circle cx="40" cy="37" r="12" fill="#478C87"/>
+<circle cx="40" cy="37" r="6" fill="none" stroke="white" stroke-width="2.5"/>
+<path d="m49 46 7 7" stroke="#203B60" stroke-width="6" stroke-linecap="round"/></svg>
