@@ -2,12 +2,12 @@
 
 import { assignRfqInlineAction } from "./actions-inline";
 
-type AssignmentUser = { id: string; name: string | null; email: string };
+import type { RfqAssignee } from "@/lib/rfq/assignees";
 
 export function RfqAssignmentSelect({ rfqId, assignedTo, users }: {
   rfqId: string;
   assignedTo: string | null;
-  users: AssignmentUser[];
+  users: RfqAssignee[];
 }) {
   return (
     <form action={assignRfqInlineAction} className="flex items-center gap-1">
@@ -21,7 +21,7 @@ export function RfqAssignmentSelect({ rfqId, assignedTo, users }: {
       >
         <option value="">— Chưa phân công —</option>
         {users.map((user) => (
-          <option key={user.id} value={user.id}>{user.name ?? user.email}</option>
+          <option key={user.id} value={user.id}>{user.label}</option>
         ))}
       </select>
     </form>

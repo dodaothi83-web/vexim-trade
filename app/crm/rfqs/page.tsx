@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/page-header";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { RfqAssignmentSelect } from "./assignment-select";
+import { rfqAssigneeOptions } from "@/lib/rfq/assignees";
 import type { AppUser, Buyer, Rfq } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -101,7 +102,7 @@ export default async function RfqsPage({
   ]);
   const buyerMap = new Map(buyers.map((b) => [b.id, b]));
   const userMap = new Map(users.map((u) => [u.id, u]));
-  const assignmentUsers = users.map((u) => ({ id: u.id, name: u.name, email: u.email }));
+  const assignmentUsers = rfqAssigneeOptions(users);
 
   const filtered = rfqs.filter((r) => matchesStatusTab(r, statusFilter));
 
@@ -202,7 +203,7 @@ export default async function RfqsPage({
                     </td>
                     <td className="px-3 py-2 text-[12.5px] text-ink-700">{r.destination_country ?? "—"}</td>
                     <td className="px-3 py-2">
-                      <RfqAssignmentSelect rfqId={r.id} assignedTo={r.assigned_to} users={assignmentUsers} />
+                      <RfqAssignmentSelect rfqId={r.id} assignedTo={r.assigned_to} users={r.assigned_to && !assignmentUsers.some((u) => u.id === r.assigned_to) ? rfqAssigneeOptions(users, r.assigned_to) : assignmentUsers} />
                     </td>
                     <td className="px-3 py-2">
                       <span className={"inline-flex items-center gap-1 text-[12px] font-medium " + sl.tone}>

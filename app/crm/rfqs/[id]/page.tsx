@@ -30,6 +30,7 @@ import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { updateRfqStatusFormAction } from "../actions";
 import { RfqAssignmentSelect } from "../assignment-select";
+import { assigneeLabel, rfqAssigneeOptions } from "@/lib/rfq/assignees";
 import {
   addMatchAction,
   removeMatchAction,
@@ -298,8 +299,8 @@ export default async function RfqDetailPage({
         <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-500">
           <span>Chủ trì</span>
           {canManageRfq
-            ? <RfqAssignmentSelect rfqId={rfq.id} assignedTo={rfq.assigned_to ?? null} users={users.map((u) => ({ id: u.id, name: u.name ?? null, email: u.email }))} />
-            : <span className="text-ink-800">{assignee ? (assignee.name ?? assignee.email) : "Chưa phân công"}</span>}
+            ? <RfqAssignmentSelect rfqId={rfq.id} assignedTo={rfq.assigned_to ?? null} users={rfqAssigneeOptions(users, rfq.assigned_to)} />
+            : <span className="text-ink-800">{assignee ? assigneeLabel(assignee) : "Chưa phân công"}</span>}
           <a href={statusLink} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
             <Copy className="h-3.5 w-3.5" /> Link người mua theo dõi
           </a>

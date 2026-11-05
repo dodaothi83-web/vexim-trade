@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
+import { canOwnRfq } from "@/lib/rfq/assignees";
 
 /** Server action inline cho dropdown phân công ở trang danh sách — không redirect. */
 export async function assignRfqInlineAction(fd: FormData) {
@@ -13,6 +14,11 @@ export async function assignRfqInlineAction(fd: FormData) {
   const id = String(fd.get("id"));
   const to = String(fd.get("to") || "").trim();
   const store = getStore();
+  // Chỉ giao cho tài khoản nội bộ đang hoạt động có quyền xử lý RFQ (không giao cho nhà cung cấp).
+  if (to) {
+    const target = await store.getUser(to).catch(() => null);
+    if (!target || !canOwnRfq(target)) return;
+  }
   const before = await store.getRfq(id);
   const after = await store.updateRfq(id, {
     assigned_to: to || null,
