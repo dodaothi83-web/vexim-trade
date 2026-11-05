@@ -123,7 +123,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   );
   // Lọc xong thì hiện đủ, không áp trần, để người đang tìm một quy cách cụ thể
   // không bị giấu mất lựa chọn.
-  const { shown } = useMemo(
+  const { shown, hidden } = useMemo(
     () => arrangeSupplierProducts(listPool, active ? null : supplierCap),
     [listPool, active, supplierCap],
   );
@@ -138,6 +138,12 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     setPage(1);
   }, [filterSignature]);
   const paged = categoryPageSlice(shown, page);
+  // Thẻ cuối của mỗi nhà cung cấp còn sản phẩm bị ẩn vì trần: gắn lối sang trang nhà cung cấp.
+  const lastShownBySupplier = useMemo(() => {
+    const last = new Map<string, string>();
+    for (const product of shown) if (hidden.has(product.supplierId)) last.set(product.supplierId, product.id);
+    return last;
+  }, [shown, hidden]);
   const pageHref = (target: number) => {
     const params = [keepQuery, `page=${target}`].filter(Boolean).join("&");
     return `/products/${encodeURIComponent(categorySlug)}?${params}`;
@@ -248,6 +254,11 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
                 comparison={comparisonEnabled && hasProductComparisonPeer(comparisonOffers, {
                   id: p.id, supplierId: p.supplierId, categorySlug, isDemo: p.isDemo,
                 }) ? { id: p.id, categorySlug } : undefined} />
+              {lastShownBySupplier.get(p.supplierId) === p.id && <Link
+                href={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
+                className="mt-1.5 block text-center text-xs font-semibold text-brand-700 hover:underline">
+                +{hidden.get(p.supplierId)} more from {p.supplierName}
+              </Link>}
             </div>;
           })}
         </div> : <div className="rounded-xl border border-ink-200 bg-white p-8 text-center">
