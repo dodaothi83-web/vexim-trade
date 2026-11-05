@@ -18,6 +18,6 @@ vm.runInNewContext(source,{module,exports:module.exports,require:(id)=>{assert.o
 const Sidebar=module.exports.Sidebar;
 function render(count){const html=renderToStaticMarkup(React.createElement(Sidebar,{dataMode:'supabase',emailMode:'resend',session:{name:'Sale',email:'sale@example.com',role:'sale'},permissions:permissions.permissionsFor('sale'),pendingSponsoredRequests:count}));return html.match(/<a href="\/crm\/sponsored"[\s\S]*?<\/a>/)?.[0]??'';}
 assert.match(render(null),/aria-label="Chưa tải được yêu cầu đẩy sản phẩm"[^>]*>!<\/span>/);
-assert.match(render(3),/aria-label="Yêu cầu đẩy sản phẩm mới"[^>]*>3 mới<\/span>/);
-assert.doesNotMatch(render(0),/mới|Chưa tải được|>!<\/span>/);
+assert.match(render(3),/aria-label="Yêu cầu đẩy sản phẩm mới: 3"[^>]*>3<\/span>/, "huy hiệu chỉ hiện số, trình đọc màn hình đọc cả nghĩa lẫn số");
+assert.doesNotMatch(render(0),/aria-label="Yêu cầu đẩy sản phẩm mới|Chưa tải được|>!<\/span>/);
 console.log('✅ CRM badge: unknown count is a warning, known count is numeric, zero is empty (SSR).');

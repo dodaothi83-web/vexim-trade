@@ -51,8 +51,8 @@ function render(count, role = "reviewer") {
 
 // Người không có quyền xác minh thì không thấy mục này, nên cũng không thấy huy hiệu.
 assert.equal(render(3, "sale"), "", "menu chứng nhận chỉ hiện với người có quyền xem xác minh");
-assert.match(render(3), /aria-label="Giấy chứng nhận chờ duyệt"[^>]*>3 chờ<\/span>/, "có giấy chờ thì hiện số");
-assert.match(render(1), />1 chờ</, "đếm đúng từng giấy");
-assert.doesNotMatch(render(0), /chờ<\/span>|aria-label="Giấy chứng nhận chờ duyệt"/, "không có giấy chờ thì không hiện huy hiệu");
+assert.match(render(3), /aria-label="Giấy chứng nhận chờ duyệt: 3"[^>]*>3<\/span>/, "có giấy chờ thì hiện số");
+assert.match(render(1), /aria-label="Giấy chứng nhận chờ duyệt: 1"[^>]*>1<\/span>/, "đếm đúng từng giấy");
+assert.doesNotMatch(render(0), /aria-label="Giấy chứng nhận chờ duyệt/, "không có giấy chờ thì không hiện huy hiệu");
 
 console.log("✅ Huy hiệu CRM: menu Giấy tờ & chứng nhận hiện đúng số giấy chờ duyệt, 0 thì ẩn, sai quyền thì không có mục.");
