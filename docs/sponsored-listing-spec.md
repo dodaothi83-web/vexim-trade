@@ -10,6 +10,7 @@ Migration `20261048_sponsored_retire_manual.sql` chặn tạo mới và duyệt/
 
 - Một gói dành cho **một sản phẩm đủ điều kiện công khai**, tại khu vực tài trợ ở đầu trang danh mục **khi người xem chưa bật bộ lọc**. Số ô theo tổng sản phẩm công khai không phải demo trước lọc: 1 ô khi dưới 10, 2 ô khi 10–30 và 3 ô khi trên 30; danh mục rỗng không có ô. Các ngưỡng và số ô là cấu hình triển khai. Mỗi thẻ có nhãn “Sponsored · Tài trợ” và phần giải thích.
 - Chưa có vùng tài trợ trên **trang chủ** hoặc trong **kết quả tìm kiếm**; không bán, tạo, duyệt hay chạy lại gói trang chủ. Không có huy hiệu “gian hàng nổi bật” trả phí.
+- Chỉ nhà cung cấp có L1 và ít nhất một trong L2 hoặc L3 mới được chọn sản phẩm để đẩy. Thẻ trong vùng đẩy hiện đúng các khiên xác minh như lưới tự nhiên, không thêm huy hiệu riêng.
 - Quảng cáo không thay đổi kết quả xác minh, điểm hay thứ hạng tự nhiên. Khi thẻ tài trợ đang hiện, cùng sản phẩm không lặp trong lưới tự nhiên; khi có bộ lọc, vùng tài trợ ẩn và sản phẩm trở lại lưới theo điều kiện thông thường.
 - Gói còn hạn cũng không hiện nếu sản phẩm, nhà cung cấp hoặc danh mục không còn đủ điều kiện công khai. Do luân phiên, một gói không nằm trong mọi cửa sổ; người xem có thể không gặp thẻ.
 

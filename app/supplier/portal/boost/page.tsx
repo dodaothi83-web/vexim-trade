@@ -5,7 +5,8 @@ import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { dayKeyDaysAgo, totalsByPush } from "@/lib/sponsored/admin";
-import { eligibleSupplierPushProducts, sponsoredRequestStore } from "@/lib/sponsored/requests";
+import { eligibleSupplierPushProducts, sponsoredRequestStore, supplierSponsoredGate } from "@/lib/sponsored/requests";
+import type { SponsoredVerificationGate } from "@/lib/sponsored/verification-gate";
 import { supplierPushState, type SupplierPushState } from "@/lib/sponsored/supplier-view";
 import type { Category, SupplierProduct, SponsoredPush, SponsoredPushDaily, SponsoredRequest } from "@/lib/types";
 import { publicProductTitle } from "@/lib/public/display-name";
@@ -55,11 +56,13 @@ export default async function SupplierBoostPage() {
 
   // The feature is deliberately closed during setup. Do not make this an
   // environment toggle: reopening requires review of purchase and payment gates.
+  // Trang đóng không đọc dữ liệu, chỉ báo trước điều kiện để nhà cung cấp chuẩn bị.
   if (supplierBoostClosed()) return <>
     <PageHeader title={copy.title} sub={copy.closed.sub} />
     <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
       {copy.closed.body}
     </div>
+    <EligibilityNotice copy={copy.eligibility} gate={null} />
   </>;
 
   let offer: OfferSettings | null = null;
@@ -72,6 +75,7 @@ export default async function SupplierBoostPage() {
   let ownProducts: SupplierProduct[] = [];
   let categories: Category[] = [];
   let candidateOk = false, requestsOk = false, pushesOk = false, metricsOk = false;
+  let gate: SponsoredVerificationGate | null = null;
   let daily: SponsoredPushDaily[] = [];
   if (strictStore) {
     // Share scoped reads between the eligibility check and package labels.
@@ -79,6 +83,8 @@ export default async function SupplierBoostPage() {
     const categoryRead = strictStore.listCategories({ publishedOnly: false });
     const candidatesRead = Promise.all([productRead, categoryRead]).then(([products, categories]) =>
       eligibleSupplierPushProducts(strictStore, access.supplier, { products, categories }));
+    try { gate = await supplierSponsoredGate(strictStore, access.supplier.id); }
+    catch (error) { console.error("[supplier-sponsored] verification gate unavailable", error); }
     const results = await Promise.allSettled([
       candidatesRead,
       strictStore.listSponsoredRequestsForSupplier(access.supplier.id),
@@ -112,6 +118,8 @@ export default async function SupplierBoostPage() {
 
   return <>
     <PageHeader title={copy.title} sub={copy.sub} />
+
+    {gate && gate !== "ok" && <EligibilityNotice copy={copy.eligibility} gate={gate} />}
 
     {strictStore?.mode === "local" && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">{copy.preview}</div>}
 
@@ -184,4 +192,18 @@ export default async function SupplierBoostPage() {
       </div>
     </div>
   </>;
+}
+
+/** Điều kiện xác minh của gói đẩy. `gate` null: chỉ nêu điều kiện, không nói bạn thiếu gì. */
+function EligibilityNotice({ copy, gate }: {
+  copy: Awaited<ReturnType<typeof getPortalMessages>>["m"]["boost"]["eligibility"];
+  gate: Exclude<SponsoredVerificationGate, "ok"> | null;
+}) {
+  return <section aria-labelledby="boost-eligibility-title" className="mb-5 mt-4 rounded-xl border border-ink-200 bg-white p-5 shadow-sm">
+    <h2 id="boost-eligibility-title" className="text-[15px] font-bold text-ink-900">{copy.title}</h2>
+    <p className="mt-1 text-sm leading-6 text-ink-700">{copy.body}</p>
+    <p className="mt-1 text-xs leading-5 text-ink-500">{copy.why}</p>
+    {gate && <p role="status" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{gate === "needs_l1" ? copy.needsL1 : copy.needsL2OrL3}</p>}
+    <Link href="/supplier/portal/verification" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline">{copy.cta} <ArrowRight className="size-4" aria-hidden="true" /></Link>
+  </section>;
 }

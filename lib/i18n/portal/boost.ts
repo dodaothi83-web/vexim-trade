@@ -16,6 +16,14 @@ export const en = {
     sub: "This feature is being prepared.",
     body: "Product boosting is not open yet. You cannot register or buy a package.",
   },
+  eligibility: {
+    title: "Who can buy a boost package",
+    body: "Business verification (L1) plus a factory review (L2) or a delivery history review (L3).",
+    why: "The boost area sits at the top of category pages, so buyers expect suppliers checked beyond documents.",
+    needsL1: "Complete business verification (L1) first. Then add a factory or delivery history review.",
+    needsL2OrL3: "Add a factory review (L2) or a delivery history review (L3) to buy a boost package.",
+    cta: "Go to verification",
+  },
   hero: {
     badge: "Product boost",
     title: "More chances to be seen",
@@ -122,6 +130,14 @@ export const vi: BoostMessages = {
   closed: {
     sub: "Tính năng đang được chuẩn bị.",
     body: "Tính năng đẩy sản phẩm hiện chưa mở. Bạn chưa thể đăng ký hoặc mua gói.",
+  },
+  eligibility: {
+    title: "Điều kiện mua gói đẩy sản phẩm",
+    body: "Đã xác thực doanh nghiệp (L1) và có thêm xác minh nhà máy (L2) hoặc lịch sử giao hàng (L3).",
+    why: "Vùng đẩy nằm đầu trang danh mục, nên người mua cần thấy nhà cung cấp đã được kiểm tra kỹ hơn giấy tờ.",
+    needsL1: "Bạn cần hoàn tất xác thực doanh nghiệp (L1) trước, rồi thêm xác minh nhà máy hoặc lịch sử giao hàng.",
+    needsL2OrL3: "Bạn cần thêm xác minh nhà máy (L2) hoặc lịch sử giao hàng (L3) để mua gói đẩy sản phẩm.",
+    cta: "Đi tới xác minh",
   },
   hero: {
     badge: "Giới thiệu sản phẩm",

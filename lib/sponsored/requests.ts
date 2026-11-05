@@ -10,6 +10,8 @@ import { publicProductTitle } from "@/lib/public/display-name";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { isTestOnlyProduct, productReviewApproved, publicProductCategorySlug, withoutDirectContacts } from "@/lib/public/product-selection";
 import type { PushCandidate } from "@/lib/sponsored/eligibility";
+import { sponsoredVerificationGate, type SponsoredVerificationGate } from "@/lib/sponsored/verification-gate";
+import { approvedVerificationSteps } from "@/lib/verification-status";
 
 /**
  * Never fall back from the live request inbox to local data on a network error.
@@ -33,6 +35,9 @@ export async function eligibleSupplierPushProducts(
   source?: { products: SupplierProduct[]; categories: Category[] },
 ): Promise<PushCandidate[]> {
   if (supplier.status !== "published" || isSyntheticSupplier(supplier)) return [];
+  // Chưa đủ L1 + L2/L3 thì không có sản phẩm nào được chọn. Lỗi đọc vẫn ném ra,
+  // không bao giờ biến thành "không đủ điều kiện".
+  if (await supplierSponsoredGate(store, supplier.id) !== "ok") return [];
   const [products, categories] = source ? [source.products, source.categories] : await Promise.all([
     store.listProductsBySupplier(supplier.id),
     store.listCategories({ publishedOnly: false }),
@@ -64,4 +69,10 @@ export async function eligibleSupplierPushProducts(
     });
   }
   return candidates.sort((a, b) => a.categoryName.localeCompare(b.categoryName, "vi") || a.name.localeCompare(b.name, "vi") || a.productId.localeCompare(b.productId));
+}
+
+/** Điều kiện xác minh của một nhà cung cấp cho gói đẩy, đọc từ các lượt xác minh đã duyệt. */
+export async function supplierSponsoredGate(store: DataStore, supplierId: string): Promise<SponsoredVerificationGate> {
+  const rows = (await store.listVerifications(supplierId)).filter((row) => row.supplier_id === supplierId);
+  return sponsoredVerificationGate(approvedVerificationSteps(rows));
 }

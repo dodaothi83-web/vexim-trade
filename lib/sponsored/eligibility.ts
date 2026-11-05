@@ -4,6 +4,7 @@ import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot } from "@/
 import type { SponsoredPush } from "@/lib/types";
 import { getStore } from "@/lib/db";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { sponsoredVerificationEligible } from "@/lib/sponsored/verification-gate";
 
 /**
  * Sản phẩm được phép đẩy.
@@ -11,6 +12,7 @@ import { withoutDirectContacts } from "@/lib/public/product-selection";
  * Danh sách này lấy từ chính hàm dựng danh mục công khai, nên điều kiện trùng khớp
  * với thứ buyer nhìn thấy: hồ sơ nhà cung cấp đã publish, sản phẩm đã duyệt, sẵn
  * sàng gửi buyer kèm ảnh hoặc catalogue, danh mục đã mở, và không phải hồ sơ demo.
+ * Thêm điều kiện xác minh: nhà cung cấp có L1 và ít nhất một trong L2 hoặc L3.
  *
  * Kiểm lại ở máy chủ trong lúc tạo gói, không tin danh sách gửi từ trình duyệt:
  * trả tiền không mua được quyền vượt bốn cổng đó.
@@ -33,7 +35,7 @@ export async function eligiblePushProducts(): Promise<PushCandidate[]> {
   for (const category of categories) {
     const products = await listPublicCategoryProducts(category, snapshot ? { snapshot } : undefined);
     for (const product of products) {
-      if (product.isDemo || byProduct.has(product.id)) continue;
+      if (product.isDemo || byProduct.has(product.id) || !sponsoredVerificationEligible(product.verificationSteps)) continue;
       byProduct.set(product.id, {
         productId: product.id,
         name: withoutDirectContacts(product.name),
@@ -56,5 +58,6 @@ export async function isPushProductEligible(push: Pick<SponsoredPush, "product_i
   const category = categories.find((c) => c.slug === push.category_slug && c.status === "published");
   if (!category) return false;
   const products = await listPublicCategoryProducts(category);
-  return products.some((p) => !p.isDemo && p.id === push.product_id && p.supplierId === push.supplier_id);
+  return products.some((p) => !p.isDemo && p.id === push.product_id && p.supplierId === push.supplier_id &&
+    sponsoredVerificationEligible(p.verificationSteps));
 }

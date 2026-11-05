@@ -34,6 +34,9 @@ const page=load('app/supplier/portal/boost/page.tsx',{
 const html=renderToStaticMarkup(await page.default());
 assert.match(html,/chưa mở/i);assert.match(html,/chưa thể đăng ký hoặc mua gói/);
 assert.doesNotMatch(html,/<form|<button|Gửi yêu cầu|Chọn sản phẩm|Giá chưa được cấu hình/);
+assert.match(html,/Điều kiện mua gói đẩy sản phẩm/,'Trang đóng vẫn báo trước điều kiện xác minh');
+assert.match(html,/xác thực doanh nghiệp \(L1\) và có thêm xác minh nhà máy \(L2\) hoặc lịch sử giao hàng \(L3\)/);
+assert.match(html,/Đi tới xác minh/);
 assert.equal(reads,0,'No offer, products, historical package or request read while locked');
 access=null;await assert.rejects(page.default(),/redirect:\/login/);
 access={supplier:{id:'s1'}};approved=false;await assert.rejects(page.default(),/redirect:\/supplier\/portal/);
