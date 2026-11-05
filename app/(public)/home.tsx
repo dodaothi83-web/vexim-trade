@@ -1,3 +1,4 @@
+import { ConnectionOverview } from "@/components/public/connection-overview";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -463,6 +464,8 @@ export default async function HomeContent({
           </ul>
         </div>
       </section>
+
+      <ConnectionOverview isVi={isVi} />
 
       {/* =====================================================================
           SECTION 3: DANH SÁCH BLOG (4 BÀI / HÀNG)
