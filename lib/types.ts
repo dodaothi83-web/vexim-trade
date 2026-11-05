@@ -985,7 +985,7 @@ export type SupplierRfqInvitation = Pick<RfqMatch,
   "quote_price" | "quote_currency" | "quote_unit" | "created_at" | "updated_at"> &
   Partial<Pick<RfqMatch, "quote_incoterm" | "quote_lead_time_days" | "quote_valid_until" | "sent_to_buyer_at">> & {
   rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "destination_country" |
-    "incoterm" | "needed_by" | "source_product_id" | "source_page"> & Partial<Pick<Rfq, "status">>;
+    "incoterm" | "needed_by" | "source_product_id" | "source_page"> & Partial<Pick<Rfq, "status" | "preferred_supplier_ids">>;
 };
 
 export interface SupplierNoticeRead {

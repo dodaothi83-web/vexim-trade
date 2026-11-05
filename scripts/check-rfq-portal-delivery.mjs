@@ -53,7 +53,7 @@ const publisher = load('lib/rfq/targeted-portal.ts', {
   '@/lib/config': { FROM_ADDRESS: 'Vexim <system@example.com>' },
   './reply-routing': { supplierReplyAddress: (_, id) => `rfq+${id}@example.com` },
 });
-for (const patch of [ { status: 'spam' }, { status: 'needs_review' }, { source_product_id: null }, { preferred_supplier_ids: ['s1', 's2'] }, { specs: { inquiry_kind: 'supplier_question' } } ]) {
+for (const patch of [ { status: 'spam' }, { status: 'needs_review' }, { preferred_supplier_ids: [] }, { preferred_supplier_ids: ['s1', 's2'] }, { specs: { inquiry_kind: 'supplier_question' } } ]) {
   assert.equal(await publisher.releaseTargetedQuoteToPortal(store, { ...rfq, ...patch }), 0);
 }
 supplier.onboarding_status = 'pending';
@@ -102,6 +102,11 @@ assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 1);
 assert.equal(messages.at(-1).status, 'failed');
 assert.equal(messages.at(-1).sent_at, null);
 assert.ok(match.sent_to_supplier_at, 'In-app delivery remains available after SMTP failure');
+// RFQ gửi từ trang của đúng một nhà cung cấp (không gắn sản phẩm) cũng đi thẳng tới nhà cung cấp đó.
+match = { ...match, id: 'm3', status: 'proposed', sent_to_supplier_at: null };
+rfq.status = 'new'; emailSent = true;
+assert.equal(await publisher.releaseTargetedQuoteToPortal(store, { ...rfq, source_product_id: null, source_page: '/suppliers/s1' }), 1);
+assert.equal(match.status, 'sent_to_supplier');
 assert.match(read('app/crm/layout.tsx'), /pendingRfqs=\{pendingRfqs\}/);
 assert.match(read('app/crm/layout.tsx'), /href: "\/crm\/rfqs".*pendingRfqs/);
 assert.match(read('components/sidebar.tsx'), /item.href === "\/crm\/rfqs".*pendingRfqs/);

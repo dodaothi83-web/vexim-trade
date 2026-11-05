@@ -9,9 +9,10 @@ import type { Rfq } from "@/lib/types";
  * In-app delivery is durable; an optional system email is recorded separately.
  */
 export async function releaseTargetedQuoteToPortal(store: DataStore, rfq: Rfq): Promise<number> {
-  if (rfq.status !== "new" || !rfq.source_product_id || rfq.specs?.inquiry_kind === "supplier_question" || rfq.source_page === "/rfq?intent=question") return 0;
+  if (rfq.status !== "new" || rfq.specs?.inquiry_kind === "supplier_question" || rfq.source_page === "/rfq?intent=question") return 0;
   const supplierIds = [...new Set(rfq.preferred_supplier_ids ?? [])];
-  // A product has one owner. General/multi-supplier RFQs retain staff review.
+  // Sàn B2B: RFQ gửi từ trang sản phẩm hoặc trang của đúng một nhà cung cấp đi thẳng tới
+  // nhà cung cấp đó. RFQ chung hoặc chọn nhiều nhà cung cấp vẫn do nhân viên xử lý.
   if (supplierIds.length !== 1) return 0;
   const supplier = await store.getSupplier(supplierIds[0]);
   if (!supplier || supplier.status !== "published" || supplier.onboarding_status !== "approved") return 0;

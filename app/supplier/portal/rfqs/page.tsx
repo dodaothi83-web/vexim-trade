@@ -67,9 +67,9 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
 
-    {(sp.quote === "sent" || sp.quote === "declined") && /^[A-Za-z0-9-]{1,40}$/.test(sp.code ?? "") &&
+    {(sp.quote === "sent" || sp.quote === "delivered" || sp.quote === "declined") && /^[A-Za-z0-9-]{1,40}$/.test(sp.code ?? "") &&
       <div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
-        {fill(sp.quote === "sent" ? copy.quote.sent : copy.quote.declined, { code: sp.code! })}
+        {fill(sp.quote === "sent" ? copy.quote.sent : sp.quote === "delivered" ? copy.quote.delivered : copy.quote.declined, { code: sp.code! })}
       </div>}
 
     <div className="space-y-5">
@@ -92,7 +92,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
               <SupplierRfqReply address={supplierReplyAddress(task.code, task.matchId)} subject={fill(copy.tasks.subject, { code: task.code })}
                 labels={{ gmail: copy.tasks.replyGmail, app: copy.tasks.replyApp, copy: copy.tasks.copyAddress, copied: copy.tasks.copied }} />
               {task.canQuote && <SupplierQuoteForm matchId={task.matchId} code={task.code} defaults={task.quoteDefaults}
-                currencies={QUOTE_CURRENCIES} incoterms={QUOTE_INCOTERMS} editing={false} copy={copy.quote} />}
+                currencies={QUOTE_CURRENCIES} incoterms={QUOTE_INCOTERMS} editing={false} direct={task.directToBuyer} copy={copy.quote} />}
             </li>;
           })}</ul> : <EmptyRow>{copy.tasks.empty}</EmptyRow>}
         {board.tasks.length > 0 && <p className={`border-t border-ink-100 px-5 py-2.5 text-[11.5px] leading-4 ${supplier.email ? "text-ink-500" : "font-semibold text-rose-700"}`}>
@@ -113,7 +113,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
             </span>
             <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-800">{item.status}</span>
             {item.canQuote && item.quotePrice && <SupplierQuoteForm matchId={item.matchId} code={item.code} defaults={item.quoteDefaults}
-              currencies={QUOTE_CURRENCIES} incoterms={QUOTE_INCOTERMS} editing copy={copy.quote} />}
+              currencies={QUOTE_CURRENCIES} incoterms={QUOTE_INCOTERMS} editing direct={item.directToBuyer} copy={copy.quote} />}
           </li>)}</ul> : <EmptyRow>{copy.invites.empty}</EmptyRow>}
       </Panel>
 

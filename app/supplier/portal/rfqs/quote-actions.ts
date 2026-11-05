@@ -7,6 +7,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { parseSupplierQuote, recordSupplierPortalQuote } from "@/lib/supplier-portal/quote";
 import { getPortalMessages } from "@/lib/i18n/server";
+import { presentShortlistToBuyer } from "@/lib/rfq/outreach";
 
 /** Khi lỗi, trả lại giá trị đã nhập vì React đặt lại form sau mỗi lần gửi. */
 export type SupplierQuoteState = { error: string | null; values?: Record<string, string> };
@@ -37,7 +38,19 @@ export async function submitSupplierQuoteAction(_prev: SupplierQuoteState, fd: F
     if (key !== "notFound" && key !== "closed") console.error("[supplier-portal] quote not saved", error);
     return { error: key === "notFound" || key === "closed" ? errors[key] : errors.unknown, values: keep(fd) };
   }
+  // RFQ trực tiếp: gửi báo giá tới người mua ngay (email so sánh ẩn danh, ghi mốc phản hồi SLA).
+  // Gửi lỗi thì báo giá vẫn được lưu; nhân viên bấm "Trình người mua" trong CRM để gửi lại.
+  let delivered = false;
+  if (result.intent === "quote" && result.direct) {
+    try {
+      delivered = (await presentShortlistToBuyer({ rfqId: result.rfqId })).sent;
+    } catch (error) {
+      console.error(`[supplier-portal] quote saved but buyer delivery failed for ${result.code}`, error);
+    }
+  }
   revalidatePath("/supplier/portal/rfqs");
   revalidatePath("/supplier/portal");
-  redirect(`/supplier/portal/rfqs?quote=${result.intent === "quote" ? "sent" : "declined"}&code=${encodeURIComponent(result.code)}`);
+  revalidatePath(`/crm/rfqs/${result.rfqId}`);
+  const outcome = result.intent === "decline" ? "declined" : delivered ? "delivered" : "sent";
+  redirect(`/supplier/portal/rfqs?quote=${outcome}&code=${encodeURIComponent(result.code)}`);
 }

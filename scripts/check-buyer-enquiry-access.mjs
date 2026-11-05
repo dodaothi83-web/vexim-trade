@@ -38,7 +38,17 @@ const detailComponent = load('components/buyer-enquiry-detail.tsx', {
   'lucide-react': new Proxy({}, { get: () => () => null }),
   '@/components/ui': { Breadcrumbs: () => null },
 });
-const detail = load('app/(public)/buyer/account/requests/[id]/page.tsx', { '@/lib/buyer/enquiry-access': access, '@/components/buyer-enquiry-detail': detailComponent });
+const quoteStore = {
+  listRfqMatches: async () => [
+    { id: 'q1', supplier_id: 's1', sent_to_buyer_at: '2026-11-05T00:00:00Z', quote_price: 6.35, quote_currency: 'USD', quote_unit: 'kg', quote_incoterm: 'FOB', quote_lead_time_days: 20, quote_valid_until: null },
+    { id: 'q2', supplier_id: 's2', sent_to_buyer_at: null, quote_price: 9.99, quote_currency: 'USD', quote_unit: 'kg' },
+  ],
+  listSuppliers: async () => [
+    { id: 's1', name: 'Shown Supplier', province: 'Dak Lak', email: 'secret-supplier@example.com', phone: '+84 900 000 000' },
+    { id: 's2', name: 'Hidden Supplier' },
+  ],
+};
+const detail = load('app/(public)/buyer/account/requests/[id]/page.tsx', { '@/lib/buyer/enquiry-access': access, '@/components/buyer-enquiry-detail': detailComponent, '@/lib/db': { getStore: () => quoteStore } });
 for (const [page, params, next] of [
   [legacy.default, { token: 'old-secret' }, '/rfq/status/old-secret'],
   [detail.default, { id: 'r1' }, '/buyer/account/requests/r1'],
@@ -64,6 +74,10 @@ let tree = await detail.default({ params: Promise.resolve({ id: 'r1' }) });
 let html = renderToStaticMarkup(React.createElement(tree.type, tree.props));
 assert.match(html, /Private product/);
 assert.match(html, /All enquiries/);
+assert.match(html, /Quotes received \(1\)/, 'Buyer sees quotes already delivered to them');
+assert.match(html, /Shown Supplier[\s\S]*6\.35 USD \/ kg/);
+assert.doesNotMatch(html, /Hidden Supplier|9\.99/, 'Quotes not yet delivered stay hidden');
+assert.doesNotMatch(html, /secret-supplier@example\.com|\+84 900/, 'No supplier contact details before the buyer chooses');
 assert.doesNotMatch(html, /old-secret|DO NOT RENDER|without logging in|private and unique/);
 for (const missing of ['rfq', 'buyer', 'buyer-id']) {
   rfqExists = missing !== 'rfq'; buyerExists = missing !== 'buyer'; buyerId = missing === 'buyer-id' ? null : 'crm-buyer';
