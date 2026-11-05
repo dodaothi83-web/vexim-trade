@@ -13,6 +13,7 @@ import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { notifyBuyerRfqStatus } from "@/lib/rfq/buyer-notify";
 import { notifySelectedSupplier, recordSupplierSelection } from "@/lib/rfq/outreach";
 import type { EmailMessage } from "@/lib/types";
+import { CLOSED_RFQ_STATUSES, SELECTABLE_MATCH_STATUSES, isSupplierQuestionRfq } from "@/lib/rfq/workflow";
 
 /**
  * Gửi email thủ công cho một nhà cung cấp liên quan đến một RFQ match (VD: nhắc phản hồi, hỏi thêm thông tin).
@@ -102,9 +103,14 @@ export async function markSamplingAction(fd: FormData): Promise<void> {
   const store = getStore();
   const before = await store.getRfq(rfqId);
   if (!before) throw new Error("RFQ không tồn tại.");
+  // Gửi mẫu đứng trước chốt đơn: không kéo RFQ đã đóng quay lại sampling.
+  if (CLOSED_RFQ_STATUSES.includes(before.status)) throw new Error("RFQ đã đóng; không thể chuyển sang gửi mẫu.");
+  if (isSupplierQuestionRfq(before)) throw new Error("Câu hỏi trực tiếp cho nhà cung cấp không có bước gửi mẫu.");
+  if (before.status !== "sampling" && !selectedMatchId) throw new Error("Chọn nhà cung cấp có báo giá để gửi mẫu.");
   if (selectedMatchId) {
     const m = await store.getRfqMatch(selectedMatchId);
     if (!m || m.rfq_id !== rfqId) throw new Error("Nhà cung cấp đã chọn không thuộc RFQ này.");
+    if (!SELECTABLE_MATCH_STATUSES.includes(m.status)) throw new Error("Chỉ gửi mẫu với nhà cung cấp đã có báo giá.");
     if (before.status !== "sampling" && m.status !== "selected") {
       // Cùng một quy tắc với nút "Chọn nhà cung cấp": có Introduction bảo hộ 12 tháng
       // và các NCC còn lại chuyển not_selected.

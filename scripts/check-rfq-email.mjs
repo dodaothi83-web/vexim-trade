@@ -152,6 +152,7 @@ assert.equal((await notifyBuyerRfqStatus(newRfq, 'lost')).reason, 'transport_fai
 transportFailed = false;
 assert.equal((await notifyBuyerRfqStatus(newRfq, 'lost')).sent, true, 'failed send may retry');
 
+const workflow = loadTS('../lib/rfq/workflow.ts', {});
 const actionRfq = { ...rfq, id: 'rfq-action', code: 'RFQ-20261017-00003', status: 'quoted' };
 const actions = loadTS('../app/crm/rfqs/[id]/compose-action.ts', {
   'next/cache': { revalidatePath: () => {} },
@@ -159,11 +160,19 @@ const actions = loadTS('../app/crm/rfqs/[id]/compose-action.ts', {
   ...mocks,
   '@/lib/auth/session': { guard: async () => null, getSession: async () => ({ uid: 'admin', email: 'admin@veximtrade.com' }) },
   '@/lib/rfq/buyer-notify': { notifyBuyerRfqStatus },
-  '@/lib/rfq/outreach': { notifySelectedSupplier: async () => 'sent' },
+  '@/lib/rfq/outreach': { notifySelectedSupplier: async () => 'sent', recordSupplierSelection: async (_r, m) => { m.status = 'selected'; } },
+  '@/lib/rfq/workflow': workflow,
 });
 const sampling = new FormData(); sampling.set('rfq_id', actionRfq.id);
+await assert.rejects(actions.markSamplingAction(sampling), /Chọn nhà cung cấp có báo giá/, 'sampling needs a quoted supplier');
+match.rfq_id = actionRfq.id; match.status = 'proposed';
+sampling.set('selected_match_id', match.id);
+await assert.rejects(actions.markSamplingAction(sampling), /đã có báo giá/, 'cannot sample with an unquoted supplier');
+assert.equal(actionRfq.status, 'quoted');
+match.status = 'presented_to_buyer';
 await actions.markSamplingAction(sampling);
 assert.equal(actionRfq.status, 'sampling');
+assert.equal(match.status, 'selected');
 assert.equal(messages.filter((m) => m.rfq_id === actionRfq.id && m.stage === 'sampling').length, 1);
 await actions.markSamplingAction(sampling);
 assert.equal(messages.filter((m) => m.rfq_id === actionRfq.id && m.stage === 'sampling').length, 1, 'resubmit must not notify twice');
@@ -173,7 +182,7 @@ assert.equal(actionRfq.status, 'lost');
 assert.equal(messages.filter((m) => m.rfq_id === actionRfq.id && m.stage === 'lost').length, 1);
 await actions.markLostAction(lost);
 assert.equal(messages.filter((m) => m.rfq_id === actionRfq.id && m.stage === 'lost').length, 1);
-match.rfq_id = actionRfq.id;
+await assert.rejects(actions.markSamplingAction(sampling), /RFQ đã đóng/, 'a closed RFQ cannot go back to sampling');
 const compose = new FormData(); compose.set('rfq_id', actionRfq.id); compose.set('match_id', match.id);
 compose.set('subject', 'Báo giá'); compose.set('body', 'Xin chào');
 await assert.rejects(actions.composeMatchEmailAction(compose), /chưa gửi thật/);
@@ -198,9 +207,12 @@ const regularActions = loadTS('../app/crm/rfqs/actions.ts', {
   'next/navigation': { redirect: () => { throw Error('redirect'); } },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': { guard: async () => null, getSession: async () => ({ uid: 'admin' }) },
+  '@/lib/rfq/workflow': workflow,
 });
-const badStatus = new FormData(); badStatus.set('id', actionRfq.id); badStatus.set('status', 'lost');
-await assert.rejects(regularActions.updateRfqStatusFormAction(badStatus), /Chốt giai đoạn/);
+for (const status of ['lost', 'sampling', 'won', 'quoted']) {
+  const badStatus = new FormData(); badStatus.set('id', actionRfq.id); badStatus.set('status', status);
+  await assert.rejects(regularActions.updateRfqStatusFormAction(badStatus), /nút nghiệp vụ/, `${status} must use its business action`);
+}
 assert.equal(actionRfq.lost_reason, 'price');
 const schema = fs.readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8');
 assert.ok(schema.indexOf('create table if not exists public.rfq_matches') < schema.indexOf('alter table public.email_messages add column if not exists rfq_match_id'));

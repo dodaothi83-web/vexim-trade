@@ -19,8 +19,8 @@ function inspect(node, forms = 0) {
   ts.forEachChild(node, (child) => inspect(child, forms + Number(form)));
 }
 inspect(page);
-assert.match(read('components/rfq-match-status-select.tsx'), /^"use client"/);
-assert.match(read('components/rfq-match-status-select.tsx'), /requestSubmit\(\)/);
+assert.match(read('components/confirm-submit-button.tsx'), /^"use client"/);
+assert.match(read('components/confirm-submit-button.tsx'), /window\.confirm\(message\)/);
 assert.match(read('app/crm/rfqs/[id]/page.tsx'), /form="rfq-dispatch"/);
 const dictionary = loadPortalDictionary();
 const dashboard = load('lib/supplier-portal/dashboard.ts', {

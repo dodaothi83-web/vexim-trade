@@ -202,10 +202,11 @@ const matchActions = load('../app/crm/rfqs/[id]/actions.ts', {
   'next/cache': { revalidatePath() {} }, 'next/navigation': { redirect() {} },
   crypto: { randomUUID: () => 'test-id' },
   '@/lib/db': { getStore: () => store }, '@/lib/auth/session': { guard: async () => null },
+  '@/lib/rfq/workflow': load('../lib/rfq/workflow.ts', {}),
 });
 const forgedSelection = new FormData(); forgedSelection.set('match_id', storedMatch.id);
 forgedSelection.set('rfq_id', rfq.id); forgedSelection.set('status', 'selected');
-await assert.rejects(matchActions.updateMatchStatusAction(forgedSelection), /Chọn nhà cung cấp này/);
+await assert.rejects(matchActions.updateMatchStatusAction(forgedSelection), /nút nghiệp vụ/);
 assert.equal(storedMatch.status, 'sent_to_supplier', 'Generic status action cannot bypass selection notification');
 
 let accessEnabled = true;

@@ -439,6 +439,9 @@ export async function selectSupplier(input: { rfqId: string; matchId: string; ac
   if (!rfq) throw new Error("RFQ not found");
   const match = await store.getRfqMatch(input.matchId);
   if (!match || match.rfq_id !== rfq.id) return { selected: false, email: "skipped" };
+  if (rfq.status === "lost" || rfq.status === "spam") throw new Error("RFQ đã đóng; không thể chốt nhà cung cấp.");
+  // Khớp SELECTABLE_MATCH_STATUSES trong lib/rfq/workflow.ts.
+  if (!["quoted", "presented_to_buyer", "selected"].includes(match.status)) throw new Error("Chỉ chốt nhà cung cấp đã có báo giá.");
   const newlySelected = match.status !== "selected";
   await recordSupplierSelection(rfq, match);
   await store.updateRfq(rfq.id, { status: "won" });
