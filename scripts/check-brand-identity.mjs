@@ -60,6 +60,23 @@ for (const levels of [[], [1], [1, 2, 3]]) {
   assert.match(html, /Check 2/);
   assert.equal((html.match(/: Approved\./g) ?? []).length, levels.length);
 }
+// The product-card exception removes only the visible frame; default contexts stay circular.
+for (const levels of [[], [1], [1, 2, 3]]) {
+  const html = render(mod.exports.VerificationPips, { levels, variant: 'marketplace', shortTooltips: true });
+  assert.equal((html.match(/data-standard-shield/g) ?? []).length, 3);
+  const buttons = [...html.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
+  assert.equal(buttons.length, 3);
+  for (const button of buttons) {
+    assert.doesNotMatch(button, /rounded-full|(?:class="|\s)(?:border(?:-[^\s"]+)?|bg-[^\s"]+)/);
+    assert.match(button, /h-\[18px\] w-\[18px\] sm:h-5 sm:w-5/);
+    assert.match(button, /focus-visible:outline/);
+  }
+  assert.match(html, /h-3.5 w-3.5 sm:h-4 sm:w-4/);
+  assert.equal((html.match(/role="tooltip"/g) ?? []).length, 3);
+  assert.equal(buttons.filter((b) => b.includes('text-success')).length, levels.length);
+  assert.equal(buttons.filter((b) => b.includes('text-ink-500')).length, 3 - levels.length);
+  assert.equal((html.match(/: Approved\./g) ?? []).length, levels.length);
+}
 for (const file of ['components/public/supplier-storefront.tsx', 'app/supplier/portal/verification/level-tabs.tsx', 'app/crm/verifications/submissions/page.tsx']) assert.match(read(file), /@\/components\/brand\/vexim-icons/);
 // Actual shared labels: all boolean combinations preserve capability semantics and compact layout.
 const tradeModule = { exports: {} };
