@@ -26,4 +26,7 @@ assert.match(dialog, /showModal\(\)/, 'Hộp thoại thật, có nền mờ và 
 assert.match(dialog, /Đang gửi…/);
 assert.match(dialog, /role="alert"/, 'Lỗi gửi hiện ngay trong hộp thoại');
 assert.match(read('components/confirm-submit-button.tsx'), /disabled=\{pending\}/, 'Nút có xác nhận cũng khoá khi đang gửi');
+// Action kết thúc bằng redirect() (ví dụ Trạng thái hành chính) là thành công, không phải lỗi.
+assert.match(form, /NEXT_REDIRECT;/);
+assert.match(form, /router\.replace\(target\)/);
 console.log('✅ RFQ detail feedback: email dialog, pending/saved/error states, typed text kept on error.');

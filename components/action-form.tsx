@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Check, Loader2 } from "lucide-react";
 import { cx } from "@/components/ui";
 
@@ -19,6 +20,7 @@ export function useActionSubmit(action: (fd: FormData) => Promise<unknown>, hand
   onError: (error: unknown) => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pending) return;
@@ -29,11 +31,26 @@ export function useActionSubmit(action: (fd: FormData) => Promise<unknown>, hand
         await action(fd);
         handlers.onSuccess(form);
       } catch (error) {
+        // Action kết thúc bằng redirect() là đã lưu xong; đi tới trang đích như form thường.
+        const target = redirectTarget(error);
+        if (target !== null) {
+          handlers.onSuccess(form);
+          router.replace(target);
+          return;
+        }
         handlers.onError(error);
       }
     });
   };
   return { pending, onSubmit };
+}
+
+/** Đích của redirect() trong server action, null nếu không phải redirect. Digest: `NEXT_REDIRECT;replace;/url;307;`. */
+export function redirectTarget(error: unknown): string | null {
+  const digest = (error as { digest?: unknown } | null)?.digest;
+  if (typeof digest !== "string" || !digest.startsWith("NEXT_REDIRECT;")) return null;
+  const url = digest.split(";")[2] ?? "";
+  return url.startsWith("/") ? url : null;
 }
 
 export function PendingProvider({ pending, children }: { pending: boolean; children: ReactNode }) {
