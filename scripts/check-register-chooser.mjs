@@ -16,6 +16,11 @@ const file = 'app/(auth)/register/page.tsx';
 const chooserFile = 'app/(auth)/register/account-type-chooser.tsx';
 const source = readFileSync(new URL(file, root), 'utf8');
 // Trang đọc từ điển theo cookie ngôn ngữ; check chạy với bản tiếng Anh (mặc định).
+const roleModule = { exports: {} };
+vm.runInNewContext(ts.transpileModule(readFileSync(new URL('components/brand/account-role-icons.tsx', root), 'utf8'), {
+  compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText, { module: roleModule, exports: roleModule.exports, require(id) { assert.equal(id, 'react/jsx-runtime'); return jsx; } });
+const accountIcons = roleModule.exports;
 const authMessages = loadAuthDictionary();
 const i18nServer = { getAuthMessages: async () => ({ locale: 'en', m: authMessages.en }) };
 
@@ -35,6 +40,7 @@ vm.runInNewContext(
         'react/jsx-runtime': jsx,
         'next/link': { default: Link },
         '@/components/brand/vexim-icons': brandIcons,
+        '@/components/brand/account-role-icons': accountIcons,
   'lucide-react': icons,
         '@/components/ui': { Breadcrumbs: () => React.createElement('nav', { 'data-breadcrumbs': true }) },
         '@/lib/i18n/server': i18nServer,
@@ -73,6 +79,7 @@ vm.runInNewContext(
         'react/jsx-runtime': jsx,
         'next/link': { default: Link },
         '@/components/brand/vexim-icons': brandIcons,
+        '@/components/brand/account-role-icons': accountIcons,
   'lucide-react': icons,
         '@/components/ui': { cx: (...parts) => parts.filter(Boolean).join(' ') },
       };
@@ -98,6 +105,10 @@ assert.ok(!existsSync(new URL('app/(public)/register', root)), 'Chỉ có một 
 assert.doesNotMatch(html + chooserHtml, /Buyer accounts are still being built|No account needed/i);
 for (const [locale, copy] of Object.entries(authMessages)) {
   const rendered = renderToStaticMarkup(React.createElement(chooser.exports.AccountTypeChooser, { messages: copy.register, lang: locale }));
+  assert.match(rendered, /data-vexim-account-icon="buyer-account"/);
+  assert.match(rendered, /data-vexim-account-icon="supplier-account"/);
+  assert.equal((rendered.match(/viewBox="0 0 64 64"/g) ?? []).length, 2);
+  assert.equal((rendered.match(/class="h-8 w-8"/g) ?? []).length, 2);
   assert.match(rendered, /href="\/buyer\/sign-in"/);
   assert.match(copy.register.buyerSummary, locale === 'vi' ? /miễn phí.*email.*không cần mật khẩu/i : /free.*email.*no password/i);
   assert.doesNotMatch(copy.register.buyerNoteLead + copy.register.buyerNote, /đang được xây dựng|still being built/i);

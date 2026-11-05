@@ -69,6 +69,9 @@ assert.equal(profileWrites.at(-1)[1].company_name, 'My company');
 const icon = () => null;
 let lang = 'en';
 let redirectAttempt = false;
+let emptyDashboard = false;
+const roleIcons = load('components/brand/account-role-icons.tsx', { 'react/jsx-runtime': jsx });
+const dashboardIcons = load('components/brand/buyer-dashboard-icons.tsx', { 'react/jsx-runtime': jsx });
 const sourcingStatus = load('lib/sourcing/status.ts', {});
 const SourcingHistory = load('components/buyer-sourcing-history.tsx', {
   'react/jsx-runtime': jsx,
@@ -76,6 +79,8 @@ const SourcingHistory = load('components/buyer-sourcing-history.tsx', {
   '@/lib/sourcing/status': sourcingStatus,
 });
 const dashboard = load('app/(public)/buyer/account/page.tsx', {
+  '@/components/brand/account-role-icons': roleIcons,
+  '@/components/brand/buyer-dashboard-icons': dashboardIcons,
   '@/components/buyer-sourcing-history': SourcingHistory,
   '@/lib/sourcing/store': { sourcingStore: () => ({ listSourcingRequests: async (email) => {
     assert.equal(email, session.email);
@@ -86,8 +91,8 @@ const dashboard = load('app/(public)/buyer/account/page.tsx', {
   'lucide-react': new Proxy({}, { get: () => icon }),
   '@/lib/auth/buyer-session': { requireBuyerSession: async (next) => { assert.ok(next.startsWith('/buyer/account')); if (redirectAttempt) throw new Error('redirect'); return session; } },
   '@/lib/db': { getStore: () => ({
-    getBuyerUserByEmail: async () => ({ email: session.email, company_name: 'My company', verified_at: 'today', saved: { products: [{ id: 'hidden', href: 'javascript:evil()', name: 'PRIVATE SNAPSHOT' }], comparisons: [] } }),
-    listBuyerRfqsByEmail: async (email) => { assert.equal(email, session.email); return [{ id: 'mine', code: 'RFQ-1', product_text: 'My product request', status: 'new', created_at: '2026-11-04T00:00:00Z', access_token: 'my-token', internal_notes: 'NEVER RENDER THIS' }, { id: 'my-question', code: 'RFQ-2', product_text: 'My product question', status: 'matching', created_at: '2026-11-04T00:00:00Z', access_token: 'question-token', specs: { inquiry_kind: 'supplier_question' } }]; },
+    getBuyerUserByEmail: async () => ({ email: session.email, company_name: 'My company', verified_at: 'today', saved: { products: emptyDashboard ? [] : [{ id: 'hidden', href: 'javascript:evil()', name: 'PRIVATE SNAPSHOT' }], comparisons: [] } }),
+    listBuyerRfqsByEmail: async (email) => { assert.equal(email, session.email); return emptyDashboard ? [] : [{ id: 'mine', code: 'RFQ-1', product_text: 'My product request', status: 'new', created_at: '2026-11-04T00:00:00Z', access_token: 'my-token', internal_notes: 'NEVER RENDER THIS' }, { id: 'my-question', code: 'RFQ-2', product_text: 'My product question', status: 'matching', created_at: '2026-11-04T00:00:00Z', access_token: 'question-token', specs: { inquiry_kind: 'supplier_question' } }]; },
     listCategories: async () => [],
   }) },
   '@/lib/i18n/server': { getLocale: async () => lang },
@@ -111,6 +116,8 @@ for (const locale of ['en', 'vi']) {
     const tree = await dashboard.default({ searchParams: Promise.resolve({ tab }) });
     const html = renderToStaticMarkup(await resolve(tree));
     assert.ok(html.includes(`lang="${locale}"`));
+    assert.match(html, /data-vexim-account-icon="buyer-account"/);
+    assert.doesNotMatch(html, /data-vexim-buyer-icon="enquiries"|data-vexim-buyer-icon="saved-products"/, 'Populated sections do not render empty-state artwork');
     assert.doesNotMatch(html, /NEVER RENDER THIS|SOURCING SECRET|PRIVATE ASSIGNEE|javascript:|PRIVATE SNAPSHOT|href="\/products"/);
     if (tab === 'requests' || tab === 'overview') {
       assert.match(html, /\/buyer\/account\/sourcing\/my-sourcing/);
@@ -123,6 +130,20 @@ for (const locale of ['en', 'vi']) {
     if (tab === 'profile') assert.match(html, /me@example.com/);
   }
 }
+for (lang of ['en', 'vi']) {
+  emptyDashboard = true;
+  const html = renderToStaticMarkup(await resolve(await dashboard.default({ searchParams: Promise.resolve({ tab: 'overview' }) })));
+  assert.match(html, /data-vexim-buyer-icon="enquiries"/);
+  assert.match(html, /data-vexim-buyer-icon="saved-products"/);
+  assert.match(html, /data-vexim-account-icon="buyer-account"/);
+  assert.match(html, /href="\/#categories"/);
+  assert.match(html, /href="\/rfq"/);
+  const nav = html.match(/<nav[^>]*aria-label="(?:Account navigation|Điều hướng tài khoản)"[\s\S]*?<\/nav>/)[0];
+  assert.doesNotMatch(nav, /data-vexim-account-icon|data-vexim-buyer-icon/, 'Menu keeps the original simple icons');
+}
+emptyDashboard = false;
+const dashboardSource = read('app/(public)/buyer/account/page.tsx');
+assert.match(dashboardSource, /const nav = \[\{ id: "overview", icon: LayoutDashboard \}, \{ id: "requests", icon: ClipboardList \}, \{ id: "saved", icon: Heart \}, \{ id: "profile", icon: UserRound \}\]/);
 redirectAttempt = true;
 await assert.rejects(dashboard.default({ searchParams: Promise.resolve({ tab: 'saved' }) }), /redirect/);
 

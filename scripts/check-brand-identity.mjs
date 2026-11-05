@@ -60,7 +60,7 @@ for (const levels of [[], [1], [1, 2, 3]]) {
   assert.match(html, /Check 2/);
   assert.equal((html.match(/: Approved\./g) ?? []).length, levels.length);
 }
-for (const file of ['app/(auth)/register/account-type-chooser.tsx', 'components/public/supplier-storefront.tsx', 'app/supplier/portal/verification/level-tabs.tsx', 'app/crm/verifications/submissions/page.tsx']) assert.match(read(file), /@\/components\/brand\/vexim-icons/);
+for (const file of ['components/public/supplier-storefront.tsx', 'app/supplier/portal/verification/level-tabs.tsx', 'app/crm/verifications/submissions/page.tsx']) assert.match(read(file), /@\/components\/brand\/vexim-icons/);
 // Actual shared labels: all boolean combinations preserve capability semantics and compact layout.
 const tradeModule = { exports: {} };
 vm.runInNewContext(ts.transpileModule(read('components/product-trade-labels.tsx'), {
@@ -86,3 +86,5 @@ assert.equal(render(tradeModule.exports.ProductTradeLabels, { oem: null, odm: nu
 console.log('✅ Approved brand direction 02: fifteen real vectors/exports and consistent OEM/ODM/sample labels, neutral versus approved documents, type mapping, accessibility, original logo and small verification shields preserved.');
 
 assert.match(read("app/(auth)/sign-in/page.tsx"), /@\/components\/brand\/account-role-icons/);
+
+assert.match(read("app/(auth)/register/account-type-chooser.tsx"), /@\/components\/brand\/account-role-icons/);
