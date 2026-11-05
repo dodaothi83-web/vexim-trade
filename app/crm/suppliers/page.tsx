@@ -50,14 +50,23 @@ export default async function SuppliersPage() {
         title="Nhà cung cấp"
         sub={`${suppliers.length} xưởng / nhà cung cấp · gắn vào đơn để nhận email cập nhật tiến độ bằng tiếng Việt`}
       />
-      {canManage && <section id="industries" className="mb-6 scroll-mt-24">
-        <h2 className="text-sm font-black uppercase tracking-wide text-ink-700">Ngành nhà cung cấp đề nghị mở</h2>
-        <p className="mt-1 mb-3 text-xs text-ink-500">
-          Cam kết với nhà cung cấp: xem xét trong 3 ngày làm việc và trả lời qua email. Hồ sơ doanh nghiệp của họ vẫn được duyệt;
-          sản phẩm chỉ đăng được khi danh mục đã mở.
-        </p>
-        <IndustryRequests groups={industryGroups} supplierNames={supplierNames} options={categoryOptions} />
-      </section>}
+      {canManage && industryGroups.length > 0 && <details id="industries" className="group mb-4 scroll-mt-24 rounded-xl border border-ink-200 bg-white" open={industryGroups.length <= 2}>
+        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-4 py-3">
+          <span className="text-[13.5px] font-bold text-ink-900">Ngành nhà cung cấp đề nghị mở</span>
+          <span className="rounded-full bg-amber-100 px-2 text-[11.5px] font-bold text-amber-800">
+            {industryGroups.length}
+          </span>
+          <span className="text-[12px] text-ink-500">Trả lời trong 3 ngày làm việc qua email.</span>
+          <span className="ml-auto text-[12px] font-semibold text-brand-700 group-open:hidden">Xem</span>
+          <span className="ml-auto hidden text-[12px] font-semibold text-brand-700 group-open:inline">Thu gọn</span>
+        </summary>
+        <div className="border-t border-ink-100 p-4">
+          <p className="mb-3 text-xs text-ink-500">
+            Hồ sơ doanh nghiệp vẫn được duyệt; sản phẩm chỉ đăng được khi danh mục đã mở.
+          </p>
+          <IndustryRequests groups={industryGroups} supplierNames={supplierNames} options={categoryOptions} />
+        </div>
+      </details>}
       <SupplierTable suppliers={suppliers} usage={usage} reviewedAt={reviewedAt} canManage={canManage} />
     </>
   );
