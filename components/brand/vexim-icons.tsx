@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import type { LucideProps } from "lucide-react";
 
 /** Approved direction 02. See docs/brand-identity.md before modifying these shapes. */
-export type VeximIconName = "factory" | "trade" | "cooperative" | "document" | "inspection" | "delivery" | "minimum-order" | "export-port" | "lead-time" | "capacity" | "payment" | "markets";
+export type VeximIconName = "factory" | "trade" | "cooperative" | "document" | "inspection" | "delivery" | "minimum-order" | "export-port" | "lead-time" | "capacity" | "payment" | "markets" | "oem" | "odm" | "samples";
 export type VeximIconProps = LucideProps & { name: VeximIconName; approved?: boolean };
 
 function Artwork({ name, approved }: { name: VeximIconName; approved: boolean }) {
@@ -26,6 +26,14 @@ function Artwork({ name, approved }: { name: VeximIconName; approved: boolean })
     case "delivery": return <><path d="m13 15 11-6 13 7v18c0 2-1 3-3 4l-10 5-11-6c-2-1-3-2-3-4V20c0-2 1-4 3-5Z" fill="currentColor" fillOpacity="0.09" stroke="none"/>
 <path d="m11 17 11-6a4 4 0 0 1 4 0l10 5a4 4 0 0 1 2 3.5V28M11 17l13 7 14-7M24 24v15M11 17v15a4 4 0 0 0 2 3.5l8 4a6 6 0 0 0 5.5 0L30 38M18 14l13 7v5"/>
 <path d="M10 7H7a3 3 0 0 0-3 3v10M4 10l3 3m-3-3-3 3M34 40h5a5 5 0 0 0 5-5v-3m-3 3 3-3 3 3" stroke="currentColor"/></>;
+    case "oem": return <><rect x="9" y="9" width="30" height="32" rx="7" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<rect x="9" y="8" width="29" height="32" rx="6"/><path d="M15 15h11m-11 6h6m-6 12h5M27 24l7-3 7 3v10l-7 3-7-3Zm0 0 7 3 7-3m-7 3v10"/></>;
+    case "odm": return <><rect x="9" y="9" width="30" height="32" rx="7" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<path d="M24 8h-9a6 6 0 0 0-6 6v20a6 6 0 0 0 6 6h18a6 6 0 0 0 6-6v-9M16 16h7m-7 18h9"/>
+<path d="m24 25 2-7L36 8a3.5 3.5 0 0 1 5 5L31 23Zm9-14 5 5"/></>;
+    case "samples": return <><rect x="10" y="20" width="29" height="21" rx="6" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<path d="M11 24v10a5 5 0 0 0 3 4.6l8 3.4a5 5 0 0 0 4 0l8-3.4a5 5 0 0 0 3-4.6V24M24 28v14M8 21l8-4 8 5-7 5Zm32 0-8-4-8 5 7 5Z"/>
+<rect x="19" y="7" width="10" height="10" rx="3"/></>;
     case "minimum-order": return <><rect x="9" y="13" width="30" height="27" rx="7" fill="currentColor" fillOpacity="0.09" stroke="none"/>
 <path d="M9 19a5 5 0 0 1 3-4.6l10-4.5a5 5 0 0 1 4 0l10 4.5a5 5 0 0 1 3 4.6v14a5 5 0 0 1-3 4.6l-10 4.5a5 5 0 0 1-4 0l-10-4.5A5 5 0 0 1 9 33Z"/>
 <path d="m10 17 14 6 14-6M24 23v18M18 12l14 6v8M15 29l4 2"/></>;
@@ -84,3 +92,8 @@ export const VeximLeadTimeIcon = namedIcon("lead-time");
 export const VeximCapacityIcon = namedIcon("capacity");
 export const VeximPaymentIcon = namedIcon("payment");
 export const VeximMarketsIcon = namedIcon("markets");
+
+// Supplier-declared capabilities: these never imply verification or free samples.
+export const VeximOemIcon = namedIcon("oem");
+export const VeximOdmIcon = namedIcon("odm");
+export const VeximSamplesIcon = namedIcon("samples");

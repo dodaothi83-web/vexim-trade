@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Factory, Paintbrush, TestTube2 } from "lucide-react";
+import { VeximOemIcon, VeximOdmIcon, VeximSamplesIcon } from "@/components/brand/vexim-icons";
 
 /** Self-declared commercial capabilities, never styled as Vexim verification badges. */
 export function ProductTradeLabels({ oem, odm, samples, compact = false }: {
@@ -10,13 +10,13 @@ export function ProductTradeLabels({ oem, odm, samples, compact = false }: {
     items.push({
       label: "OEM/ODM",
       title: "Supplier-stated: OEM and ODM services; confirm manufacturing, design scope and terms with Vexim.",
-      icon: <Factory className="size-3.5" aria-hidden="true" />,
+      icon: <VeximOemIcon strokeWidth={2.6} className="size-4 shrink-0" aria-hidden="true" />,
     });
   } else {
-    if (oem) items.push({ label: "OEM", title: "Supplier-stated: manufacturing to buyer specifications; confirm terms with Vexim.", icon: <Factory className="size-3.5" aria-hidden="true" /> });
-    if (odm) items.push({ label: "ODM", title: "Supplier-stated: design and manufacturing service; confirm scope with Vexim.", icon: <Paintbrush className="size-3.5" aria-hidden="true" /> });
+    if (oem) items.push({ label: "OEM", title: "Supplier-stated: manufacturing to buyer specifications; confirm terms with Vexim.", icon: <VeximOemIcon strokeWidth={2.6} className="size-4 shrink-0" aria-hidden="true" /> });
+    if (odm) items.push({ label: "ODM", title: "Supplier-stated: design and manufacturing service; confirm scope with Vexim.", icon: <VeximOdmIcon strokeWidth={2.6} className="size-4 shrink-0" aria-hidden="true" /> });
   }
-  if (samples) items.push({ label: compact ? "Samples" : "Samples available", title: "Supplier-stated: samples may be available; cost and shipping are confirmed in the RFQ.", icon: <TestTube2 className="size-3.5" aria-hidden="true" /> });
+  if (samples) items.push({ label: compact ? "Samples" : "Samples available", title: "Supplier-stated: samples may be available; cost and shipping are confirmed in the RFQ.", icon: <VeximSamplesIcon strokeWidth={2.6} className="size-4 shrink-0" aria-hidden="true" /> });
   if (!items.length) return null;
   return <div className={`flex flex-wrap ${compact ? "gap-1" : "gap-1.5"}`} aria-label="Supplier-stated product options">
     {items.map((item) => <span key={item.label} title={item.title} aria-label={`${item.label}: ${item.title}`}

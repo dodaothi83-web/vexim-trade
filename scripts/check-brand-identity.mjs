@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { brandIcons } from './lib/vexim-icons.mjs';
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const render = (Icon, props = {}) => renderToStaticMarkup(React.createElement(Icon, props));
-const symbols = ['factory', 'trade', 'cooperative', 'document', 'inspection', 'delivery', 'minimum-order', 'export-port', 'lead-time', 'capacity', 'payment', 'markets'];
+const symbols = ['factory', 'trade', 'cooperative', 'document', 'inspection', 'delivery', 'minimum-order', 'export-port', 'lead-time', 'capacity', 'payment', 'markets', 'oem', 'odm', 'samples'];
 for (const name of symbols) {
   for (const size of [20, 24, 48]) {
     const html = render(brandIcons.VeximIcon, { name, size });
@@ -61,4 +61,26 @@ for (const levels of [[], [1], [1, 2, 3]]) {
   assert.equal((html.match(/: Approved\./g) ?? []).length, levels.length);
 }
 for (const file of ['app/(auth)/sign-in/page.tsx', 'app/(auth)/register/account-type-chooser.tsx', 'components/public/supplier-storefront.tsx', 'app/supplier/portal/verification/level-tabs.tsx', 'app/crm/verifications/submissions/page.tsx']) assert.match(read(file), /@\/components\/brand\/vexim-icons/);
-console.log('✅ Approved brand direction 02: twelve real vectors/exports, neutral versus approved documents, type mapping, accessibility, original logo and small verification shields preserved.');
+// Actual shared labels: all boolean combinations preserve capability semantics and compact layout.
+const tradeModule = { exports: {} };
+vm.runInNewContext(ts.transpileModule(read('components/product-trade-labels.tsx'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+}).outputText, { module: tradeModule, exports: tradeModule.exports, require(id) {
+  if (id === 'react/jsx-runtime') return jsx;
+  if (id === '@/components/brand/vexim-icons') return brandIcons;
+  throw Error(id);
+} });
+for (const compact of [false, true]) for (let bits = 0; bits < 8; bits++) {
+  const oem = !!(bits & 1), odm = !!(bits & 2), samples = !!(bits & 4);
+  const html = render(tradeModule.exports.ProductTradeLabels, { oem, odm, samples, compact });
+  if (!bits) { assert.equal(html, ''); continue; }
+  assert.match(html, /Supplier-stated/);
+  assert.doesNotMatch(html, /data-vexim-icon="(?:inspection|document|delivery)"|Approved|ShieldCheck|TestTube|Paintbrush/);
+  const icons = [...html.matchAll(/data-vexim-icon="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(icons, compact ? [] : [oem && 'oem', odm && 'odm', samples && 'samples'].filter(Boolean));
+  if (!compact) assert.match(html, /stroke-width="2.6"/);
+  if (compact && oem && odm) assert.match(html, /OEM\/ODM/);
+  if (samples) assert.match(html, compact ? />Samples</ : />Samples available</);
+}
+assert.equal(render(tradeModule.exports.ProductTradeLabels, { oem: null, odm: null, samples: null }), '');
+console.log('✅ Approved brand direction 02: fifteen real vectors/exports and consistent OEM/ODM/sample labels, neutral versus approved documents, type mapping, accessibility, original logo and small verification shields preserved.');
