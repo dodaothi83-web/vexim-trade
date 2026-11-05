@@ -93,13 +93,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     try { return (await sourcingStore().countNewSourcingRequests()) + sourcingRfqs; }
     catch (error) { console.error("[crm] sourcing count unavailable", error); return null; }
   })() : hasPermission(session.role, "rfq.view") ? null : 0;
-  const pendingRfqs = pendingRouting?.filter((r) => rfqChannel(r) !== "sourcing").length ?? 0;
+  // Chỉ đếm RFQ đang chờ nhân viên tiếp nhận. Câu hỏi đã gửi và RFQ đã chuyển tới nhà cung cấp
+  // nằm ở "matching" để nhà cung cấp xử lý, không phải việc của Vexim, nên không làm huy hiệu treo mãi.
+  const pendingRfqs = pendingRouting?.filter((r) => rfqChannel(r) !== "sourcing" && UNCLAIMED_RFQ_STATUSES.includes(r.status)).length ?? 0;
 
   // Chuông thông báo của CRM: cùng nguồn số với huy hiệu sidebar, nên hai nơi
   // không bao giờ lệch nhau. Chỉ đưa vào chuông hàng đang có việc.
   const queues = [
     { href: "/crm/sourcing", label: "Yêu cầu tìm nguồn chờ tiếp nhận", count: pendingSourcing ?? 0 },
-    { href: "/crm/rfqs", label: "Yêu cầu người mua đang chờ xử lý", count: pendingRfqs },
+    { href: "/crm/rfqs", label: "RFQ chờ tiếp nhận", count: pendingRfqs },
     { href: "/crm/suppliers", label: "Nhà cung cấp chờ xác nhận quyền cổng", count: pendingSuppliers },
     { href: "/crm/products?view=pending", label: "Sản phẩm nhà cung cấp chờ kiểm nội dung", count: pendingProducts },
     { href: "/crm/verifications", label: "Đợt kiểm chờ duyệt", count: pendingReviews },
