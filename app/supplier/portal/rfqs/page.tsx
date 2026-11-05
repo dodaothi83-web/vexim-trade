@@ -11,6 +11,9 @@ import { migrationHint } from "@/lib/db/migration-hints";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
 import { EmptyRow, Panel, date } from "../portal-ui";
+import { SupplierRfqReply } from "@/components/supplier-rfq-reply";
+import { QUOTE_CURRENCIES, QUOTE_INCOTERMS } from "@/lib/supplier-portal/quote";
+import { SupplierQuoteForm } from "./quote-form";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -22,7 +25,7 @@ export async function generateMetadata() {
  * Một trang cho toàn bộ công việc RFQ: việc cần trả lời, danh sách đã chuyển và báo cáo.
  * Trang tổng quan chỉ hiện số đếm rồi dẫn sang đây.
  */
-export default async function SupplierRfqPage({ searchParams }: { searchParams: Promise<{ range?: string; all?: string }> }) {
+export default async function SupplierRfqPage({ searchParams }: { searchParams: Promise<{ range?: string; all?: string; quote?: string; code?: string }> }) {
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
@@ -64,6 +67,11 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
 
+    {(sp.quote === "sent" || sp.quote === "declined") && /^[A-Za-z0-9-]{1,40}$/.test(sp.code ?? "") &&
+      <div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
+        {fill(sp.quote === "sent" ? copy.quote.sent : copy.quote.declined, { code: sp.code! })}
+      </div>}
+
     <div className="space-y-5">
       <Panel icon={<Mail className="h-4 w-4 text-brand-700" />} title={copy.tasks.title} count={board.tasks.length}
         sub={copy.tasks.sub} flush>
@@ -81,9 +89,15 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
                   {overdue ? copy.tasks.overdue : copy.tasks.due}{task.dueAt ? date(task.dueAt, intl) : copy.tasks.dueFallback}
                 </span>
               </span>
-              <a href={`mailto:${supplierReplyAddress(task.code, task.matchId)}?subject=${encodeURIComponent(fill(copy.tasks.subject, { code: task.code }))}`} className="btn btn-ghost btn-sm">{copy.tasks.reply}</a>
+              <SupplierRfqReply address={supplierReplyAddress(task.code, task.matchId)} subject={fill(copy.tasks.subject, { code: task.code })}
+                labels={{ gmail: copy.tasks.replyGmail, app: copy.tasks.replyApp, copy: copy.tasks.copyAddress, copied: copy.tasks.copied }} />
+              {task.canQuote && <SupplierQuoteForm matchId={task.matchId} code={task.code} defaults={task.quoteDefaults}
+                currencies={QUOTE_CURRENCIES} incoterms={QUOTE_INCOTERMS} editing={false} copy={copy.quote} />}
             </li>;
           })}</ul> : <EmptyRow>{copy.tasks.empty}</EmptyRow>}
+        {board.tasks.length > 0 && <p className={`border-t border-ink-100 px-5 py-2.5 text-[11.5px] leading-4 ${supplier.email ? "text-ink-500" : "font-semibold text-rose-700"}`}>
+          {supplier.email ? fill(copy.tasks.replyHint, { email: supplier.email }) : copy.tasks.replyHintNoEmail}
+        </p>}
       </Panel>
 
       <Panel icon={<PackageSearch className="h-4 w-4 text-brand-700" />} title={copy.invites.title} count={board.invites.length}
@@ -98,6 +112,8 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
               {item.repliedAt && <span className="mt-0.5 block text-xs font-semibold text-emerald-700">{fill(copy.invites.replied, { at: date(item.repliedAt, intl) })}</span>}
             </span>
             <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-800">{item.status}</span>
+            {item.canQuote && item.quotePrice && <SupplierQuoteForm matchId={item.matchId} code={item.code} defaults={item.quoteDefaults}
+              currencies={QUOTE_CURRENCIES} incoterms={QUOTE_INCOTERMS} editing copy={copy.quote} />}
           </li>)}</ul> : <EmptyRow>{copy.invites.empty}</EmptyRow>}
       </Panel>
 

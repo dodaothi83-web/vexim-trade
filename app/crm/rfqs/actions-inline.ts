@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
-import { notifyBuyerRfqStatus } from "@/lib/rfq/buyer-notify";
+import { canOwnRfq } from "@/lib/rfq/assignees";
 
 /** Server action inline cho dropdown phân công ở trang danh sách — không redirect. */
 export async function assignRfqInlineAction(fd: FormData) {
@@ -14,6 +14,11 @@ export async function assignRfqInlineAction(fd: FormData) {
   const id = String(fd.get("id"));
   const to = String(fd.get("to") || "").trim();
   const store = getStore();
+  // Chỉ giao cho tài khoản nội bộ đang hoạt động có quyền xử lý RFQ (không giao cho nhà cung cấp).
+  if (to) {
+    const target = await store.getUser(to).catch(() => null);
+    if (!target || !canOwnRfq(target)) return;
+  }
   const before = await store.getRfq(id);
   const after = await store.updateRfq(id, {
     assigned_to: to || null,
@@ -33,66 +38,4 @@ export async function assignRfqInlineAction(fd: FormData) {
   } catch { /* audit lỗi không chặn phân công */ }
   revalidatePath("/crm/rfqs");
   revalidatePath(`/crm/rfqs/${id}`);
-}
-
-/**
- * Trạng thái được phép ghi từ dropdown. Danh sách này phải khớp ràng buộc
- * `rfqs_status_check` trong DB; trước đây action nhận mọi chuỗi nên môi trường
- * local (không có ràng buộc) ghi được trạng thái rác.
- */
-const ALLOWED_STATUS = [
-  "new",
-  "needs_review",
-  "in_progress",
-  "matching",
-  "quoted",
-  "sampling",
-  "won",
-  "lost",
-  "spam",
-] as const;
-
-/** Server action inline cho chuyển trạng thái (nút trong trang chi tiết). */
-export async function setRfqStatusAction(fd: FormData) {
-  const g = await guard("rfq.manage");
-  if (g) return { ok: false, message: "Không có quyền." };
-  const session = await getSession();
-  const id = String(fd.get("id"));
-  const status = String(fd.get("status") || "");
-  if (!(ALLOWED_STATUS as readonly string[]).includes(status)) {
-    return { ok: false, message: "Trạng thái không hợp lệ." };
-  }
-  const lostReason = String(fd.get("lost_reason") || "").trim();
-  const store = getStore();
-  const before = await store.getRfq(id);
-  if (!before) return { ok: false, message: "RFQ không tồn tại." };
-  const patch: Record<string, unknown> = { status };
-  if (status === "lost") {
-    if (!lostReason) return { ok: false, message: "Bắt buộc chọn lý do khi đóng lost." };
-    patch.lost_reason = lostReason;
-  }
-  if (status === "quoted") patch.first_response_at = before.first_response_at ?? new Date().toISOString();
-  try {
-    const after = await store.updateRfq(id, patch);
-    await store.addAuditLog({
-      actor_id: session?.uid ?? null,
-      actor_email: session?.email ?? null,
-      entity: "rfq",
-      entity_id: id,
-      action: `status.${status}`,
-      before: { status: before.status, lost_reason: before.lost_reason },
-      after: { status: after.status, lost_reason: after.lost_reason },
-    });
-    revalidatePath("/crm/rfqs");
-    revalidatePath(`/crm/rfqs/${id}`);
-    if (status === "sampling" || status === "lost") {
-      const notified = await notifyBuyerRfqStatus(after, status);
-      if (!notified.sent && !["already_sent", "pending"].includes(notified.reason ?? "")) {
-        return { ok: false, message: "Đã lưu trạng thái nhưng chưa gửi được thông báo người mua. Hãy thử lại." };
-      }
-    }
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Lỗi" };
-  }
 }

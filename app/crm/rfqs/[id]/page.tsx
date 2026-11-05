@@ -1,12 +1,15 @@
-import { RfqMatchStatusSelect } from "@/components/rfq-match-status-select";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   Building2,
   CalendarClock,
+  Check,
+  ChevronDown,
   Clock4,
   Copy,
+  FlaskConical,
   Globe,
   Inbox,
   Mail,
@@ -16,15 +19,18 @@ import {
   Phone,
   Send,
   ShieldAlert,
-  ShieldCheck,
   Tag,
   Timer,
+  Trophy,
 } from "lucide-react";
 
 import { Breadcrumbs, Badge, Button } from "@/components/ui";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
-import { assignRfqFormAction, updateRfqStatusFormAction } from "../actions";
+import { updateRfqStatusFormAction } from "../actions";
+import { RfqAssignmentSelect } from "../assignment-select";
+import { assigneeLabel, rfqAssigneeOptions } from "@/lib/rfq/assignees";
 import {
   addMatchAction,
   removeMatchAction,
@@ -45,34 +51,60 @@ import {
 import { hasPermission } from "@/lib/auth/permissions";
 import { uploadRfqAttachmentAction } from "./upload-action";
 import { addRfqNoteAction } from "./note-action";
-import type { RfqStatus } from "@/lib/types";
+import type { RfqMatch, RfqStatus, Supplier } from "@/lib/types";
 import { SITE_URL } from "@/lib/site";
 import { approvedL2Scope, approvedVerificationSteps, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 import { spamFlagDetail } from "@/lib/rfq/spam-flags";
+import {
+  CLOSED_RFQ_STATUSES,
+  MANUAL_MATCH_STATUSES,
+  MANUAL_RFQ_STATUSES,
+  SELECTABLE_MATCH_STATUSES,
+  isSupplierQuestionRfq,
+} from "@/lib/rfq/workflow";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_FLOW: { value: RfqStatus; label: string; dot: string }[] = [
-  { value: "new", label: "Mới tiếp nhận", dot: "bg-slate-400" },
-  { value: "needs_review", label: "Cần duyệt", dot: "bg-rose-500" },
-  { value: "in_progress", label: "Đang xử lý", dot: "bg-sky-500" },
-  { value: "matching", label: "Đang ghép nhà cung cấp", dot: "bg-amber-500" },
-  { value: "quoted", label: "Đã gửi báo giá", dot: "bg-amber-600" },
-  { value: "sampling", label: "Đang gửi mẫu", dot: "bg-violet-500" },
-  { value: "won", label: "Thành công", dot: "bg-emerald-500" },
-  { value: "lost", label: "Thất bại (bắt buộc lý do)", dot: "bg-ink-400" },
-  { value: "spam", label: "Cách ly spam", dot: "bg-red-500" },
+const STATUS_LABEL: Record<RfqStatus, { label: string; dot: string }> = {
+  new: { label: "Mới tiếp nhận", dot: "bg-slate-400" },
+  needs_review: { label: "Cần duyệt", dot: "bg-rose-500" },
+  in_progress: { label: "Đang xử lý", dot: "bg-sky-500" },
+  matching: { label: "Đang ghép nhà cung cấp", dot: "bg-amber-500" },
+  quoted: { label: "Đã trình người mua", dot: "bg-amber-600" },
+  sampling: { label: "Đang gửi mẫu", dot: "bg-violet-500" },
+  won: { label: "Thành công", dot: "bg-emerald-500" },
+  lost: { label: "Thất bại", dot: "bg-ink-400" },
+  spam: { label: "Cách ly spam", dot: "bg-red-500" },
+};
+
+/** Các bước hiển thị trên thanh tiến trình; gửi mẫu là bước tuỳ chọn. */
+const STEPS: { label: string; statuses: RfqStatus[] }[] = [
+  { label: "Tiếp nhận", statuses: ["new", "needs_review", "in_progress"] },
+  { label: "Ghép nhà cung cấp", statuses: ["matching"] },
+  { label: "Trình người mua", statuses: ["quoted"] },
+  { label: "Gửi mẫu (tuỳ chọn)", statuses: ["sampling"] },
+  { label: "Kết quả", statuses: ["won", "lost"] },
 ];
 
-const MATCH_STATUS: { value: string; label: string; dot: string }[] = [
-  { value: "proposed", label: "Đề xuất", dot: "bg-slate-400" },
-  { value: "sent_to_supplier", label: "Đã gửi nhà cung cấp", dot: "bg-sky-500" },
-  { value: "quoted", label: "Đã có báo giá", dot: "bg-emerald-500" },
-  { value: "declined", label: "Nhà cung cấp từ chối", dot: "bg-red-500" },
-  { value: "no_response", label: "Không phản hồi", dot: "bg-ink-400" },
-  { value: "presented_to_buyer", label: "Đã trình người mua", dot: "bg-violet-500" },
-  { value: "selected", label: "Người mua chọn", dot: "bg-emerald-600" },
-  { value: "not_selected", label: "Không được chọn", dot: "bg-ink-300" },
+const MATCH_STATUS: Record<string, { label: string; dot: string }> = {
+  proposed: { label: "Đề xuất", dot: "bg-slate-400" },
+  sent_to_supplier: { label: "Đã gửi nhà cung cấp", dot: "bg-sky-500" },
+  quoted: { label: "Đã có báo giá", dot: "bg-emerald-500" },
+  declined: { label: "Nhà cung cấp từ chối", dot: "bg-red-500" },
+  no_response: { label: "Không phản hồi", dot: "bg-ink-400" },
+  presented_to_buyer: { label: "Đã trình người mua", dot: "bg-violet-500" },
+  selected: { label: "Được chọn", dot: "bg-emerald-600" },
+  not_selected: { label: "Không được chọn", dot: "bg-ink-300" },
+};
+
+const LOST_REASONS: [string, string][] = [
+  ["price", "Giá chưa cạnh tranh"],
+  ["lead_time", "Không đáp ứng lead time"],
+  ["quality", "Chất lượng / chứng chỉ chưa đủ"],
+  ["no_response", "Nhà cung cấp không phản hồi"],
+  ["buyer_went_elsewhere", "Người mua chọn nhà cung cấp khác"],
+  ["cancelled", "Người mua huỷ yêu cầu"],
+  ["other", "Khác"],
 ];
 
 /** Tháng giao hàng dạng MM/YYYY; RFQ cũ vẫn dùng needed_by. */
@@ -89,6 +121,19 @@ function fmtDate(iso?: string | null) {
   if (!iso) return "—";
   const d = new Date(iso);
   return d.toLocaleString("vi-VN", { hour12: false });
+}
+
+function supplierName(sup: Supplier | undefined, fallback: string) {
+  return sup?.display_name ?? sup?.trade_name ?? sup?.name ?? fallback;
+}
+
+function quoteSummary(m: RfqMatch) {
+  if (m.quote_price == null) return null;
+  return [
+    `${m.quote_price} ${m.quote_currency ?? ""}${m.quote_unit ? ` / ${m.quote_unit}` : ""}`.trim(),
+    m.quote_incoterm,
+    m.quote_lead_time_days != null ? `${m.quote_lead_time_days} ngày` : null,
+  ].filter(Boolean).join(" · ");
 }
 
 export default async function RfqDetailPage({
@@ -166,11 +211,64 @@ export default async function RfqDetailPage({
     }
   }
 
-
-
+  const specs = (rfq.specs as Record<string, unknown> | null) ?? {};
   const statusLink = `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
-  const isSupplierQuestion = rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
-  const currentStatus = STATUS_FLOW.find((s) => s.value === rfq.status) ?? STATUS_FLOW[0];
+  const isSupplierQuestion = isSupplierQuestionRfq(rfq);
+  const isClosed = CLOSED_RFQ_STATUSES.includes(rfq.status);
+  const canAct = canManageRfq && !isSupplierQuestion && !isClosed;
+  const statusInfo = isSupplierQuestion && rfq.status === "matching"
+    ? { label: "Đã gửi câu hỏi", dot: STATUS_LABEL.matching.dot }
+    : STATUS_LABEL[rfq.status] ?? STATUS_LABEL.new;
+  const assignee = users.find((u) => u.id === rfq.assigned_to);
+
+  // Nhóm NCC theo việc cần làm để tính bước tiếp theo.
+  const sendable = matches.filter((m) => m.status === "proposed" && !m.sent_to_supplier_at);
+  const awaiting = matches.filter((m) => m.status === "sent_to_supplier");
+  const readyToPresent = matches.filter((m) => m.status === "quoted" && m.quote_price != null);
+  const presented = matches.filter((m) => m.status === "presented_to_buyer");
+  const selectedMatch = matches.find((m) => m.status === "selected");
+  const stepIndex = STEPS.findIndex((s) => s.statuses.includes(rfq.status));
+
+  type NextStep = { text: React.ReactNode; tone?: "default" | "done" | "alert"; action?: React.ReactNode };
+  const next: NextStep = (() => {
+    if (rfq.status === "spam") return { tone: "alert", text: "RFQ đang cách ly spam. Đối chiếu các dấu hiệu bên phải; nếu yêu cầu hợp lệ, chuyển về \"Đang xử lý\" ở mục Thao tác khác." };
+    if (rfq.status === "won") return { tone: "done", text: <>Đã chốt thành công{selectedMatch ? <> với <strong>{supplierName(supplierMap.get(selectedMatch.supplier_id), "nhà cung cấp")}</strong></> : null}.</> };
+    if (rfq.status === "lost") return { tone: "done", text: <>Đã đóng thất bại · lý do: <strong>{LOST_REASONS.find(([v]) => v === rfq.lost_reason)?.[1] ?? rfq.lost_reason ?? "—"}</strong>{rfq.closed_reason ? ` · ${rfq.closed_reason}` : ""}.</> };
+    if (isSupplierQuestion) return { text: "Câu hỏi đã gửi qua email để nhà cung cấp trả lời thẳng người mua. Vexim chỉ theo dõi, không dùng quy trình báo giá." };
+    if (!canManageRfq) return { text: "Bạn đang ở chế độ chỉ xem." };
+    if (rfq.status === "sampling" && selectedMatch) {
+      const name = supplierName(supplierMap.get(selectedMatch.supplier_id), "nhà cung cấp");
+      return {
+        text: <>Đang gửi mẫu với <strong>{name}</strong>. Khi người mua đồng ý mẫu, chốt thành công.</>,
+        action: (
+          <form action={selectSupplierAction}>
+            <input type="hidden" name="rfq_id" value={rfq.id} />
+            <input type="hidden" name="match_id" value={selectedMatch.id} />
+            <ConfirmSubmitButton className="btn btn-primary btn-sm" message={`Chốt thành công với ${name}? RFQ sẽ chuyển sang Thành công.`}>
+              <Trophy className="h-3.5 w-3.5" /> Chốt thành công
+            </ConfirmSubmitButton>
+          </form>
+        ),
+      };
+    }
+    if (readyToPresent.length > 0) return {
+      text: <>Có <strong>{readyToPresent.length}</strong> báo giá chưa trình. Gửi bảng so sánh cho người mua (ghi mốc phản hồi đầu cho SLA).</>,
+      action: (
+        <form action={presentShortlistAction}>
+          <input type="hidden" name="rfq_id" value={rfq.id} />
+          <ConfirmSubmitButton className="btn btn-primary btn-sm" message={`Gửi email bảng so sánh ${readyToPresent.length} báo giá cho người mua?`}>
+            <Send className="h-3.5 w-3.5" /> Trình người mua
+          </ConfirmSubmitButton>
+        </form>
+      ),
+    };
+    if (presented.length > 0) return { text: <>Chờ người mua chọn. Khi có phản hồi, bấm <strong>Gửi mẫu</strong> hoặc <strong>Chốt</strong> ở dòng nhà cung cấp tương ứng.</> };
+    if (sendable.length > 0) return { text: <>Có <strong>{sendable.length}</strong> nhà cung cấp chưa nhận yêu cầu. Gửi yêu cầu báo giá ẩn danh ở danh sách bên dưới.</>, action: <a href="#suppliers" className="btn btn-primary btn-sm">Đến danh sách <ArrowRight className="h-3.5 w-3.5" /></a> };
+    if (awaiting.length > 0) return { text: <>Đang chờ <strong>{awaiting.length}</strong> nhà cung cấp báo giá. Nhập giá khi nhận được, hoặc bấm Nhắc phản hồi.</> };
+    return { text: "Chưa có nhà cung cấp phù hợp. Thêm nhà cung cấp vào shortlist để bắt đầu.", action: <a href="#suppliers" className="btn btn-primary btn-sm">Thêm nhà cung cấp <ArrowRight className="h-3.5 w-3.5" /></a> };
+  })();
+
+  const deliveryText = deliveryLabel(rfq);
 
   return (
     <div className="min-w-0">
@@ -179,28 +277,34 @@ export default async function RfqDetailPage({
         { label: "RFQ", href: "/crm/rfqs" },
         { label: rfq.code },
       ]} />
+
+      {/* Đầu trang: mã, trạng thái, người chủ trì */}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-          <Link href="/crm/rfqs" className="btn btn-ghost btn-sm">
-            <ArrowLeft className="h-4 w-4" /> Quay lại hộp thư
+          <Link href="/crm/rfqs" className="btn btn-ghost btn-sm" aria-label="Quay lại hộp thư RFQ">
+            <ArrowLeft className="h-4 w-4" />
           </Link>
           <h1 className="font-mono text-xl font-bold text-ink-900">{rfq.code}</h1>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className="inline-flex items-center gap-1">
-              <span className={"h-2 w-2 shrink-0 rounded-full " + currentStatus.dot} />
-              {isSupplierQuestion && rfq.status === "matching" ? "Đã gửi câu hỏi" : currentStatus.label}
+          <Badge className="inline-flex items-center gap-1">
+            <span className={"h-2 w-2 shrink-0 rounded-full " + statusInfo.dot} />
+            {statusInfo.label}
+          </Badge>
+          {isSupplierQuestion && <Badge color="#0f766e">Câu hỏi trực tiếp cho nhà cung cấp</Badge>}
+          {rfq.status === "spam" && (
+            <Badge color="#b91c1c" className="inline-flex items-center gap-1">
+              <ShieldAlert className="h-3.5 w-3.5" /> Điểm rủi ro {rfq.spam_score}
             </Badge>
-            {isSupplierQuestion && <Badge color="#0f766e">Câu hỏi trực tiếp cho nhà cung cấp</Badge>}
-            {rfq.status === "spam" && (
-              <Badge color="#b91c1c" className="inline-flex items-center gap-1">
-                <ShieldAlert className="h-3.5 w-3.5" /> Điểm rủi ro {rfq.spam_score}
-              </Badge>
-            )}
-          </div>
+          )}
         </div>
-        <a href={statusLink} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
-          <Copy className="h-3.5 w-3.5" /> Link theo dõi của người mua
-        </a>
+        <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-500">
+          <span>Chủ trì</span>
+          {canManageRfq
+            ? <RfqAssignmentSelect rfqId={rfq.id} assignedTo={rfq.assigned_to ?? null} users={rfqAssigneeOptions(users, rfq.assigned_to)} />
+            : <span className="text-ink-800">{assignee ? assigneeLabel(assignee) : "Chưa phân công"}</span>}
+          <a href={statusLink} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+            <Copy className="h-3.5 w-3.5" /> Link người mua theo dõi
+          </a>
+        </div>
       </div>
 
       {sp?.selection_email === "failed" && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Đã lưu nhà cung cấp được chọn nhưng email chưa gửi được. Hãy liên hệ ngoài hệ thống, đừng chọn lại.</div>}
@@ -208,13 +312,39 @@ export default async function RfqDetailPage({
       {sp?.outreach_sent !== undefined && <div role="status" className={`mt-4 rounded-lg border p-3 text-sm ${Number(sp.outreach_skipped) > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
         Đã gửi {Number(sp.outreach_sent) || 0} lời mời nhà cung cấp; {Number(sp.outreach_skipped) || 0} yêu cầu chưa gửi (có thể đã gửi trước, thiếu email hoặc gửi thất bại). Kiểm tra từng nhà cung cấp trước khi thử lại.
       </div>}
+
+      {/* Tiến trình + bước tiếp theo */}
+      <section className="card mt-4 p-4 sm:p-5">
+        {!isSupplierQuestion && rfq.status !== "spam" && (
+          <ol className="mb-4 grid grid-cols-5 gap-1.5" aria-label="Tiến trình RFQ">
+            {STEPS.map((step, i) => {
+              const done = i < stepIndex;
+              const current = i === stepIndex;
+              const label = i === STEPS.length - 1 && current ? STATUS_LABEL[rfq.status].label : step.label;
+              return (
+                <li key={step.label} aria-current={current ? "step" : undefined} className="min-w-0">
+                  <div className={"h-1.5 rounded-full " + (done ? "bg-brand-600" : current ? (rfq.status === "lost" ? "bg-ink-400" : "bg-brand-400") : "bg-ink-100")} />
+                  <p className={"mt-1.5 truncate text-[11.5px] " + (current ? "font-semibold text-ink-900" : done ? "text-ink-600" : "text-ink-400")}>
+                    {done && <Check className="mr-0.5 inline h-3 w-3 text-brand-600" />}{label}
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        <div className={"flex flex-wrap items-center justify-between gap-3 rounded-md px-3 py-2.5 text-[13px] " + (next.tone === "alert" ? "bg-red-50 text-red-900" : next.tone === "done" ? "bg-ink-50 text-ink-700" : "bg-brand-50 text-ink-800")}>
+          <p className="min-w-0 flex-1"><span className="mr-1 font-semibold text-brand-900">{next.tone === "done" ? "Kết quả:" : "Bước tiếp theo:"}</span>{next.text}</p>
+          {next.action}
+        </div>
+      </section>
+
       <div className="mt-5 grid items-start gap-5 xl:grid-cols-3">
-        {/* LEFT: RFQ + người mua */}
+        {/* CỘT CHÍNH */}
         <div className="min-w-0 space-y-5 xl:col-span-2">
           <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Yêu cầu</h2>
-            <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 text-[13.5px]">
-              <Field icon={<Package className="h-4 w-4" />} label="Sản phẩm">
+            <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-2">
+              <Field icon={<Package className="h-4 w-4" />} label="Sản phẩm" wide>
                 {rfq.product_text}
                 {category && (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-brand-50 px-1.5 py-0.5 text-[11px] text-brand-700">
@@ -226,31 +356,23 @@ export default async function RfqDetailPage({
                 {rfq.quantity && rfq.unit ? `${rfq.quantity} ${rfq.unit}` : "—"}
                 {rfq.frequency ? <span className="ml-1 text-ink-500">/ {rfq.frequency}</span> : null}
               </Field>
-              <Field icon={<MapPin className="h-4 w-4" />} label="Điểm đến">
+              <Field icon={<MapPin className="h-4 w-4" />} label="Điểm đến · Incoterm">
                 {rfq.destination_country ?? "—"}
-                {String((rfq.specs as Record<string, unknown> | null)?.destination_port ?? "") && (
-                  <span className="ml-1 text-ink-500">· {String((rfq.specs as Record<string, unknown>).destination_port)}</span>
-                )}
+                {String(specs.destination_port ?? "") && <span className="text-ink-500"> · {String(specs.destination_port)}</span>}
+                <span className="text-ink-500"> · {rfq.incoterm ?? "—"}</span>
               </Field>
-              <Field icon={<Package className="h-4 w-4" />} label="Incoterm">{rfq.incoterm ?? "—"}</Field>
-              <Field icon={<CalendarClock className="h-4 w-4" />} label="Giao hàng">{deliveryLabel(rfq)}</Field>
+              <Field icon={<CalendarClock className="h-4 w-4" />} label="Giao hàng">{deliveryText}</Field>
               <Field icon={<Tag className="h-4 w-4" />} label="Giá mục tiêu">
                 {rfq.target_price
-                  ? `${rfq.target_price} ${rfq.target_price_currency ?? ""}${
-                      String((rfq.specs as Record<string, unknown> | null)?.target_price_unit ?? "")
-                        ? ` / ${String((rfq.specs as Record<string, unknown>).target_price_unit)}`
-                        : ""
-                    }`
+                  ? `${rfq.target_price} ${rfq.target_price_currency ?? ""}${String(specs.target_price_unit ?? "") ? ` / ${String(specs.target_price_unit)}` : ""}`
                   : "—"}
                 {rfq.target_price && (
                   <span className="ml-1 text-[11px] text-ink-500">
-                    {(rfq.specs as Record<string, unknown> | null)?.share_target_price === true
-                      ? "đã đồng ý chia sẻ cho nhà cung cấp"
-                      : "chưa chia sẻ cho nhà cung cấp"}
+                    {specs.share_target_price === true ? "đã đồng ý chia sẻ cho nhà cung cấp" : "chưa chia sẻ cho nhà cung cấp"}
                   </span>
                 )}
               </Field>
-              <Field icon={<Timer className="h-4 w-4" />} label="Extras">
+              <Field icon={<Timer className="h-4 w-4" />} label="Yêu cầu thêm">
                 {[
                   rfq.wants_samples && "gửi mẫu",
                   rfq.wants_inspection && "kiểm định",
@@ -258,307 +380,234 @@ export default async function RfqDetailPage({
                 ].filter(Boolean).join(", ") || "—"}
               </Field>
               <Field icon={<CalendarClock className="h-4 w-4" />} label="Nhận lúc">{fmtDate(rfq.created_at)}</Field>
-              {String((rfq.specs as Record<string, unknown>)?.notes ?? "") && (
+              {String(specs.notes ?? "") && (
                 <div className="sm:col-span-2">
                   <dt className="text-[11px] uppercase tracking-wider text-ink-400">{isSupplierQuestion ? "Câu hỏi từ người mua" : "Ghi chú từ người mua"}</dt>
-                  <dd className="mt-1 whitespace-pre-line rounded-md bg-ink-50 p-3 text-[13px] text-ink-700">
-                    {String((rfq.specs as Record<string, unknown>)?.notes)}
-                  </dd>
+                  <dd className="mt-1 whitespace-pre-line rounded-md bg-ink-50 p-3 text-[13px] text-ink-700">{String(specs.notes)}</dd>
                 </div>
               )}
             </dl>
-          </section>
 
-          <section className="card p-4 sm:p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Người mua</h2>
+            <h2 className="mt-5 border-t border-ink-100 pt-4 text-sm font-semibold uppercase tracking-wider text-ink-500">Người mua</h2>
             {buyer ? (
-              <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 text-[13.5px]">
-                <Field icon={<Building2 className="h-4 w-4" />} label="Công ty">{buyer.company}</Field>
+              <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-2">
+                <Field icon={<Building2 className="h-4 w-4" />} label="Công ty">
+                  {buyer.company}
+                  {(buyer.business_type || buyer.country) && <span className="text-ink-500"> · {[buyer.business_type, buyer.country].filter(Boolean).join(" · ")}</span>}
+                </Field>
                 <Field icon={<Mail className="h-4 w-4" />} label="Liên hệ">
                   {buyer.contact_name ?? "—"}
-                  {buyer.email && (
-                    <a href={`mailto:${buyer.email}`} className="ml-2 text-brand-700 hover:underline">{buyer.email}</a>
-                  )}
+                  {buyer.email && <> · <a href={`mailto:${buyer.email}`} className="text-brand-700 hover:underline">{buyer.email}</a></>}
                 </Field>
-                <Field icon={<Phone className="h-4 w-4" />} label="Điện thoại">{buyer.phone ?? "—"}</Field>
-                <Field icon={<MapPin className="h-4 w-4" />} label="Quốc gia">{buyer.country ?? "—"}</Field>
-                <Field icon={<Globe className="h-4 w-4" />} label="Website">
-                  {buyer.website ? (
+                {buyer.phone && <Field icon={<Phone className="h-4 w-4" />} label="Điện thoại">{buyer.phone}</Field>}
+                {buyer.website && (
+                  <Field icon={<Globe className="h-4 w-4" />} label="Website">
                     <a href={buyer.website.startsWith("http") ? buyer.website : `https://${buyer.website}`}
                        target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">{buyer.website}</a>
-                  ) : "—"}
-                </Field>
-                <Field icon={<Tag className="h-4 w-4" />} label="Loại hình">{buyer.business_type ?? "—"}</Field>
+                  </Field>
+                )}
               </dl>
             ) : (
               <p className="mt-3 text-sm text-ink-500">Không tìm thấy hồ sơ người mua.</p>
             )}
           </section>
 
-          <section className="card p-4 sm:p-5">
+          {/* Nhà cung cấp */}
+          <section className="card scroll-mt-20 p-4 sm:p-5" id="suppliers">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">
-                Ghép nhà cung cấp ({matches.length})
+                Nhà cung cấp ({matches.length})
               </h2>
-              <span className="text-[11.5px] text-ink-500">Chọn nhà cung cấp phù hợp để gửi báo giá so sánh.</span>
-            </div>
-            {!canManageRfq && (
-              <p className="mt-2 rounded-md bg-ink-50 px-3 py-2 text-[12.5px] text-ink-500">Bạn đang ở chế độ chỉ xem. Các thao tác ghép nhà cung cấp, gửi email và lưu báo giá chỉ hiển thị cho tài khoản có quyền <code>rfq.manage</code>.</p>
-            )}
-
-{preferredSupplierIds.length > 0 && (
-              <div className="mt-3 rounded-md border border-brand-200 bg-brand-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-ink-700">
-                <strong className="text-brand-900">Người mua chỉ định nhà cung cấp:</strong>{" "}
-                {preferredSupplierIds.map((pid) => supplierMap.get(pid)?.display_name ?? supplierMap.get(pid)?.trade_name ?? supplierMap.get(pid)?.name ?? pid).join(", ")}.
-                {isSupplierQuestion
-                  ? "Người mua chỉ đồng ý liên hệ nhà cung cấp này. Không thêm nhà cung cấp khác khi chưa có đồng ý mới."
-                  : "RFQ gửi từ trang sản phẩm hoặc trang nhà cung cấp." + " Hãy ưu tiên gửi yêu cầu báo giá cho các đơn vị này trước khi tìm thêm đơn vị khác."}
-              </div>
-            )}
-
-{isSupplierQuestion && (
-              <p className="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-sky-900">
-                Câu hỏi này gửi qua email để nhà cung cấp phản hồi trực tiếp cho người mua.{" "}
-                Vexim giữ bản ghi để kiểm duyệt và hỗ trợ khi gửi lỗi; không dùng nút báo giá cho bản ghi này.
-              </p>
-            )}
-
-{canManageRfq && !isSupplierQuestion && (
-            <form action={addMatchAction} className="mt-3 flex flex-wrap items-end gap-2">
-              <input type="hidden" name="rfq_id" value={rfq.id} />
-              <label className="flex w-full flex-col text-[12px] text-ink-600 sm:w-auto">
-                <span>Thêm nhà cung cấp đã duyệt</span>
-                <select name="supplier_id" required className="input mt-1 py-1.5 text-[13px] sm:min-w-[260px]">
-                  <option value="">— Chọn nhà cung cấp —</option>
-                  {candidates.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.display_name ?? s.trade_name ?? s.name}
-                      {s.country ? ` (${s.country})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button type="submit" size="sm">Thêm vào shortlist</Button>
-            </form>
-            )}
-
-{canManageRfq && !isSupplierQuestion && (
-            <section className="mt-4 rounded-md border border-ink-200 bg-ink-50/50 p-3">
-            <form id="rfq-dispatch" action={sendRfqToSuppliersAction}>
-              <input type="hidden" name="rfq_id" value={rfq.id} />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[12.5px] text-ink-600">
-                  Chọn nhà cung cấp để <strong>gửi email yêu cầu báo giá ẩn danh</strong>. Người mua sẽ được giữ kín.
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="flex items-center gap-1 text-[12px] text-ink-600">
+              {canAct && sendable.length > 0 && (
+                <form id="rfq-dispatch" action={sendRfqToSuppliersAction} className="flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="rfq_id" value={rfq.id} />
+                  <label className="flex items-center gap-1 whitespace-nowrap text-[12px] text-ink-600">
                     Hạn phản hồi
-                    <select name="deadline_days" defaultValue="3" className="input ml-1 py-1 text-[12px]">
+                    <select name="deadline_days" defaultValue="3" className="input py-1 text-[12px]">
                       <option value="2">2 ngày</option>
                       <option value="3">3 ngày</option>
                       <option value="5">5 ngày</option>
                       <option value="7">7 ngày</option>
                     </select>
                   </label>
-                  <Button type="submit" size="sm" variant="primary">
-                    <Mail className="h-3.5 w-3.5" /> Gửi yêu cầu cho nhà cung cấp đã chọn
-                  </Button>
-                </div>
-              </div>
+                  <ConfirmSubmitButton className="btn btn-primary btn-sm" message="Gửi email yêu cầu báo giá ẩn danh cho các nhà cung cấp đã tích? Thông tin người mua được giữ kín.">
+                    <Mail className="h-3.5 w-3.5" /> Gửi yêu cầu báo giá
+                  </ConfirmSubmitButton>
+                </form>
+              )}
+            </div>
 
-            </form>
-              <div className="mt-4 divide-y divide-ink-100">
-                {matches.length === 0 && (
-                  <p className="py-6 text-center text-[13px] text-ink-500">Chưa ghép nhà cung cấp nào.</p>
-                )}
-                {matches.map((m) => {
-                  const sup = supplierMap.get(m.supplier_id);
-                  const ms = MATCH_STATUS.find((x) => x.value === m.status) ?? MATCH_STATUS[0];
-                  const canSend = m.status === "proposed" && !m.sent_to_supplier_at;
-                  const canFollowUp = m.status === "no_response" || (!!m.sent_to_supplier_at && ["proposed", "sent_to_supplier"].includes(m.status));
-                  const canSelect = m.status === "quoted" || m.status === "presented_to_buyer";
-                  const thread = messagesByMatch.get(m.id) ?? [];
-                  const passed = reviewedSteps.get(m.supplier_id) ?? [];
-                  return (
-                    <div key={m.id} className="py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {canManageRfq && canSend && (
-                          <input
-                            type="checkbox"
-                            name="match_ids"
-                            form="rfq-dispatch"
-                            value={m.id}
-                            className="h-4 w-4 rounded border-ink-300 text-brand-600"
-                          />
-                        )}
-                        <Link href={`/crm/suppliers/${m.supplier_id}`} className="text-[14px] font-semibold text-ink-900 hover:text-brand-700">
-                          {sup?.display_name ?? sup?.trade_name ?? sup?.name ?? m.supplier_id}
-                        </Link>
-                        {sup?.email ? (
-                          <span className="text-[11.5px] text-ink-500">{sup.email}</span>
-                        ) : (
-                          <span className="text-[11.5px] text-red-600">chưa có email</span>
-                        )}
-                        {preferredSupplierIds.includes(m.supplier_id) && (
-                          <Badge className="bg-brand-600 text-[10.5px] text-white">Người mua chỉ định</Badge>
-                        )}
-                        {passed.map((step) => <Badge key={step} color="#059669" className="text-[10.5px]">{verificationLabel(step, reviewedL2Scopes.get(m.supplier_id) ?? null)}</Badge>)}
-                        <Badge className="inline-flex items-center gap-1">
-                          <span className={"h-1.5 w-1.5 rounded-full " + ms.dot} />
-                          {ms.label}
-                        </Badge>
-                        {canManageRfq && canSelect && (
-                          <form action={selectSupplierAction} className="ml-1">
-                            <input type="hidden" name="rfq_id" value={rfq.id} />
-                            <input type="hidden" name="match_id" value={m.id} />
-                            <button type="submit" className="btn btn-soft btn-sm">Chọn nhà cung cấp này</button>
-                          </form>
-                        )}
-                        {canManageRfq && canFollowUp && (
-                          <form action={sendFollowUpAction}>
-                            <input type="hidden" name="rfq_id" value={rfq.id} />
-                            <input type="hidden" name="match_id" value={m.id} />
-                            <button type="submit" className="btn btn-ghost btn-sm" title="Nhắc nhà cung cấp sau 3 ngày chưa phản hồi">
-                              <Clock4 className="h-3.5 w-3.5" /> Nhắc phản hồi
-                            </button>
-                          </form>
-                        )}
-{canManageRfq && (<details className="relative ml-1">
-                          <summary className="btn btn-ghost btn-sm cursor-pointer list-none">
-                            <MailPlus className="h-3.5 w-3.5" /> Soạn email
-                          </summary>
-                          <form action={composeMatchEmailAction} className="absolute right-0 z-20 mt-1 w-[440px] max-w-[calc(100vw-2rem)] rounded-lg border border-ink-200 bg-white p-3 shadow-lg">
-                            <input type="hidden" name="rfq_id" value={rfq.id} />
-                            <input type="hidden" name="match_id" value={m.id} />
-                            <label className="flex flex-col text-[11px] text-ink-600">
-                              Tiêu đề
-                              <input name="subject" required className="input mt-1 py-1 text-[13px]" defaultValue={`[Vexim] Về yêu cầu ${rfq.code} – ${rfq.product_text}`} />
-                            </label>
-                            <label className="mt-2 flex flex-col text-[11px] text-ink-600">
-                              Nội dung email (tối đa 2000 từ)
-                              <textarea name="body" required rows={6} className="input mt-1 text-[13px]" defaultValue={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${rfq.product_text} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${rfq.needed_by ?? "—"}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
-                            </label>
-                            <p className="mt-1 text-[10.5px] text-ink-400">Reply-To riêng cho từng match (rfq+{rfq.code.toLowerCase()}-m…); thư trả lời sẽ tự gắn vào timeline.</p>
-                            <div className="mt-2 flex justify-end gap-2">
-                              <button type="reset" className="btn btn-ghost btn-sm">Huỷ</button>
-                              <Button type="submit" size="sm">Gửi email</Button>
-                            </div>
-                          </form>
-                        </details>)}
-                        {canManageRfq && (<form action={removeMatchAction} className="ml-auto">
-                          <input type="hidden" name="match_id" value={m.id} />
-                          <input type="hidden" name="rfq_id" value={rfq.id} />
-                          <button type="submit" className="text-[12px] text-red-600 hover:underline">Xoá</button>
-                        </form>)}
-                      </div>
+            {preferredSupplierIds.length > 0 && (
+              <p className="mt-3 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-[12.5px] leading-relaxed text-ink-700">
+                <strong className="text-brand-900">Người mua chỉ định nhà cung cấp:</strong>{" "}
+                {preferredSupplierIds.map((pid) => supplierName(supplierMap.get(pid), pid)).join(", ")}.{" "}
+                {isSupplierQuestion
+                  ? "Người mua chỉ đồng ý liên hệ nhà cung cấp này. Không thêm nhà cung cấp khác khi chưa có đồng ý mới."
+                  : "Ưu tiên gửi yêu cầu cho các đơn vị này trước khi tìm thêm."}
+              </p>
+            )}
+            {canAct && sendable.length > 0 && (
+              <p className="mt-2 text-[12px] text-ink-500">Tích ô ở đầu dòng để chọn nhà cung cấp nhận yêu cầu báo giá.</p>
+            )}
 
-                      {/* Thread per-match */}
-                      {thread.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {thread.slice(0, 3).map((msg) => (
-                            <div key={msg.id} className="flex items-start gap-2 rounded-md bg-ink-50 px-2 py-1.5 text-[12px]">
-                              <span className={"mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-brand-700 " + (msg.kind === "inbound" ? "bg-sky-100 text-sky-700" : "bg-brand-100")}>
-                                {msg.kind === "inbound" ? <Mail className="h-3 w-3" /> : <Send className="h-3 w-3" />}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-ink-700"><strong>{msg.subject}</strong></div>
-                                <div className="text-[11px] text-ink-500">
-                                  {msg.kind === "inbound" ? "← nhận được" : "→ đã gửi tới " + msg.to_emails.join(", ")} · {fmtDate(msg.created_at)}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          {thread.length > 3 && (
-                            <p className="text-[11px] text-ink-400">… còn {thread.length - 3} thư, xem đầy đủ trong timeline phía dưới.</p>
+            <ul className="mt-2 divide-y divide-ink-100">
+              {matches.length === 0 && (
+                <li className="py-6 text-center text-[13px] text-ink-500">Chưa ghép nhà cung cấp nào.</li>
+              )}
+              {matches.map((m) => {
+                const sup = supplierMap.get(m.supplier_id);
+                const name = supplierName(sup, m.supplier_id);
+                const ms = MATCH_STATUS[m.status] ?? MATCH_STATUS.proposed;
+                const isSendable = m.status === "proposed" && !m.sent_to_supplier_at;
+                const canFollowUp = m.status === "no_response" || (!!m.sent_to_supplier_at && ["proposed", "sent_to_supplier"].includes(m.status));
+                const canDecide = SELECTABLE_MATCH_STATUSES.includes(m.status) && m.status !== "selected" && rfq.status !== "sampling";
+                const thread = messagesByMatch.get(m.id) ?? [];
+                const passed = reviewedSteps.get(m.supplier_id) ?? [];
+                const quote = quoteSummary(m);
+                return (
+                  <li key={m.id} className="py-3">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                      {canAct && isSendable && (
+                        <input type="checkbox" name="match_ids" form="rfq-dispatch" value={m.id} defaultChecked
+                          aria-label={`Gửi yêu cầu cho ${name}`} className="h-4 w-4 rounded border-ink-300 text-brand-600" />
+                      )}
+                      <Link href={`/crm/suppliers/${m.supplier_id}`} className="text-[14px] font-semibold text-ink-900 hover:text-brand-700">{name}</Link>
+                      <Badge className="inline-flex items-center gap-1 text-[11px]">
+                        <span className={"h-1.5 w-1.5 rounded-full " + ms.dot} />{ms.label}
+                      </Badge>
+                      {preferredSupplierIds.includes(m.supplier_id) && <Badge className="bg-brand-600 text-[10.5px] text-white">Người mua chỉ định</Badge>}
+                      {passed.map((step) => <Badge key={step} color="#059669" className="text-[10.5px]">{verificationLabel(step, reviewedL2Scopes.get(m.supplier_id) ?? null)}</Badge>)}
+
+                      {canAct && (
+                        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                          {canFollowUp && (
+                            <form action={sendFollowUpAction}>
+                              <input type="hidden" name="rfq_id" value={rfq.id} />
+                              <input type="hidden" name="match_id" value={m.id} />
+                              <ConfirmSubmitButton className="btn btn-ghost btn-sm" message={`Gửi email nhắc ${name} phản hồi báo giá?`}>
+                                <Clock4 className="h-3.5 w-3.5" /> Nhắc phản hồi
+                              </ConfirmSubmitButton>
+                            </form>
+                          )}
+                          {canDecide && (
+                            <>
+                              <form action={markSamplingAction}>
+                                <input type="hidden" name="rfq_id" value={rfq.id} />
+                                <input type="hidden" name="selected_match_id" value={m.id} />
+                                <ConfirmSubmitButton className="btn btn-soft btn-sm" title="Người mua chọn nhà cung cấp này và muốn nhận mẫu trước"
+                                  message={`Gửi mẫu với ${name}?\n\n• ${name} được đánh dấu được chọn, các nhà cung cấp khác chuyển "Không được chọn".\n• Hệ thống gửi email cho ${name} và người mua.`}>
+                                  <FlaskConical className="h-3.5 w-3.5" /> Gửi mẫu
+                                </ConfirmSubmitButton>
+                              </form>
+                              <form action={selectSupplierAction}>
+                                <input type="hidden" name="rfq_id" value={rfq.id} />
+                                <input type="hidden" name="match_id" value={m.id} />
+                                <ConfirmSubmitButton className="btn btn-primary btn-sm" title="Người mua chốt đơn, bỏ qua bước mẫu"
+                                  message={`Chốt ${name} và đóng RFQ là Thành công (bỏ qua bước gửi mẫu)?\n\nCác nhà cung cấp khác chuyển "Không được chọn" và hệ thống gửi email cho ${name}.`}>
+                                  <Trophy className="h-3.5 w-3.5" /> Chốt
+                                </ConfirmSubmitButton>
+                              </form>
+                            </>
                           )}
                         </div>
                       )}
+                    </div>
 
-{canManageRfq && (<form action={updateMatchQuoteAction} className="mt-2 grid gap-2 sm:grid-cols-5">
-                        <input type="hidden" name="match_id" value={m.id} />
-                        <input type="hidden" name="rfq_id" value={rfq.id} />
-                        <label className="flex flex-col text-[11px] text-ink-500">
-                          Giá
-                          <input
-                            name="quote_price"
-                            type="number"
-                            step="0.01"
-                            defaultValue={m.quote_price ?? ""}
-                            className="input mt-1 py-1 text-[13px]"
-                            placeholder="vd 3.20"
-                          />
-                        </label>
-                        <label className="flex flex-col text-[11px] text-ink-500">
-                          Tệ
-                          <input
-                            name="quote_currency"
-                            defaultValue={m.quote_currency ?? "USD"}
-                            className="input mt-1 py-1 text-[13px]"
-                          />
-                        </label>
-                        <label className="flex flex-col text-[11px] text-ink-500">
-                          ĐVT
-                          <input
-                            name="quote_unit"
-                            defaultValue={m.quote_unit ?? rfq.unit ?? ""}
-                            className="input mt-1 py-1 text-[13px]"
-                          />
-                        </label>
-                        <label className="flex flex-col text-[11px] text-ink-500">
-                          Incoterm
-                          <input
-                            name="quote_incoterm"
-                            defaultValue={m.quote_incoterm ?? rfq.incoterm ?? ""}
-                            className="input mt-1 py-1 text-[13px]"
-                          />
-                        </label>
-                        <label className="flex flex-col text-[11px] text-ink-500">
-                          Lead time (ngày)
-                          <input
-                            name="quote_lead_time_days"
-                            type="number"
-                            defaultValue={m.quote_lead_time_days ?? ""}
-                            className="input mt-1 py-1 text-[13px]"
-                          />
-                        </label>
-                        <div className="sm:col-span-5 flex flex-wrap items-end gap-2">
-                          <Button type="submit" size="sm">Lưu báo giá</Button>
-                          {m.sent_to_supplier_at && (
-                            <span className="text-[11.5px] text-ink-400">Đã gửi nhà cung cấp: {fmtDate(m.sent_to_supplier_at)}</span>
-                          )}
-                          {m.sent_to_buyer_at && (
-                            <span className="text-[11.5px] text-emerald-600">Đã trình người mua: {fmtDate(m.sent_to_buyer_at)}</span>
+                    <p className="mt-1 text-[12px] text-ink-500">
+                      {sup?.email ?? <span className="text-red-600">chưa có email</span>}
+                      {quote && <> · <span className="font-medium text-ink-800">{quote}</span></>}
+                      {m.sent_to_supplier_at && <> · đã gửi yêu cầu {fmtDate(m.sent_to_supplier_at)}</>}
+                      {m.sent_to_buyer_at && <> · <span className="text-emerald-700">trình người mua {fmtDate(m.sent_to_buyer_at)}</span></>}
+                      {thread.length > 0 && <> · {thread.length} thư</>}
+                    </p>
+
+                    {canManageRfq && !isClosed && (
+                      <details className="group mt-1.5">
+                        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[12px] text-brand-700 hover:underline">
+                          <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+                          {quote ? "Sửa báo giá · email · thao tác khác" : "Nhập báo giá · email · thao tác khác"}
+                        </summary>
+                        <div className="mt-2 space-y-3 rounded-md border border-ink-100 bg-ink-50/50 p-3">
+                          <form action={updateMatchQuoteAction} className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+                            <input type="hidden" name="match_id" value={m.id} />
+                            <input type="hidden" name="rfq_id" value={rfq.id} />
+                            <QuoteInput label="Giá" name="quote_price" type="number" step="0.01" defaultValue={m.quote_price ?? ""} placeholder="vd 3.20" />
+                            <QuoteInput label="Tiền tệ" name="quote_currency" defaultValue={m.quote_currency ?? "USD"} />
+                            <QuoteInput label="ĐVT" name="quote_unit" defaultValue={m.quote_unit ?? rfq.unit ?? ""} />
+                            <QuoteInput label="Incoterm" name="quote_incoterm" defaultValue={m.quote_incoterm ?? rfq.incoterm ?? ""} />
+                            <QuoteInput label="Lead time (ngày)" name="quote_lead_time_days" type="number" defaultValue={m.quote_lead_time_days ?? ""} />
+                            <div className="flex items-end"><Button type="submit" size="sm" className="w-full">Lưu báo giá</Button></div>
+                          </form>
+
+                          <div className="flex flex-wrap items-end gap-2 border-t border-ink-100 pt-3">
+                            <form action={updateMatchStatusAction} className="flex items-end gap-1.5">
+                              <input type="hidden" name="match_id" value={m.id} />
+                              <input type="hidden" name="rfq_id" value={rfq.id} />
+                              <label className="flex flex-col text-[11px] text-ink-500">
+                                Cập nhật tay (không gửi email)
+                                <select name="status" defaultValue={MANUAL_MATCH_STATUSES.includes(m.status) ? m.status : ""} className="input mt-1 py-1 text-[13px]">
+                                  {!MANUAL_MATCH_STATUSES.includes(m.status) && <option value="" disabled>{ms.label}</option>}
+                                  {MANUAL_MATCH_STATUSES.map((v) => <option key={v} value={v}>{MATCH_STATUS[v].label}</option>)}
+                                </select>
+                              </label>
+                              <Button type="submit" size="sm">Lưu</Button>
+                            </form>
+                            <details className="relative">
+                              <summary className="btn btn-ghost btn-sm cursor-pointer list-none"><MailPlus className="h-3.5 w-3.5" /> Soạn email</summary>
+                              <form action={composeMatchEmailAction} className="absolute left-0 z-20 mt-1 w-[440px] max-w-[calc(100vw-2rem)] rounded-lg border border-ink-200 bg-white p-3 shadow-lg">
+                                <input type="hidden" name="rfq_id" value={rfq.id} />
+                                <input type="hidden" name="match_id" value={m.id} />
+                                <label className="flex flex-col text-[11px] text-ink-600">
+                                  Tiêu đề
+                                  <input name="subject" required className="input mt-1 py-1 text-[13px]" defaultValue={`[Vexim] Về yêu cầu ${rfq.code} – ${rfq.product_text}`} />
+                                </label>
+                                <label className="mt-2 flex flex-col text-[11px] text-ink-600">
+                                  Nội dung email (tối đa 2000 từ)
+                                  <textarea name="body" required rows={6} className="input mt-1 text-[13px]" defaultValue={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${rfq.product_text} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${deliveryText}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
+                                </label>
+                                <p className="mt-1 text-[10.5px] text-ink-400">Thư trả lời sẽ tự gắn vào timeline của nhà cung cấp này.</p>
+                                <div className="mt-2 flex justify-end"><Button type="submit" size="sm">Gửi email</Button></div>
+                              </form>
+                            </details>
+                            <form action={removeMatchAction} className="ml-auto">
+                              <input type="hidden" name="match_id" value={m.id} />
+                              <input type="hidden" name="rfq_id" value={rfq.id} />
+                              <ConfirmSubmitButton className="text-[12px] text-red-600 hover:underline" message={`Xoá ${name} khỏi RFQ này? Báo giá đã nhập của nhà cung cấp này sẽ mất.`}>
+                                Xoá khỏi RFQ
+                              </ConfirmSubmitButton>
+                            </form>
+                          </div>
+
+                          {thread.length > 0 && (
+                            <ul className="space-y-1 border-t border-ink-100 pt-3">
+                              {thread.slice(0, 3).map((msg) => (
+                                <li key={msg.id} className="flex items-center gap-2 text-[12px]">
+                                  {msg.kind === "inbound" ? <Mail className="h-3 w-3 shrink-0 text-sky-700" /> : <Send className="h-3 w-3 shrink-0 text-brand-700" />}
+                                  <span className="min-w-0 flex-1 truncate text-ink-700">{msg.subject}</span>
+                                  <span className="shrink-0 text-[11px] text-ink-400">{fmtDate(msg.created_at)}</span>
+                                </li>
+                              ))}
+                              {thread.length > 3 && <li className="text-[11px] text-ink-400">… còn {thread.length - 3} thư trong timeline bên dưới.</li>}
+                            </ul>
                           )}
                         </div>
-                      </form>)}
+                      </details>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
 
-                      {canManageRfq && (<form action={updateMatchStatusAction} className="mt-1 flex items-end gap-2">
-                        <input type="hidden" name="match_id" value={m.id} />
-                        <input type="hidden" name="rfq_id" value={rfq.id} />
-                        <label className="flex flex-col text-[11px] text-ink-500">
-                          Trạng thái
-                          <RfqMatchStatusSelect status={m.status}
-                            options={MATCH_STATUS.filter((item) => item.value !== "selected" || m.status === "selected").map(({ value, label }) => ({ value, label }))} />
-                        </label>
-                      </form>)}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-            )}
-
-
-{canManageRfq && !isSupplierQuestion && matches.some((m) => m.status === "quoted") && (
-              <form action={presentShortlistAction} className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
+            {canAct && (
+              <form action={addMatchAction} className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
                 <input type="hidden" name="rfq_id" value={rfq.id} />
-                <p className="text-[12.5px] text-emerald-800">
-                  Có <strong>{matches.filter((m) => m.status === "quoted").length}</strong> báo giá sẵn sàng.
-                  Gửi bảng so sánh cho người mua (ghi nhận mốc phản hồi đầu tiên cho SLA).
-                </p>
-                <Button type="submit" size="sm" variant="primary">
-                  <Send className="h-3.5 w-3.5" /> Trình người mua
-                </Button>
+                <select name="supplier_id" required aria-label="Thêm nhà cung cấp đã duyệt" className="input min-w-0 flex-1 py-1.5 text-[13px] sm:max-w-sm">
+                  <option value="">+ Thêm nhà cung cấp đã duyệt…</option>
+                  {candidates.map((s) => (
+                    <option key={s.id} value={s.id}>{supplierName(s, s.id)}{s.country ? ` (${s.country})` : ""}</option>
+                  ))}
+                </select>
+                <Button type="submit" size="sm">Thêm vào shortlist</Button>
               </form>
             )}
           </section>
@@ -578,20 +627,16 @@ export default async function RfqDetailPage({
                   const inbound = msg.kind === "inbound";
                   return (
                     <li key={msg.id} className="rounded-md border border-ink-200 bg-white p-2.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 text-[12px]">
-                            <span className={"inline-flex h-5 items-center rounded-full px-1.5 text-[10.5px] font-semibold " + (inbound ? "bg-sky-100 text-sky-800" : "bg-brand-100 text-brand-800")}>
-                              {inbound ? "← NHẬN" : "→ GỬI"}
-                            </span>
-                            <strong className="truncate text-ink-800">{msg.subject}</strong>
-                          </div>
-                          <div className="mt-0.5 text-[11px] text-ink-500">
-                            {sup ? <>Nhà cung cấp: <Link href={`/crm/suppliers/${sup.id}`} className="text-brand-700 hover:underline">{sup.display_name ?? sup.trade_name ?? sup.name}</Link> · </> : null}
-                            {!mid && <span className="text-violet-700">Luồng người mua · </span>}
-                            {inbound ? "thư đến" : "thư đi"} · {fmtDate(msg.created_at)}
-                          </div>
-                        </div>
+                      <div className="flex items-center gap-2 text-[12px]">
+                        <span className={"inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-[10.5px] font-semibold " + (inbound ? "bg-sky-100 text-sky-800" : "bg-brand-100 text-brand-800")}>
+                          {inbound ? "← NHẬN" : "→ GỬI"}
+                        </span>
+                        <strong className="truncate text-ink-800">{msg.subject}</strong>
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-ink-500">
+                        {sup ? <>Nhà cung cấp: <Link href={`/crm/suppliers/${sup.id}`} className="text-brand-700 hover:underline">{supplierName(sup, sup.id)}</Link> · </> : null}
+                        {!mid && <span className="text-violet-700">Luồng người mua · </span>}
+                        {fmtDate(msg.created_at)}
                       </div>
                       {(msg.body_text || msg.body_html) && (
                         <details className="mt-1.5">
@@ -607,89 +652,13 @@ export default async function RfqDetailPage({
           </section>
         </div>
 
-        {/* RIGHT: workflow */}
+        {/* CỘT PHỤ */}
         <div className="min-w-0 space-y-5">
-          <section className="card p-4 sm:p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Phân công & trạng thái</h2>
-            {canManageRfq && (<form action={assignRfqFormAction} className="mt-3 space-y-3">
-              <input type="hidden" name="id" value={rfq.id} />
-              <label className="flex flex-col text-[12px] text-ink-600">
-                Chủ trì
-                <select name="to" defaultValue={rfq.assigned_to ?? ""} className="input mt-1 py-1.5 text-[13px]">
-                  <option value="">— Chưa phân công —</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name ?? u.email}</option>
-                  ))}
-                </select>
-              </label>
-              <Button type="submit" size="sm">Lưu phân công</Button>
-            </form>)}
-            {canManageRfq && (<form action={updateRfqStatusFormAction} className="mt-4 space-y-3">
-              <input type="hidden" name="id" value={rfq.id} />
-              <label className="flex flex-col text-[12px] text-ink-600">
-                Trạng thái
-                <select name="status" defaultValue={["sampling", "lost"].includes(rfq.status) ? "" : rfq.status} className="input mt-1 py-1.5 text-[13px]" required>
-                  <option value="" disabled>— Chọn trạng thái —</option>
-                  {STATUS_FLOW.filter((s) => s.value !== "sampling" && s.value !== "lost").map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
-                <span className="mt-1 text-[11px] text-ink-500">Sampling / lost dùng nút Chốt giai đoạn bên dưới để người mua nhận email và lost có lý do.</span>
-              </label>
-              <Button type="submit" size="sm" variant="soft">Cập nhật trạng thái</Button>
-            </form>)}
-            {!canManageRfq && <p className="mt-3 text-[12px] text-ink-500">Chỉ xem: không thể phân công hoặc đổi trạng thái RFQ.</p>}
-          </section>
-
-          <section className="card p-4 sm:p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Chốt giai đoạn</h2>
-            {canManageRfq ? (<div className="mt-3 space-y-2">
-              <form action={markSamplingAction}>
-                <input type="hidden" name="rfq_id" value={rfq.id} />
-                <label className="flex flex-col text-[11px] text-ink-500">
-                  Nhà cung cấp được chọn (nếu có)
-                  <select name="selected_match_id" className="input mt-1 py-1 text-[13px]">
-                    <option value="">— chưa chọn —</option>
-                    {matches.map((m) => {
-                      const sup = supplierMap.get(m.supplier_id);
-                      return <option key={m.id} value={m.id}>{sup?.display_name ?? sup?.name ?? m.id}</option>;
-                    })}
-                  </select>
-                </label>
-                <Button type="submit" size="sm" variant="soft" className="mt-2 w-full">
-                  Đánh dấu đang gửi mẫu
-                </Button>
-              </form>
-              <form action={markLostAction} className="rounded-md border border-red-200 bg-red-50/40 p-2">
-                <input type="hidden" name="rfq_id" value={rfq.id} />
-                <label className="flex flex-col text-[11px] text-red-800">
-                  Đóng mất đơn (bắt buộc lý do)
-                  <select name="lost_reason" required defaultValue="" className="input mt-1 py-1 text-[13px]">
-                    <option value="" disabled>— chọn lý do —</option>
-                    <option value="price">Giá chưa cạnh tranh</option>
-                    <option value="lead_time">Không đáp ứng lead time</option>
-                    <option value="quality">Chất lượng / chứng chỉ chưa đủ</option>
-                    <option value="no_response">Nhà cung cấp không phản hồi</option>
-                    <option value="buyer_went_elsewhere">Người mua chọn nhà cung cấp khác</option>
-                    <option value="cancelled">Người mua huỷ yêu cầu</option>
-                    <option value="other">Khác</option>
-                  </select>
-                </label>
-                <Button type="submit" size="sm" className="mt-2 w-full bg-red-600 text-white hover:bg-red-700">
-                  Đóng là thất bại
-                </Button>
-              </form>
-            </div>) : (
-              <p className="mt-3 text-[12.5px] text-ink-500">Bạn cần quyền <code>rfq.manage</code> để chuyển trạng thái sampling / đóng mất đơn.</p>
-            )}
-          </section>
-
           <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">SLA</h2>
             <dl className="mt-3 space-y-1.5 text-[13px]">
-              <div className="flex justify-between"><span className="text-ink-500">Nhận lúc</span><span>{fmtDate(rfq.created_at)}</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">Phản hồi đầu</span><span>{rfq.first_response_at ? fmtDate(rfq.first_response_at) : "chưa"}</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">Mục tiêu</span><span>24h làm việc</span></div>
+              <div className="flex justify-between"><dt className="text-ink-500">Phản hồi đầu</dt><dd>{rfq.first_response_at ? fmtDate(rfq.first_response_at) : "chưa"}</dd></div>
+              <div className="flex justify-between"><dt className="text-ink-500">Mục tiêu</dt><dd>24h làm việc</dd></div>
             </dl>
           </section>
 
@@ -716,60 +685,102 @@ export default async function RfqDetailPage({
           )}
 
           <section className="card p-4 sm:p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Tệp đính kèm</h2>
-            <form action={uploadRfqAttachmentAction} className="mt-3 flex flex-wrap items-end gap-2">
-              <input type="hidden" name="rfq_id" value={rfq.id} />
-              <label className="flex min-w-0 flex-1 flex-col text-[12px] text-ink-600">
-                Tải lên (tối đa 10MB)
-                <input name="file" type="file" className="mt-1 w-full text-[12.5px]" />
-              </label>
-              <Button type="submit" size="sm" variant="soft">Tải lên</Button>
-            </form>
-            {attachments.length > 0 ? (
-              <ul className="mt-3 space-y-1 text-[13px]">
-                {attachments.map((a) => (
-                  <li key={a.id} className="text-ink-700">📎 {a.file_name} <span className="text-ink-400 text-[11px]">({Math.round(a.size_bytes/1024)}KB · {fmtDate(a.created_at)})</span></li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-3 text-[12.5px] text-ink-500">Chưa có tệp đính kèm (spec sheet, catalogue, báo giá nhà cung cấp...).</p>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Ghi chú nội bộ</h2>
+            {String(specs.notes_internal ?? "") && (
+              <pre className="mt-3 max-h-60 overflow-auto whitespace-pre-wrap rounded-md bg-ink-50 p-3 font-mono text-[12px] leading-relaxed text-ink-700">
+                {String(specs.notes_internal)}
+              </pre>
             )}
+            {canManageRfq ? (
+              <form action={addRfqNoteAction} className="mt-3 space-y-2">
+                <input type="hidden" name="rfq_id" value={rfq.id} />
+                <textarea name="note" rows={2} required placeholder="Ghi chú chỉ đội ngũ nhìn thấy…" className="input text-[13px]" />
+                <div className="flex justify-end"><Button type="submit" size="sm" variant="soft">Thêm ghi chú</Button></div>
+              </form>
+            ) : !String(specs.notes_internal ?? "") && <p className="mt-3 text-[12.5px] text-ink-500">Chưa có ghi chú.</p>}
           </section>
 
           <section className="card p-4 sm:p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Ghi chú nội bộ</h2>
-            <form action={addRfqNoteAction} className="mt-3 space-y-2">
-              <input type="hidden" name="rfq_id" value={rfq.id} />
-              <textarea
-                name="note"
-                rows={3}
-                placeholder="Nhập ghi chú nội bộ (chỉ đội ngũ nhìn thấy)..."
-                className="input min-h-[80px] text-[13px]"
-              />
-              <div className="flex justify-end">
-                <Button type="submit" size="sm" variant="soft">Thêm ghi chú</Button>
-              </div>
-            </form>
-            {String((rfq.specs as Record<string, unknown>)?.notes_internal ?? "") && (
-              <pre className="mt-3 max-h-60 overflow-auto whitespace-pre-wrap rounded-md bg-ink-50 p-3 font-mono text-[12px] leading-relaxed text-ink-700">
-                {String((rfq.specs as Record<string, unknown>)?.notes_internal)}
-              </pre>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Tệp đính kèm ({attachments.length})</h2>
+            {attachments.length > 0 ? (
+              <ul className="mt-3 space-y-1 text-[13px]">
+                {attachments.map((a) => (
+                  <li key={a.id} className="truncate text-ink-700">📎 {a.file_name} <span className="text-[11px] text-ink-400">({Math.round(a.size_bytes / 1024)}KB · {fmtDate(a.created_at)})</span></li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-[12.5px] text-ink-500">Chưa có spec sheet, catalogue hay báo giá đính kèm.</p>
+            )}
+            {canManageRfq && (
+              <form action={uploadRfqAttachmentAction} className="mt-3 flex flex-wrap items-center gap-2">
+                <input type="hidden" name="rfq_id" value={rfq.id} />
+                <input name="file" type="file" required aria-label="Chọn tệp (tối đa 10MB)" className="min-w-0 flex-1 text-[12.5px]" />
+                <Button type="submit" size="sm" variant="soft">Tải lên</Button>
+              </form>
             )}
           </section>
+
+          {canManageRfq && (
+            <section className="card p-4 sm:p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Thao tác khác</h2>
+              <form action={updateRfqStatusFormAction} className="mt-3 flex items-end gap-2">
+                <input type="hidden" name="id" value={rfq.id} />
+                <label className="flex min-w-0 flex-1 flex-col text-[12px] text-ink-600">
+                  Trạng thái hành chính
+                  <select name="status" required defaultValue={MANUAL_RFQ_STATUSES.includes(rfq.status) ? rfq.status : ""} className="input mt-1 py-1.5 text-[13px]">
+                    {!MANUAL_RFQ_STATUSES.includes(rfq.status) && <option value="" disabled>{statusInfo.label}</option>}
+                    {MANUAL_RFQ_STATUSES.map((v) => (
+                      <option key={v} value={v}>{isSupplierQuestion && v === "matching" ? "Đã gửi câu hỏi" : STATUS_LABEL[v].label}</option>
+                    ))}
+                  </select>
+                </label>
+                <Button type="submit" size="sm" variant="soft">Lưu</Button>
+              </form>
+              <p className="mt-1.5 text-[11px] leading-4 text-ink-500">
+                Trình người mua, gửi mẫu, thành công và thất bại chỉ đổi bằng nút nghiệp vụ để người mua và nhà cung cấp nhận đúng email.
+              </p>
+
+              {!isSupplierQuestion && rfq.status !== "lost" && rfq.status !== "spam" && (
+                <details className="mt-4 border-t border-ink-100 pt-3">
+                  <summary className="cursor-pointer text-[12.5px] font-medium text-red-700 hover:underline">Đóng RFQ là thất bại…</summary>
+                  <form action={markLostAction} className="mt-2 space-y-2">
+                    <input type="hidden" name="rfq_id" value={rfq.id} />
+                    <select name="lost_reason" required defaultValue="" aria-label="Lý do mất đơn" className="input py-1.5 text-[13px]">
+                      <option value="" disabled>— Chọn lý do (bắt buộc) —</option>
+                      {LOST_REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                    <textarea name="note" rows={2} placeholder="Ghi chú thêm (không bắt buộc)" className="input text-[13px]" />
+                    <ConfirmSubmitButton className="btn btn-danger btn-sm w-full" message="Đóng RFQ là thất bại? Người mua sẽ nhận email thông báo.">
+                      Đóng là thất bại
+                    </ConfirmSubmitButton>
+                  </form>
+                </details>
+              )}
+            </section>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function Field({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+function Field({ icon, label, wide, children }: { icon: React.ReactNode; label: string; wide?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex min-w-0 items-start gap-2">
+    <div className={"flex min-w-0 items-start gap-2" + (wide ? " sm:col-span-2" : "")}>
       <span className="mt-0.5 shrink-0 text-ink-400">{icon}</span>
       <div className="min-w-0">
         <dt className="text-[11px] uppercase tracking-wider text-ink-400">{label}</dt>
         <dd className="mt-0.5 break-words text-[13.5px] leading-5 text-ink-800">{children}</dd>
       </div>
     </div>
+  );
+}
+
+function QuoteInput({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <label className="flex flex-col text-[11px] text-ink-500">
+      {label}
+      <input {...props} className="input mt-1 py-1 text-[13px]" />
+    </label>
   );
 }

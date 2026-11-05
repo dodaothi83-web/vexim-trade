@@ -7,12 +7,13 @@ import { redirect } from "next/navigation";
 import { getStore } from "@/lib/db";
 import { guard, getSession } from "@/lib/auth/session";
 import type { RfqStatus } from "@/lib/types";
+import { MANUAL_RFQ_STATUSES } from "@/lib/rfq/workflow";
 
-// Sampling/lost must use the dedicated actions that require a reason / notify buyer.
+// Trình người mua, gửi mẫu, thành công và thất bại phải đi qua nút nghiệp vụ
+// để email, lựa chọn NCC và lý do mất đơn luôn khớp dữ liệu.
 function validateRegularStatus(value: string): RfqStatus {
-  const allowed: RfqStatus[] = ["new", "needs_review", "in_progress", "matching", "quoted", "won", "spam"];
-  if (!allowed.includes(value as RfqStatus)) {
-    throw new Error("Sampling / lost phải dùng form Chốt giai đoạn (lost cần lý do).");
+  if (!MANUAL_RFQ_STATUSES.includes(value as RfqStatus)) {
+    throw new Error("Trạng thái này phải cập nhật bằng nút nghiệp vụ (Trình người mua, Gửi mẫu, Chốt, Đóng thất bại).");
   }
   return value as RfqStatus;
 }
@@ -20,17 +21,6 @@ function validateRegularStatus(value: string): RfqStatus {
 async function enforce() {
   const g = await guard("rfq.manage");
   if (g) redirect("/crm/dashboard");
-}
-
-export async function assignRfqFormAction(fd: FormData) {
-  await enforce();
-  const id = String(fd.get("id"));
-  const to = String(fd.get("to") || "");
-  const store = getStore();
-  await store.updateRfq(id, { assigned_to: to || null });
-  revalidatePath("/crm/rfqs");
-  revalidatePath(`/crm/rfqs/${id}`);
-  redirect(`/crm/rfqs/${id}`);
 }
 
 export async function updateRfqStatusFormAction(fd: FormData) {
@@ -52,25 +42,4 @@ export async function updateRfqStatusFormAction(fd: FormData) {
   revalidatePath("/crm/rfqs");
   revalidatePath(`/crm/rfqs/${id}`);
   redirect(`/crm/rfqs/${id}`);
-}
-
-// Giữ lại các hàm cũ dùng ở page list (nơi gọi trực tiếp với tham số).
-export async function assignRfqAction(id: string, userId: string | null) {
-  const gate = await guard("rfq.manage");
-  if (gate) return gate;
-  const store = getStore();
-  await store.updateRfq(id, { assigned_to: userId || null });
-  revalidatePath("/crm/rfqs");
-  revalidatePath(`/crm/rfqs/${id}`);
-  return { ok: true };
-}
-
-export async function updateRfqStatusAction(id: string, status: string) {
-  const gate = await guard("rfq.manage");
-  if (gate) return gate;
-  const store = getStore();
-  await store.updateRfq(id, { status: validateRegularStatus(status) });
-  revalidatePath("/crm/rfqs");
-  revalidatePath(`/crm/rfqs/${id}`);
-  return { ok: true };
 }

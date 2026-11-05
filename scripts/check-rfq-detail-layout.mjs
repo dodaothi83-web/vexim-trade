@@ -8,11 +8,11 @@ const page = fs.readFileSync(new URL("../app/crm/rfqs/[id]/page.tsx", import.met
 assert.ok(!page.includes("mx-auto max-w-7xl px-4 py-6"), "trang chi tiết RFQ không được nhân đôi padding của khung CRM");
 assert.match(page, /mt-5 grid items-start gap-5 xl:grid-cols-3/, "lưới chỉ tách cột khi đủ rộng và không kéo giãn cột phải");
 assert.match(page, /min-w-0 space-y-5 xl:col-span-2/, "cột nội dung chính phải co được và giữ khoảng cách đều");
-assert.match(page, /\{\/\* RIGHT: workflow \*\/\}\s*<div className="min-w-0 space-y-5">/, "cột thao tác phải co được và thẳng hàng");
+assert.match(page, /\{\/\* CỘT PHỤ \*\/\}\s*<div className="min-w-0 space-y-5">/, "cột thao tác phải co được và thẳng hàng");
 
 // Mọi thẻ nội dung đều có cùng padding trong, tránh chữ và form sát viền.
 const cards = [...page.matchAll(/<section className="([^"]*\bcard\b[^"]*)"/g)];
-assert.ok(cards.length >= 9, "phải kiểm tra được các thẻ nội dung của trang RFQ");
+assert.ok(cards.length >= 8, "phải kiểm tra được các thẻ nội dung của trang RFQ");
 for (const [full, classes] of cards) {
   assert.ok(classes.split(/\s+/).includes("p-4"), `thẻ thiếu padding mobile: ${full}`);
   assert.ok(classes.split(/\s+/).includes("sm:p-5"), `thẻ thiếu padding desktop: ${full}`);

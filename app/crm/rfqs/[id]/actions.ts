@@ -8,8 +8,11 @@ import { randomUUID } from "crypto";
 import { getStore } from "@/lib/db";
 import { guard } from "@/lib/auth/session";
 import type { RfqMatchStatus } from "@/lib/types";
+import { MANUAL_MATCH_STATUSES } from "@/lib/rfq/workflow";
 
-const MATCH_STATUS_VALUES: RfqMatchStatus[] = ["proposed", "sent_to_supplier", "quoted", "declined", "no_response", "presented_to_buyer", "not_selected"];
+// Chỉ ghi tay các trạng thái không kèm email: liên hệ ngoài hệ thống, NCC từ chối hoặc im lặng.
+// "Đã có báo giá" ghi khi lưu giá; "Đã trình người mua" / "Người mua chọn" / "Không được chọn" do nút nghiệp vụ ghi.
+const MATCH_STATUS_VALUES = MANUAL_MATCH_STATUSES;
 
 async function enforce() {
   const g = await guard("rfq.manage");
@@ -79,7 +82,7 @@ export async function updateMatchStatusAction(fd: FormData) {
   const status = String(fd.get("status") || "proposed") as RfqMatchStatus;
   if (!matchId || !rfqId) return;
   // Selection is a business event: use selectSupplierAction so the portal and email stay in sync.
-  if (status === "selected" || !MATCH_STATUS_VALUES.includes(status)) throw new Error("Chọn nhà cung cấp này ở nút Chọn nhà cung cấp để chốt quyết định.");
+  if (!MATCH_STATUS_VALUES.includes(status)) throw new Error("Trạng thái này do nút nghiệp vụ cập nhật: lưu giá, Trình người mua hoặc Chốt nhà cung cấp.");
   const store = getStore();
   await store.updateRfqMatch(matchId, { status });
   revalidatePath(`/crm/rfqs/${rfqId}`);
