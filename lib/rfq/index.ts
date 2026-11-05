@@ -95,6 +95,8 @@ export function scoreSpam(input: {
   phone?: string | null;
   honeypot?: string | null;
   challengeOk?: boolean;
+  /** RFQ gửi từ trang sản phẩm / nhà cung cấp đã xác thực: nội dung ngắn không phải dấu hiệu spam. */
+  hasVerifiedContext?: boolean;
 }): SpamScore {
   const flags: string[] = [];
   let score = 0;
@@ -107,9 +109,10 @@ export function scoreSpam(input: {
     flags.push("challenge_missing");
     score += 60;
   }
+  // Người gửi đã đăng nhập bằng email đã xác minh, nên webmail chỉ là tín hiệu yếu (theo đặc tả: +5).
   if (input.email && isLikelyWebmail(input.email)) {
     flags.push("webmail_domain");
-    score += 25;
+    score += 5;
   }
   if (!input.company || input.company.trim().length < 2) {
     flags.push("missing_company");
@@ -121,7 +124,7 @@ export function scoreSpam(input: {
   }
   const msg = (input.message ?? "").trim();
   const prod = (input.productText ?? "").trim();
-  if (msg.length + prod.length < 20) {
+  if (!input.hasVerifiedContext && msg.length + prod.length < 20) {
     flags.push("too_short");
     score += 20;
   }

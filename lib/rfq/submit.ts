@@ -193,30 +193,6 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   // 2) Challenge chống bot (tự chủ, không còn Cloudflare)
   const challengeOk = verifyFormChallengeForRfq("rfq", raw.challenge_token);
 
-  // 3) Spam score (3 ngưỡng):
-  //    - < 40   : new        → ghi nhận ngay, ack buyer, báo desk (SLA 4h/24h áp dụng).
-  //    - 40–99  : needs_review → nghi ngờ, ack buyer với dòng "đang xem xét thủ công",
-  //                              internal email được gắn cờ spam review, không auto-assign.
-  //    - ≥ 100  : spam       → cách ly, KHÔNG gửi ack buyer, chỉ gửi cảnh báo nội bộ.
-  const { score: spamScore, flags } = scoreSpam({
-    name: raw.contact_name,
-    email: raw.email,
-    company: raw.company,
-    website: raw.website,
-    message: raw.message,
-    productText: extraText,
-    phone: raw.phone,
-    honeypot: raw.honeypot,
-    challengeOk,
-  });
-  let rfqStatus: Rfq["status"] = "new";
-  let ackBuyer = true;
-  if (spamScore >= 100) { rfqStatus = "spam"; ackBuyer = false; }
-  else if (spamScore >= 40) { rfqStatus = "needs_review"; ackBuyer = true; }
-  if (questionSecurityReview) {
-    flags.push(`rate_limit_${questionSecurityReview}`);
-    if (rfqStatus === "new") rfqStatus = "needs_review";
-  }
 
   // 4) Từ chối webmail nếu cờ bật
   if (rejectWebmail() && isLikelyWebmail(raw.email)) {
@@ -278,6 +254,33 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   }
   // product_text = tên sản phẩm đã xác thực, nối thêm phần người mua tự viết (nếu có).
   const productText = sourceProduct ? (extraText ? `${sourceProduct.name}. ${extraText}` : sourceProduct.name) : extraText;
+
+  // 3) Spam score (3 ngưỡng):
+  //    - < 40   : new        → ghi nhận ngay, ack buyer, báo desk (SLA 4h/24h áp dụng).
+  //    - 40–99  : needs_review → nghi ngờ, ack buyer với dòng "đang xem xét thủ công",
+  //                              internal email được gắn cờ spam review, không auto-assign.
+  //    - ≥ 100  : spam       → cách ly, KHÔNG gửi ack buyer, chỉ gửi cảnh báo nội bộ.
+  const { score: spamScore, flags } = scoreSpam({
+    name: raw.contact_name,
+    email: raw.email,
+    company: raw.company,
+    website: raw.website,
+    message: raw.message,
+    productText: extraText,
+    phone: raw.phone,
+    honeypot: raw.honeypot,
+    challengeOk,
+    // Sản phẩm / nhà cung cấp đã xác thực ở bước 5b: không bắt người mua gõ thêm.
+    hasVerifiedContext: Boolean(sourceProduct) || preferredIds.length > 0,
+  });
+  let rfqStatus: Rfq["status"] = "new";
+  let ackBuyer = true;
+  if (spamScore >= 100) { rfqStatus = "spam"; ackBuyer = false; }
+  else if (spamScore >= 40) { rfqStatus = "needs_review"; ackBuyer = true; }
+  if (questionSecurityReview) {
+    flags.push(`rate_limit_${questionSecurityReview}`);
+    if (rfqStatus === "new") rfqStatus = "needs_review";
+  }
   if (!productText) {
     return { ok: false, message: "Vui lòng mô tả sản phẩm cần báo giá." };
   }

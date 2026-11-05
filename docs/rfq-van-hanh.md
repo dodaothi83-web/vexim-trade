@@ -129,18 +129,23 @@ Chế độ **câu hỏi trực tiếp** giữ nguyên một màn hình 4 ô nh�
 ## 2. Luồng A — báo giá, từ đầu đến cuối
 
 ```
-NGƯỜI MUA (không cần đăng nhập)
+NGƯỜI MUA (đã đăng nhập bằng email đã xác minh)
   │  Form một trang: sản phẩm/số lượng/quốc gia/công ty + thanh tiến độ
   │  + honeypot + challenge chống bot + consent
   ▼
 submitRfq()  lib/rfq/submit.ts
   ├─ rate limit theo IP+UA ................................ 5 lượt/giờ (xem cảnh báo §7)
+  ├─ xác thực sản phẩm / nhà cung cấp người mua chọn (theo id, không theo tên)
   ├─ chấm điểm spam:  <40 new │ 40–99 needs_review │ ≥100 spam
+  │     (thiếu challenge +60, honeypot +100, link +25, công ty +15, SĐT +10,
+  │      webmail +5, nội dung < 20 ký tự +20 — bỏ khi đã có sản phẩm/NCC xác thực)
   ├─ chặn MX domain, tuỳ chọn chặn webmail, bắt buộc consent
   ├─ upsert hồ sơ người mua theo email (giữ nguyên stage/owner cũ)
   ├─ tạo rfqs + mã RFQ-YYYYMMDD-XXXXX + access_token
   ├─ ghi audit_log
-  ├─ nếu người mua đã chỉ định NCC → tạo sẵn match "proposed" (KHÔNG tự gửi email)
+  ├─ nếu người mua đã chỉ định NCC → tạo sẵn match "proposed"; đúng một NCC (từ trang
+  │   sản phẩm hoặc trang NCC) và RFQ "new" → chuyển thẳng tới NCC đó (cổng + email ẩn danh).
+  │   RFQ bị giữ lại: khi nhân viên duyệt sang Mới / Đang xử lý thì chuyển tiếp như trên.
   └─ email: xác nhận cho người mua (kèm link riêng) + báo hộp thư nội bộ
        │  (spam: KHÔNG gửi xác nhận cho người mua, chỉ báo nội bộ)
        ▼
