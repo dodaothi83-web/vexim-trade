@@ -19,7 +19,7 @@ import { fill } from "@/lib/i18n/format";
 import { l2ScopeForSupplier } from "@/lib/l2-scope";
 import type { SupplierSubmissionItem } from "@/lib/types";
 import { SupplierProfileForm } from "./supplier-profile-form";
-import { EmptyRow, Kpi, LevelChip, Panel, PortalSteps, date } from "./portal-ui";
+import { Kpi, LevelChip, Panel, PortalSteps, date } from "./portal-ui";
 import { VerificationProgressPanel } from "./verification-progress";
 import { PendingProfileRefresh } from "./pending-profile-refresh";
 
@@ -178,7 +178,7 @@ export default async function SupplierPortal() {
   ].filter((row) => row.show > 0);
 
   return <div lang={locale}>
-    <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={`${supplier.name} · ${user.email}`}
+    <PageHeader title={copy.title} sub={`${supplier.name} · ${user.email}`}
       actions={<Link href="/supplier/portal/products/new" className="btn btn-primary"><Plus className="h-4 w-4" aria-hidden="true" />{copy.actions.addProduct}</Link>} />
 
     {degraded.length > 0 && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -212,9 +212,7 @@ export default async function SupplierPortal() {
       </div>
     </section>
 
-    <div className="mt-5"><VerificationProgressPanel progress={verification} messages={copy.verificationPanel} lang={locale} /></div>
-
-    <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label={copy.kpi.aria}>
+    <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" aria-label={copy.kpi.aria}>
       <Kpi href="/supplier/portal/products" icon={<Package className="h-4 w-4" />} label={copy.kpi.approved.label} value={approvedCount} intl={intl}
         note={fill(copy.kpi.approved.note, { total: products.length.toLocaleString(intl) })} />
       <Kpi href="/supplier/portal/products" icon={<Clock3 className="h-4 w-4" />} label={copy.kpi.pending.label} value={pendingCount} intl={intl}
@@ -229,17 +227,20 @@ export default async function SupplierPortal() {
         note={fill(copy.kpi.received.note, { count: board.report.responded })} />
     </div>
 
+    {/* Việc cần xử lý chỉ hiện khi có việc; khi trống chỉ một dòng ngắn. */}
     <div className="mt-5">
-      <Panel title={copy.work.title} sub={copy.work.sub} count={work.length} flush>
-        {work.length ? <ul className="divide-y divide-ink-100">{work.map((row) => <li key={row.label}>
+      {work.length ? <Panel title={copy.work.title} count={work.length} flush>
+        <ul className="divide-y divide-ink-100">{work.map((row) => <li key={row.label}>
           <Link href={row.href} className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-ink-50">
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${row.tone === "rose" ? "bg-rose-500" : row.tone === "amber" ? "bg-amber-500" : "bg-brand-500"}`} aria-hidden="true" />
             <span className="min-w-0 flex-1 text-[13px] font-semibold text-ink-800">{row.label}</span>
             <span className="text-[13px] font-black tabular-nums text-ink-900">{row.value}</span>
           </Link>
-        </li>)}</ul> : <EmptyRow>{copy.work.empty}</EmptyRow>}
-      </Panel>
+        </li>)}</ul>
+      </Panel> : <p className="rounded-xl border border-ink-200 bg-white px-5 py-3 text-[13px] text-ink-500">{copy.work.empty}</p>}
     </div>
+
+    <div className="mt-5"><VerificationProgressPanel progress={verification} messages={copy.verificationPanel} lang={locale} /></div>
 
     <footer className="mt-8 flex items-start gap-2 border-t border-ink-200 pt-4 text-[11px] leading-5 text-ink-500">
       <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />

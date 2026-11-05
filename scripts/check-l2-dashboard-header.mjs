@@ -49,6 +49,7 @@ const store = {
   listProductsBySupplier: async () => [], listSupplierRfqInvitations: async () => [],
   listCertificates: async () => [], listSubmissions: async () => subject.submissions,
   listSupplierVerificationRequests: async () => [], listMedia: async () => [], listSubmissionItems: async () => [],
+  listSupplierCategoryRequests: async () => [],
 };
 const dashboard = load('app/supplier/portal/page.tsx', {
   'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'next/navigation': { redirect: () => { throw Error('Unexpected redirect'); } },
@@ -63,6 +64,7 @@ const dashboard = load('app/supplier/portal/page.tsx', {
   '@/lib/supplier-portal/dashboard': { buildSupplierRfqBoard: () => ({ tasks: [], report: { sent: 0, responded: 0 } }) },
   '@/lib/supplier-portal/product-view': { productReview: () => 'draft' },
   '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: () => [] },
+  '@/lib/supplier-portal/requested-category': { categoryRequestViews: () => [] },
   '@/lib/verification': { isL1BusinessLicense: () => false },
   '@/lib/certificate-service': { daysUntilExpiry: () => null },
   '@/lib/db/migration-hints': { migrationHint: () => null },
@@ -85,11 +87,11 @@ function assertChip(markup, label, status, message) {
     'The visual tooltip and screen-reader status agree');
 }
 const legacyTrader = await render('trading', [review(null)]);
-assertChip(legacyTrader, 'L2 · Nhà máy đối tác', 'Chưa duyệt', 'A factory review cannot light up the partner chip');
+assertChip(legacyTrader, 'Nhà máy đối tác', 'Chưa duyệt', 'A factory review cannot light up the partner chip');
 const oldPending = await render('trading', [], [submission(null)]);
-assertChip(oldPending, 'L2 · Nhà máy đối tác', 'Chưa duyệt', 'Old factory queue cannot make the partner chip pending');
+assertChip(oldPending, 'Nhà máy đối tác', 'Chưa duyệt', 'Old factory queue cannot make the partner chip pending');
 const partnerPending = await render('trading', [review(null)], [submission('partner_contract')]);
-assertChip(partnerPending, 'L2 · Nhà máy đối tác', 'Đang chờ xét');
+assertChip(partnerPending, 'Nhà máy đối tác', 'Đang chờ xét');
 // On phones, the header badges use the full second row and actions sit below
 // the text instead of squeezing it into a narrow column. Desktop keeps its grid.
 const headerMarkup = partnerPending.match(/<section aria-label="Trạng thái gian hàng"[\s\S]*?<\/section>/)?.[0] ?? '';
@@ -100,16 +102,16 @@ const progressMarkup = partnerPending.match(/<section id="xac-minh"[\s\S]*?<\/se
 assert.match(progressMarkup, /grid-cols-\[auto_minmax\(0,1fr\)\] items-start/);
 assert.match(progressMarkup, /col-start-2 justify-self-start sm:shrink-0/);
 const partnerApproved = await render('trading', [review(null), review('partner_contract')]);
-assertChip(partnerApproved, 'L2 · Nhà máy đối tác', 'Đã duyệt');
+assertChip(partnerApproved, 'Nhà máy đối tác', 'Đã duyệt');
 for (const type of ['manufacturer', 'cooperative']) {
   const factory = await render(type, [review(null)]);
-  assertChip(factory, 'L2 · Nhà máy', 'Đã duyệt', `${type} retains legacy factory review`);
+  assertChip(factory, 'Xác thực nhà máy', 'Đã duyệt', `${type} retains legacy factory review`);
   const oldPartner = await render(type, [review('partner_contract')]);
-  assertChip(oldPartner, 'L2 · Nhà máy', 'Chưa duyệt', `${type} cannot inherit partner contract`);
+  assertChip(oldPartner, 'Xác thực nhà máy', 'Chưa duyệt', `${type} cannot inherit partner contract`);
 }
 const unknown = await render(null, [review(null)]);
-assertChip(unknown, 'L2 · Chưa rõ loại hình', 'Chưa duyệt');
-assert.doesNotMatch(unknown, /Chín ảnh nhà máy theo danh mục/, 'Unknown type is not guided into factory flow');
+assertChip(unknown, 'Chưa rõ loại hình', 'Chưa duyệt');
+assert.doesNotMatch(unknown, /9 ảnh nhà máy/, 'Unknown type is not guided into factory flow');
 // Only the read-only waiting screen polls; the correction form must never be remounted by this poll.
 subject = { supplier: { id: 's1', name: 'Example', supplier_type: 'trading', onboarding_status: 'pending' }, reviews: [], submissions: [] };
 let waiting = renderToStaticMarkup(await dashboard.default());

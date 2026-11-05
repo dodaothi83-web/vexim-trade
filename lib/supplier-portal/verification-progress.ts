@@ -91,8 +91,8 @@ const STEP_COPY = {
   2: {
     title: "Xác thực nhà máy",
     titleEn: "Factory verification",
-    description: "Chín ảnh nhà máy theo danh mục chung, kèm tờ mã xác minh ở 3 ảnh đánh dấu 🔖.",
-    descriptionEn: "Nine factory photos following the shared checklist, with the verification code sheet visible in the three photos marked 🔖.",
+    description: "Tải 9 ảnh nhà máy, trong đó 3 ảnh có tờ mã xác minh 🔖.",
+    descriptionEn: "Upload 9 factory photos; 3 of them show the verification code sheet 🔖.",
     href: "/supplier/portal/verification/factory",
   },
   3: {
@@ -181,10 +181,7 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     const approvedOn = shortDate(l1?.approved_at);
     Object.assign(step1, {
       state: "approved", status: pick("Đã duyệt", STATUS_EN.approved), statusEn: STATUS_EN.approved,
-      note: pick(
-        "Giấy tờ của bạn đã được đối chiếu. Không cần làm gì thêm ở bước này.",
-        "Your documents have been checked. Nothing else is needed for this step.",
-      ),
+      note: pick("Đã hoàn tất.", "Completed."),
       metric: approvedOn ? pick(`Duyệt ngày ${approvedOn}`, `Approved ${approvedOn}`) : pick("Hồ sơ đã được duyệt", "Approved after review"),
       metricEn: approvedOn ? `Approved ${approvedOn}` : "Approved",
       action: pick("Xem giấy tờ", "View documents"), actionEn: "View documents", tone: "emerald",
@@ -201,8 +198,8 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     Object.assign(step1, {
       state: "reviewing", status: pick("Chờ duyệt", STATUS_EN.reviewing), statusEn: STATUS_EN.reviewing, tone: "amber",
       note: pick(
-        "Bạn đã nộp giấy tờ và hồ sơ đang được đối chiếu thủ công; tải lên không tự duyệt.",
-        "You submitted the documents and they are being checked by hand; uploading does not approve them.",
+        "Giấy tờ đang được đối chiếu.",
+        "Your documents are being checked.",
       ),
       action: pick("Xem giấy tờ", "View documents"), actionEn: "View documents",
     } satisfies Partial<VerificationProgressStep>);
@@ -232,8 +229,8 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     status: pick("Chưa bắt đầu", STATUS_EN.not_started),
     statusEn: STATUS_EN.not_started,
     note: pick(
-      "Tự chụp 9 ảnh theo danh mục. Ảnh điện thoại, kể cả ảnh đã gửi qua Zalo, đều nhận.",
-      "Take the nine photos yourself, following the checklist. Phone photos are fine, including ones already sent over Zalo.",
+      "Ảnh chụp bằng điện thoại đều được, kể cả ảnh gửi qua Zalo.",
+      "Phone photos are fine, including ones sent over Zalo.",
     ),
     metric: pick(`Đã tải ${done2}/${L2_TOTAL} ảnh`, `${done2}/${L2_TOTAL} photos uploaded`),
     metricEn: `${done2}/${L2_TOTAL} photos uploaded`,
@@ -338,8 +335,8 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
       note: partner
         ? pick("Yêu cầu đối chiếu nhà máy đối tác đã được ghi nhận. Bạn có thể tự nộp hợp đồng.", "Your partner factory request has been noted. You can upload the contract yourself.")
         : pick(
-            "Yêu cầu xác thực nhà máy đã được ghi nhận; bộ phận phụ trách sẽ liên hệ lên kế hoạch. Bạn có thể tự nộp 9 ảnh ngay để rút ngắn thời gian.",
-            "Your factory verification request has been noted; the team will get in touch to schedule it. You can upload the nine photos now to save time.",
+            "Vexim sẽ liên hệ để lên kế hoạch. Bạn cũng có thể nộp 9 ảnh ngay.",
+            "Vexim will contact you to schedule it. You can also upload the 9 photos now.",
           ),
       action: partner ? pick("Nộp hợp đồng", "Submit contract") : pick("Nộp 9 ảnh nhà máy", "Submit 9 factory photos"),
       actionEn: partner ? "Add contract" : "Add factory photos",
@@ -438,8 +435,8 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     Object.assign(step3, {
       state: "action", status: pick("Đã ghi nhận liên hệ", STATUS_EN.action), statusEn: STATUS_EN.action, tone: "amber",
       note: pick(
-        "Yêu cầu đối chiếu lịch sử giao hàng đã được ghi nhận; bộ phận phụ trách sẽ liên hệ lên kế hoạch. Bạn vẫn có thể tự nộp chứng từ.",
-        "Your delivery-history request has been noted; the team will get in touch to schedule it. You can still upload the documents yourself.",
+        "Vexim sẽ liên hệ để lên kế hoạch. Bạn cũng có thể nộp chứng từ ngay.",
+        "Vexim will contact you to schedule it. You can also upload documents now.",
       ),
       action: pick("Nộp chứng từ", "Submit shipping evidence"), actionEn: "Add shipping evidence",
     } satisfies Partial<VerificationProgressStep>);
