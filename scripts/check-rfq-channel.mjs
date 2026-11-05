@@ -73,6 +73,25 @@ assert.equal(buyers.length, 1, "người mua đã có thì dùng lại");
 assert.equal(other.rfq.assigned_to, "staff-2", "giữ người phụ trách đã có");
 await assert.rejects(toRfq.startSourcingMatch({ store, request: { ...request, id: "req-3", status: "closed" }, actor }), /closed/);
 
+// Duyệt cho qua RFQ trực tiếp bị giữ lại: tạo match cho nhà cung cấp người mua chọn rồi chuyển thẳng (một NCC).
+const created = [], releasedCalls = [];
+const reviewStore = { listRfqMatches: async () => [], createRfqMatch: async (m) => created.push(m) };
+const review = load("lib/rfq/release-after-review.ts", {
+  "./auto-match": { createPreferredSupplierMatches: async (_s, rfqId, ids) => { ids.forEach((id) => created.push({ rfqId, id })); return ids.length; } },
+  "./channel": channel,
+  "./targeted-portal": { releaseTargetedQuoteToPortal: async (_s, rfq) => { releasedCalls.push(rfq.status); return 1; } },
+});
+const held = { id: "h1", status: "in_progress", source_page: "/products/x", specs: {}, preferred_supplier_ids: ["s1"], source_product_id: "p1" };
+assert.equal(await review.releaseDirectRfqAfterReview(reviewStore, held), 1);
+assert.equal(created.length, 1, "match được tạo cho nhà cung cấp người mua chọn");
+assert.equal(releasedCalls[0], "new", "chạy lại đúng bước gửi như lúc người mua gửi");
+assert.equal(await review.releaseDirectRfqAfterReview(reviewStore, { ...held, id: "h2", preferred_supplier_ids: ["s1", "s2"], source_product_id: null }), 0, "nhiều NCC: chỉ tạo match, nhân viên tự gửi");
+assert.equal(created.length, 3);
+assert.equal(releasedCalls.length, 1);
+assert.equal(await review.releaseDirectRfqAfterReview(reviewStore, { ...held, id: "h3", preferred_supplier_ids: [], source_product_id: null }), 0, "RFQ chung thuộc Tìm nguồn");
+assert.equal(await review.releaseDirectRfqAfterReview(reviewStore, { ...held, id: "h4", source_page: "/rfq?intent=question" }), 0, "câu hỏi trực tiếp có luồng riêng");
+assert.equal(created.length, 3);
+
 // Phân luồng trong giao diện và huy hiệu.
 const layout = read("app/crm/layout.tsx");
 assert.match(layout, /rfqChannel\(r\) === "sourcing" && UNCLAIMED_RFQ_STATUSES/, "huy hiệu Tìm nguồn đếm RFQ chung chưa tiếp nhận");

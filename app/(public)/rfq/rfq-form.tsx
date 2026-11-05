@@ -102,6 +102,8 @@ export function RfqForm({
   const [busy, startSubmit] = useTransition();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverMsg, setServerMsg] = useState<string | null>(null);
+  // Yêu cầu đã lưu nhưng bị giữ lại để kiểm tra (không có trang theo dõi): phải báo rõ, không để form đứng yên.
+  const [heldMsg, setHeldMsg] = useState<string | null>(null);
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   // Mở sẵn mục chi tiết khi đã có dữ liệu điền trước, để người mua không bỏ sót.
   const [detailsOpen, setDetailsOpen] = useState(Boolean(initialGrade) || wantsSamples);
@@ -259,6 +261,8 @@ export function RfqForm({
       if (res.statusPageUrl) {
         if (isQuestion && onQuestionSuccess) onQuestionSuccess(res.statusPageUrl);
         else router.push(res.statusPageUrl);
+      } else {
+        setHeldMsg("Thanks, we received your request. It needs a quick manual check before it is sent; we will contact you by email.");
       }
     });
   }
@@ -301,6 +305,7 @@ export function RfqForm({
           <p className="mt-1 text-sm text-ink-600">To: <strong className="text-ink-800">{supplierName}</strong></p>
         </div>
         {serverMsg && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-800">{serverMsg}</div>}
+        {heldMsg && <div role="status" className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-[13.5px] text-amber-900">{heldMsg}</div>}
         <div className="card space-y-5 p-5 sm:p-6">
           <Field label="Your question" required error={errors.message} id="rfq-message">
             <textarea
@@ -346,7 +351,7 @@ export function RfqForm({
             <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-700" />
             <span>Your details are shared with this supplier for this question, not with other suppliers. Vexim keeps the original question for support and moderation.</span>
           </p>
-          <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold" disabled={busy}>
+          <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold" disabled={busy || !challengeToken || !!heldMsg}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
             Send question
           </button>
@@ -432,6 +437,7 @@ export function RfqForm({
         {serverMsg && (
           <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-800">{serverMsg}</div>
         )}
+        {heldMsg && <div role="status" className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-[13.5px] text-amber-900">{heldMsg}</div>}
 
         {/* Khối 1: sản phẩm + số lượng + liên hệ — gộp một card như mockup */}
         <section className="card space-y-5 p-5 sm:p-6">
@@ -744,7 +750,7 @@ export function RfqForm({
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-700" />
             <span>Your contact details stay private until you agree to an introduction. You sign the contract directly with the supplier you choose. Vexim never holds your payment. Free for buyers.</span>
           </p>
-          <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold sm:w-auto sm:px-8" disabled={busy}>
+          <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold sm:w-auto sm:px-8" disabled={busy || !challengeToken || !!heldMsg}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
             Send request
           </button>

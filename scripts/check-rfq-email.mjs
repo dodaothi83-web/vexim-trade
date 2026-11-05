@@ -202,13 +202,24 @@ await actions.sendFollowUpAction(followup);
 assert.equal(sent.at(-1).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');
 assert.equal(sent.at(-1).replyTo, router.supplierReplyAddress(actionRfq.code, match.id));
 assert.equal(messages.filter((m) => m.kind === 'rfq_followup').length, 1);
+const releasedRfqs = [];
 const regularActions = loadTS('../app/crm/rfqs/actions.ts', {
   'next/cache': { revalidatePath: () => {} },
   'next/navigation': { redirect: () => { throw Error('redirect'); } },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': { guard: async () => null, getSession: async () => ({ uid: 'admin' }) },
   '@/lib/rfq/workflow': workflow,
+  '@/lib/rfq/release-after-review': { releaseDirectRfqAfterReview: async (_store, rfq) => { releasedRfqs.push(rfq); return 1; } },
 });
+// Duyệt cho qua RFQ bị giữ lại thì chuyển tiếp tới nhà cung cấp; đổi trạng thái thường thì không.
+actionRfq.status = 'needs_review';
+const approve = new FormData(); approve.set('id', actionRfq.id); approve.set('status', 'in_progress');
+await assert.rejects(regularActions.updateRfqStatusFormAction(approve), /redirect/);
+assert.equal(releasedRfqs.length, 1, 'approving a held RFQ re-runs direct delivery');
+assert.equal(releasedRfqs[0].status, 'in_progress');
+const again = new FormData(); again.set('id', actionRfq.id); again.set('status', 'matching');
+await assert.rejects(regularActions.updateRfqStatusFormAction(again), /redirect/);
+assert.equal(releasedRfqs.length, 1, 'ordinary status changes do not re-send');
 for (const status of ['lost', 'sampling', 'won', 'quoted']) {
   const badStatus = new FormData(); badStatus.set('id', actionRfq.id); badStatus.set('status', status);
   await assert.rejects(regularActions.updateRfqStatusFormAction(badStatus), /nút nghiệp vụ/, `${status} must use its business action`);

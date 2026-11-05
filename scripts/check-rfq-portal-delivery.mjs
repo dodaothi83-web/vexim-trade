@@ -30,7 +30,7 @@ const dashboard = load('lib/supplier-portal/dashboard.ts', {
   '@/lib/i18n/portal/rfqs': { rfqsMessages: { en: dictionary.en.rfqs, vi: dictionary.vi.rfqs } },
 });
 let supplier = { id: 's1', status: 'published', onboarding_status: 'approved', email: 'supplier@example.com' };
-let migrated = true, emailSent = true;
+let migrated = true, emailSent = true, portalUser = null;
 let rfq = { id: 'r1', code: 'RFQ-1', status: 'new', source_product_id: 'p1', preferred_supplier_ids: ['s1'], specs: {}, quantity: 10, unit: 'MT', product_text: 'secret buyer@example.com', access_token: 'private-token' };
 let match = { id: 'm1', rfq_id: 'r1', supplier_id: 's1', status: 'proposed', sent_to_supplier_at: null };
 const mail = [], messages = [], writes = [];
@@ -38,6 +38,7 @@ const invites = () => match.sent_to_supplier_at ? [{ ...match, rfq }] : [];
 const products = [{ id: 'p1', supplier_id: 's1', name: 'Cashew W320' }];
 const store = {
   getSupplier: async () => supplier,
+  getUserByEmail: async (email) => portalUser && portalUser.email === email ? portalUser : null,
   listSupplierRfqInvitations: async () => { if (!migrated) throw Error('migration missing'); return invites(); },
   listSupplierNoticeReads: async () => [],
   listRfqMatches: async () => [match],
@@ -52,6 +53,7 @@ const publisher = load('lib/rfq/targeted-portal.ts', {
   '@/lib/email/send': { transport: async (input) => { mail.push(input); return { ok: emailSent, status: emailSent ? 'sent' : 'failed', provider: 'test' }; } },
   '@/lib/config': { FROM_ADDRESS: 'Vexim <system@example.com>' },
   './reply-routing': { supplierReplyAddress: (_, id) => `rfq+${id}@example.com` },
+  '@/lib/supplier-portal/onboarding': load('lib/supplier-portal/onboarding.ts', {}),
 });
 for (const patch of [ { status: 'spam' }, { status: 'needs_review' }, { preferred_supplier_ids: [] }, { preferred_supplier_ids: ['s1', 's2'] }, { specs: { inquiry_kind: 'supplier_question' } } ]) {
   assert.equal(await publisher.releaseTargetedQuoteToPortal(store, { ...rfq, ...patch }), 0);
@@ -102,6 +104,17 @@ assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 1);
 assert.equal(messages.at(-1).status, 'failed');
 assert.equal(messages.at(-1).sent_at, null);
 assert.ok(match.sent_to_supplier_at, 'In-app delivery remains available after SMTP failure');
+// Hồ sơ Vexim tạo trong CRM (not_started, chưa có tài khoản cổng) nhận RFQ trực tiếp qua email,
+// cùng luật với câu hỏi trực tiếp; có tài khoản cổng nhưng chưa được duyệt thì không.
+match = { ...match, id: 'm4', status: 'proposed', sent_to_supplier_at: null };
+rfq.status = 'new'; emailSent = true;
+supplier = { ...supplier, onboarding_status: 'not_started' };
+portalUser = { email: supplier.email, role: 'supplier', supplier_id: 's1' };
+assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 0, 'Own unapproved portal account is not invited');
+portalUser = null;
+assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 1, 'Staff-created supplier without account receives the RFQ');
+assert.equal(match.status, 'sent_to_supplier');
+supplier = { ...supplier, onboarding_status: 'approved' };
 // RFQ gửi từ trang của đúng một nhà cung cấp (không gắn sản phẩm) cũng đi thẳng tới nhà cung cấp đó.
 match = { ...match, id: 'm3', status: 'proposed', sent_to_supplier_at: null };
 rfq.status = 'new'; emailSent = true;

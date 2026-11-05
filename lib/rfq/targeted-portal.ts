@@ -3,6 +3,7 @@ import { transport } from "@/lib/email/send";
 import { FROM_ADDRESS } from "@/lib/config";
 import { supplierReplyAddress } from "./reply-routing";
 import type { DataStore } from "@/lib/db/types";
+import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import type { Rfq } from "@/lib/types";
 
 /** Publish a clean product-addressed quote to its supplier's private portal.
@@ -15,7 +16,9 @@ export async function releaseTargetedQuoteToPortal(store: DataStore, rfq: Rfq): 
   // nhà cung cấp đó. RFQ chung hoặc chọn nhiều nhà cung cấp vẫn do nhân viên xử lý.
   if (supplierIds.length !== 1) return 0;
   const supplier = await store.getSupplier(supplierIds[0]);
-  if (!supplier || supplier.status !== "published" || supplier.onboarding_status !== "approved") return 0;
+  // Cùng luật với câu hỏi trực tiếp: NCC đã mở cổng, hoặc hồ sơ Vexim tạo chưa có tài khoản cổng
+  // (nhận qua email). Hồ sơ đang chờ duyệt / cần bổ sung thì không gửi.
+  if (!supplier || supplier.status !== "published" || !(await canInviteSupplier(supplier, store))) return 0;
   // Fail before publishing if the portal migration is unavailable.
   await store.listSupplierRfqInvitations(supplier.id);
   await store.listSupplierNoticeReads(supplier.id);
