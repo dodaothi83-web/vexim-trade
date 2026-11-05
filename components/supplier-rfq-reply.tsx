@@ -17,7 +17,7 @@ export function SupplierRfqReply({ address, subject, labels }: {
   const mailto = `mailto:${address}?subject=${encodeURIComponent(subject)}`;
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      <a href={gmail} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm">
+      <a href={gmail} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
         <Mail className="h-3.5 w-3.5" aria-hidden="true" /> {labels.gmail}
       </a>
       <a href={mailto} className="btn btn-ghost btn-sm">{labels.app}</a>

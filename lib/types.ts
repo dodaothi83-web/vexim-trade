@@ -982,9 +982,10 @@ export interface RfqMatch {
 /** Server-side projection: scoped match joined only to non-sensitive RFQ fields (never buyers/access tokens). */
 export type SupplierRfqInvitation = Pick<RfqMatch,
   "id" | "rfq_id" | "supplier_id" | "status" | "sent_to_supplier_at" | "response_due_at" | "supplier_replied_at" |
-  "quote_price" | "quote_currency" | "quote_unit" | "created_at" | "updated_at"> & {
+  "quote_price" | "quote_currency" | "quote_unit" | "created_at" | "updated_at"> &
+  Partial<Pick<RfqMatch, "quote_incoterm" | "quote_lead_time_days" | "quote_valid_until" | "sent_to_buyer_at">> & {
   rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "destination_country" |
-    "incoterm" | "needed_by" | "source_product_id" | "source_page">;
+    "incoterm" | "needed_by" | "source_product_id" | "source_page"> & Partial<Pick<Rfq, "status">>;
 };
 
 export interface SupplierNoticeRead {

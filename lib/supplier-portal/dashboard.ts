@@ -28,6 +28,10 @@ export interface PortalInvite {
   quotePrice: string | null;
   repliedAt: string | null;
   productId: string | null;
+  /** Còn nhận báo giá trên cổng: lời mời đang mở và Vexim chưa trình người mua. */
+  canQuote: boolean;
+  /** Giá trị điền sẵn cho form báo giá (giá đã ghi trước đó hoặc theo yêu cầu). */
+  quoteDefaults: { price: string; currency: string; unit: string; incoterm: string; leadTimeDays: string; validUntil: string };
 }
 
 const responded = (m: SupplierRfqInvitation) => !!m.supplier_replied_at || m.quote_price != null || m.status === "declined";
@@ -78,6 +82,16 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
       repliedAt: m.supplier_replied_at ?? null,
       quotePrice: m.quote_price != null ? `${m.quote_price} ${m.quote_currency || ""}/${m.quote_unit || m.rfq!.unit || ""}` : null,
       productId: product?.id ?? null,
+      canQuote: ["sent_to_supplier", "no_response", "quoted"].includes(m.status) && !m.sent_to_buyer_at &&
+        !["won", "lost", "spam"].includes(m.rfq!.status ?? ""),
+      quoteDefaults: {
+        price: m.quote_price != null ? String(m.quote_price) : "",
+        currency: m.quote_currency || "USD",
+        unit: withoutDirectContacts(m.quote_unit || m.rfq!.unit || "").slice(0, 20),
+        incoterm: (m.quote_incoterm || m.rfq!.incoterm || "FOB").toUpperCase(),
+        leadTimeDays: m.quote_lead_time_days != null ? String(m.quote_lead_time_days) : "",
+        validUntil: m.quote_valid_until ? m.quote_valid_until.slice(0, 10) : "",
+      },
     };
   }).sort((a, b) => b.sentAt.localeCompare(a.sentAt));
 }
