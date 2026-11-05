@@ -93,3 +93,18 @@ assert.match(lastPage, /aria-label="Previous page"/, 'Icon previous link retains
 
 assert.match(secondPage, /aria-current="page"[^>]*>2\/3</);
 assert.match(lastPage, /aria-current="page"[^>]*>3\/3</);
+
+// Nhà cung cấp bị cắt vì trần: thẻ cuối của họ có lối sang trang nhà cung cấp, đếm đúng số bị ẩn.
+const capped = [
+  ...Array.from({ length: 5 }, (_, index) => ({ ...products[0], id: `big${index}`, name: `Big ${index}`, supplierId: 'big', supplierSlug: 'big-co', supplierName: 'Big Co' })),
+  ...products.slice(3, 6),
+];
+const cappedHtml = renderToStaticMarkup(React.createElement(exports.CategoryProductGrid,
+  { products: capped, categorySlug: 'cashew-kernels', grades: ['W320'] }));
+assert.equal([...cappedHtml.matchAll(/more from/g)].length, 1, 'Chỉ nhà cung cấp bị cắt mới có lối xem thêm, và chỉ một lần');
+assert.match(cappedHtml, /href="\/suppliers\/big-co"[^>]*>\+2 more from Big Co</, 'Lối xem thêm dẫn tới trang nhà cung cấp, đếm đúng số thẻ bị ẩn');
+
+// Danh mục cha gộp sản phẩm các danh mục con rồi xếp hạng lại cả danh sách.
+assert.match(readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8'),
+  /products\.sort\(\(a, b\) => compareRankedProducts\(a, b, SPEC_RANKING_WEIGHTS\)\)/,
+  'Danh mục cha xếp hạng lại sau khi gộp danh mục con');

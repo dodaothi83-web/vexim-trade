@@ -12,7 +12,7 @@ import {
 import { getStore } from "@/lib/db";
 import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, type PublicCategoryProduct } from "@/lib/public/product-catalog";
-import { balanceHomepageCategories, HOME_FEED_PER_SUPPLIER } from "@/lib/public/supplier-product-order";
+import { balanceHomepageCategories, HOME_FEED_PER_SUPPLIER, homeRotationWindow, rotateForWindow, rotateWithinVerificationTiers } from "@/lib/public/supplier-product-order";
 import { HomeProductFeed } from "@/components/home-product-feed";
 import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
 import { buildPopularSearches } from "@/lib/public/popular-searches";
@@ -114,8 +114,12 @@ export default async function HomeContent({
   // One offer per category per round; retain category-local ranking and public gates.
   // Enforce the supplier cap during selection so earlier categories cannot take
   // all available slots before other industries get a turn.
+  // Luân phiên theo giờ: danh mục mở đầu và thứ tự trong cùng tầng xác minh đổi mỗi
+  // cửa sổ, tầng xác minh và trần mỗi nhà cung cấp giữ nguyên.
+  const rotationWindow = homeRotationWindow(Date.now());
   const arrangedOffers = balanceHomepageCategories(
-    productGroups.map(({ category, products }) => products
+    rotateForWindow(productGroups, ({ category }) => category.slug, rotationWindow).map(({ category, products }) =>
+      rotateWithinVerificationTiers(products, rotationWindow)
       .filter((product) => !product.isDemo)
       .map((product) => ({ ...product, categorySlug: category.slug }))),
     HOME_FEED_PER_SUPPLIER,

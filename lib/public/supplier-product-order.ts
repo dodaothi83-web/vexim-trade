@@ -123,3 +123,52 @@ export function balanceHomepageCategories<T extends { id: string; supplierId: st
   } while (added);
   return result;
 }
+
+/**
+ * Trang chủ luân phiên theo giờ (UTC). Trang danh mục KHÔNG dùng phần này: lưới tự
+ * nhiên ở đó giữ thứ tự cố định theo docs/sponsored-listing-spec.md.
+ *
+ * - Thứ tự danh mục mở đầu và thứ tự sản phẩm CÙNG TẦNG xác minh đổi mỗi cửa sổ.
+ * - Tầng xác minh vẫn cứng: sản phẩm 3/3 luôn đứng trên 2/3, trong mọi cửa sổ.
+ * - Không dùng Math.random: cùng cửa sổ thì mọi người xem thấy cùng thứ tự, kiểm được.
+ * - Thứ tự mỗi cửa sổ là băm (id + cửa sổ), không phải vòng tròn cố định, để một danh
+ *   mục hay sản phẩm không bị khoá vào cùng khung giờ hay cùng thứ trong tuần.
+ */
+export const HOME_ROTATION_WINDOW_MINUTES = 60;
+
+/** Mã cửa sổ luân phiên trang chủ tại thời điểm `nowMs`. */
+export function homeRotationWindow(nowMs: number, windowMinutes: number = HOME_ROTATION_WINDOW_MINUTES): number {
+  return Math.floor(nowMs / (Math.max(1, Math.trunc(windowMinutes)) * 60_000));
+}
+
+/** FNV-1a 32 bit rồi trộn thêm (fmix32) để các chuỗi chỉ khác đuôi vẫn tản đều. */
+function rotationHash(text: string): number {
+  let value = 0x811c9dc5;
+  for (let index = 0; index < text.length; index++) {
+    value ^= text.charCodeAt(index);
+    value = Math.imul(value, 0x01000193);
+  }
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x85ebca6b);
+  value ^= value >>> 13;
+  value = Math.imul(value, 0xc2b2ae35);
+  value ^= value >>> 16;
+  return value >>> 0;
+}
+
+const rotationKey = (key: string, window: number) => rotationHash(`${key}:${window}`);
+
+/** Xếp lại các mục (ví dụ danh mục) theo cửa sổ. Không đổi mảng đầu vào. */
+export function rotateForWindow<T>(items: readonly T[], keyOf: (item: T) => string, window: number): T[] {
+  return [...items].sort((a, b) => rotationKey(keyOf(a), window) - rotationKey(keyOf(b), window) ||
+    (keyOf(a) < keyOf(b) ? -1 : keyOf(a) > keyOf(b) ? 1 : 0));
+}
+
+/** Giữ tầng xác minh, chỉ xáo thứ tự giữa các sản phẩm cùng tầng theo cửa sổ. */
+export function rotateWithinVerificationTiers<T extends { id: string; verificationCount: number }>(
+  products: readonly T[],
+  window: number,
+): T[] {
+  return [...products].sort((a, b) => b.verificationCount - a.verificationCount ||
+    rotationKey(a.id, window) - rotationKey(b.id, window) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}

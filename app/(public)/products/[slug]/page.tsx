@@ -37,6 +37,7 @@ import { categorySlotConfig, categorySponsoredSlots } from "@/lib/sponsored/cate
 import { getStore } from "@/lib/db";
 import { pickSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
+import { compareRankedProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { t } from "@/lib/public/i18n";
 import { normalizeCategoryFilters } from "@/lib/category-filters";
 import { categoryKeywordSearches } from "@/lib/public/category-searches";
@@ -272,6 +273,9 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       }
     }
   }
+  // Mỗi danh mục con đã xếp hạng riêng; gộp lại phải xếp hạng lại cả danh sách, nếu không
+  // sản phẩm 3/3 bước xác minh ở nhóm con sau sẽ đứng dưới sản phẩm 0/3 ở nhóm con trước.
+  products.sort((a, b) => compareRankedProducts(a, b, SPEC_RANKING_WEIGHTS));
 
   /*
    * Bộ lọc chứng nhận: chỉ chứng nhận đã duyệt, công khai, còn hạn và được gắn cho
