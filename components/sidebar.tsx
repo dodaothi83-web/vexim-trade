@@ -139,7 +139,7 @@ export function Sidebar({
                   // Badge = số việc đang chờ đúng khu vực đó, chỉ hiện số (như số thư chưa đọc); ý nghĩa nằm ở title.
                   const badge = item.href === "/crm/mail" ? (unreadMail > 0 ? { text: String(unreadMail), title: "Thư đến chưa đọc" } : null)
                     : item.href === "/crm/sourcing" ? (pendingSourcing === null ? { text: "!", title: "Chưa tải được yêu cầu tìm nguồn" } : pendingSourcing > 0 ? { text: String(pendingSourcing), title: "Yêu cầu tìm nguồn mới" } : null)
-                    : item.href === "/crm/rfqs" ? (pendingRfqs > 0 ? { text: String(pendingRfqs), title: "Yêu cầu người mua đang chờ xử lý" } : null)
+                    : item.href === "/crm/rfqs" ? (pendingRfqs > 0 ? { text: String(pendingRfqs), title: "RFQ chờ tiếp nhận" } : null)
                     : item.href === "/crm/buyers" ? (newBuyers > 0 ? { text: String(newBuyers), title: "Người mua mới chưa xử lý" } : null)
                     : item.href === "/crm/suppliers" ? (pendingSuppliers > 0 ? { text: String(pendingSuppliers), title: "Tài khoản nhà cung cấp chưa nộp hồ sơ hoặc chờ xác nhận" } : null)
                     : item.href === "/crm/products" ? (pendingProducts > 0 ? { text: String(pendingProducts), title: "Sản phẩm chờ duyệt" } : null)

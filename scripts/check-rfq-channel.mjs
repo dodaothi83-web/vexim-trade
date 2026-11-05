@@ -95,7 +95,7 @@ assert.equal(created.length, 3);
 // Phân luồng trong giao diện và huy hiệu.
 const layout = read("app/crm/layout.tsx");
 assert.match(layout, /rfqChannel\(r\) === "sourcing" && UNCLAIMED_RFQ_STATUSES/, "huy hiệu Tìm nguồn đếm RFQ chung chưa tiếp nhận");
-assert.match(layout, /rfqChannel\(r\) !== "sourcing"/, "huy hiệu RFQ không đếm RFQ chung");
+assert.match(layout, /rfqChannel\(r\) !== "sourcing" && UNCLAIMED_RFQ_STATUSES\.includes\(r\.status\)/, "huy hiệu RFQ chỉ đếm RFQ trực tiếp / câu hỏi chờ tiếp nhận, không treo vì RFQ đã chuyển nhà cung cấp");
 assert.match(read("app/crm/rfqs/page.tsx"), /rfqChannel\(r\) !== "sourcing"/, "hộp thư RFQ chỉ còn RFQ trực tiếp và câu hỏi");
 const inbox = read("app/crm/sourcing/page.tsx");
 assert.match(inbox, /rfqChannel\(r\) === "sourcing"/, "hộp thư Tìm nguồn có RFQ chung");
