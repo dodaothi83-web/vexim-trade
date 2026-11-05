@@ -143,7 +143,7 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
   const pipSize = marketplace ? "h-[18px] w-[18px] sm:h-5 sm:w-5" : compact ? "h-5 w-5" : "h-6 w-6";
   const iconSize = marketplace ? "h-3.5 w-3.5 sm:h-4 sm:w-4" : compact ? "h-3 w-3" : "h-3.5 w-3.5";
   return (
-    <span className={`inline-flex items-center gap-1`} role="group"
+    <span className={`inline-flex items-center ${marketplace ? "gap-0.5" : "gap-1"}`} role="group"
       aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => verificationLabel(l, l2Scope)).join(", ")}` : "No verification checks approved yet"}>
       {([1, 2, 3] as const).map((level) => {
         const on = levels.includes(level);

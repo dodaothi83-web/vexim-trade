@@ -66,6 +66,7 @@ for (const levels of [[], [1], [1, 2, 3]]) {
   assert.equal((html.match(/data-standard-shield/g) ?? []).length, 3);
   const buttons = [...html.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
   assert.equal(buttons.length, 3);
+  assert.match(html, /inline-flex items-center gap-0\.5/);
   for (const button of buttons) {
     assert.doesNotMatch(button, /rounded-full|(?:class="|\s)(?:border(?:-[^\s"]+)?|bg-[^\s"]+)/);
     assert.match(button, /h-\[18px\] w-\[18px\] sm:h-5 sm:w-5/);
