@@ -9,8 +9,9 @@ import { sourcingUuid } from "@/lib/sourcing/files";
 import type { SourcingStatus } from "@/lib/types";
 import { getStore } from "@/lib/db";
 import { startSourcingMatch } from "@/lib/sourcing/to-rfq";
+import { sendSourcingReply } from "@/lib/sourcing/mail";
 export async function updateSourcingAction(fd: FormData) {
-  await requirePagePermission("rfq.manage", "/crm/dashboard");
+  const session = await requirePagePermission("rfq.manage", "/crm/dashboard");
   const id = String(fd.get("id") ?? ""); const version = Number(fd.get("version"));
   const status = String(fd.get("status") ?? "") as SourcingStatus;
   const assigned = String(fd.get("assigned_to") ?? "");
@@ -21,10 +22,20 @@ export async function updateSourcingAction(fd: FormData) {
     const user = sourcingUuid(assigned) ? await store.getUser(assigned) : null;
     if (!user?.is_active || !hasPermission(user.role, "rfq.manage")) redirect("/crm/sourcing?error=assignee");
   }
+  // Sao chép trước khi cập nhật: kho cục bộ sửa thẳng vào bản ghi, so sánh sau đó sẽ sai.
+  const current = await store.getSourcingRequest(id);
+  const before = current ? { ...current } : null;
   const result = await store.updateSourcingRequest(id, version, { status, assigned_to: assigned || null, internal_note: note || null, buyer_reply: reply || null });
   if (!result) redirect("/crm/sourcing?error=conflict");
+  // Phản hồi mới hoặc đã sửa thì báo người mua qua email; lưu ghi chú nội bộ thì không gửi gì.
+  let mailed = "";
+  if (before && reply && reply !== (before.buyer_reply ?? "").trim()) {
+    const delivery = await sendSourcingReply(store, { ...before, status, buyer_reply: reply }, reply, session.email)
+      .catch((err) => { console.error("[sourcing] reply saved but email failed", err); return null; });
+    mailed = delivery?.ok ? "&mailed=1" : "&mailed=0";
+  }
   revalidatePath("/crm", "layout"); revalidatePath("/crm/sourcing"); revalidatePath("/buyer/account"); revalidatePath(`/buyer/account/sourcing/${id}`);
-  redirect(`/crm/sourcing?saved=${id}`);
+  redirect(`/crm/sourcing?saved=${id}${mailed}`);
 }
 
 /** Bắt đầu ghép nhà cung cấp: tạo (hoặc mở lại) RFQ liên kết rồi chuyển sang trang ghép. */

@@ -38,6 +38,7 @@ const rfq = { id: 'rfq-1', code, buyer_id: 'buyer-1', product_text: 'Cashew', qu
 const buyer = { id: 'buyer-1', email: 'buyer@example.com', cc_emails: 'assistant@example.com', contact_name: 'Jane Smith' };
 const supplier = { id: 'supplier-1', email: 'supplier@example.com', name: 'Factory One' };
 const match = { id, rfq_id: rfq.id, supplier_id: supplier.id, sent_to_supplier_at: '2026-10-16T10:00:00Z', supplier_replied_at: null };
+const sourcingRequest = { id: 'abcdef01-2345-4678-9abc-def012345678', buyer_email: 'sourcer@example.com' };
 const messages = [];
 const sent = [];
 let transportFailed = false;
@@ -64,6 +65,7 @@ const store = {
   getSupplier: async (sid) => sid === supplier.id ? supplier : null,
   getUserByEmail: async () => null,
   listRfqMatches: async () => [match],
+  getSourcingRequest: async (sid) => sid === sourcingRequest.id ? sourcingRequest : null,
 };
 const bareAddress = (s) => (s.match(/<([^>]+)>/)?.[1] ?? s).split(',')[0].trim();
 const escapeHtml = (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
@@ -121,6 +123,19 @@ await receive('buyer-cc', 'assistant@example.com', router.buyerReplyAddress(code
 assert.equal(messages.at(-1).rfq_id, rfq.id);
 await receive('wrong-buyer', 'stranger@example.com', router.buyerReplyAddress(code));
 assert.equal(messages.at(-1).rfq_id, null);
+
+// Yêu cầu tìm nguồn: thư người mua trả lời vào sourcing+id gắn đúng mạch, người lạ thì không.
+const sourcingAddr = router.sourcingReplyAddress(sourcingRequest.id);
+assert.equal(sourcingAddr, 'sourcing+abcdef0123454678' + '9abcdef012345678@veximtrade.com');
+assert.equal(router.parseSourcingRoute([`Vexim <${sourcingAddr}>`]), sourcingRequest.id);
+assert.equal(router.parseSourcingRoute([sourcingAddr.replace('@veximtrade.com', '@evil.com')]), null);
+assert.throws(() => router.sourcingReplyAddress('not-a-uuid'));
+await receive('sourcing-reply', `Buyer <${sourcingRequest.buyer_email}>`, sourcingAddr);
+assert.equal(messages.at(-1).thread_id, `sourcing-${sourcingRequest.id}`, 'Thư trả lời gắn vào mạch của yêu cầu tìm nguồn');
+assert.equal(messages.at(-1).direction, 'buyer');
+assert.equal(messages.at(-1).rfq_id, null);
+await receive('sourcing-stranger', 'stranger@example.com', sourcingAddr);
+assert.notEqual(messages.at(-1).thread_id, `sourcing-${sourcingRequest.id}`, 'Người lạ đoán địa chỉ không chen được vào yêu cầu');
 
 const { notifyBuyerRfqStatus } = loadTS('../lib/rfq/buyer-notify.ts', mocks);
 assert.equal((await notifyBuyerRfqStatus(rfq, 'sampling', id)).sent, true);

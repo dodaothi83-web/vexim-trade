@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getBuyerSession } from "@/lib/auth/buyer-session";
 import { protectPublicRequest } from "@/lib/auth/abuse-protection";
 import { sourcingStore } from "@/lib/sourcing/store";
+import { sendSourcingAck } from "@/lib/sourcing/mail";
 import { SOURCING_MAX_BODY_BYTES, SOURCING_MAX_FILE_BYTES, SOURCING_MAX_FILES, sourcingMime, sourcingUuid, sourcingFilename } from "@/lib/sourcing/files";
 import type { SourcingRequest } from "@/lib/types";
 
@@ -67,6 +68,9 @@ export async function POST(request: Request) {
     saving = false;
     // A concurrent retry won the unique key. Remove only our unused upload keys.
     if (saved.id !== id) await Promise.allSettled(staged.map((path) => store!.deleteSourcingFile(path)));
+    // Thư xác nhận chỉ gửi một lần cho yêu cầu mới; lỗi gửi không làm hỏng yêu cầu đã lưu.
+    else await sendSourcingAck(store, saved, vi ? "vi" : "en")
+      .catch((err) => console.error("[sourcing] acknowledgement email failed", err));
     return json({ id: saved.id }, 201);
   } catch (cause) {
     // An uncertain database insert may already have committed. Never delete its attachments.

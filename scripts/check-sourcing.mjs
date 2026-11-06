@@ -36,7 +36,8 @@ const store = {
   getSourcingFile: async (key) => files.get(key),
 };
 const base = { '@/lib/auth/buyer-session': { getBuyerSession: async () => buyer }, '@/lib/sourcing/store': { sourcingStore: () => store }, '@/lib/sourcing/files': fileRules };
-const { POST } = load('app/api/buyer/sourcing/route.ts', { ...base, 'node:crypto': crypto, 'next/server': { NextResponse }, '@/lib/auth/abuse-protection': { protectPublicRequest: async () => allowed ? { ok: true } : { ok: false, status: 429, message: 'Limited' } } });
+const acks = [];
+const { POST } = load('app/api/buyer/sourcing/route.ts', { ...base, '@/lib/sourcing/mail': { sendSourcingAck: async (_store, saved, language) => { acks.push([saved.id, language]); return { ok: true }; } }, 'node:crypto': crypto, 'next/server': { NextResponse }, '@/lib/auth/abuse-protection': { protectPublicRequest: async () => allowed ? { ok: true } : { ok: false, status: 429, message: 'Limited' } } });
 const nonce = crypto.randomUUID();
 function request({ key = nonce, text = 'Source cashews, two containers to Hanoi.', attachment, origin = 'https://www.veximtrade.com', email } = {}) {
   const fd = new FormData(); fd.set('content', text); fd.set('submission_key', key); fd.set('challengeToken', 'verified');
@@ -51,6 +52,8 @@ assert.equal(row.buyer_email, buyer.email, 'Untrusted owner field ignored');
 assert.equal(row.status, 'new'); assert.equal(row.attachments[0].mime, 'application/pdf', 'Sniff bytes rather than declared image MIME');
 assert.equal(saveCalls, 1); assert.equal(files.size, 1);
 response = await POST(request()); assert.equal((await response.json()).id, id); assert.equal(saveCalls, 1, 'Retry deduplicated per buyer');
+assert.equal(acks.length, 1, 'Thư xác nhận gửi một lần cho yêu cầu mới, không gửi lại khi bấm gửi trùng');
+assert.equal(acks[0][0], id);
 response = await POST(request({ key: crypto.randomUUID(), attachment: '<script>evil</script>' })); assert.equal(response.status, 400); assert.equal(files.size, 1);
 response = await POST(request({ key: crypto.randomUUID(), attachment: 'a'.repeat(2 * 1024 * 1024 + 1) })); assert.equal(response.status, 400);
 response = await POST(request({ text: '   ' })); assert.equal(response.status, 400);

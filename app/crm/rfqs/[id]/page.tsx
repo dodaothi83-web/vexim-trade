@@ -28,6 +28,7 @@ import { ActionForm, PendingButton } from "@/components/action-form";
 import { ComposeEmailDialog } from "@/components/compose-email-dialog";
 import { MessageTimeline } from "@/components/message-timeline";
 import { toTimelineItem } from "@/lib/mail/timeline";
+import { sourcingThreadId } from "@/lib/rfq/reply-routing";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { updateRfqStatusFormAction } from "../actions";
@@ -202,6 +203,14 @@ export default async function RfqDetailPage({
     .sort((a, b) => b.score - a.score || ((reviewedSteps.get(b.s.id)?.length ?? 0) - (reviewedSteps.get(a.s.id)?.length ?? 0)))
     .slice(0, 50)
     .map((x) => x.s);
+
+  // RFQ tạo từ yêu cầu tìm nguồn: thư với người mua trước khi ghép cũng thuộc câu chuyện này.
+  const linkedRequestId = linkedSourcingRequestId(rfq);
+  const timelineMessages = linkedRequestId
+    ? [...messages, ...(await store.listMessagesForThreads([sourcingThreadId(linkedRequestId)]).catch(() => []))]
+      .filter((m, i, all) => all.findIndex((x) => x.id === m.id) === i)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    : messages;
 
   // Map match → messages
   const messagesByMatch = new Map<string, (typeof messages)[number][]>();
@@ -616,7 +625,7 @@ export default async function RfqDetailPage({
           </section>
 
           {/* Timeline */}
-          <MessageTimeline title="Timeline thư từ" items={messages.map((msg) => {
+          <MessageTimeline title="Timeline thư từ" items={timelineMessages.map((msg) => {
             const sup = msg.rfq_match_id ? supplierMap.get(matches.find((m) => m.id === msg.rfq_match_id)?.supplier_id ?? "") : null;
             return toTimelineItem(msg, sup ? { name: supplierName(sup, sup.id), href: `/crm/suppliers/${sup.id}` } : null);
           })} empty="Chưa có email nào cho RFQ này. Thư gửi nhà cung cấp, người mua và phản hồi sẽ hiện ở đây." />

@@ -11,6 +11,10 @@ import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
 import { assigneeLabel } from "@/lib/rfq/assignees";
 import type { AppUser, Buyer, Rfq, SourcingRequest } from "@/lib/types";
 import { startSourcingMatchAction, updateSourcingAction } from "./actions";
+import { MessageTimeline } from "@/components/message-timeline";
+import { toTimelineItem } from "@/lib/mail/timeline";
+import { sourcingThreadId } from "@/lib/rfq/reply-routing";
+import type { EmailMessage } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +57,7 @@ type Item =
   | { kind: "request"; at: string; stage: Stage; request: SourcingRequest; linked: Rfq | null }
   | { kind: "rfq"; at: string; stage: Stage; rfq: Rfq };
 
-export default async function SourcingInbox({ searchParams }: { searchParams: Promise<{ status?: string; error?: string; saved?: string; open?: string }> }) {
+export default async function SourcingInbox({ searchParams }: { searchParams: Promise<{ status?: string; error?: string; saved?: string; open?: string; mailed?: string }> }) {
   const actor = await requirePagePermission("rfq.view", "/crm/dashboard");
   const query = await searchParams;
   const manage = hasPermission(actor.role, "rfq.manage");
@@ -65,6 +69,13 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
     main.listRfqs().catch(() => [] as Rfq[]),
     main.listBuyers().catch(() => [] as Buyer[]),
   ]);
+  // Thư với người mua của từng yêu cầu (xác nhận, phản hồi, thư người mua trả lời).
+  const threadMessages = await main.listMessagesForThreads(requests.map((r) => sourcingThreadId(r.id)))
+    .catch((error) => { console.error("[sourcing] could not read request emails", error); return [] as EmailMessage[]; });
+  const messagesByThread = new Map<string, EmailMessage[]>();
+  for (const msg of threadMessages) messagesByThread.set(msg.thread_id, [...(messagesByThread.get(msg.thread_id) ?? []), msg]);
+  // Thư mới nhất là thư người mua gửi tới: nhân viên cần đọc và xử lý tiếp.
+  const buyerReplied = (id: string) => messagesByThread.get(sourcingThreadId(id))?.[0]?.kind === "inbound";
   const staff = users.filter((u) => u.is_active && hasPermission(u.role, "rfq.manage"));
   const userMap = new Map<string, AppUser>(users.map((u) => [u.id, u]));
   const buyerMap = new Map(buyers.map((b) => [b.id, b]));
@@ -110,7 +121,9 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
         : query.error === "assignee" ? "Người phụ trách không hợp lệ hoặc không có quyền xử lý."
           : query.error === "closed" ? "Yêu cầu đã kết thúc. Mở lại (chuyển Đang xử lý) trước khi ghép nhà cung cấp."
             : "Dữ liệu không hợp lệ. Khi cần bổ sung thông tin, hãy nhập phản hồi cho người mua."}</p>}
-    {query.saved && <p role="status" className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">Đã lưu cập nhật.</p>}
+    {query.saved && (query.mailed === "0"
+      ? <p role="status" className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">Đã lưu phản hồi nhưng chưa gửi được email. Người mua vẫn thấy phản hồi trong tài khoản.</p>
+      : <p role="status" className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">{query.mailed === "1" ? "Đã lưu và gửi email phản hồi cho người mua." : "Đã lưu cập nhật."}</p>)}
 
     {!rows.length ? <p className="rounded-xl border border-ink-200 bg-white p-8 text-center text-sm text-ink-500">Chưa có yêu cầu trong nhóm này.</p> : (
       <ul className="card divide-y divide-ink-100 overflow-hidden">
@@ -141,6 +154,7 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
                   <span className="block truncate text-[14px] font-semibold text-ink-900">{sourcingSummary(r.content)}</span>
                   <span className="mt-0.5 block truncate text-[12px] text-ink-500">{r.buyer_email} · {r.id.slice(0, 8).toUpperCase()} · {when(r.created_at)}{r.attachments.length > 0 && ` · ${r.attachments.length} tệp`}</span>
                 </span>
+                {buyerReplied(r.id) && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-800">Người mua đã trả lời</span>}
                 <span className="rounded-md bg-teal-50 px-1.5 py-0.5 text-[11px] font-semibold text-teal-800">Viết tự do</span>
                 <span className="text-[12px] font-semibold text-brand-700">
                   {linked ? `${RFQ_STATUS[linked.status] ?? linked.status} · ${linked.code}` : sourcingCrmStatusLabel(r.status)}
@@ -167,11 +181,16 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
                   </form> : <span className="text-ink-500">{r.status === "closed" ? "Yêu cầu đã kết thúc." : "Cần quyền xử lý RFQ để ghép nhà cung cấp."}</span>}
                 </div>
 
+                <div className="mt-4">
+                  <MessageTimeline title="Thư với người mua" items={(messagesByThread.get(sourcingThreadId(r.id)) ?? []).map((msg) => toTimelineItem(msg))}
+                    empty="Chưa có email nào. Thư xác nhận, phản hồi và thư người mua trả lời sẽ hiện ở đây." />
+                </div>
+
                 {manage ? <form action={updateSourcingAction} className="mt-4 grid gap-4 sm:grid-cols-2">
                   <input type="hidden" name="id" value={r.id} /><input type="hidden" name="version" value={r.version} />
                   <label className="text-sm font-semibold">Trạng thái<select name="status" defaultValue={r.status} className="input mt-2 w-full">{sourcingStatuses.map((s) => <option key={s} value={s}>{sourcingCrmStatusLabel(s)}</option>)}</select></label>
                   <label className="text-sm font-semibold">Người phụ trách<select name="assigned_to" defaultValue={r.assigned_to ?? ""} className="input mt-2 w-full"><option value="">Chưa phân công</option>{staff.map((u) => <option key={u.id} value={u.id}>{assigneeLabel(u)}</option>)}</select></label>
-                  <label className="text-sm font-semibold">Phản hồi cho người mua<textarea name="buyer_reply" defaultValue={r.buyer_reply ?? ""} maxLength={3000} rows={3} className="input mt-2 w-full" /><span className="mt-1 block text-xs font-normal text-ink-500">Hiển thị trong tài khoản người mua. Bắt buộc khi cần bổ sung thông tin.</span></label>
+                  <label className="text-sm font-semibold">Phản hồi cho người mua<textarea name="buyer_reply" defaultValue={r.buyer_reply ?? ""} maxLength={3000} rows={3} className="input mt-2 w-full" /><span className="mt-1 block text-xs font-normal text-ink-500">Hiển thị trong tài khoản người mua và gửi email khi bạn lưu nội dung mới. Bắt buộc khi cần bổ sung thông tin.</span></label>
                   <label className="text-sm font-semibold">Ghi chú nội bộ<textarea name="internal_note" defaultValue={r.internal_note ?? ""} maxLength={3000} rows={3} className="input mt-2 w-full" /><span className="mt-1 block text-xs font-normal text-ink-500">Chỉ nhân viên CRM được xem.</span></label>
                   <button className="btn btn-soft justify-self-start sm:col-span-2">Lưu cập nhật</button>
                 </form> : <div className="mt-4 space-y-2 text-sm">
