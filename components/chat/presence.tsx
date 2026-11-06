@@ -18,21 +18,22 @@ export interface PresenceLabels {
 
 export const PRESENCE_LABELS: Record<"en" | "vi", PresenceLabels> = {
   en: { online: "Online", offline: "Offline", activeAgo: "Active {time}", sending: "Sending", sent: "Sent", seen: "Seen" },
-  vi: { online: "Đang online", offline: "Offline", activeAgo: "Hoạt động {time}", sending: "Đang gửi", sent: "Đã gửi", seen: "Đã xem" },
+  vi: { online: "Đang online", offline: "Offline", activeAgo: "{time}", sending: "Đang gửi", sent: "Đã gửi", seen: "Đã xem" },
 };
 
 export function onlineNow(lastSeen: string | null | undefined, nowMs = Date.now()): boolean {
   return Boolean(lastSeen) && nowMs - Date.parse(lastSeen!) < PRESENCE_ONLINE_MS;
 }
 
-/** "5 phút trước", "3 giờ trước", "hôm qua"… theo ngôn ngữ người xem. */
+/** Gọn để vừa một dòng: "5m ago" / "5 phút trước", "2h ago" / "2 giờ trước", "3d ago" / "3 ngày trước". */
 export function agoText(iso: string, locale: string, nowMs = Date.now()): string {
-  const diff = Math.round((Date.parse(iso) - nowMs) / 1000);
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  const abs = Math.abs(diff);
-  if (abs < 3600) return rtf.format(Math.round(diff / 60) || -1, "minute");
-  if (abs < 86400) return rtf.format(Math.round(diff / 3600), "hour");
-  if (abs < 7 * 86400) return rtf.format(Math.round(diff / 86400), "day");
+  const vi = locale.startsWith("vi");
+  const mins = Math.max(1, Math.round((nowMs - Date.parse(iso)) / 60_000));
+  if (mins < 60) return vi ? `${mins} phút trước` : `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return vi ? `${hours} giờ trước` : `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return vi ? `${days} ngày trước` : `${days}d ago`;
   return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit" }).format(new Date(iso));
 }
 
@@ -46,7 +47,7 @@ export function PresenceDot({ lastSeen, label, className }: { lastSeen: string |
 export function PresenceLine({ lastSeen, labels, locale, dark = false }: { lastSeen: string | null | undefined; labels: PresenceLabels; locale: string; dark?: boolean }) {
   const online = onlineNow(lastSeen);
   const text = online ? labels.online : lastSeen ? labels.activeAgo.replace("{time}", agoText(lastSeen, locale)) : labels.offline;
-  return <span className={cx("inline-flex items-center gap-1.5", dark ? "text-brand-100" : "text-ink-500")}>
+  return <span title={lastSeen && !online ? new Date(lastSeen).toLocaleString(locale) : undefined} className={cx("inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap", dark ? "text-brand-100" : "text-ink-500")}>
     <span aria-hidden="true" className={cx("h-2 w-2 shrink-0 rounded-full", online ? "bg-emerald-500" : dark ? "bg-white/40" : "bg-ink-300")} />
     {text}
   </span>;
