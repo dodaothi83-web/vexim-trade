@@ -16,6 +16,7 @@ import { storefrontMessages, type StorefrontMessages } from "./storefront";
 import { noticesMessages, type NoticesMessages } from "./notices";
 import { quantityMessages, type QuantityMessages } from "./quantity";
 import { evidenceMessages, type EvidenceMessages } from "./evidence";
+import { chatMessages, type ChatMessages } from "./chat";
 
 /**
  * Từ điển cổng nhà cung cấp, chia theo cụm để chuyển dần (giai đoạn 2).
@@ -41,6 +42,7 @@ export type PortalMessages = {
   notices: NoticesMessages;
   quantity: QuantityMessages;
   evidence: EvidenceMessages;
+  chat: ChatMessages;
 };
 
 export const portalMessages: Record<Locale, PortalMessages> = {
@@ -62,6 +64,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     notices: noticesMessages.en,
     quantity: quantityMessages.en,
     evidence: evidenceMessages.en,
+    chat: chatMessages.en,
   },
   vi: {
     shared: sharedMessages.vi,
@@ -81,6 +84,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     notices: noticesMessages.vi,
     quantity: quantityMessages.vi,
     evidence: evidenceMessages.vi,
+    chat: chatMessages.vi,
   },
 };
 

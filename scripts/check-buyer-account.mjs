@@ -143,7 +143,8 @@ for (lang of ['en', 'vi']) {
 }
 emptyDashboard = false;
 const dashboardSource = read('app/(public)/buyer/account/page.tsx');
-assert.match(dashboardSource, /const nav = \[\{ id: "overview", icon: LayoutDashboard \}, \{ id: "requests", icon: ClipboardList \}, \{ id: "saved", icon: Heart \}, \{ id: "profile", icon: UserRound \}\]/);
+assert.match(dashboardSource, /const nav = \[\{ id: "overview", icon: LayoutDashboard \}, \{ id: "messages", icon: MessageCircle \}, \{ id: "requests", icon: ClipboardList \}, \{ id: "saved", icon: Heart \}, \{ id: "profile", icon: UserRound \}\]/);
+assert.match(dashboardSource, /id === "messages" \? "\/buyer\/account\/messages"/, 'Mục Tin nhắn mở trang chat của người mua');
 redirectAttempt = true;
 await assert.rejects(dashboard.default({ searchParams: Promise.resolve({ tab: 'saved' }) }), /redirect/);
 

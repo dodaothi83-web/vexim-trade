@@ -4,7 +4,7 @@ import { BuyerSourcingHistory } from "@/components/buyer-sourcing-history";
 import { sourcingStore } from "@/lib/sourcing/store";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LayoutDashboard, ClipboardList, Heart, UserRound, ArrowRight, Search, Headphones, PackageSearch } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Heart, UserRound, ArrowRight, Search, Headphones, PackageSearch, MessageCircle } from "lucide-react";
 import { requireBuyerSession } from "@/lib/auth/buyer-session";
 import { getStore } from "@/lib/db";
 import { getLocale } from "@/lib/i18n/server";
@@ -52,10 +52,11 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
   const titles = {
     overview: vi ? "Tổng quan" : "Overview",
     requests: vi ? "Yêu cầu của tôi" : "My enquiries",
+    messages: vi ? "Tin nhắn" : "Messages",
     saved: vi ? "Sản phẩm đã lưu" : "Saved products",
     profile: vi ? "Thông tin tài khoản" : "Account details",
   };
-  const nav = [{ id: "overview", icon: LayoutDashboard }, { id: "requests", icon: ClipboardList }, { id: "saved", icon: Heart }, { id: "profile", icon: UserRound }] as const;
+  const nav = [{ id: "overview", icon: LayoutDashboard }, { id: "messages", icon: MessageCircle }, { id: "requests", icon: ClipboardList }, { id: "saved", icon: Heart }, { id: "profile", icon: UserRound }] as const;
   const activeSourcing = sourcing.filter((r) => r.status !== "closed").length;
   const activeRequests = requests.filter((r) => r.status !== "won" && r.status !== "lost").length;
   const savedSection = (preview: boolean) => <section className={panel} aria-label={titles.saved}>
@@ -80,7 +81,7 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
       <div className="grid items-start gap-5 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[210px_minmax(0,1fr)_290px]">
         <aside className="lg:sticky lg:top-24">
           <p className="mb-4 px-3 text-xs font-bold uppercase tracking-wider text-ink-500">{vi ? "Tài khoản người mua" : "Buyer account"}</p>
-          <nav aria-label={vi ? "Điều hướng tài khoản" : "Account navigation"} className="flex gap-1 overflow-x-auto lg:flex-col">{nav.map(({ id, icon: Icon }) => <Link key={id} href={id === "overview" ? "/buyer/account" : `/buyer/account?tab=${id}`} aria-current={tab === id ? "page" : undefined} className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ${tab === id ? "bg-white text-brand-700 shadow-sm" : "text-ink-600 hover:bg-white"}`}><Icon className="h-4 w-4" aria-hidden />{titles[id]}</Link>)}</nav>
+          <nav aria-label={vi ? "Điều hướng tài khoản" : "Account navigation"} className="flex gap-1 overflow-x-auto lg:flex-col">{nav.map(({ id, icon: Icon }) => <Link key={id} href={id === "overview" ? "/buyer/account" : id === "messages" ? "/buyer/account/messages" : `/buyer/account?tab=${id}`} aria-current={tab === id ? "page" : undefined} className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ${tab === id ? "bg-white text-brand-700 shadow-sm" : "text-ink-600 hover:bg-white"}`}><Icon className="h-4 w-4" aria-hidden />{titles[id]}</Link>)}</nav>
           <Link href="/#categories" className="mt-5 hidden items-center gap-2 px-3 text-sm font-semibold text-brand-700 lg:flex"><Search className="h-4 w-4" />{vi ? "Khám phá sản phẩm" : "Explore products"}</Link>
         </aside>
         <div className="min-w-0 space-y-5">

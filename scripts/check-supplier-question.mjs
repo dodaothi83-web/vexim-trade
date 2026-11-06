@@ -335,8 +335,10 @@ const dialog = fs.readFileSync(new URL('../components/products/ask-supplier-dial
 assert.match(dialog, /<dialog/);
 assert.match(dialog, /showModal\(\)/);
 assert.match(dialog, /aria-labelledby="ask-supplier-title"/);
-assert.match(dialog, /mode="question"/);
-assert.match(dialog, /onQuestionSuccess=\{setSuccessUrl\}/);
+// Ask supplier mở chat trên Vexim, không còn gửi email trực tiếp qua form câu hỏi.
+assert.doesNotMatch(dialog, /mode="question"|RfqForm/);
+assert.match(dialog, /fetch\("\/api\/chat\/start"/);
+assert.match(dialog, /\/buyer\/account\/messages\?c=/);
 assert.match(dialog, /params.get\("ask"\) === "1"/);
 assert.match(form, /I agree to share my name, company, email and this question/);
 assert.match(form, /Send question/);

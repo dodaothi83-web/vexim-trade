@@ -1,4 +1,4 @@
-import type { SourcingRequest } from "@/lib/types";
+import type { ChatConversation, ChatMessage, SourcingRequest } from "@/lib/types";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { PRODUCT_EXTRAS_COLUMNS, type ProductExtrasColumn } from "@/lib/products/product-extras";
 
@@ -1168,6 +1168,52 @@ export const supabaseStore: DataStore = {
       .order("created_at", { ascending: false });
     if (error) fail("listMessagesForRfq", error);
     return (data ?? []) as EmailMessage[];
+  },
+  async findChatConversation(buyerEmail, supplierId) {
+    const { data, error } = await must().from("chat_conversations").select("*")
+      .eq("buyer_email", buyerEmail.trim().toLowerCase()).eq("supplier_id", supplierId).maybeSingle();
+    if (error) fail("findChatConversation", error);
+    return (data ?? null) as ChatConversation | null;
+  },
+  async getChatConversation(id) {
+    const { data, error } = await must().from("chat_conversations").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getChatConversation", error);
+    return (data ?? null) as ChatConversation | null;
+  },
+  async createChatConversation(input) {
+    const row = { ...input, buyer_email: input.buyer_email.trim().toLowerCase() };
+    // Một cặp người mua + nhà cung cấp chỉ có một cuộc trò chuyện; bấm hỏi hai lần cùng lúc
+    // thì lần sau đọc lại cuộc đã có thay vì báo lỗi.
+    const { data, error } = await must().from("chat_conversations")
+      .upsert(row, { onConflict: "buyer_email,supplier_id", ignoreDuplicates: true }).select("*").maybeSingle();
+    if (error) fail("createChatConversation", error);
+    if (data) return data as ChatConversation;
+    const existing = await this.findChatConversation(row.buyer_email, row.supplier_id);
+    if (!existing) throw new Error("createChatConversation: conversation not found after upsert");
+    return existing;
+  },
+  async updateChatConversation(id, patch) {
+    const { error } = await must().from("chat_conversations").update(patch).eq("id", id);
+    if (error) fail("updateChatConversation", error);
+  },
+  async listChatConversations(filter) {
+    let query = must().from("chat_conversations").select("*");
+    if (filter.buyerEmail) query = query.eq("buyer_email", filter.buyerEmail.trim().toLowerCase());
+    if (filter.supplierId) query = query.eq("supplier_id", filter.supplierId);
+    const { data, error } = await query.order("last_message_at", { ascending: false, nullsFirst: false }).limit(filter.limit ?? 200);
+    if (error) fail("listChatConversations", error);
+    return (data ?? []) as ChatConversation[];
+  },
+  async listChatMessages(conversationId, limit = 500) {
+    const { data, error } = await must().from("chat_messages").select("*")
+      .eq("conversation_id", conversationId).order("created_at", { ascending: false }).limit(limit);
+    if (error) fail("listChatMessages", error);
+    return ((data ?? []) as ChatMessage[]).reverse();
+  },
+  async addChatMessage(input) {
+    const { data, error } = await must().from("chat_messages").insert(input).select("*").single();
+    if (error) fail("addChatMessage", error);
+    return data as ChatMessage;
   },
   async listMessagesForThreads(threadIds) {
     const ids = [...new Set(threadIds)].filter(Boolean);

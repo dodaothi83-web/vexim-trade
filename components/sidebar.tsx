@@ -23,6 +23,7 @@ import {
   FileQuestion,
   ChartNoAxesColumn,
   Megaphone,
+  MessageCircle,
 } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
@@ -44,6 +45,7 @@ const NAV: {
   { href: "/crm/products", label: "Sản phẩm nhà cung cấp", icon: Boxes, perm: "products.view", group: "marketplace" },
   { href: "/crm/sourcing", label: "Yêu cầu tìm nguồn", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/rfqs", label: "RFQ từ người mua", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
+  { href: "/crm/messages", label: "Tin nhắn Ask supplier", icon: MessageCircle, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/verifications", label: "Xác minh nhà cung cấp", icon: ShieldCheck, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/verifications/submissions", label: "Hồ sơ nhà cung cấp tự gửi", icon: UploadCloud, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/certificates", label: "Giấy tờ & chứng nhận", icon: FileCheck2, perm: "verifications.view", group: "marketplace" },
