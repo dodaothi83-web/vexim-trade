@@ -16,15 +16,18 @@ const en = {
   },
   pending: {
     title: "Profile awaiting review",
-    body:
-      "Your profile for {company} has been sent and is waiting for review. You can sign in to follow the status; products, RFQs, notifications and reports open as soon as the profile is approved.",
+    body: "Your profile for {company} has been sent and is waiting for review. The result goes to {email}.",
+    timing: "Usually within 1 working day",
     disclaimer:
-      "Confirming the account does not approve documents, verify the factory, confirm delivery history or publish the profile.",
+      "This page updates on its own. Approval opens the portal; documents, factory and delivery history are verified separately later.",
+    afterTitle: "Once approved, you can",
+    helpTitle: "Need to change something or ask a question?",
+    helpBody: "Contact our support team:",
     steps: {
-      submit: { label: "Submit profile", note: "Sent" },
-      review: { label: "Profile review", note: "Waiting for review" },
-      open: { label: "Portal opens", note: "When the profile is approved" },
-      products: { label: "Add products and receive RFQs", note: "After the portal opens" },
+      submit: { label: "Profile sent", note: "Done" },
+      review: { label: "Profile review", note: "In progress" },
+      open: { label: "Portal opens", note: "After approval" },
+      products: { label: "Products and RFQs", note: "After the portal opens" },
     },
   },
   degraded: {
@@ -118,15 +121,18 @@ const vi: OverviewMessages = {
   },
   pending: {
     title: "Hồ sơ đang chờ duyệt",
-    body:
-      "Hồ sơ {company} đã gửi và đang chờ duyệt. Bạn vẫn đăng nhập được để theo dõi trạng thái; sản phẩm, RFQ, thông báo và báo cáo sẽ mở ngay khi hồ sơ được duyệt.", // copy-allow: khối giải thích dài, hiển thị thành đoạn riêng
+    body: "Hồ sơ {company} đã gửi và đang chờ duyệt. Kết quả sẽ gửi về {email}.",
+    timing: "Thường có kết quả trong 1 ngày làm việc",
     disclaimer:
-      "Xác nhận tài khoản không đồng nghĩa duyệt giấy tờ, xác thực nhà máy, lịch sử giao hàng hoặc công khai hồ sơ.",
+      "Trang tự cập nhật khi có kết quả. Duyệt hồ sơ để mở cổng; giấy tờ, nhà máy, giao hàng được xác minh riêng sau.",
+    afterTitle: "Khi hồ sơ được duyệt, bạn có thể",
+    helpTitle: "Cần sửa thông tin hoặc hỏi thêm?",
+    helpBody: "Liên hệ bộ phận hỗ trợ:",
     steps: {
-      submit: { label: "Khai hồ sơ", note: "Đã gửi" },
-      review: { label: "Xác nhận hồ sơ", note: "Đang chờ duyệt" },
-      open: { label: "Mở cổng nhà cung cấp", note: "Khi hồ sơ được duyệt" },
-      products: { label: "Thêm sản phẩm & nhận RFQ", note: "Sau khi mở cổng" },
+      submit: { label: "Gửi hồ sơ", note: "Đã xong" },
+      review: { label: "Duyệt hồ sơ", note: "Đang xử lý" },
+      open: { label: "Mở cổng", note: "Sau khi duyệt" },
+      products: { label: "Sản phẩm và RFQ", note: "Sau khi mở cổng" },
     },
   },
   degraded: {

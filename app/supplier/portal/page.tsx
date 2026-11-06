@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChartNoAxesColumn, Clock3, Mail, Package, Plus } from "lucide-react";
+import { ChartNoAxesColumn, Clock3, Mail, Package, Phone, Plus } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { COMPANY } from "@/lib/config";
 import { requireSession } from "@/lib/auth/session";
 import { supplierAccountAccess, supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { canSubmitProfile, portalApproved } from "@/lib/supplier-portal/onboarding";
@@ -77,14 +78,47 @@ export default async function SupplierPortal() {
       </div>}
       <div className="mt-5"><SupplierProfileForm supplier={supplier} email={user.email} accountName={user.name} categories={categoryOptions}
         categoryRequests={categoryRequestViews(categoryRows)} hasCoreDoc={hasCoreDoc} messages={m.onboarding} types={m.shared.supplierTypes} lang={locale} /></div>
-    </> : <><PendingProfileRefresh lang={locale}>{copy.pendingRefresh}</PendingProfileRefresh><div className="rounded-xl border border-amber-200 bg-amber-50 p-6" role="status">
-      <h2 className="text-base font-bold text-amber-950">{copy.pending.title}</h2>
-      <p className="mt-2 text-sm text-amber-900">{fill(copy.pending.body, { company: supplier.name })}</p>
-      <p className="mt-3 text-xs text-amber-800">{copy.pending.disclaimer}</p>
-    </div>
+    </> : <>
+      {/* Màn chờ duyệt: một thẻ trạng thái (đã gửi gì, bao lâu, kết quả về đâu) và tiến trình ngang,
+          rồi hai thẻ phụ: việc làm được sau khi duyệt và cách liên hệ. Màu trung tính vì đây là
+          trạng thái bình thường, không phải cảnh báo. */}
+      <section role="status" className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex items-start gap-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+            <Clock3 className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-ink-900">{copy.pending.title}</h2>
+            <p className="mt-1 text-sm leading-6 text-ink-700">{fill(copy.pending.body, { company: supplier.display_name || supplier.trade_name || supplier.name, email: user.email })}</p>
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-ink-50 px-2.5 py-1 text-[12px] font-semibold text-ink-700">
+              <Clock3 className="h-3.5 w-3.5 text-ink-500" aria-hidden="true" /> {copy.pending.timing}
+            </p>
+          </div>
+        </div>
+        <ol className="mt-6 grid gap-3 border-t border-ink-100 pt-5 sm:grid-cols-4 sm:gap-2">
+          {([
+            [copy.pending.steps.submit, "done"],
+            [copy.pending.steps.review, "current"],
+            [copy.pending.steps.open, "todo"],
+            [copy.pending.steps.products, "todo"],
+          ] as const).map(([step, state], i) => <li key={step.label} className="flex items-center gap-3 sm:flex-col sm:items-start sm:gap-2">
+            <span className="flex shrink-0 items-center gap-2 sm:w-full">
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${state === "done" ? "bg-brand-700 text-white" : state === "current" ? "bg-amber-100 text-amber-900 ring-2 ring-amber-300" : "bg-ink-100 text-ink-500"}`}>
+                {state === "done" ? "✓" : i + 1}
+              </span>
+              {i < 3 && <span aria-hidden="true" className={`hidden h-0.5 flex-1 rounded sm:block ${state === "done" ? "bg-brand-700" : "bg-ink-200"}`} />}
+            </span>
+            <span className="min-w-0">
+              <span className={`block text-[13px] font-semibold ${state === "todo" ? "text-ink-500" : "text-ink-900"}`}>{step.label}</span>
+              <span className={`block text-[12px] ${state === "current" ? "font-semibold text-amber-700" : state === "done" ? "text-brand-800" : "text-ink-500"}`}>{step.note}</span>
+            </span>
+          </li>)}
+        </ol>
+      </section>
+
     {/* Hồ sơ đang chờ duyệt vẫn phải thấy câu trả lời về ngành họ đề nghị, nếu không họ sẽ
         tưởng yêu cầu bị bỏ quên và đăng ký tài khoản thứ hai. */}
-    {categoryRows.length > 0 && <div className="mt-3 rounded-xl border border-ink-200 bg-white p-4">
+    {categoryRows.length > 0 && <div className="mt-4 rounded-xl border border-ink-200 bg-white p-4">
       <p className="text-sm font-bold text-ink-900">{m.onboarding.picker.requestsTitle}</p>
       <ul className="mt-2 space-y-1 text-[12.5px] leading-snug">
         {categoryRequestViews(categoryRows).map((request) => <li key={`${request.label}-${request.status}`} className="flex flex-wrap items-baseline gap-x-2">
@@ -98,12 +132,24 @@ export default async function SupplierPortal() {
         </li>)}
       </ul>
     </div>}
-    <div className="mt-5"><PortalSteps stages={[
-      { label: copy.pending.steps.submit.label, state: "done", note: copy.pending.steps.submit.note },
-      { label: copy.pending.steps.review.label, state: "current", note: copy.pending.steps.review.note },
-      { label: copy.pending.steps.open.label, state: "todo", note: copy.pending.steps.open.note },
-      { label: copy.pending.steps.products.label, state: "todo", note: copy.pending.steps.products.note },
-    ]} /></div></>}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border border-ink-200 bg-white p-5">
+          <h3 className="text-sm font-bold text-ink-900">{copy.pending.afterTitle}</h3>
+          <ul className="mt-3 space-y-2">{m.onboarding.unlock.map((line) => <li key={line} className="flex items-start gap-2 text-[13px] leading-5 text-ink-700">
+            <span aria-hidden="true" className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[10px] font-bold text-emerald-700">✓</span>{line}
+          </li>)}</ul>
+        </section>
+        <section className="rounded-xl border border-ink-200 bg-white p-5">
+          <h3 className="text-sm font-bold text-ink-900">{copy.pending.helpTitle}</h3>
+          <p className="mt-1 text-[13px] text-ink-600">{copy.pending.helpBody}</p>
+          <ul className="mt-3 space-y-2 text-[13px]">
+            <li><a href={`tel:${COMPANY.phone}`} className="inline-flex items-center gap-2 font-semibold text-brand-700 hover:underline"><Phone className="h-4 w-4" aria-hidden="true" />{COMPANY.phoneDisplay}</a></li>
+            <li><a href={`mailto:${COMPANY.contactEmail}`} className="inline-flex items-center gap-2 font-semibold text-brand-700 hover:underline"><Mail className="h-4 w-4" aria-hidden="true" />{COMPANY.contactEmail}</a></li>
+          </ul>
+        </section>
+      </div>
+      <PendingProfileRefresh lang={locale}>{copy.pending.disclaimer}</PendingProfileRefresh>
+    </>}
   </>;
   // Một bảng thiếu migration không được làm trắng cả cổng. Từng phần được tải riêng:
   // phần nào lỗi thì ghi log, dùng giá trị rỗng và hiện cảnh báo ngay trên trang.

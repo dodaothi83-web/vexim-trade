@@ -19,5 +19,5 @@ export function PendingProfileRefresh({ children, lang }: { children: React.Reac
       window.removeEventListener("focus", refresh);
     };
   }, [router]);
-  return <p lang={lang} className="mb-3 text-xs text-ink-500">{children}</p>;
+  return <p lang={lang} className="mt-4 text-xs leading-5 text-ink-500">{children}</p>;
 }
