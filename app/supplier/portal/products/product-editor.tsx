@@ -1310,13 +1310,16 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 <input className="input max-w-[280px]" name="monthly_capacity" maxLength={180} placeholder={copy.spec.capacityPlaceholder}
                   defaultValue={product?.monthly_capacity ?? ""} disabled={locked} />
               </Row>
-              <Row label={copy.spec.region} hint={copy.spec.regionHint}>
-                <RawMaterialRegionInput defaultValue={product?.raw_material_region ?? ""} disabled={locked} placeholder={shared.regionPlaceholder} />
-              </Row>
-              <Row label={copy.spec.origin} hint={copy.spec.originHint}>
-                <input name="input_material_origin" className="input" maxLength={300}
-                  placeholder={copy.spec.originPlaceholder} defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
-              </Row>
+              {/* Vùng nguyên liệu và xuất xứ đầu vào chung một hàng, hai cột đều nhau (điện thoại xếp dọc). */}
+              <div className="grid border-t border-ink-100 sm:grid-cols-2 [&>div]:border-t-0 [&>div+div]:border-t sm:[&>div+div]:border-l sm:[&>div+div]:border-t-0">
+                <Row label={copy.spec.region} hint={copy.spec.regionHint}>
+                  <RawMaterialRegionInput defaultValue={product?.raw_material_region ?? ""} disabled={locked} placeholder={shared.regionPlaceholder} />
+                </Row>
+                <Row label={copy.spec.origin} hint={copy.spec.originHint}>
+                  <input name="input_material_origin" className="input" maxLength={300}
+                    placeholder={copy.spec.originPlaceholder} defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
+                </Row>
+              </div>
               {!!selectedCategory && (officialAttributeFields.length > 0 || supplierAttributeFields.length > 0) &&
                 <Row label={copy.spec.attributes}>
                   {/* Chỉ hiện thêm khối thông số khi danh mục còn thông số khác ngoài Grade. */}

@@ -489,7 +489,7 @@ export function ProductForm({
             </div>
           )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Thông tin kỹ thuật bổ sung" hint="Nhập thông tin chưa có trường cấu trúc ở trên." className="sm:col-span-2">
+            <Field label="Thông tin kỹ thuật bổ sung" hint="Nhập thông tin chưa có trường cấu trúc ở trên." className="sm:col-span-2 lg:col-span-3">
               <input
                 className="input"
                 value={v("spec")}
@@ -497,21 +497,24 @@ export function ProductForm({
                 placeholder="VD: 25kg PP bag, moisture <= 14%"
               />
             </Field>
-            <Field label="Vùng nguyên liệu" hint="Chọn tỉnh/thành hoặc nhập vùng cụ thể; có thể ghi nhiều vùng cho sản phẩm này.">
-              <RawMaterialRegionInput
-                value={v("raw_material_region")}
-                onChange={(e) => set("raw_material_region", e.target.value)}
-              />
-            </Field>
-            <Field label="Xuất xứ nguyên liệu đầu vào" hint="Nguồn trong nước, nhập khẩu hoặc kết hợp của sản phẩm này.">
-              <input
-                className="input"
-                maxLength={300}
-                value={v("input_material_origin")}
-                onChange={(e) => set("input_material_origin", e.target.value)}
-                placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp"
-              />
-            </Field>
+            {/* Vùng nguyên liệu và xuất xứ đầu vào chung một hàng, hai cột đều nhau. */}
+            <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2 lg:col-span-3">
+              <Field label="Vùng nguyên liệu" hint="Chọn tỉnh/thành hoặc nhập vùng cụ thể; có thể ghi nhiều vùng cho sản phẩm này.">
+                <RawMaterialRegionInput
+                  value={v("raw_material_region")}
+                  onChange={(e) => set("raw_material_region", e.target.value)}
+                />
+              </Field>
+              <Field label="Xuất xứ nguyên liệu đầu vào" hint="Nguồn trong nước, nhập khẩu hoặc kết hợp của sản phẩm này.">
+                <input
+                  className="input"
+                  maxLength={300}
+                  value={v("input_material_origin")}
+                  onChange={(e) => set("input_material_origin", e.target.value)}
+                  placeholder="Ví dụ: Việt Nam, Campuchia hoặc nguồn kết hợp"
+                />
+              </Field>
+            </div>
             <Field label="Công suất / tháng">
               <input
                 className="input"
