@@ -4,6 +4,7 @@ import type { DataStore } from "@/lib/db/types";
 import { getPublicProductRecordsByIds } from "@/lib/public/product-catalog";
 import { presenceKey, readPresence } from "./presence";
 import { supplierShortName } from "@/lib/public/supplier-name";
+import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import type { ChatConversation, ChatMessage, ChatSender, Supplier } from "@/lib/types";
 import { chatPreview, chatRateLimited, cleanChatBody, hasUnread, tooManyNewConversations } from "./core";
 
@@ -14,7 +15,7 @@ import { chatPreview, chatRateLimited, cleanChatBody, hasUnread, tooManyNewConve
  */
 
 export class ChatError extends Error {
-  constructor(public code: "not_found" | "forbidden" | "empty" | "too_long" | "rate_limited" | "product_unavailable") { super(code); }
+  constructor(public code: "not_found" | "forbidden" | "empty" | "too_long" | "rate_limited" | "product_unavailable" | "supplier_unavailable") { super(code); }
 }
 
 export interface ChatConversationView {
@@ -133,6 +134,38 @@ export async function markConversationRead(store: DataStore, conversation: ChatC
  * lại cuộc cũ) và gửi tin đầu. Sản phẩm phải đang công khai, nên không hỏi được sản phẩm
  * đã gỡ hay nhà cung cấp chưa duyệt.
  */
+/**
+ * Nhà cung cấp có trả lời chat được không: hồ sơ đang công khai, cổng đã được duyệt, và có
+ * ít nhất một tài khoản cổng đang hoạt động. Hồ sơ Vexim tự tạo chưa có tài khoản thì không
+ * mở chat (người mua sẽ chờ mãi); khi đó chỉ còn Request a quote để Vexim xử lý thay.
+ */
+export async function supplierChatAvailable(store: DataStore, supplierId: string): Promise<boolean> {
+  const supplier = await store.getSupplier(supplierId).catch(() => null);
+  if (!supplier || supplier.status !== "published" || !portalApproved(supplier)) return false;
+  const users = await store.listUsers().catch(() => []);
+  return users.some((u) => u.is_active && u.role === "supplier" && u.supplier_id === supplierId);
+}
+
+/** Người mua bấm Chat with supplier trên trang nhà cung cấp: cuộc trò chuyện không gắn sản phẩm. */
+export async function startSupplierConversation(input: { store: DataStore; buyerEmail: string; supplierId: string; body: string }): Promise<ChatConversation> {
+  const checked = cleanChatBody(input.body);
+  if (!checked.ok) throw new ChatError(checked.error);
+  const existing = await input.store.findChatConversation(input.buyerEmail, input.supplierId);
+  if (!existing) {
+    if (!(await supplierChatAvailable(input.store, input.supplierId))) throw new ChatError("supplier_unavailable");
+    if (tooManyNewConversations(await input.store.listChatConversations({ buyerEmail: input.buyerEmail, limit: 100 }))) throw new ChatError("rate_limited");
+  }
+  const conversation = existing ?? await input.store.createChatConversation({
+    buyer_email: input.buyerEmail, supplier_id: input.supplierId, product_id: null, product_name: null,
+  });
+  await postMessage({ store: input.store, conversation, sender: "buyer", senderEmail: input.buyerEmail, body: checked.body });
+  return conversation;
+}
+
+export async function existingConversationForSupplier(store: DataStore, buyerEmail: string, supplierId: string): Promise<string | null> {
+  return (await store.findChatConversation(buyerEmail, supplierId))?.id ?? null;
+}
+
 export async function startConversation(input: { store: DataStore; buyerEmail: string; productId: string; body: string }): Promise<ChatConversation> {
   const checked = cleanChatBody(input.body);
   if (!checked.ok) throw new ChatError(checked.error);
@@ -140,6 +173,7 @@ export async function startConversation(input: { store: DataStore; buyerEmail: s
   if (!record) throw new ChatError("product_unavailable");
   const productName = (record.card.name || record.product.name).slice(0, 200);
   const existing = await input.store.findChatConversation(input.buyerEmail, record.supplier.id);
+  if (!existing && !(await supplierChatAvailable(input.store, record.supplier.id))) throw new ChatError("supplier_unavailable");
   if (!existing && tooManyNewConversations(await input.store.listChatConversations({ buyerEmail: input.buyerEmail, limit: 100 }))) {
     throw new ChatError("rate_limited");
   }

@@ -36,6 +36,7 @@ import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 import { packagingSummaryEnglish, samplePriceEnglish } from "@/lib/public/product-extras-display";
 import { productCertificatesFor } from "@/lib/public/product-certificates";
 import { similarOffers } from "@/lib/public/similar-offers";
+import { supplierChatAvailable } from "@/lib/chat/service";
 import { SimilarOffersRail } from "@/components/public/similar-offers-rail";
 import { categoryTieWindow } from "@/lib/public/ranking";
 
@@ -183,6 +184,8 @@ export default async function PublicProductDetail({ params }: Props) {
   }));
 
   const countView = !preview && !card.isDemo && !(await getSession());
+  // Nút chat chỉ hiện khi nhà cung cấp có tài khoản cổng đang hoạt động để trả lời.
+  const canChat = await supplierChatAvailable(getStore(), card.supplierId).catch(() => false);
   // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
   // giá trên trang là giá tham khảo qua RFQ, không phải chào bán giao dịch trực tiếp.
   // Đóng gói và giá mẫu vì vậy nằm trong additionalProperty, không nằm trong Offer.
@@ -392,12 +395,12 @@ export default async function PublicProductDetail({ params }: Props) {
           </section>
         )}
         <p className="mt-2 text-xs leading-5 text-ink-500">Product details and reference prices are supplier-provided and reviewed for listing. Confirm current specifications, availability and final terms in your RFQ.</p>
-        <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className={canChat ? "mt-5 grid grid-cols-2 gap-3" : "mt-5 grid grid-cols-1 gap-3"}>
           <Link href={rfq} className="btn btn-primary min-h-12 w-full justify-center px-2 text-sm font-bold shadow-lg shadow-brand-900/20 sm:px-4 sm:text-base">Request a quote <ArrowRight className="hidden h-5 w-5 sm:block" /></Link>
-          <Suspense fallback={<button disabled className="btn btn-soft min-h-12 w-full justify-center">Chat with supplier</button>}>
+          {canChat && <Suspense fallback={<button disabled className="btn btn-soft min-h-12 w-full justify-center">Chat with supplier</button>}>
             <AskSupplierDialog category={slug} productId={card.id} productName={card.name} supplierId={card.supplierId} supplierName={card.supplierName} grade={rfqGrade}
               imageUrl={images[0] ? `/public-media/${images[0].replace(/^\/+/, "")}` : null} quoteHref={rfq} />
-          </Suspense>
+          </Suspense>}
         </div>
         <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>
       </div>
