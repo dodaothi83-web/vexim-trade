@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -32,9 +32,6 @@ interface CategorySpec {
 
 interface Props {
   buyerEmail?: string;
-  questionImageUrl?: string | null;
-  questionQuoteHref?: string;
-  onQuestionSuccess?: (url: string) => void;
   categories: Option[];
   categorySpecs: Record<string, CategorySpec>;
   initialProductId: string | null;
@@ -45,7 +42,7 @@ interface Props {
   /** Nhà cung cấp buyer đã chỉ định từ trang sản phẩm hoặc trang NCC, để hiển thị rõ trong form. */
   initialSuppliers?: Array<{ id: string; name: string }>;
   wantsSamples: boolean;
-  mode?: "quote" | "question";
+  mode?: "quote";
   /**
    * Sản phẩm buyer mở từ trang sản phẩm, đã qua cổng công bố. Có thẻ này thì ô mô tả
    * chuyển thành "Your requirements" (tuỳ chọn) vì tên sản phẩm do server dựng.
@@ -81,9 +78,6 @@ const DEFAULT_CERTS = ["HACCP", "BRCGS", "ISO 22000", "FSSC 22000", "Halal", "Ko
  */
 export function RfqForm({
   buyerEmail = "",
-  questionImageUrl,
-  questionQuoteHref,
-  onQuestionSuccess,
   categories,
   categorySpecs,
   initialCategory,
@@ -93,11 +87,9 @@ export function RfqForm({
   initialSupplierIds,
   initialSuppliers = [],
   wantsSamples,
-  mode = "quote",
   contextProduct = null,
 }: Props) {
   const router = useRouter();
-  const isQuestion = mode === "question";
   const params = useSearchParams();
   const [busy, startSubmit] = useTransition();
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -173,17 +165,6 @@ export function RfqForm({
     return e;
   }
 
-  function validateQuestion(): Record<string, string> {
-    const e: Record<string, string> = {};
-    if (data.quantity && (!Number.isFinite(Number(data.quantity)) || Number(data.quantity) <= 0)) e.quantity = "Enter a quantity greater than zero.";
-    if (!data.message.trim()) e.message = "Enter your question for the supplier.";
-    if (!data.company.trim()) e.company = "Enter your company name.";
-    if (!data.contact_name.trim()) e.contact_name = "Enter your name.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) e.email = "Enter a valid work email.";
-    if (!data.consent) e.consent = "Approve sharing these details with the supplier.";
-    return e;
-  }
-
   function focusFirstError(found: Record<string, string>) {
     const first = Object.keys(found)[0];
     if (!first) return;
@@ -200,7 +181,7 @@ export function RfqForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const found = isQuestion ? validateQuestion() : validateQuote();
+    const found = validateQuote();
     setErrors(found);
     if (Object.keys(found).length) {
       focusFirstError(found);
@@ -244,9 +225,9 @@ export function RfqForm({
         website: data.website || null,
         business_type: data.business_type || null,
         consent: data.consent,
-        inquiry_kind: isQuestion ? "supplier_question" : "quote",
-        share_contact_consent: isQuestion ? data.consent : false,
-        source_page: isQuestion ? "/rfq?intent=question" : "/rfq",
+        inquiry_kind: "quote",
+        share_contact_consent: false,
+        source_page: "/rfq",
         referrer: typeof document !== "undefined" ? document.referrer : null,
         utm_source: params.get("utm_source"),
         utm_medium: params.get("utm_medium"),
@@ -259,8 +240,7 @@ export function RfqForm({
         return;
       }
       if (res.statusPageUrl) {
-        if (isQuestion && onQuestionSuccess) onQuestionSuccess(res.statusPageUrl);
-        else router.push(res.statusPageUrl);
+        router.push(res.statusPageUrl);
       } else {
         setHeldMsg("Thanks, we received your request. It needs a quick manual check before it is sent; we will contact you by email.");
       }
@@ -279,12 +259,6 @@ export function RfqForm({
     { key: "email", label: "Work email", done: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) },
   ];
   const completed = requiredChecks.filter((c) => c.done).length;
-  const supplierName = initialSuppliers[0]?.name ?? "the selected supplier";
-  const quoteHref = useMemo(() => {
-    const query = new URLSearchParams(params.toString());
-    query.delete("intent");
-    return `/rfq?${query.toString()}`;
-  }, [params]);
   const honeypotControl = (
     <div aria-hidden className="pointer-events-none absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden">
       <label>Leave empty <input tabIndex={-1} autoComplete="off" value={data.websiteHp} onChange={(e) => update("websiteHp", e.target.value)} /></label>
@@ -293,73 +267,6 @@ export function RfqForm({
   const challengeControl = (
     <FormChallenge purpose="rfq" onChange={setChallengeToken} />
   );
-
-  if (isQuestion) {
-    return (
-      <form onSubmit={submit} className="mt-8">
-        <div className="mb-6 rounded-xl border border-brand-200 bg-brand-50 px-5 py-4">
-          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-brand-700"><MessageCircle className="h-4 w-4" />Product question</p>
-          {questionImageUrl && <img src={questionImageUrl} alt="" className="mt-3 h-16 w-16 rounded-lg object-cover" />}
-          <p className="mt-2 break-words text-base font-bold text-ink-900">{contextProduct?.name || initialProduct}</p>
-          {initialGrade && <p className="mt-1 text-sm text-ink-600">Grade: {initialGrade}</p>}
-          <p className="mt-1 text-sm text-ink-600">To: <strong className="text-ink-800">{supplierName}</strong></p>
-        </div>
-        {serverMsg && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-800">{serverMsg}</div>}
-        {heldMsg && <div role="status" className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-[13.5px] text-amber-900">{heldMsg}</div>}
-        <div className="card space-y-5 p-5 sm:p-6">
-          <Field label="Your question" required error={errors.message} id="rfq-message">
-            <textarea
-              id="rfq-message"
-              rows={5}
-              className="input resize-y"
-              value={data.message}
-              onChange={(e) => update("message", e.target.value)}
-              maxLength={4000}
-              placeholder="What would you like to know about this product?"
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Quantity (optional)" error={errors.quantity} id="rfq-quantity">
-              <input id="rfq-quantity" type="number" min="0" step="any" className="input" value={data.quantity} onChange={(e) => update("quantity", e.target.value)} />
-            </Field>
-            <Field label="Unit" id="question-unit">
-              <select id="question-unit" className="input" value={data.unit} onChange={(e) => update("unit", e.target.value)}>{UNITS.map((unit) => <option key={unit}>{unit}</option>)}</select>
-            </Field>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Company" required error={errors.company} id="rfq-company">
-              <input id="rfq-company" autoComplete="organization" className="input" value={data.company} onChange={(e) => update("company", e.target.value)} placeholder="Your company name" />
-            </Field>
-            <Field label="Your name" required error={errors.contact_name} id="rfq-contact_name">
-              <input id="rfq-contact_name" autoComplete="name" className="input" value={data.contact_name} onChange={(e) => update("contact_name", e.target.value)} placeholder="Jane Doe" />
-            </Field>
-          </div>
-          <Field label="Work email" required error={errors.email} hint="Supplier replies go to this email." id="rfq-email">
-            <input id="rfq-email" readOnly={Boolean(buyerEmail)} autoComplete="email" type="email" className="input" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="jane@company.com" />
-          </Field>
-          {honeypotControl}
-          {challengeControl}
-          <label className="flex items-start gap-2 pt-1 text-[13px] leading-relaxed text-ink-700">
-            <input id="rfq-consent" type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.consent} onChange={(e) => update("consent", e.target.checked)} />
-            <span>I agree to share my name, company, email and this question with <strong>{supplierName}</strong> so they can reply directly.</span>
-          </label>
-          {errors.consent && <p className="pl-6 text-[12px] text-red-600">{errors.consent}</p>}
-          <p className="pl-6 text-[12px] text-ink-600">
-            Read our <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Terms of Service</Link> before submitting.
-          </p>
-          <p className="flex items-start gap-1.5 rounded-md bg-ink-50 p-3 text-[12px] leading-relaxed text-ink-600">
-            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-700" />
-            <span>Your details are shared with this supplier for this question, not with other suppliers. Vexim keeps the original question for support and moderation.</span>
-          </p>
-          <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold" disabled={busy || !challengeToken || !!heldMsg}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
-            Send question
-          </button>
-          <p className="text-center text-[13px] text-ink-600">Need prices or commercial terms? <Link href={questionQuoteHref ?? quoteHref} className="font-semibold text-brand-700 underline">Request a quote instead</Link>.</p>
-        </div>
-      </form>
-    );
-  }
 
   return (
     <form onSubmit={submit} className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_290px] lg:items-start">

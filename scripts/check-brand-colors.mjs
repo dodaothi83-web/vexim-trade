@@ -34,7 +34,7 @@ const verification = read('components/verification-tier.tsx');
 for (const tier of [1,2,3]) assert.match(verification, new RegExp(`${tier}: \{ pip: VERIFICATION_PIP_ON`), 'All approved pips share one colour');
 assert.match(verification, /VERIFICATION_PIP_OFF = "border border-ink-300 bg-ink-50 text-ink-500"/);
 assert.doesNotMatch(read('app/(public)/home.tsx'), /(?:amber|yellow)-\d/);
-for (const file of ['lib/email/templates.ts', 'lib/email/rfq.ts', 'lib/email/buyer-auth.ts', 'lib/email/service-inquiry.ts', 'lib/email/signature.ts', 'lib/rfq/buyer-notify.ts', 'lib/rfq/supplier-question.ts']) {
+for (const file of ['lib/email/templates.ts', 'lib/email/rfq.ts', 'lib/email/buyer-auth.ts', 'lib/email/service-inquiry.ts', 'lib/email/signature.ts', 'lib/rfq/buyer-notify.ts']) {
   assert.match(read(file), /@\/lib\/brand\/colors.json/);
   assert.doesNotMatch(read(file), /#(?:0f766e|0d9488|134e4a|f0fdfa|ccfbf1)\b/i, file);
 }
