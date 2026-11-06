@@ -1,5 +1,6 @@
 "use server";
 
+import { stripEmptySpecLines } from "@/lib/products/spec-template";
 import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
@@ -70,7 +71,8 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
     supplier_id: supplierId, name, slug: null, name_i18n: {}, category: null,
     description: text(form, "description", 1500) || null,
     description_detail: sanitizeProductDescriptionForSave(String(form.get("description_detail") ?? "")) || null,
-    spec: text(form, "spec", 800) || null,
+    // Dòng mẫu gợi ý chưa điền (vd. "Màu sắc: ") không được lưu ra trang công khai.
+    spec: stripEmptySpecLines(text(form, "spec", 800)) || null,
     specs: {}, unit: existing?.unit ?? null, moq: existing?.moq ?? null,
     moq_qty: existing?.moq_qty ?? null, moq_unit: existing?.moq_unit ?? null, monthly_capacity: text(form, "monthly_capacity", 180) || null,
     raw_material_region: text(form, "raw_material_region", 180) || null,
