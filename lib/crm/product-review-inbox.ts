@@ -37,3 +37,19 @@ export async function loadCrmReviewInbox(session: SessionUser): Promise<CrmRevie
   if ([...prices, ...names].some((row) => !validRevision(row))) throw new Error("Invalid review inbox rows");
   return { prices: prices as PendingRevision[], names: names as PendingRevision[] };
 }
+
+/**
+ * Số sản phẩm có giá hoặc tên tiếng Anh nhà cung cấp gửi, đang chờ rà soát. Dùng cho huy hiệu
+ * menu và chuông CRM (trước đây chỉ đếm sản phẩm chờ duyệt nội dung nên giá mới không báo).
+ */
+export async function countPendingProductRevisions(): Promise<number> {
+  const db = getSupabaseClient();
+  if (!db) return 0;
+  const ids = new Set<string>();
+  for (const table of ["product_quantity_price_revisions", "product_english_name_revisions"]) {
+    const { data, error } = await db.from(table).select("product_id").eq("status", "pending").limit(2000);
+    if (error) throw new Error(`${table}: ${error.message}`);
+    for (const row of (data ?? []) as { product_id: unknown }[]) if (typeof row.product_id === "string") ids.add(row.product_id);
+  }
+  return ids.size;
+}

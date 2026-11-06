@@ -193,6 +193,25 @@ export async function notifyStaffProductSubmission(supplier: Supplier, product: 
   } catch (error) { console.error("[supplier-notify] product submission", error); return "failed"; }
 }
 
+/**
+ * Nhà cung cấp gửi bảng giá mới: báo Quản trị và Trưởng kiểm duyệt như khi gửi sản phẩm mới.
+ * Giá cũ vẫn hiển thị cho tới khi Vexim duyệt, nên thư chỉ dẫn tới trang rà soát giá.
+ */
+export async function notifyStaffPriceRevision(supplier: Supplier, product: { id: string; name: string }): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const users = await getStore().listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && (u.role === "admin" || u.role === "reviewer"))
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const url = `${notificationOrigin()}/crm/products/quantity-review?product_id=${encodeURIComponent(product.id)}`;
+    const name = product.name.replace(/[\r\n]/g, " ").slice(0, 140);
+    const title = `Giá mới chờ rà soát: ${name}`;
+    const body = `<p>${escapeHtml(supplier.name)} vừa cập nhật bảng giá cho sản phẩm ${escapeHtml(name)}. <strong>Giá cũ vẫn hiển thị cho tới khi Vexim duyệt.</strong></p><p><a href="${url}">Rà soát giá trong CRM</a></p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
+    return res.ok ? res.status : "failed";
+  } catch (error) { console.error("[supplier-notify] price revision", error); return "failed"; }
+}
+
 export type SupplierDecision =
   | "onboarding_approved" | "onboarding_changes_requested"
   | "product_approved" | "product_changes_requested"
