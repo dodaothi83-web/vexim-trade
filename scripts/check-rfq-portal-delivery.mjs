@@ -48,8 +48,10 @@ const store = {
   listProductsBySupplier: async () => products,
   listCertificates: async () => [], listSupplierVerificationRequests: async () => [], listSubmissions: async () => [],
 };
+const emailInputs = [];
 const publisher = load('lib/rfq/targeted-portal.ts', {
-  './outreach': { buildRfqSupplierEmail: () => ({ subject: 'Anonymous RFQ', html: '<p>Commercial specification</p>', text: 'Commercial specification' }) },
+  './outreach': { buildRfqSupplierEmail: (input) => { emailInputs.push(input); return { subject: 'Anonymous RFQ', html: '<p>Commercial specification</p>', text: 'Commercial specification' }; } },
+  '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/email/send': { transport: async (input) => { mail.push(input); return { ok: emailSent, status: emailSent ? 'sent' : 'failed', provider: 'test' }; } },
   '@/lib/config': { FROM_ADDRESS: 'Vexim <system@example.com>' },
   './reply-routing': { supplierReplyAddress: (_, id) => `rfq+${id}@example.com` },
@@ -70,6 +72,7 @@ assert.equal(match.status, 'sent_to_supplier');
 assert.ok(match.sent_to_supplier_at && match.response_due_at);
 assert.equal(rfq.status, 'matching');
 assert.equal(mail[0].replyTo, 'rfq+m1@example.com');
+assert.equal(emailInputs[0].portalUrl, 'https://example.com/supplier/portal/rfqs', 'Nhà cung cấp có cổng được dẫn sang báo giá trên cổng');
 assert.equal(mail[0].headers['X-Vexim-Anonymous'], '1');
 assert.equal(messages[0].created_by, null, 'System delivery must not fabricate a staff sender');
 assert.equal(await publisher.releaseTargetedQuoteToPortal(store, { ...rfq, status: 'new' }), 0, 'A retry does not re-publish/re-send');
