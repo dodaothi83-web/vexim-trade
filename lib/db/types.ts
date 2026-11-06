@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessage, SourcingRequest } from "@/lib/types";
+import type { ChatConversation, ChatMessage, SourcingRequest, SupportConversation, SupportMessage } from "@/lib/types";
 import type {
   Activity,
   ActivityType,
@@ -268,6 +268,15 @@ export interface DataStore {
   listChatConversations(filter: { buyerEmail?: string; supplierId?: string; limit?: number }): Promise<ChatConversation[]>;
   listChatMessages(conversationId: string, limit?: number): Promise<ChatMessage[]>;
   addChatMessage(input: Omit<ChatMessage, "id" | "created_at">): Promise<ChatMessage>;
+  /* Chat người mua ↔ đội Vexim (một cuộc cho mỗi người mua). */
+  getSupportConversationByBuyer(buyerEmail: string): Promise<SupportConversation | null>;
+  getSupportConversation(id: string): Promise<SupportConversation | null>;
+  /** Tạo hoặc trả lại cuộc đã có của người mua này. */
+  createSupportConversation(buyerEmail: string): Promise<SupportConversation>;
+  updateSupportConversation(id: string, patch: Partial<Omit<SupportConversation, "id" | "buyer_email" | "created_at">>): Promise<void>;
+  listSupportConversations(filter?: { assignedTo?: string | null; limit?: number }): Promise<SupportConversation[]>;
+  listSupportMessages(conversationId: string, limit?: number): Promise<SupportMessage[]>;
+  addSupportMessage(input: Omit<SupportMessage, "id" | "created_at">): Promise<SupportMessage>;
   /** Thư thuộc các mạch đã cho (ví dụ `sourcing-{id}`), mới nhất trước. */
   listMessagesForThreads(threadIds: string[]): Promise<EmailMessage[]>;
   getMessage(id: string): Promise<EmailMessage | null>;

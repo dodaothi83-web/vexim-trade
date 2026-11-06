@@ -5,7 +5,7 @@ import { googleOneTapClientId, hasOneTapSession } from "@/lib/auth/google-one-ta
 import { BuyerSavedProductsProvider } from "@/components/buyer-saved-products";
 import { getLocale } from "@/lib/i18n/server";
 import { getBuyerSession, getBuyerUser } from "@/lib/auth/buyer-session";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 
 import { Logo } from "@/components/brand-logo";
@@ -68,7 +68,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
       <main>{children}</main>
 
       <ProductComparisonTray />
-      <MarketplaceRail isVi={locale === "vi"} />
+      <Suspense fallback={null}><MarketplaceRail isVi={locale === "vi"} /></Suspense>
       <SimpleFooter />
     </div>
     </ProductComparisonProvider>

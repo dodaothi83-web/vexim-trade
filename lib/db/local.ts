@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessage, SourcingRequest } from "@/lib/types";
+import type { ChatConversation, ChatMessage, SourcingRequest, SupportConversation, SupportMessage } from "@/lib/types";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -84,6 +84,8 @@ interface LocalShape {
   sourcing_requests?: SourcingRequest[];
   chat_conversations?: ChatConversation[];
   chat_messages?: ChatMessage[];
+  support_conversations?: SupportConversation[];
+  support_messages?: SupportMessage[];
   users: AppUserRecord[];
   buyers: Buyer[];
   prospects: Prospect[];
@@ -1924,6 +1926,49 @@ export const localStore: DataStore = {
   async addChatMessage(input) {
     const row: ChatMessage = { ...input, id: randomUUID(), created_at: new Date().toISOString() };
     mutate((db) => { (db.chat_messages ??= []).push(row); });
+    return row;
+  },
+  async getSupportConversationByBuyer(buyerEmail) {
+    const email = buyerEmail.trim().toLowerCase();
+    return (load().support_conversations ?? []).find((c) => c.buyer_email === email) ?? null;
+  },
+  async getSupportConversation(id) {
+    return (load().support_conversations ?? []).find((c) => c.id === id) ?? null;
+  },
+  async createSupportConversation(buyerEmail) {
+    const email = buyerEmail.trim().toLowerCase();
+    const row: SupportConversation = {
+      id: randomUUID(), buyer_email: email, assigned_to: null, last_message_at: null, last_message_preview: null,
+      last_sender: null, buyer_last_read_at: null, staff_last_read_at: null, buyer_notified_at: null,
+      staff_notified_at: null, created_at: new Date().toISOString(),
+    };
+    let saved = row;
+    mutate((db) => {
+      db.support_conversations ??= [];
+      const existing = db.support_conversations.find((c) => c.buyer_email === email);
+      if (existing) saved = existing; else db.support_conversations.push(row);
+    });
+    return saved;
+  },
+  async updateSupportConversation(id, patch) {
+    mutate((db) => {
+      const row = (db.support_conversations ?? []).find((c) => c.id === id);
+      if (row) Object.assign(row, patch);
+    });
+  },
+  async listSupportConversations(filter = {}) {
+    return (load().support_conversations ?? [])
+      .filter((c) => c.last_message_at && (filter.assignedTo === undefined || c.assigned_to === filter.assignedTo))
+      .sort((a, b) => (b.last_message_at ?? b.created_at).localeCompare(a.last_message_at ?? a.created_at))
+      .slice(0, filter.limit ?? 200);
+  },
+  async listSupportMessages(conversationId, limit = 500) {
+    return (load().support_messages ?? []).filter((m) => m.conversation_id === conversationId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(-limit);
+  },
+  async addSupportMessage(input) {
+    const row: SupportMessage = { ...input, id: randomUUID(), created_at: new Date().toISOString() };
+    mutate((db) => { (db.support_messages ??= []).push(row); });
     return row;
   },
   async listMessagesForThreads(threadIds) {

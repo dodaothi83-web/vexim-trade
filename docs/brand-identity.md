@@ -126,6 +126,6 @@ Three new direction-02 icons for the right-edge rail on public pages (`component
 |---|---|---|
 | VeximMessagesIcon | Buyer–supplier messages on Vexim (unread badge) | Contact with the Vexim team |
 | VeximSourcingRequestIcon | Sourcing request sent to Vexim (no supplier chosen) | A quote already requested from a specific supplier |
-| VeximPlatformSupportIcon | Chat with the Vexim team (WhatsApp) | A channel to a supplier |
+| VeximPlatformSupportIcon | Chat with the Vexim team inside Vexim (sales staff reply in CRM) | A channel to a supplier |
 
-The rail replaces the old green WhatsApp "Chat with us" button. It is hidden on `/buyer/account/messages`, which has its own full chat.
+The rail replaces the old green WhatsApp "Chat with us" button; WhatsApp is no longer linked. It is hidden on `/buyer/account/messages`, which has its own full chat.

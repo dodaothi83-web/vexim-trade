@@ -24,6 +24,7 @@ import {
   ChartNoAxesColumn,
   Megaphone,
   MessageCircle,
+  Headset,
 } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
@@ -45,7 +46,7 @@ const NAV: {
   { href: "/crm/products", label: "Sản phẩm nhà cung cấp", icon: Boxes, perm: "products.view", group: "marketplace" },
   { href: "/crm/sourcing", label: "Yêu cầu tìm nguồn", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/rfqs", label: "RFQ từ người mua", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
-  { href: "/crm/messages", label: "Chat người mua", icon: MessageCircle, perm: "rfq.view", group: "marketplace" },
+  { href: "/crm/messages", label: "Giám sát tin nhắn", icon: MessageCircle, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/verifications", label: "Xác minh nhà cung cấp", icon: ShieldCheck, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/verifications/submissions", label: "Hồ sơ nhà cung cấp tự gửi", icon: UploadCloud, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/certificates", label: "Giấy tờ & chứng nhận", icon: FileCheck2, perm: "verifications.view", group: "marketplace" },
@@ -54,6 +55,7 @@ const NAV: {
   { href: "/crm/traffic", label: "Lưu lượng truy cập", icon: ChartNoAxesColumn, perm: "traffic.view", group: "marketplace" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
   { href: "/crm/buyers", label: "Người mua", icon: Globe2, perm: "buyers.view", group: "sales" },
+  { href: "/crm/support", label: "Chat với người mua", icon: Headset, perm: "support.view", group: "sales" },
   { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view", group: "sales" },
   { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage", group: "sales" },
   { href: "/crm/team", label: "KPI cá nhân", icon: BarChart3, perm: "kpi.view", group: "sales" },
@@ -81,6 +83,7 @@ export function Sidebar({
   pendingSponsoredRequests = 0,
   pendingSourcing = 0,
   pendingRfqs = 0,
+  pendingSupport = 0,
 }: {
   dataMode: "supabase" | "local";
   dataDegraded?: boolean;
@@ -103,6 +106,8 @@ export function Sidebar({
   pendingSponsoredRequests?: number | null;
   pendingSourcing?: number | null;
   pendingRfqs?: number;
+  /** Cuộc chat người mua nhắn Vexim mà nhân viên chưa đọc — badge ở menu Chat với người mua */
+  pendingSupport?: number;
   session: { name: string; email: string; role: UserRole };
   permissions: Permission[];
 }) {
@@ -141,6 +146,7 @@ export function Sidebar({
                   // Badge = số việc đang chờ đúng khu vực đó, chỉ hiện số (như số thư chưa đọc); ý nghĩa nằm ở title.
                   const badge = item.href === "/crm/mail" ? (unreadMail > 0 ? { text: String(unreadMail), title: "Thư đến chưa đọc" } : null)
                     : item.href === "/crm/sourcing" ? (pendingSourcing === null ? { text: "!", title: "Chưa tải được yêu cầu tìm nguồn" } : pendingSourcing > 0 ? { text: String(pendingSourcing), title: "Yêu cầu tìm nguồn mới" } : null)
+                    : item.href === "/crm/support" ? (pendingSupport > 0 ? { text: String(pendingSupport), title: "Người mua đang chờ trả lời" } : null)
                     : item.href === "/crm/rfqs" ? (pendingRfqs > 0 ? { text: String(pendingRfqs), title: "RFQ chờ tiếp nhận" } : null)
                     : item.href === "/crm/buyers" ? (newBuyers > 0 ? { text: String(newBuyers), title: "Người mua mới chưa xử lý" } : null)
                     : item.href === "/crm/suppliers" ? (pendingSuppliers > 0 ? { text: String(pendingSuppliers), title: "Tài khoản nhà cung cấp chưa nộp hồ sơ hoặc chờ xác nhận" } : null)

@@ -1,19 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { VeximMessagesIcon, VeximPlatformSupportIcon, VeximSourcingRequestIcon } from "@/components/brand/vexim-icons";
 import { useBuyerEnquiryAuth } from "@/components/buyer-enquiry-auth";
 import { SourcingComposerTrigger } from "@/components/sourcing-composer";
 import { ChatWorkspace } from "@/components/chat/chat-workspace";
+import { SupportChat } from "@/components/chat/support-chat";
 import { BUYER_CHAT_LABELS } from "@/lib/chat/buyer-labels";
 import { lockDialogScroll } from "@/lib/browser/dialog-scroll-lock";
 import { cx } from "@/components/ui";
-
-/** Đội Vexim (chủ sàn) qua WhatsApp; không phải kênh liên hệ nhà cung cấp. */
-const VEXIM_WHATSAPP_URL =
-  "https://wa.me/84373685634?text=" +
-  encodeURIComponent("Hi Vexim Trade, I would like to ask about sourcing products from Vietnam.");
 
 const UNREAD_POLL_MS = 30_000;
 
@@ -25,7 +21,8 @@ const COPY = {
 /**
  * Thanh công cụ dọc ở cạnh phải các trang công khai, mặc định chỉ hiện icon; di chuột
  * (hoặc dùng bàn phím) vào là mở rộng hiện chữ. Ba việc: đọc và trả lời tin nhắn với nhà
- * cung cấp ngay trên trang, gửi yêu cầu tìm nguồn cho Vexim, và chat với đội Vexim.
+ * cung cấp ngay trên trang, gửi yêu cầu tìm nguồn cho Vexim, và chat với đội Vexim ngay trong
+ * hệ thống (nhân viên kinh doanh trả lời trong CRM, mục Chat với người mua).
  */
 export function MarketplaceRail({ isVi = false }: { isVi?: boolean }) {
   const t = COPY[isVi ? "vi" : "en"];
@@ -33,14 +30,22 @@ export function MarketplaceRail({ isVi = false }: { isVi?: boolean }) {
   const { email, requireBuyer } = useBuyerEnquiryAuth();
   const dialog = useRef<HTMLDialogElement>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [supportUnread, setSupportUnread] = useState(0);
+  const params = useSearchParams();
 
   const refreshUnread = useCallback(async () => {
-    if (!email) { setUnread(0); return; }
-    const res = await fetch("/api/chat?side=buyer", { cache: "no-store" }).catch(() => null);
-    if (!res?.ok) return;
-    const data = await res.json().catch(() => null) as { unread?: number } | null;
-    setUnread(typeof data?.unread === "number" ? data.unread : 0);
+    if (!email) { setUnread(0); setSupportUnread(0); return; }
+    const read = async (url: string) => {
+      const res = await fetch(url, { cache: "no-store" }).catch(() => null);
+      if (!res?.ok) return null;
+      const data = await res.json().catch(() => null) as { unread?: number } | null;
+      return typeof data?.unread === "number" ? data.unread : 0;
+    };
+    const [chat, support] = await Promise.all([read("/api/chat?side=buyer"), read("/api/support?peek=1")]);
+    if (chat !== null) setUnread(chat);
+    if (support !== null) setSupportUnread(support);
   }, [email]);
 
   // Đếm tin chưa đọc khi tab đang mở; tab ẩn thì không hỏi máy chủ.
@@ -62,6 +67,13 @@ export function MarketplaceRail({ isVi = false }: { isVi?: boolean }) {
     return () => { node.removeEventListener("close", onClose); unlock(); };
   }, [chatOpen, refreshUnread]);
 
+  // Link "Reply on Vexim" trong email báo tin của đội Vexim mở thẳng khung chat.
+  useEffect(() => {
+    if (params.get("support") === "1") requireBuyer(window.location.pathname + window.location.search, () => setSupportOpen(true));
+  }, [params, email]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const closeSupport = useCallback(() => { setSupportOpen(false); void refreshUnread(); }, [refreshUnread]);
+
   // Trang Tin nhắn đã có khung chat đầy đủ; thanh nổi sẽ đè lên ô nhập.
   if (pathname?.startsWith("/buyer/account/messages")) return null;
 
@@ -69,7 +81,12 @@ export function MarketplaceRail({ isVi = false }: { isVi?: boolean }) {
     requireBuyer(window.location.pathname + window.location.search, () => setChatOpen(true));
   }
 
+  function openSupport() {
+    requireBuyer(window.location.pathname + window.location.search, () => { setSupportOpen(true); setSupportUnread(0); });
+  }
+
   const badge = unread > 0 ? (unread > 99 ? "99+" : String(unread)) : null;
+  const supportBadge = supportUnread > 0 ? String(supportUnread) : null;
 
   return <>
     <nav aria-label={t.rail} lang={isVi ? "vi" : "en"}
@@ -82,12 +99,14 @@ export function MarketplaceRail({ isVi = false }: { isVi?: boolean }) {
             <RailButton ref={ref} label={t.sourcing} onClick={onClick} icon={<VeximSourcingRequestIcon size={26} strokeWidth={2.2} />} haspopup />} />
         </li>
         <li className="border-t border-ink-100">
-          <a href={VEXIM_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" aria-label={t.support} title={t.support} className={railItemClass}>
-            <RailContent label={t.support} icon={<VeximPlatformSupportIcon size={26} strokeWidth={2.2} />} />
-          </a>
+          <button type="button" onClick={openSupport} aria-expanded={supportOpen} aria-label={supportBadge ? `${t.support}, ${supportBadge} ${t.unread}` : t.support} title={t.support} className={cx(railItemClass, "w-full", supportOpen && "bg-brand-50")}>
+            <RailContent label={t.support} badge={supportBadge} icon={<VeximPlatformSupportIcon size={26} strokeWidth={2.2} />} />
+          </button>
         </li>
       </ul>
     </nav>
+
+    {supportOpen && <SupportChat isVi={isVi} onClose={closeSupport} />}
 
     {chatOpen && <dialog ref={dialog} aria-label={t.messages}
       className="fixed inset-0 m-auto h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-hidden bg-white p-0 text-ink-900 backdrop:bg-black/40 sm:h-[85dvh] sm:max-h-[760px] sm:w-[calc(100vw-3rem)] sm:max-w-5xl sm:rounded-2xl sm:shadow-2xl"
