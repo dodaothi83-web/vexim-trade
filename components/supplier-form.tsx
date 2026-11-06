@@ -533,7 +533,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
             <SectionHead icon={Truck} title="Điều kiện thương mại" sub="Điều kiện bán hàng hiển thị cho người mua khi hồ sơ công khai." />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="MOQ"><input className="input" value={str("moq_text")} onChange={(e) => set("moq_text", e.target.value)} /></Field>
-              <Field label="Sản lượng hàng năm"><input className="input" maxLength={180} value={str("annual_output")} onChange={(e) => set("annual_output", e.target.value)} /></Field>
+              <Field label="Doanh thu hàng năm"><input className="input" maxLength={180} placeholder="VD: 10-50 triệu USD" value={str("annual_output")} onChange={(e) => set("annual_output", e.target.value)} /></Field>
               <Field label="Công suất tháng (dữ liệu cũ)"><input className="input" readOnly value={str("capacity_per_month")} /></Field>
               <Field label="Thời gian giao hàng (ngày)"><input type="number" className="input" value={str("lead_time_days")} onChange={(e) => set("lead_time_days", e.target.value)} /></Field>
               <Field label="Điều khoản thanh toán"><input className="input" value={str("payment_terms")} onChange={(e) => set("payment_terms", e.target.value)} /></Field>

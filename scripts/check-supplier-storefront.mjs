@@ -263,7 +263,7 @@ for (const html of [oneCheck, profile([], { annual_output: '6000 tons', lead_tim
   for (const label of ['Minimum order', 'Export ports / Incoterms', 'Lead time', 'Payment terms', 'Export markets']) assert.ok(facts.includes(label));
   assert.doesNotMatch(facts, /text-emerald|text-green|Approved/);
 }
-assert.match(profile([], { annual_output: '6000 tons' }), /Annual output/);
+assert.match(profile([], { annual_output: 'US$10–50 million' }), /Annual revenue/);
 assert.match(profile([], { annual_output: '' }), /Monthly capacity/);
 assert.match(profile([], { lead_time_days: 10 }), /10 days/);
 console.log('✅ Six commercial fact icons: distinct semantics, 20px/2.6 stroke, neutral colours, labels and annual/monthly/lead-time logic retained.');

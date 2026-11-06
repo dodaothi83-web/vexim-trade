@@ -399,7 +399,7 @@ export function SupplierStorefront({
           <dl className="mt-2"><Fact icon={VeximMinimumOrderIcon} label="Minimum order" value={supplierMoqDisplay(s)} />
             <Fact icon={VeximExportPortIcon} label="Export ports / Incoterms" value={[...supplierPortsDisplay(s), ...supplierIncotermsDisplay(s)].join(" · ")} />
             <Fact icon={VeximLeadTimeIcon} label="Lead time" value={s.lead_time_days ? `${s.lead_time_days} days` : ""} />
-            <Fact icon={VeximCapacityIcon} label={s.annual_output?.trim() ? "Annual output" : "Monthly capacity"} value={s.annual_output?.trim() ? supplierAnnualOutputDisplay(s) : supplierCapacityDisplay(s)} />
+            <Fact icon={VeximCapacityIcon} label={s.annual_output?.trim() ? "Annual revenue" : "Monthly capacity"} value={s.annual_output?.trim() ? supplierAnnualOutputDisplay(s) : supplierCapacityDisplay(s)} />
             <Fact icon={VeximPaymentIcon} label="Payment terms" value={supplierPaymentTermsDisplay(s)} />
             <Fact icon={VeximMarketsIcon} label="Export markets" value={supplierExportMarketsDisplay(s).join(", ")} /></dl>
           {rfqActions && !synthetic && <div className="mt-4 space-y-2"><Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>

@@ -63,7 +63,7 @@ export function SupplierProfileEditForm({ supplier, email, messages: m, types, l
         <Field label={m.labels.contactTitle} name="contact_title" maxLength={100} defaultValue={supplier.contact_title ?? ""} />
         <Field label={m.labels.phone} name="phone" required maxLength={40} defaultValue={supplier.phone ?? ""} />
         <Field label={m.labels.zalo} name="zalo" maxLength={40} defaultValue={supplier.zalo ?? ""} />
-        <Field label={m.labels.website} name="website" maxLength={250} defaultValue={supplier.website ?? ""} />
+        <Field label={m.labels.website} name="website" maxLength={250} placeholder={m.labels.websitePlaceholder} defaultValue={supplier.website ?? ""} />
         <Field label={m.labels.province} name="province" maxLength={100} defaultValue={supplier.province ?? ""} />
         <Field label={m.labels.country} name="country" maxLength={100} defaultValue={supplier.country ?? "Vietnam"} />
         <Field label={m.labels.products} name="products" required maxLength={1000} defaultValue={supplier.products ?? ""} />
@@ -81,9 +81,9 @@ export function SupplierProfileEditForm({ supplier, email, messages: m, types, l
         <Field label={m.labels.annualOutput} name="annual_output" placeholder={m.labels.annualOutputPlaceholder} maxLength={180} defaultValue={supplier.annual_output ?? ""} />
         <Field label={m.labels.leadTime} name="lead_time_days" type="number" min={0} max={3650} defaultValue={String(supplier.lead_time_days ?? "")} />
         <Field label={m.labels.markets} name="markets" maxLength={800} defaultValue={supplier.markets ?? ""} />
-        <Field label={m.labels.exportMarkets} name="export_markets" maxLength={800} defaultValue={supplier.export_markets?.join(", ") ?? ""} />
-        <Field label={m.labels.ports} name="ports" maxLength={800} defaultValue={supplier.ports?.join(", ") ?? ""} />
-        <Field label={m.labels.incoterms} name="incoterms" maxLength={800} defaultValue={supplier.incoterms?.join(", ") ?? ""} />
+        <Field label={m.labels.exportMarkets} name="export_markets" maxLength={800} placeholder={m.labels.exportMarketsPlaceholder} defaultValue={supplier.export_markets?.join(", ") ?? ""} />
+        <Field label={m.labels.ports} name="ports" maxLength={800} placeholder={m.labels.portsPlaceholder} defaultValue={supplier.ports?.join(", ") ?? ""} />
+        <Field label={m.labels.incoterms} name="incoterms" maxLength={800} placeholder={m.labels.incotermsPlaceholder} defaultValue={supplier.incoterms?.join(", ") ?? ""} />
         <Field label={m.labels.paymentTerms} name="payment_terms" maxLength={200} defaultValue={supplier.payment_terms ?? ""} />
       </div>
       <label className="mt-4 flex items-start gap-2 text-sm text-ink-700"><input type="checkbox" name="private_label" value="yes" defaultChecked={supplier.private_label ?? false} className="mt-1 h-4 w-4 accent-brand-700" />{m.privateLabel}</label>
@@ -105,7 +105,14 @@ function Field({ label, name, required, maxLength, defaultValue, type = "text", 
   label: string; name: string; required?: boolean; maxLength?: number; defaultValue?: string;
   type?: string; min?: number; max?: number; placeholder?: string;
 }) {
-  return <label className="block text-sm"><span className="mb-1 block font-semibold">{label}</span>
+  return <label className="block text-sm"><FieldLabel text={label} />
     <input name={name} placeholder={placeholder} type={type} required={required} maxLength={maxLength} min={min} max={max} defaultValue={defaultValue} className="input" />
   </label>;
+}
+
+/** Nhãn gọn: phần chú thích trong ngoặc (đơn vị, định dạng) để chữ thường, không tô đậm. */
+function FieldLabel({ text }: { text: string }) {
+  const match = text.match(/^(.*?)\s*(\([^()]*\))\s*(\*?)$/);
+  if (!match) return <span className="mb-1 block font-semibold">{text}</span>;
+  return <span className="mb-1 block font-semibold">{match[1]} <span className="font-normal text-ink-500">{match[2]}</span>{match[3] ? ` ${match[3]}` : ""}</span>;
 }

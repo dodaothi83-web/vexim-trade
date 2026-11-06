@@ -132,7 +132,7 @@ export function SupplierProfileFields({ supplier, email, categories, categoryReq
       <p className="mt-1 text-sm text-ink-600">{m.publicPage.intro.map((line, index) => <span key={line}>{index > 0 && <br />}{line}</span>)}</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label={m.publicPage.labels.displayName} name="display_name" maxLength={180} defaultValue={supplier?.display_name ?? ""} />
-        <Field label={m.publicPage.labels.website} name="website" maxLength={250} defaultValue={supplier?.website ?? ""} />
+        <Field label={m.publicPage.labels.website} name="website" maxLength={250} placeholder={m.publicPage.labels.websitePlaceholder} defaultValue={supplier?.website ?? ""} />
         <Field label={m.publicPage.labels.country} name="country" maxLength={100} defaultValue={supplier?.country ?? "Vietnam"} />
         <Field label={m.publicPage.labels.contactTitle} name="contact_title" maxLength={100} defaultValue={supplier?.contact_title ?? ""} />
         <Field label={m.publicPage.labels.zalo} name="zalo" maxLength={40} defaultValue={supplier?.zalo ?? ""} />
@@ -141,9 +141,9 @@ export function SupplierProfileFields({ supplier, email, categories, categoryReq
         <Field label={m.publicPage.labels.annualOutput} name="annual_output" placeholder={m.publicPage.labels.annualOutputPlaceholder} maxLength={180} defaultValue={supplier?.annual_output ?? ""} />
         <Field label={m.publicPage.labels.leadTime} name="lead_time_days" maxLength={5} inputMode="numeric" defaultValue={String(supplier?.lead_time_days ?? "")} />
         <Field label={m.publicPage.labels.markets} name="markets" maxLength={800} defaultValue={supplier?.markets ?? ""} />
-        <Field label={m.publicPage.labels.exportMarkets} name="export_markets" maxLength={800} defaultValue={supplier?.export_markets?.join(", ") ?? ""} />
-        <Field label={m.publicPage.labels.ports} name="ports" maxLength={800} defaultValue={supplier?.ports?.join(", ") ?? ""} />
-        <Field label={m.publicPage.labels.incoterms} name="incoterms" maxLength={800} defaultValue={supplier?.incoterms?.join(", ") ?? ""} />
+        <Field label={m.publicPage.labels.exportMarkets} name="export_markets" maxLength={800} placeholder={m.publicPage.labels.exportMarketsPlaceholder} defaultValue={supplier?.export_markets?.join(", ") ?? ""} />
+        <Field label={m.publicPage.labels.ports} name="ports" maxLength={800} placeholder={m.publicPage.labels.portsPlaceholder} defaultValue={supplier?.ports?.join(", ") ?? ""} />
+        <Field label={m.publicPage.labels.incoterms} name="incoterms" maxLength={800} placeholder={m.publicPage.labels.incotermsPlaceholder} defaultValue={supplier?.incoterms?.join(", ") ?? ""} />
         <Field label={m.publicPage.labels.paymentTerms} name="payment_terms" maxLength={200} defaultValue={supplier?.payment_terms ?? ""} />
       </div>
       <label className="mt-4 block text-sm"><span className="mb-1 block font-semibold">{m.publicPage.introLabel}</span><textarea name="intro_source" rows={4} maxLength={1500} className="input" defaultValue={supplier?.intro_source ?? supplier?.summary_i18n?.en ?? ""} placeholder={m.publicPage.introPlaceholder} /></label>
@@ -367,7 +367,14 @@ function OnboardingAside({ step, onStep, messages: m }: { step: number; onStep: 
 function Field({ label, name, required, maxLength, inputMode, pattern, defaultValue, placeholder }: {
   label: string; name: string; required?: boolean; maxLength: number; inputMode?: "numeric"; pattern?: string; defaultValue?: string; placeholder?: string;
 }) {
-  return <label className="block text-sm"><span className="mb-1 block font-semibold">{label}</span>
+  return <label className="block text-sm"><FieldLabel text={label} />
     <input name={name} className="input" required={required} maxLength={maxLength} inputMode={inputMode} pattern={pattern} defaultValue={defaultValue} placeholder={placeholder} />
   </label>;
+}
+
+/** Nhãn gọn: phần chú thích trong ngoặc (đơn vị, định dạng) để chữ thường, không tô đậm. */
+function FieldLabel({ text }: { text: string }) {
+  const match = text.match(/^(.*?)\s*(\([^()]*\))\s*(\*?)$/);
+  if (!match) return <span className="mb-1 block font-semibold">{text}</span>;
+  return <span className="mb-1 block font-semibold">{match[1]} <span className="font-normal text-ink-500">{match[2]}</span>{match[3] ? ` ${match[3]}` : ""}</span>;
 }
