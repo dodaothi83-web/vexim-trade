@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, MessageCircle, Package, Send, X } from "lucide-react";
+import { ArrowLeft, Loader2, Maximize2, MessageCircle, Package, Send, X } from "lucide-react";
 import { cx } from "@/components/ui";
 import { DeliveryTicks, PRESENCE_LABELS, PresenceDot, PresenceLine, deliveryStatus } from "@/components/chat/presence";
 
@@ -81,7 +81,7 @@ function ProductCard({ card, label, mine }: { card: ProductCardView; label: stri
  * chỉ hiện một cột. Tin mới được hỏi lại máy chủ định kỳ khi tab đang mở, không cần kết nối
  * thời gian thực. Enter để gửi, Shift+Enter để xuống dòng.
  */
-export function ChatWorkspace({ side, labels, locale, initialId = null, product = null, quickQuestions = [], variant = "page", onClose, closeLabel = "Close" }: {
+export function ChatWorkspace({ side, labels, locale, initialId = null, product = null, quickQuestions = [], variant = "page", onClose, closeLabel = "Close", expandHref, expandLabel = "Open full page" }: {
   side: "buyer" | "supplier"; labels: ChatLabels; locale: string; initialId?: string | null;
   /** Có khi mở từ trang sản phẩm: thẻ sản phẩm được đính kèm sẵn phía trên ô nhập. */
   product?: ChatDraftProduct | null;
@@ -89,6 +89,9 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
   variant?: "page" | "popup";
   onClose?: () => void;
   closeLabel?: string;
+  /** Khung bám cạnh: nút mở trang Tin nhắn đầy đủ (giữ đúng cuộc đang xem). */
+  expandHref?: string;
+  expandLabel?: string;
 }) {
   const popup = variant === "popup";
   const presence = PRESENCE_LABELS[locale.startsWith("vi") ? "vi" : "en"];
@@ -217,14 +220,20 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
   const showAttached = attached && activeId !== null && activeId === productThreadId;
   const headerProduct = active?.productName ?? thread?.conversation.productName ?? null;
 
-  return <div className={cx("flex overflow-hidden bg-white", popup ? "h-full" : "h-[calc(100dvh-11rem)] min-h-[480px] rounded-2xl border border-ink-200 shadow-sm")}>
+  const fullPageHref = expandHref ? `${expandHref}${activeId && activeId !== NEW_ID ? `?c=${encodeURIComponent(activeId)}` : ""}` : null;
+
+  // Khung bám cạnh (popup): danh sách cuộc trò chuyện ở bên phải, sát thanh công cụ, như Alibaba.
+  return <div className={cx("flex overflow-hidden bg-white", popup ? "h-full md:flex-row-reverse" : "h-[calc(100dvh-11rem)] min-h-[480px] rounded-2xl border border-ink-200 shadow-sm")}>
     {/* Danh sách cuộc trò chuyện */}
-    <aside className={cx("w-full shrink-0 flex-col border-r border-ink-100 md:flex md:w-80", activeId ? "hidden" : "flex")}>
+    <aside className={cx("w-full shrink-0 flex-col border-ink-100 md:flex", popup ? "md:w-64 md:border-l xl:w-72" : "border-r md:w-80", activeId ? "hidden" : "flex")}>
       <div className="flex items-center gap-2 border-b border-ink-100 px-4 py-3.5">
         <MessageCircle className="h-5 w-5 text-brand-700" aria-hidden="true" />
         <h2 className="text-[15px] font-bold text-ink-900">{labels.title}</h2>
         {list && list.some((c) => c.unread) && <span className="rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">{list.filter((c) => c.unread).length}</span>}
-        {popup && onClose && <button type="button" onClick={onClose} aria-label={closeLabel} className={cx("ml-auto rounded-md p-1.5 text-ink-500 hover:bg-ink-100", thread && "md:hidden")}><X className="h-5 w-5" /></button>}
+        {popup && <span className="ml-auto flex items-center gap-0.5">
+          {fullPageHref && <a href={fullPageHref} aria-label={expandLabel} title={expandLabel} className="hidden rounded-md p-1.5 text-ink-500 hover:bg-ink-100 md:inline-flex"><Maximize2 className="h-[18px] w-[18px]" /></a>}
+          {onClose && <button type="button" onClick={onClose} aria-label={closeLabel} title={closeLabel} className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100"><X className="h-5 w-5" /></button>}
+        </span>}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {rows === null ? <p className="flex items-center gap-2 p-4 text-sm text-ink-500"><Loader2 className="h-4 w-4 animate-spin" /></p>
@@ -266,7 +275,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
               {headerProduct && <span className="flex min-w-0 items-center gap-1 truncate"><Package className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{headerProduct}</span></span>}
             </p>
           </div>
-          {popup && onClose && <button type="button" onClick={onClose} aria-label={closeLabel} className="ml-auto rounded-md p-1.5 text-ink-500 hover:bg-ink-100"><X className="h-5 w-5" /></button>}
+          {popup && onClose && <button type="button" onClick={onClose} aria-label={closeLabel} className="ml-auto rounded-md p-1.5 text-ink-500 hover:bg-ink-100 md:hidden"><X className="h-5 w-5" /></button>}
         </header>
         <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto bg-ink-50/60 px-4 py-4">
           <p className="mx-auto max-w-md rounded-lg bg-white px-3 py-2 text-center text-[11.5px] leading-4 text-ink-500 shadow-sm">{labels.notice}</p>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Send, X } from "lucide-react";
 import { VeximPlatformSupportIcon } from "@/components/brand/vexim-icons";
 import { cx } from "@/components/ui";
+import { useChatDock } from "@/components/chat/dock";
 import { DeliveryTicks, PRESENCE_LABELS, PresenceLine, deliveryStatus } from "@/components/chat/presence";
 
 interface SupportMessageView { id: string; mine: boolean; body: string; author: string | null; createdAt: string; pending?: boolean }
@@ -53,6 +54,8 @@ export function SupportChat({ isVi = false, onClose }: { isVi?: boolean; onClose
   const [staffReadAt, setStaffReadAt] = useState<string | null>(null);
   const [staffLastSeen, setStaffLastSeen] = useState<string | null>(null);
   const presence = PRESENCE_LABELS[isVi ? "vi" : "en"];
+  // Esc để đóng; mở khung tin nhắn nhà cung cấp thì khung này tự đóng (mỗi lúc một khung).
+  useChatDock("support", true, onClose);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const count = useRef(0);
@@ -68,10 +71,8 @@ export function SupportChat({ isVi = false, onClose }: { isVi?: boolean; onClose
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") void load(); }, POLL_MS);
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
     inputRef.current?.focus();
-    return () => { window.clearInterval(timer); window.removeEventListener("keydown", onKey); };
+    return () => { window.clearInterval(timer); };
   }, [load, onClose]);
 
   useEffect(() => {

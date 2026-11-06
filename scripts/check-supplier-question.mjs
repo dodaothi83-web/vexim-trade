@@ -116,7 +116,16 @@ assert.match(productPage, /<AskSupplierDialog/);
 assert.doesNotMatch(productPage, /href=\{questionRfq\}/);
 const dialog = fs.readFileSync(new URL('../components/products/ask-supplier-dialog.tsx', import.meta.url), 'utf8');
 assert.match(dialog, /<dialog/);
-assert.match(dialog, /showModal\(\)/);
+// Khung chat bám cạnh phải, không chặn trang (non-modal), mỗi lúc một khung, có nút mở trang đầy đủ.
+assert.match(dialog, /dialog\.current\?\.show\(\)/);
+assert.doesNotMatch(dialog, /showModal\(\)/);
+assert.match(dialog, /className=\{CHAT_DOCK_CLASS\}/);
+assert.match(dialog, /useChatDock\("supplier-chat"/);
+assert.match(dialog, /expandHref="\/buyer\/account\/messages"/);
+const dock = fs.readFileSync(new URL('../components/chat/dock.ts', import.meta.url), 'utf8');
+assert.match(dock, /md:right-20 md:top-24/, 'Máy tính: bám cạnh phải');
+assert.match(dock, /fixed inset-0/, 'Điện thoại: toàn màn hình');
+assert.doesNotMatch(dock, /backdrop:/, 'Không làm tối nền');
 assert.match(dialog, /aria-labelledby="ask-supplier-title"/);
 // Ask supplier mở chat trên Vexim, không còn gửi email trực tiếp qua form câu hỏi.
 assert.doesNotMatch(dialog, /mode="question"|RfqForm/);
