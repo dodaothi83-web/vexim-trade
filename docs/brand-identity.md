@@ -136,3 +136,7 @@ Header controls (same approval): the language switcher and buyer account entry u
 |---|---|
 | VeximLanguageIcon | Language switcher (English / Tiếng Việt) |
 | VeximAccountIcon | Sign in; when signed in, a small navy initial badge marks the active account instead of the former large solid circle |
+
+## Shield pips without circles on public listings (approved 2026-11-07)
+
+The frameless `variant="marketplace"` pips, first approved for product cards, also apply to the public supplier cards in "Explore other suppliers" (`/suppliers/[slug]`) and to the comparison page (`/compare`), so every public listing card shows the same shields. CRM and other default contexts keep the circular pips.

@@ -125,7 +125,7 @@ export default async function SupplierProfile({ params }: PageProps) {
               <p className="mt-1 text-xs text-ink-600">{safe(supplierProvinceDisplay(r)) || "Vietnam"} · {supplierTypeLabel(r)}</p>
             </div>
           </div>
-          <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-3"><VerificationPips levels={r.approved_verification_steps} l2Scope={r.approved_l2_scope ?? null} compact /><VerificationTierBadge levels={r.approved_verification_steps} /></div>
+          <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-3"><VerificationPips levels={r.approved_verification_steps} l2Scope={r.approved_l2_scope ?? null} variant="marketplace" shortTooltips /><VerificationTierBadge levels={r.approved_verification_steps} /></div>
         </Link></li>;
       })}</ul>
     </section>}
