@@ -53,7 +53,11 @@ export type Permission =
   /**
    * Quản lý gói tài trợ: chỉ admin; không cấp quyền tạo hoặc duyệt thủ công.
    */
-  | "sponsored.manage";
+  | "sponsored.manage"
+  /** Đọc hộp chat người mua ↔ đội Vexim */
+  | "support.view"
+  /** Trả lời và nhận xử lý chat với người mua */
+  | "support.manage";
 
 export const ROLES: {
   value: UserRole;
@@ -72,7 +76,7 @@ export const ROLES: {
     value: "sale",
     label: "Kinh doanh",
     description:
-      "Người mua, prospect, pipeline, email và tài liệu chia sẻ người mua. Xem nhà cung cấp/sản phẩm nhưng không sửa.",
+      "Người mua, prospect, pipeline, email và chat với người mua. Xem nhà cung cấp/sản phẩm nhưng không sửa.",
     badge: "bg-brand-600 text-white",
   },
   {
@@ -110,6 +114,7 @@ const VIEW_ONLY: Permission[] = [
   "mail.view",
   "settings.view",
   "rfq.view",
+  "support.view",
 ];
 
 const MATRIX: Record<UserRole, Permission[]> = {
@@ -144,6 +149,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "sponsored.view",
     "sponsored.requests.manage",
     "sponsored.manage",
+    "support.manage",
   ],
   sale: [
     "buyers.view",
@@ -160,6 +166,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "sponsored.view",
     "sponsored.requests.manage",
     "settings.view",
+    "support.manage",
   ],
   sourcing: [],
   reviewer: [

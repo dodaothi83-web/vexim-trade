@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessage, SourcingRequest } from "@/lib/types";
+import type { ChatConversation, ChatMessage, SourcingRequest, SupportConversation, SupportMessage } from "@/lib/types";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { PRODUCT_EXTRAS_COLUMNS, type ProductExtrasColumn } from "@/lib/products/product-extras";
 
@@ -1214,6 +1214,51 @@ export const supabaseStore: DataStore = {
     const { data, error } = await must().from("chat_messages").insert(input).select("*").single();
     if (error) fail("addChatMessage", error);
     return data as ChatMessage;
+  },
+  async getSupportConversationByBuyer(buyerEmail) {
+    const { data, error } = await must().from("support_conversations").select("*")
+      .eq("buyer_email", buyerEmail.trim().toLowerCase()).maybeSingle();
+    if (error) fail("getSupportConversationByBuyer", error);
+    return (data ?? null) as SupportConversation | null;
+  },
+  async getSupportConversation(id) {
+    const { data, error } = await must().from("support_conversations").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getSupportConversation", error);
+    return (data ?? null) as SupportConversation | null;
+  },
+  async createSupportConversation(buyerEmail) {
+    const email = buyerEmail.trim().toLowerCase();
+    // Mỗi người mua một cuộc; gửi hai tin đầu cùng lúc thì lần sau đọc lại cuộc đã có.
+    const { data, error } = await must().from("support_conversations")
+      .upsert({ buyer_email: email }, { onConflict: "buyer_email", ignoreDuplicates: true }).select("*").maybeSingle();
+    if (error) fail("createSupportConversation", error);
+    if (data) return data as SupportConversation;
+    const existing = await this.getSupportConversationByBuyer(email);
+    if (!existing) throw new Error("createSupportConversation: conversation not found after upsert");
+    return existing;
+  },
+  async updateSupportConversation(id, patch) {
+    const { error } = await must().from("support_conversations").update(patch).eq("id", id);
+    if (error) fail("updateSupportConversation", error);
+  },
+  async listSupportConversations(filter = {}) {
+    let query = must().from("support_conversations").select("*").not("last_message_at", "is", null);
+    if (filter.assignedTo === null) query = query.is("assigned_to", null);
+    else if (filter.assignedTo) query = query.eq("assigned_to", filter.assignedTo);
+    const { data, error } = await query.order("last_message_at", { ascending: false }).limit(filter.limit ?? 200);
+    if (error) fail("listSupportConversations", error);
+    return (data ?? []) as SupportConversation[];
+  },
+  async listSupportMessages(conversationId, limit = 500) {
+    const { data, error } = await must().from("support_messages").select("*")
+      .eq("conversation_id", conversationId).order("created_at", { ascending: false }).limit(limit);
+    if (error) fail("listSupportMessages", error);
+    return ((data ?? []) as SupportMessage[]).reverse();
+  },
+  async addSupportMessage(input) {
+    const { data, error } = await must().from("support_messages").insert(input).select("*").single();
+    if (error) fail("addSupportMessage", error);
+    return data as SupportMessage;
   },
   async listMessagesForThreads(threadIds) {
     const ids = [...new Set(threadIds)].filter(Boolean);

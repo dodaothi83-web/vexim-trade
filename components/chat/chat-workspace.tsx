@@ -222,7 +222,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
         <MessageCircle className="h-5 w-5 text-brand-700" aria-hidden="true" />
         <h2 className="text-[15px] font-bold text-ink-900">{labels.title}</h2>
         {list && list.some((c) => c.unread) && <span className="rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">{list.filter((c) => c.unread).length}</span>}
-        {popup && onClose && <button type="button" onClick={onClose} aria-label={closeLabel} className="ml-auto rounded-md p-1.5 text-ink-500 hover:bg-ink-100 md:hidden"><X className="h-5 w-5" /></button>}
+        {popup && onClose && <button type="button" onClick={onClose} aria-label={closeLabel} className={cx("ml-auto rounded-md p-1.5 text-ink-500 hover:bg-ink-100", thread && "md:hidden")}><X className="h-5 w-5" /></button>}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {rows === null ? <p className="flex items-center gap-2 p-4 text-sm text-ink-500"><Loader2 className="h-4 w-4 animate-spin" /></p>

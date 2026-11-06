@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type Ref } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, Loader2, Paperclip, Send, X } from "lucide-react";
 import { lockDialogScroll } from "@/lib/browser/dialog-scroll-lock";
@@ -8,7 +8,11 @@ import { useBuyerEnquiryAuth } from "@/components/buyer-enquiry-auth";
 import { FormChallenge } from "@/components/form-challenge";
 import { SOURCING_MAX_FILES, SOURCING_MAX_FILE_BYTES } from "@/lib/sourcing/files";
 
-export function SourcingComposerTrigger({ isVi = false }: { isVi?: boolean }) {
+export function SourcingComposerTrigger({ isVi = false, renderTrigger }: {
+  isVi?: boolean;
+  /** Nút mở khác (ví dụ thanh công cụ nổi); mặc định là nút trên đầu trang. */
+  renderTrigger?: (props: { onClick: () => void; ref: Ref<HTMLButtonElement> }) => ReactNode;
+}) {
   const { requireBuyer } = useBuyerEnquiryAuth();
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -60,9 +64,9 @@ export function SourcingComposerTrigger({ isVi = false }: { isVi?: boolean }) {
     finally { setBusy(false); setChallenge(null); setAttempt((n) => n + 1); }
   }
   return <>
-    <button ref={trigger} type="button" onClick={begin} aria-haspopup="dialog" aria-label={label} lang={vi ? "vi" : "en"} className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-brand-700 px-3 text-[12px] font-semibold text-white shadow-sm transition hover:bg-brand-800 focus-visible:ring-2 focus-visible:ring-brand-600 sm:px-4 sm:text-[13.5px]">
+    {renderTrigger ? renderTrigger({ onClick: begin, ref: trigger }) : <button ref={trigger} type="button" onClick={begin} aria-haspopup="dialog" aria-label={label} lang={vi ? "vi" : "en"} className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-brand-700 px-3 text-[12px] font-semibold text-white shadow-sm transition hover:bg-brand-800 focus-visible:ring-2 focus-visible:ring-brand-600 sm:px-4 sm:text-[13.5px]">
       <span className="xl:hidden">{vi ? "Tìm nguồn" : "Sourcing"}</span><span className="hidden xl:inline">{label}</span><ArrowRight className="hidden h-3.5 w-3.5 xl:block" aria-hidden />
-    </button>
+    </button>}
     {open && <dialog ref={dialog} aria-labelledby="sourcing-title" onCancel={(e) => {
       // A file input also fires `cancel` when its native picker is dismissed.
       // React propagates that event to this handler; it is not a dialog dismissal.

@@ -1652,3 +1652,35 @@ export interface ChatMessage {
   product_name: string | null;
   created_at: string;
 }
+
+/* --------- CHAT NGƯỜI MUA ↔ ĐỘI VEXIM (thay nút WhatsApp "Chat with us") --------- */
+
+export type SupportSender = "buyer" | "staff";
+
+export interface SupportConversation {
+  id: string;
+  /** Email người mua đã xác minh, chữ thường. Mỗi người mua một cuộc. */
+  buyer_email: string;
+  /** Nhân viên đang phụ trách; null là chưa ai nhận. */
+  assigned_to: string | null;
+  last_message_at: string | null;
+  last_message_preview: string | null;
+  last_sender: SupportSender | null;
+  buyer_last_read_at: string | null;
+  staff_last_read_at: string | null;
+  buyer_notified_at: string | null;
+  staff_notified_at: string | null;
+  created_at: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  conversation_id: string;
+  sender: SupportSender;
+  sender_email: string;
+  staff_user_id: string | null;
+  staff_name: string | null;
+  body: string;
+  page_path: string | null;
+  created_at: string;
+}

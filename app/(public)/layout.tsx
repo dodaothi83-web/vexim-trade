@@ -5,14 +5,14 @@ import { googleOneTapClientId, hasOneTapSession } from "@/lib/auth/google-one-ta
 import { BuyerSavedProductsProvider } from "@/components/buyer-saved-products";
 import { getLocale } from "@/lib/i18n/server";
 import { getBuyerSession, getBuyerUser } from "@/lib/auth/buyer-session";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 
 import { Logo } from "@/components/brand-logo";
 import { PublicHeaderControls } from "@/components/public-header-controls";
 import { getStore } from "@/lib/db";
 import { SimpleFooter } from "./simple-footer";
-import { WhatsAppChatButton } from "@/components/whatsapp-chat-button";
+import { MarketplaceRail } from "@/components/marketplace-rail";
 import { SiteTrafficBeacon } from "@/components/site-traffic-beacon";
 import { ProductComparisonProvider } from "@/components/product-comparison-provider";
 import { ProductComparisonTray } from "@/components/product-comparison-tray";
@@ -68,7 +68,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
       <main>{children}</main>
 
       <ProductComparisonTray />
-      <WhatsAppChatButton />
+      <Suspense fallback={null}><MarketplaceRail isVi={locale === "vi"} /></Suspense>
       <SimpleFooter />
     </div>
     </ProductComparisonProvider>

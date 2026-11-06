@@ -1,3 +1,4 @@
+import { supportHasUnread } from "@/lib/chat/support-core";
 import { sourcingStore } from "@/lib/sourcing/store";
 import { rfqChannel, UNCLAIMED_RFQ_STATUSES } from "@/lib/rfq/channel";
 import type { ReactNode } from "react";
@@ -97,11 +98,19 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // nằm ở "matching" để nhà cung cấp xử lý, không phải việc của Vexim, nên không làm huy hiệu treo mãi.
   const pendingRfqs = pendingRouting?.filter((r) => rfqChannel(r) !== "sourcing" && UNCLAIMED_RFQ_STATUSES.includes(r.status)).length ?? 0;
 
+  // Người mua nhắn Vexim mà nhân viên chưa đọc. Lỗi đếm không được làm hỏng CRM.
+  const pendingSupport = hasPermission(session.role, "support.view")
+    ? await store.listSupportConversations({ limit: 500 })
+      .then((rows) => rows.filter((c) => supportHasUnread(c, "staff")).length)
+      .catch((error) => { console.error("[crm] đếm chat người mua lỗi", error); return 0; })
+    : 0;
+
   // Chuông thông báo của CRM: cùng nguồn số với huy hiệu sidebar, nên hai nơi
   // không bao giờ lệch nhau. Chỉ đưa vào chuông hàng đang có việc.
   const queues = [
     { href: "/crm/sourcing", label: "Yêu cầu tìm nguồn chờ tiếp nhận", count: pendingSourcing ?? 0 },
     { href: "/crm/rfqs", label: "RFQ chờ tiếp nhận", count: pendingRfqs },
+    { href: "/crm/support", label: "Người mua đang chờ trả lời chat", count: pendingSupport },
     { href: "/crm/suppliers", label: "Nhà cung cấp chờ xác nhận quyền cổng", count: pendingSuppliers },
     { href: "/crm/products?view=pending", label: "Sản phẩm nhà cung cấp chờ kiểm nội dung", count: pendingProducts },
     { href: "/crm/verifications", label: "Đợt kiểm chờ duyệt", count: pendingReviews },
@@ -144,6 +153,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         pendingSponsoredRequests={pendingSponsoredRequests}
         pendingSourcing={pendingSourcing}
         pendingRfqs={pendingRfqs}
+        pendingSupport={pendingSupport}
       />
       <div className="lg:pl-60">
         <CrmTopbar queues={queues} />

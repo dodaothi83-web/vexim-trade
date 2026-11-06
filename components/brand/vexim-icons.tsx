@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import type { LucideProps } from "lucide-react";
 
 /** Approved direction 02. See docs/brand-identity.md before modifying these shapes. */
-export type VeximIconName = "factory" | "trade" | "cooperative" | "document" | "inspection" | "delivery" | "minimum-order" | "export-port" | "lead-time" | "capacity" | "payment" | "markets" | "oem" | "odm" | "samples";
+export type VeximIconName = "factory" | "trade" | "cooperative" | "document" | "inspection" | "delivery" | "minimum-order" | "export-port" | "lead-time" | "capacity" | "payment" | "markets" | "oem" | "odm" | "samples" | "messages" | "sourcing-request" | "platform-support";
 export type VeximIconProps = LucideProps & { name: VeximIconName; approved?: boolean };
 
 function Artwork({ name, approved }: { name: VeximIconName; approved: boolean }) {
@@ -47,6 +47,16 @@ function Artwork({ name, approved }: { name: VeximIconName; approved: boolean })
 <rect x="7" y="27" width="8" height="12" rx="3"/><rect x="20" y="19" width="8" height="20" rx="3"/><rect x="33" y="9" width="8" height="30" rx="3"/></>;
     case "payment": return <><rect x="8" y="13" width="34" height="26" rx="7" fill="currentColor" fillOpacity="0.09" stroke="none"/>
 <rect x="7" y="11" width="34" height="26" rx="6"/><path d="M8 20h32M14 29h7m8 0h5"/></>;
+    case "messages": return <><rect x="15" y="18" width="27" height="20" rx="7" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<path d="M30 13v-1a5 5 0 0 0-5-5H11a5 5 0 0 0-5 5v9a5 5 0 0 0 5 5h1v5l5.5-5"/>
+<path d="M22 18h15a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5h-1v5l-6-5h-8a5 5 0 0 1-5-5v-8a5 5 0 0 1 5-5ZM23.5 27h1m4 0h1m4 0h1"/></>;
+    case "sourcing-request": return <><rect x="11" y="11" width="26" height="31" rx="7" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<path d="M17 9h-2a5 5 0 0 0-5 5v23a5 5 0 0 0 5 5h11M31 9h2a5 5 0 0 1 5 5v9M16 20h16m-16 6h10m-10 6h6"/>
+<rect x="17" y="6" width="14" height="6" rx="3"/><path d="m31 41 10-10m-7 0h7v7"/></>;
+    case "platform-support": return <><rect x="8" y="23" width="8" height="12" rx="4" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<rect x="32" y="23" width="8" height="12" rx="4" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<path d="M9 28v-4a15 15 0 0 1 30 0v4M36 35v1a6 6 0 0 1-6 6h-3"/>
+<rect x="8" y="23" width="8" height="12" rx="4"/><rect x="32" y="23" width="8" height="12" rx="4"/><rect x="21" y="40" width="6" height="4" rx="2"/></>;
     case "markets": return <><circle cx="25" cy="25" r="16" fill="currentColor" fillOpacity="0.09" stroke="none"/>
 <circle cx="24" cy="24" r="16"/><ellipse cx="24" cy="24" rx="7" ry="16"/><path d="M9 19h30M9 29h30"/></>;
   }
@@ -97,3 +107,11 @@ export const VeximMarketsIcon = namedIcon("markets");
 export const VeximOemIcon = namedIcon("oem");
 export const VeximOdmIcon = namedIcon("odm");
 export const VeximSamplesIcon = namedIcon("samples");
+
+// Thanh công cụ nổi trên trang công khai (chờ duyệt hình theo docs/brand-identity.md).
+/** Tin nhắn giữa người mua và nhà cung cấp trên Vexim. */
+export const VeximMessagesIcon = namedIcon("messages");
+/** Yêu cầu tìm nguồn gửi cho Vexim (RFQ chung, chưa chọn nhà cung cấp). */
+export const VeximSourcingRequestIcon = namedIcon("sourcing-request");
+/** Liên hệ đội ngũ Vexim (chủ sàn), không phải nhà cung cấp. */
+export const VeximPlatformSupportIcon = namedIcon("platform-support");
