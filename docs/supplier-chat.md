@@ -20,7 +20,7 @@ tin dài tối đa 4.000 ký tự. Chỉ hỏi được sản phẩm đang công
 
 ## Triển khai
 1. Chạy `supabase/migrations/20261110_supplier_chat.sql` trên CSDL **trước** khi deploy.
-2. Câu hỏi gửi theo luồng email cũ vẫn hiện ở khối "Câu hỏi từ người mua" trên trang RFQ của cổng.
+2. Khối "Câu hỏi từ người mua" kiểu email cũ đã được gỡ khỏi cổng nhà cung cấp (trước đó chỉ có dữ liệu thử).
 
 Mã nguồn: `lib/chat/core.ts` (quy tắc), `lib/chat/service.ts`, `lib/chat/viewer.ts`, `app/api/chat/*`,
 `components/chat/chat-workspace.tsx`. Kiểm tra: `scripts/check-chat.mjs`.
