@@ -25,10 +25,6 @@ const conv = { last_message_at: '2026-11-07T09:00:00Z', last_sender: 'buyer', bu
 assert.equal(supportCore.supportHasUnread(conv, 'staff'), true);
 assert.equal(supportCore.supportHasUnread(conv, 'buyer'), false);
 assert.equal(supportCore.supportHasUnread({ ...conv, staff_last_read_at: '2026-11-07T09:30:00Z' }, 'staff'), false);
-const n = { buyer_last_read_at: null, staff_last_read_at: null, buyer_notified_at: null, staff_notified_at: null };
-assert.equal(supportCore.supportShouldNotify(n, 'staff', now), true);
-assert.equal(supportCore.supportShouldNotify({ ...n, staff_notified_at: '2026-11-07T09:50:00Z' }, 'staff', now), false, 'Một loạt tin chỉ một email');
-assert.equal(supportCore.supportShouldNotify({ ...n, staff_notified_at: '2026-11-07T03:00:00Z' }, 'staff', now), true, 'Quá 6 giờ thì nhắc lại');
 const burst = Array.from({ length: 20 }, (_, i) => ({ sender: 'buyer', created_at: new Date(now - i * 1000).toISOString() }));
 assert.equal(supportCore.supportRateLimited(burst, 'buyer', now), true);
 assert.equal(supportCore.supportRateLimited(burst, 'staff', now), false);
@@ -67,16 +63,16 @@ const support = load('../lib/chat/support.ts', {
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   './core': core,
   './support-core': supportCore,
+  './presence': load('../lib/chat/presence.ts', {}),
 });
 
 const first = await support.postBuyerSupportMessage({ store, buyerEmail: 'buyer@acme.de', body: 'Hi, can you help me find a pepper supplier?', pagePath: '/products/pepper/p2' });
 assert.equal(conversations.length, 1, 'Tin đầu tạo cuộc trò chuyện');
 assert.equal(first.message.page_path, '/products/pepper/p2', 'Lưu trang người mua đang xem');
-assert.equal(sent[0].to[0], 'hello@veximtrade.com', 'Chưa ai nhận thì báo hộp thư chung');
-assert.match(sent[0].html, /\/crm\/support\?c=c1/);
+assert.equal(sent.length, 0, 'Email báo nhân viên do bộ quét gửi (check-chat-notify)');
 await support.postBuyerSupportMessage({ store, buyerEmail: 'buyer@acme.de', body: 'Grade 500 g/l, 2 containers.' });
 assert.equal(conversations.length, 1, 'Mỗi người mua chỉ một cuộc');
-assert.equal(sent.length, 1, 'Tin thứ hai chưa ai đọc thì không gửi email thêm');
+
 const staffView = await support.supportConversationViews(store, conversations);
 assert.equal(staffView[0].unread, true);
 assert.equal(staffView[0].buyerLabel, 'Acme GmbH');
@@ -84,10 +80,7 @@ assert.equal(staffView[0].buyerCrmId, 'b-1');
 
 await support.postStaffSupportMessage({ store, conversation: conversations[0], staff: { id: 'u-dung', name: 'Nguyễn Văn Dung', email: 'dung@veximtrade.com' }, body: 'Sure, we have 3 checked pepper suppliers.' });
 assert.equal(conversations[0].assigned_to, 'u-dung', 'Trả lời cuộc chưa ai nhận là tự nhận');
-const buyerMail = sent.at(-1);
-assert.deepEqual([...buyerMail.to], ['buyer@acme.de']);
-assert.match(buyerMail.html, /\?support=1/, 'Email mở thẳng khung chat');
-assert.doesNotMatch(buyerMail.html + buyerMail.text, /dung@veximtrade\.com/, 'Người mua không thấy email nội bộ');
+assert.equal(sent.length, 0);
 const buyerMsgs = support.supportMessageViews(messages, 'buyer');
 assert.equal(buyerMsgs.at(-1).author, 'Dung · Vexim Trade');
 assert.equal(buyerMsgs[0].pagePath, null, 'Người mua không cần thấy dấu trang');
@@ -96,11 +89,28 @@ const staffMsgs = support.supportMessageViews(messages, 'staff');
 assert.equal(staffMsgs.at(-1).author, 'Nguyễn Văn Dung', 'Nhân viên thấy đồng nghiệp nào đã trả lời');
 assert.equal(staffMsgs[0].pagePath, '/products/pepper/p2');
 
-// Đã nhận xử lý: tin mới của người mua báo đúng người phụ trách.
-conversations[0].staff_last_read_at = new Date(Date.now() + 1e6).toISOString();
 await support.postBuyerSupportMessage({ store, buyerEmail: 'buyer@acme.de', body: 'Great, thanks!' });
-assert.deepEqual([...sent.at(-1).to], ['dung@veximtrade.com']);
 await assert.rejects(support.postBuyerSupportMessage({ store, buyerEmail: 'buyer@acme.de', body: '   ' }), /empty/);
+
+/* ---------- 2b. Trạng thái online và đã xem ---------- */
+const presence = load('../lib/chat/presence.ts', {});
+const writes = [];
+const pstore = { touchChatPresence: async (k, at) => { writes.push([k, at]); }, getChatPresence: async (keys) => Object.fromEntries(keys.map((k) => [k, '2026-11-07T09:59:00Z'])) };
+await presence.touchPresence(pstore, presence.presenceKey.buyer(' Buyer@Acme.de '), now);
+await presence.touchPresence(pstore, presence.presenceKey.buyer('buyer@acme.de'), now + 10_000);
+assert.equal(writes.length, 1, 'Ghi tối đa 30 giây một lần cho mỗi khoá');
+assert.equal(writes[0][0], 'buyer:buyer@acme.de');
+await presence.touchPresence(pstore, presence.presenceKey.buyer('buyer@acme.de'), now + 31_000);
+assert.equal(writes.length, 2);
+assert.equal(presence.isOnline('2026-11-07T09:59:00Z', now), true, 'Thấy trong 2 phút là online');
+assert.equal(presence.isOnline('2026-11-07T09:57:00Z', now), false);
+assert.equal(presence.isOnline(null, now), false);
+const broken = { touchChatPresence: async () => { throw new Error('relation chat_presence does not exist'); }, getChatPresence: async () => { throw new Error('missing'); } };
+await presence.touchPresence(broken, 'staff:vexim', now);
+assert.deepEqual({ ...(await presence.readPresence(broken, ['staff:vexim'])) }, {}, 'Chưa chạy migration thì chat vẫn chạy, chỉ không có trạng thái');
+const viewsWithRead = await support.supportConversationViews({ ...store, getChatPresence: pstore.getChatPresence }, conversations);
+assert.equal(viewsWithRead[0].buyerLastSeen, '2026-11-07T09:59:00Z');
+assert.ok('buyerReadAt' in viewsWithRead[0]);
 
 /* ---------- 3. API, giao diện, migration ---------- */
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -117,8 +127,16 @@ assert.match(rail, /\/api\/support\?peek=1/);
 assert.equal(fs.existsSync(new URL('../components/whatsapp-chat-button.tsx', import.meta.url)), false);
 assert.match(read('components/sidebar.tsx'), /href: "\/crm\/support".*perm: "support\.view"/);
 assert.match(read('app/crm/layout.tsx'), /pendingSupport/);
+const ui = read('components/chat/presence.tsx');
+assert.match(ui, /counterpartReadAt >= m\.createdAt \? "seen" : "sent"/, 'Đã xem khi bên kia đọc tới tin');
+for (const f of ['components/chat/chat-workspace.tsx', 'components/chat/support-chat.tsx', 'components/crm/support-inbox.tsx']) {
+  assert.match(read(f), /<DeliveryTicks/, `${f}: dấu đã gửi/đã xem`);
+  assert.match(read(f), /PresenceLine|PresenceDot/, `${f}: trạng thái online`);
+}
+for (const f of ['app/api/chat/route.ts', 'app/api/chat/[id]/route.ts', 'app/api/support/route.ts', 'app/api/crm/support/route.ts']) assert.match(read(f), /touchPresence\(/, `${f}: ghi online`);
+assert.match(read('supabase/migrations/20261112_chat_presence.sql'), /revoke all on table public\.chat_presence from public, anon, authenticated/);
 const migration = read('supabase/migrations/20261111_vexim_support_chat.sql');
 assert.match(migration, /support_conversations_buyer_key/);
 assert.match(migration, /revoke all on table public\.support_messages from public, anon, authenticated/);
 
-console.log('✅ Chat với Vexim: quy tắc, quyền Kinh doanh/Quản trị/Chỉ xem, tự nhận xử lý, email báo đúng người, không lộ email nội bộ, bỏ WhatsApp, migration.');
+console.log('✅ Chat với Vexim: quy tắc, quyền Kinh doanh/Quản trị/Chỉ xem, tự nhận xử lý, email báo đúng người, không lộ email nội bộ, bỏ WhatsApp, online/offline, đã gửi/đã xem, migration.');

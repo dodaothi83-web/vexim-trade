@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getStore } from "@/lib/db";
 import { sameOrigin } from "@/lib/chat/viewer";
+import { presenceKey, touchPresence } from "@/lib/chat/presence";
 import { markSupportRead, postStaffSupportMessage, SupportError, supportConversationViews, supportMessageViews } from "@/lib/chat/support";
 
 export const runtime = "nodejs";
@@ -23,7 +24,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!conversation) return json({ error: "not_found" }, 404);
     const messages = await store.listSupportMessages(id);
     // Người chỉ có quyền xem không làm mất dấu "chưa đọc" của nhân viên phụ trách.
-    if (hasPermission(session.role, "support.manage")) await markSupportRead(store, conversation, "staff");
+    if (hasPermission(session.role, "support.manage")) { await markSupportRead(store, conversation, "staff"); void touchPresence(store, presenceKey.staff()); }
     const [view] = await supportConversationViews(store, [conversation]);
     return json({ conversation: { ...view, unread: false }, messages: supportMessageViews(messages, "staff"), canReply: hasPermission(session.role, "support.manage") });
   } catch (error) {

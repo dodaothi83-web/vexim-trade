@@ -20,11 +20,6 @@ const conv = { last_message_at: '2026-11-06T09:00:00Z', last_sender: 'buyer', bu
 assert.equal(core.hasUnread(conv, 'supplier'), true);
 assert.equal(core.hasUnread(conv, 'buyer'), false, 'Tin của chính mình không phải chưa đọc');
 assert.equal(core.hasUnread({ ...conv, supplier_last_read_at: '2026-11-06T09:30:00Z' }, 'supplier'), false);
-const notify = { buyer_last_read_at: null, supplier_last_read_at: null, buyer_notified_at: null, supplier_notified_at: null };
-assert.equal(core.shouldNotify(notify, 'supplier', now), true, 'Tin đầu luôn báo');
-assert.equal(core.shouldNotify({ ...notify, supplier_notified_at: '2026-11-06T09:50:00Z' }, 'supplier', now), false, 'Chưa đọc lần báo trước thì không gửi thêm');
-assert.equal(core.shouldNotify({ ...notify, supplier_notified_at: '2026-11-06T09:50:00Z', supplier_last_read_at: '2026-11-06T09:55:00Z' }, 'supplier', now), true, 'Đã đọc rồi thì tin mới được báo');
-assert.equal(core.shouldNotify({ ...notify, supplier_notified_at: '2026-11-06T03:00:00Z' }, 'supplier', now), true, 'Quá 6 giờ thì nhắc lại');
 assert.equal(core.tooManyNewConversations(Array.from({ length: 20 }, () => ({ created_at: '2026-11-06T09:00:00Z' })), now), true);
 
 /* ---------- 2. Dịch vụ với kho giả ---------- */
@@ -63,22 +58,18 @@ const chat = load('../lib/chat/service.ts', {
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/public/supplier-name': { supplierShortName: (s) => s.display_name || s.trade_name || s.name },
   './core': core,
+  './presence': load('../lib/chat/presence.ts', {}),
 });
 
 await assert.rejects(chat.startConversation({ store, buyerEmail: 'buyer@acme.de', productId: 'gone', body: 'Hi' }), /product_unavailable/, 'Không hỏi được sản phẩm không công khai');
 const C1 = '00000000-0000-4000-8000-000000000001';
 const first = await chat.startConversation({ store, buyerEmail: 'buyer@acme.de', productId: 'p1', body: 'Price for 1 container? <b>' });
 assert.equal(first.supplier_id, 's1');
-assert.equal(sent.length, 1, 'Tin đầu báo nhà cung cấp');
-assert.deepEqual([...sent[0].to], ['owner@mekong.vn'], 'Gửi tới tài khoản cổng của đúng nhà cung cấp');
-assert.doesNotMatch(sent[0].html + sent[0].text + sent[0].subject, /buyer@acme\.de/, 'Email cho nhà cung cấp không chứa email người mua');
-assert.match(sent[0].subject, /Acme GmbH/, 'Nhà cung cấp thấy tên công ty người mua');
-assert.match(sent[0].html, /&lt;b>/, 'Nội dung được thoát HTML');
-assert.match(sent[0].html, new RegExp(`/supplier/portal/messages\\?c=${C1}`));
+assert.equal(sent.length, 0, 'Không gửi email ngay: bộ quét gửi sau 10 phút nếu chưa đọc (check-chat-notify)');
 const again = await chat.startConversation({ store, buyerEmail: 'buyer@acme.de', productId: 'p1', body: 'And samples?' });
 assert.equal(again.id, first.id, 'Hỏi lại cùng nhà cung cấp mở lại đúng cuộc cũ');
 assert.equal(conversations.length, 1);
-assert.equal(sent.length, 1, 'Nhà cung cấp chưa đọc thì tin thứ hai không gửi thêm email');
+assert.equal(sent.length, 0);
 assert.equal(chat.conversationViews && conversations[0].last_sender, 'buyer');
 
 // Quyền xem: chỉ người mua đó và nhà cung cấp đó.
@@ -87,11 +78,9 @@ await chat.ownedConversation(store, C1, { side: 'supplier', supplierId: 's1' });
 await assert.rejects(chat.ownedConversation(store, C1, { side: 'buyer', email: 'other@acme.de' }), /not_found/);
 await assert.rejects(chat.ownedConversation(store, C1, { side: 'supplier', supplierId: 's2' }), /not_found/);
 
-// Nhà cung cấp trả lời: người mua nhận email, nhà cung cấp coi như đã đọc.
+// Nhà cung cấp trả lời: nhà cung cấp coi như đã đọc; email cho người mua do bộ quét gửi.
 await chat.postMessage({ store, conversation: conversations[0], sender: 'supplier', senderEmail: 'owner@mekong.vn', body: 'USD 6.2/kg FOB' });
-assert.equal(sent.length, 2);
-assert.equal(sent[1].to[0], 'buyer@acme.de');
-assert.match(sent[1].html, new RegExp(`/buyer/account/messages\\?c=${C1}`));
+assert.equal(sent.length, 0);
 const views = await chat.conversationViews(store, conversations, 'buyer');
 assert.equal(views[0].unread, true, 'Người mua có tin chưa đọc');
 assert.equal(views[0].counterpart, 'Mekong Agri');
@@ -133,8 +122,8 @@ assert.match(read('components/chat/chat-workspace.tsx'), /data-testid="chat-prod
 assert.match(read('components/products/ask-supplier-dialog.tsx'), /Chat with supplier/);
 assert.doesNotMatch(read('components/products/ask-supplier-dialog.tsx'), />Ask supplier</);
 // Email chỉ để báo tin mới; trả lời diễn ra trên Vexim, không qua hộp thư.
-assert.match(read('lib/chat/service.ts'), /Vui lòng không trả lời email này/);
-assert.match(read('lib/chat/service.ts'), /Please do not reply to this email/);
+assert.match(read('lib/chat/notify.ts'), /Vui lòng không trả lời email này/);
+assert.match(read('lib/chat/notify.ts'), /Please do not reply to this email/);
 assert.match(read('lib/chat/viewer.ts'), /account\?\.verified_at/, 'Người mua phải xác minh email');
 assert.match(read('lib/chat/viewer.ts'), /portalApproved\(access\.supplier\)/, 'Nhà cung cấp phải được duyệt cổng');
 assert.match(read('app/supplier/portal/messages/page.tsx'), /<ChatWorkspace side="supplier"/);

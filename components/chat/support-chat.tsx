@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Send, X } from "lucide-react";
 import { VeximPlatformSupportIcon } from "@/components/brand/vexim-icons";
 import { cx } from "@/components/ui";
+import { DeliveryTicks, PRESENCE_LABELS, PresenceLine, deliveryStatus } from "@/components/chat/presence";
 
 interface SupportMessageView { id: string; mine: boolean; body: string; author: string | null; createdAt: string; pending?: boolean }
 
@@ -49,6 +50,9 @@ export function SupportChat({ isVi = false, onClose }: { isVi?: boolean; onClose
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [staffReadAt, setStaffReadAt] = useState<string | null>(null);
+  const [staffLastSeen, setStaffLastSeen] = useState<string | null>(null);
+  const presence = PRESENCE_LABELS[isVi ? "vi" : "en"];
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const count = useRef(0);
@@ -56,7 +60,8 @@ export function SupportChat({ isVi = false, onClose }: { isVi?: boolean; onClose
   const load = useCallback(async () => {
     const res = await fetch("/api/support", { cache: "no-store" }).catch(() => null);
     if (!res?.ok) { setMessages((m) => m ?? []); setError((e) => e ?? t.loadError); return; }
-    const data = await res.json() as { messages: SupportMessageView[] };
+    const data = await res.json() as { messages: SupportMessageView[]; staffReadAt?: string | null; staffLastSeen?: string | null };
+    setStaffReadAt(data.staffReadAt ?? null); setStaffLastSeen(data.staffLastSeen ?? null);
     setMessages((current) => [...data.messages, ...(current ?? []).filter((m) => m.pending)]);
   }, [t.loadError]);
 
@@ -104,7 +109,7 @@ export function SupportChat({ isVi = false, onClose }: { isVi?: boolean; onClose
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15"><VeximPlatformSupportIcon size={24} strokeWidth={2.2} /></span>
       <div className="min-w-0 flex-1">
         <h2 id="vexim-support-title" className="truncate text-[15px] font-bold">{t.title}</h2>
-        <p className="truncate text-[12px] text-brand-100">{t.sub}</p>
+        <p className="truncate text-[12px]">{staffLastSeen ? <PresenceLine lastSeen={staffLastSeen} labels={presence} locale={locale} dark /> : <span className="text-brand-100">{t.sub}</span>}</p>
       </div>
       <button type="button" onClick={onClose} aria-label={t.close} className="rounded-md p-1.5 text-white/80 hover:bg-white/10 hover:text-white"><X className="h-5 w-5" /></button>
     </header>
@@ -115,11 +120,14 @@ export function SupportChat({ isVi = false, onClose }: { isVi?: boolean; onClose
         <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-white px-3.5 py-2 text-[14px] leading-6 text-ink-900 shadow-sm ring-1 ring-ink-100">{t.greeting}</div>
       </div>
       {messages === null ? <p className="flex justify-center py-6 text-ink-400"><Loader2 className="h-5 w-5 animate-spin" /></p> : <>
-        {messages.map((m) => <div key={m.id} className={cx("flex flex-col", m.mine ? "items-end" : "items-start")}>
+        {messages.map((m, i, all) => <div key={m.id} className={cx("flex flex-col", m.mine ? "items-end" : "items-start")}>
           {!m.mine && m.author && <span className="mb-0.5 px-1 text-[11px] font-semibold text-ink-500">{m.author}</span>}
           <div className={cx("max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm",
             m.mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100", m.pending && "opacity-70")}>{m.body}</div>
-          <span className="mt-0.5 px-1 text-[10.5px] text-ink-400">{time(m.createdAt, locale)}</span>
+          <span className="mt-0.5 flex items-center gap-1 px-1 text-[10.5px] text-ink-400">
+            {time(m.createdAt, locale)}
+            {m.mine && <DeliveryTicks status={deliveryStatus(m, staffReadAt)} labels={presence} showText={!all.slice(i + 1).some((x) => x.mine)} />}
+          </span>
         </div>)}
         {messages.length === 0 && <div className="flex flex-wrap gap-1.5 pt-1">{t.topics.map((topic) => <button key={topic} type="button" onClick={() => void send(topic)}
           className="rounded-full border border-brand-200 bg-white px-3 py-1.5 text-left text-[12.5px] font-medium text-brand-800 shadow-sm transition hover:border-brand-400 hover:bg-brand-50">{topic}</button>)}</div>}

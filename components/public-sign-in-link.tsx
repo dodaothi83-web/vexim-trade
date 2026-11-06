@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { signOutBuyerAction } from "@/app/(public)/buyer/sign-in/actions";
-import { UserRound } from "lucide-react";
+import { VeximAccountIcon } from "@/components/brand/vexim-icons";
 
 /** Lối vào chọn loại tài khoản từ header công khai. */
 export function PublicSignInLink({ lang = "en", buyerEmail = null, buyerCompanyName = null }: { lang?: "en" | "vi"; buyerEmail?: string | null; buyerCompanyName?: string | null }) {
@@ -67,13 +67,21 @@ export function PublicSignInLink({ lang = "en", buyerEmail = null, buyerCompanyN
         }
       }}>
       <summary aria-label={lang === "vi" ? "Tài khoản người mua" : "Buyer account"} title={lang === "vi" ? "Đã đăng nhập. Tài khoản của bạn" : "Signed in. Your account"}
-        className="inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full bg-brand-700 text-sm font-bold text-white hover:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 [&::-webkit-details-marker]:hidden">
-        <span aria-hidden="true">{initial}</span>
+        className="relative inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg text-brand-700 transition hover:bg-brand-50 group-open:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 [&::-webkit-details-marker]:hidden">
+        <VeximAccountIcon size={26} strokeWidth={2.2} />
+        {/* Đã đăng nhập: chữ cái đầu công ty trong một chấm nhỏ, thay cho khối tròn đặc to. */}
+        <span className="absolute bottom-1 right-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-brand-700 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white" aria-hidden="true">{initial}</span>
       </summary>
       <div className="absolute right-0 top-full z-50 w-64 pt-2">
         <div className="rounded-xl border border-ink-200 bg-white p-4 text-sm text-ink-900 shadow-pop">
-          <p className="text-xs text-ink-500">{lang === "vi" ? "Đã đăng nhập" : "Signed in"}</p>
-          <p className="mt-1 break-all font-semibold">{buyerEmail}</p>
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[15px] font-bold text-brand-800 ring-1 ring-brand-100" aria-hidden="true">{initial}</span>
+            <div className="min-w-0">
+              <p className="text-xs text-ink-500">{lang === "vi" ? "Đã đăng nhập" : "Signed in"}</p>
+              {buyerCompanyName?.trim() && <p className="truncate font-semibold">{buyerCompanyName.trim()}</p>}
+              <p className={buyerCompanyName?.trim() ? "truncate text-xs text-ink-600" : "break-all font-semibold"}>{buyerEmail}</p>
+            </div>
+          </div>
           <nav aria-label={lang === "vi" ? "Tài khoản" : "Account"} className="mt-3 flex flex-col gap-1 border-t border-ink-200 pt-2">
             <Link onClick={closeMenu} href="/buyer/account" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Tổng quan" : "Overview"}</Link>
             <Link onClick={closeMenu} href="/buyer/account?tab=requests" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Yêu cầu của tôi" : "My requests"}</Link>
@@ -94,9 +102,10 @@ export function PublicSignInLink({ lang = "en", buyerEmail = null, buyerCompanyN
       lang={lang}
       aria-label={label}
       title={label}
-      className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-ink-200 bg-white px-2 text-[12px] font-semibold text-ink-800 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 sm:px-3 sm:text-[13px]"
+      className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[13px] font-semibold text-brand-700 transition hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
     >
-      <UserRound className="h-5 w-5" aria-hidden="true" />
+      <VeximAccountIcon size={26} strokeWidth={2.2} aria-hidden="true" />
+      <span className="hidden xl:inline">{label}</span>
     </Link>
   );
 }

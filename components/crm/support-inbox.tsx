@@ -4,11 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, Headset, Loader2, Send, UserCheck, UserMinus } from "lucide-react";
 import { cx } from "@/components/ui";
+import { DeliveryTicks, PRESENCE_LABELS, PresenceDot, PresenceLine, deliveryStatus } from "@/components/chat/presence";
+
+const presence = PRESENCE_LABELS.vi;
 
 interface ConversationView {
   id: string; buyerEmail: string; buyerLabel: string; buyerCompany: string | null; buyerCrmId: string | null;
   assignedTo: string | null; assignedName: string | null; preview: string | null; lastMessageAt: string | null;
-  lastSender: "buyer" | "staff" | null; unread: boolean;
+  lastSender: "buyer" | "staff" | null; unread: boolean; buyerReadAt: string | null; buyerLastSeen: string | null;
 }
 interface MessageView { id: string; mine: boolean; body: string; author: string | null; pagePath: string | null; createdAt: string; pending?: boolean }
 type Tab = "waiting" | "mine" | "unassigned" | "all";
@@ -133,7 +136,7 @@ export function SupportInbox({ initialId = null }: { initialId?: string | null }
           : <ul>{rows.map((r) => <li key={r.id}>
             <button type="button" onClick={() => setActiveId(r.id)} aria-current={r.id === activeId ? "true" : undefined}
               className={cx("flex w-full items-start gap-3 border-b border-ink-50 px-4 py-3 text-left transition", r.id === activeId ? "bg-brand-50" : "hover:bg-ink-50")}>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-800">{r.buyerLabel.slice(0, 1).toUpperCase()}</span>
+              <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-800">{r.buyerLabel.slice(0, 1).toUpperCase()}<PresenceDot lastSeen={r.buyerLastSeen} label={presence.online} /></span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className={cx("truncate text-[13.5px]", r.unread ? "font-bold text-ink-900" : "font-semibold text-ink-800")}>{r.buyerLabel}</span>
@@ -159,6 +162,7 @@ export function SupportInbox({ initialId = null }: { initialId?: string | null }
             <div className="min-w-0 flex-1">
               <p className="truncate text-[15px] font-bold text-ink-900">{c.buyerLabel}</p>
               <p className="flex flex-wrap items-center gap-x-3 text-[12px] text-ink-500">
+                <PresenceLine lastSeen={c.buyerLastSeen} labels={presence} locale="vi-VN" />
                 <span className="truncate">{c.buyerEmail}</span>
                 {c.buyerCrmId && <Link href={`/crm/buyers/${encodeURIComponent(c.buyerCrmId)}`} className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:underline">Hồ sơ người mua <ExternalLink className="h-3 w-3" /></Link>}
               </p>
@@ -169,12 +173,13 @@ export function SupportInbox({ initialId = null }: { initialId?: string | null }
               : <button type="button" onClick={() => void act("release")} disabled={busy} className="btn btn-ghost h-9 px-3 text-[13px]"><UserMinus className="h-4 w-4" />Trả về chưa ai nhận</button>)}
           </header>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink-50/60 px-4 py-4">
-            {thread.messages.map((m) => <div key={m.id} className={cx("flex flex-col", m.mine ? "items-end" : "items-start")}>
+            {thread.messages.map((m, i, all) => <div key={m.id} className={cx("flex flex-col", m.mine ? "items-end" : "items-start")}>
               {m.author && <span className="mb-0.5 px-1 text-[11px] font-semibold text-ink-500">{m.author}</span>}
               <div className={cx("max-w-[75%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm",
                 m.mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100", m.pending && "opacity-70")}>{m.body}</div>
               <span className="mt-0.5 flex items-center gap-2 px-1 text-[10.5px] text-ink-400">
                 {when(m.createdAt)}
+                {m.mine && <DeliveryTicks status={deliveryStatus(m, c.buyerReadAt)} labels={presence} showText={!all.slice(i + 1).some((x) => x.mine)} />}
                 {m.pagePath && <a href={m.pagePath} target="_blank" rel="noopener" className="truncate text-brand-700 hover:underline">Đang xem: {m.pagePath}</a>}
               </span>
             </div>)}

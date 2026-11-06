@@ -86,6 +86,7 @@ interface LocalShape {
   chat_messages?: ChatMessage[];
   support_conversations?: SupportConversation[];
   support_messages?: SupportMessage[];
+  chat_presence?: Record<string, string>;
   users: AppUserRecord[];
   buyers: Buyer[];
   prospects: Prospect[];
@@ -1970,6 +1971,22 @@ export const localStore: DataStore = {
     const row: SupportMessage = { ...input, id: randomUUID(), created_at: new Date().toISOString() };
     mutate((db) => { (db.support_messages ??= []).push(row); });
     return row;
+  },
+  async claimChatNotification(table, id, column, expected, next) {
+    let claimed = false;
+    mutate((db) => {
+      const rows = (table === "chat_conversations" ? db.chat_conversations : db.support_conversations) ?? [];
+      const row = rows.find((c) => c.id === id) as unknown as Record<string, string | null | undefined> | undefined;
+      if (row && (row[column] ?? null) === expected) { row[column] = next; claimed = true; }
+    });
+    return claimed;
+  },
+  async touchChatPresence(key, at) {
+    mutate((db) => { (db.chat_presence ??= {})[key] = at; });
+  },
+  async getChatPresence(keys) {
+    const all = load().chat_presence ?? {};
+    return Object.fromEntries(keys.filter((k) => all[k]).map((k) => [k, all[k]]));
   },
   async listMessagesForThreads(threadIds) {
     const wanted = new Set(threadIds);

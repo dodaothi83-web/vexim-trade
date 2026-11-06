@@ -1,15 +1,11 @@
 import "server-only";
 
-import brandColors from "@/lib/brand/colors.json";
-import { FROM_ADDRESS, MAIL_DOMAIN, SERVICE_FROM_ADDRESS } from "@/lib/config";
+import { MAIL_DOMAIN } from "@/lib/config";
 import type { DataStore } from "@/lib/db/types";
-import { transport } from "@/lib/email/send";
-import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
-import { notificationOrigin } from "@/lib/supplier-portal/notify";
-import { SITE_URL } from "@/lib/site";
 import type { SupportConversation, SupportMessage, SupportSender } from "@/lib/types";
 import { chatPreview, cleanChatBody } from "./core";
-import { cleanPagePath, staffDisplayName, supportHasUnread, supportRateLimited, supportShouldNotify } from "./support-core";
+import { presenceKey, readPresence } from "./presence";
+import { cleanPagePath, staffDisplayName, supportHasUnread, supportRateLimited } from "./support-core";
 
 /**
  * Chat người mua ↔ đội Vexim (thay WhatsApp "Chat with us").
@@ -47,10 +43,14 @@ export interface SupportConversationView {
   lastMessageAt: string | null;
   lastSender: SupportSender | null;
   unread: boolean;
+  /** Người mua đã đọc tới mốc này (tin nhân viên gửi trước mốc là "đã xem"). */
+  buyerReadAt: string | null;
+  /** Lần cuối người mua còn mở Vexim. */
+  buyerLastSeen: string | null;
 }
 
 /** Hộp thư chung khi chưa nhân viên nào nhận cuộc (cùng nơi nhận RFQ mới). */
-function deskInbox(): string {
+export function deskInbox(): string {
   return process.env.RFQ_INTERNAL_EMAIL?.trim() || `hello@${MAIL_DOMAIN}`;
 }
 
@@ -69,6 +69,7 @@ export async function supportConversationViews(store: DataStore, rows: SupportCo
   const staffIds = [...new Set(rows.map((r) => r.assigned_to).filter((id): id is string => Boolean(id)))];
   const staff = new Map((await Promise.all(staffIds.map((id) => store.getUser(id).catch(() => null))))
     .filter((u): u is NonNullable<typeof u> => Boolean(u)).map((u) => [u.id, u.name || u.email]));
+  const seen = await readPresence(store, rows.map((r) => presenceKey.buyer(r.buyer_email)));
   return Promise.all(rows.map(async (c) => {
     const account = await store.getBuyerUserByEmail(c.buyer_email).catch(() => null);
     const crm = typeof store.getBuyerByEmail === "function" ? await store.getBuyerByEmail(c.buyer_email).catch(() => null) : null;
@@ -78,6 +79,7 @@ export async function supportConversationViews(store: DataStore, rows: SupportCo
       assignedTo: c.assigned_to, assignedName: c.assigned_to ? staff.get(c.assigned_to) ?? null : null,
       preview: c.last_message_preview, lastMessageAt: c.last_message_at ?? c.created_at, lastSender: c.last_sender,
       unread: supportHasUnread(c, "staff"),
+      buyerReadAt: c.buyer_last_read_at, buyerLastSeen: seen[presenceKey.buyer(c.buyer_email)] ?? null,
     };
   }));
 }
@@ -108,13 +110,7 @@ async function post(store: DataStore, conversation: SupportConversation, input: 
     // Nhân viên trả lời cuộc chưa ai nhận thì tự nhận cuộc đó.
     ...(input.sender === "staff" && !conversation.assigned_to && input.staff ? { assigned_to: input.staff.id } : {}),
   };
-  const latest = { ...conversation, ...patch };
-  const recipient: SupportSender = input.sender === "buyer" ? "staff" : "buyer";
-  if (supportShouldNotify(latest, recipient)) {
-    const sent = await notify(store, latest, recipient, checked.body)
-      .catch((error) => { console.error("[support] new-message email failed", error); return false; });
-    if (sent) Object.assign(patch, recipient === "buyer" ? { buyer_notified_at: message.created_at } : { staff_notified_at: message.created_at });
-  }
+  // Email báo tin gửi chậm và gộp qua lib/chat/notify.ts.
   await store.updateSupportConversation(conversation.id, patch);
   return message;
 }
@@ -131,29 +127,4 @@ export async function postStaffSupportMessage(input: { store: DataStore; convers
   return post(input.store, input.conversation, {
     sender: "staff", senderEmail: input.staff.email, body: input.body, staff: { id: input.staff.id, name: input.staff.name || input.staff.email },
   });
-}
-
-async function notify(store: DataStore, c: SupportConversation, recipient: SupportSender, body: string): Promise<boolean> {
-  const preview = chatPreview(body, 600);
-  const quote = `<div style="margin:14px 0;padding:12px 16px;border-left:4px solid ${brandColors.primary};background:${brandColors.surface};white-space:pre-wrap;">${escapeHtml(preview)}</div>`;
-  const button = (href: string, label: string) => `<p style="margin:20px 0;"><a href="${escapeHtml(href)}" style="display:inline-block;background:${brandColors.primary};color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;">${escapeHtml(label)}</a></p>`;
-  if (recipient === "staff") {
-    const assignee = c.assigned_to ? await store.getUser(c.assigned_to).catch(() => null) : null;
-    const to = assignee?.is_active && assignee.email ? assignee.email : deskInbox();
-    const [view] = await supportConversationViews(store, [c]);
-    const link = `${notificationOrigin()}/crm/support?c=${encodeURIComponent(c.id)}`;
-    const title = `Người mua nhắn Vexim: ${view?.buyerLabel ?? c.buyer_email}`;
-    const html = `<p>Có tin nhắn mới từ người mua trong mục Chat với người mua.</p>${quote}${button(link, "Trả lời trong CRM")}
-      <p style="color:${brandColors.muted};font-size:12.5px;">Vui lòng trả lời trong CRM để người mua thấy ngay trên trang Vexim.</p>`;
-    const res = await transport({ to: [to], from: SERVICE_FROM_ADDRESS, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body: html }),
-      text: `${title}\n\n${preview}\n\nTrả lời trong CRM: ${link}`, headers: { "X-Vexim-Support": c.id } });
-    return res.ok;
-  }
-  const link = `${SITE_URL}/?support=1`;
-  const title = "New message from Vexim Trade";
-  const html = `<p>The Vexim Trade team replied to your message.</p>${quote}${button(link, "Reply on Vexim")}
-    <p style="color:${brandColors.muted};font-size:12.5px;">Please do not reply to this email. Open Vexim and click Chat with Vexim to continue the conversation.</p>`;
-  const res = await transport({ to: [c.buyer_email], from: FROM_ADDRESS, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body: html }),
-    text: `${title}\n\n${preview}\n\nReply on Vexim: ${link}\nPlease do not reply to this email.`, headers: { "X-Vexim-Support": c.id } });
-  return res.ok;
 }

@@ -1,10 +1,9 @@
 import type { SupportConversation, SupportMessage, SupportSender } from "@/lib/types";
-import { CHAT_BURST_LIMIT, CHAT_BURST_WINDOW_MS, CHAT_RENOTIFY_MS } from "./core";
+import { CHAT_BURST_LIMIT, CHAT_BURST_WINDOW_MS } from "./core";
 
 /**
  * Quy tắc thuần cho chat người mua ↔ đội Vexim, cùng ngưỡng với chat nhà cung cấp:
- * 20 tin mỗi 10 phút cho mỗi bên, email báo tin mới không quá một thư mỗi 6 giờ khi
- * bên nhận chưa mở lại.
+ * 20 tin mỗi 10 phút cho mỗi bên. Email báo tin gửi theo đợt qua lib/chat/notify.ts.
  */
 export function supportOtherSide(side: SupportSender): SupportSender {
   return side === "buyer" ? "staff" : "buyer";
@@ -19,15 +18,6 @@ export function supportHasUnread(c: ReadFields, side: SupportSender): boolean {
   return !read || read < c.last_message_at;
 }
 
-type NotifyFields = Pick<SupportConversation, "buyer_last_read_at" | "staff_last_read_at" | "buyer_notified_at" | "staff_notified_at">;
-
-export function supportShouldNotify(c: NotifyFields, recipient: SupportSender, nowMs = Date.now()): boolean {
-  const notified = recipient === "buyer" ? c.buyer_notified_at : c.staff_notified_at;
-  if (!notified) return true;
-  const read = recipient === "buyer" ? c.buyer_last_read_at : c.staff_last_read_at;
-  if (read && read >= notified) return true;
-  return nowMs - Date.parse(notified) >= CHAT_RENOTIFY_MS;
-}
 
 export function supportRateLimited(messages: Pick<SupportMessage, "sender" | "created_at">[], sender: SupportSender, nowMs = Date.now()): boolean {
   return messages.filter((m) => m.sender === sender && nowMs - Date.parse(m.created_at) < CHAT_BURST_WINDOW_MS).length >= CHAT_BURST_LIMIT;

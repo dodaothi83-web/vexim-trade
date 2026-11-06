@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import type { LucideProps } from "lucide-react";
 
 /** Approved direction 02. See docs/brand-identity.md before modifying these shapes. */
-export type VeximIconName = "factory" | "trade" | "cooperative" | "document" | "inspection" | "delivery" | "minimum-order" | "export-port" | "lead-time" | "capacity" | "payment" | "markets" | "oem" | "odm" | "samples" | "messages" | "sourcing-request" | "platform-support";
+export type VeximIconName = "factory" | "trade" | "cooperative" | "document" | "inspection" | "delivery" | "minimum-order" | "export-port" | "lead-time" | "capacity" | "payment" | "markets" | "oem" | "odm" | "samples" | "messages" | "sourcing-request" | "platform-support" | "language" | "account";
 export type VeximIconProps = LucideProps & { name: VeximIconName; approved?: boolean };
 
 function Artwork({ name, approved }: { name: VeximIconName; approved: boolean }) {
@@ -57,6 +57,11 @@ function Artwork({ name, approved }: { name: VeximIconName; approved: boolean })
 <rect x="32" y="23" width="8" height="12" rx="4" fill="currentColor" fillOpacity="0.09" stroke="none"/>
 <path d="M9 28v-4a15 15 0 0 1 30 0v4M36 35v1a6 6 0 0 1-6 6h-3"/>
 <rect x="8" y="23" width="8" height="12" rx="4"/><rect x="32" y="23" width="8" height="12" rx="4"/><rect x="21" y="40" width="6" height="4" rx="2"/></>;
+    case "language": return <><circle cx="25" cy="25" r="16" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<circle cx="24" cy="24" r="16"/><path d="M24 8c-4.5 4.4-7 10-7 16s2.5 11.6 7 16c4.5-4.4 7-10 7-16s-2.5-11.6-7-16ZM8.5 20h31M8.5 28h31"/></>;
+    case "account": return <><rect x="10" y="27" width="29" height="15" rx="7.5" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<circle cx="25" cy="17" r="8" fill="currentColor" fillOpacity="0.09" stroke="none"/>
+<circle cx="24" cy="16" r="8"/><path d="M9 40v-1.5A10.5 10.5 0 0 1 19.5 28h9A10.5 10.5 0 0 1 39 38.5V40"/></>;
     case "markets": return <><circle cx="25" cy="25" r="16" fill="currentColor" fillOpacity="0.09" stroke="none"/>
 <circle cx="24" cy="24" r="16"/><ellipse cx="24" cy="24" rx="7" ry="16"/><path d="M9 19h30M9 29h30"/></>;
   }
@@ -115,3 +120,7 @@ export const VeximMessagesIcon = namedIcon("messages");
 export const VeximSourcingRequestIcon = namedIcon("sourcing-request");
 /** Liên hệ đội ngũ Vexim (chủ sàn), không phải nhà cung cấp. */
 export const VeximPlatformSupportIcon = namedIcon("platform-support");
+
+// Đầu trang công khai: đổi ngôn ngữ và tài khoản, cùng phong cách với thanh công cụ.
+export const VeximLanguageIcon = namedIcon("language");
+export const VeximAccountIcon = namedIcon("account");

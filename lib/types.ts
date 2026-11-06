@@ -1639,6 +1639,9 @@ export interface ChatConversation {
   supplier_last_read_at: string | null;
   buyer_notified_at: string | null;
   supplier_notified_at: string | null;
+  /** Lần nhắc lại (một lần) khi email đầu đã quá 24 giờ mà vẫn chưa đọc. */
+  buyer_reminded_at?: string | null;
+  supplier_reminded_at?: string | null;
   created_at: string;
 }
 
@@ -1670,6 +1673,8 @@ export interface SupportConversation {
   staff_last_read_at: string | null;
   buyer_notified_at: string | null;
   staff_notified_at: string | null;
+  buyer_reminded_at?: string | null;
+  staff_reminded_at?: string | null;
   created_at: string;
 }
 
