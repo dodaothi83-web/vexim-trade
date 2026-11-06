@@ -18,7 +18,7 @@
     "check:mail": "node --experimental-strip-types --no-warnings scripts/check-mail-visibility.mjs",
     "check:harvest": "node --experimental-strip-types --no-warnings scripts/check-harvest-calendar.mjs && node --experimental-strip-types --no-warnings scripts/check-harvest-research.mjs",
     "check:comparison-pdf": "node scripts/check-comparison-pdf.mjs",
-    "check:compare": "node --experimental-strip-types --no-warnings scripts/check-product-comparison.mjs && npm run check:loading-port",
+    "check:compare": "node --experimental-strip-types --no-warnings scripts/check-product-comparison.mjs && node --experimental-strip-types --no-warnings scripts/check-similar-offers.mjs && npm run check:loading-port",
     "check:loading-port": "node --experimental-strip-types --no-warnings scripts/check-product-detail-display.mjs && node --experimental-strip-types --no-warnings scripts/check-loading-port.mjs",
     "check:category-filters": "node --experimental-strip-types --no-warnings scripts/check-category-filters-migration.mjs && node --experimental-strip-types --no-warnings scripts/check-category-grade-filter.mjs && node --experimental-strip-types --no-warnings scripts/check-category-pagination.mjs",
     "check:home-rotation": "node --experimental-strip-types --no-warnings scripts/check-home-rotation.mjs",
