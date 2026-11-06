@@ -118,7 +118,7 @@ On `/buyer/account`, keep the existing Lucide navigation (Overview / My enquirie
 
 For `VerificationPips variant="marketplace"` only, the owner approved removing the outer circular border and tinted background, while enlarging the existing ShieldCheck glyph so it does not float in an oversized empty frame. Glyphs are now 14px / 16px at sm (previously 10px / 12px), retaining the 18px / 20px hit areas and a consistent 2px gap (tightened from 4px after owner review). Keep success versus muted text colors, all three independent checks, labels, tooltips and keyboard focus indicators. This is not a new shield design or verification policy change. Default circular pips, tier pills and cover seals are unchanged; earlier circle-preservation guidance continues to apply outside product-card marketplace pips.
 
-## Floating quick-action rail (proposed 2026-11-07, awaiting visual approval)
+## Floating quick-action rail and header icons (approved 2026-11-07)
 
 Three new direction-02 icons for the right-edge rail on public pages (`components/marketplace-rail.tsx`). The rail shows icons only and expands to labels on hover or keyboard focus.
 
@@ -129,3 +129,10 @@ Three new direction-02 icons for the right-edge rail on public pages (`component
 | VeximPlatformSupportIcon | Chat with the Vexim team inside Vexim (sales staff reply in CRM) | A channel to a supplier |
 
 The rail replaces the old green WhatsApp "Chat with us" button; WhatsApp is no longer linked. It is hidden on `/buyer/account/messages`, which has its own full chat.
+
+Header controls (same approval): the language switcher and buyer account entry use these icons as borderless icon buttons, matching the rail.
+
+| Export | Use |
+|---|---|
+| VeximLanguageIcon | Language switcher (English / Tiếng Việt) |
+| VeximAccountIcon | Sign in; when signed in, a small navy initial badge marks the active account instead of the former large solid circle |

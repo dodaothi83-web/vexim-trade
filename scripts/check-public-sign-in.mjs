@@ -26,7 +26,7 @@ function load(file, mocks, globals = {}) {
 
 const Link = ({ href, children, prefetch: _prefetch, ...props }) => React.createElement('a', { href, ...props }, children);
 const icons = new Proxy({}, { get: () => (props) => React.createElement('svg', props) });
-const common = { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'lucide-react': icons };
+const common = { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'lucide-react': icons, '@/components/brand/vexim-icons': icons };
 const signIn = load('../components/public-sign-in-link.tsx', { ...common, '@/app/(public)/buyer/sign-in/actions': { signOutBuyerAction: async () => {} } });
 const sourcingComposer = load('../components/sourcing-composer.tsx', {
   ...common,

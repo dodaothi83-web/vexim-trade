@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Check, Globe } from "lucide-react";
+import { Check } from "lucide-react";
+import { VeximLanguageIcon } from "@/components/brand/vexim-icons";
 
 import { SourcingComposerTrigger } from "@/components/sourcing-composer";
 import { PublicSignInLink } from "@/components/public-sign-in-link";
@@ -83,9 +84,9 @@ function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: st
             aria-expanded={open}
             aria-haspopup="menu"
             title={isVi ? "Đổi ngôn ngữ (Tiếng Việt / English)" : "Change language (English / Tiếng Việt)"}
-            className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-ink-700 shadow-2xs transition hover:border-brand-300 hover:bg-slate-50 hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+            className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-brand-700 transition hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-expanded:bg-brand-50"
           >
-            <Globe className="h-4.5 w-4.5" />
+            <VeximLanguageIcon size={26} strokeWidth={2.2} />
           </button>
 
           {open && (
@@ -146,9 +147,9 @@ function HeaderControlsFallback({ buyerEmail, buyerCompanyName }: { buyerEmail?:
         <button
           type="button"
           aria-label="Language switcher / Chuyển đổi ngôn ngữ"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-ink-700 shadow-2xs"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-brand-700"
         >
-          <Globe className="h-4.5 w-4.5" />
+          <VeximLanguageIcon size={26} strokeWidth={2.2} />
         </button>
 
         <PublicSignInLink buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
