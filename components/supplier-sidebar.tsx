@@ -48,20 +48,21 @@ const NAV: {
   /** Chỉ hiện khi cổng đã được Vexim mở quyền. */
   needsApproval?: boolean;
 }[] = [
-  { href: "/supplier/portal", labelKey: "overview", icon: LayoutDashboard, group: "shop" },
+  // Công việc hằng ngày lên đầu: tổng quan, tin nhắn người mua, RFQ cần báo giá.
+  { href: "/supplier/portal", labelKey: "overview", icon: LayoutDashboard, group: "work" },
+  { href: "/supplier/portal/messages", labelKey: "messages", icon: MessageCircle, group: "work", needsApproval: true },
+  { href: "/supplier/portal/rfqs", labelKey: "rfqs", icon: Mail, group: "work", needsApproval: true },
   { href: "/supplier/portal/storefront", labelKey: "storefront", icon: Store, group: "shop", needsApproval: true },
   { href: "/supplier/portal/products", labelKey: "products", icon: Package, group: "shop", needsApproval: true },
   { href: "/supplier/portal/categories", labelKey: "categories", icon: FolderTree, group: "shop", needsApproval: true },
   { href: "/supplier/portal/traffic", labelKey: "traffic", icon: ChartNoAxesColumn, group: "shop", needsApproval: true },
-  { href: "/supplier/portal/messages", labelKey: "messages", icon: MessageCircle, group: "work", needsApproval: true },
-  { href: "/supplier/portal/rfqs", labelKey: "rfqs", icon: Mail, group: "work", needsApproval: true },
   { href: "/supplier/portal/documents", labelKey: "documents", icon: FileText, group: "verify", needsApproval: true },
   { href: "/supplier/portal/verification/factory", labelKey: "factory", icon: Factory, group: "verify", needsApproval: true },
   { href: "/supplier/portal/verification/export", labelKey: "exportHistory", icon: Ship, group: "verify", needsApproval: true },
   { href: "/supplier/portal/profile", labelKey: "profile", icon: Building2, group: "account", needsApproval: true },
 ];
 
-const NAV_GROUPS = ["shop", "work", "verify", "account"] as const;
+const NAV_GROUPS = ["work", "shop", "verify", "account"] as const;
 
 export function SupplierSidebar({
   supplierName,

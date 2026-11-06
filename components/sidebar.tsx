@@ -38,15 +38,18 @@ const NAV: {
   label: string;
   icon: typeof LayoutDashboard;
   perm?: Permission;
-  group: "marketplace" | "sales" | "system";
+  group: "inbox" | "marketplace" | "sales" | "system";
 }[] = [
+  // Tin nhắn đứng đầu: người mua chờ trả lời là việc cần xử lý nhanh nhất.
+  { href: "/crm/support", label: "Chat với người mua", icon: Headset, perm: "support.view", group: "inbox" },
+  { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view", group: "inbox" },
+  { href: "/crm/messages", label: "Giám sát tin nhắn", icon: MessageCircle, perm: "rfq.view", group: "inbox" },
   // Luồng vận hành có thể cần xử lý hằng ngày đứng trước cấu hình và nội dung.
   { href: "/crm/dashboard", label: "Tổng quan sàn", icon: LayoutDashboard, group: "marketplace" },
   { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view", group: "marketplace" },
   { href: "/crm/products", label: "Sản phẩm nhà cung cấp", icon: Boxes, perm: "products.view", group: "marketplace" },
   { href: "/crm/sourcing", label: "Yêu cầu tìm nguồn", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/rfqs", label: "RFQ từ người mua", icon: FileQuestion, perm: "rfq.view", group: "marketplace" },
-  { href: "/crm/messages", label: "Giám sát tin nhắn", icon: MessageCircle, perm: "rfq.view", group: "marketplace" },
   { href: "/crm/verifications", label: "Xác minh nhà cung cấp", icon: ShieldCheck, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/verifications/submissions", label: "Hồ sơ nhà cung cấp tự gửi", icon: UploadCloud, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/certificates", label: "Giấy tờ & chứng nhận", icon: FileCheck2, perm: "verifications.view", group: "marketplace" },
@@ -55,13 +58,13 @@ const NAV: {
   { href: "/crm/traffic", label: "Lưu lượng truy cập", icon: ChartNoAxesColumn, perm: "traffic.view", group: "marketplace" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
   { href: "/crm/buyers", label: "Người mua", icon: Globe2, perm: "buyers.view", group: "sales" },
-  { href: "/crm/support", label: "Chat với người mua", icon: Headset, perm: "support.view", group: "sales" },
-  { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view", group: "sales" },
+
   { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage", group: "sales" },
   { href: "/crm/team", label: "KPI cá nhân", icon: BarChart3, perm: "kpi.view", group: "sales" },
   { href: "/crm/settings", label: "Cài đặt", icon: Settings2, perm: "settings.view", group: "system" },
 ];
 const NAV_GROUPS = [
+  { key: "inbox", label: "TIN NHẮN" },
   { key: "marketplace", label: "VẬN HÀNH SÀN" },
   { key: "sales", label: "SALE · HỖ TRỢ NGƯỜI MUA" },
   { key: "system", label: "HỆ THỐNG" },
