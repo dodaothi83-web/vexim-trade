@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { MessageCircle } from "lucide-react";
-import { lockDialogScroll } from "@/lib/browser/dialog-scroll-lock";
+import { CHAT_DOCK_CLASS, useChatDock } from "@/components/chat/dock";
 import { useBuyerEnquiryAuth } from "@/components/buyer-enquiry-auth";
 import { ChatWorkspace, type ChatDraftProduct } from "@/components/chat/chat-workspace";
 import { BUYER_CHAT_LABELS } from "@/lib/chat/buyer-labels";
@@ -34,8 +34,10 @@ export function AskSupplierDialog({ productId, productName, supplierName, grade,
     id: productId, name: productName, imageUrl, supplierName, detail: [supplierName, grade].filter(Boolean).join(" · "),
   }), [productId, productName, imageUrl, supplierName, grade]);
 
-  function showChat() { setIsOpen(true); dialog.current?.showModal(); }
-  function close() { dialog.current?.close(); }
+  // Khung bám cạnh phải, không chặn trang: người mua vẫn xem sản phẩm trong lúc chat.
+  function showChat() { setIsOpen(true); dialog.current?.show(); }
+  const close = useCallback(() => { dialog.current?.close(); setIsOpen(false); }, []);
+  useChatDock("supplier-chat", isOpen, close);
   function open() {
     const destination = new URL(window.location.href);
     destination.searchParams.set("ask", "1");
@@ -44,30 +46,14 @@ export function AskSupplierDialog({ productId, productName, supplierName, grade,
   useEffect(() => {
     if (params.get("ask") === "1") open();
   }, [params, email]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const element = dialog.current;
-    if (!element) return;
-    let unlock: (() => void) | null = null;
-    const sync = () => {
-      if (element.open && !unlock) unlock = lockDialogScroll();
-      else if (!element.open && unlock) { unlock(); unlock = null; }
-      // Đóng cửa sổ là dừng hỏi tin mới; mở lại thì tải lại cuộc trò chuyện.
-      if (!element.open) setIsOpen(false);
-    };
-    const observer = new MutationObserver(sync);
-    sync();
-    observer.observe(element, { attributes: true, attributeFilter: ["open"] });
-    return () => { observer.disconnect(); unlock?.(); };
-  }, []);
   return <>
     <button type="button" onClick={open} aria-label={`Chat with supplier about ${productName}`} className="btn btn-soft min-h-12 w-full justify-center px-2 text-sm font-bold sm:px-4 sm:text-base">
       <MessageCircle className="h-5 w-5 shrink-0" /><span className="sm:hidden">Chat</span><span className="hidden sm:inline">Chat with supplier</span>
     </button>
-    <dialog ref={dialog} aria-labelledby="ask-supplier-title" className="fixed inset-0 m-auto h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-hidden bg-white p-0 text-ink-900 backdrop:bg-black/40 sm:h-[85dvh] sm:max-h-[760px] sm:w-[calc(100vw-3rem)] sm:max-w-5xl sm:rounded-2xl sm:shadow-2xl"
-      onClick={(event) => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) close(); } }}>
+    <dialog ref={dialog} aria-labelledby="ask-supplier-title" className={CHAT_DOCK_CLASS} onClose={() => setIsOpen(false)}>
       <h2 id="ask-supplier-title" className="sr-only">Chat with {supplierName}</h2>
       {isOpen && <ChatWorkspace side="buyer" variant="popup" labels={BUYER_CHAT_LABELS.en} locale="en-GB"
-        product={product} quickQuestions={QUICK_QUESTIONS} onClose={close} />}
+        product={product} quickQuestions={QUICK_QUESTIONS} onClose={close} expandHref="/buyer/account/messages" />}
     </dialog>
   </>;
 }

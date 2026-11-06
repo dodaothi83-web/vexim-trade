@@ -8,7 +8,7 @@ import { SourcingComposerTrigger } from "@/components/sourcing-composer";
 import { ChatWorkspace } from "@/components/chat/chat-workspace";
 import { SupportChat } from "@/components/chat/support-chat";
 import { BUYER_CHAT_LABELS } from "@/lib/chat/buyer-labels";
-import { lockDialogScroll } from "@/lib/browser/dialog-scroll-lock";
+import { CHAT_DOCK_CLASS, useChatDock } from "@/components/chat/dock";
 import { cx } from "@/components/ui";
 
 const UNREAD_POLL_MS = 30_000;
@@ -57,15 +57,13 @@ export function MarketplaceRail({ isVi = false }: { isVi?: boolean }) {
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
   }, [refreshUnread]);
 
+  // Khung tin nhắn bám cạnh phải, không chặn trang (như Alibaba).
   useEffect(() => {
     const node = dialog.current;
-    if (!chatOpen || !node) return;
-    node.showModal();
-    const unlock = lockDialogScroll();
-    const onClose = () => { setChatOpen(false); void refreshUnread(); };
-    node.addEventListener("close", onClose);
-    return () => { node.removeEventListener("close", onClose); unlock(); };
-  }, [chatOpen, refreshUnread]);
+    if (chatOpen && node && !node.open) node.show();
+  }, [chatOpen]);
+  const closeChat = useCallback(() => { dialog.current?.close(); setChatOpen(false); void refreshUnread(); }, [refreshUnread]);
+  useChatDock("messages", chatOpen, closeChat);
 
   // Link "Reply on Vexim" trong email báo tin của đội Vexim mở thẳng khung chat.
   useEffect(() => {
@@ -108,11 +106,10 @@ export function MarketplaceRail({ isVi = false }: { isVi?: boolean }) {
 
     {supportOpen && <SupportChat isVi={isVi} onClose={closeSupport} />}
 
-    {chatOpen && <dialog ref={dialog} aria-label={t.messages}
-      className="fixed inset-0 m-auto h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-hidden bg-white p-0 text-ink-900 backdrop:bg-black/40 sm:h-[85dvh] sm:max-h-[760px] sm:w-[calc(100vw-3rem)] sm:max-w-5xl sm:rounded-2xl sm:shadow-2xl"
-      onClick={(event) => { if (event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.current?.close(); } }}>
+    {chatOpen && <dialog ref={dialog} aria-label={t.messages} className={CHAT_DOCK_CLASS} onClose={() => setChatOpen(false)}>
       <ChatWorkspace side="buyer" variant="popup" labels={BUYER_CHAT_LABELS[isVi ? "vi" : "en"]} locale={isVi ? "vi-VN" : "en-GB"}
-        onClose={() => dialog.current?.close()} closeLabel={isVi ? "Đóng" : "Close"} />
+        onClose={closeChat} closeLabel={isVi ? "Đóng" : "Close"}
+        expandHref="/buyer/account/messages" expandLabel={isVi ? "Mở trang Tin nhắn" : "Open full page"} />
     </dialog>}
   </>;
 }

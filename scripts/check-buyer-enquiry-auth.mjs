@@ -13,6 +13,7 @@ window.addEventListener('error', (event) => errors.push(event.error));
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = await import('react-dom/client');
 dom.window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
+dom.window.HTMLDialogElement.prototype.show = function () { this.setAttribute('open', ''); };
 dom.window.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
 function load(file, mocks) {
   const mod = { exports: {} };
@@ -52,7 +53,7 @@ const auth = load('components/buyer-enquiry-auth.tsx', {
   '@/components/buyer-sign-in-form': { BuyerSignInForm }, '@/lib/buyer/next-path': nextPaths,
 });
 const { AskSupplierDialog } = load('components/products/ask-supplier-dialog.tsx', {
-  '@/lib/browser/dialog-scroll-lock': scrollLock,
+  '@/components/chat/dock': { CHAT_DOCK_CLASS: 'dock', useChatDock: () => {} },
   'next/navigation': navigation, 'lucide-react': { MessageCircle: icon },
   '@/components/buyer-enquiry-auth': auth,
   '@/lib/chat/buyer-labels': { BUYER_CHAT_LABELS: { en: { title: 'Messages' }, vi: { title: 'Tin nhắn' } } },
@@ -129,7 +130,7 @@ assert.equal(quick().open, false);
 assert.equal(question().open, true, 'Successful code opens the pending question, not a new route');
 assert.ok(question().querySelector('textarea#ask-supplier-message'), 'Chat composer is ready after authentication');
 assert.equal(paths.length, 0);
-assert.equal(document.body.style.overflow, 'hidden', 'Scroll stays locked through authentication → question transition');
+assert.equal(document.body.style.overflow, '', 'Đăng nhập xong mở khung chat bám cạnh: trang không bị khoá cuộn');
 await click(question().querySelector('[aria-label="Close"]'));
 assert.equal(document.body.style.overflow, '');
 await mount();
