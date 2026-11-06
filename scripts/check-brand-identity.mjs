@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { brandIcons } from './lib/vexim-icons.mjs';
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const render = (Icon, props = {}) => renderToStaticMarkup(React.createElement(Icon, props));
-const symbols = ['factory', 'trade', 'cooperative', 'document', 'inspection', 'delivery', 'minimum-order', 'export-port', 'lead-time', 'capacity', 'payment', 'markets', 'oem', 'odm', 'samples'];
+const symbols = ['factory', 'trade', 'cooperative', 'document', 'inspection', 'delivery', 'minimum-order', 'export-port', 'lead-time', 'capacity', 'payment', 'markets', 'oem', 'odm', 'samples', 'messages', 'sourcing-request', 'platform-support'];
 for (const name of symbols) {
   for (const size of [20, 24, 48]) {
     const html = render(brandIcons.VeximIcon, { name, size });

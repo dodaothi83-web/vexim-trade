@@ -12,7 +12,7 @@ import { Logo } from "@/components/brand-logo";
 import { PublicHeaderControls } from "@/components/public-header-controls";
 import { getStore } from "@/lib/db";
 import { SimpleFooter } from "./simple-footer";
-import { WhatsAppChatButton } from "@/components/whatsapp-chat-button";
+import { MarketplaceRail } from "@/components/marketplace-rail";
 import { SiteTrafficBeacon } from "@/components/site-traffic-beacon";
 import { ProductComparisonProvider } from "@/components/product-comparison-provider";
 import { ProductComparisonTray } from "@/components/product-comparison-tray";
@@ -68,7 +68,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
       <main>{children}</main>
 
       <ProductComparisonTray />
-      <WhatsAppChatButton />
+      <MarketplaceRail isVi={locale === "vi"} />
       <SimpleFooter />
     </div>
     </ProductComparisonProvider>
