@@ -9,11 +9,12 @@ const nav = sidebar.split('const NAV:')[1]?.split('const NAV_GROUPS')[0];
 assert.ok(nav, 'CRM navigation exists');
 const hrefs = [...nav.matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
 assert.deepEqual(hrefs, [
-  '/crm/dashboard', '/crm/suppliers', '/crm/products', '/crm/rfqs',
+  '/crm/support', '/crm/mail', '/crm/messages',
+  '/crm/dashboard', '/crm/suppliers', '/crm/products', '/crm/sourcing', '/crm/rfqs',
   '/crm/verifications', '/crm/verifications/submissions', '/crm/certificates',
   '/crm/categories', '/crm/sponsored', '/crm/traffic', '/crm/posts',
-  '/crm/buyers', '/crm/mail', '/crm/prospects', '/crm/team', '/crm/settings',
-], 'Daily marketplace work comes first; self-submission queue sits with verifications; sale and settings are secondary');
+  '/crm/buyers', '/crm/prospects', '/crm/team', '/crm/settings',
+], 'Chats and mail come first, then daily marketplace work; self-submission queue sits with verifications; sale and settings are secondary');
 assert.match(sidebar, /href: "\/crm\/categories", label: "Danh mục sản phẩm"/, 'Category menu uses product-focused wording');
 assert.match(sidebar, /perm: "rfq\.view"/, 'RFQ remains permission-gated');
 assert.match(sidebar, /pendingSponsoredRequests === null \? \{ text: "!", title: "Chưa tải được yêu cầu đẩy sản phẩm" \}/, 'Unknown request count is a visible warning, not zero');
@@ -38,6 +39,10 @@ assert.match(settings, /hasPermission\(session\.role, "templates\.manage"\)/, 'T
 // Cổng NCC dùng chung menu trái với CRM; thêm sản phẩm vẫn là nút hành động, không phải mục menu.
 const supplierNav = read('components/supplier-sidebar.tsx');
 assert.doesNotMatch(supplierNav, /href="\/supplier\/portal\/products\/new"/, 'Add product is an action, not a tab');
+// Cổng nhà cung cấp: nhóm Công việc (tổng quan, tin nhắn, RFQ) đứng đầu menu.
+assert.match(supplierNav, /const NAV_GROUPS = \["work", "shop", "verify", "account"\]/);
+const supplierHrefs = [...supplierNav.matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
+assert.deepEqual(supplierHrefs.slice(0, 3), ['/supplier/portal', '/supplier/portal/messages', '/supplier/portal/rfqs']);
 assert.match(supplierNav, /pathname\.startsWith\(`\$\{href\}\/`\)/, 'Product section stays selected on nested pages');
 assert.match(read('app/supplier/portal/products/product-storefront.tsx'), /href="\/supplier\/portal\/products\/new"/, 'Supplier can still add a product');
 console.log('✅ Navigation prioritizes marketplace workflows; secondary routes remain accessible and gated.');
