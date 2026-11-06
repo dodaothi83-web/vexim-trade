@@ -36,6 +36,7 @@ import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 import { packagingSummaryEnglish, samplePriceEnglish } from "@/lib/public/product-extras-display";
 import { productCertificatesFor } from "@/lib/public/product-certificates";
 import { similarOffers } from "@/lib/public/similar-offers";
+import { SimilarOffersRail } from "@/components/public/similar-offers-rail";
 import { categoryTieWindow } from "@/lib/public/ranking";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +58,7 @@ async function getDetail(slug: string, productId: string) {
   const categories = await store.listCategories({ publishedOnly: false });
   if (!productBelongsToCategory(product, category, categories)) return null;
   // Cùng mặt hàng từ nhà cung cấp khác, ưu tiên cùng grade, theo thứ tự xếp hạng danh mục.
-  const similar = similarOffers(card, categoryProducts, { limit: 4, window: categoryTieWindow(Date.now()) });
+  const similar = similarOffers(card, categoryProducts, { limit: 12, window: categoryTieWindow(Date.now()) });
   // Không có nhà cung cấp khác thì quay về gợi ý cùng danh mục như trước.
   const relatedProducts = similar.length ? [] : categoryProducts.filter((item) => item.id !== card.id && !item.isDemo).slice(0, 4);
   return { category, card, product, relatedProducts, similar, preview: !published };
@@ -180,7 +181,6 @@ export default async function PublicProductDetail({ params }: Props) {
   const relatedComparisonOffers = [card, ...relatedProducts, ...similar.map((s) => s.offer)].map((product) => ({
     id: product.id, supplierId: product.supplierId, categorySlug: slug, isDemo: product.isDemo,
   }));
-  const sharedGradeLabel = similar.find((s) => s.sameGrade)?.sameGrade ?? null;
 
   const countView = !preview && !card.isDemo && !(await getSession());
   // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
@@ -402,23 +402,9 @@ export default async function PublicProductDetail({ params }: Props) {
         <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>
       </div>
     </div>
-    {similar.length > 0 && <section id="similar-offers" aria-labelledby="similar-offers-heading" className="mt-12 scroll-mt-24 border-t border-ink-200 pt-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 id="similar-offers-heading" className="text-2xl font-black text-ink-900">Similar offers from other suppliers</h2>
-          <p className="mt-1 max-w-2xl text-sm text-ink-500">
-            {sharedGradeLabel ? <>Same product{` (${sharedGradeLabel})`} from other suppliers in {category.name_i18n.en || slug}. </> : <>Other suppliers of {category.name_i18n.en || slug}. </>}
-            Compare reference price, MOQ, lead time and verification before you request quotes.
-          </p>
-        </div>
-        <Link href={`/products/${encodeURIComponent(slug)}`} className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-700 hover:underline">View all suppliers <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
-      </div>
-      <ul className="mt-5 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {similar.map(({ offer, sameGrade }) => <li key={offer.id} className="flex min-w-0 flex-col gap-1.5">
-          <span className={sameGrade ? "self-start rounded-full bg-brand-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-brand-800 ring-1 ring-brand-100" : "self-start rounded-full bg-ink-50 px-2.5 py-0.5 text-[11.5px] font-medium text-ink-600 ring-1 ring-ink-100"}>
-            {sameGrade ? `Same grade · ${sameGrade}` : "Same category"}
-          </span>
-          <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(offer.id)}`}
+    {similar.length > 0 && <section id="similar-offers" className="mt-12 scroll-mt-24 border-t border-ink-200 pt-8">
+      <SimilarOffersRail title="Similar offers from other suppliers" titleId="similar-offers-heading">
+        {similar.map(({ offer }) => <PublicProductCard key={offer.id} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(offer.id)}`}
             imagePath={offer.cardImagePath ?? offer.imagePaths[0]} name={offer.name} grades={cardTitleGrades(offer)} gradeRows={offer.gradeRows} moq={offer.moq}
             stalePriceDays={offer.quantityOffer?.stale ? offer.quantityOffer.daysSinceConfirmed : undefined}
             volumePricing={offer.quantityOffer?.hasVolumePricing}
@@ -427,9 +413,8 @@ export default async function PublicProductDetail({ params }: Props) {
             verificationSteps={offer.verificationSteps} l2Scope={offer.l2Scope}
             comparison={!preview && hasProductComparisonPeer(relatedComparisonOffers, {
               id: offer.id, supplierId: offer.supplierId, categorySlug: slug, isDemo: offer.isDemo,
-            }) ? { id: offer.id, categorySlug: slug } : undefined} />
-        </li>)}
-      </ul>
+            }) ? { id: offer.id, categorySlug: slug } : undefined} />)}
+      </SimilarOffersRail>
     </section>}
     {(detailRows.length > 0 || additionalSpecs.length > 0) && <section aria-labelledby="full-specifications-heading" className="mt-12 border-t border-ink-200 pt-8">
       <h2 id="full-specifications-heading" className="text-2xl font-black text-ink-900">Full specifications</h2>

@@ -42,5 +42,10 @@ const page = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId
 assert.match(page, /Similar offers from other suppliers/);
 assert.ok(page.indexOf('id="similar-offers"') < page.indexOf('full-specifications-heading'), 'Mục so sánh đứng trên Full specifications');
 assert.match(page, /similar\.length \? \[\] : categoryProducts/, 'Không có nhà cung cấp khác thì quay về gợi ý cùng danh mục');
-assert.match(page, /Same grade · \$\{sameGrade\}/);
+assert.doesNotMatch(page, /Same grade · |Compare reference price, MOQ|View all suppliers/, 'Bỏ dòng mô tả, nhãn grade và link View all suppliers');
+assert.match(page, /<SimilarOffersRail/);
+const rail = fs.readFileSync(new URL('../components/public/similar-offers-rail.tsx', import.meta.url), 'utf8');
+assert.match(rail, /lg:w-\[calc\(\(100%-4rem\)\/5\)\]/, 'Máy tính: 5 thẻ mỗi lượt');
+assert.match(rail, /i >= 4 && "hidden lg:block"/, 'Điện thoại giữ lưới cũ, tối đa 4 thẻ');
+assert.match(rail, /hidden gap-2 lg:flex/, 'Nút trượt chỉ có trên máy tính');
 console.log('✅ Similar offers: nhà cung cấp khác, ưu tiên cùng grade, một sản phẩm mỗi nhà cung cấp, giữ thứ tự xếp hạng, đứng trên thông số.');
