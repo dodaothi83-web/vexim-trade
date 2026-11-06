@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { chatViewer, sameOrigin } from "@/lib/chat/viewer";
+import { presenceKey, touchPresence } from "@/lib/chat/presence";
 import { ChatError, attachableProduct, markConversationRead, messageViews, ownedConversation, postMessage, conversationViews } from "@/lib/chat/service";
 
 export const runtime = "nodejs";
@@ -15,6 +16,7 @@ function viewerKey(viewer: NonNullable<Awaited<ReturnType<typeof chatViewer>>>) 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const viewer = await chatViewer(new URL(request.url).searchParams.get("side"));
   if (!viewer) return json({ error: "auth" }, 401);
+  void touchPresence(viewer.store, viewer.side === "buyer" ? presenceKey.buyer(viewer.email) : presenceKey.supplier(viewer.supplierId));
   try {
     const conversation = await ownedConversation(viewer.store, (await params).id, viewerKey(viewer));
     const messages = await viewer.store.listChatMessages(conversation.id);
@@ -33,6 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!sameOrigin(request)) return json({ error: "origin" }, 403);
   const viewer = await chatViewer(new URL(request.url).searchParams.get("side"));
   if (!viewer) return json({ error: "auth" }, 401);
+  void touchPresence(viewer.store, viewer.side === "buyer" ? presenceKey.buyer(viewer.email) : presenceKey.supplier(viewer.supplierId));
   let payload: { body?: unknown; productId?: unknown };
   try { payload = await request.json(); } catch { return json({ error: "invalid" }, 400); }
   try {

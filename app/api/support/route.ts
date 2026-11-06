@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { chatViewer, sameOrigin } from "@/lib/chat/viewer";
 import { markSupportRead, postBuyerSupportMessage, SupportError, supportMessageViews } from "@/lib/chat/support";
 import { supportHasUnread } from "@/lib/chat/support-core";
+import { presenceKey, readPresence, touchPresence } from "@/lib/chat/presence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,13 +16,16 @@ const json = (body: object, status = 200) => NextResponse.json(body, { status, h
 export async function GET(request: Request) {
   const viewer = await chatViewer("buyer");
   if (!viewer || viewer.side !== "buyer") return json({ error: "auth" }, 401);
+  void touchPresence(viewer.store, presenceKey.buyer(viewer.email));
   try {
     const conversation = await viewer.store.getSupportConversationByBuyer(viewer.email);
     if (new URL(request.url).searchParams.get("peek") === "1") return json({ unread: conversation && supportHasUnread(conversation, "buyer") ? 1 : 0 });
-    if (!conversation) return json({ messages: [], unread: 0 });
+    // Đội Vexim online khi có nhân viên đang mở hộp chat trong CRM.
+    const staffLastSeen = (await readPresence(viewer.store, [presenceKey.staff()]))[presenceKey.staff()] ?? null;
+    if (!conversation) return json({ messages: [], unread: 0, staffReadAt: null, staffLastSeen });
     const messages = await viewer.store.listSupportMessages(conversation.id);
     await markSupportRead(viewer.store, conversation, "buyer");
-    return json({ messages: supportMessageViews(messages, "buyer"), unread: 0 });
+    return json({ messages: supportMessageViews(messages, "buyer"), unread: 0, staffReadAt: conversation.staff_last_read_at, staffLastSeen });
   } catch (error) {
     console.error("[support] buyer read failed", error);
     return json({ error: "unavailable" }, 503);
@@ -33,6 +37,7 @@ export async function POST(request: Request) {
   if (!sameOrigin(request)) return json({ error: "origin" }, 403);
   const viewer = await chatViewer("buyer");
   if (!viewer || viewer.side !== "buyer") return json({ error: "auth" }, 401);
+  void touchPresence(viewer.store, presenceKey.buyer(viewer.email));
   let payload: { body?: unknown; pagePath?: unknown };
   try { payload = await request.json(); } catch { return json({ error: "invalid" }, 400); }
   try {

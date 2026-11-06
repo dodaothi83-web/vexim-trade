@@ -1255,6 +1255,16 @@ export const supabaseStore: DataStore = {
     if (error) fail("listSupportMessages", error);
     return ((data ?? []) as SupportMessage[]).reverse();
   },
+  async touchChatPresence(key, at) {
+    const { error } = await must().from("chat_presence").upsert({ key, last_seen_at: at }, { onConflict: "key" });
+    if (error) fail("touchChatPresence", error);
+  },
+  async getChatPresence(keys) {
+    if (!keys.length) return {};
+    const { data, error } = await must().from("chat_presence").select("key,last_seen_at").in("key", keys.slice(0, 500));
+    if (error) fail("getChatPresence", error);
+    return Object.fromEntries(((data ?? []) as { key: string; last_seen_at: string }[]).map((r) => [r.key, r.last_seen_at]));
+  },
   async addSupportMessage(input) {
     const { data, error } = await must().from("support_messages").insert(input).select("*").single();
     if (error) fail("addSupportMessage", error);

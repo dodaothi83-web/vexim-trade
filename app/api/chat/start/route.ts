@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { chatViewer, sameOrigin } from "@/lib/chat/viewer";
+import { presenceKey, touchPresence } from "@/lib/chat/presence";
 import { ChatError, existingConversationForProduct, startConversation } from "@/lib/chat/service";
 
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ export async function GET(request: Request) {
   const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
   const viewer = await chatViewer("buyer");
   if (!viewer || viewer.side !== "buyer") return json({ error: "auth" }, 401);
+  void touchPresence(viewer.store, presenceKey.buyer(viewer.email));
   const productId = new URL(request.url).searchParams.get("productId") ?? "";
   try {
     return json({ conversationId: await existingConversationForProduct(viewer.store, viewer.email, productId) });
@@ -26,6 +28,7 @@ export async function POST(request: Request) {
   if (!sameOrigin(request)) return json({ error: "origin" }, 403);
   const viewer = await chatViewer("buyer");
   if (!viewer || viewer.side !== "buyer") return json({ error: "auth" }, 401);
+  void touchPresence(viewer.store, presenceKey.buyer(viewer.email));
   // Người mua đã xác minh email; chống spam bằng giới hạn số cuộc mới mỗi ngày và số tin mỗi 10 phút.
   let payload: { productId?: unknown; body?: unknown };
   try { payload = await request.json(); } catch { return json({ error: "invalid" }, 400); }

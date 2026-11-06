@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, MessageCircle, Package, Send, X } from "lucide-react";
 import { cx } from "@/components/ui";
+import { DeliveryTicks, PRESENCE_LABELS, PresenceDot, PresenceLine, deliveryStatus } from "@/components/chat/presence";
 
 export interface ChatLabels {
   title: string;
@@ -29,7 +30,7 @@ export interface ChatLabels {
   productUnavailable?: string;
 }
 
-interface ConversationView { id: string; counterpart: string; counterpartHref: string | null; productName: string | null; preview: string | null; lastMessageAt: string | null; unread: boolean }
+interface ConversationView { id: string; counterpart: string; counterpartHref: string | null; productName: string | null; preview: string | null; lastMessageAt: string | null; unread: boolean; counterpartReadAt?: string | null; counterpartLastSeen?: string | null }
 interface ProductCardView { id: string; name: string; imageUrl: string | null; href: string | null; price: string | null }
 interface MessageView { id: string; mine: boolean; body: string; productName: string | null; product?: ProductCardView | null; createdAt: string; pending?: boolean }
 
@@ -90,6 +91,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
   closeLabel?: string;
 }) {
   const popup = variant === "popup";
+  const presence = PRESENCE_LABELS[locale.startsWith("vi") ? "vi" : "en"];
   const [list, setList] = useState<ConversationView[] | null>(null);
   // Cửa sổ trên trang sản phẩm chờ tra cuộc cũ xong mới chọn cuộc, để không nháy sang cuộc khác.
   const [activeId, setActiveId] = useState<string | null>(product ? null : initialId);
@@ -230,7 +232,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
           : <ul>{rows.map((c) => <li key={c.id}>
             <button type="button" onClick={() => setActiveId(c.id)} aria-current={c.id === activeId ? "true" : undefined}
               className={cx("flex w-full items-start gap-3 border-b border-ink-50 px-4 py-3 text-left transition", c.id === activeId ? "bg-brand-50" : "hover:bg-ink-50")}>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-800">{c.counterpart.slice(0, 1).toUpperCase()}</span>
+              <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-800">{c.counterpart.slice(0, 1).toUpperCase()}<PresenceDot lastSeen={c.counterpartLastSeen} label={presence.online} /></span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className={cx("truncate text-[13.5px]", c.unread ? "font-bold text-ink-900" : "font-semibold text-ink-800")}>{c.counterpart}</span>
@@ -254,12 +256,15 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
       </div> : <>
         <header className="flex items-center gap-3 border-b border-ink-100 px-4 py-3">
           <button type="button" onClick={() => setActiveId(null)} className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 md:hidden" aria-label={labels.back}><ArrowLeft className="h-5 w-5" /></button>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-800">{thread.conversation.counterpart.slice(0, 1).toUpperCase()}</span>
+          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-800">{thread.conversation.counterpart.slice(0, 1).toUpperCase()}<PresenceDot lastSeen={thread.conversation.counterpartLastSeen} label={presence.online} /></span>
           <div className="min-w-0">
             {thread.conversation.counterpartHref
               ? <Link href={thread.conversation.counterpartHref} className="block truncate text-[14.5px] font-bold text-ink-900 hover:underline">{thread.conversation.counterpart}</Link>
               : <p className="truncate text-[14.5px] font-bold text-ink-900">{thread.conversation.counterpart}</p>}
-            {headerProduct && <p className="flex items-center gap-1 truncate text-[12px] text-ink-500"><Package className="h-3.5 w-3.5" aria-hidden="true" />{headerProduct}</p>}
+            <p className="flex min-w-0 items-center gap-2 text-[12px] text-ink-500">
+              {thread.conversation.id !== NEW_ID && <PresenceLine lastSeen={thread.conversation.counterpartLastSeen} labels={presence} locale={locale} />}
+              {headerProduct && <span className="flex min-w-0 items-center gap-1 truncate"><Package className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{headerProduct}</span></span>}
+            </p>
           </div>
           {popup && onClose && <button type="button" onClick={onClose} aria-label={closeLabel} className="ml-auto rounded-md p-1.5 text-ink-500 hover:bg-ink-100"><X className="h-5 w-5" /></button>}
         </header>
@@ -268,6 +273,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
           {(() => {
             // Thẻ sản phẩm chỉ hiện khi cuộc trò chuyện chuyển sang một sản phẩm khác.
             let shownProduct: string | null = null;
+            const lastMine = [...thread.messages].reverse().find((x) => x.mine)?.id;
             return thread.messages.map((m) => {
               const card = m.product ?? (m.productName ? { id: `name:${m.productName}`, name: m.productName, imageUrl: null, href: null, price: null } : null);
               const showCard = card && card.id !== shownProduct;
@@ -276,7 +282,10 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
                 {showCard && <ProductCard card={card} label={labels.about} mine={m.mine} />}
                 <div title={fullTime(m.createdAt, locale)} className={cx("max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm",
                   m.mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100", m.pending && "opacity-70")}>{m.body}</div>
-                <span className="mt-0.5 px-1 text-[10.5px] text-ink-400">{shortTime(m.createdAt, locale)}</span>
+                <span className="mt-0.5 flex items-center gap-1 px-1 text-[10.5px] text-ink-400">
+                  {shortTime(m.createdAt, locale)}
+                  {m.mine && <DeliveryTicks status={deliveryStatus(m, thread.conversation.counterpartReadAt)} labels={presence} showText={m.id === lastMine} />}
+                </span>
               </div>;
             });
           })()}

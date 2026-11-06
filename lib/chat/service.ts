@@ -8,6 +8,7 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { getPublicProductRecordsByIds } from "@/lib/public/product-catalog";
 import { notificationOrigin } from "@/lib/supplier-portal/notify";
 import { SITE_URL } from "@/lib/site";
+import { presenceKey, readPresence } from "./presence";
 import { supplierShortName } from "@/lib/public/supplier-name";
 import type { ChatConversation, ChatMessage, ChatSender, Supplier } from "@/lib/types";
 import { chatPreview, chatRateLimited, cleanChatBody, hasUnread, otherSide, shouldNotify, tooManyNewConversations } from "./core";
@@ -31,6 +32,10 @@ export interface ChatConversationView {
   preview: string | null;
   lastMessageAt: string | null;
   unread: boolean;
+  /** Bên kia đã đọc tới mốc này: tin của mình gửi trước mốc là "đã xem". */
+  counterpartReadAt: string | null;
+  /** Lần cuối bên kia còn mở Vexim; null là chưa biết. */
+  counterpartLastSeen: string | null;
 }
 
 /** Thẻ sản phẩm trong khung chat: cả hai bên nhìn thấy cùng một hàng hoá. */
@@ -66,6 +71,8 @@ async function buyerLabel(store: DataStore, email: string): Promise<string> {
 }
 
 export async function conversationViews(store: DataStore, rows: ChatConversation[], side: ChatSender): Promise<ChatConversationView[]> {
+  const otherKey = (c: ChatConversation) => side === "buyer" ? presenceKey.supplier(c.supplier_id) : presenceKey.buyer(c.buyer_email);
+  const seen = await readPresence(store, rows.map(otherKey));
   return Promise.all(rows.map(async (c) => {
     let counterpart = "";
     let counterpartHref: string | null = null;
@@ -77,7 +84,9 @@ export async function conversationViews(store: DataStore, rows: ChatConversation
       counterpart = await buyerLabel(store, c.buyer_email);
     }
     return { id: c.id, counterpart, counterpartHref, productName: c.product_name, preview: c.last_message_preview,
-      lastMessageAt: c.last_message_at ?? c.created_at, unread: hasUnread(c, side) };
+      lastMessageAt: c.last_message_at ?? c.created_at, unread: hasUnread(c, side),
+      counterpartReadAt: side === "buyer" ? c.supplier_last_read_at : c.buyer_last_read_at,
+      counterpartLastSeen: seen[otherKey(c)] ?? null };
   }));
 }
 

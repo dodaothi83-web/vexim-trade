@@ -86,6 +86,7 @@ interface LocalShape {
   chat_messages?: ChatMessage[];
   support_conversations?: SupportConversation[];
   support_messages?: SupportMessage[];
+  chat_presence?: Record<string, string>;
   users: AppUserRecord[];
   buyers: Buyer[];
   prospects: Prospect[];
@@ -1970,6 +1971,13 @@ export const localStore: DataStore = {
     const row: SupportMessage = { ...input, id: randomUUID(), created_at: new Date().toISOString() };
     mutate((db) => { (db.support_messages ??= []).push(row); });
     return row;
+  },
+  async touchChatPresence(key, at) {
+    mutate((db) => { (db.chat_presence ??= {})[key] = at; });
+  },
+  async getChatPresence(keys) {
+    const all = load().chat_presence ?? {};
+    return Object.fromEntries(keys.filter((k) => all[k]).map((k) => [k, all[k]]));
   },
   async listMessagesForThreads(threadIds) {
     const wanted = new Set(threadIds);

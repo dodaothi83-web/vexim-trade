@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { supportConversationViews } from "@/lib/chat/support";
+import { hasPermission } from "@/lib/auth/permissions";
+import { presenceKey, touchPresence } from "@/lib/chat/presence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +13,8 @@ export async function GET(request: Request) {
   const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
   const session = await requirePermission("support.view");
   if (!session) return json({ error: "forbidden" }, 403);
+  // Nhân viên trả lời được đang mở hộp chat thì người mua thấy đội Vexim online.
+  if (hasPermission(session.role, "support.manage")) void touchPresence(getStore(), presenceKey.staff());
   const filter = new URL(request.url).searchParams.get("filter");
   try {
     const store = getStore();

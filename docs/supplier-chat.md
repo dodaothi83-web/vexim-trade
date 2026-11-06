@@ -34,3 +34,10 @@ Mã nguồn: `lib/chat/core.ts` (quy tắc), `lib/chat/service.ts`, `lib/chat/vi
 - Trả lời một cuộc chưa ai nhận là tự nhận cuộc đó; có nút Nhận xử lý / Trả về chưa ai nhận.
 - Người mua thấy tên gọi nhân viên (ví dụ "Dung · Vexim Trade"), không thấy email nội bộ. Nhân viên thấy trang người mua đang xem khi nhắn.
 - Email báo tin (giới hạn như chat nhà cung cấp): người mua nhắn thì báo nhân viên phụ trách, chưa ai nhận thì báo hộp thư chung (`RFQ_INTERNAL_EMAIL`); nhân viên trả lời thì báo người mua, link mở thẳng khung chat (`/?support=1`).
+
+## Trạng thái online, đã gửi, đã xem (cả hai luồng chat)
+
+- **Online/offline:** mỗi lần một bên gọi API chat (thanh công cụ của người mua 30 giây/lần, menu cổng nhà cung cấp 60 giây/lần, khung chat 6 giây/lần, hộp chat CRM) là ghi "lần cuối thấy" vào bảng `chat_presence` — migration `20261112_chat_presence.sql`, **cần chạy trên Supabase**. Thấy trong 2 phút là "Đang online", quá thì "Hoạt động 5 phút trước". Ghi tối đa 30 giây một lần mỗi bên.
+- Đội Vexim là một bên: online khi có nhân viên có quyền trả lời đang mở hộp Chat với người mua trong CRM.
+- **Đã gửi / đã xem:** đồng hồ khi đang gửi, một tích khi đã lưu, hai tích xanh khi bên kia đã mở cuộc trò chuyện tới tin đó (dựa trên mốc đã đọc sẵn có). Tin cuối của mình hiện thêm chữ "Đã gửi" / "Đã xem". Tin chưa đọc vẫn in đậm, chấm đỏ như trước.
+- Chưa chạy migration thì chat vẫn chạy bình thường, chỉ không hiện trạng thái online.

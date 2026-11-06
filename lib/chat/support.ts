@@ -9,6 +9,7 @@ import { notificationOrigin } from "@/lib/supplier-portal/notify";
 import { SITE_URL } from "@/lib/site";
 import type { SupportConversation, SupportMessage, SupportSender } from "@/lib/types";
 import { chatPreview, cleanChatBody } from "./core";
+import { presenceKey, readPresence } from "./presence";
 import { cleanPagePath, staffDisplayName, supportHasUnread, supportRateLimited, supportShouldNotify } from "./support-core";
 
 /**
@@ -47,6 +48,10 @@ export interface SupportConversationView {
   lastMessageAt: string | null;
   lastSender: SupportSender | null;
   unread: boolean;
+  /** Người mua đã đọc tới mốc này (tin nhân viên gửi trước mốc là "đã xem"). */
+  buyerReadAt: string | null;
+  /** Lần cuối người mua còn mở Vexim. */
+  buyerLastSeen: string | null;
 }
 
 /** Hộp thư chung khi chưa nhân viên nào nhận cuộc (cùng nơi nhận RFQ mới). */
@@ -69,6 +74,7 @@ export async function supportConversationViews(store: DataStore, rows: SupportCo
   const staffIds = [...new Set(rows.map((r) => r.assigned_to).filter((id): id is string => Boolean(id)))];
   const staff = new Map((await Promise.all(staffIds.map((id) => store.getUser(id).catch(() => null))))
     .filter((u): u is NonNullable<typeof u> => Boolean(u)).map((u) => [u.id, u.name || u.email]));
+  const seen = await readPresence(store, rows.map((r) => presenceKey.buyer(r.buyer_email)));
   return Promise.all(rows.map(async (c) => {
     const account = await store.getBuyerUserByEmail(c.buyer_email).catch(() => null);
     const crm = typeof store.getBuyerByEmail === "function" ? await store.getBuyerByEmail(c.buyer_email).catch(() => null) : null;
@@ -78,6 +84,7 @@ export async function supportConversationViews(store: DataStore, rows: SupportCo
       assignedTo: c.assigned_to, assignedName: c.assigned_to ? staff.get(c.assigned_to) ?? null : null,
       preview: c.last_message_preview, lastMessageAt: c.last_message_at ?? c.created_at, lastSender: c.last_sender,
       unread: supportHasUnread(c, "staff"),
+      buyerReadAt: c.buyer_last_read_at, buyerLastSeen: seen[presenceKey.buyer(c.buyer_email)] ?? null,
     };
   }));
 }

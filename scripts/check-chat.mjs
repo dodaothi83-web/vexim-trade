@@ -63,6 +63,7 @@ const chat = load('../lib/chat/service.ts', {
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/public/supplier-name': { supplierShortName: (s) => s.display_name || s.trade_name || s.name },
   './core': core,
+  './presence': load('../lib/chat/presence.ts', {}),
 });
 
 await assert.rejects(chat.startConversation({ store, buyerEmail: 'buyer@acme.de', productId: 'gone', body: 'Hi' }), /product_unavailable/, 'Không hỏi được sản phẩm không công khai');

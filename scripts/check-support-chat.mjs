@@ -67,6 +67,7 @@ const support = load('../lib/chat/support.ts', {
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   './core': core,
   './support-core': supportCore,
+  './presence': load('../lib/chat/presence.ts', {}),
 });
 
 const first = await support.postBuyerSupportMessage({ store, buyerEmail: 'buyer@acme.de', body: 'Hi, can you help me find a pepper supplier?', pagePath: '/products/pepper/p2' });
@@ -102,6 +103,26 @@ await support.postBuyerSupportMessage({ store, buyerEmail: 'buyer@acme.de', body
 assert.deepEqual([...sent.at(-1).to], ['dung@veximtrade.com']);
 await assert.rejects(support.postBuyerSupportMessage({ store, buyerEmail: 'buyer@acme.de', body: '   ' }), /empty/);
 
+/* ---------- 2b. Trạng thái online và đã xem ---------- */
+const presence = load('../lib/chat/presence.ts', {});
+const writes = [];
+const pstore = { touchChatPresence: async (k, at) => { writes.push([k, at]); }, getChatPresence: async (keys) => Object.fromEntries(keys.map((k) => [k, '2026-11-07T09:59:00Z'])) };
+await presence.touchPresence(pstore, presence.presenceKey.buyer(' Buyer@Acme.de '), now);
+await presence.touchPresence(pstore, presence.presenceKey.buyer('buyer@acme.de'), now + 10_000);
+assert.equal(writes.length, 1, 'Ghi tối đa 30 giây một lần cho mỗi khoá');
+assert.equal(writes[0][0], 'buyer:buyer@acme.de');
+await presence.touchPresence(pstore, presence.presenceKey.buyer('buyer@acme.de'), now + 31_000);
+assert.equal(writes.length, 2);
+assert.equal(presence.isOnline('2026-11-07T09:59:00Z', now), true, 'Thấy trong 2 phút là online');
+assert.equal(presence.isOnline('2026-11-07T09:57:00Z', now), false);
+assert.equal(presence.isOnline(null, now), false);
+const broken = { touchChatPresence: async () => { throw new Error('relation chat_presence does not exist'); }, getChatPresence: async () => { throw new Error('missing'); } };
+await presence.touchPresence(broken, 'staff:vexim', now);
+assert.deepEqual({ ...(await presence.readPresence(broken, ['staff:vexim'])) }, {}, 'Chưa chạy migration thì chat vẫn chạy, chỉ không có trạng thái');
+const viewsWithRead = await support.supportConversationViews({ ...store, getChatPresence: pstore.getChatPresence }, conversations);
+assert.equal(viewsWithRead[0].buyerLastSeen, '2026-11-07T09:59:00Z');
+assert.ok('buyerReadAt' in viewsWithRead[0]);
+
 /* ---------- 3. API, giao diện, migration ---------- */
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 assert.match(read('app/api/support/route.ts'), /sameOrigin\(request\)/);
@@ -117,8 +138,16 @@ assert.match(rail, /\/api\/support\?peek=1/);
 assert.equal(fs.existsSync(new URL('../components/whatsapp-chat-button.tsx', import.meta.url)), false);
 assert.match(read('components/sidebar.tsx'), /href: "\/crm\/support".*perm: "support\.view"/);
 assert.match(read('app/crm/layout.tsx'), /pendingSupport/);
+const ui = read('components/chat/presence.tsx');
+assert.match(ui, /counterpartReadAt >= m\.createdAt \? "seen" : "sent"/, 'Đã xem khi bên kia đọc tới tin');
+for (const f of ['components/chat/chat-workspace.tsx', 'components/chat/support-chat.tsx', 'components/crm/support-inbox.tsx']) {
+  assert.match(read(f), /<DeliveryTicks/, `${f}: dấu đã gửi/đã xem`);
+  assert.match(read(f), /PresenceLine|PresenceDot/, `${f}: trạng thái online`);
+}
+for (const f of ['app/api/chat/route.ts', 'app/api/chat/[id]/route.ts', 'app/api/support/route.ts', 'app/api/crm/support/route.ts']) assert.match(read(f), /touchPresence\(/, `${f}: ghi online`);
+assert.match(read('supabase/migrations/20261112_chat_presence.sql'), /revoke all on table public\.chat_presence from public, anon, authenticated/);
 const migration = read('supabase/migrations/20261111_vexim_support_chat.sql');
 assert.match(migration, /support_conversations_buyer_key/);
 assert.match(migration, /revoke all on table public\.support_messages from public, anon, authenticated/);
 
-console.log('✅ Chat với Vexim: quy tắc, quyền Kinh doanh/Quản trị/Chỉ xem, tự nhận xử lý, email báo đúng người, không lộ email nội bộ, bỏ WhatsApp, migration.');
+console.log('✅ Chat với Vexim: quy tắc, quyền Kinh doanh/Quản trị/Chỉ xem, tự nhận xử lý, email báo đúng người, không lộ email nội bộ, bỏ WhatsApp, online/offline, đã gửi/đã xem, migration.');

@@ -277,6 +277,9 @@ export interface DataStore {
   listSupportConversations(filter?: { assignedTo?: string | null; limit?: number }): Promise<SupportConversation[]>;
   listSupportMessages(conversationId: string, limit?: number): Promise<SupportMessage[]>;
   addSupportMessage(input: Omit<SupportMessage, "id" | "created_at">): Promise<SupportMessage>;
+  /* Lần cuối mỗi bên còn mở Vexim (trạng thái online của chat). */
+  touchChatPresence(key: string, at: string): Promise<void>;
+  getChatPresence(keys: string[]): Promise<Record<string, string>>;
   /** Thư thuộc các mạch đã cho (ví dụ `sourcing-{id}`), mới nhất trước. */
   listMessagesForThreads(threadIds: string[]): Promise<EmailMessage[]>;
   getMessage(id: string): Promise<EmailMessage | null>;
