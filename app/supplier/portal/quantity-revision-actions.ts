@@ -9,6 +9,7 @@ import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config"
 import { entryCurrencyIssue, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 import { getPortalMessages } from "@/lib/i18n/server";
+import { notifyStaffPriceRevision } from "@/lib/supplier-portal/notify";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: boolean; message: string; revisionId?: string; warnings?: string[] };
@@ -105,6 +106,8 @@ export async function submitQuantityPriceRevisionAction(form: FormData): Promise
       action: "supplier.quantity_price_revision_submitted", before: { pending_revision_id: expectedPending },
       after: { revision_id: result.revisionId, warnings: validation.warnings.map((warning) => warning.code) },
     }).catch((error) => console.error("[quantity-pricing] price submission audit", error));
+    // Báo Vexim có giá mới chờ rà soát. Thư lỗi không làm hỏng việc lưu: giá vẫn nằm trong hàng chờ CRM.
+    await notifyStaffPriceRevision(ctx.access.supplier, { id, name: ctx.product.name }).catch(() => "failed");
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/supplier/portal/products/${id}/quantity-pricing`);
     revalidatePath(`/crm/products/${id}/edit`);

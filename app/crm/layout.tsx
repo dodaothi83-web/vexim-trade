@@ -1,4 +1,5 @@
 import { supportHasUnread } from "@/lib/chat/support-core";
+import { countPendingProductRevisions } from "@/lib/crm/product-review-inbox";
 import { sourcingStore } from "@/lib/sourcing/store";
 import { rfqChannel, UNCLAIMED_RFQ_STATUSES } from "@/lib/rfq/channel";
 import type { ReactNode } from "react";
@@ -76,14 +77,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       return null; // unknown is not zero; the menu shows a warning instead
     }
   };
-  const [pendingSuppliers, pendingProducts, pendingReviews, pendingSubmissions, pendingCertificates, pendingSponsoredRequests] = await Promise.all([
+  // Giá và tên tiếng Anh nhà cung cấp gửi chỉ Quản trị và Trưởng kiểm duyệt rà soát (cùng quyền với hàng chờ).
+  const canPriceReview = session.role === "admin" || session.role === "reviewer";
+  const [pendingSuppliers, pendingProductContent, pendingPriceRevisions, pendingReviews, pendingSubmissions, pendingCertificates, pendingSponsoredRequests] = await Promise.all([
     canSuppliers ? countOrZero("nhà cung cấp", () => store.countSupplierAccountsPending()) : 0,
     canProducts ? countOrZero("sản phẩm", () => store.countProductsPendingReview()) : 0,
+    canPriceReview ? countOrZero("giá chờ rà soát", () => countPendingProductRevisions()) : 0,
     canReviews ? countOrZero("đợt kiểm", () => store.countReviewsAwaitingApproval()) : 0,
     canReviews ? countOrZero("hồ sơ tự gửi", () => store.countSubmissionsPendingReview()) : 0,
     canReviews ? countOrZero("giấy chứng nhận", () => store.countCertificatesPendingReview()) : 0,
     countSponsoredRequests(),
   ]);
+  const pendingProducts = pendingProductContent + pendingPriceRevisions;
 
   // RFQ chung (không chọn nhà cung cấp) cần Vexim ghép nên đếm ở Tìm nguồn, không ở RFQ.
   const pendingRouting = hasPermission(session.role, "rfq.view")
@@ -112,7 +117,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     { href: "/crm/rfqs", label: "RFQ chờ tiếp nhận", count: pendingRfqs },
     { href: "/crm/support", label: "Người mua đang chờ trả lời chat", count: pendingSupport },
     { href: "/crm/suppliers", label: "Nhà cung cấp chờ xác nhận quyền cổng", count: pendingSuppliers },
-    { href: "/crm/products?view=pending", label: "Sản phẩm nhà cung cấp chờ kiểm nội dung", count: pendingProducts },
+    { href: "/crm/products?view=pending", label: "Sản phẩm nhà cung cấp chờ kiểm nội dung", count: pendingProductContent },
+    { href: "/crm/products/quantity-review", label: "Giá hoặc tên nhà cung cấp cập nhật chờ rà soát", count: pendingPriceRevisions },
     { href: "/crm/verifications", label: "Đợt kiểm chờ duyệt", count: pendingReviews },
     { href: "/crm/verifications/submissions", label: "Hồ sơ nhà cung cấp tự gửi chờ đối chiếu", count: pendingSubmissions },
     { href: "/crm/certificates", label: "Giấy chứng nhận chờ duyệt", count: pendingCertificates },
