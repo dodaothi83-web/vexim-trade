@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { chatViewer, sameOrigin } from "@/lib/chat/viewer";
-import { ChatError, markConversationRead, messageViews, ownedConversation, postMessage, conversationViews } from "@/lib/chat/service";
+import { ChatError, attachableProduct, markConversationRead, messageViews, ownedConversation, postMessage, conversationViews } from "@/lib/chat/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,11 +33,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!sameOrigin(request)) return json({ error: "origin" }, 403);
   const viewer = await chatViewer(new URL(request.url).searchParams.get("side"));
   if (!viewer) return json({ error: "auth" }, 401);
-  let payload: { body?: unknown };
+  let payload: { body?: unknown; productId?: unknown };
   try { payload = await request.json(); } catch { return json({ error: "invalid" }, 400); }
   try {
     const conversation = await ownedConversation(viewer.store, (await params).id, viewerKey(viewer));
-    const message = await postMessage({ store: viewer.store, conversation, sender: viewer.side, senderEmail: viewer.email, body: String(payload.body ?? "") });
+    // Chỉ người mua đính kèm thẻ sản phẩm (từ cửa sổ chat trên trang sản phẩm).
+    const product = viewer.side === "buyer" && typeof payload.productId === "string" ? await attachableProduct(conversation, payload.productId) : null;
+    const message = await postMessage({ store: viewer.store, conversation, sender: viewer.side, senderEmail: viewer.email, body: String(payload.body ?? ""), product });
     return json({ message: messageViews([message], viewer.side)[0] }, 201);
   } catch (error) {
     if (error instanceof ChatError) return json({ error: error.code }, error.code === "not_found" ? 404 : error.code === "rate_limited" ? 429 : 400);

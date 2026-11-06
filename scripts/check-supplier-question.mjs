@@ -337,8 +337,14 @@ assert.match(dialog, /showModal\(\)/);
 assert.match(dialog, /aria-labelledby="ask-supplier-title"/);
 // Ask supplier mở chat trên Vexim, không còn gửi email trực tiếp qua form câu hỏi.
 assert.doesNotMatch(dialog, /mode="question"|RfqForm/);
-assert.match(dialog, /fetch\("\/api\/chat\/start"/);
-assert.match(dialog, /\/buyer\/account\/messages\?c=/);
+// Cửa sổ chat ngay trên trang sản phẩm, thẻ sản phẩm đính kèm sẵn, không chuyển trang.
+assert.match(dialog, /<ChatWorkspace side="buyer" variant="popup"/);
+assert.match(dialog, /product=\{product\}/);
+assert.doesNotMatch(dialog, /router\.push/);
+const workspace = fs.readFileSync(new URL('../components/chat/chat-workspace.tsx', import.meta.url), 'utf8');
+assert.match(workspace, /fetch\(`\/api\/chat\/start\?productId=/, 'Mở lại đúng cuộc cũ với nhà cung cấp này');
+assert.match(workspace, /creating \? "\/api\/chat\/start"/, 'Tin đầu tiên mới tạo cuộc trò chuyện');
+assert.match(workspace, /data-testid="chat-attached-product"/);
 assert.match(dialog, /params.get\("ask"\) === "1"/);
 assert.match(form, /I agree to share my name, company, email and this question/);
 assert.match(form, /Send question/);

@@ -1,8 +1,24 @@
 import { NextResponse } from "next/server";
 import { chatViewer, sameOrigin } from "@/lib/chat/viewer";
-import { ChatError, startConversation } from "@/lib/chat/service";
+import { ChatError, existingConversationForProduct, startConversation } from "@/lib/chat/service";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/** Cửa sổ chat trên trang sản phẩm: mở lại đúng cuộc cũ nếu đã từng hỏi nhà cung cấp này. */
+export async function GET(request: Request) {
+  const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
+  const viewer = await chatViewer("buyer");
+  if (!viewer || viewer.side !== "buyer") return json({ error: "auth" }, 401);
+  const productId = new URL(request.url).searchParams.get("productId") ?? "";
+  try {
+    return json({ conversationId: await existingConversationForProduct(viewer.store, viewer.email, productId) });
+  } catch (error) {
+    if (error instanceof ChatError) return json({ error: error.code }, 400);
+    console.error("[chat] lookup failed", error);
+    return json({ error: "unavailable" }, 503);
+  }
+}
 
 /** Người mua bấm "Ask supplier" trên trang sản phẩm: mở (hoặc mở lại) cuộc trò chuyện. */
 export async function POST(request: Request) {

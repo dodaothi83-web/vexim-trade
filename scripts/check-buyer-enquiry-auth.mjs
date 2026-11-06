@@ -53,9 +53,18 @@ const auth = load('components/buyer-enquiry-auth.tsx', {
 });
 const { AskSupplierDialog } = load('components/products/ask-supplier-dialog.tsx', {
   '@/lib/browser/dialog-scroll-lock': scrollLock,
-  'next/navigation': navigation, 'lucide-react': { Loader2: icon, MessageCircle: icon, Send: icon, X: icon },
+  'next/navigation': navigation, 'lucide-react': { MessageCircle: icon },
   '@/components/buyer-enquiry-auth': auth,
+  '@/lib/chat/buyer-labels': { BUYER_CHAT_LABELS: { en: { title: 'Messages' }, vi: { title: 'Tin nhắn' } } },
+  // Khung chat thật đã có kiểm tra riêng; ở đây chỉ cần biết cửa sổ mở đúng sản phẩm.
+  '@/components/chat/chat-workspace': { ChatWorkspace: (p) => {
+    chatMounts.push(p);
+    return React.createElement('div', null,
+      React.createElement('textarea', { id: 'ask-supplier-message', 'data-product': p.product.id, readOnly: true }),
+      React.createElement('button', { type: 'button', 'aria-label': 'Close', onClick: p.onClose }));
+  } },
 });
+const chatMounts = [];
 const target = '/rfq?category=nuts&product_id=p1&suppliers=s1&grade=W320&sample=1';
 const props = { category: 'nuts', productId: 'p1', productName: 'Cashew', supplierId: 's1', supplierName: 'Supplier', grade: 'W320', imageUrl: null, quoteHref: target };
 let root = createRoot(document.getElementById('root'));
@@ -136,6 +145,9 @@ await click(document.querySelector('button[aria-label^="Ask supplier"]'));
 assert.equal(quick().open, false);
 assert.equal(question().open, true, 'Authenticated buyers go straight to the question');
 assert.ok(question().querySelector('textarea#ask-supplier-message'), 'Chat composer is ready after authentication');
+assert.equal(chatMounts.at(-1).variant, 'popup', 'Ask supplier opens the chat window over the product page');
+assert.equal(chatMounts.at(-1).product.id, 'p1', 'The product card is attached to the chat');
+assert.equal(paths.length, 1, 'Opening the chat does not navigate away');
 params = new URLSearchParams('ask=1');
 await mount();
 assert.equal(quick().open, true, 'Deep-linked ask resumes at authentication first');

@@ -102,10 +102,20 @@ await chat.markConversationRead(store, conversations[0], 'buyer');
 assert.equal((await chat.conversationViews(store, conversations, 'buyer'))[0].unread, false);
 await assert.rejects(chat.postMessage({ store, conversation: conversations[0], sender: 'buyer', senderEmail: 'buyer@acme.de', body: '   ' }), /empty/);
 
+// Cửa sổ chat trên trang sản phẩm: tìm lại cuộc cũ, chỉ đính kèm sản phẩm đúng nhà cung cấp.
+records.p2 = { card: { name: 'Pepper' }, product: { id: 'p2', name: 'Pepper' }, supplier: { id: 's2' } };
+assert.equal(await chat.existingConversationForProduct(store, 'buyer@acme.de', 'p1'), conversations[0].id);
+assert.equal(await chat.existingConversationForProduct(store, 'buyer@acme.de', 'p2'), null, 'Nhà cung cấp chưa hỏi: cuộc mới');
+await assert.rejects(chat.existingConversationForProduct(store, 'buyer@acme.de', 'gone'), /product_unavailable/);
+assert.equal(JSON.stringify(await chat.attachableProduct(conversations[0], 'p1')), JSON.stringify({ id: 'p1', name: 'Cashew W320' }));
+assert.equal(await chat.attachableProduct(conversations[0], 'p2'), null, 'Không gắn sản phẩm của nhà cung cấp khác');
+
 /* ---------- 3. API và giao diện ---------- */
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 for (const f of ['app/api/chat/start/route.ts', 'app/api/chat/[id]/route.ts']) assert.match(read(f), /sameOrigin\(request\)/, `${f}: chặn gửi từ trang khác`);
 assert.match(read('app/api/chat/[id]/route.ts'), /ownedConversation\(/, 'Đọc và gửi đều kiểm quyền sở hữu');
+assert.match(read('app/api/chat/[id]/route.ts'), /viewer\.side === "buyer" && typeof payload\.productId === "string" \? await attachableProduct/);
+assert.match(read('app/api/chat/start/route.ts'), /export async function GET/);
 assert.match(read('lib/chat/viewer.ts'), /account\?\.verified_at/, 'Người mua phải xác minh email');
 assert.match(read('lib/chat/viewer.ts'), /portalApproved\(access\.supplier\)/, 'Nhà cung cấp phải được duyệt cổng');
 assert.match(read('app/supplier/portal/messages/page.tsx'), /<ChatWorkspace side="supplier"/);

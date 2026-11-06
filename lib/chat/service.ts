@@ -114,6 +114,24 @@ export async function startConversation(input: { store: DataStore; buyerEmail: s
   return conversation;
 }
 
+/**
+ * Sản phẩm đính kèm vào một tin trong cuộc đã có: chỉ nhận sản phẩm đang công khai và đúng
+ * nhà cung cấp của cuộc trò chuyện, để người mua không gắn hàng của bên khác vào.
+ */
+export async function attachableProduct(conversation: ChatConversation, productId: string): Promise<{ id: string; name: string } | null> {
+  if (!productId) return null;
+  const [record] = await getPublicProductRecordsByIds([productId]);
+  if (!record || record.supplier.id !== conversation.supplier_id) return null;
+  return { id: record.product.id, name: (record.card.name || record.product.name).slice(0, 200) };
+}
+
+/** Cửa sổ chat trên trang sản phẩm hỏi trước: người mua đã có cuộc với nhà cung cấp này chưa. */
+export async function existingConversationForProduct(store: DataStore, buyerEmail: string, productId: string): Promise<string | null> {
+  const [record] = await getPublicProductRecordsByIds([productId]);
+  if (!record) throw new ChatError("product_unavailable");
+  return (await store.findChatConversation(buyerEmail, record.supplier.id))?.id ?? null;
+}
+
 export async function postMessage(input: {
   store: DataStore; conversation: ChatConversation; sender: ChatSender; senderEmail: string; body: string;
   product?: { id: string; name: string } | null;
