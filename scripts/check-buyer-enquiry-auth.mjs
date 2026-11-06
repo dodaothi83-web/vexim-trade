@@ -103,7 +103,7 @@ await click(quick().querySelector('[aria-label="Close"]'));
 assert.equal(quick().open, false);
 assert.equal(paths.length, 0, 'Closing authentication does not navigate');
 assert.equal(document.body.style.overflow, '');
-await click(document.querySelector('button[aria-label^="Ask supplier"]'));
+await click(document.querySelector('button[aria-label^="Chat with supplier"]'));
 assert.equal(quick().open, true);
 assert.equal(question().open, false, 'Question form never opens before authentication');
 assert.equal(question().open, false, 'Chat composer stays closed until authenticated');
@@ -111,7 +111,7 @@ assert.equal(new URL(quick().querySelector('a').href).searchParams.get('next'), 
 await act(async () => quick().dispatchEvent(new window.Event('cancel', { cancelable: true })));
 assert.equal(quick().open, false, 'Escape/cancel dismisses the modal');
 // Email-code login continues in place without showing the question first or auto-submitting it.
-await click(document.querySelector('button[aria-label^="Ask supplier"]'));
+await click(document.querySelector('button[aria-label^="Chat with supplier"]'));
 await enter('email', 'Buyer@EXAMPLE.com');
 async function submitAuth() { await act(async () => quick().querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }))); }
 await submitAuth();
@@ -141,7 +141,7 @@ await submitAuth();
 assert.equal(paths.at(-1), target, 'Code sign-in resumes the exact quote destination');
 assert.equal(quick().open, false);
 await mount('buyer@example.com');
-await click(document.querySelector('button[aria-label^="Ask supplier"]'));
+await click(document.querySelector('button[aria-label^="Chat with supplier"]'));
 assert.equal(quick().open, false);
 assert.equal(question().open, true, 'Authenticated buyers go straight to the question');
 assert.ok(question().querySelector('textarea#ask-supplier-message'), 'Chat composer is ready after authentication');

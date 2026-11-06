@@ -8,6 +8,7 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { getPublicProductRecordsByIds } from "@/lib/public/product-catalog";
 import { notificationOrigin } from "@/lib/supplier-portal/notify";
 import { SITE_URL } from "@/lib/site";
+import { supplierShortName } from "@/lib/public/supplier-name";
 import type { ChatConversation, ChatMessage, ChatSender, Supplier } from "@/lib/types";
 import { chatPreview, chatRateLimited, cleanChatBody, hasUnread, otherSide, shouldNotify, tooManyNewConversations } from "./core";
 
@@ -32,16 +33,28 @@ export interface ChatConversationView {
   unread: boolean;
 }
 
+/** Thẻ sản phẩm trong khung chat: cả hai bên nhìn thấy cùng một hàng hoá. */
+export interface ChatProductCard {
+  id: string;
+  name: string;
+  /** Có khi sản phẩm còn công khai; sản phẩm đã gỡ chỉ còn tên đã lưu trong tin. */
+  imageUrl: string | null;
+  href: string | null;
+  price: string | null;
+}
+
 export interface ChatMessageView {
   id: string;
   mine: boolean;
   body: string;
   productName: string | null;
+  product: ChatProductCard | null;
   createdAt: string;
 }
 
+/** Tên ngắn (tên hiển thị, tên thương mại, rồi pháp nhân đã bỏ tiền tố, hạ kiểu chữ). */
 function supplierName(s: Pick<Supplier, "display_name" | "trade_name" | "name">): string {
-  return (s.display_name || s.trade_name || s.name || "Supplier").trim();
+  return supplierShortName({ name: s.name || "Supplier", trade_name: s.trade_name, display_name: s.display_name }) || "Supplier";
 }
 
 /** Nhà cung cấp chỉ thấy tên công ty người mua đã khai, không thấy email. */
@@ -68,8 +81,29 @@ export async function conversationViews(store: DataStore, rows: ChatConversation
   }));
 }
 
-export function messageViews(messages: ChatMessage[], side: ChatSender): ChatMessageView[] {
-  return messages.map((m) => ({ id: m.id, mine: m.sender === side, body: m.body, productName: m.product_name, createdAt: m.created_at }));
+/** Ảnh, giá và đường dẫn của các sản phẩm còn công khai, qua đúng cổng công bố của trang danh mục. */
+async function productCards(ids: string[]): Promise<Map<string, ChatProductCard>> {
+  const unique = [...new Set(ids.filter(Boolean))].slice(0, 30);
+  if (!unique.length) return new Map();
+  const records = await getPublicProductRecordsByIds(unique).catch(() => []);
+  return new Map(records.map((r) => {
+    const path = r.card.cardImagePath ?? r.card.imagePaths[0] ?? null;
+    return [r.product.id, {
+      id: r.product.id,
+      name: (r.card.name || r.product.name).slice(0, 200),
+      imageUrl: path ? `/public-media/${path.replace(/^\/+/, "")}` : null,
+      href: `/products/${encodeURIComponent(r.category.slug)}/${encodeURIComponent(r.card.id)}`,
+      price: r.card.price ?? null,
+    }];
+  }));
+}
+
+export async function messageViews(messages: ChatMessage[], side: ChatSender): Promise<ChatMessageView[]> {
+  const cards = await productCards(messages.map((m) => m.product_id ?? ""));
+  return messages.map((m) => ({
+    id: m.id, mine: m.sender === side, body: m.body, productName: m.product_name, createdAt: m.created_at,
+    product: m.product_id ? cards.get(m.product_id) ?? { id: m.product_id, name: m.product_name ?? "", imageUrl: null, href: null, price: null } : null,
+  }));
 }
 
 /** Cuộc trò chuyện của đúng người đang xem; không phải của họ thì coi như không tồn tại. */

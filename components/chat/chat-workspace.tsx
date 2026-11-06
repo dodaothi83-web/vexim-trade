@@ -30,7 +30,8 @@ export interface ChatLabels {
 }
 
 interface ConversationView { id: string; counterpart: string; counterpartHref: string | null; productName: string | null; preview: string | null; lastMessageAt: string | null; unread: boolean }
-interface MessageView { id: string; mine: boolean; body: string; productName: string | null; createdAt: string; pending?: boolean }
+interface ProductCardView { id: string; name: string; imageUrl: string | null; href: string | null; price: string | null }
+interface MessageView { id: string; mine: boolean; body: string; productName: string | null; product?: ProductCardView | null; createdAt: string; pending?: boolean }
 
 /** Sản phẩm người mua đang xem khi mở cửa sổ chat từ trang sản phẩm. */
 export interface ChatDraftProduct { id: string; name: string; imageUrl: string | null; supplierName: string; detail?: string }
@@ -54,6 +55,24 @@ function shortTime(iso: string | null, locale: string) {
 function fullTime(iso: string, locale: string) {
   const d = new Date(iso);
   return Number.isFinite(d.getTime()) ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(d) : "";
+}
+
+/** Thẻ sản phẩm trong khung chat: ảnh, tên, giá tham khảo, bấm để mở trang sản phẩm. */
+function ProductCard({ card, label, mine }: { card: ProductCardView; label: string; mine: boolean }) {
+  const body = <>
+    {card.imageUrl
+      ? <img src={card.imageUrl} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover ring-1 ring-ink-100" />
+      : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-ink-100"><Package className="h-6 w-6 text-ink-400" aria-hidden="true" /></span>}
+    <span className="min-w-0 flex-1">
+      <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-ink-400">{label}</span>
+      <span className="line-clamp-2 text-[13px] font-semibold leading-5 text-ink-900">{card.name}</span>
+      {card.price && <span className="mt-0.5 block text-[12px] font-semibold text-brand-800">{card.price}</span>}
+    </span>
+  </>;
+  const cls = cx("mb-1.5 flex w-full max-w-[340px] items-center gap-3 rounded-xl border border-ink-200 bg-white p-2.5 text-left shadow-sm", mine ? "self-end" : "self-start");
+  return card.href
+    ? <a href={card.href} target="_blank" rel="noopener" className={cx(cls, "transition hover:border-brand-300 hover:shadow")} data-testid="chat-product-card">{body}</a>
+    : <div className={cls} data-testid="chat-product-card">{body}</div>;
 }
 
 /**
@@ -136,6 +155,14 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") void loadThread(activeId); }, THREAD_POLL_MS);
     return () => window.clearInterval(timer);
   }, [activeId, loadThread, popup, product]);
+  // Mở lại cuộc cũ đang nói về đúng sản phẩm này thì không đính kèm lại, tránh thẻ lặp.
+  const attachChecked = useRef(false);
+  useEffect(() => {
+    if (attachChecked.current || !attached || !thread || activeId !== productThreadId || activeId === NEW_ID || thread.conversation.id !== activeId) return;
+    attachChecked.current = true;
+    const lastProduct = [...thread.messages].reverse().find((m) => m.product)?.product;
+    if (lastProduct?.id === attached.id) setAttached(null);
+  }, [thread, attached, activeId, productThreadId]);
   useEffect(() => {
     const count = thread?.messages.length ?? 0;
     if (count !== lastCount.current) endRef.current?.scrollIntoView({ block: "end" });
@@ -148,7 +175,9 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
     if (body.length > MAX) { setError(labels.tooLong); return; }
     setSending(true); setError(null);
     const withProduct = attached && activeId === productThreadId ? attached : null;
-    const temp: MessageView = { id: `tmp-${Date.now()}`, mine: true, body, productName: withProduct?.name ?? null, createdAt: new Date().toISOString(), pending: true };
+    const temp: MessageView = { id: `tmp-${Date.now()}`, mine: true, body, productName: withProduct?.name ?? null,
+      product: withProduct ? { id: withProduct.id, name: withProduct.name, imageUrl: withProduct.imageUrl, href: null, price: null } : null,
+      createdAt: new Date().toISOString(), pending: true };
     setThread((t) => t ? { ...t, messages: [...t.messages, temp] } : t);
     setDraft("");
     const creating = activeId === NEW_ID && withProduct;
@@ -236,15 +265,21 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
         </header>
         <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto bg-ink-50/60 px-4 py-4">
           <p className="mx-auto max-w-md rounded-lg bg-white px-3 py-2 text-center text-[11.5px] leading-4 text-ink-500 shadow-sm">{labels.notice}</p>
-          {thread.messages.map((m, i) => {
-            const showProduct = m.productName && m.productName !== thread.messages[i - 1]?.productName;
-            return <div key={m.id} className={cx("flex flex-col", m.mine ? "items-end" : "items-start")}>
-              {showProduct && <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[11px] text-ink-600 ring-1 ring-ink-200"><Package className="h-3 w-3" aria-hidden="true" />{labels.about} {m.productName}</span>}
-              <div title={fullTime(m.createdAt, locale)} className={cx("max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm",
-                m.mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100", m.pending && "opacity-70")}>{m.body}</div>
-              <span className="mt-0.5 px-1 text-[10.5px] text-ink-400">{shortTime(m.createdAt, locale)}</span>
-            </div>;
-          })}
+          {(() => {
+            // Thẻ sản phẩm chỉ hiện khi cuộc trò chuyện chuyển sang một sản phẩm khác.
+            let shownProduct: string | null = null;
+            return thread.messages.map((m) => {
+              const card = m.product ?? (m.productName ? { id: `name:${m.productName}`, name: m.productName, imageUrl: null, href: null, price: null } : null);
+              const showCard = card && card.id !== shownProduct;
+              if (card) shownProduct = card.id;
+              return <div key={m.id} className={cx("flex flex-col", m.mine ? "items-end" : "items-start")}>
+                {showCard && <ProductCard card={card} label={labels.about} mine={m.mine} />}
+                <div title={fullTime(m.createdAt, locale)} className={cx("max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm",
+                  m.mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100", m.pending && "opacity-70")}>{m.body}</div>
+                <span className="mt-0.5 px-1 text-[10.5px] text-ink-400">{shortTime(m.createdAt, locale)}</span>
+              </div>;
+            });
+          })()}
           {thread.messages.length === 0 && quickQuestions.length > 0 && <div className="mx-auto max-w-lg pt-6 text-center">
             <p className="text-[13px] font-semibold text-ink-700">{labels.quickTitle}</p>
             <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">{quickQuestions.map((q) => <button key={q} type="button"

@@ -37,7 +37,7 @@ export default async function CrmMessagesPage({ searchParams }: { searchParams: 
   const shown = filter === "waiting" ? waiting : rows;
   return <div className="min-w-0 space-y-4">
     <header>
-      <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Ask supplier</p>
+      <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Chat with supplier</p>
       <h1 className="mt-2 flex items-center gap-2 text-2xl font-bold"><MessageCircle className="h-6 w-6 text-brand-700" /> Tin nhắn người mua ↔ nhà cung cấp</h1>
       <p className="mt-2 text-sm text-ink-500">Chỉ xem. Người mua và nhà cung cấp tự trao đổi; nhân viên theo dõi tốc độ trả lời và xử lý báo cáo spam.</p>
     </header>

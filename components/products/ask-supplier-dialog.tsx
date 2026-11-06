@@ -60,8 +60,8 @@ export function AskSupplierDialog({ productId, productName, supplierName, grade,
     return () => { observer.disconnect(); unlock?.(); };
   }, []);
   return <>
-    <button type="button" onClick={open} aria-label={`Ask supplier about ${productName}`} className="btn btn-soft min-h-12 w-full justify-center px-2 text-sm font-bold sm:px-4 sm:text-base">
-      <MessageCircle className="h-5 w-5 shrink-0" />Ask supplier
+    <button type="button" onClick={open} aria-label={`Chat with supplier about ${productName}`} className="btn btn-soft min-h-12 w-full justify-center px-2 text-sm font-bold sm:px-4 sm:text-base">
+      <MessageCircle className="h-5 w-5 shrink-0" /><span className="sm:hidden">Chat</span><span className="hidden sm:inline">Chat with supplier</span>
     </button>
     <dialog ref={dialog} aria-labelledby="ask-supplier-title" className="fixed inset-0 m-auto h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-hidden bg-white p-0 text-ink-900 backdrop:bg-black/40 sm:h-[85dvh] sm:max-h-[760px] sm:w-[calc(100vw-3rem)] sm:max-w-5xl sm:rounded-2xl sm:shadow-2xl"
       onClick={(event) => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) close(); } }}>

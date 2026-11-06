@@ -52,7 +52,7 @@ const store = {
   getBuyerUserByEmail: async () => ({ company_name: 'Acme GmbH' }),
   getBuyerByEmail: async () => null,
 };
-const records = { p1: { card: { name: 'Cashew W320' }, product: { id: 'p1', name: 'Cashew W320' }, supplier: { id: 's1' } } };
+const records = { p1: { card: { id: 'p1', name: 'Cashew W320', cardImagePath: 'p1/cover.jpg', imagePaths: [], price: '6.20 USD/kg' }, product: { id: 'p1', name: 'Cashew W320' }, supplier: { id: 's1' }, category: { slug: 'cashew' } } };
 const chat = load('../lib/chat/service.ts', {
   'server-only': {},
   '@/lib/config': { FROM_ADDRESS: 'Vexim <hello@veximtrade.com>', SERVICE_FROM_ADDRESS: 'Vexim <service@veximtrade.com>' },
@@ -61,6 +61,7 @@ const chat = load('../lib/chat/service.ts', {
   '@/lib/public/product-catalog': { getPublicProductRecordsByIds: async (ids) => ids.map((id) => records[id]).filter(Boolean) },
   '@/lib/supplier-portal/notify': { notificationOrigin: () => 'https://www.veximtrade.com' },
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
+  '@/lib/public/supplier-name': { supplierShortName: (s) => s.display_name || s.trade_name || s.name },
   './core': core,
 });
 
@@ -103,12 +104,22 @@ assert.equal((await chat.conversationViews(store, conversations, 'buyer'))[0].un
 await assert.rejects(chat.postMessage({ store, conversation: conversations[0], sender: 'buyer', senderEmail: 'buyer@acme.de', body: '   ' }), /empty/);
 
 // Cửa sổ chat trên trang sản phẩm: tìm lại cuộc cũ, chỉ đính kèm sản phẩm đúng nhà cung cấp.
-records.p2 = { card: { name: 'Pepper' }, product: { id: 'p2', name: 'Pepper' }, supplier: { id: 's2' } };
+records.p2 = { card: { id: 'p2', name: 'Pepper', imagePaths: [] }, product: { id: 'p2', name: 'Pepper' }, supplier: { id: 's2' }, category: { slug: 'pepper' } };
 assert.equal(await chat.existingConversationForProduct(store, 'buyer@acme.de', 'p1'), conversations[0].id);
 assert.equal(await chat.existingConversationForProduct(store, 'buyer@acme.de', 'p2'), null, 'Nhà cung cấp chưa hỏi: cuộc mới');
 await assert.rejects(chat.existingConversationForProduct(store, 'buyer@acme.de', 'gone'), /product_unavailable/);
 assert.equal(JSON.stringify(await chat.attachableProduct(conversations[0], 'p1')), JSON.stringify({ id: 'p1', name: 'Cashew W320' }));
 assert.equal(await chat.attachableProduct(conversations[0], 'p2'), null, 'Không gắn sản phẩm của nhà cung cấp khác');
+// Tin có sản phẩm hiện thẻ có ảnh, giá và đường dẫn trang sản phẩm; sản phẩm đã gỡ chỉ còn tên.
+const cardViews = await chat.messageViews([
+  { id: 'a', sender: 'buyer', body: 'Hi', product_id: 'p1', product_name: 'Cashew W320', created_at: '2026-11-06T00:00:00Z' },
+  { id: 'b', sender: 'buyer', body: 'Old', product_id: 'gone', product_name: 'Old product', created_at: '2026-11-06T00:01:00Z' },
+], 'supplier');
+assert.equal(cardViews[0].product.imageUrl, '/public-media/p1/cover.jpg');
+assert.equal(cardViews[0].product.href, '/products/cashew/p1');
+assert.equal(cardViews[0].product.price, '6.20 USD/kg');
+assert.equal(cardViews[1].product.name, 'Old product');
+assert.equal(cardViews[1].product.href, null);
 
 /* ---------- 3. API và giao diện ---------- */
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -116,6 +127,11 @@ for (const f of ['app/api/chat/start/route.ts', 'app/api/chat/[id]/route.ts']) a
 assert.match(read('app/api/chat/[id]/route.ts'), /ownedConversation\(/, 'Đọc và gửi đều kiểm quyền sở hữu');
 assert.match(read('app/api/chat/[id]/route.ts'), /viewer\.side === "buyer" && typeof payload\.productId === "string" \? await attachableProduct/);
 assert.match(read('app/api/chat/start/route.ts'), /export async function GET/);
+// Thẻ sản phẩm trong khung chat có ảnh, giá, đường dẫn; nút đổi tên thành Chat with supplier.
+assert.match(read('lib/chat/service.ts'), /cardImagePath/);
+assert.match(read('components/chat/chat-workspace.tsx'), /data-testid="chat-product-card"/);
+assert.match(read('components/products/ask-supplier-dialog.tsx'), /Chat with supplier/);
+assert.doesNotMatch(read('components/products/ask-supplier-dialog.tsx'), />Ask supplier</);
 // Email chỉ để báo tin mới; trả lời diễn ra trên Vexim, không qua hộp thư.
 assert.match(read('lib/chat/service.ts'), /Vui lòng không trả lời email này/);
 assert.match(read('lib/chat/service.ts'), /Please do not reply to this email/);

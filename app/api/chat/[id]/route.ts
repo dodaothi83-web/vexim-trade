@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const messages = await viewer.store.listChatMessages(conversation.id);
     await markConversationRead(viewer.store, conversation, viewer.side);
     const [view] = await conversationViews(viewer.store, [conversation], viewer.side);
-    return json({ conversation: { ...view, unread: false }, messages: messageViews(messages, viewer.side) });
+    return json({ conversation: { ...view, unread: false }, messages: await messageViews(messages, viewer.side) });
   } catch (error) {
     if (error instanceof ChatError) return json({ error: error.code }, 404);
     console.error("[chat] read failed", error);
@@ -40,7 +40,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Chỉ người mua đính kèm thẻ sản phẩm (từ cửa sổ chat trên trang sản phẩm).
     const product = viewer.side === "buyer" && typeof payload.productId === "string" ? await attachableProduct(conversation, payload.productId) : null;
     const message = await postMessage({ store: viewer.store, conversation, sender: viewer.side, senderEmail: viewer.email, body: String(payload.body ?? ""), product });
-    return json({ message: messageViews([message], viewer.side)[0] }, 201);
+    return json({ message: (await messageViews([message], viewer.side))[0] }, 201);
   } catch (error) {
     if (error instanceof ChatError) return json({ error: error.code }, error.code === "not_found" ? 404 : error.code === "rate_limited" ? 429 : 400);
     console.error("[chat] send failed", error);

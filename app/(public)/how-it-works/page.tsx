@@ -230,8 +230,8 @@ export default async function HowItWorksPage({
                       {isVi ? "Hỏi nhanh trên trang sản phẩm: " : "Ask a quick product question: "}
                     </span>
                     {isVi
-                      ? "Bấm Ask supplier trên trang sản phẩm để chat trực tiếp với nhà cung cấp về quy cách, bao bì hoặc giá."
-                      : "Click Ask supplier on any product page to chat directly with the supplier about specs, packaging or price."}
+                      ? "Bấm Chat with supplier trên trang sản phẩm để chat trực tiếp với nhà cung cấp về quy cách, bao bì hoặc giá."
+                      : "Click Chat with supplier on any product page to chat directly with the supplier about specs, packaging or price."}
                   </li>
                 </ul>
 

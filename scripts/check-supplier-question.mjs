@@ -75,7 +75,7 @@ buyerSession = { uid: 'buyer-account', email: 'buyer@example.com' };
 // Câu hỏi kiểu cũ (email) không còn được nhận: không lưu RFQ, không gửi thư, chỉ dẫn sang chat.
 const legacy = await submit.submitRfq(rawQuestion);
 assert.equal(legacy.ok, false);
-assert.match(legacy.message, /Ask supplier/);
+assert.match(legacy.message, /Chat with supplier/);
 assert.equal(createdRfqs.length, 0, 'Câu hỏi kiểu cũ không tạo RFQ');
 assert.equal(genericAcks + genericInternal + autoMatches, 0, 'Câu hỏi kiểu cũ không gửi thư nào');
 

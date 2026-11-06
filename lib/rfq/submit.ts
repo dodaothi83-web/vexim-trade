@@ -131,7 +131,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   // Câu hỏi cho nhà cung cấp đã chuyển sang chat (Ask supplier trên trang sản phẩm);
   // form RFQ không còn gửi câu hỏi qua email.
   if (raw.inquiry_kind === "supplier_question") {
-    return { ok: false, message: "Questions to suppliers now use Vexim chat. Open the product page and click Ask supplier." };
+    return { ok: false, message: "Questions to suppliers now use Vexim chat. Open the product page and click Chat with supplier." };
   }
   // Phần người mua tự viết (có thể rỗng khi họ vào từ trang sản phẩm).
   const extraText = typeof raw.product_text === "string" ? raw.product_text.trim() : "";
