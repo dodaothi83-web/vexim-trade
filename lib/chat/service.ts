@@ -163,6 +163,15 @@ export async function postMessage(input: {
 }
 
 /** Email báo tin mới. Không chứa email người mua; trả lời phải làm trên Vexim. */
+/** Nút lớn trong email báo tin: trả lời diễn ra trên Vexim, không qua hộp thư. */
+function replyButton(href: string, label: string) {
+  return `<p style="margin:20px 0;"><a href="${escapeHtml(href)}" style="display:inline-block;background:${brandColors.primary};color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;">${escapeHtml(label)}</a></p>`;
+}
+
+/**
+ * Email chỉ để báo có tin mới; mọi trao đổi diễn ra trong khung chat trên Vexim để hai bên
+ * có chung một lịch sử, email người mua không lộ ra và sàn theo dõi được thời gian phản hồi.
+ */
 async function notifyNewMessage(store: DataStore, conversation: ChatConversation, recipient: ChatSender, body: string): Promise<boolean> {
   const preview = chatPreview(body, 600);
   const product = conversation.product_name ? ` · ${conversation.product_name}` : "";
@@ -178,10 +187,10 @@ async function notifyNewMessage(store: DataStore, conversation: ChatConversation
     const title = `Tin nhắn mới từ ${from}${product}`;
     const html = `<p>Bạn có tin nhắn mới từ người mua trên Vexim.</p>
       <div style="margin:14px 0;padding:12px 16px;border-left:4px solid ${brandColors.primary};background:${brandColors.surface};white-space:pre-wrap;">${escapeHtml(preview)}</div>
-      <p><a href="${escapeHtml(link)}">Trả lời trên Vexim</a></p>
-      <p style="color:${brandColors.muted};font-size:12.5px;">Trả lời trong mục Tin nhắn của cổng nhà cung cấp để người mua nhận được.</p>`;
+      ${replyButton(link, "Trả lời trên Vexim")}
+      <p style="color:${brandColors.muted};font-size:12.5px;">Vui lòng không trả lời email này: người mua chỉ nhận được tin gửi trong mục Tin nhắn của cổng nhà cung cấp. Trả lời sớm giúp hồ sơ của bạn được tin cậy hơn.</p>`;
     const res = await transport({ to, from: SERVICE_FROM_ADDRESS, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body: html }),
-      text: `${title}\n\n${preview}\n\nTrả lời trên Vexim: ${link}`, headers: { "X-Vexim-Chat": conversation.id } });
+      text: `${title}\n\n${preview}\n\nTrả lời trên Vexim: ${link}\nVui lòng không trả lời email này: người mua chỉ nhận được tin gửi trên Vexim.`, headers: { "X-Vexim-Chat": conversation.id } });
     return res.ok;
   }
   const supplier = await store.getSupplier(conversation.supplier_id).catch(() => null);
@@ -190,10 +199,10 @@ async function notifyNewMessage(store: DataStore, conversation: ChatConversation
   const title = `New message from ${name}${product}`;
   const html = `<p>You have a new message on Vexim Trade.</p>
     <div style="margin:14px 0;padding:12px 16px;border-left:4px solid ${brandColors.primary};background:${brandColors.surface};white-space:pre-wrap;">${escapeHtml(preview)}</div>
-    <p><a href="${escapeHtml(link)}">Reply on Vexim</a></p>
-    <p style="color:${brandColors.muted};font-size:12.5px;">Reply from your Vexim account so the supplier receives it.</p>`;
+    ${replyButton(link, "Reply on Vexim")}
+    <p style="color:${brandColors.muted};font-size:12.5px;">Please do not reply to this email. The supplier only receives messages sent from your Vexim account, and your email address stays private.</p>`;
   const res = await transport({ to: [conversation.buyer_email], from: FROM_ADDRESS, subject: title,
-    html: wrapPlainEmail({ title: escapeHtml(title), body: html }), text: `${title}\n\n${preview}\n\nReply on Vexim: ${link}`,
+    html: wrapPlainEmail({ title: escapeHtml(title), body: html }), text: `${title}\n\n${preview}\n\nReply on Vexim: ${link}\nPlease do not reply to this email. The supplier only receives messages sent on Vexim.`,
     headers: { "X-Vexim-Chat": conversation.id } });
   return res.ok;
 }

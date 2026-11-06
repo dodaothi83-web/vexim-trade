@@ -116,6 +116,9 @@ for (const f of ['app/api/chat/start/route.ts', 'app/api/chat/[id]/route.ts']) a
 assert.match(read('app/api/chat/[id]/route.ts'), /ownedConversation\(/, 'Đọc và gửi đều kiểm quyền sở hữu');
 assert.match(read('app/api/chat/[id]/route.ts'), /viewer\.side === "buyer" && typeof payload\.productId === "string" \? await attachableProduct/);
 assert.match(read('app/api/chat/start/route.ts'), /export async function GET/);
+// Email chỉ để báo tin mới; trả lời diễn ra trên Vexim, không qua hộp thư.
+assert.match(read('lib/chat/service.ts'), /Vui lòng không trả lời email này/);
+assert.match(read('lib/chat/service.ts'), /Please do not reply to this email/);
 assert.match(read('lib/chat/viewer.ts'), /account\?\.verified_at/, 'Người mua phải xác minh email');
 assert.match(read('lib/chat/viewer.ts'), /portalApproved\(access\.supplier\)/, 'Nhà cung cấp phải được duyệt cổng');
 assert.match(read('app/supplier/portal/messages/page.tsx'), /<ChatWorkspace side="supplier"/);

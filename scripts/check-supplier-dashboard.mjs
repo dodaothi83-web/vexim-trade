@@ -147,6 +147,7 @@ const outbound = load('../lib/rfq/outreach.ts', {
   '@/lib/rfq/staff-sender': staffSender,
   '@/lib/supplier-portal/onboarding': load('../lib/supplier-portal/onboarding.ts', {}),
   '@/lib/config': { FROM_ADDRESS: 'Vexim <sales@example.com>', COMPANY: { name: 'Vexim' } },
+  '@/lib/brand/colors.json': { default: { primary: '#1F3E74' } },
   '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/email/templates': { escapeHtml: (s) => s, wrapPlainEmail: ({ body }) => body },
   '@/lib/rfq/reply-routing': { supplierReplyAddress: () => 'reply@example.com', buyerReplyAddress: () => 'buyer-reply@example.com' },
@@ -183,6 +184,15 @@ assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [
 assert.equal(sent.filter((x) => x.to?.includes('supplier@example.com')).length, 2, 'Simulated and real attempts only');
 assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');
 assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).replyTo, 'reply@example.com');
+// Nhà cung cấp có cổng đã duyệt: báo giá và trao đổi trên cổng, không trả lời email.
+const invite = sent.find((x) => x.to?.includes('supplier@example.com'));
+assert.match(invite.html, /https:\/\/example\.com\/supplier\/portal\/rfqs/);
+assert.match(invite.html, /không cần trả lời email này/);
+assert.doesNotMatch(invite.html, /trả lời trực tiếp email này/);
+// Hồ sơ do Vexim tạo, chưa có cổng: vẫn trả lời bằng email cho người phụ trách.
+const legacyInvite = outbound.buildRfqSupplierEmail({ rfq, supplier: { name: 'Supplier A' }, deadline: now });
+assert.match(legacyInvite.html, /trả lời trực tiếp email này/);
+assert.doesNotMatch(legacyInvite.html, /supplier\/portal\/rfqs/);
 storedMatch.status = 'quoted'; storedMatch.quote_price = 7;
 mode = 'simulated';
 await assert.rejects(outbound.presentShortlistToBuyer({ rfqId: rfq.id }), /Resend chưa gửi thật/);
