@@ -174,6 +174,12 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
     add(`rfq:${m.id}`, fill(t.rfqSent.title, { code: m.rfq!.code }), t.rfqSent.detail, m.sent_to_supplier_at!, "rfq", "/supplier/portal/rfqs");
     if (m.status === "selected") add(`selected:${m.id}`, fill(t.rfqSelected.title, { code: m.rfq!.code }), t.rfqSelected.detail, m.updated_at, "rfq", "/supplier/portal/rfqs");
   }
+  // Câu hỏi "Ask supplier": không phải RFQ cần báo giá, nhưng nhà cung cấp phải biết để trả lời người mua.
+  for (const m of input.invites.filter((m) => m.supplier_id === supplierId && !!m.sent_to_supplier_at && m.status !== "proposed" &&
+    m.rfq?.source_page === "/rfq?intent=question")) {
+    const product = withoutDirectContacts(m.rfq!.product_text ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, 80) || m.rfq!.code;
+    add(`question:${m.id}`, fill(t.question.title, { product }), t.question.detail, m.sent_to_supplier_at!, "rfq", "/supplier/portal/rfqs#cau-hoi");
+  }
   for (const v of reviews.filter((v) => v.supplier_id === supplierId)) {
     const label = levelLabel(v.target_level);
     if (v.status === "returned") add(`returned:${v.id}`, fill(t.reviewReturned.title, { label }), t.reviewReturned.detail, v.updated_at, "verification", levelHref(v.target_level));

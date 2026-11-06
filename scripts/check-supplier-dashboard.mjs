@@ -55,6 +55,13 @@ const directQuestion = { ...make('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 's-a', 
 const withDirectQuestion = dashboard.buildSupplierDashboard({ ...input, invites: [...input.invites, directQuestion] });
 assert.equal(withDirectQuestion.invites.length, 2, 'Direct supplier questions are not quote invitations');
 assert.equal(withDirectQuestion.tasks.length, 1, 'Direct supplier questions do not become supplier quote tasks');
+const questionNotice = withDirectQuestion.notices.find((n) => n.key === `question:${directQuestion.id}`);
+assert.ok(questionNotice, 'Câu hỏi Ask supplier đã gửi có thông báo trên chuông');
+assert.equal(questionNotice.href, '/supplier/portal/rfqs#cau-hoi');
+const foreignQuestion = { ...directQuestion, id: 'ffffffff-ffff-ffff-ffff-ffffffffffff', supplier_id: 's-b' };
+const unsentQuestion = { ...directQuestion, id: '99999999-9999-9999-9999-999999999999', sent_to_supplier_at: null };
+const noisy = dashboard.buildSupplierDashboard({ ...input, invites: [...input.invites, foreignQuestion, unsentQuestion] });
+assert.ok(!noisy.notices.some((n) => n.key.startsWith('question:')), 'Câu hỏi của nhà cung cấp khác hoặc chưa gửi không hiện');
 const replied = dashboard.buildSupplierDashboard({ ...input, invites: [{ ...match, supplier_replied_at: '2026-10-17T10:00:00Z' }, foreign, unsent, legacy] });
 assert.equal(replied.tasks.length, 0, 'Verified supplier response clears the RFQ task');
 assert.equal(replied.report.responded, 1);
