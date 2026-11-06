@@ -77,9 +77,9 @@ const en = {
     receivedAt: "Received {at}",
     unanswered: "Not answered",
     answered: "Answered {at}",
-    markAnswered: "Mark as answered",
+    markAnswered: "Answered another way",
     marking: "Saving…",
-    replyTo: "Replies go to {email}",
+    replyTo: "Replies go to {email}. Keep the Vexim copy address in Cc so your answer is recorded automatically.",
     noQuote: "No quote form here: answer the buyer by email.",
   },
   invites: {
@@ -207,9 +207,9 @@ const vi: RfqsMessages = {
     receivedAt: "Nhận lúc {at}",
     unanswered: "Chưa trả lời",
     answered: "Đã trả lời {at}",
-    markAnswered: "Đánh dấu đã trả lời",
+    markAnswered: "Đã trả lời qua kênh khác",
     marking: "Đang lưu…",
-    replyTo: "Thư trả lời gửi tới {email}",
+    replyTo: "Thư trả lời gửi tới {email}. Giữ địa chỉ Vexim ở Cc để hệ thống tự ghi nhận bạn đã trả lời.",
     noQuote: "Câu hỏi không cần báo giá trên cổng: hãy trả lời người mua qua email.",
   },
   invites: {

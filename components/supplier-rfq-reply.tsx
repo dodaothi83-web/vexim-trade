@@ -7,14 +7,17 @@ import { Check, Copy, Mail } from "lucide-react";
  * Nút trả lời lời mời báo giá. Liên kết `mailto:` không làm gì trên máy chưa cài ứng dụng email
  * (đa số dùng Gmail trên web), nên luôn có thêm Gmail web và sao chép địa chỉ.
  */
-export function SupplierRfqReply({ address, subject, labels }: {
+export function SupplierRfqReply({ address, cc, subject, labels }: {
   address: string;
+  /** Hộp định tuyến của Vexim để lưu bản sao thư trả lời và tự ghi mốc đã trả lời. */
+  cc?: string | null;
   subject: string;
   labels: { gmail: string; app: string; copy: string; copied: string };
 }) {
   const [copied, setCopied] = useState(false);
-  const gmail = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(address)}&su=${encodeURIComponent(subject)}`;
-  const mailto = `mailto:${address}?subject=${encodeURIComponent(subject)}`;
+  const ccPart = cc ? `&cc=${encodeURIComponent(cc)}` : "";
+  const gmail = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(address)}${ccPart}&su=${encodeURIComponent(subject)}`;
+  const mailto = `mailto:${address}?subject=${encodeURIComponent(subject)}${ccPart}`;
   return (
     <span className="flex flex-wrap items-center gap-1.5">
       <a href={gmail} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">

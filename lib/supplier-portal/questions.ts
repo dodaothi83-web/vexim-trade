@@ -1,6 +1,7 @@
 import type { DataStore } from "@/lib/db/types";
 import type { SupplierRfqInvitation } from "@/lib/types";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 
 /**
  * Câu hỏi "Ask supplier" của người mua trên cổng nhà cung cấp.
@@ -22,6 +23,11 @@ export interface PortalQuestion {
   answeredAt: string | null;
   /** Cùng tiêu đề với email đã gửi để thư trả lời nằm cùng mạch. */
   replySubject: string;
+  /**
+   * Hộp định tuyến của đúng lời mời này, đặt ở Cc khi trả lời: bộ nhận thư lưu bản sao vào
+   * timeline RFQ và tự ghi mốc đã trả lời, như thư trả lời RFQ thường.
+   */
+  recordAddress: string;
 }
 
 const QUESTION_PAGE = "/rfq?intent=question";
@@ -60,6 +66,7 @@ export async function listSupplierQuestions(store: DataStore, supplierId: string
       sentAt: m.sent_to_supplier_at!,
       answeredAt: m.supplier_replied_at ?? null,
       replySubject: questionSubject(rfq.code, product),
+      recordAddress: supplierReplyAddress(rfq.code, m.id),
     };
   }));
   return rows.filter((row): row is PortalQuestion => row !== null).sort((a, b) => b.sentAt.localeCompare(a.sentAt));

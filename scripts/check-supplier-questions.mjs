@@ -10,6 +10,7 @@ const src = fs.readFileSync(new URL('../lib/supplier-portal/questions.ts', impor
 const mod = { exports: {} };
 vm.runInNewContext(ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
   { module: mod, exports: mod.exports, Date, console: { ...console, error() {} }, require: (id) => {
+    if (id === '@/lib/rfq/reply-routing') return { supplierReplyAddress: (code, matchId) => `rfq+${code.toLowerCase()}-m${matchId}@veximtrade.com` };
     assert.equal(id, '@/lib/public/product-selection', `Unexpected ${id}`);
     return { withoutDirectContacts: (v) => String(v ?? '') };
   } });
@@ -44,6 +45,7 @@ assert.equal(list[0].question, 'Do you have 10 MT?');
 assert.equal(list[0].buyerEmail, 'anna@acme.de');
 assert.equal(list[0].replySubject, 'Re: [RFQ-Q-1] Câu hỏi sản phẩm: Cashew W320', 'Cùng tiêu đề với email gốc để giữ mạch thư');
 assert.equal(list[0].answeredAt, null);
+assert.equal(list[0].recordAddress, 'rfq+rfq-q-1-mm-ok@veximtrade.com', 'Nút trả lời Cc hộp định tuyến của đúng lời mời');
 
 for (const inv of invites) matches.set(inv.id, { ...inv });
 await assert.rejects(q.markSupplierQuestionAnswered({ store, supplierId: 's2', actorEmail: 'x@y.z', matchId: 'm-ok' }), /notFound/, 'Không đánh dấu được câu hỏi của nhà cung cấp khác');
@@ -61,5 +63,11 @@ const page = fs.readFileSync(new URL('../app/supplier/portal/rfqs/page.tsx', imp
 assert.match(page, /id="cau-hoi"/);
 assert.match(page, /listSupplierQuestions\(store, supplier\.id, invites\)/);
 assert.match(page, /markQuestionAnsweredAction/);
+assert.match(page, /cc=\{q\.recordAddress\}/, 'Trả lời từ cổng đi qua bộ định tuyến thư có sẵn');
+const question = fs.readFileSync(new URL('../lib/rfq/supplier-question.ts', import.meta.url), 'utf8');
+assert.match(question, /replyTo: \[buyer\.email, supplierReplyAddress\(rfq\.code, match\.id\)\]/,
+  'Email câu hỏi: trả lời tới người mua và hộp định tuyến, để bộ nhận thư lưu timeline và tự ghi đã trả lời');
+const send = fs.readFileSync(new URL('../lib/email/send.ts', import.meta.url), 'utf8');
+assert.match(send, /replyTo\?: string \| string\[\] \| null/);
 assert.match(fs.readFileSync(new URL('../app/supplier/portal/rfqs/question-actions.ts', import.meta.url), 'utf8'), /supplierId: access\.supplier\.id/, 'Chủ sở hữu lấy từ phiên đăng nhập, không lấy từ form');
 console.log('✅ Supplier questions: delivered, consented, own-supplier only; mark answered is scoped and idempotent.');

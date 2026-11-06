@@ -49,13 +49,17 @@ const questionMail = load('../lib/rfq/supplier-question.ts', {
   ...mailMocks,
   '@/lib/db': { getStore: () => questionStore },
   '@/lib/email/send': { transport: async (message) => { sent.push(message); return deliveryResult; } },
+  '@/lib/rfq/reply-routing': { supplierReplyAddress: (code, matchId) => `rfq+${code.toLowerCase()}-m${String(matchId).replace(/-/g, '')}@veximtrade.com` },
 });
 const delivered = await questionMail.deliverSupplierQuestion({ rfq, buyer, supplierId: supplier.id,
   productUrl: 'https://www.veximtrade.com/products/cashew/p-a' });
 assert.equal(delivered.delivered, true);
 assert.equal(sent.length, 1);
 assert.equal(sent[0].to[0], supplier.email);
-assert.equal(sent[0].replyTo, buyer.email, 'Supplier replies route directly to the consenting buyer');
+assert.equal(sent[0].replyTo.length, 2);
+assert.equal(sent[0].replyTo[0], buyer.email, 'Supplier replies still reach the consenting buyer directly');
+assert.match(sent[0].replyTo[1], /^rfq\+.+-m[a-z0-9]+@veximtrade\.com$/, 'A copy routes through the existing inbound module to the RFQ timeline');
+assert.match(sent[0].html, /bản sao được lưu trên Vexim/i, 'Supplier is told a copy is recorded');
 assert.match(sent[0].html, /peroxide value/);
 assert.match(sent[0].html, /buyer@example\.com/);
 assert.doesNotMatch(sent[0].html, /mailto:/i, 'Buyer email stays plain text; Reply-To handles direct replies without cross-domain mailto links');

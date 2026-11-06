@@ -95,7 +95,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
             </div>
             <p className="whitespace-pre-wrap rounded-lg border-l-4 border-brand-600 bg-ink-50 px-3 py-2 text-sm leading-6 text-ink-800">{q.question}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <SupplierRfqReply address={q.buyerEmail} subject={q.replySubject}
+              <SupplierRfqReply address={q.buyerEmail} cc={q.recordAddress} subject={q.replySubject}
                 labels={{ gmail: copy.tasks.replyGmail, app: copy.tasks.replyApp, copy: copy.tasks.copyAddress, copied: copy.tasks.copied }} />
               {!q.answeredAt && <form action={markQuestionAnsweredAction}>
                 <input type="hidden" name="match_id" value={q.matchId} />

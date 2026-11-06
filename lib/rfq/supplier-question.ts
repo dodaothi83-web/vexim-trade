@@ -7,6 +7,7 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { SITE_URL } from "@/lib/site";
 import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
+import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import type { Buyer, Rfq, Supplier } from "@/lib/types";
 
 const DESK_INBOX = process.env.RFQ_INTERNAL_EMAIL?.trim() || `hello@${MAIL_DOMAIN}`;
@@ -41,7 +42,8 @@ export function buildSupplierQuestionEmail(input: {
       <div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(question)}</div>
     </div>
     <p style="margin-top:18px;"><strong>Vui lòng phản hồi trực tiếp email này.</strong>
-      Địa chỉ Reply-To là email của buyer. Họ đã đồng ý chia sẻ tên, công ty và email với doanh nghiệp cho câu hỏi này.</p>
+      Thư trả lời sẽ tới email người mua. Họ đã đồng ý chia sẻ tên, công ty và email với doanh nghiệp cho câu hỏi này.
+      Một bản sao được lưu trên Vexim để ghi nhận bạn đã trả lời; Vexim không trả lời thay bạn.</p>
     <p style="color:${brandColors.muted};font-size:12.5px;">Vexim không phản hồi thay doanh nghiệp về thông số hoặc điều kiện thương mại.
       Không chia sẻ thông tin liên hệ của buyer cho bên thứ ba.</p>
   `;
@@ -85,7 +87,9 @@ export async function deliverSupplierQuestion(input: {
   const delivery = await transport({
     to: [supplier.email],
     from: FROM_ADDRESS,
-    replyTo: buyer.email,
+    // Trả lời một lần tới cả người mua và hộp định tuyến của đúng lời mời này: bộ nhận thư
+    // (lib/mail/inbound.ts) lưu thư vào timeline RFQ và tự ghi mốc nhà cung cấp đã trả lời.
+    replyTo: [buyer.email, supplierReplyAddress(rfq.code, match.id)],
     subject: email.subject,
     html: email.html,
     text: email.text,
