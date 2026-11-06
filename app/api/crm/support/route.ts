@@ -4,6 +4,7 @@ import { getStore } from "@/lib/db";
 import { supportConversationViews } from "@/lib/chat/support";
 import { hasPermission } from "@/lib/auth/permissions";
 import { presenceKey, touchPresence } from "@/lib/chat/presence";
+import { scheduleChatNotifications } from "@/lib/chat/notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
   if (!session) return json({ error: "forbidden" }, 403);
   // Nhân viên trả lời được đang mở hộp chat thì người mua thấy đội Vexim online.
   if (hasPermission(session.role, "support.manage")) void touchPresence(getStore(), presenceKey.staff());
+  scheduleChatNotifications(getStore());
   const filter = new URL(request.url).searchParams.get("filter");
   try {
     const store = getStore();

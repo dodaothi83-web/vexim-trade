@@ -1255,6 +1255,13 @@ export const supabaseStore: DataStore = {
     if (error) fail("listSupportMessages", error);
     return ((data ?? []) as SupportMessage[]).reverse();
   },
+  async claimChatNotification(table, id, column, expected, next) {
+    let query = must().from(table).update({ [column]: next }).eq("id", id);
+    query = expected === null ? query.is(column, null) : query.eq(column, expected);
+    const { data, error } = await query.select("id");
+    if (error) fail("claimChatNotification", error);
+    return (data ?? []).length === 1;
+  },
   async touchChatPresence(key, at) {
     const { error } = await must().from("chat_presence").upsert({ key, last_seen_at: at }, { onConflict: "key" });
     if (error) fail("touchChatPresence", error);

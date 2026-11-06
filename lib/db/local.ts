@@ -1972,6 +1972,15 @@ export const localStore: DataStore = {
     mutate((db) => { (db.support_messages ??= []).push(row); });
     return row;
   },
+  async claimChatNotification(table, id, column, expected, next) {
+    let claimed = false;
+    mutate((db) => {
+      const rows = (table === "chat_conversations" ? db.chat_conversations : db.support_conversations) ?? [];
+      const row = rows.find((c) => c.id === id) as unknown as Record<string, string | null | undefined> | undefined;
+      if (row && (row[column] ?? null) === expected) { row[column] = next; claimed = true; }
+    });
+    return claimed;
+  },
   async touchChatPresence(key, at) {
     mutate((db) => { (db.chat_presence ??= {})[key] = at; });
   },

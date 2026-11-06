@@ -3,6 +3,7 @@ import { chatViewer, sameOrigin } from "@/lib/chat/viewer";
 import { markSupportRead, postBuyerSupportMessage, SupportError, supportMessageViews } from "@/lib/chat/support";
 import { supportHasUnread } from "@/lib/chat/support-core";
 import { presenceKey, readPresence, touchPresence } from "@/lib/chat/presence";
+import { scheduleChatNotifications } from "@/lib/chat/notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
   const viewer = await chatViewer("buyer");
   if (!viewer || viewer.side !== "buyer") return json({ error: "auth" }, 401);
   void touchPresence(viewer.store, presenceKey.buyer(viewer.email));
+  scheduleChatNotifications(viewer.store);
   try {
     const conversation = await viewer.store.getSupportConversationByBuyer(viewer.email);
     if (new URL(request.url).searchParams.get("peek") === "1") return json({ unread: conversation && supportHasUnread(conversation, "buyer") ? 1 : 0 });

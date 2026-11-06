@@ -33,7 +33,7 @@ Mã nguồn: `lib/chat/core.ts` (quy tắc), `lib/chat/service.ts`, `lib/chat/vi
 - Quyền: `support.manage` (Quản trị, Kinh doanh) đọc, trả lời, nhận xử lý; `support.view` (Chỉ xem) chỉ đọc. CRM: **Chat với người mua** (`/crm/support`), huy hiệu đếm cuộc nhân viên chưa đọc, có trong chuông thông báo.
 - Trả lời một cuộc chưa ai nhận là tự nhận cuộc đó; có nút Nhận xử lý / Trả về chưa ai nhận.
 - Người mua thấy tên gọi nhân viên (ví dụ "Dung · Vexim Trade"), không thấy email nội bộ. Nhân viên thấy trang người mua đang xem khi nhắn.
-- Email báo tin (giới hạn như chat nhà cung cấp): người mua nhắn thì báo nhân viên phụ trách, chưa ai nhận thì báo hộp thư chung (`RFQ_INTERNAL_EMAIL`); nhân viên trả lời thì báo người mua, link mở thẳng khung chat (`/?support=1`).
+- Email báo tin (xem mục Email báo tin nhắn bên dưới): người mua nhắn thì báo nhân viên phụ trách, chưa ai nhận thì báo hộp thư chung (`RFQ_INTERNAL_EMAIL`); nhân viên trả lời thì báo người mua, link mở thẳng khung chat (`/?support=1`).
 
 ## Trạng thái online, đã gửi, đã xem (cả hai luồng chat)
 
@@ -41,3 +41,14 @@ Mã nguồn: `lib/chat/core.ts` (quy tắc), `lib/chat/service.ts`, `lib/chat/vi
 - Đội Vexim là một bên: online khi có nhân viên có quyền trả lời đang mở hộp Chat với người mua trong CRM.
 - **Đã gửi / đã xem:** đồng hồ khi đang gửi, một tích khi đã lưu, hai tích xanh khi bên kia đã mở cuộc trò chuyện tới tin đó (dựa trên mốc đã đọc sẵn có). Tin cuối của mình hiện thêm chữ "Đã gửi" / "Đã xem". Tin chưa đọc vẫn in đậm, chấm đỏ như trước.
 - Chưa chạy migration thì chat vẫn chạy bình thường, chỉ không hiện trạng thái online.
+
+
+## Email báo tin nhắn (gửi chậm, gộp, nhắc một lần)
+
+Áp dụng cho cả chat nhà cung cấp và Chat với Vexim (`lib/chat/notify.ts`). Không còn gửi email ngay khi có tin.
+
+1. **Chờ 10 phút, bỏ qua khi online:** chỉ báo tin còn chưa đọc sau 10 phút, và người nhận không đang mở Vexim (theo trạng thái online).
+2. **Gộp:** mỗi người nhận một thư cho mọi cuộc đang chờ. Người mua nhận chung tin của các nhà cung cấp và của đội Vexim; nhà cung cấp nhận chung tin của nhiều người mua.
+3. **Nhắc một lần:** chưa đọc sau 24 giờ kể từ thư đầu thì nhắc đúng một lần, rồi dừng tới khi người nhận đọc (cột `*_reminded_at`, migration `20261113_chat_notify_reminders.sql`, **cần chạy**; thiếu cột thì bỏ qua lần nhắc, thư đầu vẫn gửi).
+- Chạy bằng `/api/cron/chat-notify` (cron-job.org, **5 phút một lần**, header `Authorization: Bearer <CRON_SECRET>`). Chưa cài lịch thì các lần người dùng tự hỏi tin mới cũng kích hoạt bộ quét, tối đa 3 phút một lần.
+- Mỗi cuộc được "nhận việc" bằng cập nhật có điều kiện trước khi gửi, nên quét trùng không gửi trùng; gửi lỗi thì trả mốc lại để lần sau gửi.

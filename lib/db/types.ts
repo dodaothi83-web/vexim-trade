@@ -278,6 +278,13 @@ export interface DataStore {
   listSupportMessages(conversationId: string, limit?: number): Promise<SupportMessage[]>;
   addSupportMessage(input: Omit<SupportMessage, "id" | "created_at">): Promise<SupportMessage>;
   /* Lần cuối mỗi bên còn mở Vexim (trạng thái online của chat). */
+  /**
+   * Nhận việc gửi email báo tin: đặt cột mốc thành `next` chỉ khi nó vẫn đang là `expected`.
+   * Trả về false nếu máy chủ khác đã nhận trước, để hai lần quét cùng lúc không gửi trùng.
+   */
+  claimChatNotification(table: "chat_conversations" | "support_conversations", id: string,
+    column: "buyer_notified_at" | "supplier_notified_at" | "staff_notified_at" | "buyer_reminded_at" | "supplier_reminded_at" | "staff_reminded_at",
+    expected: string | null, next: string | null): Promise<boolean>;
   touchChatPresence(key: string, at: string): Promise<void>;
   getChatPresence(keys: string[]): Promise<Record<string, string>>;
   /** Thư thuộc các mạch đã cho (ví dụ `sourcing-{id}`), mới nhất trước. */

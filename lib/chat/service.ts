@@ -1,17 +1,11 @@
 import "server-only";
 
-import brandColors from "@/lib/brand/colors.json";
-import { FROM_ADDRESS, SERVICE_FROM_ADDRESS } from "@/lib/config";
 import type { DataStore } from "@/lib/db/types";
-import { transport } from "@/lib/email/send";
-import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { getPublicProductRecordsByIds } from "@/lib/public/product-catalog";
-import { notificationOrigin } from "@/lib/supplier-portal/notify";
-import { SITE_URL } from "@/lib/site";
 import { presenceKey, readPresence } from "./presence";
 import { supplierShortName } from "@/lib/public/supplier-name";
 import type { ChatConversation, ChatMessage, ChatSender, Supplier } from "@/lib/types";
-import { chatPreview, chatRateLimited, cleanChatBody, hasUnread, otherSide, shouldNotify, tooManyNewConversations } from "./core";
+import { chatPreview, chatRateLimited, cleanChatBody, hasUnread, tooManyNewConversations } from "./core";
 
 /**
  * Chat người mua ↔ nhà cung cấp. Thay luồng email trực tiếp của "Ask supplier": cuộc trò
@@ -58,12 +52,12 @@ export interface ChatMessageView {
 }
 
 /** Tên ngắn (tên hiển thị, tên thương mại, rồi pháp nhân đã bỏ tiền tố, hạ kiểu chữ). */
-function supplierName(s: Pick<Supplier, "display_name" | "trade_name" | "name">): string {
+export function supplierName(s: Pick<Supplier, "display_name" | "trade_name" | "name">): string {
   return supplierShortName({ name: s.name || "Supplier", trade_name: s.trade_name, display_name: s.display_name }) || "Supplier";
 }
 
 /** Nhà cung cấp chỉ thấy tên công ty người mua đã khai, không thấy email. */
-async function buyerLabel(store: DataStore, email: string): Promise<string> {
+export async function buyerLabel(store: DataStore, email: string): Promise<string> {
   const account = await store.getBuyerUserByEmail(email).catch(() => null);
   if (account?.company_name?.trim()) return account.company_name.trim();
   const crm = typeof store.getBuyerByEmail === "function" ? await store.getBuyerByEmail(email).catch(() => null) : null;
@@ -194,58 +188,8 @@ export async function postMessage(input: {
     ...(sender === "buyer" ? { buyer_last_read_at: message.created_at } : { supplier_last_read_at: message.created_at }),
     ...(input.product ? { product_id: input.product.id, product_name: input.product.name } : {}),
   };
-  const recipient = otherSide(sender);
-  const latest = { ...conversation, ...patch };
-  if (shouldNotify(latest, recipient)) {
-    const sent = await notifyNewMessage(store, latest, recipient, checked.body)
-      .catch((error) => { console.error("[chat] new-message email failed", error); return false; });
-    if (sent) Object.assign(patch, recipient === "buyer" ? { buyer_notified_at: message.created_at } : { supplier_notified_at: message.created_at });
-  }
+  // Email báo tin không gửi ngay: bộ quét lib/chat/notify.ts gửi sau 10 phút nếu người nhận
+  // chưa đọc và không online, gộp nhiều cuộc vào một thư.
   await store.updateChatConversation(conversation.id, patch);
   return message;
-}
-
-/** Email báo tin mới. Không chứa email người mua; trả lời phải làm trên Vexim. */
-/** Nút lớn trong email báo tin: trả lời diễn ra trên Vexim, không qua hộp thư. */
-function replyButton(href: string, label: string) {
-  return `<p style="margin:20px 0;"><a href="${escapeHtml(href)}" style="display:inline-block;background:${brandColors.primary};color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;">${escapeHtml(label)}</a></p>`;
-}
-
-/**
- * Email chỉ để báo có tin mới; mọi trao đổi diễn ra trong khung chat trên Vexim để hai bên
- * có chung một lịch sử, email người mua không lộ ra và sàn theo dõi được thời gian phản hồi.
- */
-async function notifyNewMessage(store: DataStore, conversation: ChatConversation, recipient: ChatSender, body: string): Promise<boolean> {
-  const preview = chatPreview(body, 600);
-  const product = conversation.product_name ? ` · ${conversation.product_name}` : "";
-  if (recipient === "supplier") {
-    const supplier = await store.getSupplier(conversation.supplier_id);
-    if (!supplier) return false;
-    const users = await store.listUsers().catch(() => []);
-    const portal = users.filter((u) => u.is_active && u.role === "supplier" && u.supplier_id === supplier.id).map((u) => u.email.trim().toLowerCase());
-    const to = [...new Set(portal.length ? portal : supplier.email ? [supplier.email.trim().toLowerCase()] : [])].filter(Boolean);
-    if (!to.length) return false;
-    const from = await buyerLabel(store, conversation.buyer_email);
-    const link = `${notificationOrigin()}/supplier/portal/messages?c=${encodeURIComponent(conversation.id)}`;
-    const title = `Tin nhắn mới từ ${from}${product}`;
-    const html = `<p>Bạn có tin nhắn mới từ người mua trên Vexim.</p>
-      <div style="margin:14px 0;padding:12px 16px;border-left:4px solid ${brandColors.primary};background:${brandColors.surface};white-space:pre-wrap;">${escapeHtml(preview)}</div>
-      ${replyButton(link, "Trả lời trên Vexim")}
-      <p style="color:${brandColors.muted};font-size:12.5px;">Vui lòng không trả lời email này: người mua chỉ nhận được tin gửi trong mục Tin nhắn của cổng nhà cung cấp. Trả lời sớm giúp hồ sơ của bạn được tin cậy hơn.</p>`;
-    const res = await transport({ to, from: SERVICE_FROM_ADDRESS, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body: html }),
-      text: `${title}\n\n${preview}\n\nTrả lời trên Vexim: ${link}\nVui lòng không trả lời email này: người mua chỉ nhận được tin gửi trên Vexim.`, headers: { "X-Vexim-Chat": conversation.id } });
-    return res.ok;
-  }
-  const supplier = await store.getSupplier(conversation.supplier_id).catch(() => null);
-  const name = supplier ? supplierName(supplier) : "the supplier";
-  const link = `${SITE_URL}/buyer/account/messages?c=${encodeURIComponent(conversation.id)}`;
-  const title = `New message from ${name}${product}`;
-  const html = `<p>You have a new message on Vexim Trade.</p>
-    <div style="margin:14px 0;padding:12px 16px;border-left:4px solid ${brandColors.primary};background:${brandColors.surface};white-space:pre-wrap;">${escapeHtml(preview)}</div>
-    ${replyButton(link, "Reply on Vexim")}
-    <p style="color:${brandColors.muted};font-size:12.5px;">Please do not reply to this email. The supplier only receives messages sent from your Vexim account, and your email address stays private.</p>`;
-  const res = await transport({ to: [conversation.buyer_email], from: FROM_ADDRESS, subject: title,
-    html: wrapPlainEmail({ title: escapeHtml(title), body: html }), text: `${title}\n\n${preview}\n\nReply on Vexim: ${link}\nPlease do not reply to this email. The supplier only receives messages sent on Vexim.`,
-    headers: { "X-Vexim-Chat": conversation.id } });
-  return res.ok;
 }
