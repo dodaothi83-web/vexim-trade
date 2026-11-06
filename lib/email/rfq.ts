@@ -15,6 +15,7 @@ import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
 import type { Rfq, Buyer } from "@/lib/types";
 import { transport } from "./send";
+import { buyerReplyAddress } from "@/lib/rfq/reply-routing";
 
 const DESK_INBOX = process.env.RFQ_INTERNAL_EMAIL?.trim() || `hello@${MAIL_DOMAIN}`;
 
@@ -82,6 +83,8 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
   const res = await transport({
     to: buyer.email ? [buyer.email] : [],
     cc: cc.length ? cc : undefined,
+    // Người mua trả lời thư xác nhận (bổ sung thông số...) thì thư vào đúng timeline RFQ này.
+    replyTo: buyerReplyAddress(rfq.code),
     subject: title,
     html,
     text,

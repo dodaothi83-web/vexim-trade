@@ -49,7 +49,7 @@ const questionMail = load('../lib/rfq/supplier-question.ts', {
   ...mailMocks,
   '@/lib/db': { getStore: () => questionStore },
   '@/lib/email/send': { transport: async (message) => { sent.push(message); return deliveryResult; } },
-  '@/lib/rfq/reply-routing': { supplierReplyAddress: (code, matchId) => `rfq+${code.toLowerCase()}-m${String(matchId).replace(/-/g, '')}@veximtrade.com` },
+  '@/lib/rfq/reply-routing': { buyerReplyAddress: (code) => `buyer+${code.toLowerCase()}@veximtrade.com`, supplierReplyAddress: (code, matchId) => `rfq+${code.toLowerCase()}-m${String(matchId).replace(/-/g, '')}@veximtrade.com` },
 });
 const delivered = await questionMail.deliverSupplierQuestion({ rfq, buyer, supplierId: supplier.id,
   productUrl: 'https://www.veximtrade.com/products/cashew/p-a' });
@@ -77,6 +77,11 @@ assert.match(sent[1].html, /\/buyer\/account\/requests\/r-q/);
 assert.doesNotMatch(sent[1].html, /private-token|\/rfq\/status\//);
 assert.match(sent[1].html, /reply directly to your email/);
 assert.doesNotMatch(sent[1].html, /export desk|contact details stay private/i);
+assert.equal(sent[1].replyTo, 'buyer+rfq-q-001@veximtrade.com'.replace('rfq-q-001', rfq.code.toLowerCase()), 'Người mua trả lời thư xác nhận thì thư vào timeline câu hỏi');
+const ackLog = messages.at(-1);
+assert.equal(ackLog.kind, 'auto', 'Thư xác nhận được lưu vào timeline');
+assert.equal(ackLog.thread_id, `rfq-${rfq.id}-buyer`);
+assert.equal(ackLog.to_emails[0], buyer.email);
 await questionMail.sendSupplierQuestionExceptionInternal({ rfq, buyer, reason: 'provider rejected' });
 assert.equal(sent[2].to[0], 'desk@example.com');
 assert.match(sent[2].subject, /Question delivery/);
