@@ -6,6 +6,9 @@ import { Breadcrumbs } from "@/components/ui";
 import { SupplierStorefront } from "@/components/public/supplier-storefront";
 import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import { getPublicSupplierBySlug, listPublicSuppliers, supplierTypeLabel } from "@/lib/public/catalog";
+import { supplierChatAvailable } from "@/lib/chat/service";
+import { SupplierChatButton } from "@/components/public/supplier-chat-button";
+import { Suspense } from "react";
 import { getStore } from "@/lib/db";
 import { publicSupplierCertificates } from "@/lib/public/certificates";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
@@ -65,6 +68,8 @@ export default async function SupplierProfile({ params }: PageProps) {
   const coverUrl = s.cover_image ? mediaUrl(s.cover_image) : null;
   const avatarUrl = s.profile_image ? mediaUrl(s.profile_image) : null;
   const steps = s.approved_verification_steps;
+  // Chỉ mở chat khi nhà cung cấp có tài khoản cổng đang hoạt động để trả lời.
+  const canChat = await supplierChatAvailable(store, s.id).catch(() => false);
   const related = (await listPublicSuppliers()).filter((r) => r.id !== s.id && !isSyntheticSupplier(r)).slice(0, 4);
   // A supplier directory lists links, not Product rich-result entities without offers/reviews.
   // Keep the existing public-product gates; never invent prices or ratings for RFQ listings.
@@ -106,6 +111,7 @@ export default async function SupplierProfile({ params }: PageProps) {
       coverUrl={coverUrl}
       avatarUrl={avatarUrl}
       synthetic={synthetic}
+      chatAction={canChat ? <Suspense fallback={null}><SupplierChatButton supplierId={s.id} supplierName={name} /></Suspense> : undefined}
     />
 
     {related.length > 0 && <section className="mt-12" aria-labelledby="related-title">

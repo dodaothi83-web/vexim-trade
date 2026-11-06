@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { chatViewer, sameOrigin } from "@/lib/chat/viewer";
 import { presenceKey, touchPresence } from "@/lib/chat/presence";
-import { ChatError, existingConversationForProduct, startConversation } from "@/lib/chat/service";
+import { ChatError, existingConversationForProduct, existingConversationForSupplier, startConversation, startSupplierConversation } from "@/lib/chat/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,8 +12,12 @@ export async function GET(request: Request) {
   const viewer = await chatViewer("buyer");
   if (!viewer || viewer.side !== "buyer") return json({ error: "auth" }, 401);
   void touchPresence(viewer.store, presenceKey.buyer(viewer.email));
-  const productId = new URL(request.url).searchParams.get("productId") ?? "";
+  const params = new URL(request.url).searchParams;
+  const productId = params.get("productId") ?? "";
+  const supplierId = params.get("supplierId") ?? "";
   try {
+    // Từ trang nhà cung cấp: tra theo nhà cung cấp; từ trang sản phẩm: tra theo sản phẩm.
+    if (!productId && supplierId) return json({ conversationId: await existingConversationForSupplier(viewer.store, viewer.email, supplierId) });
     return json({ conversationId: await existingConversationForProduct(viewer.store, viewer.email, productId) });
   } catch (error) {
     if (error instanceof ChatError) return json({ error: error.code }, 400);
@@ -30,10 +34,12 @@ export async function POST(request: Request) {
   if (!viewer || viewer.side !== "buyer") return json({ error: "auth" }, 401);
   void touchPresence(viewer.store, presenceKey.buyer(viewer.email));
   // Người mua đã xác minh email; chống spam bằng giới hạn số cuộc mới mỗi ngày và số tin mỗi 10 phút.
-  let payload: { productId?: unknown; body?: unknown };
+  let payload: { productId?: unknown; supplierId?: unknown; body?: unknown };
   try { payload = await request.json(); } catch { return json({ error: "invalid" }, 400); }
   try {
-    const conversation = await startConversation({ store: viewer.store, buyerEmail: viewer.email, productId: String(payload.productId ?? ""), body: String(payload.body ?? "") });
+    const conversation = !payload.productId && typeof payload.supplierId === "string" && payload.supplierId
+      ? await startSupplierConversation({ store: viewer.store, buyerEmail: viewer.email, supplierId: payload.supplierId.slice(0, 64), body: String(payload.body ?? "") })
+      : await startConversation({ store: viewer.store, buyerEmail: viewer.email, productId: String(payload.productId ?? ""), body: String(payload.body ?? "") });
     return json({ id: conversation.id }, 201);
   } catch (error) {
     if (error instanceof ChatError) return json({ error: error.code }, error.code === "rate_limited" ? 429 : 400);

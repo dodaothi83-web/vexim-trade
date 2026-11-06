@@ -55,7 +55,7 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
  */
 export function SupplierStorefront({
   supplier: s, certificates, categories, coverUrl, avatarUrl, synthetic,
-  productLinks = true, rfqActions = true, coverAction, avatarAction, verificationActions, nameTag = "h1",
+  productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1",
 }: {
   supplier: PublicSupplierCard;
   certificates: PublicSupplierCertificate[];
@@ -67,6 +67,8 @@ export function SupplierStorefront({
   productLinks?: boolean;
   /** Tắt nút gửi RFQ ở bản xem trước của chính nhà cung cấp. */
   rfqActions?: boolean;
+  /** Nút Chat with supplier; trang công khai chỉ truyền khi nhà cung cấp trả lời chat được. */
+  chatAction?: ReactNode;
   coverAction?: ReactNode;
   avatarAction?: ReactNode;
   /**
@@ -128,7 +130,7 @@ export function SupplierStorefront({
         <div className="flex shrink-0 flex-col gap-2">
           {rfqActions && !synthetic && <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>}
           {!rfqActions && !synthetic && <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
-          <a href="#products" className="inline-flex items-center justify-center rounded-lg border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50">Browse products</a>
+          {!synthetic && chatAction}
         </div>
       </div>
     </section>

@@ -81,10 +81,12 @@ function ProductCard({ card, label, mine }: { card: ProductCardView; label: stri
  * chỉ hiện một cột. Tin mới được hỏi lại máy chủ định kỳ khi tab đang mở, không cần kết nối
  * thời gian thực. Enter để gửi, Shift+Enter để xuống dòng.
  */
-export function ChatWorkspace({ side, labels, locale, initialId = null, product = null, quickQuestions = [], variant = "page", onClose, closeLabel = "Close", expandHref, expandLabel = "Open full page" }: {
+export function ChatWorkspace({ side, labels, locale, initialId = null, product = null, supplier = null, quickQuestions = [], variant = "page", onClose, closeLabel = "Close", expandHref, expandLabel = "Open full page" }: {
   side: "buyer" | "supplier"; labels: ChatLabels; locale: string; initialId?: string | null;
   /** Có khi mở từ trang sản phẩm: thẻ sản phẩm được đính kèm sẵn phía trên ô nhập. */
   product?: ChatDraftProduct | null;
+  /** Có khi mở từ trang nhà cung cấp: cuộc trò chuyện với nhà cung cấp này, không gắn sản phẩm. */
+  supplier?: { id: string; name: string } | null;
   quickQuestions?: string[];
   variant?: "page" | "popup";
   onClose?: () => void;
@@ -97,7 +99,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
   const presence = PRESENCE_LABELS[locale.startsWith("vi") ? "vi" : "en"];
   const [list, setList] = useState<ConversationView[] | null>(null);
   // Cửa sổ trên trang sản phẩm chờ tra cuộc cũ xong mới chọn cuộc, để không nháy sang cuộc khác.
-  const [activeId, setActiveId] = useState<string | null>(product ? null : initialId);
+  const [activeId, setActiveId] = useState<string | null>(product || supplier ? null : initialId);
   const [productThreadId, setProductThreadId] = useState<string | null>(null);
   const [attached, setAttached] = useState<ChatDraftProduct | null>(product);
   const [thread, setThread] = useState<{ conversation: ConversationView; messages: MessageView[] } | null>(null);
@@ -112,8 +114,8 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
     if (!res?.ok) { if (list === null) setList([]); return; }
     const data = await res.json() as { conversations: ConversationView[] };
     setList(data.conversations);
-    if (!product) setActiveId((current) => current ?? (window.matchMedia("(min-width: 768px)").matches ? data.conversations[0]?.id ?? null : null));
-  }, [side, list, product]);
+    if (!product && !supplier) setActiveId((current) => current ?? (window.matchMedia("(min-width: 768px)").matches ? data.conversations[0]?.id ?? null : null));
+  }, [side, list, product, supplier]);
 
   const loadThread = useCallback(async (id: string) => {
     const res = await fetch(`/api/chat/${encodeURIComponent(id)}?side=${side}`, { cache: "no-store" }).catch(() => null);
@@ -127,10 +129,11 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
   // Mở từ trang sản phẩm: nếu đã từng hỏi nhà cung cấp này thì mở lại đúng cuộc đó,
   // chưa có thì hiện một cuộc mới chưa lưu, gửi tin đầu tiên mới tạo trên máy chủ.
   useEffect(() => {
-    if (!product) return;
+    if (!product && !supplier) return;
     let cancelled = false;
+    const lookup = product ? `productId=${encodeURIComponent(product.id)}` : `supplierId=${encodeURIComponent(supplier!.id)}`;
     void (async () => {
-      const res = await fetch(`/api/chat/start?productId=${encodeURIComponent(product.id)}`, { cache: "no-store" }).catch(() => null);
+      const res = await fetch(`/api/chat/start?${lookup}`, { cache: "no-store" }).catch(() => null);
       const data = res?.ok ? await res.json().catch(() => null) as { conversationId: string | null } | null : null;
       if (cancelled) return;
       const id = data?.conversationId ?? NEW_ID;
@@ -138,7 +141,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
       setActiveId(id);
     })();
     return () => { cancelled = true; };
-  }, [product]);
+  }, [product, supplier]);
   useEffect(() => {
     const tick = () => { if (document.visibilityState === "visible") void loadList(); };
     const timer = window.setInterval(tick, LIST_POLL_MS);
@@ -148,7 +151,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
     if (!activeId) { setThread(null); return; }
     setError(null);
     if (activeId === NEW_ID) {
-      setThread({ conversation: { id: NEW_ID, counterpart: product?.supplierName ?? "", counterpartHref: null, productName: product?.name ?? null, preview: null, lastMessageAt: null, unread: false }, messages: [] });
+      setThread({ conversation: { id: NEW_ID, counterpart: product?.supplierName ?? supplier?.name ?? "", counterpartHref: null, productName: product?.name ?? null, preview: null, lastMessageAt: null, unread: false }, messages: [] });
       return;
     }
     void loadThread(activeId);
@@ -159,7 +162,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
     }
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") void loadThread(activeId); }, THREAD_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [activeId, loadThread, popup, product]);
+  }, [activeId, loadThread, popup, product, supplier]);
   // Mở lại cuộc cũ đang nói về đúng sản phẩm này thì không đính kèm lại, tránh thẻ lặp.
   const attachChecked = useRef(false);
   useEffect(() => {
@@ -185,10 +188,11 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
       createdAt: new Date().toISOString(), pending: true };
     setThread((t) => t ? { ...t, messages: [...t.messages, temp] } : t);
     setDraft("");
-    const creating = activeId === NEW_ID && withProduct;
+    const creating = activeId === NEW_ID && (withProduct || supplier);
     const res = await fetch(creating ? "/api/chat/start" : `/api/chat/${encodeURIComponent(activeId)}?side=${side}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(creating ? { productId: withProduct.id, body } : { body, ...(withProduct ? { productId: withProduct.id } : {}) }),
+      body: JSON.stringify(creating ? (withProduct ? { productId: withProduct.id, body } : { supplierId: supplier!.id, body })
+        : { body, ...(withProduct ? { productId: withProduct.id } : {}) }),
     }).catch(() => null);
     setSending(false);
     if (!res?.ok) {

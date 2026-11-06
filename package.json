@@ -29,7 +29,7 @@
     "check:entry": "node scripts/check-buyer-google-one-tap.mjs && node scripts/check-sign-in-entry.mjs && node scripts/check-public-sign-in.mjs && node --experimental-strip-types --no-warnings scripts/check-register-chooser.mjs && node --experimental-strip-types --no-warnings scripts/check-buyer-google-sign-in.mjs",
     "check:search": "node --experimental-strip-types --no-warnings scripts/check-search-relevance.mjs && node --experimental-strip-types --no-warnings scripts/check-marketplace-search.mjs && node --experimental-strip-types --no-warnings scripts/check-home-feed-order.mjs",
     "check:product-names": "node --experimental-strip-types --no-warnings scripts/check-quantity-pricing.mjs && node --experimental-strip-types --no-warnings scripts/check-quantity-entry.mjs && node --experimental-strip-types --no-warnings scripts/check-supplier-ai-translation.mjs && node --experimental-strip-types --no-warnings scripts/check-new-quantity-product.mjs && node scripts/check-product-card-grade.mjs",
-    "check:product-card": "node scripts/check-product-card-grade.mjs",
+    "check:product-card": "node scripts/check-product-card-grade.mjs && node --experimental-strip-types --no-warnings scripts/check-spec-template.mjs",
     "check:copy": "node scripts/check-ui-copy.mjs",
     "check:i18n": "node --experimental-strip-types --no-warnings scripts/check-auth-i18n.mjs && node --experimental-strip-types --no-warnings scripts/check-portal-i18n.mjs",
     "check:email-copy": "node scripts/check-email-copy.mjs",

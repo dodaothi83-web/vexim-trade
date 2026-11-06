@@ -42,7 +42,7 @@ const store = {
   listChatConversations: async ({ buyerEmail }) => conversations.filter((c) => !buyerEmail || c.buyer_email === buyerEmail),
   listChatMessages: async (id) => messages.filter((m) => m.conversation_id === id),
   addChatMessage: async (input) => { const m = { ...input, id: `m${++seq}`, created_at: new Date(Date.now() + seq).toISOString() }; messages.push(m); return m; },
-  getSupplier: async (id) => ({ id, name: 'Mekong Agri', display_name: 'Mekong Agri', status: 'published', slug: 'mekong', email: 'contact@mekong.vn' }),
+  getSupplier: async (id) => ({ id, name: 'Mekong Agri', display_name: 'Mekong Agri', status: 'published', onboarding_status: id === 's-legacy' ? 'not_started' : 'approved', slug: 'mekong', email: 'contact@mekong.vn' }),
   listUsers: async () => [{ is_active: true, role: 'supplier', supplier_id: 's1', email: 'Owner@Mekong.vn' }, { is_active: true, role: 'supplier', supplier_id: 's2', email: 'other@x.vn' }],
   getBuyerUserByEmail: async () => ({ company_name: 'Acme GmbH' }),
   getBuyerByEmail: async () => null,
@@ -59,6 +59,7 @@ const chat = load('../lib/chat/service.ts', {
   '@/lib/public/supplier-name': { supplierShortName: (s) => s.display_name || s.trade_name || s.name },
   './core': core,
   './presence': load('../lib/chat/presence.ts', {}),
+  '@/lib/supplier-portal/onboarding': { portalApproved: (s) => s.onboarding_status === 'approved' },
 });
 
 await assert.rejects(chat.startConversation({ store, buyerEmail: 'buyer@acme.de', productId: 'gone', body: 'Hi' }), /product_unavailable/, 'Không hỏi được sản phẩm không công khai');
@@ -110,12 +111,29 @@ assert.equal(cardViews[0].product.price, '6.20 USD/kg');
 assert.equal(cardViews[1].product.name, 'Old product');
 assert.equal(cardViews[1].product.href, null);
 
+// Chỉ mở chat khi nhà cung cấp trả lời được: cổng đã duyệt và có tài khoản cổng đang hoạt động.
+assert.equal(await chat.supplierChatAvailable(store, 's1'), true);
+assert.equal(await chat.supplierChatAvailable(store, 's-legacy'), false, 'Hồ sơ Vexim tạo, chưa có cổng: không chat');
+assert.equal(await chat.supplierChatAvailable(store, 's3'), false, 'Cổng duyệt nhưng không có tài khoản hoạt động: không chat');
+await assert.rejects(chat.startSupplierConversation({ store, buyerEmail: 'new@buyer.com', supplierId: 's-legacy', body: 'Hi' }), /supplier_unavailable/);
+// Chat từ trang nhà cung cấp: không gắn sản phẩm; đã có cuộc thì mở lại đúng cuộc cũ.
+const fromProfile = await chat.startSupplierConversation({ store, buyerEmail: 'buyer@acme.de', supplierId: 's1', body: 'Do you offer OEM?' });
+assert.equal(fromProfile.id, conversations[0].id, 'Mở lại đúng cuộc cũ với nhà cung cấp này');
+const fresh = await chat.startSupplierConversation({ store, buyerEmail: 'profile@buyer.com', supplierId: 's2', body: 'Which markets do you export to?' });
+assert.equal(fresh.product_id, null, 'Cuộc mở từ trang nhà cung cấp không gắn sản phẩm');
+assert.equal(await chat.existingConversationForSupplier(store, 'profile@buyer.com', 's2'), fresh.id);
+
 /* ---------- 3. API và giao diện ---------- */
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 for (const f of ['app/api/chat/start/route.ts', 'app/api/chat/[id]/route.ts']) assert.match(read(f), /sameOrigin\(request\)/, `${f}: chặn gửi từ trang khác`);
 assert.match(read('app/api/chat/[id]/route.ts'), /ownedConversation\(/, 'Đọc và gửi đều kiểm quyền sở hữu');
 assert.match(read('app/api/chat/[id]/route.ts'), /viewer\.side === "buyer" && typeof payload\.productId === "string" \? await attachableProduct/);
 assert.match(read('app/api/chat/start/route.ts'), /export async function GET/);
+assert.match(read('app/api/chat/start/route.ts'), /startSupplierConversation\(/);
+assert.match(read('components/public/supplier-storefront.tsx'), /\{!synthetic && chatAction\}/);
+assert.doesNotMatch(read('components/public/supplier-storefront.tsx'), />Browse products</, 'Bỏ nút Browse products');
+assert.match(read('app/(public)/suppliers/[slug]/page.tsx'), /chatAction=\{canChat \?/);
+assert.match(read('app/(public)/products/[slug]/[productId]/page.tsx'), /\{canChat && <Suspense/, 'Trang sản phẩm cũng chỉ hiện chat khi nhà cung cấp trả lời được');
 // Thẻ sản phẩm trong khung chat có ảnh, giá, đường dẫn; nút đổi tên thành Chat with supplier.
 assert.match(read('lib/chat/service.ts'), /cardImagePath/);
 assert.match(read('components/chat/chat-workspace.tsx'), /data-testid="chat-product-card"/);

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { specTemplateFor, specTemplateText } from "@/lib/products/spec-template";
 import {
   AlertCircle,
   ArrowLeft,
@@ -225,6 +226,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const router = useRouter();
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  const specRef = useRef<HTMLTextAreaElement>(null);
   const creationRequestId = useRef<string | null>(null);
   // Chọn sẵn cam kết giá: người bán chỉ bỏ tick khi giá chưa phải giá sẵn sàng báo.
   const [quantityConsent, setQuantityConsent] = useState(true);
@@ -309,6 +311,22 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     !product.ready_for_buyer && product.reviewed_category_slug == null;
   const categoryLocked = review === "approved" || (review === "paused" && !!product?.reviewed_category_slug);
   const activeCategorySlug = selectedCategory || product?.category || "";
+  // Chèn các mục của mẫu theo ngành hàng; mục đã có trong ô thì không chèn lại.
+  function insertSpecTemplate() {
+    const el = specRef.current;
+    if (!el) return;
+    const template = specTemplateFor(activeCategorySlug, lang === "en" ? "en" : "vi");
+    const current = el.value.replace(/\s+$/, "");
+    const missing = template.fields.filter((field) => !current.toLowerCase().includes(field.toLowerCase()));
+    if (!missing.length) { el.focus(); return; }
+    const addition = specTemplateText({ ...template, fields: missing });
+    el.value = (current ? `${current}\n` : "") + addition;
+    // Báo cho form biết nội dung đã đổi (tiến độ mục, cảnh báo rời trang).
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.focus();
+    const firstGap = el.value.indexOf(": ", current.length) + 2;
+    el.setSelectionRange(firstGap, firstGap);
+  }
   const activeCategory = categories.find((c) => c.slug === activeCategorySlug);
   const activeCategorySource = activeCategory ?? (activeCategorySlug ? { slug: activeCategorySlug } : null);
   const newPolicy = !product && activeCategory ? quantityPolicies?.[activeCategory.slug] : undefined;
@@ -1302,21 +1320,30 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <SectionHead index="4" title={copy.spec.title} pill={sectionPill("sec-spec")}
               hint={copy.spec.hint} />
             <div>
-              <Row label={copy.spec.spec} hint={copy.spec.specHint}>
-                <textarea name="spec" className="input min-h-[76px] resize-y" rows={3} maxLength={800}
-                  placeholder={copy.spec.specPlaceholder} defaultValue={product?.spec ?? ""} disabled={locked} />
+              <Row label={copy.spec.spec} hint={`${copy.spec.specHint} ${copy.spec.specTemplateHint}`}>
+                {/* Mẫu theo ngành hàng: chữ mờ là ví dụ đã điền, nút chèn các mục cần ghi. */}
+                <textarea ref={specRef} name="spec" className="input min-h-[150px] resize-y font-[inherit] leading-6" rows={6} maxLength={800}
+                  placeholder={specTemplateFor(selectedCategory || product?.category, lang === "en" ? "en" : "vi").example}
+                  defaultValue={product?.spec ?? ""} disabled={locked} />
+                {!locked && <button type="button" onClick={() => insertSpecTemplate()}
+                  className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1 text-[12px] font-semibold text-brand-800 hover:border-brand-300">
+                  {copy.spec.specUseTemplate}
+                </button>}
               </Row>
               <Row label={copy.spec.capacity}>
                 <input className="input max-w-[280px]" name="monthly_capacity" maxLength={180} placeholder={copy.spec.capacityPlaceholder}
                   defaultValue={product?.monthly_capacity ?? ""} disabled={locked} />
               </Row>
-              <Row label={copy.spec.region} hint={copy.spec.regionHint}>
-                <RawMaterialRegionInput defaultValue={product?.raw_material_region ?? ""} disabled={locked} placeholder={shared.regionPlaceholder} />
-              </Row>
-              <Row label={copy.spec.origin} hint={copy.spec.originHint}>
-                <input name="input_material_origin" className="input" maxLength={300}
-                  placeholder={copy.spec.originPlaceholder} defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
-              </Row>
+              {/* Vùng nguyên liệu và xuất xứ đầu vào chung một hàng, hai cột đều nhau (điện thoại xếp dọc). */}
+              <div className="grid border-t border-ink-100 sm:grid-cols-2 [&>div]:border-t-0 [&>div+div]:border-t sm:[&>div+div]:border-l sm:[&>div+div]:border-t-0">
+                <Row label={copy.spec.region} hint={copy.spec.regionHint}>
+                  <RawMaterialRegionInput defaultValue={product?.raw_material_region ?? ""} disabled={locked} placeholder={shared.regionPlaceholder} />
+                </Row>
+                <Row label={copy.spec.origin} hint={copy.spec.originHint}>
+                  <input name="input_material_origin" className="input" maxLength={300}
+                    placeholder={copy.spec.originPlaceholder} defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
+                </Row>
+              </div>
               {!!selectedCategory && (officialAttributeFields.length > 0 || supplierAttributeFields.length > 0) &&
                 <Row label={copy.spec.attributes}>
                   {/* Chỉ hiện thêm khối thông số khi danh mục còn thông số khác ngoài Grade. */}

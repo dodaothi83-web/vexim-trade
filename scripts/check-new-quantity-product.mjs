@@ -64,6 +64,7 @@ const mocks = {
   '@/lib/product-attributes': { attributesFromForm: () => ({}), mergeSupplierAttributePool: () => [], sanitizeSupplierAttributePool: () => [], saveProductAttributes: () => ({}), supplierAttributePoolSignature: () => '' },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async () => 'sent' },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (v) => v },
+  '@/lib/products/spec-template': { stripEmptySpecLines: (v) => String(v).split('\n').filter((l) => !/^[^:\n]{1,80}:\s*$/.test(l)).join('\n').trim() },
   '@/lib/products/product-extras': productExtras,
   '@/lib/products/grade-pricing': grade,
   '@/lib/ai/product-translation-service': { ensureProductEnglishTranslation: async (_store, _id, _actor, _source, options) => {
