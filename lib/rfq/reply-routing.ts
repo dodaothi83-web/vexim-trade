@@ -75,3 +75,35 @@ export function parseRfqRoute(addrs: Iterable<string>): RfqReplyRoute {
   }
   return null;
 }
+
+const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+
+/**
+ * Địa chỉ người mua trả lời thư về một yêu cầu tìm nguồn (chưa có mã RFQ):
+ * sourcing+{uuid không gạch}@domain. Bộ nhận thư gắn thư vào mạch `sourcing-{id}`.
+ */
+export function sourcingReplyAddress(requestId: string): string {
+  if (!UUID.test(requestId)) throw new Error("Invalid sourcing request id for reply routing.");
+  return `sourcing+${requestId.replace(/-/g, "").toLowerCase()}@${MAIL_DOMAIN}`;
+}
+
+/** Mạch thư của một yêu cầu tìm nguồn, dùng chung cho thư gửi đi và thư nhận. */
+export function sourcingThreadId(requestId: string): string {
+  return `sourcing-${requestId}`;
+}
+
+/** Tìm id yêu cầu tìm nguồn trong danh sách người nhận; null nếu không có. */
+export function parseSourcingRoute(addrs: Iterable<string>): string | null {
+  if (!addrs) return null;
+  const domain = MAIL_DOMAIN.toLowerCase();
+  for (const raw of addrs) {
+    if (!raw) continue;
+    const bracket = raw.match(/<([^>]+)>/);
+    const addr = (bracket ? bracket[1] : raw).trim().toLowerCase();
+    const g = addr.match(/^sourcing\+(?<hex>[a-f0-9]{32})@(?<dom>[^@]+)$/);
+    if (!g?.groups || g.groups.dom !== domain) continue;
+    const h = g.groups.hex;
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  }
+  return null;
+}

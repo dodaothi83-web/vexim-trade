@@ -5,7 +5,7 @@ import { bareAddress, findUserByAddress, isOwnMailAddress } from "@/lib/email/se
 import { getStore } from "@/lib/db";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { transport, threadId } from "@/lib/email/send";
-import { parseRfqRoute } from "@/lib/rfq/reply-routing";
+import { parseRfqRoute, parseSourcingRoute, sourcingThreadId } from "@/lib/rfq/reply-routing";
 import type { EmailMessage } from "@/lib/types";
 
 /**
@@ -194,6 +194,20 @@ export async function processInboundEvent(
         direction = "buyer";
         rfqContextThreadId = `rfq-${rfq.id}-buyer`;
       }
+    }
+  }
+  // Trả lời về một yêu cầu tìm nguồn: chỉ gắn khi người gửi đúng là người mua của yêu cầu đó,
+  // để một địa chỉ đoán bừa không chen được vào hồ sơ của người khác.
+  if (!rfqContextThreadId) {
+    const sourcingId = parseSourcingRoute([
+      ...(full?.to ?? []), ...(meta.to ?? []), ...(full?.cc ?? []), ...(meta.cc ?? []),
+    ]);
+    const request = sourcingId && typeof store.getSourcingRequest === "function"
+      ? await store.getSourcingRequest(sourcingId).catch(() => null) : null;
+    if (request && sameEmail(request.buyer_email, from)) {
+      direction = "buyer";
+      supplier = null;
+      rfqContextThreadId = sourcingThreadId(request.id);
     }
   }
   const tid = rfqContextThreadId ?? threadId(direction, from);

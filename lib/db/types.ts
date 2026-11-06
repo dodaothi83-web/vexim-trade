@@ -259,6 +259,8 @@ export interface DataStore {
   /** Thư đã ghi theo đúng kind — dùng để chống gửi trùng (ví dụ nhắc NCC). */
   listMessagesOfKind(kind: MessageKind): Promise<EmailMessage[]>;
   listMessagesForRfq(rfqId: string): Promise<EmailMessage[]>;
+  /** Thư thuộc các mạch đã cho (ví dụ `sourcing-{id}`), mới nhất trước. */
+  listMessagesForThreads(threadIds: string[]): Promise<EmailMessage[]>;
   getMessage(id: string): Promise<EmailMessage | null>;
   addMessage(
     input: Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null },

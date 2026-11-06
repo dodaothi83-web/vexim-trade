@@ -29,8 +29,11 @@ export interface OutgoingMail {
    * (dung@veximtrade.com) — xem lib/email/sender.ts.
    */
   from?: string | null;
-  /** Reply-To; bỏ trống thì email client mặc định trả lời đúng địa chỉ From. */
-  replyTo?: string | null;
+  /**
+   * Reply-To; bỏ trống thì email client mặc định trả lời đúng địa chỉ From.
+   * Nhiều địa chỉ: thư trả lời tới tất cả, ví dụ người mua và hộp định tuyến RFQ để lưu bản sao.
+   */
+  replyTo?: string | string[] | null;
   /** Header RFC tuỳ chỉnh (In-Reply-To / References) để Gmail gom đúng mạch thư */
   headers?: Record<string, string>;
   html: string;
@@ -44,6 +47,14 @@ export interface TransportResult {
   status: "sent" | "simulated" | "failed";
   provider: "resend" | "local";
   error: string | null;
+}
+
+function replyToHeader(value: OutgoingMail["replyTo"]): string | string[] | undefined {
+  if (Array.isArray(value)) {
+    const list = value.map((v) => v.trim()).filter(Boolean);
+    return list.length > 1 ? list : list[0] || undefined;
+  }
+  return value?.trim() || undefined;
 }
 
 /** Lớp vận chuyển duy nhất: có RESEND_API_KEY thì gửi thật, không thì ở chế độ demo */
@@ -73,7 +84,7 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { error } = await resend.emails.send({
       from: mail.from?.trim() || FROM_ADDRESS,
-      replyTo: mail.replyTo?.trim() || undefined,
+      replyTo: replyToHeader(mail.replyTo),
       to,
       cc: mail.cc?.length ? mail.cc.filter(Boolean) : undefined,
       bcc: mail.bcc?.length ? mail.bcc.filter(Boolean) : undefined,

@@ -7,6 +7,7 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { SITE_URL } from "@/lib/site";
 import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
+import { buyerReplyAddress, supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import type { Buyer, Rfq, Supplier } from "@/lib/types";
 
 const DESK_INBOX = process.env.RFQ_INTERNAL_EMAIL?.trim() || `hello@${MAIL_DOMAIN}`;
@@ -41,7 +42,8 @@ export function buildSupplierQuestionEmail(input: {
       <div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(question)}</div>
     </div>
     <p style="margin-top:18px;"><strong>Vui lòng phản hồi trực tiếp email này.</strong>
-      Địa chỉ Reply-To là email của buyer. Họ đã đồng ý chia sẻ tên, công ty và email với doanh nghiệp cho câu hỏi này.</p>
+      Thư trả lời sẽ tới email người mua. Họ đã đồng ý chia sẻ tên, công ty và email với doanh nghiệp cho câu hỏi này.
+      Một bản sao được lưu trên Vexim để ghi nhận bạn đã trả lời; Vexim không trả lời thay bạn.</p>
     <p style="color:${brandColors.muted};font-size:12.5px;">Vexim không phản hồi thay doanh nghiệp về thông số hoặc điều kiện thương mại.
       Không chia sẻ thông tin liên hệ của buyer cho bên thứ ba.</p>
   `;
@@ -85,7 +87,9 @@ export async function deliverSupplierQuestion(input: {
   const delivery = await transport({
     to: [supplier.email],
     from: FROM_ADDRESS,
-    replyTo: buyer.email,
+    // Trả lời một lần tới cả người mua và hộp định tuyến của đúng lời mời này: bộ nhận thư
+    // (lib/mail/inbound.ts) lưu thư vào timeline RFQ và tự ghi mốc nhà cung cấp đã trả lời.
+    replyTo: [buyer.email, supplierReplyAddress(rfq.code, match.id)],
     subject: email.subject,
     html: email.html,
     text: email.text,
@@ -158,14 +162,44 @@ export async function sendSupplierQuestionAckBuyer(input: {
     <p>View your enquiry: <a href="${statusLink}">View enquiry</a></p>
     <p>Best regards,<br/>Vexim Trade</p>
   `;
-  await transport({
+  const subject = `[${rfq.code}] ${title}`;
+  const html = wrapPlainEmail({ title, body });
+  const text = htmlToText(body);
+  const delivery = await transport({
     to: [buyer.email],
     from: FROM_ADDRESS,
-    subject: `[${rfq.code}] ${title}`,
-    html: wrapPlainEmail({ title, body }),
-    text: htmlToText(body),
+    // Người mua trả lời thư xác nhận thì thư vào timeline câu hỏi, không lạc vào hộp chung.
+    replyTo: buyerReplyAddress(rfq.code),
+    subject,
+    html,
+    text,
     headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Kind": "supplier-question" },
   });
+  // Lưu vào timeline để nhân viên thấy người mua đã nhận xác nhận hay chưa.
+  await getStore().addMessage({
+    buyer_id: buyer.id,
+    supplier_id: null,
+    rfq_id: rfq.id,
+    rfq_match_id: null,
+    kind: "auto",
+    stage: null,
+    direction: "buyer",
+    thread_id: `rfq-${rfq.id}-buyer`,
+    subject,
+    to_emails: [buyer.email],
+    cc_emails: [],
+    bcc_emails: [],
+    body_html: html,
+    body_text: text,
+    attachments: [],
+    rfc_message_id: null,
+    read_at: null,
+    status: delivery.status,
+    provider: delivery.provider,
+    error: delivery.error,
+    created_by: null,
+    sent_at: delivery.ok ? new Date().toISOString() : null,
+  }).catch((error) => console.error("[supplier-question] buyer acknowledgement not logged", error));
 }
 
 /** Internal alert is only for moderation or an unconfirmed direct delivery. */

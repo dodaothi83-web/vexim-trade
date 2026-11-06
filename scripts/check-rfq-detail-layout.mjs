@@ -11,7 +11,10 @@ assert.match(page, /min-w-0 space-y-5 xl:col-span-2/, "cột nội dung chính p
 assert.match(page, /\{\/\* CỘT PHỤ \*\/\}\s*<div className="min-w-0 space-y-5">/, "cột thao tác phải co được và thẳng hàng");
 
 // Mọi thẻ nội dung đều có cùng padding trong, tránh chữ và form sát viền.
-const cards = [...page.matchAll(/<section className="([^"]*\bcard\b[^"]*)"/g)];
+// Timeline thư nằm trong thành phần dùng chung; thẻ của nó cũng phải giữ padding chuẩn.
+const timeline = fs.readFileSync(new URL("../components/message-timeline.tsx", import.meta.url), "utf8");
+assert.match(page, /<MessageTimeline /);
+const cards = [...(page + timeline).matchAll(/<section className="([^"]*\bcard\b[^"]*)"/g)];
 assert.ok(cards.length >= 8, "phải kiểm tra được các thẻ nội dung của trang RFQ");
 for (const [full, classes] of cards) {
   assert.ok(classes.split(/\s+/).includes("p-4"), `thẻ thiếu padding mobile: ${full}`);

@@ -85,12 +85,12 @@ const profile = read('app/supplier/portal/profile/page.tsx');
 assert.match(profile, /f\.annualOutput\} value=\{supplier\.annual_output/);
 assert.doesNotMatch(profile, /value=\{supplier\.(?:moq_text|capacity_per_month)\}/);
 const storefront = read('components/public/supplier-storefront.tsx');
-assert.match(storefront, /"Annual output" : "Monthly capacity"/);
+assert.match(storefront, /"Annual revenue" : "Monthly capacity"/);
 assert.match(storefront, /supplierAnnualOutputDisplay\(s\)/);
 assert.match(read('components/supplier-form.tsx'), /set\("annual_output", e\.target\.value\)/);
 assert.match(read('app/actions.ts'), /annual_output: str\(raw\.annual_output\)/);
 for (const lang of ['en', 'vi']) {
-  assert.equal(dictionary[lang].onboarding.publicPage.labels.annualOutput, lang === 'en' ? 'Annual output' : 'Sản lượng hàng năm');
+  assert.equal(dictionary[lang].onboarding.publicPage.labels.annualOutput, lang === 'en' ? 'Annual revenue' : 'Doanh thu hàng năm');
   assert.equal(dictionary[lang].profile.edit.labels.annualOutput, dictionary[lang].onboarding.publicPage.labels.annualOutput);
 }
 const migration = read('supabase/migrations/20261108_supplier_annual_output.sql');

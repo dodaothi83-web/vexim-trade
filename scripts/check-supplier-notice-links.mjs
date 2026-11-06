@@ -41,7 +41,7 @@ for (const target of new Set(targets)) {
   const route = path.replace(/\$\{[^}]+\}/g, '[id]');
   const page = `app${route}/page.tsx`;
   assert.ok(existsSync(new URL(`../${page}`, import.meta.url)), `Không có trang cho đích ${target} (${page})`);
-  if (hash) assert.match(documents, new RegExp(`id="${hash}"`), `Trang ${path} thiếu neo #${hash}`);
+  if (hash) assert.match(readFileSync(new URL(`../${page}`, import.meta.url), 'utf8'), new RegExp(`id="${hash}"`), `Trang ${path} thiếu neo #${hash}`);
 }
 
 // 4. Đích theo cấp xác minh: L1 giấy tờ, L2 nhà máy, L3 xuất khẩu. L2 và L3 vẫn tách riêng.

@@ -1169,6 +1169,21 @@ export const supabaseStore: DataStore = {
     if (error) fail("listMessagesForRfq", error);
     return (data ?? []) as EmailMessage[];
   },
+  async listMessagesForThreads(threadIds) {
+    const ids = [...new Set(threadIds)].filter(Boolean);
+    if (!ids.length) return [];
+    const all: EmailMessage[] = [];
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data, error } = await must()
+        .from("email_messages")
+        .select("*")
+        .in("thread_id", ids.slice(i, i + 100))
+        .order("created_at", { ascending: false });
+      if (error) fail("listMessagesForThreads", error);
+      all.push(...((data ?? []) as EmailMessage[]));
+    }
+    return all.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
   async getMessage(id) {
     const { data, error } = await must()
       .from("email_messages")

@@ -105,10 +105,12 @@ const mail = load('lib/email/rfq.ts', {
   '@/lib/email/threading': { mailTopic: () => 'topic', openThread: async () => ({ headers: {}, messageId: 'test' }) },
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/db': { getStore: () => ({ addMessage: async () => ({}) }) },
+  '@/lib/rfq/reply-routing': { buyerReplyAddress: (code) => `buyer+${String(code).toLowerCase()}@veximtrade.com`, supplierReplyAddress: (code, matchId) => `rfq+${String(code).toLowerCase()}-m${String(matchId).replace(/-/g, '')}@veximtrade.com` },
   './send': { transport: async (input) => { sent.push(input); return { status: 'simulated' }; } },
 });
 await mail.sendRfqAckBuyer({ rfq: record(), buyer: { id: 'crm-buyer', email: 'buyer@example.com', contact_name: 'Buyer' } });
 assert.match(sent[0].html, /href="https:\/\/www.veximtrade.com\/buyer\/account\/requests\/r1"/);
 assert.match(sent[0].html, />View enquiry<\/a>/);
+assert.match(sent[0].replyTo, /^buyer\+.+@veximtrade\.com$/, 'Người mua trả lời thư xác nhận RFQ thì thư vào đúng timeline RFQ');
 assert.doesNotMatch(sent[0].html + sent[0].text, /old-secret|without logging in|\/rfq\/status\//);
 console.log('✅ Actual buyer acknowledgement email links to account-owned detail without exposing legacy tokens.');

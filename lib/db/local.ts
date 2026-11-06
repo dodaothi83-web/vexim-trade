@@ -1880,6 +1880,12 @@ export const localStore: DataStore = {
       .filter((m) => (m as unknown as { rfq_id?: string | null }).rfq_id === rfqId)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
+  async listMessagesForThreads(threadIds) {
+    const wanted = new Set(threadIds);
+    return [...load().messages]
+      .filter((m) => wanted.has(m.thread_id))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  },
   async getMessage(id) {
     return load().messages.find((m) => m.id === id) ?? null;
   },

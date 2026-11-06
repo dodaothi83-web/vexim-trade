@@ -27,6 +27,7 @@ const { sendSlaAlert } = load('../lib/email/rfq.ts', {
   '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/email/threading': { mailTopic: () => 'rfq.rfq-q-001', openThread: async () => ({ messageId: '<rfq.rfq-q-001.1@example.com>', headers: {}, seq: 1 }) },
   '@/lib/db': { getStore: () => ({ addMessage: async () => ({}) }) },
+  '@/lib/rfq/reply-routing': { buyerReplyAddress: (code) => `buyer+${String(code).toLowerCase()}@veximtrade.com`, supplierReplyAddress: (code, matchId) => `rfq+${String(code).toLowerCase()}-m${String(matchId).replace(/-/g, '')}@veximtrade.com` },
   './send': { transport: async (msg) => { mail.push(msg); return status === 'failed'
     ? { ok: false, status, error: 'provider error' }
     : { ok: true, status, error: null }; } },
