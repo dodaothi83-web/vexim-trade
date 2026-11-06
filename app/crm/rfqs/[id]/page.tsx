@@ -11,7 +11,6 @@ import {
   Copy,
   FlaskConical,
   Globe,
-  Inbox,
   Mail,
   MapPin,
   Package,
@@ -27,6 +26,8 @@ import { Breadcrumbs, Badge } from "@/components/ui";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { ActionForm, PendingButton } from "@/components/action-form";
 import { ComposeEmailDialog } from "@/components/compose-email-dialog";
+import { MessageTimeline } from "@/components/message-timeline";
+import { toTimelineItem } from "@/lib/mail/timeline";
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { updateRfqStatusFormAction } from "../actions";
@@ -615,43 +616,10 @@ export default async function RfqDetailPage({
           </section>
 
           {/* Timeline */}
-          <section className="card p-4 sm:p-5">
-            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-ink-500">
-              <Inbox className="h-4 w-4" /> Timeline thư từ ({messages.length})
-            </h2>
-            {messages.length === 0 ? (
-              <p className="mt-3 text-[13px] text-ink-500">Chưa có email nào cho RFQ này. Thư gửi nhà cung cấp, người mua và phản hồi sẽ hiện ở đây.</p>
-            ) : (
-              <ul className="mt-3 space-y-2">
-                {messages.map((msg) => {
-                  const mid = (msg as unknown as { rfq_match_id?: string | null }).rfq_match_id;
-                  const sup = mid ? supplierMap.get(matches.find((m) => m.id === mid)?.supplier_id ?? "") : null;
-                  const inbound = msg.kind === "inbound";
-                  return (
-                    <li key={msg.id} className="rounded-md border border-ink-200 bg-white p-2.5">
-                      <div className="flex items-center gap-2 text-[12px]">
-                        <span className={"inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-[10.5px] font-semibold " + (inbound ? "bg-sky-100 text-sky-800" : "bg-brand-100 text-brand-800")}>
-                          {inbound ? "← NHẬN" : "→ GỬI"}
-                        </span>
-                        <strong className="truncate text-ink-800">{msg.subject}</strong>
-                      </div>
-                      <div className="mt-0.5 text-[11px] text-ink-500">
-                        {sup ? <>Nhà cung cấp: <Link href={`/crm/suppliers/${sup.id}`} className="text-brand-700 hover:underline">{supplierName(sup, sup.id)}</Link> · </> : null}
-                        {!mid && <span className="text-violet-700">Luồng người mua · </span>}
-                        {fmtDate(msg.created_at)}
-                      </div>
-                      {(msg.body_text || msg.body_html) && (
-                        <details className="mt-1.5">
-                          <summary className="cursor-pointer text-[11px] text-ink-500 hover:text-ink-700">Xem nội dung…</summary>
-                          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-ink-50 p-2 font-mono text-[11.5px] text-ink-700">{msg.body_text ?? "(HTML-only email)"}</pre>
-                        </details>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
+          <MessageTimeline title="Timeline thư từ" items={messages.map((msg) => {
+            const sup = msg.rfq_match_id ? supplierMap.get(matches.find((m) => m.id === msg.rfq_match_id)?.supplier_id ?? "") : null;
+            return toTimelineItem(msg, sup ? { name: supplierName(sup, sup.id), href: `/crm/suppliers/${sup.id}` } : null);
+          })} empty="Chưa có email nào cho RFQ này. Thư gửi nhà cung cấp, người mua và phản hồi sẽ hiện ở đây." />
         </div>
 
         {/* CỘT PHỤ */}
