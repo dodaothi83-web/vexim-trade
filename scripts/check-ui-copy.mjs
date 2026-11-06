@@ -170,7 +170,6 @@ const SCOPE = [
   'lib/rfq/outreach.ts',
   'lib/rfq/spam-flags.ts',
   'lib/rfq/staff-sender.ts',
-  'lib/rfq/supplier-question.ts',
   'lib/supplier-portal/dashboard.ts',
   'lib/traffic/site-report.ts',
   'lib/verification-submission-service.ts',

@@ -86,7 +86,7 @@ for (const missing of ['rfq', 'buyer', 'buyer-id']) {
 rfqExists = buyerExists = true; buyerId = 'crm-buyer';
 accountEmail = 'other@example.com';
 await assert.rejects(detail.default({ params: Promise.resolve({ id: 'r1' }) }), /NOT_FOUND/);
-for (const file of ['lib/email/rfq.ts', 'lib/rfq/submit.ts', 'lib/rfq/outreach.ts', 'lib/rfq/buyer-notify.ts', 'lib/rfq/supplier-question.ts', 'app/(public)/buyer/account/page.tsx']) {
+for (const file of ['lib/email/rfq.ts', 'lib/rfq/submit.ts', 'lib/rfq/outreach.ts', 'lib/rfq/buyer-notify.ts', 'app/(public)/buyer/account/page.tsx']) {
   const source = read(file);
   assert.match(source, /\/buyer\/account\/requests\//, `${file} emits dashboard links`);
   assert.doesNotMatch(source, /\/rfq\/status\//, `${file} no longer emits bearer links`);

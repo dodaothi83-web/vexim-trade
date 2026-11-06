@@ -1,4 +1,4 @@
-import type { SourcingRequest } from "@/lib/types";
+import type { ChatConversation, ChatMessage, SourcingRequest } from "@/lib/types";
 import type {
   Activity,
   ActivityType,
@@ -259,6 +259,15 @@ export interface DataStore {
   /** Thư đã ghi theo đúng kind — dùng để chống gửi trùng (ví dụ nhắc NCC). */
   listMessagesOfKind(kind: MessageKind): Promise<EmailMessage[]>;
   listMessagesForRfq(rfqId: string): Promise<EmailMessage[]>;
+  /* Chat người mua ↔ nhà cung cấp. */
+  findChatConversation(buyerEmail: string, supplierId: string): Promise<ChatConversation | null>;
+  getChatConversation(id: string): Promise<ChatConversation | null>;
+  createChatConversation(input: Pick<ChatConversation, "buyer_email" | "supplier_id" | "product_id" | "product_name">): Promise<ChatConversation>;
+  updateChatConversation(id: string, patch: Partial<Omit<ChatConversation, "id" | "buyer_email" | "supplier_id" | "created_at">>): Promise<void>;
+  /** Mới nhất trước. `buyerEmail` hoặc `supplierId`; bỏ trống cả hai là toàn bộ (CRM). */
+  listChatConversations(filter: { buyerEmail?: string; supplierId?: string; limit?: number }): Promise<ChatConversation[]>;
+  listChatMessages(conversationId: string, limit?: number): Promise<ChatMessage[]>;
+  addChatMessage(input: Omit<ChatMessage, "id" | "created_at">): Promise<ChatMessage>;
   /** Thư thuộc các mạch đã cho (ví dụ `sourcing-{id}`), mới nhất trước. */
   listMessagesForThreads(threadIds: string[]): Promise<EmailMessage[]>;
   getMessage(id: string): Promise<EmailMessage | null>;

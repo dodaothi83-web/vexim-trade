@@ -17,7 +17,7 @@ assert.doesNotMatch(form, /setStep\b/, 'Form không còn state bước');
 assert.doesNotMatch(form, /step === \d/, 'Form không còn render theo bước');
 assert.doesNotMatch(form, />\s*Continue\s*</, 'Không còn nút Continue của wizard');
 assert.match(form, /function validateQuote\(\)/, 'Có đúng một hàm validate cho chế độ báo giá');
-assert.match(form, /function validateQuestion\(\)/, 'Chế độ câu hỏi có validate riêng');
+assert.doesNotMatch(form, /function validateQuestion\(\)|mode === "question"/, 'Câu hỏi cho nhà cung cấp đã chuyển sang chat');
 
 /* 2. Mỗi ô bị validate phải có trên màn hình (đúng lỗi cũ) */
 function validatedKeys(source, fnName) {
@@ -30,7 +30,6 @@ function validatedKeys(source, fnName) {
 
 for (const [fn, keys] of [
   ['validateQuote', validatedKeys(form, 'validateQuote')],
-  ['validateQuestion', validatedKeys(form, 'validateQuestion')],
 ]) {
   assert.ok(keys.length >= 4, `${fn} phải kiểm các ô bắt buộc`);
   for (const key of keys) {
@@ -43,11 +42,6 @@ for (const [fn, keys] of [
     );
   }
 }
-// Chế độ câu hỏi không được đòi số lượng/điểm đến
-const questionKeys = validatedKeys(form, 'validateQuestion');
-assert.ok(!questionKeys.includes('destination_country'), 'Câu hỏi trực tiếp không đòi điểm đến');
-assert.match(form, /if \(data.quantity &&/, 'Chỉ kiểm tra số lượng khi người mua đã nhập');
-assert.match(form, /label="Quantity \(optional\)"/, 'Số lượng trong modal là tuỳ chọn');
 const quoteKeys = validatedKeys(form, 'validateQuote');
 for (const required of ['product_text', 'quantity', 'destination_country', 'company', 'contact_name', 'email', 'consent']) {
   assert.ok(quoteKeys.includes(required), `Báo giá vẫn phải bắt buộc "${required}"`);

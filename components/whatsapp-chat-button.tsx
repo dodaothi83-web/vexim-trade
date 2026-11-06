@@ -1,3 +1,7 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
 /**
  * Nút chat WhatsApp nổi trên các trang công khai.
  *
@@ -19,6 +23,9 @@ function WhatsAppGlyph({ className }: { className?: string }) {
 }
 
 export function WhatsAppChatButton() {
+  // Trang tin nhắn với nhà cung cấp đã có khung chat riêng; nút nổi sẽ đè lên nút Gửi.
+  const pathname = usePathname();
+  if (pathname?.startsWith("/buyer/account/messages")) return null;
   return (
     <a
       href={WHATSAPP_URL}

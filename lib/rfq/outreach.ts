@@ -9,6 +9,7 @@
  *   - Địa chỉ Reply-To trong email cho supplier được đặt là hộp chức năng của
  *     phòng sale (VD rfq+RFQxxxx@veximtrade.com) để mọi thư trả lời đi về Vexim.
  */
+import brandColors from "@/lib/brand/colors.json";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { transport } from "@/lib/email/send";
 import { FROM_ADDRESS, COMPANY } from "@/lib/config";
@@ -16,7 +17,7 @@ import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { requireRfqStaffSender } from "@/lib/rfq/staff-sender";
-import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
+import { canInviteSupplier, portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buyerReplyAddress, supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { mailTopic, openThread } from "@/lib/email/threading";
 import type { Buyer, EmailMessage, Rfq, RfqMatch, Supplier } from "@/lib/types";
@@ -77,8 +78,13 @@ export function buildRfqSupplierEmail(input: {
   rfq: Rfq;
   supplier: Supplier;
   deadline: Date;
+  /**
+   * Nhà cung cấp đã có cổng được duyệt thì báo giá và trao đổi trên cổng, không qua email.
+   * Chỉ hồ sơ do Vexim tự tạo (chưa có tài khoản) mới trả lời bằng email cho người phụ trách.
+   */
+  portalUrl?: string | null;
 }) {
-  const { rfq, supplier, deadline } = input;
+  const { rfq, supplier, deadline, portalUrl = null } = input;
   // RFQ text is buyer-entered; suppress direct contacts before any supplier email.
   const productLabel = withoutDirectContacts(rfq.product_text).slice(0, 150);
   const deadlineStr = deadline.toLocaleDateString("vi-VN", {
@@ -124,10 +130,17 @@ export function buildRfqSupplierEmail(input: {
       </ol>
     </div>
 
+    ${portalUrl ? `
+    <p style="margin:20px 0;"><a href="${escapeHtml(portalUrl)}" style="display:inline-block;background:${brandColors.primary};color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;">Báo giá trên cổng nhà cung cấp</a></p>
+    <p style="margin-top:6px;">
+      Vui lòng <strong>báo giá và trao đổi trên cổng nhà cung cấp</strong>, không cần trả lời email này.
+      Báo giá trên cổng được ghi nhận đúng hạn và chuyển cho người mua nhanh hơn.
+      Không sao chép hay chuyển tiếp cho bên thứ ba.
+    </p>` : `
     <p style="margin-top:18px;">
       Vui lòng <strong>trả lời trực tiếp email này</strong>. Mọi hồi âm chuyển đến người phụ trách đơn hàng.
       Không sao chép hay chuyển tiếp cho bên thứ ba.
-    </p>
+    </p>`}
 
     <p>Vexim Trade<br/>Bộ phận xuất khẩu</p>
   `;
@@ -263,7 +276,8 @@ export async function dispatchRfqToSuppliers(input: {
       skipped += 1;
       continue;
     }
-    const email = buildRfqSupplierEmail({ rfq, supplier: sup, deadline });
+    const portalUrl = portalApproved(sup) ? `${SITE_URL}/supplier/portal/rfqs` : null;
+    const email = buildRfqSupplierEmail({ rfq, supplier: sup, deadline, portalUrl });
     const delivery = await transport({
       to: [sup.email],
       from: sender!.header,

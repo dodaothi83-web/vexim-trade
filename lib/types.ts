@@ -1620,3 +1620,35 @@ export interface SourcingRequest {
   created_at: string;
   updated_at: string;
 }
+
+/* --------- CHAT NGƯỜI MUA ↔ NHÀ CUNG CẤP (thay luồng email của "Ask supplier") --------- */
+
+export type ChatSender = "buyer" | "supplier";
+
+export interface ChatConversation {
+  id: string;
+  /** Email người mua đã xác minh, chữ thường. Không hiện cho nhà cung cấp. */
+  buyer_email: string;
+  supplier_id: string;
+  product_id: string | null;
+  product_name: string | null;
+  last_message_at: string | null;
+  last_message_preview: string | null;
+  last_sender: ChatSender | null;
+  buyer_last_read_at: string | null;
+  supplier_last_read_at: string | null;
+  buyer_notified_at: string | null;
+  supplier_notified_at: string | null;
+  created_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  sender: ChatSender;
+  sender_email: string;
+  body: string;
+  product_id: string | null;
+  product_name: string | null;
+  created_at: string;
+}

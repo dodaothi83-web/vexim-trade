@@ -388,7 +388,7 @@ export default async function PublicProductDetail({ params }: Props) {
         <p className="mt-2 text-xs leading-5 text-ink-500">Product details and reference prices are supplier-provided and reviewed for listing. Confirm current specifications, availability and final terms in your RFQ.</p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <Link href={rfq} className="btn btn-primary min-h-12 w-full justify-center px-2 text-sm font-bold shadow-lg shadow-brand-900/20 sm:px-4 sm:text-base">Request a quote <ArrowRight className="hidden h-5 w-5 sm:block" /></Link>
-          <Suspense fallback={<button disabled className="btn btn-soft min-h-12 w-full justify-center">Ask supplier</button>}>
+          <Suspense fallback={<button disabled className="btn btn-soft min-h-12 w-full justify-center">Chat with supplier</button>}>
             <AskSupplierDialog category={slug} productId={card.id} productName={card.name} supplierId={card.supplierId} supplierName={card.supplierName} grade={rfqGrade}
               imageUrl={images[0] ? `/public-media/${images[0].replace(/^\/+/, "")}` : null} quoteHref={rfq} />
           </Suspense>

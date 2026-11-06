@@ -55,13 +55,7 @@ const directQuestion = { ...make('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 's-a', 
 const withDirectQuestion = dashboard.buildSupplierDashboard({ ...input, invites: [...input.invites, directQuestion] });
 assert.equal(withDirectQuestion.invites.length, 2, 'Direct supplier questions are not quote invitations');
 assert.equal(withDirectQuestion.tasks.length, 1, 'Direct supplier questions do not become supplier quote tasks');
-const questionNotice = withDirectQuestion.notices.find((n) => n.key === `question:${directQuestion.id}`);
-assert.ok(questionNotice, 'Câu hỏi Ask supplier đã gửi có thông báo trên chuông');
-assert.equal(questionNotice.href, '/supplier/portal/rfqs#cau-hoi');
-const foreignQuestion = { ...directQuestion, id: 'ffffffff-ffff-ffff-ffff-ffffffffffff', supplier_id: 's-b' };
-const unsentQuestion = { ...directQuestion, id: '99999999-9999-9999-9999-999999999999', sent_to_supplier_at: null };
-const noisy = dashboard.buildSupplierDashboard({ ...input, invites: [...input.invites, foreignQuestion, unsentQuestion] });
-assert.ok(!noisy.notices.some((n) => n.key.startsWith('question:')), 'Câu hỏi của nhà cung cấp khác hoặc chưa gửi không hiện');
+assert.ok(!withDirectQuestion.notices.some((n) => n.key.startsWith('question:')), 'Câu hỏi kiểu cũ không còn trên cổng; Ask supplier dùng chat');
 const replied = dashboard.buildSupplierDashboard({ ...input, invites: [{ ...match, supplier_replied_at: '2026-10-17T10:00:00Z' }, foreign, unsent, legacy] });
 assert.equal(replied.tasks.length, 0, 'Verified supplier response clears the RFQ task');
 assert.equal(replied.report.responded, 1);
@@ -153,6 +147,7 @@ const outbound = load('../lib/rfq/outreach.ts', {
   '@/lib/rfq/staff-sender': staffSender,
   '@/lib/supplier-portal/onboarding': load('../lib/supplier-portal/onboarding.ts', {}),
   '@/lib/config': { FROM_ADDRESS: 'Vexim <sales@example.com>', COMPANY: { name: 'Vexim' } },
+  '@/lib/brand/colors.json': { default: { primary: '#1F3E74' } },
   '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/email/templates': { escapeHtml: (s) => s, wrapPlainEmail: ({ body }) => body },
   '@/lib/rfq/reply-routing': { supplierReplyAddress: () => 'reply@example.com', buyerReplyAddress: () => 'buyer-reply@example.com' },
@@ -189,6 +184,15 @@ assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [
 assert.equal(sent.filter((x) => x.to?.includes('supplier@example.com')).length, 2, 'Simulated and real attempts only');
 assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');
 assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).replyTo, 'reply@example.com');
+// Nhà cung cấp có cổng đã duyệt: báo giá và trao đổi trên cổng, không trả lời email.
+const invite = sent.find((x) => x.to?.includes('supplier@example.com'));
+assert.match(invite.html, /https:\/\/example\.com\/supplier\/portal\/rfqs/);
+assert.match(invite.html, /không cần trả lời email này/);
+assert.doesNotMatch(invite.html, /trả lời trực tiếp email này/);
+// Hồ sơ do Vexim tạo, chưa có cổng: vẫn trả lời bằng email cho người phụ trách.
+const legacyInvite = outbound.buildRfqSupplierEmail({ rfq, supplier: { name: 'Supplier A' }, deadline: now });
+assert.match(legacyInvite.html, /trả lời trực tiếp email này/);
+assert.doesNotMatch(legacyInvite.html, /supplier\/portal\/rfqs/);
 storedMatch.status = 'quoted'; storedMatch.quote_price = 7;
 mode = 'simulated';
 await assert.rejects(outbound.presentShortlistToBuyer({ rfqId: rfq.id }), /Resend chưa gửi thật/);

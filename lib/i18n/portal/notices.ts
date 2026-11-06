@@ -25,10 +25,6 @@ const en = {
     title: "Quote request {code} was sent to you",
     detail: "Open the RFQ list to see the reply deadline, then answer the invitation email you received.",
   },
-  question: {
-    title: "Buyer question about {product}",
-    detail: "A buyer asked you directly. Reply to the buyer by email; the question is on the RFQ page.",
-  },
   rfqSelected: {
     title: "Quote {code} was selected",
     detail: "Our team will contact you to agree the next step. Buyer details are not shared here.",
@@ -102,10 +98,6 @@ const vi: NoticesMessages = {
   rfqSent: {
     title: "Yêu cầu báo giá {code} đã được chuyển tới",
     detail: "Mở danh sách RFQ để xem hạn phản hồi; trả lời email mời báo giá đã nhận.",
-  },
-  question: {
-    title: "Người mua hỏi về {product}",
-    detail: "Người mua hỏi trực tiếp doanh nghiệp. Trả lời người mua qua email; câu hỏi nằm ở trang RFQ.",
   },
   rfqSelected: {
     title: "Hồ sơ {code} đã được chọn",

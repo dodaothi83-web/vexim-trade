@@ -3,7 +3,8 @@ import { transport } from "@/lib/email/send";
 import { FROM_ADDRESS } from "@/lib/config";
 import { supplierReplyAddress } from "./reply-routing";
 import type { DataStore } from "@/lib/db/types";
-import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
+import { canInviteSupplier, portalApproved } from "@/lib/supplier-portal/onboarding";
+import { SITE_URL } from "@/lib/site";
 import type { Rfq } from "@/lib/types";
 
 /** Publish a clean product-addressed quote to its supplier's private portal.
@@ -33,7 +34,9 @@ export async function releaseTargetedQuoteToPortal(store: DataStore, rfq: Rfq): 
   // SMTP failure must not hide an invitation that is already available in the portal.
   if (supplier.email) {
     try {
-      const email = buildRfqSupplierEmail({ rfq, supplier, deadline: new Date(now.getTime() + 3 * 86400_000) });
+      // Nhà cung cấp có cổng đã duyệt: báo giá trên cổng; hồ sơ chưa có cổng mới trả lời email.
+      const portalUrl = portalApproved(supplier) ? `${SITE_URL}/supplier/portal/rfqs` : null;
+      const email = buildRfqSupplierEmail({ rfq, supplier, deadline: new Date(now.getTime() + 3 * 86400_000), portalUrl });
       const delivery = await transport({ to: [supplier.email], from: FROM_ADDRESS,
         replyTo: supplierReplyAddress(rfq.code, match.id), subject: email.subject, html: email.html, text: email.text,
         headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Match": match.id, "X-Vexim-Anonymous": "1" } });

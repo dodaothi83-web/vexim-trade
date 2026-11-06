@@ -1,4 +1,4 @@
-import type { SourcingRequest } from "@/lib/types";
+import type { ChatConversation, ChatMessage, SourcingRequest } from "@/lib/types";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -82,6 +82,8 @@ function guardFactoryPending(row: SupplierSubmission, patch: Partial<SupplierSub
 
 interface LocalShape {
   sourcing_requests?: SourcingRequest[];
+  chat_conversations?: ChatConversation[];
+  chat_messages?: ChatMessage[];
   users: AppUserRecord[];
   buyers: Buyer[];
   prospects: Prospect[];
@@ -1879,6 +1881,50 @@ export const localStore: DataStore = {
     return [...load().messages]
       .filter((m) => (m as unknown as { rfq_id?: string | null }).rfq_id === rfqId)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  },
+  async findChatConversation(buyerEmail, supplierId) {
+    const email = buyerEmail.trim().toLowerCase();
+    return (load().chat_conversations ?? []).find((c) => c.buyer_email === email && c.supplier_id === supplierId) ?? null;
+  },
+  async getChatConversation(id) {
+    return (load().chat_conversations ?? []).find((c) => c.id === id) ?? null;
+  },
+  async createChatConversation(input) {
+    const row: ChatConversation = {
+      id: randomUUID(), buyer_email: input.buyer_email.trim().toLowerCase(), supplier_id: input.supplier_id,
+      product_id: input.product_id, product_name: input.product_name, last_message_at: null, last_message_preview: null,
+      last_sender: null, buyer_last_read_at: null, supplier_last_read_at: null, buyer_notified_at: null,
+      supplier_notified_at: null, created_at: new Date().toISOString(),
+    };
+    let saved = row;
+    mutate((db) => {
+      db.chat_conversations ??= [];
+      const existing = db.chat_conversations.find((c) => c.buyer_email === row.buyer_email && c.supplier_id === row.supplier_id);
+      if (existing) saved = existing; else db.chat_conversations.push(row);
+    });
+    return saved;
+  },
+  async updateChatConversation(id, patch) {
+    mutate((db) => {
+      const row = (db.chat_conversations ?? []).find((c) => c.id === id);
+      if (row) Object.assign(row, patch);
+    });
+  },
+  async listChatConversations(filter) {
+    const email = filter.buyerEmail?.trim().toLowerCase();
+    return (load().chat_conversations ?? [])
+      .filter((c) => (!email || c.buyer_email === email) && (!filter.supplierId || c.supplier_id === filter.supplierId))
+      .sort((a, b) => (b.last_message_at ?? b.created_at).localeCompare(a.last_message_at ?? a.created_at))
+      .slice(0, filter.limit ?? 200);
+  },
+  async listChatMessages(conversationId, limit = 500) {
+    return (load().chat_messages ?? []).filter((m) => m.conversation_id === conversationId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(-limit);
+  },
+  async addChatMessage(input) {
+    const row: ChatMessage = { ...input, id: randomUUID(), created_at: new Date().toISOString() };
+    mutate((db) => { (db.chat_messages ??= []).push(row); });
+    return row;
   },
   async listMessagesForThreads(threadIds) {
     const wanted = new Set(threadIds);

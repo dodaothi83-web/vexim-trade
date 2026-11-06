@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Mail, MessageCircleQuestion, PackageSearch, TrendingUp } from "lucide-react";
+import { Mail, PackageSearch, TrendingUp } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -14,9 +14,6 @@ import { EmptyRow, Panel, date } from "../portal-ui";
 import { SupplierRfqReply } from "@/components/supplier-rfq-reply";
 import { QUOTE_CURRENCIES, QUOTE_INCOTERMS } from "@/lib/supplier-portal/quote";
 import { SupplierQuoteForm } from "./quote-form";
-import { listSupplierQuestions, type PortalQuestion } from "@/lib/supplier-portal/questions";
-import { PendingButton } from "@/components/action-form";
-import { markQuestionAnsweredAction } from "./question-actions";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -51,10 +48,6 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
       () => store.listProductsBySupplier(supplier.id)),
   ]);
 
-  const questions = await optional(copy.questions.title, [] as PortalQuestion[],
-    () => listSupplierQuestions(store, supplier.id, invites));
-  const openQuestions = questions.filter((q) => !q.answeredAt).length;
-
   const sp = await searchParams;
   const days: 7 | 30 | 90 = sp.range === "7" ? 7 : sp.range === "90" ? 90 : 30;
   const showAll = sp.all === "1";
@@ -64,7 +57,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
   return <>
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub}
       actions={<>
-        <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{fill(copy.badge.tasks, { count: board.tasks.length + openQuestions })}</span>
+        <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{fill(copy.badge.tasks, { count: board.tasks.length })}</span>
         <span className="rounded-full bg-ink-100 px-3 py-1 text-[11px] font-bold text-ink-700">{fill(copy.badge.invites, { count: board.invites.length })}</span>
       </>} />
 
@@ -80,33 +73,6 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
       </div>}
 
     <div className="space-y-5">
-      {questions.length > 0 && <div id="cau-hoi" className="scroll-mt-24">
-        <Panel icon={<MessageCircleQuestion className="h-4 w-4 text-brand-700" />} title={copy.questions.title} count={openQuestions}
-          sub={copy.questions.sub} flush>
-          <ul className="divide-y divide-ink-100">{questions.map((q) => <li key={q.matchId} className="space-y-2.5 px-5 py-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink-900">{q.product}</span>
-                <span className="mt-0.5 block text-xs text-ink-500">{q.code} · {fill(copy.questions.from, { name: q.buyerName || q.buyerEmail, company: q.buyerCompany })} · {fill(copy.questions.receivedAt, { at: date(q.sentAt, intl) })}</span>
-              </span>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${q.answeredAt ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
-                {q.answeredAt ? fill(copy.questions.answered, { at: date(q.answeredAt, intl) }) : copy.questions.unanswered}
-              </span>
-            </div>
-            <p className="whitespace-pre-wrap rounded-lg border-l-4 border-brand-600 bg-ink-50 px-3 py-2 text-sm leading-6 text-ink-800">{q.question}</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <SupplierRfqReply address={q.buyerEmail} cc={q.recordAddress} subject={q.replySubject}
-                labels={{ gmail: copy.tasks.replyGmail, app: copy.tasks.replyApp, copy: copy.tasks.copyAddress, copied: copy.tasks.copied }} />
-              {!q.answeredAt && <form action={markQuestionAnsweredAction}>
-                <input type="hidden" name="match_id" value={q.matchId} />
-                <PendingButton variant="soft" pendingText={copy.questions.marking}>{copy.questions.markAnswered}</PendingButton>
-              </form>}
-            </div>
-            <p className="text-[11.5px] text-ink-500">{fill(copy.questions.replyTo, { email: q.buyerEmail })} · {copy.questions.noQuote}</p>
-          </li>)}</ul>
-        </Panel>
-      </div>}
-
       <Panel icon={<Mail className="h-4 w-4 text-brand-700" />} title={copy.tasks.title} count={board.tasks.length}
         sub={copy.tasks.sub} flush>
         {board.tasks.length ? <ul className="divide-y divide-ink-100">

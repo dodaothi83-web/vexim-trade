@@ -53,11 +53,18 @@ const auth = load('components/buyer-enquiry-auth.tsx', {
 });
 const { AskSupplierDialog } = load('components/products/ask-supplier-dialog.tsx', {
   '@/lib/browser/dialog-scroll-lock': scrollLock,
-  'next/navigation': navigation, 'lucide-react': { MessageCircle: icon, X: icon },
-  'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
+  'next/navigation': navigation, 'lucide-react': { MessageCircle: icon },
   '@/components/buyer-enquiry-auth': auth,
-  '@/app/(public)/rfq/rfq-form': { RfqForm: (props) => React.createElement('div', { 'data-question-form': props.buyerEmail }, props.initialProductId) },
+  '@/lib/chat/buyer-labels': { BUYER_CHAT_LABELS: { en: { title: 'Messages' }, vi: { title: 'Tin nhắn' } } },
+  // Khung chat thật đã có kiểm tra riêng; ở đây chỉ cần biết cửa sổ mở đúng sản phẩm.
+  '@/components/chat/chat-workspace': { ChatWorkspace: (p) => {
+    chatMounts.push(p);
+    return React.createElement('div', null,
+      React.createElement('textarea', { id: 'ask-supplier-message', 'data-product': p.product.id, readOnly: true }),
+      React.createElement('button', { type: 'button', 'aria-label': 'Close', onClick: p.onClose }));
+  } },
 });
+const chatMounts = [];
 const target = '/rfq?category=nuts&product_id=p1&suppliers=s1&grade=W320&sample=1';
 const props = { category: 'nuts', productId: 'p1', productName: 'Cashew', supplierId: 's1', supplierName: 'Supplier', grade: 'W320', imageUrl: null, quoteHref: target };
 let root = createRoot(document.getElementById('root'));
@@ -96,15 +103,15 @@ await click(quick().querySelector('[aria-label="Close"]'));
 assert.equal(quick().open, false);
 assert.equal(paths.length, 0, 'Closing authentication does not navigate');
 assert.equal(document.body.style.overflow, '');
-await click(document.querySelector('button[aria-label^="Ask supplier"]'));
+await click(document.querySelector('button[aria-label^="Chat with supplier"]'));
 assert.equal(quick().open, true);
 assert.equal(question().open, false, 'Question form never opens before authentication');
-assert.equal(document.querySelector('[data-question-form]'), null, 'No premature question form mount');
+assert.equal(question().open, false, 'Chat composer stays closed until authenticated');
 assert.equal(new URL(quick().querySelector('a').href).searchParams.get('next'), '/products/nuts/p1?ask=1');
 await act(async () => quick().dispatchEvent(new window.Event('cancel', { cancelable: true })));
 assert.equal(quick().open, false, 'Escape/cancel dismisses the modal');
 // Email-code login continues in place without showing the question first or auto-submitting it.
-await click(document.querySelector('button[aria-label^="Ask supplier"]'));
+await click(document.querySelector('button[aria-label^="Chat with supplier"]'));
 await enter('email', 'Buyer@EXAMPLE.com');
 async function submitAuth() { await act(async () => quick().querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }))); }
 await submitAuth();
@@ -120,10 +127,10 @@ await submitAuth();
 assert.equal(verifies.length, 2);
 assert.equal(quick().open, false);
 assert.equal(question().open, true, 'Successful code opens the pending question, not a new route');
-assert.equal(document.querySelector('[data-question-form]').getAttribute('data-question-form'), 'buyer@example.com');
+assert.ok(question().querySelector('textarea#ask-supplier-message'), 'Chat composer is ready after authentication');
 assert.equal(paths.length, 0);
 assert.equal(document.body.style.overflow, 'hidden', 'Scroll stays locked through authentication → question transition');
-await click(question().querySelector('[aria-label="Close question form"]'));
+await click(question().querySelector('[aria-label="Close"]'));
 assert.equal(document.body.style.overflow, '');
 await mount();
 await click(document.querySelector('#quote'));
@@ -134,10 +141,13 @@ await submitAuth();
 assert.equal(paths.at(-1), target, 'Code sign-in resumes the exact quote destination');
 assert.equal(quick().open, false);
 await mount('buyer@example.com');
-await click(document.querySelector('button[aria-label^="Ask supplier"]'));
+await click(document.querySelector('button[aria-label^="Chat with supplier"]'));
 assert.equal(quick().open, false);
 assert.equal(question().open, true, 'Authenticated buyers go straight to the question');
-assert.equal(document.querySelector('[data-question-form]').getAttribute('data-question-form'), 'buyer@example.com');
+assert.ok(question().querySelector('textarea#ask-supplier-message'), 'Chat composer is ready after authentication');
+assert.equal(chatMounts.at(-1).variant, 'popup', 'Ask supplier opens the chat window over the product page');
+assert.equal(chatMounts.at(-1).product.id, 'p1', 'The product card is attached to the chat');
+assert.equal(paths.length, 1, 'Opening the chat does not navigate away');
 params = new URLSearchParams('ask=1');
 await mount();
 assert.equal(quick().open, true, 'Deep-linked ask resumes at authentication first');

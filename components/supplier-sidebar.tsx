@@ -10,6 +10,7 @@ import {
   Factory,
   FileText,
   FolderTree,
+  MessageCircle,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -52,6 +53,7 @@ const NAV: {
   { href: "/supplier/portal/products", labelKey: "products", icon: Package, group: "shop", needsApproval: true },
   { href: "/supplier/portal/categories", labelKey: "categories", icon: FolderTree, group: "shop", needsApproval: true },
   { href: "/supplier/portal/traffic", labelKey: "traffic", icon: ChartNoAxesColumn, group: "shop", needsApproval: true },
+  { href: "/supplier/portal/messages", labelKey: "messages", icon: MessageCircle, group: "work", needsApproval: true },
   { href: "/supplier/portal/rfqs", labelKey: "rfqs", icon: Mail, group: "work", needsApproval: true },
   { href: "/supplier/portal/documents", labelKey: "documents", icon: FileText, group: "verify", needsApproval: true },
   { href: "/supplier/portal/verification/factory", labelKey: "factory", icon: Factory, group: "verify", needsApproval: true },
@@ -89,6 +91,20 @@ export function SupplierSidebar({
     window.addEventListener("vexim:supplier-rfqs", update);
     return () => window.removeEventListener("vexim:supplier-rfqs", update);
   }, []);
+  // Số cuộc trò chuyện có tin chưa đọc; hỏi lại mỗi phút khi tab đang mở.
+  const [unreadChats, setUnreadChats] = useState(0);
+  useEffect(() => {
+    if (!approved) return;
+    let alive = true;
+    const load = async () => {
+      if (document.visibilityState !== "visible") return;
+      const res = await fetch("/api/chat?side=supplier", { cache: "no-store" }).catch(() => null);
+      if (alive && res?.ok) setUnreadChats(((await res.json()) as { unread?: number }).unread ?? 0);
+    };
+    void load();
+    const timer = window.setInterval(load, 60_000);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, [approved, pathname]);
   // Mỗi mục là một trang thật; mục dài nhất khớp tiền tố đường dẫn sẽ được chọn.
   const activeHref = NAV.map((item) => item.href)
     .filter((href) => href !== "/supplier/portal" && (pathname === href || pathname.startsWith(`${href}/`)))
@@ -132,6 +148,8 @@ export function SupplierSidebar({
                           ? messages.nav.factoryPartner
                           : messages.nav[item.labelKey]}
                       </span>
+                      {approved && item.href === "/supplier/portal/messages" && unreadChats > 0 &&
+                        <span className="rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">{unreadChats > 99 ? "99+" : unreadChats}</span>}
                       {approved && item.href === "/supplier/portal/rfqs" && pendingRfqs === null && <span title={messages.topbar.rfqsUnknown} className="font-bold text-amber-300">!</span>}
                       {approved && item.href === "/supplier/portal/rfqs" && typeof pendingRfqs === "number" && pendingRfqs > 0 &&
                         <span className="rounded-full bg-amber-300 px-1.5 text-[11px] font-bold text-ink-900">{pendingRfqs > 99 ? "99+" : pendingRfqs}</span>}
