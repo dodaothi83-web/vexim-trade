@@ -10,11 +10,11 @@ assert.ok(nav, 'CRM navigation exists');
 const hrefs = [...nav.matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
 assert.deepEqual(hrefs, [
   '/crm/support', '/crm/mail', '/crm/messages',
-  '/crm/dashboard', '/crm/suppliers', '/crm/products', '/crm/sourcing', '/crm/rfqs',
+  '/crm/tasks', '/crm/dashboard', '/crm/suppliers', '/crm/products', '/crm/sourcing', '/crm/rfqs',
   '/crm/verifications', '/crm/verifications/submissions', '/crm/certificates',
   '/crm/categories', '/crm/sponsored', '/crm/traffic', '/crm/posts',
   '/crm/buyers', '/crm/prospects', '/crm/team', '/crm/settings',
-], 'Chats and mail come first, then daily marketplace work; self-submission queue sits with verifications; sale and settings are secondary');
+], 'Chats and mail come first, then the task list and daily marketplace work; self-submission queue sits with verifications; sale and settings are secondary');
 assert.match(sidebar, /href: "\/crm\/categories", label: "Danh mục sản phẩm"/, 'Category menu uses product-focused wording');
 assert.match(sidebar, /perm: "rfq\.view"/, 'RFQ remains permission-gated');
 assert.match(sidebar, /pendingSponsoredRequests === null \? \{ text: "!", title: "Chưa tải được yêu cầu đẩy sản phẩm" \}/, 'Unknown request count is a visible warning, not zero');
