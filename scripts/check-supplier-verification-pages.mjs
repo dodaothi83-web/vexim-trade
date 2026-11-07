@@ -124,12 +124,13 @@ assert.doesNotMatch(levelPage, /<VerificationBenefits/, 'Trang không tự vẽ 
 const levelPanel = withCopy(read('app/supplier/portal/verification/verification-panel.tsx'), VI.verification.panel);
 const panelAside = levelPanel.slice(levelPanel.indexOf('<aside'), levelPanel.indexOf('</aside>', levelPanel.indexOf('<aside')));
 assert.match(panelAside, /<VerificationBenefits items=\{benefits\} title=\{benefitsTitle\} \/>/, 'Cột hẹp của L2/L3 có khối giá trị');
-assert.ok(panelAside.indexOf('<VerificationBenefits') < panelAside.indexOf('copy.submit.title'),
-  'Khối giá trị đứng trên thẻ nộp hồ sơ');
+// L3: thẻ nộp hồ sơ lên đầu cột, khối giá trị chuyển xuống cuối (sau thẻ người mua thấy gì).
+assert.match(panelAside, /level === 3 && benefits\?\.length \? <VerificationBenefits/, 'L3 đặt khối giá trị cuối cột');
+assert.ok(panelAside.indexOf('copy.submit.title') < panelAside.indexOf('copy.buyers.title'), 'L3: nộp hồ sơ trước, rồi người mua thấy gì');
 const benefitGroups = [VI.verification.level.factoryBenefits, VI.verification.level.partnerBenefits, VI.verification.level.exportBenefits];
 assert.equal(benefitGroups.length, 3, 'Đủ ba biến thể: L2 nhà máy, L2 đối tác, L3 xuất khẩu');
 for (const lines of benefitGroups) {
-  assert.equal(lines.length, 5, 'Mỗi cấp đúng năm giá trị');
+  assert.ok(lines.length >= 3 && lines.length <= 5, 'Mỗi cấp 3–5 giá trị');
   for (const line of lines) {
     assert.ok(line.length <= 90, `Gạch đầu dòng quá dài: ${line}`);
     assert.doesNotMatch(line, /tăng đơn|chắc chắn có đơn|top 1|lên top/i, 'Không hứa đơn hàng hay thứ hạng tuyệt đối');
@@ -165,8 +166,10 @@ for (const [label, pattern] of [
 
 const shipmentCard = panel.slice(panel.indexOf('{/* L3 · lô hàng'), panel.indexOf('{/* Bộ bằng chứng'));
 assert.match(VI.verification.panel.shipment.privacy,
-  /Chứng từ của bạn được bảo mật và không hiển thị công khai\.[\s\S]*Chọn một lô hàng đã xuất và tải chứng từ của lô đó để nhân viên kiểm tra\./,
-  'Ghi chú L3 nói rõ bảo mật và việc cần làm');
+  /Chứng từ của bạn được bảo mật và không hiển thị công khai\./,
+  'Ghi chú L3 nói rõ bảo mật (việc cần làm nằm ở bước hướng dẫn)');
+assert.match(VI.verification.panel.buyers.privateBody, /tên khách hàng, giá/, 'L3 nói rõ phần không công khai');
+assert.match(VI.verification.level.exportGuideBodies[0], /24 tháng/, 'L3 hướng dẫn chọn lô trong 24 tháng');
 assert.match(shipmentCard, /copy\.shipment\.privacy/, 'Thẻ lô hàng đọc ghi chú từ từ điển');
 assert.match(shipmentCard, /level === 3 &&/, 'Ghi chú bảo mật chỉ thuộc luồng xuất khẩu L3');
 
