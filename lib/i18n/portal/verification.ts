@@ -38,7 +38,7 @@ export const en = {
     eyebrowL2: "Supplier portal · L2 verification",
     eyebrowL3: "Supplier portal · L3 verification",
     factoryTitle: "Factory verification",
-    factoryDescription: "Book a live video call (or an on-site visit) with the Vexim review lead. During the call we look at your factory with you; you no longer upload photos yourself.",
+    factoryDescription: "Book a video call so we can see your factory with you. No photos to take or upload.",
     factoryBenefits: [
       "The factory badge shows on your profile and product cards.",
       "Buyers see exactly what was checked, not a generic label.",
@@ -46,14 +46,14 @@ export const en = {
       "Buyers can filter for profiles with factory verification.",
       "Staff notes, once approved, appear on your public profile.",
     ],
-    factoryGuideTitles: ["Suggest a time", "Join the call at the factory", "Vexim records the result"],
+    factoryGuideTitles: ["Suggest a time", "Join the call at the factory", "Get the result"],
     factoryGuideBodies: [
       "Choose video call or on-site visit, a contact person and up to 3 time slots.",
-      "Walk the camera through the gate, production line, packing and finished goods store. We may ask to see something on the spot.",
-      "The review lead fills in the checklist during the call. Buyers who sign in can download the summary report.",
+      "Show the gate, production line, packing and finished goods store. You may be asked to show one more area.",
+      "The result is recorded during the call. Signed-in buyers can download the report.",
     ],
     partnerTitle: "Partner factory",
-    partnerDescription: "Upload the contract with your partner factory and book a live video call at that factory. We do not assume the factory is yours.",
+    partnerDescription: "Upload the contract with your partner factory and book a video call at that factory. The badge states that it is a partner factory.",
     partnerBenefits: [
       "The partner factory badge shows on your profile and product cards.",
       "Buyers see exactly what was checked, not a generic label.",
@@ -65,7 +65,7 @@ export const en = {
     partnerGuideBodies: [
       "Upload a contract naming your company and the partner factory. You may hide prices, but keep enough to check.",
       "Choose a contact person and up to 3 time slots. Someone from the partner factory must join the call.",
-      "The review lead checks the contract and the factory during the call. The contract stays private.",
+      "The contract and the factory are checked during the call. The contract stays private.",
     ],
     exportTitle: "Export history",
     exportDescription: "Show buyers that your company really exports, using the documents of one shipped batch.",
@@ -78,7 +78,7 @@ export const en = {
     exportGuideBodies: [
       "Pick a batch shipped within the last 24 months and enter its reference, date and destination.",
       "Upload at least one matching document; a bill of lading is not required. You can add more documents to make the trade and your role clear.",
-      "The Vexim review lead checks the documents and replies. Submitting does not grant verification by itself.",
+      "We check the documents and reply. Submitting does not grant verification by itself.",
     ],
     unknownTypeTitle: "Supplier type not set",
     unknownTypeBody: "Your profile has no supplier type yet. Ask staff to update it before opening L2. Your profile and earlier results are kept.",
@@ -207,7 +207,7 @@ export const en = {
       notePlaceholder: "e.g. WW320 cashew batch, 1 x 20ft container",
       save: "Save batch details",
       saving: "Saving...",
-      note: "Entered by you; Vexim compares it with the documents.",
+      note: "Entered by you and checked against the documents.",
       olderThan24: "This batch was shipped more than 24 months ago. You can still submit, but a more recent batch shows buyers that you still export.",
     },
     items: {
@@ -256,7 +256,7 @@ export const en = {
       scanning: "Scanning...",
       scanTry: "Try an AI scan",
       aiNote: "AI only suggests; it never approves or rejects. A staff member decides.",
-      staffNote: "The Vexim review lead checks and decides; submitting does not grant verification.",
+      staffNote: "We check and decide; submitting does not grant verification.",
       docsCount: "{count} documents uploaded · at least 1 needed",
       confirmManual: "Submit the file for a staff check? Documents are locked while it is reviewed.",
       confirmAi: "Submit the file for a staff check? Photos may go to a preliminary AI scan; AI only points out what to check, it never approves.",
@@ -292,7 +292,7 @@ export const en = {
       title: "What buyers will see",
       items: [
         "An export history label on your profile.",
-        "A short summary written by Vexim: period, document types reviewed and markets.",
+        "A short summary: period, document types reviewed and markets.",
       ],
       privateTitle: "Kept private",
       privateBody: "Your documents, customer names, prices, container numbers, batch codes and account numbers are never published.",
@@ -427,7 +427,7 @@ const vi: VerificationMessages = {
     eyebrowL2: "Cổng nhà cung cấp · Xác minh L2",
     eyebrowL3: "Cổng nhà cung cấp · Xác minh L3",
     factoryTitle: "Xác thực nhà máy",
-    factoryDescription: "Đặt lịch gọi video trực tiếp (hoặc để Vexim đến thực địa) với trưởng kiểm duyệt. Vexim cùng bạn xem nhà máy trong cuộc gọi; bạn không cần tự chụp và tải ảnh.", // copy-allow: mô tả luồng mới đã được duyệt
+    factoryDescription: "Đặt lịch gọi video để chúng tôi cùng bạn xem nhà máy. Không cần tự chụp hay tải ảnh.",
     factoryBenefits: [
       "Huy hiệu xác thực nhà máy hiện trên hồ sơ và thẻ sản phẩm.",
       "Người mua đọc được đúng mức đã kiểm, không phải một nhãn chung.",
@@ -435,14 +435,14 @@ const vi: VerificationMessages = {
       "Người mua lọc riêng được nhóm đã xác thực nhà máy.",
       "Nhận xét của nhân viên, nếu được duyệt, hiện trên hồ sơ công khai.",
     ],
-    factoryGuideTitles: ["Đề xuất giờ gọi", "Tham gia cuộc gọi tại nhà máy", "Vexim ghi kết quả"],
+    factoryGuideTitles: ["Đề xuất giờ gọi", "Tham gia cuộc gọi tại nhà máy", "Nhận kết quả"],
     factoryGuideBodies: [
       "Chọn gọi video hoặc thực địa, người liên hệ và tối đa 3 khung giờ.",
-      "Quay cổng, dây chuyền, khu đóng gói, kho thành phẩm. Vexim có thể đề nghị quay thêm ngay tại chỗ.", // copy-allow: hướng dẫn luồng mới
-      "Trưởng kiểm duyệt ghi checklist trong cuộc gọi. Người mua đăng nhập tải được báo cáo tóm tắt.",
+      "Quay cổng, dây chuyền, khu đóng gói, kho thành phẩm. Bạn có thể được đề nghị quay thêm một khu vực.",
+      "Kết quả được ghi ngay trong cuộc gọi. Người mua đã đăng nhập tải được báo cáo.",
     ],
     partnerTitle: "Nhà máy đối tác",
-    partnerDescription: "Tải hợp đồng với nhà máy đối tác và đặt lịch gọi video tại chính nhà máy đó. Không mặc định nhà máy thuộc sở hữu của bạn.", // copy-allow: mô tả luồng mới đã được duyệt
+    partnerDescription: "Tải hợp đồng với nhà máy đối tác và đặt lịch gọi video tại chính nhà máy đó. Huy hiệu ghi rõ đây là nhà máy đối tác.",
     partnerBenefits: [
       "Huy hiệu nhà máy đối tác hiện trên hồ sơ và thẻ sản phẩm.",
       "Người mua đọc được đúng mức đã đối chiếu, không phải một nhãn chung.",
@@ -454,7 +454,7 @@ const vi: VerificationMessages = {
     partnerGuideBodies: [
       "Tải hợp đồng thể hiện doanh nghiệp của bạn và nhà máy đối tác. Có thể che giá, nhưng giữ đủ nội dung để đối chiếu.", // copy-allow: hướng dẫn luồng mới
       "Chọn người liên hệ và tối đa 3 khung giờ. Cần có người của nhà máy đối tác tham gia cuộc gọi.",
-      "Trưởng kiểm duyệt đối chiếu hợp đồng và nhà máy trong cuộc gọi. Hợp đồng không công khai.",
+      "Hợp đồng và nhà máy được đối chiếu trong cuộc gọi. Hợp đồng không công khai.",
     ],
     exportTitle: "Lịch sử xuất khẩu",
     exportDescription: "Chứng minh doanh nghiệp đã xuất khẩu thật bằng chứng từ của một lô hàng.",
@@ -467,7 +467,7 @@ const vi: VerificationMessages = {
     exportGuideBodies: [
       "Chọn một lô đã xuất trong 24 tháng gần nhất; khai mã lô, ngày giao và nơi đến.",
       "Tải ít nhất một chứng từ phù hợp; không bắt buộc vận đơn. Bạn có thể gửi thêm chứng từ để làm rõ giao dịch và vai trò của doanh nghiệp.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
-      "Trưởng kiểm duyệt Vexim đối chiếu chứng từ và phản hồi. Nộp hồ sơ không tự cấp xác minh.",
+      "Chúng tôi đối chiếu chứng từ và phản hồi. Nộp hồ sơ không tự cấp xác minh.",
     ],
     unknownTypeTitle: "Chưa rõ loại hình nhà cung cấp",
     unknownTypeBody: "Hồ sơ của bạn chưa có loại hình nhà cung cấp. Liên hệ nhân viên để cập nhật trước khi mở L2. Hồ sơ và kết quả cũ vẫn được giữ.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
@@ -596,7 +596,7 @@ const vi: VerificationMessages = {
       notePlaceholder: "VD: lô hạt điều WW320, 1 container 20ft",
       save: "Lưu thông tin lô hàng",
       saving: "Đang lưu...",
-      note: "Thông tin do bạn khai; Vexim đối chiếu với chứng từ.",
+      note: "Thông tin do bạn khai, được đối chiếu với chứng từ.",
       olderThan24: "Lô hàng này đã xuất hơn 24 tháng. Vẫn nộp được, nhưng nên chọn lô gần hơn để người mua thấy doanh nghiệp vẫn đang xuất khẩu.", // copy-allow: cảnh báo mềm về lô hàng cũ
     },
     items: {
@@ -645,7 +645,7 @@ const vi: VerificationMessages = {
       scanning: "Đang quét...",
       scanTry: "AI quét thử",
       aiNote: "AI chỉ gợi ý, không tự trả hay duyệt; nhân viên quyết định.",
-      staffNote: "Trưởng kiểm duyệt Vexim kiểm tra và quyết định; nộp hồ sơ không tự cấp xác minh.",
+      staffNote: "Chúng tôi kiểm tra và quyết định; nộp hồ sơ không tự cấp xác minh.",
       docsCount: "Đã tải {count} chứng từ · cần tối thiểu 1",
       confirmManual: "Nộp hồ sơ để nhân viên kiểm tra? Chứng từ sẽ tạm khóa trong khi xét.",
       confirmAi: "Nộp hồ sơ để nhân viên đối chiếu? Ảnh có thể gửi tới AI quét sơ bộ; AI chỉ nêu điểm cần kiểm, không tự duyệt.",
@@ -681,7 +681,7 @@ const vi: VerificationMessages = {
       title: "Người mua sẽ thấy gì",
       items: [
         "Nhãn lịch sử xuất khẩu trên hồ sơ doanh nghiệp.",
-        "Một đoạn tóm tắt do Vexim viết: giai đoạn, loại chứng từ đã xem và thị trường.",
+        "Một đoạn tóm tắt ngắn: giai đoạn, loại chứng từ đã xem và thị trường.",
       ],
       privateTitle: "Không công khai",
       privateBody: "Chứng từ, tên khách hàng, giá, số container, mã lô và số tài khoản không bao giờ được công khai.",
