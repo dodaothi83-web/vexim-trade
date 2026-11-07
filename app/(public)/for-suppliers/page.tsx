@@ -3,16 +3,17 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, FileText, Globe2, Lock, ShieldCheck } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
+import { ServiceRegistrationSection } from "@/components/service-registration-section";
 
 export const metadata: Metadata = {
   title: "For suppliers – Get listed on Veximtrade",
   description:
-    "Vietnamese manufacturers and trading companies: register your supplier profile. Independent document checks, factory verification and delivery history reviews are confirmed by Vexim staff.",
+    "Vietnamese manufacturers and trading companies: register your supplier profile. Document checks, factory review by video call and delivery history reviews are carried out by Vexim staff.",
   alternates: { canonical: "/for-suppliers" },
   openGraph: {
     title: "For suppliers – Get listed on Vexim Trade",
     description:
-      "Vietnamese manufacturers and trading companies: register your supplier profile. Independent document checks, factory verification and delivery history reviews are confirmed by Vexim staff.",
+      "Vietnamese manufacturers and trading companies: register your supplier profile. Document checks, factory review by video call and delivery history reviews are carried out by Vexim staff.",
     url: "/for-suppliers",
     siteName: "Vexim Trade",
     type: "website",
@@ -21,6 +22,7 @@ export const metadata: Metadata = {
 
 export default function ForSuppliersPage() {
   return (
+    <>
     <div className="mx-auto max-w-4xl px-5 py-10 sm:px-8 sm:py-14">
       <Breadcrumbs
         items={[
@@ -138,6 +140,9 @@ export default function ForSuppliersPage() {
         </p>
       </section>
     </div>
+    {/* 4 dịch vụ cho nhà cung cấp (chuyển từ trang chủ) kèm form đăng ký tư vấn. */}
+    <ServiceRegistrationSection lang="en" />
+    </>
   );
 }
 

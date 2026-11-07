@@ -263,7 +263,7 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
       <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           {/* Nhãn nổi bật độ tương phản cao, không bị mờ trên nền tối */}
-          <span className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-ink-950 shadow-md ring-2 ring-amber-200">
+          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-white ring-1 ring-white/25">
             {isVi
               ? "Giải pháp dành cho nhà sản xuất & cung ứng Việt Nam"
               : "Solutions for Vietnamese Food Manufacturers & Exporters"}
@@ -271,7 +271,7 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
           <h2 className="mt-4 text-2xl font-black tracking-tight text-white sm:text-4xl">
             {isVi
               ? "Đưa doanh nghiệp của bạn được tìm - được tin - được chọn"
-              : "Get Your Business Found – Trusted – Chosen"}
+              : "Get your business found, trusted and chosen"}
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-white/95 sm:text-base">
             {isVi
@@ -290,7 +290,7 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400 text-ink-950 shadow-sm">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
                       <Icon className="h-5 w-5" />
                     </span>
                     <span className="text-xs font-black tracking-widest tabular-nums text-brand-700">
@@ -352,7 +352,7 @@ export function ServiceRegistrationSection({ lang = "en" }: { lang?: HomeLocale 
               <X className="h-4 w-4" />
             </button>
 
-            <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
+            <span className="inline-block rounded-full bg-brand-50 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-brand-800">
               {isVi ? "Đăng ký dịch vụ Vexim Trade" : "Vexim Trade Service Registration"}
             </span>
             <h3 id="service-modal-title" className="mt-2 text-xl font-black text-ink-950 sm:text-2xl">
