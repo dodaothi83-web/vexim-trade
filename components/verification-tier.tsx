@@ -92,14 +92,14 @@ export const VERIFICATION_TIER_SHIELD_TONES: Record<Exclude<VerificationTier, 0>
 /**
  * Thẻ công khai (variant "marketplace"): giữ hình khiên trơn, cùng kích thước khiên chưa duyệt.
  * Khiên đã duyệt được TÔ ĐẶC (cả viền) màu theo cấp nhà cung cấp, chỉ dấu tích màu trắng:
- * 1 bước xanh lá #2FA35A · 2 bước vàng nhạt #E9C64A · đủ 3 bước vàng lúa chín #C98A12.
+ * 1 bước xanh lá #2FA35A · 2 bước vàng nhạt #E9C64A · đủ 3 bước đỏ đô #8E1B2C.
  * Khiên chưa duyệt giữ nét xám, không tô. Chủ dự án duyệt 11/2026.
  */
 const TICK_WHITE = "[&>path:last-child]:stroke-white";
 export const VERIFICATION_SHIELD_FILL: Record<Exclude<VerificationTier, 0>, string> = {
   1: `fill-[#2FA35A] text-[#2FA35A] ${TICK_WHITE}`,
   2: `fill-[#E9C64A] text-[#E9C64A] ${TICK_WHITE}`,
-  3: `fill-[#C98A12] text-[#C98A12] ${TICK_WHITE}`,
+  3: `fill-[#8E1B2C] text-[#8E1B2C] ${TICK_WHITE}`,
 };
 
 const BADGE_CLASSES: Record<VerificationTier, string> = {

@@ -149,6 +149,6 @@ Owner decision: on `variant="marketplace"` pips the plain ShieldCheck shape and 
 |---|---|
 | 1 check | green #2FA35A |
 | 2 checks | light yellow #E9C64A |
-| all 3 checks | ripe-rice gold #C98A12 |
+| all 3 checks | burgundy #8E1B2C |
 
-This is an owner-approved exception to "no decorative yellow" for these tier shields only; yellow stays out of other UI. Unapproved shields stay an unfilled grey outline (`text-ink-400`) in the existing 18px / 20px hit areas with a 2px gap. Tokens live in `VERIFICATION_SHIELD_FILL` (`components/verification-tier.tsx`). CRM compact pips, tier pills and cover seals keep the shared success colour. Labels, tooltips and verification rules are unchanged.
+This is an owner-approved exception to "no decorative yellow" for these tier shields only; yellow stays out of other UI. Burgundy is a tier colour, not the error red. Unapproved shields stay an unfilled grey outline (`text-ink-400`) in the existing 18px / 20px hit areas with a 2px gap. Tokens live in `VERIFICATION_SHIELD_FILL` (`components/verification-tier.tsx`). CRM compact pips, tier pills and cover seals keep the shared success colour. Labels, tooltips and verification rules are unchanged.
