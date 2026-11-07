@@ -1,438 +1,127 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Check, Copy, Database, Mail, ShieldCheck, TriangleAlert, Users, X } from "lucide-react";
+import { ChevronRight, Database, Mail, MailX, Scale, ShieldCheck, TableProperties, UserRound, Users, FileText, Check, TriangleAlert } from "lucide-react";
 
-import { COMPANY, MAIL_DOMAIN } from "@/lib/config";
 import { dataStatus } from "@/lib/db";
 import { checkSchema } from "@/lib/db/schema-check";
 import { supabaseKeyRole } from "@/lib/db/supabase";
-import { hasPermission } from "@/lib/auth/permissions";
+import { hasPermission, roleMeta } from "@/lib/auth/permissions";
 import { requireSession } from "@/lib/auth/session";
-import { roleMeta } from "@/lib/auth/permissions";
-import { STAGES } from "@/lib/pipeline";
-import { STAGE_CONTENT } from "@/lib/email/stage-content";
-import Link from "next/link";
 
 import { Card, cx } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
-import { CopyButton } from "@/components/copy-button";
 import { RetrySupabaseButton } from "@/components/retry-supabase-button";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Cài đặt" };
 
-const SQL_SNIPPET = `-- Chạy trong Supabase → SQL Editor
-\\i supabase/schema.sql   -- hoặc copy toàn bộ nội dung file supabase/schema.sql`;
-
+/**
+ * Trang cài đặt cho người vận hành: lối tắt tới các trang cấu hình, vai trò của người
+ * đang đăng nhập và (chỉ admin) tình trạng hệ thống ngắn gọn. Không hiện hướng dẫn cài đặt
+ * cho lập trình viên và không hiện bất kỳ ký tự nào của khoá bí mật.
+ */
 export default async function SettingsPage() {
   const session = await requireSession();
   if (!hasPermission(session.role, "settings.view")) redirect("/crm/");
+  const admin = session.role === "admin";
+  const role = roleMeta(session.role);
 
-  const db = dataStatus();
-  const keyRole = supabaseKeyRole();
-  const hasResend = Boolean(process.env.RESEND_API_KEY);
-  // Chỉ kiểm tra schema khi thực sự kết nối được Supabase (tránh chờ vô ích)
-  const schema = db.mode === "supabase" ? await checkSchema() : null;
-
-  const rows = [
-    {
-      key: "SUPABASE_URL",
-      value: process.env.SUPABASE_URL,
-      label: "Địa chỉ dự án Supabase",
-    },
-    {
-      key: "SUPABASE_SERVICE_ROLE_KEY",
-      value: process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY,
-      label:
-        keyRole === "service_role"
-          ? "Khoá Supabase (service_role — bỏ qua RLS)"
-          : keyRole === "anon"
-            ? "Khoá Supabase (anon — KHÔNG đọc/ghi được bảng bật RLS)"
-            : "Khoá Supabase",
-      secret: true,
-    },
-    { key: "RESEND_API_KEY", value: process.env.RESEND_API_KEY, label: "Khoá API Resend", secret: true },
-    { key: "EMAIL_FROM", value: process.env.EMAIL_FROM, label: "Địa chỉ gửi email" },
-    {
-      key: "VEXIM_LOCAL_FALLBACK",
-      value: process.env.VEXIM_LOCAL_FALLBACK,
-      label: "Dự phòng dữ liệu local khi mất kết nối (auto / on / off)",
-    },
-  ];
+  const shortcuts = [
+    { href: "/crm/settings/profile", icon: UserRound, title: "Hồ sơ cá nhân", body: "Họ tên, số điện thoại, địa chỉ gửi thư và chữ ký email.", show: true },
+    { href: "/crm/settings/users", icon: Users, title: "Tài khoản & phân quyền", body: "Thêm, khoá tài khoản và đổi vai trò nhân viên, nhà cung cấp.", show: hasPermission(session.role, "users.manage") },
+    { href: "/crm/settings/quantity-pricing", icon: Scale, title: "Giá theo số lượng", body: "Tham số và ngưỡng theo grade cho mô hình giá theo số lượng.", show: admin },
+    { href: "/crm/settings/email-suppressions", icon: MailX, title: "Địa chỉ ngừng nhận thư", body: "Địa chỉ bị chặn do thư trả lại hoặc bị báo cáo thư rác.", show: admin },
+    { href: "/crm/templates", icon: FileText, title: "Nội dung email theo giai đoạn", body: "Thư gửi người mua và nhà cung cấp ở từng giai đoạn đơn hàng.", show: hasPermission(session.role, "templates.manage") },
+  ].filter((item) => item.show);
 
   return (
     <>
-      <PageHeader
-        title="Cài đặt & kết nối"
-        sub="Trạng thái kết nối Supabase và Resend, cùng cấu trúc pipeline đang dùng."
-      />
+      <PageHeader title="Cài đặt" sub="Cấu hình tài khoản và các thiết lập vận hành." />
 
-      {session.role === "admin" && <div className="mb-5 rounded-xl border border-ink-200 bg-white p-4 text-sm">
-        <Link className="font-semibold text-brand-700" href="/crm/settings/quantity-pricing">Cấu hình giá theo số lượng</Link>
-        <p className="mt-1 text-ink-500">Chuẩn bị tham số và ngưỡng theo grade cho mô hình giá mới; chưa bật áp dụng.</p>
-        <Link className="mt-3 inline-block font-semibold text-brand-700" href="/crm/settings/email-suppressions">Địa chỉ ngừng nhận thư</Link>
-        <p className="mt-1 text-ink-500">Địa chỉ bị chặn sau khi thư trả lại hoặc bị báo cáo thư rác. Gỡ để gửi lại sau khi hộp thư đã sửa.</p>
-      </div>}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card>
-          <div className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
-            <Database className="h-4 w-4 text-brand-700" />
-            <h2 className="text-[15px] font-bold text-ink-900">Cơ sở dữ liệu</h2>
-            <StatusPill
-              ok={db.mode === "supabase"}
-              label={
-                db.mode === "supabase"
-                  ? "Đã kết nối Supabase"
-                  : db.degraded
-                    ? "Mất kết nối Supabase – dữ liệu tạm"
-                    : "Chế độ demo (local)"
-              }
-            />
-          </div>
-          <div className="space-y-3 p-4 text-[13px] text-ink-600">
-            {db.degraded && (
-              <div className="rounded-lg border border-ink-200 bg-ink-50 p-3 text-[12.5px] text-ink-700">
-                <p className="font-semibold text-ink-900">
-                  Đã cấu hình Supabase nhưng máy chạy app không kết nối được.
-                </p>
-                <p className="mt-1">
-                  URL: <code className="rounded bg-white px-1">{db.url}</code>
-                  {db.projectRef && (
-                    <>
-                      {" "}
-                      · dự án <strong>{db.projectRef}</strong>
-                    </>
-                  )}
-                </p>
-                <p className="mt-1">
-                  Lỗi: <em>{db.reason}</em>
-                </p>
-                <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                  {hasPermission(session.role, "users.manage") && <RetrySupabaseButton />}
-                  <span className="text-[12px] text-ink-500">
-                    Thử lại ngay mà không cần khởi động lại app.
-                  </span>
-                </div>
-                <p className="mt-1">
-                  Hệ thống đang tạm ghi vào <code className="rounded bg-white px-1">data/local-db.json</code>{" "}
-                  và sẽ tự thử lại Supabase sau mỗi lần khởi động lại app (hoặc sau 60 giây).
-                  Mở app ở máy có Internet tới Supabase để dùng dữ liệu thật. Kiểm tra nhanh bằng{" "}
-                  <code className="rounded bg-white px-1">npm run check:supabase</code>.
-                </p>
-              </div>
-            )}
-            {keyRole === "anon" && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-[12.5px] text-red-900">
-                <p className="font-semibold">Đang dùng khoá anon cho toàn bộ truy cập dữ liệu.</p>
-                <p className="mt-1">
-                  Các bảng <strong>bật Row Level Security</strong> (ví dụ <code>app_users</code>) sẽ
-                  không đọc/ghi được từ máy chủ, gây lỗi khi đăng nhập hoặc tạo tài khoản. Hãy thêm{" "}
-                  <code>SUPABASE_SERVICE_ROLE_KEY=…</code> vào <code>.env.local</code> rồi khởi động
-                  lại app. Khoá service_role chỉ nằm ở máy chủ, không lộ ra trình duyệt.
-                </p>
-              </div>
-            )}
-            {db.mode === "supabase" ? (
-              <>
-                <p>
-                  Dữ liệu đang được lưu trên Supabase (dự án{" "}
-                  <strong>{db.projectRef ?? "đã cấu hình"}</strong>). Mọi thao tác thêm / sửa buyer,
-                  nhà cung cấp và đổi trạng thái đều ghi thẳng lên đó.
-                </p>
-
-                {schema && (
-                  <div className="rounded-lg border border-ink-200 p-3">
-                    <p className="mb-2 flex items-center gap-1.5 text-[12px] font-bold text-ink-800">
-                      <Database className="h-3.5 w-3.5 text-brand-700" />
-                      Kiểm tra cấu trúc bảng
-                      <span
-                        className={cx(
-                          "ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                          schema.ready
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-amber-50 text-amber-700",
-                        )}
-                      >
-                        {schema.ready ? "Đầy đủ" : "Còn thiếu"}
-                      </span>
-                    </p>
-                    <ul className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px] sm:grid-cols-3">
-                      {schema.tables.map((t) => (
-                        <li key={t.table} className="flex items-center gap-1.5">
-                          {t.ok ? (
-                            <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                          ) : (
-                            <X className="h-3.5 w-3.5 shrink-0 text-red-500" />
-                          )}
-                          <code className="text-[11.5px] text-ink-700">{t.table}</code>
-                          {t.ok && t.rows !== null && (
-                            <span className="text-[11px] text-ink-400">{t.rows}</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                    {schema.missingColumns.length > 0 && (
-                      <p className="mt-2 text-[12px] text-amber-800">
-                        Thiếu cột: <code>{schema.missingColumns.join(", ")}</code>
-                      </p>
-                    )}
-                    {!schema.ready && (
-                      <p className="mt-2 text-[12px] leading-relaxed text-amber-800">
-                        Mở Supabase → <strong>SQL Editor</strong>, dán toàn bộ nội dung{" "}
-                        <code className="rounded bg-amber-100 px-1">supabase/schema.sql</code> rồi bấm{" "}
-                        <strong>Run</strong> (script dùng <code>if not exists</code> nên chạy lại an toàn,
-                        không mất dữ liệu).
-                      </p>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <p>
-                  App đang lưu dữ liệu ở file <code className="rounded bg-ink-100 px-1">data/local-db.json</code>{" "}
-                  trên server để bạn dùng thử. Để chuyển sang Supabase:
-                </p>
-                <ol className="ml-4 list-decimal space-y-1">
-                  <li>Mở dự án Supabase → <strong>SQL Editor</strong>.</li>
-                  <li>
-                    Copy toàn bộ nội dung file{" "}
-                    <code className="rounded bg-ink-100 px-1">supabase/schema.sql</code> rồi bấm{" "}
-                    <strong>Run</strong>.
-                  </li>
-                  <li>
-                    Vào <strong>Project Settings → API</strong>, copy <em>Project URL</em> và{" "}
-                    <em>service_role key</em>.
-                  </li>
-                  <li>
-                    Điền vào <code className="rounded bg-ink-100 px-1">.env.local</code> rồi khởi động
-                    lại app.
-                  </li>
-                </ol>
-              </>
-            )}
-            <div className="rounded-lg bg-ink-50 p-3">
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-bold tracking-wide text-ink-500 uppercase">
-                  File schema
-                </span>
-                <CopyButton text={SQL_SNIPPET} label="Copy lệnh" />
-              </div>
-              <pre className="overflow-x-auto text-[11.5px] text-ink-700">{SQL_SNIPPET}</pre>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
-            <Mail className="h-4 w-4 text-brand-700" />
-            <h2 className="text-[15px] font-bold text-ink-900">Gửi email (Resend)</h2>
-            <StatusPill
-              ok={hasResend}
-              label={hasResend ? `Thư hệ thống: ${COMPANY.email} · thư người gửi: theo tên` : "Chưa cấu hình – email ở chế độ demo"}
-            />
-          </div>
-          <div className="space-y-3 p-4 text-[13px] text-ink-600">
-            <p>
-              Domain <strong>veximtrade.com</strong> đã được verify trong Resend. Chỉ cần thêm khoá
-              API là hệ thống gửi email thật.
-            </p>
-            <p>
-              Mỗi nhân viên kinh doanh gửi bằng địa chỉ riêng mang tên mình (Nguyễn Văn Dung →{" "}
-              <code className="rounded bg-ink-100 px-1">{`dung@${MAIL_DOMAIN}`}</code>
-              ). Resend cho phép gửi từ bất kỳ
-              địa chỉ nào của domain đã verify nên <strong>không phải tạo hộp thư mới</strong>; thư trả lời
-              cũng về thẳng Hộp thư của CRM vì MX đang là catch-all. Chạy
-              <code className="rounded bg-ink-100 px-1">supabase/migrations/20261012_user_sender_email.sql</code>
-              một lần để thêm cột <code className="rounded bg-ink-100 px-1">sender_email</code> (muốn đổi
-              địa chỉ thì người đó sửa trong trang Hồ sơ).
-            </p>
-            <ol className="ml-4 list-decimal space-y-1">
-              <li>
-                Resend Dashboard → <strong>API Keys</strong> → tạo key.
-              </li>
-              <li>
-                Thêm vào <code className="rounded bg-ink-100 px-1">.env.local</code>:
-                <pre className="mt-1 overflow-x-auto rounded bg-ink-50 p-2 text-[11.5px]">{`RESEND_API_KEY=re_...
-EMAIL_FROM=hello@veximtrade.com
-EMAIL_FROM_NAME=Vexim Trade`}</pre>
-              </li>
-              <li>Khởi động lại app. Các email đang ở trạng thái “demo” có thể bấm “Gửi lại”.</li>
-            </ol>
-            {!hasResend && (
-              <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12.5px] text-amber-900">
-                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                Hiện tại mọi email chỉ được <strong>tạo và lưu lại</strong> trong Nhật ký email, chưa
-                gửi ra ngoài.
-              </p>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      {/* Người dùng & phân quyền */}
-      <Card className="mt-5 overflow-hidden">
-        <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3">
-          <Users className="h-4 w-4 text-brand-700" />
-          <h2 className="text-[15px] font-bold text-ink-900">Người dùng &amp; phân quyền</h2>
-          <span
-            className={cx(
-              "ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold",
-              roleMeta(session.role).badge,
-            )}
-          >
-            <ShieldCheck className="h-3 w-3" />
-            Bạn là {roleMeta(session.role).label}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 p-4 text-[13px] text-ink-600">
-          <p className="min-w-[240px] flex-1">
-            {roleMeta(session.role).description}
-          </p>
-          {hasPermission(session.role, "users.manage") && (
-            <Link href="/crm/settings/users" className="btn btn-primary">
-              <Users className="h-4 w-4" />
-              Quản lý tài khoản
+      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {shortcuts.map((item) => {
+          const Icon = item.icon;
+          return <li key={item.href}>
+            <Link href={item.href} className="flex h-full items-start gap-3 rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-300 hover:shadow-sm">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><Icon className="h-4.5 w-4.5" aria-hidden="true" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-bold text-ink-900">{item.title}</span>
+                <span className="mt-0.5 block text-[12.5px] leading-5 text-ink-500">{item.body}</span>
+              </span>
+              <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-ink-400" aria-hidden="true" />
             </Link>
-          )}
-        </div>
+          </li>;
+        })}
+      </ul>
+
+      <Card className="mt-5 flex flex-wrap items-center gap-3 p-4 text-[13px] text-ink-600">
+        <span className={cx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold", role.badge)}>
+          <ShieldCheck className="h-3 w-3" aria-hidden="true" />Bạn là {role.label}
+        </span>
+        <p className="min-w-[240px] flex-1">{role.description}</p>
       </Card>
 
-      {/* Biến môi trường */}
-      <Card className="mt-5 overflow-hidden">
-        <div className="border-b border-ink-200 px-4 py-3">
-          <h2 className="text-[15px] font-bold text-ink-900">Biến môi trường</h2>
-          <p className="mt-0.5 text-xs text-ink-500">
-            Đọc từ <code>.env.local</code> — giá trị bí mật đã được che.
-          </p>
-        </div>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="table-th">Biến</th>
-              <th className="table-th">Mô tả</th>
-              <th className="table-th">Giá trị</th>
-              <th className="table-th">Trạng thái</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const ok = Boolean(r.value);
-              const shown = !ok
-                ? "chưa đặt"
-                : r.secret
-                  ? `${String(r.value).slice(0, 6)}••••••${String(r.value).slice(-4)}`
-                  : String(r.value);
-              return (
-                <tr key={r.key}>
-                  <td className="table-td">
-                    <code className="text-[12px] font-semibold text-ink-800">{r.key}</code>
-                  </td>
-                  <td className="table-td text-[12.5px] text-ink-600">{r.label}</td>
-                  <td className="table-td max-w-[280px] truncate text-[12px] text-ink-500">{shown}</td>
-                  <td className="table-td">
-                    <StatusPill ok={ok} label={ok ? "OK" : "thiếu"} small />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </Card>
-
-      {/* Pipeline */}
-      <Card className="mt-5 overflow-hidden">
-        <div className="border-b border-ink-200 px-4 py-3">
-          <h2 className="text-[15px] font-bold text-ink-900">Cấu trúc pipeline</h2>
-          <p className="mt-0.5 text-xs text-ink-500">
-            Mỗi giai đoạn có nội dung riêng cho người mua (EN) và nhà cung cấp (VI) — sửa trong{" "}
-            <code>lib/email/stage-content.ts</code>. Danh sách giai đoạn ở{" "}
-            <code>lib/pipeline.ts</code>.
-            {hasPermission(session.role, "templates.manage") && <>{" "}Xem đầy đủ tại{" "}
-              <Link href="/crm/templates" className="font-semibold text-brand-700 hover:underline">
-                Nội dung email theo giai đoạn
-              </Link>.
-            </>}
-          </p>
-        </div>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="table-th">Giai đoạn</th>
-              <th className="table-th">Nội dung gửi người mua (EN)</th>
-              <th className="table-th">Việc cần phối hợp với nhà cung cấp (VI)</th>
-              <th className="table-th">Email</th>
-            </tr>
-          </thead>
-          <tbody>
-            {STAGES.map((s) => (
-              <tr key={s.key}>
-                <td className="table-td">
-                  <span className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
-                    <span>
-                      <span className="block text-[13px] font-semibold text-ink-900">{s.label}</span>
-                      <span className="block text-[11px] text-ink-500">{s.labelEn}</span>
-                    </span>
-                  </span>
-                </td>
-                <td className="table-td max-w-[380px] text-[12px] leading-relaxed text-ink-600">
-                  <span className="mb-1 block font-semibold text-ink-800">
-                    {STAGE_CONTENT[s.key].buyer.subject || "—"}
-                  </span>
-                  {STAGE_CONTENT[s.key].buyer.body[0] || "—"}
-                </td>
-                <td className="table-td max-w-[340px] text-[12px] leading-relaxed text-ink-600">
-                  <span className="mb-1 block font-semibold text-ink-800">
-                    {STAGE_CONTENT[s.key].supplier.subject || "—"}
-                  </span>
-                  {STAGE_CONTENT[s.key].supplier.body[0] || "—"}
-                  {STAGE_CONTENT[s.key].supplier.tasks.length > 0 && (
-                    <span className="mt-1 block text-[11px] text-amber-700">
-                      Hạn: {STAGE_CONTENT[s.key].supplier.deadline}
-                    </span>
-                  )}
-                </td>
-                <td className="table-td">
-                  <StatusPill
-                    ok={!s.silent}
-                    label={s.silent ? "không gửi" : s.wantsSupplier ? "người mua + nhà cung cấp" : "người mua"}
-                    small
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-
-      <p className="mt-6 text-center text-[11.5px] text-ink-400">
-        {COMPANY.name} · {COMPANY.website} · chữ ký email lấy từ biến{" "}
-        <code>EMAIL_FROM_NAME</code> / <code>COMPANY_*</code>
-      </p>
+      {admin && <SystemStatus canRetry={hasPermission(session.role, "users.manage")} />}
     </>
   );
 }
 
-function StatusPill({
-  ok,
-  label,
-  small,
-}: {
-  ok: boolean;
-  label: string;
-  small?: boolean;
+/** Tình trạng hệ thống, chỉ admin: mỗi mục một dòng, chi tiết chỉ hiện khi có vấn đề. */
+async function SystemStatus({ canRetry }: { canRetry: boolean }) {
+  const db = dataStatus();
+  const keyRole = supabaseKeyRole();
+  const schema = db.mode === "supabase" ? await checkSchema() : null;
+  const emailReady = Boolean(process.env.RESEND_API_KEY);
+  const missingTables = schema ? schema.tables.filter((table) => !table.ok).map((table) => table.table) : [];
+
+  return <Card className="mt-5 overflow-hidden">
+    <div className="border-b border-ink-200 px-4 py-3">
+      <h2 className="text-[15px] font-bold text-ink-900">Tình trạng hệ thống</h2>
+      <p className="mt-0.5 text-xs text-ink-500">Chỉ quản trị viên thấy mục này.</p>
+    </div>
+    <ul className="divide-y divide-ink-100 text-[13px]">
+      <StatusRow icon={Database} title="Cơ sở dữ liệu"
+        ok={db.mode === "supabase" && keyRole !== "anon"}
+        okText="Đã kết nối"
+        problem={db.mode !== "supabase"
+          ? <>
+              <p>{db.degraded ? "Không kết nối được cơ sở dữ liệu; hệ thống đang ghi tạm." : "Đang chạy dữ liệu thử, chưa kết nối cơ sở dữ liệu thật."}</p>
+              {db.reason && <p className="mt-1 text-ink-500">Lỗi: {db.reason}</p>}
+              {canRetry && db.degraded && <div className="mt-2"><RetrySupabaseButton /></div>}
+            </>
+          : keyRole === "anon"
+            ? <p>Máy chủ đang dùng khoá truy cập hạn chế nên không đọc/ghi được một số bảng. Báo người phụ trách kỹ thuật.</p>
+            : null} />
+      {schema && <StatusRow icon={TableProperties} title="Cấu trúc bảng"
+        ok={schema.ready}
+        okText="Đầy đủ"
+        problem={<>
+          <p>Cơ sở dữ liệu còn thiếu bảng hoặc cột. Báo người phụ trách kỹ thuật cập nhật.</p>
+          {missingTables.length > 0 && <p className="mt-1">Bảng thiếu: <code>{missingTables.join(", ")}</code></p>}
+          {schema.missingColumns.length > 0 && <p className="mt-1">Cột thiếu: <code>{schema.missingColumns.join(", ")}</code></p>}
+        </>} />}
+      <StatusRow icon={Mail} title="Gửi email"
+        ok={emailReady}
+        okText="Đã bật"
+        problem={<p>Chưa cấu hình gửi thư. Email chỉ được tạo và lưu lại trong nhật ký, chưa gửi ra ngoài.</p>} />
+    </ul>
+  </Card>;
+}
+
+function StatusRow({ icon: Icon, title, ok, okText, problem }: {
+  icon: typeof Database; title: string; ok: boolean; okText: string; problem: React.ReactNode;
 }) {
-  return (
-    <span
-      className={cx(
-        "ml-auto inline-flex items-center gap-1 rounded-full font-semibold",
-        small ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-[12px]",
-        ok ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700",
-      )}
-    >
-      {ok ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-      {label}
-    </span>
-  );
+  return <li className="px-4 py-3">
+    <div className="flex items-center gap-2">
+      <Icon className="h-4 w-4 text-brand-700" aria-hidden="true" />
+      <span className="font-semibold text-ink-900">{title}</span>
+      <span className={cx("ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-semibold",
+        ok ? "bg-success-surface text-success" : "bg-warning-surface text-warning")}>
+        {ok ? <Check className="h-3 w-3" aria-hidden="true" /> : <TriangleAlert className="h-3 w-3" aria-hidden="true" />}
+        {ok ? okText : "Cần xử lý"}
+      </span>
+    </div>
+    {!ok && problem && <div className="mt-2 rounded-lg bg-warning-surface/60 px-3 py-2 text-[12.5px] leading-5 text-ink-700">{problem}</div>}
+  </li>;
 }
