@@ -30,7 +30,9 @@ for (const [path, entry] of [
   ['app/crm/settings/users/page.tsx', 'app/crm/settings/page.tsx'],
 ]) {
   assert.ok(existsSync(new URL(`../${path}`, import.meta.url)), `${path} remains available`);
-  assert.ok(read(entry).includes(`href="/${path.replace(/^app\//, '').replace(/\/page\.tsx$/, '')}"`) ||
+  const route = `/${path.replace(/^app\//, '').replace(/\/page\.tsx$/, '')}`;
+  // Trang Cài đặt liệt kê lối tắt dạng dữ liệu (href: "..."), các trang khác dùng thuộc tính JSX.
+  assert.ok(read(entry).includes(`href="${route}"`) || read(entry).includes(`href: "${route}"`) ||
     (path.includes('mail/compose') && read(entry).includes('href="/crm/mail/compose"')),
   `${entry} links to ${path}`);
 }

@@ -64,8 +64,8 @@ export function SourcingComposerTrigger({ isVi = false, renderTrigger }: {
     finally { setBusy(false); setChallenge(null); setAttempt((n) => n + 1); }
   }
   return <>
-    {renderTrigger ? renderTrigger({ onClick: begin, ref: trigger }) : <button ref={trigger} type="button" onClick={begin} aria-haspopup="dialog" aria-label={label} lang={vi ? "vi" : "en"} className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-brand-700 px-3 text-[12px] font-semibold text-white shadow-sm transition hover:bg-brand-800 focus-visible:ring-2 focus-visible:ring-brand-600 sm:px-4 sm:text-[13.5px]">
-      <span className="xl:hidden">{vi ? "Tìm nguồn" : "Sourcing"}</span><span className="hidden xl:inline">{label}</span><ArrowRight className="hidden h-3.5 w-3.5 xl:block" aria-hidden />
+    {renderTrigger ? renderTrigger({ onClick: begin, ref: trigger }) : <button ref={trigger} type="button" onClick={begin} aria-haspopup="dialog" aria-label={label} lang={vi ? "vi" : "en"} className="group/cta inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-brand-700 px-3.5 text-[12px] font-semibold text-white shadow-[0_6px_16px_-8px_rgba(31,62,116,0.7)] transition hover:-translate-y-px hover:bg-brand-800 hover:shadow-[0_10px_22px_-10px_rgba(31,62,116,0.8)] focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 sm:px-5 sm:text-[14px]">
+      <span className="xl:hidden">{vi ? "Tìm nguồn" : "Sourcing"}</span><span className="hidden xl:inline">{label}</span><ArrowRight className="hidden h-3.5 w-3.5 transition-transform group-hover/cta:translate-x-0.5 xl:block" aria-hidden />
     </button>}
     {open && <dialog ref={dialog} aria-labelledby="sourcing-title" onCancel={(e) => {
       // A file input also fires `cancel` when its native picker is dismissed.

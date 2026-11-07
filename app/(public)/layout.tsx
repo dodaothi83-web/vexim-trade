@@ -10,6 +10,7 @@ import Link from "next/link";
 
 import { Logo } from "@/components/brand-logo";
 import { PublicHeaderControls } from "@/components/public-header-controls";
+import { PublicHeaderShell } from "@/components/public-header-shell";
 import { getStore } from "@/lib/db";
 import { SimpleFooter } from "./simple-footer";
 import { MarketplaceRail } from "@/components/marketplace-rail";
@@ -44,8 +45,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
     <div lang="en" className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
       {showOneTap && <BuyerGoogleOneTap clientId={oneTapClientId} isVi={locale === "vi"} />}
-      <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-        <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-3 sm:gap-4 sm:px-6 lg:px-8">
+      <PublicHeaderShell>
           <Link href="/" aria-label="Veximtrade home" className="flex shrink-0 items-center gap-2.5">
             <Logo className="h-12 w-12" />
             <span className="hidden flex-col leading-tight sm:flex md:hidden xl:flex">
@@ -62,8 +62,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
           </Link>
 
           <PublicHeaderControls buyerEmail={buyerSession?.email ?? null} buyerCompanyName={buyerAccount?.company_name ?? null} />
-        </div>
-      </header>
+      </PublicHeaderShell>
 
       <main>{children}</main>
 

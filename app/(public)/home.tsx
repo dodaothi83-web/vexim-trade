@@ -6,6 +6,8 @@ import {
   ChevronRight,
   FileStack,
   Search,
+  ChevronDown,
+  LayoutGrid,
   SlidersHorizontal,
 } from "lucide-react";
 
@@ -199,52 +201,63 @@ export default async function HomeContent({
       {/* =====================================================================
           SECTION 1: HERO + THANH TÌM KIẾM SẢN PHẨM
          ===================================================================== */}
-      <section aria-labelledby="home-hero-title" className="border-b border-ink-200 bg-brand-50 text-ink-900">
-        <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 sm:py-12 lg:px-8">
-          <h1 id="home-hero-title" className="max-w-[960px] text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl lg:text-[44px]">
+      <section aria-labelledby="home-hero-title" className="relative isolate overflow-hidden bg-brand-900 text-white">
+        {/* Nền: ảnh thật (phân loại cà phê, Lâm Đồng) phủ lớp navy để chữ trắng đủ tương phản. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={HOME_HERO_SRC} srcSet={HOME_HERO_SRCSET} sizes="100vw" alt="" aria-hidden="true" loading="eager" decoding="async"
+          className="absolute inset-0 -z-20 h-full w-full object-cover object-[center_40%]" />
+        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[linear-gradient(100deg,rgba(15,30,58,0.97)_0%,rgba(23,46,89,0.92)_45%,rgba(31,62,116,0.62)_100%)]" />
+        <div aria-hidden="true" className="absolute inset-0 -z-10 opacity-[0.18] [background-image:radial-gradient(rgba(255,255,255,0.55)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
+        <div className="mx-auto max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+          <h1 id="home-hero-title" className="max-w-[920px] text-3xl font-bold leading-[1.1] tracking-tight text-white sm:text-4xl lg:text-[48px]">
             {isVi
               ? "Tìm nguồn thực phẩm từ nhà cung cấp Việt Nam đã được kiểm tra."
               : "Source food from checked Vietnamese suppliers."}
           </h1>
-          <p className="mt-4 max-w-5xl text-base leading-relaxed text-ink-700">
+          <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/80 sm:text-lg">
             {isVi
               ? "So sánh sản phẩm, gửi yêu cầu báo giá và kết nối trực tiếp với nhà cung cấp bạn chọn."
               : "Compare products, request quotes, and connect directly with the supplier you choose."}
           </p>
 
           <form action="/search" method="get" role="search" aria-label={isVi ? "Tìm sản phẩm" : "Search products"}
-            className="mt-6 max-w-[1000px] overflow-hidden rounded-full border border-ink-300 bg-white shadow-sm sm:rounded-xl focus-within:ring-2 focus-within:ring-brand-500">
+            className="mt-8 max-w-[1000px] overflow-hidden rounded-full border border-white/60 bg-white shadow-[0_24px_60px_-24px_rgba(0,0,0,0.55)] transition focus-within:ring-4 focus-within:ring-white/30 sm:overflow-visible sm:rounded-2xl sm:p-2">
             <input type="hidden" name="lang" value={lang} />
-            <div className="flex items-center p-1 sm:grid sm:grid-cols-[210px_minmax(0,1fr)_auto] sm:p-0">
+            <div className="flex items-center p-1 sm:grid sm:grid-cols-[230px_minmax(0,1fr)_auto] sm:items-center sm:gap-2 sm:p-0">
               <label className="sr-only" htmlFor="home-search-category">{isVi ? "Danh mục" : "Category"}</label>
-              <div className="relative h-11 w-11 shrink-0 rounded-full focus-within:ring-2 focus-within:ring-inset focus-within:ring-brand-600 sm:h-14 sm:w-auto sm:rounded-none">
+              <div className="relative h-11 w-11 shrink-0 rounded-full focus-within:ring-2 focus-within:ring-inset focus-within:ring-brand-600 sm:h-14 sm:w-auto sm:rounded-xl sm:focus-within:ring-brand-300">
                 <SlidersHorizontal aria-hidden="true" className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-brand-700 sm:hidden" />
+                <LayoutGrid aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 hidden h-4.5 w-4.5 -translate-y-1/2 text-brand-700 sm:block" />
+                <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-ink-500 sm:block" />
               <select id="home-search-category" name="cat" defaultValue={categoryFilter}
-                className="absolute inset-0 h-full w-full min-w-0 cursor-pointer rounded-full border-0 bg-white px-4 text-base font-semibold text-ink-900 opacity-0 focus-visible:outline-offset-[-3px] sm:static sm:rounded-none sm:border-r sm:border-ink-200 sm:text-sm sm:opacity-100">
+                className="absolute inset-0 h-full w-full min-w-0 cursor-pointer appearance-none rounded-full border-0 bg-white px-4 text-base font-semibold text-ink-900 opacity-0 focus-visible:outline-offset-[-3px] sm:static sm:rounded-xl sm:bg-ink-50 sm:pl-11 sm:pr-9 sm:text-[14px] sm:opacity-100 sm:transition sm:hover:bg-ink-100">
                 <option value="">{isVi ? "Tất cả danh mục" : "All categories"}</option>
                 {activeCategories.map((c) => <option key={c.slug} value={c.slug}>{getCategoryTitle(c, lang)}</option>)}
               </select>
               </div>
               <label htmlFor="home-search-query" className="sr-only">{isVi ? "Sản phẩm hoặc quy cách" : "Product or grade"}</label>
-              <input id="home-search-query" type="search" name="q" maxLength={120} defaultValue={query}
-                placeholder={isVi ? "Tìm sản phẩm hoặc quy cách, ví dụ: W320, 550 g/l, quế" : "Search a product or grade, e.g. W320, 550 g/l, cassia"}
-                className="h-11 w-full min-w-0 flex-1 bg-white px-2 text-base text-ink-900 sm:h-14 sm:px-4 sm:text-sm placeholder:text-ink-500 focus-visible:outline-offset-[-3px]" />
-              <button type="submit" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand-700 px-3 sm:h-14 sm:w-auto sm:rounded-none sm:px-7 text-sm font-bold text-white transition hover:bg-brand-800 focus-visible:outline-offset-[-3px]">
+              <div className="relative min-w-0 flex-1">
+                <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-ink-400 sm:block" />
+                <input id="home-search-query" type="search" name="q" maxLength={120} defaultValue={query}
+                  placeholder={isVi ? "Tìm sản phẩm hoặc quy cách, ví dụ: W320, 550 g/l, quế" : "Search a product or grade, e.g. W320, 550 g/l, cassia"}
+                  className="h-11 w-full min-w-0 flex-1 bg-white px-2 text-base text-ink-900 sm:h-14 sm:rounded-xl sm:pl-11 sm:pr-3 sm:text-[15px] placeholder:text-ink-500 focus-visible:outline-offset-[-3px]" />
+              </div>
+              <button type="submit" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand-700 px-3 sm:h-14 sm:w-auto sm:rounded-xl sm:px-8 text-sm font-bold text-white transition hover:bg-brand-800 sm:text-[15px] sm:shadow-[0_8px_20px_-10px_rgba(31,62,116,0.8)] focus-visible:outline-offset-[-3px]">
                 <Search className="hidden h-4 w-4 sm:block" aria-hidden="true" /><span>{isVi ? "Tìm kiếm" : "Search"}</span>
               </button>
             </div>
           </form>
-          <p className="mt-3 text-sm text-ink-700">
+          <p className="mt-4 text-sm text-white/75">
             {isVi ? "Chưa biết tìm gì? " : "Not sure what to search for? "}
-            <Link href="/rfq" className="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800">
+            <Link href="/rfq" className="font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">
               {isVi ? "Cho biết bạn cần gì" : "Tell us what you need"} <span aria-hidden="true">→</span>
             </Link>
           </p>
-          {homeCategories.length > 0 && <nav aria-label={isVi ? "Tìm nhiều" : "Popular searches"} className="mt-5 flex flex-wrap items-center gap-2 text-sm">
-            <span className="mr-1 font-semibold text-ink-700">{isVi ? "Tìm nhiều:" : "Popular searches:"}</span>
+          {homeCategories.length > 0 && <nav aria-label={isVi ? "Tìm nhiều" : "Popular searches"} className="mt-6 flex flex-wrap items-center gap-2 text-sm">
+            <span className="mr-1 font-semibold text-white/70">{isVi ? "Tìm nhiều:" : "Popular searches:"}</span>
             {homeCategories.slice(0, 5).map((category) => <Link key={category.id}
               href={`/search?cat=${encodeURIComponent(category.slug)}&lang=${lang}`}
-              className="inline-flex min-h-11 items-center rounded-full border border-ink-200 bg-white px-4 py-2 text-sm font-medium text-ink-800 transition hover:border-brand-500 hover:bg-brand-50 hover:text-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+              className="inline-flex min-h-11 items-center rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition hover:border-white hover:bg-white hover:text-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
               {getCategoryTitle(category, lang)}
             </Link>)}
           </nav>}
