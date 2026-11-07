@@ -87,7 +87,7 @@ const en = {
     },
     levels: {
       title: "Where you are",
-      sub: "Three independent reviews. Only the review team can confirm a result.",
+      sub: "Three separate reviews. Only the review team can confirm a result.",
       business: "Business verification",
       factory: "Factory verification",
       partner: "Partner factory",
@@ -268,7 +268,7 @@ const vi: ProfileMessages = {
     },
     levels: {
       title: "Bạn đang ở bước nào",
-      sub: "Ba đánh giá độc lập. Chỉ bộ phận duyệt có quyền xác nhận kết quả.",
+      sub: "Ba đánh giá riêng biệt. Chỉ bộ phận duyệt có quyền xác nhận kết quả.",
       business: "Xác thực doanh nghiệp",
       factory: "Xác thực nhà máy",
       partner: "Nhà máy đối tác",

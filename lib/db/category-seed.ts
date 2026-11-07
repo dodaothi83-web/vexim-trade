@@ -121,7 +121,7 @@ const PEPPER_PRODUCT_FIELDS: ProductAttributeField[] = [
 export const CASHEW_CATEGORY_CONFIG: CategoryContentSeed = {
   h1: "Cashew suppliers in Vietnam",
   intro:
-    "Whole kernels, splits, roasted salted cashew and value-added cashew products from verified Vietnamese processors and exporters. Compare product specs, MOQ, reference FOB pricing and independent verification badges (business documents & automated certificate holder recognition, factory evidence, and export delivery history), then request a quote from the supplier you choose or send your requirements and we look for suppliers that match.",
+    "Whole kernels, splits, roasted salted cashew and value-added cashew products from verified Vietnamese processors and exporters. Compare product specs, MOQ, reference FOB pricing and Vexim verification badges (business documents & certificate holder recognition, factory review, and export delivery history), then request a quote from the supplier you choose or send your requirements and we look for suppliers that match.",
   body:
     "Most Vietnamese processors grade cashew kernels to the AFI standard. Counts are per pound and the final spec is agreed in your contract. Counts and uses below are to be confirmed by our trading team before we put them in front of a buyer.",
   seo_title: "Cashew Suppliers in Vietnam | W180 to W450 Kernels | Vexim Trade",

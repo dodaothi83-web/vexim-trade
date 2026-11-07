@@ -335,7 +335,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   const h1 = cat.slug === "cashew" ? "Vietnam Cashew" : (t(cat.h1_i18n) || `Vietnam ${categoryName}`);
   const intro =
     t(cat.intro_i18n) ||
-    `Explore export-ready Vietnamese ${categoryName.toLowerCase()} products and verified suppliers. Compare specifications, MOQ, reference FOB pricing, and independent verification badges (business documents & certificate holder status, factory evidence, and export delivery history), then request a quote from the supplier you choose or send your requirements and we look for suppliers that match.`;
+    `Explore export-ready Vietnamese ${categoryName.toLowerCase()} products and verified suppliers. Compare specifications, MOQ, reference FOB pricing, and Vexim verification badges (business documents & certificate holder status, factory review, and export delivery history), then request a quote from the supplier you choose or send your requirements and we look for suppliers that match.`;
 
   // Sanitize body để chặn HTML/script độc từ CMS (chỉ cho p/h2-h4/ul/ol/li/a/strong/em/br).
   const bodyRaw = t(cat.body_i18n);
