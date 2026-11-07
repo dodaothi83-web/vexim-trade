@@ -102,18 +102,20 @@ export const VERIFICATION_SHIELD_FILL: Record<Exclude<VerificationTier, 0>, stri
   3: `fill-[#8E1B2C] text-[#8E1B2C] ${TICK_WHITE}`,
 };
 
+// Nhãn cấp và dấu trên ảnh bìa dùng cùng thang màu với khiên trên thẻ (VERIFICATION_SHIELD_FILL):
+// cấp 1 xanh lá, cấp 2 vàng nhạt, cấp 3 đỏ đô. Chữ trên nền nhạt đạt tương phản ≥ 4.5:1.
 const BADGE_CLASSES: Record<VerificationTier, string> = {
   0: "bg-ink-100 text-ink-500 ring-ink-200",
-  1: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  2: "bg-emerald-100 text-emerald-900 ring-emerald-300",
-  3: "bg-emerald-100 text-emerald-900 ring-emerald-300",
+  1: "bg-[#EAF6EE] text-[#1F7A43] ring-[#9FD5B2]",
+  2: "bg-[#FDF6DC] text-[#6E5200] ring-[#E9C64A]",
+  3: "bg-[#F8E9EC] text-[#8E1B2C] ring-[#D9A3AD]",
 };
 
 const SEAL_CLASSES: Record<VerificationTier, string> = {
   0: "bg-ink-400 text-white ring-white/70",
-  1: "bg-emerald-700 text-white ring-white/70",
-  2: "bg-emerald-600 text-white ring-white/70",
-  3: "bg-emerald-700 text-white ring-emerald-200",
+  1: "bg-[#2FA35A] text-white ring-white/70",
+  2: "bg-[#E9C64A] text-[#4A3700] ring-white/70",
+  3: "bg-[#8E1B2C] text-white ring-white/70",
 };
 
 /** Compact pill shown next to the supplier name, product page or list row. */
