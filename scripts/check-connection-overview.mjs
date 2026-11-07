@@ -25,7 +25,9 @@ for (const isVi of [false, true]) {
 assert.ok(fs.statSync('public/images/vexim-buyer-supplier-connection.webp').size < 100000);
 const home = fs.readFileSync('app/(public)/home.tsx', 'utf8');
 assert.equal((home.match(/<ConnectionOverview /g) || []).length, 1);
-assert.ok(home.indexOf('<ConnectionOverview ') > home.indexOf('<ServiceRegistrationSection'), 'Overview replaces FAQ after services');
+assert.ok(home.indexOf('<ConnectionOverview ') > home.indexOf('id="categories"'), 'Overview replaces FAQ after the catalogue sections');
+assert.ok(home.indexOf('<ConnectionOverview ') < home.indexOf('id="home-supplier-band"'), 'Supplier band sits below the buyer content');
+assert.ok(fs.readFileSync('app/(public)/for-suppliers/page.tsx', 'utf8').includes('<ServiceRegistrationSection'), 'Supplier services live on /for-suppliers');
 assert.ok(home.indexOf('<ConnectionOverview ') < home.indexOf('<PlatformLegalStrip'), 'Overview remains above footer');
 assert.doesNotMatch(home, /const FAQ_EN|const FAQ_VI|faqs\.map|id="faq"|Frequently Asked Questions|Bộ câu hỏi và trả lời/, 'Old FAQ removed in both languages');
 console.log('Connection overview: EN/VI semantics, three steps, links, uncropped decorative image, size and placement passed.');

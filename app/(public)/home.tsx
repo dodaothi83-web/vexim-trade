@@ -16,7 +16,7 @@ import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { balanceHomepageCategories, HOME_FEED_PER_SUPPLIER, homeRotationWindow, rotateForWindow, rotateWithinVerificationTiers } from "@/lib/public/supplier-product-order";
 import { HomeProductFeed } from "@/components/home-product-feed";
-import { ServiceRegistrationSection, type HomeLocale } from "@/components/service-registration-section";
+import type { HomeLocale } from "@/components/service-registration-section";
 import { buildPopularSearches } from "@/lib/public/popular-searches";
 import { getCategoryTitle } from "@/lib/public/category-names";
 import { HOME_HERO_LINE } from "@/lib/public/meta-copy";
@@ -532,15 +532,31 @@ export default async function HomeContent({
         </div>
       </section>
 
-      {/* =====================================================================
-          SECTION 4: 4 DỊCH VỤ DOANH NGHIỆP + FORM ĐĂNG KÝ RIÊNG (SONG NGỮ EN/VI)
-         ===================================================================== */}
-      <ServiceRegistrationSection
-        lang={lang}
-      />
-
       {/* Connection overview replaces the former homepage FAQ block. */}
       <ConnectionOverview isVi={isVi} />
+
+      {/* =====================================================================
+          SECTION 4: DẢI NGẮN CHO NHÀ CUNG CẤP. Trang chủ dành cho người mua; 4 dịch vụ
+          và form đăng ký chi tiết nằm ở /for-suppliers.
+         ===================================================================== */}
+      <section aria-labelledby="home-supplier-band" className="border-t border-ink-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="min-w-0">
+            <h2 id="home-supplier-band" className="text-lg font-bold text-ink-900 sm:text-xl">
+              {isVi ? "Bạn là nhà sản xuất thực phẩm Việt Nam?" : "Are you a Vietnamese food manufacturer?"}
+            </h2>
+            <p className="mt-1 text-sm text-ink-600">
+              {isVi
+                ? "Đăng sản phẩm miễn phí và nhận yêu cầu báo giá từ người mua quốc tế."
+                : "List your products free and receive quote requests from international buyers."}
+            </p>
+          </div>
+          <Link href={isVi ? "/for-suppliers?lang=vi" : "/for-suppliers"}
+            className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-brand-700 px-5 py-2.5 text-sm font-semibold text-brand-800 transition hover:bg-brand-700 hover:text-white sm:self-auto">
+            {isVi ? "Dành cho nhà cung cấp" : "For suppliers"} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
+      </section>
 
       <PlatformLegalStrip variant="footer" />
     </div>
