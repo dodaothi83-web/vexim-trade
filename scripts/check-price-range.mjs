@@ -162,6 +162,52 @@ assert.equal(filtered.status, "ok");
 assert.equal(filtered.range.sampleSize, 3, "Unknown units, missing dates, other currencies, demo rows and stale rows are all dropped");
 assert.equal(filtered.range.high, 8.2);
 
+/* Giá mồi (lệch quá xa trung vị) bị loại khỏi khoảng, không được một mình kéo lệch cả khoảng. */
+const baitExcluded = priceRange.buildPriceRange(
+  [
+    { value: 6.2, unit: "kg", updatedAt: daysAgo(1) },
+    { value: 6.6, unit: "kg", updatedAt: daysAgo(2) },
+    { value: 7.2, unit: "kg", updatedAt: daysAgo(3) },
+    { value: 7.2, unit: "kg", updatedAt: daysAgo(4) },
+    { value: 1.55, unit: "kg", updatedAt: daysAgo(5) },
+  ],
+  { now: NOW },
+);
+assert.equal(baitExcluded.status, "ok");
+assert.equal(baitExcluded.range.low, 6.2, "The USD 1.55 bait price is excluded, not used as the low bound");
+assert.equal(baitExcluded.range.high, 7.2);
+assert.equal(baitExcluded.range.excludedOutliers, 1, "One outlier is reported as excluded");
+assert.equal(baitExcluded.range.sampleSize, 4, "The sample count reflects what was actually used for the range");
+
+/* Một niêm yết cao bất thường (vd hàng đã chế biến + CIF) cũng bị loại nếu lệch quá xa trung vị. */
+const highOutlierExcluded = priceRange.buildPriceRange(
+  [
+    { value: 6.2, unit: "kg", updatedAt: daysAgo(1) },
+    { value: 6.6, unit: "kg", updatedAt: daysAgo(2) },
+    { value: 7.0, unit: "kg", updatedAt: daysAgo(3) },
+    { value: 7.2, unit: "kg", updatedAt: daysAgo(4) },
+    { value: 25, unit: "kg", updatedAt: daysAgo(5) },
+  ],
+  { now: NOW },
+);
+assert.equal(highOutlierExcluded.status, "ok");
+assert.equal(highOutlierExcluded.range.high, 7.2, "A price far above the median is excluded from the high bound too");
+assert.equal(highOutlierExcluded.range.excludedOutliers, 1);
+
+/* Lọc không được làm tụt xuống dưới ngưỡng tối thiểu: thà hiện khoảng rộng còn hơn biến "too_few" oan. */
+const outlierButThin = priceRange.buildPriceRange(
+  [
+    { value: 6.2, unit: "kg", updatedAt: daysAgo(1) },
+    { value: 6.6, unit: "kg", updatedAt: daysAgo(2) },
+    { value: 1.55, unit: "kg", updatedAt: daysAgo(3) },
+  ],
+  { now: NOW },
+);
+assert.equal(outlierButThin.status, "ok");
+assert.equal(outlierButThin.range.excludedOutliers, 0, "Filtering down below minSamples is skipped; the full set is kept instead");
+assert.equal(outlierButThin.range.low, 1.55);
+assert.equal(outlierButThin.range.sampleSize, 3);
+
 /* Cũ quá ngưỡng cảnh báo thì vẫn hiện nhưng phải gắn nhãn. */
 const stale = priceRange.buildPriceRange(
   [
@@ -297,6 +343,23 @@ assert.ok(gradeHtml.includes("W180") && gradeHtml.includes("W320"), "Each grade 
 assert.ok(gradeHtml.includes("$7–7.2/kg") && gradeHtml.includes("$9.4–9.6/kg"), "Each grade shows its own range");
 assert.ok(!gradeHtml.includes("$7–9.6/kg"), "Grades are never merged into one wide range");
 assert.ok(gradeHtml.includes("not state a grade"), "Ungraded listings are disclosed");
+
+const outlierBlock = priceRange.buildPriceBlock(
+  [
+    { value: 6.2, unit: "kg", updatedAt: daysAgo(1) },
+    { value: 6.6, unit: "kg", updatedAt: daysAgo(2) },
+    { value: 7.2, unit: "kg", updatedAt: daysAgo(3) },
+    { value: 7.2, unit: "kg", updatedAt: daysAgo(4) },
+    { value: 1.55, unit: "kg", updatedAt: daysAgo(5) },
+  ],
+  { now: NOW },
+);
+const outlierHtml = renderToStaticMarkup(
+  React.createElement(strip.PriceRangeStrip, { outcome: outlierBlock, categoryName: "Cashew", rfqHref: "/rfq" }),
+);
+assert.ok(outlierHtml.includes("$6.2–7.2/kg"), "The bait price does not widen the headline range");
+assert.ok(!outlierHtml.includes("$1.55"), "The excluded bait price itself is not printed as a bound");
+assert.ok(/1 listing is priced far outside/.test(outlierHtml), "The page discloses that an outlier was excluded");
 
 const staleBlock = priceRange.buildPriceBlock(
   [

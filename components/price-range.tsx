@@ -95,6 +95,13 @@ export function PriceRangeStrip({
         </p>
       )}
 
+      {outcome.excludedOutliers > 0 && (
+        <p className="mt-1.5 text-[12px] text-ink-500">
+          {outcome.excludedOutliers} {outcome.excludedOutliers === 1 ? "listing is" : "listings are"} priced far outside
+          the rest of this set, so {outcome.excludedOutliers === 1 ? "it is" : "they are"} left out of the range shown.
+        </p>
+      )}
+
       <p className="mt-2 max-w-2xl text-[12.5px] leading-relaxed text-ink-600">
         Prices are what suppliers publish themselves, in USD per {PRICE_UNIT_LABEL[unit].long}, not a binding offer.
         Grade, packing and delivery terms move the number, so the quote decides.
