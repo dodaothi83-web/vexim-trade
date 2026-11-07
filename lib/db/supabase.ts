@@ -1710,6 +1710,12 @@ export const supabaseStore: DataStore = {
     if (error) fail("getVerification", error);
     return (data as Verification | null) ?? null;
   },
+  async getVerificationByReportCode(code) {
+    const { data, error } = await must().from("verifications").select("*")
+      .eq("report_code", code).eq("status", "approved").maybeSingle();
+    if (error) fail("getVerificationByReportCode", error);
+    return (data as Verification | null) ?? null;
+  },
   async createVerification(input) {
     const { data, error } = await must().from("verifications").insert(cleanPatch(input)).select().single();
     if (error) fail("createVerification", error);

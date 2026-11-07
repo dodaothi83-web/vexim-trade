@@ -11,7 +11,7 @@ import { supplierShortName } from "@/lib/public/supplier-name";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
 import { supplierTypeLabel, type PublicSupplierCard } from "@/lib/public/catalog";
 import type { Category } from "@/lib/types";
-import { verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
+import { factoryReviewLabel, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { formatMoney, priceRangeText } from "@/lib/products/price-display";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
@@ -55,8 +55,10 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
  */
 export function SupplierStorefront({
   supplier: s, certificates, categories, coverUrl, avatarUrl, synthetic,
-  productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1",
+  productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1", reportAction,
 }: {
+  /** Nút tải báo cáo xác minh nhà máy (PDF) cho từng mã báo cáo; trang công khai truyền vào. */
+  reportAction?: (code: string) => ReactNode;
   supplier: PublicSupplierCard;
   certificates: PublicSupplierCertificate[];
   categories: Category[];
@@ -353,6 +355,11 @@ export function SupplierStorefront({
                     {level === 2 && approvedStep && scope === null && "Review scope is available on request."}
                     {level === 3 && (approvedStep ? (safe(s.public_review_summaries[3]) || "Detailed delivery scope is available on request.") : pending)}
                   </p>
+                  {level === 2 && approvedStep && (s.factory_reviews ?? []).map((review) => <div key={review.code} className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-ink-50 px-3 py-2">
+                    <span className="text-xs font-semibold text-ink-800">{factoryReviewLabel(review)}</span>
+                    <span className="text-xs text-ink-500">Reviewed by {safe(review.inspectorName)}</span>
+                    {reportAction?.(review.code)}
+                  </div>)}
                   {approvedStep && level !== 1 && <p className="mt-2 text-xs leading-5 text-ink-500">{level === 2 ? scope === "partner_contract" ? "The contract review does not establish ownership or a factory inspection." : scope === "both" ? "Each result applies only to its separately reviewed scope." : scope === "factory" ? "Applies only to the reviewed facility." : "Ask for the review scope." : "Applies only to the evidence reviewed; it does not by itself prove an end buyer received the goods."}</p>}
                 </article>;
               })}

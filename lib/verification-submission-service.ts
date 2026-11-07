@@ -670,6 +670,8 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
   staffId: string;
   staffEmail: string | null;
   note?: string | null;
+  /** L2: giờ gọi đã chốt với nhà cung cấp (ISO). */
+  scheduledAt?: string | null;
 }): Promise<{ verification: Verification }> {
   const { bundle, staffId } = input;
   const submission = bundle.submission;
@@ -708,29 +710,39 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
   if (isPartnerL2(submission) && !sourceFiles.some(({ item }) => item.checklist_key === "partner_factory_contract")) {
     throw new Error("Chưa có hợp đồng hợp lệ với nhà máy đối tác trong hồ sơ.");
   }
+  const booking = submission.target_level === 2;
   const verification = await store.createVerification({
     supplier_id: submission.supplier_id,
     target_level: submission.target_level,
     ...(submission.target_level === 2 ? { l2_scope: submission.l2_scope ?? "factory" } : {}),
     // Tên nhà máy đối tác đi theo hồ sơ; nhân viên đối chiếu lại với hợp đồng trước khi duyệt.
     ...(isPartnerL2(submission) ? { partner_factory_name: submission.partner_factory_name?.trim() || null } : {}),
+    // L2 từ 11/2026: hồ sơ là lịch hẹn; đợt kiểm là cuộc gọi do chính người nhận lịch thực hiện.
+    ...(booking ? {
+      review_method: submission.booking_method === "on_site" ? "on_site" as const : "video_call" as const,
+      supplier_participants: [submission.booking_contact_name, submission.booking_contact_role].filter((part) => part?.trim()).join(" · ") || null,
+    } : {}),
     status: "in_progress",
     inspector_id: staffId,
-    visit_date: submission.submitted_at ? submission.submitted_at.slice(0, 10) : null,
-    visit_lat: submission.device_lat,
-    visit_lng: submission.device_lng,
-    visit_address: null,
+    visit_date: booking
+      ? (input.scheduledAt ?? submission.booking_scheduled_at ?? new Date().toISOString()).slice(0, 10)
+      : submission.submitted_at ? submission.submitted_at.slice(0, 10) : null,
+    visit_lat: booking ? null : submission.device_lat,
+    visit_lng: booking ? null : submission.device_lng,
+    visit_address: booking ? submission.booking_factory_address?.trim() || null : null,
     shipment_ref: submission.shipment_ref,
     shipped_on: submission.shipped_on,
     shipment_destination: submission.shipment_destination,
     checklist: {},
     checklist_notes: {},
     internal_notes: [
-      `Hồ sơ nhà cung cấp tự gửi ${submission.id} (L${submission.target_level}${isPartnerL2(submission) ? " · hợp đồng nhà máy đối tác" : ""}).`,
-      submission.ai_scanned_at
-        ? `${submission.target_level === 3 ? "Lịch sử AI cũ, chỉ tham khảo" : "AI quét"} lúc ${submission.ai_scanned_at}${submission.ai_review?.summary ? `: ${submission.ai_review.summary.slice(0, 400)}` : ""}.`
-        : submission.target_level === 3 || isPartnerL2(submission) ? "Chứng từ do nhân viên đối chiếu." : "Chưa có kết quả quét AI.",
-      isPartnerL2(submission) ? "Hợp đồng với nhà máy đối tác; không mặc định cơ sở thuộc nhà cung cấp hay đã được kiểm thực địa." : "Bằng chứng do nhà cung cấp tự chụp/tự tải; AI và EXIF chỉ là tín hiệu đối chiếu, chưa phải xác minh.",
+      booking
+        ? `Lịch hẹn xác minh ${submission.id}${isPartnerL2(submission) ? " · nhà máy đối tác, kèm hợp đồng" : ""}. Phương thức nhà cung cấp chọn: ${submission.booking_method === "on_site" ? "thực địa" : "gọi video"}.`
+        : `Hồ sơ nhà cung cấp tự gửi ${submission.id} (L${submission.target_level}).`,
+      booking && (input.scheduledAt ?? submission.booking_scheduled_at) ? `Giờ đã chốt: ${input.scheduledAt ?? submission.booking_scheduled_at}.` : "",
+      booking && submission.booking_contact_phone ? `Liên hệ: ${submission.booking_contact_phone}.` : "",
+      !booking ? "Chứng từ do nhân viên đối chiếu." : "",
+      isPartnerL2(submission) ? "Hợp đồng với nhà máy đối tác; không mặc định cơ sở thuộc nhà cung cấp." : "",
       input.note?.trim() ? `Ghi chú người nhận hồ sơ: ${input.note.trim().slice(0, 600)}` : "",
     ].filter(Boolean).join("\n"),
   });
@@ -761,6 +773,7 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
   }
 
   await store.updateSubmission(submission.id, {
+    ...(booking && input.scheduledAt ? { booking_scheduled_at: input.scheduledAt } : {}),
     status: "accepted",
     reviewed_by: staffId,
     reviewed_at: new Date().toISOString(),

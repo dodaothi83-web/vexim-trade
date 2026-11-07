@@ -368,6 +368,8 @@ export interface DataStore {
   /** Nhiều nhà cung cấp, chia lô và phân trang; chỉ dùng trên máy chủ. */
   listVerificationsForSuppliers(supplierIds: string[]): Promise<Verification[]>;
   getVerification(id: string): Promise<Verification | null>;
+  /** Đợt kiểm L2 đã duyệt theo mã báo cáo công khai (VXR-…); null nếu không có. */
+  getVerificationByReportCode?(code: string): Promise<Verification | null>;
   createVerification(input: Partial<Verification>): Promise<Verification>;
   updateVerification(id: string, patch: Partial<Verification>): Promise<Verification>;
 

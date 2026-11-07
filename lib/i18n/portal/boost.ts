@@ -41,7 +41,7 @@ export const en = {
     live: { label: "Running", note: "The chosen cards rotate." },
     paused: { label: "Paused", note: "A pause does not extend the term." },
     ended: { label: "Expired" },
-    unavailable: { label: "Not shown", note: "Contact staff to check." },
+    unavailable: { label: "Not shown", note: "Contact us to check." },
     unknown: { label: "Not determined", note: "Could not check the display conditions." },
   },
   packages: {
@@ -91,7 +91,7 @@ export const en = {
   manage: "Manage products",
   form: {
     title: "Send a product boost request",
-    sub: "Staff check the request and contact you with a price.",
+    sub: "We check the request and contact you with a price.",
     storageUnavailable: "Requests cannot be sent right now. Please try again later.",
     candidatesUnavailable: "Could not load the product list. Reload the page to try again.",
     emptyTitle: "No eligible products yet",
@@ -156,7 +156,7 @@ export const vi: BoostMessages = {
     live: { label: "Đang chạy", note: "Thẻ được chọn luân phiên." },
     paused: { label: "Tạm dừng", note: "Tạm dừng không kéo dài thời hạn." },
     ended: { label: "Hết hạn" },
-    unavailable: { label: "Không hiển thị", note: "Vui lòng liên hệ nhân viên để kiểm tra." },
+    unavailable: { label: "Không hiển thị", note: "Vui lòng liên hệ Vexim để kiểm tra." },
     unknown: { label: "Chưa xác định", note: "Chưa kiểm tra được điều kiện hiển thị." },
   },
   packages: {
@@ -206,7 +206,7 @@ export const vi: BoostMessages = {
   manage: "Quản lý sản phẩm",
   form: {
     title: "Gửi yêu cầu đẩy sản phẩm",
-    sub: "Nhân viên kiểm tra và liên hệ báo giá.",
+    sub: "Yêu cầu được kiểm tra, sau đó Vexim liên hệ báo giá.",
     storageUnavailable: "Chưa thể gửi yêu cầu lúc này. Vui lòng thử lại sau.",
     candidatesUnavailable: "Chưa tải được danh sách sản phẩm. Hãy tải lại trang để thử lại.",
     emptyTitle: "Chưa có sản phẩm đủ điều kiện",

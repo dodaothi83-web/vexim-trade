@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Camera, CheckCircle2, Clock, Crosshair, Download, FileText, Link2, Loader2, MapPin, Printer, RefreshCw, ScanSearch, Send, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, Camera, CheckCircle2, Clock, Crosshair, Download, Eye, FileText, Link2, Loader2, LockKeyhole, MapPin, Printer, RefreshCw, ScanSearch, Send, ShieldCheck, Sparkles } from "lucide-react";
 import { VeximInspectionIcon as Factory, VeximDeliveryIcon as Ship } from "@/components/brand/vexim-icons";
 
 import { VERIFICATION_CODE_TTL_HOURS } from "@/lib/verification-submission";
@@ -508,6 +508,9 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
               <button type="submit" disabled={!view.editable || busy !== ""} className="btn btn-ghost text-xs">{copy.shipment.save}</button>
               <p className="text-[10.5px] text-ink-500">{copy.shipment.note}</p>
             </div>
+            {view.shippedOn && Date.parse(view.shippedOn) < Date.now() - 730 * 86400_000 && <p role="status" className="sm:col-span-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-900">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{copy.shipment.olderThan24}
+            </p>}
           </form>
         </section>}
 
@@ -544,13 +547,13 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
         </section>
 
         {/* L3 · link nguồn công khai. */}
-        {level === 3 && <section aria-labelledby="links-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        {level === 3 && <details open={view.links.length > 0} className="group rounded-2xl border border-ink-200 bg-white p-4 shadow-sm sm:p-5">
+          <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2">
             <h3 id="links-title" className="flex items-center gap-2 text-[14px] font-bold text-ink-900">
               <Link2 className="h-4 w-4 text-brand-700" aria-hidden="true" /> {copy.links.title}
             </h3>
             <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-[10.5px] font-bold text-ink-600">{fill(copy.links.count, { count: view.links.length })}</span>
-          </div>
+          </summary>
           <p className="mt-1 text-[11.5px] leading-5 text-ink-500">{copy.links.hint}</p>
           <form onSubmit={(e) => void addLink(e)} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] sm:items-end">
             <label className="min-w-0 text-xs font-semibold text-ink-700">{copy.links.urlLabel}<input name="url" type="url" required maxLength={800} disabled={!view.editable} className="input mt-1" placeholder="https://..." /></label>
@@ -570,12 +573,13 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
               {view.editable && <button type="button" onClick={() => void removeLink(link.id)} className="text-[11px] font-semibold text-rose-600 hover:underline">{copy.links.remove}</button>}
             </li>)}
           </ul>}
-        </section>}
+        </details>}
       </div>
 
       {/* Cột tóm tắt dính: luôn thấy tiến độ và nút nộp khi lướt danh sách dài. */}
       <aside className="space-y-4 lg:sticky lg:top-20">
-        {benefits?.length ? <VerificationBenefits items={benefits} title={benefitsTitle} /> : null}
+        {/* L3: nút nộp lên đầu cột; lợi ích chuyển xuống cuối để không đẩy nút xuống. */}
+        {level !== 3 && benefits?.length ? <VerificationBenefits items={benefits} title={benefitsTitle} /> : null}
         {factory && <section aria-labelledby="gps-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <h3 id="gps-title" className="flex items-center gap-1.5 text-[13px] font-bold text-ink-900">
@@ -601,7 +605,9 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
                 : level === 2 ? view.missing.length ? fill(copy.submit.missing, { count: view.missing.length }) : copy.submit.needCode
                   : copy.submit.needExport}</p>
 
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-center">
+{level === 3
+            ? <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[12px] font-semibold text-ink-800">{fill(copy.submit.docsCount, { count: view.uploadedTotal })}</p>
+            :           <dl className="mt-3 grid grid-cols-2 gap-2 text-center">
             <div className="rounded-lg bg-ink-50 px-2 py-2">
               <dt className="text-[10px] font-semibold text-ink-500">{copy.submit.have}</dt>
               <dd className="text-[15px] font-black tabular-nums text-ink-900">{doneSpecs}/{totalSpecs}</dd>
@@ -610,7 +616,7 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
               <dt className="text-[10px] font-semibold text-ink-500">{level === 2 ? copy.submit.required : copy.submit.minimum}</dt>
               <dd className="text-[15px] font-black tabular-nums text-ink-900">{view.uploadedTotal}/{view.requiredTotal}</dd>
             </div>
-          </dl>
+          </dl>}
 
           {view.blockers.length > 0 && <details className="mt-3 rounded-lg border border-ink-100 bg-ink-50/70 px-3 py-2">
             <summary className="cursor-pointer text-[11px] font-bold text-ink-700">{fill(copy.submit.blockers, { count: view.blockers.length })}</summary>
@@ -632,6 +638,13 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
           <p className="mt-2 text-[10px] leading-4 text-ink-500">{factory ? copy.submit.aiNote : copy.submit.staffNote}</p>
         </section>
 
+        {level === 3 && <section aria-labelledby="buyers-title" className="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
+          <h3 id="buyers-title" className="flex items-center gap-1.5 text-[13px] font-bold text-ink-900"><Eye className="h-4 w-4 text-brand-700" aria-hidden="true" /> {copy.buyers.title}</h3>
+          <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[11.5px] leading-5 text-ink-700">{copy.buyers.items.map((item) => <li key={item}>{item}</li>)}</ul>
+          <h4 className="mt-2.5 flex items-center gap-1.5 text-[12px] font-bold text-ink-900"><LockKeyhole className="h-3.5 w-3.5 text-ink-500" aria-hidden="true" /> {copy.buyers.privateTitle}</h4>
+          <p className="mt-1 text-[11.5px] leading-5 text-ink-600">{copy.buyers.privateBody}</p>
+        </section>}
+
         <section aria-labelledby="tips-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
           <h3 id="tips-title" className="flex items-center gap-1.5 text-[12.5px] font-bold text-brand-900">
             {factory ? <Camera className="h-4 w-4" aria-hidden="true" /> : <FileText className="h-4 w-4" aria-hidden="true" />}
@@ -650,6 +663,7 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
           </ul>
           <p className="mt-2 flex items-start gap-1 text-[10px] leading-4 text-brand-900"><ShieldCheck className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> {copy.tips.adjudicated}</p>
         </section>
+        {level === 3 && benefits?.length ? <VerificationBenefits items={benefits} title={benefitsTitle} /> : null}
       </aside>
     </div>
 

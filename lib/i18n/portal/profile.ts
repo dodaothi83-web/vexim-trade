@@ -44,7 +44,7 @@ const en = {
     },
     info: {
       title: "What the profile shows",
-      sub: "You can update contact details, the introduction and commercial terms. The legal name and tax number stay with Vexim.",
+      sub: "You can update contact details, the introduction and commercial terms. The legal name and tax number are managed by us.",
       groups: {
         company: "Company",
         trade: "Commercial",
@@ -115,8 +115,8 @@ const en = {
     title: "Edit company profile",
     sub: "Update contact details, the introduction and commercial terms. Legal details and verification results stay as they are.",
     back: "Back to profile",
-    lockedTitle: "Details Vexim manages",
-    lockedIntro: "The legal name, tax number, registered address and verification results do not change when you save. Contact Vexim to update them.",
+    lockedTitle: "Details we manage",
+    lockedIntro: "The legal name, tax number, registered address and verification results do not change when you save. Contact us to update them.",
     lockedLabels: {
       name: "Legal name",
       taxId: "Tax number",
@@ -124,7 +124,7 @@ const en = {
       email: "Sign-in email",
       address: "Registered address",
     },
-    typeHint: "If the supplier type is wrong, contact a staff member to check and update it. Older L2 results keep the scope they were reviewed under.",
+    typeHint: "If the supplier type is wrong, contact us to check and update it. Older L2 results keep the scope they were reviewed under.",
     contactTitle: "Contact and display details",
     contactIntro: "Update contact details, the introduction and commercial content. After saving, AI translates the buyer-facing part into English.",
     labels: {
@@ -225,7 +225,7 @@ const vi: ProfileMessages = {
     },
     info: {
       title: "Thông tin trên hồ sơ",
-      sub: "Bạn cập nhật được thông tin liên hệ, giới thiệu và thương mại. Tên pháp nhân, mã số thuế do Vexim giữ.",
+      sub: "Bạn cập nhật được thông tin liên hệ, giới thiệu và thương mại. Tên pháp nhân, mã số thuế do Vexim quản lý.",
       groups: {
         company: "Doanh nghiệp",
         trade: "Thương mại",
@@ -296,7 +296,7 @@ const vi: ProfileMessages = {
     title: "Chỉnh sửa hồ sơ doanh nghiệp",
     sub: "Cập nhật thông tin liên hệ, giới thiệu và thương mại. Các thông tin pháp lý và kết quả xác minh được giữ nguyên.",
     back: "Quay lại hồ sơ",
-    lockedTitle: "Thông tin được Vexim quản lý",
+    lockedTitle: "Thông tin do Vexim quản lý",
     lockedIntro: "Tên pháp nhân, mã số thuế, địa chỉ đăng ký và kết quả xác minh không đổi khi lưu. Liên hệ Vexim nếu cần cập nhật.",
     lockedLabels: {
       name: "Tên pháp nhân",
@@ -305,7 +305,7 @@ const vi: ProfileMessages = {
       email: "Email đăng nhập",
       address: "Địa chỉ đăng ký",
     },
-    typeHint: "Nếu khai sai loại hình, liên hệ nhân viên để kiểm tra và cập nhật. Kết quả L2 cũ vẫn giữ phạm vi đã xét.",
+    typeHint: "Nếu khai sai loại hình, liên hệ Vexim để kiểm tra và cập nhật. Kết quả L2 cũ vẫn giữ phạm vi đã xét.",
     contactTitle: "Thông tin liên hệ và hiển thị",
     contactIntro: "Cập nhật thông tin liên hệ, giới thiệu và nội dung thương mại. Sau khi lưu, AI dịch phần cho người mua sang tiếng Anh.",
     labels: {

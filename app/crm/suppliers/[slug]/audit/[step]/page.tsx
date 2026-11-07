@@ -15,6 +15,8 @@ import { Breadcrumbs, Badge, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { StartVerificationButton } from "../../start-verification-button";
 import { AuditForm } from "./audit-form";
+import { CallReviewForm } from "./call-review-form";
+import { isCallReview } from "@/lib/l2-call-review";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +67,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
   if (requestedId && !current) notFound();
   const partner = step.level === 2 && (current ? isPartnerL2(current) : scope === "partner_contract");
   const title = partner ? "Nhà máy đối tác" : step.title;
-  const description = partner ? "Đối chiếu hợp đồng với nhà máy đối tác; không suy ra sở hữu hay kiểm thực địa." : step.description;
+  const description = partner ? "Gọi video với nhà máy đối tác và đối chiếu hợp đồng; không suy ra sở hữu nhà máy." : step.description;
   const media = current ? await store.listMedia("verification", current.id) : [];
   const certificateMediaIds = new Set(certificates.map((certificate) => certificate.file_media_id).filter((id): id is string => Boolean(id)));
   const certificateMedia = step.level === 1 && certificateMediaIds.size > 0
@@ -77,6 +79,12 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
   const canApprove = hasPermission(session.role, "verifications.approve");
   const canInspect = hasPermission(session.role, "verifications.inspect");
   const canPublish = hasPermission(session.role, "suppliers.publish");
+  const callReview = current ? isCallReview(current) : false;
+  // Họ tên người kiểm: đã duyệt thì dùng bản lưu cố định; chưa duyệt thì lấy từ hồ sơ người đang mở.
+  const inspectorName = callReview && current
+    ? current.inspector_name || (await store.getUser(session.uid).catch(() => null))?.name?.trim() || session.email
+    : "";
+  const booking = callReview && current ? submissions.find((sub) => sub.verification_id === current.id) ?? null : null;
 
   return <>
     <PageHeader
@@ -96,15 +104,15 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
       </nav>
       {step.level > 1 && submissions.length > 0 && (
         <Card className="border-teal-200 bg-teal-50/60 p-4">
-          <h2 className="text-sm font-bold text-ink-900">Hồ sơ bằng chứng nhà cung cấp tự gửi cho bước này ({submissions.length})</h2>
-          <p className="mt-1 text-xs text-ink-600">{step.level === 2 ? "Xem phạm vi ghi trên từng hồ sơ; hồ sơ nhà máy và hồ sơ đối tác được giữ riêng." : "Nhân viên trực tiếp đối chiếu chứng từ xuất khẩu và vai trò của doanh nghiệp."} Nhận hồ sơ tạo đợt kiểm kèm bằng chứng, không tự cấp huy hiệu.</p>
+          <h2 className="text-sm font-bold text-ink-900">{step.level === 2 ? `Lịch hẹn xác minh nhà cung cấp đặt (${submissions.length})` : `Hồ sơ bằng chứng nhà cung cấp tự gửi cho bước này (${submissions.length})`}</h2>
+          <p className="mt-1 text-xs text-ink-600">{step.level === 2 ? "Mở lịch hẹn để chốt giờ gọi; chốt giờ sẽ tạo đợt kiểm qua cuộc gọi. Hồ sơ ảnh cũ vẫn giữ để đối soát." : "Nhân viên trực tiếp đối chiếu chứng từ xuất khẩu và vai trò của doanh nghiệp."} Không tự cấp huy hiệu.</p>
           <ul className="mt-3 space-y-2 text-sm">{submissions.map((sub) => (
             <li key={sub.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2">
               <span className="text-xs text-ink-600">{step.level === 2 ? isPartnerL2(sub) ? "Đối tác · " : "Nhà máy · " : ""}{submissionStatusLabel(sub.status)}
                 {sub.verification_code ? ` · mã ${sub.verification_code}` : ""}
                 {" · nhân viên kiểm tra thủ công"}
                 {sub.verification_id ? " · đã sao bằng chứng sang đợt kiểm" : ""}</span>
-              <Link href={`/crm/verifications/submissions/${sub.id}`} className="btn btn-ghost btn-sm">Đối chiếu bằng chứng →</Link>
+              <Link href={`/crm/verifications/submissions/${sub.id}`} className="btn btn-ghost btn-sm">{step.level === 2 ? "Mở lịch hẹn →" : "Đối chiếu bằng chứng →"}</Link>
             </li>))}</ul>
         </Card>
       )}
@@ -112,7 +120,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
         <h2 className="text-sm font-bold text-ink-900">Các đợt L2 đã lưu</h2>
         <p className="mt-1 text-xs text-ink-600">Mỗi đợt giữ phạm vi riêng; thay đổi loại hình không đổi kết quả cũ.</p>
         <ul className="mt-2 space-y-1 text-xs">{forStep.map((v) => <li key={v.id}>
-          <Link className="text-brand-700 underline" href={auditHref(supplierId, 2, v.id)}>{isPartnerL2(v) ? "Hợp đồng nhà máy đối tác" : "Xác thực nhà máy"} · {v.status} · {v.created_at.slice(0, 10)}</Link>
+          <Link className="text-brand-700 underline" href={auditHref(supplierId, 2, v.id)}>{isPartnerL2(v) ? "Nhà máy đối tác" : "Xác thực nhà máy"}{isCallReview(v) ? " · qua cuộc gọi" : " · luồng ảnh cũ"} · {v.status} · {v.created_at.slice(0, 10)}</Link>
         </li>)}</ul>
       </Card>}
       {current && step.level === 2 && !l2ScopeMatchesSupplier(current, supplier.supplier_type) && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Loại hình chưa rõ hoặc khác phạm vi của đợt này. Xác minh loại hình trước khi tiếp tục; không chuyển kết quả cũ.</p>}
@@ -125,7 +133,9 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
             <p className="text-sm text-ink-600">{current.status === "approved" ? "Bằng chứng được khoá để giữ nguyên hồ sơ đã duyệt." : "Ghi kết quả, đính kèm bằng chứng và nộp xét duyệt khi đã sẵn sàng."}</p>
           </Card>
           <div className="max-w-5xl">
-            <AuditForm key={current.id + current.updated_at} verification={current} autoPublishL1={!!supplier.auto_publish_after_l1} evidence={media} certificates={certificates} certificateMedia={certificateMedia} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} scopes={certificateScopes} categories={scopeCategories.map((category) => ({ id: category.id, name: t(category.name_i18n) || category.slug }))} requestedProducts={requestedProducts} />
+            {callReview ? <CallReviewForm key={current.id} verification={current} evidence={media} canInspect={canInspect}
+              canApprove={canApprove && canSelfApproveVerification(session.role)} inspectorName={inspectorName} booking={booking} />
+            : <AuditForm key={current.id + current.updated_at} verification={current} autoPublishL1={!!supplier.auto_publish_after_l1} evidence={media} certificates={certificates} certificateMedia={certificateMedia} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} scopes={certificateScopes} categories={scopeCategories.map((category) => ({ id: category.id, name: t(category.name_i18n) || category.slug }))} requestedProducts={requestedProducts} />}
           </div>
         </>}
     </div>

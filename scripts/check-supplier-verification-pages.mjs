@@ -15,9 +15,12 @@ assert.ok(has('app/supplier/portal/verification/page.tsx'), 'Đường dẫn cũ
 
 const factory = read('app/supplier/portal/verification/factory/page.tsx');
 const exportPage = read('app/supplier/portal/verification/export/page.tsx');
-assert.match(factory, /level=\{2\}/, 'Trang nhà máy dựng hồ sơ L2');
+// 11/2026: trang L2 là trang đặt lịch gọi video/thực địa, không còn khung tự gửi ảnh.
+assert.match(factory, /supplierLevelAccess\(2\)/, 'Trang nhà máy chỉ mở quyền L2');
+assert.match(factory, /<BookingForm/, 'Trang nhà máy là form đặt lịch');
+assert.doesNotMatch(factory, /VerificationSubmissionPanel|issueSubmissionCode/, 'Không còn bộ 9 ảnh hay tờ mã');
 assert.match(exportPage, /level=\{3\}/, 'Trang xuất khẩu dựng hồ sơ L3');
-assert.doesNotMatch(factory, /level=\{3\}|getOrCreateSubmission|buildPortalSubmission/,
+assert.doesNotMatch(factory, /level: 3|level=\{3\}|buildPortalSubmission/,
   'Trang L2 không tải hồ sơ L3');
 assert.doesNotMatch(exportPage, /level=\{2\}|getOrCreateSubmission|buildPortalSubmission/,
   'Trang L3 không tải hồ sơ L2');
@@ -65,10 +68,10 @@ assert.match(levelTabs, /active \? copy\.current : copy\.open/, 'Tab nói rõ b�
 assert.match(viTabs.step, /Bước \{level\}\/3/, 'Câu đánh số bước nằm trong từ điển');
 assert.equal(viTabs.current, 'Đang mở', 'Nhãn bước đang mở nằm trong từ điển');
 const viLevelCopy = loadPortalDictionary().vi.verification.level;
-for (const text of ['Tạo và in tờ mã', 'Chụp 9 ảnh tại nhà máy', 'Chọn một lô hàng'])
+for (const text of ['Đề xuất giờ gọi', 'Tham gia cuộc gọi tại nhà máy', 'Chọn một lô hàng'])
   assert.ok(viLevelCopy.factoryGuideTitles.concat(viLevelCopy.partnerGuideTitles, viLevelCopy.exportGuideTitles).includes(text), `Có hướng dẫn “${text}”`);
 assert.ok(loadPortalDictionary().vi.verification.panel.submit.submit === 'Nộp hồ sơ', 'Có nhãn “Nộp hồ sơ”');
-assert.ok(viLevelCopy.factoryGuideBodies.join(' ').includes('kể cả ảnh đã gửi qua Zalo, đều nhận'), 'L2 nói rõ ảnh qua Zalo vẫn nhận');
+assert.ok(viLevelCopy.factoryGuideBodies.join(' ').includes('tối đa 3 khung giờ'), 'L2 hướng dẫn đề xuất khung giờ');
 assert.ok(!levelPage.includes('Gửi <strong>ảnh gốc'), 'Không đòi ảnh gốc');
 assert.ok(!levelPage.includes('AI quét những gì'), 'Đã bỏ khối giải thích AI khỏi trang L2/L3');
 
@@ -121,12 +124,13 @@ assert.doesNotMatch(levelPage, /<VerificationBenefits/, 'Trang không tự vẽ 
 const levelPanel = withCopy(read('app/supplier/portal/verification/verification-panel.tsx'), VI.verification.panel);
 const panelAside = levelPanel.slice(levelPanel.indexOf('<aside'), levelPanel.indexOf('</aside>', levelPanel.indexOf('<aside')));
 assert.match(panelAside, /<VerificationBenefits items=\{benefits\} title=\{benefitsTitle\} \/>/, 'Cột hẹp của L2/L3 có khối giá trị');
-assert.ok(panelAside.indexOf('<VerificationBenefits') < panelAside.indexOf('copy.submit.title'),
-  'Khối giá trị đứng trên thẻ nộp hồ sơ');
+// L3: thẻ nộp hồ sơ lên đầu cột, khối giá trị chuyển xuống cuối (sau thẻ người mua thấy gì).
+assert.match(panelAside, /level === 3 && benefits\?\.length \? <VerificationBenefits/, 'L3 đặt khối giá trị cuối cột');
+assert.ok(panelAside.indexOf('copy.submit.title') < panelAside.indexOf('copy.buyers.title'), 'L3: nộp hồ sơ trước, rồi người mua thấy gì');
 const benefitGroups = [VI.verification.level.factoryBenefits, VI.verification.level.partnerBenefits, VI.verification.level.exportBenefits];
 assert.equal(benefitGroups.length, 3, 'Đủ ba biến thể: L2 nhà máy, L2 đối tác, L3 xuất khẩu');
 for (const lines of benefitGroups) {
-  assert.equal(lines.length, 5, 'Mỗi cấp đúng năm giá trị');
+  assert.ok(lines.length >= 3 && lines.length <= 5, 'Mỗi cấp 3–5 giá trị');
   for (const line of lines) {
     assert.ok(line.length <= 90, `Gạch đầu dòng quá dài: ${line}`);
     assert.doesNotMatch(line, /tăng đơn|chắc chắn có đơn|top 1|lên top/i, 'Không hứa đơn hàng hay thứ hạng tuyệt đối');
@@ -162,8 +166,10 @@ for (const [label, pattern] of [
 
 const shipmentCard = panel.slice(panel.indexOf('{/* L3 · lô hàng'), panel.indexOf('{/* Bộ bằng chứng'));
 assert.match(VI.verification.panel.shipment.privacy,
-  /Chứng từ của bạn được bảo mật và không hiển thị công khai\.[\s\S]*Chọn một lô hàng đã xuất và tải chứng từ của lô đó để nhân viên kiểm tra\./,
-  'Ghi chú L3 nói rõ bảo mật và việc cần làm');
+  /Chứng từ của bạn được bảo mật và không hiển thị công khai\./,
+  'Ghi chú L3 nói rõ bảo mật (việc cần làm nằm ở bước hướng dẫn)');
+assert.match(VI.verification.panel.buyers.privateBody, /tên khách hàng, giá/, 'L3 nói rõ phần không công khai');
+assert.match(VI.verification.level.exportGuideBodies[0], /24 tháng/, 'L3 hướng dẫn chọn lô trong 24 tháng');
 assert.match(shipmentCard, /copy\.shipment\.privacy/, 'Thẻ lô hàng đọc ghi chú từ từ điển');
 assert.match(shipmentCard, /level === 3 &&/, 'Ghi chú bảo mật chỉ thuộc luồng xuất khẩu L3');
 

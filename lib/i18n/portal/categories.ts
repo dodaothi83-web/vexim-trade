@@ -10,7 +10,7 @@ export const en = {
   metaTitle: "Business categories",
   eyebrow: "Supplier portal · private",
   title: "Business categories",
-  sub: "Pick the groups your company sells in, from the list Vexim has opened. The scope tells staff what to review; picking a category does not publish anything.",
+  sub: "Pick the groups your company sells in, from the list we have opened. The scope tells us what to review; picking a category does not publish anything.",
   backToProducts: "My products",
   emptyTitle: "No category to pick yet",
   emptyBody: "You cannot create a category yourself. Contact support if your industry is not listed; once it is opened it will show here so you can pick your sales scope.",
@@ -68,8 +68,8 @@ export const en = {
   know: {
     title: "Good to know",
     items: [
-      "You can only pick categories Vexim has opened; you cannot create a new one.",
-      "The scope is context for staff when they review your products.",
+      "You can only pick categories we have opened; you cannot create a new one.",
+      "The scope is context for us when we review your products.",
       "Saving categories does not approve products or publish your storefront.",
       "Removing a category that still has products is blocked until you move them.",
     ],
@@ -96,7 +96,7 @@ export const vi: CategoriesMessages = {
   metaTitle: "Danh mục kinh doanh",
   eyebrow: "Cổng nhà cung cấp · riêng tư",
   title: "Danh mục kinh doanh",
-  sub: "Chọn nhóm hàng trong danh sách đang mở. Phạm vi giúp nhân viên xem xét sản phẩm; thêm danh mục không đăng gian hàng hay duyệt sản phẩm.", // copy-allow — câu gốc, giữ nguyên
+  sub: "Chọn nhóm hàng trong danh sách đang mở. Phạm vi là căn cứ khi xem xét sản phẩm; thêm danh mục không đăng gian hàng hay duyệt sản phẩm.", // copy-allow — câu gốc, giữ nguyên
   backToProducts: "Sản phẩm của tôi",
   emptyTitle: "Chưa có danh mục nào để chọn",
   emptyBody: "Bạn không tự tạo được danh mục mới. Liên hệ bộ phận hỗ trợ nếu ngành hàng của bạn chưa có trong danh sách; khi được mở, danh mục sẽ hiện ở đây để bạn chọn phạm vi bán hàng.", // copy-allow — câu gốc, giữ nguyên
@@ -155,7 +155,7 @@ export const vi: CategoriesMessages = {
     title: "Cần biết",
     items: [
       "Chỉ chọn được danh mục đang mở; bạn không tự tạo danh mục mới.",
-      "Phạm vi này là thông tin tham khảo khi nhân viên duyệt sản phẩm.",
+      "Phạm vi này là thông tin tham khảo khi duyệt sản phẩm.",
       "Lưu danh mục không duyệt sản phẩm, không công khai gian hàng.",
       "Bỏ danh mục còn sản phẩm sẽ bị chặn cho tới khi chuyển sản phẩm.",
     ],

@@ -11,6 +11,7 @@ import { maxBytesFor } from "@/lib/supplier-portal/submission-evidence";
 import { getLocale } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
 import { evidenceMessages } from "@/lib/i18n/portal/evidence";
+import { bookingMessages } from "@/lib/i18n/portal/booking";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +72,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try { form = await request.formData(); } catch { return json({ ok: false, message: text.noData }, 400); }
 
   const key = String(form.get("checklistKey") ?? "").trim();
+  // 11/2026: L2 là lịch hẹn gọi video; nhà cung cấp chỉ còn tải hợp đồng nhà máy đối tác.
+  if (submission.target_level === 2 && key !== "partner_factory_contract") {
+    return json({ ok: false, message: bookingMessages[language].uploadRetired }, 410);
+  }
   const file = form.get("file");
   if (!(file instanceof File)) return json({ ok: false, message: submission.target_level === 3 || submission.l2_scope === "partner_contract" ? text.noFileDoc : text.noFilePhoto }, 400);
   if (file.size > maxBytesFor(submission.target_level, submission.l2_scope, key)) {

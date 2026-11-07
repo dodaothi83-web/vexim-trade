@@ -31,7 +31,7 @@ const en = {
     closeMenu: "Close menu",
     viewPublicPage: "View public page",
     portalOpen: "PORTAL OPEN",
-    awaitingReview: "AWAITING VEXIM REVIEW",
+    awaitingReview: "AWAITING REVIEW",
     signOut: "Sign out",
   },
   topbar: {
@@ -93,7 +93,7 @@ const vi: ShellMessages = {
     closeMenu: "Đóng menu",
     viewPublicPage: "Xem trang công khai",
     portalOpen: "CỔNG ĐÃ ĐƯỢC MỞ",
-    awaitingReview: "ĐANG CHỜ VEXIM XÁC NHẬN",
+    awaitingReview: "ĐANG CHỜ XÁC NHẬN",
     signOut: "Đăng xuất",
   },
   topbar: {

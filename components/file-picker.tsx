@@ -25,7 +25,10 @@ export function FilePicker({
   onPick,
   compact = false,
   className = "",
+  labels,
 }: {
+  /** Chữ trên nút và dòng trạng thái; mặc định tiếng Việt, cổng song ngữ truyền theo ngôn ngữ đang chọn. */
+  labels?: { choose?: string; change?: string; locked?: string; uploading?: string; empty?: string };
   name?: string;
   accept?: string;
   multiple?: boolean;
@@ -123,11 +126,11 @@ export function FilePicker({
         {requiredMark && <span className="text-rose-700">*</span>}
       </span>
       <span className="mt-0.5 block truncate text-xs text-ink-500" title={summary || hint}>
-        {busy ? "Đang tải tệp lên..." : summary || hint || "Bấm để chọn hoặc kéo tệp vào đây"}
+        {busy ? labels?.uploading ?? "Đang tải tệp lên..." : summary || hint || (labels?.empty ?? "Bấm để chọn hoặc kéo tệp vào đây")}
       </span>
     </span>
     <span className={`hidden shrink-0 rounded-lg border border-ink-200 font-semibold text-ink-700 sm:inline-block ${compact ? "px-2 py-1 text-[10.5px]" : "px-3 py-1.5 text-xs"}`}>
-      {picked.length > 0 ? "Đổi tệp" : disabled ? "Tạm khóa" : "Chọn tệp"}
+      {picked.length > 0 ? labels?.change ?? "Đổi tệp" : disabled ? labels?.locked ?? "Tạm khóa" : labels?.choose ?? "Chọn tệp"}
     </span>
     <input
       ref={inputRef}
