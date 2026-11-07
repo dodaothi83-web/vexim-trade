@@ -3,11 +3,28 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { VeximLanguageIcon } from "@/components/brand/vexim-icons";
 
 import { SourcingComposerTrigger } from "@/components/sourcing-composer";
 import { PublicSignInLink } from "@/components/public-sign-in-link";
+
+const NAV_LINK = "rounded-full px-3 py-2 transition-colors hover:bg-ink-50 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 lg:px-3.5";
+const NAV_ACTIVE = "bg-brand-50 text-brand-800 hover:bg-brand-50 hover:text-brand-800";
+
+/** Menu chính: chữ đậm vừa, nền bo tròn khi rê chuột, mục đang mở được tô nhẹ. */
+function PrimaryNav({ pathname, isVi }: { pathname: string; isVi: boolean }) {
+  const items = [
+    { href: isVi ? "/?lang=vi#categories" : "/#categories", label: isVi ? "Danh mục" : "Categories", active: pathname.startsWith("/products") },
+    { href: isVi ? "/how-it-works?lang=vi" : "/how-it-works", label: isVi ? "Cách hoạt động" : "How it works", active: pathname.startsWith("/how-it-works") },
+    { href: "/how-we-verify", label: isVi ? "Quy trình xác thực" : "How we verify", active: pathname.startsWith("/how-we-verify") || pathname.startsWith("/verify") },
+    { href: "/for-suppliers", label: isVi ? "Dành cho nhà cung cấp" : "For suppliers", active: pathname.startsWith("/for-suppliers") },
+  ];
+  return <nav aria-label={isVi ? "Điều hướng chính" : "Main navigation"} className="ml-2 hidden items-center gap-0.5 whitespace-nowrap text-[12.5px] font-semibold text-ink-700 md:flex lg:ml-5 lg:gap-1 lg:text-[14px]">
+    {items.map((item) => <Link key={item.href} href={item.href} aria-current={item.active ? "page" : undefined}
+      className={`${NAV_LINK} ${item.active ? NAV_ACTIVE : ""}`}>{item.label}</Link>)}
+  </nav>;
+}
 
 function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: string | null; buyerCompanyName?: string | null }) {
   const pathname = usePathname() || "/";
@@ -59,20 +76,7 @@ function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: st
 
   return (
     <>
-      <nav className="ml-3 hidden items-center gap-3 whitespace-nowrap text-[12px] font-medium text-ink-700 md:flex lg:ml-6 lg:gap-5 lg:text-[13.5px]">
-        <Link href={isVi ? "/?lang=vi#categories" : "/#categories"} className="hover:text-brand-700">
-          {isVi ? "Danh mục" : "Categories"}
-        </Link>
-        <Link href={isVi ? "/how-it-works?lang=vi" : "/how-it-works"} className="hover:text-brand-700">
-          {isVi ? "Cách hoạt động" : "How it works"}
-        </Link>
-        <Link href="/how-we-verify" className="hover:text-brand-700">
-          {isVi ? "Quy trình xác thực" : "How we verify"}
-        </Link>
-        <Link href="/for-suppliers" className="hover:text-brand-700">
-          {isVi ? "Dành cho nhà cung cấp" : "For suppliers"}
-        </Link>
-      </nav>
+      <PrimaryNav pathname={pathname} isVi={isVi} />
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2 lg:gap-3">
         {/* Nút icon quả địa cầu mở dropdown chọn ngôn ngữ (Mặc định: Tiếng Anh) */}
@@ -84,9 +88,11 @@ function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: st
             aria-expanded={open}
             aria-haspopup="menu"
             title={isVi ? "Đổi ngôn ngữ (Tiếng Việt / English)" : "Change language (English / Tiếng Việt)"}
-            className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-brand-700 transition hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-expanded:bg-brand-50"
+            className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2.5 text-[12.5px] font-bold text-ink-800 transition hover:border-brand-300 hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-expanded:border-brand-300 aria-expanded:bg-brand-50"
           >
-            <VeximLanguageIcon size={26} strokeWidth={2.2} />
+            <VeximLanguageIcon size={20} strokeWidth={2.2} className="text-brand-700" />
+            <span>{isVi ? "VI" : "EN"}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-ink-500" aria-hidden="true" />
           </button>
 
           {open && (
@@ -126,6 +132,7 @@ function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: st
           )}
         </div>
 
+        <span className="mx-0.5 hidden h-6 w-px bg-ink-200 sm:block" aria-hidden="true" />
         <PublicSignInLink lang={lang} buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
         <SourcingComposerTrigger isVi={isVi} />
       </div>
@@ -136,22 +143,20 @@ function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: st
 function HeaderControlsFallback({ buyerEmail, buyerCompanyName }: { buyerEmail?: string | null; buyerCompanyName?: string | null }) {
   return (
     <>
-      <nav className="ml-3 hidden items-center gap-3 whitespace-nowrap text-[12px] font-medium text-ink-700 md:flex lg:ml-6 lg:gap-5 lg:text-[13.5px]">
-        <Link href="/#categories" className="hover:text-brand-700">Categories</Link>
-        <Link href="/how-it-works" className="hover:text-brand-700">How it works</Link>
-        <Link href="/how-we-verify" className="hover:text-brand-700">How we verify</Link>
-        <Link href="/for-suppliers" className="hover:text-brand-700">For suppliers</Link>
-      </nav>
+      <PrimaryNav pathname="/" isVi={false} />
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2 lg:gap-3">
         <button
           type="button"
           aria-label="Language switcher / Chuyển đổi ngôn ngữ"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-brand-700"
+          className="inline-flex h-10 items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2.5 text-[12.5px] font-bold text-ink-800"
         >
-          <VeximLanguageIcon size={26} strokeWidth={2.2} />
+          <VeximLanguageIcon size={20} strokeWidth={2.2} className="text-brand-700" />
+          <span>EN</span>
+          <ChevronDown className="h-3.5 w-3.5 text-ink-500" aria-hidden="true" />
         </button>
 
+        <span className="mx-0.5 hidden h-6 w-px bg-ink-200 sm:block" aria-hidden="true" />
         <PublicSignInLink buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
         <SourcingComposerTrigger />
       </div>

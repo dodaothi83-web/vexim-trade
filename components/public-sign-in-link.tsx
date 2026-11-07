@@ -67,7 +67,7 @@ export function PublicSignInLink({ lang = "en", buyerEmail = null, buyerCompanyN
         }
       }}>
       <summary aria-label={lang === "vi" ? "Tài khoản người mua" : "Buyer account"} title={lang === "vi" ? "Đã đăng nhập. Tài khoản của bạn" : "Signed in. Your account"}
-        className="relative inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg text-brand-700 transition hover:bg-brand-50 group-open:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 [&::-webkit-details-marker]:hidden">
+        className="relative inline-flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full text-brand-700 transition hover:bg-brand-50 group-open:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 [&::-webkit-details-marker]:hidden">
         <VeximAccountIcon size={26} strokeWidth={2.2} />
         {/* Đã đăng nhập: chữ cái đầu công ty trong một chấm nhỏ, thay cho khối tròn đặc to. */}
         <span className="absolute bottom-1 right-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-brand-700 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white" aria-hidden="true">{initial}</span>
@@ -102,9 +102,9 @@ export function PublicSignInLink({ lang = "en", buyerEmail = null, buyerCompanyN
       lang={lang}
       aria-label={label}
       title={label}
-      className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[13px] font-semibold text-brand-700 transition hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+      className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[14px] font-semibold text-ink-800 transition hover:bg-ink-50 hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 xl:px-3.5"
     >
-      <VeximAccountIcon size={26} strokeWidth={2.2} aria-hidden="true" />
+      <VeximAccountIcon size={22} strokeWidth={2.2} aria-hidden="true" className="text-brand-700" />
       <span className="hidden xl:inline">{label}</span>
     </Link>
   );
