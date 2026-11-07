@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { categoryPathOf, certificateLabelsForProducts } from "@/lib/public/certificate-badges";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -62,6 +63,11 @@ export default async function SupplierProfile({ params }: PageProps) {
   const supplierCertificates = publicSupplierCertificates(s.id, rawCerts, rawSupplierMedia);
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
+  // Chứng nhận trên thẻ sản phẩm của gian hàng: cùng luật với thẻ ở danh mục và trang chủ.
+  const productCertificates = Object.fromEntries(await certificateLabelsForProducts(store, s.main_products.flatMap((p) => {
+    const category = productCategory(p);
+    return category ? [{ id: p.id, supplierId: s.id, categoryPath: categoryPathOf(category.id, categories) }] : [];
+  })).catch(() => new Map<string, string[]>()));
   const name = safe(s.display_name || s.name);
   const summary = safe(supplierSummaryDisplay(s));
   const synthetic = isSyntheticSupplier(s);
@@ -110,6 +116,7 @@ export default async function SupplierProfile({ params }: PageProps) {
     <SupplierStorefront
       supplier={s}
       certificates={supplierCertificates}
+      productCertificates={productCertificates}
       categories={categories}
       coverUrl={coverUrl}
       avatarUrl={avatarUrl}

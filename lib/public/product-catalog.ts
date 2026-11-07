@@ -1,4 +1,6 @@
 import type { PublicL2Scope } from "@/lib/verification-status";
+import { categoryPathOf, certificateLabelsForProducts } from "@/lib/public/certificate-badges";
+import { readCategoryCertificateData } from "@/lib/public/category-certificate-data";
 import "server-only";
 
 import { getStore } from "@/lib/db";
@@ -70,6 +72,8 @@ export interface PublicCategoryProduct {
   inputMaterialOrigin: string;
   verificationCount: number;
   verificationSteps: VerificationLevel[];
+  /** Tên chứng nhận đã duyệt áp cho sản phẩm (HACCP, ISO 22000…), hiện trên thẻ. */
+  certificates?: string[];
   l2Scope?: PublicL2Scope;
   /**
    * Số bước xác minh còn hiệu lực (0-3): L2/L3 đã duyệt là còn; L1 chỉ còn khi NCC
@@ -208,6 +212,8 @@ export interface PublicProductCatalogSnapshot {
   /** Request-scoped promises only; raw evidence stays on the server. */
   mediaByProduct: Map<string, Promise<MediaAsset[]>>;
   certificatesBySupplier: Map<string, Promise<Certificate[]>>;
+  /** Chứng nhận trên thẻ: đọc một lần cho mọi nhà cung cấp công khai của lượt tải. */
+  certificateBadgeData?: Promise<import("@/lib/public/category-certificate-data").CategoryCertificateData>;
 }
 
 export async function loadPublicProductCatalogSnapshot(options?: { categories?: Category[] }): Promise<PublicProductCatalogSnapshot> {
@@ -310,7 +316,16 @@ export async function listPublicCategoryProducts(category: Category, options?: {
   const projected = await quantityPriceProjectionEnabled()
     ? await (await import("@/lib/public/quantity-catalog-legacy-preview")).projectQuantityCatalogPreview(readyRecords)
     : readyRecords;
-  return rankPublicCategoryProducts(projected.map(({ card }) => card), SPEC_RANKING_WEIGHTS);
+  const ranked = rankPublicCategoryProducts(projected.map(({ card }) => card), SPEC_RANKING_WEIGHTS);
+  // Chứng nhận trên thẻ: lỗi đọc giấy không được làm hỏng danh sách sản phẩm.
+  const path = categoryPathOf(category.id, knownCategories);
+  if (options?.snapshot && !snapshot.certificateBadgeData) {
+    snapshot.certificateBadgeData = readCategoryCertificateData(store, suppliers.map((supplier) => supplier.id));
+  }
+  const labels = await certificateLabelsForProducts(store, ranked.map((card) => ({ id: card.id, supplierId: card.supplierId, categoryPath: path })),
+    options?.snapshot ? snapshot.certificateBadgeData : undefined)
+    .catch((error) => { console.error("[catalog] certificate labels", error); return new Map<string, string[]>(); });
+  return labels.size ? ranked.map((card) => labels.has(card.id) ? { ...card, certificates: labels.get(card.id) } : card) : ranked;
 }
 
 export interface PublicProductRecord {
@@ -358,7 +373,11 @@ export async function getPublicProductRecordsByIds(ids: readonly string[]): Prom
       media: media.filter((asset) => asset.product_id === product.id),
       card: projectPublicCategoryProduct(product, supplier, category, media.filter((asset) => asset.product_id === product.id)),
     }));
-  return await quantityPriceProjectionEnabled()
-    ? (await import("@/lib/public/quantity-catalog-legacy-preview")).projectQuantityCatalogPreview(readyRecords)
+  const records = await quantityPriceProjectionEnabled()
+    ? await (await import("@/lib/public/quantity-catalog-legacy-preview")).projectQuantityCatalogPreview(readyRecords)
     : readyRecords;
+  const labels = await certificateLabelsForProducts(store, records.map(({ card, category }) => ({
+    id: card.id, supplierId: card.supplierId, categoryPath: categoryPathOf(category.id, categories),
+  }))).catch((error) => { console.error("[catalog] certificate labels", error); return new Map<string, string[]>(); });
+  return labels.size ? records.map((record) => labels.has(record.card.id) ? { ...record, card: { ...record.card, certificates: labels.get(record.card.id) } } : record) : records;
 }

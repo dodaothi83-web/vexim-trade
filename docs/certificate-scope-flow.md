@@ -21,6 +21,12 @@ Danh sách mã nằm ở `lib/certificate-scheme.ts`; migration `20261076_certif
 - Tải giấy từ trang sản phẩm của cổng nhà cung cấp gửi kèm `product_id`, ghi vào `requested_product_ids` để CRM biết danh mục cần tích sẵn.
 - Sau khi duyệt, trang tạo/sửa sản phẩm của nhà cung cấp tự hiện chứng nhận khi chọn danh mục đã gắn (`certificateInheritanceByCategory`).
 
+## Badge chứng nhận trên thẻ sản phẩm (11/2026)
+
+- Thẻ sản phẩm công khai hiện tên chứng nhận áp cho sản phẩm (ví dụ "HACCP", "ISO 22000") ngay dưới ảnh, trên tiêu đề, theo đúng cổng của bộ lọc chứng nhận (`certificateLabelsForProducts` trong `lib/public/certificate-badges.ts`).
+- Tối đa 3 tên trên **một dòng duy nhất**, phần dư gộp thành "+N"; tiêu đề cũng chỉ một dòng, dài thì cắt và thêm "…".
+- Dữ liệu gắn vào thẻ ở `listPublicCategoryProducts` và `getPublicProductRecordsByIds` (danh mục, trang chủ, tìm kiếm, sản phẩm tương tự, so sánh); trang gian hàng tính riêng. Trang chủ và tìm kiếm đọc dữ liệu chứng nhận một lần cho cả lượt tải (`snapshot.certificateBadgeData`).
+
 ## Phạm vi (`certificate_scopes`)
 
 Mỗi dòng là **hoặc** một `category_id` **hoặc** một `product_id`, kèm `verified_by`/`verified_at`. Chỉ dòng đã có người xác nhận mới có hiệu lực với người mua.
