@@ -116,7 +116,7 @@ export function outstandingVerificationItems(input: {
         title: partner ? "Nhà máy đối tác" : "Xác thực nhà máy",
         detail: partner
           ? "Tải hợp đồng với nhà máy đối tác và đặt lịch gọi video tại nhà máy đó."
-          : "Đặt lịch gọi video hoặc thực địa để Vexim xác minh nhà máy.",
+          : "Đặt lịch gọi video hoặc thực địa để xác minh nhà máy.",
         href: "/supplier/portal/verification/factory",
         cta: "Đặt lịch xác minh",
       });
@@ -164,7 +164,7 @@ export function buildSupplierReminderEmail(input: {
     <p>Hồ sơ xác minh của <strong>${escapeHtml(company)}</strong> trên Vexim Trade còn ${input.items.length} bước cần bổ sung:</p>
     <ul>${rows}</ul>
     <p>Tải tệp lên không tự cấp huy hiệu.</p>
-    <p>Nhân viên Vexim mở bằng chứng và duyệt từng bước, sau đó huy hiệu mới hiện trên hồ sơ công khai.</p>
+    <p>Vexim kiểm tra và duyệt từng bước; huy hiệu hiện trên hồ sơ công khai sau khi được duyệt.</p>
     <p>Thư này liên quan đến tài khoản nhà cung cấp của bạn.</p>
     <p>Nếu hồ sơ đã cập nhật hoặc bạn không muốn nhận thư nhắc, trả lời thư này.</p>
     <p><a href="${escapeHtml(`${input.origin}/supplier/portal`)}">Mở cổng nhà cung cấp</a></p>`;
@@ -176,7 +176,7 @@ export function buildSupplierReminderEmail(input: {
     ...input.items.map((item) => `- ${item.title}: ${item.detail} ${input.origin}${item.href}`),
     "",
     "Tải tệp lên không tự cấp huy hiệu.",
-    "Nhân viên Vexim mở bằng chứng và duyệt từng bước, sau đó huy hiệu mới hiện trên hồ sơ công khai.",
+    "Vexim kiểm tra và duyệt từng bước; huy hiệu hiện trên hồ sơ công khai sau khi được duyệt.",
     "Thư này liên quan đến tài khoản nhà cung cấp của bạn.",
     "Nếu hồ sơ đã cập nhật hoặc bạn không muốn nhận thư nhắc, trả lời thư này.",
     "",

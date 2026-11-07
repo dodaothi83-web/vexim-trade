@@ -133,7 +133,7 @@ const vi: NoticesMessages = {
   },
   submission: {
     queued: "Hồ sơ tự gửi đang chờ duyệt: {label}",
-    queuedDetail: "Hồ sơ đang chờ nhân viên đối chiếu; bằng chứng tạm khóa trong khi xét.",
+    queuedDetail: "Hồ sơ đang chờ đối chiếu; bằng chứng tạm khóa trong khi xét.",
     returned: "Hồ sơ tự gửi cần bổ sung: {label}",
     returnedFallback: "Mở cổng tự xác thực để xem lý do và tải bằng chứng mới.",
     accepted: "Hồ sơ đã được nhận vào đợt kiểm: {label}",

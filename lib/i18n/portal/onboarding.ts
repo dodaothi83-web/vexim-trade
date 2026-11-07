@@ -47,7 +47,7 @@ const en = {
       address: "e.g. 25/6 Alley 51 Ngoa Long, Tay Tuu",
     },
     typeUnset: "Not set",
-    typeLockedHint: "If it is wrong or missing, contact a staff member to check and update it.",
+    typeLockedHint: "If it is wrong or missing, contact us to check and update it.",
     typeSelectPlaceholder: "Choose factory / trader / cooperative",
   },
   contact: {
@@ -77,7 +77,7 @@ const en = {
     partnerTitle: "Partner factory review",
     factoryHint:
       "You will be contacted to arrange a check and upload evidence in a round; asking does not approve anything.",
-    partnerHint: "A contract with the partner factory is required; photos are optional. Staff check it, nothing is auto-approved.",
+    partnerHint: "A contract with the partner factory is required; photos are optional. We check it, nothing is auto-approved.",
     exportTitle: "Delivery history",
     exportHint:
       "You will be contacted to arrange a check and upload evidence in a round; asking does not approve anything.",
@@ -250,7 +250,7 @@ const vi: OnboardingMessages = {
       address: "vd: 25/6 Ngõ 51 Ngoạ Long, Tây Tựu",
     },
     typeUnset: "Chưa khai",
-    typeLockedHint: "Nếu sai hoặc chưa khai, liên hệ nhân viên để kiểm tra và cập nhật.",
+    typeLockedHint: "Nếu sai hoặc chưa khai, liên hệ Vexim để kiểm tra và cập nhật.",
     typeSelectPlaceholder: "Chọn loại hình doanh nghiệp",
   },
   contact: {
@@ -280,7 +280,7 @@ const vi: OnboardingMessages = {
     partnerTitle: "Đối chiếu nhà máy đối tác",
     factoryHint:
       "Bạn sẽ được liên hệ để kiểm tra và tải bằng chứng theo đợt; gửi yêu cầu không tự duyệt.",
-    partnerHint: "Cần hợp đồng với nhà máy đối tác; ảnh là tùy chọn. Nhân viên sẽ đối chiếu, không tự duyệt.",
+    partnerHint: "Cần hợp đồng với nhà máy đối tác; ảnh là tùy chọn. Hợp đồng được đối chiếu, không tự duyệt.",
     exportTitle: "Lịch sử giao hàng",
     exportHint:
       "Bạn sẽ được liên hệ để kiểm tra và tải bằng chứng theo đợt; gửi yêu cầu không tự duyệt.",

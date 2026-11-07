@@ -95,7 +95,7 @@ const en = {
     step: "Step {level}",
     here: "You are here",
     footnote:
-      "Badges appear after Vexim approves each step.",
+      "Badges appear after each step is approved.",
   },
 };
 
@@ -200,7 +200,7 @@ const vi: OverviewMessages = {
     step: "Bước {level}",
     here: "Đang ở đây",
     footnote:
-      "Huy hiệu hiển thị sau khi Vexim duyệt.",
+      "Huy hiệu hiển thị sau khi được duyệt.",
   },
 };
 

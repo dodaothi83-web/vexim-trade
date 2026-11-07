@@ -100,7 +100,7 @@ const l3Draft = buildVerificationProgress({
 });
 assert.equal(l3Draft.steps[2].state, 'action');
 assert.equal(l3Draft.steps[2].metric, 'Đã tải 1 loại chứng từ');
-assert.match(l3Draft.steps[2].note, /nộp cho nhân viên kiểm tra/);
+assert.match(l3Draft.steps[2].note, /Mở cổng để nộp hồ sơ/);
 assert.equal(l3Draft.approvedCount, 0);
 const l3Empty = buildVerificationProgress({ ...empty, submissions: [submission({ id: 'sub-3', target_level: 3 })] });
 assert.match(l3Empty.steps[2].note, /ít nhất một chứng từ/);
