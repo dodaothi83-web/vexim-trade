@@ -13,6 +13,20 @@ Nhà cung cấp **chỉ tải tệp lên một kho giấy** ở hồ sơ của h
 
 Danh sách mã nằm ở `lib/certificate-scheme.ts`; migration `20261076_certificate_scope_flow.sql` giữ đúng danh sách đó và **không** tự chốt loại cho giấy cũ.
 
+## Duyệt và áp dụng danh mục trong một bước (11/2026)
+
+- Khi giấy chưa đăng, khung **"Áp dụng cho danh mục"** trong CRM liệt kê danh mục dạng ô tích, kèm dòng phạm vi in trên giấy (`scope_text`).
+- **Tích sẵn**: gợi ý AI có độ tin cậy cao, và danh mục của sản phẩm mà nhà cung cấp tải giấy từ đó. Gợi ý tin cậy thấp để trống. Nhân viên có thể bỏ tích hoặc thêm danh mục khác.
+- Nút **"Duyệt và áp dụng cho N danh mục"** gọi `approveCertificateAction(..., { categoryIds })`: kiểm loại giấy là chất lượng trước khi duyệt, duyệt đăng, rồi tạo từng dòng phạm vi qua `addCertificateScopeAction`. Yêu cầu "gắn cho sản phẩm X" được xoá khỏi hàng chờ khi danh mục của X vừa được gắn.
+- Tải giấy từ trang sản phẩm của cổng nhà cung cấp gửi kèm `product_id`, ghi vào `requested_product_ids` để CRM biết danh mục cần tích sẵn.
+- Sau khi duyệt, trang tạo/sửa sản phẩm của nhà cung cấp tự hiện chứng nhận khi chọn danh mục đã gắn (`certificateInheritanceByCategory`).
+
+## Badge chứng nhận trên thẻ sản phẩm (11/2026)
+
+- Thẻ sản phẩm công khai hiện tên chứng nhận áp cho sản phẩm (ví dụ "HACCP", "ISO 22000") ngay dưới ảnh, trên tiêu đề, theo đúng cổng của bộ lọc chứng nhận (`certificateLabelsForProducts` trong `lib/public/certificate-badges.ts`).
+- Tối đa 3 tên trên **một dòng duy nhất**, phần dư gộp thành "+N"; tiêu đề cũng chỉ một dòng, dài thì cắt và thêm "…".
+- Dữ liệu gắn vào thẻ ở `listPublicCategoryProducts` và `getPublicProductRecordsByIds` (danh mục, trang chủ, tìm kiếm, sản phẩm tương tự, so sánh); trang gian hàng tính riêng. Trang chủ và tìm kiếm đọc dữ liệu chứng nhận một lần cho cả lượt tải (`snapshot.certificateBadgeData`).
+
 ## Phạm vi (`certificate_scopes`)
 
 Mỗi dòng là **hoặc** một `category_id` **hoặc** một `product_id`, kèm `verified_by`/`verified_at`. Chỉ dòng đã có người xác nhận mới có hiệu lực với người mua.
@@ -49,7 +63,7 @@ Hai ô tải giấy (trang **Giấy tờ & chứng nhận L1** và khối "Chứ
 - **Đợt đã duyệt vẫn nhận bổ sung giấy đăng ký kinh doanh khi mục còn trống** (`canUploadOwnDocument(..., { hasFile })`): nhân viên không mở lại được đợt đã duyệt, nên nếu chặn tuyệt đối thì hồ sơ duyệt tay từ trước sẽ không bao giờ có giấy. Tải bổ sung không đổi kết quả xác thực, không mở lại đợt, vẫn gửi mail cho nhân viên. Đã có tệp rồi thì không cho thay.
 - Tab và tiêu đề dùng "Xác thực doanh nghiệp"; không còn mã bước nội bộ (L1) trong câu nhà cung cấp thấy (tab, trang tổng quan, hồ sơ, email nhắc hạn, việc trên bảng điều khiển).
 - **Tệp cũ ≠ chứng nhận.** Tệp tải theo luồng cũ (ô HACCP/chứng chỉ sản phẩm) chỉ là tệp: không hạn nhắc, không nhãn, không phạm vi. Trang liệt kê chúng ở khối "Tệp chứng nhận đã tải trước đây"; khi kho đã có bản ghi cùng loại giấy, dòng đó **tự ẩn** (`lib/supplier-portal/legacy-certificate-files.ts`, so theo từ sau khi bỏ dấu; khác năm trên giấy thì giữ lại để không ẩn nhầm). Không xoá tệp, không backfill bản ghi.
-- **Đơn vị thương mại chưa có L2 nhà máy đối tác**: ô tải chứng nhận đóng sẵn, hiện lý do và lối sang bước 2 — không để chọn tệp rồi mới nhận lỗi 403. Sản phẩm vẫn đăng bán bình thường.
+- **Từ 11/2026 (chủ dự án duyệt): ô tải chứng nhận luôn mở cho mọi nhà cung cấp.** Giấy đứng tên chính nhà cung cấp được xét như cũ. Đơn vị thương mại có thêm ô "Hợp đồng với nhà máy" (`relationship_file`, lưu là tệp nội bộ của nhà cung cấp, chú thích `PARTNER_CONTRACT_CAPTION`). Giấy đứng tên nhà máy khác không tự công bố; nhân viên duyệt đăng khi (1) đã xác minh nhà máy đối tác L3 và tên khớp, hoặc (2) đã mở hợp đồng và đánh dấu "Đã xem" trong CRM (`partner_contract_reviewed` ghi vào nhật ký). Nhà máy và hợp tác xã vẫn chỉ đăng giấy đứng tên chính mình. Người mua thấy nhãn "Third-party holder · tên nhà máy".
 - **Không nhắc "AI quét"** ở câu nhà cung cấp thấy: thông báo tải giấy tờ, email nhắc hạn, việc trên bảng điều khiển đều ghi "hệ thống đọc lại/hệ thống nhắc"; ghi chú nội bộ của nhân viên (`review_note`) vẫn giữ nguyên và không hiện ở cổng.
 
 ## CRM

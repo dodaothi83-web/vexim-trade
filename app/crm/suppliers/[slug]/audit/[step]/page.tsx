@@ -15,6 +15,7 @@ import { Breadcrumbs, Badge, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { StartVerificationButton } from "../../start-verification-button";
 import { AuditForm } from "./audit-form";
+import { isPartnerContractDocument } from "@/lib/certificate-service";
 import { CallReviewForm } from "./call-review-form";
 import { isCallReview } from "@/lib/l2-call-review";
 
@@ -70,12 +71,16 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
   const description = partner ? "Gọi video với nhà máy đối tác và đối chiếu hợp đồng; không suy ra sở hữu nhà máy." : step.description;
   const media = current ? await store.listMedia("verification", current.id) : [];
   const certificateMediaIds = new Set(certificates.map((certificate) => certificate.file_media_id).filter((id): id is string => Boolean(id)));
-  const certificateMedia = step.level === 1 && certificateMediaIds.size > 0
-    ? (await store.listMedia("supplier", supplierId).catch((error) => {
+  const supplierMedia = step.level === 1 && certificates.length > 0
+    ? await store.listMedia("supplier", supplierId).catch((error) => {
       console.error("[certificates] source media query failed", error);
       return [] as MediaAsset[];
-    })).filter((asset) => certificateMediaIds.has(asset.id) && Boolean(asset.storage_path))
+    })
     : [];
+  const certificateMedia = supplierMedia.filter((asset) => certificateMediaIds.has(asset.id) && Boolean(asset.storage_path));
+  // Hợp đồng / ủy quyền với nhà máy mà đơn vị thương mại tải kèm chứng nhận (11/2026).
+  const partnerContracts = supplierMedia.filter(isPartnerContractDocument)
+    .map((asset) => ({ id: asset.id, label: asset.caption ?? "Hợp đồng", href: `/api/media/file/${asset.storage_path}` }));
   const canApprove = hasPermission(session.role, "verifications.approve");
   const canInspect = hasPermission(session.role, "verifications.inspect");
   const canPublish = hasPermission(session.role, "suppliers.publish");
@@ -135,7 +140,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
           <div className="max-w-5xl">
             {callReview ? <CallReviewForm key={current.id} verification={current} evidence={media} canInspect={canInspect}
               canApprove={canApprove && canSelfApproveVerification(session.role)} inspectorName={inspectorName} booking={booking} />
-            : <AuditForm key={current.id + current.updated_at} verification={current} autoPublishL1={!!supplier.auto_publish_after_l1} evidence={media} certificates={certificates} certificateMedia={certificateMedia} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} scopes={certificateScopes} categories={scopeCategories.map((category) => ({ id: category.id, name: t(category.name_i18n) || category.slug }))} requestedProducts={requestedProducts} />}
+            : <AuditForm key={current.id + current.updated_at} verification={current} autoPublishL1={!!supplier.auto_publish_after_l1} evidence={media} certificates={certificates} certificateMedia={certificateMedia} partnerContracts={partnerContracts} aiEnabled={!!process.env.OPENAI_API_KEY} canApprove={canApprove} canInspect={canInspect} canPublish={canPublish} currentUserId={session.uid} canSelfApprove={canSelfApproveVerification(session.role)} scopes={certificateScopes} categories={scopeCategories.map((category) => ({ id: category.id, name: t(category.name_i18n) || category.slug }))} requestedProducts={requestedProducts} requestedProductCategories={Object.fromEntries(requestedProducts.map((product) => [product.id, scopeCategories.find((category) => category.id === product.category || category.slug === product.category)?.id ?? null]))} />}
           </div>
         </>}
     </div>

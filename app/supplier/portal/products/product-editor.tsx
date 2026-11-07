@@ -22,6 +22,7 @@ import {
   Star,
   Trash2,
   X,
+  ShieldCheck,
 } from "lucide-react";
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
 import { productPriceBlockers, productPriceBlockersEn, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
@@ -1090,24 +1091,12 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <Link href="/supplier/portal/categories" className="btn btn-ghost btn-sm">{copy.category.suggest}</Link>
                 </div>
                 {categoryLocked && <p className="mt-1 text-[11.5px] text-ink-500">{copy.category.lockedNote}</p>}
-                {selectedCategory && (certificateInheritance[selectedCategory] ?? []).length > 0 && <div className="mt-2 rounded-lg border border-teal-200 bg-teal-50/60 px-3 py-2">
-                  <p className="text-[11px] font-bold tracking-wider text-teal-900 uppercase">{copy.category.certTitle}</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {(certificateInheritance[selectedCategory] ?? []).map((certificate) => (
-                      <li key={certificate.id} className="flex items-start gap-1.5 text-[12px] text-ink-800">
-                        <span aria-hidden="true" className="mt-0.5 text-emerald-700">✓</span>
-                        <span>
-                          {certificate.name}
-                          {certificate.scheme ? ` · ${certificate.scheme}` : ""}
-                          {certificate.validUntil ? fill(copy.category.certExpiry, { date: certificate.validUntil }) : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-1 text-[11px] leading-4 text-ink-600">
-                    {copy.category.certNote} {copy.category.certLink}
-                  </p>
-                </div>}
+                {/* Một dòng nổi bật: mỗi tên là một chứng nhận áp dụng theo danh mục đã chọn (11/2026). */}
+                {selectedCategory && (certificateInheritance[selectedCategory] ?? []).length > 0 && <p className="mt-2 flex items-start gap-2 rounded-lg border border-success bg-success-surface px-3 py-2 text-[13px] font-bold text-success">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  {fill(copy.category.certApplied, { list: [...new Set((certificateInheritance[selectedCategory] ?? [])
+                    .map((certificate) => certificate.scheme || certificate.name))].join(", ") })}
+                </p>}
                 {!categoryLocked && selectedCategory && categoryScope.length > 0 && !categoryScope.includes(selectedCategory) &&
                   <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11.5px] leading-4 text-amber-900">
                     {copy.category.outOfScope}

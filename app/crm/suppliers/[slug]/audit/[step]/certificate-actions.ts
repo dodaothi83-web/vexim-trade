@@ -5,10 +5,11 @@ import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { holderMatchBadgeLabel, ingestCertificateScan, todayISO } from "@/lib/certificate-service";
+import { holderMatchBadgeLabel, ingestCertificateScan, isPartnerContractDocument, todayISO } from "@/lib/certificate-service";
 import { approvedL2Scope } from "@/lib/verification-status";
 import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
-import { certificateSchemeLabel, isCertificateScheme } from "@/lib/certificate-scheme";
+import { certificateSchemeLabel, isCertificateScheme, isScopeableCertificateScheme } from "@/lib/certificate-scheme";
+import { addCertificateScopeAction } from "./certificate-scope-actions";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { transferRenewalScope } from "@/lib/certificate-renewal";
 import { refreshCrmBadges } from "@/lib/crm/badges";
@@ -96,9 +97,37 @@ async function rescanCertificate(supplierId: string, certificateId: string) {
   );
 }
 
-export async function approveCertificateAction(supplierId: string, certificateId: string) {
+export async function approveCertificateAction(supplierId: string, certificateId: string, options: { partnerContractConfirmed?: boolean; categoryIds?: string[] } = {}) {
   try {
-    return await approveCertificate(supplierId, certificateId);
+    const categoryIds = [...new Set((options.categoryIds ?? []).map((id) => String(id).trim()).filter(Boolean))].slice(0, 20);
+    const approved = await approveCertificate(supplierId, certificateId, { ...options, categoryIds });
+    if (!approved.ok || !categoryIds.length) return approved;
+    // Một bước (11/2026): duyệt xong gắn luôn các danh mục nhân viên đã tích. Sản phẩm thuộc
+    // các danh mục này tự có chứng nhận, kể cả sản phẩm đăng sau.
+    let added = 0; const failed: string[] = [];
+    for (const categoryId of categoryIds) {
+      const scoped = await addCertificateScopeAction(supplierId, certificateId, { categoryId });
+      if (scoped.ok) added += 1; else failed.push(scoped.message);
+    }
+    // Yêu cầu "gắn cho sản phẩm X" đã được đáp ứng khi danh mục của X vừa được gắn: xoá khỏi hàng chờ.
+    const store = getStore();
+    const certificate = await store.getCertificate(certificateId);
+    const pending = certificate?.requested_product_ids ?? [];
+    if (certificate && pending.length) {
+      const covered = new Set<string>();
+      for (const categoryId of categoryIds) {
+        const category = await store.getCategory(categoryId).catch(() => null);
+        if (category) { covered.add(category.id); if (category.slug) covered.add(category.slug); }
+      }
+      const remaining: string[] = [];
+      for (const productId of pending) {
+        const product = await store.getProduct(productId).catch(() => null);
+        if (!product?.category || !covered.has(product.category)) remaining.push(productId);
+      }
+      if (remaining.length !== pending.length) await store.updateCertificate(certificate.id, { requested_product_ids: remaining }).catch(() => undefined);
+    }
+    return result(failed.length === 0,
+      `${approved.message} Đã áp dụng cho ${added} danh mục.` + (failed.length ? ` Chưa gắn được ${failed.length} danh mục: ${failed[0]}` : ""));
   } catch (error) {
     console.error("[certificate] approve action failed", error);
     return result(false, `Chưa duyệt được chứng nhận (${briefReason(error)}). Chứng nhận giữ nguyên như trước.`);
@@ -108,11 +137,11 @@ export async function approveCertificateAction(supplierId: string, certificateId
 /**
  * Nhân viên duyệt đăng một chứng nhận AI chưa tự công bố.
  *
- * Giấy đứng tên đơn vị khác chỉ đăng được khi nhà cung cấp đã có L2 nhà máy đối tác được
- * duyệt — người duyệt đối chiếu tên trên giấy với hợp đồng đối tác đó. Nhờ vậy không thể
- * đẩy một giấy chứng nhận bất kỳ của doanh nghiệp không liên quan lên hồ sơ.
+ * Giấy đứng tên đơn vị khác (chỉ đơn vị thương mại) đăng được khi đã xác minh nhà máy đối tác
+ * (L3) với đúng tên đó, hoặc khi nhân viên đã mở hợp đồng/ủy quyền nhà cung cấp tải kèm và
+ * đánh dấu đã xem (từ 11/2026). Không thể đẩy giấy của doanh nghiệp không liên quan lên hồ sơ.
  */
-async function approveCertificate(supplierId: string, certificateId: string) {
+async function approveCertificate(supplierId: string, certificateId: string, options: { partnerContractConfirmed?: boolean; categoryIds?: string[] }) {
   if ((await guard("suppliers.publish")) !== null) {
     return result(false, "Bạn không có quyền duyệt đăng chứng nhận trên trang công khai.");
   }
@@ -141,26 +170,43 @@ async function approveCertificate(supplierId: string, certificateId: string) {
     return result(false, `Giấy đã hết hạn ngày ${cert.valid_until}; chưa đăng được.`);
   }
 
+  // Đã tích danh mục thì giấy phải là loại chất lượng; kiểm trước để không duyệt xong mới báo lỗi.
+  if (options.categoryIds?.length && !isScopeableCertificateScheme(cert.certificate_scheme ?? null)) {
+    return result(false, cert.certificate_scheme
+      ? "Loại giấy này không gắn danh mục sản phẩm. Bỏ tích danh mục hoặc đổi loại giấy rồi duyệt lại."
+      : "Chọn loại giấy (ví dụ HACCP, ISO 22000) ở ô Loại trước khi duyệt và áp dụng danh mục.");
+  }
+
+  // Giấy đứng tên nhà máy khác (chỉ đơn vị thương mại). Hai đường được đăng:
+  //  1. Đã xác minh nhà máy đối tác (L3) và tên trên giấy khớp tên nhà máy trong hồ sơ đó.
+  //  2. Từ 11/2026: nhà cung cấp đã tải hợp đồng/ủy quyền với nhà máy, nhân viên mở xem và đánh dấu.
+  let partnerContractReviewed = false;
   if (cert.holder_match === "partner") {
     const holderName = cert.holder_name?.trim();
     if (!holderName) {
       return result(false, "Giấy đứng tên đơn vị đối tác nhưng chưa đọc được tên; bổ sung tên trước khi đăng.");
     }
+    if (supplier.supplier_type !== "trading") {
+      return result(false, `Giấy đứng tên ${holderName}. Nhà máy và hợp tác xã chỉ đăng chứng nhận đứng tên chính mình.`);
+    }
     const verifications = await store.listVerifications(supplier.id);
     const scope = approvedL2Scope(verifications);
-    if (scope !== "partner_contract" && scope !== "both") {
-      return result(false, `Chưa có L3 nhà máy đối tác được duyệt nên chưa đăng được giấy đứng tên ${holderName}.`);
-    }
-    // Giấy phải đứng tên đúng nhà máy đã ký trong hợp đồng đối tác, không phải doanh nghiệp khác.
-    const partnerName = verifications
-      .filter((v) => v.target_level === 2 && v.status === "approved" && v.l2_scope === "partner_contract")
-      .map((v) => v.partner_factory_name?.trim() ?? "")
-      .find((name) => name.length > 0);
-    if (!partnerName) {
-      return result(false, "Hồ sơ L3 nhà máy đối tác chưa ghi tên nhà máy; ghi tên trong đợt kiểm trước khi đăng.");
-    }
-    if (!partnerFactoryNameMatches(holderName, partnerName)) {
-      return result(false, `Giấy đứng tên ${holderName}, không khớp nhà máy đối tác ${partnerName} trong hợp đồng L3.`);
+    const partnerName = scope === "partner_contract" || scope === "both"
+      ? verifications
+        .filter((v) => v.target_level === 2 && v.status === "approved" && v.l2_scope === "partner_contract")
+        .map((v) => v.partner_factory_name?.trim() ?? "")
+        .find((name) => name.length > 0)
+      : undefined;
+    const verifiedPartner = Boolean(partnerName && partnerFactoryNameMatches(holderName, partnerName));
+    if (!verifiedPartner) {
+      const contracts = (await store.listMedia("supplier", supplier.id)).filter(isPartnerContractDocument);
+      if (!contracts.length) {
+        return result(false, `Giấy đứng tên ${holderName}. Nhà cung cấp chưa tải hợp đồng hoặc giấy ủy quyền với nhà máy này; nhờ họ tải kèm rồi duyệt.`);
+      }
+      if (!options.partnerContractConfirmed) {
+        return result(false, `Giấy đứng tên ${holderName}. Mở hợp đồng, kiểm tra đúng tên hai bên rồi đánh dấu "Đã xem" trước khi duyệt.`);
+      }
+      partnerContractReviewed = true;
     }
   }
 
@@ -189,7 +235,7 @@ async function approveCertificate(supplierId: string, certificateId: string) {
       entity_id: supplier.id,
       action: "certificate.staff_approve",
       before: { id: cert.id, review_status: cert.review_status, publicly_visible: Boolean(cert.publicly_visible) },
-      after: { id: cert.id, review_status: "approved", publicly_visible: true, holder_match: cert.holder_match ?? null },
+      after: { id: cert.id, review_status: "approved", publicly_visible: true, holder_match: cert.holder_match ?? null, partner_contract_reviewed: partnerContractReviewed },
     })
     .catch((err) => console.error("[certificate] staff approve audit", err));
 

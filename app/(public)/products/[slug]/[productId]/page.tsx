@@ -413,7 +413,7 @@ export default async function PublicProductDetail({ params }: Props) {
             volumePricing={offer.quantityOffer?.hasVolumePricing}
             price={offer.price} incoterm={offer.incoterm} fob={offer.incoterm?.toUpperCase() === "FOB"} leadTimeDays={offer.leadTimeDays} leadTimeText={offer.leadTimeText}
             supplierName={offer.supplierName} supplierHref={`/suppliers/${encodeURIComponent(offer.supplierSlug || offer.supplierId)}`}
-            verificationSteps={offer.verificationSteps} l2Scope={offer.l2Scope}
+            verificationSteps={offer.verificationSteps} l2Scope={offer.l2Scope} certificates={offer.certificates}
             comparison={!preview && hasProductComparisonPeer(relatedComparisonOffers, {
               id: offer.id, supplierId: offer.supplierId, categorySlug: slug, isDemo: offer.isDemo,
             }) ? { id: offer.id, categorySlug: slug } : undefined} />)}
@@ -447,7 +447,7 @@ export default async function PublicProductDetail({ params }: Props) {
               volumePricing={related.quantityOffer?.hasVolumePricing}
             price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays} leadTimeText={related.leadTimeText}
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
-            verificationSteps={related.verificationSteps} l2Scope={related.l2Scope}
+            verificationSteps={related.verificationSteps} l2Scope={related.l2Scope} certificates={related.certificates}
             comparison={!preview && hasProductComparisonPeer(relatedComparisonOffers, {
               id: related.id, supplierId: related.supplierId, categorySlug: slug, isDemo: related.isDemo,
             }) ? { id: related.id, categorySlug: slug } : undefined} />

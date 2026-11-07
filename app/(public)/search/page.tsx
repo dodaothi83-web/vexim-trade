@@ -400,7 +400,7 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
               price={product.price} incoterm={product.incoterm} fob={product.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={product.leadTimeDays} leadTimeText={product.leadTimeText} supplierName={product.supplierName}
               supplierHref={localHref(`/suppliers/${encodeURIComponent(product.supplierSlug || product.supplierId)}`, state.lang)}
-              verificationSteps={product.verificationSteps} l2Scope={product.l2Scope}
+              verificationSteps={product.verificationSteps} l2Scope={product.l2Scope} certificates={product.certificates}
               comparison={hasProductComparisonPeer(comparisonOffers, { id: product.id, supplierId: product.supplierId, categorySlug: category.slug, isDemo: product.isDemo })
                 ? { id: product.id, categorySlug: category.slug } : undefined} />
           </div>

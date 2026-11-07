@@ -250,7 +250,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
                 highlightedGrades={activeGrades} moq={p.moq} price={p.price} incoterm={p.incoterm} fob={p.incoterm?.toUpperCase() === "FOB"}
                 leadTimeDays={p.leadTimeDays} leadTimeText={p.leadTimeText} supplierName={p.supplierName}
                 supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
-                verificationSteps={p.verificationSteps} l2Scope={p.l2Scope} test={p.isDemo}
+                verificationSteps={p.verificationSteps} l2Scope={p.l2Scope} certificates={p.certificates} test={p.isDemo}
                 comparison={comparisonEnabled && hasProductComparisonPeer(comparisonOffers, {
                   id: p.id, supplierId: p.supplierId, categorySlug, isDemo: p.isDemo,
                 }) ? { id: p.id, categorySlug } : undefined} />

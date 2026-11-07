@@ -226,7 +226,10 @@ export function PublicProductCard({
   comparison,
   sponsored = false,
   stalePriceDays,
+  certificates = [],
 }: {
+  /** Chứng nhận đã duyệt áp cho sản phẩm; thẻ hiện tối đa 3, còn lại gộp thành "+N". */
+  certificates?: readonly string[];
   href: string;
   imagePath?: string | null;
   name: string;
@@ -341,7 +344,7 @@ export function PublicProductCard({
   const title = (
     <h3
       title={displayName}
-      className="line-clamp-2 h-9 overflow-hidden break-words text-[13px] font-semibold leading-[18px] text-ink-900 group-hover/card:text-brand-700 sm:h-10 sm:text-sm sm:leading-5"
+      className="truncate text-[13px] font-semibold leading-[18px] text-ink-900 group-hover/card:text-brand-700 sm:text-sm sm:leading-5"
     >
       {displayName}
     </h3>
@@ -360,6 +363,21 @@ export function PublicProductCard({
             <SponsoredDisclosure />
           </div>
         )}
+
+        {/* Chứng nhận: một dòng duy nhất, tối đa 3 tên, phần dư thành "+N"; không bao giờ xuống dòng.
+            Trên máy tính luôn giữ chỗ để các thẻ trong lưới thẳng hàng; điện thoại thì bỏ chỗ trống. */}
+        <div className={`mb-1 h-5 min-w-0 flex-nowrap items-center gap-1 overflow-hidden ${certificates.length ? "flex" : "hidden sm:flex"}`} aria-label={certificates.length ? `Certificates: ${certificates.join(", ")}` : undefined}>
+          {certificates.slice(0, 3).map((label) => (
+            <span key={label} title={`${label} certified`} className="min-w-0 truncate rounded bg-emerald-50 px-1.5 py-px text-[10.5px] font-bold leading-4 text-emerald-800 ring-1 ring-emerald-300">
+              {label}
+            </span>
+          ))}
+          {certificates.length > 3 && (
+            <span title={certificates.slice(3).join(", ")} className="shrink-0 rounded bg-emerald-600 px-1.5 py-px text-[10.5px] font-bold leading-4 text-white">
+              +{certificates.length - 3}
+            </span>
+          )}
+        </div>
 
         {linkable ? (
           <Link

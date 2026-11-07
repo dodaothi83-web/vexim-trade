@@ -52,7 +52,16 @@ export function CertificateRowControls({
   mismatch = null,
   canInspect,
   canPublish,
+  partnerHolder = null,
+  partnerContracts = [],
+  scopeText = null,
 }: {
+  /** Dòng phạm vi in trên giấy (AI đọc), để nhân viên so với các danh mục đã tích. */
+  scopeText?: string | null;
+  /** Tên nhà máy đứng tên trên giấy khi giấy không đứng tên nhà cung cấp; null = giấy chính chủ. */
+  partnerHolder?: string | null;
+  /** Hợp đồng / ủy quyền với nhà máy mà nhà cung cấp đã tải. */
+  partnerContracts?: Array<{ id: string; label: string; href: string }>;
   supplierId: string;
   certificateId: string;
   hasFile: boolean;
@@ -68,7 +77,7 @@ export function CertificateRowControls({
   /** Gợi ý từ AI; không tạo phạm vi cho tới khi nhân viên chủ động chọn. */
   categorySuggestions?: Array<CertificateCategorySuggestion & { label: string }>;
   /** Nhà cung cấp xin mở rộng phạm vi cho sản phẩm. */
-  requests?: Array<{ productId: string; name: string }>;
+  requests?: Array<{ productId: string; name: string; categoryId?: string | null }>;
   /** Loại giấy lệch mục checklist L1 đã ghi. */
   mismatch?: string | null;
   canInspect: boolean;
@@ -78,6 +87,15 @@ export function CertificateRowControls({
   const [busy, setBusy] = useState<"scan" | "hide" | "approve" | "scheme" | "scope" | "visibility" | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [scopeDraft, setScopeDraft] = useState("");
+  const [contractConfirmed, setContractConfirmed] = useState(false);
+  // Danh mục tích sẵn khi duyệt: gợi ý AI tin cậy cao + danh mục của sản phẩm nhà cung cấp tải giấy từ đó.
+  const applied = new Set(scopes.map((scope) => scope.categoryId).filter(Boolean));
+  const known = new Set(categories.map((category) => category.id));
+  const [picked, setPicked] = useState<string[]>(() => [...new Set([
+    ...categorySuggestions.filter((s) => s.confidence === "high").map((s) => s.category_id),
+    ...requests.map((r) => r.categoryId ?? ""),
+  ])].filter((id) => id && known.has(id) && !applied.has(id)));
+  const [extraCategory, setExtraCategory] = useState("");
 
   async function run(
     kind: "scan" | "hide" | "approve" | "scheme" | "scope" | "visibility",
@@ -97,6 +115,64 @@ export function CertificateRowControls({
 
   return (
     <div className="w-full space-y-1.5">
+      {/* Giấy đứng tên nhà máy khác: xem hợp đồng nhà cung cấp tải kèm, đánh dấu rồi mới duyệt đăng. */}
+      {canPublish && !published && partnerHolder !== null && <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 text-[11.5px] leading-4 text-ink-800">
+        <p className="font-semibold">Giấy đứng tên {partnerHolder || "đơn vị khác"}. Xem hợp đồng hoặc giấy ủy quyền giữa nhà cung cấp và nhà máy này trước khi duyệt.</p>
+        {partnerContracts.length
+          ? <ul className="mt-1.5 space-y-1">{partnerContracts.map((contract) => <li key={contract.id}>
+            <a href={contract.href} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">{contract.label}</a>
+          </li>)}</ul>
+          : <p className="mt-1.5 text-amber-900">Nhà cung cấp chưa tải hợp đồng. Nhờ họ tải kèm ở trang Giấy tờ rồi duyệt.</p>}
+        {partnerContracts.length > 0 && <label className="mt-2 flex items-start gap-1.5">
+          <input type="checkbox" className="mt-0.5" checked={contractConfirmed} onChange={(e) => setContractConfirmed(e.target.checked)} />
+          <span>Đã xem: hợp đồng ghi đúng tên {partnerHolder || "nhà máy trên giấy"} và nhà cung cấp này.</span>
+        </label>}
+      </div>}
+      {/* Một bước duyệt (11/2026): tích danh mục áp dụng rồi bấm một nút. Sản phẩm thuộc
+          danh mục đã tích tự có chứng nhận, kể cả sản phẩm đăng sau. */}
+      {canPublish && !published && <div className="rounded-lg border border-brand-200 bg-brand-50/50 p-2.5">
+        {scopeable ? <>
+          <p className="text-[11.5px] font-bold text-ink-900">Áp dụng cho danh mục</p>
+          {scopeText && <p className="mt-0.5 text-[11px] leading-4 text-ink-600">Phạm vi in trên giấy: <span className="italic">{scopeText}</span></p>}
+          <ul className="mt-1.5 grid gap-1 sm:grid-cols-2">
+            {[...new Set([...categorySuggestions.map((s) => s.category_id), ...requests.map((r) => r.categoryId ?? ""), ...picked])]
+              .filter((id) => id && known.has(id) && !applied.has(id))
+              .map((id) => {
+                const suggestion = categorySuggestions.find((s) => s.category_id === id);
+                const fromProduct = requests.some((r) => r.categoryId === id);
+                const name = categories.find((category) => category.id === id)?.name ?? "Danh mục";
+                return <li key={id}>
+                  <label className="flex items-start gap-1.5 rounded-md bg-white px-2 py-1.5 text-[11.5px] ring-1 ring-ink-200">
+                    <input type="checkbox" className="mt-0.5" checked={picked.includes(id)} disabled={busy !== null}
+                      onChange={(e) => setPicked((list) => e.target.checked ? [...list, id] : list.filter((item) => item !== id))} />
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-ink-900">{name}</span>
+                      <span className="block text-[10px] text-ink-500">
+                        {[suggestion ? `AI gợi ý · ${CONFIDENCE_LABEL[suggestion.confidence].toLowerCase()}` : "", fromProduct ? "danh mục của sản phẩm nhà cung cấp tải giấy" : ""].filter(Boolean).join(" · ") || "Nhân viên thêm"}
+                      </span>
+                    </span>
+                  </label>
+                </li>;
+              })}
+          </ul>
+          {categories.length > 0 && <div className="mt-1.5 flex items-center gap-1.5">
+            <select value={extraCategory} onChange={(e) => setExtraCategory(e.target.value)} className="input h-7 py-0 text-[11px]" aria-label="Thêm danh mục khác">
+              <option value="">Thêm danh mục khác…</option>
+              {categories.filter((category) => !applied.has(category.id) && !picked.includes(category.id)).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select>
+            <button type="button" className="btn btn-ghost btn-sm text-[11px]" disabled={!extraCategory || busy !== null}
+              onClick={() => { setPicked((list) => [...list, extraCategory]); setExtraCategory(""); }}>
+              <Plus className="h-3.5 w-3.5" />Thêm
+            </button>
+          </div>}
+        </> : <p className="text-[11px] leading-4 text-ink-600">{scheme ? "Loại giấy này không gắn danh mục sản phẩm; chỉ hiện ở trang nhà cung cấp." : "Chọn loại giấy ở ô Loại. Giấy chất lượng (HACCP, ISO…) mới gắn được danh mục."}</p>}
+        <button type="button" disabled={busy !== null}
+          onClick={() => void run("approve", () => approveCertificateAction(supplierId, certificateId, { partnerContractConfirmed: contractConfirmed, categoryIds: scopeable ? picked : [] }))}
+          className="btn btn-primary btn-sm mt-2 text-xs" title="Đối chiếu tệp gốc rồi cho chứng nhận hiện cho người mua">
+          {busy === "approve" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BadgeCheck className="h-3.5 w-3.5" />}
+          {scopeable && picked.length ? `Duyệt và áp dụng cho ${picked.length} danh mục` : "Duyệt đăng"}
+        </button>
+      </div>}
       <div className="flex flex-wrap items-center gap-1.5">
         {canInspect && (
           <label className="flex items-center gap-1 text-[11px] font-semibold text-ink-600">
@@ -143,18 +219,6 @@ export function CertificateRowControls({
           >
             {busy === "scan" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             Quét lại AI
-          </button>
-        )}
-        {canPublish && !published && (
-          <button
-            type="button"
-            onClick={() => void run("approve", () => approveCertificateAction(supplierId, certificateId))}
-            disabled={busy !== null}
-            className="btn btn-ghost btn-sm text-xs"
-            title="Đối chiếu tệp gốc rồi cho chứng nhận hiện trên trang người mua"
-          >
-            {busy === "approve" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BadgeCheck className="h-3.5 w-3.5" />}
-            Duyệt đăng
           </button>
         )}
         {canPublish && (
@@ -220,7 +284,7 @@ export function CertificateRowControls({
         </div>
       )}
 
-      {scopeable && categorySuggestions.length > 0 && (
+      {scopeable && categorySuggestions.length > 0 && (published || !canPublish) && (
         <div className="rounded-lg border border-violet-200 bg-violet-50/70 p-2.5">
           <div className="flex flex-wrap items-center justify-between gap-1">
             <p className="text-[11px] font-bold text-violet-950">AI gợi ý danh mục</p>

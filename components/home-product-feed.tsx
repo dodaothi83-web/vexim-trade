@@ -112,7 +112,7 @@ export function HomeProductFeed({
               leadTimeText={p.leadTimeText}
               supplierName={p.supplierName}
               supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
-              verificationSteps={p.verificationSteps} l2Scope={p.l2Scope}
+              verificationSteps={p.verificationSteps} l2Scope={p.l2Scope} certificates={p.certificates}
               test={p.isDemo}
             />
           </li>

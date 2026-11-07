@@ -174,6 +174,9 @@ const productCatalog = load("../lib/public/product-catalog.ts", {
   // Approved quantity prices are projected for buyers; this fixture has none, so the
   // identity projection keeps the legacy cards this check compares.
   "@/lib/public/quantity-catalog-legacy-preview": { projectQuantityCatalogPreview: async (records) => records },
+  // Fixture has no certificates: card badges stay empty and the cards compared are unchanged.
+  "@/lib/public/certificate-badges": { categoryPathOf: (id) => [id], certificateLabelsForProducts: async () => new Map() },
+  "@/lib/public/category-certificate-data": { readCategoryCertificateData: async () => ({ certificates: [], media: [], scopes: [], optouts: [] }) },
 });
 
 // The shared snapshot must return exactly the same gated cards and order as the

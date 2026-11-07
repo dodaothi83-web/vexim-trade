@@ -6,7 +6,6 @@ import { VeximDocumentIcon as FileCheck2 } from "@/components/brand/vexim-icons"
 import { PageHeader } from "@/components/page-header";
 import { FilePicker } from "@/components/file-picker";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
-import { approvedL2Scope } from "@/lib/verification-status";
 import { visibleLegacyCertificateFiles } from "@/lib/supplier-portal/legacy-certificate-files";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { canUploadOwnDocument, COMPANY_DOCUMENT_KEYS, INITIAL_DOCUMENT_KEYS, QUALITY_CERTIFICATE_DOC_KEYS } from "@/lib/supplier-portal/policy";
@@ -123,13 +122,9 @@ export default async function SupplierDocumentsPage() {
   const missingDocs = docRows.filter((row) => row.files.length === 0);
   const docProgress = Math.round((uploadedDocs.length / Math.max(docRows.length, 1)) * 100);
 
-  /* Đơn vị thương mại chưa có L2 nhà máy đối tác thì chưa có căn cứ đối chiếu giấy, nên ô
-   * tải chứng nhận đóng sẵn kèm lý do — không để nhà cung cấp chọn tệp rồi mới nhận lỗi. */
-  const l2Scope = approvedL2Scope(reviews);
-  const partnerContractApproved = l2Scope === "partner_contract" || l2Scope === "both";
-  const certificateUploadBlockedReason = supplier.supplier_type === "trading" && !partnerContractApproved
-    ? copy.contractBlocked
-    : null;
+  /* Từ 11/2026 ô tải chứng nhận luôn mở. Đơn vị thương mại có thêm ô hợp đồng với nhà máy:
+   * giấy đứng tên nhà máy khác chỉ hiện cho người mua sau khi nhân viên xem hợp đồng đó. */
+  const trading = supplier.supplier_type === "trading";
 
   const l1Approved = review?.status === "approved";
   const l1Returned = review?.status === "returned";
@@ -278,7 +273,7 @@ export default async function SupplierDocumentsPage() {
           <SupplierCertificateUpload certificates={certificates
             .filter((c) => !c.superseded_by_certificate_id)
             .map((c) => ({ id: c.id, name: c.name, valid_until: c.valid_until }))}
-            blockedReason={certificateUploadBlockedReason} copy={copy.certUpload} />
+            trading={trading} copy={copy.certUpload} />
         </section>
 
       </div>

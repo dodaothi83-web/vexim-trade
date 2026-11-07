@@ -56,13 +56,15 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
  * buyer nhìn thấy, và tắt các nút gửi RFQ để nhà cung cấp không tự gửi yêu cầu cho mình.
  */
 export function SupplierStorefront({
-  supplier: s, certificates, categories, coverUrl, avatarUrl, synthetic,
+  supplier: s, certificates, productCertificates = {}, categories, coverUrl, avatarUrl, synthetic,
   productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1", reportAction,
 }: {
   /** Nút tải báo cáo xác minh nhà máy (PDF) cho từng mã báo cáo; trang công khai truyền vào. */
   reportAction?: (code: string) => ReactNode;
   supplier: PublicSupplierCard;
   certificates: PublicSupplierCertificate[];
+  /** Tên chứng nhận áp cho từng sản phẩm (theo id), hiện trên thẻ sản phẩm. */
+  productCertificates?: Record<string, string[]>;
   categories: Category[];
   coverUrl: string | null;
   avatarUrl: string | null;
@@ -174,7 +176,7 @@ export function SupplierStorefront({
                 stalePriceDays={approvedForm.quantityOffer?.stale ? approvedForm.quantityOffer.daysSinceConfirmed : undefined}
                 leadTimeDays={approvedForm.leadTimeDays} leadTimeText={approvedForm.leadTimeText} supplierName={name}
                 supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
-                verificationSteps={steps} l2Scope={l2Scope} test={synthetic} linkable={productLinks} />
+                verificationSteps={steps} l2Scope={l2Scope} certificates={productCertificates[p.id]} test={synthetic} linkable={productLinks} />
             </li>;
           }
           const productName = safe(publicProductTitle(p));
@@ -303,7 +305,7 @@ export function SupplierStorefront({
               price={storefrontPrice} incoterm={storefrontIncoterm} fob={storefrontIncoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.lead_time_days ?? null} leadTimeText={storefrontLeadTime} supplierName={name}
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
-              verificationSteps={steps} l2Scope={l2Scope} test={synthetic} linkable={productLinks} />
+              verificationSteps={steps} l2Scope={l2Scope} certificates={productCertificates[p.id]} test={synthetic} linkable={productLinks} />
           </li>;
         })}
       </SupplierProductRail> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic

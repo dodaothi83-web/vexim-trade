@@ -10,8 +10,8 @@ import {
   defaultCertificateLabelForKey,
   ingestCertificateScan,
   isL1CertificateKey,
+  PARTNER_CONTRACT_CAPTION,
 } from "@/lib/certificate-service";
-import { approvedL2Scope } from "@/lib/verification-status";
 import { refreshCrmBadges } from "@/lib/crm/badges";
 
 export const runtime = "nodejs";
@@ -32,7 +32,8 @@ export async function POST(request: Request) {
   if (!access || !portalApproved(access.supplier)) {
     return fail("Tài khoản nhà cung cấp chưa được xác nhận.", 403);
   }
-  if (Number(request.headers.get("content-length") ?? 0) > 16 * 1024 * 1024) {
+  // Chứng nhận và hợp đồng kèm theo, mỗi tệp tối đa 15 MB.
+  if (Number(request.headers.get("content-length") ?? 0) > 31 * 1024 * 1024) {
     return fail("Tệp vượt quá 15 MB.", 413);
   }
   let form: FormData;
@@ -42,17 +43,8 @@ export async function POST(request: Request) {
     return fail("Không đọc được biểu mẫu.");
   }
 
-  // Đơn vị thương mại chưa xác thực L2 nhà máy đối tác thì chưa có căn cứ đối chiếu giấy
-  // chứng nhận, nên chưa nhận tệp. Việc đăng sản phẩm không phụ thuộc chứng nhận.
-  if (access.supplier.supplier_type === "trading") {
-    const scope = approvedL2Scope(access.reviews);
-    if (scope !== "partner_contract" && scope !== "both") {
-      return fail(
-        "Đơn vị thương mại cần xác thực nhà máy đối tác trước khi tải chứng nhận. Sản phẩm vẫn đăng bán bình thường.",
-        403,
-      );
-    }
-  }
+  // Từ 11/2026 mọi nhà cung cấp tải chứng nhận được ngay. Giấy đứng tên nhà máy khác chỉ
+  // hiện cho người mua sau khi nhân viên xem hợp đồng/ủy quyền với nhà máy đó (tải kèm bên dưới).
 
   const file = form.get("file");
   if (!(file instanceof File) || !file.size || file.size > 15 * 1024 * 1024) {
@@ -149,9 +141,25 @@ export async function POST(request: Request) {
     // Giấy vừa tải vào hàng chờ duyệt: huy hiệu sidebar của CRM phải tăng ngay.
     refreshCrmBadges();
 
+    // Tải từ trang sản phẩm: tự gửi yêu cầu gắn giấy cho sản phẩm đó, để nhân viên thấy sẵn
+    // danh mục của sản phẩm khi duyệt (11/2026). Chỉ nhận sản phẩm của chính nhà cung cấp.
+    const productId = text(form, "product_id", 40);
+    if (productId && uuid.test(productId)) {
+      const product = await access.store.getProduct(productId).catch(() => null);
+      if (product?.supplier_id === access.supplier.id) {
+        await access.store.updateCertificate(certificate.id, {
+          requested_product_ids: [...new Set([...(certificate.requested_product_ids ?? []), productId])],
+        }).catch((error) => console.error("[certificate] product request", error));
+      }
+    }
+
+    // Hợp đồng / ủy quyền với nhà máy (tùy chọn). Lỗi ở đây không làm mất chứng nhận vừa lưu.
+    const contractSaved = await saveRelationshipFile(form, access.supplier.id, access.user.id, certificate.holder_name ?? label, access.store);
+
     /* Cùng một câu cho mọi trường hợp: giấy vào hồ sơ, còn lên sản phẩm hay không là do
      * nhân viên chọn phạm vi — không hứa "đã hiển thị" khi sản phẩm chưa có phạm vi. */
-    const message = `Đã nhận “${certificate.name}”. Nhân viên đối chiếu và chọn phạm vi áp dụng trước khi giấy lên sản phẩm.`;
+    const message = `Đã nhận “${certificate.name}”. Nhân viên đối chiếu và chọn phạm vi áp dụng trước khi giấy lên sản phẩm.` +
+      (contractSaved === "saved" ? " Đã nhận cả hợp đồng với nhà máy." : contractSaved === "failed" ? " Chưa lưu được tệp hợp đồng; vui lòng tải lại hợp đồng." : "");
 
     return NextResponse.json({
       ok: true,
@@ -174,5 +182,35 @@ export async function POST(request: Request) {
     }
     await deleteObject(path).catch((e) => console.error("[certificate] cleanup storage", e));
     return fail("Không lưu được chứng nhận. Báo người phụ trách kỹ thuật rồi thử lại.", 503);
+  }
+}
+
+/**
+ * Tệp hợp đồng hoặc giấy ủy quyền với nhà máy đứng tên trên chứng nhận (không bắt buộc).
+ * Lưu là tệp nội bộ của nhà cung cấp; nhân viên mở ra xem trước khi duyệt giấy của nhà máy khác.
+ */
+async function saveRelationshipFile(form: FormData, supplierId: string, userId: string, holder: string,
+  store: NonNullable<Awaited<ReturnType<typeof supplierPortalAccess>>>["store"]): Promise<"none" | "saved" | "failed"> {
+  const file = form.get("relationship_file");
+  if (!(file instanceof File) || !file.size) return "none";
+  if (file.size > 15 * 1024 * 1024) return "failed";
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const checked = validateUpload("certificate", bytes, file.name);
+  if (!checked.ok || !checked.mime) return "failed";
+  const path = `suppliers/${supplierId}/partner-contracts/${randomUUID()}.${extensionFor(checked.mime)}`;
+  try {
+    await putObject(path, bytes, checked.mime);
+    await store.createMedia({
+      owner_type: "supplier", supplier_id: supplierId, product_id: null, verification_id: null,
+      checklist_key: null, kind: "document", audience: "internal", status: "unverified", expires_on: null,
+      caption: `${PARTNER_CONTRACT_CAPTION} · ${holder}`.slice(0, 200),
+      storage_path: path, thumb_path: null, external_url: null, mime: checked.mime, bytes: bytes.length,
+      width: null, height: null, sort_order: 0, created_by: userId,
+    });
+    return "saved";
+  } catch (error) {
+    console.error("[certificate] relationship file", error);
+    await deleteObject(path).catch(() => undefined);
+    return "failed";
   }
 }

@@ -298,7 +298,7 @@ const partnerScanFor = async (type, scope, key, partnerName = PARTNER_FACTORY, h
 verifications = [];
 const tradingNoL2 = await partnerScanFor("trading", null, "trading-no-l2");
 assert.equal(tradingNoL2.decision.autoPublish, false, "Thương mại chưa có L2 đối tác: không công bố");
-assert.match(tradingNoL2.certificate.review_note, /chưa xác thực L3 nhà máy đối tác/);
+assert.match(tradingNoL2.certificate.review_note, /đối chiếu hợp đồng hoặc giấy ủy quyền với nhà máy này/);
 const tradingWithL2 = await partnerScanFor("trading", "partner_contract", "trading-l2");
 assert.equal(tradingWithL2.certificate.certificate_scheme, "haccp", "Giấy HACCP của nhà máy đối tác cũng được phân loại");
 assert.equal(tradingWithL2.decision.autoPublish, true, "Giấy đứng tên đúng nhà máy đối tác trong hợp đồng L2");
@@ -537,16 +537,14 @@ assert.equal(partnerFactoryNameMatches("Nhà máy Nông sản Tây Nguyên", "Nh
 assert.equal(partnerFactoryNameMatches("", "Nhà máy Chế biến Nông sản Tây Nguyên"), false);
 assert.equal(partnerFactoryNameMatches("Công ty TNHH", "Công ty CP"), false, "Chỉ có loại hình doanh nghiệp thì không khớp");
 
-// 8. Đơn vị thương mại chưa xác thực L2 không tải được chứng nhận, nhưng sản phẩm
-//    không phụ thuộc chứng nhận nên vẫn lưu, gửi duyệt và đăng bán bình thường.
+// 8. Từ 11/2026 đơn vị thương mại tải chứng nhận được ngay, kèm hợp đồng với nhà máy nếu giấy
+//    đứng tên nhà máy khác. Sản phẩm vẫn không phụ thuộc chứng nhận.
 const uploadRoute = fs.readFileSync(path.join(ROOT, "app/api/supplier-portal/certificates/route.ts"), "utf8");
-assert.match(uploadRoute, /supplier_type === "trading"/, "API chặn tải chứng nhận của đơn vị thương mại chưa xác thực");
-assert.match(uploadRoute, /approvedL2Scope\(access\.reviews\)/);
-assert.match(uploadRoute, /Sản phẩm vẫn đăng bán bình thường/);
+assert.doesNotMatch(uploadRoute, /approvedL2Scope\(access\.reviews\)/, "API không còn chặn tải chứng nhận theo L3 đối tác");
+assert.match(uploadRoute, /relationship_file/, "API nhận tệp hợp đồng với nhà máy");
 const certForm = fs.readFileSync(path.join(ROOT, "app/supplier/portal/products/product-certificates-form.tsx"), "utf8");
-assert.match(certForm, /holderRule\?\.blocked &&/, "Khối tải lên bị thay bằng lời giải thích");
-assert.match(certForm, /\{m\.lockedNext\}/, "Chỉ rõ bước cần làm, không đẩy sang trang khác");
-assert.match(portalCopy.vi.productEditor.certificates.lockedNext, /Hoàn tất xác thực nhà máy đối tác/, "Câu chỉ bước tiếp theo nằm trong từ điển");
+assert.match(certForm, /blocked: false, text: m\.holderContract/, "Đơn vị thương mại không còn bị khoá ô tải");
+assert.match(certForm, /name="relationship_file"/, "Ô tải hợp đồng trên trang sản phẩm");
 assert.doesNotMatch(certForm, /<Link|router\.(push|refresh)/, "Không điều hướng khỏi trang sản phẩm");
 const completeness = fs.readFileSync(path.join(ROOT, "lib/products/completeness.ts"), "utf8");
 assert.doesNotMatch(completeness, /certificate/i, "Hồ sơ sản phẩm không bắt buộc chứng nhận");

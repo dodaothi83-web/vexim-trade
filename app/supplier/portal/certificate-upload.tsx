@@ -12,8 +12,11 @@ import type { PortalMessages } from "@/lib/i18n/portal";
 export function SupplierCertificateUpload({
   certificates,
   blockedReason = null,
+  trading = false,
   copy,
 }: {
+  /** Đơn vị thương mại: thêm ô tải hợp đồng/ủy quyền với nhà máy đứng tên trên giấy. */
+  trading?: boolean;
   certificates: Array<{ id: string; name: string; valid_until: string | null }>;
   /** Có lý do thì ô tải đóng sẵn và nói vì sao — không để chọn tệp rồi mới nhận lỗi. */
   blockedReason?: string | null;
@@ -124,6 +127,17 @@ export function SupplierCertificateUpload({
           hint={copy.fileHint}
         />
       </div>
+      {trading && <div className="block sm:col-span-2">
+        <FilePicker
+          compact
+          name="relationship_file"
+          accept=".pdf,image/jpeg,image/png,image/webp"
+          busy={busy}
+          title={copy.contractTitle}
+          hint={copy.contractHint}
+        />
+        <p className="mt-1 text-[11px] text-ink-500">{copy.contractNote}</p>
+      </div>}
       <div className="flex items-end sm:col-span-1">
         <button disabled={busy} className="btn btn-primary w-full" type="submit">
           {busy ? copy.uploading : copy.submit}
