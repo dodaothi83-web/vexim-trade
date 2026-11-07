@@ -5,6 +5,12 @@ import { useState } from "react";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { correctSupplierProductCategoryAction } from "./review-actions";
 
+/**
+ * Cho phép staff đổi danh mục sản phẩm đã được duyệt mà không làm thay đổi
+ * trạng thái xuất bản. Hàm `correctSupplierProductCategoryAction` chỉ chấp nhận
+ * sản phẩm đang ở trạng thái "approved". Đặt ở đầu trang (trên form chính) để
+ * nhân viên thấy ngay sản phẩm nào mà không phải kéo hết trang xuống.
+ */
 export function CategoryCorrectionControls({
   id,
   currentSlug,

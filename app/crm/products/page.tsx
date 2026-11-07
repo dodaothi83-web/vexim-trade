@@ -103,6 +103,12 @@ export default async function ProductsPage({
     nomedia: all.filter((r) => !hasShareableMedia(r.id)).length,
     unit_review: all.filter((r) => unitAuditByProduct.get(r.id)?.needsReview).length,
   };
+  // Gộp 2 thông báo "chờ kiểm tra" và "thiếu ảnh" thành 1 card duy nhất:
+  // đếm số sản phẩm unique cần staff quan tâm (dù vì lý do gì).
+  const needsAttentionIds = new Set(
+    all.filter((r) => r.pendingReview || !hasShareableMedia(r.id)).map((r) => r.id),
+  );
+  const needsAttentionCount = needsAttentionIds.size;
 
   let rows = all;
   if (view === "pending") rows = rows.filter((r) => r.pendingReview);
@@ -175,12 +181,11 @@ export default async function ProductsPage({
         <div className="mt-2 flex flex-wrap gap-4"><Link className="font-semibold underline" href="/crm/products/quantity-review">Kiểm tra các bản giá và tên</Link></div>
       </div>}
       {/* KPI tổng quan */}
-      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
           { value: viewCounts.all, label: "Tổng hồ sơ sản phẩm" },
           { value: viewCounts.ready, label: "Sẵn sàng gửi người mua" },
-          { value: viewCounts.pending, label: "Sản phẩm chờ kiểm tra", warn: viewCounts.pending > 0 },
-          { value: viewCounts.nomedia, label: "Chưa có ảnh/catalogue chia sẻ cho người mua", warn: viewCounts.nomedia > 0 },
+          { value: needsAttentionCount, label: "Cần xử lý", warn: needsAttentionCount > 0 },
         ].map((k) => (
           <div key={k.label} className="card px-4 py-3.5">
             <p className={`text-[22px] font-black leading-none ${k.warn ? "text-amber-600" : "text-ink-900"}`}>{k.value}</p>
