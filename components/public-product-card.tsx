@@ -344,7 +344,10 @@ export function PublicProductCard({
   const title = (
     <h3
       title={displayName}
-      className="truncate text-[13px] font-semibold leading-[18px] text-ink-900 group-hover/card:text-brand-700 sm:text-sm sm:leading-5"
+      // Có chứng nhận: tiêu đề hai dòng dưới dòng badge. Không có: tiêu đề ba dòng, dùng luôn
+      // chỗ của dòng badge. Wrapper bên ngoài giữ min-height cố định để lưới thẳng hàng.
+      className={`text-[13px] font-semibold leading-[18px] text-ink-900 group-hover/card:text-brand-700 sm:text-sm sm:leading-5 ${
+        certificates.length ? "line-clamp-2 overflow-hidden break-words" : "line-clamp-3 overflow-hidden break-words"}`}
     >
       {displayName}
     </h3>
@@ -364,31 +367,33 @@ export function PublicProductCard({
           </div>
         )}
 
-        {/* Chứng nhận: một dòng duy nhất, tối đa 3 tên, phần dư thành "+N"; không bao giờ xuống dòng.
-            Trên máy tính luôn giữ chỗ để các thẻ trong lưới thẳng hàng; điện thoại thì bỏ chỗ trống. */}
-        <div className={`mb-1 h-5 min-w-0 flex-nowrap items-center gap-1 overflow-hidden ${certificates.length ? "flex" : "hidden sm:flex"}`} aria-label={certificates.length ? `Certificates: ${certificates.join(", ")}` : undefined}>
-          {certificates.slice(0, 3).map((label) => (
-            <span key={label} title={`${label} certified`} className="min-w-0 truncate rounded bg-emerald-50 px-1.5 py-px text-[10.5px] font-bold leading-4 text-emerald-800 ring-1 ring-emerald-300">
-              {label}
-            </span>
-          ))}
-          {certificates.length > 3 && (
-            <span title={certificates.slice(3).join(", ")} className="shrink-0 rounded bg-emerald-600 px-1.5 py-px text-[10.5px] font-bold leading-4 text-white">
-              +{certificates.length - 3}
-            </span>
+        {/* Chứng nhận + tiêu đề: wrapper giữ min-height cố định để thẻ có/không badge
+            vẫn cao bằng nhau trên lưới. Có badge: tiêu đề 2 dòng; không: tiêu đề 3 dòng. */}
+        <div className="flex min-h-[60px] flex-col sm:min-h-16">
+          {certificates.length > 0 && <div className="mb-1 flex h-5 min-w-0 flex-nowrap items-center gap-1 overflow-hidden" aria-label={`Certificates: ${certificates.join(", ")}`}>
+            {certificates.slice(0, 3).map((label) => (
+              <span key={label} title={`${label} certified`} className="min-w-0 truncate rounded bg-emerald-50 px-1.5 py-px text-[10.5px] font-bold leading-4 text-emerald-800 ring-1 ring-emerald-300">
+                {label}
+              </span>
+            ))}
+            {certificates.length > 3 && (
+              <span title={certificates.slice(3).join(", ")} className="shrink-0 rounded bg-emerald-600 px-1.5 py-px text-[10.5px] font-bold leading-4 text-white">
+                +{certificates.length - 3}
+              </span>
+            )}
+          </div>}
+
+          {linkable ? (
+            <Link
+              href={href}
+              className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 after:absolute after:inset-0 after:z-10 after:rounded-xl after:content-['']"
+            >
+              {title}
+            </Link>
+          ) : (
+            title
           )}
         </div>
-
-        {linkable ? (
-          <Link
-            href={href}
-            className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 after:absolute after:inset-0 after:z-10 after:rounded-xl after:content-['']"
-          >
-            {title}
-          </Link>
-        ) : (
-          title
-        )}
 
         {/* Prominent price with inline Incoterm (e.g. USD 7.55–7.80/kg FOB) */}
         <div title={fullPriceTitle} className="mt-2">
