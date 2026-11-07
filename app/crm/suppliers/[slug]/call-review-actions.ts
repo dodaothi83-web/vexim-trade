@@ -154,7 +154,7 @@ export async function approveCallReviewAction(fd: FormData): Promise<Result> {
     const { store, before, supplier } = loaded;
     if ((await store.listVerifications(before.supplier_id)).some((v) => v.id !== before.id && v.target_level === 2 &&
       (v.l2_scope ?? "factory") === (before.l2_scope ?? "factory") && v.status === "approved")) {
-      return { ok: false, message: "Phạm vi L2 này đã được duyệt ở đợt kiểm khác." };
+      return { ok: false, message: "Phạm vi L3 này đã được duyệt ở đợt kiểm khác." };
     }
     const read = await readDraft(fd, before);
     if ("error" in read) return { ok: false, message: read.error };

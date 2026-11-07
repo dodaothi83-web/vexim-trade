@@ -2,6 +2,7 @@ import type { Content, TableCell, TDocumentDefinitions } from "pdfmake/interface
 import type { PublicComparedProduct } from "@/lib/public/product-comparison-data";
 import { productComparisonWarnings } from "@/lib/public/product-comparison";
 import { verificationLabel } from "@/lib/verification-status";
+import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 
 /** A4 landscape, 15mm content margins. Text stays searchable, with embedded Unicode fonts. */
 export const COMPARISON_PDF_MARGIN = 15 * 72 / 25.4;
@@ -42,7 +43,7 @@ export function comparisonPdfDefinition(products: PublicComparedProduct[], origi
   row("Location", (p) => p.province ? `${p.province}, Vietnam` : "Not provided");
   row("Raw material region", (p) => value(p.rawMaterialRegion));
   row("Input material origin", (p) => value(p.inputMaterialOrigin));
-  row("Vexim verification", (p) => ([1, 2, 3] as const).map((level) => `${verificationLabel(level, p.l2Scope)}: ${p.verificationSteps.includes(level) ? "Approved" : "Not approved"}`).join("\n"));
+  row("Vexim verification", (p) => VERIFICATION_DISPLAY_ORDER.map((level) => `${verificationLabel(level, p.l2Scope)}: ${p.verificationSteps.includes(level) ? "Approved" : "Not approved"}`).join("\n"));
   row("Public supplier certificates", (p) => p.certificates.length ? p.certificates.map((c) => `${c.name}\nValid until ${c.validUntil}\n${c.holderMatch === "owner" ? "Registered to supplier" : `Third-party holder: ${c.holderName}`}`).join("\n\n") : "No public certificates");
   row("Product link", (p) => new URL(p.href, origin).href);
   const warnings = productComparisonWarnings(products);

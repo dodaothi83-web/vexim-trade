@@ -116,16 +116,16 @@ function partnerHolderRule(context: CertificateHolderContext, holderName: string
     return { ok: false, reason: "Vexim kiểm tra loại hình doanh nghiệp trước khi đăng" };
   }
   if (!context.partnerContractApproved) {
-    return { ok: false, reason: "chưa xác thực L2 nhà máy đối tác nên giấy này chưa dùng được" };
+    return { ok: false, reason: "chưa xác thực L3 nhà máy đối tác nên giấy này chưa dùng được" };
   }
   const partnerName = context.partnerFactoryName?.trim();
   if (!partnerName) {
-    return { ok: false, reason: "hồ sơ L2 nhà máy đối tác chưa ghi tên nhà máy" };
+    return { ok: false, reason: "hồ sơ L3 nhà máy đối tác chưa ghi tên nhà máy" };
   }
   if (!partnerFactoryNameMatches(holderName, partnerName)) {
-    return { ok: false, reason: `giấy không đứng tên nhà máy đối tác ${partnerName} đã xác thực ở L2` };
+    return { ok: false, reason: `giấy không đứng tên nhà máy đối tác ${partnerName} đã xác thực ở L3` };
   }
-  return { ok: true, reason: `trùng nhà máy đối tác ${partnerName} trong hợp đồng L2` };
+  return { ok: true, reason: `trùng nhà máy đối tác ${partnerName} trong hợp đồng L3` };
 }
 
 export function decideCertificatePublication(

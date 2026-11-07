@@ -236,7 +236,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
       return;
     }
     const typeChanged = Boolean(supplier && (form.supplier_type ?? null) !== (saved.supplier_type ?? null));
-    if (typeChanged && !window.confirm("Bạn đã đối chiếu loại hình của đúng doanh nghiệp? Kết quả L2 cũ giữ nguyên phạm vi, không tự chuyển sang loại hình mới.")) return;
+    if (typeChanged && !window.confirm("Bạn đã đối chiếu loại hình của đúng doanh nghiệp? Kết quả L3 cũ giữ nguyên phạm vi, không tự chuyển sang loại hình mới.")) return;
     setBusy(true);
     const summary_en = str("summary_en").trim();
     const next = { ...form, status: (saved.status as SupplierStatus) ?? "draft" };
@@ -467,7 +467,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
                 {fieldErrors.name && <p className="mt-1 text-xs font-semibold text-rose-600">{fieldErrors.name}</p>}
               </Field>
               <Field label="Tên thương mại"><input className="input" value={str("trade_name")} onChange={(e) => set("trade_name", e.target.value)} /></Field>
-              <Field label="Loại hình" hint="Thay đổi cần đối chiếu; kết quả L2 cũ không tự chuyển phạm vi.">
+              <Field label="Loại hình" hint="Thay đổi cần đối chiếu; kết quả L3 cũ không tự chuyển phạm vi.">
                 <select className="input" value={str("supplier_type")} onChange={(e) => set("supplier_type", e.target.value || null)}>
                   <option value="">Chưa chọn</option>{SUPPLIER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>

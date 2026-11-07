@@ -8,6 +8,7 @@ import { VerificationTierBadge } from "@/components/verification-tier";
 import { productComparisonWarnings, type ProductComparisonSelection } from "@/lib/public/product-comparison";
 import type { PublicComparedProduct } from "@/lib/public/product-comparison-data";
 import { verificationLabel } from "@/lib/verification-status";
+import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 
 function Missing({ children = "Not provided" }: { children?: string }) {
   return <span className="font-normal text-ink-400">{children}</span>;
@@ -159,7 +160,7 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
               <div>
                 <VerificationTierBadge levels={product.verificationSteps} />
                 <ul className="mt-3 space-y-2">
-                  {([1, 2, 3] as const).map((level) => {
+                  {VERIFICATION_DISPLAY_ORDER.map((level) => {
                     const approved = product.verificationSteps.includes(level);
                     return (
                       <li key={level} className="flex items-start gap-2 text-xs leading-5">

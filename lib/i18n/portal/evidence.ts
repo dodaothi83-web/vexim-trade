@@ -71,7 +71,7 @@ const en = {
     },
   },
   draft: {
-    scopeMissing: "The company file has no supplier type yet. Contact us to update it before opening L2.",
+    scopeMissing: "The company file has no supplier type yet. Contact us to update it before opening L3.",
     partnerNoCode: "A partner factory file does not need a factory photo code.",
     codeNotAllowed: "The file was submitted or reviewed; a new code cannot be issued.",
     codeRace: "The file just changed or was submitted. Reload the page to check.",
@@ -82,9 +82,9 @@ const en = {
     partnerNameLocked: "The file was submitted or reviewed; the partner factory name cannot be changed.",
   },
   submit: {
-    scopeUnknown: "The company type is unclear or has changed. Contact us to check the L2 file again.",
+    scopeUnknown: "The company type is unclear or has changed. Contact us to check the L3 file again.",
     manualNoAiPartner: "We check the partner contract; AI does not scan it.",
-    manualNoAiExport: "We check L3 documents; AI does not scan them.",
+    manualNoAiExport: "We check L2 documents; AI does not scan them.",
     lockedReload: "The file was submitted or reviewed. Reload the page to see its status.",
     needContract: "Upload the contract with the partner factory before submitting.",
     needExportEvidence: "Upload at least one export document before submitting.",
@@ -230,7 +230,7 @@ const vi: EvidenceMessages = {
     },
   },
   draft: {
-    scopeMissing: "Hồ sơ chưa có loại hình nhà cung cấp. Liên hệ Vexim để cập nhật trước khi mở L2.",
+    scopeMissing: "Hồ sơ chưa có loại hình nhà cung cấp. Liên hệ Vexim để cập nhật trước khi mở L3.",
     partnerNoCode: "Hồ sơ đối tác không cần mã ảnh nhà máy.",
     codeNotAllowed: "Hồ sơ đã nộp hoặc đã xét; không thể phát hành mã mới.",
     codeRace: "Hồ sơ vừa thay đổi hoặc đã nộp. Hãy tải lại trang để kiểm tra.",
@@ -241,9 +241,9 @@ const vi: EvidenceMessages = {
     partnerNameLocked: "Hồ sơ đã nộp hoặc đã xét; không sửa được tên nhà máy đối tác.",
   },
   submit: {
-    scopeUnknown: "Loại hình doanh nghiệp chưa rõ hoặc đã thay đổi. Liên hệ Vexim để kiểm tra lại hồ sơ L2.",
+    scopeUnknown: "Loại hình doanh nghiệp chưa rõ hoặc đã thay đổi. Liên hệ Vexim để kiểm tra lại hồ sơ L3.",
     manualNoAiPartner: "Hợp đồng đối tác được kiểm tra thủ công, không quét bằng AI.",
-    manualNoAiExport: "Chứng từ L3 được kiểm tra thủ công, không quét bằng AI.",
+    manualNoAiExport: "Chứng từ L2 được kiểm tra thủ công, không quét bằng AI.",
     lockedReload: "Hồ sơ đã nộp hoặc đã xét. Hãy tải lại trang để xem trạng thái.",
     needContract: "Hãy tải hợp đồng với nhà máy đối tác trước khi nộp.",
     needExportEvidence: "Hãy tải ít nhất một chứng từ xuất khẩu trước khi nộp.",

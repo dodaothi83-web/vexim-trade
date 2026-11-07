@@ -16,7 +16,7 @@ function load(path, mocks = {}) {
 const comparison = load('lib/public/product-comparison.ts');
 const verification = load('lib/verification-status.ts');
 const { comparisonPdfDefinition, COMPARISON_PDF_MARGIN: margin } = load('lib/public/product-comparison-pdf.ts', {
-  '@/lib/public/product-comparison': comparison, '@/lib/verification-status': verification,
+  '@/lib/public/product-comparison': comparison, '@/lib/verification-status': verification, '@/lib/types': { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] },
 });
 const pdfMake = require('pdfmake/build/pdfmake');
 pdfMake.addVirtualFileSystem(require('pdfmake/build/vfs_fonts'));

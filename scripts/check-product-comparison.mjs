@@ -335,12 +335,13 @@ const tableModule = compile("../components/public/product-comparison-table.tsx",
   "@/components/verification-tier": { VerificationTierBadge: () => React.createElement("span", null, "Level 2") },
   "@/lib/public/product-comparison": { productComparisonWarnings },
   "@/lib/verification-status": { VERIFICATION_LABELS, verificationLabel },
+  "@/lib/types": { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] },
 });
 const tableHtml = renderToStaticMarkup(React.createElement(tableModule.ProductComparisonTable, {
   products: [compared("a"), compared("b", { price: null, priceCurrency: null, priceUnit: null, priceValidUntil: null, certificates: [], inputMaterialOrigin: null })],
 }));
 for (const text of ["Reference price", "USD 7/kg", "On request", "Price valid until", "MOQ", "Packaging", "Named place",
-  "Vexim verification", "Documents checked: Approved", "L2 review: Not approved", "Delivery history reviewed: Approved",
+  "Vexim verification", "Documents checked: Approved", "Delivery history reviewed: Approved", "L3 review: Not approved",
   "HACCP", "No public certificates", "Raw material region", "Binh Phuoc and Dak Lak", "Input material origin", "Vietnam and Cambodia", "Not provided",
   "Copy comparison link", "Request a quote", "do not certify these products or a specific lot"]) {
   assert.ok(tableHtml.includes(text), `Comparison table includes ${text}`);

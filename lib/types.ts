@@ -537,6 +537,18 @@ export type VerificationStatus = "scheduled" | "in_progress" | "submitted" | "ap
 
 export type VerificationLevel = 1 | 2 | 3;
 
+/**
+ * Số cấp HIỂN THỊ cho người dùng (chủ dự án quyết định 11/2026): lịch sử xuất khẩu là cấp 2,
+ * xác minh nhà máy là cấp 3. Mã lưu trữ `target_level` KHÔNG đổi (1 giấy tờ, 2 nhà máy, 3 xuất khẩu);
+ * chỉ dùng hai hằng dưới đây khi in số cấp hoặc xếp thứ tự trên giao diện.
+ */
+export const VERIFICATION_DISPLAY_LEVEL: Record<VerificationLevel, 1 | 2 | 3> = { 1: 1, 2: 3, 3: 2 };
+/** Thứ tự hiển thị theo số cấp mới: giấy tờ, xuất khẩu, nhà máy. */
+export const VERIFICATION_DISPLAY_ORDER = [1, 3, 2] as const satisfies readonly VerificationLevel[];
+export function displayLevel(level: number): number {
+  return level === 2 ? 3 : level === 3 ? 2 : level;
+}
+
 /** L2 scope is recorded per submission and review; null is the legacy factory flow. */
 export type L2VerificationScope = "factory" | "partner_contract";
 

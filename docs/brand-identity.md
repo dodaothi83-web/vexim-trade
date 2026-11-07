@@ -130,7 +130,7 @@ Three new direction-02 icons for the right-edge rail on public pages (`component
 
 The rail replaces the old green WhatsApp "Chat with us" button; WhatsApp is no longer linked. It is hidden on `/buyer/account/messages`, which has its own full chat.
 
-Header controls (same approval): the language switcher and buyer account entry use these icons as borderless icon buttons, matching the rail.
+Header controls (same approval): the language switcher and buyer account entry use these icons, matching the rail. Since 2026-11 (owner request for a less basic header) the main links are rounded pill links with an active state and the language switcher is a small pill that also shows the current code (EN/VI); the icons are unchanged.
 
 | Export | Use |
 |---|---|
@@ -140,3 +140,15 @@ Header controls (same approval): the language switcher and buyer account entry u
 ## Shield pips without circles on public listings (approved 2026-11-07)
 
 The frameless `variant="marketplace"` pips, first approved for product cards, also apply to the public supplier cards in "Explore other suppliers" (`/suppliers/[slug]`) and to the comparison page (`/compare`), so every public listing card shows the same shields. CRM and other default contexts keep the circular pips.
+
+## Tier-coloured filled shields on public listings (approved 2026-11-07)
+
+Owner decision: on `variant="marketplace"` pips the plain ShieldCheck shape and size stay (no circle, no outer ring). An approved shield is **filled, outline included, with the supplier's tier colour; only the tick is white**, so a filled shield is exactly as large as an unapproved one. The colour follows the supplier tier (number of approved checks), so all approved shields on one card share it:
+
+| Tier | Fill |
+|---|---|
+| 1 check | green #2FA35A |
+| 2 checks | light yellow #E9C64A |
+| all 3 checks | burgundy #8E1B2C |
+
+This is an owner-approved exception to "no decorative yellow" for these tier shields only; yellow stays out of other UI. Burgundy is a tier colour, not the error red. Unapproved shields stay an unfilled grey outline (`text-ink-400`) in the existing 18px / 20px hit areas with a 2px gap. Tokens live in `VERIFICATION_SHIELD_FILL` (`components/verification-tier.tsx`). CRM compact pips, tier pills and cover seals keep the shared success colour. Labels, tooltips and verification rules are unchanged.

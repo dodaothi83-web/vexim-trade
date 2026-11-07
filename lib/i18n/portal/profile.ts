@@ -95,9 +95,9 @@ const en = {
       here: "You are here",
       cta: {
         documents: "Upload the business registration",
-        factory: "Submit L2 evidence",
+        factory: "Submit L3 evidence",
         partner: "Submit the partner contract",
-        export: "Submit L3 evidence",
+        export: "Submit L2 evidence",
       },
       nextBodyBefore: "The next step for the profile is",
       nextBodyAfter: "Uploading evidence does not grant a badge; each level is checked and decided on its own.",
@@ -124,7 +124,7 @@ const en = {
       email: "Sign-in email",
       address: "Registered address",
     },
-    typeHint: "If the supplier type is wrong, contact us to check and update it. Older L2 results keep the scope they were reviewed under.",
+    typeHint: "If the supplier type is wrong, contact us to check and update it. Older L3 results keep the scope they were reviewed under.",
     contactTitle: "Contact and display details",
     contactIntro: "Update contact details, the introduction and commercial content. After saving, AI translates the buyer-facing part into English.",
     labels: {
@@ -276,9 +276,9 @@ const vi: ProfileMessages = {
       here: "Đang ở đây",
       cta: {
         documents: "Tải giấy đăng ký kinh doanh",
-        factory: "Nộp bằng chứng L2",
-        partner: "Nộp bằng chứng L2",
-        export: "Nộp bằng chứng L3",
+        factory: "Nộp bằng chứng L3",
+        partner: "Nộp bằng chứng L3",
+        export: "Nộp bằng chứng L2",
       },
       nextBodyBefore: "Bước tiếp theo của hồ sơ là",
       nextBodyAfter: "Tải bằng chứng không tự cấp huy hiệu; từng cấp được kiểm và quyết định riêng.",
@@ -305,7 +305,7 @@ const vi: ProfileMessages = {
       email: "Email đăng nhập",
       address: "Địa chỉ đăng ký",
     },
-    typeHint: "Nếu khai sai loại hình, liên hệ Vexim để kiểm tra và cập nhật. Kết quả L2 cũ vẫn giữ phạm vi đã xét.",
+    typeHint: "Nếu khai sai loại hình, liên hệ Vexim để kiểm tra và cập nhật. Kết quả L3 cũ vẫn giữ phạm vi đã xét.",
     contactTitle: "Thông tin liên hệ và hiển thị",
     contactIntro: "Cập nhật thông tin liên hệ, giới thiệu và nội dung thương mại. Sau khi lưu, AI dịch phần cho người mua sang tiếng Anh.",
     labels: {

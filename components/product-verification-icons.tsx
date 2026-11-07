@@ -1,12 +1,12 @@
 import { ShieldCheck } from "lucide-react";
 
 import { VERIFICATION_LEVEL_ICONS, VERIFICATION_LEVEL_TONES, VERIFICATION_PIP_OFF } from "@/components/verification-tier";
-import type { VerificationLevel } from "@/lib/types";
+import { VERIFICATION_DISPLAY_ORDER, type VerificationLevel } from "@/lib/types";
 import { verificationExplanation, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 
 /** Product pages show only individually approved SUPPLIER checks, never inferred cumulative levels. */
 export function ProductVerificationIcons({ levels, compact = false, l2Scope }: { levels: readonly VerificationLevel[]; compact?: boolean; l2Scope?: PublicL2Scope }) {
-  const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
+  const approved = VERIFICATION_DISPLAY_ORDER.filter((level) => levels.includes(level));
 
   return <div className="relative w-full" role="group" aria-label="Vexim supplier checks (not product certification)">
     <div className="flex flex-wrap items-center gap-1.5">

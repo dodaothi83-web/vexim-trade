@@ -68,12 +68,12 @@ export default function HowWeVerifyPage() {
           <Step n={1} icon={<ClipboardCheck className="h-5 w-5" />} title="Registered business"
             question="Is this a real, legally registered company?"
             body="We review the supplier&apos;s business registration before they can appear on Vexim Trade." />
-          <Step n={2} icon={<Factory className="h-5 w-5" />} title="Production source"
-            question="Who actually makes the goods?"
-            body="A Vexim review lead walks through the facility with the supplier on a live video call, or visits on site, and records what was seen. For trading companies, the call takes place at the partner factory and their contract is reviewed too. Signed-in buyers can download the review report, and each report has a code you can check on this site. This is Vexim's own review, not a third-party audit." />
-          <Step n={3} icon={<Truck className="h-5 w-5" />} title="Export track record"
+          <Step n={2} icon={<Truck className="h-5 w-5" />} title="Export track record"
             question="Have they shipped internationally before?"
             body="We review evidence of past export shipments, a strong sign the supplier understands export documents, packing and timelines." />
+          <Step n={3} icon={<Factory className="h-5 w-5" />} title="Production source"
+            question="Who actually makes the goods?"
+            body="A Vexim review lead walks through the facility with the supplier on a live video call, or visits on site, and records what was seen. For trading companies, the call takes place at the partner factory and their contract is reviewed too. Signed-in buyers can download the review report, and each report has a code you can check on this site. This is Vexim's own review, not a third-party audit." />
         </ol>
         <p className="mt-4 text-[14.5px] leading-relaxed text-ink-700">
           Each check is independent. A supplier may show some badges and not others. Profiles still being

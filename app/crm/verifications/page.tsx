@@ -123,7 +123,7 @@ export default async function VerificationsPage({
                     <Link href={`/crm/verifications/submissions/${sub.id}`} className={row}>
                       <span className="min-w-0 flex-1 basis-full truncate text-[14px] font-semibold text-ink-900 sm:basis-0">{supplierName(sub.supplier_id)}</span>
                       <Badge className={LEVEL_BADGE[sub.target_level] ?? LEVEL_BADGE[1]}>
-                        {isPartnerL2(sub) ? "L2 · nhà máy đối tác" : sub.target_level === 2 ? "L2 · nhà máy" : "L3 · xuất khẩu"}
+                        {isPartnerL2(sub) ? "L3 · nhà máy đối tác" : sub.target_level === 2 ? "L3 · nhà máy" : "L2 · xuất khẩu"}
                       </Badge>
                       <Badge className={sub.status === "returned" ? STATUS_BADGE.returned.tone : STATUS_BADGE.submitted.tone}>
                         {sub.status === "returned" ? "Cần bổ sung" : "Chờ xét"}

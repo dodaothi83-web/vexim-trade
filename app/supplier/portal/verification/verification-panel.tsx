@@ -15,6 +15,7 @@ import {
   saveShipmentAction,
 } from "./submission-actions";
 import { SubmissionItemCard } from "./submission-item-card";
+import { displayLevel } from "@/lib/types";
 
 interface GpsState {
   lat: number | null;
@@ -332,7 +333,7 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
   return <div id={`level-${level}`} className="mt-5 scroll-mt-20">
 
     {/* Dải tổng quan: trạng thái hồ sơ + tiến độ, đọc được trong một lần nhìn. */}
-    <section aria-label={fill(copy.overview.aria, { level })} className="overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
+    <section aria-label={fill(copy.overview.aria, { level: displayLevel(level) })} className="overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
       <div className="bg-gradient-to-r from-brand-50 via-white to-white px-4 py-4 sm:px-5 sm:py-5">
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
           <div className="flex min-w-0 items-start gap-3">
@@ -340,7 +341,7 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
               <LevelIcon className="h-5 w-5" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="text-[10.5px] font-bold tracking-[0.14em] text-brand-700 uppercase">{fill(copy.overview.selfSubmitted, { level })}</p>
+              <p className="text-[10.5px] font-bold tracking-[0.14em] text-brand-700 uppercase">{fill(copy.overview.selfSubmitted, { level: displayLevel(level) })}</p>
               <h2 className="mt-0.5 text-[17px] leading-tight font-black tracking-tight text-ink-900">{levelTitle}</h2>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone}`}>{view.statusLabel}</span>
@@ -358,7 +359,7 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
               <span className="text-[11px] font-semibold text-ink-600">{copy.overview.progressLabel}</span>
               <span className="text-[13px] font-black tabular-nums text-ink-900">{view.uploadedTotal}/{view.requiredTotal}</span>
             </div>
-            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-ink-200" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={fill(copy.overview.progressAria, { level })}>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-ink-200" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={fill(copy.overview.progressAria, { level: displayLevel(level) })}>
               <div className={`h-full rounded-full transition-all ${view.ready ? "bg-emerald-500" : "bg-brand-600"}`} style={{ width: `${progress}%` }} />
             </div>
             <p className={`mt-1.5 text-[11px] font-semibold ${progressTone}`}>{progressNote}</p>
@@ -368,7 +369,7 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
 
       {view.status === "accepted" && <p className="border-t border-emerald-100 bg-emerald-50 px-4 py-2.5 text-[12px] leading-5 text-emerald-900 sm:px-5">
         <CheckCircle2 className="mr-1 inline size-4 align-[-2px]" aria-hidden="true" />
-        {fill(copy.overview.lockedBody, { level })}
+        {fill(copy.overview.lockedBody, { level: displayLevel(level) })}
       </p>}
       {view.status === "returned" && view.reviewNote && <p className="whitespace-pre-wrap border-t border-rose-100 bg-rose-50 px-4 py-2.5 text-[12px] leading-5 text-rose-900 sm:px-5">
         <strong>{copy.overview.reviewReason}</strong> {view.reviewNote}

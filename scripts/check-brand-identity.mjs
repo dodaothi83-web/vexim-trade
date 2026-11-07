@@ -50,6 +50,7 @@ vm.runInNewContext(ts.transpileModule(read('components/verification-tier.tsx'), 
   if (id === '@/components/brand/vexim-icons') return brandIcons;
   if (id === 'lucide-react') return { HelpCircle: () => null, ShieldCheck: (props) => React.createElement('svg', { ...props, 'data-standard-shield': true }) };
   if (id === '@/lib/verification-status') return { verificationLabel: (level) => `Check ${level}`, verificationExplanation: (level) => `Scope ${level}` };
+  if (id === '@/lib/types') return { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] };
   throw Error(id);
 } });
 for (const levels of [[], [1], [1, 2, 3]]) {
@@ -60,8 +61,8 @@ for (const levels of [[], [1], [1, 2, 3]]) {
   assert.match(html, /Check 2/);
   assert.equal((html.match(/: Approved\./g) ?? []).length, levels.length);
 }
-// The product-card exception removes only the visible frame; default contexts stay circular.
-for (const levels of [[], [1], [1, 2, 3]]) {
+// Product cards: plain frameless shields; approved ones are filled with the tier colour (green, light yellow, burgundy) and a white tick.
+for (const [levels, bg] of [[[], null], [[1], 'fill-\\[#2FA35A\\]'], [[1, 2], 'fill-\\[#E9C64A\\]'], [[1, 2, 3], 'fill-\\[#8E1B2C\\]']]) {
   const html = render(mod.exports.VerificationPips, { levels, variant: 'marketplace', shortTooltips: true });
   assert.equal((html.match(/data-standard-shield/g) ?? []).length, 3);
   const buttons = [...html.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
@@ -72,10 +73,9 @@ for (const levels of [[], [1], [1, 2, 3]]) {
     assert.match(button, /h-\[18px\] w-\[18px\] sm:h-5 sm:w-5/);
     assert.match(button, /focus-visible:outline/);
   }
-  assert.match(html, /h-3.5 w-3.5 sm:h-4 sm:w-4/);
   assert.equal((html.match(/role="tooltip"/g) ?? []).length, 3);
-  assert.equal(buttons.filter((b) => b.includes('text-success')).length, levels.length);
-  assert.equal(buttons.filter((b) => b.includes('text-ink-500')).length, 3 - levels.length);
+  assert.equal((html.match(new RegExp(`<svg[^>]*${bg ?? 'never'}`, 'g')) ?? []).length, levels.length);
+  assert.equal(buttons.filter((b) => b.includes('text-ink-400')).length, 3 - levels.length);
   assert.equal((html.match(/: Approved\./g) ?? []).length, levels.length);
 }
 for (const file of ['components/public/supplier-storefront.tsx', 'app/supplier/portal/verification/level-tabs.tsx', 'app/crm/verifications/submissions/page.tsx']) assert.match(read(file), /@\/components\/brand\/vexim-icons/);

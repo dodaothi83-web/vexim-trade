@@ -14,8 +14,8 @@ const en = {
     delivery: "Delivery history",
   },
   submissions: {
-    factory: "Factory verification (L2)",
-    export: "Export history (L3)",
+    factory: "Factory verification (L3)",
+    export: "Export history (L2)",
   },
   onboardingApproved: {
     title: "Your supplier account is open",
@@ -88,8 +88,8 @@ const vi: NoticesMessages = {
     delivery: "Lịch sử giao hàng",
   },
   submissions: {
-    factory: "Xác thực nhà máy (L2)",
-    export: "Lịch sử xuất khẩu (L3)",
+    factory: "Xác thực nhà máy (L3)",
+    export: "Lịch sử xuất khẩu (L2)",
   },
   onboardingApproved: {
     title: "Tài khoản nhà cung cấp đã được mở quyền",

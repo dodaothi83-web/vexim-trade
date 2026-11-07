@@ -32,7 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const supplier = await store.getSupplier(supplierId);
     if (!supplier) return NextResponse.json({ ok: false, message: "Không tìm thấy nhà cung cấp." }, { status: 404 });
     const scope = level === 2 ? l2ScopeForSupplier(supplier.supplier_type) : null;
-    if (level === 2 && !scope) return NextResponse.json({ ok: false, message: "Chưa rõ loại hình nhà cung cấp. Hãy xác minh và cập nhật trước khi tạo L2." }, { status: 400 });
+    if (level === 2 && !scope) return NextResponse.json({ ok: false, message: "Chưa rõ loại hình nhà cung cấp. Hãy xác minh và cập nhật trước khi tạo L3." }, { status: 400 });
     const verifications = await store.listVerifications(supplierId);
     const sameScope = (v: typeof verifications[number]) => v.target_level === level && (level !== 2 || effectiveL2Scope(v.l2_scope) === scope);
     if (verifications.some((v) => sameScope(v) && v.status === "approved")) {

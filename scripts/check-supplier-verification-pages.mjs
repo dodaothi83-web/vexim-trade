@@ -63,7 +63,7 @@ for (const step of ['/supplier/portal/documents', '/supplier/portal/verification
   assert.ok(levelTabs.includes(step), `Tab dẫn tới ${step}`);
 // Nhãn tab và hướng dẫn nằm trong từ điển (giai đoạn 2, cụm 4); trang chỉ nối chuỗi.
 const viTabs = loadPortalDictionary().vi.verification.tabs;
-assert.match(levelTabs, /fill\(copy\.step, \{ level: step\.level \}\)/, 'Mỗi tab ghi rõ bước mấy trên ba');
+assert.match(levelTabs, /fill\(copy\.step, \{ level: displayLevel\(step\.level\) \}\)/, 'Mỗi tab ghi rõ bước mấy trên ba');
 assert.match(levelTabs, /active \? copy\.current : copy\.open/, 'Tab nói rõ bước đang mở');
 assert.match(viTabs.step, /Bước \{level\}\/3/, 'Câu đánh số bước nằm trong từ điển');
 assert.equal(viTabs.current, 'Đang mở', 'Nhãn bước đang mở nằm trong từ điển');
@@ -206,8 +206,8 @@ assert.match(sidebar, /href: "\/supplier\/portal\/verification\/export", labelKe
   'Menu có mục L3');
 {
   const portalCopy = loadPortalDictionary();
-  assert.match(portalCopy.vi.shell.nav.factory, /Xác thực nhà máy L2/, 'Nhãn L2 tiếng Việt');
-  assert.match(portalCopy.vi.shell.nav.exportHistory, /Lịch sử xuất khẩu L3/, 'Nhãn L3 tiếng Việt');
+  assert.match(portalCopy.vi.shell.nav.factory, /Xác thực nhà máy L3/, 'Nhãn nhà máy là L3 (thứ tự hiển thị 11/2026)');
+  assert.match(portalCopy.vi.shell.nav.exportHistory, /Lịch sử xuất khẩu L2/, 'Nhãn xuất khẩu là L2 (thứ tự hiển thị 11/2026)');
   assert.doesNotMatch(portalCopy.en.shell.nav.factory + portalCopy.vi.shell.nav.factory, /L2 · L3/,
     'Không còn mục menu gộp');
 }

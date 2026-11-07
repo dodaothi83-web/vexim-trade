@@ -6,6 +6,7 @@ import { fill } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/config";
 import { OverviewMessages } from "@/lib/i18n/portal/overview";
 import { Panel } from "./portal-ui";
+import { displayLevel } from "@/lib/types";
 
 /**
  * Hai cách nhìn cùng một tiến độ xác minh:
@@ -72,7 +73,7 @@ export function VerificationProgressPanel({ progress, messages, lang }: {
           <StepDot step={step} size={current ? "h-9 w-9 text-[12px]" : "h-7 w-7 text-[11px]"} icon={current ? "h-4 w-4" : "h-3.5 w-3.5"} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="sr-only">{fill(messages.step, { level: step.level })}</span>
+              <span className="sr-only">{fill(messages.step, { level: displayLevel(step.level) })}</span>
               <h3 className="text-[13.5px] font-bold text-ink-900">{step.title}</h3>
               <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${CHIP[step.tone]}`}>{step.status}</span>
               <span className="text-[11px] text-ink-500">{step.metric}</span>

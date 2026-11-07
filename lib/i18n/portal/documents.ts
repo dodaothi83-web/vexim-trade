@@ -95,7 +95,7 @@ export const en = {
     blockedTitle: "Certificate upload box not open",
     blockedPickerTitle: "Upload certificates",
     blockedPickerHint: "Finish partner factory verification to open this box.",
-    openStep2: "Open step 2 · Partner factory",
+    openStep2: "Open step 3 · Partner factory",
     heading: "Upload or renew a certificate",
     intro: "You only need to upload the file. We sort the certificate type and choose the category scope before it shows to buyers. When a certificate is close to expiry (60 / 30 / 7 / 1 days), the system reminds you to upload a new one here.",
     renewLabel: "Renew an existing certificate",
@@ -147,7 +147,7 @@ export const en = {
     product_certs: "Declared product certificates",
     export_license: "Export licence (if applicable)",
   },
-  contractBlocked: "Verify the partner factory contract at step 2 before uploading certificates. Your products stay on sale as normal.",
+  contractBlocked: "Verify the partner factory contract at step 3 before uploading certificates. Your products stay on sale as normal.",
 };
 
 export type DocumentsMessages = typeof en;
@@ -240,7 +240,7 @@ export const vi: DocumentsMessages = {
     blockedTitle: "Chưa mở được ô tải chứng nhận",
     blockedPickerTitle: "Tải chứng nhận",
     blockedPickerHint: "Hoàn tất xác thực nhà máy đối tác để mở ô này.",
-    openStep2: "Mở bước 2 · Nhà máy đối tác",
+    openStep2: "Mở bước 3 · Nhà máy đối tác",
     heading: "Tải lên hoặc gia hạn chứng nhận",
     intro: "Chỉ cần tải tệp. Loại giấy và phạm vi danh mục được chọn trước khi hiện cho người mua. Khi sắp hết hạn (60 / 30 / 7 / 1 ngày), hệ thống nhắc bạn vào đây tải bản mới.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
     renewLabel: "Gia hạn giấy đã có",
@@ -292,7 +292,7 @@ export const vi: DocumentsMessages = {
     product_certs: "Chứng chỉ sản phẩm đã công bố",
     export_license: "Giấy phép xuất khẩu (nếu áp dụng)",
   },
-  contractBlocked: "Xác thực hợp đồng nhà máy đối tác ở bước 2 trước khi tải chứng nhận. Sản phẩm vẫn đăng bán bình thường.",
+  contractBlocked: "Xác thực hợp đồng nhà máy đối tác ở bước 3 trước khi tải chứng nhận. Sản phẩm vẫn đăng bán bình thường.",
 };
 
 export const documentsMessages: Record<Locale, DocumentsMessages> = { en, vi };

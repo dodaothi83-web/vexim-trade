@@ -117,7 +117,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
         </Card>
       )}
       {step.level === 2 && forStep.length > 0 && <Card className="p-4">
-        <h2 className="text-sm font-bold text-ink-900">Các đợt L2 đã lưu</h2>
+        <h2 className="text-sm font-bold text-ink-900">Các đợt L3 đã lưu</h2>
         <p className="mt-1 text-xs text-ink-600">Mỗi đợt giữ phạm vi riêng; thay đổi loại hình không đổi kết quả cũ.</p>
         <ul className="mt-2 space-y-1 text-xs">{forStep.map((v) => <li key={v.id}>
           <Link className="text-brand-700 underline" href={auditHref(supplierId, 2, v.id)}>{isPartnerL2(v) ? "Nhà máy đối tác" : "Xác thực nhà máy"}{isCallReview(v) ? " · qua cuộc gọi" : " · luồng ảnh cũ"} · {v.status} · {v.created_at.slice(0, 10)}</Link>

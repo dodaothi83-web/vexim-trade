@@ -1,5 +1,7 @@
 # Kiểm toán nhà cung cấp
 
+> **Số cấp hiển thị (chủ dự án quyết định 11/2026).** Trên giao diện, email chữ và tài liệu cho người dùng: **L2 = Lịch sử xuất khẩu / giao hàng**, **L3 = Xác minh nhà máy hoặc nhà máy đối tác**, thứ tự hiển thị là giấy tờ → xuất khẩu → nhà máy. Mã lưu trữ **không đổi**: `target_level = 2` vẫn là nhà máy, `target_level = 3` vẫn là xuất khẩu, kể cả tên cột `l2_scope`, trigger, migration và các mục "L2/L3" kỹ thuật trong tài liệu này. Khi in số cấp hoặc xếp thứ tự trên giao diện, dùng `displayLevel()` / `VERIFICATION_DISPLAY_ORDER` trong `lib/types.ts`.
+
 > Tài liệu này mô tả hệ thống hiện tại. Business specification chưa triển khai về chu kỳ tái kiểm định nằm tại [Cơ chế tái kiểm định minh bạch 24 tháng](./verification-reverification-cycle.md).
 
 Ba đánh giá độc lập trong CRM: **Kiểm tra giấy tờ**, **Xác thực nhà máy hoặc nhà máy đối tác**, **Lịch sử giao hàng**. Có thể bắt đầu và duyệt bất kỳ đánh giá nào mà không cần duyệt đánh giá còn lại; doanh nghiệp thương mại không có nhà máy vẫn có thể được duyệt lịch sử giao hàng. Chỉ hiện huy hiệu công khai cho đúng từng đánh giá đã **duyệt**, không suy ra hai đánh giá trước từ giá trị `verification_level` lớn nhất. Một nhân sự có đủ quyền kiểm + duyệt (admin hoặc trưởng kiểm duyệt) có thể hoàn tất bản của chính mình sau khi xác nhận đối chiếu lại. Duyệt độc lập vẫn có thể thực hiện khi cần, nhưng không là bước chờ bắt buộc. Quyết định một nhân sự ghi `self_approved` và audit log; AI không tự duyệt.

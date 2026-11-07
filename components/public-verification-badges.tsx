@@ -1,7 +1,7 @@
 import { HelpCircle } from "lucide-react";
 
 import { VERIFICATION_LEVEL_ICONS, VERIFICATION_LEVEL_TONES } from "@/components/verification-tier";
-import type { VerificationLevel } from "@/lib/types";
+import { VERIFICATION_DISPLAY_ORDER, type VerificationLevel } from "@/lib/types";
 import { verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 
 /**
@@ -13,7 +13,7 @@ export function PublicVerificationBadges({ levels, compact = false, l2Scope }: {
   compact?: boolean;
   l2Scope?: PublicL2Scope;
 }) {
-  const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
+  const approved = VERIFICATION_DISPLAY_ORDER.filter((level) => levels.includes(level));
   return <span className="flex flex-wrap gap-1.5" aria-label="Supplier verification">
     {approved.length ? approved.map((level) => {
       const Icon = VERIFICATION_LEVEL_ICONS[level];
