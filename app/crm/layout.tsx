@@ -116,7 +116,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     { href: "/crm/sourcing", label: "Yêu cầu tìm nguồn chờ tiếp nhận", count: pendingSourcing ?? 0 },
     { href: "/crm/rfqs", label: "RFQ chờ tiếp nhận", count: pendingRfqs },
     { href: "/crm/support", label: "Người mua đang chờ trả lời chat", count: pendingSupport },
-    { href: "/crm/suppliers", label: "Nhà cung cấp chờ xác nhận quyền cổng", count: pendingSuppliers },
+    { href: "/crm/suppliers", label: "Nhà cung cấp chưa nộp hồ sơ hoặc chờ xác nhận quyền cổng", count: pendingSuppliers },
     { href: "/crm/products?view=pending", label: "Sản phẩm nhà cung cấp chờ kiểm nội dung", count: pendingProductContent },
     { href: "/crm/products/quantity-review", label: "Giá hoặc tên nhà cung cấp cập nhật chờ rà soát", count: pendingPriceRevisions },
     { href: "/crm/verifications", label: "Đợt kiểm chờ duyệt", count: pendingReviews },
