@@ -205,6 +205,13 @@ export default async function EditProductPage({
       />
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="order-2 min-w-0 space-y-5 xl:order-1">
+          {product.supplier_review_status === "approved" && (
+            <CategoryCorrectionControls
+              id={product.id}
+              currentSlug={product.reviewed_category_slug ?? null}
+              categories={categoryOptions}
+            />
+          )}
           <ProductForm
             supplier={supplier}
             product={product}
@@ -354,13 +361,6 @@ export default async function EditProductPage({
                 </li>)}
               </ul>}
           </section>
-          {product.supplier_review_status === "approved" && (
-            <CategoryCorrectionControls
-              id={product.id}
-              currentSlug={product.reviewed_category_slug ?? null}
-              categories={categoryOptions}
-            />
-          )}
         </aside>
       </div>
     </ProductEditWorkspace>

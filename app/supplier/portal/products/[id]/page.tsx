@@ -15,8 +15,6 @@ import { certificateProductState } from "@/lib/products/product-certificates";
 import { certificateScopeMatch, optoutKey, optoutKeys } from "@/lib/certificate-scope";
 import { certificateSchemeLabel, isScopeableCertificateScheme } from "@/lib/certificate-scheme";
 import { t } from "@/lib/public/i18n";
-import { approvedL2Scope } from "@/lib/verification-status";
-import { ProductCertificatesForm } from "../product-certificates-form";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -108,16 +106,6 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       console.error("[product-certificate] list", error);
       return [];
     });
-  // Đơn vị thương mại chỉ dùng được chứng nhận của nhà máy khác khi đã có L2 nhà máy đối tác.
-  const verifications = await access.store.listVerifications(access.supplier.id).catch(() => []);
-  const l2Scope = approvedL2Scope(verifications);
-  const partnerContractApproved = l2Scope === "partner_contract" || l2Scope === "both";
-  const partnerFactoryName = partnerContractApproved
-    ? verifications
-      .filter((v) => v.target_level === 2 && v.status === "approved" && v.l2_scope === "partner_contract")
-      .map((v) => v.partner_factory_name?.trim() ?? "")
-      .find((name) => name.length > 0) ?? null
-    : null;
   const quantityEditor = await (async () => {
     if (!getSupabaseClient()) return null;
     const strictAccess = await supplierPortalAccess(supabaseStore);
@@ -146,8 +134,5 @@ export default async function OwnProductPage({ params, searchParams }: { params:
     <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options}
       categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} initialStep={step}
       messages={m.productEditor.editor} shared={m.productEditor.shared} statuses={m.products.statuses} lang={locale} />
-    <ProductCertificatesForm productId={id} certificates={certificateOptions} messages={m.productEditor.certificates} lang={locale}
-      supplierType={access.supplier.supplier_type ?? null} partnerContractApproved={partnerContractApproved}
-      partnerFactoryName={partnerFactoryName} />
   </>;
 }

@@ -8,7 +8,8 @@ import { correctSupplierProductCategoryAction } from "./review-actions";
 /**
  * Cho phép staff đổi danh mục sản phẩm đã được duyệt mà không làm thay đổi
  * trạng thái xuất bản. Hàm `correctSupplierProductCategoryAction` chỉ chấp nhận
- * sản phẩm đang ở trạng thái "approved".
+ * sản phẩm đang ở trạng thái "approved". Đặt ở đầu trang (trên form chính) để
+ * nhân viên thấy ngay sản phẩm nào mà không phải kéo hết trang xuống.
  */
 export function CategoryCorrectionControls({
   id,
@@ -46,17 +47,11 @@ export function CategoryCorrectionControls({
   }
 
   return (
-    <section className="rounded-xl border border-ink-200 bg-white p-4">
-      <h2 className="text-sm font-bold text-ink-900">Điều chỉnh danh mục</h2>
-      <p className="mt-1 text-xs leading-relaxed text-ink-600">
-        Đổi danh mục cho sản phẩm đã duyệt mà không thay đổi trạng thái xuất bản.
-        Việc thay đổi danh mục có thể ảnh hưởng tới chứng nhận được thừa hưởng
-        và nhóm hàng hiển thị.
-      </p>
-      <form onSubmit={submit} className="mt-3 flex flex-wrap items-end gap-3">
+    <div className="rounded-xl border border-brand-200 bg-brand-50/40 px-4 py-3">
+      <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
         <input type="hidden" name="product_id" value={id} />
-        <label className="min-w-0 flex-1 text-sm font-semibold">
-          Danh mục mới
+        <label className="min-w-0 flex-1 text-sm">
+          <span className="block text-[11px] font-semibold uppercase tracking-wide text-brand-700">Danh mục</span>
           <select
             name="reviewed_category_slug"
             required
@@ -79,27 +74,19 @@ export function CategoryCorrectionControls({
         <button
           type="submit"
           disabled={busy || !hasChanges}
-          className="btn btn-soft"
+          className="btn btn-sm btn-soft"
         >
-          {busy ? "Đang lưu..." : "Lưu danh mục"}
+          {busy ? "Đang lưu..." : "Lưu"}
         </button>
       </form>
       {result && (
         <p
           role="status"
-          className={`mt-2 text-sm ${result.ok ? "text-emerald-700" : "text-rose-700"}`}
+          className={`mt-2 text-xs ${result.ok ? "text-emerald-700" : "text-rose-700"}`}
         >
           {result.message}
         </p>
       )}
-      {currentSlug && (
-        <p className="mt-2 text-[11px] leading-relaxed text-ink-500">
-          Danh mục hiện tại:{" "}
-          <span className="font-semibold text-ink-700">
-            {categories.find((c) => c.slug === currentSlug)?.label ?? currentSlug}
-          </span>
-        </p>
-      )}
-    </section>
+    </div>
   );
 }
