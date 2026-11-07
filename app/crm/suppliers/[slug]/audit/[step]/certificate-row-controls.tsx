@@ -52,7 +52,13 @@ export function CertificateRowControls({
   mismatch = null,
   canInspect,
   canPublish,
+  partnerHolder = null,
+  partnerContracts = [],
 }: {
+  /** Tên nhà máy đứng tên trên giấy khi giấy không đứng tên nhà cung cấp; null = giấy chính chủ. */
+  partnerHolder?: string | null;
+  /** Hợp đồng / ủy quyền với nhà máy mà nhà cung cấp đã tải. */
+  partnerContracts?: Array<{ id: string; label: string; href: string }>;
   supplierId: string;
   certificateId: string;
   hasFile: boolean;
@@ -78,6 +84,7 @@ export function CertificateRowControls({
   const [busy, setBusy] = useState<"scan" | "hide" | "approve" | "scheme" | "scope" | "visibility" | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [scopeDraft, setScopeDraft] = useState("");
+  const [contractConfirmed, setContractConfirmed] = useState(false);
 
   async function run(
     kind: "scan" | "hide" | "approve" | "scheme" | "scope" | "visibility",
@@ -97,6 +104,19 @@ export function CertificateRowControls({
 
   return (
     <div className="w-full space-y-1.5">
+      {/* Giấy đứng tên nhà máy khác: xem hợp đồng nhà cung cấp tải kèm, đánh dấu rồi mới duyệt đăng. */}
+      {canPublish && !published && partnerHolder !== null && <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 text-[11.5px] leading-4 text-ink-800">
+        <p className="font-semibold">Giấy đứng tên {partnerHolder || "đơn vị khác"}. Xem hợp đồng hoặc giấy ủy quyền giữa nhà cung cấp và nhà máy này trước khi duyệt.</p>
+        {partnerContracts.length
+          ? <ul className="mt-1.5 space-y-1">{partnerContracts.map((contract) => <li key={contract.id}>
+            <a href={contract.href} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">{contract.label}</a>
+          </li>)}</ul>
+          : <p className="mt-1.5 text-amber-900">Nhà cung cấp chưa tải hợp đồng. Nhờ họ tải kèm ở trang Giấy tờ rồi duyệt.</p>}
+        {partnerContracts.length > 0 && <label className="mt-2 flex items-start gap-1.5">
+          <input type="checkbox" className="mt-0.5" checked={contractConfirmed} onChange={(e) => setContractConfirmed(e.target.checked)} />
+          <span>Đã xem: hợp đồng ghi đúng tên {partnerHolder || "nhà máy trên giấy"} và nhà cung cấp này.</span>
+        </label>}
+      </div>}
       <div className="flex flex-wrap items-center gap-1.5">
         {canInspect && (
           <label className="flex items-center gap-1 text-[11px] font-semibold text-ink-600">
@@ -148,7 +168,7 @@ export function CertificateRowControls({
         {canPublish && !published && (
           <button
             type="button"
-            onClick={() => void run("approve", () => approveCertificateAction(supplierId, certificateId))}
+            onClick={() => void run("approve", () => approveCertificateAction(supplierId, certificateId, { partnerContractConfirmed: contractConfirmed }))}
             disabled={busy !== null}
             className="btn btn-ghost btn-sm text-xs"
             title="Đối chiếu tệp gốc rồi cho chứng nhận hiện trên trang người mua"

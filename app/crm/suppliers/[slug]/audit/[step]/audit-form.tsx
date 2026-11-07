@@ -20,10 +20,10 @@ import { approveVerificationAction, assignVerificationEvidenceAction, returnVeri
 import { CertificateRowControls } from "./certificate-row-controls";
 
 export function AuditForm({
-  verification: v, autoPublishL1 = false, evidence, certificates = [], certificateMedia = [], aiEnabled, canApprove, canInspect,
+  verification: v, autoPublishL1 = false, evidence, certificates = [], certificateMedia = [], partnerContracts = [], aiEnabled, canApprove, canInspect,
   canPublish = false, currentUserId, canSelfApprove, scopes = [], categories = [], requestedProducts = [],
 }: {
-  verification: Verification; autoPublishL1?: boolean; evidence: MediaAsset[]; certificates?: Certificate[]; certificateMedia?: MediaAsset[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; canSelfApprove: boolean;
+  verification: Verification; autoPublishL1?: boolean; evidence: MediaAsset[]; certificates?: Certificate[]; certificateMedia?: MediaAsset[]; partnerContracts?: { id: string; label: string; href: string }[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; canSelfApprove: boolean;
   /** Phạm vi đã xác nhận của các giấy L1 và danh mục để chọn phạm vi. */
   scopes?: CertificateScope[];
   categories?: Array<{ id: string; name: string }>;
@@ -520,6 +520,8 @@ export function AuditForm({
                 hasFile={Boolean(certificate.file_media_id)} staffHidden={Boolean(certificate.staff_hidden)}
                 published={certificate.review_status === "approved" && Boolean(certificate.publicly_visible)}
                 scheme={certificate.certificate_scheme ?? null} canInspect={canInspect} canPublish={canPublish}
+                partnerHolder={certificate.holder_match === "partner" ? certificate.holder_name?.trim() || "" : null}
+                partnerContracts={partnerContracts}
                 {...inScopeRow(certificate)} />
             </div>
           </li>;

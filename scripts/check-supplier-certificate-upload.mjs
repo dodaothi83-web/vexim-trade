@@ -47,21 +47,20 @@ assert.match(page, /import \{ visibleLegacyCertificateFiles \} from "@\/lib\/sup
 assert.match(page, /visibleLegacyCertificateFiles\(/);
 assert.match(page, /certificates\.filter\(\(certificate\) => certificate\.review_status !== "rejected"\)\.map\(\(certificate\) => certificate\.name\)/);
 
-/* 3. Đơn vị thương mại chưa có L2 nhà máy đối tác: ô tải đóng sẵn kèm lý do. */
-assert.match(page, /const l2Scope = approvedL2Scope\(reviews\);/);
-assert.match(page, /supplier\.supplier_type === "trading" && !partnerContractApproved/);
-assert.match(loadPortalDictionary().vi.documents.contractBlocked, /Sản phẩm vẫn đăng bán bình thường\./, "Lý do khoá ô tải nằm trong từ điển");
-assert.match(page, /copy\.contractBlocked/);
-assert.match(page, /blockedReason=\{certificateUploadBlockedReason\}/);
+/* 3. Từ 11/2026 ô tải chứng nhận luôn mở; đơn vị thương mại có thêm ô hợp đồng với nhà máy. */
+assert.ok(!/certificateUploadBlockedReason/.test(page), 'Trang Giấy tờ không còn khoá ô tải chứng nhận');
+assert.match(page, /trading=\{trading\}/);
+assert.match(upload, /name="relationship_file"/, 'Có ô tải hợp đồng / ủy quyền với nhà máy');
+assert.match(portalCopy.vi.documents.certUpload.contractTitle, /Hợp đồng với nhà máy/, 'Nhãn ô hợp đồng nằm trong từ điển');
+const route = read('../app/api/supplier-portal/certificates/route.ts');
+assert.ok(!/cần xác thực nhà máy đối tác trước khi tải chứng nhận/.test(route), 'API không còn chặn đơn vị thương mại tải chứng nhận');
+assert.match(route, /PARTNER_CONTRACT_CAPTION/);
 
-/* 4. Component: có lý do thì hiện khung khoá + lối sang bước 2, không render form tải. */
-const lockedBranch = upload.slice(upload.indexOf('if (blockedReason)'), upload.indexOf('<form'));
-assert.ok(lockedBranch.includes('copy.blockedTitle'), 'Khung khoá phải có tiêu đề');
-assert.match(portalCopy.vi.documents.certUpload.blockedTitle, /Chưa mở được ô tải chứng nhận/, 'Tiêu đề khung khoá nằm trong từ điển');
-assert.ok(lockedBranch.includes('disabled'), 'Ô chọn tệp phải khoá');
-assert.ok(!lockedBranch.includes('onSubmit={onSubmit}'), 'Khung khoá không được chứa form tải');
-assert.match(upload, /href="\/supplier\/portal\/verification\/factory"/);
-assert.match(upload, /blockedReason\?: string \| null;/);
+/* 4. Duyệt đăng giấy đứng tên nhà máy khác: cần hợp đồng đã tải và nhân viên đánh dấu đã xem. */
+const certActions = read('../app/crm/suppliers/[slug]/audit/[step]/certificate-actions.ts');
+assert.match(certActions, /filter\(isPartnerContractDocument\)/);
+assert.match(certActions, /options\.partnerContractConfirmed/);
+assert.match(certActions, /supplier\.supplier_type !== "trading"/, 'Nhà máy vẫn chỉ đăng giấy đứng tên chính mình');
 
 /* 5. Không còn chữ "AI quét" ở câu nhà cung cấp nhìn thấy. */
 assert.ok(!/AI quét/.test(evidenceRoute), 'Thông báo tải giấy tờ L1 không được nhắc AI quét');
@@ -100,4 +99,4 @@ for (const [name, text] of [['documents', page], ['dashboard', dashboard],
 assert.ok(!visibleLines(notify).some((line) => /cổng nhà cung cấp/.test(line)),
   'Email nhắc hạn không còn "giấy tờ L1" trong câu gửi nhà cung cấp');
 
-console.log('✅ Chứng nhận trên hồ sơ: ẩn tệp cũ đã có bản ghi, khoá ô tải với đơn vị thương mại chưa xác thực nhà máy đối tác.');
+console.log('✅ Chứng nhận trên hồ sơ: ẩn tệp cũ đã có bản ghi, ô tải luôn mở, giấy của nhà máy khác cần hợp đồng và nhân viên xem trước khi đăng.');

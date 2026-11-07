@@ -76,7 +76,8 @@ export function ProductCertificatesForm({
       ? { blocked: false, text: partnerFactoryName
         ? fill(m.holderPartner, { factory: partnerFactoryName })
         : m.holderPartnerPending }
-      : { blocked: true, text: m.holderBlocked })
+      // Từ 11/2026 không khoá nữa: giấy của nhà máy khác được đối chiếu với hợp đồng tải kèm.
+      : { blocked: false, text: m.holderContract })
     : supplierType === "manufacturer" || supplierType === "cooperative"
       ? { blocked: false, text: m.holderOwn }
       : null;
@@ -255,6 +256,10 @@ export function ProductCertificatesForm({
           <FilePicker name="file" accept=".pdf,image/jpeg,image/png,image/webp" required busy={uploadBusy}
             compact title={m.fileTitle} hint={m.fileHint} />
         </div>
+        {supplierType === "trading" && <div className="block sm:col-span-2">
+          <FilePicker name="relationship_file" accept=".pdf,image/jpeg,image/png,image/webp" busy={uploadBusy}
+            compact title={m.contractTitle} hint={m.contractHint} />
+        </div>}
         <div className="flex items-end sm:col-span-1">
           <button type="submit" disabled={uploadBusy} className="btn btn-primary btn-sm">
             {uploadBusy ? m.uploading : m.upload}

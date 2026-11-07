@@ -93,6 +93,18 @@ export interface CertificatePublicationDecision {
  * nếu không, giấy đó chỉ được lưu để đối chiếu chứ không công bố được. Nhờ vậy không
  * thể tải bừa một giấy chứng nhận của doanh nghiệp bất kỳ lên hồ sơ.
  */
+/**
+ * Hợp đồng hoặc giấy ủy quyền giữa đơn vị thương mại và nhà máy đứng tên trên chứng nhận
+ * (chủ dự án duyệt 11/2026). Lưu là tệp nội bộ của nhà cung cấp, không gắn ngăn checklist;
+ * nhận ra bằng chú thích cố định. Một hợp đồng dùng cho mọi giấy của cùng nhà máy.
+ */
+export const PARTNER_CONTRACT_CAPTION = "Hợp đồng / ủy quyền với nhà máy đối tác";
+
+export function isPartnerContractDocument(media: { owner_type: string; kind: string; audience: string; caption: string | null; storage_path: string | null }): boolean {
+  return media.owner_type === "supplier" && media.kind === "document" && media.audience === "internal" &&
+    Boolean(media.storage_path) && (media.caption ?? "").startsWith(PARTNER_CONTRACT_CAPTION);
+}
+
 export interface CertificateHolderContext {
   supplierType?: SupplierType | null;
   /** Đã có hồ sơ L2 nhà máy đối tác (partner_contract) được duyệt. */
@@ -116,7 +128,8 @@ function partnerHolderRule(context: CertificateHolderContext, holderName: string
     return { ok: false, reason: "Vexim kiểm tra loại hình doanh nghiệp trước khi đăng" };
   }
   if (!context.partnerContractApproved) {
-    return { ok: false, reason: "chưa xác thực L3 nhà máy đối tác nên giấy này chưa dùng được" };
+    // Từ 11/2026 không cần đợi cuộc gọi L3: nhân viên xem hợp đồng/ủy quyền nhà cung cấp tải kèm rồi duyệt tay.
+    return { ok: false, reason: "giấy đứng tên nhà máy khác; Vexim đối chiếu hợp đồng hoặc giấy ủy quyền với nhà máy này trước khi đăng" };
   }
   const partnerName = context.partnerFactoryName?.trim();
   if (!partnerName) {

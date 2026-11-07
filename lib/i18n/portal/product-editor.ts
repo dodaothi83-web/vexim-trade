@@ -60,6 +60,9 @@ const en = {
     holderPartner: "The certificate must be in the name of your partner factory: {factory}.",
     holderPartnerPending: "Certificates in the name of the partner factory are matched against the contract before publishing.",
     holderBlocked: "Partner factory not verified yet: certificates in another factory's name cannot be used.",
+    holderContract: "A certificate in another factory's name needs your contract with that factory. Upload it below; we check it before publishing.",
+    contractTitle: "Contract with the factory (if needed)",
+    contractHint: "Only for a certificate in another company's name. You may hide prices.",
     holderOwn: "The certificate must be in the name of your own factory.",
   },
   /**
@@ -739,6 +742,9 @@ const vi: ProductEditorMessages = {
     holderPartner: "Giấy phải đứng tên nhà máy đối tác: {factory}.",
     holderPartnerPending: "Giấy đứng tên nhà máy đối tác sẽ được đối chiếu hợp đồng trước khi đăng.",
     holderBlocked: "Chưa xác thực nhà máy đối tác: giấy đứng tên nhà máy khác chưa dùng được.",
+    holderContract: "Giấy đứng tên nhà máy khác cần kèm hợp đồng với nhà máy đó. Tải ở ô bên dưới, Vexim đối chiếu trước khi đăng.",
+    contractTitle: "Hợp đồng với nhà máy (nếu cần)",
+    contractHint: "Chỉ cần khi giấy đứng tên công ty khác. Có thể che giá.",
     holderOwn: "Chứng nhận phải đứng tên nhà máy của bạn.",
   },
   editor: {
