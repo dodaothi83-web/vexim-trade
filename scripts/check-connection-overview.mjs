@@ -26,6 +26,7 @@ assert.ok(fs.statSync('public/images/vexim-buyer-supplier-connection.webp').size
 const home = fs.readFileSync('app/(public)/home.tsx', 'utf8');
 assert.equal((home.match(/<ConnectionOverview /g) || []).length, 1);
 assert.ok(home.indexOf('<ConnectionOverview ') > home.indexOf('id="categories"'), 'Overview replaces FAQ after the catalogue sections');
+assert.ok(home.indexOf('<ConnectionOverview ') < home.indexOf('aria-labelledby="home-news-title"'), 'How it connects comes before the articles');
 assert.ok(home.indexOf('<ConnectionOverview ') < home.indexOf('id="home-supplier-band"'), 'Supplier band sits below the buyer content');
 assert.ok(fs.readFileSync('app/(public)/for-suppliers/page.tsx', 'utf8').includes('<ServiceRegistrationSection'), 'Supplier services live on /for-suppliers');
 assert.ok(home.indexOf('<ConnectionOverview ') < home.indexOf('<PlatformLegalStrip'), 'Overview remains above footer');

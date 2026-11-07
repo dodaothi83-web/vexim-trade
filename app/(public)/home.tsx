@@ -420,6 +420,10 @@ export default async function HomeContent({
         </div>
       </section>
 
+      {/* 3 bước kết nối: đặt ngay sau danh mục để người mua thấy cách hoạt động sớm,
+          trước phần bài viết. (Trước đây khối này thay cho FAQ cũ.) */}
+      <ConnectionOverview isVi={isVi} />
+
       {/* =====================================================================
           SECTION 3: DANH SÁCH BLOG (4 BÀI / HÀNG)
          ===================================================================== */}
@@ -532,8 +536,6 @@ export default async function HomeContent({
         </div>
       </section>
 
-      {/* Connection overview replaces the former homepage FAQ block. */}
-      <ConnectionOverview isVi={isVi} />
 
       {/* =====================================================================
           SECTION 4: DẢI NGẮN CHO NHÀ CUNG CẤP. Trang chủ dành cho người mua; 4 dịch vụ
