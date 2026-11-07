@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, CalendarCheck2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CalendarCheck2, CheckCircle2, Eye, ListChecks, LockKeyhole } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { supplierLevelAccess } from "@/lib/supplier-portal/submission-access";
@@ -94,6 +94,7 @@ export default async function SupplierFactoryVerificationPage() {
           {copy.status[submission.status]}
         </p>
         {submission.status === "returned" && submission.review_note && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{fill(copy.reviewNote, { note: submission.review_note })}</p>}
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px]">
         <BookingForm copy={copy} value={{
           submissionId: submission.id, partner, editable: submissionEditable(submission.status),
           method: submission.booking_method ?? null,
@@ -107,6 +108,8 @@ export default async function SupplierFactoryVerificationPage() {
           note: submission.supplier_note ?? "",
           contracts,
         }} />
+        <BookingAside copy={copy} partner={partner} />
+        </div>
         {oldPhotos && <p className="text-xs text-ink-500">{copy.oldFlowNote}</p>}
       </div>;
     }
@@ -127,4 +130,25 @@ export default async function SupplierFactoryVerificationPage() {
       </div>
     </>;
   }
+}
+
+/** Cột phải của trang đặt lịch: chuẩn bị cuộc gọi, người mua thấy gì, phần không công khai. */
+function BookingAside({ copy, partner }: { copy: (typeof bookingMessages)["vi"]; partner: boolean }) {
+  return <aside aria-label={copy.asideAria} className="space-y-3 lg:sticky lg:top-24">
+    <section className="card p-4">
+      <h2 className="flex items-center gap-2 text-sm font-bold text-ink-900"><ListChecks className="h-4 w-4 text-brand-700" aria-hidden="true" />{copy.prepareTitle}</h2>
+      <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[13px] leading-5 text-ink-700">
+        {copy.prepareItems.map((item) => <li key={item}>{item}</li>)}
+        {partner && <li className="font-semibold text-ink-800">{copy.preparePartner}</li>}
+      </ul>
+    </section>
+    <section className="card p-4">
+      <h2 className="flex items-center gap-2 text-sm font-bold text-ink-900"><Eye className="h-4 w-4 text-brand-700" aria-hidden="true" />{copy.buyersTitle}</h2>
+      <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[13px] leading-5 text-ink-700">
+        {copy.buyersItems.map((item) => <li key={item}>{item}</li>)}
+      </ul>
+      <h3 className="mt-3 flex items-center gap-2 text-[13px] font-bold text-ink-900"><LockKeyhole className="h-3.5 w-3.5 text-ink-500" aria-hidden="true" />{copy.privateTitle}</h3>
+      <p className="mt-1 text-[13px] leading-5 text-ink-600">{copy.privateBody}</p>
+    </section>
+  </aside>;
 }
