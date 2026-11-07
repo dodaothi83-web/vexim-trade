@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, FileText, Loader2, Plus, Send, X } from "lucide-react";
+import { CalendarClock, CheckCircle2, FileText, Loader2, Plus, Send, X } from "lucide-react";
+
+import { FilePicker } from "@/components/file-picker";
 
 import type { BookingMessages } from "@/lib/i18n/portal/booking";
 import type { L2ReviewMethod } from "@/lib/types";
@@ -134,12 +136,16 @@ export function BookingForm({ value, copy }: { value: BookingFormValue; copy: Bo
       {value.partner && <div>
         <p className="text-sm font-semibold text-ink-800">{copy.contract}</p>
         <p className="text-xs text-ink-500">{copy.contractHint}</p>
-        <ul className="mt-2 space-y-1.5">{value.contracts.map((file) => <li key={file.id} className="flex items-center gap-2 rounded-lg bg-ink-50 px-3 py-2 text-sm">
-          <FileText className="h-4 w-4 text-ink-500" aria-hidden="true" />
+        {value.contracts.length > 0 && <ul className="mt-2 space-y-1.5">{value.contracts.map((file) => <li key={file.id} className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-sm">
+          <FileText className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
           <a href={file.href} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate font-semibold text-brand-700 underline">{file.label}</a>
-          {value.editable && <button type="button" className="text-xs text-rose-700 underline" onClick={() => removeContract(file.id)}>{copy.removeSlot}</button>}
-        </li>)}</ul>
-        {value.editable && <input type="file" className="mt-2 block text-sm" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => void uploadContract(e.target.files)} />}
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-800"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />{copy.contractUploaded}</span>
+          {value.editable && <button type="button" className="shrink-0 text-xs text-rose-700 underline" onClick={() => removeContract(file.id)}>{copy.removeSlot}</button>}
+        </li>)}</ul>}
+        {value.editable && <FilePicker className="mt-2" busy={busy} accept="image/jpeg,image/png,image/webp,application/pdf"
+          title={value.contracts.length ? copy.contractAddMore : copy.contractPick} hint={copy.contractPickHint} requiredMark={!value.contracts.length}
+          labels={{ choose: copy.contractChoose, uploading: copy.contractUploading, empty: copy.contractPickHint }}
+          onPick={(files) => uploadContract(files)} />}
       </div>}
 
       <Field label={copy.note}><textarea className="input" rows={2} value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} /></Field>
