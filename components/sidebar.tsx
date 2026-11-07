@@ -152,7 +152,7 @@ export function Sidebar({
                     : item.href === "/crm/support" ? (pendingSupport > 0 ? { text: String(pendingSupport), title: "Người mua đang chờ trả lời" } : null)
                     : item.href === "/crm/rfqs" ? (pendingRfqs > 0 ? { text: String(pendingRfqs), title: "RFQ chờ tiếp nhận" } : null)
                     : item.href === "/crm/buyers" ? (newBuyers > 0 ? { text: String(newBuyers), title: "Người mua mới chưa xử lý" } : null)
-                    : item.href === "/crm/suppliers" ? (pendingSuppliers > 0 ? { text: String(pendingSuppliers), title: "Tài khoản nhà cung cấp chưa nộp hồ sơ hoặc chờ xác nhận (xem đầu trang Nhà cung cấp)" } : null)
+                    : item.href === "/crm/suppliers" ? (pendingSuppliers > 0 ? { text: String(pendingSuppliers), title: "Tài khoản nhà cung cấp chưa nộp hồ sơ hoặc chờ xác nhận" } : null)
                     : item.href === "/crm/products" ? (pendingProducts > 0 ? { text: String(pendingProducts), title: "Sản phẩm chờ duyệt" } : null)
                     : item.href === "/crm/verifications" ? (pendingReviews > 0 ? { text: String(pendingReviews), title: "Đợt kiểm chờ duyệt" } : null)
                     : item.href === "/crm/verifications/submissions" ? (pendingSubmissions > 0 ? { text: String(pendingSubmissions), title: "Hồ sơ nhà cung cấp tự gửi chờ đối chiếu" } : null)
