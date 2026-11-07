@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   Boxes,
   FileCheck2,
+  ListTodo,
   Globe2,
   BarChart3,
   LayoutDashboard,
@@ -45,6 +46,8 @@ const NAV: {
   { href: "/crm/mail", label: "Hộp thư", icon: Mail, perm: "mail.view", group: "inbox" },
   { href: "/crm/messages", label: "Giám sát tin nhắn", icon: MessageCircle, perm: "rfq.view", group: "inbox" },
   // Luồng vận hành có thể cần xử lý hằng ngày đứng trước cấu hình và nội dung.
+  // Một danh sách việc cho người vận hành; đứng đầu nhóm vì là nơi bắt đầu mỗi ngày.
+  { href: "/crm/tasks", label: "Việc cần làm", icon: ListTodo, perm: "verifications.view", group: "marketplace" },
   { href: "/crm/dashboard", label: "Tổng quan sàn", icon: LayoutDashboard, group: "marketplace" },
   { href: "/crm/suppliers", label: "Nhà cung cấp", icon: Package, perm: "suppliers.view", group: "marketplace" },
   { href: "/crm/products", label: "Sản phẩm nhà cung cấp", icon: Boxes, perm: "products.view", group: "marketplace" },

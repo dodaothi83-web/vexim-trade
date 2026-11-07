@@ -2,6 +2,19 @@
 
 > **Số cấp hiển thị (chủ dự án quyết định 11/2026).** Trên giao diện, email chữ và tài liệu cho người dùng: **L2 = Lịch sử xuất khẩu / giao hàng**, **L3 = Xác minh nhà máy hoặc nhà máy đối tác**, thứ tự hiển thị là giấy tờ → xuất khẩu → nhà máy. Mã lưu trữ **không đổi**: `target_level = 2` vẫn là nhà máy, `target_level = 3` vẫn là xuất khẩu, kể cả tên cột `l2_scope`, trigger, migration và các mục "L2/L3" kỹ thuật trong tài liệu này. Khi in số cấp hoặc xếp thứ tự trên giao diện, dùng `displayLevel()` / `VERIFICATION_DISPLAY_ORDER` trong `lib/types.ts`.
 
+
+## Việc cần làm và xét nhanh chứng từ xuất khẩu (11/2026)
+
+Chủ dự án yêu cầu luồng vận hành ngắn gọn cho người không rành công nghệ.
+
+- **`/crm/tasks` · Việc cần làm**: một danh sách duy nhất, việc chờ lâu nhất ở trên. Gồm chứng từ xuất khẩu (L2), lịch gọi nhà máy (L3), giấy tờ (L1) và yêu cầu liên hệ.
+- **`/crm/tasks/export/s-<submission>` hoặc `v-<verification>`**: xét nhanh chứng từ xuất khẩu. Bên trái là tệp; bên phải ba câu Có/Không (`lib/crm/export-review.ts`) và hai nút **Duyệt** / **Trả lại** (lý do chọn sẵn hoặc tự ghi).
+- Bấm **Duyệt** (cả ba câu Có): hệ thống tự nhận hồ sơ vào đợt kiểm, đánh dấu các tệp đã kiểm, nộp, rồi gọi đúng `approveVerificationAction` với câu công khai tự viết theo mẫu (`exportPublicSummary`, chỉ có nước đến và tháng xuất). Bảng kiểm chi tiết không còn bắt buộc cho bước này.
+- Bấm **Trả lại**: hồ sơ tự gửi chuyển "trả lại" kèm lý do; nếu đã có đợt kiểm thì đợt kiểm cũng được trả lại qua `returnVerificationAction` và hồ sơ gốc mở lại để nhà cung cấp gửi lại.
+- Chỉ quản trị viên hoặc trưởng kiểm duyệt (`canSelfApproveVerification`) bấm được hai nút. Quyền, trigger CSDL, nhật ký và email giữ nguyên vì đi qua đúng các hàm cũ. Trang đầy đủ cũ vẫn mở được từ liên kết "Mở trang đầy đủ".
+- L1 và L3 sẽ được làm gọn theo cùng cách ở bước sau; hiện các dòng đó mở trang cũ.
+- **Cổng nhà cung cấp, trang Lịch sử xuất khẩu (L2)**: thay 7 thẻ theo loại chứng từ bằng MỘT ô tải nhiều tệp (`export-upload-box.tsx`), tối đa 10 tệp, kèm lưu ý che thông tin nhạy cảm ngay bên dưới. CSDL vẫn giới hạn 3 tệp mỗi `checklist_key`, nên ô tải tự đặt từng tệp vào ngăn còn chỗ (bắt đầu từ `other_export_evidence`); không đổi bảng hay trigger. Vì vậy `checklist_key` của chứng từ L2 không còn cho biết loại giấy: trang xét nhanh chỉ đánh số "Chứng từ 1, 2…".
+
 > Tài liệu này mô tả hệ thống hiện tại. Business specification chưa triển khai về chu kỳ tái kiểm định nằm tại [Cơ chế tái kiểm định minh bạch 24 tháng](./verification-reverification-cycle.md).
 
 Ba đánh giá độc lập trong CRM: **Kiểm tra giấy tờ**, **Xác thực nhà máy hoặc nhà máy đối tác**, **Lịch sử giao hàng**. Có thể bắt đầu và duyệt bất kỳ đánh giá nào mà không cần duyệt đánh giá còn lại; doanh nghiệp thương mại không có nhà máy vẫn có thể được duyệt lịch sử giao hàng. Chỉ hiện huy hiệu công khai cho đúng từng đánh giá đã **duyệt**, không suy ra hai đánh giá trước từ giá trị `verification_level` lớn nhất. Một nhân sự có đủ quyền kiểm + duyệt (admin hoặc trưởng kiểm duyệt) có thể hoàn tất bản của chính mình sau khi xác nhận đối chiếu lại. Duyệt độc lập vẫn có thể thực hiện khi cần, nhưng không là bước chờ bắt buộc. Quyết định một nhân sự ghi `self_approved` và audit log; AI không tự duyệt.
