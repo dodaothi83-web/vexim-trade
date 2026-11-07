@@ -10,7 +10,6 @@ import { exportPublicSummary } from "@/lib/crm/export-review";
 import { getStore } from "@/lib/db";
 import { loadStaffSubmission } from "@/lib/supplier-portal/submission-access";
 import { submissionFileHref } from "@/lib/supplier-portal/submission-view";
-import { L3_EXPORT_ITEMS } from "@/lib/types";
 import { auditHref } from "@/lib/verification";
 import { canSelfApproveVerification } from "@/lib/verification-policy";
 import { DecisionPanel } from "./decision-panel";
@@ -20,8 +19,8 @@ export const metadata = { title: "Xét chứng từ xuất khẩu" };
 
 interface FileRow { id: string; label: string; href: string; image: boolean }
 
-const docLabel = (key: string | null | undefined) => L3_EXPORT_ITEMS.find((item) => item.key === key)?.label ?? "Chứng từ";
-
+// Nhà cung cấp tải mọi chứng từ vào một ô nên ngăn lưu trữ không còn cho biết loại giấy;
+// trang chỉ đánh số tệp, người duyệt mở từng tệp để xem.
 /**
  * Xét nhanh chứng từ xuất khẩu (L2): bên trái là tệp, bên phải ba câu Có/Không và hai nút.
  * `ref` = "s-<id>" cho hồ sơ tự gửi còn chờ, "v-<id>" cho đợt kiểm đã nhận nhưng chưa quyết định.
@@ -44,8 +43,8 @@ export default async function ExportReviewPage({ params }: { params: Promise<{ r
     if (!loaded || loaded.submission.target_level !== 3) notFound();
     const s = loaded.submission;
     supplierId = s.supplier_id; supplierName = loaded.supplier.name;
-    files = loaded.items.filter((item) => item.storage_path).map((item) => ({
-      id: item.id, label: docLabel(item.checklist_key), href: submissionFileHref(item.storage_path!), image: (item.mime ?? "").startsWith("image/"),
+    files = loaded.items.filter((item) => item.storage_path).map((item, index) => ({
+      id: item.id, label: `Chứng từ ${index + 1}`, href: submissionFileHref(item.storage_path!), image: (item.mime ?? "").startsWith("image/"),
     }));
     links = loaded.links.map((link) => link.url);
     shipment = { ref: s.shipment_ref, date: s.shipped_on, destination: s.shipment_destination };
@@ -60,8 +59,8 @@ export default async function ExportReviewPage({ params }: { params: Promise<{ r
     if (!v || v.target_level !== 3) notFound();
     const supplier = await store.getSupplier(v.supplier_id);
     supplierId = v.supplier_id; supplierName = supplier?.name ?? "Nhà cung cấp";
-    files = (await store.listMedia("verification", v.id)).filter((m) => m.storage_path && ["image", "document", "certificate"].includes(m.kind)).map((m) => ({
-      id: m.id, label: m.caption || docLabel(m.checklist_key), href: `/api/media/file/${m.storage_path}`, image: m.kind === "image",
+    files = (await store.listMedia("verification", v.id)).filter((m) => m.storage_path && ["image", "document", "certificate"].includes(m.kind)).map((m, index) => ({
+      id: m.id, label: m.caption || `Chứng từ ${index + 1}`, href: `/api/media/file/${m.storage_path}`, image: m.kind === "image",
     }));
     shipment = { ref: v.shipment_ref, date: v.shipped_on, destination: v.shipment_destination };
     detailHref = auditHref(v.supplier_id, 3, v.id);

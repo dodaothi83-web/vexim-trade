@@ -15,6 +15,7 @@ import {
   saveShipmentAction,
 } from "./submission-actions";
 import { SubmissionItemCard } from "./submission-item-card";
+import { ExportUploadBox } from "./export-upload-box";
 import { displayLevel } from "@/lib/types";
 
 interface GpsState {
@@ -520,15 +521,15 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <h3 id="evidence-title" className="flex flex-wrap items-center gap-2 text-[15px] font-bold text-ink-900">
-                {partner ? copy.items.partnerTitle : level === 2 ? copy.items.factoryTitle : copy.items.exportTitle}
-                <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{doneSpecs}/{totalSpecs}</span>
+                {partner ? copy.items.partnerTitle : level === 2 ? copy.items.factoryTitle : copy.exportBox.title}
+                {level !== 3 && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{doneSpecs}/{totalSpecs}</span>}
               </h3>
               <p className="mt-1 text-[11.5px] leading-5 text-ink-500">
                 {partner
                   ? copy.items.partnerHint
                   : level === 2
                     ? copy.items.factoryHint
-                    : copy.items.exportHint}
+                    : copy.exportBox.hint}
               </p>
             </div>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${view.ready ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
@@ -540,11 +541,13 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
             {fill(copy.items.missingList, { list: view.missing.join("; ") })}
           </p>}
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {level === 3 ? <ExportUploadBox submissionId={view.id} rows={view.items} editable={view.editable} paused={Boolean(busy) || evidenceBusy}
+            onChanged={say} onBusyChange={setEvidenceBusy} copy={copy.exportBox} />
+          : <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {specs.map((spec) => <SubmissionItemCard key={spec.key} spec={spec} level={level} partner={partner} submissionId={view.id} editable={view.editable} paused={Boolean(busy) || evidenceBusy}
               rows={view.items.filter((i) => i.key === spec.key)} gps={gps} codeIssued={Boolean(view.code) && !view.codeExpired}
               onChanged={say} onBusyChange={setEvidenceBusy} copy={copy.card} intl={intl} />)}
-          </div>
+          </div>}
         </section>
 
         {/* L3 · link nguồn công khai. */}
@@ -607,7 +610,7 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
                   : copy.submit.needExport}</p>
 
 {level === 3
-            ? <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[12px] font-semibold text-ink-800">{fill(copy.submit.docsCount, { count: view.uploadedTotal })}</p>
+            ? <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[12px] font-semibold text-ink-800">{fill(copy.submit.docsCount, { count: level === 3 ? view.items.filter((item) => item.href).length : view.uploadedTotal })}</p>
             :           <dl className="mt-3 grid grid-cols-2 gap-2 text-center">
             <div className="rounded-lg bg-ink-50 px-2 py-2">
               <dt className="text-[10px] font-semibold text-ink-500">{copy.submit.have}</dt>
@@ -646,7 +649,8 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
           <p className="mt-1 text-[11.5px] leading-5 text-ink-600">{copy.buyers.privateBody}</p>
         </section>}
 
-        <section aria-labelledby="tips-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
+        {/* Chứng từ xuất khẩu đã có phần lưu ý ngay dưới ô tải; không lặp lại ở cột phải. */}
+        {level !== 3 && <section aria-labelledby="tips-title" className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4">
           <h3 id="tips-title" className="flex items-center gap-1.5 text-[12.5px] font-bold text-brand-900">
             {factory ? <Camera className="h-4 w-4" aria-hidden="true" /> : <FileText className="h-4 w-4" aria-hidden="true" />}
             {factory ? copy.tips.factoryTitle : partner ? copy.tips.partnerTitle : copy.tips.exportTitle}
@@ -663,7 +667,7 @@ export function VerificationSubmissionPanel({ view, specs, benefits, copy, benef
                 </>}
           </ul>
           <p className="mt-2 flex items-start gap-1 text-[10px] leading-4 text-brand-900"><ShieldCheck className="mt-0.5 size-3 shrink-0" aria-hidden="true" /> {copy.tips.adjudicated}</p>
-        </section>
+        </section>}
         {level === 3 && benefits?.length ? <VerificationBenefits items={benefits} title={benefitsTitle} /> : null}
       </aside>
     </div>

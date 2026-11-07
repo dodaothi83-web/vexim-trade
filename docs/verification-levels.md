@@ -13,6 +13,7 @@ Chủ dự án yêu cầu luồng vận hành ngắn gọn cho người không r
 - Bấm **Trả lại**: hồ sơ tự gửi chuyển "trả lại" kèm lý do; nếu đã có đợt kiểm thì đợt kiểm cũng được trả lại qua `returnVerificationAction` và hồ sơ gốc mở lại để nhà cung cấp gửi lại.
 - Chỉ quản trị viên hoặc trưởng kiểm duyệt (`canSelfApproveVerification`) bấm được hai nút. Quyền, trigger CSDL, nhật ký và email giữ nguyên vì đi qua đúng các hàm cũ. Trang đầy đủ cũ vẫn mở được từ liên kết "Mở trang đầy đủ".
 - L1 và L3 sẽ được làm gọn theo cùng cách ở bước sau; hiện các dòng đó mở trang cũ.
+- **Cổng nhà cung cấp, trang Lịch sử xuất khẩu (L2)**: thay 7 thẻ theo loại chứng từ bằng MỘT ô tải nhiều tệp (`export-upload-box.tsx`), tối đa 10 tệp, kèm lưu ý che thông tin nhạy cảm ngay bên dưới. CSDL vẫn giới hạn 3 tệp mỗi `checklist_key`, nên ô tải tự đặt từng tệp vào ngăn còn chỗ (bắt đầu từ `other_export_evidence`); không đổi bảng hay trigger. Vì vậy `checklist_key` của chứng từ L2 không còn cho biết loại giấy: trang xét nhanh chỉ đánh số "Chứng từ 1, 2…".
 
 > Tài liệu này mô tả hệ thống hiện tại. Business specification chưa triển khai về chu kỳ tái kiểm định nằm tại [Cơ chế tái kiểm định minh bạch 24 tháng](./verification-reverification-cycle.md).
 
