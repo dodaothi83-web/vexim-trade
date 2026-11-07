@@ -78,7 +78,7 @@ export const VERIFICATION_LEVEL_TONES: Record<VerificationLevel, {
 /** A check that is not approved yet stays a grey outline: no colour implies progress. */
 export const VERIFICATION_PIP_OFF = "border border-ink-300 bg-ink-50 text-ink-500";
 
-/** Same approved colour at every count: colour indicates status, not rank. */
+/** Same approved colour at every count in compact CRM pips: colour indicates status there. */
 export const VERIFICATION_PIP_ON = "border border-success bg-success-surface text-success";
 export const VERIFICATION_TIER_SHIELD_TONES: Record<Exclude<VerificationTier, 0>, {
   pip: string;
@@ -87,6 +87,19 @@ export const VERIFICATION_TIER_SHIELD_TONES: Record<Exclude<VerificationTier, 0>
   1: { pip: VERIFICATION_PIP_ON, status: "text-emerald-200" },
   2: { pip: VERIFICATION_PIP_ON, status: "text-emerald-200" },
   3: { pip: VERIFICATION_PIP_ON, status: "text-emerald-200" },
+};
+
+/**
+ * Thẻ công khai (variant "marketplace"): giữ hình khiên trơn, cùng kích thước khiên chưa duyệt.
+ * Khiên đã duyệt được TÔ ĐẶC (cả viền) màu theo cấp nhà cung cấp, chỉ dấu tích màu trắng:
+ * 1 bước xanh lá #2FA35A · 2 bước vàng nhạt #E9C64A · đủ 3 bước vàng lúa chín #C98A12.
+ * Khiên chưa duyệt giữ nét xám, không tô. Chủ dự án duyệt 11/2026.
+ */
+const TICK_WHITE = "[&>path:last-child]:stroke-white";
+export const VERIFICATION_SHIELD_FILL: Record<Exclude<VerificationTier, 0>, string> = {
+  1: `fill-[#2FA35A] text-[#2FA35A] ${TICK_WHITE}`,
+  2: `fill-[#E9C64A] text-[#E9C64A] ${TICK_WHITE}`,
+  3: `fill-[#C98A12] text-[#C98A12] ${TICK_WHITE}`,
 };
 
 const BADGE_CLASSES: Record<VerificationTier, string> = {
@@ -141,7 +154,7 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
   // Trong lưới sản phẩm, ba khiên đứng chung một hàng với tên người bán nên phải nhỏ và đều:
   // 18px trên điện thoại, 20px từ `sm`. To hơn thì hàng cuối phình ra và đẩy tên bị cắt sớm.
   const pipSize = marketplace ? "h-[18px] w-[18px] sm:h-5 sm:w-5" : compact ? "h-5 w-5" : "h-6 w-6";
-  const iconSize = marketplace ? "h-3.5 w-3.5 sm:h-4 sm:w-4" : compact ? "h-3 w-3" : "h-3.5 w-3.5";
+  const iconSize = marketplace ? "h-[18px] w-[18px] sm:h-5 sm:w-5" : compact ? "h-3 w-3" : "h-3.5 w-3.5";
   return (
     <span className={`inline-flex items-center ${marketplace ? "gap-0.5" : "gap-1"}`} role="group"
       aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => verificationLabel(l, l2Scope)).join(", ")}` : "No verification checks approved yet"}>
@@ -151,12 +164,13 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
         const status = on ? "Approved" : "Not approved";
         const explanation = verificationExplanation(level, l2Scope);
         const accessibleName = `${label}: ${status}. ${explanation}`;
-        // Preserve the hit area and status meaning, but remove the visible frame on offer cards.
+        // Thẻ công khai: khiên trơn, đã duyệt thì tô đặc màu theo cấp, dấu tích trắng (VERIFICATION_SHIELD_FILL).
         const appearance = marketplace
-          ? `rounded-sm ${on ? "text-success" : "text-ink-500"}`
+          ? `rounded-sm ${on ? "" : "text-ink-400"}`
           : `rounded-full ${on && activeTone ? activeTone.pip : VERIFICATION_PIP_OFF}`;
         const pipClass = `inline-flex items-center justify-center transition ${pipSize} ${appearance}`;
-        const icon = <ShieldCheck className={iconSize} aria-hidden="true" />;
+        const filled = marketplace && on && tier > 0 ? VERIFICATION_SHIELD_FILL[tier as Exclude<VerificationTier, 0>] : "";
+        const icon = <ShieldCheck className={`${iconSize} ${filled}`} strokeWidth={2} aria-hidden="true" />;
         if (shortTooltips) return (
           <span key={level} className="group/pip relative inline-flex">
             <button type="button" aria-label={accessibleName}
