@@ -149,7 +149,7 @@ async function approveCertificate(supplierId: string, certificateId: string) {
     const verifications = await store.listVerifications(supplier.id);
     const scope = approvedL2Scope(verifications);
     if (scope !== "partner_contract" && scope !== "both") {
-      return result(false, `Chưa có L2 nhà máy đối tác được duyệt nên chưa đăng được giấy đứng tên ${holderName}.`);
+      return result(false, `Chưa có L3 nhà máy đối tác được duyệt nên chưa đăng được giấy đứng tên ${holderName}.`);
     }
     // Giấy phải đứng tên đúng nhà máy đã ký trong hợp đồng đối tác, không phải doanh nghiệp khác.
     const partnerName = verifications
@@ -157,10 +157,10 @@ async function approveCertificate(supplierId: string, certificateId: string) {
       .map((v) => v.partner_factory_name?.trim() ?? "")
       .find((name) => name.length > 0);
     if (!partnerName) {
-      return result(false, "Hồ sơ L2 nhà máy đối tác chưa ghi tên nhà máy; ghi tên trong đợt kiểm trước khi đăng.");
+      return result(false, "Hồ sơ L3 nhà máy đối tác chưa ghi tên nhà máy; ghi tên trong đợt kiểm trước khi đăng.");
     }
     if (!partnerFactoryNameMatches(holderName, partnerName)) {
-      return result(false, `Giấy đứng tên ${holderName}, không khớp nhà máy đối tác ${partnerName} trong hợp đồng L2.`);
+      return result(false, `Giấy đứng tên ${holderName}, không khớp nhà máy đối tác ${partnerName} trong hợp đồng L3.`);
     }
   }
 

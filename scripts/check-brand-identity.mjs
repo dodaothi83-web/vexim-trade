@@ -50,6 +50,7 @@ vm.runInNewContext(ts.transpileModule(read('components/verification-tier.tsx'), 
   if (id === '@/components/brand/vexim-icons') return brandIcons;
   if (id === 'lucide-react') return { HelpCircle: () => null, ShieldCheck: (props) => React.createElement('svg', { ...props, 'data-standard-shield': true }) };
   if (id === '@/lib/verification-status') return { verificationLabel: (level) => `Check ${level}`, verificationExplanation: (level) => `Scope ${level}` };
+  if (id === '@/lib/types') return { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] };
   throw Error(id);
 } });
 for (const levels of [[], [1], [1, 2, 3]]) {

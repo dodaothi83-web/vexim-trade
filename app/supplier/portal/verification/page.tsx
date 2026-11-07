@@ -9,6 +9,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buildVerificationProgress } from "@/lib/supplier-portal/verification-progress";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
+import { displayLevel } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -40,7 +41,7 @@ export default async function SupplierVerificationIndexPage() {
           className="group flex items-start gap-3 rounded-xl border border-ink-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><Icon className="h-5 w-5" aria-hidden="true" /></span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[11px] font-bold tracking-wider text-ink-400 uppercase">{fill(copy.step, { level: step.level })}</span>
+            <span className="block text-[11px] font-bold tracking-wider text-ink-400 uppercase">{fill(copy.step, { level: displayLevel(step.level) })}</span>
             <span className="block text-[14px] font-bold text-ink-900">{step.title}</span>
             <span className={`mt-0.5 block text-[11.5px] font-semibold ${step.tone === "emerald" ? "text-emerald-700" : step.tone === "rose" ? "text-rose-700" : step.tone === "amber" ? "text-amber-800" : "text-ink-500"}`}>{step.status} · {step.metric}</span>
           </span>

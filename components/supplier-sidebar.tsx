@@ -57,8 +57,8 @@ const NAV: {
   { href: "/supplier/portal/categories", labelKey: "categories", icon: FolderTree, group: "shop", needsApproval: true },
   { href: "/supplier/portal/traffic", labelKey: "traffic", icon: ChartNoAxesColumn, group: "shop", needsApproval: true },
   { href: "/supplier/portal/documents", labelKey: "documents", icon: FileText, group: "verify", needsApproval: true },
-  { href: "/supplier/portal/verification/factory", labelKey: "factory", icon: Factory, group: "verify", needsApproval: true },
   { href: "/supplier/portal/verification/export", labelKey: "exportHistory", icon: Ship, group: "verify", needsApproval: true },
+  { href: "/supplier/portal/verification/factory", labelKey: "factory", icon: Factory, group: "verify", needsApproval: true },
   { href: "/supplier/portal/profile", labelKey: "profile", icon: Building2, group: "account", needsApproval: true },
 ];
 

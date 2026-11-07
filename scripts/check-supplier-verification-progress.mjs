@@ -55,8 +55,12 @@ assert.equal(none.percent, 0);
 assert.equal(none.steps.map((s) => s.state).join(','), 'not_started,not_started,not_started');
 assert.match(none.headline, /Bước tiếp theo: Kiểm tra giấy tờ/);
 assert.equal(none.steps[0].href, '/supplier/portal/documents');
-assert.equal(none.steps[1].href, '/supplier/portal/verification/factory', 'L2 có trang riêng');
-assert.equal(none.steps[2].href, '/supplier/portal/verification/export', 'L3 có trang riêng');
+// Thứ tự hiển thị 11/2026: bước 2 là lịch sử xuất khẩu (mã 3), bước 3 là nhà máy (mã 2).
+assert.equal(none.steps[1].href, '/supplier/portal/verification/export', 'Bước 2 (xuất khẩu) có trang riêng');
+assert.equal(none.steps[2].href, '/supplier/portal/verification/factory', 'Bước 3 (nhà máy) có trang riêng');
+
+// Tìm bước theo mã level (thứ tự hiển thị đã đổi: 1, 3, 2).
+function lvl(progress, level) { return progress.steps.find((step) => step.level === level); }
 
 // 2. L1 được trả hồ sơ: NCC thấy đúng lý do và màu cảnh báo, không phải “chờ duyệt”.
 const returned = buildVerificationProgress({ ...empty, reviews: [review({ status: 'returned', return_reason: 'Ảnh giấy phép bị mờ' })] });
@@ -71,7 +75,7 @@ const l1Done = buildVerificationProgress({ ...empty, reviews: [review({ status: 
 assert.equal(l1Done.steps[0].state, 'approved');
 assert.equal(l1Done.approvedCount, 1);
 assert.equal(l1Done.percent, 33);
-assert.equal(l1Done.currentLevel, 2);
+assert.equal(l1Done.currentLevel, 3, 'Sau giấy tờ là bước 2 hiển thị: lịch sử xuất khẩu (mã 3)');
 assert.equal(l1Done.steps[0].statusEn, 'Approved');
 assert.equal(l1Done.steps[0].metric, 'Hồ sơ đã được duyệt', 'Bước đã duyệt không hiện “Chưa có giấy tờ”');
 const l1Dated = buildVerificationProgress({ ...empty, reviews: [review({ status: 'approved', approved_at: '2026-10-21T03:00:00Z' })] });
@@ -84,10 +88,10 @@ const l2Pending = buildVerificationProgress({
   submissions: [submission({ status: 'pending_review' })],
   submissionItems: { 'sub-2': photos },
 });
-assert.equal(l2Pending.steps[1].state, 'reviewing');
-assert.equal(l2Pending.steps[1].status, 'Chờ duyệt');
-assert.equal(l2Pending.steps[1].metric, 'Đã tải 9/9 ảnh');
-assert.equal(l2Pending.steps[1].statusEn, 'Under review');
+assert.equal(lvl(l2Pending, 2).state, 'reviewing');
+assert.equal(lvl(l2Pending, 2).status, 'Chờ duyệt');
+assert.equal(lvl(l2Pending, 2).metric, 'Đã tải 9/9 ảnh');
+assert.equal(lvl(l2Pending, 2).statusEn, 'Under review');
 assert.equal(l2Pending.approvedCount, 0, 'Nộp đủ ảnh không tự thành huy hiệu');
 assert.equal(l2Pending.currentLevel, 1, 'Bước 1 còn trống nên vẫn là bước cần làm trước');
 assert.match(l2Pending.headline, /Bước tiếp theo: Kiểm tra giấy tờ/);
@@ -98,18 +102,18 @@ const l3Draft = buildVerificationProgress({
   submissions: [submission({ id: 'sub-3', target_level: 3 })],
   submissionItems: { 'sub-3': [item('sub-3', 'bill_of_lading')] },
 });
-assert.equal(l3Draft.steps[2].state, 'action');
-assert.equal(l3Draft.steps[2].metric, 'Đã tải 1 loại chứng từ');
-assert.match(l3Draft.steps[2].note, /Mở cổng để nộp hồ sơ/);
+assert.equal(lvl(l3Draft, 3).state, 'action');
+assert.equal(lvl(l3Draft, 3).metric, 'Đã tải 1 loại chứng từ');
+assert.match(lvl(l3Draft, 3).note, /Mở cổng để nộp hồ sơ/);
 assert.equal(l3Draft.approvedCount, 0);
 const l3Empty = buildVerificationProgress({ ...empty, submissions: [submission({ id: 'sub-3', target_level: 3 })] });
-assert.match(l3Empty.steps[2].note, /ít nhất một chứng từ/);
+assert.match(lvl(l3Empty, 3).note, /ít nhất một chứng từ/);
 
 // 6. Yêu cầu kiểm định đã được liên hệ: nói rõ là liên hệ lên kế hoạch, vẫn mời tự nộp.
 const contacted = buildVerificationProgress({ ...empty, requests: [{ supplier_id: supplierId, target_level: 2, status: 'contacted' }] });
-assert.equal(contacted.steps[1].state, 'action');
-assert.equal(contacted.steps[1].status, 'Đã ghi nhận liên hệ');
-assert.match(contacted.steps[1].note, /lên kế hoạch/);
+assert.equal(lvl(contacted, 2).state, 'action');
+assert.equal(lvl(contacted, 2).status, 'Đã ghi nhận liên hệ');
+assert.match(lvl(contacted, 2).note, /lên kế hoạch/);
 
 // 7. Hai bước đã duyệt: 67%, bước còn lại là lịch sử giao hàng.
 const twoDone = buildVerificationProgress({ ...empty, reviews: [review({ status: 'approved' }), review({ id: 'v2', target_level: 2, status: 'approved' })] });
@@ -131,7 +135,7 @@ const approvedWins = buildVerificationProgress({
   reviews: [review({ id: 'v2', target_level: 2, status: 'approved' })],
   submissions: [submission({ status: 'returned', updated_at: '2026-10-22T00:00:00Z' })],
 });
-assert.equal(approvedWins.steps[1].state, 'approved');
+assert.equal(lvl(approvedWins, 2).state, 'approved');
 
 // 9. Chỉ dữ liệu của đúng NCC: đợt kiểm, hồ sơ và tệp của doanh nghiệp khác không lọt vào.
 const foreign = buildVerificationProgress({
@@ -164,7 +168,8 @@ assert.equal(certificateOnly.steps[0].metric, 'Chưa có GCN ĐKKD');
 for (const step of none.steps) {
   assert.ok(step.titleEn && step.statusEn && step.metricEn && step.actionEn, `Bước ${step.level} có nhãn tiếng Anh`);
 }
-assert.equal(none.steps[1].actionEn, 'Start step 2');
+assert.equal(lvl(none, 3).actionEn, 'Start step 2', 'Lịch sử xuất khẩu (mã 3) hiển thị là bước 2');
+assert.equal(lvl(none, 2).actionEn, 'Start step 3', 'Nhà máy (mã 2) hiển thị là bước 3');
 
 console.log('✅ Verification progress: đúng thứ tự bước, đúng trạng thái, không tự cấp huy hiệu, tách dữ liệu NCC.');
 
@@ -174,11 +179,11 @@ const partner = buildVerificationProgress({ ...empty, supplierType: 'trading',
   submissions: [submission({ l2_scope: 'partner_contract' })],
   submissionItems: { 'sub-2': [item('sub-2', 'partner_factory_contract')] },
 });
-assert.notEqual(partner.steps[1].state, 'approved', 'Duyệt nhà máy cũ không là duyệt đối tác');
-assert.match(partner.steps[1].title, /đối tác/i);
-assert.match(partner.steps[1].metric, /hợp đồng/i);
+assert.notEqual(lvl(partner, 2).state, 'approved', 'Duyệt nhà máy cũ không là duyệt đối tác');
+assert.match(lvl(partner, 2).title, /đối tác/i);
+assert.match(lvl(partner, 2).metric, /hợp đồng/i);
 const missingType = buildVerificationProgress({ ...empty, supplierType: null, reviews: [review({ target_level: 2, status: 'approved' })] });
-assert.doesNotMatch(missingType.steps[1].description, /9 ảnh|Chín ảnh|nhà máy/i, 'Không mặc định nội dung nhà máy khi chưa rõ loại hình');
-assert.match(missingType.steps[1].description, /loại hình/i);
-assert.notEqual(missingType.steps[1].state, 'approved');
-assert.match(missingType.steps[1].note, /loại hình/i);
+assert.doesNotMatch(lvl(missingType, 2).description, /9 ảnh|Chín ảnh|nhà máy/i, 'Không mặc định nội dung nhà máy khi chưa rõ loại hình');
+assert.match(lvl(missingType, 2).description, /loại hình/i);
+assert.notEqual(lvl(missingType, 2).state, 'approved');
+assert.match(lvl(missingType, 2).note, /loại hình/i);

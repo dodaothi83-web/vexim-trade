@@ -47,6 +47,7 @@ import type {
   SupplierSubmissionLink,
   Verification,
 } from "@/lib/types";
+import { displayLevel } from "@/lib/types";
 
 /**
  * Nghiệp vụ phía server của cổng NCC tự gửi bằng chứng L2/L3.
@@ -685,7 +686,7 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
   if (submission.target_level === 2) {
     const supplier = await store.getSupplier(submission.supplier_id);
     if (!supplier || !l2ScopeMatchesSupplier(submission, supplier.supplier_type)) {
-      throw new Error("Loại hình doanh nghiệp không khớp phạm vi hồ sơ L2. Xác minh và cập nhật loại hình trước khi tiếp tục; giữ hồ sơ cũ.");
+      throw new Error("Loại hình doanh nghiệp không khớp phạm vi hồ sơ L3. Xác minh và cập nhật loại hình trước khi tiếp tục; giữ hồ sơ cũ.");
     }
     if (isPartnerL2(submission) && !readiness({ submission, items: bundle.items }).ready) {
       throw new Error("Chưa có hợp đồng với nhà máy đối tác trong hồ sơ. Hãy yêu cầu nhà cung cấp bổ sung.");
@@ -738,7 +739,7 @@ export async function acceptSubmissionIntoVerification(store: DataStore, input: 
     internal_notes: [
       booking
         ? `Lịch hẹn xác minh ${submission.id}${isPartnerL2(submission) ? " · nhà máy đối tác, kèm hợp đồng" : ""}. Phương thức nhà cung cấp chọn: ${submission.booking_method === "on_site" ? "thực địa" : "gọi video"}.`
-        : `Hồ sơ nhà cung cấp tự gửi ${submission.id} (L${submission.target_level}).`,
+        : `Hồ sơ nhà cung cấp tự gửi ${submission.id} (L${displayLevel(submission.target_level)}).`,
       booking && (input.scheduledAt ?? submission.booking_scheduled_at) ? `Giờ đã chốt: ${input.scheduledAt ?? submission.booking_scheduled_at}.` : "",
       booking && submission.booking_contact_phone ? `Liên hệ: ${submission.booking_contact_phone}.` : "",
       !booking ? "Chứng từ do nhân viên đối chiếu." : "",

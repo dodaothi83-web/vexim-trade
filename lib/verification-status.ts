@@ -60,11 +60,11 @@ export function approvedL2Scope(rows: ReadonlyArray<{ target_level: number; stat
 
 export function verificationLabel(level: VerificationLevel, scope?: PublicL2Scope): string {
   if (level !== 2) return VERIFICATION_LABELS[level];
-  return scope == null ? "L2 review" : scope === "partner_contract" ? "Partner factory contract reviewed" : scope === "both" ? "Factory and partner contract reviewed" : VERIFICATION_LABELS[2];
+  return scope == null ? "L3 review" : scope === "partner_contract" ? "Partner factory contract reviewed" : scope === "both" ? "Factory and partner contract reviewed" : VERIFICATION_LABELS[2];
 }
 
 export function verificationExplanation(level: VerificationLevel, scope?: PublicL2Scope, product = false): string {
-  if (level === 2 && scope == null) return "The scope of this L2 review is available from the supplier profile; it does not certify a product.";
+  if (level === 2 && scope == null) return "The scope of this L3 review is available from the supplier profile; it does not certify a product.";
   if (level === 2 && (scope === "partner_contract" || scope === "both")) {
     const partner = "A contract with a partner factory was reviewed for the stated relationship. The contract review alone does not establish ownership or a factory inspection.";
     const prefix = scope === "both" ? "A separate factory review was also approved. " : "";

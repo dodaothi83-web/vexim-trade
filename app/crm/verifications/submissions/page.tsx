@@ -57,7 +57,7 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
     <Breadcrumbs items={[{ label: "Tổng quan", href: "/crm/dashboard" }, { label: "Xác minh nhà cung cấp", href: "/crm/verifications" }, { label: "Hồ sơ nhà cung cấp tự gửi" }]} />
     <PageHeader
       title="Hồ sơ bằng chứng nhà cung cấp tự gửi"
-      sub="L2 nhà máy: ảnh. L2 đối tác: hợp đồng. L3: chứng từ xuất khẩu. Nhân viên đối chiếu thủ công; không cần AI để xét."
+      sub="L2: chứng từ xuất khẩu. L3: lịch hẹn gọi video, kèm hợp đồng nếu là nhà máy đối tác. Nhân viên đối chiếu thủ công."
       actions={<Link href="/crm/verifications" className="btn btn-ghost">Hàng đợi xác minh <ArrowRight className="h-4 w-4" /></Link>}
     />
 
@@ -74,7 +74,7 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
       <span className="mx-1 h-6 w-px self-center bg-ink-200" aria-hidden="true" />
       {[null, 2, 3].map((level) => <Link key={level ?? "all"} href={`/crm/verifications/submissions?tab=${tabKey}${level ? `&level=${level}` : ""}`}
         className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${levelFilter === level ? "border-emerald-700 bg-emerald-50 text-emerald-800" : "border-ink-200 bg-white text-ink-600 hover:border-emerald-400"}`}>
-        {level === null ? "Cả L2 & L3" : level === 2 ? "L2 · nhà máy / đối tác" : "L3 · xuất khẩu"}
+        {level === null ? "Cả L2 & L3" : level === 2 ? "L3 · nhà máy / đối tác" : "L2 · xuất khẩu"}
       </Link>)}
     </div>
 
@@ -94,7 +94,7 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
                   <Badge className={s.status === "pending_review" ? "bg-amber-50 text-amber-800" : s.status === "returned" ? "bg-rose-50 text-rose-800" : s.status === "accepted" ? "bg-emerald-50 text-emerald-800" : "bg-ink-100 text-ink-700"}>
                     {submissionStatusLabel(s.status)}
                   </Badge>
-                  <Badge className="bg-ink-50 text-ink-600">{isPartnerL2(s) ? "L2 · nhà máy đối tác" : s.target_level === 2 ? s.booking_method ? "L2 · lịch hẹn gọi video/thực địa" : "L2 · bộ ảnh cũ" : "L3 · lịch sử xuất khẩu"}</Badge>
+                  <Badge className="bg-ink-50 text-ink-600">{isPartnerL2(s) ? "L3 · nhà máy đối tác" : s.target_level === 2 ? s.booking_method ? "L3 · lịch hẹn gọi video/thực địa" : "L3 · bộ ảnh cũ" : "L2 · lịch sử xuất khẩu"}</Badge>
                 </p>
                 <p className="mt-1 text-xs text-ink-600">
                   {items.filter((i) => i.media_id).length} bằng chứng · {check.missing.length ? `còn thiếu ${check.missing.length} mục bắt buộc` : "đủ mục bắt buộc"}

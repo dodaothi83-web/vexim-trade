@@ -16,6 +16,7 @@ import { publicProductTitle } from "@/lib/public/display-name";
 import { formatMoney, priceRangeText } from "@/lib/products/price-display";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import { supplierAddressDisplay, supplierCapacityDisplay, supplierAnnualOutputDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
+import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
@@ -32,8 +33,9 @@ function storefrontStructuredMoq(source: { moq_qty?: unknown; moq_unit?: unknown
 
 const VERIFICATION_ITEMS = [
   { level: 1, label: "Documents checked", pending: "Covers business registration evidence.", Icon: FileCheck2 },
-  { level: 2, label: "Factory verification", pending: "Covers a specific facility associated with the supplier.", Icon: Factory },
+  // Thứ tự hiển thị 11/2026: lịch sử giao hàng trước, nhà máy sau (mã level giữ nguyên).
   { level: 3, label: "Delivery history", pending: "Covers delivery documents and the reviewed shipment scope.", Icon: Truck },
+  { level: 2, label: "Factory verification", pending: "Covers a specific facility associated with the supplier.", Icon: Factory },
 ] as const;
 
 function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: string; value: string }) {
@@ -120,7 +122,7 @@ export function SupplierStorefront({
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Published supplier checks">
-            {steps.map((level) => {
+            {VERIFICATION_DISPLAY_ORDER.filter((level) => steps.includes(level)).map((level) => {
               const Icon = VERIFICATION_LEVEL_ICONS[level];
               return <span key={level} className="inline-flex items-center gap-1.5 rounded-full bg-success-surface px-3 py-1 text-xs font-semibold text-success">
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />{level === 1 ? "Business registration checked" : verificationLabel(level, l2Scope)}

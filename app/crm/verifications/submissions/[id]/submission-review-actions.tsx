@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, RotateCcw, Undo2 } from "lucide-react";
+import { displayLevel } from "@/lib/types";
 
 /**
  * Hành động của nhân viên với hồ sơ NCC tự gửi.
@@ -43,7 +44,7 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
     }
     if (decision === "accept" && !window.confirm(booking
       ? `Chốt lịch ${scheduledAt.replace("T", " ")} (giờ Việt Nam) và tạo đợt kiểm qua cuộc gọi do bạn thực hiện?`
-      : `Nhận hồ sơ L${level} này vào đợt kiểm của bạn? Hệ thống sẽ tạo đợt kiểm mới và sao toàn bộ bằng chứng sang. Nhân sự có quyền vẫn phải đối chiếu và quyết định duyệt riêng.`,
+      : `Nhận hồ sơ L${displayLevel(level)} này vào đợt kiểm của bạn? Hệ thống sẽ tạo đợt kiểm mới và sao toàn bộ bằng chứng sang. Nhân sự có quyền vẫn phải đối chiếu và quyết định duyệt riêng.`,
     )) return;
     setBusy(decision); setMessage(null);
     try {

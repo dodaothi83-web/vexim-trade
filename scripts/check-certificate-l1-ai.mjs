@@ -298,7 +298,7 @@ const partnerScanFor = async (type, scope, key, partnerName = PARTNER_FACTORY, h
 verifications = [];
 const tradingNoL2 = await partnerScanFor("trading", null, "trading-no-l2");
 assert.equal(tradingNoL2.decision.autoPublish, false, "Thương mại chưa có L2 đối tác: không công bố");
-assert.match(tradingNoL2.certificate.review_note, /chưa xác thực L2 nhà máy đối tác/);
+assert.match(tradingNoL2.certificate.review_note, /chưa xác thực L3 nhà máy đối tác/);
 const tradingWithL2 = await partnerScanFor("trading", "partner_contract", "trading-l2");
 assert.equal(tradingWithL2.certificate.certificate_scheme, "haccp", "Giấy HACCP của nhà máy đối tác cũng được phân loại");
 assert.equal(tradingWithL2.decision.autoPublish, true, "Giấy đứng tên đúng nhà máy đối tác trong hợp đồng L2");

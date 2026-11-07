@@ -35,8 +35,8 @@ export const en = {
     footnote: "Uploading evidence does not grant a badge. A level turns to “Approved” only after the file is checked by hand and approved by someone with that right.",
   },
   level: {
-    eyebrowL2: "Supplier portal · L2 verification",
-    eyebrowL3: "Supplier portal · L3 verification",
+    eyebrowL2: "Supplier portal · L3 verification",
+    eyebrowL3: "Supplier portal · L2 verification",
     factoryTitle: "Factory verification",
     factoryDescription: "Book a video call so we can see your factory with you. No photos to take or upload.",
     factoryBenefits: [
@@ -81,7 +81,7 @@ export const en = {
       "We check the documents and reply. Submitting does not grant verification by itself.",
     ],
     unknownTypeTitle: "Supplier type not set",
-    unknownTypeBody: "Your profile has no supplier type yet. Ask us to update it before opening L2. Your profile and earlier results are kept.",
+    unknownTypeBody: "Your profile has no supplier type yet. Ask us to update it before opening L3. Your profile and earlier results are kept.",
     loadErrorTitle: "Evidence upload is not available",
     loadErrorBody: "This is a system configuration problem, not a problem with your account. A report was sent automatically. Try again later or contact the person in charge.",
     loadErrorSecond: "Products, RFQs and messages in other sections still work as usual.",
@@ -141,7 +141,7 @@ export const en = {
     },
     sheet: {
       title: "Factory verification sheet",
-      subtitle: "Level 2 · factory photos",
+      subtitle: "Level 3 · factory photos",
       codeLabel: "VERIFICATION CODE",
       validFor: "Valid {hours} hours from issue",
       bullets: [
@@ -424,8 +424,8 @@ const vi: VerificationMessages = {
     footnote: "Tải bằng chứng không tự cấp huy hiệu. Mỗi cấp chỉ chuyển sang “Đã duyệt” khi hồ sơ được đối chiếu thủ công và người có quyền duyệt phê kết quả.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
   },
   level: {
-    eyebrowL2: "Cổng nhà cung cấp · Xác minh L2",
-    eyebrowL3: "Cổng nhà cung cấp · Xác minh L3",
+    eyebrowL2: "Cổng nhà cung cấp · Xác minh L3",
+    eyebrowL3: "Cổng nhà cung cấp · Xác minh L2",
     factoryTitle: "Xác thực nhà máy",
     factoryDescription: "Đặt lịch gọi video để cùng xem nhà máy. Không cần tự chụp hay tải ảnh.",
     factoryBenefits: [
@@ -470,7 +470,7 @@ const vi: VerificationMessages = {
       "Chứng từ được đối chiếu và phản hồi trên cổng. Nộp hồ sơ không tự cấp xác minh.",
     ],
     unknownTypeTitle: "Chưa rõ loại hình nhà cung cấp",
-    unknownTypeBody: "Hồ sơ của bạn chưa có loại hình nhà cung cấp. Liên hệ Vexim để cập nhật trước khi mở L2. Hồ sơ và kết quả cũ vẫn được giữ.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
+    unknownTypeBody: "Hồ sơ của bạn chưa có loại hình nhà cung cấp. Liên hệ Vexim để cập nhật trước khi mở L3. Hồ sơ và kết quả cũ vẫn được giữ.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
     loadErrorTitle: "Chưa mở được phần tải bằng chứng",
     loadErrorBody: "Đây là lỗi cấu hình phía hệ thống, không phải lỗi tài khoản của bạn. Ghi nhận đã được gửi tự động; bạn thử lại sau hoặc báo trực tiếp cho người phụ trách.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
     loadErrorSecond: "Sản phẩm, RFQ và thông báo ở các mục khác vẫn dùng bình thường.",
@@ -530,7 +530,7 @@ const vi: VerificationMessages = {
     },
     sheet: {
       title: "Phiếu xác minh nhà máy",
-      subtitle: "Cấp L2 · ảnh nhà máy",
+      subtitle: "Cấp L3 · ảnh nhà máy",
       codeLabel: "MÃ XÁC MINH",
       validFor: "Mã có hiệu lực {hours} giờ kể từ lúc phát hành",
       bullets: [

@@ -7,6 +7,7 @@ import {
   type SupplierSubmissionItem,
   type SupplierVerificationRequest,
   type Verification,
+  displayLevel,
 } from "@/lib/types";
 import { effectiveL2Scope, l2ScopeForSupplier } from "@/lib/l2-scope";
 import { COMPANY_DOCUMENT_KEYS } from "./policy";
@@ -210,7 +211,7 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     } satisfies Partial<VerificationProgressStep>);
   }
 
-  /* ------------------------------ Bước 2: nhà máy ------------------------------ */
+  /* ------------------- Mã level 2: nhà máy (hiển thị bước 3) ------------------- */
   // The profile may have changed since an older review. Match the saved scope,
   // never present an old factory approval as an approved partner contract.
   const scope = "supplierType" in input ? l2ScopeForSupplier(input.supplierType) : "factory";
@@ -234,8 +235,8 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     ),
     metric: pick(`Đã tải ${done2}/${L2_TOTAL} ảnh`, `${done2}/${L2_TOTAL} photos uploaded`),
     metricEn: `${done2}/${L2_TOTAL} photos uploaded`,
-    action: pick("Bắt đầu bước 2", "Start step 2"),
-    actionEn: "Start step 2",
+    action: pick("Bắt đầu bước 3", "Start step 3"),
+    actionEn: "Start step 3",
     tone: "ink",
   };
 
@@ -250,11 +251,11 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     metricEn: done2 ? "Contract uploaded" : "No contract uploaded",
   } satisfies Partial<VerificationProgressStep>);
   if (!scope) Object.assign(step2, {
-    title: pick("Xác minh L2", "L2 verification"), titleEn: "L2 verification",
-    description: pick("Cần cập nhật loại hình nhà cung cấp trước khi mở bước L2.", "The supplier type must be updated before step L2 opens."),
+    title: pick("Xác minh nhà máy (cấp 3)", "Factory verification (level 3)"), titleEn: "Factory verification (level 3)",
+    description: pick("Cần cập nhật loại hình nhà cung cấp trước khi mở bước 3.", "The supplier type must be updated before step 3 opens."),
     note: pick(
-      "Chưa rõ loại hình nhà cung cấp. Liên hệ Vexim để cập nhật trước khi mở L2.",
-      "The supplier type is not set yet. Contact us to update it before L2 opens.",
+      "Chưa rõ loại hình nhà cung cấp. Liên hệ Vexim để cập nhật trước khi mở bước 3.",
+      "The supplier type is not set yet. Contact us to update it before step 3 opens.",
     ),
     metric: pick("Chưa rõ loại hình", "Supplier type needed"), metricEn: "Supplier type needed",
     action: pick("Xem hướng dẫn", "View guidance"), actionEn: "View guidance",
@@ -325,7 +326,7 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     } satisfies Partial<VerificationProgressStep>);
   }
 
-  /* --------------------------- Bước 3: lịch sử giao hàng --------------------------- */
+  /* -------------- Mã level 3: lịch sử giao hàng (hiển thị bước 2) -------------- */
   const l3 = latestReview(input.reviews, input.supplierId, 3);
   const sub3 = latestSubmission(submissions, input.supplierId, 3);
   const done3 = countUploaded(sub3 ? items[sub3.id] : undefined, L3_KEYS);
@@ -345,8 +346,8 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     ),
     metric: done3 ? pick(`Đã tải ${done3} loại chứng từ`, `${done3} document types uploaded`) : pick("Chưa tải chứng từ", "No documents uploaded"),
     metricEn: done3 ? `${done3} evidence type${done3 === 1 ? "" : "s"} uploaded` : "No evidence uploaded",
-    action: pick("Bắt đầu bước 3", "Start step 3"),
-    actionEn: "Start step 3",
+    action: pick("Bắt đầu bước 2", "Start step 2"),
+    actionEn: "Start step 2",
     tone: "ink",
   };
 
@@ -421,7 +422,8 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     } satisfies Partial<VerificationProgressStep>);
   }
 
-  const steps = [step1, step2, step3];
+  // Thứ tự hiển thị 11/2026: giấy tờ, lịch sử xuất khẩu (bước 2), nhà máy (bước 3). Mã level giữ nguyên.
+  const steps = [step1, step3, step2];
   const approvedCount = steps.filter((step) => step.state === "approved").length;
   const current = steps.find((step) => step.state !== "approved") ?? null;
   const percent = Math.round((approvedCount / steps.length) * 100);
@@ -433,13 +435,13 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
       )
     : current.state === "reviewing"
       ? pick(
-          `Bước ${current.level} · ${current.title} đang chờ duyệt. Không cần nộp lại; kết quả sẽ hiện ngay tại đây.`,
-          `Step ${current.level} · ${current.title} is under review. No need to resubmit; the result shows up right here.`,
+          `Bước ${displayLevel(current.level)} · ${current.title} đang chờ duyệt. Không cần nộp lại; kết quả sẽ hiện ngay tại đây.`,
+          `Step ${displayLevel(current.level)} · ${current.title} is under review. No need to resubmit; the result shows up right here.`,
         )
       : current.state === "action"
         ? pick(
-            `Bước ${current.level} · ${current.title} đang chờ bạn xử lý.`,
-            `Step ${current.level} · ${current.title} is waiting for you.`,
+            `Bước ${displayLevel(current.level)} · ${current.title} đang chờ bạn xử lý.`,
+            `Step ${displayLevel(current.level)} · ${current.title} is waiting for you.`,
           )
         : pick(`Bước tiếp theo: ${current.title}.`, `Next step: ${current.title}.`);
 

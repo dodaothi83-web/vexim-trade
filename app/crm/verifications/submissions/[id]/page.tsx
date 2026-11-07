@@ -40,7 +40,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
     <Breadcrumbs items={[
       { label: "Xác minh nhà cung cấp", href: "/crm/verifications" },
       { label: "Hồ sơ nhà cung cấp tự gửi", href: "/crm/verifications/submissions" },
-      { label: partner ? "L2 · lịch hẹn nhà máy đối tác" : "L2 · lịch hẹn xác minh nhà máy" },
+      { label: partner ? "L3 · lịch hẹn nhà máy đối tác" : "L3 · lịch hẹn xác minh nhà máy" },
     ]} />
     <PageHeader
       title={`Lịch hẹn xác minh · ${partner ? "nhà máy đối tác" : "nhà máy"}`}
@@ -93,10 +93,10 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
     <Breadcrumbs items={[
       { label: "Xác minh nhà cung cấp", href: "/crm/verifications" },
       { label: "Hồ sơ nhà cung cấp tự gửi", href: "/crm/verifications/submissions" },
-      { label: partner ? "L2 · nhà máy đối tác" : view.level === 2 ? "L2 · nhà máy" : "L3 · xuất khẩu" },
+      { label: partner ? "L3 · nhà máy đối tác" : view.level === 2 ? "L3 · nhà máy" : "L2 · xuất khẩu" },
     ]} />
     <PageHeader
-      title={`Hồ sơ tự gửi · ${partner ? "L2 nhà máy đối tác" : view.level === 2 ? "L2 xác thực nhà máy" : "L3 lịch sử xuất khẩu"}`}
+      title={`Hồ sơ tự gửi · ${partner ? "L3 nhà máy đối tác" : view.level === 2 ? "L3 xác thực nhà máy" : "L2 lịch sử xuất khẩu"}`}
       sub={`${access.supplier.name} · ${view.level === 2 ? `${view.uploadedTotal}/${view.requiredTotal} mục bắt buộc` : `${view.items.length} chứng từ cần đối chiếu`} · ${view.statusLabel}`}
       actions={<Link href={`/crm/suppliers/${access.supplier.id}`} className="btn btn-ghost"><ArrowLeft className="h-4 w-4" /> Hồ sơ nhà cung cấp</Link>}
     />

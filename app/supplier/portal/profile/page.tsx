@@ -10,6 +10,7 @@ import { migrationHint } from "@/lib/db/migration-hints";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
 import { Info, LevelChip, Panel, VerifyRow } from "../portal-ui";
+import { displayLevel } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -72,9 +73,10 @@ export default async function SupplierProfilePage() {
   const l3Status = l3Approved ? st.approved : l3Own?.status === "pending_review" ? st.submissionPending
     : l3Own?.status === "returned" ? st.submissionReturned : l3Own?.status === "accepted" ? st.accepted
     : requestRows.find((r) => r.target_level === 3)?.status === "contacted" ? st.contacted : st.noEvidence;
-  const currentStep = !l1Approved ? 1 : !l2Approved ? 2 : !l3Approved ? 3 : null;
+  // Thứ tự hiển thị 11/2026: xuất khẩu (mã 3) là bước 2, nhà máy (mã 2) là bước 3.
+  const currentStep = !l1Approved ? 1 : !l3Approved ? 3 : !l2Approved ? 2 : null;
   const goal = copy.view.goals;
-  const nextGoal = currentStep ? `L${currentStep} · ${currentStep === 1 ? goal.documents : currentStep === 2 ? l2Scope === "partner_contract" ? goal.partner : goal.factory : goal.export}` : goal.allDone;
+  const nextGoal = currentStep ? `L${displayLevel(currentStep)} · ${currentStep === 1 ? goal.documents : currentStep === 2 ? l2Scope === "partner_contract" ? goal.partner : goal.factory : goal.export}` : goal.allDone;
   const published = supplier.status === "published";
   const about = vi(supplier.summary_i18n) || supplier.intro_source || "";
   const marketText = supplier.export_markets_i18n?.vi?.join(", ") || join(supplier.export_markets) || supplier.markets || "";
@@ -148,10 +150,10 @@ export default async function SupplierProfilePage() {
         <ol className="space-y-2">
           {([
             { level: 1, title: view.levels.business, status: l1Status, on: l1Approved, href: "/supplier/portal/documents", cta: view.levels.cta.documents },
-            { level: 2, title: l2Scope === "partner_contract" ? view.levels.partner : view.levels.factory, status: l2Status, on: l2Approved, href: "/supplier/portal/verification/factory", cta: view.levels.cta.factory },
             { level: 3, title: view.levels.export, status: l3Status, on: l3Approved, href: "/supplier/portal/verification/export", cta: view.levels.cta.export },
+            { level: 2, title: l2Scope === "partner_contract" ? view.levels.partner : view.levels.factory, status: l2Status, on: l2Approved, href: "/supplier/portal/verification/factory", cta: view.levels.cta.factory },
           ] as const).map((step) => <li key={step.level} className="relative">
-            <VerifyRow level={`L${step.level}`} title={step.title} status={step.status} on={step.on} />
+            <VerifyRow level={`L${displayLevel(step.level)}`} title={step.title} status={step.status} on={step.on} />
             {currentStep === step.level && <span className="absolute top-2.5 right-3 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-300">
               {view.levels.here}
             </span>}

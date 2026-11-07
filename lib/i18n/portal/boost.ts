@@ -18,10 +18,10 @@ export const en = {
   },
   eligibility: {
     title: "Who can buy a boost package",
-    body: "Business verification (L1) plus a factory review (L2) or a delivery history review (L3).",
+    body: "Business verification (L1) plus a delivery history review (L2) or a factory review (L3).",
     why: "The boost area sits at the top of category pages, so buyers expect suppliers checked beyond documents.",
     needsL1: "Complete business verification (L1) first. Then add a factory or delivery history review.",
-    needsL2OrL3: "Add a factory review (L2) or a delivery history review (L3) to buy a boost package.",
+    needsL2OrL3: "Add a delivery history review (L2) or a factory review (L3) to buy a boost package.",
     cta: "Go to verification",
   },
   hero: {
@@ -133,10 +133,10 @@ export const vi: BoostMessages = {
   },
   eligibility: {
     title: "Điều kiện mua gói đẩy sản phẩm",
-    body: "Đã xác thực doanh nghiệp (L1) và có thêm xác minh nhà máy (L2) hoặc lịch sử giao hàng (L3).",
+    body: "Đã xác thực doanh nghiệp (L1) và có thêm lịch sử giao hàng (L2) hoặc xác minh nhà máy (L3).",
     why: "Vùng đẩy nằm đầu trang danh mục, nên người mua cần thấy nhà cung cấp đã được kiểm tra kỹ hơn giấy tờ.",
     needsL1: "Bạn cần hoàn tất xác thực doanh nghiệp (L1) trước, rồi thêm xác minh nhà máy hoặc lịch sử giao hàng.",
-    needsL2OrL3: "Bạn cần thêm xác minh nhà máy (L2) hoặc lịch sử giao hàng (L3) để mua gói đẩy sản phẩm.",
+    needsL2OrL3: "Bạn cần thêm lịch sử giao hàng (L2) hoặc xác minh nhà máy (L3) để mua gói đẩy sản phẩm.",
     cta: "Đi tới xác minh",
   },
   hero: {

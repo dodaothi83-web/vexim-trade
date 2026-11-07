@@ -64,8 +64,8 @@ assert.equal(rules.matchesVerificationFilter([2], 'factory', 4), false);
 assert.equal(rules.matchesVerificationFilter([2], 'both', 2), true);
 assert.equal(rules.matchesVerificationFilter([2], 'both', 4), true);
 assert.equal(rules.matchesVerificationFilter([], 'partner_contract', 4), false);
-assert.equal(rules.verificationLabel(2, null), 'L2 review', 'Unknown scope does not become a factory claim');
-assert.equal(rules.verificationLabel(2, undefined), 'L2 review');
+assert.equal(rules.verificationLabel(2, null), 'L3 review', 'Unknown scope does not become a factory claim');
+assert.equal(rules.verificationLabel(2, undefined), 'L3 review');
 assert.doesNotMatch(rules.verificationExplanation(2, undefined), /factory (associated|reviewed)/i);
 assert.match(rules.verificationExplanation(2, 'partner_contract', true), /does not establish ownership or a factory inspection/i);
 

@@ -3,6 +3,7 @@ import { VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximD
 
 import { fill } from "@/lib/i18n/format";
 import type { VerificationMessages } from "@/lib/i18n/portal/verification";
+import { displayLevel } from "@/lib/types";
 
 /**
  * Ba bước xác minh dùng chung một dải tab, để trang L1 (giấy tờ) và hai trang tự gửi
@@ -13,8 +14,9 @@ import type { VerificationMessages } from "@/lib/i18n/portal/verification";
  */
 export const VERIFICATION_STEPS = [
   { level: 1, titleKey: "l1", href: "/supplier/portal/documents", icon: FileCheck2 },
-  { level: 2, titleKey: "l2", href: "/supplier/portal/verification/factory", icon: Factory },
+  // Thứ tự hiển thị 11/2026: xuất khẩu là bước 2, nhà máy là bước 3 (mã level giữ nguyên).
   { level: 3, titleKey: "l3", href: "/supplier/portal/verification/export", icon: Ship },
+  { level: 2, titleKey: "l2", href: "/supplier/portal/verification/factory", icon: Factory },
 ] as const;
 
 /** Dải tab dùng chung cho ba bước; nhãn đọc từ `portal.verification.tabs`. */
@@ -32,7 +34,7 @@ export function LevelTabs({ current, partner = false, copy }: {
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[11px] font-bold tracking-wider text-ink-400 uppercase">{fill(copy.step, { level: step.level })}</span>
+          <span className="block text-[11px] font-bold tracking-wider text-ink-400 uppercase">{fill(copy.step, { level: displayLevel(step.level) })}</span>
           <span className={`block text-[13.5px] font-bold ${active ? "text-brand-900" : "text-ink-900"}`}>{title}</span>
         </span>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${active ? "bg-brand-700 text-white" : "bg-ink-100 text-ink-600 group-hover:bg-brand-100 group-hover:text-brand-800"}`}>

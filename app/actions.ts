@@ -1351,7 +1351,7 @@ export async function updateSupplierAction(
     if (!Object.hasOwn(raw, "supplier_type")) input.supplier_type = existing.supplier_type ?? null;
     if (!Object.hasOwn(raw, "tax_id")) input.tax_id = existing.tax_id ?? null;
     const typeChanged = (input.supplier_type ?? null) !== (existing.supplier_type ?? null);
-    if (typeChanged && raw.confirm_l2_scope_review !== true) return { ok: false, message: "Hãy xác nhận đã kiểm tra loại hình và phạm vi L2 trước khi lưu. Hồ sơ và kết quả cũ không tự chuyển." };
+    if (typeChanged && raw.confirm_l2_scope_review !== true) return { ok: false, message: "Hãy xác nhận đã kiểm tra loại hình và phạm vi L3 trước khi lưu. Hồ sơ và kết quả cũ không tự chuyển." };
     // Một mã số thuế đã có bằng chứng không thể bị thay bằng pháp nhân khác
     // trong cùng hồ sơ: tạo hồ sơ mới thay vì chuyển kết quả giữa doanh nghiệp.
     if (existing.tax_id && existing.tax_id !== input.tax_id) {

@@ -1,7 +1,7 @@
 import { HelpCircle, ShieldCheck } from "lucide-react";
 import { VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
 
-import type { VerificationLevel } from "@/lib/types";
+import { VERIFICATION_DISPLAY_ORDER, type VerificationLevel } from "@/lib/types";
 import { verificationExplanation, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 
 export type VerificationTier = 0 | 1 | 2 | 3;
@@ -147,7 +147,7 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
   shortTooltips?: boolean;
   variant?: "default" | "marketplace";
 }) {
-  const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
+  const approved = VERIFICATION_DISPLAY_ORDER.filter((level) => levels.includes(level));
   const tier = verificationTier(approved);
   const activeTone = tier > 0 ? VERIFICATION_TIER_SHIELD_TONES[tier as Exclude<VerificationTier, 0>] : null;
   const marketplace = variant === "marketplace";
@@ -158,7 +158,7 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
   return (
     <span className={`inline-flex items-center ${marketplace ? "gap-0.5" : "gap-1"}`} role="group"
       aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => verificationLabel(l, l2Scope)).join(", ")}` : "No verification checks approved yet"}>
-      {([1, 2, 3] as const).map((level) => {
+      {VERIFICATION_DISPLAY_ORDER.map((level, index) => {
         const on = levels.includes(level);
         const label = verificationLabel(level, l2Scope);
         const status = on ? "Approved" : "Not approved";
@@ -177,7 +177,7 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
               className={`${pipClass} cursor-help focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700`}>
               {icon}
             </button>
-            <span role="tooltip" className={`pointer-events-none absolute bottom-full z-40 mb-2 hidden w-48 max-w-[calc(100vw-2rem)] rounded-md bg-ink-900 px-2.5 py-2 text-left font-normal shadow-xl group-hover/pip:block group-focus-within/pip:block ${level === 1 ? "left-0" : level === 3 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
+            <span role="tooltip" className={`pointer-events-none absolute bottom-full z-40 mb-2 hidden w-48 max-w-[calc(100vw-2rem)] rounded-md bg-ink-900 px-2.5 py-2 text-left font-normal shadow-xl group-hover/pip:block group-focus-within/pip:block ${index === 0 ? "left-0" : index === 2 ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
               <strong className="block text-[11px] font-bold leading-4 text-white">{label}</strong>
               <span className={`block text-[10px] font-semibold leading-4 ${on && activeTone ? activeTone.status : "text-ink-300"}`}>{status}</span>
               <span className="mt-0.5 block text-[10px] leading-4 text-ink-200">{explanation}</span>
@@ -209,6 +209,6 @@ export function VerificationCoverSeal({ levels }: { levels: readonly Verificatio
 
 /** Buyer-facing sentence listing exactly which checks were approved. */
 export function approvedChecksSummary(levels: readonly VerificationLevel[], l2Scope?: PublicL2Scope): string {
-  const approved = ([1, 2, 3] as const).filter((level) => levels.includes(level));
+  const approved = VERIFICATION_DISPLAY_ORDER.filter((level) => levels.includes(level));
   return approved.map((level) => { const label = verificationLabel(level, l2Scope); return label.charAt(0).toLowerCase() + label.slice(1); }).join(" · ");
 }
