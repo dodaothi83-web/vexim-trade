@@ -137,6 +137,7 @@ function pricePointsFrom(products: PublicCategoryProduct[]): GradePricePoint[] {
           currency: point.currency,
           updatedAt: point.updatedAt,
           grade: point.grade,
+          supplierId: p.supplierId,
         }));
       }
       return [{
@@ -146,6 +147,7 @@ function pricePointsFrom(products: PublicCategoryProduct[]): GradePricePoint[] {
         currency: p.pricePoint!.currency,
         updatedAt: p.pricePoint!.updatedAt,
         grade: p.grade,
+        supplierId: p.supplierId,
       }];
     });
 }
@@ -607,6 +609,12 @@ function StateA({
   const priceRange = buildPriceBlock(pricePointsFrom(products), {
     unit: unitConfig.primary,
     secondaryUnit: unitConfig.secondary,
+    // Dữ liệu giai đoạn đầu phần lớn do nhân viên nhập tay từ nguồn ngoài (vd
+    // Alibaba), chưa quen hệ thống nên có thể gắn nhầm quy cách hoặc lặp giá
+    // mồi ở nhiều dòng. Yêu cầu đủ 15 NCC khác nhau cho mỗi quy cách trước khi
+    // công bố khoảng giá — quy cách nào chưa đủ sẽ tự hiện lại khi có thêm NCC
+    // thật tham gia, không cần ai bật tay.
+    minDistinctSuppliers: 15,
   });
   const grades: string[] = [];
   for (const f of filters) {

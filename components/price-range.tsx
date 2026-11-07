@@ -38,6 +38,18 @@ export function PriceRangeStrip({
     );
   }
 
+  if (outcome.status === "too_few_suppliers") {
+    return (
+      <section className="mt-6 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3.5 text-[13px] text-ink-600">
+        <p className="font-semibold text-ink-800">Reference prices for {categoryName.toLowerCase()}</p>
+        <p className="mt-1 leading-relaxed">
+          Prices are published, but still from too few different suppliers per grade to show a reliable range. Send
+          your specification and volume, and you get an actual quote from a supplier.
+        </p>
+      </section>
+    );
+  }
+
   const rows = outcome.rows;
   const unit = rows[0]?.unit ?? "kg";
   const singleRow = rows.length === 1;
@@ -85,6 +97,14 @@ export function PriceRangeStrip({
         <p className="mt-1.5 text-[12px] text-ink-500">
           {listPhrase(outcome.thin)} {outcome.thin.length === 1 ? "has" : "have"} fewer than three published prices so
           far, so no range is shown for {outcome.thin.length === 1 ? "it" : "them"}.
+        </p>
+      )}
+
+      {outcome.pendingSuppliers.length > 0 && (
+        <p className="mt-1.5 text-[12px] text-ink-500">
+          {listPhrase(outcome.pendingSuppliers)} {outcome.pendingSuppliers.length === 1 ? "has" : "have"} prices from
+          too few different suppliers so far, so no range is shown for{" "}
+          {outcome.pendingSuppliers.length === 1 ? "it" : "them"} yet.
         </p>
       )}
 

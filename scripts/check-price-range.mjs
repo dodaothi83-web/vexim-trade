@@ -208,6 +208,39 @@ assert.equal(outlierButThin.range.excludedOutliers, 0, "Filtering down below min
 assert.equal(outlierButThin.range.low, 1.55);
 assert.equal(outlierButThin.range.sampleSize, 3);
 
+/* Đủ mẫu nhưng cùng một nhà cung cấp lặp giá ở nhiều niêm yết: không được tính là nhiều nguồn độc lập. */
+const sameSupplierRepeat = priceRange.buildPriceRange(
+  [
+    { value: 2.5, unit: "kg", updatedAt: daysAgo(1), supplierId: "supplier-a" },
+    { value: 5.5, unit: "kg", updatedAt: daysAgo(2), supplierId: "supplier-b" },
+    { value: 6.0, unit: "kg", updatedAt: daysAgo(3), supplierId: "supplier-c" },
+  ],
+  { now: NOW, minDistinctSuppliers: 15 },
+);
+assert.equal(sameSupplierRepeat.status, "too_few_suppliers", "Three suppliers is still far short of the 15 required");
+assert.equal(sameSupplierRepeat.usable, 3);
+assert.equal(sameSupplierRepeat.distinctSuppliers, 3);
+assert.equal(sameSupplierRepeat.neededSuppliers, 15);
+
+/* Khi không đặt minDistinctSuppliers, hành vi cũ giữ nguyên dù mọi niêm yết cùng một NCC. */
+const noSupplierThreshold = priceRange.buildPriceRange(
+  [
+    { value: 2.5, unit: "kg", updatedAt: daysAgo(1), supplierId: "supplier-a" },
+    { value: 5.5, unit: "kg", updatedAt: daysAgo(2), supplierId: "supplier-a" },
+    { value: 6.0, unit: "kg", updatedAt: daysAgo(3), supplierId: "supplier-a" },
+  ],
+  { now: NOW },
+);
+assert.equal(noSupplierThreshold.status, "ok", "Without an explicit threshold, supplier diversity is not required");
+
+/* Đủ 15 nhà cung cấp khác nhau thì công bố bình thường. */
+const enoughSuppliers = priceRange.buildPriceRange(
+  Array.from({ length: 15 }, (_, i) => ({ value: 6 + i * 0.1, unit: "kg", updatedAt: daysAgo(1), supplierId: `supplier-${i}` })),
+  { now: NOW, minDistinctSuppliers: 15 },
+);
+assert.equal(enoughSuppliers.status, "ok", "Fifteen distinct suppliers clears the bar");
+assert.equal(enoughSuppliers.range.sampleSize, 15);
+
 /* Cũ quá ngưỡng cảnh báo thì vẫn hiện nhưng phải gắn nhãn. */
 const stale = priceRange.buildPriceRange(
   [
@@ -317,6 +350,42 @@ assert.equal(noGrades.status, "ok");
 assert.equal(noGrades.rows.length, 1, "A category without grades keeps one range");
 assert.equal(noGrades.unclassified, 0);
 
+/*
+ * Mô phỏng đúng case thực tế: một NCC niêm yết cùng một giá ở hai quy cách khác
+ * nhau (W240 và W320) trong khi mỗi quy cách còn có vài NCC khác. Với ngưỡng 15,
+ * không quy cách nào đủ NCC khác nhau, nên cả hai bị giữ lại (pendingSuppliers),
+ * không quy cách nào được công bố khoảng giá.
+ */
+const supplierDuplication = priceRange.buildPriceBlock(
+  [
+    { value: 2.5, unit: "kg", grade: "W240", updatedAt: daysAgo(1), supplierId: "chau-a-hung-manh" },
+    { value: 6.0, unit: "kg", grade: "W240", updatedAt: daysAgo(2), supplierId: "phalco" },
+    { value: 5.5, unit: "kg", grade: "W240", updatedAt: daysAgo(3), supplierId: "kim-long" },
+    { value: 2.5, unit: "kg", grade: "W320", updatedAt: daysAgo(1), supplierId: "chau-a-hung-manh" },
+    { value: 6.9, unit: "kg", grade: "W320", updatedAt: daysAgo(2), supplierId: "phalco" },
+    { value: 7.2, unit: "kg", grade: "W320", updatedAt: daysAgo(3), supplierId: "polaris" },
+  ],
+  { now: NOW, minDistinctSuppliers: 15 },
+);
+assert.equal(supplierDuplication.status, "too_few_suppliers", "No grade clears 15 distinct suppliers yet, so no row is published");
+assert.equal(supplierDuplication.distinctSuppliers, 3, "Each grade tops out at three distinct suppliers in this scenario");
+assert.equal(supplierDuplication.neededSuppliers, 15);
+
+/* Một quy cách đủ NCC, một quy cách chưa đủ: dòng đủ thì hiện, dòng kia liệt kê riêng trong pendingSuppliers. */
+const partialSupplierCoverage = priceRange.buildPriceBlock(
+  [
+    ...Array.from({ length: 15 }, (_, i) => ({ value: 9 + i * 0.1, unit: "kg", grade: "W180", updatedAt: daysAgo(1), supplierId: `w180-supplier-${i}` })),
+    { value: 2.5, unit: "kg", grade: "W450", updatedAt: daysAgo(1), supplierId: "chau-a-hung-manh" },
+    { value: 6.0, unit: "kg", grade: "W450", updatedAt: daysAgo(2), supplierId: "phalco" },
+    { value: 5.5, unit: "kg", grade: "W450", updatedAt: daysAgo(3), supplierId: "kim-long" },
+  ],
+  { now: NOW, minDistinctSuppliers: 15 },
+);
+assert.equal(partialSupplierCoverage.status, "ok");
+assert.equal(partialSupplierCoverage.rows.length, 1, "Only the grade with 15 distinct suppliers gets a published row");
+assert.equal(partialSupplierCoverage.rows[0].grade, "W180");
+assert.equal(partialSupplierCoverage.pendingSuppliers.join(","), "W450", "The other grade is named as pending, not silently dropped");
+
 /* ---------------- Render ---------------- */
 
 const okBlock = priceRange.buildPriceBlock(
@@ -379,6 +448,19 @@ const fewHtml = renderToStaticMarkup(
 );
 assert.ok(!/\d+\.\d{2}\/kg/.test(fewHtml), "No price number appears when grades are too thin");
 assert.ok(fewHtml.includes("Too few published prices"), "The block explains why it is empty");
+
+const tooFewSuppliersHtml = renderToStaticMarkup(
+  React.createElement(strip.PriceRangeStrip, { outcome: supplierDuplication, categoryName: "Cashew", rfqHref: "/rfq" }),
+);
+assert.ok(!/\d+\.\d{2}\/kg/.test(tooFewSuppliersHtml), "No price number appears when no grade has enough distinct suppliers");
+assert.ok(tooFewSuppliersHtml.includes("too few different suppliers"), "The block explains the reason is supplier diversity, not sample count");
+
+const pendingSuppliersHtml = renderToStaticMarkup(
+  React.createElement(strip.PriceRangeStrip, { outcome: partialSupplierCoverage, categoryName: "Cashew", rfqHref: "/rfq" }),
+);
+assert.ok(pendingSuppliersHtml.includes("W180"), "The qualifying grade still shows its range");
+assert.ok(!pendingSuppliersHtml.includes("$2.5"), "The grade held back for too few suppliers never surfaces its price on the page");
+assert.ok(/W450.*too few different suppliers/.test(pendingSuppliersHtml), "The held-back grade is named with the right reason");
 
 assert.equal(
   renderToStaticMarkup(React.createElement(strip.PriceRangeStrip, { outcome: { status: "none" }, categoryName: "Cashew", rfqHref: "/rfq" })),
