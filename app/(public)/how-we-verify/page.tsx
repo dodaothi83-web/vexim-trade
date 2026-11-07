@@ -70,7 +70,7 @@ export default function HowWeVerifyPage() {
             body="We review the supplier&apos;s business registration before they can appear on Vexim Trade." />
           <Step n={2} icon={<Factory className="h-5 w-5" />} title="Production source"
             question="Who actually makes the goods?"
-            body="For manufacturers and cooperatives, we review evidence of their own production facility. For trading companies, we review their contract with a partner factory, so you know where your order will be produced." />
+            body="A Vexim review lead walks through the facility with the supplier on a live video call, or visits on site, and records what was seen. For trading companies, the call takes place at the partner factory and their contract is reviewed too. Signed-in buyers can download the review report, and each report has a code you can check on this site. This is Vexim's own review, not a third-party audit." />
           <Step n={3} icon={<Truck className="h-5 w-5" />} title="Export track record"
             question="Have they shipped internationally before?"
             body="We review evidence of past export shipments, a strong sign the supplier understands export documents, packing and timelines." />

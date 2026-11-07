@@ -48,6 +48,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       supplier_id: supplierId,
       target_level: level,
       ...(scope ? { l2_scope: scope } : {}),
+      // L2 từ 11/2026 luôn là đợt kiểm qua cuộc gọi; người kiểm đổi sang thực địa trong form nếu cần.
+      ...(level === 2 ? { review_method: "video_call" as const } : {}),
       status: level === 1 ? "in_progress" : "scheduled",
       inspector_id: session?.uid ?? null,
       checklist,

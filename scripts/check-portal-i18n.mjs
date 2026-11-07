@@ -93,6 +93,8 @@ const CONVERTED = [
   "app/supplier/portal/verification/verification-panel.tsx",
   "app/supplier/portal/verification/submission-item-card.tsx",
   "app/supplier/portal/verification/submission-actions.ts",
+  "app/supplier/portal/verification/booking-form.tsx",
+  "app/supplier/portal/verification/booking-actions.ts",
   "app/supplier/portal/documents/page.tsx",
   "app/supplier/portal/l1-doc-upload.tsx",
   "app/supplier/portal/certificate-upload.tsx",

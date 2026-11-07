@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import { Breadcrumbs } from "@/components/ui";
 import { SupplierStorefront } from "@/components/public/supplier-storefront";
+import { DownloadFactoryReport } from "@/components/download-factory-report";
 import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import { getPublicSupplierBySlug, listPublicSuppliers, supplierTypeLabel } from "@/lib/public/catalog";
 import { supplierChatAvailable } from "@/lib/chat/service";
@@ -18,6 +19,7 @@ import { supplierAddressDisplay, supplierProvinceDisplay, supplierSummaryDisplay
 import { isSyntheticSupplier, safeJsonLd, supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
 import { getSession } from "@/lib/auth/session";
+import { getBuyerSession } from "@/lib/auth/buyer-session";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
 
@@ -97,6 +99,7 @@ export default async function SupplierProfile({ params }: PageProps) {
   };
 
   const countView = !synthetic && !(await getSession());
+  const buyerSignedIn = Boolean(await getBuyerSession());
   return <div className="mx-auto max-w-7xl px-4 pb-20 pt-7 sm:px-6 lg:px-8">
     {countView && <SupplierTrafficBeacon pageKey={`profile:${s.id}`}
       token={createTrafficToken({ kind: "profile", supplierId: s.id, resourceId: s.id, slug })} />}
@@ -111,6 +114,7 @@ export default async function SupplierProfile({ params }: PageProps) {
       coverUrl={coverUrl}
       avatarUrl={avatarUrl}
       synthetic={synthetic}
+      reportAction={synthetic ? undefined : (code) => <DownloadFactoryReport code={code} signedIn={buyerSignedIn} nextPath={`/suppliers/${encodeURIComponent(slug)}#factory-visit`} />}
       chatAction={canChat ? <Suspense fallback={null}><SupplierChatButton supplierId={s.id} supplierName={name} /></Suspense> : undefined}
     />
 

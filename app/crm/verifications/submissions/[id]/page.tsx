@@ -8,6 +8,8 @@ import { loadStaffSubmission } from "@/lib/supplier-portal/submission-access";
 import { buildPortalSubmission, photoSpecs, partnerSpecs, exportSpecs } from "@/lib/supplier-portal/submission-view";
 import { auditHref } from "@/lib/verification";
 import { readiness } from "@/lib/verification-submission";
+import { formatVnDateTime, vnSlotToIso } from "@/lib/l2-call-review";
+import { L2_REVIEW_METHOD_LABELS } from "@/lib/types";
 import type { PortalItemView } from "@/lib/supplier-portal/submission-view";
 import { Breadcrumbs, Badge, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -31,6 +33,61 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
   const specs = view.level === 2 ? partner ? partnerSpecs() : photoSpecs() : exportSpecs();
   const check = readiness({ submission: access.submission, items: access.items });
   const canReview = hasPermission(session.role, "verifications.inspect");
+  // L2 từ 11/2026: hồ sơ là lịch hẹn gọi video/thực địa. Hồ sơ ảnh cũ (không có phương thức) giữ cách hiển thị cũ.
+  const sub = access.submission;
+  const booking = view.level === 2 && Boolean(sub.booking_method);
+  if (booking) return <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+    <Breadcrumbs items={[
+      { label: "Xác minh nhà cung cấp", href: "/crm/verifications" },
+      { label: "Hồ sơ nhà cung cấp tự gửi", href: "/crm/verifications/submissions" },
+      { label: partner ? "L2 · lịch hẹn nhà máy đối tác" : "L2 · lịch hẹn xác minh nhà máy" },
+    ]} />
+    <PageHeader
+      title={`Lịch hẹn xác minh · ${partner ? "nhà máy đối tác" : "nhà máy"}`}
+      sub={`${access.supplier.name} · ${view.statusLabel}`}
+      actions={<Link href={`/crm/suppliers/${access.supplier.id}`} className="btn btn-ghost"><ArrowLeft className="h-4 w-4" /> Hồ sơ nhà cung cấp</Link>}
+    />
+    <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+      <div className="space-y-5">
+        <Card className="p-4">
+          <dl className="grid gap-3 text-xs sm:grid-cols-2">
+            <Info label="Phương thức nhà cung cấp chọn" value={sub.booking_method ? L2_REVIEW_METHOD_LABELS[sub.booking_method].vi : null} />
+            <Info label="Giờ đã chốt" value={formatVnDateTime(sub.booking_scheduled_at) || "Chưa chốt"} />
+            <Info label="Người liên hệ" value={[sub.booking_contact_name, sub.booking_contact_role].filter(Boolean).join(" · ")} />
+            <Info label="Điện thoại / Zalo" value={sub.booking_contact_phone} />
+            <Info label="Địa chỉ nhà máy" value={sub.booking_factory_address} />
+            <Info label="Địa chỉ trong hồ sơ doanh nghiệp" value={access.supplier.address} />
+            {partner && <Info label="Nhà máy đối tác (theo hợp đồng)" value={sub.partner_factory_name} />}
+            <Info label="Đồng ý chụp màn hình & công khai tóm tắt" value={sub.booking_consent_at ? `Có · ${formatVnDateTime(sub.booking_consent_at)}` : "Chưa"} />
+          </dl>
+          <div className="mt-3">
+            <p className="text-xs font-semibold text-ink-500">Khung giờ đề xuất (giờ Việt Nam)</p>
+            <ul className="mt-1 flex flex-wrap gap-2 text-xs">{(sub.booking_slots ?? []).map((slot) => <li key={slot}
+              className={`rounded-full px-2.5 py-1 ring-1 ${Date.parse(vnSlotToIso(slot)) < Date.now() ? "bg-ink-50 text-ink-400 ring-ink-200 line-through" : "bg-white text-ink-800 ring-ink-300"}`}>{slot.replace("T", " ")}</li>)}</ul>
+          </div>
+          {view.supplierNote && <p className="mt-3 rounded-lg bg-ink-50 p-3 text-xs text-ink-700"><strong>Ghi chú nhà cung cấp:</strong> {view.supplierNote}</p>}
+          {view.reviewNote && <p className="mt-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-900"><strong>Ghi chú / lý do trả:</strong> {view.reviewNote}</p>}
+        </Card>
+        {partner && <div className="grid gap-3 sm:grid-cols-2">
+          {specs.map((spec, index) => <EvidenceCard key={spec.key} index={index + 1} spec={spec} rows={view.items.filter((i) => i.key === spec.key)} level={view.level} />)}
+        </div>}
+      </div>
+      <aside className="space-y-4">
+        <SubmissionReviewActions submissionId={view.id} level={view.level} partner={partner} status={view.status} canReview={canReview}
+          slots={(sub.booking_slots ?? []).filter((slot) => Date.parse(vnSlotToIso(slot)) > Date.now())}
+          verificationHref={view.acceptedVerificationId ? auditHref(access.supplier.id, view.level, view.acceptedVerificationId) : null} />
+        <Card className="bg-ink-50 p-4 text-xs text-ink-600">
+          <h2 className="text-sm font-bold text-ink-900">Trong cuộc gọi</h2>
+          <ul className="mt-2 list-disc space-y-1 pl-4">
+            <li>Mở đợt kiểm trên máy tính, ghi từng mục và chụp màn hình ngay khi thấy.</li>
+            <li>Đưa ra ít nhất một yêu cầu quay ngẫu nhiên để chắc chắn không phải video quay sẵn.</li>
+            {partner && <li>Có người của nhà máy đối tác tham gia; đối chiếu hợp đồng ngay trong cuộc gọi.</li>}
+            <li>Ảnh chọn cho báo cáo người mua không chụp mặt công nhân, giá, mã lô hay khách hàng.</li>
+          </ul>
+        </Card>
+      </aside>
+    </div>
+  </div>;
 
   return <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
     <Breadcrumbs items={[

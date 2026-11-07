@@ -627,6 +627,59 @@ export const L2_PARTNER_REVIEW_ITEMS = [
  */
 export const L2_VISIT_ITEMS = L2_FACTORY_PHOTO_ITEMS;
 
+/* ------------- L2 XÁC MINH QUA CUỘC GỌI VIDEO / THỰC ĐỊA (từ 11/2026) ------------- */
+
+export type L2ReviewMethod = "video_call" | "on_site";
+
+export const L2_REVIEW_METHOD_LABELS: Record<L2ReviewMethod, { vi: string; en: string }> = {
+  video_call: { vi: "Gọi video trực tiếp", en: "Live video call" },
+  on_site: { vi: "Đến thực địa", en: "On-site visit" },
+};
+
+/**
+ * Checklist trưởng kiểm duyệt ghi trong cuộc gọi. Dùng lại key ảnh cũ ở các mục cùng
+ * nghĩa để không phải đổi ràng buộc dữ liệu; chỉ ba mục mới có key riêng.
+ *  - `required`: phải là "Đã thấy" mới duyệt được.
+ *  - `photo`: mục bắt buộc phải có ít nhất một ảnh chụp màn hình/ảnh thực địa.
+ *  - `foodOnly`: được chọn "Không áp dụng" (kèm lý do) khi không phải ngành thực phẩm.
+ */
+export const L2_CALL_ITEMS = [
+  { key: "participant_identity", group: "A", label: "Người tham gia cuộc gọi", labelEn: "Call participant identity", hint: "Họ tên, chức vụ; khớp với người đại diện hoặc người liên hệ đã đăng ký", hintEn: "Name and role match the registered representative or contact", required: true, photo: false },
+  { key: "factory_gate", group: "A", label: "Cổng / biển tên nhà máy", labelEn: "Factory gate and sign", hint: "Tên trên biển khớp tên pháp nhân hoặc tên thương mại", hintEn: "Sign matches the legal or trading name", required: true, photo: true },
+  { key: "location_match", group: "A", label: "Vị trí nhà máy", labelEn: "Factory location", hint: "Quay cảnh đường xung quanh hoặc chia sẻ vị trí trực tiếp; khớp địa chỉ đã khai", hintEn: "Surroundings or live location match the declared address", required: true, photo: true },
+  { key: "raw_material_warehouse", group: "B", label: "Kho nguyên liệu", labelEn: "Raw material storage", hint: "Thấy quy mô kho", hintEn: "Storage size visible", required: false, photo: false },
+  { key: "production_line_running", group: "B", label: "Dây chuyền chính đang chạy", labelEn: "Main production line running", hint: "Có công nhân đang làm việc", hintEn: "Workers at work", required: true, photo: true },
+  { key: "packing_area", group: "B", label: "Khu đóng gói", labelEn: "Packing area", hint: "Khu đóng gói đang hoạt động", hintEn: "Packing area in operation", required: false, photo: false },
+  { key: "finished_goods_warehouse", group: "B", label: "Kho thành phẩm", labelEn: "Finished goods storage", hint: "Hàng đã đóng thùng", hintEn: "Packed goods visible", required: true, photo: true },
+  { key: "open_carton_lot_label", group: "B", label: "Mở một thùng hàng", labelEn: "One carton opened", hint: "Thấy sản phẩm và nhãn hoặc mã lô", hintEn: "Product and label or lot code visible", required: false, photo: false },
+  { key: "hygiene_station", group: "C", label: "Khu rửa tay / thay đồ bảo hộ", labelEn: "Handwashing and changing station", hint: "Trước khi vào xưởng", hintEn: "At the entrance to production", required: false, photo: false, foodOnly: true },
+  { key: "worker_ppe", group: "C", label: "Công nhân mặc đồ bảo hộ", labelEn: "Workers in protective gear", hint: "Mũ, khẩu trang, găng tay, áo bảo hộ", hintEn: "Hairnet, mask, gloves, protective clothing", required: false, photo: false, foodOnly: true },
+  { key: "pest_control", group: "C", label: "Kiểm soát dịch hại", labelEn: "Pest control", hint: "Bẫy hoặc trạm kiểm soát côn trùng, chuột", hintEn: "Traps or stations in place", required: false, photo: false, foodOnly: true },
+  { key: "live_random_request", group: "D", label: "Yêu cầu ngẫu nhiên tại chỗ", labelEn: "Live random request", hint: "Ghi lại đã yêu cầu quay gì và kết quả, để chắc chắn không phải video quay sẵn", hintEn: "A spontaneous request made during the call and its outcome", required: true, photo: true },
+] as const;
+
+/** Mục thêm cho nhà máy đối tác: đối chiếu hợp đồng ngay trong cuộc gọi. Hai key đầu giữ nguyên để ràng buộc duyệt cũ vẫn áp dụng. */
+export const L2_CALL_PARTNER_ITEMS = [
+  { key: "partner_identity_confirmed", group: "E", label: "Hai bên ký hợp đồng", labelEn: "Contract parties", hint: "Đúng doanh nghiệp đăng ký và đúng nhà máy đối tác", hintEn: "The registered company and the partner factory", required: true, photo: false },
+  { key: "partner_scope_confirmed", group: "E", label: "Phạm vi sản phẩm trong hợp đồng", labelEn: "Products covered by the contract", hint: "Không suy ra sở hữu nhà máy", hintEn: "Does not imply ownership of the factory", required: true, photo: false },
+  { key: "partner_contract_validity", group: "E", label: "Thời hạn hợp đồng", labelEn: "Contract validity", hint: "Hợp đồng còn hiệu lực tại ngày gọi", hintEn: "Contract in force on the call date", required: true, photo: false },
+  { key: "partner_factory_match", group: "E", label: "Tên nhà máy khớp biển tên", labelEn: "Factory name matches the sign", hint: "Tên nhà máy trên hợp đồng khớp biển tên thấy trong cuộc gọi", hintEn: "Factory named in the contract matches the sign seen on the call", required: true, photo: false },
+] as const;
+
+export const L2_CALL_GROUPS: Record<string, { vi: string; en: string }> = {
+  A: { vi: "Danh tính và địa điểm", en: "Identity and location" },
+  B: { vi: "Sản xuất", en: "Production" },
+  C: { vi: "Vệ sinh và an toàn", en: "Hygiene and safety" },
+  D: { vi: "Chống quay sẵn", en: "Live check" },
+  E: { vi: "Hợp đồng nhà máy đối tác", en: "Partner factory contract" },
+};
+
+export type L2CallKey = typeof L2_CALL_ITEMS[number]["key"] | typeof L2_CALL_PARTNER_ITEMS[number]["key"];
+
+/** Số ảnh tối thiểu / tối đa người mua thấy trong báo cáo PDF. */
+export const L2_PUBLIC_PHOTOS_MIN = 2;
+export const L2_PUBLIC_PHOTOS_MAX = 6;
+
 /** Các loại chứng từ L3. Cần ít nhất một tệp, không bắt buộc loại cụ thể. */
 export const L3_EXPORT_ITEMS = [
   { key: "bill_of_lading", label: "Vận đơn đường biển / hàng không (B/L, AWB)", labelEn: "Sea or air waybill (B/L, AWB)", required: false },
@@ -760,6 +813,21 @@ export interface SupplierSubmission {
   review_note: string | null;
   /** Đợt kiểm của nhân viên Vexim được tạo khi chấp thuận hồ sơ (nhân sự đủ quyền có thể kiểm và duyệt tại đó). */
   verification_id: string | null;
+  /**
+   * L2 từ 11/2026: hồ sơ là LỊCH HẸN xác minh qua cuộc gọi video hoặc thực địa,
+   * không còn là bộ ảnh tự chụp. Các trường dưới đây do nhà cung cấp khai khi đặt lịch.
+   */
+  booking_method?: L2ReviewMethod | null;
+  /** Tối đa 3 khung giờ đề xuất, dạng `YYYY-MM-DDTHH:mm` theo giờ Việt Nam. */
+  booking_slots?: string[];
+  booking_contact_name?: string | null;
+  booking_contact_role?: string | null;
+  booking_contact_phone?: string | null;
+  booking_factory_address?: string | null;
+  /** Đồng ý cho chụp màn hình trong cuộc gọi và công khai bản tóm tắt kèm ảnh đã chọn. */
+  booking_consent_at?: string | null;
+  /** Giờ gọi do Vexim chốt khi nhận lịch. */
+  booking_scheduled_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -818,7 +886,7 @@ export interface SupplierSubmissionItem {
 
 export type SubmissionKey = FactoryPhotoKey | PartnerEvidenceKey | ExportDocKey;
 
-export type AuditEvidenceKey = L1DocKey | L2VisitKey | DeliveryKey | FactoryPhotoKey | PartnerEvidenceKey | ExportDocKey | "partner_identity_confirmed" | "partner_scope_confirmed";
+export type AuditEvidenceKey = L1DocKey | L2VisitKey | DeliveryKey | FactoryPhotoKey | PartnerEvidenceKey | ExportDocKey | "partner_identity_confirmed" | "partner_scope_confirmed" | L2CallKey;
 
 /** Yêu cầu Vexim liên hệ để kiểm tra nhà máy / lịch sử giao hàng; không phải kết quả xác minh. */
 export interface SupplierVerificationRequest {
@@ -879,6 +947,24 @@ export interface Verification {
    * điều đó, không phải để hợp thức hoá việc bỏ bước kiểm.
    */
   self_approved?: boolean;
+  /**
+   * L2 xác minh qua cuộc gọi (từ 11/2026). null = đợt L2 lập theo luồng ảnh cũ.
+   * Các trường còn lại chỉ có nghĩa khi `review_method` khác null.
+   */
+  review_method?: L2ReviewMethod | null;
+  call_started_at?: string | null;
+  call_ended_at?: string | null;
+  /** Họ tên người kiểm lấy từ hồ sơ nhân sự, lưu cố định lúc duyệt. */
+  inspector_name?: string | null;
+  /** Người phía nhà cung cấp/nhà máy tham gia cuộc gọi (họ tên, chức vụ). */
+  supplier_participants?: string | null;
+  /** Quy mô quan sát được (số dây chuyền, số công nhân ước lượng), để đối chiếu công suất tự khai. */
+  observed_scale?: string | null;
+  /** Mã báo cáo in trên PDF và dùng cho trang xác thực công khai. */
+  report_code?: string | null;
+  /** Ảnh của đúng đợt kiểm được chọn đưa vào báo cáo người mua tải về (2–6 ảnh). */
+  public_photo_ids?: string[];
+  public_photos_confirmed_at?: string | null;
   created_at: string;
   updated_at: string;
 }

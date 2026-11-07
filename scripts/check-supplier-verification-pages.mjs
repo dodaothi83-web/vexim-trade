@@ -15,9 +15,12 @@ assert.ok(has('app/supplier/portal/verification/page.tsx'), 'Đường dẫn cũ
 
 const factory = read('app/supplier/portal/verification/factory/page.tsx');
 const exportPage = read('app/supplier/portal/verification/export/page.tsx');
-assert.match(factory, /level=\{2\}/, 'Trang nhà máy dựng hồ sơ L2');
+// 11/2026: trang L2 là trang đặt lịch gọi video/thực địa, không còn khung tự gửi ảnh.
+assert.match(factory, /supplierLevelAccess\(2\)/, 'Trang nhà máy chỉ mở quyền L2');
+assert.match(factory, /<BookingForm/, 'Trang nhà máy là form đặt lịch');
+assert.doesNotMatch(factory, /VerificationSubmissionPanel|issueSubmissionCode/, 'Không còn bộ 9 ảnh hay tờ mã');
 assert.match(exportPage, /level=\{3\}/, 'Trang xuất khẩu dựng hồ sơ L3');
-assert.doesNotMatch(factory, /level=\{3\}|getOrCreateSubmission|buildPortalSubmission/,
+assert.doesNotMatch(factory, /level: 3|level=\{3\}|buildPortalSubmission/,
   'Trang L2 không tải hồ sơ L3');
 assert.doesNotMatch(exportPage, /level=\{2\}|getOrCreateSubmission|buildPortalSubmission/,
   'Trang L3 không tải hồ sơ L2');
@@ -65,10 +68,10 @@ assert.match(levelTabs, /active \? copy\.current : copy\.open/, 'Tab nói rõ b�
 assert.match(viTabs.step, /Bước \{level\}\/3/, 'Câu đánh số bước nằm trong từ điển');
 assert.equal(viTabs.current, 'Đang mở', 'Nhãn bước đang mở nằm trong từ điển');
 const viLevelCopy = loadPortalDictionary().vi.verification.level;
-for (const text of ['Tạo và in tờ mã', 'Chụp 9 ảnh tại nhà máy', 'Chọn một lô hàng'])
+for (const text of ['Đề xuất giờ gọi', 'Tham gia cuộc gọi tại nhà máy', 'Chọn một lô hàng'])
   assert.ok(viLevelCopy.factoryGuideTitles.concat(viLevelCopy.partnerGuideTitles, viLevelCopy.exportGuideTitles).includes(text), `Có hướng dẫn “${text}”`);
 assert.ok(loadPortalDictionary().vi.verification.panel.submit.submit === 'Nộp hồ sơ', 'Có nhãn “Nộp hồ sơ”');
-assert.ok(viLevelCopy.factoryGuideBodies.join(' ').includes('kể cả ảnh đã gửi qua Zalo, đều nhận'), 'L2 nói rõ ảnh qua Zalo vẫn nhận');
+assert.ok(viLevelCopy.factoryGuideBodies.join(' ').includes('tối đa 3 khung giờ'), 'L2 hướng dẫn đề xuất khung giờ');
 assert.ok(!levelPage.includes('Gửi <strong>ảnh gốc'), 'Không đòi ảnh gốc');
 assert.ok(!levelPage.includes('AI quét những gì'), 'Đã bỏ khối giải thích AI khỏi trang L2/L3');
 

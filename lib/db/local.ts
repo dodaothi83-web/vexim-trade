@@ -67,17 +67,20 @@ import {
 import type { DataStore } from "@/lib/db/types";
 import { L2_FACTORY_PHOTO_ITEMS, L3_EXPORT_ITEMS } from "@/lib/types";
 import { effectiveL2Scope, isPartnerL2, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
-import { MAX_ITEMS_PER_KEY, readiness } from "@/lib/verification-submission";
+import { MAX_ITEMS_PER_KEY } from "@/lib/verification-submission";
 
 const L3_EVIDENCE_KEYS = new Set<string>(L3_EXPORT_ITEMS.map((item) => item.key));
 const L2_FACTORY_KEYS = new Set<string>(L2_FACTORY_PHOTO_ITEMS.map((item) => item.key));
 
-function guardFactoryPending(row: SupplierSubmission, patch: Partial<SupplierSubmission>, items: SupplierSubmissionItem[]): void {
-  if (row.target_level !== 2 || isPartnerL2(row) || patch.status !== "pending_review" || row.status === "pending_review") return;
-  const relevant = items.filter((item) => item.submission_id === row.id && item.supplier_id === row.supplier_id);
-  const check = readiness({ submission: { ...row, ...patch }, items: relevant });
-  if (check.missing.length) throw new Error("L2_FACTORY_PHOTOS_REQUIRED");
-  if (!check.ready) throw new Error("L2_FACTORY_CODE_REQUIRED");
+function guardFactoryPending(row: SupplierSubmission, patch: Partial<SupplierSubmission>, _items: SupplierSubmissionItem[]): void {
+  // Từ 11/2026 hồ sơ L2 là lịch hẹn xác minh qua cuộc gọi: chuyển sang chờ xử lý khi đủ
+  // thông tin đặt lịch (khớp trigger guard_l2_factory_pending_evidence trên Supabase).
+  void _items;
+  if (row.target_level !== 2 || patch.status !== "pending_review" || row.status === "pending_review") return;
+  const next = { ...row, ...patch };
+  const slots = next.booking_slots ?? [];
+  if (!next.booking_method || !next.booking_contact_name?.trim() || !next.booking_contact_phone?.trim() ||
+      !next.booking_factory_address?.trim() || slots.length < 1 || !next.booking_consent_at) throw new Error("L2_BOOKING_INCOMPLETE");
 }
 
 interface LocalShape {
@@ -2391,6 +2394,7 @@ export const localStore: DataStore = {
       const supplier = db.suppliers.find((s) => s.id === row.supplier_id);
       if (row.target_level === 2 && !l2ScopeMatchesSupplier(row, supplier?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
       if (isPartnerL2(row) && row.status === "approved") throw new Error("L2_PARTNER_APPROVAL_REQUIRES_REVIEW");
+      if (row.target_level === 2 && ["scheduled", "in_progress"].includes(row.status) && !row.review_method) throw new Error("L2_REVIEW_METHOD_REQUIRED");
       db.verifications = [...(db.verifications ?? []), row];
     });
     return row;
@@ -2402,6 +2406,16 @@ export const localStore: DataStore = {
       if ((patch.supplier_id !== undefined && patch.supplier_id !== row.supplier_id) ||
           (patch.target_level !== undefined && patch.target_level !== row.target_level) ||
           (patch.l2_scope !== undefined && patch.l2_scope !== (row.l2_scope ?? null))) throw new Error("VERIFICATION_SCOPE_IMMUTABLE");
+      if (row.status === "approved" && row.review_method && (["review_method", "call_started_at", "call_ended_at", "inspector_name",
+        "supplier_participants", "observed_scale", "report_code", "public_photo_ids", "public_photos_confirmed_at", "checklist"] as const)
+        .some((key) => key in patch && JSON.stringify(patch[key]) !== JSON.stringify(row[key]))) throw new Error("L2_CALL_REVIEW_LOCKED");
+      if (row.target_level === 2 && patch.status === "approved" && row.status !== "approved" && (patch.review_method ?? row.review_method)) {
+        const next = { ...row, ...patch };
+        if (!next.inspector_name?.trim() || !next.call_started_at || !next.report_code?.trim()) throw new Error("L2_CALL_DETAILS_REQUIRED");
+        if (!next.public_photos_confirmed_at) throw new Error("L2_PUBLIC_PHOTOS_CONFIRM_REQUIRED");
+        const ids = new Set(next.public_photo_ids ?? []);
+        if ((db.media ?? []).filter((m) => ids.has(m.id) && m.owner_type === "verification" && m.verification_id === row.id && m.kind === "image" && m.storage_path).length < 2) throw new Error("L2_PUBLIC_PHOTOS_REQUIRED");
+      }
       if (row.target_level === 2 && patch.status === "approved" && row.status !== "approved") {
         const supplier = db.suppliers.find((s) => s.id === row.supplier_id);
         if (!l2ScopeMatchesSupplier(row, supplier?.supplier_type)) throw new Error("L2_SCOPE_TYPE_MISMATCH");
@@ -2427,6 +2441,9 @@ export const localStore: DataStore = {
   },
   async getVerification(id) {
     return (load().verifications ?? []).find((v) => v.id === id) ?? null;
+  },
+  async getVerificationByReportCode(code) {
+    return (load().verifications ?? []).find((v) => v.report_code === code && v.status === "approved") ?? null;
   },
 
   async listSourcingRequests(email) {

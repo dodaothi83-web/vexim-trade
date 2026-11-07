@@ -7,7 +7,7 @@ import "server-only";
 import { getStore } from "@/lib/db";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
 import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, Verification, VerificationLevel } from "@/lib/types";
-import { approvedL2Scope, approvedPartnerReviewSummary, approvedPublicReviewSummaries, approvedVerificationSteps, type PublicL2Scope, type PublicReviewSummaries } from "@/lib/verification-status";
+import { approvedFactoryReviews, approvedL2Scope, approvedPartnerReviewSummary, approvedPublicReviewSummaries, approvedVerificationSteps, type PublicFactoryReview, type PublicL2Scope, type PublicReviewSummaries } from "@/lib/verification-status";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductCategorySlug } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
@@ -47,6 +47,8 @@ export interface PublicSupplierCard extends Supplier {
   approved_verification_steps: VerificationLevel[];
   approved_l2_scope?: PublicL2Scope;
   partner_review_summary?: string;
+  /** Báo cáo xác minh nhà máy qua cuộc gọi đã duyệt (mã, phương thức, ngày, người kiểm). */
+  factory_reviews?: PublicFactoryReview[];
 }
 
 function buyerVisibleProduct(p: SupplierProduct, categories: Category[], demo = false): boolean {
@@ -232,6 +234,7 @@ export async function getSupplierStorefront(supplier: Supplier & Partial<PublicS
     approved_l2_scope: vers.length ? approvedL2Scope(vers) : (supplier.approved_l2_scope ?? null),
     partner_review_summary: vers.length ? approvedPartnerReviewSummary(vers) : supplier.partner_review_summary,
     public_review_summaries: approvedPublicReviewSummaries(vers),
+    factory_reviews: approvedFactoryReviews(vers),
   };
   return storefront;
 }

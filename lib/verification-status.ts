@@ -90,3 +90,23 @@ export function approvedPartnerReviewSummary(rows: ReadonlyArray<{
   const summary = approved[0]?.public_summary_i18n?.en?.trim();
   return summary && !/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary) && !/https?:\/\/|www\./i.test(summary) && !/(?:\+?\d[\s().-]?){9,15}\d/.test(summary) ? summary : undefined;
 }
+
+/** Báo cáo xác minh nhà máy qua cuộc gọi đã duyệt: phần công khai để hiện nhãn và nút tải PDF. */
+export interface PublicFactoryReview { code: string; method: "video_call" | "on_site"; reviewedOn: string; inspectorName: string; partner: boolean }
+
+export function approvedFactoryReviews(rows: ReadonlyArray<{
+  target_level: number; status: string; l2_scope?: L2VerificationScope | null; review_method?: "video_call" | "on_site" | null;
+  report_code?: string | null; call_started_at?: string | null; approved_at?: string | null; inspector_name?: string | null;
+}>): PublicFactoryReview[] {
+  return rows.filter((row) => row.target_level === 2 && row.status === "approved" && row.review_method && row.report_code && row.inspector_name)
+    .map((row) => ({
+      code: row.report_code!, method: row.review_method!, reviewedOn: row.call_started_at ?? row.approved_at ?? "",
+      inspectorName: row.inspector_name!, partner: row.l2_scope === "partner_contract",
+    }));
+}
+
+/** “Factory reviewed by Vexim · live video call · Nov 2026”. */
+export function factoryReviewLabel(review: PublicFactoryReview): string {
+  const month = review.reviewedOn ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", month: "short", year: "numeric" }).format(new Date(review.reviewedOn)) : "";
+  return [`${review.partner ? "Partner factory" : "Factory"} reviewed by Vexim`, review.method === "on_site" ? "on-site visit" : "live video call", month].filter(Boolean).join(" · ");
+}

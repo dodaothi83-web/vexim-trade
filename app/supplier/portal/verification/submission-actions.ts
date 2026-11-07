@@ -16,6 +16,7 @@ import {
 import type { MediaAsset } from "@/lib/types";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
+import { bookingMessages } from "@/lib/i18n/portal/booking";
 
 /** Câu trả về của action nói cùng ngôn ngữ với giao diện đang mở (cookie `vexim_locale`). */
 async function actionCopy() {
@@ -28,6 +29,9 @@ async function actionLanguage(): Promise<"en" | "vi"> {
   const { locale } = await getPortalMessages();
   return locale;
 }
+
+/** Luồng 9 ảnh + tờ mã đã ngừng từ 11/2026; giữ hàm để dữ liệu và route cũ không vỡ. */
+const L2_CODE_RETIRED = true;
 
 export interface SubmissionActionResult {
   ok: boolean;
@@ -54,6 +58,8 @@ export async function issueSubmissionCodeAction(form: FormData): Promise<Submiss
   const id = String(form.get("submission_id") ?? "");
   const access = await supplierSubmissionAccess(id);
   if (!access) return { ok: false, message: copy.noAccess };
+  // 11/2026: L2 chuyển sang đặt lịch gọi video/thực địa; không phát hành tờ mã L2 mới.
+  if (L2_CODE_RETIRED && access.submission.target_level === 2) return { ok: false, message: bookingMessages[await actionLanguage()].codeRetired };
   if (!submissionEditable(access.submission.status)) {
     return { ok: false, message: copy.codeLocked };
   }

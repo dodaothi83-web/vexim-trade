@@ -26,18 +26,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const access = await staffSubmissionAccess(id);
   if (!access) return NextResponse.json({ ok: false, message: "Không tìm thấy hồ sơ hoặc bạn không có quyền mở bằng chứng." }, { status: 404 });
 
-  let body: { decision?: unknown; note?: unknown };
-  try { body = await request.json() as { decision?: unknown; note?: unknown }; } catch { body = {}; }
+  let body: { decision?: unknown; note?: unknown; scheduledAt?: unknown };
+  try { body = await request.json() as { decision?: unknown; note?: unknown; scheduledAt?: unknown }; } catch { body = {}; }
   const decision = String(body.decision ?? "");
   const note = typeof body.note === "string" ? body.note : "";
+  // L2 là lịch hẹn: nhận hồ sơ = chốt giờ gọi (giờ Việt Nam, dạng YYYY-MM-DDTHH:mm).
+  const scheduledRaw = typeof body.scheduledAt === "string" ? body.scheduledAt.trim() : "";
+  const scheduledAt = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(scheduledRaw) && !Number.isNaN(Date.parse(`${scheduledRaw}:00+07:00`))
+    ? new Date(`${scheduledRaw}:00+07:00`).toISOString() : null;
 
   try {
     if (decision === "accept") {
+      if (access.submission.target_level === 2 && !scheduledAt) {
+        return NextResponse.json({ ok: false, message: "Chọn giờ gọi đã chốt với nhà cung cấp trước khi nhận lịch." }, { status: 400 });
+      }
       const { verification } = await acceptSubmissionIntoVerification(access.store, {
         bundle: { submission: access.submission, items: access.items, links: access.links },
         staffId: access.session.uid,
         staffEmail: access.session.email,
         note,
+        scheduledAt,
       });
       revalidatePath("/supplier/portal/verification/factory");
       revalidatePath("/supplier/portal/verification/export");
@@ -46,7 +54,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       refreshCrmBadges();
       return NextResponse.json({
         ok: true,
-        message: "Đã nhận hồ sơ vào đợt kiểm của nhân viên. Bằng chứng đã sao sang đợt kiểm; mở đợt kiểm để đối chiếu và xét duyệt.",
+        message: access.submission.target_level === 2
+          ? "Đã chốt lịch và tạo đợt kiểm qua cuộc gọi. Mở đợt kiểm khi bắt đầu gọi để ghi checklist."
+          : "Đã nhận hồ sơ vào đợt kiểm của nhân viên. Bằng chứng đã sao sang đợt kiểm; mở đợt kiểm để đối chiếu và xét duyệt.",
         verificationId: verification.id,
         href: auditHref(access.submission.supplier_id, access.submission.target_level, verification.id),
       }, { headers: { "Cache-Control": "no-store" } });

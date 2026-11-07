@@ -12,8 +12,10 @@ import { CheckCircle2, Loader2, RotateCcw, Undo2 } from "lucide-react";
  * (người nhận là inspector) và sao bằng chứng sang đó. Nhân sự đủ quyền có thể
  * tự hoàn tất sau xác nhận; reviewer độc lập là lựa chọn thêm.
  */
-export function SubmissionReviewActions({ submissionId, level, partner = false, status, canReview, verificationHref }: {
+export function SubmissionReviewActions({ submissionId, level, partner = false, status, canReview, verificationHref, slots = [] }: {
   submissionId: string;
+  /** L2: khung giờ nhà cung cấp đề xuất (`YYYY-MM-DDTHH:mm`, giờ Việt Nam). */
+  slots?: string[];
   level: 2 | 3;
   partner?: boolean;
   status: string;
@@ -23,6 +25,8 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
   const router = useRouter();
   const [busy, setBusy] = useState<"" | "accept" | "return">("");
   const [note, setNote] = useState("");
+  const booking = level === 2;
+  const [scheduledAt, setScheduledAt] = useState(slots[0] ?? "");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [newVerificationHref, setNewVerificationHref] = useState<string | null>(null);
   const decidable = canReview && (status === "pending_review" || status === "returned");
@@ -33,15 +37,20 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
       setMessage({ ok: false, text: "Hãy ghi rõ lý do trả hồ sơ để nhà cung cấp bổ sung đúng thứ (tối thiểu 8 ký tự)." });
       return;
     }
-    if (decision === "accept" && !window.confirm(
-      `Nhận hồ sơ L${level} này vào đợt kiểm của bạn? Hệ thống sẽ tạo đợt kiểm mới và sao toàn bộ bằng chứng sang. Nhân sự có quyền vẫn phải đối chiếu và quyết định duyệt riêng.`,
+    if (decision === "accept" && booking && !scheduledAt) {
+      setMessage({ ok: false, text: "Chọn giờ gọi đã chốt với nhà cung cấp." });
+      return;
+    }
+    if (decision === "accept" && !window.confirm(booking
+      ? `Chốt lịch ${scheduledAt.replace("T", " ")} (giờ Việt Nam) và tạo đợt kiểm qua cuộc gọi do bạn thực hiện?`
+      : `Nhận hồ sơ L${level} này vào đợt kiểm của bạn? Hệ thống sẽ tạo đợt kiểm mới và sao toàn bộ bằng chứng sang. Nhân sự có quyền vẫn phải đối chiếu và quyết định duyệt riêng.`,
     )) return;
     setBusy(decision); setMessage(null);
     try {
       const response = await fetch(`/api/submission-review/${encodeURIComponent(submissionId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision, note }),
+        body: JSON.stringify({ decision, note, ...(booking ? { scheduledAt } : {}) }),
       });
       const data = await response.json() as { ok?: boolean; message?: string; href?: string };
       setMessage({ ok: Boolean(response.ok && data.ok), text: data.message ?? "Không xử lý được." });
@@ -59,24 +68,36 @@ export function SubmissionReviewActions({ submissionId, level, partner = false, 
     <h2 className="text-sm font-bold text-ink-900">Quyết định của nhân viên Vexim</h2>
     {!canReview && <p className="mt-2 text-xs text-ink-600">Tài khoản của bạn chỉ xem và đối chiếu; cần quyền kiểm tra xác minh để nhận/trả hồ sơ.</p>}
     {decidable && <>
-      <p className="mt-2 text-xs text-ink-600">
+      {booking ? <>
+        <p className="mt-2 text-xs text-ink-600">
+          Gọi hoặc nhắn nhà cung cấp để thống nhất giờ, chọn giờ đã chốt rồi bấm <strong>Chốt lịch</strong>. Hệ thống tạo đợt kiểm qua cuộc gọi do bạn thực hiện;
+          huy hiệu chỉ có khi bạn ghi checklist và duyệt sau cuộc gọi.
+        </p>
+        <label className="mt-3 block text-xs font-semibold text-ink-700">Giờ gọi đã chốt (giờ Việt Nam)
+          <span className="mt-1 flex flex-wrap gap-2">
+            {slots.map((slot) => <button key={slot} type="button" onClick={() => setScheduledAt(slot)}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold ${scheduledAt === slot ? "border-brand-500 bg-brand-50 text-brand-800" : "border-ink-200 bg-white text-ink-700"}`}>{slot.replace("T", " ")}</button>)}
+            <input type="datetime-local" className="input w-auto" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+          </span>
+        </label>
+      </> : <p className="mt-2 text-xs text-ink-600">
         Nhận hồ sơ sẽ tạo một <strong>đợt kiểm của nhân viên</strong> kèm toàn bộ bằng chứng. Duyệt hay không là bước sau,
         do người có quyền duyệt quyết định — hồ sơ nhà cung cấp tự gửi không bao giờ tự thành huy hiệu.
-      </p>
+      </p>}
       <label className="mt-3 block text-xs font-semibold text-ink-700">Ghi chú / lý do (bắt buộc khi trả hồ sơ)
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={1200} className="input mt-1"
           placeholder={status === "returned"
-            ? partner ? "Ví dụ: hợp đồng chưa thể hiện rõ doanh nghiệp và nhà máy đối tác." : level === 3 ? "Ví dụ: chứng từ chưa thể hiện vai trò của doanh nghiệp trong lô hàng." : "Ví dụ: ảnh cổng nhà máy không thấy biển tên; cần chụp lại đúng mã VX-..."
+            ? partner ? "Ví dụ: hợp đồng chưa thể hiện rõ doanh nghiệp và nhà máy đối tác." : level === 3 ? "Ví dụ: chứng từ chưa thể hiện vai trò của doanh nghiệp trong lô hàng." : "Ví dụ: các khung giờ đều không phù hợp; vui lòng đề xuất giờ khác trong tuần."
             : "Ghi chú chuyển cho người kiểm tiếp theo (không hiển thị cho nhà cung cấp)"} />
       </label>
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" disabled={busy !== ""} onClick={() => void decide("accept")}
           className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:bg-ink-200">
-          {busy === "accept" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} Nhận vào đợt kiểm
+          {busy === "accept" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} {booking ? "Chốt lịch & tạo đợt kiểm" : "Nhận vào đợt kiểm"}
         </button>
         <button type="button" disabled={busy !== ""} onClick={() => void decide("return")}
           className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800 disabled:opacity-50">
-          {busy === "return" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />} Trả hồ sơ để bổ sung
+          {busy === "return" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />} {booking ? "Đề nghị đổi lịch / bổ sung" : "Trả hồ sơ để bổ sung"}
         </button>
       </div>
     </>}

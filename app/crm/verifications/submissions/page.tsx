@@ -22,7 +22,7 @@ const TABS: { key: string; label: string; filter: (s: SupplierSubmission) => boo
 ];
 
 /**
- * Hàng đợi hồ sơ do NHÀ CUNG CẤP TỰ GỬI (L2: 9 ảnh nhà máy, L3: chứng từ xuất khẩu).
+ * Hàng đợi hồ sơ do NHÀ CUNG CẤP TỰ GỬI (L2: lịch hẹn gọi video/thực địa, L3: chứng từ xuất khẩu).
  * Đây KHÔNG phải hàng đợi duyệt huy hiệu: nhân viên nhận hồ sơ rồi kiểm tra thủ công,
  * hoặc tự tạo đợt kiểm và tải bằng chứng. L2/L3 không cần bước AI.
  */
@@ -94,7 +94,7 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
                   <Badge className={s.status === "pending_review" ? "bg-amber-50 text-amber-800" : s.status === "returned" ? "bg-rose-50 text-rose-800" : s.status === "accepted" ? "bg-emerald-50 text-emerald-800" : "bg-ink-100 text-ink-700"}>
                     {submissionStatusLabel(s.status)}
                   </Badge>
-                  <Badge className="bg-ink-50 text-ink-600">{isPartnerL2(s) ? "L2 · nhà máy đối tác" : s.target_level === 2 ? "L2 · 9 ảnh nhà máy" : "L3 · lịch sử xuất khẩu"}</Badge>
+                  <Badge className="bg-ink-50 text-ink-600">{isPartnerL2(s) ? "L2 · nhà máy đối tác" : s.target_level === 2 ? s.booking_method ? "L2 · lịch hẹn gọi video/thực địa" : "L2 · bộ ảnh cũ" : "L3 · lịch sử xuất khẩu"}</Badge>
                 </p>
                 <p className="mt-1 text-xs text-ink-600">
                   {items.filter((i) => i.media_id).length} bằng chứng · {check.missing.length ? `còn thiếu ${check.missing.length} mục bắt buộc` : "đủ mục bắt buộc"}

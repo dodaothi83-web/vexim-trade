@@ -143,11 +143,13 @@ export async function notifyStaffSupplierSubmission(supplierId: string, level: 2
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const supplier = await store.getSupplier(supplierId);
-    const label = level === 2 ? scope === "partner_contract" ? "hồ sơ nhà máy đối tác" : "hồ sơ xác thực nhà máy" : "hồ sơ lịch sử giao hàng";
+    const label = level === 2 ? scope === "partner_contract" ? "lịch hẹn xác minh nhà máy đối tác (kèm hợp đồng)" : "lịch hẹn xác minh nhà máy" : "hồ sơ lịch sử giao hàng";
     const url = `${notificationOrigin()}/crm/verifications/submissions`;
-    const title = `Hồ sơ nhà cung cấp tự gửi chờ đối chiếu: ${supplier?.name ?? "nhà cung cấp"}`;
+    const title = level === 2
+      ? `Lịch hẹn xác minh nhà máy chờ chốt giờ: ${supplier?.name ?? "nhà cung cấp"}`
+      : `Hồ sơ nhà cung cấp tự gửi chờ đối chiếu: ${supplier?.name ?? "nhà cung cấp"}`;
     const body = `<p>${escapeHtml(supplier?.name ?? "nhà cung cấp")} vừa nộp ${escapeHtml(label)}. <strong>Chưa duyệt và chưa công khai.</strong></p>
-    <p>${level === 2 ? scope === "partner_contract" ? "Đối chiếu hợp đồng, hai bên và phạm vi đối tác; không suy ra sở hữu hay kiểm thực địa." : "Mở hồ sơ và đối chiếu ảnh; kết quả AI nếu có chỉ để tham khảo." : "Mở hồ sơ và tự kiểm tra chứng từ, căn cứ xuất khẩu và vai trò của doanh nghiệp."}</p>
+    <p>${level === 2 ? "Liên hệ nhà cung cấp để chốt một khung giờ, rồi mở lịch hẹn để tạo đợt kiểm qua cuộc gọi." : "Mở hồ sơ và tự kiểm tra chứng từ, căn cứ xuất khẩu và vai trò của doanh nghiệp."}</p>
     <p><a href="${url}">Mở hàng chờ hồ sơ tự gửi</a></p>`;
     const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title, html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${url}` });
     return res.ok ? res.status : "failed";

@@ -11,6 +11,7 @@ import { scanAndQueueSubmission } from "@/lib/verification-submission-service";
 import { getLocale } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
 import { evidenceMessages } from "@/lib/i18n/portal/evidence";
+import { bookingMessages } from "@/lib/i18n/portal/booking";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +46,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: false, message: text.noAccessScan }, { status: 403 });
   }
   const isStaff = Boolean(staff);
+  // 11/2026: L2 (nhà máy và đối tác) gửi qua trang đặt lịch; không còn quét AI hay nộp bộ ảnh.
+  if (access.submission.target_level === 2) {
+    return NextResponse.json({ ok: false, message: bookingMessages[language].scanRetired }, { status: 410 });
+  }
   const manualExport = access.submission.target_level === 3 || isPartnerL2(access.submission);
   if (manualExport && (isStaff || !submit)) {
     return NextResponse.json({ ok: false, message: isPartnerL2(access.submission) ? text.manualNoAiPartner : text.manualNoAiExport }, { status: 409 });

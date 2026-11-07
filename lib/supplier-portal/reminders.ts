@@ -115,10 +115,10 @@ export function outstandingVerificationItems(input: {
         level: 2,
         title: partner ? "Nhà máy đối tác" : "Xác thực nhà máy",
         detail: partner
-          ? "Cần hợp đồng với nhà máy đối tác để Vexim đối chiếu. Ảnh là tùy chọn."
-          : "Cần đủ 9 ảnh nhà máy, trong đó 3 ảnh có tờ mã xác minh.",
+          ? "Tải hợp đồng với nhà máy đối tác và đặt lịch gọi video tại nhà máy đó."
+          : "Đặt lịch gọi video hoặc thực địa để Vexim xác minh nhà máy.",
         href: "/supplier/portal/verification/factory",
-        cta: partner ? "Tải hợp đồng đối tác" : "Tải ảnh nhà máy",
+        cta: "Đặt lịch xác minh",
       });
     }
   }

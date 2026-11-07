@@ -38,7 +38,7 @@ export const en = {
     eyebrowL2: "Supplier portal · L2 verification",
     eyebrowL3: "Supplier portal · L3 verification",
     factoryTitle: "Factory verification",
-    factoryDescription: "Nine factory photos following the shared checklist. Three photos marked 🔖 must show the verification code sheet issued by the system.",
+    factoryDescription: "Book a live video call (or an on-site visit) with the Vexim review lead. During the call we look at your factory with you; you no longer upload photos yourself.",
     factoryBenefits: [
       "The factory badge shows on your profile and product cards.",
       "Buyers see exactly what was checked, not a generic label.",
@@ -46,14 +46,14 @@ export const en = {
       "Buyers can filter for profiles with factory verification.",
       "Staff notes, once approved, appear on your public profile.",
     ],
-    factoryGuideTitles: ["Create and print the code sheet", "Take 9 photos at the factory", "Scan and submit"],
+    factoryGuideTitles: ["Suggest a time", "Join the call at the factory", "Vexim records the result"],
     factoryGuideBodies: [
-      "Press “Create verification code”, then download or print the sheet. This is the only paperwork step.",
-      "Place the sheet in the scene for the 3 photos marked 🔖: factory gate, running line, finished goods store. Phone photos, including ones sent over chat apps, are accepted.",
-      "AI points out what to check; it never approves or rejects. A staff member compares the file and decides the result.",
+      "Choose video call or on-site visit, a contact person and up to 3 time slots.",
+      "Walk the camera through the gate, production line, packing and finished goods store. We may ask to see something on the spot.",
+      "The review lead fills in the checklist during the call. Buyers who sign in can download the summary report.",
     ],
     partnerTitle: "Partner factory",
-    partnerDescription: "We check the contract between your company and the partner factory. We do not assume the factory is yours or that it has been inspected on site.",
+    partnerDescription: "Upload the contract with your partner factory and book a live video call at that factory. We do not assume the factory is yours.",
     partnerBenefits: [
       "The partner factory badge shows on your profile and product cards.",
       "Buyers see exactly what was checked, not a generic label.",
@@ -61,11 +61,11 @@ export const en = {
       "Buyers can filter for profiles with a checked partner factory.",
       "Staff notes, once approved, appear on your public profile.",
     ],
-    partnerGuideTitles: ["Upload the contract", "Add photos if you have them", "Submit the file"],
+    partnerGuideTitles: ["Upload the contract", "Suggest a time", "Call from the partner factory"],
     partnerGuideBodies: [
-      "Upload a contract naming your company and the partner factory. You may hide prices and sensitive terms, but keep enough to check.",
-      "Photos of the partner factory are optional. You do not need the 9 photo set or a factory code sheet.",
-      "Staff check the contract and the partnership scope. Files stay private. Submitting does not grant verification.",
+      "Upload a contract naming your company and the partner factory. You may hide prices, but keep enough to check.",
+      "Choose a contact person and up to 3 time slots. Someone from the partner factory must join the call.",
+      "The review lead checks the contract and the factory during the call. The contract stays private.",
     ],
     exportTitle: "Export history",
     exportDescription: "Upload matching documents for one shipped batch so staff can check them.",
@@ -418,7 +418,7 @@ const vi: VerificationMessages = {
     eyebrowL2: "Cổng nhà cung cấp · Xác minh L2",
     eyebrowL3: "Cổng nhà cung cấp · Xác minh L3",
     factoryTitle: "Xác thực nhà máy",
-    factoryDescription: "Chín ảnh nhà máy theo danh mục chung. Ba ảnh đánh dấu 🔖 phải có tờ mã xác minh do hệ thống phát hành.",
+    factoryDescription: "Đặt lịch gọi video trực tiếp (hoặc để Vexim đến thực địa) với trưởng kiểm duyệt. Vexim cùng bạn xem nhà máy trong cuộc gọi; bạn không cần tự chụp và tải ảnh.", // copy-allow: mô tả luồng mới đã được duyệt
     factoryBenefits: [
       "Huy hiệu xác thực nhà máy hiện trên hồ sơ và thẻ sản phẩm.",
       "Người mua đọc được đúng mức đã kiểm, không phải một nhãn chung.",
@@ -426,14 +426,14 @@ const vi: VerificationMessages = {
       "Người mua lọc riêng được nhóm đã xác thực nhà máy.",
       "Nhận xét của nhân viên, nếu được duyệt, hiện trên hồ sơ công khai.",
     ],
-    factoryGuideTitles: ["Tạo và in tờ mã", "Chụp 9 ảnh tại nhà máy", "AI quét và nộp"],
+    factoryGuideTitles: ["Đề xuất giờ gọi", "Tham gia cuộc gọi tại nhà máy", "Vexim ghi kết quả"],
     factoryGuideBodies: [
-      "Bấm “Tạo mã xác minh” rồi tải tờ mã về (hoặc in ra). Đây là bước bắt buộc duy nhất về giấy tờ.",
-      "Đặt tờ mã cạnh cảnh ở 3 ảnh 🔖: cổng nhà máy, dây chuyền đang chạy, kho thành phẩm. Ảnh điện thoại, kể cả ảnh đã gửi qua Zalo, đều nhận.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
-      "AI nêu điểm cần kiểm tra, không tự trả hay duyệt. Nhân viên đối chiếu và quyết định kết quả.",
+      "Chọn gọi video hoặc thực địa, người liên hệ và tối đa 3 khung giờ.",
+      "Quay cổng, dây chuyền, khu đóng gói, kho thành phẩm. Vexim có thể đề nghị quay thêm ngay tại chỗ.", // copy-allow: hướng dẫn luồng mới
+      "Trưởng kiểm duyệt ghi checklist trong cuộc gọi. Người mua đăng nhập tải được báo cáo tóm tắt.",
     ],
     partnerTitle: "Nhà máy đối tác",
-    partnerDescription: "Đối chiếu hợp đồng giữa doanh nghiệp của bạn và nhà máy đối tác. Không mặc định nhà máy thuộc sở hữu của bạn hoặc đã được kiểm thực địa.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
+    partnerDescription: "Tải hợp đồng với nhà máy đối tác và đặt lịch gọi video tại chính nhà máy đó. Không mặc định nhà máy thuộc sở hữu của bạn.", // copy-allow: mô tả luồng mới đã được duyệt
     partnerBenefits: [
       "Huy hiệu nhà máy đối tác hiện trên hồ sơ và thẻ sản phẩm.",
       "Người mua đọc được đúng mức đã đối chiếu, không phải một nhãn chung.",
@@ -441,11 +441,11 @@ const vi: VerificationMessages = {
       "Người mua lọc riêng được nhóm đã đối chiếu nhà máy đối tác.",
       "Nhận xét của nhân viên, nếu được duyệt, hiện trên hồ sơ công khai.",
     ],
-    partnerGuideTitles: ["Tải hợp đồng", "Thêm ảnh nếu có", "Nộp hồ sơ"],
+    partnerGuideTitles: ["Tải hợp đồng", "Đề xuất giờ gọi", "Gọi từ nhà máy đối tác"],
     partnerGuideBodies: [
-      "Tải hợp đồng thể hiện doanh nghiệp của bạn và nhà máy đối tác. Có thể che giá và thông tin nhạy cảm, nhưng giữ đủ nội dung để đối chiếu.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
-      "Ảnh nhà máy đối tác là tùy chọn. Không cần bộ 9 ảnh hoặc tờ mã nhà máy.",
-      "Nhân viên kiểm tra hợp đồng và phạm vi đối tác. Tệp không hiển thị công khai; nộp không tự cấp xác minh.",
+      "Tải hợp đồng thể hiện doanh nghiệp của bạn và nhà máy đối tác. Có thể che giá, nhưng giữ đủ nội dung để đối chiếu.", // copy-allow: hướng dẫn luồng mới
+      "Chọn người liên hệ và tối đa 3 khung giờ. Cần có người của nhà máy đối tác tham gia cuộc gọi.",
+      "Trưởng kiểm duyệt đối chiếu hợp đồng và nhà máy trong cuộc gọi. Hợp đồng không công khai.",
     ],
     exportTitle: "Lịch sử xuất khẩu",
     exportDescription: "Tải chứng từ phù hợp của một lô hàng đã xuất để nhân viên đối chiếu.",
