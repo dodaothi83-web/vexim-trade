@@ -7,7 +7,7 @@ Vexim Trade là nền tảng kết nối nhà sản xuất và doanh nghiệp xu
 ## Doanh nghiệp được gì khi tham gia
 
 1. **Miễn toàn bộ phí nền tảng trong 6 tháng đầu**, gồm mở tài khoản, duy trì hồ sơ doanh nghiệp, đăng sản phẩm và nhận yêu cầu báo giá.
-2. **Không thu phí dịch vụ kết nối cho 2 thương vụ đầu tiên** được kết nối thành công qua Vexim.
+2. **Không thu hoa hồng trên đơn hàng.** Giao dịch với người mua là của bạn, Vexim không thu phí theo giá trị đơn.
 3. **Được giới thiệu trên các kênh truyền thông của Vexim** và được tối ưu SEO cho trang doanh nghiệp, trang sản phẩm theo từ khóa ngành hàng, hỗ trợ cải thiện khả năng hiển thị trên Google.
 4. **Giảm 30 phần trăm gói xây dựng website đa ngôn ngữ**, kèm một tháng hỗ trợ SEO cơ bản. Đây là dịch vụ bổ sung theo nhu cầu, không phải điều kiện tham gia.
 5. **Được gắn huy hiệu xác minh theo cấp độ** sau khi Vexim kiểm tra giấy tờ, nhà máy hoặc lịch sử giao hàng, giúp tăng uy tín với nhà nhập khẩu.

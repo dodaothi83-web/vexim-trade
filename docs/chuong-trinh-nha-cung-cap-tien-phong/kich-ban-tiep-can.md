@@ -21,7 +21,7 @@ Sau câu mở đầu, việc quan trọng nhất là xin được cuộc gọi 1
 
 ## 3. Mẫu tin nhắn gửi kèm tài liệu sau khi doanh nghiệp đồng ý nghe thêm
 
-"Em gửi anh/chị tờ giới thiệu Chương trình Nhà cung cấp tiên phong của Vexim Trade như đã trao đổi. Chương trình giới hạn 10 doanh nghiệp đầu tiên trong ngành mình, miễn phí nền tảng 6 tháng đầu và không thu phí kết nối cho 2 thương vụ đầu tiên. Mình xem trước giúp em, em xin phép gọi lại vào [thời gian] để trao đổi thêm khoảng 10 phút ạ. Em cảm ơn anh/chị."
+"Em gửi anh/chị tờ giới thiệu Chương trình Nhà cung cấp tiên phong của Vexim Trade như đã trao đổi. Chương trình giới hạn 10 doanh nghiệp đầu tiên trong ngành mình, miễn phí nền tảng 6 tháng đầu, và Vexim không thu hoa hồng trên đơn hàng. Mình xem trước giúp em, em xin phép gọi lại vào [thời gian] để trao đổi thêm khoảng 10 phút ạ. Em cảm ơn anh/chị."
 
 Đính kèm file tờ giới thiệu bản PDF in từ file `to-gioi-thieu.html` trong cùng thư mục.
 
@@ -33,7 +33,7 @@ Kính gửi anh/chị [họ tên], [tên doanh nghiệp],
 
 Em là [họ tên], phụ trách phát triển nhà cung cấp tại Vexim Trade (veximtrade.com), nền tảng kết nối nhà sản xuất Việt Nam với nhà nhập khẩu quốc tế do VEXIM GLOBAL CO., LTD vận hành.
 
-Bên em đang tuyển chọn 10 nhà cung cấp đầu tiên trong ngành [ngành hàng]. Doanh nghiệp được chọn sẽ được miễn phí sử dụng nền tảng trong 6 tháng đầu, không thu phí dịch vụ kết nối cho 2 thương vụ đầu tiên, được hỗ trợ dịch toàn bộ hồ sơ sang tiếng Anh và gắn huy hiệu xác minh sau khi hoàn tất kiểm tra giấy tờ. Đội ngũ Vexim trực tiếp lập hồ sơ, doanh nghiệp chỉ cần cung cấp giấy phép kinh doanh và catalog, duyệt nội dung trước khi công khai và có thể dừng tham gia bất cứ lúc nào.
+Bên em đang tuyển chọn 10 nhà cung cấp đầu tiên trong ngành [ngành hàng]. Doanh nghiệp được chọn sẽ được miễn phí sử dụng nền tảng trong 6 tháng đầu, Vexim không thu hoa hồng trên đơn hàng, được hỗ trợ dịch toàn bộ hồ sơ sang tiếng Anh và gắn huy hiệu xác minh sau khi hoàn tất kiểm tra giấy tờ. Đội ngũ Vexim trực tiếp lập hồ sơ, doanh nghiệp chỉ cần cung cấp giấy phép kinh doanh và catalog, duyệt nội dung trước khi công khai và có thể dừng tham gia bất cứ lúc nào.
 
 Em xin phép gửi kèm tờ giới thiệu chương trình và rất mong có một cuộc trao đổi ngắn khoảng 10 phút với anh/chị vào thời gian phù hợp.
 

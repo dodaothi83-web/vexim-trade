@@ -34,10 +34,8 @@ Bên A và Bên B thỏa thuận như sau:
 2. Hồ sơ nhà cung cấp là toàn bộ thông tin doanh nghiệp, tài liệu kiểm tra, thông tin sản phẩm, hình ảnh và nội dung khác mà Bên B cung cấp hoặc được Bên A lập thay trên cơ sở thông tin Bên B cung cấp.
 3. RFQ là yêu cầu báo giá do doanh nghiệp mua hàng gửi qua nền tảng để Bên A tìm và kết nối nhà cung cấp phù hợp. RFQ không phải đơn đặt hàng.
 4. Giới thiệu là việc Bên A, sau khi doanh nghiệp mua hàng đồng ý, cung cấp thông tin liên hệ để Bên B và doanh nghiệp mua hàng trao đổi trực tiếp với nhau.
-5. Thương vụ kết nối thành công là trường hợp Bên B giao kết hợp đồng mua bán với doanh nghiệp mua hàng do Bên A giới thiệu, trong Thời gian bảo hộ quy định tại khoản 6 Điều này.
-6. Thời gian bảo hộ là 12 tháng kể từ ngày Bên A thực hiện Giới thiệu đối với từng doanh nghiệp mua hàng.
-7. Biểu phí là bảng phí dịch vụ của nền tảng do Bên A công bố tại Quy chế hoạt động trong từng thời kỳ.
-8. Thông tin công khai là các thông tin của Bên B được Bên A hiển thị trên nền tảng theo khoản 4 Điều 4 của Thỏa thuận này.
+5. Biểu phí là bảng phí dịch vụ của nền tảng do Bên A công bố tại Quy chế hoạt động trong từng thời kỳ.
+6. Thông tin công khai là các thông tin của Bên B được Bên A hiển thị trên nền tảng theo khoản 4 Điều 4 của Thỏa thuận này.
 
 ### Điều 2. Dịch vụ của nền tảng
 
@@ -82,20 +80,20 @@ Bên A và Bên B thỏa thuận như sau:
 5. Bên A tiếp nhận và xử lý phản ánh, khiếu nại liên quan đến Bên B theo quy trình và thời hạn công khai tại trang Khiếu nại và báo cáo vi phạm, với phản hồi ban đầu trong 01 ngày làm việc; thông báo cho Bên B khi hồ sơ của Bên B bị báo cáo và tạo điều kiện để Bên B giải trình.
 6. Bên A thực hiện yêu cầu của cơ quan nhà nước có thẩm quyền, gồm tạm ngừng, gỡ bỏ nội dung hoặc xử lý tài khoản trong thời hạn theo quy định của pháp luật, và phối hợp cung cấp thông tin, dữ liệu khi được yêu cầu hợp lệ.
 
-### Điều 7. Kết nối RFQ, giới thiệu và bảo hộ giới thiệu
+### Điều 7. Kết nối RFQ và giới thiệu
 
 1. Bên A sàng lọc RFQ trước khi chuyển tới nhà cung cấp. Thông tin liên hệ trực tiếp của doanh nghiệp mua hàng được giữ kín cho đến khi doanh nghiệp mua hàng đồng ý được Giới thiệu.
-2. Trong Thời gian bảo hộ, nếu Bên B giao kết hợp đồng mua bán với doanh nghiệp mua hàng do Bên A Giới thiệu, kể cả khi hai bên tự liên hệ trực tiếp sau thời điểm Giới thiệu, giao dịch đó được tính là Thương vụ kết nối thành công.
-3. Bên B thông báo cho Bên A bằng email trong vòng 05 ngày làm việc kể từ ngày giao kết hợp đồng mua bán với doanh nghiệp mua hàng do Bên A Giới thiệu. Trường hợp Bên B không thông báo nhưng Bên A có căn cứ xác định giao dịch đã giao kết trong Thời gian bảo hộ, giao dịch đó vẫn được tính là Thương vụ kết nối thành công.
-4. Quy định tại Điều này là căn cứ để tính phí dịch vụ kết nối theo Điều 8 khi Biểu phí có hiệu lực. Trong thời gian mức phí áp dụng là 0 đồng, các quy định về thông báo tại khoản 3 vẫn được áp dụng để Bên A theo dõi kết quả kết nối và cải thiện chất lượng sàng lọc.
+2. Bên A không thu hoa hồng hoặc bất kỳ khoản phí nào tính trên giá trị, số lượng hay kết quả giao dịch giữa Bên B và doanh nghiệp mua hàng, kể cả giao dịch phát sinh sau khi Bên A Giới thiệu.
+3. Bên B được khuyến khích, nhưng không bắt buộc, thông báo cho Bên A kết quả trao đổi với doanh nghiệp mua hàng được Giới thiệu để Bên A cải thiện chất lượng sàng lọc RFQ. Thông tin này không dùng để tính phí.
 
 ### Điều 8. Phí dịch vụ
 
 1. Tại thời điểm giao kết Thỏa thuận này, Bên A không thu phí mở tài khoản, phí duy trì tài khoản và các phí dịch vụ khác của nền tảng đối với Bên B. Mức phí áp dụng là 0 đồng.
-2. Trong thời gian tới, Bên A có thể áp dụng một hoặc một số loại phí gồm: phí duy trì tài khoản nhà cung cấp; phí dịch vụ kết nối tính trên Thương vụ kết nối thành công theo Điều 7; phí quảng cáo hoặc ưu tiên hiển thị; và phí dịch vụ bổ sung theo yêu cầu. Việc nêu các loại phí dự kiến này không có nghĩa là phí đã được áp dụng.
+2. Trong thời gian tới, Bên A có thể áp dụng một hoặc một số loại phí gồm: phí duy trì tài khoản nhà cung cấp; phí quảng cáo hoặc ưu tiên hiển thị có gắn nhãn tài trợ; phí dịch vụ xác minh nhà cung cấp; và phí dịch vụ bổ sung theo yêu cầu. Bên A không thu hoa hồng hay phí tính theo giao dịch giữa Bên B và doanh nghiệp mua hàng. Việc nêu các loại phí dự kiến này không có nghĩa là phí đã được áp dụng.
 3. Khi Bên A bắt đầu thu hoặc thay đổi phí, Bên A công bố Biểu phí tại Quy chế hoạt động trên website và thông báo tới tài khoản hoặc email đã đăng ký của Bên B tối thiểu 20 ngày trước ngày áp dụng, với đầy đủ loại phí, đối tượng áp dụng, cách tính, thời điểm thu, phương thức thanh toán, điều kiện hoàn phí nếu có và ngày hiệu lực. Thay đổi phí không áp dụng hồi tố.
 4. Bên B không đồng ý với Biểu phí mới có quyền ngừng sử dụng dịch vụ tính phí hoặc đề nghị chấm dứt tài khoản trước ngày áp dụng. Việc tiếp tục sử dụng dịch vụ tính phí sau ngày hiệu lực được hiểu là Bên B đã chấp nhận Biểu phí đã công bố, trừ khi hai bên có thỏa thuận riêng bằng văn bản.
 5. Dịch vụ bổ sung theo yêu cầu của Bên B, nếu có, được thực hiện theo thỏa thuận hoặc hợp đồng dịch vụ riêng và không phải điều kiện để Bên B tham gia nền tảng.
+6. Phí dịch vụ xác minh, nếu áp dụng, là phí cho công việc xem xét của Bên A, không bảo đảm kết quả được duyệt. Việc Bên B trả phí quảng cáo hoặc ưu tiên hiển thị không ảnh hưởng đến kết quả xác minh và thứ hạng không gắn nhãn tài trợ.
 
 ### Điều 9. Sở hữu trí tuệ và quyền sử dụng nội dung
 
@@ -113,7 +111,7 @@ Bên A và Bên B thỏa thuận như sau:
 
 1. Bên A có quyền tạm ngừng, hạn chế hoặc chấm dứt tài khoản của Bên B khi Bên B cung cấp thông tin sai lệch, dùng giấy tờ giả mạo, giới thiệu hàng hóa vi phạm, nhiều lần không cập nhật thông tin hết hiệu lực, không phối hợp xử lý phản ánh hoặc theo yêu cầu của cơ quan có thẩm quyền. Trừ trường hợp phải xử lý ngay theo yêu cầu của cơ quan nhà nước hoặc để ngăn chặn gian lận, Bên A thông báo lý do và hướng dẫn Bên B gửi ý kiến qua trang Khiếu nại và báo cáo vi phạm.
 2. Bên B có quyền đề nghị chấm dứt tài khoản bất cứ lúc nào bằng văn bản hoặc qua email contact@veximglobal.com mà không phải chịu phí chấm dứt. Trong vòng 03 ngày làm việc kể từ khi nhận được đề nghị, Bên A ngừng chuyển RFQ mới, gỡ Thông tin công khai của Bên B và xác nhận lại bằng email.
-3. Việc chấm dứt không làm mất hiệu lực các nghĩa vụ đã phát sinh trước thời điểm chấm dứt, gồm: nghĩa vụ đối với giao dịch đã giao kết với người mua; quy định về Thời gian bảo hộ và phí dịch vụ kết nối tại Điều 7 và Điều 8 đối với các Giới thiệu đã thực hiện; nghĩa vụ phối hợp xử lý khiếu nại đang mở; và việc lưu trữ dữ liệu theo Chính sách bảo mật và quy định của pháp luật.
+3. Việc chấm dứt không làm mất hiệu lực các nghĩa vụ đã phát sinh trước thời điểm chấm dứt, gồm: nghĩa vụ đối với giao dịch đã giao kết với người mua; các khoản phí đã phát sinh theo Biểu phí trước thời điểm chấm dứt, nếu có; nghĩa vụ phối hợp xử lý khiếu nại đang mở; và việc lưu trữ dữ liệu theo Chính sách bảo mật và quy định của pháp luật.
 
 ### Điều 12. Phản ánh, khiếu nại và giải quyết tranh chấp
 
