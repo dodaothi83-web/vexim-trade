@@ -141,6 +141,18 @@ export async function POST(request: Request) {
     // Giấy vừa tải vào hàng chờ duyệt: huy hiệu sidebar của CRM phải tăng ngay.
     refreshCrmBadges();
 
+    // Tải từ trang sản phẩm: tự gửi yêu cầu gắn giấy cho sản phẩm đó, để nhân viên thấy sẵn
+    // danh mục của sản phẩm khi duyệt (11/2026). Chỉ nhận sản phẩm của chính nhà cung cấp.
+    const productId = text(form, "product_id", 40);
+    if (productId && uuid.test(productId)) {
+      const product = await access.store.getProduct(productId).catch(() => null);
+      if (product?.supplier_id === access.supplier.id) {
+        await access.store.updateCertificate(certificate.id, {
+          requested_product_ids: [...new Set([...(certificate.requested_product_ids ?? []), productId])],
+        }).catch((error) => console.error("[certificate] product request", error));
+      }
+    }
+
     // Hợp đồng / ủy quyền với nhà máy (tùy chọn). Lỗi ở đây không làm mất chứng nhận vừa lưu.
     const contractSaved = await saveRelationshipFile(form, access.supplier.id, access.user.id, certificate.holder_name ?? label, access.store);
 

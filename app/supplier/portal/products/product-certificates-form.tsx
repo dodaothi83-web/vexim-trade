@@ -230,6 +230,7 @@ export function ProductCertificatesForm({
       </div>}
 
       {!holderRule?.blocked && <form onSubmit={onUpload} className="mt-4 grid gap-3 rounded-lg border border-brand-200 bg-brand-50/50 p-3.5 sm:grid-cols-3">
+        <input type="hidden" name="product_id" value={productId} />
         <div className="sm:col-span-3">
           <p className="text-[11px] font-bold tracking-wider text-brand-900 uppercase">{m.uploadTitle}</p>
           <p className="mt-0.5 text-[11.5px] leading-4 text-ink-600">{m.uploadSub}</p>

@@ -21,7 +21,7 @@ import { CertificateRowControls } from "./certificate-row-controls";
 
 export function AuditForm({
   verification: v, autoPublishL1 = false, evidence, certificates = [], certificateMedia = [], partnerContracts = [], aiEnabled, canApprove, canInspect,
-  canPublish = false, currentUserId, canSelfApprove, scopes = [], categories = [], requestedProducts = [],
+  canPublish = false, currentUserId, canSelfApprove, scopes = [], categories = [], requestedProducts = [], requestedProductCategories = {},
 }: {
   verification: Verification; autoPublishL1?: boolean; evidence: MediaAsset[]; certificates?: Certificate[]; certificateMedia?: MediaAsset[]; partnerContracts?: { id: string; label: string; href: string }[]; aiEnabled: boolean; canApprove: boolean; canInspect: boolean; canPublish?: boolean; currentUserId: string; canSelfApprove: boolean;
   /** Phạm vi đã xác nhận của các giấy L1 và danh mục để chọn phạm vi. */
@@ -29,6 +29,8 @@ export function AuditForm({
   categories?: Array<{ id: string; name: string }>;
   /** Sản phẩm nhà cung cấp xin mở rộng phạm vi. */
   requestedProducts?: SupplierProduct[];
+  /** Danh mục của từng sản phẩm đó, để tích sẵn khi duyệt chứng nhận. */
+  requestedProductCategories?: Record<string, string | null>;
 }) {
   const certificateFileFor = (certificate: Certificate) => certificateMedia.find((asset) =>
     asset.id === certificate.file_media_id && Boolean(asset.storage_path)) ?? null;
@@ -51,7 +53,9 @@ export function AuditForm({
       .map((productId) => ({
         productId,
         name: requestedProducts.find((product) => product.id === productId)?.name ?? "sản phẩm của họ",
+        categoryId: requestedProductCategories[productId] ?? null,
       })),
+    scopeText: certificate.scope_text ?? null,
     mismatch: checklistMismatch(certificate),
   });
   const router = useRouter();

@@ -8,7 +8,8 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { holderMatchBadgeLabel, ingestCertificateScan, isPartnerContractDocument, todayISO } from "@/lib/certificate-service";
 import { approvedL2Scope } from "@/lib/verification-status";
 import { partnerFactoryNameMatches } from "@/lib/certificate-holder";
-import { certificateSchemeLabel, isCertificateScheme } from "@/lib/certificate-scheme";
+import { certificateSchemeLabel, isCertificateScheme, isScopeableCertificateScheme } from "@/lib/certificate-scheme";
+import { addCertificateScopeAction } from "./certificate-scope-actions";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { transferRenewalScope } from "@/lib/certificate-renewal";
 import { refreshCrmBadges } from "@/lib/crm/badges";
@@ -96,9 +97,37 @@ async function rescanCertificate(supplierId: string, certificateId: string) {
   );
 }
 
-export async function approveCertificateAction(supplierId: string, certificateId: string, options: { partnerContractConfirmed?: boolean } = {}) {
+export async function approveCertificateAction(supplierId: string, certificateId: string, options: { partnerContractConfirmed?: boolean; categoryIds?: string[] } = {}) {
   try {
-    return await approveCertificate(supplierId, certificateId, options);
+    const categoryIds = [...new Set((options.categoryIds ?? []).map((id) => String(id).trim()).filter(Boolean))].slice(0, 20);
+    const approved = await approveCertificate(supplierId, certificateId, { ...options, categoryIds });
+    if (!approved.ok || !categoryIds.length) return approved;
+    // Một bước (11/2026): duyệt xong gắn luôn các danh mục nhân viên đã tích. Sản phẩm thuộc
+    // các danh mục này tự có chứng nhận, kể cả sản phẩm đăng sau.
+    let added = 0; const failed: string[] = [];
+    for (const categoryId of categoryIds) {
+      const scoped = await addCertificateScopeAction(supplierId, certificateId, { categoryId });
+      if (scoped.ok) added += 1; else failed.push(scoped.message);
+    }
+    // Yêu cầu "gắn cho sản phẩm X" đã được đáp ứng khi danh mục của X vừa được gắn: xoá khỏi hàng chờ.
+    const store = getStore();
+    const certificate = await store.getCertificate(certificateId);
+    const pending = certificate?.requested_product_ids ?? [];
+    if (certificate && pending.length) {
+      const covered = new Set<string>();
+      for (const categoryId of categoryIds) {
+        const category = await store.getCategory(categoryId).catch(() => null);
+        if (category) { covered.add(category.id); if (category.slug) covered.add(category.slug); }
+      }
+      const remaining: string[] = [];
+      for (const productId of pending) {
+        const product = await store.getProduct(productId).catch(() => null);
+        if (!product?.category || !covered.has(product.category)) remaining.push(productId);
+      }
+      if (remaining.length !== pending.length) await store.updateCertificate(certificate.id, { requested_product_ids: remaining }).catch(() => undefined);
+    }
+    return result(failed.length === 0,
+      `${approved.message} Đã áp dụng cho ${added} danh mục.` + (failed.length ? ` Chưa gắn được ${failed.length} danh mục: ${failed[0]}` : ""));
   } catch (error) {
     console.error("[certificate] approve action failed", error);
     return result(false, `Chưa duyệt được chứng nhận (${briefReason(error)}). Chứng nhận giữ nguyên như trước.`);
@@ -112,7 +141,7 @@ export async function approveCertificateAction(supplierId: string, certificateId
  * (L3) với đúng tên đó, hoặc khi nhân viên đã mở hợp đồng/ủy quyền nhà cung cấp tải kèm và
  * đánh dấu đã xem (từ 11/2026). Không thể đẩy giấy của doanh nghiệp không liên quan lên hồ sơ.
  */
-async function approveCertificate(supplierId: string, certificateId: string, options: { partnerContractConfirmed?: boolean }) {
+async function approveCertificate(supplierId: string, certificateId: string, options: { partnerContractConfirmed?: boolean; categoryIds?: string[] }) {
   if ((await guard("suppliers.publish")) !== null) {
     return result(false, "Bạn không có quyền duyệt đăng chứng nhận trên trang công khai.");
   }
@@ -139,6 +168,13 @@ async function approveCertificate(supplierId: string, certificateId: string, opt
   }
   if (cert.valid_until < todayISO()) {
     return result(false, `Giấy đã hết hạn ngày ${cert.valid_until}; chưa đăng được.`);
+  }
+
+  // Đã tích danh mục thì giấy phải là loại chất lượng; kiểm trước để không duyệt xong mới báo lỗi.
+  if (options.categoryIds?.length && !isScopeableCertificateScheme(cert.certificate_scheme ?? null)) {
+    return result(false, cert.certificate_scheme
+      ? "Loại giấy này không gắn danh mục sản phẩm. Bỏ tích danh mục hoặc đổi loại giấy rồi duyệt lại."
+      : "Chọn loại giấy (ví dụ HACCP, ISO 22000) ở ô Loại trước khi duyệt và áp dụng danh mục.");
   }
 
   // Giấy đứng tên nhà máy khác (chỉ đơn vị thương mại). Hai đường được đăng:

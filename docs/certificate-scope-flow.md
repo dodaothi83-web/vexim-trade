@@ -13,6 +13,14 @@ Nhà cung cấp **chỉ tải tệp lên một kho giấy** ở hồ sơ của h
 
 Danh sách mã nằm ở `lib/certificate-scheme.ts`; migration `20261076_certificate_scope_flow.sql` giữ đúng danh sách đó và **không** tự chốt loại cho giấy cũ.
 
+## Duyệt và áp dụng danh mục trong một bước (11/2026)
+
+- Khi giấy chưa đăng, khung **"Áp dụng cho danh mục"** trong CRM liệt kê danh mục dạng ô tích, kèm dòng phạm vi in trên giấy (`scope_text`).
+- **Tích sẵn**: gợi ý AI có độ tin cậy cao, và danh mục của sản phẩm mà nhà cung cấp tải giấy từ đó. Gợi ý tin cậy thấp để trống. Nhân viên có thể bỏ tích hoặc thêm danh mục khác.
+- Nút **"Duyệt và áp dụng cho N danh mục"** gọi `approveCertificateAction(..., { categoryIds })`: kiểm loại giấy là chất lượng trước khi duyệt, duyệt đăng, rồi tạo từng dòng phạm vi qua `addCertificateScopeAction`. Yêu cầu "gắn cho sản phẩm X" được xoá khỏi hàng chờ khi danh mục của X vừa được gắn.
+- Tải giấy từ trang sản phẩm của cổng nhà cung cấp gửi kèm `product_id`, ghi vào `requested_product_ids` để CRM biết danh mục cần tích sẵn.
+- Sau khi duyệt, trang tạo/sửa sản phẩm của nhà cung cấp tự hiện chứng nhận khi chọn danh mục đã gắn (`certificateInheritanceByCategory`).
+
 ## Phạm vi (`certificate_scopes`)
 
 Mỗi dòng là **hoặc** một `category_id` **hoặc** một `product_id`, kèm `verified_by`/`verified_at`. Chỉ dòng đã có người xác nhận mới có hiệu lực với người mua.
