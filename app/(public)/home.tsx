@@ -26,16 +26,6 @@ import type { Category } from "@/lib/types";
 /** Ảnh placeholder khi category chưa upload hero_image */
 const FALLBACK_HERO = "/images/home/hero-cashew-texture.jpg";
 
-// Ảnh thật: Vietnamese Farmer Sorting Coffee Beans, 1500m Coffee, Lâm Đồng.
-// Nguồn: https://www.pexels.com/photo/vietnamese-farmer-sorting-coffee-beans-30658831/
-// Pexels cho phép dùng miễn phí trên website. CDN trả WebP đúng độ rộng, không dùng ảnh AI.
-const HOME_HERO_PHOTO = "https://images.pexels.com/photos/30658831/pexels-photo-30658831/free-photo-of-vietnamese-farmer-sorting-coffee-beans.jpeg";
-const homeHeroUrl = (width: number) =>
-  `${HOME_HERO_PHOTO}?auto=compress&cs=tinysrgb&fm=webp&w=${width}&q=72`;
-const HOME_HERO_SRC = homeHeroUrl(1600);
-const HOME_HERO_SRCSET = [640, 960, 1280, 1600, 1920]
-  .map((width) => `${homeHeroUrl(width)} ${width}w`)
-  .join(", ");
 
 // Giữ câu mô tả mô hình kết nối cho kiểm thử ngữ nghĩa:
 // Câu mô tả lấy từ lib/public/meta-copy.ts, không viết lại tại đây.
@@ -202,12 +192,16 @@ export default async function HomeContent({
           SECTION 1: HERO + THANH TÌM KIẾM SẢN PHẨM
          ===================================================================== */}
       <section aria-labelledby="home-hero-title" className="relative isolate overflow-hidden bg-brand-900 text-white">
-        {/* Nền: ảnh thật (phân loại cà phê, Lâm Đồng) phủ lớp navy để chữ trắng đủ tương phản. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={HOME_HERO_SRC} srcSet={HOME_HERO_SRCSET} sizes="100vw" alt="" aria-hidden="true" loading="eager" decoding="async"
-          className="absolute inset-0 -z-20 h-full w-full object-cover object-[center_40%]" />
-        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[linear-gradient(100deg,rgba(15,30,58,0.97)_0%,rgba(23,46,89,0.92)_45%,rgba(31,62,116,0.62)_100%)]" />
-        <div aria-hidden="true" className="absolute inset-0 -z-10 opacity-[0.18] [background-image:radial-gradient(rgba(255,255,255,0.55)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
+        {/* Nền theo nhận diện Vexim: navy chuyển dần, quầng sáng nhẹ và chữ V gốc (cắt từ
+            logo-vexim-white-mark.png, không vẽ lại, giữ tỉ lệ) phóng to, mờ ở hai mép. */}
+        <div aria-hidden="true" className="absolute inset-0 -z-20 bg-[linear-gradient(115deg,var(--color-brand-950)_0%,var(--color-brand-900)_38%,var(--color-brand-700)_100%)]" />
+        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_70%_at_72%_35%,rgba(68,113,172,0.38),transparent_70%)]" />
+        <Image src="/brand/vexim-v-mark-white.png" alt="" aria-hidden="true" width={365} height={233} priority
+          className="pointer-events-none absolute -bottom-24 -left-40 -z-10 hidden w-[560px] max-w-none opacity-[0.06] select-none md:block lg:w-[680px]" />
+        <Image src="/brand/vexim-v-mark-white.png" alt="" aria-hidden="true" width={365} height={233}
+          className="pointer-events-none absolute -right-28 -top-10 -z-10 w-[300px] max-w-none opacity-[0.09] select-none sm:w-[460px] lg:-right-20 lg:w-[620px]" />
+        <Image src="/brand/vexim-v-mark-white.png" alt="" aria-hidden="true" width={365} height={233}
+          className="pointer-events-none absolute -z-10 hidden w-[220px] max-w-none opacity-[0.05] select-none lg:bottom-10 lg:right-[28%] lg:block" />
         <div className="mx-auto max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <h1 id="home-hero-title" className="max-w-[920px] text-3xl font-bold leading-[1.1] tracking-tight text-white sm:text-4xl lg:text-[48px]">
             {isVi
