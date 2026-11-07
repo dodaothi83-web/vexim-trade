@@ -42,7 +42,7 @@ export function comparisonPdfDefinition(products: PublicComparedProduct[], origi
   row("Location", (p) => p.province ? `${p.province}, Vietnam` : "Not provided");
   row("Raw material region", (p) => value(p.rawMaterialRegion));
   row("Input material origin", (p) => value(p.inputMaterialOrigin));
-  row("Independent verification", (p) => ([1, 2, 3] as const).map((level) => `${verificationLabel(level, p.l2Scope)}: ${p.verificationSteps.includes(level) ? "Approved" : "Not approved"}`).join("\n"));
+  row("Vexim verification", (p) => ([1, 2, 3] as const).map((level) => `${verificationLabel(level, p.l2Scope)}: ${p.verificationSteps.includes(level) ? "Approved" : "Not approved"}`).join("\n"));
   row("Public supplier certificates", (p) => p.certificates.length ? p.certificates.map((c) => `${c.name}\nValid until ${c.validUntil}\n${c.holderMatch === "owner" ? "Registered to supplier" : `Third-party holder: ${c.holderName}`}`).join("\n\n") : "No public certificates");
   row("Product link", (p) => new URL(p.href, origin).href);
   const warnings = productComparisonWarnings(products);

@@ -419,7 +419,7 @@ const vi: VerificationMessages = {
     metaTitle: "Xác minh nhà cung cấp",
     eyebrow: "Cổng nhà cung cấp · Xác minh",
     title: "Chọn cấp xác minh",
-    sub: "Mỗi cấp là một trang riêng, một kết luận độc lập.",
+    sub: "Mỗi cấp là một trang riêng, một kết luận riêng.",
     step: "Bước {level}/3",
     footnote: "Tải bằng chứng không tự cấp huy hiệu. Mỗi cấp chỉ chuyển sang “Đã duyệt” khi hồ sơ được đối chiếu thủ công và người có quyền duyệt phê kết quả.", // copy-allow: khối hướng dẫn nhiều câu, giữ nguyên câu chữ đã duyệt khi đưa vào từ điển
   },

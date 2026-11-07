@@ -34,14 +34,11 @@ Căn cứ Thỏa thuận cung cấp và sử dụng dịch vụ nền tảng Vex
 
 ### Điều 3. Ưu đãi phí sử dụng nền tảng
 
-Trong thời hạn ưu đãi, Bên A miễn toàn bộ phí sử dụng nền tảng đối với Bên B, gồm phí mở tài khoản, phí duy trì hồ sơ doanh nghiệp, phí đăng thông tin sản phẩm và phí tiếp nhận yêu cầu báo giá. Bên A không thu bất kỳ khoản phí nào khác liên quan đến việc tham gia nền tảng của Bên B trong thời hạn này ngoài các khoản đã thỏa thuận tại Điều 4 và Điều 6 của Phụ lục này.
+Trong thời hạn ưu đãi, Bên A miễn toàn bộ phí sử dụng nền tảng đối với Bên B, gồm phí mở tài khoản, phí duy trì hồ sơ doanh nghiệp, phí đăng thông tin sản phẩm và phí tiếp nhận yêu cầu báo giá. Bên A không thu bất kỳ khoản phí nào khác liên quan đến việc tham gia nền tảng của Bên B trong thời hạn này ngoài khoản đã thỏa thuận tại Điều 6 của Phụ lục này.
 
-### Điều 4. Phí dịch vụ kết nối và hai thương vụ đầu tiên
+### Điều 4. Không thu hoa hồng
 
-1. Phí dịch vụ kết nối là khoản phí Bên A thu trên cơ sở thương vụ được kết nối thành công qua nền tảng, theo mức phí và cách tính tại biểu phí do Bên A công bố. Thương vụ kết nối thành công là trường hợp Bên B giao kết hợp đồng mua bán với người mua do Bên A trực tiếp giới thiệu, trong thời gian bảo hộ 12 tháng kể từ ngày Bên A giới thiệu hai bên với nhau.
-2. Bên A không thu phí dịch vụ kết nối đối với 02 thương vụ kết nối thành công đầu tiên của Bên B. Thứ tự thương vụ được tính theo thời điểm Bên B giao kết hợp đồng mua bán với người mua.
-3. Bên B có trách nhiệm thông báo cho Bên A bằng email trong vòng 05 ngày làm việc kể từ ngày giao kết hợp đồng mua bán với người mua do Bên A giới thiệu. Trường hợp Bên B không thông báo nhưng Bên A có căn cứ xác định giao dịch đã giao kết trong thời gian bảo hộ, giao dịch đó vẫn được tính là thương vụ kết nối thành công.
-4. Từ thương vụ kết nối thành công thứ ba trở đi, phí dịch vụ kết nối chỉ được áp dụng sau khi Bên A đã công bố biểu phí và thông báo cho Bên B tối thiểu 20 ngày trước ngày áp dụng, theo quy định tại mục 5 Quy chế hoạt động. Thay đổi phí không áp dụng hồi tố đối với các thương vụ đã giao kết trước ngày biểu phí có hiệu lực.
+Bên A không thu hoa hồng hoặc bất kỳ khoản phí nào tính trên giá trị, số lượng hay kết quả giao dịch giữa Bên B và người mua, trong và sau thời hạn ưu đãi. Bên B được khuyến khích, nhưng không bắt buộc, thông báo kết quả trao đổi với người mua được Bên A giới thiệu để Bên A cải thiện chất lượng sàng lọc yêu cầu báo giá.
 
 ### Điều 5. Hỗ trợ truyền thông, tìm kiếm và nội dung tiếng Anh
 
@@ -67,14 +64,14 @@ Bên B được gắn huy hiệu và hiển thị mức xác minh tương ứng 
 
 1. Bên B có quyền yêu cầu dừng tham gia chương trình và gỡ hồ sơ công khai bất cứ lúc nào, không cần nêu lý do và không phải chịu phí chấm dứt, bằng văn bản hoặc email gửi tới contact@veximglobal.com.
 2. Trong vòng 03 ngày làm việc kể từ khi nhận được yêu cầu, Bên A ngừng chuyển yêu cầu báo giá mới, gỡ thông tin công khai của Bên B và xác nhận lại bằng email. Hai bên đồng thời xác nhận bằng email trạng thái xử lý của từng yêu cầu báo giá đang mở tại thời điểm dừng.
-3. Việc dừng tham gia không làm mất hiệu lực các nghĩa vụ đã phát sinh trước thời điểm dừng, gồm: nghĩa vụ đối với giao dịch đã giao kết với người mua; thời gian bảo hộ và phí dịch vụ kết nối đối với người mua đã được Bên A giới thiệu trước ngày dừng theo Điều 4; nghĩa vụ phối hợp xử lý khiếu nại nếu có; và việc lưu trữ dữ liệu theo Thỏa thuận chính và Chính sách bảo mật.
+3. Việc dừng tham gia không làm mất hiệu lực các nghĩa vụ đã phát sinh trước thời điểm dừng, gồm: nghĩa vụ đối với giao dịch đã giao kết với người mua; nghĩa vụ phối hợp xử lý khiếu nại nếu có; và việc lưu trữ dữ liệu theo Thỏa thuận chính và Chính sách bảo mật.
 4. Hợp đồng dịch vụ bổ sung đã ký theo Điều 6, nếu có, tiếp tục thực hiện theo thỏa thuận riêng trong hợp đồng đó và không tự động chấm dứt khi Bên B dừng tham gia chương trình.
 
 ### Điều 10. Hiệu lực và quan hệ với Thỏa thuận chính
 
 1. Phụ lục này là bộ phận không tách rời của Thỏa thuận chính. Các nội dung không được quy định tại Phụ lục này được thực hiện theo Thỏa thuận chính, Điều khoản sử dụng và Quy chế hoạt động.
 2. Trường hợp có nội dung khác nhau giữa Phụ lục này và Thỏa thuận chính về các ưu đãi của chương trình tiên phong, Phụ lục này được ưu tiên áp dụng trong thời hạn ưu đãi.
-3. Hết thời hạn ưu đãi, Phụ lục này hết hiệu lực, trừ các quy định tại khoản 3 Điều 9 và các nghĩa vụ đã phát sinh theo Điều 4 đối với các giới thiệu đã thực hiện trong thời hạn Phụ lục còn hiệu lực.
+3. Hết thời hạn ưu đãi, Phụ lục này hết hiệu lực, trừ các quy định tại khoản 3 Điều 9. Cam kết không thu hoa hồng tại Điều 4 tiếp tục áp dụng theo Thỏa thuận chính.
 4. Phụ lục này được lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản, hoặc được ký số theo quy định của pháp luật.
 
 | ĐẠI DIỆN BÊN A | ĐẠI DIỆN BÊN B |

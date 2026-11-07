@@ -97,7 +97,7 @@ export const PLATFORM_RULES_COPY: Record<PlatformRulesLocale, PlatformRulesCopy>
         id: "rules-fees-and-reports",
         title: "8. Phí, nội dung vi phạm và phản ánh",
         paragraphs: [
-          "Hiện tại, Vexim không thu phí tạo tài khoản nhà cung cấp hoặc gửi yêu cầu báo giá. Nếu có dịch vụ tính phí trong tương lai, Vexim sẽ công bố rõ mức phí và thời điểm áp dụng trước khi thu.",
+          "Hiện tại, Vexim không thu phí tạo tài khoản nhà cung cấp hoặc gửi yêu cầu báo giá. Vexim không thu hoa hồng hay phí tính theo giao dịch giữa nhà cung cấp và doanh nghiệp mua hàng. Nếu có dịch vụ tính phí trong tương lai, Vexim sẽ công bố rõ mức phí và thời điểm áp dụng trước khi thu.",
           "Vexim có thể yêu cầu sửa, tạm ẩn hoặc gỡ thông tin sai lệch, hết hiệu lực hoặc vi phạm quy định; đồng thời có thể hạn chế tài khoản khi cần thiết. Người dùng có thể gửi phản ánh hoặc khiếu nại qua trang Khiếu nại và báo cáo vi phạm hoặc email contact@veximglobal.com.",
         ],
       },
@@ -188,7 +188,7 @@ export const PLATFORM_RULES_COPY: Record<PlatformRulesLocale, PlatformRulesCopy>
         id: "rules-fees-and-reports",
         title: "8. Fees, unsuitable content and reports",
         paragraphs: [
-          "Vexim currently does not charge to create a supplier account or submit a quote request. If paid services are introduced, Vexim will publish the fees and start date before charging.",
+          "Vexim currently does not charge to create a supplier account or submit a quote request. Vexim does not take commission or charge any fee based on transactions between suppliers and buyers. If paid services are introduced, Vexim will publish the fees and start date before charging.",
           "Vexim may ask users to correct, temporarily hide or remove inaccurate, outdated or rule-breaking information, and may restrict an account when necessary. Users can send a report or complaint through the Complaints and Violation Reports page or email contact@veximglobal.com.",
         ],
       },

@@ -275,8 +275,8 @@ Nguồn thu dự kiến trong tương lai, chỉ áp dụng sau khi công bố b
 - [ ] Phí thành viên
 - [ ] Tin nhắn
 - [ ] Thu phí % dựa trên đơn hàng: không áp dụng do nền tảng không có chức năng đặt hàng trực tuyến
-- [ ] Quảng cáo
-- [x] Dịch vụ gia tăng khác: phí dịch vụ kết nối yêu cầu báo giá, phí ưu tiên hiển thị có gắn nhãn tài trợ, phí dịch vụ bổ sung theo yêu cầu của nhà cung cấp
+- [x] Quảng cáo: phí ưu tiên hiển thị có gắn nhãn tài trợ
+- [x] Dịch vụ gia tăng khác: phí duy trì tài khoản nhà cung cấp, phí dịch vụ xác minh nhà cung cấp, phí dịch vụ bổ sung theo yêu cầu của nhà cung cấp. Không thu hoa hồng hay phí tính theo giao dịch giữa nhà cung cấp và doanh nghiệp mua hàng.
 
 4.2. Cơ chế tính giá dịch vụ
 

@@ -27,7 +27,7 @@ Các ô để trống dạng [ ] trong tài liệu là thông tin chưa có, c�
 ## Nguyên tắc nội dung bắt buộc giữ
 
 - Không cam kết thứ hạng trên Google trong bất kỳ tài liệu nào. Chỉ nói về việc tối ưu SEO và hỗ trợ cải thiện khả năng hiển thị.
-- Ưu đãi phí trong phụ lục dùng khái niệm phí dịch vụ kết nối, khớp với các loại phí dự kiến đã công bố tại mục 5 Quy chế hoạt động. Không dùng khái niệm hoa hồng đơn hàng.
+- Vexim không thu hoa hồng hay phí tính theo giao dịch. Nguồn thu dự kiến chỉ gồm phí duy trì tài khoản, quảng cáo / ưu tiên hiển thị có nhãn tài trợ, phí dịch vụ xác minh và dịch vụ bổ sung theo yêu cầu. Không dùng các khái niệm “hoa hồng”, “phí kết nối”, “thương vụ kết nối thành công” trong tài liệu chào bán.
 - Huy hiệu xác minh chỉ được gắn sau khi Vexim hoàn tất vòng kiểm tra tương ứng. Không hứa cấp huy hiệu ngay khi đăng ký.
 - Dịch vụ xây dựng website là dịch vụ bổ sung theo hợp đồng riêng, không phải điều kiện để tham gia nền tảng.
 - Quyền dừng tham gia bất cứ lúc nào trong tài liệu chào phải khớp với mục 7 Quy chế hoạt động và Điều 7 mẫu thỏa thuận người bán.

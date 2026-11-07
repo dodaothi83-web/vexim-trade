@@ -174,8 +174,8 @@ export default async function HowItWorksPage({
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-ink-700">
                   {isVi
-                    ? "Mỗi nhà cung cấp hiển thị rõ những hạng mục đã kiểm tra độc lập: giấy tờ pháp lý, nhà máy hoặc hợp đồng gia công, và lịch sử lô hàng xuất khẩu. Chứng nhận chất lượng ghi rõ đơn vị đứng tên (Chính chủ hoặc Đơn vị đối tác) kèm ngày hết hạn."
-                    : "Each supplier profile shows which of the 3 independent checks it has passed: business documents, factory or partner contract, and shipment history. Quality certificates state whether they belong to the supplier (Owner) or a partner plant (Partner Entity), with expiration dates shown."}
+                    ? "Mỗi nhà cung cấp hiển thị rõ những hạng mục Vexim đã kiểm tra: giấy tờ pháp lý, nhà máy hoặc hợp đồng gia công, và lịch sử lô hàng xuất khẩu. Chứng nhận chất lượng ghi rõ đơn vị đứng tên (Chính chủ hoặc Đơn vị đối tác) kèm ngày hết hạn."
+                    : "Each supplier profile shows which of Vexim's 3 separate checks it has passed: business documents, factory or partner contract, and shipment history. Quality certificates state whether they belong to the supplier (Owner) or a partner plant (Partner Entity), with expiration dates shown."}
                 </p>
                 <div className="mt-3 text-xs font-semibold">
                   <Link
