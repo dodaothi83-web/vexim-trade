@@ -1,24 +1,22 @@
 import { BuyerEnquiryAuthProvider } from "@/components/buyer-enquiry-auth";
-import { buyerAuthMessages } from "@/lib/i18n/buyer-auth";
-import { BuyerGoogleOneTap } from "@/components/buyer-google-one-tap";
-import { googleOneTapClientId, hasOneTapSession } from "@/lib/auth/google-one-tap";
+import { BuyerGoogleOneTapGate } from "@/components/buyer-google-one-tap-gate";
 import { BuyerSavedProductsProvider } from "@/components/buyer-saved-products";
-import { getLocale } from "@/lib/i18n/server";
-import { getBuyerSession, getBuyerUser } from "@/lib/auth/buyer-session";
+import { PublicSessionProvider } from "@/lib/buyer/public-session-context";
 import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 
 import { Logo } from "@/components/brand-logo";
 import { PublicHeaderControls } from "@/components/public-header-controls";
 import { PublicHeaderShell } from "@/components/public-header-shell";
-import { getStore } from "@/lib/db";
 import { SimpleFooter } from "./simple-footer";
 import { MarketplaceRail } from "@/components/marketplace-rail";
 import { SiteTrafficBeacon } from "@/components/site-traffic-beacon";
 import { ProductComparisonProvider } from "@/components/product-comparison-provider";
 import { ProductComparisonTray } from "@/components/product-comparison-tray";
 
-export const dynamic = "force-dynamic";
+// revalidate=300 (5 phút): layout không còn đọc cookie/phiên lúc render (xem ghi chú dưới) nên có thể
+// cache/ISR như mọi trang công khai khác, cùng cửa sổ làm mới với app/(public)/page.tsx.
+export const revalidate = 300;
 
 /**
  * Public site layout.
@@ -27,24 +25,26 @@ export const dynamic = "force-dynamic";
  *    (industries, links, contact). Các trang khác dùng SimpleFooter gọn
  *    (SimpleFooter tự ẩn ở pathname "/").
  *  - Back-office /crm/* ở route group riêng, không bị bọc bởi layout này.
+ *
+ * Cá nhân hoá theo người dùng (đăng nhập người mua, gợi ý Google One Tap, danh sách đã lưu)
+ * KHÔNG còn đọc ở đây. Trước đây layout gọi getBuyerSession()/getLocale()/hasOneTapSession()
+ * (đều đọc cookie) ngay lúc render — bất kỳ lần đọc cookie nào trong cây render cũng buộc
+ * Next.js coi toàn bộ nhánh đó là "force-dynamic", nên không trang công khai nào cache/ISR
+ * được, dù trang đó không tự đọc cookie. Giờ các phần việc đó do client tự gọi
+ * /api/public/session SAU khi HTML tĩnh đã hiển thị (xem lib/buyer/public-session-context.tsx,
+ * components/public-header-controls.tsx, components/buyer-google-one-tap-gate.tsx) — người
+ * mua đã đăng nhập vẫn thấy đúng trạng thái của mình, chỉ trễ một nhịp rất ngắn thay vì chặn
+ * toàn bộ trang render động trên mỗi request.
  */
-export default async function PublicLayout({ children }: { children: ReactNode }) {
-  const buyerSession = await getBuyerSession();
-  const oneTapClientId = googleOneTapClientId();
-  const showOneTap = oneTapClientId && !buyerSession && !(await hasOneTapSession());
-  const locale = await getLocale();
-  // A profile lookup failure must not prevent public pages from loading.
-  const buyerAccount = buyerSession ? await getBuyerUser().catch(() => null) : null;
-  const store = getStore();
-  await store.listCategories({ publishedOnly: true }); // warm cache
-
+export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <BuyerSavedProductsProvider sessionKey={buyerSession?.email ?? "guest"} isVi={locale === "vi"}>
-    <BuyerEnquiryAuthProvider buyerEmail={buyerSession?.email ?? null} locale={locale} messages={buyerAuthMessages[locale]}>
+    <PublicSessionProvider>
+    <BuyerSavedProductsProvider>
+    <BuyerEnquiryAuthProvider>
     <ProductComparisonProvider>
     <div lang="en" className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
-      {showOneTap && <BuyerGoogleOneTap clientId={oneTapClientId} isVi={locale === "vi"} />}
+      <BuyerGoogleOneTapGate />
       <PublicHeaderShell>
           <Link href="/" aria-label="Veximtrade home" className="flex shrink-0 items-center gap-2.5">
             <Logo className="h-12 w-12" />
@@ -61,17 +61,18 @@ export default async function PublicLayout({ children }: { children: ReactNode }
             </span>
           </Link>
 
-          <PublicHeaderControls buyerEmail={buyerSession?.email ?? null} buyerCompanyName={buyerAccount?.company_name ?? null} />
+          <PublicHeaderControls />
       </PublicHeaderShell>
 
       <main>{children}</main>
 
       <ProductComparisonTray />
-      <Suspense fallback={null}><MarketplaceRail isVi={locale === "vi"} /></Suspense>
+      <Suspense fallback={null}><MarketplaceRail /></Suspense>
       <SimpleFooter />
     </div>
     </ProductComparisonProvider>
     </BuyerEnquiryAuthProvider>
     </BuyerSavedProductsProvider>
+    </PublicSessionProvider>
   );
 }

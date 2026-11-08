@@ -27,7 +27,10 @@ function load(file, mocks, globals = {}) {
 const Link = ({ href, children, prefetch: _prefetch, ...props }) => React.createElement('a', { href, ...props }, children);
 const icons = new Proxy({}, { get: () => (props) => React.createElement('svg', props) });
 const common = { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'lucide-react': icons, '@/components/brand/vexim-icons': icons };
-const signIn = load('../components/public-sign-in-link.tsx', { ...common, '@/app/(public)/buyer/sign-in/actions': { signOutBuyerAction: async () => {} } });
+// setSignedOut() cập nhật lạc quan state dùng chung khi bấm đăng xuất (xem
+// lib/buyer/public-session-context.tsx) — bài kiểm tra này chỉ cần nó không ném lỗi.
+const publicSessionActionsStub = { usePublicSessionActions: () => ({ setSignedOut: () => {}, setSignedIn: () => {}, refresh: () => {} }) };
+const signIn = load('../components/public-sign-in-link.tsx', { ...common, '@/app/(public)/buyer/sign-in/actions': { signOutBuyerAction: async () => {} }, '@/lib/buyer/public-session-context': publicSessionActionsStub });
 const sourcingComposer = load('../components/sourcing-composer.tsx', {
   ...common,
   '@/components/buyer-enquiry-auth': { useBuyerEnquiryAuth: () => ({ requireBuyer() {} }) },
@@ -45,8 +48,13 @@ const nav = {
     return params;
   },
 };
+// buyerEmail/buyerCompanyName không còn là prop của PublicHeaderControls — HeaderControlsInner
+// và HeaderControlsFallback giờ tự gọi usePublicSession() (xem lib/buyer/public-session-context.tsx).
+// Biến có thể điều khiển được này đóng vai trò phiên hiện tại cho cả hai trong bài kiểm tra.
+let headerSession = { buyerEmail: null, buyerCompanyName: null };
 const { PublicHeaderControls } = load('../components/public-header-controls.tsx', {
   ...common, 'next/navigation': nav, '@/components/public-sign-in-link': signIn, '@/components/sourcing-composer': sourcingComposer,
+  '@/lib/buyer/public-session-context': { usePublicSession: () => ({ buyerEmail: headerSession.buyerEmail, buyerCompanyName: headerSession.buyerCompanyName, oneTapClientId: null, showOneTap: false }) },
 });
 
 function assertSignIn(html, lang, label) {
@@ -86,17 +94,20 @@ suspend = false;
 // Authenticated header opens account details rather than routing back to registration.
 for (const lang of ['en', 'vi']) {
   params = new URLSearchParams(lang === 'vi' ? 'lang=vi' : '');
-  const signedIn = renderToStaticMarkup(React.createElement(PublicHeaderControls, { buyerEmail: 'buyer@example.test' }));
+  headerSession = { buyerEmail: 'buyer@example.test', buyerCompanyName: null };
+  const signedIn = renderToStaticMarkup(React.createElement(PublicHeaderControls));
   assert.match(signedIn, /buyer@example.test/);
   assert.match(signedIn, /<details/);
   assert.match(signedIn, lang === 'vi' ? /Đăng xuất/ : /Sign out/);
   assert.doesNotMatch(signedIn, /href="\/sign-in"/);
 }
 suspend = true;
-const signedFallback = renderToStaticMarkup(React.createElement(PublicHeaderControls, { buyerEmail: 'buyer@example.test' }));
+headerSession = { buyerEmail: 'buyer@example.test', buyerCompanyName: null };
+const signedFallback = renderToStaticMarkup(React.createElement(PublicHeaderControls));
 assert.match(signedFallback, /buyer@example.test/);
 assert.doesNotMatch(signedFallback, /href="\/sign-in"/);
 suspend = false;
+headerSession = { buyerEmail: null, buyerCompanyName: null };
 
 const nothing = () => null;
 const layoutMocks = {
@@ -104,6 +115,12 @@ const layoutMocks = {
   '@/components/buyer-enquiry-auth': { BuyerEnquiryAuthProvider: ({ children }) => children },
   '@/lib/i18n/buyer-auth': { buyerAuthMessages: { en: {} } },
   '@/lib/auth/buyer-session': { getBuyerSession: async () => null },
+  // app/blog/layout.tsx: PublicSessionProvider không còn đọc cookie (xem
+  // lib/buyer/public-session-context.tsx) — passthrough đủ cho bài kiểm tra kết dây header
+  // này; hành vi thật của usePublicSession()/BuyerSignInStatus đã có bài kiểm tra riêng ở
+  // check-buyer-account.mjs / check-buyer-google-one-tap.mjs.
+  '@/lib/buyer/public-session-context': { PublicSessionProvider: ({ children }) => children },
+  '@/components/buyer-sign-in-status': { BuyerSignInStatus: ({ lang }) => React.createElement(signIn.PublicSignInLink, { lang: lang ?? 'en', buyerEmail: null, buyerCompanyName: null }) },
   ...common,
   '@/components/brand-logo': { Logo: nothing },
   '@/components/public-sign-in-link': signIn,
@@ -168,6 +185,7 @@ const interactive = load('../components/public-sign-in-link.tsx', {
   ...common,
   react: { useRef: (initial) => ({ current: refIndex++ % 3 === 0 ? menu : initial }), useEffect: (effect) => effects.push(effect) },
   '@/app/(public)/buyer/sign-in/actions': { signOutBuyerAction: async () => {} },
+  '@/lib/buyer/public-session-context': publicSessionActionsStub,
 }, {
   document: documentMock,
   window: { matchMedia: () => ({ matches: true }) },
@@ -242,10 +260,12 @@ for (const [company, email, initial] of [['Vexim Global', 'buyer@example.test', 
   assert.ok(accountHtml.includes(`aria-hidden="true">${initial}</span>`));
   assert.match(accountHtml, /Đã đăng nhập/);
 }
-const forwarded = renderToStaticMarkup(React.createElement(PublicHeaderControls, { buyerEmail: 'buyer@example.test', buyerCompanyName: 'Company' }));
+headerSession = { buyerEmail: 'buyer@example.test', buyerCompanyName: 'Company' };
+const forwarded = renderToStaticMarkup(React.createElement(PublicHeaderControls));
 assert.match(forwarded, /aria-hidden="true">C<\/span>/);
 suspend = true;
-const fallbackAvatar = renderToStaticMarkup(React.createElement(PublicHeaderControls, { buyerEmail: 'buyer@example.test', buyerCompanyName: 'Company' }));
+const fallbackAvatar = renderToStaticMarkup(React.createElement(PublicHeaderControls));
 assert.match(fallbackAvatar, /aria-hidden="true">C<\/span>/);
 suspend = false;
+headerSession = { buyerEmail: null, buyerCompanyName: null };
 console.log('✓ Signed-in avatar: company/email initials, EN/VI, header fallback and mouse-only hover with a cancellable 250ms close delay.');

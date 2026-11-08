@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { signOutBuyerAction } from "@/app/(public)/buyer/sign-in/actions";
 import { VeximAccountIcon } from "@/components/brand/vexim-icons";
+import { usePublicSessionActions } from "@/lib/buyer/public-session-context";
 
 /** Lối vào chọn loại tài khoản từ header công khai. */
 export function PublicSignInLink({ lang = "en", buyerEmail = null, buyerCompanyName = null }: { lang?: "en" | "vi"; buyerEmail?: string | null; buyerCompanyName?: string | null }) {
   const menuRef = useRef<HTMLDetailsElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardNavigation = useRef(false);
+  const { setSignedOut } = usePublicSessionActions();
   const cancelClose = () => {
     if (closeTimer.current !== null) clearTimeout(closeTimer.current);
     closeTimer.current = null;
@@ -88,7 +90,10 @@ export function PublicSignInLink({ lang = "en", buyerEmail = null, buyerCompanyN
             <Link onClick={closeMenu} href="/buyer/account?tab=saved" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Sản phẩm đã lưu" : "Saved products"}</Link>
             <Link onClick={closeMenu} href="/buyer/account?tab=profile" className="rounded-lg px-2 py-2 hover:bg-brand-50">{lang === "vi" ? "Thông tin tài khoản" : "Account details"}</Link>
           </nav>
-          <form onSubmit={closeMenu} action={signOutBuyerAction} className="mt-3 border-t border-ink-200 pt-3">
+          <form onSubmit={() => { closeMenu(); setSignedOut(); }} action={signOutBuyerAction} className="mt-3 border-t border-ink-200 pt-3">
+            {/* Đăng xuất qua Server Action luôn thành công và redirect("/") tới CÙNG layout
+                công khai (không remount) — setSignedOut() cập nhật lạc quan ngay lập tức
+                cho header/saved-products thay vì chờ điều hướng hoàn tất. */}
             <button type="submit" className="btn btn-ghost w-full justify-center">{lang === "vi" ? "Đăng xuất" : "Sign out"}</button>
           </form>
         </div>

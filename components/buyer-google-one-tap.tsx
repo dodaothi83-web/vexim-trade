@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCookieConsent } from "@/components/cookie-consent";
 import { ONE_TAP_COOLDOWN_MS, ONE_TAP_DISMISS_KEY, oneTapCooldownActive, oneTapPublicPath } from "@/lib/buyer/one-tap";
+import { usePublicSessionActions } from "@/lib/buyer/public-session-context";
 
 type GoogleIdentity = {
   initialize(options: { client_id: string; nonce: string; auto_select: false; cancel_on_tap_outside: true;
@@ -19,6 +20,7 @@ type IdentityWindow = Window & { google?: { accounts?: { id?: GoogleIdentity } }
 export function BuyerGoogleOneTap({ clientId, isVi }: { clientId: string; isVi: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { refresh: refreshPublicSession } = usePublicSessionActions();
   const { ready, record } = useCookieConsent();
   const [eligible, setEligible] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
@@ -68,7 +70,12 @@ export function BuyerGoogleOneTap({ clientId, isVi }: { clientId: string; isVi: 
               if (!active) return;
               if (!result.ok) throw new Error("Sign-in unavailable");
               identity!.cancel();
-              // Refresh server session props without navigating or remounting an unfinished quote form.
+              // Không biết trước email ở đây (route chỉ trả { ok: true }) nên không thể cập
+              // nhật lạc quan như luồng mã email — hỏi lại /api/public/session để header/
+              // saved-products/one-tap gate thấy đúng trạng thái, không cần điều hướng hay
+              // remount form đang dang dở. router.refresh() giữ lại để các Server Component
+              // khác (nếu có) trên trang cũng được làm mới.
+              refreshPublicSession();
               router.refresh();
             } catch {
               if (!active) return;

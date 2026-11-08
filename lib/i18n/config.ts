@@ -44,9 +44,14 @@ export function resolveLocale(value: string | null | undefined): Locale {
  *
  * Cổng NCC (`/supplier/...` trừ `/supplier/register`) chưa chuyển — đó là giai đoạn 2 — nên
  * không nằm trong danh sách này.
+ *
+ * Xuất cả RegExp (không chỉ hàm bọc) để app/layout.tsx dựng được đoạn script tính
+ * <html lang> ngay trên trình duyệt (qua `.source`) mà không phải chép tay một bản regex
+ * thứ hai dễ lệch khỏi bản gốc này.
  */
+export const LOCALIZED_AUTH_PATH_RE = /^\/(?:login|sign-in|register|auth|supplier\/register)(?:\/|$)/;
 export function isLocalizedAuthPath(pathname: string): boolean {
-  return /^\/(?:login|sign-in|register|auth|supplier\/register)(?:\/|$)/.test(pathname);
+  return LOCALIZED_AUTH_PATH_RE.test(pathname);
 }
 
 /**
@@ -56,11 +61,19 @@ export function isLocalizedAuthPath(pathname: string): boolean {
  * để riêng từng trang sẽ ra cảnh menu tiếng Anh mà nội dung tiếng Việt. Trang nào chưa
  * chuyển nội dung thì vẫn đọc tiếng Việt như trước, chỉ khung là đổi theo cookie.
  */
+export const LOCALIZED_PORTAL_PATH_RE = /^\/supplier\/portal(?:\/|$)/;
 export function isLocalizedPortalPath(pathname: string): boolean {
-  return /^\/supplier\/portal(?:\/|$)/.test(pathname);
+  return LOCALIZED_PORTAL_PATH_RE.test(pathname);
 }
 
 /** Mọi khu vực đọc ngôn ngữ từ cookie. */
 export function isLocalizedPath(pathname: string): boolean {
   return isLocalizedAuthPath(pathname) || isLocalizedPortalPath(pathname);
 }
+
+/**
+ * Khu vực tiếng Việt "cũ" (chưa có công tắc chọn ngôn ngữ): CRM, cổng NCC nói chung, và vài
+ * trang pháp lý — theo đúng tiền tố đường dẫn, không qua cookie.
+ */
+export const LEGACY_VIETNAMESE_PATH_RE =
+  /^\/(?:crm|supplier|login|auth|quy-che-hoat-dong|dieu-khoan-su-dung|chinh-sach-bao-mat|khieu-nai|thong-tin-chu-quan)(?:\/|$)/;

@@ -3,6 +3,7 @@ import { categoryPathOf, certificateLabelsForProducts } from "@/lib/public/certi
 import { readCategoryCertificateData } from "@/lib/public/category-certificate-data";
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { getStore } from "@/lib/db";
 import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
@@ -216,13 +217,48 @@ export interface PublicProductCatalogSnapshot {
   certificateBadgeData?: Promise<import("@/lib/public/category-certificate-data").CategoryCertificateData>;
 }
 
+/**
+ * Phần nặng nhất của trang danh mục/sản phẩm: liệt kê TOÀN BỘ nhà cung cấp + sản phẩm +
+ * danh mục rồi lọc/xếp hạng công khai (listPublicSuppliers) — giống hệt chi phí mà trang chủ
+ * từng trả trên mỗi request. Trang danh mục (app/(public)/products/[slug]/page.tsx) vẫn phải
+ * render động (kiểm tra `isStaff` để cho xem trước danh mục nháp — một tính năng có thật,
+ * không chỉ là hiển thị), nên không dùng ISR ở tầng trang được; bọc riêng phần tính toán này
+ * bằng unstable_cache để nhiều request (nhiều danh mục, nhiều người xem) trong cùng 60 giây
+ * dùng chung một kết quả thay vì mỗi request tự liệt kê + xếp hạng lại từ đầu.
+ *
+ * Lưu ý: unstable_cache yêu cầu kết quả tuần tự hoá được (JSON) — vì vậy chỉ cache ba mảng dữ
+ * liệu thô (suppliers/products/categories), KHÔNG cache cả snapshot gồm các Map<string,
+ * Promise<...>> (categoryByProduct/mediaByProduct/certificatesBySupplier) vốn được tạo mới,
+ * rỗng, cho từng lượt gọi để dùng làm bộ nhớ đệm NỘI BỘ của một request.
+ */
+const getCachedPublicCatalogBase = unstable_cache(
+  async () => {
+    const store = getStore();
+    const [rawSuppliers, products, categories] = await Promise.all([
+      store.listSuppliers(), store.listProducts(), store.listCategories({ publishedOnly: false }),
+    ]);
+    const suppliers = await listPublicSuppliers({ source: { suppliers: rawSuppliers, products, categories } });
+    return { suppliers, products, categories };
+  },
+  ["public-catalog-snapshot"],
+  { revalidate: 60, tags: ["public-catalog"] },
+);
+
 export async function loadPublicProductCatalogSnapshot(options?: { categories?: Category[] }): Promise<PublicProductCatalogSnapshot> {
-  const store = getStore();
-  const [rawSuppliers, products, categories] = await Promise.all([
-    store.listSuppliers(), store.listProducts(),
-    options?.categories ? Promise.resolve(options.categories) : store.listCategories({ publishedOnly: false }),
-  ]);
-  const suppliers = await listPublicSuppliers({ source: { suppliers: rawSuppliers, products, categories } });
+  let suppliers: PublicSupplierCard[];
+  let products: SupplierProduct[];
+  let categories: Category[];
+  if (options?.categories) {
+    // Gọi với danh mục đã biết sẵn (ví dụ danh sách danh mục của trang khác đã tải) — giữ
+    // nguyên hành vi cũ, không đi qua lớp cache theo "danh mục mặc định" ở trên.
+    const store = getStore();
+    const [rawSuppliers, allProducts] = await Promise.all([store.listSuppliers(), store.listProducts()]);
+    categories = options.categories;
+    products = allProducts;
+    suppliers = await listPublicSuppliers({ source: { suppliers: rawSuppliers, products, categories } });
+  } else {
+    ({ suppliers, products, categories } = await getCachedPublicCatalogBase());
+  }
   return { suppliers, products, categories, categoryByProduct: new Map(), mediaByProduct: new Map(), certificatesBySupplier: new Map() };
 }
 

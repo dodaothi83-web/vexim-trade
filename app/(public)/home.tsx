@@ -11,7 +11,6 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-import { getStore } from "@/lib/db";
 import { listPublishedNews } from "@/lib/blog/queries";
 import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { balanceHomepageCategories, HOME_FEED_PER_SUPPLIER, homeRotationWindow, rotateForWindow, rotateWithinVerificationTiers } from "@/lib/public/supplier-product-order";
@@ -68,9 +67,15 @@ export default async function HomeContent({
   heroSrc?: string | null;
 } = {}) {
   const isVi = lang === "vi";
-  const store = getStore();
-  const allCategories = await store.listCategories({ publishedOnly: true });
-  const supCount = (await store.listSuppliers()).filter((s) => s.status === "published").length;
+  // Dùng chung một snapshot catalogue (nhà cung cấp + sản phẩm + danh mục) cho CẢ danh
+  // sách danh mục lẫn phần xếp hạng sản phẩm bên dưới, thay vì gọi store.listCategories()
+  // và store.listSuppliers() riêng mỗi nơi: loadPublicProductCatalogSnapshot() đã được
+  // cache 60 giây (unstable_cache, xem lib/public/product-catalog.ts) — gọi nhiều lần vẫn
+  // chỉ liệt kê + xếp hạng một lần cho mỗi cửa sổ 60 giây, bất kể bao nhiêu request/khách
+  // truy cập trong lúc đó. Đây chính là phần tốn CPU nhất trên trang chủ (diễn giải ở
+  // app/(public)/page.tsx: trang này không ISR toàn trang được vì còn đọc searchParams).
+  const snapshotAll = await loadPublicProductCatalogSnapshot();
+  const allCategories = snapshotAll.categories.filter((c) => c.is_published);
 
   // Section 3: Lấy 4 bài blog mới nhất (4 bài / hàng)
   const latestPosts = (
@@ -96,7 +101,7 @@ export default async function HomeContent({
   const homeCategories = activeCategories.filter((c) => c.public_page_ready).slice(0, 8);
   // One server-only catalogue per request; do not re-read the entire catalogue
   // once for each homepage category. Ranking and per-supplier caps stay unchanged.
-  const snapshot = homeCategories.length ? await loadPublicProductCatalogSnapshot() : null;
+  const snapshot = homeCategories.length ? snapshotAll : null;
   const productGroups = await Promise.all(
     homeCategories.map(async (category) => ({
       category,

@@ -165,7 +165,11 @@ try {
   assert.match(source, /signInWithIdToken/);
   assert.match(source, /isVerifiedGoogleUser/);
   const layout = read('app/(public)/layout.tsx');
-  assert.match(layout, /oneTapClientId && !buyerSession && !\(await hasOneTapSession\(\)\)/);
+  // Quyết định hiện Google One Tap hay không đã chuyển từ layout (đọc cookie lúc render, buộc
+  // force-dynamic) sang route /api/public/session (gọi lại phía client SAU khi trang tĩnh đã
+  // hiển thị) — xem app/(public)/layout.tsx và lib/buyer/public-session-context.tsx.
+  const sessionRoute = read('app/api/public/session/route.ts');
+  assert.match(sessionRoute, /Boolean\(oneTapClientId\) && !buyerSession && !\(await hasOneTapSession\(\)\)/);
   // Execute the real saved-products provider with controlled hooks and async loads.
   // Session refresh must not key/remount the public subtree or expose another account's IDs.
   const slots = [], effects = [], queued = [];
@@ -184,16 +188,28 @@ try {
       effects[index] = { deps, cleanup: effect() };
     },
   };
+  // sessionKey giờ không còn là prop nhận từ ngoài — BuyerSavedProductsProviderInner tự lấy
+  // từ usePublicSession().buyerEmail (trạng thái dùng chung, cập nhật ngay khi đăng nhập/đăng
+  // xuất). Mock này cho test điều khiển "ai đang đăng nhập" giữa các lượt renderProvider().
+  let currentAccountEmail = null;
   const provider = load('components/buyer-saved-products.tsx', {
     react: hooks, 'react/jsx-runtime': require('react/jsx-runtime'),
-    'next/navigation': { usePathname: () => '/rfq' }, 'next/link': { default: () => null },
+    'next/navigation': { usePathname: () => '/rfq', useSearchParams: () => new URLSearchParams() },
+    'next/link': { default: () => null },
     'lucide-react': {},
     '@/app/(public)/buyer/account/actions': { getSavedProductsState: () => new Promise((resolve) => queued.push(resolve)) },
+    '@/lib/buyer/public-session-context': { usePublicSession: () => ({ buyerEmail: currentAccountEmail, buyerCompanyName: null, oneTapClientId: null, showOneTap: false }) },
   }, { window: { addEventListener() {}, removeEventListener() {} } });
   const children = { unfinishedQuote: 'keep this instance' };
   const renderProvider = (sessionKey) => {
     stateIndex = effectIndex = 0;
-    const tree = provider.BuyerSavedProductsProvider({ children, sessionKey, isVi: false });
+    currentAccountEmail = sessionKey === 'guest' ? null : sessionKey;
+    // BuyerSavedProductsProvider giờ bọc một lớp <Suspense> (useSearchParams() bắt buộc phải
+    // nằm trong đó) — gọi thẳng hàm xuất ra chỉ chạm tới lớp Suspense; mở thêm một lớp nữa để
+    // thực sự thực thi BuyerSavedProductsProviderInner, nơi chứa logic đang kiểm tra.
+    const outer = provider.BuyerSavedProductsProvider({ children });
+    const innerElement = outer.props.children;
+    const tree = innerElement.type(innerElement.props);
     assert.equal(tree.props.children, children);
     return tree.props.value;
   };
@@ -216,7 +232,10 @@ try {
   queued.shift()({ authenticated: false, ids: [] }); await Promise.resolve();
   assert.equal(renderProvider('guest').state.authenticated, false);
   assert.doesNotMatch(layout, /<BuyerSavedProductsProvider key=/);
-  assert.match(layout, /sessionKey=\{buyerSession\?\.email/);
+  // Khoá cache sessionKey không còn truyền từ layout (layout render tĩnh, không có
+  // buyerSession) — BuyerSavedProductsProviderInner tự lấy từ usePublicSession().buyerEmail,
+  // đã kiểm chứng ở renderProvider() phía trên (account-a/b/c không lộ dữ liệu của nhau).
+  assert.match(read('components/buyer-saved-products.tsx'), /sessionKey = buyerEmail \?\? "guest"/);
   console.log('✅ Buyer Google One Tap: opt-in, signed nonce/hash/expiry/purpose, origin/rate/body guards, audience/provider verification, buyer-only sessions, account races, cooldown, no forced navigation or token storage.');
 } finally {
   if (previous.enabled === undefined) delete process.env.GOOGLE_ONE_TAP_ENABLED; else process.env.GOOGLE_ONE_TAP_ENABLED = previous.enabled;

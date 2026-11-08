@@ -2,10 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 
-import { getSession } from "@/lib/auth/session";
 import { GoogleTag } from "@/components/google-tag";
 import { COMPANY } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
@@ -13,7 +10,20 @@ import { safeJsonLd } from "@/lib/public/supplier-seo";
 import HomeContent from "./home";
 import { HOME_META_DESCRIPTION } from "@/lib/public/meta-copy";
 
-export const dynamic = "force-dynamic";
+// Chuyển hướng nhân viên đã đăng nhập (→ /crm/dashboard) và host nội bộ
+// (crm.*, *.vercel.app → /login) giờ nằm ở middleware.ts, chạy TRƯỚC khi chạm
+// cache — nên bản thân trang này không còn lý do gì phải buộc render động nữa
+// (đã bỏ "force-dynamic" cũ từng nằm ở đây).
+//
+// KHÔNG đặt `export const revalidate` (ISR) ở đây: trang vẫn đọc `searchParams`
+// (q/cat/lang) để dựng bản tiếng Việt khi có "?lang=vi" — và việc đọc searchParams
+// tự nó LUÔN buộc Next.js render động (bất kể có revalidate hay không), vì bản
+// tĩnh được chốt lúc build nên không thể tuỳ biến theo query string của từng
+// request. Gỡ "?lang=vi" để đổi sang ISR toàn trang sẽ làm mất bản tiếng Việt của
+// trang chủ — không đánh đổi. Thay vào đó, phần TỐN KÉM thật sự (liệt kê + xếp
+// hạng danh mục/nhà cung cấp) được cache riêng bằng unstable_cache ngay trong
+// home.tsx — vẫn đạt mục tiêu giảm tải, không phải dựng lại từ đầu mỗi request,
+// mà không phải hy sinh tính năng song ngữ.
 
 /**
  * Ảnh nền trang chủ do mình tự đặt: thả một trong các tệp dưới vào đúng thư mục là trang
@@ -53,9 +63,9 @@ export const metadata: Metadata = {
 
 /**
  * Root công khai (/) — trang chủ Vexim Trade đa ngành (song ngữ Anh - Việt, mặc định Tiếng Anh).
- * - Đã đăng nhập → /crm/dashboard.
- * - Host nội bộ (crm.*, *.vercel.app) → /login cho đội ngũ.
- * - Khác → render HomeContent (hero đa ngành + CTA tới /rfq).
+ * - Đã đăng nhập / host nội bộ (crm.*, *.vercel.app) → chuyển hướng ở middleware.ts, trước
+ *   khi chạm tới trang này (xem middleware.ts để biết lý do tách ra khỏi đây).
+ * - render HomeContent (hero đa ngành + CTA tới /rfq).
  * Layout của group (public) tự wrap header + footer.
  */
 export default async function PublicHomePage({
@@ -64,12 +74,11 @@ export default async function PublicHomePage({
   searchParams?: Promise<{ q?: string; cat?: string; lang?: string }>;
 }) {
   // Đọc mỗi lần render: thả ảnh vào public/images/home là trang đổi ngay, không phải restart.
+  // Lưu ý: với revalidate=300, "mỗi lần render" ở đây là mỗi lần tái tạo trang tĩnh
+  // (tối đa 1 lần/5 phút khi có traffic), không phải mỗi request — vẫn đổi ảnh được
+  // ngay vì ISR revalidate theo thời gian, không cache vĩnh viễn.
   const heroLocal = HOME_HERO_LOCAL_FILES.find((file) =>
     existsSync(join(process.cwd(), "public", file))) ?? null;
-  const session = await getSession();
-  if (session) redirect("/crm/dashboard");
-  const host = ((await headers()).get("host") ?? "").toLowerCase();
-  if (host.startsWith("crm.") || host.endsWith(".vercel.app")) redirect("/login");
   const params = searchParams ? await searchParams : {};
   const query = typeof params?.q === "string" ? params.q.trim().slice(0, 120) : "";
   const categoryFilter = typeof params?.cat === "string" ? params.cat.trim().slice(0, 60) : "";

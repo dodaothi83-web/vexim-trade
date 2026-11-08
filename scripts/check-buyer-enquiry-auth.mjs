@@ -47,10 +47,25 @@ const { BuyerSignInForm } = load('components/buyer-sign-in-form.tsx', {
   },
 });
 const scrollLock = load('lib/browser/dialog-scroll-lock.ts', {});
+// Email người mua giờ do usePublicSession() cung cấp (trạng thái dùng chung, xem
+// lib/buyer/public-session-context.tsx) thay vì nhận trực tiếp qua prop `buyerEmail` —
+// mock ở đây đóng vai trò nguồn phiên có thể điều khiển được từ test.
+let mockBuyerEmail = null;
+const publicSessionCalls = { setSignedIn: [], setSignedOut: 0, refresh: 0 };
+const publicSession = {
+  usePublicSession: () => ({ buyerEmail: mockBuyerEmail, buyerCompanyName: null, oneTapClientId: null, showOneTap: false }),
+  usePublicSessionActions: () => ({
+    setSignedIn: (email) => publicSessionCalls.setSignedIn.push(email),
+    setSignedOut: () => { publicSessionCalls.setSignedOut += 1; },
+    refresh: () => { publicSessionCalls.refresh += 1; },
+  }),
+};
 const auth = load('components/buyer-enquiry-auth.tsx', {
   '@/lib/browser/dialog-scroll-lock': scrollLock,
   'next/navigation': navigation, 'lucide-react': { X: icon },
   '@/components/buyer-sign-in-form': { BuyerSignInForm }, '@/lib/buyer/next-path': nextPaths,
+  '@/lib/i18n/buyer-auth': { buyerAuthMessages: authMessages },
+  '@/lib/buyer/public-session-context': publicSession,
 });
 const { AskSupplierDialog } = load('components/products/ask-supplier-dialog.tsx', {
   '@/components/chat/dock': { CHAT_DOCK_CLASS: 'dock', useChatDock: () => {} },
@@ -70,9 +85,13 @@ const target = '/rfq?category=nuts&product_id=p1&suppliers=s1&grade=W320&sample=
 const props = { category: 'nuts', productId: 'p1', productName: 'Cashew', supplierId: 's1', supplierName: 'Supplier', grade: 'W320', imageUrl: null, quoteHref: target };
 let root = createRoot(document.getElementById('root'));
 async function mount(email = null, locale = 'en', strict = false) {
+  mockBuyerEmail = email;
+  // Chỉ đặt/xoá khoá "lang" — giữ nguyên các tham số khác test đã đặt sẵn trên `params`
+  // (vd: "ask=1" cho kịch bản deep-link), vì component thật và trang chủ dùng chung URL.
+  if (locale === 'vi') params.set('lang', 'vi'); else params.delete('lang');
   await act(async () => root.unmount());
   root = createRoot(document.getElementById('root'));
-  let content = React.createElement(auth.BuyerEnquiryAuthProvider, { buyerEmail: email, locale, messages: authMessages[locale] },
+  let content = React.createElement(auth.BuyerEnquiryAuthProvider, null,
     React.createElement('a', { href: target, id: 'quote' }, React.createElement('span', null, 'Request a quote')),
     React.createElement(AskSupplierDialog, props));
   if (strict) content = React.createElement(React.StrictMode, null, content);

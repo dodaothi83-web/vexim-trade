@@ -239,7 +239,13 @@ assert.match(completeness, /copy\.lang === "en" \? result\.next\.labelEn/, "Câu
 
 /* 4. Ngôn ngữ của cổng lấy từ cookie, không đổi URL. */
 const layout = read("app/layout.tsx");
-assert.match(layout, /isLocalizedPath\(pathname\)/, "layout dùng đúng phạm vi đa ngôn ngữ");
+// RootLayout không còn gọi isLocalizedPath(pathname) lúc render server (đọc cookies()/headers()
+// ở layout gốc buộc toàn bộ route con render động) — logic này giờ chạy trong một <script>
+// client nhúng thẳng .source của LOCALIZED_AUTH_PATH_RE/LOCALIZED_PORTAL_PATH_RE/
+// LEGACY_VIETNAMESE_PATH_RE (xem app/layout.tsx). Hành vi THẬT của script đó (thực thi, không
+// chỉ match chuỗi nguồn) đã được kiểm tra đầy đủ ở check-auth-i18n.mjs; ở đây chỉ cần xác nhận
+// layout có tham chiếu đúng regex phạm vi cổng NCC, không tự chép tay một bản khác.
+assert.match(layout, /LOCALIZED_PORTAL_PATH_RE/, "layout dùng đúng phạm vi đa ngôn ngữ của cổng NCC");
 const { isLocalizedPath, isLocalizedPortalPath } = await import("../lib/i18n/config.ts");
 for (const route of ["/supplier/portal", "/supplier/portal/products", "/login", "/register"]) {
   assert.equal(isLocalizedPath(route), true, `${route} đọc ngôn ngữ từ cookie`);
