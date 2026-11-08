@@ -20,7 +20,7 @@ Hồ tiêu ghi theo g/l. Hạt điều ghi W320, W240. Quế ghi theo đường 
 
 Ba bước kiểm, duyệt riêng từng bước: giấy tờ doanh nghiệp, xác thực nhà máy, lịch sử giao hàng. Bước nào xong thì huy hiệu bước đó hiện trên hồ sơ. Không gộp, không suy bước này ra bước kia. Buyer nhìn thấy đúng ba việc đã xảy ra, không phải một con số chung chung.
 
-Mỗi danh mục hiện tối đa ba thẻ cho một nhà cung cấp. Nhà lớn không chiếm hết trang, nhà nhỏ vẫn có chỗ đứng cạnh nhà lớn để buyer so.
+Trong mỗi danh mục, sản phẩm các nhà cung cấp xếp xen kẽ nhau. Nhà lớn không chiếm hết đầu trang, nhà nhỏ vẫn có chỗ đứng cạnh nhà lớn để buyer so — mà không ai bị giấu bớt sản phẩm.
 
 Khi buyer bấm gửi yêu cầu báo giá, thư đến thẳng bạn: mặt hàng, quy cách, sản lượng, thời gian giao, cảng đến. Bạn trả lời một lần, đúng người, không phải hỏi lại từ đầu. Khoảng bảy trong mười yêu cầu đầu tiên hỏi về quy cách, thời gian giao và chứng từ. Trả lời được ba câu đó trong một thư là bạn đã đi trước phần lớn đối thủ.
 
@@ -89,7 +89,7 @@ Số nào lấy từ hệ thống thì giữ nguyên. Số nào là số tạm t
 | --- | --- | --- | --- |
 | Ba danh mục đang mở: hạt điều nhân, hồ tiêu, quế và hồi | Thật | Danh mục đã xuất bản trên trang công khai | Mở /products, đếm danh mục đang hiện |
 | Mục tiêu 12 sản phẩm, 6 nhà mỗi danh mục | Thật, là mục tiêu | docs/sourcing-plan.md, mục 2 | Đối chiếu số đang có trong CRM |
-| Tối đa ba thẻ mỗi nhà trong một danh mục | Thật | components/category-product-grid.tsx, supplierCap = 3 | Đếm thẻ cùng nhà trên một trang danh mục |
+| Không giới hạn số thẻ mỗi nhà; sản phẩm các nhà xen kẽ nhau (round-robin), không ai bị dồn cục hay bị ẩn | Thật | components/category-product-grid.tsx, lib/public/supplier-product-order.ts, arrangeSupplierProducts | Lọc một danh mục có một nhà nhiều sản phẩm, kiểm tra toàn bộ sản phẩm của họ đều hiện và được xen kẽ với nhà khác |
 | Xem được lượt truy cập gian hàng | Thật | /supplier/portal/traffic | Đăng nhập một tài khoản nhà cung cấp |
 | Ba bước kiểm duyệt riêng từng bước | Thật | docs/verification-levels.md | Kiểm một hồ sơ đã duyệt |
 | Ba mươi lời chào hàng mỗi sáng | Số tạm, dùng làm ví dụ | Không phải số của Vexim, chỉ mô tả thói quen hộp thư mua hàng | Giữ ở dạng ví dụ, đừng biến thành số liệu của mình. Muốn chắc thì phỏng vấn ba buyer rồi lấy khoảng thật |

@@ -23,23 +23,18 @@ import {
 import { hasProductComparisonPeer } from "../lib/public/product-comparison.ts";
 import { getCategoryTitle } from "../lib/public/category-names.ts";
 
-/* ---------------- 1. Giới hạn nhà cung cấp ---------------- */
+/* ---------------- 1. Xen kẽ nhà cung cấp (trang danh mục dùng hàm này, không trần) -- */
 
 const many = (suppliers, perSupplier) =>
   Array.from({ length: suppliers * perSupplier }, (_, i) => ({ supplierId: `s${i % suppliers}` }));
 
 assert.equal(HOME_FEED_PER_SUPPLIER, 2, "Two products per supplier, so one company cannot fill the homepage");
-const cappedForOneSeller = arrangeSupplierProducts(many(1, 20), HOME_FEED_PER_SUPPLIER).shown;
-assert.equal(cappedForOneSeller.length, HOME_FEED_PER_SUPPLIER, "The existing per-supplier cap stays unchanged");
-assert.equal(arrangeSupplierProducts([], HOME_FEED_PER_SUPPLIER).shown.length, 0, "Empty input stays empty");
+assert.equal(arrangeSupplierProducts([]).length, 0, "Empty input stays empty");
 const skewed = [...Array.from({ length: 5 }, (_, i) => ({ supplierId: 'A', id: `a${i}` })),
   { supplierId: 'B', id: 'b0' }, { supplierId: 'C', id: 'c0' }, { supplierId: 'B', id: 'b1' }];
-const rounds = arrangeSupplierProducts(skewed, null);
-assert.deepEqual(rounds.shown.map((p) => p.id), ['a0', 'b0', 'c0', 'a1', 'b1', 'a2', 'a3', 'a4']);
-const limited = arrangeSupplierProducts(skewed, 2);
-assert.deepEqual(limited.shown.map((p) => p.id), ['a0', 'b0', 'c0', 'a1', 'b1']);
-assert.equal(limited.hidden.get('A'), 3);
-assert.equal(arrangeSupplierProducts(skewed, 0).shown.length, 0);
+const rounds = arrangeSupplierProducts(skewed);
+assert.deepEqual(rounds.map((p) => p.id), ['a0', 'b0', 'c0', 'a1', 'b1', 'a2', 'a3', 'a4']);
+assert.equal(rounds.length, skewed.length, "No cap: every product stays, nothing hidden behind a 'more' link");
 
 /* ---------------- 2. Render thật ---------------- */
 

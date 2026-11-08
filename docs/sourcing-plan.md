@@ -10,7 +10,7 @@ Ba danh mục đang chạy không phải giới hạn của việc tuyển. Chú
 
 Mỗi danh mục là một mặt sàn riêng: một trang công khai, một lưới sản phẩm, một bể tài trợ 12 suất, một cụm từ khoá người mua tìm. Thêm một danh mục không làm danh mục cũ loãng đi, vì hai danh mục không dùng chung suất.
 
-Cái có giới hạn là **số nhà cung cấp trong một danh mục**: trần 3 thẻ mỗi nhà ở lưới, 2 thẻ mỗi nhà ở trang chủ. Vì thế tuyển nhà thứ bảy cho quế không làm quế tốt hơn. Nhưng mở danh mục thứ tư thì cả đội có thêm việc thật.
+Lưới danh mục không còn trần số thẻ mỗi nhà — mọi sản phẩm khớp bộ lọc đều hiện, chỉ xen kẽ (round-robin) giữa các NCC để nhà lớn không dồn cục ở đầu trang. Giới hạn hiển thị còn lại chỉ nằm ở trang chủ: 2 thẻ mỗi nhà. Vì thế tuyển nhà thứ bảy cho quế vẫn cho buyer thêm lựa chọn thật trên lưới danh mục, nhưng không đổi độ nổi bật của quế ở trang chủ. Mở danh mục thứ tư thì cả đội có thêm việc thật theo một cách khác hẳn.
 
 ## 2. Khi nào một danh mục được coi là mở được
 

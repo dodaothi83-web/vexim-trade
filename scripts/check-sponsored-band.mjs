@@ -115,13 +115,15 @@ assert.match(grid, /!active && \(sponsoredBand\.length > 0/, "Đang lọc thì p
 assert.ok(grid.indexOf("<SponsoredProductBand") < grid.indexOf("grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2"),
   "Vùng đẩy phải nằm trên lưới tự nhiên");
 
-// Vùng đẩy là suất cộng thêm: phải lấy thẻ ra khỏi danh sách TRƯỚC khi áp trần
-// ba thẻ mỗi nhà cung cấp, nếu không gói sẽ ăn vào suất của chính nhà cung cấp đó.
+// Vùng đẩy là suất cộng thêm: phải lấy thẻ ra khỏi danh sách TRƯỚC khi xen kẽ
+// nhà cung cấp, nếu không gói sẽ ăn vào suất của chính nhà cung cấp đó.
 assert.ok(grid.includes("withoutSponsoredBand(visible, sponsoredBand)"), "Danh sách dưới phải bỏ thẻ đã lên vùng đẩy");
 assert.ok(grid.indexOf("withoutSponsoredBand(visible, sponsoredBand)") < grid.indexOf("arrangeSupplierProducts(listPool"),
-  "Phải bỏ thẻ vùng đẩy trước khi áp trần mỗi nhà cung cấp");
-assert.match(grid, /const supplierCap = /, "Trần mỗi nhà cung cấp phải là một biến dùng chung");
-assert.match(grid, /in the list below/, "Dòng đếm phải nói rõ trần áp cho danh sách bên dưới");
+  "Phải bỏ thẻ vùng đẩy trước khi xen kẽ nhà cung cấp");
+// Không còn trần mỗi nhà cung cấp: mọi sản phẩm hợp lệ đều được hiện, không có
+// lối "xem thêm" ẩn bớt sản phẩm của nhà cung cấp nào.
+assert.doesNotMatch(grid, /supplierCap/, "Không còn trần số thẻ mỗi nhà cung cấp");
+assert.doesNotMatch(grid, /more from/, "Không còn lối 'xem thêm' ẩn sản phẩm nhà cung cấp");
 
 const band = readFileSync(new URL("../components/sponsored-product-band.tsx", import.meta.url), "utf8");
 assert.match(band, /mt-3 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3/, "Sponsored cards use one phone column before the wider layouts");
