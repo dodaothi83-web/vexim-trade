@@ -29,6 +29,7 @@ let spamScore = 0;
 const category = { id: 'cat-1', slug: 'cashew', status: 'published', is_published: true };
 const submitStore = {
   listBuyers: async () => listedBuyers,
+  getBuyerByEmail: async (email) => listedBuyers.find((b) => b.email === email) ?? null,
   createBuyer: async (input) => { createdBuyers.push(input); return { id: 'buyer-1', ...input }; },
   updateBuyer: async (id, patch) => {
     buyerUpdates.push({ id, patch });

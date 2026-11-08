@@ -185,6 +185,7 @@ const acks = [];
 const internal = [];
 const submitStore = {
   listBuyers: async () => [],
+  getBuyerByEmail: async () => null,
   createBuyer: async (input) => { createdBuyers.push(input); return { id: 'buyer-1', ...input }; },
   updateBuyer: async (id, patch) => ({ id, ...patch }),
   getCategoryBySlug: async () => null,

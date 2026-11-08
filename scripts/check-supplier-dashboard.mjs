@@ -268,7 +268,7 @@ assert.match(schema, /response_due_at timestamptz/);
 assert.match(schema, /supplier_portal_notice_reads enable row level security/);
 const createdRfqs = [];
 const category = { id: 'cat1', slug: 'cashew', status: 'published', is_published: true };
-const submitStore = { listBuyers: async () => [], createBuyer: async () => ({ id: 'buyer-1', email: 'buyer@example.com' }),
+const submitStore = { listBuyers: async () => [], getBuyerByEmail: async () => null, createBuyer: async () => ({ id: 'buyer-1', email: 'buyer@example.com' }),
   getCategoryBySlug: async () => category, listRfqs: async () => [],
   createRfq: async (input) => { createdRfqs.push(input); return { ...input, id: 'new-rfq', status: 'new', access_token: 'private' }; },
   addAuditLog: async () => null };
