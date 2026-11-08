@@ -7,12 +7,18 @@ import { Logo } from "@/components/brand-logo";
 import { BuyerSignInStatus } from "@/components/buyer-sign-in-status";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteTrafficBeacon } from "@/components/site-traffic-beacon";
+import { PublicSessionProvider } from "@/lib/buyer/public-session-context";
 
 // Không còn đọc cookie phiên người mua ở đây (xem BuyerEnquiryAuthProvider /
 // BuyerSignInStatus — cả hai giờ tự lấy trạng thái qua /api/public/session phía client),
 // nên layout này cũng không còn lý do bị buộc render động.
+//
+// PublicSessionProvider riêng cho layout này (không dùng chung với app/(public)/layout.tsx
+// vì /blog là route group độc lập, không lồng nhau) — cùng cách BuyerEnquiryAuthProvider đã
+// được đặt riêng ở mỗi layout từ trước.
 export default function BlogLayout({ children }: { children: ReactNode }) {
   return (
+    <PublicSessionProvider>
     <BuyerEnquiryAuthProvider>
     <div className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
@@ -37,5 +43,6 @@ export default function BlogLayout({ children }: { children: ReactNode }) {
       <SiteFooter />
     </div>
     </BuyerEnquiryAuthProvider>
+    </PublicSessionProvider>
   );
 }

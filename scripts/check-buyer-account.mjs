@@ -159,6 +159,7 @@ const removal = load('components/buyer-saved-products.tsx', {
   'next/link': { default: icon },
   'lucide-react': { Heart: icon, Trash2: () => React.createElement('svg', { 'data-trash': true }) },
   '@/app/(public)/buyer/account/actions': { setSavedProductAction: async (...args) => { removeArgs = args; return { ok: true }; } },
+  '@/lib/buyer/public-session-context': { usePublicSession: () => ({ buyerEmail: null, buyerCompanyName: null, oneTapClientId: null, showOneTap: false }) },
 });
 for (const isVi of [false, true]) {
   savedContext = { ...savedContext, isVi };
@@ -186,6 +187,12 @@ assert.match(sql, /where id = p_account_id/);
 assert.match(sql, /revoke all[\s\S]*from public, anon, authenticated/);
 assert.match(sql, /grant execute[\s\S]*to service_role/);
 assert.match(read('lib/db/supabase.ts'), /replace\(\/\[\\\\%_\]\/g/);
-assert.match(read('app/(public)/layout.tsx'), /sessionKey=\{buyerSession\?\.email/);
+// Khoá cache phía client của danh sách đã lưu phải bám theo phiên đăng nhập THẬT (dùng chung
+// qua PublicSessionProvider), không phải một hằng số cố định — nếu không, đổi tài khoản mà
+// không điều hướng trang sẽ hiển thị nhầm dữ liệu đã lưu của tài khoản cũ (xem
+// lib/buyer/public-session-context.tsx và check-buyer-google-one-tap.mjs cho kịch bản race).
+const savedProductsSource = read('components/buyer-saved-products.tsx');
+assert.match(savedProductsSource, /usePublicSession\(\)/);
+assert.match(savedProductsSource, /sessionKey = buyerEmail \?\? "guest"/);
 assert.match(read('app/(public)/buyer/account/page.tsx'), /index: false/);
 console.log('✅ Buyer account: authenticated EN/VI tabs, own requests, safe saves/removal, profile validation and category recommendations.');

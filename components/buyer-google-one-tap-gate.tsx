@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { BuyerGoogleOneTap } from "@/components/buyer-google-one-tap";
-import { usePublicSession } from "@/lib/buyer/use-public-session";
+import { usePublicSession } from "@/lib/buyer/public-session-context";
 
 /**
  * Trước đây app/(public)/layout.tsx quyết định có hiện Google One Tap hay không NGAY lúc

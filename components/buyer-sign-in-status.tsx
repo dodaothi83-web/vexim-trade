@@ -1,7 +1,7 @@
 "use client";
 
 import { PublicSignInLink } from "@/components/public-sign-in-link";
-import { usePublicSession } from "@/lib/buyer/use-public-session";
+import { usePublicSession } from "@/lib/buyer/public-session-context";
 
 /**
  * `PublicSignInLink` tự lấy trạng thái đăng nhập người mua qua /api/public/session thay vì

@@ -8,7 +8,7 @@ import { VeximLanguageIcon } from "@/components/brand/vexim-icons";
 
 import { SourcingComposerTrigger } from "@/components/sourcing-composer";
 import { PublicSignInLink } from "@/components/public-sign-in-link";
-import { usePublicSession } from "@/lib/buyer/use-public-session";
+import { usePublicSession } from "@/lib/buyer/public-session-context";
 
 const NAV_LINK = "rounded-full px-3 py-2 transition-colors hover:bg-ink-50 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 lg:px-3.5";
 const NAV_ACTIVE = "bg-brand-50 text-brand-800 hover:bg-brand-50 hover:text-brand-800";
@@ -142,7 +142,14 @@ function HeaderControlsInner() {
   );
 }
 
+/**
+ * Chỉ hiện trong lúc useSearchParams() ở HeaderControlsInner còn "suspend" (hiếm, thường chỉ
+ * vài khung hình đầu khi stream SSR) — usePublicSession() KHÔNG phụ thuộc useSearchParams()
+ * nên vẫn gọi được ở đây để hiển thị đúng trạng thái đăng nhập ngay cả trong lúc chờ, thay vì
+ * luôn hiện "Sign in" cho người đã đăng nhập.
+ */
 function HeaderControlsFallback() {
+  const { buyerEmail, buyerCompanyName } = usePublicSession();
   return (
     <>
       <PrimaryNav pathname="/" isVi={false} />
@@ -159,7 +166,7 @@ function HeaderControlsFallback() {
         </button>
 
         <span className="mx-0.5 hidden h-6 w-px bg-ink-200 sm:block" aria-hidden="true" />
-        <PublicSignInLink buyerEmail={null} buyerCompanyName={null} />
+        <PublicSignInLink buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
         <SourcingComposerTrigger />
       </div>
     </>
@@ -169,7 +176,7 @@ function HeaderControlsFallback() {
 /**
  * Không còn nhận `buyerEmail`/`buyerCompanyName` từ layout server (trước đây qua
  * getBuyerSession(), buộc layout phải render động). `HeaderControlsInner` giờ tự gọi
- * /api/public/session SAU khi mount — xem lib/buyer/use-public-session.ts.
+ * /api/public/session SAU khi mount — xem lib/buyer/public-session-context.tsx.
  */
 export function PublicHeaderControls() {
   return (

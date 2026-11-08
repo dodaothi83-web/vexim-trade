@@ -7,7 +7,7 @@ import { BuyerSignInForm } from "@/components/buyer-sign-in-form";
 import { buyerAuthMessages } from "@/lib/i18n/buyer-auth";
 import { lockDialogScroll } from "@/lib/browser/dialog-scroll-lock";
 import { safeNextPath } from "@/lib/buyer/next-path";
-import { usePublicSession } from "@/lib/buyer/use-public-session";
+import { usePublicSession, usePublicSessionActions } from "@/lib/buyer/public-session-context";
 
 type Auth = { email: string | null; requireBuyer: (next: string, resume?: () => void, forceSignIn?: boolean) => void };
 const Context = createContext<Auth>({ email: null, requireBuyer: () => {} });
@@ -32,6 +32,7 @@ export function BuyerEnquiryAuthProvider({ children }: { children: ReactNode }) 
 function BuyerEnquiryAuthProviderInner({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { buyerEmail } = usePublicSession();
+  const { setSignedIn } = usePublicSessionActions();
   const isVi = useSearchParams()?.get("lang") === "vi";
   const locale = isVi ? "vi" : "en";
   const messages = buyerAuthMessages[locale];
@@ -84,6 +85,10 @@ function BuyerEnquiryAuthProviderInner({ children }: { children: ReactNode }) {
     const destination = next;
     const continuation = resume.current;
     setEmail(verifiedEmail);
+    // Đồng bộ ngay cho header/saved-products/one-tap gate — những nơi này không mount lại
+    // khi đăng nhập qua hộp thoại nhanh (không có điều hướng trang), nên không tự biết email
+    // mới trừ khi được báo trực tiếp qua state dùng chung này.
+    setSignedIn(verifiedEmail);
     close();
     if (continuation) continuation();
     else if (destination) router.push(destination);

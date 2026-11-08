@@ -1,6 +1,7 @@
 import { BuyerEnquiryAuthProvider } from "@/components/buyer-enquiry-auth";
 import { BuyerGoogleOneTapGate } from "@/components/buyer-google-one-tap-gate";
 import { BuyerSavedProductsProvider } from "@/components/buyer-saved-products";
+import { PublicSessionProvider } from "@/lib/buyer/public-session-context";
 import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 
@@ -30,13 +31,14 @@ export const revalidate = 300;
  * (đều đọc cookie) ngay lúc render — bất kỳ lần đọc cookie nào trong cây render cũng buộc
  * Next.js coi toàn bộ nhánh đó là "force-dynamic", nên không trang công khai nào cache/ISR
  * được, dù trang đó không tự đọc cookie. Giờ các phần việc đó do client tự gọi
- * /api/public/session SAU khi HTML tĩnh đã hiển thị (xem lib/buyer/use-public-session.ts,
+ * /api/public/session SAU khi HTML tĩnh đã hiển thị (xem lib/buyer/public-session-context.tsx,
  * components/public-header-controls.tsx, components/buyer-google-one-tap-gate.tsx) — người
  * mua đã đăng nhập vẫn thấy đúng trạng thái của mình, chỉ trễ một nhịp rất ngắn thay vì chặn
  * toàn bộ trang render động trên mỗi request.
  */
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
+    <PublicSessionProvider>
     <BuyerSavedProductsProvider>
     <BuyerEnquiryAuthProvider>
     <ProductComparisonProvider>
@@ -71,5 +73,6 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
     </ProductComparisonProvider>
     </BuyerEnquiryAuthProvider>
     </BuyerSavedProductsProvider>
+    </PublicSessionProvider>
   );
 }
