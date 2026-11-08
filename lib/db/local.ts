@@ -135,7 +135,7 @@ const FILE = path.join(process.cwd(), "data", "local-db.json");
 const MAX_BUYER_SAVED_PRODUCTS = 100;
 const MAX_BUYER_SAVED_COMPARISONS = 30;
 
-const g = globalThis as unknown as { __veximLocal?: LocalShape };
+const g = globalThis as unknown as { __veximLocal?: LocalShape; __veximLocalMigrated?: boolean };
 
 function nowISO(offsetDays = 0) {
   const d = new Date();
@@ -877,6 +877,15 @@ function ensureDemoSuppliers(db: LocalShape) {
 }
 
 function load(): LocalShape {
+  // Hiệu năng: khi đã nạp vào RAM trong tiến trình này (g.__veximLocal tồn tại), dữ liệu
+  // CHẮC CHẮN đã qua đúng một lượt chuẩn hoá/di trú bên dưới rồi — các hàm migrate*()/
+  // ensure*() chỉ cần chạy một lần khi vừa đọc file hoặc vừa seed, không phải mỗi lần
+  // load() được gọi. Trước đây toàn bộ danh sách kiểm tra + 12 hàm migrate chạy lại trên
+  // MỌI lệnh gọi store (listCategories, listSuppliers, listProducts...) — tức hàng chục lần
+  // mỗi lượt render một trang — dù dữ liệu không đổi gì giữa các lần gọi đó. Đây là chi phí
+  // CPU áp dụng riêng cho kho cục bộ dùng trong sandbox/dev (lib/db/local.ts, bật khi
+  // E2B_SANDBOX=true hoặc "npm run dev"); Supabase thật ở production không đi qua đường này.
+  if (g.__veximLocal && g.__veximLocalMigrated) return g.__veximLocal;
   if (g.__veximLocal) {
     const c = g.__veximLocal;
     if (!Array.isArray(c.messages)) c.messages = [];
@@ -925,6 +934,7 @@ function load(): LocalShape {
     migrateVerifications(c);
     migrateSubmissions(c);
     removeProspectsWithoutEmail(c);
+    g.__veximLocalMigrated = true;
     return c;
   }
   try {
@@ -976,6 +986,7 @@ function load(): LocalShape {
         migrateSubmissions(parsed);
         removeProspectsWithoutEmail(parsed);
         g.__veximLocal = parsed;
+        g.__veximLocalMigrated = true;
         return parsed;
       }
     }
@@ -993,6 +1004,7 @@ function load(): LocalShape {
   migrateVerifications(fresh);
   migrateSubmissions(fresh);
   g.__veximLocal = fresh;
+  g.__veximLocalMigrated = true;
   persist(fresh);
   return fresh;
 }

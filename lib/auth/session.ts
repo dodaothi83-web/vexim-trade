@@ -1,79 +1,34 @@
 import "server-only";
 
-import crypto from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { getAuthSecret } from "@/lib/auth/secret";
 import { hasPermission, type Permission } from "@/lib/auth/permissions";
 import { getStore } from "@/lib/db";
 import { describeAppUsersError, isMissingUsersTable } from "@/lib/auth/authenticate";
-import type { UserRole } from "@/lib/types";
 
 /**
  * Phiên đăng nhập: cookie HttpOnly chứa token ký HMAC-SHA256.
  * Token không lưu mật khẩu, chỉ giữ định danh + vai trò + hạn dùng.
- */
-
-export const SESSION_COOKIE = "vxt_session";
-const SESSION_DAYS = 7;
-
-export interface SessionUser {
-  uid: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  /** Nguồn xác thực của phiên này: qua Supabase hay mật khẩu nội bộ */
-  via: "supabase" | "local";
-  exp: number;
-}
-
-function b64url(input: Buffer | string): string {
-  return Buffer.from(input).toString("base64url");
-}
-
-export function signPayloadB64(payloadB64: string): string {
-  return crypto.createHmac("sha256", getAuthSecret()).update(payloadB64).digest("base64url");
-}
-
-/**
- * Ký một payload bất kỳ bằng đúng khoá và đúng thuật toán của phiên nhân viên.
  *
- * Tách ra để loại phiên thứ hai (người mua, `lib/auth/buyer-session.ts`) dùng lại
- * thay vì tự dựng một cơ chế ký riêng — hai cơ chế ký là hai chỗ để sai.
+ * Phần ký/xác minh chữ ký thuần (không phụ thuộc next/headers hay CSDL) đã
+ * chuyển sang `lib/auth/session-token.ts` để middleware.ts dùng lại được mà
+ * không phải kéo theo toàn bộ lib/db vào bundle của middleware. Re-export ở
+ * đây để các chỗ gọi hiện có không phải đổi đường import.
  */
-export function signPayload<T extends object>(payload: T): string {
-  const body = b64url(JSON.stringify(payload));
-  return `${body}.${signPayloadB64(body)}`;
-}
+export {
+  SESSION_COOKIE,
+  signPayloadB64,
+  signPayload,
+  readSignedPayload,
+  createSessionToken,
+  verifySessionToken,
+  type SessionUser,
+} from "@/lib/auth/session-token";
+import { SESSION_COOKIE, createSessionToken, verifySessionToken } from "@/lib/auth/session-token";
+import type { SessionUser } from "@/lib/auth/session-token";
 
-/** Trả payload nếu chữ ký đúng; KHÔNG kiểm hạn dùng (nơi gọi tự kiểm trường của mình). */
-export function readSignedPayload<T extends object>(token: string | undefined | null): T | null {
-  if (!token) return null;
-  const [body, mac] = token.split(".");
-  if (!body || !mac) return null;
-
-  const a = Buffer.from(mac);
-  const b = Buffer.from(signPayloadB64(body));
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-
-  try {
-    return JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as T;
-  } catch {
-    return null;
-  }
-}
-
-export function createSessionToken(user: Omit<SessionUser, "exp">, days = SESSION_DAYS): string {
-  return signPayload<SessionUser>({ ...user, exp: Date.now() + days * 24 * 60 * 60 * 1000 });
-}
-
-export function verifySessionToken(token: string | undefined | null): SessionUser | null {
-  const payload = readSignedPayload<SessionUser>(token);
-  if (!payload?.uid || !payload?.role || !payload.exp) return null;
-  if (payload.exp < Date.now()) return null;
-  return payload;
-}
+const SESSION_DAYS = 7;
 
 /**
  * Vì sao cookie hợp lệ nhưng không dựng lại được phiên.

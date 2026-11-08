@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useTransition, type ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { createContext, Suspense, useContext, useEffect, useState, useTransition, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Heart, Trash2 } from "lucide-react";
 import { getSavedProductsState, setSavedProductAction } from "@/app/(public)/buyer/account/actions";
@@ -9,7 +9,32 @@ import { getSavedProductsState, setSavedProductAction } from "@/app/(public)/buy
 type SavedState = { authenticated: boolean; ids: string[] };
 const SavedContext = createContext<{ state: SavedState | null; update: (id: string, saved: boolean) => void; isVi: boolean; loadError: boolean; reload: () => void } | null>(null);
 
-export function BuyerSavedProductsProvider({ children, isVi, sessionKey = "guest" }: { children: ReactNode; isVi: boolean; sessionKey?: string }) {
+/**
+ * `isVi` không còn nhận từ layout (trước đây lấy từ cookie qua getLocale(), buộc layout
+ * phải render động). Trang công khai dùng tham số URL `?lang=vi` làm nguồn ngôn ngữ duy nhất
+ * (xem components/public-header-controls.tsx) nên đọc lại chính tham số đó ở đây cho nhất quán.
+ *
+ * `sessionKey` mặc định "guest": chỉ là khoá cache phía client để tách biệt dữ liệu đã lưu
+ * giữa các tài khoản, KHÔNG phải nguồn xác thực — getSavedProductsState() (server action)
+ * tự đọc cookie phiên người mua thật mỗi lần gọi, nên vẫn trả đúng trạng thái đăng nhập dù
+ * sessionKey ở đây luôn là chuỗi cố định.
+ */
+/**
+ * next/navigation yêu cầu mọi useSearchParams() phải nằm trong <Suspense> — kể cả ở route
+ * render động — nếu không `next build` báo lỗi "missing-suspense-with-csr-bailout". Fallback
+ * không bọc SavedContext.Provider: context mặc định là null, và SaveProductButton đã tự xử lý
+ * null bằng cách ẩn mình, nên vài mili-giây đầu không có nút "Lưu" vẫn an toàn.
+ */
+export function BuyerSavedProductsProvider({ children, sessionKey }: { children: ReactNode; sessionKey?: string }) {
+  return (
+    <Suspense fallback={children}>
+      <BuyerSavedProductsProviderInner sessionKey={sessionKey}>{children}</BuyerSavedProductsProviderInner>
+    </Suspense>
+  );
+}
+
+function BuyerSavedProductsProviderInner({ children, sessionKey = "guest" }: { children: ReactNode; sessionKey?: string }) {
+  const isVi = useSearchParams()?.get("lang") === "vi";
   // Scope the cache to the account, not a React key around the whole public page.
   // Changing accounts clears visible saved IDs immediately without destroying unfinished forms.
   const [snapshot, setSnapshot] = useState<{ owner: string; state: SavedState } | null>(null);

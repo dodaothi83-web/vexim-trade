@@ -1,22 +1,40 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { createContext, Suspense, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { BuyerSignInForm } from "@/components/buyer-sign-in-form";
-import type { BuyerAuthMessages } from "@/lib/i18n/buyer-auth";
-import type { Locale } from "@/lib/i18n/config";
+import { buyerAuthMessages } from "@/lib/i18n/buyer-auth";
 import { lockDialogScroll } from "@/lib/browser/dialog-scroll-lock";
 import { safeNextPath } from "@/lib/buyer/next-path";
+import { usePublicSession } from "@/lib/buyer/use-public-session";
 
 type Auth = { email: string | null; requireBuyer: (next: string, resume?: () => void, forceSignIn?: boolean) => void };
 const Context = createContext<Auth>({ email: null, requireBuyer: () => {} });
 export const useBuyerEnquiryAuth = () => useContext(Context);
 
-export function BuyerEnquiryAuthProvider({ buyerEmail, locale, messages, children }: {
-  buyerEmail: string | null; locale: Locale; messages: BuyerAuthMessages; children: ReactNode;
-}) {
+/**
+ * Không còn nhận `buyerEmail`/`locale`/`messages` từ layout (trước đây lấy từ cookie, buộc
+ * layout phải render động). Email người mua giờ do usePublicSession() tự gọi
+ * /api/public/session SAU khi trang đã hiển thị; ngôn ngữ đọc lại từ `?lang=vi` — cùng nguồn
+ * duy nhất mà phần còn lại của trang công khai đang dùng (xem public-header-controls.tsx).
+ */
+export function BuyerEnquiryAuthProvider({ children }: { children: ReactNode }) {
+  // useSearchParams() bên trong phải nằm trong <Suspense> (yêu cầu của Next.js, kể cả ở route
+  // render động) — fallback dùng luôn Context mặc định ({ email: null, requireBuyer: no-op }).
+  return (
+    <Suspense fallback={children}>
+      <BuyerEnquiryAuthProviderInner>{children}</BuyerEnquiryAuthProviderInner>
+    </Suspense>
+  );
+}
+
+function BuyerEnquiryAuthProviderInner({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const { buyerEmail } = usePublicSession();
+  const isVi = useSearchParams()?.get("lang") === "vi";
+  const locale = isVi ? "vi" : "en";
+  const messages = buyerAuthMessages[locale];
   const [email, setEmail] = useState(buyerEmail);
   const [next, setNext] = useState<string | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
