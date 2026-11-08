@@ -25,15 +25,12 @@ export function PriceRangeStrip({
   if (outcome.status === "none") return null;
 
   if (outcome.status === "too_few" || outcome.status === "too_few_suppliers") {
-    const reason =
-      outcome.status === "too_few"
-        ? "Too few published prices per grade yet."
-        : "Prices exist, but from too few different suppliers per grade yet.";
     return (
       <section className="mt-6 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3.5">
         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Reference price</p>
         <p className="mt-1 text-[13px] leading-relaxed text-ink-600">
-          {reason} Send your specification and volume for {categoryName.toLowerCase()} to get an actual quote.
+          Not enough data yet. Send your {categoryName.toLowerCase()} specification and volume to get an accurate
+          quote.
         </p>
       </section>
     );
