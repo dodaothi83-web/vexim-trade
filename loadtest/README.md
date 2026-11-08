@@ -25,6 +25,14 @@ Bài học: trước khi thêm một path mới vào script, nên xác nhận ro
 thật trong `app/` hoặc đã từng mở trang đó qua trình duyệt, chứ không nên
 đoán theo tên.
 
+**Kết quả sau khi sửa (đợt 3, 20 VU/5 phút, 6 trang: trang chủ, 3 danh mục
+Hạt điều/Hồ tiêu/Quế hồi, trang RFQ chỉ load form, blog):** 3.6K request,
+**0 lỗi HTTP**, Peak RPS 15.42, P95 tổng 775ms — mỗi trang riêng lẻ (nhờ
+`tags: { name }` gắn ở mỗi request) cũng đều 593 request/200 OK, P95 từ
+185ms (blog) tới 926ms (danh mục Hạt điều). Xác nhận cả 3 danh mục sản
+phẩm đang publish đúng trên production và chịu tải tốt ở mức 20 VU đồng
+thời.
+
 ## 2. Vì sao KHÔNG có script k6 tải cao cho việc gửi RFQ thật
 
 Đã đọc code `lib/rfq/submit.ts` trước khi viết test và thấy 3 lý do không nên
