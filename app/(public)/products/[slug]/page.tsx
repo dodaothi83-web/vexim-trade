@@ -1,4 +1,3 @@
-import { VeximDocumentIcon, VeximInspectionIcon, VeximDeliveryIcon } from "@/components/brand/vexim-icons";
 import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -10,7 +9,6 @@ import {
   CalendarRange,
   CheckCircle2,
   ChevronDown,
-  ChevronRight,
   ClipboardCheck,
   Factory,
   FileCheck2,
@@ -137,6 +135,7 @@ function pricePointsFrom(products: PublicCategoryProduct[]): GradePricePoint[] {
           currency: point.currency,
           updatedAt: point.updatedAt,
           grade: point.grade,
+          supplierId: p.supplierId,
         }));
       }
       return [{
@@ -146,6 +145,7 @@ function pricePointsFrom(products: PublicCategoryProduct[]): GradePricePoint[] {
         currency: p.pricePoint!.currency,
         updatedAt: p.pricePoint!.updatedAt,
         grade: p.grade,
+        supplierId: p.supplierId,
       }];
     });
 }
@@ -607,6 +607,12 @@ function StateA({
   const priceRange = buildPriceBlock(pricePointsFrom(products), {
     unit: unitConfig.primary,
     secondaryUnit: unitConfig.secondary,
+    // Dữ liệu giai đoạn đầu phần lớn do nhân viên nhập tay từ nguồn ngoài (vd
+    // Alibaba), chưa quen hệ thống nên có thể gắn nhầm quy cách hoặc lặp giá
+    // mồi ở nhiều dòng. Yêu cầu đủ 15 NCC khác nhau cho mỗi quy cách trước khi
+    // công bố khoảng giá — quy cách nào chưa đủ sẽ tự hiện lại khi có thêm NCC
+    // thật tham gia, không cần ai bật tay.
+    minDistinctSuppliers: 15,
   });
   const grades: string[] = [];
   for (const f of filters) {
@@ -738,8 +744,6 @@ function CategoryContentSections({ columns, rows, facts, faqs, body, categoryNam
         </CollapsibleSection>
       )}
 
-      <VerificationSection />
-
       {body && (
         <section id="about" className="mt-14">
           <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">About this category</p>
@@ -867,28 +871,6 @@ function CollapsibleSection({ id, eyebrow, title, subtitle, children }: { id: st
   );
 }
 
-function VerificationSection() {
-  return (
-    <section id="verification" className="mt-14 rounded-2xl bg-ink-900 p-6 text-white sm:p-8">
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
-        <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-300">How we check suppliers</p>
-          <h2 className="mt-3 text-[24px] font-bold leading-tight sm:text-[28px]">Three evidence-based checks.</h2>
-          <p className="mt-3 max-w-md text-[14px] leading-relaxed text-white/75">The badge on each profile shows exactly what we&apos;ve checked. Suppliers we&apos;re still checking don&apos;t get a badge.</p>
-          <Link href="/how-we-verify" className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-200 hover:text-white">
-            Read the full process <ChevronRight className="h-4 w-4" />
-          </Link>
-        </div>
-        <ol className="grid gap-3 sm:grid-cols-3">
-          <Level n="01" icon={<VeximDocumentIcon className="h-5 w-5" />} title="Documents & certificates checked" body="Business registration is reviewed and quality certificates (HACCP, ISO 22000, BRC, Halal, FDA…) are scanned for holder status (Owner or Partner Entity) and validity date." />
-          <Level n="02" icon={<VeximInspectionIcon className="h-5 w-5" />} title="Factory or partner contract review" tone="brand" body="Factory evidence and partner-factory contracts are reviewed separately. A contract review does not imply ownership or an on-site inspection." />
-          <Level n="03" icon={<VeximDeliveryIcon className="h-5 w-5" />} title="Delivery history reviewed" body="Suitable export or shipment evidence is reviewed. It does not by itself prove an end buyer received the goods; a won enquiry alone does not qualify." />
-        </ol>
-      </div>
-    </section>
-  );
-}
-
 function CtaBlock({ slug, compact }: { slug: string; compact?: boolean }) {
   return (
     <section className={"overflow-hidden rounded-2xl border border-ink-200 bg-gradient-to-br from-brand-50 via-white to-white " + (compact ? "mt-10" : "mt-14")}>
@@ -917,11 +899,6 @@ function HeroStat({ k, v }: { k: string; v: string }) {
 
 function Fact({ icon: Icon, label, value }: { icon: ComponentType<{ className?: string }>; label: string; value: string }) {
   return (<div className="flex gap-3 rounded-xl border border-ink-200 bg-white p-5"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><Icon className="h-5 w-5" /></div><div><dt className="text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-500">{label}</dt><dd className="mt-1 text-[14px] leading-relaxed text-ink-800">{value}</dd></div></div>);
-}
-
-function Level({ n, icon, title, body, tone = "neutral" }: { n: string; icon: ReactNode; title: string; body: string; tone?: "neutral" | "brand" }) {
-  const active = tone === "brand";
-  return (<li className={"rounded-xl border p-5 " + (active ? "border-brand-400/40 bg-brand-500/10" : "border-white/15 bg-white/5")}><div className="flex items-center justify-between"><div className={"flex h-9 w-9 items-center justify-center rounded-lg " + (active ? "bg-brand-400 text-ink-900" : "bg-white/10 text-white")}>{icon}</div><span className={"text-[11px] font-black " + (active ? "text-brand-200" : "text-white/50")}>{n}</span></div><p className="mt-4 text-[15px] font-bold text-white">{title}</p><p className="mt-1 text-[13px] leading-relaxed text-white/75">{body}</p></li>);
 }
 
 function CardStat({ k, v }: { k: string; v: ReactNode }) {
