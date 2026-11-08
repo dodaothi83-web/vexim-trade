@@ -37,10 +37,11 @@ const priceRange = compile("../lib/public/price-range.ts", {
 
 const Link = ({ href, children, ...rest }) => React.createElement("a", { href, ...rest }, children);
 const ArrowRight = () => React.createElement("span", null);
+const Info = () => React.createElement("span", null);
 const strip = compile("../components/price-range.tsx", {
   "react/jsx-runtime": createRequire(import.meta.url)("react/jsx-runtime"),
   "next/link": { default: Link },
-  "lucide-react": { ArrowRight },
+  "lucide-react": { ArrowRight, Info },
   "@/lib/public/price-range": priceRange,
   "@/lib/public/price-units": units,
 });
@@ -401,7 +402,7 @@ const okHtml = renderToStaticMarkup(
   React.createElement(strip.PriceRangeStrip, { outcome: okBlock, categoryName: "Cashew", rfqHref: "/rfq?category=cashew" }),
 );
 assert.ok(okHtml.includes("$7.6–8.4/kg"), "The range reaches the page with its unit");
-assert.ok(okHtml.includes("3 published prices"), "The sample count is visible");
+assert.ok(okHtml.includes("3 prices"), "The sample count is visible");
 assert.ok(okHtml.includes("not a binding offer"), "The disclaimer is always present");
 assert.ok(okHtml.includes('href="/rfq?category=cashew"'), "The block offers a quote path");
 
@@ -411,7 +412,7 @@ const gradeHtml = renderToStaticMarkup(
 assert.ok(gradeHtml.includes("W180") && gradeHtml.includes("W320"), "Each grade is labelled on the page");
 assert.ok(gradeHtml.includes("$7–7.2/kg") && gradeHtml.includes("$9.4–9.6/kg"), "Each grade shows its own range");
 assert.ok(!gradeHtml.includes("$7–9.6/kg"), "Grades are never merged into one wide range");
-assert.ok(gradeHtml.includes("not state a grade"), "Ungraded listings are disclosed");
+assert.ok(gradeHtml.includes("ungraded listing") && gradeHtml.includes("1"), "Ungraded listings are disclosed");
 
 const outlierBlock = priceRange.buildPriceBlock(
   [
@@ -428,7 +429,7 @@ const outlierHtml = renderToStaticMarkup(
 );
 assert.ok(outlierHtml.includes("$6.2–7.2/kg"), "The bait price does not widen the headline range");
 assert.ok(!outlierHtml.includes("$1.55"), "The excluded bait price itself is not printed as a bound");
-assert.ok(/1 listing is priced far outside/.test(outlierHtml), "The page discloses that an outlier was excluded");
+assert.ok(/1 outlier excluded/.test(outlierHtml), "The page discloses that an outlier was excluded");
 
 const staleBlock = priceRange.buildPriceBlock(
   [
