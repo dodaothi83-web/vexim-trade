@@ -12,8 +12,26 @@ k6 run loadtest/k6-public-pages.js
 k6 cloud loadtest/k6-public-pages.js
 ```
 
-Kết quả đợt trước (20 VU, 5 phút, trang chủ + danh mục): 5.9K request, 0 lỗi
+Kết quả đợt đầu (20 VU, 5 phút, trang chủ + danh mục): 5.9K request, 0 lỗi
 HTTP, Peak RPS 24.83, P95 894ms — qua ngưỡng thoải mái.
+
+**Lưu ý thực tế (đợt 2):** lần đầu mở rộng danh sách trang, có đưa nhầm
+`/suppliers` (danh sách tổng NCC) vào — route này **không tồn tại trong
+code** (chỉ có trang chi tiết `/suppliers/[slug]` theo từng nhà cung cấp,
+không có trang liệt kê tất cả). Mỗi request `/suppliers` trả về 404, kéo
+`http_req_failed` lên 14% (519/3.6K) và test bị đánh fail-by-threshold.
+Không phải do server chịu tải kém — đã bỏ `/suppliers` khỏi danh sách.
+Bài học: trước khi thêm một path mới vào script, nên xác nhận route đó có
+thật trong `app/` hoặc đã từng mở trang đó qua trình duyệt, chứ không nên
+đoán theo tên.
+
+**Kết quả sau khi sửa (đợt 3, 20 VU/5 phút, 6 trang: trang chủ, 3 danh mục
+Hạt điều/Hồ tiêu/Quế hồi, trang RFQ chỉ load form, blog):** 3.6K request,
+**0 lỗi HTTP**, Peak RPS 15.42, P95 tổng 775ms — mỗi trang riêng lẻ (nhờ
+`tags: { name }` gắn ở mỗi request) cũng đều 593 request/200 OK, P95 từ
+185ms (blog) tới 926ms (danh mục Hạt điều). Xác nhận cả 3 danh mục sản
+phẩm đang publish đúng trên production và chịu tải tốt ở mức 20 VU đồng
+thời.
 
 ## 2. Vì sao KHÔNG có script k6 tải cao cho việc gửi RFQ thật
 
