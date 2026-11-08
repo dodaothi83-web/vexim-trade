@@ -106,15 +106,15 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
               {products.map((product, index) => (
                 <th key={product.id} scope="col" className="min-w-48 border-l border-ink-100 px-3 py-3 align-top sm:min-w-60 sm:px-4 sm:py-4">
                   <div className="relative flex flex-col items-start gap-2 sm:flex-row sm:gap-3">
-                    <Link href={product.href} className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-ink-300 ring-1 ring-ink-200 sm:size-16">
+                    <Link href={product.href} target="_blank" rel="noopener noreferrer" aria-label={`${product.name} (opens in a new tab)`} className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-ink-300 ring-1 ring-ink-200 sm:size-16">
                       {product.imagePath ? <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={`/public-media/${product.imagePath}`} alt="" className="h-full w-full object-cover" />
                       </> : <ImageIcon className="size-6" aria-hidden="true" />}
                     </Link>
                     <div className="w-full min-w-0 flex-1 sm:w-auto">
-                      <Link href={product.href} className="block break-words text-[13px] font-black leading-5 text-ink-900 hover:text-brand-700 sm:text-sm">{product.name}</Link>
-                      <Link href={product.supplierHref} className="mt-1 block break-words text-xs font-semibold leading-5 text-brand-700 hover:underline">{product.supplierName}</Link>
+                      <Link href={product.href} target="_blank" rel="noopener noreferrer" className="block break-words text-[13px] font-black leading-5 text-ink-900 hover:text-brand-700 sm:text-sm">{product.name}</Link>
+                      <Link href={product.supplierHref} target="_blank" rel="noopener noreferrer" className="mt-1 block break-words text-xs font-semibold leading-5 text-brand-700 hover:underline">{product.supplierName}</Link>
                     </div>
                     <div className="absolute right-0 top-0 sm:static"><RemoveComparedProduct product={selections[index]} products={selections} /></div>
                   </div>
@@ -170,7 +170,7 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
                     );
                   })}
                 </ul>
-                <Link href={`${product.supplierHref}#verification`} className="mt-3 inline-block text-xs font-bold text-brand-700 underline underline-offset-2">View verification scope</Link>
+                <Link href={`${product.supplierHref}#verification`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-xs font-bold text-brand-700 underline underline-offset-2">View verification scope</Link>
               </div>
             )}</Row>
             <Row label="Public supplier certificates" products={products}>{(product) => product.certificates.length ? (
@@ -184,7 +184,7 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
                     </li>
                   ))}
                 </ul>
-                <Link href={`${product.supplierHref}#certificates`} className="mt-3 inline-block text-xs font-bold text-brand-700 underline underline-offset-2">View certificates</Link>
+                <Link href={`${product.supplierHref}#certificates`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-xs font-bold text-brand-700 underline underline-offset-2">View certificates</Link>
               </div>
             ) : <Missing>No public certificates</Missing>}</Row>
 
@@ -196,7 +196,7 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
                     <Link href={product.rfqHref} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-xs font-bold text-white hover:bg-brand-800">
                       Request a quote <ArrowRight className="size-3.5" aria-hidden="true" />
                     </Link>
-                    <Link href={product.href} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs font-bold text-ink-700 hover:border-brand-400">View product</Link>
+                    <Link href={product.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center justify-center rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs font-bold text-ink-700 hover:border-brand-400">View product</Link>
                   </div>
                 </td>
               ))}

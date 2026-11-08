@@ -57,7 +57,7 @@ function ProductComparisonTrayInner() {
                     <img src={`/public-media/${item.imagePath}`} alt="" className="h-full w-full object-cover" />
                   </> : <ImageIcon className="size-4" aria-hidden="true" />}
                 </span>
-                <Link href={item.href} title={item.name} className="min-w-0 flex-1 truncate text-xs font-bold text-ink-800 hover:text-brand-700">{item.name}</Link>
+                <Link href={item.href} target="_blank" rel="noopener noreferrer" title={item.name} className="min-w-0 flex-1 truncate text-xs font-bold text-ink-800 hover:text-brand-700">{item.name}</Link>
                 <button type="button" onClick={() => remove(item.id)} aria-label={`Remove ${item.name} from comparison`} className="flex size-9 shrink-0 items-center justify-center rounded-md text-ink-400 hover:bg-white hover:text-ink-900 sm:size-7">
                   <X className="size-3.5" aria-hidden="true" />
                 </button>
