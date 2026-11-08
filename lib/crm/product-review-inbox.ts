@@ -41,6 +41,14 @@ export async function loadCrmReviewInbox(session: SessionUser): Promise<CrmRevie
 /**
  * Số sản phẩm có giá hoặc tên tiếng Anh nhà cung cấp gửi, đang chờ rà soát. Dùng cho huy hiệu
  * menu và chuông CRM (trước đây chỉ đếm sản phẩm chờ duyệt nội dung nên giá mới không báo).
+ *
+ * Loại trừ "giá đầu tiên" gửi kèm sản phẩm MỚI (còn trong quantity_product_creation_requests)
+ * khi sản phẩm đó vẫn đang supplier_review_status = 'pending': người duyệt chỉ cần một thao
+ * tác — duyệt nội dung sản phẩm ở /crm/products/[id]/edit — để duyệt luôn cả giá trong cùng
+ * giao dịch (xem decide_supplier_product_with_quantity_guard). Đếm cả hai sẽ báo "6 việc" cho
+ * một thao tác duy nhất, khiến huy hiệu không khớp với tab "Chờ Vexim kiểm tra" trên trang sản
+ * phẩm. Giá cập nhật cho sản phẩm đã sống (không phải gói sản phẩm mới) vẫn được đếm riêng,
+ * vì đó thực sự là một việc rà soát khác, làm ở /crm/products/quantity-review.
  */
 export async function countPendingProductRevisions(): Promise<number> {
   const db = getSupabaseClient();
@@ -50,6 +58,20 @@ export async function countPendingProductRevisions(): Promise<number> {
     const { data, error } = await db.from(table).select("product_id").eq("status", "pending").limit(2000);
     if (error) throw new Error(`${table}: ${error.message}`);
     for (const row of (data ?? []) as { product_id: unknown }[]) if (typeof row.product_id === "string") ids.add(row.product_id);
+  }
+  if (ids.size === 0) return 0;
+
+  const idList = [...ids];
+  const [{ data: pendingContent, error: contentError }, { data: creationRequests, error: creationError }] = await Promise.all([
+    db.from("supplier_products").select("id").eq("supplier_review_status", "pending").in("id", idList),
+    db.from("quantity_product_creation_requests").select("product_id").in("product_id", idList),
+  ]);
+  if (contentError) throw new Error(`supplier_products: ${contentError.message}`);
+  if (creationError) throw new Error(`quantity_product_creation_requests: ${creationError.message}`);
+  const pendingContentIds = new Set((pendingContent ?? []).map((row) => (row as { id: string }).id));
+  const creationRequestIds = new Set((creationRequests ?? []).map((row) => (row as { product_id: string }).product_id));
+  for (const id of idList) {
+    if (pendingContentIds.has(id) && creationRequestIds.has(id)) ids.delete(id);
   }
   return ids.size;
 }
