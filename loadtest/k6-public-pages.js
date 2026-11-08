@@ -36,13 +36,17 @@ const PAGES = [
   { path: '/products/pepper', label: 'Danh mục Hồ tiêu' },
   { path: '/products/cinnamon-star-anise', label: 'Danh mục Quế hồi' },
   { path: '/rfq', label: 'Trang gửi yêu cầu báo giá (chỉ hiển thị form, không submit)' },
-  { path: '/suppliers', label: 'Danh sách nhà cung cấp' },
   { path: '/blog', label: 'Blog' },
+  // Lưu ý: "/suppliers" (danh sách tổng) KHÔNG tồn tại trong code — site chỉ có trang chi
+  // tiết từng nhà cung cấp "/suppliers/[slug]". Đợt test trước có "/suppliers" trong danh
+  // sách này đã gây 404 ở MỌI lần gọi (~1/6 request), kéo failure rate lên tới 14% — không
+  // phải do server chịu tải kém. Muốn test trang chi tiết nhà cung cấp, thay dòng dưới bằng
+  // một slug NCC công khai thật, ví dụ: { path: '/suppliers/ten-slug-ncc-that', label: '...' }.
 ];
 
 export default function main() {
   for (const page of PAGES) {
-    const res = http.get(`${BASE_URL}${page.path}`);
+    const res = http.get(`${BASE_URL}${page.path}`, { tags: { name: page.label } });
     check(res, { [`${page.label} status là 200`]: (r) => r.status === 200 });
     sleep(1);
   }
