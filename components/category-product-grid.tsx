@@ -256,6 +256,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
                 }) ? { id: p.id, categorySlug } : undefined} />
               {lastShownBySupplier.get(p.supplierId) === p.id && <Link
                 href={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="mt-1.5 block text-center text-xs font-semibold text-brand-700 hover:underline">
                 +{hidden.get(p.supplierId)} more from {p.supplierName}
               </Link>}

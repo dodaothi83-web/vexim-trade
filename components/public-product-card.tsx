@@ -324,7 +324,9 @@ export function PublicProductCard({
       {linkable ? (
         <Link
           href={href}
-          aria-label={`View details of ${displayName}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`View details of ${displayName} (opens in a new tab)`}
           className="block h-full w-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
         >
           {image}
@@ -386,6 +388,9 @@ export function PublicProductCard({
           {linkable ? (
             <Link
               href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${displayName} (opens in a new tab)`}
               className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 after:absolute after:inset-0 after:z-10 after:rounded-xl after:content-['']"
             >
               {title}
@@ -456,7 +461,10 @@ export function PublicProductCard({
             {supplierHref && linkable ? (
               <Link
                 href={supplierHref}
+                target="_blank"
+                rel="noopener noreferrer"
                 title={supplierName}
+                aria-label={`${supplierName} (opens in a new tab)`}
                 className="min-w-0 flex-1 truncate text-[11px] font-bold leading-5 text-brand-700 hover:underline sm:text-xs"
               >
                 {supplierName}

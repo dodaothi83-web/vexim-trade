@@ -364,6 +364,7 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
     <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {shownSuppliers.map((supplier) => <li key={supplier.id} className="min-w-0">
         <Link href={localHref(`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`, state.lang)}
+          target="_blank" rel="noopener noreferrer"
           className="group flex h-full flex-col rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-500">
           <span className="break-words font-bold text-ink-900 group-hover:text-brand-700">{supplier.name}</span>
           <span className="mt-1 text-xs text-ink-500">{supplier.province}
