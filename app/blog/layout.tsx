@@ -1,21 +1,25 @@
-import { getBuyerSession, getBuyerUser } from "@/lib/auth/buyer-session";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BuyerEnquiryAuthProvider } from "@/components/buyer-enquiry-auth";
 import { SourcingComposerTrigger } from "@/components/sourcing-composer";
-import { buyerAuthMessages } from "@/lib/i18n/buyer-auth";
 
 import { Logo } from "@/components/brand-logo";
-import { PublicSignInLink } from "@/components/public-sign-in-link";
+import { BuyerSignInStatus } from "@/components/buyer-sign-in-status";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteTrafficBeacon } from "@/components/site-traffic-beacon";
+import { PublicSessionProvider } from "@/lib/buyer/public-session-context";
 
-export default async function BlogLayout({ children }: { children: ReactNode }) {
-  const buyerSession = await getBuyerSession();
-  // A profile lookup failure must not prevent public pages from loading.
-  const buyerAccount = buyerSession ? await getBuyerUser().catch(() => null) : null;
+// Không còn đọc cookie phiên người mua ở đây (xem BuyerEnquiryAuthProvider /
+// BuyerSignInStatus — cả hai giờ tự lấy trạng thái qua /api/public/session phía client),
+// nên layout này cũng không còn lý do bị buộc render động.
+//
+// PublicSessionProvider riêng cho layout này (không dùng chung với app/(public)/layout.tsx
+// vì /blog là route group độc lập, không lồng nhau) — cùng cách BuyerEnquiryAuthProvider đã
+// được đặt riêng ở mỗi layout từ trước.
+export default function BlogLayout({ children }: { children: ReactNode }) {
   return (
-    <BuyerEnquiryAuthProvider buyerEmail={buyerSession?.email ?? null} locale="en" messages={buyerAuthMessages.en}>
+    <PublicSessionProvider>
+    <BuyerEnquiryAuthProvider>
     <div className="min-h-screen bg-white text-ink-900">
       <SiteTrafficBeacon />
       <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 backdrop-blur">
@@ -28,7 +32,7 @@ export default async function BlogLayout({ children }: { children: ReactNode }) 
             <Link href="/blog" className="transition hover:text-brand-700">News</Link>
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-3 md:ml-0">
-            <PublicSignInLink buyerEmail={buyerSession?.email ?? null} buyerCompanyName={buyerAccount?.company_name ?? null} />
+            <BuyerSignInStatus />
             <SourcingComposerTrigger />
           </div>
         </div>
@@ -39,5 +43,6 @@ export default async function BlogLayout({ children }: { children: ReactNode }) 
       <SiteFooter />
     </div>
     </BuyerEnquiryAuthProvider>
+    </PublicSessionProvider>
   );
 }

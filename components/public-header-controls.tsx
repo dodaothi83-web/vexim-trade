@@ -8,6 +8,7 @@ import { VeximLanguageIcon } from "@/components/brand/vexim-icons";
 
 import { SourcingComposerTrigger } from "@/components/sourcing-composer";
 import { PublicSignInLink } from "@/components/public-sign-in-link";
+import { usePublicSession } from "@/lib/buyer/public-session-context";
 
 const NAV_LINK = "rounded-full px-3 py-2 transition-colors hover:bg-ink-50 hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 lg:px-3.5";
 const NAV_ACTIVE = "bg-brand-50 text-brand-800 hover:bg-brand-50 hover:text-brand-800";
@@ -26,7 +27,8 @@ function PrimaryNav({ pathname, isVi }: { pathname: string; isVi: boolean }) {
   </nav>;
 }
 
-function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: string | null; buyerCompanyName?: string | null }) {
+function HeaderControlsInner() {
+  const { buyerEmail, buyerCompanyName } = usePublicSession();
   const pathname = usePathname() || "/";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -140,7 +142,14 @@ function HeaderControlsInner({ buyerEmail, buyerCompanyName }: { buyerEmail?: st
   );
 }
 
-function HeaderControlsFallback({ buyerEmail, buyerCompanyName }: { buyerEmail?: string | null; buyerCompanyName?: string | null }) {
+/**
+ * Chỉ hiện trong lúc useSearchParams() ở HeaderControlsInner còn "suspend" (hiếm, thường chỉ
+ * vài khung hình đầu khi stream SSR) — usePublicSession() KHÔNG phụ thuộc useSearchParams()
+ * nên vẫn gọi được ở đây để hiển thị đúng trạng thái đăng nhập ngay cả trong lúc chờ, thay vì
+ * luôn hiện "Sign in" cho người đã đăng nhập.
+ */
+function HeaderControlsFallback() {
+  const { buyerEmail, buyerCompanyName } = usePublicSession();
   return (
     <>
       <PrimaryNav pathname="/" isVi={false} />
@@ -164,10 +173,15 @@ function HeaderControlsFallback({ buyerEmail, buyerCompanyName }: { buyerEmail?:
   );
 }
 
-export function PublicHeaderControls({ buyerEmail = null, buyerCompanyName = null }: { buyerEmail?: string | null; buyerCompanyName?: string | null }) {
+/**
+ * Không còn nhận `buyerEmail`/`buyerCompanyName` từ layout server (trước đây qua
+ * getBuyerSession(), buộc layout phải render động). `HeaderControlsInner` giờ tự gọi
+ * /api/public/session SAU khi mount — xem lib/buyer/public-session-context.tsx.
+ */
+export function PublicHeaderControls() {
   return (
-    <Suspense fallback={<HeaderControlsFallback buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />}>
-      <HeaderControlsInner buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
+    <Suspense fallback={<HeaderControlsFallback />}>
+      <HeaderControlsInner />
     </Suspense>
   );
 }

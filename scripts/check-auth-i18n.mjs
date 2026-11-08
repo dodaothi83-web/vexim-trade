@@ -100,6 +100,7 @@ function load(rel, mocks, locale) {
       module: mod,
       exports: mod.exports,
       console,
+      URL,
       require: (id) => {
         if (id === "react") return React;
         if (id === "react/jsx-runtime") return jsxRuntime;
@@ -138,8 +139,60 @@ for (const locale of ["en", "vi"]) {
 /* 5. <html lang> và phạm vi đường dẫn đa ngôn ngữ. */
 const layout = read("app/layout.tsx");
 assert.match(layout, /LOCALE_COOKIE/, "layout đọc cookie ngôn ngữ");
-assert.match(layout, /isLocalizedPath\(pathname\)/, "layout ưu tiên cookie cho mọi khu vực đã chuyển ngôn ngữ");
-const { isLocalizedAuthPath } = await import("../lib/i18n/config.ts");
+const realI18nConfig = await import("../lib/i18n/config.ts");
+const { isLocalizedAuthPath } = realI18nConfig;
+
+/**
+ * RootLayout không còn tính <html lang> bằng cách GỌI isLocalizedPath(pathname) lúc render
+ * server (cookies()/headers() ở layout gốc buộc toàn bộ route con render động — xem comment
+ * trong app/layout.tsx). Giờ layout luôn render tĩnh lang="en", rồi nhúng một <script> chạy
+ * NGAY trên trình duyệt để tự sửa lại — script đó nhúng thẳng .source của
+ * LOCALIZED_AUTH_PATH_RE/LOCALIZED_PORTAL_PATH_RE/LEGACY_VIETNAMESE_PATH_RE (bản gốc duy nhất
+ * ở lib/i18n/config.ts, không chép tay bản thứ hai dễ lệch).
+ *
+ * Kiểm tra THẬT hành vi của script đó (không chỉ match chuỗi nguồn): thực thi nó trong một
+ * "document" giả cho từng tổ hợp đường dẫn + cookie, xác nhận <html lang> ra đúng kết quả mà
+ * isLocalizedAuthPath/isLocalizedPortalPath/LEGACY_VIETNAMESE_PATH_RE quyết định.
+ */
+const layoutMocksForBootScript = {
+  "@fontsource/be-vietnam-pro/400.css": {}, "@fontsource/be-vietnam-pro/400-italic.css": {},
+  "@fontsource/be-vietnam-pro/500.css": {}, "@fontsource/be-vietnam-pro/600.css": {},
+  "@fontsource/be-vietnam-pro/700.css": {}, "@fontsource/be-vietnam-pro/800.css": {},
+  "@fontsource/be-vietnam-pro/900.css": {}, "@fontsource-variable/jetbrains-mono": {},
+  "./globals.css": {},
+  "@/lib/public/meta-copy": { HOME_META_DESCRIPTION: "x" },
+  "@/components/toast": { ToastProvider: ({ children }) => children },
+  "@/components/cookie-consent": { CookieConsentProvider: ({ children }) => children },
+  "@/components/public-speed-insights": { PublicSpeedInsights: () => null },
+  "@/lib/site": { SITE_URL: "https://www.veximtrade.com" },
+  "@/lib/i18n/config": realI18nConfig,
+};
+const RootLayout = load("app/layout.tsx", layoutMocksForBootScript).default;
+const rootHtml = renderToStaticMarkup(React.createElement(RootLayout, { children: "Content" }));
+const bootScriptSource = rootHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+assert.ok(bootScriptSource, "layout phải nhúng script tính <html lang> ngay trên trình duyệt");
+
+function runBootScript(pathname, cookie) {
+  const documentStub = { documentElement: { lang: "en" }, cookie: cookie ?? "" };
+  const context = vm.createContext({ location: { pathname }, document: documentStub, RegExp, JSON, decodeURIComponent });
+  vm.runInContext(bootScriptSource, context);
+  return documentStub.documentElement.lang;
+}
+// Khu vực tài khoản (giai đoạn 1): theo cookie đã chọn, mặc định tiếng Anh nếu chưa chọn.
+assert.equal(runBootScript("/login", "vexim_locale=vi"), "vi");
+assert.equal(runBootScript("/login", ""), "en");
+assert.equal(runBootScript("/register", "vexim_locale=vi"), "vi");
+// Cổng NCC (giai đoạn 2): cũng theo cookie.
+assert.equal(runBootScript("/supplier/portal", "vexim_locale=vi"), "vi");
+assert.equal(runBootScript("/supplier/portal/products", "vexim_locale=vi"), "vi");
+// Khu vực tiếng Việt "cũ" theo tiền tố đường dẫn — LUÔN tiếng Việt, không qua cookie.
+assert.equal(runBootScript("/crm/dashboard", "vexim_locale=en"), "vi", "CRM luôn tiếng Việt bất kể cookie");
+// Trang công khai: luôn tiếng Anh, không đọc cookie khu vực tài khoản.
+assert.equal(runBootScript("/", "vexim_locale=vi"), "en", "Trang công khai không phụ thuộc cookie khu vực tài khoản");
+assert.equal(runBootScript("/rfq", "vexim_locale=vi"), "en", "Chưa chuyển ngôn ngữ ở giai đoạn 1/2 và không khớp tiền tố tiếng Việt cũ");
+// /supplier/products KHÔNG thuộc giai đoạn 2 (chỉ /supplier/portal/* đã chuyển), nhưng vẫn
+// khớp tiền tố "cũ" /supplier -> luôn tiếng Việt, đúng LEGACY_VIETNAMESE_PATH_RE hiện có.
+assert.equal(runBootScript("/supplier/products", "vexim_locale=en"), "vi", "Cổng NCC ngoài /portal vẫn là khu vực tiếng Việt cũ");
 for (const route of ["/login", "/register", "/auth/forgot-password", "/auth/reset-password", "/supplier/register"]) {
   assert.equal(isLocalizedAuthPath(route), true, `${route} thuộc khu vực đa ngôn ngữ`);
 }

@@ -11,12 +11,20 @@ import {
  * Khoảng giá tham khảo tính từ giá nhà cung cấp tự công bố.
  *
  * Đây là phần thay thế cho việc để buyer tự ghép giá từ từng thẻ sản phẩm, và
- * cũng là thứ không được phép làm ẩu. Ba luật cứng:
+ * cũng là thứ không được phép làm ẩu. Năm luật cứng:
  *
  *   1. Dưới 3 niêm yết thì không công bố khoảng giá.
  *   2. Niêm yết cũ hơn 90 ngày thì ẩn; cũ hơn 45 ngày thì vẫn hiện nhưng ghi rõ.
  *   3. Không gộp đơn vị khác nhau, không đoán đơn vị. Đơn vị không đọc được thì
  *      loại khỏi phép tính thay vì coi như kg.
+ *   4. Khoảng hiển thị lấy từ min/max SAU KHI loại niêm yết lệch quá xa trung vị
+ *      (giá mồi câu khách hoặc nhập sai). Một niêm yết như vậy một mình kéo lệch
+ *      cả khoảng nếu dùng min/max thô — xem `buildPriceRange` để biết ngưỡng.
+ *   5. Dưới `minDistinctSuppliers` nhà cung cấp khác nhau (khi caller có đặt
+ *      ngưỡng này) thì không công bố, dù đủ niêm yết: dữ liệu giai đoạn đầu phần
+ *      lớn do nhân viên nhập tay, một NCC có thể vô tình (hoặc cố ý) niêm yết
+ *      cùng một giá ở nhiều dòng quy cách — nhiều niêm yết không có nghĩa là
+ *      nhiều nguồn độc lập.
  *
  * Những con số này là giá tham khảo của nhà cung cấp, không phải giá chào bán
  * ràng buộc, và không phải chỉ số thị trường.
@@ -34,6 +42,8 @@ export type PricePoint = {
   updatedAt?: string | null;
   /** Bỏ qua khi tính khoảng giá, ví dụ hồ sơ demo. */
   exclude?: boolean;
+  /** Nhà cung cấp đứng sau niêm yết này, dùng để yêu cầu đủ số NCC khác nhau. */
+  supplierId?: string | null;
 };
 
 export type PriceRangeOptions = {
@@ -46,6 +56,23 @@ export type PriceRangeOptions = {
   staleAfterDays?: number;
   /** Quá số ngày này thì ẩn hẳn con số. */
   hideAfterDays?: number;
+  /**
+   * Biên an toàn quanh trung vị: niêm yết có giá đại diện (trung bình giá thấp/cao
+   * của chính nó) nhỏ hơn trung vị / hệ số này, hoặc lớn hơn trung vị × hệ số này,
+   * bị loại khỏi phép tính min/max. Mặc định 3 lần — đủ rộng để không loại nhầm
+   * biến động thật do quy cách/chế biến/điều kiện giao hàng, nhưng đủ chặt để loại
+   * giá mồi hoặc nhập sai lệch cả chục lần.
+   */
+  outlierBandFactor?: number;
+  /**
+   * Số nhà cung cấp khác nhau tối thiểu phải có trong mẫu (sau khi đã loại giá
+   * mồi) thì mới công bố khoảng giá. Lý do: dữ liệu giai đoạn đầu phần lớn do
+   * nhân viên nhập tay từ Alibaba, một NCC lỡ niêm yết cùng một giá teaser ở
+   * nhiều dòng quy cách khác nhau đủ sức làm khoảng giá trông như "giá thị
+   * trường" trong khi thực ra chỉ là một nguồn duy nhất. Không đặt thì không
+   * giới hạn (giữ hành vi cũ).
+   */
+  minDistinctSuppliers?: number;
 };
 
 export type PriceRangeResult = {
@@ -54,6 +81,8 @@ export type PriceRangeResult = {
   high: number;
   median: number;
   sampleSize: number;
+  /** Số niêm yết bị loại vì lệch quá xa trung vị (xem `outlierBandFactor`). */
+  excludedOutliers: number;
   /** Ngày cập nhật gần nhất trong số mẫu được dùng. */
   lastUpdated: string | null;
   /** Dữ liệu cũ hơn ngưỡng cảnh báo nhưng chưa tới ngưỡng ẩn. */
@@ -71,6 +100,8 @@ export type PriceRangeResult = {
 export type PriceRangeOutcome =
   | { status: "ok"; range: PriceRangeResult }
   | { status: "too_few"; usable: number; needed: number }
+  /** Đủ niêm yết nhưng đến từ quá ít nhà cung cấp khác nhau (xem `minDistinctSuppliers`). */
+  | { status: "too_few_suppliers"; usable: number; distinctSuppliers: number; neededSuppliers: number }
   | { status: "none" };
 
 function daysBetween(a: Date, b: Date): number {
@@ -96,7 +127,7 @@ export function buildPriceRange(
   const hideAfterDays = options.hideAfterDays ?? 90;
   const unit = options.unit ?? "kg";
 
-  const usable: Array<{ lowKg: number; highKg: number; midKg: number; updatedAt: Date | null }> = [];
+  const usable: Array<{ lowKg: number; highKg: number; midKg: number; updatedAt: Date | null; supplierId: string | null }> = [];
   for (const point of Array.isArray(points) ? points : []) {
     if (!point || point.exclude) continue;
     if ((point.currency ?? "USD").toUpperCase() !== "USD") continue;
@@ -113,20 +144,57 @@ export function buildPriceRange(
     if (!valid) continue;
     const age = daysBetween(now, valid);
     if (age > hideAfterDays) continue;
-    usable.push({ lowKg, highKg, midKg: (lowKg + highKg) / 2, updatedAt: valid });
+    usable.push({ lowKg, highKg, midKg: (lowKg + highKg) / 2, updatedAt: valid, supplierId: point.supplierId ?? null });
   }
 
   if (usable.length === 0) return { status: "none" };
   if (usable.length < minSamples) return { status: "too_few", usable: usable.length, needed: minSamples };
 
-  const lowValues = usable.map((u) => u.lowKg).sort((a, b) => a - b);
-  const highValues = usable.map((u) => u.highKg).sort((a, b) => a - b);
-  const midValues = usable.map((u) => u.midKg).sort((a, b) => a - b);
+  /*
+   * Loại giá mồi trước khi lấy khoảng: tính trung vị trên toàn bộ mẫu, rồi loại
+   * niêm yết có giá đại diện lệch quá xa trung vị (dưới 1/outlierBandFactor hoặc
+   * trên outlierBandFactor lần). min/max thô để lọt một niêm yết như vậy là đủ để
+   * kéo lệch cả khoảng công bố, dù các niêm yết còn lại đều quanh một mức hợp lý.
+   *
+   * Chỉ loại khi sau khi loại vẫn còn đủ mẫu tối thiểu — một danh mục biến động
+   * thật (vd lẫn hàng thô và hàng đã chế biến) thì thà hiện khoảng rộng còn hơn
+   * lặng lẽ thu hẹp xuống dưới ngưỡng công bố.
+   */
+  const outlierBand = options.outlierBandFactor ?? 3;
+  const pivotMedian = median(usable.map((u) => u.midKg).sort((a, b) => a - b));
+  const withinBand = usable.filter((u) => u.midKg >= pivotMedian / outlierBand && u.midKg <= pivotMedian * outlierBand);
+  const filtered = withinBand.length >= minSamples ? withinBand : usable;
+  const excludedOutliers = usable.length - filtered.length;
+
+  /*
+   * Đếm số nhà cung cấp khác nhau trong mẫu còn lại sau khi lọc giá mồi. Một
+   * NCC niêm yết lặp một mức giá ở nhiều sản phẩm trong cùng quy cách không
+   * phải là nhiều bằng chứng độc lập — nó vẫn chỉ là một nguồn. `null`/thiếu
+   * supplierId thì mỗi niêm yết được coi là một nguồn riêng (không đủ dữ liệu
+   * để gộp, thà đếm rộng rãi còn hơn chặn nhầm).
+   */
+  if (options.minDistinctSuppliers != null) {
+    const distinctSuppliers = new Set(
+      filtered.map((u, idx) => u.supplierId ?? `__point_${idx}`),
+    ).size;
+    if (distinctSuppliers < options.minDistinctSuppliers) {
+      return {
+        status: "too_few_suppliers",
+        usable: filtered.length,
+        distinctSuppliers,
+        neededSuppliers: options.minDistinctSuppliers,
+      };
+    }
+  }
+
+  const lowValues = filtered.map((u) => u.lowKg).sort((a, b) => a - b);
+  const highValues = filtered.map((u) => u.highKg).sort((a, b) => a - b);
+  const midValues = filtered.map((u) => u.midKg).sort((a, b) => a - b);
   const lowKg = lowValues[0];
   const highKg = highValues[highValues.length - 1];
   const medianKg = median(midValues);
 
-  const latest = usable.reduce<Date>((acc, item) => (item.updatedAt! > acc ? item.updatedAt! : acc), usable[0].updatedAt!);
+  const latest = filtered.reduce<Date>((acc, item) => (item.updatedAt! > acc ? item.updatedAt! : acc), filtered[0].updatedAt!);
   const age = daysBetween(now, latest);
 
   const low = fromPricePerKg(lowKg, unit);
@@ -146,7 +214,8 @@ export function buildPriceRange(
       low: roundedLow,
       high: roundedHigh,
       median: round(fromPricePerKg(medianKg, unit), unit),
-      sampleSize: usable.length,
+      sampleSize: filtered.length,
+      excludedOutliers,
       lastUpdated: latest.toISOString().slice(0, 10),
       stale: age > staleAfterDays,
       secondary,
@@ -173,13 +242,21 @@ export type PriceBlockOutcome =
       rows: PriceRangeResult[];
       /** Số niêm yết không nêu quy cách nên không được xếp vào dòng nào. */
       unclassified: number;
+      /** Tổng số niêm yết bị loại vì lệch quá xa trung vị, cộng dồn các dòng. */
+      excludedOutliers: number;
       /**
        * Quy cách có niêm yết nhưng chưa đủ mẫu. Giao diện nêu tên ra, vì nếu chỉ
        * hiện những dòng đủ mẫu thì người đọc tưởng danh mục chỉ có ngần ấy giá.
        */
       thin: string[];
+      /**
+       * Quy cách có đủ niêm yết nhưng đến từ quá ít nhà cung cấp khác nhau (xem
+       * `minDistinctSuppliers`) nên vẫn bị giữ lại, không công bố khoảng giá.
+       */
+      pendingSuppliers: string[];
     }
   | { status: "too_few"; usable: number; needed: number }
+  | { status: "too_few_suppliers"; usable: number; distinctSuppliers: number; neededSuppliers: number }
   | { status: "none" };
 
 /**
@@ -216,23 +293,42 @@ export function buildPriceBlock(points: GradePricePoint[] | null | undefined, op
   // Ngành chưa khai báo quy cách: giữ nguyên hành vi một khoảng chung.
   if (groups.size === 0) {
     const single = buildPriceRange(list, options);
-    if (single.status === "ok") return { status: "ok", rows: [single.range], unclassified: 0, thin: [] };
+    if (single.status === "ok")
+      return { status: "ok", rows: [single.range], unclassified: 0, excludedOutliers: single.range.excludedOutliers, thin: [], pendingSuppliers: [] };
     return single;
   }
 
   const rows: PriceRangeResult[] = [];
   const thin: string[] = [];
+  const pendingSuppliers: string[] = [];
   let bestUsable = 0;
+  let bestSupplierUsable = 0;
+  let bestDistinctSuppliers = 0;
   for (const [grade, group] of groups) {
     const outcome = buildPriceRange(group, options);
     if (outcome.status === "ok") rows.push({ ...outcome.range, grade });
     else if (outcome.status === "too_few") {
       bestUsable = Math.max(bestUsable, outcome.usable);
       thin.push(grade);
+    } else if (outcome.status === "too_few_suppliers") {
+      bestSupplierUsable = Math.max(bestSupplierUsable, outcome.usable);
+      bestDistinctSuppliers = Math.max(bestDistinctSuppliers, outcome.distinctSuppliers);
+      pendingSuppliers.push(grade);
     }
   }
 
   if (rows.length === 0) {
+    // Không quy cách nào đủ để hiện: ưu tiên nói đúng lý do. Thiếu mẫu và thiếu
+    // NCC khác nhau là hai chuyện khác nhau với người đọc — "chưa đủ giá" khác
+    // với "có giá nhưng chưa đủ nguồn độc lập".
+    if (thin.length === 0 && pendingSuppliers.length > 0) {
+      return {
+        status: "too_few_suppliers",
+        usable: bestSupplierUsable,
+        distinctSuppliers: bestDistinctSuppliers,
+        neededSuppliers: options.minDistinctSuppliers ?? 0,
+      };
+    }
     return { status: "too_few", usable: bestUsable, needed: options.minSamples ?? 3 };
   }
 
@@ -241,9 +337,11 @@ export function buildPriceBlock(points: GradePricePoint[] | null | undefined, op
   const ungradedOutcome = buildPriceRange(ungraded, options);
   const unclassified = ungradedOutcome.status === "ok" ? ungradedOutcome.range.sampleSize
     : ungradedOutcome.status === "too_few" ? ungradedOutcome.usable
+    : ungradedOutcome.status === "too_few_suppliers" ? ungradedOutcome.usable
     : 0;
+  const excludedOutliers = rows.reduce((sum, row) => sum + row.excludedOutliers, 0);
 
-  return { status: "ok", rows, unclassified, thin };
+  return { status: "ok", rows, unclassified, excludedOutliers, thin, pendingSuppliers };
 }
 
 function round(value: number, unit: PriceUnit): number {

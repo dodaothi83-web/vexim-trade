@@ -505,7 +505,7 @@ export const supabaseStore: DataStore = {
 
   async listUsers() {
     const cols =
-      "id,email,name,role,auth_provider,password_hash,is_active,last_login_at,sender_email,created_at,updated_at";
+      "id,email,name,role,auth_provider,password_hash,is_active,supplier_id,last_login_at,sender_email,created_at,updated_at";
     const res = await must().from("app_users").select(cols).order("email", { ascending: true });
     // Chưa chạy migration 20261012_user_sender_email.sql -> chưa có cột sender_email.
     // Không để trang đăng nhập/hồ sơ chết vì cột này: đọc lại không lấy cột đó, coi như null

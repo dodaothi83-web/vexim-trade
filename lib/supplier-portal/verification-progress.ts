@@ -90,18 +90,18 @@ const STEP_COPY = {
     href: "/supplier/portal/documents",
   },
   2: {
-    title: "Xác thực nhà máy",
+    title: "Lịch sử xuất khẩu",
+    titleEn: "Export history",
+    description: "Chứng từ phù hợp của một lô hàng đã xuất, được đối chiếu thủ công.",
+    descriptionEn: "Matching documents for one shipped batch, checked by hand.",
+    href: "/supplier/portal/verification/export",
+  },
+  3: {
+    title: "Kiểm tra nhà máy",
     titleEn: "Factory verification",
     description: "Đặt lịch gọi video để cùng xem nhà máy.",
     descriptionEn: "Book a video call so we can see your factory with you.",
     href: "/supplier/portal/verification/factory",
-  },
-  3: {
-    title: "Lịch sử giao hàng",
-    titleEn: "Delivery history",
-    description: "Chứng từ phù hợp của một lô hàng đã xuất, được đối chiếu thủ công.",
-    descriptionEn: "Matching documents for one shipped batch, checked by hand.",
-    href: "/supplier/portal/verification/export",
   },
 } as const;
 

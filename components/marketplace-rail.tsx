@@ -24,8 +24,7 @@ const COPY = {
  * cung cấp ngay trên trang, gửi yêu cầu tìm nguồn cho Vexim, và chat với đội Vexim ngay trong
  * hệ thống (nhân viên kinh doanh trả lời trong CRM, mục Chat với người mua).
  */
-export function MarketplaceRail({ isVi = false }: { isVi?: boolean }) {
-  const t = COPY[isVi ? "vi" : "en"];
+export function MarketplaceRail() {
   const pathname = usePathname();
   const { email, requireBuyer } = useBuyerEnquiryAuth();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -34,6 +33,11 @@ export function MarketplaceRail({ isVi = false }: { isVi?: boolean }) {
   const [unread, setUnread] = useState(0);
   const [supportUnread, setSupportUnread] = useState(0);
   const params = useSearchParams();
+  // "?lang=vi" là nguồn ngôn ngữ duy nhất của trang công khai (xem public-header-controls.tsx);
+  // trước đây nhận isVi qua prop từ layout (dựa trên cookie getLocale()), giờ đọc lại tại đây
+  // để layout không còn phải đọc cookie lúc render (điều kiện để cache/ISR trang công khai).
+  const isVi = params?.get("lang") === "vi";
+  const t = COPY[isVi ? "vi" : "en"];
 
   const refreshUnread = useCallback(async () => {
     if (!email) { setUnread(0); setSupportUnread(0); return; }
