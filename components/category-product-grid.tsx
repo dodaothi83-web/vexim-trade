@@ -110,25 +110,22 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
       (!samplesOnly || p.samples)
     );
   }), [products, selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly, attributeFilters]);
-  // Trần thẻ của một nhà cung cấp trong danh sách tự nhiên bên dưới, KHÔNG tính
-  // vùng đẩy phía trên. Vùng đẩy là suất cộng thêm (additive slot): nhà cung cấp
-  // mua gói giữ nguyên ba thẻ dưới lưới và có thêm một thẻ ở trên. Người trả tiền
+  // Vùng đẩy phía trên là suất cộng thêm (additive slot): nhà cung cấp mua gói giữ
+  // nguyên các thẻ dưới lưới tự nhiên và có thêm một thẻ ở trên. Người trả tiền
   // nhận giá trị hiển thị tăng thêm thật, còn người không mua không bị đẩy khỏi
   // chỗ của họ. Vì vậy thẻ đã lên vùng đẩy được lấy ra khỏi danh sách TRƯỚC khi
-  // áp trần, chứ không phải sau.
-  const supplierCap = new Set(visible.map((p) => p.supplierId)).size < 2 ? 2 : 3;
+  // xen kẽ nhà cung cấp, chứ không phải sau.
   const listPool = useMemo(
     () => (active ? visible : withoutSponsoredBand(visible, sponsoredBand)),
     [active, visible, sponsoredBand],
   );
-  // Lọc xong thì hiện đủ, không áp trần, để người đang tìm một quy cách cụ thể
-  // không bị giấu mất lựa chọn.
-  const { shown, hidden } = useMemo(
-    () => arrangeSupplierProducts(listPool, active ? null : supplierCap),
-    [listPool, active, supplierCap],
-  );
-  // Phân trang: cắt sau khi đã áp trần nhà cung cấp, nên trang hai không lặp lại
-  // nhà cung cấp vừa hết suất ở trang một. Đổi bộ lọc thì quay về trang một.
+  // Xen kẽ nhà cung cấp (round-robin) trên TOÀN BỘ danh sách đã lọc, không giới hạn
+  // số thẻ mỗi nhà cung cấp và không ẩn sản phẩm nào — một nhà cung cấp có nhiều
+  // hàng vẫn được hiện đủ, chỉ rải ra thay vì dồn hết lên đầu. Tính một lần trên cả
+  // danh sách rồi mới cắt trang, để trang hai tiếp đúng mạch, không tính lại từ đầu.
+  const shown = useMemo(() => arrangeSupplierProducts(listPool), [listPool]);
+  // Phân trang: cắt sau khi đã xen kẽ nhà cung cấp, nên trang hai tiếp đúng mạch
+  // chứ không lặp lại thứ tự từ đầu. Đổi bộ lọc thì quay về trang một.
   const [page, setPage] = useState(initialPage);
   const filterSignature = JSON.stringify([selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly]);
   const lastSignature = useRef(filterSignature);
@@ -138,12 +135,6 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     setPage(1);
   }, [filterSignature]);
   const paged = categoryPageSlice(shown, page);
-  // Thẻ cuối của mỗi nhà cung cấp còn sản phẩm bị ẩn vì trần: gắn lối sang trang nhà cung cấp.
-  const lastShownBySupplier = useMemo(() => {
-    const last = new Map<string, string>();
-    for (const product of shown) if (hidden.has(product.supplierId)) last.set(product.supplierId, product.id);
-    return last;
-  }, [shown, hidden]);
   const pageHref = (target: number) => {
     const params = [keepQuery, `page=${target}`].filter(Boolean).join("&");
     return `/products/${encodeURIComponent(categorySlug)}?${params}`;
@@ -229,7 +220,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
           <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-sm font-bold text-ink-800"><span className="flex items-center gap-2"><Filter className="h-4 w-4" /> Filter products</span><ChevronDown className="h-4 w-4" /></summary>
           <div className="border-t border-ink-100 p-4">{fields}</div>
         </details>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600"><p><strong className="text-ink-900">{shown.length}</strong> of {visible.length} products{!active && listPool.length > shown.length ? ` · up to ${supplierCap} per supplier in the list below` : ""}{paged.pages > 1 ? ` · page ${paged.page} of ${paged.pages}` : ""}</p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600"><p><strong className="text-ink-900">{shown.length}</strong> of {visible.length} products{paged.pages > 1 ? ` · page ${paged.page} of ${paged.pages}` : ""}</p>
           {active && <button type="button" className="text-xs font-semibold text-brand-700 underline" onClick={reset}>Show all</button>}
         </div>
         {/* Vùng đẩy chỉ hiện khi người xem chưa lọc gì. Đang lọc mà vẫn thấy thẻ
@@ -254,13 +245,6 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
                 comparison={comparisonEnabled && hasProductComparisonPeer(comparisonOffers, {
                   id: p.id, supplierId: p.supplierId, categorySlug, isDemo: p.isDemo,
                 }) ? { id: p.id, categorySlug } : undefined} />
-              {lastShownBySupplier.get(p.supplierId) === p.id && <Link
-                href={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1.5 block text-center text-xs font-semibold text-brand-700 hover:underline">
-                +{hidden.get(p.supplierId)} more from {p.supplierName}
-              </Link>}
             </div>;
           })}
         </div> : <div className="rounded-xl border border-ink-200 bg-white p-8 text-center">

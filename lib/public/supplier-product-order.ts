@@ -1,15 +1,21 @@
-/* Buyer-facing presentation order. Keep every offer distinct; never merge equal grades. */
-export function arrangeSupplierProducts<T extends { supplierId: string }>(
-  products: T[],
-  perSupplier: number | null,
-): { shown: T[]; hidden: Map<string, number> } {
+/**
+ * Buyer-facing presentation order. Keep every offer distinct; never merge equal grades.
+ *
+ * Round-robin across suppliers: take each supplier's next-ranked item in turn (supplier A's
+ * 1st, B's 1st, C's 1st, then A's 2nd, B's 2nd, ...), so one supplier with many more products
+ * never bunches up the front of the list. Nothing is capped or hidden — a supplier with ten
+ * products still gets all ten returned, just spread through the list instead of stacked at
+ * the top; once a supplier runs out, the remaining suppliers keep alternating among
+ * themselves. Input order within each supplier (the ranking already applied by the caller) is
+ * preserved. Callers that want a buyer-chosen sort (e.g. by price) instead of this interleave
+ * should skip calling this function and use that order directly.
+ */
+export function arrangeSupplierProducts<T extends { supplierId: string }>(products: T[]): T[] {
   const groups = new Map<string, T[]>();
-  const hidden = new Map<string, number>();
   for (const product of products) {
     const group = groups.get(product.supplierId) ?? [];
     if (!groups.has(product.supplierId)) groups.set(product.supplierId, group);
-    if (perSupplier === null || group.length < perSupplier) group.push(product);
-    else hidden.set(product.supplierId, (hidden.get(product.supplierId) ?? 0) + 1);
+    group.push(product);
   }
 
   const shown: T[] = [];
@@ -25,7 +31,7 @@ export function arrangeSupplierProducts<T extends { supplierId: string }>(
     active = next;
   }
   // Once other suppliers are exhausted, remaining offers stay visible.
-  return { shown, hidden };
+  return shown;
 }
 
 /** Giới hạn số sản phẩm mỗi nhà cung cấp trên lưới trang chủ. */

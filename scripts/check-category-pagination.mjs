@@ -59,7 +59,7 @@ const firstNames = namesOn(firstPage);
 assert.equal(firstNames.length, 12, 'Trang một hiện mười hai thẻ');
 assert.equal(new Set(firstNames).size, 12, 'Trong một trang không lặp thẻ');
 // Thứ tự trên lưới là thứ tự xếp hạng đã xen kẽ nhà cung cấp, chỉ cắt bớt chứ không sắp lại.
-const ranked = order.arrangeSupplierProducts(products, 3).shown.map((product) => Number(product.name.split(' ')[1]));
+const ranked = order.arrangeSupplierProducts(products).map((product) => Number(product.name.split(' ')[1]));
 assert.deepEqual(firstNames, ranked.slice(0, 12), 'Trang một là mười hai thẻ đầu của danh sách đã xếp hạng');
 assert.match(firstPage, /page 1 of 3/, 'Dòng đếm nói rõ đang ở trang nào');
 assert.match(firstPage, /href="\/products\/cashew-kernels\?page=2"/, 'Số trang là liên kết thật, máy tìm kiếm theo được');
@@ -94,15 +94,23 @@ assert.match(lastPage, /aria-label="Previous page"/, 'Icon previous link retains
 assert.match(secondPage, /aria-current="page"[^>]*>2\/3</);
 assert.match(lastPage, /aria-current="page"[^>]*>3\/3</);
 
-// Nhà cung cấp bị cắt vì trần: thẻ cuối của họ có lối sang trang nhà cung cấp, đếm đúng số bị ẩn.
-const capped = [
+// Không còn trần: một nhà cung cấp có nhiều sản phẩm hơn hẳn các nhà khác vẫn được
+// hiện ĐỦ (không ẩn, không có lối "+N more"), chỉ bị xen kẽ rải ra chứ không dồn đầu.
+const bigSupplier = [
   ...Array.from({ length: 5 }, (_, index) => ({ ...products[0], id: `big${index}`, name: `Big ${index}`, supplierId: 'big', supplierSlug: 'big-co', supplierName: 'Big Co' })),
   ...products.slice(3, 6),
 ];
-const cappedHtml = renderToStaticMarkup(React.createElement(exports.CategoryProductGrid,
-  { products: capped, categorySlug: 'cashew-kernels', grades: ['W320'] }));
-assert.equal([...cappedHtml.matchAll(/more from/g)].length, 1, 'Chỉ nhà cung cấp bị cắt mới có lối xem thêm, và chỉ một lần');
-assert.match(cappedHtml, /href="\/suppliers\/big-co"[^>]*>\+2 more from Big Co</, 'Lối xem thêm dẫn tới trang nhà cung cấp, đếm đúng số thẻ bị ẩn');
+const bigHtml = renderToStaticMarkup(React.createElement(exports.CategoryProductGrid,
+  { products: bigSupplier, categorySlug: 'cashew-kernels', grades: ['W320'] }));
+assert.doesNotMatch(bigHtml, /more from/, 'Không có lối "xem thêm" nào — không nhà cung cấp nào bị ẩn sản phẩm');
+const bigNames = [...bigHtml.matchAll(/Big (\d+)/g)].map((match) => Number(match[1]));
+assert.equal(bigNames.length, 5, 'Toàn bộ năm sản phẩm của Big Co đều được hiện, không bị cắt ở trần nào');
+// Xen kẽ: hai thẻ liên tiếp đầu tiên của Big Co phải cách nhau bởi thẻ của nhà khác
+// khi còn nhà khác để xen — không dồn hết Big Co lên đầu danh sách.
+const bigOrder = order.arrangeSupplierProducts(bigSupplier).map((p) => p.supplierId);
+const firstBig = bigOrder.indexOf('big');
+const secondBig = bigOrder.indexOf('big', firstBig + 1);
+assert.ok(secondBig > firstBig + 1, 'Round-robin xen kẽ nhà khác giữa hai thẻ Big Co liền kề, không dồn cục');
 
 // Danh mục cha gộp sản phẩm các danh mục con rồi xếp hạng lại cả danh sách.
 assert.match(readFileSync(new URL('../app/(public)/products/[slug]/page.tsx', import.meta.url), 'utf8'),

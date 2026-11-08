@@ -17,7 +17,8 @@ verificationCount DESC → tên A-Z (localeCompare mặc định) → thứ tự
 
 `verificationCount` = số cấp xác minh được duyệt độc lập (`approvedVerificationSteps`),
 có L3 thiếu L2 vẫn tính 2/3. Sau đó `arrangeSupplierProducts`
-(`lib/public/supplier-product-order.ts`) xen kẽ tối đa 3 thẻ/NCC.
+(`lib/public/supplier-product-order.ts`) xen kẽ (round-robin) toàn bộ thẻ của mọi NCC,
+không còn trần số thẻ — ai cũng được hiện đủ, chỉ rải ra thay vì dồn đầu danh sách.
 `docs/sponsored-listing-spec.md` mục 5: lưới tự nhiên không bán vị trí, không xếp theo
 giờ cập nhật; vùng đẩy tài trợ xoay cửa sổ 10 phút, tách khỏi lưới tự nhiên.
 
