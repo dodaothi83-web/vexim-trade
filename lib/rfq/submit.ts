@@ -119,6 +119,32 @@ function rejectWebmail(): boolean {
   return process.env.RFQ_REJECT_WEBMAIL === "true";
 }
 
+/**
+ * Đếm RFQ thật mà buyer đã gửi trong `windowMs` gần nhất, đọc thẳng từ bản ghi đã lưu
+ * (Supabase/local store) thay vì bộ đếm trong bộ nhớ tiến trình.
+ *
+ * `rateLimit()` (lib/rfq/rate-limit.ts) dùng một `Map` sống trong tiến trình Node — trên
+ * Vercel mỗi lambda instance có bộ nhớ RIÊNG, nên dưới tải thật (nhiều instance xử lý song
+ * song) giới hạn "5 RFQ/giờ/người" không được đảm bảo: một buyer có thể vô tình (hoặc cố ý)
+ * vượt quá nếu các request của họ rơi vào nhiều instance khác nhau. Hàm này là lớp kiểm tra
+ * CHÍNH XÁC, đếm trên dữ liệu dùng chung (đúng trên mọi instance), áp dụng theo danh tính
+ * buyer đã đăng nhập (session.email) — còn `rateLimit()` theo IP/UA bên dưới vẫn giữ lại làm
+ * lớp chặn rẻ, sớm trước khi tốn công tra MX/spam-score cho request rõ ràng là bot/spam.
+ */
+async function countRecentRfqsForBuyer(buyerId: string, windowMs: number): Promise<number> {
+  const rows = await getStore()
+    .listRfqs({ buyerId })
+    .catch(() => [] as Rfq[]);
+  const cutoff = Date.now() - windowMs;
+  let count = 0;
+  for (const row of rows) {
+    // Cả hai store (Supabase + local) đều trả về mới nhất trước — có thể dừng sớm.
+    if (new Date(row.created_at).getTime() >= cutoff) count += 1;
+    else break;
+  }
+  return count;
+}
+
 export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   // The shared service protects both server actions and any route-handler callers.
   // Identity comes from the signed buyer session, never from a typed email or staff cookie.
@@ -135,7 +161,8 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   }
   // Phần người mua tự viết (có thể rỗng khi họ vào từ trang sản phẩm).
   const extraText = typeof raw.product_text === "string" ? raw.product_text.trim() : "";
-  // 1) Rate limit per IP/UA
+  // 1) Rate limit per IP/UA — lớp chặn rẻ, sớm (xem ghi chú trên countRecentRfqsForBuyer
+  //    về lý do không đủ CHÍNH XÁC một mình trên nhiều lambda instance).
   gcRateLimit();
   const ip = (await firstHeader("x-forwarded-for"))?.split(",")[0]?.trim() ?? null;
   const ua = await firstHeader("user-agent");
@@ -147,6 +174,21 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
       message: "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ.",
       rateLimited: true,
     };
+  }
+  // 1b) Giới hạn THẬT theo buyer đã đăng nhập, đếm trên dữ liệu dùng chung — đúng trên mọi
+  //     lambda instance, không phụ thuộc IP/UA (NAT/VPN/đổi trình duyệt không né được).
+  const rateLimitBuyer = await getStore()
+    .getBuyerByEmail(session.email)
+    .catch(() => null);
+  if (rateLimitBuyer) {
+    const recentCount = await countRecentRfqsForBuyer(rateLimitBuyer.id, 60 * 60 * 1000);
+    if (recentCount >= 5) {
+      return {
+        ok: false,
+        message: "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ.",
+        rateLimited: true,
+      };
+    }
   }
 
   // 2) Challenge chống bot (tự chủ, không còn Cloudflare)
