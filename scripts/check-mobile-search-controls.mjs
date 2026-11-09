@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-for (const file of ['app/(public)/home.tsx', 'app/(public)/search/page.tsx']) {
+// app/(public)/search/page.tsx used to render its own copy of this search form, duplicating
+// the header search bar that now appears on every non-home page. The in-page copy was removed
+// so only one search control shows on /search; this check is scoped to the home page hero
+// search form, which still uses the rounded single-row layout checked below.
+for (const file of ['app/(public)/home.tsx']) {
   const source = fs.readFileSync(file, 'utf8');
   const start = source.indexOf('<form action="/search"');
   const form = source.slice(start, source.indexOf('</form>', start));
