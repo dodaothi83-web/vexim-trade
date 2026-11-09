@@ -1,82 +1,102 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, ImageIcon, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ArrowRight, ChevronUp, ImageIcon, X } from "lucide-react";
 
 import { useProductComparison } from "@/components/product-comparison-provider";
-import {
-  MAX_PRODUCT_COMPARISONS,
-  productComparisonHref,
-  type ProductComparisonSelection,
-} from "@/lib/public/product-comparison";
+import { MAX_PRODUCT_COMPARISONS, productComparisonHref } from "@/lib/public/product-comparison";
+
+function CompareAction({ href, count, mobile = false }: { href: string; count: number; mobile?: boolean }) {
+  const classes = "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-bold lg:gap-2 lg:px-4 lg:text-sm";
+  return count >= 2 ? (
+    <Link href={href} className={`${classes} bg-brand-700 text-white hover:bg-brand-800`}>
+      Compare ({count}) <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
+    </Link>
+  ) : (
+    <button type="button" disabled title="Select one more product to compare"
+      className={`${classes} cursor-not-allowed bg-ink-200 text-ink-500`}>
+      {mobile ? "Add 1 more" : "Compare (1)"}
+    </button>
+  );
+}
 
 function ProductComparisonTrayInner() {
   const { items, ready, notice, removeProduct, clearProducts } = useProductComparison();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  if (!ready || items.length === 0) return null;
+  const [mobileExpanded, setMobileExpanded] = useState(false);
 
-  const supplierTable = pathname === "/compare" && searchParams.has("ids") && !searchParams.has("products");
-  const syncUrl = (next: readonly ProductComparisonSelection[]) => {
-    if (pathname !== "/compare" || supplierTable) return;
-    router.replace(productComparisonHref(next.map((item) => item.id)), { scroll: false });
-  };
+  // The comparison page has its own table and remove controls. Keep the saved
+  // selection for browsing later, but never cover either comparison mode.
+  useEffect(() => { setMobileExpanded(false); }, [pathname]);
+  // Deselecting from a product card can empty the tray without using Clear all.
+  // The next selection should start compact, not reopen a stale expanded panel.
+  useEffect(() => { if (items.length === 0) setMobileExpanded(false); }, [items.length]);
+  if (!ready || items.length === 0 || pathname === "/compare") return null;
+
+  const compareHref = productComparisonHref(items.map((item) => item.id));
   const remove = (productId: string) => {
-    const next = items.filter((item) => item.id !== productId);
     removeProduct(productId);
-    syncUrl(next);
+    if (items.length === 1) setMobileExpanded(false);
   };
   const clear = () => {
     clearProducts();
-    syncUrl([]);
+    setMobileExpanded(false);
   };
-  const compareHref = productComparisonHref(items.map((item) => item.id));
 
   return (
     <>
-      <div aria-hidden="true" className="h-60 sm:h-32" />
-      <aside aria-label="Product comparison list" className="fixed inset-x-2 bottom-24 z-50 mx-auto max-h-[calc(100dvh-7rem)] max-w-5xl overflow-y-auto rounded-2xl border border-brand-200 bg-white p-3 shadow-2xl shadow-ink-950/20 sm:inset-x-3 sm:bottom-6 sm:max-h-none sm:p-4">
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
-          <div className="flex shrink-0 items-center justify-between gap-3 sm:block">
+      <div aria-hidden="true" className="h-24 lg:h-32" />
+      <aside aria-label="Product comparison list"
+        className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))] z-50 mx-auto flex max-h-[calc(100dvh-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-2xl shadow-ink-950/20 lg:bottom-6 lg:block lg:max-h-none lg:max-w-5xl lg:overflow-visible lg:p-4">
+        <div className="order-3 flex shrink-0 items-center gap-2 p-2 lg:hidden">
+          <button type="button" aria-controls="comparison-selected-products" aria-expanded={mobileExpanded}
+            aria-label={`${mobileExpanded ? "Hide" : "Show"} ${items.length} selected products`}
+            onClick={() => setMobileExpanded((expanded) => !expanded)}
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-ink-200 px-2.5 text-left hover:bg-ink-50 focus-visible:ring-2 focus-visible:ring-brand-600">
+            <span className="truncate text-xs font-black text-ink-900">Selected</span>
+            <span className="shrink-0 text-xs font-bold text-brand-800">{items.length}/{MAX_PRODUCT_COMPARISONS}</span>
+            <ChevronUp className={`ml-auto size-4 shrink-0 text-ink-500 transition-transform ${mobileExpanded ? "rotate-180" : ""}`} aria-hidden="true" />
+          </button>
+          <div className="w-[8.5rem] shrink-0"><CompareAction href={compareHref} count={items.length} mobile /></div>
+        </div>
+
+        <div id="comparison-selected-products" className={`${mobileExpanded ? "flex" : "hidden"} order-1 min-h-0 flex-col gap-2 border-b border-ink-100 px-3 py-2 lg:flex lg:flex-row lg:items-center lg:gap-3 lg:border-0 lg:p-0`}>
+          <div className="flex shrink-0 items-center justify-between gap-3 lg:block">
             <div>
               <p className="text-sm font-black text-ink-900">Compare products</p>
               <p className="mt-0.5 text-xs font-semibold text-brand-800">{items.length}/{MAX_PRODUCT_COMPARISONS} selected</p>
             </div>
-            <button type="button" onClick={clear} className="min-h-9 px-2 text-xs font-bold text-ink-500 underline underline-offset-2 hover:text-ink-900 sm:mt-2">Clear all</button>
+            <button type="button" aria-label="Clear comparison selection" onClick={clear}
+              className="min-h-11 px-2 text-xs font-bold text-ink-500 underline underline-offset-2 hover:text-ink-900 lg:mt-2 lg:min-h-9">Clear all</button>
           </div>
 
-          <ul className="flex min-w-0 flex-1 snap-x gap-2 overflow-x-auto pb-1 sm:px-3" aria-label="Selected products">
+          <ul className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto lg:snap-x lg:flex-row lg:overflow-x-auto lg:overflow-y-hidden lg:pb-1 lg:px-3" aria-label="Selected products">
             {items.map((item) => (
-              <li key={item.id} className="flex w-56 max-w-[calc(100vw-4rem)] flex-none snap-start items-center gap-2 rounded-lg bg-ink-50 p-2 ring-1 ring-ink-100 sm:w-auto sm:min-w-0 sm:max-w-none sm:flex-1">
+              <li key={item.id} className="flex w-full flex-none items-center gap-2 rounded-lg bg-ink-50 p-1 ring-1 ring-ink-100 lg:w-auto lg:min-w-0 lg:flex-1 lg:snap-start lg:p-2">
                 <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white text-ink-300 ring-1 ring-ink-100">
                   {item.imagePath ? <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`/public-media/${item.imagePath}`} alt="" className="h-full w-full object-cover" />
                   </> : <ImageIcon className="size-4" aria-hidden="true" />}
                 </span>
-                <Link href={item.href} target="_blank" rel="noopener noreferrer" title={item.name} className="min-w-0 flex-1 truncate text-xs font-bold text-ink-800 hover:text-brand-700">{item.name}</Link>
-                <button type="button" onClick={() => remove(item.id)} aria-label={`Remove ${item.name} from comparison`} className="flex size-9 shrink-0 items-center justify-center rounded-md text-ink-400 hover:bg-white hover:text-ink-900 sm:size-7">
-                  <X className="size-3.5" aria-hidden="true" />
+                <Link href={item.href} target="_blank" rel="noopener noreferrer" title={item.name}
+                  className="min-w-0 flex-1 line-clamp-2 text-xs font-bold leading-4 text-ink-800 hover:text-brand-700 lg:line-clamp-none lg:truncate">{item.name}</Link>
+                <button type="button" onClick={() => remove(item.id)} aria-label={`Remove ${item.name} from comparison`}
+                  className="flex size-11 shrink-0 items-center justify-center rounded-md text-ink-400 hover:bg-white hover:text-ink-900 lg:size-7">
+                  <X className="size-4" aria-hidden="true" />
                 </button>
               </li>
             ))}
           </ul>
 
-          <div className="shrink-0 sm:w-48">
-            {items.length >= 2 ? (
-              <Link href={compareHref} className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2 text-sm font-bold text-white hover:bg-brand-800 sm:min-h-11 sm:py-2.5">
-                Compare ({items.length}) <ArrowRight className="size-4" aria-hidden="true" />
-              </Link>
-            ) : (
-              <button type="button" disabled className="min-h-10 w-full cursor-not-allowed rounded-lg bg-ink-200 px-4 py-2 text-sm font-bold text-ink-500 sm:min-h-11 sm:py-2.5">Compare (1)</button>
-            )}
+          <div className="hidden shrink-0 lg:block lg:w-48">
+            <CompareAction href={compareHref} count={items.length} />
             {items.length === 1 && <p className="mt-1.5 text-center text-[11px] font-medium text-ink-500">Select 1 more product</p>}
           </div>
         </div>
-        {notice && <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-950 ring-1 ring-amber-200">{notice}</p>}
+        {notice && <p role="alert" className="order-2 mx-2 mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-950 ring-1 ring-amber-200 lg:mx-0 lg:mt-3">{notice}</p>}
       </aside>
     </>
   );

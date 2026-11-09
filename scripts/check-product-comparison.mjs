@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
-import React from "react";
+import React, { act } from "react";
 import { createRequire } from "node:module";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import { JSDOM } from "jsdom";
 import { loadProductDescription } from "./product-description-test-utils.mjs";
 
 import {
@@ -377,12 +379,100 @@ assert.match(page, /supplier-comparison-scroll-hint/);
 const catalog = readFileSync(new URL("../lib/public/catalog.ts", import.meta.url), "utf8");
 assert.match(catalog, /\.map\(\(p\) => publicProductTitle\(p\)\)/, "Supplier comparison uses English public product names");
 const tray = readFileSync(new URL("../components/product-comparison-tray.tsx", import.meta.url), "utf8");
-assert.match(tray, /snap-x/);
-assert.match(tray, /max-w-\[calc\(100vw-4rem\)\]/);
+assert.match(tray, /h-24 lg:h-32/, "The compact tray leaves less empty space below listings on narrow screens");
+assert.match(tray, /max-w-md.*lg:max-w-5xl/, "The compact layout stays narrow until the quick-action rail moves on desktop");
+assert.match(tray, /bottom-\[max\(0\.75rem,env\(safe-area-inset-bottom,0px\)\)\]/,
+  "The mobile tray sits near the safe-area edge, below the quick-action rail");
+assert.match(tray, /size-11/, "Removing a mobile selection has a 44px touch target");
+assert.match(tray, /lg:snap-x/, "The desktop selected-product strip stays horizontally scrollable");
+const trayState = { pathname: "/search", items: [item("a"), item("b")], ready: true, notice: null };
+const { ProductComparisonTray } = compile("../components/product-comparison-tray.tsx", {
+  react: React,
+  "react/jsx-runtime": jsx,
+  "next/link": { default: ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children) },
+  "next/navigation": { usePathname: () => trayState.pathname },
+  "lucide-react": new Proxy({}, { get: () => () => null }),
+  "@/components/product-comparison-provider": { useProductComparison: () => ({
+    ...trayState,
+    removeProduct: (id) => { trayState.items = trayState.items.filter((product) => product.id !== id); },
+    clearProducts: () => { trayState.items = []; },
+  }) },
+  "@/lib/public/product-comparison": { MAX_PRODUCT_COMPARISONS, productComparisonHref },
+});
+const dom = new JSDOM('<!doctype html><div id="root"></div>', { url: "https://example.test/search" });
+const previousWindow = globalThis.window;
+const previousDocument = globalThis.document;
+globalThis.window = dom.window;
+globalThis.document = dom.window.document;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const root = createRoot(dom.window.document.getElementById("root"));
+const mountTray = async () => { await act(async () => { root.render(React.createElement(ProductComparisonTray)); }); };
+const trayNode = () => dom.window.document.querySelector('aside[aria-label="Product comparison list"]');
+await mountTray();
+assert.ok(trayNode(), "Selected products still open the comparison tray on browse pages");
+assert.equal(trayNode().querySelector('[aria-controls="comparison-selected-products"]').getAttribute("aria-expanded"), "false");
+assert.equal(trayNode().querySelector('#comparison-selected-products').classList.contains("hidden"), true,
+  "The selected-product list is collapsed by default on mobile");
+assert.match(trayNode().outerHTML, /href="\/compare\?products=a,b"/, "The compact bar keeps the compare action one tap away");
+await act(async () => { trayNode().querySelector('[aria-controls="comparison-selected-products"]').click(); });
+assert.equal(trayNode().querySelector('[aria-controls="comparison-selected-products"]').getAttribute("aria-expanded"), "true");
+assert.equal(trayNode().querySelector('#comparison-selected-products').classList.contains("hidden"), false,
+  "Expanding reveals product names, remove buttons and Clear all");
+await act(async () => {
+  trayNode().querySelector('[aria-label="Remove Product a from comparison"]').click();
+  root.render(React.createElement(ProductComparisonTray));
+});
+assert.deepEqual(trayState.items.map((product) => product.id), ["b"]);
+assert.match(trayNode().textContent, /Add 1 more/, "One selection explains why comparison is unavailable");
+assert.equal(trayNode().querySelector('a[href^="/compare"]'), null, "One selection cannot open a comparison");
+await act(async () => {
+  trayNode().querySelector('button[aria-label="Clear comparison selection"]').click();
+  root.render(React.createElement(ProductComparisonTray));
+});
+assert.equal(trayNode(), null, "Clear all removes the bar and its spacer");
+trayState.items = [item("a"), item("b"), item("c")];
+await mountTray();
+assert.match(trayNode().outerHTML, /href="\/compare\?products=a,b,c"/, "Three selected products keep a direct compare action");
+await act(async () => { trayNode().querySelector('[aria-controls="comparison-selected-products"]').click(); });
+assert.equal(trayNode().querySelector('[aria-controls="comparison-selected-products"]').getAttribute("aria-expanded"), "true");
+trayState.pathname = "/compare";
+await mountTray();
+assert.equal(trayNode(), null, "The tray is hidden on both product and supplier comparison pages");
+assert.equal(dom.window.document.getElementById("root").innerHTML, "", "The hidden tray leaves no spacer on /compare");
+assert.equal(trayState.items.length, 3, "Hiding the tray does not discard the saved comparison");
+trayState.pathname = "/search";
+await mountTray();
+assert.ok(trayNode(), "Returning to browse restores the comparison selection");
+assert.equal(trayNode().querySelector('[aria-controls="comparison-selected-products"]').getAttribute("aria-expanded"), "false",
+  "Returning to browsing starts with the small bar, not the expanded list");
+await act(async () => { trayNode().querySelector('[aria-controls="comparison-selected-products"]').click(); });
+trayState.items = [];
+await mountTray();
+assert.equal(trayNode(), null, "Deselecting every product from cards also hides the tray");
+trayState.items = [item("a")];
+await mountTray();
+assert.equal(trayNode().querySelector('[aria-controls="comparison-selected-products"]').getAttribute("aria-expanded"), "false",
+  "Adding a new product after deselecting from cards starts compact again");
+await act(async () => { root.unmount(); });
+dom.window.close();
+if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
+if (previousDocument === undefined) delete globalThis.document; else globalThis.document = previousDocument;
+delete globalThis.IS_REACT_ACT_ENVIRONMENT;
 const layout = readFileSync(new URL("../app/(public)/layout.tsx", import.meta.url), "utf8");
 assert.match(layout, /ProductComparisonProvider/);
 assert.match(layout, /ProductComparisonTray/);
 const actions = readFileSync(new URL("../components/product-comparison-actions.tsx", import.meta.url), "utf8");
+const { RemoveComparedProduct } = compile("../components/product-comparison-actions.tsx", {
+  react: React,
+  "react/jsx-runtime": jsx,
+  "next/navigation": { useRouter: () => ({ replace: () => undefined }) },
+  "lucide-react": new Proxy({}, { get: () => () => null }),
+  "@/components/product-comparison-provider": { useProductComparison: () => ({ replaceProducts: () => undefined }) },
+  "@/lib/public/product-comparison": { productComparisonHref },
+});
+const removeHtml = renderToStaticMarkup(React.createElement(RemoveComparedProduct, { product: item("a"), products: [item("a"), item("b")] }));
+assert.match(removeHtml, /size-11/, "The comparison table keeps a 44px mobile remove target after the tray is hidden");
+assert.match(removeHtml, /sm:size-8/, "Desktop table controls keep their original size");
 const urlToSelectionEffect = actions.slice(actions.indexOf("useEffect(() => {", actions.indexOf("// URL -> selection")), actions.indexOf("// On an empty compare URL"));
 assert.doesNotMatch(urlToSelectionEffect, /localSignature/, "A pending removal cannot reapply old URL props");
 const portalPreview = readFileSync(new URL("../app/supplier/portal/storefront/page.tsx", import.meta.url), "utf8");

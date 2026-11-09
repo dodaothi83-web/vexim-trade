@@ -29,7 +29,7 @@ export function ProductComparisonSync({ products, fromUrl }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, fromUrl, signature, replaceProducts]);
 
-  // On an empty compare URL, a selection made in the tray can open the table.
+  // On an empty compare URL, a selection saved while browsing can open the table.
   // Once a product query exists, only the URL effect above owns reconciliation.
   useEffect(() => {
     if (!ready || fromUrl || items.length < 2) return;
@@ -52,7 +52,7 @@ export function RemoveComparedProduct({ product, products }: {
     router.replace(productComparisonHref(next.map((item) => item.id)), { scroll: false });
   };
   return (
-    <button type="button" onClick={remove} aria-label={`Remove ${product.name} from comparison`} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-ink-200 bg-white text-ink-400 hover:border-brand-300 hover:text-brand-800 sm:size-8">
+    <button type="button" onClick={remove} aria-label={`Remove ${product.name} from comparison`} className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-ink-200 bg-white text-ink-400 hover:border-brand-300 hover:text-brand-800 sm:size-8">
       <X className="size-4" aria-hidden="true" />
     </button>
   );
