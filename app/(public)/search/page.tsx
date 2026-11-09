@@ -50,7 +50,7 @@ type SearchTab = "products" | "suppliers";
 type SearchRequestState = { query: string; category: string; lang: Locale; productPage: number; supplierPage: number; requestedTab: SearchTab | null };
 type SearchLinkState = SearchRequestState & { tab: SearchTab; filters: SearchFilters };
 
-type ProductResult = { category: Category; categoryName: string; product: PublicCategoryProduct; relevance: SearchRelevance };
+type ProductResult = { category: Category; product: PublicCategoryProduct; relevance: SearchRelevance };
 type SupplierResult = SearchSupplierFilterData & SearchSupplierCardSupplier & { directMatch: boolean };
 type Results = {
   products: ProductResult[];
@@ -268,7 +268,6 @@ async function findResults(tokens: string[], categories: Category[], selected: C
       }
       const category = batch[j];
       const categoryText = categorySearchText(category, byCategoryId);
-      const name = categoryName(category, lang);
       for (const product of outcome.value) {
         // Demo/test không phải là kết quả mua bán, kể cả khi môi trường bật preview.
         if (product.isDemo || product.isDemoSupplier) continue;
@@ -294,7 +293,7 @@ async function findResults(tokens: string[], categories: Category[], selected: C
         productMatchSupplierIds.add(product.supplierId);
         if (!seenProductIds.has(product.id)) {
           seenProductIds.add(product.id);
-          matches.push({ product, category, categoryName: name, relevance });
+          matches.push({ product, category, relevance });
         }
       }
     }
@@ -395,15 +394,10 @@ function SearchResults({ results, state, params, categories, selected }: {
         : (isVi ? "Xen kẽ nhà cung cấp khi có thể." : "Suppliers alternate when possible.")}
     </p>
     <ul className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-      {shownProducts.map(({ product, category, categoryName: name }) => {
+      {shownProducts.map(({ product, category }) => {
         const slug = encodeURIComponent(category.slug);
         const productHref = localHref(`/products/${slug}/${encodeURIComponent(product.id)}`, state.lang);
         return <li key={product.id} className="flex min-w-0 flex-col">
-          <Link href={localHref(`/products/${slug}`, state.lang)} title={name}
-            aria-label={isVi ? `Xem danh mục ${name}` : `View ${name} category`}
-            className="mb-2 flex min-w-0 items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
-            <span className="truncate">{name}</span><ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          </Link>
           <div className="min-w-0 flex-1">
             <PublicProductCard href={productHref} imagePath={product.cardImagePath ?? product.imagePaths[0]}
               name={product.name} grades={cardTitleGrades(product)} gradeRows={product.gradeRows} moq={product.moq}
