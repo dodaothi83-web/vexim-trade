@@ -295,6 +295,15 @@ assert.ok(!JSON.stringify(cardProps).includes("private-spec-marker"));
 assert.ok(!html.includes("private/evidence.jpg"));
 assert.ok(!html.includes("98765"));
 assert.ok(cardProps.every((card) => !card.comparison), "A category with only one supplier has no comparison option");
+assert.doesNotMatch(html, /href="\/products\/cashew(?:\?|")/,
+  "Repeated category links are not rendered above the four matching product cards");
+html = await render({ q: "rice", lang: "en" });
+assert.ok(ids(html).includes("rice-st25"), "Rice keyword matching still finds public rice products");
+assert.doesNotMatch(html, /href="\/products\/rice(?:\?|")/,
+  "The English rice result has no redundant category row");
+assert.ok(cardProps.some((card) => card.href === "/products/rice/rice-st25"),
+  "The rice product still links to its detail page");
+assert.match(html, /name="cat"/, "Category navigation remains available in the search filter");
 html = await render({ q: "W320", cat: "cashew", lang: "vi", tab: "suppliers" });
 assert.ok(supplierCards(html).includes("alpha"), "A matched product also makes its supplier discoverable");
 assert.equal(ids(html).length, 0, "The supplier tab does not render product cards");
@@ -556,8 +565,11 @@ assert.ok(orderedMixed.indexOf("a-multigrade") < orderedMixed.indexOf("a-mislead
 assert.match(html, /aria-label="Sản phẩm phù hợp"/, "Genuine grade matches open in the product tab");
 assert.doesNotMatch(html, /aria-label="Nhà cung cấp phù hợp"/, "Supplier cards never stack below product cards");
 assert.match(html, /q=W320&amp;lang=vi&amp;tab=suppliers/, "Buyers can switch to suppliers without losing the query");
-assert.match(html, /aria-label="Xem danh mục Hạt điều &amp; Nhân điều xuất khẩu"/);
-assert.match(html, /aria-label="Xem danh mục Hạt rang"/);
+assert.doesNotMatch(html, /href="\/products\/(?:cashew|nut-snacks)(?:\?|")/,
+  "Product results across multiple categories have no extra category links");
+assert.ok(cardProps.some((card) => card.href.startsWith("/products/cashew/")) &&
+  cardProps.some((card) => card.href.startsWith("/products/nut-snacks/")),
+  "Product details still link to the correct category path without the extra category row");
 const cardId = (card) => decodeURIComponent(card.href.split("?")[0].split("/").at(-1));
 const mixedCards = new Map(cardProps.map((card) => [cardId(card), card]));
 assert.ok(mixedCards.get("d-w320").comparison, "An alternative supplier in the same category enables comparison");
