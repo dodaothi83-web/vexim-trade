@@ -297,13 +297,26 @@ assert.ok(!html.includes("98765"));
 assert.ok(cardProps.every((card) => !card.comparison), "A category with only one supplier has no comparison option");
 assert.doesNotMatch(html, /href="\/products\/cashew(?:\?|")/,
   "Repeated category links are not rendered above the four matching product cards");
+// A real-world style pepper title containing "Price" used to appear for "rice".
+const pepperOffer = product("pepper-best-price", "pepper-supplier", "pepper", "Best Price Premium Vietnam Black Pepper");
+categories.push(category("pepper", "Pepper", "Hồ tiêu"));
+suppliers.push(supplier("pepper-supplier", "Best Price Spices"));
+rows.push(pepperOffer);
+media.push(mediaFor(pepperOffer));
 html = await render({ q: "rice", lang: "en" });
-assert.ok(ids(html).includes("rice-st25"), "Rice keyword matching still finds public rice products");
+assert.deepEqual(ids(html), ["rice-st25"], "Rice finds genuine rice, not pepper whose title says Price");
 assert.doesNotMatch(html, /href="\/products\/rice(?:\?|")/,
   "The English rice result has no redundant category row");
 assert.ok(cardProps.some((card) => card.href === "/products/rice/rice-st25"),
   "The rice product still links to its detail page");
 assert.match(html, /name="cat"/, "Category navigation remains available in the search filter");
+html = await render({ q: "rice", lang: "en", tab: "suppliers" });
+assert.deepEqual(supplierCards(html), ["rice-supplier"], "A Price-only supplier is not a rice supplier");
+html = await render({ q: "price", lang: "en", tab: "products" });
+assert.ok(ids(html).includes(pepperOffer.id), "Searching for Price still finds the pepper product");
+html = await render({ q: "pepper", cat: "pepper", lang: "en" });
+assert.deepEqual(ids(html), [pepperOffer.id], "The pepper category and keyword still find pepper");
+media.pop(); rows.pop(); suppliers.pop(); categories.pop();
 html = await render({ q: "W320", cat: "cashew", lang: "vi", tab: "suppliers" });
 assert.ok(supplierCards(html).includes("alpha"), "A matched product also makes its supplier discoverable");
 assert.equal(ids(html).length, 0, "The supplier tab does not render product cards");
