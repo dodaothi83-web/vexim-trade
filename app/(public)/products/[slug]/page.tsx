@@ -78,24 +78,44 @@ interface ChildCategoryWithCount {
 }
 
 
-function categoryDisplayName(cat: Category): string {
-  return t(cat.name_i18n) || cat.slug;
+function categoryDisplayName(cat: Category, lang?: string): string {
+  return t(cat.name_i18n, "", lang) || cat.slug;
+}
+
+/** `?lang=` chỉ nhận "vi", mọi giá trị khác (kể cả thiếu) đều là tiếng Anh mặc định. */
+function categoryLangParam(value: string | string[] | undefined): "en" | "vi" {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === "vi" ? "vi" : "en";
 }
 
 /**
  * Tiêu đề thẻ mặc định. Tên danh mục thủy sản đã kết thúc bằng "Products", ghép thêm
  * " Products & Verified Suppliers" sẽ ra "Products Products". Bỏ phần thừa thay vì
  * bắt người biên tập phải nhớ điền seo_title cho từng danh mục.
+ *
+ * Bản tiếng Việt dùng công thức ngắn gọn riêng vì các quy tắc ghép hậu tố tiếng Anh
+ * ở trên không áp dụng được cho câu tiếng Việt.
  */
-function categorySeoTitle(name: string, storedTitle: string): string {
+function categorySeoTitle(name: string, storedTitle: string, isVi = false): string {
   const stored = storedTitle.trim();
   if (stored) return stored;
+  if (isVi) return `${name} tại Việt Nam | Nhà Cung Cấp Đã Xác Minh | Vexim Trade`;
   const suffix = /\bproducts?$/i.test(name.trim()) ? "" : " Products";
   return `${name}${suffix} & Verified Suppliers in Vietnam | Vexim Trade`;
 }
 
-function categoryMetaDescription(name: string, storedDescription: string): string {
+/**
+ * Bản tiếng Việt: trả thẳng mô tả đã lưu (seo_desc_i18n.vi) hoặc một câu dự phòng
+ * ngắn gọn. Không áp dụng các quy tắc nhận diện/ghép câu "chosen supplier"/"open
+ * request" bên dưới vì chúng dò theo cụm từ tiếng Anh, sẽ ghép nhầm câu tiếng Anh
+ * vào cuối một mô tả tiếng Việt nếu áp dụng chung.
+ */
+function categoryMetaDescription(name: string, storedDescription: string, isVi = false): string {
   const base = storedDescription.trim();
+  if (isVi) {
+    if (base) return base;
+    return `${name} từ Việt Nam: nhà cung cấp đã xác minh, đầy đủ quy cách và điều kiện mua hàng. Gửi yêu cầu báo giá trực tiếp cho nhà cung cấp.`;
+  }
   const fallback = categoryMetaFallback(name);
   if (!base) return fallback;
 
@@ -115,6 +135,18 @@ function categoryMetaDescription(name: string, storedDescription: string): strin
   const firstSentence = base.match(/^[^.]+\./)?.[0]?.trim();
   const shortened = firstSentence ? `${firstSentence} ${CATEGORY_META_SUFFIX}` : fallback;
   return shortened.length <= 185 ? shortened : fallback;
+}
+
+/**
+ * Đường dẫn danh mục kèm `page`/`lang` khi cần. Dùng chung cho canonical và
+ * `alternates.languages` để tự URL luôn khớp quy tắc giữ/bỏ tham số như nhau.
+ */
+function categoryPath(slug: string, opts: { page?: number; lang?: "en" | "vi" } = {}): string {
+  const params = new URLSearchParams();
+  if (opts.page && opts.page > 1) params.set("page", String(opts.page));
+  if (opts.lang === "vi") params.set("lang", "vi");
+  const qs = params.toString();
+  return `/products/${slug}${qs ? `?${qs}` : ""}`;
 }
 
 /**
@@ -156,21 +188,31 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   // Trang đã lọc là một cách xem khác của cùng danh mục; chỉ trang gốc được index.
   const filtered = parseCertificateSchemeQuery(query.cert).length > 0;
   const page = categoryPageParam(query.page);
+  const lang = categoryLangParam(query.lang);
+  const isVi = lang === "vi";
   const { cat, resolvedSlug, isPreview } = await resolveCategory(slug);
   if (!cat) return { title: "Category not found | Vexim Trade", robots: { index: false, follow: false } };
-  const name = categoryDisplayName(cat);
-  const seoTitle = categorySeoTitle(name, t(cat.seo_title_i18n));
-  const seoDesc = categoryMetaDescription(name, t(cat.seo_desc_i18n));
+  const name = categoryDisplayName(cat, lang);
+  const seoTitle = categorySeoTitle(name, t(cat.seo_title_i18n, "", lang), isVi);
+  const seoDesc = categoryMetaDescription(name, t(cat.seo_desc_i18n, "", lang), isVi);
   const indexable = !isPreview && !!cat.seo_indexable;
   const heroImage = cat.hero_image || "/images/home/hero-cashew-texture.jpg";
   const images = [{ url: heroImage, alt: `${name} products and verified suppliers in Vietnam` }];
-  // Trang hai trở đi tự trỏ canonical về chính nó, nếu không sẽ bị hiểu là bản trùng trang một.
-  const canonicalPath = page > 1 ? `/products/${resolvedSlug}?page=${page}` : `/products/${resolvedSlug}`;
+  // Trang hai trở đi tự trỏ canonical về chính nó; bản tiếng Việt (?lang=vi) cũng tự trỏ
+  // về chính nó (giữ lang=vi) thay vì gập về bản tiếng Anh, để hreflang khai đúng cặp URL.
+  const canonicalPath = categoryPath(resolvedSlug, { page, lang: isVi ? "vi" : undefined });
   return {
-    title: { absolute: page > 1 ? `${seoTitle} · page ${page}` : seoTitle },
+    title: { absolute: page > 1 ? `${seoTitle} · ${isVi ? "trang" : "page"} ${page}` : seoTitle },
     description: seoDesc,
-    alternates: { canonical: canonicalPath },
-    openGraph: { title: seoTitle, description: seoDesc, url: canonicalPath, siteName: "Vexim Trade", type: "website", images },
+    alternates: {
+      canonical: canonicalPath,
+      languages: {
+        en: categoryPath(resolvedSlug, { page }),
+        vi: categoryPath(resolvedSlug, { page, lang: "vi" }),
+        "x-default": categoryPath(resolvedSlug, { page }),
+      },
+    },
+    openGraph: { title: seoTitle, description: seoDesc, url: canonicalPath, siteName: "Vexim Trade", type: "website", images, locale: isVi ? "vi_VN" : "en_US" },
     twitter: { card: "summary_large_image", title: seoTitle, description: seoDesc, images: [heroImage] },
     robots: { index: indexable && !filtered, follow: !isPreview },
   };
@@ -215,6 +257,8 @@ async function resolveCategory(slug: string) {
 export default async function CategoryPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const query = (await searchParams) ?? {};
+  const lang = categoryLangParam(query.lang);
+  const isVi = lang === "vi";
   const { cat, allCategories, isStaff, isPreview, resolvedSlug } = await resolveCategory(slug);
   if (!cat) notFound();
 
@@ -246,8 +290,8 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
   const childGroups: ChildCategoryWithCount[] = childProductsList.map(({ child, products: items }) => ({
     category: child,
-    name: categoryDisplayName(child),
-    intro: t(child.intro_i18n) || "",
+    name: categoryDisplayName(child, lang),
+    intro: t(child.intro_i18n, "", lang) || "",
     productCount: items.length,
   }));
 
@@ -330,15 +374,20 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     categorySlug: cat.slug,
     nowMs,
   });
-  const categoryName = categoryDisplayName(cat);
-  const parentName = parentCategory ? categoryDisplayName(parentCategory) : null;
-  const h1 = cat.slug === "cashew" ? "Vietnam Cashew" : (t(cat.h1_i18n) || `Vietnam ${categoryName}`);
+  const categoryName = categoryDisplayName(cat, lang);
+  const parentName = parentCategory ? categoryDisplayName(parentCategory, lang) : null;
+  const h1 =
+    cat.slug === "cashew"
+      ? (isVi ? "Hạt Điều Việt Nam" : "Vietnam Cashew")
+      : (t(cat.h1_i18n, "", lang) || (isVi ? `${categoryName} tại Việt Nam` : `Vietnam ${categoryName}`));
   const intro =
-    t(cat.intro_i18n) ||
-    `Explore export-ready Vietnamese ${categoryName.toLowerCase()} products and verified suppliers. Compare specifications, MOQ, reference FOB pricing, and Vexim verification badges (business documents & certificate holder status, factory review, and export delivery history), then request a quote from the supplier you choose or send your requirements and we look for suppliers that match.`;
+    t(cat.intro_i18n, "", lang) ||
+    (isVi
+      ? `Khám phá các sản phẩm ${categoryName.toLowerCase()} xuất khẩu của Việt Nam và nhà cung cấp đã xác minh. So sánh quy cách, MOQ, giá FOB tham khảo và các dấu xác minh của Vexim (hồ sơ doanh nghiệp & tình trạng giữ chứng chỉ, kiểm tra nhà máy, lịch sử giao hàng xuất khẩu), rồi gửi yêu cầu báo giá cho nhà cung cấp bạn chọn hoặc gửi yêu cầu và chúng tôi tìm nhà cung cấp phù hợp.`
+      : `Explore export-ready Vietnamese ${categoryName.toLowerCase()} products and verified suppliers. Compare specifications, MOQ, reference FOB pricing, and Vexim verification badges (business documents & certificate holder status, factory review, and export delivery history), then request a quote from the supplier you choose or send your requirements and we look for suppliers that match.`);
 
   // Sanitize body để chặn HTML/script độc từ CMS (chỉ cho p/h2-h4/ul/ol/li/a/strong/em/br).
-  const bodyRaw = t(cat.body_i18n);
+  const bodyRaw = t(cat.body_i18n, "", lang);
   const body = bodyRaw ? sanitizeHtml(bodyRaw) : "";
   const isDemo = products.some((p) => p.isDemo);
   const hasProducts = products.length > 0;
@@ -352,8 +401,8 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
   // Schema cho trang danh mục: đường dẫn breadcrumb luôn có (gồm cả Nhóm cha nếu đây là Nhóm nhỏ); ItemList chỉ khi đã có sản phẩm.
   const breadcrumbElements = [
-    { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-    { "@type": "ListItem", position: 2, name: "Products", item: `${SITE_URL}/#categories` },
+    { "@type": "ListItem", position: 1, name: isVi ? "Trang chủ" : "Home", item: SITE_URL },
+    { "@type": "ListItem", position: 2, name: isVi ? "Sản phẩm" : "Products", item: `${SITE_URL}/#categories` },
     ...(parentCategory && parentName
       ? [
           {
@@ -396,8 +445,8 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   } : null;
 
   const breadcrumbItems = [
-    { label: "Home", href: "/" },
-    { label: "Products", href: "/#categories" },
+    { label: isVi ? "Trang chủ" : "Home", href: "/" },
+    { label: isVi ? "Sản phẩm" : "Products", href: "/#categories" },
     ...(parentCategory && parentName
       ? [{ label: parentName, href: `/products/${parentCategory.slug}` }]
       : []),
@@ -460,7 +509,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
                       : "border border-slate-200 bg-white text-ink-700 hover:border-brand-400 hover:text-brand-800"
                   }`}
                 >
-                  {categoryDisplayName(sib)}
+                  {categoryDisplayName(sib, lang)}
                 </Link>
               );
             })}
@@ -490,6 +539,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             comparisonEnabled={!isPreview}
             page={categoryPageParam(query.page)}
             keepQuery={withoutPageParam(query)}
+            lang={lang}
           />
         ) : (
           <StateB
@@ -504,6 +554,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             facts={facts}
             faqs={faqs}
             body={body}
+            lang={lang}
           />
         )}
 
@@ -579,7 +630,7 @@ function SubcategoryDirectory({
 function StateA({
   cat, products, productCount, certificateFacets, selectedCertificateSchemes,
   sponsored, sponsoredBand, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref, comparisonEnabled,
-  page, keepQuery,
+  page, keepQuery, lang,
 }: {
   cat: Category;
   products: PublicCategoryProduct[];
@@ -597,6 +648,7 @@ function StateA({
   rfqHref: string;
   page: number;
   keepQuery: string;
+  lang: "en" | "vi";
 }) {
   // Lịch mùa vụ: chuẩn hóa để dữ liệu cũ hoặc thiếu trường không làm vỡ trang.
   const harvest = normalizeHarvest(cat.harvest);
@@ -691,7 +743,7 @@ function StateA({
         <HarvestCalendarSection
           categoryName={categoryName}
           harvest={harvest}
-          note={t(harvest.note_i18n)}
+          note={t(harvest.note_i18n, "", lang)}
         />
       )}
 
@@ -782,10 +834,10 @@ function CategoryContentSections({ columns, rows, facts, faqs, body, categoryNam
 
 /* ================== STATE B — chưa có NCC ================== */
 
-function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, rows, facts, faqs, body }: {
+function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, rows, facts, faqs, body, lang }: {
   cat: Category; categoryName: string; h1: string; intro: string; childGroups: ChildCategoryWithCount[]; rfqHref: string;
   columns: CategoryColumn[]; rows: CategoryRow[]; facts: CategoryFact[];
-  faqs: Array<{ q: string; a: string }>; body: string | null;
+  faqs: Array<{ q: string; a: string }>; body: string | null; lang: "en" | "vi";
 }) {
   const harvest = normalizeHarvest(cat.harvest);
   return (
@@ -814,7 +866,7 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
         {cat.hero_image && (
           <figure className="mt-8 overflow-hidden rounded-xl border border-ink-200">
             <div className="relative aspect-[21/9] w-full bg-ink-50">
-              <Image src={cat.hero_image} alt={t(cat.hero_alt_i18n) || categoryName} fill sizes="100vw" className="object-cover" priority />
+              <Image src={cat.hero_image} alt={t(cat.hero_alt_i18n, "", lang) || categoryName} fill sizes="100vw" className="object-cover" priority />
             </div>
             <figcaption className="bg-ink-50 px-3 py-2 text-xs text-ink-600">Category overview image, not a product listing. Individual product photos appear with buyer-ready offers.</figcaption>
           </figure>
@@ -847,7 +899,7 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
       <HarvestCalendarSection
         categoryName={categoryName}
         harvest={harvest}
-        note={t(harvest.note_i18n)}
+        note={t(harvest.note_i18n, "", lang)}
       />
     )}
 

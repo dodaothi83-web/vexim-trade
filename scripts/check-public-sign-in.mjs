@@ -26,7 +26,7 @@ function load(file, mocks, globals = {}) {
 
 const Link = ({ href, children, prefetch: _prefetch, ...props }) => React.createElement('a', { href, ...props }, children);
 const icons = new Proxy({}, { get: () => (props) => React.createElement('svg', props) });
-const common = { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'lucide-react': icons, '@/components/brand/vexim-icons': icons };
+const common = { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: Link }, 'lucide-react': icons, '@/components/brand/vexim-icons': icons, '@/components/brand-logo': { Logo: () => null } };
 // setSignedOut() cập nhật lạc quan state dùng chung khi bấm đăng xuất (xem
 // lib/buyer/public-session-context.tsx) — bài kiểm tra này chỉ cần nó không ném lỗi.
 const publicSessionActionsStub = { usePublicSessionActions: () => ({ setSignedOut: () => {}, setSignedIn: () => {}, refresh: () => {} }) };

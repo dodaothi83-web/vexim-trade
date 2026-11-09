@@ -8,7 +8,7 @@ import { COMPANY } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
 import { safeJsonLd } from "@/lib/public/supplier-seo";
 import HomeContent from "./home";
-import { HOME_META_DESCRIPTION } from "@/lib/public/meta-copy";
+import { HOME_META_DESCRIPTION, HOME_META_DESCRIPTION_VI } from "@/lib/public/meta-copy";
 
 // Chuyển hướng nhân viên đã đăng nhập (→ /crm/dashboard) và host nội bộ
 // (crm.*, *.vercel.app → /login) giờ nằm ở middleware.ts, chạy TRƯỚC khi chạm
@@ -38,28 +38,52 @@ const HOME_HERO_LOCAL_FILES = [
 ] as const;
 
 const HOME_TITLE = "Vexim Trade – Find Verified Food & Agricultural Products and Suppliers in Vietnam";
+const HOME_TITLE_VI = "Vexim Trade – Tìm Nhà Cung Cấp Nông Sản & Thực Phẩm Việt Nam Đã Xác Minh";
 const HOME_DESCRIPTION = HOME_META_DESCRIPTION;
+const HOME_DESCRIPTION_VI = HOME_META_DESCRIPTION_VI;
 const HOME_IMAGE = "/images/home/hero-cashew-texture.jpg";
 
-export const metadata: Metadata = {
-  title: { absolute: HOME_TITLE },
-  description: HOME_DESCRIPTION,
-  alternates: { canonical: "/" },
-  openGraph: {
-    title: HOME_TITLE,
-    description: HOME_DESCRIPTION,
-    url: "/",
-    siteName: "Vexim Trade",
-    type: "website",
-    images: [{ url: HOME_IMAGE, alt: "Verified Vietnamese food & agricultural products on Vexim Trade" }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: HOME_TITLE,
-    description: HOME_DESCRIPTION,
-    images: [HOME_IMAGE],
-  },
-};
+/**
+ * Trang chủ đọc `?lang=vi` để dựng bản tiếng Việt (xem HomeContent/home.tsx) — metadata
+ * phải động theo cùng tham số đó, nếu không bản tiếng Việt vẫn hiện tiêu đề/mô tả tiếng
+ * Anh trên kết quả tìm kiếm Google dù nội dung trang đã là tiếng Việt. `alternates.languages`
+ * khai hreflang en/vi/x-default để Google biết đây là hai biến thể ngôn ngữ của cùng một
+ * trang, không phải nội dung trùng lặp.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: Promise<{ lang?: string }>;
+}): Promise<Metadata> {
+  const params = searchParams ? await searchParams : {};
+  const isVi = params?.lang === "vi";
+  const title = isVi ? HOME_TITLE_VI : HOME_TITLE;
+  const description = isVi ? HOME_DESCRIPTION_VI : HOME_DESCRIPTION;
+  const canonical = isVi ? "/?lang=vi" : "/";
+  return {
+    title: { absolute: title },
+    description,
+    alternates: {
+      canonical,
+      languages: { en: "/", vi: "/?lang=vi", "x-default": "/" },
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: "Vexim Trade",
+      type: "website",
+      locale: isVi ? "vi_VN" : "en_US",
+      images: [{ url: HOME_IMAGE, alt: "Verified Vietnamese food & agricultural products on Vexim Trade" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [HOME_IMAGE],
+    },
+  };
+}
 
 /**
  * Root công khai (/) — trang chủ Vexim Trade đa ngành (song ngữ Anh - Việt, mặc định Tiếng Anh).

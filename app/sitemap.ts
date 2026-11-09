@@ -90,12 +90,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 1,
+      // Trang chủ dựng bản tiếng Việt thật qua ?lang=vi (xem app/(public)/page.tsx) —
+      // khai hreflang để Google biết đây là hai biến thể ngôn ngữ, không phải trùng lặp.
+      alternates: { languages: { en: SITE_URL, vi: `${SITE_URL}/?lang=vi` } },
     },
     {
       url: `${SITE_URL}/how-it-works`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6,
+      alternates: { languages: { en: `${SITE_URL}/how-it-works`, vi: `${SITE_URL}/how-it-works?lang=vi` } },
     },
     {
       url: `${SITE_URL}/how-we-verify`,
@@ -114,6 +118,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.7,
+      // Trang danh mục dựng bản tiếng Việt qua ?lang=vi khi category đã có bản dịch
+      // trong CMS (xem app/(public)/products/[slug]/page.tsx).
+      alternates: {
+        languages: {
+          en: `${SITE_URL}/products/${encodeURIComponent(c.slug)}`,
+          vi: `${SITE_URL}/products/${encodeURIComponent(c.slug)}?lang=vi`,
+        },
+      },
     })),
     ...productRoutes,
     ...searchableSuppliers

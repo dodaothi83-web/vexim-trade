@@ -3,9 +3,7 @@ import { BuyerGoogleOneTapGate } from "@/components/buyer-google-one-tap-gate";
 import { BuyerSavedProductsProvider } from "@/components/buyer-saved-products";
 import { PublicSessionProvider } from "@/lib/buyer/public-session-context";
 import { Suspense, type ReactNode } from "react";
-import Link from "next/link";
 
-import { Logo } from "@/components/brand-logo";
 import { PublicHeaderControls } from "@/components/public-header-controls";
 import { PublicHeaderShell } from "@/components/public-header-shell";
 import { SimpleFooter } from "./simple-footer";
@@ -46,21 +44,6 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
       <SiteTrafficBeacon />
       <BuyerGoogleOneTapGate />
       <PublicHeaderShell>
-          <Link href="/" aria-label="Veximtrade home" className="flex shrink-0 items-center gap-2.5">
-            <Logo className="h-12 w-12" />
-            <span className="hidden flex-col leading-tight sm:flex md:hidden xl:flex">
-              <span
-                className="text-[16.5px] font-black tracking-tight text-brand-700"
-                style={{ letterSpacing: "-0.01em" }}
-              >
-                Vexim Trade
-              </span>
-              <span className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-ink-500">
-                Verified Vietnam Sourcing
-              </span>
-            </span>
-          </Link>
-
           <PublicHeaderControls />
       </PublicHeaderShell>
 

@@ -14,6 +14,10 @@
 export const HOME_META_DESCRIPTION =
   "Verified Vietnamese food and agricultural suppliers across core export categories. Request a quote from the supplier you choose, or ask us to look for one.";
 
+/** Bản tiếng Việt của HOME_META_DESCRIPTION, dùng khi trang chủ render với ?lang=vi. */
+export const HOME_META_DESCRIPTION_VI =
+  "Nhà cung cấp nông sản và thực phẩm Việt Nam đã xác minh trên các ngành hàng xuất khẩu chính. Gửi yêu cầu báo giá cho nhà cung cấp bạn chọn, hoặc nhờ chúng tôi tìm giúp.";
+
 /** Câu dưới tiêu đề lớn ở trang chủ. Ngắn hơn mô tả tìm kiếm, cùng một thông điệp. */
 export const HOME_HERO_LINE =
   "Browse verified Vietnamese suppliers and request a quote from the one you choose. Haven’t found the right fit? Send us your requirements and we look for suppliers that match.";
