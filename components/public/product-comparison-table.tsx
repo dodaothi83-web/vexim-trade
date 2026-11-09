@@ -9,6 +9,7 @@ import { productComparisonWarnings, type ProductComparisonSelection } from "@/li
 import type { PublicComparedProduct } from "@/lib/public/product-comparison-data";
 import { verificationLabel } from "@/lib/verification-status";
 import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
+import { publicProductLocationDisplay } from "@/lib/public/product-detail-display";
 
 function Missing({ children = "Not provided" }: { children?: string }) {
   return <span className="font-normal text-ink-400">{children}</span>;
@@ -153,7 +154,7 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
             <Row label="Samples" products={products}>{(product) => <Availability available={product.samples} />}</Row>
 
             <Section label="Supplier" count={products.length} />
-            <Row label="Location" products={products}>{(product) => `${product.province}, Vietnam`}</Row>
+            <Row label="Location" products={products}>{(product) => publicProductLocationDisplay(product.province)}</Row>
             <Row label="Raw material region" products={products}>{(product) => <Value value={product.rawMaterialRegion} />}</Row>
             <Row label="Input material origin" products={products}>{(product) => <Value value={product.inputMaterialOrigin} />}</Row>
             <Row label="Vexim verification" products={products}>{(product) => (

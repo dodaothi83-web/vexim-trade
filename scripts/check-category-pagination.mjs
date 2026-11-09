@@ -37,6 +37,7 @@ const mocks = {
   '@/lib/public/supplier-product-order': order,
   '@/lib/products/grade-pricing': { classifyMoqFilterGroup: () => 'ask' },
   '@/lib/public/product-comparison': { hasProductComparisonPeer: () => false },
+  '@/lib/public/product-detail-display': { UNSPECIFIED_SOURCING_REGION: 'Not specified' },
 };
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../components/category-product-grid.tsx', import.meta.url), 'utf8'),

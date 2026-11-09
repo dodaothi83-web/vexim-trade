@@ -21,8 +21,7 @@ import {
 } from "@/lib/products/grade-pricing";
 import { evidenceValidVerificationSteps, rankPublicCategoryProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { publicProductTitle } from "@/lib/public/display-name";
-import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
-import { publicProductMoqDisplay, publicProductPlaceDisplay, publicProductPriceDisplay } from "@/lib/public/product-detail-display";
+import { publicProductMoqDisplay, publicProductPlaceDisplay, publicProductPriceDisplay, UNSPECIFIED_SOURCING_REGION } from "@/lib/public/product-detail-display";
 import type { Certificate, Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
 
 /**
@@ -165,6 +164,14 @@ export function projectPublicCategoryProduct(
   const effectiveIncoterm = gradeData.hasGradeRows
     ? (gradeData.gradeRows[0]?.incoterm ?? p.incoterm ?? null)
     : (p.incoterm ?? null);
+  // `province` is the product's sourcing region (raw_material_region), NOT the
+  // supplier's registered address (supplierProvinceDisplay). The two are often
+  // different — a Hanoi-registered trading company's cashew kernels may actually
+  // be sourced from Dong Nai — and buyers filtering/comparing by location care
+  // about the latter. Products whose supplier hasn't filled this in yet fall back
+  // to UNSPECIFIED_SOURCING_REGION rather than silently showing the company's
+  // address, so the gap stays visible until the supplier updates the product.
+  const rawMaterialRegionDisplay = publicProductPlaceDisplay(tradeEnglish?.raw_material_region);
   return {
     // Tên công khai: bản soạn sẵn nếu có, không thì tên gốc. Danh mục vẫn
     // suy từ tên gốc (productBelongsToCategory ở trên), không suy từ tên này.
@@ -182,8 +189,8 @@ export function projectPublicCategoryProduct(
     price: effectivePrice,
     pricePoint: effectivePricePoint,
     isDemoSupplier: !!s.is_demo,
-    province: supplierProvinceDisplay(s) || "Vietnam",
-    rawMaterialRegion: publicProductPlaceDisplay(tradeEnglish?.raw_material_region),
+    province: rawMaterialRegionDisplay || UNSPECIFIED_SOURCING_REGION,
+    rawMaterialRegion: rawMaterialRegionDisplay,
     inputMaterialOrigin: tradeEnglish?.input_material_origin?.trim() || "",
     verificationCount: s.approved_verification_steps.length, verificationSteps: s.approved_verification_steps,
     l2Scope: s.approved_l2_scope ?? null,

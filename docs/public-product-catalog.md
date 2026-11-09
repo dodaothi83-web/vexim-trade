@@ -52,3 +52,11 @@ Cách dùng: `?cert=haccp,halal`. Tham số được sắp lại theo đúng th�
 **Trước khi deploy:** áp dụng `supabase/migrations/20261075_certificate_scheme.sql` (cột + check `NOT VALID` + index bộ phận). Không backfill: giấy cũ để `NULL` cho tới khi nhân viên phân loại. Test: `npm run check:certificates` cùng `node --experimental-strip-types --no-warnings scripts/check-certificate-l1-ai.mjs`.
 
 **GĐ2:** giấy không còn gắn rời từng sản phẩm mà theo **phạm vi** (danh mục hoặc sản phẩm) — xem `docs/certificate-scope-flow.md`.
+
+## Bộ lọc vùng nguồn gốc ("Source region", trước đây gọi "Province")
+
+`PublicCategoryProduct.province` (dùng cho dropdown "Source region" ở trang danh mục, badge "Location" trên trang chi tiết sản phẩm, bảng/PDF so sánh) lấy từ **`raw_material_region` của chính sản phẩm**, KHÔNG phải tỉnh đăng ký trụ sở của nhà cung cấp (`suppliers.province`). Hai giá trị này thường khác nhau: một công ty thương mại đăng ký trụ sở Hà Nội vẫn có thể bán hạt điều lấy nguyên liệu từ Đồng Nai, và trước đây dropdown "Province" lấy nhầm trụ sở NCC nên chỉ hiện vài thành phố lớn (Hà Nội/TP.HCM) dù vùng trồng/chế biến thật đa dạng hơn nhiều. `suppliers.province` cũng là trường tự do do NCC gõ tay, không kiểm tra theo danh sách tỉnh thật.
+
+Sản phẩm chưa khai `raw_material_region` nhận sentinel `UNSPECIFIED_SOURCING_REGION` ("Not specified", `lib/public/product-detail-display.ts`) thay vì âm thầm lùi về trụ sở NCC — giữ cho khoảng trống dữ liệu hiển thị rõ ràng cho tới khi NCC cập nhật sản phẩm. Sản phẩm này vẫn hiện trong lưới khi không áp bộ lọc, nhưng sentinel không được liệt kê như một lựa chọn vùng thật trong dropdown (`components/category-product-grid.tsx` lọc nó ra khỏi danh sách `provinces`). Badge "Location" dùng `publicProductLocationDisplay()` để ghép `", Vietnam"` sau tên vùng thật, hoặc hiện riêng "Not specified" khi chưa rõ.
+
+Test: `node --experimental-strip-types --no-warnings scripts/check-category-source-region-filter.mjs`, cùng `scripts/check-comparison-pdf.mjs` và `scripts/check-product-comparison.mjs` (đã cập nhật mock cho `publicProductLocationDisplay`).

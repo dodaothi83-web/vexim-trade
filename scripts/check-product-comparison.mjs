@@ -336,6 +336,7 @@ const tableModule = compile("../components/public/product-comparison-table.tsx",
   "@/lib/public/product-comparison": { productComparisonWarnings },
   "@/lib/verification-status": { VERIFICATION_LABELS, verificationLabel },
   "@/lib/types": { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] },
+  "@/lib/public/product-detail-display": { publicProductLocationDisplay: (region) => region === "Not specified" ? region : `${region}, Vietnam` },
 });
 const tableHtml = renderToStaticMarkup(React.createElement(tableModule.ProductComparisonTable, {
   products: [compared("a"), compared("b", { price: null, priceCurrency: null, priceUnit: null, priceValidUntil: null, certificates: [], inputMaterialOrigin: null })],

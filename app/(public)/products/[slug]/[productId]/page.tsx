@@ -12,7 +12,7 @@ import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin } from "lucide-r
 import { Breadcrumbs } from "@/components/ui";
 import { ProductVerificationIcons } from "@/components/product-verification-icons";
 import { VerificationTierBadge } from "@/components/verification-tier";
-import { parseProductSpecification, productSpecificationKey, publicProductMoqDisplay } from "@/lib/public/product-detail-display";
+import { parseProductSpecification, productSpecificationKey, publicProductLocationDisplay, publicProductMoqDisplay } from "@/lib/public/product-detail-display";
 import { publicProductExportPortDisplay } from "@/lib/public/product-export-port";
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
@@ -87,7 +87,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const detail = await getDetailOrRedirect(slug, productId);
   if (!detail) return { title: "Product not found | Vexim Trade", robots: { index: false } };
   const title = `${detail.card.name} | Vietnam ${detail.category.name_i18n.en || slug} | Vexim Trade`;
-  const description = `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${detail.card.province}. Request a quote from Vexim Trade.`;
+  const description = `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${publicProductLocationDisplay(detail.card.province)}. Request a quote from Vexim Trade.`;
   const ogImagePath = detail.card.cardImagePath ?? detail.card.imagePaths[0];
   const ogImage = ogImagePath ? `${SITE_URL}/public-media/${ogImagePath.replace(/^\//, "")}` : null;
   return {
@@ -267,7 +267,7 @@ export default async function PublicProductDetail({ params }: Props) {
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-ink-600">
-              <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-brand-700" />{card.province}, Vietnam</span>
+              <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-brand-700" />{publicProductLocationDisplay(card.province)}</span>
               {card.supplierFoundedYear && <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-brand-700" />Founded {card.supplierFoundedYear}</span>}
             </div>
           </div>

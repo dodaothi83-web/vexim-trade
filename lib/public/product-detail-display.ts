@@ -156,6 +156,22 @@ export function publicProductCapacityDisplay(capacity: string | null | undefined
     .replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Sentinel for the product-level sourcing region (raw_material_region) when the
+ * supplier never filled it in. Deliberately NOT the supplier's registered province —
+ * that is the company's legal address, not where the product is actually grown or
+ * processed, and silently substituting it produced a misleading "Location" badge
+ * (e.g. a Hanoi-registered trading company's cashew kernels actually sourced from
+ * Dong Nai). Showing this sentinel instead keeps the gap visible until the supplier
+ * updates their product's raw material region.
+ */
+export const UNSPECIFIED_SOURCING_REGION = "Not specified";
+
+/** "<region>, Vietnam" for a known sourcing region, or the bare sentinel when unknown. */
+export function publicProductLocationDisplay(region: string): string {
+  return region === UNSPECIFIED_SOURCING_REGION ? region : `${region}, Vietnam`;
+}
+
 /** Translate standard payment wording without inventing or changing terms. */
 export function publicProductPaymentTermsDisplay(terms: string | null | undefined): string {
   let value = (terms ?? "").replace(/\s+/g, " ").trim();
