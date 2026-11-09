@@ -5,6 +5,7 @@ import { ArrowRight, ChevronDown, Filter, PackageSearch, Users } from "lucide-re
 import { Breadcrumbs } from "@/components/ui";
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { SearchFilterForm } from "@/components/public/search-filter-form";
+import { SearchSupplierCard, type SearchSupplierCardSupplier } from "@/components/public/search-supplier-card";
 import { getStore } from "@/lib/db";
 import { supplierTypeLabel } from "@/lib/public/catalog";
 import { getCategoryTitle } from "@/lib/public/category-names";
@@ -24,7 +25,7 @@ import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { categoryTieWindow, compareRankedProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { orderSearchProducts, productSearchRelevance, type SearchRelevance } from "@/lib/public/search-ranking";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
-import { supplierProvinceDisplay } from "@/lib/public/supplier-english";
+import { supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 import type { Category, Supplier } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -50,12 +51,14 @@ type SearchRequestState = { query: string; category: string; lang: Locale; produ
 type SearchLinkState = SearchRequestState & { tab: SearchTab; filters: SearchFilters };
 
 type ProductResult = { category: Category; categoryName: string; product: PublicCategoryProduct; relevance: SearchRelevance };
-type SupplierResult = SearchSupplierFilterData & { slug: string | null; name: string; province: string; checks: number; directMatch: boolean };
+type SupplierResult = SearchSupplierFilterData & SearchSupplierCardSupplier & { directMatch: boolean };
 type Results = {
   products: ProductResult[];
   suppliers: SupplierResult[];
   /** All gated public products in the selected category scope, for direct supplier-name searches. */
   eligibleProductsBySupplier: Map<string, PublicCategoryProduct[]>;
+  /** The category of each eligible product, including those without a keyword match. */
+  categorySlugByProductId: Map<string, string>;
   directSupplierMatch: boolean;
   exactSupplierNameMatch: boolean;
   incomplete: boolean;
@@ -244,6 +247,7 @@ async function findResults(tokens: string[], categories: Category[], selected: C
   const eligibleSupplierIds = new Set<string>();
   const eligibleProductIds = new Set<string>();
   const eligibleProductsBySupplier = new Map<string, PublicCategoryProduct[]>();
+  const categorySlugByProductId = new Map<string, string>();
   const productMatchSupplierIds = new Set<string>();
   const seenProductIds = new Set<string>();
   const matches: ProductResult[] = [];
@@ -271,6 +275,7 @@ async function findResults(tokens: string[], categories: Category[], selected: C
         eligibleSupplierIds.add(product.supplierId);
         if (!eligibleProductIds.has(product.id)) {
           eligibleProductIds.add(product.id);
+          categorySlugByProductId.set(product.id, category.slug);
           const list = eligibleProductsBySupplier.get(product.supplierId) ?? [];
           list.push(product);
           eligibleProductsBySupplier.set(product.supplierId, list);
@@ -311,23 +316,25 @@ async function findResults(tokens: string[], categories: Category[], selected: C
       location: withoutDirectContacts(supplierProvinceDisplay(supplier)),
       type: supplier.supplier_type ?? null,
       typeLabel: supplierTypeLabel(supplier),
+      profileImage: supplier.profile_image ?? null,
+      summary: withoutDirectContacts(supplierSummaryDisplay(supplier)),
+      mainProducts: withoutDirectContacts(supplierProductsDisplay(supplier)),
       verificationSteps: supplier.approved_verification_steps,
       l2Scope: supplier.approved_l2_scope ?? null,
       directMatch: matchesTokens(supplierText.get(supplier.id) ?? "", tokens),
-      checks: supplier.approved_verification_steps.length,
     }));
   // Xếp trên toàn bộ danh mục trước khi chia trang: độ khớp trước, sau đó mỗi
   // vòng một thẻ/NCC; tầng và điểm hiện tại chỉ quyết định thứ tự trong vòng.
   // Cùng độ khớp, cùng tầng và cùng điểm thì luân phiên theo ngày như trang danh mục.
   const tieBreak = { window: categoryTieWindow(Date.now()) };
   const products = orderSearchProducts(matches, (a, b) => compareRankedProducts(a, b, SPEC_RANKING_WEIGHTS, undefined, tieBreak));
-  return { products, suppliers, eligibleProductsBySupplier, directSupplierMatch, exactSupplierNameMatch, incomplete };
+  return { products, suppliers, eligibleProductsBySupplier, categorySlugByProductId, directSupplierMatch, exactSupplierNameMatch, incomplete };
 }
 
 function SearchResults({ results, state, params, categories, selected }: {
   results: Results; state: SearchRequestState; params?: SearchParams; categories: Category[]; selected: Category | null;
 }) {
-  const { products, suppliers, eligibleProductsBySupplier, directSupplierMatch, exactSupplierNameMatch, incomplete } = results;
+  const { products, suppliers, eligibleProductsBySupplier, categorySlugByProductId, directSupplierMatch, exactSupplierNameMatch, incomplete } = results;
   const isVi = state.lang === "vi";
   // Keyword hits contribute their public listings. A direct company-name hit may
   // filter by any of that company's eligible listings in this category scope, so
@@ -418,17 +425,26 @@ function SearchResults({ results, state, params, categories, selected }: {
 
   const supplierSection = totalSuppliers > 0 ? <section id="search-suppliers" className="scroll-mt-24" aria-label={isVi ? "Nhà cung cấp phù hợp" : "Matching suppliers"}>
     <h2 className="sr-only">{isVi ? "Nhà cung cấp" : "Suppliers"}</h2>
-    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {shownSuppliers.map((supplier) => <li key={supplier.id} className="min-w-0">
-        <Link href={localHref(`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`, state.lang)}
-          target="_blank" rel="noopener noreferrer"
-          className="group flex h-full flex-col rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-500">
-          <span className="break-words font-bold text-ink-900 group-hover:text-brand-700">{supplier.name}</span>
-          <span className="mt-1 text-xs text-ink-500">{supplier.province}
-            {supplier.checks > 0 && (isVi ? ` · Đã duyệt ${supplier.checks} nội dung xác minh` : ` · ${supplier.checks} verified check${supplier.checks === 1 ? "" : "s"}`)}
-          </span>
-        </Link>
-      </li>)}
+    <ul className="space-y-4">
+      {shownSuppliers.map((supplier) => {
+        // Company-name hits can showcase any gated offer in the chosen category;
+        // keyword hits only showcase their matching offers. Product facets narrow
+        // this same set, so a photo never illustrates an unrelated filtered result.
+        const candidates = supplier.directMatch
+          ? eligibleProductsBySupplier.get(supplier.id) ?? []
+          : matchedProductsBySupplier.get(supplier.id) ?? [];
+        const qualifying = hasProductSearchFilters(filters)
+          ? candidates.filter((product) => matchesSearchProduct(product, supplier, filters)) : candidates;
+        const withPhoto = qualifying.filter((product) => product.cardImagePath || product.imagePaths[0]);
+        const withoutPhoto = qualifying.filter((product) => !product.cardImagePath && !product.imagePaths[0]);
+        const offers = [...withPhoto, ...withoutPhoto].slice(0, 3).flatMap((product) => {
+          const categorySlug = categorySlugByProductId.get(product.id);
+          return categorySlug ? [{ product, categorySlug }] : [];
+        });
+        return <li key={supplier.id} className="min-w-0">
+          <SearchSupplierCard supplier={supplier} offers={offers} offerCount={qualifying.length} lang={state.lang} />
+        </li>;
+      })}
     </ul>
     <Pagination kind="supplier" page={supplierPage} pages={supplierPages} total={totalSuppliers} size={SUPPLIER_PAGE_SIZE} state={linkState} />
   </section> : null;
