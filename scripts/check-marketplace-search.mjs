@@ -23,6 +23,7 @@ import * as categoryNames from "../lib/public/category-names.ts";
 import * as comparison from "../lib/public/product-comparison.ts";
 import * as supplierSeo from "../lib/public/supplier-seo.ts";
 import * as priceDisplay from "../lib/products/price-display.ts";
+import { supplierNameCase } from "../lib/public/supplier-name.ts";
 
 const require = createRequire(import.meta.url);
 const jsx = require("react/jsx-runtime");
@@ -108,7 +109,7 @@ const baseProducts = [
 const mediaFor = (p, extra = {}) => ({
   id: `media-${p.id}`, owner_type: "product", product_id: p.id, supplier_id: p.supplier_id,
   kind: "image", audience: "buyer", status: "checked", expires_on: null,
-  storage_path: `products/${p.id}.jpg`, thumb_path: null, sort_order: 0, created_at: "2026-01-01", ...extra,
+  storage_path: `products/${p.id}/photo.jpg`, thumb_path: null, sort_order: 0, created_at: "2026-01-01", ...extra,
 });
 let rows = [...baseProducts];
 let media = baseProducts.map((p) => mediaFor(p, p.id === "no-buyer-media" ? { audience: "internal", storage_path: "private/internal.jpg" }
@@ -212,6 +213,25 @@ const Card = (props) => {
   return React.createElement("article", { "data-product-id": id }, props.name);
 };
 const icons = new Proxy({}, { get: () => () => null });
+const brandIcons = { supplierTypeIcon: () => () => null };
+const verificationUi = load("../components/verification-tier.tsx", {
+  "react/jsx-runtime": jsx,
+  "lucide-react": icons,
+  "@/components/brand/vexim-icons": brandIcons,
+  "@/lib/types": { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] },
+  "@/lib/verification-status": verification,
+});
+const supplierCard = load("../components/public/search-supplier-card.tsx", {
+  "react/jsx-runtime": jsx,
+  "next/link": { default: Link },
+  "lucide-react": icons,
+  "@/components/brand/vexim-icons": brandIcons,
+  "@/components/verification-tier": verificationUi,
+  "@/lib/public/product-selection": selection,
+  "@/lib/public/supplier-name": { supplierNameCase },
+  "@/lib/types": { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] },
+  "@/lib/verification-status": verification,
+});
 const searchCatalog = {
   ...productCatalog,
   listPublicCategoryProducts: async (c, opts) => {
@@ -232,6 +252,7 @@ const page = load("../app/(public)/search/page.tsx", {
   "@/components/ui": { Breadcrumbs: () => null },
   "@/components/public-product-card": { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard: Card },
   "@/components/public/search-filter-form": { SearchFilterForm: ({ children }) => React.createElement("form", { action: "/search", method: "get" }, children) },
+  "@/components/public/search-supplier-card": supplierCard,
   "@/lib/db": db,
   "@/lib/public/catalog": catalog,
   "@/lib/public/category-names": categoryNames,
@@ -251,7 +272,8 @@ async function render(params = {}) {
   return renderToStaticMarkup(await page({ searchParams: Promise.resolve(params) }));
 }
 const ids = (html) => [...html.matchAll(/data-product-id="([^"]+)"/g)].map((m) => m[1]);
-const supplierHrefs = (html) => [...html.matchAll(/href="\/suppliers\/([^"?]+)(?:\?[^"#]*)?"/g)].map((m) => m[1]);
+// One card per supplier, even though its title, profile CTA and checks can each link to the profile.
+const supplierCards = (html) => [...html.matchAll(/data-search-supplier="([^"]+)"/g)].map((m) => m[1]);
 
 // Empty search offers real browsing without spending a catalogue read.
 let html = await render({ lang: "vi" });
@@ -274,14 +296,25 @@ assert.ok(!html.includes("private/evidence.jpg"));
 assert.ok(!html.includes("98765"));
 assert.ok(cardProps.every((card) => !card.comparison), "A category with only one supplier has no comparison option");
 html = await render({ q: "W320", cat: "cashew", lang: "vi", tab: "suppliers" });
-assert.ok(supplierHrefs(html).includes("alpha"), "A matched product also makes its supplier discoverable");
+assert.ok(supplierCards(html).includes("alpha"), "A matched product also makes its supplier discoverable");
 assert.equal(ids(html).length, 0, "The supplier tab does not render product cards");
 assert.match(html, /aria-current="page"[^>]*>.*?Nhà cung cấp/, "The active supplier tab is announced");
+assert.match(html, /href="\/suppliers\/alpha\?lang=vi"/, "The company profile stays reachable");
+assert.match(html, /href="\/rfq\?suppliers=alpha&amp;lang=vi"/, "The quote action targets this supplier, not a generic RFQ");
+assert.match(html, /href="\/products\/cashew\/a-w320\?lang=vi"/, "The gallery links to the actual public product");
+assert.match(html, /src="\/public-media\/products\/a-w320\/photo.jpg"/, "The gallery uses gated buyer media");
+assert.doesNotMatch(html, /href="\/products\/cashew\/a-w240\?lang=vi"/, "An unrelated grade must not appear beside a keyword result");
+assert.match(html, /4 sản phẩm công khai/, "The offer count reflects the matching public products");
+for (const check of ["Đã kiểm tra giấy tờ doanh nghiệp", "Đã kiểm tra hồ sơ giao hàng", "Đã xác minh nhà máy"]) {
+  assert.ok(html.includes(check), `Only approved and scoped checks appear: ${check}`);
+}
+assert.doesNotMatch(html, /private\/evidence|private-review-marker|private-spec-marker|98765|Verified PRO|Top sponsor listing/,
+  "The supplier card never draws from private media, notes, prices or Alibaba UI claims");
 
 html = await render({ q: "hat dieu w320", cat: "nuts", lang: "vi" });
 assert.equal(ids(html).length, 4, "Vietnamese search ignores accents and combines category names with a public grade");
 html = await render({ q: "van phuoc", lang: "vi" });
-assert.ok(supplierHrefs(html).includes("van-phuoc"), "Vietnamese names can be found without diacritics, including đ");
+assert.ok(supplierCards(html).includes("van-phuoc"), "Vietnamese names can be found without diacritics, including đ");
 assert.equal(ids(html).length, 0, "A supplier-name query opens the supplier tab, without a second section below it");
 assert.ok(ids(await render({ q: "van phuoc", lang: "vi", tab: "products" })).includes("root-item"),
   "Searching a supplier also finds its public products in the other tab");
@@ -290,7 +323,7 @@ const beforeNameTest = rows;
 suppliers[3] = { ...savedVan, name: "Vạn Phước Nuts", display_name: "Vạn Phước Nuts" };
 rows = rows.map((p) => p.id === "root-item" ? { ...p, name: "Van Phuoc Nuts assorted", name_i18n: { en: "Van Phuoc Nuts assorted" } } : p);
 html = await render({ q: "van phuoc nuts", lang: "vi" });
-assert.ok(supplierHrefs(html).includes("van-phuoc"));
+assert.ok(supplierCards(html).includes("van-phuoc"));
 assert.equal(ids(html).length, 0, "An exact multi-word supplier name stays on the supplier tab even when the words occur on a product");
 assert.ok(ids(await render({ q: "van phuoc nuts", lang: "vi", tab: "products" })).includes("root-item"));
 suppliers[3] = savedVan;
@@ -302,12 +335,12 @@ assert.ok(ids(html).includes("a-w320"), "A parent includes its published child")
 assert.ok(ids(html).includes("root-item"), "A parent includes its own products");
 assert.ok(!ids(html).includes("rice-st25"), "A different category cannot leak into results");
 html = await render({ cat: "nuts", lang: "vi", tab: "suppliers" });
-assert.ok(supplierHrefs(html).includes("beta"));
-assert.ok(!supplierHrefs(html).includes("rice-supplier"), "Supplier category filter uses genuinely public products");
+assert.ok(supplierCards(html).includes("beta"));
+assert.ok(!supplierCards(html).includes("rice-supplier"), "Supplier category filter uses genuinely public products");
 html = await render({ q: "rice", cat: "nuts", lang: "vi" });
 assert.match(html, /Không tìm thấy kết quả/);
 assert.equal(ids(html).length, 0);
-assert.ok(!supplierHrefs(html).includes("rice-supplier"));
+assert.ok(!supplierCards(html).includes("rice-supplier"));
 html = await render({ q: "Beta", cat: "rice" });
 assert.match(html, /No matching results/);
 assert.match(html, /aria-label="Search result types"/, "Even an empty category has two tabs and filters to change the category");
@@ -341,7 +374,7 @@ media = [...media, mediaFor(betaFacet)];
 badgeLabels = new Map([["a-w240", ["HACCP"]], ["a-w320", ["ISO 22000"]], ["paused", ["Internal Only"]]]);
 
 html = await render({ q: "Alpha Foods", cat: "cashew", tab: "suppliers" });
-assert.deepEqual(supplierHrefs(html), ["alpha"]);
+assert.deepEqual(supplierCards(html), ["alpha"]);
 assert.match(html, /name="grade" value="W240"/, "Direct supplier hits offer grades from their public listings");
 assert.match(html, /<option value="Dong Nai">Dong Nai<\/option>/, "Source regions come from public products, not supplier addresses");
 assert.match(html, /<option value="CIF">CIF<\/option>/);
@@ -362,10 +395,13 @@ const linkParams = new URL(supplierTabUrl, "https://example.test").searchParams;
 for (const [key, value] of Object.entries(facetParams)) assert.equal(linkParams.get(key), value, `${key} survives tab navigation`);
 assert.match(html, /href="\/search\?q=Alpha\+Foods&amp;cat=cashew&amp;lang=en&amp;tab=products"[^>]*>Clear filters/, "Clear resets facets and pages while preserving the active tab");
 html = await render({ ...facetParams, tab: "suppliers" });
-assert.deepEqual(supplierHrefs(html), ["alpha"], "A supplier passes when one public offer matches every facet");
+assert.deepEqual(supplierCards(html), ["alpha"], "A supplier passes when one public offer matches every facet");
 assert.equal(ids(html).length, 0, "Supplier filtering never also renders the products section");
+assert.match(html, /href="\/products\/cashew\/a-w240"/, "The card showcases the exact offer that passed all product filters");
+assert.doesNotMatch(html, /href="\/products\/cashew\/a-w320"/, "Other public offers cannot be pictured as satisfying different facets");
+assert.match(html, /6 MT/, "The featured offer's actual MOQ is shown without making a supplier-wide claim");
 html = await render({ q: "Alpha Foods", cat: "cashew", tab: "suppliers", grade: "W320", certificate: "HACCP" });
-assert.equal(supplierHrefs(html).length, 0, "A grade on one offer and certificate on another cannot be combined");
+assert.equal(supplierCards(html).length, 0, "A grade on one offer and certificate on another cannot be combined");
 assert.match(html, /No matching suppliers/);
 html = await render({ q: "Alpha Foods", cat: "cashew", tab: "products", grade: "W320", "attr.processing": "Raw" });
 assert.ok(ids(html).includes("a-w320"), "An attribute of another grade is discarded, not applied to this grade");
@@ -375,18 +411,21 @@ html = await render({ ...facetParams, tab: "products", grade: ["W240", "not-appr
 assert.deepEqual(ids(html), ["a-w240"], "Stale or forged facet values are ignored rather than reading private rows");
 assert.doesNotMatch(html, /Internal Only|Private Region|not-approved/);
 html = await render({ cat: "cashew", tab: "suppliers", region: "Dong Nai", location: "Binh Phuoc" });
-assert.deepEqual(supplierHrefs(html), ["alpha"], "Product source region and supplier registered location filter independently");
+assert.deepEqual(supplierCards(html), ["alpha"], "Product source region and supplier registered location filter independently");
 html = await render({ cat: "cashew", tab: "suppliers", supplierType: "manufacturer" });
-assert.deepEqual(supplierHrefs(html), ["beta"]);
+assert.deepEqual(supplierCards(html), ["beta"]);
 html = await render({ cat: "cashew", tab: "suppliers", supplierType: "manufacturer", verified: "2" });
-assert.equal(supplierHrefs(html).length, 0, "A stated manufacturer type never implies an approved factory check");
+assert.equal(supplierCards(html).length, 0, "A stated manufacturer type never implies an approved factory check");
 html = await render({ q: "Alpha Foods", cat: "cashew", tab: "suppliers", verified: "4" });
-assert.equal(supplierHrefs(html).length, 0, "Factory approval alone does not imply a partner contract approval");
+assert.equal(supplierCards(html).length, 0, "Factory approval alone does not imply a partner contract approval");
 const listVerifications = store.listVerifications;
 store.listVerifications = async (id) => id === "beta"
   ? [{ target_level: 2, status: "approved", l2_scope: "partner_contract" }] : listVerifications(id);
 html = await render({ cat: "cashew", tab: "suppliers", verified: "4" });
-assert.deepEqual(supplierHrefs(html), ["beta"], "Only a partner-contract approval satisfies that verification choice");
+assert.deepEqual(supplierCards(html), ["beta"], "Only a partner-contract approval satisfies that verification choice");
+const partnerCard = html.match(/<article data-search-supplier="beta"[\s\S]*?<\/article>/)?.[0] ?? "";
+assert.match(partnerCard, /Partner factory contract reviewed/, "The card describes the approved contract scope, not factory ownership");
+assert.doesNotMatch(partnerCard, /Factory verification/, "A partner-only review is not presented as a factory visit");
 html = await render({ cat: "cashew", tab: "products", verified: "2" });
 assert.ok(ids(html).includes("a-w320") && !ids(html).includes("facet-beta"),
   "A partner contract is not described as factory verification on product cards");
@@ -399,11 +438,50 @@ suppliers[1] = savedFacetBeta;
 categories[1] = savedFacetCategory;
 badgeLabels = new Map();
 
+// Search cards project only public profile fields, not a raw supplier or a
+// guessed image. Missing photos/catalogue-only offers and company-only hits
+// must remain honest, navigable and legible.
+const savedCardAlpha = suppliers[0];
+suppliers[0] = { ...savedCardAlpha, display_name: "ALPHA FOODS", supplier_type: "trading",
+  profile_image: "suppliers/alpha/profile-logo.webp",
+  summary_i18n: { en: "Write sales@secret.example.com for cashews" },
+  products: "Cashews; call +84 987 654 321 for details" };
+html = await render({ q: "Alpha Foods", cat: "cashew", tab: "suppliers" });
+assert.match(html, /src="\/public-media\/suppliers\/alpha\/profile-logo.webp"/, "An uploaded public company image can identify the card");
+assert.match(html, />Alpha Foods<\/a>/, "An ALL CAPS registered name is readable without changing its record");
+assert.match(html, /Trading company/, "Business type is rendered as neutral, supplier-stated information");
+assert.doesNotMatch(html, /sales@secret.example.com|\+84 987 654 321/, "A profile blurb must not reveal supplier direct contacts");
+suppliers[0] = { ...savedCardAlpha, profile_image: "private/evidence.jpg" };
+html = await render({ q: "Alpha Foods", tab: "suppliers" });
+assert.doesNotMatch(html, /src="\/public-media\/private\/evidence.jpg"/, "Only public supplier profile assets become avatars");
+suppliers[0] = savedCardAlpha;
+
+const catalogueOnly = supplier("catalogue-only", "Catalogue Only Supplier");
+const catalogueItem = product("catalogue-item", catalogueOnly.id, "cashew", "Cashew catalogue item");
+suppliers.push(catalogueOnly);
+rows.push(catalogueItem);
+media.push(mediaFor(catalogueItem, { kind: "catalogue", storage_path: "products/catalogue-item/specification.pdf" }));
+html = await render({ q: "Catalogue Only Supplier", cat: "cashew", tab: "suppliers" });
+assert.deepEqual(supplierCards(html), ["catalogue-only"]);
+assert.match(html, /No photo/, "A buyer-ready catalogue-only offer uses a clear image placeholder");
+assert.match(html, /href="\/products\/cashew\/catalogue-item"/, "The catalogue-only product is still navigable");
+assert.doesNotMatch(html, /specification.pdf|<img/, "A PDF is never drawn as a product photo");
+suppliers.pop(); rows.pop(); media.pop();
+
+suppliers.push(supplier("company-only", "Company Only Supplier", { products: null, summary_i18n: {} }));
+html = await render({ q: "Company Only Supplier", tab: "suppliers" });
+assert.deepEqual(supplierCards(html), ["company-only"]);
+assert.match(html, /No public offers in this search/, "A company-name hit without offers keeps an honest empty gallery");
+assert.match(html, /No checks published yet/, "No approval is inferred from a published company profile");
+assert.doesNotMatch(html, /href="\/products\//, "No product route is fabricated");
+assert.doesNotMatch(html, /Chat with supplier/, "Search never offers ungated supplier chat");
+suppliers.pop();
+
 for (const query of ["private-spec-marker", "private-review-marker", "private-raw-name-marker", "sales@secret.example.com", "+84 987 654 321", "doesnotexist-987654"]) {
   html = await render({ q: query });
   assert.match(html, /No matching results/, `${query} is not a public search field`);
   assert.equal(ids(html).length, 0);
-  assert.equal(supplierHrefs(html).length, 0);
+  assert.equal(supplierCards(html).length, 0);
 }
 html = await render({ q: "W320", cat: "draft-category", lang: "vi" });
 assert.match(html, /không tồn tại hoặc chưa được công khai/);
@@ -556,7 +634,7 @@ assert.match(secondPage, /q=Bulkneedle&amp;cat=cashew&amp;lang=vi&amp;tab=produc
 const supplierSecondPage = await render({ q: "Bulkneedle", cat: "cashew", lang: "vi", tab: "suppliers", p: "2", s: "2" });
 assert.match(supplierSecondPage, /Trang 2\/2/);
 assert.match(supplierSecondPage, /q=Bulkneedle&amp;cat=cashew&amp;lang=vi&amp;tab=suppliers&amp;p=2/, "Supplier paging preserves the product page");
-assert.equal(supplierHrefs(supplierSecondPage).length, 5);
+assert.equal(supplierCards(supplierSecondPage).length, 5);
 assert.equal(ids(supplierSecondPage).length, 0);
 const thirdPage = await render({ q: "Bulkneedle", cat: "cashew", lang: "vi", p: "3" });
 assert.equal(ids(thirdPage).length, 5);
@@ -610,7 +688,7 @@ const supplierPages = [];
 for (let s = 1; s <= Math.ceil(suppliers.length / 12); s++) {
   const rendered = await render({ q: "Wideneedle", cat: "cashew", lang: "vi", tab: "suppliers", s: String(s) });
   assert.match(rendered, /<strong[^>]*>1009<\/strong> nhà cung cấp/);
-  supplierPages.push(...supplierHrefs(rendered));
+  supplierPages.push(...supplierCards(rendered));
 }
 assert.equal(supplierPages.length, 1009);
 assert.equal(new Set(supplierPages).size, 1009, "All supplier pages have distinct suppliers");
@@ -664,4 +742,4 @@ try {
   dom.window.close();
 }
 
-console.log(`✅ Marketplace search: two tabs, public facets and supplier rounds across categories/pages; 1,025 products / 43 pages (${scaleMs} ms) and 1,009 suppliers / 85 pages (${supplierMs} ms), local in-memory timings only.`);
+console.log(`✅ Marketplace search: two tabs, gated supplier galleries, public facets and rounds across categories/pages; 1,025 products / 43 pages (${scaleMs} ms) and 1,009 suppliers / 85 pages (${supplierMs} ms), local in-memory timings only.`);
