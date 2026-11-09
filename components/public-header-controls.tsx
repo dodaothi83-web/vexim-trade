@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 import { VeximLanguageIcon } from "@/components/brand/vexim-icons";
 
 import { SourcingComposerTrigger } from "@/components/sourcing-composer";
@@ -25,6 +25,73 @@ function PrimaryNav({ pathname, isVi }: { pathname: string; isVi: boolean }) {
     {items.map((item) => <Link key={item.href} href={item.href} aria-current={item.active ? "page" : undefined}
       className={`${NAV_LINK} ${item.active ? NAV_ACTIVE : ""}`}>{item.label}</Link>)}
   </nav>;
+}
+
+/**
+ * Ô tìm kiếm thu gọn trên header — hiện ở MỌI trang trừ trang chủ (trang chủ đã có ô tìm
+ * kiếm lớn trong khối hero, thêm một ô nữa ở header sẽ trùng lặp thừa). Người mua đang xem
+ * một trang danh mục/sản phẩm cụ thể giờ có thể tìm thứ khác ngay mà không phải quay về
+ * trang chủ trước — đúng cách Alibaba/Global Sources vẫn làm.
+ *
+ * Chỉ phần ô nhập cho desktop (md+), lấp khoảng trống giữa menu chính và cụm nút bên phải.
+ * Icon kính lúp + ô nhập mở rộng cho di động nằm riêng trong cụm nút bên phải (xem
+ * `HeaderSearchMobileToggle`) để không bị dính sát logo khi menu chính đang ẩn.
+ */
+function HeaderSearchDesktopForm({ isVi, isHome }: { isVi: boolean; isHome: boolean }) {
+  if (isHome) return null;
+  const label = isVi ? "Tìm kiếm" : "Search";
+  return (
+    <form action="/search" method="get" role="search" aria-label={label}
+      className="relative mx-1 hidden min-w-0 flex-1 md:block lg:max-w-sm">
+      <input type="hidden" name="lang" value={isVi ? "vi" : "en"} />
+      <label className="sr-only" htmlFor="header-search-query">{label}</label>
+      <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+      <input id="header-search-query" type="search" name="q" maxLength={120}
+        placeholder={isVi ? "Tìm sản phẩm, quy cách, nhà cung cấp..." : "Search products, grades, suppliers..."}
+        className="h-10 w-full rounded-full border border-ink-200 bg-ink-50 pl-9 pr-3 text-[13.5px] text-ink-900 transition placeholder:text-ink-500 focus:border-brand-400 focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" />
+    </form>
+  );
+}
+
+/** Icon kính lúp trong cụm nút bên phải; bấm vào hiện thanh nhập full chiều ngang đè lên header. */
+function HeaderSearchMobileToggle({ isVi, isHome }: { isVi: boolean; isHome: boolean }) {
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  if (isHome) return null;
+  const label = isVi ? "Tìm kiếm" : "Search";
+
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-label={isVi ? "Mở tìm kiếm" : "Open search"}
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-700 transition hover:bg-ink-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 md:hidden">
+        <Search className="h-5 w-5" aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div className="fixed inset-x-0 top-0 z-50 border-b border-ink-200 bg-white px-3 py-2.5 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] md:hidden">
+          <form action="/search" method="get" role="search" aria-label={label} className="flex items-center gap-2">
+            <input type="hidden" name="lang" value={isVi ? "vi" : "en"} />
+            <div className="relative min-w-0 flex-1">
+              <label className="sr-only" htmlFor="header-search-query-mobile">{label}</label>
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+              <input ref={inputRef} id="header-search-query-mobile" type="search" name="q" maxLength={120}
+                placeholder={isVi ? "Tìm sản phẩm, quy cách, nhà cung cấp..." : "Search products, grades, suppliers..."}
+                className="h-11 w-full rounded-full border border-ink-200 bg-ink-50 pl-9 pr-3 text-[15px] text-ink-900 focus:border-brand-400 focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" />
+            </div>
+            <button type="button" onClick={() => setOpen(false)} aria-label={isVi ? "Đóng tìm kiếm" : "Close search"}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-600 transition hover:bg-ink-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">
+              <X className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </form>
+        </div>
+      )}
+    </>
+  );
 }
 
 function HeaderControlsInner() {
@@ -80,7 +147,11 @@ function HeaderControlsInner() {
     <>
       <PrimaryNav pathname={pathname} isVi={isVi} />
 
+      <HeaderSearchDesktopForm isVi={isVi} isHome={pathname === "/"} />
+
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2 lg:gap-3">
+        <HeaderSearchMobileToggle isVi={isVi} isHome={pathname === "/"} />
+
         {/* Nút icon quả địa cầu mở dropdown chọn ngôn ngữ (Mặc định: Tiếng Anh) */}
         <div ref={dropdownRef} className="relative">
           <button
