@@ -23,7 +23,7 @@ import {
 } from "@/lib/public/search-filters";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { categoryTieWindow, compareRankedProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
-import { orderSearchProducts, productSearchRelevance, type SearchRelevance } from "@/lib/public/search-ranking";
+import { orderSearchProducts, productSearchRelevance, searchTokenMatches, type SearchRelevance } from "@/lib/public/search-ranking";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 import type { Category, Supplier } from "@/lib/types";
@@ -87,7 +87,7 @@ function searchText(values: Array<string | null | undefined>): string {
 }
 
 function matchesTokens(haystack: string, tokens: string[]): boolean {
-  return tokens.every((token) => haystack.includes(token));
+  return tokens.every((token) => searchTokenMatches(haystack, token));
 }
 
 /** Chỉ tính danh mục con đang công khai, kể cả khi có nhiều tầng. */

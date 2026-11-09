@@ -47,6 +47,18 @@ assert.ok(compareSearchRelevance(categoryMatch, supplierFallback) < 0, 'A grade 
 assert.ok(find('van phuoc', { supplier: 'Vạn Phước', product: 'Mặt hàng' }), 'Accent-insensitive supplier searches remain available');
 assert.equal(find('W320 organic', { product: 'Cashew W320', grade: 'W320', category: 'cashew' }), null, 'All search tokens must match');
 assert.ok(find('W320 organic', { product: 'Cashew W320', grade: 'W320', supplier: 'Organic Foods' }), 'Mixed product/supplier tokens remain searchable');
+// Rice must not hit the suffix of "price" in a pepper offer (or its other public fields).
+for (const field of ['product', 'category', 'keywords', 'supplier']) {
+  assert.equal(find('rice', { product: 'Black Pepper', [field]: 'Best Price Pepper' }), null,
+    `A price mention in ${field} is not a rice result`);
+}
+assert.ok(find('rice', { product: 'Jasmine Rice ST25' }), 'A real rice title still matches');
+assert.ok(find('rice', { product: 'Best Price ST25', category: 'Rice & Grain Products' }),
+  'A product in the rice category still matches even if its title mentions Price');
+assert.ok(find('ric', { product: 'Jasmine Rice ST25' }), 'Typing a word prefix still finds rice');
+assert.ok(find('rice', { product: 'Riceberry' }), 'A word beginning with rice remains discoverable');
+assert.ok(find('price', { product: 'Best Price Black Pepper' }), 'Searching for price still finds a price mention');
+assert.ok(find('gạo', { product: 'Gạo ST25' }), 'Vietnamese searches still ignore accents');
 assert.deepEqual(find('', { product: 'Any product' }), { productCodes: 0, coreTokens: 0, wholeCoreTokens: 0 });
 // Supplier-authored keywords are searchable, but weaker than the product's own name.
 const keywordHit = find('dried fruit', { product: 'Fruit mix', keywords: 'dried fruit' });

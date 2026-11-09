@@ -32,8 +32,8 @@ export interface SearchRelevance {
   wholeCoreTokens: number;
 }
 
-/** Match whole words without treating punctuation or Unicode letters as ASCII only. */
-function wholeMatch(text: string, token: string): boolean {
+/** Match from a word start; a complete match also requires a word end. */
+function wordMatch(text: string, token: string, complete: boolean): boolean {
   if (!token) return false;
   const word = /[\p{L}\p{N}]/u;
   let from = 0;
@@ -41,10 +41,14 @@ function wholeMatch(text: string, token: string): boolean {
     const index = text.indexOf(token, from);
     if (index < 0) return false;
     const before = index > 0 ? Array.from(text.slice(0, index)).at(-1) ?? "" : "";
-    const after = Array.from(text.slice(index + token.length))[0] ?? "";
-    if (!word.test(before) && !word.test(after)) return true;
+    const after = complete ? Array.from(text.slice(index + token.length))[0] ?? "" : "";
+    if (!word.test(before) && (!complete || !word.test(after))) return true;
     from = index + 1;
   }
+}
+
+function wholeMatch(text: string, token: string): boolean {
+  return wordMatch(text, token, true);
 }
 
 type Code = { family: string; number: string };
@@ -55,6 +59,11 @@ function parseCode(token: string, cashewAliases = false): Code | null {
   // industry, similar-looking prefixes may designate different products.
   const family = cashewAliases && /^w{1,2}$/.test(match[1]) ? "w" : match[1];
   return { family, number: match[2] };
+}
+
+/** Ordinary words match from their start (rice must not match price); spec codes keep partial matching. */
+export function searchTokenMatches(text: string, token: string): boolean {
+  return parseCode(token) ? text.includes(token) : wordMatch(text, token, false);
 }
 
 function codesIn(text: string, cashewAliases = false): Code[] {
@@ -86,8 +95,8 @@ function hasCashewContext(fields: ProductSearchFields): boolean {
 }
 
 /**
- * Require all query tokens, retaining the existing substring matches and treating
- * W/WW cashew grades as equivalents in product fields. The tuple orders results:
+ * Require all query tokens at word starts (including typed prefixes), while retaining
+ * partial specification-code matches and W/WW cashew aliases in product fields. The tuple orders results:
  * product codes first, then product/category coverage, then whole-word matches.
  * Supplier-only matches stay available but rank lower.
  */
@@ -96,7 +105,7 @@ export function productSearchRelevance(tokens: readonly string[], fields: Produc
   const keywords = fields.keywords ?? "";
   const all = `${core} ${fields.category} ${keywords} ${fields.supplier}`;
   const cashewAliases = tokens.some((token) => parseCode(token, true)?.family === "w") && hasCashewContext(fields);
-  if (!tokens.every((token) => all.includes(token) ||
+  if (!tokens.every((token) => searchTokenMatches(all, token) ||
     (cashewAliases && parseCode(token, true)?.family === "w" && codeMatches(core, token, true)))) return null;
   const gradeCodes = codesIn(fields.structuredGrade, cashewAliases);
   const relevance: SearchRelevance = { productCodes: 0, coreTokens: 0, wholeCoreTokens: 0 };
@@ -111,8 +120,8 @@ export function productSearchRelevance(tokens: readonly string[], fields: Produc
     //  - không tính vào `productCodes`, để một mã gõ trong ô từ khoá không biến
     //    sản phẩm khác quy cách thành đúng quy cách đó;
     //  - không tính vào `wholeCoreTokens`, để sản phẩm khớp trọn từ ở tên vẫn xếp trên.
-    const keywordHit = keywords.length > 0 && (keywords.includes(token) || wholeMatch(keywords, token));
-    if (wholeProduct || core.includes(token) || fields.category.includes(token) || keywordHit) relevance.coreTokens++;
+    const keywordHit = keywords.length > 0 && searchTokenMatches(keywords, token);
+    if (wholeProduct || searchTokenMatches(core, token) || searchTokenMatches(fields.category, token) || keywordHit) relevance.coreTokens++;
     if (wholeProduct || wholeMatch(fields.category, token)) relevance.wholeCoreTokens++;
   }
   return relevance;
