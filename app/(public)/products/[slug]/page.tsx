@@ -616,7 +616,13 @@ function StateA({
   });
   const grades: string[] = [];
   for (const f of filters) {
-    if ((f.key || "").toLowerCase().includes("grade") && Array.isArray(f.options)) {
+    // "product_type" là bí danh của "grade" cho các danh mục gộp nhiều loại mặt hàng
+    // (vd quế thanh/quế chẻ/hoa hồi trong cinnamon-star-anise) — component bộ lọc đã
+    // xử lý hai khoá này như nhau (xem productMatchesFieldOption, activeGrades trong
+    // CategoryProductGrid); thiếu nhánh này thì bộ lọc đã cấu hình trong CRM không
+    // bao giờ hiện lên trang, dù dữ liệu đã có sẵn.
+    const key = (f.key || "").toLowerCase();
+    if ((key.includes("grade") || key === "product_type") && Array.isArray(f.options)) {
       for (const o of f.options) grades.push(typeof o === "string" ? o : o.label);
     }
   }
