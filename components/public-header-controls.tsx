@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { VeximLanguageIcon } from "@/components/brand/vexim-icons";
 
 import { Logo } from "@/components/brand-logo";
@@ -32,10 +32,10 @@ function HeaderLogo() {
 }
 
 /**
- * Menu chính — ĐÃ CHUYỂN XUỐNG hàng thứ hai của header (trước đây chen giữa logo và cụm nút,
- * khiến ô tìm kiếm không còn chỗ để hiện đầy đủ). Hiện ở mọi kích thước màn hình: cuộn ngang
- * khi không đủ chỗ (mobile) thay vì ẩn hẳn như trước — người dùng trên điện thoại giờ cũng bấm
- * được "Categories/How it works/..." mà không phải quay về trang chủ trước.
+ * Menu chính — ở hàng thứ hai của header, CHỈ hiện trên desktop (từ `md` trở lên). Trên điện
+ * thoại ẩn hẳn (không render) thay vì cuộn ngang như trước, để nhường chỗ cho ô tìm kiếm và
+ * tránh một hàng menu phụ chiếm diện tích màn hình nhỏ; các mục này vẫn có thể tới được từ
+ * trang chủ hoặc chân trang trên điện thoại.
  */
 function PrimaryNav({ pathname, isVi }: { pathname: string; isVi: boolean }) {
   const items = [
@@ -46,7 +46,7 @@ function PrimaryNav({ pathname, isVi }: { pathname: string; isVi: boolean }) {
   ];
   return (
     <nav aria-label={isVi ? "Điều hướng chính" : "Main navigation"}
-      className="-mx-3 flex items-center gap-0.5 overflow-x-auto whitespace-nowrap px-3 text-[12.5px] font-semibold text-ink-700 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:px-0 lg:gap-1 lg:text-[14px] [&::-webkit-scrollbar]:hidden">
+      className="hidden items-center gap-0.5 whitespace-nowrap text-[12.5px] font-semibold text-ink-700 md:flex lg:gap-1 lg:text-[14px]">
       {items.map((item) => (
         <Link key={item.href} href={item.href} aria-current={item.active ? "page" : undefined}
           className={`${NAV_LINK} ${item.active ? NAV_ACTIVE : ""}`}>
@@ -60,8 +60,8 @@ function PrimaryNav({ pathname, isVi }: { pathname: string; isVi: boolean }) {
 /**
  * Ô tìm kiếm trên header — hiện ở MỌI trang trừ trang chủ (trang chủ đã có ô tìm kiếm lớn
  * trong khối hero, thêm một ô nữa ở header sẽ trùng lặp thừa) và ở MỌI kích thước màn hình,
- * kiểu Alibaba: khung viền rõ ràng + placeholder luôn hiển thị + nút tìm kiếm hình tròn đặc màu
- * thương hiệu — không còn là icon kính lúp ẩn/hiện như trước.
+ * kiểu Alibaba: khung viền rõ ràng + placeholder luôn hiển thị + nút chữ "Tìm kiếm"/"Search"
+ * đặc màu thương hiệu — dùng chữ thay vì icon kính lúp để rõ nghĩa hơn, nhất là trên điện thoại.
  */
 function HeaderSearchBar({ isVi, isHome }: { isVi: boolean; isHome: boolean }) {
   if (isHome) return null;
@@ -75,9 +75,9 @@ function HeaderSearchBar({ isVi, isHome }: { isVi: boolean; isHome: boolean }) {
         <input id="header-search-query" type="search" name="q" maxLength={120}
           placeholder={isVi ? "Tìm sản phẩm, quy cách, nhà cung cấp..." : "Search products, grades, suppliers..."}
           className="h-full min-w-0 flex-1 bg-transparent text-[13.5px] text-ink-900 placeholder:text-ink-500 focus:outline-none sm:text-[14.5px]" />
-        <button type="submit" aria-label={label}
-          className="ml-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-700 text-white transition hover:bg-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-1 sm:mr-1.5 sm:h-9 sm:w-9">
-          <Search className="h-4 w-4" aria-hidden="true" />
+        <button type="submit"
+          className="ml-1.5 flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-brand-700 px-3 text-[12.5px] font-bold text-white transition hover:bg-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-1 sm:mr-1.5 sm:h-9 sm:px-4 sm:text-[13.5px]">
+          {label}
         </button>
       </div>
     </form>
