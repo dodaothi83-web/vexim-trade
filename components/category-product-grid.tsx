@@ -10,6 +10,7 @@ import { SponsoredPilotSlot } from "@/components/sponsored-pilot-slot";
 import { SponsoredProductBand } from "@/components/sponsored-product-band";
 
 import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
+import { UNSPECIFIED_SOURCING_REGION } from "@/lib/public/product-detail-display";
 import type { ProductAttributeField } from "@/lib/types";
 import { fieldsFor } from "@/lib/product-attributes";
 import type { PilotPlacement } from "@/lib/sponsored/pilot";
@@ -103,7 +104,12 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     selectedCertificates.length > 0 ||
     !!leadTimeMax ||
     !!incoterm;
-  const provinces = [...new Set(products.map((p) => p.province))].sort();
+  // `province` now holds the product's sourcing region (raw_material_region), not the
+  // supplier's registered address — see lib/public/product-catalog.ts. Products whose
+  // supplier hasn't filled this in carry the UNSPECIFIED_SOURCING_REGION sentinel; they
+  // stay visible when no region filter is applied, but the sentinel itself is not a real
+  // place so it is excluded from the dropdown options.
+  const provinces = [...new Set(products.map((p) => p.province))].filter((p) => p !== UNSPECIFIED_SOURCING_REGION).sort();
   // Chỉ liệt kê chứng nhận thật sự có mặt trên ít nhất một sản phẩm của danh mục này,
   // để không hiện ô lọc luôn trống. Nhãn lấy từ chính dữ liệu đã duyệt trên thẻ sản
   // phẩm (certificateLabelsForProducts), không suy đoán hay gõ cứng danh sách riêng.
@@ -212,9 +218,9 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
         <option value="">All incoterms</option>{incotermOptions.map((term) => <option key={term} value={term}>{term}</option>)}
       </select>
     </label>}
-    <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">Province</span>
+    <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">Source region</span>
       <select className="input text-sm" value={province} onChange={(e) => setProvince(e.target.value)}>
-        <option value="">All provinces</option>{provinces.map((p) => <option key={p} value={p}>{p}</option>)}
+        <option value="">All regions</option>{provinces.map((p) => <option key={p} value={p}>{p}</option>)}
       </select>
     </label>
     <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">Supplier verification</span>

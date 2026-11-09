@@ -3,6 +3,7 @@ import type { PublicComparedProduct } from "@/lib/public/product-comparison-data
 import { productComparisonWarnings } from "@/lib/public/product-comparison";
 import { verificationLabel } from "@/lib/verification-status";
 import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
+import { publicProductLocationDisplay } from "@/lib/public/product-detail-display";
 
 /** A4 landscape, 15mm content margins. Text stays searchable, with embedded Unicode fonts. */
 export const COMPARISON_PDF_MARGIN = 15 * 72 / 25.4;
@@ -40,7 +41,7 @@ export function comparisonPdfDefinition(products: PublicComparedProduct[], origi
   row("ODM", (p) => p.odm ? "Yes" : "Not provided");
   row("Samples", (p) => p.samples ? "Yes" : "Not provided");
   section("Supplier");
-  row("Location", (p) => p.province ? `${p.province}, Vietnam` : "Not provided");
+  row("Location", (p) => publicProductLocationDisplay(p.province));
   row("Raw material region", (p) => value(p.rawMaterialRegion));
   row("Input material origin", (p) => value(p.inputMaterialOrigin));
   row("Vexim verification", (p) => VERIFICATION_DISPLAY_ORDER.map((level) => `${verificationLabel(level, p.l2Scope)}: ${p.verificationSteps.includes(level) ? "Approved" : "Not approved"}`).join("\n"));

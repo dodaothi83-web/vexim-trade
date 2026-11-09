@@ -25,6 +25,7 @@ const mocks = {
     categoryPageSlice: (items, page) => ({ items: items.slice(0, 12), page, pages: 1, total: items.length }) },
   '@/lib/products/grade-pricing': { classifyMoqFilterGroup: () => 'ask' },
   '@/lib/public/product-comparison': { hasProductComparisonPeer: () => false },
+  '@/lib/public/product-detail-display': { UNSPECIFIED_SOURCING_REGION: 'Not specified' },
 };
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../components/category-product-grid.tsx', import.meta.url), 'utf8'),
