@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Search } from "lucide-react";
 import { VeximLanguageIcon } from "@/components/brand/vexim-icons";
 
 import { Logo } from "@/components/brand-logo";
@@ -60,8 +60,9 @@ function PrimaryNav({ pathname, isVi }: { pathname: string; isVi: boolean }) {
 /**
  * Ô tìm kiếm trên header — hiện ở MỌI trang trừ trang chủ (trang chủ đã có ô tìm kiếm lớn
  * trong khối hero, thêm một ô nữa ở header sẽ trùng lặp thừa) và ở MỌI kích thước màn hình,
- * kiểu Alibaba: khung viền rõ ràng + placeholder luôn hiển thị + nút chữ "Tìm kiếm"/"Search"
- * đặc màu thương hiệu — dùng chữ thay vì icon kính lúp để rõ nghĩa hơn, nhất là trên điện thoại.
+ * kiểu Alibaba: khung viền rõ ràng + placeholder luôn hiển thị. Nút gửi đổi theo kích thước
+ * màn hình: trên điện thoại chỉ icon kính lúp (đỡ chiếm chỗ ô nhập liệu), từ `sm` trở lên hiện
+ * chữ "Tìm kiếm"/"Search" cho rõ nghĩa.
  */
 function HeaderSearchBar({ isVi, isHome }: { isVi: boolean; isHome: boolean }) {
   if (isHome) return null;
@@ -75,9 +76,10 @@ function HeaderSearchBar({ isVi, isHome }: { isVi: boolean; isHome: boolean }) {
         <input id="header-search-query" type="search" name="q" maxLength={120}
           placeholder={isVi ? "Tìm sản phẩm, quy cách, nhà cung cấp..." : "Search products, grades, suppliers..."}
           className="h-full min-w-0 flex-1 bg-transparent text-[13.5px] text-ink-900 placeholder:text-ink-500 focus:outline-none sm:text-[14.5px]" />
-        <button type="submit"
-          className="ml-1.5 flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-brand-700 px-3 text-[12.5px] font-bold text-white transition hover:bg-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-1 sm:mr-1.5 sm:h-9 sm:px-4 sm:text-[13.5px]">
-          {label}
+        <button type="submit" aria-label={label}
+          className="ml-1.5 flex h-8 w-8 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-brand-700 text-white transition hover:bg-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-1 sm:mr-1.5 sm:h-9 sm:w-auto sm:px-4">
+          <Search className="h-4 w-4 sm:hidden" aria-hidden="true" />
+          <span className="hidden text-[13.5px] font-bold sm:inline">{label}</span>
         </button>
       </div>
     </form>
