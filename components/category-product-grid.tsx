@@ -256,7 +256,12 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
 
   return <>
     <div className="mt-7 grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)]">
-      <aside className="hidden lg:block"><div className="sticky top-20 rounded-xl border border-ink-200 bg-white p-4">
+      {/* Cột lọc dài hơn khung nhìn khi danh mục có nhiều bộ lọc (chứng nhận, thuộc tính...).
+          sticky một mình không đủ: nếu nội dung cao hơn viewport, người dùng phải cuộn hết
+          lưới sản phẩm mới thấy được bộ lọc ở cuối. Giới hạn chiều cao + cuộn riêng bên trong
+          (cùng mẫu với components/compose-sidebar.tsx) để cột lọc luôn nằm gọn trong màn hình,
+          tự cuộn độc lập với lưới sản phẩm. */}
+      <aside className="hidden lg:block"><div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-ink-200 bg-white p-4">
         <h2 className="mb-5 flex items-center gap-2 font-bold text-ink-900"><Filter className="h-4 w-4" /> Filter products</h2>{fields}
       </div></aside>
       <div className="min-w-0">
