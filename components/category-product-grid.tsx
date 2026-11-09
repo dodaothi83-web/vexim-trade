@@ -79,6 +79,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   const [verified, setVerified] = useState(0);
   const [oemOdmOnly, setOemOdmOnly] = useState(false);
   const [samplesOnly, setSamplesOnly] = useState(false);
+  const [selectedCertificates, setSelectedCertificates] = useState<string[]>([]);
   // Grade chỉ lọc ở một chỗ: danh sách trong cột lọc của danh mục, dữ liệu lấy
   // từ cấu hình CRM (filters + product_fields), không có grade demo cứng.
   const allGrades = hasStructuredGrade ? [] : grades;
@@ -96,8 +97,13 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     !!province ||
     verified > 0 ||
     oemOdmOnly ||
-    samplesOnly;
+    samplesOnly ||
+    selectedCertificates.length > 0;
   const provinces = [...new Set(products.map((p) => p.province))].sort();
+  // Chỉ liệt kê chứng nhận thật sự có mặt trên ít nhất một sản phẩm của danh mục này,
+  // để không hiện ô lọc luôn trống. Nhãn lấy từ chính dữ liệu đã duyệt trên thẻ sản
+  // phẩm (certificateLabelsForProducts), không suy đoán hay gõ cứng danh sách riêng.
+  const certificateOptions = [...new Set(products.flatMap((p) => p.certificates ?? []))].sort();
   const visible = useMemo(() => products.filter((p) => {
     const pGrades = productGradesOf(p);
     return (
@@ -107,9 +113,10 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
       (!province || p.province === province) &&
       matchesVerificationFilter(p.verificationSteps, p.l2Scope, verified) &&
       (!oemOdmOnly || p.oem || p.odm) &&
-      (!samplesOnly || p.samples)
+      (!samplesOnly || p.samples) &&
+      (!selectedCertificates.length || selectedCertificates.some((c) => p.certificates?.includes(c)))
     );
-  }), [products, selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly, attributeFilters]);
+  }), [products, selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly, selectedCertificates, attributeFilters]);
   // Vùng đẩy phía trên là suất cộng thêm (additive slot): nhà cung cấp mua gói giữ
   // nguyên các thẻ dưới lưới tự nhiên và có thêm một thẻ ở trên. Người trả tiền
   // nhận giá trị hiển thị tăng thêm thật, còn người không mua không bị đẩy khỏi
@@ -127,7 +134,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   // Phân trang: cắt sau khi đã xen kẽ nhà cung cấp, nên trang hai tiếp đúng mạch
   // chứ không lặp lại thứ tự từ đầu. Đổi bộ lọc thì quay về trang một.
   const [page, setPage] = useState(initialPage);
-  const filterSignature = JSON.stringify([selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly]);
+  const filterSignature = JSON.stringify([selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly, selectedCertificates]);
   const lastSignature = useRef(filterSignature);
   useEffect(() => {
     if (lastSignature.current === filterSignature) return;
@@ -159,6 +166,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     setVerified(0);
     setOemOdmOnly(false);
     setSamplesOnly(false);
+    setSelectedCertificates([]);
   };
   const fields = <div className="space-y-5 text-sm">
     {attributeFilters.filter((field) => !field.showWhen || !selectedAttributes[field.showWhen.key] ||
@@ -193,6 +201,14 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
         <option value={2}>Factory verification</option><option value={4}>Partner factory contract reviewed</option><option value={3}>Delivery history reviewed</option>
       </select>
     </label>
+    {certificateOptions.length > 0 && <fieldset>
+      <legend className="mb-2 text-xs font-bold uppercase tracking-widest text-ink-500">Certifications</legend>
+      <div className="space-y-2">{certificateOptions.map((cert) => <label key={cert} className="flex cursor-pointer items-center gap-2 text-ink-700">
+        <input type="checkbox" checked={selectedCertificates.includes(cert)}
+          onChange={() => setSelectedCertificates((xs) => xs.includes(cert) ? xs.filter((x) => x !== cert) : [...xs, cert])} />
+        <span>{cert}</span>
+      </label>)}</div>
+    </fieldset>}
     <fieldset>
       <legend className="mb-2 text-xs font-bold uppercase tracking-widest text-ink-500">Product options</legend>
       <div className="space-y-2">
