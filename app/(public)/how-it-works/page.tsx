@@ -13,14 +13,43 @@ import {
 
 import { Breadcrumbs } from "@/components/ui";
 
-export const metadata: Metadata = {
-  title: "How it works for buyers | Vexim Trade",
-  description:
-    "Browse verified Vietnamese suppliers, compare specs, and request a quote from the supplier you choose, or send your requirements to find a fit.",
-  alternates: { canonical: "/how-it-works" },
-};
-
 type Locale = "en" | "vi";
+
+const TITLE_EN = "How it works for buyers | Vexim Trade";
+const TITLE_VI = "Cách thức hoạt động dành cho người mua | Vexim Trade";
+const DESCRIPTION_EN =
+  "Browse verified Vietnamese suppliers, compare specs, and request a quote from the supplier you choose, or send your requirements to find a fit.";
+const DESCRIPTION_VI =
+  "Tra cứu nhà cung cấp Việt Nam đã xác minh, so sánh thông số và gửi yêu cầu báo giá cho nhà cung cấp bạn chọn, hoặc gửi yêu cầu để chúng tôi tìm nhà cung cấp phù hợp.";
+
+/**
+ * Trang này đã dựng nội dung song ngữ thật từ `?lang=vi` (xem các khối `isVi ?` bên dưới),
+ * nhưng trước đây export `metadata` tĩnh tiếng Anh — nghĩa là dù nội dung trang đã là tiếng
+ * Việt, tiêu đề/mô tả trên kết quả tìm kiếm Google vẫn luôn tiếng Anh. `generateMetadata`
+ * động theo `lang` để khớp đúng những gì người dùng (và Google) thực sự thấy, kèm
+ * `alternates.languages` khai hreflang en/vi/x-default.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: Promise<{ lang?: string }>;
+}): Promise<Metadata> {
+  const params = searchParams ? await searchParams : undefined;
+  const isVi = params?.lang === "vi";
+  const title = isVi ? TITLE_VI : TITLE_EN;
+  const description = isVi ? DESCRIPTION_VI : DESCRIPTION_EN;
+  const canonical = isVi ? "/how-it-works?lang=vi" : "/how-it-works";
+  return {
+    title,
+    description,
+    alternates: {
+      canonical,
+      languages: { en: "/how-it-works", vi: "/how-it-works?lang=vi", "x-default": "/how-it-works" },
+    },
+    openGraph: { title, description, url: canonical, siteName: "Vexim Trade", type: "website", locale: isVi ? "vi_VN" : "en_US" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 export default async function HowItWorksPage({
   searchParams,
