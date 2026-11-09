@@ -1,10 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, PackageSearch, Users } from "lucide-react";
+import { ArrowRight, ChevronDown, Filter, PackageSearch, Users } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
+import { SearchFilterForm } from "@/components/public/search-filter-form";
 import { getStore } from "@/lib/db";
+import { supplierTypeLabel } from "@/lib/public/catalog";
 import { getCategoryTitle } from "@/lib/public/category-names";
 import { gradeFromAttributes } from "@/lib/public/grade-resolution";
 import {
@@ -13,6 +15,11 @@ import {
   type PublicCategoryProduct,
 } from "@/lib/public/product-catalog";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
+import {
+  appendSearchFilterParams, hasProductSearchFilters, hasSearchFilters,
+  matchesSearchProduct, matchesSearchSupplier, parseSearchFilters, searchFilterOptions,
+  type SearchFilters, type SearchFilterOptions, type SearchSupplierFilterData,
+} from "@/lib/public/search-filters";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { categoryTieWindow, compareRankedProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { orderSearchProducts, productSearchRelevance, type SearchRelevance } from "@/lib/public/search-ranking";
@@ -37,14 +44,18 @@ const CATEGORY_BATCH_SIZE = 6;
 
 type Locale = "en" | "vi";
 type Param = string | string[] | undefined;
-type SearchParams = { q?: Param; cat?: Param; lang?: Param; p?: Param; s?: Param };
-type SearchLinkState = { query: string; category: string; lang: Locale; productPage: number; supplierPage: number };
+type SearchParams = Record<string, Param>;
+type SearchTab = "products" | "suppliers";
+type SearchRequestState = { query: string; category: string; lang: Locale; productPage: number; supplierPage: number; requestedTab: SearchTab | null };
+type SearchLinkState = SearchRequestState & { tab: SearchTab; filters: SearchFilters };
 
 type ProductResult = { category: Category; categoryName: string; product: PublicCategoryProduct; relevance: SearchRelevance };
-type SupplierResult = { id: string; slug: string | null; name: string; province: string; checks: number };
+type SupplierResult = SearchSupplierFilterData & { slug: string | null; name: string; province: string; checks: number; directMatch: boolean };
 type Results = {
   products: ProductResult[];
   suppliers: SupplierResult[];
+  /** All gated public products in the selected category scope, for direct supplier-name searches. */
+  eligibleProductsBySupplier: Map<string, PublicCategoryProduct[]>;
   directSupplierMatch: boolean;
   exactSupplierNameMatch: boolean;
   incomplete: boolean;
@@ -111,13 +122,17 @@ function supplierSearchText(supplier: Pick<Supplier, "province" | "profile_trans
   return searchText([supplier.display_name, supplier.trade_name, supplier.name, supplier.slug, supplierProvinceDisplay(supplier)]);
 }
 
-function searchHref(state: SearchLinkState): string {
+function searchHref(state: SearchLinkState, options: { clearFilters?: boolean; resetPages?: boolean } = {}): string {
   const params = new URLSearchParams();
   if (state.query) params.set("q", state.query);
   if (state.category) params.set("cat", state.category);
   params.set("lang", state.lang);
-  if (state.productPage > 1) params.set("p", String(state.productPage));
-  if (state.supplierPage > 1) params.set("s", String(state.supplierPage));
+  params.set("tab", state.tab);
+  if (!options.resetPages) {
+    if (state.productPage > 1) params.set("p", String(state.productPage));
+    if (state.supplierPage > 1) params.set("s", String(state.supplierPage));
+  }
+  if (!options.clearFilters) appendSearchFilterParams(params, state.filters);
   return `/search?${params.toString()}`;
 }
 
@@ -146,9 +161,11 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.slug.localeCompare(b.slug));
   const selected = visibleCategories.find((category) => category.slug === categorySlug);
   const invalidCategory = !!categorySlug && !selected;
-  const state: SearchLinkState = {
+  const requestedTab = first(params?.tab);
+  const state: SearchRequestState = {
     query, category: categorySlug, lang,
     productPage: pageNumber(params?.p), supplierPage: pageNumber(params?.s),
+    requestedTab: requestedTab === "products" || requestedTab === "suppliers" ? requestedTab : null,
   };
 
   let results: Results | null = null;
@@ -189,7 +206,7 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
         : invalidCategory ? <div role="alert" className="mt-8 rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-950">
           {isVi ? "Danh mục này không tồn tại hoặc chưa được công khai. Hãy chọn lại danh mục để tìm kiếm." : "This category is unavailable or not public. Please choose another category and search again."}
         </div>
-          : results ? <SearchResults results={results} state={state} />
+          : results ? <SearchResults results={results} state={state} params={params} categories={visibleCategories} selected={selected ?? null} />
             : <BrowsePrompt categories={visibleCategories} lang={lang} />}
     </div>
   );
@@ -225,6 +242,8 @@ async function findResults(tokens: string[], categories: Category[], selected: C
   const byCategoryId = new Map(categories.map((category) => [category.id, category]));
   const supplierText = new Map(snapshot.suppliers.map((supplier) => [supplier.id, supplierSearchText(supplier)]));
   const eligibleSupplierIds = new Set<string>();
+  const eligibleProductIds = new Set<string>();
+  const eligibleProductsBySupplier = new Map<string, PublicCategoryProduct[]>();
   const productMatchSupplierIds = new Set<string>();
   const seenProductIds = new Set<string>();
   const matches: ProductResult[] = [];
@@ -250,6 +269,12 @@ async function findResults(tokens: string[], categories: Category[], selected: C
         // Demo/test không phải là kết quả mua bán, kể cả khi môi trường bật preview.
         if (product.isDemo || product.isDemoSupplier) continue;
         eligibleSupplierIds.add(product.supplierId);
+        if (!eligibleProductIds.has(product.id)) {
+          eligibleProductIds.add(product.id);
+          const list = eligibleProductsBySupplier.get(product.supplierId) ?? [];
+          list.push(product);
+          eligibleProductsBySupplier.set(product.supplierId, list);
+        }
         const relevance = productSearchRelevance(tokens, {
           product: searchText([product.name, ...Object.values(product.attributes ?? {})]),
           grade: searchText([product.grade, ...(product.grades ?? [])]),
@@ -283,6 +308,12 @@ async function findResults(tokens: string[], categories: Category[], selected: C
       slug: supplier.slug || null,
       name: withoutDirectContacts(supplier.display_name || supplier.trade_name || supplier.name),
       province: withoutDirectContacts(supplierProvinceDisplay(supplier) || (lang === "vi" ? "Việt Nam" : "Vietnam")),
+      location: withoutDirectContacts(supplierProvinceDisplay(supplier)),
+      type: supplier.supplier_type ?? null,
+      typeLabel: supplierTypeLabel(supplier),
+      verificationSteps: supplier.approved_verification_steps,
+      l2Scope: supplier.approved_l2_scope ?? null,
+      directMatch: matchesTokens(supplierText.get(supplier.id) ?? "", tokens),
       checks: supplier.approved_verification_steps.length,
     }));
   // Xếp trên toàn bộ danh mục trước khi chia trang: độ khớp trước, sau đó mỗi
@@ -290,79 +321,73 @@ async function findResults(tokens: string[], categories: Category[], selected: C
   // Cùng độ khớp, cùng tầng và cùng điểm thì luân phiên theo ngày như trang danh mục.
   const tieBreak = { window: categoryTieWindow(Date.now()) };
   const products = orderSearchProducts(matches, (a, b) => compareRankedProducts(a, b, SPEC_RANKING_WEIGHTS, undefined, tieBreak));
-  return { products, suppliers, directSupplierMatch, exactSupplierNameMatch, incomplete };
+  return { products, suppliers, eligibleProductsBySupplier, directSupplierMatch, exactSupplierNameMatch, incomplete };
 }
 
-function SearchResults({ results, state }: { results: Results; state: SearchLinkState }) {
-  const { products, suppliers, directSupplierMatch, exactSupplierNameMatch, incomplete } = results;
+function SearchResults({ results, state, params, categories, selected }: {
+  results: Results; state: SearchRequestState; params?: SearchParams; categories: Category[]; selected: Category | null;
+}) {
+  const { products, suppliers, eligibleProductsBySupplier, directSupplierMatch, exactSupplierNameMatch, incomplete } = results;
   const isVi = state.lang === "vi";
-  const totalProducts = products.length;
+  // Keyword hits contribute their public listings. A direct company-name hit may
+  // filter by any of that company's eligible listings in this category scope, so
+  // its facets must offer those same choices (and never private/raw products).
+  const facetProducts = new Map(products.map(({ product }) => [product.id, product]));
+  for (const supplier of suppliers) if (supplier.directMatch) {
+    for (const product of eligibleProductsBySupplier.get(supplier.id) ?? []) facetProducts.set(product.id, product);
+  }
+  const options = searchFilterOptions([...facetProducts.values()], suppliers, selected);
+  const filters = parseSearchFilters(params, options);
+  const supplierById = new Map(suppliers.map((supplier) => [supplier.id, supplier]));
+  const matchedProductsBySupplier = new Map<string, PublicCategoryProduct[]>();
+  for (const { product } of products) {
+    const group = matchedProductsBySupplier.get(product.supplierId) ?? [];
+    group.push(product);
+    matchedProductsBySupplier.set(product.supplierId, group);
+  }
+  // Supplier facets describe an actual published offer. For a direct company-name hit,
+  // check all of that company's eligible listings; for a product-keyword hit, only the
+  // listings that matched the query can qualify. Never combine facets across products.
+  const filteredProducts = products.filter(({ product }) => matchesSearchProduct(product, supplierById.get(product.supplierId), filters));
+  const filteredSuppliers = suppliers.filter((supplier) => matchesSearchSupplier(supplier, filters) &&
+    (!hasProductSearchFilters(filters) || (supplier.directMatch
+      ? eligibleProductsBySupplier.get(supplier.id) ?? []
+      : matchedProductsBySupplier.get(supplier.id) ?? []).some((product) => matchesSearchProduct(product, supplier, filters))));
+  const totalProducts = filteredProducts.length;
+  const totalSuppliers = filteredSuppliers.length;
+  const tokenCount = normalize(state.query).split(/\s+/).filter(Boolean).length;
+  const productFirst = tokenCount > 0 && !exactSupplierNameMatch && (filteredProducts.some(({ relevance }) =>
+    relevance.productCodes > 0 || relevance.coreTokens === tokenCount) ||
+    (!directSupplierMatch && filteredProducts.some(({ relevance }) => relevance.coreTokens > 0)));
+  // A category browse opens products. Exact company searches still open suppliers first;
+  // either tab can be explicitly selected, including when it has zero results.
+  const tab: SearchTab = state.requestedTab ?? (totalProducts === 0 && totalSuppliers > 0 ? "suppliers"
+    : totalSuppliers > 0 && directSupplierMatch && !productFirst ? "suppliers" : "products");
   const productPages = Math.max(1, Math.ceil(totalProducts / PRODUCT_PAGE_SIZE));
-  const supplierPages = Math.max(1, Math.ceil(suppliers.length / SUPPLIER_PAGE_SIZE));
+  const supplierPages = Math.max(1, Math.ceil(totalSuppliers / SUPPLIER_PAGE_SIZE));
   const productPage = Math.min(state.productPage, productPages);
   const supplierPage = Math.min(state.supplierPage, supplierPages);
-  const linkState = { ...state, productPage, supplierPage };
-  const start = (productPage - 1) * PRODUCT_PAGE_SIZE;
-  const shownProducts = products.slice(start, start + PRODUCT_PAGE_SIZE);
-  const shownSuppliers = suppliers.slice((supplierPage - 1) * SUPPLIER_PAGE_SIZE, supplierPage * SUPPLIER_PAGE_SIZE);
-  // An exact multi-word supplier name leads, even if its words occur on a card.
-  // Otherwise complete product/category matches and exact codes lead; a weak
-  // product match does not displace a direct supplier match.
-  const tokenCount = normalize(state.query).split(/\s+/).filter(Boolean).length;
-  const productFirst = tokenCount > 0 && !exactSupplierNameMatch && (products.some(({ relevance }) =>
-    relevance.productCodes > 0 || relevance.coreTokens === tokenCount) ||
-    (!directSupplierMatch && products.some(({ relevance }) => relevance.coreTokens > 0)));
-  const comparisonOffers = products.map(({ product, category }) => ({
+  const linkState: SearchLinkState = { ...state, tab, filters, productPage, supplierPage };
+  const clearHref = searchHref(linkState, { clearFilters: true, resetPages: true });
+  const shownProducts = filteredProducts.slice((productPage - 1) * PRODUCT_PAGE_SIZE, productPage * PRODUCT_PAGE_SIZE);
+  const shownSuppliers = filteredSuppliers.slice((supplierPage - 1) * SUPPLIER_PAGE_SIZE, supplierPage * SUPPLIER_PAGE_SIZE);
+  const comparisonOffers = filteredProducts.map(({ product, category }) => ({
     id: product.id, supplierId: product.supplierId, categorySlug: category.slug, isDemo: product.isDemo,
   }));
 
-  if (!totalProducts && !suppliers.length) {
-    if (incomplete) return <SearchError lang={state.lang} partial />;
-    return <section className="mt-10 rounded-xl border border-ink-200 bg-white p-8 text-center">
-      <PackageSearch className="mx-auto h-10 w-10 text-ink-300" aria-hidden="true" />
-      <h2 className="mt-4 break-words text-lg font-bold text-ink-900">
-        {isVi ? "Không tìm thấy kết quả" : "No matching results"}
-      </h2>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-ink-600">
-        {isVi ? "Hãy thử từ khóa ngắn hơn, chọn danh mục khác hoặc gửi yêu cầu tìm nguồn hàng." : "Try fewer words, choose another category, or send us your sourcing requirements."}
-      </p>
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-        <Link href={localHref("/rfq", state.lang)} className="btn btn-primary inline-flex items-center gap-1.5">
-          {isVi ? "Gửi yêu cầu báo giá" : "Request a quote"}<ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
-        <Link href={localHref("/#categories", state.lang)}
-          className="btn inline-flex items-center gap-1.5 border border-ink-200 bg-white">
-          {isVi ? "Xem danh mục" : "Browse categories"}
-        </Link>
-      </div>
-    </section>;
-  }
+  // An empty category/keyword search still needs both tabs and the category
+  // dropdown: otherwise buyers cannot recover from a zero-result category here.
+  if (!products.length && !suppliers.length && incomplete) return <SearchError lang={state.lang} partial />;
+  const noUnfilteredResults = !products.length && !suppliers.length;
 
-  const supplierSection = suppliers.length > 0 ? <section id="search-suppliers" className="mt-8 scroll-mt-24" aria-label={isVi ? "Nhà cung cấp phù hợp" : "Matching suppliers"}>
-    <h2 className="flex items-center gap-2 text-lg font-bold text-ink-900"><Users className="h-5 w-5 text-brand-700" aria-hidden="true" />{isVi ? "Nhà cung cấp" : "Suppliers"}</h2>
-    <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {shownSuppliers.map((supplier) => <li key={supplier.id} className="min-w-0">
-        <Link href={localHref(`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`, state.lang)}
-          target="_blank" rel="noopener noreferrer"
-          className="group flex h-full flex-col rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-500">
-          <span className="break-words font-bold text-ink-900 group-hover:text-brand-700">{supplier.name}</span>
-          <span className="mt-1 text-xs text-ink-500">{supplier.province}
-            {supplier.checks > 0 && (isVi ? ` · Đã duyệt ${supplier.checks} nội dung xác minh` : ` · ${supplier.checks} verified check${supplier.checks === 1 ? "" : "s"}`)}
-          </span>
-        </Link>
-      </li>)}
-    </ul>
-    <Pagination kind="supplier" page={supplierPage} pages={supplierPages} total={suppliers.length} size={SUPPLIER_PAGE_SIZE} state={linkState} />
-  </section> : null;
-
-  const productSection = totalProducts > 0 ? <section id="search-products" className="mt-8 scroll-mt-24" aria-label={isVi ? "Sản phẩm phù hợp" : "Matching products"}>
-    <h2 className="text-lg font-bold text-ink-900">{isVi ? "Sản phẩm" : "Products"}</h2>
-    <p className="mt-1 text-xs leading-5 text-ink-500">
+  const productSection = totalProducts > 0 ? <section id="search-products" className="scroll-mt-24" aria-label={isVi ? "Sản phẩm phù hợp" : "Matching products"}>
+    <h2 className="sr-only">{isVi ? "Sản phẩm" : "Products"}</h2>
+    <p className="mb-4 text-xs leading-5 text-ink-500">
       {state.query
         ? (isVi ? "Ưu tiên sản phẩm khớp từ khóa; xen kẽ nhà cung cấp khi có thể." : "Relevant products first; suppliers alternate when possible.")
         : (isVi ? "Xen kẽ nhà cung cấp khi có thể." : "Suppliers alternate when possible.")}
     </p>
-    <ul className="mt-4 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
       {shownProducts.map(({ product, category, categoryName: name }) => {
         const slug = encodeURIComponent(category.slug);
         const productHref = localHref(`/products/${slug}/${encodeURIComponent(product.id)}`, state.lang);
@@ -375,6 +400,7 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
           <div className="min-w-0 flex-1">
             <PublicProductCard href={productHref} imagePath={product.cardImagePath ?? product.imagePaths[0]}
               name={product.name} grades={cardTitleGrades(product)} gradeRows={product.gradeRows} moq={product.moq}
+              highlightedGrades={filters.grades}
               stalePriceDays={product.quantityOffer?.stale ? product.quantityOffer.daysSinceConfirmed : undefined}
               volumePricing={product.quantityOffer?.hasVolumePricing}
               price={product.price} incoterm={product.incoterm} fob={product.incoterm?.toUpperCase() === "FOB"}
@@ -390,21 +416,207 @@ function SearchResults({ results, state }: { results: Results; state: SearchLink
     <Pagination kind="product" page={productPage} pages={productPages} total={totalProducts} size={PRODUCT_PAGE_SIZE} state={linkState} />
   </section> : null;
 
-  const countClass = "rounded-full bg-brand-50 px-2.5 py-1 ring-1 ring-brand-200";
-  const productCount = isVi ? `${totalProducts} sản phẩm` : `${totalProducts} product${totalProducts === 1 ? "" : "s"}`;
-  const supplierCount = isVi ? `${suppliers.length} nhà cung cấp` : `${suppliers.length} supplier${suppliers.length === 1 ? "" : "s"}`;
+  const supplierSection = totalSuppliers > 0 ? <section id="search-suppliers" className="scroll-mt-24" aria-label={isVi ? "Nhà cung cấp phù hợp" : "Matching suppliers"}>
+    <h2 className="sr-only">{isVi ? "Nhà cung cấp" : "Suppliers"}</h2>
+    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {shownSuppliers.map((supplier) => <li key={supplier.id} className="min-w-0">
+        <Link href={localHref(`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`, state.lang)}
+          target="_blank" rel="noopener noreferrer"
+          className="group flex h-full flex-col rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-500">
+          <span className="break-words font-bold text-ink-900 group-hover:text-brand-700">{supplier.name}</span>
+          <span className="mt-1 text-xs text-ink-500">{supplier.province}
+            {supplier.checks > 0 && (isVi ? ` · Đã duyệt ${supplier.checks} nội dung xác minh` : ` · ${supplier.checks} verified check${supplier.checks === 1 ? "" : "s"}`)}
+          </span>
+        </Link>
+      </li>)}
+    </ul>
+    <Pagination kind="supplier" page={supplierPage} pages={supplierPages} total={totalSuppliers} size={SUPPLIER_PAGE_SIZE} state={linkState} />
+  </section> : null;
+
+  const tabs = [
+    { key: "products" as const, label: isVi ? "Sản phẩm" : "Products", count: totalProducts, Icon: PackageSearch },
+    { key: "suppliers" as const, label: isVi ? "Nhà cung cấp" : "Suppliers", count: totalSuppliers, Icon: Users },
+  ];
+  const activeFilters = hasSearchFilters(filters);
+  const fieldProps = { filters, options, categories, state: linkState, clearHref };
+  const activeTotal = tab === "products" ? totalProducts : totalSuppliers;
+  const otherTab: SearchTab = tab === "products" ? "suppliers" : "products";
+  const otherCount = tab === "products" ? totalSuppliers : totalProducts;
+  const filterTitle = tab === "products" ? (isVi ? "Lọc sản phẩm" : "Filter products") : (isVi ? "Lọc nhà cung cấp" : "Filter suppliers");
   return <>
     {incomplete && <SearchError lang={state.lang} partial />}
-    <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold text-brand-700">
-      {totalProducts > 0 ? <a href="#search-products" className={`${countClass} hover:bg-brand-100`}>{productCount}</a>
-        : <span className={countClass}>{productCount}</span>}
-      {suppliers.length > 0 ? <a href="#search-suppliers" className={`${countClass} hover:bg-brand-100`}>{supplierCount}</a>
-        : <span className={countClass}>{supplierCount}</span>}
+    <nav aria-label={isVi ? "Loại kết quả tìm kiếm" : "Search result types"} className="mt-8 flex gap-1 border-b border-ink-200">
+      {tabs.map(({ key, label, count, Icon }) => <Link key={key} href={searchHref({ ...linkState, tab: key })}
+        prefetch={false} scroll={false} aria-current={tab === key ? "page" : undefined}
+        className={`-mb-px inline-flex min-h-12 items-center gap-2 border-b-[3px] px-3 text-sm font-bold transition sm:px-5 ${tab === key
+          ? "border-brand-700 text-brand-800" : "border-transparent text-ink-500 hover:border-ink-200 hover:text-ink-800"}`}>
+        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" /><span>{label}</span>
+        <span className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${tab === key ? "bg-brand-50 text-brand-800" : "bg-ink-50 text-ink-600"}`}>{count}</span>
+      </Link>)}
+    </nav>
+    <div className="mt-6 grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)]">
+      <aside className="hidden lg:block">
+        <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-ink-200 bg-white p-4">
+          <h2 className="mb-5 flex items-center gap-2 font-bold text-ink-900"><Filter className="h-4 w-4" aria-hidden="true" />{filterTitle}</h2>
+          <SearchFilterForm key={searchHref(linkState)} applyLabel={isVi ? "Áp dụng" : "Apply filters"} pendingLabel={isVi ? "Đang lọc…" : "Updating…"}>
+            <SearchFilterFields {...fieldProps} />
+          </SearchFilterForm>
+        </div>
+      </aside>
+      <div className="min-w-0">
+        <details className="mb-4 rounded-xl border border-ink-200 bg-white lg:hidden">
+          <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-sm font-bold text-ink-800">
+            <span className="flex items-center gap-2"><Filter className="h-4 w-4" aria-hidden="true" />{filterTitle}</span><ChevronDown className="h-4 w-4" aria-hidden="true" />
+          </summary>
+          <div className="border-t border-ink-100 p-4">
+            <SearchFilterForm key={searchHref(linkState)} applyLabel={isVi ? "Áp dụng" : "Apply filters"} pendingLabel={isVi ? "Đang lọc…" : "Updating…"}>
+              <SearchFilterFields {...fieldProps} />
+            </SearchFilterForm>
+          </div>
+        </details>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-600" aria-live="polite">
+          <p><strong className="text-ink-900">{activeTotal}</strong> {tab === "products"
+            ? isVi ? "sản phẩm" : activeTotal === 1 ? "product" : "products"
+            : isVi ? "nhà cung cấp" : activeTotal === 1 ? "supplier" : "suppliers"}
+            {activeFilters && <span className="text-ink-500">{isVi ? " phù hợp bộ lọc" : " match the filters"}</span>}
+          </p>
+          {activeFilters && <Link href={clearHref} className="text-xs font-semibold text-brand-700 underline">{isVi ? "Xóa bộ lọc" : "Clear filters"}</Link>}
+        </div>
+        {activeTotal > 0 ? tab === "products" ? productSection : supplierSection
+          : noUnfilteredResults ? <section className="rounded-xl border border-ink-200 bg-white p-8 text-center">
+            <PackageSearch className="mx-auto h-10 w-10 text-ink-300" aria-hidden="true" />
+            <h2 className="mt-4 break-words text-lg font-bold text-ink-900">{isVi ? "Không tìm thấy kết quả" : "No matching results"}</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-ink-600">
+              {isVi ? "Hãy thử từ khóa ngắn hơn, chọn danh mục khác hoặc gửi yêu cầu tìm nguồn hàng." : "Try fewer words, choose another category, or send us your sourcing requirements."}
+            </p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <Link href={localHref("/rfq", state.lang)} className="btn btn-primary inline-flex items-center gap-1.5">
+                {isVi ? "Gửi yêu cầu báo giá" : "Request a quote"}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link href={localHref("/#categories", state.lang)} className="btn inline-flex items-center gap-1.5 border border-ink-200 bg-white">
+                {isVi ? "Xem danh mục" : "Browse categories"}
+              </Link>
+            </div>
+          </section>
+          : <section className="rounded-xl border border-ink-200 bg-white p-8 text-center">
+            <h2 className="font-bold text-ink-900">{isVi
+              ? tab === "products" ? "Không có sản phẩm phù hợp" : "Không có nhà cung cấp phù hợp"
+              : tab === "products" ? "No matching products" : "No matching suppliers"}</h2>
+            <p className="mt-2 text-sm text-ink-600">{isVi ? "Thử bộ lọc khác hoặc xem loại kết quả còn lại." : "Try other filters or switch result types."}</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm font-semibold text-brand-700">
+              {activeFilters && <Link href={clearHref} className="underline">{isVi ? "Xóa bộ lọc" : "Clear filters"}</Link>}
+              {otherCount > 0 && <Link href={searchHref({ ...linkState, tab: otherTab })} className="underline">
+                {isVi ? otherTab === "products" ? "Xem sản phẩm" : "Xem nhà cung cấp" : otherTab === "products" ? "View products" : "View suppliers"}
+              </Link>}
+            </div>
+          </section>}
+      </div>
     </div>
-
-    {productFirst ? productSection : supplierSection}
-    {productFirst ? supplierSection : productSection}
   </>;
+}
+
+function SearchFilterFields({ filters, options, categories, state, clearHref }: {
+  filters: SearchFilters; options: SearchFilterOptions; categories: Category[]; state: SearchLinkState; clearHref: string;
+}) {
+  const vi = state.lang === "vi";
+  const label = "mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500";
+  const visibleAttributes = options.attributes.filter((field) => {
+    if (!field.showWhen) return true;
+    if (field.showWhen.key === "grade" || field.showWhen.key === "product_type") {
+      return !filters.grades.length || filters.grades.includes(field.showWhen.value);
+    }
+    const parent = filters.attributes[field.showWhen.key];
+    return !parent || parent === field.showWhen.value;
+  });
+  return <div className="space-y-5 text-sm">
+    {state.tab === "suppliers" && <p className="text-xs leading-5 text-ink-500">
+      {vi ? "Bộ lọc sản phẩm tìm nhà cung cấp có ít nhất một sản phẩm công khai phù hợp." : "Product filters find suppliers with at least one matching public offer."}
+    </p>}
+    {state.query && <input type="hidden" name="q" value={state.query} />}
+    <input type="hidden" name="lang" value={state.lang} />
+    <input type="hidden" name="tab" value={state.tab} />
+    <label className="block"><span className={label}>{vi ? "Danh mục" : "Category"}</span>
+      <select name="cat" className="input text-sm" defaultValue={state.category}>
+        <option value="">{vi ? "Tất cả danh mục" : "All categories"}</option>
+        {categories.map((category) => <option key={category.id} value={category.slug}>{categoryName(category, state.lang)}</option>)}
+      </select>
+    </label>
+    {visibleAttributes.map((field) =>
+      <label key={field.key} className="block"><span className={label}>{field.label}</span>
+        <select name={`attr.${field.key}`} className="input text-sm" defaultValue={filters.attributes[field.key] ?? ""}>
+          <option value="">{vi ? "Tất cả" : "All"}</option>
+          {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+      </label>)}
+    {options.grades.length > 0 && <fieldset><legend className={label}>{vi ? "Quy cách / loại" : "Grade / type"}</legend>
+      <div className="max-h-44 space-y-2 overflow-y-auto">{options.grades.map((grade) => <label key={grade} className="flex cursor-pointer items-center gap-2 text-ink-700">
+        <input type="checkbox" name="grade" value={grade} defaultChecked={filters.grades.includes(grade)} />{grade}
+      </label>)}</div>
+    </fieldset>}
+    <label className="block"><span className={label}>{vi ? "Đơn hàng tối thiểu" : "Minimum order"}</span>
+      <select name="moq" className="input text-sm" defaultValue={filters.moq}>
+        <option value="">{vi ? "Mọi mức MOQ" : "Any MOQ"}</option>
+        <option value="small">{vi ? "Tối đa 1 tấn" : "Up to 1 ton"}</option>
+        <option value="medium">{vi ? "Trên 1–5 tấn" : "Over 1–5 tons"}</option>
+        <option value="large">{vi ? "Trên 5 tấn" : "Over 5 tons"}</option>
+        <option value="container">{vi ? "Nguyên container" : "Full container"}</option>
+        <option value="ask">{vi ? "Cần hỏi / khác" : "On request / other"}</option>
+      </select>
+    </label>
+    <label className="block"><span className={label}>{vi ? "Thời gian giao hàng" : "Lead time"}</span>
+      <select name="lead" className="input text-sm" defaultValue={filters.leadTime}>
+        <option value="">{vi ? "Mọi thời gian" : "Any lead time"}</option>
+        {[15, 30, 45].map((days) => <option key={days} value={days}>{vi ? `Trong ${days} ngày` : `Ships within ${days} days`}</option>)}
+      </select>
+    </label>
+    {options.incoterms.length > 0 && <label className="block"><span className={label}>Incoterm</span>
+      <select name="incoterm" className="input text-sm" defaultValue={filters.incoterm}>
+        <option value="">{vi ? "Mọi điều kiện" : "All incoterms"}</option>
+        {options.incoterms.map((term) => <option key={term} value={term}>{term}</option>)}
+      </select>
+    </label>}
+    {options.sourceRegions.length > 0 && <label className="block"><span className={label}>{vi ? "Vùng nguyên liệu" : "Source region"}</span>
+      <select name="region" className="input text-sm" defaultValue={filters.sourceRegion}>
+        <option value="">{vi ? "Mọi vùng" : "All regions"}</option>
+        {options.sourceRegions.map((region) => <option key={region} value={region}>{region}</option>)}
+      </select>
+    </label>}
+    {options.supplierLocations.length > 0 && <label className="block"><span className={label}>{vi ? "Địa điểm nhà cung cấp" : "Supplier location"}</span>
+      <select name="location" className="input text-sm" defaultValue={filters.supplierLocation}>
+        <option value="">{vi ? "Mọi địa điểm" : "All locations"}</option>
+        {options.supplierLocations.map((location) => <option key={location} value={location}>{location}</option>)}
+      </select>
+    </label>}
+    {options.supplierTypes.length > 0 && <label className="block"><span className={label}>{vi ? "Loại hình nhà cung cấp" : "Supplier type"}</span>
+      <select name="supplierType" className="input text-sm" defaultValue={filters.supplierType}>
+        <option value="">{vi ? "Mọi loại hình" : "All supplier types"}</option>
+        {options.supplierTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+      </select>
+      <span className="mt-1 block text-[11px] text-ink-500">{vi ? "Theo thông tin nhà cung cấp khai, không phải cấp xác minh." : "Stated by the supplier; not a verification level."}</span>
+    </label>}
+    <label className="block"><span className={label}>{vi ? "Xác minh nhà cung cấp" : "Supplier verification"}</span>
+      <select name="verified" className="input text-sm" defaultValue={filters.verified}>
+        <option value={0}>{vi ? "Mọi nhà cung cấp" : "All suppliers"}</option>
+        <option value={1}>{vi ? "Đã kiểm tra giấy tờ" : "Documents checked"}</option>
+        <option value={2}>{vi ? "Đã xác minh nhà máy" : "Factory verification"}</option>
+        <option value={4}>{vi ? "Đã kiểm tra hợp đồng nhà máy" : "Partner factory contract reviewed"}</option>
+        <option value={3}>{vi ? "Đã kiểm tra giao hàng" : "Delivery history reviewed"}</option>
+      </select>
+    </label>
+    {options.certificates.length > 0 && <fieldset><legend className={label}>{vi ? "Chứng nhận" : "Certifications"}</legend>
+      <div className="space-y-2">{options.certificates.map((cert) => <label key={cert} className="flex cursor-pointer items-center gap-2 text-ink-700">
+        <input type="checkbox" name="certificate" value={cert} defaultChecked={filters.certificates.includes(cert)} />{cert}
+      </label>)}</div>
+    </fieldset>}
+    <fieldset><legend className={label}>{vi ? "Tuỳ chọn sản phẩm" : "Product options"}</legend>
+      <div className="space-y-2">
+        <label className="flex cursor-pointer items-center gap-2 text-ink-700"><input type="checkbox" name="oem" value="1" defaultChecked={filters.oemOdm} />OEM / ODM</label>
+        <label className="flex cursor-pointer items-center gap-2 text-ink-700"><input type="checkbox" name="samples" value="1" defaultChecked={filters.samples} />{vi ? "Hàng mẫu" : "Samples"}</label>
+      </div>
+      <p className="mt-1.5 text-[11px] leading-4 text-ink-500">{vi ? "Theo thông tin nhà cung cấp khai" : "Stated by the supplier"}</p>
+    </fieldset>
+    {hasSearchFilters(filters) && <Link href={clearHref} className="inline-block font-semibold text-brand-700 underline">{vi ? "Xóa bộ lọc" : "Clear filters"}</Link>}
+  </div>;
 }
 
 function Pagination({ kind, page, pages, total, size, state }: {

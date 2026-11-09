@@ -8,6 +8,8 @@ import vm from "node:vm";
 import ts from "typescript";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { createRoot } from "react-dom/client";
+import { JSDOM } from "jsdom";
 import { assignProductCategory } from "../lib/public/category-assignment.ts";
 import * as attributes from "../lib/product-attributes.ts";
 import * as readiness from "../lib/media/readiness.ts";
@@ -25,13 +27,13 @@ import * as priceDisplay from "../lib/products/price-display.ts";
 const require = createRequire(import.meta.url);
 const jsx = require("react/jsx-runtime");
 const silentConsole = { ...console, error() {} };
-function load(path, mocks) {
+function load(path, mocks, globals = {}) {
   const exports = {};
   const js = ts.transpileModule(readFileSync(new URL(path, import.meta.url), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   vm.runInNewContext(js, {
-    exports, console: silentConsole, process, Date, Map, Set, URLSearchParams,
+    exports, console: silentConsole, process, Date, Map, Set, URLSearchParams, ...globals,
     require: (name) => {
       if (name === "server-only") return {};
       assert.ok(name in mocks, `${path}: unexpected import ${name}`);
@@ -158,7 +160,9 @@ const gradePricing = load("../lib/products/grade-pricing.ts", {
   "@/lib/public/price-units": priceUnits,
   "@/lib/public/grade-resolution": grade,
 });
+let badgeLabels = new Map();
 const productCatalog = load("../lib/public/product-catalog.ts", {
+  "next/cache": { unstable_cache: (fn) => fn },
   "@/lib/db": db,
   "@/lib/product-attributes": attributes,
   "@/lib/media/readiness": readiness,
@@ -174,8 +178,10 @@ const productCatalog = load("../lib/public/product-catalog.ts", {
   // Approved quantity prices are projected for buyers; this fixture has none, so the
   // identity projection keeps the legacy cards this check compares.
   "@/lib/public/quantity-catalog-legacy-preview": { projectQuantityCatalogPreview: async (records) => records },
-  // Fixture has no certificates: card badges stay empty and the cards compared are unchanged.
-  "@/lib/public/certificate-badges": { categoryPathOf: (id) => [id], certificateLabelsForProducts: async () => new Map() },
+  // Only the labels on gated public cards reach search facets; tests can supply
+  // approved-looking card labels without loading private certificate records.
+  "@/lib/public/certificate-badges": { categoryPathOf: (id) => [id], certificateLabelsForProducts: async (_store, cards) =>
+    new Map(cards.filter(({ id }) => badgeLabels.has(id)).map(({ id }) => [id, badgeLabels.get(id)])) },
   "@/lib/public/category-certificate-data": { readCategoryCertificateData: async () => ({ certificates: [], media: [], scopes: [], optouts: [] }) },
 });
 
@@ -198,7 +204,7 @@ assert.ok(!JSON.stringify(publicCard).includes("private-review-marker"));
 assert.ok(!JSON.stringify(publicCard).includes("private/evidence.jpg"));
 assert.deepEqual(Object.values(ranking.SPEC_RANKING_WEIGHTS), [30, 30, 15, 15, 10], "The existing ranking weights remain unchanged");
 
-const Link = ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children);
+const Link = ({ href, children, prefetch, scroll, ...props }) => React.createElement("a", { href, ...props }, children);
 const cardProps = [];
 const Card = (props) => {
   cardProps.push(props);
@@ -213,18 +219,27 @@ const searchCatalog = {
     return productCatalog.listPublicCategoryProducts(c, opts);
   },
 };
+const searchFilters = load("../lib/public/search-filters.ts", {
+  "@/lib/product-attributes": attributes,
+  "@/lib/public/product-detail-display": detail,
+  "@/lib/products/grade-pricing": gradePricing,
+  "@/lib/verification-status": verification,
+});
 const page = load("../app/(public)/search/page.tsx", {
   "react/jsx-runtime": jsx,
   "next/link": { default: Link },
   "lucide-react": icons,
   "@/components/ui": { Breadcrumbs: () => null },
   "@/components/public-product-card": { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard: Card },
+  "@/components/public/search-filter-form": { SearchFilterForm: ({ children }) => React.createElement("form", { action: "/search", method: "get" }, children) },
   "@/lib/db": db,
+  "@/lib/public/catalog": catalog,
   "@/lib/public/category-names": categoryNames,
   "@/lib/public/grade-resolution": grade,
   "@/lib/public/product-catalog": searchCatalog,
   "@/lib/public/product-comparison": comparison,
   "@/lib/public/product-selection": selection,
+  "@/lib/public/search-filters": searchFilters,
   "@/lib/public/ranking": ranking,
   "@/lib/public/search-ranking": searchRanking,
   "@/lib/public/supplier-seo": supplierSeo,
@@ -241,18 +256,16 @@ const supplierHrefs = (html) => [...html.matchAll(/href="\/suppliers\/([^"?]+)(?
 // Empty search offers real browsing without spending a catalogue read.
 let html = await render({ lang: "vi" });
 assert.match(html, /Tìm sản phẩm và nhà cung cấp/);
-assert.match(html, /<form\b[^>]*action="\/search"/);
-assert.match(html, /name="q"/);
-assert.match(html, /name="cat"/);
-assert.match(html, /name="lang" value="vi"/);
 assert.match(html, /Xem danh mục/);
+assert.doesNotMatch(html, /aria-label="Loại kết quả tìm kiếm"/, "Empty searches browse categories without loading the catalogue");
 assert.equal(counts.products ?? 0, 0, "An empty search does not load or mislabel the whole product catalogue");
 
 html = await render({ q: "  W320 ", cat: "cashew", lang: "vi" });
 assert.match(html, /Kết quả tìm kiếm/);
 assert.match(html, /Danh mục:/);
 assert.deepEqual(new Set(ids(html)), new Set(["a-w320", "a-w320b", "a-w320c", "a-w320d"]), "All four matching offers from one supplier must remain visible");
-assert.ok(supplierHrefs(html).includes("alpha"), "A matched product also makes its supplier discoverable");
+assert.match(html, /tab=suppliers/, "The supplier tab remains reachable from the product results");
+assert.doesNotMatch(html, /aria-label="Nhà cung cấp phù hợp"/, "Supplier results are not stacked below products");
 assert.equal(counts.suppliers, 1, "All category calls share one supplier snapshot");
 assert.equal(counts.products, 1, "Supplier projection and every category share one product snapshot");
 assert.ok(!JSON.stringify(cardProps).includes("private-review-marker"));
@@ -260,22 +273,26 @@ assert.ok(!JSON.stringify(cardProps).includes("private-spec-marker"));
 assert.ok(!html.includes("private/evidence.jpg"));
 assert.ok(!html.includes("98765"));
 assert.ok(cardProps.every((card) => !card.comparison), "A category with only one supplier has no comparison option");
+html = await render({ q: "W320", cat: "cashew", lang: "vi", tab: "suppliers" });
+assert.ok(supplierHrefs(html).includes("alpha"), "A matched product also makes its supplier discoverable");
+assert.equal(ids(html).length, 0, "The supplier tab does not render product cards");
+assert.match(html, /aria-current="page"[^>]*>.*?Nhà cung cấp/, "The active supplier tab is announced");
 
 html = await render({ q: "hat dieu w320", cat: "nuts", lang: "vi" });
 assert.equal(ids(html).length, 4, "Vietnamese search ignores accents and combines category names with a public grade");
 html = await render({ q: "van phuoc", lang: "vi" });
 assert.ok(supplierHrefs(html).includes("van-phuoc"), "Vietnamese names can be found without diacritics, including đ");
-assert.ok(ids(html).includes("root-item"), "Searching a supplier also finds its public products");
-assert.ok(html.indexOf('aria-label="Nhà cung cấp phù hợp"') < html.indexOf('aria-label="Sản phẩm phù hợp"'),
-  "A supplier-name-only query keeps suppliers first");
+assert.equal(ids(html).length, 0, "A supplier-name query opens the supplier tab, without a second section below it");
+assert.ok(ids(await render({ q: "van phuoc", lang: "vi", tab: "products" })).includes("root-item"),
+  "Searching a supplier also finds its public products in the other tab");
 const savedVan = suppliers[3];
 const beforeNameTest = rows;
 suppliers[3] = { ...savedVan, name: "Vạn Phước Nuts", display_name: "Vạn Phước Nuts" };
 rows = rows.map((p) => p.id === "root-item" ? { ...p, name: "Van Phuoc Nuts assorted", name_i18n: { en: "Van Phuoc Nuts assorted" } } : p);
 html = await render({ q: "van phuoc nuts", lang: "vi" });
-assert.ok(ids(html).includes("root-item"));
-assert.ok(html.indexOf('aria-label="Nhà cung cấp phù hợp"') < html.indexOf('aria-label="Sản phẩm phù hợp"'),
-  "An exact multi-word supplier name stays first even when the same words are in a product");
+assert.ok(supplierHrefs(html).includes("van-phuoc"));
+assert.equal(ids(html).length, 0, "An exact multi-word supplier name stays on the supplier tab even when the words occur on a product");
+assert.ok(ids(await render({ q: "van phuoc nuts", lang: "vi", tab: "products" })).includes("root-item"));
 suppliers[3] = savedVan;
 rows = beforeNameTest;
 
@@ -284,6 +301,7 @@ assert.ok(ids(html).includes("b-snack"), "A parent includes a published grandchi
 assert.ok(ids(html).includes("a-w320"), "A parent includes its published child");
 assert.ok(ids(html).includes("root-item"), "A parent includes its own products");
 assert.ok(!ids(html).includes("rice-st25"), "A different category cannot leak into results");
+html = await render({ cat: "nuts", lang: "vi", tab: "suppliers" });
 assert.ok(supplierHrefs(html).includes("beta"));
 assert.ok(!supplierHrefs(html).includes("rice-supplier"), "Supplier category filter uses genuinely public products");
 html = await render({ q: "rice", cat: "nuts", lang: "vi" });
@@ -292,7 +310,94 @@ assert.equal(ids(html).length, 0);
 assert.ok(!supplierHrefs(html).includes("rice-supplier"));
 html = await render({ q: "Beta", cat: "rice" });
 assert.match(html, /No matching results/);
+assert.match(html, /aria-label="Search result types"/, "Even an empty category has two tabs and filters to change the category");
+assert.match(html, /name="cat"/);
 assert.equal(ids(html).length, 0);
+
+// Search facets use the same public-card fields and grouping as the category grid.
+// A direct supplier-name hit must support product facets even if the offer title
+// does not mention the company; no unreviewed offer or badge supplies an option.
+const savedFacetRows = rows;
+const savedFacetMedia = media;
+const savedFacetAlpha = suppliers[0];
+const savedFacetBeta = suppliers[1];
+const savedFacetCategory = categories[1];
+categories[1] = { ...savedFacetCategory, product_fields: [
+  ...savedFacetCategory.product_fields,
+  { key: "processing", label: "Processing", type: "select", options: ["Raw", "Roasted"], filterable: true,
+    showWhen: { key: "grade", value: "W240" } },
+] };
+suppliers[0] = { ...savedFacetAlpha, supplier_type: "trading" };
+suppliers[1] = { ...savedFacetBeta, supplier_type: "manufacturer", province: "Đồng Nai" };
+const betaFacet = product("facet-beta", "beta", "cashew", "Cashew W320 bulk", {
+  specs: { grade: "W320" }, translation_meta: { fields: { raw_material_region: "Dak Lak" } },
+});
+rows = [...rows.map((p) => p.id === "a-w240" ? { ...p, specs: { ...p.specs, processing: "Raw" },
+  moq: "6 MT", incoterm: "CIF", lead_time_days: 30, oem: true, samples: true,
+  translation_meta: { fields: { raw_material_region: "Dong Nai" } } }
+  : p.id === "a-w320" ? { ...p, translation_meta: { fields: { raw_material_region: "Binh Phuoc" } } }
+  : p.id === "paused" ? { ...p, translation_meta: { fields: { raw_material_region: "Private Region" } } } : p), betaFacet];
+media = [...media, mediaFor(betaFacet)];
+badgeLabels = new Map([["a-w240", ["HACCP"]], ["a-w320", ["ISO 22000"]], ["paused", ["Internal Only"]]]);
+
+html = await render({ q: "Alpha Foods", cat: "cashew", tab: "suppliers" });
+assert.deepEqual(supplierHrefs(html), ["alpha"]);
+assert.match(html, /name="grade" value="W240"/, "Direct supplier hits offer grades from their public listings");
+assert.match(html, /<option value="Dong Nai">Dong Nai<\/option>/, "Source regions come from public products, not supplier addresses");
+assert.match(html, /<option value="CIF">CIF<\/option>/);
+assert.match(html, /name="certificate" value="HACCP"/);
+assert.match(html, /name="supplierType"/);
+assert.doesNotMatch(html, /Private Region|Internal Only/, "Hidden products cannot supply search facets");
+const facetParams = { q: "Alpha Foods", cat: "cashew", grade: "W240", "attr.processing": "Raw", moq: "large",
+  lead: "30", incoterm: "CIF", region: "Dong Nai", certificate: "HACCP", oem: "1", samples: "1",
+  verified: "2", location: "Binh Phuoc", supplierType: "trading" };
+html = await render({ ...facetParams, tab: "products" });
+assert.deepEqual(ids(html), ["a-w240"], "All offer and supplier facets narrow product results together");
+assert.deepEqual(Array.from(cardProps[0].highlightedGrades), ["W240"]);
+assert.match(html, /name="grade" checked="" value="W240"/);
+assert.doesNotMatch(html, /name="p"|name="s"/, "Changing a filter through either GET form resets pagination");
+const supplierTabUrl = html.match(/href="(\/search\?[^\"]*tab=suppliers[^\"]*)"/)?.[1].replaceAll("&amp;", "&");
+assert.ok(supplierTabUrl, "Switching tabs has a shareable URL");
+const linkParams = new URL(supplierTabUrl, "https://example.test").searchParams;
+for (const [key, value] of Object.entries(facetParams)) assert.equal(linkParams.get(key), value, `${key} survives tab navigation`);
+assert.match(html, /href="\/search\?q=Alpha\+Foods&amp;cat=cashew&amp;lang=en&amp;tab=products"[^>]*>Clear filters/, "Clear resets facets and pages while preserving the active tab");
+html = await render({ ...facetParams, tab: "suppliers" });
+assert.deepEqual(supplierHrefs(html), ["alpha"], "A supplier passes when one public offer matches every facet");
+assert.equal(ids(html).length, 0, "Supplier filtering never also renders the products section");
+html = await render({ q: "Alpha Foods", cat: "cashew", tab: "suppliers", grade: "W320", certificate: "HACCP" });
+assert.equal(supplierHrefs(html).length, 0, "A grade on one offer and certificate on another cannot be combined");
+assert.match(html, /No matching suppliers/);
+html = await render({ q: "Alpha Foods", cat: "cashew", tab: "products", grade: "W320", "attr.processing": "Raw" });
+assert.ok(ids(html).includes("a-w320"), "An attribute of another grade is discarded, not applied to this grade");
+assert.doesNotMatch(html, /name="attr.processing"/, "A conditional attribute is hidden when its parent grade differs");
+html = await render({ ...facetParams, tab: "products", grade: ["W240", "not-approved"],
+  certificate: ["HACCP", "Internal Only"], region: "Private Region", verified: "999" });
+assert.deepEqual(ids(html), ["a-w240"], "Stale or forged facet values are ignored rather than reading private rows");
+assert.doesNotMatch(html, /Internal Only|Private Region|not-approved/);
+html = await render({ cat: "cashew", tab: "suppliers", region: "Dong Nai", location: "Binh Phuoc" });
+assert.deepEqual(supplierHrefs(html), ["alpha"], "Product source region and supplier registered location filter independently");
+html = await render({ cat: "cashew", tab: "suppliers", supplierType: "manufacturer" });
+assert.deepEqual(supplierHrefs(html), ["beta"]);
+html = await render({ cat: "cashew", tab: "suppliers", supplierType: "manufacturer", verified: "2" });
+assert.equal(supplierHrefs(html).length, 0, "A stated manufacturer type never implies an approved factory check");
+html = await render({ q: "Alpha Foods", cat: "cashew", tab: "suppliers", verified: "4" });
+assert.equal(supplierHrefs(html).length, 0, "Factory approval alone does not imply a partner contract approval");
+const listVerifications = store.listVerifications;
+store.listVerifications = async (id) => id === "beta"
+  ? [{ target_level: 2, status: "approved", l2_scope: "partner_contract" }] : listVerifications(id);
+html = await render({ cat: "cashew", tab: "suppliers", verified: "4" });
+assert.deepEqual(supplierHrefs(html), ["beta"], "Only a partner-contract approval satisfies that verification choice");
+html = await render({ cat: "cashew", tab: "products", verified: "2" });
+assert.ok(ids(html).includes("a-w320") && !ids(html).includes("facet-beta"),
+  "A partner contract is not described as factory verification on product cards");
+store.listVerifications = listVerifications;
+
+rows = savedFacetRows;
+media = savedFacetMedia;
+suppliers[0] = savedFacetAlpha;
+suppliers[1] = savedFacetBeta;
+categories[1] = savedFacetCategory;
+badgeLabels = new Map();
 
 for (const query of ["private-spec-marker", "private-review-marker", "private-raw-name-marker", "sales@secret.example.com", "+84 987 654 321", "doesnotexist-987654"]) {
   html = await render({ q: query });
@@ -370,10 +475,9 @@ assert.deepEqual(orderedMixed.slice(1, 3), ["b-w320", "d-w320"], "Each supplier 
 assert.ok(orderedMixed.indexOf("a-w240") > orderedMixed.indexOf("d-w320"), "Supplier-name-only W240 follows genuine W320");
 assert.ok(orderedMixed.indexOf("a-misleading") > orderedMixed.indexOf("d-w320"), "Structured W240 prevents a misleading W320 title from outranking real W320");
 assert.ok(orderedMixed.indexOf("a-multigrade") < orderedMixed.indexOf("a-misleading"), "An inferred grade does not suppress another grade explicitly listed in the name");
-assert.ok(html.indexOf('aria-label="Sản phẩm phù hợp"') < html.indexOf('aria-label="Nhà cung cấp phù hợp"'),
-  "Product matches are not hidden below a block of supplier-name matches");
-assert.match(html, /href="#search-products"/);
-assert.match(html, /href="#search-suppliers"/, "Buyers can jump to suppliers when products are first");
+assert.match(html, /aria-label="Sản phẩm phù hợp"/, "Genuine grade matches open in the product tab");
+assert.doesNotMatch(html, /aria-label="Nhà cung cấp phù hợp"/, "Supplier cards never stack below product cards");
+assert.match(html, /q=W320&amp;lang=vi&amp;tab=suppliers/, "Buyers can switch to suppliers without losing the query");
 assert.match(html, /aria-label="Xem danh mục Hạt điều &amp; Nhân điều xuất khẩu"/);
 assert.match(html, /aria-label="Xem danh mục Hạt rang"/);
 const cardId = (card) => decodeURIComponent(card.href.split("?")[0].split("/").at(-1));
@@ -413,7 +517,7 @@ for (let start = 0; start < crossPages.length; start += 5) {
   assert.deepEqual(suppliersInRound.slice(0, 2), ["alpha", "beta"], "Higher verified tiers lead each round");
 }
 html = await render({ q: "Roundneedle", cat: "nuts", lang: "vi" });
-assert.match(html, /44 sản phẩm/, "Category filters still limit the global search scope");
+assert.match(html, /<strong[^>]*>44<\/strong> sản phẩm/, "Category filters still limit the global search scope");
 assert.ok(cardProps.every((card) => !card.href.includes("/products/rice/")));
 rows = [...baseProducts];
 media = savedMedia;
@@ -440,17 +544,20 @@ const bulk = Array.from({ length: 53 }, (_, i) => product(`bulk-${i + 1}`, `bulk
 rows = [...baseProducts, ...bulk];
 media = [...media, ...bulk.map((p) => mediaFor(p))];
 const firstPage = await render({ q: "Bulkneedle", cat: "cashew", lang: "vi" });
-assert.match(firstPage, /53 sản phẩm/);
-assert.match(firstPage, /17 nhà cung cấp/);
+assert.match(firstPage, /<strong[^>]*>53<\/strong> sản phẩm/);
+assert.match(firstPage, /<span>Nhà cung cấp<\/span><span[^>]*>17<\/span>/);
 assert.match(firstPage, /Trang 1\/3/);
-assert.match(firstPage, /Trang 1\/2/);
+assert.doesNotMatch(firstPage, /Trang 1\/2/, "The inactive supplier pager is not shown");
 assert.equal(ids(firstPage).length, 24);
-assert.match(firstPage, /q=Bulkneedle&amp;cat=cashew&amp;lang=vi&amp;p=2/);
+assert.match(firstPage, /q=Bulkneedle&amp;cat=cashew&amp;lang=vi&amp;tab=products&amp;p=2/);
 const secondPage = await render({ q: "Bulkneedle", cat: "cashew", lang: "vi", p: "2", s: "2" });
 assert.equal(ids(secondPage).length, 24);
-assert.match(secondPage, /q=Bulkneedle&amp;cat=cashew&amp;lang=vi&amp;p=3&amp;s=2/, "Product paging preserves the supplier page");
-assert.match(secondPage, /q=Bulkneedle&amp;cat=cashew&amp;lang=vi&amp;p=2/, "Supplier paging preserves the product page");
-assert.equal(supplierHrefs(secondPage).length, 5);
+assert.match(secondPage, /q=Bulkneedle&amp;cat=cashew&amp;lang=vi&amp;tab=products&amp;p=3&amp;s=2/, "Product paging preserves the supplier page");
+const supplierSecondPage = await render({ q: "Bulkneedle", cat: "cashew", lang: "vi", tab: "suppliers", p: "2", s: "2" });
+assert.match(supplierSecondPage, /Trang 2\/2/);
+assert.match(supplierSecondPage, /q=Bulkneedle&amp;cat=cashew&amp;lang=vi&amp;tab=suppliers&amp;p=2/, "Supplier paging preserves the product page");
+assert.equal(supplierHrefs(supplierSecondPage).length, 5);
+assert.equal(ids(supplierSecondPage).length, 0);
 const thirdPage = await render({ q: "Bulkneedle", cat: "cashew", lang: "vi", p: "3" });
 assert.equal(ids(thirdPage).length, 5);
 const bulkPages = [...ids(firstPage), ...ids(secondPage), ...ids(thirdPage)];
@@ -476,8 +583,8 @@ const scaleStarted = performance.now();
 const seenPages = [];
 for (let p = 1; p <= Math.ceil(large.length / 24); p++) {
   const rendered = await render({ q: "Scaleneedle", cat: "cashew", lang: "vi", p: String(p) });
-  assert.match(rendered, /1025 sản phẩm/);
-  assert.match(rendered, /125 nhà cung cấp/);
+  assert.match(rendered, /<strong[^>]*>1025<\/strong> sản phẩm/);
+  assert.match(rendered, /<span>Nhà cung cấp<\/span><span[^>]*>125<\/span>/);
   assert.equal(counts.products, 1, "Each search shares the product read across suppliers and categories");
   seenPages.push(...ids(rendered));
 }
@@ -501,8 +608,8 @@ store.listVerificationsForSuppliers = async () => [];
 const supplierStarted = performance.now();
 const supplierPages = [];
 for (let s = 1; s <= Math.ceil(suppliers.length / 12); s++) {
-  const rendered = await render({ q: "Wideneedle", cat: "cashew", lang: "vi", s: String(s) });
-  assert.match(rendered, /1009 nhà cung cấp/);
+  const rendered = await render({ q: "Wideneedle", cat: "cashew", lang: "vi", tab: "suppliers", s: String(s) });
+  assert.match(rendered, /<strong[^>]*>1009<\/strong> nhà cung cấp/);
   supplierPages.push(...supplierHrefs(rendered));
 }
 assert.equal(supplierPages.length, 1009);
@@ -510,4 +617,51 @@ assert.equal(new Set(supplierPages).size, 1009, "All supplier pages have distinc
 assert.deepEqual(new Set(supplierPages), new Set(suppliers.map((s) => s.slug)), "No supplier disappears after the first 1,000");
 const supplierMs = Math.round(performance.now() - supplierStarted);
 
-console.log(`✅ Marketplace search: relevance and supplier rounds across categories/pages; 1,025 products / 43 pages (${scaleMs} ms) and 1,009 suppliers / 85 pages (${supplierMs} ms), local in-memory timings only.`);
+// The real Client Component must submit a shareable GET URL on each change, not
+// merely render the SSR fixture's static form. The submit button remains a fallback.
+const dom = new JSDOM('<div id="mount"></div>', { url: "https://example.test/search" });
+const previousGlobals = { window: globalThis.window, document: globalThis.document,
+  FormData: globalThis.FormData, IS_REACT_ACT_ENVIRONMENT: globalThis.IS_REACT_ACT_ENVIRONMENT };
+globalThis.window = dom.window;
+globalThis.document = dom.window.document;
+globalThis.FormData = dom.window.FormData;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+try {
+  const navigations = [];
+  const filterForm = load("../components/public/search-filter-form.tsx", {
+    react: React,
+    "react/jsx-runtime": jsx,
+    "next/navigation": { useRouter: () => ({ replace: (url, options) => navigations.push({ url, options }) }) },
+  }, { FormData: dom.window.FormData }).SearchFilterForm;
+  const root = createRoot(dom.window.document.getElementById("mount"));
+  await React.act(async () => root.render(React.createElement(filterForm, {
+    applyLabel: "Apply filters", pendingLabel: "Updating…",
+    children: React.createElement(React.Fragment, null,
+      React.createElement("input", { type: "hidden", name: "q", value: "Alpha Foods", readOnly: true }),
+      React.createElement("input", { type: "hidden", name: "tab", value: "products", readOnly: true }),
+      React.createElement("select", { name: "moq", defaultValue: "" },
+        React.createElement("option", { value: "" }, "Any"), React.createElement("option", { value: "large" }, "Over 5 tons")),
+      React.createElement("input", { type: "checkbox", name: "grade", value: "W320" }),
+    ),
+  })));
+  const form = dom.window.document.querySelector("form");
+  assert.equal(form.getAttribute("method"), "get");
+  assert.equal(form.getAttribute("action"), "/search");
+  const moq = form.querySelector("select");
+  moq.value = "large";
+  await React.act(async () => moq.dispatchEvent(new dom.window.Event("change", { bubbles: true })));
+  assert.equal(navigations[0].url, "/search?q=Alpha+Foods&tab=products&moq=large");
+  await React.act(async () => form.querySelector('[name="grade"]').click());
+  assert.equal(navigations[1].url, "/search?q=Alpha+Foods&tab=products&moq=large&grade=W320");
+  assert.equal(navigations[1].options.scroll, false);
+  await React.act(async () => form.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true })));
+  assert.equal(navigations[2].url, navigations[1].url);
+  await React.act(async () => root.unmount());
+} finally {
+  for (const [key, value] of Object.entries(previousGlobals)) {
+    if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
+  }
+  dom.window.close();
+}
+
+console.log(`✅ Marketplace search: two tabs, public facets and supplier rounds across categories/pages; 1,025 products / 43 pages (${scaleMs} ms) and 1,009 suppliers / 85 pages (${supplierMs} ms), local in-memory timings only.`);
