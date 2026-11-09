@@ -22,13 +22,11 @@ const DESCRIPTION_EN =
 const DESCRIPTION_VI =
   "Tra cứu nhà cung cấp Việt Nam đã xác minh, so sánh thông số và gửi yêu cầu báo giá cho nhà cung cấp bạn chọn, hoặc gửi yêu cầu để chúng tôi tìm nhà cung cấp phù hợp.";
 
-/**
- * Trang này đã dựng nội dung song ngữ thật từ `?lang=vi` (xem các khối `isVi ?` bên dưới),
- * nhưng trước đây export `metadata` tĩnh tiếng Anh — nghĩa là dù nội dung trang đã là tiếng
- * Việt, tiêu đề/mô tả trên kết quả tìm kiếm Google vẫn luôn tiếng Anh. `generateMetadata`
- * động theo `lang` để khớp đúng những gì người dùng (và Google) thực sự thấy, kèm
- * `alternates.languages` khai hreflang en/vi/x-default.
- */
+// Trang này đã dựng nội dung song ngữ thật từ `?lang=vi` (xem các khối `isVi ?` bên dưới),
+// nhưng trước đây export `metadata` tĩnh tiếng Anh, nghĩa là dù nội dung trang đã là tiếng
+// Việt, tiêu đề/mô tả trên kết quả tìm kiếm Google vẫn luôn tiếng Anh. `generateMetadata`
+// động theo `lang` để khớp đúng những gì người dùng (và Google) thực sự thấy, kèm
+// `alternates.languages` khai hreflang en/vi/x-default.
 export async function generateMetadata({
   searchParams,
 }: {

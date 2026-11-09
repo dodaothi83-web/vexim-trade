@@ -97,10 +97,16 @@ function loadTsx(relPath, mocks = {}) {
 }
 
 const pageMod = loadTsx("app/(public)/how-it-works/page.tsx");
-assert.equal(pageMod.metadata.alternates.canonical, "/how-it-works");
+// `metadata` đã chuyển thành `generateMetadata` động theo `?lang=vi` (xem page.tsx) để tiêu
+// đề/mô tả trên Google đổi theo đúng nội dung trang, kèm hreflang en/vi/x-default.
+const enMetadata = await pageMod.generateMetadata({ searchParams: Promise.resolve({}) });
+const viMetadata = await pageMod.generateMetadata({ searchParams: Promise.resolve({ lang: "vi" }) });
+assert.equal(enMetadata.alternates.canonical, "/how-it-works");
+assert.equal(viMetadata.alternates.canonical, "/how-it-works?lang=vi");
+assert.equal(enMetadata.alternates.languages.vi, "/how-it-works?lang=vi");
 assert.ok(
-  pageMod.metadata.description.length <= 155,
-  `Meta description should stay concise (${pageMod.metadata.description.length} chars)`,
+  enMetadata.description.length <= 155,
+  `Meta description should stay concise (${enMetadata.description.length} chars)`,
 );
 
 const enTree = await pageMod.default({ searchParams: Promise.resolve({}) });
