@@ -80,6 +80,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   const [oemOdmOnly, setOemOdmOnly] = useState(false);
   const [samplesOnly, setSamplesOnly] = useState(false);
   const [selectedCertificates, setSelectedCertificates] = useState<string[]>([]);
+  const [leadTimeMax, setLeadTimeMax] = useState("");
+  const [incoterm, setIncoterm] = useState("");
   // Grade chỉ lọc ở một chỗ: danh sách trong cột lọc của danh mục, dữ liệu lấy
   // từ cấu hình CRM (filters + product_fields), không có grade demo cứng.
   const allGrades = hasStructuredGrade ? [] : grades;
@@ -98,12 +100,17 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     verified > 0 ||
     oemOdmOnly ||
     samplesOnly ||
-    selectedCertificates.length > 0;
+    selectedCertificates.length > 0 ||
+    !!leadTimeMax ||
+    !!incoterm;
   const provinces = [...new Set(products.map((p) => p.province))].sort();
   // Chỉ liệt kê chứng nhận thật sự có mặt trên ít nhất một sản phẩm của danh mục này,
   // để không hiện ô lọc luôn trống. Nhãn lấy từ chính dữ liệu đã duyệt trên thẻ sản
   // phẩm (certificateLabelsForProducts), không suy đoán hay gõ cứng danh sách riêng.
   const certificateOptions = [...new Set(products.flatMap((p) => p.certificates ?? []))].sort();
+  // Incoterm cũng chỉ liệt kê những mã thật sự xuất hiện trong danh mục (FOB/CIF/...),
+  // không hiện cả bảng Incoterms chuẩn nếu chưa ai dùng tới ở đây.
+  const incotermOptions = [...new Set(products.map((p) => p.incoterm).filter((v): v is string => !!v))].sort();
   const visible = useMemo(() => products.filter((p) => {
     const pGrades = productGradesOf(p);
     return (
@@ -114,9 +121,11 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
       matchesVerificationFilter(p.verificationSteps, p.l2Scope, verified) &&
       (!oemOdmOnly || p.oem || p.odm) &&
       (!samplesOnly || p.samples) &&
-      (!selectedCertificates.length || selectedCertificates.some((c) => p.certificates?.includes(c)))
+      (!selectedCertificates.length || selectedCertificates.some((c) => p.certificates?.includes(c))) &&
+      (!leadTimeMax || (p.leadTimeDays !== null && p.leadTimeDays <= Number(leadTimeMax))) &&
+      (!incoterm || p.incoterm === incoterm)
     );
-  }), [products, selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly, selectedCertificates, attributeFilters]);
+  }), [products, selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly, selectedCertificates, leadTimeMax, incoterm, attributeFilters]);
   // Vùng đẩy phía trên là suất cộng thêm (additive slot): nhà cung cấp mua gói giữ
   // nguyên các thẻ dưới lưới tự nhiên và có thêm một thẻ ở trên. Người trả tiền
   // nhận giá trị hiển thị tăng thêm thật, còn người không mua không bị đẩy khỏi
@@ -134,7 +143,7 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
   // Phân trang: cắt sau khi đã xen kẽ nhà cung cấp, nên trang hai tiếp đúng mạch
   // chứ không lặp lại thứ tự từ đầu. Đổi bộ lọc thì quay về trang một.
   const [page, setPage] = useState(initialPage);
-  const filterSignature = JSON.stringify([selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly, selectedCertificates]);
+  const filterSignature = JSON.stringify([selectedGrades, selectedAttributes, moq, province, verified, oemOdmOnly, samplesOnly, selectedCertificates, leadTimeMax, incoterm]);
   const lastSignature = useRef(filterSignature);
   useEffect(() => {
     if (lastSignature.current === filterSignature) return;
@@ -167,6 +176,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     setOemOdmOnly(false);
     setSamplesOnly(false);
     setSelectedCertificates([]);
+    setLeadTimeMax("");
+    setIncoterm("");
   };
   const fields = <div className="space-y-5 text-sm">
     {attributeFilters.filter((field) => !field.showWhen || !selectedAttributes[field.showWhen.key] ||
@@ -190,6 +201,17 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
         <option value="large">Over 5 tons</option><option value="container">Full container</option><option value="ask">On request / other</option>
       </select>
     </label>
+    <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">Lead time</span>
+      <select className="input text-sm" value={leadTimeMax} onChange={(e) => setLeadTimeMax(e.target.value)}>
+        <option value="">Any lead time</option><option value="15">Ships within 15 days</option>
+        <option value="30">Ships within 30 days</option><option value="45">Ships within 45 days</option>
+      </select>
+    </label>
+    {incotermOptions.length > 0 && <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">Incoterm</span>
+      <select className="input text-sm" value={incoterm} onChange={(e) => setIncoterm(e.target.value)}>
+        <option value="">All incoterms</option>{incotermOptions.map((term) => <option key={term} value={term}>{term}</option>)}
+      </select>
+    </label>}
     <label className="block"><span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500">Province</span>
       <select className="input text-sm" value={province} onChange={(e) => setProvince(e.target.value)}>
         <option value="">All provinces</option>{provinces.map((p) => <option key={p} value={p}>{p}</option>)}
