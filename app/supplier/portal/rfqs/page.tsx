@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, ChevronDown, Search, TrendingUp } from "lucide-react";
+import { ArrowRight, ChevronDown, ImageIcon, Search, TrendingUp } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -11,6 +11,8 @@ import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
 import { EmptyRow, date } from "../portal-ui";
 import type { RfqsMessages } from "@/lib/i18n/portal/rfqs";
+import type { MediaAsset } from "@/lib/types";
+import { privateMediaUrl, supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -20,12 +22,12 @@ export async function generateMetadata() {
 
 /** One place to read a buyer request and answer it; the same invitation is never shown twice. */
 export default async function SupplierRfqPage({ searchParams }: {
-  searchParams: Promise<{ range?: string; all?: string; report?: string; quote?: string; code?: string; q?: string; filter?: string }>;
+  searchParams: Promise<{ range?: string; page?: string; report?: string; quote?: string; code?: string; q?: string; filter?: string }>;
 }) {
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
-  const { supplier, store } = access;
+  const { supplier, user, store } = access;
   const { locale, intl, m } = await getPortalMessages();
   const copy = m.rfqs;
 
@@ -48,7 +50,6 @@ export default async function SupplierRfqPage({ searchParams }: {
   const days: 7 | 30 | 90 = sp.range === "7" ? 7 : sp.range === "90" ? 90 : 30;
   const filter = ["all", "reply", "quoted", "closed"].includes(sp.filter ?? "") ? sp.filter! : "all";
   const query = (sp.q ?? "").trim().slice(0, 120);
-  const showAll = sp.all === "1";
   const mediatedThreads = await optional(copy.degraded.labelMediated, [] as Awaited<ReturnType<typeof store.listRfqMediatedThreads>>,
     () => store.listRfqMediatedThreads([...new Set(invites.map((invite) => invite.rfq_id))]));
   const board = buildSupplierRfqBoard({ supplierId: supplier.id, invites, products, days, language: locale, mediatedThreads });
@@ -70,23 +71,40 @@ export default async function SupplierRfqPage({ searchParams }: {
     return aDue - bDue || b.sentAt.localeCompare(a.sentAt);
   });
   const visibleHistory = filtered.filter((item) => !pendingIds.has(item.matchId));
-  const shownHistory = showAll ? visibleHistory : visibleHistory.slice(0, 30);
+  const historyPageSize = 20;
+  const historyPageCount = Math.max(1, Math.ceil(visibleHistory.length / historyPageSize));
+  const requestedPage = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
+  const historyPage = Math.min(requestedPage, historyPageCount);
+  const shownHistory = visibleHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
   const historyCount = board.invites.filter((item) => !pendingIds.has(item.matchId)).length;
-  const showTasksSection = visibleTasks.length > 0 || (filter === "all" && !query && board.tasks.length === 0 && !degraded.includes(copy.degraded.labelInvites));
+  const productMap = new Map(products.filter((product) => product.supplier_id === supplier.id).map((product) => [product.id, product]));
+  const productIds = [...new Set([...visibleTasks, ...shownHistory].map((item) => item.productId).filter((id): id is string => !!id))];
+  const media = productIds.length ? await optional(copy.degraded.labelMedia, [] as MediaAsset[], () => store.listMediaForProducts(productIds)) : [];
+  const visibleMedia = supplierVisibleProductMedia(media, supplier.id, user.id)
+    .filter((asset) => asset.product_id && productMap.has(asset.product_id) && productIds.includes(asset.product_id) && asset.kind === "image");
+  const imageByProduct = new Map<string, string>();
+  for (const productId of productIds) {
+    const candidates = visibleMedia.filter((asset) => asset.product_id === productId);
+    const featured = candidates.find((asset) => asset.id === productMap.get(productId)?.featured_media_id && privateMediaUrl(asset));
+    const selected = featured ?? candidates.find((asset) => privateMediaUrl(asset));
+    const url = selected && privateMediaUrl(selected);
+    if (url) imageByProduct.set(productId, url);
+  }
+  const showTasksSection = visibleTasks.length > 0 || ((filter === "all" || filter === "reply") && !query && board.tasks.length === 0 && !degraded.includes(copy.degraded.labelInvites));
   const showHistorySection = historyCount > 0 && (visibleHistory.length > 0 || (filter === "all" && !query));
   const quoteCount = board.invites.filter((item) => ["quoted", "presented_to_buyer", "selected"].includes(item.matchStatus)).length;
   const closedCount = board.invites.filter((item) => ["declined", "not_selected"].includes(item.matchStatus)).length;
-  const queryHref = (changes: Record<string, string | null>) => {
+  const queryHref = (changes: Record<string, string | null>, anchor?: string) => {
     const params = new URLSearchParams();
     const values: Record<string, string | null> = {
       filter: filter === "all" ? null : filter, q: query || null,
       report: sp.report === "1" ? "1" : null, range: sp.range === "7" || sp.range === "90" ? sp.range : null,
-      all: showAll ? "1" : null,
+      page: historyPage > 1 ? String(historyPage) : null,
       ...changes,
     };
     for (const [key, value] of Object.entries(values)) if (value) params.set(key, value);
     const search = params.toString();
-    return `/supplier/portal/rfqs${search ? `?${search}` : ""}${sp.report === "1" ? "#rfq-report" : ""}`;
+    return `/supplier/portal/rfqs${search ? `?${search}` : ""}${anchor ? `#${anchor}` : ""}`;
   };
   const summaryTitle = (item: PortalInvite) => item.productId ? item.title : item.request.description.slice(0, 120);
   const summaryCard = (item: PortalInvite, pending = false) => {
@@ -94,6 +112,13 @@ export default async function SupplierRfqPage({ searchParams }: {
     return <li key={item.matchId}>
       <Link href={`/supplier/portal/rfqs/${encodeURIComponent(item.matchId)}`}
         className="flex min-h-24 flex-col gap-3 px-4 py-4 transition hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600 sm:flex-row sm:items-center sm:gap-5 sm:px-6">
+        <span className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-ink-200 bg-white sm:size-24">
+          {item.productId && imageByProduct.get(item.productId) ? <>
+            {/* Private catalog media is served with this supplier's session, not via the image optimizer. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageByProduct.get(item.productId)!} alt="" loading="lazy" className="size-full object-cover" />
+          </> : <ImageIcon className="size-6 text-ink-400" aria-hidden="true" />}
+        </span>
         <span className="min-w-0 flex-1">
           <span className="block break-words text-[15px] font-semibold text-ink-900">{summaryTitle(item)}</span>
           <span className="mt-1 block text-[13px] text-ink-600">{item.code} · {fill(copy.invites.sentAt, { at: date(item.sentAt, intl) })}</span>
@@ -131,7 +156,7 @@ export default async function SupplierRfqPage({ searchParams }: {
         {fill(copy.quote.publishPending, { code: sp.code! })}
       </div>}
 
-    {board.invites.length > 0 && <section aria-label={copy.filters.title} className="mb-5 rounded-xl border border-ink-200 bg-white p-4 shadow-sm sm:px-5">
+    <section aria-label={copy.filters.title} className="mb-5 rounded-xl border border-ink-200 bg-white p-4 shadow-sm sm:px-5">
       <form action="/supplier/portal/rfqs" method="get" className="flex flex-col gap-3 sm:flex-row">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">{copy.filters.searchLabel}</span>
@@ -140,7 +165,6 @@ export default async function SupplierRfqPage({ searchParams }: {
             className="input min-h-11 w-full pl-9" />
         </label>
         {filter !== "all" && <input type="hidden" name="filter" value={filter} />}
-        {showAll && <input type="hidden" name="all" value="1" />}
         {sp.report === "1" && <input type="hidden" name="report" value="1" />}
         {(sp.range === "7" || sp.range === "90") && <input type="hidden" name="range" value={sp.range} />}
         <button type="submit" className="btn btn-primary min-h-11">{copy.filters.searchButton}</button>
@@ -151,21 +175,21 @@ export default async function SupplierRfqPage({ searchParams }: {
           ["reply", copy.filters.needsReply, board.tasks.length],
           ["quoted", copy.filters.quoted, quoteCount],
           ["closed", copy.filters.closed, closedCount],
-        ] as const).map(([key, label, count]) => <Link key={key} href={queryHref({ filter: key === "all" ? null : key })}
+        ] as const).map(([key, label, count]) => <Link key={key} href={queryHref({ filter: key === "all" ? null : key, page: null })}
           aria-current={filter === key ? "page" : undefined}
           className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3.5 text-[13px] font-semibold transition ${filter === key
             ? "border-brand-700 bg-brand-50 text-brand-900" : "border-ink-200 bg-white text-ink-700 hover:border-brand-300 hover:bg-brand-50"}`}>
           {label}<span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] tabular-nums">{count}</span>
         </Link>)}
-        {(query || filter !== "all") && <Link href={queryHref({ filter: null, q: null })}
+        {(query || filter !== "all") && <Link href={queryHref({ filter: null, q: null, page: null })}
           className="inline-flex min-h-10 items-center px-3 text-[13px] font-semibold text-brand-700 hover:underline">{copy.filters.clear}</Link>}
       </nav>
-    </section>}
+    </section>
 
     {showTasksSection && <section aria-labelledby="rfq-pending" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <header className="border-b border-ink-200 px-4 py-4 sm:px-6">
-        <h2 id="rfq-pending" className="flex items-center gap-2 text-lg font-bold text-ink-900">
-          {copy.tasks.title}<span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-sm text-amber-900">{visibleTasks.length}</span>
+        <h2 id="rfq-pending" className="text-lg font-bold text-ink-900">
+          {copy.tasks.title}{" "}<span className="text-sm font-semibold tabular-nums text-ink-500">· {visibleTasks.length}</span>
         </h2>
         <p className="mt-1 text-sm leading-6 text-ink-600">{copy.tasks.sub}</p>
       </header>
@@ -176,17 +200,27 @@ export default async function SupplierRfqPage({ searchParams }: {
     {showHistorySection && <section aria-labelledby="rfq-history" className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 px-4 py-4 sm:px-6">
         <div>
-          <h2 id="rfq-history" className="text-base font-bold text-ink-900">{copy.invites.title} ({visibleHistory.length})</h2>
+          <h2 id="rfq-history" className="text-base font-bold text-ink-900">
+            {copy.invites.title}{" "}<span className="text-sm font-semibold tabular-nums text-ink-500">· {visibleHistory.length}</span>
+          </h2>
           <p className="mt-1 text-[13px] leading-5 text-ink-600">{copy.invites.sub}</p>
         </div>
-        {visibleHistory.length > 30 && <Link href={queryHref({ all: showAll ? null : "1" })}
-          className="text-sm font-semibold text-brand-700 hover:underline">{showAll ? copy.invites.showLess : copy.invites.viewAll}</Link>}
+
       </header>
       {shownHistory.length > 0 && <ul className="divide-y divide-ink-100">{shownHistory.map((item) => summaryCard(item))}</ul>}
+      {historyPageCount > 1 && <nav aria-label={copy.invites.title} className="flex flex-wrap items-center justify-center gap-3 border-t border-ink-200 px-4 py-3 sm:px-6">
+        {historyPage > 1 ? <Link href={queryHref({ page: String(historyPage - 1) })}
+          className="inline-flex min-h-10 items-center rounded-lg border border-ink-200 px-3 text-sm font-semibold text-ink-700 hover:bg-ink-50">{copy.pagination.previous}</Link>
+          : <span aria-hidden="true" className="min-h-10 px-3" />}
+        <span aria-current="page" className="text-sm font-medium text-ink-600">{fill(copy.pagination.page, { page: historyPage, pages: historyPageCount })}</span>
+        {historyPage < historyPageCount ? <Link href={queryHref({ page: String(historyPage + 1) })}
+          className="inline-flex min-h-10 items-center rounded-lg border border-ink-200 px-3 text-sm font-semibold text-ink-700 hover:bg-ink-50">{copy.pagination.next}</Link>
+          : <span aria-hidden="true" className="min-h-10 px-3" />}
+      </nav>}
     </section>}
     {board.invites.length > 0 && filtered.length === 0 && <div className="mt-5"><EmptyRow>{copy.filters.noResults}</EmptyRow></div>}
 
-    {board.invites.length > 0 && <details id="rfq-report" open={sp.report === "1"} className="group mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+    <details id="rfq-report" open={sp.report === "1"} className="group mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <summary className="flex min-h-14 cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-ink-700 sm:px-6">
         <TrendingUp className="h-4 w-4" aria-hidden="true" />{copy.report.title}
         <ChevronDown className="ml-auto h-4 w-4 transition group-open:rotate-180" aria-hidden="true" />
@@ -195,7 +229,7 @@ export default async function SupplierRfqPage({ searchParams }: {
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
           <p className="text-[13px] text-ink-600">{copy.report.sub}</p>
           <nav aria-label={copy.report.rangeAria} className="flex gap-1 rounded-lg border border-ink-200 bg-ink-50 p-1">
-            {([7, 30, 90] as const).map((d) => <Link key={d} href={queryHref({ report: "1", range: String(d) })} aria-current={days === d ? "page" : undefined}
+            {([7, 30, 90] as const).map((d) => <Link key={d} href={queryHref({ report: "1", range: String(d) }, "rfq-report")} aria-current={days === d ? "page" : undefined}
               className={`rounded-md px-2.5 py-1 text-[13px] font-semibold ${days === d ? "bg-white text-brand-800 shadow-sm" : "text-ink-600 hover:text-ink-900"}`}>
               {fill(copy.report.days, { count: d })}
             </Link>)}
@@ -221,6 +255,6 @@ export default async function SupplierRfqPage({ searchParams }: {
         </div> : <EmptyRow>{fill(copy.report.empty, { days })}</EmptyRow>}
         <p className="border-t border-ink-200 px-4 py-3 text-[13px] leading-5 text-ink-600 sm:px-6">{copy.report.footnote}</p>
       </div>
-    </details>}
+    </details>
   </div>;
 }

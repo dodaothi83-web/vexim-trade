@@ -84,11 +84,19 @@ assert.ok(!/INITIAL_DOCUMENT_KEYS\.map\(/.test(profile), 'Form đăng ký không
 assert.match(profile, /title=\{m\.docs\[/, 'Nhãn ô tải giấy đọc từ từ điển');
 assert.match(portalCopy.vi.onboarding.docs.business_license, /Giấy chứng nhận đăng ký kinh doanh/,
   'Bản tiếng Việt giữ đúng tên giấy cũ');
-assert.match(portalCopy.vi.documents.title, /Xác thực doanh nghiệp/);
+assert.equal(portalCopy.vi.documents.eyebrow, 'Hồ sơ nhà cung cấp · Bước 1/3');
+assert.equal(portalCopy.vi.documents.title, 'Giấy tờ và chứng nhận');
+assert.equal(portalCopy.vi.documents.status.businessDocuments, 'Giấy tờ doanh nghiệp');
+assert.match(portalCopy.vi.documents.status.approvedNote, /Bạn đã hoàn tất yêu cầu giấy tờ ở bước này/);
+assert.match(portalCopy.vi.documents.certs.title, /Chứng nhận và giấy tờ bổ sung/);
+assert.match(portalCopy.vi.documents.approved.counts, /Đã duyệt: \{approved\} · Chờ duyệt: \{pending\}/);
 assert.match(page, /title=\{copy\.title\}/, 'Tiêu đề trang đọc từ từ điển');
-assert.match(portalCopy.vi.documents.steps.bodies[0], /Một tệp PDF hoặc ảnh, thấy rõ tên doanh nghiệp và mã số thuế\./,
-  'Trang Giấy tờ chỉ đòi Giấy chứng nhận đăng ký kinh doanh cho bước xác thực doanh nghiệp');
-assert.match(page, /Chứng nhận chất lượng/, 'Trang Giấy tờ cũng là nơi tải chứng nhận chất lượng');
+assert.match(page, /pendingCerts\.map\(\(certificate\) =>/,
+  'Danh sách chứng nhận chờ duyệt được hiển thị thay vì chỉ hiện số lượng');
+assert.match(page, /copy\.approved\.openFile/,
+  'Chứng nhận chờ duyệt có liên kết mở lại tệp đã tải');
+assert.match(portalCopy.vi.documents.tips.items.join(' '), /Tải tệp lên chưa đồng nghĩa với việc được duyệt hoặc cấp huy hiệu/,
+  'Nội dung phân biệt tải tệp với việc được duyệt và cấp huy hiệu');
 
 /* 7. Không còn mã bước nội bộ trong câu nhà cung cấp thấy (bỏ qua dòng chú thích). */
 const visibleLines = (text) => text.split("\n")

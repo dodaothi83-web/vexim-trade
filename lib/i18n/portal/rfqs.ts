@@ -6,16 +6,17 @@
  * `language` với mặc định `vi`, nên API và CRM không đổi hành vi.
  */
 const en = {
-  metaTitle: "RFQs and quotes",
-  eyebrow: "Supplier portal · private",
-  title: "RFQs and quotes",
-  sub: "Requests sent to your company, with everything you need to quote in one place.",
+  metaTitle: "RFQ quote requests",
+  eyebrow: "Supplier portal",
+  title: "Quote requests",
+  sub: "Review purchase requests, send quotes and track their status.",
   filters: {
-    title: "Find RFQs", searchLabel: "Search RFQs", searchPlaceholder: "Search product or RFQ code",
-    searchButton: "Search", statusLabel: "Filter RFQs by status", all: "All RFQs",
-    needsReply: "Needs reply", quoted: "Quote submitted", closed: "Declined / not selected",
+    title: "Search and filter requests", searchLabel: "Search requests", searchPlaceholder: "Search by product or RFQ code",
+    searchButton: "Search", statusLabel: "Filter quote requests by status", all: "All",
+    needsReply: "Needs a quote", quoted: "Quote sent", closed: "Closed",
     clear: "Clear filters", noResults: "No RFQs match these filters.",
   },
+  pagination: { previous: "Previous", next: "Next", page: "Page {page} of {pages}" },
   buyer: {
     title: "View buyer contact (for this RFQ only)",
     company: "Company", name: "Contact", email: "Email", phone: "Phone",
@@ -25,7 +26,7 @@ const en = {
     unavailableDirect: "The buyer has not agreed to share contact details for this request, so you cannot quote or message here. Ask Vexim support to have the buyer send it again.",
   },
   product: {
-    title: "Product linked to this request", spec: "Product specification", packaging: "Catalog packaging",
+    title: "Requested product", spec: "Product specification", packaging: "Catalog packaging",
     moq: "Minimum order", view: "View my product",
     note: "These are your current catalog details. Quote against the buyer's requirements below.",
   },
@@ -51,9 +52,9 @@ const en = {
     labelMediated: "Vexim RFQ conversations",
   },
   tasks: {
-    title: "RFQs needing a reply",
-    sub: "Select a request to review its full details, send a quote, or continue the conversation.",
-    empty: "Nothing to quote right now. New requests will appear here.",
+    title: "Needs a quote",
+    sub: "Requests waiting for you to send a quote.",
+    empty: "There are no quote requests for you right now.",
     openRequest: "View request",
     overdue: "Reply overdue: ",
     due: "Reply due: ",
@@ -105,8 +106,8 @@ const en = {
     },
   },
   invites: {
-    title: "RFQ history",
-    sub: "Requests that no longer need a reply. Select one to review its details and conversation.",
+    title: "Other requests",
+    sub: "Requests awaiting action, already quoted, or closed.",
     empty: "No RFQ has been sent to your company yet.",
     openRequest: "View details",
     viewAll: "View all",
@@ -119,7 +120,7 @@ const en = {
     replied: "Reply recorded on {at}; it will be processed next.",
   },
   report: {
-    title: "View RFQ report (optional)",
+    title: "Quote statistics",
     sub: "Counts only RFQs actually sent to your company, not views or revenue.",
     rangeAria: "Report range",
     days: "{count} days",
@@ -166,16 +167,17 @@ type DeepStrings<T> = {
 export type RfqsMessages = DeepStrings<typeof en>;
 
 const vi: RfqsMessages = {
-  metaTitle: "RFQ & báo giá",
-  eyebrow: "Cổng nhà cung cấp · riêng tư",
-  title: "RFQ & báo giá",
-  sub: "Các yêu cầu gửi đến doanh nghiệp bạn, đủ thông tin để báo giá ngay tại đây.",
+  metaTitle: "Yêu cầu báo giá",
+  eyebrow: "Hồ sơ nhà cung cấp",
+  title: "Yêu cầu báo giá",
+  sub: "Xem yêu cầu mua hàng, gửi báo giá và theo dõi trạng thái.",
   filters: {
-    title: "Tìm RFQ", searchLabel: "Tìm RFQ", searchPlaceholder: "Tìm theo sản phẩm hoặc mã RFQ",
-    searchButton: "Tìm", statusLabel: "Lọc RFQ theo trạng thái", all: "Tất cả RFQ",
-    needsReply: "Cần phản hồi", quoted: "Đã gửi báo giá", closed: "Đã từ chối / không được chọn",
+    title: "Tìm và lọc yêu cầu", searchLabel: "Tìm yêu cầu báo giá", searchPlaceholder: "Tìm theo sản phẩm hoặc mã RFQ",
+    searchButton: "Tìm kiếm", statusLabel: "Lọc yêu cầu theo trạng thái", all: "Tất cả",
+    needsReply: "Cần báo giá", quoted: "Đã gửi báo giá", closed: "Đã đóng",
     clear: "Xóa bộ lọc", noResults: "Không có RFQ phù hợp với bộ lọc này.",
   },
+  pagination: { previous: "Trước", next: "Tiếp", page: "Trang {page} / {pages}" },
   buyer: {
     title: "Xem liên hệ người mua (chỉ dùng cho RFQ này)",
     company: "Doanh nghiệp", name: "Người liên hệ", email: "Email", phone: "Điện thoại",
@@ -185,7 +187,7 @@ const vi: RfqsMessages = {
     unavailableDirect: "Người mua chưa đồng ý chia sẻ liên hệ cho yêu cầu này. Bạn chưa thể báo giá hay nhắn tin; hãy nhờ Vexim hỗ trợ.",
   },
   product: {
-    title: "Sản phẩm gắn với yêu cầu", spec: "Quy cách sản phẩm", packaging: "Đóng gói trên gian hàng",
+    title: "Sản phẩm yêu cầu", spec: "Quy cách sản phẩm", packaging: "Đóng gói trên gian hàng",
     moq: "Lượng đặt tối thiểu", view: "Xem sản phẩm của tôi",
     note: "Đây là thông tin sản phẩm hiện tại của bạn. Hãy báo giá theo yêu cầu của người mua bên dưới.",
   },
@@ -211,9 +213,9 @@ const vi: RfqsMessages = {
     labelMediated: "trao đổi RFQ qua Vexim",
   },
   tasks: {
-    title: "Yêu cầu cần báo giá",
-    sub: "Chọn một yêu cầu để xem chi tiết, gửi báo giá hoặc tiếp tục trao đổi.",
-    empty: "Hiện không có yêu cầu nào cần báo giá. Yêu cầu mới sẽ xuất hiện ở đây.",
+    title: "Cần báo giá",
+    sub: "Các yêu cầu đang chờ bạn gửi báo giá.",
+    empty: "Hiện chưa có yêu cầu nào cần báo giá.",
     openRequest: "Xem yêu cầu",
     overdue: "Đã quá hạn phản hồi: ",
     due: "Hạn phản hồi: ",
@@ -265,8 +267,8 @@ const vi: RfqsMessages = {
     },
   },
   invites: {
-    title: "Lịch sử RFQ",
-    sub: "Các yêu cầu không còn chờ báo giá. Chọn một yêu cầu để xem chi tiết và trao đổi.",
+    title: "Yêu cầu khác",
+    sub: "Các yêu cầu đang chờ xử lý, đã gửi báo giá hoặc đã đóng.",
     empty: "Chưa có RFQ nào được chuyển tới doanh nghiệp.",
     openRequest: "Xem chi tiết",
     viewAll: "Xem tất cả",
@@ -279,7 +281,7 @@ const vi: RfqsMessages = {
     replied: "Đã ghi nhận phản hồi ngày {at}; nội dung sẽ được xử lý tiếp.",
   },
   report: {
-    title: "Xem báo cáo RFQ (không bắt buộc)",
+    title: "Thống kê báo giá",
     sub: "Chỉ tính RFQ thực sự chuyển tới doanh nghiệp, không tính lượt xem hay doanh thu.",
     rangeAria: "Khoảng thời gian báo cáo",
     days: "{count} ngày",

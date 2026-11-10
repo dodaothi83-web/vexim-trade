@@ -13,6 +13,7 @@ import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 import { loadFormat } from './lib/i18n-format.mjs';
 
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+const detailPageSource = read('app/supplier/portal/rfqs/[matchId]/page.tsx');
 function loadTs(source, mocks = {}, extras = {}, jsxMode = false) {
   const mod = { exports: {} };
   const compiled = ts.transpileModule(source, {
@@ -133,6 +134,14 @@ const media = [
 const productView = loadTs(read('lib/supplier-portal/product-view.ts'));
 const input = { supplierId, invites: rows, products, days: 30, language: 'vi' };
 const board = boardModule.buildSupplierRfqBoard(input);
+assert.equal(dictionary.vi.shell.nav.rfqs, 'Yêu cầu báo giá', 'The supplier menu uses the same plain-language title as the page');
+assert.equal(dictionary.vi.shell.nav.documents, 'Giấy tờ và chứng nhận', 'The document menu matches its updated page title');
+assert.match(detailPageSource, /publicProductCategorySlug\(product, publicCategories\)/,
+  'The RFQ detail page resolves the buyer-facing product category');
+assert.match(detailPageSource, /`\/products\/\$\{encodeURIComponent\(publicCategorySlug\)\}\/\$\{encodeURIComponent\(product\.id\)\}`/,
+  'The product link uses the public category/product route');
+assert.doesNotMatch(detailPageSource, /href=\{`\/supplier\/portal\/products\//,
+  'The RFQ detail page does not send buyers to the supplier editor');
 assert.equal(board.tasks.length, 1);
 assert.equal(board.invites.length, 2);
 assert.equal(board.tasks[0].title, 'Wholesale mixed dried fruit chips', 'Product card uses the buyer-facing catalog title');
@@ -191,17 +200,30 @@ assert.ok(pending && history);
 assert.equal(pending.querySelectorAll('li').length, 1);
 assert.equal(history.querySelectorAll('li').length, 1, 'Pending RFQ must not be duplicated in history');
 assert.equal(pending.querySelectorAll('[data-quote-for]').length, 0, 'Quote entry belongs on the detail page, not the summary list');
-assert.equal(mediaCalls.length, 0, 'Summary list does not fetch heavy product media');
+assert.equal(mediaCalls.length, 1, 'Summary cards fetch media only for currently visible linked products');
+assert.equal(mediaCalls[0].join(','), 'p1');
 assert.match(pending.textContent, /Wholesale mixed dried fruit chips/);
 assert.match(pending.textContent, /RFQ-20261110-00001/);
 assert.match(pending.textContent, /5 MT/);
 assert.match(pending.textContent, /Chennai/);
 assert.match(pending.textContent, /Chờ bạn phản hồi/);
+assert.equal(pending.querySelector('li img')?.getAttribute('src'), '/api/media/file/supplier/supplier-1/p1/featured.webp',
+  'The product thumbnail appears on the left side of the summary card');
 assert.equal(pending.querySelector('a[href="/supplier/portal/rfqs/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"]')?.textContent.includes('Xem yêu cầu'), true,
   'Summary card navigates to the dedicated RFQ detail page');
 assert.equal(history.querySelector('a[href="/supplier/portal/rfqs/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"]') != null, true);
+assert.equal(doc.querySelector('#rfq-history')?.textContent, 'Yêu cầu khác · 1', 'Other requests show a count after a middle dot, not in parentheses');
+const oldHistoryProduct = rows[1].rfq.source_product_id;
+rows[1].rfq.source_product_id = 'p1';
+const productHistory = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
+assert.equal(productHistory.querySelector('#rfq-history')?.closest('section')?.querySelector('li img')?.getAttribute('src'),
+  '/api/media/file/supplier/supplier-1/p1/featured.webp', 'History rows use the same product-card thumbnail layout');
+rows[1].rfq.source_product_id = oldHistoryProduct;
 assert.equal(doc.querySelector('input[name="q"]')?.getAttribute('placeholder'), 'Tìm theo sản phẩm hoặc mã RFQ');
-assert.equal(doc.querySelectorAll('nav[aria-label="Lọc RFQ theo trạng thái"] a').length, 4);
+assert.equal(doc.querySelectorAll('nav[aria-label="Lọc yêu cầu theo trạng thái"] a').length, 4);
+assert.equal(doc.querySelector('button[type="submit"]')?.textContent, 'Tìm kiếm');
+assert.equal(doc.querySelector('h1')?.textContent, 'Yêu cầu báo giá');
+assert.equal(pending.querySelector('#rfq-pending')?.textContent, 'Cần báo giá · 1');
 assert.doesNotMatch(doc.body.textContent, /PRIVATE-TOKEN|PRIVATE-INTERNAL-NOTE|PRIVATE-BUYER-ID|buyer@private\.io/);
 assert.equal(doc.querySelector('#rfq-report')?.open, false, 'Analytics does not distract from the main action');
 assert.equal(doc.querySelector('#rfq-report')?.querySelectorAll('a[href*="report=1"]').length, 3);
@@ -209,7 +231,7 @@ assert.equal(doc.querySelector('#rfq-report')?.querySelectorAll('a[href*="report
 const replyFilter = view(await page.default({ searchParams: Promise.resolve({ filter: 'reply' }) })).window.document;
 assert.equal(replyFilter.querySelector('#rfq-pending')?.closest('section')?.querySelectorAll('li').length, 1);
 assert.equal(replyFilter.querySelector('#rfq-history'), null, 'Irrelevant empty history section is hidden under the reply filter');
-assert.match(replyFilter.querySelector('nav[aria-label="Lọc RFQ theo trạng thái"]')?.textContent ?? '', /Cần phản hồi/);
+assert.match(replyFilter.querySelector('nav[aria-label="Lọc yêu cầu theo trạng thái"]')?.textContent ?? '', /Cần báo giá/);
 const quotedFilter = view(await page.default({ searchParams: Promise.resolve({ filter: 'quoted' }) })).window.document;
 assert.equal(quotedFilter.querySelector('#rfq-pending'), null, 'Irrelevant empty reply section is hidden under the quoted filter');
 assert.equal(quotedFilter.querySelector('#rfq-history')?.closest('section')?.querySelectorAll('li').length, 1);
@@ -219,11 +241,42 @@ assert.equal(searchFilter.querySelector('#rfq-history')?.closest('section')?.que
 const noMatches = view(await page.default({ searchParams: Promise.resolve({ q: 'not-a-real-product' }) })).window.document;
 assert.match(noMatches.body.textContent, /Không có RFQ phù hợp với bộ lọc này/);
 
+const savedInvitesForEmptyState = access.store.listSupplierRfqInvitations;
+access.store.listSupplierRfqInvitations = async () => [];
+const emptyBoard = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
+assert.equal(emptyBoard.querySelector('#rfq-pending')?.textContent, 'Cần báo giá · 0');
+assert.match(emptyBoard.querySelector('#rfq-pending')?.closest('section')?.textContent ?? '', /Hiện chưa có yêu cầu nào cần báo giá/);
+assert.equal(emptyBoard.querySelectorAll('nav[aria-label="Lọc yêu cầu theo trạng thái"] a').length, 4,
+  'Search and status filters remain available when the supplier has no requests');
+assert.match(emptyBoard.querySelector('#rfq-report')?.textContent ?? '', /Thống kê báo giá/);
+access.store.listSupplierRfqInvitations = savedInvitesForEmptyState;
+
+// History is presented as product cards and paginated at 20 cards per page.
+const savedInvitesForPaging = access.store.listSupplierRfqInvitations;
+const manyHistory = Array.from({ length: 22 }, (_, index) => ({
+  ...rows[1], id: `history-match-${index + 1}`, rfq_id: `history-rfq-${index + 1}`,
+  status: 'quoted', sent_to_supplier_at: `2026-10-${String((index % 28) + 1).padStart(2, '0')}T00:00:00Z`,
+  supplier_replied_at: '2026-10-20T00:00:00Z',
+  rfq: { ...rows[1].rfq, id: `history-rfq-${index + 1}`, code: `RFQ-HISTORY-${index + 1}`,
+    product_text: `History item ${index + 1}`, source_product_id: null, preferred_supplier_ids: [supplierId] },
+}));
+access.store.listSupplierRfqInvitations = async () => manyHistory;
+const pageOne = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
+assert.equal(pageOne.querySelector('#rfq-history')?.closest('section')?.querySelectorAll('li').length, 20);
+assert.match(pageOne.querySelector('#rfq-history')?.textContent ?? '', /Yêu cầu khác · 22/);
+assert.match(pageOne.querySelector('#rfq-history')?.closest('section')?.textContent ?? '', /Trang 1 \/ 2/);
+const nextPageHref = pageOne.querySelector('#rfq-history')?.closest('section')?.querySelector('nav a:last-child')?.getAttribute('href');
+assert.match(nextPageHref ?? '', /page=2/);
+const pageTwo = view(await page.default({ searchParams: Promise.resolve({ page: '2' }) })).window.document;
+assert.equal(pageTwo.querySelector('#rfq-history')?.closest('section')?.querySelectorAll('li').length, 2);
+assert.match(pageTwo.querySelector('#rfq-history')?.closest('section')?.textContent ?? '', /Trang 2 \/ 2/);
+access.store.listSupplierRfqInvitations = savedInvitesForPaging;
+
 locale = 'en';
 const english = view(await page.default({ searchParams: Promise.resolve({ report: '1', range: '7', filter: 'reply' }) })).window.document;
 assert.match(english.querySelector('#rfq-pending')?.closest('section')?.textContent, /Cashew|Wholesale mixed dried fruit chips/);
 assert.equal(english.querySelector('#rfq-report')?.open, true, 'Report range link preserves the expanded report');
-assert.match(english.querySelector('input[name="q"]')?.getAttribute('placeholder') ?? '', /Search product or RFQ code/);
+assert.match(english.querySelector('input[name="q"]')?.getAttribute('placeholder') ?? '', /Search by product or RFQ code/);
 assert.match(english.querySelector('a[href*="range=7"][href*="filter=reply"]')?.getAttribute('href') ?? '', /report=1/,
   'Changing the report range preserves active list filters');
 locale = 'vi';
@@ -231,9 +284,10 @@ locale = 'vi';
 const originalList = access.store.listSupplierRfqInvitations;
 access.store.listSupplierRfqInvitations = async () => [];
 const empty = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
-assert.match(empty.body.textContent, /Hiện không có yêu cầu nào cần báo giá/);
+assert.match(empty.body.textContent, /Hiện chưa có yêu cầu nào cần báo giá/);
 assert.equal(empty.querySelector('#rfq-history'), null);
-assert.equal(empty.querySelector('#rfq-report'), null);
+assert.ok(empty.querySelector('#rfq-report'), 'Quote statistics remains available with zero requests');
+assert.equal(empty.querySelectorAll('nav[aria-label="Lọc yêu cầu theo trạng thái"] a').length, 4);
 access.store.listSupplierRfqInvitations = async () => { throw Error('RFQ read failed'); };
 const degraded = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
 assert.match(degraded.body.textContent, /Một phần dữ liệu RFQ chưa tải được/);
@@ -305,6 +359,8 @@ assert.doesNotMatch(read('app/supplier/portal/rfqs/page.tsx'), /supplier-rfq-rep
 const detailSource = read('app/supplier/portal/rfqs/[matchId]/page.tsx');
 assert.match(detailSource, /<RequestDetails item=\{item\} copy=\{m\.rfqs\.request\}/, 'Detail page includes the full buyer request');
 assert.match(detailSource, /item\.linkedProduct\.spec[\s\S]*item\.linkedProduct\.packaging[\s\S]*item\.linkedProduct\.moq/, 'The detail route retains linked catalog context removed from the summary list');
+assert.match(detailSource, /<img src=\{productImage\} alt=\{item\.title\}/, 'Detail product image is shown beside the product information');
+assert.match(read('lib/i18n/portal/rfqs.ts'), /title: "Requested product"[\s\S]*?title: "Sản phẩm yêu cầu"/, 'Requested product label replaces the linked-product wording in both locales');
 assert.match(detailSource, /m\.rfqs\.buyer\.unavailableDirect/, 'A direct RFQ is never described as Vexim-coordinated');
 
 const callsBeforeLogout = mediaCalls.length;
