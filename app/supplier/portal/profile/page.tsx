@@ -23,7 +23,8 @@ const vi = (value: Record<string, string> | undefined) => value?.vi || value?.en
 
 /**
  * Hồ sơ doanh nghiệp: dữ liệu nhà cung cấp đã khai, tình trạng từng cấp xác minh và
- * thông tin liên hệ nội bộ (không hiển thị công khai).
+ * thông tin liên hệ. Website lên trang người mua khi hồ sơ công khai; email, điện thoại
+ * và thông tin liên hệ còn lại vẫn riêng tư.
  *
  * Phần giao diện buyer nhìn thấy nằm ở trang “Trang của tôi”, dùng chung khung với trang
  * công khai. Ảnh bìa và ảnh đại diện thuộc trang đó, không đặt ở đây.

@@ -38,6 +38,7 @@ import { productCertificatesFor } from "@/lib/public/product-certificates";
 import { similarOffers } from "@/lib/public/similar-offers";
 import { supplierChatAvailable } from "@/lib/chat/service";
 import { SimilarOffersRail } from "@/components/public/similar-offers-rail";
+import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
 import { categoryTieWindow } from "@/lib/public/ranking";
 
 export const dynamic = "force-dynamic";
@@ -136,9 +137,15 @@ export default async function PublicProductDetail({ params }: Props) {
   const detail = await getDetailOrRedirect(slug, productId);
   if (!detail) notFound();
   const { category, card, product: p, relatedProducts, similar, preview } = detail;
-  // Product eligibility was checked above; project only buyer-shareable images and safe video embeds.
-  const media = await getStore().listMedia("product", p.id);
-  const parentCategory = category.parent_id ? await getStore().getCategory(category.parent_id) : null;
+  // Product eligibility was checked above. Read the website only for this
+  // supplier card; don't put raw supplier contact fields in the product catalogue.
+  const store = getStore();
+  const [media, supplier] = await Promise.all([
+    store.listMedia("product", p.id),
+    card.isDemo ? Promise.resolve(null) : store.getSupplier(card.supplierId).catch(() => null),
+  ]);
+  const supplierWebsite = supplier?.status === "published" ? supplier.website : null;
+  const parentCategory = category.parent_id ? await store.getCategory(category.parent_id) : null;
   const categoryPath = [category.id, ...(parentCategory ? [parentCategory.id] : [])];
   const productCertificates = await productCertificatesFor(p.id, p.supplier_id, categoryPath);
   const images = card.usesFormGallery ? card.imagePaths : shareableProductImages(media, p.id, p.featured_media_id, 24);
@@ -185,7 +192,7 @@ export default async function PublicProductDetail({ params }: Props) {
 
   const countView = !preview && !card.isDemo && !(await getSession());
   // Nút chat chỉ hiện khi nhà cung cấp có tài khoản cổng đang hoạt động để trả lời.
-  const canChat = await supplierChatAvailable(getStore(), card.supplierId).catch(() => false);
+  const canChat = await supplierChatAvailable(store, card.supplierId).catch(() => false);
   // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
   // giá trên trang là giá tham khảo qua RFQ, không phải chào bán giao dịch trực tiếp.
   // Đóng gói và giá mẫu vì vậy nằm trong additionalProperty, không nằm trong Offer.
@@ -270,6 +277,7 @@ export default async function PublicProductDetail({ params }: Props) {
               <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-brand-700" />{publicProductLocationDisplay(card.province)}</span>
               {card.supplierFoundedYear && <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-brand-700" />Founded {card.supplierFoundedYear}</span>}
             </div>
+            <SupplierWebsiteLink website={supplierWebsite} className="mt-4" />
           </div>
           <div className="p-5">
             <div className="flex items-center justify-between gap-3">
@@ -283,7 +291,7 @@ export default async function PublicProductDetail({ params }: Props) {
               {card.verificationSteps.includes(3) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} className="text-brand-700 underline">Delivery review scope</Link>}
             </div>}
             <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand-800 hover:underline">View supplier profile <ArrowRight className="h-4 w-4" /></Link>
-            <p className="mt-3 text-xs leading-5 text-ink-500">Quotes are coordinated through Vexim. Supplier contact details are not shown.</p>
+            <p className="mt-3 text-xs leading-5 text-ink-500">Quotes are coordinated through Vexim. The website is supplier-provided; email and phone are not shown.</p>
             <Link href={`/khieu-nai?product=${encodeURIComponent(card.id)}`} className="mt-3 inline-block text-xs font-semibold text-brand-700 underline">Report this listing</Link>
           </div>
         </aside>

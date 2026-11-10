@@ -380,7 +380,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
                 />
                 {fieldErrors.email && <p className="mt-1 text-xs font-semibold text-rose-600">{fieldErrors.email}</p>}
               </Field>
-              <Field label="Website"><input className="input" value={str("website")} onChange={(e) => set("website", e.target.value)} placeholder="https://…" /></Field>
+              <Field label="Website" hint="Hiển thị trên hồ sơ, trang sản phẩm và bảng so sánh khi nhà cung cấp được công khai."><input className="input" value={str("website")} onChange={(e) => set("website", e.target.value)} placeholder="https://…" /></Field>
             </div>
 
             <p className="mt-6 rounded-xl border border-dashed border-ink-200 bg-ink-50/60 px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-500">
@@ -499,7 +499,7 @@ export function SupplierForm({ supplier, categories, products = [], aiEnabled = 
                 <input className={`input ${fieldErrors.email ? "border-rose-400 bg-rose-50/40" : ""}`} type="email" value={str("email")} aria-invalid={!!fieldErrors.email} onChange={(e) => { set("email", e.target.value); setFieldErrors((err) => ({ ...err, email: undefined })); }} />
                 {fieldErrors.email && <p className="mt-1 text-xs font-semibold text-rose-600">{fieldErrors.email}</p>}
               </Field>
-              <Field label="Website"><input className="input" value={str("website")} onChange={(e) => set("website", e.target.value)} placeholder="https://…" /></Field>
+              <Field label="Website" hint="Hiển thị trên hồ sơ, trang sản phẩm và bảng so sánh khi nhà cung cấp được công khai."><input className="input" value={str("website")} onChange={(e) => set("website", e.target.value)} placeholder="https://…" /></Field>
             </div>
           </section>
 

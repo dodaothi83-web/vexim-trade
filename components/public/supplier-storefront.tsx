@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { SupplierProductRail } from "@/components/public/supplier-product-rail";
+import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
 import { VERIFICATION_LEVEL_ICONS } from "@/components/verification-tier";
 import { supplierShortName } from "@/lib/public/supplier-name";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
@@ -123,6 +124,7 @@ export function SupplierStorefront({
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
           </div>
+          {!synthetic && <SupplierWebsiteLink website={s.website} className="mt-3" />}
           <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Published supplier checks">
             {VERIFICATION_DISPLAY_ORDER.filter((level) => steps.includes(level)).map((level) => {
               const Icon = VERIFICATION_LEVEL_ICONS[level];
@@ -419,7 +421,7 @@ export function SupplierStorefront({
             <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}&sample=1`} className="flex items-center justify-center rounded-lg border border-ink-200 px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50">Ask about samples</Link></div>}
           {!rfqActions && !synthetic && <div className="mt-4 space-y-2"><span className="flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>
             <span className="flex items-center justify-center rounded-lg border border-ink-200 px-4 py-2.5 text-sm font-semibold text-ink-800">Ask about samples</span></div>}
-          <p className="mt-3 text-xs leading-5 text-ink-500">Enquiries go through Vexim Trade. Supplier contact information is not displayed publicly.</p>
+          <p className="mt-3 text-xs leading-5 text-ink-500">Enquiries go through Vexim Trade. Supplier email and phone are not displayed publicly.</p>
         </div>
         {!synthetic && <div id="company-details" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 shadow-card">
           <h2 className="text-base font-bold text-ink-900">Company details</h2>
@@ -429,7 +431,7 @@ export function SupplierStorefront({
             <div className="border-b border-ink-100 py-3"><dt className="text-xs text-ink-500">Registered address</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(supplierAddressDisplay(s)) || (supplierProvinceDisplay(s) ? `${safe(supplierProvinceDisplay(s))}, Vietnam` : "Ask Vexim for the registered address before contracting.")}</dd></div>
             <div className="py-3"><dt className="text-xs text-ink-500">Contact</dt><dd className="mt-0.5 text-sm font-semibold text-ink-800">Request an introduction through Vexim</dd></div>
           </dl>
-          <p className="text-xs leading-5 text-ink-500">Legal name and registered address come from the supplier record held by Vexim. Email, phone and internal verification documents are not published.</p>
+          <p className="text-xs leading-5 text-ink-500">Legal name and registered address come from the supplier record held by Vexim. The company website is supplier-provided, not verified by Vexim. Email, phone and internal verification documents are not published.</p>
           {rfqActions
             ? <Link href={`/khieu-nai?supplier=${encodeURIComponent(s.slug || s.id)}`} className="mt-3 inline-block text-sm font-semibold text-brand-700 underline">Report this supplier</Link>
             : <span className="mt-3 inline-block text-sm font-semibold text-brand-700 underline">Report this supplier</span>}

@@ -21,6 +21,7 @@ import {
   toggleProductComparisonSelection,
 } from "../lib/public/product-comparison.ts";
 import { approvedProductCertificateIds } from "../lib/public/product-certificate-links.ts";
+import { publicSupplierWebsite } from "../lib/public/supplier-website.ts";
 import * as priceDisplay from "../lib/products/price-display.ts";
 import { VERIFICATION_LABELS, verificationLabel } from "../lib/verification-status.ts";
 import {
@@ -230,13 +231,14 @@ const record = {
     price_valid_until: "2099-01-01", incoterm: "FOB", incoterm_place: "Hồ Chí Minh", export_port: "Cát Lái",
     monthly_capacity: "100 tấn", payment_terms: "T/T 30% cọc", oem: true, odm: false, samples: true,
   },
-  supplier: { id: "A", email: "private@example.com" },
+  supplier: { id: "A", website: "www.company-a.vn/catalog", email: "private@example.com" },
   category: { slug: "cashew", name_i18n: { en: "Cashew kernels" } },
 };
 const untranslatedRecord = {
   ...record,
   card: { ...record.card, id: "untranslated", rawMaterialRegion: "", inputMaterialOrigin: "" },
   product: { ...record.product, id: "untranslated" },
+  supplier: { ...record.supplier, website: "javascript:alert(1)" },
 };
 const store = {
   listCertificates: async () => rawCertificates,
@@ -261,6 +263,7 @@ const comparisonData = compile("../lib/public/product-comparison-data.ts", {
   },
   "@/lib/public/product-export-port": productPortModule,
   "@/lib/public/product-selection": { withoutDirectContacts },
+  "@/lib/public/supplier-website": { publicSupplierWebsite },
 });
 const projected = await comparisonData.getPublicProductsForComparison(["a"]);
 assert.equal(projected.length, 1);
@@ -275,7 +278,9 @@ assert.equal(projected[0].monthlyCapacity, "100 metric tons");
 assert.equal(projected[0].paymentTerms, "T/T 30% deposit");
 assert.equal(projected[0].rawMaterialRegion, "Binh Phuoc and Dak Lak");
 assert.equal(projected[0].inputMaterialOrigin, "Vietnam and Cambodia");
+assert.equal(projected[0].supplierWebsite, "https://www.company-a.vn/catalog", "Only a validated supplier website enters the public comparison");
 const untranslated = await comparisonData.getPublicProductsForComparison(["untranslated"]);
+assert.equal(untranslated[0].supplierWebsite, null, "Unsafe supplier websites are not published in comparison");
 assert.equal(untranslated[0].rawMaterialRegion, null, "Missing English sourcing data stays empty in comparison");
 assert.equal(untranslated[0].inputMaterialOrigin, null);
 assert.equal(projected[0].packaging, "25kg or 50kg PP bags, sewn closed");
@@ -318,6 +323,7 @@ const compared = (id, extra = {}) => ({
   samples: true,
   supplierName: `Supplier ${id}`,
   supplierHref: `/suppliers/supplier-${id}`,
+  supplierWebsite: id === "a" ? "https://www.company-a.vn/catalog" : null,
   province: "Hanoi",
   verificationSteps: [1, 3],
   certificates: [{ id: `cert-${id}`, name: "HACCP", issuer: null, number: null, holderMatch: "owner", holderName: `Supplier ${id}`, validUntil: "2099-01-01" }],
@@ -325,6 +331,11 @@ const compared = (id, extra = {}) => ({
   ...extra,
 });
 const Link = ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children);
+const { SupplierWebsiteLink } = compile("../components/public/supplier-website-link.tsx", {
+  "react/jsx-runtime": jsx,
+  "lucide-react": require("lucide-react"),
+  "@/lib/public/supplier-website": { publicSupplierWebsite },
+});
 const tableModule = compile("../components/public/product-comparison-table.tsx", {
   "@/components/download-comparison-pdf": { DownloadComparisonPdf: ({ products }) => React.createElement("button", { "data-pdf-count": products.length }, "Download PDF") },
   "react/jsx-runtime": jsx,
@@ -335,6 +346,7 @@ const tableModule = compile("../components/public/product-comparison-table.tsx",
     RemoveComparedProduct: ({ product }) => React.createElement("button", { "aria-label": `Remove ${product.name} from comparison` }),
   },
   "@/components/verification-tier": { VerificationTierBadge: () => React.createElement("span", null, "Level 2") },
+  "@/components/public/supplier-website-link": { SupplierWebsiteLink },
   "@/lib/public/product-comparison": { productComparisonWarnings },
   "@/lib/verification-status": { VERIFICATION_LABELS, verificationLabel },
   "@/lib/types": { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] },
@@ -357,6 +369,13 @@ assert.match(tableHtml, /min-w-48/);
 assert.match(tableHtml, /Swipe horizontally to see each product/);
 assert.equal((tableHtml.match(/aria-label="Remove Cashew [ab] from comparison"/g) ?? []).length, 2);
 assert.ok(tableHtml.includes("Some products do not have a public reference price"));
+const websiteRow = tableHtml.match(/<tr[^>]*><th[^>]*>Company website<\/th>([\s\S]*?)<\/tr>/)?.[1];
+assert.ok(websiteRow, 'Product comparison has a supplier-website row');
+assert.match(websiteRow, /href="https:\/\/www\.company-a\.vn\/catalog"/);
+assert.match(websiteRow, /Company website: company-a\.vn \(opens in a new tab\)/);
+assert.match(websiteRow, /target="_blank" rel="noopener noreferrer nofollow"/);
+assert.match(websiteRow, /Not provided/, 'Suppliers without a valid site get a neutral placeholder');
+assert.doesNotMatch(websiteRow, /private@example\.com|href="javascript:/);
 const crossCategoryHtml = renderToStaticMarkup(React.createElement(tableModule.ProductComparisonTable, {
   products: [compared("a"), compared("b", { categorySlug: "rice", categoryName: "Rice" })],
 }));
