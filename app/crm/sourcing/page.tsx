@@ -101,7 +101,7 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
       <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Hộp thư tìm nguồn</p>
       <h1 className="mt-2 text-2xl font-bold">Yêu cầu tìm nguồn</h1>
       <p className="mt-2 text-sm text-ink-500">
-        Người mua chưa chọn nhà cung cấp, Vexim ghép và giới thiệu. Bấm <strong>Ghép nhà cung cấp</strong> để mở công cụ shortlist, gửi lời mời ẩn danh và trình báo giá.
+        Người mua chưa chọn nhà cung cấp, Vexim ghép và giới thiệu. Bấm <strong>Ghép nhà cung cấp</strong> để mở công cụ shortlist; chỉ gửi RFQ kèm liên hệ khi đã có đồng ý cho yêu cầu đó.
       </p>
     </header>
 
@@ -176,7 +176,7 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
                     <Link href={`/crm/rfqs/${linked.id}`} className="btn btn-primary btn-sm ml-auto">Mở trang ghép <ArrowRight className="h-3.5 w-3.5" /></Link>
                   </> : manage && r.status !== "closed" ? <form action={startSourcingMatchAction} className="flex w-full flex-wrap items-center gap-2">
                     <input type="hidden" name="id" value={r.id} />
-                    <span className="text-ink-700">Tạo phiếu ghép để chọn nhà cung cấp, gửi lời mời ẩn danh và trình báo giá. Chưa gửi gì cho ai.</span>
+                    <span className="text-ink-700">Tạo phiếu ghép để chọn nhà cung cấp và trình báo giá. Chưa gửi gì cho NCC; yêu cầu cũ cần người mua xác nhận chia sẻ liên hệ trước khi gửi.</span>
                     <button className="btn btn-primary btn-sm ml-auto">Ghép nhà cung cấp</button>
                   </form> : <span className="text-ink-500">{r.status === "closed" ? "Yêu cầu đã kết thúc." : "Cần quyền xử lý RFQ để ghép nhà cung cấp."}</span>}
                 </div>

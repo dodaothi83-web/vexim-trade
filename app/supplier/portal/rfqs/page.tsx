@@ -14,6 +14,27 @@ import { EmptyRow, Panel, date } from "../portal-ui";
 import { SupplierRfqReply } from "@/components/supplier-rfq-reply";
 import { QUOTE_CURRENCIES, QUOTE_INCOTERMS } from "@/lib/supplier-portal/quote";
 import { SupplierQuoteForm } from "./quote-form";
+import type { RfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import type { RfqsMessages } from "@/lib/i18n/portal/rfqs";
+
+/** Only a server-side, consented snapshot reaches this authenticated supplier page. */
+function BuyerContactDetails({ contact, copy }: { contact: RfqBuyerContact | null; copy: RfqsMessages["buyer"] }) {
+  if (!contact) return <p className="mt-2 rounded-lg bg-ink-50 px-3 py-2 text-xs leading-5 text-ink-600">{copy.unavailable}</p>;
+  const fields = [
+    [copy.company, contact.company], [copy.name, contact.contact_name],
+    [copy.email, contact.email], [copy.phone, contact.phone],
+    [copy.country, contact.country], [copy.website, contact.website],
+    [copy.type, contact.business_type],
+  ];
+  return <div className="mt-3 rounded-lg border border-brand-100 bg-brand-50/40 p-3">
+    <p className="mb-2 text-xs font-bold text-brand-800">{copy.title}</p>
+    <dl className="grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
+      {fields.map(([label, value]) => <div key={label} className="min-w-0">
+        <dt className="text-ink-500">{label}</dt><dd className="break-words font-semibold text-ink-900">{value || copy.notProvided}</dd>
+      </div>)}
+    </dl>
+  </div>;
+}
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -88,6 +109,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
                 <span className={`mt-0.5 block text-xs ${overdue ? "font-semibold text-rose-700" : "text-ink-500"}`}>
                   {overdue ? copy.tasks.overdue : copy.tasks.due}{task.dueAt ? date(task.dueAt, intl) : copy.tasks.dueFallback}
                 </span>
+                <BuyerContactDetails contact={task.buyerContact} copy={copy.buyer} />
               </span>
               <SupplierRfqReply address={supplierReplyAddress(task.code, task.matchId)} subject={fill(copy.tasks.subject, { code: task.code })}
                 labels={{ gmail: copy.tasks.replyGmail, app: copy.tasks.replyApp, copy: copy.tasks.copyAddress, copied: copy.tasks.copied }} />
@@ -110,6 +132,7 @@ export default async function SupplierRfqPage({ searchParams }: { searchParams: 
               <span className="mt-0.5 block text-xs text-ink-500">{item.code} · {item.quantity} · {item.destination} · {fill(copy.invites.sentAt, { at: date(item.sentAt, intl) })}</span>
               <span className="mt-0.5 block text-xs text-ink-500">{fill(copy.invites.due, { at: item.dueAt ? date(item.dueAt, intl) : copy.tasks.dueFallback })}{item.quotePrice ? ` · ${fill(copy.invites.quoteRecorded, { value: item.quotePrice })}` : ""}</span>
               {item.repliedAt && <span className="mt-0.5 block text-xs font-semibold text-emerald-700">{fill(copy.invites.replied, { at: date(item.repliedAt, intl) })}</span>}
+              <BuyerContactDetails contact={item.buyerContact} copy={copy.buyer} />
             </span>
             <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-800">{item.status}</span>
             {item.canQuote && item.quotePrice && <SupplierQuoteForm matchId={item.matchId} code={item.code} defaults={item.quoteDefaults}

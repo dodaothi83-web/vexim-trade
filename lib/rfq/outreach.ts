@@ -1,13 +1,6 @@
-/**
- * Workflow gửi RFQ cho nhà cung cấp dưới dạng ẨN DANH + gửi bảng so sánh cho buyer.
- * Chính sách ẩn danh:
- *   - Supplier KHÔNG thấy tên công ty / email / điện thoại buyer cho đến khi buyer
- *     chủ động đồng ý làm việc trực tiếp với NCC đó (chuyển match sang `selected`).
- *   - Sau khi match được selected, tạo Introduction với protected_until = +12 tháng
- *     (các RFQ sau trong 12 tháng vẫn được ghép qua Vexim — supplier không được
- *     bỏ qua Vexim để giao dịch trực tiếp).
- *   - Địa chỉ Reply-To trong email cho supplier được đặt là hộp chức năng của
- *     phòng sale (VD rfq+RFQxxxx@veximtrade.com) để mọi thư trả lời đi về Vexim.
+/** RFQ outreach: buyer-provided contact details accompany each *actually sent* invitation.
+ * Legacy requests without explicit per-RFQ consent are not dispatched under the old
+ * anonymous flow. Reply-To continues to route responses to the correct Vexim match.
  */
 import brandColors from "@/lib/brand/colors.json";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
@@ -21,6 +14,8 @@ import { canInviteSupplier, portalApproved } from "@/lib/supplier-portal/onboard
 import { buyerReplyAddress, supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { mailTopic, openThread } from "@/lib/email/threading";
 import type { Buyer, EmailMessage, Rfq, RfqMatch, Supplier } from "@/lib/types";
+import { rfqBuyerContact, type RfqBuyerContact } from "./buyer-contact";
+import { attachBuyerAfterDirectRfqDelivery } from "./attach-buyer";
 
 function rfqCode(rfq: Rfq) {
   return rfq.code;
@@ -32,6 +27,19 @@ function shortQty(rfq: Rfq) {
 
 function shortIncoterm(rfq: Rfq) {
   return rfq.incoterm ?? "FOB (thảo luận)";
+}
+
+function buyerContactEmailBlock(contact: RfqBuyerContact): string {
+  const rows: Array<[string, string | null]> = [
+    ["Doanh nghiệp", contact.company], ["Người liên hệ", contact.contact_name],
+    ["Email", contact.email], ["Điện thoại", contact.phone],
+    ["Quốc gia", contact.country], ["Website", contact.website],
+    ["Loại hình", contact.business_type],
+  ];
+  return `<p><strong>Thông tin người mua đã đồng ý chia sẻ cho yêu cầu này:</strong></p>
+    <table cellpadding="8" style="border-collapse:collapse;font-size:14px;">
+      ${rows.map(([label, value]) => `<tr><td style="color:#64748b;width:170px;">${label}</td><td>${escapeHtml(value || "Chưa cung cấp")}</td></tr>`).join("")}
+    </table>`;
 }
 
 function fmtDateTime(iso?: string | null) {
@@ -71,7 +79,7 @@ function targetPriceLabel(rfq: Rfq): { text: string; shared: boolean } {
 }
 
 /* ------------------------------------------------------------------ */
-/* 1) Gửi RFQ ẩn danh cho NCC                                          */
+/* 1) Gửi RFQ kèm thông tin liên hệ đã được người mua đồng ý            */
 /* ------------------------------------------------------------------ */
 
 export function buildRfqSupplierEmail(input: {
@@ -85,7 +93,11 @@ export function buildRfqSupplierEmail(input: {
   portalUrl?: string | null;
 }) {
   const { rfq, supplier, deadline, portalUrl = null } = input;
-  // RFQ text is buyer-entered; suppress direct contacts before any supplier email.
+  // The consented contact block is the only place for buyer identity. Product text
+  // remains scrubbed; it may contain third-party details the buyer did not authorize.
+  const contact = rfqBuyerContact(rfq, supplier.id);
+  if (!contact) throw new Error("RFQ thiếu đồng ý chia sẻ liên hệ cho nhà cung cấp này.");
+  // RFQ text is buyer-entered; suppress direct contacts outside the approved block.
   const productLabel = withoutDirectContacts(rfq.product_text).slice(0, 150);
   const deadlineStr = deadline.toLocaleDateString("vi-VN", {
     weekday: "long",
@@ -102,11 +114,9 @@ export function buildRfqSupplierEmail(input: {
 
   const body = `
     <p>Chào ${escapeHtml(supplier.contact_name ?? supplier.name)},</p>
-    <p>Vexim Trade đang tìm nhà cung cấp cho một đơn hàng sang ${dest} và muốn mời bạn chào giá.</p>
-
-    <p style="color:#b91c1c;font-size:12.5px;">
-      Thông tin người mua đang được giữ kín. Vui lòng không hỏi danh tính người mua trong thư trả lời đầu tiên.
-    </p>
+    <p>Người mua gửi yêu cầu báo giá sang ${dest} và Vexim Trade mời bạn chào giá.</p>
+    ${buyerContactEmailBlock(contact)}
+    <p>Thông tin này chỉ dành cho doanh nghiệp nhận RFQ, không được đăng công khai hoặc chuyển tiếp cho bên thứ ba. Vexim xử lý báo giá theo quy trình bên dưới.</p>
 
     <table cellpadding="8" style="border-collapse:collapse;margin-top:10px;font-size:14px;">
       <tr><td style="color:#64748b;width:170px;">Mã yêu cầu</td><td><strong>${escapeHtml(rfq.code)}</strong></td></tr>
@@ -203,7 +213,9 @@ export function buildRfqShortlistBuyerEmail(input: {
     <ul>
       <li>Tell us which one or two suppliers you want to explore further (samples, certificates, adjusted terms).</li>
       <li>We arrange the introduction, the sample shipment and inspection support if you need it.</li>
-      <li>Your identity stays private from suppliers until you agree to be introduced.</li>
+      <li>${matches.some((m) => rfqBuyerContact(rfq, m.supplier_id))
+        ? "Only suppliers sent this RFQ receive the buyer contact details you provided."
+        : "Your earlier request requires separate permission before we can share your contact details."}</li>
     </ul>
 
     <p>Reply to this email with any question, or view the request in your buyer account:<br/>
@@ -239,7 +251,7 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-/** Gửi RFQ ẩn danh cho tập hợp match IDs; trả về số email đã lên lịch. */
+/** Gửi RFQ kèm liên hệ được đồng ý tới đúng các match được chọn và chấp nhận bởi email provider. */
 export async function dispatchRfqToSuppliers(input: {
   rfqId: string;
   matchIds: string[];
@@ -253,7 +265,11 @@ export async function dispatchRfqToSuppliers(input: {
     throw new Error("Đây là câu hỏi trực tiếp cho nhà cung cấp, không dùng quy trình gửi yêu cầu báo giá.");
   }
   const matches = await store.listRfqMatches(rfq.id);
-  const supplierIds = new Set(matches.filter((m) => input.matchIds.includes(m.id)).map((m) => m.supplier_id));
+  const pending = matches.filter((m) => input.matchIds.includes(m.id) && m.status === "proposed" && !m.sent_to_supplier_at);
+  if (pending.some((m) => !rfqBuyerContact(rfq, m.supplier_id))) {
+    throw new Error("RFQ này chưa có xác nhận chia sẻ thông tin liên hệ cho nhà cung cấp được chọn. Không gửi lời mời ẩn danh; cần người mua đồng ý trước khi gửi.");
+  }
+  const supplierIds = new Set(pending.map((m) => m.supplier_id));
   // Verify the dashboard migration before sending any email, so an invitation is never sent
   // without a durable response deadline / supplier-facing record.
   if (supplierIds.size) await Promise.all([
@@ -288,7 +304,6 @@ export async function dispatchRfqToSuppliers(input: {
       headers: {
         "X-RFQ-Code": rfq.code,
         "X-RFQ-Match": m.id,
-        "X-Vexim-Anonymous": "1",
       },
     });
     if (!delivery.ok || delivery.status !== "sent") {
@@ -301,6 +316,10 @@ export async function dispatchRfqToSuppliers(input: {
       sent_to_supplier_at: new Date().toISOString(),
       response_due_at: deadline.toISOString(),
     });
+    // The invitation is now durably sent. CRM attachment is a separate, idempotent
+    // best-effort side effect: failure must never trigger a duplicate supplier email.
+    await attachBuyerAfterDirectRfqDelivery(store, rfq, m.id)
+      .catch((error) => console.error("[rfq] delivered but CRM attachment failed", error));
     // Ghi vào timeline thư đi
     await store.addMessage({
       buyer_id: null,
@@ -411,13 +430,10 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
 
 /**
  * Chốt một NCC cho RFQ: match `selected`, các match khác `not_selected`,
- * và ghi `introductions` (thời điểm Giới thiệu + thời gian bảo hộ 12 tháng) nếu chưa có.
+ * và ghi `introductions` (mốc chọn nhà cung cấp + thời gian bảo hộ 12 tháng) nếu chưa có.
  *
- * Vexim không thu hoa hồng đơn hàng. Bản ghi Giới thiệu vẫn cần vì hai lý do phi hoa hồng:
- *   - Chính sách bảo mật cam kết chỉ chia sẻ tên/email/công ty của người mua SAU KHI người mua
- *     đồng ý. Đây là bản ghi chứng minh đã có sự đồng ý và chia sẻ cho đúng một NCC nào.
- *   - Thỏa thuận nhà cung cấp (Điều 1.6, Điều 7) tính Thời gian bảo hộ 12 tháng từ ngày Giới thiệu,
- *     dùng để đối soát khi có tranh chấp về "thương vụ kết nối".
+ * Đồng ý chia sẻ thông tin liên hệ được ghi trên TỪNG RFQ lúc gửi form, không suy ra
+ * từ introductions (bản ghi chọn NCC xuất hiện muộn hơn việc gửi lời mời).
  *
  * Dùng chung cho cả nút "Chọn nhà cung cấp" và luồng "Chuyển sang sampling", vì trước đây
  * luồng sampling bỏ qua bước này nên hai đường chốt NCC cho ra hai kết quả dữ liệu khác nhau.
@@ -466,9 +482,11 @@ export async function selectSupplier(input: { rfqId: string; matchId: string; ac
 /** Only an invited NCC is contacted; caller must ensure a real staff transition, never a draft save. */
 export async function notifySelectedSupplier(rfq: Rfq, match: RfqMatch, actorId: string): Promise<"sent" | "failed" | "skipped"> {
   const store = getStore();
-  // A separate, anonymous milestone email: never include buyer identity, token or internal quote notes.
-  // Only a genuinely invited supplier receives it, and re-submitting the same decision does not send twice.
-  if (!match.sent_to_supplier_at) return "skipped";
+  // Only an actually invited, consented supplier may receive the milestone mail.
+  // Old RFQs without recorded consent stay off this email path; never fall back to anonymity.
+  if (!match.sent_to_supplier_at || match.status === "proposed") return "skipped";
+  const contact = rfqBuyerContact(rfq, match.supplier_id);
+  if (!contact) return "skipped";
   let email: "sent" | "failed" = "failed";
   try {
     const supplier = await store.getSupplier(match.supplier_id);
@@ -476,13 +494,13 @@ export async function notifySelectedSupplier(rfq: Rfq, match: RfqMatch, actorId:
       const sender = await requireRfqStaffSender(actorId);
       const subject = `[${rfq.code}] Vexim đã chọn hồ sơ của bạn`;
       const body = `<p>Vexim đã chọn hồ sơ chào giá của bạn cho yêu cầu <strong>${escapeHtml(rfq.code)}</strong>. Vexim sẽ liên hệ để thống nhất bước tiếp theo.</p>
-        <p>Thông tin người mua chưa được chia sẻ trong email này. Vui lòng tiếp tục trao đổi qua Vexim.</p>
+        ${buyerContactEmailBlock(contact)}
         <p><a href="${SITE_URL}/supplier/portal/rfqs">Xem yêu cầu trong cổng nhà cung cấp</a></p>`;
       const delivery = await transport({ to: [supplier.email], from: sender.header,
         replyTo: supplierReplyAddress(rfq.code, match.id), subject,
         html: wrapPlainEmail({ title: escapeHtml(subject), body }),
-        text: `${subject}\nVexim sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin người mua.\n${SITE_URL}/supplier/portal/rfqs`,
-        headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Match": match.id, "X-Vexim-Anonymous": "1" } });
+        text: stripHtml(body),
+        headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Match": match.id } });
       if (delivery.ok && delivery.status === "sent") email = "sent";
       else console.warn("[rfq] supplier selection email not sent; portal status saved", delivery.error ?? delivery.status);
     }

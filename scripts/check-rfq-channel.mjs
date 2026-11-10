@@ -60,7 +60,7 @@ assert.equal(channel.rfqChannel(first.rfq), "sourcing");
 assert.equal(buyers.length, 1);
 assert.equal(buyers[0].email, "buyer@example.com", "email người mua chuẩn hoá");
 assert.equal(buyers[0].company, "Acme Foods");
-assert.equal(buyers[0].hide_buyer_from_supplier, true, "người mua vẫn ẩn danh với nhà cung cấp");
+assert.equal(buyers[0].hide_buyer_from_supplier, true, "cờ email CRM cũ không thay thế đồng ý chia sẻ riêng trên RFQ");
 assert.equal(audits.at(-1).action, "sourcing.start_match");
 
 const again = await toRfq.startSourcingMatch({ store, request, actor });

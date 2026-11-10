@@ -226,7 +226,8 @@ export function RfqForm({
         business_type: data.business_type || null,
         consent: data.consent,
         inquiry_kind: "quote",
-        share_contact_consent: false,
+        // Same required checkbox explicitly names the contact fields shared on delivery.
+        share_contact_consent: data.consent,
         source_page: "/rfq",
         referrer: typeof document !== "undefined" ? document.referrer : null,
         utm_source: params.get("utm_source"),
@@ -636,15 +637,16 @@ export function RfqForm({
           {honeypotControl}
           {challengeControl}
           <p className="text-[12.5px] leading-relaxed text-ink-600">
-            Vexim shares your request with matching suppliers <strong>without your name or contact details</strong>.
-            They are shared only when you approve an introduction. See our{" "}
+            When your RFQ is sent, the suppliers who receive it will see the company, contact name, verified email,
+            phone, country, website and business type you provide here (if supplied). No suggested supplier sees this
+            before we send them your RFQ. Internal CRM notes and your private access link are never shared. See our{" "}
             <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and{" "}
             <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Terms of Service</Link>.
           </p>
           <label className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-700">
             <input id="rfq-consent" type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.consent} onChange={(e) => update("consent", e.target.checked)} />
             <span>
-              I agree to Veximtrade sharing this request with matching suppliers and processing my data to reply to this enquiry.{" "}
+              I agree to Veximtrade sending my RFQ and the buyer contact details above to the suppliers it contacts about this request, and processing my data to reply.{" "}
               <span className="text-red-500">*</span>
             </span>
           </label>
@@ -655,7 +657,7 @@ export function RfqForm({
           </label>
           <p className="flex items-start gap-1.5 rounded-md bg-ink-50 p-3 text-[12px] leading-relaxed text-ink-600">
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-700" />
-            <span>Your contact details stay private until you agree to an introduction. You sign the contract directly with the supplier you choose. Vexim never holds your payment. Free for buyers.</span>
+            <span>Only suppliers actually sent this RFQ receive your buyer contact details. You sign the contract directly with the supplier you choose. Vexim never holds your payment. Free for buyers.</span>
           </p>
           <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold sm:w-auto sm:px-8" disabled={busy || !challengeToken || !!heldMsg}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}

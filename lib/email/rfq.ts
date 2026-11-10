@@ -64,7 +64,7 @@ export async function sendRfqAckBuyer(input: { rfq: Rfq; buyer: Buyer }): Promis
       <li>${matchingStep}</li>
       ${hasPreferredSupplier ? "" : "<li>Suppliers are matched on your requirements only. Paid listings never affect who we recommend.</li>"}
       <li>${quoteStep}</li>
-      <li>Your contact details stay private until you agree to an introduction.</li>
+      <li>Only suppliers actually sent this RFQ receive the company and contact details you provided when submitting it. No proposed supplier sees them.</li>
       <li>You sign the contract directly with the supplier you choose. Vexim never holds your payment.</li>
       <li>Requesting a quote is free for buyers.</li>
     </ul>

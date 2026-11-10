@@ -142,7 +142,7 @@ assert.ok(rfqEmail.includes("hasPreferredSupplier"), "RFQ confirmation email sep
 assert.ok(rfqEmail.includes("Your request goes to your selected supplier first."), "Targeted RFQ confirmation email puts the selected supplier first");
 assert.ok(rfqEmail.includes("We will select verified suppliers that match your specs, quantity and market"), "Open RFQ confirmation email explains matching criteria");
 assert.ok(rfqEmail.includes("Suppliers are matched on your requirements only. Paid listings never affect who we recommend."), "Open RFQ confirmation email explains matching neutrality");
-assert.ok(rfqEmail.includes("Your contact details stay private until you agree to an introduction."), "RFQ confirmation email explains contact privacy");
+assert.ok(rfqEmail.includes("Only suppliers actually sent this RFQ receive the company and contact details you provided"), "RFQ confirmation explains recipient-scoped contact sharing");
 assert.ok(rfqEmail.includes("You sign the contract directly with the supplier you choose. Vexim never holds your payment."), "RFQ confirmation email explains direct contracting and payment boundaries");
 assert.ok(rfqEmail.includes("Requesting a quote is free for buyers."), "RFQ confirmation email says RFQ is free");
 

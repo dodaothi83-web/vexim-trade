@@ -70,8 +70,8 @@ export default async function HowItWorksPage({
         },
         {
           icon: Lock,
-          title: "Giữ kín thông tin liên hệ",
-          desc: "Khi gửi yêu cầu báo giá, nhà cung cấp chỉ thấy email và số điện thoại sau khi bạn đồng ý kết nối.",
+          title: "Chỉ chia sẻ với NCC nhận RFQ",
+          desc: "Khi RFQ được gửi, chỉ nhà cung cấp nhận yêu cầu mới thấy liên hệ bạn cung cấp và đồng ý chia sẻ; NCC khác không được xem.",
         },
         {
           icon: Handshake,
@@ -87,8 +87,8 @@ export default async function HowItWorksPage({
         },
         {
           icon: Lock,
-          title: "Your contact stays private",
-          desc: "On quote requests, suppliers only see your email and phone after you approve an introduction.",
+          title: "Shared only with RFQ recipients",
+          desc: "When your RFQ is sent, the suppliers receiving it see the contact details you provided and agreed to share. Others do not.",
         },
         {
           icon: Handshake,
@@ -292,8 +292,8 @@ export default async function HowItWorksPage({
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-ink-700">
                   {isVi
-                    ? "Nhận cập nhật đầu tiên trong 1 ngày làm việc. Bạn xem báo giá, yêu cầu gửi mẫu, đồng ý kết nối với đơn vị muốn làm việc, sau đó ký hợp đồng và thanh toán trực tiếp với nhà cung cấp."
-                    : "Receive an initial update within 1 business day. Review quotes, request samples, approve introductions to suppliers you want to speak with, and sign your contract directly with the supplier."}
+                    ? "Nhận cập nhật đầu tiên trong 1 ngày làm việc. Bạn xem báo giá, yêu cầu gửi mẫu, chọn đơn vị muốn làm việc, sau đó ký hợp đồng và thanh toán trực tiếp với nhà cung cấp."
+                    : "Receive an initial update within 1 business day. Review quotes, request samples, choose the supplier to work with, and sign your contract directly with them."}
                 </p>
               </div>
             </div>

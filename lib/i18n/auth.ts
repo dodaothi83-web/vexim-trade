@@ -67,7 +67,7 @@ const en = {
     shellPoints: [
       "For suppliers and the Vexim team.",
       "Buyers do not need an account to send a quote request.",
-      "Buyer contact details are shared only when the buyer approves an introduction.",
+      "Only suppliers actually sent a consented RFQ receive the buyer's provided contact details.",
     ],
   },
   register: {

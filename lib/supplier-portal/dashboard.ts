@@ -4,6 +4,7 @@ import type { Locale } from "@/lib/i18n/config";
 import { fill } from "@/lib/i18n/format";
 import { noticesMessages } from "@/lib/i18n/portal/notices";
 import { rfqsMessages } from "@/lib/i18n/portal/rfqs";
+import { authorizedBuyerContact, type RfqBuyerContact } from "@/lib/rfq/buyer-contact";
 
 export interface PortalNotice {
   key: string;
@@ -28,6 +29,8 @@ export interface PortalInvite {
   quotePrice: string | null;
   repliedAt: string | null;
   productId: string | null;
+  /** Only the consented, whitelisted snapshot for this actually invited supplier. */
+  buyerContact: RfqBuyerContact | null;
   /** Còn nhận báo giá trên cổng: lời mời đang mở và Vexim chưa trình người mua. */
   canQuote: boolean;
   /** Người mua chọn đúng nhà cung cấp này: báo giá gửi thẳng tới người mua, không chờ Vexim. */
@@ -69,7 +72,7 @@ function relevantInvites(supplierId: string, invites: SupplierRfqInvitation[]) {
     m.rfq.source_page !== "/rfq?intent=question");
 }
 
-/** Không lộ bản ghi buyer, mã truy cập, ghi chú nội bộ hay nội dung buyer tự nhập. */
+/** Only the consented RFQ contact snapshot; no CRM buyer row, token or internal notes. */
 function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierProduct[], supplierId: string, language: Locale): PortalInvite[] {
   const fallback = rfqsMessages[language].fallback;
   const productMap = new Map(products.filter((p) => p.supplier_id === supplierId).map((p) => [p.id, p]));
@@ -84,6 +87,7 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
       repliedAt: m.supplier_replied_at ?? null,
       quotePrice: m.quote_price != null ? `${m.quote_price} ${m.quote_currency || ""}/${m.quote_unit || m.rfq!.unit || ""}` : null,
       productId: product?.id ?? null,
+      buyerContact: authorizedBuyerContact(m.rfq!, supplierId),
       canQuote: ["sent_to_supplier", "no_response", "quoted"].includes(m.status) && !m.sent_to_buyer_at &&
         !["won", "lost", "spam"].includes(m.rfq!.status ?? ""),
       directToBuyer: !!m.rfq!.source_product_id || (m.rfq!.preferred_supplier_ids ?? []).length > 0,

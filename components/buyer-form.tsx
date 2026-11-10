@@ -360,11 +360,11 @@ export function BuyerForm({
           <span>
             <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-800">
               <ShieldCheck className="h-4 w-4 text-brand-600" />
-              Ẩn danh người mua khi email cho nhà cung cấp
+              Ẩn danh trong email CRM giai đoạn (không áp dụng RFQ)
             </span>
             <span className="mt-0.5 block text-[11px] leading-relaxed text-ink-500">
-              Email gửi nhà cung cấp sẽ chỉ nêu thị trường (quốc gia) + sản lượng, không nêu tên buyer.
-              Bỏ tích nếu buyer cho phép công khai.
+              Chỉ áp dụng email giai đoạn từ CRM cho hồ sơ cũ. RFQ dùng bản chụp liên hệ mà Buyer
+              đã đồng ý riêng khi gửi RFQ; không dùng cờ này để quyết định quyền xem RFQ.
             </span>
           </span>
         </label>

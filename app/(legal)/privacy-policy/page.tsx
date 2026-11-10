@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage() {
   return <article className="rounded-2xl border border-ink-200 bg-white px-5 py-8 shadow-sm sm:px-10 sm:py-10">
     <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-700">Vexim Trade · Legal</p>
     <h1 className="mt-3 text-3xl font-black tracking-tight text-ink-900 sm:text-4xl">Privacy Policy</h1>
-    <p className="mt-3 text-sm text-ink-500">Effective date: October 20, 2026 · Version 2</p>
+    <p className="mt-3 text-sm text-ink-500">Effective date: November 9, 2026 · Version 3</p>
     <p className="mt-6 text-sm leading-7 text-ink-700">This policy describes how VEXIM GLOBAL CO., LTD (operating Vexim Trade, “Vexim”, “we” or “us”) handles information when you visit <a className="font-semibold text-brand-700 underline" href={SITE_URL}>{SITE_URL}</a>, request a quote, create a supplier account or use our staff tools. Vexim Trade is a business-to-business sourcing platform connecting buyers with Vietnamese suppliers. Questions or privacy requests can be sent to <a className="font-semibold text-brand-700 underline" href="mailto:contact@veximglobal.com">contact@veximglobal.com</a>.</p>
 
     <section className="mt-9 space-y-3" aria-labelledby="privacy-data">
@@ -41,7 +41,7 @@ export default function PrivacyPolicyPage() {
 
     <section className="mt-9 space-y-3" aria-labelledby="privacy-share">
       <h2 id="privacy-share" className="text-xl font-bold text-ink-900">4. When information is shared</h2>
-      <p className="text-sm leading-7 text-ink-700">Authorized Vexim staff can access information needed for their work. To obtain a quote, Vexim may share the requirements in a buyer’s enquiry with the suppliers we contact about it; we do not disclose the buyer’s email, phone or company contact details to them until the buyer approves an introduction. Supplier profiles, products, certificates and verification summaries appear publicly only after the applicable Vexim review and publication steps. Internal evidence and private documents are not automatically made public.</p>
+      <p className="text-sm leading-7 text-ink-700">Authorized Vexim staff can access information needed for their work. For an RFQ submitted under the current consent notice, a supplier actually sent that RFQ receives the company, contact name, verified email, phone, country, website and business type the buyer provided (where available). Suggested suppliers and other suppliers do not receive those details. Requests submitted under an earlier notice are not retroactively opened without the buyer's separate agreement. Internal CRM notes, access links, account credentials and private sourcing attachments are not shared. Supplier profiles, products, certificates and verification summaries appear publicly only after the applicable Vexim review and publication steps. Internal evidence and private documents are not automatically made public.</p>
       <p className="text-sm leading-7 text-ink-700">We use service providers for hosting and infrastructure (including Vercel), database and authentication (Supabase), email delivery (Resend), and Google sign-in. Optional anti-spam and document-review tools may process the information needed for those features when enabled; human staff make verification decisions. We may disclose information where required by law or to protect the security of the service. We do not sell Google user data or provide it to advertising networks.</p>
     </section>
 

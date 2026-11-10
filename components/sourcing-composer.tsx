@@ -13,12 +13,14 @@ export function SourcingComposerTrigger({ isVi = false, renderTrigger }: {
   /** Nút mở khác (ví dụ thanh công cụ nổi); mặc định là nút trên đầu trang. */
   renderTrigger?: (props: { onClick: () => void; ref: Ref<HTMLButtonElement> }) => ReactNode;
 }) {
-  const { requireBuyer } = useBuyerEnquiryAuth();
+  const { requireBuyer, email } = useBuyerEnquiryAuth();
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState(""); const [files, setFiles] = useState<File[]>([]);
+  const [company, setCompany] = useState(""); const [contactName, setContactName] = useState("");
+  const [phone, setPhone] = useState(""); const [contactConsent, setContactConsent] = useState(false);
   const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const [sentId, setSentId] = useState(""); const [key, setKey] = useState("");
   const [challenge, setChallenge] = useState<string | null>(null); const [attempt, setAttempt] = useState(0);
@@ -44,9 +46,11 @@ export function SourcingComposerTrigger({ isVi = false, renderTrigger }: {
     if (input.current) input.current.value = "";
   }
   async function submit(event: FormEvent) {
-    event.preventDefault(); if (busy || !challenge || content.trim().length < 1) return;
+    event.preventDefault(); if (busy || !challenge || content.trim().length < 1 || !company.trim() || !contactName.trim() || !contactConsent) return;
     setBusy(true); setError("");
     const fd = new FormData(); fd.set("content", content.trim()); fd.set("submission_key", key); fd.set("challengeToken", challenge);
+    fd.set("company", company.trim()); fd.set("contact_name", contactName.trim()); fd.set("phone", phone.trim());
+    fd.set("share_contact_consent", "yes");
     files.forEach((file) => fd.append("files", file));
     try {
       const response = await fetch("/api/buyer/sourcing", { method: "POST", body: fd, headers: { "Accept-Language": vi ? "vi" : "en" } });
@@ -58,7 +62,7 @@ export function SourcingComposerTrigger({ isVi = false, renderTrigger }: {
         return;
       }
       if (!response.ok || typeof data.id !== "string") throw new Error(data.error || (vi ? "Chưa gửi được. Vui lòng thử lại." : "Could not send. Please retry."));
-      setSentId(data.id); setContent(""); setFiles([]); setKey(crypto.randomUUID());
+      setSentId(data.id); setContent(""); setFiles([]); setContactConsent(false); setKey(crypto.randomUUID());
       setOpen(false); trigger.current?.focus();
     } catch (cause) { setError(cause instanceof Error ? cause.message : (vi ? "Mất kết nối. Nội dung vẫn được giữ." : "Connection lost. Your draft is kept.")); }
     finally { setBusy(false); setChallenge(null); setAttempt((n) => n + 1); }
@@ -78,14 +82,27 @@ export function SourcingComposerTrigger({ isVi = false, renderTrigger }: {
         <div className="max-h-[calc(94dvh-185px)] overflow-y-auto px-5 pt-5 sm:px-7 sm:pt-6">
           <label htmlFor="sourcing-content" className="mb-3 block text-sm font-semibold">{vi ? "Bạn đang cần tìm nguồn hàng gì?" : "What would you like us to source?"}</label>
           <textarea id="sourcing-content" autoFocus required minLength={1} maxLength={6000} disabled={busy} value={content} onChange={(e) => setContent(e.target.value)} placeholder={vi ? "Mô tả sản phẩm bạn cần, số lượng, tiêu chuẩn, nơi giao hàng và thời gian dự kiến…" : "Tell us about the product, quantity, specifications, delivery destination and timeline…"} className="min-h-[230px] w-full resize-y rounded-xl border border-ink-200 bg-white p-4 text-[15px] leading-7 outline-none placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:min-h-[280px]" />
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500"><span>{vi ? "Gửi riêng cho đội ngũ Vexim, không gửi tới nhà cung cấp." : "Sent privately to Vexim, not to suppliers."}</span><span>{content.length.toLocaleString(vi ? "vi" : "en")}/{(6000).toLocaleString(vi ? "vi" : "en")}</span></div>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500"><span>{vi ? "Vexim xem bản nháp và tệp riêng tư; chỉ RFQ được gửi tới NCC mới hiển thị liên hệ người mua." : "Vexim reviews this draft and its files privately; buyer contact appears only on RFQs sent to suppliers."}</span><span>{content.length.toLocaleString(vi ? "vi" : "en")}/{(6000).toLocaleString(vi ? "vi" : "en")}</span></div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <label className="text-xs font-semibold">{vi ? "Công ty *" : "Company *"}
+              <input required maxLength={200} disabled={busy} value={company} onChange={(e) => setCompany(e.target.value)} className="input mt-1" autoComplete="organization" /></label>
+            <label className="text-xs font-semibold">{vi ? "Người liên hệ *" : "Contact name *"}
+              <input required maxLength={160} disabled={busy} value={contactName} onChange={(e) => setContactName(e.target.value)} className="input mt-1" autoComplete="name" /></label>
+            <label className="text-xs font-semibold">{vi ? "Điện thoại (nếu có)" : "Phone (optional)"}
+              <input type="tel" maxLength={80} disabled={busy} value={phone} onChange={(e) => setPhone(e.target.value)} className="input mt-1" autoComplete="tel" /></label>
+            <p className="self-end pb-2 text-xs text-ink-600">{vi ? "Email đăng nhập đã xác minh" : "Verified sign-in email"}: <strong className="break-all">{email}</strong></p>
+          </div>
+          <label className="mt-4 flex items-start gap-2 text-xs leading-5 text-ink-700">
+            <input type="checkbox" required checked={contactConsent} disabled={busy} onChange={(e) => setContactConsent(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-brand-700" />
+            <span>{vi ? "Tôi đồng ý: khi Vexim gửi RFQ cho nhà cung cấp, nhà cung cấp thực sự nhận RFQ sẽ thấy công ty, người liên hệ, email đã xác minh và điện thoại (nếu có) tôi cung cấp ở đây. Không chia sẻ tệp đính kèm và ghi chú nội bộ." : "I agree: when Vexim sends an RFQ to a supplier, that supplier will see the company, contact name, verified email and phone (if provided) entered here. Attachments and internal notes are not shared."}</span>
+          </label>
           {!!files.length && <ul className="mt-4 space-y-2">{files.map((f, i) => <li key={`${f.name}-${i}`} className="flex items-center gap-2 rounded-lg bg-ink-50 px-3 py-2 text-sm"><Paperclip className="h-4 w-4 shrink-0 text-ink-400" /><span className="min-w-0 flex-1 truncate">{f.name}</span><button type="button" disabled={busy} onClick={() => setFiles(files.filter((_, j) => i !== j))} aria-label={`${vi ? "Xóa" : "Remove"} ${f.name}`} className="p-1"><X className="h-4 w-4" /></button></li>)}</ul>}
           <FormChallenge key={attempt} purpose="sourcing-request" onChange={setChallenge} messages={vi ? undefined : { loading: "Security check", success: "Verified", error: "Security check failed", retry: "Retry" }} />
           {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
         </div>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-ink-100 bg-ink-50/50 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7">
           <div><input ref={input} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" className="sr-only" tabIndex={-1} onChange={(e) => attach(e.target.files)} /><button type="button" onClick={() => input.current?.click()} disabled={busy || files.length >= SOURCING_MAX_FILES} className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700 disabled:opacity-40"><Paperclip className="h-4 w-4" />{vi ? "Đính kèm tệp" : "Attach files"}</button><p className="mt-1 text-[11px] text-ink-500">{vi ? "Tối đa 3 tệp · 2 MB/tệp" : "Up to 3 files · 2 MB each"}</p></div>
-          <button type="submit" disabled={busy || !challenge || content.trim().length < 1} className="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-40">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{busy ? (vi ? "Đang gửi…" : "Sending…") : (vi ? "Gửi yêu cầu" : "Send request")}</button>
+          <button type="submit" disabled={busy || !challenge || content.trim().length < 1 || !company.trim() || !contactName.trim() || !contactConsent} className="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-40">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{busy ? (vi ? "Đang gửi…" : "Sending…") : (vi ? "Gửi yêu cầu" : "Send request")}</button>
         </div>
       </form>
     </dialog>}

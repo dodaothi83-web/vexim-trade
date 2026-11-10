@@ -1090,13 +1090,20 @@ export interface BuyerRfqOutreach {
   sent_to_supplier_at: string;
 }
 
-/** Server-side projection: scoped match joined only to non-sensitive RFQ fields (never buyers/access tokens). */
+/** Server-side projection: scoped match joined only to supplier-safe RFQ fields (never CRM buyers/access tokens). */
 export type SupplierRfqInvitation = Pick<RfqMatch,
   "id" | "rfq_id" | "supplier_id" | "status" | "sent_to_supplier_at" | "response_due_at" | "supplier_replied_at" |
   "quote_price" | "quote_currency" | "quote_unit" | "created_at" | "updated_at"> &
   Partial<Pick<RfqMatch, "quote_incoterm" | "quote_lead_time_days" | "quote_valid_until" | "sent_to_buyer_at">> & {
   rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "destination_country" |
-    "incoterm" | "needed_by" | "source_product_id" | "source_page"> & Partial<Pick<Rfq, "status" | "preferred_supplier_ids">>;
+    "incoterm" | "needed_by" | "source_product_id" | "source_page"> & Partial<Pick<Rfq, "status" | "preferred_supplier_ids">> & {
+      /** Whitelisted JSON fields only; never expose rfq.specs, internal notes or access_token. */
+      buyer_contact?: unknown;
+      buyer_contact_policy_version?: unknown;
+      buyer_contact_consent_at?: unknown;
+      buyer_contact_consent_source?: unknown;
+      buyer_contact_supplier_ids?: unknown;
+    };
 };
 
 export interface SupplierNoticeRead {
@@ -1723,6 +1730,10 @@ export interface SourcingRequest {
   submission_key: string;
   content: string;
   attachments: SourcingAttachment[];
+  /** Null for pre-policy sourcing requests. Never infer consent from an account/CRM profile. */
+  buyer_contact_consent_at?: string | null;
+  /** Only details supplied by the buyer when sending this request; no CRM notes. */
+  buyer_contact?: import("@/lib/rfq/buyer-contact").RfqBuyerContact | null;
   status: SourcingStatus;
   assigned_to: string | null;
   internal_note: string | null;

@@ -1314,6 +1314,25 @@ export const localStore: DataStore = {
       return row;
     });
   },
+  async attachBuyerIfUnassigned(buyerId, supplierId) {
+    return mutate((db) => {
+      const buyer = db.buyers.find((b) => b.id === buyerId);
+      if (!buyer || buyer.supplier_id) return false;
+      buyer.supplier_id = supplierId;
+      buyer.hide_buyer_from_supplier = false;
+      buyer.updated_at = new Date().toISOString();
+      return true;
+    });
+  },
+  async revealBuyerIfAttached(buyerId, supplierId) {
+    mutate((db) => {
+      const buyer = db.buyers.find((b) => b.id === buyerId);
+      if (buyer?.supplier_id === supplierId && buyer.hide_buyer_from_supplier) {
+        buyer.hide_buyer_from_supplier = false;
+        buyer.updated_at = new Date().toISOString();
+      }
+    });
+  },
   async deleteBuyer(id) {
     mutate((db) => {
       db.buyers = db.buyers.filter((b) => b.id !== id);
@@ -2638,7 +2657,23 @@ export const localStore: DataStore = {
     const db = load();
     const rfqs = new Map(db.rfqs.map((r) => [r.id, r]));
     return db.rfq_matches.filter((m) => m.supplier_id === supplierId && m.sent_to_supplier_at && m.status !== "proposed")
-      .map((m) => ({ ...m, rfq: rfqs.get(m.rfq_id)! })).filter((m) => !!m.rfq)
+      .map((m) => {
+        const r = rfqs.get(m.rfq_id);
+        if (!r) return null;
+        const specs = r.specs ?? {};
+        // Mirror the production SQL projection: no full RFQ, access token or internal notes.
+        return { ...m, rfq: {
+          code: r.code, product_text: r.product_text, quantity: r.quantity, unit: r.unit,
+          destination_country: r.destination_country, incoterm: r.incoterm, needed_by: r.needed_by,
+          source_product_id: r.source_product_id, source_page: r.source_page, status: r.status,
+          preferred_supplier_ids: r.preferred_supplier_ids,
+          buyer_contact: specs.buyer_contact,
+          buyer_contact_policy_version: specs.buyer_contact_policy_version,
+          buyer_contact_consent_at: specs.buyer_contact_consent_at,
+          buyer_contact_consent_source: specs.buyer_contact_consent_source,
+          buyer_contact_supplier_ids: specs.buyer_contact_supplier_ids,
+        } };
+      }).filter((m): m is NonNullable<typeof m> => !!m)
       .sort((a, b) => b.sent_to_supplier_at!.localeCompare(a.sent_to_supplier_at!));
   },
   async listSupplierNoticeReads(supplierId) {

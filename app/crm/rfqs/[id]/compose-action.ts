@@ -14,6 +14,8 @@ import { notifyBuyerRfqStatus } from "@/lib/rfq/buyer-notify";
 import { notifySelectedSupplier, recordSupplierSelection } from "@/lib/rfq/outreach";
 import type { EmailMessage } from "@/lib/types";
 import { CLOSED_RFQ_STATUSES, SELECTABLE_MATCH_STATUSES, isSupplierQuestionRfq } from "@/lib/rfq/workflow";
+import { rfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import { withoutDirectContacts } from "@/lib/public/product-selection";
 
 /**
  * Gửi email thủ công cho một nhà cung cấp liên quan đến một RFQ match (VD: nhắc phản hồi, hỏi thêm thông tin).
@@ -183,6 +185,9 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
   const rfq = await store.getRfq(rfqId);
   const match = await store.getRfqMatch(matchId);
   if (!rfq || !match || match.rfq_id !== rfqId) throw new Error("RFQ/match không hợp lệ.");
+  if (!match.sent_to_supplier_at || match.status === "proposed" || !rfqBuyerContact(rfq, match.supplier_id)) {
+    throw new Error("Chỉ nhắc nhà cung cấp đã nhận RFQ có đồng ý chia sẻ liên hệ; không dùng lại luồng ẩn danh.");
+  }
   const sup = await store.getSupplier(match.supplier_id);
   if (!sup || !sup.email) throw new Error("Nhà cung cấp chưa có email.");
   if (!(await canInviteSupplier(sup, store))) throw new Error("Tài khoản nhà cung cấp chưa được xác nhận; chưa thể gửi RFQ.");
@@ -190,7 +195,7 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
   const subject = `Nhắc: ${rfq.code} — vui lòng phản hồi báo giá`;
   const deadline = new Date(); deadline.setDate(deadline.getDate() + 2);
   const deadlineStr = deadline.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" });
-  const body = `Kính gửi Anh/Chị ${sup.contact_name ?? sup.name},\n\nPhòng Xuất khẩu Vexim xin nhắc lại yêu cầu báo giá ${rfq.code} (${rfq.product_text}, ${rfq.quantity ?? ""} ${rfq.unit ?? ""}) đã gửi trước đó.\n\nNếu không thể tham gia chào giá lần này, rất mong Anh/Chị phản hồi ngắn gọn để chúng tôi thông báo cho người mua. Nếu có thể chào giá, vui lòng hồi âm trước ${deadlineStr}.\n\nTrân trọng,\nPhòng Xuất khẩu · Vexim Trade`;
+  const body = `Kính gửi Anh/Chị ${sup.contact_name ?? sup.name},\n\nPhòng Xuất khẩu Vexim xin nhắc lại yêu cầu báo giá ${rfq.code} (${withoutDirectContacts(rfq.product_text)}, ${rfq.quantity ?? ""} ${rfq.unit ?? ""}) đã gửi trước đó.\n\nNếu không thể tham gia chào giá lần này, rất mong Anh/Chị phản hồi ngắn gọn để chúng tôi thông báo cho người mua. Nếu có thể chào giá, vui lòng hồi âm trước ${deadlineStr}.\n\nTrân trọng,\nPhòng Xuất khẩu · Vexim Trade`;
 
   const html = wrapPlainEmail({
     title: subject,

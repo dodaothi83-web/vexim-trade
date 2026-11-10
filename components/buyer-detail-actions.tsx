@@ -128,11 +128,11 @@ export function SupplierPicker({
         <span>
           <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-800">
             <ShieldCheck className="h-4 w-4 text-brand-600" />
-            Ẩn danh người mua trong email gửi nhà cung cấp
+            Ẩn danh trong email CRM khác (không áp dụng RFQ đã gửi)
           </span>
           <span className="mt-0.5 block text-[11.5px] leading-relaxed text-ink-500">
-            Email cho nhà cung cấp chỉ nêu “Khách hàng thị trường {buyer.country || "nước ngoài"}” thay vì tên
-            buyer. Bỏ tích nếu buyer cho phép công khai.
+            Chỉ áp dụng email giai đoạn của CRM cũ. RFQ đã gửi luôn dùng thông tin Buyer cung cấp
+            và đồng ý chia sẻ riêng cho RFQ đó; ô này không thể thu hồi email đã gửi.
           </span>
         </span>
       </label>

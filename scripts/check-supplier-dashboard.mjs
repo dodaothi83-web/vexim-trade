@@ -18,7 +18,10 @@ function load(path, mocks) {
 }
 const onlyContacts = (v) => v.replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, '[contact via Vexim]');
 const dictionary = loadPortalDictionary();
+const contact = load('../lib/rfq/buyer-contact.ts', {});
+const consent = contact.buyerContactConsentSpec({ company: 'Buyer Co', contact_name: 'Jane', email: 'buyer@example.com', phone: '123456', country: 'US', website: null, business_type: null }, '2026-10-17T00:00:00Z', 'rfq_form');
 const dashboard = load('../lib/supplier-portal/dashboard.ts', {
+  '@/lib/rfq/buyer-contact': contact,
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { vi: dictionary.vi.notices, en: dictionary.en.notices } },
   '@/lib/i18n/portal/rfqs': { rfqsMessages: { vi: dictionary.vi.rfqs, en: dictionary.en.rfqs } }, '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts } });
@@ -31,20 +34,24 @@ const make = (id, supplierId, status, sentAt, sourceProductId = 'p-a') => ({
   created_at: sentAt || '2026-10-17T00:00:00Z', updated_at: '2026-10-17T00:00:00Z',
   rfq: { code: `RFQ-${id}`, product_text: 'secret buyer@example.com', source_product_id: sourceProductId,
     quantity: 5, unit: 'MT', destination_country: 'US', incoterm: 'FOB', needed_by: null,
-    buyer_id: 'SECRET', access_token: 'SECRET' },
+    buyer_id: 'SECRET', access_token: 'SECRET', ...consent },
 });
 const match = make(idA, 's-a', 'sent_to_supplier', '2026-10-17T09:00:00Z');
 const foreign = make(idB, 's-b', 'quoted', '2026-10-17T08:00:00Z');
 const unsent = make('cccccccc-cccc-cccc-cccc-cccccccccccc', 's-a', 'proposed', null);
 const legacy = make('dddddddd-dddd-dddd-dddd-dddddddddddd', 's-a', 'quoted', '2026-08-01T08:00:00Z', null);
 legacy.quote_price = 28;
+for (const field of Object.keys(consent)) delete legacy.rfq[field];
+foreign.rfq.buyer_contact = { ...consent.buyer_contact, email: 'foreign@example.com' };
 const products = [{ id: 'p-a', supplier_id: 's-a', name: 'Cashew W320' }, { id: 'p-b', supplier_id: 's-b', name: 'SECRET factory' }];
 const input = { supplierId: 's-a', invites: [match, foreign, unsent, legacy], products, reads: [], reviews: [], requests: [], days: 30, now };
 const base = dashboard.buildSupplierDashboard(input);
 assert.equal(base.invites.length, 2, 'Only sent invitations for this supplier are visible');
 assert.equal(base.invites[0].title, 'Cashew W320');
 assert.ok(!JSON.stringify(base).includes('SECRET'));
-assert.ok(!JSON.stringify(base).includes('buyer@example.com'));
+assert.equal(base.invites[0].buyerContact.email, 'buyer@example.com', 'Only sent RFQ exposes consented contact');
+assert.equal(base.invites[1].buyerContact, null, 'Legacy RFQ without consent stays private');
+assert.ok(!JSON.stringify(base).includes('foreign@example.com'), 'Other supplier contact never appears');
 assert.equal(base.tasks.length, 1);
 assert.equal(base.report.sent, 1, 'Period based on sent timestamp, not buyer creation');
 assert.equal(base.report.quoted, 0);
@@ -119,7 +126,7 @@ staff.name = 'Dung\r\nCc: attacker@example.com';
 await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /tên người thật/);
 staff.name = 'Nguyễn Văn Dung';
 
-const rfq = { id: 'r1', code: 'RFQ-20261017-001', buyer_id: 'b1', product_text: 'Cashew', quantity: 5, unit: 'MT', status: 'new' };
+const rfq = { id: 'r1', code: 'RFQ-20261017-001', buyer_id: 'b1', product_text: 'Cashew', quantity: 5, unit: 'MT', status: 'new', specs: { ...consent, notes: 'SECRET BUYER CONTACT' } };
 const storedMatch = { ...match, rfq_id: rfq.id, status: 'proposed', sent_to_supplier_at: null };
 const sent = [];
 let mode = 'simulated';
@@ -152,10 +159,13 @@ const outbound = load('../lib/rfq/outreach.ts', {
   '@/lib/email/templates': { escapeHtml: (s) => s, wrapPlainEmail: ({ body }) => body },
   '@/lib/rfq/reply-routing': { supplierReplyAddress: () => 'reply@example.com', buyerReplyAddress: () => 'buyer-reply@example.com' },
   '@/lib/email/threading': { mailTopic: (input) => `rfq.${input.rfqCode}`, openThread: async () => ({ messageId: '<rfq.test.1@example.com>', headers: {}, seq: 1 }) },
+  './buyer-contact': contact,
+  './attach-buyer': { attachBuyerAfterDirectRfqDelivery: async () => false },
 });
-const privateMail = outbound.buildRfqSupplierEmail({ rfq: { ...rfq, product_text: 'contact buyer@example.com', specs: { notes: 'SECRET BUYER CONTACT' } },
-  supplier: { name: 'Supplier A' }, deadline: now });
-assert.ok(!privateMail.html.includes('buyer@example.com'));
+const privateMail = outbound.buildRfqSupplierEmail({ rfq: { ...rfq, product_text: 'contact thirdparty@example.com' },
+  supplier: { id: 's-a', name: 'Supplier A' }, deadline: now });
+assert.match(privateMail.html, /buyer@example.com/);
+assert.ok(!privateMail.html.includes('thirdparty@example.com'));
 assert.ok(!privateMail.html.includes('SECRET BUYER CONTACT'));
 const shortlist = outbound.buildRfqShortlistBuyerEmail({
   rfq, buyer: { contact_name: 'Jane', email: 'buyer@example.com' },
@@ -190,7 +200,7 @@ assert.match(invite.html, /https:\/\/example\.com\/supplier\/portal\/rfqs/);
 assert.match(invite.html, /không cần trả lời email này/);
 assert.doesNotMatch(invite.html, /trả lời trực tiếp email này/);
 // Hồ sơ do Vexim tạo, chưa có cổng: vẫn trả lời bằng email cho người phụ trách.
-const legacyInvite = outbound.buildRfqSupplierEmail({ rfq, supplier: { name: 'Supplier A' }, deadline: now });
+const legacyInvite = outbound.buildRfqSupplierEmail({ rfq, supplier: { id: 's-a', name: 'Supplier A' }, deadline: now });
 assert.match(legacyInvite.html, /trả lời trực tiếp email này/);
 assert.doesNotMatch(legacyInvite.html, /supplier\/portal\/rfqs/);
 storedMatch.status = 'quoted'; storedMatch.quote_price = 7;
@@ -204,7 +214,8 @@ mode = 'sent';
 assert.equal((await outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id })).email, 'sent');
 assert.equal(sent.length, countBeforeSelection + 1);
 assert.equal(sent.at(-1).from, 'Nguyễn Văn Dung <dung@veximtrade.com>', 'Selection mail cannot use a role address');
-assert.ok(!sent.at(-1).html.includes('buyer@example.com') && !sent.at(-1).html.includes('SECRET'), 'Selection mail is anonymous');
+assert.match(sent.at(-1).html, /buyer@example.com/, 'Selection email uses the same consented contact block');
+assert.doesNotMatch(sent.at(-1).html, /SECRET/, 'Selection mail still excludes internal notes');
 assert.equal(storedMatch.status, 'selected');
 await outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id });
 assert.equal(sent.length, countBeforeSelection + 1, 'Replaying selection does not resend mail');
@@ -281,6 +292,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/security/challenge': { verifyFormChallenge: () => ({ ok: true }) },
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => null, sendRfqNewInternal: async () => null },
+  './buyer-contact': contact,
   './targeted-portal': { releaseTargetedQuoteToPortal: async () => 0 },
   './auto-match': { createPreferredSupplierMatches: async () => [] },
   './supplier-question-rate-limit': { checkSupplierQuestionRateLimit: async () => ({ status: 'ok' }) },
@@ -292,7 +304,7 @@ const submit = load('../lib/rfq/submit.ts', {
   './enrich': { scheduleRfqEnrichment: () => {} },
   './rate-limit': { gcRateLimit() {}, rateLimit: () => ({ ok: true }) },
 });
-const raw = { company: 'Buyer', contact_name: 'Jane', email: 'buyer@example.com', consent: true,
+const raw = { company: 'Buyer', contact_name: 'Jane', email: 'buyer@example.com', consent: true, share_contact_consent: true,
   product_text: 'Cashew W320', category_slug: 'cashew', source_product_id: 'p-a', preferred_supplier_ids: ['s-a'] };
 assert.equal((await submit.submitRfq(raw)).ok, true);
 assert.equal(createdRfqs.at(-1).source_product_id, 'p-a');
@@ -308,4 +320,4 @@ assert.equal(createdRfqs.at(-1).preferred_supplier_ids.join(','), 's-a', 'Publis
 
 const productPage = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(productPage, /product_id=\$\{encodeURIComponent\(card\.id\)\}/);
-console.log('✅ Supplier dashboard: isolation, anonymous invitations, honest metrics, read receipts, verified outreach and migration gate.');
+console.log('✅ Supplier dashboard: recipient-scoped contact consent, no internal leaks, honest metrics, verified outreach and migration gate.');

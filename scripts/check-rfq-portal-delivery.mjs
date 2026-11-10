@@ -23,7 +23,9 @@ assert.match(read('components/confirm-submit-button.tsx'), /^"use client"/);
 assert.match(read('components/confirm-submit-button.tsx'), /window\.confirm\(message\)/);
 assert.match(read('app/crm/rfqs/[id]/page.tsx'), /form="rfq-dispatch"/);
 const dictionary = loadPortalDictionary();
+const contact = load('lib/rfq/buyer-contact.ts', {});
 const dashboard = load('lib/supplier-portal/dashboard.ts', {
+  '@/lib/rfq/buyer-contact': contact,
   '@/lib/public/product-selection': { withoutDirectContacts: (s) => String(s).replace(/[\w.+-]+@[\w.-]+/g, '[redacted]') },
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { en: dictionary.en.notices, vi: dictionary.vi.notices } },
@@ -31,10 +33,15 @@ const dashboard = load('lib/supplier-portal/dashboard.ts', {
 });
 let supplier = { id: 's1', status: 'published', onboarding_status: 'approved', email: 'supplier@example.com' };
 let migrated = true, emailSent = true, portalUser = null;
-let rfq = { id: 'r1', code: 'RFQ-1', status: 'new', source_product_id: 'p1', preferred_supplier_ids: ['s1'], specs: {}, quantity: 10, unit: 'MT', product_text: 'secret buyer@example.com', access_token: 'private-token' };
+const consent = contact.buyerContactConsentSpec({ company: 'Buyer Co', contact_name: 'Jane', email: 'buyer@example.com', phone: '123456', country: 'VN', website: null, business_type: null }, '2026-10-17T00:00:00Z', 'rfq_form');
+let rfq = { id: 'r1', code: 'RFQ-1', buyer_id: 'b1', status: 'new', source_product_id: 'p1', preferred_supplier_ids: ['s1'], specs: { ...consent, notes: 'SECRET' }, quantity: 10, unit: 'MT', product_text: 'secret buyer@example.com', access_token: 'private-token' };
 let match = { id: 'm1', rfq_id: 'r1', supplier_id: 's1', status: 'proposed', sent_to_supplier_at: null };
 const mail = [], messages = [], writes = [];
-const invites = () => match.sent_to_supplier_at ? [{ ...match, rfq }] : [];
+const invites = () => match.sent_to_supplier_at ? [{ ...match, rfq: {
+  code: rfq.code, source_product_id: rfq.source_product_id, preferred_supplier_ids: rfq.preferred_supplier_ids,
+  unit: rfq.unit, quantity: rfq.quantity, destination_country: 'VN', status: rfq.status,
+  ...consent,
+} }] : [];
 const products = [{ id: 'p1', supplier_id: 's1', name: 'Cashew W320' }];
 const store = {
   getSupplier: async () => supplier,
@@ -50,7 +57,12 @@ const store = {
 };
 const emailInputs = [];
 const publisher = load('lib/rfq/targeted-portal.ts', {
-  './outreach': { buildRfqSupplierEmail: (input) => { emailInputs.push(input); return { subject: 'Anonymous RFQ', html: '<p>Commercial specification</p>', text: 'Commercial specification' }; } },
+  './outreach': { buildRfqSupplierEmail: (input) => { emailInputs.push(input); return { subject: 'RFQ', html: '<p>Consented buyer details</p>', text: 'Consented buyer details' }; } },
+  './buyer-contact': contact,
+  './attach-buyer': { attachBuyerAfterDirectRfqDelivery: async (_store, _rfq, id) => {
+    assert.equal(id, match.id); assert.ok(match.sent_to_supplier_at, 'CRM link only after a durable invitation');
+    writes.push(['crm_link', id]); return true;
+  } },
   '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/email/send': { transport: async (input) => { mail.push(input); return { ok: emailSent, status: emailSent ? 'sent' : 'failed', provider: 'test' }; } },
   '@/lib/config': { FROM_ADDRESS: 'Vexim <system@example.com>' },
@@ -63,6 +75,9 @@ for (const patch of [ { status: 'spam' }, { status: 'needs_review' }, { preferre
 supplier.onboarding_status = 'pending';
 assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 0);
 supplier.onboarding_status = 'approved';
+assert.equal(await publisher.releaseTargetedQuoteToPortal(store, { ...rfq, specs: {} }), 0, 'Old anonymous requests cannot be published without separate consent');
+assert.equal(writes.length + mail.length, 0);
+supplier.onboarding_status = 'approved';
 migrated = false;
 await assert.rejects(publisher.releaseTargetedQuoteToPortal(store, rfq), /migration missing/);
 assert.equal(writes.length + mail.length, 0, 'Moderation/approval/migration gates precede publishing and mail');
@@ -73,7 +88,8 @@ assert.ok(match.sent_to_supplier_at && match.response_due_at);
 assert.equal(rfq.status, 'matching');
 assert.equal(mail[0].replyTo, 'rfq+m1@example.com');
 assert.equal(emailInputs[0].portalUrl, 'https://example.com/supplier/portal/rfqs', 'Nhà cung cấp có cổng được dẫn sang báo giá trên cổng');
-assert.equal(mail[0].headers['X-Vexim-Anonymous'], '1');
+assert.equal(mail[0].headers['X-Vexim-Anonymous'], undefined);
+assert.equal(writes.filter(([kind]) => kind === 'crm_link').length, 1);
 assert.equal(messages[0].created_by, null, 'System delivery must not fabricate a staff sender');
 assert.equal(await publisher.releaseTargetedQuoteToPortal(store, { ...rfq, status: 'new' }), 0, 'A retry does not re-publish/re-send');
 assert.equal(mail.length, 1);
@@ -83,7 +99,9 @@ assert.equal(board.tasks.length, 1);
 assert.equal(board.invites[0].productId, 'p1');
 assert.equal(board.report.sent, 1);
 assert.ok(board.notices.some((n) => n.key === 'rfq:m1' && !n.read && n.href === '/supplier/portal/rfqs'));
-assert.doesNotMatch(JSON.stringify(board), /buyer@example.com|private-token/);
+assert.equal(board.invites[0].buyerContact.email, 'buyer@example.com');
+assert.equal(board.invites[0].buyerContact.phone, '123456');
+assert.doesNotMatch(JSON.stringify(board), /private-token|SECRET/);
 assert.equal(dashboard.buildSupplierDashboard({ ...input, supplierId: 's2' }).invites.length, 0);
 assert.equal(dashboard.buildSupplierDashboard({ ...input, reads: [{ supplier_id: 's1', notice_key: 'rfq:m1' }] }).notices.find((n) => n.key === 'rfq:m1').read, true);
 let access = { supplier, store, reviews: [] };

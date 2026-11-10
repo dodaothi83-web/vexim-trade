@@ -345,7 +345,7 @@ export default async function SupplierDetailPage({
                           <span className="mt-0.5 block truncate text-[13px] font-medium text-ink-800">{rfq.product_text}</span>
                           <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
                             {[
-                              rfqBuyer ? (rfqBuyer.hide_buyer_from_supplier ? `Khách thị trường ${rfqBuyer.country || "nước ngoài"} (ẩn danh)` : rfqBuyer.company) : null,
+                              rfqBuyer?.company ?? null, // Staff CRM view, not the supplier portal.
                               rfq.quantity ? `${rfq.quantity} ${rfq.unit ?? ""}`.trim() : null,
                               rfq.destination_country,
                               formatDate(rfq.created_at),
@@ -384,14 +384,7 @@ export default async function SupplierDetailPage({
                       >
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13.5px] font-semibold text-ink-900">
-                            {b.hide_buyer_from_supplier ? (
-                              <>
-                                Khách thị trường {b.country || "nước ngoài"}{" "}
-                                <span className="font-normal text-ink-400">(ẩn danh)</span>
-                              </>
-                            ) : (
-                              b.company
-                            )}
+                            {b.company}
                           </span>
                           <span className="mt-0.5 block truncate text-[11.5px] text-ink-500">
                             {b.product || "Chưa rõ sản phẩm"} · {b.quantity || "chưa rõ số lượng"}
@@ -408,7 +401,7 @@ export default async function SupplierDetailPage({
               )}
               <p className="mt-3 rounded-xl bg-ink-50 px-3.5 py-2.5 text-[11.5px] leading-5 text-ink-500">
                 <ShieldCheck className="mr-1 inline h-3 w-3" />
-                Đơn đánh dấu “ẩn danh” sẽ không lộ tên người mua trong email gửi nhà cung cấp.
+Chỉ nhân viên CRM thấy danh sách này. Liên hệ trong RFQ chỉ đến NCC đã thực sự nhận RFQ với đồng ý của Buyer; cờ email CRM cũ không chi phối RFQ.
               </p>
             </Card>
           )}
