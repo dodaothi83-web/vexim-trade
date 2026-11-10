@@ -1,5 +1,6 @@
 import type { Certificate, Supplier, SupplierNoticeRead, SupplierProduct, SupplierRfqInvitation, SupplierSubmission, SupplierVerificationRequest, Verification } from "@/lib/types";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { publicProductTitle } from "@/lib/public/display-name";
 import type { Locale } from "@/lib/i18n/config";
 import { fill } from "@/lib/i18n/format";
 import { noticesMessages } from "@/lib/i18n/portal/notices";
@@ -30,6 +31,8 @@ export interface PortalInvite {
   quotePrice: string | null;
   repliedAt: string | null;
   productId: string | null;
+  /** Current, sanitized catalog details for this supplier's verified source product only. */
+  linkedProduct: { spec: string | null; packaging: string | null; moq: string | null } | null;
   /** Buyer-visible request only: sanitized product text and an explicit allowlist of RFQ fields. */
   request: {
     description: string;
@@ -88,7 +91,7 @@ function relevantInvites(supplierId: string, invites: SupplierRfqInvitation[]) {
 
 function safeRequestText(value: unknown, language: Locale, max: number): string | null {
   if (typeof value !== "string") return null;
-  // Product descriptions and specs are buyer-entered. Strip unsolicited email/phone/URLs;
+  // Buyer requirements and catalog fields are free text. Strip unsolicited email/phone/URLs;
   // only the separately consented buyerContact block may disclose direct contacts.
   return withoutDirectContacts(value.trim())
     .replaceAll("[contact via Vexim]", rfqsMessages[language].request.redacted)
@@ -103,12 +106,14 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
     const rfq = m.rfq!;
     const text = (value: unknown, max = 200) => safeRequestText(value, language, max);
     const product = rfq.source_product_id ? productMap.get(rfq.source_product_id) : null;
+    // The name on the buyer-facing product card is not necessarily the supplier's raw name.
+    const title = product ? text(publicProductTitle(product)) || fallback.title : fallback.title;
     const month = text(rfq.shipment_month, 7);
     const deliveryMonth = month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)
       ? `${month.slice(5, 7)}/${month.slice(0, 4)}` : null;
     const destination = [text(rfq.destination_country), text(rfq.destination_port)].filter(Boolean).join(" · ");
     return {
-      matchId: m.id, code: rfq.code, title: product ? text(product.name_i18n?.en || product.name) || fallback.title : fallback.title,
+      matchId: m.id, code: rfq.code, title,
       status: statusLabel(m.status, language), sentAt: m.sent_to_supplier_at!,
       dueAt: m.response_due_at ?? null,
       quantity: rfq.quantity && rfq.unit ? `${rfq.quantity} ${text(rfq.unit, 30) || ""}`.trim() : fallback.quantity,
@@ -116,6 +121,12 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
       repliedAt: m.supplier_replied_at ?? null,
       quotePrice: m.quote_price != null ? `${m.quote_price} ${m.quote_currency || ""}/${text(m.quote_unit || rfq.unit, 20) || ""}` : null,
       productId: product?.id ?? null,
+      linkedProduct: product ? {
+        spec: text(product.spec_i18n?.[language] || product.spec, 260) ||
+          text(product.description_i18n?.[language] || product.description, 260),
+        packaging: text(product.packaging_i18n?.[language] || product.packaging, 160),
+        moq: text(product.moq, 80),
+      } : null,
       request: {
         description: text(rfq.product_text, 4_000) || fallback.title,
         grade: text(rfq.grade), packaging: text(rfq.packaging, 500),
@@ -165,7 +176,7 @@ export function buildSupplierReport(input: { supplierId: string; invites: Suppli
   for (const m of period) {
     const product = m.rfq!.source_product_id ? productMap.get(m.rfq!.source_product_id) : null;
     const key = product?.id ?? "other";
-    const row = group.get(key) ?? { id: key, name: product ? withoutDirectContacts(product.name_i18n?.en || product.name) : fallbackRow, sent: 0, quoted: 0 };
+    const row = group.get(key) ?? { id: key, name: product ? withoutDirectContacts(publicProductTitle(product)).slice(0, 200) || fallbackRow : fallbackRow, sent: 0, quoted: 0 };
     row.sent += 1;
     if (m.quote_price != null) row.quoted += 1;
     group.set(key, row);
