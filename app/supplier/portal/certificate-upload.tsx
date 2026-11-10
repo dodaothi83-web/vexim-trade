@@ -9,22 +9,26 @@ import { FilePicker } from "@/components/file-picker";
 import { fill } from "@/lib/i18n/format";
 import type { PortalMessages } from "@/lib/i18n/portal";
 
+type CertificateOption = { id: string; name: string; valid_until: string | null };
+
 export function SupplierCertificateUpload({
   certificates,
   blockedReason = null,
   trading = false,
   copy,
 }: {
-  /** Đơn vị thương mại: thêm ô tải hợp đồng/ủy quyền với nhà máy đứng tên trên giấy. */
+  /** Trading suppliers may need to provide a factory contract for a certificate issued to a partner. */
   trading?: boolean;
-  certificates: Array<{ id: string; name: string; valid_until: string | null }>;
-  /** Có lý do thì ô tải đóng sẵn và nói vì sao — không để chọn tệp rồi mới nhận lỗi. */
+  certificates: CertificateOption[];
   blockedReason?: string | null;
   copy: PortalMessages["documents"]["certUpload"];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [mode, setMode] = useState<"renew" | "new">(certificates.length ? "renew" : "new");
+  const [certificateId, setCertificateId] = useState(certificates[0]?.id ?? "");
+  const selected = certificates.find((certificate) => certificate.id === certificateId) ?? null;
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,6 +37,7 @@ export function SupplierCertificateUpload({
     try {
       const element = event.currentTarget;
       const form = new FormData(element);
+      form.set("certificate_id", mode === "renew" ? certificateId : "");
       const res = await fetch("/api/supplier-portal/certificates", {
         method: "POST",
         body: form,
@@ -40,8 +45,7 @@ export function SupplierCertificateUpload({
       const payload = (await res.json()) as { ok?: boolean; message?: string };
       setMessage({
         ok: Boolean(res.ok && payload.ok),
-        text: payload.message ??
-          (res.ok ? copy.ok : copy.fail),
+        text: payload.message ?? (res.ok ? copy.ok : copy.fail),
       });
       if (res.ok && payload.ok) {
         element.reset();
@@ -56,22 +60,14 @@ export function SupplierCertificateUpload({
 
   if (blockedReason) {
     return (
-      <section
-        aria-label={copy.blockedAria}
-        className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-4"
-      >
-        <p className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-amber-900 uppercase">
+      <section aria-label={copy.blockedAria} className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+        <p className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
           <Lock className="size-3.5" aria-hidden="true" /> {copy.blockedTitle}
         </p>
         <p className="mt-1 text-xs leading-5 text-amber-900">{blockedReason}</p>
         <div className="mt-3">
-          <FilePicker
-            compact
-            disabled
-            accept=".pdf,image/jpeg,image/png,image/webp"
-            title={copy.blockedPickerTitle}
-            hint={copy.blockedPickerHint}
-          />
+          <FilePicker compact disabled accept=".pdf,image/jpeg,image/png,image/webp"
+            title={copy.blockedPickerTitle} hint={copy.blockedPickerHint} />
         </div>
         <Link href="/supplier/portal/verification/factory" className="mt-2 inline-block text-xs font-bold text-amber-900 underline">
           {copy.openStep2}
@@ -81,78 +77,61 @@ export function SupplierCertificateUpload({
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="mt-4 grid gap-3 rounded-xl border border-brand-200 bg-brand-50/50 p-4 sm:grid-cols-3"
-    >
-      <div className="sm:col-span-3">
-        <p className="text-xs font-bold uppercase tracking-wider text-brand-900">
-          {copy.heading}
-        </p>
-        <p className="mt-0.5 text-xs text-ink-600">
-          {copy.intro}
-        </p>
+    <form onSubmit={onSubmit} className="mt-4 rounded-xl border border-ink-200 bg-white p-4">
+      <div>
+        <p className="text-xs font-bold text-ink-900">{copy.heading}</p>
+        <p className="mt-1 text-xs leading-5 text-ink-600">{copy.intro}</p>
       </div>
-      <label className="block text-xs">
-        <span className="mb-1 block font-semibold text-ink-800">{copy.renewLabel}</span>
-        <select name="certificate_id" className="input text-sm" defaultValue="">
-          <option value="">{copy.newOption}</option>
-          {certificates.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.valid_until
-                ? fill(copy.renewOptionWithExpiry, { name: c.name, date: c.valid_until })
-                : fill(copy.renewOption, { name: c.name })}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="block text-xs sm:col-span-2">
-        <span className="mb-1 block font-semibold text-ink-800">{copy.nameLabel}</span>
-        <input
-          name="label"
-          type="text"
-          maxLength={140}
-          placeholder={copy.namePlaceholder}
-          className="input text-sm"
-        />
-      </label>
-      <div className="block sm:col-span-2">
-        <FilePicker
-          compact
-          name="file"
-          accept=".pdf,image/jpeg,image/png,image/webp"
-          required
-          busy={busy}
-          title={copy.fileTitle}
-          hint={copy.fileHint}
-        />
-      </div>
-      {trading && <div className="block sm:col-span-2">
-        <FilePicker
-          compact
-          name="relationship_file"
-          accept=".pdf,image/jpeg,image/png,image/webp"
-          busy={busy}
-          title={copy.contractTitle}
-          hint={copy.contractHint}
-        />
-        <p className="mt-1 text-[11px] text-ink-500">{copy.contractNote}</p>
-      </div>}
-      <div className="flex items-end sm:col-span-1">
-        <button disabled={busy} className="btn btn-primary w-full" type="submit">
-          {busy ? copy.uploading : copy.submit}
+
+      <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label={copy.heading}>
+        <button type="button" aria-pressed={mode === "renew"} disabled={!certificates.length || busy}
+          onClick={() => { setMode("renew"); setMessage(null); }}
+          className={`rounded-lg border px-3 py-2 text-left text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-45 ${mode === "renew" ? "border-brand-500 bg-brand-50 text-brand-900 ring-1 ring-brand-200" : "border-ink-200 bg-white text-ink-700 hover:bg-ink-50"}`}>
+          {copy.updateExisting}
+        </button>
+        <button type="button" aria-pressed={mode === "new"} disabled={busy}
+          onClick={() => { setMode("new"); setMessage(null); }}
+          className={`rounded-lg border px-3 py-2 text-left text-xs font-bold transition ${mode === "new" ? "border-brand-500 bg-brand-50 text-brand-900 ring-1 ring-brand-200" : "border-ink-200 bg-white text-ink-700 hover:bg-ink-50"}`}>
+          {copy.addNew}
         </button>
       </div>
-      {message && (
-        <p
-          role="status"
-          className={`text-xs font-medium sm:col-span-3 ${
-            message.ok ? "text-emerald-800" : "text-rose-700"
-          }`}
-        >
-          {message.text}
+
+      {mode === "renew" && certificates.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <label className="block text-xs">
+          <span className="mb-1 block font-semibold text-ink-800">{copy.chooseExisting}</span>
+          <select name="certificate_id" value={certificateId} disabled={busy} onChange={(event) => setCertificateId(event.target.value)} className="input text-sm">
+            {certificates.map((certificate) => <option key={certificate.id} value={certificate.id}>
+              {fill(copy.renewOption, { name: certificate.name })}
+            </option>)}
+          </select>
+        </label>
+        <p className="self-end rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-600">
+          {selected?.valid_until
+            ? fill(copy.expiry, { date: selected.valid_until })
+            : copy.noExpiry}
         </p>
-      )}
+      </div>}
+
+      <label className="mt-3 block text-xs">
+        <span className="mb-1 block font-semibold text-ink-800">{copy.nameLabel}</span>
+        <input name="label" type="text" maxLength={140} placeholder={copy.namePlaceholder} className="input text-sm" />
+      </label>
+
+      <div className="mt-3">
+        <FilePicker compact name="file" accept=".pdf,image/jpeg,image/png,image/webp" required busy={busy}
+          title={copy.fileTitle} hint={copy.fileHint} />
+      </div>
+      {trading && <div className="mt-3">
+        <FilePicker compact name="relationship_file" accept=".pdf,image/jpeg,image/png,image/webp" busy={busy}
+          title={copy.contractTitle} hint={copy.contractHint} />
+        <p className="mt-1 text-[11px] text-ink-500">{copy.contractNote}</p>
+      </div>}
+      <button disabled={busy || (mode === "renew" && !certificateId)} className="btn btn-primary mt-3 w-full sm:w-auto" type="submit">
+        {busy ? copy.uploading : copy.submit}
+      </button>
+      {message && <p role="status" className={`mt-3 text-xs font-medium ${message.ok ? "text-emerald-800" : "text-rose-700"}`}>
+        {message.text}
+      </p>}
     </form>
   );
 }

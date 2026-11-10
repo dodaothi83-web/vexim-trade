@@ -90,7 +90,7 @@ export default async function SupplierRfqPage({ searchParams }: {
     const url = selected && privateMediaUrl(selected);
     if (url) imageByProduct.set(productId, url);
   }
-  const showTasksSection = visibleTasks.length > 0 || (filter === "all" && !query && board.tasks.length === 0 && !degraded.includes(copy.degraded.labelInvites));
+  const showTasksSection = visibleTasks.length > 0 || ((filter === "all" || filter === "reply") && !query && board.tasks.length === 0 && !degraded.includes(copy.degraded.labelInvites));
   const showHistorySection = historyCount > 0 && (visibleHistory.length > 0 || (filter === "all" && !query));
   const quoteCount = board.invites.filter((item) => ["quoted", "presented_to_buyer", "selected"].includes(item.matchStatus)).length;
   const closedCount = board.invites.filter((item) => ["declined", "not_selected"].includes(item.matchStatus)).length;
@@ -156,7 +156,7 @@ export default async function SupplierRfqPage({ searchParams }: {
         {fill(copy.quote.publishPending, { code: sp.code! })}
       </div>}
 
-    {board.invites.length > 0 && <section aria-label={copy.filters.title} className="mb-5 rounded-xl border border-ink-200 bg-white p-4 shadow-sm sm:px-5">
+    <section aria-label={copy.filters.title} className="mb-5 rounded-xl border border-ink-200 bg-white p-4 shadow-sm sm:px-5">
       <form action="/supplier/portal/rfqs" method="get" className="flex flex-col gap-3 sm:flex-row">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">{copy.filters.searchLabel}</span>
@@ -184,12 +184,12 @@ export default async function SupplierRfqPage({ searchParams }: {
         {(query || filter !== "all") && <Link href={queryHref({ filter: null, q: null, page: null })}
           className="inline-flex min-h-10 items-center px-3 text-[13px] font-semibold text-brand-700 hover:underline">{copy.filters.clear}</Link>}
       </nav>
-    </section>}
+    </section>
 
     {showTasksSection && <section aria-labelledby="rfq-pending" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <header className="border-b border-ink-200 px-4 py-4 sm:px-6">
-        <h2 id="rfq-pending" className="flex items-center gap-2 text-lg font-bold text-ink-900">
-          {copy.tasks.title}<span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-sm text-amber-900">{visibleTasks.length}</span>
+        <h2 id="rfq-pending" className="text-lg font-bold text-ink-900">
+          {copy.tasks.title}{" "}<span className="text-sm font-semibold tabular-nums text-ink-500">· {visibleTasks.length}</span>
         </h2>
         <p className="mt-1 text-sm leading-6 text-ink-600">{copy.tasks.sub}</p>
       </header>
@@ -200,7 +200,9 @@ export default async function SupplierRfqPage({ searchParams }: {
     {showHistorySection && <section aria-labelledby="rfq-history" className="mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 px-4 py-4 sm:px-6">
         <div>
-          <h2 id="rfq-history" className="text-base font-bold text-ink-900">{copy.invites.title}</h2>
+          <h2 id="rfq-history" className="text-base font-bold text-ink-900">
+            {copy.invites.title}{" "}<span className="text-sm font-semibold tabular-nums text-ink-500">· {visibleHistory.length}</span>
+          </h2>
           <p className="mt-1 text-[13px] leading-5 text-ink-600">{copy.invites.sub}</p>
         </div>
 
@@ -218,7 +220,7 @@ export default async function SupplierRfqPage({ searchParams }: {
     </section>}
     {board.invites.length > 0 && filtered.length === 0 && <div className="mt-5"><EmptyRow>{copy.filters.noResults}</EmptyRow></div>}
 
-    {board.invites.length > 0 && <details id="rfq-report" open={sp.report === "1"} className="group mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+    <details id="rfq-report" open={sp.report === "1"} className="group mt-5 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <summary className="flex min-h-14 cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-ink-700 sm:px-6">
         <TrendingUp className="h-4 w-4" aria-hidden="true" />{copy.report.title}
         <ChevronDown className="ml-auto h-4 w-4 transition group-open:rotate-180" aria-hidden="true" />
@@ -253,6 +255,6 @@ export default async function SupplierRfqPage({ searchParams }: {
         </div> : <EmptyRow>{fill(copy.report.empty, { days })}</EmptyRow>}
         <p className="border-t border-ink-200 px-4 py-3 text-[13px] leading-5 text-ink-600 sm:px-6">{copy.report.footnote}</p>
       </div>
-    </details>}
+    </details>
   </div>;
 }

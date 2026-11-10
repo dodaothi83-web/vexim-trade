@@ -14,6 +14,7 @@ import { RequestDetails } from "../request-details";
 import { SupplierQuoteForm } from "../quote-form";
 import type { MediaAsset } from "@/lib/types";
 import { privateMediaUrl, supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
+import { publicProductCategorySlug } from "@/lib/public/product-selection";
 import { supplierRfqMessageAction, supplierRfqReadAction, supplierVeximMessageAction, supplierVeximReadAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +36,20 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
     products, days: 30, language: locale }).invites[0];
   if (!item) return null; // An invitation withdrawn between the access check and projection.
   const product = item.productId ? products.find((p) => p.id === item.productId && p.supplier_id === supplier.id) ?? null : null;
-  const productMedia: MediaAsset[] = product ? await store.listMediaForProducts([product.id]).catch((error) => {
-    console.error("[supplier-portal] could not load the requested product image", error);
-    return [];
-  }) : [];
+  const [productMedia, publicCategories] = await Promise.all([
+    product ? store.listMediaForProducts([product.id]).catch((error) => {
+      console.error("[supplier-portal] could not load the requested product image", error);
+      return [] as MediaAsset[];
+    }) : Promise.resolve([] as MediaAsset[]),
+    product ? store.listCategories({ publishedOnly: true }).catch((error) => {
+      console.error("[supplier-portal] could not load public product categories", error);
+      return [];
+    }) : Promise.resolve([]),
+  ]);
+  const publicCategorySlug = product ? publicProductCategorySlug(product, publicCategories) : null;
+  const productPageHref = product && publicCategorySlug
+    ? `/products/${encodeURIComponent(publicCategorySlug)}/${encodeURIComponent(product.id)}`
+    : null;
   const productImages = product ? supplierVisibleProductMedia(productMedia, supplier.id, user.id)
     .filter((asset) => asset.product_id === product.id && asset.kind === "image") : [];
   const featuredImage = product?.featured_media_id
@@ -86,14 +97,14 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
                       <dt className="text-ink-600">{label}</dt><dd className="break-words font-semibold text-ink-900">{value}</dd>
                     </div>)}
                 </dl>
-                <Link href={`/supplier/portal/products/${encodeURIComponent(item.productId)}`} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">
+                {productPageHref && <Link href={productPageHref} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">
                   {m.rfqs.product.view}<ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
+                </Link>}
               </div>
             </div>
           </section>}
           <RequestDetails item={item} copy={m.rfqs.request} className="" />
-          {item.productId && !item.linkedProduct && <Link href={`/supplier/portal/products/${encodeURIComponent(item.productId)}`} className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">{m.rfqs.product.view}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
+          {productPageHref && item.productId && !item.linkedProduct && <Link href={productPageHref} className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">{m.rfqs.product.view}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
         </section>
         <section aria-label={copy.offersTitle} className="rounded-2xl border border-ink-200 bg-white px-5 py-5 shadow-sm sm:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
