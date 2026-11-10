@@ -12,6 +12,7 @@ import { fill } from "@/lib/i18n/format";
 import { EmptyRow, date } from "../portal-ui";
 import { QUOTE_CURRENCIES, QUOTE_INCOTERMS } from "@/lib/supplier-portal/quote";
 import { SupplierQuoteForm } from "./quote-form";
+import { RequestDetails } from "./request-details";
 import { privateMediaUrl, supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
 import type { MediaAsset } from "@/lib/types";
 import type { RfqBuyerContact } from "@/lib/rfq/buyer-contact";
@@ -39,7 +40,7 @@ function ProductCard({ item, imageSrc, copy }: {
       <div className="min-w-0 flex-1">
         <h3 className="break-words text-[15px] font-bold leading-snug text-ink-900">{item.title}</h3>
         {facts.some(([, value]) => !!value) && <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[13px] leading-5">
-          {facts.filter(([, value]) => !!value).map(([label, value]) => <div key={label} className="min-w-0 break-words">
+          {facts.filter(([, value]) => !!value).map(([label, value]) => <div key={label} className="line-clamp-2 min-w-0 break-words">
             <dt className="inline text-ink-600">{label}: </dt><dd className="inline font-semibold text-ink-800">{value}</dd>
           </div>)}
         </dl>}
@@ -51,38 +52,10 @@ function ProductCard({ item, imageSrc, copy }: {
   </section>;
 }
 
-/** The request fields come from an allowlisted, sanitized projection, not full RFQ specs. */
-function RequestDetails({ item, copy }: { item: PortalInvite; copy: RfqsMessages["request"] }) {
-  const facts: Array<[string, string | null]> = [
-    [copy.quantity, item.quantity], [copy.destination, item.destination],
-    [copy.delivery, item.request.delivery], [copy.incoterm, item.request.incoterm],
-    [copy.grade, item.request.grade], [copy.packaging, item.request.packaging],
-    [copy.certifications, item.request.certifications], [copy.frequency, item.request.frequency],
-  ];
-  const extras = [
-    item.request.wantsSamples && copy.samples,
-    item.request.wantsInspection && copy.inspection,
-    item.request.wantsVideoCall && copy.video,
-  ].filter(Boolean);
-  return <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-4 sm:p-5">
-    <h3 className="text-sm font-bold text-brand-900">{copy.title}</h3>
-    {!item.linkedProduct && <p className="mt-2 text-[13px] leading-5 text-ink-600">{copy.noLinkedProduct}</p>}
-    <p className="mt-2 whitespace-pre-wrap break-words text-[15px] font-medium leading-7 text-ink-900">{item.request.description}</p>
-    <dl className="mt-4 grid gap-x-6 gap-y-3 border-t border-brand-100 pt-4 sm:grid-cols-2">
-      {facts.filter(([, value]) => !!value).map(([label, value]) => <div key={label} className="min-w-0">
-        <dt className="text-[13px] text-ink-600">{label}</dt>
-        <dd className="mt-0.5 break-words text-sm font-semibold text-ink-900">{value}</dd>
-      </div>)}
-    </dl>
-    {extras.length > 0 && <p className="mt-4 border-t border-brand-100 pt-3 text-sm text-ink-700">
-      <span className="font-semibold">{copy.extras}</span> {extras.join(" · ")}
-    </p>}
-  </div>;
-}
-
 /** A private snapshot is shown only when this particular RFQ authorized this supplier. */
 function BuyerContactDetails({ contact, viaVexim, copy }: { contact: RfqBuyerContact | null; viaVexim: boolean; copy: RfqsMessages["buyer"] }) {
-  if (!contact) return <p className="mt-3 text-[13px] leading-5 text-ink-600">{viaVexim ? copy.unavailable : copy.unavailableDirect}</p>;
+  if (!contact) return viaVexim ? <p className="mt-3 text-[13px] leading-5 text-ink-600">{copy.unavailable}</p>
+    : <p role="note" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-5 text-amber-900">{copy.unavailableDirect}</p>;
   const fields: Array<[string, string | null]> = [
     [copy.company, contact.company], [copy.name, contact.contact_name],
     [copy.email, contact.email], [copy.phone, contact.phone],
@@ -234,7 +207,7 @@ export default async function SupplierRfqPage({ searchParams }: {
               <span className="block break-words text-sm font-semibold text-ink-900">{item.productId ? item.title : item.request.description.slice(0, 110)}</span>
               <span className="mt-1 block text-[13px] text-ink-600">{item.code} · {fill(copy.invites.sentAt, { at: date(item.sentAt, intl) })}</span>
             </span>
-            <span className="rounded-full bg-brand-50 px-3 py-1 text-[13px] font-semibold text-brand-900">{item.status}</span>
+            <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ${item.blocked ? "bg-amber-50 text-amber-900" : "bg-brand-50 text-brand-900"}`}>{item.status}</span>
             {item.newBuyerMessage && <span className="rounded-full bg-amber-50 px-3 py-1 text-[12px] font-bold text-amber-900">{copy.invites.newMessage}</span>}
             <ChevronDown className="h-4 w-4 text-ink-500 transition group-open:rotate-180" aria-hidden="true" />
           </summary>

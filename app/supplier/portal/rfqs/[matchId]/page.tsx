@@ -10,6 +10,7 @@ import { quotePortalCopy } from "@/lib/rfq/portal-copy";
 import { rfqChannel } from "@/lib/rfq/channel";
 import { canReadMediatedDesk, canUseMediatedDesk, safeMediatedMessages } from "@/lib/rfq/mediated";
 import { QUOTE_CURRENCIES, QUOTE_INCOTERMS } from "@/lib/supplier-portal/quote";
+import { RequestDetails } from "../request-details";
 import { SupplierQuoteForm } from "../quote-form";
 import { supplierRfqMessageAction, supplierRfqReadAction, supplierVeximMessageAction, supplierVeximReadAction } from "./actions";
 
@@ -48,19 +49,12 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
         <p className="text-xs font-bold uppercase tracking-wide text-ink-500">{copy.supplierIntro} · {rfq.code}</p>
         <h1 className="mt-1 break-words text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">{item.productId ? item.title : item.request.description.slice(0, 120)}</h1>
       </div>
-      <span className="rounded-full bg-brand-50 px-3 py-1.5 text-[12px] font-bold text-brand-800">{item.status}</span>
+      <span className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${item.blocked ? "bg-amber-50 text-amber-900" : "bg-brand-50 text-brand-800"}`}>{item.status}</span>
     </div>
     <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_290px]">
       <div className="min-w-0 space-y-5">
         <section className="rounded-2xl border border-ink-200 bg-white px-5 py-5 shadow-sm sm:px-6">
-          <h2 className="text-[15px] font-bold text-ink-900">{m.rfqs.request.title}</h2>
-          <p className="mt-3 whitespace-pre-wrap break-words text-[14px] leading-7 text-ink-800">{item.request.description}</p>
-          <dl className="mt-4 grid gap-3 border-t border-ink-100 pt-4 text-[13px] sm:grid-cols-2">
-            {([[m.rfqs.request.quantity, item.quantity], [m.rfqs.request.destination, item.destination],
-              [m.rfqs.request.delivery, item.request.delivery], [m.rfqs.request.incoterm, item.request.incoterm],
-              [m.rfqs.request.grade, item.request.grade], [m.rfqs.request.packaging, item.request.packaging]] as Array<[string, string | null]>)
-              .filter(([, value]) => !!value).map(([label, value]) => <div key={label}><dt className="text-ink-500">{label}</dt><dd className="mt-0.5 break-words font-semibold text-ink-900">{value}</dd></div>)}
-          </dl>
+          <RequestDetails item={item} copy={m.rfqs.request} className="" />
           {item.productId && <Link href={`/supplier/portal/products/${encodeURIComponent(item.productId)}`} className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">{m.rfqs.product.view}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
         </section>
         <section aria-label={copy.offersTitle} className="rounded-2xl border border-ink-200 bg-white px-5 py-5 shadow-sm sm:px-6">
@@ -108,7 +102,7 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
             <div><dt className="text-ink-500">{m.rfqs.buyer.name}</dt><dd className="break-words font-semibold text-ink-900">{item.buyerContact.contact_name || "—"}</dd></div>
             <div><dt className="text-ink-500">{m.rfqs.buyer.email}</dt><dd className="break-all font-semibold text-ink-900">{item.buyerContact.email}</dd></div>
             <p className="border-t border-ink-100 pt-3 text-[12px] leading-5 text-ink-500">{m.rfqs.buyer.scope}</p>
-          </dl> : <p className="mt-3 text-[13px] leading-6 text-ink-600">{sourcing ? (locale === "vi" ? "Vexim điều phối yêu cầu này. Liên hệ người mua không được chia sẻ; hãy trao đổi với Vexim trong cổng." : "Vexim coordinates this request. Buyer contact is not shared; use the Vexim conversation in your portal.") : m.rfqs.buyer.unavailable}</p>}
+          </dl> : <p className="mt-3 text-[13px] leading-6 text-ink-600">{sourcing ? (locale === "vi" ? "Vexim điều phối yêu cầu này. Liên hệ người mua không được chia sẻ; hãy trao đổi với Vexim trong cổng." : "Vexim coordinates this request. Buyer contact is not shared; use the Vexim conversation in your portal.") : m.rfqs.buyer.unavailableDirect}</p>}
         </section>
         {item.dueAt && <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] text-ink-700"><Clock3 className="h-4 w-4 shrink-0" aria-hidden="true" />{m.rfqs.tasks.due} {date(item.dueAt)}</p>}
         <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] leading-5 text-ink-600"><ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />{copy.emailFallback}</p>

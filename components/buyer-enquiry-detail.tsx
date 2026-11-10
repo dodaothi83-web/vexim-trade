@@ -11,6 +11,12 @@ function directStatusInfo(rfq: Rfq, locale: Locale, hasQuote: boolean, outcome: 
   const base = { tone: "bg-sky-50 text-sky-800 ring-sky-200", dot: "bg-sky-500", icon: Clock };
   // Nobody at Vexim follows a direct RFQ, so the buyer must see a dead end here.
   const warn = { tone: "bg-amber-50 text-amber-900 ring-amber-200", dot: "bg-amber-500", icon: Clock };
+  // Sent before contact-sharing consent was recorded: the supplier sees it but cannot answer.
+  if (!hasQuote && rfq.status === "matching" && rfq.specs?.buyer_contact_policy_version !== "rfq_contact_v2") return { ...warn,
+    title: vi ? "Cần gửi lại yêu cầu" : "Please send this request again",
+    body: vi ? "Yêu cầu này chưa có đồng ý chia sẻ liên hệ nên nhà cung cấp chưa thể báo giá. Hãy gửi lại từ trang sản phẩm."
+      : "This request has no contact-sharing consent on record, so the supplier cannot quote it. Please send it again from the product page.",
+  };
   if (!hasQuote && outcome === "declined" && (rfq.status === "matching" || rfq.status === "quoted")) return { ...warn,
     title: vi ? "Nhà cung cấp đã từ chối" : "Supplier declined",
     body: vi ? "Nhà cung cấp bạn chọn không chào giá yêu cầu này. Nếu vẫn cần hàng, hãy tạo RFQ tìm nguồn MỚI cho Vexim."
