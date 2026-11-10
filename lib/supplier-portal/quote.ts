@@ -1,25 +1,22 @@
 import type { DataStore } from "@/lib/db/types";
 import type { EmailMessage, RfqMatch, RfqMatchStatus, Supplier } from "@/lib/types";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
-import { rfqChannel } from "@/lib/rfq/channel";
+import { canDirectPublishRfqQuote, cleanQuoteBuyerNote } from "@/lib/rfq/portal-core";
 
-/**
- * Báo giá nhà cung cấp tự nhập trên cổng. Chỉ ghi vào lời mời của chính nhà cung cấp,
- * khi Vexim chưa trình bảng so sánh cho người mua. Việc gửi cho người mua vẫn do nhân viên
- * bấm "Trình người mua" trong CRM, nên quy trình duyệt không đổi.
- */
+/** Drafts remain private until publication. Direct RFQs publish after saving; sourcing
+ * revisions wait for Vexim again. Published versions are immutable buyer snapshots. */
 
 export const QUOTE_CURRENCIES = ["USD", "EUR", "VND"] as const;
 export const QUOTE_INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DDP"] as const;
-/** Trạng thái lời mời còn nhận báo giá: chưa trả lời, quá hạn, hoặc đã báo giá nhưng chưa trình người mua. */
-export const QUOTABLE_MATCH_STATUSES: RfqMatchStatus[] = ["sent_to_supplier", "no_response", "quoted"];
+/** Published quotes can be revised; the old buyer-visible snapshot remains until the new one is published. */
+export const QUOTABLE_MATCH_STATUSES: RfqMatchStatus[] = ["sent_to_supplier", "no_response", "quoted", "presented_to_buyer"];
 const CLOSED_RFQ = ["won", "lost", "spam"];
 
 export type QuoteErrorKey =
-  | "notFound" | "closed" | "price" | "currency" | "unit" | "incoterm" | "leadTime" | "validUntil" | "note";
+  | "notFound" | "closed" | "price" | "currency" | "unit" | "incoterm" | "leadTime" | "validUntil" | "note" | "buyerNote";
 
 export type SupplierQuoteInput =
-  | { intent: "quote"; price: number; currency: string; unit: string; incoterm: string; leadTimeDays: number; validUntil: string | null; note: string }
+  | { intent: "quote"; price: number; currency: string; unit: string; incoterm: string; leadTimeDays: number; validUntil: string | null; note: string; buyerNote: string }
   | { intent: "decline"; note: string };
 
 /** Đọc và kiểm tra form; trả mã lỗi để giao diện hiện đúng ngôn ngữ. */
@@ -27,6 +24,8 @@ export function parseSupplierQuote(fd: FormData, now = new Date()): { ok: true; 
   const note = String(fd.get("note") ?? "").trim();
   if (note.length > 1000) return { ok: false, error: "note" };
   if (String(fd.get("intent") ?? "") === "decline") return { ok: true, value: { intent: "decline", note } };
+  const publicNote = cleanQuoteBuyerNote(fd.get("buyer_note"));
+  if (!publicNote.ok) return { ok: false, error: publicNote.error };
 
   const priceRaw = String(fd.get("price") ?? "").trim().replace(",", ".");
   const price = Number(priceRaw);
@@ -48,7 +47,7 @@ export function parseSupplierQuote(fd: FormData, now = new Date()): { ok: true; 
     if (!Number.isFinite(day) || day < today || day > today + 366 * 86400_000) return { ok: false, error: "validUntil" };
     validUntil = validRaw;
   }
-  return { ok: true, value: { intent: "quote", price, currency, unit, incoterm, leadTimeDays, validUntil, note } };
+  return { ok: true, value: { intent: "quote", price, currency, unit, incoterm, leadTimeDays, validUntil, note, buyerNote: publicNote.note } };
 }
 
 /** Ghi báo giá / từ chối vào lời mời. Ném lỗi mã `notFound` hoặc `closed` khi không được phép. */
@@ -58,14 +57,15 @@ export async function recordSupplierPortalQuote(input: {
   actorEmail: string;
   matchId: string;
   quote: SupplierQuoteInput;
-}): Promise<{ code: string; rfqId: string; intent: SupplierQuoteInput["intent"]; direct: boolean }> {
+}): Promise<{ code: string; rfqId: string; matchId: string; updatedAt: string; intent: SupplierQuoteInput["intent"]; direct: boolean }> {
   const { store, supplier, quote } = input;
   const match = await store.getRfqMatch(input.matchId);
   // Lời mời của nhà cung cấp khác hay chưa được gửi thì coi như không tồn tại.
   if (!match || match.supplier_id !== supplier.id || !match.sent_to_supplier_at) throw new Error("notFound");
   const rfq = await store.getRfq(match.rfq_id);
   if (!rfq || rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question") throw new Error("notFound");
-  if (CLOSED_RFQ.includes(rfq.status) || !QUOTABLE_MATCH_STATUSES.includes(match.status) || match.sent_to_buyer_at) throw new Error("closed");
+  if (CLOSED_RFQ.includes(rfq.status) || !QUOTABLE_MATCH_STATUSES.includes(match.status) ||
+      (quote.intent === "decline" && !!match.sent_to_buyer_at)) throw new Error("closed");
 
   const now = new Date().toISOString();
   const patch: Partial<RfqMatch> = quote.intent === "quote"
@@ -77,10 +77,12 @@ export async function recordSupplierPortalQuote(input: {
         quote_incoterm: quote.incoterm,
         quote_lead_time_days: quote.leadTimeDays,
         quote_valid_until: quote.validUntil,
+        quote_buyer_note: quote.buyerNote || null,
         supplier_replied_at: match.supplier_replied_at ?? now,
       }
     : { status: "declined", supplier_replied_at: match.supplier_replied_at ?? now };
-  await store.updateRfqMatch(match.id, patch);
+  const saved = await store.updateRfqMatchIfState(match.id, supplier.id, match.status, match.updated_at, patch);
+  if (!saved) throw new Error("closed"); // Another tab/staff action published or closed it first.
 
   // Ghi vào timeline RFQ để nhân viên thấy ngay trong CRM, cùng mạch với thư của lời mời này.
   const summary = quote.intent === "quote"
@@ -89,6 +91,7 @@ export async function recordSupplierPortalQuote(input: {
         `Incoterm: ${quote.incoterm}`,
         `Lead time: ${quote.leadTimeDays} ngày`,
         quote.validUntil ? `Hiệu lực đến: ${quote.validUntil}` : null,
+        quote.buyerNote ? `Điều kiện hiển thị cho người mua: ${quote.buyerNote}` : null,
       ].filter(Boolean).join("\n")
     : "Nhà cung cấp không tham gia chào giá lần này.";
   const body = quote.note ? `${summary}\n\nGhi chú của nhà cung cấp:\n${quote.note}` : summary;
@@ -131,6 +134,7 @@ export async function recordSupplierPortalQuote(input: {
     after: { status: patch.status, quote_price: patch.quote_price ?? null },
   }).catch((err) => console.error("[supplier-portal] quote audit failed", err));
 
-  // RFQ trực tiếp (người mua chọn đúng nhà cung cấp này): nơi gọi tự trình báo giá cho người mua.
-  return { code: rfq.code, rfqId: rfq.id, intent: quote.intent, direct: rfqChannel(rfq) === "direct" };
+  // Only this supplier's explicitly consented direct invitation can self-publish.
+  return { code: rfq.code, rfqId: rfq.id, matchId: match.id, updatedAt: saved.updated_at, intent: quote.intent,
+    direct: canDirectPublishRfqQuote(rfq, match) };
 }

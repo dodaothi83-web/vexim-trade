@@ -15,15 +15,17 @@ import { SaveProductButton } from "@/components/buyer-saved-products";
 import { BuyerAccountProfile } from "@/components/buyer-account-profile";
 import { COMPANY } from "@/lib/config";
 import type { Rfq } from "@/lib/types";
+import { buyerMatchHasUpdate } from "@/lib/rfq/portal-core";
+import { rfqChannel } from "@/lib/rfq/channel";
 
 export const metadata: Metadata = { title: "Buyer account | Vexim Trade", robots: { index: false, follow: false } };
 const panel = "rounded-2xl border border-ink-200 bg-white p-5 shadow-sm sm:p-6";
 
-function requestStatus(status: Rfq["status"], vi: boolean) {
+function requestStatus(status: Rfq["status"], vi: boolean, published: boolean) {
   switch (status) {
     case "new": return vi ? "Đã nhận" : "Received";
     case "needs_review": case "spam": return vi ? "Đang xem xét" : "Under review";
-    case "quoted": return vi ? "Đã gửi báo giá" : "Quote sent";
+    case "quoted": return published ? (vi ? "Có báo giá" : "Quote available") : (vi ? "Đang xử lý" : "In progress");
     case "won": case "lost": return vi ? "Đã kết thúc" : "Closed";
     default: return vi ? "Đang xử lý" : "In progress";
   }
@@ -47,6 +49,15 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
     try { return await sourcingStore().listSourcingRequests(session.email); }
     catch (error) { console.error("[buyer] sourcing history unavailable", error); sourcingUnavailable = true; return []; }
   })();
+  // Only the verified buyer's RFQ IDs are queried; no other buyer's drafts or supplier data.
+  const updates = await store.listRfqMatchUpdates(requests.filter((r) => rfqChannel(r) !== "question").map((r) => r.id))
+    .catch((error) => { console.error("[buyer] RFQ notices unavailable", error); return []; });
+  const publishedRequests = new Set(updates.filter((row) => !!row.sent_to_buyer_at).map((row) => row.rfq_id));
+  const unreadByRequest = new Map<string, number>();
+  for (const update of updates) if (buyerMatchHasUpdate(update)) {
+    unreadByRequest.set(update.rfq_id, (unreadByRequest.get(update.rfq_id) ?? 0) + 1);
+  }
+  const unreadRequests = unreadByRequest.size;
   const savedRecords = savedGroups.flat();
   const savedById = new Map(savedRecords.map((r) => [r.card.id, r]));
   const titles = {
@@ -81,7 +92,7 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
       <div className="grid items-start gap-5 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[210px_minmax(0,1fr)_290px]">
         <aside className="lg:sticky lg:top-24">
           <p className="mb-4 px-3 text-xs font-bold uppercase tracking-wider text-ink-500">{vi ? "Tài khoản người mua" : "Buyer account"}</p>
-          <nav aria-label={vi ? "Điều hướng tài khoản" : "Account navigation"} className="flex gap-1 overflow-x-auto lg:flex-col">{nav.map(({ id, icon: Icon }) => <Link key={id} href={id === "overview" ? "/buyer/account" : id === "messages" ? "/buyer/account/messages" : `/buyer/account?tab=${id}`} aria-current={tab === id ? "page" : undefined} className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ${tab === id ? "bg-white text-brand-700 shadow-sm" : "text-ink-600 hover:bg-white"}`}><Icon className="h-4 w-4" aria-hidden />{titles[id]}</Link>)}</nav>
+          <nav aria-label={vi ? "Điều hướng tài khoản" : "Account navigation"} className="flex gap-1 overflow-x-auto lg:flex-col">{nav.map(({ id, icon: Icon }) => <Link key={id} href={id === "overview" ? "/buyer/account" : id === "messages" ? "/buyer/account/messages" : `/buyer/account?tab=${id}`} aria-current={tab === id ? "page" : undefined} className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ${tab === id ? "bg-white text-brand-700 shadow-sm" : "text-ink-600 hover:bg-white"}`}><Icon className="h-4 w-4" aria-hidden />{titles[id]}{id === "requests" && unreadRequests > 0 && <span className="ml-auto rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-900" aria-label={vi ? `${unreadRequests} yêu cầu có cập nhật mới` : `${unreadRequests} enquiries with new updates`}>{unreadRequests}</span>}</Link>)}</nav>
           <Link href="/#categories" className="mt-5 hidden items-center gap-2 px-3 text-sm font-semibold text-brand-700 lg:flex"><Search className="h-4 w-4" />{vi ? "Khám phá sản phẩm" : "Explore products"}</Link>
         </aside>
         <div className="min-w-0 space-y-5">
@@ -91,7 +102,7 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
           </section>
           {(tab === "overview" || tab === "requests") && <section className={panel}>
             <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">{titles.requests}</h2><Link href="/rfq" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700">{vi ? "Gửi yêu cầu báo giá" : "Request a quote"}<ArrowRight className="h-4 w-4" /></Link></div>
-            {!requests.length ? <div className="py-12 text-center"><VeximBuyerEnquiriesIcon className="mx-auto h-12 w-12 text-brand-700" /><p className="mt-4 font-semibold">{vi ? "Chưa có yêu cầu báo giá hoặc câu hỏi sản phẩm." : "No quote or product enquiries yet."}</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-500">{vi ? "Chọn sản phẩm hoặc mô tả nhu cầu để nhận báo giá." : "Choose a product or describe what you need to request quotes."}</p></div> : <ul className="mt-4 divide-y divide-ink-100">{(tab === "overview" ? requests.slice(0, 5) : requests).map((r) => <li key={r.id} className="py-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-ink-500">{r.code} · {new Intl.DateTimeFormat(vi ? "vi-VN" : "en-GB", { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(r.created_at))}</p><span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">{requestStatus(r.status, vi)}</span></div><p className="mt-2 text-xs font-semibold text-brand-700">{r.specs?.inquiry_kind === "supplier_question" ? (vi ? "Câu hỏi sản phẩm" : "Product enquiry") : (vi ? "Yêu cầu báo giá" : "Quote request")}</p><p className="mt-2 font-semibold">{r.product_text}</p><Link href={`/buyer/account/requests/${encodeURIComponent(r.id)}`} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-700">{vi ? "Xem chi tiết" : "View details"}<ArrowRight className="h-3 w-3" /></Link></li>)}</ul>}
+            {!requests.length ? <div className="py-12 text-center"><VeximBuyerEnquiriesIcon className="mx-auto h-12 w-12 text-brand-700" /><p className="mt-4 font-semibold">{vi ? "Chưa có yêu cầu báo giá hoặc câu hỏi sản phẩm." : "No quote or product enquiries yet."}</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-500">{vi ? "Chọn sản phẩm hoặc mô tả nhu cầu để nhận báo giá." : "Choose a product or describe what you need to request quotes."}</p></div> : <ul className="mt-4 divide-y divide-ink-100">{(tab === "overview" ? requests.slice(0, 5) : requests).map((r) => <li key={r.id} className="py-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-ink-500">{r.code} · {new Intl.DateTimeFormat(vi ? "vi-VN" : "en-GB", { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(r.created_at))}</p><span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">{requestStatus(r.status, vi, publishedRequests.has(r.id))}</span></div><p className="mt-2 text-xs font-semibold text-brand-700">{r.specs?.inquiry_kind === "supplier_question" ? (vi ? "Câu hỏi sản phẩm" : "Product enquiry") : (vi ? "Yêu cầu báo giá" : "Quote request")}</p><p className="mt-2 font-semibold">{r.product_text}</p>{!!unreadByRequest.get(r.id) && <p className="mt-2 inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-900">{vi ? `${unreadByRequest.get(r.id)} cập nhật mới` : `${unreadByRequest.get(r.id)} new update${unreadByRequest.get(r.id) === 1 ? "" : "s"}`}</p>}<Link prefetch={false} href={`/buyer/account/requests/${encodeURIComponent(r.id)}`} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-700">{vi ? "Xem chi tiết" : "View details"}<ArrowRight className="h-3 w-3" /></Link></li>)}</ul>}
             {tab === "overview" && requests.length > 5 && <Link href="/buyer/account?tab=requests" className="mt-4 inline-block text-sm font-semibold text-brand-700">{vi ? "Xem tất cả yêu cầu" : "View all requests"}</Link>}
             <p className="mt-4 rounded-xl bg-ink-50 p-3 text-xs leading-5 text-ink-500">{vi ? "Vexim hỗ trợ kết nối. Bạn thỏa thuận và ký hợp đồng trực tiếp với nhà cung cấp." : "Vexim helps you connect. You agree terms and sign contracts directly with the supplier."}</p>
           </section>}

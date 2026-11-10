@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { CheckCircle2, Clock, MailCheck, ShieldCheck, Timer } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, MailCheck, MessageCircle, ShieldCheck, Timer } from "lucide-react";
 import { Breadcrumbs } from "@/components/ui";
 import type { Buyer, Rfq } from "@/lib/types";
+import { quotePortalCopy } from "@/lib/rfq/portal-copy";
+import type { Locale } from "@/lib/i18n/config";
 
 function statusInfo(status: string) {
   switch (status) {
@@ -29,7 +31,7 @@ function statusInfo(status: string) {
         tone: "bg-amber-50 text-amber-800 ring-amber-200",
         dot: "bg-amber-500",
         title: "Suppliers are responding",
-        body: "We are collecting quotes and lead times from the suppliers we contacted. You will receive a comparison by email within 1 business day.",
+        body: "Suppliers are responding. Published quotes appear below in your account; email is only a notification.",
         icon: Timer,
       };
     case "won":
@@ -120,16 +122,23 @@ function questionStatusInfo(status: string) {
   }
 }
 
-/** Báo giá đã gửi tới người mua: chỉ tên hiển thị và khu vực nhà cung cấp, không có liên hệ. */
-export type BuyerQuote = { id: string; supplier: string; location: string | null; price: string; incoterm: string | null; leadTimeDays: number | null; validUntil: string | null };
+/** Only the buyer-visible published snapshot, not draft match fields or supplier contact. */
+export type BuyerQuote = { id: string; supplier: string; location: string | null; href?: string; unread?: boolean;
+  newQuote?: boolean; price: string; incoterm: string | null; leadTimeDays: number | null; validUntil: string | null;
+  version?: number; note?: string | null };
+export type BuyerPreQuoteThread = Pick<BuyerQuote, "id" | "supplier" | "location" | "href" | "unread">;
 
-export function BuyerEnquiryDetail({ rfq, buyer, quotes = [] }: { rfq: Rfq; buyer: Buyer; quotes?: BuyerQuote[] }) {
+export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = [], quotesUnavailable = false, locale = "en" }: {
+  rfq: Rfq; buyer: Buyer; quotes?: BuyerQuote[]; preQuoteThreads?: BuyerPreQuoteThread[];
+  quotesUnavailable?: boolean; locale?: Locale;
+}) {
+  const copy = quotePortalCopy[locale];
   const isQuestion = rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
   const info = isQuestion ? questionStatusInfo(rfq.status) : statusInfo(rfq.status);
   const Icon = info.icon;
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-10 sm:px-6 lg:px-8">
+    <div lang={locale} className="mx-auto max-w-3xl px-5 py-10 sm:px-6 lg:px-8">
       <Breadcrumbs
         items={[
           { label: "My enquiries", href: "/buyer/account?tab=requests" },
@@ -155,25 +164,44 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [] }: { rfq: Rfq; buye
           </div>
         </div>
 
-        {!isQuestion && quotes.length > 0 && (
-          <section className="mt-6 border-t border-ink-100 pt-5" aria-labelledby="quotes-title">
-            <h2 id="quotes-title" className="text-[14px] font-bold text-ink-900">Quotes received ({quotes.length})</h2>
-            <ul className="mt-3 space-y-2">
-              {quotes.map((q) => (
-                <li key={q.id} className="rounded-lg border border-ink-200 px-4 py-3">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="text-[14px] font-semibold text-ink-900">{q.supplier}{q.location && <span className="ml-1.5 text-[12px] font-normal text-ink-500">{q.location}</span>}</p>
-                    <p className="text-[15px] font-bold text-brand-800">{q.price}</p>
-                  </div>
-                  <p className="mt-1 text-[12.5px] text-ink-600">
-                    {[q.incoterm, q.leadTimeDays != null ? `${q.leadTimeDays} days lead time` : null, q.validUntil ? `valid until ${q.validUntil}` : null].filter(Boolean).join(" · ") || "Details in the quote email"}
-                  </p>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-[12px] text-ink-500">Reply to the quote email to choose a supplier. Your contact details are shared only with the supplier you choose.</p>
-          </section>
-        )}
+        {!isQuestion && <section className="mt-6 border-t border-ink-100 pt-5" aria-labelledby="quotes-title">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="quotes-title" className="text-[16px] font-bold text-ink-900">{copy.offersTitle}{quotes.length ? ` (${quotes.length})` : ""}</h2>
+            <span className="text-[12px] text-ink-500">{copy.published}</span>
+          </div>
+          <p className="mt-1 text-[13px] leading-5 text-ink-600">{copy.offersSub}</p>
+          {quotesUnavailable && <p role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-900">
+            {locale === "vi" ? "Chưa tải được cập nhật báo giá. Vui lòng thử lại sau." : "Quote updates are temporarily unavailable. Please try again."}</p>}
+          {!quotesUnavailable && !quotes.length && <p className="mt-4 rounded-lg bg-ink-50 p-4 text-[13px] leading-6 text-ink-600">{copy.noOffers}</p>}
+          <ul className="mt-3 space-y-3">{quotes.map((q) => <li key={q.id}>
+            <Link href={q.href ?? `/buyer/account/requests/${encodeURIComponent(rfq.id)}/offers/${encodeURIComponent(q.id)}`}
+              prefetch={false} className="group block rounded-xl border border-ink-200 bg-white p-4 transition hover:border-brand-300 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-brand-600">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0"><p className="break-words text-[14px] font-bold text-ink-900">{q.supplier}</p>
+                  {q.location && <p className="mt-0.5 text-[12px] text-ink-600">{q.location}</p>}</div>
+                {q.unread && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-900">{q.newQuote ? copy.newQuote : copy.newUpdate}</span>}
+              </div>
+              <p className="mt-3 break-words text-[20px] font-extrabold text-brand-900">{q.price}</p>
+              <p className="mt-1 text-[12.5px] text-ink-600">
+                {[q.incoterm, q.leadTimeDays != null ? `${q.leadTimeDays} ${copy.days}` : null, q.validUntil ? `${copy.validUntil} ${q.validUntil}` : null,
+                  q.version && q.version > 1 ? `${copy.version} ${q.version}` : null].filter(Boolean).join(" · ")}
+              </p>
+              {q.note && <p className="mt-3 line-clamp-2 whitespace-pre-wrap break-words border-t border-ink-100 pt-2 text-[12.5px] leading-5 text-ink-700">{q.note}</p>}
+              <span className="mt-3 inline-flex items-center gap-1 text-[13px] font-bold text-brand-700 group-hover:underline">{copy.viewOffer}<ArrowRight className="h-4 w-4" aria-hidden="true" /></span>
+            </Link>
+          </li>)}</ul>
+          {!!preQuoteThreads.length && <div className="mt-5 border-t border-ink-100 pt-4">
+            <p className="text-[13px] text-ink-600">{copy.pendingDirect}</p>
+            <ul className="mt-3 space-y-2">{preQuoteThreads.map((item) => <li key={item.id}>
+              <Link href={item.href ?? `/buyer/account/requests/${encodeURIComponent(rfq.id)}/offers/${encodeURIComponent(item.id)}`}
+                prefetch={false} className="flex min-h-12 items-center gap-2 rounded-lg border border-ink-200 px-4 py-2 text-[13px] font-semibold text-brand-700 hover:border-brand-300 hover:bg-brand-50">
+                <MessageCircle className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 flex-1 break-words">{item.supplier} · {copy.discussBeforeQuote}</span>
+                {item.unread && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900">{copy.newUpdate}</span>}
+                <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+              </Link>
+            </li>)}</ul>
+          </div>}
+        </section>}
 
         <dl className="mt-6 grid gap-3 border-t border-ink-100 pt-5 text-[13.5px] sm:grid-cols-2">
           <Row k="Product" v={rfq.product_text} />

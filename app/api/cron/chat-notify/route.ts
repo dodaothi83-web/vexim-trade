@@ -1,5 +1,5 @@
 /**
- * Gửi email báo tin nhắn chat theo đợt (chat nhà cung cấp và Chat với Vexim).
+ * Gửi email nhắc theo đợt (chat nhà cung cấp, Chat với Vexim và cập nhật RFQ).
  *
  * Thiết lập cron-job.org:
  *   - URL:      https://www.veximtrade.com/api/cron/chat-notify
@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { getStore } from "@/lib/db";
 import { runChatNotifications } from "@/lib/chat/notify";
+import { runRfqPortalAlerts } from "@/lib/rfq/portal-alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,15 @@ function isAuthorized(req: Request): boolean {
 export async function GET(req: Request) {
   if (!isAuthorized(req)) return new NextResponse("Unauthorized", { status: 401 });
   try {
-    return NextResponse.json(await runChatNotifications(getStore()), { headers: { "Cache-Control": "no-store" } });
+    const store = getStore();
+    // A chat outage must not block RFQ notifications (or vice versa).
+    const [chat, rfq] = await Promise.allSettled([runChatNotifications(store), runRfqPortalAlerts(store)]);
+    if (chat.status === "rejected") console.error("[chat-notify] chat alerts failed", chat.reason);
+    if (rfq.status === "rejected") console.error("[chat-notify] RFQ alerts failed", rfq.reason);
+    return NextResponse.json({ ...(chat.status === "fulfilled" ? chat.value : { chat_error: "unavailable" }),
+      rfq: rfq.status === "fulfilled" ? rfq.value : { error: "unavailable" } },
+    { status: chat.status === "rejected" || rfq.status === "rejected" ? 503 : 200,
+      headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[chat-notify] cron failed", error);
     return NextResponse.json({ error: "unavailable" }, { status: 503 });

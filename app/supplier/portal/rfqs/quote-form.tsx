@@ -12,11 +12,11 @@ const INITIAL: SupplierQuoteState = { error: null };
 export function SupplierQuoteForm({ matchId, code, defaults, currencies, incoterms, editing, direct = false, copy }: {
   matchId: string;
   code: string;
-  defaults: { price: string; currency: string; unit: string; incoterm: string; leadTimeDays: string; validUntil: string };
+  defaults: { price: string; currency: string; unit: string; incoterm: string; leadTimeDays: string; validUntil: string; buyerNote?: string };
   currencies: readonly string[];
   incoterms: readonly string[];
   editing: boolean;
-  /** A direct RFQ is forwarded to the buyer by the existing server action. */
+  /** A consented direct RFQ is published in the buyer account after the quote is saved. */
   direct?: boolean;
   copy: RfqsMessages["quote"];
 }) {
@@ -58,8 +58,15 @@ export function SupplierQuoteForm({ matchId, code, defaults, currencies, incoter
             <input name="valid_until" type="date" defaultValue={d.validUntil} className={field} />
           </label>
         </div>
+        <div className="mt-5 rounded-lg border border-brand-100 bg-white p-4">
+          <label className={label}>{copy.buyerNote}
+            <textarea name="buyer_note" rows={3} maxLength={1000} defaultValue={v?.buyer_note ?? defaults.buyerNote ?? ""}
+              placeholder={copy.buyerNotePlaceholder} className={`${field} font-normal`} />
+          </label>
+          <p className="mt-2 text-[12.5px] leading-5 text-ink-600">{copy.buyerNoteHint}</p>
+        </div>
         <label className={`${label} mt-4`}>{copy.note}
-          <textarea name="note" rows={3} maxLength={1000} defaultValue={v?.note ?? ""} placeholder={copy.notePlaceholder} className={`${field} font-normal`} />
+          <textarea name="note" rows={2} maxLength={1000} defaultValue={v?.note ?? ""} placeholder={copy.notePlaceholder} className={`${field} font-normal`} />
         </label>
         {state.error && <p role="alert" className="mt-3 text-sm font-semibold text-rose-700">{state.error}</p>}
         <div className="mt-5 flex flex-col gap-3 border-t border-ink-200 pt-4 sm:flex-row sm:items-center sm:justify-between">

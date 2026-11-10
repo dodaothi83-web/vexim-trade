@@ -5,15 +5,14 @@
 import brandColors from "@/lib/brand/colors.json";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { transport } from "@/lib/email/send";
-import { FROM_ADDRESS, COMPANY } from "@/lib/config";
+import { FROM_ADDRESS } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { requireRfqStaffSender } from "@/lib/rfq/staff-sender";
 import { canInviteSupplier, portalApproved } from "@/lib/supplier-portal/onboarding";
-import { buyerReplyAddress, supplierReplyAddress } from "@/lib/rfq/reply-routing";
-import { mailTopic, openThread } from "@/lib/email/threading";
-import type { Buyer, EmailMessage, Rfq, RfqMatch, Supplier } from "@/lib/types";
+import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
+import type { EmailMessage, Rfq, RfqMatch, Supplier } from "@/lib/types";
 import { rfqBuyerContact, type RfqBuyerContact } from "./buyer-contact";
 import { attachBuyerAfterDirectRfqDelivery } from "./attach-buyer";
 
@@ -164,76 +163,7 @@ export function buildRfqSupplierEmail(input: {
 }
 
 /* ------------------------------------------------------------------ */
-/* 2) Gửi bảng so sánh cho buyer sau khi NCC đã báo giá                 */
-/* ------------------------------------------------------------------ */
-
-export function buildRfqShortlistBuyerEmail(input: {
-  rfq: Rfq;
-  buyer: Buyer;
-  matches: Array<RfqMatch & { supplier: Supplier }>;
-}) {
-  const { rfq, buyer, matches } = input;
-  const title = `Supplier comparison for request ${rfq.code}`;
-
-  const rows = matches.map((m) => {
-    const name = m.supplier.display_name ?? m.supplier.trade_name ?? m.supplier.name;
-    const price = m.quote_price != null
-      ? `${m.quote_price} ${m.quote_currency ?? ""}/${m.quote_unit ?? rfq.unit ?? ""}`
-      : "Quote pending";
-    const lead = m.quote_lead_time_days ? `${m.quote_lead_time_days} days` : "Not quoted";
-    const incoterm = m.quote_incoterm ?? "Not quoted";
-    const loc = m.supplier.province ?? m.supplier.country ?? "VN";
-    return `<tr>
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;"><strong>${escapeHtml(name)}</strong><br/><span style="color:#64748b;font-size:12px;">${escapeHtml(loc)}</span></td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(price)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(incoterm)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(lead)}</td>
-    </tr>`;
-  }).join("");
-
-  const body = `
-    <p>Dear ${escapeHtml(buyer.contact_name?.split(" ")[0] ?? "there")},</p>
-    <p>Thank you for your patience. Below is the supplier comparison for request
-    <strong>${escapeHtml(rfq.code)}</strong> (${escapeHtml(rfq.product_text)},
-    ${escapeHtml(shortQty(rfq))}).</p>
-
-    <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin-top:12px;font-size:13.5px;">
-      <thead>
-        <tr style="background:#f8fafc;color:#475569;font-size:11.5px;letter-spacing:.5px;text-transform:uppercase;">
-          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Supplier</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Price</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Incoterm</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">Lead time</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-
-    <p style="margin-top:18px;"><strong>What happens next</strong></p>
-    <ul>
-      <li>Tell us which one or two suppliers you want to explore further (samples, certificates, adjusted terms).</li>
-      <li>We arrange the introduction, the sample shipment and inspection support if you need it.</li>
-      <li>${matches.some((m) => rfqBuyerContact(rfq, m.supplier_id))
-        ? "Only suppliers sent this RFQ receive the buyer contact details you provided."
-        : "Your earlier request requires separate permission before we can share your contact details."}</li>
-    </ul>
-
-    <p>Reply to this email with any question, or view the request in your buyer account:<br/>
-    <a href="${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}">View enquiry</a></p>
-
-    <p>${escapeHtml(COMPANY.name)}<br/>Export Department</p>
-  `;
-
-  const subject = `Supplier comparison for ${rfq.product_text} (Ref ${rfq.code})`;
-  return {
-    subject,
-    html: wrapPlainEmail({ title, body, preheader: `Comparison of ${matches.length} suppliers for request ${rfq.code}` }),
-    text: stripHtml(body),
-  };
-}
-
-/* ------------------------------------------------------------------ */
-/* 3) Helpers + orchestration                                          */
+/* 2) Helpers + orchestration                                          */
 /* ------------------------------------------------------------------ */
 
 function stripHtml(html: string): string {
@@ -354,80 +284,6 @@ export async function dispatchRfqToSuppliers(input: {
   return { sent, skipped };
 }
 
-/** Gửi bảng so sánh cho buyer (chỉ các match đã quoted) + ghi first_response_at. */
-export async function presentShortlistToBuyer(input: { rfqId: string }): Promise<{
-  sent: boolean;
-  quotedCount: number;
-}> {
-  const store = getStore();
-  const rfq = await store.getRfq(input.rfqId);
-  if (!rfq) throw new Error("RFQ not found");
-  const buyer = await store.getBuyer(rfq.buyer_id);
-  if (!buyer || !buyer.email) return { sent: false, quotedCount: 0 };
-  const matches = await store.listRfqMatches(rfq.id);
-  const quoted = matches.filter((m) => m.status === "quoted" && m.quote_price != null);
-  if (quoted.length === 0) return { sent: false, quotedCount: 0 };
-  const suppliers = await store.listSuppliers();
-  const supMap = new Map(suppliers.map((s) => [s.id, s]));
-  const matchesWithSup = quoted
-    .map((m) => {
-      const supplier = supMap.get(m.supplier_id);
-      return supplier ? { ...m, supplier } : null;
-    })
-    .filter((x): x is RfqMatch & { supplier: Supplier } => !!x);
-
-  const email = buildRfqShortlistBuyerEmail({ rfq, buyer, matches: matchesWithSup });
-  const mailThread = await openThread(mailTopic({ rfqCode: rfq.code, buyerId: buyer.id }));
-  const delivery = await transport({
-    to: [buyer.email],
-    cc: buyer.cc_emails ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean) : undefined,
-    from: FROM_ADDRESS,
-    replyTo: buyerReplyAddress(rfq.code),
-    subject: email.subject,
-    html: email.html,
-    text: email.text,
-    headers: { "X-RFQ-Code": rfq.code, ...mailThread.headers },
-  });
-  // A simulated message is not a delivered shortlist; never advance match/RFQ status on it.
-  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được shortlist người mua: ${delivery.error ?? "Resend chưa gửi thật"}`);
-
-  // Đánh dấu các match đã trình buyer
-  for (const m of quoted) {
-    await store.updateRfqMatch(m.id, { status: "presented_to_buyer", sent_to_buyer_at: new Date().toISOString() });
-  }
-  // Ghi timeline email shortlist
-  const toEmails = [buyer.email, ...(buyer.cc_emails ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean) : [])];
-  await store.addMessage({
-    buyer_id: buyer.id,
-    supplier_id: null,
-    rfq_id: rfq.id,
-    rfq_match_id: null,
-    kind: "shortlist_buyer",
-    stage: null,
-    direction: "buyer",
-    thread_id: `rfq-${rfq.id}-buyer`,
-    subject: email.subject,
-    to_emails: toEmails as string[],
-    cc_emails: [],
-    bcc_emails: [],
-    body_html: email.html,
-    body_text: email.text,
-    attachments: [],
-    rfc_message_id: mailThread.messageId,
-    read_at: null,
-    status: delivery.status,
-    provider: delivery.provider,
-    error: null,
-    created_by: null,
-  } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
-  // Ghi nhận thời điểm trả lời đầu tiên (dùng cho SLA) và chuyển sang quoted
-  await store.updateRfq(rfq.id, {
-    status: "quoted",
-    first_response_at: rfq.first_response_at ?? new Date().toISOString(),
-  });
-  return { sent: true, quotedCount: quoted.length };
-}
-
 /**
  * Chốt một NCC cho RFQ: match `selected`, các match khác `not_selected`,
  * và ghi `introductions` (mốc chọn nhà cung cấp + thời gian bảo hộ 12 tháng) nếu chưa có.
@@ -439,7 +295,14 @@ export async function presentShortlistToBuyer(input: { rfqId: string }): Promise
  * luồng sampling bỏ qua bước này nên hai đường chốt NCC cho ra hai kết quả dữ liệu khác nhau.
  */
 export async function recordSupplierSelection(rfq: Rfq, match: RfqMatch): Promise<void> {
+  if (match.rfq_id !== rfq.id || !match.sent_to_buyer_at ||
+      !["presented_to_buyer", "selected"].includes(match.status)) {
+    throw new Error("Chỉ chọn nhà cung cấp có báo giá đã công bố trong tài khoản người mua.");
+  }
   const store = getStore();
+  if (!(await store.listRfqQuoteVersions([match.id])).some((v) => v.match_id === match.id)) {
+    throw new Error("Chỉ chọn nhà cung cấp có phiên bản báo giá đã công bố trong tài khoản người mua.");
+  }
   await store.updateRfqMatch(match.id, { status: "selected" });
   const others = (await store.listRfqMatches(rfq.id)).filter((m) => m.id !== match.id);
   for (const m of others) {
@@ -470,8 +333,10 @@ export async function selectSupplier(input: { rfqId: string; matchId: string; ac
   const match = await store.getRfqMatch(input.matchId);
   if (!match || match.rfq_id !== rfq.id) return { selected: false, email: "skipped" };
   if (rfq.status === "lost" || rfq.status === "spam") throw new Error("RFQ đã đóng; không thể chốt nhà cung cấp.");
-  // Khớp SELECTABLE_MATCH_STATUSES trong lib/rfq/workflow.ts.
-  if (!["quoted", "presented_to_buyer", "selected"].includes(match.status)) throw new Error("Chỉ chốt nhà cung cấp đã có báo giá.");
+  // The buyer must be able to review the published snapshot before staff selects it.
+  if (!match.sent_to_buyer_at || !["presented_to_buyer", "selected"].includes(match.status)) {
+    throw new Error("Chỉ chốt nhà cung cấp có báo giá đã công bố trong tài khoản người mua.");
+  }
   const newlySelected = match.status !== "selected";
   await recordSupplierSelection(rfq, match);
   await store.updateRfq(rfq.id, { status: "won" });

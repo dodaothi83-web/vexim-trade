@@ -31,6 +31,9 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  RfqQuoteVersion,
+  RfqThreadMessage,
+  RfqPortalAlert,
   SponsoredPush,
   SponsoredPushDaily,
   SponsoredPushInput,
@@ -433,7 +436,22 @@ export interface DataStore {
   getRfqMatch(id: string): Promise<RfqMatch | null>;
   createRfqMatch(input: Partial<RfqMatch>): Promise<RfqMatch>;
   updateRfqMatch(id: string, patch: Partial<RfqMatch>): Promise<RfqMatch>;
+  /** Conditional supplier edit: a staff publication/close in another tab cannot be overwritten. */
+  updateRfqMatchIfState(id: string, supplierId: string, expectedStatus: RfqMatch["status"],
+    expectedUpdatedAt: string, patch: Partial<RfqMatch>): Promise<RfqMatch | null>;
   deleteRfqMatch(id: string): Promise<void>;
+  /** Atomic publication of exactly the reviewed draft revision, immutable snapshot + mail outbox. */
+  publishRfqQuotes(rfqId: string, matchIds: string[], expectedUpdatedAt: Record<string, string>): Promise<RfqQuoteVersion[]>;
+  listRfqQuoteVersions(matchIds: string[]): Promise<RfqQuoteVersion[]>;
+  listRfqThreadMessages(matchId: string): Promise<RfqThreadMessage[]>;
+  addRfqThreadMessage(input: Pick<RfqThreadMessage, "match_id" | "sender" | "sender_email" | "body">): Promise<RfqThreadMessage>;
+  markRfqThreadRead(matchId: string, side: "buyer" | "supplier", at: string): Promise<void>;
+  /** Used only after the buyer's account ownership was checked; excludes private quote fields. */
+  listRfqMatchUpdates(rfqIds: string[]): Promise<Pick<RfqMatch, "id" | "rfq_id" | "sent_to_supplier_at" | "sent_to_buyer_at" |
+    "buyer_last_read_at" | "last_thread_message_at" | "last_thread_sender" | "last_supplier_message_at">[]>;
+  listDueRfqPortalAlerts(now: string, limit: number, matchIds?: string[]): Promise<RfqPortalAlert[]>;
+  claimRfqPortalAlert(alert: RfqPortalAlert, at: string): Promise<boolean>;
+  finishRfqPortalAlert(id: string, claimedAt: string, patch: Pick<RfqPortalAlert, "status" | "not_before" | "last_error" | "sent_at">): Promise<boolean>;
 
   // Introductions (bảo vệ không vượt mặt)
   findIntroduction(buyerId: string, supplierId: string): Promise<Introduction | null>;

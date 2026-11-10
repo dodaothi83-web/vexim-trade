@@ -33,7 +33,6 @@ function region(file, startMarker, endMarker) {
 // Các hàm soạn thư gửi người mua (không tính thư nhà cung cấp trong cùng tệp).
 const builders = [
   region('lib/rfq/buyer-notify.ts', 'function buildSubject(', 'export async function notifyBuyerRfqStatus'),
-  region('lib/rfq/outreach.ts', 'export function buildRfqShortlistBuyerEmail', 'function stripHtml('),
   region('lib/email/rfq.ts', 'export async function sendRfqAckBuyer', '/* 2) Thông báo nội bộ'),
   region('lib/email/templates.ts', 'export function buildBuyerEmail', 'export function buildSupplierEmail'),
 ];
@@ -64,14 +63,19 @@ for (const block of builders) {
   }
 }
 
-// Ba đường thư tự động phải nối mạch thư; thiếu thì Gmail tách mỗi thư một chuỗi.
-for (const file of ['lib/rfq/buyer-notify.ts', 'lib/rfq/outreach.ts', 'lib/email/rfq.ts', 'lib/email/send.ts']) {
+// Thư vòng đời còn gửi nội dung phải nối mạch; RFQ portal chỉ gửi link báo tin.
+for (const file of ['lib/rfq/buyer-notify.ts', 'lib/email/rfq.ts', 'lib/email/send.ts']) {
   const source = stripComments(read(file));
   if (!source.includes('openThread(')) problems.push(`${file}: thư tự động chưa nối mạch (thiếu openThread)`);
   if (!source.includes('mailThread.headers')) problems.push(`${file}: chưa gắn In-Reply-To/References vào header gửi`);
 }
 
-assert.ok(builders.length + stageBlocks.length >= 12, `Chỉ quét được ${builders.length + stageBlocks.length} khối; mốc tệp có thể đã đổi.`);
+const portal = stripComments(read('lib/rfq/portal-alerts.ts'));
+assert.match(portal, /New quote[\s\S]*New message[\s\S]*\(Ref \$\{rfq\.code\}\)/,
+  'RFQ portal emails only notify and end with the RFQ reference');
+const buyerSubject = portal.slice(portal.indexOf('const subject = buyerSide'), portal.indexOf('const body = buyerSide')).split(/:\s*`\[/)[0];
+assert.doesNotMatch(buyerSubject, VIETNAMESE, 'Buyer portal notification subject must be English');
+assert.ok(builders.length + stageBlocks.length >= 11, `Chỉ quét được ${builders.length + stageBlocks.length} khối; mốc tệp có thể đã đổi.`);
 assert.deepEqual(problems, [], `Thư gửi người mua chưa đạt:\n${problems.join('\n')}`);
 
 console.log(`✅ Buyer email: ${builders.length + stageBlocks.length} khối soạn thư tiếng Anh, mã ở cuối tiêu đề, có nối mạch thư.`);

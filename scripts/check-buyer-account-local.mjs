@@ -28,6 +28,8 @@ const mocks = {
   '@/lib/verification-submission': { MAX_ITEMS_PER_KEY: 3 },
   '@/lib/public/product-selection': { isTestOnlyProduct: () => false, productBelongsToCategory: () => false, productReviewApproved: () => false },
   '@/lib/media/readiness': { isExpired: (m) => m.status === 'expired' || !!(m.expires_on && m.expires_on < new Date().toISOString().slice(0, 10)) },
+  '@/lib/rfq/buyer-contact': { rfqBuyerContact: () => ({ email: 'buyer@example.com' }) },
+  '@/lib/rfq/channel': { rfqChannel: () => 'sourcing' },
   './category-seed': { CASHEW_CATEGORY_CONFIG: config, DEFAULT_CATEGORY_CONFIG: config, PEPPER_CATEGORY_CONFIG: config },
 };
 const mod = { exports: {} };

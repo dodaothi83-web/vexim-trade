@@ -28,6 +28,8 @@ const local = load('lib/db/local.ts', {
   '@/lib/db/demo-suppliers': { DEMO_SUPPLIERS: [] }, '@/lib/l2-scope': {},
   '@/lib/types': { L2_FACTORY_PHOTO_ITEMS: [], L3_EXPORT_ITEMS: [] }, '@/lib/verification-submission': {},
   '@/lib/public/product-selection': {}, '@/lib/media/readiness': {},
+  '@/lib/rfq/buyer-contact': { rfqBuyerContact: () => ({ email: 'buyer@example.com' }) },
+  '@/lib/rfq/channel': { rfqChannel: () => 'sourcing' },
   './category-seed': { CASHEW_CATEGORY_CONFIG: config, DEFAULT_CATEGORY_CONFIG: config, PEPPER_CATEGORY_CONFIG: config },
 }, { __veximLocal: localState, process: { cwd: () => '/virtual', env: {} } }).localStore;
 

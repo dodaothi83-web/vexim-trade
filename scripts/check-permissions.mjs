@@ -94,6 +94,9 @@ for (const p of allTs) {
       /getSession\s*\(/.test(head) ||
       // supplierPortalAccess rechecks session, role, active user and supplier FK from DB.
       /supplierPortalAccess\s*\(/.test(head) ||
+      // supplierOfferAccess wraps the approved portal account and checks ownership of
+      // this exact sent RFQ match; calling it is a stronger gate than a generic session.
+      /supplierOfferAccess\s*\(/.test(head) ||
       // approvedAccess wraps supplierPortalAccess + server-side onboarding gate.
       /approvedAccess\s*\(/.test(head) ||
       // supplierSubmissionAccess rechecks session, supplier role, approved onboarding,

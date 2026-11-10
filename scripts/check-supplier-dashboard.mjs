@@ -21,9 +21,15 @@ const dictionary = loadPortalDictionary();
 const contact = load('../lib/rfq/buyer-contact.ts', {});
 const displayName = load('../lib/public/display-name.ts', {});
 const consent = contact.buyerContactConsentSpec({ company: 'Buyer Co', contact_name: 'Jane', email: 'buyer@example.com', phone: '123456', country: 'US', website: null, business_type: null }, '2026-10-17T00:00:00Z', 'rfq_form');
+const channel = load('../lib/rfq/channel.ts', {});
+const core = load('../lib/rfq/portal-core.ts', {
+  '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts },
+  './buyer-contact': contact, './channel': channel,
+});
 const dashboard = load('../lib/supplier-portal/dashboard.ts', {
   '@/lib/rfq/buyer-contact': contact,
-  '@/lib/rfq/channel': load('../lib/rfq/channel.ts', {}),
+  '@/lib/rfq/channel': channel,
+  '@/lib/rfq/portal-core': core,
   '@/lib/public/display-name': displayName,
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { vi: dictionary.vi.notices, en: dictionary.en.notices } },
@@ -166,6 +172,7 @@ const sent = [];
 let mode = 'simulated';
 let inviteStatus = 'pending';
 let preflightFails = false;
+let hasPublishedVersion = false;
 const store = {
   getRfq: async () => rfq,
   getRfqMatch: async () => storedMatch,
@@ -173,6 +180,8 @@ const store = {
   findIntroduction: async () => null, createIntroduction: async () => {},
   getBuyer: async () => ({ id: 'b1', contact_name: 'Jane', email: 'buyer@example.com' }),
   listRfqMatches: async () => [storedMatch],
+  listRfqQuoteVersions: async (ids) => hasPublishedVersion && ids.includes(storedMatch.id)
+    ? [{ id: 'version-1', match_id: storedMatch.id, version: 1 }] : [],
   listSupplierRfqInvitations: async () => { if (preflightFails) throw Error('migration missing'); return []; },
   listSupplierNoticeReads: async () => [],
   listSuppliers: async () => [{ id: 's-a', email: 'supplier@example.com', name: 'Supplier A', onboarding_status: inviteStatus }],
@@ -201,13 +210,7 @@ const privateMail = outbound.buildRfqSupplierEmail({ rfq: { ...rfq, product_text
 assert.match(privateMail.html, /buyer@example.com/);
 assert.ok(!privateMail.html.includes('thirdparty@example.com'));
 assert.ok(!privateMail.html.includes('SECRET BUYER CONTACT'));
-const shortlist = outbound.buildRfqShortlistBuyerEmail({
-  rfq, buyer: { contact_name: 'Jane', email: 'buyer@example.com' },
-  matches: [{ ...storedMatch, internal_note: 'PRIVATE STAFF EVALUATION — never send', quote_price: 7,
-    quote_currency: 'USD', quote_unit: 'kg', supplier: { name: 'Supplier A', province: 'Hanoi' } }],
-});
-assert.match(shortlist.html, /Supplier A|Lead time/);
-assert.doesNotMatch(shortlist.html, /PRIVATE STAFF EVALUATION|Ghi chú Vexim/, 'Buyer shortlist must never include internal match notes');
+assert.equal(outbound.buildRfqShortlistBuyerEmail, undefined, 'No email-first buyer price table can bypass publication');
 preflightFails = true;
 await assert.rejects(outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id }), /migration missing/);
 assert.equal(sent.length, 0, 'No mail before DB migration is ready');
@@ -238,11 +241,15 @@ const legacyInvite = outbound.buildRfqSupplierEmail({ rfq, supplier: { id: 's-a'
 assert.match(legacyInvite.html, /trả lời trực tiếp email này/);
 assert.doesNotMatch(legacyInvite.html, /supplier\/portal\/rfqs/);
 storedMatch.status = 'quoted'; storedMatch.quote_price = 7;
-mode = 'simulated';
-await assert.rejects(outbound.presentShortlistToBuyer({ rfqId: rfq.id }), /Resend chưa gửi thật/);
-assert.equal(storedMatch.status, 'quoted', 'A simulated buyer email cannot advance the supplier match');
-assert.equal(rfq.status, 'matching', 'A simulated buyer email cannot mark RFQ as quoted');
-storedMatch.status = 'presented_to_buyer'; storedMatch.quote_price = null;
+await assert.rejects(outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id }),
+  /đã công bố/, 'An unpublished sourcing draft cannot be selected');
+assert.equal(rfq.status, 'matching');
+storedMatch.status = 'presented_to_buyer'; storedMatch.sent_to_buyer_at = now.toISOString();
+storedMatch.quote_price = null;
+await assert.rejects(outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id }),
+  /phiên bản báo giá/, 'Timestamp alone is not a buyer-visible offer');
+assert.equal(rfq.status, 'matching');
+hasPublishedVersion = true;
 const countBeforeSelection = sent.length;
 mode = 'sent';
 assert.equal((await outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id })).email, 'sent');
@@ -259,6 +266,10 @@ const matchActions = load('../app/crm/rfqs/[id]/actions.ts', {
   crypto: { randomUUID: () => 'test-id' },
   '@/lib/db': { getStore: () => store }, '@/lib/auth/session': { guard: async () => null },
   '@/lib/rfq/workflow': load('../lib/rfq/workflow.ts', {}),
+  '@/lib/supplier-portal/quote': { QUOTABLE_MATCH_STATUSES: ['quoted'], QUOTE_CURRENCIES: ['USD'], QUOTE_INCOTERMS: ['FOB'] },
+  '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts },
+  '@/lib/rfq/portal-core': core,
+  '@/lib/rfq/portal-alerts': { runRfqPortalAlerts: async () => ({ claimed: 0 }) },
 });
 const forgedSelection = new FormData(); forgedSelection.set('match_id', storedMatch.id);
 forgedSelection.set('rfq_id', rfq.id); forgedSelection.set('status', 'selected');

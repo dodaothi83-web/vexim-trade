@@ -25,9 +25,15 @@ assert.match(read('app/crm/rfqs/[id]/page.tsx'), /form="rfq-dispatch"/);
 const dictionary = loadPortalDictionary();
 const contact = load('lib/rfq/buyer-contact.ts', {});
 const displayName = load('lib/public/display-name.ts', {});
+const channel = load('lib/rfq/channel.ts', {});
+const core = load('lib/rfq/portal-core.ts', {
+  '@/lib/public/product-selection': { withoutDirectContacts: (s) => String(s).replace(/[\w.+-]+@[\w.-]+/g, '[redacted]') },
+  './buyer-contact': contact, './channel': channel,
+});
 const dashboard = load('lib/supplier-portal/dashboard.ts', {
   '@/lib/rfq/buyer-contact': contact,
-  '@/lib/rfq/channel': load('lib/rfq/channel.ts', {}),
+  '@/lib/rfq/channel': channel,
+  '@/lib/rfq/portal-core': core,
   '@/lib/public/display-name': displayName,
   '@/lib/public/product-selection': { withoutDirectContacts: (s) => String(s).replace(/[\w.+-]+@[\w.-]+/g, '[redacted]') },
   '@/lib/i18n/format': loadFormat(),

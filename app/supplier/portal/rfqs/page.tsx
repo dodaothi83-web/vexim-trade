@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronDown, ImageIcon, Mail, TrendingUp } from "lucide-react";
+import { ArrowRight, ChevronDown, ImageIcon, Mail, MessageCircle, TrendingUp } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -197,6 +197,10 @@ export default async function SupplierRfqPage({ searchParams }: {
       <div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
         {fill(sp.quote === "sent" ? copy.quote.sent : sp.quote === "delivered" ? copy.quote.delivered : copy.quote.declined, { code: sp.code! })}
       </div>}
+    {sp.quote === "publish_pending" && /^[A-Za-z0-9-]{1,40}$/.test(sp.code ?? "") &&
+      <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+        {fill(copy.quote.publishPending, { code: sp.code! })}
+      </div>}
 
     <section aria-labelledby="rfq-pending" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <header className="border-b border-ink-200 px-4 py-4 sm:px-6">
@@ -223,6 +227,11 @@ export default async function SupplierRfqPage({ searchParams }: {
                 <p className="mb-2 text-sm text-ink-700">{copy.tasks.primaryHint}</p>
                 <SupplierQuoteForm matchId={task.matchId} code={task.code} defaults={task.quoteDefaults}
                   currencies={QUOTE_CURRENCIES} incoterms={QUOTE_INCOTERMS} editing={false} direct={task.directToBuyer} copy={copy.quote} />
+                <Link href={`/supplier/portal/rfqs/${encodeURIComponent(task.matchId)}`} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg border border-brand-200 bg-white px-4 text-[13px] font-semibold text-brand-800 hover:border-brand-400 hover:bg-brand-50">
+                  <MessageCircle className="h-4 w-4" aria-hidden="true" />{copy.tasks.conversation}
+                  {task.newBuyerMessage && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900">{copy.tasks.newMessage}</span>}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
               </div>
               <EmailHelp item={task} supplierEmail={supplier.email} copy={copy.tasks} />
             </article>
@@ -247,6 +256,7 @@ export default async function SupplierRfqPage({ searchParams }: {
               <span className="mt-1 block text-[13px] text-ink-600">{item.code} · {fill(copy.invites.sentAt, { at: date(item.sentAt, intl) })}</span>
             </span>
             <span className="rounded-full bg-brand-50 px-3 py-1 text-[13px] font-semibold text-brand-900">{item.status}</span>
+            {item.newBuyerMessage && <span className="rounded-full bg-amber-50 px-3 py-1 text-[12px] font-bold text-amber-900">{copy.invites.newMessage}</span>}
             <ChevronDown className="h-4 w-4 text-ink-500 transition group-open:rotate-180" aria-hidden="true" />
           </summary>
           <div className="border-t border-ink-100 px-4 py-5 sm:px-6">
@@ -255,6 +265,9 @@ export default async function SupplierRfqPage({ searchParams }: {
             <BuyerContactDetails contact={item.buyerContact} copy={copy.buyer} />
             {item.quotePrice && <p className="mt-3 text-sm font-semibold text-ink-800">{fill(copy.invites.quoteRecorded, { value: item.quotePrice })}</p>}
             {item.repliedAt && <p className="mt-2 text-[13px] text-ink-600">{fill(copy.invites.replied, { at: date(item.repliedAt, intl) })}</p>}
+            <Link href={`/supplier/portal/rfqs/${encodeURIComponent(item.matchId)}`} className="mt-3 inline-flex min-h-10 items-center gap-2 text-[13px] font-semibold text-brand-700 hover:underline">
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />{copy.invites.conversation}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
             {item.canQuote && <div className="mt-4"><SupplierQuoteForm matchId={item.matchId} code={item.code} defaults={item.quoteDefaults}
               currencies={QUOTE_CURRENCIES} incoterms={QUOTE_INCOTERMS} editing={!!item.quotePrice} direct={item.directToBuyer} copy={copy.quote} /></div>}
           </div>

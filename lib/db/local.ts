@@ -37,6 +37,9 @@ import type {
   Rfq,
   RfqAttachment,
   RfqMatch,
+  RfqQuoteVersion,
+  RfqThreadMessage,
+  RfqPortalAlert,
   SupplierNoticeRead,
   Supplier,
   SupplierCategory,
@@ -59,6 +62,8 @@ import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import { PREVIEW_PEPPER_HARVEST, previewCategories, previewSeedRows } from "@/lib/db/preview-seed";
 import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
+import { rfqChannel } from "@/lib/rfq/channel";
+import { rfqBuyerContact } from "@/lib/rfq/buyer-contact";
 import { isExpired } from "@/lib/media/readiness";
 import {
   CASHEW_CATEGORY_CONFIG,
@@ -122,6 +127,9 @@ interface LocalShape {
   rfqs: Rfq[];
   rfq_attachments: RfqAttachment[];
   rfq_matches: RfqMatch[];
+  rfq_quote_versions?: RfqQuoteVersion[];
+  rfq_thread_messages?: RfqThreadMessage[];
+  rfq_portal_alerts?: RfqPortalAlert[];
   supplier_portal_notice_reads?: SupplierNoticeRead[];
   introductions: Introduction[];
   audit_log: AuditLogEntry[];
@@ -600,6 +608,26 @@ function migrateRfqDefaults(db: LocalShape) {
     if (s === "qualified") r.status = "in_progress";
     else if (s === "quoting") r.status = "quoted";
     else if (s === "closed") r.status = "lost";
+  }
+  db.rfq_quote_versions ??= [];
+  db.rfq_thread_messages ??= [];
+  db.rfq_portal_alerts ??= [];
+  // Same as the SQL migration: only an already-presented quote becomes a public
+  // historical version. Never treat a private staff note as a buyer-facing message.
+  const known = new Set(db.rfq_quote_versions.map((v) => v.match_id));
+  for (const m of db.rfq_matches ?? []) {
+    if (m.status === "quoted" && m.sent_to_buyer_at && !known.has(m.id)) {
+      // No snapshot can reconstruct the former price after a legacy email delivery.
+      // Do not mistake an unpublished revision for permission to view/chat.
+      m.legacy_sent_to_buyer_at ??= m.sent_to_buyer_at;
+      m.sent_to_buyer_at = null;
+    }
+    if (!m.sent_to_buyer_at || m.status === "quoted" || !(m.quote_price! > 0) || known.has(m.id)) continue;
+    db.rfq_quote_versions.push({ id: randomUUID(), match_id: m.id, version: 1,
+      quote_price: m.quote_price!, quote_currency: m.quote_currency ?? "USD", quote_unit: m.quote_unit ?? "unit",
+      quote_incoterm: m.quote_incoterm ?? null, quote_lead_time_days: m.quote_lead_time_days ?? null,
+      quote_valid_until: m.quote_valid_until ?? null, buyer_note: null, published_at: m.sent_to_buyer_at });
+    known.add(m.id);
   }
 }
 
@@ -1088,7 +1116,13 @@ function toPublicUser(row: AppUserRecord): AppUser {
   };
 }
 
-function mutate<T>(fn: (db: LocalShape) => T): T {
+function nextRfqMatchUpdatedAt(previous: string | null | undefined): string {
+  // Millisecond clocks can repeat during two local mutations in one event loop.
+  // Keep the CAS token strictly increasing even when Date.now() does not move.
+  return new Date(Math.max(Date.now(), (Date.parse(previous ?? "") || 0) + 1)).toISOString();
+}
+
+function mutate<T>(fn: (db: LocalShape) => T) {
   const db = load();
   const out = fn(db);
   persist(db);
@@ -2659,6 +2693,11 @@ export const localStore: DataStore = {
           quote_currency: m.quote_currency, quote_unit: m.quote_unit,
           quote_incoterm: m.quote_incoterm, quote_lead_time_days: m.quote_lead_time_days,
           quote_valid_until: m.quote_valid_until, sent_to_buyer_at: m.sent_to_buyer_at,
+          quote_buyer_note: m.quote_buyer_note ?? null, buyer_last_read_at: m.buyer_last_read_at ?? null,
+          supplier_last_read_at: m.supplier_last_read_at ?? null, last_thread_message_at: m.last_thread_message_at ?? null,
+          last_thread_sender: m.last_thread_sender ?? null,
+          last_buyer_message_at: m.last_buyer_message_at ?? null,
+          last_supplier_message_at: m.last_supplier_message_at ?? null,
           created_at: m.created_at, updated_at: m.updated_at,
           rfq: {
           code: r.code, product_text: r.product_text, quantity: r.quantity, unit: r.unit,
@@ -2709,7 +2748,14 @@ export const localStore: DataStore = {
       quote_lead_time_days: null,
       quote_valid_until: null,
       quote_file_id: null,
+      quote_buyer_note: null,
       sent_to_buyer_at: null,
+      buyer_last_read_at: null,
+      supplier_last_read_at: null,
+      last_thread_message_at: null,
+      last_thread_sender: null,
+      last_buyer_message_at: null,
+      last_supplier_message_at: null,
       internal_note: null,
       created_at: now,
       updated_at: now,
@@ -2724,13 +2770,138 @@ export const localStore: DataStore = {
     return mutate((db) => {
       const row = (db.rfq_matches ?? []).find((m) => m.id === id);
       if (!row) throw new Error("RFQ match not found");
-      Object.assign(row, cleanPatch({ ...patch, updated_at: new Date().toISOString() }));
+      Object.assign(row, cleanPatch({ ...patch, updated_at: nextRfqMatchUpdatedAt(row.updated_at) }));
+      return row;
+    });
+  },
+  async updateRfqMatchIfState(id, supplierId, expectedStatus, expectedUpdatedAt, patch) {
+    return mutate((db) => {
+      const row = db.rfq_matches.find((m) => m.id === id && m.supplier_id === supplierId && !!m.sent_to_supplier_at &&
+        m.status === expectedStatus && m.updated_at === expectedUpdatedAt);
+      const request = row && db.rfqs.find((r) => r.id === row.rfq_id);
+      if (!row || !request || ["won", "lost", "spam"].includes(request.status)) return null;
+      Object.assign(row, cleanPatch({ ...patch, updated_at: nextRfqMatchUpdatedAt(row.updated_at) }));
       return row;
     });
   },
   async deleteRfqMatch(id) {
     mutate((db) => {
       db.rfq_matches = (db.rfq_matches ?? []).filter((m) => m.id !== id);
+    });
+  },
+  async publishRfqQuotes(rfqId, matchIds, expectedUpdatedAt) {
+    return mutate((db) => {
+      if (matchIds.length > 100) throw new Error("Too many RFQ matches");
+      const rfq = db.rfqs.find((r) => r.id === rfqId);
+      if (!rfq || ["won", "lost", "spam"].includes(rfq.status) || rfqChannel(rfq) === "question") throw new Error("RFQ not open for publication");
+      const published: RfqQuoteVersion[] = [];
+      for (const id of [...new Set(matchIds)].sort()) {
+        const m = db.rfq_matches.find((row) => row.id === id && row.rfq_id === rfqId);
+        if (!m || m.status !== "quoted" || !m.sent_to_supplier_at || !(m.quote_price! > 0) ||
+            !expectedUpdatedAt || !expectedUpdatedAt[id] || m.updated_at !== expectedUpdatedAt[id]) continue;
+        const stamp = new Date().toISOString();
+        const row: RfqQuoteVersion = {
+          id: randomUUID(), match_id: m.id,
+          version: Math.max(0, ...(db.rfq_quote_versions ?? []).filter((v) => v.match_id === m.id).map((v) => v.version)) + 1,
+          quote_price: m.quote_price!, quote_currency: m.quote_currency ?? "USD", quote_unit: m.quote_unit ?? "unit",
+          quote_incoterm: m.quote_incoterm, quote_lead_time_days: m.quote_lead_time_days,
+          quote_valid_until: m.quote_valid_until, buyer_note: m.quote_buyer_note ?? null, published_at: stamp,
+        };
+        db.rfq_quote_versions = [...(db.rfq_quote_versions ?? []), row];
+        Object.assign(m, { status: "presented_to_buyer", sent_to_buyer_at: stamp,
+          updated_at: nextRfqMatchUpdatedAt(m.updated_at) });
+        const alert: RfqPortalAlert = { id: randomUUID(), match_id: m.id, version_id: row.id, message_id: null,
+          recipient: "buyer", event_at: stamp, not_before: stamp, status: "pending", attempts: 0,
+          claimed_at: null, sent_at: null, last_error: null, created_at: stamp };
+        db.rfq_portal_alerts = [...(db.rfq_portal_alerts ?? []), alert];
+        published.push(row);
+      }
+      if (published.length) {
+        rfq.status = "quoted";
+        rfq.first_response_at ??= new Date().toISOString();
+        rfq.updated_at = new Date().toISOString();
+      }
+      return published;
+    });
+  },
+  async listRfqQuoteVersions(matchIds) {
+    const ids = new Set(matchIds);
+    return (load().rfq_quote_versions ?? []).filter((v) => ids.has(v.match_id))
+      .sort((a, b) => a.match_id.localeCompare(b.match_id) || a.version - b.version);
+  },
+  async listRfqThreadMessages(matchId) {
+    return (load().rfq_thread_messages ?? []).filter((m) => m.match_id === matchId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  },
+  async addRfqThreadMessage(input) {
+    return mutate((db) => {
+      const m = db.rfq_matches.find((row) => row.id === input.match_id);
+      const rfq = m && db.rfqs.find((r) => r.id === m.rfq_id);
+      if (!m || !rfq || !m.sent_to_supplier_at || ["proposed", "declined", "not_selected"].includes(m.status) ||
+          ["won", "lost", "spam"].includes(rfq.status) || rfqChannel(rfq) === "question" ||
+          (rfqChannel(rfq) === "sourcing" && !m.sent_to_buyer_at)) throw new Error("RFQ thread is not available");
+      if (!rfqBuyerContact(rfq, m.supplier_id)) throw new Error("RFQ contact consent missing");
+      const body = input.body.trim();
+      if (!body || body.length > 2000) throw new Error("Invalid RFQ message");
+      const stamp = new Date().toISOString();
+      if ((db.rfq_thread_messages ?? []).filter((entry) => entry.match_id === m.id && entry.sender === input.sender &&
+          Date.parse(entry.created_at) > Date.parse(stamp) - 10 * 60_000).length >= 12) throw new Error("RFQ thread rate limited");
+      const row: RfqThreadMessage = { ...input, id: randomUUID(), body, created_at: stamp };
+      db.rfq_thread_messages = [...(db.rfq_thread_messages ?? []), row];
+      Object.assign(m, { last_thread_message_at: stamp, last_thread_sender: input.sender,
+        [input.sender === "buyer" ? "last_buyer_message_at" : "last_supplier_message_at"]: stamp,
+        updated_at: nextRfqMatchUpdatedAt(m.updated_at) });
+      const alert: RfqPortalAlert = { id: randomUUID(), match_id: m.id, version_id: null, message_id: row.id,
+        recipient: input.sender === "buyer" ? "supplier" : "buyer", event_at: stamp,
+        not_before: new Date(Date.parse(stamp) + 10 * 60_000).toISOString(), status: "pending",
+        attempts: 0, claimed_at: null, sent_at: null, last_error: null, created_at: stamp };
+      db.rfq_portal_alerts = [...(db.rfq_portal_alerts ?? []), alert];
+      return row;
+    });
+  },
+  async markRfqThreadRead(matchId, side, at) {
+    mutate((db) => {
+      const m = db.rfq_matches.find((row) => row.id === matchId);
+      if (!m || !["buyer", "supplier"].includes(side) || !Number.isFinite(Date.parse(at))) throw new Error("Invalid read marker");
+      const key = side === "buyer" ? "buyer_last_read_at" : "supplier_last_read_at";
+      const timestamp = new Date(Math.min(Date.parse(at), Date.now())).toISOString();
+      if (!m[key] || Date.parse(m[key]) < Date.parse(timestamp)) {
+        m[key] = timestamp;
+        m.updated_at = nextRfqMatchUpdatedAt(m.updated_at);
+      }
+    });
+  },
+  async listRfqMatchUpdates(rfqIds) {
+    const ids = new Set(rfqIds);
+    return load().rfq_matches.filter((m) => ids.has(m.rfq_id)).map((m) => ({
+      id: m.id, rfq_id: m.rfq_id, sent_to_supplier_at: m.sent_to_supplier_at, sent_to_buyer_at: m.sent_to_buyer_at,
+      buyer_last_read_at: m.buyer_last_read_at ?? null, last_thread_message_at: m.last_thread_message_at ?? null,
+      last_thread_sender: m.last_thread_sender ?? null, last_supplier_message_at: m.last_supplier_message_at ?? null,
+    }));
+  },
+  async listDueRfqPortalAlerts(now, limit, matchIds) {
+    const expired = Date.parse(now) - 20 * 60_000;
+    const scope = matchIds && new Set(matchIds);
+    return (load().rfq_portal_alerts ?? []).filter((a) =>
+      (!scope || scope.has(a.match_id)) && a.not_before <= now && (["pending", "failed"].includes(a.status) ||
+        (a.status === "sending" && !!a.claimed_at && Date.parse(a.claimed_at) < expired)))
+      .sort((a, b) => a.not_before.localeCompare(b.not_before) || a.created_at.localeCompare(b.created_at)).slice(0, limit);
+  },
+  async claimRfqPortalAlert(alert, at) {
+    return mutate((db) => {
+      const row = (db.rfq_portal_alerts ?? []).find((a) => a.id === alert.id);
+      if (!row || row.status !== alert.status || row.claimed_at !== alert.claimed_at || row.not_before > at ||
+        (row.status === "sending" && (!row.claimed_at || Date.parse(row.claimed_at) >= Date.parse(at) - 20 * 60_000))) return false;
+      Object.assign(row, { status: "sending", claimed_at: at, attempts: row.attempts + 1 });
+      return true;
+    });
+  },
+  async finishRfqPortalAlert(id, claimedAt, patch) {
+    return mutate((db) => {
+      const row = (db.rfq_portal_alerts ?? []).find((a) => a.id === id && a.status === "sending" && a.claimed_at === claimedAt);
+      if (!row) return false;
+      Object.assign(row, patch);
+      return true;
     });
   },
 

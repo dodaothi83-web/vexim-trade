@@ -164,22 +164,38 @@ dispatchRfqToSuppliers()  lib/rfq/outreach.ts
   ├─ RFQ đích danh một NCC: gắn Buyer CRM sau khi match đã lưu là sent (nếu Buyer chưa gắn NCC)
   └─ gửi lỗi/mô phỏng thì KHÔNG đánh dấu đã gửi (bấm lại được)
        ▼
-NCC trả lời bằng email (Reply-To ở trên)
-  ▼
-Webhook thư đến  lib/mail/inbound.ts
-  ├─ xác thực: match thuộc đúng RFQ + người gửi đúng NCC đó (hoặc đã từng được gửi)
-  ├─ lưu vào email_messages, gắn vào timeline của RFQ (không lẫn khách khác)
-  └─ ghi supplier_replied_at (chỉ lần đầu)
+NCC có cổng approved: mở /supplier/portal/rfqs → chọn RFQ của mình
+  ├─ Có thể hỏi người mua qua mạch tin RFQ đích danh ngay sau khi được mời và có consent.
+  ├─ Nhập đơn giá + thời gian giao/Incoterm + **Lời nhắn gửi người mua** (tối đa 1000 ký tự).
+  ├─ **Ghi chú nội bộ Vexim** là trường khác, chỉ vào timeline CRM; không bao giờ nằm
+  │   trong phiên bản báo giá hoặc mạch tin của người mua.
+  ├─ Lưu giá bằng CAS (nếu staff/NCC đã sửa ở tab khác, phải tải lại).
+  ├─ RFQ đích danh, đúng NCC và có consent → tự công bố trên tài khoản buyer ngay
+  │   sau lưu; email thông báo có thể lỗi mà báo giá vẫn xem được.
+  └─ RFQ tìm nguồn → báo giá nháp `quoted`, chờ nhân viên xem và bấm "Công bố báo giá".
+
+NCC chỉ có email: trả lời qua Reply-To → webhook lib/mail/inbound.ts kiểm tra người gửi,
+lưu timeline, đánh dấu thời điểm phản hồi đầu. Staff đọc thư rồi nhập giá vào CRM (không
+đọc giá tự động từ email). RFQ đích danh hợp lệ tự công bố; tìm nguồn vẫn chờ staff.
        ▼
-Nhân viên ĐỌC THƯ RỒI NHẬP BÁO GIÁ TAY  (hệ thống không tự đọc giá từ email)
-  ├─ giá / tiền tệ / đơn vị / incoterm / thời gian giao
-  └─ match → quoted
+publish_rfq_quotes() — RPC / local store, staff xác nhận đúng phiên bản nháp đã xem
+  ├─ chỉ nhận match thuộc RFQ, đã mời, trạng thái `quoted`, giá > 0 và updated_at
+  │   khớp bản staff/supplier vừa duyệt (nháp thay đổi trong lúc xác nhận → bỏ qua).
+  ├─ một transaction: lưu rfq_quote_versions (append-only), đổi match thành
+  │   presented_to_buyer + sent_to_buyer_at, ghi outbox rfq_portal_alerts,
+  │   rfq → quoted / first_response_at. Gửi lại không nhân đôi phiên bản.
+  └─ người mua đăng nhập /buyer/account/requests/[id] để so sánh báo giá công bố;
+      mỗi NCC có trang riêng /offers/[matchId], lịch sử phiên bản và mạch hỏi đáp.
+      Bản sửa `quoted` chưa công bố KHÔNG thay giá/buyer note của phiên bản cũ.
        ▼
-presentShortlistToBuyer()   ← nút "Gửi bảng so sánh"
-  ├─ chỉ gửi khi có ≥1 match đã có giá
-  ├─ email tiếng Anh, bảng NCC + giá + incoterm + lead time (không lộ liên hệ NCC)
-  ├─ match → presented_to_buyer ; rfq → quoted ; ghi first_response_at
-  └─ gửi lỗi thì ném lỗi, KHÔNG đánh dấu đã trình
+Buyer hoặc NCC nhắn văn bản (tối đa 2000 ký tự, 12 tin/10 phút/mỗi bên/mỗi match)
+  ├─ chỉ tài khoản buyer sở hữu RFQ và NCC sở hữu đúng match; staff xem từng mạch
+  │   trong CRM. Các NCC khác không được đọc. Trạng thái đóng chỉ đọc, không gửi mới.
+  ├─ consent riêng RFQ/NCC bắt buộc; sourcing chỉ bắt đầu khi staff công bố match.
+  ├─ tin nhắn KHÔNG tự sửa đơn giá hoặc điều kiện báo giá chính thức.
+  ├─ đánh dấu đã đọc khi mở trang đến sự kiện thực sự hiển thị, không đánh dấu tin tương lai.
+  └─ outbox trì hoãn email tin nhắn 10 phút; nếu đã đọc thì bỏ qua thư. Email là
+      đường nhắc, không phải đường phân quyền hay điều kiện công bố.
        ▼
 Người mua chọn một NCC  →  "Chọn nhà cung cấp này"
   ├─ match → selected, các match khác → not_selected
@@ -204,7 +220,7 @@ gửi lặp ở tầng DB.
 | `needs_review` | Điểm spam 40–99, cần người đọc | Hệ thống (submit) |
 | `in_progress` | Đã có người phụ trách | Nhân viên phân công |
 | `matching` | Đã gửi ≥1 NCC | Hệ thống (dispatch) |
-| `quoted` | Đã gửi bảng so sánh cho người mua | Hệ thống (shortlist) |
+| `quoted` | Có ít nhất một phiên bản báo giá đã công bố trong tài khoản người mua | Hệ thống (công bố) |
 | `sampling` | Chốt NCC, bắt đầu gửi mẫu | Nhân viên |
 | `won` | Người mua chọn NCC / chốt | Nhân viên chọn NCC |
 | `lost` | Đóng, có lý do | Nhân viên (bắt buộc lý do) |
@@ -212,7 +228,8 @@ gửi lặp ở tầng DB.
 
 ### Match (một NCC trong một RFQ)
 
-`proposed` → `sent_to_supplier` → `quoted` → `presented_to_buyer` → `selected` / `not_selected`
+`proposed` → `sent_to_supplier` → `quoted` (nháp) → `presented_to_buyer` (đã công bố) → `selected` / `not_selected`
+Sửa giá sau công bố: `presented_to_buyer` → `quoted` (bản mới chờ công bố; bản cũ vẫn hiển thị) → `presented_to_buyer` (phiên bản kế).
 Nhánh phụ: `declined` (NCC từ chối), `no_response` (im lặng — **hiện chưa tự chuyển**, xem §7).
 
 ## 4. Ai được làm gì
@@ -221,9 +238,9 @@ Nhánh phụ: `declined` (NCC từ chối), `no_response` (im lặng — **hiệ
 | --- | :-: | :-: | :-: | :-: |
 | Xem hộp RFQ, chi tiết, timeline | ✓ | ✓ | ✓ (chỉ đọc) | — |
 | Phân công, đổi trạng thái, thêm NCC, gửi email | ✓ | ✓ | — | — |
-| Nhập báo giá, gửi bảng so sánh, chốt NCC | ✓ | ✓ | — | — |
+| Nhập báo giá, công bố RFQ tìm nguồn, chốt NCC | ✓ | ✓ | — | — |
 | Xem danh sách RFQ được chuyển cho mình | — | — | — | ✓ (chỉ của mình) |
-| Trả lời báo giá | — | — | — | ✓ (bằng email, không thấy liên hệ người mua) |
+| Báo giá, sửa giá; hỏi đáp trong RFQ của mình | — | — | — | ✓ (cổng approved; liên hệ buyer chỉ khi có consent riêng) |
 
 Nguyên tắc email: thư cho **NCC** gửi từ email cá nhân của nhân viên thật (không dùng hộp chung
 `sales@`); thư cho **người mua** gửi từ địa chỉ công ty với Reply-To `buyer+{mã}@domain` để hồi âm
@@ -278,10 +295,36 @@ và **module AI ném lỗi đồng bộ ngay khi submit gọi** — tất cả �
 | Submit (mọi trường hợp trừ spam) | Hộp thư nội bộ | RFQ mới / cần duyệt / đã cách ly, kèm link CRM | — |
 | Gửi NCC | NCC | RFQ + bản chụp liên hệ Buyer đã đồng ý + hạn phản hồi; không có token/ghi chú CRM | Một lần/một match |
 | Nhắc NCC | NCC | Liên hệ Buyer đã đồng ý + nhắc phản hồi (nút thủ công, chỉ khi đã gửi) | Thủ công |
-| Bảng so sánh | Người mua | So sánh NCC theo giá/incoterm/lead time | **Chưa có** (xem §7) |
+| Công bố báo giá | Người mua | Chỉ thông báo có báo giá/bản sửa mới và link tài khoản, **không kèm bảng giá** | Một outbox event cho mỗi phiên bản; lỗi retry |
+| Tin nhắn RFQ chưa đọc | Người mua/NCC | Chỉ link vào mạch riêng; **không kèm nội dung, giá hay liên hệ** | Sau 10 phút; đã đọc thì bỏ qua; retry khi lỗi |
 | Chốt NCC | NCC | "Vexim đã chọn hồ sơ của bạn" + liên hệ đã đồng ý | Chỉ gửi khi match đã thực sự được mời và có consent |
 | Sang sampling / đóng lost | Người mua | Cập nhật trạng thái + bước tiếp theo / lý do | Unique index theo `(rfq, stage)` |
 | Câu hỏi sản phẩm cũ | — | Không còn nhận RFQ câu hỏi mới; nút Ask supplier dùng chat riêng | — |
+
+### Triển khai / kiểm tra RFQ portal
+
+1. **Chạy `supabase/migrations/20261116_rfq_portal_conversations.sql` trước khi deploy app.**
+   Nó mở rộng `rfq_matches.quote_price` lên 4 chữ số thập phân, tạo phiên bản/tin/outbox,
+   RPC và quyền service role. Chỉ backfill giá đã trình trước đây khi match **không** ở
+   trạng thái `quoted`: mốc gửi cũ có thể tồn tại bên cạnh bản sửa chưa công bố, không được
+   đoán giá cũ hay chuyển ghi chú nội bộ thành lời nhắn người mua. Mốc gửi email cũ
+   của bản nháp được lưu riêng ở `legacy_sent_to_buyer_at`, còn `sent_to_buyer_at` xóa để
+   không mở mạch tin tìm nguồn khi chưa công bố. Nhân viên xem timeline cũ và công bố
+   lại báo giá theo quy trình nếu cần.
+2. Chạy `npm run check:rfq` hoặc `npm run check:rfq-portal` (PGlite thực thi SQL thật,
+   kiểm phân quyền, backfill, phiên bản, CAS, consent, rate limit và outbox; không ghi production).
+3. Đảm bảo cron `GET /api/cron/chat-notify` chạy mỗi 5 phút với `Authorization: Bearer
+   $CRON_SECRET`. Cron xử lý chat và outbox RFQ độc lập; lỗi transport không thu hồi phiên
+   bản đã công bố. Lần gửi mới có thể thử ngay; nếu thất bại, cron lấy lại theo backoff
+   10 phút, 20 phút... tối đa một ngày. Claim treo >20 phút được retry; thư có thể trùng
+   nếu nhà cung cấp email nhận nhưng worker chết trước khi ghi thành công.
+4. Nếu báo giá buyer không hiện: kiểm tra `rfq_quote_versions` + match.status trước,
+   không kiểm tra mail sent. Nếu tin không gửi: kiểm consent/đã mời/trạng thái và giới hạn
+   tần suất. Nếu email không tới: xem `rfq_portal_alerts.status`, `last_error`, `not_before`
+   và log cron; **không bấm công bố lại chỉ để thử gửi mail**. Với báo giá đích danh lỗi
+   ở bước công bố, staff kiểm bản nháp trong CRM rồi dùng nút công bố.
+5. Không gửi tài liệu đính kèm qua mạch RFQ hiện tại (chỉ văn bản); nếu cần trao đổi file,
+   liên hệ Vexim theo cách cũ. Không sao chép nội dung tin nhắn riêng sang email thông báo.
 
 ## 6. SLA và cron
 
@@ -303,9 +346,8 @@ RFQ **câu hỏi trực tiếp** và RFQ `spam` được loại khỏi mọi c�
 1. **SLA đang tính bằng giờ đồng hồ**, không phải giờ làm việc 9–18 T2–T6 như tài liệu → cảnh báo
    có thể nổ ngoài giờ hoặc sáng Thứ Bảy.
 2. **NCC im lặng không tự thành `no_response`** — người phụ trách phải tự đổi trạng thái.
-3. **Rate limit báo giá nằm trong bộ nhớ** (mất khi serverless scale) → chống spam thực tế yếu.
-4. **Bảng so sánh chưa chống bấm 2 lần** → có thể gửi trùng email cho người mua.
-5. **Chọn NCC là RFQ thành `won`**, trong khi trang người mua hiển thị "Order confirmed" — chưa
-   phải đơn hàng đã xác nhận.
-6. Danh sách người mua/RFQ **không phân trang** → từ 1000 bản ghi trở lên sẽ tạo hồ sơ người mua
+3. **Lớp chặn IP/UA cho submit RFQ vẫn nằm trong bộ nhớ** và không đồng bộ giữa các lambda;
+   lớp chính theo buyer đăng nhập đếm RFQ trên dữ liệu dùng chung. Chặn tin nhắn portal là
+   12 tin/10 phút ở DB, không phụ thuộc bộ nhớ tiến trình.
+4. Danh sách người mua/RFQ **không phân trang** → từ 1000 bản ghi trở lên sẽ tạo hồ sơ người mua
    trùng và tab RFQ đếm sai.
