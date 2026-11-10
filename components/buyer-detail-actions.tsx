@@ -131,8 +131,7 @@ export function SupplierPicker({
             Ẩn danh trong email CRM khác (không áp dụng RFQ đã gửi)
           </span>
           <span className="mt-0.5 block text-[11.5px] leading-relaxed text-ink-500">
-            Chỉ áp dụng email giai đoạn của CRM cũ. RFQ đã gửi luôn dùng thông tin Buyer cung cấp
-            và đồng ý chia sẻ riêng cho RFQ đó; ô này không thể thu hồi email đã gửi.
+            Chỉ áp dụng email giai đoạn của CRM cũ. RFQ đích danh chỉ chia sẻ liên hệ khi người mua đồng ý riêng. RFQ tìm nguồn giữ liên hệ tại Vexim. Ô này không thu hồi liên hệ đã chia sẻ trước đó.
           </span>
         </span>
       </label>

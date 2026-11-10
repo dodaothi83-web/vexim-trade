@@ -92,6 +92,19 @@ assert.equal(base.tasks.length, 1);
 assert.equal(base.tasks[0].directToBuyer, true);
 const sourced = dashboard.buildSupplierRfqBoard({ ...input, invites: [{ ...match, rfq: { ...match.rfq, sourcing_request_id: 'req-1' } }] });
 assert.equal(sourced.tasks[0].directToBuyer, false, 'Linked sourcing RFQ must not promise direct buyer delivery');
+const submitted = { ...match, status: 'quoted', quote_price: 6.35 };
+for (const [language, directPending, sourcingPending, revisionPending] of [
+  ['en', 'Quote saved · publication pending', 'Awaiting Vexim publication', 'Revision awaiting Vexim publication'],
+  ['vi', 'Đã lưu · chờ công bố', 'Chờ Vexim công bố', 'Bản điều chỉnh chờ Vexim công bố'],
+]) {
+  const board = (invite) => dashboard.buildSupplierRfqBoard({ ...input, language, invites: [invite] }).invites[0];
+  assert.equal(board(submitted).status, directPending, 'Direct quote may have been saved while automatic publication awaits retry');
+  assert.equal(board({ ...submitted, rfq: { ...submitted.rfq, sourcing_request_id: 'req-1' } }).status, sourcingPending,
+    'Submitted sourcing price is not buyer-visible until Vexim publishes it');
+  assert.equal(board({ ...submitted, sent_to_buyer_at: '2026-10-17T10:00:00Z',
+    rfq: { ...submitted.rfq, sourcing_request_id: 'req-1' } }).status, revisionPending,
+    'A pending revision does not replace the last published quote');
+}
 const closedRfq = dashboard.buildSupplierRfqBoard({ ...input, invites: [{ ...match, rfq: { ...match.rfq, status: 'won' } }] });
 assert.equal(closedRfq.tasks.length, 0, 'A closed RFQ is history, not an impossible action');
 assert.equal(base.report.sent, 1, 'Period based on sent timestamp, not buyer creation');

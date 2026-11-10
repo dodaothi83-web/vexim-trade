@@ -72,12 +72,12 @@ export default function ForSuppliersPage() {
           <StepItem
             n="3"
             title="Go live and start receiving RFQs"
-            body="When your products are buyer-ready, your published profile can receive matched RFQs. Our desk coordinates buyer questions and sample requests."
+            body="Once your profile and portal are approved, quote chosen-buyer RFQs directly in your portal. For general sourcing RFQs, discuss terms with Vexim; Vexim presents your quote to the buyer."
           />
           <StepItem
             n="4"
             title="You decide how far to go"
-            body="When a buyer selects you, we can introduce both sides and help them follow up. Contract, inspection, payment and shipment are agreed directly between you and the buyer."
+            body="You and the buyer handle direct RFQs yourselves. For Vexim sourcing RFQs, Vexim coordinates the exchange until a supplier is selected. Contract, payment and shipment are agreed by the two parties."
           />
         </ol>
       </section>

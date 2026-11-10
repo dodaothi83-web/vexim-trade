@@ -8,7 +8,7 @@ import { sourcingStatuses } from "@/lib/sourcing/status";
 import { sourcingUuid } from "@/lib/sourcing/files";
 import type { SourcingStatus } from "@/lib/types";
 import { getStore } from "@/lib/db";
-import { startSourcingMatch } from "@/lib/sourcing/to-rfq";
+import { findLinkedRfq, startSourcingMatch } from "@/lib/sourcing/to-rfq";
 import { sendSourcingReply } from "@/lib/sourcing/mail";
 export async function updateSourcingAction(fd: FormData) {
   const session = await requirePagePermission("rfq.manage", "/crm/dashboard");
@@ -24,7 +24,12 @@ export async function updateSourcingAction(fd: FormData) {
   }
   // Sao chép trước khi cập nhật: kho cục bộ sửa thẳng vào bản ghi, so sánh sau đó sẽ sai.
   const current = await store.getSourcingRequest(id);
-  const before = current ? { ...current } : null;
+  if (!current) redirect("/crm/sourcing?error=invalid");
+  // Once converted, the Vexim RFQ desks are the only channel for new exchanges.
+  // An old form submission must not change the archived request or email a second path.
+  const linked = findLinkedRfq(await getStore().listRfqs(), id);
+  if (linked) redirect(`/crm/rfqs/${encodeURIComponent(linked.id)}`);
+  const before = { ...current };
   const result = await store.updateSourcingRequest(id, version, { status, assigned_to: assigned || null, internal_note: note || null, buyer_reply: reply || null });
   if (!result) redirect("/crm/sourcing?error=conflict");
   // Phản hồi mới hoặc đã sửa thì báo người mua qua email; lưu ghi chú nội bộ thì không gửi gì.

@@ -97,8 +97,7 @@ export default function HowWeVerifyPage() {
         </h2>
         <p className="mt-3 text-[14.5px] leading-relaxed text-ink-700">
           Badges help you shortlist with confidence. They do not guarantee product quality or a deal outcome,
-          and they do not replace your own inspection, sample approval or legal review. Vexim coordinates
-          quotes and samples with you throughout.
+          and they do not replace your own inspection, sample approval or legal review. For general sourcing RFQs, Vexim coordinates quotes and samples; on direct RFQs, you and the supplier discuss them.
         </p>
       </section>
 
@@ -107,7 +106,7 @@ export default function HowWeVerifyPage() {
           Ready to source from reviewed suppliers?
         </p>
         <h2 className="mt-2 text-[24px] font-bold leading-snug sm:text-[28px]">
-          Send a sourcing request. We reply within one business day.
+          Send a sourcing request and track updates in your account.
         </h2>
         <div className="mt-5 flex flex-wrap gap-3">
           <Link

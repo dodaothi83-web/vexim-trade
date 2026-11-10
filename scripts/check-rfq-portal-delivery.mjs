@@ -22,7 +22,7 @@ function inspect(node, forms = 0) {
 }
 inspect(page);
 assert.match(read('app/crm/rfqs/[id]/page.tsx'), /canManageRfq = hasManagePermission && channel === "sourcing"/);
-assert.match(read('app/crm/layout.tsx'), /rfqChannel\(r\) === "question" && UNCLAIMED_RFQ_STATUSES/);
+assert.doesNotMatch(read('app/crm/layout.tsx'), /pendingRfqs|rfqChannel\(r\) === "question" && UNCLAIMED_RFQ_STATUSES/, 'Historical questions must not create CRM work');
 assert.match(read('components/confirm-submit-button.tsx'), /window\.confirm\(message\)/);
 
 const contact = load('lib/rfq/buyer-contact.ts');

@@ -627,7 +627,8 @@ export function RfqForm({
                 </Field>
               </div>
 
-              <Field label="Notes for the desk">
+              <Field label={directForm ? "Private note for Vexim" : "Notes for Vexim"}
+                hint={directForm ? "Not sent to your chosen supplier. Put requirements in the main description." : "Not sent to invited suppliers."}>
                 <textarea rows={3} maxLength={4000} className="input resize-y" value={data.message} onChange={(e) => update("message", e.target.value)} placeholder="Timeline, target port, existing suppliers, anything we should know." />
               </Field>
             </div>
@@ -665,7 +666,7 @@ export function RfqForm({
           </label>
           <p className="flex items-start gap-1.5 rounded-md bg-ink-50 p-3 text-[12px] leading-relaxed text-ink-600">
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-700" />
-            <span>{directForm ? "Direct RFQs are between you and your chosen supplier(s). If none is suitable, create a NEW sourcing RFQ for Vexim." : "Vexim presents supplier quotes together in a separate account area. All sourcing correspondence stays with Vexim."} Email is for notifications only; sign in to send quotes or messages.</span>
+            <span>{directForm ? "Direct RFQs are between you and your chosen supplier(s). If none is suitable, create a NEW sourcing RFQ for Vexim." : "Vexim presents supplier quotes together in a separate account area. All sourcing correspondence stays with Vexim."} Email is for notifications only; sign in to view quotes and send messages.</span>
           </p>
           <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold sm:w-auto sm:px-8" disabled={busy || !challengeToken || !!heldMsg}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}

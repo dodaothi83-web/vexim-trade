@@ -125,7 +125,14 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
     const authorized = direct ? !!directContact : sourcingInviteConsent({ specs: rfq as Record<string, unknown> }, supplierId);
     return {
       matchId: m.id, code: rfq.code, title,
-      status: statusLabel(m.status, language), sentAt: m.sent_to_supplier_at!,
+      // Quoted is a saved draft until an immutable version is published. Direct
+      // quotes auto-publish; Vexim must publish sourcing quotes or revisions.
+      status: m.status === "quoted" && m.quote_price != null
+        ? direct ? rfqsMessages[language].status.directPending
+          : m.sent_to_buyer_at ? rfqsMessages[language].status.revisionAwaitingVexim
+            : rfqsMessages[language].status.awaitingVexim
+        : statusLabel(m.status, language),
+      sentAt: m.sent_to_supplier_at!,
       dueAt: m.response_due_at ?? null,
       quantity: rfq.quantity && rfq.unit ? `${rfq.quantity} ${text(rfq.unit, 30) || ""}`.trim() : fallback.quantity,
       destination: destination || fallback.destination,

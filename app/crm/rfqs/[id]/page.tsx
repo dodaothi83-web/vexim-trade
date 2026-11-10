@@ -73,7 +73,7 @@ const STATUS_LABEL: Record<RfqStatus, { label: string; dot: string }> = {
   needs_review: { label: "Cần duyệt", dot: "bg-rose-500" },
   in_progress: { label: "Đang xử lý", dot: "bg-sky-500" },
   matching: { label: "Đang ghép nhà cung cấp", dot: "bg-amber-500" },
-  quoted: { label: "Đã trình người mua", dot: "bg-amber-600" },
+  quoted: { label: "Đã nhận báo giá", dot: "bg-amber-600" },
   sampling: { label: "Đang gửi mẫu", dot: "bg-violet-500" },
   won: { label: "Thành công", dot: "bg-emerald-500" },
   lost: { label: "Thất bại", dot: "bg-ink-400" },
@@ -84,7 +84,7 @@ const STATUS_LABEL: Record<RfqStatus, { label: string; dot: string }> = {
 const STEPS: { label: string; statuses: RfqStatus[] }[] = [
   { label: "Tiếp nhận", statuses: ["new", "needs_review", "in_progress"] },
   { label: "Ghép nhà cung cấp", statuses: ["matching"] },
-  { label: "Trình người mua", statuses: ["quoted"] },
+  { label: "Báo giá", statuses: ["quoted"] },
   { label: "Gửi mẫu (tuỳ chọn)", statuses: ["sampling"] },
   { label: "Kết quả", statuses: ["won", "lost"] },
 ];
@@ -255,9 +255,17 @@ export default async function RfqDetailPage({
   const sourcingRequestId = linkedSourcingRequestId(rfq);
   const isClosed = CLOSED_RFQ_STATUSES.includes(rfq.status);
   const canAct = canManageRfq && isSourcing && !isClosed;
-  const statusInfo = isSupplierQuestion && rfq.status === "matching"
-    ? { label: "Đã gửi câu hỏi", dot: STATUS_LABEL.matching.dot }
-    : STATUS_LABEL[rfq.status] ?? STATUS_LABEL.new;
+  const statusInfo = isSupplierQuestion
+    ? rfq.status === "matching" ? { label: "Đã gửi câu hỏi (lịch sử)", dot: "bg-slate-400" }
+      : rfq.status === "spam" ? { label: "Cách ly (lịch sử)", dot: "bg-slate-400" }
+        : { label: "Chưa xác nhận giao (lịch sử)", dot: "bg-slate-400" }
+    : channel === "direct" && rfq.status === "matching"
+      ? { label: "Đã chuyển tới nhà cung cấp", dot: STATUS_LABEL.matching.dot }
+      : channel === "direct" && rfq.status === "new"
+        ? { label: "Chưa xác nhận chuyển yêu cầu", dot: STATUS_LABEL.new.dot }
+        : channel === "direct" && rfq.status === "quoted"
+          ? { label: "Đã ghi báo giá", dot: STATUS_LABEL.quoted.dot }
+          : STATUS_LABEL[rfq.status] ?? STATUS_LABEL.new;
   const assignee = users.find((u) => u.id === rfq.assigned_to);
 
   // Nhóm NCC theo việc cần làm để tính bước tiếp theo.
@@ -272,10 +280,11 @@ export default async function RfqDetailPage({
   type NextStep = { text: React.ReactNode; tone?: "default" | "done" | "alert"; action?: React.ReactNode };
   const next: NextStep = (() => {
     if (channel === "direct") return { text: "RFQ đích danh thuộc người mua và nhà cung cấp. CRM chỉ xem để hỗ trợ, không xử lý. Nếu cần, tạo yêu cầu tìm nguồn mới." };
+    if (isSupplierQuestion) return { text: "Câu hỏi cũ chỉ lưu lịch sử. Câu hỏi mới dùng Chat with supplier trên trang sản phẩm." };
     if (rfq.status === "spam") return { tone: "alert", text: "RFQ đang cách ly spam. Đối chiếu các dấu hiệu bên phải; nếu yêu cầu hợp lệ, chuyển về \"Đang xử lý\" ở mục Thao tác khác." };
     if (rfq.status === "won") return { tone: "done", text: <>Đã chốt thành công{selectedMatch ? <> với <strong>{supplierName(supplierMap.get(selectedMatch.supplier_id), "nhà cung cấp")}</strong></> : null}.</> };
     if (rfq.status === "lost") return { tone: "done", text: <>Đã đóng thất bại · lý do: <strong>{LOST_REASONS.find(([v]) => v === rfq.lost_reason)?.[1] ?? rfq.lost_reason ?? "—"}</strong>{rfq.closed_reason ? ` · ${rfq.closed_reason}` : ""}.</> };
-    if (isSupplierQuestion) return { text: "Câu hỏi cũ chỉ lưu lịch sử. Câu hỏi mới dùng Chat with supplier trên trang sản phẩm." };
+
     if (!canManageRfq) return { text: "Bạn đang ở chế độ chỉ xem." };
     if (rfq.status === "sampling" && selectedMatch) {
       const name = supplierName(supplierMap.get(selectedMatch.supplier_id), "nhà cung cấp");
@@ -358,6 +367,7 @@ export default async function RfqDetailPage({
         Đã gửi {Number(sp.outreach_sent) || 0} lời mời nhà cung cấp; {Number(sp.outreach_skipped) || 0} yêu cầu chưa gửi (có thể đã gửi trước hoặc NCC chưa có cổng duyệt). Kiểm tra từng nhà cung cấp trước khi thử lại.
       </div>}
 
+      {isSupplierQuestion && <p role="note" className="mt-4 rounded-xl border border-ink-200 bg-ink-50 p-4 text-sm leading-6 text-ink-700">Câu hỏi cũ chỉ để xem; CRM không xử lý lại. Câu hỏi mới dùng Chat with supplier trên trang sản phẩm.</p>}
       {channel === "direct" && <p role="note" className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm leading-6 text-brand-900">
         <strong>Chỉ hỗ trợ/tranh chấp.</strong> Buyer và NCC đã chọn tự xem báo giá, trao đổi và chốt giao dịch trong cổng.
         CRM không phân công, đổi trạng thái, nhập giá hoặc gửi lời mời cho RFQ này. Nếu chưa chốt được, buyer tạo RFQ tìm nguồn MỚI.
@@ -365,7 +375,7 @@ export default async function RfqDetailPage({
 
       {/* Tiến trình + bước tiếp theo */}
       <section className="card mt-4 p-4 sm:p-5">
-        {!isSupplierQuestion && rfq.status !== "spam" && (
+        {isSourcing && rfq.status !== "spam" && (
           <ol className="mb-4 grid grid-cols-5 gap-1.5" aria-label="Tiến trình RFQ">
             {STEPS.map((step, i) => {
               const done = i < stepIndex;
@@ -383,7 +393,7 @@ export default async function RfqDetailPage({
           </ol>
         )}
         <div className={"flex flex-wrap items-center justify-between gap-3 rounded-md px-3 py-2.5 text-[13px] " + (next.tone === "alert" ? "bg-red-50 text-red-900" : next.tone === "done" ? "bg-ink-50 text-ink-700" : "bg-brand-50 text-ink-800")}>
-          <p className="min-w-0 flex-1"><span className="mr-1 font-semibold text-brand-900">{next.tone === "done" ? "Kết quả:" : "Bước tiếp theo:"}</span>{next.text}</p>
+          <p className="min-w-0 flex-1"><span className="mr-1 font-semibold text-brand-900">{!isSourcing ? "Lưu ý:" : next.tone === "done" ? "Kết quả:" : "Bước tiếp theo:"}</span>{next.text}</p>
           {next.action}
         </div>
       </section>
@@ -571,7 +581,7 @@ export default async function RfqDetailPage({
                       {quote && <> · <span className="font-medium text-ink-800">{quote}</span></>}
                       {m.sent_to_supplier_at && <> · đã gửi yêu cầu {fmtDate(m.sent_to_supplier_at)}</>}
                       {versions.length > 0 && m.sent_to_buyer_at && <> · <span className="text-emerald-700">công bố trên tài khoản người mua {fmtDate(m.sent_to_buyer_at)}</span></>}
-                      {versions.length > 0 && m.status === "quoted" && <> · <span className="font-semibold text-amber-800">Bản điều chỉnh chờ trình</span></>}
+                      {m.status === "quoted" && <> · <span className="font-semibold text-amber-800">{versions.length > 0 ? "Bản điều chỉnh chưa công bố" : "Báo giá chưa công bố"}</span></>}
                       {thread.length > 0 && <> · {thread.length} thư</>}
                       {portalThread.length > 0 && <> · {portalThread.length} tin trực tiếp trên cổng</>}
                     </p>

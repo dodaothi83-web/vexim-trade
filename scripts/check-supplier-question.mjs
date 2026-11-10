@@ -153,15 +153,15 @@ assert.match(page, /if \(sp\?.intent === "question"\)/);
 assert.match(page, /redirect\(`\/products\/.*\?ask=1`\)/);
 assert.doesNotMatch(page, /Ask the supplier/);
 assert.match(status, /function questionStatusInfo/);
-assert.match(status, /Supplier replies go to your email and are not shown here/);
+assert.match(status, /This question is read-only/);
 // Người mua tự ký hợp đồng và tự thanh toán: trạng thái sau khi chọn nhà cung cấp không được
 // nói Vexim nhận đơn hay điều phối sản xuất/vận chuyển (trái Điều khoản sử dụng).
 assert.doesNotMatch(status, /Order confirmed|coordinate production and shipment/);
-assert.match(status, /agreed directly between you and the supplier/);
+assert.match(status, /You and the supplier arrange the contract and payment/);
 assert.match(crm, /canManageRfq = hasManagePermission && channel === "sourcing"/);
-assert.match(crmList, /Câu hỏi nhà cung cấp/);
+assert.match(crmList, /Câu hỏi cũ · lịch sử/);
 assert.match(crmList, /return !isSupplierQuestion\(rfq\) && rfq\.status === tab/);
-assert.match(crmList, /rfqChannel\(rfq\) === "direct"\) return null/, 'Direct RFQs have no staff SLA');
+assert.doesNotMatch(crmList, /slaInfo\(|RfqAssignmentSelect/, 'Direct RFQs and historical questions have no CRM assignment or SLA');
 assert.match(crmActions, /updateMatchQuoteAction[\s\S]*throw new Error\("Nhà cung cấp tự nộp giá trên cổng/, 'Staff cannot alter direct quote pricing');
 assert.match(outreach, /rfqChannel\(rfq\) !== "sourcing"/);
 

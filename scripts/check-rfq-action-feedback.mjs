@@ -25,7 +25,8 @@ assert.match(thread, /defaultValue=\{state\.body\}/, 'Keep a failed message draf
 assert.match(thread, /disabled=\{pending\}/);
 assert.match(thread, /role="alert"/);
 assert.match(thread, /role="status"/);
-assert.match(thread, /IntersectionObserver/, 'Only a visible desk advances its read marker');
+assert.match(thread, /<RfqReadTracker at=\{lastVisibleAt\} markRead=\{markRead\}/, 'Mediated desks must track the end of the last message');
+assert.match(read('components/rfq-thread.tsx'), /IntersectionObserver[\s\S]*observer\.observe\(element\)/, 'Viewport-only read marker lives on the latest content');
 const compose = read('app/crm/rfqs/[id]/compose-action.ts');
 assert.match(compose, /composeMatchEmailAction[\s\S]*Email không còn là kênh giao dịch RFQ/);
 assert.match(compose, /sendFollowUpAction[\s\S]*không gửi RFQ qua email/);

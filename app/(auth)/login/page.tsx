@@ -75,7 +75,7 @@ export default async function LoginPage({
         <Link href="/rfq" className="font-semibold text-brand-700 underline">
           {m.login.sendQuoteRequest}
         </Link>{" "}
-        {m.login.noSignInNeeded}, {m.login.orSeeTypes}{" "}
+        {m.login.buyerSignInHint}, {m.login.orSeeTypes}{" "}
         <Link href="/register" className="font-semibold text-brand-700 underline">
           {m.login.seeAccountTypes}
         </Link>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState } from "react";
+import { RfqReadTracker } from "@/components/rfq-thread";
 import { MessageCircle, Send } from "lucide-react";
 import type { SafeMediatedMessage, MediatedError } from "@/lib/rfq/mediated";
 
@@ -17,24 +18,6 @@ export function RfqMediatedThread({ rfqId, matchId = null, side, messages, lastV
   sendAction: (previous: State, fd: FormData) => Promise<State>; markRead: (at: string) => Promise<void>;
 }) {
   const [state, action, pending] = useActionState(sendAction, INITIAL);
-  const section = useRef<HTMLElement>(null);
-  const marked = useRef<string | null>(null);
-  // A CRM page can render several supplier desks below the fold. Do not mark all
-  // of them read (and suppress their notification emails) just by opening the page.
-  useEffect(() => {
-    if (!lastVisibleAt || !section.current || marked.current === lastVisibleAt) return;
-    const mark = () => {
-      if (marked.current === lastVisibleAt) return;
-      marked.current = lastVisibleAt;
-      void markRead(lastVisibleAt).catch(() => { marked.current = null; });
-    };
-    if (typeof IntersectionObserver === "undefined") { mark(); return; }
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) { mark(); observer.disconnect(); }
-    }, { threshold: 0.05 });
-    observer.observe(section.current);
-    return () => observer.disconnect();
-  }, [lastVisibleAt, markRead]);
   const vi = locale === "vi";
   const party = matchId ? (vi ? "Nhà cung cấp" : "Supplier") : (vi ? "Người mua" : "Buyer");
   const title = side === "staff" ? `${vi ? "Trao đổi với" : "Conversation with"} ${party}`
@@ -66,7 +49,7 @@ export function RfqMediatedThread({ rfqId, matchId = null, side, messages, lastV
     contact: "Do not share buyer email, phone number or website in the supplier conversation.",
     unknown: "Could not save your message. Please try again.",
   };
-  return <section ref={section} id={id} aria-label={title} className="scroll-mt-24 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
+  return <section id={id} aria-label={title} className="scroll-mt-24 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
     <header className="flex items-start gap-3 border-b border-ink-100 px-5 py-5 sm:px-6">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><MessageCircle className="h-5 w-5" aria-hidden="true" /></span>
       <div><h2 className="font-bold text-ink-900">{title}</h2><p className="mt-1 text-[13px] leading-5 text-ink-600">
@@ -78,6 +61,7 @@ export function RfqMediatedThread({ rfqId, matchId = null, side, messages, lastV
       {!shown.length ? <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50 p-5 text-center text-[13px] text-ink-600">{vi ? "Chưa có tin nhắn. Hỏi Vexim về yêu cầu hoặc báo giá tại đây." : "No messages yet. Ask Vexim about the request or quote here."}</p> : <>
         {!!earlier.length && <details className="mb-5 rounded-xl border border-ink-200 px-4 py-3 text-sm"><summary className="cursor-pointer font-semibold text-brand-700">{vi ? "Tin nhắn cũ" : "Earlier messages"} ({earlier.length})</summary><ol className="mt-4 space-y-4">{earlier.map(render)}</ol></details>}
         <ol className="space-y-4">{shown.map(render)}</ol>
+        <RfqReadTracker at={lastVisibleAt} markRead={markRead} />
       </>}
       {canPost ? <form key={`${state.seq}:${state.body}`} action={action} className="mt-6 border-t border-ink-100 pt-5">
         <input type="hidden" name="rfq_id" value={rfqId} /><input type="hidden" name="match_id" value={matchId ?? ""} />

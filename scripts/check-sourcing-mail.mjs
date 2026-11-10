@@ -54,7 +54,7 @@ const route = fs.readFileSync(new URL('../app/api/buyer/sourcing/route.ts', impo
 assert.match(route, /else await sendSourcingAck\(store, saved/, 'New request receives a single acknowledgement');
 const action = fs.readFileSync(new URL('../app/crm/sourcing/actions.ts', import.meta.url), 'utf8');
 assert.match(action, /reply !== \(before\.buyer_reply \?\? ""\)\.trim\(\)/, 'Only changed replies notify');
-assert.match(fs.readFileSync(new URL('../app/crm/sourcing/page.tsx', import.meta.url), 'utf8'), /<MessageTimeline title="Thư với người mua"/);
+assert.match(fs.readFileSync(new URL('../app/crm/sourcing/page.tsx', import.meta.url), 'utf8'), /<MessageTimeline title="Lịch sử email và thông báo \(chỉ đọc\)"/);
 assert.match(fs.readFileSync(new URL('../app/crm/rfqs/[id]/page.tsx', import.meta.url), 'utf8'),
   /listMessagesForThreads\(\[sourcingThreadId\(linkedRequestId\)\]\)/, 'Linked RFQ retains the original sourcing history');
 console.log('✅ Sourcing mail: link-only portal notices, no reply alias or free text in email, historical timeline and failure visibility.');

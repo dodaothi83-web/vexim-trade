@@ -38,7 +38,7 @@ const en = {
     registerFree: "Register free",
     buyerQuestion: "Buying?",
     sendQuoteRequest: "Send a quote request",
-    noSignInNeeded: "without signing in",
+    buyerSignInHint: "after signing in with an email code",
     orSeeTypes: "or",
     seeAccountTypes: "see the account types",
     reasonTitles: {
@@ -66,8 +66,8 @@ const en = {
     shellCaption: "Sign in to manage your company profile and buyer requests.",
     shellPoints: [
       "For suppliers and the Vexim team.",
-      "Buyers do not need an account to send a quote request.",
-      "Only suppliers actually sent a consented RFQ receive the buyer's provided contact details.",
+      "Buyers sign in with an email code before sending an RFQ.",
+      "Only selected direct suppliers see consented contact; Vexim keeps sourcing contact private.",
     ],
   },
   register: {
@@ -88,7 +88,7 @@ const en = {
       "are free to open and verified within one working day; once your profile is approved you list products and receive quote requests. The supplier application form is in Vietnamese.",
     shellCaption: "Meet the team that checks the factory before you do.",
     shellPoints: [
-      "Buyers: send a request for a quote and get offers from matched Vietnamese suppliers.",
+      "Buyers: choose suppliers for direct RFQs or ask Vexim to coordinate sourcing.",
       "Suppliers: sign up free, get verified within one working day, then list products and receive quote requests.",
       "Buyers pay nothing and contract directly with the supplier they choose.",
     ],
@@ -102,7 +102,7 @@ const en = {
     login: "Sign in",
     buyerQuestion: "Buying?",
     sendQuoteRequest: "Send a quote request",
-    noSignInNeeded: "without an account, or",
+    buyerSignInHint: "after signing in with an email code, or",
     changeType: "change the account type",
     shellCaption: "Sell to international buyers",
     shellLede: "Sign up free in a few minutes. Complete your profile and you can list products and receive quote requests.",
@@ -195,7 +195,7 @@ type AuthMessages = {
     registerFree: string;
     buyerQuestion: string;
     sendQuoteRequest: string;
-    noSignInNeeded: string;
+    buyerSignInHint: string;
     orSeeTypes: string;
     seeAccountTypes: string;
     reasonTitles: { not_found: string; locked: string; unreadable: string };
@@ -239,7 +239,7 @@ type AuthMessages = {
     login: string;
     buyerQuestion: string;
     sendQuoteRequest: string;
-    noSignInNeeded: string;
+    buyerSignInHint: string;
     changeType: string;
     shellCaption: string;
     shellLede: string;
@@ -332,7 +332,7 @@ const vi: AuthMessages = {
     registerFree: "Đăng ký miễn phí",
     buyerQuestion: "Bạn là người mua?",
     sendQuoteRequest: "Gửi yêu cầu báo giá",
-    noSignInNeeded: "không cần đăng nhập",
+    buyerSignInHint: "sau khi đăng nhập bằng mã email",
     orSeeTypes: "hoặc",
     seeAccountTypes: "xem hai loại tài khoản",
     reasonTitles: {
@@ -360,8 +360,8 @@ const vi: AuthMessages = {
     shellCaption: "Đăng nhập để quản lý hồ sơ doanh nghiệp và yêu cầu báo giá.",
     shellPoints: [
       "Dành cho nhà cung cấp và đội ngũ Vexim.",
-      "Người mua không cần đăng nhập để gửi yêu cầu báo giá.",
-      "Thông tin liên hệ của người mua chỉ chia sẻ khi họ đồng ý giới thiệu.",
+      "Người mua đăng nhập bằng mã email trước khi gửi RFQ.",
+      "Chỉ nhà cung cấp được chọn trong RFQ đích danh thấy liên hệ đã đồng ý; tìm nguồn qua Vexim giữ riêng tư.",
     ],
   },
   register: {
@@ -381,7 +381,7 @@ const vi: AuthMessages = {
       "đăng ký miễn phí và được xác minh trong 1 ngày làm việc; khi hồ sơ được duyệt, bạn đăng sản phẩm và nhận yêu cầu báo giá. Hồ sơ lưu nháp được, nộp khi đã đủ giấy tờ.", // copy-allow: đoạn giải thích dài, hiển thị thành khối riêng
     shellCaption: "Gặp đội ngũ kiểm tra nhà máy trước khi bạn đặt hàng.",
     shellPoints: [
-      "Người mua: gửi yêu cầu báo giá và nhận báo giá từ nhà cung cấp Việt Nam phù hợp.",
+      "Người mua: chọn nhà cung cấp để gửi RFQ đích danh, hoặc nhờ Vexim tìm nguồn.",
       "Nhà cung cấp: đăng ký miễn phí, xác minh trong 1 ngày làm việc, rồi đăng sản phẩm và nhận yêu cầu báo giá.",
       "Người mua không mất phí và ký hợp đồng trực tiếp với nhà cung cấp mình chọn.",
     ],
@@ -395,7 +395,7 @@ const vi: AuthMessages = {
     login: "Đăng nhập",
     buyerQuestion: "Bạn là người mua?",
     sendQuoteRequest: "Gửi yêu cầu báo giá",
-    noSignInNeeded: "không cần tài khoản, hoặc",
+    buyerSignInHint: "sau khi đăng nhập bằng mã email, hoặc",
     changeType: "đổi loại tài khoản",
     shellCaption: "Bán hàng cho người mua quốc tế",
     shellLede: "Đăng ký miễn phí trong vài phút. Hoàn thiện hồ sơ là bạn có thể đăng sản phẩm và nhận yêu cầu báo giá.",

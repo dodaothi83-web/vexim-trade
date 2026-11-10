@@ -91,7 +91,8 @@ assert.equal(fs.existsSync(new URL('../lib/rfq/release-after-review.ts', import.
 // Phân luồng trong giao diện và huy hiệu.
 const layout = read("app/crm/layout.tsx");
 assert.match(layout, /rfqChannel\(r\) === "sourcing" && UNCLAIMED_RFQ_STATUSES/, "huy hiệu Tìm nguồn đếm RFQ chung chưa tiếp nhận");
-assert.match(layout, /rfqChannel\(r\) === "question" && UNCLAIMED_RFQ_STATUSES\.includes\(r\.status\)/, "RFQ đích danh không nằm trong hàng việc nhân viên; chỉ giữ câu hỏi cũ");
+assert.doesNotMatch(layout, /pendingRfqs|rfqChannel\(r\) === "question" && UNCLAIMED_RFQ_STATUSES/, "RFQ trực tiếp và câu hỏi cũ không tạo việc CRM");
+assert.doesNotMatch(read("components/sidebar.tsx"), /pendingRfqs|RFQ chờ tiếp nhận/);
 assert.match(read("app/crm/rfqs/page.tsx"), /rfqChannel\(r\) !== "sourcing"/, "hộp thư RFQ chỉ còn RFQ trực tiếp và câu hỏi");
 const inbox = read("app/crm/sourcing/page.tsx");
 assert.match(inbox, /rfqChannel\(r\) === "sourcing"/, "hộp thư Tìm nguồn có RFQ chung");

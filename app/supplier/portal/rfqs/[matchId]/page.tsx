@@ -74,7 +74,7 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
             <p className="mt-1 text-[12.5px] text-ink-700">{quote.quote_incoterm || "—"} · {quote.quote_lead_time_days ? `${quote.quote_lead_time_days} ${copy.days}` : "—"}</p>
             {quote.buyer_note && <p className="mt-2 whitespace-pre-wrap break-words border-t border-brand-100 pt-2 text-[13px] text-ink-800">{quote.buyer_note}</p>}
           </div>}
-          {match.status === "quoted" && quote && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-900">{copy.pendingRevision}</p>}
+          {match.status === "quoted" && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-900">{quote ? copy.pendingRevision : sourcing ? copy.pendingInitialSourcing : copy.pendingInitialDirect}</p>}
           {item.canQuote && <div className="mt-5 border-t border-ink-100 pt-5">
             <p className="mb-3 text-[13px] text-ink-600">{quote ? (item.directToBuyer ? copy.reviseHint : copy.pendingHint) : m.rfqs.quote.intro}</p>
             <SupplierQuoteForm matchId={match.id} code={rfq.code} defaults={item.quoteDefaults}
@@ -93,7 +93,7 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
             : <p className="rounded-xl border border-ink-200 bg-ink-50 p-4 text-[13px] text-ink-700">{copy.noConsent}</p>}
           {readable && messages.length > 0 && <div><p className="mb-3 text-[13px] font-semibold text-ink-600">{locale === "vi" ? "Lịch sử trao đổi trực tiếp trước đây (chỉ đọc)" : "Previous direct conversation (read-only archive)"}</p>
             <RfqThread rfqId={rfq.id} matchId={match.id} side="supplier" messages={messages} lastVisibleAt={lastVisibleAt}
-              canPost={false} locale={locale} copy={copy} sendAction={supplierRfqMessageAction}
+              canPost={false} sourcingArchive locale={locale} copy={copy} sendAction={supplierRfqMessageAction}
               markRead={supplierRfqReadAction.bind(null, match.id)} /></div>}
         </> : readable ? <RfqThread rfqId={rfq.id} matchId={match.id} side="supplier" messages={messages} lastVisibleAt={lastVisibleAt}
           canPost={canPost} locale={locale} copy={copy} sendAction={supplierRfqMessageAction}

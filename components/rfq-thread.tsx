@@ -12,19 +12,50 @@ const INITIAL: State = { error: null, body: "", sent: false, seq: 0 };
 
 /** Mark only the timestamp shown on this page, never later unseen messages. */
 export function RfqReadTracker({ at, markRead }: { at: string | null; markRead: (at: string) => Promise<void> }) {
+  const target = useRef<HTMLSpanElement>(null);
   const marked = useRef<string | null>(null);
   useEffect(() => {
-    if (!at || marked.current === at) return;
-    marked.current = at;
-    void markRead(at).catch(() => { marked.current = null; });
+    const element = target.current;
+    if (!at || !element || marked.current === at) return;
+    const visible = () => {
+      if (document.visibilityState === "hidden" || !element.getClientRects().length) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.top < window.innerHeight && rect.bottom > 0;
+    };
+    const mark = () => {
+      if (marked.current === at || !visible()) return;
+      marked.current = at;
+      void markRead(at).catch(() => { if (marked.current === at) marked.current = null; });
+    };
+    const observer = typeof IntersectionObserver !== "undefined"
+      ? new IntersectionObserver((entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) mark();
+        }, { threshold: 0.5 })
+      : null;
+    if (observer) observer.observe(element);
+    else {
+      // Older browsers: test the same endpoint on scroll rather than treating mount as a read.
+      window.addEventListener("scroll", mark, { passive: true });
+      window.addEventListener("resize", mark);
+      mark();
+    }
+    document.addEventListener("visibilitychange", mark);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("scroll", mark);
+      window.removeEventListener("resize", mark);
+      document.removeEventListener("visibilitychange", mark);
+    };
   }, [at, markRead]);
-  return null;
+  // Placed *after* the latest visible quote or message, not at the section header:
+  // merely opening a page or seeing the top of a long conversation is not a read.
+  return <span ref={target} className="block h-px w-full" aria-hidden="true" />;
 }
 
 /** Scoped RFQ conversation, not the general product chat; no participant emails on the client. */
-export function RfqThread({ rfqId, matchId, side, messages, lastVisibleAt, canPost, copy, locale, sendAction, markRead }: {
+export function RfqThread({ rfqId, matchId, side, messages, lastVisibleAt, canPost, sourcingArchive = false, copy, locale, sendAction, markRead }: {
   rfqId: string; matchId: string; side: "buyer" | "supplier";
-  messages: SafeMessage[]; lastVisibleAt: string | null; canPost: boolean;
+  messages: SafeMessage[]; lastVisibleAt: string | null; canPost: boolean; sourcingArchive?: boolean;
   copy: RfqPortalCopy; locale: "en" | "vi";
   sendAction: (previous: State, fd: FormData) => Promise<State>;
   markRead: (at: string) => Promise<void>;
@@ -49,12 +80,11 @@ export function RfqThread({ rfqId, matchId, side, messages, lastVisibleAt, canPo
     </li>;
   };
   return <section id="rfq-conversation" aria-labelledby="rfq-conversation-title" className="scroll-mt-24 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
-    <RfqReadTracker at={lastVisibleAt} markRead={markRead} />
     <header className="flex items-start gap-3 border-b border-ink-100 px-5 py-5 sm:px-6">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><MessageCircle className="h-5 w-5" aria-hidden="true" /></span>
       <div>
         <h2 id="rfq-conversation-title" className="text-[16px] font-bold text-ink-900">{copy.conversation}</h2>
-        <p className="mt-1 text-[13px] leading-5 text-ink-600">{side === "buyer" ? copy.privateThread : copy.supplierThread}</p>
+        <p className="mt-1 text-[13px] leading-5 text-ink-600">{sourcingArchive ? copy.sourcingArchiveThread : side === "buyer" ? copy.privateThread : copy.supplierThread}</p>
       </div>
     </header>
     <div className="px-5 py-5 sm:px-6">
@@ -65,6 +95,7 @@ export function RfqThread({ rfqId, matchId, side, messages, lastVisibleAt, canPo
             <ol aria-label={copy.earlierMessages} className="mt-4 space-y-4 border-t border-ink-100 pt-4">{earlier.map(renderMessage)}</ol>
           </details>}
           <ol aria-label={copy.conversation} className="space-y-4">{shown.map(renderMessage)}</ol>
+          <RfqReadTracker at={lastVisibleAt} markRead={markRead} />
         </>}
       {canPost ? <form key={`${state.seq}:${state.body}`} action={action} className="mt-6 border-t border-ink-100 pt-5">
         <input type="hidden" name="rfq_id" value={rfqId} /><input type="hidden" name="match_id" value={matchId} />
@@ -78,7 +109,7 @@ export function RfqThread({ rfqId, matchId, side, messages, lastVisibleAt, canPo
         </div>
         {state.error && <p role="alert" className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-semibold text-rose-800">{copy.error[state.error]}</p>}
         {state.sent && !state.error && <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] font-semibold text-emerald-800">{copy.sent}</p>}
-      </form> : <p className="mt-5 rounded-lg border border-ink-200 bg-ink-50 px-4 py-3 text-[13px] text-ink-600">{copy.closed}</p>}
+      </form> : <p className="mt-5 rounded-lg border border-ink-200 bg-ink-50 px-4 py-3 text-[13px] text-ink-600">{sourcingArchive ? copy.sourcingArchiveClosed : copy.closed}</p>}
     </div>
   </section>;
 }

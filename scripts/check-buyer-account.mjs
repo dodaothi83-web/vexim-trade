@@ -100,7 +100,7 @@ const dashboard = load('app/(public)/buyer/account/page.tsx', {
     listBuyerRfqsByEmail: async (email) => { assert.equal(email, session.email); return emptyDashboard ? [] : [
       { id: 'mine', code: 'RFQ-1', product_text: 'My product request', status: 'quoted', source_page: '/products', preferred_supplier_ids: ['s1'], created_at: '2026-11-04T00:00:00Z', access_token: 'my-token', internal_notes: 'NEVER RENDER THIS' },
       { id: 'my-question', code: 'RFQ-2', product_text: 'My product question', status: 'matching', created_at: '2026-11-04T00:00:00Z', access_token: 'question-token', specs: { inquiry_kind: 'supplier_question' } },
-      { id: 'vexim', code: 'RFQ-4', product_text: 'Mediated quote request', status: 'quoted', created_at: '2026-11-03T00:00:00Z', specs: { buyer_contact_policy_version: 'rfq_mediated_v1' } },
+      { id: 'vexim', code: 'RFQ-4', product_text: 'Mediated quote request', status: 'quoted', created_at: '2026-11-03T00:00:00Z', specs: { buyer_contact_policy_version: 'rfq_mediated_v1', sourcing_request_id: 'my-sourcing' } },
       { id: 'legacy', code: 'RFQ-3', product_text: 'Older request being rechecked', status: 'quoted', created_at: '2026-11-02T00:00:00Z' },
     ]; },
     listRfqMatchUpdates: async (ids) => { assert.ok(ids.every((id) => ['mine', 'legacy', 'vexim'].includes(id)),
@@ -145,11 +145,14 @@ for (const locale of ['en', 'vi']) {
       assert.match(html, /\/buyer\/account\/requests\/my-question/);
       assert.match(html, locale === 'vi' ? /1 cập nhật mới/ : /1 new update/);
       assert.match(html, locale === 'vi' ? /Có báo giá/ : /Quote available/);
-      assert.ok(html.includes(locale === 'vi' ? 'Câu hỏi sản phẩm' : 'Product enquiry'));
-      assert.ok(html.includes(locale === 'vi' ? 'Yêu cầu báo giá' : 'Quote request'));
+      assert.ok(html.includes(locale === 'vi' ? 'Lịch sử câu hỏi' : 'Previous product question'));
+      assert.ok(html.includes(locale === 'vi' ? 'Câu hỏi cũ · chỉ để xem' : 'Previous question · read-only'));
+      assert.ok(html.includes(locale === 'vi' ? 'RFQ trực tiếp' : 'Direct RFQ'));
     }
     if (tab === 'vexim' || tab === 'overview') {
       assert.match(html, /\/buyer\/account\/sourcing\/my-sourcing/);
+      assert.match(html, locale === 'vi' ? /Xem RFQ RFQ-4 và trao đổi/ : /View RFQ RFQ-4 and messages/, 'A source request links to its owned converted RFQ');
+      assert.match(html, locale === 'vi' ? /RFQ và tìm nguồn/ : /RFQs &amp; sourcing/, 'Stats count each linked RFQ once');
       assert.match(html, /\/buyer\/account\/requests\/vexim/);
       assert.match(html, /Mediated quote request/);
       assert.match(html, locale === 'vi' ? /Có cập nhật từ Vexim/ : /New Vexim update/,

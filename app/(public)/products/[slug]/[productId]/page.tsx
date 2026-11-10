@@ -291,7 +291,7 @@ export default async function PublicProductDetail({ params }: Props) {
               {card.verificationSteps.includes(3) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} className="text-brand-700 underline">Delivery review scope</Link>}
             </div>}
             <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand-800 hover:underline">View supplier profile <ArrowRight className="h-4 w-4" /></Link>
-            <p className="mt-3 text-xs leading-5 text-ink-500">Quotes are coordinated through Vexim. The website is supplier-provided; email and phone are not shown.</p>
+            <p className="mt-3 text-xs leading-5 text-ink-500">Ask this supplier directly through an RFQ in your account. Vexim coordinates only general sourcing requests. The website is supplier-provided.</p>
             <Link href={`/khieu-nai?product=${encodeURIComponent(card.id)}`} className="mt-3 inline-block text-xs font-semibold text-brand-700 underline">Report this listing</Link>
           </div>
         </aside>

@@ -81,8 +81,8 @@ function RequestDetails({ item, copy }: { item: PortalInvite; copy: RfqsMessages
 }
 
 /** A private snapshot is shown only when this particular RFQ authorized this supplier. */
-function BuyerContactDetails({ contact, copy }: { contact: RfqBuyerContact | null; copy: RfqsMessages["buyer"] }) {
-  if (!contact) return <p className="mt-3 text-[13px] leading-5 text-ink-600">{copy.unavailable}</p>;
+function BuyerContactDetails({ contact, viaVexim, copy }: { contact: RfqBuyerContact | null; viaVexim: boolean; copy: RfqsMessages["buyer"] }) {
+  if (!contact) return <p className="mt-3 text-[13px] leading-5 text-ink-600">{viaVexim ? copy.unavailable : copy.unavailableDirect}</p>;
   const fields: Array<[string, string | null]> = [
     [copy.company, contact.company], [copy.name, contact.contact_name],
     [copy.email, contact.email], [copy.phone, contact.phone],
@@ -201,9 +201,9 @@ export default async function SupplierRfqPage({ searchParams }: {
               </div>
               <ProductCard item={task} imageSrc={task.productId ? imageByProduct.get(task.productId) ?? null : null} copy={copy.product} />
               <RequestDetails item={task} copy={copy.request} />
-              <BuyerContactDetails contact={task.buyerContact} copy={copy.buyer} />
+              <BuyerContactDetails contact={task.buyerContact} viaVexim={task.viaVexim} copy={copy.buyer} />
               <div className="mt-5">
-                <p className="mb-2 text-sm text-ink-700">{copy.tasks.primaryHint}</p>
+                <p className="mb-2 text-sm text-ink-700">{task.directToBuyer ? copy.tasks.primaryHintDirect : copy.tasks.primaryHint}</p>
                 <SupplierQuoteForm matchId={task.matchId} code={task.code} defaults={task.quoteDefaults}
                   currencies={QUOTE_CURRENCIES} incoterms={QUOTE_INCOTERMS} editing={false} direct={task.directToBuyer} copy={copy.quote} />
                 <Link href={`/supplier/portal/rfqs/${encodeURIComponent(task.matchId)}`} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg border border-brand-200 bg-white px-4 text-[13px] font-semibold text-brand-800 hover:border-brand-400 hover:bg-brand-50">
@@ -241,7 +241,7 @@ export default async function SupplierRfqPage({ searchParams }: {
           <div className="border-t border-ink-100 px-4 py-5 sm:px-6">
             <ProductCard item={item} imageSrc={item.productId ? imageByProduct.get(item.productId) ?? null : null} copy={copy.product} />
             <RequestDetails item={item} copy={copy.request} />
-            <BuyerContactDetails contact={item.buyerContact} copy={copy.buyer} />
+            <BuyerContactDetails contact={item.buyerContact} viaVexim={item.viaVexim} copy={copy.buyer} />
             {item.quotePrice && <p className="mt-3 text-sm font-semibold text-ink-800">{fill(copy.invites.quoteRecorded, { value: item.quotePrice })}</p>}
             {item.repliedAt && <p className="mt-2 text-[13px] text-ink-600">{fill(copy.invites.replied, { at: date(item.repliedAt, intl) })}</p>}
             <Link href={`/supplier/portal/rfqs/${encodeURIComponent(item.matchId)}`} className="mt-3 inline-flex min-h-10 items-center gap-2 text-[13px] font-semibold text-brand-700 hover:underline">

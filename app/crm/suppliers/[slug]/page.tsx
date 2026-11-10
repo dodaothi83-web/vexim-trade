@@ -401,7 +401,7 @@ export default async function SupplierDetailPage({
               )}
               <p className="mt-3 rounded-xl bg-ink-50 px-3.5 py-2.5 text-[11.5px] leading-5 text-ink-500">
                 <ShieldCheck className="mr-1 inline h-3 w-3" />
-Chỉ nhân viên CRM thấy danh sách này. Liên hệ trong RFQ chỉ đến NCC đã thực sự nhận RFQ với đồng ý của Buyer; cờ email CRM cũ không chi phối RFQ.
+Chỉ nhân viên CRM thấy danh sách này. Chỉ nhà cung cấp được chọn trong RFQ đích danh mới thấy liên hệ người mua đã đồng ý chia sẻ. RFQ tìm nguồn giữ liên hệ tại Vexim.
               </p>
             </Card>
           )}
