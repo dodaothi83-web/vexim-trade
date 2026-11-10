@@ -69,6 +69,7 @@ function makeHarness({ buyers = [], rfqs = [] } = {}) {
       headers: async () => ({ get: (name) => (name === 'x-forwarded-for' ? `203.0.113.${++callIp}` : 'test-agent') }),
     },
     '@/lib/public/catalog': { listPublicSuppliers: async () => [] },
+    '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
     '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [] },
     '@/lib/email/rfq': { sendRfqAckBuyer: async () => null, sendRfqNewInternal: async () => null },
     './buyer-contact': contact,

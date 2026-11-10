@@ -42,6 +42,8 @@ const state = { buyers: [], suppliers: [], products: [], media: [], rfqs: [direc
     match('legacy1', 'legacy', 's1', 'presented_to_buyer', { sent_to_buyer_at: stamped, quote_price: 4.25 }),
     match('legacyDraft', 'legacy', 's1', 'quoted', { sent_to_buyer_at: stamped, quote_price: 99.75 }),
   ],
+  rfq_thread_messages: [{ id: 'old-sourcing-message', match_id: 'legacy1', sender: 'buyer',
+    sender_email: 'buyer@example.com', body: 'Previous conversation', created_at: stamped }],
   sponsored_pushes: [], certificates: [], supplier_submissions: [], supplier_submission_items: [],
   audit_log: [], categories: [{ slug: 'nuts-kernels', status: 'published', is_published: true }] };
 const config = { intro: '', seo_desc: '', spec_columns: [], spec_rows: [], buying_facts: [], faqs: [], filters: [], product_fields: [] };
@@ -51,7 +53,8 @@ const store = load('lib/db/local.ts', {
   '@/lib/db/preview-seed': { PREVIEW_PEPPER_HARVEST: null, previewCategories: () => [], previewSeedRows: () => ({ suppliers: [], products: [] }) },
   '@/lib/db/demo-suppliers': { DEMO_SUPPLIERS: [] }, '@/lib/l2-scope': {},
   '@/lib/types': { L2_FACTORY_PHOTO_ITEMS: [], L3_EXPORT_ITEMS: [] }, '@/lib/verification-submission': {},
-  '@/lib/public/product-selection': { isTestOnlyProduct: () => false, productBelongsToCategory: () => false },
+  '@/lib/public/product-selection': { isTestOnlyProduct: () => false, productBelongsToCategory: () => false,
+    withoutDirectContacts: (v) => String(v).replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, '[contact via Vexim]') },
   '@/lib/media/readiness': {}, '@/lib/rfq/channel': channel, '@/lib/rfq/buyer-contact': contact,
   './category-seed': { CASHEW_CATEGORY_CONFIG: config, DEFAULT_CATEGORY_CONFIG: config, PEPPER_CATEGORY_CONFIG: config },
 }, { __veximLocal: state, process: { cwd: () => '/virtual', env: {} } }).localStore;
@@ -62,6 +65,8 @@ assert.equal((await store.getRfqMatch('legacyDraft')).sent_to_buyer_at, null, 'O
 assert.equal((await store.getRfqMatch('legacyDraft')).legacy_sent_to_buyer_at, stamped, 'Keep the old email timestamp for staff');
 await assert.rejects(store.addRfqThreadMessage({ match_id: 'legacyDraft', sender: 'buyer', sender_email: 'buyer@example.com', body: 'Price?' }),
   /not available/, 'Legacy sourcing draft remains hidden even when old email was sent');
+assert.equal((await store.listRfqThreadMessages('legacy1'))[0].body, 'Previous conversation',
+  'Existing direct sourcing messages are preserved as read-only history');
 assert.equal(state.rfq_quote_versions[0].buyer_note, null, 'Private CRM note never appears in buyer snapshots');
 const reviewed = (ids) => Object.fromEntries(ids.map((id) => [id, state.rfq_matches.find((m) => m.id === id)?.updated_at]));
 assert.equal((await store.publishRfqQuotes('sourcing', ['s1', 's2', 'd1'], reviewed(['s1', 's2', 'd1']))).map((v) => v.match_id).join(','), 's1,s2');
@@ -81,15 +86,27 @@ assert.equal((await store.publishRfqQuotes('sourcing', ['s1'], { s1: staleAt }))
   'A stale staff review must not publish another draft');
 assert.equal((await store.publishRfqQuotes('sourcing', ['s1'], reviewed(['s1'])))[0].version, 2, 'Revision publishes a new version');
 assert.equal((await store.listRfqQuoteVersions(['s1'])).length, 2);
-await assert.rejects(store.addRfqThreadMessage({ match_id: 'old1', sender: 'buyer', sender_email: 'buyer@example.com', body: 'Question' }), /consent/);
+await assert.rejects(store.addRfqThreadMessage({ match_id: 'old1', sender: 'buyer', sender_email: 'buyer@example.com', body: 'Question' }), /not available/);
 await assert.rejects(store.addRfqThreadMessage({ match_id: 'd2', sender: 'buyer', sender_email: 'buyer@example.com', body: 'Question' }), /consent/);
 await assert.rejects(store.addRfqThreadMessage({ match_id: 'q1', sender: 'buyer', sender_email: 'buyer@example.com', body: 'Question' }), /not available/);
 const a = await store.addRfqThreadMessage({ match_id: 'd1', sender: 'buyer', sender_email: 'buyer@example.com', body: ' MOQ? ' });
 assert.equal(a.body, 'MOQ?');
 assert.equal(state.rfq_portal_alerts.at(-1).recipient, 'supplier');
-const b = await store.addRfqThreadMessage({ match_id: 's2', sender: 'supplier', sender_email: 's2@example.com', body: 'Available.' });
-assert.equal(state.rfq_portal_alerts.at(-1).recipient, 'buyer');
-assert.equal(b.match_id, 's2', 'Per-supplier thread isolation');
+await assert.rejects(store.addRfqThreadMessage({ match_id: 's2', sender: 'supplier', sender_email: 's2@example.com', body: 'Available.' }),
+  /not available/, 'No new direct buyer–supplier conversation in sourcing');
+const b = await store.postRfqMediatedMessage({ rfqId: 'sourcing', matchId: 's2', sender: 'supplier',
+  email: 's2@example.com', body: 'Available for Vexim only.' });
+assert.equal(b.thread_id, 's2');
+assert.equal(state.rfq_mediated_alerts.at(-1).recipient, 'staff');
+assert.equal((await store.listRfqMediatedMessages('s1')).length, 0, 'Other supplier desk stays isolated');
+await assert.rejects(store.postRfqMediatedMessage({ rfqId: 'sourcing', matchId: 's2', sender: 'buyer',
+  email: 'buyer@example.com', body: 'Buyer cannot join supplier desk' }), /not invited/);
+await assert.rejects(store.postRfqMediatedMessage({ rfqId: 'sourcing', matchId: 's2', sender: 'staff',
+  email: 'staff@veximtrade.com', body: 'Contact buyer@example.com' }), /contact details not allowed/);
+const buyerDesk = await store.postRfqMediatedMessage({ rfqId: 'sourcing', matchId: null, sender: 'buyer',
+  email: 'buyer@example.com', body: 'Compare the quotes for Vexim' });
+assert.equal(buyerDesk.thread_id, 'sourcing');
+assert.equal((await store.listRfqMediatedThreads(['sourcing'])).length, 2);
 for (let i = 0; i < 11; i++) await store.addRfqThreadMessage({ match_id: 'd1', sender: 'buyer', sender_email: 'buyer@example.com', body: `Follow-up ${i}` });
 await assert.rejects(store.addRfqThreadMessage({ match_id: 'd1', sender: 'buyer', sender_email: 'buyer@example.com', body: 'Excess' }), /rate limited/);
 assert.equal((await store.listRfqThreadMessages('d1')).length, 12);
@@ -106,4 +123,37 @@ assert.equal(await store.claimRfqPortalAlert(due[0], now), true);
 assert.equal(await store.claimRfqPortalAlert(due[0], now), false, 'Outbox claim has compare-and-swap');
 assert.equal(await store.finishRfqPortalAlert(due[0].id, now, { status: 'failed', not_before: new Date(Date.now() + 30 * 60_000).toISOString() }), true);
 assert.equal(state.rfq_portal_alerts.find((row) => row.id === due[0].id).status, 'failed');
-console.log('✅ RFQ local store: safe backfill, versions, CAS, consented per-supplier threads, rate limits and retryable outbox.');
+// Sourcing conversations never share one buyer/supplier thread: a buyer desk is
+// keyed by RFQ; each invited supplier has its own independently scoped desk.
+const supplierDesk = await store.postRfqMediatedMessage({ rfqId: 'sourcing', matchId: 's1',
+  sender: 'supplier', email: 's1@example.com', body: 'Offer for Vexim only' });
+assert.equal((await store.listRfqMediatedMessages('sourcing'))[0].id, buyerDesk.id);
+assert.equal((await store.listRfqMediatedMessages('s1'))[0].id, supplierDesk.id);
+assert.equal((await store.listRfqMediatedMessages('s2'))[0].id, b.id);
+assert.equal((await store.listRfqMediatedThreads(['sourcing'])).length, 3);
+assert.equal(state.rfq_mediated_alerts.length, 3, 'An alert is saved atomically for every message');
+assert.ok(state.rfq_mediated_alerts.every((a) => a.message_id && a.not_before > a.event_at));
+await assert.rejects(store.postRfqMediatedMessage({ rfqId: 'direct', matchId: null,
+  sender: 'buyer', email: 'buyer@example.com', body: 'Wrong channel' }), /not open/);
+await assert.rejects(store.postRfqMediatedMessage({ rfqId: 'sourcing', matchId: 'd1',
+  sender: 'supplier', email: 's1@example.com', body: 'Wrong RFQ' }), /not invited/);
+await assert.rejects(store.postRfqMediatedMessage({ rfqId: 'sourcing', matchId: 's1',
+  sender: 'buyer', email: 'buyer@example.com', body: 'Wrong audience' }), /not invited/);
+await assert.rejects(store.postRfqMediatedMessage({ rfqId: 'old', matchId: 'old1',
+  sender: 'supplier', email: 's1@example.com', body: 'No RFQ consent' }), /not invited/);
+await assert.rejects(store.postRfqMediatedMessage({ rfqId: 'sourcing', matchId: 's1',
+  sender: 'staff', email: 'staff@example.com', body: 'Buyer contact buyer@private.io' }), /contact details/);
+assert.equal(state.rfq_mediated_alerts.length, 3, 'Rejected posts create no partial message/notification');
+await store.markRfqMediatedRead('s1', 'staff', supplierDesk.created_at);
+const readAt = (await store.listRfqMediatedThreads(['sourcing'])).find((t) => t.id === 's1').staff_last_read_at;
+await store.markRfqMediatedRead('s1', 'staff', '2000-01-01T00:00:00Z');
+assert.equal((await store.listRfqMediatedThreads(['sourcing'])).find((t) => t.id === 's1').staff_last_read_at,
+  readAt, 'Staff read marker cannot move backwards');
+const future = new Date(Date.now() + 11 * 60_000).toISOString();
+const dueMediated = await store.listDueRfqMediatedAlerts(future, 50, ['s1']);
+assert.equal(dueMediated.length, 1);
+assert.equal(await store.claimRfqMediatedAlert(dueMediated[0], future), true);
+assert.equal(await store.claimRfqMediatedAlert(dueMediated[0], future), false, 'Mediated alert claim uses CAS');
+assert.equal(await store.finishRfqMediatedAlert(dueMediated[0].id, future, { status: 'sent', sent_at: future }), true);
+assert.equal(state.rfq_mediated_alerts.find((a) => a.id === dueMediated[0].id).status, 'sent');
+console.log('✅ RFQ local store: immutable quotes, direct chat, isolated Vexim desks, consent, read guards and CAS outboxes.');

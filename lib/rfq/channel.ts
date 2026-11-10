@@ -2,8 +2,9 @@ import type { Rfq } from "@/lib/types";
 
 /**
  * Vexim là sàn B2B: RFQ gửi từ trang sản phẩm / trang nhà cung cấp đi thẳng tới đúng nhà cung cấp
- * đó ("direct"); câu hỏi trực tiếp đi qua email ("question"). Chỉ yêu cầu không chọn nhà cung cấp
- * nào mới cần Vexim ghép và giới thiệu, nên thuộc luồng Tìm nguồn ("sourcing").
+ * đó ("direct"); câu hỏi RFQ cũ chỉ giữ lịch sử ("question", câu hỏi mới dùng chat).
+ * Yêu cầu không chọn nhà cung cấp hoặc chuyển từ form tìm nguồn cần Vexim điều phối
+ * và trình báo giá trong khu riêng ("sourcing"). Không dùng email để giao dịch RFQ.
  */
 export type RfqChannel = "direct" | "question" | "sourcing";
 

@@ -29,6 +29,7 @@ const core = load('../lib/rfq/portal-core.ts', {
 const dashboard = load('../lib/supplier-portal/dashboard.ts', {
   '@/lib/rfq/buyer-contact': contact,
   '@/lib/rfq/channel': channel,
+  '@/lib/rfq/mediated': { deskHasNewReply: (thread, side) => !!thread && !!(side === 'staff' ? thread.last_party_message_at : thread.last_staff_message_at) },
   '@/lib/rfq/portal-core': core,
   '@/lib/public/display-name': displayName,
   '@/lib/i18n/format': loadFormat(),
@@ -166,115 +167,7 @@ staff.name = 'Dung\r\nCc: attacker@example.com';
 await assert.rejects(staffSender.requireRfqStaffSender(staff.id), /tên người thật/);
 staff.name = 'Nguyễn Văn Dung';
 
-const rfq = { id: 'r1', code: 'RFQ-20261017-001', buyer_id: 'b1', product_text: 'Cashew', quantity: 5, unit: 'MT', status: 'new', specs: { ...consent, notes: 'SECRET BUYER CONTACT' } };
-const storedMatch = { ...match, rfq_id: rfq.id, status: 'proposed', sent_to_supplier_at: null };
-const sent = [];
-let mode = 'simulated';
-let inviteStatus = 'pending';
-let preflightFails = false;
-let hasPublishedVersion = false;
-const store = {
-  getRfq: async () => rfq,
-  getRfqMatch: async () => storedMatch,
-  getSupplier: async () => ({ id: 's-a', email: 'supplier@example.com', name: 'Supplier A', onboarding_status: inviteStatus }),
-  findIntroduction: async () => null, createIntroduction: async () => {},
-  getBuyer: async () => ({ id: 'b1', contact_name: 'Jane', email: 'buyer@example.com' }),
-  listRfqMatches: async () => [storedMatch],
-  listRfqQuoteVersions: async (ids) => hasPublishedVersion && ids.includes(storedMatch.id)
-    ? [{ id: 'version-1', match_id: storedMatch.id, version: 1 }] : [],
-  listSupplierRfqInvitations: async () => { if (preflightFails) throw Error('migration missing'); return []; },
-  listSupplierNoticeReads: async () => [],
-  listSuppliers: async () => [{ id: 's-a', email: 'supplier@example.com', name: 'Supplier A', onboarding_status: inviteStatus }],
-  getUserByEmail: async (email) => email === 'supplier@example.com' && inviteStatus === 'not_started' ? { role: 'supplier', supplier_id: 's-a' } : null,
-  updateRfqMatch: async (_id, patch) => Object.assign(storedMatch, patch),
-  addMessage: async (message) => sent.push(message),
-  updateRfq: async (_id, patch) => Object.assign(rfq, patch),
-};
-const outbound = load('../lib/rfq/outreach.ts', {
-  '@/lib/db': { getStore: () => store },
-  '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts },
-  '@/lib/email/send': { transport: async (mail) => { sent.push(mail); return { ok: true, status: mode, provider: 'resend' }; } },
-  '@/lib/rfq/staff-sender': staffSender,
-  '@/lib/supplier-portal/onboarding': load('../lib/supplier-portal/onboarding.ts', {}),
-  '@/lib/config': { FROM_ADDRESS: 'Vexim <sales@example.com>', COMPANY: { name: 'Vexim' } },
-  '@/lib/brand/colors.json': { default: { primary: '#1F3E74' } },
-  '@/lib/site': { SITE_URL: 'https://example.com' },
-  '@/lib/email/templates': { escapeHtml: (s) => s, wrapPlainEmail: ({ body }) => body },
-  '@/lib/rfq/reply-routing': { supplierReplyAddress: () => 'reply@example.com', buyerReplyAddress: () => 'buyer-reply@example.com' },
-  '@/lib/email/threading': { mailTopic: (input) => `rfq.${input.rfqCode}`, openThread: async () => ({ messageId: '<rfq.test.1@example.com>', headers: {}, seq: 1 }) },
-  './buyer-contact': contact,
-  './attach-buyer': { attachBuyerAfterDirectRfqDelivery: async () => false },
-});
-const privateMail = outbound.buildRfqSupplierEmail({ rfq: { ...rfq, product_text: 'contact thirdparty@example.com' },
-  supplier: { id: 's-a', name: 'Supplier A' }, deadline: now });
-assert.match(privateMail.html, /buyer@example.com/);
-assert.ok(!privateMail.html.includes('thirdparty@example.com'));
-assert.ok(!privateMail.html.includes('SECRET BUYER CONTACT'));
-assert.equal(outbound.buildRfqShortlistBuyerEmail, undefined, 'No email-first buyer price table can bypass publication');
-preflightFails = true;
-await assert.rejects(outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id }), /migration missing/);
-assert.equal(sent.length, 0, 'No mail before DB migration is ready');
-preflightFails = false;
-assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 0);
-assert.equal(sent.length, 0, 'Pending account cannot receive an invitation');
-inviteStatus = 'not_started';
-assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 0);
-assert.equal(sent.length, 0, 'Incomplete registered account cannot receive an invitation');
-inviteStatus = 'approved';
-assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 0);
-assert.equal(storedMatch.sent_to_supplier_at, null, 'A simulated email is not an invitation');
-mode = 'sent';
-assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 1);
-assert.equal(storedMatch.status, 'sent_to_supplier');
-assert.ok(storedMatch.response_due_at);
-assert.equal((await outbound.dispatchRfqToSuppliers({ rfqId: rfq.id, matchIds: [match.id], actorId: staff.id })).sent, 0, 'No duplicate invitation');
-assert.equal(sent.filter((x) => x.to?.includes('supplier@example.com')).length, 2, 'Simulated and real attempts only');
-assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');
-assert.equal(sent.find((x) => x.to?.includes('supplier@example.com')).replyTo, 'reply@example.com');
-// Nhà cung cấp có cổng đã duyệt: báo giá và trao đổi trên cổng, không trả lời email.
-const invite = sent.find((x) => x.to?.includes('supplier@example.com'));
-assert.match(invite.html, /https:\/\/example\.com\/supplier\/portal\/rfqs/);
-assert.match(invite.html, /không cần trả lời email này/);
-assert.doesNotMatch(invite.html, /trả lời trực tiếp email này/);
-// Hồ sơ do Vexim tạo, chưa có cổng: vẫn trả lời bằng email cho người phụ trách.
-const legacyInvite = outbound.buildRfqSupplierEmail({ rfq, supplier: { id: 's-a', name: 'Supplier A' }, deadline: now });
-assert.match(legacyInvite.html, /trả lời trực tiếp email này/);
-assert.doesNotMatch(legacyInvite.html, /supplier\/portal\/rfqs/);
-storedMatch.status = 'quoted'; storedMatch.quote_price = 7;
-await assert.rejects(outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id }),
-  /đã công bố/, 'An unpublished sourcing draft cannot be selected');
-assert.equal(rfq.status, 'matching');
-storedMatch.status = 'presented_to_buyer'; storedMatch.sent_to_buyer_at = now.toISOString();
-storedMatch.quote_price = null;
-await assert.rejects(outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id }),
-  /phiên bản báo giá/, 'Timestamp alone is not a buyer-visible offer');
-assert.equal(rfq.status, 'matching');
-hasPublishedVersion = true;
-const countBeforeSelection = sent.length;
-mode = 'sent';
-assert.equal((await outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id })).email, 'sent');
-assert.equal(sent.length, countBeforeSelection + 1);
-assert.equal(sent.at(-1).from, 'Nguyễn Văn Dung <dung@veximtrade.com>', 'Selection mail cannot use a role address');
-assert.match(sent.at(-1).html, /buyer@example.com/, 'Selection email uses the same consented contact block');
-assert.doesNotMatch(sent.at(-1).html, /SECRET/, 'Selection mail still excludes internal notes');
-assert.equal(storedMatch.status, 'selected');
-await outbound.selectSupplier({ rfqId: rfq.id, matchId: storedMatch.id, actorId: staff.id });
-assert.equal(sent.length, countBeforeSelection + 1, 'Replaying selection does not resend mail');
-storedMatch.status = 'sent_to_supplier'; rfq.status = 'matching';
-const matchActions = load('../app/crm/rfqs/[id]/actions.ts', {
-  'next/cache': { revalidatePath() {} }, 'next/navigation': { redirect() {} },
-  crypto: { randomUUID: () => 'test-id' },
-  '@/lib/db': { getStore: () => store }, '@/lib/auth/session': { guard: async () => null },
-  '@/lib/rfq/workflow': load('../lib/rfq/workflow.ts', {}),
-  '@/lib/supplier-portal/quote': { QUOTABLE_MATCH_STATUSES: ['quoted'], QUOTE_CURRENCIES: ['USD'], QUOTE_INCOTERMS: ['FOB'] },
-  '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts },
-  '@/lib/rfq/portal-core': core,
-  '@/lib/rfq/portal-alerts': { runRfqPortalAlerts: async () => ({ claimed: 0 }) },
-});
-const forgedSelection = new FormData(); forgedSelection.set('match_id', storedMatch.id);
-forgedSelection.set('rfq_id', rfq.id); forgedSelection.set('status', 'selected');
-await assert.rejects(matchActions.updateMatchStatusAction(forgedSelection), /nút nghiệp vụ/);
-assert.equal(storedMatch.status, 'sent_to_supplier', 'Generic status action cannot bypass selection notification');
+// Direct RFQ delivery and sourcing dispatch are covered by dedicated portal-only regression tests.
 
 let accessEnabled = true;
 let portalStatus = 'pending';
@@ -325,7 +218,7 @@ assert.match(schema, /supplier_portal_notice_reads enable row level security/);
 const createdRfqs = [];
 const category = { id: 'cat1', slug: 'cashew', status: 'published', is_published: true };
 const submitStore = { listBuyers: async () => [], getBuyerByEmail: async () => null, createBuyer: async () => ({ id: 'buyer-1', email: 'buyer@example.com' }),
-  getCategoryBySlug: async () => category, listRfqs: async () => [],
+  getCategoryBySlug: async () => category, getSupplier: async (id) => ({ id }), listRfqs: async () => [],
   createRfq: async (input) => { createdRfqs.push(input); return { ...input, id: 'new-rfq', status: 'new', access_token: 'private' }; },
   addAuditLog: async () => null };
 const submit = load('../lib/rfq/submit.ts', {
@@ -333,6 +226,7 @@ const submit = load('../lib/rfq/submit.ts', {
   'next/headers': { headers: async () => ({ get: () => null }) },
   '@/lib/db': { getStore: () => submitStore },
   '@/lib/public/catalog': { listPublicSuppliers: async () => [{ id: 's-a' }, { id: 's-b' }] },
+  '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [{ id: 'p-a', name: 'Cashew W320', supplierId: 's-a' }] },
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/security/challenge': { verifyFormChallenge: () => ({ ok: true }) },
@@ -353,11 +247,13 @@ const raw = { company: 'Buyer', contact_name: 'Jane', email: 'buyer@example.com'
   product_text: 'Cashew W320', category_slug: 'cashew', source_product_id: 'p-a', preferred_supplier_ids: ['s-a'] };
 assert.equal((await submit.submitRfq(raw)).ok, true);
 assert.equal(createdRfqs.at(-1).source_product_id, 'p-a');
+assert.equal(createdRfqs.at(-1).specs.direct_delivery_version, 'portal_direct_v2');
 await submit.submitRfq({ ...raw, product_text: 'Rice' });
 assert.equal(createdRfqs.at(-1).source_product_id, 'p-a', 'Free-text requirements cannot replace the validated source-product attribution');
 assert.match(createdRfqs.at(-1).product_text, /Cashew W320.*Rice/);
-await submit.submitRfq({ ...raw, preferred_supplier_ids: ['s-b'] });
-assert.equal(createdRfqs.at(-1).source_product_id, null, 'Other supplier cannot claim product attribution');
+const beforeInvalidProduct = createdRfqs.length;
+assert.equal((await submit.submitRfq({ ...raw, preferred_supplier_ids: ['s-b'] })).ok, false, 'Product cannot be attributed to a different supplier');
+assert.equal(createdRfqs.length, beforeInvalidProduct, 'Invalid product/supplier pair never creates a direct RFQ');
 
 await submit.submitRfq({ ...raw, preferred_supplier_ids: [] });
 assert.equal(createdRfqs.at(-1).source_product_id, 'p-a');

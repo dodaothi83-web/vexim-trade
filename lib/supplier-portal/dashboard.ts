@@ -1,11 +1,12 @@
-import type { Certificate, Supplier, SupplierNoticeRead, SupplierProduct, SupplierRfqInvitation, SupplierSubmission, SupplierVerificationRequest, Verification } from "@/lib/types";
+import type { Certificate, RfqMediatedThread, Supplier, SupplierNoticeRead, SupplierProduct, SupplierRfqInvitation, SupplierSubmission, SupplierVerificationRequest, Verification } from "@/lib/types";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
 import type { Locale } from "@/lib/i18n/config";
 import { fill } from "@/lib/i18n/format";
 import { noticesMessages } from "@/lib/i18n/portal/notices";
 import { rfqsMessages } from "@/lib/i18n/portal/rfqs";
-import { rfqBuyerContact, type RfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import { rfqBuyerContact, sourcingInviteConsent, type RfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import { deskHasNewReply } from "@/lib/rfq/mediated";
 import { rfqChannel } from "@/lib/rfq/channel";
 import { rfqEventAfter, supplierMatchHasReply } from "@/lib/rfq/portal-core";
 
@@ -53,6 +54,8 @@ export interface PortalInvite {
   canQuote: boolean;
   /** Same channel as the quote action: direct RFQs publish automatically; sourcing waits for Vexim. */
   directToBuyer: boolean;
+  /** Distinguish channel from contact consent: an older direct RFQ may lack consent. */
+  viaVexim: boolean;
   newBuyerMessage: boolean;
   publishedAt: string | null;
   /** Giá trị điền sẵn cho form báo giá (bản nháp hiện tại hoặc yêu cầu). */
@@ -115,6 +118,11 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
     const deliveryMonth = month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)
       ? `${month.slice(5, 7)}/${month.slice(0, 4)}` : null;
     const destination = [text(rfq.destination_country), text(rfq.destination_port)].filter(Boolean).join(" · ");
+    const direct = rfqChannel({ source_page: rfq.source_page, source_product_id: rfq.source_product_id,
+      preferred_supplier_ids: rfq.preferred_supplier_ids ?? [], specs: { sourcing_request_id: rfq.sourcing_request_id } }) === "direct";
+    const directContact = direct ? rfqBuyerContact({ specs: rfq as Record<string, unknown>,
+      source_product_id: rfq.source_product_id, preferred_supplier_ids: rfq.preferred_supplier_ids }, supplierId) : null;
+    const authorized = direct ? !!directContact : sourcingInviteConsent({ specs: rfq as Record<string, unknown> }, supplierId);
     return {
       matchId: m.id, code: rfq.code, title,
       status: statusLabel(m.status, language), sentAt: m.sent_to_supplier_at!,
@@ -138,16 +146,13 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
         wantsSamples: rfq.wants_samples === true, wantsInspection: rfq.wants_inspection === true,
         wantsVideoCall: rfq.wants_video_call === true,
       },
-      buyerContact: rfqBuyerContact({ specs: rfq as Record<string, unknown>,
-        source_product_id: rfq.source_product_id, preferred_supplier_ids: rfq.preferred_supplier_ids }, supplierId),
-      canQuote: ["sent_to_supplier", "no_response", "quoted", "presented_to_buyer"].includes(m.status) &&
+      buyerContact: directContact,
+      canQuote: authorized && ["sent_to_supplier", "no_response", "quoted", "presented_to_buyer"].includes(m.status) &&
         !["won", "lost", "spam"].includes(rfq.status ?? ""),
-      newBuyerMessage: supplierMatchHasReply(m),
+      newBuyerMessage: direct && supplierMatchHasReply(m),
       publishedAt: m.sent_to_buyer_at ?? null,
-      directToBuyer: !!rfqBuyerContact({ specs: rfq as Record<string, unknown>,
-        source_product_id: rfq.source_product_id, preferred_supplier_ids: rfq.preferred_supplier_ids }, supplierId) &&
-        rfqChannel({ source_page: rfq.source_page, source_product_id: rfq.source_product_id,
-          preferred_supplier_ids: rfq.preferred_supplier_ids ?? [], specs: { sourcing_request_id: rfq.sourcing_request_id } }) === "direct",
+      directToBuyer: direct && !!directContact,
+      viaVexim: !direct,
       quoteDefaults: {
         price: m.quote_price != null ? String(m.quote_price) : "",
         currency: m.quote_currency || "USD",
@@ -198,10 +203,12 @@ export function buildSupplierReport(input: { supplierId: string; invites: Suppli
 export type SupplierRfqBoard = ReturnType<typeof buildSupplierRfqBoard>;
 
 /** Toàn bộ dữ liệu cho trang RFQ: danh sách, việc cần trả lời và báo cáo. */
-export function buildSupplierRfqBoard(input: { supplierId: string; invites: SupplierRfqInvitation[]; products: SupplierProduct[]; days: 7 | 30 | 90; now?: Date; language?: Locale }) {
+export function buildSupplierRfqBoard(input: { supplierId: string; invites: SupplierRfqInvitation[]; products: SupplierProduct[]; days: 7 | 30 | 90; now?: Date; language?: Locale; mediatedThreads?: RfqMediatedThread[] }) {
   const language = input.language ?? "vi";
   const relevant = relevantInvites(input.supplierId, input.invites);
-  const invites = projectInvites(relevant, input.products, input.supplierId, language);
+  const desks = new Map((input.mediatedThreads ?? []).filter((t) => t.audience === "supplier").map((t) => [t.id, t]));
+  const invites = projectInvites(relevant, input.products, input.supplierId, language).map((item) =>
+    !item.viaVexim ? item : { ...item, newBuyerMessage: deskHasNewReply(desks.get(item.matchId), "party") });
   return {
     invites,
     tasks: buildSupplierTasks(invites, relevant),
@@ -236,7 +243,8 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
     add(`rfq:${m.id}`, fill(t.rfqSent.title, { code: m.rfq!.code }), t.rfqSent.detail, m.sent_to_supplier_at!, "rfq", "/supplier/portal/rfqs");
     if (m.status === "selected") add(`selected:${m.id}`, fill(t.rfqSelected.title, { code: m.rfq!.code }), t.rfqSelected.detail, m.updated_at, "rfq", "/supplier/portal/rfqs");
     const replyAt = m.last_buyer_message_at ?? (m.last_thread_sender === "buyer" ? m.last_thread_message_at : null);
-    if (replyAt) {
+    if (replyAt && rfqChannel({ source_page: m.rfq!.source_page, source_product_id: m.rfq!.source_product_id,
+      preferred_supplier_ids: m.rfq!.preferred_supplier_ids ?? [], specs: { sourcing_request_id: m.rfq!.sourcing_request_id } }) === "direct") {
       const key = `rfq-reply:${m.id}:${replyAt}`;
       add(key, fill(t.rfqReply.title, { code: m.rfq!.code }), t.rfqReply.detail, replyAt,
         "rfq", `/supplier/portal/rfqs/${encodeURIComponent(m.id)}`);

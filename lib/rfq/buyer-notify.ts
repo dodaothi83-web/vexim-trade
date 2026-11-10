@@ -1,87 +1,28 @@
-import brandColors from "@/lib/brand/colors.json";
 /**
  * Tự động thông báo cho buyer khi có chuyển biến quan trọng trong vòng đời RFQ:
  *   - RFQ vào sampling (đã chọn 1 NCC để gửi mẫu / đàm phán sâu)
  *   - RFQ bị đóng lost (kèm lý do cho buyer)
  *
- * Những email này dùng replyTo = buyer+{code}@domain để hồi âm của buyer được
- * tự gắn vào timeline RFQ.
+ * Email chỉ chứa đường dẫn vào tài khoản; trả lời email không cập nhật RFQ.
  */
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
-import { htmlToText } from "@/lib/email/privacy";
 import { transport } from "@/lib/email/send";
-import { FROM_ADDRESS, COMPANY, resendConfigured } from "@/lib/config";
+import { FROM_ADDRESS, resendConfigured } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
 import { getStore } from "@/lib/db";
-import { buyerReplyAddress } from "@/lib/rfq/reply-routing";
-import { mailTopic, openThread } from "@/lib/email/threading";
-import type { Buyer, EmailMessage, Rfq, Supplier } from "@/lib/types";
+import { rfqChannel } from "@/lib/rfq/channel";
+import type { EmailMessage, Rfq } from "@/lib/types";
 
 type NotifKind = "sampling" | "lost";
 
-const LOST_REASON_LABELS: Record<string, string> = {
-  no_response: "The supplier did not reply after several reminders",
-  price: "The quoted price was not competitive",
-  lead_time: "Lead time did not meet your delivery schedule",
-  quality: "Quality or certification did not meet your requirements",
-  buyer_went_elsewhere: "You chose another option",
-  cancelled: "The request was cancelled",
-  other: "We could not agree on terms",
-};
-
-function buildSubject(kind: NotifKind, rfq: Rfq) {
-  return kind === "sampling"
-    ? `Supplier selected for sampling, ${rfq.product_text} (Ref ${rfq.code})`
-    : `Request paused, ${rfq.product_text} (Ref ${rfq.code})`;
-}
-
-function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Supplier | null) {
-  const title = buildSubject(kind, rfq);
-  const trackUrl = `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
-  const first = buyer.contact_name?.split(" ")[0] ?? "there";
-  const qty = rfq.quantity ? `, ${escapeHtml(String(rfq.quantity))} ${escapeHtml(rfq.unit ?? "")}` : "";
-  let body = `<p>Dear ${escapeHtml(first)},</p>`;
-
-  if (kind === "sampling") {
-    body += `
-      <p>Thank you for your patience. Request <strong>${escapeHtml(rfq.code)}</strong>
-      (${escapeHtml(rfq.product_text)}${qty}) has moved to the <strong>sampling</strong> stage.</p>`;
-    if (chosenSupplier) {
-      const name = chosenSupplier.display_name ?? chosenSupplier.trade_name ?? chosenSupplier.name;
-      body += `
-        <p>We have selected <strong>${escapeHtml(name)}</strong>${chosenSupplier.province ? ` (${escapeHtml(chosenSupplier.province)})` : ""}
-        to prepare the sample and negotiate the details. Your identity stays private at this stage.
-        Vexim coordinates the sample shipment, the test results and the certificates involved.</p>`;
-    } else {
-      body += `<p>Vexim is working with the selected supplier to send your sample as soon as possible.</p>`;
-    }
-    body += `
-      <p>What happens next</p>
-      <ul>
-        <li>We ship the sample to the address you provided and send you the tracking number.</li>
-        <li>If you need changes to specification, packing or certificates, reply to this email.</li>
-        <li>Once you approve the sample, Vexim confirms the contract terms and the delivery schedule.</li>
-      </ul>`;
-  } else {
-    const reason = (rfq.lost_reason && LOST_REASON_LABELS[rfq.lost_reason]) || "We could not agree on terms";
-    body += `
-      <p>We are sorry to tell you that request <strong>${escapeHtml(rfq.code)}</strong>
-      (${escapeHtml(rfq.product_text)}${qty}) cannot continue in this round.</p>
-      <p><strong>Reason:</strong> ${escapeHtml(reason)}.</p>
-      <p>If you still need this product later, or want a new quote with adjusted specifications,
-      reply to this email or send a new request. We will handle it first.</p>`;
-  }
-
-  body += `
-    <p>View your enquiry in your buyer account:<br/>
-    <a href="${trackUrl}" style="color:${brandColors.primary};">View enquiry</a></p>
-    <p>Best regards,<br/>Export Department · ${escapeHtml(COMPANY.name)}</p>`;
-
-  return {
-    subject: title,
-    html: wrapPlainEmail({ title, body, preheader: kind === "sampling" ? "Supplier selected for sampling. Vexim coordinates the next step." : "Request paused." }),
-    text: htmlToText(body),
-  };
+function buildBody(kind: NotifKind, rfq: Rfq) {
+  const subject = `${kind === "sampling" ? "Sourcing request moved to sampling" : "Sourcing request closed"} (Ref ${rfq.code})`;
+  const link = `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
+  const body = `<p>Your Vexim sourcing request has an update.</p>
+    <p><a href="${escapeHtml(link)}">Sign in to review the details and talk to Vexim</a></p>
+    <p>This email is a notification only; replies are not recorded as RFQ messages.</p>`;
+  return { subject, html: wrapPlainEmail({ title: escapeHtml(subject), body }),
+    text: `${subject}\n${link}\nSign in for details. Email is a notification only.` };
 }
 
 /**
@@ -91,9 +32,9 @@ function buildBody(kind: NotifKind, rfq: Rfq, buyer: Buyer, chosenSupplier?: Sup
 export async function notifyBuyerRfqStatus(
   rfq: Rfq,
   kind: NotifKind,
-  chosenMatchId?: string | null,
+  _chosenMatchId?: string | null,
 ): Promise<{ sent: boolean; reason?: string }> {
-  if (!rfq.buyer_id) return { sent: false, reason: "no_buyer" };
+  if (!rfq.buyer_id || rfqChannel(rfq) !== "sourcing") return { sent: false, reason: "no_buyer" };
   const store = getStore();
   // One durable row per RFQ + stage. A draft reserves the send before talking
   // to Resend; the unique index prevents concurrent requests from sending twice.
@@ -106,18 +47,8 @@ export async function notifyBuyerRfqStatus(
   if (previous?.status === "draft") return { sent: false, reason: "pending" };
   const buyer = await store.getBuyer(rfq.buyer_id).catch(() => null);
   if (!buyer || !buyer.email) return { sent: false, reason: "no_buyer_email" };
-  let chosenSupplier: Supplier | null = null;
-  if (chosenMatchId) {
-    const match = await store.getRfqMatch(chosenMatchId).catch(() => null);
-    if (match && match.rfq_id === rfq.id) {
-      chosenSupplier = await store.getSupplier(match.supplier_id).catch(() => null);
-    }
-  }
-  const email = buildBody(kind, rfq, buyer, chosenSupplier);
-  const mailThread = await openThread(mailTopic({ rfqCode: rfq.code, buyerId: buyer.id }));
-  const ccEmails = buyer.cc_emails
-    ? buyer.cc_emails.split(",").map((c) => c.trim()).filter(Boolean)
-    : [];
+  const email = buildBody(kind, rfq);
+  const ccEmails: string[] = [];
   const row = {
     buyer_id: buyer.id,
     supplier_id: null,
@@ -134,7 +65,7 @@ export async function notifyBuyerRfqStatus(
     body_html: email.html,
     body_text: email.text,
     attachments: [],
-    rfc_message_id: mailThread.messageId,
+    rfc_message_id: null,
     read_at: null,
     status: "draft" as const,
     provider: "resend" as const,
@@ -168,11 +99,10 @@ export async function notifyBuyerRfqStatus(
     to: [buyer.email],
     cc: ccEmails.length ? ccEmails : undefined,
     from: FROM_ADDRESS,
-    replyTo: buyerReplyAddress(rfq.code),
     subject: email.subject,
     html: email.html,
     text: email.text,
-    headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Notify": kind, ...mailThread.headers },
+    headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Notify": kind },
   }).catch((err) => {
     console.error(`[rfq-notify] gửi ${kind} cho người mua thất bại:`, err);
     return null;

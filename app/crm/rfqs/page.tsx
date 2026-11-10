@@ -31,9 +31,9 @@ const CLOSED: Array<Rfq["status"]> = ["won", "lost", "spam"];
 const VIEWS: { key: string; label: string; match: (r: Rfq) => boolean }[] = [
   { key: "all", label: "Tất cả", match: () => true },
   { key: "open", label: "Đang mở", match: (r) => !isSupplierQuestion(r) && !CLOSED.includes(r.status) },
-  { key: "todo", label: "Cần xử lý", match: (r) => !isSupplierQuestion(r) && ["new", "needs_review", "in_progress"].includes(r.status) },
-  { key: "matching", label: "Đang ghép nhà cung cấp", match: (r) => !isSupplierQuestion(r) && r.status === "matching" },
-  { key: "buyer", label: "Chờ người mua", match: (r) => !isSupplierQuestion(r) && ["quoted", "sampling"].includes(r.status) },
+  { key: "todo", label: "Cần xử lý", match: (r) => rfqChannel(r) !== "direct" && !isSupplierQuestion(r) && ["new", "needs_review", "in_progress"].includes(r.status) },
+  { key: "matching", label: "Đang ghép nhà cung cấp", match: (r) => rfqChannel(r) !== "direct" && !isSupplierQuestion(r) && r.status === "matching" },
+  { key: "buyer", label: "Chờ người mua", match: (r) => rfqChannel(r) !== "direct" && !isSupplierQuestion(r) && ["quoted", "sampling"].includes(r.status) },
   { key: "question", label: "Câu hỏi nhà cung cấp", match: (r) => isSupplierQuestion(r) },
   { key: "closed", label: "Đã đóng", match: (r) => !isSupplierQuestion(r) && (r.status === "won" || r.status === "lost") },
   { key: "spam", label: "Cách ly", match: (r) => r.status === "spam" },
@@ -41,8 +41,8 @@ const VIEWS: { key: string; label: string; match: (r: Rfq) => boolean }[] = [
 
 /** Bộ lọc phụ, mở từ các ô cảnh báo ở đầu trang. */
 const ALERT_VIEWS: Record<string, { label: string; chip: string; match: (r: Rfq) => boolean }> = {
-  unassigned: { label: "Chưa phân công", chip: "chưa phân công", match: (r) => !isSupplierQuestion(r) && !CLOSED.includes(r.status) && !r.assigned_to },
-  late: { label: "Trễ hoặc sắp trễ SLA", chip: "trễ hoặc sắp trễ SLA", match: (r) => slaInfo(r)?.urgent === true },
+  unassigned: { label: "Chưa phân công", chip: "chưa phân công", match: (r) => rfqChannel(r) === "sourcing" && !CLOSED.includes(r.status) && !r.assigned_to },
+  late: { label: "Trễ hoặc sắp trễ SLA", chip: "trễ hoặc sắp trễ SLA", match: (r) => rfqChannel(r) === "sourcing" && slaInfo(r)?.urgent === true },
 };
 
 function isSupplierQuestion(rfq: Rfq) {
@@ -68,7 +68,7 @@ const SLA_RESPONSE_HOURS = 24;  // phản hồi người mua trong vòng 24 gi�
 
 /** Gợi ý SLA chỉ cho RFQ còn mở; RFQ đã đóng không cần dòng này. */
 function slaInfo(rfq: Rfq): { label: string; tone: string; icon: React.ReactNode; urgent: boolean } | null {
-  if (CLOSED.includes(rfq.status)) return null;
+  if (CLOSED.includes(rfq.status) || rfqChannel(rfq) === "direct") return null;
   const ageHours = (Date.now() - new Date(rfq.created_at).getTime()) / 3_600_000;
   const red = "text-red-700", amber = "text-amber-700", green = "text-emerald-700";
   if (isSupplierQuestion(rfq)) {
@@ -129,7 +129,7 @@ export default async function RfqsPage({
       ]} />
       <PageHeader
         title="RFQ trực tiếp"
-        sub="Gửi thẳng tới một nhà cung cấp từ trang sản phẩm hoặc doanh nghiệp. Câu hỏi trực tiếp không tính SLA báo giá."
+        sub="RFQ đích danh tới nhà cung cấp đã có cổng. CRM chỉ xem để hỗ trợ; câu hỏi cũ được giữ làm lịch sử."
       />
       {sourcingCount > 0 && (
         <p className="mt-2 text-[12.5px] text-ink-600">
@@ -211,7 +211,8 @@ export default async function RfqsPage({
                       </Link>
                       <div className="mt-0.5 truncate text-[11.5px] text-ink-500">
                         <span className="font-mono">{r.code}</span>
-                        {question && <span className="text-teal-700"> · câu hỏi trực tiếp</span>}
+                        {question && <span className="text-teal-700"> · câu hỏi trực tiếp (lịch sử)</span>}
+                        {rfqChannel(r) === "direct" && <span className="text-teal-700"> · chỉ xem</span>}
                         {detail && ` · ${detail}`}
                       </div>
                     </td>
@@ -220,11 +221,11 @@ export default async function RfqsPage({
                       {buyer?.country && <div className="truncate text-[11.5px] text-ink-500">{buyer.country}</div>}
                     </td>
                     <td className="px-3 py-2.5">
-                      {canManage ? (
+                      {canManage && rfqChannel(r) !== "direct" ? (
                         <RfqAssignmentSelect rfqId={r.id} assignedTo={r.assigned_to}
                           users={r.assigned_to && !assignmentUsers.some((u) => u.id === r.assigned_to) ? rfqAssigneeOptions(users, r.assigned_to) : assignmentUsers} />
                       ) : (
-                        <span className="text-[12.5px] text-ink-700">{assigned ? assigneeLabel(assigned) : "Chưa phân công"}</span>
+                        <span className="text-[12.5px] text-ink-700">{assigned ? assigneeLabel(assigned) : rfqChannel(r) === "direct" ? "— (chỉ xem)" : "Chưa phân công"}</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5">

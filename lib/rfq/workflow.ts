@@ -5,14 +5,14 @@ import type { RfqMatchStatus, RfqStatus } from "@/lib/types";
  * Thứ tự nghiệp vụ: tiếp nhận → ghép NCC → trình người mua → (tuỳ chọn) gửi mẫu → thành công / thất bại.
  */
 
-/** Trạng thái hành chính được đổi tay; các bước còn lại phải qua nút nghiệp vụ có email. */
+/** Trạng thái hành chính được đổi tay; các bước còn lại qua nút nghiệp vụ lưu trên cổng (email chỉ thông báo). */
 export const MANUAL_RFQ_STATUSES: RfqStatus[] = ["new", "needs_review", "in_progress", "matching", "spam"];
 
 /** RFQ đã đóng: không gửi mẫu, chốt NCC hay gửi thêm yêu cầu. */
 export const CLOSED_RFQ_STATUSES: RfqStatus[] = ["won", "lost", "spam"];
 
 /** Trạng thái NCC được ghi tay (không kèm email). */
-export const MANUAL_MATCH_STATUSES: RfqMatchStatus[] = ["proposed", "sent_to_supplier", "declined", "no_response"];
+export const MANUAL_MATCH_STATUSES: RfqMatchStatus[] = ["proposed", "declined", "no_response"];
 
 /** Only buyer-visible published quotes may be selected; an unreviewed draft is not an offer. */
 export const SELECTABLE_MATCH_STATUSES: RfqMatchStatus[] = ["presented_to_buyer", "selected"];

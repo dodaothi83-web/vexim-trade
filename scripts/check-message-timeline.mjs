@@ -23,7 +23,7 @@ assert.equal(buyerAck.failed, true, 'Thư gửi lỗi được báo trên timeli
 assert.equal(toTimelineItem(msg({ kind: 'inbound', read_at: '2026-11-05T02:00:00Z' })).unread, false);
 
 const page = readFileSync(new URL('../app/crm/rfqs/[id]/page.tsx', import.meta.url), 'utf8');
-assert.match(page, /<MessageTimeline title="Timeline thư từ"/);
+assert.match(page, /<MessageTimeline title="Lưu vết thông báo \/ báo giá qua cổng và email cũ \(chỉ đọc\)"/);
 const ui = readFileSync(new URL('../components/message-timeline.tsx', import.meta.url), 'utf8');
 for (const label of ['Tất cả', 'Người mua', 'Nhà cung cấp', 'Tự động', 'Nhân viên', 'Trả lời', 'Mới']) assert.ok(ui.includes(label), `Nhãn ${label}`);
 assert.match(ui, /item\.kind === "auto"/, 'Thư tự động thu gọn một dòng');

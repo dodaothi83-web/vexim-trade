@@ -97,11 +97,20 @@ const dashboard = load('app/(public)/buyer/account/page.tsx', {
   '@/lib/auth/buyer-session': { requireBuyerSession: async (next) => { assert.ok(next.startsWith('/buyer/account')); if (redirectAttempt) throw new Error('redirect'); return session; } },
   '@/lib/db': { getStore: () => ({
     getBuyerUserByEmail: async () => ({ email: session.email, company_name: 'My company', verified_at: 'today', saved: { products: emptyDashboard ? [] : [{ id: 'hidden', href: 'javascript:evil()', name: 'PRIVATE SNAPSHOT' }], comparisons: [] } }),
-    listBuyerRfqsByEmail: async (email) => { assert.equal(email, session.email); return emptyDashboard ? [] : [{ id: 'mine', code: 'RFQ-1', product_text: 'My product request', status: 'quoted', created_at: '2026-11-04T00:00:00Z', access_token: 'my-token', internal_notes: 'NEVER RENDER THIS' }, { id: 'my-question', code: 'RFQ-2', product_text: 'My product question', status: 'matching', created_at: '2026-11-04T00:00:00Z', access_token: 'question-token', specs: { inquiry_kind: 'supplier_question' } }, { id: 'legacy', code: 'RFQ-3', product_text: 'Older request being rechecked', status: 'quoted', created_at: '2026-11-02T00:00:00Z' }]; },
-    listRfqMatchUpdates: async (ids) => { assert.ok(ids.every((id) => ['mine', 'legacy'].includes(id)),
+    listBuyerRfqsByEmail: async (email) => { assert.equal(email, session.email); return emptyDashboard ? [] : [
+      { id: 'mine', code: 'RFQ-1', product_text: 'My product request', status: 'quoted', source_page: '/products', preferred_supplier_ids: ['s1'], created_at: '2026-11-04T00:00:00Z', access_token: 'my-token', internal_notes: 'NEVER RENDER THIS' },
+      { id: 'my-question', code: 'RFQ-2', product_text: 'My product question', status: 'matching', created_at: '2026-11-04T00:00:00Z', access_token: 'question-token', specs: { inquiry_kind: 'supplier_question' } },
+      { id: 'vexim', code: 'RFQ-4', product_text: 'Mediated quote request', status: 'quoted', created_at: '2026-11-03T00:00:00Z', specs: { buyer_contact_policy_version: 'rfq_mediated_v1' } },
+      { id: 'legacy', code: 'RFQ-3', product_text: 'Older request being rechecked', status: 'quoted', created_at: '2026-11-02T00:00:00Z' },
+    ]; },
+    listRfqMatchUpdates: async (ids) => { assert.ok(ids.every((id) => ['mine', 'legacy', 'vexim'].includes(id)),
       'Product-question RFQs must not appear as quote-portal notices');
-      return ids.includes('mine') ? [{ id: 'my-offer', rfq_id: 'mine', sent_to_buyer_at: '2026-11-05T00:00:00Z',
-        buyer_last_read_at: null, last_thread_sender: null }] : []; },
+      return ids.includes('mine') ? [
+        { id: 'my-offer', rfq_id: 'mine', sent_to_buyer_at: '2026-11-05T00:00:00Z', buyer_last_read_at: null, last_thread_sender: null },
+        { id: 'vexim-offer', rfq_id: 'vexim', sent_to_buyer_at: '2026-11-05T00:00:00Z', buyer_last_read_at: null, last_thread_sender: null },
+      ] : []; },
+    listRfqMediatedThreads: async (ids) => { assert.ok(ids.every((id) => ['vexim', 'legacy'].includes(id)), 'Only Vexim RFQs have a buyer desk');
+      return ids.includes('vexim') ? [{ id: 'vexim', rfq_id: 'vexim', audience: 'buyer', last_staff_message_at: '2026-11-05T00:00:01Z', party_last_read_at: null }] : []; },
     listCategories: async () => [],
   }) },
   '@/lib/i18n/server': { getLocale: async () => lang },
@@ -113,6 +122,7 @@ const dashboard = load('app/(public)/buyer/account/page.tsx', {
   '@/lib/config': { COMPANY: { contactEmail: 'support@example.com' } },
   '@/lib/rfq/portal-core': portalCore,
   '@/lib/rfq/channel': load('lib/rfq/channel.ts', {}),
+  '@/lib/rfq/mediated': { deskHasNewReply: (thread, side) => !!thread && side === 'party' && !thread.party_last_read_at && !!thread.last_staff_message_at },
 });
 async function resolve(element) {
   if (!element || typeof element !== 'object') return element;
@@ -123,7 +133,7 @@ async function resolve(element) {
 }
 for (const locale of ['en', 'vi']) {
   lang = locale;
-  for (const tab of ['overview', 'requests', 'saved', 'profile', 'invalid']) {
+  for (const tab of ['overview', 'requests', 'vexim', 'saved', 'profile', 'invalid']) {
     const tree = await dashboard.default({ searchParams: Promise.resolve({ tab }) });
     const html = renderToStaticMarkup(await resolve(tree));
     assert.ok(html.includes(`lang="${locale}"`));
@@ -131,16 +141,24 @@ for (const locale of ['en', 'vi']) {
     assert.doesNotMatch(html, /data-vexim-buyer-icon="enquiries"|data-vexim-buyer-icon="saved-products"/, 'Populated sections do not render empty-state artwork');
     assert.doesNotMatch(html, /NEVER RENDER THIS|SOURCING SECRET|PRIVATE ASSIGNEE|javascript:|PRIVATE SNAPSHOT|href="\/products"/);
     if (tab === 'requests' || tab === 'overview') {
-      assert.match(html, /\/buyer\/account\/sourcing\/my-sourcing/);
       assert.match(html, /\/buyer\/account\/requests\/mine/);
       assert.match(html, /\/buyer\/account\/requests\/my-question/);
       assert.match(html, locale === 'vi' ? /1 cập nhật mới/ : /1 new update/);
       assert.match(html, locale === 'vi' ? /Có báo giá/ : /Quote available/);
-      assert.match(html, locale === 'vi' ? /Đang xử lý/ : /In progress/,
-        'An old sent email without a recoverable portal version is not labeled as an available quote');
       assert.ok(html.includes(locale === 'vi' ? 'Câu hỏi sản phẩm' : 'Product enquiry'));
       assert.ok(html.includes(locale === 'vi' ? 'Yêu cầu báo giá' : 'Quote request'));
     }
+    if (tab === 'vexim' || tab === 'overview') {
+      assert.match(html, /\/buyer\/account\/sourcing\/my-sourcing/);
+      assert.match(html, /\/buyer\/account\/requests\/vexim/);
+      assert.match(html, /Mediated quote request/);
+      assert.match(html, locale === 'vi' ? /Có cập nhật từ Vexim/ : /New Vexim update/,
+        'Vexim tab combines unread supplier quotes and buyer-desk replies');
+      assert.match(html, locale === 'vi' ? /Đang xử lý/ : /In progress/,
+        'An old sent email without a recoverable portal version is not labeled as an available quote');
+    }
+    if (tab === 'requests') assert.doesNotMatch(html, /Mediated quote request|Older request being rechecked|My sourcing requirement/);
+    if (tab === 'vexim') assert.doesNotMatch(html, /My product request|My product question/);
     if (tab === 'saved') assert.match(html, /data-remove-id="hidden"/);
     if (tab === 'profile') assert.match(html, /me@example.com/);
   }
@@ -158,7 +176,7 @@ for (lang of ['en', 'vi']) {
 }
 emptyDashboard = false;
 const dashboardSource = read('app/(public)/buyer/account/page.tsx');
-assert.match(dashboardSource, /const nav = \[\{ id: "overview", icon: LayoutDashboard \}, \{ id: "messages", icon: MessageCircle \}, \{ id: "requests", icon: ClipboardList \}, \{ id: "saved", icon: Heart \}, \{ id: "profile", icon: UserRound \}\]/);
+assert.match(dashboardSource, /const nav = \[\{ id: "overview", icon: LayoutDashboard \}, \{ id: "messages", icon: MessageCircle \}, \{ id: "requests", icon: ClipboardList \}, \{ id: "vexim", icon: Headphones \}, \{ id: "saved", icon: Heart \}, \{ id: "profile", icon: UserRound \}\]/);
 assert.match(dashboardSource, /id === "messages" \? "\/buyer\/account\/messages"/, 'Mục Tin nhắn mở trang chat của người mua');
 redirectAttempt = true;
 await assert.rejects(dashboard.default({ searchParams: Promise.resolve({ tab: 'saved' }) }), /redirect/);

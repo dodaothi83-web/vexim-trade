@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 
 import { guard } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
+import { assertStaffMayProcessRfq } from "@/lib/rfq/staff-access";
 
 const UPLOAD_DIR = path.join(process.cwd(), "data", "rfq-files");
 
@@ -26,6 +27,7 @@ export async function uploadRfqAttachmentAction(fd: FormData): Promise<void> {
   if (!(file instanceof File) || file.size === 0) return;
   if (file.size > 10 * 1024 * 1024) return;
 
+  await assertStaffMayProcessRfq(getStore(), rfqId);
   const rfqDir = path.join(UPLOAD_DIR, rfqId);
   if (!path.resolve(rfqDir).startsWith(path.resolve(UPLOAD_DIR) + path.sep)) return;
   await mkdir(rfqDir, { recursive: true });

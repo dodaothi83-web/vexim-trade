@@ -34,13 +34,14 @@ const access = load('lib/buyer/enquiry-access.ts', {
 });
 const legacy = load('app/(public)/rfq/status/[token]/page.tsx', { 'next/navigation': navigation, '@/lib/buyer/enquiry-access': access });
 const copy = load('lib/rfq/portal-copy.ts', {});
+const channel = load('lib/rfq/channel.ts', {});
 const detailComponent = load('components/buyer-enquiry-detail.tsx', {
   'next/link': { default: ({ children, prefetch: _prefetch, ...props }) => React.createElement('a', props, children) },
   'lucide-react': new Proxy({}, { get: () => () => null }),
   '@/components/ui': { Breadcrumbs: () => null },
   '@/lib/rfq/portal-copy': copy,
+  '@/lib/rfq/channel': channel,
 });
-const channel = load('lib/rfq/channel.ts', {});
 const contact = load('lib/rfq/buyer-contact.ts', {});
 const core = load('lib/rfq/portal-core.ts', {
   '@/lib/public/product-selection': { withoutDirectContacts: (s) => s },
@@ -58,11 +59,15 @@ const quoteStore = {
   listRfqQuoteVersions: async () => [{ id: 'v1', match_id: 'q1', version: 1, quote_price: 6.35,
     quote_currency: 'USD', quote_unit: 'kg', quote_incoterm: 'FOB', quote_lead_time_days: 20,
     quote_valid_until: null, buyer_note: 'Public packing only', published_at: '2026-11-05T00:00:00Z' }],
+  listRfqMediatedMessages: async () => [],
 };
 const detail = load('app/(public)/buyer/account/requests/[id]/page.tsx', {
   '@/lib/buyer/enquiry-access': access, '@/components/buyer-enquiry-detail': detailComponent,
   '@/lib/db': { getStore: () => quoteStore }, '@/lib/i18n/server': { getLocale: async () => 'en' },
   '@/lib/rfq/portal-core': core, '@/lib/rfq/channel': channel,
+  '@/components/rfq-mediated-thread': { RfqMediatedThread: () => React.createElement('div', { 'data-vexim-desk': true }) },
+  '@/lib/rfq/mediated': { canUseMediatedDesk: () => true, safeMediatedMessages: (items) => items },
+  './actions': { buyerVeximMessageAction: async () => null, buyerVeximReadAction: async () => {} },
 });
 for (const [page, params, next] of [
   [legacy.default, { token: 'old-secret' }, '/rfq/status/old-secret'],
@@ -88,8 +93,9 @@ await assert.rejects(legacy.default({ params: Promise.resolve({ token: 'old-secr
 let tree = await detail.default({ params: Promise.resolve({ id: 'r1' }) });
 let html = renderToStaticMarkup(React.createElement(tree.type, tree.props));
 assert.match(html, /Private product/);
-assert.match(html, /All enquiries/);
-assert.match(html, /Supplier quotes \(1\)/, 'Buyer sees published offers in their account');
+assert.match(html, /All Vexim quotes/);
+assert.match(html, /Quotes from Vexim \(1\)/, 'Buyer sees only published sourcing offers in their account');
+assert.match(html, /data-vexim-desk/, 'Sourcing buyer sees a private Vexim conversation');
 assert.match(html, /Shown Supplier[\s\S]*6\.35 USD \/ kg/);
 assert.doesNotMatch(html, /Hidden Supplier|9\.99/, 'Unpublished quotes and pending revisions stay hidden');
 assert.match(html, /Public packing only/);
@@ -119,15 +125,14 @@ const mail = load('lib/email/rfq.ts', {
   '@/lib/brand/colors.json': { default: { primary: '#1f3e74', muted: '#64748b' } },
   '@/lib/config': { COMPANY: { name: 'Vexim' }, FROM_ADDRESS: 'hello@example.com', MAIL_DOMAIN: 'example.com' },
   '@/lib/email/templates': { escapeHtml: (v) => String(v ?? '').replace(/</g, '&lt;'), wrapPlainEmail: ({ body }) => body },
-  '@/lib/email/threading': { mailTopic: () => 'topic', openThread: async () => ({ headers: {}, messageId: 'test' }) },
+  '@/lib/rfq/channel': channel,
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/db': { getStore: () => ({ addMessage: async () => ({}) }) },
-  '@/lib/rfq/reply-routing': { buyerReplyAddress: (code) => `buyer+${String(code).toLowerCase()}@veximtrade.com`, supplierReplyAddress: (code, matchId) => `rfq+${String(code).toLowerCase()}-m${String(matchId).replace(/-/g, '')}@veximtrade.com` },
-  './send': { transport: async (input) => { sent.push(input); return { status: 'simulated' }; } },
+  './send': { transport: async (input) => { sent.push(input); return { ok: true, status: 'simulated' }; } },
 });
 await mail.sendRfqAckBuyer({ rfq: record(), buyer: { id: 'crm-buyer', email: 'buyer@example.com', contact_name: 'Buyer' } });
 assert.match(sent[0].html, /href="https:\/\/www.veximtrade.com\/buyer\/account\/requests\/r1"/);
-assert.match(sent[0].html, />View enquiry<\/a>/);
-assert.match(sent[0].replyTo, /^buyer\+.+@veximtrade\.com$/, 'Người mua trả lời thư xác nhận RFQ thì thư vào đúng timeline RFQ');
-assert.doesNotMatch(sent[0].html + sent[0].text, /old-secret|without logging in|\/rfq\/status\//);
-console.log('✅ Actual buyer acknowledgement email links to account-owned detail without exposing legacy tokens.');
+assert.match(sent[0].html, />Sign in to view your request, quotes and conversations<\/a>/);
+assert.equal(sent[0].replyTo, undefined, 'RFQ email is a notice, not a reply-to conversation');
+assert.doesNotMatch(sent[0].html + sent[0].text, /old-secret|without logging in|\/rfq\/status\/|Private product|6\.35 USD/);
+console.log('✅ Actual buyer acknowledgement email links to account-owned detail without legacy tokens or Reply-To.');

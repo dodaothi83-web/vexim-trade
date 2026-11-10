@@ -41,6 +41,7 @@ const core = loadTs(read('lib/rfq/portal-core.ts'), {
 const boardModule = loadTs(read('lib/supplier-portal/dashboard.ts'), {
   '@/lib/rfq/buyer-contact': contact,
   '@/lib/rfq/channel': channel,
+  '@/lib/rfq/mediated': { deskHasNewReply: (thread, side) => !!thread && !!(side === 'staff' ? thread.last_party_message_at : thread.last_staff_message_at) },
   '@/lib/rfq/portal-core': core,
   '@/lib/public/display-name': displayName,
   '@/lib/public/product-selection': { withoutDirectContacts: scrub },
@@ -56,6 +57,7 @@ const supplierId = 'supplier-1';
 const consent = contact.buyerContactConsentSpec({ company: 'Consented Buyer', contact_name: 'Jane',
   email: 'allowed@example.com', phone: '1234567', country: 'VN', website: null, business_type: null },
   '2026-10-17T00:00:00Z', 'rfq_form');
+const mediatedConsent = contact.buyerContactConsentSpec(consent.buyer_contact, '2026-10-17T00:00:00Z', 'rfq_form', true);
 const db = {
   rfqs: [
     { id: 'r-new', code: 'RFQ-20261110-00001', product_text: 'Mixed dried fruit chips, vacuum packed. Call buyer@private.io',
@@ -63,9 +65,9 @@ const db = {
       frequency: 'Monthly', destination_country: 'India', incoterm: 'FOB', needed_by: null,
       wants_samples: true, wants_inspection: false, wants_video_call: false,
       source_product_id: 'p1', source_page: '/products/p1', preferred_supplier_ids: [supplierId], status: 'matching',
-      specs: { grade: 'Mixed grades', packaging: 'Vacuum bags, 10 kg', certifications: 'HACCP',
+      specs: { ...mediatedConsent, sourcing_request_id: 'req-1', grade: 'Mixed grades', packaging: 'Vacuum bags, 10 kg', certifications: 'HACCP',
         destination_port: 'Chennai', shipment_month: '2027-01', notes: 'PRIVATE-INTERNAL-NOTE',
-        buyer_contact: { email: 'buyer@private.io' } } },
+        } },
     { id: 'r-old', code: 'RFQ-20261017-00002', product_text: 'Cashew W320', buyer_id: 'PRIVATE-BUYER-ID',
       quantity: 2, unit: 'MT', frequency: null, destination_country: 'Japan', incoterm: null, needed_by: null,
       wants_samples: false, wants_inspection: false, wants_video_call: false,
@@ -210,8 +212,7 @@ assert.match(pending.textContent, /Nhập báo giá/);
 assert.match(pending.textContent, /không cần gửi email/i);
 assert.match(pending.textContent, /Liên hệ người mua chưa được chia sẻ/);
 assert.doesNotMatch(doc.body.textContent, /buyer@private\.io|PRIVATE-TOKEN|PRIVATE-INTERNAL-NOTE|PRIVATE-BUYER-ID/);
-assert.equal(pending.querySelector('a[href^="mailto:"]')?.closest('details')?.open, false,
-  'Email route is a secondary, collapsed choice');
+assert.equal(pending.querySelector('a[href^="mailto:"]'), null, 'No RFQ email as a fallback for quoting');
 assert.equal(history.querySelector('details')?.open, false, 'Completed RFQs start collapsed');
 assert.match(history.textContent, /allowed@example\.com/, 'Consented historical contact is still accessible in its own RFQ');
 assert.equal(doc.querySelector('#rfq-report')?.open, false, 'Analytics does not distract from the main action');
@@ -307,21 +308,8 @@ assert.equal(formDetails.querySelector('input[name="unit"]').value, 'MT', 'RFQ u
 assert.equal(formDetails.querySelector('button[value="decline"]').formNoValidate, true, 'Declining does not require a price');
 await act(async () => formRoot.unmount());
 
-const replyModule = loadTs(read('components/supplier-rfq-reply.tsx'), {
-  react: React, 'react/jsx-runtime': jsx,
-  'lucide-react': new Proxy({}, { get: () => () => null }),
-}, { window: formDom.window, document: formDom.window.document }, true);
-const route = 'rfq+test-match@veximtrade.com';
-const replyRoot = createRoot(document.getElementById('quote-root'));
-await act(async () => replyRoot.render(React.createElement(replyModule.SupplierRfqReply, {
-  address: route, subject: 'Hỏi về RFQ-20261110-00001',
-  labels: { gmail: 'Mở Gmail', app: 'Ứng dụng email khác', copy: 'Sao chép địa chỉ',
-    copied: 'Đã sao chép', address: 'Gửi tới Vexim:' },
-})));
-assert.match(document.querySelector('#quote-root').textContent, /Gửi tới Vexim:\s*rfq\+test-match@veximtrade\.com/);
-assert.match(document.querySelector('a[href^="https://mail.google.com/"]')?.href, /to=rfq%2Btest-match%40veximtrade\.com/);
-assert.match(document.querySelector('a[href^="mailto:"]')?.href, /rfq\+test-match@veximtrade\.com/);
-await act(async () => replyRoot.unmount());
+assert.doesNotMatch(read('app/supplier/portal/rfqs/page.tsx'), /supplier-rfq-reply|mailto:|rfq\+/,
+  'Supplier cannot use email as an RFQ quote or reply channel');
 
 const callsBeforeLogout = mediaCalls.length;
 access = null;

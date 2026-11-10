@@ -29,6 +29,7 @@ let genericInternal = 0;
 let spamScore = 0;
 const category = { id: 'cat-1', slug: 'cashew', status: 'published', is_published: true };
 const submitStore = {
+  getSupplier: async (id) => id === supplier.id ? supplier : null,
   listBuyers: async () => listedBuyers,
   getBuyerByEmail: async (email) => listedBuyers.find((b) => b.email === email) ?? null,
   createBuyer: async (input) => { createdBuyers.push(input); return { id: 'buyer-1', ...input }; },
@@ -48,6 +49,7 @@ const submit = load('../lib/rfq/submit.ts', {
   'next/headers': { headers: async () => ({ get: () => null }) },
   '@/lib/db': { getStore: () => submitStore },
   '@/lib/public/catalog': { listPublicSuppliers: async () => [{ id: supplier.id }] },
+  '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [{ id: 'p-a', name: 'Cashew W320', supplierId: supplier.id }] },
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => { genericAcks++; }, sendRfqNewInternal: async () => { genericInternal++; } },
   '.': { emailDomain: () => 'example.com', fingerprint: () => 'test', generateAccessToken: () => 'private-token', rfqDayKey: () => '20261017', generateRfqCode: () => 'RFQ-Q-1',
@@ -91,8 +93,9 @@ assert.equal(quote.supplierDelivered, undefined);
 assert.equal(createdBuyers[0].stage, 'lead', 'New RFQ buyers must satisfy buyers_stage_check');
 assert.equal(buyerUpdates.length, 0, 'Ordinary quotes do not auto-link a buyer supplier');
 assert.equal(genericAcks, 1, 'Quote acknowledgement is unchanged');
-assert.equal(genericInternal, 1, 'Quote desk notification is unchanged');
-assert.equal(createdRfqs[0].source_page, null);
+assert.equal(genericInternal, 0, 'Direct RFQ never enters the Vexim intake desk');
+assert.equal(createdRfqs[0].source_page, '/rfq');
+assert.equal(createdRfqs[0].specs.direct_delivery_version, 'portal_direct_v2');
 assert.equal(createdRfqs[0].specs.inquiry_kind, undefined);
 
 // Quote từ trang sản phẩm: giữ attribution theo product_id, KHÔNG so khớp tên.
@@ -155,11 +158,11 @@ assert.match(status, /Supplier replies go to your email and are not shown here/)
 // nói Vexim nhận đơn hay điều phối sản xuất/vận chuyển (trái Điều khoản sử dụng).
 assert.doesNotMatch(status, /Order confirmed|coordinate production and shipment/);
 assert.match(status, /agreed directly between you and the supplier/);
-assert.match(crm, /canManageRfq && !isSupplierQuestion/);
+assert.match(crm, /canManageRfq = hasManagePermission && channel === "sourcing"/);
 assert.match(crmList, /Câu hỏi nhà cung cấp/);
 assert.match(crmList, /return !isSupplierQuestion\(rfq\) && rfq\.status === tab/);
-assert.match(crmList, /không tính SLA báo giá/);
-assert.match(crmActions, /tạo RFQ mới sau khi người mua đồng ý/);
-assert.match(outreach, /không dùng quy trình gửi yêu cầu báo giá/);
+assert.match(crmList, /rfqChannel\(rfq\) === "direct"\) return null/, 'Direct RFQs have no staff SLA');
+assert.match(crmActions, /updateMatchQuoteAction[\s\S]*throw new Error\("Nhà cung cấp tự nộp giá trên cổng/, 'Staff cannot alter direct quote pricing');
+assert.match(outreach, /rfqChannel\(rfq\) !== "sourcing"/);
 
 console.log('✅ Supplier question: Ask supplier mở chat, form RFQ chỉ còn báo giá, câu hỏi kiểu cũ bị từ chối, câu hỏi cũ trong CRM vẫn đọc được.');

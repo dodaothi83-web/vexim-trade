@@ -1,9 +1,19 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock, MailCheck, MessageCircle, ShieldCheck, Timer } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, MessageCircle, ShieldCheck, Timer } from "lucide-react";
 import { Breadcrumbs } from "@/components/ui";
 import type { Buyer, Rfq } from "@/lib/types";
 import { quotePortalCopy } from "@/lib/rfq/portal-copy";
 import type { Locale } from "@/lib/i18n/config";
+import { rfqChannel } from "@/lib/rfq/channel";
+
+function directStatusInfo(status: Rfq["status"]) {
+  const base = { tone: "bg-sky-50 text-sky-800 ring-sky-200", dot: "bg-sky-500", icon: Clock };
+  if (status === "new") return { ...base, title: "Portal delivery pending", body: "Your direct request is saved. The system will retry delivery to the selected supplier's portal automatically; Vexim does not process it." };
+  if (status === "quoted") return { ...base, title: "Supplier quote available", body: "The supplier published a quote in your account. Discuss it directly with them here; Vexim does not manage this transaction." };
+  if (status === "matching") return { ...base, title: "Sent directly to supplier", body: "Your named supplier(s) can view and quote this RFQ in their portals. Discuss terms directly in your account. Vexim is not the intermediary." };
+  if (status === "lost" || status === "won") return { ...base, title: "Direct request closed", body: "This direct RFQ is closed. If no supplier was suitable, create a NEW general sourcing RFQ for Vexim." };
+  return { ...base, title: "Direct request", body: "Check the selected supplier's quote and conversation in your account. Vexim only has read-only access for support or disputes." };
+}
 
 function statusInfo(status: string) {
   switch (status) {
@@ -76,7 +86,7 @@ function questionStatusInfo(status: string) {
         tone: "bg-emerald-50 text-emerald-800 ring-emerald-200",
         dot: "bg-emerald-500",
         title: "Sent to supplier",
-        body: "Your question and contact email were sent to the selected supplier. They can reply directly to your email.",
+        body: "This question was sent under the former RFQ flow and is kept as read-only history. For a new question, use Chat with supplier on the product page.",
         icon: CheckCircle2,
       };
     case "needs_review":
@@ -84,7 +94,7 @@ function questionStatusInfo(status: string) {
         tone: "bg-sky-50 text-sky-800 ring-sky-200",
         dot: "bg-sky-500",
         title: "Under review",
-        body: "Your question must be reviewed before it can be shared with the selected supplier.",
+        body: "This older question is saved but not confirmed as delivered. RFQ question delivery is no longer available; use Chat with supplier for a new question.",
         icon: ShieldCheck,
       };
     case "in_progress":
@@ -92,7 +102,7 @@ function questionStatusInfo(status: string) {
         tone: "bg-sky-50 text-sky-800 ring-sky-200",
         dot: "bg-sky-500",
         title: "Delivery support in progress",
-        body: "Vexim is helping with delivery of your saved question to the selected supplier.",
+        body: "Your former RFQ question is kept for reference. For a new exchange, use Chat with supplier on the product page.",
         icon: Clock,
       };
     case "spam":
@@ -108,7 +118,7 @@ function questionStatusInfo(status: string) {
         tone: "bg-amber-50 text-amber-800 ring-amber-200",
         dot: "bg-amber-500",
         title: "Saved, delivery pending",
-        body: "We saved your question but could not confirm delivery to the supplier yet. Vexim will help with delivery.",
+        body: "This older question is saved but was not confirmed as delivered. Use Chat with supplier on the product page to ask again.",
         icon: Clock,
       };
     default:
@@ -128,27 +138,30 @@ export type BuyerQuote = { id: string; supplier: string; location: string | null
   version?: number; note?: string | null };
 export type BuyerPreQuoteThread = Pick<BuyerQuote, "id" | "supplier" | "location" | "href" | "unread">;
 
-export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = [], quotesUnavailable = false, locale = "en" }: {
+export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = [], quotesUnavailable = false, locale = "en", mediatedThread }: {
   rfq: Rfq; buyer: Buyer; quotes?: BuyerQuote[]; preQuoteThreads?: BuyerPreQuoteThread[];
-  quotesUnavailable?: boolean; locale?: Locale;
+  quotesUnavailable?: boolean; locale?: Locale; mediatedThread?: React.ReactNode;
 }) {
   const copy = quotePortalCopy[locale];
   const isQuestion = rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
-  const info = isQuestion ? questionStatusInfo(rfq.status) : statusInfo(rfq.status);
+  const channel = rfqChannel(rfq);
+  const sourcing = channel === "sourcing";
+  const accountHref = sourcing ? "/buyer/account?tab=vexim" : "/buyer/account?tab=requests";
+  const info = isQuestion ? questionStatusInfo(rfq.status) : channel === "direct" ? directStatusInfo(rfq.status) : statusInfo(rfq.status);
   const Icon = info.icon;
 
   return (
     <div lang={locale} className="mx-auto max-w-3xl px-5 py-10 sm:px-6 lg:px-8">
       <Breadcrumbs
         items={[
-          { label: "My enquiries", href: "/buyer/account?tab=requests" },
+          { label: sourcing ? (locale === "vi" ? "Báo giá từ Vexim" : "Quotes from Vexim") : "My direct enquiries", href: accountHref },
           { label: rfq.code },
         ]}
       />
 
       <div className="mt-6 rounded-2xl border border-ink-200 bg-white p-7 shadow-sm">
         <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-500">
-          {isQuestion ? "Supplier question" : "Request"}
+          {isQuestion ? "Supplier question" : sourcing ? (locale === "vi" ? "Tìm nguồn qua Vexim" : "Sourcing via Vexim") : "Direct request"}
         </p>
         <h1 className="mt-1 font-mono text-[16px] font-bold text-ink-900">{rfq.code}</h1>
 
@@ -166,10 +179,10 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = 
 
         {!isQuestion && <section className="mt-6 border-t border-ink-100 pt-5" aria-labelledby="quotes-title">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="quotes-title" className="text-[16px] font-bold text-ink-900">{copy.offersTitle}{quotes.length ? ` (${quotes.length})` : ""}</h2>
+            <h2 id="quotes-title" className="text-[16px] font-bold text-ink-900">{sourcing ? (locale === "vi" ? "Báo giá từ Vexim" : "Quotes from Vexim") : copy.offersTitle}{quotes.length ? ` (${quotes.length})` : ""}</h2>
             <span className="text-[12px] text-ink-500">{copy.published}</span>
           </div>
-          <p className="mt-1 text-[13px] leading-5 text-ink-600">{copy.offersSub}</p>
+          <p className="mt-1 text-[13px] leading-5 text-ink-600">{sourcing ? (locale === "vi" ? "Xem từng báo giá nhà cung cấp do Vexim tổng hợp. Mọi trao đổi đi qua Vexim ở mạch bên dưới." : "Review each supplier offer Vexim has presented. Discuss all sourcing questions with Vexim in the conversation below.") : copy.offersSub}</p>
           {quotesUnavailable && <p role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-900">
             {locale === "vi" ? "Chưa tải được cập nhật báo giá. Vui lòng thử lại sau." : "Quote updates are temporarily unavailable. Please try again."}</p>}
           {!quotesUnavailable && !quotes.length && <p className="mt-4 rounded-lg bg-ink-50 p-4 text-[13px] leading-6 text-ink-600">{copy.noOffers}</p>}
@@ -203,6 +216,8 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = 
           </div>}
         </section>}
 
+        {mediatedThread && <div className="mt-6">{mediatedThread}</div>}
+
         <dl className="mt-6 grid gap-3 border-t border-ink-100 pt-5 text-[13.5px] sm:grid-cols-2">
           <Row k="Product" v={rfq.product_text} />
           {isQuestion ? <Row k="Question" v={String(rfq.specs?.notes ?? "—")} /> : <>
@@ -215,26 +230,20 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = 
         </dl>
 
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-ink-100 pt-5">
-          <Link href="/buyer/account?tab=requests" className="btn btn-soft">All enquiries</Link>
-          <Link
-            href="/rfq"
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink-900 px-4 py-2 text-[13.5px] font-semibold text-white hover:bg-ink-800"
-          >
-            <MailCheck className="h-4 w-4" /> Send another request
+          <Link href={accountHref} className="btn btn-soft">{sourcing ? (locale === "vi" ? "Tất cả báo giá từ Vexim" : "All Vexim quotes") : "All direct enquiries"}</Link>
+          <Link href="/rfq" className="inline-flex items-center gap-1.5 rounded-md bg-ink-900 px-4 py-2 text-[13.5px] font-semibold text-white hover:bg-ink-800">
+            <ArrowRight className="h-4 w-4" />{channel === "direct" ? "Create a NEW sourcing RFQ with Vexim" : "Send a new request"}
           </Link>
-          <a
-            href={`mailto:hello@veximtrade.com?subject=${encodeURIComponent("Follow-up on " + rfq.code)}`}
-            className="inline-flex items-center gap-1.5 rounded-md border border-ink-300 px-4 py-2 text-[13.5px] font-semibold text-ink-800 hover:border-ink-900"
-          >
-            {isQuestion ? "Get help with this question" : "Reply to this email"}
-          </a>
+          {sourcing && <a href="#vexim-conversation" className="inline-flex items-center gap-1.5 rounded-md border border-ink-300 px-4 py-2 text-[13.5px] font-semibold text-ink-800 hover:border-ink-900">
+            <MessageCircle className="h-4 w-4" />Discuss with Vexim
+          </a>}
         </div>
 
         <p className="mt-5 text-[12px] leading-relaxed text-ink-500">
           {isQuestion ? <>
             Return to your account to check delivery of the original question. Supplier replies go to your email and are not shown here.
           </> : <>
-            Return to your account to check progress. Sign in with the email address used for this request.
+            Return to your account to check progress and send messages. Email is for notifications only.
           </>}
         </p>
       </div>

@@ -1,6 +1,11 @@
-# RFQ email — hồi âm theo match & cập nhật buyer
+# RFQ email — hồi âm theo match & cập nhật buyer (lịch sử)
 
-## Luồng mới
+> **Không áp dụng cho RFQ mới.** Tài liệu này ghi lại luồng Reply-To trước khi
+> chuyển sang giao dịch trong tài khoản. Alias RFQ/sourcing cũ nay bị từ chối gắn
+> vào RFQ, không xóa lịch sử; thư thông báo mới chỉ có link. Xem
+> [quy trình vận hành hiện tại](./rfq-van-hanh.md) trước khi xử lý yêu cầu.
+
+## Luồng cũ (không sử dụng lại)
 
 - Email mời báo giá / follow-up / thư soạn cho NCC dùng `Reply-To: rfq+<RFQ_CODE>-m<MATCH_UUID_32_HEX>@<MAIL_DOMAIN>`. Webhook Resend nhận email, tra code + match ID, **chỉ gắn `rfq_id`, `rfq_match_id`, thread RFQ** nếu match thuộc RFQ và From là email NCC hoặc người nhận thư đã gửi cho match (kể cả To override). Thư cũ `rfq+<RFQ_CODE>@...` vẫn tìm match theo email NCC. Người gửi lạ vẫn được nhận vào hộp thư chung, **không được gắn vào timeline RFQ**.
 - Thư shortlist + thông báo sampling/lost cho buyer dùng `Reply-To: buyer+<RFQ_CODE>@<MAIL_DOMAIN>`. Webhook chỉ gắn vào RFQ nếu From là email buyer hoặc CC đã khai báo của buyer. Không trộn hồi âm buyer vào thread của match NCC.

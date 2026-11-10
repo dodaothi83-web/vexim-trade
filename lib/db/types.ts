@@ -34,6 +34,9 @@ import type {
   RfqQuoteVersion,
   RfqThreadMessage,
   RfqPortalAlert,
+  RfqMediatedThread,
+  RfqMediatedMessage,
+  RfqMediatedAlert,
   SponsoredPush,
   SponsoredPushDaily,
   SponsoredPushInput,
@@ -413,6 +416,8 @@ export interface DataStore {
   /** RFQ đang chờ (vài cột để phân luồng), dùng đếm huy hiệu RFQ trực tiếp và Tìm nguồn riêng. */
   listPendingRfqRouting(): Promise<Pick<Rfq, "id" | "status" | "source_page" | "specs" | "preferred_supplier_ids" | "source_product_id">[]>;
   listRfqs(options?: { status?: string; assignedTo?: string | null; buyerId?: string }): Promise<Rfq[]>;
+  /** Exhaustive, paginated on Supabase; only new portal-direct RFQs need automatic recovery. */
+  listRetryableDirectRfqs(): Promise<Rfq[]>;
   getRfq(id: string): Promise<Rfq | null>;
   getRfqByToken(token: string): Promise<Rfq | null>;
   getRfqByCode(code: string): Promise<Rfq | null>;
@@ -446,6 +451,16 @@ export interface DataStore {
   listRfqThreadMessages(matchId: string): Promise<RfqThreadMessage[]>;
   addRfqThreadMessage(input: Pick<RfqThreadMessage, "match_id" | "sender" | "sender_email" | "body">): Promise<RfqThreadMessage>;
   markRfqThreadRead(matchId: string, side: "buyer" | "supplier", at: string): Promise<void>;
+  /** Audience-scoped sourcing correspondence: never use the direct buyer/supplier thread. */
+  listRfqMediatedThreads(rfqIds: string[]): Promise<RfqMediatedThread[]>;
+  listRfqMediatedMessages(threadId: string): Promise<RfqMediatedMessage[]>;
+  postRfqMediatedMessage(input: { rfqId: string; matchId: string | null;
+    sender: RfqMediatedMessage["sender"]; email: string; body: string }): Promise<RfqMediatedMessage>;
+  markRfqMediatedRead(threadId: string, side: "party" | "staff", at: string): Promise<void>;
+  listDueRfqMediatedAlerts(now: string, limit: number, threadIds?: string[]): Promise<RfqMediatedAlert[]>;
+  claimRfqMediatedAlert(alert: RfqMediatedAlert, at: string): Promise<boolean>;
+  finishRfqMediatedAlert(id: string, claimedAt: string,
+    patch: Pick<RfqMediatedAlert, "status" | "not_before" | "last_error" | "sent_at">): Promise<boolean>;
   /** Used only after the buyer's account ownership was checked; excludes private quote fields. */
   listRfqMatchUpdates(rfqIds: string[]): Promise<Pick<RfqMatch, "id" | "rfq_id" | "sent_to_supplier_at" | "sent_to_buyer_at" |
     "buyer_last_read_at" | "last_thread_message_at" | "last_thread_sender" | "last_supplier_message_at">[]>;

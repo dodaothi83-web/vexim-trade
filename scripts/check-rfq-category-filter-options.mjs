@@ -19,13 +19,14 @@ const mocks = {
   'next/link': { default: () => null },
   './rfq-form': { RfqForm },
   '@/components/ui': { Breadcrumbs: () => null },
-  '@/lib/db': { getStore: () => ({ listCategories: async ({ publishedOnly }) => {
+  '@/lib/db': { getStore: () => ({ getSupplier: async (id) => suppliers.find((s) => s.id === id) ?? null, listCategories: async ({ publishedOnly }) => {
     assert.equal(publishedOnly, true);
     if (listFailed) throw new Error('category read unavailable');
     return categories;
   } }) },
   '@/lib/products/grade-pricing': { standardGradesForCategory: (category) => category.standardGrades ?? [] },
   '@/lib/public/catalog': { listPublicSuppliers: async () => suppliers },
+  '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
 };
 // Tên nhà cung cấp hiện trên banner đi qua helper thật (module thuần, không import gì),
 // để kiểm này bắt luôn việc banner rơi về tên pháp nhân viết hoa.

@@ -40,6 +40,9 @@ import type {
   RfqQuoteVersion,
   RfqThreadMessage,
   RfqPortalAlert,
+  RfqMediatedThread,
+  RfqMediatedMessage,
+  RfqMediatedAlert,
   SupplierNoticeRead,
   Supplier,
   SupplierCategory,
@@ -61,9 +64,9 @@ import type {
 import { SEED_BUYERS, SEED_PRODUCTS, SEED_SUPPLIERS } from "@/lib/db/seed";
 import { PREVIEW_PEPPER_HARVEST, previewCategories, previewSeedRows } from "@/lib/db/preview-seed";
 import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
-import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
+import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, withoutDirectContacts } from "@/lib/public/product-selection";
 import { rfqChannel } from "@/lib/rfq/channel";
-import { rfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import { rfqBuyerContact, sourcingInviteConsent } from "@/lib/rfq/buyer-contact";
 import { isExpired } from "@/lib/media/readiness";
 import {
   CASHEW_CATEGORY_CONFIG,
@@ -130,6 +133,9 @@ interface LocalShape {
   rfq_quote_versions?: RfqQuoteVersion[];
   rfq_thread_messages?: RfqThreadMessage[];
   rfq_portal_alerts?: RfqPortalAlert[];
+  rfq_mediated_threads?: RfqMediatedThread[];
+  rfq_mediated_messages?: RfqMediatedMessage[];
+  rfq_mediated_alerts?: RfqMediatedAlert[];
   supplier_portal_notice_reads?: SupplierNoticeRead[];
   introductions: Introduction[];
   audit_log: AuditLogEntry[];
@@ -612,6 +618,9 @@ function migrateRfqDefaults(db: LocalShape) {
   db.rfq_quote_versions ??= [];
   db.rfq_thread_messages ??= [];
   db.rfq_portal_alerts ??= [];
+  db.rfq_mediated_threads ??= [];
+  db.rfq_mediated_messages ??= [];
+  db.rfq_mediated_alerts ??= [];
   // Same as the SQL migration: only an already-presented quote becomes a public
   // historical version. Never treat a private staff note as a buyer-facing message.
   const known = new Set(db.rfq_quote_versions.map((v) => v.match_id));
@@ -2554,6 +2563,10 @@ export const localStore: DataStore = {
     }
     return rows;
   },
+  async listRetryableDirectRfqs() {
+    return (load().rfqs ?? []).filter((r) => r.specs?.direct_delivery_version === "portal_direct_v2" &&
+      ["new", "matching", "quoted"].includes(r.status) && r.spam_score < 40);
+  },
   async getRfq(id) {
     return (load().rfqs ?? []).find((r) => r.id === id) ?? null;
   },
@@ -2839,7 +2852,7 @@ export const localStore: DataStore = {
       const rfq = m && db.rfqs.find((r) => r.id === m.rfq_id);
       if (!m || !rfq || !m.sent_to_supplier_at || ["proposed", "declined", "not_selected"].includes(m.status) ||
           ["won", "lost", "spam"].includes(rfq.status) || rfqChannel(rfq) === "question" ||
-          (rfqChannel(rfq) === "sourcing" && !m.sent_to_buyer_at)) throw new Error("RFQ thread is not available");
+          rfqChannel(rfq) === "sourcing") throw new Error("RFQ thread is not available");
       if (!rfqBuyerContact(rfq, m.supplier_id)) throw new Error("RFQ contact consent missing");
       const body = input.body.trim();
       if (!body || body.length > 2000) throw new Error("Invalid RFQ message");
@@ -2869,6 +2882,88 @@ export const localStore: DataStore = {
         m[key] = timestamp;
         m.updated_at = nextRfqMatchUpdatedAt(m.updated_at);
       }
+    });
+  },
+  async listRfqMediatedThreads(rfqIds) {
+    const ids = new Set(rfqIds);
+    return (load().rfq_mediated_threads ?? []).filter((t) => ids.has(t.rfq_id));
+  },
+  async listRfqMediatedMessages(threadId) {
+    return (load().rfq_mediated_messages ?? []).filter((m) => m.thread_id === threadId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  },
+  async postRfqMediatedMessage(input) {
+    return mutate((db) => {
+      const rfq = db.rfqs.find((r) => r.id === input.rfqId);
+      if (!rfq || rfqChannel(rfq) !== "sourcing" || ["won", "lost", "spam"].includes(rfq.status)) {
+        throw new Error("Sourcing RFQ is not open");
+      }
+      const match = input.matchId ? db.rfq_matches.find((m) => m.id === input.matchId && m.rfq_id === rfq.id) : null;
+      if (input.matchId ? !match || !match.sent_to_supplier_at || ["proposed", "declined", "not_selected"].includes(match.status) ||
+          !sourcingInviteConsent(rfq, match.supplier_id) || !["supplier", "staff"].includes(input.sender)
+        : !["buyer", "staff"].includes(input.sender)) throw new Error("Supplier not invited to sourcing RFQ");
+      const body = input.body.trim();
+      if (!body || body.length > 2000 || !input.email.trim() || input.email.length > 320) throw new Error("Invalid RFQ message");
+      if (match && input.sender === "staff" && withoutDirectContacts(body) !== body) {
+        throw new Error("RFQ desk contact details not allowed");
+      }
+      const id = match?.id ?? rfq.id;
+      const stamp = new Date().toISOString();
+      if ((db.rfq_mediated_messages ?? []).filter((m) => m.thread_id === id && m.sender === input.sender &&
+        Date.parse(m.created_at) > Date.parse(stamp) - 10 * 60_000).length >= 12) throw new Error("RFQ desk rate limited");
+      let thread = (db.rfq_mediated_threads ?? []).find((t) => t.id === id);
+      if (thread && (thread.rfq_id !== rfq.id || thread.match_id !== (match?.id ?? null))) throw new Error("RFQ thread scope mismatch");
+      if (!thread) {
+        thread = { id, rfq_id: rfq.id, match_id: match?.id ?? null, audience: match ? "supplier" : "buyer",
+          party_last_read_at: null, staff_last_read_at: null, last_party_message_at: null, last_staff_message_at: null };
+        db.rfq_mediated_threads = [...(db.rfq_mediated_threads ?? []), thread];
+      }
+      const message: RfqMediatedMessage = { id: randomUUID(), thread_id: id, sender: input.sender,
+        sender_email: input.email.trim().toLowerCase(), body, created_at: stamp };
+      db.rfq_mediated_messages = [...(db.rfq_mediated_messages ?? []), message];
+      if (input.sender === "staff") thread.last_staff_message_at = stamp;
+      else thread.last_party_message_at = stamp;
+      db.rfq_mediated_alerts = [...(db.rfq_mediated_alerts ?? []), { id: randomUUID(), message_id: message.id,
+        thread_id: id, recipient: input.sender === "staff" ? "party" : "staff", event_at: stamp,
+        not_before: new Date(Date.parse(stamp) + 10 * 60_000).toISOString(), status: "pending",
+        attempts: 0, claimed_at: null, sent_at: null, last_error: null, created_at: stamp }];
+      return message;
+    });
+  },
+  async markRfqMediatedRead(threadId, side, at) {
+    mutate((db) => {
+      const thread = (db.rfq_mediated_threads ?? []).find((t) => t.id === threadId);
+      const events = (db.rfq_mediated_messages ?? []).filter((m) => m.thread_id === threadId);
+      if (!thread || !events.length || !["party", "staff"].includes(side) || !Number.isFinite(Date.parse(at))) return;
+      const latest = Math.max(...events.map((m) => Date.parse(m.created_at)));
+      const timestamp = new Date(Math.min(Date.parse(at), latest, Date.now())).toISOString();
+      const key = side === "party" ? "party_last_read_at" : "staff_last_read_at";
+      if (!thread[key] || Date.parse(thread[key]) < Date.parse(timestamp)) thread[key] = timestamp;
+    });
+  },
+  async listDueRfqMediatedAlerts(now, limit, threadIds) {
+    const expired = Date.parse(now) - 20 * 60_000;
+    const scope = threadIds && new Set(threadIds);
+    return (load().rfq_mediated_alerts ?? []).filter((a) =>
+      (!scope || scope.has(a.thread_id)) && a.not_before <= now && (["pending", "failed"].includes(a.status) ||
+        (a.status === "sending" && !!a.claimed_at && Date.parse(a.claimed_at) < expired)))
+      .sort((a, b) => a.not_before.localeCompare(b.not_before) || a.created_at.localeCompare(b.created_at)).slice(0, limit);
+  },
+  async claimRfqMediatedAlert(alert, at) {
+    return mutate((db) => {
+      const row = (db.rfq_mediated_alerts ?? []).find((a) => a.id === alert.id);
+      if (!row || row.status !== alert.status || row.attempts !== alert.attempts || row.claimed_at !== alert.claimed_at ||
+          row.not_before > at || (row.status === "sending" && (!row.claimed_at || Date.parse(row.claimed_at) >= Date.parse(at) - 20 * 60_000))) return false;
+      Object.assign(row, { status: "sending", claimed_at: at, attempts: row.attempts + 1 });
+      return true;
+    });
+  },
+  async finishRfqMediatedAlert(id, claimedAt, patch) {
+    return mutate((db) => {
+      const row = (db.rfq_mediated_alerts ?? []).find((a) => a.id === id && a.status === "sending" && a.claimed_at === claimedAt);
+      if (!row) return false;
+      Object.assign(row, patch);
+      return true;
     });
   },
   async listRfqMatchUpdates(rfqIds) {

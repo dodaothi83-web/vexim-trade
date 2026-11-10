@@ -8,7 +8,7 @@ import { getStore } from "@/lib/db";
 import { guard, getSession } from "@/lib/auth/session";
 import type { RfqStatus } from "@/lib/types";
 import { MANUAL_RFQ_STATUSES } from "@/lib/rfq/workflow";
-import { releaseDirectRfqAfterReview } from "@/lib/rfq/release-after-review";
+import { assertStaffMayProcessRfq } from "@/lib/rfq/staff-access";
 
 // Trình người mua, gửi mẫu, thành công và thất bại phải đi qua nút nghiệp vụ
 // để email, lựa chọn NCC và lý do mất đơn luôn khớp dữ liệu.
@@ -29,8 +29,7 @@ export async function updateRfqStatusFormAction(fd: FormData) {
   const id = String(fd.get("id"));
   const status = validateRegularStatus(String(fd.get("status") || ""));
   const store = getStore();
-  const before = await store.getRfq(id);
-  if (!before) throw new Error("RFQ không tồn tại.");
+  const before = await assertStaffMayProcessRfq(store, id);
   const previousStatus = before.status;
   if (previousStatus !== status) {
     await store.updateRfq(id, { status });
@@ -41,13 +40,7 @@ export async function updateRfqStatusFormAction(fd: FormData) {
       before: { status: previousStatus }, after: { status },
     }).catch((err) => console.error("[rfq] audit status thất bại:", err));
   }
-  // Duyệt cho qua một RFQ trực tiếp đã bị giữ lại: chuyển tiếp tới nhà cung cấp người mua chọn.
-  let released = 0;
-  if ((previousStatus === "needs_review" || previousStatus === "spam") && (status === "new" || status === "in_progress")) {
-    released = await releaseDirectRfqAfterReview(store, { ...before, status })
-      .catch((err) => { console.error("[rfq] phát hành lại RFQ trực tiếp thất bại:", err); return 0; });
-  }
   revalidatePath("/crm/rfqs");
   revalidatePath(`/crm/rfqs/${id}`);
-  redirect(released ? `/crm/rfqs/${id}?outreach_sent=${released}&outreach_skipped=0` : `/crm/rfqs/${id}`);
+  redirect(`/crm/rfqs/${id}`);
 }

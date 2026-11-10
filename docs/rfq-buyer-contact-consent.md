@@ -1,6 +1,13 @@
-# RFQ: đồng ý chia sẻ liên hệ và liên kết Buyer CRM
+# RFQ: đồng ý chia sẻ liên hệ và liên kết Buyer CRM (lịch sử)
 
-## Khi deploy
+> **Lưu trữ chính sách RFQ cũ, không phải hướng dẫn triển khai luồng mới.**
+> Luồng hiện tại chỉ hiện liên hệ buyer cho NCC **đích danh** được mời; RFQ tìm
+> nguồn giữ liên hệ tại Vexim và không gửi bản chụp qua email. Không tự gắn
+> Buyer CRM sau lời mời direct mới. Tình huống xác nhận lịch sử bên dưới là
+> bản ghi kế hoạch, **không cho phép tự sửa production**. Xem
+> [quy trình hiện tại](./rfq-van-hanh.md).
+
+## Khi deploy (đã thay thế)
 
 1. Chạy `supabase/migrations/20261115_rfq_buyer_contact_consent.sql` **trước** khi deploy code mới. Hai cột sourcing mới đều nullable, không backfill yêu cầu cũ. `rfqs.specs` đã có sẵn dạng JSONB; không chạy `schema.sql` trên production.
 2. RFQ mới bắt buộc **hai ô riêng**: đồng ý xử lý yêu cầu và đồng ý chia sẻ công ty/người liên hệ/email đăng nhập đã xác minh/điện thoại/quốc gia/website/loại hình đã cung cấp. Sourcing form cũng lấy đồng ý và bản chụp ngay lúc gửi. Lưu `rfq_contact_v2` cùng thời điểm và nguồn đồng ý; không đọc liên hệ từ hồ sơ CRM để cấp quyền.

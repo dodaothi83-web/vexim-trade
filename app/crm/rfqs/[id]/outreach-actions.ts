@@ -7,6 +7,8 @@ import { getSession, guard } from "@/lib/auth/session";
 import { dispatchRfqToSuppliers, selectSupplier } from "@/lib/rfq/outreach";
 import { runRfqPortalAlerts } from "@/lib/rfq/portal-alerts";
 import { getStore } from "@/lib/db";
+import { assertStaffMayProcessRfq } from "@/lib/rfq/staff-access";
+import { rfqChannel } from "@/lib/rfq/channel";
 
 async function enforce() {
   const g = await guard("rfq.manage");
@@ -16,6 +18,7 @@ async function enforce() {
 export async function sendRfqToSuppliersAction(fd: FormData) {
   await enforce();
   const rfqId = String(fd.get("rfq_id"));
+  await assertStaffMayProcessRfq(getStore(), rfqId);
   const matchIds = fd.getAll("match_ids").map(String);
   const deadlineDaysRaw = Number(fd.get("deadline_days") ?? 3);
   const deadlineDays = Number.isFinite(deadlineDaysRaw) && deadlineDaysRaw > 0 ? deadlineDaysRaw : 3;
@@ -29,6 +32,8 @@ export async function presentShortlistAction(fd: FormData) {
   await enforce();
   const rfqId = String(fd.get("rfq_id"));
   const store = getStore();
+  const rfq = await assertStaffMayProcessRfq(store, rfqId);
+  if (rfqChannel(rfq) !== "sourcing") throw new Error("Chỉ công bố báo giá tìm nguồn qua Vexim.");
   // Only publish exact draft revisions that staff saw on the confirmation page.
   // A quote edited in another tab between review and submit is skipped, not disclosed.
   const review = new Map(fd.getAll("publish_version").slice(0, 101).map((value) => {
@@ -53,6 +58,8 @@ export async function selectSupplierAction(fd: FormData) {
   await enforce();
   const rfqId = String(fd.get("rfq_id"));
   const matchId = String(fd.get("match_id"));
+  const rfq = await assertStaffMayProcessRfq(getStore(), rfqId);
+  if (rfqChannel(rfq) !== "sourcing") throw new Error("Chỉ chọn nhà cung cấp cho RFQ tìm nguồn.");
   const session = await getSession();
   const result = await selectSupplier({ rfqId, matchId, actorId: session?.uid ?? "" });
   revalidatePath(`/crm/rfqs/${rfqId}`);

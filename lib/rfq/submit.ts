@@ -26,6 +26,7 @@ import {
 } from ".";
 import { releaseTargetedQuoteToPortal } from "./targeted-portal";
 import { buyerContactConsentSpec } from "./buyer-contact";
+import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import { createPreferredSupplierMatches } from "./auto-match";
 import { scheduleRfqEnrichment } from "./enrich";
 import { verifyFormChallenge, type ChallengePurpose } from "@/lib/security/challenge";
@@ -217,7 +218,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   }
 
   if (!raw.consent || raw.share_contact_consent !== true) {
-    return { ok: false, message: "Bạn cần đồng ý chia sẻ thông tin liên hệ cho nhà cung cấp nhận RFQ." };
+    return { ok: false, message: "Bạn cần xác nhận cách dùng thông tin liên hệ cho yêu cầu này." };
   }
   // Tên sản phẩm có thể do server dựng từ source_product_id đã xác thực; không lấy từ chuỗi client gửi.
   // Trần độ dài khớp bộ đếm trên form; chặn payload lớn chèn thẳng qua server action.
@@ -249,6 +250,27 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     const publicSuppliers = await listPublicSuppliers().catch(() => []);
     if (publicSuppliers.some((supplier) => supplier.id === publishedSource.supplierId)) preferredIds = [publishedSource.supplierId];
   }
+  // Never silently turn an invalid/disabled named RFQ into a Vexim sourcing job.
+  // Only suppliers with an approved active portal may receive a NEW RFQ.
+  if (raw.source_product_id && !publishedSource) {
+    return { ok: false, message: "This product is no longer available for a direct RFQ. Please start a new sourcing request." };
+  }
+  if (raw.preferred_supplier_ids?.length && preferredIds.length !== new Set(raw.preferred_supplier_ids).size) {
+    return { ok: false, message: "A selected supplier is no longer available. Please review your selection." };
+  }
+  if (raw.source_product_id && publishedSource && !preferredIds.includes(publishedSource.supplierId)) {
+    return { ok: false, message: "The product and selected supplier do not match. Please reopen the product page." };
+  }
+  if (preferredIds.length > 0) {
+    const eligible = await Promise.all(preferredIds.map(async (id) => {
+      const supplier = await store.getSupplier(id);
+      return !!supplier && canInviteSupplier(supplier, store);
+    }));
+    if (eligible.some((ok) => !ok)) {
+      return { ok: false, message: "One of your selected suppliers does not have an active RFQ portal. Choose another supplier or send a new general request to Vexim." };
+    }
+  }
+  const direct = preferredIds.length > 0;
   const sourceProduct = publishedSource && preferredIds.includes(publishedSource.supplierId) ? publishedSource : null;
   const sourceProductId = sourceProduct?.id ?? null;
   // product_text = tên sản phẩm đã xác thực, nối thêm phần người mua tự viết (nếu có).
@@ -276,6 +298,12 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   let ackBuyer = true;
   if (spamScore >= 100) { rfqStatus = "spam"; ackBuyer = false; }
   else if (spamScore >= 40) { rfqStatus = "needs_review"; ackBuyer = true; }
+  // Direct RFQs must never wait for a Vexim employee to review or release them.
+  // Reject suspicious submissions before persisting rather than creating an
+  // undelivered direct RFQ in the sourcing/staff queue.
+  if (direct && rfqStatus !== "new") {
+    return { ok: false, message: "We could not send this direct request. Please complete the security check and try again." };
+  }
   if (!productText) {
     return { ok: false, message: "Vui lòng mô tả sản phẩm cần báo giá." };
   }
@@ -393,11 +421,12 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
       // Mặc định không chia sẻ: chỉ Vexim thấy giá mục tiêu cho tới khi người mua đồng ý.
       share_target_price: raw.share_target_price === true,
       marketing_opt_in: raw.marketing_opt_in === true,
+      ...(direct ? { direct_delivery_version: "portal_direct_v2" } : {}),
       ...buyerContactConsentSpec({
         company: raw.company, contact_name: raw.contact_name, email: session.email,
         phone: raw.phone ?? null, country: raw.country ?? null, website: web,
         business_type: raw.business_type ?? null,
-      }, new Date().toISOString(), "rfq_form"),
+      }, new Date().toISOString(), "rfq_form", !direct),
     },
     quantity: raw.quantity ?? null,
     unit: raw.unit ?? null,
@@ -412,7 +441,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     wants_video_call: raw.wants_video_call ?? false,
     preferred_supplier_ids: preferredIds,
     source_product_id: sourceProductId,
-    source_page: raw.source_page ?? null,
+    source_page: "/rfq", // User-supplied metadata must not spoof a question/sourcing channel.
     utm,
     referrer: raw.referrer ?? null,
     spam_score: spamScore,
@@ -441,31 +470,30 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   }
 
   let portalReleased = 0;
-  // RFQ gửi từ trang sản phẩm hoặc trang NCC có sẵn nhà cung cấp buyer chỉ định:
-  // tạo sẵn lượt khớp ở trạng thái đề xuất để nhân viên chỉ việc kiểm tra rồi gửi.
-  // Không áp dụng khi RFQ đang bị cách ly spam hoặc phải duyệt tay trước.
-  if (rfqStatus === "new" && preferredIds.length > 0) {
+  // Named suppliers receive this directly in their portals. Never assign Vexim
+  // as an intermediary or attach a direct request to the CRM supplier relationship.
+  if (direct) {
     try {
       await createPreferredSupplierMatches(store, rfq.id, preferredIds);
-      if (preferredIds.length === 1) portalReleased = await releaseTargetedQuoteToPortal(store, rfq);
+      portalReleased = await releaseTargetedQuoteToPortal(store, rfq);
     } catch (err) {
-      console.warn("[rfq] preferred supplier auto-match failed, RFQ already saved:", err);
+      console.error("[rfq] saved direct RFQ awaiting automatic portal retry:", err);
     }
   }
 
   const finalStatus: Rfq["status"] = portalReleased ? "matching" : rfqStatus;
 
-  // Gửi email (best-effort; lỗi gửi không làm mất RFQ vì đã lưu vào DB).
+  // Link-only notifications are best-effort; the account/portal is the source of truth.
   try {
-    if (ackBuyer) await sendRfqAckBuyer({ rfq, buyer });
-    await sendRfqNewInternal({ rfq, buyer });
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.warn("[rfq] email send failed, but rfq is saved:", err);
-  }
+    if (ackBuyer) await sendRfqAckBuyer({ rfq: { ...rfq, status: finalStatus }, buyer });
+    if (!direct) await sendRfqNewInternal({ rfq, buyer });
+  } catch (err) { console.warn("[rfq] notification failed; request already saved:", err); }
 
-  let message = "Yêu cầu đã được gửi! Kiểm tra email để theo dõi tiến độ.";
-  if (rfqStatus === "needs_review") message = "Yêu cầu đã được nhận. Vexim đang xem xét thủ công và sẽ liên lạc lại trong vòng vài giờ làm việc.";
+  let message = direct
+    ? portalReleased === preferredIds.length ? "Your request is available to the selected supplier(s) in their portals."
+      : "Your direct request is saved; portal delivery is pending an automatic retry."
+    : "Your sourcing request is saved in your account. Vexim will coordinate the quotes here.";
+  if (rfqStatus === "needs_review") message = "Your sourcing request is saved and under review in your account.";
   if (rfqStatus === "spam") message = "Yêu cầu đã được nhận và đang chờ duyệt.";
 
   // 9) AI trích xuất trường còn thiếu — TUỲ CHỌN và KHÔNG CHẶN.

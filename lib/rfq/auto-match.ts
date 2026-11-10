@@ -10,8 +10,8 @@ export interface PreferredMatchStore {
 
 /**
  * Tạo sẵn lượt khớp ở trạng thái đề xuất cho các nhà cung cấp mà buyer đã chỉ định
- * khi gửi RFQ từ trang sản phẩm hoặc trang nhà cung cấp. Chỉ tạo lượt khớp, tuyệt đối
- * không tự gửi email: nhân viên vẫn kiểm tra rồi mới gửi yêu cầu báo giá như thường lệ.
+ * khi gửi RFQ từ trang sản phẩm hoặc trang nhà cung cấp. Chỉ tạo lượt khớp;
+ * luồng direct tự chuyển lời mời vào cổng NCC, không qua nhân viên hoặc email dự phòng.
  * Trả về số lượt khớp mới tạo; nhà cung cấp đã có lượt khớp thì bỏ qua.
  */
 export async function createPreferredSupplierMatches(

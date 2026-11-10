@@ -76,32 +76,22 @@ assert.equal(other.rfq.assigned_to, "staff-2", "giữ người phụ trách đã
 const consented = await toRfq.startSourcingMatch({ store, request: { ...request, id: 'req-consented',
   buyer_contact_consent_at: '2026-11-05T10:00:00Z',
   buyer_contact: { company: 'Buyer Co', contact_name: 'Jane', email: 'buyer@example.com', phone: '123', country: null, website: null, business_type: null } }, actor });
-assert.equal(contact.rfqBuyerContact(consented.rfq, 's1').email, 'buyer@example.com');
+assert.equal(contact.rfqBuyerContact(consented.rfq, 's1'), null, 'Mediated sourcing never reveals buyer contact');
+assert.equal(contact.sourcingInviteConsent(consented.rfq, 's1'), true);
 await assert.rejects(toRfq.startSourcingMatch({ store, request: { ...request, id: "req-3", status: "closed" }, actor }), /closed/);
 
-// Duyệt cho qua RFQ trực tiếp bị giữ lại: tạo match cho nhà cung cấp người mua chọn rồi chuyển thẳng (một NCC).
-const created = [], releasedCalls = [];
-const reviewStore = { listRfqMatches: async () => [], createRfqMatch: async (m) => created.push(m) };
-const review = load("lib/rfq/release-after-review.ts", {
-  "./auto-match": { createPreferredSupplierMatches: async (_s, rfqId, ids) => { ids.forEach((id) => created.push({ rfqId, id })); return ids.length; } },
-  "./channel": channel,
-  "./targeted-portal": { releaseTargetedQuoteToPortal: async (_s, rfq) => { releasedCalls.push(rfq.status); return 1; } },
-});
-const held = { id: "h1", status: "in_progress", source_page: "/products/x", specs: {}, preferred_supplier_ids: ["s1"], source_product_id: "p1" };
-assert.equal(await review.releaseDirectRfqAfterReview(reviewStore, held), 1);
-assert.equal(created.length, 1, "match được tạo cho nhà cung cấp người mua chọn");
-assert.equal(releasedCalls[0], "new", "chạy lại đúng bước gửi như lúc người mua gửi");
-assert.equal(await review.releaseDirectRfqAfterReview(reviewStore, { ...held, id: "h2", preferred_supplier_ids: ["s1", "s2"], source_product_id: null }), 0, "nhiều NCC: chỉ tạo match, nhân viên tự gửi");
-assert.equal(created.length, 3);
-assert.equal(releasedCalls.length, 1);
-assert.equal(await review.releaseDirectRfqAfterReview(reviewStore, { ...held, id: "h3", preferred_supplier_ids: [], source_product_id: null }), 0, "RFQ chung thuộc Tìm nguồn");
-assert.equal(await review.releaseDirectRfqAfterReview(reviewStore, { ...held, id: "h4", source_page: "/rfq?intent=question" }), 0, "câu hỏi trực tiếp có luồng riêng");
-assert.equal(created.length, 3);
+// Support may read direct RFQs, but staff cannot convert, release or manage them.
+const staff = load('lib/rfq/staff-access.ts', { './channel': channel });
+const supportStore = { getRfq: async (id) => ({ ...base, id, preferred_supplier_ids: id === 'direct' ? ['s1'] : [] }) };
+await assert.rejects(staff.assertStaffMayProcessRfq(supportStore, 'direct'), /chỉ được xem/);
+assert.equal((await staff.assertStaffMayProcessRfq(supportStore, 'sourcing')).id, 'sourcing');
+assert.equal(fs.existsSync(new URL('../lib/rfq/release-after-review.ts', import.meta.url)), false,
+  'No staff approval endpoint may turn a held direct RFQ into staff sourcing');
 
 // Phân luồng trong giao diện và huy hiệu.
 const layout = read("app/crm/layout.tsx");
 assert.match(layout, /rfqChannel\(r\) === "sourcing" && UNCLAIMED_RFQ_STATUSES/, "huy hiệu Tìm nguồn đếm RFQ chung chưa tiếp nhận");
-assert.match(layout, /rfqChannel\(r\) !== "sourcing" && UNCLAIMED_RFQ_STATUSES\.includes\(r\.status\)/, "huy hiệu RFQ chỉ đếm RFQ trực tiếp / câu hỏi chờ tiếp nhận, không treo vì RFQ đã chuyển nhà cung cấp");
+assert.match(layout, /rfqChannel\(r\) === "question" && UNCLAIMED_RFQ_STATUSES\.includes\(r\.status\)/, "RFQ đích danh không nằm trong hàng việc nhân viên; chỉ giữ câu hỏi cũ");
 assert.match(read("app/crm/rfqs/page.tsx"), /rfqChannel\(r\) !== "sourcing"/, "hộp thư RFQ chỉ còn RFQ trực tiếp và câu hỏi");
 const inbox = read("app/crm/sourcing/page.tsx");
 assert.match(inbox, /rfqChannel\(r\) === "sourcing"/, "hộp thư Tìm nguồn có RFQ chung");

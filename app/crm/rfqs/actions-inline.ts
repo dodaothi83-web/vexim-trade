@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { canOwnRfq } from "@/lib/rfq/assignees";
+import { assertStaffMayProcessRfq } from "@/lib/rfq/staff-access";
 
 /** Server action inline cho dropdown phân công ở trang danh sách — không redirect. */
 export async function assignRfqInlineAction(fd: FormData) {
@@ -19,7 +20,7 @@ export async function assignRfqInlineAction(fd: FormData) {
     const target = await store.getUser(to).catch(() => null);
     if (!target || !canOwnRfq(target)) return;
   }
-  const before = await store.getRfq(id);
+  const before = await assertStaffMayProcessRfq(store, id);
   const after = await store.updateRfq(id, {
     assigned_to: to || null,
     // Auto chuyển new/needs_review → in_progress khi có người nhận (giữ nguyên các trạng thái sau đó).

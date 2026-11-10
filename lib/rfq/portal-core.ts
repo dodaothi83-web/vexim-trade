@@ -12,7 +12,10 @@ export function canReadRfqThread(rfq: Rfq, match: RfqMatch): boolean {
 }
 
 export function canUseRfqThread(rfq: Rfq, match: RfqMatch): boolean {
-  return canReadRfqThread(rfq, match) && !["proposed", "declined", "not_selected"].includes(match.status) &&
+  // Legacy sourcing messages remain readable to their original participants,
+  // but no new buyer/supplier direct conversation may be appended.
+  return rfqChannel(rfq) === "direct" && canReadRfqThread(rfq, match) &&
+    !["proposed", "declined", "not_selected"].includes(match.status) &&
     !["won", "lost", "spam"].includes(rfq.status);
 }
 
@@ -44,8 +47,8 @@ export function cleanRfqMessage(raw: unknown): { ok: true; body: string } | { ok
 }
 
 /** Cap bursts per participant / match; never rate-limit the other supplier's thread. */
-export function rfqMessageRateLimited(messages: Pick<RfqThreadMessage, "sender" | "created_at">[],
-  side: "buyer" | "supplier", now = Date.now()): boolean {
+export function rfqMessageRateLimited(messages: Array<{ sender: "buyer" | "supplier" | "staff"; created_at: string }>,
+  side: "buyer" | "supplier" | "staff", now = Date.now()): boolean {
   return messages.filter((m) => m.sender === side && now - Date.parse(m.created_at) < 10 * 60_000).length >= 12;
 }
 

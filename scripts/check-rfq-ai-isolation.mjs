@@ -200,6 +200,7 @@ const submit = load('../lib/rfq/submit.ts', {
   'next/headers': { headers: async () => ({ get: () => null }) },
   '@/lib/db': { getStore: () => submitStore },
   '@/lib/public/catalog': { listPublicSuppliers: async () => [] },
+  '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [] },
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => { acks.push(1); }, sendRfqNewInternal: async () => { internal.push(1); } },

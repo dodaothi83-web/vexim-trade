@@ -1,17 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, ChevronDown, ImageIcon, Mail, MessageCircle, TrendingUp } from "lucide-react";
+import { ArrowRight, ChevronDown, ImageIcon, MessageCircle, TrendingUp } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buildSupplierRfqBoard, type PortalInvite } from "@/lib/supplier-portal/dashboard";
-import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
 import { EmptyRow, date } from "../portal-ui";
-import { SupplierRfqReply } from "@/components/supplier-rfq-reply";
 import { QUOTE_CURRENCIES, QUOTE_INCOTERMS } from "@/lib/supplier-portal/quote";
 import { SupplierQuoteForm } from "./quote-form";
 import { privateMediaUrl, supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
@@ -106,27 +104,6 @@ function BuyerContactDetails({ contact, copy }: { contact: RfqBuyerContact | nul
   </details>;
 }
 
-/** Email goes to Vexim's per-RFQ reply route; it is not the main quote action. */
-function EmailHelp({ item, supplierEmail, copy }: {
-  item: PortalInvite; supplierEmail: string | null; copy: RfqsMessages["tasks"];
-}) {
-  return <details className="group mt-4 border-t border-ink-200 pt-3">
-    <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-brand-800">
-      <Mail className="h-4 w-4" aria-hidden="true" />{copy.emailHelp}
-      <ChevronDown className="ml-auto h-4 w-4 transition group-open:rotate-180" aria-hidden="true" />
-    </summary>
-    <div className="pb-1 pl-6">
-      <p className="mb-3 text-[13px] leading-5 text-ink-600">
-        {supplierEmail ? fill(copy.replyHint, { email: supplierEmail }) : copy.replyHintNoEmail}
-      </p>
-      {supplierEmail && <SupplierRfqReply address={supplierReplyAddress(item.code, item.matchId)}
-        subject={fill(copy.subject, { code: item.code })}
-        labels={{ gmail: copy.replyGmail, app: copy.replyApp, copy: copy.copyAddress, copied: copy.copied,
-          address: copy.emailAddress }} />}
-    </div>
-  </details>;
-}
-
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
   const { m } = await getPortalMessages();
@@ -162,7 +139,9 @@ export default async function SupplierRfqPage({ searchParams }: {
   const sp = await searchParams;
   const days: 7 | 30 | 90 = sp.range === "7" ? 7 : sp.range === "90" ? 90 : 30;
   const showAll = sp.all === "1";
-  const board = buildSupplierRfqBoard({ supplierId: supplier.id, invites, products, days, language: locale });
+  const mediatedThreads = await optional(copy.degraded.labelMediated, [] as Awaited<ReturnType<typeof store.listRfqMediatedThreads>>,
+    () => store.listRfqMediatedThreads([...new Set(invites.map((invite) => invite.rfq_id))]));
+  const board = buildSupplierRfqBoard({ supplierId: supplier.id, invites, products, days, language: locale, mediatedThreads });
   const pendingIds = new Set(board.tasks.map((task) => task.matchId));
   const history = board.invites.filter((item) => !pendingIds.has(item.matchId));
   const shownHistory = showAll ? history : history.slice(0, 30);
@@ -233,7 +212,7 @@ export default async function SupplierRfqPage({ searchParams }: {
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </div>
-              <EmailHelp item={task} supplierEmail={supplier.email} copy={copy.tasks} />
+
             </article>
           </li>;
         })}

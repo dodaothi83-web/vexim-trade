@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getSession, guard } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
+import { assertStaffMayProcessRfq } from "@/lib/rfq/staff-access";
 
 /**
  * Thêm ghi chú nội bộ vào RFQ (lưu trong specs.notes_internal để không cần đổi schema).
@@ -16,8 +17,7 @@ export async function addRfqNoteAction(fd: FormData): Promise<void> {
   const text = String(fd.get("note") || "").trim();
   if (!rfqId || !text) return;
   const store = getStore();
-  const rfq = await store.getRfq(rfqId);
-  if (!rfq) return;
+  const rfq = await assertStaffMayProcessRfq(store, rfqId);
   const ts = new Date().toLocaleString("vi-VN", { hour12: false });
   // Ghi đúng người viết: ghi chú RFQ là bằng chứng nội bộ khi đối soát với người mua.
   const session = await getSession();

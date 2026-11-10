@@ -4,6 +4,9 @@ import { getStore } from "@/lib/db";
 import { getLocale } from "@/lib/i18n/server";
 import { canBuyerOpenRfqMatch, buyerMatchHasNewQuote, buyerMatchHasUpdate, lastPublishedQuote } from "@/lib/rfq/portal-core";
 import { rfqChannel } from "@/lib/rfq/channel";
+import { RfqMediatedThread } from "@/components/rfq-mediated-thread";
+import { canUseMediatedDesk, safeMediatedMessages } from "@/lib/rfq/mediated";
+import { buyerVeximMessageAction, buyerVeximReadAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My enquiry | Vexim Trade", robots: { index: false, follow: false } };
@@ -15,6 +18,7 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
   // already exist on rfq_matches; never derive the public price from that draft.
   const store = getStore();
   const locale = await getLocale();
+  const sourcing = rfqChannel(rfq) === "sourcing";
   let quotesUnavailable = false;
   let quotes: BuyerQuote[] = [];
   let preQuoteThreads: Array<Pick<BuyerQuote, "id" | "supplier" | "location" | "href" | "unread">> = [];
@@ -29,7 +33,7 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
         id: match.id, supplier: s?.display_name ?? s?.trade_name ?? s?.name ?? (locale === "vi" ? "Nhà cung cấp" : "Supplier"),
         location: s?.province ?? s?.country ?? null,
         href: `/buyer/account/requests/${encodeURIComponent(rfq.id)}/offers/${encodeURIComponent(match.id)}`,
-        unread: buyerMatchHasUpdate(match),
+        unread: sourcing ? buyerMatchHasNewQuote(match) : buyerMatchHasUpdate(match),
       };
       const offer = lastPublishedQuote(versions, match);
       if (!offer) {
@@ -45,6 +49,19 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
     console.error("[buyer] quotes unavailable", error);
     quotesUnavailable = true;
   }
+  let mediatedThread: React.ReactNode = null;
+  if (sourcing) {
+    try {
+      const messages = safeMediatedMessages(await store.listRfqMediatedMessages(rfq.id));
+      mediatedThread = <RfqMediatedThread rfqId={rfq.id} side="buyer" messages={messages}
+        lastVisibleAt={messages.at(-1)?.created_at ?? null} canPost={canUseMediatedDesk(rfq, null)} locale={locale}
+        sendAction={buyerVeximMessageAction} markRead={buyerVeximReadAction.bind(null, rfq.id)} />;
+    } catch (error) {
+      console.error("[buyer] Vexim desk unavailable", error);
+      mediatedThread = <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        {locale === "vi" ? "Tạm thời chưa mở được trao đổi với Vexim. Vui lòng thử lại sau." : "The Vexim conversation is temporarily unavailable. Please try again later."}</p>;
+    }
+  }
   return <BuyerEnquiryDetail rfq={rfq} buyer={buyer} quotes={quotes} preQuoteThreads={preQuoteThreads}
-    quotesUnavailable={quotesUnavailable} locale={locale} />;
+    quotesUnavailable={quotesUnavailable} locale={locale} mediatedThread={mediatedThread} />;
 }

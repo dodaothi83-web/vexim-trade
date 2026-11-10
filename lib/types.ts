@@ -1114,6 +1114,43 @@ export interface RfqThreadMessage {
   created_at: string;
 }
 
+/** Sourcing has two disjoint audiences: one buyer desk per RFQ, one supplier desk per match. */
+export interface RfqMediatedThread {
+  id: string;
+  rfq_id: string;
+  match_id: string | null;
+  audience: "buyer" | "supplier";
+  party_last_read_at: string | null;
+  staff_last_read_at: string | null;
+  last_party_message_at: string | null;
+  last_staff_message_at: string | null;
+}
+
+export interface RfqMediatedMessage {
+  id: string;
+  thread_id: string;
+  sender: "buyer" | "supplier" | "staff";
+  /** Audit only: never send another participant's address in a portal response. */
+  sender_email: string;
+  body: string;
+  created_at: string;
+}
+
+export interface RfqMediatedAlert {
+  id: string;
+  message_id: string;
+  thread_id: string;
+  recipient: "party" | "staff";
+  event_at: string;
+  not_before: string;
+  status: "pending" | "sending" | "sent" | "failed" | "skipped";
+  attempts: number;
+  claimed_at: string | null;
+  sent_at: string | null;
+  last_error: string | null;
+  created_at: string;
+}
+
 /** Delivery attempts for a quote or message; the in-app update already exists. */
 export interface RfqPortalAlert {
   id: string;

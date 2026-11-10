@@ -101,7 +101,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   })() : hasPermission(session.role, "rfq.view") ? null : 0;
   // Chỉ đếm RFQ đang chờ nhân viên tiếp nhận. Câu hỏi đã gửi và RFQ đã chuyển tới nhà cung cấp
   // nằm ở "matching" để nhà cung cấp xử lý, không phải việc của Vexim, nên không làm huy hiệu treo mãi.
-  const pendingRfqs = pendingRouting?.filter((r) => rfqChannel(r) !== "sourcing" && UNCLAIMED_RFQ_STATUSES.includes(r.status)).length ?? 0;
+  const pendingRfqs = pendingRouting?.filter((r) => rfqChannel(r) === "question" && UNCLAIMED_RFQ_STATUSES.includes(r.status)).length ?? 0;
 
   // Người mua nhắn Vexim mà nhân viên chưa đọc. Lỗi đếm không được làm hỏng CRM.
   const pendingSupport = hasPermission(session.role, "support.view")

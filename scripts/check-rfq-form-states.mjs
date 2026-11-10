@@ -76,7 +76,8 @@ for (const needle of [
   'Packaging and lead time',
   '$6.90–7.10/kg',
   'updated 2 Nov 2026',
-  'Your request goes to this supplier first.',
+  'This request goes straight to the selected supplier.',
+  'If it does not work out, send a new general RFQ to Vexim.',
   '1/6 required',
 ]) {
   assert.ok(withCard.includes(needle), `Thẻ sản phẩm phải render "${needle}"`);

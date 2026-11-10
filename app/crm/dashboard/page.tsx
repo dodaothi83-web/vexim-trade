@@ -15,6 +15,7 @@ import { buildSiteTrafficReport } from "@/lib/traffic/site-report";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { productReviewApproved, productBelongsToCategory } from "@/lib/public/product-selection";
 import type { MediaAsset } from "@/lib/types";
+import { rfqChannel } from "@/lib/rfq/channel";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Vận hành sàn | Vexim Trade" };
@@ -68,10 +69,8 @@ export default async function DashboardPage() {
   const snapshot = buildMarketplaceSnapshot({ suppliers, products, categories, media, verifications,
     requests: requests ?? [], rfqs });
   const supplierNames = new Map(suppliers.map((s) => [s.id, s.name]));
-  const isSupplierQuestion = (rfq: (typeof snapshot.newRfqs)[number]) =>
-    rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
-  const newSupplierQuestions = snapshot.newRfqs.filter(isSupplierQuestion);
-  const newQuoteRfqs = snapshot.newRfqs.filter((rfq) => !isSupplierQuestion(rfq));
+  const newSourcingRfqs = snapshot.newRfqs.filter((rfq) => rfqChannel(rfq) === "sourcing");
+  const directOnlyRfqs = snapshot.newRfqs.filter((rfq) => rfqChannel(rfq) === "direct");
 
   const queue: Array<{ id: string; label: string; detail: string; href: string; when: string; tone: string }> = [];
   if (canSeeAccounts) for (const u of accountsWithoutProfile) queue.push({
@@ -97,14 +96,9 @@ export default async function DashboardPage() {
     detail: `${r.target_level === 2 ? "Xác thực nhà máy" : "Lịch sử giao hàng"} · yêu cầu liên hệ, chưa phải phê duyệt`,
     href: "/crm/verifications", when: r.requested_at, tone: "bg-ink-500",
   });
-  if (canRfqs) for (const r of newQuoteRfqs) queue.push({
-    id: `rfq:${r.id}`, label: r.code || "RFQ mới", detail: "Người mua gửi yêu cầu · cần tiếp nhận",
-    href: "/crm/rfqs", when: r.created_at, tone: "bg-brand-500",
-  });
-  if (canRfqs) for (const r of newSupplierQuestions) queue.push({
-    id: `rfq:${r.id}`, label: r.code || "Câu hỏi mới",
-    detail: r.status === "needs_review" ? "Câu hỏi nhà cung cấp · cần kiểm duyệt" : "Câu hỏi nhà cung cấp · cần hỗ trợ giao email",
-    href: "/crm/rfqs?status=question", when: r.created_at, tone: "bg-teal-500",
+  if (canRfqs) for (const r of newSourcingRfqs) queue.push({
+    id: `rfq:${r.id}`, label: r.code || "RFQ tìm nguồn", detail: "Yêu cầu gửi Vexim · cần tiếp nhận",
+    href: "/crm/sourcing", when: r.created_at, tone: "bg-brand-500",
   });
   queue.sort((a, b) => b.when.localeCompare(a.when));
   const reviewCount = canViewReviews ? snapshot.submittedReviews.length : 0;
@@ -179,8 +173,8 @@ export default async function DashboardPage() {
           </Card>
           {canRfqs && <Card className="p-5">
             <div className="flex items-center gap-2"><FileQuestion className="h-4 w-4 text-brand-700" /><h2 className="text-base font-bold text-ink-900">Nhu cầu từ người mua</h2></div>
-            <p className="mt-2 text-sm text-ink-600">{newQuoteRfqs.length} RFQ mới hoặc cần rà soát; {newSupplierQuestions.length} câu hỏi nhà cung cấp cần kiểm duyệt hoặc hỗ trợ giao. Đây không phải đơn hàng hay doanh thu.</p>
-            <Link href="/crm/rfqs" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-700 hover:underline">Mở hộp thư RFQ <ArrowRight className="h-4 w-4" /></Link>
+            <p className="mt-2 text-sm text-ink-600">{newSourcingRfqs.length} RFQ tìm nguồn cần Vexim xử lý. {directOnlyRfqs.length} RFQ đích danh chỉ hiện để hỗ trợ hoặc giải quyết tranh chấp; không phân công hay giao dịch thay hai bên.</p>
+            <Link href="/crm/sourcing" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-700 hover:underline">Mở yêu cầu tìm nguồn <ArrowRight className="h-4 w-4" /></Link>
           </Card>}
         </div>
       </div>

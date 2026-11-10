@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supplierOfferAccess } from "@/lib/rfq/portal-access";
 import { canReadRfqThread } from "@/lib/rfq/portal-core";
 import { markVisibleRfqThreadRead, sendRfqThreadMessage, type RfqThreadError } from "@/lib/rfq/portal-conversation";
+import { canReadMediatedDesk, markMediatedRfqRead, sendMediatedRfqMessage, type MediatedError } from "@/lib/rfq/mediated";
 
 export type ThreadFormState = { error: RfqThreadError | "unknown" | null; body: string; sent: boolean; seq: number };
 
@@ -30,6 +31,34 @@ export async function supplierRfqReadAction(matchId: string, visibleAt: string):
   const access = await supplierOfferAccess(matchId);
   if (!canReadRfqThread(access.rfq, access.match)) return;
   await markVisibleRfqThreadRead({ store: access.store, matchId: access.match.id, side: "supplier", visibleAt });
+  revalidatePath("/supplier/portal/rfqs");
+  revalidatePath("/supplier/portal");
+}
+
+export type SupplierDeskState = { error: MediatedError | "unknown" | null; body: string; sent: boolean; seq: number };
+
+export async function supplierVeximMessageAction(previous: SupplierDeskState, fd: FormData): Promise<SupplierDeskState> {
+  const matchId = String(fd.get("match_id") ?? "");
+  const access = await supplierOfferAccess(matchId);
+  const body = String(fd.get("body") ?? "").slice(0, 4001);
+  try {
+    const result = await sendMediatedRfqMessage({ store: access.store, rfq: access.rfq, match: access.match,
+      sender: "supplier", email: access.user.email, body });
+    if (!result.ok) return { error: result.error, body, sent: false, seq: previous.seq };
+  } catch (error) {
+    console.error("[rfq-mediated] supplier message not saved", error);
+    return { error: "unknown", body, sent: false, seq: previous.seq };
+  }
+  revalidatePath(`/supplier/portal/rfqs/${matchId}`);
+  revalidatePath("/supplier/portal/rfqs");
+  revalidatePath(`/crm/rfqs/${access.rfq.id}`);
+  return { error: null, body: "", sent: true, seq: previous.seq + 1 };
+}
+
+export async function supplierVeximReadAction(matchId: string, visibleAt: string): Promise<void> {
+  const access = await supplierOfferAccess(matchId);
+  if (!canReadMediatedDesk(access.rfq, access.match)) return;
+  await markMediatedRfqRead({ store: access.store, threadId: access.match.id, side: "party", visibleAt });
   revalidatePath("/supplier/portal/rfqs");
   revalidatePath("/supplier/portal");
 }

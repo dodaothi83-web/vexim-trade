@@ -42,7 +42,7 @@ function makeStore(existing = []) {
   assert.equal(created, 2);
   assert.deepEqual(store.matches.map((m) => m.supplier_id), ['sup-a', 'sup-b']);
   assert.ok(store.matches.every((m) => m.status === 'proposed' && m.rfq_id === 'rfq-1' && m.id),
-    'lượt khớp tự tạo phải ở trạng thái đề xuất, chờ nhân viên gửi');
+    'mỗi nhà cung cấp có lời mời riêng trước khi chuyển thẳng vào cổng');
 }
 
 // Không tạo trùng khi NCC đã có lượt khớp; không có NCC chỉ định thì không tạo gì.
@@ -56,7 +56,8 @@ function makeStore(existing = []) {
 // Luồng gửi RFQ: chỉ RFQ bình thường mới tự khớp, spam và cần duyệt tay thì chờ nhân viên.
 const submit = fs.readFileSync(new URL('../lib/rfq/submit.ts', import.meta.url), 'utf8');
 assert.match(submit, /createPreferredSupplierMatches\(store, rfq\.id, preferredIds\)/, 'submit RFQ phải tự tạo lượt khớp cho NCC chỉ định');
-assert.match(submit, /rfqStatus === "new" && preferredIds\.length > 0/, 'không tự khớp khi RFQ bị cách ly hoặc cần duyệt tay');
+assert.match(submit, /if \(direct && rfqStatus !== "new"\)/, 'RFQ đích danh nghi spam bị từ chối trước khi tạo, không chuyển sang hàng Vexim');
+assert.match(submit, /releaseTargetedQuoteToPortal\(store, rfq\)/, 'phát lời mời trực tiếp không cần nhân viên');
 
 // Trang RFQ trong CRM phải cho nhân viên thấy chỉ định của người mua.
 const rfqPage = fs.readFileSync(new URL('../app/crm/rfqs/[id]/page.tsx', import.meta.url), 'utf8');
@@ -73,10 +74,11 @@ assert.match(supplierPage, /Đã khớp, chờ gửi/, 'phải phân biệt RFQ 
 // Form RFQ công khai: có NCC chỉ định thì nói rõ gửi cho ai; form chung thì báo Vexim tìm NCC.
 const form = fs.readFileSync(new URL('../app/(public)/rfq/rfq-form.tsx', import.meta.url), 'utf8');
 assert.match(form, /You are requesting a quote from/, 'form phải nói rõ nhà cung cấp mà người mua đang xin báo giá');
-assert.match(form, /Your request goes to this supplier first\. If they can’t meet it, we’ll ask you before suggesting anyone else\./, 'form chỉ định phải nói rõ NCC chỉ định được nhận yêu cầu trước và chỉ gợi ý đơn vị khác sau khi hỏi buyer');
+assert.match(form, /This request goes straight to the selected supplier\(s\)\. Vexim does not review or manage your direct transaction\. If it does not work out, send a new general RFQ to Vexim\./, 'không tự chuyển RFQ cũ sang Vexim: buyer phải gửi RFQ chung mới');
 assert.match(form, /Not sure which supplier fits\? Tell us what you need\. Vexim will select verified suppliers that match your specs, quantity and market, and send you their quotes to compare\./, 'form chung phải thông báo Vexim chọn NCC theo yêu cầu để buyer so sánh báo giá');
 assert.match(form, /Suppliers are matched on your requirements only\. Paid listings never affect who we recommend\./, 'form chung phải nói rõ việc ghép NCC không bị ảnh hưởng bởi tin trả phí');
-assert.match(form, /Only suppliers actually sent this RFQ receive your buyer contact details\. You sign the contract directly with the supplier you choose\. Vexim never holds your payment\. Free for buyers\./, 'gần nút gửi phải nói rõ chỉ NCC nhận RFQ thấy liên hệ, ký trực tiếp, Vexim không giữ tiền và buyer không mất phí');
+assert.match(form, /Only the supplier\(s\) you selected receive the contact details you explicitly grant below/, 'direct chỉ chia sẻ liên hệ theo lựa chọn và đồng ý riêng');
+assert.match(form, /Invited suppliers will not see my contact details; all messages go through Vexim\./, 'RFQ chung không chia sẻ liên hệ buyer cho NCC');
 assert.match(form, /id="rfq-share_contact_consent"[^>]+checked=\{data\.share_contact_consent\}/, 'Buyer must separately tick a consent checkbox for recipient-scoped contact sharing');
 assert.match(form, /share_contact_consent: data\.share_contact_consent/, 'Never infer contact consent from general data processing consent');
 const rfqPublicPage = fs.readFileSync(new URL('../app/(public)/rfq/page.tsx', import.meta.url), 'utf8');

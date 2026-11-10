@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 
 import { getStore } from "@/lib/db";
 import { sendSlaAlert } from "@/lib/email/rfq";
+import { rfqChannel } from "@/lib/rfq/channel";
 import { sendCertificateExpiryReminders } from "@/lib/certificate-service";
 import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
 
@@ -54,9 +55,10 @@ export async function GET(req: Request) {
   const errors: string[] = [];
 
   for (const rfq of rfqs) {
-    if (closed.has(rfq.status)) continue;
-    // Direct supplier questions have moderation/delivery support, not quote SLA alerts.
-    if (rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question") continue;
+    // Only Vexim-mediated sourcing enters the staff SLA. A direct RFQ is owned
+    // by buyer/supplier; even a no-op mail helper must not mark its specs as
+    // "staff alerted" or request a manual assignment.
+    if (closed.has(rfq.status) || rfqChannel(rfq) !== "sourcing") continue;
     const buyer = buyerMap.get(rfq.buyer_id);
     if (!buyer) continue;
     const ageHours = (now - new Date(rfq.created_at).getTime()) / 3_600_000;
