@@ -8,10 +8,10 @@ import {
   Check,
   ChevronDown,
   Clock4,
-  Copy,
   FlaskConical,
   Globe,
   Mail,
+  MessageCircle,
   MapPin,
   Package,
   Phone,
@@ -25,7 +25,6 @@ import {
 import { Breadcrumbs, Badge } from "@/components/ui";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { ActionForm, PendingButton } from "@/components/action-form";
-import { ComposeEmailDialog } from "@/components/compose-email-dialog";
 import { MessageTimeline } from "@/components/message-timeline";
 import { toTimelineItem } from "@/lib/mail/timeline";
 import { sourcingThreadId } from "@/lib/rfq/reply-routing";
@@ -37,7 +36,6 @@ import { assigneeLabel, rfqAssigneeOptions } from "@/lib/rfq/assignees";
 import {
   addMatchAction,
   removeMatchAction,
-  updateMatchQuoteAction,
   updateMatchStatusAction,
 } from "./actions";
 import {
@@ -46,16 +44,13 @@ import {
   sendRfqToSuppliersAction,
 } from "./outreach-actions";
 import {
-  composeMatchEmailAction,
   markLostAction,
   markSamplingAction,
-  sendFollowUpAction,
 } from "./compose-action";
 import { hasPermission } from "@/lib/auth/permissions";
 import { uploadRfqAttachmentAction } from "./upload-action";
 import { addRfqNoteAction } from "./note-action";
 import type { RfqMatch, RfqStatus, Supplier } from "@/lib/types";
-import { SITE_URL } from "@/lib/site";
 import { approvedL2Scope, approvedVerificationSteps, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 import { spamFlagDetail } from "@/lib/rfq/spam-flags";
 import {
@@ -65,10 +60,11 @@ import {
   isSupplierQuestionRfq,
 } from "@/lib/rfq/workflow";
 import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
-import { rfqBuyerContact } from "@/lib/rfq/buyer-contact";
-import { withoutDirectContacts } from "@/lib/public/product-selection";
-import { QUOTABLE_MATCH_STATUSES } from "@/lib/supplier-portal/quote";
-import { canDirectPublishRfqQuote } from "@/lib/rfq/portal-core";
+import { sourcingInviteConsent } from "@/lib/rfq/buyer-contact";
+import { canUseMediatedDesk, canReadMediatedDesk, safeMediatedMessages, deskHasNewReply } from "@/lib/rfq/mediated";
+import { RfqMediatedThread } from "@/components/rfq-mediated-thread";
+import { staffVeximMessageAction, staffVeximReadAction } from "./mediation-actions";
+import { portalApproved } from "@/lib/supplier-portal/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +73,7 @@ const STATUS_LABEL: Record<RfqStatus, { label: string; dot: string }> = {
   needs_review: { label: "Cần duyệt", dot: "bg-rose-500" },
   in_progress: { label: "Đang xử lý", dot: "bg-sky-500" },
   matching: { label: "Đang ghép nhà cung cấp", dot: "bg-amber-500" },
-  quoted: { label: "Đã trình người mua", dot: "bg-amber-600" },
+  quoted: { label: "Đã nhận báo giá", dot: "bg-amber-600" },
   sampling: { label: "Đang gửi mẫu", dot: "bg-violet-500" },
   won: { label: "Thành công", dot: "bg-emerald-500" },
   lost: { label: "Thất bại", dot: "bg-ink-400" },
@@ -88,7 +84,7 @@ const STATUS_LABEL: Record<RfqStatus, { label: string; dot: string }> = {
 const STEPS: { label: string; statuses: RfqStatus[] }[] = [
   { label: "Tiếp nhận", statuses: ["new", "needs_review", "in_progress"] },
   { label: "Ghép nhà cung cấp", statuses: ["matching"] },
-  { label: "Trình người mua", statuses: ["quoted"] },
+  { label: "Báo giá", statuses: ["quoted"] },
   { label: "Gửi mẫu (tuỳ chọn)", statuses: ["sampling"] },
   { label: "Kết quả", statuses: ["won", "lost"] },
 ];
@@ -151,12 +147,14 @@ export default async function RfqDetailPage({
   searchParams?: Promise<Record<string, string>>;
 }) {
   const session = await requirePagePermission("rfq.view", "/crm/dashboard");
-  const canManageRfq = hasPermission(session.role, "rfq.manage");
+  const hasManagePermission = hasPermission(session.role, "rfq.manage");
   const { id } = await params;
   const sp = await searchParams;
   const store = getStore();
   const rfq = await store.getRfq(id);
   if (!rfq) notFound();
+  const channel = rfqChannel(rfq);
+  const canManageRfq = hasManagePermission && channel === "sourcing";
   const [buyer, matches, suppliers, users, attachments, category, products, messages] = await Promise.all([
     store.getBuyer(rfq.buyer_id).catch(() => null),
     store.listRfqMatches(rfq.id).catch(() => []),
@@ -190,8 +188,10 @@ export default async function RfqDetailPage({
   const preferredSupplierIds = rfq.preferred_supplier_ids ?? [];
   // Chấm điểm theo các lần kiểm đã duyệt thực tế, không suy ra giấy tờ/nhà máy từ mức tối đa.
   const qText = (rfq.product_text + " " + (category?.name_i18n?.en ?? "")).toLowerCase();
+  const activePortalIds = new Set(users.filter((u) => u.is_active && u.role === "supplier" && u.supplier_id)
+    .map((u) => u.supplier_id));
   const candidates = suppliers
-    .filter((s) => s.status === "published" && !matchSupplierIds.has(s.id))
+    .filter((s) => s.status === "published" && portalApproved(s) && activePortalIds.has(s.id) && !matchSupplierIds.has(s.id))
     .map((s) => {
       const prods = productsBySupplier.get(s.id) ?? [];
       let score = 0;
@@ -234,27 +234,43 @@ export default async function RfqDetailPage({
       return [];
     }),
   ] as const)));
+  const isMediated = channel === "sourcing";
+  let mediationUnavailable = false;
+  const mediationThreads = isMediated ? await store.listRfqMediatedThreads([rfq.id])
+    .catch((error) => { console.error("[crm] Vexim RFQ conversations unavailable", error); mediationUnavailable = true; return []; }) : [];
+  const mediationById = new Map(mediationThreads.map((t) => [t.id, t]));
+  const mediationMessages = new Map(await Promise.all(mediationThreads.map(async (t) => [t.id,
+    safeMediatedMessages(await store.listRfqMediatedMessages(t.id).catch((error) => {
+      console.error("[crm] RFQ desk messages unavailable", error); mediationUnavailable = true; return [];
+    }))] as const)));
   const quoteVersions = await store.listRfqQuoteVersions(matches.filter((m) => !!m.sent_to_buyer_at).map((m) => m.id));
   const quoteVersionsByMatch = new Map<string, typeof quoteVersions>();
   for (const version of quoteVersions) quoteVersionsByMatch.set(version.match_id,
     [...(quoteVersionsByMatch.get(version.match_id) ?? []), version]);
 
   const specs = (rfq.specs as Record<string, unknown> | null) ?? {};
-  const statusLink = `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
   const isSupplierQuestion = isSupplierQuestionRfq(rfq);
   // RFQ không chọn nhà cung cấp (hoặc tạo từ yêu cầu tìm nguồn) thuộc hộp thư Tìm nguồn.
-  const isSourcing = rfqChannel(rfq) === "sourcing";
+  const isSourcing = isMediated;
   const sourcingRequestId = linkedSourcingRequestId(rfq);
   const isClosed = CLOSED_RFQ_STATUSES.includes(rfq.status);
-  const canAct = canManageRfq && !isSupplierQuestion && !isClosed;
-  const statusInfo = isSupplierQuestion && rfq.status === "matching"
-    ? { label: "Đã gửi câu hỏi", dot: STATUS_LABEL.matching.dot }
-    : STATUS_LABEL[rfq.status] ?? STATUS_LABEL.new;
+  const canAct = canManageRfq && isSourcing && !isClosed;
+  const statusInfo = isSupplierQuestion
+    ? rfq.status === "matching" ? { label: "Đã gửi câu hỏi (lịch sử)", dot: "bg-slate-400" }
+      : rfq.status === "spam" ? { label: "Cách ly (lịch sử)", dot: "bg-slate-400" }
+        : { label: "Chưa xác nhận giao (lịch sử)", dot: "bg-slate-400" }
+    : channel === "direct" && rfq.status === "matching"
+      ? { label: "Đã chuyển tới nhà cung cấp", dot: STATUS_LABEL.matching.dot }
+      : channel === "direct" && rfq.status === "new"
+        ? { label: "Chưa xác nhận chuyển yêu cầu", dot: STATUS_LABEL.new.dot }
+        : channel === "direct" && rfq.status === "quoted"
+          ? { label: "Đã ghi báo giá", dot: STATUS_LABEL.quoted.dot }
+          : STATUS_LABEL[rfq.status] ?? STATUS_LABEL.new;
   const assignee = users.find((u) => u.id === rfq.assigned_to);
 
   // Nhóm NCC theo việc cần làm để tính bước tiếp theo.
   const sendable = matches.filter((m) => m.status === "proposed" && !m.sent_to_supplier_at);
-  const consentedSendable = sendable.filter((m) => !!rfqBuyerContact(rfq, m.supplier_id));
+  const consentedSendable = sendable.filter((m) => sourcingInviteConsent(rfq, m.supplier_id));
   const awaiting = matches.filter((m) => m.status === "sent_to_supplier");
   const readyToPresent = matches.filter((m) => m.status === "quoted" && m.quote_price != null);
   const presented = matches.filter((m) => m.status === "presented_to_buyer" && quoteVersionsByMatch.has(m.id));
@@ -263,10 +279,12 @@ export default async function RfqDetailPage({
 
   type NextStep = { text: React.ReactNode; tone?: "default" | "done" | "alert"; action?: React.ReactNode };
   const next: NextStep = (() => {
+    if (channel === "direct") return { text: "RFQ đích danh thuộc người mua và nhà cung cấp. CRM chỉ xem để hỗ trợ, không xử lý. Nếu cần, tạo yêu cầu tìm nguồn mới." };
+    if (isSupplierQuestion) return { text: "Câu hỏi cũ chỉ lưu lịch sử. Câu hỏi mới dùng Chat with supplier trên trang sản phẩm." };
     if (rfq.status === "spam") return { tone: "alert", text: "RFQ đang cách ly spam. Đối chiếu các dấu hiệu bên phải; nếu yêu cầu hợp lệ, chuyển về \"Đang xử lý\" ở mục Thao tác khác." };
     if (rfq.status === "won") return { tone: "done", text: <>Đã chốt thành công{selectedMatch ? <> với <strong>{supplierName(supplierMap.get(selectedMatch.supplier_id), "nhà cung cấp")}</strong></> : null}.</> };
     if (rfq.status === "lost") return { tone: "done", text: <>Đã đóng thất bại · lý do: <strong>{LOST_REASONS.find(([v]) => v === rfq.lost_reason)?.[1] ?? rfq.lost_reason ?? "—"}</strong>{rfq.closed_reason ? ` · ${rfq.closed_reason}` : ""}.</> };
-    if (isSupplierQuestion) return { text: "Câu hỏi đã gửi qua email để nhà cung cấp trả lời thẳng người mua. Vexim chỉ theo dõi, không dùng quy trình báo giá." };
+
     if (!canManageRfq) return { text: "Bạn đang ở chế độ chỉ xem." };
     if (rfq.status === "sampling" && selectedMatch) {
       const name = supplierName(supplierMap.get(selectedMatch.supplier_id), "nhà cung cấp");
@@ -296,10 +314,9 @@ export default async function RfqDetailPage({
       ),
     };
     if (presented.length > 0) return { text: <>Chờ người mua chọn. Khi có phản hồi, bấm <strong>Gửi mẫu</strong> hoặc <strong>Chốt</strong> ở dòng nhà cung cấp tương ứng.</> };
-    if (sendable.length > 0 && consentedSendable.length === 0) return { tone: "alert", text: <>RFQ chưa có đồng ý chia sẻ liên hệ. Hãy hỏi người mua và ghi nhận đồng ý trước khi gửi.</> };
-    if (sendable.length > 0) return { text: <>Có <strong>{sendable.length}</strong> nhà cung cấp chưa nhận RFQ. Khi gửi, họ sẽ thấy liên hệ người mua đã đồng ý chia sẻ.</>, action: <a href="#suppliers" className="btn btn-primary btn-sm">Đến danh sách <ArrowRight className="h-3.5 w-3.5" /></a> };
-    if (awaiting.length > 0 && rfqChannel(rfq) === "direct") return { text: <>Đã chuyển tới nhà cung cấp người mua chọn. Báo giá họ gửi trên cổng <strong>tự hiện trong tài khoản người mua</strong>; email chỉ báo có cập nhật.</> };
-    if (awaiting.length > 0) return { text: <>Đang chờ <strong>{awaiting.length}</strong> nhà cung cấp báo giá. Nhập giá khi nhận được, hoặc bấm Nhắc phản hồi.</> };
+    if (sendable.length > 0 && consentedSendable.length === 0) return { tone: "alert", text: <>RFQ chưa có đồng ý tìm nguồn riêng cho yêu cầu này. Không gửi cho nhà cung cấp cho đến khi người mua xác nhận.</> };
+    if (sendable.length > 0) return { text: <>Có <strong>{sendable.length}</strong> nhà cung cấp chưa nhận RFQ. Chỉ mời bên có cổng đã duyệt; liên hệ người mua vẫn ở Vexim.</>, action: <a href="#suppliers" className="btn btn-primary btn-sm">Đến danh sách <ArrowRight className="h-3.5 w-3.5" /></a> };
+    if (awaiting.length > 0) return { text: <>Đang chờ <strong>{awaiting.length}</strong> nhà cung cấp báo giá trên cổng. Trao đổi riêng với từng bên qua Vexim bên dưới.</> };
     return { text: "Chưa có nhà cung cấp phù hợp. Thêm nhà cung cấp vào shortlist để bắt đầu.", action: <a href="#suppliers" className="btn btn-primary btn-sm">Thêm nhà cung cấp <ArrowRight className="h-3.5 w-3.5" /></a> };
   })();
 
@@ -324,7 +341,8 @@ export default async function RfqDetailPage({
             <span className={"h-2 w-2 shrink-0 rounded-full " + statusInfo.dot} />
             {statusInfo.label}
           </Badge>
-          {isSupplierQuestion && <Badge color="#0f766e">Câu hỏi trực tiếp cho nhà cung cấp</Badge>}
+          {isSupplierQuestion && <Badge color="#0f766e">Lịch sử câu hỏi nhà cung cấp</Badge>}
+          {channel === "direct" && <Badge color="#0f766e">Đích danh · CRM chỉ xem</Badge>}
           {isSourcing && <Badge color="#0f766e">Tìm nguồn · Vexim ghép nhà cung cấp</Badge>}
           {rfq.status === "spam" && (
             <Badge color="#b91c1c" className="inline-flex items-center gap-1">
@@ -333,13 +351,11 @@ export default async function RfqDetailPage({
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-500">
-          <span>Chủ trì</span>
+          <span>{channel === "direct" ? "Liên hệ hỗ trợ" : "Chủ trì"}</span>
           {canManageRfq
             ? <RfqAssignmentSelect rfqId={rfq.id} assignedTo={rfq.assigned_to ?? null} users={rfqAssigneeOptions(users, rfq.assigned_to)} />
             : <span className="text-ink-800">{assignee ? assigneeLabel(assignee) : "Chưa phân công"}</span>}
-          <a href={statusLink} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
-            <Copy className="h-3.5 w-3.5" /> Link người mua theo dõi
-          </a>
+
         </div>
       </div>
 
@@ -348,12 +364,18 @@ export default async function RfqDetailPage({
       {sp?.selection_email === "failed" && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Đã lưu nhà cung cấp được chọn nhưng email chưa gửi được. Hãy liên hệ ngoài hệ thống, đừng chọn lại.</div>}
       {sp?.selection_email === "sent" && <div role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Đã gửi email báo nhà cung cấp được chọn. Hệ thống chưa xác nhận tới hộp thư.</div>}
       {sp?.outreach_sent !== undefined && <div role="status" className={`mt-4 rounded-lg border p-3 text-sm ${Number(sp.outreach_skipped) > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
-        Đã gửi {Number(sp.outreach_sent) || 0} lời mời nhà cung cấp; {Number(sp.outreach_skipped) || 0} yêu cầu chưa gửi (có thể đã gửi trước, thiếu email hoặc gửi thất bại). Kiểm tra từng nhà cung cấp trước khi thử lại.
+        Đã gửi {Number(sp.outreach_sent) || 0} lời mời nhà cung cấp; {Number(sp.outreach_skipped) || 0} yêu cầu chưa gửi (có thể đã gửi trước hoặc NCC chưa có cổng duyệt). Kiểm tra từng nhà cung cấp trước khi thử lại.
       </div>}
+
+      {isSupplierQuestion && <p role="note" className="mt-4 rounded-xl border border-ink-200 bg-ink-50 p-4 text-sm leading-6 text-ink-700">Câu hỏi cũ chỉ để xem; CRM không xử lý lại. Câu hỏi mới dùng Chat with supplier trên trang sản phẩm.</p>}
+      {channel === "direct" && <p role="note" className="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm leading-6 text-brand-900">
+        <strong>Chỉ hỗ trợ/tranh chấp.</strong> Buyer và NCC đã chọn tự xem báo giá, trao đổi và chốt giao dịch trong cổng.
+        CRM không phân công, đổi trạng thái, nhập giá hoặc gửi lời mời cho RFQ này. Nếu chưa chốt được, buyer tạo RFQ tìm nguồn MỚI.
+      </p>}
 
       {/* Tiến trình + bước tiếp theo */}
       <section className="card mt-4 p-4 sm:p-5">
-        {!isSupplierQuestion && rfq.status !== "spam" && (
+        {isSourcing && rfq.status !== "spam" && (
           <ol className="mb-4 grid grid-cols-5 gap-1.5" aria-label="Tiến trình RFQ">
             {STEPS.map((step, i) => {
               const done = i < stepIndex;
@@ -371,7 +393,7 @@ export default async function RfqDetailPage({
           </ol>
         )}
         <div className={"flex flex-wrap items-center justify-between gap-3 rounded-md px-3 py-2.5 text-[13px] " + (next.tone === "alert" ? "bg-red-50 text-red-900" : next.tone === "done" ? "bg-ink-50 text-ink-700" : "bg-brand-50 text-ink-800")}>
-          <p className="min-w-0 flex-1"><span className="mr-1 font-semibold text-brand-900">{next.tone === "done" ? "Kết quả:" : "Bước tiếp theo:"}</span>{next.text}</p>
+          <p className="min-w-0 flex-1"><span className="mr-1 font-semibold text-brand-900">{!isSourcing ? "Lưu ý:" : next.tone === "done" ? "Kết quả:" : "Bước tiếp theo:"}</span>{next.text}</p>
           {next.action}
         </div>
       </section>
@@ -441,7 +463,7 @@ export default async function RfqDetailPage({
                 </Field>
                 <Field icon={<Mail className="h-4 w-4" />} label="Liên hệ">
                   {buyer.contact_name ?? "—"}
-                  {buyer.email && <> · <a href={`mailto:${buyer.email}`} className="text-brand-700 hover:underline">{buyer.email}</a></>}
+                  {buyer.email && <> · <span className="text-ink-800">{buyer.email}</span></>}
                 </Field>
                 {buyer.phone && <Field icon={<Phone className="h-4 w-4" />} label="Điện thoại">{buyer.phone}</Field>}
                 {buyer.website && (
@@ -474,7 +496,7 @@ export default async function RfqDetailPage({
                       <option value="7">7 ngày</option>
                     </select>
                   </label>
-                  <ConfirmSubmitButton className="btn btn-primary btn-sm" message="Gửi RFQ và liên hệ người mua đã đồng ý chia sẻ tới các nhà cung cấp đã tích?">
+                  <ConfirmSubmitButton className="btn btn-primary btn-sm" message="Mời các nhà cung cấp đã chọn qua cổng? Liên hệ người mua vẫn riêng tư; email chỉ thông báo.">
                     <Mail className="h-3.5 w-3.5" /> Gửi yêu cầu báo giá
                   </ConfirmSubmitButton>
                 </form>
@@ -503,7 +525,7 @@ export default async function RfqDetailPage({
                 const name = supplierName(sup, m.supplier_id);
                 const ms = MATCH_STATUS[m.status] ?? MATCH_STATUS.proposed;
                 const isSendable = m.status === "proposed" && !m.sent_to_supplier_at;
-                const canFollowUp = m.status === "no_response" || (!!m.sent_to_supplier_at && ["proposed", "sent_to_supplier"].includes(m.status));
+                const canFollowUp = isSourcing && canReadMediatedDesk(rfq, m);
                 const versions = quoteVersionsByMatch.get(m.id) ?? [];
                 const canDecide = m.status === "presented_to_buyer" && versions.length > 0 && rfq.status !== "sampling";
                 const thread = messagesByMatch.get(m.id) ?? [];
@@ -513,7 +535,7 @@ export default async function RfqDetailPage({
                 return (
                   <li key={m.id} className="py-3">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                      {canAct && isSendable && rfqBuyerContact(rfq, m.supplier_id) && (
+                      {canAct && isSendable && sourcingInviteConsent(rfq, m.supplier_id) && (
                         <input type="checkbox" name="match_ids" form="rfq-dispatch" value={m.id} defaultChecked
                           aria-label={`Gửi yêu cầu cho ${name}`} className="h-4 w-4 rounded border-ink-300 text-brand-600" />
                       )}
@@ -522,20 +544,14 @@ export default async function RfqDetailPage({
                         <span className={"h-1.5 w-1.5 rounded-full " + ms.dot} />{ms.label}
                       </Badge>
                       {preferredSupplierIds.includes(m.supplier_id) && <Badge className="bg-brand-600 text-[10.5px] text-white">Người mua chỉ định</Badge>}
-                      {isSendable && !rfqBuyerContact(rfq, m.supplier_id) && <Badge className="bg-amber-50 text-[10.5px] text-amber-800">Cần xác nhận chia sẻ liên hệ</Badge>}
+                      {isSendable && !sourcingInviteConsent(rfq, m.supplier_id) && <Badge className="bg-amber-50 text-[10.5px] text-amber-800">Cần đồng ý tìm nguồn</Badge>}
                       {passed.map((step) => <Badge key={step} color="#059669" className="text-[10.5px]">{verificationLabel(step, reviewedL2Scopes.get(m.supplier_id) ?? null)}</Badge>)}
 
                       {canAct && (
                         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                          {canFollowUp && !!rfqBuyerContact(rfq, m.supplier_id) && (
-                            <form action={sendFollowUpAction}>
-                              <input type="hidden" name="rfq_id" value={rfq.id} />
-                              <input type="hidden" name="match_id" value={m.id} />
-                              <ConfirmSubmitButton className="btn btn-ghost btn-sm" message={`Gửi email nhắc ${name} phản hồi báo giá?`}>
-                                <Clock4 className="h-3.5 w-3.5" /> Nhắc phản hồi
-                              </ConfirmSubmitButton>
-                            </form>
-                          )}
+                          {canFollowUp && <a href={`#desk-${m.id}`} className="btn btn-ghost btn-sm">
+                            <MessageCircle className="h-3.5 w-3.5" /> Trao đổi với NCC qua Vexim
+                          </a>}
                           {canDecide && (
                             <>
                               <form action={markSamplingAction}>
@@ -550,7 +566,7 @@ export default async function RfqDetailPage({
                                 <input type="hidden" name="rfq_id" value={rfq.id} />
                                 <input type="hidden" name="match_id" value={m.id} />
                                 <ConfirmSubmitButton className="btn btn-primary btn-sm" title="Người mua chốt đơn, bỏ qua bước mẫu"
-                                  message={`Chốt ${name} và đóng RFQ là Thành công (bỏ qua bước gửi mẫu)?\n\nCác nhà cung cấp khác chuyển "Không được chọn" và hệ thống gửi email cho ${name}.`}>
+                                  message={`Chốt ${name} và đóng RFQ là Thành công (bỏ qua bước gửi mẫu)?\n\nCác nhà cung cấp khác chuyển "Không được chọn"; ${name} nhận email thông báo có link vào cổng.`}>
                                   <Trophy className="h-3.5 w-3.5" /> Chốt
                                 </ConfirmSubmitButton>
                               </form>
@@ -561,13 +577,13 @@ export default async function RfqDetailPage({
                     </div>
 
                     <p className="mt-1 text-[12px] text-ink-500">
-                      {sup?.email ?? <span className="text-red-600">chưa có email</span>}
+                      {sup?.email && <span>Liên hệ NCC (chỉ nhân viên): {sup.email} · </span>}
                       {quote && <> · <span className="font-medium text-ink-800">{quote}</span></>}
                       {m.sent_to_supplier_at && <> · đã gửi yêu cầu {fmtDate(m.sent_to_supplier_at)}</>}
                       {versions.length > 0 && m.sent_to_buyer_at && <> · <span className="text-emerald-700">công bố trên tài khoản người mua {fmtDate(m.sent_to_buyer_at)}</span></>}
-                      {versions.length > 0 && m.status === "quoted" && <> · <span className="font-semibold text-amber-800">Bản điều chỉnh chờ trình</span></>}
+                      {m.status === "quoted" && <> · <span className="font-semibold text-amber-800">{versions.length > 0 ? "Bản điều chỉnh chưa công bố" : "Báo giá chưa công bố"}</span></>}
                       {thread.length > 0 && <> · {thread.length} thư</>}
-                      {portalThread.length > 0 && <> · {portalThread.length} tin trên cổng</>}
+                      {portalThread.length > 0 && <> · {portalThread.length} tin trực tiếp trên cổng</>}
                     </p>
                     {versions.length > 0 && <details className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50/40 px-3 py-2">
                       <summary className="cursor-pointer text-[12px] font-semibold text-emerald-800">Báo giá đã công bố ({versions.length} phiên bản)</summary>
@@ -582,7 +598,7 @@ export default async function RfqDetailPage({
                       <p className="mt-1 whitespace-pre-wrap break-words">{m.quote_buyer_note}</p>
                     </div>}
                     {portalThread.length > 0 && <details className="mt-2 rounded-lg border border-ink-200 bg-ink-50/40 px-3 py-2">
-                      <summary className="cursor-pointer text-[12px] font-semibold text-brand-700">Trao đổi trong hệ thống ({portalThread.length})</summary>
+                      <summary className="cursor-pointer text-[12px] font-semibold text-brand-700">{isSourcing ? "Lịch sử trao đổi người mua và nhà cung cấp (chỉ đọc)" : "Trao đổi trực tiếp giữa người mua và nhà cung cấp"} ({portalThread.length})</summary>
                       <ol className="mt-2 space-y-2 border-t border-ink-100 pt-2">{portalThread.map((msg) => <li key={msg.id} className="text-[12px] leading-5 text-ink-700">
                         <span className="font-semibold text-ink-900">{msg.sender === "buyer" ? "Người mua" : "Nhà cung cấp"}</span>
                         <span className="text-ink-500"> · {fmtDate(msg.created_at)}</span>
@@ -594,42 +610,23 @@ export default async function RfqDetailPage({
                       <details className="group mt-1.5">
                         <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[12px] text-brand-700 hover:underline">
                           <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
-                          {quote ? "Sửa báo giá · email · thao tác khác" : "Nhập báo giá · email · thao tác khác"}
+                          Quản lý lời mời / trạng thái
                         </summary>
                         <div className="mt-2 space-y-3 rounded-md border border-ink-100 bg-ink-50/50 p-3">
-                          {m.sent_to_supplier_at && QUOTABLE_MATCH_STATUSES.includes(m.status) && <ActionForm action={updateMatchQuoteAction} successText={canDirectPublishRfqQuote(rfq, m)
-                            ? "Đã lưu và công bố trong tài khoản người mua" : "Đã lưu báo giá, chờ công bố"} className="grid grid-cols-2 gap-2 sm:grid-cols-6">
-                            <input type="hidden" name="match_id" value={m.id} />
-                            <input type="hidden" name="rfq_id" value={rfq.id} />
-                            <QuoteInput label="Giá" name="quote_price" type="number" step="0.0001" defaultValue={m.quote_price ?? ""} placeholder="vd 3.20" />
-                            <QuoteInput label="Tiền tệ" name="quote_currency" defaultValue={m.quote_currency ?? "USD"} />
-                            <QuoteInput label="ĐVT" name="quote_unit" defaultValue={m.quote_unit ?? rfq.unit ?? ""} />
-                            <QuoteInput label="Incoterm" name="quote_incoterm" defaultValue={m.quote_incoterm ?? rfq.incoterm ?? ""} />
-                            <QuoteInput label="Lead time (ngày)" name="quote_lead_time_days" type="number" defaultValue={m.quote_lead_time_days ?? ""} />
-                            <div className="flex items-end"><PendingButton className="w-full">Lưu báo giá</PendingButton></div>
-                          </ActionForm>}
-
+                          <p className="text-[12px] text-ink-600">Báo giá do nhà cung cấp nộp trên cổng. Vexim chỉ xem và công bố, không nhập hoặc sửa giá thay họ.</p>
                           <div className="flex flex-wrap items-end gap-2 border-t border-ink-100 pt-3">
                             {!m.sent_to_buyer_at && <ActionForm action={updateMatchStatusAction} successText="Đã cập nhật trạng thái" className="flex items-end gap-1.5">
                               <input type="hidden" name="match_id" value={m.id} />
                               <input type="hidden" name="rfq_id" value={rfq.id} />
                               <label className="flex flex-col text-[11px] text-ink-500">
                                 Cập nhật tay (không gửi email)
-                                <select name="status" defaultValue={MANUAL_MATCH_STATUSES.includes(m.status) ? m.status : ""} className="input mt-1 py-1 text-[13px]">
-                                  {!MANUAL_MATCH_STATUSES.includes(m.status) && <option value="" disabled>{ms.label}</option>}
-                                  {MANUAL_MATCH_STATUSES.filter((v) => !m.sent_to_supplier_at || v !== "proposed").map((v) => <option key={v} value={v}>{MATCH_STATUS[v].label}</option>)}
+                                <select name="status" defaultValue={m.status === "proposed" && !m.sent_to_supplier_at || ["declined", "no_response"].includes(m.status) ? m.status : ""} className="input mt-1 py-1 text-[13px]">
+                                  {!(m.status === "proposed" && !m.sent_to_supplier_at || ["declined", "no_response"].includes(m.status)) && <option value="" disabled>{ms.label}</option>}
+                                  {MANUAL_MATCH_STATUSES.filter((v) => v === "proposed" ? !m.sent_to_supplier_at : v !== "sent_to_supplier" && !!m.sent_to_supplier_at).map((v) => <option key={v} value={v}>{MATCH_STATUS[v].label}</option>)}
                                 </select>
                               </label>
                               <PendingButton>Lưu</PendingButton>
                             </ActionForm>}
-                            {m.sent_to_supplier_at && m.status !== "proposed" && rfqBuyerContact(rfq, m.supplier_id) && (
-                              <div>
-                                <ComposeEmailDialog action={composeMatchEmailAction} hidden={{ rfq_id: rfq.id, match_id: m.id }}
-                                  recipientName={name} recipientEmail={sup?.email ?? null}
-                                  defaultSubject={`[Vexim] Về yêu cầu ${rfq.code} – ${withoutDirectContacts(rfq.product_text)}`}
-                                  defaultBody={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${withoutDirectContacts(rfq.product_text)} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${deliveryText}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
-                              </div>
-                            )}
                             {!m.sent_to_supplier_at && !m.sent_to_buyer_at && <form action={removeMatchAction} className="ml-auto">
                               <input type="hidden" name="match_id" value={m.id} />
                               <input type="hidden" name="rfq_id" value={rfq.id} />
@@ -673,22 +670,45 @@ export default async function RfqDetailPage({
             )}
           </section>
 
+          {isSourcing && <section id="vexim-conversations" className="scroll-mt-20 space-y-4" aria-label="Trao đổi RFQ qua Vexim">
+            <div className="card p-4 sm:p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-600">Trao đổi qua Vexim</h2>
+              <p className="mt-2 text-[13px] leading-5 text-ink-600">Mạch người mua và từng nhà cung cấp tách riêng qua Vexim. Không chuyển tiếp tin của bên này cho bên kia.</p>
+              {mediationUnavailable && <p role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-[13px] text-amber-900">Không tải được toàn bộ trao đổi; tạm khóa gửi tin để tránh nhầm mạch. Thử tải lại trang sau.</p>}
+            </div>
+            {!mediationUnavailable && <>
+              <div className="relative">
+                {deskHasNewReply(mediationById.get(rfq.id), "staff") && <Badge className="absolute -right-1 -top-2 z-10 bg-amber-100 text-amber-900">Người mua có tin mới</Badge>}
+                <RfqMediatedThread rfqId={rfq.id} side="staff" messages={mediationMessages.get(rfq.id) ?? []}
+                  lastVisibleAt={mediationMessages.get(rfq.id)?.at(-1)?.created_at ?? null} canPost={canManageRfq && canUseMediatedDesk(rfq, null)} locale="vi"
+                  sendAction={staffVeximMessageAction} markRead={staffVeximReadAction.bind(null, rfq.id, null)} />
+              </div>
+              {matches.filter((m) => canReadMediatedDesk(rfq, m)).map((m) => <div key={m.id} className="relative">
+                <p className="mb-2 text-[13px] font-semibold text-ink-800">Nhà cung cấp: {supplierName(supplierMap.get(m.supplier_id), m.supplier_id)}</p>
+                {deskHasNewReply(mediationById.get(m.id), "staff") && <Badge className="absolute -right-1 top-3 z-10 bg-amber-100 text-amber-900">Nhà cung cấp có tin mới</Badge>}
+                <RfqMediatedThread rfqId={rfq.id} matchId={m.id} side="staff" messages={mediationMessages.get(m.id) ?? []}
+                  lastVisibleAt={mediationMessages.get(m.id)?.at(-1)?.created_at ?? null} canPost={canManageRfq && canUseMediatedDesk(rfq, m)} locale="vi"
+                  sendAction={staffVeximMessageAction} markRead={staffVeximReadAction.bind(null, rfq.id, m.id)} />
+              </div>)}
+            </>}
+          </section>}
+
           {/* Timeline */}
-          <MessageTimeline title="Timeline thư từ" items={timelineMessages.map((msg) => {
+          <MessageTimeline title="Lưu vết thông báo / báo giá qua cổng và email cũ (chỉ đọc)" items={timelineMessages.map((msg) => {
             const sup = msg.rfq_match_id ? supplierMap.get(matches.find((m) => m.id === msg.rfq_match_id)?.supplier_id ?? "") : null;
             return toTimelineItem(msg, sup ? { name: supplierName(sup, sup.id), href: `/crm/suppliers/${sup.id}` } : null);
-          })} empty="Chưa có email nào cho RFQ này. Thư gửi nhà cung cấp, người mua và phản hồi sẽ hiện ở đây." />
+          })} empty="Chưa có bản ghi thông báo hoặc báo giá trên cổng. Trao đổi mới nằm ở các mạch riêng phía trên." />
         </div>
 
         {/* CỘT PHỤ */}
         <div className="min-w-0 space-y-5">
-          <section className="card p-4 sm:p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">SLA</h2>
+          {isSourcing && <section className="card p-4 sm:p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">SLA tìm nguồn</h2>
             <dl className="mt-3 space-y-1.5 text-[13px]">
               <div className="flex justify-between"><dt className="text-ink-500">Phản hồi đầu</dt><dd>{rfq.first_response_at ? fmtDate(rfq.first_response_at) : "chưa"}</dd></div>
               <div className="flex justify-between"><dt className="text-ink-500">Mục tiêu</dt><dd>24h làm việc</dd></div>
             </dl>
-          </section>
+          </section>}
 
           {rfq.spam_flags.length > 0 && (
             <section className={`card p-4 sm:p-5 ${rfq.status === "spam" ? "border-red-200 bg-red-50/40" : "border-amber-200 bg-amber-50/40"}`}>
@@ -765,7 +785,7 @@ export default async function RfqDetailPage({
                 <PendingButton variant="soft">Lưu</PendingButton>
               </ActionForm>
               <p className="mt-1.5 text-[11px] leading-4 text-ink-500">
-                Trình người mua, gửi mẫu, thành công và thất bại chỉ đổi bằng nút nghiệp vụ để người mua và nhà cung cấp nhận đúng email.
+                Công bố báo giá, gửi mẫu và kết thúc chỉ đổi bằng nút nghiệp vụ. Email chỉ báo có thay đổi; không trả lời RFQ qua email.
               </p>
 
               {!isSupplierQuestion && rfq.status !== "lost" && rfq.status !== "spam" && (
@@ -801,14 +821,5 @@ function Field({ icon, label, wide, children }: { icon: React.ReactNode; label: 
         <dd className="mt-0.5 break-words text-[13.5px] leading-5 text-ink-800">{children}</dd>
       </div>
     </div>
-  );
-}
-
-function QuoteInput({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <label className="flex flex-col text-[11px] text-ink-500">
-      {label}
-      <input {...props} className="input mt-1 py-1 text-[13px]" />
-    </label>
   );
 }

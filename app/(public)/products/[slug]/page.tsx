@@ -878,7 +878,7 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
         <p className="mt-1 text-[13.5px] text-ink-600">
           Start with the supplier whenever a listing fits: read their spec and send your request straight to them, no
           step through us. If the grade, the packing or the volume you need is not here, tell us and we will look at
-          producers outside these pages. Free, no account needed, and we reply within one business day.
+          producers outside these pages. Sign in with an email code to send a free sourcing RFQ and follow its progress in your account.
         </p>
         <ul className="mt-5 space-y-2 text-[13.5px] text-ink-700">
           <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />The product, the size or the grade you are after.</li>
@@ -888,7 +888,7 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
         <Link href={rfqHref} className="btn btn-primary mt-6 w-full justify-center">Send us the details <ArrowRight className="h-4 w-4" /></Link>
         <div className="mt-5 rounded-lg bg-ink-50 p-4 text-[12.5px] text-ink-600">
           <p className="font-semibold text-ink-800">Product listings coming soon.</p>
-          <p className="mt-1 leading-relaxed">Suppliers are checked before they go up, which is why this page is still empty. Until the first listings are live, the form above comes to our sourcing desk and you hear back within one business day.</p>
+          <p className="mt-1 leading-relaxed">Suppliers are checked before they go up, which is why this page is still empty. Until the first listings are live, you can send a general RFQ to Vexim and follow updates in your account.</p>
         </div>
       </div>
     </section>

@@ -5,7 +5,7 @@ import { transport } from "@/lib/email/send";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import type { DataStore } from "@/lib/db/types";
 import { SITE_URL } from "@/lib/site";
-import { buyerReplyAddress, supplierReplyAddress } from "./reply-routing";
+import { rfqChannel } from "./channel";
 import { rfqEventAfter } from "./portal-core";
 import type { RfqPortalAlert } from "@/lib/types";
 
@@ -46,6 +46,14 @@ export async function runRfqPortalAlerts(store: DataStore, options: { matchIds?:
       const match = await store.getRfqMatch(rows[0].match_id);
       const rfq = match && await store.getRfq(match.rfq_id);
       if (!match || !rfq || ["lost", "spam"].includes(rfq.status)) { await finish(rows, "skipped"); continue; }
+      // Existing direct-message alerts for old sourcing threads must not invite
+      // either party back into a buyer/supplier conversation that is now archived.
+      if (rfqChannel(rfq) === "sourcing") {
+        const archived = rows.filter((r) => !!r.message_id);
+        if (archived.length) await finish(archived, "skipped");
+        rows.splice(0, rows.length, ...rows.filter((r) => !!r.version_id));
+        if (!rows.length) continue;
+      }
       const readAt = rows[0].recipient === "buyer" ? match.buyer_last_read_at : match.supplier_last_read_at;
       const unread = rows.filter((r) => !readAt || rfqEventAfter(r.event_at, readAt));
       const read = rows.filter((r) => !unread.includes(r));
@@ -65,15 +73,15 @@ export async function runRfqPortalAlerts(store: DataStore, options: { matchIds?:
       const link = buyerSide
         ? `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}/offers/${encodeURIComponent(match.id)}`
         : `${SITE_URL}/supplier/portal/rfqs/${encodeURIComponent(match.id)}`;
+      const sourced = rfqChannel(rfq) === "sourcing";
       const subject = buyerSide
-        ? `${quote ? "New quote" : "New message"} for your request (Ref ${rfq.code})`
-        : `[${rfq.code}] ${quote ? "Báo giá đã được công bố" : "Người mua có tin nhắn mới"}`;
+        ? `${sourced ? "New quote from Vexim" : quote ? "New quote" : "New message"} for your request (Ref ${rfq.code})`
+        : `[${rfq.code}] ${quote ? "Báo giá đã được công bố" : "Có tin nhắn mới"}`;
       const body = buyerSide
-        ? `<p>${quote ? "A supplier has published a quote" : "A supplier replied to your request"} on Vexim Trade.</p>`
-        : `<p>${quote ? "Báo giá đã được công bố" : "Người mua đã trả lời"} trong yêu cầu của bạn trên Vexim Trade.</p>`;
+        ? `<p>${sourced ? "Vexim has presented a supplier quote" : quote ? "A supplier has published a quote" : "A supplier replied to your request"} on Vexim Trade.</p>`
+        : `<p>${quote ? "Báo giá đã được công bố" : "Có cập nhật mới"} trong yêu cầu của bạn trên Vexim Trade.</p>`;
       const html = wrapPlainEmail({ title: escapeHtml(subject), body: `${body}<p><a href="${escapeHtml(link)}">${buyerSide ? "View quote and conversation" : "Xem yêu cầu và trao đổi"}</a></p><p>${buyerSide ? "This email is a notification; the quote and conversation are saved in your account." : "Email chỉ để thông báo; báo giá và trao đổi được lưu trong tài khoản."}</p>` });
       const result = await transport({ to: [to], from: FROM_ADDRESS,
-        replyTo: buyerSide ? buyerReplyAddress(rfq.code) : supplierReplyAddress(rfq.code, match.id),
         subject, html, text: `${subject}\n${link}\n${buyerSide ? "Sign in to view your quote and conversation." : "Đăng nhập để xem báo giá và trao đổi."}`,
       });
       if (result.ok && result.status === "sent") await finish(unread, "sent");

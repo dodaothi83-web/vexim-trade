@@ -7,7 +7,8 @@ import ts from 'typescript';
 const page = fs.readFileSync(new URL('../app/crm/rfqs/page.tsx', import.meta.url), 'utf8');
 const control = fs.readFileSync(new URL('../app/crm/rfqs/assignment-select.tsx', import.meta.url), 'utf8');
 
-assert.match(page, /RfqAssignmentSelect/, 'RFQ list must use the client assignment control');
+assert.doesNotMatch(page, /RfqAssignmentSelect/, 'Read-only direct RFQs and historical questions cannot be assigned in the list');
+assert.match(fs.readFileSync(new URL('../app/crm/rfqs/[id]/page.tsx', import.meta.url), 'utf8'), /<RfqAssignmentSelect/, 'Sourcing RFQ detail retains the client assignment control');
 assert.ok(!page.includes('onChange='), 'Server-rendered RFQ list must not contain an inline event handler');
 assert.ok(!page.includes('assignRfqInlineAction'), 'Server action belongs to the client control boundary');
 assert.ok(control.startsWith('"use client";'), 'Assignment control must be a Client Component');

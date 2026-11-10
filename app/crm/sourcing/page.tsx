@@ -33,7 +33,7 @@ const TABS: { key: Stage | "all"; label: string }[] = [
 
 const RFQ_STATUS: Record<string, string> = {
   new: "Mới — chưa tiếp nhận", needs_review: "Cần duyệt", in_progress: "Đang xử lý", matching: "Đang ghép nhà cung cấp",
-  quoted: "Đã trình người mua", sampling: "Đang gửi mẫu", won: "Thành công", lost: "Thất bại", spam: "Cách ly",
+  quoted: "Đã nhận báo giá", sampling: "Đang gửi mẫu", won: "Thành công", lost: "Thất bại", spam: "Cách ly",
 };
 
 function rfqStage(status: Rfq["status"]): Stage {
@@ -69,7 +69,7 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
     main.listRfqs().catch(() => [] as Rfq[]),
     main.listBuyers().catch(() => [] as Buyer[]),
   ]);
-  // Thư với người mua của từng yêu cầu (xác nhận, phản hồi, thư người mua trả lời).
+  // Thư thông báo và email người mua trả lời trước đây; không dùng email để giao dịch RFQ mới.
   const threadMessages = await main.listMessagesForThreads(requests.map((r) => sourcingThreadId(r.id)))
     .catch((error) => { console.error("[sourcing] could not read request emails", error); return [] as EmailMessage[]; });
   const messagesByThread = new Map<string, EmailMessage[]>();
@@ -101,7 +101,7 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
       <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Hộp thư tìm nguồn</p>
       <h1 className="mt-2 text-2xl font-bold">Yêu cầu tìm nguồn</h1>
       <p className="mt-2 text-sm text-ink-500">
-        Người mua chưa chọn nhà cung cấp, Vexim ghép và giới thiệu. Bấm <strong>Ghép nhà cung cấp</strong> để mở công cụ shortlist; chỉ gửi RFQ kèm liên hệ khi đã có đồng ý cho yêu cầu đó.
+        Người mua chưa chọn nhà cung cấp. Bấm <strong>Ghép nhà cung cấp</strong> để mở shortlist, mời bên có cổng đã duyệt rồi trao đổi qua mạch Vexim riêng. Liên hệ người mua không chuyển cho NCC; báo giá chỉ hiện khi Vexim công bố. Email cũ và email thông báo chỉ để xem; sau khi mở RFQ, trao đổi trong cổng.
       </p>
     </header>
 
@@ -122,8 +122,8 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
           : query.error === "closed" ? "Yêu cầu đã kết thúc. Mở lại (chuyển Đang xử lý) trước khi ghép nhà cung cấp."
             : "Dữ liệu không hợp lệ. Khi cần bổ sung thông tin, hãy nhập phản hồi cho người mua."}</p>}
     {query.saved && (query.mailed === "0"
-      ? <p role="status" className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">Đã lưu phản hồi nhưng chưa gửi được email. Người mua vẫn thấy phản hồi trong tài khoản.</p>
-      : <p role="status" className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">{query.mailed === "1" ? "Đã lưu và gửi email phản hồi cho người mua." : "Đã lưu cập nhật."}</p>)}
+      ? <p role="status" className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">Đã lưu phản hồi nhưng chưa gửi được email thông báo. Người mua vẫn thấy nội dung trong tài khoản.</p>
+      : <p role="status" className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">{query.mailed === "1" ? "Đã lưu phản hồi trong tài khoản và gửi email thông báo cho người mua." : "Đã lưu cập nhật."}</p>)}
 
     {!rows.length ? <p className="rounded-xl border border-ink-200 bg-white p-8 text-center text-sm text-ink-500">Chưa có yêu cầu trong nhóm này.</p> : (
       <ul className="card divide-y divide-ink-100 overflow-hidden">
@@ -154,7 +154,7 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
                   <span className="block truncate text-[14px] font-semibold text-ink-900">{sourcingSummary(r.content)}</span>
                   <span className="mt-0.5 block truncate text-[12px] text-ink-500">{r.buyer_email} · {r.id.slice(0, 8).toUpperCase()} · {when(r.created_at)}{r.attachments.length > 0 && ` · ${r.attachments.length} tệp`}</span>
                 </span>
-                {buyerReplied(r.id) && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-800">Người mua đã trả lời</span>}
+                {buyerReplied(r.id) && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-800">Thư cũ từ người mua</span>}
                 <span className="rounded-md bg-teal-50 px-1.5 py-0.5 text-[11px] font-semibold text-teal-800">Viết tự do</span>
                 <span className="text-[12px] font-semibold text-brand-700">
                   {linked ? `${RFQ_STATUS[linked.status] ?? linked.status} · ${linked.code}` : sourcingCrmStatusLabel(r.status)}
@@ -176,24 +176,25 @@ export default async function SourcingInbox({ searchParams }: { searchParams: Pr
                     <Link href={`/crm/rfqs/${linked.id}`} className="btn btn-primary btn-sm ml-auto">Mở trang ghép <ArrowRight className="h-3.5 w-3.5" /></Link>
                   </> : manage && r.status !== "closed" ? <form action={startSourcingMatchAction} className="flex w-full flex-wrap items-center gap-2">
                     <input type="hidden" name="id" value={r.id} />
-                    <span className="text-ink-700">Tạo phiếu ghép để chọn nhà cung cấp và trình báo giá. Chưa gửi gì cho NCC; yêu cầu cũ cần người mua xác nhận chia sẻ liên hệ trước khi gửi.</span>
+                    <span className="text-ink-700">Tạo RFQ tìm nguồn để chọn và mời NCC trên cổng. Chưa gửi gì cho NCC; yêu cầu cũ thiếu xác nhận tìm nguồn riêng không thể gửi lời mời.</span>
                     <button className="btn btn-primary btn-sm ml-auto">Ghép nhà cung cấp</button>
                   </form> : <span className="text-ink-500">{r.status === "closed" ? "Yêu cầu đã kết thúc." : "Cần quyền xử lý RFQ để ghép nhà cung cấp."}</span>}
                 </div>
 
                 <div className="mt-4">
-                  <MessageTimeline title="Thư với người mua" items={(messagesByThread.get(sourcingThreadId(r.id)) ?? []).map((msg) => toTimelineItem(msg))}
-                    empty="Chưa có email nào. Thư xác nhận, phản hồi và thư người mua trả lời sẽ hiện ở đây." />
+                  <MessageTimeline title="Lịch sử email và thông báo (chỉ đọc)" items={(messagesByThread.get(sourcingThreadId(r.id)) ?? []).map((msg) => toTimelineItem(msg))}
+                    empty="Chưa có email nào cho yêu cầu này." />
                 </div>
 
-                {manage ? <form action={updateSourcingAction} className="mt-4 grid gap-4 sm:grid-cols-2">
+                {manage && !linked ? <form action={updateSourcingAction} className="mt-4 grid gap-4 sm:grid-cols-2">
                   <input type="hidden" name="id" value={r.id} /><input type="hidden" name="version" value={r.version} />
                   <label className="text-sm font-semibold">Trạng thái<select name="status" defaultValue={r.status} className="input mt-2 w-full">{sourcingStatuses.map((s) => <option key={s} value={s}>{sourcingCrmStatusLabel(s)}</option>)}</select></label>
                   <label className="text-sm font-semibold">Người phụ trách<select name="assigned_to" defaultValue={r.assigned_to ?? ""} className="input mt-2 w-full"><option value="">Chưa phân công</option>{staff.map((u) => <option key={u.id} value={u.id}>{assigneeLabel(u)}</option>)}</select></label>
-                  <label className="text-sm font-semibold">Phản hồi cho người mua<textarea name="buyer_reply" defaultValue={r.buyer_reply ?? ""} maxLength={3000} rows={3} className="input mt-2 w-full" /><span className="mt-1 block text-xs font-normal text-ink-500">Hiển thị trong tài khoản người mua và gửi email khi bạn lưu nội dung mới. Bắt buộc khi cần bổ sung thông tin.</span></label>
+                  <label className="text-sm font-semibold">Phản hồi cho người mua<textarea name="buyer_reply" defaultValue={r.buyer_reply ?? ""} maxLength={3000} rows={3} className="input mt-2 w-full" /><span className="mt-1 block text-xs font-normal text-ink-500">Hiện trong tài khoản người mua; email chỉ báo có cập nhật. Sau khi mở RFQ, trao đổi qua mạch Vexim.</span></label>
                   <label className="text-sm font-semibold">Ghi chú nội bộ<textarea name="internal_note" defaultValue={r.internal_note ?? ""} maxLength={3000} rows={3} className="input mt-2 w-full" /><span className="mt-1 block text-xs font-normal text-ink-500">Chỉ nhân viên CRM được xem.</span></label>
                   <button className="btn btn-soft justify-self-start sm:col-span-2">Lưu cập nhật</button>
                 </form> : <div className="mt-4 space-y-2 text-sm">
+                  {linked && <p className="rounded-lg bg-brand-50 p-3 text-ink-700">Yêu cầu ban đầu chỉ để xem. Cập nhật và nhắn tin qua RFQ {linked.code}; email chỉ để thông báo.</p>}
                   <p>Phụ trách: {owner(r.assigned_to)}</p>
                   {r.buyer_reply && <p className="whitespace-pre-wrap">Phản hồi: {r.buyer_reply}</p>}
                   {r.internal_note && <p className="whitespace-pre-wrap">Nội bộ: {r.internal_note}</p>}

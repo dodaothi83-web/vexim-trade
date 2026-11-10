@@ -20,6 +20,7 @@ const core = load('lib/rfq/portal-core.ts', {
 });
 const quote = load('lib/supplier-portal/quote.ts', {
   '@/lib/public/product-selection': { withoutDirectContacts }, '@/lib/rfq/portal-core': core,
+  '@/lib/rfq/buyer-contact': contact, '@/lib/rfq/channel': channel,
 });
 const form = (o) => { const fd = new FormData(); for (const [k, v] of Object.entries(o)) fd.set(k, v); return fd; };
 const good = { price: '6,25', currency: 'usd', unit: 'kg', incoterm: 'fob', lead_time_days: '21',
@@ -128,9 +129,9 @@ Object.assign(rfqs.r1, { preferred_supplier_ids: ['s1'], source_product_id: 'p1'
 assert.equal((await record('m1', { ...ok.value, price: 6.2 })).direct, true);
 assert.equal(core.canDirectPublishRfqQuote(rfqs.r1, matches.other), false);
 rfqs.r1.preferred_supplier_ids = ['s2'];
-assert.equal((await record('m1', { ...ok.value, price: 6.3 })).direct, false, 'non-named supplier needs explicit consent');
+await assert.rejects(record('m1', { ...ok.value, price: 6.3 }), /notFound/, 'non-named supplier cannot submit a quote');
 rfqs.r1.preferred_supplier_ids = ['s1']; rfqs.r1.specs = {};
-assert.equal((await record('m1', ok.value)).direct, false, 'no retroactive contact consent');
+await assert.rejects(record('m1', ok.value), /notFound/, 'no retroactive contact consent for quotes');
 rfqs.r1.specs = consent;
 Object.assign(matches.m1, { sent_to_buyer_at: null, status: 'sent_to_supplier' });
 await record('m1', { intent: 'decline', note: 'No stock' });

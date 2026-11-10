@@ -88,6 +88,8 @@ const supplierActions = load('app/supplier/portal/rfqs/[matchId]/actions.ts', {
   'next/cache': { revalidatePath: (p) => revalidated.push(p) },
   '@/lib/rfq/portal-access': { supplierOfferAccess: buyerAccess.supplierOfferAccess },
   '@/lib/rfq/portal-core': core, '@/lib/rfq/portal-conversation': conversation,
+  '@/lib/rfq/mediated': { sendMediatedRfqMessage: async () => ({ ok: false, error: 'unavailable' }),
+    canReadMediatedDesk: () => false, markMediatedRfqRead: async () => {} },
 });
 const buyerActions = load('app/(public)/buyer/account/requests/[id]/offers/actions.ts', {
   'next/cache': { revalidatePath: (p) => revalidated.push(p) },
@@ -110,7 +112,8 @@ await assert.rejects(buyerActions.buyerRfqMessageAction(initial, fd('r2', 'm3', 
 assert.equal(core.canReadRfqThread(requests.r2, matches.m3), false);
 Object.assign(matches.m3, { status: 'presented_to_buyer', sent_to_buyer_at: '2026-11-07T00:00:00Z' });
 assert.equal((await buyerAccess.buyerOfferAccess('r2', 'm3')).match.id, 'm3');
-assert.equal(core.canUseRfqThread(requests.r2, matches.m3), true);
+assert.equal(core.canUseRfqThread(requests.r2, matches.m3), false, 'New direct conversation is blocked even after Vexim publishes a sourcing offer');
+assert.equal((await supplierActions.supplierRfqMessageAction(initial, fd('r2', 'm3', 'Hello buyer'))).error, 'unavailable');
 assert.equal(core.lastPublishedQuote([], { ...matches.m3, status: 'quoted' }), null, 'Pending revisions never fall back to the draft');
 assert.equal(core.lastPublishedQuote([], { ...matches.m3, status: 'presented_to_buyer' }), null, 'A timestamp alone is not a published snapshot');
 assert.equal(core.supplierMatchHasReply({ ...matches.m1, last_thread_sender: 'supplier' }), true,
@@ -176,7 +179,7 @@ const notifier = load('lib/rfq/portal-alerts.ts', {
   '@/lib/email/templates': { escapeHtml: (s) => String(s).replaceAll('<', '&lt;'), wrapPlainEmail: ({ body }) => body },
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   './reply-routing': { buyerReplyAddress: () => 'buyer+rfq-1@example.com', supplierReplyAddress: () => 'rfq+match@example.com' },
-  './portal-core': core,
+  './portal-core': core, './channel': channel,
 });
 let result = await notifier.runRfqPortalAlerts(alertStore, { nowMs: dueAt });
 assert.equal(result.failed, 1);
@@ -208,7 +211,7 @@ assert.match(mail.at(-1).html, /\/supplier\/portal\/rfqs\/m1/);
 // slipped into the same RFQ after the confirmation page rendered.
 const staffRfqs = { direct: { ...requests.r1, id: 'direct' }, sourcing: { ...requests.r2, id: 'sourcing' } };
 const staffMatches = {
-  d1: { ...matches.m1, id: 'd1', rfq_id: 'direct', quote_price: null, status: 'sent_to_supplier', updated_at: '2026-11-01T00:00:00Z' },
+  d1: { ...matches.m1, id: 'd1', rfq_id: 'direct', quote_price: null, sent_to_buyer_at: null, status: 'sent_to_supplier', updated_at: '2026-11-01T00:00:00Z' },
   s1: { ...matches.m3, id: 's1', rfq_id: 'sourcing', quote_price: 8, status: 'quoted', updated_at: '2026-11-01T00:00:00Z' },
   s2: { ...matches.m3, id: 's2', rfq_id: 'sourcing', quote_price: 9, status: 'quoted', updated_at: '2026-11-01T00:00:00Z' },
   s3: { ...matches.m3, id: 's3', rfq_id: 'sourcing', quote_price: 10, status: 'quoted', updated_at: '2026-11-01T00:00:00Z' },
@@ -236,32 +239,30 @@ const staffStore = {
 const staffNavigation = { redirect: (url) => { throw Error(`REDIRECT ${url}`); } };
 const mailDown = { runRfqPortalAlerts: async () => { alertAttempts++; throw Error('mail down'); } };
 const workflow = load('lib/rfq/workflow.ts');
-const quoteRules = { QUOTABLE_MATCH_STATUSES: ['sent_to_supplier', 'quoted', 'presented_to_buyer'],
-  QUOTE_CURRENCIES: ['USD'], QUOTE_INCOTERMS: ['FOB'] };
+const staffAccess = load('lib/rfq/staff-access.ts', { './channel': channel });
 const staffQuoteActions = load('app/crm/rfqs/[id]/actions.ts', {
   'next/cache': { revalidatePath: (p) => revalidated.push(p) }, 'next/navigation': staffNavigation,
   'crypto': { randomUUID: () => 'id' }, '@/lib/db': { getStore: () => staffStore },
   '@/lib/auth/session': { guard: async () => null }, '@/lib/rfq/workflow': workflow,
-  '@/lib/supplier-portal/quote': quoteRules, '@/lib/public/product-selection': { withoutDirectContacts: (s) => s },
-  '@/lib/rfq/portal-core': core, '@/lib/rfq/portal-alerts': mailDown,
+  '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
+  '@/lib/rfq/staff-access': staffAccess,
 });
 const staffQuoteForm = (rfqId, matchId) => { const input = new FormData();
   for (const [key, value] of Object.entries({ rfq_id: rfqId, match_id: matchId, quote_price: '6.1256',
     quote_currency: 'USD', quote_unit: 'kg', quote_incoterm: 'FOB', quote_lead_time_days: '12' })) input.set(key, value);
   return input; };
-await staffQuoteActions.updateMatchQuoteAction(staffQuoteForm('direct', 'd1'));
-assert.equal(snapshots.length, 1, 'Valid direct quote is published after its CAS write even by staff');
-assert.equal(staffMatches.d1.sent_to_buyer_at != null, true, 'Email failure cannot suppress the direct buyer view');
-assert.equal(alertAttempts, 1);
-await staffQuoteActions.updateMatchQuoteAction(staffQuoteForm('sourcing', 's1'));
-assert.equal(staffMatches.s1.status, 'quoted', 'Sourcing waits for explicit staff publication');
-assert.equal(snapshots.length, 1);
-await assert.rejects(staffQuoteActions.updateMatchQuoteAction(staffQuoteForm('direct', 's1')), /lời mời còn hiệu lực/);
+await assert.rejects(staffQuoteActions.updateMatchQuoteAction(staffQuoteForm('direct', 'd1')), /Nhà cung cấp tự nộp giá trên cổng/);
+await assert.rejects(staffQuoteActions.updateMatchQuoteAction(staffQuoteForm('sourcing', 's1')), /Nhà cung cấp tự nộp giá trên cổng/);
+assert.equal(snapshots.length, 0, 'Neither direct nor sourcing prices can be entered by staff');
+const forgedStatus = staffQuoteForm('direct', 'd1'); forgedStatus.set('status', 'quoted');
+await assert.rejects(staffQuoteActions.updateMatchStatusAction(forgedStatus), /Trạng thái này do nút nghiệp vụ|chỉ được xem/);
+
 const publishAction = load('app/crm/rfqs/[id]/outreach-actions.ts', {
   'next/cache': { revalidatePath: (p) => revalidated.push(p) }, 'next/navigation': staffNavigation,
   '@/lib/auth/session': { guard: async () => null, getSession: async () => ({ uid: 'staff' }) },
   '@/lib/rfq/outreach': { dispatchRfqToSuppliers() {}, selectSupplier() {} },
   '@/lib/db': { getStore: () => staffStore }, '@/lib/rfq/portal-alerts': mailDown,
+  '@/lib/rfq/channel': channel, '@/lib/rfq/staff-access': staffAccess,
 });
 const approval = new FormData(); approval.set('rfq_id', 'sourcing');
 approval.append('publish_version', `s1:${staffMatches.s1.updated_at}`);
@@ -271,8 +272,12 @@ await assert.rejects(publishAction.presentShortlistAction(approval), /published=
 assert.equal(staffMatches.s1.status, 'quoted', 'A newly changed quote is not published under stale approval');
 assert.equal(staffMatches.s2.status, 'presented_to_buyer');
 assert.equal(staffMatches.s3.status, 'quoted', 'An unreviewed quote cannot sneak into the same batch');
-assert.equal(snapshots.length, 2);
-assert.equal(alertAttempts, 2, 'Staff publication survives the notification failure');
+assert.equal(snapshots.length, 1);
+assert.equal(alertAttempts, 1, 'Staff publication survives the notification failure');
+const directPublish = new FormData(); directPublish.set('rfq_id', 'direct');
+directPublish.append('publish_version', `d1:${staffMatches.d1.updated_at}`);
+await assert.rejects(publishAction.presentShortlistAction(directPublish), /chỉ được xem/);
+assert.equal(staffMatches.d1.sent_to_buyer_at, null, 'Staff cannot publish direct quotes');
 // The supplier's form distinguishes a saved draft from a successfully published
 // direct quote. An SMTP failure after publication still reports buyer visibility.
 let supplierEnabled = true;
@@ -293,13 +298,13 @@ staffMatches.d1.status = 'quoted'; staffMatches.d1.quote_price = 7;
 reviewedAt = staffMatches.d1.updated_at;
 const supplierQuoteFd = new FormData(); supplierQuoteFd.set('match_id', 'd1');
 await assert.rejects(supplierQuoteAction.submitSupplierQuoteAction({ error: null }, supplierQuoteFd), /quote=delivered/);
-assert.equal(snapshots.length, 3);
-assert.equal(alertAttempts, 3, 'Mail failure leaves the buyer-visible direct version intact');
+assert.equal(snapshots.length, 2);
+assert.equal(alertAttempts, 2, 'Mail failure leaves the buyer-visible direct version intact');
 staffMatches.d1.status = 'quoted'; staffMatches.d1.quote_price = 7.5;
 staffMatches.d1.updated_at = new Date(Date.parse(reviewedAt) + 2000).toISOString();
 // Another writer changed the match since the form's quote revision was saved.
 await assert.rejects(supplierQuoteAction.submitSupplierQuoteAction({ error: null }, supplierQuoteFd), /quote=publish_pending/);
-assert.equal(snapshots.length, 3, 'Unpublished direct revision is never mislabeled as visible');
+assert.equal(snapshots.length, 2, 'Unpublished direct revision is never mislabeled as visible');
 supplierEnabled = false;
 await assert.rejects(supplierQuoteAction.submitSupplierQuoteAction({ error: null }, supplierQuoteFd), /REDIRECT \/supplier\/portal/);
 console.log('✅ RFQ portal flow: IDOR/consent, buyer vs supplier actions, read scope, rate checks and mail retry/claim isolation and staff/supplier reviewed-revision publishing.');

@@ -2,6 +2,8 @@ import type { DataStore } from "@/lib/db/types";
 import type { EmailMessage, RfqMatch, RfqMatchStatus, Supplier } from "@/lib/types";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { canDirectPublishRfqQuote, cleanQuoteBuyerNote } from "@/lib/rfq/portal-core";
+import { sourcingInviteConsent, rfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import { rfqChannel } from "@/lib/rfq/channel";
 
 /** Drafts remain private until publication. Direct RFQs publish after saving; sourcing
  * revisions wait for Vexim again. Published versions are immutable buyer snapshots. */
@@ -63,7 +65,10 @@ export async function recordSupplierPortalQuote(input: {
   // Lời mời của nhà cung cấp khác hay chưa được gửi thì coi như không tồn tại.
   if (!match || match.supplier_id !== supplier.id || !match.sent_to_supplier_at) throw new Error("notFound");
   const rfq = await store.getRfq(match.rfq_id);
-  if (!rfq || rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question") throw new Error("notFound");
+  if (!rfq || rfqChannel(rfq) === "question" ||
+      !(rfqChannel(rfq) === "sourcing" ? sourcingInviteConsent(rfq, supplier.id) : rfqBuyerContact(rfq, supplier.id))) {
+    throw new Error("notFound");
+  }
   if (CLOSED_RFQ.includes(rfq.status) || !QUOTABLE_MATCH_STATUSES.includes(match.status) ||
       (quote.intent === "decline" && !!match.sent_to_buyer_at)) throw new Error("closed");
 

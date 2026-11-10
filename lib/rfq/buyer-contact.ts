@@ -2,6 +2,8 @@ import type { Rfq } from "@/lib/types";
 
 /** Per-RFQ consent, not the CRM's global hide flag or a supplier suggested in a shortlist. */
 export const RFQ_CONTACT_POLICY_VERSION = "rfq_contact_v2";
+/** Sourcing contact stays with Vexim; the invitation never grants the supplier direct contact. */
+export const RFQ_MEDIATED_POLICY_VERSION = "rfq_mediated_v1";
 export type RfqBuyerContact = {
   company: string;
   contact_name: string | null;
@@ -28,10 +30,10 @@ export function snapshotBuyerContact(input: RfqBuyerContact): RfqBuyerContact {
   };
 }
 
-export function buyerContactConsentSpec(contact: RfqBuyerContact, consentAt: string, source: "rfq_form" | "sourcing_form") {
+export function buyerContactConsentSpec(contact: RfqBuyerContact, consentAt: string, source: "rfq_form" | "sourcing_form", mediated = false) {
   return {
     buyer_contact: snapshotBuyerContact(contact),
-    buyer_contact_policy_version: RFQ_CONTACT_POLICY_VERSION,
+    buyer_contact_policy_version: mediated ? RFQ_MEDIATED_POLICY_VERSION : RFQ_CONTACT_POLICY_VERSION,
     buyer_contact_consent_at: consentAt,
     buyer_contact_consent_source: source,
   };
@@ -67,6 +69,17 @@ export function authorizedBuyerContact(
     phone: clean(obj.phone, 80), country: clean(obj.country, 120),
     website: clean(obj.website, 500), business_type: clean(obj.business_type, 120),
   });
+}
+
+export function sourcingInviteConsent(rfq: Pick<Rfq, "specs">, supplierId: string): boolean {
+  // Old sourcing forms explicitly granted contact sharing; preserve their permission
+  // to invite, but no longer disclose the contact to suppliers in the mediated UI.
+  // New forms grant Vexim coordination only. Both must have a valid RFQ-scoped
+  // snapshot, never infer permission from the mutable Buyer CRM row.
+  const fields = rfq.specs;
+  const policy = fields?.buyer_contact_policy_version;
+  if (policy !== RFQ_CONTACT_POLICY_VERSION && policy !== RFQ_MEDIATED_POLICY_VERSION) return false;
+  return !!authorizedBuyerContact({ ...fields, buyer_contact_policy_version: RFQ_CONTACT_POLICY_VERSION }, supplierId);
 }
 
 export function rfqBuyerContact(

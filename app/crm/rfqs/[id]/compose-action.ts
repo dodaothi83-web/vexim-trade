@@ -5,97 +5,15 @@ import { redirect } from "next/navigation";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
-import { transport } from "@/lib/email/send";
-import { requireRfqStaffSender } from "@/lib/rfq/staff-sender";
-import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
-import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
-import { supplierReplyAddress } from "@/lib/rfq/reply-routing";
 import { notifyBuyerRfqStatus } from "@/lib/rfq/buyer-notify";
 import { notifySelectedSupplier, recordSupplierSelection } from "@/lib/rfq/outreach";
-import type { EmailMessage } from "@/lib/types";
 import { CLOSED_RFQ_STATUSES, SELECTABLE_MATCH_STATUSES, isSupplierQuestionRfq } from "@/lib/rfq/workflow";
-import { rfqBuyerContact } from "@/lib/rfq/buyer-contact";
-import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { assertStaffMayProcessRfq } from "@/lib/rfq/staff-access";
+import { rfqChannel } from "@/lib/rfq/channel";
 
-/**
- * Gửi email thủ công cho một nhà cung cấp liên quan đến một RFQ match (VD: nhắc phản hồi, hỏi thêm thông tin).
- * Ghi lại vào bảng messages và timeline.
- */
-export async function composeMatchEmailAction(fd: FormData): Promise<void> {
-  const g = await guard("rfq.manage");
-  if (g) redirect("/crm/dashboard");
-  const session = await getSession();
-
-  const rfqId = String(fd.get("rfq_id") || "").trim();
-  const matchId = String(fd.get("match_id") || "").trim();
-  const toOverride = String(fd.get("to_override") || "").trim();
-  const subject = String(fd.get("subject") || "").trim();
-  const body = String(fd.get("body") || "").trim();
-  const ccRaw = String(fd.get("cc") || "").trim();
-
-  if (!rfqId || !matchId) throw new Error("Thiếu RFQ/match.");
-  if (!subject || !body) throw new Error("Thiếu tiêu đề hoặc nội dung.");
-
-  const store = getStore();
-  const [rfq, match] = await Promise.all([store.getRfq(rfqId), store.getRfqMatch(matchId)]);
-  if (!rfq) throw new Error("RFQ không tồn tại.");
-  if (!match || match.rfq_id !== rfqId) throw new Error("Match không thuộc RFQ này.");
-  if (!match.sent_to_supplier_at || match.status === "proposed" || !rfqBuyerContact(rfq, match.supplier_id)) {
-    throw new Error("Chỉ gửi email RFQ sau khi nhà cung cấp nhận yêu cầu và người mua đồng ý chia sẻ liên hệ.");
-  }
-  const supplier = await store.getSupplier(match.supplier_id);
-  if (!supplier) throw new Error("Không tìm thấy nhà cung cấp.");
-  if (!(await canInviteSupplier(supplier, store))) throw new Error("Tài khoản nhà cung cấp chưa được xác nhận; chưa thể gửi RFQ.");
-
-  const to = toOverride || supplier.email;
-  if (!to) throw new Error("Nhà cung cấp chưa có email. Hãy điền địa chỉ nhận.");
-
-  const toEmails = to.split(",").map((s) => s.trim()).filter(Boolean);
-  const ccEmails = ccRaw.split(",").map((s) => s.trim()).filter(Boolean);
-  const html = wrapPlainEmail({ title: subject, body: `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6">${escapeHtml(body)}</div>` });
-  const text = body;
-
-  const sender = await requireRfqStaffSender(session?.uid ?? "");
-  const delivery = await transport({
-    to: toEmails,
-    cc: ccEmails.length ? ccEmails : undefined,
-    from: sender.header,
-    replyTo: supplierReplyAddress(rfq.code, match.id),
-    subject,
-    html,
-    text,
-    headers: {
-      "X-RFQ-Code": rfq.code,
-      "X-RFQ-Match": match.id,
-    },
-  });
-  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được email cho nhà cung cấp: ${delivery.error ?? "chưa gửi thật"}`);
-
-  await store.addMessage({
-    buyer_id: null,
-    supplier_id: supplier.id,
-    rfq_id: rfq.id,
-    rfq_match_id: match.id,
-    kind: "manual",
-    stage: null,
-    direction: "supplier",
-    thread_id: `rfq-${rfq.id}-match-${match.id}`,
-    subject,
-    to_emails: toEmails,
-    cc_emails: ccEmails,
-    bcc_emails: [],
-    body_html: html,
-    body_text: text,
-    attachments: [],
-    rfc_message_id: null,
-    read_at: null,
-    status: delivery.status,
-    provider: delivery.provider,
-    error: null,
-    created_by: session?.uid ?? null,
-  } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
-
-  revalidatePath(`/crm/rfqs/${rfqId}`);
+/** Legacy action endpoint: RFQ follow-ups now belong in the authenticated Vexim desk. */
+export async function composeMatchEmailAction(_fd: FormData): Promise<void> {
+  throw new Error("Email không còn là kênh giao dịch RFQ. Dùng mạch trao đổi trong cổng Vexim.");
 }
 
 /** Chuyển RFQ sang sampling (bắt đầu gửi mẫu). */
@@ -106,8 +24,8 @@ export async function markSamplingAction(fd: FormData): Promise<void> {
   const selectedMatchId = String(fd.get("selected_match_id") || "").trim();
   if (!rfqId) throw new Error("Thiếu RFQ.");
   const store = getStore();
-  const before = await store.getRfq(rfqId);
-  if (!before) throw new Error("RFQ không tồn tại.");
+  const before = await assertStaffMayProcessRfq(store, rfqId);
+  if (rfqChannel(before) !== "sourcing") throw new Error("Chỉ Vexim xử lý RFQ tìm nguồn.");
   // Gửi mẫu đứng trước chốt đơn: không kéo RFQ đã đóng quay lại sampling.
   if (CLOSED_RFQ_STATUSES.includes(before.status)) throw new Error("RFQ đã đóng; không thể chuyển sang gửi mẫu.");
   if (isSupplierQuestionRfq(before)) throw new Error("Câu hỏi trực tiếp cho nhà cung cấp không có bước gửi mẫu.");
@@ -156,8 +74,8 @@ export async function markLostAction(fd: FormData): Promise<void> {
   if (!rfqId) throw new Error("Thiếu RFQ.");
   if (!reason) throw new Error("Bắt buộc chọn lý do mất đơn.");
   const store = getStore();
-  const before = await store.getRfq(rfqId);
-  if (!before) throw new Error("RFQ không tồn tại.");
+  const before = await assertStaffMayProcessRfq(store, rfqId);
+  if (rfqChannel(before) !== "sourcing") throw new Error("Chỉ Vexim xử lý RFQ tìm nguồn.");
   const rfq = before.status === "lost" ? before : await store.updateRfq(rfqId, {
     status: "lost",
     lost_reason: reason,
@@ -179,74 +97,7 @@ export async function markLostAction(fd: FormData): Promise<void> {
   }
 }
 
-/** Gửi nhắc nhở nhà cung cấp đã nhận RFQ nhưng chưa phản hồi sau X ngày (gửi ngay cho một nhà cung cấp chỉ định). */
-export async function sendFollowUpAction(fd: FormData): Promise<void> {
-  const g = await guard("rfq.manage");
-  if (g) redirect("/crm/dashboard");
-  const session = await getSession();
-  const rfqId = String(fd.get("rfq_id") || "").trim();
-  const matchId = String(fd.get("match_id") || "").trim();
-  if (!rfqId || !matchId) throw new Error("Thiếu tham số.");
-  const store = getStore();
-  const rfq = await store.getRfq(rfqId);
-  const match = await store.getRfqMatch(matchId);
-  if (!rfq || !match || match.rfq_id !== rfqId) throw new Error("RFQ/match không hợp lệ.");
-  const contact = rfqBuyerContact(rfq, match.supplier_id);
-  if (!match.sent_to_supplier_at || match.status === "proposed" || !contact) {
-    throw new Error("Chỉ nhắc nhà cung cấp đã nhận RFQ có đồng ý chia sẻ liên hệ; không dùng lại luồng ẩn danh.");
-  }
-  const sup = await store.getSupplier(match.supplier_id);
-  if (!sup || !sup.email) throw new Error("Nhà cung cấp chưa có email.");
-  if (!(await canInviteSupplier(sup, store))) throw new Error("Tài khoản nhà cung cấp chưa được xác nhận; chưa thể gửi RFQ.");
-
-  const subject = `Nhắc: ${rfq.code} — vui lòng phản hồi báo giá`;
-  const deadline = new Date(); deadline.setDate(deadline.getDate() + 2);
-  const deadlineStr = deadline.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" });
-  const buyerDetails = [
-    `Doanh nghiệp: ${contact.company}`, `Người liên hệ: ${contact.contact_name || "Chưa cung cấp"}`,
-    `Email: ${contact.email}`, `Điện thoại: ${contact.phone || "Chưa cung cấp"}`,
-    `Quốc gia: ${contact.country || "Chưa cung cấp"}`, `Website: ${contact.website || "Chưa cung cấp"}`,
-    `Loại hình: ${contact.business_type || "Chưa cung cấp"}`,
-  ].join("\n");
-  const body = `Kính gửi Anh/Chị ${sup.contact_name ?? sup.name},\n\nPhòng Xuất khẩu Vexim xin nhắc lại yêu cầu báo giá ${rfq.code} (${withoutDirectContacts(rfq.product_text)}, ${rfq.quantity ?? ""} ${rfq.unit ?? ""}) đã gửi trước đó.\n\nThông tin liên hệ người mua đã đồng ý chia sẻ cho RFQ này:\n${buyerDetails}\n\nNếu không thể tham gia chào giá lần này, rất mong Anh/Chị phản hồi ngắn gọn để chúng tôi thông báo cho người mua. Nếu có thể chào giá, vui lòng hồi âm trước ${deadlineStr}.\n\nTrân trọng,\nPhòng Xuất khẩu · Vexim Trade`;
-
-  const html = wrapPlainEmail({
-    title: subject,
-    body: `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6">${escapeHtml(body)}</div>`,
-  });
-  const sender = await requireRfqStaffSender(session?.uid ?? "");
-  const delivery = await transport({
-    to: [sup.email],
-    from: sender.header,
-    replyTo: supplierReplyAddress(rfq.code, match.id),
-    subject,
-    html,
-    text: body,
-    headers: { "X-RFQ-Code": rfq.code, "X-RFQ-Match": match.id },
-  });
-  if (!delivery.ok || delivery.status !== "sent") throw new Error(`Không gửi được email nhắc nhà cung cấp: ${delivery.error ?? "chưa gửi thật"}`);
-  await store.addMessage({
-    buyer_id: null,
-    supplier_id: sup.id,
-    rfq_id: rfq.id,
-    rfq_match_id: match.id,
-    kind: "rfq_followup",
-    stage: null,
-    direction: "supplier",
-    thread_id: `rfq-${rfq.id}-match-${match.id}`,
-    subject,
-    to_emails: [sup.email],
-    cc_emails: [],
-    bcc_emails: [],
-    body_html: html,
-    body_text: body,
-    attachments: [],
-    rfc_message_id: null,
-    read_at: null,
-    status: delivery.status,
-    provider: delivery.provider,
-    error: null,
-    created_by: session?.uid ?? null,
-  } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
-  revalidatePath(`/crm/rfqs/${rfqId}`);
+/** Legacy action endpoint: fail closed, including forged form submissions. */
+export async function sendFollowUpAction(_fd: FormData): Promise<void> {
+  throw new Error("Nhắc nhà cung cấp qua mạch trao đổi trong cổng, không gửi RFQ qua email.");
 }

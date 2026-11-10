@@ -363,8 +363,7 @@ export function BuyerForm({
               Ẩn danh trong email CRM giai đoạn (không áp dụng RFQ)
             </span>
             <span className="mt-0.5 block text-[11px] leading-relaxed text-ink-500">
-              Chỉ áp dụng email giai đoạn từ CRM cho hồ sơ cũ. RFQ dùng bản chụp liên hệ mà Buyer
-              đã đồng ý riêng khi gửi RFQ; không dùng cờ này để quyết định quyền xem RFQ.
+              Chỉ áp dụng email giai đoạn từ CRM cho hồ sơ cũ. RFQ đích danh dùng liên hệ người mua đã đồng ý chia sẻ. RFQ tìm nguồn giữ liên hệ tại Vexim; cờ này không cấp quyền xem RFQ.
             </span>
           </span>
         </label>

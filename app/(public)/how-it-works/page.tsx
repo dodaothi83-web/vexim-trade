@@ -70,8 +70,8 @@ export default async function HowItWorksPage({
         },
         {
           icon: Lock,
-          title: "Chỉ chia sẻ với NCC nhận RFQ",
-          desc: "Khi RFQ được gửi, chỉ nhà cung cấp nhận yêu cầu mới thấy liên hệ bạn cung cấp và đồng ý chia sẻ; NCC khác không được xem.",
+          title: "Liên hệ theo đúng luồng",
+          desc: "RFQ đích danh: nhà cung cấp được chọn, đã mời mới thấy liên hệ bạn đồng ý chia sẻ. Tìm nguồn: Vexim giữ liên hệ.",
         },
         {
           icon: Handshake,
@@ -87,8 +87,8 @@ export default async function HowItWorksPage({
         },
         {
           icon: Lock,
-          title: "Shared only with RFQ recipients",
-          desc: "When your RFQ is sent, the suppliers receiving it see the contact details you provided and agreed to share. Others do not.",
+          title: "Contact stays in the right channel",
+          desc: "Only selected, invited direct suppliers see consented contact details. For sourcing, Vexim keeps your contact private.",
         },
         {
           icon: Handshake,
@@ -239,8 +239,8 @@ export default async function HowItWorksPage({
                         : "Request a quote from a supplier you choose: "}
                     </span>
                     {isVi
-                      ? "Yêu cầu được chuyển tới đúng đơn vị đó trước. Nếu họ không đáp ứng được quy cách hoặc sản lượng, bạn sẽ được hỏi ý kiến trước khi gợi ý đơn vị khác."
-                      : "Your request goes to that supplier first. If they cannot meet your specs or volume, we ask your permission before suggesting anyone else."}
+                      ? "Chỉ nhà cung cấp bạn chọn nhận RFQ. Không phù hợp? Hãy gửi yêu cầu tìm nguồn MỚI cho Vexim."
+                      : "Only your chosen supplier receives this RFQ. If it does not work out, create a NEW sourcing RFQ for Vexim."}
                   </li>
                   <li className="rounded-lg bg-slate-50 px-3.5 py-2.5">
                     <span className="font-semibold text-ink-900">
@@ -249,8 +249,8 @@ export default async function HowItWorksPage({
                         : "Send an open quote request: "}
                     </span>
                     {isVi
-                      ? "Nếu chưa chọn được nhà cung cấp cụ thể, hãy gửi quy cách, số lượng và cảng đích để đội ngũ tìm nhà máy phù hợp. Quảng cáo trả phí không ảnh hưởng tới kết quả chọn lọc."
-                      : "If you have not picked a supplier yet, share your grade, volume, and destination port so our team can find fitting factories. Paid placement never affects who gets matched."}
+                      ? "Vexim chọn và mời nhà cung cấp qua cổng. Bạn xem từng báo giá trong tài khoản và chỉ trao đổi với Vexim."
+                      : "Vexim invites suitable suppliers through their portals and presents each quote in your account. Discuss sourcing with Vexim."}
                   </li>
                   <li className="rounded-lg bg-slate-50 px-3.5 py-2.5">
                     <span className="font-semibold text-ink-900">
@@ -292,8 +292,8 @@ export default async function HowItWorksPage({
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-ink-700">
                   {isVi
-                    ? "Nhận cập nhật đầu tiên trong 1 ngày làm việc. Bạn xem báo giá, yêu cầu gửi mẫu, chọn đơn vị muốn làm việc, sau đó ký hợp đồng và thanh toán trực tiếp với nhà cung cấp."
-                    : "Receive an initial update within 1 business day. Review quotes, request samples, choose the supplier to work with, and sign your contract directly with them."}
+                    ? "RFQ đích danh: bạn trao đổi với nhà cung cấp. Tìm nguồn: bạn trao đổi với Vexim về báo giá. Hai bên tự ký và thanh toán."
+                    : "For direct RFQs, discuss quotes with the supplier. For sourcing, discuss the quotes with Vexim. Contract and pay your supplier directly."}
                 </p>
               </div>
             </div>

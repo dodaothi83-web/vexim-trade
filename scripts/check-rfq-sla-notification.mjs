@@ -19,12 +19,15 @@ const rfq = { id: 'rfq-1', code: 'RFQ-001', buyer_id: 'buyer-1', status: 'new', 
 const buyer = { id: 'buyer-1', company: 'Buyer Co', email: 'buyer@example.com' };
 const directQuestion = { ...rfq, id: 'rfq-q-1', code: 'RFQ-Q-001', status: 'matching',
   source_page: '/rfq?intent=question', specs: { inquiry_kind: 'supplier_question', contact_share_consent: true } };
+const directQuote = { ...rfq, id: 'rfq-d-1', code: 'RFQ-D-001', status: 'matching',
+  source_page: '/rfq', preferred_supplier_ids: ['supplier-1'], specs: { direct_delivery_version: 'portal_direct_v2' } };
 let status = 'simulated';
 const mail = [];
 const { sendSlaAlert } = load('../lib/email/rfq.ts', {
   '@/lib/config': { COMPANY: { name: 'Vexim' }, FROM_ADDRESS: 'Vexim <test@example.com>', MAIL_DOMAIN: 'example.com' },
   '@/lib/email/templates': { escapeHtml: String, wrapPlainEmail: ({ body }) => body },
   '@/lib/site': { SITE_URL: 'https://example.com' },
+  '@/lib/rfq/channel': load('../lib/rfq/channel.ts', {}),
   '@/lib/email/threading': { mailTopic: () => 'rfq.rfq-q-001', openThread: async () => ({ messageId: '<rfq.rfq-q-001.1@example.com>', headers: {}, seq: 1 }) },
   '@/lib/db': { getStore: () => ({ addMessage: async () => ({}) }) },
   '@/lib/rfq/reply-routing': { buyerReplyAddress: (code) => `buyer+${String(code).toLowerCase()}@veximtrade.com`, supplierReplyAddress: (code, matchId) => `rfq+${String(code).toLowerCase()}-m${String(matchId).replace(/-/g, '')}@veximtrade.com` },
@@ -39,13 +42,15 @@ status = 'sent';
 await sendSlaAlert({ kind: 'unassigned_4h', rfq, buyer });
 const updates = [];
 const store = {
-  listRfqs: async () => [rfq, directQuestion], listBuyers: async () => [buyer], listUsers: async () => [],
-  updateRfq: async (_id, patch) => { updates.push(patch); Object.assign(rfq, patch); return rfq; },
+  listRfqs: async () => [rfq, directQuestion, directQuote], listBuyers: async () => [buyer], listUsers: async () => [],
+  updateRfq: async (id, patch) => { assert.equal(id, rfq.id, 'Direct RFQs must not get staff SLA markers');
+    updates.push(patch); Object.assign(rfq, patch); return rfq; },
 };
 const { GET } = load('../app/api/cron/rfq-sla/route.ts', {
   'next/server': { NextResponse: class extends Response { static json(data, init) { return Response.json(data, init); } } },
   '@/lib/db': { getStore: () => store },
   '@/lib/email/rfq': { sendSlaAlert },
+  '@/lib/rfq/channel': load('../lib/rfq/channel.ts', {}),
   '@/lib/certificate-service': { sendCertificateExpiryReminders: async () => ({ checked: 0, reminded: 0, alreadyNotified: 0, failed: 0, details: [] }) },
   '@/lib/supplier-portal/reminders': { sendSupplierProgressReminders: async () => ({ checked: 0, reminded: 0, skipped: 0 }) },
 }, { CRON_SECRET: 'only-for-test' });
@@ -70,4 +75,6 @@ await GET(request);
 assert.equal(updates.length, 2, 'Flags prevent duplicate alerts after confirmed acceptance');
 assert.equal(directQuestion.specs.sla_unassigned_alerted_at, undefined, 'Direct questions do not receive quote assignment alerts');
 assert.equal(directQuestion.specs.sla_due_alerted_at, undefined, 'Direct questions do not receive quote response alerts');
-console.log('✅ RFQ SLA alerts: failed/simulated sends remain retryable; direct questions stay outside quote SLA.');
+assert.equal(directQuote.specs.sla_unassigned_alerted_at, undefined, 'Direct quotes are never assigned to Vexim by the SLA cron');
+assert.equal(directQuote.specs.sla_due_alerted_at, undefined, 'Direct quotes are never marked with a staff response SLA');
+console.log('✅ RFQ SLA alerts: failed/simulated sends remain retryable; direct quotes/questions stay outside staff SLA.');

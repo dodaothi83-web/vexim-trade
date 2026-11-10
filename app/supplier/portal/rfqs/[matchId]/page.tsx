@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Clock3, MessageCircle, ShieldCheck } from "lucide-react";
 import { RfqThread } from "@/components/rfq-thread";
+import { RfqMediatedThread } from "@/components/rfq-mediated-thread";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { buildSupplierRfqBoard } from "@/lib/supplier-portal/dashboard";
 import { supplierOfferAccess } from "@/lib/rfq/portal-access";
 import { buyerSupplierThreadMessages, canReadRfqThread, canUseRfqThread, lastPublishedQuote, lastVisibleEventAt } from "@/lib/rfq/portal-core";
 import { quotePortalCopy } from "@/lib/rfq/portal-copy";
+import { rfqChannel } from "@/lib/rfq/channel";
+import { canReadMediatedDesk, canUseMediatedDesk, safeMediatedMessages } from "@/lib/rfq/mediated";
 import { QUOTE_CURRENCIES, QUOTE_INCOTERMS } from "@/lib/supplier-portal/quote";
 import { SupplierQuoteForm } from "../quote-form";
-import { supplierRfqMessageAction, supplierRfqReadAction } from "./actions";
+import { supplierRfqMessageAction, supplierRfqReadAction, supplierVeximMessageAction, supplierVeximReadAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "RFQ & conversation | Vexim Trade", robots: { index: false, follow: false } };
@@ -18,6 +21,7 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
   const { supplier, store, rfq, match } = await supplierOfferAccess(matchId);
   const { locale, intl, m } = await getPortalMessages();
   const copy = quotePortalCopy[locale];
+  const sourcing = rfqChannel(rfq) === "sourcing";
   // Reuse the supplier-safe projection used on the RFQ board: no access token, CRM notes,
   // foreign product media, unconsented contact or buyer's private target price.
   const [invitations, products, versions] = await Promise.all([
@@ -31,6 +35,8 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
   const readable = canReadRfqThread(rfq, match);
   const messages = readable ? buyerSupplierThreadMessages(await store.listRfqThreadMessages(match.id)) : [];
   const lastVisibleAt = lastVisibleEventAt(null, messages);
+  const deskReadable = sourcing && canReadMediatedDesk(rfq, match);
+  const deskMessages = deskReadable ? safeMediatedMessages(await store.listRfqMediatedMessages(match.id)) : [];
   const date = (value: string) => new Intl.DateTimeFormat(intl, {
     dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(value));
@@ -68,7 +74,7 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
             <p className="mt-1 text-[12.5px] text-ink-700">{quote.quote_incoterm || "—"} · {quote.quote_lead_time_days ? `${quote.quote_lead_time_days} ${copy.days}` : "—"}</p>
             {quote.buyer_note && <p className="mt-2 whitespace-pre-wrap break-words border-t border-brand-100 pt-2 text-[13px] text-ink-800">{quote.buyer_note}</p>}
           </div>}
-          {match.status === "quoted" && quote && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-900">{copy.pendingRevision}</p>}
+          {match.status === "quoted" && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-900">{quote ? copy.pendingRevision : sourcing ? copy.pendingInitialSourcing : copy.pendingInitialDirect}</p>}
           {item.canQuote && <div className="mt-5 border-t border-ink-100 pt-5">
             <p className="mb-3 text-[13px] text-ink-600">{quote ? (item.directToBuyer ? copy.reviseHint : copy.pendingHint) : m.rfqs.quote.intro}</p>
             <SupplierQuoteForm matchId={match.id} code={rfq.code} defaults={item.quoteDefaults}
@@ -80,20 +86,29 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
               <li key={v.id}>{copy.version} {v.version} · {v.quote_price} {v.quote_currency}/{v.quote_unit} · {date(v.published_at)}</li>)}</ol>
           </details>}
         </section>
-        {readable ? <RfqThread rfqId={rfq.id} matchId={match.id} side="supplier" messages={messages} lastVisibleAt={lastVisibleAt}
+        {sourcing ? <>
+          {deskReadable ? <RfqMediatedThread rfqId={rfq.id} matchId={match.id} side="supplier" messages={deskMessages}
+            lastVisibleAt={deskMessages.at(-1)?.created_at ?? null} canPost={canUseMediatedDesk(rfq, match)} locale={locale}
+            sendAction={supplierVeximMessageAction} markRead={supplierVeximReadAction.bind(null, match.id)} />
+            : <p className="rounded-xl border border-ink-200 bg-ink-50 p-4 text-[13px] text-ink-700">{copy.noConsent}</p>}
+          {readable && messages.length > 0 && <div><p className="mb-3 text-[13px] font-semibold text-ink-600">{locale === "vi" ? "Lịch sử trao đổi trực tiếp trước đây (chỉ đọc)" : "Previous direct conversation (read-only archive)"}</p>
+            <RfqThread rfqId={rfq.id} matchId={match.id} side="supplier" messages={messages} lastVisibleAt={lastVisibleAt}
+              canPost={false} sourcingArchive locale={locale} copy={copy} sendAction={supplierRfqMessageAction}
+              markRead={supplierRfqReadAction.bind(null, match.id)} /></div>}
+        </> : readable ? <RfqThread rfqId={rfq.id} matchId={match.id} side="supplier" messages={messages} lastVisibleAt={lastVisibleAt}
           canPost={canPost} locale={locale} copy={copy} sendAction={supplierRfqMessageAction}
           markRead={supplierRfqReadAction.bind(null, match.id)} />
-          : <div className="flex items-start gap-3 rounded-2xl border border-ink-200 bg-ink-50 p-5 text-[13px] leading-6 text-ink-700"><MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden="true" />{item.directToBuyer ? copy.noConsent : copy.waitingSourcing}</div>}
+          : <div className="flex items-start gap-3 rounded-2xl border border-ink-200 bg-ink-50 p-5 text-[13px] leading-6 text-ink-700"><MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden="true" />{copy.noConsent}</div>}
       </div>
       <aside className="space-y-4 lg:sticky lg:top-24">
         <section className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
           <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink-600">{m.rfqs.buyer.title}</h2>
-          {item.buyerContact ? <dl className="mt-3 space-y-3 text-[13px]">
+          {!sourcing && item.buyerContact ? <dl className="mt-3 space-y-3 text-[13px]">
             <div><dt className="text-ink-500">{m.rfqs.buyer.company}</dt><dd className="break-words font-semibold text-ink-900">{item.buyerContact.company}</dd></div>
             <div><dt className="text-ink-500">{m.rfqs.buyer.name}</dt><dd className="break-words font-semibold text-ink-900">{item.buyerContact.contact_name || "—"}</dd></div>
             <div><dt className="text-ink-500">{m.rfqs.buyer.email}</dt><dd className="break-all font-semibold text-ink-900">{item.buyerContact.email}</dd></div>
             <p className="border-t border-ink-100 pt-3 text-[12px] leading-5 text-ink-500">{m.rfqs.buyer.scope}</p>
-          </dl> : <p className="mt-3 text-[13px] leading-6 text-ink-600">{m.rfqs.buyer.unavailable}</p>}
+          </dl> : <p className="mt-3 text-[13px] leading-6 text-ink-600">{sourcing ? (locale === "vi" ? "Vexim điều phối yêu cầu này. Liên hệ người mua không được chia sẻ; hãy trao đổi với Vexim trong cổng." : "Vexim coordinates this request. Buyer contact is not shared; use the Vexim conversation in your portal.") : m.rfqs.buyer.unavailable}</p>}
         </section>
         {item.dueAt && <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] text-ink-700"><Clock3 className="h-4 w-4 shrink-0" aria-hidden="true" />{m.rfqs.tasks.due} {date(item.dueAt)}</p>}
         <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] leading-5 text-ink-600"><ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />{copy.emailFallback}</p>

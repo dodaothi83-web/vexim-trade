@@ -10,11 +10,11 @@ export function canSubmitProfile(supplier: Pick<Supplier, "onboarding_status">):
   return supplier.onboarding_status === "not_started" || supplier.onboarding_status === "changes_requested";
 }
 
-/** Staff-managed legacy suppliers without portal accounts can still receive RFQs by email. */
+/** A valid, approved, active supplier portal is the only RFQ delivery channel.
+ * Supplier email is an optional link-only notice, never a fallback invitation.
+ */
 export async function canInviteSupplier(supplier: Supplier, store: DataStore): Promise<boolean> {
-  if (portalApproved(supplier)) return true;
-  if (supplier.onboarding_status === "pending" || supplier.onboarding_status === "changes_requested") return false;
-  // not_started includes both newly registered accounts and staff-created supplier records.
-  const user = supplier.email ? await store.getUserByEmail(supplier.email) : null;
-  return !(user?.role === "supplier" && user.supplier_id === supplier.id);
+  if (supplier.status !== "published" || !portalApproved(supplier)) return false;
+  const user = await store.getUserBySupplierId(supplier.id);
+  return !!user && user.role === "supplier" && user.supplier_id === supplier.id && user.is_active;
 }

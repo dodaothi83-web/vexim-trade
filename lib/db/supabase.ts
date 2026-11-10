@@ -36,6 +36,9 @@ import type {
   RfqQuoteVersion,
   RfqThreadMessage,
   RfqPortalAlert,
+  RfqMediatedThread,
+  RfqMediatedMessage,
+  RfqMediatedAlert,
   SponsoredPush,
   SponsoredPushDaily,
   SponsoredRequest,
@@ -1925,6 +1928,19 @@ export const supabaseStore: DataStore = {
     if (error) fail("listRfqs", error);
     return (data ?? []) as Rfq[];
   },
+  async listRetryableDirectRfqs() {
+    // A fixed newest-N slice (or PostgREST's default row cap) starves old saved
+    // quotes forever. Keyset page all *new* direct requests, not historical staff
+    // drafts; only the marked portal flow may auto-release or auto-publish.
+    return readAllById<Rfq>("listRetryableDirectRfqs", (after) => {
+      let query = must().from("rfqs").select("*")
+        .contains("specs", { direct_delivery_version: "portal_direct_v2" })
+        .in("status", ["new", "matching", "quoted"]).lt("spam_score", 40)
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+  },
   async getRfq(id) {
     const { data, error } = await must().from("rfqs").select("*").eq("id", id).maybeSingle();
     if (error) fail("getRfq", error);
@@ -2012,13 +2028,13 @@ export const supabaseStore: DataStore = {
     return result.sort((a, b) => Date.parse(b.sent_to_supplier_at) - Date.parse(a.sent_to_supplier_at));
   },
   async listRfqMatches(rfqId) {
-    const { data, error } = await must()
-      .from("rfq_matches")
-      .select("*")
-      .eq("rfq_id", rfqId)
-      .order("created_at", { ascending: true });
-    if (error) fail("listRfqMatches", error);
-    return (data ?? []) as RfqMatch[];
+    const rows = await readAllById<RfqMatch>("listRfqMatches", (after) => {
+      let query = must().from("rfq_matches").select("*").eq("rfq_id", rfqId)
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
   },
   async listRfqMatchesBySupplier(supplierId) {
     const { data, error } = await must()
@@ -2031,22 +2047,20 @@ export const supabaseStore: DataStore = {
     return (data ?? []) as RfqMatch[];
   },
   async listSupplierRfqInvitations(supplierId) {
-    const all: SupplierRfqInvitation[] = [];
-    // Page deliberately: PostgREST defaults to 1,000 rows, which would silently undercount reports.
-    for (let offset = 0; ; offset += 500) {
-      const { data, error } = await must().from("rfq_matches")
+    // The RFQ detail page also uses this projection. A short PostgREST page
+    // must not hide an older invitation (or let a supplier's link open blank).
+    const all = await readAllById<SupplierRfqInvitation>("listSupplierRfqInvitations", (after) => {
+      let query = must().from("rfq_matches")
         .select("id,rfq_id,supplier_id,status,sent_to_supplier_at,response_due_at,supplier_replied_at,quote_price,quote_currency,quote_unit,quote_incoterm,quote_lead_time_days,quote_valid_until,quote_buyer_note,sent_to_buyer_at,buyer_last_read_at,supplier_last_read_at,last_thread_message_at,last_thread_sender,last_buyer_message_at,last_supplier_message_at,created_at,updated_at,rfq:rfqs!inner(" +
           "code,product_text,quantity,unit,frequency,destination_country,incoterm,needed_by,wants_samples,wants_inspection,wants_video_call,source_product_id,source_page,status,preferred_supplier_ids," +
           "grade:specs->>grade,packaging:specs->>packaging,certifications:specs->>certifications,destination_port:specs->>destination_port,shipment_month:specs->>shipment_month,sourcing_request_id:specs->>sourcing_request_id," +
           "buyer_contact:specs->buyer_contact,buyer_contact_policy_version:specs->>buyer_contact_policy_version,buyer_contact_consent_at:specs->>buyer_contact_consent_at,buyer_contact_consent_source:specs->>buyer_contact_consent_source,buyer_contact_supplier_ids:specs->buyer_contact_supplier_ids)")
         .eq("supplier_id", supplierId).not("sent_to_supplier_at", "is", null).neq("status", "proposed")
-        .order("sent_to_supplier_at", { ascending: false }).range(offset, offset + 499);
-      if (error) fail("listSupplierRfqInvitations", error);
-      const batch = (data ?? []) as unknown as SupplierRfqInvitation[];
-      all.push(...batch);
-      if (batch.length < 500) break;
-    }
-    return all;
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return all.sort((a, b) => b.sent_to_supplier_at!.localeCompare(a.sent_to_supplier_at!) || a.id.localeCompare(b.id));
   },
   async listSupplierNoticeReads(supplierId) {
     const all: SupplierNoticeRead[] = [];
@@ -2114,16 +2128,14 @@ export const supabaseStore: DataStore = {
     return readByIds<RfqQuoteVersion>("listRfqQuoteVersions", "rfq_quote_versions", "match_id", matchIds);
   },
   async listRfqThreadMessages(matchId) {
-    const rows: RfqThreadMessage[] = [];
-    for (let offset = 0; ; offset += 500) {
-      const { data, error } = await must().from("rfq_thread_messages")
+    const rows = await readAllById<RfqThreadMessage>("listRfqThreadMessages", (after) => {
+      let query = must().from("rfq_thread_messages")
         .select("id,match_id,sender,body,created_at").eq("match_id", matchId)
-        .order("created_at", { ascending: true }).order("id", { ascending: true }).range(offset, offset + 499);
-      if (error) fail("listRfqThreadMessages", error);
-      rows.push(...(data ?? []) as RfqThreadMessage[]);
-      if ((data ?? []).length < 500) break;
-    }
-    return rows;
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
   },
   async addRfqThreadMessage(input) {
     const { data, error } = await must().from("rfq_thread_messages").insert(input).select("*").single();
@@ -2134,17 +2146,80 @@ export const supabaseStore: DataStore = {
     const { error } = await must().rpc("mark_rfq_thread_read", { p_match_id: matchId, p_side: side, p_at: at });
     if (error) fail("markRfqThreadRead", error);
   },
+  async listRfqMediatedThreads(rfqIds) {
+    return readByIds<RfqMediatedThread>("listRfqMediatedThreads", "rfq_mediated_threads", "rfq_id", rfqIds);
+  },
+  async listRfqMediatedMessages(threadId) {
+    // A PostgREST row cap can truncate a short range response: exhaust the
+    // stable ID keyset before sorting for display, never skip older history.
+    const rows = await readAllById<RfqMediatedMessage>("listRfqMediatedMessages", (after) => {
+      let query = must().from("rfq_mediated_messages")
+        .select("id,thread_id,sender,body,created_at").eq("thread_id", threadId)
+        .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+      if (after) query = query.gt("id", after);
+      return query;
+    });
+    return rows.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  },
+  async postRfqMediatedMessage(input) {
+    const { data, error } = await must().rpc("post_rfq_mediated_message", {
+      p_rfq_id: input.rfqId, p_match_id: input.matchId, p_sender: input.sender,
+      p_email: input.email, p_body: input.body,
+    });
+    if (error) fail("postRfqMediatedMessage", error);
+    return data as RfqMediatedMessage;
+  },
+  async markRfqMediatedRead(threadId, side, at) {
+    const { error } = await must().rpc("mark_rfq_mediated_read", { p_thread_id: threadId, p_side: side, p_at: at });
+    if (error) fail("markRfqMediatedRead", error);
+  },
+  async listDueRfqMediatedAlerts(now, limit, threadIds) {
+    if (threadIds && !threadIds.length) return [];
+    const stale = new Date(Date.parse(now) - 20 * 60_000).toISOString();
+    const pendingQuery = must().from("rfq_mediated_alerts").select("*").in("status", ["pending", "failed"])
+      .lte("not_before", now).order("not_before", { ascending: true }).limit(limit);
+    const stuckQuery = must().from("rfq_mediated_alerts").select("*").eq("status", "sending")
+      .lt("claimed_at", stale).lte("not_before", now).order("not_before", { ascending: true }).limit(limit);
+    const [pending, stuck] = await Promise.all([
+      threadIds ? pendingQuery.in("thread_id", threadIds) : pendingQuery,
+      threadIds ? stuckQuery.in("thread_id", threadIds) : stuckQuery,
+    ]);
+    if (pending.error) fail("listDueRfqMediatedAlerts", pending.error);
+    if (stuck.error) fail("listDueRfqMediatedAlerts.stuck", stuck.error);
+    return [...(pending.data ?? []), ...(stuck.data ?? [])].sort((a, b) =>
+      a.not_before.localeCompare(b.not_before) || a.created_at.localeCompare(b.created_at)).slice(0, limit) as RfqMediatedAlert[];
+  },
+  async claimRfqMediatedAlert(alert, at) {
+    let query = must().from("rfq_mediated_alerts")
+      .update({ status: "sending", claimed_at: at, attempts: alert.attempts + 1 })
+      .eq("id", alert.id).eq("status", alert.status).eq("attempts", alert.attempts).lte("not_before", at);
+    query = alert.claimed_at ? query.eq("claimed_at", alert.claimed_at) : query.is("claimed_at", null);
+    if (alert.status === "sending") query = query.lt("claimed_at", new Date(Date.parse(at) - 20 * 60_000).toISOString());
+    const { data, error } = await query.select("id").maybeSingle();
+    if (error) fail("claimRfqMediatedAlert", error);
+    return !!data;
+  },
+  async finishRfqMediatedAlert(id, claimedAt, patch) {
+    const { data, error } = await must().from("rfq_mediated_alerts").update(patch)
+      .eq("id", id).eq("status", "sending").eq("claimed_at", claimedAt).select("id").maybeSingle();
+    if (error) fail("finishRfqMediatedAlert", error);
+    return !!data;
+  },
   async listRfqMatchUpdates(rfqIds) {
     if (!rfqIds.length) return [];
     type Update = Pick<RfqMatch, "id" | "rfq_id" | "sent_to_supplier_at" | "sent_to_buyer_at" |
       "buyer_last_read_at" | "last_thread_message_at" | "last_thread_sender" | "last_supplier_message_at">;
     const rows: Update[] = [];
-    for (let i = 0; i < rfqIds.length; i += 80) {
-      const { data, error } = await must().from("rfq_matches")
-        .select("id,rfq_id,sent_to_supplier_at,sent_to_buyer_at,buyer_last_read_at,last_thread_message_at,last_thread_sender,last_supplier_message_at")
-        .in("rfq_id", rfqIds.slice(i, i + 80));
-      if (error) fail("listRfqMatchUpdates", error);
-      rows.push(...(data ?? []) as Update[]);
+    const ids = [...new Set(rfqIds)];
+    for (let i = 0; i < ids.length; i += ID_BATCH_SIZE) {
+      const batch = ids.slice(i, i + ID_BATCH_SIZE);
+      rows.push(...await readAllById<Update>("listRfqMatchUpdates", (after) => {
+        let query = must().from("rfq_matches")
+          .select("id,rfq_id,sent_to_supplier_at,sent_to_buyer_at,buyer_last_read_at,last_thread_message_at,last_thread_sender,last_supplier_message_at")
+          .in("rfq_id", batch).order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+        if (after) query = query.gt("id", after);
+        return query;
+      }));
     }
     return rows;
   },

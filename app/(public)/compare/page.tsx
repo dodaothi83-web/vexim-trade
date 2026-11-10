@@ -103,8 +103,7 @@ export default async function ComparePage({ searchParams }: PageProps) {
             </div>
             <div className="mt-6 rounded-lg border border-ink-200 bg-white p-5 text-[13px] text-ink-600">
               <p>
-                Need help choosing? <Link href="/rfq" className="font-semibold text-ink-900 underline underline-offset-2 hover:text-brand-700">Send a sourcing request</Link> and
-                our desk will find suitable suppliers with confirmed quotes within 1 business day.
+                Need help choosing? <Link href="/rfq" className="font-semibold text-ink-900 underline underline-offset-2 hover:text-brand-700">Send a sourcing request</Link>. Vexim will invite suitable suppliers through their portals and show published quotes in your account.
               </p>
             </div>
           </>

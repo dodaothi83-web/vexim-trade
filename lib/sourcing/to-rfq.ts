@@ -37,7 +37,7 @@ export async function startSourcingMatch(input: {
   const contact = request.buyer_contact_consent_at && request.buyer_contact?.email?.toLowerCase() === email
     ? snapshotBuyerContact(request.buyer_contact) : null;
   const consentSpec = contact?.company && contact.email && request.buyer_contact_consent_at
-    ? buyerContactConsentSpec(contact, request.buyer_contact_consent_at, "sourcing_form") : null;
+    ? buyerContactConsentSpec(contact, request.buyer_contact_consent_at, "sourcing_form", true) : null;
   let buyer = await store.getBuyerByEmail(email);
   if (!buyer) {
     const account = await store.getBuyerUserByEmail(email).catch(() => null);

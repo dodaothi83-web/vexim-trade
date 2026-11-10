@@ -46,8 +46,8 @@ export async function POST(request: Request) {
     if (typeof company !== "string" || !company.trim() || company.length > 200 ||
         typeof contactName !== "string" || !contactName.trim() || contactName.length > 160 ||
         (phone !== null && (typeof phone !== "string" || phone.length > 80)) || form.get("share_contact_consent") !== "yes") {
-      return error("Enter your company and name and agree to share contact details with suppliers who receive your RFQ.",
-        "Điền công ty, tên người liên hệ và đồng ý chia sẻ liên hệ với nhà cung cấp thực sự nhận RFQ.");
+      return error("Enter your company and name, then agree to Vexim using your contact for sourcing.",
+        "Điền công ty, tên liên hệ và đồng ý để Vexim điều phối yêu cầu.");
     }
     const files = form.getAll("files").filter((f): f is File => typeof f !== "string" && f.size > 0);
     if (files.length > SOURCING_MAX_FILES || files.some((f) => f.size > SOURCING_MAX_FILE_BYTES)) return error("Attach up to 3 files, 2 MB each.", "Tối đa 3 tệp, mỗi tệp không quá 2 MB.");

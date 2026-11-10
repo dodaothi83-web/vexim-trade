@@ -89,6 +89,7 @@ export function RfqForm({
   wantsSamples,
   contextProduct = null,
 }: Props) {
+  const directForm = initialSupplierIds.length > 0 || !!contextProduct;
   const router = useRouter();
   const params = useSearchParams();
   const [busy, startSubmit] = useTransition();
@@ -163,7 +164,7 @@ export function RfqForm({
     if (!data.contact_name.trim()) e.contact_name = "Enter your name.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) e.email = "Enter a valid work email.";
     if (!data.consent) e.consent = "Please agree to the use of your enquiry data.";
-    if (!data.share_contact_consent) e.share_contact_consent = "Please confirm which contact details suppliers receiving your RFQ will see.";
+    if (!data.share_contact_consent) e.share_contact_consent = "Please confirm how your contact details are used for this RFQ.";
     return e;
   }
 
@@ -244,7 +245,7 @@ export function RfqForm({
       if (res.statusPageUrl) {
         router.push(res.statusPageUrl);
       } else {
-        setHeldMsg("Thanks, we received your request. It needs a quick manual check before it is sent; we will contact you by email.");
+        setHeldMsg("Your sourcing request is saved and under review. Check your account for updates.");
       }
     });
   }
@@ -328,13 +329,13 @@ export function RfqForm({
             )}
 
             <p className="mt-4 border-t border-ink-100 pt-3 text-[12.5px] leading-relaxed text-ink-600">
-              Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.
+              This request goes straight to the selected supplier. Vexim does not review or manage your direct transaction. If it does not work out, send a new general RFQ to Vexim.
             </p>
           </section>
         ) : initialSuppliers.length > 0 ? (
           <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-[13.5px] leading-relaxed text-ink-700">
             You are requesting a quote from <strong className="text-ink-900">{initialSuppliers.map((s) => s.name).join(", ")}</strong>.
-            Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.
+            This request goes straight to the selected supplier(s). Vexim does not review or manage your direct transaction. If it does not work out, send a new general RFQ to Vexim.
           </p>
         ) : (
           <div className="rounded-xl border border-ink-200 bg-ink-50 px-4 py-3 text-[13.5px] leading-relaxed text-ink-700">
@@ -626,7 +627,8 @@ export function RfqForm({
                 </Field>
               </div>
 
-              <Field label="Notes for the desk">
+              <Field label={directForm ? "Private note for Vexim" : "Notes for Vexim"}
+                hint={directForm ? "Not sent to your chosen supplier. Put requirements in the main description." : "Not sent to invited suppliers."}>
                 <textarea rows={3} maxLength={4000} className="input resize-y" value={data.message} onChange={(e) => update("message", e.target.value)} placeholder="Timeline, target port, existing suppliers, anything we should know." />
               </Field>
             </div>
@@ -638,9 +640,8 @@ export function RfqForm({
           {honeypotControl}
           {challengeControl}
           <p className="text-[12.5px] leading-relaxed text-ink-600">
-            When your RFQ is sent, the suppliers who receive it will see the company, contact name, verified email,
-            phone, country, website and business type you provide here (if supplied). No suggested supplier sees this
-            before we send them your RFQ. Internal CRM notes and your private access link are never shared. See our{" "}
+            {directForm ? "Only the supplier(s) you selected receive the contact details you explicitly grant below. You communicate directly in your dashboard; Vexim is not responsible for the transaction."
+              : "Vexim coordinates this sourcing request. Suppliers invited to quote see your requirements, not your contact details. All discussion goes through Vexim."} Internal CRM notes and your private access link are never shared. See our{" "}
             <Link href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and{" "}
             <Link href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">Terms of Service</Link>.
           </p>
@@ -654,7 +655,9 @@ export function RfqForm({
           {errors.consent && <p className="pl-6 text-[12px] text-red-600">{errors.consent}</p>}
           <label className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-700">
             <input id="rfq-share_contact_consent" type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.share_contact_consent} onChange={(e) => update("share_contact_consent", e.target.checked)} />
-            <span>I agree to share the company, contact name, verified email, phone, country, website and business type I provided with suppliers actually sent this RFQ (if supplied). Suppliers only suggested to me will not see them. <span className="text-red-500">*</span></span>
+            <span>{directForm
+              ? "I agree to share the company, contact name, verified email, phone, country, website and business type I provided with only the supplier(s) I selected for this RFQ (if supplied)."
+              : "I agree to Vexim using my contact details to coordinate this sourcing request. Invited suppliers will not see my contact details; all messages go through Vexim."} <span className="text-red-500">*</span></span>
           </label>
           {errors.share_contact_consent && <p className="pl-6 text-[12px] text-red-600">{errors.share_contact_consent}</p>}
           <label className="flex items-start gap-2 text-[12.5px] text-ink-700">
@@ -663,7 +666,7 @@ export function RfqForm({
           </label>
           <p className="flex items-start gap-1.5 rounded-md bg-ink-50 p-3 text-[12px] leading-relaxed text-ink-600">
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-700" />
-            <span>Only suppliers actually sent this RFQ receive your buyer contact details. You sign the contract directly with the supplier you choose. Vexim never holds your payment. Free for buyers.</span>
+            <span>{directForm ? "Direct RFQs are between you and your chosen supplier(s). If none is suitable, create a NEW sourcing RFQ for Vexim." : "Vexim presents supplier quotes together in a separate account area. All sourcing correspondence stays with Vexim."} Email is for notifications only; sign in to view quotes and send messages.</span>
           </p>
           <button type="submit" className="btn btn-primary min-h-12 w-full justify-center text-base font-bold sm:w-auto sm:px-8" disabled={busy || !challengeToken || !!heldMsg}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}

@@ -66,7 +66,7 @@ export function SupplierQuoteForm({ matchId, code, defaults, currencies, incoter
           <p className="mt-2 text-[12.5px] leading-5 text-ink-600">{copy.buyerNoteHint}</p>
         </div>
         <label className={`${label} mt-4`}>{copy.note}
-          <textarea name="note" rows={2} maxLength={1000} defaultValue={v?.note ?? ""} placeholder={copy.notePlaceholder} className={`${field} font-normal`} />
+          <textarea name="note" rows={2} maxLength={1000} defaultValue={v?.note ?? ""} placeholder={direct ? copy.noteDirectPlaceholder : copy.notePlaceholder} className={`${field} font-normal`} />
         </label>
         {state.error && <p role="alert" className="mt-3 text-sm font-semibold text-rose-700">{state.error}</p>}
         <div className="mt-5 flex flex-col gap-3 border-t border-ink-200 pt-4 sm:flex-row sm:items-center sm:justify-between">

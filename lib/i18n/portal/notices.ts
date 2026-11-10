@@ -23,11 +23,11 @@ const en = {
   },
   rfqSent: {
     title: "Quote request {code} was sent to you",
-    detail: "Open the RFQ list to see the reply deadline, then answer the invitation email you received.",
+    detail: "Open this RFQ in your portal to see the deadline and reply or submit your quote there. Email is only a notice.",
   },
   rfqSelected: {
     title: "Quote {code} was selected",
-    detail: "Our team will contact you to agree the next step. Buyer details are not shared here.",
+    detail: "Open your RFQ to discuss next steps with Vexim. Sourcing buyer contact remains private.",
   },
   rfqReply: {
     title: "The buyer replied to RFQ {code}",
@@ -101,11 +101,11 @@ const vi: NoticesMessages = {
   },
   rfqSent: {
     title: "Yêu cầu báo giá {code} đã được chuyển tới",
-    detail: "Mở danh sách RFQ để xem hạn phản hồi; trả lời email mời báo giá đã nhận.",
+    detail: "Mở RFQ trong cổng để xem hạn phản hồi và trao đổi hoặc nộp báo giá tại đó. Email chỉ để thông báo.",
   },
   rfqSelected: {
     title: "Hồ sơ {code} đã được chọn",
-    detail: "Bộ phận phụ trách sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin người mua tại đây.",
+    detail: "Mở RFQ để trao đổi bước tiếp theo với Vexim. Liên hệ người mua trong RFQ tìm nguồn vẫn riêng tư.",
   },
   rfqReply: {
     title: "Người mua đã trả lời RFQ {code}",

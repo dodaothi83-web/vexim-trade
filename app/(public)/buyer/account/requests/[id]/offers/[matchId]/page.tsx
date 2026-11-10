@@ -4,8 +4,9 @@ import { Breadcrumbs } from "@/components/ui";
 import { RfqThread, RfqReadTracker } from "@/components/rfq-thread";
 import { getLocale } from "@/lib/i18n/server";
 import { buyerOfferAccess } from "@/lib/rfq/portal-access";
-import { buyerSupplierThreadMessages, canReadRfqThread, canUseRfqThread, lastPublishedQuote, lastVisibleEventAt } from "@/lib/rfq/portal-core";
+import { buyerSupplierThreadMessages, canReadRfqThread, canUseRfqThread, lastPublishedQuote } from "@/lib/rfq/portal-core";
 import { quotePortalCopy } from "@/lib/rfq/portal-copy";
+import { rfqChannel } from "@/lib/rfq/channel";
 import type { RfqQuoteVersion } from "@/lib/types";
 import { buyerRfqMessageAction, buyerRfqReadAction } from "../actions";
 
@@ -17,11 +18,11 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
   const { store, rfq, match, supplier } = await buyerOfferAccess(id, matchId);
   const locale = await getLocale();
   const copy = quotePortalCopy[locale];
+  const sourcing = rfqChannel(rfq) === "sourcing";
   const versions = await store.listRfqQuoteVersions([match.id]);
   const quote = lastPublishedQuote(versions, match);
   const readable = canReadRfqThread(rfq, match);
   const messages = readable ? buyerSupplierThreadMessages(await store.listRfqThreadMessages(match.id)) : [];
-  const lastVisibleAt = lastVisibleEventAt(quote, messages);
   const markRead = buyerRfqReadAction.bind(null, rfq.id, match.id);
   const supplierName = supplier?.display_name ?? supplier?.trade_name ?? supplier?.name ?? (locale === "vi" ? "Nhà cung cấp" : "Supplier");
   const requestUrl = `/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
@@ -31,12 +32,12 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
   const amount = (offer: RfqQuoteVersion) => `${new Intl.NumberFormat(locale === "vi" ? "vi-VN" : "en-GB", { maximumFractionDigits: 4 }).format(offer.quote_price)} ${offer.quote_currency} / ${offer.quote_unit}`;
   const older = versions.filter((v) => v.match_id === match.id && v.id !== quote?.id).sort((a, b) => b.version - a.version);
   return <div lang={locale} className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
-    <Breadcrumbs items={[{ label: locale === "vi" ? "Yêu cầu của tôi" : "My enquiries", href: "/buyer/account?tab=requests" },
+    <Breadcrumbs items={[{ label: sourcing ? (locale === "vi" ? "Báo giá từ Vexim" : "Quotes from Vexim") : (locale === "vi" ? "Yêu cầu trực tiếp" : "Direct enquiries"), href: sourcing ? "/buyer/account?tab=vexim" : "/buyer/account?tab=requests" },
       { label: rfq.code, href: requestUrl }, { label: supplierName }]} />
     <Link href={requestUrl} className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden="true" />{copy.backToRequest}</Link>
     <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-xs font-bold uppercase tracking-wide text-ink-500">{copy.buyerIntro} · {rfq.code}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-ink-500">{sourcing ? (locale === "vi" ? "Báo giá từ Vexim · Nhà cung cấp" : "Quote from Vexim · Supplier") : copy.buyerIntro} · {rfq.code}</p>
         <h1 className="mt-1 break-words text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">{supplierName}</h1>
         {supplier?.province && <p className="mt-1 text-sm text-ink-600">{supplier.province}</p>}
       </div>
@@ -58,6 +59,7 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
               <div><dt className="text-ink-500">{copy.validUntil}</dt><dd className="mt-1 font-semibold text-ink-900">{quote.quote_valid_until ? date(quote.quote_valid_until) : "—"}</dd></div>
             </dl>
             {quote.buyer_note && <div className="mt-5 rounded-xl border border-brand-100 bg-brand-50/60 p-4"><h3 className="text-[13px] font-bold text-brand-900">{copy.terms}</h3><p className="mt-1 whitespace-pre-wrap break-words text-[13.5px] leading-6 text-ink-800">{quote.buyer_note}</p></div>}
+            <RfqReadTracker at={quote.published_at} markRead={markRead} />
             {!!older.length && <details className="group mt-5 rounded-xl border border-ink-200 px-4 py-3">
               <summary className="cursor-pointer text-[13px] font-semibold text-brand-700">{copy.pastVersions} ({older.length})</summary>
               <ol className="mt-3 space-y-3 border-t border-ink-100 pt-3">{older.map((old) => <li key={old.id} className="rounded-lg bg-ink-50 p-3 text-[13px]">
@@ -67,11 +69,15 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
               </li>)}</ol>
             </details>}
             <p className="mt-4 flex items-start gap-2 text-[12px] leading-5 text-ink-500"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{copy.quoteProtected}</p>
-          </div> : <div className="px-5 py-6 sm:px-6"><p className="text-sm text-ink-700">{copy.noQuote}</p><p className="mt-2 text-[13px] leading-6 text-ink-600">{copy.pendingDirect}</p></div>}
+          </div> : <div className="px-5 py-6 sm:px-6"><p className="text-sm text-ink-700">{copy.noQuote}</p><p className="mt-2 text-[13px] leading-6 text-ink-600">{sourcing ? copy.sourcingOfferUnavailable : copy.pendingDirect}</p></div>}
         </section>
-        {readable ? <RfqThread rfqId={rfq.id} matchId={match.id} side="buyer" messages={messages} lastVisibleAt={lastVisibleAt}
-          canPost={canUseRfqThread(rfq, match)} locale={locale} copy={copy} sendAction={buyerRfqMessageAction} markRead={markRead} />
-          : <><RfqReadTracker at={lastVisibleAt} markRead={markRead} /><p className="rounded-xl border border-ink-200 bg-ink-50 p-4 text-[13px] text-ink-700">{copy.noConsent}</p></>}
+        {sourcing && <Link href={`${requestUrl}#vexim-conversation`} className="block rounded-xl border border-brand-200 bg-brand-50 p-4 text-[13px] font-semibold leading-6 text-brand-900 hover:border-brand-400">
+          {locale === "vi" ? "Trao đổi về tất cả báo giá trong nhóm này với Vexim. Nhà cung cấp không thấy tin nhắn bạn gửi Vexim." : "Discuss all quotes in this group with Vexim. Suppliers cannot read messages you send to Vexim."} <ArrowRight className="inline h-4 w-4" aria-hidden="true" />
+        </Link>}
+        {readable && (!sourcing || messages.length > 0) ? <div>{sourcing && <p className="mb-3 text-[13px] font-semibold text-ink-600">{locale === "vi" ? "Lịch sử trao đổi trực tiếp trước đây (chỉ đọc)" : "Previous direct conversation (read-only archive)"}</p>}
+          <RfqThread rfqId={rfq.id} matchId={match.id} side="buyer" messages={messages} lastVisibleAt={messages.at(-1)?.created_at ?? null}
+            canPost={canUseRfqThread(rfq, match)} sourcingArchive={sourcing} locale={locale} copy={copy} sendAction={buyerRfqMessageAction} markRead={markRead} /></div>
+          : null}
       </div>
       <aside className="space-y-4 lg:sticky lg:top-24">
         <section className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">

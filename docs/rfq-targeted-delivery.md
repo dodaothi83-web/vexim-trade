@@ -1,4 +1,10 @@
-# Product-addressed RFQs: delivery and notifications
+# Product-addressed RFQs: delivery and notifications (historical)
+
+> **Historical implementation note; do not follow its email fallback, CRM retry,
+> single-supplier or Reply-To instructions for new RFQs.** The current direct
+> flow supports multiple selected suppliers through their approved portals;
+> Vexim does not dispatch or manage direct transactions. See the
+> [current RFQ runbook](./rfq-van-hanh.md).
 
 ## Bugs fixed
 

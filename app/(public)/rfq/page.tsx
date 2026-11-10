@@ -10,6 +10,7 @@ import { categoryFilterValues } from "@/lib/category-filters";
 import { listPublicSuppliers } from "@/lib/public/catalog";
 import { supplierShortName } from "@/lib/public/supplier-name";
 import { loadRfqProductContext } from "@/lib/public/rfq-product-context";
+import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import type { Category } from "@/lib/types";
 
 export const metadata = {
@@ -62,6 +63,12 @@ export default async function RfqPage({
     productId: sp?.product_id ?? null,
   }).catch(() => null);
 
+  const unavailableDirect = supplierIds.length > 0 && (initialSuppliers.length !== new Set(supplierIds).size ||
+    (await Promise.all(supplierIds.map(async (id) => {
+      const supplier = await store.getSupplier(id);
+      return !!supplier && canInviteSupplier(supplier, store);
+    }))).some((ok) => !ok));
+
   // Old question links now open the product modal, never a separate question page.
   if (sp?.intent === "question") {
     if (contextProduct && sp.category && sp.product_id) {
@@ -85,7 +92,10 @@ export default async function RfqPage({
         Tell us what you need: grade, volume, destination and timeline.
       </p>
 
-      <RfqForm buyerEmail={session.email}
+      {unavailableDirect ? <div role="alert" className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950">
+        A selected supplier does not currently have an active RFQ portal. No request has been sent.
+        <Link href="/rfq" className="ml-2 font-semibold underline">Start a new general sourcing RFQ with Vexim</Link>.
+      </div> : <RfqForm buyerEmail={session.email}
         categories={categories.map((c: Category) => ({ slug: c.slug, name: c.name_i18n?.en ?? c.slug }))}
         categorySpecs={Object.fromEntries(categories.map((c: Category) => {
           const standardGrades = standardGradesForCategory(c);
@@ -106,11 +116,11 @@ export default async function RfqPage({
         wantsSamples={sp?.sample === "1"}
         mode="quote"
         contextProduct={contextProduct}
-      />
+      />}
 
       <p className="mt-6 text-[12.5px] leading-relaxed text-ink-500">
 
-          By submitting, you acknowledge our <Link href="/privacy-policy" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and agree to our <Link href="/terms-of-service" className="font-semibold text-brand-700 underline">Terms of Service</Link>. Only suppliers actually sent this RFQ receive the buyer contact details you provided. Your internal account and CRM information are not shared.
+          By submitting, you acknowledge our <Link href="/privacy-policy" className="font-semibold text-brand-700 underline">Privacy Policy</Link> and agree to our <Link href="/terms-of-service" className="font-semibold text-brand-700 underline">Terms of Service</Link>. For a direct RFQ, only selected suppliers receive the contact details you approve. For a general sourcing RFQ, Vexim coordinates the quotes and does not share your contact details with invited suppliers. Messages and quotes are submitted in the account, not by email.
 
       </p>
     </div>

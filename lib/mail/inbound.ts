@@ -5,7 +5,7 @@ import { bareAddress, findUserByAddress, isOwnMailAddress } from "@/lib/email/se
 import { getStore } from "@/lib/db";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { transport, threadId } from "@/lib/email/send";
-import { parseRfqRoute, parseSourcingRoute, sourcingThreadId } from "@/lib/rfq/reply-routing";
+import { parseRfqRoute, parseSourcingRoute } from "@/lib/rfq/reply-routing";
 import type { EmailMessage } from "@/lib/types";
 
 /**
@@ -40,7 +40,7 @@ export interface InboundFull {
 
 export interface InboundOutcome {
   saved: boolean;
-  reason?: "duplicate" | "self" | "error";
+  reason?: "duplicate" | "self" | "error" | "rfq_disabled";
   messageId?: string | null;
   threadId?: string | null;
   notified?: number;
@@ -129,6 +129,13 @@ export async function processInboundEvent(
   // phụ trách: lấy người nhận suy ra chủ nhân mạch thư để báo đúng một người.
   const allUsers = await store.listUsers().catch(() => []);
   const recipientAddresses = [...(full?.to ?? meta.to ?? []), ...(full?.cc ?? meta.cc ?? [])];
+  // Legacy Reply-To aliases were used by old RFQ/sourcing mail. Do not attach,
+  // notify, change a match, or accept a quote via email even when the sender is
+  // the right buyer/supplier. Existing saved history remains untouched.
+  if (parseRfqRoute([...(full?.to ?? []), ...(meta.to ?? []), ...(full?.cc ?? []), ...(meta.cc ?? [])]) ||
+      parseSourcingRoute([...(full?.to ?? []), ...(meta.to ?? []), ...(full?.cc ?? []), ...(meta.cc ?? [])])) {
+    return { saved: false, reason: "rfq_disabled" };
+  }
   const recipientOwner =
     recipientAddresses
       .map((addr) => findUserByAddress(allUsers, addr))
@@ -145,72 +152,10 @@ export async function processInboundEvent(
     ? (suppliers.find((s) => s.email && sameEmail(s.email, from)) ?? null)
     : null;
 
-  // Reply-To routing: validate RFQ/match relationship AND sender before attaching
-  // a reply. A guessed buyer+CODE or an unrelated supplier must never appear in
-  // another customer's timeline. Legacy rfq+CODE still resolves by supplier email.
-  let direction: "buyer" | "supplier" = supplier ? "supplier" : "buyer";
-  let rfqId: string | null = null;
-  let rfqMatchId: string | null = null;
-  let rfqContextThreadId: string | null = null;
-  const route = parseRfqRoute([
-    ...(full?.to ?? []), ...(meta.to ?? []), ...(full?.cc ?? []), ...(meta.cc ?? []),
-  ]);
-  if (route) {
-    const rfq = await store.getRfqByCode(route.rfqCode);
-    if (rfq && route.kind === "supplier") {
-      let match = null;
-      if (route.matchId) {
-        const candidate = await store.getRfqMatch(route.matchId);
-        if (candidate?.rfq_id === rfq.id) {
-          const owner = suppliers.find((s) => s.id === candidate.supplier_id);
-          // Manual compose can override To: recognize that address from the
-          // outbound message instead of requiring the supplier's primary email.
-          const outbound = await store.listMessagesForRfq(rfq.id);
-          const sentToFrom = outbound.some((msg) => msg.rfq_match_id === candidate.id &&
-            msg.direction === "supplier" && msg.kind !== "inbound" &&
-            msg.to_emails.some((addr) => sameEmail(addr, from)));
-          if ((owner?.email && sameEmail(owner.email, from)) || sentToFrom) {
-            match = candidate;
-            supplier = owner ?? supplier;
-          }
-        }
-      } else if (supplier) {
-        const supplierId = supplier.id;
-        const matches = await store.listRfqMatches(rfq.id);
-        match = matches.find((m) => m.supplier_id === supplierId) ?? null;
-      }
-      if (match) {
-        rfqId = rfq.id;
-        rfqMatchId = match.id;
-        direction = "supplier";
-        rfqContextThreadId = `rfq-${rfq.id}-match-${match.id}`;
-      }
-    } else if (rfq && route.kind === "buyer") {
-      const owner = buyers.find((b) => b.id === rfq.buyer_id);
-      const allowedEmails = [owner?.email ?? "", ...(owner?.cc_emails?.split(",") ?? [])];
-      if (owner && allowedEmails.some((addr) => sameEmail(addr, from))) {
-        buyer = owner;
-        rfqId = rfq.id;
-        direction = "buyer";
-        rfqContextThreadId = `rfq-${rfq.id}-buyer`;
-      }
-    }
-  }
-  // Trả lời về một yêu cầu tìm nguồn: chỉ gắn khi người gửi đúng là người mua của yêu cầu đó,
-  // để một địa chỉ đoán bừa không chen được vào hồ sơ của người khác.
-  if (!rfqContextThreadId) {
-    const sourcingId = parseSourcingRoute([
-      ...(full?.to ?? []), ...(meta.to ?? []), ...(full?.cc ?? []), ...(meta.cc ?? []),
-    ]);
-    const request = sourcingId && typeof store.getSourcingRequest === "function"
-      ? await store.getSourcingRequest(sourcingId).catch(() => null) : null;
-    if (request && sameEmail(request.buyer_email, from)) {
-      direction = "buyer";
-      supplier = null;
-      rfqContextThreadId = sourcingThreadId(request.id);
-    }
-  }
-  const tid = rfqContextThreadId ?? threadId(direction, from);
+  // All other mail continues through the non-RFQ mailbox as before. There is
+  // no path from an inbound email to an RFQ message, quote or read/status marker.
+  const direction: "buyer" | "supplier" = supplier ? "supplier" : "buyer";
+  const tid = threadId(direction, from);
 
   let html = full?.html ?? "";
   let text = full?.text ?? "";
@@ -239,8 +184,8 @@ export async function processInboundEvent(
     .addMessage({
       buyer_id: buyer?.id ?? null,
       supplier_id: supplier?.id ?? null,
-      rfq_id: rfqId,
-      rfq_match_id: rfqMatchId,
+      rfq_id: null,
+      rfq_match_id: null,
       ...(prospect ? { prospect_id: prospect.id } : {}),
       kind: "inbound",
       stage: null,
@@ -272,15 +217,6 @@ export async function processInboundEvent(
     });
 
   if (!saved) return { saved: false, reason: "error" };
-  // Count only a verified, routed reply to an invitation actually sent by Vexim.
-  // Never infer a price/approval from the email body; staff records the quote separately.
-  if (rfqMatchId && supplier) {
-    const match = await store.getRfqMatch(rfqMatchId).catch(() => null);
-    if (match?.supplier_id === supplier.id && match.sent_to_supplier_at && !match.supplier_replied_at) {
-      await store.updateRfqMatch(match.id, { supplier_replied_at: saved.sent_at || new Date().toISOString() })
-        .catch((error) => console.error("[inbound] RFQ supplier reply status:", error));
-    }
-  }
   if (prospect) {
     if (["new", "researched", "ready", "contacted"].includes(prospect.status)) {
       await store.updateProspect(prospect.id, { status: "replied" }).catch(() => null);
