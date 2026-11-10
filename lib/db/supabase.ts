@@ -10,6 +10,7 @@ import type {
   AuditLogEntry,
   Buyer,
   BuyerInput,
+  BuyerRfqOutreach,
   BuyerSavedList,
   BuyerSignInToken,
   BuyerUser,
@@ -1965,6 +1966,40 @@ export const supabaseStore: DataStore = {
   },
 
   // --- RFQ matches ---
+  async listBuyerRfqOutreach(buyerIds) {
+    const ids = [...new Set(buyerIds)];
+    if (!ids.length) return [];
+    const result: BuyerRfqOutreach[] = [];
+    // Scope on the RFQ's buyer ID, not email/company. Only select fields safe for CRM;
+    // listRfqs() would also fetch private access_token and unrelated buyers' RFQs.
+    for (let i = 0; i < ids.length; i += ID_BATCH_SIZE) {
+      const batchIds = ids.slice(i, i + ID_BATCH_SIZE);
+      type OutreachRow = Pick<RfqMatch, "id" | "rfq_id" | "supplier_id" | "status" | "sent_to_supplier_at"> & {
+        rfq: Pick<Rfq, "buyer_id" | "code">;
+        supplier: Pick<Supplier, "name">;
+      };
+      // Keyset paging handles PostgREST caps below READ_PAGE_SIZE without silently missing matches.
+      const rows = await readAllById<OutreachRow>("listBuyerRfqOutreach", (after) => {
+        let query = must().from("rfq_matches")
+          .select("id,rfq_id,supplier_id,status,sent_to_supplier_at,rfq:rfqs!inner(buyer_id,code),supplier:suppliers!inner(name)")
+          .in("rfq.buyer_id", batchIds)
+          .not("sent_to_supplier_at", "is", null).neq("status", "proposed")
+          .order("id", { ascending: true }).limit(READ_PAGE_SIZE);
+        if (after) query = query.gt("id", after);
+        return query;
+      });
+      result.push(...rows.map((row) => ({
+        buyer_id: row.rfq.buyer_id,
+        rfq_id: row.rfq_id,
+        rfq_code: row.rfq.code,
+        supplier_id: row.supplier_id,
+        supplier_name: row.supplier.name,
+        status: row.status,
+        sent_to_supplier_at: row.sent_to_supplier_at!,
+      })));
+    }
+    return result.sort((a, b) => Date.parse(b.sent_to_supplier_at) - Date.parse(a.sent_to_supplier_at));
+  },
   async listRfqMatches(rfqId) {
     const { data, error } = await must()
       .from("rfq_matches")
