@@ -12,9 +12,9 @@ export function BuyerSourcingHistory({ rows, vi, unavailable, preview, linkedRfq
 }) {
   return <section className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm sm:p-6">
     <h2 className="font-bold">{vi ? "Yêu cầu tìm nguồn" : "Sourcing requests"}</h2>
-    <p className="mt-2 text-sm text-ink-600">{vi
+    {!preview && <p className="mt-2 text-sm text-ink-600">{vi
       ? "Yêu cầu ban đầu và tệp riêng tư ở đây. Khi Vexim mở RFQ, báo giá và trao đổi ở trang RFQ liên kết."
-      : "Your original request and private files are here. Once Vexim opens an RFQ, quotes and messages appear in its linked page."}</p>
+      : "Your original request and private files are here. Once Vexim opens an RFQ, quotes and messages appear in its linked page."}</p>}
     {unavailable ? <p className="mt-4 text-sm text-amber-800">{vi ? "Chưa tải được lịch sử tìm nguồn. Vui lòng thử lại sau." : "Sourcing history is temporarily unavailable. Please try again later."}</p>
       : !rows.length ? <p className="mt-4 text-sm text-ink-500">{vi ? "Bạn chưa gửi yêu cầu tìm nguồn." : "No sourcing requests yet."}</p>
         : <ul className="mt-4 divide-y divide-ink-100">{(preview ? rows.slice(0, 5) : rows).map((r) => {
