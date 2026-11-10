@@ -4,6 +4,7 @@ import { productComparisonWarnings } from "@/lib/public/product-comparison";
 import { verificationLabel } from "@/lib/verification-status";
 import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 import { publicProductLocationDisplay } from "@/lib/public/product-detail-display";
+import { publicSupplierWebsite } from "@/lib/public/supplier-website";
 
 /** A4 landscape, 15mm content margins. Text stays searchable, with embedded Unicode fonts. */
 export const COMPARISON_PDF_MARGIN = 15 * 72 / 25.4;
@@ -41,6 +42,15 @@ export function comparisonPdfDefinition(products: PublicComparedProduct[], origi
   row("ODM", (p) => p.odm ? "Yes" : "Not provided");
   row("Samples", (p) => p.samples ? "Yes" : "Not provided");
   section("Supplier");
+  body.push([{ text: "Company website", bold: true }, ...products.map((p): TableCell => {
+    const website = publicSupplierWebsite(p.supplierWebsite);
+    if (!website) return { text: "Not provided" };
+    // The PDF cell is narrow; keep the domain's suffix visible and the full
+    // validated destination clickable rather than overflowing the A4 page.
+    const domain = website.domain.length > 32
+      ? `${website.domain.slice(0, 19)}…${website.domain.slice(-12)}` : website.domain;
+    return { text: domain, link: website.href, color: "#203D70", decoration: "underline" };
+  })]);
   row("Location", (p) => publicProductLocationDisplay(p.province));
   row("Raw material region", (p) => value(p.rawMaterialRegion));
   row("Input material origin", (p) => value(p.inputMaterialOrigin));

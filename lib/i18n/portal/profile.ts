@@ -48,7 +48,7 @@ const en = {
       groups: {
         company: "Company",
         trade: "Commercial",
-        contact: "Contact (not public)",
+        contact: "Contact (email and phone private)",
       },
       fields: {
         name: "Legal name",
@@ -78,7 +78,7 @@ const en = {
       },
       leadTimeValue: "{days} days",
       footnote:
-        "The display name, introduction and commercial details come from you. Email, phone and internal documents stay private.",
+        "Your website appears on your supplier page, product pages and comparisons once the profile is public. Email, phone and internal documents stay private.",
     },
     about: {
       title: "Introduction on the public page",
@@ -126,7 +126,7 @@ const en = {
     },
     typeHint: "If the supplier type is wrong, contact us to check and update it. Older L3 results keep the scope they were reviewed under.",
     contactTitle: "Contact and display details",
-    contactIntro: "Update contact details, the introduction and commercial content. After saving, AI translates the buyer-facing part into English.",
+    contactIntro: "Update contact details, the introduction and commercial content. Your website appears publicly once the profile is published; email and phone stay private. After saving, AI translates the buyer-facing text into English.",
     labels: {
       tradeName: "Trade name",
       displayName: "Display name on the page",
@@ -229,7 +229,7 @@ const vi: ProfileMessages = {
       groups: {
         company: "Doanh nghiệp",
         trade: "Thương mại",
-        contact: "Liên hệ (không hiển thị công khai)",
+        contact: "Liên hệ (email, điện thoại không công khai)",
       },
       fields: {
         name: "Tên pháp nhân",
@@ -259,7 +259,7 @@ const vi: ProfileMessages = {
       },
       leadTimeValue: "{days} ngày",
       footnote:
-        "Tên hiển thị, giới thiệu và thông tin thương mại do bạn cung cấp. Email, điện thoại và giấy tờ nội bộ được giữ kín.",
+        "Website hiện trên hồ sơ, trang sản phẩm và bảng so sánh khi công khai. Email, điện thoại và giấy tờ nội bộ giữ kín.",
     },
     about: {
       title: "Giới thiệu trên trang công khai",
@@ -307,7 +307,7 @@ const vi: ProfileMessages = {
     },
     typeHint: "Nếu khai sai loại hình, liên hệ Vexim để kiểm tra và cập nhật. Kết quả L3 cũ vẫn giữ phạm vi đã xét.",
     contactTitle: "Thông tin liên hệ và hiển thị",
-    contactIntro: "Cập nhật thông tin liên hệ, giới thiệu và nội dung thương mại. Sau khi lưu, AI dịch phần cho người mua sang tiếng Anh.",
+    contactIntro: "Website sẽ công khai khi hồ sơ được đăng; email và điện thoại vẫn riêng tư. AI dịch nội dung sau khi lưu.",
     labels: {
       tradeName: "Tên thương mại",
       displayName: "Tên hiển thị trên trang",

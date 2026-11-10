@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import { CopyComparisonLink, RemoveComparedProduct } from "@/components/product-comparison-actions";
 import { VerificationTierBadge } from "@/components/verification-tier";
+import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
 import { productComparisonWarnings, type ProductComparisonSelection } from "@/lib/public/product-comparison";
 import type { PublicComparedProduct } from "@/lib/public/product-comparison-data";
 import { verificationLabel } from "@/lib/verification-status";
@@ -154,6 +155,8 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
             <Row label="Samples" products={products}>{(product) => <Availability available={product.samples} />}</Row>
 
             <Section label="Supplier" count={products.length} />
+            <Row label="Company website" products={products}>{(product) => product.supplierWebsite
+              ? <SupplierWebsiteLink website={product.supplierWebsite} compact /> : <Missing />}</Row>
             <Row label="Location" products={products}>{(product) => publicProductLocationDisplay(product.province)}</Row>
             <Row label="Raw material region" products={products}>{(product) => <Value value={product.rawMaterialRegion} />}</Row>
             <Row label="Input material origin" products={products}>{(product) => <Value value={product.inputMaterialOrigin} />}</Row>

@@ -15,15 +15,17 @@ function load(path, mocks = {}) {
 }
 const comparison = load('lib/public/product-comparison.ts');
 const verification = load('lib/verification-status.ts');
+const website = load('lib/public/supplier-website.ts');
 const { comparisonPdfDefinition, COMPARISON_PDF_MARGIN: margin } = load('lib/public/product-comparison-pdf.ts', {
   '@/lib/public/product-comparison': comparison, '@/lib/verification-status': verification, '@/lib/types': { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] },
   '@/lib/public/product-detail-display': { publicProductLocationDisplay: (region) => region === 'Not specified' ? region : `${region}, Vietnam` },
+  '@/lib/public/supplier-website': website,
 });
 const pdfMake = require('pdfmake/build/pdfmake');
 pdfMake.addVirtualFileSystem(require('pdfmake/build/vfs_fonts'));
 const base = {
   id: 'one', name: 'Hạt điều Việt Nam', href: '/products/cashew/one', categorySlug: 'cashew', categoryName: 'Cashew kernels',
-  supplierName: 'Công ty Đại Việt', grade: 'W320', specifications: [{ key: 'size', label: 'Size', value: 'Whole kernels' }],
+  supplierName: 'Công ty Đại Việt', supplierWebsite: 'www.daiviet.vn', grade: 'W320', specifications: [{ key: 'size', label: 'Size', value: 'Whole kernels' }],
   price: '$1,500/MT', priceCurrency: 'USD', priceUnit: 'MT', priceValidUntil: '2026-12-01', moq: '1 MT', packaging: 'Vacuum bags',
   leadTimeDays: 15, incoterm: 'FOB', incotermPlace: 'Ho Chi Minh City', exportPort: 'Cat Lai', monthlyCapacity: '50 MT',
   paymentTerms: 'Confirm with supplier', oem: true, odm: false, samples: true, province: 'Hanoi', rawMaterialRegion: 'Binh Phuoc', inputMaterialOrigin: 'Vietnam',
@@ -34,6 +36,9 @@ async function check(products, stress = false) {
   assert.equal(definition.pageSize, 'A4');
   assert.equal(definition.pageOrientation, 'landscape');
   assert.ok(definition.pageMargins.every((m) => Math.abs(m - 42.52) < 0.01));
+  const websiteRow = definition.content.find((entry) => entry.table)?.table.body.find((row) => row[0]?.text === 'Company website');
+  assert.equal(websiteRow?.[1]?.link, 'https://www.daiviet.vn/', 'PDF keeps the validated supplier website clickable');
+  if (products[1].supplierWebsite == null) assert.equal(websiteRow?.[2]?.text, 'Not provided');
   const buffer = await pdfMake.createPdf(definition).getBuffer();
   assert.ok(buffer.subarray(0, 5).toString().startsWith('%PDF-'));
   const task = getDocument({ data: new Uint8Array(buffer), useSystemFonts: false });
@@ -62,6 +67,7 @@ async function check(products, stress = false) {
   }
   assert.ok(text.includes('Hạt điều Việt Nam'), 'Embedded font preserves Vietnamese');
   assert.ok(text.includes('Công ty Đại Việt'));
+  assert.ok(text.includes('Company website') && text.includes('daiviet.vn'), 'PDF mirrors the supplier website in the table');
   assert.ok(text.includes('Payment terms'));
   assert.ok(text.includes('They do not certify these products or a specific lot.'));
   if (stress) {
@@ -73,7 +79,7 @@ async function check(products, stress = false) {
   if (process.env.COMPARISON_PDF_SAMPLE && stress) writeFileSync(process.env.COMPARISON_PDF_SAMPLE, buffer);
   await task.destroy();
 }
-await check([base, { ...base, id: 'two', href: '/products/cashew/two' }]);
+await check([base, { ...base, id: 'two', href: '/products/cashew/two', supplierWebsite: null }]);
 await check([base, { ...base, id: 'two', price: null, categorySlug: 'coffee' }, { ...base, id: 'three', priceUnit: 'kg' }]);
 const longSpecifications = Array.from({ length: 35 }, (_, i) => ({ key: `spec-${i}`, label: `Specification ${i}`, value: i === 34 ? 'LAST-SPEC-ROW' : Array(12).fill('Long specification text').join(' ') }));
 longSpecifications.unshift({ key: 'oversized', label: 'Oversized cell', value: Array(500).fill('Long cell content').join(' ') + ' END-LONG-CELL' });

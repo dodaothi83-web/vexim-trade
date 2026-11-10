@@ -17,6 +17,7 @@ import {
 } from "@/lib/public/product-detail-display";
 import { publicProductExportPortDisplay } from "@/lib/public/product-export-port";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { publicSupplierWebsite } from "@/lib/public/supplier-website";
 import type { VerificationLevel } from "@/lib/types";
 
 export interface PublicComparedProduct {
@@ -48,6 +49,8 @@ export interface PublicComparedProduct {
   samples: boolean;
   supplierName: string;
   supplierHref: string;
+  /** Explicitly public, validated self-declared URL; never an email or phone. */
+  supplierWebsite: string | null;
   province: string;
   verificationSteps: VerificationLevel[];
   l2Scope?: PublicL2Scope;
@@ -60,7 +63,7 @@ const safe = (value: string | null | undefined): string | null => {
   return cleaned || null;
 };
 
-/** Buyer-safe comparison data only. Private contacts, evidence and unauthorized prices never enter this projection. */
+/** Buyer-safe comparison data: only the supplier's public website, never private contact fields, evidence or unauthorized prices. */
 export async function getPublicProductsForComparison(ids: readonly string[]): Promise<PublicComparedProduct[]> {
   if (!ids.length) return [];
   const records = await getPublicProductRecordsByIds(ids);
@@ -126,6 +129,7 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       samples: Boolean(product.samples),
       supplierName: card.supplierName,
       supplierHref: `/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`,
+      supplierWebsite: publicSupplierWebsite(supplier.website)?.href ?? null,
       province: card.province,
       verificationSteps: card.verificationSteps,
       l2Scope: card.l2Scope,

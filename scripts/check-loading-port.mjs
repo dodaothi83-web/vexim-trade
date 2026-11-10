@@ -8,6 +8,8 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import * as display from '../lib/public/product-detail-display.ts';
+import * as priceDisplay from '../lib/products/price-display.ts';
+import { publicSupplierWebsite } from '../lib/public/supplier-website.ts';
 import { loadProductDescription } from './product-description-test-utils.mjs';
 
 const require = createRequire(import.meta.url);
@@ -42,6 +44,7 @@ const portDisplay = compile('../lib/public/product-export-port.ts', {
 const { publicProductExportPortDisplay } = portDisplay;
 const selection = compile('../lib/public/product-selection.ts', {
   '@/lib/public/category-assignment': { assignProductCategory: () => null },
+  '../products/price-display.ts': priceDisplay,
 });
 
 const base = {
@@ -98,13 +101,15 @@ const category = { id: 'category-1', slug: 'cashew', name_i18n: { en: 'Cashew' }
 const card = {
   id: base.id, name: 'Product', supplierId: base.supplier_id, supplierName: 'Supplier', supplierSlug: 'supplier',
   supplierProfileImage: null, supplierFoundedYear: null, province: 'Vietnam', verificationSteps: [], isDemo: false,
-  grade: null, attributes: {}, moq: '5000 kg', price: null, pricePoint: null, leadTimeDays: 20, incoterm: 'FOB',
+  grade: null, gradeRows: [], attributes: {}, moq: '5000 kg', price: null, pricePoint: null, leadTimeDays: 20, incoterm: 'FOB',
   rawMaterialRegion: '', inputMaterialOrigin: '', imagePaths: [], cardImagePath: null,
 };
 let currentProduct = base;
+let currentSupplier = { id: base.supplier_id, status: 'published', website: 'https://www.example-supplier.vn/about', email: 'private@example.com' };
 const store = {
   getCategoryBySlug: async () => category,
   getProduct: async () => currentProduct,
+  getSupplier: async () => currentSupplier,
   listCategories: async () => [category],
   listMedia: async () => [],
   listCertificates: async () => [],
@@ -112,6 +117,11 @@ const store = {
 const Null = () => null;
 const Wrapper = ({ children }) => React.createElement('div', null, children);
 const Link = ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children);
+const { SupplierWebsiteLink } = compile('../components/public/supplier-website-link.tsx', {
+  'react/jsx-runtime': require('react/jsx-runtime'),
+  'lucide-react': require('lucide-react'),
+  '@/lib/public/supplier-website': { publicSupplierWebsite },
+});
 const common = {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'server-only': {},
@@ -121,6 +131,9 @@ const common = {
 };
 const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx', {
   ...common,
+  'react': React,
+  '@/components/brand/vexim-icons': { VeximTradeIcon: Null },
+  '@/components/products/ask-supplier-dialog': { AskSupplierDialog: Null },
   'next/link': { default: Link },
   'next/navigation': { notFound: () => { throw new Error('unexpected notFound'); } },
   'lucide-react': require('lucide-react'),
@@ -141,7 +154,15 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   '@/components/public-product-card': { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard: Null },
   '@/components/public/product-description': { ProductDescription: Null },
   '@/components/public/quantity-price-table': { QuantityPriceTable: Null },
+  '@/components/public/supplier-website-link': { SupplierWebsiteLink },
+  '@/components/public/similar-offers-rail': { SimilarOffersRail: Wrapper },
   '@/lib/public/product-selection': { productBelongsToCategory: () => true, withoutDirectContacts: selection.withoutDirectContacts },
+  '@/lib/public/product-category-redirect': { movedProductDestination: () => null },
+  '@/lib/public/product-extras-display': { packagingSummaryEnglish: () => '', samplePriceEnglish: () => '' },
+  '@/lib/public/product-certificates': { productCertificatesFor: async () => [] },
+  '@/lib/public/similar-offers': { similarOffers: () => [] },
+  '@/lib/public/ranking': { categoryTieWindow: () => 0 },
+  '@/lib/chat/service': { supplierChatAvailable: async () => false },
   '@/lib/traffic/server': { createTrafficToken: () => 'token' },
   '@/components/supplier-traffic-beacon': { SupplierTrafficBeacon: Null },
   '@/lib/site': { SITE_URL: 'https://example.com' },
@@ -155,6 +176,7 @@ const comparison = compile('../lib/public/product-comparison-data.ts', {
   '@/lib/public/product-catalog': { getPublicProductRecordsByIds: async () => [{ card, product: currentProduct, supplier: { id: base.supplier_id }, category }] },
   '@/lib/public/product-comparison': { productDetailHref: () => '/products/cashew/product-1' },
   '@/lib/public/product-selection': { withoutDirectContacts: selection.withoutDirectContacts },
+  '@/lib/public/supplier-website': { publicSupplierWebsite },
 });
 
 async function checkSurfaces(product, expected) {
@@ -173,4 +195,16 @@ await checkSurfaces(unknown, 'Cảng Chưa Biết');
 await checkSurfaces({ ...base, export_port: 'Nam Đình Vũ, supplier@example.com' }, 'Nam Dinh Vu, [contact via Vexim]');
 await checkSurfaces(withTranslation(base, 'Nam Dinh Vu, supplier@example.com'), 'Nam Dinh Vu, [contact via Vexim]');
 
-console.log('✅ Loading port: current translations, stale/blank fallback, supplier profile, detail SSR and comparison projection.');
+const pageParams = { params: Promise.resolve({ slug: 'cashew', productId: base.id }) };
+let pageHtml = renderToStaticMarkup(await detailPage.default(pageParams));
+assert.match(pageHtml, /href="https:\/\/www\.example-supplier\.vn\/about"/, 'Product supplier card links to the website');
+assert.match(pageHtml, /Company website: example-supplier\.vn \(opens in a new tab\)/);
+assert.doesNotMatch(pageHtml, /private@example\.com/);
+currentSupplier = { ...currentSupplier, website: 'javascript:alert(1)' };
+pageHtml = renderToStaticMarkup(await detailPage.default(pageParams));
+assert.doesNotMatch(pageHtml, /Company website:|javascript:alert/, 'Invalid links are not displayed on product details');
+currentSupplier = { ...currentSupplier, status: 'draft', website: 'https://hidden.example.vn/' };
+pageHtml = renderToStaticMarkup(await detailPage.default(pageParams));
+assert.doesNotMatch(pageHtml, /hidden\.example\.vn/, 'A supplier that is no longer public gets no external link');
+
+console.log('✅ Loading port and product supplier website: safe, current supplier data on the detail card.');

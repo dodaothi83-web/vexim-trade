@@ -1,6 +1,8 @@
 // node --experimental-strip-types --no-warnings scripts/check-supplier-certificate-upload.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
 
 import {
   legacyCertificateFileCovered,
@@ -99,4 +101,119 @@ for (const [name, text] of [['documents', page], ['dashboard', dashboard],
 assert.ok(!visibleLines(notify).some((line) => /cổng nhà cung cấp/.test(line)),
   'Email nhắc hạn không còn "giấy tờ L1" trong câu gửi nhà cung cấp');
 
-console.log('✅ Chứng nhận trên hồ sơ: ẩn tệp cũ đã có bản ghi, ô tải luôn mở, giấy của nhà máy khác cần hợp đồng và nhân viên xem trước khi đăng.');
+/* 8. Kiểm thử route POST với mock ràng buộc CSDL: tệp thuộc NCC không mang ID đợt kiểm.
+ * Supabase media_owner_ck yêu cầu verification_id = null với owner_type = supplier;
+ * media_checklist_key_ck cũng chỉ nhận key cho tệp thuộc đợt kiểm/hồ sơ tự gửi.
+ * ID/key của L1 vẫn được ghi vào bản ghi chứng nhận qua ingestCertificateScan.
+ */
+const supplier = { id: 'supplier-1', slug: 'supplier-1', onboarding_status: 'approved' };
+const l1Review = { id: '11111111-1111-1111-1111-111111111111', target_level: 1, status: 'approved' };
+let currentReview = l1Review;
+let rejectMedia = false;
+let rejectScan = false;
+const mediaWrites = [];
+const scanInputs = [];
+const deletedPaths = [];
+const deletedMedia = [];
+const store = {
+  listCertificates: async () => [],
+  getSupplier: async () => supplier,
+  createMedia: async (input) => {
+    mediaWrites.push(input);
+    if (input.owner_type === 'supplier' && (input.verification_id !== null || input.product_id !== null)) {
+      throw new Error('createMedia: violates check constraint "media_owner_ck"');
+    }
+    if (input.checklist_key !== null) throw new Error('createMedia: violates check constraint "media_checklist_key_ck"');
+    if (rejectMedia) throw new Error('createMedia: connection lost');
+    return { ...input, id: `media-${mediaWrites.length}` };
+  },
+  deleteMedia: async (id) => { deletedMedia.push(id); },
+};
+const routeMocks = {
+  'next/server': { NextResponse: { json: (body, { status = 200 } = {}) => Response.json(body, { status }) } },
+  'next/cache': { revalidatePath: () => {} },
+  'node:crypto': { randomUUID: () => '22222222-2222-2222-2222-222222222222' },
+  '@/lib/supplier-portal/access': { supplierPortalAccess: async () => ({
+    supplier, review: currentReview, user: { id: 'user-1', email: 'supplier@example.com' }, store,
+  }) },
+  '@/lib/supplier-portal/onboarding': { portalApproved: (value) => value.onboarding_status === 'approved' },
+  '@/lib/media/validate': { validateUpload: () => ({ ok: true, mime: 'application/pdf' }), extensionFor: () => 'pdf' },
+  '@/lib/media/storage': { putObject: async () => {}, deleteObject: async (path) => { deletedPaths.push(path); } },
+  '@/lib/certificate-service': {
+    isL1CertificateKey: (key) => key === 'haccp_or_brc',
+    defaultCertificateLabelForKey: () => 'Giấy chứng nhận',
+    PARTNER_CONTRACT_CAPTION: 'Hợp đồng với nhà máy',
+    ingestCertificateScan: async (input) => {
+      scanInputs.push(input);
+      if (rejectScan) throw new Error('scan store unavailable');
+      return { certificate: { id: 'cert-1', name: 'HACCP', review_status: 'pending', publicly_visible: false } };
+    },
+  },
+  '@/lib/crm/badges': { refreshCrmBadges: () => {} },
+};
+const routeCode = ts.transpileModule(route, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const routeModule = { exports: {} };
+vm.runInThisContext(`(function(exports, require, module) { ${routeCode}\n })`)(routeModule.exports, (id) => {
+  assert.ok(id in routeMocks, `Unexpected upload route import ${id}`);
+  return routeMocks[id];
+}, routeModule);
+const { POST } = routeModule.exports;
+function uploadRequest(checklistKey) {
+  const form = new FormData();
+  form.set('file', new File(['%PDF-test'], 'haccp.pdf', { type: 'application/pdf' }));
+  if (checklistKey) form.set('checklist_key', checklistKey);
+  return new Request('https://example.test/api/supplier-portal/certificates', { method: 'POST', body: form });
+}
+
+let response = await POST(uploadRequest('haccp_or_brc'));
+assert.equal(response.status, 200, 'An approved supplier with an L1 review can upload a quality certificate');
+assert.equal(mediaWrites[0].owner_type, 'supplier');
+assert.equal(mediaWrites[0].supplier_id, supplier.id);
+assert.equal(mediaWrites[0].audience, 'internal', 'Uploaded certificates remain private until approved');
+assert.equal(mediaWrites[0].kind, 'certificate');
+assert.equal(mediaWrites[0].verification_id, null, 'Supplier media must not be owned by the L1 review');
+assert.equal(mediaWrites[0].checklist_key, null, 'A supplier-owned certificate file has no audit checklist key');
+assert.equal(scanInputs[0].verificationId, l1Review.id, 'The certificate record keeps its L1 provenance');
+assert.equal(scanInputs[0].checklistKey, 'haccp_or_brc', 'Legacy checklist metadata stays on the certificate');
+assert.equal(scanInputs[0].source, 'l1-supplier');
+assert.equal(deletedPaths.length, 0);
+
+currentReview = null;
+response = await POST(uploadRequest());
+assert.equal(response.status, 200, 'An approved supplier without a review can also upload');
+assert.equal(mediaWrites[1].verification_id, null);
+assert.equal(scanInputs[1].verificationId, null);
+
+rejectMedia = true;
+const originalConsoleError = console.error;
+try {
+  console.error = () => {}; // This branch deliberately simulates a database outage.
+  response = await POST(uploadRequest());
+} finally {
+  console.error = originalConsoleError;
+}
+assert.equal(response.status, 503);
+const uploadErrorMessage = (await response.json()).message;
+assert.match(uploadErrorMessage, /hệ thống.*chứng nhận|chứng nhận.*hệ thống/i);
+assert.match(uploadErrorMessage, /chưa được ghi nhận/);
+assert.doesNotMatch(uploadErrorMessage, /media_owner_ck|createMedia|không khớp tên|L2/i);
+assert.equal(deletedPaths.length, 1, 'Failed media insert cleans up the uploaded object');
+assert.equal(deletedMedia.length, 0);
+
+rejectMedia = false;
+rejectScan = true;
+try {
+  console.error = () => {};
+  response = await POST(uploadRequest());
+} finally {
+  console.error = originalConsoleError;
+}
+assert.equal(response.status, 503);
+assert.match((await response.json()).message, /kiểm tra.*danh sách/i,
+  'After the media insert, do not promise the certificate was never recorded');
+assert.deepEqual(deletedMedia, ['media-4']);
+assert.equal(deletedPaths.length, 2);
+
+console.log('✅ Chứng nhận trên hồ sơ: tệp supplier hợp lệ với media_owner_ck, giữ liên kết L1 trên chứng nhận, lỗi hệ thống rõ ràng; giấy của nhà máy khác cần hợp đồng và nhân viên xem trước khi đăng.');

@@ -8,6 +8,8 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import React from 'react';
 import { supplierShortName, supplierNameCase } from '../lib/public/supplier-name.ts';
+import { publicSupplierWebsite } from '../lib/public/supplier-website.ts';
+import { profileMessages } from '../lib/i18n/portal/profile.ts';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -210,6 +212,30 @@ assert.ok(!shared.includes('chưa hiện với buyer') && !/hidden from buyer/i.
 assert.doesNotMatch(shared, /supplier\.email|supplier\.phone|supplier\.zalo|tax_number|public_review_summaries\[1\]/,
   'Khung buyer không lộ email, điện thoại hay giấy tờ nội bộ');
 
+// Suppliers see which field is public; email and phone retain their private status.
+assert.match(profileMessages.vi.view.info.groups.contact, /Liên hệ \(email, điện thoại không công khai\)/);
+assert.match(profileMessages.vi.view.info.footnote, /Website.*hồ sơ.*trang sản phẩm.*bảng so sánh/);
+assert.match(profileMessages.en.edit.contactIntro, /website.*publicly.*email and phone stay private/i);
+
+// The same validated external link is used on the supplier, product and comparison pages.
+const { SupplierWebsiteLink } = load('components/public/supplier-website-link.tsx', {
+  'react/jsx-runtime': jsxRuntime,
+  'lucide-react': icons,
+  '@/lib/public/supplier-website': { publicSupplierWebsite },
+});
+const linkHtml = renderToStaticMarkup(React.createElement(SupplierWebsiteLink, { website: 'www.vilaconic.vn/catalog?lang=en' }));
+assert.match(linkHtml, /href="https:\/\/www\.vilaconic\.vn\/catalog\?lang=en"/);
+assert.match(linkHtml, /Company website: vilaconic\.vn \(opens in a new tab\)/);
+assert.match(linkHtml, /target="_blank" rel="noopener noreferrer nofollow"/);
+assert.match(linkHtml, />vilaconic\.vn<\/span>/);
+for (const invalid of [null, '', 'javascript:alert(1)', 'data:text/html,test', 'https://user:pass@evil.com',
+  '//evil.com', 'http://127.0.0.1', 'http://localhost', 'http://example.local', 'https://example.com:8080',
+  'https://example.com/path with spaces']) {
+  assert.equal(publicSupplierWebsite(invalid), null, `Reject unsafe or unusable website: ${invalid}`);
+  assert.equal(renderToStaticMarkup(React.createElement(SupplierWebsiteLink, { website: invalid })), '');
+}
+assert.deepEqual(publicSupplierWebsite('  example.vn  '), { href: 'https://example.vn/', domain: 'example.vn' });
+
 // Render the actual shared profile, not just its preview-page stub.
 const englishFields = new Proxy({}, { get: (_, key) => key === 'supplierExportMarketsDisplay' || key === 'supplierPortsDisplay' || key === 'supplierIncotermsDisplay'
   ? () => [] : key === 'supplierLegalNameDisplay' ? () => 'LEGAL NAME UNCHANGED' : () => '' });
@@ -220,6 +246,7 @@ const { SupplierStorefront } = load('components/public/supplier-storefront.tsx',
   'lucide-react': icons,
   '@/components/public-product-card': { PublicProductCard: () => null },
   '@/components/public/supplier-product-rail': { SupplierProductRail },
+  '@/components/public/supplier-website-link': { SupplierWebsiteLink },
   '@/components/verification-tier': { VERIFICATION_LEVEL_ICONS: { 1: icons.FileCheck2, 2: icons.Factory, 3: icons.Truck } },
   '@/lib/public/supplier-name': { supplierShortName },
   '@/lib/public/catalog': { supplierTypeLabel: () => 'Manufacturer' },
@@ -241,6 +268,18 @@ assert.equal((oneCheck.match(/No completed check shown/g) ?? []).length, 2);
 assert.doesNotMatch(oneCheck, /Level 1|1\/3|Not approved|bg-gradient/);
 assert.ok(oneCheck.indexOf('id="products"') < oneCheck.indexOf('id="about"'));
 assert.match(oneCheck, /LEGAL NAME UNCHANGED/);
+const withWebsite = profile([1], { website: 'vilaconic.vn' });
+assert.match(withWebsite, /href="https:\/\/vilaconic\.vn\/"/);
+assert.match(withWebsite, /Website.*vilaconic\.vn/, 'Supplier header links to the declared site');
+assert.ok(withWebsite.indexOf('vilaconic.vn') < withWebsite.indexOf('Published supplier checks'),
+  'Website sits alongside company identity, before verification');
+assert.doesNotMatch(profile([1], { website: 'javascript:alert(1)' }), /href="javascript:|Company website:/,
+  'Bad supplier links are omitted instead of rendered');
+const syntheticHtml = renderToStaticMarkup(React.createElement(SupplierStorefront, {
+  supplier: { ...card, website: 'https://testing.example.com/', gallery_images: [], main_products: [] },
+  categories: [], certificates: [], synthetic: true, coverUrl: null, avatarUrl: null,
+}));
+assert.doesNotMatch(syntheticHtml, /testing\.example\.com/, 'Test supplier profiles cannot advertise external sites');
 assert.equal((profile([]).match(/No completed check shown/g) ?? []).length, 3);
 assert.doesNotMatch(profile([1, 2, 3]), /No completed check shown/);
 const partner = profile([2], { approved_l2_scope: 'partner_contract', partner_review_summary: 'Reviewed partner contract only.' });
