@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronDown, Mail, TrendingUp } from "lucide-react";
+import { ChevronDown, ImageIcon, Mail, TrendingUp } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -14,8 +14,44 @@ import { EmptyRow, date } from "../portal-ui";
 import { SupplierRfqReply } from "@/components/supplier-rfq-reply";
 import { QUOTE_CURRENCIES, QUOTE_INCOTERMS } from "@/lib/supplier-portal/quote";
 import { SupplierQuoteForm } from "./quote-form";
+import { privateMediaUrl, supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
+import type { MediaAsset } from "@/lib/types";
 import type { RfqBuyerContact } from "@/lib/rfq/buyer-contact";
 import type { RfqsMessages } from "@/lib/i18n/portal/rfqs";
+
+/** Current catalog context, only for a source product belonging to this invited supplier. */
+function ProductCard({ item, imageSrc, copy }: {
+  item: PortalInvite; imageSrc: string | null; copy: RfqsMessages["product"];
+}) {
+  if (!item.productId || !item.linkedProduct) return null;
+  const facts: Array<[string, string | null]> = [
+    [copy.spec, item.linkedProduct.spec], [copy.packaging, item.linkedProduct.packaging],
+    [copy.moq, item.linkedProduct.moq],
+  ];
+  return <section aria-label={copy.title} className="mb-4 rounded-xl border border-ink-200 bg-ink-50/70 p-4">
+    <p className="text-[13px] font-bold text-ink-700">{copy.title}</p>
+    <div className="mt-3 flex min-w-0 items-start gap-3 sm:gap-4">
+      <div className="flex size-[76px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-ink-200 bg-white sm:size-24">
+        {imageSrc ? <>
+          {/* Private media is served with the supplier's session; it must not be optimized without its auth cookie. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={imageSrc} alt="" loading="lazy" className="size-full object-cover" />
+        </> : <ImageIcon className="size-6 text-ink-400" aria-hidden="true" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="break-words text-[15px] font-bold leading-snug text-ink-900">{item.title}</h3>
+        {facts.some(([, value]) => !!value) && <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[13px] leading-5">
+          {facts.filter(([, value]) => !!value).map(([label, value]) => <div key={label} className="min-w-0 break-words">
+            <dt className="inline text-ink-600">{label}: </dt><dd className="inline font-semibold text-ink-800">{value}</dd>
+          </div>)}
+        </dl>}
+        <Link href={`/supplier/portal/products/${encodeURIComponent(item.productId)}`}
+          className="mt-2 inline-block text-[13px] font-semibold text-brand-700 hover:underline">{copy.view}</Link>
+      </div>
+    </div>
+    <p className="mt-3 border-t border-ink-200 pt-2 text-[12.5px] leading-5 text-ink-600">{copy.note}</p>
+  </section>;
+}
 
 /** The request fields come from an allowlisted, sanitized projection, not full RFQ specs. */
 function RequestDetails({ item, copy }: { item: PortalInvite; copy: RfqsMessages["request"] }) {
@@ -31,7 +67,8 @@ function RequestDetails({ item, copy }: { item: PortalInvite; copy: RfqsMessages
     item.request.wantsVideoCall && copy.video,
   ].filter(Boolean);
   return <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-4 sm:p-5">
-    <h4 className="text-sm font-bold text-brand-900">{copy.title}</h4>
+    <h3 className="text-sm font-bold text-brand-900">{copy.title}</h3>
+    {!item.linkedProduct && <p className="mt-2 text-[13px] leading-5 text-ink-600">{copy.noLinkedProduct}</p>}
     <p className="mt-2 whitespace-pre-wrap break-words text-[15px] font-medium leading-7 text-ink-900">{item.request.description}</p>
     <dl className="mt-4 grid gap-x-6 gap-y-3 border-t border-brand-100 pt-4 sm:grid-cols-2">
       {facts.filter(([, value]) => !!value).map(([label, value]) => <div key={label} className="min-w-0">
@@ -129,6 +166,23 @@ export default async function SupplierRfqPage({ searchParams }: {
   const pendingIds = new Set(board.tasks.map((task) => task.matchId));
   const history = board.invites.filter((item) => !pendingIds.has(item.matchId));
   const shownHistory = showAll ? history : history.slice(0, 30);
+  // Fetch photos for visible, verified source products only. Never infer a product from RFQ text.
+  const productIds = [...new Set([...board.tasks, ...shownHistory]
+    .map((item) => item.productId).filter((id): id is string => !!id))];
+  const media = productIds.length ? await optional(copy.degraded.labelMedia, [] as MediaAsset[],
+    () => store.listMediaForProducts(productIds)) : [];
+  const productMap = new Map(products.filter((p) => p.supplier_id === supplier.id).map((p) => [p.id, p]));
+  const images = supplierVisibleProductMedia(media, supplier.id, access.user.id)
+    .filter((asset) => asset.product_id && productMap.has(asset.product_id) && productIds.includes(asset.product_id) &&
+      asset.kind === "image" && asset.audience === "buyer");
+  const imageByProduct = new Map<string, string>();
+  for (const productId of productIds) {
+    const candidates = images.filter((asset) => asset.product_id === productId);
+    const featured = candidates.find((asset) => asset.id === productMap.get(productId)?.featured_media_id && privateMediaUrl(asset));
+    const selected = featured ?? candidates.find((asset) => privateMediaUrl(asset));
+    const url = selected && privateMediaUrl(selected);
+    if (url) imageByProduct.set(productId, url);
+  }
 
   return <div className="mx-auto max-w-5xl">
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
@@ -157,14 +211,12 @@ export default async function SupplierRfqPage({ searchParams }: {
           return <li key={task.matchId} className="px-4 py-5 sm:px-6 sm:py-6">
             <article>
               <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="font-mono text-[13px] font-semibold text-ink-600">{task.code}</p>
-                  {task.productId && <h3 className="mt-1 break-words text-base font-bold text-ink-900">{task.title}</h3>}
-                </div>
+                <p className="font-mono text-[13px] font-semibold text-ink-600">{task.code}</p>
                 <p className={`rounded-lg px-3 py-1.5 text-[13px] font-semibold ${overdue ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-900"}`}>
                   {overdue ? copy.tasks.overdue : copy.tasks.due}{task.dueAt ? date(task.dueAt, intl) : copy.tasks.dueFallback}
                 </p>
               </div>
+              <ProductCard item={task} imageSrc={task.productId ? imageByProduct.get(task.productId) ?? null : null} copy={copy.product} />
               <RequestDetails item={task} copy={copy.request} />
               <BuyerContactDetails contact={task.buyerContact} copy={copy.buyer} />
               <div className="mt-5">
@@ -198,6 +250,7 @@ export default async function SupplierRfqPage({ searchParams }: {
             <ChevronDown className="h-4 w-4 text-ink-500 transition group-open:rotate-180" aria-hidden="true" />
           </summary>
           <div className="border-t border-ink-100 px-4 py-5 sm:px-6">
+            <ProductCard item={item} imageSrc={item.productId ? imageByProduct.get(item.productId) ?? null : null} copy={copy.product} />
             <RequestDetails item={item} copy={copy.request} />
             <BuyerContactDetails contact={item.buyerContact} copy={copy.buyer} />
             {item.quotePrice && <p className="mt-3 text-sm font-semibold text-ink-800">{fill(copy.invites.quoteRecorded, { value: item.quotePrice })}</p>}

@@ -1,5 +1,5 @@
-// node scripts/check-supplier-rfq-page.mjs — a first-time supplier sees the buyer's actual request,
-// one clear way to quote, and an optional Vexim email route without any unauthorized contacts.
+// node scripts/check-supplier-rfq-page.mjs — a supplier sees the verified linked product (or a truthful
+// fallback), the buyer's actual request, one clear quote path, and no unauthorized contact/media.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -29,6 +29,7 @@ function loadTs(source, mocks = {}, extras = {}, jsxMode = false) {
 const dictionary = loadPortalDictionary();
 const contact = loadTs(read('lib/rfq/buyer-contact.ts'));
 const channel = loadTs(read('lib/rfq/channel.ts'));
+const displayName = loadTs(read('lib/public/display-name.ts'));
 const scrub = (value) => String(value)
   .replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, '[contact via Vexim]')
   .replace(/(?:https?:\/\/|www\.)[^\s<>]+/gi, '[contact via Vexim]')
@@ -36,6 +37,7 @@ const scrub = (value) => String(value)
 const boardModule = loadTs(read('lib/supplier-portal/dashboard.ts'), {
   '@/lib/rfq/buyer-contact': contact,
   '@/lib/rfq/channel': channel,
+  '@/lib/public/display-name': displayName,
   '@/lib/public/product-selection': { withoutDirectContacts: scrub },
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { vi: dictionary.vi.notices, en: dictionary.en.notices } },
@@ -102,23 +104,53 @@ assert.match(select, /\.eq\("supplier_id", supplierId\)\.not\("sent_to_supplier_
 assert.doesNotMatch(select, /(?:\bspecs\b\s*[,)]|\bnotes\b|\baccess_token\b|\bbuyer_id\b|\btarget_price\b)/,
   'No full specs, internal notes, buyer row or private budget may reach the supplier');
 
-const products = [{ id: 'p1', supplier_id: supplierId, name: 'Mixed dried fruit chips' }];
+const products = [
+  { id: 'p1', supplier_id: supplierId, name: 'Mixed dried fruit chips',
+    display_name: 'Wholesale mixed dried fruit chips', spec: 'Fruit chips. Contact private@secret.io',
+    packaging: '10 kg cartons', moq: '1 MT', featured_media_id: 'photo-featured',
+    internal_note: 'PRIVATE-PRODUCT-NOTE' },
+  { id: 'p-foreign', supplier_id: 'foreign', name: 'PRIVATE-FOREIGN-PRODUCT' },
+];
+const media = [
+  { id: 'photo-first', owner_type: 'product', product_id: 'p1', supplier_id: supplierId,
+    kind: 'image', audience: 'buyer', storage_path: 'supplier/supplier-1/p1/first.jpg' },
+  { id: 'photo-featured', owner_type: 'product', product_id: 'p1', supplier_id: supplierId,
+    kind: 'image', audience: 'buyer', storage_path: 'supplier/supplier-1/p1/featured.webp' },
+  { id: 'photo-internal', owner_type: 'product', product_id: 'p1', supplier_id: supplierId,
+    kind: 'image', audience: 'internal', created_by: 'staff', storage_path: 'PRIVATE-INTERNAL-PHOTO.jpg' },
+  { id: 'photo-foreign', owner_type: 'product', product_id: 'p1', supplier_id: 'foreign',
+    kind: 'image', audience: 'buyer', storage_path: 'PRIVATE-FOREIGN-PHOTO.jpg' },
+  { id: 'photo-other-owner', owner_type: 'supplier', product_id: 'p1', supplier_id: supplierId,
+    kind: 'image', audience: 'buyer', storage_path: 'PRIVATE-OTHER-PHOTO.jpg' },
+];
+const productView = loadTs(read('lib/supplier-portal/product-view.ts'));
 const input = { supplierId, invites: rows, products, days: 30, language: 'vi' };
 const board = boardModule.buildSupplierRfqBoard(input);
 assert.equal(board.tasks.length, 1);
 assert.equal(board.invites.length, 2);
+assert.equal(board.tasks[0].title, 'Wholesale mixed dried fruit chips', 'Product card uses the buyer-facing catalog title');
+assert.equal(board.tasks[0].linkedProduct.moq, '1 MT');
+assert.equal(board.tasks[0].linkedProduct.packaging, '10 kg cartons');
+assert.match(board.tasks[0].linkedProduct.spec, /Fruit chips\. Contact \[liên hệ qua Vexim\]/);
+assert.equal(board.invites[1].linkedProduct, null, 'Unlinked RFQ has no guessed catalog card');
+assert.equal(boardModule.buildSupplierRfqBoard({ ...input, invites: [
+  { ...rows[0], rfq: { ...rows[0].rfq, source_product_id: 'p-foreign' } },
+] }).invites[0].linkedProduct, null, 'Foreign source product cannot appear in this supplier portal');
 assert.match(board.tasks[0].request.description, /Mixed dried fruit chips, vacuum packed/);
 assert.doesNotMatch(board.tasks[0].request.description, /buyer@private.io/);
 assert.equal(board.tasks[0].buyerContact, null, 'Old RFQ does not gain contact consent from a stored object alone');
 assert.equal(board.invites[1].buyerContact.email, 'allowed@example.com');
-assert.doesNotMatch(JSON.stringify(board), /PRIVATE-TOKEN|PRIVATE-INTERNAL-NOTE|PRIVATE-BUYER-ID|buyer@private\.io/);
+assert.doesNotMatch(JSON.stringify(board), /PRIVATE-TOKEN|PRIVATE-INTERNAL-NOTE|PRIVATE-BUYER-ID|buyer@private\.io|private@secret\.io|PRIVATE-PRODUCT-NOTE|PRIVATE-FOREIGN-PRODUCT/);
 
 // Render the real server page with a safe mocked quote component. No duplicate invitation,
 // no three competing email buttons beside the quote, and report/history stay accessible.
 const Link = ({ href, children, ...rest }) => React.createElement('a', { href, ...rest }, children);
 const MockQuote = ({ matchId, editing, copy }) => React.createElement('div', { 'data-quote-for': matchId, 'data-editing': editing }, editing ? copy.revise : copy.open);
+const mediaCalls = [];
 let access = { supplier: { id: supplierId, email: 'supplier@example.com', onboarding_status: 'approved' },
-  store: { listSupplierRfqInvitations: async () => rows, listProductsBySupplier: async () => products } };
+  user: { id: 'supplier-user' },
+  store: { listSupplierRfqInvitations: async () => rows, listProductsBySupplier: async () => products,
+    listMediaForProducts: async (ids) => { mediaCalls.push([...ids]); return media; } } };
 let locale = 'vi';
 const page = loadTs(read('app/supplier/portal/rfqs/page.tsx'), {
   'react/jsx-runtime': jsx,
@@ -130,6 +162,7 @@ const page = loadTs(read('app/supplier/portal/rfqs/page.tsx'), {
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access },
   '@/lib/supplier-portal/onboarding': { portalApproved: (supplier) => supplier.onboarding_status === 'approved' },
   '@/lib/supplier-portal/dashboard': boardModule,
+  '@/lib/supplier-portal/product-view': productView,
   '@/lib/rfq/reply-routing': { supplierReplyAddress: (code, matchId) => `rfq+${code}-${matchId}@veximtrade.com` },
   '@/lib/db/migration-hints': { migrationHint: () => null },
   '@/lib/i18n/server': { getPortalMessages: async () => ({ locale, intl: locale === 'vi' ? 'vi-VN' : 'en-US', m: dictionary[locale] }) },
@@ -151,6 +184,21 @@ assert.equal(pending.querySelectorAll('article').length, 1);
 assert.equal(history.querySelectorAll('li').length, 1, 'Pending RFQ must not be duplicated in history');
 assert.equal(pending.querySelectorAll(`[data-quote-for="${id}"]`).length, 1);
 assert.equal(history.querySelectorAll(`[data-quote-for="${id}"]`).length, 0);
+assert.equal(mediaCalls.length, 1);
+assert.equal(mediaCalls[0].join(','), 'p1', 'Only scoped, visible source products have media loaded');
+const card = pending.querySelector('section[aria-label="Sản phẩm gắn với yêu cầu"]');
+assert.ok(card, 'Linked RFQ has a product card above the buyer request');
+assert.match(card.textContent, /Wholesale mixed dried fruit chips/);
+assert.match(card.textContent, /Fruit chips/);
+assert.match(card.textContent, /10 kg cartons/);
+assert.match(card.textContent, /1 MT/);
+assert.equal(card.querySelector('a[href="/supplier/portal/products/p1"]')?.textContent, 'Xem sản phẩm của tôi');
+assert.equal(card.querySelector('img')?.getAttribute('src'), '/api/media/file/supplier/supplier-1/p1/featured.webp');
+assert.equal(card.nextElementSibling.querySelector('h3')?.textContent, 'Người mua cần',
+  'Product context precedes the buyer-specific requirements');
+assert.doesNotMatch(pending.innerHTML, /PRIVATE-INTERNAL-PHOTO|PRIVATE-FOREIGN-PHOTO|PRIVATE-OTHER-PHOTO/);
+assert.equal(history.querySelector('section[aria-label="Sản phẩm gắn với yêu cầu"]'), null);
+assert.match(history.textContent, /Chưa gắn với sản phẩm nào trong gian hàng/);
 assert.match(pending.textContent, /Mixed dried fruit chips, vacuum packed/);
 assert.match(pending.textContent, /Chennai|Mixed grades|HACCP|01\/2027/);
 assert.match(pending.textContent, /Nhập báo giá/);
@@ -164,9 +212,54 @@ assert.match(history.textContent, /allowed@example\.com/, 'Consented historical 
 assert.equal(doc.querySelector('#rfq-report')?.open, false, 'Analytics does not distract from the main action');
 assert.equal(doc.querySelector('#rfq-report')?.querySelectorAll('a[href*="report=1"]').length, 3);
 
+// If the featured file is internal, fall back to the first buyer-shareable image instead.
+products[0].featured_media_id = 'photo-internal';
+const fallbackPhoto = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
+assert.equal(fallbackPhoto.querySelector('#rfq-pending')?.closest('section')?.querySelector('img')?.getAttribute('src'),
+  '/api/media/file/supplier/supplier-1/p1/first.jpg');
+products[0].featured_media_id = 'photo-featured';
+
+// A previously answered RFQ retains its verified product context in the collapsed history row.
+rows[1].rfq.source_product_id = 'p1';
+const linkedHistory = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
+const historicalCard = linkedHistory.querySelector('#rfq-history')?.closest('section')
+  ?.querySelector('section[aria-label="Sản phẩm gắn với yêu cầu"]');
+assert.match(historicalCard?.textContent, /Wholesale mixed dried fruit chips/);
+assert.equal(historicalCard?.querySelector('img')?.getAttribute('src'), '/api/media/file/supplier/supplier-1/p1/featured.webp');
+rows[1].rfq.source_product_id = null;
+
+const mediaLoader = access.store.listMediaForProducts;
+access.store.listMediaForProducts = async () => { throw Error('Photos unavailable'); };
+const noPhoto = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
+assert.match(noPhoto.body.textContent, /ảnh sản phẩm/);
+assert.ok(noPhoto.querySelector('#rfq-pending')?.closest('section')?.querySelector('section[aria-label="Sản phẩm gắn với yêu cầu"]'));
+assert.equal(noPhoto.querySelector('#rfq-pending')?.closest('section')?.querySelector('img'), null,
+  'A media read failure leaves the product name and quote intact, with a safe placeholder');
+assert.match(noPhoto.body.textContent, /Nhập báo giá/);
+access.store.listMediaForProducts = mediaLoader;
+
+const productLoader = access.store.listProductsBySupplier;
+const callsBeforeMissing = mediaCalls.length;
+access.store.listProductsBySupplier = async () => [products[1]];
+const missingProduct = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
+assert.equal(missingProduct.querySelector('section[aria-label="Sản phẩm gắn với yêu cầu"]'), null);
+assert.match(missingProduct.body.textContent, /Chưa gắn với sản phẩm nào trong gian hàng/);
+assert.match(missingProduct.body.textContent, /Mixed dried fruit chips, vacuum packed/);
+assert.doesNotMatch(missingProduct.body.textContent, /PRIVATE-FOREIGN-PRODUCT/);
+assert.equal(mediaCalls.length, callsBeforeMissing, 'Missing/foreign product does not trigger a media read');
+access.store.listProductsBySupplier = async () => { throw Error('Products unavailable'); };
+const noProducts = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
+assert.match(noProducts.body.textContent, /Một phần dữ liệu RFQ chưa tải được/);
+assert.match(noProducts.body.textContent, /Mixed dried fruit chips, vacuum packed/);
+assert.match(noProducts.body.textContent, /Nhập báo giá/);
+assert.equal(noProducts.querySelector('section[aria-label="Sản phẩm gắn với yêu cầu"]'), null);
+access.store.listProductsBySupplier = productLoader;
+
 locale = 'en';
 const english = view(await page.default({ searchParams: Promise.resolve({ report: '1', range: '7' }) })).window.document;
 assert.match(english.querySelector('#rfq-pending')?.closest('section')?.textContent, /What the buyer needs|Enter a quote/);
+assert.match(english.querySelector('section[aria-label="Product linked to this request"]')?.textContent,
+  /These are your current catalog details/);
 assert.equal(english.querySelector('#rfq-report')?.open, true, 'Report range link preserves the expanded report');
 assert.doesNotMatch(english.body.textContent, /buyer@private\.io/);
 
@@ -225,6 +318,8 @@ assert.match(document.querySelector('a[href^="https://mail.google.com/"]')?.href
 assert.match(document.querySelector('a[href^="mailto:"]')?.href, /rfq\+test-match@veximtrade\.com/);
 await act(async () => replyRoot.unmount());
 
+const callsBeforeLogout = mediaCalls.length;
 access = null;
 await assert.rejects(page.default({ searchParams: Promise.resolve({}) }), /redirect:\/login/);
-console.log('✅ Supplier RFQ page: full buyer request, one quote path, optional Vexim email, single history row, safe projections and consent.');
+assert.equal(mediaCalls.length, callsBeforeLogout, 'Unauthenticated viewers cannot request product media');
+console.log('✅ Supplier RFQ page: scoped product card/photo, buyer request, one quote path, safe media and contact consent.');

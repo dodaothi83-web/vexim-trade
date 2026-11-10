@@ -19,10 +19,12 @@ function load(path, mocks) {
 const onlyContacts = (v) => v.replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, '[contact via Vexim]');
 const dictionary = loadPortalDictionary();
 const contact = load('../lib/rfq/buyer-contact.ts', {});
+const displayName = load('../lib/public/display-name.ts', {});
 const consent = contact.buyerContactConsentSpec({ company: 'Buyer Co', contact_name: 'Jane', email: 'buyer@example.com', phone: '123456', country: 'US', website: null, business_type: null }, '2026-10-17T00:00:00Z', 'rfq_form');
 const dashboard = load('../lib/supplier-portal/dashboard.ts', {
   '@/lib/rfq/buyer-contact': contact,
   '@/lib/rfq/channel': load('../lib/rfq/channel.ts', {}),
+  '@/lib/public/display-name': displayName,
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { vi: dictionary.vi.notices, en: dictionary.en.notices } },
   '@/lib/i18n/portal/rfqs': { rfqsMessages: { vi: dictionary.vi.rfqs, en: dictionary.en.rfqs } }, '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts } });
@@ -47,11 +49,18 @@ const legacy = make('dddddddd-dddd-dddd-dddd-dddddddddddd', 's-a', 'quoted', '20
 legacy.quote_price = 28;
 for (const field of Object.keys(consent)) delete legacy.rfq[field];
 foreign.rfq.buyer_contact = { ...consent.buyer_contact, email: 'foreign@example.com' };
-const products = [{ id: 'p-a', supplier_id: 's-a', name: 'Cashew W320' }, { id: 'p-b', supplier_id: 's-b', name: 'SECRET factory' }];
+const products = [{ id: 'p-a', supplier_id: 's-a', name: 'Cashew W320',
+  spec: 'Whole kernels. Ask buyer@example.com', packaging: 'Vacuum bags', moq: '1 MT',
+  private_note: 'SECRET PRODUCT DESK NOTE' }, { id: 'p-b', supplier_id: 's-b', name: 'SECRET factory' }];
 const input = { supplierId: 's-a', invites: [match, foreign, unsent, legacy], products, reads: [], reviews: [], requests: [], days: 30, now };
 const base = dashboard.buildSupplierDashboard(input);
 assert.equal(base.invites.length, 2, 'Only sent invitations for this supplier are visible');
 assert.equal(base.invites[0].title, 'Cashew W320', 'Verified product title stays separate from the buyer request');
+assert.equal(base.invites[0].linkedProduct.spec, 'Whole kernels. Ask [liên hệ qua Vexim]');
+assert.equal(base.invites[0].linkedProduct.packaging, 'Vacuum bags');
+assert.equal(base.invites[0].linkedProduct.moq, '1 MT');
+assert.equal(base.invites[1].linkedProduct, null, 'Legacy RFQ without a source product has no inferred product card');
+assert.doesNotMatch(JSON.stringify(base), /SECRET PRODUCT DESK NOTE/);
 assert.match(base.invites[0].request.description, /Need Cashew W320, vacuum tins\. Contact \[liên hệ qua Vexim\]/);
 assert.doesNotMatch(base.invites[0].request.description, /buyer@example.com/, 'Unsolicited contact in request text is suppressed');
 assert.equal(base.invites[0].request.grade, 'W320');

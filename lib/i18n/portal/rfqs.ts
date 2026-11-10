@@ -17,8 +17,14 @@ const en = {
     scope: "Use these details only for this RFQ. Do not forward them to anyone else.",
     unavailable: "Buyer contact has not been shared for this RFQ. You can still quote here; Vexim will pass it on.",
   },
+  product: {
+    title: "Product linked to this request", spec: "Product specification", packaging: "Catalog packaging",
+    moq: "Minimum order", view: "View my product",
+    note: "These are your current catalog details. Quote against the buyer's requirements below.",
+  },
   request: {
-    title: "What the buyer needs", quantity: "Quantity", destination: "Deliver to",
+    title: "What the buyer needs", noLinkedProduct: "No product from your catalog is linked. Use the buyer's description below.",
+    quantity: "Quantity", destination: "Deliver to",
     delivery: "Requested delivery", incoterm: "Shipping terms", frequency: "Buying frequency",
     grade: "Grade / specification", packaging: "Packaging", certifications: "Certificates",
     extras: "Also requested:", samples: "Samples", inspection: "Inspection", video: "Video call",
@@ -33,6 +39,7 @@ const en = {
     body: "Everything else still works. If this keeps happening, contact support to check the configuration.",
     labelInvites: "invitations sent",
     labelProducts: "products",
+    labelMedia: "product photos",
   },
   tasks: {
     title: "Quotes to send",
@@ -152,8 +159,14 @@ const vi: RfqsMessages = {
     scope: "Chỉ dùng liên hệ này cho RFQ đang xem. Không chuyển tiếp cho người khác.",
     unavailable: "Liên hệ người mua chưa được chia sẻ cho RFQ này. Bạn vẫn có thể báo giá tại đây; Vexim sẽ chuyển giúp.",
   },
+  product: {
+    title: "Sản phẩm gắn với yêu cầu", spec: "Quy cách sản phẩm", packaging: "Đóng gói trên gian hàng",
+    moq: "Lượng đặt tối thiểu", view: "Xem sản phẩm của tôi",
+    note: "Đây là thông tin sản phẩm hiện tại của bạn. Hãy báo giá theo yêu cầu của người mua bên dưới.",
+  },
   request: {
-    title: "Người mua cần", quantity: "Số lượng", destination: "Giao tới",
+    title: "Người mua cần", noLinkedProduct: "Chưa gắn với sản phẩm nào trong gian hàng. Hãy xem mô tả của người mua bên dưới.",
+    quantity: "Số lượng", destination: "Giao tới",
     delivery: "Thời điểm giao", incoterm: "Điều kiện giao", frequency: "Tần suất mua",
     grade: "Quy cách / phân hạng", packaging: "Đóng gói", certifications: "Chứng nhận cần có",
     extras: "Yêu cầu thêm:", samples: "Gửi mẫu", inspection: "Kiểm định", video: "Gọi video",
@@ -168,6 +181,7 @@ const vi: RfqsMessages = {
     body: "Phần còn lại vẫn dùng bình thường. Nếu tình trạng này kéo dài, liên hệ bộ phận hỗ trợ để kiểm tra cấu hình.",
     labelInvites: "danh sách RFQ được chuyển",
     labelProducts: "sản phẩm",
+    labelMedia: "ảnh sản phẩm",
   },
   tasks: {
     title: "Yêu cầu cần báo giá",
