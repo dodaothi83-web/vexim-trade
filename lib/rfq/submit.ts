@@ -25,6 +25,7 @@ import {
   scoreSpam,
 } from ".";
 import { releaseTargetedQuoteToPortal } from "./targeted-portal";
+import { buyerContactConsentSpec } from "./buyer-contact";
 import { createPreferredSupplierMatches } from "./auto-match";
 import { scheduleRfqEnrichment } from "./enrich";
 import { verifyFormChallenge, type ChallengePurpose } from "@/lib/security/challenge";
@@ -215,8 +216,8 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     }
   }
 
-  if (!raw.consent) {
-    return { ok: false, message: "Bạn cần đồng ý với chính sách bảo mật." };
+  if (!raw.consent || raw.share_contact_consent !== true) {
+    return { ok: false, message: "Bạn cần đồng ý chia sẻ thông tin liên hệ cho nhà cung cấp nhận RFQ." };
   }
   // Tên sản phẩm có thể do server dựng từ source_product_id đã xác thực; không lấy từ chuỗi client gửi.
   // Trần độ dài khớp bộ đếm trên form; chặn payload lớn chèn thẳng qua server action.
@@ -317,14 +318,14 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     expected_ship_date: raw.needed_by ?? null,
     deal_value: null,
     supplier_id: null,
-    hide_buyer_from_supplier: true,
+    hide_buyer_from_supplier: true, // Legacy CRM mail flag; per-RFQ disclosure uses the consented snapshot below.
     stage: "lead",
     owner: null,
     source: raw.source_page ?? "rfq_form",
     priority: "normal" as const,
     next_action: null,
     next_action_date: null,
-    notes: raw.message?.trim() ?? null,
+    notes: null, // Buyer-entered RFQ message lives on this RFQ, not in CRM's internal notes.
     business_type: raw.business_type?.trim() ?? null,
     consent_at: new Date().toISOString(),
     consent_policy_version: "v1",
@@ -332,12 +333,18 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   };
 
   if (buyer) {
-    // Update (giữ stage/owner/supplier cũ, không theo GĐ0 spec tự đẩy stage)
+    // Only fields the buyer provided in THIS request. Never write back a stale
+    // supplier_id/stage/owner, CRM notes, CC list or next action: another worker can
+    // attach a supplier while this form is submitting.
     buyer = await store.updateBuyer(buyer.id, {
-      ...buyerInput,
-      supplier_id: buyer.supplier_id,
-      stage: buyer.stage,
-      owner: buyer.owner,
+      company: buyerInput.company, contact_name: buyerInput.contact_name,
+      email: buyerInput.email, email_domain: buyerInput.email_domain,
+      phone: buyerInput.phone, country: buyerInput.country,
+      website: buyerInput.website, business_type: buyerInput.business_type,
+      product: buyerInput.product, spec: buyerInput.spec, quantity: buyerInput.quantity,
+      target_price: buyerInput.target_price, incoterm: buyerInput.incoterm,
+      port: buyerInput.port, expected_ship_date: buyerInput.expected_ship_date,
+      consent_at: buyerInput.consent_at, consent_policy_version: buyerInput.consent_policy_version,
     });
   } else {
     buyer = await store.createBuyer(buyerInput);
@@ -382,9 +389,15 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
       destination_port: raw.destination_port?.trim() || null,
       shipment_month: /^\d{4}-\d{2}$/.test(raw.shipment_month ?? "") ? raw.shipment_month : null,
       target_price_unit: raw.target_price_unit?.trim() || null,
+      notes: raw.message?.trim() || null, // Desk-only RFQ message; never in supplier projections.
       // Mặc định không chia sẻ: chỉ Vexim thấy giá mục tiêu cho tới khi người mua đồng ý.
       share_target_price: raw.share_target_price === true,
       marketing_opt_in: raw.marketing_opt_in === true,
+      ...buyerContactConsentSpec({
+        company: raw.company, contact_name: raw.contact_name, email: session.email,
+        phone: raw.phone ?? null, country: raw.country ?? null, website: web,
+        business_type: raw.business_type ?? null,
+      }, new Date().toISOString(), "rfq_form"),
     },
     quantity: raw.quantity ?? null,
     unit: raw.unit ?? null,

@@ -2,26 +2,25 @@
 
 Tài liệu mô tả **cách luồng RFQ đang chạy trong code hiện tại**, để người vận hành đọc một lần là
 làm được. Bối cảnh: nền tảng **không thu hoa hồng đơn hàng**, người mua ký hợp đồng trực tiếp với
-nhà cung cấp; bản ghi `introductions` giữ vai trò *bằng chứng người mua đã đồng ý chia sẻ liên hệ*
-và *mốc Thời gian bảo hộ 12 tháng*.
+nhà cung cấp. Bản ghi `introductions` là mốc lựa chọn/Thời gian bảo hộ 12 tháng, **không phải
+bằng chứng đồng ý chia sẻ liên hệ**. Quyền đó lưu theo từng RFQ và người nhận; xem
+[quy trình đồng ý/chuyển giao](./rfq-buyer-contact-consent.md).
 
 - Đặc tả gốc: `docs/rfq-foundation.md` · Email: `docs/rfq-email-completion.md`
 - Rà soát lỗi còn mở: `docs/rfq-luong-kiem-tra-2026-11.md`
 
 ## 1. Có hai luồng khác nhau, đừng lẫn
 
-| | **A. Báo giá (quote)** | **B. Câu hỏi sản phẩm (supplier question)** |
+| | **A. Báo giá (quote)** | **B. Trao đổi với NCC (chat)** |
 | --- | --- | --- |
-| Điểm vào | `/rfq` (hoặc từ trang sản phẩm/NCC, có thể chỉ định sẵn NCC) | Nút "Hỏi nhà cung cấp" ở trang sản phẩm → `/rfq?intent=question` |
-| Số NCC | 1 hoặc nhiều | **đúng 1** |
-| Liên hệ người mua | Ẩn danh với NCC cho tới khi người mua đồng ý Giới thiệu | **Chia sẻ ngay** (tên, công ty, email) — người mua tick đồng ý |
-| Vexim ở giữa? | Có: nhân viên sàng lọc, gửi, thu báo giá, so sánh | Không: email đi thẳng, NCC trả lời thẳng vào email người mua |
-| Kết quả | `matching → quoted → sampling → won/lost` | `matching` (đã gửi) hoặc `needs_review` |
-| Có tính SLA báo giá? | Có | **Không** (được loại khỏi cron) |
-| Ghi vào CRM | Bình thường | Bình thường, nhưng chỉ để kiểm duyệt/hỗ trợ gửi |
+| Điểm vào | `/rfq` (hoặc từ trang sản phẩm/NCC, có thể chỉ định sẵn NCC) | Nút “Chat with supplier” trên trang sản phẩm |
+| Số NCC | Mở: NCC phù hợp do Vexim chọn; đích danh: NCC Buyer chỉ định | Đúng NCC đang chat |
+| Liên hệ người mua | Checkbox chia sẻ riêng; chỉ NCC thực sự nhận RFQ thấy bản chụp liên hệ đã đồng ý. RFQ đích danh không cấp phép NCC được đề xuất sau | Quyền và nội dung chat riêng, **không tự lộ email Buyer** |
+| Vexim ở giữa? | NCC đích danh được gửi trực tiếp khi đủ điều kiện; RFQ mở/nhiều NCC do nhân viên duyệt, gửi, thu báo giá | Trao đổi trực tiếp trong chat |
+| Ghi vào CRM | Chỉ RFQ đích danh đúng một NCC tự gắn Buyer sau khi gửi; không gửi email kết nối riêng | Không tạo RFQ mới |
 
-Phân biệt trong code bằng `rfq.specs.inquiry_kind === "supplier_question"` (hoặc
-`source_page === "/rfq?intent=question"`). Luồng B không bao giờ dùng nút "Gửi yêu cầu báo giá".
+RFQ `supplier_question` cũ vẫn đọc được trong CRM nhưng **không còn nhận câu hỏi mới hay gửi qua luồng RFQ**.
+Chính sách ẩn danh cũ không được áp dụng cho các RFQ mới; RFQ cũ không có consent vẫn phải hỏi Buyer trước khi gửi thêm.
 
 ## 1b. Form RFQ: một trang, 2 cột, 6 ô bắt buộc + thanh tiến độ
 
@@ -51,7 +50,7 @@ Banner nhà cung cấp chỉ định dùng **tên ngắn** — tên hiển thị
 nhân đã hạ kiểu chữ và bỏ tiền tố "Công ty TNHH / CP / Co., Ltd" (`supplierShortName()` trong
 `lib/public/supplier-name.ts`), không bày tên giấy phép viết hoa toàn bộ lên đầu form.
 
-Cộng thêm ô **consent** (điều kiện pháp lý) — vẫn bắt buộc nhưng là checkbox đồng ý, không
+Cộng thêm **hai ô đồng ý riêng** bắt buộc: xử lý yêu cầu và chia sẻ bản chụp liên hệ với NCC thực sự nhận RFQ; không
 tính vào thanh tiến độ. Khung bên phải hiện thanh tiến độ `N/6 required` và 6 dòng đánh dấu
 ô nào đã điền, để người mua biết còn thiếu gì **trước** khi bấm gửi. Trên mobile khung này
 đứng trước form.
@@ -119,19 +118,17 @@ cung cấp + đúng danh mục), **không so khớp tên người mua gõ**. Nh�
 - mở từ trang sản phẩm: `product_text` = tên sản phẩm (server dựng) + phần người mua viết
   thêm, cách nhau bằng dấu chấm. Không cần gõ lại tên sản phẩm;
 - vào từ menu: vẫn bắt buộc mô tả;
-- câu hỏi trực tiếp ("Ask supplier") không còn phụ thuộc chuỗi client gửi lên — trước đây ô
-  mô tả để trống làm câu hỏi bị chặn ở server;
 - `specs.product_ref = { id, name }` giữ dấu vết sản phẩm đã xác thực để desk đối chiếu khi
   người mua sửa mô tả.
 
-Chế độ **câu hỏi trực tiếp** giữ nguyên một màn hình 4 ô như cũ (dùng tên sản phẩm đã xác thực ở banner).
+Câu hỏi cho NCC nay qua chat riêng, không gửi RFQ `supplier_question` mới.
 
 ## 2. Luồng A — báo giá, từ đầu đến cuối
 
 ```
 NGƯỜI MUA (đã đăng nhập bằng email đã xác minh)
   │  Form một trang: sản phẩm/số lượng/quốc gia/công ty + thanh tiến độ
-  │  + honeypot + challenge chống bot + consent
+  │  + honeypot + challenge chống bot + hai ô đồng ý (xử lý và chia sẻ liên hệ)
   ▼
 submitRfq()  lib/rfq/submit.ts
   ├─ rate limit theo IP+UA ................................ 5 lượt/giờ (xem cảnh báo §7)
@@ -139,12 +136,15 @@ submitRfq()  lib/rfq/submit.ts
   ├─ chấm điểm spam:  <40 new │ 40–99 needs_review │ ≥100 spam
   │     (thiếu challenge +60, honeypot +100, link +25, công ty +15, SĐT +10,
   │      webmail +5, nội dung < 20 ký tự +20 — bỏ khi đã có sản phẩm/NCC xác thực)
-  ├─ chặn MX domain, tuỳ chọn chặn webmail, bắt buộc consent
-  ├─ upsert hồ sơ người mua theo email (giữ nguyên stage/owner cũ)
-  ├─ tạo rfqs + mã RFQ-YYYYMMDD-XXXXX + access_token
+  ├─ chặn MX domain, tuỳ chọn chặn webmail, bắt buộc hai ô đồng ý
+  ├─ upsert Buyer theo email (không ghi đè NCC CRM, stage/owner/ghi chú/CC cũ)
+  ├─ tạo rfqs + mã RFQ-YYYYMMDD-XXXXX + access_token + liên hệ/consent riêng trong specs
   ├─ ghi audit_log
-  ├─ nếu người mua đã chỉ định NCC → tạo sẵn match "proposed"; đúng một NCC (từ trang
-  │   sản phẩm hoặc trang NCC) và RFQ "new" → chuyển thẳng tới NCC đó (cổng + email ẩn danh).
+  ├─ nếu người mua đã chỉ định NCC → tạo match "proposed"; đúng một NCC (từ trang
+  │   sản phẩm hoặc trang NCC) và RFQ "new" → chuyển thẳng tới đúng NCC đó cùng liên hệ đã đồng ý.
+  │   NCC có cổng approved đang hoạt động: cổng nhận lời mời khi match đã lưu; email chỉ thông báo.
+  │   NCC chỉ có email: chỉ đánh dấu đã gửi khi Resend trả sent; lỗi/mô phỏng thì vẫn proposed.
+  │   Sau khi đã gửi RFQ một NCC, Buyer chưa có NCC CRM mới được tự gắn bằng CAS, không email kết nối.
   │   RFQ bị giữ lại: khi nhân viên duyệt sang Mới / Đang xử lý thì chuyển tiếp như trên.
   └─ email: xác nhận cho người mua (kèm link riêng) + báo hộp thư nội bộ
        │  (spam: KHÔNG gửi xác nhận cho người mua, chỉ báo nội bộ)
@@ -152,16 +152,17 @@ submitRfq()  lib/rfq/submit.ts
 CRM  /crm/rfqs  — hộp thư, tab theo trạng thái
   │  • Phân công người phụ trách  → tự chuyển new/needs_review → in_progress
   │  • "Cần duyệt" (needs_review): đọc rồi hoặc xử lý tiếp, hoặc đánh dấu spam
-  │  • Thêm NCC vào shortlist (chỉ NCC published)
+  │  • Đề xuất NCC (chỉ NCC published; chưa được xem liên hệ Buyer)
   ▼
 dispatchRfqToSuppliers()  lib/rfq/outreach.ts
   ├─ bắt buộc người gửi là nhân viên thật (tên người, email domain đã cấu hình)
   ├─ chỉ NCC được phép nhận (canInviteSupplier: đã duyệt cổng / NCC cũ do Vexim quản lý)
-  ├─ email ẨN DANH: không có tên/email/công ty người mua
-  ├─ Reply-To = rfq+{mã}-m{matchId}@domain   ← để hồi âm về đúng match
+  ├─ chỉ gửi khi đúng NCC có xác nhận chia sẻ liên hệ; không còn email RFQ ẩn danh
+  ├─ email có bản chụp liên hệ Buyer (không kèm CRM/ghi chú/token); Reply-To định tuyến về match
   ├─ hạn phản hồi mặc định 3 ngày (chọn 2/3/5/7) → match.response_due_at
-  ├─ match: proposed → sent_to_supplier ; rfq: → matching
-  └─ gửi lỗi thì KHÔNG đánh dấu đã gửi (bấm lại được)
+  ├─ khi Resend nhận thật: match proposed → sent_to_supplier ; rfq → matching
+  ├─ RFQ đích danh một NCC: gắn Buyer CRM sau khi match đã lưu là sent (nếu Buyer chưa gắn NCC)
+  └─ gửi lỗi/mô phỏng thì KHÔNG đánh dấu đã gửi (bấm lại được)
        ▼
 NCC trả lời bằng email (Reply-To ở trên)
   ▼
@@ -182,8 +183,8 @@ presentShortlistToBuyer()   ← nút "Gửi bảng so sánh"
        ▼
 Người mua chọn một NCC  →  "Chọn nhà cung cấp này"
   ├─ match → selected, các match khác → not_selected
-  ├─ ghi introductions (đồng ý chia sẻ + mốc bảo hộ 12 tháng)
-  ├─ email cho NCC được chọn (vẫn ẩn danh người mua)
+  ├─ ghi introductions (mốc lựa chọn/bảo hộ 12 tháng, không phải consent RFQ)
+  ├─ email cho NCC đã được gửi RFQ và có consent, kèm liên hệ đã xác nhận; không gửi cho NCC chỉ đề xuất
   └─ rfq → won
      (hoặc đi đường "Chuyển sang sampling" → rfq → sampling + email báo người mua)
 ```
@@ -275,14 +276,12 @@ và **module AI ném lỗi đồng bộ ngay khi submit gọi** — tất cả �
 | --- | --- | --- | --- |
 | Submit (sạch) | Người mua | Đã nhận + tóm tắt + link trạng thái + "phân công trong 4 giờ làm việc" | — |
 | Submit (mọi trường hợp trừ spam) | Hộp thư nội bộ | RFQ mới / cần duyệt / đã cách ly, kèm link CRM | — |
-| Gửi NCC | NCC | Yêu cầu báo giá **ẩn danh** + hạn phản hồi + các mục cần chào | Một lần/một match |
-| Nhắc NCC | NCC | Nhắc phản hồi (nút thủ công, chỉ khi đã gửi) | Thủ công |
+| Gửi NCC | NCC | RFQ + bản chụp liên hệ Buyer đã đồng ý + hạn phản hồi; không có token/ghi chú CRM | Một lần/một match |
+| Nhắc NCC | NCC | Liên hệ Buyer đã đồng ý + nhắc phản hồi (nút thủ công, chỉ khi đã gửi) | Thủ công |
 | Bảng so sánh | Người mua | So sánh NCC theo giá/incoterm/lead time | **Chưa có** (xem §7) |
-| Chốt NCC | NCC | "Vexim đã chọn hồ sơ của bạn", vẫn ẩn danh | Chỉ gửi nếu đã từng mời |
+| Chốt NCC | NCC | "Vexim đã chọn hồ sơ của bạn" + liên hệ đã đồng ý | Chỉ gửi khi match đã thực sự được mời và có consent |
 | Sang sampling / đóng lost | Người mua | Cập nhật trạng thái + bước tiếp theo / lý do | Unique index theo `(rfq, stage)` |
-| Câu hỏi sản phẩm | NCC | Câu hỏi + liên hệ người mua, Reply-To = email người mua | Một lần/một match |
-| Câu hỏi sản phẩm | Người mua | Đã gửi / đang duyệt / chưa gửi được | — |
-| Câu hỏi lỗi hoặc bị duyệt tay | Hộp thư nội bộ | Cần kiểm duyệt / cần hỗ trợ gửi | — |
+| Câu hỏi sản phẩm cũ | — | Không còn nhận RFQ câu hỏi mới; nút Ask supplier dùng chat riêng | — |
 
 ## 6. SLA và cron
 

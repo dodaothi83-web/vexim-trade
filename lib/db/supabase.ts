@@ -890,6 +890,14 @@ export const supabaseStore: DataStore = {
     if (error) fail("updateBuyer", error);
     return data as Buyer;
   },
+  async attachBuyerIfUnassigned(buyerId, supplierId) {
+    // No read-then-write: a staff assignment (or another RFQ) must win if it landed first.
+    const { data, error } = await must().from("buyers")
+      .update({ supplier_id: supplierId, updated_at: new Date().toISOString() })
+      .eq("id", buyerId).is("supplier_id", null).select("id").maybeSingle();
+    if (error) fail("attachBuyerIfUnassigned", error);
+    return !!data;
+  },
   async deleteBuyer(id) {
     const { error } = await must().from("buyers").delete().eq("id", id);
     if (error) fail("deleteBuyer", error);
@@ -2024,7 +2032,7 @@ export const supabaseStore: DataStore = {
     // Page deliberately: PostgREST defaults to 1,000 rows, which would silently undercount reports.
     for (let offset = 0; ; offset += 500) {
       const { data, error } = await must().from("rfq_matches")
-        .select("id,rfq_id,supplier_id,status,sent_to_supplier_at,response_due_at,supplier_replied_at,quote_price,quote_currency,quote_unit,quote_incoterm,quote_lead_time_days,quote_valid_until,sent_to_buyer_at,created_at,updated_at,rfq:rfqs!inner(code,product_text,quantity,unit,destination_country,incoterm,needed_by,source_product_id,source_page,status,preferred_supplier_ids)")
+        .select("id,rfq_id,supplier_id,status,sent_to_supplier_at,response_due_at,supplier_replied_at,quote_price,quote_currency,quote_unit,quote_incoterm,quote_lead_time_days,quote_valid_until,sent_to_buyer_at,created_at,updated_at,rfq:rfqs!inner(code,product_text,quantity,unit,destination_country,incoterm,needed_by,source_product_id,source_page,status,preferred_supplier_ids,buyer_contact:specs->buyer_contact,buyer_contact_policy_version:specs->>buyer_contact_policy_version,buyer_contact_consent_at:specs->>buyer_contact_consent_at,buyer_contact_consent_source:specs->>buyer_contact_consent_source,buyer_contact_supplier_ids:specs->buyer_contact_supplier_ids)")
         .eq("supplier_id", supplierId).not("sent_to_supplier_at", "is", null).neq("status", "proposed")
         .order("sent_to_supplier_at", { ascending: false }).range(offset, offset + 499);
       if (error) fail("listSupplierRfqInvitations", error);

@@ -16,6 +16,7 @@ function load(path, mocks) {
   return mod.exports;
 }
 const supplier = { id: 's-a' };
+const contact = load('../lib/rfq/buyer-contact.ts', {});
 // Gửi RFQ thật qua submitRfq: câu hỏi kiểu cũ bị từ chối, báo giá giữ nguyên.
 process.env.RFQ_REJECT_WEBMAIL = 'false';
 const createdRfqs = [];
@@ -52,6 +53,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '.': { emailDomain: () => 'example.com', fingerprint: () => 'test', generateAccessToken: () => 'private-token', rfqDayKey: () => '20261017', generateRfqCode: () => 'RFQ-Q-1',
     hasMxRecord: async () => ({ ok: true }), isLikelyWebmail: () => false, normalizeCompanyWebsite: () => null,
     scoreSpam: (input) => ({ score: spamScore + (input.challengeOk ? 0 : 60), flags: input.challengeOk ? [] : ['challenge_missing'] }) },
+  './buyer-contact': contact,
   './targeted-portal': { releaseTargetedQuoteToPortal: async () => 0 },
   './auto-match': { createPreferredSupplierMatches: async () => { autoMatches++; return []; } },
   './enrich': { scheduleRfqEnrichment: () => {} },
@@ -80,7 +82,9 @@ assert.match(legacy.message, /Chat with supplier/);
 assert.equal(createdRfqs.length, 0, 'Câu hỏi kiểu cũ không tạo RFQ');
 assert.equal(genericAcks + genericInternal + autoMatches, 0, 'Câu hỏi kiểu cũ không gửi thư nào');
 
-const quote = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', share_contact_consent: false,
+const oldConsent = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', share_contact_consent: false });
+assert.equal(oldConsent.ok, false, 'Old anonymous RFQ clients cannot bypass contact sharing consent');
+const quote = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', share_contact_consent: true,
   quantity: 10, unit: 'MT', destination_country: 'US', message: 'Quote notes' });
 assert.equal(quote.ok, true);
 assert.equal(quote.supplierDelivered, undefined);
@@ -92,14 +96,14 @@ assert.equal(createdRfqs[0].source_page, null);
 assert.equal(createdRfqs[0].specs.inquiry_kind, undefined);
 
 // Quote từ trang sản phẩm: giữ attribution theo product_id, KHÔNG so khớp tên.
-const quoteFromProduct = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', share_contact_consent: false,
+const quoteFromProduct = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', share_contact_consent: true,
   product_text: 'Other words entirely', quantity: 5, unit: 'MT', destination_country: 'US' });
 assert.equal(quoteFromProduct.ok, true);
 assert.equal(createdRfqs.at(-1).source_product_id, 'p-a', 'source_product_id theo product_id đã xác thực, không so tên');
 assert.equal(createdRfqs.at(-1).product_text, 'Cashew W320. Other words entirely');
 
 // Vào từ menu (không sản phẩm nguồn) thì mô tả vẫn bắt buộc.
-const emptyQuote = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', share_contact_consent: false,
+const emptyQuote = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', share_contact_consent: true,
   product_text: '', source_product_id: null, preferred_supplier_ids: [] });
 assert.equal(emptyQuote.ok, false);
 assert.match(emptyQuote.message, /mô tả sản phẩm/);

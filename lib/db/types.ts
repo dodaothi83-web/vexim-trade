@@ -99,6 +99,8 @@ export interface DataStore {
   getBuyerByEmail(email: string): Promise<Buyer | null>;
   createBuyer(input: BuyerInput): Promise<Buyer>;
   updateBuyer(id: string, patch: Partial<BuyerInput>): Promise<Buyer>;
+  /** Atomic compare-and-set: only an unassigned Buyer can be linked by a sent direct RFQ. */
+  attachBuyerIfUnassigned(buyerId: string, supplierId: string): Promise<boolean>;
   deleteBuyer(id: string): Promise<void>;
 
   // ----- Tài khoản người mua (khác app_users và khác buyers) -----

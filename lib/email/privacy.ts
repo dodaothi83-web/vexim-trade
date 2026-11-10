@@ -4,8 +4,9 @@ import type { Buyer, Supplier, SupplierProduct } from "@/lib/types";
  * Kiểm tra "rò rỉ" thông tin giữa hai chiều email.
  *
  * Quy tắc bảo mật của Vexim:
- *  - Email gửi BUYER không bao giờ chứa tên / email / điện thoại / giá của NCC.
- *  - Email gửi NCC mặc định ẩn danh buyer (chỉ nêu "khách hàng thị trường X").
+ *  - Email gửi BUYER không mặc định chứa liên hệ trực tiếp của NCC.
+ *  - Email RFQ gửi NCC chỉ đến người nhận thật và có snapshot liên hệ được buyer đồng ý;
+ *    kiểm tra này vẫn giúp người soạn email CRM thủ công phát hiện sai đối tượng.
  *
  * Ở đây chỉ KIỂM TRA và CẢNH BÁO (không chặn gửi) — người soạn tự quyết định.
  */

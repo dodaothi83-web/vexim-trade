@@ -6,6 +6,7 @@ import { sourcingStore } from "@/lib/sourcing/store";
 import { sendSourcingAck } from "@/lib/sourcing/mail";
 import { SOURCING_MAX_BODY_BYTES, SOURCING_MAX_FILE_BYTES, SOURCING_MAX_FILES, sourcingMime, sourcingUuid, sourcingFilename } from "@/lib/sourcing/files";
 import type { SourcingRequest } from "@/lib/types";
+import { snapshotBuyerContact } from "@/lib/rfq/buyer-contact";
 
 export const runtime = "nodejs";
 const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -41,6 +42,13 @@ export async function POST(request: Request) {
     const content = String(form.get("content") ?? "").trim();
     const key = String(form.get("submission_key") ?? "");
     if (!sourcingUuid(key) || content.length < 1 || content.length > 6000) return error("Please enter your requirement (up to 6,000 characters).", "Vui lòng nhập nhu cầu tìm nguồn (tối đa 6.000 ký tự).");
+    const company = form.get("company"); const contactName = form.get("contact_name"); const phone = form.get("phone");
+    if (typeof company !== "string" || !company.trim() || company.length > 200 ||
+        typeof contactName !== "string" || !contactName.trim() || contactName.length > 160 ||
+        (phone !== null && (typeof phone !== "string" || phone.length > 80)) || form.get("share_contact_consent") !== "yes") {
+      return error("Enter your company and name and agree to share contact details with suppliers who receive your RFQ.",
+        "Điền công ty, tên người liên hệ và đồng ý chia sẻ liên hệ với nhà cung cấp thực sự nhận RFQ.");
+    }
     const files = form.getAll("files").filter((f): f is File => typeof f !== "string" && f.size > 0);
     if (files.length > SOURCING_MAX_FILES || files.some((f) => f.size > SOURCING_MAX_FILE_BYTES)) return error("Attach up to 3 files, 2 MB each.", "Tối đa 3 tệp, mỗi tệp không quá 2 MB.");
     const protection = await protectPublicRequest({ flow: "sourcing-request", headers: request.headers, email: session.email, token: String(form.get("challengeToken") ?? "") });
@@ -57,7 +65,11 @@ export async function POST(request: Request) {
     }));
     if (validated.some((f) => !f.mime)) return error("Only PDF, JPG, PNG and WEBP files are supported.", "Chỉ hỗ trợ tệp PDF, JPG, PNG và WEBP.");
     const id = randomUUID(); const now = new Date().toISOString();
-    const row: SourcingRequest = { id, buyer_email: email, submission_key: key, content, attachments: [], status: "new", assigned_to: null, internal_note: null, buyer_reply: null, version: 1, created_at: now, updated_at: now };
+    const row: SourcingRequest = { id, buyer_email: email, submission_key: key, content, attachments: [],
+      buyer_contact_consent_at: now,
+      buyer_contact: snapshotBuyerContact({ company, contact_name: contactName, email, phone: phone || null,
+        country: null, website: null, business_type: null }),
+      status: "new", assigned_to: null, internal_note: null, buyer_reply: null, version: 1, created_at: now, updated_at: now };
     for (const file of validated) {
       const fileId = randomUUID(); const path = `${id}/${fileId}`;
       await store.putSourcingFile(path, file.data, file.mime!); staged.push(path);

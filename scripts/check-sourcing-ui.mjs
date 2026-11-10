@@ -17,7 +17,7 @@ const mocks = {
   react: React, 'react/jsx-runtime': jsx,
   'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
   'lucide-react': new Proxy({}, { get: () => () => null }),
-  '@/components/buyer-enquiry-auth': { useBuyerEnquiryAuth: () => ({ requireBuyer(next, resume, forced) { gateNext = next; force = forced; if (authenticated && !forced) resume(); else continuation = resume; } }) },
+  '@/components/buyer-enquiry-auth': { useBuyerEnquiryAuth: () => ({ email: 'buyer@example.com', requireBuyer(next, resume, forced) { gateNext = next; force = forced; if (authenticated && !forced) resume(); else continuation = resume; } }) },
   '@/components/form-challenge': { FormChallenge: ({ onChange }) => { React.useEffect(() => { onChange('ok'); }, []); return null; } },
   '@/lib/sourcing/files': { SOURCING_MAX_FILES: 3, SOURCING_MAX_FILE_BYTES: 2 * 1024 * 1024 },
   '@/lib/browser/dialog-scroll-lock': { lockDialogScroll: () => { document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = ''; }; } },
@@ -44,7 +44,16 @@ await act(async () => {
   Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype, 'value').set.call(textarea, 'Rice');
   textarea.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
 });
-assert.equal(document.querySelector('button[type=submit]').disabled, false, 'Short nonempty requirements allowed');
+assert.equal(document.querySelector('button[type=submit]').disabled, true, 'Cannot send a request without company, contact and consent');
+const [company, name] = dialog.querySelectorAll('input[autocomplete]');
+for (const [node, value] of [[company, 'Buyer Co'], [name, 'Jane']]) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set.call(node, value);
+    node.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  });
+}
+await act(async () => dialog.querySelector('input[type=checkbox]').click());
+assert.equal(document.querySelector('button[type=submit]').disabled, false, 'Short nonempty requirements allowed once contact consent is explicit');
 const fileInput = document.querySelector('input[type=file]');
 const attached = new dom.window.File(['%PDF-1.7'], 'requirements.pdf', { type: 'application/pdf' });
 Object.defineProperty(fileInput, 'files', { configurable: true, value: [attached] });
@@ -63,6 +72,8 @@ assert.equal(document.querySelector('textarea').value, 'Rice', 'Empty file selec
 
 await act(async () => document.querySelector('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
 assert.equal(sent[0].url, '/api/buyer/sourcing'); assert.equal(sent[0].options.body.get('content'), 'Rice');
+assert.equal(sent[0].options.body.get('company'), 'Buyer Co');
+assert.equal(sent[0].options.body.get('share_contact_consent'), 'yes');
 assert.equal(document.querySelector('textarea').value, 'Rice', 'Failure retains draft');
 assert.match(document.querySelector('[role=alert]').textContent, /Try again/);
 fail = false;
@@ -77,6 +88,7 @@ assert.match(notice.querySelector('a').getAttribute('href'), /buyer\/account\/so
 await act(async () => trigger.click());
 dialog = document.querySelector('dialog');
 assert.equal(document.querySelector('textarea').value, '', 'Reopening after success gives a fresh composer');
+assert.equal(dialog.querySelector('input[type=checkbox]').checked, false, 'Contact consent never carries to the next request');
 assert.equal(document.querySelectorAll('input[type=file]')[0].files.length, 0, 'Successful send clears attachments');
 assert.equal(document.querySelector('[role=status]'), null, 'Reopening clears the previous success notice');
 await act(async () => dialog.dispatchEvent(new dom.window.Event('cancel', { bubbles: false, cancelable: true })));

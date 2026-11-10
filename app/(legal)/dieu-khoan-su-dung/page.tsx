@@ -23,7 +23,7 @@ export default function TermsViPage() {
   return <article lang="vi" className="rounded-2xl border border-ink-200 bg-white px-5 py-8 shadow-sm sm:px-10 sm:py-10">
     <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-700">Vexim Trade · Pháp lý</p>
     <h1 className="mt-3 text-3xl font-black tracking-tight text-ink-900 sm:text-4xl">Điều khoản sử dụng</h1>
-    <p className="mt-3 text-sm text-ink-500">Ngày hiệu lực: 18 tháng 10 năm 2026 · Phiên bản 1</p>
+    <p className="mt-3 text-sm text-ink-500">Ngày hiệu lực: 9 tháng 11 năm 2026 · Phiên bản 2</p>
     <p className="mt-6 text-sm leading-7 text-ink-700">Điều khoản này áp dụng cho website <a href={SITE_URL} className="font-semibold text-brand-700 underline">{SITE_URL}</a> và các dịch vụ do VEXIM GLOBAL CO., LTD, gọi tắt là Vexim, cung cấp qua website. Vui lòng đọc kỹ trước khi gửi yêu cầu báo giá, tạo tài khoản hoặc sử dụng cổng nhà cung cấp. Nếu không đồng ý, vui lòng không sử dụng các dịch vụ này. Cách vận hành nền tảng được quy định chi tiết tại <Link href="/quy-che-hoat-dong" className="font-semibold text-brand-700 underline">Quy chế hoạt động</Link>.</p>
 
     <Section id="terms-vi-service" title="1. Dịch vụ của Vexim">
@@ -41,7 +41,7 @@ export default function TermsViPage() {
     </Section>
 
     <Section id="terms-vi-rfq" title="4. Yêu cầu báo giá và giới thiệu nhà cung cấp">
-      <p className={p}>Người mua cần cung cấp yêu cầu có thật, tương đối đầy đủ và sử dụng dịch vụ RFQ cho nhu cầu mua hàng hợp pháp. Vexim có thể chia sẻ nội dung yêu cầu cho các nhà cung cấp được chọn để xin phản hồi, đồng thời giữ kín email, điện thoại và thông tin liên hệ trực tiếp của người mua cho đến khi người mua đồng ý được giới thiệu. Vexim không cam kết một nhà cung cấp cụ thể sẽ phản hồi, mức giá hoặc ngày giao hàng yêu cầu sẽ được đáp ứng, hoặc một giao dịch sẽ được hoàn tất. Việc làm mẫu, kiểm định, thanh toán, vận chuyển và các cam kết ràng buộc khác phải được thỏa thuận riêng.</p>
+      <p className={p}>Người mua cần cung cấp yêu cầu có thật, tương đối đầy đủ và sử dụng dịch vụ RFQ cho nhu cầu mua hàng hợp pháp. Khi người mua đồng ý trên form RFQ, chỉ NCC thực sự nhận yêu cầu mới được xem công ty và liên hệ người mua đã cung cấp cho RFQ đó; NCC mới được đề xuất không được xem. Yêu cầu cũ cần đồng ý riêng trước khi gửi kèm liên hệ. Không chia sẻ ghi chú CRM nội bộ hay mã truy cập riêng. Vexim không cam kết một nhà cung cấp cụ thể sẽ phản hồi, mức giá hoặc ngày giao hàng yêu cầu sẽ được đáp ứng, hoặc một giao dịch sẽ được hoàn tất. Việc làm mẫu, kiểm định, thanh toán, vận chuyển và các cam kết ràng buộc khác phải được thỏa thuận riêng.</p>
     </Section>
 
     <Section id="terms-vi-conduct" title="5. Hành vi được phép và sở hữu trí tuệ">

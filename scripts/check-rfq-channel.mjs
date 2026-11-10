@@ -29,7 +29,8 @@ assert.equal(channel.rfqChannel({ ...base, preferred_supplier_ids: null }), "sou
 
 const rfqLib = { generateAccessToken: () => crypto.randomBytes(8).toString("hex"), rfqDayKey: () => "20261105",
   generateRfqCode: (seq, day) => `RFQ-${day}-${String(seq).padStart(5, "0")}` };
-const toRfq = load("lib/sourcing/to-rfq.ts", { "@/lib/rfq": rfqLib, "@/lib/rfq/channel": channel });
+const contact = load("lib/rfq/buyer-contact.ts", {});
+const toRfq = load("lib/sourcing/to-rfq.ts", { "@/lib/rfq": rfqLib, "@/lib/rfq/channel": channel, "@/lib/rfq/buyer-contact": contact });
 assert.equal(toRfq.sourcingSummary("\n  Need cashew W320\nDetails..."), "Need cashew W320");
 assert.equal(toRfq.sourcingSummary("x".repeat(200)).length, 118);
 assert.equal(toRfq.sourcingSummary("   "), "Yêu cầu tìm nguồn");
@@ -52,6 +53,7 @@ assert.equal(first.created, true);
 assert.equal(first.rfq.code, "RFQ-20261105-00004", "mã RFQ nối tiếp, không trùng");
 assert.equal(first.rfq.specs.sourcing_request_id, "req-1");
 assert.equal(first.rfq.specs.notes, request.content, "nội dung gốc giữ nguyên để nhân viên đọc");
+assert.equal(contact.rfqBuyerContact(first.rfq, 's1'), null, 'Old sourcing requests never gain consent by conversion');
 assert.equal(first.rfq.product_text, "Need cashew W320");
 assert.equal(first.rfq.status, "in_progress");
 assert.equal(first.rfq.assigned_to, "staff-1", "người bấm ghép nhận việc khi yêu cầu chưa có người phụ trách");
@@ -60,7 +62,7 @@ assert.equal(channel.rfqChannel(first.rfq), "sourcing");
 assert.equal(buyers.length, 1);
 assert.equal(buyers[0].email, "buyer@example.com", "email người mua chuẩn hoá");
 assert.equal(buyers[0].company, "Acme Foods");
-assert.equal(buyers[0].hide_buyer_from_supplier, true, "người mua vẫn ẩn danh với nhà cung cấp");
+assert.equal(buyers[0].hide_buyer_from_supplier, true, "cờ email CRM cũ không thay thế đồng ý chia sẻ riêng trên RFQ");
 assert.equal(audits.at(-1).action, "sourcing.start_match");
 
 const again = await toRfq.startSourcingMatch({ store, request, actor });
@@ -71,6 +73,10 @@ assert.equal(rfqs.length, 2);
 const other = await toRfq.startSourcingMatch({ store, request: { ...request, id: "req-2", status: "in_progress", assigned_to: "staff-2" }, actor });
 assert.equal(buyers.length, 1, "người mua đã có thì dùng lại");
 assert.equal(other.rfq.assigned_to, "staff-2", "giữ người phụ trách đã có");
+const consented = await toRfq.startSourcingMatch({ store, request: { ...request, id: 'req-consented',
+  buyer_contact_consent_at: '2026-11-05T10:00:00Z',
+  buyer_contact: { company: 'Buyer Co', contact_name: 'Jane', email: 'buyer@example.com', phone: '123', country: null, website: null, business_type: null } }, actor });
+assert.equal(contact.rfqBuyerContact(consented.rfq, 's1').email, 'buyer@example.com');
 await assert.rejects(toRfq.startSourcingMatch({ store, request: { ...request, id: "req-3", status: "closed" }, actor }), /closed/);
 
 // Duyệt cho qua RFQ trực tiếp bị giữ lại: tạo match cho nhà cung cấp người mua chọn rồi chuyển thẳng (một NCC).

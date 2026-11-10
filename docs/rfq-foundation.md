@@ -1,5 +1,9 @@
 # RFQ & Supplier Directory — Foundation (GĐ 0–2)
 
+> **Tài liệu thiết kế lịch sử, không phải chính sách đang vận hành.** Các đoạn về RFQ ẩn danh,
+> form nhiều bước, link token và mở liên hệ khi `introductions` xuất hiện đã được thay thế.
+> Xem [luồng RFQ hiện tại](./rfq-van-hanh.md) và [consent theo từng RFQ](./rfq-buyer-contact-consent.md).
+
 Tài liệu này ghi lại quyết định kiến trúc cho giai đoạn 0–2 của dự án danh bạ nhà cung cấp + luồng RFQ
 (đặc tả ngày 16/10/2026). Luật cũ: AI không được viết văn.
 

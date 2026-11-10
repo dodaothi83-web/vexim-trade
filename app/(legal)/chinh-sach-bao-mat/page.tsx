@@ -24,7 +24,7 @@ export default function PrivacyViPage() {
   return <article lang="vi" className="rounded-2xl border border-ink-200 bg-white px-5 py-8 shadow-sm sm:px-10 sm:py-10">
     <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-700">Vexim Trade · Pháp lý</p>
     <h1 className="mt-3 text-3xl font-black tracking-tight text-ink-900 sm:text-4xl">Chính sách bảo mật</h1>
-    <p className="mt-3 text-sm text-ink-500">Ngày hiệu lực: 18 tháng 10 năm 2026 · Phiên bản 1</p>
+    <p className="mt-3 text-sm text-ink-500">Ngày hiệu lực: 9 tháng 11 năm 2026 · Phiên bản 2</p>
     <p className="mt-6 text-sm leading-7 text-ink-700">Chính sách này mô tả cách VEXIM GLOBAL CO., LTD, đơn vị vận hành Vexim Trade, xử lý thông tin khi bạn truy cập <a className="font-semibold text-brand-700 underline" href={SITE_URL}>{SITE_URL}</a>, gửi yêu cầu báo giá, tạo tài khoản nhà cung cấp hoặc sử dụng công cụ nội bộ của Vexim. Vexim Trade là nền tảng tìm nguồn cung giữa doanh nghiệp với doanh nghiệp, kết nối người mua với nhà cung cấp Việt Nam. Câu hỏi và yêu cầu về dữ liệu cá nhân vui lòng gửi tới <a className="font-semibold text-brand-700 underline" href="mailto:contact@veximglobal.com">contact@veximglobal.com</a>.</p>
 
     <Section id="privacy-vi-data" title="1. Thông tin Vexim thu thập">
@@ -47,7 +47,7 @@ export default function PrivacyViPage() {
     </Section>
 
     <Section id="privacy-vi-share" title="4. Các bên có thể tiếp cận thông tin">
-      <p className={p}>Nhân viên được ủy quyền của Vexim tiếp cận thông tin trong phạm vi công việc. Để xin báo giá, Vexim có thể chia sẻ nội dung yêu cầu của người mua cho các nhà cung cấp được chọn, nhưng không cung cấp email, điện thoại hoặc thông tin liên hệ trực tiếp của người mua cho đến khi người mua đồng ý được giới thiệu. Hồ sơ nhà cung cấp, sản phẩm, chứng nhận và tóm tắt kiểm chứng chỉ công khai sau các bước kiểm tra và công bố tương ứng. Bằng chứng nội bộ và tài liệu riêng tư không tự động được công khai.</p>
+      <p className={p}>Nhân viên được ủy quyền của Vexim tiếp cận thông tin trong phạm vi công việc. Với RFQ gửi theo thông báo đồng ý hiện hành, NCC thực sự nhận RFQ được xem doanh nghiệp, người liên hệ, email đã xác minh, điện thoại, quốc gia, website và loại hình người mua đã cung cấp (nếu có). NCC chỉ được đề xuất hoặc NCC khác không được xem. Yêu cầu gửi theo lời cam kết trước đây không tự mở thông tin nếu chưa có đồng ý riêng của người mua. Không chia sẻ ghi chú CRM nội bộ, đường dẫn truy cập riêng, mã đăng nhập hoặc tệp đính kèm tìm nguồn riêng tư. Hồ sơ nhà cung cấp, sản phẩm, chứng nhận và tóm tắt kiểm chứng chỉ công khai sau các bước kiểm tra và công bố tương ứng. Bằng chứng nội bộ và tài liệu riêng tư không tự động được công khai.</p>
       <p className={p}>Vexim sử dụng các nhà cung cấp dịch vụ cho lưu trữ và hạ tầng, cơ sở dữ liệu và xác thực, gửi email và đăng nhập Google. Công cụ chống thư rác và hỗ trợ kiểm tra tài liệu, khi được bật, chỉ xử lý thông tin cần thiết cho tính năng đó và quyết định kiểm chứng do nhân viên Vexim thực hiện. Vexim có thể tiết lộ thông tin khi pháp luật yêu cầu hoặc để bảo vệ an toàn của dịch vụ. Vexim không bán dữ liệu người dùng Google và không cung cấp dữ liệu này cho mạng quảng cáo.</p>
     </Section>
 

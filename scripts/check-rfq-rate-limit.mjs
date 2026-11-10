@@ -28,6 +28,7 @@ function load(file, mocks = {}, env = {}) {
   return module.exports;
 }
 
+const contact = load('../lib/rfq/buyer-contact.ts', {});
 function makeHarness({ buyers = [], rfqs = [] } = {}) {
   const createdRfqs = [];
   let callIp = 0;
@@ -70,6 +71,7 @@ function makeHarness({ buyers = [], rfqs = [] } = {}) {
     '@/lib/public/catalog': { listPublicSuppliers: async () => [] },
     '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [] },
     '@/lib/email/rfq': { sendRfqAckBuyer: async () => null, sendRfqNewInternal: async () => null },
+    './buyer-contact': contact,
     '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
     '@/lib/security/challenge': { verifyFormChallenge: () => ({ ok: true }) },
     '.': {
@@ -90,7 +92,7 @@ function makeHarness({ buyers = [], rfqs = [] } = {}) {
 
 function makeRaw(overrides = {}) {
   return {
-    company: 'Buyer Co', contact_name: 'Jane Doe', email: 'jane@buyer.com', consent: true,
+    company: 'Buyer Co', contact_name: 'Jane Doe', email: 'jane@buyer.com', consent: true, share_contact_consent: true,
     product_text: 'Cashew kernels W320', ...overrides,
   };
 }

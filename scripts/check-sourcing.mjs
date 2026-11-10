@@ -12,6 +12,7 @@ function load(file, mocks, extra = {}) {
   return mod.exports;
 }
 const fileRules = load('lib/sourcing/files.ts', {});
+const buyerContact = load('lib/rfq/buyer-contact.ts', {});
 const statusLabels = load('lib/sourcing/status.ts', {});
 assert.equal(statusLabels.sourcingCrmStatusLabel('new'), 'Mới — chưa tiếp nhận');
 assert.equal(statusLabels.sourcingCrmStatusLabel('in_progress'), 'Đang xử lý');
@@ -37,10 +38,12 @@ const store = {
 };
 const base = { '@/lib/auth/buyer-session': { getBuyerSession: async () => buyer }, '@/lib/sourcing/store': { sourcingStore: () => store }, '@/lib/sourcing/files': fileRules };
 const acks = [];
-const { POST } = load('app/api/buyer/sourcing/route.ts', { ...base, '@/lib/sourcing/mail': { sendSourcingAck: async (_store, saved, language) => { acks.push([saved.id, language]); return { ok: true }; } }, 'node:crypto': crypto, 'next/server': { NextResponse }, '@/lib/auth/abuse-protection': { protectPublicRequest: async () => allowed ? { ok: true } : { ok: false, status: 429, message: 'Limited' } } });
+const { POST } = load('app/api/buyer/sourcing/route.ts', { ...base, '@/lib/rfq/buyer-contact': buyerContact, '@/lib/sourcing/mail': { sendSourcingAck: async (_store, saved, language) => { acks.push([saved.id, language]); return { ok: true }; } }, 'node:crypto': crypto, 'next/server': { NextResponse }, '@/lib/auth/abuse-protection': { protectPublicRequest: async () => allowed ? { ok: true } : { ok: false, status: 429, message: 'Limited' } } });
 const nonce = crypto.randomUUID();
-function request({ key = nonce, text = 'Source cashews, two containers to Hanoi.', attachment, origin = 'https://www.veximtrade.com', email } = {}) {
+function request({ key = nonce, text = 'Source cashews, two containers to Hanoi.', attachment, origin = 'https://www.veximtrade.com', email, consent = true } = {}) {
   const fd = new FormData(); fd.set('content', text); fd.set('submission_key', key); fd.set('challengeToken', 'verified');
+  fd.set('company', 'Buyer Co'); fd.set('contact_name', 'Jane'); fd.set('phone', '+84 900 123 456');
+  if (consent) fd.set('share_contact_consent', 'yes');
   if (email) fd.set('buyer_email', email);
   if (attachment) fd.append('files', new Blob([attachment], { type: 'image/png' }), 'sample.png');
   return new Request('https://www.veximtrade.com/api/buyer/sourcing', { method: 'POST', headers: { host: 'www.veximtrade.com', origin }, body: fd });
@@ -49,6 +52,8 @@ let response = await POST(request({ attachment: '%PDF-1.7 test', email: 'victim@
 assert.equal(response.status, 201);
 const { id } = await response.json(); const row = rows.get(id);
 assert.equal(row.buyer_email, buyer.email, 'Untrusted owner field ignored');
+assert.equal(row.buyer_contact.email, buyer.email); assert.equal(row.buyer_contact.company, 'Buyer Co');
+assert.ok(row.buyer_contact_consent_at, 'Sourcing consent is saved per request');
 assert.equal(row.status, 'new'); assert.equal(row.attachments[0].mime, 'application/pdf', 'Sniff bytes rather than declared image MIME');
 assert.equal(saveCalls, 1); assert.equal(files.size, 1);
 response = await POST(request()); assert.equal((await response.json()).id, id); assert.equal(saveCalls, 1, 'Retry deduplicated per buyer');
@@ -57,6 +62,8 @@ assert.equal(acks[0][0], id);
 response = await POST(request({ key: crypto.randomUUID(), attachment: '<script>evil</script>' })); assert.equal(response.status, 400); assert.equal(files.size, 1);
 response = await POST(request({ key: crypto.randomUUID(), attachment: 'a'.repeat(2 * 1024 * 1024 + 1) })); assert.equal(response.status, 400);
 response = await POST(request({ text: '   ' })); assert.equal(response.status, 400);
+response = await POST(request({ key: crypto.randomUUID(), consent: false })); assert.equal(response.status, 400, 'No consent, no new sourcing request');
+assert.equal(saveCalls, 1);
 response = await POST(request({ origin: 'https://evil.example' })); assert.equal(response.status, 403);
 allowed = false; response = await POST(request()); assert.equal(response.status, 429); allowed = true;
 buyer = null; response = await POST(request()); assert.equal(response.status, 401);
@@ -77,6 +84,9 @@ const sourcing = fs.readFileSync('app/api/buyer/sourcing/route.ts', 'utf8');
 assert.doesNotMatch(sourcing, /createRfq|rfq_matches|sendMail|targeted-portal|createRfqMatch/, 'No RFQ dispatch or mail side effects');
 const migration = fs.readFileSync('supabase/migrations/20261104_buyer_sourcing_requests.sql', 'utf8');
 assert.match(migration, /enable row level security/); assert.match(migration, /revoke all .* from anon, authenticated/); assert.match(migration, /'sourcing-files', 'sourcing-files', false/);
+const consentMigration = fs.readFileSync('supabase/migrations/20261115_rfq_buyer_contact_consent.sql', 'utf8');
+assert.match(consentMigration, /add column if not exists buyer_contact_consent_at/);
+assert.match(consentMigration, /buyer_contact jsonb/);
 const header = fs.readFileSync('components/public-header-controls.tsx', 'utf8'); assert.match(header, /SourcingComposerTrigger/); assert.doesNotMatch(header, /href="\/rfq"/);
 const detail = fs.readFileSync('app/(public)/buyer/account/sourcing/[id]/page.tsx', 'utf8'); assert.match(detail, /row.buyer_email !== session.email/); assert.doesNotMatch(detail, /internal_note|assigned_to/);
 const action = fs.readFileSync('app/crm/sourcing/actions.ts', 'utf8'); assert.match(action, /requirePagePermission\("rfq.manage"/); assert.match(action, /store.updateSourcingRequest\(id, version/); assert.match(action, /needs_info.*!reply/);

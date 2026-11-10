@@ -2,6 +2,7 @@ import type { DataStore } from "@/lib/db/types";
 import type { Rfq, SourcingRequest } from "@/lib/types";
 import { generateAccessToken, generateRfqCode, rfqDayKey } from "@/lib/rfq";
 import { linkedSourcingRequestId } from "@/lib/rfq/channel";
+import { buyerContactConsentSpec, snapshotBuyerContact } from "@/lib/rfq/buyer-contact";
 
 /** Dòng đầu (rút gọn) của nội dung tự do làm tên yêu cầu trong RFQ. */
 export function sourcingSummary(content: string): string {
@@ -15,7 +16,7 @@ export function findLinkedRfq(rfqs: Rfq[], sourcingId: string): Rfq | null {
 
 /**
  * Bắt đầu ghép nhà cung cấp cho một yêu cầu tìm nguồn: tạo một RFQ liên kết để dùng lại
- * công cụ ghép (shortlist, lời mời ẩn danh, báo giá, trình người mua). Không gửi email nào,
+ * công cụ ghép (shortlist, lời mời có liên hệ được đồng ý, báo giá, trình người mua). Không gửi email nào,
  * không liên hệ nhà cung cấp; nhân viên vẫn tự chọn và gửi trong trang RFQ.
  * Gọi lại với cùng yêu cầu trả về RFQ đã có, không tạo trùng.
  */
@@ -31,14 +32,21 @@ export async function startSourcingMatch(input: {
   if (request.status === "closed") throw new Error("closed");
 
   const email = request.buyer_email.trim().toLowerCase();
+  // Legacy sourcing requests were private. A later CRM profile is NOT permission to
+  // disclose it. Only the consented snapshot captured on this request can be shared.
+  const contact = request.buyer_contact_consent_at && request.buyer_contact?.email?.toLowerCase() === email
+    ? snapshotBuyerContact(request.buyer_contact) : null;
+  const consentSpec = contact?.company && contact.email && request.buyer_contact_consent_at
+    ? buyerContactConsentSpec(contact, request.buyer_contact_consent_at, "sourcing_form") : null;
   let buyer = await store.getBuyerByEmail(email);
   if (!buyer) {
     const account = await store.getBuyerUserByEmail(email).catch(() => null);
     const domain = email.split("@")[1] ?? null;
     buyer = await store.createBuyer({
-      company: account?.company_name?.trim() || domain || email,
-      contact_name: null, email, email_domain: domain, cc_emails: null, phone: null, country: null,
-      website: null, linkedin: null, instagram: null, product: sourcingSummary(request.content), spec: null,
+      company: contact?.company || account?.company_name?.trim() || domain || email,
+      contact_name: contact?.contact_name ?? null, email, email_domain: domain, cc_emails: null,
+      phone: contact?.phone ?? null, country: contact?.country ?? null,
+      website: contact?.website ?? null, linkedin: null, instagram: null, product: sourcingSummary(request.content), spec: null,
       quantity: null, target_price: null, payment_method: null, payment_terms: null, incoterm: null, port: null,
       expected_ship_date: null, deal_value: null, supplier_id: null, hide_buyer_from_supplier: true,
       stage: "lead", owner: null, source: "sourcing_request", priority: "normal", next_action: null,
@@ -68,6 +76,7 @@ export async function startSourcingMatch(input: {
       // Tệp đính kèm nằm ở yêu cầu tìm nguồn (kho riêng tư), không sao chép.
       sourcing_attachment_count: request.attachments.length,
       share_target_price: false,
+      ...(consentSpec ?? {}),
     },
     quantity: null, unit: null, frequency: null, destination_country: null, incoterm: null, needed_by: null,
     target_price: null, target_price_currency: null,

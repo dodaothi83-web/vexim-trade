@@ -66,6 +66,8 @@ import {
   isSupplierQuestionRfq,
 } from "@/lib/rfq/workflow";
 import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
+import { rfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import { withoutDirectContacts } from "@/lib/public/product-selection";
 
 export const dynamic = "force-dynamic";
 
@@ -238,6 +240,7 @@ export default async function RfqDetailPage({
 
   // Nhóm NCC theo việc cần làm để tính bước tiếp theo.
   const sendable = matches.filter((m) => m.status === "proposed" && !m.sent_to_supplier_at);
+  const consentedSendable = sendable.filter((m) => !!rfqBuyerContact(rfq, m.supplier_id));
   const awaiting = matches.filter((m) => m.status === "sent_to_supplier");
   const readyToPresent = matches.filter((m) => m.status === "quoted" && m.quote_price != null);
   const presented = matches.filter((m) => m.status === "presented_to_buyer");
@@ -278,7 +281,8 @@ export default async function RfqDetailPage({
       ),
     };
     if (presented.length > 0) return { text: <>Chờ người mua chọn. Khi có phản hồi, bấm <strong>Gửi mẫu</strong> hoặc <strong>Chốt</strong> ở dòng nhà cung cấp tương ứng.</> };
-    if (sendable.length > 0) return { text: <>Có <strong>{sendable.length}</strong> nhà cung cấp chưa nhận yêu cầu. Gửi yêu cầu báo giá ẩn danh ở danh sách bên dưới.</>, action: <a href="#suppliers" className="btn btn-primary btn-sm">Đến danh sách <ArrowRight className="h-3.5 w-3.5" /></a> };
+    if (sendable.length > 0 && consentedSendable.length === 0) return { tone: "alert", text: <>RFQ chưa có đồng ý chia sẻ liên hệ. Hãy hỏi người mua và ghi nhận đồng ý trước khi gửi.</> };
+    if (sendable.length > 0) return { text: <>Có <strong>{sendable.length}</strong> nhà cung cấp chưa nhận RFQ. Khi gửi, họ sẽ thấy liên hệ người mua đã đồng ý chia sẻ.</>, action: <a href="#suppliers" className="btn btn-primary btn-sm">Đến danh sách <ArrowRight className="h-3.5 w-3.5" /></a> };
     if (awaiting.length > 0 && rfqChannel(rfq) === "direct") return { text: <>Đã gửi tới nhà cung cấp người mua chọn. Báo giá họ gửi trên cổng <strong>tự tới người mua</strong>; Vexim chỉ theo dõi và nhắc khi quá hạn.</> };
     if (awaiting.length > 0) return { text: <>Đang chờ <strong>{awaiting.length}</strong> nhà cung cấp báo giá. Nhập giá khi nhận được, hoặc bấm Nhắc phản hồi.</> };
     return { text: "Chưa có nhà cung cấp phù hợp. Thêm nhà cung cấp vào shortlist để bắt đầu.", action: <a href="#suppliers" className="btn btn-primary btn-sm">Thêm nhà cung cấp <ArrowRight className="h-3.5 w-3.5" /></a> };
@@ -441,7 +445,7 @@ export default async function RfqDetailPage({
               <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">
                 Nhà cung cấp ({matches.length})
               </h2>
-              {canAct && sendable.length > 0 && (
+              {canAct && consentedSendable.length > 0 && (
                 <form id="rfq-dispatch" action={sendRfqToSuppliersAction} className="flex flex-wrap items-center gap-2">
                   <input type="hidden" name="rfq_id" value={rfq.id} />
                   <label className="flex items-center gap-1 whitespace-nowrap text-[12px] text-ink-600">
@@ -453,7 +457,7 @@ export default async function RfqDetailPage({
                       <option value="7">7 ngày</option>
                     </select>
                   </label>
-                  <ConfirmSubmitButton className="btn btn-primary btn-sm" message="Gửi email yêu cầu báo giá ẩn danh cho các nhà cung cấp đã tích? Thông tin người mua được giữ kín.">
+                  <ConfirmSubmitButton className="btn btn-primary btn-sm" message="Gửi RFQ và liên hệ người mua đã đồng ý chia sẻ tới các nhà cung cấp đã tích?">
                     <Mail className="h-3.5 w-3.5" /> Gửi yêu cầu báo giá
                   </ConfirmSubmitButton>
                 </form>
@@ -466,7 +470,7 @@ export default async function RfqDetailPage({
                 {preferredSupplierIds.map((pid) => supplierName(supplierMap.get(pid), pid)).join(", ")}.{" "}
                 {isSupplierQuestion
                   ? "Người mua chỉ đồng ý liên hệ nhà cung cấp này. Không thêm nhà cung cấp khác khi chưa có đồng ý mới."
-                  : "Ưu tiên gửi yêu cầu cho các đơn vị này trước khi tìm thêm."}
+                  : "Chỉ gửi cho đơn vị người mua chỉ định. Gửi cho nhà cung cấp khác cần có đồng ý riêng."}
               </p>
             )}
             {canAct && sendable.length > 0 && (
@@ -490,7 +494,7 @@ export default async function RfqDetailPage({
                 return (
                   <li key={m.id} className="py-3">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                      {canAct && isSendable && (
+                      {canAct && isSendable && rfqBuyerContact(rfq, m.supplier_id) && (
                         <input type="checkbox" name="match_ids" form="rfq-dispatch" value={m.id} defaultChecked
                           aria-label={`Gửi yêu cầu cho ${name}`} className="h-4 w-4 rounded border-ink-300 text-brand-600" />
                       )}
@@ -499,11 +503,12 @@ export default async function RfqDetailPage({
                         <span className={"h-1.5 w-1.5 rounded-full " + ms.dot} />{ms.label}
                       </Badge>
                       {preferredSupplierIds.includes(m.supplier_id) && <Badge className="bg-brand-600 text-[10.5px] text-white">Người mua chỉ định</Badge>}
+                      {isSendable && !rfqBuyerContact(rfq, m.supplier_id) && <Badge className="bg-amber-50 text-[10.5px] text-amber-800">Cần xác nhận chia sẻ liên hệ</Badge>}
                       {passed.map((step) => <Badge key={step} color="#059669" className="text-[10.5px]">{verificationLabel(step, reviewedL2Scopes.get(m.supplier_id) ?? null)}</Badge>)}
 
                       {canAct && (
                         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                          {canFollowUp && (
+                          {canFollowUp && !!rfqBuyerContact(rfq, m.supplier_id) && (
                             <form action={sendFollowUpAction}>
                               <input type="hidden" name="rfq_id" value={rfq.id} />
                               <input type="hidden" name="match_id" value={m.id} />
@@ -575,12 +580,14 @@ export default async function RfqDetailPage({
                               </label>
                               <PendingButton>Lưu</PendingButton>
                             </ActionForm>
-                            <div>
-                              <ComposeEmailDialog action={composeMatchEmailAction} hidden={{ rfq_id: rfq.id, match_id: m.id }}
-                                recipientName={name} recipientEmail={sup?.email ?? null}
-                                defaultSubject={`[Vexim] Về yêu cầu ${rfq.code} – ${rfq.product_text}`}
-                                defaultBody={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${rfq.product_text} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${deliveryText}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
-                            </div>
+                            {m.sent_to_supplier_at && m.status !== "proposed" && rfqBuyerContact(rfq, m.supplier_id) && (
+                              <div>
+                                <ComposeEmailDialog action={composeMatchEmailAction} hidden={{ rfq_id: rfq.id, match_id: m.id }}
+                                  recipientName={name} recipientEmail={sup?.email ?? null}
+                                  defaultSubject={`[Vexim] Về yêu cầu ${rfq.code} – ${withoutDirectContacts(rfq.product_text)}`}
+                                  defaultBody={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${withoutDirectContacts(rfq.product_text)} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${deliveryText}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
+                              </div>
+                            )}
                             <form action={removeMatchAction} className="ml-auto">
                               <input type="hidden" name="match_id" value={m.id} />
                               <input type="hidden" name="rfq_id" value={rfq.id} />

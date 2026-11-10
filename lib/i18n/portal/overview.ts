@@ -84,7 +84,7 @@ const en = {
       submissions: "Verification profiles awaiting review",
     },
   },
-  footer: "Buyer contact details are shared only when the buyer chooses you.",
+  footer: "Only RFQs actually sent to you show the buyer contact details provided with consent for that request.",
   levelChip: { approved: "Approved", pending: "Under review", off: "Not approved" },
   pendingRefresh: "The status refreshes on its own while this page stays open.",
   verificationPanel: {
@@ -189,7 +189,7 @@ const vi: OverviewMessages = {
       submissions: "Hồ sơ xác thực đang chờ xét",
     },
   },
-  footer: "Liên hệ người mua chỉ được chia sẻ khi người mua chọn bạn.",
+  footer: "Chỉ RFQ thực sự gửi tới bạn mới hiện liên hệ người mua đã đồng ý chia sẻ cho yêu cầu đó.",
   levelChip: { approved: "Đã duyệt", pending: "Đang chờ xét", off: "Chưa duyệt" },
   pendingRefresh: "Trạng thái tự cập nhật khi trang đang mở.",
   verificationPanel: {
