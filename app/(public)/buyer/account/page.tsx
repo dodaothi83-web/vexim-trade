@@ -15,15 +15,19 @@ import { SaveProductButton } from "@/components/buyer-saved-products";
 import { BuyerAccountProfile } from "@/components/buyer-account-profile";
 import { COMPANY } from "@/lib/config";
 import type { Rfq } from "@/lib/types";
-import { buyerMatchHasUpdate, buyerMatchHasNewQuote } from "@/lib/rfq/portal-core";
+import { buyerDirectOutcome, buyerMatchHasUpdate, buyerMatchHasNewQuote } from "@/lib/rfq/portal-core";
 import { deskHasNewReply } from "@/lib/rfq/mediated";
 import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
 
 export const metadata: Metadata = { title: "Buyer account | Vexim Trade", robots: { index: false, follow: false } };
 const panel = "rounded-2xl border border-ink-200 bg-white p-5 shadow-sm sm:p-6";
 
-function requestStatus(rfq: Rfq, vi: boolean, published: boolean) {
+function requestStatus(rfq: Rfq, vi: boolean, published: boolean, outcome: "declined" | "no_response" | null = null) {
   const direct = rfqChannel(rfq) === "direct";
+  if (direct && !published && outcome && (rfq.status === "matching" || rfq.status === "quoted")) {
+    return outcome === "declined" ? (vi ? "Nhà cung cấp đã từ chối" : "Supplier declined")
+      : (vi ? "Nhà cung cấp chưa phản hồi" : "No supplier reply yet");
+  }
   switch (rfq.status) {
     case "new": return direct
       ? rfq.specs?.direct_delivery_version === "portal_direct_v2"
@@ -76,6 +80,8 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
   const updates = await store.listRfqMatchUpdates(requests.filter((r) => rfqChannel(r) !== "question").map((r) => r.id))
     .catch((error) => { console.error("[buyer] RFQ notices unavailable", error); return []; });
   const publishedRequests = new Set(updates.filter((row) => !!row.sent_to_buyer_at).map((row) => row.rfq_id));
+  const directOutcomes = new Map(directRequests.filter((r) => rfqChannel(r) === "direct").map((r) =>
+    [r.id, buyerDirectOutcome(updates.filter((row) => row.rfq_id === r.id))] as const));
   const unreadByRequest = new Map<string, number>();
   for (const update of updates) {
     const request = rfqById.get(update.rfq_id);
@@ -137,7 +143,7 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
           </section>
           {(tab === "overview" || tab === "requests") && <section className={panel}>
             <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">{titles.requests}</h2><Link href="/suppliers" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700">{vi ? "Chọn nhà cung cấp" : "Choose a supplier"}<ArrowRight className="h-4 w-4" /></Link></div>
-            {!directRequests.length ? <div className="py-12 text-center"><VeximBuyerEnquiriesIcon className="mx-auto h-12 w-12 text-brand-700" /><p className="mt-4 font-semibold">{vi ? "Chưa có yêu cầu báo giá hoặc câu hỏi sản phẩm." : "No quote or product enquiries yet."}</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-500">{vi ? "Chọn nhà cung cấp hoặc sản phẩm để gửi RFQ trực tiếp. Tìm nguồn chung nằm ở mục Vexim." : "Choose a supplier or product for a direct RFQ. General sourcing is in the Vexim tab."}</p></div> : <ul className="mt-4 divide-y divide-ink-100">{(tab === "overview" ? directRequests.slice(0, 5) : directRequests).map((r) => <li key={r.id} className="py-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-ink-500">{r.code} · {new Intl.DateTimeFormat(vi ? "vi-VN" : "en-GB", { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(r.created_at))}</p><span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">{rfqChannel(r) === "question" ? (vi ? "Câu hỏi cũ · chỉ để xem" : "Previous question · read-only") : requestStatus(r, vi, publishedRequests.has(r.id))}</span></div><p className="mt-2 text-xs font-semibold text-brand-700">{rfqChannel(r) === "question" ? (vi ? "Lịch sử câu hỏi" : "Previous product question") : (vi ? "RFQ trực tiếp" : "Direct RFQ")}</p><p className="mt-2 font-semibold">{r.product_text}</p>{!!unreadByRequest.get(r.id) && <p className="mt-2 inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-900">{vi ? `${unreadByRequest.get(r.id)} cập nhật mới` : `${unreadByRequest.get(r.id)} new update${unreadByRequest.get(r.id) === 1 ? "" : "s"}`}</p>}<Link prefetch={false} href={`/buyer/account/requests/${encodeURIComponent(r.id)}`} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-700">{vi ? "Xem chi tiết" : "View details"}<ArrowRight className="h-3 w-3" /></Link></li>)}</ul>}
+            {!directRequests.length ? <div className="py-12 text-center"><VeximBuyerEnquiriesIcon className="mx-auto h-12 w-12 text-brand-700" /><p className="mt-4 font-semibold">{vi ? "Chưa có yêu cầu báo giá hoặc câu hỏi sản phẩm." : "No quote or product enquiries yet."}</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-500">{vi ? "Chọn nhà cung cấp hoặc sản phẩm để gửi RFQ trực tiếp. Tìm nguồn chung nằm ở mục Vexim." : "Choose a supplier or product for a direct RFQ. General sourcing is in the Vexim tab."}</p></div> : <ul className="mt-4 divide-y divide-ink-100">{(tab === "overview" ? directRequests.slice(0, 5) : directRequests).map((r) => <li key={r.id} className="py-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-ink-500">{r.code} · {new Intl.DateTimeFormat(vi ? "vi-VN" : "en-GB", { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(r.created_at))}</p><span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">{rfqChannel(r) === "question" ? (vi ? "Câu hỏi cũ · chỉ để xem" : "Previous question · read-only") : requestStatus(r, vi, publishedRequests.has(r.id), directOutcomes.get(r.id) ?? null)}</span></div><p className="mt-2 text-xs font-semibold text-brand-700">{rfqChannel(r) === "question" ? (vi ? "Lịch sử câu hỏi" : "Previous product question") : (vi ? "RFQ trực tiếp" : "Direct RFQ")}</p><p className="mt-2 font-semibold">{r.product_text}</p>{!!unreadByRequest.get(r.id) && <p className="mt-2 inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-900">{vi ? `${unreadByRequest.get(r.id)} cập nhật mới` : `${unreadByRequest.get(r.id)} new update${unreadByRequest.get(r.id) === 1 ? "" : "s"}`}</p>}<Link prefetch={false} href={`/buyer/account/requests/${encodeURIComponent(r.id)}`} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-700">{vi ? "Xem chi tiết" : "View details"}<ArrowRight className="h-3 w-3" /></Link></li>)}</ul>}
             {tab === "overview" && directRequests.length > 5 && <Link href="/buyer/account?tab=requests" className="mt-4 inline-block text-sm font-semibold text-brand-700">{vi ? "Xem tất cả yêu cầu" : "View all requests"}</Link>}
             <p className="mt-4 rounded-xl bg-ink-50 p-3 text-xs leading-5 text-ink-500">{vi ? "RFQ trực tiếp trao đổi với nhà cung cấp. Câu hỏi cũ chỉ để xem. Chưa chọn được bên phù hợp? Tạo RFQ tìm nguồn MỚI." : "For direct RFQs, talk to your chosen supplier. Previous questions are read-only; use Chat with supplier for new ones. If no supplier fits, create a NEW sourcing RFQ."}</p>
           </section>}

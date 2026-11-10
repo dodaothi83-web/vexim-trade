@@ -2210,7 +2210,7 @@ export const supabaseStore: DataStore = {
   },
   async listRfqMatchUpdates(rfqIds) {
     if (!rfqIds.length) return [];
-    type Update = Pick<RfqMatch, "id" | "rfq_id" | "sent_to_supplier_at" | "sent_to_buyer_at" |
+    type Update = Pick<RfqMatch, "id" | "rfq_id" | "status" | "sent_to_supplier_at" | "sent_to_buyer_at" |
       "buyer_last_read_at" | "last_thread_message_at" | "last_thread_sender" | "last_supplier_message_at">;
     const rows: Update[] = [];
     const ids = [...new Set(rfqIds)];
@@ -2218,7 +2218,7 @@ export const supabaseStore: DataStore = {
       const batch = ids.slice(i, i + ID_BATCH_SIZE);
       rows.push(...await readAllById<Update>("listRfqMatchUpdates", (after) => {
         let query = must().from("rfq_matches")
-          .select("id,rfq_id,sent_to_supplier_at,sent_to_buyer_at,buyer_last_read_at,last_thread_message_at,last_thread_sender,last_supplier_message_at")
+          .select("id,rfq_id,status,sent_to_supplier_at,sent_to_buyer_at,buyer_last_read_at,last_thread_message_at,last_thread_sender,last_supplier_message_at")
           .in("rfq_id", batch).order("id", { ascending: true }).limit(READ_PAGE_SIZE);
         if (after) query = query.gt("id", after);
         return query;

@@ -462,7 +462,7 @@ export interface DataStore {
   finishRfqMediatedAlert(id: string, claimedAt: string,
     patch: Pick<RfqMediatedAlert, "status" | "not_before" | "last_error" | "sent_at">): Promise<boolean>;
   /** Used only after the buyer's account ownership was checked; excludes private quote fields. */
-  listRfqMatchUpdates(rfqIds: string[]): Promise<Pick<RfqMatch, "id" | "rfq_id" | "sent_to_supplier_at" | "sent_to_buyer_at" |
+  listRfqMatchUpdates(rfqIds: string[]): Promise<Pick<RfqMatch, "id" | "rfq_id" | "status" | "sent_to_supplier_at" | "sent_to_buyer_at" |
     "buyer_last_read_at" | "last_thread_message_at" | "last_thread_sender" | "last_supplier_message_at">[]>;
   listDueRfqPortalAlerts(now: string, limit: number, matchIds?: string[]): Promise<RfqPortalAlert[]>;
   claimRfqPortalAlert(alert: RfqPortalAlert, at: string): Promise<boolean>;

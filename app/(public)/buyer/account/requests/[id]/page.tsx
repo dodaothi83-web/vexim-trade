@@ -2,7 +2,7 @@ import { BuyerEnquiryDetail, type BuyerQuote } from "@/components/buyer-enquiry-
 import { requireOwnedBuyerEnquiry } from "@/lib/buyer/enquiry-access";
 import { getStore } from "@/lib/db";
 import { getLocale } from "@/lib/i18n/server";
-import { canBuyerOpenRfqMatch, buyerMatchHasNewQuote, buyerMatchHasUpdate, lastPublishedQuote } from "@/lib/rfq/portal-core";
+import { canBuyerOpenRfqMatch, buyerDirectOutcome, buyerMatchHasNewQuote, buyerMatchHasUpdate, lastPublishedQuote } from "@/lib/rfq/portal-core";
 import { rfqChannel } from "@/lib/rfq/channel";
 import { RfqMediatedThread } from "@/components/rfq-mediated-thread";
 import { canUseMediatedDesk, safeMediatedMessages } from "@/lib/rfq/mediated";
@@ -21,23 +21,35 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
   const sourcing = rfqChannel(rfq) === "sourcing";
   let quotesUnavailable = false;
   let quotes: BuyerQuote[] = [];
-  let preQuoteThreads: Array<Pick<BuyerQuote, "id" | "supplier" | "location" | "href" | "unread">> = [];
+  let preQuoteThreads: Array<Pick<BuyerQuote, "id" | "supplier" | "location" | "href" | "unread"> & { noReply?: boolean }> = [];
+  // Direct only: named suppliers who declined, and whether nobody is left to quote.
+  const declined: Array<{ id: string; supplier: string }> = [];
+  let directOutcome: "declined" | "no_response" | null = null;
   try {
     const [matches, suppliers] = await Promise.all([store.listRfqMatches(rfq.id), store.listSuppliers()]);
     const versions = await store.listRfqQuoteVersions(matches.filter((m) => !!m.sent_to_buyer_at).map((m) => m.id));
     const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
+    const named = new Set(rfq.preferred_supplier_ids ?? []);
+    const direct = rfqChannel(rfq) === "direct";
+    // Only suppliers the buyer named: a legacy staff-added match is not theirs to see.
+    if (direct) directOutcome = buyerDirectOutcome(matches.filter((m) => named.has(m.supplier_id)));
     for (const match of matches) {
-      if (!canBuyerOpenRfqMatch(rfq, match)) continue;
       const s = supplierMap.get(match.supplier_id);
+      const supplierName = s?.display_name ?? s?.trade_name ?? s?.name ?? (locale === "vi" ? "Nhà cung cấp" : "Supplier");
+      if (direct && named.has(match.supplier_id) && match.status === "declined" && !!match.sent_to_supplier_at && !match.sent_to_buyer_at) {
+        declined.push({ id: match.id, supplier: supplierName });
+        continue;
+      }
+      if (!canBuyerOpenRfqMatch(rfq, match)) continue;
       const details = {
-        id: match.id, supplier: s?.display_name ?? s?.trade_name ?? s?.name ?? (locale === "vi" ? "Nhà cung cấp" : "Supplier"),
+        id: match.id, supplier: supplierName,
         location: s?.province ?? s?.country ?? null,
         href: `/buyer/account/requests/${encodeURIComponent(rfq.id)}/offers/${encodeURIComponent(match.id)}`,
         unread: sourcing ? buyerMatchHasNewQuote(match) : buyerMatchHasUpdate(match),
       };
       const offer = lastPublishedQuote(versions, match);
       if (!offer) {
-        if (rfqChannel(rfq) === "direct") preQuoteThreads.push(details);
+        if (direct) preQuoteThreads.push({ ...details, noReply: match.status === "no_response" });
         continue;
       }
       quotes.push({ ...details, newQuote: buyerMatchHasNewQuote(match), version: offer.version, note: offer.buyer_note,
@@ -63,5 +75,6 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
     }
   }
   return <BuyerEnquiryDetail rfq={rfq} buyer={buyer} quotes={quotes} preQuoteThreads={preQuoteThreads}
+    declined={declined} directOutcome={directOutcome}
     quotesUnavailable={quotesUnavailable} locale={locale} mediatedThread={mediatedThread} />;
 }

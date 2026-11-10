@@ -32,6 +32,16 @@ export function canBuyerOpenRfqMatch(rfq: Rfq, match: RfqMatch): boolean {
   );
 }
 
+/** What a buyer should be told when a direct RFQ has no published quote: every named
+ * supplier declined, or the remaining ones are past their response date. Null while any
+ * supplier may still be preparing a quote or once a quote has been published. */
+export function buyerDirectOutcome(matches: Pick<RfqMatch, "status" | "sent_to_supplier_at" | "sent_to_buyer_at">[]): "declined" | "no_response" | null {
+  const sent = matches.filter((m) => !!m.sent_to_supplier_at && m.status !== "proposed");
+  if (!sent.length || sent.some((m) => !!m.sent_to_buyer_at)) return null;
+  if (sent.every((m) => m.status === "declined")) return "declined";
+  return sent.every((m) => m.status === "declined" || m.status === "no_response") ? "no_response" : null;
+}
+
 /** A seller cannot smuggle contact details into the offer's public conditions. */
 export function cleanQuoteBuyerNote(raw: unknown): { ok: true; note: string } | { ok: false; error: "buyerNote" } {
   const note = String(raw ?? "").trim();
