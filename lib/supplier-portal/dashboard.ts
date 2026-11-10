@@ -47,6 +47,8 @@ export interface PortalInvite {
     wantsSamples: boolean;
     wantsInspection: boolean;
     wantsVideoCall: boolean;
+    /** What the buyer wrote beyond the linked product's name; null when they added nothing. */
+    note: string | null;
   };
   /** Only the consented, whitelisted snapshot for this actually invited supplier. */
   buyerContact: RfqBuyerContact | null;
@@ -56,6 +58,8 @@ export interface PortalInvite {
   directToBuyer: boolean;
   /** Distinguish channel from contact consent: an older direct RFQ may lack consent. */
   viaVexim: boolean;
+  /** A direct RFQ without the buyer's contact consent: visible, but it cannot be answered. */
+  blocked: boolean;
   newBuyerMessage: boolean;
   publishedAt: string | null;
   /** Giá trị điền sẵn cho form báo giá (bản nháp hiện tại hoặc yêu cầu). */
@@ -104,6 +108,14 @@ function safeRequestText(value: unknown, language: Locale, max: number): string 
     .slice(0, max).trim() || null;
 }
 
+/** A product-page RFQ stores "<product name>. <what the buyer typed>". The product is
+ * already shown on its own card, so keep only the buyer's own words. */
+function buyerNote(description: string, productTitle: string): string | null {
+  const name = productTitle.trim();
+  if (!name || !description.toLowerCase().startsWith(name.toLowerCase())) return description;
+  return description.slice(name.length).replace(/^[\s.:·–-]+/, "").trim() || null;
+}
+
 /** Only consented contact and whitelisted, sanitized RFQ requirements; no CRM row or desk notes. */
 function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierProduct[], supplierId: string, language: Locale): PortalInvite[] {
   const fallback = rfqsMessages[language].fallback;
@@ -117,17 +129,23 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
     const month = text(rfq.shipment_month, 7);
     const deliveryMonth = month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)
       ? `${month.slice(5, 7)}/${month.slice(0, 4)}` : null;
-    const destination = [text(rfq.destination_country), text(rfq.destination_port)].filter(Boolean).join(" · ");
+    // Buyers often type the port city in both fields; show it once.
+    const destination = [text(rfq.destination_country), text(rfq.destination_port)]
+      .filter((part, index, all): part is string => !!part && all.findIndex((other) => other?.toLowerCase() === part.toLowerCase()) === index)
+      .join(" · ");
     const direct = rfqChannel({ source_page: rfq.source_page, source_product_id: rfq.source_product_id,
       preferred_supplier_ids: rfq.preferred_supplier_ids ?? [], specs: { sourcing_request_id: rfq.sourcing_request_id } }) === "direct";
     const directContact = direct ? rfqBuyerContact({ specs: rfq as Record<string, unknown>,
       source_product_id: rfq.source_product_id, preferred_supplier_ids: rfq.preferred_supplier_ids }, supplierId) : null;
     const authorized = direct ? !!directContact : sourcingInviteConsent({ specs: rfq as Record<string, unknown> }, supplierId);
+    const open = !["won", "lost", "spam"].includes(rfq.status ?? "");
+    const blocked = direct && !authorized && open && ["sent_to_supplier", "no_response"].includes(m.status);
+    const description = text(rfq.product_text, 4_000) || fallback.title;
     return {
       matchId: m.id, code: rfq.code, title,
       // Quoted is a saved draft until an immutable version is published. Direct
       // quotes auto-publish; Vexim must publish sourcing quotes or revisions.
-      status: m.status === "quoted" && m.quote_price != null
+      status: blocked ? rfqsMessages[language].status.blocked : m.status === "quoted" && m.quote_price != null
         ? direct ? rfqsMessages[language].status.directPending
           : m.sent_to_buyer_at ? rfqsMessages[language].status.revisionAwaitingVexim
             : rfqsMessages[language].status.awaitingVexim
@@ -146,7 +164,7 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
         moq: text(product.moq, 80),
       } : null,
       request: {
-        description: text(rfq.product_text, 4_000) || fallback.title,
+        description, note: product ? buyerNote(description, title) : description,
         grade: text(rfq.grade), packaging: text(rfq.packaging, 500),
         certifications: text(rfq.certifications, 500), frequency: text(rfq.frequency, 100),
         incoterm: text(rfq.incoterm, 30), delivery: deliveryMonth || text(rfq.needed_by, 100),
@@ -154,8 +172,8 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
         wantsVideoCall: rfq.wants_video_call === true,
       },
       buyerContact: directContact,
-      canQuote: authorized && ["sent_to_supplier", "no_response", "quoted", "presented_to_buyer"].includes(m.status) &&
-        !["won", "lost", "spam"].includes(rfq.status ?? ""),
+      canQuote: authorized && ["sent_to_supplier", "no_response", "quoted", "presented_to_buyer"].includes(m.status) && open,
+      blocked,
       newBuyerMessage: direct && supplierMatchHasReply(m),
       publishedAt: m.sent_to_buyer_at ?? null,
       directToBuyer: direct && !!directContact,

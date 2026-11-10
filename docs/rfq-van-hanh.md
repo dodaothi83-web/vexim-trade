@@ -101,6 +101,7 @@ mạch riêng, cần Vexim thì tạo RFQ mới.
 | Mời NCC | Mã RFQ + link cổng; không kèm liên hệ, giá, nội dung yêu cầu hay Reply-To RFQ | Chỉ sau khi match được mời thật; lỗi email không rút lời mời |
 | NCC công bố/direct hoặc Vexim công bố/sourcing | Thông báo có giá mới + link tài khoản, **không có bảng giá** | `rfq_portal_alerts` gắn phiên bản bất biến |
 | Tin mạch chưa đọc | Link đúng mạch, **không kèm tin/giá/liên hệ** | Outbox chờ 10 phút, bỏ qua nếu đã đọc |
+| Direct: NCC từ chối hoặc quá hạn phản hồi | Buyer: thông báo + link tài khoản. NCC: một thư nhắc trước hạn 24 giờ + link cổng | `buyer_status_update` theo `direct_declined:<match>` / `direct_no_response:<match>`; nhắc NCC theo `direct_due:<match>` |
 | Chọn NCC, gửi mẫu, đóng mất đơn | Thông báo trạng thái và link, không kèm liên hệ buyer/giá/lý do chi tiết | `buyer_status_update` chống gửi lặp theo giai đoạn; mail lỗi không hủy dữ liệu |
 
 Địa chỉ Reply-To RFQ/sourcing cũ (`rfq+…`, `buyer+…`, `sourcing+…`) **không nhận cập nhật
@@ -120,8 +121,25 @@ không cắt ở 50 và không phát lại báo giá/email RFQ lịch sử.
 
 Cron `GET /api/cron/rfq-sla` nhắc nhân viên với **sourcing** chưa phân công sau 4 giờ
 hoặc chưa phản hồi sau 20 giờ; không ghi cờ SLA/nhắc phân công direct hay câu hỏi cũ.
-Đây là **giờ đồng hồ**, chưa phải giờ làm việc. NCC im lặng hiện chưa tự thành
-`no_response`, nhân viên tìm nguồn tự đổi trạng thái khi cần.
+Đây là **giờ đồng hồ**, chưa phải giờ làm việc. Với **sourcing**, NCC im lặng chưa tự
+thành `no_response`, nhân viên tìm nguồn tự đổi trạng thái khi cần.
+
+Cùng cron này chạy `runDirectRfqFollowUps` cho **direct** (`lib/rfq/direct-followup.ts`),
+vì không có nhân viên nào theo dõi luồng này:
+
+- Còn dưới 24 giờ tới `response_due_at` mà NCC chưa báo giá, chưa từ chối, chưa nhắn
+  trong mạch: gửi **một** thư nhắc tới tài khoản cổng đang hoạt động.
+- Quá `response_due_at`: match chuyển `no_response` (compare-and-set, NCC vẫn báo giá
+  được sau đó) và buyer nhận một thư báo chưa có phản hồi.
+- NCC bấm từ chối: buyer nhận thư ngay trong action; cron gửi bù nếu lần đầu lỗi.
+- Thư mời NCC được ghi vào `email_messages` (`rfq_outreach`, `direct_invite:<match>`).
+  Thư ghi nhận `failed` được gửi lại một lần mỗi lượt quét cho tới hạn phản hồi; lời
+  mời trong cổng không phụ thuộc vào thư này.
+
+Trang `/buyer/account/requests/[id]` và danh sách RFQ trực tiếp hiện "Nhà cung cấp đã từ
+chối" khi mọi NCC được chọn đều từ chối, hoặc "Nhà cung cấp chưa phản hồi" khi không còn
+NCC nào đang trong hạn. Chỉ quét RFQ `portal_direct_v2` tạo trong 45 ngày gần nhất; thư
+lỗi được thử lại trong 14 ngày. Cron chạy theo ngày thì các mốc trên trễ tối đa một ngày.
 
 ## 6. Migration, kiểm thử và sự cố
 
@@ -152,7 +170,8 @@ hoặc chưa phản hồi sau 20 giờ; không ghi cờ SLA/nhắc phân công d
    (`status`, `attempts`, `last_error`, `not_before`), account người nhận và log cron.
    Không công bố lại chỉ để thử gửi thư; nội dung vẫn nằm trong tài khoản.
 
-**Giới hạn hiện còn:** các danh sách RFQ/buyer toàn cục và cấp mã RFQ còn có đường đọc
-không phân trang/đọc-rồi-ghi; khi dữ liệu vượt giới hạn PostgREST hoặc gửi đồng thời,
-cần xử lý bằng phân trang và sequence/transaction riêng. Không suy diễn một email đã gửi
+**Giới hạn hiện còn:** hộp RFQ trong CRM và cron SLA còn đọc danh sách RFQ toàn cục
+không phân trang. Cấp mã RFQ chỉ đọc mã của ngày hôm đó (`listRfqs({ codePrefix })`) và
+thử lại với số kế tiếp khi trùng mã do gửi đồng thời. RFQ direct chưa có quy tắc đóng, nên
+`retryPendingDirectRfqs` vẫn đọc mỗi RFQ direct đang mở một lần mỗi 5 phút. Không suy diễn một email đã gửi
 là báo giá đã được công bố hay có quyền xem dữ liệu.

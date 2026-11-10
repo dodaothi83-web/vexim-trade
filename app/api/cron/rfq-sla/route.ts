@@ -19,6 +19,7 @@ import { NextResponse } from "next/server";
 import { getStore } from "@/lib/db";
 import { sendSlaAlert } from "@/lib/email/rfq";
 import { rfqChannel } from "@/lib/rfq/channel";
+import { runDirectRfqFollowUps } from "@/lib/rfq/direct-followup";
 import { sendCertificateExpiryReminders } from "@/lib/certificate-service";
 import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
 
@@ -103,6 +104,15 @@ export async function GET(req: Request) {
     }
   }
 
+  // RFQ trực tiếp không có nhân viên theo dõi: nhắc NCC trước hạn phản hồi, quá hạn thì
+  // chuyển `no_response` và báo người mua. Lỗi ở đây không làm hỏng cảnh báo SLA.
+  let directFollowUps: Awaited<ReturnType<typeof runDirectRfqFollowUps>> | null = null;
+  try {
+    directFollowUps = await runDirectRfqFollowUps(store);
+  } catch (err) {
+    console.error("[cron] direct RFQ follow-ups failed", err);
+  }
+
   // Chạy gộp luôn kiểm tra nhắc hết hạn chứng nhận L1 (60/30/7/1 ngày, idempotent)
   // để chỉ cần 1 cron job và 1 mã CRON_SECRET duy nhất.
   let certificatesReminded = 0;
@@ -134,6 +144,7 @@ export async function GET(req: Request) {
     checked: rfqs.length,
     unassigned,
     due,
+    directFollowUps: directFollowUps ?? { error: "unavailable" },
     certificatesReminded,
     supplierReminders,
     supplierReminderError: supplierReminderError ?? undefined,

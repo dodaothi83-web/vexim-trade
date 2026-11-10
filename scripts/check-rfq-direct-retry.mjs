@@ -135,6 +135,7 @@ const retry = load('lib/rfq/retry-direct.ts', {
   './portal-core': core, './channel': channel,
 }).retryPendingDirectRfqs;
 const published = [];
+const inviteLog = [];
 const store = {
   listRetryableDirectRfqs: supabase.listRetryableDirectRfqs.bind(supabase),
   listRfqMatches: supabase.listRfqMatches.bind(supabase),
@@ -143,6 +144,7 @@ const store = {
   getSupplier: async (sid) => sid === supplier.id ? supplier : null,
   getUserBySupplierId: async (sid) => sid === supplier.id ? account : null,
   listSupplierRfqInvitations: async () => [], listSupplierNoticeReads: async () => [],
+  addMessage: async (row) => { inviteLog.push(row); return row; },
   updateRfqMatch: async (matchId, patch) => Object.assign(matches.find((m) => m.id === matchId), patch),
   updateRfq: async (rfqId, patch) => Object.assign(rfqs.find((r) => r.id === rfqId), patch),
   publishRfqQuotes: async (rfqId, mids, expected) => mids.flatMap((mid) => {
@@ -161,6 +163,9 @@ assert.deepEqual(published, [id(800)], 'Only the marked saved quote may be auto-
 assert.equal(matches.find((m) => m.id === id(801)).status, 'quoted', 'Historical staff/email quote remains unpublished');
 assert.equal(matches.filter((m) => m.supplier_id === supplier.id && m.sent_to_supplier_at && m.rfq_id !== id(67)).length, 66);
 assert.equal(notice.length, 65, 'Optional portal notices never retry an already saved invitation');
+assert.equal(inviteLog.length, 65, 'Every invitation notice is logged with its outcome');
+assert.ok(inviteLog.every((m) => m.kind === 'rfq_outreach' && m.stage === `direct_invite:${m.rfq_match_id}` && m.status === 'sent'));
+assert.doesNotMatch(JSON.stringify(inviteLog), /PRIVATE CRM NOTE|private@example\.test|1234567890/);
 assert.ok(notice.every((m) => m.to[0] === account.email && m.html.includes('/supplier/portal/rfqs/')));
 assert.doesNotMatch(JSON.stringify(notice), /PRIVATE CRM NOTE|private@example\.test|1234567890|replyTo/);
 const second = await retry(store);

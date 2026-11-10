@@ -178,6 +178,7 @@ const page = loadTs(read('app/supplier/portal/rfqs/page.tsx'), {
   '@/components/supplier-rfq-reply': { SupplierRfqReply: ({ address }) => React.createElement('a', { href: `mailto:${address}` }, 'Vexim email route') },
   '@/lib/supplier-portal/quote': { QUOTE_CURRENCIES: ['USD'], QUOTE_INCOTERMS: ['FOB'] },
   './quote-form': { SupplierQuoteForm: MockQuote },
+  './request-details': loadTs(read('app/supplier/portal/rfqs/request-details.tsx'), { 'react/jsx-runtime': jsx }, {}, true),
 }, { console: { error() {} } }, true);
 function view(element) {
   return new JSDOM(renderToStaticMarkup(React.createElement('main', null, element)));
@@ -311,6 +312,46 @@ await act(async () => formRoot.unmount());
 
 assert.doesNotMatch(read('app/supplier/portal/rfqs/page.tsx'), /supplier-rfq-reply|mailto:|rfq\+/,
   'Supplier cannot use email as an RFQ quote or reply channel');
+
+// B2B request layout: order terms, then product requirements, then the buyer's own words.
+// A product-page RFQ whose buyer typed nothing must not repeat the product name as a note.
+{
+  const base = { ...rows[0], rfq: { ...rows[0].rfq, sourcing_request_id: null, source_page: '/rfq',
+    destination_country: 'Chennai', destination_port: 'chennai' } };
+  const item = (rfq) => boardModule.buildSupplierRfqBoard({ ...input,
+    invites: [{ ...base, rfq: { ...base.rfq, ...rfq } }] }).invites[0];
+  const bare = item({ product_text: 'Wholesale mixed dried fruit chips' });
+  assert.equal(bare.request.note, null, 'The product name alone is not a buyer note');
+  assert.equal(bare.destination, 'Chennai', 'A port typed in both fields is shown once');
+  assert.equal(item({ product_text: 'Wholesale mixed dried fruit chips. Need 20ft FCL, private label' }).request.note,
+    'Need 20ft FCL, private label');
+  assert.match(item({ product_text: 'Something else entirely' }).request.note, /Something else entirely/);
+  // No contact consent on a direct RFQ: it is visible, but honestly marked as unanswerable.
+  assert.equal(bare.blocked, true);
+  assert.equal(bare.canQuote, false);
+  assert.equal(bare.status, 'Chưa thể báo giá', 'Never tell the supplier to reply to an RFQ they cannot answer');
+  const consented = item({ ...consent, product_text: 'Wholesale mixed dried fruit chips' });
+  assert.equal(consented.blocked, false);
+  assert.equal(consented.status, 'Chờ bạn phản hồi');
+
+  const saved = access.store.listSupplierRfqInvitations;
+  access.store.listSupplierRfqInvitations = async () => [{ ...base, rfq: { ...base.rfq, product_text: 'Wholesale mixed dried fruit chips' } }];
+  const blockedDoc = view(await page.default({ searchParams: Promise.resolve({}) })).window.document;
+  access.store.listSupplierRfqInvitations = saved;
+  const row = blockedDoc.querySelector('#rfq-history')?.closest('section');
+  assert.ok(row, 'An unanswerable RFQ is not listed as a task to quote');
+  assert.equal(blockedDoc.querySelectorAll('[data-quote-for]').length, 0);
+  assert.match(row.querySelector('summary').textContent, /Chưa thể báo giá/);
+  assert.match(row.querySelector('[role="note"]').textContent, /chưa đồng ý chia sẻ liên hệ/);
+  assert.doesNotMatch(row.textContent, /RFQ đích danh cũ|Ghi chú của người mua/);
+  const headings = [...row.querySelectorAll('h4')].map((h) => h.textContent);
+  assert.equal(headings.join('|'), 'Điều kiện đơn hàng|Yêu cầu sản phẩm');
+  assert.equal(row.textContent.split('Wholesale mixed dried fruit chips').length - 1, 2,
+    'The product name appears in the row heading and the product card only');
+}
+const detailSource = read('app/supplier/portal/rfqs/[matchId]/page.tsx');
+assert.match(detailSource, /<RequestDetails item=\{item\} copy=\{m\.rfqs\.request\}/, 'List and detail pages share one request layout');
+assert.match(detailSource, /m\.rfqs\.buyer\.unavailableDirect/, 'A direct RFQ is never described as Vexim-coordinated');
 
 const callsBeforeLogout = mediaCalls.length;
 access = null;

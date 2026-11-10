@@ -8,6 +8,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { parseSupplierQuote, recordSupplierPortalQuote } from "@/lib/supplier-portal/quote";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { runRfqPortalAlerts } from "@/lib/rfq/portal-alerts";
+import { notifyBuyerDirectMatch } from "@/lib/rfq/direct-followup";
 
 /** Khi lỗi, trả lại giá trị đã nhập vì React đặt lại form sau mỗi lần gửi. */
 export type SupplierQuoteState = { error: string | null; values?: Record<string, string> };
@@ -49,6 +50,16 @@ export async function submitSupplierQuoteAction(_prev: SupplierQuoteState, fd: F
         .catch((error) => console.error("[supplier-portal] quote published; email alert will retry", error));
     } catch (error) {
       console.error(`[supplier-portal] quote saved but buyer publication failed for ${result.code}`, error);
+    }
+  }
+  // Nobody at Vexim watches a direct RFQ: tell the buyer now that this supplier declined.
+  // Best effort; the daily follow-up sweep retries a notice that could not be sent.
+  if (result.intent === "decline" && result.direct) {
+    try {
+      const [rfq, match] = await Promise.all([access.store.getRfq(result.rfqId), access.store.getRfqMatch(result.matchId)]);
+      if (rfq && match) await notifyBuyerDirectMatch(access.store, rfq, match, "declined");
+    } catch (error) {
+      console.error(`[supplier-portal] decline saved; buyer notice will retry for ${result.code}`, error);
     }
   }
   revalidatePath("/supplier/portal/rfqs");

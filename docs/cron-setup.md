@@ -96,3 +96,22 @@ Response có `updated`, `unchanged` và chi tiết `results[].code`. `unchanged`
 - Chống trùng: mỗi nhà cung cấp tối đa 1 thư/14 ngày, tối đa 6 thư, mỗi lượt tối đa 40 thư; nhật ký ghi vào `email_messages` với `kind = 'supplier_reminder'`.
 - **Chạy migration trước khi deploy:** `supabase/migrations/20261101_supplier_progress_reminders.sql` (chỉ mở rộng CHECK kind, không thêm bảng/cột). Chưa chạy thì route trả `ok: false` vì không ghi được nhật ký.
 - Kiểm thử offline: `npm run check:email-lifecycle`. Chi tiết chính sách: [email-lifecycle-plan.md](email-lifecycle-plan.md).
+
+## Cron thông báo chat và RFQ (`/api/cron/chat-notify`), bắt buộc cho luồng RFQ
+- **URL**: `https://www.veximtrade.com/api/cron/chat-notify`
+- **Method**: `GET`, **Schedule**: `*/5 * * * *` (mỗi 5 phút)
+- **Headers**: `Authorization: Bearer <CRON_SECRET>` (dùng chung mã đã cài)
+- Job này làm bốn việc độc lập: email báo tin chat, email báo báo giá và tin nhắn RFQ
+  (`rfq_portal_alerts`), email mạch Vexim của RFQ tìm nguồn (`rfq_mediated_alerts`), và
+  thử lại việc chuyển RFQ trực tiếp vào cổng nhà cung cấp.
+- **Nếu không tạo job này:** chỉ email chat còn được gửi nhờ bộ quét dự phòng khi có người
+  mở chat. Email báo tin nhắn RFQ sẽ không đi, và RFQ trực tiếp bị lỗi lúc chuyển sẽ
+  không bao giờ tới nhà cung cấp.
+- Một nhánh lỗi trả `503` nhưng các nhánh khác vẫn chạy. Bật **Notify on failure**.
+
+## Theo dõi RFQ trực tiếp (chạy gộp trong `/api/cron/rfq-sla`)
+- Không cần job mới. Mỗi lần `/api/cron/rfq-sla` chạy sẽ nhắc nhà cung cấp trước hạn
+  phản hồi 24 giờ, chuyển lời mời quá hạn sang `no_response`, báo người mua, và gửi lại
+  thư mời đã ghi nhận lỗi. Kết quả nằm ở trường `directFollowUps` của response.
+- Lịch `0 2 * * *` làm các mốc này trễ tối đa một ngày. Đặt `0 * * * *` (mỗi giờ) nếu
+  muốn sát giờ hơn; chạy dày hơn không gửi trùng thư.

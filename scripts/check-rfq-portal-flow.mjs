@@ -293,6 +293,8 @@ const supplierQuoteAction = load('app/supplier/portal/rfqs/quote-actions.ts', {
       updatedAt: reviewedAt, intent: 'quote', direct: true }) },
   '@/lib/i18n/server': { getPortalMessages: async () => ({ m: { rfqs: { quote: { errors: {} } } } }) },
   '@/lib/rfq/portal-alerts': mailDown,
+  // A quote must never trigger the decline notice.
+  '@/lib/rfq/direct-followup': { notifyBuyerDirectMatch: async () => { throw new Error('Quote is not a decline'); } },
 });
 staffMatches.d1.status = 'quoted'; staffMatches.d1.quote_price = 7;
 reviewedAt = staffMatches.d1.updated_at;

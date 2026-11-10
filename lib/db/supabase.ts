@@ -864,8 +864,11 @@ export const supabaseStore: DataStore = {
     return (data as Buyer) ?? null;
   },
   async getBuyerByEmail(email) {
-    const needle = email.trim().toLowerCase();
-    if (!needle) return null;
+    const exact = email.trim().toLowerCase();
+    if (!exact) return null;
+    // ILIKE coi % và _ là ký tự đại diện: "a_b@x.com" sẽ khớp cả "axb@x.com" và gắn
+    // RFQ vào hồ sơ của người mua khác. Escape để chỉ khớp đúng địa chỉ (không phân biệt hoa thường).
+    const needle = exact.replace(/[\\%_]/g, (value) => "\\" + value);
     // buyers.email không có unique index: lấy bản mới nhất nếu dữ liệu cũ có trùng.
     const { data, error } = await must()
       .from("buyers")
@@ -1924,6 +1927,9 @@ export const supabaseStore: DataStore = {
       if (options.assignedTo === null) q = q.is("assigned_to", null);
       else q = q.eq("assigned_to", options.assignedTo);
     }
+    // LIKE metacharacters must match literally; a day prefix has none, but stay exact.
+    if (options?.codePrefix) q = q.like("code", `${options.codePrefix.replace(/[\\%_]/g, (value) => "\\" + value)}%`);
+    if (options?.sourcingRequestId) q = q.contains("specs", { sourcing_request_id: options.sourcingRequestId });
     const { data, error } = await q;
     if (error) fail("listRfqs", error);
     return (data ?? []) as Rfq[];
@@ -2207,7 +2213,7 @@ export const supabaseStore: DataStore = {
   },
   async listRfqMatchUpdates(rfqIds) {
     if (!rfqIds.length) return [];
-    type Update = Pick<RfqMatch, "id" | "rfq_id" | "sent_to_supplier_at" | "sent_to_buyer_at" |
+    type Update = Pick<RfqMatch, "id" | "rfq_id" | "status" | "sent_to_supplier_at" | "sent_to_buyer_at" |
       "buyer_last_read_at" | "last_thread_message_at" | "last_thread_sender" | "last_supplier_message_at">;
     const rows: Update[] = [];
     const ids = [...new Set(rfqIds)];
@@ -2215,7 +2221,7 @@ export const supabaseStore: DataStore = {
       const batch = ids.slice(i, i + ID_BATCH_SIZE);
       rows.push(...await readAllById<Update>("listRfqMatchUpdates", (after) => {
         let query = must().from("rfq_matches")
-          .select("id,rfq_id,sent_to_supplier_at,sent_to_buyer_at,buyer_last_read_at,last_thread_message_at,last_thread_sender,last_supplier_message_at")
+          .select("id,rfq_id,status,sent_to_supplier_at,sent_to_buyer_at,buyer_last_read_at,last_thread_message_at,last_thread_sender,last_supplier_message_at")
           .in("rfq_id", batch).order("id", { ascending: true }).limit(READ_PAGE_SIZE);
         if (after) query = query.gt("id", after);
         return query;

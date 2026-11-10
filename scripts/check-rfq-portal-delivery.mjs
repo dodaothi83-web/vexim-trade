@@ -51,11 +51,13 @@ const rfq = { id: 'r1', code: 'RFQ-1', buyer_id: 'b1', status: 'new', spam_score
 const matches = suppliers.map((s, i) => ({ id: `m${i + 1}`, rfq_id: rfq.id, supplier_id: s.id, status: 'proposed', sent_to_supplier_at: null }));
 const mail = [], writes = [];
 let migrated = true, mailOk = true;
+const inviteLog = [];
 const store = {
   getSupplier: async (id) => suppliers.find((s) => s.id === id) ?? null,
   getUserBySupplierId: async (id) => accounts[id] ?? null,
   listSupplierRfqInvitations: async () => { if (!migrated) throw Error('migration missing'); return []; },
   listSupplierNoticeReads: async () => [], listRfqMatches: async () => matches,
+  addMessage: async (row) => { inviteLog.push(row); return row; },
   updateRfqMatch: async (id, patch) => { Object.assign(matches.find((m) => m.id === id), patch); writes.push([id, patch]); },
   updateRfq: async (_, patch) => Object.assign(rfq, patch),
 };

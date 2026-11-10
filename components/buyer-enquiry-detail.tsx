@@ -6,9 +6,27 @@ import { quotePortalCopy } from "@/lib/rfq/portal-copy";
 import type { Locale } from "@/lib/i18n/config";
 import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
 
-function directStatusInfo(rfq: Rfq, locale: Locale, hasQuote: boolean) {
+function directStatusInfo(rfq: Rfq, locale: Locale, hasQuote: boolean, outcome: "declined" | "no_response" | null = null) {
   const vi = locale === "vi";
   const base = { tone: "bg-sky-50 text-sky-800 ring-sky-200", dot: "bg-sky-500", icon: Clock };
+  // Nobody at Vexim follows a direct RFQ, so the buyer must see a dead end here.
+  const warn = { tone: "bg-amber-50 text-amber-900 ring-amber-200", dot: "bg-amber-500", icon: Clock };
+  // Sent before contact-sharing consent was recorded: the supplier sees it but cannot answer.
+  if (!hasQuote && rfq.status === "matching" && rfq.specs?.buyer_contact_policy_version !== "rfq_contact_v2") return { ...warn,
+    title: vi ? "Cần gửi lại yêu cầu" : "Please send this request again",
+    body: vi ? "Yêu cầu này chưa có đồng ý chia sẻ liên hệ nên nhà cung cấp chưa thể báo giá. Hãy gửi lại từ trang sản phẩm."
+      : "This request has no contact-sharing consent on record, so the supplier cannot quote it. Please send it again from the product page.",
+  };
+  if (!hasQuote && outcome === "declined" && (rfq.status === "matching" || rfq.status === "quoted")) return { ...warn,
+    title: vi ? "Nhà cung cấp đã từ chối" : "Supplier declined",
+    body: vi ? "Nhà cung cấp bạn chọn không chào giá yêu cầu này. Nếu vẫn cần hàng, hãy tạo RFQ tìm nguồn MỚI cho Vexim."
+      : "The supplier you selected will not quote this request. If you still need this product, create a NEW sourcing RFQ for Vexim.",
+  };
+  if (!hasQuote && outcome === "no_response" && (rfq.status === "matching" || rfq.status === "quoted")) return { ...warn,
+    title: vi ? "Nhà cung cấp chưa phản hồi" : "No supplier reply yet",
+    body: vi ? "Đã qua hạn phản hồi mà chưa có báo giá. Nhà cung cấp vẫn có thể trả lời. Bạn có thể nhắn họ bên dưới hoặc tạo RFQ tìm nguồn MỚI."
+      : "The response date has passed without a quote. The supplier can still reply. Message them below, or create a NEW sourcing RFQ.",
+  };
   if (rfq.status === "new") return { ...base,
     title: vi ? "Đã lưu, đang chuyển tới nhà cung cấp" : "Saved, portal delivery pending",
     body: rfq.specs?.direct_delivery_version === "portal_direct_v2"
@@ -113,10 +131,12 @@ function questionStatusInfo(status: Rfq["status"], locale: Locale) {
 export type BuyerQuote = { id: string; supplier: string; location: string | null; href?: string; unread?: boolean;
   newQuote?: boolean; price: string; incoterm: string | null; leadTimeDays: number | null; validUntil: string | null;
   version?: number; note?: string | null };
-export type BuyerPreQuoteThread = Pick<BuyerQuote, "id" | "supplier" | "location" | "href" | "unread">;
+export type BuyerPreQuoteThread = Pick<BuyerQuote, "id" | "supplier" | "location" | "href" | "unread"> & { noReply?: boolean };
 
-export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = [], quotesUnavailable = false, locale = "en", mediatedThread }: {
+export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = [], declined = [], directOutcome = null,
+  quotesUnavailable = false, locale = "en", mediatedThread }: {
   rfq: Rfq; buyer: Buyer; quotes?: BuyerQuote[]; preQuoteThreads?: BuyerPreQuoteThread[];
+  declined?: Array<{ id: string; supplier: string }>; directOutcome?: "declined" | "no_response" | null;
   quotesUnavailable?: boolean; locale?: Locale; mediatedThread?: React.ReactNode;
 }) {
   const copy = quotePortalCopy[locale];
@@ -126,7 +146,7 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = 
   const originalSourcingId = sourcing ? linkedSourcingRequestId(rfq) : null;
   const accountHref = sourcing ? "/buyer/account?tab=vexim" : "/buyer/account?tab=requests";
   const info = isQuestion ? questionStatusInfo(rfq.status, locale) : channel === "direct"
-    ? directStatusInfo(rfq, locale, quotes.length > 0) : statusInfo(rfq.status, locale, quotes.length > 0);
+    ? directStatusInfo(rfq, locale, quotes.length > 0, directOutcome) : statusInfo(rfq.status, locale, quotes.length > 0);
   const Icon = info.icon;
 
   return (
@@ -197,9 +217,18 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = 
               <Link href={item.href ?? `/buyer/account/requests/${encodeURIComponent(rfq.id)}/offers/${encodeURIComponent(item.id)}`}
                 prefetch={false} className="flex min-h-12 items-center gap-2 rounded-lg border border-ink-200 px-4 py-2 text-[13px] font-semibold text-brand-700 hover:border-brand-300 hover:bg-brand-50">
                 <MessageCircle className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 flex-1 break-words">{item.supplier} · {copy.discussBeforeQuote}</span>
+                {item.noReply && !item.unread && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900">{copy.noReply}</span>}
                 {item.unread && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900">{copy.newUpdate}</span>}
                 <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
               </Link>
+            </li>)}</ul>
+          </div>}
+          {!!declined.length && <div className="mt-5 border-t border-ink-100 pt-4">
+            <p className="text-[13px] font-semibold text-ink-800">{copy.declinedTitle}</p>
+            <ul className="mt-3 space-y-2">{declined.map((item) => <li key={item.id}
+              className="flex min-h-12 items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-4 py-2 text-[13px] text-ink-700">
+              <span className="min-w-0 flex-1 break-words font-semibold">{item.supplier}</span>
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900 ring-1 ring-amber-200">{copy.declined}</span>
             </li>)}</ul>
           </div>}
         </section>}

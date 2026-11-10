@@ -4,9 +4,12 @@ import { FROM_ADDRESS } from "@/lib/config";
 import type { DataStore } from "@/lib/db/types";
 import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import { SITE_URL } from "@/lib/site";
-import type { Rfq } from "@/lib/types";
+import type { EmailMessage, Rfq } from "@/lib/types";
 import { rfqBuyerContact } from "./buyer-contact";
 import { rfqChannel } from "./channel";
+
+/** Email log stage of the invitation notice for one match. */
+export const directInviteStage = (matchId: string) => `direct_invite:${matchId}`;
 
 /** Direct RFQs are delivered inside each named supplier's portal without staff review.
  * Email is a link-only optional notice after the match is persisted, never a fallback.
@@ -43,9 +46,22 @@ export async function releaseTargetedQuoteToPortal(store: DataStore, rfq: Rfq): 
     try {
       const email = buildRfqSupplierEmail({ rfq, supplier, deadline,
         portalUrl: `${SITE_URL}/supplier/portal/rfqs/${encodeURIComponent(match.id)}` });
-      await transport({ to: [account.email], from: FROM_ADDRESS, subject: email.subject,
-        html: email.html, text: email.text });
-    } catch (error) { console.error("[rfq] direct portal invitation saved; notification failed", error); }
+      const result = await transport({ to: [account.email], from: FROM_ADDRESS, subject: email.subject,
+        html: email.html, text: email.text }).catch((error) => {
+        console.error("[rfq] direct portal invitation saved; notification failed", error);
+        return null;
+      });
+      // Log the outcome: the follow-up sweep resends an invitation whose notice failed.
+      await store.addMessage({
+        buyer_id: null, supplier_id: supplier.id, rfq_id: rfq.id, rfq_match_id: match.id,
+        kind: "rfq_outreach", stage: directInviteStage(match.id), direction: "supplier",
+        thread_id: `rfq-${rfq.id}-match-${match.id}`, subject: email.subject, to_emails: [account.email],
+        cc_emails: [], bcc_emails: [], body_html: email.html, body_text: email.text, attachments: [],
+        rfc_message_id: null, read_at: null, status: result?.status ?? "failed",
+        provider: result?.provider ?? "resend", error: result?.error ?? (result ? null : "Lỗi khi gọi dịch vụ gửi email"),
+        created_by: null, sent_at: result?.ok ? new Date().toISOString() : null,
+      } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
+    } catch (error) { console.error("[rfq] direct portal invitation saved; notification not logged", error); }
   }
   if (sent > 0 && rfq.status === "new") await store.updateRfq(rfq.id, { status: "matching" });
   return sent;

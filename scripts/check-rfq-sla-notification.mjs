@@ -41,6 +41,7 @@ await assert.rejects(sendSlaAlert({ kind: 'response_due_4h', rfq, buyer }), /pro
 status = 'sent';
 await sendSlaAlert({ kind: 'unassigned_4h', rfq, buyer });
 const updates = [];
+let directSweeps = 0;
 const store = {
   listRfqs: async () => [rfq, directQuestion, directQuote], listBuyers: async () => [buyer], listUsers: async () => [],
   updateRfq: async (id, patch) => { assert.equal(id, rfq.id, 'Direct RFQs must not get staff SLA markers');
@@ -51,6 +52,8 @@ const { GET } = load('../app/api/cron/rfq-sla/route.ts', {
   '@/lib/db': { getStore: () => store },
   '@/lib/email/rfq': { sendSlaAlert },
   '@/lib/rfq/channel': load('../lib/rfq/channel.ts', {}),
+  '@/lib/rfq/direct-followup': { runDirectRfqFollowUps: async (used) => { assert.equal(used, store); directSweeps += 1;
+    return { checked: 0, reminded: 0, noResponse: 0, buyerNotified: 0, failed: 0 }; } },
   '@/lib/certificate-service': { sendCertificateExpiryReminders: async () => ({ checked: 0, reminded: 0, alreadyNotified: 0, failed: 0, details: [] }) },
   '@/lib/supplier-portal/reminders': { sendSupplierProgressReminders: async () => ({ checked: 0, reminded: 0, skipped: 0 }) },
 }, { CRON_SECRET: 'only-for-test' });
@@ -73,6 +76,7 @@ assert.equal(updates.length, 2);
 assert.ok(rfq.specs.sla_unassigned_alerted_at && rfq.specs.sla_due_alerted_at);
 await GET(request);
 assert.equal(updates.length, 2, 'Flags prevent duplicate alerts after confirmed acceptance');
+assert.ok(directSweeps >= 4, 'Every authorized run also follows up direct RFQs');
 assert.equal(directQuestion.specs.sla_unassigned_alerted_at, undefined, 'Direct questions do not receive quote assignment alerts');
 assert.equal(directQuestion.specs.sla_due_alerted_at, undefined, 'Direct questions do not receive quote response alerts');
 assert.equal(directQuote.specs.sla_unassigned_alerted_at, undefined, 'Direct quotes are never assigned to Vexim by the SLA cron');

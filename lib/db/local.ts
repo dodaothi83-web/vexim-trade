@@ -2561,6 +2561,8 @@ export const localStore: DataStore = {
     if (options?.assignedTo !== undefined) {
       rows = rows.filter((r) => r.assigned_to === options.assignedTo);
     }
+    if (options?.codePrefix) rows = rows.filter((r) => r.code.startsWith(options.codePrefix!));
+    if (options?.sourcingRequestId) rows = rows.filter((r) => r.specs?.sourcing_request_id === options.sourcingRequestId);
     return rows;
   },
   async listRetryableDirectRfqs() {
@@ -2969,7 +2971,7 @@ export const localStore: DataStore = {
   async listRfqMatchUpdates(rfqIds) {
     const ids = new Set(rfqIds);
     return load().rfq_matches.filter((m) => ids.has(m.rfq_id)).map((m) => ({
-      id: m.id, rfq_id: m.rfq_id, sent_to_supplier_at: m.sent_to_supplier_at, sent_to_buyer_at: m.sent_to_buyer_at,
+      id: m.id, rfq_id: m.rfq_id, status: m.status, sent_to_supplier_at: m.sent_to_supplier_at, sent_to_buyer_at: m.sent_to_buyer_at,
       buyer_last_read_at: m.buyer_last_read_at ?? null, last_thread_message_at: m.last_thread_message_at ?? null,
       last_thread_sender: m.last_thread_sender ?? null, last_supplier_message_at: m.last_supplier_message_at ?? null,
     }));
