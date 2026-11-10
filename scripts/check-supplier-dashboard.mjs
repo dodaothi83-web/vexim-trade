@@ -22,6 +22,7 @@ const contact = load('../lib/rfq/buyer-contact.ts', {});
 const consent = contact.buyerContactConsentSpec({ company: 'Buyer Co', contact_name: 'Jane', email: 'buyer@example.com', phone: '123456', country: 'US', website: null, business_type: null }, '2026-10-17T00:00:00Z', 'rfq_form');
 const dashboard = load('../lib/supplier-portal/dashboard.ts', {
   '@/lib/rfq/buyer-contact': contact,
+  '@/lib/rfq/channel': load('../lib/rfq/channel.ts', {}),
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { vi: dictionary.vi.notices, en: dictionary.en.notices } },
   '@/lib/i18n/portal/rfqs': { rfqsMessages: { vi: dictionary.vi.rfqs, en: dictionary.en.rfqs } }, '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts } });
@@ -32,10 +33,12 @@ const make = (id, supplierId, status, sentAt, sourceProductId = 'p-a') => ({
   id, supplier_id: supplierId, rfq_id: `r-${id}`, status, sent_to_supplier_at: sentAt,
   response_due_at: '2026-10-20T12:00:00Z', quote_price: null, quote_currency: 'USD', quote_unit: 'MT',
   created_at: sentAt || '2026-10-17T00:00:00Z', updated_at: '2026-10-17T00:00:00Z',
-  rfq: { code: `RFQ-${id}`, product_text: 'secret buyer@example.com', source_product_id: sourceProductId,
+  rfq: { code: `RFQ-${id}`, product_text: 'Need Cashew W320, vacuum tins. Contact buyer@example.com', source_product_id: sourceProductId,
     preferred_supplier_ids: sourceProductId ? [supplierId] : [],
-    quantity: 5, unit: 'MT', destination_country: 'US', incoterm: 'FOB', needed_by: null,
-    buyer_id: 'SECRET', access_token: 'SECRET', ...consent },
+    quantity: 5, unit: 'MT', destination_country: 'US', destination_port: 'Chennai',
+    incoterm: 'FOB', shipment_month: '2027-01', grade: 'W320', packaging: '10 kg tins',
+    certifications: 'HACCP', wants_samples: true, frequency: 'Monthly', needed_by: null,
+    buyer_id: 'SECRET', access_token: 'SECRET', notes: 'SECRET INTERNAL NOTE', ...consent },
 });
 const match = make(idA, 's-a', 'sent_to_supplier', '2026-10-17T09:00:00Z');
 const foreign = make(idB, 's-b', 'quoted', '2026-10-17T08:00:00Z');
@@ -48,7 +51,16 @@ const products = [{ id: 'p-a', supplier_id: 's-a', name: 'Cashew W320' }, { id: 
 const input = { supplierId: 's-a', invites: [match, foreign, unsent, legacy], products, reads: [], reviews: [], requests: [], days: 30, now };
 const base = dashboard.buildSupplierDashboard(input);
 assert.equal(base.invites.length, 2, 'Only sent invitations for this supplier are visible');
-assert.equal(base.invites[0].title, 'Cashew W320');
+assert.equal(base.invites[0].title, 'Cashew W320', 'Verified product title stays separate from the buyer request');
+assert.match(base.invites[0].request.description, /Need Cashew W320, vacuum tins\. Contact \[liên hệ qua Vexim\]/);
+assert.doesNotMatch(base.invites[0].request.description, /buyer@example.com/, 'Unsolicited contact in request text is suppressed');
+assert.equal(base.invites[0].request.grade, 'W320');
+assert.equal(base.invites[0].request.packaging, '10 kg tins');
+assert.equal(base.invites[0].request.certifications, 'HACCP');
+assert.equal(base.invites[0].request.delivery, '01/2027');
+assert.equal(base.invites[0].destination, 'US · Chennai');
+assert.equal(base.invites[0].request.wantsSamples, true);
+assert.equal(base.invites[0].request.notes, undefined, 'Desk-only notes never enter the supplier model');
 assert.ok(!JSON.stringify(base).includes('SECRET'));
 assert.equal(base.invites[0].buyerContact.email, 'buyer@example.com', 'Only sent RFQ exposes consented contact');
 assert.equal(base.invites[1].buyerContact, null, 'Legacy RFQ without consent stays private');
@@ -61,6 +73,11 @@ const withoutNamedSupplier = { ...alternative, rfq: { ...alternative.rfq, prefer
 assert.equal(dashboard.buildSupplierDashboard({ ...input, invites: [withoutNamedSupplier] }).invites[0].buyerContact, null,
   'Product-addressed RFQ with missing supplier ID cannot reveal contact');
 assert.equal(base.tasks.length, 1);
+assert.equal(base.tasks[0].directToBuyer, true);
+const sourced = dashboard.buildSupplierRfqBoard({ ...input, invites: [{ ...match, rfq: { ...match.rfq, sourcing_request_id: 'req-1' } }] });
+assert.equal(sourced.tasks[0].directToBuyer, false, 'Linked sourcing RFQ must not promise direct buyer delivery');
+const closedRfq = dashboard.buildSupplierRfqBoard({ ...input, invites: [{ ...match, rfq: { ...match.rfq, status: 'won' } }] });
+assert.equal(closedRfq.tasks.length, 0, 'A closed RFQ is history, not an impossible action');
 assert.equal(base.report.sent, 1, 'Period based on sent timestamp, not buyer creation');
 assert.equal(base.report.quoted, 0);
 assert.equal(base.report.responded, 0);

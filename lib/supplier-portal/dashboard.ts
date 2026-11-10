@@ -5,6 +5,7 @@ import { fill } from "@/lib/i18n/format";
 import { noticesMessages } from "@/lib/i18n/portal/notices";
 import { rfqsMessages } from "@/lib/i18n/portal/rfqs";
 import { rfqBuyerContact, type RfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import { rfqChannel } from "@/lib/rfq/channel";
 
 export interface PortalNotice {
   key: string;
@@ -29,11 +30,24 @@ export interface PortalInvite {
   quotePrice: string | null;
   repliedAt: string | null;
   productId: string | null;
+  /** Buyer-visible request only: sanitized product text and an explicit allowlist of RFQ fields. */
+  request: {
+    description: string;
+    grade: string | null;
+    packaging: string | null;
+    certifications: string | null;
+    frequency: string | null;
+    incoterm: string | null;
+    delivery: string | null;
+    wantsSamples: boolean;
+    wantsInspection: boolean;
+    wantsVideoCall: boolean;
+  };
   /** Only the consented, whitelisted snapshot for this actually invited supplier. */
   buyerContact: RfqBuyerContact | null;
   /** Còn nhận báo giá trên cổng: lời mời đang mở và Vexim chưa trình người mua. */
   canQuote: boolean;
-  /** Người mua chọn đúng nhà cung cấp này: báo giá gửi thẳng tới người mua, không chờ Vexim. */
+  /** Same channel as the quote action: direct RFQs are forwarded after saving; sourcing waits for Vexim. */
   directToBuyer: boolean;
   /** Giá trị điền sẵn cho form báo giá (giá đã ghi trước đó hoặc theo yêu cầu). */
   quoteDefaults: { price: string; currency: string; unit: string; incoterm: string; leadTimeDays: string; validUntil: string };
@@ -72,31 +86,58 @@ function relevantInvites(supplierId: string, invites: SupplierRfqInvitation[]) {
     m.rfq.source_page !== "/rfq?intent=question");
 }
 
-/** Only the consented RFQ contact snapshot; no CRM buyer row, token or internal notes. */
+function safeRequestText(value: unknown, language: Locale, max: number): string | null {
+  if (typeof value !== "string") return null;
+  // Product descriptions and specs are buyer-entered. Strip unsolicited email/phone/URLs;
+  // only the separately consented buyerContact block may disclose direct contacts.
+  return withoutDirectContacts(value.trim())
+    .replaceAll("[contact via Vexim]", rfqsMessages[language].request.redacted)
+    .slice(0, max).trim() || null;
+}
+
+/** Only consented contact and whitelisted, sanitized RFQ requirements; no CRM row or desk notes. */
 function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierProduct[], supplierId: string, language: Locale): PortalInvite[] {
   const fallback = rfqsMessages[language].fallback;
   const productMap = new Map(products.filter((p) => p.supplier_id === supplierId).map((p) => [p.id, p]));
   return relevant.map((m) => {
-    const product = m.rfq!.source_product_id ? productMap.get(m.rfq!.source_product_id) : null;
+    const rfq = m.rfq!;
+    const text = (value: unknown, max = 200) => safeRequestText(value, language, max);
+    const product = rfq.source_product_id ? productMap.get(rfq.source_product_id) : null;
+    const month = text(rfq.shipment_month, 7);
+    const deliveryMonth = month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)
+      ? `${month.slice(5, 7)}/${month.slice(0, 4)}` : null;
+    const destination = [text(rfq.destination_country), text(rfq.destination_port)].filter(Boolean).join(" · ");
     return {
-      matchId: m.id, code: m.rfq!.code, title: product ? withoutDirectContacts(product.name_i18n?.en || product.name) : fallback.title,
+      matchId: m.id, code: rfq.code, title: product ? text(product.name_i18n?.en || product.name) || fallback.title : fallback.title,
       status: statusLabel(m.status, language), sentAt: m.sent_to_supplier_at!,
       dueAt: m.response_due_at ?? null,
-      quantity: m.rfq!.quantity && m.rfq!.unit ? `${m.rfq!.quantity} ${withoutDirectContacts(m.rfq!.unit)}` : fallback.quantity,
-      destination: withoutDirectContacts(m.rfq!.destination_country || fallback.destination),
+      quantity: rfq.quantity && rfq.unit ? `${rfq.quantity} ${text(rfq.unit, 30) || ""}`.trim() : fallback.quantity,
+      destination: destination || fallback.destination,
       repliedAt: m.supplier_replied_at ?? null,
-      quotePrice: m.quote_price != null ? `${m.quote_price} ${m.quote_currency || ""}/${m.quote_unit || m.rfq!.unit || ""}` : null,
+      quotePrice: m.quote_price != null ? `${m.quote_price} ${m.quote_currency || ""}/${text(m.quote_unit || rfq.unit, 20) || ""}` : null,
       productId: product?.id ?? null,
-      buyerContact: rfqBuyerContact({ specs: m.rfq! as Record<string, unknown>,
-        source_product_id: m.rfq!.source_product_id, preferred_supplier_ids: m.rfq!.preferred_supplier_ids }, supplierId),
+      request: {
+        description: text(rfq.product_text, 4_000) || fallback.title,
+        grade: text(rfq.grade), packaging: text(rfq.packaging, 500),
+        certifications: text(rfq.certifications, 500), frequency: text(rfq.frequency, 100),
+        incoterm: text(rfq.incoterm, 30), delivery: deliveryMonth || text(rfq.needed_by, 100),
+        wantsSamples: rfq.wants_samples === true, wantsInspection: rfq.wants_inspection === true,
+        wantsVideoCall: rfq.wants_video_call === true,
+      },
+      buyerContact: rfqBuyerContact({ specs: rfq as Record<string, unknown>,
+        source_product_id: rfq.source_product_id, preferred_supplier_ids: rfq.preferred_supplier_ids }, supplierId),
       canQuote: ["sent_to_supplier", "no_response", "quoted"].includes(m.status) && !m.sent_to_buyer_at &&
-        !["won", "lost", "spam"].includes(m.rfq!.status ?? ""),
-      directToBuyer: !!m.rfq!.source_product_id || (m.rfq!.preferred_supplier_ids ?? []).length > 0,
+        !["won", "lost", "spam"].includes(rfq.status ?? ""),
+      directToBuyer: rfqChannel({
+        source_page: rfq.source_page, source_product_id: rfq.source_product_id,
+        preferred_supplier_ids: rfq.preferred_supplier_ids ?? [],
+        specs: { sourcing_request_id: rfq.sourcing_request_id },
+      }) === "direct",
       quoteDefaults: {
         price: m.quote_price != null ? String(m.quote_price) : "",
         currency: m.quote_currency || "USD",
-        unit: withoutDirectContacts(m.quote_unit || m.rfq!.unit || "").slice(0, 20),
-        incoterm: (m.quote_incoterm || m.rfq!.incoterm || "FOB").toUpperCase(),
+        unit: text(m.quote_unit || rfq.unit, 20) || "",
+        incoterm: (m.quote_incoterm || rfq.incoterm || "FOB").toUpperCase(),
         leadTimeDays: m.quote_lead_time_days != null ? String(m.quote_lead_time_days) : "",
         validUntil: m.quote_valid_until ? m.quote_valid_until.slice(0, 10) : "",
       },
@@ -109,7 +150,7 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
  * trang RFQ là nơi duy nhất xử lý việc này.
  */
 export function buildSupplierTasks(invites: PortalInvite[], relevant: SupplierRfqInvitation[]) {
-  return invites.filter((m) => !m.repliedAt && relevant.some((r) => r.id === m.matchId && ["sent_to_supplier", "no_response"].includes(r.status)));
+  return invites.filter((m) => m.canQuote && !m.repliedAt && relevant.some((r) => r.id === m.matchId && ["sent_to_supplier", "no_response"].includes(r.status)));
 }
 
 /** Bốn chỉ số báo cáo lời mời báo giá trong khoảng ngày đã chọn. */

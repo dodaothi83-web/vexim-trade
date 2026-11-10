@@ -1095,9 +1095,18 @@ export type SupplierRfqInvitation = Pick<RfqMatch,
   "id" | "rfq_id" | "supplier_id" | "status" | "sent_to_supplier_at" | "response_due_at" | "supplier_replied_at" |
   "quote_price" | "quote_currency" | "quote_unit" | "created_at" | "updated_at"> &
   Partial<Pick<RfqMatch, "quote_incoterm" | "quote_lead_time_days" | "quote_valid_until" | "sent_to_buyer_at">> & {
-  rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "destination_country" |
-    "incoterm" | "needed_by" | "source_product_id" | "source_page"> & Partial<Pick<Rfq, "status" | "preferred_supplier_ids">> & {
-      /** Whitelisted JSON fields only; never expose rfq.specs, internal notes or access_token. */
+  rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "frequency" | "destination_country" |
+    "incoterm" | "needed_by" | "wants_samples" | "wants_inspection" | "wants_video_call" |
+    "source_product_id" | "source_page"> & Partial<Pick<Rfq, "status" | "preferred_supplier_ids">> & {
+      /** Whitelisted request fields from specs; never select the whole JSON object or desk-only notes. */
+      grade?: unknown;
+      packaging?: unknown;
+      certifications?: unknown;
+      destination_port?: unknown;
+      shipment_month?: unknown;
+      /** Internal channel marker for correct quote-delivery copy; not returned to the client. */
+      sourcing_request_id?: unknown;
+      /** Whitelisted contact snapshot; the board only uses it after verifying RFQ-specific consent. */
       buyer_contact?: unknown;
       buyer_contact_policy_version?: unknown;
       buyer_contact_consent_at?: unknown;

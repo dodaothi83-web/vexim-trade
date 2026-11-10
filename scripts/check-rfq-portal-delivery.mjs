@@ -26,6 +26,7 @@ const dictionary = loadPortalDictionary();
 const contact = load('lib/rfq/buyer-contact.ts', {});
 const dashboard = load('lib/supplier-portal/dashboard.ts', {
   '@/lib/rfq/buyer-contact': contact,
+  '@/lib/rfq/channel': load('lib/rfq/channel.ts', {}),
   '@/lib/public/product-selection': { withoutDirectContacts: (s) => String(s).replace(/[\w.+-]+@[\w.-]+/g, '[redacted]') },
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { en: dictionary.en.notices, vi: dictionary.vi.notices } },
