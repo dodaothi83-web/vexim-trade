@@ -24,6 +24,9 @@ const ids = {
   badMatch: 'e0000000-0000-0000-0000-000000000001',
 };
 for (const role of ['anon', 'authenticated', 'service_role']) await db.exec(`create role ${role};`);
+// Mirror Supabase's default table ACL so a migration that only grants SELECT/INSERT
+// (without revoking service_role's default UPDATE/DELETE) fails this test.
+await db.exec('alter default privileges in schema public grant all on tables to service_role;');
 await db.exec(`
   create table public.rfqs (
     id uuid primary key, code text not null, buyer_id uuid not null, status text not null,
@@ -91,10 +94,12 @@ const tableGrants = await rows(`select
   has_table_privilege('service_role','public.rfq_quote_versions','UPDATE') as update_versions,
   has_table_privilege('service_role','public.rfq_thread_messages','DELETE') as delete_messages,
   has_table_privilege('service_role','public.rfq_portal_alerts','UPDATE') as update_alerts,
+  has_table_privilege('service_role','public.rfq_portal_alerts','DELETE') as delete_alerts,
   has_function_privilege('anon','public.publish_rfq_quotes(uuid,uuid[],jsonb)','EXECUTE') as anon_publish,
   has_function_privilege('service_role','public.publish_rfq_quotes(uuid,uuid[],jsonb)','EXECUTE') as service_publish`);
 assert.deepEqual(tableGrants[0], { anon_versions: false, auth_messages: false, service_versions: true,
-  update_versions: false, delete_messages: false, update_alerts: true, anon_publish: false, service_publish: true });
+  update_versions: false, delete_messages: false, update_alerts: true, delete_alerts: false,
+  anon_publish: false, service_publish: true });
 assert.equal((await rows("select relrowsecurity from pg_class where oid='public.rfq_quote_versions'::regclass"))[0].relrowsecurity, true);
 const publish = async (rid, mids, expected) => {
   const revisions = expected ?? Object.fromEntries((await rows('select id::text,updated_at::text from public.rfq_matches where id = any($1::uuid[])', [mids]))

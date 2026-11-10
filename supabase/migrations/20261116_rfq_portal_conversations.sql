@@ -221,7 +221,9 @@ $$;
 alter table public.rfq_quote_versions enable row level security;
 alter table public.rfq_thread_messages enable row level security;
 alter table public.rfq_portal_alerts enable row level security;
-revoke all on public.rfq_quote_versions, public.rfq_thread_messages, public.rfq_portal_alerts from public, anon, authenticated;
+-- Supabase grants ALL on new public tables to service_role by default. Explicitly
+-- revoke that default too: adding SELECT/INSERT alone does not remove UPDATE/DELETE.
+revoke all on public.rfq_quote_versions, public.rfq_thread_messages, public.rfq_portal_alerts from public, anon, authenticated, service_role;
 -- Application code may append/view versions and messages, never edit published history.
 -- FK cascades still allow an explicit privacy deletion of a parent RFQ.
 grant select, insert on public.rfq_quote_versions, public.rfq_thread_messages to service_role;
