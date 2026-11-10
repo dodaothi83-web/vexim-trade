@@ -77,6 +77,8 @@ assert.match(form, /Your request goes to this supplier first\. If they can’t m
 assert.match(form, /Not sure which supplier fits\? Tell us what you need\. Vexim will select verified suppliers that match your specs, quantity and market, and send you their quotes to compare\./, 'form chung phải thông báo Vexim chọn NCC theo yêu cầu để buyer so sánh báo giá');
 assert.match(form, /Suppliers are matched on your requirements only\. Paid listings never affect who we recommend\./, 'form chung phải nói rõ việc ghép NCC không bị ảnh hưởng bởi tin trả phí');
 assert.match(form, /Only suppliers actually sent this RFQ receive your buyer contact details\. You sign the contract directly with the supplier you choose\. Vexim never holds your payment\. Free for buyers\./, 'gần nút gửi phải nói rõ chỉ NCC nhận RFQ thấy liên hệ, ký trực tiếp, Vexim không giữ tiền và buyer không mất phí');
+assert.match(form, /id="rfq-share_contact_consent"[^>]+checked=\{data\.share_contact_consent\}/, 'Buyer must separately tick a consent checkbox for recipient-scoped contact sharing');
+assert.match(form, /share_contact_consent: data\.share_contact_consent/, 'Never infer contact consent from general data processing consent');
 const rfqPublicPage = fs.readFileSync(new URL('../app/(public)/rfq/page.tsx', import.meta.url), 'utf8');
 assert.match(rfqPublicPage, /initialSuppliers/, 'trang RFQ phải truyền tên NCC chỉ định xuống form');
 

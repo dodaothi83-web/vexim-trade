@@ -33,6 +33,7 @@ const make = (id, supplierId, status, sentAt, sourceProductId = 'p-a') => ({
   response_due_at: '2026-10-20T12:00:00Z', quote_price: null, quote_currency: 'USD', quote_unit: 'MT',
   created_at: sentAt || '2026-10-17T00:00:00Z', updated_at: '2026-10-17T00:00:00Z',
   rfq: { code: `RFQ-${id}`, product_text: 'secret buyer@example.com', source_product_id: sourceProductId,
+    preferred_supplier_ids: sourceProductId ? [supplierId] : [],
     quantity: 5, unit: 'MT', destination_country: 'US', incoterm: 'FOB', needed_by: null,
     buyer_id: 'SECRET', access_token: 'SECRET', ...consent },
 });
@@ -52,6 +53,13 @@ assert.ok(!JSON.stringify(base).includes('SECRET'));
 assert.equal(base.invites[0].buyerContact.email, 'buyer@example.com', 'Only sent RFQ exposes consented contact');
 assert.equal(base.invites[1].buyerContact, null, 'Legacy RFQ without consent stays private');
 assert.ok(!JSON.stringify(base).includes('foreign@example.com'), 'Other supplier contact never appears');
+const alternative = { ...match, id: 'alternative', supplier_id: 's-a',
+  rfq: { ...match.rfq, preferred_supplier_ids: ['s-b'], buyer_contact: { ...consent.buyer_contact, email: 'named-supplier-only@example.com' } } };
+const noAlternativeGrant = dashboard.buildSupplierDashboard({ ...input, invites: [alternative] });
+assert.equal(noAlternativeGrant.invites[0].buyerContact, null, 'Even a sent alternative cannot inherit a direct RFQ grant meant for another supplier');
+const withoutNamedSupplier = { ...alternative, rfq: { ...alternative.rfq, preferred_supplier_ids: [] } };
+assert.equal(dashboard.buildSupplierDashboard({ ...input, invites: [withoutNamedSupplier] }).invites[0].buyerContact, null,
+  'Product-addressed RFQ with missing supplier ID cannot reveal contact');
 assert.equal(base.tasks.length, 1);
 assert.equal(base.report.sent, 1, 'Period based on sent timestamp, not buyer creation');
 assert.equal(base.report.quoted, 0);

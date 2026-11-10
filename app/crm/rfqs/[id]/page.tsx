@@ -67,6 +67,7 @@ import {
 } from "@/lib/rfq/workflow";
 import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
 import { rfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import { withoutDirectContacts } from "@/lib/public/product-selection";
 
 export const dynamic = "force-dynamic";
 
@@ -280,8 +281,8 @@ export default async function RfqDetailPage({
       ),
     };
     if (presented.length > 0) return { text: <>Chờ người mua chọn. Khi có phản hồi, bấm <strong>Gửi mẫu</strong> hoặc <strong>Chốt</strong> ở dòng nhà cung cấp tương ứng.</> };
-    if (sendable.length > 0 && consentedSendable.length === 0) return { tone: "alert", text: <>RFQ chưa có xác nhận chia sẻ thông tin người mua cho nhà cung cấp. Không gửi ẩn danh: cần hỏi lại người mua và ghi nhận đồng ý trước khi gửi.</> };
-    if (sendable.length > 0) return { text: <>Có <strong>{sendable.length}</strong> nhà cung cấp chưa nhận yêu cầu. Khi gửi, NCC nhận được thông tin liên hệ người mua đã đồng ý chia sẻ.</>, action: <a href="#suppliers" className="btn btn-primary btn-sm">Đến danh sách <ArrowRight className="h-3.5 w-3.5" /></a> };
+    if (sendable.length > 0 && consentedSendable.length === 0) return { tone: "alert", text: <>RFQ chưa có đồng ý chia sẻ liên hệ. Hãy hỏi người mua và ghi nhận đồng ý trước khi gửi.</> };
+    if (sendable.length > 0) return { text: <>Có <strong>{sendable.length}</strong> nhà cung cấp chưa nhận RFQ. Khi gửi, họ sẽ thấy liên hệ người mua đã đồng ý chia sẻ.</>, action: <a href="#suppliers" className="btn btn-primary btn-sm">Đến danh sách <ArrowRight className="h-3.5 w-3.5" /></a> };
     if (awaiting.length > 0 && rfqChannel(rfq) === "direct") return { text: <>Đã gửi tới nhà cung cấp người mua chọn. Báo giá họ gửi trên cổng <strong>tự tới người mua</strong>; Vexim chỉ theo dõi và nhắc khi quá hạn.</> };
     if (awaiting.length > 0) return { text: <>Đang chờ <strong>{awaiting.length}</strong> nhà cung cấp báo giá. Nhập giá khi nhận được, hoặc bấm Nhắc phản hồi.</> };
     return { text: "Chưa có nhà cung cấp phù hợp. Thêm nhà cung cấp vào shortlist để bắt đầu.", action: <a href="#suppliers" className="btn btn-primary btn-sm">Thêm nhà cung cấp <ArrowRight className="h-3.5 w-3.5" /></a> };
@@ -456,7 +457,7 @@ export default async function RfqDetailPage({
                       <option value="7">7 ngày</option>
                     </select>
                   </label>
-                  <ConfirmSubmitButton className="btn btn-primary btn-sm" message="Gửi RFQ kèm thông tin liên hệ người mua đã đồng ý chia sẻ tới các nhà cung cấp đã tích? Chỉ nhà cung cấp được gửi mới nhận.">
+                  <ConfirmSubmitButton className="btn btn-primary btn-sm" message="Gửi RFQ và liên hệ người mua đã đồng ý chia sẻ tới các nhà cung cấp đã tích?">
                     <Mail className="h-3.5 w-3.5" /> Gửi yêu cầu báo giá
                   </ConfirmSubmitButton>
                 </form>
@@ -469,7 +470,7 @@ export default async function RfqDetailPage({
                 {preferredSupplierIds.map((pid) => supplierName(supplierMap.get(pid), pid)).join(", ")}.{" "}
                 {isSupplierQuestion
                   ? "Người mua chỉ đồng ý liên hệ nhà cung cấp này. Không thêm nhà cung cấp khác khi chưa có đồng ý mới."
-                  : "Ưu tiên gửi yêu cầu cho các đơn vị này trước khi tìm thêm."}
+                  : "Chỉ gửi cho đơn vị người mua chỉ định. Gửi cho nhà cung cấp khác cần có đồng ý riêng."}
               </p>
             )}
             {canAct && sendable.length > 0 && (
@@ -579,12 +580,14 @@ export default async function RfqDetailPage({
                               </label>
                               <PendingButton>Lưu</PendingButton>
                             </ActionForm>
-                            <div>
-                              <ComposeEmailDialog action={composeMatchEmailAction} hidden={{ rfq_id: rfq.id, match_id: m.id }}
-                                recipientName={name} recipientEmail={sup?.email ?? null}
-                                defaultSubject={`[Vexim] Về yêu cầu ${rfq.code} – ${rfq.product_text}`}
-                                defaultBody={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${rfq.product_text} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${deliveryText}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
-                            </div>
+                            {m.sent_to_supplier_at && m.status !== "proposed" && rfqBuyerContact(rfq, m.supplier_id) && (
+                              <div>
+                                <ComposeEmailDialog action={composeMatchEmailAction} hidden={{ rfq_id: rfq.id, match_id: m.id }}
+                                  recipientName={name} recipientEmail={sup?.email ?? null}
+                                  defaultSubject={`[Vexim] Về yêu cầu ${rfq.code} – ${withoutDirectContacts(rfq.product_text)}`}
+                                  defaultBody={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${withoutDirectContacts(rfq.product_text)} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${deliveryText}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
+                              </div>
+                            )}
                             <form action={removeMatchAction} className="ml-auto">
                               <input type="hidden" name="match_id" value={m.id} />
                               <input type="hidden" name="rfq_id" value={rfq.id} />

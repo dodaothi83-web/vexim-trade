@@ -65,8 +65,11 @@ assert.ok(
 /* ---------- Trang chủ: hai đường, thứ tự đúng ---------- */
 
 assert.ok(
-  home.includes("Is searching products and submitting a Request for Quotation (RFQ) free for buyers?") && home.includes("request a quote directly from the supplier you choose"),
-  "Homepage FAQ separates browsing chosen suppliers from sending an open request",
+  home.includes("<ConnectionOverview isVi={isVi} />") &&
+    read("components/public/connection-overview.tsx").includes("Explore products and supplier profiles") &&
+    metaCopy.includes("Request a quote from the supplier you choose") &&
+    metaCopy.includes("we look for suppliers that match"),
+  "Homepage uses the connection overview; its shared metadata distinguishes a chosen supplier from an open request",
 );
 assert.ok(
   productPage.includes("Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else."),

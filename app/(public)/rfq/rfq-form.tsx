@@ -136,6 +136,7 @@ export function RfqForm({
     website: "",
     business_type: "",
     consent: false,
+    share_contact_consent: false,
     marketing_opt_in: false,
     // Honeypot
     websiteHp: "",
@@ -162,6 +163,7 @@ export function RfqForm({
     if (!data.contact_name.trim()) e.contact_name = "Enter your name.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) e.email = "Enter a valid work email.";
     if (!data.consent) e.consent = "Please agree to the use of your enquiry data.";
+    if (!data.share_contact_consent) e.share_contact_consent = "Please confirm which contact details suppliers receiving your RFQ will see.";
     return e;
   }
 
@@ -226,8 +228,7 @@ export function RfqForm({
         business_type: data.business_type || null,
         consent: data.consent,
         inquiry_kind: "quote",
-        // Same required checkbox explicitly names the contact fields shared on delivery.
-        share_contact_consent: data.consent,
+        share_contact_consent: data.share_contact_consent,
         source_page: "/rfq",
         referrer: typeof document !== "undefined" ? document.referrer : null,
         utm_source: params.get("utm_source"),
@@ -646,11 +647,16 @@ export function RfqForm({
           <label className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-700">
             <input id="rfq-consent" type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.consent} onChange={(e) => update("consent", e.target.checked)} />
             <span>
-              I agree to Veximtrade sending my RFQ and the buyer contact details above to the suppliers it contacts about this request, and processing my data to reply.{" "}
+              I agree to Veximtrade processing my RFQ and account data to respond to this enquiry.{" "}
               <span className="text-red-500">*</span>
             </span>
           </label>
           {errors.consent && <p className="pl-6 text-[12px] text-red-600">{errors.consent}</p>}
+          <label className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-700">
+            <input id="rfq-share_contact_consent" type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.share_contact_consent} onChange={(e) => update("share_contact_consent", e.target.checked)} />
+            <span>I agree to share the company, contact name, verified email, phone, country, website and business type I provided with suppliers actually sent this RFQ (if supplied). Suppliers only suggested to me will not see them. <span className="text-red-500">*</span></span>
+          </label>
+          {errors.share_contact_consent && <p className="pl-6 text-[12px] text-red-600">{errors.share_contact_consent}</p>}
           <label className="flex items-start gap-2 text-[12.5px] text-ink-700">
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.marketing_opt_in} onChange={(e) => update("marketing_opt_in", e.target.checked)} />
             <span>Send me occasional sourcing updates from Vexim (optional)</span>

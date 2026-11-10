@@ -69,6 +69,17 @@ export function authorizedBuyerContact(
   });
 }
 
-export function rfqBuyerContact(rfq: Pick<Rfq, "specs">, supplierId: string): RfqBuyerContact | null {
+export function rfqBuyerContact(
+  rfq: Pick<Rfq, "specs"> & Partial<Pick<Rfq, "source_page" | "source_product_id" | "preferred_supplier_ids">>,
+  supplierId: string,
+): RfqBuyerContact | null {
+  // On a supplier/product-addressed request the initial form was for the named
+  // supplier(s), not a blanket permission to disclose to staff-suggested matches.
+  // A separately recorded historical confirmation can explicitly add another
+  // recipient. Treat a product-addressed RFQ with no stored supplier ID as unsafe.
+  const preferred = rfq.preferred_supplier_ids ?? [];
+  const direct = preferred.length > 0 || !!rfq.source_product_id;
+  if (direct && !preferred.includes(supplierId) &&
+      rfq.specs?.buyer_contact_consent_source !== "confirmed_by_buyer") return null;
   return authorizedBuyerContact(rfq.specs, supplierId);
 }

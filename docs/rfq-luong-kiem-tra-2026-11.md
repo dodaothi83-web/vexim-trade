@@ -1,5 +1,9 @@
 # Rà soát luồng RFQ — Vexim Trade CRM
 
+> **Ảnh chụp lịch sử ngày 02/11/2026**, không mô tả quyền chia sẻ liên hệ hiện tại.
+> Chính sách RFQ ẩn danh trước đây và các đường câu hỏi qua RFQ đã được thay bằng
+> [luồng hiện tại](./rfq-van-hanh.md) và [đồng ý theo từng RFQ](./rfq-buyer-contact-consent.md).
+
 Ngày rà soát: 02/11/2026 · Nhánh: `arena/99894df2-vexim-trade` · Phạm vi: toàn bộ luồng RFQ
 công khai → hộp RFQ back-office → ghép & gửi nhà cung cấp → báo giá → trình người mua → chốt NCC,
 kèm email, cron SLA, phân quyền, migration và các script kiểm tra.

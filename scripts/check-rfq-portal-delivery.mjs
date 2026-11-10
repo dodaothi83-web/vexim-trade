@@ -32,7 +32,8 @@ const dashboard = load('lib/supplier-portal/dashboard.ts', {
   '@/lib/i18n/portal/rfqs': { rfqsMessages: { en: dictionary.en.rfqs, vi: dictionary.vi.rfqs } },
 });
 let supplier = { id: 's1', status: 'published', onboarding_status: 'approved', email: 'supplier@example.com' };
-let migrated = true, emailSent = true, portalUser = null;
+let migrated = true, emailSent = true;
+let portalUser = { email: supplier.email, role: 'supplier', supplier_id: 's1', is_active: true };
 const consent = contact.buyerContactConsentSpec({ company: 'Buyer Co', contact_name: 'Jane', email: 'buyer@example.com', phone: '123456', country: 'VN', website: null, business_type: null }, '2026-10-17T00:00:00Z', 'rfq_form');
 let rfq = { id: 'r1', code: 'RFQ-1', buyer_id: 'b1', status: 'new', source_product_id: 'p1', preferred_supplier_ids: ['s1'], specs: { ...consent, notes: 'SECRET' }, quantity: 10, unit: 'MT', product_text: 'secret buyer@example.com', access_token: 'private-token' };
 let match = { id: 'm1', rfq_id: 'r1', supplier_id: 's1', status: 'proposed', sent_to_supplier_at: null };
@@ -130,12 +131,19 @@ assert.ok(match.sent_to_supplier_at, 'In-app delivery remains available after SM
 match = { ...match, id: 'm4', status: 'proposed', sent_to_supplier_at: null };
 rfq.status = 'new'; emailSent = true;
 supplier = { ...supplier, onboarding_status: 'not_started' };
-portalUser = { email: supplier.email, role: 'supplier', supplier_id: 's1' };
+portalUser = { email: supplier.email, role: 'supplier', supplier_id: 's1', is_active: true };
 assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 0, 'Own unapproved portal account is not invited');
 portalUser = null;
-assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 1, 'Staff-created supplier without account receives the RFQ');
+emailSent = false;
+const linksBeforeMailFailure = writes.filter(([kind]) => kind === 'crm_link').length;
+assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 0, 'A staff-created supplier without a portal did not receive a failed email');
+assert.equal(match.status, 'proposed'); assert.equal(match.sent_to_supplier_at, null);
+assert.equal(writes.filter(([kind]) => kind === 'crm_link').length, linksBeforeMailFailure, 'Do not link a Buyer to a mail-only supplier on delivery failure');
+emailSent = true;
+assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 1, 'Staff-created supplier receives the RFQ only after Resend accepts its email');
 assert.equal(match.status, 'sent_to_supplier');
 supplier = { ...supplier, onboarding_status: 'approved' };
+portalUser = { email: supplier.email, role: 'supplier', supplier_id: 's1', is_active: true };
 // RFQ gửi từ trang của đúng một nhà cung cấp (không gắn sản phẩm) cũng đi thẳng tới nhà cung cấp đó.
 match = { ...match, id: 'm3', status: 'proposed', sent_to_supplier_at: null };
 rfq.status = 'new'; emailSent = true;

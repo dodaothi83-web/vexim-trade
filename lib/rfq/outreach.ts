@@ -116,7 +116,7 @@ export function buildRfqSupplierEmail(input: {
     <p>Chào ${escapeHtml(supplier.contact_name ?? supplier.name)},</p>
     <p>Người mua gửi yêu cầu báo giá sang ${dest} và Vexim Trade mời bạn chào giá.</p>
     ${buyerContactEmailBlock(contact)}
-    <p>Thông tin này chỉ dành cho doanh nghiệp nhận RFQ, không được đăng công khai hoặc chuyển tiếp cho bên thứ ba. Vexim xử lý báo giá theo quy trình bên dưới.</p>
+    <p>Chỉ doanh nghiệp nhận RFQ được dùng liên hệ này. Không đăng công khai hoặc chuyển cho bên khác.</p>
 
     <table cellpadding="8" style="border-collapse:collapse;margin-top:10px;font-size:14px;">
       <tr><td style="color:#64748b;width:170px;">Mã yêu cầu</td><td><strong>${escapeHtml(rfq.code)}</strong></td></tr>
@@ -267,7 +267,7 @@ export async function dispatchRfqToSuppliers(input: {
   const matches = await store.listRfqMatches(rfq.id);
   const pending = matches.filter((m) => input.matchIds.includes(m.id) && m.status === "proposed" && !m.sent_to_supplier_at);
   if (pending.some((m) => !rfqBuyerContact(rfq, m.supplier_id))) {
-    throw new Error("RFQ này chưa có xác nhận chia sẻ thông tin liên hệ cho nhà cung cấp được chọn. Không gửi lời mời ẩn danh; cần người mua đồng ý trước khi gửi.");
+    throw new Error("RFQ chưa có đồng ý chia sẻ liên hệ với nhà cung cấp được chọn. Hãy hỏi người mua trước khi gửi.");
   }
   const supplierIds = new Set(pending.map((m) => m.supplier_id));
   // Verify the dashboard migration before sending any email, so an invitation is never sent

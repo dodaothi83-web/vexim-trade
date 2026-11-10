@@ -18,10 +18,8 @@ export async function attachBuyerAfterDirectRfqDelivery(store: DataStore, rfq: R
       !rfqBuyerContact(rfq, match.supplier_id)) return false;
   const buyer = await store.getBuyer(rfq.buyer_id);
   if (!buyer) return false;
-  if (buyer.supplier_id === match.supplier_id) {
-    await store.revealBuyerIfAttached(buyer.id, match.supplier_id);
-    return false;
-  }
+  // The legacy global CRM anonymity flag is deliberately NOT changed here:
+  // consent for one RFQ does not authorize disclosing other CRM/stage data.
   if (buyer.supplier_id) return false;
   if (!await store.attachBuyerIfUnassigned(buyer.id, match.supplier_id)) return false;
   // Activity is audit/UX only; failure must not undo the successful atomic link or resend RFQ.

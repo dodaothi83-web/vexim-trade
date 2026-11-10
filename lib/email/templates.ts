@@ -338,11 +338,6 @@ export function buildSupplierEmail(opts: {
   const summary = summaryTable(
     [
       { label: "Người mua", value: buyerLabel },
-      ...(!hidden ? [
-        { label: "Người liên hệ", value: buyer.contact_name ?? "Chưa cung cấp" },
-        { label: "Email", value: buyer.email ?? "Chưa cung cấp" },
-        { label: "Điện thoại", value: buyer.phone ?? "Chưa cung cấp" },
-      ] : []),
       { label: "Mặt hàng", value: buyer.product ?? "Chưa có" },
       { label: "Quy cách", value: buyer.spec ?? "Chưa có" },
       { label: "Số lượng", value: buyer.quantity ?? "Chưa có" },
@@ -454,11 +449,6 @@ export function buildSupplierAssignedEmail(opts: {
   const summary = summaryTable(
     [
       { label: "Người mua", value: buyerLabel },
-      ...(!hidden ? [
-        { label: "Người liên hệ", value: buyer.contact_name ?? "Chưa cung cấp" },
-        { label: "Email", value: buyer.email ?? "Chưa cung cấp" },
-        { label: "Điện thoại", value: buyer.phone ?? "Chưa cung cấp" },
-      ] : []),
       { label: "Mặt hàng", value: buyer.product ?? "Chưa có" },
       { label: "Quy cách", value: buyer.spec ?? "Chưa có" },
       { label: "Số lượng", value: buyer.quantity ?? "Chưa có" },

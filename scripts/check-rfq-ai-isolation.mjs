@@ -193,7 +193,9 @@ const submitStore = {
   createRfq: async (input) => { createdRfqs.push(input); return { ...input, id: 'r-1', access_token: 'tok-1' }; },
   addAuditLog: async () => null,
 };
+const contact = load('../lib/rfq/buyer-contact.ts', {});
 const submit = load('../lib/rfq/submit.ts', {
+  './buyer-contact': contact,
   '@/lib/auth/buyer-session': { getBuyerSession: async () => ({ uid: 'buyer-account', email: 'jane@buyer.com' }) },
   'next/headers': { headers: async () => ({ get: () => null }) },
   '@/lib/db': { getStore: () => submitStore },
@@ -222,7 +224,7 @@ const submit = load('../lib/rfq/submit.ts', {
 }, { RFQ_REJECT_WEBMAIL: 'false' });
 
 const submitted = await submit.submitRfq({
-  company: 'Buyer Co', contact_name: 'Jane Doe', email: 'jane@buyer.com', consent: true,
+  company: 'Buyer Co', contact_name: 'Jane Doe', email: 'jane@buyer.com', consent: true, share_contact_consent: true,
   product_text: 'Cashew W320', quantity: 100, unit: 'MT', destination_country: 'Germany', challenge_token: 'ok',
 });
 assert.equal(submitted.ok, true, 'AI ném lỗi không được biến submit thành thất bại');

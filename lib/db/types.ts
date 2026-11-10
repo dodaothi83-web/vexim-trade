@@ -101,8 +101,6 @@ export interface DataStore {
   updateBuyer(id: string, patch: Partial<BuyerInput>): Promise<Buyer>;
   /** Atomic compare-and-set: only an unassigned Buyer can be linked by a sent direct RFQ. */
   attachBuyerIfUnassigned(buyerId: string, supplierId: string): Promise<boolean>;
-  /** An existing CRM supplier can see contact after a consented RFQ was sent to them. */
-  revealBuyerIfAttached(buyerId: string, supplierId: string): Promise<void>;
   deleteBuyer(id: string): Promise<void>;
 
   // ----- Tài khoản người mua (khác app_users và khác buyers) -----

@@ -893,16 +893,10 @@ export const supabaseStore: DataStore = {
   async attachBuyerIfUnassigned(buyerId, supplierId) {
     // No read-then-write: a staff assignment (or another RFQ) must win if it landed first.
     const { data, error } = await must().from("buyers")
-      .update({ supplier_id: supplierId, hide_buyer_from_supplier: false, updated_at: new Date().toISOString() })
+      .update({ supplier_id: supplierId, updated_at: new Date().toISOString() })
       .eq("id", buyerId).is("supplier_id", null).select("id").maybeSingle();
     if (error) fail("attachBuyerIfUnassigned", error);
     return !!data;
-  },
-  async revealBuyerIfAttached(buyerId, supplierId) {
-    const { error } = await must().from("buyers")
-      .update({ hide_buyer_from_supplier: false, updated_at: new Date().toISOString() })
-      .eq("id", buyerId).eq("supplier_id", supplierId).eq("hide_buyer_from_supplier", true);
-    if (error) fail("revealBuyerIfAttached", error);
   },
   async deleteBuyer(id) {
     const { error } = await must().from("buyers").delete().eq("id", id);

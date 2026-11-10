@@ -40,6 +40,9 @@ export async function composeMatchEmailAction(fd: FormData): Promise<void> {
   const [rfq, match] = await Promise.all([store.getRfq(rfqId), store.getRfqMatch(matchId)]);
   if (!rfq) throw new Error("RFQ không tồn tại.");
   if (!match || match.rfq_id !== rfqId) throw new Error("Match không thuộc RFQ này.");
+  if (!match.sent_to_supplier_at || match.status === "proposed" || !rfqBuyerContact(rfq, match.supplier_id)) {
+    throw new Error("Chỉ gửi email RFQ sau khi nhà cung cấp nhận yêu cầu và người mua đồng ý chia sẻ liên hệ.");
+  }
   const supplier = await store.getSupplier(match.supplier_id);
   if (!supplier) throw new Error("Không tìm thấy nhà cung cấp.");
   if (!(await canInviteSupplier(supplier, store))) throw new Error("Tài khoản nhà cung cấp chưa được xác nhận; chưa thể gửi RFQ.");
@@ -185,7 +188,8 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
   const rfq = await store.getRfq(rfqId);
   const match = await store.getRfqMatch(matchId);
   if (!rfq || !match || match.rfq_id !== rfqId) throw new Error("RFQ/match không hợp lệ.");
-  if (!match.sent_to_supplier_at || match.status === "proposed" || !rfqBuyerContact(rfq, match.supplier_id)) {
+  const contact = rfqBuyerContact(rfq, match.supplier_id);
+  if (!match.sent_to_supplier_at || match.status === "proposed" || !contact) {
     throw new Error("Chỉ nhắc nhà cung cấp đã nhận RFQ có đồng ý chia sẻ liên hệ; không dùng lại luồng ẩn danh.");
   }
   const sup = await store.getSupplier(match.supplier_id);
@@ -195,7 +199,13 @@ export async function sendFollowUpAction(fd: FormData): Promise<void> {
   const subject = `Nhắc: ${rfq.code} — vui lòng phản hồi báo giá`;
   const deadline = new Date(); deadline.setDate(deadline.getDate() + 2);
   const deadlineStr = deadline.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" });
-  const body = `Kính gửi Anh/Chị ${sup.contact_name ?? sup.name},\n\nPhòng Xuất khẩu Vexim xin nhắc lại yêu cầu báo giá ${rfq.code} (${withoutDirectContacts(rfq.product_text)}, ${rfq.quantity ?? ""} ${rfq.unit ?? ""}) đã gửi trước đó.\n\nNếu không thể tham gia chào giá lần này, rất mong Anh/Chị phản hồi ngắn gọn để chúng tôi thông báo cho người mua. Nếu có thể chào giá, vui lòng hồi âm trước ${deadlineStr}.\n\nTrân trọng,\nPhòng Xuất khẩu · Vexim Trade`;
+  const buyerDetails = [
+    `Doanh nghiệp: ${contact.company}`, `Người liên hệ: ${contact.contact_name || "Chưa cung cấp"}`,
+    `Email: ${contact.email}`, `Điện thoại: ${contact.phone || "Chưa cung cấp"}`,
+    `Quốc gia: ${contact.country || "Chưa cung cấp"}`, `Website: ${contact.website || "Chưa cung cấp"}`,
+    `Loại hình: ${contact.business_type || "Chưa cung cấp"}`,
+  ].join("\n");
+  const body = `Kính gửi Anh/Chị ${sup.contact_name ?? sup.name},\n\nPhòng Xuất khẩu Vexim xin nhắc lại yêu cầu báo giá ${rfq.code} (${withoutDirectContacts(rfq.product_text)}, ${rfq.quantity ?? ""} ${rfq.unit ?? ""}) đã gửi trước đó.\n\nThông tin liên hệ người mua đã đồng ý chia sẻ cho RFQ này:\n${buyerDetails}\n\nNếu không thể tham gia chào giá lần này, rất mong Anh/Chị phản hồi ngắn gọn để chúng tôi thông báo cho người mua. Nếu có thể chào giá, vui lòng hồi âm trước ${deadlineStr}.\n\nTrân trọng,\nPhòng Xuất khẩu · Vexim Trade`;
 
   const html = wrapPlainEmail({
     title: subject,

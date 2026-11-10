@@ -1319,18 +1319,8 @@ export const localStore: DataStore = {
       const buyer = db.buyers.find((b) => b.id === buyerId);
       if (!buyer || buyer.supplier_id) return false;
       buyer.supplier_id = supplierId;
-      buyer.hide_buyer_from_supplier = false;
       buyer.updated_at = new Date().toISOString();
       return true;
-    });
-  },
-  async revealBuyerIfAttached(buyerId, supplierId) {
-    mutate((db) => {
-      const buyer = db.buyers.find((b) => b.id === buyerId);
-      if (buyer?.supplier_id === supplierId && buyer.hide_buyer_from_supplier) {
-        buyer.hide_buyer_from_supplier = false;
-        buyer.updated_at = new Date().toISOString();
-      }
     });
   },
   async deleteBuyer(id) {
@@ -2662,7 +2652,15 @@ export const localStore: DataStore = {
         if (!r) return null;
         const specs = r.specs ?? {};
         // Mirror the production SQL projection: no full RFQ, access token or internal notes.
-        return { ...m, rfq: {
+        return {
+          id: m.id, rfq_id: m.rfq_id, supplier_id: m.supplier_id, status: m.status,
+          sent_to_supplier_at: m.sent_to_supplier_at, response_due_at: m.response_due_at,
+          supplier_replied_at: m.supplier_replied_at, quote_price: m.quote_price,
+          quote_currency: m.quote_currency, quote_unit: m.quote_unit,
+          quote_incoterm: m.quote_incoterm, quote_lead_time_days: m.quote_lead_time_days,
+          quote_valid_until: m.quote_valid_until, sent_to_buyer_at: m.sent_to_buyer_at,
+          created_at: m.created_at, updated_at: m.updated_at,
+          rfq: {
           code: r.code, product_text: r.product_text, quantity: r.quantity, unit: r.unit,
           destination_country: r.destination_country, incoterm: r.incoterm, needed_by: r.needed_by,
           source_product_id: r.source_product_id, source_page: r.source_page, status: r.status,
@@ -2672,7 +2670,8 @@ export const localStore: DataStore = {
           buyer_contact_consent_at: specs.buyer_contact_consent_at,
           buyer_contact_consent_source: specs.buyer_contact_consent_source,
           buyer_contact_supplier_ids: specs.buyer_contact_supplier_ids,
-        } };
+          },
+        };
       }).filter((m): m is NonNullable<typeof m> => !!m)
       .sort((a, b) => b.sent_to_supplier_at!.localeCompare(a.sent_to_supplier_at!));
   },

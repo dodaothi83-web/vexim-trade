@@ -168,7 +168,10 @@ transportFailed = false;
 assert.equal((await notifyBuyerRfqStatus(newRfq, 'lost')).sent, true, 'failed send may retry');
 
 const workflow = loadTS('../lib/rfq/workflow.ts', {});
-const actionRfq = { ...rfq, id: 'rfq-action', code: 'RFQ-20261017-00003', status: 'quoted' };
+const contact = loadTS('../lib/rfq/buyer-contact.ts', {});
+const actionRfq = { ...rfq, id: 'rfq-action', code: 'RFQ-20261017-00003', status: 'quoted',
+  specs: contact.buyerContactConsentSpec({ company: 'Buyer Co', contact_name: 'Jane', email: buyer.email,
+    phone: null, country: null, website: null, business_type: null }, '2026-10-17T00:00:00Z', 'rfq_form') };
 const actions = loadTS('../app/crm/rfqs/[id]/compose-action.ts', {
   'next/cache': { revalidatePath: () => {} },
   'next/navigation': { redirect: () => { throw Error('access denied'); } },
@@ -177,6 +180,8 @@ const actions = loadTS('../app/crm/rfqs/[id]/compose-action.ts', {
   '@/lib/rfq/buyer-notify': { notifyBuyerRfqStatus },
   '@/lib/rfq/outreach': { notifySelectedSupplier: async () => 'sent', recordSupplierSelection: async (_r, m) => { m.status = 'selected'; } },
   '@/lib/rfq/workflow': workflow,
+  '@/lib/rfq/buyer-contact': contact,
+  '@/lib/public/product-selection': { withoutDirectContacts: (text) => text },
 });
 const sampling = new FormData(); sampling.set('rfq_id', actionRfq.id);
 await assert.rejects(actions.markSamplingAction(sampling), /Chọn nhà cung cấp có báo giá/, 'sampling needs a quoted supplier');
@@ -200,6 +205,9 @@ assert.equal(messages.filter((m) => m.rfq_id === actionRfq.id && m.stage === 'lo
 await assert.rejects(actions.markSamplingAction(sampling), /RFQ đã đóng/, 'a closed RFQ cannot go back to sampling');
 const compose = new FormData(); compose.set('rfq_id', actionRfq.id); compose.set('match_id', match.id);
 compose.set('subject', 'Báo giá'); compose.set('body', 'Xin chào');
+match.status = 'proposed';
+await assert.rejects(actions.composeMatchEmailAction(compose), /sau khi nhà cung cấp nhận yêu cầu/, 'No manual RFQ email to proposed suppliers');
+match.status = 'selected';
 await assert.rejects(actions.composeMatchEmailAction(compose), /chưa gửi thật/);
 assert.equal(messages.filter((m) => m.kind === 'manual' && m.rfq_id === actionRfq.id).length, 0, 'Simulated attempt cannot count as sent');
 transportStatus = 'sent';
@@ -216,6 +224,7 @@ const followup = new FormData(); followup.set('rfq_id', actionRfq.id); followup.
 await actions.sendFollowUpAction(followup);
 assert.equal(sent.at(-1).from, 'Nguyễn Văn Dung <dung@veximtrade.com>');
 assert.equal(sent.at(-1).replyTo, router.supplierReplyAddress(actionRfq.code, match.id));
+assert.match(sent.at(-1).html, /buyer@example.com/, 'Follow-up repeats the consented buyer contact, not CRM data');
 assert.equal(messages.filter((m) => m.kind === 'rfq_followup').length, 1);
 const releasedRfqs = [];
 const regularActions = loadTS('../app/crm/rfqs/actions.ts', {

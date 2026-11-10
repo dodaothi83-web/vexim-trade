@@ -4,7 +4,7 @@ import type { Locale } from "@/lib/i18n/config";
 import { fill } from "@/lib/i18n/format";
 import { noticesMessages } from "@/lib/i18n/portal/notices";
 import { rfqsMessages } from "@/lib/i18n/portal/rfqs";
-import { authorizedBuyerContact, type RfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import { rfqBuyerContact, type RfqBuyerContact } from "@/lib/rfq/buyer-contact";
 
 export interface PortalNotice {
   key: string;
@@ -87,7 +87,8 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
       repliedAt: m.supplier_replied_at ?? null,
       quotePrice: m.quote_price != null ? `${m.quote_price} ${m.quote_currency || ""}/${m.quote_unit || m.rfq!.unit || ""}` : null,
       productId: product?.id ?? null,
-      buyerContact: authorizedBuyerContact(m.rfq!, supplierId),
+      buyerContact: rfqBuyerContact({ specs: m.rfq! as Record<string, unknown>,
+        source_product_id: m.rfq!.source_product_id, preferred_supplier_ids: m.rfq!.preferred_supplier_ids }, supplierId),
       canQuote: ["sent_to_supplier", "no_response", "quoted"].includes(m.status) && !m.sent_to_buyer_at &&
         !["won", "lost", "spam"].includes(m.rfq!.status ?? ""),
       directToBuyer: !!m.rfq!.source_product_id || (m.rfq!.preferred_supplier_ids ?? []).length > 0,
