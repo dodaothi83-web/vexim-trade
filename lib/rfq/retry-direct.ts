@@ -16,13 +16,22 @@ export async function retryPendingDirectRfqs(store: DataStore): Promise<{ checke
   let released = 0, published = 0;
   for (const rfq of rfqs) {
     try {
-      await createPreferredSupplierMatches(store, rfq.id, rfq.preferred_supplier_ids);
-      released += await releaseTargetedQuoteToPortal(store, rfq);
+      // Direct RFQs never close, so this scan grows with history. A request whose named
+      // suppliers were all invited has nothing left to release: read its matches once
+      // and skip the eligibility and portal preflight queries.
+      let matches = await store.listRfqMatches(rfq.id);
+      const delivered = rfq.status !== "new" && rfq.preferred_supplier_ids.every((id) =>
+        matches.some((m) => m.supplier_id === id && (m.status !== "proposed" || !!m.sent_to_supplier_at)));
+      if (!delivered) {
+        await createPreferredSupplierMatches(store, rfq.id, rfq.preferred_supplier_ids);
+        released += await releaseTargetedQuoteToPortal(store, rfq);
+        matches = await store.listRfqMatches(rfq.id);
+      }
       // If the supplier saved a quote but the publication RPC was temporarily down,
       // retry from the exact saved revision. Only NEW portal-only RFQs carry this
       // marker: never auto-publish a historical staff-entered/email quote.
       if (rfq.specs?.direct_delivery_version === "portal_direct_v2") {
-        for (const match of await store.listRfqMatches(rfq.id)) {
+        for (const match of matches) {
           if (match.status !== "quoted" || match.quote_price == null || !canDirectPublishRfqQuote(rfq, match)) continue;
           published += (await store.publishRfqQuotes(rfq.id, [match.id], { [match.id]: match.updated_at })).length;
         }

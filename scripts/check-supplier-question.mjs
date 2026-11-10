@@ -109,7 +109,7 @@ assert.equal(createdRfqs.at(-1).product_text, 'Cashew W320. Other words entirely
 const emptyQuote = await submit.submitRfq({ ...rawQuestion, inquiry_kind: 'quote', share_contact_consent: true,
   product_text: '', source_product_id: null, preferred_supplier_ids: [] });
 assert.equal(emptyQuote.ok, false);
-assert.match(emptyQuote.message, /mô tả sản phẩm/);
+assert.match(emptyQuote.message, /describe the product/);
 
 const productPage = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 const form = fs.readFileSync(new URL('../app/(public)/rfq/rfq-form.tsx', import.meta.url), 'utf8');

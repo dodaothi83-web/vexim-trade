@@ -132,6 +132,9 @@ vì không có nhân viên nào theo dõi luồng này:
 - Quá `response_due_at`: match chuyển `no_response` (compare-and-set, NCC vẫn báo giá
   được sau đó) và buyer nhận một thư báo chưa có phản hồi.
 - NCC bấm từ chối: buyer nhận thư ngay trong action; cron gửi bù nếu lần đầu lỗi.
+- Thư mời NCC được ghi vào `email_messages` (`rfq_outreach`, `direct_invite:<match>`).
+  Thư ghi nhận `failed` được gửi lại một lần mỗi lượt quét cho tới hạn phản hồi; lời
+  mời trong cổng không phụ thuộc vào thư này.
 
 Trang `/buyer/account/requests/[id]` và danh sách RFQ trực tiếp hiện "Nhà cung cấp đã từ
 chối" khi mọi NCC được chọn đều từ chối, hoặc "Nhà cung cấp chưa phản hồi" khi không còn
@@ -167,7 +170,8 @@ lỗi được thử lại trong 14 ngày. Cron chạy theo ngày thì các mố
    (`status`, `attempts`, `last_error`, `not_before`), account người nhận và log cron.
    Không công bố lại chỉ để thử gửi thư; nội dung vẫn nằm trong tài khoản.
 
-**Giới hạn hiện còn:** các danh sách RFQ/buyer toàn cục và cấp mã RFQ còn có đường đọc
-không phân trang/đọc-rồi-ghi; khi dữ liệu vượt giới hạn PostgREST hoặc gửi đồng thời,
-cần xử lý bằng phân trang và sequence/transaction riêng. Không suy diễn một email đã gửi
+**Giới hạn hiện còn:** danh sách RFQ toàn cục và cấp mã RFQ còn đọc không phân trang
+rồi mới ghi. Trùng mã khi gửi đồng thời được thử lại với số kế tiếp, nhưng vượt giới hạn
+PostgREST thì cần phân trang hoặc sequence riêng. RFQ direct chưa có quy tắc đóng, nên
+`retryPendingDirectRfqs` vẫn đọc mỗi RFQ direct đang mở một lần mỗi 5 phút. Không suy diễn một email đã gửi
 là báo giá đã được công bố hay có quyền xem dữ liệu.

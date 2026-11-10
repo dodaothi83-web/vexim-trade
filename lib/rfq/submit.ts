@@ -173,7 +173,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   if (!rl.ok) {
     return {
       ok: false,
-      message: "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ.",
+      message: "Too many requests. Please try again in an hour.",
       rateLimited: true,
     };
   }
@@ -187,7 +187,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     if (recentCount >= 5) {
       return {
         ok: false,
-        message: "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 giờ.",
+        message: "Too many requests. Please try again in an hour.",
         rateLimited: true,
       };
     }
@@ -201,7 +201,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   if (rejectWebmail() && isLikelyWebmail(raw.email)) {
     return {
       ok: false,
-      message: "Vui lòng dùng email công ty (không dùng Gmail / Yahoo / Outlook).",
+      message: "Please use a company email address (not Gmail, Yahoo or Outlook).",
     };
   }
 
@@ -212,21 +212,21 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     if (!mx.ok) {
       return {
         ok: false,
-        message: "Tên miền email không có bản ghi MX. Vui lòng kiểm tra lại địa chỉ email.",
+        message: "This email domain cannot receive mail. Please check your email address.",
       };
     }
   }
 
   if (!raw.consent || raw.share_contact_consent !== true) {
-    return { ok: false, message: "Bạn cần xác nhận cách dùng thông tin liên hệ cho yêu cầu này." };
+    return { ok: false, message: "Please confirm how your contact details may be used for this request." };
   }
   // Tên sản phẩm có thể do server dựng từ source_product_id đã xác thực; không lấy từ chuỗi client gửi.
   // Trần độ dài khớp bộ đếm trên form; chặn payload lớn chèn thẳng qua server action.
   if (extraText.length > 4_000 || (raw.message?.length ?? 0) > 4_000) {
-    return { ok: false, message: "Mô tả quá dài. Vui lòng rút gọn dưới 4.000 ký tự." };
+    return { ok: false, message: "The description is too long. Please keep it under 4,000 characters." };
   }
   if (!raw.company.trim() || !raw.contact_name.trim() || !raw.email.trim()) {
-    return { ok: false, message: "Vui lòng điền đầy đủ tên công ty, người liên hệ và email." };
+    return { ok: false, message: "Please enter your company name, contact name and email." };
   }
 
   // 5b) Xác thực sản phẩm nguồn TRƯỚC khi kiểm nội dung: RFQ mở từ trang sản phẩm không
@@ -305,10 +305,10 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     return { ok: false, message: "We could not send this direct request. Please complete the security check and try again." };
   }
   if (!productText) {
-    return { ok: false, message: "Vui lòng mô tả sản phẩm cần báo giá." };
+    return { ok: false, message: "Please describe the product you need a quote for." };
   }
   if (productText.length > 4_000) {
-    return { ok: false, message: "Mô tả quá dài. Vui lòng rút gọn dưới 4.000 ký tự." };
+    return { ok: false, message: "The description is too long. Please keep it under 4,000 characters." };
   }
 
   // 6) Upsert buyer theo email
@@ -401,7 +401,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     ...(raw.utm_campaign ? { campaign: raw.utm_campaign } : {}),
   };
 
-  const rfq = await store.createRfq({
+  const rfqInput: Parameters<typeof store.createRfq>[0] = {
     code,
     buyer_id: buyer.id,
     category_id: categoryId,
@@ -450,7 +450,20 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     lost_reason: null,
     closed_reason: null,
     access_token: generateAccessToken(),
-  });
+  };
+  // The code is read-then-written: two buyers submitting together can pick the same one.
+  // The unique index rejects the second insert; take the next number instead of failing.
+  let rfq: Rfq | null = null;
+  for (let attempt = 0; !rfq; attempt++) {
+    try {
+      rfq = await store.createRfq(rfqInput);
+    } catch (error) {
+      const duplicateCode = error instanceof Error && /duplicate key|23505/i.test(error.message) && /code/i.test(error.message);
+      if (!duplicateCode || attempt >= 4) throw error;
+      seq += 1;
+      rfqInput.code = generateRfqCode(seq, dayKey);
+    }
+  }
 
   // Audit log — ghi nhận mọi RFQ submit vào hệ thống (người gửi là "buyer:email").
   try {
@@ -492,7 +505,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
       : "Your direct request is saved; portal delivery is pending an automatic retry."
     : "Your sourcing request is saved in your account. Vexim will coordinate the quotes here.";
   if (rfqStatus === "needs_review") message = "Your sourcing request is saved and under review in your account.";
-  if (rfqStatus === "spam") message = "Yêu cầu đã được nhận và đang chờ duyệt.";
+  if (rfqStatus === "spam") message = "Your request has been received and is under review.";
 
   // 9) AI trích xuất trường còn thiếu — TUỲ CHỌN và KHÔNG CHẶN.
   //    Đặt ở đây, sau khi RFQ + buyer + audit + email đã xong, và chỉ hàng đợi bằng `after()`

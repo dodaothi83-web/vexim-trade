@@ -8,6 +8,8 @@ import { SITE_URL } from "@/lib/site";
 import type { EmailMessage, Rfq, RfqMatch } from "@/lib/types";
 import { rfqBuyerContact } from "./buyer-contact";
 import { rfqChannel } from "./channel";
+import { buildRfqSupplierEmail } from "./outreach";
+import { directInviteStage } from "./targeted-portal";
 
 /** Direct RFQs have no Vexim desk watching them. When the named supplier declines or
  * stays silent past the response date, the buyer must still learn the outcome, and the
@@ -117,11 +119,24 @@ async function remindSupplier(store: DataStore, rfq: Rfq, match: RfqMatch, histo
     direction: "supplier", to: account.email.trim(), mail: buildDirectSupplierReminder(rfq, match.id), history });
 }
 
+/** The invitation itself is already in the portal. Resend only a notice that is on
+ * record as failed: an invitation sent before notices were logged is never repeated. */
+async function resendFailedInvite(store: DataStore, rfq: Rfq, match: RfqMatch, history: EmailMessage[]) {
+  const stage = directInviteStage(match.id);
+  if (!history.some((m) => m.kind === "rfq_outreach" && m.stage === stage && m.status === "failed")) return "skipped";
+  const [account, supplier] = await Promise.all([store.getUserBySupplierId(match.supplier_id), store.getSupplier(match.supplier_id)]);
+  if (!supplier || !account?.is_active || account.role !== "supplier" || account.supplier_id !== match.supplier_id) return "skipped";
+  const mail = buildRfqSupplierEmail({ rfq, supplier, deadline: new Date(match.response_due_at!),
+    portalUrl: `${SITE_URL}/supplier/portal/rfqs/${encodeURIComponent(match.id)}` });
+  return sendOnce(store, { rfq, match, kind: "rfq_outreach", stage, direction: "supplier",
+    to: account.email.trim(), mail, history });
+}
+
 /** Daily/hourly sweep (see /api/cron/rfq-sla). Idempotent: the status change is a
  * compare-and-set on the match and every email is claimed before it is sent. */
 export async function runDirectRfqFollowUps(store: DataStore, options: { nowMs?: number } = {}) {
   const now = options.nowMs ?? Date.now();
-  const report = { checked: 0, reminded: 0, noResponse: 0, buyerNotified: 0, failed: 0 };
+  const report = { checked: 0, reminded: 0, invitesResent: 0, noResponse: 0, buyerNotified: 0, failed: 0 };
   const rfqs = (await store.listRetryableDirectRfqs()).filter((rfq) =>
     rfqChannel(rfq) === "direct" && ["matching", "quoted"].includes(rfq.status) && rfq.spam_score < 40 &&
     rfq.specs?.direct_delivery_version === "portal_direct_v2" &&
@@ -154,7 +169,12 @@ export async function runDirectRfqFollowUps(store: DataStore, options: { nowMs?:
           if (!saved) continue; // The supplier quoted or declined in the meantime.
           report.noResponse++;
           count(await notifyBuyerDirectMatch(store, rfq, saved, "no_response", await messages()));
-        } else if (now >= due - DIRECT_REMINDER_LEAD_MS) {
+        } else {
+          const invite = await resendFailedInvite(store, rfq, match, await messages());
+          if (invite === "sent") report.invitesResent++;
+          else if (invite === "failed") report.failed++;
+          // One email per run: a supplier just (re)invited is not reminded in the same sweep.
+          if (invite !== "skipped" || now < due - DIRECT_REMINDER_LEAD_MS) continue;
           const outcome = await remindSupplier(store, rfq, match, await messages());
           if (outcome === "sent") report.reminded++;
           else if (outcome === "failed") report.failed++;

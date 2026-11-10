@@ -28,6 +28,8 @@ const sentMail = [];
 let failMail = false;
 const followup = load('lib/rfq/direct-followup.ts', {
   'server-only': {}, './channel': channel, './buyer-contact': contact,
+  './targeted-portal': { directInviteStage: (id) => `direct_invite:${id}` },
+  './outreach': { buildRfqSupplierEmail: ({ rfq, portalUrl }) => ({ subject: `[${rfq.code}] invite`, html: portalUrl, text: portalUrl }) },
   '@/lib/config': { FROM_ADDRESS: 'Vexim <no-reply@vexim.test>' },
   '@/lib/site': { SITE_URL: 'https://vexim.test' },
   '@/lib/email/templates': { escapeHtml: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'),
@@ -53,6 +55,7 @@ function makeStore() {
     listRetryableDirectRfqs: async () => db.rfqs,
     listRfqMatches: async (rfqId) => db.matches.filter((m) => m.rfq_id === rfqId),
     getBuyer: async () => ({ id: 'buyer-1', email: 'buyer@example.test' }),
+    getSupplier: async (id) => ({ id, name: 'Supplier' }),
     getUserBySupplierId: async (id) => id === 'supplier-inactive' ? { email: 'old@supplier.test', role: 'supplier', supplier_id: id, is_active: false }
       : { email: `${id}@supplier.test`, role: 'supplier', supplier_id: id, is_active: true },
     listMessagesForRfq: async (rfqId) => db.messages.filter((m) => m.rfq_id === rfqId),
@@ -211,6 +214,27 @@ const reset = () => { sentMail.length = 0; failMail = false; };
   assert.equal(sentMail.length, 0);
 }
 
+// 6b) A logged failed invitation notice is resent once; unlogged legacy invites never are.
+{
+  reset();
+  const store = makeStore();
+  store.db.rfqs.push(rfq('r10', { preferred_supplier_ids: ['supplier-a', 'supplier-b'] }));
+  store.db.matches.push(match('m10', 'r10', { response_due_at: iso(now + 6 * HOUR) }),
+    match('m10-legacy', 'r10', { supplier_id: 'supplier-b', response_due_at: iso(now + 2 * DAY) }));
+  store.db.messages.push({ id: 'invite-1', rfq_id: 'r10', rfq_match_id: 'm10', kind: 'rfq_outreach',
+    stage: 'direct_invite:m10', status: 'failed', error: 'provider down' });
+  const first = await followup.runDirectRfqFollowUps(store, { nowMs: now });
+  assert.equal(first.invitesResent, 1);
+  assert.equal(first.reminded, 0, 'A supplier just re-invited is not also reminded in the same run');
+  assert.equal(sentMail.length, 1);
+  assert.equal(sentMail[0].subject, '[RFQ-r10] invite');
+  assert.equal(store.db.messages.find((m) => m.id === 'invite-1').status, 'sent');
+  const second = await followup.runDirectRfqFollowUps(store, { nowMs: now + HOUR });
+  assert.equal(second.invitesResent, 0);
+  assert.equal(second.reminded, 1, 'The reminder follows on a later run');
+  assert.equal(sentMail.length, 2);
+}
+
 // 7) Emails are link-only: no request contents, contact, price or reply alias.
 for (const kind of ['declined', 'no_response']) {
   const mail = followup.buildDirectBuyerNotice(kind, { id: 'rfq id', code: 'RFQ-1' });
@@ -243,6 +267,13 @@ const component = read('components/buyer-enquiry-detail.tsx');
 assert.match(component, /copy\.declinedTitle/);
 assert.match(component, /copy\.noReply/);
 assert.match(read('app/(public)/buyer/account/page.tsx'), /directOutcomes\.get\(r\.id\)/);
+const portalSource = read('lib/rfq/targeted-portal.ts');
+assert.match(portalSource, /kind: "rfq_outreach", stage: directInviteStage\(match\.id\)/, 'Invitation notices are logged for retry');
+const retrySource = read('lib/rfq/retry-direct.ts');
+assert.match(retrySource, /if \(!delivered\) \{\s*await createPreferredSupplierMatches/, 'Delivered RFQs skip the release preflight');
+const submitSource = read('lib/rfq/submit.ts');
+assert.doesNotMatch(submitSource, /message: "[^"]*[àáảãạăâđêôơưệộ]/i, 'Buyer-facing submit errors are English');
+assert.match(submitSource, /duplicate key\|23505/, 'A code collision takes the next number instead of failing');
 assert.match(read('lib/db/supabase.ts'), /\.select\("id,rfq_id,status,sent_to_supplier_at,sent_to_buyer_at,/);
 
 console.log('✅ Direct RFQ follow-up: decline and no-reply reach the buyer once, supplier reminded before the date, link-only mail, CAS and retry.');
