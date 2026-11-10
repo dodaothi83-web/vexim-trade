@@ -26,6 +26,8 @@ export interface PortalInvite {
   code: string;
   title: string;
   status: string;
+  /** Machine-readable supplier-invitation status for list filters. */
+  matchStatus: SupplierRfqInvitation["status"];
   sentAt: string;
   dueAt: string | null;
   quantity: string;
@@ -142,7 +144,7 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
     const blocked = direct && !authorized && open && ["sent_to_supplier", "no_response"].includes(m.status);
     const description = text(rfq.product_text, 4_000) || fallback.title;
     return {
-      matchId: m.id, code: rfq.code, title,
+      matchId: m.id, code: rfq.code, title, matchStatus: m.status,
       // Quoted is a saved draft until an immutable version is published. Direct
       // quotes auto-publish; Vexim must publish sourcing quotes or revisions.
       status: blocked ? rfqsMessages[language].status.blocked : m.status === "quoted" && m.quote_price != null

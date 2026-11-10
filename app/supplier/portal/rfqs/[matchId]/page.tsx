@@ -54,8 +54,21 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
     <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_290px]">
       <div className="min-w-0 space-y-5">
         <section className="rounded-2xl border border-ink-200 bg-white px-5 py-5 shadow-sm sm:px-6">
+          {item.productId && item.linkedProduct && <div className="mb-5 rounded-xl border border-ink-200 bg-ink-50/70 p-4">
+            <h2 className="text-[13px] font-bold text-ink-700">{m.rfqs.product.title}</h2>
+            <dl className="mt-2 grid gap-x-5 gap-y-2 sm:grid-cols-2">
+              {([[m.rfqs.product.spec, item.linkedProduct.spec], [m.rfqs.product.packaging, item.linkedProduct.packaging],
+                [m.rfqs.product.moq, item.linkedProduct.moq]] as const).filter(([, value]) => !!value).map(([label, value]) =>
+                <div key={label} className="min-w-0 text-[13px]">
+                  <dt className="text-ink-600">{label}</dt><dd className="break-words font-semibold text-ink-900">{value}</dd>
+                </div>)}
+            </dl>
+            <Link href={`/supplier/portal/products/${encodeURIComponent(item.productId)}`} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">
+              {m.rfqs.product.view}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>}
           <RequestDetails item={item} copy={m.rfqs.request} className="" />
-          {item.productId && <Link href={`/supplier/portal/products/${encodeURIComponent(item.productId)}`} className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">{m.rfqs.product.view}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
+          {item.productId && !item.linkedProduct && <Link href={`/supplier/portal/products/${encodeURIComponent(item.productId)}`} className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">{m.rfqs.product.view}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
         </section>
         <section aria-label={copy.offersTitle} className="rounded-2xl border border-ink-200 bg-white px-5 py-5 shadow-sm sm:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
