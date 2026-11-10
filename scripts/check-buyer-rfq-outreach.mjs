@@ -198,6 +198,11 @@ await act(async () => {
 assert.match(document.querySelector('tbody').textContent, /Iraivan Traders|Công ty ABC/);
 assert.doesNotMatch(document.querySelector('tbody').textContent, /Có nhà cung cấp CRM/);
 assert.equal(attaches, 0, 'Displaying outreach and filtering must never invoke attachSupplierAction');
+await act(async () => root.render(React.createElement(table.BuyerTable, {
+  buyers, outreach: remoteRows, suppliers, canManage: false,
+})));
+assert.match(document.querySelector('tbody').textContent, /CÔNG TY TNHH CHÂU Á HÙNG MẠNH/);
+assert.equal(document.querySelector('button[aria-haspopup="listbox"]'), null, 'Read-only staff may see RFQs, not attach suppliers');
 await act(async () => root.unmount());
 
 const listPage = read('app/crm/buyers/page.tsx');
