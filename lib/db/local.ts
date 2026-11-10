@@ -2561,6 +2561,8 @@ export const localStore: DataStore = {
     if (options?.assignedTo !== undefined) {
       rows = rows.filter((r) => r.assigned_to === options.assignedTo);
     }
+    if (options?.codePrefix) rows = rows.filter((r) => r.code.startsWith(options.codePrefix!));
+    if (options?.sourcingRequestId) rows = rows.filter((r) => r.specs?.sourcing_request_id === options.sourcingRequestId);
     return rows;
   },
   async listRetryableDirectRfqs() {

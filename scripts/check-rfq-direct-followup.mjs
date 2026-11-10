@@ -273,6 +273,10 @@ const retrySource = read('lib/rfq/retry-direct.ts');
 assert.match(retrySource, /if \(!delivered\) \{\s*await createPreferredSupplierMatches/, 'Delivered RFQs skip the release preflight');
 const submitSource = read('lib/rfq/submit.ts');
 assert.doesNotMatch(submitSource, /message: "[^"]*[àáảãạăâđêôơưệộ]/i, 'Buyer-facing submit errors are English');
+assert.match(submitSource, /store\.listRfqs\(\{ codePrefix \}\)/, 'Code allocation reads only today\'s RFQs');
+assert.doesNotMatch(submitSource, /store\.listRfqs\(\)/, 'Submit never loads the whole RFQ table');
+assert.doesNotMatch(read('lib/sourcing/to-rfq.ts'), /store\.listRfqs\(\)/, 'Sourcing conversion never loads the whole RFQ table');
+assert.match(read('lib/db/supabase.ts'), /q\.like\("code",/);
 assert.match(submitSource, /duplicate key\|23505/, 'A code collision takes the next number instead of failing');
 assert.match(read('lib/db/supabase.ts'), /\.select\("id,rfq_id,status,sent_to_supplier_at,sent_to_buyer_at,/);
 

@@ -381,9 +381,11 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   //    khi hai người gửi cùng lúc hoặc khi danh sách bị giới hạn số dòng.
   const dayKey = rfqDayKey();
   const codePrefix = `RFQ-${dayKey}-`;
-  const allRfqs = await store.listRfqs();
-  const takenCodes = new Set(allRfqs.map((r) => r.code));
-  const maxSeqToday = allRfqs.reduce((max, r) => {
+  // Only today's codes are read: the table is never loaded whole, so the count stays
+  // right past the PostgREST row cap. A concurrent duplicate is retried below.
+  const todaysRfqs = await store.listRfqs({ codePrefix });
+  const takenCodes = new Set(todaysRfqs.map((r) => r.code));
+  const maxSeqToday = todaysRfqs.reduce((max, r) => {
     if (!r.code.startsWith(codePrefix)) return max;
     const n = Number.parseInt(r.code.slice(codePrefix.length), 10);
     return Number.isFinite(n) && n > max ? n : max;

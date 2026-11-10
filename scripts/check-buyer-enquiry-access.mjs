@@ -52,10 +52,11 @@ const quoteStore = {
     { id: 'q1', rfq_id: 'r1', supplier_id: 's1', status: 'quoted', sent_to_buyer_at: '2026-11-05T00:00:00Z', quote_price: 9.99, quote_currency: 'USD', quote_unit: 'kg', quote_incoterm: 'FOB', quote_lead_time_days: 20, quote_valid_until: null },
     { id: 'q2', rfq_id: 'r1', supplier_id: 's2', status: 'quoted', sent_to_buyer_at: null, quote_price: 9.99, quote_currency: 'USD', quote_unit: 'kg' },
   ],
-  listSuppliers: async () => [
+  listSuppliers: async () => assert.fail('The request page must not load the whole supplier directory'),
+  getSupplier: async (sid) => [
     { id: 's1', name: 'Shown Supplier', province: 'Dak Lak', email: 'secret-supplier@example.com', phone: '+84 900 000 000' },
     { id: 's2', name: 'Hidden Supplier' },
-  ],
+  ].find((s) => s.id === sid) ?? null,
   listRfqQuoteVersions: async () => [{ id: 'v1', match_id: 'q1', version: 1, quote_price: 6.35,
     quote_currency: 'USD', quote_unit: 'kg', quote_incoterm: 'FOB', quote_lead_time_days: 20,
     quote_valid_until: null, buyer_note: 'Public packing only', published_at: '2026-11-05T00:00:00Z' }],

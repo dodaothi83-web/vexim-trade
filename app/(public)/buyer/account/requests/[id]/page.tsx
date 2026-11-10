@@ -26,7 +26,10 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
   const declined: Array<{ id: string; supplier: string }> = [];
   let directOutcome: "declined" | "no_response" | null = null;
   try {
-    const [matches, suppliers] = await Promise.all([store.listRfqMatches(rfq.id), store.listSuppliers()]);
+    const matches = await store.listRfqMatches(rfq.id);
+    // Only the suppliers on this request, not the whole directory.
+    const suppliers = (await Promise.all([...new Set(matches.map((m) => m.supplier_id))].map((sid) => store.getSupplier(sid))))
+      .filter((s): s is NonNullable<typeof s> => !!s);
     const versions = await store.listRfqQuoteVersions(matches.filter((m) => !!m.sent_to_buyer_at).map((m) => m.id));
     const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
     const named = new Set(rfq.preferred_supplier_ids ?? []);

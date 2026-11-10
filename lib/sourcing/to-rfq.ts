@@ -26,8 +26,9 @@ export async function startSourcingMatch(input: {
   actor: { id: string; email: string };
 }): Promise<{ rfq: Rfq; created: boolean }> {
   const { store, request, actor } = input;
-  const rfqs = await store.listRfqs();
-  const existing = findLinkedRfq(rfqs, request.id);
+  // Targeted lookups: a full-table read is capped by PostgREST, which would hide an
+  // older linked RFQ and convert the same sourcing request twice.
+  const existing = findLinkedRfq(await store.listRfqs({ sourcingRequestId: request.id }), request.id);
   if (existing) return { rfq: existing, created: false };
   if (request.status === "closed") throw new Error("closed");
 
@@ -56,6 +57,7 @@ export async function startSourcingMatch(input: {
 
   const dayKey = rfqDayKey();
   const prefix = `RFQ-${dayKey}-`;
+  const rfqs = await store.listRfqs({ codePrefix: prefix });
   const taken = new Set(rfqs.map((r) => r.code));
   let seq = rfqs.reduce((max, r) => {
     if (!r.code.startsWith(prefix)) return max;

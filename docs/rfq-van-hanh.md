@@ -170,8 +170,8 @@ lỗi được thử lại trong 14 ngày. Cron chạy theo ngày thì các mố
    (`status`, `attempts`, `last_error`, `not_before`), account người nhận và log cron.
    Không công bố lại chỉ để thử gửi thư; nội dung vẫn nằm trong tài khoản.
 
-**Giới hạn hiện còn:** danh sách RFQ toàn cục và cấp mã RFQ còn đọc không phân trang
-rồi mới ghi. Trùng mã khi gửi đồng thời được thử lại với số kế tiếp, nhưng vượt giới hạn
-PostgREST thì cần phân trang hoặc sequence riêng. RFQ direct chưa có quy tắc đóng, nên
+**Giới hạn hiện còn:** hộp RFQ trong CRM và cron SLA còn đọc danh sách RFQ toàn cục
+không phân trang. Cấp mã RFQ chỉ đọc mã của ngày hôm đó (`listRfqs({ codePrefix })`) và
+thử lại với số kế tiếp khi trùng mã do gửi đồng thời. RFQ direct chưa có quy tắc đóng, nên
 `retryPendingDirectRfqs` vẫn đọc mỗi RFQ direct đang mở một lần mỗi 5 phút. Không suy diễn một email đã gửi
 là báo giá đã được công bố hay có quyền xem dữ liệu.

@@ -1927,6 +1927,9 @@ export const supabaseStore: DataStore = {
       if (options.assignedTo === null) q = q.is("assigned_to", null);
       else q = q.eq("assigned_to", options.assignedTo);
     }
+    // LIKE metacharacters must match literally; a day prefix has none, but stay exact.
+    if (options?.codePrefix) q = q.like("code", `${options.codePrefix.replace(/[\\%_]/g, (value) => "\\" + value)}%`);
+    if (options?.sourcingRequestId) q = q.contains("specs", { sourcing_request_id: options.sourcingRequestId });
     const { data, error } = await q;
     if (error) fail("listRfqs", error);
     return (data ?? []) as Rfq[];

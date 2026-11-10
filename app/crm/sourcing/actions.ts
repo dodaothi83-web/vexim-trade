@@ -27,7 +27,7 @@ export async function updateSourcingAction(fd: FormData) {
   if (!current) redirect("/crm/sourcing?error=invalid");
   // Once converted, the Vexim RFQ desks are the only channel for new exchanges.
   // An old form submission must not change the archived request or email a second path.
-  const linked = findLinkedRfq(await getStore().listRfqs(), id);
+  const linked = findLinkedRfq(await getStore().listRfqs({ sourcingRequestId: id }), id);
   if (linked) redirect(`/crm/rfqs/${encodeURIComponent(linked.id)}`);
   const before = { ...current };
   const result = await store.updateSourcingRequest(id, version, { status, assigned_to: assigned || null, internal_note: note || null, buyer_reply: reply || null });
