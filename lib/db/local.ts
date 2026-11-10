@@ -60,7 +60,6 @@ import { PREVIEW_PEPPER_HARVEST, previewCategories, previewSeedRows } from "@/li
 import { DEMO_SUPPLIERS } from "@/lib/db/demo-suppliers";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
 import { isExpired } from "@/lib/media/readiness";
-import { isDispatchedRfqMatch } from "@/lib/rfq/buyer-outreach";
 import {
   CASHEW_CATEGORY_CONFIG,
   DEFAULT_CATEGORY_CONFIG,
@@ -2611,7 +2610,7 @@ export const localStore: DataStore = {
     const suppliers = new Map(db.suppliers.map((s) => [s.id, s]));
     const rows: BuyerRfqOutreach[] = [];
     for (const match of db.rfq_matches ?? []) {
-      if (!isDispatchedRfqMatch(match)) continue;
+      if (match.status === "proposed" || !match.sent_to_supplier_at) continue;
       const rfq = rfqs.get(match.rfq_id);
       const supplier = suppliers.get(match.supplier_id);
       if (!rfq || !supplier || !match.sent_to_supplier_at) continue;

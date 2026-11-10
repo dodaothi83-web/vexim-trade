@@ -22,11 +22,6 @@ function runTs(source, mocks = {}, extras = {}) {
   return mod.exports;
 }
 const helpers = runTs(read('lib/rfq/buyer-outreach.ts'));
-assert.equal(helpers.isDispatchedRfqMatch({ status: 'proposed', sent_to_supplier_at: null }), false);
-assert.equal(helpers.isDispatchedRfqMatch({ status: 'proposed', sent_to_supplier_at: '2026-11-10' }), false);
-assert.equal(helpers.isDispatchedRfqMatch({ status: 'sent_to_supplier', sent_to_supplier_at: null }), false);
-assert.equal(helpers.isDispatchedRfqMatch({ status: 'sent_to_supplier', sent_to_supplier_at: '2026-11-10' }), true);
-assert.equal(helpers.isDispatchedRfqMatch({ status: 'declined', sent_to_supplier_at: '2026-11-10' }), true);
 
 // Execute the actual store methods without loading the application's seed DB or connecting to Supabase.
 function storeMethod(file, method, extras) {
@@ -60,9 +55,7 @@ const matches = [
   { id: 'm07', rfq_id: 'r-ira-2', supplier_id: 's2', status: 'proposed', sent_to_supplier_at: '2026-11-11T07:00:00Z' },
 ];
 const db = { rfqs, rfq_matches: matches, suppliers };
-const local = storeMethod('lib/db/local.ts', 'listBuyerRfqOutreach', {
-  load: () => db, isDispatchedRfqMatch: helpers.isDispatchedRfqMatch,
-});
+const local = storeMethod('lib/db/local.ts', 'listBuyerRfqOutreach', { load: () => db });
 assert.equal((await local.listBuyerRfqOutreach([])).length, 0);
 const localRows = await local.listBuyerRfqOutreach(['ira', 'abc']);
 assert.equal(localRows.length, 2);

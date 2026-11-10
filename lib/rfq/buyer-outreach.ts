@@ -1,9 +1,4 @@
-import type { Buyer, BuyerRfqOutreach, RfqMatch, RfqMatchStatus } from "@/lib/types";
-
-/** A proposed match (including a preferred supplier) is NOT a dispatched RFQ. */
-export function isDispatchedRfqMatch(match: Pick<RfqMatch, "status" | "sent_to_supplier_at">): boolean {
-  return match.status !== "proposed" && Boolean(match.sent_to_supplier_at);
-}
+import type { Buyer, BuyerRfqOutreach, RfqMatchStatus } from "@/lib/types";
 
 export function groupBuyerRfqOutreach(rows: BuyerRfqOutreach[]): Map<string, BuyerRfqOutreach[]> {
   const byBuyer = new Map<string, BuyerRfqOutreach[]>();
