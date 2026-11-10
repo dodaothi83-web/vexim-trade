@@ -864,8 +864,11 @@ export const supabaseStore: DataStore = {
     return (data as Buyer) ?? null;
   },
   async getBuyerByEmail(email) {
-    const needle = email.trim().toLowerCase();
-    if (!needle) return null;
+    const exact = email.trim().toLowerCase();
+    if (!exact) return null;
+    // ILIKE coi % và _ là ký tự đại diện: "a_b@x.com" sẽ khớp cả "axb@x.com" và gắn
+    // RFQ vào hồ sơ của người mua khác. Escape để chỉ khớp đúng địa chỉ (không phân biệt hoa thường).
+    const needle = exact.replace(/[\\%_]/g, (value) => "\\" + value);
     // buyers.email không có unique index: lấy bản mới nhất nếu dữ liệu cũ có trùng.
     const { data, error } = await must()
       .from("buyers")

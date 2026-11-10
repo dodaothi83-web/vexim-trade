@@ -314,12 +314,10 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   // 6) Upsert buyer theo email
   const web = normalizeCompanyWebsite(raw.website ?? null);
 
-  let buyer: Buyer | null = null;
-  // Tìm buyer theo email
-  const all = await store.listBuyers().catch(() => []);
-  if (raw.email) {
-    buyer = all.find((b) => b.email && b.email.toLowerCase() === raw.email.toLowerCase().trim()) ?? null;
-  }
+  // Tìm buyer theo email bằng truy vấn đích danh. Không quét listBuyers(): danh sách đó bị
+  // PostgREST cắt ở 1000 dòng, khách cũ nằm ngoài sẽ bị tạo hồ sơ trùng và chia đôi lịch sử.
+  // Không nuốt lỗi ở đây: tra cứu hỏng mà vẫn đi tiếp cũng sinh hồ sơ trùng.
+  let buyer: Buyer | null = await store.getBuyerByEmail(raw.email);
 
   const buyerInput = {
     company: raw.company.trim(),
