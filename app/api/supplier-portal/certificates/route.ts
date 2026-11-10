@@ -94,12 +94,14 @@ export async function POST(request: Request) {
     }
 
     await putObject(path, bytes, checked.mime);
+    // Tệp thuộc kho nội bộ của nhà cung cấp. Liên kết đợt L1 và checklist nằm trên
+    // bản ghi chứng nhận bên dưới; media thuộc supplier không được gắn hai ID chủ sở hữu.
     const media = await access.store.createMedia({
       owner_type: "supplier",
       supplier_id: access.supplier.id,
       product_id: null,
-      verification_id: access.review?.target_level === 1 ? access.review.id : null,
-      checklist_key: checklistKey,
+      verification_id: null,
+      checklist_key: null,
       kind: "certificate",
       audience: "internal",
       status: "unverified",
@@ -181,7 +183,9 @@ export async function POST(request: Request) {
       await access.store.deleteMedia(mediaId).catch((e) => console.error("[certificate] cleanup media", e));
     }
     await deleteObject(path).catch((e) => console.error("[certificate] cleanup storage", e));
-    return fail("Không lưu được chứng nhận. Báo người phụ trách kỹ thuật rồi thử lại.", 503);
+    return fail(mediaId
+      ? "Hệ thống chưa hoàn tất xử lý chứng nhận. Kiểm tra danh sách sau khi tải lại trang; nếu chưa thấy, hãy liên hệ Vexim."
+      : "Lỗi hệ thống: chứng nhận chưa được ghi nhận. Bạn không cần đổi tên trên giấy; hãy liên hệ Vexim để được hỗ trợ.", 503);
   }
 }
 
