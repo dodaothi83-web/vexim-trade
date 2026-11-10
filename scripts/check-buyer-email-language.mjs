@@ -1,26 +1,13 @@
-// node scripts/check-buyer-email-language.mjs — thư gửi người mua: tiếng Anh, mã ở cuối tiêu đề,
-// và nối mạch thư bằng In-Reply-To/References.
-//
-// README dòng 9 chốt: "email gửi buyer tiếng Anh, email gửi NCC tiếng Việt".
-// Ba luật dưới đây đều là thứ đã từng sai một lần, nên giữ bằng máy:
-//   1. Chỉ tiếng Anh: người mua nước ngoài không nhận thư nửa Anh nửa Việt.
-//   2. Mã RFQ đặt ở CUỐI tiêu đề dạng "(Ref …)", không đứng đầu trong ngoặc vuông:
-//      trên điện thoại hộp thư chỉ hiện ~40 ký tự đầu, phần cần thấy là mặt hàng.
-//   3. Thư tự động phải mở mạch thư (openThread) để Gmail/Outlook gom một chuỗi.
+// Buyer email policy: account/CRM stage emails may still thread; RFQ email is
+// link-only notification with an English buyer-facing subject and no Reply-To.
+// See check-rfq-email.mjs for rendered content and inbound-alias regression.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const VIETNAMESE = /[àáảãạăằắẳẵặâầấẩẫậđêềếểễệôồốổỗộơờớởỡợưừứửữựýỳỷỹỵ]/i;
-
-/** Bỏ chú thích (giữ nguyên chuỗi https://…) để không bắt oan ghi chú tiếng Việt. */
-function stripComments(text) {
-  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/[^\n]*/g, '$1');
-}
-
-function read(file) {
-  return readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-}
-
+const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+/** Preserve URL literals while dropping comments from static checks. */
+const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/[^\n]*/g, '$1');
 function region(file, startMarker, endMarker) {
   const source = read(file);
   const start = source.indexOf(startMarker);
@@ -30,52 +17,53 @@ function region(file, startMarker, endMarker) {
   return { file, text: stripComments(source.slice(start, end)) };
 }
 
-// Các hàm soạn thư gửi người mua (không tính thư nhà cung cấp trong cùng tệp).
 const builders = [
-  region('lib/rfq/buyer-notify.ts', 'function buildSubject(', 'export async function notifyBuyerRfqStatus'),
-  region('lib/email/rfq.ts', 'export async function sendRfqAckBuyer', '/* 2) Thông báo nội bộ'),
+  region('lib/rfq/buyer-notify.ts', 'function buildBody(', 'export async function notifyBuyerRfqStatus'),
+  region('lib/email/rfq.ts', 'export async function sendRfqAckBuyer', '/** Sourcing only:'),
   region('lib/email/templates.ts', 'export function buildBuyerEmail', 'export function buildSupplierEmail'),
 ];
-
-// Nội dung theo giai đoạn: khối buyer của mỗi giai đoạn cũng phải là tiếng Anh.
 const stageSource = stripComments(read('lib/email/stage-content.ts'));
-const stageBlocks = [...stageSource.matchAll(/buyer: \{([\s\S]*?)\n    \},\n    supplier: \{/g)].map((match) => ({
-  file: 'lib/email/stage-content.ts',
-  text: match[1],
-}));
-
+const stageBlocks = [...stageSource.matchAll(/buyer: \{([\s\S]*?)\n    \},\n    supplier: \{/g)]
+  .map((match) => ({ file: 'lib/email/stage-content.ts', text: match[1] }));
+assert.ok(builders.length + stageBlocks.length >= 11, 'Thiếu các đoạn email người mua hoặc mẫu theo giai đoạn');
 const problems = [];
 for (const block of [...builders, ...stageBlocks]) {
-  block.text.split('\n').forEach((line) => {
-    const char = line.match(VIETNAMESE);
-    if (char) problems.push(`${block.file}: "${char[0]}" trong dòng soạn thư: ${line.trim().slice(0, 90)}`);
-  });
-}
-
-for (const block of builders) {
-  if (!block.text.includes('(Ref ')) {
-    problems.push(`${block.file}: thiếu mã tham chiếu dạng "(Ref <mã RFQ>)" ở cuối tiêu đề`);
-  }
   for (const line of block.text.split('\n')) {
-    if (/`\[\$\{/.test(line) || /subject\s*=\s*`\[/.test(line)) {
-      problems.push(`${block.file}: mã đứng đầu tiêu đề trong ngoặc vuông: ${line.trim().slice(0, 90)}`);
-    }
+    const char = line.match(VIETNAMESE);
+    if (char) problems.push(`${block.file}: "${char[0]}" trong thư gửi buyer: ${line.trim().slice(0, 90)}`);
   }
 }
-
-// Thư vòng đời còn gửi nội dung phải nối mạch; RFQ portal chỉ gửi link báo tin.
-for (const file of ['lib/rfq/buyer-notify.ts', 'lib/email/rfq.ts', 'lib/email/send.ts']) {
-  const source = stripComments(read(file));
-  if (!source.includes('openThread(')) problems.push(`${file}: thư tự động chưa nối mạch (thiếu openThread)`);
-  if (!source.includes('mailThread.headers')) problems.push(`${file}: chưa gắn In-Reply-To/References vào header gửi`);
+for (const block of builders) {
+  if (!block.text.includes('(Ref ')) problems.push(`${block.file}: thiếu mã tham chiếu ở CUỐI tiêu đề`);
+  if (/subject\s*=\s*`\[/.test(block.text)) problems.push(`${block.file}: mã RFQ đứng đầu tiêu đề`);
 }
+assert.match(builders[0].text, /\(Ref \$\{rfq\.code\}\)/);
+assert.match(builders[1].text, /\(Ref \$\{rfq\.code\}\)/);
+assert.match(builders[2].text, /\(Ref \$\{refCode\}\)/);
 
+// The non-RFQ stage lifecycle still opens a real RFC thread, but a portal RFQ
+// must never advertise a Reply-To address or use email to deliver a quote.
+const stageSender = stripComments(read('lib/email/send.ts'));
+assert.match(stageSender, /openThread\(mailTopic\(/);
+assert.match(stageSender, /headers: mailThread\.headers/);
+for (const file of ['lib/email/rfq.ts', 'lib/rfq/buyer-notify.ts', 'lib/rfq/outreach.ts',
+  'lib/rfq/portal-alerts.ts', 'lib/rfq/mediated-alerts.ts', 'lib/sourcing/mail.ts']) {
+  const source = stripComments(read(file));
+  assert.doesNotMatch(source, /\breplyTo\s*:/, `${file}: RFQ/sourcing notices must not offer a reply alias`);
+  assert.doesNotMatch(source, /\bopenThread\s*\(/, `${file}: portal notices do not open an email conversation`);
+}
+assert.match(builders[0].text, /\/buyer\/account\/requests\//);
+assert.match(builders[1].text, /buyerUrl\(rfq\.id\)/);
+assert.match(read('lib/email/rfq.ts'), /const buyerUrl = \(id: string\) => `\$\{SITE_URL\}\/buyer\/account\/requests\//);
+for (const { file, text } of builders.slice(0, 2)) {
+  assert.doesNotMatch(text, /rfq\.(?:product_text|target_price|access_token|lost_reason)/,
+    `${file}: request contents and credentials must stay inside the account`);
+}
 const portal = stripComments(read('lib/rfq/portal-alerts.ts'));
-assert.match(portal, /New quote[\s\S]*New message[\s\S]*\(Ref \$\{rfq\.code\}\)/,
-  'RFQ portal emails only notify and end with the RFQ reference');
-const buyerSubject = portal.slice(portal.indexOf('const subject = buyerSide'), portal.indexOf('const body = buyerSide')).split(/:\s*`\[/)[0];
-assert.doesNotMatch(buyerSubject, VIETNAMESE, 'Buyer portal notification subject must be English');
-assert.ok(builders.length + stageBlocks.length >= 11, `Chỉ quét được ${builders.length + stageBlocks.length} khối; mốc tệp có thể đã đổi.`);
+assert.match(portal, /New quote from Vexim[\s\S]*New message[\s\S]*for your request \(Ref \$\{rfq\.code\}\)/,
+  'Buyer quote/message notices have an English subject and reference at the end');
+const mediation = stripComments(read('lib/rfq/mediated-alerts.ts'));
+assert.match(mediation, /thread\.audience === "buyer" \? `Update from Vexim for your request \(Ref \$\{rfq\.code\}\)`/,
+  'Buyer desk notice has an English subject and reference at the end');
 assert.deepEqual(problems, [], `Thư gửi người mua chưa đạt:\n${problems.join('\n')}`);
-
-console.log(`✅ Buyer email: ${builders.length + stageBlocks.length} khối soạn thư tiếng Anh, mã ở cuối tiêu đề, có nối mạch thư.`);
+console.log(`✅ Buyer email: ${builders.length + stageBlocks.length} English buyer blocks; portal RFQ notices are link-only without Reply-To, stage mail keeps RFC threading.`);
