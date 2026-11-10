@@ -30,6 +30,10 @@ export default async function BuyersPage({
   // Chỉ quản trị viên thấy buyer chưa có người phụ trách (nhân viên sale đã bị giới hạn theo phạm vi)
   const unassignedCount = buyers.filter((b) => !(b.owner ?? "").trim()).length;
   const shownBuyers = ownerFilter === "unassigned" ? buyers.filter((b) => !(b.owner ?? "").trim()) : buyers;
+  // RFQ data follows the same owner scope as the visible buyers; never join by email/company.
+  const outreach = hasPermission(session.role, "rfq.view")
+    ? await getStore().listBuyerRfqOutreach(shownBuyers.map((b) => b.id))
+    : [];
 
   return (
     <>
@@ -66,6 +70,7 @@ export default async function BuyersPage({
       </div>
       <BuyerTable
         buyers={shownBuyers}
+        outreach={outreach}
         ownerOptions={salesNames}
         suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
         canManage={canManage}

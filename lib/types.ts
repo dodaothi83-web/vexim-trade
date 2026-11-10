@@ -1077,6 +1077,19 @@ export interface RfqMatch {
   updated_at: string;
 }
 
+/** CRM-only view of RFQs actually dispatched to suppliers, not a buyers.supplier_id assignment.
+ * Never include RFQ access tokens, buyer contact details or quote contents in this client prop.
+ */
+export interface BuyerRfqOutreach {
+  buyer_id: string;
+  rfq_id: string;
+  rfq_code: string;
+  supplier_id: string;
+  supplier_name: string;
+  status: RfqMatchStatus;
+  sent_to_supplier_at: string;
+}
+
 /** Server-side projection: scoped match joined only to non-sensitive RFQ fields (never buyers/access tokens). */
 export type SupplierRfqInvitation = Pick<RfqMatch,
   "id" | "rfq_id" | "supplier_id" | "status" | "sent_to_supplier_at" | "response_due_at" | "supplier_replied_at" |

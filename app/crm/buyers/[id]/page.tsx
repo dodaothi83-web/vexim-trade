@@ -20,6 +20,7 @@ import { requirePagePermission } from "@/lib/auth/session";
 import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getStore } from "@/lib/db";
+import { uniqueRfqSuppliers, rfqOutreachStatusLabel } from "@/lib/rfq/buyer-outreach";
 import { stageIndex, FUNNEL_STAGES } from "@/lib/pipeline";
 import { COMPANY } from "@/lib/config";
 import { Breadcrumbs, Card, EmptyState, cx, formatDate, formatMoney, relativeTime } from "@/components/ui";
@@ -49,12 +50,14 @@ export default async function BuyerDetailPage({
   if (!buyer) notFound();
 
   const store = getStore();
-  const [suppliers, activities, emails] = await Promise.all([
+  const [suppliers, activities, emails, outreach] = await Promise.all([
     store.listSuppliers(),
     store.listActivities(id),
     store.listMessages(400),
+    hasPermission(session.role, "rfq.view") ? store.listBuyerRfqOutreach([buyer.id]) : [],
   ]);
   const buyerEmails = emails.filter((e) => e.buyer_id === id && e.status !== "draft").slice(0, 15);
+  const distinctSuppliers = uniqueRfqSuppliers(outreach);
 
   const supplier = buyer.supplier_id
     ? (suppliers.find((s) => s.id === buyer.supplier_id) ?? null)
@@ -119,7 +122,15 @@ export default async function BuyerDetailPage({
         <SummaryCell label="Trạng thái" value={<StageBadge stage={buyer.stage} />} />
         <SummaryCell label="Giá trị đơn" value={<span className="font-mono font-black tabular-nums">{formatMoney(buyer.deal_value)}</span>} sub={buyer.incoterm ?? undefined} />
         <SummaryCell label="Giao dự kiến" value={formatDate(buyer.expected_ship_date)} sub={buyer.port ? `Cảng: ${buyer.port}` : undefined} />
-        <SummaryCell label="Nhà cung cấp" value={buyer.supplier?.name ?? "Chưa gắn"} sub={buyer.supplier ? buyer.supplier.email ?? "thiếu email" : "chỉ gửi email cho người mua"} />
+        <SummaryCell
+          label="Nhà cung cấp"
+          value={buyer.supplier?.name ?? (distinctSuppliers.length
+            ? `${distinctSuppliers[0].supplier_name}${distinctSuppliers.length > 1 ? ` +${distinctSuppliers.length - 1}` : ""}`
+            : "Chưa có nhà cung cấp liên quan")}
+          sub={buyer.supplier ? "Gắn trong CRM" : distinctSuppliers.length
+            ? "Đã gửi RFQ · chưa gắn trong CRM"
+            : "Chưa gắn trong CRM hoặc gửi RFQ"}
+        />
       </Card>
 
       <div className="grid gap-5 xl:grid-cols-3">
@@ -210,6 +221,29 @@ export default async function BuyerDetailPage({
                   status: s.status,
                 }))}
               />
+              {outreach.length > 0 && (
+                <div className="mt-4 border-t border-ink-200 pt-4">
+                  <h3 className="text-[13px] font-semibold text-ink-900">Nhà cung cấp đã được gửi RFQ</h3>
+                  <p className="mt-1 text-[11.5px] text-ink-500">
+                    Đây là lịch sử gửi RFQ, không tự gắn nhà cung cấp vào đơn trong CRM.
+                  </p>
+                  <ul className="mt-3 space-y-2">
+                    {outreach.map((item) => (
+                      <li key={`${item.rfq_id}-${item.supplier_id}`} className="rounded-lg border border-ink-200 p-3">
+                        <Link href={`/crm/suppliers/${item.supplier_id}`} className="text-[13px] font-semibold text-brand-700 hover:underline">
+                          {item.supplier_name}
+                        </Link>
+                        <p className="mt-1 text-[11.5px] text-ink-500">
+                          <Link href={`/crm/rfqs/${item.rfq_id}`} className="font-mono text-brand-700 hover:underline">
+                            {item.rfq_code}
+                          </Link>
+                          {` · ${rfqOutreachStatusLabel(item.status)} · ${formatDate(item.sent_to_supplier_at)}`}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </Card>
 

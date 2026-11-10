@@ -64,7 +64,7 @@ export function SupplierPicker({
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[240px] flex-1">
-          <label className="label">Nhà cung cấp của đơn</label>
+          <label className="label">Nhà cung cấp gắn trong CRM</label>
           <select
             disabled={busy || !canManage}
             className={cx(
@@ -74,7 +74,7 @@ export function SupplierPicker({
             value={buyer.supplier_id ?? ""}
             onChange={(e) => void change(e.target.value)}
           >
-            <option value="">— Chưa chọn nhà cung cấp —</option>
+            <option value="">— Chưa gắn trong CRM —</option>
             {suppliers.map((s) => (
               <option key={s.id} value={s.id} disabled={s.status === "paused"}>
                 {s.name}
@@ -111,9 +111,9 @@ export function SupplierPicker({
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/60 p-3.5 text-[12.5px] text-amber-900">
-          <strong>Chưa gắn nhà cung cấp.</strong> Đây là trạng thái bình thường ở giai đoạn hỏi hàng /
-          báo giá — email cập nhật hiện chỉ gửi tới buyer. Khi chốt được NCC, chọn ở trên là từ lần
-          sau email sẽ gửi cho cả hai bên.
+          <strong>Chưa gắn nhà cung cấp trong CRM.</strong> RFQ đã gửi (nếu có) được liệt kê bên dưới.
+          Email cập nhật trạng thái đơn hiện chỉ gửi cho người mua. Chọn nhà cung cấp ở đây là thao tác
+          gắn CRM riêng, có thể gửi email kết nối và ảnh hưởng các email cập nhật sau này.
         </div>
       )}
 

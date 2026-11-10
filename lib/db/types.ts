@@ -8,6 +8,7 @@ import type {
   AuditLogEntry,
   Buyer,
   BuyerInput,
+  BuyerRfqOutreach,
   BuyerSignInToken,
   BuyerUser,
   BuyerUserInput,
@@ -419,6 +420,8 @@ export interface DataStore {
   deleteRfqAttachment(id: string): Promise<void>;
 
   // RFQ matches
+  /** Caller truyền ID buyer đã lọc quyền; chỉ lấy lượt RFQ đã gửi và các trường an toàn cho CRM. */
+  listBuyerRfqOutreach(buyerIds: string[]): Promise<BuyerRfqOutreach[]>;
   listRfqMatches(rfqId: string): Promise<RfqMatch[]>;
   /** Mọi lượt khớp của một NCC (cả trạng thái đề xuất), mới nhất trước. */
   listRfqMatchesBySupplier(supplierId: string): Promise<RfqMatch[]>;

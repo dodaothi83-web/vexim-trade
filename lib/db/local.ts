@@ -11,6 +11,7 @@ import type {
   AuditLogEntry,
   Buyer,
   BuyerInput,
+  BuyerRfqOutreach,
   BuyerSavedComparison,
   BuyerSavedList,
   BuyerSavedProduct,
@@ -2601,6 +2602,30 @@ export const localStore: DataStore = {
     });
   },
 
+  async listBuyerRfqOutreach(buyerIds) {
+    if (!buyerIds.length) return [];
+    const db = load();
+    const visible = new Set(buyerIds);
+    const rfqs = new Map((db.rfqs ?? []).filter((r) => visible.has(r.buyer_id)).map((r) => [r.id, r]));
+    const suppliers = new Map(db.suppliers.map((s) => [s.id, s]));
+    const rows: BuyerRfqOutreach[] = [];
+    for (const match of db.rfq_matches ?? []) {
+      if (match.status === "proposed" || !match.sent_to_supplier_at) continue;
+      const rfq = rfqs.get(match.rfq_id);
+      const supplier = suppliers.get(match.supplier_id);
+      if (!rfq || !supplier || !match.sent_to_supplier_at) continue;
+      rows.push({
+        buyer_id: rfq.buyer_id,
+        rfq_id: rfq.id,
+        rfq_code: rfq.code,
+        supplier_id: supplier.id,
+        supplier_name: supplier.name,
+        status: match.status,
+        sent_to_supplier_at: match.sent_to_supplier_at,
+      });
+    }
+    return rows.sort((a, b) => Date.parse(b.sent_to_supplier_at) - Date.parse(a.sent_to_supplier_at));
+  },
   async listRfqMatches(rfqId) {
     return (load().rfq_matches ?? []).filter((m) => m.rfq_id === rfqId);
   },

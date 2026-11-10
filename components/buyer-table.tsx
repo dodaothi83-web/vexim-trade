@@ -18,7 +18,13 @@ import {
 
 import { attachSupplierAction } from "@/app/actions";
 import { STAGES, getStage } from "@/lib/pipeline";
-import type { BuyerWithSupplier, Supplier } from "@/lib/types";
+import {
+  groupBuyerRfqOutreach,
+  hasBuyerSupplierRelation,
+  rfqOutreachStatusLabel,
+  uniqueRfqSuppliers,
+} from "@/lib/rfq/buyer-outreach";
+import type { BuyerRfqOutreach, BuyerWithSupplier, Supplier } from "@/lib/types";
 import { StageSelect, type StageTarget } from "@/components/stage-select";
 import { Badge, Button, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { useToast } from "@/components/toast";
@@ -29,6 +35,7 @@ import {
 } from "@/components/floating-menu-position";
 
 type SortKey = "updated" | "value" | "company" | "ship";
+type SupplierFilter = "all" | "unrelated" | "notAssigned";
 
 const PRIORITY_STYLE: Record<string, string> = {
   high: "bg-red-50 text-red-700 ring-1 ring-red-200",
@@ -113,9 +120,9 @@ function SupplierPicker({
             : "border-dashed border-amber-300 bg-amber-50/70 text-amber-800",
           open && "ring-2 ring-brand-500/25",
         )}
-        title={selected?.name ?? "Chưa gắn nhà cung cấp"}
+        title={selected?.name ?? "Gắn nhà cung cấp trong CRM (có thể gửi email kết nối)"}
       >
-        <span className="truncate">{selected?.name ?? "Chưa gắn nhà cung cấp"}</span>
+        <span className="truncate">{selected?.name ?? "Gắn nhà cung cấp CRM"}</span>
         <ChevronDown className={cx("h-3.5 w-3.5 shrink-0 transition", open && "rotate-180")} />
       </button>
       {open && menuPosition && typeof document !== "undefined" && createPortal(
@@ -150,7 +157,7 @@ function SupplierPicker({
               onClick={() => choose("")}
               className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12px] text-ink-600 transition hover:bg-ink-50"
             >
-              <span>Chưa chọn nhà cung cấp</span>
+              <span>Chưa gắn trong CRM</span>
               {!selectedId && <Check className="h-3.5 w-3.5 text-brand-600" />}
             </button>
             {filtered.map((supplier) => (
@@ -180,11 +187,14 @@ function SupplierPicker({
 
 export function BuyerTable({
   buyers,
+  outreach,
   suppliers,
   canManage = false,
   ownerOptions = [],
 }: {
   buyers: BuyerWithSupplier[];
+  /** Chỉ lượt RFQ thực sự đã gửi, đã giới hạn theo các buyer được xem ở server. */
+  outreach: BuyerRfqOutreach[];
   suppliers: Pick<Supplier, "id" | "name">[];
   /** Có quyền thêm / sửa buyer (buyers.manage) hay chỉ được xem */
   canManage?: boolean;
@@ -197,8 +207,9 @@ export function BuyerTable({
   const [q, setQ] = useState("");
   const [stage, setStage] = useState<string>("all");
   const [owner, setOwner] = useState("all");
-  const [noSupplier, setNoSupplier] = useState(false);
+  const [supplierFilter, setSupplierFilter] = useState<SupplierFilter>("all");
   const [sort, setSort] = useState<SortKey>("updated");
+  const outreachByBuyer = useMemo(() => groupBuyerRfqOutreach(outreach), [outreach]);
 
   const owners = useMemo(
     () =>
@@ -216,7 +227,8 @@ export function BuyerTable({
     let out = buyers.filter((b) => {
       if (stage !== "all" && b.stage !== stage) return false;
       if (owner !== "all" && b.owner !== owner) return false;
-      if (noSupplier && b.supplier_id) return false;
+      if (supplierFilter === "unrelated" && hasBuyerSupplierRelation(b, outreachByBuyer.get(b.id) ?? [])) return false;
+      if (supplierFilter === "notAssigned" && b.supplier_id) return false;
       if (!needle) return true;
       return [b.company, b.contact_name, b.country, b.product, b.email, b.port]
         .filter(Boolean)
@@ -238,7 +250,7 @@ export function BuyerTable({
       }
     });
     return out;
-  }, [buyers, q, stage, owner, noSupplier, sort]);
+  }, [buyers, outreachByBuyer, q, stage, owner, supplierFilter, sort]);
 
   const totalValue = rows.reduce((s, b) => s + (b.deal_value ?? 0), 0);
 
@@ -280,15 +292,16 @@ export function BuyerTable({
           ))}
         </select>
 
-        <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink-300 px-3 py-1.5 text-[13px] font-medium text-ink-600 transition hover:bg-ink-50">
-          <input
-            type="checkbox"
-            className="h-3.5 w-3.5 accent-[#0f766e]"
-            checked={noSupplier}
-            onChange={(e) => setNoSupplier(e.target.checked)}
-          />
-          Chưa gắn nhà cung cấp
-        </label>
+        <select
+          className="input w-auto min-w-[190px] text-[13px]"
+          aria-label="Lọc theo nhà cung cấp"
+          value={supplierFilter}
+          onChange={(e) => setSupplierFilter(e.target.value as SupplierFilter)}
+        >
+          <option value="all">Mọi nhà cung cấp</option>
+          <option value="unrelated">Chưa có nhà cung cấp liên quan</option>
+          <option value="notAssigned">Chưa gắn trong CRM</option>
+        </select>
 
         <div className="ml-auto flex items-center gap-1.5">
           <ArrowUpDown className="h-3.5 w-3.5 text-ink-400" />
@@ -314,7 +327,13 @@ export function BuyerTable({
           Tổng giá trị: <strong className="font-mono tabular-nums text-ink-900">{formatMoney(totalValue)}</strong>
         </span>
         <span>
-          Chưa gắn nhà cung cấp:{" "}
+          Chưa có nhà cung cấp liên quan:{" "}
+          <strong className="text-ink-900">
+            {rows.filter((b) => !hasBuyerSupplierRelation(b, outreachByBuyer.get(b.id) ?? [])).length}
+          </strong>
+        </span>
+        <span>
+          Chưa gắn trong CRM:{" "}
           <strong className="text-ink-900">{rows.filter((b) => !b.supplier_id).length}</strong>
         </span>
         <span>
@@ -347,7 +366,7 @@ export function BuyerTable({
                   setQ("");
                   setStage("all");
                   setOwner("all");
-                  setNoSupplier(false);
+                  setSupplierFilter("all");
                 }}
               >
                 Xoá bộ lọc
@@ -371,6 +390,14 @@ export function BuyerTable({
             </thead>
             <tbody>
               {rows.map((b) => {
+                const sentSuppliers = uniqueRfqSuppliers(outreachByBuyer.get(b.id) ?? []);
+                const picker = canManage ? (
+                  <SupplierPicker
+                    value={b.supplier_id ?? ""}
+                    suppliers={suppliers}
+                    onChange={(supplierId) => void onAttach(b.id, supplierId)}
+                  />
+                ) : null;
                 const target: StageTarget = {
                   id: b.id,
                   company: b.company,
@@ -429,23 +456,39 @@ export function BuyerTable({
                       </p>
                       <p className="truncate text-[11.5px] text-ink-500">{b.quantity || ""}</p>
                     </td>
-                    <td className="table-td">
-                      {canManage ? (
-                        <SupplierPicker
-                          value={b.supplier_id ?? ""}
-                          suppliers={suppliers}
-                          onChange={(supplierId) => void onAttach(b.id, supplierId)}
-                        />
-                      ) : (
-                        <span
-                          className={cx(
-                            "text-[12.5px]",
-                            b.supplier ? "font-semibold text-ink-700" : "text-amber-700",
-                          )}
-                        >
-                          {b.supplier?.name ?? "— chưa gắn —"}
-                        </span>
-                      )}
+                    <td className="table-td min-w-[210px]">
+                      <div className="max-w-[240px] space-y-1.5">
+                        {b.supplier && (
+                          <div>
+                            <p className="mb-0.5 text-[11px] text-ink-500">Gắn trong CRM</p>
+                            {picker ?? <span className="text-[12.5px] font-semibold text-ink-700">{b.supplier.name}</span>}
+                          </div>
+                        )}
+                        {sentSuppliers.length > 0 && (
+                          <div className="rounded-lg border border-brand-100 bg-brand-50/40 px-2 py-1.5">
+                            <p className="text-[11px] font-semibold text-brand-700">RFQ đã gửi</p>
+                            {sentSuppliers.slice(0, 2).map((item) => (
+                              <div key={item.supplier_id} className="mt-1 min-w-0">
+                                <p className="truncate text-[12.5px] font-semibold text-ink-800" title={item.supplier_name}>
+                                  {item.supplier_name}
+                                </p>
+                                <Link href={`/crm/rfqs/${item.rfq_id}`} className="text-[11px] text-brand-700 hover:underline">
+                                  {item.rfq_code} · {rfqOutreachStatusLabel(item.status)}
+                                </Link>
+                              </div>
+                            ))}
+                            {sentSuppliers.length > 2 && (
+                              <Link href={`/crm/buyers/${b.id}`} className="text-[11px] text-brand-700 hover:underline">
+                                + {sentSuppliers.length - 2} nhà cung cấp khác
+                              </Link>
+                            )}
+                          </div>
+                        )}
+                        {!b.supplier && sentSuppliers.length === 0 && (
+                          <p className="text-[12.5px] text-amber-700">Chưa có nhà cung cấp liên quan</p>
+                        )}
+                        {!b.supplier && picker}
+                      </div>
                     </td>
                     <td className="table-td">
                       <StageSelect target={target} autoSend={autoSend} readOnly={!canManage} />
