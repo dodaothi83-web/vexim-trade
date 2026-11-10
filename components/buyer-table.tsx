@@ -18,12 +18,7 @@ import {
 
 import { attachSupplierAction } from "@/app/actions";
 import { STAGES, getStage } from "@/lib/pipeline";
-import {
-  groupBuyerRfqOutreach,
-  hasBuyerSupplierRelation,
-  rfqOutreachStatusLabel,
-  uniqueRfqSuppliers,
-} from "@/lib/rfq/buyer-outreach";
+import { groupBuyerRfqOutreach, hasBuyerSupplierRelation } from "@/lib/rfq/buyer-outreach";
 import type { BuyerRfqOutreach, BuyerWithSupplier, Supplier } from "@/lib/types";
 import { StageSelect, type StageTarget } from "@/components/stage-select";
 import { Badge, Button, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
@@ -390,7 +385,6 @@ export function BuyerTable({
             </thead>
             <tbody>
               {rows.map((b) => {
-                const sentSuppliers = uniqueRfqSuppliers(outreachByBuyer.get(b.id) ?? []);
                 const picker = canManage ? (
                   <SupplierPicker
                     value={b.supplier_id ?? ""}
@@ -464,27 +458,7 @@ export function BuyerTable({
                             {picker ?? <span className="text-[12.5px] font-semibold text-ink-700">{b.supplier.name}</span>}
                           </div>
                         )}
-                        {sentSuppliers.length > 0 && (
-                          <div className="rounded-lg border border-brand-100 bg-brand-50/40 px-2 py-1.5">
-                            <p className="text-[11px] font-semibold text-brand-700">RFQ đã gửi</p>
-                            {sentSuppliers.slice(0, 2).map((item) => (
-                              <div key={item.supplier_id} className="mt-1 min-w-0">
-                                <p className="truncate text-[12.5px] font-semibold text-ink-800" title={item.supplier_name}>
-                                  {item.supplier_name}
-                                </p>
-                                <Link href={`/crm/rfqs/${item.rfq_id}`} className="text-[11px] text-brand-700 hover:underline">
-                                  {item.rfq_code} · {rfqOutreachStatusLabel(item.status)}
-                                </Link>
-                              </div>
-                            ))}
-                            {sentSuppliers.length > 2 && (
-                              <Link href={`/crm/buyers/${b.id}`} className="text-[11px] text-brand-700 hover:underline">
-                                + {sentSuppliers.length - 2} nhà cung cấp khác
-                              </Link>
-                            )}
-                          </div>
-                        )}
-                        {!b.supplier && sentSuppliers.length === 0 && (
+                        {!b.supplier && (outreachByBuyer.get(b.id)?.length ?? 0) === 0 && (
                           <p className="text-[12.5px] text-amber-700">Chưa có nhà cung cấp liên quan</p>
                         )}
                         {!b.supplier && picker}

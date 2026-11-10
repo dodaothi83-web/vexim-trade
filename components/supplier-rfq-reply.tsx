@@ -4,40 +4,39 @@ import { useState } from "react";
 import { Check, Copy, Mail } from "lucide-react";
 
 /**
- * Nút trả lời lời mời báo giá. Liên kết `mailto:` không làm gì trên máy chưa cài ứng dụng email
- * (đa số dùng Gmail trên web), nên luôn có thêm Gmail web và sao chép địa chỉ.
+ * Optional way to email Vexim about an RFQ. Gmail opens in the browser; the normal
+ * mail app is available too. Keep the actual route visible for people using neither.
  */
 export function SupplierRfqReply({ address, cc, subject, labels }: {
   address: string;
-  /** Hộp định tuyến của Vexim để lưu bản sao thư trả lời và tự ghi mốc đã trả lời. */
+  /** Vexim's per-RFQ inbound route records the reply under the correct match. */
   cc?: string | null;
   subject: string;
-  labels: { gmail: string; app: string; copy: string; copied: string };
+  labels: { gmail: string; app: string; copy: string; copied: string; address: string };
 }) {
   const [copied, setCopied] = useState(false);
   const ccPart = cc ? `&cc=${encodeURIComponent(cc)}` : "";
   const gmail = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(address)}${ccPart}&su=${encodeURIComponent(subject)}`;
   const mailto = `mailto:${address}?subject=${encodeURIComponent(subject)}${ccPart}`;
   return (
-    <span className="flex flex-wrap items-center gap-1.5">
-      <a href={gmail} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
-        <Mail className="h-3.5 w-3.5" aria-hidden="true" /> {labels.gmail}
-      </a>
-      <a href={mailto} className="btn btn-ghost btn-sm">{labels.app}</a>
-      <button
-        type="button"
-        className="btn btn-ghost btn-sm"
-        title={address}
-        onClick={() => {
-          void navigator.clipboard?.writeText(address).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          });
-        }}
-      >
-        {copied ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}
-        {copied ? labels.copied : labels.copy}
-      </button>
-    </span>
+    <div>
+      <p className="mb-2 break-all text-[13px] text-ink-700">{labels.address} <span className="font-mono font-semibold select-all">{address}</span></p>
+      <div className="flex flex-wrap items-center gap-2">
+        <a href={gmail} target="_blank" rel="noreferrer" className="btn btn-ghost min-h-10 text-[13px]">
+          <Mail className="h-4 w-4" aria-hidden="true" /> {labels.gmail}
+        </a>
+        <a href={mailto} className="btn btn-ghost min-h-10 text-[13px]">{labels.app}</a>
+        <button type="button" className="btn btn-ghost min-h-10 text-[13px]" title={address}
+          onClick={() => {
+            void navigator.clipboard?.writeText(address).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }).catch(() => { /* Address remains visible for manual copying. */ });
+          }}>
+          {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+          {copied ? labels.copied : labels.copy}
+        </button>
+      </div>
+    </div>
   );
 }

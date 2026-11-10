@@ -10,7 +10,7 @@ export function groupBuyerRfqOutreach(rows: BuyerRfqOutreach[]): Map<string, Buy
   return byBuyer;
 }
 
-/** One supplier can appear in several RFQs. The list shows their latest outreach; detail shows all. */
+/** One supplier can appear in several RFQs. The Buyer detail summary shows their latest outreach; its history shows all. */
 export function uniqueRfqSuppliers(rows: readonly BuyerRfqOutreach[]): BuyerRfqOutreach[] {
   const seen = new Set<string>();
   return rows.filter((row) => {

@@ -1,14 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
-import { Send } from "lucide-react";
+import { ChevronDown, Send } from "lucide-react";
 
 import { submitSupplierQuoteAction, type SupplierQuoteState } from "./quote-actions";
 import type { RfqsMessages } from "@/lib/i18n/portal/rfqs";
 
 const INITIAL: SupplierQuoteState = { error: null };
 
-/** Form báo giá gọn, mở ngay dưới lời mời. Quyền và kiểm tra dữ liệu nằm ở server action. */
+/** One clear action: open the form, then send the quote. Validation and ownership stay on the server. */
 export function SupplierQuoteForm({ matchId, code, defaults, currencies, incoterms, editing, direct = false, copy }: {
   matchId: string;
   code: string;
@@ -16,25 +16,27 @@ export function SupplierQuoteForm({ matchId, code, defaults, currencies, incoter
   currencies: readonly string[];
   incoterms: readonly string[];
   editing: boolean;
-  /** Báo giá gửi thẳng tới người mua (RFQ trực tiếp). */
+  /** A direct RFQ is forwarded to the buyer by the existing server action. */
   direct?: boolean;
   copy: RfqsMessages["quote"];
 }) {
   const [state, action, pending] = useActionState(submitSupplierQuoteAction, INITIAL);
   const v = state.values;
   const d = v ? { price: v.price, currency: v.currency, unit: v.unit, incoterm: v.incoterm, leadTimeDays: v.lead_time_days, validUntil: v.valid_until } : defaults;
-  const field = "input mt-1 py-1.5 text-[13px]";
-  const label = "flex min-w-0 flex-col text-[11.5px] font-semibold text-ink-600";
+  const field = "input mt-1.5";
+  const label = "flex min-w-0 flex-col text-sm font-semibold text-ink-700";
   return (
-    <details className="group mt-2.5 w-full" open={!!state.error}>
-      <summary className={`btn btn-sm cursor-pointer list-none ${editing ? "btn-ghost" : "btn-primary"}`}>
-        <Send className="h-3.5 w-3.5" aria-hidden="true" /> {editing ? copy.revise : copy.open}
+    <details className="group w-full" open={!!state.error}>
+      <summary className={`btn min-h-11 list-none ${editing ? "btn-ghost" : "btn-primary"}`}>
+        <Send className="h-4 w-4" aria-hidden="true" /> {editing ? copy.revise : copy.open}
+        <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden="true" />
       </summary>
-      <form key={JSON.stringify(state)} action={action} className="mt-2.5 rounded-lg border border-ink-200 bg-ink-50/60 p-3.5">
+      <form key={JSON.stringify(state)} action={action} className="mt-3 rounded-xl border border-ink-200 bg-ink-50/70 p-4 sm:p-5">
         <input type="hidden" name="match_id" value={matchId} />
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        <p className="mb-4 text-sm leading-6 text-ink-700">{copy.intro}</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <label className={label}>{copy.price}
-            <input name="price" required inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,4})?" defaultValue={d.price} className={field} />
+            <input name="price" required inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,4})?" placeholder={copy.pricePlaceholder} defaultValue={d.price} className={field} />
           </label>
           <label className={label}>{copy.currency}
             <select name="currency" defaultValue={d.currency} className={field}>
@@ -56,20 +58,20 @@ export function SupplierQuoteForm({ matchId, code, defaults, currencies, incoter
             <input name="valid_until" type="date" defaultValue={d.validUntil} className={field} />
           </label>
         </div>
-        <label className={`${label} mt-2.5`}>{copy.note}
-          <textarea name="note" rows={2} maxLength={1000} defaultValue={v?.note ?? ""} placeholder={copy.notePlaceholder} className={`${field} font-normal`} />
+        <label className={`${label} mt-4`}>{copy.note}
+          <textarea name="note" rows={3} maxLength={1000} defaultValue={v?.note ?? ""} placeholder={copy.notePlaceholder} className={`${field} font-normal`} />
         </label>
-        {state.error && <p role="alert" className="mt-2 text-[12.5px] font-semibold text-rose-700">{state.error}</p>}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11.5px] text-ink-500">{direct ? copy.privacyDirect : copy.privacy}</p>
-          <div className="flex flex-wrap gap-2">
+        {state.error && <p role="alert" className="mt-3 text-sm font-semibold text-rose-700">{state.error}</p>}
+        <div className="mt-5 flex flex-col gap-3 border-t border-ink-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[13px] leading-5 text-ink-600">{direct ? copy.privacyDirect : copy.privacy}</p>
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             {!editing && (
-              <button type="submit" name="intent" value="decline" formNoValidate disabled={pending} className="btn btn-ghost btn-sm"
+              <button type="submit" name="intent" value="decline" formNoValidate disabled={pending} className="btn btn-ghost min-h-11"
                 onClick={(event) => { if (!window.confirm(copy.declineConfirm.replace("{code}", code))) event.preventDefault(); }}>
                 {copy.decline}
               </button>
             )}
-            <button type="submit" name="intent" value="quote" disabled={pending} className="btn btn-primary btn-sm">
+            <button type="submit" name="intent" value="quote" disabled={pending} className="btn btn-primary min-h-11">
               {pending ? copy.pending : copy.submit}
             </button>
           </div>

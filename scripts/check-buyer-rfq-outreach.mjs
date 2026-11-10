@@ -1,5 +1,5 @@
-// node scripts/check-buyer-rfq-outreach.mjs — CRM buyer column reflects dispatched RFQs,
-// without turning them into a CRM assignment or exposing private RFQ/buyer data.
+// node scripts/check-buyer-rfq-outreach.mjs — hide RFQ cards from the Buyer list,
+// but keep dispatched RFQs in detail/history and in supplier filters (not CRM assignments).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -133,7 +133,8 @@ assert.equal(helpers.hasBuyerSupplierRelation({ supplier_id: null }, grouped.get
 assert.equal(helpers.hasBuyerSupplierRelation({ supplier_id: null }, grouped.get('abc') ?? []), false);
 assert.equal(helpers.hasBuyerSupplierRelation({ supplier_id: 's2' }, []), true);
 
-// Render the actual client-side Buyer table and exercise both distinct supplier filters.
+// Render the actual Buyer list: its supplier cell shows the CRM picker, not sent-RFQ cards.
+// The "unrelated" filter/count still include dispatched RFQs; "notAssigned" means only CRM.
 const dom = new JSDOM('<div id="root"></div>', { url: 'https://www.veximtrade.com/crm/buyers' });
 for (const key of ['window', 'document', 'HTMLElement', 'Element', 'Event', 'MouseEvent', 'Node']) globalThis[key] = dom.window[key];
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -171,11 +172,15 @@ const root = createRoot(document.getElementById('root'));
 await act(async () => root.render(React.createElement(table.BuyerTable, {
   buyers, outreach: remoteRows, suppliers, canManage: true,
 })));
-assert.match(document.body.textContent, /Iraivan Traders[\s\S]*CÔNG TY TNHH CHÂU Á HÙNG MẠNH[\s\S]*RFQ-20261111-00002/);
-assert.match(document.body.textContent, /Công ty ABC[\s\S]*Chưa có nhà cung cấp liên quan/);
+const iraRow = document.querySelector('a[href="/crm/buyers/ira"]')?.closest('tr');
+assert.ok(iraRow);
+assert.match(iraRow.cells[2].textContent, /Gắn nhà cung cấp CRM/);
+assert.doesNotMatch(iraRow.cells[2].textContent, /RFQ đã gửi|RFQ-2026111|CÔNG TY TNHH CHÂU Á HÙNG MẠNH|Chưa có nhà cung cấp liên quan/);
+assert.equal(document.querySelector('a[href^="/crm/rfqs/"]'), null, 'RFQ links remain on the Buyer detail, not in the list');
+assert.match(document.querySelector('a[href="/crm/buyers/abc"]')?.closest('tr')?.cells[2].textContent, /Chưa có nhà cung cấp liên quan/);
+assert.match(document.querySelector('a[href="/crm/buyers/crm"]')?.closest('tr')?.cells[2].textContent, /Gắn trong CRM[\s\S]*Nhà cung cấp khác/);
 assert.match(document.body.textContent, /Chưa có nhà cung cấp liên quan:\s*1/);
 assert.match(document.body.textContent, /Chưa gắn trong CRM:\s*2/);
-assert.equal(document.querySelector('a[href="/crm/rfqs/r-ira-2"]')?.textContent.includes('Đã từ chối'), true);
 assert.doesNotMatch(document.body.textContent, /DO-NOT-LEAK|SECRET/);
 const filter = document.querySelector('select[aria-label="Lọc theo nhà cung cấp"]');
 await act(async () => {
@@ -188,14 +193,21 @@ await act(async () => {
   filter.value = 'notAssigned';
   filter.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
 });
-assert.match(document.querySelector('tbody').textContent, /Iraivan Traders|Công ty ABC/);
+assert.match(document.querySelector('tbody').textContent, /Iraivan Traders/);
+assert.match(document.querySelector('tbody').textContent, /Công ty ABC/);
 assert.doesNotMatch(document.querySelector('tbody').textContent, /Có nhà cung cấp CRM/);
 assert.equal(attaches, 0, 'Displaying outreach and filtering must never invoke attachSupplierAction');
+await act(async () => {
+  filter.value = 'all';
+  filter.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+});
 await act(async () => root.render(React.createElement(table.BuyerTable, {
   buyers, outreach: remoteRows, suppliers, canManage: false,
 })));
-assert.match(document.querySelector('tbody').textContent, /CÔNG TY TNHH CHÂU Á HÙNG MẠNH/);
-assert.equal(document.querySelector('button[aria-haspopup="listbox"]'), null, 'Read-only staff may see RFQs, not attach suppliers');
+assert.match(document.querySelector('tbody').textContent, /Iraivan Traders/);
+assert.doesNotMatch(document.querySelector('tbody').textContent, /RFQ đã gửi|RFQ-2026111|CÔNG TY TNHH CHÂU Á HÙNG MẠNH/);
+assert.match(document.querySelector('a[href="/crm/buyers/crm"]')?.closest('tr')?.cells[2].textContent, /Nhà cung cấp khác/);
+assert.equal(document.querySelector('button[aria-haspopup="listbox"]'), null, 'Read-only staff cannot attach suppliers');
 await act(async () => root.unmount());
 
 const listPage = read('app/crm/buyers/page.tsx');
@@ -208,5 +220,6 @@ assert.match(detail, /if \(!buyer\) notFound\(\)/);
 assert.match(detail, /listBuyerRfqOutreach\(\[buyer.id\]\)/);
 assert.match(detail, /Đã gửi RFQ · chưa gắn trong CRM/);
 assert.match(detail, /Nhà cung cấp đã được gửi RFQ/);
+assert.ok(detail.includes('href={`/crm/rfqs/${item.rfq_id}`}'), 'Buyer detail keeps the historical RFQ link');
 assert.doesNotMatch(listPage + detail, /updateBuyer\(|attachSupplierAction\(|dispatchRfqToSuppliers\(/);
-console.log('✅ CRM buyer: actual dispatched RFQ suppliers appear in the column/detail; unassigned counts/filters stay honest; no leaks, writes or new mail.');
+console.log('✅ CRM buyer: RFQ card hidden from list; history retained in detail; supplier filters/counts preserved; no leaks, writes or new mail.');
