@@ -16,6 +16,7 @@ const en = {
     needsReply: "Needs reply", quoted: "Quote submitted", closed: "Declined / not selected",
     clear: "Clear filters", noResults: "No RFQs match these filters.",
   },
+  pagination: { previous: "Previous", next: "Next", page: "Page {page} of {pages}" },
   buyer: {
     title: "View buyer contact (for this RFQ only)",
     company: "Company", name: "Contact", email: "Email", phone: "Phone",
@@ -25,7 +26,7 @@ const en = {
     unavailableDirect: "The buyer has not agreed to share contact details for this request, so you cannot quote or message here. Ask Vexim support to have the buyer send it again.",
   },
   product: {
-    title: "Product linked to this request", spec: "Product specification", packaging: "Catalog packaging",
+    title: "Requested product", spec: "Product specification", packaging: "Catalog packaging",
     moq: "Minimum order", view: "View my product",
     note: "These are your current catalog details. Quote against the buyer's requirements below.",
   },
@@ -176,6 +177,7 @@ const vi: RfqsMessages = {
     needsReply: "Cần phản hồi", quoted: "Đã gửi báo giá", closed: "Đã từ chối / không được chọn",
     clear: "Xóa bộ lọc", noResults: "Không có RFQ phù hợp với bộ lọc này.",
   },
+  pagination: { previous: "Trước", next: "Tiếp", page: "Trang {page} / {pages}" },
   buyer: {
     title: "Xem liên hệ người mua (chỉ dùng cho RFQ này)",
     company: "Doanh nghiệp", name: "Người liên hệ", email: "Email", phone: "Điện thoại",
@@ -185,7 +187,7 @@ const vi: RfqsMessages = {
     unavailableDirect: "Người mua chưa đồng ý chia sẻ liên hệ cho yêu cầu này. Bạn chưa thể báo giá hay nhắn tin; hãy nhờ Vexim hỗ trợ.",
   },
   product: {
-    title: "Sản phẩm gắn với yêu cầu", spec: "Quy cách sản phẩm", packaging: "Đóng gói trên gian hàng",
+    title: "Sản phẩm yêu cầu", spec: "Quy cách sản phẩm", packaging: "Đóng gói trên gian hàng",
     moq: "Lượng đặt tối thiểu", view: "Xem sản phẩm của tôi",
     note: "Đây là thông tin sản phẩm hiện tại của bạn. Hãy báo giá theo yêu cầu của người mua bên dưới.",
   },

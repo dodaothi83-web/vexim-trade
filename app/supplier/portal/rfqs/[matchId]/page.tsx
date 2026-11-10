@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Clock3, MessageCircle, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock3, ImageIcon, MessageCircle, ShieldCheck } from "lucide-react";
 import { RfqThread } from "@/components/rfq-thread";
 import { RfqMediatedThread } from "@/components/rfq-mediated-thread";
 import { getPortalMessages } from "@/lib/i18n/server";
@@ -12,6 +12,8 @@ import { canReadMediatedDesk, canUseMediatedDesk, safeMediatedMessages } from "@
 import { QUOTE_CURRENCIES, QUOTE_INCOTERMS } from "@/lib/supplier-portal/quote";
 import { RequestDetails } from "../request-details";
 import { SupplierQuoteForm } from "../quote-form";
+import type { MediaAsset } from "@/lib/types";
+import { privateMediaUrl, supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
 import { supplierRfqMessageAction, supplierRfqReadAction, supplierVeximMessageAction, supplierVeximReadAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +21,7 @@ export const metadata = { title: "RFQ & conversation | Vexim Trade", robots: { i
 
 export default async function SupplierOfferPage({ params }: { params: Promise<{ matchId: string }> }) {
   const { matchId } = await params;
-  const { supplier, store, rfq, match } = await supplierOfferAccess(matchId);
+  const { supplier, user, store, rfq, match } = await supplierOfferAccess(matchId);
   const { locale, intl, m } = await getPortalMessages();
   const copy = quotePortalCopy[locale];
   const sourcing = rfqChannel(rfq) === "sourcing";
@@ -32,6 +34,17 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
   const item = buildSupplierRfqBoard({ supplierId: supplier.id, invites: invitations.filter((r) => r.id === match.id),
     products, days: 30, language: locale }).invites[0];
   if (!item) return null; // An invitation withdrawn between the access check and projection.
+  const product = item.productId ? products.find((p) => p.id === item.productId && p.supplier_id === supplier.id) ?? null : null;
+  const productMedia: MediaAsset[] = product ? await store.listMediaForProducts([product.id]).catch((error) => {
+    console.error("[supplier-portal] could not load the requested product image", error);
+    return [];
+  }) : [];
+  const productImages = product ? supplierVisibleProductMedia(productMedia, supplier.id, user.id)
+    .filter((asset) => asset.product_id === product.id && asset.kind === "image") : [];
+  const featuredImage = product?.featured_media_id
+    ? productImages.find((asset) => asset.id === product.featured_media_id && privateMediaUrl(asset)) : null;
+  const selectedProductImage = featuredImage ?? productImages.find((asset) => privateMediaUrl(asset));
+  const productImage = selectedProductImage ? privateMediaUrl(selectedProductImage) : null;
   const quote = lastPublishedQuote(versions, match);
   const readable = canReadRfqThread(rfq, match);
   const messages = readable ? buyerSupplierThreadMessages(await store.listRfqThreadMessages(match.id)) : [];
@@ -54,19 +67,31 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
     <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_290px]">
       <div className="min-w-0 space-y-5">
         <section className="rounded-2xl border border-ink-200 bg-white px-5 py-5 shadow-sm sm:px-6">
-          {item.productId && item.linkedProduct && <div className="mb-5 rounded-xl border border-ink-200 bg-ink-50/70 p-4">
-            <h2 className="text-[13px] font-bold text-ink-700">{m.rfqs.product.title}</h2>
-            <dl className="mt-2 grid gap-x-5 gap-y-2 sm:grid-cols-2">
-              {([[m.rfqs.product.spec, item.linkedProduct.spec], [m.rfqs.product.packaging, item.linkedProduct.packaging],
-                [m.rfqs.product.moq, item.linkedProduct.moq]] as const).filter(([, value]) => !!value).map(([label, value]) =>
-                <div key={label} className="min-w-0 text-[13px]">
-                  <dt className="text-ink-600">{label}</dt><dd className="break-words font-semibold text-ink-900">{value}</dd>
-                </div>)}
-            </dl>
-            <Link href={`/supplier/portal/products/${encodeURIComponent(item.productId)}`} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">
-              {m.rfqs.product.view}<ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
-          </div>}
+          {item.productId && item.linkedProduct && <section aria-label={m.rfqs.product.title} className="mb-5 rounded-xl border border-ink-200 bg-ink-50/70 p-4">
+            <div className="flex min-w-0 items-start gap-4">
+              <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-ink-200 bg-white sm:size-28">
+                {productImage ? <>
+                  {/* Private product media is served with this supplier's session; do not optimize it remotely. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={productImage} alt={item.title} loading="lazy" className="size-full object-cover" />
+                </> : <ImageIcon className="size-7 text-ink-400" aria-hidden="true" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-[13px] font-bold text-ink-700">{m.rfqs.product.title}</h2>
+                <p className="mt-1 break-words text-[15px] font-bold leading-snug text-ink-900">{item.title}</p>
+                <dl className="mt-2 grid gap-x-5 gap-y-2 sm:grid-cols-2">
+                  {([[m.rfqs.product.spec, item.linkedProduct.spec], [m.rfqs.product.packaging, item.linkedProduct.packaging],
+                    [m.rfqs.product.moq, item.linkedProduct.moq]] as const).filter(([, value]) => !!value).map(([label, value]) =>
+                    <div key={label} className="min-w-0 text-[13px]">
+                      <dt className="text-ink-600">{label}</dt><dd className="break-words font-semibold text-ink-900">{value}</dd>
+                    </div>)}
+                </dl>
+                <Link href={`/supplier/portal/products/${encodeURIComponent(item.productId)}`} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">
+                  {m.rfqs.product.view}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+          </section>}
           <RequestDetails item={item} copy={m.rfqs.request} className="" />
           {item.productId && !item.linkedProduct && <Link href={`/supplier/portal/products/${encodeURIComponent(item.productId)}`} className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:underline">{m.rfqs.product.view}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
         </section>
