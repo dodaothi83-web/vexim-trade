@@ -7,12 +7,12 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { parseSupplierQuote, recordSupplierPortalQuote } from "@/lib/supplier-portal/quote";
 import { getPortalMessages } from "@/lib/i18n/server";
-import { presentShortlistToBuyer } from "@/lib/rfq/outreach";
+import { runRfqPortalAlerts } from "@/lib/rfq/portal-alerts";
 
 /** Khi lỗi, trả lại giá trị đã nhập vì React đặt lại form sau mỗi lần gửi. */
 export type SupplierQuoteState = { error: string | null; values?: Record<string, string> };
 
-const FIELDS = ["price", "currency", "unit", "incoterm", "lead_time_days", "valid_until", "note"] as const;
+const FIELDS = ["price", "currency", "unit", "incoterm", "lead_time_days", "valid_until", "buyer_note", "note"] as const;
 const keep = (fd: FormData) => Object.fromEntries(FIELDS.map((k) => [k, String(fd.get(k) ?? "").slice(0, 1000)]));
 
 /** Nhà cung cấp gửi báo giá hoặc từ chối một lời mời của chính mình. */
@@ -38,19 +38,24 @@ export async function submitSupplierQuoteAction(_prev: SupplierQuoteState, fd: F
     if (key !== "notFound" && key !== "closed") console.error("[supplier-portal] quote not saved", error);
     return { error: key === "notFound" || key === "closed" ? errors[key] : errors.unknown, values: keep(fd) };
   }
-  // RFQ trực tiếp: gửi báo giá tới người mua ngay (email so sánh ẩn danh, ghi mốc phản hồi SLA).
-  // Gửi lỗi thì báo giá vẫn được lưu; nhân viên bấm "Trình người mua" trong CRM để gửi lại.
-  let delivered = false;
+  // Direct RFQs publish the supplier's own snapshot immediately. Email is an independent
+  // alert queued in the same publication transaction: an email failure cannot hide it.
+  let published = false;
   if (result.intent === "quote" && result.direct) {
     try {
-      delivered = (await presentShortlistToBuyer({ rfqId: result.rfqId })).sent;
+      published = (await access.store.publishRfqQuotes(result.rfqId, [result.matchId],
+        { [result.matchId]: result.updatedAt })).length > 0;
+      if (published) await runRfqPortalAlerts(access.store, { matchIds: [result.matchId] })
+        .catch((error) => console.error("[supplier-portal] quote published; email alert will retry", error));
     } catch (error) {
-      console.error(`[supplier-portal] quote saved but buyer delivery failed for ${result.code}`, error);
+      console.error(`[supplier-portal] quote saved but buyer publication failed for ${result.code}`, error);
     }
   }
   revalidatePath("/supplier/portal/rfqs");
   revalidatePath("/supplier/portal");
   revalidatePath(`/crm/rfqs/${result.rfqId}`);
-  const outcome = result.intent === "decline" ? "declined" : delivered ? "delivered" : "sent";
+  revalidatePath(`/buyer/account/requests/${result.rfqId}`);
+  revalidatePath("/buyer/account");
+  const outcome = result.intent === "decline" ? "declined" : published ? "delivered" : result.direct ? "publish_pending" : "sent";
   redirect(`/supplier/portal/rfqs?quote=${outcome}&code=${encodeURIComponent(result.code)}`);
 }

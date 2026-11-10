@@ -7,6 +7,7 @@ import { noticesMessages } from "@/lib/i18n/portal/notices";
 import { rfqsMessages } from "@/lib/i18n/portal/rfqs";
 import { rfqBuyerContact, type RfqBuyerContact } from "@/lib/rfq/buyer-contact";
 import { rfqChannel } from "@/lib/rfq/channel";
+import { rfqEventAfter, supplierMatchHasReply } from "@/lib/rfq/portal-core";
 
 export interface PortalNotice {
   key: string;
@@ -48,12 +49,14 @@ export interface PortalInvite {
   };
   /** Only the consented, whitelisted snapshot for this actually invited supplier. */
   buyerContact: RfqBuyerContact | null;
-  /** Còn nhận báo giá trên cổng: lời mời đang mở và Vexim chưa trình người mua. */
+  /** Quotes can be revised; pending sourcing revisions do not overwrite the published snapshot. */
   canQuote: boolean;
-  /** Same channel as the quote action: direct RFQs are forwarded after saving; sourcing waits for Vexim. */
+  /** Same channel as the quote action: direct RFQs publish automatically; sourcing waits for Vexim. */
   directToBuyer: boolean;
-  /** Giá trị điền sẵn cho form báo giá (giá đã ghi trước đó hoặc theo yêu cầu). */
-  quoteDefaults: { price: string; currency: string; unit: string; incoterm: string; leadTimeDays: string; validUntil: string };
+  newBuyerMessage: boolean;
+  publishedAt: string | null;
+  /** Giá trị điền sẵn cho form báo giá (bản nháp hiện tại hoặc yêu cầu). */
+  quoteDefaults: { price: string; currency: string; unit: string; incoterm: string; leadTimeDays: string; validUntil: string; buyerNote?: string };
 }
 
 const responded = (m: SupplierRfqInvitation) => !!m.supplier_replied_at || m.quote_price != null || m.status === "declined";
@@ -137,13 +140,14 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
       },
       buyerContact: rfqBuyerContact({ specs: rfq as Record<string, unknown>,
         source_product_id: rfq.source_product_id, preferred_supplier_ids: rfq.preferred_supplier_ids }, supplierId),
-      canQuote: ["sent_to_supplier", "no_response", "quoted"].includes(m.status) && !m.sent_to_buyer_at &&
+      canQuote: ["sent_to_supplier", "no_response", "quoted", "presented_to_buyer"].includes(m.status) &&
         !["won", "lost", "spam"].includes(rfq.status ?? ""),
-      directToBuyer: rfqChannel({
-        source_page: rfq.source_page, source_product_id: rfq.source_product_id,
-        preferred_supplier_ids: rfq.preferred_supplier_ids ?? [],
-        specs: { sourcing_request_id: rfq.sourcing_request_id },
-      }) === "direct",
+      newBuyerMessage: supplierMatchHasReply(m),
+      publishedAt: m.sent_to_buyer_at ?? null,
+      directToBuyer: !!rfqBuyerContact({ specs: rfq as Record<string, unknown>,
+        source_product_id: rfq.source_product_id, preferred_supplier_ids: rfq.preferred_supplier_ids }, supplierId) &&
+        rfqChannel({ source_page: rfq.source_page, source_product_id: rfq.source_product_id,
+          preferred_supplier_ids: rfq.preferred_supplier_ids ?? [], specs: { sourcing_request_id: rfq.sourcing_request_id } }) === "direct",
       quoteDefaults: {
         price: m.quote_price != null ? String(m.quote_price) : "",
         currency: m.quote_currency || "USD",
@@ -151,6 +155,7 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
         incoterm: (m.quote_incoterm || rfq.incoterm || "FOB").toUpperCase(),
         leadTimeDays: m.quote_lead_time_days != null ? String(m.quote_lead_time_days) : "",
         validUntil: m.quote_valid_until ? m.quote_valid_until.slice(0, 10) : "",
+        buyerNote: m.quote_buyer_note ?? "",
       },
     };
   }).sort((a, b) => b.sentAt.localeCompare(a.sentAt));
@@ -230,6 +235,14 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
   for (const m of relevant) {
     add(`rfq:${m.id}`, fill(t.rfqSent.title, { code: m.rfq!.code }), t.rfqSent.detail, m.sent_to_supplier_at!, "rfq", "/supplier/portal/rfqs");
     if (m.status === "selected") add(`selected:${m.id}`, fill(t.rfqSelected.title, { code: m.rfq!.code }), t.rfqSelected.detail, m.updated_at, "rfq", "/supplier/portal/rfqs");
+    const replyAt = m.last_buyer_message_at ?? (m.last_thread_sender === "buyer" ? m.last_thread_message_at : null);
+    if (replyAt) {
+      const key = `rfq-reply:${m.id}:${replyAt}`;
+      add(key, fill(t.rfqReply.title, { code: m.rfq!.code }), t.rfqReply.detail, replyAt,
+        "rfq", `/supplier/portal/rfqs/${encodeURIComponent(m.id)}`);
+      const notice = notices.find((n) => n.key === key);
+      if (notice) notice.read = notice.read || (!!m.supplier_last_read_at && !rfqEventAfter(replyAt, m.supplier_last_read_at));
+    }
   }
   for (const v of reviews.filter((v) => v.supplier_id === supplierId)) {
     const label = levelLabel(v.target_level);

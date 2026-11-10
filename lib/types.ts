@@ -1071,10 +1071,64 @@ export interface RfqMatch {
   quote_lead_time_days: number | null;
   quote_valid_until: string | null;
   quote_file_id: string | null;
+  /** Public only after publication; never use internal_note or CRM email body as buyer copy. */
+  quote_buyer_note?: string | null;
+  /** Publication timestamp. It does not certify that an email reached an inbox. */
   sent_to_buyer_at: string | null;
+  /** Pre-portal delivery timestamp for an unrecoverable legacy draft; staff audit only. */
+  legacy_sent_to_buyer_at?: string | null;
+  buyer_last_read_at?: string | null;
+  supplier_last_read_at?: string | null;
+  last_thread_message_at?: string | null;
+  last_thread_sender?: "buyer" | "supplier" | null;
+  /** Last event from each side, so replying to an unread message does not erase its badge. */
+  last_buyer_message_at?: string | null;
+  last_supplier_message_at?: string | null;
   internal_note: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Immutable, buyer-visible snapshot. Draft revisions stay on the match until published. */
+export interface RfqQuoteVersion {
+  id: string;
+  match_id: string;
+  version: number;
+  quote_price: number;
+  quote_currency: string;
+  quote_unit: string;
+  quote_incoterm: string | null;
+  quote_lead_time_days: number | null;
+  quote_valid_until: string | null;
+  buyer_note: string | null;
+  published_at: string;
+}
+
+export interface RfqThreadMessage {
+  id: string;
+  match_id: string;
+  sender: "buyer" | "supplier";
+  /** Stored for CRM audit, never projected to the opposite party. */
+  sender_email: string;
+  body: string;
+  created_at: string;
+}
+
+/** Delivery attempts for a quote or message; the in-app update already exists. */
+export interface RfqPortalAlert {
+  id: string;
+  match_id: string;
+  version_id: string | null;
+  message_id: string | null;
+  recipient: "buyer" | "supplier";
+  event_at: string;
+  not_before: string;
+  status: "pending" | "sending" | "sent" | "failed" | "skipped";
+  attempts: number;
+  claimed_at: string | null;
+  sent_at: string | null;
+  last_error: string | null;
+  created_at: string;
 }
 
 /** CRM-only view of RFQs actually dispatched to suppliers, not a buyers.supplier_id assignment.
@@ -1094,7 +1148,9 @@ export interface BuyerRfqOutreach {
 export type SupplierRfqInvitation = Pick<RfqMatch,
   "id" | "rfq_id" | "supplier_id" | "status" | "sent_to_supplier_at" | "response_due_at" | "supplier_replied_at" |
   "quote_price" | "quote_currency" | "quote_unit" | "created_at" | "updated_at"> &
-  Partial<Pick<RfqMatch, "quote_incoterm" | "quote_lead_time_days" | "quote_valid_until" | "sent_to_buyer_at">> & {
+  Partial<Pick<RfqMatch, "quote_incoterm" | "quote_lead_time_days" | "quote_valid_until" | "sent_to_buyer_at" |
+    "quote_buyer_note" | "buyer_last_read_at" | "supplier_last_read_at" | "last_thread_message_at" | "last_thread_sender" |
+    "last_buyer_message_at" | "last_supplier_message_at">> & {
   rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "frequency" | "destination_country" |
     "incoterm" | "needed_by" | "wants_samples" | "wants_inspection" | "wants_video_call" |
     "source_product_id" | "source_page"> & Partial<Pick<Rfq, "status" | "preferred_supplier_ids">> & {

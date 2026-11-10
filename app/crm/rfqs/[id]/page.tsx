@@ -62,12 +62,13 @@ import {
   CLOSED_RFQ_STATUSES,
   MANUAL_MATCH_STATUSES,
   MANUAL_RFQ_STATUSES,
-  SELECTABLE_MATCH_STATUSES,
   isSupplierQuestionRfq,
 } from "@/lib/rfq/workflow";
 import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
 import { rfqBuyerContact } from "@/lib/rfq/buyer-contact";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { QUOTABLE_MATCH_STATUSES } from "@/lib/supplier-portal/quote";
+import { canDirectPublishRfqQuote } from "@/lib/rfq/portal-core";
 
 export const dynamic = "force-dynamic";
 
@@ -225,6 +226,19 @@ export default async function RfqDetailPage({
     }
   }
 
+  // RFQ portal conversations live separately from email; only staff with rfq.view
+  // sees the per-match thread, and only inside this RFQ's actual matches.
+  const portalThreads = new Map(await Promise.all(matches.filter((m) => !!m.sent_to_supplier_at).map(async (m) => [
+    m.id, await store.listRfqThreadMessages(m.id).catch((error) => {
+      console.error("[crm] RFQ portal conversation unavailable", error);
+      return [];
+    }),
+  ] as const)));
+  const quoteVersions = await store.listRfqQuoteVersions(matches.filter((m) => !!m.sent_to_buyer_at).map((m) => m.id));
+  const quoteVersionsByMatch = new Map<string, typeof quoteVersions>();
+  for (const version of quoteVersions) quoteVersionsByMatch.set(version.match_id,
+    [...(quoteVersionsByMatch.get(version.match_id) ?? []), version]);
+
   const specs = (rfq.specs as Record<string, unknown> | null) ?? {};
   const statusLink = `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
   const isSupplierQuestion = isSupplierQuestionRfq(rfq);
@@ -243,7 +257,7 @@ export default async function RfqDetailPage({
   const consentedSendable = sendable.filter((m) => !!rfqBuyerContact(rfq, m.supplier_id));
   const awaiting = matches.filter((m) => m.status === "sent_to_supplier");
   const readyToPresent = matches.filter((m) => m.status === "quoted" && m.quote_price != null);
-  const presented = matches.filter((m) => m.status === "presented_to_buyer");
+  const presented = matches.filter((m) => m.status === "presented_to_buyer" && quoteVersionsByMatch.has(m.id));
   const selectedMatch = matches.find((m) => m.status === "selected");
   const stepIndex = STEPS.findIndex((s) => s.statuses.includes(rfq.status));
 
@@ -270,12 +284,13 @@ export default async function RfqDetailPage({
       };
     }
     if (readyToPresent.length > 0) return {
-      text: <>Có <strong>{readyToPresent.length}</strong> báo giá chưa trình. Gửi bảng so sánh cho người mua (ghi mốc phản hồi đầu cho SLA).</>,
+      text: <>Có <strong>{readyToPresent.length}</strong> báo giá/bản điều chỉnh chờ trình. Công bố trong tài khoản người mua; email chỉ báo có cập nhật.</>,
       action: (
         <form action={presentShortlistAction}>
           <input type="hidden" name="rfq_id" value={rfq.id} />
-          <ConfirmSubmitButton className="btn btn-primary btn-sm" message={`Gửi email bảng so sánh ${readyToPresent.length} báo giá cho người mua?`}>
-            <Send className="h-3.5 w-3.5" /> Trình người mua
+          {readyToPresent.map((m) => <input key={m.id} type="hidden" name="publish_version" value={`${m.id}:${m.updated_at}`} />)}
+          <ConfirmSubmitButton className="btn btn-primary btn-sm" message={`Công bố ${readyToPresent.length} báo giá/bản điều chỉnh vào tài khoản người mua? Email chỉ dùng để báo tin.`}>
+            <Send className="h-3.5 w-3.5" /> Công bố báo giá
           </ConfirmSubmitButton>
         </form>
       ),
@@ -283,7 +298,7 @@ export default async function RfqDetailPage({
     if (presented.length > 0) return { text: <>Chờ người mua chọn. Khi có phản hồi, bấm <strong>Gửi mẫu</strong> hoặc <strong>Chốt</strong> ở dòng nhà cung cấp tương ứng.</> };
     if (sendable.length > 0 && consentedSendable.length === 0) return { tone: "alert", text: <>RFQ chưa có đồng ý chia sẻ liên hệ. Hãy hỏi người mua và ghi nhận đồng ý trước khi gửi.</> };
     if (sendable.length > 0) return { text: <>Có <strong>{sendable.length}</strong> nhà cung cấp chưa nhận RFQ. Khi gửi, họ sẽ thấy liên hệ người mua đã đồng ý chia sẻ.</>, action: <a href="#suppliers" className="btn btn-primary btn-sm">Đến danh sách <ArrowRight className="h-3.5 w-3.5" /></a> };
-    if (awaiting.length > 0 && rfqChannel(rfq) === "direct") return { text: <>Đã gửi tới nhà cung cấp người mua chọn. Báo giá họ gửi trên cổng <strong>tự tới người mua</strong>; Vexim chỉ theo dõi và nhắc khi quá hạn.</> };
+    if (awaiting.length > 0 && rfqChannel(rfq) === "direct") return { text: <>Đã chuyển tới nhà cung cấp người mua chọn. Báo giá họ gửi trên cổng <strong>tự hiện trong tài khoản người mua</strong>; email chỉ báo có cập nhật.</> };
     if (awaiting.length > 0) return { text: <>Đang chờ <strong>{awaiting.length}</strong> nhà cung cấp báo giá. Nhập giá khi nhận được, hoặc bấm Nhắc phản hồi.</> };
     return { text: "Chưa có nhà cung cấp phù hợp. Thêm nhà cung cấp vào shortlist để bắt đầu.", action: <a href="#suppliers" className="btn btn-primary btn-sm">Thêm nhà cung cấp <ArrowRight className="h-3.5 w-3.5" /></a> };
   })();
@@ -328,6 +343,8 @@ export default async function RfqDetailPage({
         </div>
       </div>
 
+      {sp?.published && Number(sp.published) > 0 && <div role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Đã công bố {Number(sp.published)} báo giá/bản điều chỉnh trong tài khoản người mua. Nếu email thông báo lỗi, hệ thống sẽ thử gửi lại.</div>}
+      {sp?.publish_skipped && Number(sp.publish_skipped) > 0 && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Có {Number(sp.publish_skipped)} báo giá chưa công bố do đã thay đổi hoặc không còn hợp lệ. Tải lại trang và kiểm tra nội dung trước khi công bố.</div>}
       {sp?.selection_email === "failed" && <div role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Đã lưu nhà cung cấp được chọn nhưng email chưa gửi được. Hãy liên hệ ngoài hệ thống, đừng chọn lại.</div>}
       {sp?.selection_email === "sent" && <div role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Đã gửi email báo nhà cung cấp được chọn. Hệ thống chưa xác nhận tới hộp thư.</div>}
       {sp?.outreach_sent !== undefined && <div role="status" className={`mt-4 rounded-lg border p-3 text-sm ${Number(sp.outreach_skipped) > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
@@ -487,8 +504,10 @@ export default async function RfqDetailPage({
                 const ms = MATCH_STATUS[m.status] ?? MATCH_STATUS.proposed;
                 const isSendable = m.status === "proposed" && !m.sent_to_supplier_at;
                 const canFollowUp = m.status === "no_response" || (!!m.sent_to_supplier_at && ["proposed", "sent_to_supplier"].includes(m.status));
-                const canDecide = SELECTABLE_MATCH_STATUSES.includes(m.status) && m.status !== "selected" && rfq.status !== "sampling";
+                const versions = quoteVersionsByMatch.get(m.id) ?? [];
+                const canDecide = m.status === "presented_to_buyer" && versions.length > 0 && rfq.status !== "sampling";
                 const thread = messagesByMatch.get(m.id) ?? [];
+                const portalThread = portalThreads.get(m.id) ?? [];
                 const passed = reviewedSteps.get(m.supplier_id) ?? [];
                 const quote = quoteSummary(m);
                 return (
@@ -545,9 +564,31 @@ export default async function RfqDetailPage({
                       {sup?.email ?? <span className="text-red-600">chưa có email</span>}
                       {quote && <> · <span className="font-medium text-ink-800">{quote}</span></>}
                       {m.sent_to_supplier_at && <> · đã gửi yêu cầu {fmtDate(m.sent_to_supplier_at)}</>}
-                      {m.sent_to_buyer_at && <> · <span className="text-emerald-700">trình người mua {fmtDate(m.sent_to_buyer_at)}</span></>}
+                      {versions.length > 0 && m.sent_to_buyer_at && <> · <span className="text-emerald-700">công bố trên tài khoản người mua {fmtDate(m.sent_to_buyer_at)}</span></>}
+                      {versions.length > 0 && m.status === "quoted" && <> · <span className="font-semibold text-amber-800">Bản điều chỉnh chờ trình</span></>}
                       {thread.length > 0 && <> · {thread.length} thư</>}
+                      {portalThread.length > 0 && <> · {portalThread.length} tin trên cổng</>}
                     </p>
+                    {versions.length > 0 && <details className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50/40 px-3 py-2">
+                      <summary className="cursor-pointer text-[12px] font-semibold text-emerald-800">Báo giá đã công bố ({versions.length} phiên bản)</summary>
+                      <ol className="mt-2 space-y-2 border-t border-emerald-100 pt-2">{[...versions].sort((a, b) => b.version - a.version).map((v) =>
+                        <li key={v.id} className="text-[12px] leading-5 text-ink-700">
+                          <strong className="text-ink-900">Bản {v.version}: {v.quote_price} {v.quote_currency}/{v.quote_unit}</strong> · {fmtDate(v.published_at)}
+                          {v.buyer_note && <p className="whitespace-pre-wrap break-words">Lời nhắn: {v.buyer_note}</p>}
+                        </li>)}</ol>
+                    </details>}
+                    {m.quote_buyer_note && <div className="mt-2 rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-[12px] text-ink-800">
+                      <strong>Lời nhắn nhà cung cấp gửi người mua{m.status === "quoted" ? " (chờ trình)" : ""}:</strong>
+                      <p className="mt-1 whitespace-pre-wrap break-words">{m.quote_buyer_note}</p>
+                    </div>}
+                    {portalThread.length > 0 && <details className="mt-2 rounded-lg border border-ink-200 bg-ink-50/40 px-3 py-2">
+                      <summary className="cursor-pointer text-[12px] font-semibold text-brand-700">Trao đổi trong hệ thống ({portalThread.length})</summary>
+                      <ol className="mt-2 space-y-2 border-t border-ink-100 pt-2">{portalThread.map((msg) => <li key={msg.id} className="text-[12px] leading-5 text-ink-700">
+                        <span className="font-semibold text-ink-900">{msg.sender === "buyer" ? "Người mua" : "Nhà cung cấp"}</span>
+                        <span className="text-ink-500"> · {fmtDate(msg.created_at)}</span>
+                        <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                      </li>)}</ol>
+                    </details>}
 
                     {canManageRfq && !isClosed && (
                       <details className="group mt-1.5">
@@ -556,30 +597,31 @@ export default async function RfqDetailPage({
                           {quote ? "Sửa báo giá · email · thao tác khác" : "Nhập báo giá · email · thao tác khác"}
                         </summary>
                         <div className="mt-2 space-y-3 rounded-md border border-ink-100 bg-ink-50/50 p-3">
-                          <ActionForm action={updateMatchQuoteAction} successText="Đã lưu báo giá" className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+                          {m.sent_to_supplier_at && QUOTABLE_MATCH_STATUSES.includes(m.status) && <ActionForm action={updateMatchQuoteAction} successText={canDirectPublishRfqQuote(rfq, m)
+                            ? "Đã lưu và công bố trong tài khoản người mua" : "Đã lưu báo giá, chờ công bố"} className="grid grid-cols-2 gap-2 sm:grid-cols-6">
                             <input type="hidden" name="match_id" value={m.id} />
                             <input type="hidden" name="rfq_id" value={rfq.id} />
-                            <QuoteInput label="Giá" name="quote_price" type="number" step="0.01" defaultValue={m.quote_price ?? ""} placeholder="vd 3.20" />
+                            <QuoteInput label="Giá" name="quote_price" type="number" step="0.0001" defaultValue={m.quote_price ?? ""} placeholder="vd 3.20" />
                             <QuoteInput label="Tiền tệ" name="quote_currency" defaultValue={m.quote_currency ?? "USD"} />
                             <QuoteInput label="ĐVT" name="quote_unit" defaultValue={m.quote_unit ?? rfq.unit ?? ""} />
                             <QuoteInput label="Incoterm" name="quote_incoterm" defaultValue={m.quote_incoterm ?? rfq.incoterm ?? ""} />
                             <QuoteInput label="Lead time (ngày)" name="quote_lead_time_days" type="number" defaultValue={m.quote_lead_time_days ?? ""} />
                             <div className="flex items-end"><PendingButton className="w-full">Lưu báo giá</PendingButton></div>
-                          </ActionForm>
+                          </ActionForm>}
 
                           <div className="flex flex-wrap items-end gap-2 border-t border-ink-100 pt-3">
-                            <ActionForm action={updateMatchStatusAction} successText="Đã cập nhật trạng thái" className="flex items-end gap-1.5">
+                            {!m.sent_to_buyer_at && <ActionForm action={updateMatchStatusAction} successText="Đã cập nhật trạng thái" className="flex items-end gap-1.5">
                               <input type="hidden" name="match_id" value={m.id} />
                               <input type="hidden" name="rfq_id" value={rfq.id} />
                               <label className="flex flex-col text-[11px] text-ink-500">
                                 Cập nhật tay (không gửi email)
                                 <select name="status" defaultValue={MANUAL_MATCH_STATUSES.includes(m.status) ? m.status : ""} className="input mt-1 py-1 text-[13px]">
                                   {!MANUAL_MATCH_STATUSES.includes(m.status) && <option value="" disabled>{ms.label}</option>}
-                                  {MANUAL_MATCH_STATUSES.map((v) => <option key={v} value={v}>{MATCH_STATUS[v].label}</option>)}
+                                  {MANUAL_MATCH_STATUSES.filter((v) => !m.sent_to_supplier_at || v !== "proposed").map((v) => <option key={v} value={v}>{MATCH_STATUS[v].label}</option>)}
                                 </select>
                               </label>
                               <PendingButton>Lưu</PendingButton>
-                            </ActionForm>
+                            </ActionForm>}
                             {m.sent_to_supplier_at && m.status !== "proposed" && rfqBuyerContact(rfq, m.supplier_id) && (
                               <div>
                                 <ComposeEmailDialog action={composeMatchEmailAction} hidden={{ rfq_id: rfq.id, match_id: m.id }}
@@ -588,13 +630,13 @@ export default async function RfqDetailPage({
                                   defaultBody={`Chào ${sup?.contact_name ?? "bạn"},\n\nBên mình đang tìm nguồn ${withoutDirectContacts(rfq.product_text)} cho đối tác — số lượng ${rfq.quantity ?? "—"} ${rfq.unit ?? ""}, cần hàng vào ${deliveryText}, Incoterm ${rfq.incoterm ?? "FOB"}.\n\nNếu Quý nhà cung cấp quan tâm, vui lòng phản hồi trực tiếp email này với báo giá FOB và lead time.\n\nTrân trọng,\nVexim Trade`} />
                               </div>
                             )}
-                            <form action={removeMatchAction} className="ml-auto">
+                            {!m.sent_to_supplier_at && !m.sent_to_buyer_at && <form action={removeMatchAction} className="ml-auto">
                               <input type="hidden" name="match_id" value={m.id} />
                               <input type="hidden" name="rfq_id" value={rfq.id} />
                               <ConfirmSubmitButton className="text-[12px] text-red-600 hover:underline" message={`Xoá ${name} khỏi RFQ này? Báo giá đã nhập của nhà cung cấp này sẽ mất.`}>
                                 Xoá khỏi RFQ
                               </ConfirmSubmitButton>
-                            </form>
+                            </form>}
                           </div>
 
                           {thread.length > 0 && (

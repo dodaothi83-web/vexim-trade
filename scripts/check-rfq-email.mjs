@@ -43,6 +43,7 @@ const messages = [];
 const sent = [];
 let transportFailed = false;
 let transportStatus = 'simulated';
+let hasSnapshot = false;
 const store = {
   listMessages: async () => messages,
   listMessagesForRfq: async (rfqId) => messages.filter((m) => m.rfq_id === rfqId),
@@ -65,6 +66,7 @@ const store = {
   getSupplier: async (sid) => sid === supplier.id ? supplier : null,
   getUserByEmail: async () => null,
   listRfqMatches: async () => [match],
+  listRfqQuoteVersions: async (ids) => hasSnapshot && ids.includes(match.id) ? [{ id: 'published-v1', match_id: match.id, version: 1 }] : [],
   getSourcingRequest: async (sid) => sid === sourcingRequest.id ? sourcingRequest : null,
 };
 const bareAddress = (s) => (s.match(/<([^>]+)>/)?.[1] ?? s).split(',')[0].trim();
@@ -187,9 +189,13 @@ const sampling = new FormData(); sampling.set('rfq_id', actionRfq.id);
 await assert.rejects(actions.markSamplingAction(sampling), /Chọn nhà cung cấp có báo giá/, 'sampling needs a quoted supplier');
 match.rfq_id = actionRfq.id; match.status = 'proposed';
 sampling.set('selected_match_id', match.id);
-await assert.rejects(actions.markSamplingAction(sampling), /đã có báo giá/, 'cannot sample with an unquoted supplier');
+await assert.rejects(actions.markSamplingAction(sampling), /đã công bố/, 'cannot sample with an unquoted supplier');
+match.status = 'quoted';
+await assert.rejects(actions.markSamplingAction(sampling), /đã công bố/, 'cannot sample with an unpublished draft');
 assert.equal(actionRfq.status, 'quoted');
-match.status = 'presented_to_buyer';
+match.status = 'presented_to_buyer'; match.sent_to_buyer_at = '2026-10-17T11:00:00Z';
+await assert.rejects(actions.markSamplingAction(sampling), /đã công bố/, 'An old timestamp with no immutable snapshot cannot be sampled');
+hasSnapshot = true;
 await actions.markSamplingAction(sampling);
 assert.equal(actionRfq.status, 'sampling');
 assert.equal(match.status, 'selected');

@@ -73,6 +73,11 @@ let emptyDashboard = false;
 const roleIcons = load('components/brand/account-role-icons.tsx', { 'react/jsx-runtime': jsx });
 const dashboardIcons = load('components/brand/buyer-dashboard-icons.tsx', { 'react/jsx-runtime': jsx });
 const sourcingStatus = load('lib/sourcing/status.ts', {});
+const portalCore = load('lib/rfq/portal-core.ts', {
+  '@/lib/public/product-selection': { withoutDirectContacts: (s) => s },
+  './buyer-contact': load('lib/rfq/buyer-contact.ts', {}),
+  './channel': load('lib/rfq/channel.ts', {}),
+});
 const SourcingHistory = load('components/buyer-sourcing-history.tsx', {
   'react/jsx-runtime': jsx,
   'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
@@ -92,7 +97,11 @@ const dashboard = load('app/(public)/buyer/account/page.tsx', {
   '@/lib/auth/buyer-session': { requireBuyerSession: async (next) => { assert.ok(next.startsWith('/buyer/account')); if (redirectAttempt) throw new Error('redirect'); return session; } },
   '@/lib/db': { getStore: () => ({
     getBuyerUserByEmail: async () => ({ email: session.email, company_name: 'My company', verified_at: 'today', saved: { products: emptyDashboard ? [] : [{ id: 'hidden', href: 'javascript:evil()', name: 'PRIVATE SNAPSHOT' }], comparisons: [] } }),
-    listBuyerRfqsByEmail: async (email) => { assert.equal(email, session.email); return emptyDashboard ? [] : [{ id: 'mine', code: 'RFQ-1', product_text: 'My product request', status: 'new', created_at: '2026-11-04T00:00:00Z', access_token: 'my-token', internal_notes: 'NEVER RENDER THIS' }, { id: 'my-question', code: 'RFQ-2', product_text: 'My product question', status: 'matching', created_at: '2026-11-04T00:00:00Z', access_token: 'question-token', specs: { inquiry_kind: 'supplier_question' } }]; },
+    listBuyerRfqsByEmail: async (email) => { assert.equal(email, session.email); return emptyDashboard ? [] : [{ id: 'mine', code: 'RFQ-1', product_text: 'My product request', status: 'quoted', created_at: '2026-11-04T00:00:00Z', access_token: 'my-token', internal_notes: 'NEVER RENDER THIS' }, { id: 'my-question', code: 'RFQ-2', product_text: 'My product question', status: 'matching', created_at: '2026-11-04T00:00:00Z', access_token: 'question-token', specs: { inquiry_kind: 'supplier_question' } }, { id: 'legacy', code: 'RFQ-3', product_text: 'Older request being rechecked', status: 'quoted', created_at: '2026-11-02T00:00:00Z' }]; },
+    listRfqMatchUpdates: async (ids) => { assert.ok(ids.every((id) => ['mine', 'legacy'].includes(id)),
+      'Product-question RFQs must not appear as quote-portal notices');
+      return ids.includes('mine') ? [{ id: 'my-offer', rfq_id: 'mine', sent_to_buyer_at: '2026-11-05T00:00:00Z',
+        buyer_last_read_at: null, last_thread_sender: null }] : []; },
     listCategories: async () => [],
   }) },
   '@/lib/i18n/server': { getLocale: async () => lang },
@@ -102,6 +111,8 @@ const dashboard = load('app/(public)/buyer/account/page.tsx', {
   '@/components/buyer-saved-products': { SaveProductButton: ({ id }) => React.createElement('button', { 'data-remove-id': id }, 'Remove') },
   '@/components/buyer-account-profile': { BuyerAccountProfile: ({ email }) => React.createElement('input', { readOnly: true, value: email }) },
   '@/lib/config': { COMPANY: { contactEmail: 'support@example.com' } },
+  '@/lib/rfq/portal-core': portalCore,
+  '@/lib/rfq/channel': load('lib/rfq/channel.ts', {}),
 });
 async function resolve(element) {
   if (!element || typeof element !== 'object') return element;
@@ -123,6 +134,10 @@ for (const locale of ['en', 'vi']) {
       assert.match(html, /\/buyer\/account\/sourcing\/my-sourcing/);
       assert.match(html, /\/buyer\/account\/requests\/mine/);
       assert.match(html, /\/buyer\/account\/requests\/my-question/);
+      assert.match(html, locale === 'vi' ? /1 cập nhật mới/ : /1 new update/);
+      assert.match(html, locale === 'vi' ? /Có báo giá/ : /Quote available/);
+      assert.match(html, locale === 'vi' ? /Đang xử lý/ : /In progress/,
+        'An old sent email without a recoverable portal version is not labeled as an available quote');
       assert.ok(html.includes(locale === 'vi' ? 'Câu hỏi sản phẩm' : 'Product enquiry'));
       assert.ok(html.includes(locale === 'vi' ? 'Yêu cầu báo giá' : 'Quote request'));
     }

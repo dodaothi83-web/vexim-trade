@@ -41,6 +41,8 @@ const localMocks = {
   '@/lib/verification-submission': realRules,
   '@/lib/public/product-selection': productSelection,
   '@/lib/media/readiness': { isExpired: () => false },
+  '@/lib/rfq/buyer-contact': { rfqBuyerContact: () => ({ email: 'buyer@example.com' }) },
+  '@/lib/rfq/channel': { rfqChannel: () => 'sourcing' },
   './category-seed': { CASHEW_CATEGORY_CONFIG: config, DEFAULT_CATEGORY_CONFIG: config, PEPPER_CATEGORY_CONFIG: config },
 };
 const localStore = loadStore('lib/db/local.ts', localMocks, {

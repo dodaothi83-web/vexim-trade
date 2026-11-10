@@ -34,9 +34,14 @@ const scrub = (value) => String(value)
   .replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, '[contact via Vexim]')
   .replace(/(?:https?:\/\/|www\.)[^\s<>]+/gi, '[contact via Vexim]')
   .replace(/\+?\d[\d ()-]{8,}\d/g, '[contact via Vexim]');
+const core = loadTs(read('lib/rfq/portal-core.ts'), {
+  '@/lib/public/product-selection': { withoutDirectContacts: scrub },
+  './buyer-contact': contact, './channel': channel,
+});
 const boardModule = loadTs(read('lib/supplier-portal/dashboard.ts'), {
   '@/lib/rfq/buyer-contact': contact,
   '@/lib/rfq/channel': channel,
+  '@/lib/rfq/portal-core': core,
   '@/lib/public/display-name': displayName,
   '@/lib/public/product-selection': { withoutDirectContacts: scrub },
   '@/lib/i18n/format': loadFormat(),

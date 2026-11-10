@@ -52,7 +52,8 @@ const local=load('lib/db/local.ts',{
  'node:crypto':crypto,'node:fs':{existsSync:()=>false,mkdirSync(){},writeFileSync(){if(diskFails)throw Error('disk denied');},renameSync(){},unlinkSync(){}},'node:path':path,
  '@/lib/db/seed':{SEED_BUYERS:[],SEED_PRODUCTS:[],SEED_SUPPLIERS:[]},'@/lib/db/preview-seed':{PREVIEW_PEPPER_HARVEST:null,previewCategories:()=>[],previewSeedRows:()=>({suppliers:[],products:[]})},
  '@/lib/db/demo-suppliers':{DEMO_SUPPLIERS:[]},'@/lib/l2-scope':{},'@/lib/types':{L2_FACTORY_PHOTO_ITEMS:[],L3_EXPORT_ITEMS:[]},'@/lib/verification-submission':{},
- '@/lib/public/product-selection':{},'@/lib/media/readiness':{},'./category-seed':{CASHEW_CATEGORY_CONFIG:config,DEFAULT_CATEGORY_CONFIG:config,PEPPER_CATEGORY_CONFIG:config},
+ '@/lib/public/product-selection':{},'@/lib/media/readiness':{},'@/lib/rfq/buyer-contact': { rfqBuyerContact: () => ({ email: 'buyer@example.com' }) },
+  '@/lib/rfq/channel':{rfqChannel:()=> 'sourcing'},'./category-seed':{CASHEW_CATEGORY_CONFIG:config,DEFAULT_CATEGORY_CONFIG:config,PEPPER_CATEGORY_CONFIG:config},
 },{__veximLocal:state,process:{cwd:()=>'/virtual',env:{}}}).localStore;
 const input={supplier_id:'s1',product_id:'p',requested_by:'u',supplier_name:'S',product_name:'P',category_slug:'x',category_name:'X',requester_email:'u@example.com',note:null};
 await assert.rejects(local.createSponsoredRequest(input),/disk denied/);

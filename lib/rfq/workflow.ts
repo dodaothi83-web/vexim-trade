@@ -14,8 +14,8 @@ export const CLOSED_RFQ_STATUSES: RfqStatus[] = ["won", "lost", "spam"];
 /** Trạng thái NCC được ghi tay (không kèm email). */
 export const MANUAL_MATCH_STATUSES: RfqMatchStatus[] = ["proposed", "sent_to_supplier", "declined", "no_response"];
 
-/** NCC chỉ được chốt / gửi mẫu khi đã có báo giá. */
-export const SELECTABLE_MATCH_STATUSES: RfqMatchStatus[] = ["quoted", "presented_to_buyer", "selected"];
+/** Only buyer-visible published quotes may be selected; an unreviewed draft is not an offer. */
+export const SELECTABLE_MATCH_STATUSES: RfqMatchStatus[] = ["presented_to_buyer", "selected"];
 
 export function isSupplierQuestionRfq(rfq: { source_page?: string | null; specs?: unknown }) {
   return rfq.source_page === "/rfq?intent=question"

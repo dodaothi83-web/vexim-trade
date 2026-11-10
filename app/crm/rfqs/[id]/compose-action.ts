@@ -115,7 +115,10 @@ export async function markSamplingAction(fd: FormData): Promise<void> {
   if (selectedMatchId) {
     const m = await store.getRfqMatch(selectedMatchId);
     if (!m || m.rfq_id !== rfqId) throw new Error("Nhà cung cấp đã chọn không thuộc RFQ này.");
-    if (!SELECTABLE_MATCH_STATUSES.includes(m.status)) throw new Error("Chỉ gửi mẫu với nhà cung cấp đã có báo giá.");
+    if (!m.sent_to_buyer_at || !SELECTABLE_MATCH_STATUSES.includes(m.status) ||
+        !(await store.listRfqQuoteVersions([m.id])).some((v) => v.match_id === m.id)) {
+      throw new Error("Chỉ gửi mẫu với nhà cung cấp có báo giá đã công bố trong tài khoản người mua.");
+    }
     if (before.status !== "sampling" && m.status !== "selected") {
       // Cùng một quy tắc với nút "Chọn nhà cung cấp": có Introduction bảo hộ 12 tháng
       // và các NCC còn lại chuyển not_selected.

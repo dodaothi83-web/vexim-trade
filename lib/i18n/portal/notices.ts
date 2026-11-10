@@ -29,6 +29,10 @@ const en = {
     title: "Quote {code} was selected",
     detail: "Our team will contact you to agree the next step. Buyer details are not shared here.",
   },
+  rfqReply: {
+    title: "The buyer replied to RFQ {code}",
+    detail: "Read the conversation in this RFQ. Other suppliers cannot see it.",
+  },
   reviewReturned: {
     title: "{label} needs more evidence",
     detail: "Open that step to see the reason and upload the missing documents again.",
@@ -102,6 +106,10 @@ const vi: NoticesMessages = {
   rfqSelected: {
     title: "Hồ sơ {code} đã được chọn",
     detail: "Bộ phận phụ trách sẽ liên hệ để thống nhất bước tiếp theo. Chưa chia sẻ thông tin người mua tại đây.",
+  },
+  rfqReply: {
+    title: "Người mua đã trả lời RFQ {code}",
+    detail: "Xem mạch trao đổi của RFQ này. Nhà cung cấp khác không thấy nội dung.",
   },
   reviewReturned: {
     title: "{label} cần bổ sung",
