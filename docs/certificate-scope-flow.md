@@ -27,6 +27,15 @@ Danh sách mã nằm ở `lib/certificate-scheme.ts`; migration `20261076_certif
 - Tối đa 3 tên trên **một dòng duy nhất**, phần dư gộp thành "+N"; tiêu đề cũng chỉ một dòng, dài thì cắt và thêm "…".
 - Dữ liệu gắn vào thẻ ở `listPublicCategoryProducts` và `getPublicProductRecordsByIds` (danh mục, trang chủ, tìm kiếm, sản phẩm tương tự, so sánh); trang gian hàng tính riêng. Trang chủ và tìm kiếm đọc dữ liệu chứng nhận một lần cho cả lượt tải (`snapshot.certificateBadgeData`).
 
+## Danh sách trưng bày chứng nhận trên hồ sơ nhà cung cấp (11/2026)
+
+- Mục **Certificates on file** ở trang hồ sơ (`components/public/supplier-certificate-rail.tsx`) là một dải trượt ngang, dừng theo từng thẻ: mỗi thẻ là **ảnh chứng nhận**, bên dưới là **tên giấy** và **ngày hết hạn**; giấy đứng tên bên thứ ba ghi rõ "Third-party holder · tên". Hết chỗ thì trượt (có nút mũi tên cho chuột/bàn phím), không ép thẻ co lại.
+- Ảnh lấy từ tệp của chính giấy đã duyệt, không phải ảnh minh hoạ. Đường dẫn là `/public-media/certificate/<mediaId>` (`app/public-media/certificate/[mediaId]/route.ts`) — **route riêng**, vì kho `/public-media/[...path]` cố tình không phục vụ giấy chứng nhận.
+- Cổng công khai của ảnh nằm ở một chỗ: `publicCertificateImage()` trong `lib/public/certificates.ts` chạy đúng bộ lọc hồ sơ (`publicSupplierCertificates`: đã duyệt, đang công khai, không bị ẩn/thay thế, còn hạn, rõ đơn vị đứng tên, có tệp nội bộ). Sai một điều kiện là 404, và 404 giống nhau cho mọi trường hợp để không dò được giấy nội bộ. Cache ảnh chỉ 60 giây nên rút giấy trong CRM là ảnh đóng ngay.
+- **PDF không phục vụ công khai.** Giấy scan PDF vẫn có thẻ trong danh sách (bìa tài liệu, ghi "PDF on file", hướng dẫn xin bản sao) để người mua không hiểu nhầm là nhà cung cấp thiếu giấy, nhưng tệp chỉ xem được trong CRM/cổng nhà cung cấp.
+- **Lưu ý đã được chủ dự án chấp nhận (11/2026):** ảnh là bản sao giấy nên có thể chứa địa chỉ, số điện thoại in trên giấy — khác quy tắc ẩn liên hệ trực tiếp ở phần chữ (`withoutDirectContacts`). Giấy nào không muốn lộ bản sao thì đặt `publicly_visible = false` (hoặc ẩn trong CRM) là ảnh đóng, chỉ còn phần chữ đã lọc.
+- Bài kiểm `scripts/check-certificate-gallery.mjs` khoá cả ba thứ trên: nhận diện ảnh (không nhận PDF), cổng công khai, và cấu trúc thẻ trưng bày.
+
 ## Phạm vi (`certificate_scopes`)
 
 Mỗi dòng là **hoặc** một `category_id` **hoặc** một `product_id`, kèm `verified_by`/`verified_at`. Chỉ dòng đã có người xác nhận mới có hiệu lực với người mua.
