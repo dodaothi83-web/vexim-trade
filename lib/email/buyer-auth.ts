@@ -25,16 +25,16 @@ export interface BuyerSignInMailInput {
 }
 
 function buildMail(input: BuyerSignInMailInput) {
-  const subject = `${input.code} is your Vexim sign-in code`;
+  const subject = `${input.code} is your Vexim Trade sign-in code`;
   const body = `
-    <p style="margin:0 0 14px;">Use this code to sign in — it expires in ${input.minutes} minutes:</p>
+    <p style="margin:0 0 14px;">Use this code to sign in. It expires in ${input.minutes} minutes:</p>
     <p style="margin:0 0 18px;font-size:30px;font-weight:800;letter-spacing:8px;font-family:'SFMono-Regular',Consolas,monospace;">${escapeHtml(input.code)}</p>
     <p style="margin:0 0 18px;">Or open this link on the same device:</p>
-    <p style="margin:0 0 20px;"><a href="${escapeHtml(input.linkUrl)}" style="display:inline-block;padding:11px 20px;background:${brandColors.primary};color:#ffffff;border-radius:8px;font-weight:700;text-decoration:none;">Sign in to Vexim</a></p>
+    <p style="margin:0 0 20px;"><a href="${escapeHtml(input.linkUrl)}" style="display:inline-block;padding:11px 20px;background:${brandColors.primary};color:#ffffff;border-radius:8px;font-weight:700;text-decoration:none;">Sign in</a></p>
     <p style="margin:0 0 10px;color:${brandColors.muted};font-size:13px;">The link and the code both work once, and both expire in ${input.minutes} minutes. If the link has already been opened by your email security scanner, use the code above.</p>
-    <p style="margin:0;color:${brandColors.muted};font-size:13px;">Didn't request this? You can ignore this email — nothing happens until the code or link is used.</p>`;
+    <p style="margin:0;color:${brandColors.muted};font-size:13px;">Didn't request this? You can ignore this email. Nothing happens until the code or link is used.</p>`;
   const text = [
-    "Sign in to Vexim",
+    "Sign in to Vexim Trade",
     "",
     `Your code (expires in ${input.minutes} minutes): ${input.code}`,
     "",
@@ -42,14 +42,14 @@ function buildMail(input: BuyerSignInMailInput) {
     "",
     "The link and the code both work once, and both expire.",
     "If the link was already opened by your email security scanner, use the code above.",
-    "Didn't request this? Ignore this email — nothing happens until the code or link is used.",
+    "Didn't request this? Ignore this email. Nothing happens until the code or link is used.",
   ].join("\n");
 
   return {
     to: [input.email],
     from: FROM_ADDRESS,
     subject,
-    html: wrapPlainEmail({ title: "Sign in to Vexim", body, preheader: `${input.code} — expires in ${input.minutes} minutes` }),
+    html: wrapPlainEmail({ title: "Sign in to Vexim Trade", body, preheader: `${input.code} expires in ${input.minutes} minutes` }),
     text,
   };
 }

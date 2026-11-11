@@ -217,7 +217,7 @@ const vi: EvidenceMessages = {
     codeMissingDetail: "Mục này cần tờ mã xác minh nhưng hồ sơ chưa phát hành mã. Bấm “Tạo mã xác minh”, tải tờ mã về rồi chụp lại.",
     errors: {
       partnerContractRequired: "Hãy tải hợp đồng với nhà máy đối tác trước khi nộp.",
-      scopeTypeMismatch: "Loại hình doanh nghiệp chưa rõ hoặc đã thay đổi. Liên hệ Vexim để kiểm tra lại hồ sơ.",
+      scopeTypeMismatch: "Loại hình doanh nghiệp chưa rõ hoặc đã thay đổi. Liên hệ hỗ trợ để kiểm tra lại hồ sơ.",
       partnerPrivate: "Tệp không thuộc đúng hồ sơ hoặc không được lưu nội bộ. Hãy kiểm tra lại.",
       partnerKeyMismatch: "Mục bằng chứng không đúng với phạm vi hồ sơ.",
       factoryLocked: "Hồ sơ đang chờ xét hoặc đã được nhận; không thể thay đổi ảnh.",
@@ -230,7 +230,7 @@ const vi: EvidenceMessages = {
     },
   },
   draft: {
-    scopeMissing: "Hồ sơ chưa có loại hình nhà cung cấp. Liên hệ Vexim để cập nhật trước khi mở L3.",
+    scopeMissing: "Hồ sơ chưa có loại hình nhà cung cấp. Liên hệ hỗ trợ để cập nhật trước khi mở L3.",
     partnerNoCode: "Hồ sơ đối tác không cần mã ảnh nhà máy.",
     codeNotAllowed: "Hồ sơ đã nộp hoặc đã xét; không thể phát hành mã mới.",
     codeRace: "Hồ sơ vừa thay đổi hoặc đã nộp. Hãy tải lại trang để kiểm tra.",
@@ -241,7 +241,7 @@ const vi: EvidenceMessages = {
     partnerNameLocked: "Hồ sơ đã nộp hoặc đã xét; không sửa được tên nhà máy đối tác.",
   },
   submit: {
-    scopeUnknown: "Loại hình doanh nghiệp chưa rõ hoặc đã thay đổi. Liên hệ Vexim để kiểm tra lại hồ sơ L3.",
+    scopeUnknown: "Loại hình doanh nghiệp chưa rõ hoặc đã thay đổi. Liên hệ hỗ trợ để kiểm tra lại hồ sơ L3.",
     manualNoAiPartner: "Hợp đồng đối tác được kiểm tra thủ công, không quét bằng AI.",
     manualNoAiExport: "Chứng từ L2 được kiểm tra thủ công, không quét bằng AI.",
     lockedReload: "Hồ sơ đã nộp hoặc đã xét. Hãy tải lại trang để xem trạng thái.",

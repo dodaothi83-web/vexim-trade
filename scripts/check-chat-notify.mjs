@@ -96,7 +96,7 @@ supports.push({ id: 's-1', buyer_email: 'buyer@acme.de', assigned_to: 'u-dung', 
 await notify.runChatNotifications(store, T0 + 61 * HOUR + 11 * MIN);
 const buyerMail = sent.at(-1);
 assert.deepEqual([...buyerMail.to], ['buyer@acme.de']);
-assert.match(buyerMail.html, /Mekong Agri/); assert.match(buyerMail.html, /Vexim Trade team/);
+assert.match(buyerMail.html, /Mekong Agri/); assert.match(buyerMail.html, /Support team/);
 assert.match(buyerMail.html, /\/buyer\/account\/messages\?c=c1/); assert.match(buyerMail.html, /\?support=1/);
 assert.doesNotMatch(buyerMail.html + buyerMail.text, /dung@veximtrade\.com|owner@mekong/i, 'Người mua không thấy email nội bộ hay nhà cung cấp');
 

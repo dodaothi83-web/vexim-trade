@@ -147,7 +147,7 @@ assert.equal(board.invites.length, 2);
 assert.equal(board.tasks[0].title, 'Wholesale mixed dried fruit chips', 'Product card uses the buyer-facing catalog title');
 assert.equal(board.tasks[0].linkedProduct.moq, '1 MT');
 assert.equal(board.tasks[0].linkedProduct.packaging, '10 kg cartons');
-assert.match(board.tasks[0].linkedProduct.spec, /Fruit chips\. Contact \[liên hệ qua Vexim\]/);
+assert.match(board.tasks[0].linkedProduct.spec, /Fruit chips\. Contact \[đã ẩn liên hệ\]/);
 assert.equal(board.invites[1].linkedProduct, null, 'Unlinked RFQ has no guessed catalog card');
 assert.equal(boardModule.buildSupplierRfqBoard({ ...input, invites: [
   { ...rows[0], rfq: { ...rows[0].rfq, source_product_id: 'p-foreign' } },

@@ -88,6 +88,9 @@ const supplierActions = load('app/supplier/portal/rfqs/[matchId]/actions.ts', {
   'next/cache': { revalidatePath: (p) => revalidated.push(p) },
   '@/lib/rfq/portal-access': { supplierOfferAccess: buyerAccess.supplierOfferAccess },
   '@/lib/rfq/portal-core': core, '@/lib/rfq/portal-conversation': conversation,
+  // Lead ratings have their own check (check-rfq-lead-rating.mjs).
+  '@/lib/rfq/lead-rating': { canRateRfqLead: () => false, cleanLeadRating: () => ({ ok: false, error: 'rating' }) },
+  '@/lib/db/migration-hints': { migrationHint: () => null },
   '@/lib/rfq/mediated': { sendMediatedRfqMessage: async () => ({ ok: false, error: 'unavailable' }),
     canReadMediatedDesk: () => false, markMediatedRfqRead: async () => {} },
 });

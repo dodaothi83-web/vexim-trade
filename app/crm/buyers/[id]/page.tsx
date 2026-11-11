@@ -20,6 +20,8 @@ import { requirePagePermission } from "@/lib/auth/session";
 import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getStore } from "@/lib/db";
+import { LEAD_RATING_STAFF_NOTE, LeadRatingList, leadRatingSummary } from "@/components/crm/lead-ratings";
+import { migrationHint } from "@/lib/db/migration-hints";
 import { uniqueRfqSuppliers, rfqOutreachStatusLabel } from "@/lib/rfq/buyer-outreach";
 import { stageIndex, FUNNEL_STAGES } from "@/lib/pipeline";
 import { COMPANY } from "@/lib/config";
@@ -50,12 +52,18 @@ export default async function BuyerDetailPage({
   if (!buyer) notFound();
 
   const store = getStore();
-  const [suppliers, activities, emails, outreach] = await Promise.all([
+  const canViewRfqs = hasPermission(session.role, "rfq.view");
+  const [suppliers, activities, emails, outreach, leadRatings] = await Promise.all([
     store.listSuppliers(),
     store.listActivities(id),
     store.listMessages(400),
-    hasPermission(session.role, "rfq.view") ? store.listBuyerRfqOutreach([buyer.id]) : [],
+    canViewRfqs ? store.listBuyerRfqOutreach([buyer.id]) : [],
+    canViewRfqs ? store.listRfqLeadRatings({ buyerId: buyer.id }).catch((error) => {
+      console.error("[rfq-lead-rating] could not load", migrationHint(error) ?? error);
+      return [];
+    }) : [],
   ]);
+  const ratedRfqs = leadRatings.length ? await store.listRfqs({ buyerId: buyer.id }).catch(() => []) : [];
   const buyerEmails = emails.filter((e) => e.buyer_id === id && e.status !== "draft").slice(0, 15);
   const distinctSuppliers = uniqueRfqSuppliers(outreach);
 
@@ -301,6 +309,19 @@ export default async function BuyerDetailPage({
               )}
             </ol>
           </Card>
+
+          {leadRatings.length > 0 && <Card>
+            <div className="border-b border-ink-200 px-4 py-3">
+              <h2 className="text-[15px] font-bold text-ink-900">Đánh giá lead từ nhà cung cấp</h2>
+              <p className="mt-1 text-[12.5px] font-semibold text-ink-800">{leadRatingSummary(leadRatings)}</p>
+              <p className="mt-1 text-[12px] leading-5 text-ink-600">{LEAD_RATING_STAFF_NOTE}</p>
+            </div>
+            <div className="max-h-[380px] overflow-y-auto p-3">
+              <LeadRatingList ratings={leadRatings}
+                supplierNames={new Map(suppliers.map((s) => [s.id, s.display_name ?? s.trade_name ?? s.name]))}
+                rfqCodes={new Map(ratedRfqs.map((r) => [r.id, r.code]))} />
+            </div>
+          </Card>}
 
           {/* Nhật ký */}
           <Card>

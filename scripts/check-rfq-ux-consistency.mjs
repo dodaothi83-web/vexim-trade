@@ -36,22 +36,22 @@ for (const locale of ['en', 'vi']) {
   assert.match(direct, /\/buyer\/account\?tab=requests/);
   assert.match(direct, /\/buyer\/account\/requests\/rfq-1\/offers\/match-1/);
   assert.match(direct, vi ? /Tạo RFQ tìm nguồn MỚI/ : /Create a NEW sourcing RFQ/);
-  assert.doesNotMatch(direct, /Quotes presented by Vexim|Báo giá do Vexim trình|Đã chia sẻ liên hệ/);
+  assert.doesNotMatch(direct, /Sourcing quotes|Báo giá tìm nguồn|Đã chia sẻ liên hệ/);
   const mediated = view({ ...base, status: 'won', preferred_supplier_ids: [],
     specs: { buyer_contact_policy_version: 'rfq_mediated_v1', sourcing_request_id: 'original-1' } }, locale, [quote]);
   assert.match(mediated, vi ? /Đã chọn nhà cung cấp/ : /Supplier selected/);
-  assert.match(mediated, vi ? /Báo giá do Vexim trình/ : /Quotes presented by Vexim/);
+  assert.match(mediated, vi ? /Báo giá tìm nguồn/ : /Sourcing quotes/);
   assert.match(mediated, /href="\/buyer\/account\/sourcing\/original-1"/, 'Converted RFQ links back to private source/files');
   assert.match(mediated, /href="\/buyer\/account\?tab=vexim"/);
   assert.match(mediated, vi ? /Vexim không tự chuyển liên hệ/ : /does not automatically share your contact details/);
   const awaiting = view({ ...base, status: 'quoted', preferred_supplier_ids: [], specs: {} }, locale);
-  assert.match(awaiting, vi ? /Vexim đang điều phối/ : /Vexim is coordinating/);
+  assert.match(awaiting, vi ? /Đang điều phối/ : /Coordinating quotes/);
   assert.match(awaiting, vi ? /Chưa có báo giá được công bố/ : /No quotes have been published yet/);
   assert.doesNotMatch(awaiting, />Published<|>Đã công bố</, 'A saved unpublished quote is not presented as published');
   const question = view({ ...base, status: 'matching', specs: { inquiry_kind: 'supplier_question', notes: 'Older question' } }, locale);
   assert.match(question, vi ? /Câu hỏi cũ đã gửi/ : /Previous question sent/);
   assert.match(question, vi ? /Câu hỏi này chỉ để xem lại/ : /This question is read-only/);
-  assert.doesNotMatch(question, /quotes-title|Quotes presented|Báo giá do Vexim trình/);
+  assert.doesNotMatch(question, /quotes-title|Sourcing quotes|Báo giá tìm nguồn/);
   assert.match(question, vi ? /Sản phẩm[\s\S]*Câu hỏi/ : /Product[\s\S]*Question/);
 }
 

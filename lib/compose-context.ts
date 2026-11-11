@@ -102,7 +102,7 @@ export function buildBuyerContext(
     spec: buyer.spec,
     quantity: buyer.quantity,
     targetPrice: buyer.target_price,
-    payment: [buyer.payment_method, buyer.payment_terms].filter(Boolean).join(" – ") || null,
+    payment: [buyer.payment_method, buyer.payment_terms].filter(Boolean).join(", ") || null,
     incoterm: buyer.incoterm,
     shipDate: buyer.expected_ship_date,
     nextAction: buyer.next_action,

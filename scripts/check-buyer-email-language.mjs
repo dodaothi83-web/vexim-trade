@@ -60,10 +60,10 @@ for (const { file, text } of builders.slice(0, 2)) {
     `${file}: request contents and credentials must stay inside the account`);
 }
 const portal = stripComments(read('lib/rfq/portal-alerts.ts'));
-assert.match(portal, /New quote from Vexim[\s\S]*New message[\s\S]*for your request \(Ref \$\{rfq\.code\}\)/,
+assert.match(portal, /"New quote" : "New message"\} for your request \(Ref \$\{rfq\.code\}\)/,
   'Buyer quote/message notices have an English subject and reference at the end');
 const mediation = stripComments(read('lib/rfq/mediated-alerts.ts'));
-assert.match(mediation, /thread\.audience === "buyer" \? `Update from Vexim for your request \(Ref \$\{rfq\.code\}\)`/,
+assert.match(mediation, /thread\.audience === "buyer" \? `New message about your request \(Ref \$\{rfq\.code\}\)`/,
   'Buyer desk notice has an English subject and reference at the end');
 assert.deepEqual(problems, [], `Thư gửi người mua chưa đạt:\n${problems.join('\n')}`);
 console.log(`✅ Buyer email: ${builders.length + stageBlocks.length} English buyer blocks; portal RFQ notices are link-only without Reply-To, stage mail keeps RFC threading.`);

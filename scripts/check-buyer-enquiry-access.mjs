@@ -95,7 +95,7 @@ let tree = await detail.default({ params: Promise.resolve({ id: 'r1' }) });
 let html = renderToStaticMarkup(React.createElement(tree.type, tree.props));
 assert.match(html, /Private product/);
 assert.match(html, /All sourcing requests/);
-assert.match(html, /Quotes presented by Vexim \(1\)/, 'Buyer sees only published sourcing offers in their account');
+assert.match(html, /Sourcing quotes \(1\)/, 'Buyer sees only published sourcing offers in their account');
 assert.match(html, /data-vexim-desk/, 'Sourcing buyer sees a private Vexim conversation');
 assert.match(html, /Shown Supplier[\s\S]*6\.35 USD \/ kg/);
 assert.doesNotMatch(html, /Hidden Supplier|9\.99/, 'Unpublished quotes and pending revisions stay hidden');

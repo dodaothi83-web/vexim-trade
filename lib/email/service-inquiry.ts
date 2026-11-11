@@ -70,19 +70,19 @@ const SERVICE_DESK_LABELS: Record<string, { vi: string; en: string }> = {
 /** Bước tiếp theo riêng cho từng dịch vụ, để thư xác nhận không nói chung chung. */
 const SERVICE_NEXT_STEP: Record<string, { vi: string; en: string }> = {
   free_listing: {
-    vi: "Vexim sẽ gửi danh sách giấy tờ doanh nghiệp cần chuẩn bị để mở gian hàng.",
+    vi: "Bạn sẽ nhận danh sách giấy tờ doanh nghiệp cần chuẩn bị để mở gian hàng.",
     en: "We will send the list of business documents needed to open your storefront.",
   },
   international_website: {
-    vi: "Vexim sẽ hỏi trước về danh mục sản phẩm để báo giá đúng số trang bạn cần, không tính thừa.",
+    vi: "Chuyên viên sẽ hỏi trước về danh mục sản phẩm để báo giá đúng số trang bạn cần, không tính thừa.",
     en: "We will ask for your product catalogue first, so the quote covers the pages you actually need.",
   },
   featured_ads: {
-    vi: "Vexim sẽ liên hệ để trao đổi về vị trí banner doanh nghiệp, thời gian hiển thị và báo giá.",
+    vi: "Chuyên viên sẽ liên hệ để trao đổi về vị trí banner doanh nghiệp, thời gian hiển thị và báo giá.",
     en: "We will contact you to discuss business banner placement, display period, and pricing.",
   },
   fda_compliance: {
-    vi: "Vexim sẽ rà xem sản phẩm của bạn cần bước nào trước: đăng ký cơ sở, U.S. Agent, nhãn hàng hoá, FSVP hay Prior Notice.",
+    vi: "Chuyên viên sẽ rà xem sản phẩm của bạn cần bước nào trước: đăng ký cơ sở, U.S. Agent, nhãn hàng hoá, FSVP hay Prior Notice.",
     en: "We will check which step your products need first: facility registration, U.S. Agent, labelling, FSVP or Prior Notice.",
   },
 };
@@ -258,7 +258,7 @@ export function buildServiceInquiryInternalEmail(input: ServiceInquiryInput): Se
     subject,
     html: wrapEmailShell({
       title: subject,
-      preheader: `${title} · ${contact} · ${phone}`,
+      preheader: `${title}, ${contact}, ${phone}`,
       body,
     }),
     text,
@@ -287,7 +287,7 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
   const nextStep =
     SERVICE_NEXT_STEP[input.serviceKey]?.[input.lang] ??
     (isVi
-      ? "Vexim sẽ xem nội dung bạn gửi và phản hồi bằng văn bản trước khi bắt đầu bất kỳ công việc nào."
+      ? "Nội dung bạn gửi sẽ được xem và phản hồi bằng văn bản trước khi bắt đầu bất kỳ công việc nào."
       : "We will read what you sent and reply in writing before any work starts.");
   const subject = serviceInquiryAckSubject(input);
 
@@ -320,7 +320,7 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
     <p style="font-size:15px;line-height:24px;margin:0;">Chào ${escapeHtml(firstName(contact))},</p>
     <p style="font-size:15px;line-height:24px;margin:12px 0 18px;">
       Vexim Trade đã nhận đăng ký <strong>${escapeHtml(title)}</strong> của
-      <strong>${escapeHtml(company)}</strong>. Dưới đây là thông tin Vexim ghi nhận,
+      <strong>${escapeHtml(company)}</strong>. Dưới đây là thông tin đã ghi nhận,
       bạn kiểm tra giúp nếu có chỗ cần sửa.
     </p>
     ${details}
@@ -328,16 +328,16 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
     <ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;color:${brandColors.muted};">
       <li>Chuyên viên Vexim Trade tại Hà Nội sẽ liên hệ bạn trong <strong>1 ngày làm việc</strong> qua số ${escapeHtml(phone)}.</li>
       <li>${escapeHtml(nextStep)}</li>
-      <li>Mọi chi phí được báo bằng văn bản trước; Vexim chỉ bắt đầu khi bạn đồng ý.</li>
+      <li>Mọi chi phí được báo bằng văn bản trước; công việc chỉ bắt đầu khi bạn đồng ý.</li>
     </ul>
     <p style="font-size:14px;line-height:22px;margin:18px 0 0;">
       Cần bổ sung thông tin, bạn chỉ cần trả lời thư này. Khi gọi điện, đọc mã
-      <strong>${escapeHtml(input.reference)}</strong> để Vexim tra đúng hồ sơ.
+      <strong>${escapeHtml(input.reference)}</strong> để tra đúng hồ sơ.
     </p>
     <p style="font-size:14px;line-height:22px;margin:18px 0 0;">
       Cảm ơn bạn,<br/>
       <strong>${escapeHtml(COMPANY.name)}</strong><br/>
-      <span style="color:${brandColors.muted};">${escapeHtml(COMPANY.phoneDisplay ?? COMPANY.phone)} &middot;
+      <span style="color:${brandColors.muted};">${escapeHtml(COMPANY.phoneDisplay ?? COMPANY.phone)} |
       <a href="${escapeHtml(COMPANY.website)}" style="color:${brandColors.primary};text-decoration:none;">${escapeHtml(COMPANY.website.replace(/^https?:\/\//, ""))}</a></span>
     </p>`
     : `
@@ -360,7 +360,7 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
     <p style="font-size:14px;line-height:22px;margin:18px 0 0;">
       Best regards,<br/>
       <strong>${escapeHtml(COMPANY.name)}</strong><br/>
-      <span style="color:${brandColors.muted};">${escapeHtml(COMPANY.phoneDisplay ?? COMPANY.phone)} &middot;
+      <span style="color:${brandColors.muted};">${escapeHtml(COMPANY.phoneDisplay ?? COMPANY.phone)} |
       <a href="${escapeHtml(COMPANY.website)}" style="color:${brandColors.primary};text-decoration:none;">${escapeHtml(COMPANY.website.replace(/^https?:\/\//, ""))}</a></span>
     </p>`;
 
@@ -381,13 +381,13 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
         "Bước tiếp theo:",
         `- Chuyên viên Vexim Trade tại Hà Nội sẽ liên hệ trong 1 ngày làm việc qua số ${phone}.`,
         `- ${nextStep}`,
-        "- Mọi chi phí được báo bằng văn bản trước; Vexim chỉ bắt đầu khi bạn đồng ý.",
+        "- Mọi chi phí được báo bằng văn bản trước; công việc chỉ bắt đầu khi bạn đồng ý.",
         "",
-        `Cần bổ sung thông tin, bạn chỉ cần trả lời thư này. Khi gọi điện, đọc mã ${input.reference} để Vexim tra đúng hồ sơ.`,
+        `Cần bổ sung thông tin, bạn chỉ cần trả lời thư này. Khi gọi điện, đọc mã ${input.reference} để tra đúng hồ sơ.`,
         "",
         "Cảm ơn bạn,",
         COMPANY.name,
-        `${COMPANY.phoneDisplay ?? COMPANY.phone} · ${COMPANY.website}`,
+        `${COMPANY.phoneDisplay ?? COMPANY.phone} | ${COMPANY.website}`,
       ])
     : plainText([
         `Dear ${firstName(contact)},`,
@@ -411,7 +411,7 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
         "",
         "Best regards,",
         COMPANY.name,
-        `${COMPANY.phoneDisplay ?? COMPANY.phone} · ${COMPANY.website}`,
+        `${COMPANY.phoneDisplay ?? COMPANY.phone} | ${COMPANY.website}`,
       ]);
 
   return {
@@ -419,8 +419,8 @@ export function buildServiceInquiryAcknowledgement(input: ServiceInquiryInput): 
     html: wrapEmailShell({
       title: subject,
       preheader: isVi
-        ? `Đã nhận đăng ký ${title} · mã ${input.reference}`
-        : `Registration received: ${title} · ref ${input.reference}`,
+        ? `Đã nhận đăng ký ${title}, mã ${input.reference}`
+        : `Registration received: ${title}, ref ${input.reference}`,
       body,
     }),
     text,

@@ -30,7 +30,7 @@ export async function notifySupplierRegistration(supplier: Supplier, requested: 
   const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}`;
   const title = `Nhà cung cấp tự đăng ký: ${supplier.name}`;
   const body = `<p>Nhà cung cấp vừa nộp hồ sơ tự khai (giấy tờ bước đầu nếu đã tải). <strong>Tài khoản chưa được Vexim xác nhận sử dụng cổng; chưa có đánh giá nào được tự động duyệt.</strong></p>
-    <p>Doanh nghiệp: ${escapeHtml(supplier.name)}<br/>Liên hệ: ${escapeHtml(supplier.contact_name ?? "-")} · ${escapeHtml(supplier.email ?? "-")} · ${escapeHtml(supplier.phone ?? "-")}</p>
+    <p>Doanh nghiệp: ${escapeHtml(supplier.name)}<br/>Liên hệ: ${escapeHtml(supplier.contact_name ?? "-")}, ${escapeHtml(supplier.email ?? "-")}, ${escapeHtml(supplier.phone ?? "-")}</p>
     <p>Yêu cầu Vexim liên hệ để xác minh thêm: <strong>${escapeHtml(choices.join(", ") || "Không chọn")}</strong>.
     Nếu có yêu cầu, nhân sự kiểm duyệt vui lòng liên hệ sớm để lên kế hoạch và tự tải bằng chứng vào đúng đợt kiểm.</p>
     <p>Chuyên viên kiểm tra hồ sơ gốc/ảnh, sửa checklist thủ công, nộp và người có quyền duyệt mới xác nhận. AI chỉ gợi ý.</p>
@@ -75,7 +75,7 @@ export async function notifySupplierCertificateSubmission(supplier: Supplier, na
   const staffOrigin = notificationOrigin();
   const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}/audit/documents`;
   const title = `Chứng nhận trên hồ sơ cần kiểm tra: ${supplier.name}`;
-  const body = `<p>Nhà cung cấp ${escapeHtml(supplier.name)} vừa tải chứng nhận “${escapeHtml(name)}” trong luồng Chứng nhận riêng. AI chưa đủ điều kiện tự công bố. <strong>Chưa công bố; chứng nhận này không thay thế GCN ĐKKD.</strong></p>
+  const body = `<p>Nhà cung cấp ${escapeHtml(supplier.name)} vừa tải chứng nhận "${escapeHtml(name)}" trong luồng Chứng nhận riêng. AI chưa đủ điều kiện tự công bố. <strong>Chưa công bố; chứng nhận này không thay thế GCN ĐKKD.</strong></p>
     <p>Nhân viên có thể xem bản gốc, bấm Quét lại AI hoặc kiểm tra trong khu vực chứng nhận của hồ sơ CRM.</p>
     <p><a href="${url}">Mở hồ sơ chứng nhận trong CRM</a></p>`;
   const result = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
@@ -99,7 +99,7 @@ export async function notifySupplierCertificateExpiry(input: {
     const name = (input.certificateName || "Chứng nhận").replace(/[\r\n]/g, " ").slice(0, 140);
     const url = `${notificationOrigin()}/supplier/portal/documents`;
     const title = `Chứng nhận sắp hết hạn (còn ${input.daysLeft} ngày): ${name}`;
-    const explanation = `Chứng nhận “${name}” trên hồ sơ xác thực của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang người mua. Vui lòng vào mục Xác thực doanh nghiệp để tải bản gia hạn mới; hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.`;
+    const explanation = `Chứng nhận "${name}" trên hồ sơ xác thực của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang người mua. Vui lòng vào mục Xác thực doanh nghiệp để tải bản gia hạn mới; hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.`;
     const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Cập nhật giấy tờ xác thực trên cổng nhà cung cấp</a></p>`;
     const res = await transport({
       to: recipients,
@@ -246,9 +246,9 @@ export async function notifyCategoryRequestDecision(input: {
     const title = opened ? `Đã mở ngành: ${label}` : `Chưa mở được ngành: ${label}`;
     const where = input.categoryLabel ? ` Danh mục tương ứng: ${escapeHtml(input.categoryLabel)}.` : "";
     const explanation = opened
-      ? `Vexim đã mở ngành này.${where} Bạn chọn danh mục đó trong mục Danh mục kinh doanh để đăng sản phẩm; sản phẩm vẫn được duyệt trước khi hiển thị.`
+      ? `Ngành này đã được mở.${where} Bạn chọn danh mục đó trong mục Danh mục kinh doanh để đăng sản phẩm; sản phẩm vẫn được duyệt trước khi hiển thị.`
       // Thư trả lời: nhiều vế cần đọc liền mạch nên để nguyên một câu dài (copy-allow bên dưới).
-      : `Vexim chưa mở được ngành này.${input.note ? ` Lý do: ${escapeHtml(input.note.trim().slice(0, 1000))}` : ""} Hồ sơ doanh nghiệp của bạn vẫn được xét bình thường; nếu ngành của bạn còn thiếu, bạn có thể bổ sung cách gọi khác trong mục Danh mục kinh doanh.`; // copy-allow: câu của thư trả lời cho nhà cung cấp
+        : `Ngành này chưa được mở.${input.note ? ` Lý do: ${escapeHtml(input.note.trim().slice(0, 1000))}` : ""} Hồ sơ doanh nghiệp của bạn vẫn được xét bình thường; nếu ngành của bạn còn thiếu, bạn có thể bổ sung cách gọi khác trong mục Danh mục kinh doanh.`; // copy-allow: câu của thư trả lời cho nhà cung cấp
     const url = `${notificationOrigin()}/supplier/portal/categories`;
     const body = `<p>${explanation}</p><p><a href="${url}">Mở mục danh mục kinh doanh</a></p>`;
     const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,

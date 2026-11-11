@@ -39,6 +39,7 @@ import type {
   RfqMediatedThread,
   RfqMediatedMessage,
   RfqMediatedAlert,
+  RfqLeadRating,
   SponsoredPush,
   SponsoredPushDaily,
   SponsoredRequest,
@@ -2151,6 +2152,23 @@ export const supabaseStore: DataStore = {
   async markRfqThreadRead(matchId, side, at) {
     const { error } = await must().rpc("mark_rfq_thread_read", { p_match_id: matchId, p_side: side, p_at: at });
     if (error) fail("markRfqThreadRead", error);
+  },
+  async getRfqLeadRating(matchId) {
+    const { data, error } = await must().from("rfq_lead_ratings").select("*").eq("match_id", matchId).maybeSingle();
+    if (error) fail("getRfqLeadRating", error);
+    return (data as RfqLeadRating | null) ?? null;
+  },
+  async saveRfqLeadRating(input) {
+    const { data, error } = await must().from("rfq_lead_ratings")
+      .upsert({ ...input, updated_at: new Date().toISOString() }, { onConflict: "match_id" }).select("*").single();
+    if (error) fail("saveRfqLeadRating", error);
+    return data as RfqLeadRating;
+  },
+  async listRfqLeadRatings(filter) {
+    const query = must().from("rfq_lead_ratings").select("*").order("updated_at", { ascending: false }).limit(500);
+    const { data, error } = await ("rfqId" in filter ? query.eq("rfq_id", filter.rfqId) : query.eq("buyer_id", filter.buyerId));
+    if (error) fail("listRfqLeadRatings", error);
+    return (data ?? []) as RfqLeadRating[];
   },
   async listRfqMediatedThreads(rfqIds) {
     return readByIds<RfqMediatedThread>("listRfqMediatedThreads", "rfq_mediated_threads", "rfq_id", rfqIds);

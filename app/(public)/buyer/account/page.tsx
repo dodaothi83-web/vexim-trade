@@ -33,11 +33,11 @@ function requestStatus(rfq: Rfq, vi: boolean, published: boolean, outcome: "decl
       ? rfq.specs?.direct_delivery_version === "portal_direct_v2"
         ? (vi ? "Đang chuyển tới nhà cung cấp" : "Supplier delivery pending")
         : (vi ? "Chưa xác nhận đã chuyển" : "Delivery unconfirmed")
-      : (vi ? "Vexim đã nhận" : "Received by Vexim");
+      : (vi ? "Đã nhận" : "Received");
     case "needs_review": case "spam": return vi ? "Đang kiểm tra yêu cầu" : "Request under review";
     case "matching": return direct
       ? (vi ? "Đã chuyển tới nhà cung cấp" : "Sent to supplier")
-      : (vi ? "Vexim đang điều phối" : "Vexim coordinating");
+      : (vi ? "Đang điều phối" : "Coordinating");
     case "quoted": return published
       ? (vi ? "Có báo giá" : "Quote available")
       : (vi ? "Chưa có báo giá công bố" : "No published quote yet");
@@ -47,7 +47,7 @@ function requestStatus(rfq: Rfq, vi: boolean, published: boolean, outcome: "decl
     case "won": case "lost": return vi ? "Đã kết thúc" : "Closed";
     default: return direct
       ? (vi ? "Yêu cầu đang mở" : "Request open")
-      : (vi ? "Vexim đang xem yêu cầu" : "Vexim reviewing");
+      : (vi ? "Đang xem xét" : "Under review");
   }
 }
 
@@ -176,7 +176,7 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
           </section>
           {(tab === "overview" || tab === "requests") && <section className={panel} aria-label={titles.requests}>
             <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">{titles.requests}</h2>{tab === "overview" && directRequests.length > 5 && viewAll("/buyer/account?tab=requests", directRequests.length)}</div>
-            {!directRequests.length ? <div className="py-12 text-center"><VeximBuyerEnquiriesIcon className="mx-auto h-12 w-12 text-brand-700" /><p className="mt-4 font-semibold">{vi ? "Chưa có yêu cầu báo giá hoặc câu hỏi sản phẩm." : "No quote or product enquiries yet."}</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-500">{vi ? "Chọn nhà cung cấp hoặc sản phẩm để gửi RFQ trực tiếp. Tìm nguồn chung nằm ở mục Vexim." : "Choose a supplier or product for a direct RFQ. General sourcing is in the Vexim tab."}</p></div> : <ul className="mt-2 divide-y divide-ink-100">{(tab === "overview" ? directRequests.slice(0, 5) : directRequests).map((r) => {
+            {!directRequests.length ? <div className="py-12 text-center"><VeximBuyerEnquiriesIcon className="mx-auto h-12 w-12 text-brand-700" /><p className="mt-4 font-semibold">{vi ? "Chưa có yêu cầu báo giá hoặc câu hỏi sản phẩm." : "No quote or product enquiries yet."}</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-500">{vi ? "Chọn nhà cung cấp hoặc sản phẩm để gửi RFQ trực tiếp. Tìm nguồn chung nằm ở mục Tìm nguồn." : "Choose a supplier or product for a direct RFQ. General sourcing is in the Sourcing tab."}</p></div> : <ul className="mt-2 divide-y divide-ink-100">{(tab === "overview" ? directRequests.slice(0, 5) : directRequests).map((r) => {
               const question = rfqChannel(r) === "question";
               const updates = unreadByRequest.get(r.id) ?? 0;
               return requestRow(r, {
@@ -192,10 +192,10 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
             <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">{titles.vexim}</h2>{tab === "overview" && sourcingRfqs.length > 5 && viewAll("/buyer/account?tab=vexim", sourcingRfqs.length)}</div>
             {tab === "vexim" && <p className="mt-2 text-sm leading-6 text-ink-600">{vi ? "Vexim trình các báo giá đã công bố trong RFQ liên kết. Liên hệ của bạn chỉ ở Vexim; mọi trao đổi tìm nguồn qua Vexim." : "Vexim presents published supplier quotes on the linked RFQ. Your contact stays with Vexim; all sourcing messages go through Vexim."}</p>}
             {deskUnavailable && <p role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{vi ? "Chưa tải được cập nhật trao đổi. Thử lại sau." : "Conversation updates are temporarily unavailable. Please retry."}</p>}
-            {!sourcingRfqs.length ? <p className="mt-4 text-sm text-ink-500">{vi ? "Chưa có RFQ tìm nguồn qua Vexim." : "No Vexim sourcing RFQs yet."}</p>
+            {!sourcingRfqs.length ? <p className="mt-4 text-sm text-ink-500">{vi ? "Chưa có RFQ tìm nguồn." : "No sourcing RFQs yet."}</p>
               : <ul className="mt-2 divide-y divide-ink-100">{(tab === "overview" ? sourcingRfqs.slice(0, 5) : sourcingRfqs).map((r) => requestRow(r, {
                 status: requestStatus(r, vi, publishedRequests.has(r.id)),
-                update: unreadByRequest.get(r.id) ? (vi ? "Có cập nhật từ Vexim" : "New Vexim update") : null,
+                update: unreadByRequest.get(r.id) ? (vi ? "Có cập nhật mới" : "New update") : null,
               }))}</ul>}
           </section>}
           {(tab === "overview" || tab === "vexim") && <BuyerSourcingHistory rows={sourcing} vi={vi} unavailable={sourcingUnavailable} preview={tab === "overview"} linkedRfqs={linkedRfqs} />}

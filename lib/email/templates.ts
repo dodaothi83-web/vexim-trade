@@ -87,8 +87,8 @@ export function wrapEmailShell(opts: {
   company?: CompanyInfo;
 }): string {
   const brand = opts.company ?? COMPANY;
-  const footer = `${escapeHtml(brand.name)} &middot; ${escapeHtml(brand.address)}<br/>
-    ${escapeHtml(brand.phone)} &middot; <a href="${escapeHtml(brand.website)}" style="color:${BRAND};text-decoration:none;">${escapeHtml(brand.website)}</a>`;
+  const footer = `${escapeHtml(brand.name)} | ${escapeHtml(brand.address)}<br/>
+    ${escapeHtml(brand.phone)} | <a href="${escapeHtml(brand.website)}" style="color:${BRAND};text-decoration:none;">${escapeHtml(brand.website)}</a>`;
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -211,8 +211,8 @@ function calloutBox(title: string, html: string, tone: "brand" | "amber" = "bran
 function signature(name: string | null, role: string, email?: string | null): string {
   return `<p style="font-size:14px;line-height:20px;margin:18px 0 0;">
       <strong>${escapeHtml(name || COMPANY.name)}</strong><br/>
-      <span style="color:${MUTED};">${escapeHtml(role)} &middot; ${escapeHtml(COMPANY.name)}</span><br/>
-      <span style="color:${MUTED};">${escapeHtml(COMPANY.phone)} &middot; ${escapeHtml(email?.trim() || COMPANY.email)}</span>
+      <span style="color:${MUTED};">${escapeHtml(role)} | ${escapeHtml(COMPANY.name)}</span><br/>
+      <span style="color:${MUTED};">${escapeHtml(COMPANY.phone)} | ${escapeHtml(email?.trim() || COMPANY.email)}</span>
     </p>`;
 }
 
@@ -367,7 +367,7 @@ export function buildSupplierEmail(opts: {
     ${statusPill(stage, "vi")}
     <p style="font-size:15px;line-height:24px;margin:18px 0 0;">Chào ${escapeHtml(supplier.contact_name || supplier.name)},</p>
     <p style="font-size:14px;line-height:22px;margin:10px 0 0;color:${MUTED};">
-      Đơn <strong style="color:${INK};">${escapeHtml(ref)}</strong> · giai đoạn <strong style="color:${INK};">${escapeHtml(stageDef.label)}</strong>
+      Đơn <strong style="color:${INK};">${escapeHtml(ref)}</strong>, giai đoạn <strong style="color:${INK};">${escapeHtml(stageDef.label)}</strong>
     </p>
     ${paragraphs(copy.body.map((p) => fill(p, buyer, supplier, ref)))}
     ${summary}

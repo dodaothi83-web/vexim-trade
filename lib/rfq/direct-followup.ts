@@ -37,7 +37,7 @@ export function buildDirectBuyerNotice(kind: DirectBuyerNotice, rfq: Pick<Rfq, "
     : "A supplier you selected has not replied by the response date. The request stays open in their portal and they can still quote.";
   const body = `<p>${lead}</p>
     <p><a href="${escapeHtml(link)}">Sign in to view your request</a></p>
-    <p>If you still need this product, you can submit a new general sourcing RFQ to Vexim. This email is a notification only; replies are not recorded.</p>`;
+    <p>If you still need this product, you can submit a new general sourcing RFQ. This email is a notification only; replies are not recorded.</p>`;
   return { subject, html: wrapPlainEmail({ title: escapeHtml(subject), body }),
     text: `${subject}\n${link}\nSign in for details. Email is a notification only.` };
 }

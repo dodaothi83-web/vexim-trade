@@ -10,7 +10,10 @@ import { quotePortalCopy } from "@/lib/rfq/portal-copy";
 import { rfqChannel } from "@/lib/rfq/channel";
 import { canReadMediatedDesk, canUseMediatedDesk, safeMediatedMessages } from "@/lib/rfq/mediated";
 import { QUOTE_CURRENCIES, QUOTE_INCOTERMS } from "@/lib/supplier-portal/quote";
+import { canRateRfqLead } from "@/lib/rfq/lead-rating";
+import { migrationHint } from "@/lib/db/migration-hints";
 import { RequestDetails } from "../request-details";
+import { LeadRatingForm } from "../lead-rating-form";
 import { SupplierQuoteForm } from "../quote-form";
 import type { MediaAsset } from "@/lib/types";
 import { privateMediaUrl, supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
@@ -66,6 +69,14 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
     dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(value));
   const canPost = canUseRfqThread(rfq, match);
+  // Private supplier -> Vexim signal. `undefined` = could not be loaded: hide the block
+  // rather than offer a form that may overwrite a rating the supplier cannot see.
+  const canRateLead = canRateRfqLead(rfq, match);
+  const leadRating = canRateLead ? await store.getRfqLeadRating(match.id).catch((error) => {
+    console.error("[rfq-lead-rating] could not load", migrationHint(error) ?? error);
+    return undefined;
+  }) : null;
+  const showLeadRating = canRateLead && leadRating !== undefined;
   return <div lang={locale} className="mx-auto max-w-6xl">
     <Link href="/supplier/portal/rfqs" className="inline-flex min-h-10 items-center gap-1.5 text-[13px] font-semibold text-brand-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden="true" />{copy.backToRfqs}</Link>
     <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
@@ -129,6 +140,8 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
               <li key={v.id}>{copy.version} {v.version} · {v.quote_price} {v.quote_currency}/{v.quote_unit} · {date(v.published_at)}</li>)}</ol>
           </details>}
         </section>
+        {showLeadRating && !leadRating && <a href="#lead-rating" className="flex min-h-11 items-center justify-between gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-brand-700 hover:underline lg:hidden">
+          {m.rfqs.leadRating.title}<ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" /></a>}
         {sourcing ? <>
           {deskReadable ? <RfqMediatedThread rfqId={rfq.id} matchId={match.id} side="supplier" messages={deskMessages}
             lastVisibleAt={deskMessages.at(-1)?.created_at ?? null} canPost={canUseMediatedDesk(rfq, match)} locale={locale}
@@ -143,7 +156,8 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
           markRead={supplierRfqReadAction.bind(null, match.id)} />
           : <div className="flex items-start gap-3 rounded-2xl border border-ink-200 bg-ink-50 p-5 text-[13px] leading-6 text-ink-700"><MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden="true" />{copy.noConsent}</div>}
       </div>
-      <aside className="space-y-4 lg:sticky lg:top-24">
+      {/* Scrolls on its own when the open rating form is taller than a short laptop screen. */}
+      <aside className="space-y-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
         <section className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
           <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink-600">{m.rfqs.buyer.title}</h2>
           {!sourcing && item.buyerContact ? <dl className="mt-3 space-y-3 text-[13px]">
@@ -151,8 +165,12 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
             <div><dt className="text-ink-500">{m.rfqs.buyer.name}</dt><dd className="break-words font-semibold text-ink-900">{item.buyerContact.contact_name || "—"}</dd></div>
             <div><dt className="text-ink-500">{m.rfqs.buyer.email}</dt><dd className="break-all font-semibold text-ink-900">{item.buyerContact.email}</dd></div>
             <p className="border-t border-ink-100 pt-3 text-[12px] leading-5 text-ink-500">{m.rfqs.buyer.scope}</p>
-          </dl> : <p className="mt-3 text-[13px] leading-6 text-ink-600">{sourcing ? (locale === "vi" ? "Vexim điều phối yêu cầu này. Liên hệ người mua không được chia sẻ; hãy trao đổi với Vexim trong cổng." : "Vexim coordinates this request. Buyer contact is not shared; use the Vexim conversation in your portal.") : m.rfqs.buyer.unavailableDirect}</p>}
+          </dl> : <p className="mt-3 text-[13px] leading-6 text-ink-600">{sourcing ? (locale === "vi" ? "Vexim điều phối yêu cầu này. Liên hệ người mua không được chia sẻ; hãy trao đổi ngay trong cổng." : "Vexim coordinates this request. Buyer contact is not shared; use the conversation in your portal.") : m.rfqs.buyer.unavailableDirect}</p>}
         </section>
+        {showLeadRating ? <LeadRatingForm matchId={match.id} copy={m.rfqs.leadRating}
+          current={leadRating ? { rating: leadRating.rating, reasons: leadRating.reasons, note: leadRating.note } : null} />
+          : !sourcing && item.buyerContact && !canRateLead && <p className="rounded-xl bg-ink-50 p-4 text-[12px] leading-5 text-ink-600">
+            <span className="block font-semibold text-ink-800">{m.rfqs.leadRating.title}</span>{m.rfqs.leadRating.notYet}</p>}
         {item.dueAt && <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] text-ink-700"><Clock3 className="h-4 w-4 shrink-0" aria-hidden="true" />{m.rfqs.tasks.due} {date(item.dueAt)}</p>}
         <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] leading-5 text-ink-600"><ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />{copy.emailFallback}</p>
       </aside>

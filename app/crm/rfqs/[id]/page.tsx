@@ -65,6 +65,8 @@ import { canUseMediatedDesk, canReadMediatedDesk, safeMediatedMessages, deskHasN
 import { RfqMediatedThread } from "@/components/rfq-mediated-thread";
 import { staffVeximMessageAction, staffVeximReadAction } from "./mediation-actions";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { LEAD_RATING_STAFF_NOTE, LeadRatingList } from "@/components/crm/lead-ratings";
+import { migrationHint } from "@/lib/db/migration-hints";
 
 export const dynamic = "force-dynamic";
 
@@ -155,7 +157,7 @@ export default async function RfqDetailPage({
   if (!rfq) notFound();
   const channel = rfqChannel(rfq);
   const canManageRfq = hasManagePermission && channel === "sourcing";
-  const [buyer, matches, suppliers, users, attachments, category, products, messages] = await Promise.all([
+  const [buyer, matches, suppliers, users, attachments, category, products, messages, leadRatings] = await Promise.all([
     store.getBuyer(rfq.buyer_id).catch(() => null),
     store.listRfqMatches(rfq.id).catch(() => []),
     store.listSuppliers().catch(() => []),
@@ -164,6 +166,10 @@ export default async function RfqDetailPage({
     rfq.category_id ? store.getCategory(rfq.category_id).catch(() => null) : Promise.resolve(null),
     store.listProducts().catch(() => []),
     store.listMessagesForRfq(rfq.id).catch(() => []),
+    store.listRfqLeadRatings({ rfqId: rfq.id }).catch((error) => {
+      console.error("[rfq-lead-rating] could not load", migrationHint(error) ?? error);
+      return [];
+    }),
   ]);
 
   const reviewedSteps = new Map<string, Array<1 | 2 | 3>>();
@@ -731,6 +737,13 @@ export default async function RfqDetailPage({
               </ul>
             </section>
           )}
+
+          {leadRatings.length > 0 && <section className="card p-4 sm:p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Đánh giá lead từ nhà cung cấp</h2>
+            <p className="mb-3 mt-1.5 text-[12px] leading-5 text-ink-600">{LEAD_RATING_STAFF_NOTE}</p>
+            <LeadRatingList ratings={leadRatings}
+              supplierNames={new Map(leadRatings.map((r) => [r.supplier_id, supplierName(supplierMap.get(r.supplier_id), "Nhà cung cấp")]))} />
+          </section>}
 
           <section className="card p-4 sm:p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Ghi chú nội bộ</h2>

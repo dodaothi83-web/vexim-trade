@@ -1114,6 +1114,27 @@ export interface RfqThreadMessage {
   created_at: string;
 }
 
+export type RfqLeadRatingLevel = "good" | "normal" | "poor";
+export type RfqLeadRatingReason = "no_reply" | "incomplete" | "unrealistic" | "fake_identity" | "spam" | "abusive";
+
+/** A supplier's optional, private assessment of one direct RFQ. Staff and the rating
+ * supplier only: never project it to a buyer page, buyer email or another supplier. */
+export interface RfqLeadRating {
+  id: string;
+  match_id: string;
+  rfq_id: string;
+  supplier_id: string;
+  buyer_id: string;
+  rating: RfqLeadRatingLevel;
+  /** Required for "poor", empty otherwise. */
+  reasons: RfqLeadRatingReason[];
+  /** Free text for Vexim staff. */
+  note: string | null;
+  rated_by_email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Sourcing has two disjoint audiences: one buyer desk per RFQ, one supplier desk per match. */
 export interface RfqMediatedThread {
   id: string;

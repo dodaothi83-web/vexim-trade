@@ -188,6 +188,6 @@ export async function POST(request: Request) {
     acknowledged,
     message: isVi
       ? `Đã nhận đăng ký "${serviceTitle}" của ${companyName}. Mã yêu cầu ${reference}. Chuyên viên Vexim Trade sẽ gọi cho ${contactName} qua số ${phone} trong vòng 1 ngày làm việc.`
-      : `Registration received for "${serviceTitle}" — reference ${reference}. A Vexim Trade consultant will contact ${contactName} on ${phone} within one business day.`,
+      : `Registration received for "${serviceTitle}", reference ${reference}. A Vexim Trade consultant will contact ${contactName} on ${phone} within one business day.`,
   });
 }

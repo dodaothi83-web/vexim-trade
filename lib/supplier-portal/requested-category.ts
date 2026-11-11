@@ -31,10 +31,10 @@ const REQUESTED_CATEGORY_TOTAL = 260;
  * và thư trả lời đều trích đúng câu này, không ai diễn giải lại thành khác.
  */
 export const REQUESTED_CATEGORY_PROMISE_VI =
-  "Vexim sẽ xem xét mở ngành này trong 3 ngày làm việc và báo bạn qua email. Hồ sơ doanh nghiệp vẫn được duyệt, sản phẩm đăng được khi ngành đã mở.";
+  "Ngành này sẽ được xem xét trong 3 ngày làm việc và báo bạn qua email. Hồ sơ doanh nghiệp vẫn được duyệt, sản phẩm đăng được khi ngành đã mở.";
 
 export const REQUESTED_CATEGORY_PROMISE_EN =
-  "Vexim reviews this industry within 3 working days and replies by email. Your company profile is still reviewed, and you can publish products once the industry is open.";
+  "This industry is reviewed within 3 working days and you will get a reply by email. Your company profile is still reviewed, and you can publish products once the industry is open.";
 
 /** Bỏ dấu để so khớp: "Dừa" và "dua" phải bị coi là cùng một ngành. */
 export function foldCategoryLabel(value: string): string {

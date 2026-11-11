@@ -37,6 +37,7 @@ import type {
   RfqMediatedThread,
   RfqMediatedMessage,
   RfqMediatedAlert,
+  RfqLeadRating,
   SponsoredPush,
   SponsoredPushDaily,
   SponsoredPushInput,
@@ -464,6 +465,12 @@ export interface DataStore {
   claimRfqMediatedAlert(alert: RfqMediatedAlert, at: string): Promise<boolean>;
   finishRfqMediatedAlert(id: string, claimedAt: string,
     patch: Pick<RfqMediatedAlert, "status" | "not_before" | "last_error" | "sent_at">): Promise<boolean>;
+  /** Supplier lead ratings are private: call only from supplier-portal code that checked
+   * match ownership, or from staff CRM pages. Never from a buyer route. */
+  getRfqLeadRating(matchId: string): Promise<RfqLeadRating | null>;
+  saveRfqLeadRating(input: Pick<RfqLeadRating, "match_id" | "rfq_id" | "supplier_id" | "buyer_id" |
+    "rating" | "reasons" | "note" | "rated_by_email">): Promise<RfqLeadRating>;
+  listRfqLeadRatings(filter: { rfqId: string } | { buyerId: string }): Promise<RfqLeadRating[]>;
   /** Used only after the buyer's account ownership was checked; excludes private quote fields. */
   listRfqMatchUpdates(rfqIds: string[]): Promise<Pick<RfqMatch, "id" | "rfq_id" | "status" | "sent_to_supplier_at" | "sent_to_buyer_at" |
     "buyer_last_read_at" | "last_thread_message_at" | "last_thread_sender" | "last_supplier_message_at">[]>;
