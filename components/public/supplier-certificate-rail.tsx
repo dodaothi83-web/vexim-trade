@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, Maximize2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Maximize2, X } from "lucide-react";
 
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
 
 /**
  * Danh sách chứng nhận trưng bày ngang trên hồ sơ nhà cung cấp.
  *
- * Mỗi thẻ là ảnh chứng nhận thật (mở bản đầy đủ ở tab mới), bên dưới là tên giấy và
+ * Mỗi thẻ là ảnh chứng nhận thật (mở bản đầy đủ ngay trên trang), bên dưới là tên giấy và
  * ngày hết hạn — đúng thứ người mua cần đối chiếu trước khi hỏi giá. Giấy scan PDF
  * không có bản ảnh công khai nên thẻ rơi về dạng bìa tài liệu; vẫn giữ chỗ trong
  * danh sách để không ai hiểu là nhà cung cấp thiếu giấy.
@@ -20,6 +20,13 @@ const CARD_GAP_PX = 12;
 
 export function SupplierCertificateRail({ certificates }: { certificates: PublicSupplierCertificate[] }) {
   const railRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [selected, setSelected] = useState<PublicSupplierCertificate | null>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (selected && dialog && !dialog.open) dialog.showModal();
+  }, [selected]);
   const [scrollable, setScrollable] = useState(false);
   const [canBack, setCanBack] = useState(false);
   const [canForward, setCanForward] = useState(false);
@@ -80,23 +87,43 @@ export function SupplierCertificateRail({ certificates }: { certificates: Public
         <ul className="flex items-stretch gap-3">
           {certificates.map((certificate) => (
             <li key={certificate.id} className="w-[228px] shrink-0 snap-start sm:w-[252px]">
-              <CertificateCard certificate={certificate} />
+              <CertificateCard certificate={certificate} onOpen={() => setSelected(certificate)} />
             </li>
           ))}
         </ul>
       </div>
+      <dialog ref={dialogRef} onClose={() => setSelected(null)} aria-labelledby="certificate-preview-title"
+        onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}
+        className="m-auto max-h-[95dvh] w-[min(94vw,900px)] max-w-none rounded-xl bg-white p-4 text-ink-900 shadow-xl backdrop:bg-black/75 sm:p-6">
+        {selected?.imageUrl && (
+          <div className="flex max-h-[calc(95dvh-2rem)] flex-col gap-3">
+            <div className="flex shrink-0 items-center justify-between gap-4">
+              <h2 id="certificate-preview-title" className="text-base font-bold">{selected.name}</h2>
+              <button type="button" onClick={() => dialogRef.current?.close()} aria-label="Close certificate preview"
+                className="rounded-full p-2 text-ink-700 hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+                <X aria-hidden="true" className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="min-h-0 overflow-auto">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={selected.imageUrl} alt={`${selected.name} certificate${selected.issuer ? ` issued by ${selected.issuer}` : ""}`}
+                className="mx-auto h-auto max-h-[75dvh] max-w-full object-contain" />
+            </div>
+          </div>
+        )}
+      </dialog>
     </div>
   );
 }
 
-function CertificateCard({ certificate }: { certificate: PublicSupplierCertificate }) {
+function CertificateCard({ certificate, onOpen }: { certificate: PublicSupplierCertificate; onOpen: () => void }) {
   const imageUrl = certificate.imageUrl;
   const alt = `${certificate.name} certificate${certificate.issuer ? ` issued by ${certificate.issuer}` : ""}`;
 
   return (
     <div className="flex h-full flex-col">
       {imageUrl ? (
-        <a href={imageUrl} target="_blank" rel="noreferrer"
+        <button type="button" onClick={onOpen} aria-label={`View ${certificate.name} certificate`}
           className="group relative block aspect-[4/3] overflow-hidden rounded-xl border border-ink-200 bg-ink-50 transition hover:border-brand-300 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={imageUrl} alt={alt} loading="lazy" decoding="async"
@@ -104,8 +131,7 @@ function CertificateCard({ certificate }: { certificate: PublicSupplierCertifica
           <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-ink-600 shadow-2xs ring-1 ring-ink-200 transition group-hover:text-brand-700 group-hover:ring-brand-300">
             <Maximize2 aria-hidden="true" className="h-3.5 w-3.5" />
           </span>
-          <span className="sr-only">(opens the full image in a new tab)</span>
-        </a>
+          </button>
       ) : (
         <div className="flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink-300 bg-ink-50 px-4 text-center">
           <FileText aria-hidden="true" strokeWidth={1.6} className="h-9 w-9 text-ink-400" />
