@@ -20,6 +20,31 @@ export interface PublicSupplierCertificate {
   /** Loại chứng nhận cho bộ lọc; null khi chưa phân loại (hoặc loại không lên chip). */
   scheme: CertificateScheme | null;
   schemeLabel: string | null;
+  /**
+   * Ảnh chứng nhận để trưng bày công khai (xem `certificateImageUrl`). Chỉ có khi
+   * tệp gốc là ảnh đã đăng ký trong kho media; null cho giấy scan PDF nên thẻ
+   * trưng bày rơi về dạng bìa tài liệu. Đường dẫn vẫn phải đi qua route kiểm tra
+   * lại điều kiện công khai, không phải đường dẫn tệp thật.
+   */
+  imageUrl: string | null;
+}
+
+/** Ảnh chứng nhận công khai: đuôi tệp và MIME đều phải là ảnh (không nhận PDF). */
+const PUBLIC_CERTIFICATE_IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif)$/i;
+
+export function isCertificateImageAsset(
+  media: Pick<MediaAsset, "storage_path" | "mime"> | null | undefined,
+): boolean {
+  if (!media?.storage_path || !PUBLIC_CERTIFICATE_IMAGE_EXT.test(media.storage_path)) return false;
+  return !media.mime || media.mime.startsWith("image/");
+}
+
+/**
+ * Đường dẫn ảnh chứng nhận công khai. Route chỉ trả byte khi chứng nhận vẫn đang
+ * được duyệt + công khai + còn hạn, nên đổi quyết định trong CRM là ảnh tự đóng.
+ */
+export function certificateImageUrl(mediaId: string): string {
+  return `/public-media/certificate/${encodeURIComponent(mediaId)}`;
 }
 
 /** Phạm vi + lựa chọn của nhà cung cấp để biết giấy có áp cho sản phẩm này không. */
@@ -92,8 +117,34 @@ export function publicSupplierCertificates(
       scheme: isCertificateChipScheme(c.certificate_scheme) && isCertificateScheme(c.certificate_scheme)
         ? c.certificate_scheme : null,
       schemeLabel: isCertificateScheme(c.certificate_scheme) ? certificateSchemeLabel(c.certificate_scheme, "en") : null,
+      imageUrl: isCertificateImageAsset(byId.get(c.file_media_id!)) ? certificateImageUrl(c.file_media_id!) : null,
     }))
     .slice(0, 16);
+}
+
+/**
+ * Tệp nào được phép phục vụ như *ảnh* chứng nhận công khai (route
+ * `/public-media/certificate/<mediaId>`).
+ *
+ * Điều kiện không chép lại ở route: chạy đúng bộ lọc hồ sơ nhà cung cấp
+ * (`publicSupplierCertificates`) rồi mới so đường dẫn ảnh. Nhờ vậy ảnh chỉ mở khi
+ * giấy đã duyệt, đang công khai, không bị ẩn/thay thế, còn hạn và đúng đơn vị
+ * đứng tên — rút một trong các điều kiện đó trong CRM là ảnh đóng ngay, kể cả khi
+ * người mua còn giữ URL cũ.
+ *
+ * PDF không bao giờ đi qua đây: nhận diện theo đuôi tệp lẫn MIME nên giấy scan PDF
+ * vẫn chỉ nằm trong kho nội bộ.
+ */
+export function publicCertificateImage(
+  media: MediaAsset | null | undefined,
+  certificates: Certificate[] | readonly Certificate[],
+  today = new Date().toISOString().slice(0, 10),
+): MediaAsset | null {
+  if (!media || !media.supplier_id || media.kind !== "certificate") return null;
+  if (!isCertificateImageAsset(media)) return null;
+  const visible = publicSupplierCertificates(media.supplier_id, [...certificates], [media], today);
+  const url = certificateImageUrl(media.id);
+  return visible.some((certificate) => certificate.imageUrl === url) ? media : null;
 }
 
 /**

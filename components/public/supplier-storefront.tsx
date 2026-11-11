@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { SupplierProductRail } from "@/components/public/supplier-product-rail";
 import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
+import { SupplierCertificateRail } from "@/components/public/supplier-certificate-rail";
 import { VERIFICATION_LEVEL_ICONS } from "@/components/verification-tier";
 import { supplierShortName } from "@/lib/public/supplier-name";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
@@ -379,24 +380,8 @@ export function SupplierStorefront({
         {certificates.length > 0 && (
           <section id="certificates" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="certificates-title">
             <h2 id="certificates-title" className="text-lg font-bold text-ink-900">Certificates on file</h2>
-            <p className="mt-1 text-xs leading-5 text-ink-600">Shared by the supplier. Holder names and expiry dates come from the document copies. Issuer authentication is a separate check.</p>
-            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-              {certificates.map((c) => (
-                <li key={c.id} className="rounded-xl border border-ink-200 bg-white p-4 text-sm shadow-2xs">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong className="font-bold text-ink-900">{c.name}</strong>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${c.holderMatch === "owner" ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-1 ring-amber-200"}`}>
-                      {c.holderMatch === "owner" ? "Registered to supplier" : `Third-party holder · ${c.holderName}`}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs text-ink-600">
-                    {c.holderName ? `Holder on document: ${c.holderName} · ` : ""}
-                    {c.issuer ? `Issuer: ${c.issuer} · ` : ""}
-                    Valid until: <strong className="text-ink-900">{c.validUntil}</strong>
-                  </p>
-                </li>
-              ))}
-            </ul>
+            <p className="mt-1 text-xs leading-5 text-ink-600">Images are the document copies shared by the supplier. Holder names and expiry dates come from these copies. Issuer authentication is a separate check.</p>
+            <SupplierCertificateRail certificates={certificates} />
           </section>
         )}
         {s.gallery_images.length > 0 && <section className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="gallery-title">
