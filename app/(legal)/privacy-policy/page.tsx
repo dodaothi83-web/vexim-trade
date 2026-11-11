@@ -36,7 +36,7 @@ export default function PrivacyPolicyPage() {
 
     <section className="mt-9 space-y-3" aria-labelledby="privacy-use">
       <h2 id="privacy-use" className="text-xl font-bold text-ink-900">3. How we use information</h2>
-      <p className="text-sm leading-7 text-ink-700">We use information to authenticate users, review supplier applications and product submissions, respond to buyer enquiries, identify potentially suitable suppliers, arrange requested introductions, communicate about your account or RFQ, protect the service against abuse, and maintain and improve the platform. A supplier invited to a request may give Vexim optional feedback on how that request went, for example whether it received a reply. Vexim staff use this feedback internally to review request quality and prevent abuse; it is not published, is not shared with other suppliers and does not by itself restrict a buyer&apos;s account. Supplier document checks, factory verification and delivery-history reviews are separate human decisions; uploading information never automatically grants a public verification badge.</p>
+      <p className="text-sm leading-7 text-ink-700">We use information to authenticate users, review supplier applications and product submissions, respond to buyer enquiries, identify potentially suitable suppliers, arrange requested introductions, communicate about your account or RFQ, protect the service against abuse, and maintain and improve the platform. Supplier document checks, factory verification and delivery-history reviews are separate human decisions; uploading information never automatically grants a public verification badge.</p>
     </section>
 
     <section className="mt-9 space-y-3" aria-labelledby="privacy-share">

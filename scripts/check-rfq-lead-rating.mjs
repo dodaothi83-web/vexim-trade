@@ -190,8 +190,14 @@ assert.doesNotMatch(read('app/supplier/portal/rfqs/page.tsx'), NAMES, 'not on th
 for (const file of ['app/crm/rfqs/[id]/page.tsx', 'app/crm/buyers/[id]/page.tsx']) assert.match(read(file), /LEAD_RATING_STAFF_NOTE/);
 assert.match(read('app/crm/buyers/[id]/page.tsx'), /canViewRfqs \? store\.listRfqLeadRatings/);
 
-/* 7. Both policy languages disclose the feedback. */
-assert.match(read('app/(legal)/privacy-policy/page.tsx'), /optional feedback on how that request went/);
-assert.match(read('app/(legal)/chinh-sach-bao-mat/page.tsx'), /nhận xét không bắt buộc về yêu cầu đó/);
+/* 7. Neutral wording: the supplier-facing copy describes the rating, not what the
+   platform does with it, and no public legal page describes it either. */
+const dictionary = read('lib/i18n/portal/rfqs.ts');
+for (const block of dictionary.split('  leadRating: {').slice(1)) {
+  const copy = block.slice(0, block.indexOf('\n  },\n'));
+  assert.ok(copy.includes('reasons: {'), 'lead rating copy block found');
+  assert.doesNotMatch(copy, /vexim|nhân viên|staff/i, 'lead rating copy does not mention the platform');
+}
+for (const file of walk('app/(legal)')) assert.doesNotMatch(read(file), /lead rating|feedback on how that request|nhận xét không bắt buộc/i, file);
 
 console.log('rfq lead rating: ok');
