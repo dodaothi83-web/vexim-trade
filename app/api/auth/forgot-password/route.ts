@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     const greeting = (user.name ?? "").trim() || user.email;
     const subject = "Đặt lại mật khẩu tài khoản Vexim Trade";
     const body = `<p>Xin chào ${escapeHtml(greeting)},</p>
-      <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>${escapeHtml(user.email)}</strong> trên Cổng nhà cung cấp Vexim Trade.</p>
+      <p>Có yêu cầu đặt lại mật khẩu cho tài khoản <strong>${escapeHtml(user.email)}</strong> trên cổng nhà cung cấp.</p>
       <p><a href="${escapeHtml(resetUrl)}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#0f766e;color:#ffffff;font-weight:600;text-decoration:none;">Đặt lại mật khẩu</a></p>
       <p>Liên kết có hiệu lực trong <strong>30 phút</strong> và chỉ dùng được một lần. Nếu bạn không yêu cầu thay đổi mật khẩu, hãy bỏ qua thư này.</p>`;
 

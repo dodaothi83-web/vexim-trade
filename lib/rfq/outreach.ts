@@ -113,7 +113,7 @@ export async function notifySelectedSupplier(rfq: Rfq, match: RfqMatch, _actorId
     if (!supplier || !(await canInviteSupplier(supplier, store))) return "skipped";
     const user = await store.getUserBySupplierId(supplier.id);
     if (!user?.is_active || user.role !== "supplier" || user.supplier_id !== supplier.id) return "skipped";
-    const subject = `[${rfq.code}] Vexim đã cập nhật lựa chọn báo giá`;
+    const subject = `[${rfq.code}] Trạng thái báo giá đã cập nhật`;
     const link = `${SITE_URL}/supplier/portal/rfqs/${encodeURIComponent(match.id)}`;
     const html = wrapPlainEmail({ title: escapeHtml(subject), body:
       `<p>Trạng thái báo giá của bạn đã cập nhật trong cổng nhà cung cấp.</p><p><a href="${escapeHtml(link)}">Đăng nhập để xem</a></p><p>Email chỉ để thông báo.</p>` });

@@ -75,10 +75,10 @@ export async function runRfqPortalAlerts(store: DataStore, options: { matchIds?:
         : `${SITE_URL}/supplier/portal/rfqs/${encodeURIComponent(match.id)}`;
       const sourced = rfqChannel(rfq) === "sourcing";
       const subject = buyerSide
-        ? `${sourced ? "New quote from Vexim" : quote ? "New quote" : "New message"} for your request (Ref ${rfq.code})`
+        ? `${sourced || quote ? "New quote" : "New message"} for your request (Ref ${rfq.code})`
         : `[${rfq.code}] ${quote ? "Báo giá đã được công bố" : "Có tin nhắn mới"}`;
       const body = buyerSide
-        ? `<p>${sourced ? "Vexim has presented a supplier quote" : quote ? "A supplier has published a quote" : "A supplier replied to your request"} on Vexim Trade.</p>`
+        ? `<p>${sourced ? "A supplier quote is ready for you to review" : quote ? "A supplier has published a quote" : "A supplier replied to your request"} on Vexim Trade.</p>`
         : `<p>${quote ? "Báo giá đã được công bố" : "Có cập nhật mới"} trong yêu cầu của bạn trên Vexim Trade.</p>`;
       const html = wrapPlainEmail({ title: escapeHtml(subject), body: `${body}<p><a href="${escapeHtml(link)}">${buyerSide ? "View quote and conversation" : "Xem yêu cầu và trao đổi"}</a></p><p>${buyerSide ? "This email is a notification; the quote and conversation are saved in your account." : "Email chỉ để thông báo; báo giá và trao đổi được lưu trong tài khoản."}</p>` });
       const result = await transport({ to: [to], from: FROM_ADDRESS,

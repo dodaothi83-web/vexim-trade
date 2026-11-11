@@ -24,7 +24,7 @@ export function buildSignature(
 ): string {
   const name = escapeHtml(owner?.trim() || COMPANY.name);
   // Số riêng của nhân viên; nếu chưa có thì bỏ qua, không dùng số tổng đài thay thế
-  const personalPhone = phone?.trim() ? `${escapeHtml(phone.trim())} &middot; ` : "";
+  const personalPhone = phone?.trim() ? `${escapeHtml(phone.trim())} | ` : "";
   const contactEmail = escapeHtml(email?.trim() || COMPANY.email);
   const websiteHost = SITE_URL.replace("https://", "");
   const legal = escapeHtml(COMPANY.legalName);
@@ -32,7 +32,7 @@ export function buildSignature(
     `<p style="font-size:14px;line-height:22px;margin:28px 0 0;">Best regards,</p>`,
     `<p style="margin:10px 0 0;font-size:13px;line-height:20px;color:${brandColors.muted};">`,
     `<strong style="font-size:14px;color:${brandColors.text};">${name}</strong><br/>`,
-    `Export Department &middot; ${escapeHtml(COMPANY.name)}<br/>`,
+    `Export Department | ${escapeHtml(COMPANY.name)}<br/>`,
     `${personalPhone}${contactEmail}<br/>`,
     `<a href="${SITE_URL}" style="color:${brandColors.primary};text-decoration:none;">${websiteHost}</a><br/>`,
     // Pháp nhân đứng ngay trên địa chỉ: buyer cần đúng tên này khi ký hợp đồng và

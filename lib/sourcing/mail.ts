@@ -18,8 +18,8 @@ async function deliver(store: DataStore, request: SourcingRequest, language: "vi
     : `Sourcing request update ${request.id.slice(0, 8).toUpperCase()}`;
   const url = link(request.id);
   const body = language === "vi"
-    ? `<p>Yêu cầu tìm nguồn của bạn đã có cập nhật.</p><p><a href="${escapeHtml(url)}">Đăng nhập để xem nội dung và trao đổi với Vexim</a></p><p>Không trả lời thư thông báo này; email không cập nhật yêu cầu.</p>`
-    : `<p>Your sourcing request has an update.</p><p><a href="${escapeHtml(url)}">Sign in to view the details and talk to Vexim</a></p><p>Do not reply to this notification; email replies do not update the request.</p>`;
+    ? `<p>Yêu cầu tìm nguồn của bạn đã có cập nhật.</p><p><a href="${escapeHtml(url)}">Đăng nhập để xem nội dung và trả lời</a></p><p>Không trả lời thư thông báo này; email không cập nhật yêu cầu.</p>`
+    : `<p>Your sourcing request has an update.</p><p><a href="${escapeHtml(url)}">Sign in to view the details and reply</a></p><p>Do not reply to this notification; email replies do not update the request.</p>`;
   const html = wrapPlainEmail({ title: escapeHtml(title), body });
   const text = `${title}\n${url}\nSign in to view your request. Email is a notification only.`;
   const delivery = await transport({ to: [request.buyer_email], from: FROM_ADDRESS, subject: title, html, text });

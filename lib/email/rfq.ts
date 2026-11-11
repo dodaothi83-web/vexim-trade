@@ -16,10 +16,10 @@ export async function sendRfqAckBuyer({ rfq, buyer }: { rfq: Rfq; buyer: Buyer }
   const direct = rfqChannel(rfq) === "direct";
   const title = `${direct ? "Direct RFQ saved" : "Sourcing request received"} (Ref ${rfq.code})`;
   const link = buyerUrl(rfq.id);
-  const body = `<p>${direct ? (rfq.status === "new" ? "Your direct RFQ is saved; portal delivery is pending an automatic retry. Vexim does not manage this transaction." : "Your RFQ is available in your selected supplier(s)' portals. You and the suppliers manage these transactions directly; Vexim is not the intermediary.") :
-    "Vexim has received your sourcing request. Our team will invite suitable suppliers and present their quotes in your account."}</p>
+  const body = `<p>${direct ? (rfq.status === "new" ? "Your direct RFQ is saved; portal delivery is pending an automatic retry." : "Your RFQ is available in your selected supplier(s)' portals. You and the suppliers manage these transactions directly; Vexim Trade is not the intermediary.") :
+    "We have received your sourcing request. Our team will invite suitable suppliers and present their quotes in your account."}</p>
     <p><a href="${escapeHtml(link)}">Sign in to view your request, quotes and conversations</a></p>
-    <p>${direct ? "If a direct RFQ does not work out, submit a NEW general sourcing RFQ to Vexim. " : ""}Do not reply to this notification: email replies do not update your request.</p>`;
+    <p>${direct ? "If a direct RFQ does not work out, submit a new general sourcing RFQ. " : ""}Do not reply to this notification: email replies do not update your request.</p>`;
   const html = wrapPlainEmail({ title: escapeHtml(title), body });
   const result = await transport({ to: buyer.email ? [buyer.email] : [], from: FROM_ADDRESS,
     subject: title, html, text: `${title}\n${link}\nSign in to manage this RFQ; this email is a notification only.` });

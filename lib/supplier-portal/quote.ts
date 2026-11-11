@@ -101,8 +101,8 @@ export async function recordSupplierPortalQuote(input: {
     : "Nhà cung cấp không tham gia chào giá lần này.";
   const body = quote.note ? `${summary}\n\nGhi chú của nhà cung cấp:\n${quote.note}` : summary;
   const subject = quote.intent === "quote"
-    ? `Báo giá qua cổng nhà cung cấp – ${rfq.code}`
-    : `Nhà cung cấp từ chối qua cổng – ${rfq.code}`;
+    ? `Báo giá qua cổng nhà cung cấp - ${rfq.code}`
+    : `Nhà cung cấp từ chối qua cổng - ${rfq.code}`;
   await store.addMessage({
     buyer_id: null,
     supplier_id: supplier.id,

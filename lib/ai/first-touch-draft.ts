@@ -115,7 +115,7 @@ function clean(value: string | null | undefined, max = 220): string {
     .replace(/\[[^\]]{1,120}\]\((?:https?:)?\/\/[^)\s]+\)/gi, "")
     .trim();
   if (!raw) return "";
-  return raw.length > max ? `${raw.slice(0, max).trimEnd()}…` : raw;
+  return raw.length > max ? `${raw.slice(0, max).trimEnd()}...` : raw;
 }
 
 /** "A, B and C" — tối đa 3 món, đủ để buyer thấy mình đã nghiên cứu họ */
@@ -295,7 +295,7 @@ export function buildFirstTouchSubject(input: SubjectInput): string {
     product && company ? `${titleCase(product)} for ${titleCase(company)}` : product ? `${titleCase(product)} from Vietnam` : company ? `Vietnam sourcing for ${titleCase(company)}` : "Vietnam sourcing";
   const forms: Record<SubjectForm, string> = {
     for: forForm,
-    from: product ? `${titleCase(product)} from Vietnam` : company ? `${titleCase(company)} — Vietnam sourcing` : "Vietnam sourcing from Vexim Trade",
+    from: product ? `${titleCase(product)} from Vietnam` : company ? `${titleCase(company)}: Vietnam sourcing` : "Vietnam sourcing from Vexim Trade",
     moq: product && moq ? `${titleCase(product)}, MOQ ${moq}` : forForm,
   };
   let subject = forms[wanted] || forms.for;

@@ -119,7 +119,7 @@ export async function runChatNotifications(store: DataStore, nowMs = Date.now())
         entry = { from: supplier ? supplierName(supplier) : "Supplier", product: d.chat.product_name, preview: d.chat.last_message_preview,
           href: `${SITE_URL}/buyer/account/messages?c=${encodeURIComponent(d.id)}`, kind: d.kind };
       } else {
-        entry = { from: "Vexim Trade team", product: null, preview: d.support!.last_message_preview, href: `${SITE_URL}/?support=1`, kind: d.kind };
+        entry = { from: "Support team", product: null, preview: d.support!.last_message_preview, href: `${SITE_URL}/?support=1`, kind: d.kind };
       }
     }
     if (!to.length) { await release(store, d, stamp); continue; }
@@ -147,13 +147,13 @@ const button = (href: string, label: string) => `<p style="margin:20px 0;"><a hr
 
 function rows(entries: Entry[], open: string): string {
   return entries.map((e) => `<div style="margin:12px 0;padding:12px 16px;border-left:4px solid ${brandColors.primary};background:${brandColors.surface};">
-    <div style="font-weight:700;">${escapeHtml(e.from)}${e.product ? ` <span style="font-weight:400;color:${brandColors.muted};">· ${escapeHtml(e.product)}</span>` : ""}</div>
+    <div style="font-weight:700;">${escapeHtml(e.from)}${e.product ? ` <span style="font-weight:400;color:${brandColors.muted};">(${escapeHtml(e.product)})</span>` : ""}</div>
     ${e.preview ? `<div style="margin-top:4px;white-space:pre-wrap;">${escapeHtml(e.preview)}</div>` : ""}
     <div style="margin-top:6px;"><a href="${escapeHtml(e.href)}">${escapeHtml(open)}</a></div></div>`).join("");
 }
 
 function textRows(entries: Entry[]): string {
-  return entries.map((e) => `- ${e.from}${e.product ? ` · ${e.product}` : ""}: ${e.preview ?? ""}\n  ${e.href}`).join("\n");
+  return entries.map((e) => `- ${e.from}${e.product ? ` (${e.product})` : ""}: ${e.preview ?? ""}\n  ${e.href}`).join("\n");
 }
 
 async function sendDigest(audience: Audience, to: string[], entries: Entry[]): Promise<boolean> {
@@ -163,20 +163,20 @@ async function sendDigest(audience: Audience, to: string[], entries: Entry[]): P
     const subject = reminder ? `Reminder: ${n === 1 ? "a message is" : `${n} conversations are`} waiting for your reply on Vexim Trade`
       : n === 1 ? `New message from ${entries[0].from} on Vexim Trade` : `You have unread messages in ${n} conversations on Vexim Trade`;
     const intro = reminder ? "These messages are still unread." : "You have new messages on Vexim Trade.";
-    const html = `<p>${escapeHtml(intro)}</p>${rows(entries, "Open conversation")}${button(n === 1 ? entries[0].href : `${SITE_URL}/buyer/account/messages`, "Reply on Vexim")}
-      <p style="color:${brandColors.muted};font-size:12.5px;">Please do not reply to this email. Messages are only delivered when you reply on Vexim, and your email address stays private.</p>`;
+    const html = `<p>${escapeHtml(intro)}</p>${rows(entries, "Open conversation")}${button(n === 1 ? entries[0].href : `${SITE_URL}/buyer/account/messages`, "Reply to messages")}
+      <p style="color:${brandColors.muted};font-size:12.5px;">Please do not reply to this email. Messages are only delivered when you reply in your account, and your email address stays private.</p>`;
     const res = await transport({ to, from: FROM_ADDRESS, subject, html: wrapPlainEmail({ title: escapeHtml(subject), body: html }),
-      text: `${intro}\n\n${textRows(entries)}\n\nPlease do not reply to this email. Reply on Vexim.` });
+      text: `${intro}\n\n${textRows(entries)}\n\nPlease do not reply to this email. Reply in your account.` });
     return res.ok;
   }
   if (audience === "supplier") {
     const subject = reminder ? `Nhắc: ${n} cuộc trò chuyện với người mua vẫn chờ bạn trả lời`
       : n === 1 ? `Tin nhắn mới từ ${entries[0].from}` : `Bạn có tin nhắn chưa đọc trong ${n} cuộc trò chuyện với người mua`;
-    const intro = reminder ? "Các tin nhắn dưới đây vẫn chưa được đọc. Trả lời sớm giúp hồ sơ của bạn được tin cậy hơn." : "Bạn có tin nhắn mới từ người mua trên Vexim.";
-    const html = `<p>${escapeHtml(intro)}</p>${rows(entries, "Mở cuộc trò chuyện")}${button(`${notificationOrigin()}/supplier/portal/messages`, "Trả lời trên Vexim")}
+    const intro = reminder ? "Các tin nhắn dưới đây vẫn chưa được đọc. Trả lời sớm giúp hồ sơ của bạn được tin cậy hơn." : "Bạn có tin nhắn mới từ người mua trên Vexim Trade.";
+    const html = `<p>${escapeHtml(intro)}</p>${rows(entries, "Mở cuộc trò chuyện")}${button(`${notificationOrigin()}/supplier/portal/messages`, "Trả lời tin nhắn")}
       <p style="color:${brandColors.muted};font-size:12.5px;">Vui lòng không trả lời email này: người mua chỉ nhận được tin gửi trong mục Tin nhắn của cổng nhà cung cấp.</p>`;
     const res = await transport({ to, from: SERVICE_FROM_ADDRESS, subject, html: wrapPlainEmail({ title: escapeHtml(subject), body: html }),
-      text: `${intro}\n\n${textRows(entries)}\n\nVui lòng trả lời trên Vexim.` });
+      text: `${intro}\n\n${textRows(entries)}\n\nVui lòng trả lời trong cổng nhà cung cấp.` });
     return res.ok;
   }
   const subject = reminder ? `Nhắc: ${n} người mua vẫn chờ trả lời chat` : `Người mua đang chờ trả lời chat (${n})`;

@@ -1,7 +1,7 @@
 // node scripts/check-email-copy.mjs — thư gửi nhà cung cấp và người mua không dùng ký tự máy.
 //
 // Quy tắc lấy từ docs/copy-style.md và docs/email-lifecycle-plan.md mục 1c:
-//   - không gạch dài "—", gạch ngắn "–", mũi tên "→/←", emoji trong nội dung thư;
+//   - không gạch dài "—", gạch ngắn "–", mũi tên "→/←", chấm giữa "·", ba chấm "…", ngoặc kép cong, emoji trong nội dung thư;
 //   - Vexim tự xưng "Vexim", không "chúng tôi";
 //   - gọi người nhận là "bạn", không "Anh/Chị", không "Kính gửi"/"Trân trọng".
 //
@@ -20,9 +20,17 @@ const FILES = [
   'lib/rfq/buyer-notify.ts',
   'lib/supplier-portal/notify.ts',
   'lib/supplier-portal/reminders.ts',
+  'lib/email/buyer-auth.ts',
+  'lib/email/signature.ts',
+  'lib/chat/notify.ts',
+  'lib/sourcing/mail.ts',
+  'lib/rfq/mediated-alerts.ts',
+  'lib/rfq/portal-alerts.ts',
+  'lib/rfq/direct-followup.ts',
+  'app/api/auth/forgot-password/route.ts',
 ];
 
-const MACHINE_CHARS = /[—–→←]|\p{Extended_Pictographic}/u;
+const MACHINE_CHARS = /[—–→←·•…“”‘’]|&(?:mdash|ndash|middot|bull|hellip|rarr);|\p{Extended_Pictographic}/u;
 const MACHINE_PHRASES = [
   { pattern: /chúng tôi/i, why: 'Vexim tự xưng "Vexim", không "chúng tôi"' },
   { pattern: /Kính gửi/i, why: 'gọi người nhận là "bạn", không "Kính gửi"' },

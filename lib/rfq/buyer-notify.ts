@@ -18,8 +18,8 @@ type NotifKind = "sampling" | "lost";
 function buildBody(kind: NotifKind, rfq: Rfq) {
   const subject = `${kind === "sampling" ? "Sourcing request moved to sampling" : "Sourcing request closed"} (Ref ${rfq.code})`;
   const link = `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
-  const body = `<p>Your Vexim sourcing request has an update.</p>
-    <p><a href="${escapeHtml(link)}">Sign in to review the details and talk to Vexim</a></p>
+  const body = `<p>Your sourcing request on Vexim Trade has an update.</p>
+    <p><a href="${escapeHtml(link)}">Sign in to review the details and reply</a></p>
     <p>This email is a notification only; replies are not recorded as RFQ messages.</p>`;
   return { subject, html: wrapPlainEmail({ title: escapeHtml(subject), body }),
     text: `${subject}\n${link}\nSign in for details. Email is a notification only.` };

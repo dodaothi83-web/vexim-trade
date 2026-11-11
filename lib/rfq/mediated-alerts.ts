@@ -74,8 +74,8 @@ export async function runRfqMediatedAlerts(store: DataStore, options: { threadId
         : thread.audience === "buyer" ? `${SITE_URL}/buyer/account/requests/${encodeURIComponent(rfq.id)}#vexim-conversation`
           : `${SITE_URL}/supplier/portal/rfqs/${encodeURIComponent(thread.match_id!)}#vexim-conversation`;
       const subject = alert.recipient === "staff" ? `[${rfq.code}] Có tin nhắn trong RFQ tìm nguồn`
-        : thread.audience === "buyer" ? `Update from Vexim for your request (Ref ${rfq.code})`
-          : `[${rfq.code}] Vexim có tin nhắn về báo giá`;
+        : thread.audience === "buyer" ? `New message about your request (Ref ${rfq.code})`
+          : `[${rfq.code}] Có tin nhắn mới về báo giá`;
       const html = wrapPlainEmail({ title: escapeHtml(subject), body:
         `<p>${alert.recipient === "staff" ? "Có trao đổi mới trong yêu cầu tìm nguồn." : "Có cập nhật mới trong trao đổi tìm nguồn trên Vexim Trade."}</p>
          <p><a href="${escapeHtml(link)}">${alert.recipient === "staff" ? "Mở yêu cầu trong CRM" : "Đăng nhập để xem và trả lời trong tài khoản"}</a></p>
