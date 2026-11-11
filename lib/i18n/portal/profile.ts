@@ -225,7 +225,7 @@ const vi: ProfileMessages = {
     },
     info: {
       title: "Thông tin trên hồ sơ",
-      sub: "Bạn cập nhật được thông tin liên hệ, giới thiệu và thương mại. Tên pháp nhân, mã số thuế do Vexim quản lý.",
+      sub: "Bạn cập nhật được thông tin liên hệ, giới thiệu và thương mại. Tên pháp nhân, mã số thuế do chúng tôi quản lý.",
       groups: {
         company: "Doanh nghiệp",
         trade: "Thương mại",
@@ -296,8 +296,8 @@ const vi: ProfileMessages = {
     title: "Chỉnh sửa hồ sơ doanh nghiệp",
     sub: "Cập nhật thông tin liên hệ, giới thiệu và thương mại. Các thông tin pháp lý và kết quả xác minh được giữ nguyên.",
     back: "Quay lại hồ sơ",
-    lockedTitle: "Thông tin do Vexim quản lý",
-    lockedIntro: "Tên pháp nhân, mã số thuế, địa chỉ đăng ký và kết quả xác minh không đổi khi lưu. Liên hệ Vexim nếu cần cập nhật.",
+    lockedTitle: "Thông tin do chúng tôi quản lý",
+    lockedIntro: "Tên pháp nhân, mã số thuế, địa chỉ đăng ký và kết quả xác minh không đổi khi lưu. Liên hệ hỗ trợ nếu cần cập nhật.",
     lockedLabels: {
       name: "Tên pháp nhân",
       taxId: "Mã số thuế",
@@ -305,7 +305,7 @@ const vi: ProfileMessages = {
       email: "Email đăng nhập",
       address: "Địa chỉ đăng ký",
     },
-    typeHint: "Nếu khai sai loại hình, liên hệ Vexim để kiểm tra và cập nhật. Kết quả L3 cũ vẫn giữ phạm vi đã xét.",
+    typeHint: "Nếu khai sai loại hình, liên hệ hỗ trợ để kiểm tra và cập nhật. Kết quả L3 cũ vẫn giữ phạm vi đã xét.",
     contactTitle: "Thông tin liên hệ và hiển thị",
     contactIntro: "Website sẽ công khai khi hồ sơ được đăng; email và điện thoại vẫn riêng tư. AI dịch nội dung sau khi lưu.",
     labels: {

@@ -86,7 +86,7 @@ export type BookingMessages = typeof en;
 
 const vi: BookingMessages = {
   formTitle: "Đặt lịch xác minh nhà máy",
-  formSub: "Vexim sẽ liên hệ để chốt giờ. Cuộc gọi khoảng 20–40 phút.",
+  formSub: "Chúng tôi sẽ liên hệ để chốt giờ. Cuộc gọi khoảng 20–40 phút.",
   method: "Bạn muốn xác minh bằng cách nào?",
   methodVideo: "Gọi video trực tiếp (Zalo, Google Meet hoặc Zoom)",
   methodOnSite: "Kiểm tra trực tiếp tại nhà máy",
@@ -113,7 +113,7 @@ const vi: BookingMessages = {
   save: "Lưu nháp",
   submit: "Gửi lịch hẹn",
   saved: "Đã lưu nháp.",
-  submitted: "Đã gửi. Vexim sẽ liên hệ để chốt giờ.",
+  submitted: "Đã gửi. Chúng tôi sẽ liên hệ để chốt giờ.",
   failed: "Chưa lưu được lịch hẹn. Vui lòng thử lại.",
   noAccess: "Lịch hẹn này không thuộc tài khoản của bạn.",
   locked: "Lịch hẹn đã gửi nên không sửa được nữa.",

@@ -41,7 +41,7 @@ export function RfqMediatedThread({ rfqId, matchId = null, side, messages, lastV
   const errors = vi ? {
     unavailable: "Yêu cầu hoặc mạch trao đổi đã đóng. Tải lại trang.", empty: "Hãy viết nội dung trước khi gửi.",
     too_long: "Tin nhắn tối đa 2.000 ký tự.", rate_limited: "Bạn gửi quá nhiều tin. Vui lòng thử lại sau.",
-    contact: "Không chia sẻ email, số điện thoại hoặc website người mua trong mạch NCC–Vexim.",
+    contact: "Không chia sẻ email, số điện thoại hoặc website người mua trong mạch này.",
     unknown: "Chưa lưu được tin nhắn. Vui lòng thử lại.",
   } : {
     unavailable: "This request or conversation has closed. Please refresh.", empty: "Write a message first.",
@@ -58,7 +58,7 @@ export function RfqMediatedThread({ rfqId, matchId = null, side, messages, lastV
       </p></div>
     </header>
     <div className="px-5 py-5 sm:px-6">
-      {!shown.length ? <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50 p-5 text-center text-[13px] text-ink-600">{vi ? "Chưa có tin nhắn. Hỏi Vexim về yêu cầu hoặc báo giá tại đây." : "No messages yet. Ask Vexim about the request or quote here."}</p> : <>
+      {!shown.length ? <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50 p-5 text-center text-[13px] text-ink-600">{vi ? "Chưa có tin nhắn. Hãy hỏi về yêu cầu hoặc báo giá tại đây." : "No messages yet. Ask about the request or quote here."}</p> : <>
         {!!earlier.length && <details className="mb-5 rounded-xl border border-ink-200 px-4 py-3 text-sm"><summary className="cursor-pointer font-semibold text-brand-700">{vi ? "Tin nhắn cũ" : "Earlier messages"} ({earlier.length})</summary><ol className="mt-4 space-y-4">{earlier.map(render)}</ol></details>}
         <ol className="space-y-4">{shown.map(render)}</ol>
         <RfqReadTracker at={lastVisibleAt} markRead={markRead} />
@@ -72,7 +72,7 @@ export function RfqMediatedThread({ rfqId, matchId = null, side, messages, lastV
         <div className="mt-3 flex items-center justify-between gap-3"><p className="text-[12px] leading-5 text-ink-500">{vi ? "Tin nhắn được lưu trong RFQ. Email chỉ để thông báo." : "Messages are saved in the RFQ. Email is for notifications only."}</p>
           <button type="submit" disabled={pending} className="btn btn-primary min-h-11"><Send className="h-4 w-4" aria-hidden="true" />{pending ? (vi ? "Đang lưu…" : "Saving…") : (vi ? "Gửi tin nhắn" : "Send message")}</button></div>
         {state.error && <p role="alert" className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-semibold text-rose-800">{errors[state.error]}</p>}
-        {state.sent && !state.error && <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] font-semibold text-emerald-800">{vi ? "Tin đã lưu và được chuyển tới đúng mạch Vexim." : "Saved in the Vexim conversation."}</p>}
+        {state.sent && !state.error && <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] font-semibold text-emerald-800">{vi ? "Đã gửi tin nhắn." : "Message sent."}</p>}
       </form> : <p className="mt-5 rounded-lg bg-ink-50 p-3 text-[13px] text-ink-600">{vi ? "Mạch trao đổi đang ở chế độ chỉ đọc." : "This conversation is read-only."}</p>}
     </div>
   </section>;

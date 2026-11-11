@@ -165,7 +165,7 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
             <div><dt className="text-ink-500">{m.rfqs.buyer.name}</dt><dd className="break-words font-semibold text-ink-900">{item.buyerContact.contact_name || "—"}</dd></div>
             <div><dt className="text-ink-500">{m.rfqs.buyer.email}</dt><dd className="break-all font-semibold text-ink-900">{item.buyerContact.email}</dd></div>
             <p className="border-t border-ink-100 pt-3 text-[12px] leading-5 text-ink-500">{m.rfqs.buyer.scope}</p>
-          </dl> : <p className="mt-3 text-[13px] leading-6 text-ink-600">{sourcing ? (locale === "vi" ? "Vexim điều phối yêu cầu này. Liên hệ người mua không được chia sẻ; hãy trao đổi với Vexim trong cổng." : "Vexim coordinates this request. Buyer contact is not shared; use the Vexim conversation in your portal.") : m.rfqs.buyer.unavailableDirect}</p>}
+          </dl> : <p className="mt-3 text-[13px] leading-6 text-ink-600">{sourcing ? (locale === "vi" ? "Vexim điều phối yêu cầu này. Liên hệ người mua không được chia sẻ; hãy trao đổi ngay trong cổng." : "Vexim coordinates this request. Buyer contact is not shared; use the conversation in your portal.") : m.rfqs.buyer.unavailableDirect}</p>}
         </section>
         {showLeadRating ? <LeadRatingForm matchId={match.id} copy={m.rfqs.leadRating}
           current={leadRating ? { rating: leadRating.rating, reasons: leadRating.reasons, note: leadRating.note } : null} />

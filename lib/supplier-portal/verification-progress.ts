@@ -254,7 +254,7 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     title: pick("Xác minh nhà máy (cấp 3)", "Factory verification (level 3)"), titleEn: "Factory verification (level 3)",
     description: pick("Cần cập nhật loại hình nhà cung cấp trước khi mở bước 3.", "The supplier type must be updated before step 3 opens."),
     note: pick(
-      "Chưa rõ loại hình nhà cung cấp. Liên hệ Vexim để cập nhật trước khi mở bước 3.",
+      "Chưa rõ loại hình nhà cung cấp. Liên hệ hỗ trợ để cập nhật trước khi mở bước 3.",
       "The supplier type is not set yet. Contact us to update it before step 3 opens.",
     ),
     metric: pick("Chưa rõ loại hình", "Supplier type needed"), metricEn: "Supplier type needed",
@@ -278,8 +278,8 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     Object.assign(step2, {
       state: "reviewing", status: pick("Chờ duyệt", STATUS_EN.reviewing), statusEn: STATUS_EN.reviewing, tone: "amber",
       note: partner
-        ? pick("Đã gửi lịch hẹn và hợp đồng; Vexim sẽ liên hệ để chốt giờ.", "Booking and contract sent; we'll contact you to confirm the time.")
-        : pick("Đã gửi lịch hẹn; Vexim sẽ liên hệ để chốt giờ.", "Booking sent; we'll contact you to confirm the time."),
+        ? pick("Đã gửi lịch hẹn và hợp đồng; chúng tôi sẽ liên hệ để chốt giờ.", "Booking and contract sent; we'll contact you to confirm the time.")
+        : pick("Đã gửi lịch hẹn; chúng tôi sẽ liên hệ để chốt giờ.", "Booking sent; we'll contact you to confirm the time."),
       action: pick("Xem hồ sơ đã nộp", "View submission"), actionEn: "View submission",
     } satisfies Partial<VerificationProgressStep>);
   } else if (sub2?.status === "returned") {
@@ -311,7 +311,7 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
       state: "action", status: pick("Đã ghi nhận liên hệ", STATUS_EN.action), statusEn: STATUS_EN.action, tone: "amber",
       note: partner
         ? pick("Yêu cầu đối chiếu nhà máy đối tác đã được ghi nhận. Bạn có thể tự nộp hợp đồng.", "Your partner factory request has been noted. You can upload the contract yourself.")
-        : pick("Vexim sẽ liên hệ để lên kế hoạch. Bạn cũng có thể tự đặt lịch ngay.", "We'll contact you to schedule it. You can also book a call now."),
+        : pick("Chúng tôi sẽ liên hệ để lên kế hoạch. Bạn cũng có thể tự đặt lịch ngay.", "We'll contact you to schedule it. You can also book a call now."),
       action: pick("Đặt lịch xác minh", "Book verification"),
       actionEn: "Book verification",
     } satisfies Partial<VerificationProgressStep>);
@@ -406,7 +406,7 @@ export function buildVerificationProgress(input: VerificationProgressInput): Ver
     Object.assign(step3, {
       state: "action", status: pick("Đã ghi nhận liên hệ", STATUS_EN.action), statusEn: STATUS_EN.action, tone: "amber",
       note: pick(
-        "Vexim sẽ liên hệ để lên kế hoạch. Bạn cũng có thể nộp chứng từ ngay.",
+        "Chúng tôi sẽ liên hệ để lên kế hoạch. Bạn cũng có thể nộp chứng từ ngay.",
         "We'll contact you to schedule it. You can also upload documents now.",
       ),
       action: pick("Nộp chứng từ", "Submit shipping evidence"), actionEn: "Add shipping evidence",

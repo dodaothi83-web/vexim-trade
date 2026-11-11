@@ -250,7 +250,7 @@ const vi: OnboardingMessages = {
       address: "vd: 25/6 Ngõ 51 Ngoạ Long, Tây Tựu",
     },
     typeUnset: "Chưa khai",
-    typeLockedHint: "Nếu sai hoặc chưa khai, liên hệ Vexim để kiểm tra và cập nhật.",
+    typeLockedHint: "Nếu sai hoặc chưa khai, liên hệ hỗ trợ để kiểm tra và cập nhật.",
     typeSelectPlaceholder: "Chọn loại hình doanh nghiệp",
   },
   contact: {

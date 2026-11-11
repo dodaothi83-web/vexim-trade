@@ -156,7 +156,7 @@ export const vi: BoostMessages = {
     live: { label: "Đang chạy", note: "Thẻ được chọn luân phiên." },
     paused: { label: "Tạm dừng", note: "Tạm dừng không kéo dài thời hạn." },
     ended: { label: "Hết hạn" },
-    unavailable: { label: "Không hiển thị", note: "Vui lòng liên hệ Vexim để kiểm tra." },
+    unavailable: { label: "Không hiển thị", note: "Vui lòng liên hệ hỗ trợ để kiểm tra." },
     unknown: { label: "Chưa xác định", note: "Chưa kiểm tra được điều kiện hiển thị." },
   },
   packages: {
@@ -206,7 +206,7 @@ export const vi: BoostMessages = {
   manage: "Quản lý sản phẩm",
   form: {
     title: "Gửi yêu cầu đẩy sản phẩm",
-    sub: "Yêu cầu được kiểm tra, sau đó Vexim liên hệ báo giá.",
+    sub: "Yêu cầu được kiểm tra, sau đó chúng tôi liên hệ báo giá.",
     storageUnavailable: "Chưa thể gửi yêu cầu lúc này. Vui lòng thử lại sau.",
     candidatesUnavailable: "Chưa tải được danh sách sản phẩm. Hãy tải lại trang để thử lại.",
     emptyTitle: "Chưa có sản phẩm đủ điều kiện",

@@ -63,12 +63,12 @@ const input = { supplierId: 's-a', invites: [match, foreign, unsent, legacy], pr
 const base = dashboard.buildSupplierDashboard(input);
 assert.equal(base.invites.length, 2, 'Only sent invitations for this supplier are visible');
 assert.equal(base.invites[0].title, 'Cashew W320', 'Verified product title stays separate from the buyer request');
-assert.equal(base.invites[0].linkedProduct.spec, 'Whole kernels. Ask [liên hệ qua Vexim]');
+assert.equal(base.invites[0].linkedProduct.spec, 'Whole kernels. Ask [đã ẩn liên hệ]');
 assert.equal(base.invites[0].linkedProduct.packaging, 'Vacuum bags');
 assert.equal(base.invites[0].linkedProduct.moq, '1 MT');
 assert.equal(base.invites[1].linkedProduct, null, 'Legacy RFQ without a source product has no inferred product card');
 assert.doesNotMatch(JSON.stringify(base), /SECRET PRODUCT DESK NOTE/);
-assert.match(base.invites[0].request.description, /Need Cashew W320, vacuum tins\. Contact \[liên hệ qua Vexim\]/);
+assert.match(base.invites[0].request.description, /Need Cashew W320, vacuum tins\. Contact \[đã ẩn liên hệ\]/);
 assert.doesNotMatch(base.invites[0].request.description, /buyer@example.com/, 'Unsolicited contact in request text is suppressed');
 assert.equal(base.invites[0].request.grade, 'W320');
 assert.equal(base.invites[0].request.packaging, '10 kg tins');
@@ -94,8 +94,8 @@ const sourced = dashboard.buildSupplierRfqBoard({ ...input, invites: [{ ...match
 assert.equal(sourced.tasks[0].directToBuyer, false, 'Linked sourcing RFQ must not promise direct buyer delivery');
 const submitted = { ...match, status: 'quoted', quote_price: 6.35 };
 for (const [language, directPending, sourcingPending, revisionPending] of [
-  ['en', 'Quote saved · publication pending', 'Awaiting Vexim publication', 'Revision awaiting Vexim publication'],
-  ['vi', 'Đã lưu · chờ công bố', 'Chờ Vexim công bố', 'Bản điều chỉnh chờ Vexim công bố'],
+  ['en', 'Quote saved · publication pending', 'Awaiting publication', 'Revision awaiting publication'],
+  ['vi', 'Đã lưu · chờ công bố', 'Chờ công bố', 'Bản điều chỉnh chờ công bố'],
 ]) {
   const board = (invite) => dashboard.buildSupplierRfqBoard({ ...input, language, invites: [invite] }).invites[0];
   assert.equal(board(submitted).status, directPending, 'Direct quote may have been saved while automatic publication awaits retry');

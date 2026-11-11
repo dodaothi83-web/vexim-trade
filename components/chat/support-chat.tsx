@@ -24,7 +24,7 @@ const COPY = {
   },
   vi: {
     title: "Đội ngũ Vexim Trade", sub: "Hỏi về tìm nguồn hàng, xác minh hoặc tài khoản của bạn.",
-    greeting: "Xin chào! Vexim có thể giúp gì cho bạn? Đội ngũ trả lời ngay tại đây và qua email.",
+    greeting: "Xin chào! Chúng tôi có thể giúp gì cho bạn? Đội ngũ trả lời ngay tại đây và qua email.",
     topics: ["Tìm giúp tôi nhà cung cấp", "Vexim xác minh nhà cung cấp thế nào?", "Tôi muốn hỏi về yêu cầu đã gửi", "Tài khoản của tôi gặp vấn đề"],
     placeholder: "Nhập tin nhắn…", send: "Gửi", close: "Đóng", enter: "Enter để gửi, Shift + Enter để xuống dòng.",
     failed: "Chưa gửi được tin. Hãy thử lại.", rateLimited: "Bạn đang gửi quá nhanh. Đợi vài phút rồi thử lại.",

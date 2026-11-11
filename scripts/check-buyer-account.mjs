@@ -174,7 +174,7 @@ for (const locale of ['en', 'vi']) {
       assert.match(html, locale === 'vi' ? /RFQ và tìm nguồn/ : /RFQs &amp; sourcing/, 'Stats count each linked RFQ once');
       assert.match(html, /\/buyer\/account\/requests\/vexim/);
       assert.match(html, /Mediated quote request/);
-      assert.match(html, locale === 'vi' ? /Có cập nhật từ Vexim/ : /New Vexim update/,
+      assert.match(html, locale === 'vi' ? /Có cập nhật mới/ : /New update/,
         'Vexim tab combines unread supplier quotes and buyer-desk replies');
       const legacyAt = html.indexOf('RFQ-3 ·');
       assert.ok(legacyAt > 0, 'Legacy sourcing RFQ remains in Vexim history');

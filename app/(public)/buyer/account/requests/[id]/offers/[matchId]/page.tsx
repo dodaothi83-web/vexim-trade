@@ -32,12 +32,12 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
   const amount = (offer: RfqQuoteVersion) => `${new Intl.NumberFormat(locale === "vi" ? "vi-VN" : "en-GB", { maximumFractionDigits: 4 }).format(offer.quote_price)} ${offer.quote_currency} / ${offer.quote_unit}`;
   const older = versions.filter((v) => v.match_id === match.id && v.id !== quote?.id).sort((a, b) => b.version - a.version);
   return <div lang={locale} className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
-    <Breadcrumbs items={[{ label: sourcing ? (locale === "vi" ? "Báo giá từ Vexim" : "Quotes from Vexim") : (locale === "vi" ? "Yêu cầu trực tiếp" : "Direct enquiries"), href: sourcing ? "/buyer/account?tab=vexim" : "/buyer/account?tab=requests" },
+    <Breadcrumbs items={[{ label: sourcing ? (locale === "vi" ? "Báo giá tìm nguồn" : "Sourcing quotes") : (locale === "vi" ? "Yêu cầu trực tiếp" : "Direct enquiries"), href: sourcing ? "/buyer/account?tab=vexim" : "/buyer/account?tab=requests" },
       { label: rfq.code, href: requestUrl }, { label: supplierName }]} />
     <Link href={requestUrl} className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden="true" />{copy.backToRequest}</Link>
     <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-xs font-bold uppercase tracking-wide text-ink-500">{sourcing ? (locale === "vi" ? "Báo giá từ Vexim · Nhà cung cấp" : "Quote from Vexim · Supplier") : copy.buyerIntro} · {rfq.code}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-ink-500">{sourcing ? (locale === "vi" ? "Báo giá tìm nguồn · Nhà cung cấp" : "Sourcing quote · Supplier") : copy.buyerIntro} · {rfq.code}</p>
         <h1 className="mt-1 break-words text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">{supplierName}</h1>
         {supplier?.province && <p className="mt-1 text-sm text-ink-600">{supplier.province}</p>}
       </div>
@@ -72,7 +72,7 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
           </div> : <div className="px-5 py-6 sm:px-6"><p className="text-sm text-ink-700">{copy.noQuote}</p><p className="mt-2 text-[13px] leading-6 text-ink-600">{sourcing ? copy.sourcingOfferUnavailable : copy.pendingDirect}</p></div>}
         </section>
         {sourcing && <Link href={`${requestUrl}#vexim-conversation`} className="block rounded-xl border border-brand-200 bg-brand-50 p-4 text-[13px] font-semibold leading-6 text-brand-900 hover:border-brand-400">
-          {locale === "vi" ? "Trao đổi về tất cả báo giá trong nhóm này với Vexim. Nhà cung cấp không thấy tin nhắn bạn gửi Vexim." : "Discuss all quotes in this group with Vexim. Suppliers cannot read messages you send to Vexim."} <ArrowRight className="inline h-4 w-4" aria-hidden="true" />
+          {locale === "vi" ? "Trao đổi về tất cả báo giá trong nhóm này với Vexim. Nhà cung cấp không đọc được các tin nhắn này." : "Discuss all quotes in this group with Vexim. Suppliers cannot read these messages."} <ArrowRight className="inline h-4 w-4" aria-hidden="true" />
         </Link>}
         {readable && (!sourcing || messages.length > 0) ? <div>{sourcing && <p className="mb-3 text-[13px] font-semibold text-ink-600">{locale === "vi" ? "Lịch sử trao đổi trực tiếp trước đây (chỉ đọc)" : "Previous direct conversation (read-only archive)"}</p>}
           <RfqThread rfqId={rfq.id} matchId={match.id} side="buyer" messages={messages} lastVisibleAt={messages.at(-1)?.created_at ?? null}

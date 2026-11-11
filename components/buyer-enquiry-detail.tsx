@@ -19,8 +19,8 @@ function directStatusInfo(rfq: Rfq, locale: Locale, hasQuote: boolean, outcome: 
   };
   if (!hasQuote && outcome === "declined" && (rfq.status === "matching" || rfq.status === "quoted")) return { ...warn,
     title: vi ? "Nhà cung cấp đã từ chối" : "Supplier declined",
-    body: vi ? "Nhà cung cấp bạn chọn không chào giá yêu cầu này. Nếu vẫn cần hàng, hãy tạo RFQ tìm nguồn MỚI cho Vexim."
-      : "The supplier you selected will not quote this request. If you still need this product, create a NEW sourcing RFQ for Vexim.",
+    body: vi ? "Nhà cung cấp bạn chọn không chào giá yêu cầu này. Nếu vẫn cần hàng, hãy tạo RFQ tìm nguồn mới."
+      : "The supplier you selected will not quote this request. If you still need this product, create a new sourcing RFQ.",
   };
   if (!hasQuote && outcome === "no_response" && (rfq.status === "matching" || rfq.status === "quoted")) return { ...warn,
     title: vi ? "Nhà cung cấp chưa phản hồi" : "No supplier reply yet",
@@ -30,8 +30,8 @@ function directStatusInfo(rfq: Rfq, locale: Locale, hasQuote: boolean, outcome: 
   if (rfq.status === "new") return { ...base,
     title: vi ? "Đã lưu, đang chuyển tới nhà cung cấp" : "Saved, portal delivery pending",
     body: rfq.specs?.direct_delivery_version === "portal_direct_v2"
-      ? (vi ? "Hệ thống tự thử lại việc chuyển yêu cầu vào cổng của nhà cung cấp bạn chọn. Vexim không xử lý giao dịch này."
-        : "The system will retry delivery to your chosen supplier's portal. Vexim does not manage this transaction.")
+      ? (vi ? "Hệ thống tự thử lại việc chuyển yêu cầu vào cổng của nhà cung cấp bạn chọn."
+        : "The system will retry delivery to your chosen supplier's portal.")
       : (vi ? "Chưa xác nhận đã chuyển yêu cầu cũ tới nhà cung cấp. Hãy liên hệ hỗ trợ nếu cần kiểm tra."
         : "Delivery of this older request has not been confirmed. Contact support if you need help checking it."),
   };
@@ -47,12 +47,12 @@ function directStatusInfo(rfq: Rfq, locale: Locale, hasQuote: boolean, outcome: 
   };
   if (rfq.status === "lost" || rfq.status === "won") return { ...base,
     title: vi ? "Yêu cầu trực tiếp đã đóng" : "Direct request closed",
-    body: vi ? "Bạn và nhà cung cấp tự xử lý giao dịch. Nếu chưa tìm được bên phù hợp, hãy tạo RFQ tìm nguồn MỚI cho Vexim."
-      : "You and the supplier manage this transaction. If it did not work out, create a NEW sourcing RFQ for Vexim.",
+    body: vi ? "Bạn và nhà cung cấp tự xử lý giao dịch. Nếu chưa tìm được bên phù hợp, hãy tạo RFQ tìm nguồn mới."
+      : "You and the supplier manage this transaction. If it did not work out, create a new sourcing RFQ.",
   };
   return { ...base, title: vi ? "Yêu cầu trực tiếp" : "Direct request",
-    body: vi ? "Xem báo giá và trao đổi với nhà cung cấp bạn chọn. Vexim chỉ xem để hỗ trợ hoặc giải quyết tranh chấp."
-      : "Review your chosen supplier's quote and conversation. Vexim has read-only access for support or disputes.",
+    body: vi ? "Xem báo giá và trao đổi với nhà cung cấp bạn chọn."
+      : "Review your chosen supplier's quote and conversation.",
   };
 }
 
@@ -61,23 +61,23 @@ function statusInfo(status: Rfq["status"], locale: Locale, hasQuote: boolean) {
   switch (status) {
     case "new": return {
       tone: "bg-sky-50 text-sky-800 ring-sky-200", dot: "bg-sky-500", icon: Clock,
-      title: vi ? "Vexim đã nhận yêu cầu" : "Vexim received your request",
-      body: vi ? "Vexim sẽ xem nhu cầu và chọn nhà cung cấp phù hợp. Bạn có thể trao đổi với Vexim ở mạch bên dưới."
-        : "Vexim will review your needs and shortlist suitable suppliers. You can message Vexim below.",
+      title: vi ? "Đã nhận yêu cầu" : "Request received",
+      body: vi ? "Yêu cầu sẽ được xem xét và ghép với nhà cung cấp phù hợp. Bạn có thể trao đổi với Vexim ở mạch bên dưới."
+        : "Your request will be reviewed and matched with suitable suppliers. You can message Vexim below.",
     };
     case "needs_review":
     case "in_progress": return {
       tone: "bg-sky-50 text-sky-800 ring-sky-200", dot: "bg-sky-500", icon: ShieldCheck,
-      title: vi ? "Vexim đang xem yêu cầu" : "Vexim is reviewing your request",
-      body: vi ? "Vexim kiểm tra thông tin và chọn nhà cung cấp. Liên hệ của bạn không được chuyển tới bên được mời."
-        : "Vexim checks your requirements and selects suppliers. Your contact details stay with Vexim.",
+      title: vi ? "Đang xem xét yêu cầu" : "Request under review",
+      body: vi ? "Thông tin đang được kiểm tra để chọn nhà cung cấp. Liên hệ của bạn không được chuyển tới bên được mời."
+        : "Your requirements are being checked to select suppliers. Your contact details are not shared with invited suppliers.",
     };
     case "matching":
     case "quoted":
     case "sampling": return {
       tone: "bg-amber-50 text-amber-800 ring-amber-200", dot: "bg-amber-500", icon: Timer,
-      title: hasQuote ? (vi ? "Có báo giá do Vexim trình" : "Published quotes available")
-        : (vi ? "Vexim đang điều phối" : "Vexim is coordinating"),
+      title: hasQuote ? (vi ? "Đã có báo giá" : "Quotes available")
+        : (vi ? "Đang điều phối" : "Coordinating quotes"),
       body: vi ? "Báo giá đã công bố sẽ hiện bên dưới. Hãy trao đổi về báo giá hoặc việc gửi mẫu với Vexim tại đây."
         : "Published quotes appear below. Discuss quotes and samples with Vexim in this account.",
     };
@@ -96,8 +96,8 @@ function statusInfo(status: Rfq["status"], locale: Locale, hasQuote: boolean) {
     case "spam": return {
       tone: "bg-red-50 text-red-800 ring-red-200", dot: "bg-red-500", icon: ShieldCheck,
       title: vi ? "Đang kiểm tra yêu cầu" : "Request under review",
-      body: vi ? "Yêu cầu chưa được chuyển tới nhà cung cấp. Nếu cần hỗ trợ, hãy liên hệ Vexim."
-        : "This request has not been sent to suppliers. Contact Vexim if you need assistance.",
+      body: vi ? "Yêu cầu chưa được chuyển tới nhà cung cấp. Nếu cần hỗ trợ, hãy liên hệ bộ phận hỗ trợ."
+        : "This request has not been sent to suppliers. Contact support if you need assistance.",
     };
     default: return {
       tone: "bg-slate-100 text-slate-800 ring-slate-200", dot: "bg-slate-500", icon: Clock,
@@ -187,10 +187,10 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = 
 
         {!isQuestion && <section className="mt-6 border-t border-ink-100 pt-5" aria-labelledby="quotes-title">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="quotes-title" className="text-[16px] font-bold text-ink-900">{sourcing ? (locale === "vi" ? "Báo giá do Vexim trình" : "Quotes presented by Vexim") : copy.offersTitle}{quotes.length ? ` (${quotes.length})` : ""}</h2>
+            <h2 id="quotes-title" className="text-[16px] font-bold text-ink-900">{sourcing ? (locale === "vi" ? "Báo giá tìm nguồn" : "Sourcing quotes") : copy.offersTitle}{quotes.length ? ` (${quotes.length})` : ""}</h2>
             {quotes.length > 0 && <span className="text-[12px] text-ink-500">{copy.published}</span>}
           </div>
-          <p className="mt-1 text-[13px] leading-5 text-ink-600">{sourcing ? (locale === "vi" ? "Xem từng báo giá nhà cung cấp do Vexim tổng hợp. Mọi trao đổi đi qua Vexim ở mạch bên dưới." : "Review each supplier offer Vexim has presented. Discuss all sourcing questions with Vexim in the conversation below.") : copy.offersSub}</p>
+          <p className="mt-1 text-[13px] leading-5 text-ink-600">{sourcing ? (locale === "vi" ? "Xem từng báo giá của nhà cung cấp. Mọi trao đổi đi qua Vexim ở mạch bên dưới." : "Review each supplier offer. Discuss all sourcing questions with Vexim in the conversation below.") : copy.offersSub}</p>
           {quotesUnavailable && <p role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-900">
             {locale === "vi" ? "Chưa tải được cập nhật báo giá. Vui lòng thử lại sau." : "Quote updates are temporarily unavailable. Please try again."}</p>}
           {!quotesUnavailable && !quotes.length && <p className="mt-4 rounded-lg bg-ink-50 p-4 text-[13px] leading-6 text-ink-600">{copy.noOffers}</p>}

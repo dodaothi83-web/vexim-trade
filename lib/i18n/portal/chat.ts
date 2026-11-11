@@ -18,7 +18,7 @@ export const en = {
   tooLong: "The message is too long (maximum 4,000 characters).",
   loadError: "Could not load this conversation. Reload the page to try again.",
   enterHint: "Enter to send, Shift + Enter for a new line.",
-  notice: "Messages stay on Vexim. The buyer gets an email when you reply.",
+  notice: "Messages are kept in this chat. The buyer gets an email when you reply.",
 };
 
 export type ChatMessages = typeof en;
@@ -40,7 +40,7 @@ export const vi: ChatMessages = {
   tooLong: "Tin nhắn quá dài (tối đa 4.000 ký tự).",
   loadError: "Chưa tải được cuộc trò chuyện. Tải lại trang để thử lại.",
   enterHint: "Enter để gửi, Shift + Enter để xuống dòng.",
-  notice: "Tin nhắn được lưu trên Vexim. Người mua nhận email khi bạn trả lời.",
+  notice: "Tin nhắn được lưu trong mục chat này. Người mua nhận email khi bạn trả lời.",
 };
 
 export const chatMessages = { en, vi } as const;

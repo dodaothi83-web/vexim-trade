@@ -627,7 +627,7 @@ export function RfqForm({
                 </Field>
               </div>
 
-              <Field label={directForm ? "Private note for Vexim" : "Notes for Vexim"}
+              <Field label={directForm ? "Private note" : "Additional notes"}
                 hint={directForm ? "Not sent to your chosen supplier. Put requirements in the main description." : "Not sent to invited suppliers."}>
                 <textarea rows={3} maxLength={4000} className="input resize-y" value={data.message} onChange={(e) => update("message", e.target.value)} placeholder="Timeline, target port, existing suppliers, anything we should know." />
               </Field>

@@ -52,7 +52,7 @@ assert.ok(!quoteKeys.includes('phone'), 'Số điện thoại không được b�
 // Dùng thẻ div thật (không phải aria-controls của nút) để mốc so sánh đúng.
 const detailsAt = form.indexOf('<div id="rfq-details"');
 assert.ok(detailsAt > 0, 'Có mục chi tiết thu gọn');
-for (const heavy of ['label="Grade / spec"', 'label="Target price"', 'label="Incoterm"', 'label="Shipment month"', 'label="Packaging / labelling"', 'label="Required certificates"', 'label="Website"', 'label="Business type"', 'label="Purchase frequency"', 'label={directForm ? "Private note for Vexim" : "Notes for Vexim"}']) {
+for (const heavy of ['label="Grade / spec"', 'label="Target price"', 'label="Incoterm"', 'label="Shipment month"', 'label="Packaging / labelling"', 'label="Required certificates"', 'label="Website"', 'label="Business type"', 'label="Purchase frequency"', 'label={directForm ? "Private note" : "Additional notes"}']) {
   const at = form.indexOf(heavy);
   assert.ok(at > detailsAt, `${heavy} phải nằm trong mục chi tiết (sau id="rfq-details")`);
 }

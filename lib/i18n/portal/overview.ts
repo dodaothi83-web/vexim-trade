@@ -84,7 +84,7 @@ const en = {
       submissions: "Verification profiles awaiting review",
     },
   },
-  footer: "Direct RFQs show buyer contact only for a selected, invited supplier. General sourcing RFQs keep buyer contact with Vexim.",
+  footer: "Direct RFQs show buyer contact only for a selected, invited supplier. General sourcing RFQs do not share buyer contact.",
   levelChip: { approved: "Approved", pending: "Under review", off: "Not approved" },
   pendingRefresh: "The status refreshes on its own while this page stays open.",
   verificationPanel: {
@@ -189,7 +189,7 @@ const vi: OverviewMessages = {
       submissions: "Hồ sơ xác thực đang chờ xét",
     },
   },
-  footer: "RFQ đích danh hiện liên hệ người mua cho nhà cung cấp được chọn và đã mời. RFQ tìm nguồn giữ liên hệ tại Vexim.",
+  footer: "RFQ đích danh hiện liên hệ người mua cho nhà cung cấp được chọn và đã mời. RFQ tìm nguồn không chia sẻ liên hệ.",
   levelChip: { approved: "Đã duyệt", pending: "Đang chờ xét", off: "Chưa duyệt" },
   pendingRefresh: "Trạng thái tự cập nhật khi trang đang mở.",
   verificationPanel: {
