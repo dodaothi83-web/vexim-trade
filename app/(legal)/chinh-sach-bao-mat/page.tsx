@@ -43,7 +43,7 @@ export default function PrivacyViPage() {
     </Section>
 
     <Section id="privacy-vi-use" title="3. Mục đích sử dụng thông tin">
-      <p className={p}>Vexim sử dụng thông tin để xác thực người dùng, kiểm tra hồ sơ nhà cung cấp và sản phẩm, trả lời yêu cầu mua hàng, tìm nhà cung cấp phù hợp, sắp xếp việc giới thiệu khi được yêu cầu, liên lạc về tài khoản hoặc yêu cầu báo giá, xử lý phản ánh và khiếu nại, bảo vệ dịch vụ khỏi hành vi lạm dụng, đồng thời duy trì và cải thiện nền tảng. Việc kiểm tra tài liệu, xác thực nhà máy và kiểm tra lịch sử giao hàng là các quyết định riêng biệt do con người thực hiện. Tải thông tin lên không tự động tạo huy hiệu kiểm chứng công khai.</p>
+      <p className={p}>Vexim sử dụng thông tin để xác thực người dùng, kiểm tra hồ sơ nhà cung cấp và sản phẩm, trả lời yêu cầu mua hàng, tìm nhà cung cấp phù hợp, sắp xếp việc giới thiệu khi được yêu cầu, liên lạc về tài khoản hoặc yêu cầu báo giá, xử lý phản ánh và khiếu nại, bảo vệ dịch vụ khỏi hành vi lạm dụng, đồng thời duy trì và cải thiện nền tảng. Nhà cung cấp được mời báo giá có thể gửi cho Vexim nhận xét không bắt buộc về yêu cầu đó, ví dụ yêu cầu có được phản hồi hay không. Nhân viên Vexim dùng nhận xét này trong nội bộ để xem xét chất lượng yêu cầu và ngăn hành vi lạm dụng; nhận xét không được công bố, không được chia sẻ cho nhà cung cấp khác và tự nó không hạn chế tài khoản của người mua. Việc kiểm tra tài liệu, xác thực nhà máy và kiểm tra lịch sử giao hàng là các quyết định riêng biệt do con người thực hiện. Tải thông tin lên không tự động tạo huy hiệu kiểm chứng công khai.</p>
     </Section>
 
     <Section id="privacy-vi-share" title="4. Các bên có thể tiếp cận thông tin">

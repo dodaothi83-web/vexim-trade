@@ -43,6 +43,7 @@ import type {
   RfqMediatedThread,
   RfqMediatedMessage,
   RfqMediatedAlert,
+  RfqLeadRating,
   SupplierNoticeRead,
   Supplier,
   SupplierCategory,
@@ -136,6 +137,7 @@ interface LocalShape {
   rfq_mediated_threads?: RfqMediatedThread[];
   rfq_mediated_messages?: RfqMediatedMessage[];
   rfq_mediated_alerts?: RfqMediatedAlert[];
+  rfq_lead_ratings?: RfqLeadRating[];
   supplier_portal_notice_reads?: SupplierNoticeRead[];
   introductions: Introduction[];
   audit_log: AuditLogEntry[];
@@ -621,6 +623,7 @@ function migrateRfqDefaults(db: LocalShape) {
   db.rfq_mediated_threads ??= [];
   db.rfq_mediated_messages ??= [];
   db.rfq_mediated_alerts ??= [];
+  db.rfq_lead_ratings ??= [];
   // Same as the SQL migration: only an already-presented quote becomes a public
   // historical version. Never treat a private staff note as a buyer-facing message.
   const known = new Set(db.rfq_quote_versions.map((v) => v.match_id));
@@ -2885,6 +2888,30 @@ export const localStore: DataStore = {
         m.updated_at = nextRfqMatchUpdatedAt(m.updated_at);
       }
     });
+  },
+  async getRfqLeadRating(matchId) {
+    return (load().rfq_lead_ratings ?? []).find((r) => r.match_id === matchId) ?? null;
+  },
+  async saveRfqLeadRating(input) {
+    return mutate((db) => {
+      const match = db.rfq_matches.find((m) => m.id === input.match_id);
+      const rfq = db.rfqs.find((r) => r.id === input.rfq_id);
+      if (!match || !rfq || match.rfq_id !== rfq.id || match.supplier_id !== input.supplier_id ||
+          rfq.buyer_id !== input.buyer_id || (input.rating === "poor") !== (input.reasons.length > 0)) {
+        throw new Error("Invalid RFQ lead rating");
+      }
+      const stamp = new Date().toISOString();
+      const existing = (db.rfq_lead_ratings ?? []).find((r) => r.match_id === input.match_id);
+      if (existing) return Object.assign(existing, input, { updated_at: stamp });
+      const row: RfqLeadRating = { ...input, id: randomUUID(), created_at: stamp, updated_at: stamp };
+      db.rfq_lead_ratings = [...(db.rfq_lead_ratings ?? []), row];
+      return row;
+    });
+  },
+  async listRfqLeadRatings(filter) {
+    return (load().rfq_lead_ratings ?? []).filter((r) =>
+      "rfqId" in filter ? r.rfq_id === filter.rfqId : r.buyer_id === filter.buyerId)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   },
   async listRfqMediatedThreads(rfqIds) {
     const ids = new Set(rfqIds);
