@@ -124,7 +124,6 @@ export function SupplierStorefront({
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
           </div>
-          {!synthetic && <SupplierWebsiteLink website={s.website} className="mt-3" />}
           <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Published supplier checks">
             {VERIFICATION_DISPLAY_ORDER.filter((level) => steps.includes(level)).map((level) => {
               const Icon = VERIFICATION_LEVEL_ICONS[level];
@@ -139,6 +138,7 @@ export function SupplierStorefront({
           {rfqActions && !synthetic && <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>}
           {!rfqActions && !synthetic && <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
           {!synthetic && chatAction}
+          {!synthetic && <SupplierWebsiteLink website={s.website} plain className="justify-center sm:max-w-64" />}
         </div>
       </div>
     </section>
