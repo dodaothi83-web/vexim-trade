@@ -56,6 +56,12 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
  * Cổng NCC truyền thêm `coverAction` và `avatarAction` để đặt nút thêm ảnh đúng vị trí
  * buyer nhìn thấy, và tắt các nút gửi RFQ để nhà cung cấp không tự gửi yêu cầu cho mình.
  */
+function formatCertificateDate(iso: string): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? iso
+    : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(date);
+}
+
 export function SupplierStorefront({
   supplier: s, certificates, productCertificates = {}, categories, coverUrl, avatarUrl, synthetic,
   productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1", reportAction,
@@ -316,7 +322,7 @@ export function SupplierStorefront({
     </section>
 
     <div className="mt-10 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <section id="about" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="about-title">
           <h2 id="about-title" className="text-lg font-bold text-ink-900">About this supplier</h2>
           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{summary || (businessDetails.length
@@ -377,23 +383,20 @@ export function SupplierStorefront({
         </section>
         {verificationActions}
         {certificates.length > 0 && (
-          <section id="certificates" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="certificates-title">
+          <section id="certificates" className="min-w-0 scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="certificates-title">
             <h2 id="certificates-title" className="text-lg font-bold text-ink-900">Certificates on file</h2>
-            <p className="mt-1 text-xs leading-5 text-ink-600">Shared by the supplier. Holder names and expiry dates come from the document copies. Issuer authentication is a separate check.</p>
-            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+            <p className="mt-1 text-xs leading-5 text-ink-600">Shared by the supplier. Expiry dates and holder names come from the document copies. Issuer authentication is a separate check.</p>
+            <ul aria-label="Certificates" tabIndex={0}
+              className="-mx-5 mt-4 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto overscroll-x-contain px-5 pb-3 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-700 sm:-mx-6 sm:scroll-px-6 sm:px-6">
               {certificates.map((c) => (
-                <li key={c.id} className="rounded-xl border border-ink-200 bg-white p-4 text-sm shadow-2xs">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong className="font-bold text-ink-900">{c.name}</strong>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${c.holderMatch === "owner" ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-1 ring-amber-200"}`}>
-                      {c.holderMatch === "owner" ? "Registered to supplier" : `Third-party holder · ${c.holderName}`}
-                    </span>
+                <li key={c.id} className="w-44 shrink-0 snap-start sm:w-48">
+                  {/* Original files stay internal, so the slot shows a neutral document placeholder until a public preview exists. */}
+                  <div className="flex aspect-[3/4] items-center justify-center rounded-lg border border-ink-200 bg-ink-50 text-brand-700" aria-hidden="true">
+                    <FileCheck2 className="h-12 w-12" />
                   </div>
-                  <p className="mt-2 text-xs text-ink-600">
-                    {c.holderName ? `Holder on document: ${c.holderName} · ` : ""}
-                    {c.issuer ? `Issuer: ${c.issuer} · ` : ""}
-                    Valid until: <strong className="text-ink-900">{c.validUntil}</strong>
-                  </p>
+                  <h3 className="mt-2.5 line-clamp-2 text-[13px] font-bold leading-5 text-ink-900" title={c.name}>{c.name}</h3>
+                  <p className="mt-0.5 text-xs text-ink-600">Expires <time dateTime={c.validUntil}>{formatCertificateDate(c.validUntil)}</time></p>
+                  {c.holderMatch !== "owner" && <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-amber-900" title={c.holderName ?? undefined}>Third-party holder: {c.holderName}</p>}
                 </li>
               ))}
             </ul>
