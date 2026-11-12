@@ -1,4 +1,5 @@
 import { VeximTradeIcon } from "@/components/brand/vexim-icons";
+import { ProductCertificateCards } from "@/components/public/product-certificate-cards";
 import { ShareProductButton } from "@/components/share-product-button";
 import { getLocale } from "@/lib/i18n/server";
 import { SaveProductButton } from "@/components/buyer-saved-products";
@@ -236,7 +237,7 @@ export default async function PublicProductDetail({ params }: Props) {
       ? {
         hasCertification: productCertificates.map((certificate) => ({
           "@type": "Certification",
-          name: certificate.name,
+          name: certificate.shortName,
           ...(certificate.validUntil ? { expires: certificate.validUntil } : {}),
         })),
       }
@@ -374,30 +375,13 @@ export default async function PublicProductDetail({ params }: Props) {
           </dl>
         </div>
         {productCertificates.length > 0 && (
-          <section aria-labelledby="product-certificates-heading" className="mt-5 overflow-hidden rounded-xl border border-teal-200 bg-teal-50/40 shadow-sm">
-            <div className="border-b border-teal-100 px-5 py-3">
-              <h2 id="product-certificates-heading" className="text-sm font-bold text-ink-900">Product certificates</h2>
-              <p className="mt-0.5 text-xs leading-5 text-ink-600">Shared by the supplier and linked to this product by Vexim. Holder names and expiry dates come from the document copies; issuer authentication is a separate check.</p>
+          <section aria-labelledby="product-certificates-heading" className="mt-5 rounded-xl border border-ink-200 bg-white p-5 shadow-sm">
+            <h2 id="product-certificates-heading" className="text-sm font-bold text-ink-900">Product certificates</h2>
+            <p className="mt-1 text-xs leading-5 text-ink-600">Shared by the supplier and linked to this product by Vexim. Holder names and expiry dates come from the document copies; issuer authentication is a separate check.</p>
+            <div className="mt-4">
+              <ProductCertificateCards certificates={productCertificates} />
             </div>
-            <ul className="grid gap-2 px-5 py-4 sm:grid-cols-2">
-              {productCertificates.map((certificate) => (
-                <li key={certificate.id} className="rounded-lg border border-teal-100 bg-white px-3.5 py-3 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong className="font-bold text-ink-900">{certificate.name}</strong>
-                    {certificate.schemeLabel && (
-                      <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-bold text-teal-900">{certificate.schemeLabel}</span>
-                    )}
-                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${certificate.holderMatch === "owner" ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-1 ring-amber-200"}`}>
-                      {certificate.holderMatch === "owner" ? "Registered to supplier" : `Third-party holder · ${certificate.holderName}`}
-                    </span>
-                  </div>
-                  <p className="mt-1.5 text-xs leading-5 text-ink-600">
-                    {certificate.issuer ? `Issuer: ${certificate.issuer} · ` : ""}Valid until: <strong className="text-ink-900">{certificate.validUntil}</strong>
-                  </p>
-                </li>
-              ))}
-            </ul>
-            <p className="px-5 pb-4 text-xs leading-5 text-ink-600">
+            <p className="mt-4 text-xs leading-5 text-ink-600">
               <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#certificates`} className="font-semibold text-brand-700 underline">All certificates on the supplier profile</Link>
             </p>
           </section>

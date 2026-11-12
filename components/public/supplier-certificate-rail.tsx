@@ -20,13 +20,7 @@ const CARD_GAP_PX = 12;
 
 export function SupplierCertificateRail({ certificates }: { certificates: PublicSupplierCertificate[] }) {
   const railRef = useRef<HTMLDivElement>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [selected, setSelected] = useState<PublicSupplierCertificate | null>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (selected && dialog && !dialog.open) dialog.showModal();
-  }, [selected]);
   const [scrollable, setScrollable] = useState(false);
   const [canBack, setCanBack] = useState(false);
   const [canForward, setCanForward] = useState(false);
@@ -92,38 +86,55 @@ export function SupplierCertificateRail({ certificates }: { certificates: Public
           ))}
         </ul>
       </div>
-      <dialog ref={dialogRef} onClose={() => setSelected(null)} aria-labelledby="certificate-preview-title"
-        onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}
-        className="m-auto max-h-[95dvh] w-[min(94vw,900px)] max-w-none rounded-xl bg-white p-4 text-ink-900 shadow-xl backdrop:bg-black/75 sm:p-6">
-        {selected?.imageUrl && (
-          <div className="flex max-h-[calc(95dvh-2rem)] flex-col gap-3">
-            <div className="flex shrink-0 items-center justify-between gap-4">
-              <h2 id="certificate-preview-title" className="text-base font-bold">{selected.name}</h2>
-              <button type="button" onClick={() => dialogRef.current?.close()} aria-label="Close certificate preview"
-                className="rounded-full p-2 text-ink-700 hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
-                <X aria-hidden="true" className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="min-h-0 overflow-auto">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={selected.imageUrl} alt={`${selected.name} certificate${selected.issuer ? ` issued by ${selected.issuer}` : ""}`}
-                className="mx-auto h-auto max-h-[75dvh] max-w-full object-contain" />
-            </div>
-          </div>
-        )}
-      </dialog>
+      <CertificatePreviewDialog certificate={selected} onClose={() => setSelected(null)} />
     </div>
+  );
+}
+
+/**
+ * Cửa sổ xem ảnh chứng nhận ngay trên trang. Dùng chung cho hồ sơ nhà cung cấp và
+ * thẻ chứng nhận trên trang sản phẩm để hai nơi mở ảnh giống hệt nhau.
+ */
+export function CertificatePreviewDialog({ certificate, onClose }: { certificate: PublicSupplierCertificate | null; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (certificate && dialog && !dialog.open) dialog.showModal();
+  }, [certificate]);
+
+  return (
+    <dialog ref={dialogRef} onClose={onClose} aria-labelledby="certificate-preview-title"
+      onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}
+      className="m-auto max-h-[95dvh] w-[min(94vw,900px)] max-w-none rounded-xl bg-white p-4 text-ink-900 shadow-xl backdrop:bg-black/75 sm:p-6">
+      {certificate?.imageUrl && (
+        <div className="flex max-h-[calc(95dvh-2rem)] flex-col gap-3">
+          <div className="flex shrink-0 items-center justify-between gap-4">
+            <h2 id="certificate-preview-title" className="text-base font-bold">{certificate.shortName}</h2>
+            <button type="button" onClick={() => dialogRef.current?.close()} aria-label="Close certificate preview"
+              className="rounded-full p-2 text-ink-700 hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+              <X aria-hidden="true" className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="min-h-0 overflow-auto">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={certificate.imageUrl} alt={`${certificate.shortName} certificate${certificate.issuer ? ` issued by ${certificate.issuer}` : ""}`}
+              className="mx-auto h-auto max-h-[75dvh] max-w-full object-contain" />
+          </div>
+        </div>
+      )}
+    </dialog>
   );
 }
 
 function CertificateCard({ certificate, onOpen }: { certificate: PublicSupplierCertificate; onOpen: () => void }) {
   const imageUrl = certificate.imageUrl;
-  const alt = `${certificate.name} certificate${certificate.issuer ? ` issued by ${certificate.issuer}` : ""}`;
+  const alt = `${certificate.shortName} certificate${certificate.issuer ? ` issued by ${certificate.issuer}` : ""}`;
 
   return (
     <div className="flex h-full flex-col">
       {imageUrl ? (
-        <button type="button" onClick={onOpen} aria-label={`View ${certificate.name} certificate`}
+        <button type="button" onClick={onOpen} aria-label={`View ${certificate.shortName} certificate`}
           className="group relative block aspect-[4/3] overflow-hidden rounded-xl border border-ink-200 bg-ink-50 transition hover:border-brand-300 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={imageUrl} alt={alt} loading="lazy" decoding="async"
@@ -139,7 +150,7 @@ function CertificateCard({ certificate, onOpen }: { certificate: PublicSupplierC
           <p className="text-[11px] leading-4 text-ink-500">Ask Vexim for a copy</p>
         </div>
       )}
-      <h3 title={certificate.name} className="mt-3 line-clamp-2 break-words text-sm font-bold leading-5 text-ink-900">{certificate.name}</h3>
+      <h3 title={certificate.name} className="mt-3 line-clamp-2 break-words text-sm font-bold leading-5 text-ink-900">{certificate.shortName}</h3>
       <p className="mt-1 text-xs leading-5 text-ink-600">
         Valid until <strong className="font-bold tabular-nums text-ink-900">{certificate.validUntil}</strong>
       </p>

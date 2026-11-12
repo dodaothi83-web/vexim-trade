@@ -182,7 +182,8 @@ const actions = fs.readFileSync(path.join(ROOT, "app/crm/suppliers/[slug]/audit/
 assert.match(actions, /certificate\.scheme/, "Đổi loại chứng nhận có ghi audit");
 assert.match(actions, /isCertificateScheme\(next\)/, "Chỉ nhận mã loại hợp lệ từ form");
 const pdp = fs.readFileSync(path.join(ROOT, "app/(public)/products/[slug]/[productId]/page.tsx"), "utf8");
-assert.match(pdp, /certificate\.schemeLabel/, "Trang sản phẩm hiện loại chứng nhận");
+assert.match(pdp, /<ProductCertificateCards certificates=\{productCertificates\} \/>/, "Trang sản phẩm hiện thẻ chứng nhận");
+assert.match(fs.readFileSync(path.join(ROOT, "components/public/product-certificate-cards.tsx"), "utf8"), /certificate\.shortName/, "Thẻ lấy tên chuẩn của loại chứng nhận làm tiêu đề");
 
 // 7. CSDL: danh sách mã trong migration phải trùng đúng bộ mã trong mã nguồn.
 const migration = fs.readFileSync(path.join(ROOT, "supabase/migrations/20261076_certificate_scope_flow.sql"), "utf8");

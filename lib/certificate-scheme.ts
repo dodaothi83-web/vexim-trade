@@ -208,3 +208,34 @@ export function detectCertificateScheme(input: {
   }
   return null;
 }
+
+/**
+ * Tên dài bằng tiếng Việt in trên giấy khi không có chữ viết tắt quốc tế, ví dụ
+ * "Chứng nhận hệ thống phân tích mối nguy và điểm kiểm soát tới hạn" = HACCP. Chỉ dùng
+ * để rút gọn tên hiển thị; không dùng để phân loại/lên chip lọc.
+ */
+const DISPLAY_ALIASES: Array<{ code: CertificateScheme; test: RegExp }> = [
+  { code: "haccp", test: /\bphan tich moi nguy\b/ },
+  { code: "gmp", test: /\bthuc hanh san xuat tot\b/ },
+];
+
+/**
+ * Tên ngắn của giấy cho trang công khai tiếng Anh: "HACCP", "ISO 22000"…
+ *
+ * Tên lưu trong kho là nguyên văn tiêu đề trên giấy (thường là một câu tiếng Việt dài),
+ * không hợp để người mua nước ngoài đọc. Ưu tiên loại đã phân loại (nhân viên sửa được),
+ * sau đó mới đọc chuẩn từ chính tên giấy. Không nhận ra thì giữ nguyên tên gốc — không
+ * đoán. Chỉ đổi cách hiển thị, không đổi bản ghi.
+ */
+export function certificateShortName(name: string | null | undefined, scheme?: string | null): string {
+  const original = (name ?? "").trim();
+  if (!isUnclassifiedCertificateScheme(scheme)) {
+    const label = certificateSchemeLabel(scheme, "en");
+    if (label) return label;
+  }
+  const detected = detectCertificateScheme({ name: original });
+  if (detected) return certificateSchemeLabel(detected, "en") ?? original;
+  const text = normalize(original);
+  const alias = DISPLAY_ALIASES.find((item) => item.test.test(text));
+  return alias ? certificateSchemeLabel(alias.code, "en") ?? original : original;
+}

@@ -60,8 +60,12 @@ export const metadata: Metadata = {
   },
   description: HOME_META_DESCRIPTION,
   icons: {
-    icon: { url: "/favicon.png", type: "image/png", sizes: "500x500" },
-    apple: { url: "/favicon.png", type: "image/png" },
+    // Google yêu cầu favicon vuông, cạnh là bội số của 48px → khai báo .ico (16/32/48) + PNG 192.
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/favicon.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: { url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" },
   },
 };
 

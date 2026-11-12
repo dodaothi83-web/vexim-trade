@@ -182,7 +182,7 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
                 <ul className="space-y-3">
                   {product.certificates.slice(0, 3).map((certificate) => (
                     <li key={certificate.id} className="text-xs leading-5">
-                      <strong className="block break-words text-ink-800">{certificate.name}</strong>
+                      <strong title={certificate.name} className="block break-words text-ink-800">{certificate.shortName}</strong>
                       <span className="mt-0.5 block text-ink-500">Valid until {certificate.validUntil}</span>
                       <span className="block text-ink-500">{certificate.holderMatch === "owner" ? "Registered to supplier" : `Third-party holder: ${certificate.holderName}`}</span>
                     </li>
