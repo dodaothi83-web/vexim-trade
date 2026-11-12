@@ -9,7 +9,7 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { notificationOrigin } from "@/lib/supplier-portal/notify";
 import { SITE_URL } from "@/lib/site";
 import type { ChatConversation, SupportConversation } from "@/lib/types";
-import { notificationDue, type NotifyKind } from "./core";
+import { notificationDue, unansweredEscalationDue, type NotifyKind } from "./core";
 import { isOnline, presenceKey, readPresence } from "./presence";
 import { buyerLabel, supplierName } from "./service";
 import { deskInbox } from "./support";
@@ -187,6 +187,86 @@ async function sendDigest(audience: Audience, to: string[], entries: Entry[]): P
   return res.ok;
 }
 
+/** Trần mỗi lượt quét, để một lần chạy không gửi ồ ạt. */
+export const UNANSWERED_MAX_PER_RUN = 40;
+/** Nơi người mua gửi yêu cầu tìm nguồn chung cho Vexim. */
+const SOURCING_URL = `${SITE_URL}/buyer/account?tab=vexim`;
+
+export interface UnansweredRunResult { escalated: number; buyerEmails: number; failed: number }
+
+/**
+ * Nhà cung cấp không trả lời người mua sau 48 giờ (thường là không còn vào tài khoản):
+ *  1. Người mua nhận một thư nói rõ chưa có trả lời, Vexim đang liên hệ nhà cung cấp, và có thể
+ *     gửi yêu cầu tìm nguồn chung nếu cần gấp. Không tự chuyển tin sang nhà cung cấp khác.
+ *  2. Đội Vexim nhận một thư gộp; việc cũng hiện ở "Việc cần làm" cho tới khi nhà cung cấp
+ *     trả lời hoặc nhân viên ghi đã liên hệ.
+ * Mỗi tin của người mua chỉ chuyển một lần (nhận việc bằng cập nhật có điều kiện). Thư cho
+ * người mua lỗi thì trả mốc để lần quét sau thử lại. Chưa chạy migration thì bỏ qua, không lỗi.
+ */
+export async function runUnansweredEscalations(store: DataStore, nowMs = Date.now()): Promise<UnansweredRunResult> {
+  const chats = await store.listChatConversations({ limit: 1000 }).catch(() => [] as ChatConversation[]);
+  const due = chats.filter((c) => unansweredEscalationDue(c, nowMs))
+    .sort((a, b) => (a.last_message_at ?? "").localeCompare(b.last_message_at ?? "")).slice(0, UNANSWERED_MAX_PER_RUN);
+  if (!due.length) return { escalated: 0, buyerEmails: 0, failed: 0 };
+
+  const stamp = new Date(nowMs).toISOString();
+  type Item = { chat: ChatConversation; expected: string | null; supplier: string };
+  const byBuyer = new Map<string, Item[]>();
+  for (const chat of due) {
+    const expected = chat.unanswered_escalated_at ?? null;
+    const ok = await store.claimChatNotification("chat_conversations", chat.id, "unanswered_escalated_at", expected, stamp).catch(() => false);
+    if (!ok) continue;
+    const supplier = await store.getSupplier(chat.supplier_id).catch(() => null);
+    const email = chat.buyer_email.trim().toLowerCase();
+    byBuyer.set(email, [...(byBuyer.get(email) ?? []), { chat, expected, supplier: supplier ? supplierName(supplier) : "Supplier" }]);
+  }
+
+  let buyerEmails = 0; let failed = 0;
+  const escalated: Item[] = [];
+  for (const [email, items] of byBuyer) {
+    const ok = await sendUnansweredBuyerNotice(email, items).catch((error) => { console.error("[chat-notify] unanswered buyer notice failed", error); return false; });
+    if (ok) { buyerEmails++; escalated.push(...items); continue; }
+    failed++;
+    for (const i of items) await store.claimChatNotification("chat_conversations", i.chat.id, "unanswered_escalated_at", stamp, i.expected).catch(() => false);
+  }
+  if (escalated.length) {
+    // Thư nội bộ chỉ là lời báo thêm: việc đã nằm trong CRM, nên gửi lỗi không trả mốc.
+    await sendUnansweredStaffDigest(store, escalated).catch((error) => { console.error("[chat-notify] unanswered staff digest failed", error); });
+  }
+  return { escalated: escalated.length, buyerEmails, failed };
+}
+
+async function sendUnansweredBuyerNotice(to: string, items: { chat: ChatConversation; supplier: string }[]): Promise<boolean> {
+  const n = items.length;
+  const subject = n === 1 ? `No reply yet from ${items[0].supplier} on Vexim Trade` : `No reply yet from ${n} suppliers on Vexim Trade`;
+  const intro = n === 1
+    ? `${items[0].supplier} has not replied to your message in the last 2 days.`
+    : "These suppliers have not replied to your messages in the last 2 days.";
+  const entries: Entry[] = items.map((i) => ({ from: i.supplier, product: i.chat.product_name, preview: null, kind: "first",
+    href: `${SITE_URL}/buyer/account/messages?c=${encodeURIComponent(i.chat.id)}` }));
+  const next = "Our team is now contacting the supplier for you. Your message stays in the conversation and you will get an email as soon as they reply.";
+  const alt = "Need an answer sooner? Send a sourcing request and Vexim will look for matching suppliers. We will not pass your message to another supplier without asking you.";
+  const html = `<p>${escapeHtml(intro)}</p>${rows(entries, "Open conversation")}<p>${escapeHtml(next)}</p><p>${escapeHtml(alt)}</p>${button(SOURCING_URL, "Send a sourcing request")}
+    <p style="color:${brandColors.muted};font-size:12.5px;">Please do not reply to this email. Your email address stays private.</p>`;
+  const res = await transport({ to: [to], from: FROM_ADDRESS, subject, html: wrapPlainEmail({ title: escapeHtml(subject), body: html }),
+    text: `${intro}\n\n${textRows(entries)}\n\n${next}\n\n${alt}\n${SOURCING_URL}\n\nPlease do not reply to this email.` });
+  return res.ok;
+}
+
+async function sendUnansweredStaffDigest(store: DataStore, items: { chat: ChatConversation; supplier: string }[]): Promise<boolean> {
+  const entries: Entry[] = await Promise.all(items.map(async (i) => ({
+    from: `${i.supplier} ← ${await buyerLabel(store, i.chat.buyer_email).then((l) => l === "Người mua" ? i.chat.buyer_email : l)}`,
+    product: i.chat.product_name, preview: i.chat.last_message_preview, kind: "first" as const,
+    href: `${notificationOrigin()}/crm/messages/${encodeURIComponent(i.chat.id)}`,
+  })));
+  const subject = `Nhà cung cấp chưa trả lời người mua sau 48 giờ (${entries.length})`;
+  const intro = "Người mua trong các cuộc dưới đây đã chờ quá 48 giờ. Hãy gọi hoặc nhắn Zalo cho nhà cung cấp, rồi ghi \"Đã liên hệ\" trong CRM. Người mua đã được báo là Vexim đang liên hệ.";
+  const html = `<p>${escapeHtml(intro)}</p>${rows(entries, "Mở cuộc trò chuyện trong CRM")}${button(`${notificationOrigin()}/crm/tasks`, "Mở Việc cần làm")}`;
+  const res = await transport({ to: [deskInbox()], from: SERVICE_FROM_ADDRESS, subject, html: wrapPlainEmail({ title: escapeHtml(subject), body: html }),
+    text: `${intro}\n\n${textRows(entries)}` });
+  return res.ok;
+}
+
 const OPPORTUNISTIC_EVERY_MS = 3 * 60_000;
 let lastRun = 0;
 let running = false;
@@ -203,6 +283,7 @@ export function scheduleChatNotifications(store: DataStore): void {
     after(async () => {
       running = true;
       try { await runChatNotifications(store); } catch (error) { console.error("[chat-notify] sweep failed", error); }
+      try { await runUnansweredEscalations(store); } catch (error) { console.error("[chat-notify] unanswered sweep failed", error); }
       finally { running = false; }
     });
   } catch { /* ngoài request (test) thì bỏ qua */ }

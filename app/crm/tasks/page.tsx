@@ -3,7 +3,9 @@ import { ChevronRight, CircleCheckBig } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { Card } from "@/components/ui";
+import { hasPermission } from "@/lib/auth/permissions";
 import { requirePagePermission } from "@/lib/auth/session";
+import { unansweredNeedsStaff } from "@/lib/chat/core";
 import { getStore } from "@/lib/db";
 import { isPartnerL2, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
 import { auditHref } from "@/lib/verification";
@@ -19,13 +21,15 @@ interface Task { key: string; who: string; what: string; since: string; href: st
  * các việc khác mở đúng trang hiện có cho đến khi được làm gọn tiếp.
  */
 export default async function TasksPage() {
-  await requirePagePermission("verifications.view", "/crm/dashboard");
+  const session = await requirePagePermission("verifications.view", "/crm/dashboard");
   const store = getStore();
-  const [verifications, submissions, suppliers, requests] = await Promise.all([
+  const [verifications, submissions, suppliers, requests, chats] = await Promise.all([
     store.listVerifications(),
     store.listSubmissions().catch(() => []),
     store.listSuppliers(),
     store.listSupplierVerificationRequests().catch(() => []),
+    // Chat người mua ↔ nhà cung cấp chỉ dành cho người có quyền xem RFQ (như trang Tin nhắn).
+    hasPermission(session.role, "rfq.view") ? store.listChatConversations({ limit: 1000 }).catch(() => []) : [],
   ]);
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
   const name = (id: string) => supplierById.get(id)?.name ?? "Nhà cung cấp";
@@ -67,7 +71,14 @@ export default async function TasksPage() {
     since: r.requested_at, href: `/crm/suppliers/${r.supplier_id}`, action: "Gọi cho nhà cung cấp",
   })).sort(oldestFirst);
 
+  // Người mua nhắn quá 48 giờ không được trả lời: gọi nhà cung cấp, rồi ghi "đã liên hệ".
+  const unansweredTasks: Task[] = chats.filter(unansweredNeedsStaff).map((c) => ({
+    key: `c-${c.id}`, who: name(c.supplier_id), what: `chưa trả lời người mua${c.product_name ? ` về ${c.product_name}` : ""}`,
+    since: c.last_message_at ?? c.created_at, href: `/crm/messages/${c.id}`, action: "Liên hệ nhà cung cấp",
+  })).sort(oldestFirst);
+
   const groups = [
+    { title: "Người mua chờ nhà cung cấp trả lời", tasks: unansweredTasks },
     { title: "Chứng từ xuất khẩu (L2)", tasks: exportTasks },
     { title: "Xác minh nhà máy (L3)", tasks: factoryTasks },
     { title: "Giấy tờ doanh nghiệp (L1)", tasks: documentTasks },

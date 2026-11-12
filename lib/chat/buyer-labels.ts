@@ -13,6 +13,8 @@ export const BUYER_CHAT_LABELS: Record<"en" | "vi", ChatLabels> = {
     notice: "Your email address is not shared with the supplier. You get an email when they reply.",
     attached: "Asking about", removeAttached: "Remove product", quickTitle: "Start with a common question",
     newConversation: "New conversation", productUnavailable: "This product cannot receive messages right now.",
+    followUp: "No reply from this supplier yet. Vexim is contacting them for you, and you will get an email when they answer.",
+    followUpAction: "Need it sooner? Send a sourcing request",
   },
   vi: {
     title: "Tin nhắn", empty: "Chưa có tin nhắn",
@@ -25,5 +27,7 @@ export const BUYER_CHAT_LABELS: Record<"en" | "vi", ChatLabels> = {
     notice: "Email của bạn không được chia sẻ cho nhà cung cấp. Bạn nhận email khi họ trả lời.",
     attached: "Đang hỏi về", removeAttached: "Bỏ sản phẩm", quickTitle: "Bắt đầu bằng câu hỏi hay gặp",
     newConversation: "Cuộc trò chuyện mới", productUnavailable: "Sản phẩm này hiện chưa nhận tin nhắn.",
+    followUp: "Nhà cung cấp chưa trả lời. Vexim đang liên hệ họ giúp bạn, bạn sẽ nhận email khi họ trả lời.",
+    followUpAction: "Cần sớm hơn? Gửi yêu cầu tìm nguồn",
   },
 };
