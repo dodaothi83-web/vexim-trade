@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Maximize2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 
 import { VeximDocumentIcon } from "@/components/brand/vexim-icons";
 import { CertificatePreviewDialog } from "@/components/public/supplier-certificate-rail";
@@ -15,17 +15,74 @@ import type { PublicSupplierCertificate } from "@/lib/public/certificates";
  * cửa sổ với hồ sơ nhà cung cấp. Giấy scan PDF không có ảnh công khai nên thẻ đứng yên
  * và ghi rõ có bản PDF trong kho.
  *
+ * Từ 3 giấy trở lên, thẻ nằm trên một hàng trượt ngang: thẻ hẹp hơn nửa khung nên thẻ
+ * kế tiếp luôn ló ra một phần — người mua thấy ngay còn giấy phía sau mà không cần đọc
+ * chú thích. Điện thoại vuốt tay; chuột và bàn phím có nút mũi tên.
+ *
  * Biểu tượng tài liệu dùng bản trung tính của bộ Vexim: thẻ chỉ nói "có giấy này",
  * không khẳng định đã xác thực tổ chức cấp.
  */
+const CARD_GAP_PX = 12;
+
 export function ProductCertificateCards({ certificates }: { certificates: PublicSupplierCertificate[] }) {
   const [selected, setSelected] = useState<PublicSupplierCertificate | null>(null);
+  const railRef = useRef<HTMLUListElement>(null);
+  const [canBack, setCanBack] = useState(false);
+  const [canForward, setCanForward] = useState(false);
+  const sliding = certificates.length > 2;
+
+  const syncEdges = useCallback(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const max = rail.scrollWidth - rail.clientWidth;
+    setCanBack(rail.scrollLeft > 4);
+    setCanForward(rail.scrollLeft < max - 4);
+  }, []);
+
+  useEffect(() => {
+    syncEdges();
+    const rail = railRef.current;
+    if (!rail) return;
+    rail.addEventListener("scroll", syncEdges, { passive: true });
+    window.addEventListener("resize", syncEdges);
+    return () => {
+      rail.removeEventListener("scroll", syncEdges);
+      window.removeEventListener("resize", syncEdges);
+    };
+  }, [syncEdges, certificates.length]);
+
+  const step = (direction: -1 | 1) => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const card = rail.firstElementChild as HTMLElement | null;
+    rail.scrollBy({ left: direction * ((card?.offsetWidth ?? 280) + CARD_GAP_PX), behavior: "smooth" });
+  };
+
+  const arrow = "hidden h-8 w-8 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-700 transition hover:border-brand-300 hover:text-brand-700 disabled:cursor-default disabled:opacity-35 disabled:hover:border-ink-200 disabled:hover:text-ink-700 sm:flex";
 
   return (
     <>
-      <ul className="grid gap-3 sm:grid-cols-2">
+      {sliding && (
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-ink-500">
+            {certificates.length} certificates<span className="sm:hidden"> · swipe to see all</span>
+          </p>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button type="button" onClick={() => step(-1)} disabled={!canBack} aria-label="Previous certificates" className={arrow}>
+              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => step(1)} disabled={!canForward} aria-label="Next certificates" className={arrow}>
+              <ChevronRight aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+      <ul ref={railRef} tabIndex={sliding ? 0 : undefined} aria-label={sliding ? `Product certificates (${certificates.length})` : undefined}
+        className={sliding
+          ? "-mx-5 flex snap-x snap-mandatory scroll-px-5 items-stretch gap-3 overflow-x-auto scroll-smooth px-5 pb-2 pt-1 outline-none focus-visible:ring-2 focus-visible:ring-brand-300 [scrollbar-width:thin]"
+          : "grid gap-3 sm:grid-cols-2"}>
         {certificates.map((certificate) => (
-          <li key={certificate.id} className="flex">
+          <li key={certificate.id} className={sliding ? "flex w-[80%] shrink-0 snap-start sm:w-[41%]" : "flex"}>
             {certificate.imageUrl ? (
               <button type="button" onClick={() => setSelected(certificate)} aria-haspopup="dialog"
                 aria-label={`View ${certificate.shortName} certificate`}
