@@ -1,7 +1,7 @@
 import type { Certificate, MediaAsset } from "@/lib/types";
 import { isExpired } from "@/lib/media/readiness";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
-import { certificateSchemeLabel, isCertificateChipScheme, isCertificateScheme, type CertificateScheme } from "@/lib/certificate-scheme";
+import { certificateSchemeLabel, certificateShortName, isCertificateChipScheme, isCertificateScheme, type CertificateScheme } from "@/lib/certificate-scheme";
 import {
   certificateAppliesToProduct,
   optoutKeys,
@@ -12,6 +12,8 @@ import {
 export interface PublicSupplierCertificate {
   id: string;
   name: string;
+  /** Tên ngắn để hiển thị cho người mua ("HACCP", "ISO 22000"); bằng `name` khi không nhận ra chuẩn. */
+  shortName: string;
   issuer: string | null;
   number: string | null;
   holderMatch: "owner" | "partner";
@@ -109,6 +111,7 @@ export function publicSupplierCertificates(
     .map((c) => ({
       id: c.id,
       name: withoutDirectContacts(c.name).slice(0, 120),
+      shortName: withoutDirectContacts(certificateShortName(c.name, c.certificate_scheme)).slice(0, 120),
       issuer: c.issuer ? withoutDirectContacts(c.issuer).slice(0, 120) : null,
       number: c.number ? withoutDirectContacts(c.number).slice(0, 80) : null,
       holderMatch: (c.holder_match === "partner" ? "partner" : "owner") as "owner" | "partner",

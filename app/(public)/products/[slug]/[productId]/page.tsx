@@ -236,7 +236,7 @@ export default async function PublicProductDetail({ params }: Props) {
       ? {
         hasCertification: productCertificates.map((certificate) => ({
           "@type": "Certification",
-          name: certificate.name,
+          name: certificate.shortName,
           ...(certificate.validUntil ? { expires: certificate.validUntil } : {}),
         })),
       }
@@ -383,8 +383,8 @@ export default async function PublicProductDetail({ params }: Props) {
               {productCertificates.map((certificate) => (
                 <li key={certificate.id} className="rounded-lg border border-teal-100 bg-white px-3.5 py-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong className="font-bold text-ink-900">{certificate.name}</strong>
-                    {certificate.schemeLabel && (
+                    <strong title={certificate.name} className="font-bold text-ink-900">{certificate.shortName}</strong>
+                    {certificate.schemeLabel && certificate.schemeLabel !== certificate.shortName && (
                       <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-bold text-teal-900">{certificate.schemeLabel}</span>
                     )}
                     <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${certificate.holderMatch === "owner" ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-1 ring-amber-200"}`}>

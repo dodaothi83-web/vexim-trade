@@ -141,12 +141,15 @@ const { SupplierCertificateRail } = load('components/public/supplier-certificate
 const html = renderToStaticMarkup(React.createElement(SupplierCertificateRail, {
   certificates: [
     visible[0],
-    { ...visible[0], id: 'cert-2', name: 'ISO 22000', imageUrl: null, validUntil: '2028-03-01', issuer: 'SGS' },
+    { ...visible[0], id: 'cert-2', name: 'ISO 22000', shortName: 'ISO 22000', imageUrl: null, validUntil: '2028-03-01', issuer: 'SGS' },
   ],
 }));
 assert.match(html, /src="\/public-media\/certificate\/media-cert-1"/, 'Ảnh chứng nhận được trưng bày');
-assert.match(html, /alt="HACCP Codex Alimentarius certificate issued by TQC"/, 'Ảnh có mô tả cho trình đọc màn hình');
-assert.match(html, /HACCP Codex Alimentarius<\/h3>/, 'Tiêu đề nằm dưới ảnh');
+assert.match(html, /alt="HACCP certificate issued by TQC"/, 'Ảnh có mô tả cho trình đọc màn hình');
+assert.match(html, /<h3 title="HACCP Codex Alimentarius"[^>]*>HACCP<\/h3>/, 'Tiêu đề dưới ảnh là tên ngắn của giấy, tên gốc nằm ở tooltip');
+// Tên gốc là câu tiếng Việt dài in trên giấy: trang công khai chỉ hiện tên chuẩn.
+assert.equal(publicSupplierCertificates('sup-1', [certificate({ name: 'CHỨNG NHẬN HỆ THỐNG PHÂN TÍCH MỐI NGUY VÀ ĐIỂM KIỂM SOÁT TỚI HẠN', certificate_scheme: null })], [media()], TODAY)[0].shortName, 'HACCP');
+assert.equal(publicSupplierCertificates('sup-1', [certificate({ name: 'Giấy chưa rõ chuẩn', certificate_scheme: null })], [media()], TODAY)[0].shortName, 'Giấy chưa rõ chuẩn', 'Không nhận ra chuẩn thì giữ tên gốc, không đoán');
 assert.match(html, /Valid until <strong[^>]*>2027-10-02<\/strong>/, 'Ngày hết hạn nằm dưới tiêu đề');
 assert.match(html, /ISO 22000<\/h3>/, 'Giấy PDF vẫn có thẻ riêng');
 assert.match(html, /PDF on file/, 'Giấy PDF ghi rõ là tệp PDF, không giả làm ảnh');
@@ -154,7 +157,7 @@ const rail = read('components/public/supplier-certificate-rail.tsx');
 assert.match(rail, /aria-label="Previous certificates"/, 'Có nút lùi cho người dùng chuột');
 assert.match(rail, /aria-label="Next certificates"/, 'Có nút tiến cho người dùng chuột');
 assert.match(rail, /scrollBy\(/, 'Nút mũi tên trượt đúng một thẻ');
-assert.match(html, /aria-label="View HACCP Codex Alimentarius certificate"/, 'Ảnh mở bằng nút xem tại trang');
+assert.match(html, /aria-label="View HACCP certificate"/, 'Ảnh mở bằng nút xem tại trang');
 assert.match(rail, /<dialog\b/, 'Ảnh mở trong hộp thoại trên trang');
 assert.match(rail, /showModal\(\)/, 'Hộp thoại mở ở chế độ modal');
 assert.match(rail, /Close certificate preview/, 'Có nút đóng ảnh');
