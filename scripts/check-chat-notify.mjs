@@ -133,10 +133,74 @@ const brokenStore = { ...store, claimChatNotification: async (table, id, column,
 } };
 await notify.runChatNotifications(brokenStore, T0 + 200 * HOUR);
 
+/* ---------- 2b. Nhà cung cấp không trả lời: chuyển cho Vexim sau 48 giờ ---------- */
+const DAY = 24 * HOUR;
+const quiet = { last_message_at: iso(T0), last_sender: 'buyer', unanswered_escalated_at: null, unanswered_handled_at: null };
+assert.equal(core.unansweredEscalationDue(quiet, T0 + 47 * HOUR), false, 'Chưa đủ 48 giờ');
+assert.equal(core.unansweredEscalationDue(quiet, T0 + 48 * HOUR), true);
+assert.equal(core.unansweredEscalationDue({ ...quiet, last_sender: 'supplier' }, T0 + 5 * DAY), false, 'Nhà cung cấp đã trả lời thì không chuyển');
+assert.equal(core.unansweredEscalationDue(quiet, T0 + 15 * DAY), false, 'Cuộc bỏ lửng quá 14 ngày không dội thư khi bật tính năng');
+const escalatedRow = { ...quiet, unanswered_escalated_at: iso(T0 + 48 * HOUR) };
+assert.equal(core.unansweredEscalationDue(escalatedRow, T0 + 5 * DAY), false, 'Mỗi tin chỉ chuyển một lần');
+assert.equal(core.unansweredEscalated(escalatedRow), true);
+assert.equal(core.unansweredNeedsStaff(escalatedRow), true);
+assert.equal(core.unansweredNeedsStaff({ ...escalatedRow, unanswered_handled_at: iso(T0 + 50 * HOUR) }), false, 'Nhân viên đã liên hệ thì rời danh sách việc');
+assert.equal(core.unansweredEscalated({ ...escalatedRow, last_sender: 'supplier', last_message_at: iso(T0 + 60 * HOUR) }), false, 'Nhà cung cấp trả lời thì hết cờ');
+const again = { ...escalatedRow, unanswered_handled_at: iso(T0 + 50 * HOUR), last_message_at: iso(T0 + 3 * DAY) };
+assert.equal(core.unansweredEscalated(again), false, 'Người mua nhắn tin mới: đồng hồ tính lại');
+assert.equal(core.unansweredEscalationDue(again, T0 + 5 * DAY + HOUR), true, 'Tin mới lại quá 48 giờ thì chuyển lần nữa');
+
+const quietChats = [
+  chat('q1', { supplier_notified_at: iso(T0 + 10 * MIN), supplier_reminded_at: iso(T0 + 25 * HOUR) }),
+  chat('q2', { product_name: 'Pepper 500 g/l', supplier_id: 's2' }),
+  chat('q3', { buyer_email: 'other@buyer.com', last_sender: 'supplier' }),
+];
+const quietStore = { ...store, listChatConversations: async () => quietChats,
+  claimChatNotification: async (table, id, column, expected, next) => {
+    const row = quietChats.find((c) => c.id === id);
+    if (!row || (row[column] ?? null) !== expected) return false;
+    row[column] = next; return true;
+  } };
+let mark = sent.length;
+assert.equal((await notify.runUnansweredEscalations(quietStore, T0 + 40 * HOUR)).escalated, 0, 'Chưa đủ 48 giờ thì chưa chuyển');
+const run = await notify.runUnansweredEscalations(quietStore, T0 + 49 * HOUR);
+assert.deepEqual({ ...run }, { escalated: 2, buyerEmails: 1, failed: 0 }, 'Hai cuộc của một người mua: một thư');
+const [toBuyer, toStaff] = sent.slice(mark);
+assert.equal(sent.length - mark, 2, 'Một thư cho người mua, một thư gộp cho đội Vexim');
+assert.deepEqual([...toBuyer.to], ['buyer@acme.de']);
+assert.match(toBuyer.subject, /No reply yet from 2 suppliers/);
+assert.match(toBuyer.html, /\/buyer\/account\/messages\?c=q1/); assert.match(toBuyer.html, /\/buyer\/account\?tab=vexim/);
+assert.match(toBuyer.html, /will not pass your message to another supplier without asking/);
+assert.doesNotMatch(toBuyer.html + toBuyer.text, /owner@mekong|contact@mekong|veximtrade\.com\/crm/i, 'Người mua không thấy liên hệ nhà cung cấp hay đường dẫn nội bộ');
+assert.deepEqual([...toStaff.to], ['hello@veximtrade.com']);
+assert.match(toStaff.subject, /48 giờ \(2\)/); assert.match(toStaff.html, /\/crm\/messages\/q1/); assert.match(toStaff.html, /\/crm\/tasks/);
+assert.equal(quietChats[2].unanswered_escalated_at ?? null, null, 'Cuộc nhà cung cấp đã trả lời không bị chuyển');
+mark = sent.length;
+assert.equal((await notify.runUnansweredEscalations(quietStore, T0 + 60 * HOUR)).escalated, 0);
+assert.equal(sent.length, mark, 'Không chuyển lại cùng một tin');
+
+// Thư cho người mua lỗi: trả mốc, lần sau thử lại; không báo đội Vexim khi người mua chưa được báo.
+quietChats.push(chat('q4', { buyer_email: 'late@buyer.com', last_message_at: iso(T0 + 20 * HOUR) }));
+failSend = true;
+assert.deepEqual({ ...(await notify.runUnansweredEscalations(quietStore, T0 + 70 * HOUR)) }, { escalated: 0, buyerEmails: 0, failed: 1 });
+assert.equal(quietChats[3].unanswered_escalated_at ?? null, null);
+failSend = false;
+assert.equal((await notify.runUnansweredEscalations(quietStore, T0 + 71 * HOUR)).escalated, 1);
+
+// Chưa chạy migration: không lỗi, không gửi gì.
+quietChats.push(chat('q5', { buyer_email: 'x@buyer.com', last_message_at: iso(T0 + 20 * HOUR) }));
+mark = sent.length;
+const noColumn = { ...quietStore, claimChatNotification: async () => { throw new Error('column does not exist'); } };
+assert.deepEqual({ ...(await notify.runUnansweredEscalations(noColumn, T0 + 72 * HOUR)) }, { escalated: 0, buyerEmails: 0, failed: 0 });
+assert.equal(sent.length, mark);
+
 /* ---------- 3. Nối dây ---------- */
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 for (const f of ['lib/chat/service.ts', 'lib/chat/support.ts']) assert.doesNotMatch(read(f), /transport\(/, `${f}: không gửi email ngay khi có tin`);
 assert.match(read('app/api/cron/chat-notify/route.ts'), /CRON_SECRET/);
+assert.match(read('app/api/cron/chat-notify/route.ts'), /runUnansweredEscalations\(store\)/, 'Cron chạy cả bước chuyển cho Vexim');
+assert.match(read('lib/chat/service.ts'), /veximFollowingUp: side === "buyer" && unansweredEscalated\(c\)/, 'Chỉ người mua thấy thông báo Vexim đang liên hệ');
+assert.match(read('app/crm/tasks/page.tsx'), /chats\.filter\(unansweredNeedsStaff\)/, 'Việc hiện ở Việc cần làm');
 for (const f of ['app/api/chat/route.ts', 'app/api/support/route.ts', 'app/api/crm/support/route.ts']) assert.match(read(f), /scheduleChatNotifications\(/, `${f}: kích hoạt bộ quét`);
 assert.match(read('supabase/migrations/20261113_chat_notify_reminders.sql'), /add column if not exists supplier_reminded_at/);
 

@@ -293,7 +293,7 @@ export interface DataStore {
    * Trả về false nếu máy chủ khác đã nhận trước, để hai lần quét cùng lúc không gửi trùng.
    */
   claimChatNotification(table: "chat_conversations" | "support_conversations", id: string,
-    column: "buyer_notified_at" | "supplier_notified_at" | "staff_notified_at" | "buyer_reminded_at" | "supplier_reminded_at" | "staff_reminded_at",
+    column: "buyer_notified_at" | "supplier_notified_at" | "staff_notified_at" | "buyer_reminded_at" | "supplier_reminded_at" | "staff_reminded_at" | "unanswered_escalated_at",
     expected: string | null, next: string | null): Promise<boolean>;
   touchChatPresence(key: string, at: string): Promise<void>;
   getChatPresence(keys: string[]): Promise<Record<string, string>>;

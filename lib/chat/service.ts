@@ -6,7 +6,7 @@ import { presenceKey, readPresence } from "./presence";
 import { supplierShortName } from "@/lib/public/supplier-name";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import type { ChatConversation, ChatMessage, ChatSender, Supplier } from "@/lib/types";
-import { chatPreview, chatRateLimited, cleanChatBody, hasUnread, tooManyNewConversations } from "./core";
+import { chatPreview, chatRateLimited, cleanChatBody, hasUnread, tooManyNewConversations, unansweredEscalated } from "./core";
 
 /**
  * Chat người mua ↔ nhà cung cấp. Thay luồng email trực tiếp của "Ask supplier": cuộc trò
@@ -31,6 +31,8 @@ export interface ChatConversationView {
   counterpartReadAt: string | null;
   /** Lần cuối bên kia còn mở Vexim; null là chưa biết. */
   counterpartLastSeen: string | null;
+  /** Chỉ phía người mua: nhà cung cấp chưa trả lời quá 48 giờ, Vexim đang liên hệ họ. */
+  veximFollowingUp: boolean;
 }
 
 /** Thẻ sản phẩm trong khung chat: cả hai bên nhìn thấy cùng một hàng hoá. */
@@ -81,7 +83,9 @@ export async function conversationViews(store: DataStore, rows: ChatConversation
     return { id: c.id, counterpart, counterpartHref, productName: c.product_name, preview: c.last_message_preview,
       lastMessageAt: c.last_message_at ?? c.created_at, unread: hasUnread(c, side),
       counterpartReadAt: side === "buyer" ? c.supplier_last_read_at : c.buyer_last_read_at,
-      counterpartLastSeen: seen[otherKey(c)] ?? null };
+      counterpartLastSeen: seen[otherKey(c)] ?? null,
+      // Nhà cung cấp không thấy cờ này: đó là việc giữa người mua và Vexim.
+      veximFollowingUp: side === "buyer" && unansweredEscalated(c) };
   }));
 }
 

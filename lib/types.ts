@@ -1887,6 +1887,11 @@ export interface ChatConversation {
   /** Lần nhắc lại (một lần) khi email đầu đã quá 24 giờ mà vẫn chưa đọc. */
   buyer_reminded_at?: string | null;
   supplier_reminded_at?: string | null;
+  /** Người mua chờ quá 48 giờ không được trả lời: mốc chuyển cho đội Vexim theo dõi. */
+  unanswered_escalated_at?: string | null;
+  /** Nhân viên đã liên hệ nhà cung cấp cho lần chuyển gần nhất. */
+  unanswered_handled_at?: string | null;
+  unanswered_handled_by?: string | null;
   created_at: string;
 }
 

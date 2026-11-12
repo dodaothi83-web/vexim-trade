@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { requirePagePermission } from "@/lib/auth/session";
+import { unansweredEscalated, unansweredNeedsStaff } from "@/lib/chat/core";
 import { getStore } from "@/lib/db";
 import type { ChatConversation, Supplier } from "@/lib/types";
 
@@ -53,7 +54,9 @@ export default async function CrmMessagesPage({ searchParams }: { searchParams: 
             <span className="block truncate text-[14px] font-semibold text-ink-900">{s?.display_name || s?.name || "Nhà cung cấp"} · {c.buyer_email}</span>
             <span className="mt-0.5 block truncate text-[12px] text-ink-500">{c.product_name ?? "—"} · {c.last_message_preview ?? "Chưa có tin"}</span>
           </span>
-          {waitingSupplier(c, now) && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">Chờ nhà cung cấp</span>}
+          {unansweredNeedsStaff(c) ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-800">Cần Vexim liên hệ</span>
+            : unansweredEscalated(c) ? <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-bold text-ink-700">Đã liên hệ, chờ trả lời</span> : null}
+          {waitingSupplier(c, now) && !unansweredEscalated(c) && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">Chờ nhà cung cấp</span>}
           <span className="text-[12px] text-ink-500">{c.last_sender === "buyer" ? "Người mua nhắn cuối" : c.last_sender === "supplier" ? "Nhà cung cấp nhắn cuối" : ""}</span>
           <span className="w-28 text-right text-[12px] text-ink-500">{when(c.last_message_at)}</span>
         </Link></li>;

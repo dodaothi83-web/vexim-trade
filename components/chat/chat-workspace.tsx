@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Maximize2, MessageCircle, Package, Send, X } from "lucide-react";
+import { VeximPlatformSupportIcon } from "@/components/brand/vexim-icons";
 import { cx } from "@/components/ui";
 import { DeliveryTicks, PRESENCE_LABELS, PresenceDot, PresenceLine, deliveryStatus } from "@/components/chat/presence";
 
@@ -28,9 +29,12 @@ export interface ChatLabels {
   quickTitle?: string;
   newConversation?: string;
   productUnavailable?: string;
+  /** Phía người mua: nhà cung cấp chưa trả lời quá 48 giờ, Vexim đang liên hệ. */
+  followUp?: string;
+  followUpAction?: string;
 }
 
-interface ConversationView { id: string; counterpart: string; counterpartHref: string | null; productName: string | null; preview: string | null; lastMessageAt: string | null; unread: boolean; counterpartReadAt?: string | null; counterpartLastSeen?: string | null }
+interface ConversationView { id: string; counterpart: string; counterpartHref: string | null; productName: string | null; preview: string | null; lastMessageAt: string | null; unread: boolean; counterpartReadAt?: string | null; counterpartLastSeen?: string | null; veximFollowingUp?: boolean }
 interface ProductCardView { id: string; name: string; imageUrl: string | null; href: string | null; price: string | null }
 interface MessageView { id: string; mine: boolean; body: string; productName: string | null; product?: ProductCardView | null; createdAt: string; pending?: boolean }
 
@@ -307,6 +311,11 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
             <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">{quickQuestions.map((q) => <button key={q} type="button"
               onClick={() => setDraft((d) => d.trim() ? `${d.trim()}\n${q}` : q)}
               className="rounded-full border border-ink-200 bg-white px-3 py-1.5 text-[12.5px] font-medium text-ink-700 shadow-sm transition hover:border-brand-300 hover:text-brand-800">{q}</button>)}</div>
+          </div>}
+          {side === "buyer" && thread.conversation.veximFollowingUp && labels.followUp && <div role="status" data-testid="chat-vexim-follow-up"
+            className="mx-auto flex max-w-md items-start gap-2.5 rounded-xl border border-ink-200 bg-white px-3.5 py-3 text-[12.5px] leading-5 text-ink-700 shadow-sm">
+            <VeximPlatformSupportIcon size={20} strokeWidth={2.4} className="mt-0.5 shrink-0 text-brand-700" />
+            <p>{labels.followUp}{labels.followUpAction && <> <Link href="/buyer/account?tab=vexim" className="font-semibold text-brand-700 underline underline-offset-2">{labels.followUpAction}</Link></>}</p>
           </div>}
           <div ref={endRef} />
         </div>

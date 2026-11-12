@@ -37,6 +37,38 @@ export function notificationDue(s: {
   if (s.remindedAt && s.remindedAt >= s.notifiedAt) return null;
   return nowMs - Date.parse(s.notifiedAt) >= CHAT_REMIND_AFTER_MS ? "reminder" : null;
 }
+
+/** Người mua nhắn mà nhà cung cấp chưa trả lời sau chừng này thời gian thì chuyển cho Vexim. */
+export const CHAT_UNANSWERED_AFTER_MS = 48 * 60 * 60_000;
+/** Chỉ chuyển tin còn mới: lúc bật tính năng không dội thư cho các cuộc bỏ lửng từ lâu. */
+export const CHAT_UNANSWERED_MAX_AGE_MS = 14 * 24 * 60 * 60_000;
+
+type UnansweredState = Pick<ChatConversation, "last_message_at" | "last_sender" | "unanswered_escalated_at" | "unanswered_handled_at">;
+
+/**
+ * Cuộc đã được chuyển cho Vexim và nhà cung cấp vẫn chưa trả lời. Nhà cung cấp trả lời, hoặc
+ * người mua nhắn thêm tin mới, thì mốc chuyển cũ hết hiệu lực (đồng hồ 48 giờ tính lại).
+ */
+export function unansweredEscalated(c: UnansweredState): boolean {
+  return c.last_sender === "buyer" && !!c.last_message_at && !!c.unanswered_escalated_at && c.unanswered_escalated_at >= c.last_message_at;
+}
+
+/**
+ * Đến lúc chuyển cho Vexim chưa: tin cuối là của người mua, đã quá 48 giờ không ai trả lời,
+ * chưa chuyển cho chính tin này. Tính theo "chưa trả lời" chứ không theo "chưa đọc": nhà cung
+ * cấp mở xem rồi bỏ đó thì người mua vẫn đang chờ.
+ */
+export function unansweredEscalationDue(c: UnansweredState, nowMs = Date.now()): boolean {
+  if (c.last_sender !== "buyer" || !c.last_message_at || unansweredEscalated(c)) return false;
+  const age = nowMs - Date.parse(c.last_message_at);
+  return age >= CHAT_UNANSWERED_AFTER_MS && age <= CHAT_UNANSWERED_MAX_AGE_MS;
+}
+
+/** Còn là việc của nhân viên: đã chuyển, nhà cung cấp chưa trả lời, chưa ai ghi "đã liên hệ". */
+export function unansweredNeedsStaff(c: UnansweredState): boolean {
+  return unansweredEscalated(c) && !(c.unanswered_handled_at && c.unanswered_handled_at >= c.unanswered_escalated_at!);
+}
+
 /** Một người mua mở tối đa chừng này cuộc trò chuyện MỚI trong 24 giờ. */
 export const CHAT_NEW_PER_DAY = 20;
 

@@ -12,7 +12,7 @@
  */
 import { NextResponse } from "next/server";
 import { getStore } from "@/lib/db";
-import { runChatNotifications } from "@/lib/chat/notify";
+import { runChatNotifications, runUnansweredEscalations } from "@/lib/chat/notify";
 import { runRfqPortalAlerts } from "@/lib/rfq/portal-alerts";
 import { runRfqMediatedAlerts } from "@/lib/rfq/mediated-alerts";
 import { retryPendingDirectRfqs } from "@/lib/rfq/retry-direct";
@@ -35,9 +35,11 @@ export async function GET(req: Request) {
   try {
     const store = getStore();
     // A chat outage must not block RFQ notifications (or vice versa).
-    const [chat, rfq, mediated, direct] = await Promise.allSettled([
+    const [chat, rfq, mediated, direct, unanswered] = await Promise.allSettled([
       runChatNotifications(store), runRfqPortalAlerts(store), runRfqMediatedAlerts(store), retryPendingDirectRfqs(store),
+      runUnansweredEscalations(store),
     ]);
+    if (unanswered.status === "rejected") console.error("[chat-notify] unanswered escalation failed", unanswered.reason);
     if (chat.status === "rejected") console.error("[chat-notify] chat alerts failed", chat.reason);
     if (rfq.status === "rejected") console.error("[chat-notify] RFQ alerts failed", rfq.reason);
     if (mediated.status === "rejected") console.error("[chat-notify] sourcing desk alerts failed", mediated.reason);
@@ -45,8 +47,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ ...(chat.status === "fulfilled" ? chat.value : { chat_error: "unavailable" }),
       rfq: rfq.status === "fulfilled" ? rfq.value : { error: "unavailable" },
       mediated: mediated.status === "fulfilled" ? mediated.value : { error: "unavailable" },
-      direct: direct.status === "fulfilled" ? direct.value : { error: "unavailable" } },
-    { status: [chat, rfq, mediated, direct].some((result) => result.status === "rejected") ? 503 : 200,
+      direct: direct.status === "fulfilled" ? direct.value : { error: "unavailable" },
+      unanswered: unanswered.status === "fulfilled" ? unanswered.value : { error: "unavailable" } },
+    { status: [chat, rfq, mediated, direct, unanswered].some((result) => result.status === "rejected") ? 503 : 200,
       headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[chat-notify] cron failed", error);
