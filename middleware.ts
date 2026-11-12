@@ -90,6 +90,6 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     // Bỏ static assets và file công cộng
-    "/((?!_next/static|_next/image|favicon\\.(?:ico|png)|images/|logo-vexim(?:-white-mark)?\\.png|linkedin\\.png|facebook\\.png|email-logo\\.png|cashew/).*)",
+    "/((?!_next/static|_next/image|favicon\\.(?:ico|png)|apple-touch-icon\\.png|images/|logo-vexim(?:-white-mark)?\\.png|linkedin\\.png|facebook\\.png|email-logo\\.png|cashew/).*)",
   ],
 };
