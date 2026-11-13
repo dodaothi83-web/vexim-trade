@@ -345,6 +345,9 @@ function UserRow({
               >
                 Huỷ
               </button>
+              {user.role === "supplier" && <p className="basis-full text-[11.5px] text-ink-500">
+                Mật khẩu đổi ngay bên Supabase Auth; mật khẩu cũ hết hiệu lực. Ít nhất 8 ký tự, có chữ và số.
+              </p>}
             </div>
           )}
         </div>
@@ -373,10 +376,11 @@ function UserRow({
             {user.is_active ? "Khoá" : "Mở khoá"}
           </Button>
 
-          {user.role !== "supplier" && <Button size="sm" variant="ghost" disabled={busy} onClick={() => setResetting((v) => !v)}>
+          <Button size="sm" variant="ghost" disabled={busy || (user.role === "supplier" && !user.is_active)} onClick={() => setResetting((v) => !v)}
+            title={user.role === "supplier" && !user.is_active ? "Mở khoá tài khoản trước" : undefined}>
             <KeyRound className="h-3.5 w-3.5" />
             Đặt lại mật khẩu
-          </Button>}
+          </Button>
 
           <button
             type="button"

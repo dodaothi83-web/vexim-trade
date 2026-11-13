@@ -272,7 +272,7 @@ export async function resetUserPasswordAction(
   const store = getStore();
   const target = await store.getUser(id);
   if (!target) return { ok: false, message: "Không tìm thấy tài khoản." };
-  if (target.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp phải đặt lại mật khẩu qua Supabase Auth, không tạo mật khẩu dự phòng nội bộ." };
+  if (target.role === "supplier") return resetSupplierPassword(target, password);
 
   try {
     await store.updateUser(id, { password_hash: await hashPassword(password) });
@@ -290,6 +290,31 @@ export async function resetUserPasswordAction(
     if (hint) return { ok: false, message: hint, details: ["Lỗi gốc: " + raw] };
     return { ok: false, message: raw };
   }
+}
+
+/**
+ * Nhà cung cấp quên mật khẩu: quản trị đặt mật khẩu mới thẳng bên Supabase Auth.
+ *
+ * Tài khoản doanh nghiệp chỉ đăng nhập qua Supabase (không có đường dự phòng nội bộ), nên
+ * chỉ đổi ở đó và không tạo mật khẩu nội bộ. Supabase không đổi được thì báo lỗi rõ, không
+ * báo thành công giả. Mỗi lần đổi đều ghi nhật ký (không ghi mật khẩu).
+ */
+async function resetSupplierPassword(target: { id: string; email: string; is_active: boolean }, password: string): Promise<AuthResult> {
+  if (!target.is_active) return { ok: false, message: "Tài khoản đang bị khoá. Mở khoá trước khi đặt lại mật khẩu." };
+  const updated = await updateSupabasePasswordSilent(target.email, password);
+  if (!updated) {
+    return {
+      ok: false,
+      message: "Chưa đổi được mật khẩu bên Supabase Auth. Kiểm tra kết nối Supabase hoặc tài khoản này chưa có bên Supabase, rồi thử lại.",
+    };
+  }
+  const session = await getSession();
+  await getStore().addAuditLog({
+    actor_id: session?.uid ?? null, actor_email: session?.email ?? null, entity: "user", entity_id: target.id,
+    action: "user.password_reset", before: null, after: { via: "staff_set_supplier_password", supabase_updated: true },
+  }).catch((err) => console.error("[supplier-reset] audit log failed", err));
+  revalidatePath("/", "layout");
+  return { ok: true, message: `Đã đặt mật khẩu mới cho ${target.email}. Gửi mật khẩu cho đúng người phụ trách tài khoản.` };
 }
 
 async function updateSupabasePasswordSilent(email: string, password: string): Promise<boolean> {
