@@ -7,6 +7,7 @@ import * as pricing from '../lib/products/quantity-pricing.ts';
 import * as revisionV2 from '../lib/products/quantity-revision-v2.ts';
 import { offerAliveSignal, dataCompletenessSignal, structuredMatchSignal } from '../lib/public/ranking.ts';
 import * as priceDisplay from "../lib/products/price-display.ts";
+import * as salesUnits from '../lib/products/sales-units.ts';
 const selection = {};
 const selectionCode = ts.transpileModule(readFileSync(new URL('../lib/public/product-selection.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 vm.runInNewContext(selectionCode, { exports: selection, require: (key) => {
@@ -21,6 +22,7 @@ vm.runInNewContext(code, { exports, Intl, Number, Math, Date, require: (key) => 
   if (key === '@/lib/products/quantity-revision-v2') return revisionV2;
   if (key === '@/lib/public/product-selection') return selection;
   if (key === './price-display.ts') return priceDisplay;
+  if (key === './sales-units.ts') return salesUnits;
   throw Error(`Unexpected import ${key}`);
 } });
 const { projectApprovedQuantityOffer } = exports;
@@ -112,3 +114,21 @@ assert.equal(structuredMatchSignal(customRankCard), 0);
 assert.equal(structuredMatchSignal(customRankCard, { filter: { grade: 'W320' } }), 0);
 assert.equal(structuredMatchSignal({ ...customRankCard, quantityOffer: { customGrade: false } }, { filter: { grade: 'W320' } }), 1);
 assert.equal(project({ priceRevision: { ...v2revision, status: 'pending' } }), null, 'Pending prices cannot project to buyer');
+
+/* Bảng giá theo lon: hiển thị theo lon, không có pricePoint/moqKg để không lẫn vào so sánh theo kg. */
+const canTiers = [{ minKg: 5000, priceUsdPerKg: 0.35, incoterm: 'FOB', currency: 'USD', unit: 'can' },
+  { minKg: 20000, priceUsdPerKg: 0.32, incoterm: 'FOB', currency: 'USD', unit: 'can' }];
+const canOffer = project({ priceUnit: 'mt', priceRevision: { ...base.priceRevision, tiers: canTiers } });
+assert.equal(canOffer.salesUnit, 'can');
+assert.equal(canOffer.moq, '5,000 cans');
+assert.equal(canOffer.moqKg, null);
+assert.equal(canOffer.price, '$0.32–0.35/can');
+assert.equal(canOffer.tiers.map((tier) => tier.price).join(' | '), '$0.35/can | $0.32/can');
+assert.equal(canOffer.pricePoint, null, 'Giá theo lon không vào khoảng giá danh mục');
+assert.equal(canOffer.priceRankingEligible, true, 'Giá còn mới vẫn được tính là có giá');
+assert.equal(project({ priceRevision: { ...base.priceRevision, tiers: [canTiers[0], { ...canTiers[1], unit: 'bottle' }] } }), null, 'Trộn đơn vị bị từ chối');
+assert.equal(project({ priceRevision: { ...base.priceRevision, tiers: [{ ...canTiers[0], unit: 'litre' }] } }), null, 'Đơn vị lạ bị từ chối');
+assert.equal(project({ priceRevision: { ...base.priceRevision, tiers: [{ ...canTiers[0], unit: 'kg' }] } }), null, 'Bảng kg không ghi unit');
+assert.equal(project().salesUnit, 'kg');
+assert.equal(project().moqKg, 1000, 'Bảng kg giữ moqKg cho bộ lọc');
+console.log('Quantity projection: count-unit tables shown per unit and kept out of kg comparisons');

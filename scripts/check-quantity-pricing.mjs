@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_QUANTITY_PRICING_POLICY as defaults, validateQuantityPricing, nameContainsGrade,
   quantityTierRanges, formatQuantityBuyer, formatQuantityPriceBuyer, referencePriceAge, formatQuantityInput, normalizePriceInput,
-  entryCurrencyIssue, ENTRY_PRICE_CURRENCIES, previewQuantityTiers, draftPublicQuantityOffer,
+  entryCurrencyIssue, ENTRY_PRICE_CURRENCIES, previewQuantityTiers, draftPublicQuantityOffer, formatQuantityForUnit,
 } from '../lib/products/quantity-pricing.ts';
 
 const grades = ['W180', 'W240', 'W320', 'WS', '550 g/L'];
@@ -16,7 +16,7 @@ const codes = (result) => result.errors.map((issue) => issue.code);
 let result = validate();
 assert.deepEqual(result.errors, []);
 assert.deepEqual(result.warnings, [], 'Vietnamese accents do not trigger a warning');
-assert.deepEqual(result.value, { grade: 'W320', incoterm: 'FOB', currency: 'USD', tiers: [{ minKg: 1000, priceUsdPerKg: 6.4, incoterm: 'FOB', currency: 'USD' }, { minKg: 5000, priceUsdPerKg: 6, incoterm: 'FOB', currency: 'USD' }] });
+assert.deepEqual(result.value, { grade: 'W320', incoterm: 'FOB', currency: 'USD', unit: 'kg', tiers: [{ minKg: 1000, priceUsdPerKg: 6.4, incoterm: 'FOB', currency: 'USD' }, { minKg: 5000, priceUsdPerKg: 6, incoterm: 'FOB', currency: 'USD' }] });
 assert.equal(formatQuantityInput('5000'), '5,000');
 assert.equal(formatQuantityInput('5,0000', '5,000'), '50,000');
 assert.equal(formatQuantityInput('5,00', '5,000'), '500');
@@ -129,3 +129,29 @@ assert.deepEqual(referencePriceAge(new Date(now - 90 * day - 1).toISOString(), n
 assert.deepEqual(referencePriceAge(null, now), { days: null, stale: true });
 assert.deepEqual(referencePriceAge(new Date(now + 1).toISOString(), now), { days: null, stale: true });
 console.log('Quantity pricing: validation, grade warnings, conversions and 90-day boundary passed');
+
+/* Đơn vị bán: lon, chai, gói, hộp, thùng. Số lượng là số đơn vị nguyên, giá là giá một đơn vị. */
+const cans = validate({ unit: 'can', tiers: [{ minKg: '5,000', priceUsdPerKg: '0.35' }, { minKg: '20000', priceUsdPerKg: '0.32' }] },
+  { ...defaults, gradeBounds: { W320: { minUsdPerKg: 5, maxUsdPerKg: 8 } } });
+assert.deepEqual(cans.errors, []);
+assert.equal(cans.value.unit, 'can');
+assert.deepEqual(cans.value.tiers, [{ minKg: 5000, priceUsdPerKg: 0.35, incoterm: 'FOB', currency: 'USD', unit: 'can' },
+  { minKg: 20000, priceUsdPerKg: 0.32, incoterm: 'FOB', currency: 'USD', unit: 'can' }], 'Mỗi mức lưu đơn vị lon');
+assert.deepEqual(cans.warnings, [], 'Ngưỡng USD/kg của grade không áp cho giá theo lon');
+assert.equal(validate({ unit: 'kg' }).value.tiers.some((tier) => 'unit' in tier), false, 'Bảng kg giữ nguyên dạng lưu cũ');
+assert.equal(validate({ unit: '' }).value.unit, 'kg', 'Thiếu đơn vị là kg');
+assert.deepEqual(codes(validate({ unit: 'litre' })), ['unit'], 'Đơn vị lạ bị từ chối');
+assert.match(validate({ unit: 'bottle', tiers: [{ minKg: '100', priceUsdPerKg: '' }] }).errors[0].message, /USD\/chai/);
+assert.match(validate({ unit: 'bottle', tiers: [{ minKg: '1.5', priceUsdPerKg: '1' }] }).errors[0].messageEn, /whole number of bottles/);
+assert.equal(formatQuantityForUnit(5000, 'can'), '5,000 cans');
+assert.equal(formatQuantityForUnit(1, 'carton'), '1 carton');
+assert.equal(formatQuantityForUnit(2000, 'kg'), '2 MT');
+assert.equal(formatQuantityPriceBuyer(0.35, 'mt', 'USD', 'can'), '$0.35/can', 'Danh mục MT không nhân 1.000 với giá theo lon');
+assert.equal(previewQuantityTiers({ grade: 'W320', incoterm: 'FOB', unit: 'pack', tiers: [{ minKg: '10', priceUsdPerKg: '2' }] }).unit, 'pack');
+const canDraft = draftPublicQuantityOffer({ grade: 'W320', incoterm: 'FOB', currency: 'USD', unit: 'can',
+  tiers: [{ minKg: '5000', priceUsdPerKg: '0.35' }, { minKg: '20000', priceUsdPerKg: '0.32' }] }, { priceUnit: 'mt', pricePubliclyVisible: true });
+assert.equal(canDraft.moq, '5,000 cans');
+assert.equal(canDraft.moqKg, null, 'Không quy đổi lon ra kg cho bộ lọc MOQ');
+assert.equal(canDraft.price, '$0.32–0.35/can');
+assert.deepEqual(canDraft.tiers.map((tier) => [tier.from, tier.to, tier.price]), [['5,000 cans', '19,999 cans', '$0.35/can'], ['20,000 cans', null, '$0.32/can']]);
+console.log('Quantity pricing: sales units (can, bottle, pack, box, carton) validated and formatted per unit');

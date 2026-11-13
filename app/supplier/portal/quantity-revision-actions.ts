@@ -91,7 +91,8 @@ export async function submitQuantityPriceRevisionAction(form: FormData): Promise
       const currency = String(form.get("quantity_currency") ?? "").trim().slice(0, 3) || "USD";
       const currencyIssue = entryCurrencyIssue(currency);
       if (currencyIssue) return { ok: false, message: currencyIssue };
-      validation = validateQuantityPricing({ grade, incoterm, currency, nameVi: ctx.product.name, nameEn: "", tiers: rows }, standardGradesForCategory(ctx.category), policy);
+const salesUnit = String(form.get("quantity_sales_unit") ?? "").trim().slice(0, 20) || "kg";
+      validation = validateQuantityPricing({ grade, incoterm, currency, unit: salesUnit, nameVi: ctx.product.name, nameEn: "", tiers: rows }, standardGradesForCategory(ctx.category), policy);
     }
     if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? copy.invalidTable };
     const { data, error } = await ctx.db.rpc("submit_quantity_price_revision", {

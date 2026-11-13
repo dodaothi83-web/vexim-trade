@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { readQuantityRevisionV2, v2PriceLabel, v2QuantityLabel } from "@/lib/products/quantity-revision-v2";
 import { QuantityReviewControls } from "./review-controls";
+import { normalizeSalesUnit, salesUnitLabel } from "@/lib/products/sales-units";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Rà soát giá và tên sản phẩm" };
@@ -62,15 +63,17 @@ export default async function QuantityReviewPage({ searchParams }: {
       const legacyRows = rows.filter((row): row is Record<string, unknown> => !!row && typeof row === "object");
       const legacyCurrency = typeof legacyRows.find((row) => typeof row.currency === "string")?.currency === "string"
         ? String(legacyRows.find((row) => typeof row.currency === "string")!.currency) : "USD";
+      // Kg tables store no unit; count-unit tables (lon, chai…) store it on every tier.
+      const legacyUnit = salesUnitLabel(normalizeSalesUnit(legacyRows.find((row) => "unit" in row)?.unit) ?? "kg");
       const legacyIncoterms = [...new Set(legacyRows.map((row) => typeof row.incoterm === "string" ? row.incoterm : "").filter(Boolean))].join(" / ");
       return <article key={revision.id} className="p-5 text-sm sm:p-6">
         <p className="text-base font-bold leading-relaxed text-ink-900">{product?.name ?? "Sản phẩm không còn tồn tại"}</p>
         <p className="mt-1 text-xs text-ink-600">Nhà cung cấp: {supplier?.name ?? "Không xác định"} · Gửi: {revision.created_at ? new Date(revision.created_at).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "Không xác định"}</p>
         {product && <Link href={`/crm/products/${product.id}/edit`} className="mt-1 inline-block text-xs font-semibold text-brand-700 underline">Review sản phẩm →</Link>}
         {kind === "price" ? <div className="mt-3 text-xs">
-          <p>Grade: <strong>{revision.grade || "—"}</strong> · Incoterm: <strong>{legacyIncoterms || revision.incoterm || "—"}</strong> · Tiền tệ: <strong>{legacyCurrency}</strong></p>
+          <p>Grade: <strong>{revision.grade || "—"}</strong> · Incoterm: <strong>{legacyIncoterms || revision.incoterm || "—"}</strong> · Tiền tệ: <strong>{legacyCurrency}</strong>{!v2 && <> · Đơn vị: <strong>{legacyUnit}</strong></>}</p>
           {v2?.customGrade && <p className="mt-1 text-ink-600">Grade do nhà cung cấp tự nhập, không thuộc bộ lọc grade chuẩn.</p>}
-          {versioned && !v2 ? <p role="alert" className="mt-2 text-rose-700">Dữ liệu bảng giá không hợp lệ. Không thể duyệt.</p> : <table className="mt-4 w-full text-left text-sm"><thead><tr><th className="py-2 text-ink-500">{v2 ? "Số lượng từ" : "Số lượng từ (kg)"}</th>{!v2 && <th className="py-2 text-ink-500">Incoterm</th>}<th className="py-2 text-ink-500">{v2 ? "Giá theo đơn vị gốc" : `Giá (${legacyCurrency}/kg)`}</th></tr></thead>
+          {versioned && !v2 ? <p role="alert" className="mt-2 text-rose-700">Dữ liệu bảng giá không hợp lệ. Không thể duyệt.</p> : <table className="mt-4 w-full text-left text-sm"><thead><tr><th className="py-2 text-ink-500">{v2 ? "Số lượng từ" : `Số lượng từ (${legacyUnit})`}</th>{!v2 && <th className="py-2 text-ink-500">Incoterm</th>}<th className="py-2 text-ink-500">{v2 ? "Giá theo đơn vị gốc" : `Giá (${legacyCurrency}/${legacyUnit})`}</th></tr></thead>
             <tbody>{v2 ? v2.tiers.map((row, index) => <tr key={index} className="border-t border-ink-100"><td className="py-3 tabular-nums">{v2QuantityLabel(row.quantityGrams, v2)}</td><td className="py-3 tabular-nums">{v2PriceLabel(row.priceCentsPerUnit, v2.unit)}</td></tr>) : rows.map((raw, index) => { const row = raw && typeof raw === "object" ? raw as Record<string, unknown> : {}; return <tr key={index} className="border-t border-ink-100"><td className="py-3 tabular-nums">{typeof row.minKg === "number" ? row.minKg.toLocaleString("en-US") : "Không hợp lệ"}</td><td className="py-2 text-ink-500">{typeof row.incoterm === "string" ? row.incoterm : revision.incoterm || "—"}</td><td className="py-3 tabular-nums">{typeof row.priceUsdPerKg === "number" ? row.priceUsdPerKg.toFixed(2) : "Không hợp lệ"}</td></tr>; })}</tbody></table>}
           {warnings.length > 0 && <p className="mt-2 font-semibold text-amber-800">Có mức giá ngoài ngưỡng cấu hình, cần đối chiếu trước khi duyệt.</p>}
         </div> : <div className="mt-3 space-y-1 text-xs"><p>Tên gốc: {revision.source_name || "—"}</p><p>Tên tiếng Anh đề xuất: <strong>{revision.english_name || "—"}</strong></p><p>Nguồn: {revision.origin || "—"}</p></div>}

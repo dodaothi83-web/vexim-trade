@@ -60,6 +60,7 @@ import {
   type LeadTimeUnit,
 } from "@/lib/products/grade-pricing";
 import { effectiveFieldsFor, fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
+import { normalizeSalesUnit, salesUnitLabel } from "@/lib/products/sales-units";
 
 type EditorProps = {
   product?: SupplierProduct;
@@ -555,6 +556,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           form.set("quantity_grade", newQuantity.grade);
           form.set("quantity_incoterm", newQuantity.incoterm);
           form.set("quantity_currency", newQuantity.currency ?? "USD");
+          form.set("quantity_sales_unit", newQuantity.unit ?? "kg");
           form.set("quantity_tiers_json", JSON.stringify(newQuantity.tiers));
           // Cam kết giá chỉ có nghĩa khi giá được công khai, nên đừng gửi kèm khi đang tắt.
           if (quantityConsent && snapshot.price_publicly_visible === "yes") form.set("confirm_quantity_price_consent", "yes");
@@ -1602,7 +1604,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <p className="mt-1 text-[11px] text-ink-500">{quantityEditor.pendingPriceId ? copy.review.pendingTable : copy.review.approvedTable}</p>
                 </> : quantityEditor && quantityPreview ? <>
                   <p>{copy.review.grade} <strong>{quantityPreview.grade || copy.review.notChosen}</strong> · {copy.review.currency} <strong>{quantityPreview.currency ?? "USD"}</strong></p>
-                  <table className="mt-1.5 w-full text-left text-[11.5px]"><thead><tr><th>{copy.review.incoterm}</th><th>{copy.review.quantityFrom}</th><th>{fill(copy.review.pricePerKg, { currency: quantityPreview.currency ?? "USD" })}</th></tr></thead>
+                  <table className="mt-1.5 w-full text-left text-[11.5px]"><thead><tr><th>{copy.review.incoterm}</th><th>{fill(copy.review.quantityFrom, { unit: salesUnitLabel(normalizeSalesUnit(quantityPreview.unit) ?? "kg", lang === "en" ? "en" : "vi") })}</th><th>{fill(copy.review.pricePerKg, { currency: quantityPreview.currency ?? "USD", unit: salesUnitLabel(normalizeSalesUnit(quantityPreview.unit) ?? "kg", lang === "en" ? "en" : "vi") })}</th></tr></thead>
                     <tbody>{quantityPreview.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1">{tier.incoterm || quantityPreview.incoterm || "—"}</td><td className="py-1 tabular-nums">{tier.minKg || "—"}</td><td className="py-1 tabular-nums">{tier.priceUsdPerKg || "—"}</td></tr>)}</tbody>
                   </table>
                   <p className="mt-1 text-[11px] text-ink-500">{copy.review.tableNeedsReview}</p>

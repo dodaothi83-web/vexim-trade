@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createRequire } from 'node:module';
 import * as pricing from '../lib/products/quantity-pricing.ts';
 import * as priceDisplay from '../lib/products/price-display.ts';
+import * as salesUnits from '../lib/products/sales-units.ts';
 const nodeRequire = createRequire(import.meta.url);
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../components/products/quantity-pricing-editor.tsx', import.meta.url), 'utf8'), {
@@ -20,6 +21,7 @@ vm.runInNewContext(code, { exports, Intl, Number, Math, console, require(key) {
   if (key === 'lucide-react') return new Proxy({}, { get: (_target, name) => (props) => React.createElement('svg', { 'data-icon': String(name), ...props }) });
   if (key === '@/lib/products/quantity-pricing') return pricing;
   if (key === '@/lib/products/price-display') return priceDisplay;
+  if (key === '@/lib/products/sales-units') return salesUnits;
   throw Error(`Unexpected import ${key}`);
 } });
 const { QuantityPricingEditor } = exports;

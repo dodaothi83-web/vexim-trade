@@ -1,5 +1,6 @@
 // node scripts/check-quantity-review-page.mjs
 import { revision } from './quantity-v2-test-utils.mjs';
+import * as salesUnits from '../lib/products/sales-units.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -16,6 +17,7 @@ const revisions = {
 };
 const db = { from(table) { const q = { select: () => q, eq: () => q, order: () => q, range: async () => fail ? { error: { message: 'offline' }, data: null } : { error: null, data: revisions[table] } }; return q; } };
 const mocks = {
+  '@/lib/products/sales-units': salesUnits,
   '@/lib/products/quantity-revision-v2': revision,
   'react/jsx-runtime': require('react/jsx-runtime'), 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
   'next/navigation': { redirect: (path) => { throw Error(`redirect:${path}`); } },

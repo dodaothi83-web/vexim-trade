@@ -57,9 +57,10 @@ export async function submitStaffQuantityPriceAction(form: FormData): Promise<Re
       const currency = String(form.get("quantity_currency") ?? "").trim().slice(0, 3) || "USD";
       const currencyIssue = entryCurrencyIssue(currency);
       if (currencyIssue) return { ok: false, message: currencyIssue };
+      const salesUnit = String(form.get("quantity_sales_unit") ?? "").trim().slice(0, 20) || "kg";
       checked = validateQuantityPricing({ grade: String(form.get("grade") ?? "").trim().slice(0, 180),
         incoterm: String(form.get("incoterm") ?? "").trim().slice(0, 20),
-        currency, nameVi: product.name,
+        currency, unit: salesUnit, nameVi: product.name,
         nameEn: "", tiers }, standardGradesForCategory(category), policy);
     }
     if (!checked.value) return { ok: false, message: checked.errors[0]?.message ?? "Bảng giá không hợp lệ." };

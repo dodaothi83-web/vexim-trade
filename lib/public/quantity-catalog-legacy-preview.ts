@@ -67,7 +67,9 @@ export async function projectQuantityCatalogPreview(records: PublicProductRecord
       grade: offer.grade, grades: offer.customGrade ? [] : [offer.grade], cardGrades: [offer.grade], hasGradeRows: true,
       gradeRows: [], attributes,
       gradePricePoints: offer.pricePoint && !offer.customGrade ? [{ ...offer.pricePoint, grade: offer.grade }] : [],
-      moq: offer.moq, moqUnit: offer.moqUnit ?? "kg", moqMtEquivalent: offer.moqKg / 1000,
+      // Count units (cans, bottles…) have no weight: MOQ filters treat them as "ask".
+      moq: offer.moq, moqUnit: offer.moqKg === null ? null : offer.moqUnit ?? "kg",
+      moqMtEquivalent: offer.moqKg === null ? null : offer.moqKg / 1000,
       price: offer.price, pricePoint: offer.pricePoint, priceRankingEligible: offer.priceRankingEligible,
       incoterm: offer.incoterm, quantityOffer: offer,
     } };

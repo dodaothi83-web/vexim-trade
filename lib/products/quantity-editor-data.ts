@@ -6,12 +6,15 @@ import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config"
 import { readQuantityRevisionV2, v2InputTiers } from "@/lib/products/quantity-revision-v2";
 import type { SupplierQuantityUnit } from "@/lib/products/quantity-entry";
 import { normalizePriceCurrency, type QuantityPricingInput, type QuantityPricingPolicy } from "@/lib/products/quantity-pricing";
+import { DEFAULT_SALES_UNIT, normalizeSalesUnit, type SalesUnit } from "@/lib/products/sales-units";
 import type { SupplierProduct } from "@/lib/types";
 
 export type QuantityEditorData = {
   productId: string; updatedAt: string; nameVi: string; nameEn: string;
   pendingPriceId: string | null; pendingNameId: string | null; hasApprovedPrice: boolean; hasApprovedName: boolean;
   grade: string; incoterm: string; currency: string; tiers: QuantityPricingInput["tiers"];
+  /** Đơn vị bán của bảng giá đã lưu (kg khi chưa có bảng giá). */
+  unit: SalesUnit;
   /** Raw supplier-unit values. Older editors must not treat these as kg prices. */
   v2?: { unit: SupplierQuantityUnit; customGrade: boolean; tiers: Array<{ quantity: string; price: string }> } | null;
   standardGrades: string[]; policy: QuantityPricingPolicy; buyerPriceUnit: "kg" | "mt"; pricePubliclyVisible: boolean;
@@ -52,13 +55,16 @@ export async function readQuantityEditorData(product: SupplierProduct): Promise<
   // Rows written before the currency field existed are USD by definition.
   const storedCurrency = rawTiers.find((row) => !!row && typeof row === "object" && "currency" in row) as { currency?: unknown } | undefined;
   const currency = normalizePriceCurrency(typeof storedCurrency?.currency === "string" ? storedCurrency.currency : "USD") ?? "USD";
+  // Rows written before sales units existed are kg by definition.
+  const storedUnit = revisionV2 ? null : rawTiers.find((row) => !!row && typeof row === "object" && "unit" in row) as { unit?: unknown } | undefined;
+  const unit = normalizeSalesUnit(storedUnit?.unit) ?? DEFAULT_SALES_UNIT;
   const primary = displayUnitsForCategory(category.slug, category.price_unit).primary;
   return {
     productId: product.id, updatedAt: product.updated_at, nameVi: product.name,
     nameEn: pendingName?.english_name || approvedName?.english_name || product.name_i18n?.en || "",
     pendingPriceId: pendingPrice?.id ?? null, pendingNameId: pendingName?.id ?? null,
     hasApprovedPrice: !!approvedPrice, hasApprovedName: !!approvedName,
-    grade: typeof price?.grade === "string" ? price.grade : "", incoterm: fallbackIncoterm, currency,
+    grade: typeof price?.grade === "string" ? price.grade : "", incoterm: fallbackIncoterm, currency, unit,
     tiers, v2: revisionV2 ? { unit: revisionV2.unit, customGrade: revisionV2.customGrade, tiers: v2InputTiers(revisionV2) } : null,
     standardGrades: standardGradesForCategory(category), policy,
     buyerPriceUnit: primary === "mt" ? "mt" : "kg", pricePubliclyVisible: product.price_publicly_visible === true,

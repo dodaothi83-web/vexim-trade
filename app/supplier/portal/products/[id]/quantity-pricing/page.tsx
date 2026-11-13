@@ -9,6 +9,7 @@ import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config"
 import { PageHeader } from "@/components/page-header";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { QuantityPricingPreviewForm } from "./preview-form";
+import { DEFAULT_SALES_UNIT, normalizeSalesUnit } from "@/lib/products/sales-units";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -63,12 +64,15 @@ export default async function QuantityPricingPreviewPage({ params }: { params: P
     const storedCurrency = rawTiers.find((row: unknown) => !!row && typeof row === "object" && typeof (row as { currency?: unknown }).currency === "string") as
       { currency?: string } | undefined;
     const currency = (storedCurrency?.currency ?? "USD").toUpperCase();
+    // Rows written before sales units existed are kg by definition.
+    const storedUnit = rawTiers.find((row: unknown) => !!row && typeof row === "object" && "unit" in row) as { unit?: unknown } | undefined;
+    const unit = normalizeSalesUnit(storedUnit?.unit) ?? DEFAULT_SALES_UNIT;
     const primary = displayUnitsForCategory(category.slug, category.price_unit).primary;
     return <>
       <PageHeader title={copy.title} sub={product.name} />
       <Link href={`/supplier/portal/products/${id}`} className="text-sm font-semibold text-brand-700">{copy.back}</Link>
       <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{copy.notice}</p>
-      <QuantityPricingPreviewForm messages={copy} shared={m.productEditor.shared} lang={locale} productId={id} updatedAt={product.updated_at} nameVi={product.name} currency={currency}
+      <QuantityPricingPreviewForm messages={copy} shared={m.productEditor.shared} lang={locale} productId={id} updatedAt={product.updated_at} nameVi={product.name} currency={currency} unit={unit}
         nameEn={pendingName?.english_name || approvedName?.english_name || product.name_i18n?.en || ""}
         pendingPriceId={pendingPrice?.id ?? null} pendingNameId={pendingName?.id ?? null}
         hasApprovedPrice={!!approvedPrice} hasApprovedName={!!approvedName}
