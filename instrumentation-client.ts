@@ -23,6 +23,10 @@ Sentry.init({
   replaysOnErrorSampleRate: Number(process.env.NEXT_PUBLIC_SENTRY_REPLAY_ON_ERROR_SAMPLE_RATE ?? 0),
   integrations: [Sentry.replayIntegration()],
 
+  // Script do trình duyệt nhúng trong app (Facebook, Zalo, Instagram trên iOS) tự chèn vào
+  // trang; mã Vexim không dùng window.webkit. Bỏ qua để không lẫn với lỗi thật của site.
+  ignoreErrors: [/window\.webkit\.messageHandlers/],
+
   debug: false,
 });
 
