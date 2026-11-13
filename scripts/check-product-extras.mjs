@@ -66,9 +66,24 @@ for (const [values, message] of [
   [{ sample_price_usd: '9999999' }, /Giá mẫu quá lớn/],
   [{ package_weight_kg: '0' }, /Khối lượng mỗi kiện phải lớn hơn 0/],
   [{ units_per_carton: '1,5x' }, /Số đơn vị mỗi thùng phải là số/],
+  [{ units_per_carton: '1,5' }, /số nguyên, ví dụ 24 \(mục Đóng gói & giao hàng\)/],
+  [{ units_per_carton: 'hai mươi tư' }, /Số đơn vị mỗi thùng phải là số/],
+  [{ units_per_carton: '0 chai' }, /phải lớn hơn 0/],
+  [{ package_weight_kg: '25 tấn' }, /Khối lượng mỗi kiện phải là số/],
 ]) {
   const bad = form(values);
   assert.throws(() => productExtrasFromForm(bad.get, bad.present), message);
+}
+
+/* Cách gõ thường gặp của hàng đóng chai/lon: lấy số nguyên đứng đầu. */
+for (const [raw, expected] of [['24', 24], ['24 chai', 24], ['24 lon/thùng', 24], ['24 x 280ml', 24], ['24bottles', 24],
+  ['1.000', 1000], ['1,000', 1000], [' 12 ', 12]]) {
+  const ok = form({ units_per_carton: raw });
+  assert.equal(productExtrasFromForm(ok.get, ok.present).units_per_carton, expected, `units_per_carton "${raw}"`);
+}
+for (const [raw, expected] of [['25 kg', 25], ['25kg', 25], ['0,5 KG', 0.5]]) {
+  const ok = form({ package_weight_kg: raw });
+  assert.equal(productExtrasFromForm(ok.get, ok.present).package_weight_kg, expected, `package_weight_kg "${raw}"`);
 }
 
 /* 3. Câu mô tả đóng gói và gợi ý còn thiếu. */
