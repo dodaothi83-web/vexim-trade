@@ -204,6 +204,12 @@
   }
 }
 
+/* Thanh tiến trình chuyển trang: chạy nhanh lúc đầu rồi chậm dần tới 80%, không bao giờ "xong" giả. */
+@keyframes vexim-nav-progress {
+  from { transform: scaleX(0.05); }
+  to { transform: scaleX(1); }
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;

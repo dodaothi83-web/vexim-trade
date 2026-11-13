@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import "@fontsource/be-vietnam-pro/400.css";
 import "@fontsource/be-vietnam-pro/400-italic.css";
@@ -14,6 +14,7 @@ import { HOME_META_DESCRIPTION } from "@/lib/public/meta-copy";
 import { ToastProvider } from "@/components/toast";
 import { CookieConsentProvider } from "@/components/cookie-consent";
 import { PublicSpeedInsights } from "@/components/public-speed-insights";
+import { NavigationProgress } from "@/components/navigation-progress";
 import { SITE_URL } from "@/lib/site";
 import { LOCALE_COOKIE, LOCALIZED_AUTH_PATH_RE, LOCALIZED_PORTAL_PATH_RE, LEGACY_VIETNAMESE_PATH_RE, LOCALES } from "@/lib/i18n/config";
 
@@ -86,6 +87,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <ToastProvider>
           <CookieConsentProvider>
+            {/* useSearchParams cần Suspense để trang tĩnh/ISR không bị đổi sang render động. */}
+            <Suspense fallback={null}><NavigationProgress /></Suspense>
             {children}
             <PublicSpeedInsights />
           </CookieConsentProvider>

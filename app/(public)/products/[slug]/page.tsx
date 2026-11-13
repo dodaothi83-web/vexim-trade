@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from "react";
+import { cache, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -236,7 +236,8 @@ function withoutPageParam(query: Record<string, string | string[] | undefined>):
 }
 
 /** Tìm category theo slug hoặc previous_slug — nếu trúng previous_slug sẽ 301 sang slug hiện tại. */
-async function resolveCategory(slug: string) {
+/** Một lần cho mỗi request: generateMetadata và trang dùng chung (React cache). */
+const resolveCategory = cache(async (slug: string) => {
   const store = (await import("@/lib/db")).getStore();
   const session = await getSession();
   const isStaff = !!(session && hasPermission(session.role, "categories.manage"));
@@ -252,7 +253,7 @@ async function resolveCategory(slug: string) {
   // Người ngoài chỉ xem được category published; staff có categories.manage được xem trước nháp.
   if (!isPublished && !isStaff) return { cat: null, allCategories: all, resolvedSlug: slug, isStaff, isPreview: false };
   return { cat, allCategories: all, resolvedSlug: cat.slug, isStaff, isPreview: !isPublished };
-}
+});
 
 export default async function CategoryPage({ params, searchParams }: PageProps) {
   const { slug } = await params;

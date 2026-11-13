@@ -3,7 +3,7 @@ import { ProductCertificateCards } from "@/components/public/product-certificate
 import { ShareProductButton } from "@/components/share-product-button";
 import { getLocale } from "@/lib/i18n/server";
 import { SaveProductButton } from "@/components/buyer-saved-products";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 import { AskSupplierDialog } from "@/components/products/ask-supplier-dialog";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -67,7 +67,11 @@ async function getDetail(slug: string, productId: string) {
   return { category, card, product, relatedProducts, similar, preview: !published };
 }
 
-async function getDetailOrRedirect(slug: string, productId: string) {
+/**
+ * Một lần đọc cho mỗi request: generateMetadata và trang dùng chung kết quả (React cache),
+ * thay vì đọc cả danh mục hai lần. Lệnh chuyển hướng 301 vẫn chạy trước khi trang render.
+ */
+const getDetailOrRedirect = cache(async (slug: string, productId: string) => {
   const detail = await getDetail(slug, productId);
   if (detail) return detail;
   // An old indexed category path must continue working when staff approve a
@@ -82,7 +86,7 @@ async function getDetailOrRedirect(slug: string, productId: string) {
   });
   if (!destination) return null;
   permanentRedirect(destination);
-}
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, productId } = await params;

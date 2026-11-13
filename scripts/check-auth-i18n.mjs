@@ -164,6 +164,7 @@ const layoutMocksForBootScript = {
   "@/components/toast": { ToastProvider: ({ children }) => children },
   "@/components/cookie-consent": { CookieConsentProvider: ({ children }) => children },
   "@/components/public-speed-insights": { PublicSpeedInsights: () => null },
+  "@/components/navigation-progress": { NavigationProgress: () => null },
   "@/lib/site": { SITE_URL: "https://www.veximtrade.com" },
   "@/lib/i18n/config": realI18nConfig,
 };
