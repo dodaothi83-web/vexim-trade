@@ -5,9 +5,11 @@ import { useState } from "react";
 import {
   CheckCircle2,
   Cloud,
+  Copy,
   HardDrive,
   KeyRound,
   Loader2,
+  Mail,
   ShieldCheck,
   Trash2,
   UserPlus,
@@ -18,6 +20,7 @@ import {
   createUserAction,
   deleteUserAction,
   resetUserPasswordAction,
+  sendSupplierPasswordResetAction,
   updateUserAction,
 } from "@/app/auth-actions";
 import { ROLES, roleMeta } from "@/lib/auth/permissions";
@@ -240,6 +243,9 @@ function UserRow({
   const [busy, setBusy] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [newPass, setNewPass] = useState("");
+  /** Link đặt lại mật khẩu vừa gửi cho nhà cung cấp, để nhân viên nhắn lại qua Zalo. */
+  const [resetLink, setResetLink] = useState<{ url: string; expiresAt: string; emailed: boolean } | null>(null);
+  const [copied, setCopied] = useState(false);
   const meta = roleMeta(user.role);
 
   async function patch(next: Parameters<typeof updateUserAction>[1]) {
@@ -259,6 +265,29 @@ function UserRow({
       setNewPass("");
       setResetting(false);
       onChanged();
+    }
+  }
+
+  async function sendResetLink() {
+    if (!window.confirm(`Gửi link đặt lại mật khẩu tới ${user.email}? Doanh nghiệp tự đặt mật khẩu mới qua link; mật khẩu hiện tại vẫn dùng được cho tới khi họ đổi.`)) {
+      return;
+    }
+    setBusy(true);
+    setCopied(false);
+    const res = await sendSupplierPasswordResetAction(user.id);
+    onToast(res.ok ? "success" : "error", res.message);
+    setBusy(false);
+    setResetLink(res.ok && res.resetUrl && res.expiresAt
+      ? { url: res.resetUrl, expiresAt: res.expiresAt, emailed: res.emailed === true } : null);
+  }
+
+  async function copyResetLink() {
+    if (!resetLink) return;
+    try {
+      await navigator.clipboard.writeText(resetLink.url);
+      setCopied(true);
+    } catch {
+      onToast("error", "Trình duyệt chặn sao chép. Hãy bôi đen link và sao chép thủ công.");
     }
   }
 
@@ -322,6 +351,25 @@ function UserRow({
             )}
           </div>
 
+          {resetLink && (
+            <div className="mt-2 max-w-xl rounded-lg border border-ink-200 bg-ink-50 p-2.5 text-[12px] text-ink-700">
+              <p className="font-semibold text-ink-900">
+                {resetLink.emailed ? "Đã gửi email. Nếu doanh nghiệp không thấy thư, nhắn link này qua Zalo:" : "Email chưa gửi được. Nhắn link này cho doanh nghiệp:"}
+              </p>
+              <div className="mt-1.5 flex items-center gap-2">
+                <input readOnly value={resetLink.url} onFocus={(e) => e.currentTarget.select()} aria-label="Link đặt lại mật khẩu"
+                  className="input min-w-0 flex-1 py-1 font-mono text-[11px]" />
+                <Button size="sm" variant="soft" onClick={() => void copyResetLink()}>
+                  <Copy className="h-3.5 w-3.5" />
+                  {copied ? "Đã chép" : "Sao chép"}
+                </Button>
+              </div>
+              <p className="mt-1 text-[11px] text-ink-500">
+                Hết hạn {formatDateTime(resetLink.expiresAt)}, dùng một lần. Chỉ gửi cho đúng người phụ trách tài khoản.
+              </p>
+            </div>
+          )}
+
           {resetting && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <input
@@ -376,6 +424,12 @@ function UserRow({
           {user.role !== "supplier" && <Button size="sm" variant="ghost" disabled={busy} onClick={() => setResetting((v) => !v)}>
             <KeyRound className="h-3.5 w-3.5" />
             Đặt lại mật khẩu
+          </Button>}
+
+          {user.role === "supplier" && <Button size="sm" variant="ghost" disabled={busy || !user.is_active} onClick={() => void sendResetLink()}
+            title={user.is_active ? "Gửi link để doanh nghiệp tự đặt mật khẩu mới" : "Mở khoá tài khoản trước"}>
+            <Mail className="h-3.5 w-3.5" />
+            Gửi link đặt lại MK
           </Button>}
 
           <button
