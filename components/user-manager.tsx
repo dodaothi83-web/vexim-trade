@@ -8,9 +8,11 @@ import {
   HardDrive,
   KeyRound,
   Loader2,
+  Search,
   ShieldCheck,
   Trash2,
   UserPlus,
+  X,
   XCircle,
 } from "lucide-react";
 
@@ -27,6 +29,19 @@ import { Badge, Button, cx, formatDateTime } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
 type AccountTab = "internal" | "supplier";
+
+/** Bỏ dấu, hạ chữ thường: gõ "cong ty" vẫn ra "CÔNG TY". */
+function searchText(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** Mọi từ gõ vào phải có trong tên, email đăng nhập, địa chỉ gửi hoặc vai trò. */
+export function userMatchesSearch(user: Pick<AppUser, "name" | "email" | "role">, senderAddress: string | null, query: string): boolean {
+  const words = searchText(query).split(" ").filter(Boolean);
+  if (!words.length) return true;
+  const haystack = searchText([user.name ?? "", user.email, senderAddress ?? "", roleMeta(user.role).label].join(" "));
+  return words.every((word) => haystack.includes(word));
+}
 
 export function UserManager({
   users,
@@ -45,7 +60,9 @@ export function UserManager({
   const [accountTab, setAccountTab] = useState<AccountTab>("internal");
   const internalUsers = users.filter((user) => user.role !== "supplier");
   const supplierUsers = users.filter((user) => user.role === "supplier");
-  const visibleUsers = accountTab === "internal" ? internalUsers : supplierUsers;
+  const tabUsers = accountTab === "internal" ? internalUsers : supplierUsers;
+  const [query, setQuery] = useState("");
+  const visibleUsers = tabUsers.filter((user) => userMatchesSearch(user, senderById.get(user.id) ?? null, query));
   const accountTabs = [
     { key: "internal" as const, label: "Nhân sự Vexim", count: internalUsers.length },
     { key: "supplier" as const, label: "Tài khoản nhà cung cấp", count: supplierUsers.length },
@@ -178,9 +195,29 @@ export function UserManager({
 
       {/* Danh sách */}
       <div className="card overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-ink-200 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3">
           <ShieldCheck className="h-4 w-4 text-brand-700" />
-          <h2 className="text-[15px] font-bold text-ink-900">Người dùng ({visibleUsers.length})</h2>
+          <h2 className="text-[15px] font-bold text-ink-900">
+            Người dùng ({query.trim() ? `${visibleUsers.length}/${tabUsers.length}` : tabUsers.length})
+          </h2>
+          <div className="relative ml-auto w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
+            <input
+              type="search"
+              className="input w-full py-1.5 pl-8 pr-8 text-[13px] [&::-webkit-search-cancel-button]:hidden"
+              placeholder={accountTab === "supplier" ? "Tìm tên công ty, email…" : "Tìm tên, email, vai trò…"}
+              aria-label="Tìm tài khoản"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") setQuery(""); }}
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery("")} aria-label="Xoá nội dung tìm kiếm"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
         <ul className="divide-y divide-ink-100">
           {visibleUsers.map((u) => (
@@ -194,7 +231,9 @@ export function UserManager({
               onToast={(kind, title, lines) => toast.push({ kind, title, lines })}
             />
           ))}
-          {visibleUsers.length === 0 && <li className="px-4 py-8 text-center text-sm text-ink-500">Chưa có tài khoản trong nhóm này.</li>}
+          {visibleUsers.length === 0 && <li className="px-4 py-8 text-center text-sm text-ink-500">
+            {tabUsers.length && query.trim() ? `Không có tài khoản nào khớp “${query.trim()}”.` : "Chưa có tài khoản trong nhóm này."}
+          </li>}
         </ul>
       </div>
 
