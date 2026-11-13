@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Info, Plus, Trash2 } from "lucide-react";
+import { FileText, Info, Trash2 } from "lucide-react";
 
 import { VeximDocumentIcon } from "@/components/brand/vexim-icons";
 
@@ -84,14 +84,17 @@ export function ExportUploadBox({ submissionId, rows, editable, paused, onChange
   }
 
   return <div className="mt-3 space-y-3">
-    {/* Danh sách giấy tờ cần chuẩn bị: ô tải gộp một nên phải nói rõ ở đây nộp những gì. */}
-    <section aria-labelledby="export-docs-title" className="rounded-xl border border-ink-200 bg-white p-3.5">
-      <h4 id="export-docs-title" className="text-[13px] font-bold text-ink-900">{copy.docsTitle}</h4>
-      <p className="mt-1 text-[12px] leading-5 text-ink-600">{copy.docsIntro}</p>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <DocList label={copy.docsCoreLabel} docs={copy.docsCore} core />
-        <DocList label={copy.docsExtraLabel} docs={copy.docsExtra} />
-      </div>
+    {/* Ô tải gộp một nên phải nói rõ chứng từ nào được chấp nhận. */}
+    <section aria-labelledby="export-docs-title" className="rounded-xl border border-ink-200 bg-white p-3.5 text-[12.5px] leading-5">
+      <h4 id="export-docs-title" className="font-bold text-ink-900">{copy.docsTitle}</h4>
+      <p className="mt-1 text-ink-600">{copy.docsIntro}</p>
+      <ul className="mt-1.5 space-y-1">
+        {copy.docs.map((doc) => <li key={doc} className="flex items-center gap-2 font-semibold text-ink-900">
+          {/* Tài liệu trung tính của bộ icon Vexim: chỉ là "giấy được nhận", không ngụ ý đã duyệt. */}
+          <VeximDocumentIcon size={16} strokeWidth={2.4} className="shrink-0 text-brand-700" />{doc}
+        </li>)}
+      </ul>
+      <p className="mt-2 text-ink-600">{copy.docsExtra}</p>
     </section>
     {editable && !full && <FilePicker multiple busy={busy} disabled={paused} accept="image/jpeg,image/png,image/webp,application/pdf"
       title={copy.pick} hint={copy.pickHint}
@@ -125,22 +128,5 @@ export function ExportUploadBox({ submissionId, rows, editable, paused, onChange
       <p className="flex items-center gap-1.5 font-bold text-ink-900"><Info className="h-4 w-4 text-brand-700" aria-hidden="true" />{copy.noteTitle}</p>
       <ul className="mt-1.5 list-disc space-y-1 pl-5">{copy.notes.map((note) => <li key={note}>{note}</li>)}</ul>
     </div>
-  </div>;
-}
-
-function DocList({ label, docs, core = false }: { label: string; docs: readonly { name: string; detail: string }[]; core?: boolean }) {
-  // Tài liệu trung tính của bộ icon Vexim: chỉ là "giấy cần có", không ngụ ý đã duyệt.
-  const Icon = core ? VeximDocumentIcon : Plus;
-  return <div>
-    <p className="text-[11px] font-bold uppercase tracking-wide text-ink-500">{label}</p>
-    <ul className="mt-1.5 space-y-2">
-      {docs.map((doc) => <li key={doc.name} className="flex gap-2">
-        <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${core ? "text-brand-700" : "text-ink-400"}`} aria-hidden="true" />
-        <span className="min-w-0 text-[12.5px] leading-5">
-          <span className="font-semibold text-ink-900">{doc.name}</span>
-          <span className="block text-ink-600">{doc.detail}</span>
-        </span>
-      </li>)}
-    </ul>
   </div>;
 }
