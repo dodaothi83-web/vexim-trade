@@ -305,7 +305,7 @@ async function resetSupplierPassword(target: { id: string; email: string; is_act
   if (!updated) {
     return {
       ok: false,
-      message: "Chưa đổi được mật khẩu bên Supabase Auth. Kiểm tra kết nối Supabase hoặc tài khoản này chưa có bên Supabase, rồi thử lại.",
+      message: "Chưa đổi được mật khẩu bên Supabase. Kiểm tra kết nối, hoặc tài khoản chưa có bên Supabase.",
     };
   }
   const session = await getSession();
