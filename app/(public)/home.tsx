@@ -1,5 +1,6 @@
 import { ConnectionOverview } from "@/components/public/connection-overview";
 import Image from "next/image";
+import { Suspense } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -77,13 +78,6 @@ export default async function HomeContent({
   const snapshotAll = await loadPublicProductCatalogSnapshot();
   const allCategories = snapshotAll.categories.filter((c) => c.is_published);
 
-  // Section 3: Lấy 4 bài blog mới nhất (4 bài / hàng)
-  const latestPosts = (
-    await listPublishedNews().catch((error) => {
-      console.error("[home] could not load published news", error);
-      return [];
-    })
-  ).slice(0, 4);
 
   const activeCategories = allCategories
     .filter((c) => c.active_on_homepage)
@@ -102,28 +96,11 @@ export default async function HomeContent({
   // One server-only catalogue per request; do not re-read the entire catalogue
   // once for each homepage category. Ranking and per-supplier caps stay unchanged.
   const snapshot = homeCategories.length ? snapshotAll : null;
-  const productGroups = await Promise.all(
-    homeCategories.map(async (category) => ({
-      category,
-      products: await listPublicCategoryProducts(category, { snapshot: snapshot! }),
-    })),
-  );
-  // One offer per category per round; retain category-local ranking and public gates.
-  // Enforce the supplier cap during selection so earlier categories cannot take
-  // all available slots before other industries get a turn.
-  // Luân phiên theo giờ: danh mục mở đầu và thứ tự trong cùng tầng xác minh đổi mỗi
-  // cửa sổ, tầng xác minh và trần mỗi nhà cung cấp giữ nguyên.
-  const rotationWindow = homeRotationWindow(Date.now());
-  const arrangedOffers = balanceHomepageCategories(
-    rotateForWindow(productGroups, ({ category }) => category.slug, rotationWindow).map(({ category, products }) =>
-      rotateWithinVerificationTiers(products, rotationWindow)
-      .filter((product) => !product.isDemo)
-      .map((product) => ({ ...product, categorySlug: category.slug }))),
-    HOME_FEED_PER_SUPPLIER,
-  );
-  // Điều kiện duy nhất để hiện khối: có ít nhất một sản phẩm. Số thẻ mỗi trang do
-  // HomeProductFeed tự tính theo bề rộng màn hình.
-  const hasFeedProducts = arrangedOffers.length > 0;
+  // Bắt đầu tải sản phẩm của các danh mục trang chủ ngay, KHÔNG chờ: khối sản phẩm và nhãn
+  // "Suppliers available" trên thẻ danh mục cùng dùng một lần tải này qua <Suspense>.
+  const productGroupsPromise: Promise<HomeProductGroup[]> = snapshot
+    ? loadHomeProductGroups(homeCategories, snapshot)
+    : Promise.resolve([]);
   const heroOf = (c: Category) => c.hero_image || FALLBACK_HERO;
 
   // Lọc danh mục theo thanh tìm kiếm (chỉ dựa trên dữ liệu thực tế từ CRM)
@@ -162,33 +139,13 @@ export default async function HomeContent({
     titleFor: (category) => getCategoryTitle(category as Category, lang),
   });
 
-  // Khai báo một lần và luôn đặt trước danh mục khi có sản phẩm.
-  const productFeedSection = hasFeedProducts ? (
-    <section aria-labelledby="home-products-title" className="border-t border-slate-200 bg-white py-14">
-      <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-brand-700">
-              {isVi ? "Sản phẩm nổi bật trên sàn" : "Featured Marketplace Offers"}
-            </p>
-            <h2 id="home-products-title" className="mt-1.5 text-2xl font-black text-ink-900 sm:text-3xl">
-              {isVi
-                ? "Nguồn hàng thực phẩm sẵn sàng báo giá"
-                : "Export-Ready Food Products from Verified Suppliers"}
-            </h2>
-            <p className="mt-1.5 text-sm text-ink-600">
-              {isVi
-                ? "Sản phẩm thực tế từ các nhà cung cấp đã được kiểm duyệt hồ sơ trên hệ thống."
-                : "Direct product offers from Vietnamese suppliers with reviewed documentation and capabilities."}
-            </p>
-          </div>
-          <a href="#categories" className="text-sm font-semibold text-brand-700 hover:underline">
-            {isVi ? "Xem tất cả danh mục →" : "Browse all categories →"}
-          </a>
-        </div>
-        <HomeProductFeed items={arrangedOffers} isVi={isVi} />
-      </div>
-    </section>
+  // Khối sản phẩm nổi bật tốn nhất trang (ảnh, chứng nhận, bảng giá đã duyệt của 8 danh
+  // mục, không cache): tải trong <Suspense> để hero, ô tìm kiếm và danh mục hiện ngay,
+  // sản phẩm đổ vào sau. Trang chủ không có redirect/notFound nên streaming an toàn cho SEO.
+  const productFeedSection = homeCategories.length ? (
+    <Suspense fallback={<HomeFeedSkeleton isVi={isVi} />}>
+      <HomeFeedSection productGroups={productGroupsPromise} isVi={isVi} />
+    </Suspense>
   ) : null;
 
   return (
@@ -334,9 +291,6 @@ export default async function HomeContent({
               const visibleChildren = childCategories.slice(0, 4);
               // Readiness alone does not mean a supplier has a public offer.
               const categoryIds = new Set([c.id, ...childCategories.map((child) => child.id)]);
-              const hasProducts = productGroups.some(({ category, products }) =>
-                categoryIds.has(category.id) && products.some((product) => !product.isDemo),
-              );
               const primaryTitle = getCategoryTitle(c, lang);
               const kicker = i18n(c.homepage_kicker_i18n, lang, "");
               const introText = i18n(c.intro_i18n, lang, "");
@@ -354,11 +308,9 @@ export default async function HomeContent({
                         className="object-cover transition duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-ink-950/75 via-ink-950/20 to-transparent" />
-                      {hasProducts && (
-                        <span className="absolute left-3.5 top-3.5 hidden items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-brand-700 shadow-sm sm:inline-flex">
-                          {isVi ? "Có nhà cung cấp" : "Suppliers available"}
-                        </span>
-                      )}
+                      <Suspense fallback={null}>
+                        <SuppliersAvailableBadge productGroups={productGroupsPromise} categoryIds={categoryIds} isVi={isVi} />
+                      </Suspense>
                       <div className="absolute inset-x-3 bottom-3 text-white sm:inset-x-4">
                         {kicker && (
                           <p className="text-[9px] font-semibold uppercase tracking-wider text-brand-200 sm:text-[11px]">
@@ -461,7 +413,162 @@ export default async function HomeContent({
             </Link>
           </div>
 
-          {latestPosts.length ? (
+          <Suspense fallback={<HomeNewsSkeleton />}>
+            <HomeNewsList isVi={isVi} lang={lang} />
+          </Suspense>
+        </div>
+      </section>
+
+
+      {/* =====================================================================
+          SECTION 4: DẢI NGẮN CHO NHÀ CUNG CẤP. Trang chủ dành cho người mua; 4 dịch vụ
+          và form đăng ký chi tiết nằm ở /for-suppliers.
+         ===================================================================== */}
+      <section aria-labelledby="home-supplier-band" className="border-t border-ink-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="min-w-0">
+            <h2 id="home-supplier-band" className="text-lg font-bold text-ink-900 sm:text-xl">
+              {isVi ? "Bạn là nhà sản xuất thực phẩm Việt Nam?" : "Are you a Vietnamese food manufacturer?"}
+            </h2>
+            <p className="mt-1 text-sm text-ink-600">
+              {isVi
+                ? "Đăng sản phẩm miễn phí và nhận yêu cầu báo giá từ người mua quốc tế."
+                : "List your products free and receive quote requests from international buyers."}
+            </p>
+          </div>
+          <Link href={isVi ? "/for-suppliers?lang=vi" : "/for-suppliers"}
+            className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-brand-700 px-5 py-2.5 text-sm font-semibold text-brand-800 transition hover:bg-brand-700 hover:text-white sm:self-auto">
+            {isVi ? "Dành cho nhà cung cấp" : "For suppliers"} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
+      </section>
+
+      <PlatformLegalStrip variant="footer" />
+    </div>
+  );
+}
+
+function formatPostDate(iso: string, lang: HomeLocale): string {
+  return new Date(iso).toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    timeZone: "UTC",
+  });
+}
+
+/** Khối "Sản phẩm nổi bật": đọc ảnh, chứng nhận và giá của các danh mục trang chủ. */
+type HomeProductGroup = { category: Category; products: PublicCategoryProduct[] };
+
+/** Một lần tải cho mỗi lượt xem trang; khối sản phẩm và nhãn danh mục dùng chung. */
+function loadHomeProductGroups(homeCategories: Category[], snapshot: Awaited<ReturnType<typeof loadPublicProductCatalogSnapshot>>): Promise<HomeProductGroup[]> {
+  // One server-only catalogue per request; do not re-read the entire catalogue
+  // once for each homepage category. Ranking and per-supplier caps stay unchanged.
+  return Promise.all(homeCategories.map(async (category) => ({
+    category,
+    products: await listPublicCategoryProducts(category, { snapshot }),
+  })));
+}
+
+/** Nhãn "Suppliers available": chỉ khi danh mục (hoặc nhóm con) có sản phẩm thật đang hiển thị. */
+async function SuppliersAvailableBadge({ productGroups, categoryIds, isVi }: {
+  productGroups: Promise<HomeProductGroup[]>; categoryIds: Set<string>; isVi: boolean;
+}) {
+  // Readiness alone does not mean a supplier has a public offer.
+  const hasProducts = (await productGroups).some(({ category, products }) =>
+    categoryIds.has(category.id) && products.some((product) => !product.isDemo));
+  if (!hasProducts) return null;
+  return (
+    <span className="absolute left-3.5 top-3.5 hidden items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-brand-700 shadow-sm sm:inline-flex">
+      {isVi ? "Có nhà cung cấp" : "Suppliers available"}
+    </span>
+  );
+}
+
+async function HomeFeedSection({ productGroups: productGroupsPromise, isVi }: {
+  productGroups: Promise<HomeProductGroup[]>;
+  isVi: boolean;
+}) {
+  const productGroups = await productGroupsPromise;
+  // One offer per category per round; retain category-local ranking and public gates.
+  // Enforce the supplier cap during selection so earlier categories cannot take
+  // all available slots before other industries get a turn.
+  // Luân phiên theo giờ: danh mục mở đầu và thứ tự trong cùng tầng xác minh đổi mỗi
+  // cửa sổ, tầng xác minh và trần mỗi nhà cung cấp giữ nguyên.
+  const rotationWindow = homeRotationWindow(Date.now());
+  const arrangedOffers = balanceHomepageCategories(
+    rotateForWindow(productGroups, ({ category }) => category.slug, rotationWindow).map(({ category, products }) =>
+      rotateWithinVerificationTiers(products, rotationWindow)
+      .filter((product) => !product.isDemo)
+      .map((product) => ({ ...product, categorySlug: category.slug }))),
+    HOME_FEED_PER_SUPPLIER,
+  );
+  // Điều kiện duy nhất để hiện khối: có ít nhất một sản phẩm. Số thẻ mỗi trang do
+  // HomeProductFeed tự tính theo bề rộng màn hình.
+  const hasFeedProducts = arrangedOffers.length > 0;
+  if (!arrangedOffers.length) return null;
+  return (
+    <section aria-labelledby="home-products-title" className="border-t border-slate-200 bg-white py-14">
+      <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-brand-700">
+              {isVi ? "Sản phẩm nổi bật trên sàn" : "Featured Marketplace Offers"}
+            </p>
+            <h2 id="home-products-title" className="mt-1.5 text-2xl font-black text-ink-900 sm:text-3xl">
+              {isVi
+                ? "Nguồn hàng thực phẩm sẵn sàng báo giá"
+                : "Export-Ready Food Products from Verified Suppliers"}
+            </h2>
+            <p className="mt-1.5 text-sm text-ink-600">
+              {isVi
+                ? "Sản phẩm thực tế từ các nhà cung cấp đã được kiểm duyệt hồ sơ trên hệ thống."
+                : "Direct product offers from Vietnamese suppliers with reviewed documentation and capabilities."}
+            </p>
+          </div>
+          <a href="#categories" className="text-sm font-semibold text-brand-700 hover:underline">
+            {isVi ? "Xem tất cả danh mục →" : "Browse all categories →"}
+          </a>
+        </div>
+        <HomeProductFeed items={arrangedOffers} isVi={isVi} />
+      </div>
+    </section>
+  );
+}
+
+/** Khung giữ chỗ cùng kích thước khối sản phẩm, để trang không nhảy khi dữ liệu về. */
+function HomeFeedSkeleton({ isVi }: { isVi: boolean }) {
+  return (
+    <section aria-busy="true" aria-label={isVi ? "Đang tải sản phẩm" : "Loading products"} className="border-t border-slate-200 bg-white py-14">
+      <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
+        <div className="h-3 w-40 rounded bg-slate-200" />
+        <div className="mt-3 h-7 w-full max-w-md rounded bg-slate-200" />
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 5 }, (_, index) => (
+            <div key={index} className={`animate-pulse overflow-hidden rounded-xl border border-slate-200 ${index > 1 ? "hidden md:block" : ""} ${index > 2 ? "md:hidden lg:block" : ""}`}>
+              <div className="aspect-[4/3] bg-slate-100" />
+              <div className="space-y-2 p-3">
+                <div className="h-4 w-4/5 rounded bg-slate-200" />
+                <div className="h-3 w-1/2 rounded bg-slate-200" />
+                <div className="h-5 w-2/3 rounded bg-slate-200" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** 4 bài viết mới nhất; tải riêng để không chặn phần đầu trang. */
+async function HomeNewsList({ isVi, lang }: { isVi: boolean; lang: HomeLocale }) {
+  const latestPosts = (
+    await listPublishedNews().catch((error) => {
+      console.error("[home] could not load published news", error);
+      return [];
+    })
+  ).slice(0, 4);
+  return latestPosts.length ? (
             <ul className="mt-6 grid grid-cols-1 gap-3 sm:mt-8 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
               {latestPosts.map((post) => (
                 <li key={post.id} className="min-w-0">
@@ -537,44 +644,22 @@ export default async function HomeContent({
               </Link>
               .
             </div>
-          )}
-        </div>
-      </section>
-
-
-      {/* =====================================================================
-          SECTION 4: DẢI NGẮN CHO NHÀ CUNG CẤP. Trang chủ dành cho người mua; 4 dịch vụ
-          và form đăng ký chi tiết nằm ở /for-suppliers.
-         ===================================================================== */}
-      <section aria-labelledby="home-supplier-band" className="border-t border-ink-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <div className="min-w-0">
-            <h2 id="home-supplier-band" className="text-lg font-bold text-ink-900 sm:text-xl">
-              {isVi ? "Bạn là nhà sản xuất thực phẩm Việt Nam?" : "Are you a Vietnamese food manufacturer?"}
-            </h2>
-            <p className="mt-1 text-sm text-ink-600">
-              {isVi
-                ? "Đăng sản phẩm miễn phí và nhận yêu cầu báo giá từ người mua quốc tế."
-                : "List your products free and receive quote requests from international buyers."}
-            </p>
-          </div>
-          <Link href={isVi ? "/for-suppliers?lang=vi" : "/for-suppliers"}
-            className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-brand-700 px-5 py-2.5 text-sm font-semibold text-brand-800 transition hover:bg-brand-700 hover:text-white sm:self-auto">
-            {isVi ? "Dành cho nhà cung cấp" : "For suppliers"} <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </div>
-      </section>
-
-      <PlatformLegalStrip variant="footer" />
-    </div>
-  );
+          );
 }
 
-function formatPostDate(iso: string, lang: HomeLocale): string {
-  return new Date(iso).toLocaleDateString(lang === "vi" ? "vi-VN" : "en-US", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    timeZone: "UTC",
-  });
+function HomeNewsSkeleton() {
+  return (
+    <ul aria-busy="true" className="mt-6 grid grid-cols-1 gap-3 sm:mt-8 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
+      {Array.from({ length: 4 }, (_, index) => (
+        <li key={index} className="flex h-28 animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white sm:block sm:h-auto">
+          <div className="w-[34%] shrink-0 bg-slate-100 sm:aspect-[4/3] sm:w-full" />
+          <div className="flex-1 space-y-2 p-3 sm:p-4">
+            <div className="h-3 w-1/3 rounded bg-slate-200" />
+            <div className="h-4 w-full rounded bg-slate-200" />
+            <div className="h-4 w-2/3 rounded bg-slate-200" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
 }
