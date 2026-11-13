@@ -10,7 +10,7 @@ import { VerificationPips, VerificationTierBadge } from "@/components/verificati
 import { getPublicSupplierBySlug, listPublicSuppliers, supplierTypeLabel } from "@/lib/public/catalog";
 import { supplierChatAvailable } from "@/lib/chat/service";
 import { SupplierChatButton } from "@/components/public/supplier-chat-button";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 import { getStore } from "@/lib/db";
 import { publicSupplierCertificates } from "@/lib/public/certificates";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
@@ -30,9 +30,16 @@ type PageProps = { params: Promise<{ slug: string }> };
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
 
+/**
+ * Danh sách nhà cung cấp công khai dựng MỘT lần cho mỗi request (React cache): thẻ meta,
+ * nội dung trang và khối "Explore other suppliers" trước đây dựng lại ba lần.
+ */
+const publicSuppliersForRequest = cache(() => listPublicSuppliers());
+const supplierBySlug = cache(async (slug: string) => getPublicSupplierBySlug(slug, await publicSuppliersForRequest()));
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const s = await getPublicSupplierBySlug(slug);
+  const s = await supplierBySlug(slug);
   if (!s) return { title: "Supplier not found", robots: { index: false } };
   const name = safe(s.display_name || s.name);
   const url = `${SITE_URL}/suppliers/${encodeURIComponent(s.slug || s.id)}`;
@@ -52,7 +59,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function SupplierProfile({ params }: PageProps) {
   const { slug } = await params;
-  const s = await getPublicSupplierBySlug(slug);
+  const s = await supplierBySlug(slug);
   if (!s) notFound();
 
   const store = getStore();
@@ -78,7 +85,7 @@ export default async function SupplierProfile({ params }: PageProps) {
   const steps = s.approved_verification_steps;
   // Chỉ mở chat khi nhà cung cấp có tài khoản cổng đang hoạt động để trả lời.
   const canChat = await supplierChatAvailable(store, s.id).catch(() => false);
-  const related = (await listPublicSuppliers()).filter((r) => r.id !== s.id && !isSyntheticSupplier(r)).slice(0, 4);
+  const related = (await publicSuppliersForRequest()).filter((r) => r.id !== s.id && !isSyntheticSupplier(r)).slice(0, 4);
   // A supplier directory lists links, not Product rich-result entities without offers/reviews.
   // Keep the existing public-product gates; never invent prices or ratings for RFQ listings.
   const jsonLd = {
