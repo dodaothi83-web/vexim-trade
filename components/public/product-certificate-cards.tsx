@@ -80,9 +80,11 @@ export function ProductCertificateCards({ certificates }: { certificates: Public
       <ul ref={railRef} tabIndex={sliding ? 0 : undefined} aria-label={sliding ? `Product certificates (${certificates.length})` : undefined}
         className={sliding
           ? "-mx-5 flex snap-x snap-mandatory scroll-px-5 items-stretch gap-3 overflow-x-auto scroll-smooth px-5 pb-2 pt-1 outline-none focus-visible:ring-2 focus-visible:ring-brand-300 [scrollbar-width:thin]"
-          : "grid gap-3 sm:grid-cols-2"}>
+          : "grid grid-cols-1 gap-3 sm:grid-cols-2"}>
         {certificates.map((certificate) => (
-          <li key={certificate.id} className={sliding ? "flex w-[80%] shrink-0 snap-start sm:w-[41%]" : "flex"}>
+          // min-w-0 + grid-cols-1 (minmax(0,1fr)): tên tổ chức cấp dài chỉ bị cắt "…",
+          // không được nới ô lưới rộng hơn màn hình điện thoại.
+          <li key={certificate.id} className={sliding ? "flex w-[80%] min-w-0 shrink-0 snap-start sm:w-[41%]" : "flex min-w-0"}>
             {certificate.imageUrl ? (
               <button type="button" onClick={() => setSelected(certificate)} aria-haspopup="dialog"
                 aria-label={`View ${certificate.shortName} certificate`}
