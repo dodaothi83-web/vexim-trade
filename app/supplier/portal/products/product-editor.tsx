@@ -1451,7 +1451,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                         defaultValue={product?.package_weight_kg ?? ""} disabled={locked} />
                     </SubField>
                     <SubField label={copy.shipping.unitsPerCarton}>
-                      <input className="input" name="units_per_carton" inputMode="numeric" placeholder="20"
+                      <input className="input" name="units_per_carton" inputMode="numeric" placeholder="24"
                         defaultValue={product?.units_per_carton ?? ""} disabled={locked} />
                     </SubField>
                   </div>

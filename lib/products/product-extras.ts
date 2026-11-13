@@ -100,6 +100,29 @@ function numberOrNull(raw: unknown, label: string, min: number, max: number, all
   return value;
 }
 
+/**
+ * Số đơn vị mỗi thùng: nhà cung cấp hay gõ kèm đơn vị ("24 chai", "24 lon/thùng",
+ * "24 x 280ml") hoặc dấu nghìn ("1.000"). Lấy số nguyên đứng đầu; số lẻ ("1,5") hay
+ * chữ không có số vẫn bị từ chối, không đoán.
+ */
+function unitsPerCartonOrNull(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  const text = String(raw).trim();
+  if (!text) return null;
+  const match = /^(\d{1,3}(?:[.,]\d{3})+|\d+)(?:\s*[^\d.,\s].*)?$/u.exec(text);
+  if (!match) throw new Error(`${UNITS_LABEL} phải là số nguyên, ví dụ 24 (mục Đóng gói & giao hàng).`);
+  const value = Number(match[1].replace(/[.,]/g, ""));
+  if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${UNITS_LABEL} phải lớn hơn 0.`);
+  if (value > UNITS_PER_CARTON_MAX) throw new Error(`${UNITS_LABEL} quá lớn.`);
+  return value;
+}
+const UNITS_LABEL = "Số đơn vị mỗi thùng";
+
+/** Khối lượng kiện: chấp nhận cả "25 kg" / "25kg" ngoài số thuần. */
+function weightText(raw: unknown): unknown {
+  return typeof raw === "string" ? raw.trim().replace(/\s*kgs?\.?$/i, "") : raw;
+}
+
 function textOrNull(raw: unknown, limit: number): string | null {
   const value = String(raw ?? "").trim().slice(0, limit);
   return value || null;
@@ -126,13 +149,13 @@ export function productExtrasFromForm(
     ? textOrNull(get("package_type"), PACKAGE_TYPE_MAX_LENGTH)
     : (existing?.package_type ?? null);
   const packageWeight = present("package_weight_kg")
-    ? numberOrNull(get("package_weight_kg"), "Khối lượng mỗi kiện", 0, PACKAGE_WEIGHT_MAX_KG)
+    ? numberOrNull(weightText(get("package_weight_kg")), "Khối lượng mỗi kiện", 0, PACKAGE_WEIGHT_MAX_KG)
     : (existing?.package_weight_kg ?? null);
   const packageSize = present("package_size")
     ? textOrNull(get("package_size"), PACKAGE_SIZE_MAX_LENGTH)
     : (existing?.package_size ?? null);
   const unitsPerCarton = present("units_per_carton")
-    ? numberOrNull(get("units_per_carton"), "Số đơn vị mỗi thùng", 0, UNITS_PER_CARTON_MAX)
+    ? unitsPerCartonOrNull(get("units_per_carton"))
     : (existing?.units_per_carton ?? null);
 
   return {
