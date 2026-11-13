@@ -272,7 +272,7 @@ export async function resetUserPasswordAction(
   const store = getStore();
   const target = await store.getUser(id);
   if (!target) return { ok: false, message: "Không tìm thấy tài khoản." };
-  if (target.role === "supplier") return { ok: false, message: "Tài khoản doanh nghiệp phải đặt lại mật khẩu qua Supabase Auth, không tạo mật khẩu dự phòng nội bộ." };
+  if (target.role === "supplier") return resetSupplierPassword(target, password);
 
   try {
     await store.updateUser(id, { password_hash: await hashPassword(password) });
@@ -292,51 +292,29 @@ export async function resetUserPasswordAction(
   }
 }
 
-/* -------- Nhà cung cấp quên mật khẩu: nhân viên gửi link đặt lại -------- */
-
-export interface SupplierResetResult extends AuthResult {
-  /** Link để nhân viên nhắn lại qua Zalo khi doanh nghiệp không thấy email. */
-  resetUrl?: string;
-  expiresAt?: string;
-  /** false: email gửi lỗi, nhân viên phải nhắn link trực tiếp. */
-  emailed?: boolean;
-}
-
 /**
- * Gửi link đặt lại mật khẩu tới email đăng nhập của tài khoản nhà cung cấp. Nhân viên
- * không đặt mật khẩu thay: doanh nghiệp mở link và tự đặt (đổi cả bên Supabase Auth).
- * Email gửi lỗi vẫn trả link để nhân viên nhắn trực tiếp cho đúng người.
+ * Nhà cung cấp quên mật khẩu: quản trị đặt mật khẩu mới thẳng bên Supabase Auth.
+ *
+ * Tài khoản doanh nghiệp chỉ đăng nhập qua Supabase (không có đường dự phòng nội bộ), nên
+ * chỉ đổi ở đó và không tạo mật khẩu nội bộ. Supabase không đổi được thì báo lỗi rõ, không
+ * báo thành công giả. Mỗi lần đổi đều ghi nhật ký (không ghi mật khẩu).
  */
-export async function sendSupplierPasswordResetAction(id: string): Promise<SupplierResetResult> {
-  const gate = await guard("users.manage");
-  if (gate) return gate;
-  const session = await getSession();
-  const store = getStore();
-  const target = await store.getUser(id);
-  if (!target) return { ok: false, message: "Không tìm thấy tài khoản." };
-  if (target.role !== "supplier") return { ok: false, message: "Chức năng này chỉ dành cho tài khoản nhà cung cấp." };
-  if (!target.is_active) return { ok: false, message: "Tài khoản đang bị khoá. Mở khoá trước khi gửi link đặt lại mật khẩu." };
-  try {
-    const { sendStaffPasswordReset } = await import("@/lib/auth/staff-password-reset");
-    const sent = await sendStaffPasswordReset(target);
-    await store.addAuditLog({
-      actor_id: session?.uid ?? null, actor_email: session?.email ?? null, entity: "user", entity_id: target.id,
-      action: "user.password_reset_link_sent", before: null,
-      after: { via: "staff", emailed: sent.emailed, expires_at: sent.expiresAt },
-    }).catch((err) => console.error("[supplier-reset] audit log failed", err));
+async function resetSupplierPassword(target: { id: string; email: string; is_active: boolean }, password: string): Promise<AuthResult> {
+  if (!target.is_active) return { ok: false, message: "Tài khoản đang bị khoá. Mở khoá trước khi đặt lại mật khẩu." };
+  const updated = await updateSupabasePasswordSilent(target.email, password);
+  if (!updated) {
     return {
-      ok: true,
-      message: sent.emailed
-        ? `Đã gửi link đặt lại mật khẩu tới ${target.email} (hiệu lực 24 giờ).`
-        : `Chưa gửi được email tới ${target.email}. Hãy sao chép link bên dưới và nhắn trực tiếp cho doanh nghiệp.`,
-      resetUrl: sent.url,
-      expiresAt: sent.expiresAt,
-      emailed: sent.emailed,
+      ok: false,
+      message: "Chưa đổi được mật khẩu bên Supabase Auth. Kiểm tra kết nối Supabase hoặc tài khoản này chưa có bên Supabase, rồi thử lại.",
     };
-  } catch (err) {
-    console.error("[supplier-reset] failed", err);
-    return { ok: false, message: "Chưa tạo được link đặt lại mật khẩu. Vui lòng thử lại." };
   }
+  const session = await getSession();
+  await getStore().addAuditLog({
+    actor_id: session?.uid ?? null, actor_email: session?.email ?? null, entity: "user", entity_id: target.id,
+    action: "user.password_reset", before: null, after: { via: "staff_set_supplier_password", supabase_updated: true },
+  }).catch((err) => console.error("[supplier-reset] audit log failed", err));
+  revalidatePath("/", "layout");
+  return { ok: true, message: `Đã đặt mật khẩu mới cho ${target.email}. Gửi mật khẩu cho đúng người phụ trách tài khoản.` };
 }
 
 async function updateSupabasePasswordSilent(email: string, password: string): Promise<boolean> {
