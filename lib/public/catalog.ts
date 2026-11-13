@@ -123,10 +123,25 @@ export async function listPublicSuppliers(options?: {
       group.push(row);
     }
   }
+  // Ảnh gallery của 50 nhà cung cấp đầu: đọc gộp một lượt thay vì một truy vấn cho mỗi
+  // nhà cung cấp (Sentry báo N+1 trên trang chủ). Chỉ giữ ảnh của chính hồ sơ nhà cung
+  // cấp (owner_type "supplier"), đúng phạm vi của listMedia("supplier", id) trước đây.
+  const galleryIds = baseCards.slice(0, 50).map((c) => c.id);
+  const mediaBySupplier = new Map<string, MediaAsset[]>();
+  const mediaBatched = typeof store.listMediaForSuppliers === "function";
+  if (mediaBatched && galleryIds.length) {
+    for (const asset of await store.listMediaForSuppliers(galleryIds)) {
+      if (asset.owner_type !== "supplier" || !asset.supplier_id) continue;
+      const group = mediaBySupplier.get(asset.supplier_id) ?? [];
+      if (!mediaBySupplier.has(asset.supplier_id)) mediaBySupplier.set(asset.supplier_id, group);
+      group.push(asset);
+    }
+  }
   for (let i = 0; i < baseCards.length; i += 40) {
     await Promise.all(baseCards.slice(i, i + 40).map(async (c, offset) => {
       const [media, vers] = await Promise.all([
-        i + offset < 50 ? store.listMedia("supplier", c.id) : Promise.resolve([] as MediaAsset[]),
+        i + offset >= 50 ? Promise.resolve([] as MediaAsset[])
+          : mediaBatched ? Promise.resolve(mediaBySupplier.get(c.id) ?? []) : store.listMedia("supplier", c.id),
         batched ? Promise.resolve(byVerificationSupplier.get(c.id) ?? []) : store.listVerifications(c.id),
       ]);
       c.gallery_images = media
