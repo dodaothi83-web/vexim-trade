@@ -4,11 +4,12 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import * as revisionV2 from '../lib/products/quantity-revision-v2.ts';
+import * as salesUnits from '../lib/products/sales-units.ts';
 const product = { id: 'p', name: 'Nhân điều', updated_at: '2026-10-29T00:00:00Z', reviewed_category_slug: 'cashew', price_publicly_visible: true, name_i18n: { en: 'Legacy name' }, ref_price: 7, moq: '100 bags' };
 const category = { id: 'c', slug: 'cashew', status: 'published', is_published: true, price_unit: 'kg' };
 let prices = [], names = [], fail = false;
 const db = { from(table) { const q = { select: () => q, eq: () => q, in: async () => fail ? { data: null, error: { message: 'offline' } } : { data: table.includes('price') ? prices : names, error: null } }; return q; } };
-const mocks = { '@/lib/products/quantity-revision-v2': revisionV2, 'server-only': {}, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getCategoryBySlug: async () => category } },
+const mocks = { '@/lib/products/sales-units': salesUnits, '@/lib/products/quantity-revision-v2': revisionV2, 'server-only': {}, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: { getCategoryBySlug: async () => category } },
   '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] },
   '@/lib/public/price-units': { displayUnitsForCategory: () => ({ primary: 'kg' }) },
   '@/lib/products/quantity-price-config': { readQuantityPricingPolicy: async () => ({ maxTiers: 4, maxPriceRatio: 1.5, maxLastMoqRatio: 100 }) },

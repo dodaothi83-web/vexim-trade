@@ -13,7 +13,7 @@ type Props = {
   messages: ProductEditorMessages["quantityPage"]; shared: ProductEditorMessages["shared"]; lang: Locale;
   productId: string; updatedAt: string; nameVi: string; nameEn: string;
   pendingPriceId: string | null; pendingNameId: string | null; hasApprovedPrice: boolean; hasApprovedName: boolean;
-  grade: string; incoterm: string; currency: string; tiers: QuantityPricingInput["tiers"];
+  grade: string; incoterm: string; currency: string; unit: string; tiers: QuantityPricingInput["tiers"];
   standardGrades: string[]; policy: QuantityPricingPolicy; buyerPriceUnit: "kg" | "mt"; pricePubliclyVisible: boolean;
   categorySlug: string;
 };
@@ -22,7 +22,7 @@ type Result = { ok: boolean; message: string };
 export function QuantityPricingPreviewForm(props: Props) {
   const copy = props.messages;
   const router = useRouter();
-  const [value, setValue] = useState<QuantityPricingInput>({ grade: props.grade, incoterm: props.incoterm, currency: props.currency, nameVi: props.nameVi, nameEn: props.nameEn, tiers: props.tiers });
+  const [value, setValue] = useState<QuantityPricingInput>({ grade: props.grade, incoterm: props.incoterm, currency: props.currency, unit: props.unit, nameVi: props.nameVi, nameEn: props.nameEn, tiers: props.tiers });
   // Grade nhà cung cấp vừa thêm phải dùng được ngay ở lần gửi này, không chờ tải lại trang.
   const [grades, setGrades] = useState(props.standardGrades);
   const [busy, setBusy] = useState(false);
@@ -41,6 +41,7 @@ export function QuantityPricingPreviewForm(props: Props) {
     form.set("grade", value.grade);
     form.set("incoterm", value.incoterm);
     form.set("quantity_currency", value.currency ?? "USD");
+    form.set("quantity_sales_unit", value.unit ?? "kg");
     form.set("quantity_tiers_json", JSON.stringify(value.tiers));
     setBusy(true); setPriceResult(null);
     try {

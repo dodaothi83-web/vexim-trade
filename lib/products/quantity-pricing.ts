@@ -1,5 +1,6 @@
 import type { PublicQuantityOffer } from "@/lib/products/quantity-public-projection";
 import { formatMoney, priceRangeText } from "./price-display.ts";
+import { DEFAULT_SALES_UNIT, formatCountQuantity, isWeightSalesUnit, normalizeSalesUnit, SALES_UNIT_LABELS, type SalesUnit } from "./sales-units.ts";
 
 /**
  * Rules for the next supplier pricing model. This module is deliberately isolated
@@ -7,6 +8,9 @@ import { formatMoney, priceRangeText } from "./price-display.ts";
  * versioned persistence and both review workflows are in place.
  *
  * Quantities are whole kg; the end of a tier is the next minimum minus one kg.
+ * A table can instead be sold by a count unit (can, bottle, pack, box, carton, see
+ * `sales-units.ts`): then `minKg` holds whole units and `priceUsdPerKg` the price per
+ * unit, and every tier carries `unit`. Kg tables never write `unit`.
  * Each tier keeps its own Incoterm and the table keeps one currency (USD, VND,
  * EUR, CNY or JPY) with at most two decimal places. The field name
  * `priceUsdPerKg` is kept for stored records; the amount is per kg in the
@@ -40,7 +44,21 @@ export function normalizePriceCurrency(raw: string | null | undefined): PriceCur
   return (PRICE_CURRENCIES as readonly string[]).includes(value) ? value as PriceCurrency : null;
 }
 
-export type QuantityPriceTier = { minKg: number; priceUsdPerKg: number; incoterm: string; currency: PriceCurrency };
+export type QuantityPriceTier = {
+  /** Whole kg, or whole units when `unit` is a count unit. */
+  minKg: number;
+  /** Price per kg, or per unit when `unit` is a count unit, in `currency`. */
+  priceUsdPerKg: number;
+  incoterm: string;
+  currency: PriceCurrency;
+  /** Absent means kg (records written before sales units existed). */
+  unit?: SalesUnit;
+};
+
+/** Đơn vị của một mức giá đã lưu; thiếu trường là kg. */
+export function tierSalesUnit(tier: Pick<QuantityPriceTier, "unit">): SalesUnit {
+  return tier.unit ?? DEFAULT_SALES_UNIT;
+}
 export type GradePriceBounds = { minUsdPerKg: number; maxUsdPerKg: number };
 export type QuantityPricingPolicy = {
   maxTiers: number;
@@ -60,6 +78,8 @@ export type QuantityPricingInput = {
   /** Fallback Incoterm for rows that do not carry their own. */
   incoterm: string;
   currency?: string;
+  /** Đơn vị bán của cả bảng (kg mặc định). */
+  unit?: string;
   nameVi: string;
   nameEn: string;
   tiers: Array<{ minKg: string; priceUsdPerKg: string; incoterm?: string }>;
@@ -79,7 +99,7 @@ export function issueMessage(issue: QuantityPricingIssue, lang: "vi" | "en" = "v
 export type QuantityPricingResult = {
   errors: QuantityPricingIssue[];
   warnings: QuantityPricingIssue[];
-  value: { grade: string; incoterm: string; currency: PriceCurrency; tiers: QuantityPriceTier[] } | null;
+  value: { grade: string; incoterm: string; currency: PriceCurrency; unit: SalesUnit; tiers: QuantityPriceTier[] } | null;
 };
 
 const INCOTERMS = new Set(["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"]);
@@ -169,6 +189,10 @@ export function validateQuantityPricing(
   const fallbackIncoterm = input.incoterm.trim().toUpperCase();
   const currency = normalizePriceCurrency(input.currency ?? DEFAULT_PRICE_CURRENCY);
   if (!currency) errors.push({ code: "currency", message: "Chọn tiền tệ cho bảng giá.", messageEn: "Choose the currency for the price table." });
+  const unit = normalizeSalesUnit(input.unit);
+  if (!unit) errors.push({ code: "unit", message: "Chọn đơn vị bán hợp lệ cho bảng giá.", messageEn: "Choose a valid sales unit for the price table." });
+  const unitVi = SALES_UNIT_LABELS[unit ?? DEFAULT_SALES_UNIT].vi;
+  const unitEn = SALES_UNIT_LABELS[unit ?? DEFAULT_SALES_UNIT].en;
   const maxTiers = Math.min(policy.maxTiers, 4);
   if (input.tiers.length < 1 || input.tiers.length > maxTiers) {
     errors.push({ code: "tier_count", message: `Nhập từ 1 đến ${maxTiers} mức giá.`,
@@ -182,15 +206,18 @@ export function validateQuantityPricing(
     const cents = centsFromText(row.priceUsdPerKg);
     const tierIncoterm = (row.incoterm ?? fallbackIncoterm).trim().toUpperCase();
     if (kg === null) {
-      errors.push({ code: "quantity", tierIndex, message: "Số lượng từ phải là số kg nguyên lớn hơn 0.",
-        messageEn: "The from quantity must be a whole number of kg greater than 0." });
+      errors.push({ code: "quantity", tierIndex, message: `Số lượng từ phải là số ${unitVi} nguyên lớn hơn 0.`,
+        messageEn: unit && !isWeightSalesUnit(unit)
+          ? `The from quantity must be a whole number of ${SALES_UNIT_LABELS[unit].enPlural} greater than 0.`
+          : "The from quantity must be a whole number of kg greater than 0." });
     }
-    if (cents === null) errors.push({ code: "price", tierIndex, message: `Nhập đơn giá ${currency ?? "USD"}/kg lớn hơn 0, tối đa 2 chữ số thập phân.`,
-        messageEn: `Enter a unit price in ${currency ?? "USD"}/kg greater than 0, with at most 2 decimals.` });
+    if (cents === null) errors.push({ code: "price", tierIndex, message: `Nhập đơn giá ${currency ?? "USD"}/${unitVi} lớn hơn 0, tối đa 2 chữ số thập phân.`,
+        messageEn: `Enter a unit price in ${currency ?? "USD"}/${unitEn} greater than 0, with at most 2 decimals.` });
     if (!INCOTERMS.has(tierIncoterm)) errors.push({ code: "incoterm", tierIndex, message: `Chọn Incoterm cho mức giá ${tierIndex + 1}.`,
         messageEn: `Choose an Incoterm for price tier ${tierIndex + 1}.` });
-    if (kg === null || cents === null || !currency || !INCOTERMS.has(tierIncoterm)) return;
-    tiers.push({ minKg: kg, priceUsdPerKg: cents / 100, incoterm: tierIncoterm, currency });
+    if (kg === null || cents === null || !currency || !unit || !INCOTERMS.has(tierIncoterm)) return;
+    // Kg tables keep the original stored shape; only count units add `unit`.
+    tiers.push({ minKg: kg, priceUsdPerKg: cents / 100, incoterm: tierIncoterm, currency, ...(isWeightSalesUnit(unit) ? {} : { unit }) });
     centsList.push(cents);
   });
   // Avoid comparing across a malformed or missing row.
@@ -209,8 +236,8 @@ export function validateQuantityPricing(
       errors.push({ code: "quantity_spread", message: "Số lượng từ của dòng cuối vượt giới hạn so với MOQ.",
         messageEn: "The last tier starts too far above the MOQ." });
     }
-    // Reference bounds are stored in USD/kg; other currencies are reviewed by staff.
-    const boundsEntry = currency === "USD"
+    // Reference bounds are stored in USD/kg; other currencies and count units are reviewed by staff.
+    const boundsEntry = currency === "USD" && unit && isWeightSalesUnit(unit)
       ? Object.entries(policy.gradeBounds ?? {}).find(([key]) => normalized(key) === normalized(grade))
       : undefined;
     const bounds = boundsEntry?.[1];
@@ -230,7 +257,7 @@ export function validateQuantityPricing(
     }
   }
   const firstIncoterm = tiers[0]?.incoterm ?? fallbackIncoterm;
-  return { errors, warnings, value: errors.length || !currency ? null : { grade, incoterm: firstIncoterm, currency, tiers } };
+  return { errors, warnings, value: errors.length || !currency || !unit ? null : { grade, incoterm: firstIncoterm, currency, unit, tiers } };
 }
 
 /** Bản xem trước khi người dùng còn đang nhập: bỏ qua các lỗi chặn lưu
@@ -238,10 +265,11 @@ export function validateQuantityPricing(
  *  Nhờ vậy buyer preview cập nhật ngay khi gõ, không bị trắng vì thiếu grade.
  *  Dữ liệu trả về chỉ để hiển thị, không dùng để lưu. */
 export function previewQuantityTiers(
-  input: Pick<QuantityPricingInput, "grade" | "incoterm" | "currency" | "tiers">,
+  input: Pick<QuantityPricingInput, "grade" | "incoterm" | "currency" | "unit" | "tiers">,
   standardGrades: readonly string[] = [],
-): { grade: string; currency: PriceCurrency; tiers: QuantityPriceTier[] } {
+): { grade: string; currency: PriceCurrency; unit: SalesUnit; tiers: QuantityPriceTier[] } {
   const currency = normalizePriceCurrency(input.currency) ?? DEFAULT_PRICE_CURRENCY;
+  const unit = normalizeSalesUnit(input.unit) ?? DEFAULT_SALES_UNIT;
   const fallbackIncoterm = (input.incoterm ?? "").trim().toUpperCase();
   const tiers: QuantityPriceTier[] = [];
   for (const row of input.tiers ?? []) {
@@ -249,10 +277,10 @@ export function previewQuantityTiers(
     const cents = centsFromText(row.priceUsdPerKg);
     if (minKg === null || cents === null) continue;
     const incoterm = (row.incoterm ?? fallbackIncoterm).trim().toUpperCase();
-    tiers.push({ minKg, priceUsdPerKg: cents / 100, incoterm: INCOTERMS.has(incoterm) ? incoterm : "", currency });
+    tiers.push({ minKg, priceUsdPerKg: cents / 100, incoterm: INCOTERMS.has(incoterm) ? incoterm : "", currency, ...(isWeightSalesUnit(unit) ? {} : { unit }) });
   }
   const grade = standardGrades.find((value) => normalized(value) === normalized(input.grade)) ?? input.grade.trim();
-  return { grade, currency, tiers };
+  return { grade, currency, unit, tiers };
 }
 
 /** Buyer quantities switch to MT at 1,000 kg; internal quantities stay in kg. */
@@ -261,11 +289,19 @@ export function formatQuantityBuyer(kg: number): string {
   return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(value)} ${kg >= 1000 ? "MT" : "kg"}`;
 }
 
+/** Buyer quantity in the table's own unit: kg/MT for weight, "5,000 cans" for count units. */
+export function formatQuantityForUnit(quantity: number, unit: SalesUnit = DEFAULT_SALES_UNIT): string {
+  return isWeightSalesUnit(unit) ? formatQuantityBuyer(quantity) : formatCountQuantity(quantity, unit);
+}
+
 export function quantityTierRanges(tiers: readonly QuantityPriceTier[]): Array<QuantityPriceTier & { maxKg: number | null }> {
   return tiers.map((tier, index) => ({ ...tier, maxKg: tiers[index + 1] ? tiers[index + 1].minKg - 1 : null }));
 }
 
-export function formatQuantityPriceBuyer(pricePerKg: number, unit: "kg" | "mt", currency: PriceCurrency = DEFAULT_PRICE_CURRENCY): string {
+export function formatQuantityPriceBuyer(pricePerKg: number, unit: "kg" | "mt", currency: PriceCurrency = DEFAULT_PRICE_CURRENCY,
+  salesUnit: SalesUnit = DEFAULT_SALES_UNIT): string {
+  // A count unit is priced per unit; it never converts to the category's kg/MT convention.
+  if (!isWeightSalesUnit(salesUnit)) return `${formatMoney(pricePerKg, currency)}/${SALES_UNIT_LABELS[salesUnit].en}`;
   const value = unit === "mt" ? pricePerKg * 1000 : pricePerKg;
   return `${formatMoney(value, currency)}/${unit === "mt" ? "MT" : "kg"}`;
 }
@@ -301,15 +337,18 @@ export type DraftOfferOptions = {
  * giờ thấy bảng giá thiếu grade, nên bản xem trước cũng không được bịa ra.
  */
 export function draftPublicQuantityOffer(
-  input: Pick<QuantityPricingInput, "grade" | "incoterm" | "currency" | "tiers">,
+  input: Pick<QuantityPricingInput, "grade" | "incoterm" | "currency" | "unit" | "tiers">,
   options: DraftOfferOptions,
 ): PublicQuantityOffer | null {
   const preview = previewQuantityTiers(input, options.standardGrades ?? []);
   const tiers = preview.tiers;
   if (!tiers.length || !preview.grade.trim()) return null;
 
-  const factor = options.priceUnit === "mt" ? 1000 : 1;
-  const unit = options.priceUnit === "mt" ? "MT" : "kg";
+  const salesUnit = preview.unit;
+  const byWeight = isWeightSalesUnit(salesUnit);
+  const factor = byWeight && options.priceUnit === "mt" ? 1000 : 1;
+  const unit = byWeight ? (options.priceUnit === "mt" ? "MT" : "kg") : SALES_UNIT_LABELS[salesUnit].en;
+  const quantity = (value: number) => formatQuantityForUnit(value, salesUnit);
 
   // Bảng giá đi từ đơn giá thấp nhất tới cao nhất: mức số lượng lớn nhất đứng cuối.
   const low = tiers[tiers.length - 1].priceUsdPerKg;
@@ -324,13 +363,14 @@ export function draftPublicQuantityOffer(
     grade: preview.grade,
     currency,
     incoterm,
-    moq: formatQuantityBuyer(tiers[0].minKg),
-    moqKg: tiers[0].minKg,
+    salesUnit,
+    moq: quantity(tiers[0].minKg),
+    moqKg: byWeight ? tiers[0].minKg : null,
     price: visible ? `${priceRangeText(low * factor, high * factor, currency)}/${unit}` : null,
     hasVolumePricing: visible && tiers.length > 1 && low !== high,
     tiers: visible ? tiers.map((tier, index) => ({
-      from: formatQuantityBuyer(tier.minKg),
-      to: tiers[index + 1] ? formatQuantityBuyer(tiers[index + 1].minKg - 1) : null,
+      from: quantity(tier.minKg),
+      to: tiers[index + 1] ? quantity(tiers[index + 1].minKg - 1) : null,
       price: `${formatMoney(tier.priceUsdPerKg * factor, tier.currency)}/${unit}${tier.incoterm !== incoterm ? ` ${tier.incoterm}` : ""}`,
     })) : [],
     // Chưa duyệt nên không có ngày xác nhận và không đủ tư cách xếp hạng giá.

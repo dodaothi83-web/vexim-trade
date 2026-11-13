@@ -55,10 +55,11 @@ export async function adjustQuantityPriceAction(form: FormData): Promise<Result>
     const currencyIssue = entryCurrencyIssue(currency);
     if (currencyIssue) return { ok: false, message: currencyIssue };
     const policy = await readQuantityPricingPolicy(category.id);
+    const salesUnit = String(form.get("quantity_sales_unit") ?? "").trim().slice(0, 20) || "kg";
     const checked = validateQuantityPricing({
       grade: String(form.get("grade") ?? "").trim().slice(0, 180),
       incoterm: String(form.get("incoterm") ?? "").trim().slice(0, 20),
-      currency, nameVi: product.name, nameEn: "", tiers,
+      currency, unit: salesUnit, nameVi: product.name, nameEn: "", tiers,
     }, standardGradesForCategory(category), policy);
     if (!checked.value) return { ok: false, message: checked.errors[0]?.message ?? "Bảng giá không hợp lệ." };
     const previous = (await db.from("product_quantity_price_revisions")
@@ -78,7 +79,7 @@ export async function adjustQuantityPriceAction(form: FormData): Promise<Result>
       before: { revisions: previous.map((row) => ({ id: row.id, status: row.status, grade: row.grade,
         incoterm: row.incoterm, tiers: row.tiers, re_based: !row.product_context })) },
       after: { revision_id: payload.revision_id, status: "approved", grade: checked.value.grade,
-        incoterm: checked.value.incoterm, currency: checked.value.currency, tiers: checked.value.tiers,
+        incoterm: checked.value.incoterm, currency: checked.value.currency, unit: checked.value.unit, tiers: checked.value.tiers,
         warnings: checked.warnings.map((issue) => issue.code),
         supplier_confirmation_attested: product.price_publicly_visible === true },
     }).catch((error) => console.error("[staff-price] audit", error));

@@ -110,7 +110,7 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
       priceCurrency: card.quantityOffer && card.price
         ? safe(card.quantityOffer.currency)
         : card.price && card.pricePoint ? safe(card.pricePoint.currency) : null,
-      priceUnit: card.quantityOffer && card.price ? safe(card.price.match(/\/(kg|MT)$/)?.[1]) : card.price && card.pricePoint ? safe(publicProductUnitDisplay(card.pricePoint.unit)) : null,
+      priceUnit: card.quantityOffer && card.price ? safe(card.price.match(/\/(kg|MT|can|bottle|pack|box|carton)$/)?.[1]) : card.price && card.pricePoint ? safe(publicProductUnitDisplay(card.pricePoint.unit)) : null,
       priceValidUntil: !card.quantityOffer && card.price && product.price_valid_until && /^\d{4}-\d{2}-\d{2}$/.test(product.price_valid_until)
         ? product.price_valid_until : null,
       moq: safe(publicProductMoqDisplay(card.moq && card.moq !== "On request" ? card.moq : tradeEnglish?.moq)) ?? "Not provided",

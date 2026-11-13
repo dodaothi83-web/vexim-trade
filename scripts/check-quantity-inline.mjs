@@ -8,6 +8,7 @@ import * as jsx from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as pricing from '../lib/products/quantity-pricing.ts';
 import * as priceDisplay from '../lib/products/price-display.ts';
+import * as salesUnits from '../lib/products/sales-units.ts';
 // Hai component giá theo bậc lấy từ điển làm mặc định cho khu CRM; VM chỉ cần đúng hình dạng
 // khoá mà component đọc, không cần nội dung câu chữ.
 import { productEditorMessages } from '../lib/i18n/portal/product-editor.ts';
@@ -19,7 +20,7 @@ function compile(path, mocks) {
 }
 const lucide = new Proxy({}, { get: (_target, name) => (props) => React.createElement('svg', { 'data-icon': String(name), ...props }) });
 const previewStore = { publishQuantityPreview() {} };
-const editor = compile('../components/products/quantity-pricing-editor.tsx', { react: React, 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing, '@/lib/products/price-display': priceDisplay,
+const editor = compile('../components/products/quantity-pricing-editor.tsx', { '@/lib/products/sales-units': salesUnits, react: React, 'react/jsx-runtime': jsx, 'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, 'lucide-react': lucide, '@/lib/products/quantity-pricing': pricing, '@/lib/products/price-display': priceDisplay,
  '@/lib/i18n/portal/product-editor': { productEditorMessages }, '@/lib/i18n/format': { fill: (t, v) => String(t).replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m)) } });
 const inline = compile('../components/products/quantity-pricing-inline.tsx', { react: React, 'react/jsx-runtime': jsx,
  'next/navigation': { useRouter: () => ({ refresh() {} }) }, '@/components/products/quantity-pricing-editor': editor,
@@ -36,7 +37,7 @@ const data = { messages: productEditorMessages.vi.quantityPage, shared: productE
 const render = (props) => renderToStaticMarkup(React.createElement('form', { id: 'parent' }, React.createElement(inline.QuantityPricingInline, { data, ...props })));
 const supplier = render({ actor: 'supplier' });
 assert.equal((supplier.match(/<form\b/g) ?? []).length, 1, 'No nested form');
-assert.equal((supplier.match(/form="quantity-pricing-separate"/g) ?? []).length, 6, 'Grade, currency, term, quantity, price and consent inputs do not belong to the parent form');
+assert.equal((supplier.match(/form="quantity-pricing-separate"/g) ?? []).length, 7, 'Grade, unit, currency, term, quantity, price and consent inputs do not belong to the parent form');
 assert.doesNotMatch(supplier, /Tên tiếng Anh \(tùy chọn\)|Gửi tên tiếng Anh để duyệt|Bảng giá theo số lượng/);
 assert.match(supplier, /Giá mới đang chờ duyệt/);
 assert.match(supplier, /Người mua vẫn thấy bảng giá đã duyệt/);

@@ -1,4 +1,5 @@
-import { formatQuantityBuyer, normalizePriceCurrency, referencePriceAge, type QuantityPriceTier } from "@/lib/products/quantity-pricing";
+import { formatQuantityForUnit, normalizePriceCurrency, referencePriceAge, tierSalesUnit, type QuantityPriceTier } from "@/lib/products/quantity-pricing";
+import { isWeightSalesUnit, normalizeSalesUnit, SALES_UNIT_LABELS, type SalesUnit } from "./sales-units.ts";
 import { formatMoney, priceCurrencySymbol, priceRangeText } from "./price-display.ts";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { readQuantityRevisionV2, v2PriceLabel, v2PriceUsdPerKg, v2QuantityLabel } from "@/lib/products/quantity-revision-v2";
@@ -11,8 +12,10 @@ export type PublicQuantityOffer = {
   currency: string;
   incoterm: string;
   moq: string;
-  /** Whole kilograms from the approved first tier, for structured MOQ filters. */
-  moqKg: number;
+  /** Đơn vị bán của bảng giá; thiếu là kg. */
+  salesUnit?: SalesUnit;
+  /** Whole kilograms from the approved first tier, for structured MOQ filters. Null for count units. */
+  moqKg: number | null;
   price: string | null;
   /** True only for a visible range from multiple approved quantity tiers. */
   hasVolumePricing: boolean;
@@ -48,10 +51,12 @@ function validTiers(raw: unknown, fallbackIncoterm: string): QuantityPriceTier[]
     // Records written before per-tier Incoterm/currency keep the table defaults.
     const currency = record.currency === undefined ? "USD" : normalizePriceCurrency(record.currency as string);
     const incoterm = record.incoterm === undefined ? fallbackIncoterm : String(record.incoterm).trim().toUpperCase();
-    if (!currency || !INCOTERM_SET.has(incoterm)) return null;
+    // A missing unit is kg; an explicit "kg" or an unknown value is not a shape we write.
+    const unit = record.unit === undefined ? "kg" : record.unit === "kg" ? null : normalizeSalesUnit(record.unit);
+    if (!currency || !unit || !INCOTERM_SET.has(incoterm)) return null;
     const previous = tiers[tiers.length - 1];
-    if (previous && (kg <= previous.minKg || price > previous.priceUsdPerKg || currency !== previous.currency)) return null;
-    tiers.push({ minKg: kg, priceUsdPerKg: price, incoterm, currency });
+    if (previous && (kg <= previous.minKg || price > previous.priceUsdPerKg || currency !== previous.currency || unit !== tierSalesUnit(previous))) return null;
+    tiers.push({ minKg: kg, priceUsdPerKg: price, incoterm, currency, ...(isWeightSalesUnit(unit) ? {} : { unit }) });
   }
   return tiers;
 }
@@ -107,8 +112,12 @@ export function projectApprovedQuantityOffer(input: {
     };
   }
   if (!tiers) return null;
-  const factor = input.priceUnit === "mt" ? 1000 : 1;
-  const unitLabel = input.priceUnit === "mt" ? "MT" : "kg";
+  const salesUnit = tierSalesUnit(tiers[0]);
+  // Count units (cans, bottles…) are shown per unit and stay out of kg-based comparisons.
+  const byWeight = isWeightSalesUnit(salesUnit);
+  const factor = byWeight && input.priceUnit === "mt" ? 1000 : 1;
+  const unitLabel = byWeight ? (input.priceUnit === "mt" ? "MT" : "kg") : SALES_UNIT_LABELS[salesUnit].en;
+  const quantity = (value: number) => formatQuantityForUnit(value, salesUnit);
   const low = tiers[tiers.length - 1].priceUsdPerKg;
   const high = tiers[0].priceUsdPerKg;
   const currency = tiers[0].currency;
@@ -117,18 +126,19 @@ export function projectApprovedQuantityOffer(input: {
   const rankable = currency === "USD";
   const price = visible ? `${priceRangeText(low * factor, high * factor, currency)}/${unitLabel}` : null;
   return {
-    title, grade, currency, incoterm,
-    moq: formatQuantityBuyer(tiers[0].minKg), moqKg: tiers[0].minKg,
+    title, grade, currency, incoterm, salesUnit,
+    moq: quantity(tiers[0].minKg), moqKg: byWeight ? tiers[0].minKg : null,
     price, hasVolumePricing: visible && tiers.length > 1 && low !== high,
     tiers: visible ? tiers.map((tier, index) => ({
-      from: formatQuantityBuyer(tier.minKg),
-      to: tiers[index + 1] ? formatQuantityBuyer(tiers[index + 1].minKg - 1) : null,
+      from: quantity(tier.minKg),
+      to: tiers[index + 1] ? quantity(tiers[index + 1].minKg - 1) : null,
       price: `${formatMoney(tier.priceUsdPerKg * factor, tier.currency)}/${unitLabel}${tier.incoterm !== incoterm ? ` ${tier.incoterm}` : ""}`,
     })) : [],
     confirmedAt: visible ? confirmedAt : null,
     daysSinceConfirmed: visible ? age.days : null,
     stale: visible && age.stale,
     priceRankingEligible: visible && !age.stale,
-    pricePoint: visible && !age.stale && confirmedAt ? { value: low * factor, highValue: high * factor, currency: "USD", unit: input.priceUnit, updatedAt: confirmedAt } : null,
+    // Price points feed kg/MT category ranges; a per-can price would distort them.
+    pricePoint: visible && !age.stale && confirmedAt && byWeight ? { value: low * factor, highValue: high * factor, currency: "USD", unit: input.priceUnit, updatedAt: confirmedAt } : null,
   };
 }

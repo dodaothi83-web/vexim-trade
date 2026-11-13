@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ImageIcon } from "lucide-react";
 import {
-  formatQuantityBuyer,
+  formatQuantityForUnit,
   formatQuantityPriceBuyer,
   formatQuantityInput,
   PRICE_CURRENCIES,
@@ -21,6 +21,7 @@ import {
   type PriceCurrency,
 } from "@/lib/products/quantity-pricing";
 import { priceRangeText } from "@/lib/products/price-display";
+import { DEFAULT_SALES_UNIT, isWeightSalesUnit, normalizeSalesUnit, SALES_UNIT_LABELS, SALES_UNITS, salesUnitLabel, type SalesUnit } from "@/lib/products/sales-units";
 import { productEditorMessages, type ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 import { fill } from "@/lib/i18n/format";
 
@@ -66,6 +67,10 @@ function readCurrency(value: QuantityPricingInput): PriceCurrency {
   return normalizePriceCurrency(value.currency) ?? DEFAULT_PRICE_CURRENCY;
 }
 
+function readUnit(value: QuantityPricingInput): SalesUnit {
+  return normalizeSalesUnit(value.unit) ?? DEFAULT_SALES_UNIT;
+}
+
 /** Chèn link Quy chế hoạt động vào câu luật; nhãn link nằm riêng trong từ điển. */
 function renderPolicyNote(copy: ProductEditorMessages["shared"]["quantityEditor"]) {
   const [before, after = ""] = copy.policyNote.split("{link}");
@@ -81,8 +86,11 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
   const low = prices.length ? Math.min(...prices) : null;
   const high = prices.length ? Math.max(...prices) : null;
   const maxTiers = Math.min(policy.maxTiers, 4);
-  const unitLabel = buyerPriceUnit === "mt" ? "MT" : "kg";
-  const toBuyerUnit = (value: number) => (buyerPriceUnit === "mt" ? value * 1000 : value);
+  // Count units (cans, bottles…) are priced per unit and never converted to the category's kg/MT.
+  const byWeight = isWeightSalesUnit(preview.unit);
+  const unitLabel = byWeight ? (buyerPriceUnit === "mt" ? "MT" : "kg") : SALES_UNIT_LABELS[preview.unit].en;
+  const toBuyerUnit = (value: number) => (byWeight && buyerPriceUnit === "mt" ? value * 1000 : value);
+  const quantity = (value: number) => formatQuantityForUnit(value, preview.unit);
   const cardPrice = low !== null && high !== null
     ? `${priceRangeText(toBuyerUnit(low), toBuyerUnit(high), preview.currency)}/${unitLabel}` : "Price on request";
   const incoterms = [...new Set(preview.tiers.map((tier) => tier.incoterm).filter(Boolean))];
@@ -112,14 +120,14 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
     {!pricePubliclyVisible && <p className="mt-1 text-xs text-ink-500">{copy.priceOff}</p>}
     {pricePubliclyVisible && preview.tiers.length > 0 && <p className="text-xs text-ink-500">{incoterms.join(" / ")}{preview.tiers.length > 1 ? " · Volume pricing" : ""}</p>}
     {pricePubliclyVisible && preview.tiers.length > 0 && <table className="mt-3 w-full text-left text-xs">
-      <thead><tr><th className="pb-1">{copy.columns.qty}</th><th className="pb-1">{copy.columns.incoterm}</th><th className="pb-1">{copy.columns.price}</th></tr></thead>
+      <thead><tr><th className="pb-1 pr-2">{copy.columns.qty}</th><th className="pb-1 pr-2">{copy.columns.incoterm}</th><th className="pb-1">{copy.columns.price}</th></tr></thead>
       <tbody>{quantityTierRanges(preview.tiers).map((tier, index) => <tr key={index} className="border-t border-ink-200">
-        <td className="py-1.5">{formatQuantityBuyer(tier.minKg)}{tier.maxKg === null ? "+" : tier.maxKg > tier.minKg ? `–${formatQuantityBuyer(tier.maxKg)}` : ""}</td>
+        <td className="py-1.5">{quantity(tier.minKg)}{tier.maxKg === null ? "+" : tier.maxKg > tier.minKg ? `–${quantity(tier.maxKg)}` : ""}</td>
         <td className="py-1.5">{tier.incoterm || "—"}</td>
-        <td className="py-1.5 tabular-nums">{formatQuantityPriceBuyer(tier.priceUsdPerKg, buyerPriceUnit, tier.currency)}</td>
+        <td className="py-1.5 tabular-nums">{formatQuantityPriceBuyer(tier.priceUsdPerKg, buyerPriceUnit, tier.currency, preview.unit)}</td>
       </tr>)}</tbody>
     </table>}
-    {preview.tiers.length > 0 && <p className="mt-2 text-xs text-ink-600">MOQ: {formatQuantityBuyer(preview.tiers[0].minKg)}</p>}
+    {preview.tiers.length > 0 && <p className="mt-2 text-xs text-ink-600">MOQ: {quantity(preview.tiers[0].minKg)}</p>}
     {preview.tiers.length >= maxTiers && <p className="mt-1 text-[11px] text-ink-500">{fill(copy.maxTiers, { count: maxTiers })}</p>}
     {preview.tiers.length === 0 && <p className="mt-2 text-[11px] leading-4 text-ink-500">{copy.emptyTiers}</p>}
     {!preview.grade && preview.tiers.length > 0 && <p className="mt-2 text-[11px] leading-4 text-amber-800">{copy.pickGrade}</p>}
@@ -130,6 +138,8 @@ export function QuantityBuyerPreview({ value, standardGrades, policy, buyerPrice
 export function QuantityPricingEditor({ value, onChange, standardGrades, policy, buyerPriceUnit, pricePubliclyVisible, disabled = false, showErrors = false, consentChecked, onConsentChange, consentLabel, isolated = false, showPreview = true, showTitle = true, validateEnglishName = true, gradeScope, onAddGrade,
   copy = productEditorMessages.vi.shared.quantityEditor, lang = "vi" }: Props) {
   const currency = readCurrency(value);
+  const unit = readUnit(value);
+  const unitText = salesUnitLabel(unit, lang);
   const form = isolated ? "quantity-pricing-separate" : undefined;
   // Grade do chính nhà cung cấp vừa thêm trong phiên này; prop standardGrades chỉ đổi sau khi trang tải lại.
   const [addedGrades, setAddedGrades] = useState<string[]>([]);
@@ -178,8 +188,8 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
   return <section id="quantity-pricing-table" className="space-y-3">
     <div className={showPreview ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)]" : "grid gap-4"}>
       <div className="space-y-3">
-        <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_136px]">
-          <div className="text-sm font-semibold text-ink-800">
+        <div className="grid items-start gap-3 grid-cols-2 sm:grid-cols-[minmax(0,1fr)_104px_104px]">
+          <div className="col-span-2 text-sm font-semibold text-ink-800 sm:col-span-1">
             <label htmlFor="quantity-grade">Grade <span className="text-rose-700">*</span></label>
             <select id="quantity-grade" form={form} aria-label="Grade" className="input mt-1 w-full" required
               disabled={disabled || (!gradeOptions.length && !onAddGrade)} value={newGradeOpen ? NEW_GRADE_OPTION : value.grade}
@@ -208,6 +218,13 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
             </div>}
           </div>
           <div className="text-sm font-semibold text-ink-800">
+            <label htmlFor="quantity-unit">{copy.unit} <span className="text-rose-700">*</span></label>
+            <select id="quantity-unit" form={form} aria-label={copy.unit} className="input mt-1 w-full" disabled={disabled}
+              value={unit} onChange={(e) => onChange({ ...value, unit: e.target.value })}>
+              {SALES_UNITS.map((code) => <option key={code} value={code}>{salesUnitLabel(code, lang)}</option>)}
+            </select>
+          </div>
+          <div className="text-sm font-semibold text-ink-800">
             <label htmlFor="quantity-currency">{copy.currency} <span className="text-rose-700">*</span></label>
             <select id="quantity-currency" form={form} aria-label={copy.currency} className="input mt-1 w-full font-mono" disabled={disabled}
               value={currency} onChange={(e) => onChange({ ...value, currency: e.target.value })}>
@@ -226,9 +243,9 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
           </colgroup>
           <thead><tr className="text-xs text-ink-600">
             <th className="px-2 py-1.5 font-semibold">Incoterm</th>
-            <th className="px-2 py-1.5 text-right font-semibold">{copy.fromKg}</th>
-            <th className="px-2 py-1.5 text-right font-semibold">{copy.toKg}</th>
-            <th className="px-2 py-1.5 text-right font-semibold">{fill(copy.pricePerKg, { currency })}</th>
+            <th className="px-2 py-1.5 text-right font-semibold">{fill(copy.fromKg, { unit: unitText })}</th>
+            <th className="px-2 py-1.5 text-right font-semibold">{fill(copy.toKg, { unit: unitText })}</th>
+            <th className="px-2 py-1.5 text-right font-semibold">{fill(copy.pricePerKg, { currency, unit: unitText })}</th>
             <th className="px-1 py-1.5"><span className="sr-only">{copy.remove}</span></th>
           </tr></thead>
           <tbody>{value.tiers.map((tier, index) => {
@@ -245,7 +262,7 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
                 </select>
                 {rowErrors.filter((issue) => issue.code === "incoterm").map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issueMessage(issue, lang)}</p>)}
               </td>
-              <td className="p-1 align-top"><input form={form} aria-label={fill(copy.qtyAria, { index: index + 1 })} aria-invalid={invalid(["quantity", "quantity_order", "quantity_spread"])} className="input w-full text-right tabular-nums" type="text" inputMode="numeric" required disabled={disabled} value={tier.minKg} onChange={(e) => changeTier(index, { minKg: formatQuantityInput(e.target.value, tier.minKg) })} />
+              <td className="p-1 align-top"><input form={form} aria-label={fill(copy.qtyAria, { index: index + 1, unit: unitText })} aria-invalid={invalid(["quantity", "quantity_order", "quantity_spread"])} className="input w-full text-right tabular-nums" type="text" inputMode="numeric" required disabled={disabled} value={tier.minKg} onChange={(e) => changeTier(index, { minKg: formatQuantityInput(e.target.value, tier.minKg) })} />
                 {rowErrors.filter((issue) => ["quantity", "quantity_order"].includes(issue.code)).map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issueMessage(issue, lang)}</p>)}
               </td>
               <td className="p-1 align-top">
@@ -253,13 +270,14 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
                   {upper ?? "—"}
                 </p>
               </td>
-              <td className="p-1 align-top"><input form={form} aria-label={fill(copy.priceAria, { index: index + 1, currency })} aria-invalid={invalid(["price", "price_order"])} className="input w-full text-right tabular-nums" type="text" inputMode="decimal" required disabled={disabled} value={tier.priceUsdPerKg} onChange={(e) => changeTier(index, { priceUsdPerKg: e.target.value })} onBlur={(e) => { const normalized = normalizePriceInput(e.target.value); if (normalized !== e.target.value) changeTier(index, { priceUsdPerKg: normalized }); }} />
+              <td className="p-1 align-top"><input form={form} aria-label={fill(copy.priceAria, { index: index + 1, currency, unit: unitText })} aria-invalid={invalid(["price", "price_order"])} className="input w-full text-right tabular-nums" type="text" inputMode="decimal" required disabled={disabled} value={tier.priceUsdPerKg} onChange={(e) => changeTier(index, { priceUsdPerKg: e.target.value })} onBlur={(e) => { const normalized = normalizePriceInput(e.target.value); if (normalized !== e.target.value) changeTier(index, { priceUsdPerKg: normalized }); }} />
                 {rowErrors.filter((issue) => ["price", "price_order"].includes(issue.code)).map((issue) => <p key={issue.code} className="mt-1 text-xs text-rose-700">{issueMessage(issue, lang)}</p>)}
               </td>
               <td className="p-1">{value.tiers.length > 1 && <button type="button" disabled={disabled} onClick={() => emitTiers(value.tiers.filter((_, i) => i !== index))} className="text-xs text-rose-700" aria-label={fill(copy.removeTier, { index: index + 1 })}>{copy.remove}</button>}</td>
             </tr>;
           })}</tbody>
         </table></div>
+        {!isWeightSalesUnit(unit) && <p className="text-xs text-ink-600">{fill(copy.countUnitNote, { unit: unitText })}</p>}
         <p className="text-xs text-ink-600">{copy.firstTierMoq}</p>
         <p className="text-xs text-ink-600">{fill(copy.lastTierMoqLimit, { ratio: policy.maxLastMoqRatio })}</p>
         {value.tiers.length < Math.min(policy.maxTiers, 4) && <button type="button" disabled={disabled} onClick={addTier} className="text-sm font-semibold text-brand-700">{copy.addTier}</button>}

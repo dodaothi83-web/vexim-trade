@@ -206,7 +206,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
         const currencyIssue = entryCurrencyIssue(currency);
         if (currencyIssue) return { ok: false, message: currencyIssue };
         const validation = validateQuantityPricing({ grade: text(form, "quantity_grade", 180), incoterm: text(form, "quantity_incoterm", 20),
-          currency, nameVi: input.name, nameEn: "", tiers: rows },
+          currency, unit: text(form, "quantity_sales_unit", 20) || "kg", nameVi: input.name, nameEn: "", tiers: rows },
           standardGradesForCategory(category), await readQuantityPricingPolicy(category.id));
         if (!validation.value) return { ok: false, message: validation.errors[0] ? issueMessage(validation.errors[0], locale) : a.priceInvalid };
         newQuantity = { ...validation.value, warnings: validation.warnings, requestId };

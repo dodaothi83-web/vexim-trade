@@ -74,8 +74,15 @@ export async function decideQuantityRevisionAction(form: FormData): Promise<Quan
           }));
           const storedCurrency = (revision.tiers as Array<{ currency?: unknown }>)
             .find((row) => typeof row?.currency === "string")?.currency;
+          // Kg tables never store a unit; a count-unit table stores the same unit on every tier.
+          const storedUnits = new Set((revision.tiers as Array<{ unit?: unknown }>).map((row) => row?.unit ?? "kg"));
+          if (storedUnits.size !== 1 || storedUnits.has("kg") && (revision.tiers as Array<{ unit?: unknown }>).some((row) => row?.unit !== undefined)) {
+            return { ok: false, message: "Dữ liệu bảng giá không hợp lệ: đơn vị bán không thống nhất." };
+          }
+          const storedUnit = [...storedUnits][0];
           const checked = validateQuantityPricing({ grade: String(revision.grade ?? ""), incoterm: String(revision.incoterm ?? ""),
             currency: typeof storedCurrency === "string" ? storedCurrency : "USD",
+            unit: typeof storedUnit === "string" ? storedUnit : "invalid",
             nameVi: product.name, nameEn: "", tiers: legacyRows }, grades, policy);
           if (!checked.value) return { ok: false, message: `Không thể duyệt: ${checked.errors[0]?.message ?? "bảng giá không hợp lệ."}` };
         }

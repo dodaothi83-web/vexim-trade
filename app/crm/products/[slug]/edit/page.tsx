@@ -152,7 +152,7 @@ export default async function EditProductPage({
   // Thẻ "Người mua sẽ thấy" nằm ở cột phải: dựng sẵn bằng dữ liệu đã lưu để không nhấp nháy,
   // sau khi form thuỷ hoá thì cập nhật theo bảng giá đang nhập.
   const quantityPreviewInitial: QuantityPreviewSnapshot | null = quantityEditor ? {
-    value: { grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, currency: quantityEditor.currency,
+    value: { grade: quantityEditor.grade, incoterm: quantityEditor.incoterm, currency: quantityEditor.currency, unit: quantityEditor.unit,
       nameVi: product.name ?? "", nameEn: "", tiers: quantityEditor.tiers },
     standardGrades: quantityEditor.standardGrades,
     policy: quantityEditor.policy,
