@@ -26,7 +26,9 @@ const core = load('../lib/rfq/portal-core.ts', {
   '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts },
   './buyer-contact': contact, './channel': channel,
 });
+const certificateCopy = load('../lib/certificate-supplier-copy.ts', {});
 const dashboard = load('../lib/supplier-portal/dashboard.ts', {
+  '@/lib/certificate-supplier-copy': certificateCopy,
   '@/lib/rfq/buyer-contact': contact,
   '@/lib/rfq/channel': channel,
   '@/lib/rfq/mediated': { deskHasNewReply: (thread, side) => !!thread && !!(side === 'staff' ? thread.last_party_message_at : thread.last_staff_message_at) },
@@ -275,3 +277,22 @@ assert.equal(createdRfqs.at(-1).preferred_supplier_ids.join(','), 's-a', 'Publis
 const productPage = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(productPage, /product_id=\$\{encodeURIComponent\(card\.id\)\}/);
 console.log('✅ Supplier dashboard: recipient-scoped contact consent, no internal leaks, honest metrics, verified outreach and migration gate.');
+
+/* Chuông: giấy hết hạn có thông báo riêng; ghi chú nội bộ không lên chuông; bản đã thay không nhắc. */
+{
+  const at = new Date('2026-11-14T03:00:00Z');
+  const base = { supplier_id: idA, review_status: 'pending', publicly_visible: false, staff_hidden: false, created_at: '2026-11-13T00:00:00Z', updated_at: '2026-11-13T00:00:00Z' };
+  const notices = dashboard.buildSupplierNotices({ supplierId: idA, invites: [], products: [], reviews: [], requests: [], reads: [], now: at, language: 'vi', certificates: [
+    { ...base, id: 'c-exp', name: 'ISO 22000', valid_until: '2025-11-06' },
+    { ...base, id: 'c-old', name: 'HACCP cũ', valid_until: '2026-11-20', superseded_by_certificate_id: 'c-new' },
+    { ...base, id: 'c-chg', name: 'Halal', valid_until: '2027-01-01', review_status: 'changes_requested', review_note: 'Chưa tự công bố: ảnh mờ' },
+  ] });
+  const expired = notices.find((n) => n.key === 'cert-expired:c-exp');
+  assert.ok(expired, 'Giấy đã hết hạn có thông báo trên chuông');
+  assert.match(expired.detail, /Hết hạn ngày 06\/11\/2025/);
+  assert.match(expired.detail, /Giấy tờ và chứng nhận/);
+  assert.ok(!notices.some((n) => n.key.endsWith(':c-old')), 'Bản cũ đã có bản gia hạn thì không nhắc hạn');
+  const changes = notices.find((n) => n.key === 'cert-changes:c-chg');
+  assert.ok(changes && !/Chưa tự công bố/.test(changes.detail), 'Ghi chú nội bộ không lên chuông');
+  console.log('✅ Chuông chứng nhận: báo hết hạn, ẩn ghi chú nội bộ, bỏ qua bản đã gia hạn.');
+}

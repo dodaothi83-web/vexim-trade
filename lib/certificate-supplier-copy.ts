@@ -41,3 +41,18 @@ export function supplierCertificateNote(
   }
   return en ? "Waiting for a staff check." : "Đang chờ nhân viên đối chiếu.";
 }
+
+const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Ngày trên giấy cho nhà cung cấp đọc: "06/11/2025" (vi) hoặc "6 Nov 2025" (en). Giữ nguyên chuỗi lạ. */
+export function formatCertificateDate(iso: string | null | undefined, language: "en" | "vi" = "vi"): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
+  if (!match) return iso ?? "";
+  const [, year, month, day] = match;
+  return language === "en" ? `${Number(day)} ${MONTHS_EN[Number(month) - 1] ?? month} ${year}` : `${day}/${month}/${year}`;
+}
+
+/** Hết hạn theo đúng mốc của bộ lọc công khai: ngày hết hạn trước hôm nay. */
+export function certificateExpired(validUntil: string | null | undefined, today = new Date().toISOString().slice(0, 10)): boolean {
+  return Boolean(validUntil && validUntil < today);
+}
