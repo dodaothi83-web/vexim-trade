@@ -13,6 +13,7 @@ import { addCertificateScopeAction } from "./certificate-scope-actions";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { transferRenewalScope } from "@/lib/certificate-renewal";
 import { refreshCrmBadges } from "@/lib/crm/badges";
+import { encodeRejectionReason, staffRejectionLabel, supplierRejectionMessage } from "@/lib/certificate-rejection";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const result = (ok: boolean, message: string) => ({ ok, message });
@@ -386,4 +387,84 @@ async function toggleCertificateHidden(
       ? "Đã ẩn chứng nhận khỏi trang công khai."
       : "Đã cho phép hiển thị lại chứng nhận (nếu đủ điều kiện AI & còn hạn).",
   );
+}
+
+/**
+ * Nhân viên từ chối một chứng nhận chưa duyệt (giấy sai, đứng tên đơn vị khác không có hợp
+ * đồng, trùng…). Không xoá: giấy và tệp gốc giữ làm lịch sử. Nhà cung cấp nhận email + chuông
+ * kèm lý do dễ hiểu và nút tải lại; giấy rời khỏi hàng "Chờ duyệt".
+ */
+export async function rejectCertificateAction(supplierId: string, certificateId: string, code: string, otherText = "") {
+  try {
+    if ((await guard("suppliers.publish")) !== null) return result(false, "Bạn không có quyền từ chối chứng nhận.");
+    const session = await getSession();
+    if (!session || !hasPermission(session.role, "suppliers.publish")) return result(false, "Bạn không có quyền từ chối chứng nhận.");
+    if (!uuid.test(certificateId)) return result(false, "Mã chứng nhận không hợp lệ.");
+    const reason = encodeRejectionReason(String(code ?? ""), String(otherText ?? ""));
+    if (!reason) return result(false, code === "other" ? "Ghi lý do gửi nhà cung cấp trước khi từ chối." : "Chọn lý do từ chối.");
+    const store = getStore();
+    const [supplier, cert] = await Promise.all([store.getSupplier(supplierId), store.getCertificate(certificateId)]);
+    if (!supplier || !cert || cert.supplier_id !== supplier.id) return result(false, "Không tìm thấy chứng nhận của nhà cung cấp này.");
+    if (cert.review_status === "approved") return result(false, "Giấy đã duyệt; dùng công tắc Hiện cho người mua để ngừng hiển thị.");
+    if (cert.review_status === "rejected") return result(false, "Giấy này đã bị từ chối trước đó.");
+    const patch = {
+      review_status: "rejected" as const,
+      publicly_visible: false,
+      checked_at: new Date().toISOString(),
+      checked_by: session.uid,
+      review_note: `Từ chối: ${staffRejectionLabel(reason)}`,
+    };
+    let reasonSaved = true;
+    let updated = await store.updateCertificate(cert.id, { ...patch, rejection_reason: reason }).catch((error) => {
+      // Chưa chạy migration 20261121: vẫn từ chối, nhà cung cấp thấy câu chung.
+      console.error("[certificate] reject with reason failed; retrying without reason", error);
+      reasonSaved = false;
+      return null;
+    });
+    if (!updated) updated = await store.updateCertificate(cert.id, patch);
+    if (!updated) return result(false, "Không cập nhật được trạng thái chứng nhận.");
+    await store.addAuditLog({
+      actor_id: session.uid, actor_email: session.email, entity: "supplier", entity_id: supplier.id,
+      action: "certificate.staff_reject",
+      before: { id: cert.id, review_status: cert.review_status },
+      after: { id: cert.id, review_status: "rejected", rejection_reason: reason },
+    }).catch((error) => console.error("[certificate] reject audit", error));
+    const mail = await notifySupplierDecision({
+      supplierId: supplier.id, decision: "certificate_rejected", name: cert.name, entityId: cert.id,
+      note: supplierRejectionMessage(reasonSaved ? reason : null, "vi"),
+    }).catch(() => "failed" as const);
+    await softRefresh(() => refresh(supplier.id, supplier.slug));
+    return result(true, `Đã từ chối “${cert.name}”.` + (mail === "failed" ? " Chưa gửi được email; nhà cung cấp vẫn thấy trên cổng." : " Đã gửi email cho nhà cung cấp."));
+  } catch (error) {
+    console.error("[certificate] reject failed", error);
+    return result(false, `Chưa từ chối được chứng nhận (${briefReason(error)}). Chứng nhận giữ nguyên như trước.`);
+  }
+}
+
+/** Bấm nhầm "Từ chối": đưa giấy về chờ đối chiếu. Không gửi email. */
+export async function reopenCertificateAction(supplierId: string, certificateId: string) {
+  try {
+    if ((await guard("suppliers.publish")) !== null) return result(false, "Bạn không có quyền đổi trạng thái chứng nhận.");
+    const session = await getSession();
+    if (!session || !hasPermission(session.role, "suppliers.publish")) return result(false, "Bạn không có quyền đổi trạng thái chứng nhận.");
+    if (!uuid.test(certificateId)) return result(false, "Mã chứng nhận không hợp lệ.");
+    const store = getStore();
+    const [supplier, cert] = await Promise.all([store.getSupplier(supplierId), store.getCertificate(certificateId)]);
+    if (!supplier || !cert || cert.supplier_id !== supplier.id) return result(false, "Không tìm thấy chứng nhận của nhà cung cấp này.");
+    if (cert.review_status !== "rejected") return result(false, "Giấy này không ở trạng thái từ chối.");
+    if (cert.superseded_by_certificate_id) return result(false, "Nhà cung cấp đã tải bản thay thế; xét bản mới thay vì mở lại bản này.");
+    const base = { review_status: "pending" as const, review_note: "Mở lại sau khi từ chối." };
+    const updated = await store.updateCertificate(cert.id, { ...base, rejection_reason: null })
+      .catch(() => null) ?? await store.updateCertificate(cert.id, base);
+    if (!updated) return result(false, "Không cập nhật được trạng thái chứng nhận.");
+    await store.addAuditLog({
+      actor_id: session.uid, actor_email: session.email, entity: "supplier", entity_id: supplier.id,
+      action: "certificate.staff_reopen", before: { id: cert.id, review_status: "rejected" }, after: { id: cert.id, review_status: "pending" },
+    }).catch((error) => console.error("[certificate] reopen audit", error));
+    await softRefresh(() => refresh(supplier.id, supplier.slug));
+    return result(true, `Đã đưa “${cert.name}” về chờ đối chiếu.`);
+  } catch (error) {
+    console.error("[certificate] reopen failed", error);
+    return result(false, `Chưa đổi được trạng thái (${briefReason(error)}).`);
+  }
 }

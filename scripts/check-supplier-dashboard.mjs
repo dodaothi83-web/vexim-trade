@@ -26,9 +26,11 @@ const core = load('../lib/rfq/portal-core.ts', {
   '@/lib/public/product-selection': { withoutDirectContacts: onlyContacts },
   './buyer-contact': contact, './channel': channel,
 });
-const certificateCopy = load('../lib/certificate-supplier-copy.ts', {});
+const rejection = load('../lib/certificate-rejection.ts', {});
+const certificateCopy = load('../lib/certificate-supplier-copy.ts', { './certificate-rejection.ts': rejection });
 const dashboard = load('../lib/supplier-portal/dashboard.ts', {
   '@/lib/certificate-supplier-copy': certificateCopy,
+  '@/lib/certificate-rejection': rejection,
   '@/lib/rfq/buyer-contact': contact,
   '@/lib/rfq/channel': channel,
   '@/lib/rfq/mediated': { deskHasNewReply: (thread, side) => !!thread && !!(side === 'staff' ? thread.last_party_message_at : thread.last_staff_message_at) },
@@ -286,7 +288,13 @@ console.log('✅ Supplier dashboard: recipient-scoped contact consent, no intern
     { ...base, id: 'c-exp', name: 'ISO 22000', valid_until: '2025-11-06' },
     { ...base, id: 'c-old', name: 'HACCP cũ', valid_until: '2026-11-20', superseded_by_certificate_id: 'c-new' },
     { ...base, id: 'c-chg', name: 'Halal', valid_until: '2027-01-01', review_status: 'changes_requested', review_note: 'Chưa tự công bố: ảnh mờ' },
+    { ...base, id: 'c-rej', name: 'FDA', valid_until: '2027-10-05', review_status: 'rejected', review_note: 'Từ chối: nội bộ', rejection_reason: 'holder_without_contract' },
   ] });
+  const rejectedNotice = notices.find((n) => n.key === 'cert-rejected:c-rej');
+  assert.match(rejectedNotice.title, /Chứng nhận chưa được duyệt: FDA/);
+  assert.match(rejectedNotice.detail, /Tải kèm hợp đồng hoặc giấy ủy quyền/, 'Chuông hiện lý do từ chối cho nhà cung cấp');
+  assert.doesNotMatch(rejectedNotice.detail, /nội bộ/, 'Không lộ ghi chú nội bộ');
+  assert.match(rejectedNotice.href, /documents\?replace=c-rej#chung-nhan/, 'Bấm chuông mở đúng ô tải lại');
   const expired = notices.find((n) => n.key === 'cert-expired:c-exp');
   assert.ok(expired, 'Giấy đã hết hạn có thông báo trên chuông');
   assert.match(expired.detail, /Hết hạn ngày 06\/11\/2025/);

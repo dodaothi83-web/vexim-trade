@@ -527,6 +527,8 @@ export function AuditForm({
               <CertificateRowControls supplierId={v.supplier_id} certificateId={certificate.id}
                 hasFile={Boolean(certificate.file_media_id)} staffHidden={Boolean(certificate.staff_hidden)}
                 approved={certificate.review_status === "approved"} expiredOn={expired ? expiredOn : null}
+                rejected={certificate.review_status === "rejected"} rejectionReason={certificate.rejection_reason ?? null}
+                superseded={Boolean(certificate.superseded_by_certificate_id)}
                 published={certificate.review_status === "approved" && Boolean(certificate.publicly_visible)}
                 scheme={certificate.certificate_scheme ?? null} canInspect={canInspect} canPublish={canPublish}
                 partnerHolder={certificate.holder_match === "partner" ? certificate.holder_name?.trim() || "" : null}

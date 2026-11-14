@@ -1,4 +1,5 @@
 import type { Certificate } from "@/lib/types";
+import { supplierRejectionMessage } from "./certificate-rejection.ts";
 
 /**
  * Một câu trạng thái cho nhà cung cấp đọc trên thẻ chứng nhận.
@@ -9,7 +10,7 @@ import type { Certificate } from "@/lib/types";
  */
 export function supplierCertificateNote(
   certificate: Pick<Certificate,
-    "review_status" | "publicly_visible" | "staff_hidden" | "valid_until" | "superseded_by_certificate_id">,
+    "review_status" | "publicly_visible" | "staff_hidden" | "valid_until" | "superseded_by_certificate_id"> & Partial<Pick<Certificate, "rejection_reason">>,
   today = new Date().toISOString().slice(0, 10),
   language: "en" | "vi" = "vi",
 ): string {
@@ -23,7 +24,7 @@ export function supplierCertificateNote(
   }
   const expired = Boolean(certificate.valid_until && certificate.valid_until < today);
   if (certificate.review_status === "rejected") {
-    return en ? "Not approved. Upload a clearer copy or contact support." : "Chưa được duyệt. Tải bản rõ hơn hoặc liên hệ hỗ trợ.";
+    return `${en ? "Not approved." : "Chưa được duyệt."} ${supplierRejectionMessage(certificate.rejection_reason, en ? "en" : "vi")}`;
   }
   if (certificate.review_status === "approved") {
     if (expired) {

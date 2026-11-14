@@ -15,8 +15,11 @@ export function SupplierCertificateUpload({
   certificates,
   blockedReason = null,
   trading = false,
+  initialCertificateId = null,
   copy,
 }: {
+  /** Giấy cần thay, chọn sẵn khi mở từ email "Tải lại chứng nhận". */
+  initialCertificateId?: string | null;
   /** Trading suppliers may need to provide a factory contract for a certificate issued to a partner. */
   trading?: boolean;
   certificates: CertificateOption[];
@@ -26,8 +29,10 @@ export function SupplierCertificateUpload({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [mode, setMode] = useState<"renew" | "new">(certificates.length ? "renew" : "new");
-  const [certificateId, setCertificateId] = useState(certificates[0]?.id ?? "");
+  // Từ email "Tải lại chứng nhận" (?replace=<id>): chọn sẵn đúng giấy cần thay.
+  const preselected = certificates.find((certificate) => certificate.id === initialCertificateId)?.id;
+  const [mode, setMode] = useState<"renew" | "new">(preselected || certificates.length ? "renew" : "new");
+  const [certificateId, setCertificateId] = useState(preselected ?? certificates[0]?.id ?? "");
   const selected = certificates.find((certificate) => certificate.id === certificateId) ?? null;
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {

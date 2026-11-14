@@ -5,6 +5,7 @@ import type { Locale } from "@/lib/i18n/config";
 import { fill } from "@/lib/i18n/format";
 import { noticesMessages } from "@/lib/i18n/portal/notices";
 import { formatCertificateDate } from "@/lib/certificate-supplier-copy";
+import { supplierRejectionMessage } from "@/lib/certificate-rejection";
 import { rfqsMessages } from "@/lib/i18n/portal/rfqs";
 import { rfqBuyerContact, sourcingInviteConsent, type RfqBuyerContact } from "@/lib/rfq/buyer-contact";
 import { deskHasNewReply } from "@/lib/rfq/mediated";
@@ -304,7 +305,9 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
     // review_note là ghi chú nội bộ/tự sinh cho người duyệt (xem certificate-supplier-copy.ts):
     // không đưa nguyên văn lên chuông, chỉ nói việc cần làm.
     if (c.review_status === "changes_requested") add(`cert-changes:${c.id}`, fill(t.certificate.changes, { name: c.name }), t.certificate.changesFallback, c.updated_at, "certificate", CERT_HREF);
-    if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, fill(t.certificate.rejected, { name: c.name }), t.certificate.rejectedFallback, c.updated_at, "certificate", CERT_HREF);
+    if (c.review_status === "rejected") add(`cert-rejected:${c.id}`, fill(t.certificate.rejected, { name: c.name }),
+      c.rejection_reason ? supplierRejectionMessage(c.rejection_reason, input.language ?? "vi") : t.certificate.rejectedFallback,
+      c.updated_at, "certificate", `/supplier/portal/documents?replace=${encodeURIComponent(c.id)}#chung-nhan`);
     // Bản cũ đã có bản gia hạn thay thế thì không nhắc hạn nữa.
     if (c.review_status !== "rejected" && !c.superseded_by_certificate_id && c.valid_until && /^\d{4}-\d{2}-\d{2}$/.test(c.valid_until)) {
       const endMs = Date.parse(`${c.valid_until}T00:00:00Z`);

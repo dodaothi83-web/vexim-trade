@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, BadgeCheck, Loader2, Plus, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Ban, BadgeCheck, Loader2, Plus, RotateCcw, Sparkles, X } from "lucide-react";
+import { CERTIFICATE_REJECTION_REASONS, REJECTION_OTHER_MAX, supplierRejectionMessage } from "@/lib/certificate-rejection";
 
 import { CERTIFICATE_SCHEMES, certificateSchemeKind } from "@/lib/certificate-scheme";
 import type { CertificateAiConfidence, CertificateCategorySuggestion } from "@/lib/types";
@@ -14,6 +15,8 @@ import {
 } from "./certificate-scope-actions";
 import {
   approveCertificateAction,
+  rejectCertificateAction,
+  reopenCertificateAction,
   rescanCertificateAction,
   setCertificateSchemeAction,
   toggleCertificateHiddenAction,
@@ -46,6 +49,9 @@ export function CertificateRowControls({
   published,
   approved = published,
   expiredOn = null,
+  rejected = false,
+  rejectionReason = null,
+  superseded = false,
   scheme,
   scopes = [],
   categories = [],
@@ -74,6 +80,11 @@ export function CertificateRowControls({
   approved?: boolean;
   /** Ngày hết hạn dd/mm/yyyy khi giấy đã hết hạn; null khi còn hạn hoặc chưa ghi hạn. */
   expiredOn?: string | null;
+  /** Nhân viên đã từ chối; lý do lưu ở rejection_reason (câu gửi nhà cung cấp). */
+  rejected?: boolean;
+  rejectionReason?: string | null;
+  /** Nhà cung cấp đã tải bản thay thế cho giấy này. */
+  superseded?: boolean;
   /** Loại chứng nhận dùng cho bộ lọc người mua; null = chưa phân loại. */
   scheme: string | null;
   /** Phạm vi đã xác nhận của giấy này. */
@@ -90,7 +101,10 @@ export function CertificateRowControls({
   canPublish: boolean;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"scan" | "hide" | "approve" | "scheme" | "scope" | "visibility" | null>(null);
+  const [busy, setBusy] = useState<"scan" | "hide" | "approve" | "scheme" | "scope" | "visibility" | "reject" | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectCode, setRejectCode] = useState("");
+  const [rejectText, setRejectText] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [scopeDraft, setScopeDraft] = useState("");
   const [contractConfirmed, setContractConfirmed] = useState(false);
@@ -104,7 +118,7 @@ export function CertificateRowControls({
   const [extraCategory, setExtraCategory] = useState("");
 
   async function run(
-    kind: "scan" | "hide" | "approve" | "scheme" | "scope" | "visibility",
+    kind: "scan" | "hide" | "approve" | "scheme" | "scope" | "visibility" | "reject",
     work: () => Promise<{ ok: boolean; message: string }>,
   ) {
     setBusy(kind);
@@ -166,7 +180,7 @@ export function CertificateRowControls({
         <p><span className="font-semibold">Giấy hết hạn ngày {expiredOn}.</span> Cần nhà cung cấp tải bản đã gia hạn; giấy hết hạn không hiện cho người mua, kể cả khi đã duyệt.</p>
       </div>}
       {/* Giấy đứng tên nhà máy khác: xem hợp đồng nhà cung cấp tải kèm, đánh dấu rồi mới duyệt đăng. */}
-      {canPublish && !approved && !expiredOn && partnerHolder !== null && <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 text-[11.5px] leading-4 text-ink-800">
+      {canPublish && !approved && !rejected && !expiredOn && partnerHolder !== null && <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 text-[11.5px] leading-4 text-ink-800">
         <p className="font-semibold">Giấy đứng tên {partnerHolder || "đơn vị khác"}. Xem hợp đồng hoặc giấy ủy quyền giữa nhà cung cấp và nhà máy này trước khi duyệt.</p>
         {partnerContracts.length
           ? <ul className="mt-1.5 space-y-1">{partnerContracts.map((contract) => <li key={contract.id}>
@@ -180,7 +194,17 @@ export function CertificateRowControls({
       </div>}
       {/* Một bước duyệt (11/2026): tích danh mục áp dụng rồi bấm một nút. Sản phẩm thuộc
           danh mục đã tích tự có chứng nhận, kể cả sản phẩm đăng sau. Giấy hết hạn thì không mời duyệt. */}
-      {canPublish && !approved && !expiredOn && <div className="rounded-lg border border-brand-200 bg-brand-50/50 p-2.5">
+      {/* Đã từ chối: chỉ còn lý do đã gửi nhà cung cấp và nút mở lại khi bấm nhầm. */}
+      {rejected && <div className="rounded-lg border border-ink-200 bg-ink-50 p-2.5 text-[11.5px] leading-4 text-ink-800">
+        <p><span className="font-semibold">Đã từ chối.</span> Lý do gửi nhà cung cấp: {supplierRejectionMessage(rejectionReason, "vi")}</p>
+        {superseded
+          ? <p className="mt-1 text-ink-600">Nhà cung cấp đã tải bản thay thế; xét bản mới ở danh sách này.</p>
+          : canPublish && <button type="button" disabled={busy !== null} className="btn btn-ghost btn-sm mt-1.5 text-xs"
+            onClick={() => void run("reject", () => reopenCertificateAction(supplierId, certificateId))}>
+            {busy === "reject" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}Bỏ từ chối
+          </button>}
+      </div>}
+      {canPublish && !approved && !rejected && !expiredOn && <div className="rounded-lg border border-brand-200 bg-brand-50/50 p-2.5">
         {scopeable ? <>
           <p className="text-[11.5px] font-bold text-ink-900">Áp dụng cho danh mục</p>
           {scopeText && <p className="mt-0.5 text-[11px] leading-4 text-ink-600">Phạm vi in trên giấy: <span className="italic">{scopeText}</span></p>}
@@ -224,6 +248,41 @@ export function CertificateRowControls({
         </button>
       </div>}
 
+      {/* Từ chối: giấy sai, đứng tên đơn vị khác không có hợp đồng, trùng… Không xoá giấy;
+          nhà cung cấp nhận email + chuông kèm lý do và nút tải lại. */}
+      {canPublish && !approved && !rejected && (rejecting
+        ? <div className="rounded-lg border border-rose-200 bg-rose-50/60 p-2.5 text-[11.5px]">
+          <p className="font-bold text-ink-900">Lý do từ chối</p>
+          <div className="mt-1.5 space-y-1">
+            {[...CERTIFICATE_REJECTION_REASONS.map((reason) => ({ code: reason.code as string, label: reason.staff })), { code: "other", label: "Khác" }].map((reason) =>
+              <label key={reason.code} className="flex items-center gap-1.5 text-ink-800">
+                <input type="radio" name={`reject-${certificateId}`} value={reason.code} checked={rejectCode === reason.code}
+                  disabled={busy !== null} onChange={() => setRejectCode(reason.code)} />
+                {reason.label}
+              </label>)}
+          </div>
+          {rejectCode === "other" && <label className="mt-1.5 block">
+            <input className="input h-8 w-full text-[12px]" value={rejectText} maxLength={REJECTION_OTHER_MAX} disabled={busy !== null}
+              onChange={(e) => setRejectText(e.target.value)} placeholder="Câu gửi cho nhà cung cấp" />
+            <span className="mt-0.5 block text-[10.5px] text-ink-500">Câu này được gửi nguyên văn cho nhà cung cấp qua email và cổng.</span>
+          </label>}
+          {rejectCode && <p className="mt-1.5 rounded bg-white px-2 py-1 text-[11px] text-ink-700 ring-1 ring-ink-200">
+            Nhà cung cấp sẽ đọc: {rejectCode === "other" ? (rejectText.trim() || "…") : supplierRejectionMessage(rejectCode, "vi")}
+          </p>}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-sm bg-rose-700 text-xs text-white hover:bg-rose-800 disabled:opacity-50"
+              disabled={busy !== null || !rejectCode || (rejectCode === "other" && !rejectText.trim())}
+              onClick={() => void run("reject", () => rejectCertificateAction(supplierId, certificateId, rejectCode, rejectText))}>
+              {busy === "reject" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}Từ chối và báo nhà cung cấp
+            </button>
+            <button type="button" className="text-[12px] text-ink-500 hover:underline" disabled={busy !== null}
+              onClick={() => { setRejecting(false); setRejectCode(""); setRejectText(""); }}>Huỷ</button>
+          </div>
+        </div>
+        : <button type="button" disabled={busy !== null} onClick={() => setRejecting(true)}
+          className="inline-flex items-center gap-1 text-[12px] font-semibold text-rose-700 hover:underline disabled:opacity-40">
+          <Ban className="h-3.5 w-3.5" aria-hidden="true" />Từ chối…
+        </button>)}
       {/* Một công tắc thay cho "Nội bộ/Công khai" và "Ẩn công khai": người mua thấy giấy khi
           đã duyệt + công khai + không bị ẩn + còn hạn. Dữ liệu publicly_visible/staff_hidden giữ nguyên. */}
       {canPublish && approved && <label className="flex items-center gap-2 text-[11.5px] text-ink-800">
