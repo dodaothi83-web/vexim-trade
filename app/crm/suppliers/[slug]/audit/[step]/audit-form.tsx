@@ -496,7 +496,11 @@ export function AuditForm({
       {certificates.length > 0 ? <ul className="mt-3 space-y-2">
         {certificates.map((certificate) => {
           const sourceFile = certificateFileFor(certificate);
-          const certificateStatus = certificate.review_status === "rejected" ? "Từ chối"
+          // Cùng mốc ngày với bộ lọc công khai (publicSupplierCertificates): hết hạn thì không đăng được.
+          const expired = Boolean(certificate.valid_until && certificate.valid_until < new Date().toISOString().slice(0, 10));
+          const expiredOn = certificate.valid_until ? certificate.valid_until.split("-").reverse().join("/") : "";
+          const certificateStatus = expired && certificate.review_status !== "rejected" ? `Hết hạn ${expiredOn}`
+            : certificate.review_status === "rejected" ? "Từ chối"
             : certificate.review_status === "approved" && certificate.publicly_visible && !certificate.staff_hidden ? "Đã duyệt · công khai"
               : certificate.review_status === "approved" ? "Đã duyệt · nội bộ"
                 : certificate.review_status === "changes_requested" ? "Cần cập nhật" : "Chờ đối chiếu";
@@ -505,7 +509,7 @@ export function AuditForm({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xs font-bold text-ink-900">{certificate.name}{certificate.number ? ` · #${certificate.number}` : ""}</p>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${certificate.review_status === "rejected" ? "bg-rose-100 text-rose-800" : certificate.review_status === "approved" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{certificateStatus}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${expired || certificate.review_status === "rejected" ? "bg-rose-100 text-rose-800" : certificate.review_status === "approved" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{certificateStatus}</span>
                 </div>
                 <p className="mt-1 text-[11px] text-ink-600">
                   {certificate.holder_match === "owner" ? `Chính chủ${certificate.holder_name ? ` · ${certificate.holder_name}` : ""}`
@@ -522,6 +526,7 @@ export function AuditForm({
             <div className="mt-2 border-t border-ink-100 pt-2">
               <CertificateRowControls supplierId={v.supplier_id} certificateId={certificate.id}
                 hasFile={Boolean(certificate.file_media_id)} staffHidden={Boolean(certificate.staff_hidden)}
+                approved={certificate.review_status === "approved"} expiredOn={expired ? expiredOn : null}
                 published={certificate.review_status === "approved" && Boolean(certificate.publicly_visible)}
                 scheme={certificate.certificate_scheme ?? null} canInspect={canInspect} canPublish={canPublish}
                 partnerHolder={certificate.holder_match === "partner" ? certificate.holder_name?.trim() || "" : null}

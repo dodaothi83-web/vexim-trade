@@ -199,10 +199,14 @@ export function decideCertificatePublication(
   }
 
   const reasons: string[] = [];
+  // Lời khuyên đi theo đúng lý do: giấy hết hạn thì tải bản rõ hơn cũng không đăng được.
+  const advice: string[] = [];
+  const expired = Boolean(scan.valid_until && scan.valid_until < today);
   if (!scan.valid_until) {
     reasons.push("chưa đọc được ngày hết hạn trên giấy");
-  } else if (scan.valid_until < today) {
+  } else if (expired) {
     reasons.push(`giấy đã hết hạn ngày ${scan.valid_until}`);
+    advice.push("tải bản chứng nhận đã gia hạn");
   }
   if (!hasValidHolder) {
     reasons.push("chưa xác định rõ đơn vị đứng tên (chính chủ hay đối tác)");
@@ -210,12 +214,15 @@ export function decideCertificatePublication(
   if (!hasConfidence) {
     reasons.push("ảnh/PDF mờ hoặc độ tin cậy nhận diện thấp");
   }
+  if (!expired && (!scan.valid_until || !hasConfidence)) advice.push("tải bản rõ hơn");
+  if (!expired) advice.push("chờ Vexim kiểm tra");
+  const adviceText = advice.join(" hoặc ");
 
   return {
     autoPublish: false,
     review_status: "pending",
     publicly_visible: false,
-    review_note: `Chưa tự công bố: ${reasons.join("; ")}. Vui lòng tải bản rõ hơn hoặc chờ kiểm tra.`,
+    review_note: `Chưa tự công bố: ${reasons.join("; ")}. Vui lòng ${adviceText}.`,
   };
 }
 
