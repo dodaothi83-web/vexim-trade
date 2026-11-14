@@ -12,7 +12,7 @@ import { L1_DOC_ITEMS, type MediaAsset } from "@/lib/types";
 import { daysUntilExpiry } from "@/lib/certificate-service";
 import { deriveL1Rows } from "@/lib/certificate-l1";
 import { certificateSchemeLabel } from "@/lib/certificate-scheme";
-import { supplierCertificateNote } from "@/lib/certificate-supplier-copy";
+import { certificateExpired, formatCertificateDate, supplierCertificateNote } from "@/lib/certificate-supplier-copy";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
@@ -243,7 +243,7 @@ export default async function SupplierDocumentsPage() {
                           <span className="font-semibold text-ink-800">{certificate.name}</span>
                           {scheme && <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-teal-800 ring-1 ring-teal-200">{scheme}</span>}
                           {certificate.validUntil && <span className={certificate.expired ? "text-amber-800" : ""}>
-                            {fill(copy.approved.expiry, { date: certificate.validUntil })}{certificate.expired ? copy.approved.expired : left !== null ? fill(copy.approved.daysLeft, { count: left }) : ""}
+                            {fill(copy.approved.expiry, { date: formatCertificateDate(certificate.validUntil, locale) })}{certificate.expired ? copy.approved.expired : left !== null ? fill(copy.approved.daysLeft, { count: left }) : ""}
                           </span>}
                           {note && note !== copy.approved.noteShown && <span className="text-ink-500">{note}</span>}
                         </li>;
@@ -267,15 +267,19 @@ export default async function SupplierDocumentsPage() {
               {pendingCerts.map((certificate) => {
                 const file = certificate.file_media_id ? certificateMedia.get(certificate.file_media_id) : null;
                 const href = file ? mediaHref(file) : null;
-                const status = certificate.review_status === "changes_requested" ? copy.approved.changesRequested : copy.approved.waiting;
+                // Giấy hết hạn không bao giờ được duyệt đăng: nói rõ ngay, kèm việc cần làm.
+                const expired = certificateExpired(certificate.valid_until);
+                const status = expired ? fill(copy.approved.expiredPill, { date: formatCertificateDate(certificate.valid_until, locale) })
+                  : certificate.review_status === "changes_requested" ? copy.approved.changesRequested : copy.approved.waiting;
                 const date = uploadedOn(file?.created_at ?? certificate.created_at, intl);
-                return <li key={certificate.id} className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5">
+                return <li key={certificate.id} className={`rounded-xl border px-3 py-2.5 ${expired ? "border-rose-200 bg-rose-50/60" : "border-amber-200 bg-amber-50/60"}`}>
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <p className="text-xs font-bold text-ink-900">{certificate.name}</p>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-amber-900">{status}</span>
+                    <span className={`rounded-full bg-white px-2 py-0.5 text-[10px] font-bold ${expired ? "text-rose-800" : "text-amber-900"}`}>{status}</span>
                   </div>
+                  {expired && <p className="mt-1 text-[11.5px] font-semibold leading-4 text-rose-900">{supplierCertificateNote(certificate, undefined, locale)}</p>}
                   {date && <p className="mt-1 text-[11px] text-ink-600">{fill(copy.upload.uploadedAt, { date })}</p>}
-                  {certificate.valid_until && <p className="mt-1 text-[11px] text-ink-600">{fill(copy.approved.expiry, { date: certificate.valid_until })}</p>}
+                  {certificate.valid_until && !expired && <p className="mt-1 text-[11px] text-ink-600">{fill(copy.approved.expiry, { date: formatCertificateDate(certificate.valid_until, locale) })}</p>}
                   {href
                     ? <a href={href} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-800 underline underline-offset-2">
                       <FileText className="size-3.5" aria-hidden="true" />{copy.approved.openFile}

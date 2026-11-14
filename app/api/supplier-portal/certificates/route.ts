@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getLocale } from "@/lib/i18n/server";
+import { certificateExpired, formatCertificateDate } from "@/lib/certificate-supplier-copy";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
@@ -158,10 +160,19 @@ export async function POST(request: Request) {
     // Hợp đồng / ủy quyền với nhà máy (tùy chọn). Lỗi ở đây không làm mất chứng nhận vừa lưu.
     const contractSaved = await saveRelationshipFile(form, access.supplier.id, access.user.id, certificate.holder_name ?? label, access.store);
 
-    /* Cùng một câu cho mọi trường hợp: giấy vào hồ sơ, còn lên sản phẩm hay không là do
-     * nhân viên chọn phạm vi — không hứa "đã hiển thị" khi sản phẩm chưa có phạm vi. */
-    const message = `Đã nhận “${certificate.name}”. Nhân viên đối chiếu và chọn phạm vi áp dụng trước khi giấy lên sản phẩm.` +
-      (contractSaved === "saved" ? " Đã nhận cả hợp đồng với nhà máy." : contractSaved === "failed" ? " Chưa lưu được tệp hợp đồng; vui lòng tải lại hợp đồng." : "");
+    /* Giấy vào hồ sơ; lên sản phẩm hay không là do nhân viên chọn phạm vi, nên không hứa
+     * "đã hiển thị". Riêng giấy AI đọc ra đã hết hạn thì nói ngay: giấy này không đăng được. */
+    const en = (await getLocale()) === "en";
+    const expired = certificateExpired(certificate.valid_until);
+    const expiredOn = formatCertificateDate(certificate.valid_until, en ? "en" : "vi");
+    const base = expired
+      ? en ? `Received “${certificate.name}”, but it expired on ${expiredOn}, so it cannot be shown to buyers. Please upload the renewed copy.`
+        : `Đã nhận “${certificate.name}”, nhưng giấy đã hết hạn ngày ${expiredOn} nên chưa đăng được. Vui lòng tải bản đã gia hạn.`
+      : en ? `Received “${certificate.name}”. Vexim checks it and chooses the categories it applies to before it shows on products.`
+        : `Đã nhận “${certificate.name}”. Nhân viên đối chiếu và chọn phạm vi áp dụng trước khi giấy lên sản phẩm.`;
+    const contractNote = contractSaved === "saved" ? (en ? " The factory contract was received too." : " Đã nhận cả hợp đồng với nhà máy.")
+      : contractSaved === "failed" ? (en ? " The contract file was not saved; please upload it again." : " Chưa lưu được tệp hợp đồng; vui lòng tải lại hợp đồng.") : "";
+    const message = base + contractNote;
 
     return NextResponse.json({
       ok: true,

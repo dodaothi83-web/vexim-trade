@@ -69,9 +69,10 @@ assert.ok(!/AI quét/.test(evidenceRoute), 'Thông báo tải giấy tờ L1 kh�
 assert.ok(evidenceRoute.includes('Đã tải giấy tờ để Vexim đối chiếu.'));
 assert.ok(!/AI sẽ tự quét lại/.test(notify), 'Email nhắc hạn không được nhắc AI quét');
 assert.ok(!/AI sẽ tự quét lại/.test(dashboard), 'Việc trên bảng điều khiển không được nhắc AI quét');
-assert.ok(notify.includes('hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.'));
-assert.ok(portalCopy.vi.notices.certificate.expiringDetail.includes('hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.'),
+assert.ok(notify.includes('Tải bản gia hạn ở mục Giấy tờ và chứng nhận'), 'Email nhắc hạn chỉ đúng mục trên cổng');
+assert.ok(portalCopy.vi.notices.certificate.expiringDetail.includes('Tải bản gia hạn ở mục Giấy tờ và chứng nhận'),
   'Câu nhắc gia hạn chứng nhận nằm trong từ điển thông báo');
+assert.ok(!/AI/.test(portalCopy.vi.notices.certificate.expiredDetail), 'Câu báo hết hạn không nhắc AI');
 
 /* 6. Bước xác thực doanh nghiệp chỉ còn đúng một giấy: Giấy chứng nhận đăng ký kinh doanh. */
 const policy = read('../lib/supplier-portal/policy.ts');
@@ -137,7 +138,16 @@ const store = {
   },
   deleteMedia: async (id) => { deletedMedia.push(id); },
 };
+let scanValidUntil = null;
+let portalLocale = 'vi';
+const certificateCopyCode = ts.transpileModule(read('../lib/certificate-supplier-copy.ts'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+const certificateCopy = { exports: {} };
+vm.runInThisContext(`(function(exports, require, module) { ${certificateCopyCode}\n })`)(certificateCopy.exports, () => ({}), certificateCopy);
 const routeMocks = {
+  '@/lib/i18n/server': { getLocale: async () => portalLocale },
+  '@/lib/certificate-supplier-copy': certificateCopy.exports,
   'next/server': { NextResponse: { json: (body, { status = 200 } = {}) => Response.json(body, { status }) } },
   'next/cache': { revalidatePath: () => {} },
   'node:crypto': { randomUUID: () => '22222222-2222-2222-2222-222222222222' },
@@ -154,7 +164,7 @@ const routeMocks = {
     ingestCertificateScan: async (input) => {
       scanInputs.push(input);
       if (rejectScan) throw new Error('scan store unavailable');
-      return { certificate: { id: 'cert-1', name: 'HACCP', review_status: 'pending', publicly_visible: false } };
+      return { certificate: { id: 'cert-1', name: 'HACCP', review_status: 'pending', publicly_visible: false, valid_until: scanValidUntil } };
     },
   },
   '@/lib/crm/badges': { refreshCrmBadges: () => {} },
@@ -177,6 +187,7 @@ function uploadRequest(checklistKey) {
 
 let response = await POST(uploadRequest('haccp_or_brc'));
 assert.equal(response.status, 200, 'An approved supplier with an L1 review can upload a quality certificate');
+assert.match((await response.clone().json()).message, /^Đã nhận “HACCP”\. Nhân viên đối chiếu/, 'Giấy còn hạn: câu chờ đối chiếu như cũ');
 assert.equal(mediaWrites[0].owner_type, 'supplier');
 assert.equal(mediaWrites[0].supplier_id, supplier.id);
 assert.equal(mediaWrites[0].audience, 'internal', 'Uploaded certificates remain private until approved');
@@ -225,3 +236,14 @@ assert.deepEqual(deletedMedia, ['media-4']);
 assert.equal(deletedPaths.length, 2);
 
 console.log('✅ Chứng nhận trên hồ sơ: tệp supplier hợp lệ với media_owner_ck, giữ liên kết L1 trên chứng nhận, lỗi hệ thống rõ ràng; giấy của nhà máy khác cần hợp đồng và nhân viên xem trước khi đăng.');
+
+/* 7. Giấy AI đọc ra đã hết hạn: nói ngay là chưa đăng được và cần bản gia hạn (cả hai ngôn ngữ). */
+currentReview = l1Review; rejectMedia = false; rejectScan = false;
+scanValidUntil = '2025-11-06';
+let expiredResponse = await POST(uploadRequest('haccp_or_brc'));
+assert.equal(expiredResponse.status, 200);
+assert.equal((await expiredResponse.json()).message, 'Đã nhận “HACCP”, nhưng giấy đã hết hạn ngày 06/11/2025 nên chưa đăng được. Vui lòng tải bản đã gia hạn.');
+portalLocale = 'en';
+expiredResponse = await POST(uploadRequest('haccp_or_brc'));
+assert.match((await expiredResponse.json()).message, /expired on 6 Nov 2025, so it cannot be shown to buyers\. Please upload the renewed copy\./);
+console.log('✅ Tải chứng nhận hết hạn: báo ngay cần bản gia hạn (vi/en).');

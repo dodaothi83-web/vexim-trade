@@ -255,7 +255,7 @@ async function sendUnansweredBuyerNotice(to: string, items: { chat: ChatConversa
 
 async function sendUnansweredStaffDigest(store: DataStore, items: { chat: ChatConversation; supplier: string }[]): Promise<boolean> {
   const entries: Entry[] = await Promise.all(items.map(async (i) => ({
-    from: `${i.supplier} ← ${await buyerLabel(store, i.chat.buyer_email).then((l) => l === "Người mua" ? i.chat.buyer_email : l)}`,
+    from: `${i.supplier}, người mua ${await buyerLabel(store, i.chat.buyer_email).then((l) => l === "Người mua" ? i.chat.buyer_email : l)}`,
     product: i.chat.product_name, preview: i.chat.last_message_preview, kind: "first" as const,
     href: `${notificationOrigin()}/crm/messages/${encodeURIComponent(i.chat.id)}`,
   })));

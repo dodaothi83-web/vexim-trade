@@ -438,6 +438,18 @@ let r4 = await certService.sendCertificateExpiryReminders({
 assert.equal(r4.reminded, 1);
 assert.equal(reminderCalls.at(-1).threshold, 1);
 
+// Ngày sau khi hết hạn (2026-12-06): một thư "đã hết hạn" (threshold 0), không gửi lại.
+let r5 = await certService.sendCertificateExpiryReminders({ store: stubStore, notifyFn: notifyExpiryStub, today: "2026-12-06", nowIso: "2026-12-06T02:00:00Z" });
+assert.equal(r5.reminded, 1);
+assert.equal(reminderCalls.at(-1).threshold, 0);
+assert.ok(certs[0].expiry_notified.d0);
+assert.equal((await certService.sendCertificateExpiryReminders({ store: stubStore, notifyFn: notifyExpiryStub, today: "2026-12-07", nowIso: "2026-12-07T02:00:00Z" })).reminded, 0);
+// Giấy hết hạn quá 7 ngày không bị gửi thư hàng loạt; còn hơn 60 ngày thì chưa nhắc.
+assert.equal(certService.pickExpiryReminderThreshold(-1), 0);
+assert.equal(certService.pickExpiryReminderThreshold(-7), 0);
+assert.equal(certService.pickExpiryReminderThreshold(-8), null);
+assert.equal(certService.pickExpiryReminderThreshold(61), null);
+
 // Staff sets staff_hidden = true on cert-1, then supplier re-uploads renewed certificate for haccp_or_brc
 await stubStore.updateCertificate(certs[0].id, { staff_hidden: true });
 const renewed = await certService.ingestCertificateScan(

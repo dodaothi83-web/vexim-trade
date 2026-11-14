@@ -38,7 +38,10 @@ export const L1_CERTIFICATE_KEYS = [
 export type L1CertificateKey = (typeof L1_CERTIFICATE_KEYS)[number];
 
 export const EXPIRY_REMINDER_THRESHOLDS = [60, 30, 7, 1] as const;
-export type ExpiryReminderThreshold = (typeof EXPIRY_REMINDER_THRESHOLDS)[number];
+/** 0 = thư "đã hết hạn" gửi một lần ngay sau ngày hết hạn. */
+export type ExpiryReminderThreshold = (typeof EXPIRY_REMINDER_THRESHOLDS)[number] | 0;
+/** Chỉ báo "đã hết hạn" cho giấy vừa quá hạn: giấy hết hạn từ lâu không bị gửi hàng loạt khi bật tính năng. */
+export const EXPIRED_NOTICE_WINDOW_DAYS = 7;
 
 export function isL1CertificateKey(key: string | null | undefined): key is L1CertificateKey {
   return Boolean(key && (L1_CERTIFICATE_KEYS as readonly string[]).includes(key));
@@ -500,7 +503,8 @@ export async function ingestCertificateScan(
 export function pickExpiryReminderThreshold(
   daysLeft: number | null,
 ): ExpiryReminderThreshold | null {
-  if (daysLeft === null || daysLeft < 0 || daysLeft > 60) return null;
+  if (daysLeft === null || daysLeft > 60) return null;
+  if (daysLeft < 0) return daysLeft >= -EXPIRED_NOTICE_WINDOW_DAYS ? 0 : null;
   if (daysLeft <= 1) return 1;
   if (daysLeft <= 7) return 7;
   if (daysLeft <= 30) return 30;
@@ -546,7 +550,8 @@ export async function sendCertificateExpiryReminders(opts: {
   for (const supplier of suppliers) {
     const certs = await store.listCertificates(supplier.id);
     for (const cert of certs) {
-      if (cert.review_status === "rejected" || !cert.valid_until) continue;
+      // Bản cũ đã có bản gia hạn thay thế thì không nhắc nữa.
+      if (cert.review_status === "rejected" || !cert.valid_until || cert.superseded_by_certificate_id) continue;
       report.checked += 1;
       const daysLeft = daysUntilExpiry(cert.valid_until, today);
       const threshold = pickExpiryReminderThreshold(daysLeft);

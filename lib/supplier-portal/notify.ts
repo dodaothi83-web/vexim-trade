@@ -6,6 +6,7 @@ import { transport } from "@/lib/email/send";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { SITE_URL } from "@/lib/site";
 import type { L2VerificationScope, Supplier } from "@/lib/types";
+import { formatCertificateDate } from "@/lib/certificate-supplier-copy";
 
 /** Origin for supplier-facing links; exported so other supplier notices reuse the same staging override. */
 export function notificationOrigin(): string {
@@ -74,22 +75,25 @@ export async function notifySupplierCertificateSubmission(supplier: Supplier, na
   if (!recipients.length) return "failed";
   const staffOrigin = notificationOrigin();
   const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}/audit/documents`;
-  const title = `Chứng nhận trên hồ sơ cần kiểm tra: ${supplier.name}`;
-  const body = `<p>Nhà cung cấp ${escapeHtml(supplier.name)} vừa tải chứng nhận "${escapeHtml(name)}" trong luồng Chứng nhận riêng. AI chưa đủ điều kiện tự công bố. <strong>Chưa công bố; chứng nhận này không thay thế GCN ĐKKD.</strong></p>
-    <p>Nhân viên có thể xem bản gốc, bấm Quét lại AI hoặc kiểm tra trong khu vực chứng nhận của hồ sơ CRM.</p>
-    <p><a href="${url}">Mở hồ sơ chứng nhận trong CRM</a></p>`;
+  const title = `Chứng nhận mới chờ đối chiếu: ${supplier.name}`;
+  // Thư cho nhân viên: nói "hệ thống", không nói "AI"; mỗi ý một lần.
+  const intro = `${supplier.name} vừa tải chứng nhận "${name}". Hệ thống chưa tự công bố được nên giấy đang chờ đối chiếu.`;
+  const next = "Mở tệp gốc để kiểm tra hoặc cho hệ thống quét lại. Chứng nhận này không thay thế Giấy chứng nhận đăng ký kinh doanh.";
+  const body = `<p>${escapeHtml(intro)}</p>
+    <p>${escapeHtml(next)}</p>
+    <p><a href="${url}">Mở chứng nhận trong CRM</a></p>`;
   const result = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
-    html: wrapPlainEmail({ title, body }), text: `${title}\nChứng nhận: ${name}\n${url}` });
+    html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n\n${intro}\n${next}\n${url}` });
   return result.ok ? result.status : "failed";
 }
 
-/** Cron reminder at 60 / 30 / 7 / 1 days before a certificate on file expires. */
+/** Cron reminder at 60 / 30 / 7 / 1 days before a certificate on file expires, and once just after (threshold 0). */
 export async function notifySupplierCertificateExpiry(input: {
   supplierId: string;
   certificateName: string;
   validUntil: string;
   daysLeft: number;
-  threshold: 60 | 30 | 7 | 1;
+  threshold: 60 | 30 | 7 | 1 | 0;
 }): Promise<"sent" | "simulated" | "failed"> {
   try {
     const users = await getStore().listUsers();
@@ -98,9 +102,13 @@ export async function notifySupplierCertificateExpiry(input: {
     if (!recipients.length) return "failed";
     const name = (input.certificateName || "Chứng nhận").replace(/[\r\n]/g, " ").slice(0, 140);
     const url = `${notificationOrigin()}/supplier/portal/documents`;
-    const title = `Chứng nhận sắp hết hạn (còn ${input.daysLeft} ngày): ${name}`;
-    const explanation = `Chứng nhận "${name}" trên hồ sơ xác thực của bạn sẽ hết hạn vào ngày ${input.validUntil} (mốc nhắc trước ${input.threshold} ngày). Khi quá hạn, nhãn chứng nhận sẽ tự ẩn khỏi trang người mua. Vui lòng vào mục Xác thực doanh nghiệp để tải bản gia hạn mới; hệ thống sẽ đọc lại ngày hết hạn và đơn vị đứng tên.`;
-    const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Cập nhật giấy tờ xác thực trên cổng nhà cung cấp</a></p>`;
+    const date = formatCertificateDate(input.validUntil, "vi");
+    const expired = input.threshold === 0;
+    const title = expired ? `Chứng nhận đã hết hạn: ${name}` : `Chứng nhận sắp hết hạn (còn ${input.daysLeft} ngày): ${name}`;
+    const explanation = expired
+      ? `Chứng nhận "${name}" đã hết hạn ngày ${date} và tạm không hiện với người mua. Tải bản đã gia hạn để hiện lại.`
+      : `Chứng nhận "${name}" sẽ hết hạn ngày ${date}. Sau ngày này, chứng nhận tạm không hiện với người mua cho tới khi bạn tải bản gia hạn.`;
+    const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Tải bản gia hạn ở mục Giấy tờ và chứng nhận</a></p>`;
     const res = await transport({
       to: recipients,
       from: SERVICE_FROM_ADDRESS,
