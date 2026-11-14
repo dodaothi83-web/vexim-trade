@@ -75,12 +75,15 @@ export async function notifySupplierCertificateSubmission(supplier: Supplier, na
   if (!recipients.length) return "failed";
   const staffOrigin = notificationOrigin();
   const url = `${staffOrigin}/crm/suppliers/${encodeURIComponent(supplier.id)}/audit/documents`;
-  const title = `Chứng nhận trên hồ sơ cần kiểm tra: ${supplier.name}`;
-  const body = `<p>Nhà cung cấp ${escapeHtml(supplier.name)} vừa tải chứng nhận "${escapeHtml(name)}" trong luồng Chứng nhận riêng. AI chưa đủ điều kiện tự công bố. <strong>Chưa công bố; chứng nhận này không thay thế GCN ĐKKD.</strong></p>
-    <p>Nhân viên có thể xem bản gốc, bấm Quét lại AI hoặc kiểm tra trong khu vực chứng nhận của hồ sơ CRM.</p>
-    <p><a href="${url}">Mở hồ sơ chứng nhận trong CRM</a></p>`;
+  const title = `Chứng nhận mới chờ đối chiếu: ${supplier.name}`;
+  // Thư cho nhân viên: nói "hệ thống", không nói "AI"; mỗi ý một lần.
+  const intro = `${supplier.name} vừa tải chứng nhận "${name}". Hệ thống chưa tự công bố được nên giấy đang chờ đối chiếu.`;
+  const next = "Mở tệp gốc để kiểm tra hoặc cho hệ thống quét lại. Chứng nhận này không thay thế Giấy chứng nhận đăng ký kinh doanh.";
+  const body = `<p>${escapeHtml(intro)}</p>
+    <p>${escapeHtml(next)}</p>
+    <p><a href="${url}">Mở chứng nhận trong CRM</a></p>`;
   const result = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
-    html: wrapPlainEmail({ title, body }), text: `${title}\nChứng nhận: ${name}\n${url}` });
+    html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n\n${intro}\n${next}\n${url}` });
   return result.ok ? result.status : "failed";
 }
 
