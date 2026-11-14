@@ -68,7 +68,7 @@ async function rescanCertificate(supplierId: string, certificateId: string) {
     return result(false, "Không tìm thấy chứng nhận của nhà cung cấp này.");
   }
   if (!cert.file_media_id) {
-    return result(false, "Chứng nhận chưa đính kèm tệp gốc để AI quét.");
+    return result(false, "Chứng nhận chưa đính kèm tệp gốc để quét lại.");
   }
   const media = await store.getMedia(cert.file_media_id);
   if (!media || media.supplier_id !== supplier.id || !media.storage_path) {

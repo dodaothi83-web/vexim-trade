@@ -152,10 +152,10 @@ export function CertificateRowControls({
             onClick={() => void run("scan", () => rescanCertificateAction(supplierId, certificateId))}
             disabled={busy !== null}
             className="btn btn-ghost btn-sm text-xs"
-            title="Chạy AI quét lại đơn vị đứng tên và ngày hết hạn từ tệp gốc"
+            title="Hệ thống đọc lại đơn vị đứng tên và ngày hết hạn từ tệp gốc"
           >
             {busy === "scan" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Quét lại AI
+            Quét lại
           </button>
         )}
       </div>
