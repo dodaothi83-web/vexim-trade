@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, Eye, EyeOff, Loader2, Plus, Sparkles, X } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Loader2, Plus, Sparkles, X } from "lucide-react";
 
 import { CERTIFICATE_SCHEMES, certificateSchemeKind } from "@/lib/certificate-scheme";
 import type { CertificateAiConfidence, CertificateCategorySuggestion } from "@/lib/types";
@@ -44,6 +44,8 @@ export function CertificateRowControls({
   hasFile,
   staffHidden,
   published,
+  approved = published,
+  expiredOn = null,
   scheme,
   scopes = [],
   categories = [],
@@ -68,6 +70,10 @@ export function CertificateRowControls({
   staffHidden: boolean;
   /** AI đã duyệt và đang hiện trên trang người mua. */
   published: boolean;
+  /** Đã duyệt (công khai hoặc nội bộ). Sau khi duyệt mới hiện công tắc hiển thị và dòng sửa phạm vi. */
+  approved?: boolean;
+  /** Ngày hết hạn dd/mm/yyyy khi giấy đã hết hạn; null khi còn hạn hoặc chưa ghi hạn. */
+  expiredOn?: string | null;
   /** Loại chứng nhận dùng cho bộ lọc người mua; null = chưa phân loại. */
   scheme: string | null;
   /** Phạm vi đã xác nhận của giấy này. */
@@ -115,8 +121,52 @@ export function CertificateRowControls({
 
   return (
     <div className="w-full space-y-1.5">
+      {/* Thứ tự theo cách làm việc: xem thông tin giấy (loại, AI đọc) → hết hạn? → duyệt + danh mục → hiển thị. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {canInspect && (
+          <label className="flex items-center gap-1 text-[11px] font-semibold text-ink-600">
+            Loại
+            <select
+              value={scheme ?? ""}
+              disabled={busy !== null}
+              onChange={(e) => void run("scheme", () => setCertificateSchemeAction(supplierId, certificateId, e.target.value))}
+              className="input h-7 py-0 text-[11px]"
+              title="Loại giấy quyết định đường ra: pháp lý (L1), chất lượng (badge + chip) hay theo lô"
+            >
+              <option value="">Chưa phân loại</option>
+              {(["legal", "quality", "shipment", "other"] as const).map((group) => {
+                const items = CERTIFICATE_SCHEMES.filter((item) => item.kind === group);
+                if (items.length === 0) return null;
+                return (
+                  <optgroup key={group} label={KIND_LABEL[group]}>
+                    {items.map((item) => <option key={item.code} value={item.code}>{item.vi}</option>)}
+                  </optgroup>
+                );
+              })}
+            </select>
+          </label>
+        )}
+        {canInspect && hasFile && (
+          <button
+            type="button"
+            onClick={() => void run("scan", () => rescanCertificateAction(supplierId, certificateId))}
+            disabled={busy !== null}
+            className="btn btn-ghost btn-sm text-xs"
+            title="Chạy AI quét lại đơn vị đứng tên và ngày hết hạn từ tệp gốc"
+          >
+            {busy === "scan" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Quét lại AI
+          </button>
+        )}
+      </div>
+
+      {mismatch && <p className="text-[11px] leading-4 text-amber-800">{mismatch}</p>}
+      {expiredOn && <div role="status" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-[11.5px] leading-4 text-rose-900">
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <p><span className="font-semibold">Giấy hết hạn ngày {expiredOn}.</span> Cần nhà cung cấp tải bản đã gia hạn; giấy hết hạn không hiện cho người mua, kể cả khi đã duyệt.</p>
+      </div>}
       {/* Giấy đứng tên nhà máy khác: xem hợp đồng nhà cung cấp tải kèm, đánh dấu rồi mới duyệt đăng. */}
-      {canPublish && !published && partnerHolder !== null && <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 text-[11.5px] leading-4 text-ink-800">
+      {canPublish && !approved && !expiredOn && partnerHolder !== null && <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 text-[11.5px] leading-4 text-ink-800">
         <p className="font-semibold">Giấy đứng tên {partnerHolder || "đơn vị khác"}. Xem hợp đồng hoặc giấy ủy quyền giữa nhà cung cấp và nhà máy này trước khi duyệt.</p>
         {partnerContracts.length
           ? <ul className="mt-1.5 space-y-1">{partnerContracts.map((contract) => <li key={contract.id}>
@@ -129,8 +179,8 @@ export function CertificateRowControls({
         </label>}
       </div>}
       {/* Một bước duyệt (11/2026): tích danh mục áp dụng rồi bấm một nút. Sản phẩm thuộc
-          danh mục đã tích tự có chứng nhận, kể cả sản phẩm đăng sau. */}
-      {canPublish && !published && <div className="rounded-lg border border-brand-200 bg-brand-50/50 p-2.5">
+          danh mục đã tích tự có chứng nhận, kể cả sản phẩm đăng sau. Giấy hết hạn thì không mời duyệt. */}
+      {canPublish && !approved && !expiredOn && <div className="rounded-lg border border-brand-200 bg-brand-50/50 p-2.5">
         {scopeable ? <>
           <p className="text-[11.5px] font-bold text-ink-900">Áp dụng cho danh mục</p>
           {scopeText && <p className="mt-0.5 text-[11px] leading-4 text-ink-600">Phạm vi in trên giấy: <span className="italic">{scopeText}</span></p>}
@@ -173,72 +223,30 @@ export function CertificateRowControls({
           {scopeable && picked.length ? `Duyệt và áp dụng cho ${picked.length} danh mục` : "Duyệt đăng"}
         </button>
       </div>}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {canInspect && (
-          <label className="flex items-center gap-1 text-[11px] font-semibold text-ink-600">
-            Loại
-            <select
-              value={scheme ?? ""}
-              disabled={busy !== null}
-              onChange={(e) => void run("scheme", () => setCertificateSchemeAction(supplierId, certificateId, e.target.value))}
-              className="input h-7 py-0 text-[11px]"
-              title="Loại giấy quyết định đường ra: pháp lý (L1), chất lượng (badge + chip) hay theo lô"
-            >
-              <option value="">Chưa phân loại</option>
-              {(["legal", "quality", "shipment", "other"] as const).map((group) => {
-                const items = CERTIFICATE_SCHEMES.filter((item) => item.kind === group);
-                if (items.length === 0) return null;
-                return (
-                  <optgroup key={group} label={KIND_LABEL[group]}>
-                    {items.map((item) => <option key={item.code} value={item.code}>{item.vi}</option>)}
-                  </optgroup>
-                );
-              })}
-            </select>
-          </label>
-        )}
-        {canPublish && (
-          <button
-            type="button"
-            onClick={() => void run("visibility", () => setCertificateVisibilityAction(supplierId, certificateId, !published))}
-            disabled={busy !== null || (!published && !canPublish)}
-            className="btn btn-ghost btn-sm text-xs"
-            title={published ? "Chuyển sang nội bộ: người mua không còn thấy giấy này" : "Công khai cho người mua khi giấy đã duyệt"}
-          >
-            {busy === "visibility" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : published ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-            {published ? "Công khai" : "Nội bộ"}
-          </button>
-        )}
-        {canInspect && hasFile && (
-          <button
-            type="button"
-            onClick={() => void run("scan", () => rescanCertificateAction(supplierId, certificateId))}
-            disabled={busy !== null}
-            className="btn btn-ghost btn-sm text-xs"
-            title="Chạy AI quét lại đơn vị đứng tên và ngày hết hạn từ tệp gốc"
-          >
-            {busy === "scan" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Quét lại AI
-          </button>
-        )}
-        {canPublish && (
-          <button
-            type="button"
-            onClick={() => void run("hide", () => toggleCertificateHiddenAction(supplierId, certificateId, !staffHidden))}
-            disabled={busy !== null}
-            className="btn btn-ghost btn-sm text-xs"
-            title={staffHidden ? "Bỏ ẩn để chứng nhận hiển thị lại" : "Phanh an toàn: ẩn nhãn chứng nhận khỏi trang người mua"}
-          >
-            {staffHidden ? "Hiện lại" : "Ẩn công khai"}
-          </button>
-        )}
-      </div>
 
-      {mismatch && <p className="text-[11px] leading-4 text-amber-800">{mismatch}</p>}
-
-      {scopeable && (scopes.length > 0 || (canInspect && categories.length > 0)) && (
+      {/* Một công tắc thay cho "Nội bộ/Công khai" và "Ẩn công khai": người mua thấy giấy khi
+          đã duyệt + công khai + không bị ẩn + còn hạn. Dữ liệu publicly_visible/staff_hidden giữ nguyên. */}
+      {canPublish && approved && <label className="flex items-center gap-2 text-[11.5px] text-ink-800">
+        <input type="checkbox" role="switch" className="h-4 w-4" checked={published && !staffHidden} disabled={busy !== null}
+          onChange={(e) => {
+            const show = e.target.checked;
+            void run("visibility", async () => {
+              if (!show) return setCertificateVisibilityAction(supplierId, certificateId, false);
+              if (staffHidden) {
+                const unhidden = await toggleCertificateHiddenAction(supplierId, certificateId, false);
+                if (!unhidden.ok || published) return unhidden;
+              }
+              return setCertificateVisibilityAction(supplierId, certificateId, true);
+            });
+          }} />
+        <span className="font-semibold">Hiện cho người mua</span>
+        {busy === "visibility" && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+        {expiredOn && published && !staffHidden && <span className="text-rose-800">· đang ẩn vì hết hạn</span>}
+      </label>}
+      {/* Sửa phạm vi sau khi duyệt; trước khi duyệt chỉ chọn trong khung "Áp dụng cho danh mục". */}
+      {scopeable && (approved || !canPublish) && (scopes.length > 0 || (canInspect && categories.length > 0)) && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-semibold text-ink-500">Phạm vi:</span>
+          <span className="text-[11px] font-semibold text-ink-500">Phạm vi đã áp dụng:</span>
           {scopes.map((scope) => (
             <span key={scope.id} className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-900 ring-1 ring-teal-200">
               {scope.label}
@@ -284,7 +292,7 @@ export function CertificateRowControls({
         </div>
       )}
 
-      {scopeable && categorySuggestions.length > 0 && (published || !canPublish) && (
+      {scopeable && categorySuggestions.length > 0 && (approved || !canPublish) && (
         <div className="rounded-lg border border-violet-200 bg-violet-50/70 p-2.5">
           <div className="flex flex-wrap items-center justify-between gap-1">
             <p className="text-[11px] font-bold text-violet-950">AI gợi ý danh mục</p>
