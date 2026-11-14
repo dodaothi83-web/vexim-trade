@@ -135,6 +135,13 @@ export async function POST(request: Request) {
       actor: { id: access.user.id, email: access.user.email },
     });
 
+    // Thay cho giấy đã bị từ chối: không có gì cần giữ hiển thị, đánh dấu đã có bản thay ngay
+    // để giấy cũ rời danh sách "Chưa được duyệt" (giấy đã duyệt vẫn chờ bản mới được duyệt).
+    if (renewalSource?.review_status === "rejected" && certificate.id !== renewalSource.id) {
+      await access.store.updateCertificate(renewalSource.id, { superseded_by_certificate_id: certificate.id })
+        .catch((error) => console.error("[certificate] supersede rejected copy", error));
+    }
+
     revalidatePath("/supplier/portal");
     revalidatePath(`/crm/suppliers/${access.supplier.id}`);
     revalidatePath(`/crm/suppliers/${access.supplier.id}/audit/documents`);

@@ -298,14 +298,14 @@ export async function notifySupplierDecision(input: {
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const name = (input.name || "Hồ sơ").replace(/[\r\n]/g, " ").slice(0, 140);
-    const config: Record<SupplierDecision, { title: string; explanation: string; path: string; showNote?: boolean }> = {
+    const config: Record<SupplierDecision, { title: string; explanation: string; path: string; showNote?: boolean; noteLabel?: string; cta?: string }> = {
       onboarding_approved: { title: "Đã mở quyền sử dụng cổng nhà cung cấp", explanation: "Tài khoản đã được chấp thuận. Các đánh giá xác minh, sản phẩm và việc công khai hồ sơ vẫn cần quyết định riêng.", path: "/supplier/portal" },
       onboarding_changes_requested: { title: "Vui lòng bổ sung hồ sơ doanh nghiệp", explanation: "Hồ sơ đã được xem và cần bổ sung trước khi mở quyền cổng.", path: "/supplier/portal", showNote: true },
       product_approved: { title: `Sản phẩm đã đăng: ${name}`, explanation: "Sản phẩm đã được đăng và hiển thị cho người mua. Bạn có thể quản lý thông tin và hình ảnh trên cổng nhà cung cấp.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}` },
       product_changes_requested: { title: `Sản phẩm cần chỉnh sửa: ${name}`, explanation: "Hãy chỉnh sửa rồi gửi duyệt lại.", path: `/supplier/portal/products/${encodeURIComponent(input.entityId || "")}`, showNote: true },
       certificate_approved: { title: `Đã kiểm bản sao chứng nhận: ${name}`, explanation: "Bản sao đã được duyệt. Chứng nhận chưa được công bố; việc hiển thị công khai là quyết định riêng.", path: "/supplier/portal/documents" },
       certificate_changes_requested: { title: `Chứng nhận cần bổ sung: ${name}`, explanation: "Cần bổ sung thông tin chứng nhận trong mục Xác thực doanh nghiệp.", path: "/supplier/portal/documents", showNote: true },
-      certificate_rejected: { title: `Chứng nhận không được chấp thuận: ${name}`, explanation: "Chứng nhận này chưa được chấp thuận.", path: "/supplier/portal/documents", showNote: true },
+      certificate_rejected: { title: `Chứng nhận chưa được duyệt: ${name}`, explanation: `Chứng nhận "${name}" chưa được duyệt.`, path: `/supplier/portal/documents?replace=${encodeURIComponent(input.entityId ?? "")}#chung-nhan`, showNote: true, noteLabel: "Lý do", cta: "Tải lại chứng nhận" },
       certificate_published: { title: `Chứng nhận được phép hiển thị: ${name}`, explanation: "Chứng nhận đã được quét và cho phép hiển thị nhãn nếu sản phẩm công khai và chứng nhận còn hạn." + " Nhãn ghi rõ trạng thái chính chủ/đối tác và ngày hết hạn; bằng chứng nội bộ không công khai.", path: "/supplier/portal/documents" },
       certificate_withdrawn: { title: `Đã thu hồi hiển thị chứng nhận: ${name}`, explanation: "Nhãn chứng nhận đã được ngừng hiển thị trên trang người mua.", path: "/supplier/portal/documents" },
       verification_approved: { title: `Đã duyệt đánh giá: ${name}`, explanation: "Chỉ đánh giá này được duyệt; không tự động xác nhận các đánh giá khác hoặc công khai hồ sơ.", path: "/supplier/portal/profile" },
@@ -314,8 +314,9 @@ export async function notifySupplierDecision(input: {
     const item = config[input.decision];
     const url = `${notificationOrigin()}${item.path}`;
     const note = item.showNote ? input.note?.trim().slice(0, 1000) : null;
-    const body = `<p>${escapeHtml(item.explanation)}</p>${note ? `<p>Phản hồi: ${escapeHtml(note)}</p>` : ""}<p><a href="${url}">Mở cổng nhà cung cấp</a></p>`;
-    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: item.title, html: wrapPlainEmail({ title: escapeHtml(item.title), body }), text: `${item.title}\n${item.explanation}${note ? `\nPhản hồi: ${note}` : ""}\n${url}` });
+    const noteLabel = item.noteLabel ?? "Phản hồi";
+    const body = `<p>${escapeHtml(item.explanation)}</p>${note ? `<p>${noteLabel}: ${escapeHtml(note)}</p>` : ""}<p><a href="${url}">${item.cta ?? "Mở cổng nhà cung cấp"}</a></p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: item.title, html: wrapPlainEmail({ title: escapeHtml(item.title), body }), text: `${item.title}\n${item.explanation}${note ? `\n${noteLabel}: ${note}` : ""}\n${item.cta ? `${item.cta}: ` : ""}${url}` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] decision", error); return "failed"; }
 }

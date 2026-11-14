@@ -494,6 +494,8 @@ export interface Certificate {
   superseded_by_certificate_id?: string | null;
   review_status?: "unreviewed" | "pending" | "changes_requested" | "approved" | "rejected";
   review_note?: string | null;
+  /** Lý do từ chối gửi nhà cung cấp (lib/certificate-rejection.ts); khác review_note nội bộ. */
+  rejection_reason?: string | null;
   publicly_visible?: boolean;
   id: string;
   supplier_id: string;
