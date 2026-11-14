@@ -68,8 +68,10 @@ export async function GET(
       "Content-Type": contentType,
       "Content-Length": String(object.data.byteLength),
       // Ngắn có chủ đích: bỏ duyệt/chỉnh hạn một giấy là ảnh ngừng phục vụ trong
-      // vòng một phút, kể cả khi trình duyệt đang giữ bản cache.
-      "Cache-Control": "public, max-age=60",
+      // vòng một phút, kể cả khi trình duyệt đang giữ bản cache. s-maxage cho CDN giữ
+      // cùng một phút đó (không stale-while-revalidate), để người xem sau nhận ảnh từ
+      // cache mà không phải đọc lại CSDL và kho tệp, và thu hồi vẫn đúng trong một phút.
+      "Cache-Control": "public, max-age=60, s-maxage=60",
       "X-Robots-Tag": "noindex, nofollow",
       "X-Content-Type-Options": "nosniff",
     },
