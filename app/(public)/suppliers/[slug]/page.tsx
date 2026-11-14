@@ -7,7 +7,7 @@ import { Breadcrumbs } from "@/components/ui";
 import { SupplierStorefront } from "@/components/public/supplier-storefront";
 import { DownloadFactoryReport } from "@/components/download-factory-report";
 import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
-import { getPublicSupplierBySlug, listPublicSuppliers, supplierTypeLabel } from "@/lib/public/catalog";
+import { getPublicSupplierBySlug, supplierTypeLabel } from "@/lib/public/catalog";
 import { supplierChatAvailable } from "@/lib/chat/service";
 import { SupplierChatButton } from "@/components/public/supplier-chat-button";
 import { cache, Suspense } from "react";
@@ -23,6 +23,7 @@ import { getSession } from "@/lib/auth/session";
 import { getBuyerSession } from "@/lib/auth/buyer-session";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
+import { listCachedPublicSuppliers } from "@/lib/public/product-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ const safe = (value: string | null | undefined) => withoutDirectContacts(value |
  * Danh sách nhà cung cấp công khai dựng MỘT lần cho mỗi request (React cache): thẻ meta,
  * nội dung trang và khối "Explore other suppliers" trước đây dựng lại ba lần.
  */
-const publicSuppliersForRequest = cache(() => listPublicSuppliers());
+const publicSuppliersForRequest = cache(() => listCachedPublicSuppliers());
 const supplierBySlug = cache(async (slug: string) => getPublicSupplierBySlug(slug, await publicSuppliersForRequest()));
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

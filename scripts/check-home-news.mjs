@@ -38,6 +38,7 @@ const store = {
   listSuppliers: async () => [],
 };
 const news = load('../lib/blog/queries.ts', {
+  'next/cache': { unstable_cache: (fn) => fn },
   '@/lib/db': { getStore: () => store },
   '@/lib/blog/blog-categories': { DEFAULT_BLOG_CATEGORY: 'tin-tuc' },
   '@/lib/blog/seo-check': { titleSimilarity: () => 0 },

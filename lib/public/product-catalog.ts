@@ -269,6 +269,14 @@ export async function loadPublicProductCatalogSnapshot(options?: { categories?: 
   return { suppliers, products, categories, categoryByProduct: new Map(), mediaByProduct: new Map(), certificatesBySupplier: new Map() };
 }
 
+/**
+ * Danh sách nhà cung cấp công khai từ cùng bản cache 60 giây của trang chủ/danh mục. Dùng cho
+ * trang chỉ đọc (hồ sơ nhà cung cấp, sitemap, form RFQ); thao tác ghi vẫn dùng listPublicSuppliers().
+ */
+export async function listCachedPublicSuppliers(): Promise<PublicSupplierCard[]> {
+  return (await getCachedPublicCatalogBase()).suppliers;
+}
+
 /** Share a single in-flight batch among overlapping categories in the same request. */
 async function cachedByOwner<T>(
   ids: readonly string[], cache: Map<string, Promise<T[]>>,
@@ -384,14 +392,22 @@ export interface PublicProductRecord {
  * Resolve a small ID list through the same publication, review, category, media and
  * price projection as the category catalogue. Raw records stay on the server.
  */
-export async function getPublicProductRecordsByIds(ids: readonly string[]): Promise<PublicProductRecord[]> {
+export async function getPublicProductRecordsByIds(ids: readonly string[], options?: {
+  /**
+   * Chỉ để hiển thị (thẻ sản phẩm trong chat, gọi lại mỗi lần khung chat tự tải tin mới):
+   * dùng danh sách nhà cung cấp/danh mục đã cache 60 giây thay vì dựng lại cả catalogue.
+   * Bước có tính chất kiểm quyền (mở chat, gắn sản phẩm) để mặc định: đọc dữ liệu mới.
+   */
+  cachedCatalog?: boolean;
+}): Promise<PublicProductRecord[]> {
   const uniqueIds = [...new Set(ids.map((id) => id.trim()).filter(Boolean))].slice(0, 20);
   if (!uniqueIds.length) return [];
   const store = getStore();
+  const base = options?.cachedCatalog ? await getCachedPublicCatalogBase() : null;
   const [products, suppliers, categories] = await Promise.all([
     Promise.all(uniqueIds.map((id) => store.getProduct(id))),
-    listPublicSuppliers(),
-    store.listCategories({ publishedOnly: false }),
+    base ? Promise.resolve(base.suppliers) : listPublicSuppliers(),
+    base ? Promise.resolve(base.categories) : store.listCategories({ publishedOnly: false }),
   ]);
   const bySupplier = new Map(suppliers.map((supplier) => [supplier.id, supplier]));
   const candidates: Array<Omit<PublicProductRecord, "card">> = [];

@@ -38,6 +38,7 @@ const store = {
   getCategoryBySlug: async () => category,
   getCategory: async () => null,
   listProducts: async () => products,
+  getProduct: async (id) => products.find((product) => product.id === id) ?? null,
   listCertificates: async () => certificates,
   listCertificateScopes: async () => [],
   listCertificateOptouts: async () => [],

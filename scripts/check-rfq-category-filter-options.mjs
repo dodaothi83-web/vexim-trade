@@ -26,6 +26,7 @@ const mocks = {
   } }) },
   '@/lib/products/grade-pricing': { standardGradesForCategory: (category) => category.standardGrades ?? [] },
   '@/lib/public/catalog': { listPublicSuppliers: async () => suppliers },
+  '@/lib/public/product-catalog': { listCachedPublicSuppliers: async () => suppliers },
   '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
 };
 // Tên nhà cung cấp hiện trên banner đi qua helper thật (module thuần, không import gì),

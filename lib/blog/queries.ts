@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+
 import { getStore } from "@/lib/db";
 import type { Post } from "@/lib/types";
 import { DEFAULT_BLOG_CATEGORY } from "@/lib/blog/blog-categories";
@@ -10,11 +12,23 @@ import { titleSimilarity } from "@/lib/blog/seo-check";
  * Chỉ trả về bài đã xuất bản thuộc mục Tin tức của Veximtrade.
  */
 
-export async function listPublishedNews(): Promise<Post[]> {
+/** Tag xoá cache bài viết: app/blog-actions.ts gọi khi lưu hoặc xoá bài. */
+export const PUBLISHED_POSTS_TAG = "published-posts";
+
+/**
+ * Trang chủ và /blog đọc danh sách này ở mọi lượt xem. Cache 60 giây dùng chung cho mọi
+ * người xem (bảng posts từng là một trong các truy vấn tốn nhất); lưu/xoá bài trong CRM xoá
+ * cache ngay nên bài mới hiện ở lượt xem kế tiếp.
+ */
+const cachedPublishedNews = unstable_cache(async (): Promise<Post[]> => {
   const posts = await getStore().listPosts({ status: "published" });
   return posts
     .filter((post) => post.category === DEFAULT_BLOG_CATEGORY && post.status === "published")
     .sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? ""));
+}, ["published-news"], { revalidate: 60, tags: [PUBLISHED_POSTS_TAG] });
+
+export async function listPublishedNews(): Promise<Post[]> {
+  return cachedPublishedNews();
 }
 
 /** Bài liên quan: cùng mục, giống tiêu đề nhất, rồi đến bài mới hơn. Không gồm bài hiện tại. */

@@ -26,6 +26,7 @@ const mocks = {
     getPublicSupplierBySlug: async (key) => key === 'thin' ? null : suppliers.find((s) => (s.slug || s.id) === key) ?? null,
   },
   '@/lib/public/product-catalog': {
+    listCachedPublicSuppliers: async () => suppliers,
     loadPublicProductCatalogSnapshot: async () => { snapshotLoads++; return snapshot; },
     listPublicCategoryProducts: async (category, options) => {
       categoryCalls.push(category.slug);
