@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import { VeximDocumentIcon } from "@/components/brand/vexim-icons";
 import { CertificatePreviewDialog } from "@/components/public/supplier-certificate-rail";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
+import { canPreloadInBackground, preloadImage, whenPageIdle } from "@/lib/public/preload-image";
 
 /**
  * Thẻ chứng nhận trên trang sản phẩm.
@@ -19,10 +20,16 @@ import type { PublicSupplierCertificate } from "@/lib/public/certificates";
  * kế tiếp luôn ló ra một phần — người mua thấy ngay còn giấy phía sau mà không cần đọc
  * chú thích. Điện thoại vuốt tay; chuột và bàn phím có nút mũi tên.
  *
+ * Thẻ không có ảnh thu nhỏ, nên ảnh giấy được tải trước để mở ra là hiện ngay: khi trang
+ * rảnh tải sẵn vài giấy đầu (bỏ qua nếu tiết kiệm dữ liệu hoặc mạng chậm), và tải ngay
+ * khi người mua rê chuột, chạm hoặc tab tới thẻ.
+ *
  * Biểu tượng tài liệu dùng bản trung tính của bộ Vexim: thẻ chỉ nói "có giấy này",
  * không khẳng định đã xác thực tổ chức cấp.
  */
 const CARD_GAP_PX = 12;
+/** Số giấy đầu được tải sẵn khi trang rảnh; các giấy sau chờ người mua có ý định mở. */
+const IDLE_PRELOAD_COUNT = 3;
 
 export function ProductCertificateCards({ certificates }: { certificates: PublicSupplierCertificate[] }) {
   const [selected, setSelected] = useState<PublicSupplierCertificate | null>(null);
@@ -50,6 +57,16 @@ export function ProductCertificateCards({ certificates }: { certificates: Public
       window.removeEventListener("resize", syncEdges);
     };
   }, [syncEdges, certificates.length]);
+
+  const preloadKey = certificates.map((certificate) => certificate.imageUrl ?? "").join("|");
+  useEffect(() => {
+    const urls = preloadKey.split("|").filter(Boolean).slice(0, IDLE_PRELOAD_COUNT);
+    if (urls.length === 0) return;
+    return whenPageIdle(() => {
+      const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+      if (canPreloadInBackground(connection)) urls.forEach(preloadImage);
+    });
+  }, [preloadKey]);
 
   const step = (direction: -1 | 1) => {
     const rail = railRef.current;
@@ -87,6 +104,8 @@ export function ProductCertificateCards({ certificates }: { certificates: Public
           <li key={certificate.id} className={sliding ? "flex w-[80%] min-w-0 shrink-0 snap-start sm:w-[41%]" : "flex min-w-0"}>
             {certificate.imageUrl ? (
               <button type="button" onClick={() => setSelected(certificate)} aria-haspopup="dialog"
+                onPointerEnter={() => preloadImage(certificate.imageUrl)} onTouchStart={() => preloadImage(certificate.imageUrl)}
+                onFocus={() => preloadImage(certificate.imageUrl)}
                 aria-label={`View ${certificate.shortName} certificate`}
                 className="group flex w-full items-start gap-3 rounded-xl border border-ink-200 bg-white p-3.5 text-left transition hover:border-brand-300 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
                 <CardBody certificate={certificate} />
