@@ -1,4 +1,5 @@
 import type { L2VerificationScope, VerificationLevel } from "./types";
+import { looksVietnamese } from "./vietnamese-text.ts";
 
 /** A passed review is independent of the other two reviews. Never infer one from a higher number. */
 export function approvedVerificationSteps(rows: ReadonlyArray<{ target_level: number; status: string }>): VerificationLevel[] {
@@ -19,8 +20,9 @@ export function approvedPublicReviewSummaries(rows: ReadonlyArray<{
     const approved = rows.filter((row) => row.target_level === level && row.status === "approved" && row.public_summary_published_at && (level !== 2 || row.l2_scope !== "partner_contract"))
       .sort((a, b) => (b.public_summary_published_at ?? "").localeCompare(a.public_summary_published_at ?? ""));
     const summary = approved[0]?.public_summary_i18n?.en?.trim();
-    // Defense in depth if an old row was published outside the moderated form.
-    if (summary && !/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary) && !/https?:\/\/|www\./i.test(summary) && !/(?:\+?\d[\s().-]?){9,15}\d/.test(summary)) summaries[level] = summary;
+    // Defense in depth if an old row was published outside the moderated form. A summary
+    // written in Vietnamese falls back to the default English line instead of showing.
+    if (summary && !looksVietnamese(summary) && !/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary) && !/https?:\/\/|www\./i.test(summary) && !/(?:\+?\d[\s().-]?){9,15}\d/.test(summary)) summaries[level] = summary;
   }
   return summaries;
 }

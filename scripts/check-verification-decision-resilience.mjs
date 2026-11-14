@@ -89,6 +89,7 @@ const mocks = {
     },
   },
   '@/lib/types': {},
+  '@/lib/vietnamese-text': { looksVietnamese: (text) => /[ăâđêôơư]/i.test(text ?? '') },
 };
 
 const exported = {};

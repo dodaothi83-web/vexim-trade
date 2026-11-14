@@ -26,7 +26,7 @@ function load(relativePath, mocks) {
 }
 
 // Module thuần: dùng bản thật để nhãn xác minh và tên ngắn không bị lệch với nơi khác.
-const verification = load('lib/verification-status.ts', {});
+const verification = load('lib/verification-status.ts', { './vietnamese-text.ts': load('lib/vietnamese-text.ts', {}) });
 const supplierName = load('lib/public/supplier-name.ts', {});
 
 let category = { id: 'cat-1', slug: 'cashew', status: 'published', is_published: true, parent_id: null };
