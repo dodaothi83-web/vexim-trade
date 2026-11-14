@@ -1643,7 +1643,8 @@ export const localStore: DataStore = {
     return (load().supplier_submissions ?? []).filter((s) => s.status === "pending_review").length;
   },
   async countCertificatesPendingReview() {
-    return (load().certificates ?? []).filter((c) => c.review_status === "pending").length;
+    const today = new Date().toISOString().slice(0, 10);
+    return (load().certificates ?? []).filter((c) => c.review_status === "pending" && !(c.valid_until && c.valid_until < today)).length;
   },
   async getUser(id) {
     return load().users.find((u) => u.id === id) ?? null;

@@ -158,7 +158,7 @@ export async function scanCertificateFile(input: {
     return {
       ok: false,
       reason: "unsupported_file",
-      message: "Tệp rỗng hoặc vượt giới hạn 15MB để AI quét.",
+      message: "Tệp rỗng hoặc vượt giới hạn 15MB nên hệ thống chưa quét được.",
     };
   }
 

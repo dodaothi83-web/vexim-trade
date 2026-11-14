@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { AlertTriangle, Clock3, HelpCircle, Maximize2 } from "lucide-react";
+import { AlertTriangle, CalendarX2, Clock3, HelpCircle, Maximize2 } from "lucide-react";
+import { formatCertificateDate } from "@/lib/certificate-supplier-copy";
 import { VeximDocumentIcon as FileCheck2 } from "@/components/brand/vexim-icons";
 
 import { getStore } from "@/lib/db";
@@ -50,9 +51,13 @@ export default async function CertificateQueuePage() {
   const unclassified = certificates.filter((certificate) =>
     isUnclassifiedCertificateScheme(certificate.certificate_scheme ?? null) &&
     certificate.review_status !== "rejected");
-  const pending = certificates.filter((certificate) => certificate.review_status === "pending");
+  // Giấy hết hạn không duyệt đăng được: tách riêng, không tính là việc "chờ duyệt".
+  const isExpired = (certificate: Certificate) => Boolean(certificate.valid_until && certificate.valid_until < today);
+  const pending = certificates.filter((certificate) => certificate.review_status === "pending" && !isExpired(certificate));
+  const expiredWaiting = certificates.filter((certificate) => isExpired(certificate) &&
+    certificate.review_status !== "rejected" && !certificate.superseded_by_certificate_id);
   const expiring = certificates.filter((certificate) => {
-    if (certificate.review_status !== "approved") return false;
+    if (certificate.review_status !== "approved" || certificate.superseded_by_certificate_id) return false;
     const left = daysLeft(certificate.valid_until, today);
     return left !== null && left >= 0 && left <= 60;
   });
@@ -66,6 +71,7 @@ export default async function CertificateQueuePage() {
       hint: "Chọn loại giấy để giấy vào đúng đường ra: L1, badge sản phẩm hay đơn hàng.",
       icon: HelpCircle,
       rows: unclassified,
+      action: "Phân loại →",
     },
     {
       key: "pending",
@@ -73,13 +79,23 @@ export default async function CertificateQueuePage() {
       hint: "Đã có tệp nhưng chưa duyệt đăng; kiểm đơn vị đứng tên, hạn và phạm vi.",
       icon: Clock3,
       rows: pending,
+      action: "Đối chiếu →",
+    },
+    {
+      key: "expired",
+      title: "Hết hạn, chờ bản gia hạn",
+      hint: "Không duyệt đăng được. Nhà cung cấp đã được báo tải bản gia hạn.",
+      icon: CalendarX2,
+      rows: expiredWaiting,
+      action: "Mở hồ sơ →",
     },
     {
       key: "expiring",
       title: "Sắp hết hạn (60 ngày)",
-      hint: "Nhắc nhà cung cấp tải bản gia hạn; bản cũ vẫn hiệu lực tới khi bản mới được duyệt.",
+      hint: "Hệ thống đã nhắc nhà cung cấp; quá hạn thì giấy tự ẩn với người mua.",
       icon: AlertTriangle,
       rows: expiring,
+      action: "Mở hồ sơ →",
     },
     {
       key: "requests",
@@ -87,6 +103,7 @@ export default async function CertificateQueuePage() {
       hint: "Nhà cung cấp muốn dùng giấy cho thêm sản phẩm; duyệt ở dòng chứng nhận của họ.",
       icon: Maximize2,
       rows: scopeRequests,
+      action: "Duyệt phạm vi →",
     },
   ];
 
@@ -101,7 +118,7 @@ export default async function CertificateQueuePage() {
         </span>}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {sections.map((section) => (
           <Card key={section.key} className="p-4">
             <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-ink-500 uppercase">
@@ -133,17 +150,17 @@ export default async function CertificateQueuePage() {
                     <Badge className={schemeLabel ? "bg-teal-50 text-teal-800" : "bg-amber-50 text-amber-900"}>
                       {schemeLabel ?? "Chưa phân loại"}
                     </Badge>
-                    {certificate.valid_until && (
-                      <span className="text-ink-600">
-                        hạn {certificate.valid_until}{left !== null ? ` · còn ${left} ngày` : ""}
-                      </span>
-                    )}
+                    {certificate.valid_until && (left !== null && left < 0
+                      ? <span className="font-semibold text-rose-700">Hết hạn {formatCertificateDate(certificate.valid_until)} · {-left} ngày trước</span>
+                      : <span className={left !== null && left <= 60 ? "text-amber-800" : "text-ink-600"}>
+                        Hạn {formatCertificateDate(certificate.valid_until)}{left !== null ? ` · còn ${left} ngày` : ""}
+                      </span>)}
                     {certificate.superseded_by_certificate_id && <Badge className="bg-ink-100 text-ink-700">Đã có bản mới</Badge>}
                     <Link
                       href={`/crm/suppliers/${certificate.supplier_id}/audit/documents`}
                       className="ml-auto text-[12px] font-semibold text-brand-700 underline"
                     >
-                      {canInspect ? "Phân loại →" : "Xem hồ sơ →"}
+                      {canInspect ? section.action : "Xem hồ sơ →"}
                     </Link>
                   </li>
                 );

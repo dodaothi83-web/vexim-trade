@@ -572,7 +572,9 @@ export const supabaseStore: DataStore = {
   },
   async countCertificatesPendingReview() {
     const { count, error } = await must()
-      .from("certificates").select("id", { count: "exact", head: true }).eq("review_status", "pending");
+      .from("certificates").select("id", { count: "exact", head: true }).eq("review_status", "pending")
+      // Giấy hết hạn không duyệt đăng được nên không tính là việc chờ duyệt (khớp trang /crm/certificates).
+      .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString().slice(0, 10)}`);
     if (error) fail("countCertificatesPendingReview", error);
     return count ?? 0;
   },
