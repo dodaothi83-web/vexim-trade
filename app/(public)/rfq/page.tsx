@@ -7,11 +7,11 @@ import { Breadcrumbs } from "@/components/ui";
 import { getStore } from "@/lib/db";
 import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { categoryFilterValues } from "@/lib/category-filters";
-import { listPublicSuppliers } from "@/lib/public/catalog";
 import { supplierShortName } from "@/lib/public/supplier-name";
 import { loadRfqProductContext } from "@/lib/public/rfq-product-context";
 import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import type { Category } from "@/lib/types";
+import { listCachedPublicSuppliers } from "@/lib/public/product-catalog";
 
 export const metadata = {
   title: "Request a quote | Veximtrade",
@@ -47,7 +47,7 @@ export default async function RfqPage({
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  const publicSuppliers = supplierIds.length ? await listPublicSuppliers().catch(() => []) : [];
+  const publicSuppliers = supplierIds.length ? await listCachedPublicSuppliers().catch(() => []) : [];
   const initialSuppliers = supplierIds
     .map((supId) => publicSuppliers.find((s) => s.id === supId))
     .filter((s): s is NonNullable<typeof s> => Boolean(s))

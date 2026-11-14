@@ -1,7 +1,7 @@
 import { getStore } from "@/lib/db";
-import { listPublicSuppliers } from "@/lib/public/catalog";
 import { supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
+import { listCachedPublicSuppliers } from "@/lib/public/product-catalog";
 
 /** Làm mới nội dung sau tối đa 60 giây, cùng nhịp với sitemap. */
 export const revalidate = 60;
@@ -30,7 +30,7 @@ export async function GET(): Promise<Response> {
     const store = getStore();
     const [categories, suppliers] = await Promise.all([
       store.listCategories({ publishedOnly: true }).catch(() => []),
-      listPublicSuppliers().catch(() => []),
+      listCachedPublicSuppliers().catch(() => []),
     ]);
 
     if (categories.length) {

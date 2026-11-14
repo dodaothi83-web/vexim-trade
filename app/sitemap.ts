@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 import { listPublishedNews } from "@/lib/blog/queries";
 import { getStore } from "@/lib/db";
-import { getPublicSupplierBySlug, listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catalog";
-import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot } from "@/lib/public/product-catalog";
+import { getPublicSupplierBySlug, type PublicSupplierCard } from "@/lib/public/catalog";
+import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, listCachedPublicSuppliers } from "@/lib/public/product-catalog";
 import { supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
 
@@ -51,7 +51,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const store = getStore();
   const [categories, publishedSuppliers] = await Promise.all([
     store.listCategories({ publishedOnly: true }).catch(() => []),
-    listPublicSuppliers().catch(() => []),
+    listCachedPublicSuppliers().catch(() => []),
   ]);
 
   // Directory cards do not check product media. Confirm the actual public profile

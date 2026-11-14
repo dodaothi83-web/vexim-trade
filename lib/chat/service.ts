@@ -93,7 +93,7 @@ export async function conversationViews(store: DataStore, rows: ChatConversation
 async function productCards(ids: string[]): Promise<Map<string, ChatProductCard>> {
   const unique = [...new Set(ids.filter(Boolean))].slice(0, 30);
   if (!unique.length) return new Map();
-  const records = await getPublicProductRecordsByIds(unique).catch(() => []);
+  const records = await getPublicProductRecordsByIds(unique, { cachedCatalog: true }).catch(() => []);
   return new Map(records.map((r) => {
     const path = r.card.cardImagePath ?? r.card.imagePaths[0] ?? null;
     return [r.product.id, {

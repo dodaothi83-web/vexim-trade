@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { PUBLISHED_POSTS_TAG } from "@/lib/blog/queries";
 
 import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
@@ -13,6 +14,8 @@ export type BlogActionResult = { ok: true; post: Post } | { ok: false; message: 
 const MIN_PUBLISH_CHARS = 50;
 
 function refreshPublicPages(slug?: string) {
+  // Danh sách bài đã đăng được cache 60 giây (lib/blog/queries.ts): xoá ngay để bài mới hiện liền.
+  revalidateTag(PUBLISHED_POSTS_TAG, { expire: 0 });
   revalidatePath("/blog");
   revalidatePath("/sitemap.xml");
   if (slug) revalidatePath(`/blog/${slug}`);

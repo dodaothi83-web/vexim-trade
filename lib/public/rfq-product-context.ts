@@ -59,7 +59,8 @@ export async function loadRfqProductContext(input: {
     .find((product) => product.id === productId && product.supplierId === supplierId);
   if (!card) return null;
 
-  const raw = (await store.listProducts().catch(() => [])).find((product) => product.id === productId) ?? null;
+  // Sản phẩm đã qua cổng công khai ở trên (card); chỉ đọc đúng bản ghi này, không đọc cả bảng.
+  const raw = await store.getProduct(productId).catch(() => null);
   const parentCategory = category.parent_id ? await store.getCategory(category.parent_id).catch(() => null) : null;
   const certificates = await productCertificatesFor(productId, supplierId, [
     category.id,

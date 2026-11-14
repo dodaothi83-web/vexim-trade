@@ -240,7 +240,9 @@ function BrowsePrompt({ categories, lang }: { categories: Category[]; lang: Loca
 async function findResults(tokens: string[], categories: Category[], selected: Category | undefined, allCategories: Category[], lang: Locale): Promise<Results> {
   // Dùng đúng cổng duyệt, media, giá và xếp hạng của catalogue hiện tại. Chỉ chia
   // sẻ dữ liệu gốc giữa các danh mục ở server; không gửi bản ghi gốc sang trình duyệt.
-  const snapshot = await loadPublicProductCatalogSnapshot({ categories: allCategories });
+  // Bản cache 60 giây dùng chung với trang chủ (cùng danh mục publishedOnly: false), thay vì
+  // đọc lại toàn bộ nhà cung cấp + sản phẩm ở mỗi lượt tìm.
+  const snapshot = await loadPublicProductCatalogSnapshot();
   const scoped = categoryScope(categories, selected);
   const byCategoryId = new Map(categories.map((category) => [category.id, category]));
   const supplierText = new Map(snapshot.suppliers.map((supplier) => [supplier.id, supplierSearchText(supplier)]));
