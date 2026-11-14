@@ -265,7 +265,7 @@ export default async function PublicProductDetail({ params }: Props) {
         <aside className="mt-6 overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card" aria-labelledby="supplier-card-title">
           <div className="border-b border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5">
             <div className="flex items-start gap-3">
-              <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} aria-label={`View ${card.supplierName} supplier profile`}
+              <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" aria-label={`View ${card.supplierName} supplier profile (opens in a new tab)`}
                 className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-brand-100 bg-white text-brand-700 shadow-sm">
                 {supplierImageUrl ? <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -274,7 +274,7 @@ export default async function PublicProductDetail({ params }: Props) {
               </Link>
               <div className="min-w-0 flex-1">
                 <h2 id="supplier-card-title" className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">Supplied by</h2>
-                <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-1 block break-words text-base font-bold leading-6 text-ink-900 hover:text-brand-800">{card.supplierName}</Link>
+                <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" className="mt-1 block break-words text-base font-bold leading-6 text-ink-900 hover:text-brand-800">{card.supplierName}</Link>
                 <div className="mt-2"><VerificationTierBadge levels={card.verificationSteps} /></div>
               </div>
             </div>
@@ -291,11 +291,11 @@ export default async function PublicProductDetail({ params }: Props) {
             </div>
             <div className="mt-2"><ProductVerificationIcons levels={card.verificationSteps} l2Scope={card.l2Scope} /></div>
             {(card.verificationSteps.includes(2) || card.verificationSteps.includes(3)) && <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-              {card.verificationSteps.includes(2) && (card.l2Scope === "factory" || card.l2Scope === "both") && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#factory-visit`} className="text-brand-700 underline">Factory verification scope</Link>}
-              {card.verificationSteps.includes(2) && (card.l2Scope === "partner_contract" || card.l2Scope === "both") && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#partner-factory-contract`} className="text-brand-700 underline">Partner contract review scope</Link>}
-              {card.verificationSteps.includes(3) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} className="text-brand-700 underline">Delivery review scope</Link>}
+              {card.verificationSteps.includes(2) && (card.l2Scope === "factory" || card.l2Scope === "both") && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#factory-visit`} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">Factory verification scope</Link>}
+              {card.verificationSteps.includes(2) && (card.l2Scope === "partner_contract" || card.l2Scope === "both") && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#partner-factory-contract`} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">Partner contract review scope</Link>}
+              {card.verificationSteps.includes(3) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">Delivery review scope</Link>}
             </div>}
-            <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand-800 hover:underline">View supplier profile <ArrowRight className="h-4 w-4" /></Link>
+            <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand-800 hover:underline">View supplier profile <ArrowRight className="h-4 w-4" /></Link>
             <p className="mt-3 text-xs leading-5 text-ink-500">Ask this supplier directly through an RFQ in your account. Vexim coordinates only general sourcing requests. The website is supplier-provided.</p>
             <Link href={`/khieu-nai?product=${encodeURIComponent(card.id)}`} className="mt-3 inline-block text-xs font-semibold text-brand-700 underline">Report this listing</Link>
           </div>
@@ -386,7 +386,7 @@ export default async function PublicProductDetail({ params }: Props) {
               <ProductCertificateCards certificates={productCertificates} />
             </div>
             <p className="mt-4 text-xs leading-5 text-ink-600">
-              <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#certificates`} className="font-semibold text-brand-700 underline">All certificates on the supplier profile</Link>
+              <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#certificates`} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">All certificates on the supplier profile</Link>
             </p>
           </section>
         )}
