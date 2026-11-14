@@ -37,6 +37,7 @@ function load(file) {
     if (id === '@/components/product-compare-checkbox') return { ProductCompareCheckbox: () => null };
     if (id === '@/components/product-trade-labels') return { ProductTradeLabels: () => null };
     if (id === '@/components/public/supplier-product-rail') return { SupplierProductRail: ({ children }) => React.createElement('ul', null, children) };
+    if (id.startsWith('./') || id.startsWith('../')) return load(resolve(absolute, '..', id));
     if (id.startsWith('@/')) {
       const base = id.slice(2);
       return load(base.endsWith('.ts') || base.endsWith('.tsx') ? base : existsSync(`${base}.tsx`) ? `${base}.tsx` : `${base}.ts`);

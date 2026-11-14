@@ -12,6 +12,7 @@ import { verificationMediaEditError } from "@/lib/media/verification-access";
 import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifyStaffVerificationSubmission, notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { type AuditEvidenceKey, type Verification, type VerificationStatus } from "@/lib/types";
+import { looksVietnamese } from "@/lib/vietnamese-text";
 
 function refreshAudit(v: Verification) {
   revalidatePath(auditHref(v.supplier_id, v.target_level));
@@ -44,6 +45,7 @@ function briefReason(error: unknown): string {
 function publicSummaryValidationError(summary: string, confirmed: boolean): string | null {
   if (!summary) return "Hãy viết tóm tắt công khai bằng tiếng Anh để người mua hiểu phạm vi đợt kiểm.";
   if (summary.length > 1000) return "Tóm tắt công khai tối đa 1000 ký tự.";
+  if (looksVietnamese(summary)) return "Tóm tắt công khai đang viết bằng tiếng Việt. Người mua chỉ xem tiếng Anh, hãy viết lại bằng tiếng Anh.";
   if (!confirmed) return "Hãy xác nhận đã đối chiếu tóm tắt với bằng chứng và loại bỏ thông tin nhạy cảm.";
   if (/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary) || /https?:\/\/|www\./i.test(summary) || /(?:\+?\d[\s().-]?){9,15}\d/.test(summary)) {
     return "Tóm tắt chứa email, liên kết hoặc chuỗi số có thể là số điện thoại/mã đơn. Hãy viết lại ở mức khái quát.";

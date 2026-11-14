@@ -90,6 +90,7 @@ const mocks = {
   '@/lib/l2-scope': l2Scope,
   '@/lib/media/verification-access': { verificationMediaEditError: async () => mediaBlocked },
   '@/lib/types': { L1_DOC_ITEMS: docItems },
+  '@/lib/vietnamese-text': { looksVietnamese: (text) => /[ăâđêôơư]/i.test(text ?? '') },
   '@/lib/verification': {
     auditHref: () => '/crm/suppliers/supplier-1/audit/deliveries',
     auditItems: (level, scope) => level === 2 && scope === 'partner_contract' ? realTypes.L2_PARTNER_REVIEW_ITEMS : level === 3 ? ['order_matched', 'shipping_proof', 'delivery_proof'].map((key) => ({ key })) : level === 2 ? ['factory_gate', 'pest_control'].map((key) => ({ key })) : docItems.filter((item) => ['business_license', 'tax_certificate', 'bank_letter'].includes(item.key)),

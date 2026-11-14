@@ -14,7 +14,7 @@ function load(path, mocks = {}) {
   return mod.exports;
 }
 const comparison = load('lib/public/product-comparison.ts');
-const verification = load('lib/verification-status.ts');
+const verification = load('lib/verification-status.ts', { './vietnamese-text.ts': load('lib/vietnamese-text.ts') });
 const website = load('lib/public/supplier-website.ts');
 const { comparisonPdfDefinition, COMPARISON_PDF_MARGIN: margin } = load('lib/public/product-comparison-pdf.ts', {
   '@/lib/public/product-comparison': comparison, '@/lib/verification-status': verification, '@/lib/types': { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] },
