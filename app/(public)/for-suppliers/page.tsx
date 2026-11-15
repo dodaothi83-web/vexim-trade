@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, FileText, Globe2, Lock, ShieldCheck } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
-import { ServiceRegistrationSection } from "@/components/service-registration-section";
 
 export const metadata: Metadata = {
   title: "For suppliers – Get listed on Veximtrade",
@@ -140,8 +139,6 @@ export default function ForSuppliersPage() {
         </p>
       </section>
     </div>
-    {/* 4 dịch vụ cho nhà cung cấp (chuyển từ trang chủ) kèm form đăng ký tư vấn. */}
-    <ServiceRegistrationSection lang="en" />
     </>
   );
 }
