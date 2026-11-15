@@ -55,6 +55,8 @@ export interface Supplier {
   plan_expires_at?: string | null;
   plan_updated_at?: string | null;
   plan_updated_by?: string | null;
+  /** Khối nội dung hình ảnh (Premium/Pro), xem lib/supplier-showcase.ts. */
+  showcase_blocks?: { id: string; image_path: string; title: string; body: string }[] | null;
   id: string;
   /** Tên pháp nhân */
   name: string;
