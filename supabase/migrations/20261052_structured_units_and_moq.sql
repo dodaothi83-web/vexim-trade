@@ -26,7 +26,7 @@ update public.supplier_products sp
 set
   moq_qty = pc.qty,
   moq_unit = case when pc.cont_size = '40' then 'cont_40ft' else 'cont_20ft' end,
-  moq = trim(trailing '.' from trim(trailing '0' from pc.qty::text)) || ' × ' || pc.cont_size || 'ft ' ||
+  moq = trim_scale(pc.qty)::text || ' × ' || pc.cont_size || 'ft ' ||
         case when pc.qty = 1 then 'container' else 'containers' end
 from parsed_containers pc
 where sp.id = pc.id
@@ -51,7 +51,7 @@ update public.supplier_products sp
 set
   moq_qty = pm.qty,
   moq_unit = 'mt',
-  moq = trim(trailing '.' from trim(trailing '0' from pm.qty::text)) || ' MT'
+  moq = trim_scale(pm.qty)::text || ' MT'
 from parsed_mt pm
 where sp.id = pm.id
   and pm.qty > 0
@@ -75,7 +75,7 @@ update public.supplier_products sp
 set
   moq_qty = pk.qty,
   moq_unit = 'kg',
-  moq = trim(trailing '.' from trim(trailing '0' from pk.qty::text)) || ' kg'
+  moq = trim_scale(pk.qty)::text || ' kg'
 from parsed_kg pk
 where sp.id = pk.id
   and pk.qty > 0
