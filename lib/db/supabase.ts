@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessage, SourcingRequest, SupportConversation, SupportMessage } from "@/lib/types";
+import type { ChatConversation, ChatMessage, SourcingRequest, SupplierServiceRequest, SupportConversation, SupportMessage } from "@/lib/types";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { PRODUCT_EXTRAS_COLUMNS, type ProductExtrasColumn } from "@/lib/products/product-extras";
 
@@ -1297,6 +1297,25 @@ export const supabaseStore: DataStore = {
     const { data, error } = await must().from("support_messages").insert(input).select("*").single();
     if (error) fail("addSupportMessage", error);
     return data as SupportMessage;
+  },
+  async listSupplierServiceRequests(filter = {}) {
+    let query = must().from("supplier_service_requests").select("*");
+    if (filter.supplierId) query = query.eq("supplier_id", filter.supplierId);
+    if (filter.status) query = query.eq("status", filter.status);
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(filter.limit ?? 200);
+    if (error) fail("listSupplierServiceRequests", error);
+    return (data ?? []) as SupplierServiceRequest[];
+  },
+  async addSupplierServiceRequest(input) {
+    const { data, error } = await must().from("supplier_service_requests").insert(input).select("*").single();
+    if (error) fail("addSupplierServiceRequest", error);
+    return data as SupplierServiceRequest;
+  },
+  async updateSupplierServiceRequest(id, patch) {
+    const { data, error } = await must().from("supplier_service_requests")
+      .update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id).select("*").maybeSingle();
+    if (error) fail("updateSupplierServiceRequest", error);
+    return (data ?? null) as SupplierServiceRequest | null;
   },
   async listMessagesForThreads(threadIds) {
     const ids = [...new Set(threadIds)].filter(Boolean);

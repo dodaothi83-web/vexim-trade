@@ -1936,6 +1936,24 @@ export interface SupportConversation {
   created_at: string;
 }
 
+/** Dịch vụ nhà cung cấp yêu cầu tư vấn trong cổng (mục "Dịch vụ Vexim"). */
+export type SupplierServiceKey = "international_website" | "featured_ads" | "fda_compliance";
+export type SupplierServiceRequestStatus = "submitted" | "in_consultation" | "quoted" | "closed";
+
+export interface SupplierServiceRequest {
+  id: string;
+  supplier_id: string;
+  service_key: SupplierServiceKey;
+  note: string | null;
+  status: SupplierServiceRequestStatus;
+  reference: string;
+  requested_by: string | null;
+  requested_email: string;
+  handled_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SupportMessage {
   id: string;
   conversation_id: string;

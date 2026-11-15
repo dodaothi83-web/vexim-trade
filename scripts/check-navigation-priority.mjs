@@ -12,7 +12,7 @@ assert.deepEqual(hrefs, [
   '/crm/support', '/crm/mail', '/crm/messages',
   '/crm/tasks', '/crm/dashboard', '/crm/suppliers', '/crm/products', '/crm/sourcing', '/crm/rfqs',
   '/crm/verifications', '/crm/verifications/submissions', '/crm/certificates',
-  '/crm/categories', '/crm/sponsored', '/crm/traffic', '/crm/posts',
+  '/crm/categories', '/crm/sponsored', '/crm/service-requests', '/crm/traffic', '/crm/posts',
   '/crm/buyers', '/crm/prospects', '/crm/team', '/crm/settings',
 ], 'Chats and mail come first, then the task list and daily marketplace work; self-submission queue sits with verifications; sale and settings are secondary');
 assert.match(sidebar, /href: "\/crm\/categories", label: "Danh mục sản phẩm"/, 'Category menu uses product-focused wording');
@@ -42,7 +42,7 @@ assert.match(settings, /hasPermission\(session\.role, "templates\.manage"\)/, 'T
 const supplierNav = read('components/supplier-sidebar.tsx');
 assert.doesNotMatch(supplierNav, /href="\/supplier\/portal\/products\/new"/, 'Add product is an action, not a tab');
 // Cổng nhà cung cấp: nhóm Công việc (tổng quan, tin nhắn, RFQ) đứng đầu menu.
-assert.match(supplierNav, /const NAV_GROUPS = \["work", "shop", "verify", "account"\]/);
+assert.match(supplierNav, /const NAV_GROUPS = \["work", "shop", "verify", "grow", "account"\]/);
 const supplierHrefs = [...supplierNav.matchAll(/href: "([^"]+)"/g)].map((m) => m[1]);
 assert.deepEqual(supplierHrefs.slice(0, 3), ['/supplier/portal', '/supplier/portal/messages', '/supplier/portal/rfqs']);
 assert.match(supplierNav, /pathname\.startsWith\(`\$\{href\}\/`\)/, 'Product section stays selected on nested pages');
