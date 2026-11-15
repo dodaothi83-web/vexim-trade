@@ -253,6 +253,8 @@ const PORT_NAMES: Record<string, string> = {
   "cai mep port": "Cai Mep Port",
   "cang hai phong": "Hai Phong Port",
   "hai phong port": "Hai Phong Port",
+  "cang long binh tan": "Long Binh Tan Port",
+  "long binh tan port": "Long Binh Tan Port",
   "cang da nang": "Da Nang Port",
   "da nang port": "Da Nang Port",
   "cang dinh vu": "Dinh Vu Port",

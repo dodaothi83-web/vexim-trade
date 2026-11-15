@@ -192,7 +192,22 @@ export function productTranslationPatch(
         incoterm_place: translation.incoterm_place,
         export_port: translation.export_port,
       },
+      field_sources: tradeFieldSources(source),
     },
+  };
+}
+
+/** Nội dung gốc đã làm sạch của từng trường thương mại, đúng như lúc gửi đi dịch. */
+function tradeFieldSources(source: ProductTranslationSource) {
+  const clean = productTranslationSource(source);
+  return {
+    moq: clean.moq,
+    monthly_capacity: clean.monthly_capacity,
+    payment_terms: clean.payment_terms,
+    raw_material_region: clean.raw_material_region,
+    input_material_origin: clean.input_material_origin,
+    incoterm_place: clean.incoterm_place,
+    export_port: clean.export_port,
   };
 }
 

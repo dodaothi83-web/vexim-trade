@@ -214,6 +214,12 @@ export interface SupplierProduct {
     model?: string | null;
     /** English renderings for trade fields without separate i18n columns. */
     fields?: ProductEnglishFields;
+    /**
+     * Source text of each trade field at translation time. A field whose source is
+     * unchanged keeps its translation even when another field (for example MOQ) changed.
+     * Missing on translations saved before this was added.
+     */
+    field_sources?: ProductEnglishFields;
   } | null;
   /** Thông số theo ngành (JSON linh hoạt) */
   specs?: Record<string, unknown>;
