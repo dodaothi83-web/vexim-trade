@@ -8,6 +8,8 @@ import { readFileSync, existsSync } from 'node:fs';
 
 /** Đợt 1: form 3 bước, bảng giá, xem trước, danh sách sản phẩm, duyệt giá CRM, media. */
 const SCOPE = [
+  'app/crm/suppliers/[slug]/plan-controls.tsx',
+  'app/crm/suppliers/[slug]/plan-actions.ts',
   'lib/i18n/portal/services.ts',
   'app/supplier/portal/services/service-cards.tsx',
   'app/supplier/portal/services/page.tsx',

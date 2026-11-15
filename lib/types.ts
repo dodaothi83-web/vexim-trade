@@ -49,6 +49,12 @@ export type SupplierProfileEnglishFields = {
 };
 
 export interface Supplier {
+  /** Gói nhà cung cấp (basic | premium | pro). Thiếu cột (chưa chạy migration) là basic. */
+  plan?: "basic" | "premium" | "pro" | null;
+  /** Ngày hết hạn gói trả phí; hết hạn thì tính là basic. */
+  plan_expires_at?: string | null;
+  plan_updated_at?: string | null;
+  plan_updated_by?: string | null;
   id: string;
   /** Tên pháp nhân */
   name: string;

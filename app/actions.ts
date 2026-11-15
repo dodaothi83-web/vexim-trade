@@ -75,6 +75,7 @@ import type {
   Category,
   MediaOwnerType,
 } from "@/lib/types";
+import { canAddSupplierProduct, isProductLimitError, SUPPLIER_PLAN_LABELS, supplierPlanRules } from "@/lib/supplier-plans";
 
 export interface ActionResult {
   ok: boolean;
@@ -1593,11 +1594,20 @@ export async function createProductAction(
       input.specs = applyGradeRowsToSpecs(input.specs ?? {}, parsedGradeRows.rows, categorySource);
     }
     Object.assign(input, productExtrasFromPayload(raw, null));
+    // Giới hạn gói áp cho mọi đường tạo sản phẩm; nâng gói trong hồ sơ nhà cung cấp nếu cần.
+    const planSupplier = await getStore().getSupplier(input.supplier_id);
+    if (planSupplier) {
+      const planRules = supplierPlanRules(planSupplier);
+      const count = (await getStore().listProductsBySupplier(planSupplier.id)).filter((p) => p.supplier_id === planSupplier.id).length;
+      if (!canAddSupplierProduct(planSupplier, count))
+        return { ok: false, message: `Nhà cung cấp đang dùng gói ${SUPPLIER_PLAN_LABELS[planRules.plan]}, tối đa ${planRules.maxProducts} sản phẩm. Nâng gói trong hồ sơ nhà cung cấp trước khi thêm.` };
+    }
     const created = await getStore().createProduct(input);
     const warning = await syncSupplierIndustries(created.supplier_id);
     revalidateAll();
     return { ok: true, message: `Đã thêm sản phẩm “${created.name}”. ${assigned ? `Hệ thống gán ngành ${assigned.name_i18n.en || assigned.slug}.` : "Chưa nhận diện được ngành; sản phẩm vẫn là bản nháp."} Tải ảnh/catalogue chia sẻ người mua vào hồ sơ sản phẩm rồi bật “Sẵn sàng gửi người mua” nếu muốn hiển thị công khai.${warning ? ` ${warning}` : ""}`, id: created.id };
   } catch (err) {
+    if (isProductLimitError(err)) return { ok: false, message: "Nhà cung cấp đã dùng hết số sản phẩm của gói hiện tại. Nâng gói trong hồ sơ nhà cung cấp trước khi thêm." };
     return { ok: false, message: err instanceof Error ? err.message : "Lỗi không xác định" };
   }
 }

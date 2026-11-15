@@ -28,7 +28,7 @@ const bankMedia = (() => {
   return mod.exports;
 })();
 const store = {
-  getProduct: async () => saved, getCategoryBySlug: async () => category, listCategories: async () => [category],
+  listProductsBySupplier: async () => [], getProduct: async () => saved, getCategoryBySlug: async () => category, listCategories: async () => [category],
   updateCategory: async () => {}, addAuditLog: async () => { if (throwAudit) throw Error('audit'); },
   listMedia: async () => [{ kind: 'image', storage_path: 'x', supplier_id: supplierId, created_by: user.id }],
   updateSupplierProductIfState: async (_id, _sid, _expected, patch) => (saved = { ...saved, ...patch }),
@@ -51,7 +51,9 @@ const db = {
   },
 };
 const grade = { hasProductPricingChanged: () => false, standardGradesForCategory: () => ['W320', 'W240'], parseLeadTimeInput: () => ({ ok: true, value: null, unit: 'on_request', daysEquivalent: null }), applyLeadTimeToSpecs: (x) => x };
+const supplierPlans = await import('../lib/supplier-plans.ts');
 const mocks = {
+  '@/lib/supplier-plans': supplierPlans,
   '@/lib/i18n/server': { getPortalMessages: async () => ({ locale: 'vi', m: loadPortalDictionary().vi }) },
   '@/lib/i18n/format': { fill: (text, values) => text.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? '') },
   '@/lib/products/quantity-v2-validation': v2Validation,

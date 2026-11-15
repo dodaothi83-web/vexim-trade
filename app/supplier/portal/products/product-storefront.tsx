@@ -27,8 +27,10 @@ function updatedLabel(value: string | null | undefined, intl: string) {
   return new Intl.DateTimeFormat(intl, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(time));
 }
 
-export function SupplierProductStorefront({ products, media, supplierPublished, categoryLabels = {}, scope, messages: m, lang, intl }: {
+export function SupplierProductStorefront({ products, media, supplierPublished, categoryLabels = {}, scope, plan, messages: m, lang, intl }: {
   products: SupplierProduct[]; media: MediaAsset[]; supplierPublished: boolean;
+  /** Gói đang hiệu lực và số sản phẩm tối đa; hết chỗ thì ẩn nút thêm sản phẩm. */
+  plan?: { label: string; max: number };
   /** Nhãn danh mục theo slug - để thẻ sản phẩm không hiện slug thô. */
   categoryLabels?: Record<string, string>;
   /** Phạm vi danh mục NCC được chọn; sản phẩm ngoài phạm vi bị đánh dấu rõ. */
@@ -38,6 +40,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
   intl: string;
 }) {
   const copy = m.list;
+  const planFull = !!plan && products.length >= plan.max;
   const filterLabel = (id: typeof FILTERS[number]) => id === "changes_requested" ? copy.kpi.changes
     : id === "all" ? copy.kpi.all : copy.kpi[id as "draft" | "pending" | "approved" | "paused"];
   const [filter, setFilter] = useState<ProductReviewFilter>("all");
@@ -82,8 +85,17 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
         <h1 className="mt-0.5 text-[22px] leading-tight font-black tracking-tight text-ink-900">{copy.title}</h1>
         <p className="mt-0.5 max-w-2xl text-[12.5px] leading-5 text-ink-500">{copy.sub}</p>
       </div>
-      <Link href="/supplier/portal/products/new" className="btn btn-primary"><Plus className="size-4" aria-hidden="true" /> {copy.addProduct}</Link>
+      <div className="flex flex-wrap items-center gap-2">
+        {plan && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11.5px] font-semibold text-brand-800">
+          {fill(copy.planUsage, { plan: plan.label, count: products.length, max: plan.max })}</span>}
+        {!planFull && <Link href="/supplier/portal/products/new" className="btn btn-primary"><Plus className="size-4" aria-hidden="true" /> {copy.addProduct}</Link>}
+      </div>
     </header>
+
+    {planFull && plan && <p role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+      <span>{fill(copy.planFull, { plan: plan.label, max: plan.max })}</span>
+      <Link href="/supplier/portal/services" className="font-bold underline">{copy.planUpgrade}</Link>
+    </p>}
 
     {outsideScope.length > 0 && <p className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
       <span className="font-bold">{fill(copy.outsideScopeTitle, { count: outsideScope.length })}</span>
@@ -209,7 +221,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
         <div className="mx-auto flex size-14 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><PackagePlus className="size-7" aria-hidden="true" /></div>
         <h3 className="mt-3 text-lg font-bold text-ink-900">{products.length ? copy.emptyFilteredTitle : copy.emptyTitle}</h3>
         <p className="mt-1.5 text-[13px] leading-6 text-ink-600">{products.length ? copy.emptyFilteredBody : copy.emptyBody}</p>
-        {products.length === 0 && <Link href="/supplier/portal/products/new" className="btn btn-primary mt-4"><Plus className="size-4" aria-hidden="true" /> {copy.addProduct}</Link>}
+        {products.length === 0 && !planFull && <Link href="/supplier/portal/products/new" className="btn btn-primary mt-4"><Plus className="size-4" aria-hidden="true" /> {copy.addProduct}</Link>}
         {products.length > 0 && <button type="button" onClick={() => { setFilter("all"); setQuery(""); setPage(1); }} className="mt-4 text-sm font-semibold text-brand-700 underline">{copy.clearFilters}</button>}
       </div>}
       {pageCount > 1 && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 px-3.5 py-2.5 sm:px-4">
