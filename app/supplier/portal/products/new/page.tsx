@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { PageHeader } from "@/components/page-header";
+import { canAddSupplierProduct } from "@/lib/supplier-plans";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { SupplierProductEditor } from "../product-editor";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
@@ -23,6 +24,10 @@ export default async function NewSupplierProductPage() {
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
   const { locale, m } = await getPortalMessages();
   const copy = m.productEditor.newPage;
+  // Hết chỗ theo gói thì quay về danh sách, nơi có thông báo và lối hỏi nâng gói.
+  const existingProducts = await access.store.listProductsBySupplier(access.supplier.id);
+  if (!canAddSupplierProduct(access.supplier, existingProducts.filter((p) => p.supplier_id === access.supplier.id).length))
+    redirect("/supplier/portal/products");
   const publishedCategories = await access.store.listCategories({ publishedOnly: true });
   const options = categoryProposalOptions(publishedCategories);
   // Giấy đã duyệt cho danh mục: form hiện sẵn "Chứng nhận theo danh mục" để nhà cung cấp biết

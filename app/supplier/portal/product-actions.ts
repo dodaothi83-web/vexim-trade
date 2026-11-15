@@ -34,6 +34,7 @@ import type { SupplierProduct, SupplierProductInput } from "@/lib/types";
 import { getPortalMessages } from "@/lib/i18n/server";
 import type { ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 import { fill } from "@/lib/i18n/format";
+import { canAddSupplierProduct, isProductLimitError, SUPPLIER_PLAN_LABELS, supplierPlanRules } from "@/lib/supplier-plans";
 
 type Result = { ok: boolean; message: string; id?: string; warning?: boolean };
 const text = (form: FormData, key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
@@ -264,6 +265,12 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
         });
     } else {
       if (!newQuantity) return { ok: false, message: a.noQuantity };
+      // Báo trước giới hạn gói; trigger CSDL vẫn chặn lần cuối nếu hai lần tạo cùng lúc.
+      const planRules = supplierPlanRules(access.supplier);
+      const planLimitMessage = fill(a.planLimit, { plan: SUPPLIER_PLAN_LABELS[planRules.plan], max: planRules.maxProducts });
+      const currentProducts = await store.listProductsBySupplier(access.supplier.id);
+      if (!canAddSupplierProduct(access.supplier, currentProducts.filter((p) => p.supplier_id === access.supplier.id).length))
+        return { ok: false, message: planLimitMessage };
       const db = getSupabaseClient();
       if (!db) return { ok: false, message: a.dbPrice };
       const { data, error } = await db.rpc("create_supplier_product_with_quantity", {
@@ -271,6 +278,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
         p_grade: newQuantity.grade, p_incoterm: newQuantity.incoterm, p_tiers: newQuantity.tiers,
         p_warnings: newQuantity.warnings, p_english_name: null,
       });
+      if (error && isProductLimitError(error)) return { ok: false, message: planLimitMessage };
       if (error || !data || typeof data.id !== "string") {
         console.error("[quantity-pricing] atomic product creation", error);
         return { ok: false, message: a.createUnconfirmed };

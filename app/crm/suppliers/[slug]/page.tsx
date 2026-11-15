@@ -40,6 +40,8 @@ import { DeleteSupplierButton } from "@/components/supplier-actions";
 import { VerificationCoverSeal, VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import { VerificationPanel } from "./verification-panel";
 import { SupplierAccountControls } from "./account-controls";
+import { SupplierPlanControls } from "./plan-controls";
+import { effectiveSupplierPlan, isSupplierPlan } from "@/lib/supplier-plans";
 
 export const dynamic = "force-dynamic";
 
@@ -498,6 +500,18 @@ Chỉ nhân viên CRM thấy danh sách này. Chỉ nhà cung cấp được ch�
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-6">
+          <Card className="p-4">
+            <SectionHead icon={UserRound} title="Gói nhà cung cấp" />
+            <SupplierPlanControls
+              supplierId={id}
+              storedPlan={isSupplierPlan(supplier.plan) ? supplier.plan : "basic"}
+              effectivePlan={effectiveSupplierPlan(supplier)}
+              expiresOn={supplier.plan_expires_at ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(supplier.plan_expires_at)) : ""}
+              expired={(supplier.plan ?? "basic") !== "basic" && effectiveSupplierPlan(supplier) === "basic"}
+              productCount={products.filter((p) => p.supplier_id === id).length}
+              canManage={canManage}
+            />
+          </Card>
           <Card className="p-4">
             <SectionHead icon={UserRound} title="Tài khoản cổng nhà cung cấp" />
             <p className="text-sm leading-6 text-ink-600">{accountUser
