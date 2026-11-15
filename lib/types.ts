@@ -57,6 +57,8 @@ export interface Supplier {
   plan_updated_by?: string | null;
   /** Khối nội dung hình ảnh (Premium/Pro), xem lib/supplier-showcase.ts. */
   showcase_blocks?: { id: string; image_path: string; title: string; body: string }[] | null;
+  /** Giao diện Premium/Pro (mẫu, tông màu, câu giới thiệu, số liệu), xem lib/storefront-theme.ts. */
+  storefront_theme?: Record<string, unknown> | null;
   id: string;
   /** Tên pháp nhân */
   name: string;

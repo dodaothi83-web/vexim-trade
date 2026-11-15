@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supplier page templates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!--
+  Mẫu xem trước để chủ sàn chọn giao diện trang nhà cung cấp gói Premium/Pro.
+  3 mẫu (Thanh lịch, Hiện đại, Trưng bày) x 4 tông màu. Giữ logo V, phông Be Vietnam Pro,
+  nút và dải xác minh của Vexim; tránh xanh lá và đỏ đô vì hai màu này đang mang nghĩa
+  "đã xác minh" trên khiên. Dữ liệu là mẫu, không phải nhà cung cấp thật.
+-->
+<style>
+  :root {
+    --accent: #9C7A4B; --accent-dark: #7A5E36; --tint: #F6F0E6;
+    --ink: #141C2E; --muted: #4E586B; --line: #DFE5EE; --navy: #1F3E74;
+    --success: #0E7A4E; --success-bg: #E7F5EF;
+  }
+  [data-tone="terracotta"] { --accent: #B5532E; --accent-dark: #8E3F22; --tint: #FBEEE8; }
+  [data-tone="graphite"] { --accent: #33383D; --accent-dark: #1F2326; --tint: #F1F2F3; }
+  [data-tone="steel"] { --accent: #2C5F7C; --accent-dark: #1F4A62; --tint: #EAF2F6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Be Vietnam Pro", system-ui, sans-serif; color: var(--ink); background: #fff; }
+  img { display: block; max-width: 100%; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+  /* Thanh chọn mẫu (chỉ có ở trang xem trước) */
+  .picker { position: sticky; top: 0; z-index: 20; background: #0D1526; color: #fff; padding: 10px 0; font-size: 13px; }
+  .picker .wrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .picker b { font-weight: 600; opacity: .7; margin-right: 6px; }
+  .picker button { font: inherit; border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+  .picker button[aria-pressed="true"] { background: #fff; color: #0D1526; border-color: #fff; }
+  .swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; vertical-align: -2px; margin-right: 6px; }
+
+  /* Khung Vexim giữ nguyên ở mọi mẫu */
+  .site { border-bottom: 1px solid var(--line); }
+  .site .wrap { display: flex; align-items: center; gap: 12px; height: 64px; }
+  .site img { height: 34px; }
+  .site span { font-weight: 800; color: var(--navy); }
+  .site nav { margin-left: auto; display: flex; gap: 22px; font-size: 14px; color: var(--muted); }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; padding: 12px 20px; font-weight: 700; font-size: 14px; text-decoration: none; border: 1px solid transparent; }
+  .btn-accent { background: var(--accent); color: #fff; }
+  .btn-ghost { border-color: var(--line); color: var(--ink); background: #fff; }
+  .checks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .check { background: var(--success-bg); color: var(--success); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 600; }
+  .eyebrow { text-transform: uppercase; letter-spacing: .18em; font-size: 11.5px; font-weight: 700; color: var(--accent); }
+  .note { font-size: 12.5px; color: var(--muted); }
+
+  .tpl { display: none; }
+  [data-template="elegant"] .tpl-elegant, [data-template="modern"] .tpl-modern, [data-template="gallery"] .tpl-gallery { display: block; }
+
+  /* ---------- Mẫu 1: Thanh lịch ---------- */
+  .tpl-elegant { background: #FBF9F5; padding-bottom: 72px; }
+  .el-head { text-align: center; padding: 56px 0 36px; }
+  .el-logo { width: 76px; height: 76px; border-radius: 50%; margin: 0 auto 18px; background: #fff; border: 1px solid var(--line); display: grid; place-items: center; font-weight: 800; font-size: 28px; color: var(--accent); }
+  .el-head h1 { font-size: 44px; font-weight: 300; letter-spacing: -.01em; margin: 10px 0 8px; }
+  .el-rule { width: 56px; height: 2px; background: var(--accent); margin: 18px auto; }
+  .el-meta { color: var(--muted); font-size: 14px; }
+  .el-head .checks { justify-content: center; margin-top: 18px; }
+  .el-head .actions { display: flex; gap: 10px; justify-content: center; margin-top: 22px; }
+  .el-cover { border-radius: 4px; overflow: hidden; height: 440px; }
+  .el-cover img { width: 100%; height: 100%; object-fit: cover; }
+  .el-stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 40px 0 64px; }
+  .el-stats div { padding: 22px; text-align: center; border-left: 1px solid var(--line); }
+  .el-stats div:first-child { border-left: 0; }
+  .el-stats strong { display: block; font-size: 26px; font-weight: 300; color: var(--accent-dark); }
+  .el-stats span { font-size: 12px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+  .el-story { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; margin-bottom: 56px; }
+  .el-story:nth-of-type(even) .el-img { order: 2; }
+  .el-img { height: 380px; overflow: hidden; border-radius: 4px; }
+  .el-img img { width: 100%; height: 100%; object-fit: cover; }
+  .el-story .num { font-size: 13px; color: var(--accent); letter-spacing: .2em; }
+  .el-story h3 { font-size: 30px; font-weight: 300; margin: 10px 0 14px; }
+  .el-story p { color: var(--muted); line-height: 1.8; font-size: 15px; }
+
+  /* ---------- Mẫu 2: Hiện đại ---------- */
+  .md-hero { position: relative; height: 520px; color: #fff; }
+  .md-hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .md-hero::after { content: ""; position: absolute; inset: 0; background: rgba(15, 18, 22, .58); }
+  .md-hero .wrap { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 72px; }
+  .md-tag { display: inline-block; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 6px; width: fit-content; }
+  .md-hero h1 { font-size: 56px; font-weight: 800; letter-spacing: -.02em; margin: 14px 0 10px; max-width: 760px; line-height: 1.05; }
+  .md-hero p { font-size: 17px; max-width: 620px; opacity: .9; line-height: 1.6; margin: 0 0 22px; }
+  .md-hero .actions { display: flex; gap: 10px; }
+  .md-hero .btn-ghost { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.4); }
+  .md-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: -44px; position: relative; z-index: 2; }
+  .md-stats div { background: #fff; border-radius: 14px; padding: 22px; box-shadow: 0 10px 30px rgba(20, 28, 46, .10); border-top: 4px solid var(--accent); }
+  .md-stats strong { display: block; font-size: 30px; font-weight: 800; }
+  .md-stats span { font-size: 13px; color: var(--muted); }
+  .md-checks { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 36px 0 56px; flex-wrap: wrap; }
+  .md-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; padding-bottom: 72px; }
+  .md-card { border-radius: 16px; overflow: hidden; background: var(--tint); }
+  .md-card img { height: 230px; width: 100%; object-fit: cover; }
+  .md-card div { padding: 20px 22px 24px; }
+  .md-card h3 { margin: 0 0 8px; font-size: 19px; }
+  .md-card p { margin: 0; color: var(--muted); line-height: 1.6; font-size: 14.5px; }
+
+  /* ---------- Mẫu 3: Trưng bày ---------- */
+  .gl { display: grid; grid-template-columns: 380px 1fr; min-height: 760px; }
+  .gl-side { background: var(--tint); padding: 48px 36px; border-right: 1px solid var(--line); }
+  .gl-logo { width: 64px; height: 64px; border-radius: 14px; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 26px; }
+  .gl-side h1 { font-size: 32px; font-weight: 700; margin: 22px 0 8px; line-height: 1.15; }
+  .gl-side p { color: var(--muted); line-height: 1.7; font-size: 14.5px; }
+  .gl-side dl { margin: 22px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .gl-side dt { font-size: 11.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .gl-side dd { margin: 3px 0 0; font-weight: 700; }
+  .gl-side .actions { display: grid; gap: 8px; margin-top: 24px; }
+  .gl-main { padding: 28px; }
+  .gl-mosaic { display: grid; grid-template-columns: 2fr 1fr 1fr; grid-template-rows: 260px 260px; gap: 12px; }
+  .gl-mosaic figure { margin: 0; position: relative; overflow: hidden; border-radius: 10px; }
+  .gl-mosaic figure:first-child { grid-row: span 2; }
+  .gl-mosaic img { width: 100%; height: 100%; object-fit: cover; }
+  .gl-mosaic figcaption { position: absolute; left: 12px; bottom: 12px; background: rgba(255,255,255,.92); padding: 6px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; }
+  .gl-story { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 36px; }
+  .gl-story h3 { margin: 0 0 8px; font-size: 18px; border-left: 3px solid var(--accent); padding-left: 12px; }
+  .gl-story p { margin: 0; color: var(--muted); line-height: 1.7; font-size: 14.5px; }
+
+  .products { padding: 48px 0 64px; border-top: 1px solid var(--line); }
+  .products h2 { font-size: 22px; margin: 6px 0 22px; }
+  .prod-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .prod { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; }
+  .prod img { height: 150px; width: 100%; object-fit: cover; }
+  .prod div { padding: 12px 14px; font-size: 13.5px; }
+  .prod b { display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body data-template="elegant" data-tone="champagne">
+
+<div class="picker">
+  <div class="wrap">
+    <div><b>Template</b>
+      <button data-set="template" data-value="elegant" aria-pressed="true">1 · Elegant</button>
+      <button data-set="template" data-value="modern" aria-pressed="false">2 · Modern</button>
+      <button data-set="template" data-value="gallery" aria-pressed="false">3 · Gallery</button>
+    </div>
+    <div><b>Tone</b>
+      <button data-set="tone" data-value="champagne" aria-pressed="true"><i class="swatch" style="background:#9C7A4B"></i>Champagne</button>
+      <button data-set="tone" data-value="terracotta" aria-pressed="false"><i class="swatch" style="background:#B5532E"></i>Terracotta</button>
+      <button data-set="tone" data-value="graphite" aria-pressed="false"><i class="swatch" style="background:#33383D"></i>Graphite</button>
+      <button data-set="tone" data-value="steel" aria-pressed="false"><i class="swatch" style="background:#2C5F7C"></i>Steel blue</button>
+    </div>
+  </div>
+</div>
+
+<header class="site"><div class="wrap"><img src="logo-vexim.png" alt=""><span>Vexim Trade</span>
+  <nav><span>Categories</span><span>How it works</span><span>How we verify</span><span>For suppliers</span></nav></div></header>
+
+<!-- Mẫu 1 -->
+<main class="tpl tpl-elegant">
+  <div class="wrap">
+    <div class="el-head">
+      <div class="el-logo">B</div>
+      <div class="eyebrow">Cashew processor · Binh Phuoc, Vietnam</div>
+      <h1>Binh Phuoc Golden Cashew</h1>
+      <div class="el-meta">Founded 2009 · 180 employees · Export to 14 markets</div>
+      <div class="el-rule"></div>
+      <div class="checks"><span class="check">Business registration checked</span><span class="check">Factory verification</span></div>
+      <div class="actions"><a class="btn btn-accent">Request a quote →</a><a class="btn btn-ghost">Chat with supplier</a></div>
+    </div>
+    <div class="el-cover"><img src="hero-cashew-texture.jpg" alt=""></div>
+    <div class="el-stats">
+      <div><strong>2,400 MT</strong><span>Annual capacity</span></div>
+      <div><strong>W180–W450</strong><span>Grades</span></div>
+      <div><strong>FOB HCMC</strong><span>Incoterms</span></div>
+      <div><strong>21 days</strong><span>Lead time</span></div>
+    </div>
+    <section class="el-story"><div class="el-img"><img src="cashew-hero.jpg" alt=""></div>
+      <div><div class="num">01 — RAW MATERIAL</div><h3>Sourced from Binh Phuoc farms</h3><p>Raw nuts are bought directly from more than 300 local farms each season and graded at our warehouse before processing.</p></div></section>
+    <section class="el-story"><div class="el-img"><img src="cashew-grade.jpg" alt=""></div>
+      <div><div class="num">02 — PRODUCTION</div><h3>Graded by size and colour</h3><p>Kernels are sorted from W180 to W450 by optical machines and hand inspection, then vacuum packed for export.</p></div></section>
+    <p class="note">Images and text shared by the supplier. They are not evidence of a Vexim check.</p>
+  </div>
+</main>
+
+<!-- Mẫu 2 -->
+<main class="tpl tpl-modern">
+  <section class="md-hero"><img src="hero-scene.jpg" alt="">
+    <div class="wrap">
+      <span class="md-tag">Cashew processor · Binh Phuoc</span>
+      <h1>Binh Phuoc Golden Cashew</h1>
+      <p>Export-grade cashew kernels from W180 to W450, processed and packed at our own facility since 2009.</p>
+      <div class="actions"><a class="btn btn-accent">Request a quote →</a><a class="btn btn-ghost">Chat with supplier</a></div>
+    </div>
+  </section>
+  <div class="wrap">
+    <div class="md-stats">
+      <div><strong>2,400 MT</strong><span>Annual capacity</span></div>
+      <div><strong>14</strong><span>Export markets</span></div>
+      <div><strong>180</strong><span>Employees</span></div>
+      <div><strong>21 days</strong><span>Lead time</span></div>
+    </div>
+    <div class="md-checks"><div class="checks"><span class="check">Business registration checked</span><span class="check">Factory verification</span></div><span class="note">Founded 2009 · Binh Phuoc, Vietnam</span></div>
+    <div class="eyebrow">Company showcase</div><h2 style="margin:6px 0 22px;font-size:26px">Inside Binh Phuoc Golden Cashew</h2>
+    <div class="md-cards">
+      <article class="md-card"><img src="cashew-hero.jpg" alt=""><div><h3>Raw material</h3><p>Bought directly from 300+ local farms each season.</p></div></article>
+      <article class="md-card"><img src="cashew-grade.jpg" alt=""><div><h3>Grading line</h3><p>Optical sorting plus hand inspection, W180 to W450.</p></div></article>
+      <article class="md-card"><img src="producers-section.jpg" alt=""><div><h3>Our team</h3><p>180 staff across processing, QC and export logistics.</p></div></article>
+    </div>
+  </div>
+</main>
+
+<!-- Mẫu 3 -->
+<main class="tpl tpl-gallery">
+  <div class="gl">
+    <aside class="gl-side">
+      <div class="gl-logo">B</div>
+      <h1>Binh Phuoc Golden Cashew</h1>
+      <div class="eyebrow">Cashew processor</div>
+      <p>Export-grade cashew kernels processed and packed at our own facility in Binh Phuoc since 2009.</p>
+      <div class="checks"><span class="check">Business registration checked</span><span class="check">Factory verification</span></div>
+      <dl><div><dt>Capacity</dt><dd>2,400 MT/yr</dd></div><div><dt>Lead time</dt><dd>21 days</dd></div><div><dt>Incoterms</dt><dd>FOB, CIF</dd></div><div><dt>Markets</dt><dd>14 countries</dd></div></dl>
+      <div class="actions"><a class="btn btn-accent">Request a quote →</a><a class="btn btn-ghost">Chat with supplier</a></div>
+    </aside>
+    <div class="gl-main">
+      <div class="gl-mosaic">
+        <figure><img src="hero-cashew-texture.jpg" alt=""><figcaption>Finished W240 kernels</figcaption></figure>
+        <figure><img src="cashew-hero.jpg" alt=""><figcaption>Raw material</figcaption></figure>
+        <figure><img src="cashew-grade.jpg" alt=""><figcaption>Grading line</figcaption></figure>
+        <figure><img src="producers-section.jpg" alt=""><figcaption>Our team</figcaption></figure>
+        <figure><img src="hero-scene.jpg" alt=""><figcaption>Export packing</figcaption></figure>
+      </div>
+      <div class="gl-story">
+        <div><h3>Sourced from Binh Phuoc farms</h3><p>Raw nuts are bought directly from more than 300 local farms each season and graded at our warehouse.</p></div>
+        <div><h3>Graded by size and colour</h3><p>Optical sorting plus hand inspection, then vacuum packing for export.</p></div>
+      </div>
+      <p class="note" style="margin-top:20px">Images and text shared by the supplier. They are not evidence of a Vexim check.</p>
+    </div>
+  </div>
+</main>
+
+<section class="products"><div class="wrap">
+  <div class="eyebrow">Supplier catalogue</div><h2>Products (4)</h2>
+  <div class="prod-row">
+    <div class="prod"><img src="cashew-grade.jpg" alt=""><div><b>Cashew kernels W240</b>FOB · 8.10 USD/kg</div></div>
+    <div class="prod"><img src="cashew-hero.jpg" alt=""><div><b>Cashew kernels W320</b>FOB · 7.35 USD/kg</div></div>
+    <div class="prod"><img src="pepper.jpg" alt=""><div><b>Black pepper 550 g/l</b>FOB · on request</div></div>
+    <div class="prod"><img src="cinnamon.jpg" alt=""><div><b>Cassia cinnamon</b>FOB · on request</div></div>
+  </div>
+</div></section>
+
+<script>
+  document.querySelectorAll(".picker button").forEach((button) => button.addEventListener("click", () => {
+    const key = button.dataset.set;
+    document.body.dataset[key] = button.dataset.value;
+    document.querySelectorAll(`.picker button[data-set="${key}"]`).forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+  }));
+</script>
+</body>
+</html>
