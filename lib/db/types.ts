@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessage, SourcingRequest, SupportConversation, SupportMessage } from "@/lib/types";
+import type { ChatConversation, ChatMessage, SourcingRequest, SupplierServiceRequest, SupportConversation, SupportMessage } from "@/lib/types";
 import type {
   Activity,
   ActivityType,
@@ -287,6 +287,10 @@ export interface DataStore {
   listSupportConversations(filter?: { assignedTo?: string | null; limit?: number }): Promise<SupportConversation[]>;
   listSupportMessages(conversationId: string, limit?: number): Promise<SupportMessage[]>;
   addSupportMessage(input: Omit<SupportMessage, "id" | "created_at">): Promise<SupportMessage>;
+  // Yêu cầu tư vấn dịch vụ Vexim từ cổng nhà cung cấp.
+  listSupplierServiceRequests(filter?: { supplierId?: string; status?: SupplierServiceRequest["status"]; limit?: number }): Promise<SupplierServiceRequest[]>;
+  addSupplierServiceRequest(input: Omit<SupplierServiceRequest, "id" | "created_at" | "updated_at" | "status" | "handled_by">): Promise<SupplierServiceRequest>;
+  updateSupplierServiceRequest(id: string, patch: Pick<SupplierServiceRequest, "status" | "handled_by">): Promise<SupplierServiceRequest | null>;
   /* Lần cuối mỗi bên còn mở Vexim (trạng thái online của chat). */
   /**
    * Nhận việc gửi email báo tin: đặt cột mốc thành `next` chỉ khi nó vẫn đang là `expected`.

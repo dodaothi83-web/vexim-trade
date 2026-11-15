@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
+  BriefcaseBusiness,
   Building2,
   ChartNoAxesColumn,
   Factory,
@@ -44,7 +45,7 @@ const NAV: {
   href: string;
   labelKey: keyof ShellMessages["nav"];
   icon: typeof LayoutDashboard;
-  group: "shop" | "work" | "verify" | "account";
+  group: "shop" | "work" | "verify" | "grow" | "account";
   /** Chỉ hiện khi cổng đã được Vexim mở quyền. */
   needsApproval?: boolean;
 }[] = [
@@ -59,10 +60,12 @@ const NAV: {
   { href: "/supplier/portal/documents", labelKey: "documents", icon: FileText, group: "verify", needsApproval: true },
   { href: "/supplier/portal/verification/export", labelKey: "exportHistory", icon: Ship, group: "verify", needsApproval: true },
   { href: "/supplier/portal/verification/factory", labelKey: "factory", icon: Factory, group: "verify", needsApproval: true },
+  // Dịch vụ tư vấn của Vexim nằm sau việc hằng ngày để không chen vào phần làm việc chính.
+  { href: "/supplier/portal/services", labelKey: "services", icon: BriefcaseBusiness, group: "grow", needsApproval: true },
   { href: "/supplier/portal/profile", labelKey: "profile", icon: Building2, group: "account", needsApproval: true },
 ];
 
-const NAV_GROUPS = ["work", "shop", "verify", "account"] as const;
+const NAV_GROUPS = ["work", "shop", "verify", "grow", "account"] as const;
 
 export function SupplierSidebar({
   supplierName,

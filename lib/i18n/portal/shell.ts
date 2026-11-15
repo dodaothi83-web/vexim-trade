@@ -19,11 +19,13 @@ const en = {
     factoryPartner: "L3 partner factory",
     exportHistory: "L2 export history",
     profile: "Company profile",
+    services: "Vexim services",
   },
   groups: {
     shop: "STOREFRONT",
     work: "WORK",
     verify: "VERIFICATION",
+    grow: "GROW",
     account: "ACCOUNT",
   },
   sidebar: {
@@ -81,11 +83,13 @@ const vi: ShellMessages = {
     factoryPartner: "Nhà máy đối tác L3",
     exportHistory: "Lịch sử xuất khẩu L2",
     profile: "Hồ sơ doanh nghiệp",
+    services: "Dịch vụ Vexim",
   },
   groups: {
     shop: "GIAN HÀNG",
     work: "CÔNG VIỆC",
     verify: "XÁC MINH",
+    grow: "PHÁT TRIỂN",
     account: "TÀI KHOẢN",
   },
   sidebar: {

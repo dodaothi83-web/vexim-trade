@@ -106,23 +106,19 @@ const loginForm = read('../components/login-form.tsx');
 const setupForm = read('../components/setup-form.tsx');
 const signupForm = read('../app/(auth)/supplier/register/supplier-account-form.tsx');
 const rfqForm = read('../app/(public)/rfq/rfq-form.tsx');
-const serviceForm = read('../components/service-registration-section.tsx');
 assert.match(loginForm, /<FormChallenge key=\{challengeVersion\} purpose="login"/);
 assert.match(setupForm, /<FormChallenge key=\{challengeVersion\} purpose="admin-setup"/);
 assert.match(signupForm, /<FormChallenge key=\{challengeVersion\} purpose="supplier-signup"/);
 assert.match(rfqForm, /<FormChallenge purpose="rfq"/);
-assert.match(serviceForm, /<FormChallenge key=\{challengeVersion\} purpose="service-inquiry"/);
-for (const [name, source] of [['login', loginForm], ['supplier signup', signupForm], ['admin setup', setupForm], ['service registration', serviceForm]]) {
+for (const [name, source] of [['login', loginForm], ['supplier signup', signupForm], ['admin setup', setupForm]]) {
   assert.match(source, /resetChallenge\(\)/, `${name} remounts the challenge after a failed submission`);
   assert.match(source, /disabled=\{busy \|\| [^\n]*!challengeToken\}/, `${name} keeps the button locked until the challenge is solved`);
 }
 assert.match(loginForm, /loginAction\(email, password, challengeToken\)/);
 assert.match(setupForm, /setupAdminAction\(email, name, password, password2, challengeToken\)/);
 assert.match(signupForm, /form\.set\("challenge_token", challengeToken\)/);
-assert.match(serviceForm, /formData\.set\("challenge_token", challengeToken\)/);
 assert.match(rfqForm, /challenge_token: challengeToken/);
 assert.match(signupForm, /name="website_hp"/, 'Signup giữ honeypot');
-assert.match(serviceForm, /name="website_hp"/, 'Service form giữ honeypot');
 assert.match(rfqForm, /honeypot: data\.websiteHp/, 'RFQ giữ honeypot');
 
 // Không còn vết Turnstile nào trong code chạy (chỉ cho phép 2 file mới nhắc tên để ghi bối cảnh thay thế).

@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessage, SourcingRequest, SupportConversation, SupportMessage } from "@/lib/types";
+import type { ChatConversation, ChatMessage, SourcingRequest, SupplierServiceRequest, SupportConversation, SupportMessage } from "@/lib/types";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -99,6 +99,7 @@ interface LocalShape {
   chat_messages?: ChatMessage[];
   support_conversations?: SupportConversation[];
   support_messages?: SupportMessage[];
+  supplier_service_requests?: SupplierServiceRequest[];
   chat_presence?: Record<string, string>;
   users: AppUserRecord[];
   buyers: Buyer[];
@@ -2043,6 +2044,31 @@ export const localStore: DataStore = {
     const row: SupportMessage = { ...input, id: randomUUID(), created_at: new Date().toISOString() };
     mutate((db) => { (db.support_messages ??= []).push(row); });
     return row;
+  },
+  async listSupplierServiceRequests(filter = {}) {
+    return (load().supplier_service_requests ?? [])
+      .filter((r) => (!filter.supplierId || r.supplier_id === filter.supplierId) && (!filter.status || r.status === filter.status))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, filter.limit ?? 200);
+  },
+  async addSupplierServiceRequest(input) {
+    const rows = load().supplier_service_requests ?? [];
+    // Giống chỉ mục unique trong CSDL: một yêu cầu đang mở cho mỗi dịch vụ.
+    if (rows.some((r) => r.supplier_id === input.supplier_id && r.service_key === input.service_key && r.status !== "closed")) {
+      throw new Error("addSupplierServiceRequest: duplicate key value violates unique constraint supplier_service_requests_one_open");
+    }
+    const now = new Date().toISOString();
+    const row: SupplierServiceRequest = { ...input, id: randomUUID(), status: "submitted", handled_by: null, created_at: now, updated_at: now };
+    mutate((db) => { (db.supplier_service_requests ??= []).push(row); });
+    return row;
+  },
+  async updateSupplierServiceRequest(id, patch) {
+    let updated: SupplierServiceRequest | null = null;
+    mutate((db) => {
+      const row = (db.supplier_service_requests ?? []).find((r) => r.id === id);
+      if (row) { Object.assign(row, patch, { updated_at: new Date().toISOString() }); updated = { ...row }; }
+    });
+    return updated;
   },
   async claimChatNotification(table, id, column, expected, next) {
     let claimed = false;
