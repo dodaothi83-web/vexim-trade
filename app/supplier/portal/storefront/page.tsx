@@ -18,6 +18,8 @@ import { fill } from "@/lib/i18n/format";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
 import { ShowcaseEditor } from "./showcase-editor";
+import { ThemeEditor } from "./theme-editor";
+import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -96,6 +98,7 @@ export default async function SupplierStorefrontPreviewPage() {
 
   return <>
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
+    {supplierPlanRules(supplier).premiumStorefront && <ThemeEditor initial={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme} />}
     <ShowcaseEditor blocks={showcaseBlocks} enabled={supplierPlanRules(supplier).premiumStorefront} copy={m.showcase} />
     <section aria-label={copy.preview.aria} className="rounded-xl border border-dashed border-brand-300 bg-brand-50/60 px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
