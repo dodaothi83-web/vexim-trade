@@ -30,7 +30,11 @@ const store = {
   getSupplier: async (id) => company?.id === id ? company : null,
   getMediaByPath: async (path) => path === filePath ? asset : null,
 };
+const supplierPlans = await import('../lib/supplier-plans.ts');
+const supplierShowcase = await import('../lib/supplier-showcase.ts');
 const mocks = {
+  '@/lib/supplier-plans': supplierPlans,
+  '@/lib/supplier-showcase': supplierShowcase,
   'next/server': { NextResponse },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': { getSession: async () => currentSession },

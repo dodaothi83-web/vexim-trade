@@ -15,6 +15,9 @@ import { buildVerificationProgress } from "@/lib/supplier-portal/verification-pr
 import { StorefrontVerificationActions } from "../verification-progress";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
+import { supplierPlanRules } from "@/lib/supplier-plans";
+import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
+import { ShowcaseEditor } from "./showcase-editor";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -85,8 +88,15 @@ export default async function SupplierStorefrontPreviewPage() {
   const coverUrl = supplier.cover_image ? `/public-media/${supplier.cover_image.replace(/^\/+/, "")}` : null;
   const avatarUrl = supplier.profile_image ? `/public-media/${supplier.profile_image.replace(/^\/+/, "")}` : null;
 
+  // Ảnh khối nội dung trong cổng đi qua bản xem trước có đăng nhập, vì trang công khai chỉ
+  // phục vụ khi hồ sơ đã đăng và gói còn hiệu lực.
+  const showcasePreviewUrl = (path: string) => `/api/supplier-portal/showcase?path=${encodeURIComponent(path)}`;
+  const showcaseBlocks = normalizeShowcaseBlocks(supplier.showcase_blocks)
+    .map((block) => ({ id: block.id, title: block.title, body: block.body, url: showcasePreviewUrl(block.image_path) }));
+
   return <>
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
+    <ShowcaseEditor blocks={showcaseBlocks} enabled={supplierPlanRules(supplier).premiumStorefront} copy={m.showcase} />
     <section aria-label={copy.preview.aria} className="rounded-xl border border-dashed border-brand-300 bg-brand-50/60 px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[12.5px] leading-5 text-ink-700">
@@ -119,6 +129,7 @@ export default async function SupplierStorefrontPreviewPage() {
       productLinks={published}
       rfqActions={false}
       nameTag="h2"
+      showcaseImageUrl={showcasePreviewUrl}
       coverAction={<SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
         className="absolute right-4 bottom-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />}
       avatarAction={<SupplierPhotoButton kind="profile" hasImage={!!avatarUrl}

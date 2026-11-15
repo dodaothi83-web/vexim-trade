@@ -6,6 +6,8 @@ import { getObject } from "@/lib/media/storage";
 import { getStore } from "@/lib/db";
 import { isExpired } from "@/lib/media/readiness";
 import { isTestOnlyProduct, productReviewApproved } from "@/lib/public/product-selection";
+import { supplierPlanRules } from "@/lib/supplier-plans";
+import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -101,6 +103,8 @@ function relAllowed(rel: string): boolean {
     const fname = parts[parts.length - 1].toLowerCase();
     // Mọi ảnh supplier đều có tên dạng random uuid, trừ profile-*/cover-* — cho tất cả.
     if (fname.startsWith("profile-") || fname.startsWith("cover-")) return parts.length === 2;
+    // Ảnh khối nội dung (Premium/Pro): chỉ phục vụ khi đang nằm trong hồ sơ, xem GET.
+    if (fname.startsWith("showcase-")) return parts.length === 2;
     // uuid-like filename (36 kí tự có gạch ngang) — là file upload qua MediaManager.
     return /^[a-f0-9-]{20,}\.([a-z]+)$/i.test(fname);
   }
@@ -117,7 +121,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
 
   const formImage = rel.startsWith("product-form-images/");
   const isProductImage = rel.startsWith("products/") || formImage;
-  const supplierImage = rel.startsWith("suppliers/") && !/^(profile-|cover-)/i.test(rel.split("/").at(-1) ?? "");
+  const showcaseImage = rel.startsWith("suppliers/") && /^showcase-/i.test(rel.split("/").at(-1) ?? "");
+  const supplierImage = rel.startsWith("suppliers/") && !/^(profile-|cover-|showcase-)/i.test(rel.split("/").at(-1) ?? "");
+  if (showcaseImage) {
+    // Ảnh khối nội dung chỉ công khai khi đang nằm trong hồ sơ đã đăng và gói còn quyền.
+    const store = getStore();
+    const supplier = await store.getSupplier(rel.split("/")[1]);
+    const listed = normalizeShowcaseBlocks(supplier?.showcase_blocks).some((block) => block.image_path === rel);
+    if (!supplier || !listed || supplier.status !== "published" || !supplierPlanRules(supplier).premiumStorefront ||
+        (supplier.is_demo && process.env.VEXIM_SHOW_DEMO !== "true")) return new NextResponse("Not found", { status: 404 });
+  }
   if (supplierImage) {
     // Shared supplier vault files (including certificate scans) must not become public merely
     // because someone knows a UUID-like JPG path. Profile/cover are handled separately.
@@ -150,7 +163,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
   // Ảnh qua ACL (sản phẩm + gallery chia sẻ buyer) có thể bị thu hồi → chỉ browser
   // được cache 60 giây rồi bắt buộc xác nhận lại bằng ETag. Ảnh danh mục/blog/
   // profile-cover là tĩnh công khai → immutable 7 ngày.
-  const aclGated = isProductImage || supplierImage;
+  const aclGated = isProductImage || supplierImage || showcaseImage;
   const cacheControl = aclGated
     ? "private, max-age=60, must-revalidate"
     : "public, max-age=604800, immutable";

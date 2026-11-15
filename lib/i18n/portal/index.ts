@@ -18,6 +18,7 @@ import { quantityMessages, type QuantityMessages } from "./quantity";
 import { evidenceMessages, type EvidenceMessages } from "./evidence";
 import { chatMessages, type ChatMessages } from "./chat";
 import { servicesMessages, type ServicesMessages } from "./services";
+import { showcaseMessages, type ShowcaseMessages } from "./showcase";
 
 /**
  * Từ điển cổng nhà cung cấp, chia theo cụm để chuyển dần (giai đoạn 2).
@@ -45,6 +46,7 @@ export type PortalMessages = {
   evidence: EvidenceMessages;
   chat: ChatMessages;
   services: ServicesMessages;
+  showcase: ShowcaseMessages;
 };
 
 export const portalMessages: Record<Locale, PortalMessages> = {
@@ -68,6 +70,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     evidence: evidenceMessages.en,
     chat: chatMessages.en,
     services: servicesMessages.en,
+    showcase: showcaseMessages.en,
   },
   vi: {
     shared: sharedMessages.vi,
@@ -89,6 +92,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     evidence: evidenceMessages.vi,
     chat: chatMessages.vi,
     services: servicesMessages.vi,
+    showcase: showcaseMessages.vi,
   },
 };
 

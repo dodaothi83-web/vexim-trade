@@ -19,6 +19,8 @@ import { formatMoney, priceRangeText } from "@/lib/products/price-display";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
 import { supplierAddressDisplay, supplierCapacityDisplay, supplierAnnualOutputDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
+import { supplierPlanRules } from "@/lib/supplier-plans";
+import { publicShowcaseBlocks } from "@/lib/supplier-showcase";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
@@ -60,7 +62,10 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
 export function SupplierStorefront({
   supplier: s, certificates, productCertificates = {}, categories, coverUrl, avatarUrl, synthetic,
   productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1", reportAction,
+  showcaseImageUrl,
 }: {
+  /** Đường dẫn ảnh khối nội dung; cổng nhà cung cấp dùng bản xem trước có đăng nhập. */
+  showcaseImageUrl?: (path: string) => string;
   /** Nút tải báo cáo xác minh nhà máy (PDF) cho từng mã báo cáo; trang công khai truyền vào. */
   reportAction?: (code: string) => ReactNode;
   supplier: PublicSupplierCard;
@@ -99,10 +104,57 @@ export function SupplierStorefront({
   const l2Scope: PublicL2Scope = s.approved_l2_scope ?? null;
   const SupplierTypeIcon = supplierTypeIcon(s.supplier_type);
   const plannedL2Scope: PublicL2Scope = s.supplier_type === "trading" ? "partner_contract" : s.supplier_type === "manufacturer" || s.supplier_type === "cooperative" ? "factory" : null;
+  // Giao diện cao cấp và khối nội dung chỉ khi gói Premium/Pro còn hiệu lực; hết hạn thì
+  // về bản thường, nội dung vẫn giữ trong hồ sơ.
+  const premium = supplierPlanRules(s).premiumStorefront;
+  const showcase = premium ? publicShowcaseBlocks(s.showcase_blocks) : [];
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
 
   return <>
+    {premium ? <>
+    <section className="mt-5 overflow-hidden rounded-2xl bg-brand-950 text-white shadow-card" aria-labelledby="supplier-name">
+      {/* Gói Premium/Pro: ảnh bìa lớn và dải navy đậm; cùng dữ liệu, cùng nút như bản thường. */}
+      <div className={`relative bg-brand-900 ${coverUrl ? "h-44 sm:h-72" : "h-20 sm:h-24"}`}>
+        {coverUrl && <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+        {coverAction}
+      </div>
+      <div className="relative flex flex-col gap-6 px-5 pb-7 sm:flex-row sm:items-end sm:gap-8 sm:px-10 sm:pb-10">
+        <div className="relative -mt-12 shrink-0 sm:-mt-16">
+          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-white text-3xl font-bold text-brand-700 ring-4 ring-brand-950 sm:h-32 sm:w-32">
+            {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : name.slice(0, 1).toUpperCase()}
+          </div>
+          {avatarAction}
+        </div>
+        <div className="min-w-0 flex-1 sm:pt-6">
+          <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-medium text-white ring-1 ring-white/20"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}</span>
+            {s.private_label && <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-white ring-1 ring-white/20">Private label stated</span>}
+          </div>
+          <NameTag id="supplier-name" className="mt-3 break-words text-left text-2xl font-bold leading-8 tracking-tight text-white sm:text-4xl sm:leading-tight">{name}</NameTag>
+          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-brand-200">
+            {supplierProvinceDisplay(s) && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4" />{safe(supplierProvinceDisplay(s))}, Vietnam</span>}
+            {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4" />Founded {s.founded_year}</span>}
+            {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4" />{s.employees} employees</span>}
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-2" aria-label="Published supplier checks">
+            {VERIFICATION_DISPLAY_ORDER.filter((level) => steps.includes(level)).map((level) => {
+              const Icon = VERIFICATION_LEVEL_ICONS[level];
+              return <span key={level} className="inline-flex items-center gap-1.5 rounded-full bg-success-surface px-3 py-1 text-xs font-semibold text-success">
+                <Icon className="h-3.5 w-3.5" aria-hidden="true" />{level === 1 ? "Business registration checked" : verificationLabel(level, l2Scope)}
+              </span>;
+            })}
+            <a href="#verification" className="text-xs font-semibold text-white underline underline-offset-4">View supplier checks</a>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col gap-2 rounded-xl bg-white p-3 text-ink-900 sm:w-64">
+          {rfqActions && !synthetic && <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>}
+          {!rfqActions && !synthetic && <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
+          {!synthetic && chatAction}
+          {!synthetic && <SupplierWebsiteLink website={s.website} plain className="justify-center" />}
+        </div>
+      </div>
+    </section>
+    </> : <>
     <section className="mt-5 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-card" aria-labelledby="supplier-name">
       {(coverUrl || coverAction) && <div className={`relative bg-ink-50 ${coverUrl ? "h-32 sm:h-44" : "h-16"}`}>
         {coverUrl && <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
@@ -143,10 +195,12 @@ export function SupplierStorefront({
         </div>
       </div>
     </section>
+    </>}
 
     <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
       {[
         ["Products", "products"],
+        ...(showcase.length > 0 ? [["Showcase", "showcase"] as const] : []),
         ["About", "about"],
         ["Supplier checks", "verification"],
         ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
@@ -154,6 +208,26 @@ export function SupplierStorefront({
       ].map(([label, id]) =>
         <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
     </nav>
+
+    {showcase.length > 0 && <section id="showcase" className="mt-10 scroll-mt-24 border-t border-ink-200 pt-10" aria-labelledby="showcase-title">
+      <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Company showcase</p>
+      <h2 id="showcase-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Inside {name}</h2>
+      <p className="mt-1 text-sm text-ink-600">Images and text shared by the supplier. They are not evidence of a Vexim check.</p>
+      <div className="mt-8 space-y-10 sm:space-y-14">
+        {showcase.map((block, index) => (
+          <article key={block.id} className="grid items-center gap-5 sm:grid-cols-2 sm:gap-10">
+            <div className={`overflow-hidden rounded-2xl bg-ink-50 ring-1 ring-ink-200 ${index % 2 ? "sm:order-2" : ""}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={(showcaseImageUrl ?? mediaUrl)(block.image_path)} alt={safe(block.title)} loading="lazy" decoding="async" className="aspect-[4/3] w-full object-cover" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="break-words text-xl font-bold leading-7 text-ink-900">{safe(block.title)}</h3>
+              {block.body && <p className="mt-3 whitespace-pre-line break-words text-[15px] leading-7 text-ink-600">{safe(block.body)}</p>}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>}
 
     <section id="products" className="mt-10 scroll-mt-24 border-t border-ink-200 pt-10" aria-labelledby="products-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
