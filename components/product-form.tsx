@@ -36,6 +36,7 @@ import { formatMoney, priceRangeText } from "@/lib/products/price-display";
 import { effectiveFieldsFor } from "@/lib/product-attributes";
 import { gradeKey, resolveGrade } from "@/lib/public/grade-resolution";
 import { composeDisplayName, isPlaceholderDisplayName } from "@/lib/public/display-name";
+import { displayNameWarnings } from "@/lib/public/display-name-rules";
 import { useRegisterProductEditDirty } from "@/app/crm/products/[slug]/edit/edit-workspace";
 
 type FormState = Record<string, string | number | boolean>;
@@ -215,6 +216,10 @@ export function ProductForm({
   const displayNameConflict = !!standardDraftGrades.length && !!displayNameGrade &&
     !standardDraftGrades.some((item) => gradeKey(item) === gradeKey(displayNameGrade));
   const previewName = (displayNamePlaceholder ? "" : v("display_name").trim()) || v("name").trim() || "Chưa có tên sản phẩm";
+  const displayNameIssues = displayNameWarnings(v("display_name"), {
+    supplierNames: supplier ? [supplier.name, supplier.trade_name] : [],
+    categoryLabel: activeCategory?.name_i18n?.vi || activeCategory?.name_i18n?.en || activeCategory?.slug || "",
+  });
 
   const gradeValidation = validateGradeRowsDraft(gradeRows, activeCategorySource);
   const priceRangeError = product || gradeValidation.valid ? null : (gradeValidation.message ?? "Kiểm tra lại bảng Grade & giá.");
@@ -470,11 +475,19 @@ export function ProductForm({
             )}
             {!product && displayNameConflict && (
               <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                Tên hiển thị ghi <strong>{displayNameGrade}</strong> nhưng bảng Grade &amp; giá đang là <strong>{standardDraftGrades.join(", ")}</strong>. Buyer sẽ đọc hai mức khác nhau. Sửa lại tên hiển thị hoặc bảng Grade &amp; giá.
+                Tên hiển thị ghi <strong>{displayNameGrade}</strong> nhưng bảng Grade &amp; giá đang là <strong>{standardDraftGrades.join(", ")}</strong>. Người mua sẽ đọc hai mức khác nhau. Sửa lại tên hiển thị hoặc bảng Grade &amp; giá.
               </p>
             )}
+            {displayNameIssues.length > 0 && (
+              <ul className="mt-2 space-y-1 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                {displayNameIssues.map((issue) => <li key={issue.code}>• {issue.message}</li>)}
+              </ul>
+            )}
+            {!displayNamePlaceholder && v("display_name").trim() && displayNameIssues.length === 0 && (
+              <p className="mt-2 text-xs leading-5 text-emerald-700">Tên này đọc như tên hàng bình thường.</p>
+            )}
             <p className="mt-2 text-xs leading-5 text-ink-500">
-              Buyer sẽ thấy: <strong className="text-ink-800">{previewName}</strong>
+              Người mua sẽ thấy: <strong className="text-ink-800">{previewName}</strong>
             </p>
           </div>
         </section>

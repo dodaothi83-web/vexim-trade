@@ -14,6 +14,15 @@ Product names may contain one or multiple grade codes. A name is descriptive tex
 
 There is no single-grade restriction and no requirement that every title code match the currently selected structured grade. The structured table remains a separate field. Existing length, required-field, translation, review and publication requirements still apply.
 
+## Display name for buyers
+
+Suppliers may also set an optional buyer-facing title in `display_name`. That title is not
+shortened by the system and is never written back over `name`. `lib/public/display-name-rules.ts`
+reports soft warnings for over-long titles, typographic or AI-style characters, AI-style or
+self-praising wording, several grades in one title, the supplier's own company name, all-caps
+and `/`-separated lists. No warning blocks publishing or review. See
+`docs/product-display-name.md`.
+
 ## Existing data and rollout
 
 No schema migration, backfill or remote data update is required. Existing stored names are not rewritten. If an existing English/display name does not contain a grade, this change does not invent or append one; users can edit/review it through the existing flow.

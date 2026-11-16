@@ -14,6 +14,7 @@ import { completenessSummary, productCompleteness } from "@/lib/products/complet
 import { auditProductStructuredUnits } from "@/lib/products/grade-pricing";
 import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
 import { loadCrmReviewInbox } from "@/lib/crm/product-review-inbox";
+import { displayNameWarnings } from "@/lib/public/display-name-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -287,6 +288,15 @@ export default async function ProductsPage({
               const shareable = hasShareableMedia(r.id);
               const privateShell = isPrivateShell(r);
               const displayName = nameFor(r) || "Sản phẩm chưa có tên";
+              /**
+               * Tên hiển thị là tiêu đề người mua và công cụ tìm kiếm đọc. Nhà cung
+               * cấp được tự đặt tên, nên nhân viên cần thấy ngay tên nào chưa ổn để
+               * sửa một click — đây là chốt chặn cuối, không phải cổng chặn duyệt.
+               */
+              const nameIssues = displayNameWarnings(r.display_name || r.name, {
+                supplierNames: [r.supplier?.name, r.supplier?.trade_name, r.supplier?.display_name],
+                categoryLabel: r.category,
+              });
               const displayCategory = categoryFor(r) || "Chưa phân loại";
               const legacyReview = legacyPrices.has(r.id) || legacyNames.has(r.id);
               const reviewHref = legacyReview ? `/crm/products/quantity-review?product_id=${encodeURIComponent(r.id)}` : `/crm/products/${r.id}/edit`;
@@ -307,6 +317,11 @@ export default async function ProductsPage({
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {matched && <Badge className="bg-brand-50 text-brand-700"><Sparkles className="h-3 w-3" /> Khớp nhu cầu</Badge>}
+                          {nameIssues.length > 0 && (
+                            <Badge className="bg-amber-50 text-amber-900" title={nameIssues.map((issue) => issue.message).join(" ")}>
+                              Nên sửa tên
+                            </Badge>
+                          )}
                           {r.supplier_review_status === "pending" && <Badge className="bg-amber-100 text-amber-900">Chờ Vexim kiểm tra</Badge>}
                           {legacyReview && <Badge className="bg-amber-100 text-amber-900">Chờ rà soát giá hoặc tên</Badge>}
                           {r.supplier_review_status === "changes_requested" && <Badge className="bg-orange-50 text-orange-800">Chờ nhà cung cấp sửa</Badge>}

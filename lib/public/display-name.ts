@@ -54,6 +54,9 @@ function namesTheProduct(grade: string): boolean {
 }
 
 export function composeDisplayName(input: DisplayNameInput): string {
+  // 110 ký tự là trần khuyến nghị (DISPLAY_NAME_RECOMMENDED_MAX = 90 là mốc cảnh
+  // báo mềm, xem display-name-rules.ts). Tên gợi ý ở đây KHÔNG cắt cụt từ: phần
+  // nào không vừa thì bỏ nguyên phần đó, không cắt giữa chữ.
   const maxLength = input.maxLength ?? 110;
   const label = clean(input.categoryLabel);
   const grade = clean(input.grade);
@@ -76,6 +79,8 @@ export function composeDisplayName(input: DisplayNameInput): string {
     length += 2 + value.length;
   };
 
+  // Tỉnh đứng trước phần chỉ tiêu phụ: đó là dữ kiện người mua quốc tế tra cứu
+  // nhiều nhất sau tên hàng, nên khi phải bỏ bớt thì bỏ chỉ tiêu phụ trước.
   add(province);
 
   const skip = new Set(["grade", "product_type", ...(input.skipKeys ?? [])]);

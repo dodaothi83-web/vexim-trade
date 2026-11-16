@@ -7,6 +7,8 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import * as pricing from '../lib/products/quantity-pricing.ts';
 import * as productExtras from '../lib/products/product-extras.ts';
+import * as displayName from '../lib/public/display-name.ts';
+import * as displayNameRules from '../lib/public/display-name-rules.ts';
 const supplierId = '55555555-5555-5555-5555-555555555555', productId = '22222222-2222-2222-2222-222222222222';
 const category = { id: 'cat', slug: 'cashew', product_fields: [], supplier_product_fields: [], status: 'published', is_published: true };
 let supplier = { id: supplierId, fob_publicly_visible: true, fob_updated_at: '2026-10-29' }, user = { id: 'owner', email: 'owner@example.com' };
@@ -80,6 +82,8 @@ const mocks = {
   '@/lib/products/quantity-pricing': pricing,
   '@/lib/media/storage': storageApi,
   '@/lib/supplier-portal/bank-media': bankMedia,
+  '@/lib/public/display-name': displayName,
+  '@/lib/public/display-name-rules': displayNameRules,
 };
 const exports = {};
 const source = ts.transpileModule(readFileSync(new URL('../app/supplier/portal/product-actions.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
