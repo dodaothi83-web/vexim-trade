@@ -64,7 +64,8 @@ export default function robots(): MetadataRoute.Robots {
   // and legal disclosures. Preview/development stays fully disallowed.
   return {
     rules: LEGAL_CRAWLABLE
-      ? [{ userAgent: "*", allow: ["/$", "/favicon.ico", "/favicon.png", "/privacy-policy", "/cookie-policy", "/terms-of-service", "/thong-tin-chu-quan", "/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/khieu-nai"], disallow: "/" }]
+      // Giữ khớp với LEGAL_PATHS trong middleware.ts và legalRoutes trong app/sitemap.ts.
+      ? [{ userAgent: "*", allow: ["/$", "/favicon.ico", "/favicon.png", "/robots.txt", "/sitemap.xml", "/llms.txt", "/privacy-policy", "/cookie-policy", "/terms-of-service", "/platform-rules", "/thong-tin-chu-quan", "/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/khieu-nai"], disallow: "/" }]
       : [{ userAgent: "*", disallow: "/" }],
   };
 }

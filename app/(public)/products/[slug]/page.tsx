@@ -36,7 +36,7 @@ import { getStore } from "@/lib/db";
 import { pickSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
 import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { categoryTieWindow, compareRankedProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
-import { t } from "@/lib/public/i18n";
+import { hasTranslation, t } from "@/lib/public/i18n";
 import { normalizeCategoryFilters } from "@/lib/category-filters";
 import { categoryKeywordSearches } from "@/lib/public/category-searches";
 import {
@@ -51,7 +51,7 @@ import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRo
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { sanitizeHtml } from "@/lib/public/sanitize";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { safeJsonLd } from "@/lib/public/supplier-seo";
 import {
   CATEGORY_CHOSEN_SUPPLIER_COMPLEMENT,
@@ -96,6 +96,16 @@ function categoryLangParam(value: string | string[] | undefined): "en" | "vi" {
  * Bản tiếng Việt dùng công thức ngắn gọn riêng vì các quy tắc ghép hậu tố tiếng Anh
  * ở trên không áp dụng được cho câu tiếng Việt.
  */
+/**
+ * Danh mục đã có bản tiếng Việt thật hay chưa (dùng cho hreflang, xem
+ * app/sitemap.ts nơi khai cùng điều kiện).
+ */
+function categoryHasVietnameseTranslation(cat: Category): boolean {
+  return hasTranslation(cat.name_i18n, "vi")
+    || hasTranslation(cat.seo_title_i18n, "vi")
+    || hasTranslation(cat.seo_desc_i18n, "vi");
+}
+
 function categorySeoTitle(name: string, storedTitle: string, isVi = false): string {
   const stored = storedTitle.trim();
   if (stored) return stored;
@@ -206,13 +216,18 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
     description: seoDesc,
     alternates: {
       canonical: canonicalPath,
+      // Chỉ khai alternate `vi` khi danh mục THẬT SỰ có bản dịch. Trước đây cặp
+      // hreflang được khai vô điều kiện, nên danh mục chưa dịch vẫn tự nhận
+      // ?lang=vi là bản tiếng Việt trong khi nội dung vẫn là tiếng Anh.
       languages: {
         en: categoryPath(resolvedSlug, { page }),
-        vi: categoryPath(resolvedSlug, { page, lang: "vi" }),
+        ...(categoryHasVietnameseTranslation(cat)
+          ? { vi: categoryPath(resolvedSlug, { page, lang: "vi" }) }
+          : {}),
         "x-default": categoryPath(resolvedSlug, { page }),
       },
     },
-    openGraph: { title: seoTitle, description: seoDesc, url: canonicalPath, siteName: "Vexim Trade", type: "website", images, locale: isVi ? "vi_VN" : "en_US" },
+    openGraph: { title: seoTitle, description: seoDesc, url: canonicalPath, siteName: SITE_NAME, type: "website", images, locale: isVi ? "vi_VN" : "en_US" },
     twitter: { card: "summary_large_image", title: seoTitle, description: seoDesc, images: [heroImage] },
     robots: { index: indexable && !filtered, follow: !isPreview },
   };
@@ -247,6 +262,16 @@ const resolveCategory = cache(async (slug: string) => {
     // Tìm trong previous_slugs → 301
     cat = all.find((c) => Array.isArray(c.previous_slugs) && c.previous_slugs.includes(slug));
     if (cat) permanentRedirect(`/products/${cat.slug}`);
+    // Danh mục hạt điều từng mang slug "cashew" trước khi đổi thành
+    // "cashew-kernels". Nếu bản ghi chưa có slug cũ đó trong previous_slugs (dữ
+    // liệu seed/migration cũ), URL đã được Google lập chỉ mục vẫn phải về đúng
+    // trang thay vì 404. Chỉ áp dụng khi danh mục đích tồn tại và đang công khai
+    // — không tự tạo chuyển hướng cho slug không có thật.
+    if (slug === "cashew") {
+      const kernels = all.find((c) => c.slug === "cashew-kernels"
+        && c.status === "published" && c.is_published);
+      if (kernels) permanentRedirect("/products/cashew-kernels");
+    }
   }
   if (!cat) return { cat: null, allCategories: all, resolvedSlug: slug, isStaff, isPreview: false };
   const isPublished = cat.status === "published" && cat.is_published;

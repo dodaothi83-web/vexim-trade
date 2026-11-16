@@ -25,8 +25,8 @@ export const BLOG_CATEGORIES: BlogCategory[] = [
     label: "News",
     title: "News",
     description:
-      "News and updates from Veximtrade on connecting international buyers with Vietnamese food producers.",
-    keywords: ["Veximtrade news", "Vietnam food sourcing", "US buyers"],
+      "News and updates from Vexim Trade on connecting international buyers with Vietnamese food producers.",
+    keywords: ["Vexim Trade news", "Vietnam food sourcing", "US buyers"],
   },
 ]
 

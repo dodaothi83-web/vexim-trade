@@ -9,7 +9,7 @@ import { titleSimilarity } from "@/lib/blog/seo-check";
 
 /**
  * Truy vấn bài viết cho trang công khai /blog.
- * Chỉ trả về bài đã xuất bản thuộc mục Tin tức của Veximtrade.
+ * Chỉ trả về bài đã xuất bản thuộc mục Tin tức của Vexim Trade.
  */
 
 /** Tag xoá cache bài viết: app/blog-actions.ts gọi khi lưu hoặc xoá bài. */

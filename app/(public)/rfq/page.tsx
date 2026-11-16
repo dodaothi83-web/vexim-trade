@@ -12,9 +12,10 @@ import { loadRfqProductContext } from "@/lib/public/rfq-product-context";
 import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import type { Category } from "@/lib/types";
 import { listCachedPublicSuppliers } from "@/lib/public/product-catalog";
+import { pageTitle } from "@/lib/site";
 
 export const metadata = {
-  title: "Request a quote | Veximtrade",
+  title: pageTitle("Request a quote"),
   description: "Send a sourcing request and get matched with suitable Vietnamese suppliers.",
   robots: { index: false, follow: true },
 };

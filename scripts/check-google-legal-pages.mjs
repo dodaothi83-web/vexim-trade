@@ -23,11 +23,34 @@ for (const page of [privacy, terms]) {
   assert.match(page, /robots: \{ index: true, follow: true \}/);
 }
 assert.doesNotMatch(legalLayout, /getStore|requireSession|listCategories/, 'Legal pages must not depend on auth or the database');
-assert.match(middleware, /LEGAL_PATHS = new Set\(\["\/privacy-policy", "\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]\)/);
-assert.match(robots, /allow: \["\/\$", (?:"\/favicon\.ico", "\/favicon\.png", )?"\/privacy-policy", (?:"\/cookie-policy", )?"\/terms-of-service", "\/thong-tin-chu-quan", "\/quy-che-hoat-dong", "\/dieu-khoan-su-dung", "\/chinh-sach-bao-mat", "\/khieu-nai"\]/);
+// Ba danh sách phải nói CÙNG một chuyện: robots cho bot đọc trang nào, middleware
+// có gắn noindex cho trang đó không, và sitemap có khai trang đó không. Trước đây
+// chúng lệch nhau (thiếu /cookie-policy và /platform-rules), khiến Google nhận tín
+// hiệu ngược nhau cho cùng một URL.
+const legalPathsOf = (source) => {
+  const match = /LEGAL_PATHS = new Set\(\[([^\]]+)\]\)/.exec(source);
+  assert.ok(match, 'middleware khai LEGAL_PATHS');
+  return [...match[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]).sort();
+};
+const robotsAllowOf = (source) => {
+  const match = /allow: \[([^\]]+)\], disallow: "\/"/.exec(source);
+  assert.ok(match, 'robots có allow-list trước khi chặn toàn site');
+  return [...match[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+};
+const sitemapLegalOf = (source) => [...source.matchAll(/url: `\$\{SITE_URL\}\/([a-z-]+)`, changeFrequency: "yearly"/g)]
+  .map((m) => `/${m[1]}`)
+  .sort();
+const middlewareLegal = legalPathsOf(middleware);
+const robotsLegal = robotsAllowOf(robots).filter((path) => !["/$", "/favicon.ico", "/favicon.png", "/robots.txt", "/sitemap.xml", "/llms.txt"].includes(path)).sort();
+const sitemapLegal = sitemapLegalOf(sitemap);
+assert.deepEqual(robotsLegal, middlewareLegal, 'robots allow-list khớp middleware LEGAL_PATHS');
+assert.deepEqual(sitemapLegal, middlewareLegal, 'sitemap legalRoutes khớp middleware LEGAL_PATHS');
+for (const path of ["/cookie-policy", "/platform-rules"]) {
+  assert.ok(middlewareLegal.includes(path), `${path} được middleware cho phép index`);
+}
 assert.match(sitemap, /url: `\$\{SITE_URL\}\/privacy-policy`/);
 assert.match(sitemap, /url: `\$\{SITE_URL\}\/terms-of-service`/);
-for (const route of ["thong-tin-chu-quan", "quy-che-hoat-dong", "dieu-khoan-su-dung", "chinh-sach-bao-mat", "khieu-nai"]) {
+for (const route of ["thong-tin-chu-quan", "quy-che-hoat-dong", "dieu-khoan-su-dung", "chinh-sach-bao-mat", "khieu-nai", "platform-rules"]) {
   assert.match(sitemap, new RegExp(`url: \`\\$\\{SITE_URL\\}\\/${route}\``), `Sitemap includes ${route}`);
   assert.match(read(`app/(legal)/${route}/page.tsx`), /robots: \{ index: true, follow: true \}/, `${route} is indexable`);
 }

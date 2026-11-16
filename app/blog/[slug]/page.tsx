@@ -9,7 +9,7 @@ import { getPublishedNewsBySlug, relatedNews } from "@/lib/blog/queries";
 import { ArticleToc } from "@/components/blog/article-toc";
 import { ArticleCta } from "@/components/blog/article-cta";
 import { COMPANY } from "@/lib/config";
-import { SITE_URL } from "@/lib/site";
+import { pageTitle, SITE_NAME, SITE_URL } from "@/lib/site";
 
 /** ISR: làm mới bài viết sau tối đa 60 giây */
 export const revalidate = 60;
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     // absolute: không để layout CRM thêm hậu tố "· Vexim Trade CRM"
-    title: { absolute: `${title} | Veximtrade` },
+    title: pageTitle(title),
     description,
     alternates: { canonical: url },
     openGraph: {
@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       url,
       type: "article",
-      siteName: "Veximtrade",
+      siteName: SITE_NAME,
       publishedTime: post.published_at ?? undefined,
       modifiedTime: post.updated_at,
       images: post.featured_image ? [{ url: post.featured_image, alt: post.featured_image_alt ?? title }] : undefined,
@@ -68,8 +68,8 @@ export default async function BlogPostPage({ params }: PageProps) {
   const headline = post.meta_title || post.title;
   const description = post.meta_description || post.excerpt || undefined;
 
-  // Tác giả: chỉ dùng tên đã nhập; chưa có thì ghi nhận là Veximtrade (không bịa tên)
-  const authorName = post.author_name?.trim() || "Veximtrade";
+  // Tác giả: chỉ dùng tên đã nhập; chưa có thì ghi nhận là Vexim Trade (không bịa tên)
+  const authorName = post.author_name?.trim() || SITE_NAME;
 
   const blogPosting = {
     "@context": "https://schema.org",

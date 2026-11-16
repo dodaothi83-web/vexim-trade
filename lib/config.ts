@@ -39,6 +39,15 @@ export const COMPANY = {
   /** Ngày cấp đăng ký doanh nghiệp lần đầu */
   registrationDate: env.COMPANY_REGISTRATION_DATE?.trim() || "29/04/2025",
   tagline: "Vietnam Export Sourcing Partner",
+  /**
+   * Hồ sơ công khai của công ty, dùng cho `sameAs` trong schema Organization để
+   * máy tìm kiếm/AI nối website với đúng thực thể. Chỉ khai URL công khai, tồn
+   * tại thật (khớp các liên kết ở components/social-links.tsx).
+   */
+  socialProfiles: [
+    "https://www.linkedin.com/company/143976436/",
+    "https://www.facebook.com/profile.php?id=61568290953268",
+  ] as const,
 };
 
 /** Kiểu thông tin công ty – dùng khi truyền từ server xuống client */

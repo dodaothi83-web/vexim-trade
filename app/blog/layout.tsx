@@ -24,7 +24,7 @@ export default function BlogLayout({ children }: { children: ReactNode }) {
       <SiteTrafficBeacon />
       <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-3 py-3 sm:gap-6 sm:px-8">
-          <Link href="/" aria-label="Veximtrade home" className="shrink-0">
+          <Link href="/" aria-label="Vexim Trade home" className="shrink-0">
             <Logo className="h-[60px] w-[60px]" />
           </Link>
           <nav className="ml-auto hidden items-center gap-7 text-[15px] font-medium text-ink-700 md:flex">

@@ -8,7 +8,11 @@ const code = ts.transpileModule(readFileSync(new URL('../app/sitemap.ts', import
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const origin = 'https://www.veximtrade.com';
-const categories = [{ slug: 'cashew', seo_indexable: true }, { slug: 'pepper', seo_indexable: true }, { slug: 'private', seo_indexable: false }];
+const categories = [
+  { slug: 'cashew', seo_indexable: true, name_i18n: { en: 'Cashew kernels', vi: 'Hạt điều' } },
+  { slug: 'pepper', seo_indexable: true, name_i18n: { en: 'Pepper' } },
+  { slug: 'private', seo_indexable: false },
+];
 const suppliers = [
   { id: 'a', slug: 'supplier-a', indexable: true },
   { id: 'no-slug', slug: null, indexable: true },
@@ -37,6 +41,7 @@ const mocks = {
     },
   },
   '@/lib/public/supplier-seo': { supplierProfileIndexable: (s) => s.indexable },
+  '@/lib/public/i18n': { hasTranslation: (m, lang) => typeof m?.[lang] === 'string' && m[lang].trim().length > 0 },
   '@/lib/site': { SITE_URL: origin },
 };
 function compile(indexable) {
@@ -55,9 +60,18 @@ for (const path of ['/suppliers/supplier-a', '/suppliers/no-slug', '/products/ca
 for (const path of ['/suppliers/null', '/suppliers/thin', '/suppliers/test', '/products/cashew/demo', '/products/private', '/products/private/approved']) {
   assert.ok(!urls.includes(origin + path), `${path} excluded`);
 }
-assert.equal(snapshotLoads, 1);
-assert.deepEqual(categoryCalls, ['cashew', 'pepper']);
+// hreflang `vi` chỉ được khai khi danh mục có bản dịch thật: `pepper` chưa dịch
+// nên không được tự nhận ?lang=vi là bản tiếng Việt.
+const entries = await compile('true')();
+const viAlternate = (path) => entries.find((entry) => entry.url === origin + path)?.alternates?.languages?.vi ?? null;
+assert.equal(viAlternate('/products/cashew'), `${origin}/products/cashew?lang=vi`, 'danh mục có bản dịch khai alternate vi');
+assert.equal(viAlternate('/products/pepper'), null, 'danh mục chưa dịch không khai alternate vi');
+// Trang chủ + danh mục + sản phẩm dùng CHUNG một snapshot cho mỗi lần dựng; lần
+// dựng thứ hai (đọc phần alternates) là một lần gọi sitemap() riêng nên cộng thêm đúng một.
+assert.equal(snapshotLoads, 2, 'Catalogs share one snapshot per build');
+assert.deepEqual([...new Set(categoryCalls)], ['cashew', 'pepper'], 'Only indexable, multilingual-eligible categories are read');
+assert.deepEqual(categoryCalls, ['cashew', 'pepper', 'cashew', 'pepper'], 'Category lists are read once per build');
 const staging = (await compile('false')()).map((entry) => entry.url);
 assert.ok(!staging.some((url) => url.includes('/products/') || url.includes('/suppliers/')));
-assert.equal(snapshotLoads, 1, 'Staging does not query the product catalog');
+assert.equal(snapshotLoads, 2, 'Staging does not query the product catalog');
 console.log('Catalog sitemap: supplier fallback, public product gate, category policy and launch flag passed');

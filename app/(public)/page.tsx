@@ -74,7 +74,14 @@ export async function generateMetadata({
       siteName: "Vexim Trade",
       type: "website",
       locale: isVi ? "vi_VN" : "en_US",
-      images: [{ url: HOME_IMAGE, alt: "Verified Vietnamese food & agricultural products on Vexim Trade" }],
+      // width/height giúp LinkedIn/WhatsApp/Zalo dựng thẻ xem trước ngay lần tải
+      // đầu thay vì đợi tải ảnh để đo (ảnh thật: 1264x848).
+      images: [{
+        url: HOME_IMAGE,
+        alt: "Verified Vietnamese food & agricultural products on Vexim Trade",
+        width: 1264,
+        height: 848,
+      }],
     },
     twitter: {
       card: "summary_large_image",
@@ -119,7 +126,18 @@ export default async function PublicHomePage({
         description:
           "Vexim Trade connects international and domestic buyers with verified Vietnamese food & agricultural suppliers across core product categories and sub-groups. Buyers can browse supplier listings, request a quote from a supplier they choose, or send requirements and we look for suppliers that match. Supplier verification covers business documents, automated certificate holder (Owner vs. Partner Entity) & expiration recognition, factory photo evidence, and export delivery history. Vexim also provides Vietnamese manufacturers with free marketplace listing, international trade website design, business banner advertising consultations, and US FDA compliance consulting. After an introduction, buyers contract directly with the chosen supplier; Vexim does not hold buyer payments.",
         url: SITE_URL,
-        logo: `${SITE_URL}/logo-vexim.png`,
+        // Logo dùng cho knowledge panel phải là ảnh VUÔNG 112x112 trở lên; logo
+        // dạng chữ ngang (logo-vexim.png 60x60) sẽ bị Google bỏ qua. Dùng biểu
+        // tượng chữ V trên nền trắng, cùng ảnh với apple-touch-icon.
+        logo: {
+          "@type": "ImageObject",
+          url: `${SITE_URL}/apple-touch-icon.png`,
+          width: 180,
+          height: 180,
+        },
+        // sameAs: nối website với hồ sơ công khai đã có ở chân trang, để máy tìm
+        // kiếm và AI biết đây cùng một thực thể doanh nghiệp.
+        sameAs: [...COMPANY.socialProfiles],
         email: COMPANY.contactEmail,
         telephone: COMPANY.phone,
         address: { "@type": "PostalAddress", streetAddress: COMPANY.address, addressCountry: "VN" },

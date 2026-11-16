@@ -31,7 +31,7 @@ import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/pr
 import { movedProductDestination } from "@/lib/public/product-category-redirect";
 import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
-import { SITE_URL } from "@/lib/site";
+import { pageTitle, SITE_NAME, SITE_URL } from "@/lib/site";
 import { safeJsonLd } from "@/lib/public/supplier-seo";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 import { packagingSummaryEnglish, samplePriceEnglish } from "@/lib/public/product-extras-display";
@@ -92,8 +92,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, productId } = await params;
   const detail = await getDetailOrRedirect(slug, productId);
   if (!detail) return { title: "Product not found | Vexim Trade", robots: { index: false } };
-  const title = `${detail.card.name} | Vietnam ${detail.category.name_i18n.en || slug} | Vexim Trade`;
-  const description = `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${publicProductLocationDisplay(detail.card.province)}. Request a quote from Vexim Trade.`;
+  const categoryName = detail.category.name_i18n.en || slug;
+  // Tiêu đề đặt tên sản phẩm trước rồi mới tới quốc gia + danh mục: tên sản phẩm
+  // của nhà cung cấp thường rất dài (60–110 ký tự), nên ghép thêm hậu tố dài sẽ
+  // bị Google cắt giữa từ. pageTitle() cũng chặn việc lặp "· Vexim Trade".
+  const title = pageTitle(`${detail.card.name} – ${categoryName}, Vietnam`);
+  const description = `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${publicProductLocationDisplay(detail.card.province)}. Request a quote from ${SITE_NAME}.`;
   const ogImagePath = detail.card.cardImagePath ?? detail.card.imagePaths[0];
   const ogImage = ogImagePath ? `${SITE_URL}/public-media/${ogImagePath.replace(/^\//, "")}` : null;
   return {
@@ -247,8 +251,22 @@ export default async function PublicProductDetail({ params }: Props) {
       }
       : {}),
   };
+  // BreadcrumbList đi kèm Product: Google và các hệ thống AI dùng đường dẫn phân
+  // cấp này để hiểu sản phẩm nằm trong danh mục nào, và để thay chuỗi URL thô
+  // bằng breadcrumb trong kết quả tìm kiếm. Trước đây trang chi tiết có
+  // <Breadcrumbs> trên giao diện nhưng thiếu hẳn khai báo có cấu trúc.
+  const productBreadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: category.name_i18n.en || slug, item: `${SITE_URL}/products/${encodeURIComponent(slug)}` },
+      { "@type": "ListItem", position: 3, name: card.name, item: `${SITE_URL}/products/${encodeURIComponent(slug)}/${encodeURIComponent(productId)}` },
+    ],
+  };
   return <div className="mx-auto max-w-6xl px-5 pb-24 pt-7 sm:px-6 lg:px-8">
     {indexable && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />}
+    {indexable && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productBreadcrumbJsonLd) }} />}
     {countView && <SupplierTrafficBeacon pageKey={`product:${p.id}`}
       token={createTrafficToken({ kind: "product", supplierId: p.supplier_id, resourceId: p.id, slug })} />}
     {preview && <p className="mb-4 rounded-lg bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">Staff preview — this category is not public yet.</p>}

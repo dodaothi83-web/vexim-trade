@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { listPublishedNews } from "@/lib/blog/queries";
 import { DEFAULT_BLOG_CATEGORY, getBlogCategory } from "@/lib/blog/blog-categories";
-import { SITE_URL } from "@/lib/site";
+import { pageTitle, SITE_NAME, SITE_URL } from "@/lib/site";
 
 /** ISR: làm mới danh sách sau tối đa 60 giây */
 export const revalidate = 60;
@@ -11,14 +11,14 @@ export const revalidate = 60;
 const category = getBlogCategory(DEFAULT_BLOG_CATEGORY);
 
 export const metadata: Metadata = {
-  title: { absolute: "News | Veximtrade" },
+  title: pageTitle("News"),
   description: category?.description,
   alternates: { canonical: `${SITE_URL}/blog` },
   openGraph: {
     title: category?.title,
     description: category?.description,
     url: `${SITE_URL}/blog`,
-    siteName: "Veximtrade",
+    siteName: SITE_NAME,
     type: "website",
   },
 };

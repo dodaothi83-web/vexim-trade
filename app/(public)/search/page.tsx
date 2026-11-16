@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight, ChevronDown, Filter, PackageSearch, Users } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
+import { pageTitle } from "@/lib/site";
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { SearchFilterForm } from "@/components/public/search-filter-form";
 import { SearchSupplierCard, type SearchSupplierCardSupplier } from "@/components/public/search-supplier-card";
@@ -29,7 +30,7 @@ import { supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDispla
 import type { Category, Supplier } from "@/lib/types";
 
 export const metadata: Metadata = {
-  title: "Search products & suppliers | Veximtrade",
+  title: pageTitle("Search products & suppliers"),
   description:
     "Search Vietnamese products, grades and suppliers, or send your requirements and we look for suppliers that match.",
   // Các trang kết quả theo từ khoá không cần lập chỉ mục.

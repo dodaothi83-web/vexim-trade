@@ -18,16 +18,26 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "4mb",
     },
   },
-  // 301 redirect từ URL cũ sang URL mới của GĐ danh bạ
+  /**
+   * 301 redirect từ URL cũ sang URL mới của GĐ danh bạ.
+   *
+   * LƯU Ý: `/cashew` KHÔNG còn nằm trong danh sách này. Đó là trang đích quảng
+   * cáo riêng (app/cashew/page.tsx, có canonical "https://www.veximtrade.com/cashew")
+   * và form RFQ gắn nguồn lead "Website veximtrade.com/cashew" (xem app/actions.ts).
+   * Trước đây `/cashew` bị 301 sang `/products/cashew` — slug danh mục đã đổi
+   * thành `cashew-kernels` và `cashew` cũng không nằm trong previous_slugs của
+   * danh mục, nên đích đến là một trang 404. Kết quả: mọi quảng cáo trỏ vào
+   * /cashew (kèm utm_*, gclid) đều mất tham số qua redirect và rơi vào 404, và
+   * canonical của trang đích lại trỏ về chính URL đang bị chặn.
+   *
+   * Chỉ giữ redirect cho các ĐƯỜNG DẪN CON, vốn là URL cũ của danh mục.
+   */
   redirects: async () => [
     {
-      source: "/cashew",
-      destination: "/products/cashew",
-      permanent: true,
-    },
-    {
-      source: "/cashew/:path*",
-      destination: "/products/cashew",
+      // `:path+` (một đoạn trở lên) chứ không phải `:path*`: dạng `*` khớp cả
+      // đường dẫn rỗng, tức chính /cashew — đúng thứ cần giữ lại.
+      source: "/cashew/:path+",
+      destination: "/products/cashew-kernels",
       permanent: true,
     },
   ],
