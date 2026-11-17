@@ -85,4 +85,21 @@ const v2html = renderToStaticMarkup(React.createElement('form', null, React.crea
 assert.match(v2html, /1\.234567/); assert.match(v2html, /6401/); assert.match(v2html, /\/MT/);
 assert.match(v2html, /chờ duyệt/); assert.doesNotMatch(v2html, /Gửi bảng giá mới để duyệt/, 'Old kg editor cannot overwrite v2');
 assert.doesNotMatch(v2html, /staged editor/, 'The v2 editing UI is gone from the supplier portal');
-console.log('Inline quantity editor: separate form controls, v2 read-only view and dirty-state lock passed');
+/*
+  Ô chọn grade phải luôn có đường "Thêm grade", kể cả khi danh mục đã có grade chuẩn:
+  nhà máy hay gọi quy cách theo cách riêng, không trùng danh sách của Vexim. Trước đây
+  mục này chỉ hiện khi danh mục chưa có grade nào, nên gần như không bao giờ thấy.
+*/
+const withGrade = render({ actor: 'supplier', onAddGrade: async () => ({ ok: true, message: '' }) });
+assert.match(withGrade, /<option[^>]*value="__new_grade__"[^>]*>\+ Thêm grade<\/option>/,
+  'Danh mục đã có grade vẫn phải có mục thêm grade trong ô chọn');
+assert.doesNotMatch(withGrade, /\+ Thêm grade mới/, 'Nhãn gọn: "+ Thêm grade"');
+// Sản phẩm đã có bảng giá cũng phải tự thêm được grade: trang sửa truyền onAddGrade.
+const savePage = readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');
+const inlineCalls = savePage.split('<QuantityPricingInline').slice(1);
+assert.ok(inlineCalls.length > 0, 'Trang sửa sản phẩm vẫn dùng bảng giá inline');
+for (const call of inlineCalls) {
+  const props = call.slice(0, call.indexOf('/>'));
+  assert.match(props, /onAddGrade=/, 'Mọi bảng giá inline ở cổng nhà cung cấp đều truyền onAddGrade');
+}
+console.log('Inline quantity editor: separate form controls, v2 read-only view, dirty-state lock and grade add path passed');

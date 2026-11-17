@@ -1057,16 +1057,12 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     : blocked ? "border border-rose-500 bg-white text-[10px] font-black text-rose-600" : "border border-ink-300 bg-white text-ink-500"}`}>
                     {done ? <Check className="size-3" aria-hidden="true" /> : blocked ? "!" : index + 1}
                   </span>
-                  <span className="min-w-0">
-                    <span className="block text-[13px] leading-4.5 font-bold text-ink-800 group-hover:text-brand-800">{item.label}</span>
-                    <span className="block text-[11px] leading-4 text-ink-500">{item.hint}</span>
-                  </span>
+                  <span className="min-w-0 block text-[13px] leading-4.5 font-bold text-ink-800 group-hover:text-brand-800">{item.label}</span>
                 </a>
               </li>;
             })}
           </ol>
         </div>
-        <p className="mt-2 px-2 text-[11px] leading-4 text-ink-500">{copy.toc.hint}</p>
       </nav>
 
       <div className="min-w-0 space-y-3 [&_.input]:rounded-md [&_.input]:py-1.5 [&_.input]:text-[12.5px] [&_.input]:leading-5">
@@ -1098,11 +1094,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           {/* 01 — Ngành hàng */}
           <section id="sec-category" data-form-section="sec-category" aria-label={copy.category.aria}
             className="scroll-mt-24 rounded-lg border border-ink-200 bg-white">
-            <SectionHead index="1" title={copy.category.title} pill={sectionPill("sec-category")}
-              hint={copy.category.hint} />
+            <SectionHead index="1" title={copy.category.title} pill={sectionPill("sec-category")} />
             <div>
-              <Row label={copy.category.field} required error={!selectedCategory}
-                hint={selectedCategory ? copy.category.hintChosen : copy.category.hintEmpty}>
+              <Row label={copy.category.field} required error={!selectedCategory}>
                 <div className="flex flex-wrap items-center gap-2">
                   <select name="supplier_category_proposal" className="input min-w-0 flex-1" required value={selectedCategory}
                     onChange={(e) => onCategorySelect(e.target.value)} disabled={locked || categoryLocked || !categories.length}>
@@ -1133,8 +1127,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           {/* 02 — Tên & từ khoá */}
           <section id="sec-basic" data-form-section="sec-basic" aria-label={copy.basic.aria}
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
-            <SectionHead index="2" title={copy.basic.title} pill={sectionPill("sec-basic")}
-              hint={copy.basic.hint} />
+            <SectionHead index="2" title={copy.basic.title} pill={sectionPill("sec-basic")} />
             <div>
               <Row label={copy.basic.name} required>
                 {/*
@@ -1147,11 +1140,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   placeholder={suggestedDisplayName || copy.basic.nameFormula}
                   defaultValue={product?.name ?? ""} disabled={locked} />
               </Row>
-              <Row label={copy.basic.keywords} hint={copy.basic.keywordsHint}>
+              <Row label={copy.basic.keywords}>
                 <input name="keywords" className="input" maxLength={120} placeholder="cashew, w320, vietnam"
                   defaultValue={(product?.keywords ?? []).join(", ")} disabled={locked} />
               </Row>
-              <Row label={copy.basic.description} hint={copy.basic.descriptionHint}>
+              <Row label={copy.basic.description}>
                 <textarea name="description" className="input min-h-[76px] resize-y" rows={3} maxLength={1500}
                   placeholder={copy.basic.descriptionPlaceholder} defaultValue={product?.description ?? ""} disabled={locked} />
               </Row>
@@ -1161,11 +1154,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           {/* 03 — Ảnh & tệp */}
           <section id="sec-media" data-form-section="sec-media" aria-label={copy.media.aria}
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
-            <SectionHead index="3" title={copy.media.title} pill={sectionPill("sec-media")}
-              hint={live ? copy.media.hintLive : review === "approved" ? copy.media.hintApproved : copy.media.hintDraft} />
+            <SectionHead index="3" title={copy.media.title} pill={sectionPill("sec-media")} />
             <div>
               {/* Ảnh đại diện đứng trước: người mua thấy ảnh này đầu tiên trong kết quả tìm kiếm. */}
-              <Row label={copy.media.cover} hint={copy.media.coverHint}>
+              <Row label={copy.media.cover}>
                 <div
                   onDragOver={(event) => { if (canUpload) { event.preventDefault(); setCoverHover(true); } }}
                   onDragLeave={() => setCoverHover(false)}
@@ -1185,7 +1177,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[12px] leading-5 text-ink-600">{coverUrl
-                      ? copy.media.coverCurrent
+                      ? copy.media.coverCurrentShort
                       : product ? copy.media.coverAuto : copy.media.coverFirstPicked}</p>
                     {cover && (product ? canDeleteAsset(cover) : true) && <button type="button" disabled={busy} onClick={() => dropImage(cover)}
                       aria-label={product ? copy.media.coverDelete : copy.media.coverUnpick}
@@ -1295,8 +1287,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                           onChange={(e) => { chooseFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
                       </label>
                     </p>
-                    <p className="mt-0.5 text-[11px] text-ink-500">{fill(product ? copy.media.countFiles : copy.media.countBank, { count: product ? ownedCount : bankOwnCount })}</p>
-                    <p className="mt-0.5 text-[11px] text-ink-500">{product ? copy.media.limitFiles : copy.media.limitBank}</p>
+                    <p className="mt-0.5 text-[11px] text-ink-500">{fill(copy.media.countShort, { count: product ? ownedCount : bankOwnCount })}</p>
                   </div>
                 </> : <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-900">
                   {locked ? copy.media.lockedPending : copy.media.lockedLegacy}
@@ -1322,7 +1313,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     </li>;
                   })}
                 </ul>
-                <p className="mt-1.5 text-[11.5px] leading-4 text-ink-500">{copy.media.catalogueNote}</p>
               </Row>}
             </div>
           </section>
@@ -1330,10 +1320,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           {/* 04 — Quy cách & năng lực */}
           <section id="sec-spec" data-form-section="sec-spec" aria-label={copy.spec.aria}
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
-            <SectionHead index="4" title={copy.spec.title} pill={sectionPill("sec-spec")}
-              hint={copy.spec.hint} />
+            <SectionHead index="4" title={copy.spec.title} pill={sectionPill("sec-spec")} />
             <div>
-              <Row label={copy.spec.spec} hint={`${copy.spec.specHint} ${copy.spec.specTemplateHint}`}>
+              <Row label={copy.spec.spec}>
                 {/* Mẫu theo ngành hàng: chữ mờ là ví dụ đã điền, nút chèn các mục cần ghi. */}
                 <textarea ref={specRef} name="spec" className="input min-h-[150px] resize-y font-[inherit] leading-6" rows={6} maxLength={800}
                   placeholder={specTemplateFor(selectedCategory || product?.category, lang === "en" ? "en" : "vi").example}
@@ -1349,10 +1338,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               </Row>
               {/* Vùng nguyên liệu và xuất xứ đầu vào chung một hàng, hai cột đều nhau (điện thoại xếp dọc). */}
               <div className="grid border-t border-ink-100 sm:grid-cols-2 [&>div]:border-t-0 [&>div+div]:border-t sm:[&>div+div]:border-l sm:[&>div+div]:border-t-0">
-                <Row label={copy.spec.region} hint={copy.spec.regionHint}>
+                <Row label={copy.spec.region}>
                   <RawMaterialRegionInput defaultValue={product?.raw_material_region ?? ""} disabled={locked} placeholder={shared.regionPlaceholder} />
                 </Row>
-                <Row label={copy.spec.origin} hint={copy.spec.originHint}>
+                <Row label={copy.spec.origin}>
                   <input name="input_material_origin" className="input" maxLength={300}
                     placeholder={copy.spec.originPlaceholder} defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
                 </Row>
@@ -1379,20 +1368,21 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           {/* 05 — Giá & điều kiện bán */}
           <section id="sec-price" data-form-section="sec-price" aria-label={copy.price.aria}
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
-            <SectionHead index="5" title={copy.price.title} pill={sectionPill("sec-price")}
-              hint={copy.price.hint} />
+            <SectionHead index="5" title={copy.price.title} pill={sectionPill("sec-price")} />
             <div>
               <Row label={copy.price.quantity} required error={priceIssueCount > 0}
-                hint={priceIssueCount > 0 ? copy.price.quantityHintIssues : copy.price.quantityHint}>
+                hint={activeCategory && priceIssueCount > 0 ? copy.price.quantityHintIssues : undefined}>
               {product ? <div className="rounded-md border border-ink-200 p-3">
+                {/* Sản phẩm đã có bảng giá cũng phải tự thêm được grade: danh mục có thể thiếu
+                    đúng quy cách của lô hàng này, và ô chọn grade không được phép chặn đường. */}
                 {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
                   data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview}
-                  copy={shared.quantityInline} lang={lang} />
+                  copy={shared.quantityInline} lang={lang}
+                  onAddGrade={activeCategorySlug ? (grade) => addSupplierGradeOptionAction({ categorySlug: activeCategorySlug, grade }) : undefined} />
                   : <p role="alert" className="text-xs text-rose-700">{copy.price.quantityLoadFailed}</p>}
               </div> : <div id="new-quantity-pricing" className="space-y-3 rounded-md border border-ink-200 p-3">
                 {!activeCategory ? <p className="text-xs text-ink-600">{copy.price.noCategory}</p> : !newPolicy || !newQuantity ?
                   <p role="alert" className="text-xs text-rose-700">{copy.price.policyFailed}</p> : <>
-                    <p className="text-xs text-ink-600">{copy.price.nameNote}</p>
                     {newQuantity && <QuantityPricingEditor value={newQuantity} onChange={onNewQuantityChange} standardGrades={newGrades} policy={newPolicy}
                       buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"}
                       isolated showPreview={false} showTitle={false} validateEnglishName={false} showErrors={showGradeErrors} consentChecked={quantityConsent} onConsentChange={setQuantityConsent}
@@ -1403,7 +1393,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               </div>}
               </Row>
 
-              <Row label={copy.price.sample} hint={copy.price.sampleHint}>
+              <Row label={copy.price.sample}>
                 <input className="input max-w-[200px]" name="sample_price_usd" inputMode="decimal" placeholder={copy.price.samplePlaceholder}
                   defaultValue={product?.sample_price_usd ?? ""} disabled={locked} />
               </Row>
@@ -1414,7 +1404,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <input type="checkbox" name="price_publicly_visible" value="yes" defaultChecked={priceOptInDefault(product)} disabled={locked} className="mt-0.5 size-4 accent-brand-700" />
                   {copy.price.publicOptIn}
                 </label>
-                {!product && <p className="mt-1 pl-6 text-[11px] leading-4 text-ink-500">{copy.price.publicOptInHint}</p>}
                 {product && <div className="mt-2 rounded-md bg-white p-2.5 text-[11px] leading-4" role="status">
                   <strong>{copy.price.savedState}</strong> {priceBlockers.length === 0 ? copy.price.savedOk : copy.price.savedBlocked}
                   <ul className="mt-1 list-disc pl-5">{priceBlockers.map((reason) => <li key={reason}>{reason}</li>)}
@@ -1422,10 +1411,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   </ul>
                   {dirty && <p className="mt-1 font-semibold text-amber-800">{copy.price.savedStale}</p>}
                 </div>}
-                <p className="mt-1.5 text-[11px] leading-4 text-ink-600">
-                  {copy.price.needsApproval}
-                  {supplierPriceConsentCurrent(supplier) ? copy.price.consentCurrent : ""}
-                </p>
                 </div>
               </Row>
 
@@ -1447,7 +1432,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     </span>
                   </label>
                   <p className="mt-1 pl-6 text-[10.5px] leading-4 text-ink-500">
-                    {copy.price.consentNote}{" "}
                     <Link href="/dieu-khoan-su-dung" className="font-semibold text-brand-800 underline">{copy.price.terms}</Link>
                   </p>
                 </div>
@@ -1458,8 +1442,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           {/* 06 — Đóng gói & giao hàng */}
           <section id="sec-shipping" data-form-section="sec-shipping" aria-label={copy.shipping.aria}
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
-            <SectionHead index="6" title={copy.shipping.title} pill={sectionPill("sec-shipping")}
-              hint={copy.shipping.hint} />
+            <SectionHead index="6" title={copy.shipping.title} pill={sectionPill("sec-shipping")} />
             <div>
               <Row label={copy.shipping.packaging}>
                 <div className="space-y-3">
@@ -1481,11 +1464,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     <input className="input max-w-[300px]" name="package_size" maxLength={60} placeholder="60 × 40 × 40"
                       defaultValue={product?.package_size ?? ""} disabled={locked} />
                   </SubField>
-                  <p className="-mt-1.5 text-[11.5px] leading-4 text-ink-500">{copy.shipping.packageSizeNote}</p>
                 </div>
               </Row>
 
-              <Row label={copy.shipping.leadTime} hint={copy.shipping.leadTimeHint}>
+              <Row label={copy.shipping.leadTime}>
                 <div className="flex items-center gap-2">
                   <input
                     name="lead_time_value"
@@ -1544,15 +1526,13 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           {/* 07 — Nội dung chi tiết */}
           <section id="sec-detail" data-form-section="sec-detail" aria-label={copy.detail.aria}
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
-            <SectionHead index="7" title={copy.detail.title} pill={sectionPill("sec-detail")}
-              hint={copy.detail.hint} />
+            <SectionHead index="7" title={copy.detail.title} pill={sectionPill("sec-detail")} />
             <div className="px-4 py-4 sm:px-5">
               <div className="text-[12px]">
                 <span className="mb-1.5 block text-[13px] font-semibold text-ink-700">{copy.detail.label}</span>
                 <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
                   value={snapshot.description_detail} onChange={onDescriptionDetailChange} disabled={locked || busy}
                   copy={shared.description} />
-                <span className="mt-1 block text-[11px] leading-4 text-ink-500">{copy.detail.note}</span>
               </div>
             </div>
           </section>
@@ -1768,7 +1748,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <ul className="mt-1 space-y-1 text-[11.5px] leading-4 text-ink-600">
               {completeness.missing.slice(0, 3).map((item) => <li key={item.key} className="flex items-start gap-1.5">
                 <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
-                <span className="min-w-0 flex-1"><strong className="font-semibold text-ink-800">{lang === "en" ? item.labelEn : item.label}</strong>{lang === "en" ? "" : ` · ${item.hint}`}</span>
+                <span className="min-w-0 flex-1"><strong className="font-semibold text-ink-800">{lang === "en" ? item.labelEn : item.label}</strong></span>
                 <span className="shrink-0 rounded bg-brand-50 px-1 py-0.5 font-mono text-[9.5px] font-bold text-brand-800">+{item.weight}</span>
               </li>)}
             </ul>
@@ -1777,7 +1757,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               {fill(copy.side.addNext, { label: lang === "en" ? completeness.next.labelEn : completeness.next.label })}
             </button>
           </> : <p className="mt-2 text-[11.5px] leading-4 text-emerald-700">{copy.side.complete}</p>}
-          <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{copy.side.liveNumbers}</p>
         </section>}
 
         <div className="overflow-hidden rounded-lg border border-ink-200 bg-white">
@@ -1792,11 +1771,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             {newQuantity && newPolicy ? <div className="mt-2">
               <QuantityBuyerPreview value={newQuantity} standardGrades={newGrades} policy={newPolicy}
                 buyerPriceUnit={newBuyerUnit} pricePubliclyVisible={snapshot.price_publicly_visible === "yes"} copy={shared.quantityEditor} />
-              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">{copy.side.previewNote}</p>
             </div> : quantityEditor && quantityPreview ? <div className="mt-2">
               <QuantityBuyerPreview value={quantityPreview} standardGrades={quantityEditor.standardGrades} policy={quantityEditor.policy}
                 buyerPriceUnit={quantityEditor.buyerPriceUnit} pricePubliclyVisible={quantityEditor.pricePubliclyVisible} copy={shared.quantityEditor} />
-              <p className="mt-2 rounded-md bg-amber-50 p-2 text-[10.5px] leading-4 text-amber-900">{copy.side.previewNoteLive}</p>
             </div> : <h2 className="mt-0.5 line-clamp-2 text-[13.5px] font-black text-ink-900">{product?.name ?? copy.side.newProduct}</h2>}
             <dl className="mt-2.5 space-y-1 border-t border-ink-100 pt-2.5 text-[11.5px]">
               {commercial.filter((row) => !((quantityEditor && quantityPreview) || (newQuantity && newPolicy)) ||
@@ -1805,47 +1782,22 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 <dd className={`min-w-0 truncate text-right font-semibold text-ink-800 ${row.label === copy.reviewLabels.price && row.value !== "-" ? "font-mono tabular-nums" : ""}`}>{row.value}</dd>
               </div>)}
             </dl>
-            <p className="mt-2 text-[10.5px] leading-4 text-ink-500">{quantityEditor && quantityPreview
-              ? copy.side.previewNoteLive
-              : <>{copy.side.savedNote}{dirty ? copy.side.savedNoteDirty : copy.side.savedNoteEnd}</>}</p>
           </div>
         </div>
 
         {product && (canDeleteDraft || review === "approved") && <section aria-label={copy.side.manageAria} className="rounded-lg border border-ink-200 bg-white p-3">
           <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">{copy.side.manageTitle}</p>
           {canDeleteDraft ? <>
-            <p className="mt-2 text-[11.5px] leading-5 text-ink-600">{copy.side.deleteDraftNote}</p>
             <button type="button" disabled={busy || dirty} onClick={() => void deleteDraft()} className="btn btn-ghost btn-sm mt-2 text-rose-700 disabled:opacity-50">
               <Trash2 className="size-3.5" aria-hidden="true" /> {copy.side.deleteDraft}
             </button>
           </> : <>
-            <p className="mt-2 text-[11.5px] leading-5 text-ink-600">{copy.side.archiveNote}</p>
             <button type="button" disabled={busy || dirty} onClick={() => void pauseProduct()} className="btn btn-ghost btn-sm mt-2 text-ink-700 disabled:opacity-50">
               <EyeOff className="size-3.5" aria-hidden="true" /> {copy.side.archive}
             </button>
           </>}
           {dirty && <p className="mt-2 text-[11px] text-amber-800">{copy.side.saveFirst}</p>}
         </section>}
-
-        <details className="rounded-lg border border-ink-200 bg-white">
-          <summary className="cursor-pointer px-3 py-2.5 text-[12.5px] font-bold text-ink-800">{copy.side.examplesTitle}</summary>
-          <ul className="space-y-1 px-3 pb-3 text-[11.5px] leading-4 text-ink-600">
-            <li><strong className="font-semibold text-ink-800">{copy.side.exampleName}</strong> {copy.side.exampleNameValue}</li>
-            <li><strong className="font-semibold text-ink-800">{copy.side.exampleMoq}</strong> {copy.side.exampleMoqValue}</li>
-            <li><strong className="font-semibold text-ink-800">{copy.side.examplePackaging}</strong> {copy.side.examplePackagingValue}</li>
-            <li><strong className="font-semibold text-ink-800">{copy.side.exampleKeywords}</strong> {copy.side.exampleKeywordsValue}</li>
-          </ul>
-          <p className="px-3 pb-3 text-[10.5px] leading-4 text-ink-500">{copy.side.exampleNote}</p>
-        </details>
-
-        <div className="rounded-lg border border-ink-200 bg-ink-50/70 p-3.5">
-          <p className="text-[11px] font-bold tracking-wider text-ink-500 uppercase">{copy.side.flowTitle}</p>
-          <ol className="mt-2 space-y-2 text-[11.5px] leading-4 text-ink-600">
-            <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-brand-700 text-[10px] font-bold text-white">1</span>{copy.side.flow1}</li>
-            <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">2</span>{copy.side.flow2}</li>
-            <li className="flex gap-2"><span className="flex size-[18px] shrink-0 items-center justify-center rounded-full border border-ink-300 bg-white text-[10px] font-bold text-ink-500">3</span>{copy.side.flow3}</li>
-          </ol>
-        </div>
 
         <Link href="/supplier/portal/products" className="flex items-center justify-between gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[12px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800">
           {copy.footer.productsLink} <ChevronRight className="size-3.5" aria-hidden="true" />

@@ -13,7 +13,7 @@ import { productEditorMessages, type ProductEditorMessages } from "@/lib/i18n/po
 import { fill } from "@/lib/i18n/format";
 
 /** Independent revision submission inside an existing product form; never mutates legacy price fields. */
-export function QuantityPricingInline({ data, actor, disabled = false, dirty = false, onPreviewChange, publishPreview = false,
+export function QuantityPricingInline({ data, actor, disabled = false, dirty = false, onPreviewChange, publishPreview = false, onAddGrade,
   copy = productEditorMessages.vi.shared.quantityInline, lang = "vi" }: {
   data: QuantityEditorData; actor: "staff" | "supplier"; disabled?: boolean; dirty?: boolean;
   onPreviewChange?: (value: QuantityPricingInput) => void;
@@ -23,6 +23,11 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
   copy?: ProductEditorMessages["shared"]["quantityInline"];
   /** Ngôn ngữ câu báo lỗi kiểm tra giá. */
   lang?: "vi" | "en";
+  /**
+   * Cho phép tự thêm grade ngay trong ô chọn. Trước đây chỉ form tạo sản phẩm mới
+   * truyền hàm này, nên sản phẩm đã có bảng giá bị khoá vào danh sách grade chuẩn.
+   */
+  onAddGrade?: (grade: string) => Promise<{ ok: boolean; message: string; grades?: string[] }>;
 }) {
   const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
@@ -115,7 +120,8 @@ export function QuantityPricingInline({ data, actor, disabled = false, dirty = f
       policy={data.policy} buyerPriceUnit={data.buyerPriceUnit} pricePubliclyVisible={data.pricePubliclyVisible}
       showErrors={showErrors} disabled={disabled || dirty || busy} isolated consentChecked={consent} onConsentChange={setConsent}
       showPreview={!onPreviewChange && !publishPreview} showTitle={actor !== "supplier"} validateEnglishName={false}
-      consentLabel={actor === "staff" ? copy.consentStaff : undefined} lang={lang} />
+      consentLabel={actor === "staff" ? copy.consentStaff : undefined} lang={lang} onAddGrade={onAddGrade}
+      gradeScope={data.productId} />
     {actor === "staff" ? <div className="flex flex-wrap items-center gap-2">
       <button type="button" disabled={disabled || dirty || busy} onClick={() => void submit("apply")} className="btn btn-primary btn-sm">
         {busy ? copy.saving : copy.commitForSupplier}

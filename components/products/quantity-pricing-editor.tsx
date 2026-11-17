@@ -199,6 +199,12 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
                 onChange({ ...value, grade: e.target.value });
               }}>
               <option value="">{gradeOptions.length ? copy.chooseGrade : copy.noGrades}</option>{gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+              {/*
+                "Thêm grade" phải nằm trong danh sách ở MỌI lần mở, kể cả khi danh mục đã có
+                sẵn grade chuẩn: nhà máy thường gọi quy cách theo cách riêng, không trùng danh
+                sách của Vexim. Trước đây mục này chỉ có khi danh mục chưa có grade nào, nên
+                gần như không bao giờ thấy.
+              */}
               {onAddGrade && <option value={NEW_GRADE_OPTION}>{copy.addGrade}</option>}
             </select>
             {!gradeOptions.length && !onAddGrade && <span role="status" className="mt-1 block text-[11.5px] font-normal leading-4 text-amber-800">{copy.noGradesNote}</span>}
