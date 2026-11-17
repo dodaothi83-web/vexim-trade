@@ -12,11 +12,12 @@ import {
 } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
+import { pageTitle } from "@/lib/site";
 
 type Locale = "en" | "vi";
 
-const TITLE_EN = "How it works for buyers | Vexim Trade";
-const TITLE_VI = "Cách thức hoạt động dành cho người mua | Vexim Trade";
+const TITLE_EN = "How it works for buyers";
+const TITLE_VI = "Cách thức hoạt động dành cho người mua";
 const DESCRIPTION_EN =
   "Browse verified Vietnamese suppliers, compare specs, and request a quote from the supplier you choose, or send your requirements to find a fit.";
 const DESCRIPTION_VI =
@@ -38,7 +39,8 @@ export async function generateMetadata({
   const description = isVi ? DESCRIPTION_VI : DESCRIPTION_EN;
   const canonical = isVi ? "/how-it-works?lang=vi" : "/how-it-works";
   return {
-    title,
+    // pageTitle(): tránh lặp "· Vexim Trade" do template ở layout gốc ghép thêm.
+    title: pageTitle(title),
     description,
     alternates: {
       canonical,

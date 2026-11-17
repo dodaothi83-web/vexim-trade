@@ -48,7 +48,7 @@ export interface SeoInput {
   updatedAt: string | null;
   currentId: string | null;
   otherPosts: OtherPostRef[];
-  /** Tên tác giả đã nhập (rỗng thì trang hiển thị Veximtrade) */
+  /** Tên tác giả đã nhập (rỗng thì trang hiển thị Vexim Trade) */
   authorName?: string;
   /** Tên người kiểm duyệt (tùy chọn) */
   reviewerName?: string;
@@ -445,8 +445,8 @@ function technicalChecks(input: SeoInput, a: Analysis): SeoCheck[] {
     label: "Liên kết nội bộ",
     detail:
       internal > 0
-        ? `${internal} liên kết tới trang khác của Veximtrade.`
-        : "Chưa có liên kết tới bài hoặc trang khác của Veximtrade. Hãy dẫn người đọc tới bài liên quan.",
+        ? `${internal} liên kết tới trang khác của Vexim Trade.`
+        : "Chưa có liên kết tới bài hoặc trang khác của Vexim Trade. Hãy dẫn người đọc tới bài liên quan.",
   });
 
   // Độ sâu nội dung (không dùng số từ làm mốc)
@@ -503,7 +503,7 @@ function technicalChecks(input: SeoInput, a: Analysis): SeoCheck[] {
       id: "author",
       status: "warn",
       label: "Tác giả",
-      detail: "Chưa điền tác giả, trang sẽ hiển thị Veximtrade. Điền tên người viết để tăng độ tin cậy.",
+      detail: "Chưa điền tác giả, trang sẽ hiển thị Vexim Trade. Điền tên người viết để tăng độ tin cậy.",
     });
   }
 

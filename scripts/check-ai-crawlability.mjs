@@ -108,6 +108,42 @@ async function checkHomepage() {
 
   if (!text.includes("application/ld+json")) fail("Trang chủ thiếu dữ liệu có cấu trúc JSON-LD");
   else pass("Trang chủ có dữ liệu có cấu trúc JSON-LD");
+
+  // Organization phải khiến máy tìm kiếm/AI nhận ra đúng thực thể, và không được
+  // tự ghép tên thương hiệu hai lần trong <title>.
+  const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(text)?.[1]?.trim() ?? "";
+  if (!title) fail("Trang chủ thiếu thẻ <title>");
+  else if ((title.match(/Vexim\s*Trade/gi) || []).length > 1) fail(`Tiêu đề lặp tên thương hiệu: "${title}"`);
+  else pass(`Tiêu đề trang chủ gọn, đúng một tên thương hiệu (${title.length} ký tự)`);
+
+  if (!/"@type"\s*:\s*"Organization"/.test(text)) fail("Trang chủ thiếu JSON-LD Organization");
+  else pass("Trang chủ có JSON-LD Organization");
+}
+
+/**
+ * Các trang tiền phải có <title> gọn, đúng MỘT tên thương hiệu và canonical trỏ
+ * đúng host — đây là hai lỗi thật đã thấy trên bản production.
+ */
+async function checkSampleTitles() {
+  for (const path of ["/how-it-works", "/for-suppliers"]) {
+    let result;
+    try {
+      result = await fetchText(path);
+    } catch (e) {
+      fail(`Không tải được ${path}: ${e.message}`);
+      continue;
+    }
+    if (result.res.status !== 200) { fail(`${path} trả mã ${result.res.status}`); continue; }
+    const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(result.text)?.[1]?.trim() ?? "";
+    const brandCount = (title.match(/Vexim\s*Trade/gi) || []).length;
+    if (!title) fail(`${path} thiếu <title>`);
+    else if (brandCount > 1) fail(`${path} lặp tên thương hiệu trong tiêu đề: "${title}"`);
+    else pass(`${path} có tiêu đề gọn (${title})`);
+    const canonical = /<link[^>]+rel=["']canonical["'][^>]*>/i.exec(result.text)?.[0] ?? "";
+    if (!canonical) fail(`${path} thiếu canonical`);
+    else if (!/https:\/\/www\.veximtrade\.com/.test(canonical)) fail(`${path} có canonical sai host: ${canonical}`);
+    else pass(`${path} có canonical đúng host`);
+  }
 }
 
 async function checkLlms() {
@@ -121,12 +157,24 @@ async function checkLlms() {
   if (result.res.status !== 200) { fail(`/llms.txt trả mã ${result.res.status}`); return; }
   if (!result.text.includes("# Vexim Trade")) fail("/llms.txt không có tiêu đề mong đợi");
   else pass("/llms.txt tải được và đúng định dạng");
+  // Tỉnh/thành phải là bản tiếng Anh như phần còn lại của tệp. Lỗi cũ in thẳng
+  // cột province nên ra "Hồ Chính Minh" giữa văn bản tiếng Anh.
+  if (/\bHồ Chính Minh\b/.test(result.text)) fail("/llms.txt còn lỗi chính tả 'Hồ Chính Minh'");
+  else pass("/llms.txt không có lỗi chính tả tỉnh/thành");
+  // URL trong llms.txt phải trỏ đúng host canonical (www) để AI trích dẫn đúng.
+  for (const link of result.text.matchAll(/\]\((https?:\/\/[^)]+)\)/g)) {
+    if (!link[1].startsWith(`${base.replace(/\/+$/, "")}/`) && !link[1].startsWith("https://www.veximtrade.com/")) {
+      fail(`/llms.txt trỏ tới host ngoài canonical: ${link[1]}`);
+      break;
+    }
+  }
 }
 
 console.log(`Kiểm tra khả năng bot truy cập tại ${base}`);
 await checkRobots();
 await checkHomepage();
 await checkLlms();
+await checkSampleTitles();
 
 for (const note of notes) console.log(note);
 if (failures.length) {

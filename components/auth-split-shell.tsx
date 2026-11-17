@@ -51,7 +51,7 @@ export async function AuthSplitShell({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-ink-900/85 via-ink-900/35 to-ink-900/10" />
           <div className="relative flex h-full flex-col justify-between p-8">
-            <Link href="/" aria-label="Veximtrade home" className="flex items-center gap-3">
+            <Link href="/" aria-label="Vexim Trade home" className="flex items-center gap-3">
               <Logo tone="white" className="h-12 w-12" />
               <span className="text-[15px] font-black tracking-tight text-white">VEXIM TRADE</span>
             </Link>
@@ -75,7 +75,7 @@ export async function AuthSplitShell({
         <div className="flex flex-col justify-center px-4 py-10 sm:px-8">
           <div className="mx-auto w-full max-w-md">
             <div className="mb-6 flex items-center justify-between gap-3">
-              <Link href="/" aria-label="Veximtrade home" className="flex items-center gap-3">
+              <Link href="/" aria-label="Vexim Trade home" className="flex items-center gap-3">
                 <Logo className="h-11 w-11" />
                 <span className="text-[15px] font-black tracking-tight text-ink-900 lg:hidden">
                   VEXIM TRADE

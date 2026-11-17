@@ -173,7 +173,7 @@ export function CashewLanding({
       {/* ---------------- Header ---------------- */}
       <header className={`${NAVY} border-b border-white/10 text-white`}>
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3 sm:px-8">
-          <a href="/" className="flex items-center gap-2.5" aria-label="Veximtrade home">
+          <a href="/" className="flex items-center gap-2.5" aria-label="Vexim Trade home">
             <Logo tone="white" className="h-[76px] w-[76px]" />
             <span className="hidden text-[13px] font-semibold uppercase tracking-[0.14em] text-slate-300 sm:block">
               Cashew kernels
@@ -199,7 +199,7 @@ export function CashewLanding({
           <div>
             <p className="flex items-center gap-2 text-[14px] font-semibold uppercase tracking-[0.12em] text-[#D9A441]">
               <ShieldCheck className="h-4 w-4" />
-              Veximtrade · a Vexim Global company
+              Vexim Trade · a Vexim Global company
             </p>
             <h1 className="mt-6 text-[42px] font-bold leading-[1.06] sm:text-[56px]" style={HEADING}>
               Vietnamese Cashew Kernels, Matched to Your Spec

@@ -310,7 +310,7 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
                 id="post-author"
                 value={authorName}
                 onChange={(e) => setAuthorName(e.target.value)}
-                placeholder="Để trống sẽ hiển thị Veximtrade"
+                placeholder="Để trống sẽ hiển thị Vexim Trade"
                 className="mt-1 h-8 text-[12px]"
               />
             </div>

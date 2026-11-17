@@ -71,7 +71,7 @@ const en = {
     ],
   },
   register: {
-    metaTitle: "Create an account | Veximtrade",
+    metaTitle: "Create an account | Vexim Trade",
     legend: "Which account would you like to create?",
     buyerTitle: "Buyer",
     buyerSummary: "Create a free buyer account with your email. No password needed.",
@@ -365,7 +365,7 @@ const vi: AuthMessages = {
     ],
   },
   register: {
-    metaTitle: "Tạo tài khoản | Veximtrade",
+    metaTitle: "Tạo tài khoản | Vexim Trade",
     legend: "Bạn muốn tạo loại tài khoản nào?",
     buyerTitle: "Người mua",
     buyerSummary: "Tạo tài khoản người mua miễn phí bằng email, không cần mật khẩu.",

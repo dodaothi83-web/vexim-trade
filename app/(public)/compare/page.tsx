@@ -5,6 +5,7 @@ import { ArrowRight, Minus, PackageSearch } from "lucide-react";
 import { ProductComparisonSync } from "@/components/product-comparison-actions";
 import { ProductComparisonTable } from "@/components/public/product-comparison-table";
 import { Breadcrumbs } from "@/components/ui";
+import { pageTitle } from "@/lib/site";
 import { VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
 import {
   getPublicSuppliersByIds,
@@ -28,7 +29,7 @@ function supplierMode(searchParams: { ids?: string; products?: string } | undefi
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const sp = await searchParams;
   return {
-    title: supplierMode(sp) ? "Compare suppliers | Veximtrade" : "Compare products | Veximtrade",
+    title: pageTitle(supplierMode(sp) ? "Compare suppliers" : "Compare products"),
     robots: { index: false, follow: true },
   };
 }

@@ -4,11 +4,16 @@ import { listPublishedNews } from "@/lib/blog/queries";
 import { getStore } from "@/lib/db";
 import { getPublicSupplierBySlug, type PublicSupplierCard } from "@/lib/public/catalog";
 import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, listCachedPublicSuppliers } from "@/lib/public/product-catalog";
+import { hasTranslation } from "@/lib/public/i18n";
 import { supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
 
 /** Làm mới danh sách sau tối đa 60 giây */
 export const revalidate = 60;
+
+/** Cùng điều kiện với hreflang ở app/(public)/products/[slug]/page.tsx. */
+const hasVietnameseTranslation = (c: { name_i18n?: Record<string, string>; seo_title_i18n?: Record<string, string>; seo_desc_i18n?: Record<string, string> }) =>
+  hasTranslation(c.name_i18n, "vi") || hasTranslation(c.seo_title_i18n, "vi") || hasTranslation(c.seo_desc_i18n, "vi");
 
 const NON_PRODUCTION = ["preview", "development"].includes(process.env.VERCEL_ENV ?? "") || process.env.VEXIM_DEPLOY_ENV === "staging";
 const INDEXABLE = !NON_PRODUCTION && process.env.PUBLIC_SITE_INDEXABLE === "true";
@@ -22,6 +27,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/privacy-policy`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/cookie-policy`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/terms-of-service`, changeFrequency: "yearly", priority: 0.3 },
+    // Bản tiếng Anh của /quy-che-hoat-dong — trước đây có canonical + hreflang
+    // nhưng không được khai trong sitemap, nên cặp song ngữ chỉ lộ một nửa.
+    { url: `${SITE_URL}/platform-rules`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/thong-tin-chu-quan`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/quy-che-hoat-dong`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/dieu-khoan-su-dung`, changeFrequency: "yearly", priority: 0.3 },
@@ -119,13 +127,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.7,
       // Trang danh mục dựng bản tiếng Việt qua ?lang=vi khi category đã có bản dịch
-      // trong CMS (xem app/(public)/products/[slug]/page.tsx).
-      alternates: {
-        languages: {
-          en: `${SITE_URL}/products/${encodeURIComponent(c.slug)}`,
-          vi: `${SITE_URL}/products/${encodeURIComponent(c.slug)}?lang=vi`,
-        },
-      },
+      // trong CMS (xem app/(public)/products/[slug]/page.tsx). Chỉ khai alternate
+      // `vi` khi bản dịch đó tồn tại thật, cùng điều kiện với metadata của trang —
+      // sitemap và thẻ hreflang phải nói giống nhau.
+      ...(hasVietnameseTranslation(c)
+        ? {
+          alternates: {
+            languages: {
+              en: `${SITE_URL}/products/${encodeURIComponent(c.slug)}`,
+              vi: `${SITE_URL}/products/${encodeURIComponent(c.slug)}?lang=vi`,
+            },
+          },
+        }
+        : {}),
     })),
     ...productRoutes,
     ...searchableSuppliers

@@ -17,7 +17,7 @@ const NAV_ACTIVE = "bg-brand-50 text-brand-800 hover:bg-brand-50 hover:text-bran
 /** Logo bấm về trang chủ — dùng chung cho hàng 1 của header (cả trạng thái tải lẫn trạng thái thường). */
 function HeaderLogo() {
   return (
-    <Link href="/" aria-label="Veximtrade home" className="flex shrink-0 items-center gap-2.5">
+    <Link href="/" aria-label="Vexim Trade home" className="flex shrink-0 items-center gap-2.5">
       <Logo className="h-10 w-10 sm:h-12 sm:w-12" />
       <span className="hidden flex-col leading-tight sm:flex md:hidden xl:flex">
         <span className="text-[16.5px] font-black tracking-tight text-brand-700" style={{ letterSpacing: "-0.01em" }}>

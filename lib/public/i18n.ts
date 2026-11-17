@@ -25,3 +25,21 @@ export function t(
   const v = preferred ?? record.en ?? Object.values(m)[0];
   return typeof v === "string" && v.trim() ? v : fallback;
 }
+
+/**
+ * Trường i18n đã có bản dịch thật cho `lang` hay chưa.
+ *
+ * `t()` cố tình rơi về tiếng Anh khi thiếu bản dịch để giao diện không bao giờ
+ * trống. Nhưng khi KHAI BÁO hreflang thì hệ quả ngược lại: nếu danh mục chưa có
+ * bản tiếng Việt, URL `?lang=vi` vẫn trả nội dung tiếng Anh, mà vẫn tự nhận là
+ * bản `vi` — Google coi đó là cặp alternate sai và có thể gộp hai URL làm một.
+ * Vì vậy chỉ khai alternate khi hàm này trả true.
+ */
+export function hasTranslation(
+  m: I18nString | string | null | undefined,
+  lang: string,
+): boolean {
+  if (!m || typeof m !== "object") return false;
+  const value = (m as Record<string, string>)[lang];
+  return typeof value === "string" && value.trim().length > 0;
+}

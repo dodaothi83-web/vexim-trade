@@ -3,9 +3,11 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, FileText, Globe2, Lock, ShieldCheck } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
+import { pageTitle } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "For suppliers – Get listed on Veximtrade",
+  // Không nhắc lại tên thương hiệu trong câu: pageTitle() ghép đúng một lần.
+  title: pageTitle("For suppliers – get listed"),
   description:
     "Vietnamese manufacturers and trading companies: register your supplier profile. Document checks, factory review by video call and delivery history reviews are carried out by Vexim staff.",
   alternates: { canonical: "/for-suppliers" },

@@ -232,7 +232,7 @@ export function LandingSite() {
         <div>
           <p className="flex items-center gap-2 text-[15px] font-semibold text-brand-700">
             <ShieldCheck className="h-4 w-4" />
-            Veximtrade · a Vexim Global company
+            Vexim Trade · a Vexim Global company
           </p>
           <h1
             className="mt-6 text-5xl font-bold leading-[1.05] text-ink-900 sm:text-6xl"
@@ -369,7 +369,7 @@ export function LandingSite() {
         <div className="mt-10 rounded-2xl border border-ink-200 p-7">
           <p className="text-[15px] font-bold text-ink-900">How we are paid, and how we choose producers</p>
           <p className="mt-3 text-[16px] leading-relaxed text-ink-700">
-            The producers we represent pay Veximtrade for that representation, and we tell you so.
+            The producers we represent pay Vexim Trade for that representation, and we tell you so.
             We are not a neutral adviser. Our reputation is what we stake on every introduction,
             so we publish the rules we screen by.
           </p>

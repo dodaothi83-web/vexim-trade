@@ -32,7 +32,13 @@ export const runtime = "nodejs";
 const NON_PRODUCTION = ["preview", "development"].includes(process.env.VERCEL_ENV ?? "") || process.env.VEXIM_DEPLOY_ENV === "staging";
 const INDEXABLE = !NON_PRODUCTION && process.env.PUBLIC_SITE_INDEXABLE === "true";
 // OAuth verification must reach these public policies even before marketing pages are indexable.
-const LEGAL_PATHS = new Set(["/privacy-policy", "/terms-of-service", "/thong-tin-chu-quan", "/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/khieu-nai"]);
+// Danh sách này phải khớp CHÍNH XÁC với allow-list của app/robots.ts và với
+// legalRoutes của app/sitemap.ts. Trước đây thiếu "/cookie-policy" và
+// "/platform-rules": robots.txt cho phép bot đọc /cookie-policy nhưng middleware
+// vẫn gắn X-Robots-Tag: noindex, còn /platform-rules (bản tiếng Anh của
+// /quy-che-hoat-dong) thì không được khai ở đâu cả — Google nhận hai tín hiệu
+// ngược nhau cho cùng một trang.
+const LEGAL_PATHS = new Set(["/privacy-policy", "/cookie-policy", "/terms-of-service", "/platform-rules", "/thong-tin-chu-quan", "/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/khieu-nai"]);
 const LEGAL_CRAWLABLE = !NON_PRODUCTION;
 
 // Các prefix LUÔN noindex dù site-wide cờ đang bật.

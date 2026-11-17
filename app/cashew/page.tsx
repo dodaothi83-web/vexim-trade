@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { CashewLanding } from "@/components/cashew-landing";
 import { GoogleTag } from "@/components/google-tag";
 import { CASHEW_FAQS, CASHEW_PHOTOS, type CashewPhotoKey } from "@/lib/cashew-content";
-import { SITE_URL } from "@/lib/site";
+import { pageTitle, SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
  * Trang đích quảng cáo hạt điều cho thị trường Mỹ (brief 12/10/2026).
@@ -13,19 +13,25 @@ import { SITE_URL } from "@/lib/site";
  */
 export const dynamic = "force-dynamic";
 
-const PAGE_TITLE = "Vietnamese Cashew Kernels for U.S. Importers | Veximtrade";
+const PAGE_TITLE = "Vietnamese Cashew Kernels for U.S. Importers";
 const PAGE_DESCRIPTION =
   "Vietnamese cashew kernels, W180 to W450, matched to your spec — no mark-up on the producer’s price. A written reply by the start of your next business day.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { absolute: PAGE_TITLE },
+  title: pageTitle(PAGE_TITLE),
   description: PAGE_DESCRIPTION,
   alternates: { canonical: "/cashew" },
+  // Trang đích quảng cáo trùng chủ đề với trang danh mục thật
+  // (/products/cashew-kernels) nên noindex để hai URL không tranh nhau cùng một
+  // truy vấn: bản có nội dung đầy đủ hơn (danh mục, giá tham khảo, sản phẩm) mới
+  // là bản cần xếp hạng. follow: true để khách từ quảng cáo vẫn chuyển được
+  // "link equity" sang trang danh mục và trang RFQ.
+  robots: { index: false, follow: true },
   openGraph: {
     type: "website",
     url: "/cashew",
-    siteName: "Veximtrade",
+    siteName: SITE_NAME,
     title: PAGE_TITLE,
     description: PAGE_DESCRIPTION,
     locale: "en_US",

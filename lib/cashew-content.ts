@@ -158,7 +158,7 @@ export const CASHEW_FAQS = [
   },
   {
     q: "How do you make money?",
-    a: "The producers we represent pay Veximtrade for that representation, and we tell you so. We are not a neutral adviser. Your price is the producer’s price, with no mark-up added by us, and you may contact any producer we introduce directly.",
+    a: "The producers we represent pay Vexim Trade for that representation, and we tell you so. We are not a neutral adviser. Your price is the producer’s price, with no mark-up added by us, and you may contact any producer we introduce directly.",
   },
   {
     q: "What if you do not have what I need?",

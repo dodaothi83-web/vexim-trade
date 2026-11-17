@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ShieldCheck, ShieldX } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
+import { pageTitle } from "@/lib/site";
 import { DownloadFactoryReport } from "@/components/download-factory-report";
 import { getBuyerSession } from "@/lib/auth/buyer-session";
 import { loadFactoryReport } from "@/lib/public/factory-report-data";
@@ -10,7 +11,7 @@ import { loadFactoryReport } from "@/lib/public/factory-report-data";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Verify a factory review report | Veximtrade",
+  title: pageTitle("Verify a factory review report"),
   robots: { index: false, follow: false },
 };
 

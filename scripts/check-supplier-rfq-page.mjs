@@ -31,6 +31,9 @@ const dictionary = loadPortalDictionary();
 const contact = loadTs(read('lib/rfq/buyer-contact.ts'));
 const channel = loadTs(read('lib/rfq/channel.ts'));
 const displayName = loadTs(read('lib/public/display-name.ts'));
+// Bảng RFQ của cổng NCC nay đọc thêm phần chữ của chứng nhận để hiện ngày/hết hạn.
+const certificateRejection = loadTs(read('lib/certificate-rejection.ts'));
+const certificateCopy = loadTs(read('lib/certificate-supplier-copy.ts'), { './certificate-rejection.ts': certificateRejection });
 const scrub = (value) => String(value)
   .replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, '[contact via Vexim]')
   .replace(/(?:https?:\/\/|www\.)[^\s<>]+/gi, '[contact via Vexim]')
@@ -45,6 +48,8 @@ const boardModule = loadTs(read('lib/supplier-portal/dashboard.ts'), {
   '@/lib/rfq/mediated': { deskHasNewReply: (thread, side) => !!thread && !!(side === 'staff' ? thread.last_party_message_at : thread.last_staff_message_at) },
   '@/lib/rfq/portal-core': core,
   '@/lib/public/display-name': displayName,
+  '@/lib/certificate-supplier-copy': certificateCopy,
+  '@/lib/certificate-rejection': certificateRejection,
   '@/lib/public/product-selection': { withoutDirectContacts: scrub },
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { vi: dictionary.vi.notices, en: dictionary.en.notices } },

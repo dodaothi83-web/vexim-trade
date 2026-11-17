@@ -1779,7 +1779,7 @@ export interface Post {
   meta_title: string | null;
   meta_description: string | null;
   focus_keyword: string | null;
-  /** Tác giả hiển thị cho người đọc; null thì hiển thị Veximtrade */
+  /** Tác giả hiển thị cho người đọc; null thì hiển thị Vexim Trade */
   author_name: string | null;
   /** Người kiểm duyệt nội dung chuyên môn (tùy chọn) */
   reviewer_name: string | null;
