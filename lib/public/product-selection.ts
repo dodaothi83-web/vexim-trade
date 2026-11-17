@@ -118,12 +118,12 @@ export function productPriceBlockers(
   today: string = new Date().toISOString().slice(0, 10), now = Date.now(),
 ): string[] {
   return priceBlockerFacts(product, supplier, today, now).map((fact) => {
-    if (fact.code === "hidden") return "Chưa bật công khai giá cho riêng sản phẩm này và lưu thay đổi.";
-    if (fact.code === "fromPrice") return "Giá tham khảo từ của sản phẩm phải lớn hơn 0.";
-    if (fact.code === "toPrice") return "Giá tham khảo đến phải lớn hơn hoặc bằng giá từ; để trống nếu chỉ có một mức giá.";
-    if (fact.code === "expired") return `Giá tham khảo đã hết hạn (${fact.date}).`;
-    if (fact.code === "consentMissing") return "Doanh nghiệp chưa xác nhận chia sẻ giá; ô công khai của sản phẩm không thay thế xác nhận này.";
-    return "Xác nhận chia sẻ giá đã hết hiệu lực (quá 180 ngày hoặc ngày xác nhận không hợp lệ); cần xác nhận lại.";
+    if (fact.code === "hidden") return "Chưa công khai giá cho sản phẩm này.";
+    if (fact.code === "fromPrice") return "Giá từ phải lớn hơn 0.";
+    if (fact.code === "toPrice") return "Giá đến phải ≥ giá từ.";
+    if (fact.code === "expired") return `Giá đã hết hạn (${fact.date}).`;
+    if (fact.code === "consentMissing") return "Doanh nghiệp chưa xác nhận chia sẻ giá.";
+    return "Xác nhận chia sẻ giá đã hết hiệu lực.";
   });
 }
 
