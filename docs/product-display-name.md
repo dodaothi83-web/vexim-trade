@@ -9,10 +9,10 @@ chốt cách Vexim xử lý.
 
 1. **Form chỉ có một ô tên, không giới hạn độ dài.** Không có trường "tên người mua đọc"
    riêng và **không có bộ đếm ký tự**: nhà cung cấp viết bao nhiêu cũng được (chỉ còn hạn
-   cột dữ liệu 180). Hướng dẫn nằm ngay trong ô nhập dưới dạng placeholder nêu công thức
-   `tên sản phẩm · tỉnh thành · quy cách` kèm ví dụ; khi đã đủ dữ kiện thì placeholder là
-   chính tên gợi ý. Một câu ngắn nằm dưới ô nhắc lại công thức. Không có dòng cảnh báo độ
-   dài, không chặn lưu hay gửi duyệt.
+   cột dữ liệu 180). Hướng dẫn duy nhất nằm trong placeholder của chính ô nhập: công thức
+   `mặt hàng, quy cách, tỉnh` kèm ví dụ (`VD: Hạt điều nhân trắng, W320, Bình Phước`); khi
+   đã đủ dữ kiện thì placeholder là chính tên gợi ý. **Không có dòng chữ nào bên dưới ô**,
+   không có dòng cảnh báo độ dài, không chặn lưu hay gửi duyệt.
 2. **CRM không can thiệp vào tên.** Sản phẩm là của nhà cung cấp. Form CRM không có ô tên
    hiển thị, không có gợi ý, không có nút "dùng tên này"; hàng đợi duyệt không gắn nhãn
    "nên sửa tên". Nhân viên duyệt đúng/sai về danh mục và quy cách, không viết lại câu chữ.
@@ -32,8 +32,9 @@ chốt cách Vexim xử lý.
 Ví dụ: `Hạt điều W320, Bình Phước` · `Cashew kernels W320, Binh Phuoc` ·
 `Hạt tiêu đen 550 g/l - Grade A, Đắk Lắk`.
 
-Thứ tự ưu tiên khi phải bỏ bớt phần thừa: **mặt hàng → quy cách → tỉnh → chỉ tiêu phụ**.
-Tỉnh đứng trước chỉ tiêu phụ vì tỉnh là dữ kiện người mua lọc và tìm theo.
+Thứ tự: **mặt hàng → quy cách → tỉnh → chỉ tiêu phụ**. Quy cách đứng trước tỉnh vì nó là
+thứ quyết định giá, nên phải nằm sát tên hàng; tỉnh là thông tin định vị nguồn hàng. Chỉ tiêu
+phụ đứng cuối và bị bỏ trước khi tên chạm trần.
 
 | Trần | Giá trị | Vai trò |
 | --- | --- | --- |

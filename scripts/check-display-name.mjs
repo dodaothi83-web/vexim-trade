@@ -41,6 +41,13 @@ assert.equal(composeDisplayName({ grade: "550 g/l" }), "550 g/l");
 assert.equal(composeDisplayName({}), "", "Không có dữ kiện thì trả rỗng để nơi gọi lùi về tên gốc");
 assert.equal(composeDisplayName({ categoryLabel: "Pepper", grade: "550 g/l", province: "Chưa xác định" }), "Pepper 550 g/l");
 
+/* Quy cách đứng trước tỉnh: cái quyết định giá phải nằm sát tên hàng. */
+assert.equal(
+  composeDisplayName({ categoryLabel: "Cashew kernels", grade: "W320", province: "Binh Phuoc" }),
+  "Cashew kernels W320, Binh Phuoc",
+  "Quy cách trước, tỉnh sau",
+);
+
 /* Tỉnh đã nằm trong phần đầu thì không lặp lại ở đuôi. */
 assert.equal(composeDisplayName({ grade: "Pepper Dak Lak", province: "Dak Lak" }), "Pepper Dak Lak");
 
@@ -54,8 +61,8 @@ assert.equal(
     attributes: { grade: "550 g/l", moisture: "12.5% max" },
     attributeLabels: { grade: "Density (g/l)", moisture: "Moisture" },
   }),
-  "Pepper 550 g/l, Dak Lak, Moisture 12.5% max",
-  "Quy cách không lặp lại ở phần đuôi",
+  "Pepper 550 g/l, Moisture 12.5% max, Dak Lak",
+  "Quy cách nằm sát tên hàng, tỉnh đứng sau quy cách, chỉ tiêu phụ chen giữa",
 );
 
 assert.equal(
@@ -66,7 +73,7 @@ assert.equal(
     attributes: { a: "one", b: "two", c: "three" },
     attributeLabels: { a: "A", b: "B", c: "C" },
   }),
-  "Pepper 550 g/l, Dak Lak, A one, B two",
+  "Pepper 550 g/l, A one, B two, Dak Lak",
   "Chỉ lấy tối đa hai chỉ tiêu phụ",
 );
 

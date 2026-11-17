@@ -1138,11 +1138,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <div>
               <Row label={copy.basic.name} required>
                 {/*
-                  Không đếm, không giới hạn, không cảnh báo độ dài: nhà cung cấp được
-                  viết bao nhiêu cũng được (chỉ còn hạn cột dữ liệu 180). Thay vào đó
-                  là một DÒNG GỢI Ý NGAY TRONG Ô NHẬP, nêu công thức đặt tên kèm ví dụ
-                  lấy từ chính danh mục / quy cách / tỉnh đang có — nhìn thấy lúc đang
-                  gõ nên không phải đi tìm hướng dẫn ở chỗ khác.
+                  Hướng dẫn duy nhất nằm trong placeholder của chính ô nhập: công thức
+                  đặt tên, hoặc tên gợi ý khi đã đủ danh mục / quy cách / tỉnh. Không
+                  đếm, không giới hạn, không cảnh báo độ dài và không có dòng chữ nào
+                  khác bên dưới.
                 */}
                 <input name="name" className="input" required maxLength={180} minLength={3}
                   placeholder={suggestedDisplayName || copy.basic.nameFormula}
