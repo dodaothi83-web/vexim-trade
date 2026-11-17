@@ -111,13 +111,21 @@ assert.match(types, /supplier_grade_options\?: string\[\]/, "kiểu Category ph�
 
 const editor = read("../components/products/quantity-pricing-editor.tsx");
 assert.match(editor, /const NEW_GRADE_OPTION = "__new_grade__";/, "phải có giá trị riêng cho mục thêm grade");
-assert.match(editor, /\{onAddGrade && <option value=\{NEW_GRADE_OPTION\}>\+ Thêm grade mới<\/option>\}/,
+assert.match(editor, /\{onAddGrade && <option value=\{NEW_GRADE_OPTION\}>\{copy\.addGrade\}<\/option>\}/,
   "mục thêm grade phải là lựa chọn cuối của ô chọn");
+/*
+  Mục này phải có ở MỌI lần mở, không phụ thuộc danh mục đã có grade chuẩn hay chưa:
+  nhà máy gọi quy cách theo cách riêng, gần như luôn khác danh sách của Vexim. Trước đây
+  điều kiện gắn với `gradeOptions.length` nên thực tế không bao giờ hiện.
+*/
+assert.doesNotMatch(editor, /gradeOptions\.length\s*&&\s*<option value=\{NEW_GRADE_OPTION\}/,
+  "mục thêm grade không được phụ thuộc số grade đã có");
+assert.match(editor, /\{onAddGrade && <option value=\{NEW_GRADE_OPTION\}>/, "mục thêm grade chỉ phụ thuộc onAddGrade");
 assert.match(editor, /const gradeOptions = \[\.\.\.standardGrades, \.\.\.addedGrades\.filter/,
   "grade vừa thêm phải hiện ngay trong danh sách, không chờ tải lại trang");
 assert.match(editor, /validateQuantityPricing\(validateEnglishName \? value : \{ \.\.\.value, nameEn: "" \}, gradeOptions, policy\)/,
   "kiểm tra phía trình duyệt phải nhận grade vừa thêm");
-assert.match(editor, /Grade này lưu cho cả nhóm hàng/, "câu nhắc phải nói rõ phạm vi áp dụng");
+assert.match(editor, /copy\.gradeSaved/, "ô nhập grade mới phải nói rõ phạm vi áp dụng");
 assert.match(editor, /useEffect\(\(\) => \{ setAddedGrades\(\[\]\);/, "đổi danh mục thì bỏ grade tự thêm của nhóm trước");
 
 const proposals = read("../lib/supplier-portal/category-proposals.ts");

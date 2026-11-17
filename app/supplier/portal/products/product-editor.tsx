@@ -1373,9 +1373,12 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               <Row label={copy.price.quantity} required error={priceIssueCount > 0}
                 hint={activeCategory && priceIssueCount > 0 ? copy.price.quantityHintIssues : undefined}>
               {product ? <div className="rounded-md border border-ink-200 p-3">
+                {/* Sản phẩm đã có bảng giá cũng phải tự thêm được grade: danh mục có thể thiếu
+                    đúng quy cách của lô hàng này, và ô chọn grade không được phép chặn đường. */}
                 {quantityEditor ? <QuantityPricingInline key={`${quantityEditor.productId}:${quantityEditor.updatedAt}`}
                   data={quantityEditor} actor="supplier" disabled={locked || busy} dirty={dirty} onPreviewChange={setQuantityPreview}
-                  copy={shared.quantityInline} lang={lang} />
+                  copy={shared.quantityInline} lang={lang}
+                  onAddGrade={activeCategorySlug ? (grade) => addSupplierGradeOptionAction({ categorySlug: activeCategorySlug, grade }) : undefined} />
                   : <p role="alert" className="text-xs text-rose-700">{copy.price.quantityLoadFailed}</p>}
               </div> : <div id="new-quantity-pricing" className="space-y-3 rounded-md border border-ink-200 p-3">
                 {!activeCategory ? <p className="text-xs text-ink-600">{copy.price.noCategory}</p> : !newPolicy || !newQuantity ?
