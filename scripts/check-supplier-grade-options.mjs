@@ -123,8 +123,11 @@ assert.match(editor, /value=\{gradePicker\}/, "ô chọn controlled theo state r
 assert.doesNotMatch(editor, /value=\{value\.grade\}/, "ô chọn không được controlled thẳng theo value.grade");
 assert.match(editor, /const \[gradePicker, setGradePicker\] = useState\(value\.grade\)/, "ô chọn giữ giá trị đang hiển thị");
 assert.match(editor, /if \(e\.target\.value === NEW_GRADE_OPTION\) \{/, "chọn mục thêm grade thì mở ô nhập");
-assert.match(editor, /\{onAddGrade && !newGradeOpen && <button[^>]*\n?[^>]*onClick=\{\(\) => \{ setGradePicker\(NEW_GRADE_OPTION\)/,
-  "nút riêng bên dưới là đường dự phòng, cũng mở ô nhập");
+/*
+  Chỉ MỘT đường vào: mục cuối dropdown. Nút thứ hai dưới ô chọn đã được bỏ theo yêu cầu —
+  đừng thêm lại, vì mọi người tìm trong dropdown trước.
+*/
+assert.doesNotMatch(editor, /<button[^>]*>\{copy\.addGrade\}<\/button>/, "không còn nút thêm grade bên dưới ô chọn");
 assert.match(editor, /<input id="quantity-new-grade"/, "ô nhập grade mới phải có trong form");
 assert.match(editor, /onChange\(\{ \.\.\.value, grade: list\.find/, "lưu xong thì chọn luôn grade vừa thêm");
 assert.match(editor, /const gradeOptions = \[\.\.\.standardGrades, \.\.\.addedGrades\.filter/,
@@ -207,12 +210,16 @@ assert.match(editor, /useEffect\(\(\) => \{ setAddedGrades\(\[\]\);/, "đổi da
   });
   assert.equal(document.querySelector("#quantity-grade").value, "Lychee riêng", "lưu xong phải chọn luôn grade vừa thêm");
 
-  // Đường dự phòng: nút "+ Thêm grade" bên dưới vẫn mở được ô nhập khi mục trong dropdown bị bỏ qua.
-  const fallbackButton = [...document.querySelectorAll("button")].find((b) => b.textContent === "+ Thêm grade");
-  assert.ok(fallbackButton, "vẫn còn nút thêm grade bên dưới ô chọn làm đường dự phòng");
-  await act(async () => { fallbackButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); });
-  assert.ok(document.querySelector("#quantity-new-grade"), "bấm nút dự phòng cũng phải mở được ô nhập");
-  // Huỷ thì ô chọn trả về grade thật đang dùng, không kẹt ở mục giả.
+  // Không còn nút thêm grade nào ngoài dropdown.
+  assert.equal([...document.querySelectorAll("button")].filter((b) => b.textContent.trim() === "+ Thêm grade").length, 0,
+    "không còn nút thêm grade bên dưới ô chọn");
+  // Huỷ: mở lại từ dropdown rồi huỷ, ô chọn phải trả về grade thật đang dùng, không kẹt ở mục giả.
+  const select2 = document.querySelector("#quantity-grade");
+  await act(async () => {
+    setSelect.call(select2, "__new_grade__");
+    select2.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  });
+  assert.ok(document.querySelector("#quantity-new-grade"), "mở lại ô nhập từ dropdown được");
   const cancelButton = [...document.querySelectorAll("button")].find((b) => b.textContent === "Hủy");
   assert.ok(cancelButton, "ô nhập grade mới phải có nút huỷ");
   await act(async () => { cancelButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); });

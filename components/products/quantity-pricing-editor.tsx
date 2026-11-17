@@ -208,8 +208,8 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
           <div className="col-span-2 text-sm font-semibold text-ink-800 sm:col-span-1">
             <label htmlFor="quantity-grade">Grade <span className="text-rose-700">*</span></label>
             {/*
-              "Thêm grade" nằm CUỐI dropdown vì đó là nơi mọi người tìm trước; nút riêng bên
-              dưới giữ làm đường dự phòng.
+              "Thêm grade" nằm CUỐI dropdown, và đó là đường duy nhất: mọi người tìm trong
+              dropdown trước, thêm nút thứ hai chỉ làm rối ô chọn.
 
               Vì sao lần trước chọn vào mà không thấy ô nhập: mục này là một <option> giả, ô
               chọn lại controlled theo `value.grade`, nên ngay sau khi React vẽ lại thì giá trị
@@ -232,9 +232,6 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
               <option value="">{gradeOptions.length ? copy.chooseGrade : copy.noGrades}</option>{gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
               {onAddGrade && <option value={NEW_GRADE_OPTION}>{copy.addGrade}</option>}
             </select>
-            {onAddGrade && !newGradeOpen && <button type="button" disabled={disabled}
-              onClick={() => { setGradePicker(NEW_GRADE_OPTION); setNewGradeOpen(true); setNewGradeNote(null); setNewGradeDraft(""); }}
-              className="mt-1.5 text-[12px] font-semibold text-brand-700 hover:underline">{copy.addGrade}</button>}
             {!gradeOptions.length && !onAddGrade && <span role="status" className="mt-1 block text-[11.5px] font-normal leading-4 text-amber-800">{copy.noGradesNote}</span>}
             {/* Giữ lại câu xác nhận sau khi lưu để nhà cung cấp biết grade đã vào danh sách của nhóm hàng. */}
             {!newGradeOpen && newGradeNote && <span role={newGradeNote.ok ? "status" : "alert"} className={`mt-1 block text-[11.5px] font-normal leading-4 ${newGradeNote.ok ? "text-emerald-700" : "text-rose-700"}`}>{newGradeNote.text}</span>}
