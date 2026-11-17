@@ -45,7 +45,7 @@ assert.match(supplier, /Gửi bảng giá mới để duyệt/);
 // Sản phẩm chưa có bảng giá nào được duyệt: nhãn không được nói "mới", banner không được
 // nhắc tới "bảng giá đã duyệt" vì người mua chưa hề thấy bảng nào.
 const firstPrice = render({ actor: 'supplier', data: { ...data, pendingPriceId: null, hasApprovedPrice: false } });
-assert.match(firstPrice, /Bảng giá này đi cùng sản phẩm khi quản trị viên duyệt/);
+assert.match(firstPrice, /Giá của bạn sẽ được duyệt bởi quản trị viên/);
 assert.match(firstPrice, /Gửi bảng giá để duyệt/);
 assert.doesNotMatch(firstPrice, /Gửi bảng giá mới để duyệt/, 'Lần gửi đầu không phải bảng giá mới');
 assert.doesNotMatch(firstPrice, /Người mua vẫn thấy bảng giá đã duyệt/, 'Chưa duyệt bảng nào thì không nói tới bảng đã duyệt');
