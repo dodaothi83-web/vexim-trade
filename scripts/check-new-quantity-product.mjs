@@ -65,7 +65,7 @@ const mocks = {
   '@/lib/supplier-portal/product-price-options': { isSupplierPriceCurrency: () => true, isSupplierPriceUnit: () => true, normalizeSupplierPriceCurrency: (s) => s, normalizeSupplierPriceUnit: (s) => s },
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible },
   '@/lib/supplier-portal/category-proposals': { allowedSupplierCategories: (_s, c) => c, categoryProposalOptions: (c) => c, parseProductCategoryProposal: (f) => f.get('supplier_category_proposal') },
-  '@/lib/product-attributes': { attributesFromForm: () => ({}), mergeSupplierAttributePool: () => [], sanitizeSupplierAttributePool: () => [], saveProductAttributes: () => ({}), supplierAttributePoolSignature: () => '' },
+  '@/lib/product-attributes': { attributesFromForm: () => ({}), mergeSupplierAttributePool: () => [], sanitizeSupplierAttributePool: () => [], saveProductAttributes: () => ({}), supplierAttributePoolSignature: () => '', effectiveFieldsFor: () => [] },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async () => 'sent' },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (v) => v },
   '@/lib/products/spec-template': { stripEmptySpecLines: (v) => String(v).split('\n').filter((l) => !/^[^:\n]{1,80}:\s*$/.test(l)).join('\n').trim() },

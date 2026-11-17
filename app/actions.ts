@@ -20,7 +20,6 @@ import {
   summarizeGradeRowsForProduct,
 } from "@/lib/products/grade-pricing";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
-import { isPlaceholderDisplayName } from "@/lib/public/display-name";
 import { parseHarvestInput } from "@/lib/crm/harvest-input";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
@@ -96,13 +95,6 @@ function str(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const t = v.trim();
   return t.length ? t : null;
-}
-
-/** Tên hiển thị rỗng hoặc là chỗ trống ("Chưa xác định") thì coi như chưa soạn. */
-function displayNameInput(v: unknown): string | null {
-  const text = str(v);
-  if (!text || isPlaceholderDisplayName(text)) return null;
-  return text.slice(0, 120);
 }
 
 function num(v: unknown): number | null {
@@ -1456,7 +1448,6 @@ function parseProductInput(
   return {
     supplier_id: str(raw.supplier_id) ?? "",
     name: str(raw.name) ?? "",
-    display_name: displayNameInput(raw.display_name),
     slug: str(raw.slug) || null,
     name_i18n: (raw.name_i18n && typeof raw.name_i18n === "object"
       ? (raw.name_i18n as Record<string, string>)
@@ -1672,6 +1663,9 @@ export async function updateProductAction(
       if (Object.prototype.hasOwnProperty.call(existing.specs ?? {}, key)) input.specs[key] = existing.specs![key];
       else delete input.specs[key];
     }
+    // Không còn ô tên hiển thị ở form nào: giữ nguyên giá trị đã lưu (nếu có) thay vì
+    // xoá trắng, và không lấy tên từ payload.
+    input.display_name = existing.display_name ?? null;
     const existingDescriptionDetail = sanitizeProductDescriptionHtml(existing.description_detail) || null;
     // Do not migrate legacy text to HTML during an unrelated form save: quantity
     // price approval compares the stored product context byte-for-byte. Preserve

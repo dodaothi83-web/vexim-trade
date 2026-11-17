@@ -41,8 +41,8 @@ import { draftPublicQuantityOffer, validateQuantityPricing, type QuantityPricing
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import type { QuantityEditorData } from "@/lib/products/quantity-editor-data";
 import { productCompleteness } from "@/lib/products/completeness";
-import { composeDisplayName, isPlaceholderDisplayName } from "@/lib/public/display-name";
-import { DISPLAY_NAME_HARD_MAX, DISPLAY_NAME_RECOMMENDED_MAX, displayNameWarnings } from "@/lib/public/display-name-rules";
+import { composeDisplayName } from "@/lib/public/display-name";
+import { DISPLAY_NAME_RECOMMENDED_MAX } from "@/lib/public/display-name-rules";
 import { fill } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/config";
 import type { ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
@@ -262,15 +262,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     snapshotFrom(product),
   );
   const [submitHint, setSubmitHint] = useState<string[] | null>(null);
-  /**
-   * Tên hiển thị do NHÀ CUNG CẤP tự đặt (không bắt buộc). Để trống thì trang
-   * người mua dùng tên gốc. Đây là trường riêng, không ghi đè tên gốc — tên gốc
-   * là chứng từ, xem lib/public/display-name.ts.
-   */
-  const [displayName, setDisplayName] = useState(() => {
-    const saved = product?.display_name ?? "";
-    return isPlaceholderDisplayName(saved) ? "" : saved;
-  });
   const [sent, setSent] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   // Mốc "đã lưu": gieo một lần sau khi mount, cập nhật sau mỗi lần lưu thành công.
@@ -389,12 +380,15 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     nonGradeProductFields(effectiveFieldsFor(activeCategory)).map((field) => [field.key, field.label]),
   );
   /**
-   * Tên gợi ý soạn từ dữ kiện đã có (danh mục, grade, tỉnh, thuộc tính). Đây chỉ là
-   * GỢI Ý để bấm một nút; nội dung nhà cung cấp tự gõ không bị thay thế.
+   * Câu gợi ý soạn từ dữ kiện đã có (danh mục, quy cách, tỉnh, thuộc tính), hiện ngay
+   * dưới ô tên sản phẩm để nhà cung cấp tham khảo. Chỉ đọc — không tự điền, không ghi
+   * đè nội dung nhà cung cấp gõ, và không được lưu vào sản phẩm.
    */
   const suggestedDisplayName = composeDisplayName({
-    categoryLabel: activeCategory?.label ?? product?.category ?? null,
-    grade: snapshot.grade ?? null,
+    categoryLabel: activeCategory?.label ?? null,
+    // Grade nằm trong bảng giá theo số lượng (quantityPreview), không nằm trong
+    // snapshot của form — đọc nhầm chỗ thì gợi ý luôn thiếu quy cách.
+    grade: quantityPreview?.grade?.trim() || snapshot.grade || null,
     province: supplier.province ?? null,
     attributes: Object.fromEntries(nonGradeProductFields(effectiveFieldsFor(activeCategory))
       .map((field) => [field.key, String(snapshot[`attribute:${field.key}`] ?? product?.specs?.[field.key] ?? "").trim()])
@@ -402,16 +396,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     attributeLabels: Object.fromEntries(attributeLabels),
     maxLength: DISPLAY_NAME_RECOMMENDED_MAX,
   });
-  /**
-   * Soát tên hiển thị đang nhập. Cảnh báo mềm: nhà cung cấp vẫn lưu và gửi duyệt
-   * được, nhân viên duyệt là chốt chặn cuối (xem docs/product-name-grades.md).
-   */
-  const displayNameIssues = displayNameWarnings(displayName, {
-    supplierNames: [supplier.name, supplier.trade_name, supplier.display_name],
-    categoryLabel: activeCategory?.label ?? null,
-  });
-  const displayNameTyped = displayName.trim();
-  const displayNamePreview = displayNameTyped || (snapshot.name ?? "").trim();
 
   const attributeRows = (() => {
     const rows = new Map<string, string>();
@@ -1152,66 +1136,16 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <SectionHead index="2" title={copy.basic.title} pill={sectionPill("sec-basic")}
               hint={copy.basic.hint} />
             <div>
-              <Row label={copy.basic.name} required hint={copy.basic.nameHint}>
-                <div className="flex items-start gap-2">
-                  <input name="name" className="input" required maxLength={180} minLength={3} placeholder={copy.basic.namePlaceholder}
-                    defaultValue={product?.name ?? ""} disabled={locked} />
-                  <span className="shrink-0 pt-2 font-mono text-[11px] tabular-nums text-ink-400">
-                    {(snapshot.name ?? "").length}/180
-                  </span>
-                </div>
-              </Row>
-              {/*
-                Tên người mua đọc: trường riêng, không bắt buộc, không ghi đè tên
-                gốc ở trên. Đây là tiêu đề mà trang người mua, thẻ so sánh và dữ
-                liệu có cấu trúc dùng tới, nên cần một câu giải thích ngắn và một
-                bản xem trước ngay tại chỗ.
-              */}
-              <Row label={copy.basic.displayName} hint={copy.basic.displayNameHint}>
-                <div className="flex items-start gap-2">
-                  <input
-                    name="display_name"
-                    className={`input ${displayNameIssues.length ? "border-amber-400 bg-amber-50/40" : ""}`}
-                    maxLength={DISPLAY_NAME_HARD_MAX}
-                    value={displayName}
-                    onChange={(event) => setDisplayName(event.target.value)}
-                    placeholder={suggestedDisplayName || (snapshot.name ?? "")}
-                    disabled={locked}
-                    aria-describedby="display-name-feedback"
-                  />
-                  <span className="shrink-0 pt-2 font-mono text-[11px] tabular-nums text-ink-400">
-                    {displayNameTyped.length}/{DISPLAY_NAME_RECOMMENDED_MAX}
-                  </span>
-                </div>
-                <div id="display-name-feedback" className="mt-1.5 space-y-1">
-                  <p className="text-[11.5px] leading-4 text-ink-500">{copy.basic.displayNameRule}</p>
-                  {suggestedDisplayName && suggestedDisplayName !== displayNameTyped && (
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] leading-4 text-ink-500">
-                      <span>{copy.basic.displayNameSuggested}:</span>
-                      <span className="font-semibold text-ink-800">{suggestedDisplayName}</span>
-                      <button
-                        type="button"
-                        className="font-semibold text-brand-700 underline underline-offset-2 disabled:opacity-50"
-                        disabled={locked}
-                        onClick={() => setDisplayName(suggestedDisplayName)}
-                      >
-                        {copy.basic.displayNameUse}
-                      </button>
-                    </p>
-                  )}
-                  {!displayNameTyped && (
-                    <p className="text-[11.5px] leading-4 text-ink-500">
-                      {copy.basic.displayNameUsesOriginal}
-                      {displayNamePreview ? <> · <span className="font-semibold text-ink-800">{displayNamePreview}</span></> : null}
-                    </p>
-                  )}
-                  {displayNameTyped && displayNameIssues.length === 0 && (
-                    <p className="text-[11.5px] leading-4 text-emerald-700">{copy.basic.displayNameClean}</p>
-                  )}
-                  {displayNameIssues.map((issue) => (
-                    <p key={issue.code} className="text-[11.5px] leading-4 text-amber-800">{issue.message}</p>
-                  ))}
-                </div>
+              <Row label={copy.basic.name} required>
+                {/*
+                  Hướng dẫn duy nhất nằm trong placeholder của chính ô nhập: công thức
+                  đặt tên, hoặc tên gợi ý khi đã đủ danh mục / quy cách / tỉnh. Không
+                  đếm, không giới hạn, không cảnh báo độ dài và không có dòng chữ nào
+                  khác bên dưới.
+                */}
+                <input name="name" className="input" required maxLength={180} minLength={3}
+                  placeholder={suggestedDisplayName || copy.basic.nameFormula}
+                  defaultValue={product?.name ?? ""} disabled={locked} />
               </Row>
               <Row label={copy.basic.keywords} hint={copy.basic.keywordsHint}>
                 <input name="keywords" className="input" maxLength={120} placeholder="cashew, w320, vietnam"

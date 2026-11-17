@@ -35,8 +35,6 @@ import {
 import { formatMoney, priceRangeText } from "@/lib/products/price-display";
 import { effectiveFieldsFor } from "@/lib/product-attributes";
 import { gradeKey, resolveGrade } from "@/lib/public/grade-resolution";
-import { composeDisplayName, isPlaceholderDisplayName } from "@/lib/public/display-name";
-import { displayNameWarnings } from "@/lib/public/display-name-rules";
 import { useRegisterProductEditDirty } from "@/app/crm/products/[slug]/edit/edit-workspace";
 
 type FormState = Record<string, string | number | boolean>;
@@ -57,7 +55,6 @@ function init(p?: SupplierProduct | null): FormState {
   const lt = p ? readProductLeadTime(p) : { value: null, unit: "days" as LeadTimeUnit, daysEquivalent: null };
   return {
     name: p?.name ?? "",
-    display_name: p?.display_name ?? "",
     category: p?.category ?? "",
     description: p?.description ?? "",
     description_detail: p?.description_detail ?? "",
@@ -202,25 +199,13 @@ export function ProductForm({
   const attributeLabels = Object.fromEntries(nonGradeProductFields(effectiveFieldsFor(activeCategory)).map((f) => [f.key, f.label]));
   const attributeInputFields = nonGradeProductFields(effectiveFieldsFor(activeCategory))
     .map((field) => field.supplier_added ? { ...field, label: `${field.label} (nhà cung cấp tự thêm)` } : field);
-  const suggestedDisplayName = composeDisplayName({
-    categoryLabel: activeCategory ? activeCategory.name_i18n.en || activeCategory.slug : null,
-    grade: primaryDraftGrade ?? grade.value,
-    province: supplier.province,
-    attributes,
-    attributeLabels,
-  });
-  const displayNamePlaceholder = isPlaceholderDisplayName(v("display_name"));
-  const displayNameGrade = resolveGrade({
-    name: v("display_name"), spec: "", categorySlug: activeCategory?.slug ?? "", attributes: {},
-  }).fromName;
-  const displayNameConflict = !!standardDraftGrades.length && !!displayNameGrade &&
-    !standardDraftGrades.some((item) => gradeKey(item) === gradeKey(displayNameGrade));
-  const previewName = (displayNamePlaceholder ? "" : v("display_name").trim()) || v("name").trim() || "Chưa có tên sản phẩm";
-  const displayNameIssues = displayNameWarnings(v("display_name"), {
-    supplierNames: supplier ? [supplier.name, supplier.trade_name] : [],
-    categoryLabel: activeCategory?.name_i18n?.vi || activeCategory?.name_i18n?.en || activeCategory?.slug || "",
-  });
 
+  /**
+   * Thẻ xem trước đọc đúng tên mà trang người mua sẽ hiện: tên hiển thị do hệ thống
+   * soạn khi nhà cung cấp gửi duyệt, thiếu thì lùi về tên gốc. Nhân viên không sửa
+   * tên ở đây — sản phẩm là của nhà cung cấp.
+   */
+  const previewName = (product?.display_name ?? "").trim() || v("name").trim() || "Chưa có tên sản phẩm";
   const gradeValidation = validateGradeRowsDraft(gradeRows, activeCategorySource);
   const priceRangeError = product || gradeValidation.valid ? null : (gradeValidation.message ?? "Kiểm tra lại bảng Grade & giá.");
   const draftSummary = gradeValidation.valid ? summarizeGradeRowsForProduct(gradeValidation.rows, activeCategorySource) : null;
@@ -444,52 +429,6 @@ export function ProductForm({
               </select>
             </Field>
           )}
-          <div className="rounded-xl border border-ink-200 bg-ink-50/60 p-3">
-            <Field
-              label="Tên hiển thị cho người mua"
-              hint="Trang người mua đọc tên này. Để trống thì dùng tên sản phẩm ở trên; tên gốc không đổi."
-            >
-              <input
-                className={`input ${displayNamePlaceholder ? "border-amber-400 bg-amber-50/40" : ""}`}
-                maxLength={120}
-                value={v("display_name")}
-                onChange={(e) => set("display_name", e.target.value)}
-                placeholder={suggestedDisplayName || "VD: Pepper 550 g/l, Dak Lak"}
-              />
-            </Field>
-            {displayNamePlaceholder && (
-              <p className="mt-1 text-xs font-semibold text-amber-800">“Chưa xác định” không phải tên hiển thị. Để trống để dùng tên gốc.</p>
-            )}
-            {suggestedDisplayName && v("display_name").trim() !== suggestedDisplayName && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                <span className="text-ink-500">Gợi ý:</span>
-                <span className="font-semibold text-ink-800">{suggestedDisplayName}</span>
-                <button
-                  type="button"
-                  onClick={() => set("display_name", suggestedDisplayName)}
-                  className="btn btn-primary btn-sm ml-auto"
-                >
-                  Dùng tên này
-                </button>
-              </div>
-            )}
-            {!product && displayNameConflict && (
-              <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                Tên hiển thị ghi <strong>{displayNameGrade}</strong> nhưng bảng Grade &amp; giá đang là <strong>{standardDraftGrades.join(", ")}</strong>. Người mua sẽ đọc hai mức khác nhau. Sửa lại tên hiển thị hoặc bảng Grade &amp; giá.
-              </p>
-            )}
-            {displayNameIssues.length > 0 && (
-              <ul className="mt-2 space-y-1 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-                {displayNameIssues.map((issue) => <li key={issue.code}>• {issue.message}</li>)}
-              </ul>
-            )}
-            {!displayNamePlaceholder && v("display_name").trim() && displayNameIssues.length === 0 && (
-              <p className="mt-2 text-xs leading-5 text-emerald-700">Tên này đọc như tên hàng bình thường.</p>
-            )}
-            <p className="mt-2 text-xs leading-5 text-ink-500">
-              Người mua sẽ thấy: <strong className="text-ink-800">{previewName}</strong>
-            </p>
-          </div>
         </section>
       )}
 

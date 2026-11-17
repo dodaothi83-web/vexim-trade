@@ -41,6 +41,13 @@ assert.equal(composeDisplayName({ grade: "550 g/l" }), "550 g/l");
 assert.equal(composeDisplayName({}), "", "Không có dữ kiện thì trả rỗng để nơi gọi lùi về tên gốc");
 assert.equal(composeDisplayName({ categoryLabel: "Pepper", grade: "550 g/l", province: "Chưa xác định" }), "Pepper 550 g/l");
 
+/* Quy cách đứng trước tỉnh: cái quyết định giá phải nằm sát tên hàng. */
+assert.equal(
+  composeDisplayName({ categoryLabel: "Cashew kernels", grade: "W320", province: "Binh Phuoc" }),
+  "Cashew kernels W320, Binh Phuoc",
+  "Quy cách trước, tỉnh sau",
+);
+
 /* Tỉnh đã nằm trong phần đầu thì không lặp lại ở đuôi. */
 assert.equal(composeDisplayName({ grade: "Pepper Dak Lak", province: "Dak Lak" }), "Pepper Dak Lak");
 
@@ -54,8 +61,8 @@ assert.equal(
     attributes: { grade: "550 g/l", moisture: "12.5% max" },
     attributeLabels: { grade: "Density (g/l)", moisture: "Moisture" },
   }),
-  "Pepper 550 g/l, Dak Lak, Moisture 12.5% max",
-  "Quy cách không lặp lại ở phần đuôi",
+  "Pepper 550 g/l, Moisture 12.5% max, Dak Lak",
+  "Quy cách nằm sát tên hàng, tỉnh đứng sau quy cách, chỉ tiêu phụ chen giữa",
 );
 
 assert.equal(
@@ -66,7 +73,7 @@ assert.equal(
     attributes: { a: "one", b: "two", c: "three" },
     attributeLabels: { a: "A", b: "B", c: "C" },
   }),
-  "Pepper 550 g/l, Dak Lak, A one, B two",
+  "Pepper 550 g/l, A one, B two, Dak Lak",
   "Chỉ lấy tối đa hai chỉ tiêu phụ",
 );
 
@@ -149,8 +156,12 @@ const types = readFileSync(new URL("../lib/types.ts", import.meta.url), "utf8");
 assert.match(types, /display_name\?: string \| null;/, "SupplierProduct có trường tên hiển thị");
 
 const actions = readFileSync(new URL("../app/actions.ts", import.meta.url), "utf8");
-assert.match(actions, /display_name: displayNameInput\(raw\.display_name\)/, "Lưu sản phẩm nhận tên hiển thị");
-assert.match(actions, /isPlaceholderDisplayName\(text\)/, "Chỗ trống không được lưu thành tên hiển thị");
+/* CRM không nhận tên từ payload: tên người mua đọc do hệ thống soạn từ dữ kiện. */
+// `parseSupplierInput` (hồ sơ nhà cung cấp) vẫn đọc display_name của chính nhà cung
+// cấp — đó là tên công ty, không phải tên hàng. Chỉ đường sản phẩm mới bị khoá.
+const productPayload = actions.slice(actions.indexOf("function parseProductInput("), actions.indexOf("/** Phase 2: từ khoá"));
+assert.doesNotMatch(productPayload, /display_name:\s*str\(raw\.display_name\)/, "CRM không đọc tên hiển thị sản phẩm từ payload");
+assert.match(actions, /input\.display_name = existing\.display_name \?\? null;/, "CRM giữ nguyên tên hiển thị đã lưu");
 
 const migration = new URL("../supabase/migrations/20261030_product_display_name.sql", import.meta.url);
 assert.ok(existsSync(migration), "Có migration cho cột display_name");
@@ -164,10 +175,10 @@ assert.match(supabase, /missingDisplayNameColumn/, "Cơ sở dữ liệu cũ v�
 assert.match(supabase, /displayNameMigrationRequired/, "Có tên hiển thị mà thiếu cột thì báo rõ, không bỏ im lặng");
 
 const form = readFileSync(new URL("../components/product-form.tsx", import.meta.url), "utf8");
-assert.match(form, /composeDisplayName\(\{/, "Form soạn sẵn tên để nhân viên bấm một nút");
-assert.match(form, /Dùng tên này/, "Form có nút dùng tên gợi ý");
-assert.match(form, /Người mua sẽ thấy:/, "Form cho xem trước tên người mua đọc");
-assert.match(form, /Tên hiển thị ghi/, "Tên hiển thị lệch quy cách thì cảnh báo");
+/* CRM không có ô tên hiển thị và không gợi ý tên: tên là việc của nhà cung cấp. */
+assert.doesNotMatch(form, /Tên hiển thị cho người mua/, "CRM không còn ô tên hiển thị");
+assert.doesNotMatch(form, /Dùng tên này/, "CRM không còn nút dùng tên gợi ý");
+assert.doesNotMatch(form, /Gợi ý:/, "CRM không còn dòng gợi ý tên");
 
 /* ---------------- 5. Quy tắc đặt tên: cảnh báo mềm, không cắt cụt ---------------- */
 
@@ -232,16 +243,24 @@ assert.doesNotMatch(rulesSource, /return\s+raw\b/, "Quy tắc tên không trả 
 assert.match(rulesSource, /export function displayNameWarnings\b/, "Quy tắc nằm trong một hàm dùng chung");
 assert.doesNotMatch(rulesSource, /throw new Error/, "Không ném lỗi chặn đăng sản phẩm");
 
-/* Form nhà cung cấp và form CRM cùng đọc một bộ quy tắc. */
+/* Một ô tên duy nhất ở form nhà cung cấp: đếm ký tự và gợi ý ngay dưới. */
 const supplierEditor = readFileSync(new URL("../app/supplier/portal/products/product-editor.tsx", import.meta.url), "utf8");
 const crmQueue = readFileSync(new URL("../app/crm/products/page.tsx", import.meta.url), "utf8");
-assert.match(supplierEditor, /displayNameWarnings\(/, "Form nhà cung cấp hiện cảnh báo tại chỗ");
-assert.match(form, /displayNameWarnings\(/, "Form CRM hiện cùng cảnh báo");
-assert.match(crmQueue, /displayNameWarnings\(/, "Hàng đợi duyệt CRM gắn nhãn tên cần sửa");
+assert.doesNotMatch(supplierEditor, /name="display_name"/, "Form nhà cung cấp không còn ô tên hiển thị riêng");
+assert.match(supplierEditor, /placeholder=\{suggestedDisplayName \|\| copy\.basic\.nameFormula\}/,
+  "Ô nhập mang sẵn công thức, hoặc tên gợi ý khi đã đủ dữ kiện");
+assert.doesNotMatch(supplierEditor, /copy\.basic\.displayNameSuggested/, "Không còn dòng \"Gợi ý:\" rời bên dưới");
+/* Ô tên: không đếm, không giới hạn ở mốc khuyến nghị, không cảnh báo độ dài. */
+assert.match(supplierEditor, /<input name="name"[^>]*maxLength=\{180\}/, "Ô tên cho gõ tới hạn của cột dữ liệu");
+assert.doesNotMatch(supplierEditor, /\/\{DISPLAY_NAME_RECOMMENDED_MAX\}/, "Ô tên không còn bộ đếm /90");
+assert.doesNotMatch(supplierEditor, /nameLongHint/, "Không còn dòng nhắc độ dài");
+assert.match(supplierEditor, /copy\.basic\.nameFormula/, "Ô nhập mang sẵn công thức đặt tên");
+assert.doesNotMatch(crmQueue, /Nên sửa tên/, "Hàng đợi duyệt CRM không cảnh báo tên của nhà cung cấp");
+assert.doesNotMatch(form, /displayNameWarnings\(/, "CRM không soát tên do nhà cung cấp đặt");
 
-/* Nhãn kiểm tra không dùng từ nội bộ trong chuỗi tiếng Việt. */
-for (const [file, source] of [["product-form.tsx", form], ["crm/products/page.tsx", crmQueue]]) {
-  assert.doesNotMatch(source, /Buyer sẽ (thấy|đọc)/, `Không dùng "Buyer" trong câu tiếng Việt: ${file}`);
-}
+/* Tên người mua đọc được soạn ở tầng máy chủ cho cả hai đường lưu. */
+const supplierAction = readFileSync(new URL("../app/supplier/portal/product-actions.ts", import.meta.url), "utf8");
+assert.doesNotMatch(supplierAction, /form\.get\("display_name"\)/, "Nhà cung cấp không gửi tên hiển thị từ form");
+assert.match(supplierAction, /display_name: existing\.display_name \?\? null/, "Lưu của nhà cung cấp cũng giữ nguyên tên hiển thị");
 
-console.log("✅ Tên hiển thị: soạn từ dữ kiện có cấu trúc, cảnh báo mềm khi tên không tự nhiên, không cắt cụt và tên gốc giữ nguyên.");
+console.log("✅ Tên hiển thị: một ô tên duy nhất có công thức và gợi ý trong ô nhập, không giới hạn độ dài, CRM không can thiệp.");
