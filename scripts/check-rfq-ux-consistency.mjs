@@ -74,8 +74,18 @@ assert.match(read('app/(public)/buyer/account/requests/[id]/offers/[matchId]/pag
   /readable && \(!sourcing \|\| messages\.length > 0\)/);
 assert.match(read('app/supplier/portal/rfqs/[matchId]/page.tsx'), /canPost=\{false\} sourcingArchive/);
 
+// Trang này cũng dựng tiêu đề qua `pageTitle` của lib/site, nên nạp đúng module
+// thật thay vì để `require` ném lỗi "unexpected @/lib/site".
+const site = (() => {
+  const module = { exports: {} };
+  vm.runInNewContext(ts.transpileModule(read('lib/site.ts'), { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
+  } }).outputText, { module, exports: module.exports, process, console }, { filename: 'lib/site.ts' });
+  return module.exports;
+})();
 const guide = load('app/(public)/how-it-works/page.tsx', {
   'next/link': link, 'lucide-react': icons, '@/components/ui': { Breadcrumbs: () => null },
+  '@/lib/site': site,
 });
 for (const [lang, directText, sourcingText] of [
   ['en', 'Only selected, invited direct suppliers see consented contact details', 'For sourcing, Vexim keeps your contact private'],

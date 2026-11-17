@@ -52,6 +52,16 @@ vm.runInNewContext(
   { exports: filterExports, require: (key) => { throw Error(`Unexpected import in lib/category-filters.ts: ${key}`); } },
 );
 mocks['@/lib/category-filters'] = filterExports;
+// Trang RFQ dựng tiêu đề qua helper thương hiệu dùng chung; biên dịch module thật
+// để kiểm này bắt luôn việc tên thương hiệu bị ghép hai lần trong <title>.
+const siteExports = {};
+vm.runInNewContext(
+  ts.transpileModule(readFileSync(new URL('../lib/site.ts', import.meta.url), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText,
+  { exports: siteExports, process, require: (key) => { throw Error(`Unexpected import in lib/site.ts: ${key}`); } },
+);
+mocks['@/lib/site'] = siteExports;
 const exports = {};
 const js = ts.transpileModule(readFileSync(new URL('../app/(public)/rfq/page.tsx', import.meta.url), 'utf8'), {
   compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },

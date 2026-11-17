@@ -33,6 +33,8 @@ const core = load('lib/rfq/portal-core.ts', {
   './buyer-contact': contact, './channel': channel,
 });
 const dictionary = loadPortalDictionary();
+const certificateRejection = load('lib/certificate-rejection.ts');
+const certificateCopy = load('lib/certificate-supplier-copy.ts', { './certificate-rejection.ts': certificateRejection });
 const dashboard = load('lib/supplier-portal/dashboard.ts', {
   '@/lib/rfq/buyer-contact': contact, '@/lib/rfq/channel': channel,
   '@/lib/rfq/mediated': { deskHasNewReply: () => false }, '@/lib/rfq/portal-core': core,
@@ -41,6 +43,10 @@ const dashboard = load('lib/supplier-portal/dashboard.ts', {
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { vi: dictionary.vi.notices, en: dictionary.en.notices } },
   '@/lib/i18n/portal/rfqs': { rfqsMessages: { vi: dictionary.vi.rfqs, en: dictionary.en.rfqs } },
+  // Dashboard nay đọc thêm phần chữ của chứng nhận (ngày hiển thị, trạng thái
+  // hết hạn). Nạp module thật, không mock, để lỗi định dạng ngày vẫn lộ ra.
+  '@/lib/certificate-supplier-copy': certificateCopy,
+  '@/lib/certificate-rejection': certificateRejection,
 });
 const suppliers = ['s1', 's2'].map((id) => ({ id, status: 'published', onboarding_status: 'approved', email: `${id}@legacy.example`, name: `Supplier ${id}` }));
 const accounts = Object.fromEntries(suppliers.map((s) => [s.id, { email: `${s.id}@portal.example`, role: 'supplier', supplier_id: s.id, is_active: true }]));
