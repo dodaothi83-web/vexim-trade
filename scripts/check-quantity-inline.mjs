@@ -91,8 +91,10 @@ assert.doesNotMatch(v2html, /staged editor/, 'The v2 editing UI is gone from the
   mục này chỉ hiện khi danh mục chưa có grade nào, nên gần như không bao giờ thấy.
 */
 const withGrade = render({ actor: 'supplier', onAddGrade: async () => ({ ok: true, message: '' }) });
-assert.match(withGrade, /<option[^>]*value="__new_grade__"[^>]*>\+ Thêm grade<\/option>/,
-  'Danh mục đã có grade vẫn phải có mục thêm grade trong ô chọn');
+// Ô chọn chỉ chứa grade thật; đường thêm grade là nút riêng, không phải một <option> giả
+// (một mục giả chỉ mở được ô nhập nhờ đổi state, hỏng là nhà cung cấp bị kẹt).
+assert.doesNotMatch(withGrade, /__new_grade__/, 'ô chọn không còn mục giả');
+assert.match(withGrade, /<button[^>]*>\+ Thêm grade<\/button>/, 'Danh mục đã có grade vẫn phải có nút thêm grade');
 assert.doesNotMatch(withGrade, /\+ Thêm grade mới/, 'Nhãn gọn: "+ Thêm grade"');
 // Sản phẩm đã có bảng giá cũng phải tự thêm được grade: trang sửa truyền onAddGrade.
 const savePage = readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');

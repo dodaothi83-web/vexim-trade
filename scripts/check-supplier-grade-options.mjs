@@ -15,7 +15,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 function compile(path, mocks) {
   const mod = { exports: {} };
   const code = ts.transpileModule(read(path), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   vm.runInNewContext(code, {
     module: mod,
@@ -24,7 +24,7 @@ function compile(path, mocks) {
       if (!(key in mocks)) throw new Error(`${path}: unexpected import ${key}`);
       return mocks[key];
     },
-    process, console, Date, Intl,
+    process, console, Date, Intl, Promise, setTimeout, clearTimeout,
   });
   return mod.exports;
 }
@@ -110,23 +110,95 @@ assert.match(types, /supplier_grade_options\?: string\[\]/, "kiểu Category ph�
 /* ---------------- 5. Giao diện: mục thêm nằm cuối danh sách chọn ---------------- */
 
 const editor = read("../components/products/quantity-pricing-editor.tsx");
-assert.match(editor, /const NEW_GRADE_OPTION = "__new_grade__";/, "phải có giá trị riêng cho mục thêm grade");
-assert.match(editor, /\{onAddGrade && <option value=\{NEW_GRADE_OPTION\}>\{copy\.addGrade\}<\/option>\}/,
-  "mục thêm grade phải là lựa chọn cuối của ô chọn");
+assert.doesNotMatch(editor, /const NEW_GRADE_OPTION/, "không còn giá trị giả cho mục thêm grade");
 /*
-  Mục này phải có ở MỌI lần mở, không phụ thuộc danh mục đã có grade chuẩn hay chưa:
-  nhà máy gọi quy cách theo cách riêng, gần như luôn khác danh sách của Vexim. Trước đây
-  điều kiện gắn với `gradeOptions.length` nên thực tế không bao giờ hiện.
+  Đường thêm grade KHÔNG nằm trong dropdown. Một <option> giả chỉ mở được ô nhập nhờ đổi
+  state; khi sự kiện đổi giá trị không bắt được, dropdown hiện chữ "+ Thêm grade" mà không
+  có ô nào xuất hiện và nhà cung cấp bị kẹt. Phải là nút riêng, luôn hiện.
 */
-assert.doesNotMatch(editor, /gradeOptions\.length\s*&&\s*<option value=\{NEW_GRADE_OPTION\}/,
-  "mục thêm grade không được phụ thuộc số grade đã có");
-assert.match(editor, /\{onAddGrade && <option value=\{NEW_GRADE_OPTION\}>/, "mục thêm grade chỉ phụ thuộc onAddGrade");
+assert.match(editor, /\{onAddGrade && !newGradeOpen && <button[^>]*\n?[^>]*onClick=\{\(\) => \{ setNewGradeOpen\(true\)/,
+  "nút thêm grade là nút riêng, mở ô nhập ngay");
+assert.match(editor, /<option value="">\{gradeOptions\.length \? copy\.chooseGrade : copy\.noGrades\}<\/option>\{gradeOptions\.map/,
+  "ô chọn grade chỉ chứa grade thật");
+assert.doesNotMatch(editor, /NEW_GRADE_OPTION/, "không còn mục giả trong dropdown");
+assert.match(editor, /<input id="quantity-new-grade"/, "ô nhập grade mới phải có trong form");
+assert.match(editor, /onChange\(\{ \.\.\.value, grade: list\.find/, "lưu xong thì chọn luôn grade vừa thêm");
 assert.match(editor, /const gradeOptions = \[\.\.\.standardGrades, \.\.\.addedGrades\.filter/,
   "grade vừa thêm phải hiện ngay trong danh sách, không chờ tải lại trang");
 assert.match(editor, /validateQuantityPricing\(validateEnglishName \? value : \{ \.\.\.value, nameEn: "" \}, gradeOptions, policy\)/,
   "kiểm tra phía trình duyệt phải nhận grade vừa thêm");
 assert.match(editor, /copy\.gradeSaved/, "ô nhập grade mới phải nói rõ phạm vi áp dụng");
 assert.match(editor, /useEffect\(\(\) => \{ setAddedGrades\(\[\]\);/, "đổi danh mục thì bỏ grade tự thêm của nhóm trước");
+
+/* ---------------- 6. Bấm thật trong jsdom: nút mở ô nhập, lưu xong chọn luôn grade ---------------- */
+
+{
+  const { JSDOM } = await import("jsdom");
+  const { createRequire } = await import("node:module");
+  const req = createRequire(import.meta.url);
+  // DOM phải có trước khi nạp react-dom: react-dom quyết định "có DOM hay không" ngay lúc
+  // nạp module. Nạp trước thì nó chạy như SSR và KHÔNG gắn listener sự kiện nào.
+  const dom = new JSDOM("<!doctype html><div id=root></div>", { url: "http://localhost/", pretendToBeVisual: true });
+  global.window = dom.window; global.document = dom.window.document;
+  global.HTMLElement = dom.window.HTMLElement; global.Element = dom.window.Element;
+  global.Node = dom.window.Node; global.IS_REACT_ACT_ENVIRONMENT = true;
+  const React = req("react");
+  const jsx = req("react/jsx-runtime");
+  const { createRoot } = req("react-dom/client");
+  const { act } = req("react");
+  const salesUnits = await import("../lib/products/sales-units.ts");
+  const priceDisplay = await import("../lib/products/price-display.ts");
+  const pricing = await import("../lib/products/quantity-pricing.ts");
+  const { productEditorMessages } = await import("../lib/i18n/portal/product-editor.ts");
+  const { fill } = await import("../lib/i18n/format.ts");
+  const lucide = new Proxy({}, { get: (_t, name) => () => React.createElement("svg", { "data-icon": String(name) }) });
+  const built = compile("../components/products/quantity-pricing-editor.tsx", {
+    "@/lib/products/sales-units": salesUnits, react: React, "react/jsx-runtime": jsx,
+    "next/link": { default: ({ children, ...p }) => React.createElement("a", p, children) },
+    "lucide-react": lucide, "@/lib/products/quantity-pricing": pricing, "@/lib/products/price-display": priceDisplay,
+    "@/lib/i18n/portal/product-editor": { productEditorMessages }, "@/lib/i18n/format": { fill },
+  });
+  // Bảng giá là component controlled, nên phải có state như nơi gọi thật.
+  const initial = { grade: "", incoterm: "", currency: "USD", unit: "kg", nameVi: "Nhân điều", nameEn: "",
+    tiers: [{ minKg: "", priceUsdPerKg: "", incoterm: "" }] };
+  function Harness() {
+    const [value, setValue] = React.useState(initial);
+    return React.createElement(built.QuantityPricingEditor, {
+      value, onChange: setValue, standardGrades: ["Mango", "Dried Banana"],
+      policy: pricing.DEFAULT_QUANTITY_PRICING_POLICY, buyerPriceUnit: "kg", pricePubliclyVisible: false,
+      isolated: true, showPreview: false, showTitle: false, validateEnglishName: false,
+      onAddGrade: async (grade) => ({ ok: true, message: "ok", grades: ["Mango", "Dried Banana", grade] }),
+    });
+  }
+  const root = createRoot(document.getElementById("root"));
+  await act(async () => { root.render(React.createElement(Harness)); });
+  const select = document.querySelector("#quantity-grade");
+  assert.ok(select, "ô chọn grade phải có trong form");
+  // Danh mục ĐÃ có grade chuẩn: ô chọn chỉ chứa grade thật, không có mục giả.
+  assert.deepEqual([...select.querySelectorAll("option")].map((o) => o.textContent), ["Chọn grade", "Mango", "Dried Banana"],
+    "ô chọn chỉ chứa grade thật");
+  const addButton = [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Thêm grade"));
+  assert.ok(addButton, "phải có nút thêm grade ngay dưới ô chọn");
+  assert.equal(document.querySelector("#quantity-new-grade"), null, "ô nhập chỉ hiện sau khi bấm nút");
+  await act(async () => { addButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); });
+  const input = document.querySelector("#quantity-new-grade");
+  assert.ok(input, "bấm nút thêm grade thì ô nhập phải hiện ra");
+  // Gán qua native setter để React thấy giá trị đổi như khi người dùng thật gõ.
+  const setNative = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set;
+  await act(async () => {
+    setNative.call(input, "Lychee riêng");
+    input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+  });
+  const saveButton = [...document.querySelectorAll("button")].find((b) => b.textContent === "Lưu grade");
+  assert.ok(saveButton, "ô nhập grade mới phải có nút lưu");
+  await act(async () => {
+    saveButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 30));
+  });
+  assert.equal(document.querySelector("#quantity-grade").value, "Lychee riêng", "lưu xong phải chọn luôn grade vừa thêm");
+  assert.ok([...document.querySelectorAll("#quantity-grade option")].some((o) => o.value === "Lychee riêng"),
+    "grade vừa thêm phải có trong danh sách ngay, không chờ tải lại trang");
+}
 
 const proposals = read("../lib/supplier-portal/category-proposals.ts");
 assert.match(proposals, /supplier_grade_options: c\.supplier_grade_options \?\? \[\]/,

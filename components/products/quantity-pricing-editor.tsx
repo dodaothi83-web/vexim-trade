@@ -59,7 +59,6 @@ type Props = {
 };
 
 /** Giá trị giả trong ô chọn: chọn mục này là mở ô nhập grade mới, không đổi grade hiện tại. */
-const NEW_GRADE_OPTION = "__new_grade__";
 
 const INCOTERMS = ["FOB", "CIF", "CFR", "EXW", "FCA", "DAP", "DDP"];
 
@@ -166,7 +165,8 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
       setAddedGrades(list);
       setNewGradeOpen(false);
       setNewGradeDraft("");
-      // Chọn luôn grade vừa thêm để nhà cung cấp không phải mở lại ô chọn.
+      // Chọn luôn grade vừa thêm: nhà cung cấp vừa gõ tên quy cách của mình, không phải
+      // mở lại ô chọn tìm nó. Value mới nhất lấy từ functional form của setValue ở nơi gọi.
       onChange({ ...value, grade: list.find((option) => option.trim().toLowerCase() === grade.toLowerCase()) ?? grade });
     } catch {
       setNewGradeNote({ ok: false, text: copy.networkError });
@@ -191,22 +191,20 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
         <div className="grid items-start gap-3 grid-cols-2 sm:grid-cols-[minmax(0,1fr)_104px_104px]">
           <div className="col-span-2 text-sm font-semibold text-ink-800 sm:col-span-1">
             <label htmlFor="quantity-grade">Grade <span className="text-rose-700">*</span></label>
+            {/*
+              Ô chọn CHỈ chứa grade thật. Mục "+ Thêm grade" không nằm trong dropdown: một
+              <option> giả chỉ mở được ô nhập nhờ đổi state, và khi sự kiện đổi giá trị không
+              bắt được thì dropdown hiện chữ "+ Thêm grade" mà chẳng có ô nào xuất hiện —
+              nhà cung cấp bị kẹt. Đường thêm grade giờ là một nút riêng, luôn hiện.
+            */}
             <select id="quantity-grade" form={form} aria-label="Grade" className="input mt-1 w-full" required
-              disabled={disabled || (!gradeOptions.length && !onAddGrade)} value={newGradeOpen ? NEW_GRADE_OPTION : value.grade}
-              onChange={(e) => {
-                if (e.target.value === NEW_GRADE_OPTION) { setNewGradeOpen(true); setNewGradeNote(null); setNewGradeDraft(""); return; }
-                setNewGradeOpen(false);
-                onChange({ ...value, grade: e.target.value });
-              }}>
+              disabled={disabled || (!gradeOptions.length && !onAddGrade)} value={value.grade}
+              onChange={(e) => { setNewGradeOpen(false); onChange({ ...value, grade: e.target.value }); }}>
               <option value="">{gradeOptions.length ? copy.chooseGrade : copy.noGrades}</option>{gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-              {/*
-                "Thêm grade" phải nằm trong danh sách ở MỌI lần mở, kể cả khi danh mục đã có
-                sẵn grade chuẩn: nhà máy thường gọi quy cách theo cách riêng, không trùng danh
-                sách của Vexim. Trước đây mục này chỉ có khi danh mục chưa có grade nào, nên
-                gần như không bao giờ thấy.
-              */}
-              {onAddGrade && <option value={NEW_GRADE_OPTION}>{copy.addGrade}</option>}
             </select>
+            {onAddGrade && !newGradeOpen && <button type="button" disabled={disabled}
+              onClick={() => { setNewGradeOpen(true); setNewGradeNote(null); setNewGradeDraft(""); }}
+              className="mt-1.5 text-[12px] font-semibold text-brand-700 hover:underline">{copy.addGrade}</button>}
             {!gradeOptions.length && !onAddGrade && <span role="status" className="mt-1 block text-[11.5px] font-normal leading-4 text-amber-800">{copy.noGradesNote}</span>}
             {/* Giữ lại câu xác nhận sau khi lưu để nhà cung cấp biết grade đã vào danh sách của nhóm hàng. */}
             {!newGradeOpen && newGradeNote && <span role={newGradeNote.ok ? "status" : "alert"} className={`mt-1 block text-[11.5px] font-normal leading-4 ${newGradeNote.ok ? "text-emerald-700" : "text-rose-700"}`}>{newGradeNote.text}</span>}
