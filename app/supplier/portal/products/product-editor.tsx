@@ -1136,29 +1136,17 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <SectionHead index="2" title={copy.basic.title} pill={sectionPill("sec-basic")}
               hint={copy.basic.hint} />
             <div>
-              <Row label={copy.basic.name} required hint={copy.basic.nameHint}>
-                <div className="flex items-start gap-2">
-                  {/* Trần 90 chỉ là mốc KHUYẾN NGHỊ: ô nhập vẫn cho gõ tới hạn của
-                      cột dữ liệu (180). Vượt mốc thì hiện một dòng nhắc, không chặn. */}
-                  <input name="name" className="input" required maxLength={180} minLength={3}
-                    placeholder={copy.basic.namePlaceholder} defaultValue={product?.name ?? ""} disabled={locked} />
-                  <span className={`shrink-0 pt-2 font-mono text-[11px] tabular-nums ${
-                    (snapshot.name ?? "").length > DISPLAY_NAME_RECOMMENDED_MAX ? "text-amber-700" : "text-ink-400"}`}>
-                    {(snapshot.name ?? "").length}/{DISPLAY_NAME_RECOMMENDED_MAX}
-                  </span>
-                </div>
-                {(snapshot.name ?? "").length > DISPLAY_NAME_RECOMMENDED_MAX && (
-                  <p className="mt-1 text-[11.5px] leading-4 text-ink-500">{copy.basic.nameLongHint}</p>
-                )}
-                {/* Một câu gợi ý duy nhất, ngay dưới ô tên. Không có trường tên thứ
-                    hai và không có câu giải thích nào khác: nhà cung cấp chỉ cần đọc
-                    một dòng là biết nên viết thế nào. */}
-                {suggestedDisplayName && suggestedDisplayName !== (snapshot.name ?? "").trim() && (
-                  <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] leading-4 text-ink-500">
-                    <span>{copy.basic.displayNameSuggested}:</span>
-                    <span className="font-semibold text-ink-800">{suggestedDisplayName}</span>
-                  </p>
-                )}
+              <Row label={copy.basic.name} required>
+                {/*
+                  Không đếm, không giới hạn, không cảnh báo độ dài: nhà cung cấp được
+                  viết bao nhiêu cũng được (chỉ còn hạn cột dữ liệu 180). Thay vào đó
+                  là một DÒNG GỢI Ý NGAY TRONG Ô NHẬP, nêu công thức đặt tên kèm ví dụ
+                  lấy từ chính danh mục / quy cách / tỉnh đang có — nhìn thấy lúc đang
+                  gõ nên không phải đi tìm hướng dẫn ở chỗ khác.
+                */}
+                <input name="name" className="input" required maxLength={180} minLength={3}
+                  placeholder={suggestedDisplayName || copy.basic.nameFormula}
+                  defaultValue={product?.name ?? ""} disabled={locked} />
               </Row>
               <Row label={copy.basic.keywords} hint={copy.basic.keywordsHint}>
                 <input name="keywords" className="input" maxLength={120} placeholder="cashew, w320, vietnam"

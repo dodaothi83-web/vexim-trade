@@ -7,13 +7,12 @@ chốt cách Vexim xử lý.
 
 ## Nguyên tắc
 
-1. **Form chỉ có một ô tên.** Không có trường "tên người mua đọc" riêng: nhà cung cấp
-   không phải viết tên hai lần. Ô tên sản phẩm hiện bộ đếm `x/90` và **một câu gợi ý**
-   ngay dưới (dạng "Gợi ý: Hạt điều W320, Bình Phước"), tính từ danh mục, quy cách và tỉnh
-   đang có. Không có câu giải thích nào khác.
-   **Bộ đếm 90 không chặn.** Ô nhập vẫn cho gõ tới hạn của cột dữ liệu (180 ký tự); vượt 90
-   chỉ hiện thêm một dòng nhắc trung tính: "Tên hơi dài. Người mua chỉ đọc phần đầu trên kết
-   quả tìm kiếm." Không đổi viền ô, không tô màu cảnh báo, không chặn lưu hay gửi duyệt.
+1. **Form chỉ có một ô tên, không giới hạn độ dài.** Không có trường "tên người mua đọc"
+   riêng và **không có bộ đếm ký tự**: nhà cung cấp viết bao nhiêu cũng được (chỉ còn hạn
+   cột dữ liệu 180). Hướng dẫn nằm ngay trong ô nhập dưới dạng placeholder nêu công thức
+   `tên sản phẩm · tỉnh thành · quy cách` kèm ví dụ; khi đã đủ dữ kiện thì placeholder là
+   chính tên gợi ý. Một câu ngắn nằm dưới ô nhắc lại công thức. Không có dòng cảnh báo độ
+   dài, không chặn lưu hay gửi duyệt.
 2. **CRM không can thiệp vào tên.** Sản phẩm là của nhà cung cấp. Form CRM không có ô tên
    hiển thị, không có gợi ý, không có nút "dùng tên này"; hàng đợi duyệt không gắn nhãn
    "nên sửa tên". Nhân viên duyệt đúng/sai về danh mục và quy cách, không viết lại câu chữ.
