@@ -110,17 +110,21 @@ assert.match(types, /supplier_grade_options\?: string\[\]/, "kiểu Category ph�
 /* ---------------- 5. Giao diện: mục thêm nằm cuối danh sách chọn ---------------- */
 
 const editor = read("../components/products/quantity-pricing-editor.tsx");
-assert.doesNotMatch(editor, /const NEW_GRADE_OPTION/, "không còn giá trị giả cho mục thêm grade");
 /*
-  Đường thêm grade KHÔNG nằm trong dropdown. Một <option> giả chỉ mở được ô nhập nhờ đổi
-  state; khi sự kiện đổi giá trị không bắt được, dropdown hiện chữ "+ Thêm grade" mà không
-  có ô nào xuất hiện và nhà cung cấp bị kẹt. Phải là nút riêng, luôn hiện.
+  "Thêm grade" nằm cuối dropdown vì đó là nơi mọi người tìm trước, và có thêm một nút riêng
+  bên dưới làm đường dự phòng. Cái từng hỏng là ô chọn controlled thẳng theo `value.grade`:
+  chọn mục giả xong React kéo giá trị về rỗng nên trình duyệt đóng dropdown mà không mở ô
+  nhập. Vì vậy ô chọn phải controlled theo state riêng `gradePicker`.
 */
-assert.match(editor, /\{onAddGrade && !newGradeOpen && <button[^>]*\n?[^>]*onClick=\{\(\) => \{ setNewGradeOpen\(true\)/,
-  "nút thêm grade là nút riêng, mở ô nhập ngay");
-assert.match(editor, /<option value="">\{gradeOptions\.length \? copy\.chooseGrade : copy\.noGrades\}<\/option>\{gradeOptions\.map/,
-  "ô chọn grade chỉ chứa grade thật");
-assert.doesNotMatch(editor, /NEW_GRADE_OPTION/, "không còn mục giả trong dropdown");
+assert.match(editor, /const NEW_GRADE_OPTION = "__new_grade__";/, "mục thêm grade có giá trị riêng");
+assert.match(editor, /\{onAddGrade && <option value=\{NEW_GRADE_OPTION\}>\{copy\.addGrade\}<\/option>\}/,
+  "mục thêm grade nằm cuối danh sách chọn");
+assert.match(editor, /value=\{gradePicker\}/, "ô chọn controlled theo state riêng, không theo value.grade");
+assert.doesNotMatch(editor, /value=\{value\.grade\}/, "ô chọn không được controlled thẳng theo value.grade");
+assert.match(editor, /const \[gradePicker, setGradePicker\] = useState\(value\.grade\)/, "ô chọn giữ giá trị đang hiển thị");
+assert.match(editor, /if \(e\.target\.value === NEW_GRADE_OPTION\) \{/, "chọn mục thêm grade thì mở ô nhập");
+assert.match(editor, /\{onAddGrade && !newGradeOpen && <button[^>]*\n?[^>]*onClick=\{\(\) => \{ setGradePicker\(NEW_GRADE_OPTION\)/,
+  "nút riêng bên dưới là đường dự phòng, cũng mở ô nhập");
 assert.match(editor, /<input id="quantity-new-grade"/, "ô nhập grade mới phải có trong form");
 assert.match(editor, /onChange\(\{ \.\.\.value, grade: list\.find/, "lưu xong thì chọn luôn grade vừa thêm");
 assert.match(editor, /const gradeOptions = \[\.\.\.standardGrades, \.\.\.addedGrades\.filter/,
@@ -174,15 +178,21 @@ assert.match(editor, /useEffect\(\(\) => \{ setAddedGrades\(\[\]\);/, "đổi da
   await act(async () => { root.render(React.createElement(Harness)); });
   const select = document.querySelector("#quantity-grade");
   assert.ok(select, "ô chọn grade phải có trong form");
-  // Danh mục ĐÃ có grade chuẩn: ô chọn chỉ chứa grade thật, không có mục giả.
-  assert.deepEqual([...select.querySelectorAll("option")].map((o) => o.textContent), ["Chọn grade", "Mango", "Dried Banana"],
-    "ô chọn chỉ chứa grade thật");
-  const addButton = [...document.querySelectorAll("button")].find((b) => b.textContent.includes("Thêm grade"));
-  assert.ok(addButton, "phải có nút thêm grade ngay dưới ô chọn");
-  assert.equal(document.querySelector("#quantity-new-grade"), null, "ô nhập chỉ hiện sau khi bấm nút");
-  await act(async () => { addButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); });
+  // Mục "Thêm grade" nằm CUỐI dropdown: đó là nơi mọi người tìm trước.
+  assert.deepEqual([...select.querySelectorAll("option")].map((o) => o.textContent),
+    ["Chọn grade", "Mango", "Dried Banana", "+ Thêm grade"],
+    "mục thêm grade nằm cuối danh sách chọn, sau mọi grade thật");
+  assert.equal(document.querySelector("#quantity-new-grade"), null, "ô nhập chỉ hiện sau khi chọn");
+  const setSelect = Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype, "value").set;
+  await act(async () => {
+    setSelect.call(select, "__new_grade__");
+    select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  });
   const input = document.querySelector("#quantity-new-grade");
-  assert.ok(input, "bấm nút thêm grade thì ô nhập phải hiện ra");
+  assert.ok(input, "chọn mục thêm grade trong dropdown thì ô nhập phải hiện ra");
+  // Ô chọn phải GIỮ mục giả đang chọn, nếu không trình duyệt đóng dropdown mà không mở ô nhập.
+  assert.equal(document.querySelector("#quantity-grade").value, "__new_grade__",
+    "ô chọn giữ đúng giá trị đang hiển thị");
   // Gán qua native setter để React thấy giá trị đổi như khi người dùng thật gõ.
   const setNative = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set;
   await act(async () => {
@@ -196,6 +206,19 @@ assert.match(editor, /useEffect\(\(\) => \{ setAddedGrades\(\[\]\);/, "đổi da
     await new Promise((r) => setTimeout(r, 30));
   });
   assert.equal(document.querySelector("#quantity-grade").value, "Lychee riêng", "lưu xong phải chọn luôn grade vừa thêm");
+
+  // Đường dự phòng: nút "+ Thêm grade" bên dưới vẫn mở được ô nhập khi mục trong dropdown bị bỏ qua.
+  const fallbackButton = [...document.querySelectorAll("button")].find((b) => b.textContent === "+ Thêm grade");
+  assert.ok(fallbackButton, "vẫn còn nút thêm grade bên dưới ô chọn làm đường dự phòng");
+  await act(async () => { fallbackButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); });
+  assert.ok(document.querySelector("#quantity-new-grade"), "bấm nút dự phòng cũng phải mở được ô nhập");
+  // Huỷ thì ô chọn trả về grade thật đang dùng, không kẹt ở mục giả.
+  const cancelButton = [...document.querySelectorAll("button")].find((b) => b.textContent === "Hủy");
+  assert.ok(cancelButton, "ô nhập grade mới phải có nút huỷ");
+  await act(async () => { cancelButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })); });
+  assert.equal(document.querySelector("#quantity-grade").value, "Lychee riêng",
+    "huỷ thì ô chọn trả về grade đang dùng");
+  assert.equal(document.querySelector("#quantity-new-grade"), null, "huỷ thì ô nhập đóng lại");
   assert.ok([...document.querySelectorAll("#quantity-grade option")].some((o) => o.value === "Lychee riêng"),
     "grade vừa thêm phải có trong danh sách ngay, không chờ tải lại trang");
 }

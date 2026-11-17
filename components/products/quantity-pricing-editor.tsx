@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Giá trị của mục "Thêm grade" trong ô chọn. Là lựa chọn giả: chọn nó thì mở ô nhập grade
+ * mới, không phải một grade thật.
+ */
+const NEW_GRADE_OPTION = "__new_grade__";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ImageIcon } from "lucide-react";
@@ -143,11 +149,20 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
   // Grade do chính nhà cung cấp vừa thêm trong phiên này; prop standardGrades chỉ đổi sau khi trang tải lại.
   const [addedGrades, setAddedGrades] = useState<string[]>([]);
   const [newGradeOpen, setNewGradeOpen] = useState(false);
+  /**
+   * Giá trị đang hiển thị của ô chọn grade. Tách khỏi `value.grade` vì mục "Thêm grade" là
+   * một lựa chọn giả: nếu ô chọn controlled thẳng theo `value.grade` thì chọn xong giá trị
+   * bị kéo về rỗng và ô nhập không mở ra được.
+   */
+  const [gradePicker, setGradePicker] = useState(value.grade);
   const [newGradeDraft, setNewGradeDraft] = useState("");
   const [newGradeBusy, setNewGradeBusy] = useState(false);
   const [newGradeNote, setNewGradeNote] = useState<{ ok: boolean; text: string } | null>(null);
   // Đổi danh mục là danh sách grade khác hẳn, nên bỏ grade đã thêm của nhóm trước.
   useEffect(() => { setAddedGrades([]); setNewGradeOpen(false); setNewGradeDraft(""); setNewGradeNote(null); }, [gradeScope]);
+  // Grade bên ngoài đổi (đổi danh mục, chọn lại, lưu grade mới) thì ô chọn hiển thị theo.
+  // Đang mở ô nhập grade mới thì giữ nguyên mục giả để ô nhập không biến mất giữa chừng.
+  useEffect(() => { setGradePicker((current) => current === NEW_GRADE_OPTION ? current : value.grade); }, [value.grade]);
   const gradeOptions = [...standardGrades, ...addedGrades.filter((grade) =>
     !standardGrades.some((option) => option.trim().toLowerCase() === grade.trim().toLowerCase()))];
   // Kiểm tra ngay trên trình duyệt phải nhận cả grade vừa thêm, nếu không nút lưu vẫn báo thiếu grade.
@@ -165,6 +180,7 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
       setAddedGrades(list);
       setNewGradeOpen(false);
       setNewGradeDraft("");
+      setGradePicker(list.find((option) => option.trim().toLowerCase() === grade.toLowerCase()) ?? grade);
       // Chọn luôn grade vừa thêm: nhà cung cấp vừa gõ tên quy cách của mình, không phải
       // mở lại ô chọn tìm nó. Value mới nhất lấy từ functional form của setValue ở nơi gọi.
       onChange({ ...value, grade: list.find((option) => option.trim().toLowerCase() === grade.toLowerCase()) ?? grade });
@@ -192,18 +208,32 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
           <div className="col-span-2 text-sm font-semibold text-ink-800 sm:col-span-1">
             <label htmlFor="quantity-grade">Grade <span className="text-rose-700">*</span></label>
             {/*
-              Ô chọn CHỈ chứa grade thật. Mục "+ Thêm grade" không nằm trong dropdown: một
-              <option> giả chỉ mở được ô nhập nhờ đổi state, và khi sự kiện đổi giá trị không
-              bắt được thì dropdown hiện chữ "+ Thêm grade" mà chẳng có ô nào xuất hiện —
-              nhà cung cấp bị kẹt. Đường thêm grade giờ là một nút riêng, luôn hiện.
+              "Thêm grade" nằm CUỐI dropdown vì đó là nơi mọi người tìm trước; nút riêng bên
+              dưới giữ làm đường dự phòng.
+
+              Vì sao lần trước chọn vào mà không thấy ô nhập: mục này là một <option> giả, ô
+              chọn lại controlled theo `value.grade`, nên ngay sau khi React vẽ lại thì giá trị
+              bị kéo về rỗng và mục giả không còn "đang chọn" — trình duyệt đóng dropdown mà
+              không có ô nào xuất hiện. Giờ ô chọn có state riêng `gradePicker` giữ đúng giá
+              trị đang hiển thị, nên chọn mục này là ô nhập hiện ra ngay.
             */}
             <select id="quantity-grade" form={form} aria-label="Grade" className="input mt-1 w-full" required
-              disabled={disabled || (!gradeOptions.length && !onAddGrade)} value={value.grade}
-              onChange={(e) => { setNewGradeOpen(false); onChange({ ...value, grade: e.target.value }); }}>
+              disabled={disabled || (!gradeOptions.length && !onAddGrade)} value={gradePicker}
+              onChange={(e) => {
+                if (e.target.value === NEW_GRADE_OPTION) {
+                  setGradePicker(NEW_GRADE_OPTION);
+                  setNewGradeOpen(true); setNewGradeNote(null); setNewGradeDraft("");
+                  return;
+                }
+                setGradePicker(e.target.value);
+                setNewGradeOpen(false);
+                onChange({ ...value, grade: e.target.value });
+              }}>
               <option value="">{gradeOptions.length ? copy.chooseGrade : copy.noGrades}</option>{gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+              {onAddGrade && <option value={NEW_GRADE_OPTION}>{copy.addGrade}</option>}
             </select>
             {onAddGrade && !newGradeOpen && <button type="button" disabled={disabled}
-              onClick={() => { setNewGradeOpen(true); setNewGradeNote(null); setNewGradeDraft(""); }}
+              onClick={() => { setGradePicker(NEW_GRADE_OPTION); setNewGradeOpen(true); setNewGradeNote(null); setNewGradeDraft(""); }}
               className="mt-1.5 text-[12px] font-semibold text-brand-700 hover:underline">{copy.addGrade}</button>}
             {!gradeOptions.length && !onAddGrade && <span role="status" className="mt-1 block text-[11.5px] font-normal leading-4 text-amber-800">{copy.noGradesNote}</span>}
             {/* Giữ lại câu xác nhận sau khi lưu để nhà cung cấp biết grade đã vào danh sách của nhóm hàng. */}
@@ -216,7 +246,7 @@ export function QuantityPricingEditor({ value, onChange, standardGrades, policy,
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 <button type="button" className="btn btn-primary btn-sm" disabled={disabled || newGradeBusy} onClick={() => void submitNewGrade()}>{newGradeBusy ? copy.saving : copy.saveGrade}</button>
                 <button type="button" className="btn btn-ghost btn-sm" disabled={newGradeBusy}
-                  onClick={() => { setNewGradeOpen(false); setNewGradeDraft(""); setNewGradeNote(null); }}>{copy.cancel}</button>
+                  onClick={() => { setNewGradeOpen(false); setNewGradeDraft(""); setNewGradeNote(null); setGradePicker(value.grade); }}>{copy.cancel}</button>
               </div>
               {newGradeNote && <p role={newGradeNote.ok ? "status" : "alert"} className={`mt-1.5 text-[11.5px] font-normal ${newGradeNote.ok ? "text-emerald-700" : "text-rose-700"}`}>{newGradeNote.text}</p>}
             </div>}
