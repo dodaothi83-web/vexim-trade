@@ -1138,12 +1138,18 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <div>
               <Row label={copy.basic.name} required hint={copy.basic.nameHint}>
                 <div className="flex items-start gap-2">
-                  <input name="name" className="input" required maxLength={DISPLAY_NAME_RECOMMENDED_MAX} minLength={3}
+                  {/* Trần 90 chỉ là mốc KHUYẾN NGHỊ: ô nhập vẫn cho gõ tới hạn của
+                      cột dữ liệu (180). Vượt mốc thì hiện một dòng nhắc, không chặn. */}
+                  <input name="name" className="input" required maxLength={180} minLength={3}
                     placeholder={copy.basic.namePlaceholder} defaultValue={product?.name ?? ""} disabled={locked} />
-                  <span className="shrink-0 pt-2 font-mono text-[11px] tabular-nums text-ink-400">
+                  <span className={`shrink-0 pt-2 font-mono text-[11px] tabular-nums ${
+                    (snapshot.name ?? "").length > DISPLAY_NAME_RECOMMENDED_MAX ? "text-amber-700" : "text-ink-400"}`}>
                     {(snapshot.name ?? "").length}/{DISPLAY_NAME_RECOMMENDED_MAX}
                   </span>
                 </div>
+                {(snapshot.name ?? "").length > DISPLAY_NAME_RECOMMENDED_MAX && (
+                  <p className="mt-1 text-[11.5px] leading-4 text-ink-500">{copy.basic.nameLongHint}</p>
+                )}
                 {/* Một câu gợi ý duy nhất, ngay dưới ô tên. Không có trường tên thứ
                     hai và không có câu giải thích nào khác: nhà cung cấp chỉ cần đọc
                     một dòng là biết nên viết thế nào. */}

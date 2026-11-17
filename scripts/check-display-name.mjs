@@ -242,6 +242,11 @@ const crmQueue = readFileSync(new URL("../app/crm/products/page.tsx", import.met
 assert.doesNotMatch(supplierEditor, /name="display_name"/, "Form nhà cung cấp không còn ô tên hiển thị riêng");
 assert.match(supplierEditor, /copy\.basic\.displayNameSuggested/, "Gợi ý tên hiện ngay dưới ô tên sản phẩm");
 assert.match(supplierEditor, /\/\{DISPLAY_NAME_RECOMMENDED_MAX\}/, "Ô tên sản phẩm đếm theo trần 90");
+/* Trần 90 là mốc KHUYẾN NGHỊ, không phải cổng chặn. */
+assert.match(supplierEditor, /<input name="name"[^>]*maxLength=\{180\}/, "Ô tên vẫn cho gõ tới hạn của cột dữ liệu");
+assert.doesNotMatch(supplierEditor, /<input name="name"[^>]*maxLength=\{DISPLAY_NAME_RECOMMENDED_MAX\}/, "Không chặn ô tên ở mốc khuyến nghị");
+assert.match(supplierEditor, /copy\.basic\.nameLongHint/, "Vượt mốc thì hiện một dòng nhắc, không chặn");
+assert.match(supplierEditor, /length > DISPLAY_NAME_RECOMMENDED_MAX/, "Dòng nhắc chỉ hiện khi thật sự vượt mốc");
 assert.doesNotMatch(crmQueue, /Nên sửa tên/, "Hàng đợi duyệt CRM không cảnh báo tên của nhà cung cấp");
 assert.doesNotMatch(form, /displayNameWarnings\(/, "CRM không soát tên do nhà cung cấp đặt");
 
