@@ -7,16 +7,19 @@ chốt cách Vexim xử lý.
 
 ## Nguyên tắc
 
-1. **Nhà cung cấp được tự đặt tên hiển thị.** Trường `supplier_products.display_name` là
-   trường riêng, không bắt buộc. Để trống thì trang người mua đọc tên gốc (`name`).
-2. **Tên gốc là chứng từ, không bao giờ bị ghi đè.** Không có backfill, không có việc
-   hệ thống tự thay `name` bằng tên đã soạn.
-3. **Không rút gọn quá mức, không cắt cụt.** Không hàm nào cắt giữa từ hay viết lại
-   nội dung người dùng gõ. Bộ gợi ý `composeDisplayName` chỉ *bỏ nguyên phần* khi vượt
-   trần, không cắt lửng câu.
-4. **Cảnh báo mềm, không chặn đăng.** Cùng chủ trương với `docs/product-name-grades.md`:
-   không từ chối sản phẩm chỉ vì tên dài, nhiều grade hay có từ tự khen. Nhân viên duyệt
-   là chốt chặn cuối.
+1. **Form chỉ có một ô tên.** Không có trường "tên người mua đọc" riêng: nhà cung cấp
+   không phải viết tên hai lần. Ô tên sản phẩm đếm theo trần 90 ký tự và hiện **một câu
+   gợi ý** ngay dưới (dạng "Gợi ý: Hạt điều W320, Bình Phước"), tính từ danh mục, quy cách
+   và tỉnh đang có. Không có câu giải thích nào khác.
+2. **CRM không can thiệp vào tên.** Sản phẩm là của nhà cung cấp. Form CRM không có ô tên
+   hiển thị, không có gợi ý, không có nút "dùng tên này"; hàng đợi duyệt không gắn nhãn
+   "nên sửa tên". Nhân viên duyệt đúng/sai về danh mục và quy cách, không viết lại câu chữ.
+3. **Tên gốc là chứng từ, không bao giờ bị ghi đè.** Lưu sản phẩm giữ nguyên `name`; giá
+   trị `display_name` đã có từ trước cũng được giữ nguyên, không bị xoá trắng.
+4. **Không rút gọn quá mức, không cắt cụt.** `composeDisplayName` chỉ *bỏ nguyên phần* khi
+   vượt trần, không cắt giữa từ. Bộ quy tắc `displayNameWarnings` chỉ **đọc** để soát, không
+   sửa nội dung.
+5. **Cảnh báo mềm khi cần, không chặn đăng.** Cùng chủ trương với `docs/product-name-grades.md`.
 
 ## Công thức gợi ý
 
@@ -56,11 +59,13 @@ câu cần bắt.
 
 ## Nơi hiển thị
 
-- `app/supplier/portal/products/product-editor.tsx` — ô nhập, bộ đếm `x/90`, gợi ý kèm nút
-  "Dùng tên này", bản xem trước và danh sách cảnh báo ngay dưới ô.
-- `components/product-form.tsx` — form CRM, cùng bộ quy tắc, cùng bản xem trước.
-- `app/crm/products/page.tsx` — hàng đợi duyệt gắn nhãn `Nên sửa tên`; câu giải thích nằm
-  trong `title`, không chặn thao tác duyệt.
+- `app/supplier/portal/products/product-editor.tsx` — một ô tên, bộ đếm `x/90`, một dòng
+  "Gợi ý: …" ngay dưới. Grade đọc từ bảng giá theo số lượng, không phải từ snapshot form.
+- `components/product-form.tsx` — form CRM: không ô tên hiển thị, không gợi ý, không nút
+  dùng tên; thẻ xem trước đọc tên đã lưu rồi lùi về tên gốc.
+- `app/crm/products/page.tsx` — hàng đợi duyệt: không nhãn soát tên.
+- `app/actions.ts` và `app/supplier/portal/product-actions.ts` — không đọc `display_name`
+  từ payload; giữ nguyên giá trị đã lưu khi cập nhật.
 
 ## Dịch sang tiếng Anh
 
@@ -73,7 +78,7 @@ khen. Nếu bản gốc đã có từ tự khen thì bản dịch giữ đúng n
 `npm run check:display-name` (đã có trong CI) khoá:
 
 - thứ tự soạn tên và việc bỏ nguyên phần thay vì cắt cụt;
-- tên tự nhiên Việt/Anh không bị cảnh báo nhầm;
-- ký tự kiểu AI và câu chữ kiểu AI bị cảnh báo;
+- tên tự nhiên Việt/Anh không bị cảnh báo nhầm, tên tự khen bị cảnh báo;
 - quy tắc không cắt, không viết lại, không ném lỗi chặn đăng;
-- form nhà cung cấp, form CRM và hàng đợi duyệt cùng đọc một bộ quy tắc.
+- chỉ một ô tên ở form nhà cung cấp (không có `name="display_name"`), có đếm ký tự và gợi ý;
+- CRM không có ô tên hiển thị, không gợi ý, không nhãn soát tên, không đọc tên từ payload.

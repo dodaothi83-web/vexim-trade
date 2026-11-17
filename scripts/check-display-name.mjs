@@ -149,8 +149,12 @@ const types = readFileSync(new URL("../lib/types.ts", import.meta.url), "utf8");
 assert.match(types, /display_name\?: string \| null;/, "SupplierProduct có trường tên hiển thị");
 
 const actions = readFileSync(new URL("../app/actions.ts", import.meta.url), "utf8");
-assert.match(actions, /display_name: displayNameInput\(raw\.display_name\)/, "Lưu sản phẩm nhận tên hiển thị");
-assert.match(actions, /isPlaceholderDisplayName\(text\)/, "Chỗ trống không được lưu thành tên hiển thị");
+/* CRM không nhận tên từ payload: tên người mua đọc do hệ thống soạn từ dữ kiện. */
+// `parseSupplierInput` (hồ sơ nhà cung cấp) vẫn đọc display_name của chính nhà cung
+// cấp — đó là tên công ty, không phải tên hàng. Chỉ đường sản phẩm mới bị khoá.
+const productPayload = actions.slice(actions.indexOf("function parseProductInput("), actions.indexOf("/** Phase 2: từ khoá"));
+assert.doesNotMatch(productPayload, /display_name:\s*str\(raw\.display_name\)/, "CRM không đọc tên hiển thị sản phẩm từ payload");
+assert.match(actions, /input\.display_name = existing\.display_name \?\? null;/, "CRM giữ nguyên tên hiển thị đã lưu");
 
 const migration = new URL("../supabase/migrations/20261030_product_display_name.sql", import.meta.url);
 assert.ok(existsSync(migration), "Có migration cho cột display_name");
@@ -164,10 +168,10 @@ assert.match(supabase, /missingDisplayNameColumn/, "Cơ sở dữ liệu cũ v�
 assert.match(supabase, /displayNameMigrationRequired/, "Có tên hiển thị mà thiếu cột thì báo rõ, không bỏ im lặng");
 
 const form = readFileSync(new URL("../components/product-form.tsx", import.meta.url), "utf8");
-assert.match(form, /composeDisplayName\(\{/, "Form soạn sẵn tên để nhân viên bấm một nút");
-assert.match(form, /Dùng tên này/, "Form có nút dùng tên gợi ý");
-assert.match(form, /Người mua sẽ thấy:/, "Form cho xem trước tên người mua đọc");
-assert.match(form, /Tên hiển thị ghi/, "Tên hiển thị lệch quy cách thì cảnh báo");
+/* CRM không có ô tên hiển thị và không gợi ý tên: tên là việc của nhà cung cấp. */
+assert.doesNotMatch(form, /Tên hiển thị cho người mua/, "CRM không còn ô tên hiển thị");
+assert.doesNotMatch(form, /Dùng tên này/, "CRM không còn nút dùng tên gợi ý");
+assert.doesNotMatch(form, /Gợi ý:/, "CRM không còn dòng gợi ý tên");
 
 /* ---------------- 5. Quy tắc đặt tên: cảnh báo mềm, không cắt cụt ---------------- */
 
@@ -232,16 +236,18 @@ assert.doesNotMatch(rulesSource, /return\s+raw\b/, "Quy tắc tên không trả 
 assert.match(rulesSource, /export function displayNameWarnings\b/, "Quy tắc nằm trong một hàm dùng chung");
 assert.doesNotMatch(rulesSource, /throw new Error/, "Không ném lỗi chặn đăng sản phẩm");
 
-/* Form nhà cung cấp và form CRM cùng đọc một bộ quy tắc. */
+/* Một ô tên duy nhất ở form nhà cung cấp: đếm ký tự và gợi ý ngay dưới. */
 const supplierEditor = readFileSync(new URL("../app/supplier/portal/products/product-editor.tsx", import.meta.url), "utf8");
 const crmQueue = readFileSync(new URL("../app/crm/products/page.tsx", import.meta.url), "utf8");
-assert.match(supplierEditor, /displayNameWarnings\(/, "Form nhà cung cấp hiện cảnh báo tại chỗ");
-assert.match(form, /displayNameWarnings\(/, "Form CRM hiện cùng cảnh báo");
-assert.match(crmQueue, /displayNameWarnings\(/, "Hàng đợi duyệt CRM gắn nhãn tên cần sửa");
+assert.doesNotMatch(supplierEditor, /name="display_name"/, "Form nhà cung cấp không còn ô tên hiển thị riêng");
+assert.match(supplierEditor, /copy\.basic\.displayNameSuggested/, "Gợi ý tên hiện ngay dưới ô tên sản phẩm");
+assert.match(supplierEditor, /\/\{DISPLAY_NAME_RECOMMENDED_MAX\}/, "Ô tên sản phẩm đếm theo trần 90");
+assert.doesNotMatch(crmQueue, /Nên sửa tên/, "Hàng đợi duyệt CRM không cảnh báo tên của nhà cung cấp");
+assert.doesNotMatch(form, /displayNameWarnings\(/, "CRM không soát tên do nhà cung cấp đặt");
 
-/* Nhãn kiểm tra không dùng từ nội bộ trong chuỗi tiếng Việt. */
-for (const [file, source] of [["product-form.tsx", form], ["crm/products/page.tsx", crmQueue]]) {
-  assert.doesNotMatch(source, /Buyer sẽ (thấy|đọc)/, `Không dùng "Buyer" trong câu tiếng Việt: ${file}`);
-}
+/* Tên người mua đọc được soạn ở tầng máy chủ cho cả hai đường lưu. */
+const supplierAction = readFileSync(new URL("../app/supplier/portal/product-actions.ts", import.meta.url), "utf8");
+assert.doesNotMatch(supplierAction, /form\.get\("display_name"\)/, "Nhà cung cấp không gửi tên hiển thị từ form");
+assert.match(supplierAction, /display_name: existing\.display_name \?\? null/, "Lưu của nhà cung cấp cũng giữ nguyên tên hiển thị");
 
-console.log("✅ Tên hiển thị: soạn từ dữ kiện có cấu trúc, cảnh báo mềm khi tên không tự nhiên, không cắt cụt và tên gốc giữ nguyên.");
+console.log("✅ Tên hiển thị: một ô tên duy nhất có đếm ký tự và gợi ý, CRM không can thiệp, tên gốc giữ nguyên.");

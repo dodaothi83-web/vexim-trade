@@ -12,8 +12,6 @@ import {
 } from "@/lib/product-attributes";
 import { notifyStaffProductSubmission } from "@/lib/supplier-portal/notify";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
-import { isPlaceholderDisplayName } from "@/lib/public/display-name";
-import { DISPLAY_NAME_HARD_MAX } from "@/lib/public/display-name-rules";
 import { productExtrasFromForm } from "@/lib/products/product-extras";
 import {
   applyLeadTimeToSpecs,
@@ -61,14 +59,6 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
   a: ProductEditorMessages["productActions"]): SupplierProductInput {
   const name = text(form, "name", 180);
   if (name.length < 3) throw new Error(a.nameTooShort);
-  /**
-   * Tên người mua đọc do nhà cung cấp tự đặt (không bắt buộc). Không tin nội dung
-   * client gửi lên: cắt theo đúng trần cột dữ liệu và coi giá trị rỗng/chỗ trống
-   * ("Chưa xác định", "N/A"…) là không nhập, đúng như đường CRM đang làm. Tên gốc
-   * ở trên không bị hàm này đụng tới.
-   */
-  const displayNameRaw = text(form, "display_name", DISPLAY_NAME_HARD_MAX);
-  const displayName = !displayNameRaw || isPlaceholderDisplayName(displayNameRaw) ? null : displayNameRaw;
   // Phase 2: từ khoá, giá mẫu và đóng gói có cấu trúc. Form cũ (không có ô) thì giữ
   // nguyên giá trị đã lưu, không xoá trắng dữ liệu.
   const extras = productExtrasFromForm(
@@ -79,7 +69,7 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
   const daysRaw = text(form, "lead_time_days", 5);
   if (daysRaw && (!/^\d+$/.test(daysRaw) || Number(daysRaw) > 3650)) throw new Error(a.badLeadTime);
   return {
-    supplier_id: supplierId, name, display_name: displayName, slug: null, name_i18n: {}, category: null,
+    supplier_id: supplierId, name, slug: null, name_i18n: {}, category: null,
     description: text(form, "description", 1500) || null,
     description_detail: sanitizeProductDescriptionForSave(String(form.get("description_detail") ?? "")) || null,
     // Dòng mẫu gợi ý chưa điền (vd. "Màu sắc: ") không được lưu ra trang công khai.
@@ -272,6 +262,8 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       saved = await store.updateSupplierProductIfState(existing.id, access.supplier.id,
         { review: existing.supplier_review_status ?? null, ready: existing.ready_for_buyer }, {
           ...input, slug: existing.slug, name_i18n: existing.name_i18n ?? {}, images: existing.images,
+          // Không còn ô tên hiển thị: giữ nguyên giá trị đã có thay vì xoá trắng.
+          display_name: existing.display_name ?? null,
         });
     } else {
       if (!newQuantity) return { ok: false, message: a.noQuantity };
