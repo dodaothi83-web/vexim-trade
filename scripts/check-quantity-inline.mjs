@@ -45,7 +45,7 @@ assert.match(supplier, /Gửi bảng giá mới để duyệt/);
 // Sản phẩm chưa có bảng giá nào được duyệt: nhãn không được nói "mới", banner không được
 // nhắc tới "bảng giá đã duyệt" vì người mua chưa hề thấy bảng nào.
 const firstPrice = render({ actor: 'supplier', data: { ...data, pendingPriceId: null, hasApprovedPrice: false } });
-assert.match(firstPrice, /Bảng giá này đi cùng sản phẩm khi quản trị viên duyệt/);
+assert.match(firstPrice, /Giá của bạn sẽ được duyệt bởi quản trị viên/);
 assert.match(firstPrice, /Gửi bảng giá để duyệt/);
 assert.doesNotMatch(firstPrice, /Gửi bảng giá mới để duyệt/, 'Lần gửi đầu không phải bảng giá mới');
 assert.doesNotMatch(firstPrice, /Người mua vẫn thấy bảng giá đã duyệt/, 'Chưa duyệt bảng nào thì không nói tới bảng đã duyệt');
@@ -91,8 +91,10 @@ assert.doesNotMatch(v2html, /staged editor/, 'The v2 editing UI is gone from the
   mục này chỉ hiện khi danh mục chưa có grade nào, nên gần như không bao giờ thấy.
 */
 const withGrade = render({ actor: 'supplier', onAddGrade: async () => ({ ok: true, message: '' }) });
+// "Thêm grade" chỉ nằm cuối dropdown — nơi mọi người tìm trước.
 assert.match(withGrade, /<option[^>]*value="__new_grade__"[^>]*>\+ Thêm grade<\/option>/,
   'Danh mục đã có grade vẫn phải có mục thêm grade trong ô chọn');
+assert.doesNotMatch(withGrade, /<button[^>]*>\+ Thêm grade<\/button>/, 'không còn nút thêm grade ngoài dropdown');
 assert.doesNotMatch(withGrade, /\+ Thêm grade mới/, 'Nhãn gọn: "+ Thêm grade"');
 // Sản phẩm đã có bảng giá cũng phải tự thêm được grade: trang sửa truyền onAddGrade.
 const savePage = readFileSync(new URL('../app/supplier/portal/products/product-editor.tsx', import.meta.url), 'utf8');

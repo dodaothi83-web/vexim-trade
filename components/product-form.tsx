@@ -594,7 +594,7 @@ export function ProductForm({
                   checked={Boolean(form.samples)}
                   onChange={(e) => set("samples", e.target.checked)}
                 />
-                Có thể gửi mẫu
+                Free mẫu
               </label>
               <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-[12.5px] font-semibold text-ink-700">
                 <input type="checkbox" className="h-4 w-4 accent-[#0f766e]" checked={Boolean(form.odm)} onChange={(e) => set("odm", e.target.checked)} /> Thiết kế & sản xuất theo yêu cầu / ODM
