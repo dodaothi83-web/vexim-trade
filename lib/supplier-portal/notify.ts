@@ -7,6 +7,7 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { SITE_URL } from "@/lib/site";
 import type { L2VerificationScope, Supplier } from "@/lib/types";
 import { formatCertificateDate } from "@/lib/certificate-supplier-copy";
+import { SUPPLIER_PLAN_LABELS, SUPPLIER_PLAN_RULES, type SupplierPlan } from "@/lib/supplier-plans";
 
 /** Origin for supplier-facing links; exported so other supplier notices reuse the same staging override. */
 export function notificationOrigin(): string {
@@ -268,6 +269,42 @@ export async function notifyStaffCategoryRequest(input: {
       text: `${title}\nNhà cung cấp: ${input.supplierName}\n${staffOrigin}/crm/suppliers` });
     return res.ok ? res.status : "failed";
   } catch (error) { console.error("[supplier-notify] category request", error); return "failed"; }
+}
+
+/**
+ * Thư cho nhà cung cấp khi Vexim đổi gói hoặc gia hạn gói trong CRM. Trước đây đổi gói
+ * không báo gì, nhà cung cấp chỉ biết khi tự vào cổng. Gửi tới đúng tài khoản gắn hồ sơ.
+ */
+export async function notifySupplierPlanChange(input: {
+  supplierId: string;
+  plan: SupplierPlan;
+  previousPlan: SupplierPlan;
+  /** Ngày hết hạn (YYYY-MM-DD, giờ Việt Nam); null khi không có hạn. */
+  expiresOn: string | null;
+}): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const users = await getStore().listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && u.role === "supplier" && u.supplier_id === input.supplierId)
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const label = SUPPLIER_PLAN_LABELS[input.plan];
+    const max = SUPPLIER_PLAN_RULES[input.plan].maxProducts;
+    const date = input.expiresOn ? formatCertificateDate(input.expiresOn, "vi") : null;
+    const paid = input.plan !== "basic";
+    const renewal = paid && input.plan === input.previousPlan;
+    const title = !paid ? "Gói của bạn đã chuyển về Basic"
+      : renewal ? `Gói ${label} đã được gia hạn` : `Gói ${label} đã được kích hoạt`;
+    const explanation = paid
+      ? `Bạn đăng được tối đa ${max} sản phẩm, dùng video và trang nhà cung cấp cao cấp.${date ? ` Gói có hiệu lực đến ${date}.` : ""}`
+      : `Sản phẩm đã đăng vẫn hiển thị. Bạn thêm được sản phẩm mới khi còn dưới ${max} sản phẩm.`;
+    const path = paid ? "/supplier/portal/storefront" : "/supplier/portal/products";
+    const cta = paid ? "Thiết lập trang nhà cung cấp" : "Mở danh sách sản phẩm";
+    const url = `${notificationOrigin()}${path}`;
+    const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">${cta}</a></p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
+      html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${explanation}\n${cta}: ${url}` });
+    return res.ok ? res.status : "failed";
+  } catch (error) { console.error("[supplier-notify] plan change", error); return "failed"; }
 }
 
 export async function notifySupplierDecision(input: {
