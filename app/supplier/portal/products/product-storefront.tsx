@@ -30,7 +30,8 @@ function updatedLabel(value: string | null | undefined, intl: string) {
 export function SupplierProductStorefront({ products, media, supplierPublished, categoryLabels = {}, scope, plan, messages: m, lang, intl }: {
   products: SupplierProduct[]; media: MediaAsset[]; supplierPublished: boolean;
   /** Gói đang hiệu lực và số sản phẩm tối đa; hết chỗ thì ẩn nút thêm sản phẩm. */
-  plan?: { label: string; max: number };
+  /** max null: gói không giới hạn số sản phẩm. */
+  plan?: { label: string; max: number | null };
   /** Nhãn danh mục theo slug - để thẻ sản phẩm không hiện slug thô. */
   categoryLabels?: Record<string, string>;
   /** Phạm vi danh mục NCC được chọn; sản phẩm ngoài phạm vi bị đánh dấu rõ. */
@@ -40,7 +41,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
   intl: string;
 }) {
   const copy = m.list;
-  const planFull = !!plan && products.length >= plan.max;
+  const planFull = !!plan && plan.max !== null && products.length >= plan.max;
   const filterLabel = (id: typeof FILTERS[number]) => id === "changes_requested" ? copy.kpi.changes
     : id === "all" ? copy.kpi.all : copy.kpi[id as "draft" | "pending" | "approved" | "paused"];
   const [filter, setFilter] = useState<ProductReviewFilter>("all");
@@ -87,13 +88,13 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {plan && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11.5px] font-semibold text-brand-800">
-          {fill(copy.planUsage, { plan: plan.label, count: products.length, max: plan.max })}</span>}
+          {plan.max === null ? fill(copy.planUsageUnlimited, { plan: plan.label, count: products.length }) : fill(copy.planUsage, { plan: plan.label, count: products.length, max: plan.max })}</span>}
         {!planFull && <Link href="/supplier/portal/products/new" className="btn btn-primary"><Plus className="size-4" aria-hidden="true" /> {copy.addProduct}</Link>}
       </div>
     </header>
 
     {planFull && plan && <p role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
-      <span>{fill(copy.planFull, { plan: plan.label, max: plan.max })}</span>
+      <span>{fill(copy.planFull, { plan: plan.label, max: plan.max ?? 0 })}</span>
       <Link href="/supplier/portal/services" className="font-bold underline">{copy.planUpgrade}</Link>
     </p>}
 

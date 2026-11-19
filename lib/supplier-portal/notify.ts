@@ -7,7 +7,8 @@ import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { SITE_URL } from "@/lib/site";
 import type { L2VerificationScope, Supplier } from "@/lib/types";
 import { formatCertificateDate } from "@/lib/certificate-supplier-copy";
-import { SUPPLIER_PLAN_LABELS, SUPPLIER_PLAN_RULES, type SupplierPlan } from "@/lib/supplier-plans";
+import { SUPPLIER_PLAN_LABELS, type SupplierPlan } from "@/lib/supplier-plans";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 
 /** Origin for supplier-facing links; exported so other supplier notices reuse the same staging override. */
 export function notificationOrigin(): string {
@@ -288,15 +289,17 @@ export async function notifySupplierPlanChange(input: {
       .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
     if (!recipients.length) return "failed";
     const label = SUPPLIER_PLAN_LABELS[input.plan];
-    const max = SUPPLIER_PLAN_RULES[input.plan].maxProducts;
+    const catalog = await readPlanCatalog();
+    const max = catalog[input.plan].maxProducts;
+    const limit = max === null ? "không giới hạn sản phẩm" : `tối đa ${max} sản phẩm`;
     const date = input.expiresOn ? formatCertificateDate(input.expiresOn, "vi") : null;
     const paid = input.plan !== "basic";
     const renewal = paid && input.plan === input.previousPlan;
     const title = !paid ? "Gói của bạn đã chuyển về Basic"
       : renewal ? `Gói ${label} đã được gia hạn` : `Gói ${label} đã được kích hoạt`;
     const explanation = paid
-      ? `Bạn đăng được tối đa ${max} sản phẩm, dùng video và trang nhà cung cấp cao cấp.${date ? ` Gói có hiệu lực đến ${date}.` : ""}`
-      : `Sản phẩm đã đăng vẫn hiển thị. Bạn thêm được sản phẩm mới khi còn dưới ${max} sản phẩm.`;
+      ? `Bạn đăng được ${limit}, có hình ảnh, video và trang nhà cung cấp cao cấp.${date ? ` Gói có hiệu lực đến ${date}.` : ""}`
+      : `Sản phẩm đã đăng vẫn hiển thị. Tin gói Basic chỉ gồm nội dung chữ, ${limit}.`;
     const path = paid ? "/supplier/portal/storefront" : "/supplier/portal/products";
     const cta = paid ? "Thiết lập trang nhà cung cấp" : "Mở danh sách sản phẩm";
     const url = `${notificationOrigin()}${path}`;

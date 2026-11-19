@@ -4,7 +4,8 @@ import { ChevronRight } from "lucide-react";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { PageHeader } from "@/components/page-header";
-import { canAddSupplierProduct } from "@/lib/supplier-plans";
+import { canAddSupplierProduct, supplierPlanRules } from "@/lib/supplier-plans";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { SupplierProductEditor } from "../product-editor";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
@@ -26,7 +27,8 @@ export default async function NewSupplierProductPage() {
   const copy = m.productEditor.newPage;
   // Hết chỗ theo gói thì quay về danh sách, nơi có thông báo và lối hỏi nâng gói.
   const existingProducts = await access.store.listProductsBySupplier(access.supplier.id);
-  if (!canAddSupplierProduct(access.supplier, existingProducts.filter((p) => p.supplier_id === access.supplier.id).length))
+  const planCatalog = await readPlanCatalog();
+  if (!canAddSupplierProduct(access.supplier, existingProducts.filter((p) => p.supplier_id === access.supplier.id).length, new Date(), planCatalog))
     redirect("/supplier/portal/products");
   const publishedCategories = await access.store.listCategories({ publishedOnly: true });
   const options = categoryProposalOptions(publishedCategories);
@@ -58,7 +60,7 @@ export default async function NewSupplierProductPage() {
       sub={copy.sub}
       breadcrumbs={<nav aria-label={copy.breadcrumbAria} className="flex items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="hover:text-brand-700">{copy.products}</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-ink-800">{copy.breadcrumb}</span></nav>}
     />
-    <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} quantityPolicies={quantityPolicies} bankMedia={bankMedia} certificateInheritance={certificateInheritance}
+    <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} mediaAllowed={supplierPlanRules(access.supplier, new Date(), planCatalog).mediaAllowed} quantityPolicies={quantityPolicies} bankMedia={bankMedia} certificateInheritance={certificateInheritance}
       messages={m.productEditor.editor} shared={m.productEditor.shared} statuses={m.products.statuses} lang={locale} />
   </>;
 }

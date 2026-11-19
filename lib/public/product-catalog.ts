@@ -1,3 +1,5 @@
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
+import { textOnlyListing } from "@/lib/supplier-plans";
 import type { PublicL2Scope } from "@/lib/verification-status";
 import { categoryPathOf, certificateLabelsForProducts } from "@/lib/public/certificate-badges";
 import { readCategoryCertificateData } from "@/lib/public/category-certificate-data";
@@ -358,7 +360,10 @@ export async function listPublicCategoryProducts(category: Category, options?: {
   // Tầng xác minh vẫn CỨNG (B2) nên bật điểm chỉ đổi thứ tự TRONG TẦNG; bậc xen kẽ NCC
   // (arrangeSupplierProducts) và cổng công khai giữ nguyên chỗ cũ. Trọng số 0 vẫn tái
   // tạo đúng sort cũ (property test trong scripts/check-marketplace-ranking.mjs).
-  const readyRecords = candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready)
+  // Gói Basic là tin chữ: sản phẩm không có ảnh vẫn hiển thị.
+  const planCatalog = await readPlanCatalog();
+  const readyRecords = candidates.filter((p) => byId.get(p.supplier_id)?.is_demo || productReadiness(byProduct.get(p.id) ?? []).ready ||
+    textOnlyListing(byId.get(p.supplier_id) ?? {}, planCatalog))
     .map((product) => ({
       product, supplier: byId.get(product.supplier_id)!, category, media: byProduct.get(product.id) ?? [],
       card: projectPublicCategoryProduct(product, byId.get(product.supplier_id)!, category, byProduct.get(product.id) ?? [], evidenceBySupplier.get(product.supplier_id)!),
@@ -422,8 +427,9 @@ export async function getPublicProductRecordsByIds(ids: readonly string[], optio
   if (!candidates.length) return [];
 
   const media = await store.listMediaForProducts(candidates.map(({ product }) => product.id));
-  const readyRecords = candidates.filter(({ product }) =>
-    productReadiness(media.filter((asset) => asset.product_id === product.id)).ready)
+  const planCatalog = await readPlanCatalog();
+  const readyRecords = candidates.filter(({ product, supplier }) =>
+    productReadiness(media.filter((asset) => asset.product_id === product.id)).ready || textOnlyListing(supplier, planCatalog))
     .map(({ product, supplier, category }) => ({
       product,
       supplier,

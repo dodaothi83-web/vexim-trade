@@ -6,6 +6,7 @@ import { getSession, guard } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { isSupplierPlan, SUPPLIER_PLAN_LABELS } from "@/lib/supplier-plans";
 import { notifySupplierPlanChange } from "@/lib/supplier-portal/notify";
+import { recordPlanActivation } from "@/lib/supplier-plan-catalog";
 
 type Result = { ok: boolean; message: string };
 
@@ -32,6 +33,12 @@ export async function setSupplierPlanAction(form: FormData): Promise<Result> {
     if (end.getTime() <= Date.now()) return { ok: false, message: "Ngày hết hạn phải ở tương lai." };
     expiresAt = end.toISOString();
   }
+  // Thời hạn và số tiền ghi nhận chỉ để báo cáo; không có thì vẫn lưu được gói.
+  const rawMonths = String(form.get("months") ?? "").trim();
+  const months = plan !== "basic" && /^\d{1,3}$/.test(rawMonths) && Number(rawMonths) >= 1 && Number(rawMonths) <= 120 ? Number(rawMonths) : null;
+  const rawAmount = String(form.get("amount_vnd") ?? "").trim();
+  if (rawAmount && !/^\d{1,12}$/.test(rawAmount)) return { ok: false, message: "Số tiền ghi nhận chỉ gồm chữ số." };
+  const amountVnd = plan !== "basic" && rawAmount ? Number(rawAmount) : null;
 
   const store = getStore();
   const before = await store.getSupplier(supplierId);
@@ -54,8 +61,11 @@ export async function setSupplierPlanAction(form: FormData): Promise<Result> {
     actor_id: session.uid, actor_email: session.email, entity: "supplier", entity_id: supplierId,
     action: "supplier.plan_changed",
     before: { plan: before.plan ?? "basic", plan_expires_at: before.plan_expires_at ?? null },
-    after: { plan, plan_expires_at: expiresAt },
+    after: { plan, plan_expires_at: expiresAt, months, amount_vnd: amountVnd },
   }).catch((error) => console.error("[supplier-plan] audit", error));
+  // Mỗi lần bật/gia hạn gói trả phí là một dòng cho báo cáo doanh thu ở /crm/plans.
+  if (plan !== "basic") await recordPlanActivation({ supplierId, plan, months, amountVnd, expiresAt, actorId: session.uid })
+    .catch((error) => console.error("[supplier-plan] activation log", error));
   revalidatePath(`/crm/suppliers/${supplierId}`);
   revalidatePath("/supplier/portal", "layout");
   // Báo nhà cung cấp qua email; chuông trong cổng đọc plan_updated_at. Thư lỗi không làm hỏng việc lưu gói.

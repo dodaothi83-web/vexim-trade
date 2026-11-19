@@ -1,4 +1,5 @@
 import type { Category, MediaAsset, Rfq, Supplier, SupplierProduct, SupplierVerificationRequest, Verification } from "@/lib/types";
+import { textOnlyListing } from "@/lib/supplier-plans";
 import { productReadiness } from "@/lib/media/readiness";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved } from "@/lib/public/product-selection";
@@ -38,9 +39,11 @@ export function buildMarketplaceSnapshot(input: {
     assets.set(m.product_id, group);
   }
   const offeredCategories = new Set<string>();
+  // Gói tin chữ (Basic): sản phẩm không cần ảnh để được tính là đang hiển thị.
+  const textOnlyIds = new Set(publishedSuppliers.filter((s) => textOnlyListing(s)).map((s) => s.id));
   const liveProducts = input.products.filter((p) => {
     if (!publishedIds.has(p.supplier_id) || isTestOnlyProduct(p.name) || !p.ready_for_buyer ||
-        !productReviewApproved(p) || !productReadiness(assets.get(p.id) ?? []).ready) return false;
+        !productReviewApproved(p) || !(productReadiness(assets.get(p.id) ?? []).ready || textOnlyIds.has(p.supplier_id))) return false;
     const category = publishedCategories.find((c) => productBelongsToCategory(p, c, input.categories));
     if (!category) return false;
     offeredCategories.add(category.id);

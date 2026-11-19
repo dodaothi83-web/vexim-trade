@@ -11,8 +11,10 @@ let status = 'changed', requests = [], audits = [];
 const store = { getProduct: async () => product, getUser: async () => actor, getSupplier: async () => ({ id: supplier, status: 'published' }),
   listCategories: async () => [{ slug: 'cashew' }], listMedia: async () => [], addAuditLog: async (entry) => audits.push(entry) };
 const db = { rpc: async (name, args) => { requests.push({ name, args }); return { data: { status, product: status === 'saved' ? { ...product, ready_for_buyer: true } : null }, error: null }; } };
+const supplierPlans = await import('../lib/supplier-plans.ts');
 const mocks = {
-  'next/cache': { revalidatePath() {} }, '@/lib/seo/indexnow': { notifyIndexNow() {} }, '@/lib/auth/session': { guard: async () => null, getSession: async () => session },
+  '@/lib/supplier-plans': supplierPlans,
+  'next/cache': { revalidatePath() {} }, '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => null, recordPlanActivation: async () => {} },  '@/lib/seo/indexnow': { notifyIndexNow() {} }, '@/lib/auth/session': { guard: async () => null, getSession: async () => session },
   '@/lib/db': { getStore: () => store }, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
   '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: (v) => v }, '@/lib/crm/badges': { refreshCrmBadges() {} },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent' },

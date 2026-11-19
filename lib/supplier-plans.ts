@@ -1,5 +1,6 @@
 /**
- * Gói nhà cung cấp: Basic, Premium, Pro.
+ * Gói nhà cung cấp: Basic, Premium, Pro. Nội dung, giá và giới hạn chỉnh ở CRM (/crm/plans,
+ * bảng supplier_plan_catalog); các hằng số dưới đây là giá trị mặc định.
  *
  * Nhân viên bật gói và ngày hết hạn trong CRM (thanh toán ngoài hệ thống). Gói trả phí hết
  * hạn được tính là Basic. Số sản phẩm phải khớp hàm supplier_product_limit trong migration
@@ -14,16 +15,55 @@ export const SUPPLIER_PLANS = ["basic", "premium", "pro"] as const;
 export type SupplierPlan = (typeof SUPPLIER_PLANS)[number];
 
 export interface SupplierPlanRules {
-  maxProducts: number;
+  /** null là không giới hạn. */
+  maxProducts: number | null;
   video: boolean;
   premiumStorefront: boolean;
+  /** Được tải ảnh/video cho sản phẩm. Basic là tin chữ; ảnh đã có từ trước vẫn giữ. */
+  mediaAllowed: boolean;
 }
 
+/** Giá trị mặc định khi chưa đọc được bảng gói trong CSDL; khớp nội dung khởi tạo của migration 20261129. */
 export const SUPPLIER_PLAN_RULES: Record<SupplierPlan, SupplierPlanRules> = {
-  basic: { maxProducts: 5, video: false, premiumStorefront: false },
-  premium: { maxProducts: 20, video: true, premiumStorefront: true },
-  pro: { maxProducts: 50, video: true, premiumStorefront: true },
+  basic: { maxProducts: 5, video: false, premiumStorefront: false, mediaAllowed: false },
+  premium: { maxProducts: 20, video: true, premiumStorefront: true, mediaAllowed: true },
+  pro: { maxProducts: null, video: true, premiumStorefront: true, mediaAllowed: true },
 };
+
+export interface SupplierPlanPrice { months: number; price_vnd: number }
+
+/** Nội dung một gói chỉnh trong CRM (/crm/plans). */
+export interface SupplierPlanCatalogEntry {
+  plan: SupplierPlan;
+  name: string;
+  summary: string;
+  features: string[];
+  prices: SupplierPlanPrice[];
+  maxProducts: number | null;
+  mediaAllowed: boolean;
+  updatedAt?: string | null;
+}
+export type SupplierPlanCatalog = Record<SupplierPlan, SupplierPlanCatalogEntry>;
+
+export const DEFAULT_PLAN_CATALOG: SupplierPlanCatalog = {
+  basic: { plan: "basic", name: "Basic", summary: "Miễn phí", maxProducts: 5, mediaAllowed: false, prices: [],
+    features: ["Đăng tối đa 5 sản phẩm", "Tin sản phẩm chỉ gồm nội dung chữ, không bao gồm hình ảnh và video", "Hồ sơ nhà cung cấp cơ bản trên nền tảng"] },
+  premium: { plan: "premium", name: "Premium", summary: "", maxProducts: 20, mediaAllowed: true,
+    prices: [{ months: 3, price_vnd: 1_399_000 }, { months: 6, price_vnd: 2_499_000 }],
+    features: ["Đăng tối đa 20 sản phẩm, bao gồm hình ảnh và video", "1 bài SEO tiếng Anh mỗi tháng trên website Vexim Trade",
+      "1 bài SEO mỗi tháng trên website của doanh nghiệp (nếu có)", "Nhân viên Vexim tư vấn tối ưu gian hàng và hồ sơ năng lực",
+      "Dùng thử 15 ngày cho khách hàng đã dùng dịch vụ FDA/GACC của Vexim Global"] },
+  pro: { plan: "pro", name: "Pro", summary: "", maxProducts: null, mediaAllowed: true,
+    prices: [{ months: 3, price_vnd: 1_999_000 }, { months: 6, price_vnd: 3_499_000 }],
+    features: ["Đăng không giới hạn sản phẩm, bao gồm hình ảnh và video", "2 bài SEO tiếng Anh mỗi tháng trên website Vexim Trade",
+      "2 bài SEO mỗi tháng trên website của doanh nghiệp (nếu có)", "Nhân viên Vexim tư vấn tối ưu gian hàng và hồ sơ năng lực",
+      "Tặng Gói 1 · Website Health Check (khám website tổng thể) khi mua gói 6 tháng"] },
+};
+
+/** "1.399.000₫" */
+export function formatVnd(value: number): string {
+  return `${Math.round(value).toLocaleString("vi-VN")}₫`;
+}
 
 export const SUPPLIER_PLAN_LABELS: Record<SupplierPlan, string> = {
   basic: "Basic",
@@ -47,12 +87,30 @@ export function effectiveSupplierPlan(
   return plan;
 }
 
+/**
+ * Quyền của gói đang có hiệu lực. Truyền `catalog` (đọc từ CRM) để số sản phẩm và quyền
+ * đăng ảnh theo đúng bảng gói hiện hành; thiếu thì dùng giá trị mặc định.
+ */
 export function supplierPlanRules(
   supplier: { plan?: string | null; plan_expires_at?: string | null },
   now: Date = new Date(),
+  catalog?: SupplierPlanCatalog | null,
 ): SupplierPlanRules & { plan: SupplierPlan } {
   const plan = effectiveSupplierPlan(supplier, now);
-  return { plan, ...SUPPLIER_PLAN_RULES[plan] };
+  const entry = catalog?.[plan];
+  return { plan, ...SUPPLIER_PLAN_RULES[plan], ...(entry ? { maxProducts: entry.maxProducts, mediaAllowed: entry.mediaAllowed } : {}) };
+}
+
+/**
+ * Tin sản phẩm của nhà cung cấp này là tin chữ (gói không có ảnh/video): sản phẩm không
+ * cần ảnh để được duyệt và hiển thị. Ảnh đã có từ trước vẫn hiện bình thường.
+ */
+export function textOnlyListing(
+  supplier: { plan?: string | null; plan_expires_at?: string | null },
+  catalog?: SupplierPlanCatalog | null,
+  now: Date = new Date(),
+): boolean {
+  return !supplierPlanRules(supplier, now, catalog).mediaAllowed;
 }
 
 /** Còn thêm được sản phẩm mới không (đếm mọi sản phẩm của nhà cung cấp, kể cả bản nháp). */
@@ -60,8 +118,10 @@ export function canAddSupplierProduct(
   supplier: { plan?: string | null; plan_expires_at?: string | null },
   productCount: number,
   now: Date = new Date(),
+  catalog?: SupplierPlanCatalog | null,
 ): boolean {
-  return productCount < supplierPlanRules(supplier, now).maxProducts;
+  const max = supplierPlanRules(supplier, now, catalog).maxProducts;
+  return max === null || productCount < max;
 }
 
 /** Lỗi do trigger CSDL trả về khi vượt giới hạn gói. */

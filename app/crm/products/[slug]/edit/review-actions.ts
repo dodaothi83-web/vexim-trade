@@ -1,5 +1,7 @@
 "use server";
 
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
+import { textOnlyListing } from "@/lib/supplier-plans";
 import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
@@ -80,8 +82,8 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       }
       const media = await store.listMedia("product", id);
       const mediaReview = productPublicationMediaState(media, id, product.supplier_id);
-      // Một cổng duy nhất: phải có ảnh người mua thấy được. Không còn bước duyệt riêng cho từng ảnh.
-      if (!mediaReview.buyerImages) {
+      // Một cổng duy nhất: phải có ảnh người mua thấy được, trừ gói tin chữ (Basic).
+      if (!mediaReview.buyerImages && !textOnlyListing(supplier, await readPlanCatalog())) {
         return { ok: false, message: "Mở mục Ảnh & tài liệu sản phẩm. Thêm ít nhất một ảnh chia sẻ cho người mua trước khi đăng." };
       }
     }

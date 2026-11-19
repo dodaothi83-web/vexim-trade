@@ -12,7 +12,7 @@ assert.deepEqual(hrefs, [
   '/crm/support', '/crm/mail', '/crm/messages',
   '/crm/tasks', '/crm/dashboard', '/crm/suppliers', '/crm/products', '/crm/sourcing', '/crm/rfqs',
   '/crm/verifications', '/crm/verifications/submissions', '/crm/certificates',
-  '/crm/categories', '/crm/sponsored', '/crm/service-requests', '/crm/traffic', '/crm/posts',
+  '/crm/categories', '/crm/sponsored', '/crm/service-requests', '/crm/plans', '/crm/traffic', '/crm/posts',
   '/crm/buyers', '/crm/prospects', '/crm/team', '/crm/settings',
 ], 'Chats and mail come first, then the task list and daily marketplace work; self-submission queue sits with verifications; sale and settings are secondary');
 assert.match(sidebar, /href: "\/crm\/categories", label: "Danh mục sản phẩm"/, 'Category menu uses product-focused wording');

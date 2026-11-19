@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
+import { textOnlyListing } from "@/lib/supplier-plans";
 import { Boxes, ChevronLeft, ChevronRight, ClipboardCheck, Search, Sparkles } from "lucide-react";
 
 import { getStore } from "@/lib/db";
@@ -76,7 +78,11 @@ export default async function ProductsPage({
     if (m.kind !== "image" || m.audience !== "buyer") continue;
     if (!thumbByProduct.has(m.product_id)) thumbByProduct.set(m.product_id, m);
   }
-  const hasShareableMedia = (id: string) => productReadiness(mediaByProduct.get(id) ?? []).ready;
+  const planCatalog = await readPlanCatalog();
+  const supplierOfProduct = new Map(all.map((r) => [r.id, r.supplier]));
+  // Gói tin chữ (Basic) không cần ảnh, nên không bị tính là "thiếu ảnh".
+  const hasShareableMedia = (id: string) => productReadiness(mediaByProduct.get(id) ?? []).ready ||
+    textOnlyListing(supplierOfProduct.get(id) ?? {}, planCatalog);
   /** Độ hoàn thiện hồ sơ: chỉ đọc, tính từ bản đã lưu + tệp hiện có. */
   const completenessByProduct = new Map(all.map((r) => [r.id, productCompleteness(r, mediaByProduct.get(r.id) ?? [])]));
   const categoryFor = (r: ProductWithSupplier) => r.category;

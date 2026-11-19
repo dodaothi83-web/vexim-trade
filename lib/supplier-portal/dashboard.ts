@@ -3,7 +3,7 @@ import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
 import type { Locale } from "@/lib/i18n/config";
 import { fill } from "@/lib/i18n/format";
-import { isSupplierPlan, SUPPLIER_PLAN_LABELS, SUPPLIER_PLAN_RULES } from "@/lib/supplier-plans";
+import { isSupplierPlan, SUPPLIER_PLAN_LABELS, SUPPLIER_PLAN_RULES, type SupplierPlanCatalog } from "@/lib/supplier-plans";
 import { noticesMessages } from "@/lib/i18n/portal/notices";
 import { formatCertificateDate } from "@/lib/certificate-supplier-copy";
 import { supplierRejectionMessage } from "@/lib/certificate-rejection";
@@ -96,6 +96,8 @@ type NoticeInput = {
   now?: Date;
   /** Ngôn ngữ của câu thông báo; mặc định tiếng Việt để API cũ không đổi. */
   language?: Locale;
+  /** Bảng gói từ CRM, để câu thông báo nói đúng giới hạn hiện hành. */
+  planCatalog?: SupplierPlanCatalog | null;
 };
 
 /** RFQ thực sự đã chuyển cho NCC này: bỏ bản nháp, bản đề xuất và bản của NCC khác. */
@@ -283,13 +285,14 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
   const planChangedAt = input.supplier?.id === supplierId ? input.supplier.plan_updated_at : null;
   if (planChangedAt && Date.parse(planChangedAt) >= PLAN_NOTICES_SINCE && isSupplierPlan(input.supplier!.plan)) {
     const plan = input.supplier!.plan;
-    const max = SUPPLIER_PLAN_RULES[plan].maxProducts;
+    const max = (input.planCatalog?.[plan].maxProducts !== undefined ? input.planCatalog[plan].maxProducts : SUPPLIER_PLAN_RULES[plan].maxProducts);
+    const limit = max === null ? t.plan.limitNone : fill(t.plan.limitUpTo, { max });
     const expires = input.supplier!.plan_expires_at;
     const until = plan !== "basic" && expires && !Number.isNaN(Date.parse(expires))
       ? fill(t.plan.paidUntil, { date: formatCertificateDate(planExpiryDay(expires), input.language ?? "vi") }) : "";
     add(`plan:${plan}-${Date.parse(planChangedAt)}`,
       plan === "basic" ? t.plan.basicTitle : fill(t.plan.paidTitle, { plan: SUPPLIER_PLAN_LABELS[plan] }),
-      plan === "basic" ? fill(t.plan.basicDetail, { max }) : `${fill(t.plan.paidDetail, { max })}${until}`,
+      plan === "basic" ? fill(t.plan.basicDetail, { limit }) : `${fill(t.plan.paidDetail, { limit })}${until}`,
       planChangedAt, "plan", plan === "basic" ? "/supplier/portal/products" : "/supplier/portal/storefront");
   }
   for (const m of relevant) {

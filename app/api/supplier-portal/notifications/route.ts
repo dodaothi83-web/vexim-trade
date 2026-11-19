@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { buildSupplierNoticeFeed, buildSupplierRfqBoard } from "@/lib/supplier-portal/dashboard";
 import { getLocale } from "@/lib/i18n/server";
 
@@ -36,7 +37,8 @@ export async function GET() {
 
   // Chuông là một phần của khung đã chuyển, nên nội dung thông báo theo ngôn ngữ đang chọn.
   const language = await getLocale();
-  const feed = buildSupplierNoticeFeed({ supplierId: supplier.id, supplier, invites, reads, products, certificates, reviews, requests, submissions, language });
+  const feed = buildSupplierNoticeFeed({ supplierId: supplier.id, supplier, invites, reads, products, certificates, reviews, requests, submissions, language,
+    planCatalog: await readPlanCatalog() });
   return NextResponse.json({
     pendingRfqs: buildSupplierRfqBoard({ supplierId: supplier.id, invites, products, days: 30, language }).tasks.length,
     rfqsKnown,
