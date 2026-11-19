@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSession, guard } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { isSupplierPlan, SUPPLIER_PLAN_LABELS } from "@/lib/supplier-plans";
+import { notifySupplierPlanChange } from "@/lib/supplier-portal/notify";
 
 type Result = { ok: boolean; message: string };
 
@@ -35,6 +36,9 @@ export async function setSupplierPlanAction(form: FormData): Promise<Result> {
   const store = getStore();
   const before = await store.getSupplier(supplierId);
   if (!before) return { ok: false, message: "Không tìm thấy nhà cung cấp." };
+  const previousPlan = isSupplierPlan(before.plan) ? before.plan : "basic";
+  // Lưu lại đúng gói và hạn cũ thì không ghi gì, để nhà cung cấp không nhận thông báo trùng.
+  if (previousPlan === plan && (before.plan_expires_at ?? null) === expiresAt) return { ok: true, message: "Gói không thay đổi." };
   try {
     await store.updateSupplier(supplierId, {
       plan, plan_expires_at: expiresAt, plan_updated_at: new Date().toISOString(), plan_updated_by: session.uid,
@@ -53,6 +57,10 @@ export async function setSupplierPlanAction(form: FormData): Promise<Result> {
     after: { plan, plan_expires_at: expiresAt },
   }).catch((error) => console.error("[supplier-plan] audit", error));
   revalidatePath(`/crm/suppliers/${supplierId}`);
-  revalidatePath("/supplier/portal/products");
-  return { ok: true, message: `Đã chuyển sang gói ${SUPPLIER_PLAN_LABELS[plan]}${expiresAt ? `, hết hạn ${rawDate.split("-").reverse().join("/")}` : ""}.` };
+  revalidatePath("/supplier/portal", "layout");
+  // Báo nhà cung cấp qua email; chuông trong cổng đọc plan_updated_at. Thư lỗi không làm hỏng việc lưu gói.
+  const mail = await notifySupplierPlanChange({ supplierId, plan, previousPlan, expiresOn: plan !== "basic" && rawDate ? rawDate : null })
+    .catch(() => "failed" as const);
+  const mailNote = mail === "failed" ? " Chưa gửi được email cho nhà cung cấp; thông báo vẫn hiện trong cổng." : "";
+  return { ok: true, message: `Đã chuyển sang gói ${SUPPLIER_PLAN_LABELS[plan]}${expiresAt ? `, hết hạn ${rawDate.split("-").reverse().join("/")}` : ""}.${mailNote}` };
 }

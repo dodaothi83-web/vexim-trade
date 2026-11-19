@@ -3,6 +3,7 @@ import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
 import type { Locale } from "@/lib/i18n/config";
 import { fill } from "@/lib/i18n/format";
+import { isSupplierPlan, SUPPLIER_PLAN_LABELS, SUPPLIER_PLAN_RULES } from "@/lib/supplier-plans";
 import { noticesMessages } from "@/lib/i18n/portal/notices";
 import { formatCertificateDate } from "@/lib/certificate-supplier-copy";
 import { supplierRejectionMessage } from "@/lib/certificate-rejection";
@@ -18,7 +19,7 @@ export interface PortalNotice {
   detail: string;
   at: string;
   read: boolean;
-  kind: "rfq" | "verification" | "contact" | "product" | "certificate";
+  kind: "rfq" | "verification" | "contact" | "product" | "certificate" | "plan";
   /** Trang đúng để xử lý thông báo này; bấm vào là tới thẳng chỗ cần xem. */
   href: string;
 }
@@ -250,6 +251,14 @@ export function buildSupplierRfqBoard(input: { supplierId: string; invites: Supp
  * danh sách này. Mọi thông báo đều là sự kiện đã có thật trong dữ liệu, không phải
  * lời nhắc tự sinh.
  */
+/** Thông báo đổi gói bắt đầu từ bản phát hành này (20/11/2026, giờ Việt Nam). */
+const PLAN_NOTICES_SINCE = Date.parse("2026-11-19T17:00:00Z");
+
+/** Ngày hết hạn gói (YYYY-MM-DD) theo giờ Việt Nam; CRM lưu 23:59:59 +07:00 của ngày đó. */
+function planExpiryDay(iso: string): string {
+  return new Date(Date.parse(iso) + 7 * 3_600_000).toISOString().slice(0, 10);
+}
+
 export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
   const { supplierId, products, reviews, requests, reads } = input;
   const now = input.now ?? new Date();
@@ -267,6 +276,21 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
   const CERT_HREF = "/supplier/portal/documents#chung-nhan";
   if (input.supplier?.id === supplierId && input.supplier.onboarding_status === "approved") {
     add(`onboarding-approved:${supplierId}`, t.onboardingApproved.title, t.onboardingApproved.detail, input.supplier.updated_at, "verification", "/supplier/portal");
+  }
+  // Vexim đổi gói trong CRM: mỗi lần đổi (mốc plan_updated_at) là một thông báo riêng.
+  // Lần đổi trước ngày có thông báo này không được báo lại: đó là các lần thử nội bộ đã
+  // trả về Basic, báo bây giờ sẽ là một thông báo "về Basic" khó hiểu.
+  const planChangedAt = input.supplier?.id === supplierId ? input.supplier.plan_updated_at : null;
+  if (planChangedAt && Date.parse(planChangedAt) >= PLAN_NOTICES_SINCE && isSupplierPlan(input.supplier!.plan)) {
+    const plan = input.supplier!.plan;
+    const max = SUPPLIER_PLAN_RULES[plan].maxProducts;
+    const expires = input.supplier!.plan_expires_at;
+    const until = plan !== "basic" && expires && !Number.isNaN(Date.parse(expires))
+      ? fill(t.plan.paidUntil, { date: formatCertificateDate(planExpiryDay(expires), input.language ?? "vi") }) : "";
+    add(`plan:${plan}-${Date.parse(planChangedAt)}`,
+      plan === "basic" ? t.plan.basicTitle : fill(t.plan.paidTitle, { plan: SUPPLIER_PLAN_LABELS[plan] }),
+      plan === "basic" ? fill(t.plan.basicDetail, { max }) : `${fill(t.plan.paidDetail, { max })}${until}`,
+      planChangedAt, "plan", plan === "basic" ? "/supplier/portal/products" : "/supplier/portal/storefront");
   }
   for (const m of relevant) {
     add(`rfq:${m.id}`, fill(t.rfqSent.title, { code: m.rfq!.code }), t.rfqSent.detail, m.sent_to_supplier_at!, "rfq", "/supplier/portal/rfqs");

@@ -17,6 +17,13 @@ const en = {
     factory: "Factory verification (L3)",
     export: "Export history (L2)",
   },
+  plan: {
+    paidTitle: "Your {plan} plan is active",
+    paidDetail: "You can list up to {max} products and use video and the premium supplier page.",
+    paidUntil: " Valid until {date}.",
+    basicTitle: "Your plan is now Basic",
+    basicDetail: "Products already listed stay visible. You can add new products while you have fewer than {max}.",
+  },
   onboardingApproved: {
     title: "Your supplier account is open",
     detail: "You can use the supplier portal. Approving verification and publishing your profile are separate decisions.",
@@ -96,6 +103,13 @@ const vi: NoticesMessages = {
   submissions: {
     factory: "Xác thực nhà máy (L3)",
     export: "Lịch sử xuất khẩu (L2)",
+  },
+  plan: {
+    paidTitle: "Gói {plan} đã được kích hoạt",
+    paidDetail: "Bạn đăng được tối đa {max} sản phẩm, dùng video và trang nhà cung cấp cao cấp.",
+    paidUntil: " Hiệu lực đến {date}.",
+    basicTitle: "Gói của bạn đã chuyển về Basic",
+    basicDetail: "Sản phẩm đã đăng vẫn hiển thị. Bạn thêm được sản phẩm mới khi còn dưới {max} sản phẩm.",
   },
   onboardingApproved: {
     title: "Tài khoản nhà cung cấp đã được mở quyền",

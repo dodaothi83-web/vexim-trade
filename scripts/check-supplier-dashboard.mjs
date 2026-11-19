@@ -28,7 +28,9 @@ const core = load('../lib/rfq/portal-core.ts', {
 });
 const rejection = load('../lib/certificate-rejection.ts', {});
 const certificateCopy = load('../lib/certificate-supplier-copy.ts', { './certificate-rejection.ts': rejection });
+const plans = load('../lib/supplier-plans.ts', {});
 const dashboard = load('../lib/supplier-portal/dashboard.ts', {
+  '@/lib/supplier-plans': plans,
   '@/lib/certificate-supplier-copy': certificateCopy,
   '@/lib/certificate-rejection': rejection,
   '@/lib/rfq/buyer-contact': contact,
@@ -304,3 +306,31 @@ console.log('✅ Supplier dashboard: recipient-scoped contact consent, no intern
   assert.ok(changes && !/Chưa tự công bố/.test(changes.detail), 'Ghi chú nội bộ không lên chuông');
   console.log('✅ Chuông chứng nhận: báo hết hạn, ẩn ghi chú nội bộ, bỏ qua bản đã gia hạn.');
 }
+
+// Vexim đổi gói trong CRM: nhà cung cấp thấy thông báo trong chuông, mỗi lần đổi một thông báo.
+{
+  const base = { supplierId: 's-a', invites: [], products: [], reviews: [], requests: [], reads: [], now };
+  const premium = { id: 's-a', onboarding_status: 'pending', plan: 'premium', plan_expires_at: '2026-12-31T16:59:59.000Z', plan_updated_at: '2026-11-20T03:00:00Z' };
+  const viNotices = dashboard.buildSupplierNotices({ ...base, supplier: premium });
+  const planNotice = viNotices.find((n) => n.key.startsWith('plan:'));
+  assert.ok(planNotice, 'Đổi gói phải có thông báo trong chuông');
+  assert.equal(planNotice.key, `plan:premium-${Date.parse('2026-11-20T03:00:00Z')}`);
+  assert.match(planNotice.key, /^plan:[a-z0-9-]+$/i, 'Khoá thông báo khớp mẫu của nút đánh dấu đã đọc');
+  assert.equal(planNotice.title, 'Gói Premium đã được kích hoạt');
+  assert.match(planNotice.detail, /tối đa 20 sản phẩm/);
+  assert.match(planNotice.detail, /Hiệu lực đến 31\/12\/2026/, 'Hạn gói theo giờ Việt Nam');
+  assert.equal(planNotice.href, '/supplier/portal/storefront');
+  const enNotice = dashboard.buildSupplierNotices({ ...base, supplier: premium, language: 'en' }).find((n) => n.key.startsWith('plan:'));
+  assert.equal(enNotice.title, 'Your Premium plan is active');
+  const basic = dashboard.buildSupplierNotices({ ...base, supplier: { ...premium, plan: 'basic', plan_expires_at: null } }).find((n) => n.key.startsWith('plan:'));
+  assert.equal(basic.title, 'Gói của bạn đã chuyển về Basic');
+  assert.equal(basic.href, '/supplier/portal/products');
+  assert.equal(dashboard.buildSupplierNotices({ ...base, supplier: { ...premium, plan_updated_at: null } }).some((n) => n.key.startsWith('plan:')), false,
+    'Chưa từng đổi gói thì không có thông báo');
+  assert.equal(dashboard.buildSupplierNotices({ ...base, supplier: { ...premium, id: 's-b' } }).some((n) => n.key.startsWith('plan:')), false,
+    'Không hiện gói của nhà cung cấp khác');
+  assert.equal(dashboard.buildSupplierNotices({ ...base, supplier: { ...premium, plan: 'basic', plan_updated_at: '2026-11-19T14:40:11Z' } }).some((n) => n.key.startsWith('plan:')), false,
+    'Lần đổi gói trước khi có thông báo không bị báo lại');
+  console.log('Supplier plan notice: shown once per CRM change, plan-specific text, Vietnam-time expiry, isolated per supplier');
+}
+
