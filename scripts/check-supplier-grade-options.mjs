@@ -238,9 +238,4 @@ const wizard = read("../app/supplier/portal/products/product-editor.tsx");
 assert.match(wizard, /onAddGrade=\{\(grade\) => addSupplierGradeOptionAction\(\{ categorySlug: activeCategorySlug, grade \}\)\}/,
   "form tạo sản phẩm phải nối nút thêm grade với server action");
 
-const pricePage = read("../app/supplier/portal/products/[id]/quantity-pricing/preview-form.tsx");
-assert.match(pricePage, /onAddGrade=\{async \(grade\) =>/, "trang gửi bảng giá cũng phải cho thêm grade");
-assert.match(pricePage, /if \(result\.ok && result\.grades\?\.length\) setGrades\(result\.grades\);|if \(result\.ok && result\.grades\?\.length\) ?setGrades/,
-  "gửi bảng giá phải dùng danh sách grade vừa cập nhật");
-
 console.log("Supplier grade options: nhập grade mới ngay trong ô chọn, lưu cho cả nhóm hàng.");

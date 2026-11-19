@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {
   DEFAULT_QUANTITY_PRICING_POLICY as defaults, validateQuantityPricing, nameContainsGrade,
-  quantityTierRanges, formatQuantityBuyer, formatQuantityPriceBuyer, referencePriceAge, formatQuantityInput, normalizePriceInput,
+  quantityTierRanges, formatQuantityBuyer, formatQuantityPriceBuyer, formatQuantityInput, normalizePriceInput,
   entryCurrencyIssue, ENTRY_PRICE_CURRENCIES, previewQuantityTiers, draftPublicQuantityOffer, formatQuantityForUnit,
 } from '../lib/products/quantity-pricing.ts';
 
@@ -110,8 +110,7 @@ assert.equal(draftOffer.moq, '1 MT', 'MOQ đổi sang MT như bản đã duyệt
 assert.deepEqual(draftOffer.tiers.map((tier) => `${tier.from}|${tier.to ?? '+'}|${tier.price}`),
   ['1 MT|4.999 MT|$6.4/kg', '5 MT|+|$6/kg'], 'Các mức giá và cột đến giống bản thật');
 assert.equal(draftOffer.hasVolumePricing, true);
-assert.equal(draftOffer.confirmedAt, null, 'Bản nháp không có ngày xác nhận');
-assert.equal(draftOffer.priceRankingEligible, false, 'Bản nháp không đủ tư cách xếp hạng giá');
+assert.equal(draftOffer.updatedAt, null, 'Bản nháp chưa có ngày cập nhật');
 assert.deepEqual(
   draftPublicQuantityOffer({ grade: 'W320', incoterm: 'FOB', currency: 'USD', tiers: [{ minKg: '1000', priceUsdPerKg: '6.4' }] },
     { priceUnit: 'kg', pricePubliclyVisible: false }).tiers, [], 'Tắt chia sẻ giá thì không có bảng giá');
@@ -122,13 +121,7 @@ assert.equal(draftPublicQuantityOffer({ grade: 'W320', incoterm: 'FOB', currency
 assert.equal(draftPublicQuantityOffer({ grade: 'W320', incoterm: 'FOB', currency: 'VND', tiers: [{ minKg: '1000', priceUsdPerKg: '165000' }] },
   { priceUnit: 'mt', pricePubliclyVisible: true }).price, '₫165,000,000/MT', 'Đơn vị MT nhân 1.000 kg và bỏ phần lẻ như trang người mua');
 
-const now = Date.parse('2026-10-29T00:00:00Z');
-const day = 86400000;
-assert.deepEqual(referencePriceAge(new Date(now - 90 * day).toISOString(), now), { days: 90, stale: false });
-assert.deepEqual(referencePriceAge(new Date(now - 90 * day - 1).toISOString(), now), { days: 90, stale: true });
-assert.deepEqual(referencePriceAge(null, now), { days: null, stale: true });
-assert.deepEqual(referencePriceAge(new Date(now + 1).toISOString(), now), { days: null, stale: true });
-console.log('Quantity pricing: validation, grade warnings, conversions and 90-day boundary passed');
+console.log('Quantity pricing: validation, grade warnings, and conversions passed');
 
 /* Đơn vị bán: lon, chai, gói, hộp, thùng. Số lượng là số đơn vị nguyên, giá là giá một đơn vị. */
 const cans = validate({ unit: 'can', tiers: [{ minKg: '5,000', priceUsdPerKg: '0.35' }, { minKg: '20000', priceUsdPerKg: '0.32' }] },

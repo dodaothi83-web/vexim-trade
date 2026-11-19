@@ -26,10 +26,10 @@ assert.ok(headers.includes("Ghi chú xuất xứ [origin_note]"), "thiếu cột
 const wb = XLSX.utils.book_new();
 const rows = [
   headers,
-  ["Hạt điều W320", "Mô tả", "W320", "5 MT", "MT", "30", "Thùng 50lb", "200 MT/tháng", "Có", "Không", "Có", "HACCP", "Cát Lái", "1.250,50", "", "31/12/2026", "w320", "Bình Phước"],
-  ["", "Thiếu tên", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-  ["Hạt điều lỗi grade", "", "", "", "", "ba mươi", "", "", "Có lẽ", "", "", "", "", "abc", "", "2026-13-40", "W999", ""],
-  ["Hạt điều W320", "Trùng tên dòng 2", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "W240", ""],
+  ["Hạt điều W320", "Mô tả", "W320", "5 MT", "MT", "30", "Thùng 50lb", "200 MT/tháng", "Có", "Không", "Có", "HACCP", "Cát Lái", "1.250,50", "", "w320", "Bình Phước"],
+  ["", "Thiếu tên", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+  ["Hạt điều lỗi grade", "", "", "", "", "ba mươi", "", "", "Có lẽ", "", "", "", "", "abc", "", "W999", ""],
+  ["Hạt điều W320", "Trùng tên dòng 2", "", "", "", "", "", "", "", "", "", "", "", "", "", "W240", ""],
 ];
 XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Sản phẩm");
 const parsed = parseImportWorkbook(workbookToBuffer(wb), categoryFields);
@@ -42,7 +42,6 @@ assert.equal(ok.productAttributes.grade, "W320"); // viết thường vẫn kh�
 assert.ok(noName.errors.some((e) => e.includes("Thiếu tên")));
 assert.ok(bad.errors.some((e) => e.includes("Thời gian giao hàng")));
 assert.ok(bad.errors.some((e) => e.includes("Giá tham khảo")));
-assert.ok(bad.errors.some((e) => e.includes("Hạn giá")));
 assert.ok(bad.errors.some((e) => e.includes("OEM")));
 assert.ok(bad.errors.some((e) => e.includes("W999")));
 assert.ok(dup.warnings.some((w) => w.includes("Trùng tên")));
@@ -54,7 +53,7 @@ assert.equal(raw.category, "cashew");
 assert.equal(raw.lead_time_days, 30);
 assert.equal(raw.ref_price, 1250.5);
 assert.equal(raw.currency, "USD");
-assert.equal(raw.price_valid_until, "2026-12-31");
+assert.equal(raw.price_valid_until, undefined, "không còn hạn giá");
 assert.deepEqual(raw.product_attributes, { grade: "W320", origin_note: "Bình Phước" });
 
 // 4. File không đúng mẫu phải báo lỗi chung thay vì nhập bừa.

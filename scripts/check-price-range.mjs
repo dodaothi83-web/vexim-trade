@@ -116,7 +116,6 @@ assert.equal(ok.range.high, 8.4);
 assert.equal(ok.range.median, 8);
 assert.equal(ok.range.sampleSize, 3);
 assert.equal(ok.range.lastUpdated, daysAgo(3).slice(0, 10));
-assert.equal(ok.range.stale, false);
 assert.equal(ok.range.rangeText, "$7.6–8.4/kg");
 
 const tooFew = priceRange.buildPriceRange(
@@ -155,12 +154,11 @@ const filtered = priceRange.buildPriceRange(
     { value: 9, unit: "kg", currency: "EUR", updatedAt: daysAgo(1) },
     { value: 200000, unit: "kg", currency: "VND", updatedAt: daysAgo(1) },
     { value: 99, unit: "kg", updatedAt: daysAgo(1), exclude: true },
-    { value: 12, unit: "kg", updatedAt: daysAgo(120) },
   ],
   { now: NOW },
 );
 assert.equal(filtered.status, "ok");
-assert.equal(filtered.range.sampleSize, 3, "Unknown units, missing dates, other currencies, demo rows and stale rows are all dropped");
+assert.equal(filtered.range.sampleSize, 3, "Unknown units, missing dates, other currencies and demo rows are all dropped");
 assert.equal(filtered.range.high, 8.2);
 
 /* Giá mồi (lệch quá xa trung vị) bị loại khỏi khoảng, không được một mình kéo lệch cả khoảng. */
@@ -242,19 +240,8 @@ const enoughSuppliers = priceRange.buildPriceRange(
 assert.equal(enoughSuppliers.status, "ok", "Fifteen distinct suppliers clears the bar");
 assert.equal(enoughSuppliers.range.sampleSize, 15);
 
-/* Cũ quá ngưỡng cảnh báo thì vẫn hiện nhưng phải gắn nhãn. */
-const stale = priceRange.buildPriceRange(
-  [
-    { value: 7.9, unit: "kg", updatedAt: daysAgo(60) },
-    { value: 8.1, unit: "kg", updatedAt: daysAgo(61) },
-    { value: 8.2, unit: "kg", updatedAt: daysAgo(62) },
-  ],
-  { now: NOW },
-);
-assert.equal(stale.status, "ok");
-assert.equal(stale.range.stale, true, "Data older than 45 days is flagged");
-
-const hidden = priceRange.buildPriceRange(
+/* Giá không có hạn dùng: dữ liệu cũ vẫn được tính, chỉ ghi ngày cập nhật. */
+const old = priceRange.buildPriceRange(
   [
     { value: 7.9, unit: "kg", updatedAt: daysAgo(95) },
     { value: 8.1, unit: "kg", updatedAt: daysAgo(96) },
@@ -262,7 +249,9 @@ const hidden = priceRange.buildPriceRange(
   ],
   { now: NOW },
 );
-assert.equal(hidden.status, "none", "Data older than 90 days is hidden completely");
+assert.equal(old.status, "ok", "Old prices are not hidden");
+assert.equal(old.range.lastUpdated, daysAgo(95).slice(0, 10));
+assert.equal("stale" in old.range, false, "No age label on the range");
 
 /* Đơn vị hiển thị theo danh mục, không theo dữ liệu vào. */
 const riceRange = priceRange.priceRangeForCategory(
@@ -442,7 +431,7 @@ const staleBlock = priceRange.buildPriceBlock(
 const staleHtml = renderToStaticMarkup(
   React.createElement(strip.PriceRangeStrip, { outcome: staleBlock, categoryName: "Cashew", rfqHref: "/rfq" }),
 );
-assert.ok(/45 days/.test(staleHtml), "Stale data says so on the page");
+assert.ok(!/45 days/.test(staleHtml) && /updated /.test(staleHtml), "Old data shows its update date, no age warning");
 
 const fewHtml = renderToStaticMarkup(
   React.createElement(strip.PriceRangeStrip, { outcome: spreadThin, categoryName: "Cashew", rfqHref: "/rfq" }),
@@ -484,4 +473,4 @@ const stripIndex = page.indexOf("<PriceRangeStrip");
 const gridIndex = page.indexOf("<CategoryProductGrid", stripIndex);
 assert.ok(stripIndex > -1 && stripIndex < gridIndex, "The price strip sits above the product grid");
 
-console.log("✅ check-price-range: quy ước đơn vị theo ngành, quy đổi tấn/kg/pound, ngưỡng 3 mẫu và 45/90 ngày đều đạt");
+console.log("✅ check-price-range: quy ước đơn vị theo ngành, quy đổi tấn/kg/pound, ngưỡng 3 mẫu và giá không hết hạn theo thời gian đều đạt");

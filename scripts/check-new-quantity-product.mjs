@@ -52,7 +52,7 @@ const db = {
     const q = { select: () => q, eq: () => q, in: () => q, limit: async () => ({ data: table === 'quantity_product_creation_requests' ? requests : names, error: null }) }; return q;
   },
 };
-const grade = { hasProductPricingChanged: () => false, standardGradesForCategory: () => ['W320', 'W240'], parseLeadTimeInput: () => ({ ok: true, value: null, unit: 'on_request', daysEquivalent: null }), applyLeadTimeToSpecs: (x) => x };
+const grade = { standardGradesForCategory: () => ['W320', 'W240'], parseLeadTimeInput: () => ({ ok: true, value: null, unit: 'on_request', daysEquivalent: null }), applyLeadTimeToSpecs: (x) => x };
 const supplierPlans = await import('../lib/supplier-plans.ts');
 const mocks = {
   '@/lib/supplier-plans': supplierPlans,
@@ -204,24 +204,13 @@ assert.equal(repairPatch.storage_path, `products/${productId}/${legacyBankMedia.
 assert.ok(storage.deleted.includes(legacyBankMedia.storage_path), 'tệp cũ trong kho được dọn');
 console.log('Bank media: images attached before the fix are repaired on the next save');
 
-// Thiếu bảng giá và thông tin sản phẩm đổi sau khi gửi giá là hai chuyện khác nhau:
-// mỗi trường hợp phải ra một câu riêng, nêu đúng việc người bán phải làm.
+// Gửi duyệt sản phẩm không còn kiểm tra bảng giá (giá nhà cung cấp nhập là giá đang áp dụng).
 saved = { ...saved, supplier_review_status: 'draft', ready_for_buyer: false, name: 'Nhân điều', spec: 'Quy cách' };
 store.listMedia = async () => [{ kind: 'image', storage_path: 'products/x.webp', supplier_id: supplierId, created_by: user.id, audience: 'buyer' }];
 const submitForm = () => { const data = new FormData(); data.set('product_id', productId); return data; };
-submitStatus = 'price_missing';
-const missingPrice = await exports.submitSupplierProductAction(submitForm());
-assert.equal(missingPrice.ok, false);
-assert.match(missingPrice.message, /chưa có bảng giá nào đang chờ duyệt/);
-assert.doesNotMatch(missingPrice.message, /đã đổi sau khi gửi bảng giá/);
-submitStatus = 'price_changed';
-const changedProduct = await exports.submitSupplierProductAction(submitForm());
-assert.equal(changedProduct.ok, false);
-assert.match(changedProduct.message, /đã đổi sau khi gửi bảng giá/);
-assert.doesNotMatch(changedProduct.message, /chưa có bảng giá/);
 submitStatus = 'submitted';
 assert.equal((await exports.submitSupplierProductAction(submitForm())).ok, true);
-console.log('Quantity submit guard: missing price and changed product report different next steps');
+console.log('Quantity submit guard: product submits without a price review step');
 
 // Removing the legacy packaging control must not erase previously saved packaging.
 saved = { ...saved, id: productId, supplier_id: supplierId, name: 'Nhân điều', packaging: 'Legacy packaging', supplier_review_status: 'draft', supplier_originated: true };
