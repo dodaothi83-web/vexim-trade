@@ -192,13 +192,6 @@ function resolveCardOfferDisplay({
 /**
  * Grade metadata retained for callers. Product titles are displayed without removing grades.
  */
-/** "19 Nov 2026" theo giờ Việt Nam; rỗng khi không có ngày hợp lệ. */
-function formatPriceUpdated(value: string | null | undefined): string {
-  const date = value ? new Date(value) : null;
-  if (!date || !Number.isFinite(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(date);
-}
-
 export function cardTitleGrades(product: {
   cardGrades?: readonly string[];
   grade?: string | null;
@@ -232,7 +225,6 @@ export function PublicProductCard({
   linkable = true,
   comparison,
   sponsored = false,
-  priceUpdatedAt,
   certificates = [],
 }: {
   /** Chứng nhận đã duyệt áp cho sản phẩm; thẻ hiện tối đa 3, còn lại gộp thành "+N". */
@@ -269,8 +261,6 @@ export function PublicProductCard({
   /** Paid placement disclosure belongs inside each sponsored card. */
   sponsored?: boolean;
   /** Present only for a visible stale reference price; null means its date is unknown. */
-  /** Ngày nhà cung cấp cập nhật giá gần nhất; giá không có hạn dùng nên chỉ hiện ngày. */
-  priceUpdatedAt?: string | null;
 }) {
 
   // Preserve the supplied public title, including any grade codes.
@@ -295,7 +285,6 @@ export function PublicProductCard({
   const moqText = cardWeightMoq(rawMoqText);
   const leadTimeDisplay = leadTimeText?.trim() || (leadTimeDays != null ? `${leadTimeDays} days` : "On request");
   const fullPriceTitle = hasPrice && volumePricing ? `${priceTitle} · Volume pricing` : priceTitle;
-  const priceUpdatedLabel = formatPriceUpdated(priceUpdatedAt);
 
   // This is a supplier contract check, not a claim about product quality or factory ownership.
   const partnerContractReviewed =
@@ -441,9 +430,6 @@ export function PublicProductCard({
           )}
         </div>
 
-        {hasPrice && priceUpdatedLabel && (
-          <p className="mt-0.5 text-[10px] leading-4 text-ink-500">Price updated {priceUpdatedLabel}</p>
-        )}
 
         {/* Two-column commercial terms: MOQ & Lead time */}
         <dl className="mt-2 grid grid-cols-2 gap-x-3 text-ink-600 sm:mt-2.5">

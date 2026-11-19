@@ -285,7 +285,6 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
             return <div key={p.id} className="min-w-0">
               <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
                 imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} grades={productGradesOf(p)} gradeRows={p.gradeRows}
-                priceUpdatedAt={p.quantityOffer?.updatedAt}
               volumePricing={p.quantityOffer?.hasVolumePricing}
                 highlightedGrades={activeGrades} moq={p.moq} price={p.price} incoterm={p.incoterm} fob={p.incoterm?.toUpperCase() === "FOB"}
                 leadTimeDays={p.leadTimeDays} leadTimeText={p.leadTimeText} supplierName={p.supplierName}

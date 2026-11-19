@@ -423,7 +423,6 @@ export default async function PublicProductDetail({ params }: Props) {
       <SimilarOffersRail title="Similar offers from other suppliers" titleId="similar-offers-heading">
         {similar.map(({ offer }) => <PublicProductCard key={offer.id} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(offer.id)}`}
             imagePath={offer.cardImagePath ?? offer.imagePaths[0]} name={offer.name} grades={cardTitleGrades(offer)} gradeRows={offer.gradeRows} moq={offer.moq}
-            priceUpdatedAt={offer.quantityOffer?.updatedAt}
             volumePricing={offer.quantityOffer?.hasVolumePricing}
             price={offer.price} incoterm={offer.incoterm} fob={offer.incoterm?.toUpperCase() === "FOB"} leadTimeDays={offer.leadTimeDays} leadTimeText={offer.leadTimeText}
             supplierName={offer.supplierName} supplierHref={`/suppliers/${encodeURIComponent(offer.supplierSlug || offer.supplierId)}`}
@@ -457,7 +456,6 @@ export default async function PublicProductDetail({ params }: Props) {
         {relatedProducts.map((related) => <li key={related.id} className="min-w-0">
           <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
             imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={cardTitleGrades(related)} gradeRows={related.gradeRows} moq={related.moq}
-            priceUpdatedAt={related.quantityOffer?.updatedAt}
               volumePricing={related.quantityOffer?.hasVolumePricing}
             price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays} leadTimeText={related.leadTimeText}
             supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
