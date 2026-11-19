@@ -6,6 +6,7 @@ import { repairAttachedBankMedia } from "@/lib/supplier-portal/bank-media";
 import { allowedSupplierCategories, categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { SUPPLIER_PLAN_LABELS, supplierPlanRules } from "@/lib/supplier-plans";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { SupplierProductStorefront } from "./product-storefront";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export default async function SupplierProductsPage() {
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
   const scope = allowedSupplierCategories(access.supplier, options, linked).map((c) => c.slug);
   const categoryLabels = Object.fromEntries(options.map((c) => [c.slug, c.label]));
-  const planRules = supplierPlanRules(access.supplier);
+  const planRules = supplierPlanRules(access.supplier, new Date(), await readPlanCatalog());
   return <SupplierProductStorefront
     plan={{ label: SUPPLIER_PLAN_LABELS[planRules.plan], max: planRules.maxProducts }}
     products={products}

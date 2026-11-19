@@ -13,6 +13,7 @@ import { buildVerificationProgress } from "@/lib/supplier-portal/verification-pr
 import { StorefrontVerificationActions } from "../verification-progress";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { supplierPlanRules } from "@/lib/supplier-plans";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { formatCertificateDate } from "@/lib/certificate-supplier-copy";
 import { hasOpenServiceRequest } from "@/lib/supplier-services";
 import { StorefrontPlanBadge, StorefrontUpgradeButton } from "@/components/supplier-portal/storefront-owner";
@@ -87,7 +88,8 @@ export default async function SupplierStorefrontPreviewPage() {
 
   const published = supplier.status === "published";
   const synthetic = isSyntheticSupplier(supplier);
-  const planRules = supplierPlanRules(supplier);
+  const planCatalog = await readPlanCatalog();
+  const planRules = supplierPlanRules(supplier, new Date(), planCatalog);
   // Hạn gói hiển thị theo ngày Việt Nam; CRM lưu 23:59:59 +07:00 của ngày hết hạn.
   const planExpiresOn = planRules.plan !== "basic" && supplier.plan_expires_at && Number.isFinite(Date.parse(supplier.plan_expires_at))
     ? formatCertificateDate(new Date(Date.parse(supplier.plan_expires_at) + 7 * 3_600_000).toISOString().slice(0, 10), locale === "en" ? "en" : "vi")
@@ -127,7 +129,7 @@ export default async function SupplierStorefrontPreviewPage() {
         className="absolute -right-2 -bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-white shadow-md ring-2 ring-white transition hover:bg-brand-800 disabled:opacity-60" />}
       verificationActions={<StorefrontVerificationActions progress={progress} />}
       nameAside={<StorefrontPlanBadge plan={planRules.plan} expiresOn={planExpiresOn} publicHref={publicHref} copy={copy.owner} />}
-      ownerActions={<StorefrontUpgradeButton plan={planRules.plan} expiresOn={planExpiresOn} requestOpen={upgradeRequestOpen} email={user.email} copy={copy.owner} />}
+      ownerActions={<StorefrontUpgradeButton plan={planRules.plan} catalog={planCatalog} expiresOn={planExpiresOn} requestOpen={upgradeRequestOpen} email={user.email} copy={copy.owner} />}
       avatarHint={<p className="mx-auto mt-2 w-32 text-center text-[11px] leading-4 opacity-80">
         <span className="block font-semibold">{avatarUrl ? copy.owner.avatarChange : copy.owner.avatarAdd}</span>{copy.owner.avatarHint}
       </p>}

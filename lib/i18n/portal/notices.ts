@@ -19,10 +19,12 @@ const en = {
   },
   plan: {
     paidTitle: "Your {plan} plan is active",
-    paidDetail: "You can list up to {max} products and use video and the premium supplier page.",
+    paidDetail: "You can list {limit} and use photos, video and the premium supplier page.",
+    limitUpTo: "up to {max} products",
+    limitNone: "unlimited products",
     paidUntil: " Valid until {date}.",
     basicTitle: "Your plan is now Basic",
-    basicDetail: "Products already listed stay visible. You can add new products while you have fewer than {max}.",
+    basicDetail: "Products already listed stay visible. Basic listings are text only, {limit}.",
   },
   onboardingApproved: {
     title: "Your supplier account is open",
@@ -106,10 +108,12 @@ const vi: NoticesMessages = {
   },
   plan: {
     paidTitle: "Gói {plan} đã được kích hoạt",
-    paidDetail: "Bạn đăng được tối đa {max} sản phẩm, dùng video và trang nhà cung cấp cao cấp.",
+    paidDetail: "Bạn đăng được {limit}, có hình ảnh, video và trang nhà cung cấp cao cấp.",
+    limitUpTo: "tối đa {max} sản phẩm",
+    limitNone: "không giới hạn sản phẩm",
     paidUntil: " Hiệu lực đến {date}.",
     basicTitle: "Gói của bạn đã chuyển về Basic",
-    basicDetail: "Sản phẩm đã đăng vẫn hiển thị. Bạn thêm được sản phẩm mới khi còn dưới {max} sản phẩm.",
+    basicDetail: "Sản phẩm đã đăng vẫn hiển thị. Tin gói Basic chỉ gồm nội dung chữ, {limit}.",
   },
   onboardingApproved: {
     title: "Tài khoản nhà cung cấp đã được mở quyền",

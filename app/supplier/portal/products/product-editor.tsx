@@ -78,6 +78,8 @@ type EditorProps = {
   /** Giấy chất lượng mà từng danh mục đang thừa hưởng (khoá = slug danh mục). */
   certificateInheritance?: Record<string, Array<{ id: string; name: string; scheme: string | null; validUntil: string | null }>>;
   supplier: Supplier;
+  /** Gói hiện tại được đăng ảnh/video; gói Basic là tin chữ (ảnh đã có vẫn giữ). */
+  mediaAllowed?: boolean;
   /** Chứng nhận Vexim đã duyệt gắn cho sản phẩm — bản xem trước hiện đúng những gì người mua thấy. */
   certificates?: Array<{ id: string; name: string; valid_until?: string | null }>;
   /** Trang có thể mở thẳng một bước bằng `?step=2` (sau khi tạo sản phẩm mới). */
@@ -226,7 +228,7 @@ function firstInvalidField(form: HTMLFormElement | null): HTMLElement | null {
  * Hành vi giữ nguyên: lưu qua `saveSupplierProductAction`, cảnh báo thay đổi chưa lưu,
  * tải/xoá tệp qua API riêng, nộp qua `submitSupplierProductAction`, khoá khi Vexim đang duyệt.
  */
-export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], bankMedia = [], userId, categories, categoryScope = [], supplier, certificates = [], certificateInheritance = {}, initialStep = 1, messages: copy, shared, statuses, lang }: EditorProps) {
+export function SupplierProductEditor({ product, quantityEditor, quantityPolicies, media = [], bankMedia = [], userId, categories, categoryScope = [], supplier, mediaAllowed = true, certificates = [], certificateInheritance = {}, initialStep = 1, messages: copy, shared, statuses, lang }: EditorProps) {
   const router = useRouter();
   const globalToast = useToast();
   const formRef = useRef<HTMLFormElement>(null);
@@ -304,11 +306,13 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     !pickedBank.includes(asset.id));
   /** Đã có ảnh dùng được chưa: sản phẩm đã lưu thì tính ảnh trên sản phẩm, sản phẩm mới tính ảnh đang chọn. */
   const hasAnyImage = product ? hasMedia : pickedImages.length > 0;
+  // Gói không có ảnh (Basic): tin chữ vẫn gửi duyệt được.
+  const imageOk = hasAnyImage || !mediaAllowed;
   /** Số ảnh đang hiện trong 6 ô, dùng cho nhãn mục và các dòng nhắc. */
   const shownImageCount = product ? imageCount : pickedImages.length;
   // Tải ảnh không cần sản phẩm đã tồn tại: ảnh vào kho ảnh của nhà cung cấp trước,
   // rồi gắn vào sản phẩm đúng lúc bấm Lưu (xem upload + pickedBank).
-  const canUpload = !locked && (!["approved", "paused"].includes(review) || product?.supplier_originated === true);
+  const canUpload = mediaAllowed && !locked && (!["approved", "paused"].includes(review) || product?.supplier_originated === true);
   // Ảnh tải lên đã chia sẻ cho người mua ngay, nên người tải lên luôn xoá được tệp của mình.
   const canDeleteAsset = (asset: MediaAsset) => canUpload && !!userId && asset.created_by === userId;
   const canDeleteDraft = !!product && review === "draft" && product.supplier_originated === true &&
@@ -338,7 +342,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const priceIssueCount = (quantityPreview ? (quantityPreview.grade.trim() ? 0 : 1) : 0) +
     (quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()) ? 1 : 0);
   /** Đủ nội dung để gửi duyệt: nút gửi tự lưu trước nên không đòi bản đã lưu. */
-  const submitReady = !!(snapshot.name ?? "").trim() && !!selectedCategory && hasDetails && hasAnyImage &&
+  const submitReady = !!(snapshot.name ?? "").trim() && !!selectedCategory && hasDetails && imageOk &&
     priceIssueCount === 0 && (!!product || !!quantityPreview);
   const catalogueAssets = media.filter((asset) => asset.kind !== "image");
   const basicFilled = [snapshot.name, snapshot.keywords, snapshot.description].filter((value) => (value ?? "").trim()).length;
@@ -363,7 +367,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     switch (id) {
       case "sec-category": return !selectedCategory;
       case "sec-basic": return !(snapshot.name ?? "").trim();
-      case "sec-media": return !hasAnyImage;
+      case "sec-media": return !imageOk;
       case "sec-price": return priceIssueCount > 0;
       default: return false;
     }
@@ -614,7 +618,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   function submitBlockers(): string[] {
     const blockers: string[] = [];
     if (!hasDetails) blockers.push(copy.blockers.details);
-    if (!hasAnyImage) blockers.push(copy.blockers.image);
+    if (!imageOk) blockers.push(copy.blockers.image);
     if (priceIssueCount > 0 && !quantityPreview?.grade.trim()) blockers.push(copy.blockers.grade);
     if (priceIssueCount > 0 && quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()))
       blockers.push(copy.blockers.price);
@@ -631,7 +635,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     if (blockers.length) {
       setSubmitHint(blockers);
       setToast(null);
-      if (!hasAnyImage) { scrollToSection("sec-media"); return; }
+      if (!imageOk) { scrollToSection("sec-media"); return; }
       if (!hasDetails) { scrollToSection("sec-basic"); return; }
       if (priceIssueCount > 0) { scrollToSection("sec-price"); return; }
       if (!selectedCategory) { scrollToSection("sec-category"); return; }
@@ -998,7 +1002,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     switch (id) {
       case "sec-category": return !!selectedCategory;
       case "sec-basic": return !!(snapshot.name ?? "").trim();
-      case "sec-media": return hasAnyImage;
+      case "sec-media": return imageOk;
       case "sec-spec": return !!((snapshot.spec ?? "").trim() || (snapshot.description ?? "").trim());
       case "sec-price": return product
         ? product.ref_price != null || !!quantityEditor
@@ -1153,6 +1157,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <section id="sec-media" data-form-section="sec-media" aria-label={copy.media.aria}
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="3" title={copy.media.title} pill={sectionPill("sec-media")} />
+            {!mediaAllowed && <p className="mx-3.5 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-950">
+              {copy.media.textOnlyPlan} <a href="/supplier/portal/storefront" className="font-semibold underline">{copy.media.textOnlyUpgrade}</a>
+            </p>}
             <div>
               {/* Ảnh đại diện đứng trước: người mua thấy ảnh này đầu tiên trong kết quả tìm kiếm. */}
               <Row label={copy.media.cover}>
@@ -1546,7 +1553,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               {([
                 { ok: hasDetails, label: copy.review.checkDetails,
                   action: fill(copy.review.goSection, { index: 2 }), run: () => scrollToSection("sec-basic") },
-                { ok: hasAnyImage, label: copy.review.checkImage,
+                { ok: imageOk, label: copy.review.checkImage,
                   action: fill(copy.review.goSection, { index: 3 }), run: () => scrollToSection("sec-media") },
                 { ok: priceIssueCount === 0 && (!!product || !!quantityPreview), label: copy.review.checkPrice,
                   action: fill(copy.review.goSection, { index: 5 }), run: () => scrollToSection("sec-price") },

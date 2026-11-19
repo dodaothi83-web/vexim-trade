@@ -33,6 +33,7 @@ import { getPortalMessages } from "@/lib/i18n/server";
 import type { ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 import { fill } from "@/lib/i18n/format";
 import { canAddSupplierProduct, isProductLimitError, SUPPLIER_PLAN_LABELS, supplierPlanRules } from "@/lib/supplier-plans";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 
 type Result = { ok: boolean; message: string; id?: string; warning?: boolean };
 const text = (form: FormData, key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
@@ -255,10 +256,11 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     } else {
       if (!newQuantity) return { ok: false, message: a.noQuantity };
       // Báo trước giới hạn gói; trigger CSDL vẫn chặn lần cuối nếu hai lần tạo cùng lúc.
-      const planRules = supplierPlanRules(access.supplier);
-      const planLimitMessage = fill(a.planLimit, { plan: SUPPLIER_PLAN_LABELS[planRules.plan], max: planRules.maxProducts });
+      const planCatalog = await readPlanCatalog();
+      const planRules = supplierPlanRules(access.supplier, new Date(), planCatalog);
+      const planLimitMessage = fill(a.planLimit, { plan: SUPPLIER_PLAN_LABELS[planRules.plan], max: planRules.maxProducts ?? 0 });
       const currentProducts = await store.listProductsBySupplier(access.supplier.id);
-      if (!canAddSupplierProduct(access.supplier, currentProducts.filter((p) => p.supplier_id === access.supplier.id).length))
+      if (!canAddSupplierProduct(access.supplier, currentProducts.filter((p) => p.supplier_id === access.supplier.id).length, new Date(), planCatalog))
         return { ok: false, message: planLimitMessage };
       const db = getSupabaseClient();
       if (!db) return { ok: false, message: a.dbPrice };
@@ -277,7 +279,8 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       // Ảnh trong kho ảnh được gắn vào sản phẩm vừa tạo, nên người bán tải ảnh
       // trước khi có sản phẩm mà không phải lưu nháp. Ảnh gắn vào là chung với người mua
       // (không còn bước duyệt ảnh); người mua chỉ thấy khi sản phẩm được đăng.
-      const bankIds = parseBankMediaIds(form.get("bank_media_ids"));
+      // Gói Basic là tin chữ: không gắn ảnh từ kho vào sản phẩm mới.
+      const bankIds = planRules.mediaAllowed ? parseBankMediaIds(form.get("bank_media_ids")) : [];
       let bankOrder = 0;
       for (const mediaId of bankIds) {
         if (bankOrder >= 6) break;
@@ -426,7 +429,9 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     if (!proposal || !options.some((c) => c.slug === proposal))
       return { ok: false, message: a.submitNeedCategory };
     const media = await store.listMedia("product", id);
-    if (!media.some((m) => m.kind === "image" && m.storage_path &&
+    // Gói không có ảnh (Basic) gửi duyệt tin chữ được.
+    const textOnly = !supplierPlanRules(access.supplier, new Date(), await readPlanCatalog()).mediaAllowed;
+    if (!textOnly && !media.some((m) => m.kind === "image" && m.storage_path &&
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {
       return { ok: false, message: a.submitNeedImage };
     }

@@ -6,7 +6,7 @@ import { Check, CheckCircle2, Clock3, Crown, ExternalLink, X } from "lucide-reac
 
 import { fill } from "@/lib/i18n/format";
 import type { StorefrontMessages } from "@/lib/i18n/portal/storefront";
-import { SUPPLIER_PLAN_LABELS, SUPPLIER_PLAN_RULES, SUPPLIER_PLANS, type SupplierPlan } from "@/lib/supplier-plans";
+import { formatVnd, SUPPLIER_PLAN_LABELS, SUPPLIER_PLANS, type SupplierPlan, type SupplierPlanCatalog } from "@/lib/supplier-plans";
 import { submitServiceRequestAction, type ServiceRequestResult } from "@/app/supplier/portal/services/actions";
 
 type OwnerCopy = StorefrontMessages["owner"];
@@ -42,8 +42,10 @@ export function StorefrontPlanBadge({ plan, expiresOn, publicHref, copy }: {
 }
 
 /** Nút "Nâng cấp gói" dưới link website; mở bảng so sánh gói và gửi yêu cầu nâng gói. */
-export function StorefrontUpgradeButton({ plan, expiresOn, requestOpen, email, copy }: {
+export function StorefrontUpgradeButton({ plan, catalog, expiresOn, requestOpen, email, copy }: {
   plan: SupplierPlan;
+  /** Tên, giá và quyền lợi từng gói, chỉnh trong CRM (/crm/plans). */
+  catalog: SupplierPlanCatalog;
   expiresOn: string | null;
   /** Đã có yêu cầu nâng gói chưa đóng: không gửi thêm. */
   requestOpen: boolean;
@@ -55,14 +57,6 @@ export function StorefrontUpgradeButton({ plan, expiresOn, requestOpen, email, c
   const [state, action, pending] = useActionState<ServiceRequestResult, FormData>(submitServiceRequestAction, null);
   useEffect(() => { if (state?.ok) router.refresh(); }, [state, router]);
   const rank = SUPPLIER_PLANS.indexOf(plan);
-  const features = (key: SupplierPlan) => {
-    const rules = SUPPLIER_PLAN_RULES[key];
-    return [
-      fill(copy.features.products, { max: rules.maxProducts }),
-      rules.premiumStorefront ? copy.features.premiumPage : copy.features.standardPage,
-      ...(rules.video ? [copy.features.video] : []),
-    ];
-  };
 
   return <>
     <button type="button" onClick={() => dialog.current?.showModal()}
@@ -71,7 +65,7 @@ export function StorefrontUpgradeButton({ plan, expiresOn, requestOpen, email, c
     </button>
     <dialog ref={dialog} aria-labelledby="storefront-plans-title"
       onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}
-      className="m-auto max-h-[92dvh] w-[min(94vw,880px)] max-w-none overflow-y-auto rounded-2xl bg-white p-5 text-ink-900 shadow-xl backdrop:bg-black/60 sm:p-7">
+      className="m-auto max-h-[92dvh] w-[min(94vw,960px)] max-w-none overflow-y-auto rounded-2xl bg-white p-5 text-ink-900 shadow-xl backdrop:bg-black/60 sm:p-7">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 id="storefront-plans-title" className="text-lg font-bold">{copy.plansTitle}</h2>
@@ -85,25 +79,34 @@ export function StorefrontUpgradeButton({ plan, expiresOn, requestOpen, email, c
         {SUPPLIER_PLANS.map((key, index) => {
           const current = key === plan;
           const higher = index > rank;
+          const entry = catalog[key];
           return <section key={key} aria-label={SUPPLIER_PLAN_LABELS[key]}
             className={`flex flex-col rounded-xl border p-4 ${current ? "border-brand-500 bg-brand-50/60 ring-1 ring-brand-500" : "border-ink-200"}`}>
             <div className="flex items-center justify-between gap-2">
               <h3 className="inline-flex items-center gap-1.5 text-base font-bold">
-                {key !== "basic" && <Crown className="size-4 text-amber-600" aria-hidden="true" />}{SUPPLIER_PLAN_LABELS[key]}
+                {key !== "basic" && <Crown className="size-4 text-amber-600" aria-hidden="true" />}{entry.name}
               </h3>
               {current && <span className="rounded-full bg-brand-700 px-2 py-0.5 text-[11px] font-bold text-white">{copy.current}</span>}
             </div>
             {current && expiresOn && <p className="mt-1 text-xs text-ink-600">{fill(copy.validUntil, { date: expiresOn })}</p>}
-            <ul className="mt-3 space-y-1.5 text-sm text-ink-700">
-              {features(key).map((item) => <li key={item} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />{item}</li>)}
+            <div className="mt-3 space-y-1">
+              {entry.prices.length === 0
+                ? <p className="text-xl font-bold text-ink-900">{entry.summary || copy.free}</p>
+                : entry.prices.map((price) => <p key={price.months} className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs font-semibold text-ink-600">{fill(copy.months, { months: price.months })}</span>
+                  <span className="text-lg font-bold tabular-nums text-ink-900">{formatVnd(price.price_vnd)}</span>
+                </p>)}
+            </div>
+            <ul className="mt-3 space-y-1.5 border-t border-ink-100 pt-3 text-sm text-ink-700">
+              {entry.features.map((item) => <li key={item} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />{item}</li>)}
             </ul>
             <div className="mt-auto pt-4">
               {higher && !requestOpen && <form action={action}>
                 <input type="hidden" name="service_key" value="plan_upgrade" />
-                <input type="hidden" name="note" value={fill(copy.requestNote, { plan: SUPPLIER_PLAN_LABELS[key] })} />
+                <input type="hidden" name="note" value={fill(copy.requestNote, { plan: entry.name || SUPPLIER_PLAN_LABELS[key] })} />
                 <button type="submit" disabled={pending || !!state?.ok}
                   className="w-full rounded-lg bg-brand-700 px-3 py-2 text-sm font-bold text-white transition hover:bg-brand-800 disabled:opacity-60">
-                  {fill(copy.request, { plan: SUPPLIER_PLAN_LABELS[key] })}
+                  {fill(copy.request, { plan: entry.name || SUPPLIER_PLAN_LABELS[key] })}
                 </button>
               </form>}
             </div>

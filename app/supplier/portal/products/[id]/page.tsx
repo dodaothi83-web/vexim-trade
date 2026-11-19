@@ -1,3 +1,5 @@
+import { supplierPlanRules } from "@/lib/supplier-plans";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
@@ -129,6 +131,7 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       breadcrumbs={<nav aria-label={copy.breadcrumbAria} className="flex min-w-0 items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="shrink-0 hover:text-brand-700">{copy.products}</Link><ChevronRight className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate font-semibold text-ink-800">{product.name}</span></nav>}
     />
     <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options}
+      mediaAllowed={supplierPlanRules(access.supplier, new Date(), await readPlanCatalog()).mediaAllowed}
       categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} initialStep={step}
       messages={m.productEditor.editor} shared={m.productEditor.shared} statuses={m.products.statuses} lang={locale} />
   </>;

@@ -42,6 +42,7 @@ import { VerificationPanel } from "./verification-panel";
 import { SupplierAccountControls } from "./account-controls";
 import { SupplierPlanControls } from "./plan-controls";
 import { effectiveSupplierPlan, isSupplierPlan } from "@/lib/supplier-plans";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -510,6 +511,7 @@ Chỉ nhân viên CRM thấy danh sách này. Chỉ nhà cung cấp được ch�
               expired={(supplier.plan ?? "basic") !== "basic" && effectiveSupplierPlan(supplier) === "basic"}
               productCount={products.filter((p) => p.supplier_id === id).length}
               canManage={canManage}
+              catalog={await readPlanCatalog()}
             />
           </Card>
           <Card className="p-4">

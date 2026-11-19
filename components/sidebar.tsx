@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   Boxes,
   BriefcaseBusiness,
+  Crown,
   FileCheck2,
   ListTodo,
   Globe2,
@@ -60,6 +61,7 @@ const NAV: {
   { href: "/crm/categories", label: "Danh mục sản phẩm", icon: FolderTree, perm: "categories.view", group: "marketplace" },
   { href: "/crm/sponsored", label: "Đẩy sản phẩm", icon: Megaphone, perm: "sponsored.view", group: "marketplace" },
   { href: "/crm/service-requests", label: "Yêu cầu dịch vụ", icon: BriefcaseBusiness, perm: "suppliers.view", group: "marketplace" },
+  { href: "/crm/plans", label: "Gói nhà cung cấp", icon: Crown, perm: "suppliers.view", group: "marketplace" },
   { href: "/crm/traffic", label: "Lưu lượng truy cập", icon: ChartNoAxesColumn, perm: "traffic.view", group: "marketplace" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
   { href: "/crm/buyers", label: "Người mua", icon: Globe2, perm: "buyers.view", group: "sales" },
