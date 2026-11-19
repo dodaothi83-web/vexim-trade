@@ -102,7 +102,7 @@ export function HomeProductFeed({
               name={p.name}
               grades={cardTitleGrades(p)}
               gradeRows={p.gradeRows}
-              stalePriceDays={p.quantityOffer?.stale ? p.quantityOffer.daysSinceConfirmed : undefined}
+              priceUpdatedAt={p.quantityOffer?.updatedAt}
               volumePricing={p.quantityOffer?.hasVolumePricing}
               moq={p.moq}
               price={p.price}

@@ -61,7 +61,6 @@ export interface PublicCategoryProduct {
   price: string | null;
   /** Only present in the opt-in, approved quantity pricing preview. */
   quantityOffer?: import("@/lib/products/quantity-public-projection").PublicQuantityOffer;
-  priceRankingEligible?: boolean;
   /** Số liệu thô để tính khoảng giá tham khảo; null khi giá chưa được phép công khai. */
   pricePoint: { value: number; highValue?: number | null; unit: string | null; currency: string | null; updatedAt: string | null } | null;
   /** Hồ sơ demo không được tham gia vào khoảng giá thị trường. */

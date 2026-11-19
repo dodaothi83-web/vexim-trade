@@ -306,16 +306,6 @@ export function formatQuantityPriceBuyer(pricePerKg: number, unit: "kg" | "mt", 
   return `${formatMoney(value, currency)}/${unit === "mt" ? "MT" : "kg"}`;
 }
 
-/** Unknown or future confirmation must not earn ranking/reference-price credit. */
-export function referencePriceAge(confirmedAt: string | null | undefined, now: number, staleAfterDays = 90): { days: number | null; stale: boolean } {
-  const timestamp = confirmedAt ? Date.parse(confirmedAt) : NaN;
-  if (!Number.isFinite(timestamp) || !Number.isFinite(now) || timestamp > now || !Number.isFinite(staleAfterDays) || staleAfterDays < 0) {
-    return { days: null, stale: true };
-  }
-  const age = now - timestamp;
-  return { days: Math.floor(age / 86_400_000), stale: age > staleAfterDays * 86_400_000 };
-}
-
 export type DraftOfferOptions = {
   priceUnit: "kg" | "mt";
   pricePubliclyVisible: boolean;
@@ -373,11 +363,8 @@ export function draftPublicQuantityOffer(
       to: tiers[index + 1] ? quantity(tiers[index + 1].minKg - 1) : null,
       price: `${formatMoney(tier.priceUsdPerKg * factor, tier.currency)}/${unit}${tier.incoterm !== incoterm ? ` ${tier.incoterm}` : ""}`,
     })) : [],
-    // Chưa duyệt nên không có ngày xác nhận và không đủ tư cách xếp hạng giá.
-    confirmedAt: null,
-    daysSinceConfirmed: null,
-    stale: false,
-    priceRankingEligible: false,
+    // Chưa lưu nên chưa có ngày cập nhật.
+    updatedAt: null,
     pricePoint: null,
   };
 }

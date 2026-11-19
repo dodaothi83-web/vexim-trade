@@ -98,11 +98,6 @@ function GradeCard({
         ) : (
           <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Range</span>
         )}
-        {range.stale && (
-          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-amber-700">
-            Over 45 days
-          </span>
-        )}
       </div>
 
       <p className="mt-1 text-[16px] font-bold tabular-nums tracking-tight text-ink-900">

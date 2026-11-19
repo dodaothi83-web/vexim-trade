@@ -12,7 +12,7 @@ import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-val
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: boolean; message: string };
 
-/** Staff submit a proposal, never overwrite a published price or impersonate the supplier. */
+/** Staff enter a price the supplier gave Vexim; like a supplier update, it applies at once. */
 export async function submitStaffQuantityPriceAction(form: FormData): Promise<Result> {
   try {
     const session = await getSession();
@@ -23,9 +23,7 @@ export async function submitStaffQuantityPriceAction(form: FormData): Promise<Re
       return { ok: false, message: "Không xác nhận được quyền quản lý sản phẩm." };
     }
     const id = String(form.get("product_id") ?? "");
-    const pendingRaw = form.get("expected_price_revision_id");
-    const pending = pendingRaw === null || pendingRaw === "" ? null : typeof pendingRaw === "string" && UUID.test(pendingRaw) ? pendingRaw : undefined;
-    if (!UUID.test(id) || pending === undefined) return { ok: false, message: "Phiên bản giá không hợp lệ." };
+    if (!UUID.test(id)) return { ok: false, message: "Sản phẩm không hợp lệ." };
     const product = await supabaseStore.getProduct(id);
     if (!product || !["draft", "approved", "changes_requested", "paused"].includes(product.supplier_review_status ?? "approved")) {
       return { ok: false, message: "Sản phẩm không ở trạng thái cho phép gửi bảng giá." };
@@ -65,22 +63,24 @@ export async function submitStaffQuantityPriceAction(form: FormData): Promise<Re
     }
     if (!checked.value) return { ok: false, message: checked.errors[0]?.message ?? "Bảng giá không hợp lệ." };
     const { data, error } = await db.rpc("submit_quantity_price_revision", {
-      p_product_id: id, p_supplier_id: product.supplier_id, p_expected_pending_id: pending,
+      p_product_id: id, p_supplier_id: product.supplier_id, p_expected_pending_id: null,
       p_expected_product_updated_at: product.updated_at, p_grade: checked.value.grade, p_incoterm: checked.value.incoterm,
       p_tiers: checked.value.tiers, p_warnings: checked.warnings,
     });
     if (error) throw new Error(error.message);
-    if (!data || typeof data !== "object" || data.status !== "pending" || typeof data.revision_id !== "string" || !UUID.test(data.revision_id)) {
+    // "pending" only while the database still runs the pre-20261127 function.
+    if (!data || typeof data !== "object" || !["approved", "pending"].includes(data.status) || typeof data.revision_id !== "string" || !UUID.test(data.revision_id)) {
       return { ok: false, message: "Phiên bản giá hoặc sản phẩm đã thay đổi. Hãy tải lại trang." };
     }
     await supabaseStore.addAuditLog({ actor_id: actor.id, actor_email: actor.email, entity: "product", entity_id: id,
-      action: "staff.quantity_price_revision_submitted", before: { pending_revision_id: pending },
+      action: "staff.quantity_price_updated", before: null,
       after: { revision_id: data.revision_id, warnings: checked.warnings.map((issue) => issue.code), supplier_confirmation_attested: product.price_publicly_visible === true },
     }).catch((error) => console.error("[quantity-pricing] staff submission audit", error));
     revalidatePath(`/crm/products/${id}/edit`);
     revalidatePath(`/supplier/portal/products/${id}`);
-    revalidatePath("/crm/products/quantity-review");
-    return { ok: true, message: "Đã gửi bảng giá vào hàng chờ Vexim xác nhận. Giá người mua hiện tại chưa thay đổi." };
+    revalidatePath("/products", "layout");
+    revalidatePath("/suppliers", "layout");
+    return { ok: true, message: "Đã cập nhật bảng giá." };
   } catch (error) {
     console.error("[quantity-pricing] staff submission", error);
     return { ok: false, message: "Không lưu được bảng giá. Kiểm tra kết nối và cấu hình trước khi thử lại." };

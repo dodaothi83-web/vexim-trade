@@ -11,7 +11,9 @@ import type { SupplierProduct } from "@/lib/types";
 
 export type QuantityEditorData = {
   productId: string; updatedAt: string; nameVi: string; nameEn: string;
-  pendingPriceId: string | null; pendingNameId: string | null; hasApprovedPrice: boolean; hasApprovedName: boolean;
+  pendingNameId: string | null; hasApprovedName: boolean;
+  /** Ngày bảng giá đang áp dụng được cập nhật lần cuối; null khi chưa có giá. */
+  priceUpdatedAt: string | null;
   grade: string; incoterm: string; currency: string; tiers: QuantityPricingInput["tiers"];
   /** Đơn vị bán của bảng giá đã lưu (kg khi chưa có bảng giá). */
   unit: SalesUnit;
@@ -29,15 +31,14 @@ export async function readQuantityEditorData(product: SupplierProduct): Promise<
   if (!category || category.status !== "published" || !category.is_published) throw new Error("Published category required");
   const [policy, priceResult, nameResult] = await Promise.all([
     readQuantityPricingPolicy(category.id),
-    db.from("product_quantity_price_revisions").select("id,status,grade,incoterm,tiers").eq("product_id", product.id).in("status", ["pending", "approved"]),
+    db.from("product_quantity_price_revisions").select("id,status,grade,incoterm,tiers,confirmed_at").eq("product_id", product.id).eq("status", "approved"),
     db.from("product_english_name_revisions").select("id,status,english_name").eq("product_id", product.id).in("status", ["pending", "approved"]),
   ]);
   if (priceResult.error || nameResult.error || !priceResult.data || !nameResult.data) throw new Error("Revision reads failed");
-  const pendingPrice = priceResult.data.find((row) => row.status === "pending") ?? null;
-  const approvedPrice = priceResult.data.find((row) => row.status === "approved") ?? null;
+  // Giá nhà cung cấp nhập là giá đang áp dụng: chỉ có một bảng "approved" cho mỗi sản phẩm.
+  const price = priceResult.data[0] ?? null;
   const pendingName = nameResult.data.find((row) => row.status === "pending") ?? null;
   const approvedName = nameResult.data.find((row) => row.status === "approved") ?? null;
-  const price = pendingPrice || approvedPrice;
   const rawTiers = Array.isArray(price?.tiers) ? price.tiers : [];
   const versioned = rawTiers.some((row: unknown) => !!row && typeof row === "object" && "version" in row);
   const revisionV2 = versioned ? readQuantityRevisionV2(rawTiers) : null;
@@ -62,8 +63,8 @@ export async function readQuantityEditorData(product: SupplierProduct): Promise<
   return {
     productId: product.id, updatedAt: product.updated_at, nameVi: product.name,
     nameEn: pendingName?.english_name || approvedName?.english_name || product.name_i18n?.en || "",
-    pendingPriceId: pendingPrice?.id ?? null, pendingNameId: pendingName?.id ?? null,
-    hasApprovedPrice: !!approvedPrice, hasApprovedName: !!approvedName,
+    pendingNameId: pendingName?.id ?? null, hasApprovedName: !!approvedName,
+    priceUpdatedAt: typeof price?.confirmed_at === "string" ? price.confirmed_at : null,
     grade: typeof price?.grade === "string" ? price.grade : "", incoterm: fallbackIncoterm, currency, unit,
     tiers, v2: revisionV2 ? { unit: revisionV2.unit, customGrade: revisionV2.customGrade, tiers: v2InputTiers(revisionV2) } : null,
     standardGrades: standardGradesForCategory(category), policy,

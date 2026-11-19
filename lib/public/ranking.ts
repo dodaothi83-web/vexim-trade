@@ -42,10 +42,8 @@ export interface RankableProductCard {
   quantityOffer?: { customGrade?: boolean };
   attributes: Record<string, string>;
   moq: string;
-  /** null khi giá đang bị cổng ẩn (hết hạn / mất consent / chưa opt-in). */
+  /** null khi giá đang bị cổng ẩn (chưa opt-in / nhà cung cấp chưa đồng ý chia sẻ giá). */
   price: string | null;
-  /** Explicitly false for an old but still displayed quantity-price offer. */
-  priceRankingEligible?: boolean;
   pricePoint: { value: number; unit: string | null; currency: string | null; updatedAt: string | null } | null;
   province: string;
   leadTimeDays: number | null;
@@ -80,7 +78,7 @@ export interface RankableCertificate {
 export interface RankingWeights {
   /** Tin cậy còn hiệu lực: số bước xác minh còn chứng cứ sống (evidenceValidSteps trên thẻ). */
   trustAlive: number;
-  /** Chào hàng còn giá trị: giá vẫn công khai nghĩa là còn hạn giá + consent ≤ 180 ngày. */
+  /** Chào hàng có giá: giá công khai (opt-in sản phẩm + nhà cung cấp đồng ý chia sẻ giá). */
   offerAlive: number;
   /** Độ khớp có cấu trúc với bộ lọc buyer đang áp (grade/tỉnh); không lọc thì tính việc đã khai grade. */
   structuredMatch: number;
@@ -161,14 +159,13 @@ export function trustAliveSignal(card: RankableProductCard): number {
 }
 
 /**
- * Chào hàng còn giá trị. Trường `price` chỉ khác null khi toàn bộ cổng giá đã
- * thoả: opt-in sản phẩm + consent NCC ≤ 180 ngày + price_valid_until còn hạn
- * (xem publicProductPrice trong lib/public/product-selection.ts). Giá theo số lượng
- * có thể vẫn hiển thị sau mốc 90 ngày; caller phải truyền priceRankingEligible=false
- * khi giá đó không còn được tính điểm. Hàm này không tự đọc đồng hồ.
+ * Chào hàng có giá công khai. Trường `price` chỉ khác null khi cổng giá đã thoả:
+ * opt-in sản phẩm + nhà cung cấp đồng ý chia sẻ giá (xem publicProductPrice trong
+ * lib/public/product-selection.ts). Giá không có hạn dùng theo thời gian: nhà cung
+ * cấp tự cập nhật, người mua thấy ngày cập nhật.
  */
 export function offerAliveSignal(card: RankableProductCard): number {
-  return card.price != null && card.priceRankingEligible !== false ? 1 : 0;
+  return card.price != null ? 1 : 0;
 }
 
 /**
@@ -194,7 +191,7 @@ export function structuredMatchSignal(card: RankableProductCard, context?: Ranki
 export function dataCompletenessSignal(card: RankableProductCard): number {
   const checks = [
     card.grade != null,
-    card.price != null && card.priceRankingEligible !== false,
+    card.price != null,
     !!card.moq && card.moq !== "On request",
     card.leadTimeDays != null,
     card.incoterm != null,

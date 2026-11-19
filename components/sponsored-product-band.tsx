@@ -120,7 +120,7 @@ function SponsoredBandCard({ item, categorySlug, comparisonEnabled }: { item: Sp
         name={product.name}
         grades={cardTitleGrades(product)}
         gradeRows={product.gradeRows}
-        stalePriceDays={product.quantityOffer?.stale ? product.quantityOffer.daysSinceConfirmed : undefined}
+        priceUpdatedAt={product.quantityOffer?.updatedAt}
               volumePricing={product.quantityOffer?.hasVolumePricing}
         moq={product.moq}
         price={product.price}

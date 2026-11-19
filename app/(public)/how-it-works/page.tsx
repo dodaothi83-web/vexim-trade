@@ -315,8 +315,8 @@ export default async function HowItWorksPage({
             </h3>
             <p className="mt-1 text-xs leading-relaxed text-ink-600">
               {isVi
-                ? "Giá hiển thị do nhà cung cấp cập nhật kèm thời hạn hiệu lực, chưa phải báo giá chốt đơn. Hãy xác nhận lại giá theo số lượng và lịch giao thực tế."
-                : "Shown prices are indicative quotes shared by suppliers within a valid date, not a binding offer. Confirm final pricing for your volume and shipment schedule."}
+                ? "Giá hiển thị do nhà cung cấp tự cập nhật, kèm ngày cập nhật gần nhất, chưa phải báo giá chốt đơn. Hãy xác nhận lại giá theo số lượng và lịch giao thực tế."
+                : "Shown prices are indicative quotes that suppliers keep up to date, with the date of the last update. They are not a binding offer. Confirm final pricing for your volume and shipment schedule."}
             </p>
           </div>
           <div>

@@ -32,7 +32,8 @@ export interface PublicComparedProduct {
   price: string | null;
   priceCurrency: string | null;
   priceUnit: string | null;
-  priceValidUntil: string | null;
+  /** Ngày nhà cung cấp cập nhật giá (YYYY-MM-DD); giá không có hạn dùng. */
+  priceUpdatedAt: string | null;
   moq: string;
   packaging: string | null;
   leadTimeDays: number | null;
@@ -111,8 +112,7 @@ export async function getPublicProductsForComparison(ids: readonly string[]): Pr
         ? safe(card.quantityOffer.currency)
         : card.price && card.pricePoint ? safe(card.pricePoint.currency) : null,
       priceUnit: card.quantityOffer && card.price ? safe(card.price.match(/\/(kg|MT|can|bottle|pack|box|carton)$/)?.[1]) : card.price && card.pricePoint ? safe(publicProductUnitDisplay(card.pricePoint.unit)) : null,
-      priceValidUntil: !card.quantityOffer && card.price && product.price_valid_until && /^\d{4}-\d{2}-\d{2}$/.test(product.price_valid_until)
-        ? product.price_valid_until : null,
+      priceUpdatedAt: card.quantityOffer?.updatedAt && card.price ? card.quantityOffer.updatedAt.slice(0, 10) : null,
       moq: safe(publicProductMoqDisplay(card.moq && card.moq !== "On request" ? card.moq : tradeEnglish?.moq)) ?? "Not provided",
       packaging: safe(publicProductPackagingDisplay(product.packaging_i18n?.en?.trim() || product.packaging)),
       leadTimeDays: card.leadTimeDays,

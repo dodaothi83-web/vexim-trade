@@ -28,7 +28,7 @@ export function comparisonPdfDefinition(products: PublicComparedProduct[], origi
   }
   section("Commercial terms");
   row("Reference price", (p) => p.price || "On request");
-  row("Price valid until", (p) => p.price ? value(p.priceValidUntil) : "On request");
+  row("Price updated", (p) => p.price ? value(p.priceUpdatedAt) : "On request");
   row("MOQ", (p) => value(p.moq));
   row("Packaging", (p) => value(p.packaging));
   row("Lead time", (p) => p.leadTimeText?.trim() || (p.leadTimeDays !== null ? `${p.leadTimeDays} days` : "On request"));

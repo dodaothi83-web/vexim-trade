@@ -1,4 +1,4 @@
-import { formatQuantityForUnit, normalizePriceCurrency, referencePriceAge, tierSalesUnit, type QuantityPriceTier } from "@/lib/products/quantity-pricing";
+import { formatQuantityForUnit, normalizePriceCurrency, tierSalesUnit, type QuantityPriceTier } from "@/lib/products/quantity-pricing";
 import { isWeightSalesUnit, normalizeSalesUnit, SALES_UNIT_LABELS, type SalesUnit } from "./sales-units.ts";
 import { formatMoney, priceCurrencySymbol, priceRangeText } from "./price-display.ts";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
@@ -23,10 +23,8 @@ export type PublicQuantityOffer = {
   customGrade?: boolean;
   moqUnit?: "kg" | "mt";
   tiers: Array<{ from: string; to: string | null; price: string }>;
-  confirmedAt: string | null;
-  daysSinceConfirmed: number | null;
-  stale: boolean;
-  priceRankingEligible: boolean;
+  /** Ngày nhà cung cấp cập nhật bảng giá gần nhất. Giá không có hạn dùng: người mua chỉ thấy ngày này. */
+  updatedAt: string | null;
   pricePoint: { value: number; highValue: number; currency: "USD"; unit: "kg" | "mt"; updatedAt: string } | null;
 };
 
@@ -72,8 +70,6 @@ export function projectApprovedQuantityOffer(input: {
   nameRevision: NameRevision | null;
   pricePubliclyVisible: boolean;
   priceUnit: "kg" | "mt";
-  now: number;
-  staleAfterDays: number;
 }): PublicQuantityOffer | null {
   const revision = input.priceRevision;
   if (!revision || revision.status !== "approved" || revision.product_id !== input.productId ||
@@ -89,8 +85,7 @@ export function projectApprovedQuantityOffer(input: {
   if (!grade) return null;
   // The grade is displayed as a separate label, never appended to the title.
   const title = approvedName || null;
-  const confirmedAt = typeof revision.confirmed_at === "string" && Number.isFinite(Date.parse(revision.confirmed_at)) ? revision.confirmed_at : null;
-  const age = referencePriceAge(confirmedAt, input.now, input.staleAfterDays);
+  const updatedAt = typeof revision.confirmed_at === "string" && Number.isFinite(Date.parse(revision.confirmed_at)) ? revision.confirmed_at : null;
   const visible = input.pricePubliclyVisible;
   if (v2) {
     const first = v2.tiers[0], last = v2.tiers[v2.tiers.length - 1];
@@ -106,9 +101,8 @@ export function projectApprovedQuantityOffer(input: {
         to: v2.tiers[index + 1] ? v2QuantityLabel(v2.tiers[index + 1].quantityGrams - 1, v2) : null,
         price: v2PriceLabel(tier.priceCentsPerUnit, v2.unit),
       })) : [],
-      confirmedAt: visible ? confirmedAt : null, daysSinceConfirmed: visible ? age.days : null,
-      stale: visible && age.stale, priceRankingEligible: visible && !age.stale,
-      pricePoint: visible && !age.stale && confirmedAt ? { value: v2PriceUsdPerKg(last) * kgFactor, highValue: v2PriceUsdPerKg(first) * kgFactor, currency: "USD", unit: input.priceUnit, updatedAt: confirmedAt } : null,
+      updatedAt: visible ? updatedAt : null,
+      pricePoint: visible && updatedAt ? { value: v2PriceUsdPerKg(last) * kgFactor, highValue: v2PriceUsdPerKg(first) * kgFactor, currency: "USD", unit: input.priceUnit, updatedAt } : null,
     };
   }
   if (!tiers) return null;
@@ -134,11 +128,8 @@ export function projectApprovedQuantityOffer(input: {
       to: tiers[index + 1] ? quantity(tiers[index + 1].minKg - 1) : null,
       price: `${formatMoney(tier.priceUsdPerKg * factor, tier.currency)}/${unitLabel}${tier.incoterm !== incoterm ? ` ${tier.incoterm}` : ""}`,
     })) : [],
-    confirmedAt: visible ? confirmedAt : null,
-    daysSinceConfirmed: visible ? age.days : null,
-    stale: visible && age.stale,
-    priceRankingEligible: visible && !age.stale,
+    updatedAt: visible ? updatedAt : null,
     // Price points feed kg/MT category ranges; a per-can price would distort them.
-    pricePoint: visible && !age.stale && confirmedAt && byWeight ? { value: low * factor, highValue: high * factor, currency: "USD", unit: input.priceUnit, updatedAt: confirmedAt } : null,
+    pricePoint: visible && updatedAt && byWeight ? { value: low * factor, highValue: high * factor, currency: "USD", unit: input.priceUnit, updatedAt } : null,
   };
 }

@@ -1213,7 +1213,7 @@ function CategoryEditor({
                     </div>
                   </Field>
                   <p className="mt-2 text-xs leading-relaxed text-ink-500">
-                    Khoảng giá tham khảo trên trang danh mục chỉ hiện khi có ít nhất 3 sản phẩm công khai giá còn hiệu lực.
+                    Khoảng giá tham khảo trên trang danh mục chỉ hiện khi có ít nhất 3 sản phẩm công khai giá.
                   </p>
                 </div>
 

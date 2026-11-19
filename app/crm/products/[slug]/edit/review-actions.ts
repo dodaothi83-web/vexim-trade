@@ -13,7 +13,6 @@ import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-se
 import { productTranslationPatch } from "@/lib/ai/translate-content";
 import { sanitizeProductDescriptionForSave } from "@/lib/products/product-description";
 import { productPublicationMediaState } from "@/lib/media/readiness";
-import { describePriceContextChanges, readPriceContextDiff } from "@/lib/products/price-context-diff";
 import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 
@@ -87,13 +86,6 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       }
     }
     const previous = { review: product.supplier_review_status ?? null, category: product.reviewed_category_slug, ready: product.ready_for_buyer };
-    const cleanedSpecs = product.specs && typeof product.specs === "object" && "price_review_summary" in product.specs
-      ? (() => {
-          const rest = { ...product.specs };
-          delete rest.price_review_summary;
-          return rest;
-        })()
-      : undefined;
     const db = getSupabaseClient();
     let updated: SupplierProduct | null;
     if (db) {
@@ -108,18 +100,7 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
         p_expected_review: previous.review, p_expected_ready: previous.ready, p_decision: decision,
         p_category: reviewedCategory, p_note: note || null, p_actor_id: actor.id,
       });
-      if (error || !data) return { ok: false, message: "Chưa kiểm tra được bảng giá trước khi đăng. Thử lại sau ít phút." };
-      // Bảng giá đầu tiên được duyệt cùng sản phẩm; chỉ bảng giá cập nhật mới có bước duyệt riêng.
-      if (data.status === "price_not_approved") return { ok: false, message: "Sản phẩm chưa có bảng giá nào để duyệt cùng. Nhập bảng giá ngay trên trang này rồi duyệt lại." };
-      if (data.status === "price_changed") {
-        // Nói rõ trường nào lệch để người duyệt sửa đúng chỗ, và nhắc rằng họ tự chốt
-        // giá được thay vì phải chờ nhà cung cấp gửi lại bảng giá.
-        const diff = await readPriceContextDiff(id);
-        const changed = diff && diff.changed.length ? ` Lệch ở: ${describePriceContextChanges(diff.changed)}.` : "";
-        return { ok: false, message: `Thông tin sản phẩm đã đổi sau khi duyệt giá.${changed} Chốt lại giá ở mục Giá và điều kiện thương mại rồi duyệt lại.` };
-      }
-      if (data.status === "category_changed")
-        return { ok: false, message: "Danh mục đang chọn khác danh mục của bảng giá. Chọn lại đúng danh mục, hoặc chốt lại giá theo danh mục mới." };
+      if (error || !data) return { ok: false, message: "Chưa lưu được quyết định. Thử lại sau ít phút." };
       updated = data.status === "saved" && data.product ? data.product as SupplierProduct : null;
     } else {
       updated = await store.updateSupplierProductIfState(id, product.supplier_id,
@@ -128,7 +109,6 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
           supplier_review_note: decision === "approved" ? null : note, ready_for_buyer: decision === "approved",
           reviewed_category_slug: decision === "approved" ? reviewedCategory : (product.reviewed_category_slug ?? null),
           ...(reviewedCategory ? { category: reviewedCategory } : {}),
-          ...(decision === "approved" && cleanedSpecs ? { specs: cleanedSpecs } : {}),
         });
     }
     if (!updated) return { ok: false, message: "Trạng thái sản phẩm đã thay đổi. Hãy tải lại trang trước khi xét duyệt." };

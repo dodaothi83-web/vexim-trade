@@ -1352,8 +1352,8 @@ export async function updateSupplierAction(
       const [reviews, submissions] = await Promise.all([store.listVerifications(id), store.listSubmissions(id)]);
       if (reviews.length || submissions.length) return { ok: false, message: "Hồ sơ đã có lịch sử xác minh nên không đổi được mã số thuế. Tạo hồ sơ mới cho pháp nhân khác và giữ hồ sơ cũ." };
     }
-    // Không tự cấp lại quyền công khai giá khi chỉ sửa hồ sơ. Chỉ một lần xác nhận
-    // mới (bật từ trạng thái tắt, hoặc checkbox được chọn lại) gia hạn thêm 180 ngày.
+    // Không tự cấp quyền công khai giá khi chỉ sửa hồ sơ. Chỉ một lần xác nhận mới
+    // (bật từ trạng thái tắt) ghi ngày đồng ý; sự đồng ý không có hạn dùng.
     if (!Object.hasOwn(raw, "fob_publicly_visible")) {
       input.fob_publicly_visible = existing.fob_publicly_visible ?? false;
       input.fob_updated_at = existing.fob_updated_at ?? null;
@@ -1668,8 +1668,7 @@ export async function updateProductAction(
     // xoá trắng, và không lấy tên từ payload.
     input.display_name = existing.display_name ?? null;
     const existingDescriptionDetail = sanitizeProductDescriptionHtml(existing.description_detail) || null;
-    // Do not migrate legacy text to HTML during an unrelated form save: quantity
-    // price approval compares the stored product context byte-for-byte. Preserve
+    // Do not migrate legacy text to HTML during an unrelated form save. Preserve
     // the stored value when sanitizing both sides yields the same description.
     const descriptionDetailChanged = input.description_detail !== existingDescriptionDetail;
     if (!descriptionDetailChanged) input.description_detail = existing.description_detail ?? null;

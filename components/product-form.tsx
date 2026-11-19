@@ -78,7 +78,6 @@ function init(p?: SupplierProduct | null): FormState {
     ref_price_max: p?.ref_price_max ?? "",
     price_publicly_visible: p?.price_publicly_visible ?? false,
     currency: p?.currency ?? "USD",
-    price_valid_until: p?.price_valid_until ?? "",
     incoterm: p?.incoterm ?? "FOB",
     incoterm_place: p?.incoterm_place ?? "",
     payment_terms: p?.payment_terms ?? "",
@@ -658,12 +657,9 @@ export function ProductForm({
             )}
           </div>
           <p className="mt-0.5 mb-4 text-xs text-ink-600">
-            Quyền chia sẻ giá là đồng ý chung của nhà cung cấp, hiệu lực 180 ngày. Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
+            Quyền chia sẻ giá là đồng ý chung của nhà cung cấp, giữ hiệu lực tới khi tắt. Giá chỉ hiện khi <strong>riêng sản phẩm này</strong> cũng được chọn, có giá hợp lệ và đủ điều kiện công bố; đây không phải báo giá RFQ.
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {!product && <Field label="Giá hiệu lực đến">
-              <input type="date" className="input" value={v("price_valid_until")} onChange={(e) => set("price_valid_until", e.target.value)} />
-            </Field>}
             <Field label="Địa điểm Incoterm" hint="VD: FOB Cát Lái, Incoterms 2020">
               <input
                 className="input"
