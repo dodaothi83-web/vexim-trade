@@ -102,7 +102,6 @@ export function HomeProductFeed({
               name={p.name}
               grades={cardTitleGrades(p)}
               gradeRows={p.gradeRows}
-              priceUpdatedAt={p.quantityOffer?.updatedAt}
               volumePricing={p.quantityOffer?.hasVolumePricing}
               moq={p.moq}
               price={p.price}

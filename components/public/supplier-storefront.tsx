@@ -219,7 +219,6 @@ export function SupplierStorefront({
                 name={productName} grades={cardTitleGrades(approvedForm)} gradeRows={approvedForm.gradeRows}
                 moq={approvedForm.moq} price={synthetic ? null : approvedForm.price} incoterm={approvedForm.incoterm}
                 fob={approvedForm.incoterm?.toUpperCase() === "FOB"} volumePricing={approvedForm.quantityOffer?.hasVolumePricing}
-                priceUpdatedAt={approvedForm.quantityOffer?.updatedAt}
                 leadTimeDays={approvedForm.leadTimeDays} leadTimeText={approvedForm.leadTimeText} supplierName={name}
                 supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
                 verificationSteps={steps} l2Scope={l2Scope} certificates={productCertificates[p.id]} test={synthetic} linkable={productLinks} />
