@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
+import { notifyIndexNow } from "@/lib/seo/indexnow";
 import { nextStatusOptions, statusMeta } from "@/lib/supplier";
 import type { SupplierStatus } from "@/lib/types";
 
@@ -30,6 +31,9 @@ export async function decideSupplierPublicationAction(id: string, status: Suppli
     revalidatePath(`/crm/suppliers/${id}`);
     revalidatePath("/crm/suppliers");
     revalidatePath("/");
+    if ((status === "published") !== (supplier.status === "published") && !supplier.is_demo) {
+      notifyIndexNow([`/suppliers/${(supplier.slug ?? "").trim() || supplier.id}`]);
+    }
     return { ok: true, message: `Đã chuyển sang ${statusMeta(status).label}.` };
   } catch (error) {
     console.error("[supplier-publication] decision failed", error);

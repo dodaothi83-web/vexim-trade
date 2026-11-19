@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { refreshCrmBadges } from "@/lib/crm/badges";
 
 import { dataStatus, getStore, resetSupabaseHealth, supabaseProbe } from "@/lib/db";
+import { notifyIndexNow } from "@/lib/seo/indexnow";
 import { categorySchemaError } from "@/lib/db/category-schema-error";
 import { saveProductAttributes, validateProductFields } from "@/lib/product-attributes";
 import { sanitizeProductDescriptionForSave, sanitizeProductDescriptionHtml } from "@/lib/products/product-description";
@@ -2841,6 +2842,10 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
       after: pickForAudit(updated),
     });
     revalidateAll();
+    // Danh mục đang công khai và (đã hoặc vừa) mở index: báo IndexNow, gồm slug cũ nếu đổi slug.
+    if (wasPublished && (existing.seo_indexable || updated.seo_indexable)) {
+      notifyIndexNow([`/products/${updated.slug}`, existing.slug !== updated.slug ? `/products/${existing.slug}` : null]);
+    }
     return { ok: true, message: "Đã lưu danh mục." };
   } catch (err) {
     return { ok: false, message: categorySchemaError(err) ?? (err instanceof Error ? err.message : "Lỗi") };

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
+import { notifyIndexNow } from "@/lib/seo/indexnow";
 
 /** Only public visibility may change; category copy and filters remain with the preparer. */
 export async function decideCategoryPublicationAction(id: string, publish: boolean) {
@@ -36,6 +37,8 @@ export async function decideCategoryPublicationAction(id: string, publish: boole
     revalidatePath("/crm/categories");
     revalidatePath("/");
     revalidatePath(`/products/${category.slug}`);
+    // Báo cả khi ẩn: máy tìm kiếm quét lại sẽ thấy trang đã gỡ.
+    if (category.seo_indexable) notifyIndexNow([`/products/${category.slug}`]);
     return { ok: true, message: publish ? "Đã công khai danh mục." : "Đã ẩn danh mục khỏi trang công khai." };
   } catch (error) {
     console.error("[category-publication] decision failed", error);
