@@ -53,6 +53,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { sanitizeHtml } from "@/lib/public/sanitize";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { safeJsonLd } from "@/lib/public/supplier-seo";
+import { categoryShareImage, productImageUrl } from "@/lib/public/seo-images";
 import {
   CATEGORY_CHOSEN_SUPPLIER_COMPLEMENT,
   CATEGORY_META_SUFFIX,
@@ -206,8 +207,13 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const seoTitle = categorySeoTitle(name, t(cat.seo_title_i18n, "", lang), isVi);
   const seoDesc = categoryMetaDescription(name, t(cat.seo_desc_i18n, "", lang), isVi);
   const indexable = !isPreview && !!cat.seo_indexable;
-  const heroImage = cat.hero_image || "/images/home/hero-cashew-texture.jpg";
-  const images = [{ url: heroImage, alt: `${name} products and verified suppliers in Vietnam` }];
+  // Ảnh chia sẻ: ảnh hero của CMS → ảnh sản phẩm thật đầu tiên → ảnh trung tính.
+  // Trước đây mọi danh mục thiếu hero đều dùng ảnh hạt điều, nên trang trái cây
+  // cấp đông cũng hiện ảnh hạt điều trên mạng xã hội và với các hệ thống AI.
+  const shareProducts = cat.hero_image ? [] : await listPublicCategoryProducts(cat).catch(() => []);
+  const heroImage = categoryShareImage(cat.hero_image, shareProducts);
+  const heroAlt = t(cat.hero_alt_i18n, "", lang) || (isVi ? `${name} và nhà cung cấp đã xác minh tại Việt Nam` : `${name} products and verified suppliers in Vietnam`);
+  const images = [{ url: heroImage, alt: heroAlt }];
   // Trang hai trở đi tự trỏ canonical về chính nó; bản tiếng Việt (?lang=vi) cũng tự trỏ
   // về chính nó (giữ lang=vi) thay vì gập về bản tiếng Anh, để hreflang khai đúng cặp URL.
   const canonicalPath = categoryPath(resolvedSlug, { page, lang: isVi ? "vi" : undefined });
@@ -467,6 +473,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     itemListElement: visibleProducts.map((p, index) => ({
       "@type": "ListItem", position: index + 1, name: p.name,
       url: `${SITE_URL}/products/${encodeURIComponent(cat.slug)}/${encodeURIComponent(p.id)}`,
+      ...(productImageUrl(p) ? { image: productImageUrl(p) } : {}),
     })),
   } : null;
 

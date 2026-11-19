@@ -6,6 +6,7 @@ import { getPublicSupplierBySlug, type PublicSupplierCard } from "@/lib/public/c
 import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, listCachedPublicSuppliers } from "@/lib/public/product-catalog";
 import { hasTranslation } from "@/lib/public/i18n";
 import { supplierProfileIndexable } from "@/lib/public/supplier-seo";
+import { publicMediaPath, sitemapImages } from "@/lib/public/seo-images";
 import { SITE_URL } from "@/lib/site";
 
 /** Làm mới danh sách sau tối đa 60 giây */
@@ -84,11 +85,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       return { slug: c.slug, products: products.filter((p) => !p.isDemo && p.id) };
     }),
   );
+  // Image sitemap: chỉ ảnh sản phẩm buyer-shareable (đã qua cổng /public-media) của
+  // sản phẩm thật, để máy tìm kiếm và hệ thống AI lấy được ảnh kèm đúng trang.
+  const productImagePaths = (p: { cardImagePath?: string | null; imagePaths?: string[]; isDemoSupplier?: boolean }) =>
+    p.isDemoSupplier ? [] : [p.cardImagePath, ...(p.imagePaths ?? [])].filter((x): x is string => !!x).map(publicMediaPath);
+  const categoryImages = new Map(categoryProductLists.map(({ slug, products }) => [
+    slug,
+    sitemapImages([
+      indexableCategories.find((c) => c.slug === slug)?.hero_image,
+      ...products.slice(0, 9).map((p) => productImagePaths(p)[0]),
+    ]),
+  ]));
   const productRoutes: MetadataRoute.Sitemap = categoryProductLists.flatMap(({ slug, products }) =>
-    products.map((product) => ({
+    products.map((product) => ({ product, images: sitemapImages(productImagePaths(product)) })).map(({ product, images }) => ({
       url: `${SITE_URL}/products/${encodeURIComponent(slug)}/${encodeURIComponent(product.id)}`,
       changeFrequency: "weekly" as const,
       priority: 0.65,
+      ...(images.length ? { images } : {}),
     })),
   );
 
@@ -126,6 +139,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.7,
+      ...(categoryImages.get(c.slug)?.length ? { images: categoryImages.get(c.slug) } : {}),
       // Trang danh mục dựng bản tiếng Việt qua ?lang=vi khi category đã có bản dịch
       // trong CMS (xem app/(public)/products/[slug]/page.tsx). Chỉ khai alternate
       // `vi` khi bản dịch đó tồn tại thật, cùng điều kiện với metadata của trang —

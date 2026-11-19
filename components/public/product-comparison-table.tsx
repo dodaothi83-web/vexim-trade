@@ -111,7 +111,7 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
                     <Link href={product.href} target="_blank" rel="noopener noreferrer" aria-label={`${product.name} (opens in a new tab)`} className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-ink-300 ring-1 ring-ink-200 sm:size-16">
                       {product.imagePath ? <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={`/public-media/${product.imagePath}`} alt="" className="h-full w-full object-cover" />
+                        <img src={`/public-media/${product.imagePath}`} alt={product.name} className="h-full w-full object-cover" />
                       </> : <ImageIcon className="size-6" aria-hidden="true" />}
                     </Link>
                     <div className="w-full min-w-0 flex-1 sm:w-auto">
