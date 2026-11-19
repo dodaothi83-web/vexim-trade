@@ -293,14 +293,17 @@ export default async function PublicProductDetail({ params }: Props) {
               <div className="min-w-0 flex-1">
                 <h2 id="supplier-card-title" className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">Supplied by</h2>
                 <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" className="mt-1 block break-words text-base font-bold leading-6 text-ink-900 hover:text-brand-800">{card.supplierName}</Link>
-                <div className="mt-2"><VerificationTierBadge levels={card.verificationSteps} /></div>
+                {/* Website nằm cùng hàng với dấu xác minh; hết chỗ thì tự xuống dòng. */}
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <VerificationTierBadge levels={card.verificationSteps} />
+                  <SupplierWebsiteLink website={supplierWebsite} plain className="min-h-8" />
+                </div>
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-ink-600">
               <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-brand-700" />{publicProductLocationDisplay(card.province)}</span>
               {card.supplierFoundedYear && <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-brand-700" />Founded {card.supplierFoundedYear}</span>}
             </div>
-            <SupplierWebsiteLink website={supplierWebsite} className="mt-4" />
           </div>
           <div className="p-5">
             <div className="flex items-center justify-between gap-3">
