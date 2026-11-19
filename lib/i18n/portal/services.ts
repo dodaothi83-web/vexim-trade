@@ -34,6 +34,11 @@ const en = {
       body: "Consulting and paperwork for exporting food to the United States.",
       fit: "You plan to sell to the US or need FDA registration renewed.",
     },
+    plan_upgrade: {
+      title: "Premium or Pro plan",
+      body: "More product listings, product video and a premium supplier page with image content.",
+      fit: "You need more than 5 products or want your page to stand out to buyers.",
+    },
   },
   mine: {
     title: "My requests",
@@ -98,6 +103,11 @@ const vi: ServicesMessages = {
       title: "Tuân thủ FDA Hoa Kỳ",
       body: "Tư vấn và hỗ trợ hồ sơ để xuất khẩu thực phẩm sang Hoa Kỳ.",
       fit: "Bạn định bán sang Mỹ hoặc cần gia hạn đăng ký FDA.",
+    },
+    plan_upgrade: {
+      title: "Gói Premium hoặc Pro",
+      body: "Đăng thêm sản phẩm, có video sản phẩm và trang nhà cung cấp cao cấp với nội dung hình ảnh.",
+      fit: "Bạn cần đăng hơn 5 sản phẩm hoặc muốn trang của mình nổi bật với người mua.",
     },
   },
   mine: {

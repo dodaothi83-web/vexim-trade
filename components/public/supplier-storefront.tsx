@@ -64,8 +64,14 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
 export function SupplierStorefront({
   supplier: s, certificates, productCertificates = {}, categories, coverUrl, avatarUrl, synthetic,
   productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1", reportAction,
-  showcaseImageUrl,
+  showcaseImageUrl, nameAside, ownerActions, avatarHint,
 }: {
+  /** Chỉ cổng nhà cung cấp: badge gói + nút xem trang, đặt cạnh tên công ty. */
+  nameAside?: ReactNode;
+  /** Chỉ cổng nhà cung cấp: nút nâng cấp gói, đặt dưới link website. */
+  ownerActions?: ReactNode;
+  /** Chỉ cổng nhà cung cấp: nhãn và kích thước gợi ý dưới ảnh đại diện. */
+  avatarHint?: ReactNode;
   /** Đường dẫn ảnh khối nội dung; cổng nhà cung cấp dùng bản xem trước có đăng nhập. */
   showcaseImageUrl?: (path: string) => string;
   /** Nút tải báo cáo xác minh nhà máy (PDF) cho từng mã báo cáo; trang công khai truyền vào. */
@@ -141,6 +147,9 @@ export function SupplierStorefront({
       avatarUrl={avatarUrl}
       coverAction={coverAction}
       avatarAction={avatarAction}
+      avatarHint={avatarHint}
+      nameAside={nameAside}
+      ownerActions={ownerActions}
       showcase={showcase}
       imageUrl={showcaseImageUrl ?? mediaUrl}
     /> : <>
@@ -150,17 +159,25 @@ export function SupplierStorefront({
         {coverAction}
       </div>}
       <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:gap-6 sm:p-8">
-        <div className="relative shrink-0">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-ink-200 bg-ink-50 text-3xl font-bold text-ink-400 sm:h-24 sm:w-24">
-            {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : name.slice(0, 1).toUpperCase()}
+        <div className="flex w-fit shrink-0 flex-col items-center">
+          <div className="relative w-fit">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-ink-200 bg-ink-50 text-3xl font-bold text-ink-400 sm:h-24 sm:w-24">
+              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : name.slice(0, 1).toUpperCase()}
+            </div>
+            {avatarAction}
           </div>
-          {avatarAction}
+          {avatarHint}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}</span>
             {s.private_label && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">Private label stated</span>}
           </div>
-          <NameTag id="supplier-name" className="mt-2 break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>
+          {nameAside
+            ? <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <NameTag id="supplier-name" className="break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>
+              {nameAside}
+            </div>
+            : <NameTag id="supplier-name" className="mt-2 break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>}
           <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-600">
             {supplierProvinceDisplay(s) && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-brand-700" />{safe(supplierProvinceDisplay(s))}, Vietnam</span>}
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
@@ -181,6 +198,7 @@ export function SupplierStorefront({
           {!rfqActions && !synthetic && <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
           {!synthetic && chatAction}
           {!synthetic && <SupplierWebsiteLink website={s.website} plain className="justify-center sm:max-w-64" />}
+          {ownerActions}
         </div>
       </div>
     </section>

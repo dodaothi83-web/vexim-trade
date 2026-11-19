@@ -24,7 +24,7 @@ export type ServiceInquiryLang = "en" | "vi";
 export interface ServiceInquiryInput {
   /** Ngôn ngữ khách dùng trên form */
   lang: ServiceInquiryLang;
-  /** Mã dịch vụ do form gửi lên (free_listing, international_website, featured_ads, fda_compliance) */
+  /** Mã dịch vụ do form gửi lên (free_listing, international_website, featured_ads, fda_compliance, plan_upgrade) */
   serviceKey: string;
   /** Tiêu đề dịch vụ dự phòng khi mã không nằm trong danh mục */
   serviceTitle?: string;
@@ -57,6 +57,10 @@ export const SERVICE_TITLES: Record<string, { vi: string; en: string }> = {
     vi: "Tuân thủ pháp lý FDA",
     en: "US FDA regulatory compliance",
   },
+  plan_upgrade: {
+    vi: "Nâng gói Premium/Pro",
+    en: "Premium or Pro plan upgrade",
+  },
 };
 
 /** Tên ngắn dùng trong tiêu đề email — đọc gọn trong hộp thư. */
@@ -65,6 +69,7 @@ const SERVICE_DESK_LABELS: Record<string, { vi: string; en: string }> = {
   international_website: { vi: "website thương mại quốc tế", en: "international trade website" },
   featured_ads: { vi: "quảng cáo nổi bật", en: "featured placement" },
   fda_compliance: { vi: "tư vấn FDA", en: "US FDA compliance" },
+  plan_upgrade: { vi: "nâng gói", en: "plan upgrade" },
 };
 
 /** Bước tiếp theo riêng cho từng dịch vụ, để thư xác nhận không nói chung chung. */
@@ -84,6 +89,10 @@ const SERVICE_NEXT_STEP: Record<string, { vi: string; en: string }> = {
   fda_compliance: {
     vi: "Chuyên viên sẽ rà xem sản phẩm của bạn cần bước nào trước: đăng ký cơ sở, U.S. Agent, nhãn hàng hoá, FSVP hay Prior Notice.",
     en: "We will check which step your products need first: facility registration, U.S. Agent, labelling, FSVP or Prior Notice.",
+  },
+  plan_upgrade: {
+    vi: "Chuyên viên sẽ liên hệ để xác nhận gói bạn chọn, thời hạn và cách thanh toán, rồi bật gói cho tài khoản của bạn.",
+    en: "We will contact you to confirm the plan, period and payment, then switch the plan on for your account.",
   },
 };
 

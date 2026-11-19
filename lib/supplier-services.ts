@@ -6,7 +6,8 @@
  *
  * Tệp không import gì để script kiểm tra nạp thẳng bằng Node.
  */
-export const SUPPLIER_SERVICE_KEYS = ["international_website", "featured_ads", "fda_compliance"] as const;
+/** plan_upgrade: yêu cầu nâng gói Premium/Pro, gửi từ "Trang của tôi" hoặc trang Dịch vụ. */
+export const SUPPLIER_SERVICE_KEYS = ["international_website", "featured_ads", "fda_compliance", "plan_upgrade"] as const;
 export type SupplierServiceKeyValue = (typeof SUPPLIER_SERVICE_KEYS)[number];
 
 export const SUPPLIER_SERVICE_STATUSES = ["submitted", "in_consultation", "quoted", "closed"] as const;
@@ -35,6 +36,7 @@ export const SUPPLIER_SERVICE_LABELS_VI: Record<SupplierServiceKeyValue, string>
   international_website: "Website xuất khẩu",
   featured_ads: "Quảng cáo nổi bật",
   fda_compliance: "Tuân thủ FDA Hoa Kỳ",
+  plan_upgrade: "Nâng gói Premium/Pro",
 };
 
 export const SUPPLIER_SERVICE_STATUS_LABELS_VI: Record<SupplierServiceStatusValue, string> = {
