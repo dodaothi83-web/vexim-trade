@@ -68,6 +68,10 @@ export const metadata: Metadata = {
     ],
     apple: { url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" },
   },
+  // Xác minh quyền sở hữu site trên Bing Webmaster Tools (ChatGPT tìm kiếm dựa trên chỉ mục Bing).
+  verification: {
+    other: { "msvalidate.01": "8FC6FBCB77B533FC28FF62226228523A" },
+  },
 };
 
 export const viewport: Viewport = {
