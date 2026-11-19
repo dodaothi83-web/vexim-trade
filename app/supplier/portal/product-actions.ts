@@ -15,8 +15,6 @@ import { sanitizeProductDescriptionForSave } from "@/lib/products/product-descri
 import { productExtrasFromForm } from "@/lib/products/product-extras";
 import {
   applyLeadTimeToSpecs,
-  describePriceChangeForReview,
-  hasProductPricingChanged,
   parseLeadTimeInput,
 } from "@/lib/products/grade-pricing";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
@@ -246,17 +244,6 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
         else delete input.specs[key];
       }
     }
-    const priceChangedOnApproved = keepPublished && existing
-      ? hasProductPricingChanged(existing, input, category ?? { slug: input.category })
-      : false;
-    let priceReviewSummary: string | null = null;
-    if (priceChangedOnApproved && existing) {
-      priceReviewSummary = describePriceChangeForReview(existing, input, category ?? { slug: input.category });
-      input.supplier_review_status = "pending";
-      input.supplier_review_note = null;
-      input.ready_for_buyer = false;
-      input.specs = { ...(input.specs ?? {}), price_review_summary: priceReviewSummary };
-    }
     let saved: SupplierProduct | null;
     if (existing) {
       saved = await store.updateSupplierProductIfState(existing.id, access.supplier.id,
@@ -320,7 +307,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       ? a.translationKept
       : "";
     // Supplier-owned explicit consent is recorded only when the separate checkbox is checked.
-    // A normal product save never silently refreshes the 180-day supplier consent.
+    // A normal product save never records supplier consent on its own.
     const confirmConsent = form.get("confirm_supplier_price_consent") === "yes";
     let consentWarning = "";
     if (confirmConsent && input.price_publicly_visible && (newQuantity || (input.ref_price && input.ref_price > 0)) &&
@@ -340,21 +327,9 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     }
     await store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "product", entity_id: saved.id,
-      action: priceChangedOnApproved ? "supplier.product_price_review_requested" : existing ? "supplier.product_updated" : "supplier.product_created",
+      action: existing ? "supplier.product_updated" : "supplier.product_created",
       before: existing ? { review: existing.supplier_review_status, ready: existing.ready_for_buyer, ref_price: existing.ref_price, ref_price_max: existing.ref_price_max } : null,
-      after: { review: saved.supplier_review_status, ready: saved.ready_for_buyer, ref_price: saved.ref_price, ref_price_max: saved.ref_price_max, ...(priceReviewSummary ? { price_review_summary: priceReviewSummary } : {}) } }).catch((error) => console.error("[supplier-product] audit", error));
-    if (priceChangedOnApproved) {
-      const mail = await notifyStaffProductSubmission(access.supplier, saved).catch((error) => {
-        console.error("[supplier-product] price review notify", error);
-        return "failed" as const;
-      });
-      if (mail !== "sent") console.warn("[supplier-product] price review email not sent; CRM review queue remains pending", mail);
-      revalidatePath("/crm", "layout");
-      revalidatePath("/crm/products");
-      revalidatePath("/products", "layout");
-      revalidatePath("/suppliers", "layout");
-      revalidatePath("/");
-    }
+      after: { review: saved.supplier_review_status, ready: saved.ready_for_buyer, ref_price: saved.ref_price, ref_price_max: saved.ref_price_max } }).catch((error) => console.error("[supplier-product] audit", error));
     revalidatePath("/supplier/portal/products");
     revalidatePath("/supplier/portal");
     revalidatePath(`/supplier/portal/products/${saved.id}`);
@@ -365,9 +340,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     }
     return { ok: true, id: saved.id, message: keepPaused
       ? `${a.savedPaused}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
-      : priceChangedOnApproved
-        ? `${a.savedReprice}${translationWarning}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
-        : keepPublished
+      : keepPublished
           ? `${a.savedPlain}${translationWarning}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
           : existingReview === "changes_requested"
             ? `${a.savedResubmit}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
@@ -485,12 +458,6 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
         p_expected_review: previousReview, p_expected_ready: product.ready_for_buyer, p_proposal: proposal,
       });
       if (error || !data) return { ok: false, message: a.submitPriceCheckFailed };
-      // Hai nguyên nhân khác hẳn nhau nên phải nói khác nhau: thiếu bảng giá (chưa gửi,
-      // hoặc bảng bị trả lại) khác với thông tin sản phẩm đổi sau khi đã gửi giá.
-      if (data.status === "price_missing")
-        return { ok: false, message: a.submitNoPendingPrice };
-      if (data.status === "price_changed")
-        return { ok: false, message: a.submitPriceStale };
       if (data.status !== "submitted" || !data.product) return { ok: false, message: a.submitStateChanged };
       submitted = data.product as SupplierProduct;
     } else {

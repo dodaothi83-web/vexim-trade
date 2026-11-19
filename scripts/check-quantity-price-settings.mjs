@@ -16,13 +16,13 @@ function load(path, mocks = {}) {
 }
 const rules = load('../lib/products/quantity-price-settings.ts');
 const data = {
-  max_tiers: '4', max_price_ratio: '1.5', max_last_moq_ratio: '100', reminder_days: '30', stale_days: '90',
+  max_tiers: '4', max_price_ratio: '1.5', max_last_moq_ratio: '100',
   offer_max_discount_percent: '30', offer_max_days: '60', offer_cooldown_days: '30', offer_price_lock_days: '30',
 };
 function form(values) { const fd = new FormData(); for (const [key, value] of Object.entries(values)) fd.set(key, value); return fd; }
 assert.equal(rules.parseQuantityPriceSettings(form(data)).max_price_ratio, 1.5);
 for (const [field, invalid] of [['max_tiers', '0'], ['max_tiers', '101'], ['max_tiers', '1.5'], ['max_price_ratio', '0.99'],
-  ['max_price_ratio', '1e3'], ['max_price_ratio', '1.00001'], ['stale_days', ''], ['offer_max_discount_percent', '101'],
+  ['max_price_ratio', '1e3'], ['max_price_ratio', '1.00001'], ['max_tiers', ''], ['offer_max_discount_percent', '101'],
   ['offer_cooldown_days', '-1']]) {
   assert.equal(rules.parseQuantityPriceSettings(form({ ...data, [field]: invalid })), null, `${field}: ${invalid}`);
 }

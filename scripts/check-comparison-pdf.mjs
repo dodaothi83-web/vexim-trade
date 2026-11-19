@@ -26,7 +26,7 @@ pdfMake.addVirtualFileSystem(require('pdfmake/build/vfs_fonts'));
 const base = {
   id: 'one', name: 'Hạt điều Việt Nam', href: '/products/cashew/one', categorySlug: 'cashew', categoryName: 'Cashew kernels',
   supplierName: 'Công ty Đại Việt', supplierWebsite: 'www.daiviet.vn', grade: 'W320', specifications: [{ key: 'size', label: 'Size', value: 'Whole kernels' }],
-  price: '$1,500/MT', priceCurrency: 'USD', priceUnit: 'MT', priceValidUntil: '2026-12-01', moq: '1 MT', packaging: 'Vacuum bags',
+  price: '$1,500/MT', priceCurrency: 'USD', priceUnit: 'MT', priceUpdatedAt: '2026-12-01', moq: '1 MT', packaging: 'Vacuum bags',
   leadTimeDays: 15, incoterm: 'FOB', incotermPlace: 'Ho Chi Minh City', exportPort: 'Cat Lai', monthlyCapacity: '50 MT',
   paymentTerms: 'Confirm with supplier', oem: true, odm: false, samples: true, province: 'Hanoi', rawMaterialRegion: 'Binh Phuoc', inputMaterialOrigin: 'Vietnam',
   verificationSteps: [1, 2], l2Scope: 'partner_contract', certificates: [{ name: 'Food safety', validUntil: '2027-01-01', holderMatch: 'owner' }],

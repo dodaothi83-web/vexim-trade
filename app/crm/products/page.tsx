@@ -13,7 +13,6 @@ import { productReadiness } from "@/lib/media/readiness";
 import { completenessSummary, productCompleteness } from "@/lib/products/completeness";
 import { auditProductStructuredUnits } from "@/lib/products/grade-pricing";
 import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
-import { loadCrmReviewInbox } from "@/lib/crm/product-review-inbox";
 
 export const dynamic = "force-dynamic";
 
@@ -52,22 +51,11 @@ export default async function ProductsPage({
   const candidate = buyerId && hasPermission(session.role, "buyers.view") ? await store.getBuyer(buyerId) : null;
   const buyer = candidate && isOwnedBy(candidate.owner, ownerScopeOf(session)) ? candidate : null;
 
-  const [products, allCategories, inboxResult] = await Promise.all([
+  const [products, allCategories] = await Promise.all([
     listProductsWithSupplier(),
     store.listCategories({ publishedOnly: false }),
-    loadCrmReviewInbox(session).then((inbox) => ({ inbox, failed: false })).catch((error) => {
-      console.error("[crm-products] review inbox", error);
-      return { inbox: null, failed: true };
-    }),
   ]);
-  const inbox = inboxResult.inbox;
-  const legacyPrices = new Set(inbox?.prices.map((row) => row.product_id) ?? []);
-  const legacyNames = new Set(inbox?.names.map((row) => row.product_id) ?? []);
-  const productsById = new Map(products.map((row) => [row.id, row]));
-  const orphanedLegacy = [...(inbox?.prices ?? []), ...(inbox?.names ?? [])].some((row) => !productsById.has(row.product_id));
-  const inboxWarning = inboxResult.failed || orphanedLegacy;
-  const all = products.map((product) => ({ ...product, pendingReview: product.supplier_review_status === "pending" ||
-    legacyPrices.has(product.id) || legacyNames.has(product.id) }));
+  const all = products.map((product) => ({ ...product, pendingReview: product.supplier_review_status === "pending" }));
   const isPrivateShell = (product: ProductWithSupplier) => !product.name.trim() && !product.ready_for_buyer;
   const categoryBySlug = new Map(allCategories.map((c) => [c.slug, c]));
   const unitAuditByProduct = new Map(
@@ -175,11 +163,6 @@ export default async function ProductsPage({
         ) : undefined}
       />
 
-      {inboxWarning && <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        Chưa đối chiếu được đầy đủ các bản chờ duyệt. Không dựa vào số đếm hoặc trạng thái tại đây để kết luận hàng chờ trống.
-        {inboxResult.failed && <span> Hãy thử tải lại trang.</span>}
-        <div className="mt-2 flex flex-wrap gap-4"><Link className="font-semibold underline" href="/crm/products/quantity-review">Kiểm tra các bản giá và tên</Link></div>
-      </div>}
       {/* KPI tổng quan */}
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
@@ -288,8 +271,7 @@ export default async function ProductsPage({
               const privateShell = isPrivateShell(r);
               const displayName = nameFor(r) || "Sản phẩm chưa có tên";
               const displayCategory = categoryFor(r) || "Chưa phân loại";
-              const legacyReview = legacyPrices.has(r.id) || legacyNames.has(r.id);
-              const reviewHref = legacyReview ? `/crm/products/quantity-review?product_id=${encodeURIComponent(r.id)}` : `/crm/products/${r.id}/edit`;
+              const reviewHref = `/crm/products/${r.id}/edit`;
               return (
                 <li key={r.id} className={`px-4 py-4 ${matched ? "bg-brand-50/40" : ""}`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
@@ -308,7 +290,6 @@ export default async function ProductsPage({
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {matched && <Badge className="bg-brand-50 text-brand-700"><Sparkles className="h-3 w-3" /> Khớp nhu cầu</Badge>}
                           {r.supplier_review_status === "pending" && <Badge className="bg-amber-100 text-amber-900">Chờ Vexim kiểm tra</Badge>}
-                          {legacyReview && <Badge className="bg-amber-100 text-amber-900">Chờ rà soát giá hoặc tên</Badge>}
                           {r.supplier_review_status === "changes_requested" && <Badge className="bg-orange-50 text-orange-800">Chờ nhà cung cấp sửa</Badge>}
                           {r.supplier_review_status === "paused" ? (
                             <Badge className="bg-slate-200 text-slate-800">Nhà cung cấp đã tạm ẩn</Badge>
@@ -337,10 +318,9 @@ export default async function ProductsPage({
                         <p className="text-[11px] text-ink-500">Giá tham khảo</p>
                         {r.ref_price !== null ? <>
                           <p className="break-words text-[13px] font-bold text-ink-900"><span className="font-mono tabular-nums">{formatMoney(r.ref_price)}</span> <span className="font-normal text-ink-500">/ {r.unit || "đv"}</span></p>
-                          {r.price_valid_until && <p className="text-[11px] text-ink-500">Đến {formatDate(r.price_valid_until)}</p>}
                         </> : <p className="text-xs text-ink-500">Chưa có giá</p>}
                       </div>
-                      {canManage && (inboxResult.failed ? <button type="button" disabled className="btn btn-soft shrink-0 px-3 py-2 text-[13px]" title="Chưa tải được hàng chờ duyệt">Kiểm tra</button> :
+                      {canManage && (
                         <Link href={reviewHref} aria-label={`Kiểm tra ${displayName}`} className="btn btn-soft shrink-0 px-3 py-2 text-[13px]">
                           <ClipboardCheck className="h-4 w-4" aria-hidden="true" /> Kiểm tra
                         </Link>

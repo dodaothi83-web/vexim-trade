@@ -1071,9 +1071,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.tone}`}>{statusLabel}</span>
           <p className="min-w-0 flex-1 text-[12px] leading-5 text-ink-700">
             {review === "pending"
-              ? product?.reviewed_category_slug
-                ? copy.status.repricePending
-                : copy.status.pending
+              ? copy.status.pending
               : review === "paused"
                 ? copy.status.paused
                 : copy.status.changesRequested}
@@ -1603,13 +1601,12 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <table className="mt-1.5 w-full text-left text-[11.5px]"><thead><tr><th>{fill(copy.review.quantity, { unit: quantityEditor.v2.unit === "mt" ? "MT" : "kg" })}</th><th>{fill(copy.review.priceColumn, { unit: quantityEditor.v2.unit === "mt" ? "MT" : "kg" })}</th></tr></thead>
                     <tbody>{quantityEditor.v2.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1 tabular-nums">{tier.quantity}</td><td className="py-1 tabular-nums">{tier.price}</td></tr>)}</tbody>
                   </table>
-                  <p className="mt-1 text-[11px] text-ink-500">{quantityEditor.pendingPriceId ? copy.review.pendingTable : copy.review.approvedTable}</p>
+                  <p className="mt-1 text-[11px] text-ink-500">{copy.review.currentTable}</p>
                 </> : quantityEditor && quantityPreview ? <>
                   <p>{copy.review.grade} <strong>{quantityPreview.grade || copy.review.notChosen}</strong> · {copy.review.currency} <strong>{quantityPreview.currency ?? "USD"}</strong></p>
                   <table className="mt-1.5 w-full text-left text-[11.5px]"><thead><tr><th>{copy.review.incoterm}</th><th>{fill(copy.review.quantityFrom, { unit: salesUnitLabel(normalizeSalesUnit(quantityPreview.unit) ?? "kg", lang === "en" ? "en" : "vi") })}</th><th>{fill(copy.review.pricePerKg, { currency: quantityPreview.currency ?? "USD", unit: salesUnitLabel(normalizeSalesUnit(quantityPreview.unit) ?? "kg", lang === "en" ? "en" : "vi") })}</th></tr></thead>
                     <tbody>{quantityPreview.tiers.map((tier, index) => <tr key={index} className="border-t border-ink-100"><td className="py-1">{tier.incoterm || quantityPreview.incoterm || "—"}</td><td className="py-1 tabular-nums">{tier.minKg || "—"}</td><td className="py-1 tabular-nums">{tier.priceUsdPerKg || "—"}</td></tr>)}</tbody>
                   </table>
-                  <p className="mt-1 text-[11px] text-ink-500">{copy.review.tableNeedsReview}</p>
                 </> : <span>{copy.review.newTableFailed}</span>}
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {([

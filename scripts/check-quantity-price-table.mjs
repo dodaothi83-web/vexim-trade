@@ -12,15 +12,14 @@ const code = ts.transpileModule(readFileSync(new URL('../components/public/quant
 vm.runInNewContext(code, { exports, Date, Intl, Number, require: (key) => { if (key === 'react/jsx-runtime') return require(key); throw Error(key); } });
 const offer = { grade: 'W320', incoterm: 'FOB', moq: '1 MT', price: 'USD 6.00–6.40/kg',
   tiers: [{ from: '1 MT', to: '4.999 MT', price: 'USD 6.40/kg' }, { from: '5 MT', to: null, price: 'USD 6.00/kg' }],
-  confirmedAt: '2026-10-29T00:00:00Z', stale: true, daysSinceConfirmed: 91 };
+  updatedAt: '2026-10-29T00:00:00Z' };
 const render = (props) => renderToStaticMarkup(React.createElement(exports.QuantityPriceTable, { offer: { ...offer, ...props } }));
 let html = render({});
-for (const text of ['Reference pricing', 'Grade W320', 'FOB', 'MOQ 1 MT', '1 MT', '4.999 MT', 'USD 6.40/kg', 'and above', 'Price updated 29 Oct 2026', 'Last updated 91 days ago']) assert.ok(html.includes(text), text);
+for (const text of ['Reference pricing', 'Grade W320', 'FOB', 'MOQ 1 MT', '1 MT', '4.999 MT', 'USD 6.40/kg', 'and above', 'Price updated 29 Oct 2026']) assert.ok(html.includes(text), text);
 assert.match(html, /tabular-nums/);
 assert.doesNotMatch(html, /font-mono/);
-html = render({ stale: false });
-assert.doesNotMatch(html, /Last updated/);
-html = render({ price: null, tiers: [], confirmedAt: null, daysSinceConfirmed: null, stale: false });
+assert.doesNotMatch(html, /days ago|Confirmation date/, 'No age label: only the update date');
+html = render({ price: null, tiers: [], updatedAt: null });
 assert.match(html, /Price on request/);
 assert.doesNotMatch(html, /Price updated|USD 6/);
-console.log('Quantity buyer price table: tiers, 90-day label, date and price privacy passed');
+console.log('Quantity buyer price table: tiers, update date and price privacy passed');

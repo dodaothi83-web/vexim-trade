@@ -34,7 +34,6 @@ export const FIXED_COLUMNS: FixedColumn[] = [
   { key: "export_port", header: "Cảng xuất", hint: "Ví dụ: Cát Lái." },
   { key: "ref_price", header: "Giá tham khảo", hint: "Chỉ nhập số, ví dụ 1250. Giá luôn ẩn mặc định, chỉ hiện khi có đồng ý riêng." },
   { key: "currency", header: "Tiền tệ", hint: "Ví dụ USD. Để trống sẽ hiểu là USD khi có giá." },
-  { key: "price_valid_until", header: "Hạn giá (ngày/tháng/năm)", hint: "Ví dụ 31/12/2026." },
 ];
 
 export interface ImportRow {
@@ -99,7 +98,6 @@ export function buildTemplateWorkbook(fields: ProductAttributeField[]): XLSX.Wor
     export_port: "Cát Lái",
     ref_price: "1250",
     currency: "USD",
-    price_valid_until: "31/12/2026",
   };
   const exampleRow = [
     ...FIXED_COLUMNS.map((c) => exampleValues[c.key] ?? ""),
@@ -153,25 +151,6 @@ function parsePrice(text: string): number | null | "invalid" {
   const n = Number(normalized);
   if (!Number.isFinite(n) || n < 0) return "invalid";
   return n;
-}
-
-function parseDate(text: string): string | null | "invalid" {
-  const v = text.trim();
-  if (!v) return null;
-  const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) {
-    const year = Number(iso[1]), month = Number(iso[2]), day = Number(iso[3]);
-    return month >= 1 && month <= 12 && day >= 1 && day <= 31 ? v : "invalid";
-  }
-  const m = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (m) {
-    const [, d, mo, y] = m;
-    const day = Number(d), month = Number(mo), year = Number(y);
-    if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000 && year <= 2100) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
-  return "invalid";
 }
 
 /** Đọc và kiểm tra file Excel theo mẫu của danh mục. Không ghi dữ liệu ở bước này. */
@@ -238,8 +217,6 @@ export function parseImportWorkbook(data: ArrayBuffer | Buffer | Uint8Array, fie
     }
     const price = parsePrice(values.ref_price);
     if (price === "invalid") errors.push("Giá tham khảo phải là số không âm.");
-    const validUntil = parseDate(values.price_valid_until);
-    if (validUntil === "invalid") errors.push("Hạn giá phải theo dạng ngày/tháng/năm.");
 
     const productAttributes: Record<string, string> = {};
     for (const f of fields) {
@@ -269,7 +246,6 @@ export function parseImportWorkbook(data: ArrayBuffer | Buffer | Uint8Array, fie
 export function rowToProductRaw(row: ImportRow, supplierId: string, categorySlug: string): Record<string, unknown> {
   const v = row.values;
   const price = parsePrice(v.ref_price);
-  const validUntil = parseDate(v.price_valid_until);
   return {
     supplier_id: supplierId,
     category: categorySlug,
@@ -288,7 +264,6 @@ export function rowToProductRaw(row: ImportRow, supplierId: string, categorySlug
     export_port: v.export_port || null,
     ref_price: price === "invalid" ? null : price,
     currency: v.currency || (price !== null && price !== "invalid" ? "USD" : null),
-    price_valid_until: validUntil === "invalid" ? null : validUntil,
     product_attributes: row.productAttributes,
   };
 }

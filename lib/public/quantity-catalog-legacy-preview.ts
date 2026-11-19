@@ -2,7 +2,6 @@ import "server-only";
 
 import { getSupabaseClient } from "@/lib/db/supabase";
 import { readApprovedQuantityRevisions } from "@/lib/products/approved-quantity-revisions";
-import { readQuantityPriceSettings } from "@/lib/products/quantity-price-config";
 import { projectApprovedQuantityOffer } from "@/lib/products/quantity-public-projection";
 import { displayUnitsForCategory } from "@/lib/public/price-units";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
@@ -28,11 +27,7 @@ export async function projectQuantityCatalogPreview(records: PublicProductRecord
   if (!getSupabaseClient()) return records;
   const eligible = records.filter((record) => !record.supplier.is_demo && !hasUnmappedLegacyGrades(record));
   if (!eligible.length) return records;
-  const [revisions, settings] = await Promise.all([
-    readApprovedQuantityRevisions(eligible.map(({ product }) => product.id)),
-    readQuantityPriceSettings(),
-  ]);
-  const now = Date.now();
+  const revisions = await readApprovedQuantityRevisions(eligible.map(({ product }) => product.id));
   return records.map((record) => {
     if (record.supplier.is_demo || hasUnmappedLegacyGrades(record)) return record;
     const { product, supplier, category, card } = record;
@@ -43,8 +38,8 @@ export async function projectQuantityCatalogPreview(records: PublicProductRecord
     const unit = displayUnitsForCategory(category.slug, category.price_unit).primary === "mt" ? "mt" : "kg";
     const offer = projectApprovedQuantityOffer({
       productId: product.id, priceRevision: revision.price, nameRevision: revision.name,
-      pricePubliclyVisible: product.price_publicly_visible === true && supplierPriceConsentCurrent(supplier, now),
-      priceUnit: unit, now, staleAfterDays: settings.stale_days,
+      pricePubliclyVisible: product.price_publicly_visible === true && supplierPriceConsentCurrent(supplier),
+      priceUnit: unit,
     });
     // One unusable approved revision must not take the public catalogue down: keep
     // that product on its previous card and leave the row for staff to fix.
@@ -70,7 +65,7 @@ export async function projectQuantityCatalogPreview(records: PublicProductRecord
       // Count units (cans, bottles…) have no weight: MOQ filters treat them as "ask".
       moq: offer.moq, moqUnit: offer.moqKg === null ? null : offer.moqUnit ?? "kg",
       moqMtEquivalent: offer.moqKg === null ? null : offer.moqKg / 1000,
-      price: offer.price, pricePoint: offer.pricePoint, priceRankingEligible: offer.priceRankingEligible,
+      price: offer.price, pricePoint: offer.pricePoint,
       incoterm: offer.incoterm, quantityOffer: offer,
     } };
   });

@@ -405,7 +405,7 @@ function SearchResults({ results, state, params, categories, selected }: {
             <PublicProductCard href={productHref} imagePath={product.cardImagePath ?? product.imagePaths[0]}
               name={product.name} grades={cardTitleGrades(product)} gradeRows={product.gradeRows} moq={product.moq}
               highlightedGrades={filters.grades}
-              stalePriceDays={product.quantityOffer?.stale ? product.quantityOffer.daysSinceConfirmed : undefined}
+              priceUpdatedAt={product.quantityOffer?.updatedAt}
               volumePricing={product.quantityOffer?.hasVolumePricing}
               price={product.price} incoterm={product.incoterm} fob={product.incoterm?.toUpperCase() === "FOB"}
               leadTimeDays={product.leadTimeDays} leadTimeText={product.leadTimeText} supplierName={product.supplierName}

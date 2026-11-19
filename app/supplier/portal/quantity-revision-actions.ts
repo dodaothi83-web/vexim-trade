@@ -9,7 +9,6 @@ import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config"
 import { entryCurrencyIssue, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 import { getPortalMessages } from "@/lib/i18n/server";
-import { notifyStaffPriceRevision } from "@/lib/supplier-portal/notify";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: boolean; message: string; revisionId?: string; warnings?: string[] };
@@ -35,32 +34,25 @@ function matchesProductVersion(form: FormData, updatedAt: string): boolean {
   return typeof expected === "string" && expected === updatedAt;
 }
 
-function pendingId(value: FormDataEntryValue | null): string | null | undefined {
-  if (value === null || value === "") return null;
-  return typeof value === "string" && UUID.test(value) ? value : undefined;
-}
-
 function interpretRpc(data: unknown): { status: string; revisionId?: string } {
   if (!data || typeof data !== "object" || Array.isArray(data)) return { status: "invalid" };
   const row = data as Record<string, unknown>;
   return { status: typeof row.status === "string" ? row.status : "invalid", revisionId: typeof row.revision_id === "string" && UUID.test(row.revision_id) ? row.revision_id : undefined };
 }
 
-function statusMessage(status: string, copy: { dataChanged: string; notOwned: string; pendingFailed: string }): string {
+function statusMessage(status: string, copy: { dataChanged: string; notOwned: string; priceNotSaved: string }): string {
   if (status === "changed" || status === "product_changed") return copy.dataChanged;
   if (status === "not_owned") return copy.notOwned;
-  return copy.pendingFailed;
+  return copy.priceNotSaved;
 }
 
-/** Save a validated proposed table without touching the buyer's approved snapshot. */
+/** Lưu bảng giá nhà cung cấp nhập. Không có bước duyệt: lưu xong là giá người mua thấy. */
 export async function submitQuantityPriceRevisionAction(form: FormData): Promise<Result> {
   // Server action không nhận `copy` từ client nên tự đọc locale đang chọn.
   const { m } = await getPortalMessages();
   const copy = m.quantity;
   try {
     const id = String(form.get("product_id") ?? "");
-    const expectedPending = pendingId(form.get("expected_price_revision_id"));
-    if (expectedPending === undefined) return { ok: false, message: copy.invalidPriceRevision };
     const ctx = await context(id);
     if (!ctx) return { ok: false, message: copy.noAccess };
     if (!matchesProductVersion(form, ctx.product.updated_at)) return { ok: false, message: statusMessage("product_changed", copy) };
@@ -96,23 +88,22 @@ const salesUnit = String(form.get("quantity_sales_unit") ?? "").trim().slice(0, 
     }
     if (!validation.value) return { ok: false, message: validation.errors[0]?.message ?? copy.invalidTable };
     const { data, error } = await ctx.db.rpc("submit_quantity_price_revision", {
-      p_product_id: id, p_supplier_id: ctx.access.supplier.id, p_expected_pending_id: expectedPending,
+      p_product_id: id, p_supplier_id: ctx.access.supplier.id, p_expected_pending_id: null,
       p_expected_product_updated_at: ctx.product.updated_at, p_grade: validation.value.grade,
       p_incoterm: validation.value.incoterm, p_tiers: validation.value.tiers, p_warnings: validation.warnings,
     });
     if (error) throw new Error(error.message);
     const result = interpretRpc(data);
-    if (result.status !== "pending" || !result.revisionId) return { ok: false, message: statusMessage(result.status, copy) };
+    // "pending" only while the database still runs the pre-20261127 function.
+    if ((result.status !== "approved" && result.status !== "pending") || !result.revisionId) return { ok: false, message: statusMessage(result.status, copy) };
     await ctx.access.store.addAuditLog({ actor_id: ctx.access.user.id, actor_email: ctx.access.user.email, entity: "product", entity_id: id,
-      action: "supplier.quantity_price_revision_submitted", before: { pending_revision_id: expectedPending },
+      action: "supplier.quantity_price_updated", before: null,
       after: { revision_id: result.revisionId, warnings: validation.warnings.map((warning) => warning.code) },
     }).catch((error) => console.error("[quantity-pricing] price submission audit", error));
-    // Báo Vexim có giá mới chờ rà soát. Thư lỗi không làm hỏng việc lưu: giá vẫn nằm trong hàng chờ CRM.
-    await notifyStaffPriceRevision(ctx.access.supplier, { id, name: ctx.product.name }).catch(() => "failed");
     revalidatePath(`/supplier/portal/products/${id}`);
-    revalidatePath(`/supplier/portal/products/${id}/quantity-pricing`);
     revalidatePath(`/crm/products/${id}/edit`);
-    revalidatePath("/crm/products/quantity-review");
+    revalidatePath("/products", "layout");
+    revalidatePath("/suppliers", "layout");
     return { ok: true, revisionId: result.revisionId, warnings: validation.warnings.map((issue) => issue.message), message: copy.submitted };
   } catch (error) {
     console.error("[quantity-pricing] price submission", error);

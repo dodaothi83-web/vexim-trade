@@ -72,8 +72,6 @@ const CONVERTED = [
   "app/supplier/portal/products/product-editor.tsx",
   "app/supplier/portal/products/new/page.tsx",
   "app/supplier/portal/products/[id]/page.tsx",
-  "app/supplier/portal/products/[id]/quantity-pricing/page.tsx",
-  "app/supplier/portal/products/[id]/quantity-pricing/preview-form.tsx",
   "app/supplier/portal/product-actions.ts",
   "app/supplier/portal/product-certificate-actions.ts",
   "components/raw-material-region-input.tsx",

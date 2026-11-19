@@ -9,8 +9,6 @@ const fields: Array<{ key: keyof QuantityPriceSettings; label: string; min: stri
   { key: "max_tiers", label: "Số mức giá tối đa", min: "1", max: "100", step: "1" },
   { key: "max_price_ratio", label: "Giá cao nhất / thấp nhất tối đa", min: "1", max: "999999", step: "0.0001" },
   { key: "max_last_moq_ratio", label: "Mức cuối / MOQ tối đa", min: "1", max: "99999999", step: "0.0001" },
-  { key: "reminder_days", label: "Chu kỳ nhắc xác nhận (ngày)", min: "1", max: "36500", step: "1" },
-  { key: "stale_days", label: "Không tính giá cũ sau (ngày)", min: "1", max: "36500", step: "1" },
   { key: "offer_max_discount_percent", label: "Giảm giá tối đa (%)", min: "0.01", max: "100", step: "0.01" },
   { key: "offer_max_days", label: "Thời hạn ưu đãi tối đa (ngày)", min: "1", max: "36500", step: "1" },
   { key: "offer_cooldown_days", label: "Nghỉ giữa các ưu đãi (ngày)", min: "0", max: "36500", step: "1" },

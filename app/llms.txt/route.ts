@@ -33,7 +33,7 @@ export async function GET(): Promise<Response> {
     "- What it is: a business-to-business sourcing and supplier-discovery platform for Vietnamese food and agricultural products. It is not a marketplace that takes orders, holds payments or guarantees shipments.",
     "- Buyers pay nothing to search, compare or send an RFQ. Vexim earns from services sold to Vietnamese suppliers.",
     "- Supplier checks are Vexim's own reviews (documents, production source, export history). They are not third-party audits and do not certify a product.",
-    "- Reference prices are supplier-stated indicative quotes within a valid date window, not binding offers.",
+    "- Reference prices are indicative quotes the supplier keeps up to date, shown with the date of the last update. They are not binding offers.",
     `- Contact: ${COMPANY.contactEmail} · ${COMPANY.phoneDisplay}`,
     `- Country: Vietnam · Address: ${COMPANY.addressEn}`,
     `- Canonical host: ${SITE_URL} (the non-www domain redirects here).`,

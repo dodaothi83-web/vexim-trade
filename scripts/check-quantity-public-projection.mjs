@@ -29,7 +29,7 @@ const { projectApprovedQuantityOffer } = exports;
 const now = Date.parse('2026-10-29T00:00:00Z');
 const day = 86400_000;
 const base = {
-  productId: 'p1', pricePubliclyVisible: true, priceUnit: 'kg', now, staleAfterDays: 90,
+  productId: 'p1', pricePubliclyVisible: true, priceUnit: 'kg',
   priceRevision: { status: 'approved', product_id: 'p1', grade: 'W320', incoterm: 'FOB',
     tiers: [{ minKg: 1000, priceUsdPerKg: 6.4 }, { minKg: 5000, priceUsdPerKg: 6 }], confirmed_at: new Date(now - 30 * day).toISOString(), warnings: ['PRIVATE'] },
   nameRevision: { status: 'approved', product_id: 'p1', english_name: 'Cashew kernels' },
@@ -48,7 +48,7 @@ assert.equal(offer.tiers[1].to, null);
 assert.equal(offer.tiers[0].price, '$6.4/kg');
 assert.equal(offer.pricePoint.value, 6);
 assert.equal(offer.pricePoint.highValue, 6.4);
-assert.equal(offer.priceRankingEligible, true);
+assert.equal(offer.updatedAt, base.priceRevision.confirmed_at);
 assert.ok(!JSON.stringify(offer).includes('PRIVATE'));
 const mt = project({ priceUnit: 'mt' });
 assert.equal(mt.price, '$6,000–6,400/MT');
@@ -68,24 +68,16 @@ assert.equal(hidden.price, null);
 assert.equal(hidden.hasVolumePricing, false);
 assert.equal(hidden.tiers.length, 0);
 assert.equal(hidden.pricePoint, null);
-assert.equal(hidden.confirmedAt, null);
-assert.equal(hidden.priceRankingEligible, false);
-const exact90 = project({ priceRevision: { ...base.priceRevision, confirmed_at: new Date(now - 90 * day).toISOString() } });
-assert.equal(exact90.stale, false);
-const stale = project({ priceRevision: { ...base.priceRevision, confirmed_at: new Date(now - 91 * day).toISOString() } });
-assert.equal(stale.price, '$6–6.4/kg', 'Stale price remains visible');
-assert.equal(stale.daysSinceConfirmed, 91);
-assert.equal(stale.pricePoint, null, 'Stale price is excluded from category reference ranges');
-assert.equal(stale.priceRankingEligible, false);
-const card = { price: stale.price, priceRankingEligible: stale.priceRankingEligible, grade: 'W320', moq: '1 MT', leadTimeDays: 7, incoterm: 'FOB', imagePaths: ['a'] };
-assert.equal(offerAliveSignal(card), 0);
-assert.equal(dataCompletenessSignal(card), 5 / 6, 'Stale public price earns no completeness price point');
-assert.equal(offerAliveSignal({ ...card, priceRankingEligible: true }), 1);
-assert.equal(offerAliveSignal({ ...card, priceRankingEligible: undefined }), 1, 'Legacy ranking unchanged');
-const future = project({ priceRevision: { ...base.priceRevision, confirmed_at: new Date(now + 1).toISOString() } });
-assert.equal(future.priceRankingEligible, false);
-assert.equal(future.pricePoint, null);
-console.log('Approved quantity projection: privacy, units, 90-day visibility and ranking exclusion passed');
+assert.equal(hidden.updatedAt, null);
+// Giá không có hạn dùng: giá cũ vẫn hiện, vẫn vào khoảng giá danh mục và vẫn được tính điểm.
+const old = project({ priceRevision: { ...base.priceRevision, confirmed_at: new Date(now - 400 * day).toISOString() } });
+assert.equal(old.price, '$6–6.4/kg', 'Old price remains visible');
+assert.equal(old.pricePoint.value, 6, 'Old price still counts in category reference ranges');
+assert.equal('stale' in old, false); assert.equal('daysSinceConfirmed' in old, false);
+const card = { price: old.price, grade: 'W320', moq: '1 MT', leadTimeDays: 7, incoterm: 'FOB', imagePaths: ['a'] };
+assert.equal(offerAliveSignal(card), 1);
+assert.equal(dataCompletenessSignal(card), 1, 'A public price always counts, whatever its age');
+console.log('Approved quantity projection: privacy, units, update date and no fixed price lifetime passed');
 // V2 keeps the exact original cents and weight, even where USD/kg repeats.
 const v2tier = (quantityGrams, priceCentsPerUnit, changes = {}) => ({ version: 2, unit: 'kg', unitWeightGrams: 1000, customGrade: true, quantityGrams, priceCentsPerUnit, ...changes });
 const v2revision = { ...base.priceRevision, grade: 'Special', tiers: [v2tier(270000, 10000), v2tier(540000, 9000)] };
@@ -125,7 +117,6 @@ assert.equal(canOffer.moqKg, null);
 assert.equal(canOffer.price, '$0.32–0.35/can');
 assert.equal(canOffer.tiers.map((tier) => tier.price).join(' | '), '$0.35/can | $0.32/can');
 assert.equal(canOffer.pricePoint, null, 'Giá theo lon không vào khoảng giá danh mục');
-assert.equal(canOffer.priceRankingEligible, true, 'Giá còn mới vẫn được tính là có giá');
 assert.equal(project({ priceRevision: { ...base.priceRevision, tiers: [canTiers[0], { ...canTiers[1], unit: 'bottle' }] } }), null, 'Trộn đơn vị bị từ chối');
 assert.equal(project({ priceRevision: { ...base.priceRevision, tiers: [{ ...canTiers[0], unit: 'litre' }] } }), null, 'Đơn vị lạ bị từ chối');
 assert.equal(project({ priceRevision: { ...base.priceRevision, tiers: [{ ...canTiers[0], unit: 'kg' }] } }), null, 'Bảng kg không ghi unit');

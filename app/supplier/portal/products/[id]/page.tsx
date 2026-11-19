@@ -128,9 +128,6 @@ export default async function OwnProductPage({ params, searchParams }: { params:
       sub={copy.sub}
       breadcrumbs={<nav aria-label={copy.breadcrumbAria} className="flex min-w-0 items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="shrink-0 hover:text-brand-700">{copy.products}</Link><ChevronRight className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate font-semibold text-ink-800">{product.name}</span></nav>}
     />
-    {process.env.VEXIM_QUANTITY_PRICING_PREVIEW === "true" && <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-      <Link href={`/supplier/portal/products/${id}/quantity-pricing`} className="font-semibold underline">{copy.previewNotice}</Link>{copy.previewNoticeAfter}
-    </p>}
     <SupplierProductEditor product={product} quantityEditor={quantityEditor} media={media} userId={access.user.id} categories={options}
       categoryScope={categoryScope} supplier={access.supplier} certificates={approvedCertificates} initialStep={step}
       messages={m.productEditor.editor} shared={m.productEditor.shared} statuses={m.products.statuses} lang={locale} />

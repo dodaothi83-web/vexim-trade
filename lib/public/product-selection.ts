@@ -78,14 +78,15 @@ export function pepperGrade(name: string, spec: string | null): string | null {
   return density ? `${density} g/l` : null;
 }
 
-/** Consent belongs to the supplier, expires after 180 days, and is never renewed by a normal product edit. */
-export function supplierPriceConsentCurrent(supplier: { fob_publicly_visible?: boolean; fob_updated_at?: string | null }, now = Date.now()): boolean {
-  if (!supplier.fob_publicly_visible || !supplier.fob_updated_at) return false;
-  const age = now - new Date(supplier.fob_updated_at).getTime();
-  return Number.isFinite(age) && age >= 0 && age < 180 * 86400_000;
+/**
+ * Nhà cung cấp đã đồng ý chia sẻ giá. Sự đồng ý không có hạn dùng: còn hiệu lực
+ * cho tới khi nhà cung cấp hoặc Vexim tắt. fob_updated_at là ngày đồng ý, bắt buộc có.
+ */
+export function supplierPriceConsentCurrent(supplier: { fob_publicly_visible?: boolean; fob_updated_at?: string | null }): boolean {
+  return !!supplier.fob_publicly_visible && !!supplier.fob_updated_at && Number.isFinite(Date.parse(supplier.fob_updated_at));
 }
 
-type PriceFields = Pick<SupplierProduct, "ref_price" | "currency" | "price_valid_until" | "unit" | "price_publicly_visible"> & Partial<Pick<SupplierProduct, "ref_price_max">>;
+type PriceFields = Pick<SupplierProduct, "ref_price" | "currency" | "unit" | "price_publicly_visible"> & Partial<Pick<SupplierProduct, "ref_price_max">>;
 type PriceConsent = { fob_publicly_visible?: boolean; fob_updated_at?: string | null };
 
 /** Một lý do chặn giá, tách khỏi câu chữ để cổng nhà cung cấp đọc được bản tiếng Anh. */
@@ -93,52 +94,35 @@ type PriceBlockerFact =
   | { code: "hidden" }
   | { code: "fromPrice" }
   | { code: "toPrice" }
-  | { code: "expired"; date: string }
-  | { code: "consentMissing" }
-  | { code: "consentExpired" };
+  | { code: "consentMissing" };
 
-function priceBlockerFacts(
-  product: PriceFields, supplier: PriceConsent,
-  today: string = new Date().toISOString().slice(0, 10), now = Date.now(),
-): PriceBlockerFact[] {
+function priceBlockerFacts(product: PriceFields, supplier: PriceConsent): PriceBlockerFact[] {
   const facts: PriceBlockerFact[] = [];
   if (!product.price_publicly_visible) facts.push({ code: "hidden" });
   if (product.ref_price == null || !Number.isFinite(product.ref_price) || product.ref_price <= 0) facts.push({ code: "fromPrice" });
   if (product.ref_price_max != null && (!Number.isFinite(product.ref_price_max) || product.ref_price_max <= 0 || product.ref_price == null || product.ref_price_max < product.ref_price))
     facts.push({ code: "toPrice" });
-  if (product.price_valid_until && product.price_valid_until < today) facts.push({ code: "expired", date: product.price_valid_until });
-  if (!supplier.fob_publicly_visible) facts.push({ code: "consentMissing" });
-  else if (!supplierPriceConsentCurrent(supplier, now)) facts.push({ code: "consentExpired" });
+  if (!supplierPriceConsentCurrent(supplier)) facts.push({ code: "consentMissing" });
   return facts;
 }
 
 /** Private editor diagnostics, in the exact same order and with the same checks as the public price gate. */
-export function productPriceBlockers(
-  product: PriceFields, supplier: PriceConsent,
-  today: string = new Date().toISOString().slice(0, 10), now = Date.now(),
-): string[] {
-  return priceBlockerFacts(product, supplier, today, now).map((fact) => {
+export function productPriceBlockers(product: PriceFields, supplier: PriceConsent): string[] {
+  return priceBlockerFacts(product, supplier).map((fact) => {
     if (fact.code === "hidden") return "Chưa công khai giá cho sản phẩm này.";
     if (fact.code === "fromPrice") return "Giá từ phải lớn hơn 0.";
     if (fact.code === "toPrice") return "Giá đến phải ≥ giá từ.";
-    if (fact.code === "expired") return `Giá đã hết hạn (${fact.date}).`;
-    if (fact.code === "consentMissing") return "Doanh nghiệp chưa xác nhận chia sẻ giá.";
-    return "Xác nhận chia sẻ giá đã hết hiệu lực.";
+    return "Doanh nghiệp chưa xác nhận chia sẻ giá.";
   });
 }
 
 /** Cùng các lý do trên, viết bằng tiếng Anh cho cổng nhà cung cấp. */
-export function productPriceBlockersEn(
-  product: PriceFields, supplier: PriceConsent,
-  today: string = new Date().toISOString().slice(0, 10), now = Date.now(),
-): string[] {
-  return priceBlockerFacts(product, supplier, today, now).map((fact) => {
+export function productPriceBlockersEn(product: PriceFields, supplier: PriceConsent): string[] {
+  return priceBlockerFacts(product, supplier).map((fact) => {
     if (fact.code === "hidden") return "Price sharing is off for this product. Turn it on and save the change.";
     if (fact.code === "fromPrice") return "The product's from price must be greater than 0.";
     if (fact.code === "toPrice") return "The to price must be at least the from price; leave it empty for a single price.";
-    if (fact.code === "expired") return `The reference price expired on ${fact.date}.`;
-    if (fact.code === "consentMissing") return "The company has not confirmed price sharing; the product switch does not replace that confirmation.";
-    return "The price sharing confirmation has expired (over 180 days or an invalid date); please confirm again.";
+    return "The company has not confirmed price sharing; the product switch does not replace that confirmation.";
   });
 }
 
@@ -151,9 +135,8 @@ export function productPriceBlockersEn(
 export function publicProductPricePoint(
   product: PriceFields & { updated_at?: string | null },
   supplier: PriceConsent,
-  today: string = new Date().toISOString().slice(0, 10),
 ): { value: number; unit: string | null; currency: string | null; updatedAt: string | null } | null {
-  if (productPriceBlockers(product, supplier, today).length) return null;
+  if (productPriceBlockers(product, supplier).length) return null;
   const value = product.ref_price;
   if (value == null || !Number.isFinite(value) || value <= 0) return null;
   return {
@@ -164,13 +147,9 @@ export function publicProductPricePoint(
   };
 }
 
-/** Product ref price is public only when separately opted in, consent is current and the price is valid. */
-export function publicProductPrice(
-  product: PriceFields,
-  supplier: PriceConsent,
-  today: string = new Date().toISOString().slice(0, 10),
-): string | null {
-  if (productPriceBlockers(product, supplier, today).length) return null;
+/** Product ref price is public only when separately opted in and the supplier has agreed to share prices. */
+export function publicProductPrice(product: PriceFields, supplier: PriceConsent): string | null {
+  if (productPriceBlockers(product, supplier).length) return null;
   const [code, embeddedUnit] = (product.currency || "USD").split("/");
   // The CRM currency can already contain a unit (e.g. USD/kg); never invent a conversion to /ton.
   const unit = embeddedUnit ? `/${embeddedUnit}` : product.unit ? `/${product.unit}` : "";

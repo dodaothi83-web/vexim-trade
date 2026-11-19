@@ -14,7 +14,8 @@ import {
  * cũng là thứ không được phép làm ẩu. Năm luật cứng:
  *
  *   1. Dưới 3 niêm yết thì không công bố khoảng giá.
- *   2. Niêm yết cũ hơn 90 ngày thì ẩn; cũ hơn 45 ngày thì vẫn hiện nhưng ghi rõ.
+ *   2. Giá không có hạn dùng theo thời gian: nhà cung cấp tự cập nhật, khoảng giá
+ *      ghi ngày cập nhật gần nhất. Niêm yết không có ngày cập nhật thì bỏ qua.
  *   3. Không gộp đơn vị khác nhau, không đoán đơn vị. Đơn vị không đọc được thì
  *      loại khỏi phép tính thay vì coi như kg.
  *   4. Khoảng hiển thị lấy từ min/max SAU KHI loại niêm yết lệch quá xa trung vị
@@ -50,12 +51,7 @@ export type PriceRangeOptions = {
   /** Đơn vị hiển thị chính. Mặc định lấy theo quy ước thị trường của danh mục. */
   unit?: PriceUnit;
   secondaryUnit?: PriceUnit;
-  now?: Date;
   minSamples?: number;
-  /** Quá số ngày này thì vẫn hiện nhưng gắn nhãn dữ liệu cũ. */
-  staleAfterDays?: number;
-  /** Quá số ngày này thì ẩn hẳn con số. */
-  hideAfterDays?: number;
   /**
    * Biên an toàn quanh trung vị: niêm yết có giá đại diện (trung bình giá thấp/cao
    * của chính nó) nhỏ hơn trung vị / hệ số này, hoặc lớn hơn trung vị × hệ số này,
@@ -83,10 +79,8 @@ export type PriceRangeResult = {
   sampleSize: number;
   /** Số niêm yết bị loại vì lệch quá xa trung vị (xem `outlierBandFactor`). */
   excludedOutliers: number;
-  /** Ngày cập nhật gần nhất trong số mẫu được dùng. */
+  /** Ngày cập nhật gần nhất trong số mẫu được dùng. Giá không có hạn dùng: chỉ hiện ngày. */
   lastUpdated: string | null;
-  /** Dữ liệu cũ hơn ngưỡng cảnh báo nhưng chưa tới ngưỡng ẩn. */
-  stale: boolean;
   /** Khoảng quy đổi sang đơn vị thứ hai, chỉ khi thị trường đọc song song hai đơn vị. */
   secondary?: { unit: PriceUnit; low: number; high: number };
   /** Quy cách của dòng này, khi khoảng giá được tách theo quy cách. */
@@ -104,10 +98,6 @@ export type PriceRangeOutcome =
   | { status: "too_few_suppliers"; usable: number; distinctSuppliers: number; neededSuppliers: number }
   | { status: "none" };
 
-function daysBetween(a: Date, b: Date): number {
-  return Math.floor((a.getTime() - b.getTime()) / 86400_000);
-}
-
 function median(sorted: number[]): number {
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
@@ -121,10 +111,7 @@ export function buildPriceRange(
   points: PricePoint[] | null | undefined,
   options: PriceRangeOptions = {},
 ): PriceRangeOutcome {
-  const now = options.now ?? new Date();
   const minSamples = options.minSamples ?? 3;
-  const staleAfterDays = options.staleAfterDays ?? 45;
-  const hideAfterDays = options.hideAfterDays ?? 90;
   const unit = options.unit ?? "kg";
 
   const usable: Array<{ lowKg: number; highKg: number; midKg: number; updatedAt: Date | null; supplierId: string | null }> = [];
@@ -140,10 +127,8 @@ export function buildPriceRange(
     const highKg = rawHigh !== null && rawHigh >= lowKg ? rawHigh : lowKg;
     const updatedAt = point.updatedAt ? new Date(point.updatedAt) : null;
     const valid = updatedAt && Number.isFinite(updatedAt.getTime()) ? updatedAt : null;
-    // Ngày không đọc được thì coi như cũ nhất, để không lỡ tay công bố giá mồ côi ngày.
+    // Giá không có ngày cập nhật đọc được thì không đưa vào khoảng giá.
     if (!valid) continue;
-    const age = daysBetween(now, valid);
-    if (age > hideAfterDays) continue;
     usable.push({ lowKg, highKg, midKg: (lowKg + highKg) / 2, updatedAt: valid, supplierId: point.supplierId ?? null });
   }
 
@@ -195,7 +180,6 @@ export function buildPriceRange(
   const medianKg = median(midValues);
 
   const latest = filtered.reduce<Date>((acc, item) => (item.updatedAt! > acc ? item.updatedAt! : acc), filtered[0].updatedAt!);
-  const age = daysBetween(now, latest);
 
   const low = fromPricePerKg(lowKg, unit);
   const high = fromPricePerKg(highKg, unit);
@@ -217,7 +201,6 @@ export function buildPriceRange(
       sampleSize: filtered.length,
       excludedOutliers,
       lastUpdated: latest.toISOString().slice(0, 10),
-      stale: age > staleAfterDays,
       secondary,
       lowText: formatUnitRange(roundedLow, roundedLow, unit),
       highText: formatUnitRange(roundedHigh, roundedHigh, unit),
@@ -354,10 +337,9 @@ export function priceRangeForCategory(
   slug: string,
   configuredUnit: string | null | undefined,
   points: PricePoint[] | null | undefined,
-  now?: Date,
 ): PriceRangeOutcome {
   const units = displayUnitsForCategory(slug, configuredUnit);
-  return buildPriceRange(points, { unit: units.primary, secondaryUnit: units.secondary, now });
+  return buildPriceRange(points, { unit: units.primary, secondaryUnit: units.secondary });
 }
 
 /** Ngày cập nhật dạng đọc được, cùng định dạng với biểu đồ mùa vụ. */

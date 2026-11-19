@@ -139,7 +139,7 @@ const warningBase = {
   price: "USD 7/kg",
   priceCurrency: "USD",
   priceUnit: "kg",
-  priceValidUntil: "2099-01-01",
+  priceUpdatedAt: "2099-01-01",
   moq: "1 MT",
   incoterm: "FOB",
   incotermPlace: "Cat Lai",
@@ -152,7 +152,7 @@ assert.ok(productComparisonWarnings([warningBase, { ...warningBase, priceUnit: "
 assert.ok(productComparisonWarnings([warningBase, { ...warningBase, incoterm: "CIF" }]).some((text) => text.includes("delivery scope")));
 assert.ok(productComparisonWarnings([warningBase, { ...warningBase, incotermPlace: null }]).some((text) => text.includes("delivery scope")));
 assert.ok(productComparisonWarnings([warningBase, { ...warningBase, moq: "2 MT" }]).some((text) => text.includes("minimum quantities")));
-assert.ok(productComparisonWarnings([warningBase, { ...warningBase, priceValidUntil: null }]).some((text) => text.includes("validity dates")));
+assert.ok(!productComparisonWarnings([warningBase, { ...warningBase, priceUpdatedAt: null }]).some((text) => text.includes("validity dates")), "Prices have no validity window to compare");
 assert.equal(productComparisonWarnings([warningBase, { ...warningBase, priceCurrency: "USD/kg", priceUnit: null }]).length, 0,
   "A currency string can carry the same unit without creating a false mismatch");
 
@@ -270,7 +270,7 @@ assert.equal(projected.length, 1);
 assert.equal(projected[0].price, null);
 assert.equal(projected[0].priceCurrency, null);
 assert.equal(projected[0].priceUnit, null);
-assert.equal(projected[0].priceValidUntil, null, "Private price metadata is hidden with the price");
+assert.equal(projected[0].priceUpdatedAt, null, "Private price metadata is hidden with the price");
 assert.equal(projected[0].moq, "1 metric ton");
 assert.equal(projected[0].incotermPlace, "Ho Chi Minh City");
 assert.equal(projected[0].exportPort, "Cat Lai");
@@ -307,7 +307,7 @@ const compared = (id, extra = {}) => ({
   price: "USD 7/kg",
   priceCurrency: "USD",
   priceUnit: "kg",
-  priceValidUntil: "2099-01-01",
+  priceUpdatedAt: "2099-01-01",
   moq: "1 MT",
   packaging: "25 kg bags",
   leadTimeDays: 14,
@@ -353,9 +353,9 @@ const tableModule = compile("../components/public/product-comparison-table.tsx",
   "@/lib/public/product-detail-display": { publicProductLocationDisplay: (region) => region === "Not specified" ? region : `${region}, Vietnam` },
 });
 const tableHtml = renderToStaticMarkup(React.createElement(tableModule.ProductComparisonTable, {
-  products: [compared("a"), compared("b", { price: null, priceCurrency: null, priceUnit: null, priceValidUntil: null, certificates: [], inputMaterialOrigin: null })],
+  products: [compared("a"), compared("b", { price: null, priceCurrency: null, priceUnit: null, priceUpdatedAt: null, certificates: [], inputMaterialOrigin: null })],
 }));
-for (const text of ["Reference price", "USD 7/kg", "On request", "Price valid until", "MOQ", "Packaging", "Named place",
+for (const text of ["Reference price", "USD 7/kg", "On request", "Price updated", "MOQ", "Packaging", "Named place",
   "Vexim verification", "Documents checked: Approved", "Delivery history reviewed: Approved", "L3 review: Not approved",
   "HACCP", "No public certificates", "Raw material region", "Binh Phuoc and Dak Lak", "Input material origin", "Vietnam and Cambodia", "Not provided",
   "Copy comparison link", "Request a quote", "do not certify these products or a specific lot"]) {

@@ -107,7 +107,8 @@ export interface ProductComparisonWarningInput {
   price: string | null;
   priceCurrency: string | null;
   priceUnit: string | null;
-  priceValidUntil: string | null;
+  /** Ngày nhà cung cấp cập nhật giá (YYYY-MM-DD); giá không có hạn dùng. */
+  priceUpdatedAt: string | null;
   moq: string | null;
   incoterm: string | null;
   incotermPlace: string | null;
@@ -149,11 +150,6 @@ export function productComparisonWarnings(products: readonly ProductComparisonWa
   const quantities = priced.map((product) => normalized(product.moq));
   if (new Set(quantities).size > 1 || quantities.some((quantity) => !quantity || quantity === "on request" || quantity === "not provided")) {
     warnings.push("Reference prices may apply to different or unclear minimum quantities. Confirm the quantity for each quote before comparing prices.");
-  }
-
-  const validityDates = priced.map((product) => normalized(product.priceValidUntil));
-  if (new Set(validityDates).size > 1 || validityDates.some((date) => !date)) {
-    warnings.push("Price validity dates differ or are not stated. Confirm that all reference prices are current for the same buying period.");
   }
 
   const deliveryScopes = priced.map((product) => `${normalized(product.incoterm)}|${normalized(product.incotermPlace)}`);

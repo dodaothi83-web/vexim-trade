@@ -22,7 +22,7 @@ function load(relative) {
   const js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const exports = {};
   const mocks = {
-    'next/cache': { revalidatePath() {} },
+    'next/cache': { revalidatePath() {} }, '@/lib/seo/indexnow': { notifyIndexNow() {} },
     '@/lib/auth/session': {
       guard: async (perm) => {
         if (perm === 'suppliers.manage') return ['admin', 'sourcing'].includes(user.role) ? null : { message: 'denied' };

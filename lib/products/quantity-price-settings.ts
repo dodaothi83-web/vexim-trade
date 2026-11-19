@@ -2,8 +2,6 @@ export type QuantityPriceSettings = {
   max_tiers: number;
   max_price_ratio: number;
   max_last_moq_ratio: number;
-  reminder_days: number;
-  stale_days: number;
   offer_max_discount_percent: number;
   offer_max_days: number;
   offer_cooldown_days: number;
@@ -15,8 +13,6 @@ const fields: Record<keyof QuantityPriceSettings, { min: number; max: number; de
   max_tiers: { min: 1, max: 100, decimalPlaces: 0 },
   max_price_ratio: { min: 1, max: 999_999, decimalPlaces: 4 },
   max_last_moq_ratio: { min: 1, max: 99_999_999, decimalPlaces: 4 },
-  reminder_days: { min: 1, max: 36_500, decimalPlaces: 0 },
-  stale_days: { min: 1, max: 36_500, decimalPlaces: 0 },
   offer_max_discount_percent: { min: 0.01, max: 100, decimalPlaces: 2 },
   offer_max_days: { min: 1, max: 36_500, decimalPlaces: 0 },
   offer_cooldown_days: { min: 0, max: 36_500, decimalPlaces: 0 },

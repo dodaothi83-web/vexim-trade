@@ -2,7 +2,7 @@ import type { PublicQuantityOffer } from "@/lib/products/quantity-public-project
 
 /** Buyer-facing detail view for an approved quantity offer. */
 export function QuantityPriceTable({ offer }: { offer: PublicQuantityOffer }) {
-  const date = offer.confirmedAt ? new Date(offer.confirmedAt) : null;
+  const date = offer.updatedAt ? new Date(offer.updatedAt) : null;
   const validDate = date && Number.isFinite(date.getTime()) ? date : null;
   const updated = validDate ? new Intl.DateTimeFormat("en-GB", {
     day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Ho_Chi_Minh",
@@ -24,7 +24,6 @@ export function QuantityPriceTable({ offer }: { offer: PublicQuantityOffer }) {
       </table></div>
       <div className="border-t border-ink-100 px-5 py-3 text-xs text-ink-500">
         {updated && <p>Price updated {updated}</p>}
-        {offer.stale && (offer.daysSinceConfirmed !== null ? <p className="mt-1">Last updated {offer.daysSinceConfirmed} days ago</p> : <p className="mt-1">Confirmation date unavailable</p>)}
       </div>
     </>}
   </section>;
