@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock3, Globe2, Megaphone, Send, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Clock3, Crown, Globe2, Megaphone, Send, ShieldCheck } from "lucide-react";
 
 import { fill } from "@/lib/i18n/format";
 import type { ServicesMessages } from "@/lib/i18n/portal/services";
@@ -14,6 +14,7 @@ const ICONS: Record<SupplierServiceKeyValue, typeof Globe2> = {
   international_website: Globe2,
   featured_ads: Megaphone,
   fda_compliance: ShieldCheck,
+  plan_upgrade: Crown,
 };
 
 export function ServiceCards({ services, openKeys, email, copy }: {
@@ -26,7 +27,7 @@ export function ServiceCards({ services, openKeys, email, copy }: {
   const [active, setActive] = useState<SupplierServiceKeyValue | null>(null);
   const open = new Set(openKeys);
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {services.map((key) => (
         <ServiceCard key={key} serviceKey={key} expanded={active === key} hasOpen={open.has(key)}
           onToggle={(next) => setActive(next ? key : null)} email={email} copy={copy} />

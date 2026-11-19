@@ -1,5 +1,3 @@
-import { verificationLabel } from "@/lib/verification-status";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
@@ -14,8 +12,10 @@ import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { buildVerificationProgress } from "@/lib/supplier-portal/verification-progress";
 import { StorefrontVerificationActions } from "../verification-progress";
 import { getPortalMessages } from "@/lib/i18n/server";
-import { fill } from "@/lib/i18n/format";
 import { supplierPlanRules } from "@/lib/supplier-plans";
+import { formatCertificateDate } from "@/lib/certificate-supplier-copy";
+import { hasOpenServiceRequest } from "@/lib/supplier-services";
+import { StorefrontPlanBadge, StorefrontUpgradeButton } from "@/components/supplier-portal/storefront-owner";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
 import { ShowcaseEditor } from "./showcase-editor";
 import { ThemeEditor } from "./theme-editor";
@@ -31,8 +31,9 @@ export async function generateMetadata() {
  * “Trang của tôi”: đúng giao diện buyer nhìn thấy, dựng từ cùng component với trang công
  * khai nên hai nơi không thể lệch nhau.
  *
- * Khác trang công khai ở ba điểm: có thanh xem trước, nút + để nhà cung cấp tự thêm ảnh
- * bìa/ảnh đại diện, và nút gửi RFQ được vô hiệu hoá để họ không tự gửi yêu cầu cho mình.
+ * Khác trang công khai ở các điểm: badge gói + nút "Xem trang" cạnh tên, nút nâng cấp gói
+ * dưới link website, nút + (kèm gợi ý kích thước) để nhà cung cấp tự thêm ảnh bìa/ảnh đại
+ * diện, và nút gửi RFQ được vô hiệu hoá để họ không tự gửi yêu cầu cho mình.
  * Không hiện những mục buyer không thấy (giấy tờ nội bộ, email, điện thoại, hồ sơ chờ duyệt).
  */
 export default async function SupplierStorefrontPreviewPage() {
@@ -40,17 +41,16 @@ export default async function SupplierStorefrontPreviewPage() {
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
   const { supplier, store, review, reviews, user } = access;
-  const { m } = await getPortalMessages();
+  const { m, locale } = await getPortalMessages();
   const copy = m.storefront;
-  const checks = [[1, copy.checks.documents], [2, copy.checks.factory], [3, copy.checks.delivery]] as const;
 
   // Thiếu migration thì báo ngay trên trang, không để cả cổng trắng: nhà cung cấp vẫn
   // vào được các mục khác và biết đây là lỗi dữ liệu chứ không phải hồ sơ của mình.
   let loaded: { card: Awaited<ReturnType<typeof getSupplierStorefront>>; categories: Awaited<ReturnType<typeof store.listCategories>>;
     certificates: ReturnType<typeof publicSupplierCertificates>;
-    progress: ReturnType<typeof buildVerificationProgress> } | null = null;
+    progress: ReturnType<typeof buildVerificationProgress>; upgradeRequestOpen: boolean } | null = null;
   try {
-    const [card, categories, rawCertificates, supplierMedia, submissions, requests, l1Media] = await Promise.all([
+    const [card, categories, rawCertificates, supplierMedia, submissions, requests, l1Media, serviceRequests] = await Promise.all([
       getSupplierStorefront(supplier),
       store.listCategories({ publishedOnly: true }),
       store.listCertificates(supplier.id).catch(() => []),
@@ -58,6 +58,8 @@ export default async function SupplierStorefrontPreviewPage() {
       store.listSubmissions(supplier.id).catch(() => []),
       store.listSupplierVerificationRequests(supplier.id).catch(() => []),
       review ? store.listMedia("verification", review.id).catch(() => []) : Promise.resolve([]),
+      // Bảng yêu cầu dịch vụ chưa có (chưa migrate) thì coi như chưa có yêu cầu nâng gói.
+      store.listSupplierServiceRequests({ supplierId: supplier.id, limit: 50 }).catch(() => []),
     ]);
     // Đếm bằng chứng đã nộp để nút ở khối dưới nói đúng “còn mấy ảnh/chứng từ”.
     const submissionItems = Object.fromEntries(await Promise.all(submissions.map(async (submission) =>
@@ -69,6 +71,7 @@ export default async function SupplierStorefrontPreviewPage() {
       progress: buildVerificationProgress({
         supplierId: supplier.id, supplierType: supplier.supplier_type, reviews, submissions, submissionItems, requests, documents: l1Media, userId: user.id,
       }),
+      upgradeRequestOpen: hasOpenServiceRequest(serviceRequests.filter((r) => r.supplier_id === supplier.id), "plan_upgrade"),
     };
   } catch (error) {
     console.error(`[supplier-portal] could not build the storefront preview. ${migrationHint(error) ?? ""}`.trim(), error);
@@ -80,13 +83,16 @@ export default async function SupplierStorefrontPreviewPage() {
       <p className="mt-1 leading-6">{copy.loadError.body}</p>
     </div>
   </>;
-  const { card, categories, certificates, progress } = loaded;
+  const { card, categories, certificates, progress, upgradeRequestOpen } = loaded;
 
   const published = supplier.status === "published";
   const synthetic = isSyntheticSupplier(supplier);
-  const steps = card.approved_verification_steps;
-  const approved = checks.filter(([level]) => steps.includes(level)).map(([level, label]) => level === 2 ? verificationLabel(2, card.approved_l2_scope ?? null) : label);
-  const missing = checks.filter(([level]) => !steps.includes(level)).map(([level, label]) => level === 2 && supplier.supplier_type === "trading" ? copy.checks.partnerContract : label);
+  const planRules = supplierPlanRules(supplier);
+  // Hạn gói hiển thị theo ngày Việt Nam; CRM lưu 23:59:59 +07:00 của ngày hết hạn.
+  const planExpiresOn = planRules.plan !== "basic" && supplier.plan_expires_at && Number.isFinite(Date.parse(supplier.plan_expires_at))
+    ? formatCertificateDate(new Date(Date.parse(supplier.plan_expires_at) + 7 * 3_600_000).toISOString().slice(0, 10), locale === "en" ? "en" : "vi")
+    : null;
+  const publicHref = published ? `/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}` : null;
   const coverUrl = supplier.cover_image ? `/public-media/${supplier.cover_image.replace(/^\/+/, "")}` : null;
   const avatarUrl = supplier.profile_image ? `/public-media/${supplier.profile_image.replace(/^\/+/, "")}` : null;
 
@@ -98,29 +104,11 @@ export default async function SupplierStorefrontPreviewPage() {
 
   return <>
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
-    {supplierPlanRules(supplier).premiumStorefront && <ThemeEditor initial={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme} />}
-    <ShowcaseEditor blocks={showcaseBlocks} enabled={supplierPlanRules(supplier).premiumStorefront} copy={m.showcase} />
-    <section aria-label={copy.preview.aria} className="rounded-xl border border-dashed border-brand-300 bg-brand-50/60 px-4 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[12.5px] leading-5 text-ink-700">
-          <b className="text-ink-900">{copy.preview.lead}</b> {copy.preview.body}
-        </p>
-        {published
-          ? <Link href={`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center rounded-full border border-brand-300 bg-white px-3 py-1 text-[11px] font-bold text-brand-800 hover:bg-brand-50">
-            {copy.preview.live}
-          </Link>
-          : <span className="inline-flex items-center rounded-full bg-ink-100 px-3 py-1 text-[11px] font-bold text-ink-700">
-            {copy.preview.notPublished}
-          </span>}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-brand-200/70 pt-2.5 text-[11.5px] text-ink-700">
-        <span className="font-bold text-ink-900">{fill(copy.preview.verification, { count: approved.length })}</span>
-        <span>{fill(copy.preview.approved, { list: approved.length ? approved.join(", ") : copy.preview.approvedNone })}</span>
-        <span className="text-ink-500">{fill(copy.preview.notReviewed, { list: missing.length ? missing.join(", ") : copy.preview.allApproved })}</span>
-      </div>
-    </section>
+    {planRules.premiumStorefront && <ThemeEditor initial={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme} />}
+    {/* Gói Basic không còn thẻ khoá ở đây; lời mời nâng gói là nút dưới link website. Gói đã hết
+        hạn mà còn khối cũ thì vẫn thấy để gỡ. */}
+    {(planRules.premiumStorefront || showcaseBlocks.length > 0) &&
+      <ShowcaseEditor blocks={showcaseBlocks} enabled={planRules.premiumStorefront} copy={m.showcase} />}
 
     <SupplierStorefront
       supplier={card}
@@ -138,6 +126,11 @@ export default async function SupplierStorefrontPreviewPage() {
       avatarAction={<SupplierPhotoButton kind="profile" hasImage={!!avatarUrl}
         className="absolute -right-2 -bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-white shadow-md ring-2 ring-white transition hover:bg-brand-800 disabled:opacity-60" />}
       verificationActions={<StorefrontVerificationActions progress={progress} />}
+      nameAside={<StorefrontPlanBadge plan={planRules.plan} expiresOn={planExpiresOn} publicHref={publicHref} copy={copy.owner} />}
+      ownerActions={<StorefrontUpgradeButton plan={planRules.plan} expiresOn={planExpiresOn} requestOpen={upgradeRequestOpen} email={user.email} copy={copy.owner} />}
+      avatarHint={<p className="mx-auto mt-2 w-32 text-center text-[11px] leading-4 opacity-80">
+        <span className="block font-semibold">{avatarUrl ? copy.owner.avatarChange : copy.owner.avatarAdd}</span>{copy.owner.avatarHint}
+      </p>}
     />
   </>;
 }

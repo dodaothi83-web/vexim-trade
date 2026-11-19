@@ -1947,7 +1947,7 @@ export interface SupportConversation {
 }
 
 /** Dịch vụ nhà cung cấp yêu cầu tư vấn trong cổng (mục "Dịch vụ Vexim"). */
-export type SupplierServiceKey = "international_website" | "featured_ads" | "fda_compliance";
+export type SupplierServiceKey = "international_website" | "featured_ads" | "fda_compliance" | "plan_upgrade";
 export type SupplierServiceRequestStatus = "submitted" | "in_consultation" | "quoted" | "closed";
 
 export interface SupplierServiceRequest {

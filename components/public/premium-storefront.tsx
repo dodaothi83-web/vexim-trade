@@ -55,6 +55,10 @@ export interface PremiumStorefrontProps {
   avatarUrl: string | null;
   coverAction?: ReactNode;
   avatarAction?: ReactNode;
+  /** Chỉ cổng nhà cung cấp (xem SupplierStorefront). */
+  avatarHint?: ReactNode;
+  nameAside?: ReactNode;
+  ownerActions?: ReactNode;
   nameTag: "h1" | "h2";
   showcase: ShowcaseBlock[];
   imageUrl: (path: string) => string;
@@ -95,13 +99,16 @@ function Elegant(p: Shared) {
         <Avatar avatarUrl={p.avatarUrl} name={p.name} className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-white text-3xl font-bold text-[var(--sf-accent)] ring-1 ring-ink-200" />
         {p.avatarAction}
       </div>
+      {p.avatarHint}
       <div className="mt-4 flex justify-center">{p.typeBadge}</div>
       <p className="mt-3 text-[11.5px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">{p.location}</p>
       <NameTag id="supplier-name" className="mx-auto mt-2 max-w-3xl break-words text-3xl font-light tracking-tight text-ink-900 sm:text-5xl">{p.name}</NameTag>
+      {p.nameAside && <div className="mt-3 flex flex-wrap items-center justify-center gap-2">{p.nameAside}</div>}
       {p.tagline && <p className="mx-auto mt-3 max-w-2xl text-[15px] leading-7 text-ink-600">{p.tagline}</p>}
       <div className="mx-auto my-5 h-0.5 w-14 bg-[var(--sf-accent)]" />
       <div className="flex justify-center">{p.checks}</div>
       <div className="mx-auto mt-6 flex max-w-md flex-col justify-center gap-2 sm:flex-row">{p.actions}</div>
+      {p.ownerActions && <div className="mt-3 flex justify-center">{p.ownerActions}</div>}
     </div>
     {(p.coverUrl || p.coverAction) && <div className="relative mx-5 h-56 overflow-hidden rounded bg-ink-50 sm:mx-10 sm:h-[420px]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -150,11 +157,14 @@ function Modern(p: Shared) {
             <Avatar avatarUrl={p.avatarUrl} name={p.name} className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white text-2xl font-bold text-[var(--sf-accent)]" />
             {p.avatarAction}
           </div>
+          {p.avatarHint}
           <span className="rounded-md bg-[var(--sf-accent)] px-3 py-1 text-xs font-bold">{p.location}</span>
         </div>
         <NameTag id="supplier-name" className="max-w-3xl break-words text-3xl font-extrabold leading-tight tracking-tight sm:text-6xl">{p.name}</NameTag>
+        {p.nameAside && <div className="flex flex-wrap items-center gap-2">{p.nameAside}</div>}
         {p.tagline && <p className="max-w-2xl text-[15px] leading-7 text-white/90 sm:text-lg">{p.tagline}</p>}
         <div className="flex max-w-md flex-col gap-2 sm:flex-row [&>*]:sm:w-auto">{p.actions}</div>
+        {p.ownerActions && <div>{p.ownerActions}</div>}
       </div>
     </div>
     {p.stats.length > 0 && <dl className="relative z-10 mx-3 -mt-8 grid grid-cols-2 gap-3 sm:mx-8 sm:grid-cols-4">
@@ -203,7 +213,9 @@ function Gallery(p: Shared) {
         <Avatar avatarUrl={p.avatarUrl} name={p.name} className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-[var(--sf-accent)] text-2xl font-bold text-white" />
         {p.avatarAction}
       </div>
+      {p.avatarHint}
       <NameTag id="supplier-name" className="mt-5 break-words text-3xl font-bold leading-tight text-ink-900">{p.name}</NameTag>
+      {p.nameAside && <div className="mt-3 flex flex-wrap items-center gap-2">{p.nameAside}</div>}
       <p className="mt-2 text-[11.5px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">{p.location}</p>
       {p.tagline && <p className="mt-3 text-[15px] leading-7 text-ink-600">{p.tagline}</p>}
       <div className="mt-4">{p.typeBadge}</div>
@@ -215,6 +227,7 @@ function Gallery(p: Shared) {
         </div>)}
       </dl>}
       <div className="mt-6 flex flex-col gap-2">{p.actions}</div>
+      {p.ownerActions && <div className="mt-3">{p.ownerActions}</div>}
     </aside>
     <div id="showcase" className="relative scroll-mt-24 bg-white p-4 sm:p-7">
       {p.coverAction}
