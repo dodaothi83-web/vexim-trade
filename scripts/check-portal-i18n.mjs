@@ -328,7 +328,8 @@ assert.doesNotMatch(categoriesActions, /message: "/, "Không trả thông báo v
 const quantityActions = read("app/supplier/portal/quantity-revision-actions.ts");
 assert.doesNotMatch(quantityActions, /message: "/, "Không trả thông báo viết cứng từ server action duyệt lại bảng giá");
 const storefrontPage = read("app/supplier/portal/storefront/page.tsx");
-assert.match(storefrontPage, /const checks = \[\[1, copy\.checks\.documents\]/, "Nhãn ba bước xác minh lấy từ từ điển");
+assert.match(storefrontPage, /copy=\{copy\.owner\}/, "Badge gói, nút xem trang và nâng gói lấy chữ từ từ điển");
+assert.doesNotMatch(storefrontPage, /copy\.preview\./, "Đã bỏ thanh xem trước");
 const notificationsApi = read("app/api/supplier-portal/notifications/route.ts");
 assert.match(notificationsApi, /await getLocale\(\)/, "Chuông thông báo dùng cùng ngôn ngữ với khung");
 
