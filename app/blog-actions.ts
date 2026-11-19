@@ -7,6 +7,7 @@ import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { buildPostPayload, ensureUniqueSlug, slugify } from "@/lib/blog/post-payload";
 import type { Post, PostInput } from "@/lib/types";
+import { notifyIndexNow } from "@/lib/seo/indexnow";
 
 export type BlogActionResult = { ok: true; post: Post } | { ok: false; message: string };
 
@@ -69,6 +70,7 @@ export async function savePostAction(
       };
       const post = await store.createPost(input);
       refreshPublicPages(post.slug);
+      if (post.status === "published") notifyIndexNow([`/blog/${post.slug}`, "/blog"]);
       return { ok: true, post };
     }
 
@@ -89,6 +91,9 @@ export async function savePostAction(
     const post = await store.updatePost(id, patch);
     refreshPublicPages(current.slug);
     refreshPublicPages(post.slug);
+    if (post.status === "published" || current.status === "published") {
+      notifyIndexNow([`/blog/${post.slug}`, current.slug !== post.slug ? `/blog/${current.slug}` : null, "/blog"]);
+    }
     return { ok: true, post };
   } catch (err) {
     return {
@@ -107,6 +112,7 @@ export async function deletePostAction(id: string): Promise<{ ok: true } | { ok:
     const current = await store.getPost(id);
     await store.deletePost(id);
     refreshPublicPages(current?.slug);
+    if (current?.status === "published") notifyIndexNow([`/blog/${current.slug}`, "/blog"]);
     return { ok: true };
   } catch (err) {
     return {

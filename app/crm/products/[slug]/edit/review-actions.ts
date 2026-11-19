@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
+import { notifyIndexNow } from "@/lib/seo/indexnow";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import type { SupplierProduct } from "@/lib/types";
 import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
@@ -146,6 +147,14 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     revalidatePath("/suppliers", "layout");
     revalidatePath("/");
     refreshCrmBadges();
+    if (decision === "approved" && reviewedCategory) {
+      const owner = await store.getSupplier(product.supplier_id).catch(() => null);
+      notifyIndexNow([
+        `/products/${encodeURIComponent(reviewedCategory)}/${encodeURIComponent(id)}`,
+        `/products/${encodeURIComponent(reviewedCategory)}`,
+        owner ? `/suppliers/${encodeURIComponent((owner.slug ?? "").trim() || owner.id)}` : null,
+      ]);
+    }
     return { ok: true, message: (decision === "approved" ? "Đã duyệt và đăng sản phẩm." : "Đã yêu cầu nhà cung cấp chỉnh sửa.") + (mail === "sent" ? "" : " Chưa gửi được email cho nhà cung cấp. Sản phẩm vẫn được lưu theo trạng thái mới.") };
   } catch (error) { console.error("[supplier-product-review]", error); return { ok: false, message: "Không lưu được quyết định." }; }
 }
