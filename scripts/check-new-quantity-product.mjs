@@ -11,7 +11,8 @@ import * as displayName from '../lib/public/display-name.ts';
 import * as displayNameRules from '../lib/public/display-name-rules.ts';
 const supplierId = '55555555-5555-5555-5555-555555555555', productId = '22222222-2222-2222-2222-222222222222';
 const category = { id: 'cat', slug: 'cashew', product_fields: [], supplier_product_fields: [], status: 'published', is_published: true };
-let supplier = { id: supplierId, fob_publicly_visible: true, fob_updated_at: '2026-10-29' }, user = { id: 'owner', email: 'owner@example.com' };
+// Gói Premium: được gắn ảnh từ kho (gói Basic là tin chữ).
+let supplier = { id: supplierId, fob_publicly_visible: true, fob_updated_at: '2026-10-29', plan: 'premium', plan_expires_at: null }, user = { id: 'owner', email: 'owner@example.com' };
 let strict = true, saved = null, calls = [], failRpc = false, throwAudit = false, names = [], requests = [{ request_id: 'r' }], translations = 0, translationStatus = 'translated', race = false;
 const storage = { put: [], deleted: [] };
 const storageApi = {
@@ -59,7 +60,7 @@ const mocks = {
   '@/lib/i18n/server': { getPortalMessages: async () => ({ locale: 'vi', m: loadPortalDictionary().vi }) },
   '@/lib/i18n/format': { fill: (text, values) => text.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? '') },
   '@/lib/products/quantity-v2-validation': v2Validation,
-  'next/cache': { revalidatePath() {} },
+  'next/cache': { revalidatePath() {} }, '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => null, recordPlanActivation: async () => {} }, 
   '@/lib/supplier-portal/access': { supplierPortalAccess: async (which) => which && !strict ? null : ({ supplier, user, store }) },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   '@/lib/supplier-portal/product-price-options': { isSupplierPriceCurrency: () => true, isSupplierPriceUnit: () => true, normalizeSupplierPriceCurrency: (s) => s, normalizeSupplierPriceUnit: (s) => s },

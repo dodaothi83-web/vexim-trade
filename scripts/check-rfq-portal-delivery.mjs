@@ -42,6 +42,7 @@ const dashboard = load('lib/supplier-portal/dashboard.ts', {
   '@/lib/public/product-selection': { withoutDirectContacts: (s) => String(s).replace(/[\w.+-]+@[\w.-]+/g, '[redacted]') },
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { vi: dictionary.vi.notices, en: dictionary.en.notices } },
+  '@/lib/supplier-plans': await import('../lib/supplier-plans.ts'),
   '@/lib/i18n/portal/rfqs': { rfqsMessages: { vi: dictionary.vi.rfqs, en: dictionary.en.rfqs } },
   // Dashboard nay đọc thêm phần chữ của chứng nhận (ngày hiển thị, trạng thái
   // hết hạn). Nạp module thật, không mock, để lỗi định dạng ngày vẫn lộ ra.

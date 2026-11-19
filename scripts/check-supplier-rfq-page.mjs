@@ -53,6 +53,7 @@ const boardModule = loadTs(read('lib/supplier-portal/dashboard.ts'), {
   '@/lib/public/product-selection': { withoutDirectContacts: scrub },
   '@/lib/i18n/format': loadFormat(),
   '@/lib/i18n/portal/notices': { noticesMessages: { vi: dictionary.vi.notices, en: dictionary.en.notices } },
+  '@/lib/supplier-plans': await import('../lib/supplier-plans.ts'),
   '@/lib/i18n/portal/rfqs': { rfqsMessages: { vi: dictionary.vi.rfqs, en: dictionary.en.rfqs } },
 });
 

@@ -8,7 +8,9 @@ const now = new Date("2026-11-15T00:00:00Z");
 // 1. Số sản phẩm và quyền theo gói.
 assert.equal(plans.SUPPLIER_PLAN_RULES.basic.maxProducts, 5);
 assert.equal(plans.SUPPLIER_PLAN_RULES.premium.maxProducts, 20);
-assert.equal(plans.SUPPLIER_PLAN_RULES.pro.maxProducts, 50);
+assert.equal(plans.SUPPLIER_PLAN_RULES.pro.maxProducts, null, "Pro không giới hạn sản phẩm");
+assert.equal(plans.SUPPLIER_PLAN_RULES.basic.mediaAllowed, false, "Basic là tin chữ");
+assert.equal(plans.SUPPLIER_PLAN_RULES.premium.mediaAllowed && plans.SUPPLIER_PLAN_RULES.pro.mediaAllowed, true);
 assert.equal(plans.SUPPLIER_PLAN_RULES.basic.video, false, "Basic không có video");
 assert.equal(plans.SUPPLIER_PLAN_RULES.premium.video && plans.SUPPLIER_PLAN_RULES.pro.video, true);
 
@@ -40,13 +42,26 @@ assert.match(migration, /before insert on public\.supplier_products/, "Trigger c
 assert.match(migration, /for update/, "Khoá dòng nhà cung cấp chống tạo đồng thời");
 assert.match(migration, /check \(plan in \('basic', 'premium', 'pro'\)\)/);
 assert.doesNotMatch(migration, /\nimmutable\n/, "Hàm dùng now() không được immutable");
+// Bảng gói trong CRM (20261129): giới hạn đọc từ supplier_plan_catalog, null là không giới hạn.
+const catalogMigration = read("supabase/migrations/20261129_supplier_plan_catalog.sql");
+assert.match(catalogMigration, /create table if not exists public\.supplier_plan_catalog/);
+assert.match(catalogMigration, /\('pro', 'Pro'[\s\S]*?, null, true\)/, "Pro khởi tạo không giới hạn");
+assert.match(catalogMigration, /\('basic', 'Basic'[\s\S]*?, 5, false\)/, "Basic 5 sản phẩm, không ảnh");
+assert.match(catalogMigration, /if v_limit is null then\s+return new;/, "Không giới hạn thì không chặn");
+assert.match(catalogMigration, /on conflict \(plan\) do nothing/, "Chạy lại không ghi đè nội dung đã sửa");
+assert.equal(plans.canAddSupplierProduct({ plan: "pro" }, 10_000, now), true, "Pro không giới hạn");
+const customCatalog = { ...plans.DEFAULT_PLAN_CATALOG, premium: { ...plans.DEFAULT_PLAN_CATALOG.premium, maxProducts: 3 } };
+assert.equal(plans.canAddSupplierProduct({ plan: "premium" }, 3, now, customCatalog), false, "Giới hạn theo bảng gói CRM");
+assert.equal(plans.textOnlyListing({ plan: "basic" }), true);
+assert.equal(plans.textOnlyListing({ plan: "premium", plan_expires_at: "2026-01-01T00:00:00Z" }, null, now), true, "Gói hết hạn về tin chữ");
+assert.equal(plans.textOnlyListing({ plan: "pro" }, null, now), false);
 
 // 6. Ứng dụng báo trước ở cả hai đường tạo, và trang tạo mới chặn khi hết chỗ.
 const portal = read("app/supplier/portal/product-actions.ts");
 assert.match(portal, /canAddSupplierProduct\(access\.supplier,/);
 assert.match(portal, /isProductLimitError\(error\)/);
 const crm = read("app/actions.ts");
-assert.match(crm, /canAddSupplierProduct\(planSupplier, count\)/);
+assert.match(crm, /canAddSupplierProduct\(planSupplier, count, new Date\(\), planCatalog\)/, "CRM tạo sản phẩm theo bảng gói hiện hành");
 assert.match(crm, /isProductLimitError\(err\)/);
 assert.match(read("app/supplier/portal/products/new/page.tsx"), /canAddSupplierProduct\(access\.supplier,[\s\S]*redirect\("\/supplier\/portal\/products"\)/);
 
@@ -87,21 +102,27 @@ assert.match(action, /isSupplierPlan\(plan\)/);
     "@/lib/site": { SITE_URL: "https://www.veximtrade.com" },
     "@/lib/certificate-supplier-copy": { formatCertificateDate: (iso) => iso.split("-").reverse().join("/") },
     "@/lib/supplier-plans": plans,
+    "@/lib/supplier-plan-catalog": { readPlanCatalog: async () => plans.DEFAULT_PLAN_CATALOG },
   });
+  const activations = [];
   const actionExports = compile("app/crm/suppliers/[slug]/plan-actions.ts", {
     "next/cache": { revalidatePath() {} },
     "@/lib/auth/session": { guard: async () => null, getSession: async () => ({ uid: "staff", email: "staff@vexim.test" }) },
     "@/lib/db": { getStore: () => store }, "@/lib/supplier-plans": plans,
     "@/lib/supplier-portal/notify": notify,
+    "@/lib/supplier-plan-catalog": { recordPlanActivation: async (row) => { activations.push(row); } },
   });
-  const form = (plan, expires = "") => { const fd = new FormData(); fd.set("supplier_id", "s1"); fd.set("plan", plan); fd.set("expires_on", expires); return fd; };
+  const form = (plan, expires = "", extra = {}) => { const fd = new FormData(); fd.set("supplier_id", "s1"); fd.set("plan", plan); fd.set("expires_on", expires);
+    for (const [k, v] of Object.entries(extra)) fd.set(k, v); return fd; };
   const future = new Date(Date.now() + 40 * 86_400_000).toISOString().slice(0, 10);
-  let result = await actionExports.setSupplierPlanAction(form("premium", future));
+  let result = await actionExports.setSupplierPlanAction(form("premium", future, { months: "3", amount_vnd: "1399000" }));
   assert.equal(result.ok, true);
   assert.equal(mails.length, 1, "Lên Premium phải gửi thư");
   assert.equal(JSON.stringify(mails[0].to), JSON.stringify(["owner@supplier.vn"]), "Chỉ gửi tài khoản đang hoạt động của đúng nhà cung cấp");
   assert.equal(mails[0].subject, "Gói Premium đã được kích hoạt");
   assert.match(mails[0].text, /tối đa 20 sản phẩm/);
+  assert.equal(activations.length, 1, "Bật gói trả phí ghi một dòng cho báo cáo doanh thu");
+  assert.equal(activations[0].months, 3); assert.equal(activations[0].amountVnd, 1399000); assert.equal(activations[0].plan, "premium");
   assert.match(mails[0].text, new RegExp(future.split("-").reverse().join("/")));
   result = await actionExports.setSupplierPlanAction(form("premium", future));
   assert.equal(result.message, "Gói không thay đổi.");
@@ -114,10 +135,13 @@ assert.match(action, /isSupplierPlan\(plan\)/);
   await actionExports.setSupplierPlanAction(form("basic"));
   assert.equal(mails[3].subject, "Gói của bạn đã chuyển về Basic");
   assert.match(mails[3].text, /Sản phẩm đã đăng vẫn hiển thị/);
+  assert.match(mails[3].text, /chỉ gồm nội dung chữ/);
+  assert.match(mails[2].text, /không giới hạn sản phẩm/, "Pro không giới hạn");
+  assert.equal(activations.filter((a) => a.plan === "pro").length, 1, "Về Basic không ghi doanh thu");
   store.listUsers = async () => [];
   result = await actionExports.setSupplierPlanAction(form("pro"));
   assert.equal(result.ok, true, "Không gửi được thư thì gói vẫn được lưu");
   assert.match(result.message, /Chưa gửi được email/);
 }
 
-console.log("✅ Gói nhà cung cấp: Basic 5, Premium 20, Pro 50, hết hạn về Basic, chặn ở CSDL và ứng dụng, CRM đổi gói có audit và báo nhà cung cấp.");
+console.log("✅ Gói nhà cung cấp: Basic 5 (tin chữ), Premium 20, Pro không giới hạn, hết hạn về Basic, chặn ở CSDL và ứng dụng, CRM đổi gói có audit và báo nhà cung cấp.");
