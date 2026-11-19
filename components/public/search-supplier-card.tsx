@@ -159,7 +159,7 @@ export function SearchSupplierCard({ supplier, offers, offerCount, lang }: {
               aria-label={vi ? `Xem sản phẩm ${product.name} (mở tab mới)` : `View ${product.name} (opens in a new tab)`}
               className={`group/offer flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-ink-50 transition hover:border-brand-500 focus-visible:z-10 ${offers.length === 3 && index === 0 ? "row-span-2" : ""}`}>
               <div className="min-h-0 flex-1 overflow-hidden bg-ink-50">
-                {image ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={`/public-media/${image.replace(/^\//, "")}`} alt="" loading="lazy"
+                {image ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={`/public-media/${image.replace(/^\//, "")}`} alt={product.name} loading="lazy"
                   className="h-full w-full object-cover transition duration-300 group-hover/offer:scale-105" /></>
                   : <div className="flex h-full flex-col items-center justify-center gap-1 px-2 text-center text-ink-500"><ImageOff className="h-6 w-6" aria-hidden="true" /><span className="text-[10px]">{vi ? "Chưa có ảnh" : "No photo"}</span></div>}
               </div>
