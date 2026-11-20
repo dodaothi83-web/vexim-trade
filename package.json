@@ -61,6 +61,9 @@
     "check:sourcing": "node scripts/check-sourcing.mjs && node scripts/check-sourcing-ui.mjs"
   },
   "dependencies": {
+    "@blocknote/core": "0.57.0",
+    "@blocknote/react": "0.57.0",
+    "@blocknote/shadcn": "0.57.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource/be-vietnam-pro": "^5.3.0",
     "@sentry/nextjs": "^11.11.0",
