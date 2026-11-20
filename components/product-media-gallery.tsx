@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, ImageIcon, PlayCircle, X, ZoomIn } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImageIcon, Play, PlayCircle, X, ZoomIn } from "lucide-react";
+import { AplusVideo } from "@/components/public/aplus-video";
+import { aplusVideoThumbnailUrl } from "@/lib/products/aplus";
 import type { PublicProductVideo } from "@/lib/public/product-video";
 
 /** URL ảnh công khai — dùng chung cho hero, lightbox và preloader. */
@@ -17,10 +19,17 @@ export function productGallerySwipeStep(startX: number, startY: number, endX: nu
 }
 
 /** Only buyer-shareable URLs projected by the server may reach this component. */
-export function ProductMediaGallery({ name, images, thumbnails, video, actions }: {
-  name: string; images: string[]; thumbnails?: string[]; video: PublicProductVideo | null; actions?: ReactNode;
+export function ProductMediaGallery({ name, images, thumbnails, video, streamVideo = null, actions }: {
+  name: string; images: string[]; thumbnails?: string[]; video: PublicProductVideo | null;
+  /** Video sản phẩm do nhà cung cấp (gói Premium/Pro) tải lên; nằm cuối dãy ảnh. */
+  streamVideo?: { uid: string; title: string } | null;
+  actions?: ReactNode;
 }) {
   const [index, setIndex] = useState(0);
+  // Ô video đứng sau ảnh cuối; sản phẩm chỉ có video thì video ở ô đầu.
+  const videoIndex = streamVideo ? images.length : -1;
+  const onVideo = index === videoIndex;
+  const [videoChosen, setVideoChosen] = useState(false);
   const [open, setOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [zoomPoint, setZoomPoint] = useState("50% 50%");
@@ -35,7 +44,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video, actions }
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const suppressClick = useRef(false);
   const selected = images[index] ?? images[0];
-  const hasThumbnails = images.length > 1;
+  const hasThumbnails = images.length + (streamVideo ? 1 : 0) > 1;
 
   useEffect(() => {
     const target = images[index] ?? images[0] ?? null;
@@ -121,7 +130,9 @@ export function ProductMediaGallery({ name, images, thumbnails, video, actions }
             all image/zoom children are absolutely positioned. */}
         <div aria-hidden="true" style={{ paddingTop: "100%" }} />
         {actions && <div className="absolute right-3 top-3 z-20 flex flex-col items-end gap-2">{actions}</div>}
-        {selected ? <button ref={heroRef} type="button" onClick={openHero}
+        {onVideo && streamVideo ? <div className="absolute inset-0 flex items-center bg-black">
+          <AplusVideo key={streamVideo.uid} uid={streamVideo.uid} title={streamVideo.title} autoStart={videoChosen} className="w-full" />
+        </div> : selected ? <button ref={heroRef} type="button" onClick={openHero}
           onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
           onTouchCancel={() => { touchStart.current = null; suppressClick.current = false; }}
           onMouseMove={(event) => {
@@ -163,7 +174,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video, actions }
       </div>
 
       {hasThumbnails && <section className="relative min-w-0 sm:order-1" aria-label="Product photos">
-        <h2 className="sr-only">Product photos ({images.length})</h2>
+        <h2 className="sr-only">Product photos ({images.length}){streamVideo ? " and video" : ""}</h2>
         <div className="w-full min-w-0 overflow-x-auto pb-1 sm:absolute sm:inset-0 sm:overflow-x-hidden sm:overflow-y-auto sm:overscroll-contain sm:pb-0 sm:pr-1" role="group" aria-label="Choose a product photo">
           <div className="flex w-max gap-2 sm:w-full sm:flex-col">
             {images.map((path, photoIndex) => <button key={path} type="button" onClick={() => { setIndex(photoIndex); setZoomPoint("50% 50%"); }}
@@ -172,6 +183,16 @@ export function ProductMediaGallery({ name, images, thumbnails, video, actions }
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={publicPhotoUrl(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
             </button>)}
+            {streamVideo && <button type="button" onClick={() => { setVideoChosen(true); setIndex(videoIndex); }}
+              aria-label={`Play product video of ${name}`} aria-pressed={onVideo}
+              className={`relative aspect-square w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-ink-900 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full ${onVideo ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={aplusVideoThumbnailUrl(streamVideo.uid, 240)} alt="" loading="lazy" className="h-full w-full object-cover opacity-80" />
+              <span className="absolute inset-0 flex items-center justify-center">
+                <span className="flex size-7 items-center justify-center rounded-full bg-white/90 text-brand-800 shadow"><Play className="ml-0.5 size-3.5 fill-current" aria-hidden="true" /></span>
+              </span>
+              <span className="absolute inset-x-0 bottom-0 bg-ink-900/70 py-0.5 text-center text-[9px] font-bold uppercase tracking-wide text-white">Video</span>
+            </button>}
           </div>
         </div>
       </section>}

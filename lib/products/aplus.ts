@@ -164,6 +164,22 @@ export function canEditAplus(product: { supplier_review_status?: string | null; 
     ((product.supplier_review_status === "approved" || product.supplier_review_status === "paused") && product.supplier_originated === true);
 }
 
+/**
+ * Video sản phẩm: một video nằm cùng dãy ảnh sản phẩm (cột `gallery_video`), chỉ gói có quyền
+ * video (Premium/Pro). Thời lượng và ngày tải lên do máy chủ lấy từ Cloudflare.
+ */
+export type ProductGalleryVideo = { video_uid: string; duration?: number; uploaded_at?: string };
+
+export function readGalleryVideo(raw: unknown): ProductGalleryVideo | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const item = raw as Record<string, unknown>;
+  if (typeof item.video_uid !== "string" || !VIDEO_UID.test(item.video_uid)) return null;
+  const video: ProductGalleryVideo = { video_uid: item.video_uid.toLowerCase() };
+  if (typeof item.duration === "number" && Number.isFinite(item.duration) && item.duration > 0 && item.duration <= 86400) video.duration = Math.round(item.duration);
+  if (typeof item.uploaded_at === "string" && !Number.isNaN(Date.parse(item.uploaded_at))) video.uploaded_at = new Date(item.uploaded_at).toISOString();
+  return video;
+}
+
 /** Mọi mã video mà nội dung đang dùng. */
 export function aplusVideoUids(modules: readonly AplusModule[]): string[] {
   return modules.flatMap((module) => module.type === "video" ? [module.video_uid] : []);

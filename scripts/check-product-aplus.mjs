@@ -94,4 +94,25 @@ assert.match(page, /richContent\s*\n?\s*\? readAplusModules/, "Trang người mu
 const migration = read("supabase/migrations/20261130_product_aplus_content.sql");
 assert.match(migration, /add column if not exists aplus_content jsonb not null default '\[\]'::jsonb/);
 assert.match(migration, /rename column media_allowed to rich_content/);
-console.log("✅ Nội dung A+: 5 loại khối, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói.");
+// 8. Video sản phẩm trong dãy ảnh: chỉ gói có quyền video; Basic không thấy ô video.
+assert.deepEqual(a.readGalleryVideo({ video_uid: "AB".repeat(16), duration: 12.6, uploaded_at: "2026-11-20T00:00:00Z" }),
+  { video_uid: "ab".repeat(16), duration: 13, uploaded_at: "2026-11-20T00:00:00.000Z" });
+assert.equal(a.readGalleryVideo({ video_uid: "nope" }), null);
+assert.equal(a.readGalleryVideo(null), null);
+assert.equal(plans.supplierPlanRules({ plan: "basic" }).video, false);
+assert.equal(plans.supplierPlanRules({ plan: "premium" }).video, true);
+const offCatalog = { ...plans.DEFAULT_PLAN_CATALOG, premium: { ...plans.DEFAULT_PLAN_CATALOG.premium, richContent: false } };
+assert.equal(plans.supplierPlanRules({ plan: "premium" }, new Date(), offCatalog).video, false, "Video đi cùng công tắc A+ trong CRM");
+assert.match(action, /export async function saveProductVideoAction/);
+assert.match(action, /\.video\) return \{ ok: false, message: v\.plan \}/, "Lưu video kiểm tra quyền gói từ phiên");
+assert.match(action, /video\.meta\.product_id !== productId/);
+assert.match(action, /after\(\(\) => deleteStreamVideo\(before\.video_uid\)\)/, "Video cũ bị thay hoặc xoá thì xoá trên Cloudflare");
+const editor = read("app/supplier/portal/products/product-editor.tsx");
+assert.match(editor, /\(richContentAllowed \|\| !!readGalleryVideo\(product\?\.gallery_video\)\) && <Row label=\{aplusCopy\.productVideo\.label\}>/, "Basic không thấy ô video");
+assert.match(page, /const galleryVideo = planRules\?\.video \? readGalleryVideo\(p\.gallery_video\) : null/, "Trang người mua chỉ hiện video khi gói còn quyền");
+assert.match(page, /streamVideo=\{galleryVideo \?/);
+assert.match(read("components/product-media-gallery.tsx"), /aria-label=\{`Play product video of \$\{name\}`\}/);
+assert.match(read("app/crm/products/[slug]/edit/aplus-actions.ts"), /export async function removeGalleryVideoAction/);
+const videoMigration = read("supabase/migrations/20261201_product_gallery_video.sql");
+assert.match(videoMigration, /add column if not exists gallery_video jsonb/);
+console.log("✅ Nội dung A+: 5 loại khối, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói, video sản phẩm chỉ Premium/Pro.");

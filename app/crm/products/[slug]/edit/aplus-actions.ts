@@ -7,7 +7,7 @@ import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { deleteStreamVideo } from "@/lib/media/cloudflare-stream";
 import { deleteObject } from "@/lib/media/storage";
-import { aplusImagePaths, aplusVideoUids, readAplusModules } from "@/lib/products/aplus";
+import { aplusImagePaths, aplusVideoUids, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 
 /** Nhân viên gỡ một khối A+ vi phạm (liên hệ trực tiếp, nội dung sai...). Ghi nhật ký. */
 export async function removeAplusModuleAction(productId: string, moduleId: string): Promise<{ ok: boolean; message: string }> {
@@ -39,4 +39,29 @@ export async function removeAplusModuleAction(productId: string, moduleId: strin
   revalidatePath(`/crm/products/${productId}/edit`);
   revalidatePath("/products", "layout");
   return { ok: true, message: "Đã gỡ khối A+." };
+}
+
+/** Nhân viên gỡ video sản phẩm (trong dãy ảnh) vi phạm; video bị xoá trên Cloudflare. Ghi nhật ký. */
+export async function removeGalleryVideoAction(productId: string): Promise<{ ok: boolean; message: string }> {
+  const denied = await guard("products.manage");
+  if (denied) return { ok: false, message: denied.message };
+  const session = await getSession();
+  const store = getStore();
+  const product = await store.getProduct(productId);
+  if (!product || !session) return { ok: false, message: "Không tìm thấy sản phẩm." };
+  const video = readGalleryVideo(product.gallery_video);
+  if (!video) return { ok: false, message: "Video đã được gỡ. Tải lại trang." };
+  try {
+    await store.updateProduct(productId, { gallery_video: null });
+  } catch (error) {
+    console.error("[crm-product-video] remove", error);
+    return { ok: false, message: "Chưa gỡ được video. Thử lại sau ít phút." };
+  }
+  after(() => deleteStreamVideo(video.video_uid));
+  await store.addAuditLog({ actor_id: session.uid, actor_email: session.email, entity: "product", entity_id: productId,
+    action: "staff.product_video_removed", before: { video: video.video_uid }, after: { video: null } })
+    .catch((error) => console.error("[crm-product-video] audit", error));
+  revalidatePath(`/crm/products/${productId}/edit`);
+  revalidatePath("/products", "layout");
+  return { ok: true, message: "Đã gỡ video." };
 }

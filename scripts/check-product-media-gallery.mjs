@@ -83,7 +83,21 @@ assert.equal(media.shareableProductVideo([{ ...videoBase, external_url: 'https:/
 const { ProductMediaGallery, productGallerySwipeStep } = load('../components/product-media-gallery.tsx', {
   react: require('react'), 'react-dom': require('react-dom'),
   'react/jsx-runtime': require('react/jsx-runtime'), 'lucide-react': require('lucide-react'),
+  '@/components/public/aplus-video': { AplusVideo: ({ uid, title }) => React.createElement('div', { 'data-stream': uid, title }) },
+  '@/lib/products/aplus': { aplusVideoThumbnailUrl: (uid, h = 720) => `https://videodelivery.net/${uid}/thumbnails/thumbnail.jpg?height=${h}` },
 });
+// Video sản phẩm (Premium/Pro) nằm cuối dãy ảnh; sản phẩm chỉ có video thì video ở khung chính.
+const streamUid = 'ab'.repeat(16);
+const withVideo = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
+  name: 'Cashew W320', images: ['products/abc/cover.jpg'], video: null, streamVideo: { uid: streamUid, title: 'Cashew W320 video' },
+}));
+assert.match(withVideo, /aria-label="Play product video of Cashew W320"/, 'One photo plus a video still shows the thumbnail strip');
+assert.ok(withVideo.indexOf('products/abc/cover.jpg') < withVideo.indexOf(`${streamUid}/thumbnails`), 'Video thumbnail comes after the photos');
+const onlyVideo = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
+  name: 'Cashew W320', images: [], video: null, streamVideo: { uid: streamUid, title: 'Cashew W320 video' },
+}));
+assert.match(onlyVideo, new RegExp(`data-stream="${streamUid}"`));
+assert.doesNotMatch(onlyVideo, /No product photo available/);
 assert.equal(productGallerySwipeStep(100, 100, 40, 105), 1, 'A clear left swipe advances to the next photo');
 assert.equal(productGallerySwipeStep(100, 100, 160, 105), -1, 'A clear right swipe returns to the previous photo');
 assert.equal(productGallerySwipeStep(100, 100, 130, 100), 0, 'A small horizontal movement is not a swipe');

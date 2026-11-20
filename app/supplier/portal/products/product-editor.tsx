@@ -34,7 +34,8 @@ import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs"
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
 import { AplusEditor } from "@/components/products/aplus-editor";
-import { canEditAplus, readAplusModules } from "@/lib/products/aplus";
+import { ProductVideoField } from "@/components/products/product-video-field";
+import { canEditAplus, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { aplusMessages, type AplusMessages } from "@/lib/i18n/portal/aplus";
 import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
 import { QuantityPricingInline } from "@/components/products/quantity-pricing-inline";
@@ -1299,6 +1300,12 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 </div>}
                 {progress && <p role="status" className="mt-1.5 text-[12px] font-semibold text-brand-800">{progress}</p>}
               </Row>
+
+              {/* Video sản phẩm: chỉ gói Premium/Pro; Basic không thấy ô này. Video có sẵn từ gói cũ vẫn hiện để xoá. */}
+              {(richContentAllowed || !!readGalleryVideo(product?.gallery_video)) && <Row label={aplusCopy.productVideo.label}>
+                <ProductVideoField productId={product?.id ?? null} videoUid={readGalleryVideo(product?.gallery_video)?.video_uid ?? null}
+                  editable={!!product && canEditAplus(product)} canUpload={richContentAllowed} copy={aplusCopy} />
+              </Row>}
 
               {/* Chỉ còn một chỗ tải ảnh: 6 ô ở trên. Danh sách dưới đây chỉ để xem lại
                   catalogue PDF đã tải, không lặp lại ảnh. */}

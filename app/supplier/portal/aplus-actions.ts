@@ -7,7 +7,8 @@ import { fill } from "@/lib/i18n/format";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { deleteStreamVideo, getStreamVideo, streamConfig } from "@/lib/media/cloudflare-stream";
 import { deleteObject } from "@/lib/media/storage";
-import { APLUS_MAX_MODULES, aplusImagePaths, aplusVideoUids, canEditAplus, readAplusModules, validateAplusModules, type AplusModule } from "@/lib/products/aplus";
+import { APLUS_MAX_MODULES, aplusImagePaths, aplusVideoUids, canEditAplus, readAplusModules, readGalleryVideo, validateAplusModules,
+  type AplusModule, type ProductGalleryVideo } from "@/lib/products/aplus";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
@@ -55,6 +56,46 @@ export async function saveProductAplusAction(productId: string, modules: unknown
     return { ok: true, message: m.aplus.saved };
   } catch (error) {
     console.error("[aplus] save", error);
+    return { ok: false, message: e.failed };
+  }
+}
+
+/**
+ * Video sản phẩm trong dãy ảnh (Premium/Pro): lưu ngay sau khi tải lên, hoặc xoá khi `videoUid`
+ * là null. Video mới phải là video Vexim xin tải lên cho đúng sản phẩm; video cũ bị thay thì xoá
+ * trên Cloudflare. Xoá video luôn được, kể cả khi gói đã hết quyền.
+ */
+export async function saveProductVideoAction(productId: string, videoUid: string | null): Promise<AplusSaveResult> {
+  const { m } = await getPortalMessages();
+  const e = m.aplus.errors, v = m.aplus.productVideo;
+  try {
+    const access = await supplierPortalAccess();
+    if (!access || !portalApproved(access.supplier)) return { ok: false, message: e.noAccess };
+    const product = await access.store.getProduct(productId);
+    if (!product || product.supplier_id !== access.supplier.id || !canEditAplus(product)) return { ok: false, message: e.noAccess };
+    const before = readGalleryVideo(product.gallery_video);
+    let next: ProductGalleryVideo | null = null;
+    if (videoUid !== null) {
+      if (!supplierPlanRules(access.supplier, new Date(), await readPlanCatalog()).video) return { ok: false, message: v.plan };
+      if (typeof videoUid !== "string" || !/^[a-f0-9]{32}$/i.test(videoUid)) return { ok: false, message: v.invalid };
+      const uid = videoUid.toLowerCase();
+      if (uid === before?.video_uid) return { ok: true, message: v.saved };
+      if (!streamConfig()) return { ok: false, message: e.videoUnavailable };
+      const video = await getStreamVideo(uid);
+      if (!video || video.meta.product_id !== productId || (video.creator && video.creator !== access.supplier.id) || video.state === "error")
+        return { ok: false, message: v.invalid };
+      next = { video_uid: uid, ...(video.duration ? { duration: Math.round(video.duration) } : {}), ...(video.uploaded ? { uploaded_at: video.uploaded } : {}) };
+    }
+    await access.store.updateProduct(productId, { gallery_video: next });
+    if (before && before.video_uid !== next?.video_uid) after(() => deleteStreamVideo(before.video_uid));
+    await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email, entity: "product", entity_id: productId,
+      action: next ? "supplier.product_video_saved" : "supplier.product_video_removed", before: { video: before?.video_uid ?? null }, after: { video: next?.video_uid ?? null } })
+      .catch((error) => console.error("[product-video] audit", error));
+    revalidatePath(`/supplier/portal/products/${productId}`);
+    revalidatePath("/products", "layout");
+    return { ok: true, message: next ? v.saved : v.removed };
+  } catch (error) {
+    console.error("[product-video] save", error);
     return { ok: false, message: e.failed };
   }
 }

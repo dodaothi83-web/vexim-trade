@@ -216,6 +216,8 @@ export interface SupplierProduct {
   description_detail_i18n?: I18nString;
   /** Khối nội dung A+ (xem lib/products/aplus.ts); chỉ hiện khi gói có nội dung A+. */
   aplus_content?: unknown;
+  /** Video sản phẩm trong dãy ảnh (xem readGalleryVideo); chỉ hiện khi gói có quyền video. */
+  gallery_video?: unknown;
   spec: string | null;
   spec_i18n?: I18nString;
   /** Dấu vết bản dịch tiếng Anh: hash nội dung gốc tại thời điểm dịch để phát hiện bản dịch đã cũ khi NCC sửa nội dung. */
