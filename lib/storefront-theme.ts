@@ -1,19 +1,16 @@
 /**
- * Giao diện trang nhà cung cấp gói Premium/Pro (chủ sàn duyệt ngày 2026-11-15).
+ * Giao diện trang nhà cung cấp gói Premium/Pro.
  *
- * 3 mẫu: Thanh lịch (elegant), Hiện đại (modern), Trưng bày (gallery). 4 tông màu chỉ dùng
- * cho trang nhà cung cấp Premium/Pro: champagne, terracotta, graphite, steel. Không có xanh
- * lá hay đỏ đô vì hai màu này mang nghĩa "đã xác minh" trên khiên của Vexim.
- * Mẫu xem trước: docs/storefront-templates/index.html.
+ * Một kiểu đầu trang chung (chủ sàn chốt 2026-11-20, bỏ 3 mẫu Thanh lịch / Hiện đại / Trưng bày
+ * từng duyệt ngày 2026-11-15) và 4 tông màu chỉ dùng cho trang Premium/Pro: champagne,
+ * terracotta, graphite, steel. Không có xanh lá hay đỏ đô vì hai màu này mang nghĩa "đã xác
+ * minh" trên khiên của Vexim. Bản mẫu: docs/storefront-designer/index.html.
  *
  * Câu giới thiệu viết bằng tiếng Anh, không có liên hệ, như mọi chữ trên trang công khai.
  *
  * Tệp chỉ import tệp thuần để script kiểm tra nạp thẳng bằng Node.
  */
 import { looksVietnamese } from "./vietnamese-text.ts";
-
-export const STOREFRONT_TEMPLATES = ["elegant", "modern", "gallery"] as const;
-export type StorefrontTemplate = (typeof STOREFRONT_TEMPLATES)[number];
 
 export const STOREFRONT_TONES = ["champagne", "terracotta", "graphite", "steel"] as const;
 export type StorefrontTone = (typeof STOREFRONT_TONES)[number];
@@ -33,14 +30,12 @@ export const STOREFRONT_MAX_STATS = 4;
 export const STOREFRONT_TAGLINE_MAX = 160;
 
 export interface StorefrontTheme {
-  template: StorefrontTemplate;
   tone: StorefrontTone;
   tagline: string;
   stats: StorefrontStat[];
 }
 
 export const DEFAULT_STOREFRONT_THEME: StorefrontTheme = {
-  template: "elegant",
   tone: "champagne",
   tagline: "",
   stats: ["capacity", "founded", "markets", "lead_time"],
@@ -56,20 +51,18 @@ export function normalizeStorefrontTheme(raw: unknown): StorefrontTheme {
     ? [...new Set(value.stats.filter((item): item is StorefrontStat => isOneOf(STOREFRONT_STATS, item)))].slice(0, STOREFRONT_MAX_STATS)
     : DEFAULT_STOREFRONT_THEME.stats;
   return {
-    template: isOneOf(STOREFRONT_TEMPLATES, value.template) ? value.template : DEFAULT_STOREFRONT_THEME.template,
     tone: isOneOf(STOREFRONT_TONES, value.tone) ? value.tone : DEFAULT_STOREFRONT_THEME.tone,
     tagline: typeof value.tagline === "string" ? value.tagline.trim().slice(0, STOREFRONT_TAGLINE_MAX) : "",
     stats,
   };
 }
 
-export type ThemeInputProblem = "template" | "tone" | "stats" | "taglineTooLong" | "contact" | "language" | null;
+export type ThemeInputProblem = "tone" | "stats" | "taglineTooLong" | "contact" | "language" | null;
 
 const CONTACT = /[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|www\.|\b[\w-]+\.(?:com|vn|net|org|io|co)\b|(?:\+?\d[\s().-]?){9,15}\d/i;
 
 /** Kiểm tra lựa chọn của nhà cung cấp trước khi lưu. */
-export function storefrontThemeProblem(input: { template: unknown; tone: unknown; tagline: unknown; stats: unknown }): ThemeInputProblem {
-  if (!isOneOf(STOREFRONT_TEMPLATES, input.template)) return "template";
+export function storefrontThemeProblem(input: { tone: unknown; tagline: unknown; stats: unknown }): ThemeInputProblem {
   if (!isOneOf(STOREFRONT_TONES, input.tone)) return "tone";
   if (!Array.isArray(input.stats) || input.stats.length > STOREFRONT_MAX_STATS || !input.stats.every((item) => isOneOf(STOREFRONT_STATS, item))) return "stats";
   const tagline = typeof input.tagline === "string" ? input.tagline.trim() : "";

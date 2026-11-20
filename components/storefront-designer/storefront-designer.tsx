@@ -14,10 +14,11 @@ import {
   type LayoutBlock, type LayoutBlockType, type StorefrontLayout,
 } from "@/lib/storefront-layout";
 import {
-  STOREFRONT_MAX_STATS, STOREFRONT_STATS, STOREFRONT_TAGLINE_MAX, STOREFRONT_TEMPLATES, STOREFRONT_TONE_COLORS, STOREFRONT_TONES,
+  STOREFRONT_MAX_STATS, STOREFRONT_STATS, STOREFRONT_TAGLINE_MAX, STOREFRONT_TONE_COLORS, STOREFRONT_TONES,
   type StorefrontStat,
 } from "@/lib/storefront-theme";
 import { STOREFRONT_STAT_LABELS } from "@/components/public/storefront-blocks";
+import { PremiumHeader } from "@/components/public/premium-header";
 
 export type DesignerProduct = { id: string; name: string; imageUrl: string | null; detail?: string };
 export type DesignerResult = { ok: boolean; message: string };
@@ -193,7 +194,7 @@ export function StorefrontDesigner(props: {
           style={{ "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties}>
           <button type="button" onClick={() => setSelected(HEADER)}
             className={`relative block w-full rounded-xl text-left outline outline-2 outline-offset-4 ${selected === HEADER ? "outline-brand-600" : "outline-transparent hover:outline-brand-200"}`}>
-            <HeaderPreview layout={layout} header={props.header} mobile={device === "mobile"} />
+            <HeaderPreview layout={layout} header={props.header} />
             <span className="absolute bottom-1 right-2 text-[10.5px] text-ink-400">{copy.headerLockHint}</span>
           </button>
           <StorefrontBlocks layout={layout} selectedId={selected} onSelect={setSelected} showHidden
@@ -221,26 +222,11 @@ function Tool({ label, disabled, onClick, children }: { label: string; disabled?
     className="rounded-md p-1 text-ink-500 hover:bg-white hover:text-ink-900 disabled:opacity-30">{children}</button>;
 }
 
-function HeaderPreview({ layout, header, mobile }: { layout: StorefrontLayout; header: { name: string; location: string; checks: string[]; avatarUrl: string | null }; mobile: boolean }) {
-  const dark = layout.template === "modern";
-  const centered = layout.template === "elegant";
-  return <div className={`rounded-xl p-5 ${dark ? "bg-[var(--sf-dark)] text-white" : layout.template === "gallery" ? "bg-[var(--sf-tint)]" : "bg-[#FBF9F5]"} ${centered ? "text-center" : ""}`}>
-    <div className={`flex gap-3 ${centered ? "flex-col items-center" : "items-center"} ${mobile ? "flex-col items-start" : ""}`}>
-      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-xl font-bold text-[var(--sf-accent)] ring-1 ring-ink-200">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {header.avatarUrl ? <img src={header.avatarUrl} alt="" className="h-full w-full object-cover" /> : header.name.slice(0, 1).toUpperCase()}
-      </div>
-      <div className="min-w-0">
-        <p className={`text-[11px] font-bold uppercase tracking-[0.18em] ${dark ? "text-white/80" : "text-[var(--sf-accent)]"}`}>{header.location}</p>
-        <p className={`mt-1 break-words text-xl font-bold leading-tight ${dark ? "" : "text-ink-900"}`}>{header.name}</p>
-      </div>
-    </div>
-    {layout.tagline && <p className={`mt-3 text-sm leading-6 ${dark ? "text-white/90" : "text-ink-600"}`}>{layout.tagline}</p>}
-    <div className={`mt-3 flex flex-wrap gap-1.5 ${centered ? "justify-center" : ""}`}>
-      {header.checks.map((check) => <span key={check} className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">{check}</span>)}
-      <span className="rounded-lg bg-[var(--sf-accent)] px-3 py-1 text-[11px] font-bold text-white">Request a quote</span>
-    </div>
-  </div>;
+/** Đầu trang dùng đúng component của trang thật, nên xem trước khớp với trang công khai. */
+function HeaderPreview({ layout, header }: { layout: StorefrontLayout; header: { name: string; location: string; checks: string[]; avatarUrl: string | null } }) {
+  return <PremiumHeader name={header.name} nameTag="h2" location={header.location} tagline={layout.tagline} coverUrl={null} avatarUrl={header.avatarUrl}
+    checks={<div className="flex flex-wrap gap-2">{header.checks.map((check) => <span key={check} className="rounded-full bg-success-surface px-3 py-1 text-xs font-semibold text-success">{check}</span>)}</div>}
+    actions={<span className="inline-flex items-center justify-center rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote</span>} />;
 }
 
 function Counter({ value, max, copy }: { value: string; max: number; copy: DesignerMessages }) {
@@ -251,13 +237,6 @@ function HeaderSettings({ layout, setLayout, copy }: { layout: StorefrontLayout;
   return <>
     <p className="font-bold text-ink-900">{copy.header}</p>
     <p className="leading-5 text-ink-600">{copy.fields.headerHelp}</p>
-    <fieldset>
-      <legend className="mb-1 font-semibold text-ink-700">{copy.fields.template}</legend>
-      <div className="grid grid-cols-3 gap-1.5">
-        {STOREFRONT_TEMPLATES.map((t) => <button key={t} type="button" aria-pressed={layout.template === t} onClick={() => setLayout((l) => ({ ...l, template: t }))}
-          className={`rounded-lg border px-2 py-1.5 text-xs font-semibold ${layout.template === t ? "border-brand-600 bg-brand-50 text-brand-800" : "border-ink-200 text-ink-700"}`}>{copy.fields.templates[t]}</button>)}
-      </div>
-    </fieldset>
     <fieldset>
       <legend className="mb-1 font-semibold text-ink-700">{copy.fields.tone}</legend>
       <div className="grid grid-cols-2 gap-1.5">

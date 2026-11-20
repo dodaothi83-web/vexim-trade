@@ -10,7 +10,7 @@ const sid = "11111111-1111-1111-1111-111111111111";
 const img = (n) => `suppliers/${sid}/showcase-${String(n).repeat(8)}-${String(n).repeat(4)}-${String(n).repeat(4)}-${String(n).repeat(4)}-${String(n).repeat(12)}.jpg`;
 const pid = "22222222-2222-2222-2222-222222222222";
 const ctx = { supplierId: sid, productIds: new Set([pid]) };
-const layout = (blocks, extra = {}) => ({ template: "modern", tone: "steel", tagline: "Hand-graded cashew kernels.", blocks, ...extra });
+const layout = (blocks, extra = {}) => ({ tone: "steel", tagline: "Hand-graded cashew kernels.", blocks, ...extra });
 
 // 1. Năm loại khối hợp lệ, giữ thứ tự và cờ ẩn.
 const good = [
@@ -60,7 +60,8 @@ const quick = L.buildLayoutFromProfile({
 assert.deepEqual(quick.blocks.map((b) => b.type), ["banner", "stats", "products", "about", "markets"]);
 assert.deepEqual(quick.blocks[0].images, [img(7)], "Banner chỉ dùng ảnh khối hợp lệ");
 assert.deepEqual(quick.blocks[1].stats, ["capacity", "founded"], "Không đưa số liệu trống");
-assert.equal(quick.template, "gallery");
+assert.equal(quick.tone, "graphite");
+assert.equal("template" in quick, false, "Không còn chọn mẫu");
 assert.equal(L.validateStorefrontLayout(quick, ctx).ok, true, "Bố cục dựng nhanh hợp lệ");
 assert.deepEqual(L.buildLayoutFromProfile({ supplierId: sid, theme: null, showcase: [], productIds: [], statValues: {}, hasMarkets: false, province: "", foundedYear: null }).blocks, []);
 
@@ -69,7 +70,7 @@ const media = read("app/public-media/[...path]/route.ts");
 assert.match(media, /layoutImagePaths\(readStorefrontLayout\(supplier\.storefront_layout, supplier\.id\)\)/);
 assert.doesNotMatch(media, /storefront_layout_draft/, "Ảnh bản nháp không công khai");
 const storefront = read("components/public/supplier-storefront.tsx");
-assert.match(storefront, /const layout = premium \?/, "Chỉ Premium/Pro còn hạn mới dùng bố cục");
+assert.match(storefront, /const layout: StorefrontLayout \| null = !premium \? null/, "Chỉ Premium/Pro còn hạn mới dùng bố cục");
 assert.match(storefront, /readStorefrontLayout\(s\.storefront_layout, s\.id\)/);
 assert.doesNotMatch(storefront, /storefront_layout_draft/);
 assert.match(read("components/public/storefront-blocks.tsx"), /They are not evidence of a Vexim check/, "Ảnh, chữ nhà cung cấp không phải bằng chứng xác minh");

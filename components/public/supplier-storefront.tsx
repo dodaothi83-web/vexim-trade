@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock3, Info, MapPin, Package, Users } from "lucide-react";
 import { supplierTypeIcon, VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
 import { VeximMinimumOrderIcon, VeximExportPortIcon, VeximLeadTimeIcon, VeximCapacityIcon, VeximPaymentIcon, VeximMarketsIcon } from "@/components/brand/vexim-icons";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { SupplierProductRail } from "@/components/public/supplier-product-rail";
@@ -20,12 +20,12 @@ import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } f
 import { supplierAddressDisplay, supplierCapacityDisplay, supplierAnnualOutputDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 import { supplierPlanRules } from "@/lib/supplier-plans";
-import { publicShowcaseBlocks } from "@/lib/supplier-showcase";
-import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
-import { PremiumStorefront, storefrontStatValue } from "@/components/public/premium-storefront";
+import { publicShowcaseBlocks, type ShowcaseBlock } from "@/lib/supplier-showcase";
+import { storefrontStatValue } from "@/components/public/premium-storefront";
+import { PremiumHeader } from "@/components/public/premium-header";
 import { StorefrontBlocks, type StorefrontBlockProduct } from "@/components/public/storefront-blocks";
 import { readStorefrontLayout, type StorefrontLayout } from "@/lib/storefront-layout";
-import { STOREFRONT_STATS } from "@/lib/storefront-theme";
+import { normalizeStorefrontTheme, STOREFRONT_STATS, STOREFRONT_TONE_COLORS, type StorefrontTheme } from "@/lib/storefront-theme";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
@@ -124,20 +124,22 @@ export function SupplierStorefront({
   // về bản thường, nội dung vẫn giữ trong hồ sơ.
   const premium = supplierPlanRules(s).premiumStorefront;
   const showcase = premium ? publicShowcaseBlocks(s.showcase_blocks) : [];
-  // "Thiết kế trang": có bố cục đã áp dụng thì phần đầu theo mẫu trong bố cục, số liệu và khối
-  // nội dung chuyển thành các khối sắp xếp được bên dưới; chưa có thì giữ giao diện cũ.
-  const layout = premium ? (layoutOverride !== undefined ? layoutOverride : readStorefrontLayout(s.storefront_layout, s.id)) : null;
+  // Một kiểu đầu trang chung cho mọi trang Premium/Pro, rồi các khối "Thiết kế trang" đã áp dụng.
+  // Nhà cung cấp chưa áp dụng bố cục mới: số liệu và khối ảnh cũ hiện thành khối tương ứng.
   const savedTheme = normalizeStorefrontTheme(s.storefront_theme);
-  const theme = layout ? { template: layout.template, tone: layout.tone, tagline: layout.tagline, stats: [] } : savedTheme;
-  const premiumShowcase = layout ? [] : showcase;
+  const layout: StorefrontLayout | null = !premium ? null
+    : (layoutOverride !== undefined ? layoutOverride : readStorefrontLayout(s.storefront_layout, s.id)) ?? legacyLayout(savedTheme, showcase);
+  const tone = STOREFRONT_TONE_COLORS[layout?.tone ?? savedTheme.tone];
+  const toneStyle = { "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties;
+  // Banner thay ảnh bìa; chưa có banner thì đầu trang vẫn hiện ảnh bìa.
+  const hasBanner = !!layout?.blocks.some((block) => block.type === "banner" && !block.hidden);
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
 
   return <>
-    {premium ? <PremiumStorefront
-      supplier={s}
-      theme={theme}
+    {premium ? <div style={toneStyle}><PremiumHeader
       name={name}
+      tagline={safe(layout?.tagline ?? "")}
       nameTag={nameTag}
       typeBadge={<span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}{s.private_label ? " · Private label stated" : ""}</span>}
       location={safe(supplierProvinceDisplay(s)) ? `${safe(supplierProvinceDisplay(s))}, Vietnam` : "Vietnam"}
@@ -156,16 +158,14 @@ export function SupplierStorefront({
           : <span className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
         {chatAction && <div className="flex-1 rounded-lg bg-white text-ink-900 [&>*]:w-full">{chatAction}</div>}
       </> : null}
-      coverUrl={coverUrl}
+      coverUrl={hasBanner ? null : coverUrl}
       avatarUrl={avatarUrl}
       coverAction={coverAction}
       avatarAction={avatarAction}
       avatarHint={avatarHint}
       nameAside={nameAside}
       ownerActions={ownerActions}
-      showcase={premiumShowcase}
-      imageUrl={showcaseImageUrl ?? mediaUrl}
-    /> : <>
+    /></div> : <>
     <section className="mt-5 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-card" aria-labelledby="supplier-name">
       {(coverUrl || coverAction) && <div className={`relative bg-ink-50 ${coverUrl ? "h-32 sm:h-44" : "h-16"}`}>
         {coverUrl && <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
@@ -236,7 +236,6 @@ export function SupplierStorefront({
     <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
       {[
         ["Products", "products"],
-        ...(premiumShowcase.length > 0 ? [["Showcase", "showcase"] as const] : []),
         ["About", "about"],
         ["Supplier checks", "verification"],
         ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
@@ -522,4 +521,12 @@ function sanitizeLayout(layout: StorefrontLayout): StorefrontLayout {
   return { ...layout, tagline: safe(layout.tagline), blocks: layout.blocks.map((block) =>
     block.type === "banner" ? { ...block, eyebrow: safe(block.eyebrow), headline: safe(block.headline) }
       : block.type === "about" ? { ...block, title: safe(block.title), body: safe(block.body) } : block) };
+}
+
+/** Trang Premium/Pro chưa áp dụng bố cục mới: số liệu đã chọn và khối ảnh cũ hiện thành khối. */
+function legacyLayout(theme: StorefrontTheme, showcase: ShowcaseBlock[]): StorefrontLayout {
+  return { tone: theme.tone, tagline: theme.tagline, blocks: [
+    ...(theme.stats.length ? [{ id: "legacy-stats", type: "stats" as const, stats: theme.stats }] : []),
+    ...showcase.map((block) => ({ id: `legacy-${block.id}`.slice(0, 40), type: "about" as const, image_path: block.image_path, title: block.title, body: block.body })),
+  ] };
 }

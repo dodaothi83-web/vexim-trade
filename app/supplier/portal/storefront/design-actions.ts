@@ -67,7 +67,7 @@ export async function applyStorefrontLayoutAction(raw: unknown): Promise<Result>
     return { ok: false, message: ctx.copy.failed };
   }
   await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email, entity: "supplier", entity_id: access.supplier.id,
-    action: "supplier.storefront_applied", before: null, after: { blocks: layout.blocks.map((b) => b.type), template: layout.template, tone: layout.tone } })
+    action: "supplier.storefront_applied", before: null, after: { blocks: layout.blocks.map((b) => b.type), tone: layout.tone } })
     .catch((error) => console.error("[storefront-design] audit", error));
   refresh(access.supplier.slug || access.supplier.id);
   return { ok: true, message: ctx.copy.applied };
