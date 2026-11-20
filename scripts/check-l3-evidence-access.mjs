@@ -35,6 +35,8 @@ const supplierShowcase = await import('../lib/supplier-showcase.ts');
 const mocks = {
   '@/lib/supplier-plans': supplierPlans,
   '@/lib/supplier-showcase': supplierShowcase,
+  '@/lib/products/aplus': await import('../lib/products/aplus.ts'),
+  '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => null },
   'next/server': { NextResponse },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': { getSession: async () => currentSession },
