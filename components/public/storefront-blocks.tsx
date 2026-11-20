@@ -159,6 +159,13 @@ function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: numb
       if (!data.sections?.companyDetails) return null;
       return <Shell id="company-details" eyebrow="Company" title="Company details">{data.sections.companyDetails}</Shell>;
     case "gallery":
+      if (block.images?.length) return <Shell id="gallery" eyebrow="Gallery" title="Supplier gallery">
+        <p className="mt-1 text-xs text-ink-500">Shared supplier images; not evidence of factory verification.</p>
+        <div className="mt-4 grid grid-cols-2 gap-2 @2xl:grid-cols-3">{block.images.map((path) => (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img key={path} src={data.imageUrl(path)} alt="" loading="lazy" decoding="async" className="h-32 w-full rounded-lg object-cover ring-1 ring-ink-200 @2xl:h-44" />
+        ))}</div>
+      </Shell>;
       if (!data.sections?.gallery) return null;
       return <Shell id="gallery" eyebrow="Gallery" title="Supplier gallery">{data.sections.gallery}</Shell>;
     case "certificates": {

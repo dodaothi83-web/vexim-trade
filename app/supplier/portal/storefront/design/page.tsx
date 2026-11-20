@@ -17,6 +17,7 @@ import { draftLayoutOf, listStorefrontVersions } from "@/lib/supplier-portal/sto
 import { designerDataFromCard } from "@/lib/supplier-portal/storefront-designer-data";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { applyStorefrontLayoutAction, restoreStorefrontVersionAction, saveStorefrontDraftAction } from "../design-actions";
+import { saveStorefrontProfileFieldsAction } from "../profile-fields-action";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -72,7 +73,14 @@ export default async function StorefrontDesignPage() {
   return <>
     {back}
     <PageHeader title={copy.title} sub={copy.sub} />
-    <StorefrontDesigner sections={designSections} pro={data.pro} categories={data.categories} certificates={data.certificates} initial={initial} quick={data.quick} live={live} header={data.header} statValues={data.statValues}
+    <StorefrontDesigner profile={{ save: saveStorefrontProfileFieldsAction, values: {
+        intro_source: supplier.intro_source ?? "", products: supplier.products ?? "", markets: supplier.markets ?? "",
+        trade_name: supplier.trade_name ?? "", annual_output: supplier.annual_output ?? "", payment_terms: supplier.payment_terms ?? "",
+        founded_year: supplier.founded_year ? String(supplier.founded_year) : "", employees: supplier.employees ? String(supplier.employees) : "",
+        lead_time_days: supplier.lead_time_days ? String(supplier.lead_time_days) : "",
+        ports: (supplier.ports ?? []).join(", "), incoterms: (supplier.incoterms ?? []).join(", "), export_markets: (supplier.export_markets ?? []).join(", "),
+        legal_name: supplier.name, address: supplier.address ?? "", moq: supplier.moq_text ?? "",
+      } }} sections={designSections} pro={data.pro} categories={data.categories} certificates={data.certificates} initial={initial} quick={data.quick} live={live} header={data.header} statValues={data.statValues}
       markets={data.markets} products={data.products} imagePreviewBase="/api/supplier-portal/showcase?path="
       uploadUrl="/api/supplier-portal/storefront-image" saveDraft={saveStorefrontDraftAction} apply={applyStorefrontLayoutAction}
       copy={copy} previewHref="/supplier/portal/storefront?draft=1" />

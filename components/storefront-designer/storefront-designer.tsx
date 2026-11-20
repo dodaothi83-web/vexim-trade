@@ -10,7 +10,7 @@ import type { DesignerMessages } from "@/lib/i18n/portal/designer";
 import { prepareImage } from "@/lib/media/client-image";
 import {
   ABOUT_BODY_MAX, ABOUT_TITLE_MAX, BANNER_EYEBROW_MAX, BANNER_HEADLINE_MAX, BANNER_MAX_IMAGES, FEATURED_MAX_PRODUCTS,
-  LAYOUT_BLOCK_TYPES, LAYOUT_MAX_ABOUT, LAYOUT_MAX_BLOCKS, newLayoutBlockId, PRO_ONLY_BLOCKS, REQUIRED_BLOCKS, VIDEO_TITLE_MAX,
+  GALLERY_MAX_IMAGES, LAYOUT_BLOCK_TYPES, LAYOUT_MAX_ABOUT, LAYOUT_MAX_BLOCKS, newLayoutBlockId, PRO_ONLY_BLOCKS, REQUIRED_BLOCKS, VIDEO_TITLE_MAX,
   type LayoutBlock, type LayoutBlockType, type StorefrontLayout,
 } from "@/lib/storefront-layout";
 import {
@@ -19,11 +19,15 @@ import {
 } from "@/lib/storefront-theme";
 import { STOREFRONT_STAT_LABELS, type StorefrontBlockCategory, type StorefrontBlockCertificate, type StorefrontBlocksData } from "@/components/public/storefront-blocks";
 import { checkVideoFile, uploadStreamVideoTo } from "@/lib/media/stream-upload-client";
+import { PROFILE_FIELDS_BY_BLOCK, STOREFRONT_PROFILE_FIELDS, type StorefrontProfileField, type StorefrontProfilePatch } from "@/lib/storefront-profile-fields";
 import { aplusVideoEmbedUrl } from "@/lib/products/aplus";
 import { PremiumHeader } from "@/components/public/premium-header";
+import { SupplierCoverDeleteButton, SupplierPhotoButton } from "@/components/supplier-photo-button";
 
 export type DesignerProduct = { id: string; name: string; imageUrl: string | null; detail?: string };
 export type DesignerResult = { ok: boolean; message: string };
+/** Giá trị hồ sơ hiện tại (bản gốc nhà cung cấp nhập) cho các ô sửa trong bảng chỉnh. */
+export type ProfileValues = Partial<Record<StorefrontProfileField, string>> & { legal_name: string; address: string; moq: string };
 
 const HEADER = "__header__";
 
@@ -60,6 +64,11 @@ export function StorefrontDesigner(props: {
   certificates: StorefrontBlockCertificate[];
   /** Nội dung các mục chung dựng sẵn ở máy chủ (cùng component với trang thật). */
   sections: StorefrontBlocksData["sections"];
+  /**
+   * Chỉ cổng nhà cung cấp: sửa thông tin hồ sơ ngay trong bảng chỉnh của các khối lấy từ hồ sơ.
+   * Không truyền (CRM) thì các khối này chỉ có hướng dẫn.
+   */
+  profile?: { values: ProfileValues; save: (patch: StorefrontProfilePatch) => Promise<DesignerResult> };
 }) {
   const { copy } = props;
   const router = useRouter();
@@ -238,10 +247,14 @@ export function StorefrontDesigner(props: {
       <aside className="border-t border-ink-200 lg:col-span-2 xl:sticky xl:top-20 xl:col-span-1 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto xl:border-l xl:border-t-0">
         <p className="px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-ink-500">{copy.editTitle}</p>
         <div className="space-y-3 px-4 pb-5 text-[12.5px]">
-          {selected === HEADER ? <HeaderSettings layout={layout} setLayout={setLayout} copy={copy} />
+          {selected === HEADER ? <>
+            <HeaderSettings layout={layout} setLayout={setLayout} copy={copy} />
+            {props.profile && <HeaderPhotos header={props.header} copy={copy} />}
+            {props.profile && <ProfileFields key="header" fields={PROFILE_FIELDS_BY_BLOCK.header} block="checks" profile={props.profile} copy={copy} />}
+          </>
             : block ? <BlockSettings block={block} patch={patch} copy={copy} statValues={props.statValues} markets={props.markets}
               products={props.products} previewUrl={previewUrl} upload={upload} uploading={uploading}
-              categories={props.categories} certificates={props.certificates} hasGallery={!!props.sections?.gallery}
+              categories={props.categories} certificates={props.certificates} hasGallery={!!props.sections?.gallery} profile={props.profile}
               uploadVideo={async (file, onProgress) => {
                 const problem = await checkVideoFile(file, { video: copy.errors.videoFile, videoTooLong: copy.errors.videoTooLong, upload: copy.errors.upload }, fill);
                 if (problem) throw new Error(problem);
@@ -273,6 +286,39 @@ function Counter({ value, max, copy }: { value: string; max: number; copy: Desig
   return <span className={`mt-1 block text-[11px] ${value.length > max ? "text-rose-700" : "text-ink-400"}`}>{fill(copy.fields.chars, { count: value.length, max })}</span>;
 }
 
+/** Ảnh bìa, ảnh đại diện trên đầu trang: đổi hoặc xoá ngay (cùng nút với "Trang của tôi"). */
+function HeaderPhotos({ header, copy }: { header: { avatarUrl: string | null; coverUrl?: string | null }; copy: DesignerMessages }) {
+  const t = copy.photos;
+  const button = "flex h-9 w-9 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-800 shadow-sm transition hover:bg-ink-50 disabled:opacity-60";
+  return <div className="mt-4 space-y-3 border-t border-ink-100 pt-4">
+    <p className="font-bold text-ink-900">{t.title}</p>
+    <p className="text-[11.5px] leading-5 text-ink-500">{t.note}</p>
+    <div>
+      <p className="mb-1 font-semibold text-ink-700">{t.cover}</p>
+      <div className="relative h-24 overflow-hidden rounded-md border border-ink-200 bg-ink-50">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {header.coverUrl && <img src={header.coverUrl} alt="" className="h-full w-full object-cover" />}
+        <div className="absolute bottom-2 right-2 flex gap-1.5">
+          {header.coverUrl && <SupplierCoverDeleteButton className={`${button} text-rose-700`} />}
+          <SupplierPhotoButton kind="cover" hasImage={!!header.coverUrl} className={button} />
+        </div>
+      </div>
+      <p className="mt-0.5 text-[11px] text-ink-500">{t.coverHint}</p>
+    </div>
+    <div className="flex items-center gap-3">
+      <div className="relative size-16 shrink-0 overflow-hidden rounded-full border border-ink-200 bg-ink-50">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {header.avatarUrl && <img src={header.avatarUrl} alt="" className="h-full w-full object-cover" />}
+      </div>
+      <div>
+        <p className="font-semibold text-ink-700">{t.avatar}</p>
+        <p className="text-[11px] text-ink-500">{t.avatarHint}</p>
+        <div className="mt-1"><SupplierPhotoButton kind="profile" hasImage={!!header.avatarUrl} className={button} /></div>
+      </div>
+    </div>
+  </div>;
+}
+
 function HeaderSettings({ layout, setLayout, copy }: { layout: StorefrontLayout; setLayout: (fn: (l: StorefrontLayout) => StorefrontLayout) => void; copy: DesignerMessages }) {
   return <>
     <p className="font-bold text-ink-900">{copy.header}</p>
@@ -292,7 +338,69 @@ function HeaderSettings({ layout, setLayout, copy }: { layout: StorefrontLayout;
   </>;
 }
 
-function BlockSettings({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading, categories, certificates, uploadVideo, hasGallery }: {
+function BlockSettings(props: Parameters<typeof BlockSettingsInner>[0] & { profile?: { values: ProfileValues; save: (patch: StorefrontProfilePatch) => Promise<DesignerResult> } }) {
+  const fields = props.profile ? PROFILE_FIELDS_BY_BLOCK[props.block.type] : undefined;
+  return <>
+    <BlockSettingsInner {...props} portal={!!props.profile} />
+    {props.profile && fields && <ProfileFields key={props.block.type} fields={fields} block={props.block.type} profile={props.profile} copy={props.copy} />}
+  </>;
+}
+
+/** Ô sửa thông tin hồ sơ cho khối lấy từ hồ sơ; lưu ngay vào Hồ sơ công ty. */
+function ProfileFields({ fields, block, profile, copy }: {
+  fields: StorefrontProfileField[];
+  block: LayoutBlockType;
+  profile: { values: ProfileValues; save: (patch: StorefrontProfilePatch) => Promise<DesignerResult> };
+  copy: DesignerMessages;
+}) {
+  const router = useRouter();
+  const t = copy.profile;
+  const initial = Object.fromEntries(fields.map((f) => [f, profile.values[f] ?? ""])) as Record<StorefrontProfileField, string>;
+  const [values, setValues] = useState(initial);
+  const [saved, setSaved] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const changed = fields.filter((f) => values[f] !== saved[f]);
+  const field = "input mt-1 w-full font-normal";
+  return <div className="mt-4 space-y-3 border-t border-ink-100 pt-4">
+    <p className="font-bold text-ink-900">{t.title}</p>
+    <p className="rounded-md bg-amber-50 p-2 text-[11.5px] leading-5 text-amber-900">{t.note}</p>
+    {fields.map((f) => {
+      const spec = STOREFRONT_PROFILE_FIELDS[f];
+      const label = t.fields[f];
+      const long = f === "intro_source" || f === "products" || f === "markets";
+      return <label key={f} className="block font-semibold text-ink-700">{label}
+        {long
+          ? <textarea rows={f === "intro_source" ? 6 : 3} value={values[f]} onChange={(e) => setValues((v) => ({ ...v, [f]: e.target.value }))} className={field} />
+          : <input value={values[f]} inputMode={spec.kind === "int" ? "numeric" : undefined} onChange={(e) => setValues((v) => ({ ...v, [f]: e.target.value }))} className={field} />}
+        {spec.kind === "list" && <span className="mt-0.5 block text-[11px] font-normal text-ink-500">{t.listHint}</span>}
+        {spec.kind === "text" && <Counter value={values[f]} max={spec.max} copy={copy} />}
+      </label>;
+    })}
+    {block === "details" && <ReadOnly label={t.fields.legal_name} value={profile.values.legal_name} hint={t.readOnly} />}
+    {block === "details" && <ReadOnly label={t.fields.address} value={profile.values.address} hint={t.readOnly} />}
+    {block === "trade" && <ReadOnly label={t.fields.moq} value={profile.values.moq} hint={t.readOnly} />}
+    <button type="button" disabled={busy || changed.length === 0} className="btn btn-primary btn-sm" onClick={async () => {
+      setBusy(true); setNote(null);
+      const result = await profile.save(Object.fromEntries(changed.map((f) => [f, values[f]]))).catch(() => ({ ok: false, message: copy.failed }));
+      setNote({ ok: result.ok, text: result.message }); setBusy(false);
+      if (result.ok) { setSaved(values); router.refresh(); }
+    }}>{busy ? t.saving : t.save}</button>
+    {note && <p role={note.ok ? "status" : "alert"} className={`text-[11.5px] font-semibold ${note.ok ? "text-emerald-700" : "text-rose-700"}`}>{note.text}</p>}
+  </div>;
+}
+
+function ReadOnly({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return <div>
+    <p className="font-semibold text-ink-700">{label}</p>
+    <p className="mt-1 rounded-md bg-ink-50 px-2.5 py-1.5 text-ink-800">{value || "—"}</p>
+    <p className="mt-0.5 text-[11px] text-ink-500">{hint}</p>
+  </div>;
+}
+
+function BlockSettingsInner({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading, categories, certificates, uploadVideo, hasGallery, portal = false }: {
+  /** Cổng nhà cung cấp: hiện đường dẫn tới trang sửa nội dung tự lấy (chứng nhận, sản phẩm, xác minh). */
+  portal?: boolean;
   block: LayoutBlock;
   patch: (id: string, change: Partial<LayoutBlock>) => void;
   copy: DesignerMessages;
@@ -367,6 +475,7 @@ function BlockSettings({ block, patch, copy, statValues, markets, products, prev
             </label></li>;
           })}
         </ul>}
+      {portal && <PortalLink href="/supplier/portal/products" label={copy.links.products} />}
     </>;
     case "about": return <>
       {title}
@@ -403,16 +512,39 @@ function BlockSettings({ block, patch, copy, statValues, markets, products, prev
       {title}
       <p className="leading-5 text-ink-600">{categories.length >= 2 ? copy.fields.categoriesHelp : copy.fields.categoriesEmpty}</p>
       {categories.length >= 2 && <ul className="space-y-1 text-ink-800">{categories.map((c) => <li key={c.name}>{c.name} · {c.count}</li>)}</ul>}
+      {portal && <PortalLink href="/supplier/portal/products" label={copy.links.products} />}
     </>;
     case "company": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.companyHelp}</p></>;
-    case "checks": return <>{title}<p className="rounded-md bg-ink-50 p-2 leading-5 text-ink-600">{copy.requiredHint}</p></>;
+    case "checks": return <>{title}<p className="rounded-md bg-ink-50 p-2 leading-5 text-ink-600">{copy.requiredHint}</p>
+      {portal && <PortalLink href="/supplier/portal/storefront#supplier-verification-actions" label={copy.links.checks} />}</>;
     case "trade": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.tradeHelp}</p></>;
     case "details": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.detailsHelp}</p></>;
-    case "gallery": return <>{title}<p className="leading-5 text-ink-600">{hasGallery ? copy.fields.galleryHelp : copy.fields.galleryEmpty}</p></>;
+    case "gallery": {
+      const images = block.images ?? [];
+      return <>
+        {title}
+        <div>
+          <p className="mb-1 font-semibold text-ink-700">{fill(copy.gallery.images, { max: GALLERY_MAX_IMAGES })}</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {images.map((path) => <div key={path} className="relative aspect-square overflow-hidden rounded-md border border-ink-200 bg-ink-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewUrl(path)} alt="" className="h-full w-full object-cover" />
+              <button type="button" aria-label={copy.fields.removeImage} onClick={() => patch(block.id, { images: images.filter((x) => x !== path) })}
+                className="absolute right-1 top-1 rounded-full bg-white/95 p-0.5 text-rose-700 shadow"><X className="size-3" /></button>
+            </div>)}
+            {images.length < GALLERY_MAX_IMAGES && <ImageInput label={copy.fields.addImage} busy={uploading === block.id}
+              onFile={async (file) => { const path = await upload(block.id, file); if (path) patch(block.id, { images: [...images, path] }); }} />}
+          </div>
+          <p className="mt-1 text-[11px] leading-4 text-ink-500">{copy.gallery.hint}</p>
+        </div>
+        {!images.length && hasGallery && <p className="rounded-md bg-ink-50 p-2 text-[11.5px] leading-5 text-ink-600">{copy.gallery.shared}</p>}
+      </>;
+    }
     case "certificates": return <>
       {title}
       <p className="leading-5 text-ink-600">{certificates.length ? copy.fields.certificatesHelp : copy.fields.certificatesEmpty}</p>
       {certificates.length > 0 && <ul className="space-y-1 text-ink-800">{certificates.map((c) => <li key={`${c.name}-${c.detail}`}>{c.name}{c.detail ? ` · ${c.detail}` : ""}</li>)}</ul>}
+      {portal && <PortalLink href="/supplier/portal/documents#chung-nhan" label={copy.links.certificates} />}
     </>;
   }
 }
@@ -465,4 +597,9 @@ function ImageInput({ label, busy, onFile }: { label: string; busy: boolean; onF
     <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" tabIndex={-1}
       onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onFile(file); }} />
   </button>;
+}
+
+/** Đường dẫn tới trang sửa nội dung mà khối tự lấy (mở tab mới để không mất bản nháp đang soạn). */
+function PortalLink({ href, label }: { href: string; label: string }) {
+  return <a href={href} target="_blank" rel="noopener noreferrer" className="btn btn-soft btn-sm">{label}<ExternalLink className="size-3.5" aria-hidden="true" /></a>;
 }
