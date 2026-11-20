@@ -14,6 +14,8 @@ export function PremiumHeader(p: {
   typeBadge?: ReactNode;
   location: string;
   tagline: string;
+  /** Chỉ trình thiết kế: ô sửa câu giới thiệu tại chỗ thay cho chữ tĩnh. */
+  taglineNode?: ReactNode;
   checks: ReactNode;
   actions: ReactNode;
   /** Ảnh nền đầu trang: ảnh bìa, thiếu thì ảnh banner đầu tiên; không có thì nền tông màu đậm. */
@@ -47,7 +49,8 @@ export function PremiumHeader(p: {
         </div>
         <NameTag id="supplier-name" className="max-w-3xl break-words text-3xl font-extrabold leading-tight tracking-tight @2xl:text-5xl">{p.name}</NameTag>
         {p.nameAside && <div className="flex flex-wrap items-center gap-2">{p.nameAside}</div>}
-        {p.tagline && <p className="max-w-2xl text-[15px] leading-7 text-white/90 @2xl:text-lg">{p.tagline}</p>}
+        {p.taglineNode ? <div className="max-w-2xl">{p.taglineNode}</div>
+          : p.tagline && <p className="max-w-2xl text-[15px] leading-7 text-white/90 @2xl:text-lg">{p.tagline}</p>}
         {p.actions && <div className="flex max-w-md flex-col gap-2 @2xl:flex-row">{p.actions}</div>}
         {p.ownerActions && <div>{p.ownerActions}</div>}
       </div>
