@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Eye, EyeOff, ExternalLink, ImagePlus, Loader2, Lock, Monitor, Smartphone, Sparkles, Trash2, X } from "lucide-react";
 
@@ -67,6 +67,15 @@ export function StorefrontDesigner(props: {
   const [baseline, setBaseline] = useState(JSON.stringify(props.initial));
   const [live, setLive] = useState(props.live);
   const [selected, setSelected] = useState<string>(props.initial.blocks[0]?.id ?? HEADER);
+  // Chọn từ danh sách bên trái (hoặc vừa thêm khối): cuộn khung xem trước tới đúng khối đó.
+  const [scrollTarget, setScrollTarget] = useState<{ id: string } | null>(null);
+  const focusBlock = (id: string) => { setSelected(id); setScrollTarget({ id }); };
+  useEffect(() => {
+    if (!scrollTarget) return;
+    const target = scrollTarget.id === HEADER ? document.querySelector("[data-block-id='__header__']")
+      : document.querySelector(`[data-block-id="${CSS.escape(scrollTarget.id)}"]`);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [scrollTarget]);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [busy, setBusy] = useState<"save" | "apply" | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -99,7 +108,7 @@ export function StorefrontDesigner(props: {
           : type === "about" ? { id, type, image_path: "", title: "", body: "" }
             : type === "video" ? { id, type, video_uid: "", title: "" } : { id, type };
     setBlocks((all) => [...all, next]);
-    setSelected(id);
+    focusBlock(id);
   }
 
   async function upload(key: string, file: File): Promise<string | null> {
@@ -141,7 +150,7 @@ export function StorefrontDesigner(props: {
   const status = dirty ? copy.status.dirty : live ? copy.status.live : copy.status.draft;
   const tone = STOREFRONT_TONE_COLORS[layout.tone];
 
-  return <div className="overflow-hidden rounded-xl border border-ink-200 bg-white">
+  return <div className="overflow-clip rounded-xl border border-ink-200 bg-white">
     {/* Thanh trạng thái và nút lưu */}
     <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3">
       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${dirty || !live ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>{status}</span>
@@ -155,7 +164,8 @@ export function StorefrontDesigner(props: {
 
     <div className="grid lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_300px]">
       {/* Cột trái */}
-      <aside className="border-b border-ink-200 lg:border-b-0 lg:border-r">
+      {/* Hai cột bên đứng yên khi cuộn khung xem trước, để danh sách khối và bảng chỉnh luôn trong tầm tay. */}
+      <aside className="border-b border-ink-200 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r">
         {props.aside}
         <div className="m-3 rounded-xl border border-dashed border-brand-200 bg-brand-50/70 p-3">
           <p className="flex items-center gap-1.5 text-[13px] font-bold text-brand-800"><Sparkles className="size-4" aria-hidden="true" />{copy.quick.title}</p>
@@ -165,7 +175,7 @@ export function StorefrontDesigner(props: {
         <p className="px-4 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wide text-ink-500">{copy.listTitle}</p>
         <ul className="space-y-0.5 px-2">
           <li>
-            <button type="button" onClick={() => setSelected(HEADER)}
+            <button type="button" onClick={() => focusBlock(HEADER)}
               className={`flex w-full items-center gap-2 rounded-lg border px-2 py-2 text-left text-[12.5px] font-semibold ${selected === HEADER ? "border-brand-600 bg-brand-50" : "border-transparent bg-ink-50 hover:bg-ink-100"}`}>
               <Lock className="size-3.5 shrink-0 text-ink-500" aria-hidden="true" /><span className="min-w-0 flex-1">{copy.header}</span>
               <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] text-ink-500">{copy.headerLocked}</span>
@@ -173,7 +183,7 @@ export function StorefrontDesigner(props: {
           </li>
           {layout.blocks.map((b, index) => <li key={b.id}
             className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 ${selected === b.id ? "border-brand-600 bg-brand-50" : "border-transparent hover:bg-ink-50"}`}>
-            <button type="button" onClick={() => setSelected(b.id)} className={`min-w-0 flex-1 truncate text-left text-[12.5px] font-semibold ${b.hidden ? "text-ink-400 line-through" : "text-ink-900"}`}>{copy.types[b.type].name}</button>
+            <button type="button" onClick={() => focusBlock(b.id)} className={`min-w-0 flex-1 truncate text-left text-[12.5px] font-semibold ${b.hidden ? "text-ink-400 line-through" : "text-ink-900"}`}>{copy.types[b.type].name}</button>
             <Tool label={copy.moveUp} disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp className="size-3.5" /></Tool>
             <Tool label={copy.moveDown} disabled={index === layout.blocks.length - 1} onClick={() => move(index, 1)}><ArrowDown className="size-3.5" /></Tool>
             {REQUIRED_BLOCKS.includes(b.type)
@@ -208,12 +218,16 @@ export function StorefrontDesigner(props: {
         </div>
         <div className={`mx-auto overflow-hidden rounded-xl bg-white p-3 shadow-sm ring-1 ring-ink-200 transition-[max-width] sm:p-5 ${device === "mobile" ? "max-w-[390px]" : "max-w-[980px]"}`}
           style={{ "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties}>
-          <button type="button" onClick={() => setSelected(HEADER)}
-            className={`relative block w-full rounded-xl text-left outline outline-2 outline-offset-4 ${selected === HEADER ? "outline-brand-600" : "outline-transparent hover:outline-brand-200"}`}>
+          <button type="button" data-block-id="__header__" onClick={() => setSelected(HEADER)}
+            className={`relative block w-full scroll-mt-28 rounded-xl text-left outline outline-2 outline-offset-4 ${selected === HEADER ? "outline-brand-600" : "outline-transparent hover:outline-brand-200"}`}>
             <HeaderPreview layout={layout} header={props.header} previewUrl={previewUrl} />
             <span className="absolute right-3 top-3 z-10 rounded-md bg-white/90 px-1.5 py-0.5 text-[10.5px] text-ink-600">{copy.headerLockHint}</span>
           </button>
           <StorefrontBlocks layout={layout} selectedId={selected} onSelect={setSelected} showHidden
+            emptyBlock={(b) => <div className="rounded-xl border border-dashed border-ink-300 bg-ink-50/60 px-4 py-5 text-sm">
+              <p className="font-semibold text-ink-800">{copy.types[b.type].name}</p>
+              <p className="mt-0.5 text-xs leading-5 text-ink-500">{copy.emptyBlock}</p>
+            </div>}
             data={{ statValues: props.statValues, markets: props.markets, products: productMap, imageUrl: previewUrl,
               categories: props.categories, certificates: props.certificates, sections: props.sections }} />
           {!layout.blocks.length && <p className="mt-6 rounded-lg border border-dashed border-ink-300 p-6 text-center text-sm text-ink-500">{copy.quick.body}</p>}
@@ -221,7 +235,7 @@ export function StorefrontDesigner(props: {
       </main>
 
       {/* Chỉnh khối */}
-      <aside className="border-t border-ink-200 lg:col-span-2 xl:col-span-1 xl:border-l xl:border-t-0">
+      <aside className="border-t border-ink-200 lg:col-span-2 xl:sticky xl:top-20 xl:col-span-1 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto xl:border-l xl:border-t-0">
         <p className="px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-ink-500">{copy.editTitle}</p>
         <div className="space-y-3 px-4 pb-5 text-[12.5px]">
           {selected === HEADER ? <HeaderSettings layout={layout} setLayout={setLayout} copy={copy} />

@@ -130,4 +130,12 @@ assert.match(designer, /REQUIRED_BLOCKS\.includes\(b\.type\)\s*\n?\s*\? <span/, 
 assert.match(read("components/public/storefront-sections.tsx"), /export function ChecksSection/);
 assert.match(read("components/public/storefront-blocks.tsx"), /case "details":/, "Thông tin công ty là khối riêng");
 assert.match(read("components/public/storefront-sections.tsx"), /function PremiumTrade\(/, "Điều kiện giao dịch trình bày lưới thẻ trên trang Premium");
+// 11. Bấm khối trong danh sách thì xem trước cuộn tới đúng khối; khối trống có ô giữ chỗ; hai cột bên đứng yên.
+assert.match(designer, /onClick=\{\(\) => focusBlock\(b\.id\)\}/, "Bấm khối trong danh sách cuộn tới khối đó");
+assert.match(designer, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
+assert.match(designer, /emptyBlock=\{\(b\) =>/, "Khối chưa có nội dung vẫn có ô giữ chỗ trong xem trước");
+assert.match(designer, /lg:sticky/);
+const blocksSrc = read("components/public/storefront-blocks.tsx");
+assert.match(blocksSrc, /if \(!onSelect\) return rendered \?/, "Trang thật không hiện ô giữ chỗ");
+assert.match(blocksSrc, /data-block-id=\{block\.id\}/);
 console.log("✅ Thiết kế trang: 5 loại khối, ảnh và sản phẩm đúng nhà cung cấp, tiếng Anh, không liên hệ, Tạo nhanh không bịa nội dung, bản nháp không công khai, CRM cần đồng ý, video và nhóm sản phẩm chỉ Pro.");
