@@ -1,9 +1,5 @@
 import { notFound } from "next/navigation";
 import { CrmAplusReview } from "./aplus-review";
-import { staffSaveAplusAction } from "./aplus-actions";
-import { AplusEditor } from "@/components/products/aplus-editor";
-import { aplusMessages } from "@/lib/i18n/portal/aplus";
-import { activeDesignConsent } from "@/lib/supplier-portal/storefront-design";
 import { readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { supplierPlanRules } from "@/lib/supplier-plans";
@@ -188,10 +184,6 @@ export default async function EditProductPage({
   const missingWebsiteChecks = websiteChecks.filter((item) => !item.done && !(needsPublicationAction && item.automatic));
   const showWebsiteSection = canView || missingWebsiteChecks.length > 0;
 
-  const aplusModules = readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id });
-  const aplusAllowed = !!supplier && supplierPlanRules(supplier, new Date(), await readPlanCatalog()).richContent;
-  const aplusConsent = supplier && aplusAllowed ? await activeDesignConsent(supplier.id) : null;
-  const aplusOnBehalf = aplusConsent?.scope === "storefront_aplus" ? aplusConsent : null;
   return (
     <ProductEditWorkspace>
       <PageHeader
@@ -233,16 +225,9 @@ export default async function EditProductPage({
             savedTranslationCurrent={translationState.current}
           />
           {!supplierReviewedListing && <ReadyHint ready={readiness.ready} shareable={readiness.shareable} />}
-          {/* Dịch vụ thiết kế bán ngoài: nhà cung cấp đồng ý phạm vi "Trang + A+" thì nhân viên sửa hộ A+. */}
-          {aplusOnBehalf && <section className="card scroll-mt-24 p-5" aria-label="Sửa hộ nội dung A+">
-            <h2 className="text-sm font-bold text-ink-900">Sửa hộ nội dung A+</h2>
-            <p className="mt-0.5 text-xs text-ink-500">Theo đồng ý thiết kế hộ ngày {aplusOnBehalf.consented_on.split("-").reverse().join("/")} ({aplusOnBehalf.evidence}). Lưu là người mua thấy ngay; mỗi lần lưu được ghi nhật ký.</p>
-            <AplusEditor productId={product.id} allowed editable initial={aplusModules} copy={aplusMessages.vi}
-              staff={{ upload: "/api/crm/aplus", fields: { product_id: product.id }, save: staffSaveAplusAction.bind(null, product.id) }} />
-          </section>}
           <CrmAplusReview productId={product.id} canManage galleryVideo={readGalleryVideo(product.gallery_video)}
-            modules={aplusOnBehalf ? [] : aplusModules}
-            visible={aplusAllowed} />
+            modules={readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id })}
+            visible={supplierPlanRules(supplier, new Date(), await readPlanCatalog()).richContent} />
           <div id="product-media" className="scroll-mt-24">
             <MediaManager
               ownerType="product"

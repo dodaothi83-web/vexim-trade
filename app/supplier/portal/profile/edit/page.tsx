@@ -7,7 +7,6 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { SupplierProfileEditForm } from "../profile-edit-form";
-import { supplierPlanRules } from "@/lib/supplier-plans";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -25,6 +24,6 @@ export default async function SupplierProfileEditPage() {
   return <>
     <PageHeader eyebrow={m.profile.eyebrow} title={copy.title} sub={copy.sub}
       actions={<Link href="/supplier/portal/profile" className="btn btn-ghost"><ArrowLeft className="h-4 w-4" />{copy.back}</Link>} />
-    <SupplierProfileEditForm supplier={access.supplier} email={access.user.email} messages={copy} types={m.shared.supplierTypes} lang={locale} richIntro={supplierPlanRules(access.supplier).plan !== "basic"} />
+    <SupplierProfileEditForm supplier={access.supplier} email={access.user.email} messages={copy} types={m.shared.supplierTypes} lang={locale} />
   </>;
 }

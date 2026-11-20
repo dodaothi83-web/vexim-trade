@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
-import { SupplierCoverDeleteButton, SupplierPhotoButton } from "@/components/supplier-photo-button";
+import { SupplierPhotoButton } from "@/components/supplier-photo-button";
 import { SupplierStorefront } from "@/components/public/supplier-storefront";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
@@ -19,9 +19,8 @@ import { hasOpenServiceRequest } from "@/lib/supplier-services";
 import { StorefrontPlanBadge, StorefrontUpgradeButton } from "@/components/supplier-portal/storefront-owner";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
 import { ShowcaseEditor } from "./showcase-editor";
-import Link from "next/link";
-import { LayoutTemplate } from "lucide-react";
-import { draftLayoutOf } from "@/lib/supplier-portal/storefront-design";
+import { ThemeEditor } from "./theme-editor";
+import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -38,8 +37,7 @@ export async function generateMetadata() {
  * diện, và nút gửi RFQ được vô hiệu hoá để họ không tự gửi yêu cầu cho mình.
  * Không hiện những mục buyer không thấy (giấy tờ nội bộ, email, điện thoại, hồ sơ chờ duyệt).
  */
-export default async function SupplierStorefrontPreviewPage({ searchParams }: { searchParams: Promise<{ draft?: string }> }) {
-  const showDraft = (await searchParams).draft === "1";
+export default async function SupplierStorefrontPreviewPage() {
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
@@ -108,23 +106,11 @@ export default async function SupplierStorefrontPreviewPage({ searchParams }: { 
 
   return <>
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
-    {/* Premium/Pro: mẫu, tông màu và các khối nằm trong "Thiết kế trang". Gói đã hết hạn mà còn
-        khối ảnh cũ thì vẫn thấy để gỡ. Gói Basic: lời mời nâng gói là nút dưới link website. */}
-    {planRules.premiumStorefront && (showDraft
-      ? <div role="status" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          <span className="flex-1">{m.designer.cta.draftBanner}</span>
-          <Link href="/supplier/portal/storefront/design" className="btn btn-soft btn-sm">{m.designer.cta.draftBack}</Link>
-        </div>
-      : <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-brand-200 bg-brand-50/70 p-4">
-          <LayoutTemplate className="size-8 shrink-0 text-brand-700" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="font-bold text-ink-900">{m.designer.cta.title}</p>
-            <p className="mt-0.5 text-sm leading-6 text-ink-600">{m.designer.cta.body}</p>
-          </div>
-          <Link href="/supplier/portal/storefront/design" className="btn btn-primary btn-sm">{m.designer.cta.button}</Link>
-        </div>)}
-    {!planRules.premiumStorefront && showcaseBlocks.length > 0 &&
-      <ShowcaseEditor blocks={showcaseBlocks} enabled={false} copy={m.showcase} />}
+    {planRules.premiumStorefront && <ThemeEditor initial={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme} />}
+    {/* Gói Basic không còn thẻ khoá ở đây; lời mời nâng gói là nút dưới link website. Gói đã hết
+        hạn mà còn khối cũ thì vẫn thấy để gỡ. */}
+    {(planRules.premiumStorefront || showcaseBlocks.length > 0) &&
+      <ShowcaseEditor blocks={showcaseBlocks} enabled={planRules.premiumStorefront} copy={m.showcase} />}
 
     <SupplierStorefront
       supplier={card}
@@ -137,19 +123,15 @@ export default async function SupplierStorefrontPreviewPage({ searchParams }: { 
       rfqActions={false}
       nameTag="h2"
       showcaseImageUrl={showcasePreviewUrl}
-      layoutOverride={showDraft && planRules.premiumStorefront ? draftLayoutOf(supplier) : undefined}
-      coverAction={<div className="absolute right-4 bottom-3 z-10 flex items-center gap-2">
-        {coverUrl && <SupplierCoverDeleteButton />}
-        <SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />
-      </div>}
+      coverAction={<SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
+        className="absolute right-4 bottom-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />}
       avatarAction={<SupplierPhotoButton kind="profile" hasImage={!!avatarUrl}
         className="absolute -right-2 -bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-white shadow-md ring-2 ring-white transition hover:bg-brand-800 disabled:opacity-60" />}
       verificationActions={<StorefrontVerificationActions progress={progress} />}
       nameAside={<StorefrontPlanBadge plan={planRules.plan} expiresOn={planExpiresOn} publicHref={publicHref} copy={copy.owner} />}
       ownerActions={<StorefrontUpgradeButton plan={planRules.plan} catalog={planCatalog} expiresOn={planExpiresOn} requestOpen={upgradeRequestOpen} email={user.email} copy={copy.owner} />}
-      coverHint={<p className={`pointer-events-none absolute ${coverUrl ? "right-28" : "right-16"} bottom-3 z-10 rounded-lg bg-white/95 px-2.5 py-1 text-right text-[11px] leading-4 text-ink-700 shadow-sm`}>
-        <span className="block font-semibold text-ink-900">{coverUrl ? copy.owner.coverChange : copy.owner.coverAdd}</span>{copy.owner.coverHint}
+      avatarHint={<p className="mx-auto mt-2 w-32 text-center text-[11px] leading-4 opacity-80">
+        <span className="block font-semibold">{avatarUrl ? copy.owner.avatarChange : copy.owner.avatarAdd}</span>{copy.owner.avatarHint}
       </p>}
     />
   </>;

@@ -11,7 +11,6 @@ import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
 import { Info, LevelChip, Panel, VerifyRow } from "../portal-ui";
 import { displayLevel } from "@/lib/types";
-import { richIntroPlain } from "@/lib/rich-intro";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -80,7 +79,7 @@ export default async function SupplierProfilePage() {
   const goal = copy.view.goals;
   const nextGoal = currentStep ? `L${displayLevel(currentStep)} · ${currentStep === 1 ? goal.documents : currentStep === 2 ? l2Scope === "partner_contract" ? goal.partner : goal.factory : goal.export}` : goal.allDone;
   const published = supplier.status === "published";
-  const about = richIntroPlain(vi(supplier.summary_i18n) || supplier.intro_source || "");
+  const about = vi(supplier.summary_i18n) || supplier.intro_source || "";
   const marketText = supplier.export_markets_i18n?.vi?.join(", ") || join(supplier.export_markets) || supplier.markets || "";
   const typeLabel = supplier.supplier_type ? m.shared.supplierTypes[supplier.supplier_type] : m.shared.supplierTypes.unset;
 

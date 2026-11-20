@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 
 import { prepareImage } from "@/lib/media/client-image";
 import { readUploadResponse } from "@/lib/media/upload-response";
@@ -58,36 +58,6 @@ export function SupplierPhotoButton({ kind, hasImage, className }: Props) {
       {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}
     </button>
     <input ref={inputRef} type="file" accept="image/*" onChange={onPick} className="hidden" />
-    {error && <div role="alert" className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] font-semibold text-rose-900 shadow-lg">
-      {error}
-    </div>}
-  </>;
-}
-
-/** Nút thùng rác xoá ảnh bìa, đặt cạnh nút "+" trên ảnh bìa. */
-export function SupplierCoverDeleteButton({ className }: { className?: string }) {
-  const router = useRouter();
-  const [busy, start] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  return <>
-    <button type="button" disabled={busy} aria-label="Xoá ảnh bìa" title="Xoá ảnh bìa"
-      onClick={() => {
-        if (!window.confirm("Xoá ảnh bìa? Người mua sẽ không còn thấy ảnh này.")) return;
-        setError(null);
-        start(async () => {
-          try {
-            const res = await fetch("/api/supplier-portal/profile-image?kind=cover", { method: "DELETE" });
-            const data = await res.json().catch(() => ({})) as { ok?: boolean; message?: string };
-            if (!res.ok || !data.ok) throw new Error(data.message ?? "Chưa xoá được ảnh bìa.");
-            router.refresh();
-          } catch (err) {
-            setError(err instanceof Error ? err.message : "Chưa xoá được ảnh bìa.");
-          }
-        });
-      }}
-      className={className ?? "flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-rose-700 shadow-md transition hover:bg-rose-50 disabled:opacity-60"}>
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="h-4 w-4" aria-hidden="true" />}
-    </button>
     {error && <div role="alert" className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] font-semibold text-rose-900 shadow-lg">
       {error}
     </div>}

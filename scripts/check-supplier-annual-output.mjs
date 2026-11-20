@@ -84,7 +84,7 @@ assert.match(read('app/api/supplier-portal/profile/route.ts'), /annual_output: p
 const profile = read('app/supplier/portal/profile/page.tsx');
 assert.match(profile, /f\.annualOutput\} value=\{supplier\.annual_output/);
 assert.doesNotMatch(profile, /value=\{supplier\.(?:moq_text|capacity_per_month)\}/);
-const storefront = read('components/public/supplier-storefront.tsx') + read('components/public/storefront-sections.tsx');
+const storefront = read('components/public/supplier-storefront.tsx');
 assert.match(storefront, /"Annual revenue" : "Monthly capacity"/);
 assert.match(storefront, /supplierAnnualOutputDisplay\(s\)/);
 assert.match(read('components/supplier-form.tsx'), /set\("annual_output", e\.target\.value\)/);
