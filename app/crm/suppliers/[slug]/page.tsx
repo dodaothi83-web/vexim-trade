@@ -513,6 +513,10 @@ Chỉ nhân viên CRM thấy danh sách này. Chỉ nhà cung cấp được ch�
               canManage={canManage}
               catalog={await readPlanCatalog()}
             />
+            {/* Dịch vụ thiết kế trang bán ngoài hệ thống: ghi nhận đồng ý rồi thiết kế hộ. */}
+            <Link href={`/crm/suppliers/${id}/design`} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline">
+              Thiết kế hộ trang nhà cung cấp →
+            </Link>
           </Card>
           <Card className="p-4">
             <SectionHead icon={UserRound} title="Tài khoản cổng nhà cung cấp" />

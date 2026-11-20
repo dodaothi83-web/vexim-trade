@@ -3,6 +3,8 @@
 alter table public.suppliers add column if not exists storefront_layout jsonb;
 alter table public.suppliers add column if not exists storefront_layout_draft jsonb;
 comment on column public.suppliers.storefront_layout is 'Bố cục trang nhà cung cấp đang công khai (Premium/Pro). Null: dùng giao diện cũ (storefront_theme + showcase_blocks).';
+-- Lần gần nhất Vexim áp dụng thiết kế thay nhà cung cấp: sinh thông báo trong cổng.
+alter table public.suppliers add column if not exists storefront_staff_applied_at timestamptz;
 comment on column public.suppliers.storefront_layout_draft is 'Bản nháp bố cục trang; chỉ nhà cung cấp và nhân viên thiết kế hộ thấy.';
 
 -- Mỗi lần Áp dụng lưu một phiên bản để khôi phục.

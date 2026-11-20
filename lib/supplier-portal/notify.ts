@@ -310,6 +310,24 @@ export async function notifySupplierPlanChange(input: {
   } catch (error) { console.error("[supplier-notify] plan change", error); return "failed"; }
 }
 
+/** Vexim thiết kế hộ và áp dụng trang mới: báo người đại diện qua email. */
+export async function notifySupplierStorefrontDesigned(input: { supplierId: string; supplierName: string; consentedOn: string }): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const users = await getStore().listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && u.role === "supplier" && u.supplier_id === input.supplierId)
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const title = `Trang nhà cung cấp của ${input.supplierName} đã được cập nhật`;
+    const date = formatCertificateDate(input.consentedOn, "vi");
+    const explanation = `Theo thoả thuận dịch vụ thiết kế ngày ${date}, đội ngũ Vexim đã áp dụng trang mới cho ${input.supplierName} trên Vexim Trade. Bạn có thể xem trang, tự chỉnh sửa hoặc khôi phục bản trước trong mục Thiết kế trang của cổng nhà cung cấp.`;
+    const url = `${notificationOrigin()}/supplier/portal/storefront/design`;
+    const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">Mở Thiết kế trang</a></p><p>Nếu cần thay đổi, hãy trả lời email này hoặc liên hệ nhân viên phụ trách.</p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
+      html: wrapPlainEmail({ title: escapeHtml(title), body }), text: `${title}\n${explanation}\nMở Thiết kế trang: ${url}` });
+    return res.ok ? res.status : "failed";
+  } catch (error) { console.error("[supplier-notify] storefront designed", error); return "failed"; }
+}
+
 export async function notifySupplierDecision(input: {
   supplierId: string; decision: SupplierDecision; name?: string; entityId?: string; note?: string;
 }): Promise<"sent" | "simulated" | "failed"> {

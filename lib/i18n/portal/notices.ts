@@ -17,6 +17,10 @@ const en = {
     factory: "Factory verification (L3)",
     export: "Export history (L2)",
   },
+  storefrontStaff: {
+    title: "Vexim updated your supplier page",
+    detail: "Under your design service agreement, the Vexim team applied a new design. You can edit it or restore the previous version.",
+  },
   plan: {
     paidTitle: "Your {plan} plan is active",
     paidDetail: "You can list {limit}, add A+ content (photos, video) to product descriptions and use the premium supplier page.",
@@ -105,6 +109,10 @@ const vi: NoticesMessages = {
   submissions: {
     factory: "Xác thực nhà máy (L3)",
     export: "Lịch sử xuất khẩu (L2)",
+  },
+  storefrontStaff: {
+    title: "Vexim đã cập nhật trang nhà cung cấp của bạn",
+    detail: "Theo thoả thuận dịch vụ thiết kế, đội ngũ Vexim đã áp dụng thiết kế mới. Bạn vẫn tự sửa hoặc khôi phục bản trước.",
   },
   plan: {
     paidTitle: "Gói {plan} đã được kích hoạt",

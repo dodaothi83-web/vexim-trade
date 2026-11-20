@@ -4,7 +4,9 @@
  */
 import { getSupabaseClient } from "@/lib/db/supabase";
 import type { DataStore as Store } from "@/lib/db/types";
-import { readStorefrontLayout, type StorefrontLayout } from "@/lib/storefront-layout";
+import { fill } from "@/lib/i18n/format";
+import type { DesignerMessages } from "@/lib/i18n/portal/designer";
+import { readStorefrontLayout, type LayoutProblem, type StorefrontLayout } from "@/lib/storefront-layout";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 import type { Supplier } from "@/lib/types";
 
@@ -118,3 +120,11 @@ export async function revokeDesignConsent(supplierId: string, consentId: string,
     .eq("supplier_id", supplierId).eq("id", consentId).is("revoked_at", null);
   if (error) throw error;
 }
+
+/** Câu báo lỗi bố cục, dùng chung cổng nhà cung cấp và CRM. */
+export function layoutProblemMessage(problem: LayoutProblem, e: DesignerMessages["errors"]): string {
+  if (problem.code === "tooMany") return e.tooMany;
+  if (problem.code === "tagline") return e.tagline;
+  return fill(e[problem.code], { index: problem.index + 1 });
+}
+

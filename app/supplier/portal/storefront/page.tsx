@@ -19,8 +19,9 @@ import { hasOpenServiceRequest } from "@/lib/supplier-services";
 import { StorefrontPlanBadge, StorefrontUpgradeButton } from "@/components/supplier-portal/storefront-owner";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
 import { ShowcaseEditor } from "./showcase-editor";
-import { ThemeEditor } from "./theme-editor";
-import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
+import Link from "next/link";
+import { LayoutTemplate } from "lucide-react";
+import { draftLayoutOf } from "@/lib/supplier-portal/storefront-design";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -37,7 +38,8 @@ export async function generateMetadata() {
  * diện, và nút gửi RFQ được vô hiệu hoá để họ không tự gửi yêu cầu cho mình.
  * Không hiện những mục buyer không thấy (giấy tờ nội bộ, email, điện thoại, hồ sơ chờ duyệt).
  */
-export default async function SupplierStorefrontPreviewPage() {
+export default async function SupplierStorefrontPreviewPage({ searchParams }: { searchParams: Promise<{ draft?: string }> }) {
+  const showDraft = (await searchParams).draft === "1";
   const access = await supplierPortalAccess();
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
@@ -106,11 +108,23 @@ export default async function SupplierStorefrontPreviewPage() {
 
   return <>
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
-    {planRules.premiumStorefront && <ThemeEditor initial={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme} />}
-    {/* Gói Basic không còn thẻ khoá ở đây; lời mời nâng gói là nút dưới link website. Gói đã hết
-        hạn mà còn khối cũ thì vẫn thấy để gỡ. */}
-    {(planRules.premiumStorefront || showcaseBlocks.length > 0) &&
-      <ShowcaseEditor blocks={showcaseBlocks} enabled={planRules.premiumStorefront} copy={m.showcase} />}
+    {/* Premium/Pro: mẫu, tông màu và các khối nằm trong "Thiết kế trang". Gói đã hết hạn mà còn
+        khối ảnh cũ thì vẫn thấy để gỡ. Gói Basic: lời mời nâng gói là nút dưới link website. */}
+    {planRules.premiumStorefront && (showDraft
+      ? <div role="status" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <span className="flex-1">{m.designer.cta.draftBanner}</span>
+          <Link href="/supplier/portal/storefront/design" className="btn btn-soft btn-sm">{m.designer.cta.draftBack}</Link>
+        </div>
+      : <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-brand-200 bg-brand-50/70 p-4">
+          <LayoutTemplate className="size-8 shrink-0 text-brand-700" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-ink-900">{m.designer.cta.title}</p>
+            <p className="mt-0.5 text-sm leading-6 text-ink-600">{m.designer.cta.body}</p>
+          </div>
+          <Link href="/supplier/portal/storefront/design" className="btn btn-primary btn-sm">{m.designer.cta.button}</Link>
+        </div>)}
+    {!planRules.premiumStorefront && showcaseBlocks.length > 0 &&
+      <ShowcaseEditor blocks={showcaseBlocks} enabled={false} copy={m.showcase} />}
 
     <SupplierStorefront
       supplier={card}
@@ -123,6 +137,7 @@ export default async function SupplierStorefrontPreviewPage() {
       rfqActions={false}
       nameTag="h2"
       showcaseImageUrl={showcasePreviewUrl}
+      layoutOverride={showDraft && planRules.premiumStorefront ? draftLayoutOf(supplier) : undefined}
       coverAction={<SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
         className="absolute right-4 bottom-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />}
       avatarAction={<SupplierPhotoButton kind="profile" hasImage={!!avatarUrl}
