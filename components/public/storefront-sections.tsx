@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 
 import { VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
 import { VeximMinimumOrderIcon, VeximExportPortIcon, VeximLeadTimeIcon, VeximCapacityIcon, VeximPaymentIcon, VeximMarketsIcon } from "@/components/brand/vexim-icons";
-import { ExpandableText } from "@/components/public/expandable-text";
+import { ExpandableBlock } from "@/components/public/expandable-text";
+import { RichIntro } from "@/components/public/rich-intro";
 import { SupplierCertificateRail } from "@/components/public/supplier-certificate-rail";
 import type { PublicSupplierCard } from "@/lib/public/catalog";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
@@ -13,7 +14,7 @@ import { supplierShortName } from "@/lib/public/supplier-name";
 import {
   supplierAddressDisplay, supplierAnnualOutputDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay,
   supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay,
-  supplierProvinceDisplay, supplierSummaryDisplay,
+  supplierProvinceDisplay, supplierSummaryDisplay, supplierSummaryRich,
 } from "@/lib/public/supplier-english";
 import { factoryReviewLabel, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 
@@ -48,9 +49,11 @@ export function CompanySection({ s, premium = false }: { s: PublicSupplierCard; 
     { label: "Markets served or targeted", value: safe(supplierMarketsDisplay(s)), wide: false },
   ].filter((item) => item.value);
   // Trang Premium/Pro: đoạn giới thiệu chữ lớn, thoáng, có "Read more"; chi tiết kinh doanh hai cột.
+  // Trang Premium/Pro: giới thiệu có định dạng (tiêu đề phụ, gạch đầu dòng, chữ đậm).
+  const rich = premium ? safe(supplierSummaryRich(s)) : "";
   if (premium) return <>
-    {summary
-      ? <ExpandableText text={summary} className="mt-5 text-[15.5px] leading-8 text-ink-700" />
+    {rich
+      ? <div className="mt-5"><ExpandableBlock><RichIntro text={rich} className="text-[15.5px] leading-8 text-ink-700" /></ExpandableBlock></div>
       : <p className="mt-5 text-sm leading-7 text-ink-500">This supplier has not added an introduction yet. Ask Vexim for more information.</p>}
     {businessDetails.length > 0 && <div className="mt-7 border-t border-ink-100 pt-6">
       <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink-500">Business details</p>

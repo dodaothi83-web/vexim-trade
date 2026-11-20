@@ -23,3 +23,27 @@ export function ExpandableText({ text, lines = 7, className = "" }: { text: stri
     </button>}
   </div>;
 }
+
+/**
+ * Như ExpandableText nhưng cho nội dung có định dạng (tiêu đề phụ, danh sách): cắt theo chiều cao,
+ * nội dung đầy đủ vẫn nằm trong trang.
+ */
+export function ExpandableBlock({ children, maxHeight = 260 }: { children: React.ReactNode; maxHeight?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [overflow, setOverflow] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (el) setOverflow(el.scrollHeight > maxHeight + 8);
+  }, [children, maxHeight]);
+  return <div>
+    <div ref={ref} className="relative" style={open || !overflow ? undefined : { maxHeight, overflow: "hidden" }}>
+      {children}
+      {overflow && !open && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent" aria-hidden="true" />}
+    </div>
+    {(overflow || open) && <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+      className="mt-2 text-sm font-semibold text-[var(--sf-dark)] underline underline-offset-4 hover:text-[var(--sf-accent)]">
+      {open ? "Show less" : "Read more"}
+    </button>}
+  </div>;
+}

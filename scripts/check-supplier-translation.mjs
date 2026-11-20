@@ -13,6 +13,7 @@ import {
   publicProductPaymentTermsDisplay,
   publicProductPlaceDisplay,
 } from '../lib/public/product-detail-display.ts';
+import * as richIntro from '../lib/rich-intro.ts';
 
 const portalCopy = loadPortalDictionary();
 const realRequire = createRequire(import.meta.url);
@@ -35,6 +36,7 @@ function load(file, mocks, globals = {}) {
 }
 
 const ai = load('../lib/ai/translate-supplier.ts', {
+  '@/lib/rich-intro': richIntro,
   '@/lib/ai/company-introduction': { readOutputText: () => '' },
   '@/lib/types': {},
 });
@@ -67,6 +69,7 @@ assert.throws(() => ai.parseSupplierProfileTranslation(JSON.stringify({ moq_en: 
 
 // Kiểm tra chính hàm gọi OpenAI dùng strict mode, với fetch giả lập và không phát sinh request thật.
 const liveAi = load('../lib/ai/translate-supplier.ts', {
+  '@/lib/rich-intro': richIntro,
   '@/lib/ai/company-introduction': { readOutputText: (payload) => payload.output_text ?? '' },
   '@/lib/types': {},
 }, {
@@ -122,6 +125,7 @@ assert.equal(ai.supplierProfileTranslationState({ ...legalSource, ...legalPatch,
   'Sửa tên pháp lý gốc phải làm bản hiển thị tiếng Anh cũ hết hạn');
 
 const english = load('../lib/public/supplier-english.ts', {
+  '@/lib/rich-intro': richIntro,
   '@/lib/types': {},
   '@/lib/public/product-detail-display': {
     publicExportPortDisplay,

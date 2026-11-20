@@ -23,6 +23,7 @@ import { checkVideoFile, uploadStreamVideoTo } from "@/lib/media/stream-upload-c
 import { PROFILE_FIELDS_BY_BLOCK, STOREFRONT_PROFILE_FIELDS, type StorefrontProfileField, type StorefrontProfilePatch } from "@/lib/storefront-profile-fields";
 import { aplusVideoEmbedUrl } from "@/lib/products/aplus";
 import { PremiumHeader } from "@/components/public/premium-header";
+import { RichIntroEditor } from "@/components/rich-intro-editor";
 import { SupplierCoverDeleteButton, SupplierPhotoButton } from "@/components/supplier-photo-button";
 
 export type DesignerProduct = { id: string; name: string; imageUrl: string | null; detail?: string };
@@ -521,11 +522,13 @@ function ProfileFields({ fields, block, profile, copy }: {
       const label = t.fields[f];
       const long = f === "intro_source" || f === "products" || f === "markets";
       return <label key={f} className="block font-semibold text-ink-700">{label}
-        {long
-          ? <textarea rows={f === "intro_source" ? 6 : 3} value={values[f]} onChange={(e) => setValues((v) => ({ ...v, [f]: e.target.value }))} className={field} />
+        {f === "intro_source"
+          ? <div className="mt-1 font-normal"><RichIntroEditor value={values[f]} onChange={(next) => setValues((v) => ({ ...v, [f]: next }))} max={spec.kind === "text" ? spec.max : 1500} copy={copy.richIntro} minHeight={160} /></div>
+          : long
+          ? <textarea rows={3} value={values[f]} onChange={(e) => setValues((v) => ({ ...v, [f]: e.target.value }))} className={field} />
           : <input value={values[f]} inputMode={spec.kind === "int" ? "numeric" : undefined} onChange={(e) => setValues((v) => ({ ...v, [f]: e.target.value }))} className={field} />}
         {spec.kind === "list" && <span className="mt-0.5 block text-[11px] font-normal text-ink-500">{t.listHint}</span>}
-        {spec.kind === "text" && <Counter value={values[f]} max={spec.max} copy={copy} />}
+        {spec.kind === "text" && f !== "intro_source" && <Counter value={values[f]} max={spec.max} copy={copy} />}
       </label>;
     })}
     {block === "details" && <ReadOnly label={t.fields.legal_name} value={profile.values.legal_name} hint={t.readOnly} />}
@@ -833,8 +836,7 @@ function CompanyIntroEditor({ profile, copy }: { profile: { values: ProfileValue
   </div>;
   return <div className="mt-4 space-y-2 rounded-xl border border-brand-200 bg-brand-50/50 p-3" onClick={(event) => event.stopPropagation()}>
     <p className="text-[11.5px] leading-5 text-ink-600">{t.introNote}</p>
-    <textarea rows={7} value={value} onChange={(event) => setValue(event.target.value)} aria-label={copy.profile.fields.intro_source} className="input w-full text-[13.5px]" />
-    <Counter value={value} max={max} copy={copy} />
+    <RichIntroEditor value={value} onChange={setValue} max={max} placeholder={copy.profile.fields.intro_source} copy={copy.richIntro} minHeight={200} />
     <div className="flex flex-wrap gap-2">
       <button type="button" className="btn btn-primary btn-sm" disabled={busy || value === (profile.values.intro_source ?? "")} onClick={async () => {
         setBusy(true); setNote(null);

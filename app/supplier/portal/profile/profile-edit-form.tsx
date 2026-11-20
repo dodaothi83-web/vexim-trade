@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+
+import { RICH_INTRO_COPY, RichIntroEditor } from "@/components/rich-intro-editor";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
@@ -11,7 +13,9 @@ import type { ProfileMessages } from "@/lib/i18n/portal/profile";
 import type { SharedMessages } from "@/lib/i18n/portal/shared";
 import { saveSupplierProfileEditAction } from "./profile-actions";
 
-export function SupplierProfileEditForm({ supplier, email, messages: m, types, lang }: {
+export function SupplierProfileEditForm({ supplier, email, messages: m, types, lang, richIntro = false }: {
+  /** Gói Premium/Pro: phần giới thiệu dùng trình soạn có định dạng. */
+  richIntro?: boolean;
   supplier: Supplier;
   email: string;
   messages: ProfileMessages["edit"];
@@ -69,7 +73,10 @@ export function SupplierProfileEditForm({ supplier, email, messages: m, types, l
         <Field label={m.labels.products} name="products" required maxLength={1000} defaultValue={supplier.products ?? ""} />
       </div>
       <label className="mt-4 block text-sm"><span className="mb-1 block font-semibold">{m.introLabel}</span>
-        <textarea name="intro_source" rows={5} maxLength={1500} className="input resize-y" defaultValue={supplier.intro_source ?? ""} placeholder={m.introPlaceholder} />
+        {richIntro
+          // Gói Premium/Pro: giới thiệu "About this supplier" soạn kiểu blog (tiêu đề phụ, gạch đầu dòng, chữ đậm).
+          ? <RichIntroEditor name="intro_source" value={supplier.intro_source ?? ""} max={1500} placeholder={m.introPlaceholder} copy={RICH_INTRO_COPY[lang === "en" ? "en" : "vi"]} />
+          : <textarea name="intro_source" rows={5} maxLength={1500} className="input resize-y" defaultValue={supplier.intro_source ?? ""} placeholder={m.introPlaceholder} />}
       </label>
     </section>
 
