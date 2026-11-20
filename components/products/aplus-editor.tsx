@@ -9,14 +9,24 @@ import { ProductAplus } from "@/components/public/product-aplus";
 import { fill } from "@/lib/i18n/format";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
 import { prepareImage } from "@/lib/media/client-image";
-import { aplusUploadEndpoint, checkVideoFile, uploadStreamVideo } from "@/lib/media/stream-upload-client";
+import { aplusUploadEndpoint, checkVideoFile, uploadStreamVideoAt } from "@/lib/media/stream-upload-client";
 import {
   APLUS_B2B_TYPES, APLUS_HIGHLIGHT_ICONS, APLUS_ITEM_RANGE, APLUS_MAX_MODULES, APLUS_MODULE_TYPES, aplusBlockIssues, aplusCompleteness,
   aplusModuleText, aplusNeedsTranslation, aplusNumberDrift, aplusSlots, aplusSourceHash, aplusTranslationStale, findContact, withAplusText,
   type AplusHighlightIcon, type AplusModule, type AplusModuleType,
 } from "@/lib/products/aplus";
 import { APLUS_TEMPLATE_IDS, APLUS_TEMPLATES, buildAplusTemplate, emptyAplusModule, type AplusTemplateId } from "@/lib/products/aplus-templates";
-import { saveProductAplusAction, translateAplusPreviewAction } from "@/app/supplier/portal/aplus-actions";
+import { saveProductAplusAction, translateAplusPreviewAction, type AplusSaveResult } from "@/app/supplier/portal/aplus-actions";
+
+/**
+ * Nơi lưu, dịch thử, tải tệp của trình soạn. Mặc định là A+ của một sản phẩm; trang A+ doanh nghiệp
+ * truyền các hàm của mình (app/supplier/portal/storefront/company-aplus-actions.ts).
+ */
+export type AplusEditorApi = {
+  endpoint: string;
+  save: (modules: AplusModule[], retranslate: string[]) => Promise<AplusSaveResult>;
+  translate: (modules: AplusModule[], retranslate: string[]) => Promise<AplusSaveResult>;
+};
 
 export type AplusEditorHandle = {
   /** Lưu A+ cùng lần lưu sản phẩm. Trả false nếu lưu lỗi (lời nhắn hiện trong khu A+). */
@@ -41,7 +51,16 @@ const RATIO: Partial<Record<AplusModuleType, { css: string; label: string }>> = 
  * `productId`): ảnh, video tải vào khu chờ và cả nội dung đi theo form qua ô ẩn `pending_aplus_json`.
  * Không có ô nào mang `name` khác, để form sản phẩm bao quanh không gửi kèm các trường này.
  */
-export function AplusEditor({ productId, allowed, editable, initial, copy, handle, onDirtyChange }: {
+export function AplusEditor({ productId, allowed, editable, initial, copy, handle, onDirtyChange, api, templateIds = APLUS_TEMPLATE_IDS, heading, standalone = false, lockedHref = "/supplier/portal/storefront" }: {
+  /** A+ doanh nghiệp: nơi lưu, dịch, tải tệp riêng (mặc định: A+ sản phẩm `productId`). */
+  api?: AplusEditorApi;
+  /** Bộ mẫu hiện trong "Bộ mẫu". */
+  templateIds?: readonly AplusTemplateId[];
+  /** Tiêu đề, mô tả và chữ khi chưa có quyền (A+ doanh nghiệp dùng chữ riêng). */
+  heading?: { title: string; sub: string; lockedTitle: string; lockedBody: string; save: string };
+  /** Trang riêng (A+ doanh nghiệp): có nút Lưu của mình thay vì lưu cùng form sản phẩm. */
+  standalone?: boolean;
+  lockedHref?: string;
   /** Báo trang sửa sản phẩm có thay đổi A+ chưa lưu (hiện nút Lưu, nhắc khi rời trang). */
   onDirtyChange?: (dirty: boolean) => void;
   /** null khi sản phẩm chưa được tạo. */
@@ -69,33 +88,40 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
   modulesRef.current = modules;
   const dirty = JSON.stringify(modules) !== saved;
   const disabled = !editable || !!busy || !!uploading;
-  const pending = !productId;
+  const pending = !productId && !api;
+  const endpoint = api?.endpoint ?? aplusUploadEndpoint(productId);
+  const saveApi = api?.save ?? ((list: AplusModule[], again: string[]) => saveProductAplusAction(productId!, list, again));
+  const translateApi = api?.translate ?? ((list: AplusModule[], again: string[]) => translateAplusPreviewAction(productId, list, again));
+  const title = heading?.title ?? copy.title, sub = heading?.sub ?? copy.sub;
   useEffect(() => { if (!pending) onDirtyChange?.(dirty); }, [dirty, pending, onDirtyChange]);
-  const preview = (path: string) => path ? `${aplusUploadEndpoint(productId)}?path=${encodeURIComponent(path)}` : "";
+  const preview = (path: string) => path ? `${endpoint}?path=${encodeURIComponent(path)}` : "";
 
+  async function saveNow(): Promise<boolean> {
+    if (pending || JSON.stringify(modulesRef.current) === saved) return true;
+    setBusy("save"); setMessage(null);
+    try {
+      const result = await saveApi(modulesRef.current, retranslate);
+      setMessage({ ok: result.ok, text: result.message });
+      if (result.ok && result.modules) { setModules(result.modules); setSaved(JSON.stringify(result.modules)); setRetranslate([]); }
+      return result.ok;
+    } catch { setMessage({ ok: false, text: copy.errors.failed }); return false; }
+    finally { setBusy(null); }
+  }
+  const saveRef = useRef(saveNow);
+  saveRef.current = saveNow;
   useImperativeHandle(handle, () => ({
     dirty: () => JSON.stringify(modulesRef.current) !== saved,
-    save: async () => {
-      if (!productId || JSON.stringify(modulesRef.current) === saved) return true;
-      setBusy("save"); setMessage(null);
-      try {
-        const result = await saveProductAplusAction(productId, modulesRef.current, retranslate);
-        setMessage({ ok: result.ok, text: result.message });
-        if (result.ok && result.modules) { setModules(result.modules); setSaved(JSON.stringify(result.modules)); setRetranslate([]); }
-        return result.ok;
-      } catch { setMessage({ ok: false, text: copy.errors.failed }); return false; }
-      finally { setBusy(null); }
-    },
-  }), [productId, saved, retranslate, copy]);
+    save: () => saveRef.current(),
+  }), [saved]);
 
   const completeness = useMemo(() => aplusCompleteness(modules), [modules]);
   const done = completeness.filter((c) => c.done).length;
 
   if (!allowed) {
     return <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50/70 p-4">
-      <p className="flex items-center gap-2 text-sm font-semibold text-ink-900"><Lock className="size-4 text-brand-700" aria-hidden="true" />{copy.lockedTitle}</p>
-      <p className="mt-1 text-xs leading-5 text-ink-600">{copy.lockedBody}</p>
-      <Link href="/supplier/portal/storefront" className="mt-2 inline-block text-xs font-bold text-brand-700 underline">{copy.lockedCta}</Link>
+      <p className="flex items-center gap-2 text-sm font-semibold text-ink-900"><Lock className="size-4 text-brand-700" aria-hidden="true" />{heading?.lockedTitle ?? copy.lockedTitle}</p>
+      <p className="mt-1 text-xs leading-5 text-ink-600">{heading?.lockedBody ?? copy.lockedBody}</p>
+      <Link href={lockedHref} className="mt-2 inline-block text-xs font-bold text-brand-700 underline">{copy.lockedCta}</Link>
     </div>;
   }
 
@@ -157,7 +183,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
       const body = new FormData();
       body.append("kind", "image");
       body.append("file", new File([prepared.main], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
-      const res = await fetch(aplusUploadEndpoint(productId), { method: "POST", body });
+      const res = await fetch(endpoint, { method: "POST", body });
       const data = await res.json().catch(() => null) as { ok?: boolean; path?: string; message?: string } | null;
       if (!res.ok || !data?.ok || !data.path) throw new Error(data?.message || copy.errors.upload);
       return data.path;
@@ -172,7 +198,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
     if (problem) { setMessage({ ok: false, text: problem }); return; }
     setUploading(id); setProgress(0); setMessage(null);
     try {
-      const uid = await uploadStreamVideo(productId, file, setProgress, copy.errors.upload);
+      const uid = await uploadStreamVideoAt(endpoint, file, setProgress, copy.errors.upload);
       replace(id, (m) => m.type === "video" ? { ...m, video_uid: uid } : m);
       setMessage({ ok: true, text: copy.fields.videoProcessing });
     } catch (error) {
@@ -184,7 +210,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
     setBusy("translate"); setMessage(null);
     const force = [...new Set([...retranslate, ...ids])];
     try {
-      const result = await translateAplusPreviewAction(productId, modulesRef.current, force);
+      const result = await translateApi(modulesRef.current, force);
       setMessage({ ok: result.ok, text: result.message });
       if (result.ok && result.modules) {
         const byId = new Map(result.modules.map((m) => [m.id, m]));
@@ -206,8 +232,8 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
     {/* Thanh trên: ngôn ngữ soạn, mức hoàn thiện, bộ mẫu, thiết bị xem trước */}
     <div className="flex flex-wrap items-center gap-2.5 border-b border-ink-200 px-4 py-3">
       <div className="min-w-0 mr-auto">
-        <p className="text-[13.5px] font-bold text-ink-900">{copy.title} <span className="ml-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-800">{fill(copy.count, { count: modules.length, max: APLUS_MAX_MODULES })}</span></p>
-        <p className="mt-0.5 max-w-xl text-[11.5px] leading-5 text-ink-500">{copy.sub}</p>
+        <p className="text-[13.5px] font-bold text-ink-900">{title} <span className="ml-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-800">{fill(copy.count, { count: modules.length, max: APLUS_MAX_MODULES })}</span></p>
+        <p className="mt-0.5 max-w-xl text-[11.5px] leading-5 text-ink-500">{sub}</p>
       </div>
       <div role="group" aria-label={copy.lang.vi} className="inline-flex rounded-lg bg-ink-100 p-0.5">
         <button type="button" aria-pressed={mode === "vi"} onClick={() => setMode("vi")} className={segment(mode === "vi")}>{copy.lang.vi}</button>
@@ -280,6 +306,8 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
     <div className="flex flex-wrap items-center gap-3 border-t border-ink-200 px-4 py-2.5 text-xs">
       {busy === "save" && <span className="inline-flex items-center gap-1.5 text-ink-500"><Loader2 className="size-3.5 animate-spin" aria-hidden="true" />{copy.saving}</span>}
       {dirty && !busy && !pending && <span className="font-semibold text-amber-800">{copy.unsaved}</span>}
+      {standalone && <button type="button" disabled={disabled || !dirty} onClick={() => void saveNow()} className="btn btn-primary btn-sm ml-auto">
+        {busy === "save" ? copy.saving : heading?.save ?? copy.save}</button>}
       {message && <span role={message.ok ? "status" : "alert"} className={message.ok ? "text-emerald-700" : "text-rose-700"}>{message.text}</span>}
     </div>
 
@@ -300,7 +328,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
       </div>)}
     </Modal>}
 
-    {panel === "templates" && <TemplatePicker copy={copy} onClose={() => setPanel(null)} onUse={useTemplate} />}
+    {panel === "templates" && <TemplatePicker copy={copy} ids={templateIds} onClose={() => setPanel(null)} onUse={useTemplate} />}
   </div>;
 }
 
@@ -547,13 +575,13 @@ function RichArea({ value, onChange, max, disabled, copy, rows, placeholder }: {
   </div>;
 }
 
-function TemplatePicker({ copy, onClose, onUse }: { copy: AplusMessages; onClose: () => void; onUse: (template: AplusTemplateId) => void }) {
-  const [picked, setPicked] = useState<AplusTemplateId>("cashew");
+function TemplatePicker({ copy, ids, onClose, onUse }: { copy: AplusMessages; ids: readonly AplusTemplateId[]; onClose: () => void; onUse: (template: AplusTemplateId) => void }) {
+  const [picked, setPicked] = useState<AplusTemplateId>(ids[0]);
   const t = copy.templates.items[picked];
   return <Modal title={copy.templates.title} onClose={onClose} copy={copy}>
     <div className="grid gap-4 md:grid-cols-[220px_1fr]">
       <div className="space-y-1.5">
-        {APLUS_TEMPLATE_IDS.map((id) => <button key={id} type="button" onClick={() => setPicked(id)} aria-pressed={picked === id}
+        {ids.map((id) => <button key={id} type="button" onClick={() => setPicked(id)} aria-pressed={picked === id}
           className={`block w-full rounded-xl border px-3 py-2 text-left ${picked === id ? "border-brand-500 bg-white shadow-[0_0_0_3px_var(--color-brand-100)]" : "border-transparent hover:bg-ink-50"}`}>
           <span className="block text-[13px] font-bold text-ink-900">{copy.templates.items[id].name}</span>
           <span className="block text-[11.5px] text-ink-500">{fill(copy.templates.sections, { count: APLUS_TEMPLATES[id].length })} · {copy.templates.items[id].desc}</span>

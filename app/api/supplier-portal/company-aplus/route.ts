@@ -1,0 +1,75 @@
+import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+
+import { getPortalMessages } from "@/lib/i18n/server";
+import { createStreamDirectUpload, streamConfig } from "@/lib/media/cloudflare-stream";
+import { getObject, putObject } from "@/lib/media/storage";
+import { extensionFor, validateUpload } from "@/lib/media/validate";
+import { COMPANY_APLUS_ID, isAplusImagePath } from "@/lib/products/aplus";
+import { supplierPortalAccess } from "@/lib/supplier-portal/access";
+import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
+import { supplierPlanRules } from "@/lib/supplier-plans";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const fail = (message: string, status = 400) => NextResponse.json({ ok: false, message }, { status });
+const IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MIME: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
+
+/**
+ * Tải lên cho A+ doanh nghiệp trên trang nhà cung cấp (gói có trang cao cấp). `kind=image` lưu ảnh
+ * ở aplus/<supplierId>/company/ và trả đường dẫn; `kind=video` xin Cloudflare một đường tải lên một
+ * lần (meta purpose "company"), tệp video đi thẳng tới Cloudflare. Nội dung chỉ đổi khi bấm Lưu.
+ */
+export async function POST(request: Request) {
+  const { m } = await getPortalMessages();
+  const e = m.aplus.errors;
+  const access = await supplierPortalAccess().catch(() => null);
+  if (!access || !portalApproved(access.supplier)) return fail(e.noAccess, 403);
+  if (!supplierPlanRules(access.supplier, new Date(), await readPlanCatalog()).premiumStorefront) return fail(m.aplus.company.lockedTitle, 403);
+  if (Number(request.headers.get("content-length") ?? 0) > 4 * 1024 * 1024) return fail(e.image, 413);
+  let form: FormData;
+  try { form = await request.formData(); } catch { return fail(e.upload); }
+
+  if (form.get("kind") === "video") {
+    if (!streamConfig()) return fail(e.videoUnavailable, 503);
+    try {
+      const upload = await createStreamDirectUpload({ supplierId: access.supplier.id, productId: null, purpose: "company" });
+      if (!upload) return fail(e.videoUnavailable, 503);
+      return NextResponse.json({ ok: true, uploadURL: upload.uploadURL, uid: upload.uid });
+    } catch (error) {
+      console.error("[company-aplus] stream direct upload", error);
+      return fail(e.upload, 502);
+    }
+  }
+
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0 || file.size > 3 * 1024 * 1024) return fail(e.image, 413);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const check = validateUpload("image", bytes, file.name);
+  if (!check.ok || !check.mime || !IMAGE_MIME.has(check.mime)) return fail(e.image);
+  const path = `aplus/${access.supplier.id}/${COMPANY_APLUS_ID}/${randomUUID()}.${extensionFor(check.mime)}`;
+  try {
+    await putObject(path, bytes, check.mime);
+  } catch (error) {
+    console.error("[company-aplus] image upload", error);
+    return fail(e.upload, 500);
+  }
+  return NextResponse.json({ ok: true, path });
+}
+
+/** Xem trước ảnh A+ doanh nghiệp cho chính nhà cung cấp, kể cả khi chưa lưu. */
+export async function GET(request: Request) {
+  const access = await supplierPortalAccess().catch(() => null);
+  if (!access) return new NextResponse("Not found", { status: 404 });
+  const path = new URL(request.url).searchParams.get("path") ?? "";
+  if (!isAplusImagePath(path, access.supplier.id, COMPANY_APLUS_ID)) return new NextResponse("Not found", { status: 404 });
+  const object = await getObject(path).catch(() => null);
+  const mime = MIME[path.split(".").pop()?.toLowerCase() ?? ""];
+  if (!object || !mime) return new NextResponse("Not found", { status: 404 });
+  return new NextResponse(object.data as unknown as BodyInit, {
+    headers: { "Content-Type": mime, "Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff" },
+  });
+}

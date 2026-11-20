@@ -21,6 +21,8 @@ import { supplierAddressDisplay, supplierCapacityDisplay, supplierAnnualOutputDi
 import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { publicShowcaseBlocks } from "@/lib/supplier-showcase";
+import { ProductAplus } from "@/components/public/product-aplus";
+import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 import { PremiumStorefront } from "@/components/public/premium-storefront";
 
@@ -64,7 +66,7 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
 export function SupplierStorefront({
   supplier: s, certificates, productCertificates = {}, categories, coverUrl, avatarUrl, synthetic,
   productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1", reportAction,
-  showcaseImageUrl, nameAside, ownerActions, avatarHint,
+  showcaseImageUrl, companyAplusImageUrl, nameAside, ownerActions, avatarHint,
 }: {
   /** Chỉ cổng nhà cung cấp: badge gói + nút xem trang, đặt cạnh tên công ty. */
   nameAside?: ReactNode;
@@ -74,6 +76,8 @@ export function SupplierStorefront({
   avatarHint?: ReactNode;
   /** Đường dẫn ảnh khối nội dung; cổng nhà cung cấp dùng bản xem trước có đăng nhập. */
   showcaseImageUrl?: (path: string) => string;
+  /** Cổng nhà cung cấp: ảnh A+ doanh nghiệp đi qua bản xem trước có đăng nhập. */
+  companyAplusImageUrl?: (path: string) => string;
   /** Nút tải báo cáo xác minh nhà máy (PDF) cho từng mã báo cáo; trang công khai truyền vào. */
   reportAction?: (code: string) => ReactNode;
   supplier: PublicSupplierCard;
@@ -115,7 +119,9 @@ export function SupplierStorefront({
   // Giao diện cao cấp và khối nội dung chỉ khi gói Premium/Pro còn hiệu lực; hết hạn thì
   // về bản thường, nội dung vẫn giữ trong hồ sơ.
   const premium = supplierPlanRules(s).premiumStorefront;
-  const showcase = premium ? publicShowcaseBlocks(s.showcase_blocks) : [];
+  // A+ doanh nghiệp (gói cao cấp) hiện ngay dưới About; có A+ thì không hiện khối Showcase cũ nữa.
+  const companyAplus = premium ? readAplusModules(s.company_aplus, { supplierId: s.id, productId: COMPANY_APLUS_ID }) : [];
+  const showcase = premium && !companyAplus.length ? publicShowcaseBlocks(s.showcase_blocks) : [];
   const theme = normalizeStorefrontTheme(s.storefront_theme);
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
@@ -209,6 +215,7 @@ export function SupplierStorefront({
         ["Products", "products"],
         ...(showcase.length > 0 ? [["Showcase", "showcase"] as const] : []),
         ["About", "about"],
+        ...(companyAplus.length > 0 ? [["Capabilities", "capabilities"] as const] : []),
         ["Supplier checks", "verification"],
         ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
         ...(!synthetic ? [["Company details", "company-details"] as const] : []),
@@ -394,6 +401,11 @@ export function SupplierStorefront({
             </dl>
           </div>}
         </section>
+        {companyAplus.length > 0 && <section id="capabilities" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="capabilities-title">
+          <h2 id="capabilities-title" className="text-lg font-bold text-ink-900">Inside the company</h2>
+          <ProductAplus modules={companyAplus} productName={name} imageUrl={companyAplusImageUrl ?? ((path) => `/public-media/${path}`)} />
+          <p className="mt-6 text-xs leading-5 text-ink-500">Content provided by the supplier. It is not evidence of a Vexim check; see Supplier checks for what has been reviewed.</p>
+        </section>}
         <section id="verification" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="verification-title">
           <h2 id="verification-title" className="text-lg font-bold text-ink-900">Supplier checks</h2>
           <p className="mt-1 text-sm leading-6 text-ink-600">See what has been reviewed and what each check covers.</p>
