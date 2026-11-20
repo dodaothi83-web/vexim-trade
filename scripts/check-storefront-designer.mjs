@@ -99,4 +99,21 @@ assert.match(read("lib/supplier-portal/dashboard.ts"), /storefront-staff:/, "Nh�
 const migration = read("supabase/migrations/20261203_storefront_designer.sql");
 assert.match(migration, /create table if not exists public\.supplier_design_consents/);
 assert.match(migration, /supplier_storefront_versions enable row level security/);
-console.log("✅ Thiết kế trang: 5 loại khối, ảnh và sản phẩm đúng nhà cung cấp, tiếng Anh, không liên hệ, Tạo nhanh không bịa nội dung, bản nháp không công khai, CRM cần đồng ý.");
+// 9. Giai đoạn 2: video nhà máy và nhóm sản phẩm chỉ gói Pro; chứng nhận tự lấy; video phải của đúng nhà cung cấp.
+const video = { id: "b-video001", type: "video", video_uid: "ab".repeat(16), title: "Inside our factory" };
+assert.equal(L.validateStorefrontLayout(layout([video, { id: "b-cat00001", type: "categories" }, { id: "b-cert0001", type: "certificates" }]), { ...ctx, pro: true }).ok, true);
+assert.equal(L.validateStorefrontLayout(layout([video]), { ...ctx, pro: false }).problem.code, "plan", "Premium không thêm được video nhà máy");
+assert.equal(L.validateStorefrontLayout(layout([{ id: "b-cat00001", type: "categories" }]), { ...ctx, pro: false }).problem.code, "plan");
+assert.equal(L.validateStorefrontLayout(layout([{ id: "b-cert0001", type: "certificates" }]), { ...ctx, pro: false }).ok, true, "Chứng nhận có ở cả Premium");
+assert.equal(L.validateStorefrontLayout(layout([{ ...video, video_uid: "x" }]), { ...ctx, pro: true }).problem.code, "video");
+assert.equal(L.validateStorefrontLayout(layout([{ ...video, title: "Liên hệ Zalo 0912345678" }]), { ...ctx, pro: true }).ok, false);
+assert.deepEqual(L.layoutForPlan(L.validateStorefrontLayout(layout([video, good[1]]), { ...ctx, pro: true }).layout, false).blocks.map((b) => b.type), ["stats"], "Hạ gói thì khối Pro ẩn");
+assert.match(lib, /video\.meta\.purpose !== "storefront" \|\| video\.meta\.supplier_id !== supplier\.id/);
+assert.match(read("lib/media/cloudflare-stream.ts"), /purpose: "storefront", supplier_id: input\.supplierId/);
+assert.match(read("app/api/supplier-portal/storefront-image/route.ts"), /plan !== "pro"\) return/, "Chỉ Pro xin được đường tải video nhà máy");
+assert.match(storefront, /layoutForPlan\(layout, supplierPlanRules\(s\)\.plan === "pro"\)/);
+// Nút xoá ảnh bìa: chỉ ảnh bìa của chính nhà cung cấp.
+const profileImage = read("app/api/supplier-portal/profile-image/route.ts");
+assert.match(profileImage, /export async function DELETE/);
+assert.match(profileImage, /previous\.startsWith\(`suppliers\/\$\{supplier\.id\}\/cover-`\)/);
+console.log("✅ Thiết kế trang: 5 loại khối, ảnh và sản phẩm đúng nhà cung cấp, tiếng Anh, không liên hệ, Tạo nhanh không bịa nội dung, bản nháp không công khai, CRM cần đồng ý, video và nhóm sản phẩm chỉ Pro.");

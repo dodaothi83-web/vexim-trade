@@ -69,7 +69,8 @@ assert.match(stream, /allowedOrigins: streamAllowedOrigins\(\)/);
 assert.match(stream, /maxDurationSeconds: APLUS_VIDEO_MAX_SECONDS/);
 assert.match(stream, /product_id: input\.productId/);
 assert.match(stream, /method: "DELETE"/);
-assert.match(action, /video\.meta\.product_id !== ctx\.productId/, "Video mới phải do Vexim xin tải lên cho đúng sản phẩm");
+assert.match(read("lib/products/aplus-server.ts"), /video\.meta\.product_id !== ctx\.productId/, "Video mới phải do Vexim xin tải lên cho đúng sản phẩm");
+assert.match(action, /verifyAplusVideos as verifyVideos/);
 assert.match(action, /after\(\(\) => Promise\.all\(droppedVideos\.map\(deleteStreamVideo\)\)\)/, "Video bị bỏ thì xoá trên Cloudflare");
 assert.match(read("app/crm/products/[slug]/edit/aplus-actions.ts"), /deleteStreamVideo/, "CRM gỡ khối video thì xoá video");
 assert.match(a.aplusVideoEmbedUrl("ab".repeat(16)), /preload=none/);
@@ -141,4 +142,13 @@ assert.match(read("supabase/migrations/20261202_supplier_pending_uploads.sql"), 
 const ref = `aplus/${sid}/pending/${"7".repeat(8)}-7777-7777-7777-${"7".repeat(12)}.webp`;
 assert.equal(a.validateAplusModules([{ id: "m-000001", type: "image", image_path: ref, caption: "" }], { supplierId: sid, productId: "pending" }).ok, true);
 assert.equal(a.validateAplusModules([{ id: "m-000001", type: "image", image_path: ref.replace(sid, pid), caption: "" }], { supplierId: sid, productId: "pending" }).ok, false, "Không dùng được ảnh chờ của nhà cung cấp khác");
+// 11. CRM sửa hộ A+: cần quyền products.manage, đồng ý phạm vi "Trang + A+" và gói còn quyền A+.
+const staffSave = read("app/crm/products/[slug]/edit/aplus-actions.ts");
+assert.match(staffSave, /export async function staffSaveAplusAction/);
+assert.match(staffSave, /guard\("products\.manage"\)/);
+assert.match(staffSave, /consent\?\.scope !== "storefront_aplus"/, "Chỉ sửa hộ khi đồng ý gồm cả A+");
+assert.match(staffSave, /verifyAplusVideos\(/);
+const crmUpload = read("app/api/crm/aplus/route.ts");
+assert.match(crmUpload, /\?\.scope !== "storefront_aplus"\) return fail/);
+assert.match(crmUpload, /hasPermission\(session\.role, "products\.manage"\)/);
 console.log("✅ Nội dung A+: 5 loại khối, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói, video sản phẩm chỉ Premium/Pro, tải trước khi lưu sản phẩm.");

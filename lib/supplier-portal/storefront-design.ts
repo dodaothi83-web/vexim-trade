@@ -6,7 +6,8 @@ import { getSupabaseClient } from "@/lib/db/supabase";
 import type { DataStore as Store } from "@/lib/db/types";
 import { fill } from "@/lib/i18n/format";
 import type { DesignerMessages } from "@/lib/i18n/portal/designer";
-import { readStorefrontLayout, type LayoutProblem, type StorefrontLayout } from "@/lib/storefront-layout";
+import { getStreamVideo, streamConfig } from "@/lib/media/cloudflare-stream";
+import { readStorefrontLayout, type LayoutBlock, type LayoutProblem, type StorefrontLayout } from "@/lib/storefront-layout";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 import type { Supplier } from "@/lib/types";
 
@@ -128,3 +129,37 @@ export function layoutProblemMessage(problem: LayoutProblem, e: DesignerMessages
   return fill(e[problem.code], { index: problem.index + 1 });
 }
 
+
+/**
+ * Video nhà máy mới phải là video Vexim xin tải lên cho trang của chính nhà cung cấp này
+ * (meta purpose "storefront" và supplier_id), để không ai gắn video của nơi khác. Video đã có
+ * trong bản nháp hoặc bản đang hiện giữ thông tin cũ. Thời lượng, ngày tải lên lấy từ Cloudflare.
+ */
+export async function verifyLayoutVideos(layout: StorefrontLayout, supplier: Pick<Supplier, "id" | "storefront_layout" | "storefront_layout_draft">):
+  Promise<{ ok: true; layout: StorefrontLayout } | { ok: false; index: number | null }> {
+  const known = new Map<string, Extract<LayoutBlock, { type: "video" }>>();
+  for (const saved of [readStorefrontLayout(supplier.storefront_layout, supplier.id), readStorefrontLayout(supplier.storefront_layout_draft, supplier.id)])
+    for (const block of saved?.blocks ?? []) if (block.type === "video" && !known.has(block.video_uid)) known.set(block.video_uid, block);
+  const blocks: LayoutBlock[] = [];
+  for (let index = 0; index < layout.blocks.length; index++) {
+    const block = layout.blocks[index];
+    if (block.type !== "video") { blocks.push(block); continue; }
+    const base = { id: block.id, type: "video" as const, ...(block.hidden ? { hidden: true as const } : {}), video_uid: block.video_uid, title: block.title };
+    const old = known.get(block.video_uid);
+    if (old?.uploaded_at && old.duration) { blocks.push({ ...base, duration: old.duration, uploaded_at: old.uploaded_at }); continue; }
+    if (!streamConfig()) {
+      if (old) { blocks.push({ ...base, ...(old.duration ? { duration: old.duration } : {}), ...(old.uploaded_at ? { uploaded_at: old.uploaded_at } : {}) }); continue; }
+      return { ok: false, index: null };
+    }
+    let video;
+    try { video = await getStreamVideo(block.video_uid); } catch (error) {
+      console.error("[storefront-design] verify video", error);
+      if (old) { blocks.push(base); continue; }
+      return { ok: false, index: null };
+    }
+    if (!old && (!video || video.meta.purpose !== "storefront" || video.meta.supplier_id !== supplier.id ||
+        (video.creator && video.creator !== supplier.id) || video.state === "error")) return { ok: false, index };
+    blocks.push({ ...base, ...(video?.duration ? { duration: Math.round(video.duration) } : {}), ...(video?.uploaded ? { uploaded_at: video.uploaded } : {}) });
+  }
+  return { ok: true, layout: { ...layout, blocks } };
+}

@@ -24,9 +24,15 @@ export function aplusUploadEndpoint(productId: string | null): string {
 
 /** Xin đường tải lên rồi gửi tệp thẳng tới Cloudflare; trả mã video. */
 export async function uploadStreamVideo(productId: string | null, file: File, onProgress: (pct: number) => void, uploadError: string): Promise<string> {
+  return uploadStreamVideoTo(aplusUploadEndpoint(productId), {}, file, onProgress, uploadError);
+}
+
+/** Như uploadStreamVideo nhưng với nơi xin đường tải lên tuỳ chọn (ví dụ video nhà máy trên trang nhà cung cấp). */
+export async function uploadStreamVideoTo(endpoint: string, fields: Record<string, string>, file: File, onProgress: (pct: number) => void, uploadError: string): Promise<string> {
   const body = new FormData();
+  for (const [name, value] of Object.entries(fields)) body.append(name, value);
   body.append("kind", "video");
-  const res = await fetch(aplusUploadEndpoint(productId), { method: "POST", body });
+  const res = await fetch(endpoint, { method: "POST", body });
   const data = await res.json().catch(() => null) as { ok?: boolean; uploadURL?: string; uid?: string; message?: string } | null;
   if (!res.ok || !data?.ok || !data.uploadURL || !data.uid) throw new Error(data?.message || uploadError);
   const upload = new FormData();

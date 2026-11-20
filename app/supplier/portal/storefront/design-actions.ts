@@ -7,7 +7,7 @@ import { getPortalMessages } from "@/lib/i18n/server";
 import { validateStorefrontLayout } from "@/lib/storefront-layout";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
-import { applyStorefrontLayout, getStorefrontVersion, layoutProblemMessage, saveStorefrontDraft } from "@/lib/supplier-portal/storefront-design";
+import { applyStorefrontLayout, getStorefrontVersion, layoutProblemMessage, saveStorefrontDraft, verifyLayoutVideos } from "@/lib/supplier-portal/storefront-design";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 
 type Result = { ok: boolean; message: string };
@@ -28,9 +28,12 @@ async function checked(raw: unknown) {
   if (ctx.error !== undefined) return { ok: false as const, message: ctx.error };
   const products = await ctx.access.store.listProductsBySupplier(ctx.access.supplier.id);
   const result = validateStorefrontLayout(raw, { supplierId: ctx.access.supplier.id,
-    productIds: new Set(products.filter((p) => p.supplier_id === ctx.access.supplier.id).map((p) => p.id)) });
+    productIds: new Set(products.filter((p) => p.supplier_id === ctx.access.supplier.id).map((p) => p.id)),
+    pro: supplierPlanRules(ctx.access.supplier).plan === "pro" });
   if (!result.ok) return { ok: false as const, message: layoutProblemMessage(result.problem, ctx.copy.errors) };
-  return { ok: true as const, ctx: { copy: ctx.copy, access: ctx.access }, layout: result.layout };
+  const videos = await verifyLayoutVideos(result.layout, ctx.access.supplier);
+  if (!videos.ok) return { ok: false as const, message: videos.index === null ? ctx.copy.errors.videoUnavailable : layoutProblemMessage({ code: "video", index: videos.index }, ctx.copy.errors) };
+  return { ok: true as const, ctx: { copy: ctx.copy, access: ctx.access }, layout: videos.layout };
 }
 
 function refresh(slug: string) {

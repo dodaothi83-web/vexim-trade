@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 
+import { AplusVideo } from "@/components/public/aplus-video";
 import { StorefrontBannerCarousel } from "@/components/public/storefront-banner-carousel";
 import { STOREFRONT_TONE_COLORS, type StorefrontStat } from "@/lib/storefront-theme";
 import type { LayoutBlock, StorefrontLayout } from "@/lib/storefront-layout";
@@ -16,10 +17,17 @@ export const STOREFRONT_STAT_LABELS: Record<StorefrontStat, string> = {
 
 export type StorefrontBlockProduct = { name: string; imageUrl: string | null; href: string | null; detail?: string };
 
+export type StorefrontBlockCategory = { name: string; href: string | null; count: number; imageUrl: string | null };
+export type StorefrontBlockCertificate = { name: string; detail: string };
+
 export interface StorefrontBlocksData {
   statValues: Partial<Record<StorefrontStat, string>>;
   markets: string[];
   products: Record<string, StorefrontBlockProduct>;
+  /** Nhóm sản phẩm đang đăng theo danh mục (khối Nhóm sản phẩm, gói Pro). */
+  categories?: StorefrontBlockCategory[];
+  /** Chứng nhận Vexim đã kiểm tra, còn hiệu lực. */
+  certificates?: StorefrontBlockCertificate[];
   imageUrl: (path: string) => string;
 }
 
@@ -101,6 +109,50 @@ function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: numb
           {block.body && <p className="mt-3 whitespace-pre-line break-words text-[15px] leading-7 text-ink-600">{block.body}</p>}
         </div>
       </article>;
+    case "video":
+      return <section aria-labelledby={`video-${block.id}`}>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">Factory tour</p>
+        <h2 id={`video-${block.id}`} className="mt-1 text-xl font-bold tracking-tight text-ink-900">{block.title || "Inside our facility"}</h2>
+        <div className="mt-4"><AplusVideo uid={block.video_uid} title={block.title || "Factory video"} className="rounded-2xl" /></div>
+      </section>;
+    case "categories": {
+      const groups = data.categories ?? [];
+      if (groups.length < 2) return null;
+      return <section aria-labelledby={`categories-${block.id}`}>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">Browse</p>
+        <h2 id={`categories-${block.id}`} className="mt-1 text-xl font-bold tracking-tight text-ink-900">Product groups</h2>
+        <ul className="mt-4 grid grid-cols-2 gap-3 @2xl:grid-cols-4">
+          {groups.map((group) => {
+            const body = <>
+              <div className="aspect-[4/3] overflow-hidden bg-[var(--sf-tint)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {group.imageUrl && <img src={group.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition group-hover:scale-105" />}
+              </div>
+              <p className="px-3 pt-2.5 text-sm font-semibold text-ink-900">{group.name}</p>
+              <p className="px-3 pb-3 pt-0.5 text-xs text-ink-500">{group.count} {group.count === 1 ? "product" : "products"}</p>
+            </>;
+            return <li key={group.name} className="group min-w-0 overflow-hidden rounded-xl border border-ink-200 bg-white">
+              {group.href ? <a href={group.href} className="block">{body}</a> : body}
+            </li>;
+          })}
+        </ul>
+      </section>;
+    }
+    case "certificates": {
+      const items = data.certificates ?? [];
+      if (!items.length) return null;
+      return <section aria-labelledby={`certificates-${block.id}`}>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">Certificates</p>
+        <h2 id={`certificates-${block.id}`} className="mt-1 text-xl font-bold tracking-tight text-ink-900">Certificates on file</h2>
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {items.map((item) => <li key={`${item.name}-${item.detail}`} className="rounded-xl border border-ink-200 bg-white px-4 py-2.5">
+            <p className="text-sm font-semibold text-ink-900">{item.name}</p>
+            {item.detail && <p className="text-xs text-ink-500">{item.detail}</p>}
+          </li>)}
+        </ul>
+        <p className="mt-2 text-xs text-ink-500">Certificates reviewed by Vexim for this supplier. See Supplier checks for what each review covers.</p>
+      </section>;
+    }
     case "markets":
       if (!data.markets.length) return null;
       return <section aria-labelledby={`markets-${block.id}`}>

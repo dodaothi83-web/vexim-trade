@@ -38,7 +38,7 @@ export type StreamVideo = {
 };
 
 /** Xin một đường tải lên một lần cho trình duyệt. */
-export async function createStreamDirectUpload(input: { supplierId: string; productId: string | null }):
+export async function createStreamDirectUpload(input: { supplierId: string; productId: string | null; purpose?: "storefront" }):
   Promise<{ uploadURL: string; uid: string } | null> {
   const config = streamConfig();
   if (!config) return null;
@@ -52,7 +52,10 @@ export async function createStreamDirectUpload(input: { supplierId: string; prod
       // Ảnh bìa lấy ở 10% thời lượng thay vì khung đầu (thường đen hoặc đang mờ dần).
       thumbnailTimestampPct: 0.1,
       // Sản phẩm mới chưa lưu: video đánh dấu "pending" và gắn mã sản phẩm khi sản phẩm được lưu.
-      meta: input.productId
+      // Video nhà máy trên trang nhà cung cấp: gắn mã nhà cung cấp và mục đích, kiểm tra lại khi lưu bố cục.
+      meta: input.purpose === "storefront"
+        ? { name: `vexim-storefront-${input.supplierId}`, purpose: "storefront", supplier_id: input.supplierId }
+        : input.productId
         ? { name: `vexim-product-${input.productId}`, product_id: input.productId, supplier_id: input.supplierId }
         : { name: `vexim-pending-${input.supplierId}`, pending: "true", supplier_id: input.supplierId },
     }),

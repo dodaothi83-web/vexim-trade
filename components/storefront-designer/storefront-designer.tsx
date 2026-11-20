@@ -10,14 +10,16 @@ import type { DesignerMessages } from "@/lib/i18n/portal/designer";
 import { prepareImage } from "@/lib/media/client-image";
 import {
   ABOUT_BODY_MAX, ABOUT_TITLE_MAX, BANNER_EYEBROW_MAX, BANNER_HEADLINE_MAX, BANNER_MAX_IMAGES, FEATURED_MAX_PRODUCTS,
-  LAYOUT_BLOCK_TYPES, LAYOUT_MAX_ABOUT, LAYOUT_MAX_BLOCKS, newLayoutBlockId,
+  LAYOUT_BLOCK_TYPES, LAYOUT_MAX_ABOUT, LAYOUT_MAX_BLOCKS, newLayoutBlockId, PRO_ONLY_BLOCKS, VIDEO_TITLE_MAX,
   type LayoutBlock, type LayoutBlockType, type StorefrontLayout,
 } from "@/lib/storefront-layout";
 import {
   STOREFRONT_MAX_STATS, STOREFRONT_STATS, STOREFRONT_TAGLINE_MAX, STOREFRONT_TONE_COLORS, STOREFRONT_TONES,
   type StorefrontStat,
 } from "@/lib/storefront-theme";
-import { STOREFRONT_STAT_LABELS } from "@/components/public/storefront-blocks";
+import { STOREFRONT_STAT_LABELS, type StorefrontBlockCategory, type StorefrontBlockCertificate } from "@/components/public/storefront-blocks";
+import { checkVideoFile, uploadStreamVideoTo } from "@/lib/media/stream-upload-client";
+import { aplusVideoEmbedUrl } from "@/lib/products/aplus";
 import { PremiumHeader } from "@/components/public/premium-header";
 
 export type DesignerProduct = { id: string; name: string; imageUrl: string | null; detail?: string };
@@ -52,6 +54,10 @@ export function StorefrontDesigner(props: {
   previewHref?: string | null;
   /** Khối chèn trên cùng cột trái (ví dụ ghi chú CRM). */
   aside?: ReactNode;
+  /** Gói Pro: mở khối Video nhà máy và Nhóm sản phẩm. */
+  pro: boolean;
+  categories: StorefrontBlockCategory[];
+  certificates: StorefrontBlockCertificate[];
 }) {
   const { copy } = props;
   const router = useRouter();
@@ -78,7 +84,8 @@ export function StorefrontDesigner(props: {
   });
   const used = new Set(layout.blocks.map((b) => b.type));
   const aboutCount = layout.blocks.filter((b) => b.type === "about").length;
-  const canAdd = (type: LayoutBlockType) => layout.blocks.length < LAYOUT_MAX_BLOCKS && (type === "about" ? aboutCount < LAYOUT_MAX_ABOUT : !used.has(type));
+  const proLocked = (type: LayoutBlockType) => !props.pro && PRO_ONLY_BLOCKS.includes(type);
+  const canAdd = (type: LayoutBlockType) => !proLocked(type) && layout.blocks.length < LAYOUT_MAX_BLOCKS && (type === "about" ? aboutCount < LAYOUT_MAX_ABOUT : !used.has(type));
 
   function add(type: LayoutBlockType) {
     const id = newLayoutBlockId();
@@ -87,7 +94,8 @@ export function StorefrontDesigner(props: {
     const next: LayoutBlock = type === "banner" ? { id, type, images: [], eyebrow: "", headline: "" }
       : type === "stats" ? { id, type, stats: statDefaults.length ? statDefaults : ["capacity"] }
         : type === "products" ? { id, type, product_ids: firstProducts }
-          : type === "about" ? { id, type, image_path: "", title: "", body: "" } : { id, type };
+          : type === "about" ? { id, type, image_path: "", title: "", body: "" }
+            : type === "video" ? { id, type, video_uid: "", title: "" } : { id, type };
     setBlocks((all) => [...all, next]);
     setSelected(id);
   }
@@ -174,7 +182,9 @@ export function StorefrontDesigner(props: {
         <div className="grid grid-cols-2 gap-2 px-3 pb-4">
           {LAYOUT_BLOCK_TYPES.map((type) => <button key={type} type="button" disabled={!canAdd(type)} onClick={() => add(type)}
             className="rounded-lg border border-ink-200 bg-white p-2 text-left text-xs font-semibold text-ink-900 transition hover:border-brand-500 disabled:cursor-not-allowed disabled:opacity-50">
-            {copy.types[type].name}<span className="mt-0.5 block text-[11px] font-normal text-ink-500">{canAdd(type) ? copy.types[type].desc : copy.already}</span>
+            <span className="flex items-center justify-between gap-1">{copy.types[type].name}
+              {PRO_ONLY_BLOCKS.includes(type) && <span className="rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-800">{copy.proOnly}</span>}</span>
+            <span className="mt-0.5 block text-[11px] font-normal text-ink-500">{proLocked(type) ? copy.proHint : canAdd(type) ? copy.types[type].desc : copy.already}</span>
           </button>)}
         </div>
       </aside>
@@ -198,7 +208,8 @@ export function StorefrontDesigner(props: {
             <span className="absolute right-3 top-3 z-10 rounded-md bg-white/90 px-1.5 py-0.5 text-[10.5px] text-ink-600">{copy.headerLockHint}</span>
           </button>
           <StorefrontBlocks layout={layout} selectedId={selected} onSelect={setSelected} showHidden
-            data={{ statValues: props.statValues, markets: props.markets, products: productMap, imageUrl: previewUrl }} />
+            data={{ statValues: props.statValues, markets: props.markets, products: productMap, imageUrl: previewUrl,
+              categories: props.categories, certificates: props.certificates }} />
           {!layout.blocks.length && <p className="mt-6 rounded-lg border border-dashed border-ink-300 p-6 text-center text-sm text-ink-500">{copy.quick.body}</p>}
         </div>
       </main>
@@ -209,7 +220,13 @@ export function StorefrontDesigner(props: {
         <div className="space-y-3 px-4 pb-5 text-[12.5px]">
           {selected === HEADER ? <HeaderSettings layout={layout} setLayout={setLayout} copy={copy} />
             : block ? <BlockSettings block={block} patch={patch} copy={copy} statValues={props.statValues} markets={props.markets}
-              products={props.products} previewUrl={previewUrl} upload={upload} uploading={uploading} />
+              products={props.products} previewUrl={previewUrl} upload={upload} uploading={uploading}
+              categories={props.categories} certificates={props.certificates}
+              uploadVideo={async (file, onProgress) => {
+                const problem = await checkVideoFile(file, { video: copy.errors.videoFile, videoTooLong: copy.errors.videoTooLong, upload: copy.errors.upload }, fill);
+                if (problem) throw new Error(problem);
+                return uploadStreamVideoTo(props.uploadUrl, props.uploadFields ?? {}, file, onProgress, copy.errors.upload);
+              }} />
               : <p className="text-ink-500">{copy.pick}</p>}
         </div>
       </aside>
@@ -255,7 +272,7 @@ function HeaderSettings({ layout, setLayout, copy }: { layout: StorefrontLayout;
   </>;
 }
 
-function BlockSettings({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading }: {
+function BlockSettings({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading, categories, certificates, uploadVideo }: {
   block: LayoutBlock;
   patch: (id: string, change: Partial<LayoutBlock>) => void;
   copy: DesignerMessages;
@@ -265,6 +282,9 @@ function BlockSettings({ block, patch, copy, statValues, markets, products, prev
   previewUrl: (path: string) => string;
   upload: (key: string, file: File) => Promise<string | null>;
   uploading: string | null;
+  categories: StorefrontBlockCategory[];
+  certificates: StorefrontBlockCertificate[];
+  uploadVideo: (file: File, onProgress: (pct: number) => void) => Promise<string>;
 }) {
   const title = <p className="font-bold text-ink-900">{copy.types[block.type].name}</p>;
   const field = "input mt-1 w-full font-normal";
@@ -354,7 +374,61 @@ function BlockSettings({ block, patch, copy, statValues, markets, products, prev
       <p className="leading-5 text-ink-600">{markets.length ? copy.fields.marketsHelp : copy.fields.marketsEmpty}</p>
       {markets.length > 0 && <p className="text-ink-800">{markets.join(", ")}</p>}
     </>;
+    case "video": return <>
+      {title}
+      <VideoSettings block={block} patch={patch} copy={copy} uploadVideo={uploadVideo} />
+    </>;
+    case "categories": return <>
+      {title}
+      <p className="leading-5 text-ink-600">{categories.length >= 2 ? copy.fields.categoriesHelp : copy.fields.categoriesEmpty}</p>
+      {categories.length >= 2 && <ul className="space-y-1 text-ink-800">{categories.map((c) => <li key={c.name}>{c.name} · {c.count}</li>)}</ul>}
+    </>;
+    case "certificates": return <>
+      {title}
+      <p className="leading-5 text-ink-600">{certificates.length ? copy.fields.certificatesHelp : copy.fields.certificatesEmpty}</p>
+      {certificates.length > 0 && <ul className="space-y-1 text-ink-800">{certificates.map((c) => <li key={`${c.name}-${c.detail}`}>{c.name}{c.detail ? ` · ${c.detail}` : ""}</li>)}</ul>}
+    </>;
   }
+}
+
+function VideoSettings({ block, patch, copy, uploadVideo }: {
+  block: Extract<LayoutBlock, { type: "video" }>;
+  patch: (id: string, change: Partial<LayoutBlock>) => void;
+  copy: DesignerMessages;
+  uploadVideo: (file: File, onProgress: (pct: number) => void) => Promise<string>;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  return <>
+    <div>
+      <p className="mb-1 font-semibold text-ink-700">{copy.fields.video}</p>
+      {block.video_uid && <div className="aspect-video overflow-hidden rounded-md border border-ink-200 bg-black">
+        <iframe src={aplusVideoEmbedUrl(block.video_uid)} title={block.title || copy.fields.video} allow="accelerometer; gyroscope; encrypted-media; picture-in-picture" allowFullScreen className="h-full w-full border-0" />
+      </div>}
+      <button type="button" disabled={progress !== null} onClick={() => input.current?.click()} className="btn btn-soft btn-sm mt-1.5">
+        {progress !== null ? <><Loader2 className="size-3.5 animate-spin" aria-hidden="true" />{fill(copy.fields.uploadingPct, { pct: progress })}</> : block.video_uid ? copy.fields.replaceVideo : copy.fields.chooseVideo}
+      </button>
+      <input ref={input} type="file" accept="video/mp4,video/quicktime,video/webm" className="sr-only" tabIndex={-1}
+        onChange={async (e) => {
+          const file = e.target.files?.[0]; e.target.value = "";
+          if (!file) return;
+          setNote(null); setProgress(0);
+          try {
+            const uid = await uploadVideo(file, setProgress);
+            patch(block.id, { video_uid: uid, duration: undefined, uploaded_at: undefined });
+            setNote({ ok: true, text: copy.fields.videoProcessing });
+          } catch (error) { setNote({ ok: false, text: error instanceof Error ? error.message : copy.errors.upload }); }
+          finally { setProgress(null); }
+        }} />
+      <p className="mt-1 text-[11px] leading-4 text-ink-500">{copy.fields.videoHint}</p>
+      {note && <p role={note.ok ? "status" : "alert"} className={`mt-1 text-[11.5px] font-semibold ${note.ok ? "text-emerald-700" : "text-rose-700"}`}>{note.text}</p>}
+    </div>
+    <label className="block font-semibold text-ink-700">{copy.fields.videoTitle}
+      <input value={block.title} onChange={(e) => patch(block.id, { title: e.target.value })} className="input mt-1 w-full font-normal" />
+      <Counter value={block.title} max={VIDEO_TITLE_MAX} copy={copy} />
+    </label>
+  </>;
 }
 
 function ImageInput({ label, busy, onFile }: { label: string; busy: boolean; onFile: (file: File) => void }) {

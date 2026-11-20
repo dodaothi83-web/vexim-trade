@@ -61,3 +61,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: error instanceof Error ? error.message : "Không lưu được ảnh." }, { status: 500 });
   }
 }
+
+/**
+ * Xoá ảnh bìa của chính nhà cung cấp (nút thùng rác trên ảnh bìa ở "Trang của tôi"). Ảnh đại
+ * diện không xoá ở đây vì trang luôn cần ảnh hoặc chữ cái đầu thay thế.
+ */
+export async function DELETE(request: Request) {
+  const access = await supplierPortalAccess().catch(() => null);
+  if (!access || !portalApproved(access.supplier)) {
+    return NextResponse.json({ ok: false, message: "Cổng nhà cung cấp chưa mở cho tài khoản này." }, { status: 403 });
+  }
+  const { store, supplier, user } = access;
+  if (new URL(request.url).searchParams.get("kind") !== "cover") return NextResponse.json({ ok: false, message: "Chỉ xoá được ảnh bìa." }, { status: 400 });
+  const previous = supplier.cover_image ?? null;
+  if (!previous) return NextResponse.json({ ok: true });
+  try {
+    await store.updateSupplier(supplier.id, { cover_image: null });
+  } catch (error) {
+    console.error("[supplier-portal] xoá ảnh bìa thất bại", error);
+    return NextResponse.json({ ok: false, message: "Chưa xoá được ảnh bìa. Vui lòng thử lại." }, { status: 500 });
+  }
+  // Chỉ xoá tệp nằm đúng thư mục ảnh bìa của chính nhà cung cấp.
+  if (previous.startsWith(`suppliers/${supplier.id}/cover-`) && !previous.includes("..")) await deleteObject(previous).catch(() => null);
+  await store.addAuditLog({ actor_id: user.id, actor_email: user.email, entity: "supplier", entity_id: supplier.id,
+    action: "supplier.cover_removed", before: { cover_image: previous }, after: { cover_image: null } }).catch(() => null);
+  return NextResponse.json({ ok: true });
+}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 
 import { getPortalMessages } from "@/lib/i18n/server";
+import { createStreamDirectUpload, streamConfig } from "@/lib/media/cloudflare-stream";
 import { putObject } from "@/lib/media/storage";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -27,6 +28,19 @@ export async function POST(request: Request) {
   if (Number(request.headers.get("content-length") ?? 0) > 4 * 1024 * 1024) return NextResponse.json({ ok: false, message: e.image }, { status: 413 });
   let form: FormData;
   try { form = await request.formData(); } catch { return NextResponse.json({ ok: false, message: e.upload }, { status: 400 }); }
+  // Video nhà máy (gói Pro): trình duyệt gửi thẳng tệp tới Cloudflare.
+  if (form.get("kind") === "video") {
+    if (supplierPlanRules(access.supplier).plan !== "pro") return NextResponse.json({ ok: false, message: m.designer.proHint }, { status: 403 });
+    if (!streamConfig()) return NextResponse.json({ ok: false, message: e.videoUnavailable }, { status: 503 });
+    try {
+      const upload = await createStreamDirectUpload({ supplierId: access.supplier.id, productId: null, purpose: "storefront" });
+      if (!upload) return NextResponse.json({ ok: false, message: e.videoUnavailable }, { status: 503 });
+      return NextResponse.json({ ok: true, uploadURL: upload.uploadURL, uid: upload.uid });
+    } catch (error) {
+      console.error("[storefront-video] direct upload", error);
+      return NextResponse.json({ ok: false, message: e.upload }, { status: 502 });
+    }
+  }
   const file = form.get("file");
   if (!(file instanceof File) || file.size === 0 || file.size > 3 * 1024 * 1024) return NextResponse.json({ ok: false, message: e.image }, { status: 413 });
   const bytes = new Uint8Array(await file.arrayBuffer());
