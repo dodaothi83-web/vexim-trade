@@ -125,15 +125,19 @@ assert.equal(L.validateStorefrontLayout(layout([{ id: "b-checks01", type: "check
 assert.deepEqual([...L.REQUIRED_BLOCKS], ["checks"]);
 assert.match(storefront, /\{premium \? verificationActions && <div className="mt-8">\{verificationActions\}<\/div>/, "Trang Premium không còn khung cố định kiểu Basic");
 assert.match(storefront, /checks: <ChecksSection s=\{s\} reportAction=\{reportAction\} \/>/);
-const designer = read("components/storefront-designer/storefront-designer.tsx") + read("components/storefront-designer/page-editor.tsx");
-assert.match(designer, /\{!required && <button[^>]*onClick=\{\(\) => patch\(\{ hidden:/, "Khối bắt buộc không có nút ẩn");
+const designer = read("components/storefront-designer/storefront-designer.tsx");
+assert.match(designer, /REQUIRED_BLOCKS\.includes\(b\.type\)\s*\n?\s*\? <span/, "Khối bắt buộc không có nút ẩn, xoá");
 assert.match(read("components/public/storefront-sections.tsx"), /export function ChecksSection/);
 assert.match(read("components/public/storefront-blocks.tsx"), /case "details":/, "Thông tin công ty là khối riêng");
 assert.match(read("components/public/storefront-sections.tsx"), /function PremiumTrade\(/, "Điều kiện giao dịch trình bày lưới thẻ trên trang Premium");
-// 11. Mục chưa có nội dung vẫn có ô giữ chỗ trong trình soạn; trang thật không hiện ô giữ chỗ.
-assert.match(designer, /view \?\? ctx\.emptyBlock\(block\)/, "Khối chưa có nội dung vẫn có ô giữ chỗ trong trình soạn");
+// 11. Bấm khối trong danh sách thì xem trước cuộn tới đúng khối; khối trống có ô giữ chỗ; hai cột bên đứng yên.
+assert.match(designer, /onClick=\{\(\) => focusBlock\(b\.id\)\}/, "Bấm khối trong danh sách cuộn tới khối đó");
+assert.match(designer, /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\)/);
+assert.match(designer, /emptyBlock=\{\(b\) =>/, "Khối chưa có nội dung vẫn có ô giữ chỗ trong xem trước");
+assert.match(designer, /lg:sticky/);
 const blocksSrc = read("components/public/storefront-blocks.tsx");
 assert.match(blocksSrc, /if \(!onSelect\) return rendered \?/, "Trang thật không hiện ô giữ chỗ");
+assert.match(blocksSrc, /data-block-id=\{block\.id\}/);
 // 12. Sửa thông tin hồ sơ ngay trong Thiết kế trang: chỉ trường nhà cung cấp được sửa, không tên pháp lý, địa chỉ, MOQ, xác minh.
 const fieldsLib = read("lib/storefront-profile-fields.ts");
 for (const locked of ["legal_name:", "address:", "moq_text", "status:", "approved_verification"]) assert.doesNotMatch(fieldsLib, new RegExp(`\\b${locked}`), `Không sửa được ${locked}`);
@@ -149,6 +153,7 @@ assert.deepEqual(L.validateStorefrontLayout(layout([gallery]), ctx).layout.block
 assert.equal(L.validateStorefrontLayout(layout([{ ...gallery, images: [img(3).replace(sid, pid)] }]), ctx).problem.code, "imageRequired", "Ảnh thư viện phải của đúng nhà cung cấp");
 assert.equal(L.validateStorefrontLayout(layout([{ ...gallery, images: Array.from({ length: 13 }, (_, i) => img(i % 10)) }]), ctx).ok, false);
 assert.ok(L.layoutImagePaths(L.validateStorefrontLayout(layout([gallery]), ctx).layout).includes(img(4)), "Ảnh thư viện công khai khi đã áp dụng");
+assert.match(designer, /<HeaderPhotos header=\{props\.header\}/);
 assert.match(designer, /PROFILE_FIELDS_BY_BLOCK\.header/);
 for (const href of ["/supplier/portal/documents#chung-nhan", "/supplier/portal/products", "/supplier/portal/storefront#supplier-verification-actions"]) assert.ok(designer.includes(href), `Có đường dẫn ${href}`);
 assert.match(fieldsLib, /stats: \[[^\]]*"incoterms", "export_markets"\]/);
@@ -175,34 +180,11 @@ assert.match(blocksSrc, /export interface BlockEditor/);
 assert.match(blocksSrc, /renderBlock\(block, data, index, editor\)/);
 assert.match(read("app/(public)/suppliers/[slug]/page.tsx").concat(read("components/public/supplier-storefront.tsx")), /<StorefrontBlocks/, "Trang công khai vẫn dùng StorefrontBlocks");
 assert.doesNotMatch(read("components/public/supplier-storefront.tsx"), /editor=\{/, "Trang công khai không truyền trình sửa");
-assert.match(designer, /renderStorefrontBlock\(block, ctx\.data, 0, ctx\.editorFor\(patch\)\)/);
+assert.match(designer, /editor=\{editor\}/);
 assert.match(designer, /props\.saveDraft\(snapshot\)/, "Tự lưu chỉ lưu nháp");
 assert.doesNotMatch(designer, /props\.apply\(snapshot\)/, "Không tự áp dụng");
-assert.match(designer, /onKeyDown=\{stop\}/, "Gõ trong ô của mục không lọt vào trình soạn");
+assert.match(designer, /target\.tagName === "TEXTAREA"/, "Ctrl+Z trong ô chữ để trình duyệt xử lý");
 assert.match(designer, /props\.profile \? \(\) => <CompanyIntroEditor/, "Sửa giới thiệu từ hồ sơ chỉ ở cổng nhà cung cấp");
 assert.match(designer, /photos=\{!!props\.profile\}/, "Nút ảnh bìa, ảnh đại diện chỉ ở cổng nhà cung cấp");
-assert.match(designer, /Khối xác minh của Vexim là bắt buộc: lỡ xoá thì thêm lại/, "Xoá khối xác minh thì tự thêm lại");
-// 16. Trình soạn kiểu Notion (phương án 3): đoạn văn tự do lưu có cấu trúc, HTML ngữ nghĩa cho SEO.
-const textBlock = { id: "b-text0001", type: "text", nodes: [
-  { kind: "h2", runs: [{ t: "Our story" }] }, { kind: "p", runs: [{ t: "We grow ", b: true }, { t: "cashew", i: true, x: 1 }] },
-  { kind: "ul", runs: [{ t: "Point" }] }, { kind: "img", path: img(5), caption: "Drying yard" }, { kind: "p", runs: [{ t: "   " }] },
-] };
-const okText = L.validateStorefrontLayout(layout([textBlock, { ...textBlock, id: "b-text0002" }]), ctx);
-assert.equal(okText.ok, true, "Nhiều khối văn bản trên một trang");
-assert.deepEqual(okText.layout.blocks[0].nodes[1].runs, [{ t: "We grow ", b: true }, { t: "cashew", i: true }], "Chỉ giữ đậm, nghiêng");
-assert.equal(okText.layout.blocks[0].nodes.length, 4, "Bỏ đoạn trống");
-assert.ok(L.layoutImagePaths(okText.layout).includes(img(5)), "Ảnh trong văn bản công khai khi đã áp dụng");
-const badText = (nodes) => L.validateStorefrontLayout(layout([{ ...textBlock, nodes }]), ctx);
-assert.equal(badText([{ kind: "p", runs: [{ t: "Call us at 0912 345 678" }] }]).problem.code, "contact");
-assert.equal(badText([{ kind: "p", runs: [{ t: "Chúng tôi là nhà sản xuất hạt điều hàng đầu Việt Nam" }] }]).problem.code, "language");
-assert.equal(badText([{ kind: "img", path: img(5).replace(sid, pid), caption: "" }]).ok, false, "Ảnh phải của đúng nhà cung cấp");
-assert.equal(badText([{ kind: "h1", runs: [{ t: "Title" }] }]).ok, false, "Không có H1 (tên công ty là H1)");
-assert.equal(badText([{ kind: "a", runs: [{ t: "link" }] }]).ok, false, "Không có link");
-assert.equal(badText([{ kind: "p", runs: [{ t: "word ".repeat(600) }, { t: "more ".repeat(600) }] }]).problem.code, "tooLong");
-assert.match(blocksSrc, /export function StorefrontText/);
-assert.match(blocksSrc, /<figcaption/);
-assert.match(blocksSrc, /alt=\{node\.caption\}/, "Ảnh có alt cho SEO");
-assert.match(designer, /createHeadingBlockSpec\(\{ levels: \[2, 3\]/, "Trình soạn chỉ có H2, H3");
-assert.match(designer, /styleSpecs: \{ bold: defaultStyleSpecs\.bold, italic: defaultStyleSpecs\.italic \}/, "Chỉ đậm, nghiêng: không màu, cỡ chữ");
-assert.match(read("components/public/supplier-storefront.tsx"), /block\.type === "text" \? \{ \.\.\.block, nodes:/, "Trang công khai lọc liên hệ trong văn bản");
+assert.match(designer, /REQUIRED_BLOCKS\.includes\(b\.type\)[\s\S]{0,200}copy\.required/, "Khối bắt buộc không có nút ẩn, xóa trên thanh nổi");
 console.log("✅ Thiết kế trang: 5 loại khối, ảnh và sản phẩm đúng nhà cung cấp, tiếng Anh, không liên hệ, Tạo nhanh không bịa nội dung, bản nháp không công khai, CRM cần đồng ý, video và nhóm sản phẩm chỉ Pro.");

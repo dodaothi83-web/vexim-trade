@@ -1,9 +1,9 @@
-import { Fragment, type CSSProperties, type ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { AplusVideo } from "@/components/public/aplus-video";
 import { StorefrontBannerCarousel } from "@/components/public/storefront-banner-carousel";
 import { STOREFRONT_TONE_COLORS, type StorefrontStat } from "@/lib/storefront-theme";
-import type { LayoutBlock, StorefrontLayout, TextNode, TextRun } from "@/lib/storefront-layout";
+import type { LayoutBlock, StorefrontLayout } from "@/lib/storefront-layout";
 
 /**
  * Các khối "Thiết kế trang" (Premium/Pro) dưới phần đầu trang nhà cung cấp. Component thuần:
@@ -100,11 +100,6 @@ export function StorefrontBlocks({ layout, data, selectedId, onSelect, showHidde
     {inserter?.(layout.blocks.length)}
     {hasSupplierMedia && <p className="text-xs text-ink-500">{NOT_EVIDENCE}</p>}
   </div>;
-}
-
-/** Một khối riêng lẻ (trình soạn trang dựng từng mục trong tài liệu). null khi chưa có nội dung. */
-export function renderStorefrontBlock(block: LayoutBlock, data: StorefrontBlocksData, index: number, editor?: BlockEditor): ReactNode {
-  return renderBlock(block, data, index, editor);
 }
 
 function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: number, ed?: BlockEditor) {
@@ -262,8 +257,6 @@ function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: numb
       </Shell>;
       if (!data.sections?.gallery) return null;
       return <Shell id="gallery" eyebrow="Gallery" title="Supplier gallery">{data.sections.gallery}</Shell>;
-    case "text":
-      return <StorefrontText nodes={block.nodes} imageUrl={data.imageUrl} />;
     case "certificates": {
       if (data.sections?.certificates) return <Shell id="certificates" eyebrow="Certificates" title="Certificates on file">{data.sections.certificates}</Shell>;
       const items = data.certificates ?? [];
@@ -293,45 +286,6 @@ function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: numb
 }
 
 /** Khung chung của các mục: dòng nhỏ theo tông màu, tiêu đề, nội dung trong thẻ trắng. */
-/**
- * Đoạn văn tự do (trình soạn kiểu Notion): HTML ngữ nghĩa cho SEO. Tiêu đề h2/h3, danh sách
- * ul/ol liền nhau gộp một danh sách, ảnh là figure với alt và chú thích.
- */
-export function StorefrontText({ nodes, imageUrl }: { nodes: TextNode[]; imageUrl: (path: string) => string }) {
-  const out: ReactNode[] = [];
-  const runs = (list: TextRun[]) => list.map((run, i) => {
-    let node: ReactNode = run.t;
-    if (run.i) node = <em>{node}</em>;
-    if (run.b) node = <strong className="font-semibold text-ink-900">{node}</strong>;
-    return <Fragment key={i}>{node}</Fragment>;
-  });
-  for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i];
-    if (node.kind === "ul" || node.kind === "ol") {
-      const items: TextRun[][] = [];
-      while (i < nodes.length && nodes[i].kind === node.kind) { items.push((nodes[i] as { runs: TextRun[] }).runs); i++; }
-      i--;
-      const List = node.kind;
-      out.push(<List key={i} className={`my-3 space-y-1.5 pl-5 ${List === "ul" ? "list-disc" : "list-decimal"} marker:text-[var(--sf-accent)]`}>
-        {items.map((item, k) => <li key={k} className="whitespace-pre-line pl-1">{runs(item)}</li>)}
-      </List>);
-    } else if (node.kind === "img") {
-      out.push(<figure key={i} className="my-5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl(node.path)} alt={node.caption} loading="lazy" decoding="async" className="w-full rounded-2xl object-cover" />
-        {node.caption && <figcaption className="mt-2 text-center text-[13px] text-ink-500">{node.caption}</figcaption>}
-      </figure>);
-    } else if (node.kind === "h2") {
-      out.push(<h2 key={i} className="mb-2 mt-7 text-2xl font-bold tracking-tight text-ink-900 first:mt-0 @2xl:text-[28px]">{runs(node.runs)}</h2>);
-    } else if (node.kind === "h3") {
-      out.push(<h3 key={i} className="mb-1.5 mt-5 text-lg font-bold text-ink-900 first:mt-0">{runs(node.runs)}</h3>);
-    } else {
-      out.push(<p key={i} className="my-3 whitespace-pre-line first:mt-0 last:mb-0">{runs(node.runs)}</p>);
-    }
-  }
-  return <article className="mx-auto max-w-3xl break-words text-[16px] leading-[1.75] text-ink-700">{out}</article>;
-}
-
 function Shell({ id, eyebrow, title, sub, children }: { id: string; eyebrow: string; title: string; sub?: string; children: ReactNode }) {
   return <section id={id} className="scroll-mt-24 rounded-2xl border border-ink-200 bg-white p-5 @2xl:p-7" aria-labelledby={`${id}-title`}>
     <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">{eyebrow}</p>
