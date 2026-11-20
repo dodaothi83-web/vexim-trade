@@ -14,7 +14,8 @@ const ACCEPT = "video/mp4,video/quicktime,video/webm";
 
 /**
  * Ô video sản phẩm (Premium/Pro) đặt dưới 6 ô ảnh. Chọn tệp là tải thẳng lên Cloudflare rồi lưu
- * ngay; Basic không dựng ô này. Sản phẩm mới phải lưu bản nháp trước để có mã sản phẩm.
+ * ngay; Basic không dựng ô này. Sản phẩm mới chưa lưu: video tải vào khu chờ, mã video đi theo
+ * form qua ô ẩn `pending_video_uid` và được gắn khi lưu sản phẩm.
  */
 export function ProductVideoField({ productId, videoUid, editable, canUpload, copy }: {
   productId: string | null;
@@ -29,16 +30,19 @@ export function ProductVideoField({ productId, videoUid, editable, canUpload, co
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const disabled = !editable || busy || !productId;
+  const [pendingUid, setPendingUid] = useState<string | null>(null);
+  const pending = !productId;
+  const shownUid = pending ? pendingUid : videoUid;
+  const disabled = !editable || busy;
 
   async function choose(file: File) {
-    if (!productId) return;
     const problem = await checkVideoFile(file, copy.errors, fill);
     if (problem) { setMessage({ ok: false, text: problem }); return; }
     setBusy(true); setProgress(0); setMessage(null);
     try {
       const uid = await uploadStreamVideo(productId, file, setProgress, copy.errors.upload);
       setProgress(null);
+      if (!productId) { setPendingUid(uid); setMessage({ ok: true, text: t.savedWithProduct }); return; }
       const result = await saveProductVideoAction(productId, uid);
       setMessage({ ok: result.ok, text: result.message });
       if (result.ok) router.refresh();
@@ -48,7 +52,9 @@ export function ProductVideoField({ productId, videoUid, editable, canUpload, co
   }
 
   async function remove() {
-    if (!productId || !window.confirm(t.confirmRemove)) return;
+    if (!window.confirm(t.confirmRemove)) return;
+    // Video chờ chưa gắn sản phẩm: bỏ khỏi form, tác vụ định kỳ xoá tệp trên Cloudflare.
+    if (!productId) { setPendingUid(null); setMessage(null); return; }
     setBusy(true); setMessage(null);
     const result = await saveProductVideoAction(productId, null).catch(() => ({ ok: false, message: copy.errors.failed }));
     setMessage({ ok: result.ok, text: result.message }); setBusy(false);
@@ -64,10 +70,11 @@ export function ProductVideoField({ productId, videoUid, editable, canUpload, co
     </label>;
 
   return <div>
-    {videoUid
+    {pending && pendingUid && <input type="hidden" name="pending_video_uid" value={pendingUid} />}
+    {shownUid
       ? <div className="flex flex-wrap items-start gap-3">
           <div className="aspect-video w-full max-w-[240px] overflow-hidden rounded-md border border-ink-200 bg-black">
-            <iframe src={aplusVideoEmbedUrl(videoUid)} title={t.label} allow="accelerometer; gyroscope; encrypted-media; picture-in-picture"
+            <iframe src={aplusVideoEmbedUrl(shownUid)} title={t.label} allow="accelerometer; gyroscope; encrypted-media; picture-in-picture"
               allowFullScreen className="h-full w-full border-0" />
           </div>
           {editable && <div className="flex flex-col gap-1.5">
@@ -79,10 +86,8 @@ export function ProductVideoField({ productId, videoUid, editable, canUpload, co
             </button>
           </div>}
         </div>
-      : productId
-        ? editable && canUpload && picker(t.add, <Plus className="size-5" aria-hidden="true" />,
-            "flex aspect-video w-[168px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-ink-300 bg-white text-[12px] font-semibold text-ink-500 transition hover:border-brand-400 hover:text-brand-700")
-        : <p className="text-[12px] text-ink-500">{t.saveFirst}</p>}
+      : editable && canUpload && picker(t.add, <Plus className="size-5" aria-hidden="true" />,
+          "flex aspect-video w-[168px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-ink-300 bg-white text-[12px] font-semibold text-ink-500 transition hover:border-brand-400 hover:text-brand-700")}
     <p className="mt-1.5 text-[11.5px] text-ink-500">{t.hint}</p>
     {message && <p role={message.ok ? "status" : "alert"} className={`mt-1 text-[12px] font-semibold ${message.ok ? "text-emerald-700" : "text-rose-700"}`}>{message.text}</p>}
   </div>;

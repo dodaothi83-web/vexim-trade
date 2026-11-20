@@ -120,4 +120,25 @@ assert.match(editor, /\{!richContentAllowed && <div className="text-\[12px\]">\s
 assert.match(page, /const enDetail = aplus\.length \? null : textDetail;/, "Có A+ thì không hiện mô tả chữ");
 const productActions = read("app/supplier/portal/product-actions.ts");
 assert.match(productActions, /description_detail: form\.has\("description_detail"\)[\s\S]{0,160}: existing\?\.description_detail \?\? null/, "Form không gửi ô chữ thì giữ mô tả cũ");
-console.log("✅ Nội dung A+: 5 loại khối, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói, video sản phẩm chỉ Premium/Pro.");
+// 10. Sản phẩm mới: A+ và video tải lên trước khi lưu (khu chờ), gắn khi lưu, bỏ ngang thì dọn sau 24 giờ.
+const pendingLib = read("lib/supplier-portal/pending-media.ts");
+const pendingRoute = read("app/api/supplier-portal/pending-media/route.ts");
+assert.match(pendingRoute, /\.richContent\) return fail\(e\.plan, 403\)/, "Khu chờ chỉ cho gói có quyền video và A+");
+assert.match(pendingRoute, /PENDING_UPLOADS_PER_DAY\) return fail\(e\.tooManyUploads, 429\)/, "Giới hạn số tệp chờ mỗi ngày");
+assert.match(pendingRoute, /productId: null/, "Video chờ chưa gắn mã sản phẩm");
+assert.match(pendingRoute, /isAplusImagePath\(path, access\.supplier\.id, PENDING_PRODUCT_ID\)/, "Chỉ chính nhà cung cấp xem được ảnh chờ của mình");
+assert.match(stream, /pending: "true", supplier_id: input\.supplierId/);
+assert.match(pendingLib, /video\.meta\.supplier_id !== supplierId \|\| video\.meta\.pending !== "true"/, "Video chờ phải đúng nhà cung cấp và chưa gắn sản phẩm");
+assert.match(pendingLib, /validateAplusModules\(parsed, \{ supplierId, productId: PENDING_PRODUCT_ID \}\)/, "A+ soạn trước chỉ dùng ảnh trong khu chờ của chính nhà cung cấp");
+assert.match(pendingLib, /PENDING_TTL_HOURS = 24/);
+assert.match(read("app/api/cron/rfq-sla/route.ts"), /cleanupPendingUploads\(\)/, "Dọn tệp chờ chạy cùng cron hằng ngày");
+const create = read("app/supplier/portal/product-actions.ts");
+assert.match(create, /readPendingMediaForm\(form, access\.supplier\.id\)/, "Kiểm tra A+ soạn trước trước khi tạo sản phẩm");
+assert.match(create, /!existing && pendingMedia && supplierPlanRules\([^)]*\)[^.]*\.richContent/, "Chỉ gắn khi gói còn quyền");
+assert.match(read("components/products/aplus-editor.tsx"), /name="pending_aplus_json"/);
+assert.match(read("components/products/product-video-field.tsx"), /name="pending_video_uid"/);
+assert.match(read("supabase/migrations/20261202_supplier_pending_uploads.sql"), /enable row level security/);
+const ref = `aplus/${sid}/pending/${"7".repeat(8)}-7777-7777-7777-${"7".repeat(12)}.webp`;
+assert.equal(a.validateAplusModules([{ id: "m-000001", type: "image", image_path: ref, caption: "" }], { supplierId: sid, productId: "pending" }).ok, true);
+assert.equal(a.validateAplusModules([{ id: "m-000001", type: "image", image_path: ref.replace(sid, pid), caption: "" }], { supplierId: sid, productId: "pending" }).ok, false, "Không dùng được ảnh chờ của nhà cung cấp khác");
+console.log("✅ Nội dung A+: 5 loại khối, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói, video sản phẩm chỉ Premium/Pro, tải trước khi lưu sản phẩm.");

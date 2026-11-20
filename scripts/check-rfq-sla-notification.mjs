@@ -56,6 +56,7 @@ const { GET } = load('../app/api/cron/rfq-sla/route.ts', {
     return { checked: 0, reminded: 0, noResponse: 0, buyerNotified: 0, failed: 0 }; } },
   '@/lib/certificate-service': { sendCertificateExpiryReminders: async () => ({ checked: 0, reminded: 0, alreadyNotified: 0, failed: 0, details: [] }) },
   '@/lib/supplier-portal/reminders': { sendSupplierProgressReminders: async () => ({ checked: 0, reminded: 0, skipped: 0 }) },
+  '@/lib/supplier-portal/pending-media': { cleanupPendingUploads: async () => ({ images: 0, videos: 0, errors: 0 }) },
 }, { CRON_SECRET: 'only-for-test' });
 const request = new Request('https://example.com/api/cron/rfq-sla', { headers: { authorization: 'Bearer only-for-test' } });
 assert.equal((await GET(new Request(request.url))).status, 401);

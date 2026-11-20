@@ -1307,7 +1307,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               {/* Video sản phẩm: chỉ gói Premium/Pro; Basic không thấy ô này. Video có sẵn từ gói cũ vẫn hiện để xoá. */}
               {(richContentAllowed || !!readGalleryVideo(product?.gallery_video)) && <Row label={aplusCopy.productVideo.label}>
                 <ProductVideoField productId={product?.id ?? null} videoUid={readGalleryVideo(product?.gallery_video)?.video_uid ?? null}
-                  editable={!!product && canEditAplus(product)} canUpload={richContentAllowed} copy={aplusCopy} />
+                  editable={product ? canEditAplus(product) : true} canUpload={richContentAllowed} copy={aplusCopy} />
               </Row>}
 
               {/* Chỉ còn một chỗ tải ảnh: 6 ô ở trên. Danh sách dưới đây chỉ để xem lại
@@ -1554,7 +1554,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               {richContentAllowed && !!(product?.description_detail ?? "").replace(/<[^>]*>/g, "").trim() && aplusCount === 0 &&
                 <p className="mb-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[12px] leading-5 text-brand-900">{aplusCopy.legacyText}</p>}
               <AplusEditor productId={product?.id ?? null} allowed={richContentAllowed}
-                editable={!!product && canEditAplus(product)} copy={aplusCopy}
+                editable={product ? canEditAplus(product) : true} copy={aplusCopy}
                 initial={product ? readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id }) : []} />
             </div>
           </section>
