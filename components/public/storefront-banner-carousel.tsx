@@ -28,8 +28,8 @@ export function StorefrontBannerCarousel({ images, eyebrow, headline }: { images
       {headline && <h2 className="mt-2 text-2xl font-light leading-snug @2xl:text-4xl">{headline}</h2>}
     </div>}
     {count > 1 && <>
-      <button type="button" onClick={() => go(-1)} aria-label="Previous image" className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-1.5 text-ink-900 shadow hover:bg-white"><ChevronLeft className="size-5" aria-hidden="true" /></button>
-      <button type="button" onClick={() => go(1)} aria-label="Next image" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-1.5 text-ink-900 shadow hover:bg-white"><ChevronRight className="size-5" aria-hidden="true" /></button>
+      <button type="button" onClick={() => go(-1)} aria-label="Previous image" className="absolute left-3 hidden @2xl:block top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-1.5 text-ink-900 shadow hover:bg-white"><ChevronLeft className="size-5" aria-hidden="true" /></button>
+      <button type="button" onClick={() => go(1)} aria-label="Next image" className="absolute right-3 hidden @2xl:block top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-1.5 text-ink-900 shadow hover:bg-white"><ChevronRight className="size-5" aria-hidden="true" /></button>
       <div className="absolute bottom-3 right-4 flex gap-1.5">
         {images.map((src, i) => <button key={src} type="button" onClick={() => setIndex(i)} aria-label={`Show image ${i + 1}`} aria-current={i === index}
           className={`size-2 rounded-full ${i === index ? "bg-white" : "bg-white/50"}`} />)}

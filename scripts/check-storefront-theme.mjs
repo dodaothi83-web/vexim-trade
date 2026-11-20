@@ -38,7 +38,9 @@ assert.match(action, /storefrontThemeProblem\(input\)/);
 assert.match(action, /action: "supplier\.storefront_theme_changed"/);
 const storefront = read("components/public/supplier-storefront.tsx");
 assert.match(storefront, /\{premium \? <PremiumStorefront/);
-assert.match(storefront, /const theme = normalizeStorefrontTheme\(s\.storefront_theme\);/);
+// Bố cục "Thiết kế trang" đã áp dụng thì mẫu, tông lấy từ bố cục; chưa có thì từ storefront_theme.
+assert.match(storefront, /const savedTheme = normalizeStorefrontTheme\(s\.storefront_theme\);/);
+assert.match(storefront, /const theme = layout \? \{ template: layout\.template, tone: layout\.tone/);
 const premium = read("components/public/premium-storefront.tsx");
 for (const name of ["Elegant", "Modern", "Gallery"]) assert.match(premium, new RegExp(`function ${name}\\(p: Shared\\)`), `Có mẫu ${name}`);
 assert.match(premium, /bg-success-surface|checks/, "Dải xác minh dùng chung");
