@@ -11,7 +11,7 @@
 import { getSupabaseClient } from "@/lib/db/supabase";
 import { deleteStreamVideo, getStreamVideo, setStreamVideoMeta, streamConfig } from "@/lib/media/cloudflare-stream";
 import { deleteObject, getObject, putObject } from "@/lib/media/storage";
-import { aplusImagePaths, validateAplusModules, type AplusModule, type AplusProblem, type ProductGalleryVideo } from "@/lib/products/aplus";
+import { aplusImagePaths, mapAplusImages, validateAplusModules, type AplusModule, type AplusProblem, type ProductGalleryVideo } from "@/lib/products/aplus";
 
 export const PENDING_PRODUCT_ID = "pending";
 /** Tối đa số tệp chờ mỗi nhà cung cấp trong 24 giờ, chặn tải lên vô hạn. */
@@ -69,10 +69,11 @@ export function readPendingMediaForm(form: FormData, supplierId: string):
   const rawVideo = form.get("pending_video_uid");
   let aplus: AplusModule[] = [];
   if (typeof rawAplus === "string" && rawAplus.trim() && rawAplus.trim() !== "[]") {
-    if (rawAplus.length > 40_000) return { ok: false, problem: { code: "tooMany" } };
+    if (rawAplus.length > 120_000) return { ok: false, problem: { code: "tooMany" } };
     let parsed: unknown;
     try { parsed = JSON.parse(rawAplus); } catch { return { ok: false, problem: { code: "invalid", index: 0 } }; }
-    const checked = validateAplusModules(parsed, { supplierId, productId: PENDING_PRODUCT_ID });
+    // Bản nháp (tiếng Việt); máy chủ dịch và kiểm tra bản tiếng Anh trước khi tạo sản phẩm.
+    const checked = validateAplusModules(parsed, { supplierId, productId: PENDING_PRODUCT_ID }, { draft: true });
     if (!checked.ok) return checked;
     aplus = checked.modules;
   }
@@ -132,10 +133,7 @@ export async function attachPendingMedia(input: PendingMediaInput, ctx: {
         }
         if (failed) { complete = false; continue; }
         const swap = (path: string) => moved.get(path) ?? path;
-        modules.push(module.type === "image" ? { ...module, image_path: swap(module.image_path) }
-          : module.type === "image_text" ? { ...module, image_path: swap(module.image_path) }
-            : module.type === "gallery" ? { ...module, items: module.items.map((item) => ({ ...item, image_path: swap(item.image_path) })) }
-              : module);
+        modules.push(mapAplusImages(module, swap));
       } catch (error) {
         console.error("[pending-media] attach module", error);
         complete = false;

@@ -129,7 +129,7 @@ assert.match(pendingRoute, /productId: null/, "Video chờ chưa gắn mã sản
 assert.match(pendingRoute, /isAplusImagePath\(path, access\.supplier\.id, PENDING_PRODUCT_ID\)/, "Chỉ chính nhà cung cấp xem được ảnh chờ của mình");
 assert.match(stream, /pending: "true", supplier_id: input\.supplierId/);
 assert.match(pendingLib, /video\.meta\.supplier_id !== supplierId \|\| video\.meta\.pending !== "true"/, "Video chờ phải đúng nhà cung cấp và chưa gắn sản phẩm");
-assert.match(pendingLib, /validateAplusModules\(parsed, \{ supplierId, productId: PENDING_PRODUCT_ID \}\)/, "A+ soạn trước chỉ dùng ảnh trong khu chờ của chính nhà cung cấp");
+assert.match(pendingLib, /validateAplusModules\(parsed, \{ supplierId, productId: PENDING_PRODUCT_ID \}, \{ draft: true \}\)/, "A+ soạn trước chỉ dùng ảnh trong khu chờ của chính nhà cung cấp");
 assert.match(pendingLib, /PENDING_TTL_HOURS = 24/);
 assert.match(read("app/api/cron/rfq-sla/route.ts"), /cleanupPendingUploads\(\)/, "Dọn tệp chờ chạy cùng cron hằng ngày");
 const create = read("app/supplier/portal/product-actions.ts");
@@ -141,4 +141,69 @@ assert.match(read("supabase/migrations/20261202_supplier_pending_uploads.sql"), 
 const ref = `aplus/${sid}/pending/${"7".repeat(8)}-7777-7777-7777-${"7".repeat(12)}.webp`;
 assert.equal(a.validateAplusModules([{ id: "m-000001", type: "image", image_path: ref, caption: "" }], { supplierId: sid, productId: "pending" }).ok, true);
 assert.equal(a.validateAplusModules([{ id: "m-000001", type: "image", image_path: ref.replace(sid, pid), caption: "" }], { supplierId: sid, productId: "pending" }).ok, false, "Không dùng được ảnh chờ của nhà cung cấp khác");
-console.log("✅ Nội dung A+: 5 loại khối, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói, video sản phẩm chỉ Premium/Pro, tải trước khi lưu sản phẩm.");
+
+// 7. Bản duyệt docs/aplus-editor (2026-11-20): viết tiếng Việt, dịch khi lưu, 5 khối B2B, mức hoàn thiện.
+assert.equal(a.APLUS_MODULE_TYPES.length, 10);
+assert.deepEqual([...a.APLUS_B2B_TYPES], ["hero", "highlights", "steps", "packing", "faq"]);
+const hero = { id: "m-hero0001", type: "hero", image_path: img(3), alt: "Kernels", eyebrow: "", headline: "Hand-graded W320 cashew kernels", sub: "" };
+const steps = { id: "m-step0001", type: "steps", items: [1, 2, 3].map((n) => ({ image_path: n === 2 ? "" : img(n + 3), alt: "Step", title: `Step ${n}`, text: "" })) };
+const packing = { id: "m-pack0001", type: "packing", image_path: img(7), alt: "Cartons", title: "", rows: [{ label: "Inner packing", value: "Vacuum bag, 22.68 kg" }, { label: "20ft container", value: "700 cartons" }] };
+const faq = { id: "m-faq00001", type: "faq", items: [{ q: "Samples?", a: "Request through Vexim." }, { q: "Own label?", a: "Yes." }] };
+const highlights = { id: "m-high0001", type: "highlights", items: [{ icon: "samples", title: "Samples", text: "" }, { icon: "capacity", title: "Moisture", text: "" }, { icon: "evil", title: "Cartons", text: "" }] };
+const b2b = a.validateAplusModules([hero, highlights, steps, packing, faq], ctx);
+assert.equal(b2b.ok, true, "5 khối B2B hợp lệ");
+assert.equal(b2b.modules[1].items[2].icon, "inspection", "Biểu tượng lạ thay bằng biểu tượng mặc định");
+assert.deepEqual(a.aplusImagePaths([b2b.modules[2]]), [img(4), img(6)], "Ảnh bước không bắt buộc");
+assert.equal(bad({ ...steps, items: steps.items.slice(0, 2) }).problem.code, "itemCount");
+assert.equal(bad({ ...faq, items: [{ q: "Samples?", a: "" }, faq.items[1]] }).problem.code, "titleRequired", "Câu hỏi phải có trả lời");
+assert.equal(bad({ ...packing, rows: [{ label: "x", value: "Call 0912.345.678" }, packing.rows[1]] }).problem.code, "contact");
+// Số điện thoại viết liền, có khoảng trắng, chấm, gạch, ngoặc đều bị bắt; số đo, mã HS, số lượng thì không.
+for (const phone of ["0912345678", "0912 345 678", "0912.345.678", "0912-345-678", "(028) 3822-1234", "+84 912 345 678", "84912345678"])
+  assert.equal(a.findContact(`Contact ${phone} now`), "phone", phone);
+for (const fact of ["2 x 22.68 kg vacuum bags", "HS 0801.32.00", "1,400 cartons per 40ft", "20ft: 700 cartons, 40ft: 1400", "Crop 2026-11-20"])
+  assert.equal(a.findContact(fact), null, fact);
+assert.equal(a.findContact("Zalo me"), "app");
+// Bản tiếng Việt theo ô chữ; nháp chấp nhận chữ tiếng Việt, bản người mua thấy thì không.
+const viText = { id: "m-text0001", type: "text", title: "", body: "", vi: ["Kiểm soát chất lượng từng lô", "Độ ẩm tối đa 5%, lấy mẫu mỗi 2 giờ."] };
+assert.equal(a.validateAplusModules([viText], ctx, { draft: true }).ok, true, "Nháp tiếng Việt lưu được để dịch");
+assert.equal(a.validateAplusModules([viText], ctx).ok, false, "Chưa dịch thì chưa hiện cho người mua");
+assert.equal(a.aplusNeedsTranslation(a.validateAplusModules([viText], ctx, { draft: true }).modules[0]), true);
+const translated = { ...a.withAplusText(viText, ["Quality control per lot", "Moisture max 5%, sampled every 2 hours."]), src: a.aplusSourceHash(viText.vi) };
+assert.equal(a.validateAplusModules([translated], ctx).ok, true);
+assert.equal(a.aplusNeedsTranslation(translated), false, "Đã dịch đúng bản tiếng Việt thì không dịch lại");
+assert.equal(a.aplusNeedsTranslation({ ...translated, vi: ["Kiểm soát chất lượng", viText.vi[1]] }), true, "Đổi bản tiếng Việt thì dịch lại");
+const edited = { ...translated, en_edited: true, vi: ["Kiểm soát chất lượng", viText.vi[1]] };
+assert.equal(a.aplusNeedsTranslation(edited), false, "Đã sửa tay bản tiếng Anh thì không tự dịch đè");
+assert.equal(a.aplusTranslationStale(edited), true, "Nhưng nhắc dịch lại từ tiếng Việt");
+assert.equal(a.validateAplusModules([{ ...viText, title: "Quality", vi: ["only one"] }], ctx, { draft: true }).modules[0].vi, undefined, "Bản tiếng Việt sai số ô thì bỏ");
+// Cảnh báo số liệu lệch giữa hai bản (khác dấu thập phân vẫn khớp).
+assert.deepEqual(a.aplusNumberDrift("Bao 22,68 kg, 1.400 thùng, độ ẩm 5%", "Bag 22.68 kg, 1,400 cartons, moisture 5%"), []);
+assert.deepEqual(a.aplusNumberDrift("Bao 22,68 kg, 700 thùng", "Bag 22 kg, 70 cartons"), ["22,68", "700"]);
+// Mức hoàn thiện: 6 tiêu chí rõ ràng.
+const score = a.aplusCompleteness(b2b.modules);
+assert.deepEqual(score.map((c) => c.key), ["blocks", "opening", "complete", "alt", "b2b", "english"]);
+assert.equal(score.find((c) => c.key === "opening").done, true);
+assert.equal(score.find((c) => c.key === "b2b").done, true);
+assert.equal(score.find((c) => c.key === "alt").done, false, "Bước 2 chưa có ảnh");
+assert.deepEqual(a.aplusBlockIssues({ ...faq, items: [...faq.items, { q: "Lead time?", a: "" }] }), ["answers"]);
+assert.deepEqual(a.aplusBlockIssues({ ...hero, alt: "" }), ["alt"]);
+// Bộ mẫu: khung khối kèm mã gợi ý, không điền sẵn nội dung giả.
+const T = await import("../lib/products/aplus-templates.ts");
+assert.deepEqual([...T.APLUS_TEMPLATE_IDS], ["cashew", "coffee", "pepper", "cinnamon", "general"]);
+const built = T.buildAplusTemplate("cashew", (() => { let n = 0; return () => `t-${String(++n).padStart(8, "0")}`; })());
+assert.equal(built.length, 6);
+assert.ok(built.every((m, i) => m.hint === `cashew:${i}` && a.aplusModuleText(m).every((t) => t === "")), "Chữ để trống");
+const i18n = read("lib/i18n/portal/aplus.ts");
+for (const id of T.APLUS_TEMPLATE_IDS) assert.equal((i18n.match(new RegExp(`${id}: \\{ name:`, "g")) ?? []).length, 2, `Gợi ý mẫu ${id} có cả hai ngôn ngữ`);
+// Dịch khi lưu, một nút Lưu chung với sản phẩm, trang người mua dựng đủ 10 loại khối.
+assert.match(action, /prepareAplusForSave\(modules, ctx/);
+assert.match(read("lib/products/aplus-server.ts"), /validateAplusModules\(raw, ctx, \{ draft: true \}\)[\s\S]*translateAplusModules[\s\S]*validateAplusModules\(modules, ctx\)/);
+assert.match(read("lib/ai/translate-aplus.ts"), /Keep every number, unit/);
+assert.match(read("lib/ai/translate-aplus.ts"), /Keep formatting markers exactly/);
+assert.match(create, /prepareAplusForSave\(pending\.value\.aplus/, "Sản phẩm mới: dịch A+ trước khi tạo");
+assert.match(editor, /aplusRef\.current\.save\(\)/, "Lưu sản phẩm là lưu luôn A+");
+const render = read("components/public/product-aplus.tsx");
+for (const type of a.APLUS_MODULE_TYPES) assert.match(render, new RegExp(`case "${type}":`), `Trang người mua dựng khối ${type}`);
+assert.match(render, /alt=\{item\.alt \|\| fallbackAlt\}/, "Ảnh dùng mô tả ảnh");
+assert.match(render, /<details/, "Câu hỏi thường gặp dùng details");
+console.log("✅ Nội dung A+: 10 loại khối (5 khối B2B), viết tiếng Việt dịch khi lưu, bộ mẫu, mức hoàn thiện, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói, video sản phẩm chỉ Premium/Pro, tải trước khi lưu sản phẩm.");
