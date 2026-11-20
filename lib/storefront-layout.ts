@@ -22,13 +22,21 @@ import {
 import { normalizeShowcaseBlocks, showcaseHasContact } from "./supplier-showcase.ts";
 import { looksVietnamese } from "./vietnamese-text.ts";
 
-export const LAYOUT_BLOCK_TYPES = ["banner", "stats", "products", "about", "markets", "video", "categories", "certificates"] as const;
+export const LAYOUT_BLOCK_TYPES = ["banner", "stats", "products", "about", "markets", "video", "categories", "certificates", "company", "checks", "trade", "gallery"] as const;
+/**
+ * Các mục chung của trang (giới thiệu, xác minh, điều kiện giao dịch, thư viện ảnh) thành khối
+ * sắp xếp được (chủ sàn yêu cầu 2026-11-20). "checks" (xác minh của Vexim) là khối bắt buộc:
+ * luôn hiện, chỉ đổi vị trí, không ẩn hay xoá được.
+ */
+export const REQUIRED_BLOCKS: readonly LayoutBlockType[] = ["checks"];
+/** Phiên bản bố cục; bố cục cũ (chưa có các mục chung thành khối) được thêm khối mặc định khi đọc. */
+export const LAYOUT_VERSION = 2;
 /** Khối chỉ gói Pro (giai đoạn 2, theo bản mẫu duyệt 2026-11-20). */
 export const PRO_ONLY_BLOCKS: readonly LayoutBlockType[] = ["video", "categories"];
 export const VIDEO_TITLE_MAX = 120;
 export type LayoutBlockType = (typeof LAYOUT_BLOCK_TYPES)[number];
 
-export const LAYOUT_MAX_BLOCKS = 12;
+export const LAYOUT_MAX_BLOCKS = 16;
 export const LAYOUT_MAX_ABOUT = 6;
 export const BANNER_MAX_IMAGES = 3;
 export const BANNER_EYEBROW_MAX = 60;
@@ -48,9 +56,19 @@ export type LayoutBlock =
   /** Nhóm sản phẩm đang đăng theo danh mục, tự dựng từ sản phẩm. */
   | { id: string; type: "categories"; hidden?: boolean }
   /** Chứng nhận Vexim đã kiểm tra, còn hiệu lực; tự lấy, không nhập tay. */
-  | { id: string; type: "certificates"; hidden?: boolean };
+  | { id: string; type: "certificates"; hidden?: boolean }
+  /** Giới thiệu và chi tiết kinh doanh, lấy từ hồ sơ. */
+  | { id: string; type: "company"; hidden?: boolean }
+  /** Xác minh của Vexim (bắt buộc, không ẩn). */
+  | { id: string; type: "checks"; hidden?: boolean }
+  /** Điều kiện giao dịch và thông tin công ty, nút gửi yêu cầu qua Vexim. */
+  | { id: string; type: "trade"; hidden?: boolean }
+  /** Ảnh nhà cung cấp chia sẻ cho người mua. */
+  | { id: string; type: "gallery"; hidden?: boolean };
 
 export interface StorefrontLayout {
+  /** 2: các mục chung đã là khối. Thiếu thì là bố cục cũ. */
+  v?: number;
   tone: StorefrontTone;
   tagline: string;
   blocks: LayoutBlock[];
@@ -87,7 +105,7 @@ const isOneOf = <T extends string>(list: readonly T[], value: unknown): value is
  * Chuẩn hoá và kiểm tra bố cục trước khi lưu. `productIds` là sản phẩm của chính nhà cung cấp
  * (sản phẩm nổi bật chỉ chọn trong danh sách này).
  */
-export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string; productIds: ReadonlySet<string>; pro?: boolean }):
+export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string; productIds: ReadonlySet<string>; pro?: boolean; ensureChecks?: boolean }):
   { ok: true; layout: StorefrontLayout } | { ok: false; problem: LayoutProblem } {
   const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
   if (!value || !Array.isArray(value.blocks)) return { ok: false, problem: { code: "invalid", index: 0 } };
@@ -142,7 +160,13 @@ export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string
       case "markets":
       case "categories":
       case "certificates":
+      case "company":
+      case "trade":
+      case "gallery":
         block = { id: item.id, type, ...hidden };
+        break;
+      case "checks":
+        block = { id: item.id, type };
         break;
       case "video": {
         if (typeof item.video_uid !== "string" || !/^[a-f0-9]{32}$/i.test(item.video_uid)) return { ok: false, problem: { code: "video", index } };
@@ -160,9 +184,11 @@ export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string
     if (joined && looksVietnamese(joined)) return { ok: false, problem: { code: "language", index } };
     blocks.push(block);
   }
+  if (ctx.ensureChecks !== false && !blocks.some((block) => block.type === "checks")) blocks.push({ id: "b-checks", type: "checks" });
   return {
     ok: true,
     layout: {
+      v: LAYOUT_VERSION,
       tone: isOneOf(STOREFRONT_TONES, value.tone) ? value.tone : "champagne",
       tagline,
       blocks,
@@ -181,15 +207,27 @@ export function readStorefrontLayout(raw: unknown, supplierId: string): Storefro
   const allIds = new Set(value.blocks.flatMap((b) => b && typeof b === "object" && Array.isArray((b as { product_ids?: unknown }).product_ids)
     ? ((b as { product_ids: unknown[] }).product_ids.filter((id): id is string => typeof id === "string")) : []));
   for (const item of value.blocks.slice(0, LAYOUT_MAX_BLOCKS)) {
-    const checked = validateStorefrontLayout({ ...value, tagline: "", blocks: [...blocks, item] }, { supplierId, productIds: allIds });
+    const checked = validateStorefrontLayout({ ...value, tagline: "", blocks: [...blocks, item] }, { supplierId, productIds: allIds, ensureChecks: false });
     if (checked.ok) blocks.push(checked.layout.blocks.at(-1)!);
   }
+  // Bố cục cũ: các mục chung từng nằm cố định dưới các khối; thêm vào cuối để không mất nội dung.
+  if (value.v !== LAYOUT_VERSION) for (const block of defaultCommonBlocks()) if (!blocks.some((b) => b.type === block.type)) blocks.push(block);
+  if (!blocks.some((block) => block.type === "checks")) blocks.push({ id: "b-checks", type: "checks" });
   const tagline = text(value.tagline);
   return {
+    v: LAYOUT_VERSION,
     tone: isOneOf(STOREFRONT_TONES, value.tone) ? value.tone : "champagne",
     tagline: tagline.length <= STOREFRONT_TAGLINE_MAX && !showcaseHasContact(tagline) && !looksVietnamese(tagline) ? tagline : "",
     blocks,
   };
+}
+
+/** Các mục chung mặc định, theo thứ tự trang cũ: giới thiệu, xác minh, chứng nhận, thư viện ảnh, giao dịch. */
+export function defaultCommonBlocks(): LayoutBlock[] {
+  return [
+    { id: "b-company", type: "company" }, { id: "b-checks", type: "checks" }, { id: "b-certificates", type: "certificates" },
+    { id: "b-gallery", type: "gallery" }, { id: "b-trade", type: "trade" },
+  ];
 }
 
 /** Mã video Cloudflare trong bố cục. */
@@ -225,6 +263,8 @@ export interface ProfileLayoutInput {
   hasMarkets: boolean;
   /** Có chứng nhận Vexim đã kiểm tra, còn hiệu lực. */
   hasCertificates?: boolean;
+  /** Có ảnh nhà cung cấp chia sẻ cho người mua. */
+  hasGallery?: boolean;
   /** Gói Pro và sản phẩm thuộc từ 2 danh mục trở lên: thêm khối Nhóm sản phẩm. */
   categoryGroups?: boolean;
   province: string;
@@ -254,7 +294,11 @@ export function buildLayoutFromProfile(input: ProfileLayoutInput): StorefrontLay
   for (const block of showcase.slice(0, LAYOUT_MAX_ABOUT))
     blocks.push({ id: newLayoutBlockId(), type: "about", image_path: block.image_path, title: block.title.slice(0, ABOUT_TITLE_MAX), body: block.body.slice(0, ABOUT_BODY_MAX) });
   if (input.categoryGroups) blocks.push({ id: newLayoutBlockId(), type: "categories" });
-  if (input.hasCertificates) blocks.push({ id: newLayoutBlockId(), type: "certificates" });
   if (input.hasMarkets) blocks.push({ id: newLayoutBlockId(), type: "markets" });
-  return { tone: theme.tone, tagline, blocks };
+  // Các mục chung: giới thiệu, xác minh (bắt buộc), chứng nhận, thư viện ảnh, điều kiện giao dịch.
+  blocks.push({ id: newLayoutBlockId(), type: "company" }, { id: newLayoutBlockId(), type: "checks" });
+  if (input.hasCertificates) blocks.push({ id: newLayoutBlockId(), type: "certificates" });
+  if (input.hasGallery) blocks.push({ id: newLayoutBlockId(), type: "gallery" });
+  blocks.push({ id: newLayoutBlockId(), type: "trade" });
+  return { v: LAYOUT_VERSION, tone: theme.tone, tagline, blocks };
 }

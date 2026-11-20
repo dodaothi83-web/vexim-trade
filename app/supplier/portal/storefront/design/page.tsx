@@ -8,6 +8,7 @@ import { StorefrontVersionHistory } from "@/components/storefront-designer/versi
 import { getPortalMessages } from "@/lib/i18n/server";
 import { getSupplierStorefront } from "@/lib/public/catalog";
 import { publicSupplierCertificates } from "@/lib/public/certificates";
+import { CertificatesSection, ChecksSection, CompanyDetailsSection, CompanySection, GallerySection, TradeSection } from "@/components/public/storefront-sections";
 import { readStorefrontLayout } from "@/lib/storefront-layout";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -49,6 +50,16 @@ export default async function StorefrontDesignPage() {
     access.store.listCertificates(supplier.id).catch(() => []),
     access.store.listMedia("supplier", supplier.id).catch(() => []),
   ]);
+  // Nội dung các mục chung dựng từ cùng component với trang thật (nút trong bản xem trước không bấm được).
+  const designCertificates = publicSupplierCertificates(supplier.id, rawCertificates, supplierMedia);
+  const designSections = {
+    company: <CompanySection s={card} />,
+    checks: <ChecksSection s={card} />,
+    trade: <TradeSection s={card} rfqActions={false} synthetic={false} premium />,
+    companyDetails: <CompanyDetailsSection s={card} rfqActions={false} />,
+    certificates: designCertificates.length ? <CertificatesSection certificates={designCertificates} /> : undefined,
+    gallery: card.gallery_images.length ? <GallerySection s={card} /> : undefined,
+  };
   const data = designerDataFromCard(card, { avatarUrl, coverUrl, pro: supplierPlanRules(supplier).plan === "pro",
     categories: designCategories.filter((c) => c.status === "published" && c.is_published),
     certificates: publicSupplierCertificates(supplier.id, rawCertificates, supplierMedia) });
@@ -61,7 +72,7 @@ export default async function StorefrontDesignPage() {
   return <>
     {back}
     <PageHeader title={copy.title} sub={copy.sub} />
-    <StorefrontDesigner pro={data.pro} categories={data.categories} certificates={data.certificates} initial={initial} quick={data.quick} live={live} header={data.header} statValues={data.statValues}
+    <StorefrontDesigner sections={designSections} pro={data.pro} categories={data.categories} certificates={data.certificates} initial={initial} quick={data.quick} live={live} header={data.header} statValues={data.statValues}
       markets={data.markets} products={data.products} imagePreviewBase="/api/supplier-portal/showcase?path="
       uploadUrl="/api/supplier-portal/storefront-image" saveDraft={saveStorefrontDraftAction} apply={applyStorefrontLayoutAction}
       copy={copy} previewHref="/supplier/portal/storefront?draft=1" />

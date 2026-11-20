@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { AplusVideo } from "@/components/public/aplus-video";
 import { StorefrontBannerCarousel } from "@/components/public/storefront-banner-carousel";
@@ -28,6 +28,11 @@ export interface StorefrontBlocksData {
   categories?: StorefrontBlockCategory[];
   /** Chứng nhận Vexim đã kiểm tra, còn hiệu lực. */
   certificates?: StorefrontBlockCertificate[];
+  /**
+   * Nội dung các mục chung (giới thiệu, xác minh, điều kiện giao dịch, thông tin công ty, chứng
+   * nhận có ảnh, thư viện ảnh) dựng sẵn ở máy chủ từ cùng component với trang Basic.
+   */
+  sections?: { company?: ReactNode; checks?: ReactNode; trade?: ReactNode; companyDetails?: ReactNode; certificates?: ReactNode; gallery?: ReactNode };
   imageUrl: (path: string) => string;
 }
 
@@ -138,7 +143,28 @@ function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: numb
         </ul>
       </section>;
     }
+    case "company":
+      return <Shell id="about" eyebrow="About" title="About this supplier">{data.sections?.company}</Shell>;
+    case "checks":
+      return <Shell id="verification" eyebrow="Verification" title="Supplier checks" sub="See what has been reviewed and what each check covers.">{data.sections?.checks}</Shell>;
+    case "trade":
+      return <section id="trade" className="scroll-mt-24 grid gap-4 @2xl:grid-cols-2" aria-label="Trade details and enquiry">
+        <div className="rounded-2xl border border-ink-200 bg-white p-5 @2xl:p-6">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">Trade terms</p>
+          <h2 className="mt-1 text-xl font-bold tracking-tight text-ink-900">Trade overview</h2>
+          {data.sections?.trade}
+        </div>
+        {data.sections?.companyDetails && <div id="company-details" className="scroll-mt-24 rounded-2xl border border-ink-200 bg-white p-5 @2xl:p-6">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">Company</p>
+          <h2 className="mt-1 text-xl font-bold tracking-tight text-ink-900">Company details</h2>
+          {data.sections.companyDetails}
+        </div>}
+      </section>;
+    case "gallery":
+      if (!data.sections?.gallery) return null;
+      return <Shell id="gallery" eyebrow="Gallery" title="Supplier gallery">{data.sections.gallery}</Shell>;
     case "certificates": {
+      if (data.sections?.certificates) return <Shell id="certificates" eyebrow="Certificates" title="Certificates on file">{data.sections.certificates}</Shell>;
       const items = data.certificates ?? [];
       if (!items.length) return null;
       return <section aria-labelledby={`certificates-${block.id}`}>
@@ -163,4 +189,14 @@ function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: numb
         </ul>
       </section>;
   }
+}
+
+/** Khung chung của các mục: dòng nhỏ theo tông màu, tiêu đề, nội dung trong thẻ trắng. */
+function Shell({ id, eyebrow, title, sub, children }: { id: string; eyebrow: string; title: string; sub?: string; children: ReactNode }) {
+  return <section id={id} className="scroll-mt-24 rounded-2xl border border-ink-200 bg-white p-5 @2xl:p-7" aria-labelledby={`${id}-title`}>
+    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">{eyebrow}</p>
+    <h2 id={`${id}-title`} className="mt-1 text-xl font-bold tracking-tight text-ink-900">{title}</h2>
+    {sub && <p className="mt-1 text-sm leading-6 text-ink-600">{sub}</p>}
+    {children}
+  </section>;
 }

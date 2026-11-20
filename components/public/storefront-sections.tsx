@@ -1,0 +1,164 @@
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, Info, Package } from "lucide-react";
+import type { ReactNode } from "react";
+
+import { VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
+import { VeximMinimumOrderIcon, VeximExportPortIcon, VeximLeadTimeIcon, VeximCapacityIcon, VeximPaymentIcon, VeximMarketsIcon } from "@/components/brand/vexim-icons";
+import { SupplierCertificateRail } from "@/components/public/supplier-certificate-rail";
+import type { PublicSupplierCard } from "@/lib/public/catalog";
+import type { PublicSupplierCertificate } from "@/lib/public/certificates";
+import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { supplierShortName } from "@/lib/public/supplier-name";
+import {
+  supplierAddressDisplay, supplierAnnualOutputDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay,
+  supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay,
+  supplierProvinceDisplay, supplierSummaryDisplay,
+} from "@/lib/public/supplier-english";
+import { factoryReviewLabel, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
+
+/**
+ * Nội dung các mục chung của trang nhà cung cấp (giới thiệu, xác minh của Vexim, điều kiện giao
+ * dịch, thông tin công ty, chứng nhận, thư viện ảnh). Trang Basic bọc trong khung riêng như cũ;
+ * trang Premium/Pro dùng làm khối "Thiết kế trang" sắp xếp được, và trình thiết kế dùng lại để
+ * xem trước. Chữ lọc liên hệ ở đây như mọi chữ công khai.
+ */
+const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
+const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
+
+const VERIFICATION_ITEMS = [
+  { level: 1, label: "Documents checked", pending: "Covers business registration evidence.", Icon: FileCheck2 },
+  // Thứ tự hiển thị 11/2026: lịch sử giao hàng trước, nhà máy sau (mã level giữ nguyên).
+  { level: 3, label: "Delivery history", pending: "Covers delivery documents and the reviewed shipment scope.", Icon: Truck },
+  { level: 2, label: "Factory verification", pending: "Covers a specific facility associated with the supplier.", Icon: Factory },
+] as const;
+
+function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: string; value: string }) {
+  return <div className="flex gap-3 border-b border-ink-100 py-3 last:border-0">
+    <Icon aria-hidden size={20} strokeWidth={2.6} className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
+    <div className="min-w-0"><dt className="text-xs text-ink-500">{label}</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(value) || "On request"}</dd></div>
+  </div>;
+}
+
+/** Giới thiệu và chi tiết kinh doanh do nhà cung cấp cung cấp. */
+export function CompanySection({ s }: { s: PublicSupplierCard }) {
+  const summary = safe(supplierSummaryDisplay(s));
+  const businessDetails = [
+    { label: "Main products", value: safe(supplierProductsDisplay(s)), wide: true },
+    { label: "Markets served or targeted", value: safe(supplierMarketsDisplay(s)), wide: false },
+  ].filter((item) => item.value);
+  return <>
+          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{summary || (businessDetails.length
+            ? "This supplier has not added an introduction yet. See the business details below or ask Vexim for more information."
+            : "Supplier information has not been provided yet. Ask Vexim for details before making a sourcing decision.")}</p>
+          {businessDetails.length > 0 && <div className="mt-5 rounded-xl bg-ink-50/70 p-4 sm:p-5">
+            <h3 className="text-sm font-bold text-ink-900">Business details</h3>
+            <p className="mt-1 text-xs leading-5 text-ink-500">Provided by the supplier. Confirm details when requesting a quote.</p>
+            <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+              {businessDetails.map((item) => <div key={item.label} className={item.wide ? "sm:col-span-2" : undefined}>
+                <dt className="text-xs font-semibold text-ink-500">{item.label}</dt>
+                <dd className="mt-1 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-ink-800">{item.value}</dd>
+              </div>)}
+            </dl>
+          </div>}
+  </>;
+}
+
+/** Các bước xác minh Vexim đã duyệt và phạm vi từng bước. */
+export function ChecksSection({ s, reportAction }: { s: PublicSupplierCard; reportAction?: (code: string) => ReactNode }) {
+  const steps = s.approved_verification_steps;
+  const l2Scope: PublicL2Scope = s.approved_l2_scope ?? null;
+  const plannedL2Scope: PublicL2Scope = s.supplier_type === "trading" ? "partner_contract" : s.supplier_type === "manufacturer" || s.supplier_type === "cooperative" ? "factory" : null;
+  return <>
+          <div className="mt-5 divide-y divide-ink-200">
+              {VERIFICATION_ITEMS.map(({ level, label: defaultLabel, pending: defaultPending, Icon }) => {
+                const approvedStep = steps.includes(level);
+                const scope = level === 2 ? approvedStep ? l2Scope : plannedL2Scope : null;
+                const label = level === 2 ? verificationLabel(2, scope) : defaultLabel;
+                const pending = level === 2 && scope === "partner_contract" ? "Covers a contract with a partner factory; not a factory inspection." : level === 2 && scope === null ? "The review scope is not specified." : defaultPending;
+                const reviewStatus = approvedStep ? "Checked" : "No completed check shown";
+                return <article key={level} id={level === 2 ? scope === "partner_contract" ? "partner-factory-contract" : "factory-visit" : level === 3 ? "delivery-history" : undefined}
+                  className="min-w-0 scroll-mt-24 py-5 first:pt-0">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="flex items-center gap-2 text-sm font-bold text-ink-900">
+                      <Icon aria-hidden="true" className={`h-5 w-5 shrink-0 ${approvedStep ? "text-success" : "text-ink-400"}`} />{level === 1 ? "Business registration" : label}
+                    </h3>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${approvedStep ? "bg-success-surface text-success" : "bg-ink-50 text-ink-500"}`}>
+                      {approvedStep ? <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" /> : <Info aria-hidden="true" className="h-3.5 w-3.5" />}{reviewStatus}
+                    </span>
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">
+                    {level === 1 && (approvedStep ? "Business registration documents reviewed by Vexim." : pending)}
+                    {level === 2 && !approvedStep && pending}
+                    {level === 2 && approvedStep && (scope === "factory" || scope === "both") && <span className="block">{scope === "both" && <strong className="block">Factory review</strong>}{safe(s.public_review_summaries[2]) || "Detailed factory review scope is available on request."}</span>}
+                    {level === 2 && approvedStep && (scope === "partner_contract" || scope === "both") && <span id={scope === "both" ? "partner-factory-contract" : undefined} className="mt-2 block scroll-mt-24">{scope === "both" && <strong className="block">Partner factory contract</strong>}{safe(s.partner_review_summary) || "The supplier's contract with a partner factory was reviewed. Details are available on request."}</span>}
+                    {level === 2 && approvedStep && scope === null && "Review scope is available on request."}
+                    {level === 3 && (approvedStep ? (safe(s.public_review_summaries[3]) || "Detailed delivery scope is available on request.") : pending)}
+                  </p>
+                  {level === 2 && approvedStep && (s.factory_reviews ?? []).map((review) => <div key={review.code} className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-ink-50 px-3 py-2">
+                    <span className="text-xs font-semibold text-ink-800">{factoryReviewLabel(review)}</span>
+                    <span className="text-xs text-ink-500">Reviewed by {safe(review.inspectorName)}</span>
+                    {reportAction?.(review.code)}
+                  </div>)}
+                  {approvedStep && level !== 1 && <p className="mt-2 text-xs leading-5 text-ink-500">{level === 2 ? scope === "partner_contract" ? "The contract review does not establish ownership or a factory inspection." : scope === "both" ? "Each result applies only to its separately reviewed scope." : scope === "factory" ? "Applies only to the reviewed facility." : "Ask for the review scope." : "Applies only to the evidence reviewed; it does not by itself prove an end buyer received the goods."}</p>}
+                </article>;
+              })}
+          </div>
+            <div className="mt-4 flex items-start gap-2 rounded-xl bg-ink-50 px-4 py-3 text-xs leading-5 text-ink-600">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-400" />
+              <p>These checks cover specific documents or activities. Confirm product requirements before ordering.</p>
+            </div>
+  </>;
+}
+
+/** Điều kiện giao dịch do nhà cung cấp khai và nút gửi yêu cầu qua Vexim. */
+export function TradeSection({ s, rfqActions, synthetic, premium = false }: { s: PublicSupplierCard; rfqActions: boolean; synthetic: boolean; premium?: boolean }) {
+  return <>
+    <p className="mt-2 text-xs leading-5 text-ink-500">Provided by the supplier. Confirm terms when requesting a quote.</p>
+          <dl className="mt-2"><Fact icon={VeximMinimumOrderIcon} label="Minimum order" value={supplierMoqDisplay(s)} />
+            <Fact icon={VeximExportPortIcon} label="Export ports / Incoterms" value={[...supplierPortsDisplay(s), ...supplierIncotermsDisplay(s)].join(" · ")} />
+            <Fact icon={VeximLeadTimeIcon} label="Lead time" value={s.lead_time_days ? `${s.lead_time_days} days` : ""} />
+            <Fact icon={VeximCapacityIcon} label={s.annual_output?.trim() ? "Annual revenue" : "Monthly capacity"} value={s.annual_output?.trim() ? supplierAnnualOutputDisplay(s) : supplierCapacityDisplay(s)} />
+            <Fact icon={VeximPaymentIcon} label="Payment terms" value={supplierPaymentTermsDisplay(s)} />
+            <Fact icon={VeximMarketsIcon} label="Export markets" value={supplierExportMarketsDisplay(s).join(", ")} /></dl>
+          {rfqActions && !synthetic && <div className="mt-4 space-y-2"><Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold text-white ${premium ? "bg-[var(--sf-accent)] hover:bg-[var(--sf-dark)]" : "bg-brand-700 hover:bg-brand-800"}`}>Request a quote <ArrowRight className="h-4 w-4" /></Link>
+            <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}&sample=1`} className="flex items-center justify-center rounded-lg border border-ink-200 px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50">Ask about samples</Link></div>}
+          {!rfqActions && !synthetic && <div className="mt-4 space-y-2"><span className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold text-white ${premium ? "bg-[var(--sf-accent)]" : "bg-brand-700"}`}>Request a quote <ArrowRight className="h-4 w-4" /></span>
+            <span className="flex items-center justify-center rounded-lg border border-ink-200 px-4 py-2.5 text-sm font-semibold text-ink-800">Ask about samples</span></div>}
+          <p className="mt-3 text-xs leading-5 text-ink-500">Enquiries go through Vexim Trade. Supplier email and phone are not displayed publicly.</p>
+  </>;
+}
+
+/** Tên pháp lý, địa chỉ đăng ký lấy từ hồ sơ Vexim giữ; liên hệ đi qua Vexim. */
+export function CompanyDetailsSection({ s, rfqActions }: { s: PublicSupplierCard; rfqActions: boolean }) {
+  return <>
+          <dl className="mt-2">
+            <div className="border-b border-ink-100 py-3"><dt className="text-xs text-ink-500">Legal name</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(supplierLegalNameDisplay(s))}</dd></div>
+            {s.trade_name && s.trade_name !== s.name && <div className="border-b border-ink-100 py-3"><dt className="text-xs text-ink-500">Trade name</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(s.trade_name)}</dd></div>}
+            <div className="border-b border-ink-100 py-3"><dt className="text-xs text-ink-500">Registered address</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(supplierAddressDisplay(s)) || (supplierProvinceDisplay(s) ? `${safe(supplierProvinceDisplay(s))}, Vietnam` : "Ask Vexim for the registered address before contracting.")}</dd></div>
+            <div className="py-3"><dt className="text-xs text-ink-500">Contact</dt><dd className="mt-0.5 text-sm font-semibold text-ink-800">Request an introduction through Vexim</dd></div>
+          </dl>
+          <p className="text-xs leading-5 text-ink-500">Legal name and registered address come from the supplier record held by Vexim. The company website is supplier-provided, not verified by Vexim. Email, phone and internal verification documents are not published.</p>
+          {rfqActions
+            ? <Link href={`/khieu-nai?supplier=${encodeURIComponent(s.slug || s.id)}`} className="mt-3 inline-block text-sm font-semibold text-brand-700 underline">Report this supplier</Link>
+            : <span className="mt-3 inline-block text-sm font-semibold text-brand-700 underline">Report this supplier</span>}
+  </>;
+}
+
+/** Chứng nhận đã duyệt, kèm ảnh bản sao nhà cung cấp chia sẻ. */
+export function CertificatesSection({ certificates }: { certificates: PublicSupplierCertificate[] }) {
+  return <>
+            <p className="mt-1 text-xs leading-5 text-ink-600">Images are the document copies shared by the supplier. Holder names and expiry dates come from these copies. Issuer authentication is a separate check.</p>
+            <SupplierCertificateRail certificates={certificates} />
+  </>;
+}
+
+/** Ảnh nhà cung cấp chia sẻ cho người mua. */
+export function GallerySection({ s }: { s: PublicSupplierCard }) {
+  const name = safe(supplierShortName(s));
+  return <>
+          <p className="mt-1 text-xs text-ink-500">Shared supplier images; not evidence of factory verification.</p>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{s.gallery_images.map((path) => <a key={path} href={mediaUrl(path)} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg bg-ink-50 ring-1 ring-ink-200">
+            {/* eslint-disable-next-line @next/next/no-img-element */}<img src={mediaUrl(path)} alt={`${name} gallery`} loading="lazy" className="h-32 w-full object-cover transition hover:scale-105 sm:h-40" />
+          </a>)}</div>
+  </>;
+}

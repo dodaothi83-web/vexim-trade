@@ -61,7 +61,7 @@ export function designerDataFromCard(card: PublicSupplierCard, opts: {
     supplierId: card.id, theme: card.storefront_theme, showcase: card.showcase_blocks,
     productIds: products.map((p) => p.id), statValues, hasMarkets: markets.length > 0,
     province: province ? `${province}, Vietnam` : "Vietnam", foundedYear: card.founded_year ?? null,
-    hasCertificates: certificates.length > 0, categoryGroups: opts.pro && categories.length >= 2,
+    hasCertificates: certificates.length > 0, categoryGroups: opts.pro && categories.length >= 2, hasGallery: card.gallery_images.length > 0,
   });
   return {
     statValues, markets, products,
