@@ -41,6 +41,9 @@ import { VerificationCoverSeal, VerificationPips, VerificationTierBadge } from "
 import { VerificationPanel } from "./verification-panel";
 import { SupplierAccountControls } from "./account-controls";
 import { SupplierPlanControls } from "./plan-controls";
+import { CrmCompanyAplusReview } from "./company-aplus-review";
+import { supplierPlanRules } from "@/lib/supplier-plans";
+import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { effectiveSupplierPlan, isSupplierPlan } from "@/lib/supplier-plans";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 
@@ -408,6 +411,10 @@ Chỉ nhân viên CRM thấy danh sách này. Chỉ nhà cung cấp được ch�
               </p>
             </Card>
           )}
+
+          <CrmCompanyAplusReview supplierId={supplier.id} canManage={canManage}
+            visible={supplierPlanRules(supplier).premiumStorefront}
+            modules={readAplusModules(supplier.company_aplus, { supplierId: supplier.id, productId: COMPANY_APLUS_ID })} />
 
           <section id="supplier-products" className="card scroll-mt-24 p-5">
             <SectionHead

@@ -8,7 +8,9 @@
 import type { AplusHighlightIcon, AplusModule, AplusModuleType } from "./aplus.ts";
 
 export const APLUS_TEMPLATE_IDS = ["cashew", "coffee", "pepper", "cinnamon", "general"] as const;
-export type AplusTemplateId = (typeof APLUS_TEMPLATE_IDS)[number];
+/** Bộ mẫu A+ doanh nghiệp (trang nhà cung cấp): theo loại hình hoạt động. */
+export const APLUS_COMPANY_TEMPLATE_IDS = ["factory", "cooperative", "trading", "company"] as const;
+export type AplusTemplateId = (typeof APLUS_TEMPLATE_IDS)[number] | (typeof APLUS_COMPANY_TEMPLATE_IDS)[number];
 
 type Skeleton = { type: AplusModuleType; items?: number; icons?: AplusHighlightIcon[] };
 
@@ -51,6 +53,35 @@ export const APLUS_TEMPLATES: Record<AplusTemplateId, Skeleton[]> = {
     { type: "highlights", items: 3, icons: ["inspection", "capacity", "samples"] },
     { type: "image_text" },
     FAQ,
+  ],
+  factory: [
+    { type: "hero" },
+    { type: "highlights", items: 4, icons: ["factory", "capacity", "inspection", "markets"] },
+    { type: "steps", items: 5 },
+    { type: "gallery" },
+    B2B_PACK,
+    FAQ,
+  ],
+  cooperative: [
+    { type: "hero" },
+    { type: "highlights", items: 4, icons: ["markets", "capacity", "inspection", "samples"] },
+    { type: "image_text" },
+    { type: "steps", items: 4 },
+    { type: "gallery" },
+    FAQ,
+  ],
+  trading: [
+    { type: "hero" },
+    { type: "highlights", items: 4, icons: ["export-port", "markets", "inspection", "document"] },
+    { type: "image_text" },
+    B2B_PACK,
+    FAQ,
+  ],
+  company: [
+    { type: "hero" },
+    { type: "highlights", items: 3, icons: ["factory", "capacity", "markets"] },
+    { type: "image_text" },
+    { type: "gallery" },
   ],
 };
 

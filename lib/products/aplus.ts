@@ -22,6 +22,11 @@
 import { looksVietnamese } from "../vietnamese-text.ts";
 
 export const APLUS_MAX_MODULES = 10;
+/**
+ * A+ doanh nghiệp trên trang nhà cung cấp dùng cùng khối, ảnh nằm ở aplus/<supplierId>/company/:
+ * truyền `productId: COMPANY_APLUS_ID` cho các hàm kiểm tra ảnh.
+ */
+export const COMPANY_APLUS_ID = "company";
 export const APLUS_TITLE_MAX = 120;
 export const APLUS_BODY_MAX = 1200;
 export const APLUS_CAPTION_MAX = 160;
@@ -416,6 +421,8 @@ export function aplusCompleteness(modules: readonly AplusModule[]): Array<{ key:
   const englishOk = modules.length > 0 && modules.every((module) => {
     if (aplusNeedsTranslation(module) || aplusTranslationStale(module)) return false;
     const english = aplusModuleText(module);
+    // Khối còn trống (vừa thêm từ bộ mẫu) chưa tính là đã có bản tiếng Anh.
+    if (module.type !== "video" && !english.some((value) => value.trim())) return false;
     return (module.vi ?? []).every((vi, i) => !vi.trim() || (!!english[i]?.trim() && aplusNumberDrift(vi, english[i]).length === 0));
   });
   return [

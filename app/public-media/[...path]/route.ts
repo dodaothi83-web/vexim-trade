@@ -8,7 +8,7 @@ import { isExpired } from "@/lib/media/readiness";
 import { isTestOnlyProduct, productReviewApproved } from "@/lib/public/product-selection";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
-import { aplusImagePaths, readAplusModules } from "@/lib/products/aplus";
+import { aplusImagePaths, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 
 export const runtime = "nodejs";
@@ -95,7 +95,7 @@ function cachePut(rel: string, entry: ObjectCacheEntry) {
 function relAllowed(rel: string): boolean {
   if (rel.startsWith("categories/") || rel.startsWith("blog/")) return PUBLIC_IMAGE_EXT.test(rel);
   if (rel.startsWith("products/")) return /^products\/[a-z0-9_-]+\/[a-z0-9_-]+\.(jpe?g|png|webp)$/i.test(rel);
-  if (rel.startsWith("aplus/")) return /^aplus\/[a-f0-9-]{36}\/[a-f0-9-]{36}\/[a-f0-9-]{36}\.(jpe?g|png|webp)$/i.test(rel);
+  if (rel.startsWith("aplus/")) return /^aplus\/[a-f0-9-]{36}\/(?:[a-f0-9-]{36}|company)\/[a-f0-9-]{36}\.(jpe?g|png|webp)$/i.test(rel);
   if (rel.startsWith("product-form-images/")) return /^product-form-images\/[a-f0-9-]{36}\/[a-f0-9-]{36}(?:-thumb)?\.webp$/i.test(rel);
   if (rel.startsWith("suppliers/")) {
     // Chỉ cho ảnh (đuôi ảnh), chặn PDF/doc và mọi file khác.
@@ -126,7 +126,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
   const isProductImage = rel.startsWith("products/") || formImage;
   const showcaseImage = rel.startsWith("suppliers/") && /^showcase-/i.test(rel.split("/").at(-1) ?? "");
   const supplierImage = rel.startsWith("suppliers/") && !/^(profile-|cover-|showcase-)/i.test(rel.split("/").at(-1) ?? "");
-  if (rel.startsWith("aplus/")) {
+  if (rel.startsWith("aplus/") && rel.split("/")[2] === COMPANY_APLUS_ID) {
+    // Ảnh A+ doanh nghiệp chỉ công khai khi đang nằm trong nội dung của hồ sơ đã đăng và gói còn
+    // quyền trang cao cấp. Gỡ khỏi nội dung hoặc hết gói thì đường dẫn không còn mở.
+    const supplierId = rel.split("/")[1];
+    const supplier = await getStore().getSupplier(supplierId);
+    if (!supplier || supplier.status !== "published" || (supplier.is_demo && process.env.VEXIM_SHOW_DEMO !== "true") ||
+        !supplierPlanRules(supplier, new Date(), await readPlanCatalog()).premiumStorefront ||
+        !aplusImagePaths(readAplusModules(supplier.company_aplus, { supplierId, productId: COMPANY_APLUS_ID })).includes(rel))
+      return new NextResponse("Not found", { status: 404 });
+  } else if (rel.startsWith("aplus/")) {
     // Ảnh nội dung A+ chỉ công khai khi đang nằm trong nội dung của một sản phẩm đã đăng và gói
     // nhà cung cấp còn quyền A+. Gỡ khỏi nội dung hoặc hết gói thì đường dẫn không còn mở.
     const [, supplierId, productId] = rel.split("/");

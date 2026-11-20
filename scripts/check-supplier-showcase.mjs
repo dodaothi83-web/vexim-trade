@@ -47,7 +47,7 @@ assert.match(media, /const aclGated = isProductImage \|\| supplierImage \|\| sho
 // 7. Trang công khai: giao diện cao cấp và khối nội dung chỉ khi gói còn hiệu lực, kèm ghi chú không phải bằng chứng.
 const storefront = read("components/public/supplier-storefront.tsx");
 assert.match(storefront, /const premium = supplierPlanRules\(s\)\.premiumStorefront;/);
-assert.match(storefront, /const showcase = premium \? publicShowcaseBlocks\(s\.showcase_blocks\) : \[\];/);
+assert.match(storefront, /const showcase = premium && !companyAplus\.length \? publicShowcaseBlocks\(s\.showcase_blocks\) : \[\];/);
 assert.match(read("components/public/premium-storefront.tsx"), /They are not evidence of a Vexim check\./);
 assert.doesNotMatch(storefront, /Premium supplier|Pro supplier/, "Không gắn nhãn gói cho người mua (gói không phải xác minh)");
 

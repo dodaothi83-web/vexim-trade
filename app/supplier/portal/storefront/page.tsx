@@ -20,6 +20,8 @@ import { StorefrontPlanBadge, StorefrontUpgradeButton } from "@/components/suppl
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
 import { ShowcaseEditor } from "./showcase-editor";
 import { ThemeEditor } from "./theme-editor";
+import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
+import { CompanyAplusCard } from "./company/card";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 
 export const dynamic = "force-dynamic";
@@ -109,8 +111,12 @@ export default async function SupplierStorefrontPreviewPage() {
     {planRules.premiumStorefront && <ThemeEditor initial={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme} />}
     {/* Gói Basic không còn thẻ khoá ở đây; lời mời nâng gói là nút dưới link website. Gói đã hết
         hạn mà còn khối cũ thì vẫn thấy để gỡ. */}
-    {(planRules.premiumStorefront || showcaseBlocks.length > 0) &&
-      <ShowcaseEditor blocks={showcaseBlocks} enabled={planRules.premiumStorefront} copy={m.showcase} />}
+    {/* Gói cao cấp: A+ doanh nghiệp thay cho khối Showcase (có nút chuyển khối cũ sang). Gói đã hết
+        hạn mà còn khối Showcase cũ thì vẫn thấy để gỡ. */}
+    {planRules.premiumStorefront && <CompanyAplusCard copy={m.aplus.company}
+      count={readAplusModules(supplier.company_aplus, { supplierId: supplier.id, productId: COMPANY_APLUS_ID }).length} />}
+    {!planRules.premiumStorefront && showcaseBlocks.length > 0 &&
+      <ShowcaseEditor blocks={showcaseBlocks} enabled={false} copy={m.showcase} />}
 
     <SupplierStorefront
       supplier={card}
@@ -123,6 +129,7 @@ export default async function SupplierStorefrontPreviewPage() {
       rfqActions={false}
       nameTag="h2"
       showcaseImageUrl={showcasePreviewUrl}
+      companyAplusImageUrl={(path) => `/api/supplier-portal/company-aplus?path=${encodeURIComponent(path)}`}
       coverAction={<SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
         className="absolute right-4 bottom-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />}
       avatarAction={<SupplierPhotoButton kind="profile" hasImage={!!avatarUrl}
