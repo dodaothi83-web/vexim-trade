@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Eye, EyeOff, ExternalLink, ImagePlus, Loader2, Lock, Monitor, Smartphone, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, ExternalLink, ImagePlus, Loader2, Lock, Monitor, Pencil, Plus, Redo2, Smartphone, Sparkles, Trash2, Undo2, X } from "lucide-react";
 
-import { StorefrontBlocks } from "@/components/public/storefront-blocks";
+import { StorefrontBlocks, type BlockEditor } from "@/components/public/storefront-blocks";
+import { AddImageTile, ImageOverlay, InlineText, VideoPicker, type InlineCopy } from "@/components/storefront-designer/inline-edit";
 import { fill } from "@/lib/i18n/format";
 import type { DesignerMessages } from "@/lib/i18n/portal/designer";
 import { prepareImage } from "@/lib/media/client-image";
@@ -72,7 +73,46 @@ export function StorefrontDesigner(props: {
 }) {
   const { copy } = props;
   const router = useRouter();
-  const [layout, setLayout] = useState<StorefrontLayout>(props.initial);
+  const [layout, setLayoutRaw] = useState<StorefrontLayout>(props.initial);
+  // Hoàn tác / làm lại: giữ tối đa 50 bước. Gõ liên tục trong cùng một ô gộp thành một bước.
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const [past, setPast] = useState<StorefrontLayout[]>([]);
+  const [future, setFuture] = useState<StorefrontLayout[]>([]);
+  const lastEdit = useRef<{ key: string; at: number } | null>(null);
+  const setLayout = (next: StorefrontLayout | ((l: StorefrontLayout) => StorefrontLayout), key?: string) => {
+    const now = Date.now();
+    const merge = key && lastEdit.current?.key === key && now - lastEdit.current.at < 1500;
+    lastEdit.current = key ? { key, at: now } : null;
+    if (!merge) { const snapshot = layoutRef.current; setPast((p) => [...p.slice(-49), snapshot]); setFuture([]); }
+    setLayoutRaw(next);
+  };
+  const undo = () => {
+    if (!past.length) return;
+    const previous = past[past.length - 1];
+    setFuture((f) => [layoutRef.current, ...f].slice(0, 50)); setPast((p) => p.slice(0, -1));
+    lastEdit.current = null; setLayoutRaw(previous);
+  };
+  const redo = () => {
+    if (!future.length) return;
+    const next = future[0];
+    setPast((p) => [...p.slice(-49), layoutRef.current]); setFuture((f) => f.slice(1));
+    lastEdit.current = null; setLayoutRaw(next);
+  };
+  const undoRef = useRef({ undo, redo });
+  undoRef.current = { undo, redo };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "z" && event.key.toLowerCase() !== "y") return;
+      // Đang gõ trong ô chữ: để trình duyệt hoàn tác chữ trong ô đó.
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      event.preventDefault();
+      if (event.key.toLowerCase() === "y" || event.shiftKey) undoRef.current.redo(); else undoRef.current.undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [baseline, setBaseline] = useState(JSON.stringify(props.initial));
   const [live, setLive] = useState(props.live);
   const [selected, setSelected] = useState<string>(props.initial.blocks[0]?.id ?? HEADER);
@@ -89,13 +129,39 @@ export function StorefrontDesigner(props: {
   const [busy, setBusy] = useState<"save" | "apply" | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [insertAt, setInsertAt] = useState<number | null>(null);
+  const failedLayout = useRef<StorefrontLayout | null>(null);
   const dirty = JSON.stringify(layout) !== baseline;
+  // Tự lưu nháp 2,5 giây sau lần sửa cuối. Bản nháp người mua không thấy; Áp dụng vẫn bấm tay.
+  const [autosave, setAutosave] = useState<{ state: "saving" | "saved" | "error"; text?: string } | null>(null);
+  const autosaving = autosave?.state === "saving";
+  useEffect(() => {
+    if (!dirty || busy || uploading || autosaving) return;
+    if (autosave?.state === "error" && autosave.text && failedLayout.current === layout) return;
+    const timer = window.setTimeout(async () => {
+      const snapshot = layoutRef.current;
+      setAutosave({ state: "saving" });
+      try {
+        const result = await props.saveDraft(snapshot);
+        if (result.ok) { setBaseline(JSON.stringify(snapshot)); setLive(false); setAutosave({ state: "saved" }); }
+        else { failedLayout.current = snapshot; setAutosave({ state: "error", text: fill(copy.inline.autosaveFailed, { message: result.message }) }); }
+      } catch { failedLayout.current = snapshot; setAutosave({ state: "error", text: fill(copy.inline.autosaveFailed, { message: copy.failed }) }); }
+    }, 2500);
+    return () => window.clearTimeout(timer);
+    // Chạy lại khi bố cục đổi hoặc vừa lưu xong; lỗi thì đợi lần sửa tiếp theo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, busy, uploading, autosaving]);
   const previewUrl = (path: string) => `${props.imagePreviewBase}${encodeURIComponent(path)}`;
   const productMap = useMemo(() => Object.fromEntries(props.products.map((p) => [p.id, { name: p.name, imageUrl: p.imageUrl, href: null, detail: p.detail }])), [props.products]);
   const block = layout.blocks.find((b) => b.id === selected) ?? null;
 
-  const setBlocks = (fn: (blocks: LayoutBlock[]) => LayoutBlock[]) => setLayout((l) => ({ ...l, blocks: fn(l.blocks) }));
-  const patch = (id: string, change: Partial<LayoutBlock>) => setBlocks((all) => all.map((b) => b.id === id ? { ...b, ...change } as LayoutBlock : b));
+  const setBlocks = (fn: (blocks: LayoutBlock[]) => LayoutBlock[], key?: string) => setLayout((l) => ({ ...l, blocks: fn(l.blocks) }), key);
+  const patch = (id: string, change: Partial<LayoutBlock>, key?: string) => setBlocks((all) => all.map((b) => b.id === id ? { ...b, ...change } as LayoutBlock : b), key);
+  const removeBlock = (id: string) => {
+    if (!window.confirm(copy.confirmRemove)) return;
+    setBlocks((all) => all.filter((x) => x.id !== id));
+    if (selected === id) setSelected(HEADER);
+  };
   const move = (index: number, step: -1 | 1) => setBlocks((all) => {
     const next = [...all]; const target = index + step;
     if (target < 0 || target >= next.length) return all;
@@ -107,7 +173,7 @@ export function StorefrontDesigner(props: {
   const proLocked = (type: LayoutBlockType) => !props.pro && PRO_ONLY_BLOCKS.includes(type);
   const canAdd = (type: LayoutBlockType) => !proLocked(type) && layout.blocks.length < LAYOUT_MAX_BLOCKS && (type === "about" ? aboutCount < LAYOUT_MAX_ABOUT : !used.has(type));
 
-  function add(type: LayoutBlockType) {
+  function add(type: LayoutBlockType, at?: number) {
     const id = newLayoutBlockId();
     const firstProducts = props.products.slice(0, 4).map((p) => p.id);
     const statDefaults = STOREFRONT_STATS.filter((stat) => props.statValues[stat]).slice(0, STOREFRONT_MAX_STATS);
@@ -116,7 +182,8 @@ export function StorefrontDesigner(props: {
         : type === "products" ? { id, type, product_ids: firstProducts }
           : type === "about" ? { id, type, image_path: "", title: "", body: "" }
             : type === "video" ? { id, type, video_uid: "", title: "" } : { id, type };
-    setBlocks((all) => [...all, next]);
+    setBlocks((all) => at === undefined ? [...all, next] : [...all.slice(0, at), next, ...all.slice(at)]);
+    setInsertAt(null);
     focusBlock(id);
   }
 
@@ -143,6 +210,7 @@ export function StorefrontDesigner(props: {
     try {
       const result = await (kind === "save" ? props.saveDraft(layout) : props.apply(layout));
       setMessage({ ok: result.ok, text: result.message });
+      if (result.ok) setAutosave(null);
       if (result.ok) { setBaseline(JSON.stringify(layout)); setLive(kind === "apply"); router.refresh(); }
     } catch { setMessage({ ok: false, text: copy.failed }); }
     finally { setBusy(null); }
@@ -156,6 +224,53 @@ export function StorefrontDesigner(props: {
     setMessage({ ok: true, text: fill(copy.quick.done, { count: props.quick.blocks.length }) });
   }
 
+  const inline: InlineCopy = copy.inline;
+  const uploadVideo = async (file: File, onProgress: (pct: number) => void) => {
+    const problem = await checkVideoFile(file, { video: copy.errors.videoFile, videoTooLong: copy.errors.videoTooLong, upload: copy.errors.upload }, fill);
+    if (problem) throw new Error(problem);
+    return uploadStreamVideoTo(props.uploadUrl, props.uploadFields ?? {}, file, onProgress, copy.errors.upload);
+  };
+  const imageLimit = (b: LayoutBlock) => b.type === "banner" ? BANNER_MAX_IMAGES : b.type === "company" ? COMPANY_MAX_IMAGES : b.type === "gallery" ? GALLERY_MAX_IMAGES : 1;
+  const imagesOf = (b: LayoutBlock): string[] => "images" in b && Array.isArray(b.images) ? b.images : [];
+  /** Sửa trực tiếp trên khối; dùng chung hàm lưu, tải ảnh, tải video với bảng chỉnh. */
+  const editor: BlockEditor = {
+    companyVideo: props.pro,
+    text: (b, field, value, o) => <InlineText value={value} onChange={(v) => patch(b.id, { [field]: v } as Partial<LayoutBlock>, `${b.id}:${field}`)}
+      placeholder={o.placeholder} max={o.max} multiline={o.multiline} tone={o.tone} className={o.className} copy={inline} label={o.label} />,
+    imageOverlay: (b, field, index) => <ImageOverlay copy={inline}
+      onReplace={async (file) => {
+        const path = await upload(b.id, file);
+        if (!path) return;
+        if (field === "image_path") patch(b.id, { image_path: path } as Partial<LayoutBlock>);
+        else { const current = imagesOf(layoutRef.current.blocks.find((x) => x.id === b.id) ?? b); patch(b.id, { images: current.map((x, i) => i === index ? path : x) } as Partial<LayoutBlock>); }
+      }}
+      onRemove={() => field === "image_path" ? patch(b.id, { image_path: "" } as Partial<LayoutBlock>)
+        : patch(b.id, { images: imagesOf(b).filter((_, i) => i !== index) } as Partial<LayoutBlock>)} />,
+    addImage: (b, field, className) => {
+      if (field === "image_path" ? b.type === "about" && !!b.image_path : imagesOf(b).length >= imageLimit(b)) return null;
+      return <AddImageTile copy={inline} className={className} onAdd={async (file) => {
+        const path = await upload(b.id, file);
+        if (!path) return;
+        if (field === "image_path") patch(b.id, { image_path: path } as Partial<LayoutBlock>);
+        else { const current = imagesOf(layoutRef.current.blocks.find((x) => x.id === b.id) ?? b); if (current.length < imageLimit(b)) patch(b.id, { images: [...current, path] } as Partial<LayoutBlock>); }
+      }} />;
+    },
+    video: (b) => {
+      if (b.type !== "video" && !(b.type === "company" && props.pro)) return null;
+      const uid = b.type === "video" ? b.video_uid : b.video_uid ?? "";
+      return <VideoPicker hasVideo={!!uid} copy={inline}
+        onUpload={async (file, onProgress) => {
+          try {
+            const next = await uploadVideo(file, onProgress);
+            patch(b.id, { video_uid: next, duration: undefined, uploaded_at: undefined } as Partial<LayoutBlock>);
+          } catch (error) { setMessage({ ok: false, text: error instanceof Error ? error.message : copy.errors.upload }); }
+        }}
+        onRemove={() => patch(b.id, (b.type === "video" ? { video_uid: "", duration: undefined, uploaded_at: undefined }
+          : { video_uid: undefined, duration: undefined, uploaded_at: undefined }) as Partial<LayoutBlock>)} />;
+    },
+    companyText: props.profile ? () => <CompanyIntroEditor profile={props.profile!} copy={copy} /> : undefined,
+  };
+
   const status = dirty ? copy.status.dirty : live ? copy.status.live : copy.status.draft;
   const tone = STOREFRONT_TONE_COLORS[layout.tone];
 
@@ -163,11 +278,19 @@ export function StorefrontDesigner(props: {
     {/* Thanh trạng thái và nút lưu */}
     <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3">
       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${dirty || !live ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>{status}</span>
+      <span className="inline-flex rounded-lg border border-ink-200 p-0.5">
+        <Tool label={copy.inline.undo} disabled={!past.length} onClick={undo}><Undo2 className="size-4" /></Tool>
+        <Tool label={copy.inline.redo} disabled={!future.length} onClick={redo}><Redo2 className="size-4" /></Tool>
+      </span>
+      {autosave && <span role={autosave.state === "error" ? "alert" : "status"} className={`inline-flex items-center gap-1 text-xs font-semibold ${autosave.state === "error" ? "text-rose-700" : "text-ink-500"}`}>
+        {autosave.state === "saving" && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+        {autosave.state === "saving" ? copy.inline.autosaving : autosave.state === "saved" ? copy.inline.autosaved : autosave.text}
+      </span>}
       {message && <span role={message.ok ? "status" : "alert"} className={`text-xs font-semibold ${message.ok ? "text-emerald-700" : "text-rose-700"}`}>{message.text}</span>}
       <div className="ml-auto flex flex-wrap items-center gap-2">
         {props.previewHref && <a href={props.previewHref} target="_blank" rel="noopener noreferrer" className="btn btn-soft btn-sm">{copy.preview}<ExternalLink className="size-3.5" aria-hidden="true" /></a>}
-        <button type="button" className="btn btn-soft btn-sm" disabled={!!busy || !!uploading || !dirty} onClick={() => void run("save")}>{busy === "save" ? copy.saving : copy.save}</button>
-        <button type="button" className="btn btn-primary btn-sm" disabled={!!busy || !!uploading || (live && !dirty)} onClick={() => void run("apply")}>{busy === "apply" ? copy.applying : props.applyLabel ?? copy.apply}</button>
+        <button type="button" className="btn btn-soft btn-sm" disabled={!!busy || !!uploading || autosaving || !dirty} onClick={() => void run("save")}>{busy === "save" ? copy.saving : copy.save}</button>
+        <button type="button" className="btn btn-primary btn-sm" disabled={!!busy || !!uploading || autosaving || (live && !dirty)} onClick={() => void run("apply")}>{busy === "apply" ? copy.applying : props.applyLabel ?? copy.apply}</button>
       </div>
     </div>
 
@@ -199,7 +322,7 @@ export function StorefrontDesigner(props: {
               ? <span title={copy.requiredHint} className="rounded-full bg-ink-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-600">{copy.required}</span>
               : <>
                 <Tool label={b.hidden ? copy.show : copy.hide} onClick={() => patch(b.id, { hidden: !b.hidden || undefined })}>{b.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}</Tool>
-                <Tool label={copy.remove} onClick={() => { if (window.confirm(copy.confirmRemove)) { setBlocks((all) => all.filter((x) => x.id !== b.id)); if (selected === b.id) setSelected(HEADER); } }}><Trash2 className="size-3.5" /></Tool>
+                <Tool label={copy.remove} onClick={() => removeBlock(b.id)}><Trash2 className="size-3.5" /></Tool>
               </>}
           </li>)}
         </ul>
@@ -227,12 +350,29 @@ export function StorefrontDesigner(props: {
         </div>
         <div className={`mx-auto overflow-hidden rounded-xl bg-white p-3 shadow-sm ring-1 ring-ink-200 transition-[max-width] sm:p-5 ${device === "mobile" ? "max-w-[390px]" : "max-w-[980px]"}`}
           style={{ "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties}>
-          <button type="button" data-block-id="__header__" onClick={() => setSelected(HEADER)}
+          <p className="mb-3 text-center text-[11.5px] text-ink-500">{copy.inline.hint}</p>
+          <div data-block-id="__header__" onClick={() => setSelected(HEADER)}
             className={`relative block w-full scroll-mt-28 rounded-xl text-left outline outline-2 outline-offset-4 ${selected === HEADER ? "outline-brand-600" : "outline-transparent hover:outline-brand-200"}`}>
-            <HeaderPreview layout={layout} header={props.header} previewUrl={previewUrl} />
-            <span className="absolute right-3 top-3 z-10 rounded-md bg-white/90 px-1.5 py-0.5 text-[10.5px] text-ink-600">{copy.headerLockHint}</span>
-          </button>
-          <StorefrontBlocks layout={layout} selectedId={selected} onSelect={setSelected} showHidden
+            <HeaderPreview layout={layout} header={props.header} previewUrl={previewUrl} photos={!!props.profile}
+              tagline={<InlineText value={layout.tagline} onChange={(tagline) => setLayout((l) => ({ ...l, tagline }), "tagline")} tone="dark"
+                placeholder="One line about your company, in English" max={STOREFRONT_TAGLINE_MAX} multiline copy={inline} label={copy.fields.tagline}
+                className="text-[15px] leading-7 text-white/90 @2xl:text-lg" />} />
+            <span className="absolute left-3 top-3 z-10 rounded-md bg-white/90 px-1.5 py-0.5 text-[10.5px] text-ink-600">{copy.headerLockHint}</span>
+          </div>
+          <StorefrontBlocks layout={layout} selectedId={selected} onSelect={setSelected} showHidden editor={editor}
+            toolbar={(b, index) => <span className="inline-flex items-center gap-0.5 rounded-lg border border-ink-200 bg-white p-0.5 shadow-md">
+              <span className="px-1.5 text-[11px] font-bold text-ink-700">{copy.types[b.type].name}</span>
+              <Tool label={copy.moveUp} disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp className="size-3.5" /></Tool>
+              <Tool label={copy.moveDown} disabled={index === layout.blocks.length - 1} onClick={() => move(index, 1)}><ArrowDown className="size-3.5" /></Tool>
+              {REQUIRED_BLOCKS.includes(b.type)
+                ? <span title={copy.requiredHint} className="rounded-full bg-ink-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-600">{copy.required}</span>
+                : <>
+                  <Tool label={b.hidden ? copy.show : copy.hide} onClick={() => patch(b.id, { hidden: !b.hidden || undefined })}>{b.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}</Tool>
+                  <Tool label={copy.remove} onClick={() => removeBlock(b.id)}><Trash2 className="size-3.5" /></Tool>
+                </>}
+            </span>}
+            inserter={(at) => <Inserter open={insertAt === at} onToggle={() => setInsertAt(insertAt === at ? null : at)} copy={copy}
+              types={LAYOUT_BLOCK_TYPES.filter(canAdd)} onAdd={(type) => add(type, at)} />}
             emptyBlock={(b) => <div className="rounded-xl border border-dashed border-ink-300 bg-ink-50/60 px-4 py-5 text-sm">
               <p className="font-semibold text-ink-800">{copy.types[b.type].name}</p>
               <p className="mt-0.5 text-xs leading-5 text-ink-500">{copy.emptyBlock}</p>
@@ -252,14 +392,11 @@ export function StorefrontDesigner(props: {
             {props.profile && <HeaderPhotos header={props.header} copy={copy} />}
             {props.profile && <ProfileFields key="header" fields={PROFILE_FIELDS_BY_BLOCK.header} block="checks" profile={props.profile} copy={copy} />}
           </>
-            : block ? <BlockSettings block={block} patch={patch} copy={copy} statValues={props.statValues} markets={props.markets}
+            : block ? <BlockSettings block={block} copy={copy}
+              patch={(id, change) => patch(id, change, Object.values(change).every((v) => typeof v === "string") ? `${id}:${Object.keys(change).join(",")}` : undefined)} statValues={props.statValues} markets={props.markets}
               products={props.products} previewUrl={previewUrl} upload={upload} uploading={uploading}
               categories={props.categories} certificates={props.certificates} hasGallery={!!props.sections?.gallery} profile={props.profile} pro={props.pro}
-              uploadVideo={async (file, onProgress) => {
-                const problem = await checkVideoFile(file, { video: copy.errors.videoFile, videoTooLong: copy.errors.videoTooLong, upload: copy.errors.upload }, fill);
-                if (problem) throw new Error(problem);
-                return uploadStreamVideoTo(props.uploadUrl, props.uploadFields ?? {}, file, onProgress, copy.errors.upload);
-              }} />
+              uploadVideo={uploadVideo} />
               : <p className="text-ink-500">{copy.pick}</p>}
         </div>
       </aside>
@@ -273,11 +410,25 @@ function Tool({ label, disabled, onClick, children }: { label: string; disabled?
 }
 
 /** Đầu trang dùng đúng component của trang thật, nên xem trước khớp với trang công khai. */
-function HeaderPreview({ layout, header, previewUrl }: { layout: StorefrontLayout; header: { name: string; location: string; checks: string[]; avatarUrl: string | null; coverUrl?: string | null }; previewUrl: (path: string) => string }) {
+function HeaderPreview({ layout, header, previewUrl, tagline, photos }: {
+  layout: StorefrontLayout; header: { name: string; location: string; checks: string[]; avatarUrl: string | null; coverUrl?: string | null }; previewUrl: (path: string) => string;
+  /** Ô sửa câu giới thiệu tại chỗ. */
+  tagline?: ReactNode;
+  /** Cổng nhà cung cấp: nút đổi, xoá ảnh bìa và ảnh đại diện ngay trên đầu trang. */
+  photos?: boolean;
+}) {
   // Giống trang thật: ảnh bìa làm nền, chưa có thì ảnh banner đầu tiên.
   const banner = layout.blocks.find((block) => block.type === "banner" && !block.hidden);
   const cover = header.coverUrl ?? (banner?.type === "banner" && banner.images[0] ? previewUrl(banner.images[0]) : null);
-  return <PremiumHeader name={header.name} nameTag="h2" location={header.location} tagline={layout.tagline} coverUrl={cover} avatarUrl={header.avatarUrl}
+  const round = "flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white disabled:opacity-60";
+  return <PremiumHeader name={header.name} nameTag="h2" location={header.location} tagline={layout.tagline} taglineNode={tagline} coverUrl={cover} avatarUrl={header.avatarUrl}
+    coverAction={photos ? <div className="absolute bottom-3 right-3 z-10 flex gap-1.5" onClick={(event) => event.stopPropagation()}>
+      {header.coverUrl && <SupplierCoverDeleteButton className={`${round} text-rose-700`} />}
+      <SupplierPhotoButton kind="cover" hasImage={!!header.coverUrl} className={round} />
+    </div> : undefined}
+    avatarAction={photos ? <div className="absolute -bottom-2 -right-2 z-10" onClick={(event) => event.stopPropagation()}>
+      <SupplierPhotoButton kind="profile" hasImage={!!header.avatarUrl} className="flex size-7 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-800 shadow-md disabled:opacity-60" />
+    </div> : undefined}
     checks={<div className="flex flex-wrap gap-2">{header.checks.map((check) => <span key={check} className="rounded-full bg-success-surface px-3 py-1 text-xs font-semibold text-success">{check}</span>)}</div>}
     actions={<span className="inline-flex items-center justify-center rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote</span>} />;
 }
@@ -319,7 +470,7 @@ function HeaderPhotos({ header, copy }: { header: { avatarUrl: string | null; co
   </div>;
 }
 
-function HeaderSettings({ layout, setLayout, copy }: { layout: StorefrontLayout; setLayout: (fn: (l: StorefrontLayout) => StorefrontLayout) => void; copy: DesignerMessages }) {
+function HeaderSettings({ layout, setLayout, copy }: { layout: StorefrontLayout; setLayout: (fn: (l: StorefrontLayout) => StorefrontLayout, key?: string) => void; copy: DesignerMessages }) {
   return <>
     <p className="font-bold text-ink-900">{copy.header}</p>
     <p className="leading-5 text-ink-600">{copy.fields.headerHelp}</p>
@@ -332,7 +483,7 @@ function HeaderSettings({ layout, setLayout, copy }: { layout: StorefrontLayout;
       </div>
     </fieldset>
     <label className="block font-semibold text-ink-700">{copy.fields.tagline}
-      <textarea rows={3} value={layout.tagline} maxLength={STOREFRONT_TAGLINE_MAX + 20} onChange={(e) => setLayout((l) => ({ ...l, tagline: e.target.value }))} className="input mt-1 w-full font-normal" />
+      <textarea rows={3} value={layout.tagline} maxLength={STOREFRONT_TAGLINE_MAX + 20} onChange={(e) => setLayout((l) => ({ ...l, tagline: e.target.value }), "tagline")} className="input mt-1 w-full font-normal" />
       <Counter value={layout.tagline} max={STOREFRONT_TAGLINE_MAX} copy={copy} />
     </label>
   </>;
@@ -638,4 +789,61 @@ function ImageInput({ label, busy, onFile }: { label: string; busy: boolean; onF
 /** Đường dẫn tới trang sửa nội dung mà khối tự lấy (mở tab mới để không mất bản nháp đang soạn). */
 function PortalLink({ href, label }: { href: string; label: string }) {
   return <a href={href} target="_blank" rel="noopener noreferrer" className="btn btn-soft btn-sm">{label}<ExternalLink className="size-3.5" aria-hidden="true" /></a>;
+}
+
+/** Nút "+" mảnh giữa hai khối: rê chuột mới hiện, bấm mở danh sách khối chèn vào đúng chỗ. */
+function Inserter({ open, onToggle, types, onAdd, copy }: {
+  open: boolean; onToggle: () => void; types: LayoutBlockType[]; onAdd: (type: LayoutBlockType) => void; copy: DesignerMessages;
+}) {
+  if (!types.length) return <div className="h-6" />;
+  return <div className={`group/ins relative flex h-6 items-center justify-center ${open ? "z-30" : ""}`} onClick={(event) => event.stopPropagation()}>
+    <span className={`absolute inset-x-6 top-1/2 h-px bg-brand-300 transition ${open ? "opacity-100" : "opacity-0 group-hover/ins:opacity-100"}`} aria-hidden="true" />
+    <button type="button" aria-label={copy.inline.insert} title={copy.inline.insert} aria-expanded={open} onClick={onToggle}
+      className={`relative flex size-6 items-center justify-center rounded-full border border-brand-300 bg-white text-brand-700 shadow-sm transition hover:bg-brand-50 ${open ? "opacity-100" : "opacity-0 focus:opacity-100 group-hover/ins:opacity-100"}`}>
+      <Plus className="size-3.5" aria-hidden="true" />
+    </button>
+    {open && <div role="menu" className="absolute top-7 z-30 w-64 rounded-xl border border-ink-200 bg-white p-1.5 shadow-xl">
+      <p className="px-2 pb-1 pt-0.5 text-[11px] font-bold uppercase tracking-wide text-ink-500">{copy.inline.insertTitle}</p>
+      {types.map((type) => <button key={type} type="button" role="menuitem" onClick={() => onAdd(type)}
+        className="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-brand-50">
+        <span className="block text-[12.5px] font-semibold text-ink-900">{copy.types[type].name}</span>
+        <span className="block text-[11px] text-ink-500">{copy.types[type].desc}</span>
+      </button>)}
+    </div>}
+  </div>;
+}
+
+/**
+ * Sửa phần giới thiệu ngay trong khối Giới thiệu công ty (chỉ cổng nhà cung cấp). Phần này lấy từ
+ * Hồ sơ công ty: nhà cung cấp viết tiếng Việt, máy chủ dịch sang tiếng Anh khi lưu.
+ */
+function CompanyIntroEditor({ profile, copy }: { profile: { values: ProfileValues; save: (patch: StorefrontProfilePatch) => Promise<DesignerResult> }; copy: DesignerMessages }) {
+  const router = useRouter();
+  const t = copy.inline;
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(profile.values.intro_source ?? "");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const max = STOREFRONT_PROFILE_FIELDS.intro_source.kind === "text" ? STOREFRONT_PROFILE_FIELDS.intro_source.max : 4000;
+  if (!open) return <div className="mt-4" onClick={(event) => event.stopPropagation()}>
+    <button type="button" className="btn btn-soft btn-sm" onClick={() => { setValue(profile.values.intro_source ?? ""); setNote(null); setOpen(true); }}>
+      <Pencil className="size-3.5" aria-hidden="true" />{t.introEdit}
+    </button>
+    {note && <p role="status" className="mt-2 text-[11.5px] font-semibold text-emerald-700">{note.text}</p>}
+  </div>;
+  return <div className="mt-4 space-y-2 rounded-xl border border-brand-200 bg-brand-50/50 p-3" onClick={(event) => event.stopPropagation()}>
+    <p className="text-[11.5px] leading-5 text-ink-600">{t.introNote}</p>
+    <textarea rows={7} value={value} onChange={(event) => setValue(event.target.value)} aria-label={copy.profile.fields.intro_source} className="input w-full text-[13.5px]" />
+    <Counter value={value} max={max} copy={copy} />
+    <div className="flex flex-wrap gap-2">
+      <button type="button" className="btn btn-primary btn-sm" disabled={busy || value === (profile.values.intro_source ?? "")} onClick={async () => {
+        setBusy(true); setNote(null);
+        const result = await profile.save({ intro_source: value }).catch(() => ({ ok: false, message: copy.failed }));
+        setBusy(false); setNote({ ok: result.ok, text: result.message });
+        if (result.ok) { setOpen(false); router.refresh(); }
+      }}>{busy ? t.introSaving : t.introSave}</button>
+      <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => setOpen(false)}>{t.cancel}</button>
+    </div>
+    {note && !note.ok && <p role="alert" className="text-[11.5px] font-semibold text-rose-700">{note.text}</p>}
+  </div>;
 }
