@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Eye, EyeOff, ExternalLink, ImagePlus, Loader2, Lock, Monitor, Pencil, Plus, Redo2, Smartphone, Sparkles, Trash2, Undo2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, ExternalLink, ImagePlus, Loader2, Lock, Monitor, Plus, Redo2, Smartphone, Sparkles, Trash2, Undo2, X } from "lucide-react";
 
 import { StorefrontBlocks, type BlockEditor } from "@/components/public/storefront-blocks";
 import { AddImageTile, ImageOverlay, InlineText, VideoPicker, type InlineCopy } from "@/components/storefront-designer/inline-edit";
@@ -24,12 +24,15 @@ import { PROFILE_FIELDS_BY_BLOCK, STOREFRONT_PROFILE_FIELDS, type StorefrontProf
 import { aplusVideoEmbedUrl } from "@/lib/products/aplus";
 import { PremiumHeader } from "@/components/public/premium-header";
 import { RichIntroEditor } from "@/components/rich-intro-editor";
+import { RichIntro } from "@/components/public/rich-intro";
 import { SupplierCoverDeleteButton, SupplierPhotoButton } from "@/components/supplier-photo-button";
 
 export type DesignerProduct = { id: string; name: string; imageUrl: string | null; detail?: string };
 export type DesignerResult = { ok: boolean; message: string };
 /** Giá trị hồ sơ hiện tại (bản gốc nhà cung cấp nhập) cho các ô sửa trong bảng chỉnh. */
-export type ProfileValues = Partial<Record<StorefrontProfileField, string>> & { legal_name: string; address: string; moq: string };
+export type ProfileValues = Partial<Record<StorefrontProfileField, string>> & { legal_name: string; address: string; moq: string;
+  /** Bản tiếng Anh người mua thấy (đã dịch, giữ định dạng), để xem cạnh bản tiếng Việt. */
+  intro_en?: string };
 
 const HEADER = "__header__";
 
@@ -269,7 +272,7 @@ export function StorefrontDesigner(props: {
         onRemove={() => patch(b.id, (b.type === "video" ? { video_uid: "", duration: undefined, uploaded_at: undefined }
           : { video_uid: undefined, duration: undefined, uploaded_at: undefined }) as Partial<LayoutBlock>)} />;
     },
-    companyText: props.profile ? () => <CompanyIntroEditor profile={props.profile!} copy={copy} /> : undefined,
+    companyIntro: props.profile ? () => <InlineIntroEditor profile={props.profile!} copy={copy} /> : undefined,
   };
 
   const status = dirty ? copy.status.dirty : live ? copy.status.live : copy.status.draft;
@@ -817,35 +820,45 @@ function Inserter({ open, onToggle, types, onAdd, copy }: {
 }
 
 /**
- * Sửa phần giới thiệu ngay trong khối Giới thiệu công ty (chỉ cổng nhà cung cấp). Phần này lấy từ
- * Hồ sơ công ty: nhà cung cấp viết tiếng Việt, máy chủ dịch sang tiếng Anh khi lưu.
+ * Đoạn giới thiệu "About this supplier" sửa ngay trên trang xem trước (chỉ cổng nhà cung cấp):
+ * cùng cỡ chữ với trang, thanh định dạng hiện khi bấm vào. Nhà cung cấp viết tiếng Việt; thẻ
+ * "English" cho xem bản người mua thấy. Lưu vào Hồ sơ công ty và tự dịch, giữ định dạng.
  */
-function CompanyIntroEditor({ profile, copy }: { profile: { values: ProfileValues; save: (patch: StorefrontProfilePatch) => Promise<DesignerResult> }; copy: DesignerMessages }) {
+function InlineIntroEditor({ profile, copy }: { profile: { values: ProfileValues; save: (patch: StorefrontProfilePatch) => Promise<DesignerResult> }; copy: DesignerMessages }) {
   const router = useRouter();
   const t = copy.inline;
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(profile.values.intro_source ?? "");
+  const saved = profile.values.intro_source ?? "";
+  const [value, setValue] = useState(saved);
+  const [tab, setTab] = useState<"vi" | "en">("vi");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
-  const max = STOREFRONT_PROFILE_FIELDS.intro_source.kind === "text" ? STOREFRONT_PROFILE_FIELDS.intro_source.max : 4000;
-  if (!open) return <div className="mt-4" onClick={(event) => event.stopPropagation()}>
-    <button type="button" className="btn btn-soft btn-sm" onClick={() => { setValue(profile.values.intro_source ?? ""); setNote(null); setOpen(true); }}>
-      <Pencil className="size-3.5" aria-hidden="true" />{t.introEdit}
-    </button>
-    {note && <p role="status" className="mt-2 text-[11.5px] font-semibold text-emerald-700">{note.text}</p>}
-  </div>;
-  return <div className="mt-4 space-y-2 rounded-xl border border-brand-200 bg-brand-50/50 p-3" onClick={(event) => event.stopPropagation()}>
-    <p className="text-[11.5px] leading-5 text-ink-600">{t.introNote}</p>
-    <RichIntroEditor value={value} onChange={setValue} max={max} placeholder={copy.profile.fields.intro_source} copy={copy.richIntro} minHeight={200} />
-    <div className="flex flex-wrap gap-2">
-      <button type="button" className="btn btn-primary btn-sm" disabled={busy || value === (profile.values.intro_source ?? "")} onClick={async () => {
+  // Bản đã lưu đổi (sau khi lưu và tải lại): ô soạn theo bản mới.
+  const [base, setBase] = useState(saved);
+  if (saved !== base) { setBase(saved); setValue(saved); }
+  const max = STOREFRONT_PROFILE_FIELDS.intro_source.kind === "text" ? STOREFRONT_PROFILE_FIELDS.intro_source.max : 1500;
+  const dirty = value !== saved;
+  const english = profile.values.intro_en ?? "";
+  const tabClass = (on: boolean) => `rounded-full px-3 py-1 text-[11.5px] font-semibold transition ${on ? "bg-brand-700 text-white" : "text-ink-600 hover:bg-ink-100"}`;
+  return <div className="mt-5" onClick={(event) => event.stopPropagation()}>
+    <div className="mb-2 flex flex-wrap items-center gap-1.5">
+      <button type="button" className={tabClass(tab === "vi")} aria-pressed={tab === "vi"} onClick={() => setTab("vi")}>{t.introTabVi}</button>
+      <button type="button" className={tabClass(tab === "en")} aria-pressed={tab === "en"} onClick={() => setTab("en")}>{t.introTabEn}</button>
+    </div>
+    {tab === "vi"
+      ? <RichIntroEditor value={value} onChange={setValue} max={max} placeholder={t.introPlaceholder} copy={copy.richIntro} variant="inline" minHeight={140} />
+      : english
+        ? <RichIntro text={english} className="text-[15.5px] leading-8 text-ink-700" />
+        : <p className="text-sm leading-7 text-ink-500">{t.introNoEnglish}</p>}
+    {tab === "vi" && <p className="mt-2 text-[11.5px] leading-5 text-ink-500">{t.introNote}</p>}
+    {(dirty || note) && <div className="sticky bottom-3 z-10 mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-brand-200 bg-white/95 p-2 shadow-md backdrop-blur">
+      {dirty && <button type="button" className="btn btn-primary btn-sm" disabled={busy || value.length > max} onClick={async () => {
         setBusy(true); setNote(null);
         const result = await profile.save({ intro_source: value }).catch(() => ({ ok: false, message: copy.failed }));
         setBusy(false); setNote({ ok: result.ok, text: result.message });
-        if (result.ok) { setOpen(false); router.refresh(); }
-      }}>{busy ? t.introSaving : t.introSave}</button>
-      <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => setOpen(false)}>{t.cancel}</button>
-    </div>
-    {note && !note.ok && <p role="alert" className="text-[11.5px] font-semibold text-rose-700">{note.text}</p>}
+        if (result.ok) router.refresh();
+      }}>{busy ? t.introSaving : t.introSave}</button>}
+      {dirty && <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => { setValue(saved); setNote(null); }}>{t.cancel}</button>}
+      {note && <span role={note.ok ? "status" : "alert"} className={`text-[11.5px] font-semibold ${note.ok ? "text-emerald-700" : "text-rose-700"}`}>{note.text}</span>}
+    </div>}
   </div>;
 }

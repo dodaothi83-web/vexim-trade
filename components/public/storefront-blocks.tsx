@@ -32,7 +32,7 @@ export interface StorefrontBlocksData {
    * Nội dung các mục chung (giới thiệu, xác minh, điều kiện giao dịch, thông tin công ty, chứng
    * nhận có ảnh, thư viện ảnh) dựng sẵn ở máy chủ từ cùng component với trang Basic.
    */
-  sections?: { company?: ReactNode; checks?: ReactNode; trade?: ReactNode; companyDetails?: ReactNode; certificates?: ReactNode; gallery?: ReactNode };
+  sections?: { company?: ReactNode; companyBusiness?: ReactNode; checks?: ReactNode; trade?: ReactNode; companyDetails?: ReactNode; certificates?: ReactNode; gallery?: ReactNode };
   imageUrl: (path: string) => string;
 }
 
@@ -51,8 +51,11 @@ export interface BlockEditor {
   video: (block: LayoutBlock) => ReactNode;
   /** Gói Pro: khối Giới thiệu công ty có chỗ đặt video. */
   companyVideo?: boolean;
-  /** Khối Giới thiệu công ty: nút sửa phần giới thiệu từ hồ sơ ngay trong khối. */
-  companyText?: (block: LayoutBlock) => ReactNode;
+  /**
+   * Khối Giới thiệu công ty (cổng NCC): ô soạn đoạn giới thiệu ngay trong khối, thay đoạn giới
+   * thiệu tĩnh; chi tiết kinh doanh lấy từ sections.companyBusiness.
+   */
+  companyIntro?: (block: LayoutBlock) => ReactNode;
 }
 
 const NOT_EVIDENCE = "Images and text shared by the supplier. They are not evidence of a Vexim check.";
@@ -220,8 +223,9 @@ function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: numb
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">About</p>
             <h2 id="about-title" className="mt-1.5 text-2xl font-bold tracking-tight text-ink-900 @2xl:text-3xl">About this supplier</h2>
             <div className="mt-4 h-0.5 w-12 bg-[var(--sf-accent)]" aria-hidden="true" />
-            {data.sections?.company}
-            {ed?.companyText?.(block)}
+            {ed?.companyIntro && data.sections?.companyBusiness !== undefined
+              ? <>{ed.companyIntro(block)}{data.sections.companyBusiness}</>
+              : data.sections?.company}
           </div>
         </div>
         {(block.video_uid || ed?.companyVideo) && <div className="border-t border-ink-100 bg-[var(--sf-tint)]/40 p-6 @2xl:p-10">

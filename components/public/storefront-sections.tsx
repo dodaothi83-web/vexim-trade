@@ -42,7 +42,11 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
 }
 
 /** Giới thiệu và chi tiết kinh doanh do nhà cung cấp cung cấp. */
-export function CompanySection({ s, premium = false }: { s: PublicSupplierCard; premium?: boolean }) {
+export function CompanySection({ s, premium = false, hideIntro = false }: {
+  s: PublicSupplierCard; premium?: boolean;
+  /** Trình thiết kế (cổng NCC): đoạn giới thiệu được sửa trực tiếp ở chỗ khác, chỉ dựng chi tiết kinh doanh. */
+  hideIntro?: boolean;
+}) {
   const summary = safe(supplierSummaryDisplay(s));
   const businessDetails = [
     { label: "Main products", value: safe(supplierProductsDisplay(s)), wide: true },
@@ -52,7 +56,7 @@ export function CompanySection({ s, premium = false }: { s: PublicSupplierCard; 
   // Trang Premium/Pro: giới thiệu có định dạng (tiêu đề phụ, gạch đầu dòng, chữ đậm).
   const rich = premium ? safe(supplierSummaryRich(s)) : "";
   if (premium) return <>
-    {rich
+    {hideIntro ? null : rich
       ? <div className="mt-5"><ExpandableBlock><RichIntro text={rich} className="text-[15.5px] leading-8 text-ink-700" /></ExpandableBlock></div>
       : <p className="mt-5 text-sm leading-7 text-ink-500">This supplier has not added an introduction yet. Ask Vexim for more information.</p>}
     {businessDetails.length > 0 && <div className="mt-7 border-t border-ink-100 pt-6">

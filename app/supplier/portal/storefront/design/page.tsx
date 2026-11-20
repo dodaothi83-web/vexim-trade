@@ -16,6 +16,8 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { draftLayoutOf, listStorefrontVersions } from "@/lib/supplier-portal/storefront-design";
 import { designerDataFromCard } from "@/lib/supplier-portal/storefront-designer-data";
 import { supplierPlanRules } from "@/lib/supplier-plans";
+import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { supplierSummaryRich } from "@/lib/public/supplier-english";
 import { applyStorefrontLayoutAction, restoreStorefrontVersionAction, saveStorefrontDraftAction } from "../design-actions";
 import { saveStorefrontProfileFieldsAction } from "../profile-fields-action";
 
@@ -55,6 +57,7 @@ export default async function StorefrontDesignPage() {
   const designCertificates = publicSupplierCertificates(supplier.id, rawCertificates, supplierMedia);
   const designSections = {
     company: <CompanySection s={card} premium />,
+    companyBusiness: <CompanySection s={card} premium hideIntro />,
     checks: <ChecksSection s={card} />,
     trade: <TradeSection s={card} rfqActions={false} synthetic={false} premium />,
     companyDetails: <CompanyDetailsSection s={card} rfqActions={false} premium />,
@@ -74,7 +77,7 @@ export default async function StorefrontDesignPage() {
     {back}
     <PageHeader title={copy.title} sub={copy.sub} />
     <StorefrontDesigner profile={{ save: saveStorefrontProfileFieldsAction, values: {
-        intro_source: supplier.intro_source ?? "", products: supplier.products ?? "", markets: supplier.markets ?? "",
+        intro_source: supplier.intro_source ?? "", intro_en: withoutDirectContacts(supplierSummaryRich(card)), products: supplier.products ?? "", markets: supplier.markets ?? "",
         trade_name: supplier.trade_name ?? "", annual_output: supplier.annual_output ?? "", payment_terms: supplier.payment_terms ?? "",
         founded_year: supplier.founded_year ? String(supplier.founded_year) : "", employees: supplier.employees ? String(supplier.employees) : "",
         lead_time_days: supplier.lead_time_days ? String(supplier.lead_time_days) : "",

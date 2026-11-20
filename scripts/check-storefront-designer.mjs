@@ -184,11 +184,11 @@ assert.match(designer, /editor=\{editor\}/);
 assert.match(designer, /props\.saveDraft\(snapshot\)/, "Tự lưu chỉ lưu nháp");
 assert.doesNotMatch(designer, /props\.apply\(snapshot\)/, "Không tự áp dụng");
 assert.match(designer, /target\.tagName === "TEXTAREA"/, "Ctrl+Z trong ô chữ để trình duyệt xử lý");
-assert.match(designer, /props\.profile \? \(\) => <CompanyIntroEditor/, "Sửa giới thiệu từ hồ sơ chỉ ở cổng nhà cung cấp");
 assert.match(designer, /photos=\{!!props\.profile\}/, "Nút ảnh bìa, ảnh đại diện chỉ ở cổng nhà cung cấp");
 assert.match(designer, /REQUIRED_BLOCKS\.includes\(b\.type\)[\s\S]{0,200}copy\.required/, "Khối bắt buộc không có nút ẩn, xóa trên thanh nổi");
 // 16. "About this supplier" soạn kiểu blog (Premium/Pro): viết tiếng Việt có tiêu đề phụ, gạch đầu dòng, chữ đậm; AI dịch giữ định dạng.
 const RI = await import("../lib/rich-intro.ts");
+const designerSrcNow = () => read("components/storefront-designer/storefront-designer.tsx");
 const richSample = "We are a **processor**.\nSecond line.\n\n### Capacity\n- Factory\n- 120 workers";
 assert.deepEqual(RI.parseRichIntro(richSample).map((n) => n.kind), ["p", "h3", "li", "li"]);
 assert.deepEqual(RI.parseRichIntro(richSample)[0].runs, [{ t: "We are a " }, { t: "processor", b: true }, { t: ".\nSecond line." }]);
@@ -207,5 +207,9 @@ for (const tag of ["<h3", "<ul", "<li", "<strong"]) assert.ok(read("components/p
 const editorSrc = read("components/rich-intro-editor.tsx");
 assert.match(editorSrc, /clipboardData\.getData\("text\/plain"\)/, "Dán vào thành chữ thường");
 assert.doesNotMatch(editorSrc, /createLink|foreColor|fontSize|insertImage/, "Không link, màu, cỡ chữ, ảnh");
+assert.match(designerSrcNow(), /companyIntro: props\.profile \? \(\) => <InlineIntroEditor/, "Đoạn giới thiệu sửa ngay trên trang, chỉ cổng NCC");
+assert.match(designerSrcNow(), /variant="inline"/);
+assert.doesNotMatch(read("lib/storefront-profile-fields.ts"), /company: \["intro_source"/, "Bảng bên không còn ô giới thiệu");
+assert.match(read("app/supplier/portal/storefront/design/page.tsx"), /companyBusiness: <CompanySection s=\{card\} premium hideIntro \/>/);
 assert.match(read("app/supplier/portal/profile/edit/page.tsx"), /richIntro=\{supplierPlanRules\(access\.supplier\)\.plan !== "basic"\}/, "Basic vẫn là ô chữ thường");
 console.log("✅ Thiết kế trang: 5 loại khối, ảnh và sản phẩm đúng nhà cung cấp, tiếng Anh, không liên hệ, Tạo nhanh không bịa nội dung, bản nháp không công khai, CRM cần đồng ý, video và nhóm sản phẩm chỉ Pro.");
