@@ -138,4 +138,13 @@ assert.match(designer, /lg:sticky/);
 const blocksSrc = read("components/public/storefront-blocks.tsx");
 assert.match(blocksSrc, /if \(!onSelect\) return rendered \?/, "Trang thật không hiện ô giữ chỗ");
 assert.match(blocksSrc, /data-block-id=\{block\.id\}/);
+// 12. Sửa thông tin hồ sơ ngay trong Thiết kế trang: chỉ trường nhà cung cấp được sửa, không tên pháp lý, địa chỉ, MOQ, xác minh.
+const fieldsLib = read("lib/storefront-profile-fields.ts");
+for (const locked of ["legal_name:", "address:", "moq_text", "status:", "approved_verification"]) assert.doesNotMatch(fieldsLib, new RegExp(`\\b${locked}`), `Không sửa được ${locked}`);
+const profileAction = read("app/supplier/portal/storefront/profile-fields-action.ts");
+assert.match(profileAction, /supplierPortalAccess\(\)/);
+assert.match(profileAction, /STOREFRONT_PROFILE_FIELDS\[key/, "Chỉ nhận trường trong danh sách cho phép");
+assert.match(profileAction, /ensureSupplierProfileEnglish\(/, "Lưu xong dịch sang tiếng Anh như Hồ sơ công ty");
+assert.match(read("app/supplier/portal/storefront/design/page.tsx"), /profile=\{\{ save: saveStorefrontProfileFieldsAction/);
+assert.doesNotMatch(read("app/crm/suppliers/[slug]/design/page.tsx"), /profile=\{\{/, "CRM không sửa hồ sơ qua trình thiết kế");
 console.log("✅ Thiết kế trang: 5 loại khối, ảnh và sản phẩm đúng nhà cung cấp, tiếng Anh, không liên hệ, Tạo nhanh không bịa nội dung, bản nháp không công khai, CRM cần đồng ý, video và nhóm sản phẩm chỉ Pro.");

@@ -19,11 +19,14 @@ import {
 } from "@/lib/storefront-theme";
 import { STOREFRONT_STAT_LABELS, type StorefrontBlockCategory, type StorefrontBlockCertificate, type StorefrontBlocksData } from "@/components/public/storefront-blocks";
 import { checkVideoFile, uploadStreamVideoTo } from "@/lib/media/stream-upload-client";
+import { PROFILE_FIELDS_BY_BLOCK, STOREFRONT_PROFILE_FIELDS, type StorefrontProfileField, type StorefrontProfilePatch } from "@/lib/storefront-profile-fields";
 import { aplusVideoEmbedUrl } from "@/lib/products/aplus";
 import { PremiumHeader } from "@/components/public/premium-header";
 
 export type DesignerProduct = { id: string; name: string; imageUrl: string | null; detail?: string };
 export type DesignerResult = { ok: boolean; message: string };
+/** Giá trị hồ sơ hiện tại (bản gốc nhà cung cấp nhập) cho các ô sửa trong bảng chỉnh. */
+export type ProfileValues = Partial<Record<StorefrontProfileField, string>> & { legal_name: string; address: string; moq: string };
 
 const HEADER = "__header__";
 
@@ -60,6 +63,11 @@ export function StorefrontDesigner(props: {
   certificates: StorefrontBlockCertificate[];
   /** Nội dung các mục chung dựng sẵn ở máy chủ (cùng component với trang thật). */
   sections: StorefrontBlocksData["sections"];
+  /**
+   * Chỉ cổng nhà cung cấp: sửa thông tin hồ sơ ngay trong bảng chỉnh của các khối lấy từ hồ sơ.
+   * Không truyền (CRM) thì các khối này chỉ có hướng dẫn.
+   */
+  profile?: { values: ProfileValues; save: (patch: StorefrontProfilePatch) => Promise<DesignerResult> };
 }) {
   const { copy } = props;
   const router = useRouter();
@@ -241,7 +249,7 @@ export function StorefrontDesigner(props: {
           {selected === HEADER ? <HeaderSettings layout={layout} setLayout={setLayout} copy={copy} />
             : block ? <BlockSettings block={block} patch={patch} copy={copy} statValues={props.statValues} markets={props.markets}
               products={props.products} previewUrl={previewUrl} upload={upload} uploading={uploading}
-              categories={props.categories} certificates={props.certificates} hasGallery={!!props.sections?.gallery}
+              categories={props.categories} certificates={props.certificates} hasGallery={!!props.sections?.gallery} profile={props.profile}
               uploadVideo={async (file, onProgress) => {
                 const problem = await checkVideoFile(file, { video: copy.errors.videoFile, videoTooLong: copy.errors.videoTooLong, upload: copy.errors.upload }, fill);
                 if (problem) throw new Error(problem);
@@ -292,7 +300,67 @@ function HeaderSettings({ layout, setLayout, copy }: { layout: StorefrontLayout;
   </>;
 }
 
-function BlockSettings({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading, categories, certificates, uploadVideo, hasGallery }: {
+function BlockSettings(props: Parameters<typeof BlockSettingsInner>[0] & { profile?: { values: ProfileValues; save: (patch: StorefrontProfilePatch) => Promise<DesignerResult> } }) {
+  const fields = props.profile ? PROFILE_FIELDS_BY_BLOCK[props.block.type] : undefined;
+  return <>
+    <BlockSettingsInner {...props} />
+    {props.profile && fields && <ProfileFields key={props.block.type} fields={fields} block={props.block.type} profile={props.profile} copy={props.copy} />}
+  </>;
+}
+
+/** Ô sửa thông tin hồ sơ cho khối lấy từ hồ sơ; lưu ngay vào Hồ sơ công ty. */
+function ProfileFields({ fields, block, profile, copy }: {
+  fields: StorefrontProfileField[];
+  block: LayoutBlockType;
+  profile: { values: ProfileValues; save: (patch: StorefrontProfilePatch) => Promise<DesignerResult> };
+  copy: DesignerMessages;
+}) {
+  const router = useRouter();
+  const t = copy.profile;
+  const initial = Object.fromEntries(fields.map((f) => [f, profile.values[f] ?? ""])) as Record<StorefrontProfileField, string>;
+  const [values, setValues] = useState(initial);
+  const [saved, setSaved] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const changed = fields.filter((f) => values[f] !== saved[f]);
+  const field = "input mt-1 w-full font-normal";
+  return <div className="mt-4 space-y-3 border-t border-ink-100 pt-4">
+    <p className="font-bold text-ink-900">{t.title}</p>
+    <p className="rounded-md bg-amber-50 p-2 text-[11.5px] leading-5 text-amber-900">{t.note}</p>
+    {fields.map((f) => {
+      const spec = STOREFRONT_PROFILE_FIELDS[f];
+      const label = t.fields[f];
+      const long = f === "intro_source" || f === "products" || f === "markets";
+      return <label key={f} className="block font-semibold text-ink-700">{label}
+        {long
+          ? <textarea rows={f === "intro_source" ? 6 : 3} value={values[f]} onChange={(e) => setValues((v) => ({ ...v, [f]: e.target.value }))} className={field} />
+          : <input value={values[f]} inputMode={spec.kind === "int" ? "numeric" : undefined} onChange={(e) => setValues((v) => ({ ...v, [f]: e.target.value }))} className={field} />}
+        {spec.kind === "list" && <span className="mt-0.5 block text-[11px] font-normal text-ink-500">{t.listHint}</span>}
+        {spec.kind === "text" && <Counter value={values[f]} max={spec.max} copy={copy} />}
+      </label>;
+    })}
+    {block === "details" && <ReadOnly label={t.fields.legal_name} value={profile.values.legal_name} hint={t.readOnly} />}
+    {block === "details" && <ReadOnly label={t.fields.address} value={profile.values.address} hint={t.readOnly} />}
+    {block === "trade" && <ReadOnly label={t.fields.moq} value={profile.values.moq} hint={t.readOnly} />}
+    <button type="button" disabled={busy || changed.length === 0} className="btn btn-primary btn-sm" onClick={async () => {
+      setBusy(true); setNote(null);
+      const result = await profile.save(Object.fromEntries(changed.map((f) => [f, values[f]]))).catch(() => ({ ok: false, message: copy.failed }));
+      setNote({ ok: result.ok, text: result.message }); setBusy(false);
+      if (result.ok) { setSaved(values); router.refresh(); }
+    }}>{busy ? t.saving : t.save}</button>
+    {note && <p role={note.ok ? "status" : "alert"} className={`text-[11.5px] font-semibold ${note.ok ? "text-emerald-700" : "text-rose-700"}`}>{note.text}</p>}
+  </div>;
+}
+
+function ReadOnly({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return <div>
+    <p className="font-semibold text-ink-700">{label}</p>
+    <p className="mt-1 rounded-md bg-ink-50 px-2.5 py-1.5 text-ink-800">{value || "—"}</p>
+    <p className="mt-0.5 text-[11px] text-ink-500">{hint}</p>
+  </div>;
+}
+
+function BlockSettingsInner({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading, categories, certificates, uploadVideo, hasGallery }: {
   block: LayoutBlock;
   patch: (id: string, change: Partial<LayoutBlock>) => void;
   copy: DesignerMessages;
