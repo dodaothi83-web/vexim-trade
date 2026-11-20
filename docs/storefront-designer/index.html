@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storefront designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!--
+  Bản mẫu "Thiết kế trang" để chủ sàn duyệt trước khi code (chưa phải tính năng thật).
+  1) Nhà cung cấp Premium/Pro tự thiết kế: danh sách khối, xem trước trực tiếp, chỉnh khối,
+     Tạo nhanh từ hồ sơ, Lưu nháp / Áp dụng.
+  2) CRM thiết kế hộ (dịch vụ bán ngoài): ghi nhận đồng ý, đăng thay, lịch sử phiên bản.
+  3) Thông báo nhà cung cấp nhận được sau khi Vexim đăng.
+  Giữ logo V, navy Vexim, phông Be Vietnam Pro, tông màu trang đã duyệt (docs/storefront-templates).
+  Công ty, số liệu và trạng thái xác minh là dữ liệu mẫu, không phải nhà cung cấp thật.
+-->
+<style>
+  :root {
+    --navy: #1F3E74; --navy-dark: #162E57; --navy-50: #EEF2F9; --navy-100: #DCE4F2;
+    --ink: #141C2E; --muted: #4E586B; --soft: #7A8496; --line: #DFE5EE; --bg: #F4F6FA;
+    --success: #0E7A4E; --success-bg: #E7F5EF; --warn: #8A5A00; --warn-bg: #FFF5E0; --danger: #B42318; --danger-bg: #FDECEA;
+    --accent: #9C7A4B; --accent-dark: #7A5E36; --tint: #F6F0E6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Be Vietnam Pro", system-ui, sans-serif; color: var(--ink); background: var(--bg); font-size: 14px; }
+  img { display: block; max-width: 100%; }
+  button { font: inherit; cursor: pointer; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* Thanh chọn màn hình (chỉ có trong bản mẫu) */
+  .proto { position: sticky; top: 0; z-index: 50; background: #0D1526; color: #fff; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; }
+  .proto b { opacity: .7; font-weight: 600; margin-right: 6px; }
+  .proto button { border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; border-radius: 999px; padding: 6px 14px; }
+  .proto button[aria-pressed="true"] { background: #fff; color: #0D1526; border-color: #fff; }
+  .proto .demo { margin-left: auto; font-size: 11.5px; opacity: .65; }
+  .screen { display: none; }
+  .screen.on { display: block; }
+
+  /* Khung cổng nhà cung cấp / CRM */
+  .topbar { height: 56px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; padding: 0 16px; }
+  .topbar img { height: 28px; }
+  .topbar .brand { font-weight: 800; color: var(--navy); }
+  .topbar .crumb { color: var(--soft); font-size: 13px; }
+  .topbar .crumb strong { color: var(--ink); font-weight: 600; }
+  .topbar .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .status { font-size: 12px; color: var(--muted); background: var(--bg); border-radius: 999px; padding: 5px 10px; }
+  .status.draft { color: var(--warn); background: var(--warn-bg); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 9px; padding: 8px 14px; font-weight: 700; font-size: 13px; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+  .btn:hover { border-color: #C3CCDA; }
+  .btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .btn-primary:hover { background: var(--navy-dark); }
+  .btn-soft { background: var(--navy-50); border-color: var(--navy-100); color: var(--navy); }
+  .btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 8px; font-size: 10.5px; font-weight: 700; background: var(--navy-50); color: var(--navy); }
+  .chip.lock { background: var(--bg); color: var(--soft); }
+
+  /* Bố cục 3 cột */
+  .designer { display: grid; grid-template-columns: 280px minmax(0, 1fr) 320px; height: calc(100vh - 56px - 42px); }
+  .designer.crm { height: auto; min-height: 640px; }
+  .col { overflow-y: auto; background: #fff; }
+  .col-left { border-right: 1px solid var(--line); }
+  .col-right { border-left: 1px solid var(--line); }
+  .col-mid { background: var(--bg); padding: 16px; }
+  .panel-h { padding: 14px 16px 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--soft); }
+
+  .quick { margin: 12px 16px 4px; border: 1px dashed var(--navy-100); background: var(--navy-50); border-radius: 12px; padding: 12px; }
+  .quick p { margin: 4px 0 10px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+  .quick strong { font-size: 13px; color: var(--navy); }
+
+  .blocks { list-style: none; margin: 0; padding: 0 8px; }
+  .blocks li { display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 9px; border: 1px solid transparent; cursor: pointer; }
+  .blocks li:hover { background: var(--bg); }
+  .blocks li.sel { border-color: var(--navy); background: var(--navy-50); }
+  .blocks li.off .name { color: var(--soft); text-decoration: line-through; }
+  .blocks .grip { color: #B6BFCD; font-size: 13px; width: 12px; }
+  .blocks .name { flex: 1; font-size: 13px; font-weight: 600; }
+  .blocks .tools { display: flex; gap: 2px; }
+  .ico { border: 0; background: transparent; color: var(--soft); width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-size: 13px; }
+  .ico:hover { background: #E9EDF4; color: var(--ink); }
+  .blocks li.locked { cursor: default; background: var(--bg); }
+  .library { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 16px 16px; }
+  .lib { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #fff; text-align: left; font-size: 12px; font-weight: 600; }
+  .lib:hover { border-color: var(--navy); }
+  .lib small { display: block; font-weight: 400; color: var(--soft); margin-top: 3px; font-size: 11px; }
+  .lib .chip { margin-top: 6px; }
+  .lib[disabled] { opacity: .55; }
+
+  /* Xem trước */
+  .preview-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 12px; color: var(--muted); }
+  .seg { display: inline-flex; background: #fff; border: 1px solid var(--line); border-radius: 9px; padding: 2px; }
+  .seg button { border: 0; background: transparent; padding: 5px 12px; border-radius: 7px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--navy); color: #fff; }
+  .canvas { margin: 0 auto; background: #fff; border-radius: 14px; box-shadow: 0 1px 2px rgba(20,28,46,.06), 0 8px 24px rgba(20,28,46,.06); overflow: hidden; transition: max-width .25s; max-width: 980px; }
+  .canvas.mobile { max-width: 390px; }
+  .pv { position: relative; outline: 2px solid transparent; outline-offset: -2px; transition: outline-color .15s; }
+  .pv:hover { outline-color: var(--navy-100); }
+  .pv.sel { outline-color: var(--navy); }
+  .pv.off { display: none; }
+  .pv .tag { position: absolute; top: 8px; left: 8px; background: var(--navy); color: #fff; font-size: 10.5px; font-weight: 700; border-radius: 6px; padding: 2px 7px; opacity: 0; transition: opacity .15s; z-index: 3; }
+  .pv:hover .tag, .pv.sel .tag { opacity: 1; }
+
+  /* Nội dung trang (tiếng Anh, tông champagne) */
+  .s-head { padding: 22px 24px; display: flex; gap: 16px; align-items: center; border-bottom: 1px solid var(--line); }
+  .s-logo { width: 60px; height: 60px; border-radius: 50%; background: var(--tint); color: var(--accent-dark); display: grid; place-items: center; font-weight: 800; font-size: 22px; flex-shrink: 0; }
+  .s-head h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .s-meta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--muted); align-items: center; }
+  .shield { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #BFE3D2; background: var(--success-bg); color: var(--success); border-radius: 999px; padding: 3px 10px; font-weight: 700; font-size: 11.5px; }
+  .s-head .rfq { margin-left: auto; background: var(--navy); color: #fff; border-radius: 9px; padding: 10px 16px; font-weight: 700; font-size: 13px; white-space: nowrap; }
+  .lockhint { position: absolute; right: 10px; bottom: 6px; font-size: 10.5px; color: var(--soft); }
+  .s-banner { position: relative; height: 260px; background: #222 center/cover; }
+  .s-banner::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,14,22,.65), rgba(10,14,22,.05)); }
+  .s-banner .txt { position: absolute; z-index: 2; left: 28px; bottom: 28px; color: #fff; max-width: 460px; }
+  .s-banner .eyebrow { color: #EBD9B8; }
+  .s-banner h2 { margin: 6px 0 0; font-size: 26px; font-weight: 300; line-height: 1.25; }
+  .dots { position: absolute; z-index: 2; right: 18px; bottom: 16px; display: flex; gap: 5px; }
+  .dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.5); }
+  .dots i:first-child { background: #fff; }
+  .eyebrow { text-transform: uppercase; letter-spacing: .18em; font-size: 10.5px; font-weight: 700; color: var(--accent); }
+  .sec { padding: 26px 24px; }
+  .sec h3 { margin: 4px 0 14px; font-size: 19px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .stats div { background: #fff; padding: 16px; }
+  .stats b { display: block; font-size: 20px; color: var(--accent-dark); }
+  .stats span { font-size: 11.5px; color: var(--muted); }
+  .prods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .prod { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 12px; }
+  .prod img { aspect-ratio: 1; object-fit: cover; width: 100%; }
+  .prod p { margin: 8px 10px 2px; font-weight: 600; }
+  .prod span { display: block; margin: 0 10px 10px; color: var(--muted); font-size: 11px; }
+  .video { position: relative; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #000 center/cover; }
+  .video .play { position: absolute; inset: 0; margin: auto; width: 62px; height: 62px; border-radius: 50%; background: rgba(255,255,255,.92); display: grid; place-items: center; color: var(--navy); font-size: 22px; }
+  .about { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center; }
+  .about img { border-radius: 12px; aspect-ratio: 4/3; object-fit: cover; width: 100%; }
+  .about p { line-height: 1.7; color: var(--muted); margin: 0; font-size: 13px; }
+  .certs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cert { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-size: 12px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
+  .cert small { color: var(--success); font-weight: 600; }
+  .markets { display: flex; flex-wrap: wrap; gap: 8px; }
+  .markets span { background: var(--tint); color: var(--accent-dark); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; }
+  .canvas.mobile .stats, .canvas.mobile .prods { grid-template-columns: 1fr 1fr; }
+  .canvas.mobile .about { grid-template-columns: 1fr; }
+  .canvas.mobile .s-head { flex-wrap: wrap; }
+  .canvas.mobile .s-head .rfq { margin-left: 0; width: 100%; text-align: center; }
+  .canvas.mobile .s-banner { height: 200px; }
+  .canvas.mobile .s-banner h2 { font-size: 20px; }
+
+  /* Bảng chỉnh khối */
+  .form { padding: 4px 16px 20px; }
+  .form h4 { margin: 4px 0 2px; font-size: 15px; }
+  .form .sub { margin: 0 0 14px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: #2B3446; margin-bottom: 5px; }
+  .field input[type=text], .field textarea, .field select { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; }
+  .field textarea { min-height: 84px; resize: vertical; }
+  .hint { font-size: 11px; color: var(--soft); margin-top: 4px; line-height: 1.45; }
+  .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .thumbs div { aspect-ratio: 16/10; border-radius: 7px; background: #ddd center/cover; border: 1px solid var(--line); }
+  .thumbs .add { background: #fff; border-style: dashed; display: grid; place-items: center; color: var(--soft); font-size: 18px; }
+  .ok { font-size: 11.5px; color: var(--success); background: var(--success-bg); border-radius: 7px; padding: 6px 8px; }
+  .bad { font-size: 11.5px; color: var(--danger); background: var(--danger-bg); border-radius: 7px; padding: 6px 8px; }
+  .from-profile { font-size: 11.5px; color: var(--muted); background: var(--bg); border-radius: 7px; padding: 8px; line-height: 1.5; }
+  .picklist { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; }
+  .picklist li { display: flex; gap: 8px; align-items: center; padding: 7px 9px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .picklist li:last-child { border-bottom: 0; }
+  .picklist img { width: 30px; height: 30px; border-radius: 5px; object-fit: cover; }
+
+  /* Hộp thoại Tạo nhanh */
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); opacity: 0; background: #0D1526; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 13px; transition: .2s; z-index: 60; pointer-events: none; }
+  .toast.on { opacity: 1; transform: translateX(-50%); }
+  dialog { border: 0; border-radius: 16px; padding: 22px; max-width: 460px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  dialog::backdrop { background: rgba(13,21,38,.55); }
+  dialog h3 { margin: 0 0 6px; font-size: 17px; }
+  dialog p, dialog li { font-size: 13px; color: var(--muted); line-height: 1.55; }
+  dialog ul { padding-left: 18px; margin: 8px 0 14px; }
+  .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+  /* CRM */
+  .crm-wrap { max-width: 1280px; margin: 0 auto; padding: 18px 16px 40px; }
+  .crm-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .crm-title h2 { margin: 0; font-size: 20px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .consent { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; margin-bottom: 16px; }
+  .consent h3, .history h3 { margin: 0 0 4px; font-size: 14px; }
+  .consent .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-top: 12px; }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; font-weight: 600; margin-top: 12px; }
+  .check input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--navy); }
+  .gate { position: relative; }
+  .gate.locked .designer { filter: grayscale(.6); opacity: .45; pointer-events: none; user-select: none; }
+  .gate .lockmsg { display: none; position: absolute; inset: 0; z-index: 5; place-items: center; }
+  .gate.locked .lockmsg { display: grid; }
+  .lockmsg div { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; max-width: 360px; text-align: center; box-shadow: 0 8px 30px rgba(20,28,46,.12); font-size: 13px; color: var(--muted); }
+  .lockmsg strong { display: block; color: var(--ink); margin-bottom: 4px; font-size: 14px; }
+  .history ol { list-style: none; margin: 10px 0 0; padding: 0; }
+  .history li { padding: 9px 0; border-top: 1px solid var(--line); font-size: 12px; display: flex; gap: 8px; align-items: flex-start; }
+  .history li:first-child { border-top: 0; }
+  .history .who { flex: 1; color: var(--muted); line-height: 1.45; }
+  .history .who strong { color: var(--ink); }
+  .pill-live { font-size: 10.5px; font-weight: 700; color: var(--success); background: var(--success-bg); border-radius: 999px; padding: 2px 7px; }
+  .note { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* Màn hình 3: thông báo */
+  .notify-wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
+  .banner-note { display: flex; gap: 14px; align-items: flex-start; background: #fff; border: 1px solid var(--navy-100); border-left: 4px solid var(--navy); border-radius: 12px; padding: 16px 18px; }
+  .banner-note .ic { width: 36px; height: 36px; border-radius: 10px; background: var(--navy-50); color: var(--navy); display: grid; place-items: center; font-size: 17px; flex-shrink: 0; }
+  .banner-note h3 { margin: 0 0 4px; font-size: 15px; }
+  .banner-note p { margin: 0 0 10px; font-size: 13px; color: var(--muted); line-height: 1.55; }
+  .banner-note .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mail { margin-top: 18px; }
+  .mail .card { font-size: 13px; line-height: 1.6; color: var(--muted); }
+  .mail .card b { color: var(--ink); }
+  .cap { font-size: 12px; font-weight: 700; color: var(--soft); text-transform: uppercase; letter-spacing: .06em; margin: 22px 0 8px; }
+
+  @media (max-width: 1100px) {
+    .designer { grid-template-columns: 240px minmax(0, 1fr); height: auto; }
+    .col-right { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
+    .consent { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .designer { grid-template-columns: 1fr; }
+    .col-left { border-right: 0; border-bottom: 1px solid var(--line); }
+    .topbar .crumb { display: none; }
+    .stats, .prods { grid-template-columns: 1fr 1fr; }
+    .about, .consent .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="proto" role="group" aria-label="Chọn màn hình bản mẫu">
+  <b>Bản mẫu</b>
+  <button type="button" data-screen="s1" aria-pressed="true">1 · Nhà cung cấp tự thiết kế</button>
+  <button type="button" data-screen="s2" aria-pressed="false">2 · CRM thiết kế hộ</button>
+  <button type="button" data-screen="s3" aria-pressed="false">3 · Thông báo cho nhà cung cấp</button>
+  <span class="demo">Dữ liệu mẫu · không phải nhà cung cấp thật</span>
+</div>
+
+<!-- ============ MÀN HÌNH 1: NHÀ CUNG CẤP TỰ THIẾT KẾ ============ -->
+<section class="screen on" id="s1" aria-label="Nhà cung cấp tự thiết kế trang">
+  <header class="topbar">
+    <img src="../storefront-templates/logo-vexim.png" alt="Vexim">
+    <span class="crumb">Cổng nhà cung cấp / <strong>Thiết kế trang</strong></span>
+    <div class="right">
+      <span class="status draft" data-status>Bản nháp · chưa áp dụng</span>
+      <button class="btn" type="button" data-save>Lưu nháp</button>
+      <button class="btn" type="button">Xem trang ↗</button>
+      <button class="btn btn-primary" type="button" data-apply>Áp dụng</button>
+    </div>
+  </header>
+  <div class="designer" data-designer="s1"></div>
+</section>
+
+<!-- ============ MÀN HÌNH 2: CRM THIẾT KẾ HỘ ============ -->
+<section class="screen" id="s2" aria-label="CRM thiết kế hộ">
+  <header class="topbar">
+    <img src="../storefront-templates/logo-vexim.png" alt="Vexim">
+    <span class="crumb">CRM / Nhà cung cấp / Lam Vien Cashew / <strong>Thiết kế hộ</strong></span>
+    <div class="right">
+      <span class="status">Nhân viên: Thu Hà</span>
+    </div>
+  </header>
+  <div class="crm-wrap">
+    <div class="crm-title">
+      <h2>Thiết kế trang hộ nhà cung cấp</h2>
+      <span class="chip">Gói Pro · còn 142 ngày</span>
+      <span class="chip lock">Dịch vụ bán ngoài hệ thống</span>
+    </div>
+
+    <div class="consent">
+      <div class="card">
+        <h3>1. Ghi nhận nhà cung cấp đồng ý</h3>
+        <p class="note">Bắt buộc trước khi sửa. Vexim chỉ dùng ảnh và số liệu thật do nhà cung cấp gửi; trang đẹp không thay đổi mức xác minh.</p>
+        <div class="grid">
+          <div class="field"><label>Người đại diện đồng ý</label><input type="text" value="Ông Trần Minh (Giám đốc)"></div>
+          <div class="field"><label>Ngày đồng ý</label><input type="text" value="18/11/2026"></div>
+          <div class="field"><label>Hình thức</label><select><option>Hợp đồng dịch vụ</option><option>Email</option><option>Tin nhắn Zalo</option></select></div>
+          <div class="field"><label>Bằng chứng (số hợp đồng / tệp đính kèm)</label><input type="text" value="HĐ-TK-2026-031.pdf"></div>
+          <div class="field" style="grid-column:1/-1"><label>Phạm vi</label><select><option>Trang nhà cung cấp + A+ cho 5 sản phẩm</option><option>Chỉ trang nhà cung cấp</option></select></div>
+        </div>
+        <label class="check"><input type="checkbox" data-consent> Nhà cung cấp đã đồng ý cho Vexim thiết kế và đăng trang thay họ.</label>
+      </div>
+      <div class="card history">
+        <h3>Lịch sử phiên bản</h3>
+        <p class="note">Mỗi lần áp dụng đều lưu bản trước để khôi phục.</p>
+        <ol data-history>
+          <li><div class="who"><strong>12/11/2026 · Nhà cung cấp</strong><br>Tự áp dụng: đổi tông màu, thêm 2 khối ảnh</div><span class="pill-live">Đang hiện</span></li>
+          <li><div class="who"><strong>02/10/2026 · Tạo nhanh từ hồ sơ</strong><br>Bản đầu tiên</div><button class="btn" type="button" style="padding:4px 8px;font-size:11px">Khôi phục</button></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap">
+        <strong style="font-size:14px">2. Thiết kế</strong>
+        <span class="note">Cùng trình thiết kế với nhà cung cấp.</span>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn" type="button" data-crm-save disabled>Lưu nháp</button>
+          <button class="btn btn-primary" type="button" data-crm-apply disabled>Áp dụng thay nhà cung cấp</button>
+        </div>
+      </div>
+      <div class="gate locked" data-gate>
+        <div class="lockmsg"><div><strong>Chưa ghi nhận đồng ý</strong>Điền thông tin và đánh dấu xác nhận ở bước 1 để mở trình thiết kế.</div></div>
+        <div class="designer crm" data-designer="s2"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MÀN HÌNH 3: THÔNG BÁO ============ -->
+<section class="screen" id="s3" aria-label="Thông báo cho nhà cung cấp">
+  <header class="topbar">
+    <img src="../storefront-templates/logo-vexim.png" alt="Vexim">
+    <span class="crumb">Cổng nhà cung cấp / <strong>Tổng quan</strong></span>
+  </header>
+  <div class="notify-wrap">
+    <p class="cap">Trong cổng nhà cung cấp (đầu trang Tổng quan và chuông thông báo)</p>
+    <div class="banner-note">
+      <div class="ic">✦</div>
+      <div>
+        <h3>Vexim đã cập nhật trang nhà cung cấp của bạn</h3>
+        <p>Theo thoả thuận dịch vụ ngày 18/11/2026, đội ngũ Vexim đã thiết kế và áp dụng trang mới lúc 15:40, 20/11/2026: banner mới, video nhà máy, 4 sản phẩm nổi bật. Bạn vẫn tự sửa được bất cứ lúc nào.</p>
+        <div class="acts">
+          <button class="btn btn-primary" type="button">Xem trang</button>
+          <button class="btn" type="button">Mở Thiết kế trang</button>
+          <button class="btn" type="button">Khôi phục bản trước</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="cap">Email gửi người đại diện</p>
+    <div class="mail"><div class="card">
+      <b>Tiêu đề:</b> Trang nhà cung cấp của Lam Vien Cashew đã được cập nhật<br><br>
+      Xin chào anh Minh,<br>
+      Theo thoả thuận dịch vụ thiết kế ngày 18/11/2026, đội ngũ Vexim đã áp dụng trang mới cho Lam Vien Cashew trên Vexim Trade.<br>
+      Anh có thể xem trang, tự chỉnh sửa hoặc khôi phục bản trước trong mục <b>Thiết kế trang</b> của cổng nhà cung cấp.<br><br>
+      Nếu cần thay đổi, anh trả lời email này hoặc liên hệ nhân viên phụ trách.
+    </div></div>
+
+    <p class="cap">Người mua thấy gì</p>
+    <p class="note">Chỉ thấy trang mới. Không có dòng "do Vexim thiết kế", không thêm dấu hiệu tin cậy nào. Khiên và cấp độ xác minh vẫn hiện đúng thực tế.</p>
+  </div>
+</section>
+
+<dialog id="quick-dlg" aria-labelledby="quick-title">
+  <h3 id="quick-title">Tạo nhanh từ hồ sơ?</h3>
+  <p>Hệ thống dựng sẵn một trang từ dữ liệu bạn đã có:</p>
+  <ul>
+    <li>Banner từ ảnh nhà máy và ảnh sản phẩm đẹp nhất</li>
+    <li>Số liệu năng lực, năm thành lập, thị trường từ hồ sơ</li>
+    <li>4 sản phẩm đang đăng có nhiều lượt xem nhất</li>
+    <li>Chứng nhận Vexim đã xác minh</li>
+  </ul>
+  <p>Bản dựng sẵn vào <strong>bản nháp</strong>, người mua chưa thấy cho tới khi bạn bấm Áp dụng. Bản nháp hiện tại sẽ được thay.</p>
+  <div class="dlg-actions">
+    <button class="btn" type="button" data-close>Huỷ</button>
+    <button class="btn btn-primary" type="button" data-quick-go>Tạo nhanh</button>
+  </div>
+</dialog>
+<div class="toast" role="status" data-toast></div>
+
+<script>
+(() => {
+  const IMG = "../storefront-templates/";
+  const TYPES = {
+    banner: { name: "Banner", desc: "1–3 ảnh trượt" },
+    stats: { name: "Năng lực sản xuất", desc: "Số liệu từ hồ sơ" },
+    products: { name: "Sản phẩm nổi bật", desc: "Tối đa 8 sản phẩm" },
+    video: { name: "Video nhà máy", desc: "Tối đa 15 phút", pro: true },
+    about: { name: "Ảnh kèm chữ", desc: "Giới thiệu, quy trình" },
+    certs: { name: "Chứng nhận", desc: "Chỉ chứng nhận đã xác minh" },
+    markets: { name: "Thị trường xuất khẩu", desc: "Từ hồ sơ" },
+    categories: { name: "Nhóm sản phẩm", desc: "Theo danh mục", pro: true },
+  };
+  const START = [
+    { id: "b1", type: "banner", on: true }, { id: "b2", type: "stats", on: true },
+    { id: "b3", type: "products", on: true }, { id: "b4", type: "about", on: true },
+  ];
+  const QUICK = [
+    { id: "q1", type: "banner", on: true }, { id: "q2", type: "stats", on: true }, { id: "q3", type: "products", on: true },
+    { id: "q4", type: "video", on: true }, { id: "q5", type: "about", on: true }, { id: "q6", type: "certs", on: true }, { id: "q7", type: "markets", on: true },
+  ];
+
+  function render(type) {
+    switch (type) {
+      case "banner": return `<div class="s-banner" style="background-image:url(${IMG}hero-scene.jpg)"><div class="txt"><div class="eyebrow">Binh Phuoc · Since 2009</div><h2>Premium Vietnamese cashew kernels, graded by hand for export.</h2></div><div class="dots"><i></i><i></i><i></i></div></div>`;
+      case "stats": return `<div class="stats"><div><b>1,200 MT</b><span>Monthly capacity</span></div><div><b>2009</b><span>Founded</span></div><div><b>180</b><span>Employees</span></div><div><b>14 days</b><span>Lead time</span></div></div>`;
+      case "products": return `<div class="sec"><div class="eyebrow">Featured</div><h3>Featured products</h3><div class="prods">${[["cashew-grade.jpg","Cashew W320","WW · FOB HCMC"],["pepper.jpg","Black pepper 550 g/l","ASTA · FOB HCMC"],["coffee.jpg","Robusta S18","Wet polished"],["cinnamon.jpg","Cassia split","Moisture ≤ 13.5%"]].map(([i,n,s])=>`<div class="prod"><img src="${IMG}${i}" alt=""><p>${n}</p><span>${s}</span></div>`).join("")}</div></div>`;
+      case "video": return `<div class="sec"><div class="eyebrow">Factory tour</div><h3>Inside our processing line</h3><div class="video" style="background-image:url(${IMG}producers-section.jpg)"><div class="play">▶</div></div></div>`;
+      case "about": return `<div class="sec"><div class="about"><img src="${IMG}cashew-hero.jpg" alt=""><div><div class="eyebrow">Our process</div><h3>From farm gate to container</h3><p>Raw nuts are sourced from 600 partner farms, steamed, shelled and peeled on site, then graded by hand under daylight lamps. Every lot is checked for moisture and broken ratio before packing.</p></div></div></div>`;
+      case "certs": return `<div class="sec"><div class="eyebrow">Certificates</div><h3>Verified by Vexim</h3><div class="certs"><div class="cert">HACCP <small>✓ checked</small></div><div class="cert">ISO 22000 <small>✓ checked</small></div><div class="cert">FDA registration <small>✓ checked</small></div></div></div>`;
+      case "markets": return `<div class="sec"><div class="eyebrow">Export markets</div><h3>Where we ship</h3><div class="markets"><span>United States</span><span>Germany</span><span>Netherlands</span><span>UAE</span><span>Japan</span></div></div>`;
+      case "categories": return `<div class="sec"><div class="eyebrow">Browse</div><h3>Product groups</h3><div class="markets"><span>Cashew kernels (8)</span><span>Spices (5)</span><span>Coffee (3)</span></div></div>`;
+    }
+    return "";
+  }
+
+  function settings(block) {
+    const t = TYPES[block.type];
+    const head = `<h4>${t.name}</h4>`;
+    switch (block.type) {
+      case "banner": return `${head}<p class="sub">Ảnh trượt đầu trang, ngay dưới tên công ty.</p>
+        <div class="field"><label>Ảnh (1–3)</label><div class="thumbs"><div style="background-image:url(${IMG}hero-scene.jpg)"></div><div style="background-image:url(${IMG}hero-cashew-texture.jpg)"></div><div class="add">+</div></div>
+        <div class="hint">1600 × 600 px, JPG/PNG/WebP, tối đa 3 MB. Không chèn số điện thoại, email, logo nơi khác vào ảnh.</div></div>
+        <div class="field"><label>Dòng nhỏ (tiếng Anh)</label><input type="text" value="Binh Phuoc · Since 2009"></div>
+        <div class="field"><label>Tiêu đề (tiếng Anh)</label><textarea>Premium Vietnamese cashew kernels, graded by hand for export.</textarea><div class="hint">71/120 ký tự</div></div>
+        <div class="ok">✓ Tiếng Anh, không có thông tin liên hệ</div>`;
+      case "stats": return `${head}<p class="sub">Chọn tối đa 4 số liệu. Giá trị lấy từ hồ sơ, không nhập tay.</p>
+        <div class="field">${["Năng lực/tháng · 1,200 MT","Năm thành lập · 2009","Số nhân viên · 180","Thời gian giao · 14 days","MOQ · 1 container","Incoterms · FOB, CIF"].map((x,i)=>`<label style="display:flex;gap:8px;font-weight:500;margin-bottom:7px"><input type="checkbox" ${i<4?"checked":""}> ${x}</label>`).join("")}</div>
+        <div class="from-profile">Muốn đổi số liệu? Sửa trong <b>Hồ sơ công ty</b>; trang tự cập nhật.</div>`;
+      case "products": return `${head}<p class="sub">Chọn tối đa 8 sản phẩm đang đăng. Kéo để sắp xếp.</p>
+        <ul class="picklist">${[["cashew-grade.jpg","Cashew W320"],["pepper.jpg","Black pepper 550 g/l"],["coffee.jpg","Robusta S18"],["cinnamon.jpg","Cassia split"]].map(([i,n])=>`<li><span class="grip">⋮⋮</span><img src="${IMG}${i}" alt="">${n}<button class="ico" style="margin-left:auto" type="button" aria-label="Bỏ">✕</button></li>`).join("")}</ul>
+        <button class="btn btn-soft" type="button" style="margin-top:10px">+ Chọn sản phẩm</button>`;
+      case "video": return `${head}<p class="sub">Video giới thiệu nhà máy, chỉ tải khi người mua bấm phát.</p>
+        <div class="field"><div class="video" style="background-image:url(${IMG}producers-section.jpg)"><div class="play">▶</div></div><div class="hint">MP4, MOV hoặc WebM, tối đa 200 MB và 15 phút.</div></div>
+        <div class="field"><label>Tiêu đề (tiếng Anh)</label><input type="text" value="Inside our processing line"></div>
+        <button class="btn" type="button">Thay video</button>`;
+      case "about": return `${head}<p class="sub">Ảnh một bên, chữ một bên. Dùng cho giới thiệu, quy trình, kiểm soát chất lượng.</p>
+        <div class="field"><label>Ảnh</label><div class="thumbs"><div style="background-image:url(${IMG}cashew-hero.jpg)"></div></div></div>
+        <div class="field"><label>Tiêu đề (tiếng Anh)</label><input type="text" value="From farm gate to container"></div>
+        <div class="field"><label>Nội dung (tiếng Anh)</label><textarea>Raw nuts are sourced from 600 partner farms… Contact us on Zalo 0912 345 678</textarea></div>
+        <div class="bad">Có số điện thoại hoặc tên ứng dụng liên hệ. Người mua liên hệ qua Vexim: hãy xoá trước khi lưu.</div>`;
+      case "certs": return `${head}<p class="sub">Tự lấy chứng nhận Vexim đã kiểm tra, còn hiệu lực. Không thêm tay.</p>
+        <div class="from-profile">3 chứng nhận đang hiện. Thêm chứng nhận trong mục <b>Giấy tờ</b> để Vexim kiểm tra.</div>`;
+      case "markets": return `${head}<p class="sub">Lấy từ hồ sơ công ty.</p><div class="from-profile">Sửa danh sách thị trường trong <b>Hồ sơ công ty</b>.</div>`;
+      case "categories": return `${head}<p class="sub">Tự nhóm sản phẩm đang đăng theo danh mục.</p>`;
+    }
+    return head;
+  }
+
+  function mount(root, initial, opts) {
+    let blocks = initial.map((b) => ({ ...b }));
+    let sel = blocks[0]?.id;
+    let device = "desktop";
+    root.innerHTML = `
+      <aside class="col col-left">
+        ${opts.quick ? `<div class="quick"><strong>✦ Tạo nhanh từ hồ sơ</strong><p>Chưa biết bắt đầu từ đâu? Hệ thống dựng sẵn một trang đẹp từ hồ sơ, ảnh và sản phẩm bạn đã có.</p><button class="btn btn-primary" type="button" data-quick style="width:100%;justify-content:center">Tạo nhanh</button></div>` : ""}
+        <div class="panel-h">Các khối trên trang</div>
+        <ul class="blocks" data-list></ul>
+        <div class="panel-h">Thêm khối</div>
+        <div class="library" data-lib></div>
+      </aside>
+      <main class="col col-mid">
+        <div class="preview-bar"><span>Xem trước · ${opts.label}</span>
+          <div class="seg" role="group" aria-label="Thiết bị"><button type="button" data-dev="desktop" aria-pressed="true">Máy tính</button><button type="button" data-dev="mobile" aria-pressed="false">Điện thoại</button></div></div>
+        <div class="canvas" data-canvas></div>
+      </main>
+      <aside class="col col-right"><div class="panel-h">Chỉnh khối</div><div class="form" data-form></div></aside>`;
+    const $ = (s) => root.querySelector(s);
+
+    function draw() {
+      $("[data-list]").innerHTML = `<li class="locked"><span class="grip">🔒</span><span class="name">Đầu trang · tên, khiên xác minh, nút RFQ</span><span class="chip lock">Cố định</span></li>` +
+        blocks.map((b, i) => `<li class="${b.id === sel ? "sel" : ""} ${b.on ? "" : "off"}" data-pick="${b.id}">
+          <span class="grip">⋮⋮</span><span class="name">${TYPES[b.type].name}</span>
+          <span class="tools"><button class="ico" type="button" data-up="${i}" aria-label="Lên" ${i === 0 ? "disabled" : ""}>↑</button><button class="ico" type="button" data-down="${i}" aria-label="Xuống" ${i === blocks.length - 1 ? "disabled" : ""}>↓</button><button class="ico" type="button" data-eye="${b.id}" aria-label="${b.on ? "Ẩn" : "Hiện"}">${b.on ? "👁" : "◌"}</button><button class="ico" type="button" data-del="${b.id}" aria-label="Xoá">✕</button></span></li>`).join("");
+      const used = new Set(blocks.map((b) => b.type));
+      $("[data-lib]").innerHTML = Object.entries(TYPES).map(([k, t]) => `<button class="lib" type="button" data-add="${k}" ${used.has(k) ? "disabled" : ""}>${t.name}<small>${used.has(k) ? "Đã có trên trang" : t.desc}</small>${t.pro ? `<span class="chip">Pro</span>` : ""}</button>`).join("");
+      const canvas = $("[data-canvas]");
+      canvas.className = `canvas ${device === "mobile" ? "mobile" : ""}`;
+      canvas.innerHTML = `<div class="pv"><div class="s-head"><div class="s-logo">LV</div><div><h1>Lam Vien Cashew Co., Ltd.</h1><div class="s-meta"><span class="shield">◈ Level 2 · Verified</span><span>Manufacturer · Binh Phuoc, Vietnam</span></div></div><span class="rfq">Send sourcing request</span></div><span class="lockhint">Phần này do Vexim quản lý, không sửa được</span></div>` +
+        blocks.map((b) => `<div class="pv ${b.id === sel ? "sel" : ""} ${b.on ? "" : "off"}" data-pick="${b.id}"><span class="tag">${TYPES[b.type].name}</span>${render(b.type)}</div>`).join("");
+      const current = blocks.find((b) => b.id === sel);
+      $("[data-form]").innerHTML = current ? settings(current) : `<p class="note">Chọn một khối để chỉnh.</p>`;
+    }
+    root.addEventListener("click", (e) => {
+      const t = e.target.closest("button, [data-pick]");
+      if (!t) return;
+      if (t.dataset.up !== undefined) { const i = +t.dataset.up; [blocks[i - 1], blocks[i]] = [blocks[i], blocks[i - 1]]; }
+      else if (t.dataset.down !== undefined) { const i = +t.dataset.down; [blocks[i + 1], blocks[i]] = [blocks[i], blocks[i + 1]]; }
+      else if (t.dataset.eye) { const b = blocks.find((x) => x.id === t.dataset.eye); b.on = !b.on; }
+      else if (t.dataset.del) { blocks = blocks.filter((x) => x.id !== t.dataset.del); if (sel === t.dataset.del) sel = blocks[0]?.id; }
+      else if (t.dataset.add) { const id = "n" + Math.random().toString(36).slice(2, 7); blocks.push({ id, type: t.dataset.add, on: true }); sel = id; }
+      else if (t.dataset.dev) { device = t.dataset.dev; root.querySelectorAll("[data-dev]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.dev === device))); }
+      else if (t.dataset.quick !== undefined) { document.getElementById("quick-dlg").showModal(); return; }
+      else if (t.dataset.pick) { sel = t.dataset.pick; }
+      else return;
+      opts.onChange?.();
+      draw();
+    });
+    draw();
+    return { setBlocks(next) { blocks = next.map((b) => ({ ...b })); sel = blocks[0]?.id; draw(); } };
+  }
+
+  const toast = (text) => { const el = document.querySelector("[data-toast]"); el.textContent = text; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2200); };
+  const status = document.querySelector("[data-status]");
+  const dirty = () => { status.textContent = "Bản nháp · có thay đổi chưa lưu"; status.className = "status draft"; };
+  const s1 = mount(document.querySelector('[data-designer="s1"]'), START, { quick: true, label: "bản nháp", onChange: dirty });
+  mount(document.querySelector('[data-designer="s2"]'), QUICK, { quick: true, label: "bản nháp của Vexim" });
+
+  document.querySelector("[data-save]").onclick = () => { status.textContent = "Đã lưu nháp · chưa áp dụng"; status.className = "status draft"; toast("Đã lưu nháp. Người mua chưa thấy thay đổi."); };
+  document.querySelector("[data-apply]").onclick = () => { status.textContent = "Đã áp dụng · 20/11/2026 15:40"; status.className = "status"; toast("Đã áp dụng. Người mua thấy trang mới."); };
+  const dlg = document.getElementById("quick-dlg");
+  dlg.querySelector("[data-close]").onclick = () => dlg.close();
+  dlg.querySelector("[data-quick-go]").onclick = () => { dlg.close(); s1.setBlocks(QUICK); dirty(); toast("Đã dựng 7 khối từ hồ sơ vào bản nháp."); };
+
+  document.querySelector("[data-consent]").onchange = (e) => {
+    const on = e.target.checked;
+    document.querySelector("[data-gate]").classList.toggle("locked", !on);
+    document.querySelector("[data-crm-save]").disabled = !on;
+    document.querySelector("[data-crm-apply]").disabled = !on;
+  };
+  document.querySelector("[data-crm-apply]").onclick = () => {
+    const list = document.querySelector("[data-history]");
+    list.querySelector(".pill-live")?.replaceWith(Object.assign(document.createElement("button"), { className: "btn", type: "button", textContent: "Khôi phục", style: "padding:4px 8px;font-size:11px" }));
+    list.insertAdjacentHTML("afterbegin", `<li><div class="who"><strong>20/11/2026 · Vexim (Thu Hà)</strong><br>Áp dụng thay nhà cung cấp · theo HĐ-TK-2026-031</div><span class="pill-live">Đang hiện</span></li>`);
+    toast("Đã áp dụng. Nhà cung cấp nhận thông báo và email.");
+  };
+
+  document.querySelectorAll("[data-screen]").forEach((b) => b.onclick = () => {
+    document.querySelectorAll("[data-screen]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === b.dataset.screen));
+    window.scrollTo(0, 0);
+  });
+})();
+</script>
+</body>
+</html>
