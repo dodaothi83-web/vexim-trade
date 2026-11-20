@@ -12,7 +12,11 @@
  */
 import { looksVietnamese } from "./vietnamese-text.ts";
 
-export const STOREFRONT_TEMPLATES = ["elegant", "modern", "gallery"] as const;
+/**
+ * Chỉ còn mẫu "Hiện đại" (chủ sàn chốt 2026-11-20: bỏ "Thanh lịch" và "Trưng bày"). Hồ sơ đã lưu
+ * mẫu cũ tự đọc thành "modern".
+ */
+export const STOREFRONT_TEMPLATES = ["modern"] as const;
 export type StorefrontTemplate = (typeof STOREFRONT_TEMPLATES)[number];
 
 export const STOREFRONT_TONES = ["champagne", "terracotta", "graphite", "steel"] as const;
@@ -31,19 +35,33 @@ export const STOREFRONT_STATS = ["capacity", "founded", "employees", "markets", 
 export type StorefrontStat = (typeof STOREFRONT_STATS)[number];
 export const STOREFRONT_MAX_STATS = 4;
 export const STOREFRONT_TAGLINE_MAX = 160;
+/** Sản phẩm ghim đầu khu sản phẩm (chủ sàn chốt tối đa 4). */
+export const STOREFRONT_MAX_FEATURED = 4;
+/** Từ 8 sản phẩm trở lên thì có lọc theo danh mục. */
+export const STOREFRONT_GROUP_MIN_PRODUCTS = 8;
+
+/** Video nhà máy ở đầu trang (Cloudflare Stream, bấm mới phát). */
+export type StorefrontHeroVideo = { video_uid: string; duration?: number; uploaded_at?: string };
 
 export interface StorefrontTheme {
   template: StorefrontTemplate;
   tone: StorefrontTone;
+  /** Câu giới thiệu bản tiếng Anh người mua thấy. */
   tagline: string;
+  /** Câu giới thiệu nhà cung cấp viết (tiếng Việt), máy chủ dịch sang `tagline` khi lưu. */
+  tagline_vi?: string;
   stats: StorefrontStat[];
+  /** Mã sản phẩm ghim (tối đa 4, theo thứ tự). Sản phẩm không còn hiện thì tự bỏ khi hiển thị. */
+  featured: string[];
+  hero_video?: StorefrontHeroVideo;
 }
 
 export const DEFAULT_STOREFRONT_THEME: StorefrontTheme = {
-  template: "elegant",
+  template: "modern",
   tone: "champagne",
   tagline: "",
   stats: ["capacity", "founded", "markets", "lead_time"],
+  featured: [],
 };
 
 const isOneOf = <T extends string>(list: readonly T[], value: unknown): value is T =>
@@ -55,11 +73,24 @@ export function normalizeStorefrontTheme(raw: unknown): StorefrontTheme {
   const stats = Array.isArray(value.stats)
     ? [...new Set(value.stats.filter((item): item is StorefrontStat => isOneOf(STOREFRONT_STATS, item)))].slice(0, STOREFRONT_MAX_STATS)
     : DEFAULT_STOREFRONT_THEME.stats;
+  const featured = Array.isArray(value.featured)
+    ? [...new Set(value.featured.filter((id): id is string => typeof id === "string" && /^[a-z0-9-]{8,64}$/i.test(id)))].slice(0, STOREFRONT_MAX_FEATURED)
+    : [];
+  const video = value.hero_video && typeof value.hero_video === "object" ? value.hero_video as Record<string, unknown> : null;
+  const hero_video = video && typeof video.video_uid === "string" && /^[a-f0-9]{32}$/i.test(video.video_uid)
+    ? { video_uid: video.video_uid.toLowerCase(),
+      ...(typeof video.duration === "number" && video.duration > 0 ? { duration: Math.round(video.duration) } : {}),
+      ...(typeof video.uploaded_at === "string" && !Number.isNaN(Date.parse(video.uploaded_at)) ? { uploaded_at: video.uploaded_at } : {}) }
+    : undefined;
   return {
-    template: isOneOf(STOREFRONT_TEMPLATES, value.template) ? value.template : DEFAULT_STOREFRONT_THEME.template,
+    // Mẫu cũ (Thanh lịch, Trưng bày) đọc thành Hiện đại.
+    template: "modern",
     tone: isOneOf(STOREFRONT_TONES, value.tone) ? value.tone : DEFAULT_STOREFRONT_THEME.tone,
     tagline: typeof value.tagline === "string" ? value.tagline.trim().slice(0, STOREFRONT_TAGLINE_MAX) : "",
+    ...(typeof value.tagline_vi === "string" && value.tagline_vi.trim() ? { tagline_vi: value.tagline_vi.trim().slice(0, STOREFRONT_TAGLINE_MAX) } : {}),
     stats,
+    featured,
+    ...(hero_video ? { hero_video } : {}),
   };
 }
 
@@ -68,13 +99,14 @@ export type ThemeInputProblem = "template" | "tone" | "stats" | "taglineTooLong"
 const CONTACT = /[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|www\.|\b[\w-]+\.(?:com|vn|net|org|io|co)\b|(?:\+?\d[\s().-]?){9,15}\d/i;
 
 /** Kiểm tra lựa chọn của nhà cung cấp trước khi lưu. */
-export function storefrontThemeProblem(input: { template: unknown; tone: unknown; tagline: unknown; stats: unknown }): ThemeInputProblem {
-  if (!isOneOf(STOREFRONT_TEMPLATES, input.template)) return "template";
+export function storefrontThemeProblem(input: { template?: unknown; tone: unknown; tagline: unknown; stats: unknown; language?: "en" | "any" }): ThemeInputProblem {
+  if (input.template !== undefined && !isOneOf(STOREFRONT_TEMPLATES, input.template)) return "template";
   if (!isOneOf(STOREFRONT_TONES, input.tone)) return "tone";
   if (!Array.isArray(input.stats) || input.stats.length > STOREFRONT_MAX_STATS || !input.stats.every((item) => isOneOf(STOREFRONT_STATS, item))) return "stats";
   const tagline = typeof input.tagline === "string" ? input.tagline.trim() : "";
   if (tagline.length > STOREFRONT_TAGLINE_MAX) return "taglineTooLong";
   if (CONTACT.test(tagline)) return "contact";
-  if (looksVietnamese(tagline)) return "language";
+  // Câu viết tiếng Việt (bản nhà cung cấp soạn) được phép; bản tiếng Anh người mua thấy thì không.
+  if (input.language !== "any" && looksVietnamese(tagline)) return "language";
   return null;
 }
