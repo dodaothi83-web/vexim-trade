@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bản mẫu A+ · Vexim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Bản mẫu duyệt giao diện: nội dung, công ty, số liệu đều là MẪU, không phải dữ liệu thật. */
+  :root {
+    --brand-50:#F2F5FA; --brand-100:#E8EEF8; --brand-200:#DFE5EE; --brand-300:#B8CAE3; --brand-500:#4471AC; --brand-700:#1F3E74; --brand-800:#162E58; --brand-950:#0D1C36;
+    --ink-50:#F2F5FA; --ink-100:#E8EEF8; --ink-200:#DFE5EE; --ink-300:#7C899E; --ink-400:#657187; --ink-500:#4E586B; --ink-900:#141C2E;
+    --success:#0E7A4E; --success-s:#E7F5EF; --warning:#93370D; --warning-s:#FFF4DE; --error:#B42318;
+    --radius:14px;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Be Vietnam Pro", system-ui, sans-serif; color:var(--ink-900); background:#EEF2F8; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1320px; margin:0 auto; padding:32px 24px 80px; }
+  h1 { font-size:28px; margin:0; letter-spacing:-.01em; }
+  .lead { color:var(--ink-500); max-width:860px; line-height:1.7; margin:8px 0 0; }
+  .sample { display:inline-block; font-size:11px; font-weight:700; color:var(--warning); background:var(--warning-s); border-radius:999px; padding:3px 10px; margin-left:8px; vertical-align:middle; }
+  .toc { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 0; }
+  .toc a { text-decoration:none; color:var(--brand-700); background:#fff; border:1px solid var(--brand-200); padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600; }
+  section.screen { margin-top:48px; }
+  .screen-title { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .screen-title h2 { font-size:21px; margin:0; }
+  .screen-title .num { font-size:12px; font-weight:800; color:#fff; background:var(--brand-700); border-radius:999px; padding:3px 10px; }
+  .screen-sub { color:var(--ink-500); font-size:14px; margin:6px 0 16px; line-height:1.6; }
+  .frame { background:#fff; border:1px solid var(--ink-200); border-radius:18px; box-shadow:0 10px 30px -12px rgb(15 23 42 / .18); overflow:hidden; }
+  .notes { margin-top:14px; display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+  .note { background:#fff; border:1px solid var(--ink-200); border-radius:12px; padding:10px 12px; font-size:13px; line-height:1.55; color:var(--ink-500); }
+  .note b { color:var(--ink-900); }
+  .pin { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:999px; background:var(--brand-700); color:#fff; font-size:11px; font-weight:800; margin-right:6px; flex:none; }
+  .pin.abs { position:absolute; z-index:5; box-shadow:0 0 0 3px #fff; }
+  .btn { display:inline-flex; align-items:center; gap:6px; border-radius:10px; font:600 13px/1 inherit; padding:9px 13px; border:1px solid var(--ink-200); background:#fff; color:var(--ink-900); cursor:default; white-space:nowrap; }
+  .btn.primary { background:var(--brand-700); border-color:var(--brand-700); color:#fff; }
+  .btn.soft { background:var(--brand-50); border-color:var(--brand-200); color:var(--brand-800); }
+  .btn.sm { padding:6px 10px; font-size:12px; border-radius:8px; }
+  .chip { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; border-radius:999px; padding:3px 9px; background:var(--brand-50); color:var(--brand-800); }
+  .chip.new { background:var(--success-s); color:var(--success); }
+  .seg { display:inline-flex; background:var(--ink-100); border-radius:10px; padding:3px; gap:2px; }
+  .seg span { font-size:12px; font-weight:600; padding:6px 11px; border-radius:8px; color:var(--ink-500); }
+  .seg span.on { background:#fff; color:var(--brand-800); box-shadow:0 1px 2px rgb(0 0 0 / .08); }
+  svg.i { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+
+  /* ---------- Màn 1: trình soạn ---------- */
+  .ed-top { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--ink-200); }
+  .ed-top .title { font-weight:700; font-size:15px; }
+  .ed-top .muted { color:var(--ink-400); font-size:12px; }
+  .meter { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:var(--ink-500); }
+  .meter .bar { width:120px; height:7px; background:var(--ink-100); border-radius:99px; overflow:hidden; }
+  .meter .bar i { display:block; height:100%; width:66%; background:var(--brand-500); border-radius:99px; }
+  .ed-body { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.08fr); min-height:780px; }
+  .ed-left { border-right:1px solid var(--ink-200); padding:16px; background:#FAFBFD; position:relative; }
+  .ed-right { padding:16px 22px; background:var(--ink-50); position:relative; }
+  .preview-label { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:var(--ink-400); margin-bottom:10px; }
+  .card { background:#fff; border:1px solid var(--ink-200); border-radius:12px; margin-bottom:10px; }
+  .card.active { border-color:var(--brand-500); box-shadow:0 0 0 3px var(--brand-100); }
+  .card-h { display:flex; align-items:center; gap:8px; padding:10px 12px; }
+  .card-h .grip { color:var(--ink-300); letter-spacing:-2px; font-weight:800; }
+  .card-h .name { font-weight:700; font-size:13px; flex:1; display:flex; align-items:center; gap:7px; }
+  .card-h .tools { display:flex; gap:2px; color:var(--ink-400); }
+  .card-h .tools span { padding:4px; border-radius:6px; display:inline-flex; }
+  .card-b { padding:0 12px 12px; display:grid; gap:9px; }
+  label.f { display:grid; gap:4px; font-size:12px; font-weight:600; color:var(--ink-500); }
+  .input { border:1px solid var(--ink-200); border-radius:9px; padding:8px 10px; font-size:13px; color:var(--ink-900); background:#fff; line-height:1.5; }
+  .input.area { min-height:74px; }
+  .counter { font-size:11px; color:var(--ink-300); font-weight:500; justify-self:end; }
+  .imgfield { display:grid; grid-template-columns:150px 1fr; gap:10px; align-items:start; }
+  .imgbox { position:relative; border-radius:10px; overflow:hidden; aspect-ratio:4/3; background:#ddd center/cover; }
+  .imgbox .ratio { position:absolute; left:6px; top:6px; font-size:10px; font-weight:700; background:rgb(13 28 54 / .78); color:#fff; padding:2px 6px; border-radius:6px; }
+  .imgbox .crop { position:absolute; inset:14% 10%; border:2px dashed #fff; border-radius:6px; box-shadow:0 0 0 999px rgb(13 28 54 / .25); }
+  .hint { font-size:11.5px; color:var(--ink-400); line-height:1.5; }
+  .collapsed .card-b { display:none; }
+  .addrow { display:flex; gap:8px; }
+  .addrow .btn { flex:1; justify-content:center; border-style:dashed; color:var(--brand-700); }
+  .savebar { position:sticky; bottom:0; display:flex; align-items:center; gap:10px; justify-content:space-between; padding:12px 18px; border-top:1px solid var(--ink-200); background:#fff; font-size:12.5px; color:var(--ink-500); }
+  .bullets { margin:0; padding-left:18px; }
+  .tb { display:flex; gap:4px; padding:4px; border:1px solid var(--ink-200); border-bottom:0; border-radius:9px 9px 0 0; background:var(--ink-50); }
+  .tb span { font-size:11px; font-weight:700; padding:3px 7px; border-radius:6px; color:var(--ink-500); }
+  .tb + .input { border-radius:0 0 9px 9px; }
+
+  /* ---------- Bản xem trước / trang người mua (tiếng Anh) ---------- */
+  .pv { background:#fff; border-radius:14px; border:1px solid var(--ink-200); padding:22px; }
+  .pv h3.sec { font-size:22px; font-weight:800; margin:0 0 16px; }
+  .hero { position:relative; border-radius:14px; overflow:hidden; aspect-ratio:97/36; background:center/cover; color:#fff; display:flex; align-items:flex-end; }
+  .hero::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg, rgb(10 14 22 / .78), rgb(10 14 22 / .2) 70%); }
+  .hero div { position:relative; z-index:1; padding:22px 24px; max-width:68%; }
+  .hero small { font-size:11px; letter-spacing:.16em; text-transform:uppercase; font-weight:700; opacity:.85; }
+  .hero h4 { margin:6px 0 0; font-size:24px; line-height:1.25; font-weight:700; }
+  .hero p { margin:8px 0 0; font-size:13.5px; opacity:.9; line-height:1.6; }
+  .pv-block { margin-top:26px; }
+  .pv-block h4 { font-size:18px; margin:0 0 4px; }
+  .pv-block .sub { color:var(--ink-500); font-size:13.5px; margin:0 0 14px; line-height:1.6; }
+  .hl { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .hl div { border:1px solid var(--ink-200); border-radius:12px; padding:14px; }
+  .hl .ic { width:34px; height:34px; border-radius:10px; background:var(--brand-50); color:var(--brand-700); display:flex; align-items:center; justify-content:center; }
+  .hl b { display:block; margin-top:10px; font-size:13.5px; }
+  .hl span { display:block; margin-top:4px; font-size:12.5px; color:var(--ink-500); line-height:1.55; }
+  .steps { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; counter-reset:s; }
+  .steps div { position:relative; }
+  .steps .ph { aspect-ratio:1; border-radius:12px; background:center/cover; }
+  .steps .n { position:absolute; top:8px; left:8px; width:26px; height:26px; border-radius:99px; background:var(--brand-700); color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 3px #fff; }
+  .steps b { display:block; font-size:13px; margin-top:8px; }
+  .steps span { display:block; font-size:12px; color:var(--ink-500); line-height:1.5; margin-top:2px; }
+  .pack { display:grid; grid-template-columns:1fr 1.15fr; gap:18px; align-items:center; }
+  .pack .ph { aspect-ratio:4/3; border-radius:14px; background:center/cover; }
+  table.t { width:100%; border-collapse:collapse; font-size:13px; }
+  table.t th, table.t td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--ink-200); }
+  table.t th { color:var(--ink-500); font-weight:600; font-size:12px; background:var(--ink-50); }
+  table.t td:last-child { font-weight:700; }
+  .it { display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:center; }
+  .it .ph { aspect-ratio:4/3; border-radius:14px; background:center/cover; }
+  .it p { color:var(--ink-500); font-size:14px; line-height:1.75; margin:8px 0 0; }
+  .faq div { border:1px solid var(--ink-200); border-radius:12px; padding:12px 14px; margin-bottom:8px; }
+  .faq b { display:flex; justify-content:space-between; font-size:13.5px; }
+  .faq p { margin:6px 0 0; font-size:13px; color:var(--ink-500); line-height:1.6; }
+  .disclaimer { margin-top:18px; font-size:11.5px; color:var(--ink-400); }
+  .ed-right .pv { padding:16px; }
+  .ed-right .hero h4 { font-size:19px; }
+  .ed-right .hl { grid-template-columns:repeat(2,1fr); }
+  .ed-right .steps { grid-template-columns:repeat(3,1fr); }
+  .ed-right .pack, .ed-right .it { gap:12px; }
+  .glow { outline:2px solid var(--brand-500); outline-offset:4px; border-radius:12px; }
+
+  /* ---------- Màn 2: thư viện khối ---------- */
+  .modal-bg { background:rgb(13 28 54 / .45); padding:32px; }
+  .modal { background:#fff; border-radius:18px; max-width:1040px; margin:0 auto; box-shadow:0 30px 60px -20px rgb(0 0 0 / .4); }
+  .modal-h { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--ink-200); }
+  .lib { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; padding:18px 20px 22px; }
+  .lib h5 { grid-column:1/-1; margin:6px 0 0; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-400); }
+  .lb { border:1px solid var(--ink-200); border-radius:12px; padding:10px; display:grid; gap:7px; align-content:start; }
+  .lb:hover { border-color:var(--brand-500); }
+  .lb b { font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:6px; }
+  .lb span { font-size:11.5px; color:var(--ink-500); line-height:1.45; }
+  .lb em { font-style:normal; font-size:10.5px; color:var(--ink-400); }
+  .wf { aspect-ratio:16/10; border-radius:8px; background:var(--ink-50); border:1px solid var(--ink-100); padding:7px; display:grid; gap:4px; }
+  .wf i { display:block; background:var(--brand-200); border-radius:4px; }
+  .wf i.t { background:var(--ink-200); height:5px; }
+  .wf i.d { background:var(--brand-300); }
+
+  /* ---------- Màn 3: bộ mẫu ---------- */
+  .tpl { display:grid; grid-template-columns:260px 1fr; min-height:440px; }
+  .tpl-list { border-right:1px solid var(--ink-200); padding:14px; display:grid; gap:8px; align-content:start; background:#FAFBFD; }
+  .tpl-item { display:flex; gap:10px; align-items:center; padding:9px; border-radius:11px; border:1px solid transparent; }
+  .tpl-item.on { background:#fff; border-color:var(--brand-500); box-shadow:0 0 0 3px var(--brand-100); }
+  .tpl-item .th { width:46px; height:46px; border-radius:9px; background:center/cover; flex:none; }
+  .tpl-item b { font-size:13px; display:block; }
+  .tpl-item span { font-size:11.5px; color:var(--ink-400); }
+  .tpl-detail { padding:18px 22px; }
+  .sk { display:grid; gap:8px; margin-top:12px; }
+  .sk div { display:grid; grid-template-columns:28px 160px 1fr; gap:10px; align-items:center; border:1px dashed var(--ink-200); border-radius:10px; padding:9px 11px; font-size:12.5px; }
+  .sk .k { width:24px; height:24px; border-radius:7px; background:var(--brand-50); color:var(--brand-700); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px; }
+  .sk b { font-size:12.5px; }
+  .sk span { color:var(--ink-500); }
+
+  /* ---------- Màn 5: điện thoại + dịch ---------- */
+  .duo { display:grid; grid-template-columns:400px 1fr; gap:24px; align-items:start; }
+  .phone { width:390px; border-radius:38px; border:10px solid #0D1526; background:#fff; overflow:hidden; box-shadow:0 20px 40px -20px rgb(0 0 0 / .45); }
+  .phone .scr { height:760px; overflow:hidden; padding:14px; }
+  .phone .hero { aspect-ratio:4/5; }
+  .phone .hero div { max-width:100%; padding:18px; }
+  .phone .hero h4 { font-size:20px; }
+  .phone .hl { grid-template-columns:1fr 1fr; }
+  .phone .steps { grid-template-columns:1fr; }
+  .phone .steps > div { display:grid; grid-template-columns:72px 1fr; gap:10px; align-items:center; }
+  .phone .steps > div > div:last-child { display:block; }
+  .phone .steps b { margin-top:0; }
+  .tr { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+  .tr > div { padding:16px 18px; }
+  .tr > div + div { border-left:1px solid var(--ink-200); background:#FBFCFE; }
+  .tr h6 { margin:0 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-400); display:flex; justify-content:space-between; align-items:center; }
+  .tr p { font-size:13.5px; line-height:1.7; margin:0 0 8px; }
+  .status { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--success); background:var(--success-s); padding:4px 9px; border-radius:99px; }
+  .warnbox { font-size:12.5px; line-height:1.6; color:var(--warning); background:var(--warning-s); border-radius:10px; padding:9px 11px; }
+  .decisions { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; margin-top:16px; }
+  .decisions div { background:#fff; border:1px solid var(--ink-200); border-radius:14px; padding:14px 16px; }
+  .decisions b { display:block; font-size:14px; }
+  .decisions span { display:block; font-size:13px; color:var(--ink-500); line-height:1.6; margin-top:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nội dung A+ · bản mẫu giao diện để duyệt <span class="sample">Dữ liệu mẫu</span></h1>
+  <p class="lead">Bản mẫu cho giai đoạn 1 (trải nghiệm soạn) và giai đoạn 2 (khối B2B, bộ mẫu theo ngành hàng). Giữ đúng nhận diện Vexim: logo V, xanh navy, Be Vietnam Pro. Toàn bộ tên sản phẩm, số liệu, ảnh đều là <b>mẫu minh hoạ</b>, không phải dữ liệu thật.</p>
+  <div class="toc">
+    <a href="#s1">1 · Trình soạn có xem trước</a><a href="#s2">2 · Thư viện khối</a><a href="#s3">3 · Bộ mẫu theo ngành hàng</a>
+    <a href="#s4">4 · Trang người mua</a><a href="#s5">5 · Điện thoại và bản dịch</a><a href="#s6">Cần bạn chốt</a>
+  </div>
+
+  <!-- ================= MÀN 1 ================= -->
+  <section class="screen" id="s1">
+    <div class="screen-title"><span class="num">MÀN 1</span><h2>Trình soạn A+ trong trang sửa sản phẩm (cổng nhà cung cấp)</h2></div>
+    <p class="screen-sub">Trái: soạn từng khối bằng tiếng Việt. Phải: xem trước trực tiếp đúng như người mua thấy (bản tiếng Anh), đổi máy tính / điện thoại. Bấm một khối bên trái thì bản xem trước sáng đúng khối đó.</p>
+    <div class="frame">
+      <div class="ed-top">
+        <div><div class="title">Nội dung A+</div><div class="muted">Sản phẩm: Hạt điều trắng W320 (mẫu) · Gói Premium</div></div>
+        <span class="seg" style="margin-left:14px"><span class="on">Tiếng Việt · bạn soạn</span><span>English · người mua thấy</span></span>
+        <div style="flex:1"></div>
+        <div class="meter">Mức hoàn thiện <span class="bar"><i></i></span> 4/6</div>
+        <span class="btn soft sm"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Bộ mẫu</span>
+        <span class="seg"><span class="on">Máy tính</span><span>Điện thoại</span></span>
+      </div>
+      <div class="ed-body">
+        <div class="ed-left">
+          <span class="pin abs" style="left:-10px;top:16px">1</span>
+          <div class="card collapsed"><div class="card-h"><span class="grip">⋮⋮</span><span class="name"><span class="chip new">Mới</span>Banner có chữ</span><span class="muted" style="font-size:11px;color:var(--ink-400)">970×360</span><span class="tools"><span>↑</span><span>↓</span><span>⌄</span></span></div></div>
+          <div class="card collapsed"><div class="card-h"><span class="grip">⋮⋮</span><span class="name"><span class="chip new">Mới</span>Điểm nổi bật · 4 ô</span><span class="tools"><span>↑</span><span>↓</span><span>⌄</span></span></div></div>
+          <div class="card active" style="position:relative">
+            <span class="pin abs" style="right:-10px;top:-8px">2</span>
+            <div class="card-h"><span class="grip">⋮⋮</span><span class="name"><svg class="i" viewBox="0 0 24 24" style="color:var(--brand-700)"><rect x="3" y="5" width="8" height="14" rx="2"/><path d="M14 8h7M14 12h7M14 16h5"/></svg>Ảnh + chữ</span><span class="tools"><span>↑</span><span>↓</span><span>🗑</span><span>⌃</span></span></div>
+            <div class="card-b">
+              <div class="imgfield">
+                <div class="imgbox" style="background-image:url(../storefront-templates/producers-section.jpg)"><span class="ratio">4:3</span><span class="crop"></span></div>
+                <div style="display:grid;gap:6px">
+                  <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="btn sm">Đổi ảnh</span><span class="btn sm">Chọn vùng hiển thị</span><span class="seg"><span class="on">Ảnh trái</span><span>Ảnh phải</span></span></div>
+                  <span class="hint">Khung đúng tỉ lệ 4:3 như trên trang. Nên rộng từ 1200×900 px, JPG/PNG/WebP, tối đa 3 MB.</span>
+                  <label class="f">Mô tả ảnh (cho Google, người khiếm thị)<span class="input" style="padding:6px 9px">Công nhân phân loại hạt điều tại xưởng</span></label>
+                </div>
+              </div>
+              <label class="f">Tiêu đề<span class="input">Phân loại thủ công, kiểm tra từng mẻ</span><span class="counter">36/120</span></label>
+              <label class="f">Nội dung
+                <span class="tb"><span>B</span><span>• Danh sách</span></span>
+                <span class="input area">Mỗi mẻ hạt được phân loại theo kích cỡ và màu trên băng chuyền, sau đó kiểm tra độ ẩm trước khi đóng gói.<ul class="bullets"><li>Độ ẩm tối đa 5%</li><li>Lấy mẫu kiểm tra mỗi 2 giờ</li></ul></span>
+                <span class="counter">184/1200</span></label>
+            </div>
+          </div>
+          <div class="card collapsed"><div class="card-h"><span class="grip">⋮⋮</span><span class="name"><span class="chip new">Mới</span>Quy trình · 5 bước</span><span class="tools"><span>↑</span><span>↓</span><span>⌄</span></span></div></div>
+          <div class="card collapsed"><div class="card-h"><span class="grip">⋮⋮</span><span class="name"><span class="chip new">Mới</span>Đóng gói và xếp container</span><span class="tools"><span>↑</span><span>↓</span><span>⌄</span></span></div></div>
+          <div class="card collapsed" style="border-color:#F5C9A8"><div class="card-h"><span class="grip">⋮⋮</span><span class="name"><span class="chip new">Mới</span>Câu hỏi thường gặp</span><span style="font-size:11px;font-weight:700;color:var(--warning)">Thiếu 1 câu trả lời</span><span class="tools"><span>↑</span><span>↓</span><span>⌄</span></span></div></div>
+          <div class="addrow" style="position:relative"><span class="pin abs" style="left:-10px;top:6px">3</span><span class="btn">+ Thêm khối</span></div>
+          <p class="hint" style="margin-top:12px">Viết tiếng Việt. Bấm Lưu, Vexim dịch sang tiếng Anh, giữ định dạng. Không ghi số điện thoại, email, link: người mua liên hệ qua Vexim.</p>
+        </div>
+        <div class="ed-right">
+          <span class="pin abs" style="left:-10px;top:16px">4</span>
+          <div class="preview-label"><span>Xem trước · bản tiếng Anh người mua thấy</span><span class="status">✓ Đã dịch 2 phút trước</span></div>
+          <div class="pv">
+            <div class="hero" style="background-image:url(../storefront-templates/cashew-hero.jpg)"><div><small>Sample · Binh Phuoc, Vietnam</small><h4>Hand-graded W320 cashew kernels, packed for export</h4></div></div>
+            <div class="pv-block"><div class="hl">
+              <div><span class="ic">◎</span><b>Sorted by size and colour</b><span>Every batch is graded before packing.</span></div>
+              <div><span class="ic">◇</span><b>Moisture under 5%</b><span>Checked before vacuum packing.</span></div>
+              <div><span class="ic">▣</span><b>Export cartons</b><span>2 × 22.68 kg vacuum bags per carton.</span></div>
+              <div><span class="ic">◷</span><b>Sample on request</b><span>Request through Vexim.</span></div>
+            </div></div>
+            <div class="pv-block glow"><div class="it">
+              <div class="ph" style="background-image:url(../storefront-templates/producers-section.jpg)"></div>
+              <div><h4>Hand sorting, checked batch by batch</h4><p>Each batch is sorted by size and colour on the line, then moisture-checked before packing.</p><ul style="font-size:13.5px;color:var(--ink-500);line-height:1.7;padding-left:18px;margin:6px 0 0"><li>Maximum moisture 5%</li><li>Sampling every 2 hours</li></ul></div>
+            </div></div>
+            <div class="pv-block"><h4>From farm to container</h4><div class="steps">
+              <div><div class="ph" style="background-image:url(../storefront-templates/hero-scene.jpg)"></div><span class="n">1</span><b>Raw nut intake</b></div>
+              <div><div class="ph" style="background-image:url(../storefront-templates/cashew-grade.jpg)"></div><span class="n">2</span><b>Shelling</b></div>
+              <div><div class="ph" style="background-image:url(../storefront-templates/hero-cashew-texture.jpg)"></div><span class="n">3</span><b>Grading</b></div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div class="savebar"><span><b style="color:var(--ink-900)">Có thay đổi chưa lưu</b> · ảnh và video đã tải lên, nội dung lưu cùng sản phẩm</span><span style="display:flex;gap:8px"><span class="btn">Xem trang người mua</span><span class="btn primary">Lưu sản phẩm (gồm A+)</span></span></div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="pin">1</span><b>Danh sách khối thu gọn</b>: kéo tay nắm ⋮⋮ hoặc ↑↓ để đổi chỗ, bấm để mở khối cần sửa. Khối thiếu nội dung báo ngay trên tiêu đề.</div>
+      <div class="note"><span class="pin">2</span><b>Khung ảnh đúng tỉ lệ hiển thị</b> (4:3, vuông, banner) kèm "Chọn vùng hiển thị", hết bị cắt bất ngờ. Có ô <b>mô tả ảnh</b> riêng cho SEO. Phần chữ cho <b>in đậm</b> và <b>gạch đầu dòng</b>.</div>
+      <div class="note"><span class="pin">3</span><b>Thêm khối</b> mở thư viện có hình minh hoạ bố cục (màn 2). Nút <b>Bộ mẫu</b> trên cùng dựng sẵn bộ khung theo ngành hàng (màn 3).</div>
+      <div class="note"><span class="pin">4</span><b>Xem trước trực tiếp</b> bản tiếng Anh, đổi máy tính / điện thoại. <b>Một nút Lưu chung</b> với sản phẩm, không còn hai nút lưu riêng.</div>
+    </div>
+  </section>
+
+  <!-- ================= MÀN 2 ================= -->
+  <section class="screen" id="s2">
+    <div class="screen-title"><span class="num">MÀN 2</span><h2>Thư viện khối</h2></div>
+    <p class="screen-sub">Mỗi khối có hình minh hoạ bố cục, câu mô tả dùng để làm gì và cỡ ảnh khuyến nghị. Khối B2B mới gắn nhãn "Mới". Không có khối chứng nhận tự khai (chứng nhận lấy từ phần Vexim đã kiểm tra) và không có bảng thông số tự gõ (đã có "Full specifications").</p>
+    <div class="frame modal-bg"><div class="modal">
+      <div class="modal-h"><b>Thêm khối</b><span class="muted" style="font-size:12px;color:var(--ink-400)">Đã dùng 6/10 khối</span></div>
+      <div class="lib">
+        <h5>Khối B2B mới</h5>
+        <div class="lb"><div class="wf" style="grid-template-rows:1fr"><i class="d" style="display:grid;align-content:end;padding:6px;gap:3px"><i class="t" style="background:#fff;width:60%"></i><i class="t" style="background:#fff;width:40%"></i></i></div><b>Banner có chữ <span class="chip new">Mới</span></b><span>Mở đầu: một ảnh rộng và một câu chính.</span><em>Ảnh 1940×720 px</em></div>
+        <div class="lb"><div class="wf" style="grid-template-columns:repeat(4,1fr)"><i></i><i></i><i></i><i></i></div><b>Điểm nổi bật <span class="chip new">Mới</span></b><span>3–4 ô: biểu tượng, tiêu đề, một câu.</span><em>Ảnh vuông 600×600 (tuỳ chọn)</em></div>
+        <div class="lb"><div class="wf" style="grid-template-columns:repeat(5,1fr)"><i class="d"></i><i></i><i class="d"></i><i></i><i class="d"></i></div><b>Quy trình theo bước <span class="chip new">Mới</span></b><span>3–6 bước có số thứ tự: thu hoạch → đóng gói.</span><em>Ảnh vuông 800×800</em></div>
+        <div class="lb"><div class="wf" style="grid-template-columns:1fr 1fr"><i></i><span style="display:grid;gap:4px;align-content:center"><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i></span></div><b>Đóng gói và container <span class="chip new">Mới</span></b><span>Ảnh bao bì kèm bảng quy cách, số lượng mỗi container.</span><em>Ảnh 1200×900</em></div>
+        <div class="lb"><div class="wf" style="align-content:start"><i class="t" style="width:80%"></i><i class="t" style="width:55%;background:var(--ink-100)"></i><i class="t" style="width:70%"></i><i class="t" style="width:45%;background:var(--ink-100)"></i></div><b>Câu hỏi thường gặp <span class="chip new">Mới</span></b><span>3–8 câu hỏi và trả lời ngắn.</span><em>Không cần ảnh</em></div>
+        <h5>Khối cơ bản (đang có)</h5>
+        <div class="lb"><div class="wf" style="grid-template-rows:1fr"><i></i></div><b>Ảnh lớn</b><span>Một ảnh rộng kèm chú thích.</span><em>Ảnh 1940×1090</em></div>
+        <div class="lb"><div class="wf" style="grid-template-columns:1fr 1fr"><i></i><span style="display:grid;gap:4px;align-content:center"><i class="t"></i><i class="t" style="width:70%"></i></span></div><b>Ảnh + chữ</b><span>Ảnh một bên, tiêu đề và đoạn chữ bên kia.</span><em>Ảnh 1200×900</em></div>
+        <div class="lb"><div class="wf" style="grid-template-columns:repeat(3,1fr)"><i></i><i></i><i></i></div><b>Lưới ảnh</b><span>2–4 ảnh vuông kèm chú thích.</span><em>Ảnh vuông 1000×1000</em></div>
+        <div class="lb"><div class="wf" style="align-content:center"><i class="t" style="width:50%;height:7px;background:var(--brand-300)"></i><i class="t"></i><i class="t"></i><i class="t" style="width:60%"></i></div><b>Văn bản</b><span>Tiêu đề và đoạn chữ, có gạch đầu dòng.</span><em>Không cần ảnh</em></div>
+        <div class="lb"><div class="wf" style="grid-template-rows:1fr"><i class="d" style="display:flex;align-items:center;justify-content:center;color:#fff;font-style:normal;font-size:14px">▶</i></div><b>Video</b><span>Video sản phẩm, nhà máy (tối đa 15 phút).</span><em>MP4/MOV/WebM, 200 MB</em></div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ================= MÀN 3 ================= -->
+  <section class="screen" id="s3">
+    <div class="screen-title"><span class="num">MÀN 3</span><h2>Bộ mẫu theo ngành hàng</h2></div>
+    <p class="screen-sub">Bấm một lần là có sẵn bộ khung khối theo thứ tự hợp lý, mỗi khối kèm <b>gợi ý nên viết gì</b>. Không điền sẵn nội dung giả: chữ để trống, nhà cung cấp tự viết. Đang có nội dung thì hỏi lại trước khi thay.</p>
+    <div class="frame"><div class="tpl">
+      <div class="tpl-list">
+        <div class="tpl-item on"><span class="th" style="background-image:url(../storefront-templates/cashew-grade.jpg)"></span><div><b>Hạt điều</b><span>6 khối · quy trình, đóng gói</span></div></div>
+        <div class="tpl-item"><span class="th" style="background-image:url(../storefront-templates/coffee.jpg)"></span><div><b>Cà phê</b><span>6 khối · vùng trồng, rang</span></div></div>
+        <div class="tpl-item"><span class="th" style="background-image:url(../storefront-templates/pepper.jpg)"></span><div><b>Hồ tiêu</b><span>5 khối · phân loại, xử lý</span></div></div>
+        <div class="tpl-item"><span class="th" style="background-image:url(../storefront-templates/cinnamon.jpg)"></span><div><b>Quế</b><span>5 khối · quy cách, sấy</span></div></div>
+        <div class="tpl-item"><span class="th" style="background:var(--brand-100)"></span><div><b>Mẫu chung</b><span>4 khối · mọi sản phẩm</span></div></div>
+      </div>
+      <div class="tpl-detail">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><b style="font-size:16px">Bộ mẫu: Hạt điều</b><div style="font-size:12.5px;color:var(--ink-500);margin-top:2px">Thứ tự gợi ý từ cách người mua B2B đánh giá lô hàng hạt điều.</div></div><span class="btn primary">Dùng bộ mẫu này</span></div>
+        <div class="sk">
+          <div><span class="k">1</span><b>Banner có chữ</b><span>Một câu: loại hạt, vùng, điểm mạnh nhất. Ảnh hạt cận cảnh.</span></div>
+          <div><span class="k">2</span><b>Điểm nổi bật · 4 ô</b><span>Kích cỡ hạt, độ ẩm, quy cách đóng gói, mẫu thử.</span></div>
+          <div><span class="k">3</span><b>Quy trình · 5 bước</b><span>Nhận hạt thô → tách vỏ → sấy → phân loại → đóng gói.</span></div>
+          <div><span class="k">4</span><b>Ảnh + chữ</b><span>Kiểm soát chất lượng: lấy mẫu, kiểm độ ẩm, loại hạt lỗi.</span></div>
+          <div><span class="k">5</span><b>Đóng gói và container</b><span>Bao hút chân không, thùng carton, số thùng mỗi container 20ft.</span></div>
+          <div><span class="k">6</span><b>Câu hỏi thường gặp</b><span>Thời gian giao, có mẫu thử không, in nhãn riêng (OEM) được không.</span></div>
+        </div>
+        <p class="hint" style="margin-top:12px">Chứng nhận, thông số, bảng giá không nằm trong bộ mẫu vì trang sản phẩm đã tự hiện từ dữ liệu Vexim kiểm tra.</p>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- ================= MÀN 4 ================= -->
+  <section class="screen" id="s4">
+    <div class="screen-title"><span class="num">MÀN 4</span><h2>Trang sản phẩm người mua thấy (máy tính)</h2></div>
+    <p class="screen-sub">Nằm trong mục "Product description" như hiện nay, sau phần ảnh, giá tham khảo, thông số. HTML chuẩn (tiêu đề, danh sách, bảng, figure kèm alt) để Google và AI đọc được.</p>
+    <div class="frame" style="padding:28px;background:#fff">
+      <div class="pv" style="border:0;padding:0">
+        <h3 class="sec">Product description</h3>
+        <div class="hero" style="background-image:url(../storefront-templates/cashew-hero.jpg)"><div><small>Sample · Binh Phuoc, Vietnam</small><h4>Hand-graded W320 cashew kernels, packed for export</h4><p>Sample text for review. Graded by size and colour, moisture-checked and vacuum packed.</p></div></div>
+        <div class="pv-block"><div class="hl">
+          <div><span class="ic">◎</span><b>Sorted by size and colour</b><span>Every batch is graded on the line before packing.</span></div>
+          <div><span class="ic">◇</span><b>Moisture under 5%</b><span>Checked before vacuum packing.</span></div>
+          <div><span class="ic">▣</span><b>Export cartons</b><span>2 × 22.68 kg vacuum bags per carton.</span></div>
+          <div><span class="ic">◷</span><b>Sample on request</b><span>Request a sample through Vexim.</span></div>
+        </div></div>
+        <div class="pv-block"><h4>From farm to container</h4><p class="sub">Five steps every batch goes through.</p><div class="steps">
+          <div><div class="ph" style="background-image:url(../storefront-templates/hero-scene.jpg)"></div><span class="n">1</span><b>Raw nut intake</b><span>Raw nuts weighed and sampled.</span></div>
+          <div><div class="ph" style="background-image:url(../storefront-templates/cashew-grade.jpg)"></div><span class="n">2</span><b>Shelling</b><span>Steamed and shelled.</span></div>
+          <div><div class="ph" style="background-image:url(../storefront-templates/hero-cashew-texture.jpg)"></div><span class="n">3</span><b>Drying</b><span>Dried to target moisture.</span></div>
+          <div><div class="ph" style="background-image:url(../storefront-templates/producers-section.jpg)"></div><span class="n">4</span><b>Grading</b><span>Sorted by size and colour.</span></div>
+          <div><div class="ph" style="background-image:url(../storefront-templates/cashew-hero.jpg)"></div><span class="n">5</span><b>Packing</b><span>Vacuum bags, export cartons.</span></div>
+        </div></div>
+        <div class="pv-block"><div class="it">
+          <div class="ph" style="background-image:url(../storefront-templates/producers-section.jpg)"></div>
+          <div><h4>Hand sorting, checked batch by batch</h4><p>Each batch is sorted by size and colour on the line, then moisture-checked before packing.</p><ul style="font-size:14px;color:var(--ink-500);line-height:1.75;padding-left:18px;margin:6px 0 0"><li>Maximum moisture 5%</li><li>Sampling every 2 hours</li></ul></div>
+        </div></div>
+        <div class="pv-block"><h4>Packing and container loading</h4><div class="pack">
+          <div class="ph" style="background-image:url(../storefront-templates/cashew-grade.jpg)"></div>
+          <table class="t"><tr><th>Item</th><th>Sample value</th></tr>
+            <tr><td>Inner packing</td><td>Vacuum bag, 22.68 kg</td></tr><tr><td>Outer packing</td><td>Carton, 2 bags</td></tr>
+            <tr><td>20ft container</td><td>700 cartons</td></tr><tr><td>40ft container</td><td>1,400 cartons</td></tr>
+            <tr><td>Labelling</td><td>Buyer label on request</td></tr></table>
+        </div></div>
+        <div class="pv-block faq"><h4>Questions buyers ask</h4>
+          <div><b>Can I get a sample before ordering? <span>−</span></b><p>Sample answer for review. Request a sample through Vexim from this page.</p></div>
+          <div><b>Can you pack under our own label? <span>+</span></b></div>
+          <div><b>How long from order to shipment? <span>+</span></b></div>
+        </div>
+        <p class="disclaimer">Content provided by the supplier. Vexim verification applies only to the checks shown on the supplier page.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MÀN 5 ================= -->
+  <section class="screen" id="s5">
+    <div class="screen-title"><span class="num">MÀN 5</span><h2>Trên điện thoại và bản dịch</h2></div>
+    <p class="screen-sub">Khối tự xếp lại một cột trên điện thoại. Nhà cung cấp viết tiếng Việt, xem bản tiếng Anh cạnh bên; nội dung có thông tin liên hệ bị chặn trước khi lưu.</p>
+    <div class="duo">
+      <div class="phone"><div class="scr">
+        <div class="pv" style="border:0;padding:0">
+          <div class="hero" style="background-image:url(../storefront-templates/cashew-hero.jpg)"><div><small>Sample · Binh Phuoc</small><h4>Hand-graded W320 cashew kernels, packed for export</h4></div></div>
+          <div class="pv-block"><div class="hl">
+            <div><span class="ic">◎</span><b>Sorted by size</b><span>Graded before packing.</span></div>
+            <div><span class="ic">◇</span><b>Moisture &lt; 5%</b><span>Checked before packing.</span></div>
+          </div></div>
+          <div class="pv-block"><h4>From farm to container</h4><div class="steps">
+            <div><div class="ph" style="background-image:url(../storefront-templates/hero-scene.jpg)"></div><div><b>1 · Raw nut intake</b><span>Weighed and sampled.</span></div></div>
+            <div><div class="ph" style="background-image:url(../storefront-templates/cashew-grade.jpg)"></div><div><b>2 · Shelling</b><span>Steamed and shelled.</span></div></div>
+            <div><div class="ph" style="background-image:url(../storefront-templates/hero-cashew-texture.jpg)"></div><div><b>3 · Drying</b><span>Dried to target moisture.</span></div></div>
+          </div></div>
+        </div>
+      </div></div>
+      <div style="display:grid;gap:16px">
+        <div class="frame"><div class="tr">
+          <div><h6>Tiếng Việt · bạn soạn</h6><p><b>Phân loại thủ công, kiểm tra từng mẻ</b></p><p>Mỗi mẻ hạt được phân loại theo kích cỡ và màu trên băng chuyền, sau đó kiểm tra độ ẩm trước khi đóng gói.</p><ul class="bullets" style="font-size:13.5px;line-height:1.7"><li>Độ ẩm tối đa 5%</li><li>Lấy mẫu kiểm tra mỗi 2 giờ</li></ul></div>
+          <div><h6>English · người mua thấy <span class="status">✓ Đã dịch</span></h6><p><b>Hand sorting, checked batch by batch</b></p><p>Each batch is sorted by size and colour on the line, then moisture-checked before packing.</p><ul class="bullets" style="font-size:13.5px;line-height:1.7"><li>Maximum moisture 5%</li><li>Sampling every 2 hours</li></ul></div>
+        </div></div>
+        <div class="warnbox"><b>Khối 6 có số điện thoại.</b> Người mua liên hệ qua Vexim, hãy xoá số điện thoại rồi lưu lại. (Báo ngay tại khối, chưa gửi đi dịch.)</div>
+        <div class="notes" style="margin-top:0">
+          <div class="note"><b>Dịch khi lưu</b>: chỉ dịch khối có thay đổi, giữ đậm và gạch đầu dòng. Lỗi dịch thì giữ bản tiếng Anh cũ và báo để thử lại.</div>
+          <div class="note"><b>Duyệt của CRM</b> giữ nguyên: nhân viên thấy cả hai bản và có thể sửa bản tiếng Anh trước khi duyệt.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CẦN CHỐT ================= -->
+  <section class="screen" id="s6">
+    <div class="screen-title"><span class="num">CHỐT</span><h2>Cần bạn chốt</h2></div>
+    <div class="decisions">
+      <div><b>1. Bố cục soạn</b><span>Soạn bên trái, xem trước bên phải như màn 1? Hay soạn trực tiếp trên bản xem trước?</span></div>
+      <div><b>2. Ngôn ngữ</b><span>Nhà cung cấp viết tiếng Việt, AI dịch khi lưu (đề xuất). Có cho nhà cung cấp tự sửa bản tiếng Anh không?</span></div>
+      <div><b>3. Khối mới</b><span>Giữ cả 5 khối B2B mới (banner, nổi bật, quy trình, đóng gói và container, câu hỏi thường gặp)? Bớt hay thêm khối nào?</span></div>
+      <div><b>4. Bộ mẫu</b><span>Bắt đầu với 4 ngành hàng (hạt điều, cà phê, hồ tiêu, quế) và một mẫu chung?</span></div>
+      <div><b>5. Giới hạn</b><span>Giữ tối đa 10 khối mỗi sản phẩm như hiện nay?</span></div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

@@ -7,20 +7,23 @@ import { fill } from "@/lib/i18n/format";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { deleteStreamVideo, getStreamVideo, streamConfig } from "@/lib/media/cloudflare-stream";
 import { deleteObject } from "@/lib/media/storage";
+import { aplusTranslationConfigured, translateAplusModules } from "@/lib/ai/translate-aplus";
 import { APLUS_MAX_MODULES, aplusImagePaths, aplusVideoUids, canEditAplus, readAplusModules, readGalleryVideo, validateAplusModules,
-  type AplusModule, type ProductGalleryVideo } from "@/lib/products/aplus";
+  type AplusModule, type AplusProblem, type ProductGalleryVideo } from "@/lib/products/aplus";
+import { prepareAplusForSave } from "@/lib/products/aplus-server";
+import { PENDING_PRODUCT_ID } from "@/lib/supplier-portal/pending-media";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 
-export type AplusSaveResult = { ok: boolean; message: string };
+export type AplusSaveResult = { ok: boolean; message: string; modules?: AplusModule[] };
 
 /**
  * Lưu nội dung A+ của một sản phẩm. Danh tính và quyền gói lấy từ phiên đăng nhập; lưu là hiện
  * ngay cho người mua (Vexim có thể gỡ khối vi phạm trong CRM). Ảnh bị bỏ khỏi nội dung thì xoá tệp.
  */
-export async function saveProductAplusAction(productId: string, modules: unknown): Promise<AplusSaveResult> {
+export async function saveProductAplusAction(productId: string, modules: unknown, retranslate: string[] = []): Promise<AplusSaveResult> {
   const { m } = await getPortalMessages();
   const e = m.aplus.errors;
   try {
@@ -30,13 +33,9 @@ export async function saveProductAplusAction(productId: string, modules: unknown
     if (!product || product.supplier_id !== access.supplier.id || !canEditAplus(product)) return { ok: false, message: e.noAccess };
     if (!supplierPlanRules(access.supplier, new Date(), await readPlanCatalog()).richContent) return { ok: false, message: e.plan };
     const ctx = { supplierId: access.supplier.id, productId };
-    const checked = validateAplusModules(modules, ctx);
-    if (!checked.ok) {
-      const { problem } = checked;
-      if (problem.code === "tooMany") return { ok: false, message: fill(e.tooMany, { max: APLUS_MAX_MODULES }) };
-      const key = problem.code === "video" ? "videoMissing" : problem.code;
-      return { ok: false, message: fill(e[key], { index: problem.index + 1 }) };
-    }
+    // Viết tiếng Việt, máy chủ dịch các khối có thay đổi rồi kiểm tra bản tiếng Anh người mua thấy.
+    const checked = await prepareAplusForSave(modules, ctx, new Set(retranslate.filter((id) => typeof id === "string").slice(0, APLUS_MAX_MODULES)));
+    if (!checked.ok) return { ok: false, message: checked.translation ? e.translation : aplusProblemText(checked.problem!, e) };
     const before = readAplusModules(product.aplus_content, ctx);
     const previous = aplusImagePaths(before);
     const verified = await verifyVideos(checked.modules, before, ctx);
@@ -53,11 +52,44 @@ export async function saveProductAplusAction(productId: string, modules: unknown
       .catch((error) => console.error("[aplus] audit", error));
     revalidatePath(`/supplier/portal/products/${productId}`);
     revalidatePath("/products", "layout");
-    return { ok: true, message: m.aplus.saved };
+    return { ok: true, message: checked.translationFailed ? m.aplus.savedTranslateLater : m.aplus.saved, modules: verified.modules };
   } catch (error) {
     console.error("[aplus] save", error);
     return { ok: false, message: e.failed };
   }
+}
+
+/**
+ * Dịch thử để xem trước bản tiếng Anh (nút "Dịch ngay" và "Dịch lại từ tiếng Việt"), không lưu.
+ * Sản phẩm chưa tạo (`productId` null) thì ảnh nằm ở khu chờ của nhà cung cấp.
+ */
+export async function translateAplusPreviewAction(productId: string | null, modules: unknown, retranslate: string[] = []): Promise<AplusSaveResult> {
+  const { m } = await getPortalMessages();
+  const e = m.aplus.errors;
+  try {
+    const access = await supplierPortalAccess();
+    if (!access || !portalApproved(access.supplier)) return { ok: false, message: e.noAccess };
+    if (productId) {
+      const product = await access.store.getProduct(productId);
+      if (!product || product.supplier_id !== access.supplier.id) return { ok: false, message: e.noAccess };
+    }
+    if (!supplierPlanRules(access.supplier, new Date(), await readPlanCatalog()).richContent) return { ok: false, message: e.plan };
+    const ctx = { supplierId: access.supplier.id, productId: productId ?? PENDING_PRODUCT_ID };
+    const draft = validateAplusModules(modules, ctx, { draft: true });
+    if (!draft.ok) return { ok: false, message: aplusProblemText(draft.problem, e) };
+    if (!aplusTranslationConfigured()) return { ok: false, message: e.translation };
+    const translated = await translateAplusModules(draft.modules, new Set(retranslate.filter((id) => typeof id === "string").slice(0, APLUS_MAX_MODULES)));
+    return { ok: true, message: m.aplus.translated, modules: translated };
+  } catch (error) {
+    console.error("[aplus] translate preview", error);
+    return { ok: false, message: e.translation };
+  }
+}
+
+function aplusProblemText(problem: AplusProblem, e: Awaited<ReturnType<typeof getPortalMessages>>["m"]["aplus"]["errors"]): string {
+  if (problem.code === "tooMany") return fill(e.tooMany, { max: APLUS_MAX_MODULES });
+  const key = problem.code === "video" ? "videoMissing" : problem.code;
+  return fill(e[key], { index: problem.index + 1 });
 }
 
 /**
@@ -114,7 +146,9 @@ async function verifyVideos(modules: AplusModule[], before: AplusModule[], ctx: 
     const module = modules[index];
     if (module.type !== "video") { out.push(module); continue; }
     const old = known.get(module.video_uid);
-    const base = { id: module.id, type: "video" as const, video_uid: module.video_uid, title: module.title };
+    const { duration: _d, uploaded_at: _u, ...rest } = module;
+    void _d; void _u;
+    const base = rest;
     const keepOld = () => ({ ...base, ...(old?.type === "video" && old.duration ? { duration: old.duration } : {}),
       ...(old?.type === "video" && old.uploaded_at ? { uploaded_at: old.uploaded_at } : {}) });
     if (old?.type === "video" && old.duration && old.uploaded_at) { out.push(keepOld()); continue; }

@@ -3,10 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { aplusVideoThumbnailUrl, type AplusModule, type ProductGalleryVideo } from "@/lib/products/aplus";
+import { aplusImagePaths, aplusModuleText, aplusVideoThumbnailUrl, type AplusModule, type ProductGalleryVideo } from "@/lib/products/aplus";
 import { removeAplusModuleAction, removeGalleryVideoAction } from "./aplus-actions";
 
-const TYPE_LABEL: Record<AplusModule["type"], string> = { image: "Ảnh lớn", image_text: "Ảnh kèm chữ", gallery: "Lưới ảnh", text: "Đoạn chữ", video: "Video" };
+const TYPE_LABEL: Record<AplusModule["type"], string> = {
+  hero: "Banner có chữ", highlights: "Điểm nổi bật", steps: "Quy trình theo bước", packing: "Đóng gói và container", faq: "Câu hỏi thường gặp",
+  image: "Ảnh lớn", image_text: "Ảnh kèm chữ", gallery: "Lưới ảnh", text: "Đoạn chữ", video: "Video",
+};
 
 /**
  * Video sản phẩm và nội dung A+ nhà cung cấp đã lưu (hiện ngay cho người mua). Nhân viên gỡ được
@@ -42,8 +45,10 @@ export function CrmAplusReview({ productId, modules, galleryVideo = null, visibl
     {modules.length > 0 && <p className="mt-3 text-xs font-semibold text-ink-700">Nội dung A+ ({modules.length} khối)</p>}
     <ul className="mt-2 space-y-2">
       {modules.map((m, index) => {
-        const paths = m.type === "image" || m.type === "image_text" ? [m.image_path] : m.type === "gallery" ? m.items.map((i) => i.image_path) : [];
-        const text = m.type === "image" ? m.caption : m.type === "gallery" ? m.items.map((i) => i.caption).filter(Boolean).join(" · ") : m.type === "video" ? m.title : `${m.title}${m.body ? ` — ${m.body}` : ""}`;
+        const paths = aplusImagePaths([m]);
+        // Nhân viên thấy cả bản tiếng Anh người mua đọc và bản tiếng Việt nhà cung cấp viết.
+        const text = aplusModuleText(m).filter(Boolean).join(" · ");
+        const source = (m.vi ?? []).filter(Boolean).join(" · ");
         return <li key={m.id} className="flex flex-wrap items-start gap-3 rounded-lg border border-ink-200 p-2.5">
           <div className="flex shrink-0 gap-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -53,6 +58,7 @@ export function CrmAplusReview({ productId, modules, galleryVideo = null, visibl
           <div className="min-w-0 flex-1 text-xs">
             <p className="font-semibold text-ink-900">{index + 1}. {TYPE_LABEL[m.type]}</p>
             {text && <p className="mt-0.5 line-clamp-3 break-words text-ink-600">{text}</p>}
+            {source && source !== text && <p className="mt-0.5 line-clamp-2 break-words text-ink-400">Bản tiếng Việt: {source}</p>}
           </div>
           {canManage && <button type="button" disabled={!!busy} className="btn btn-soft btn-sm"
             onClick={async () => {

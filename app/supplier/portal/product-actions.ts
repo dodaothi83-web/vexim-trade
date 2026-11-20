@@ -34,7 +34,8 @@ import type { ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 import { fill } from "@/lib/i18n/format";
 import { canAddSupplierProduct, isProductLimitError, SUPPLIER_PLAN_LABELS, supplierPlanRules } from "@/lib/supplier-plans";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
-import { attachPendingMedia, readPendingMediaForm, type PendingMediaInput } from "@/lib/supplier-portal/pending-media";
+import { attachPendingMedia, PENDING_PRODUCT_ID, readPendingMediaForm, type PendingMediaInput } from "@/lib/supplier-portal/pending-media";
+import { prepareAplusForSave } from "@/lib/products/aplus-server";
 import { APLUS_MAX_MODULES, type AplusProblem } from "@/lib/products/aplus";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
 
@@ -178,6 +179,12 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     if (!existing) {
       const pending = readPendingMediaForm(form, access.supplier.id);
       if (!pending.ok) return { ok: false, message: pending.problem ? aplusProblemMessage(pending.problem, m.aplus.errors) : m.aplus.errors.upload };
+      if (pending.value.aplus.length) {
+        // Dịch bản tiếng Việt và kiểm tra bản tiếng Anh trước khi tạo sản phẩm, để báo lỗi sớm.
+        const prepared = await prepareAplusForSave(pending.value.aplus, { supplierId: access.supplier.id, productId: PENDING_PRODUCT_ID });
+        if (!prepared.ok) return { ok: false, message: prepared.translation ? m.aplus.errors.translation : aplusProblemMessage(prepared.problem!, m.aplus.errors) };
+        pending.value.aplus = prepared.modules;
+      }
       if (pending.value.aplus.length || pending.value.videoUid) pendingMedia = pending.value;
     }
     if (!existing) {

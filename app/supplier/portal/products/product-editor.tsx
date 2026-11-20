@@ -33,7 +33,7 @@ import { useToast } from "@/components/toast";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
-import { AplusEditor } from "@/components/products/aplus-editor";
+import { AplusEditor, type AplusEditorHandle } from "@/components/products/aplus-editor";
 import { ProductVideoField } from "@/components/products/product-video-field";
 import { APLUS_MAX_MODULES, canEditAplus, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { aplusMessages, type AplusMessages } from "@/lib/i18n/portal/aplus";
@@ -296,6 +296,10 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const legacyManaged = review === "approved" && !!product && !product.supplier_originated && !product.supplier_category_proposal;
   const locked = review === "pending" || legacyManaged;
   const dirty = baseline !== null && !snapshotsEqual(snapshot, baseline);
+  // Nội dung A+ lưu cùng nút Lưu sản phẩm (bản duyệt docs/aplus-editor): chỉ sửa A+ cũng hiện nút Lưu.
+  const aplusRef = useRef<AplusEditorHandle>(null);
+  const [aplusDirty, setAplusDirty] = useState(false);
+  const anyDirty = dirty || aplusDirty;
   const ownedCount = media.filter((m) => m.created_by === userId).length;
   const imageCount = media.filter((m) => m.kind === "image").length;
   /** Ảnh trong kho ảnh của chính tài khoản này; kho là chỗ ảnh dừng trước khi gắn sản phẩm. */
@@ -424,7 +428,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
 
   // Cảnh báo rời trang khi còn thay đổi chưa lưu (đóng tab + bấm link nội bộ).
   useEffect(() => {
-    if (!dirty) return;
+    if (!anyDirty) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); };
     const onClick = (event: MouseEvent) => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -440,7 +444,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("click", onClick, true);
     };
-  }, [dirty]);
+  }, [anyDirty]);
 
   /**
    * Ghi lại nội dung form mỗi khi NCC sửa để bước 3 phản chiếu ngay.
@@ -603,6 +607,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       const saved = snapshotFromForm(formElement, snapshot);
       setSnapshot(saved);
       setBaseline(saved);
+      // Sản phẩm đã có: lưu luôn nội dung A+ (dịch bản tiếng Việt) trong cùng lần bấm Lưu.
+      if (product && aplusRef.current?.dirty()) {
+        const aplusOk = await aplusRef.current.save();
+        if (!aplusOk) { scrollToSection("sec-detail"); return null; }
+      }
       if (product) router.refresh();
       return response.id ?? product?.id ?? null;
     } catch (error) {
@@ -662,7 +671,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     setFormError(null);
     const creating = !product;
     try {
-      const id = product && !dirty ? product.id : await persist();
+      const id = product && !anyDirty ? product.id : await persist();
       if (!id) return;
       setBusy(true);
       const form = new FormData();
@@ -1553,7 +1562,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               </div>}
               {richContentAllowed && !!(product?.description_detail ?? "").replace(/<[^>]*>/g, "").trim() && aplusCount === 0 &&
                 <p className="mb-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[12px] leading-5 text-brand-900">{aplusCopy.legacyText}</p>}
-              <AplusEditor productId={product?.id ?? null} allowed={richContentAllowed}
+              <AplusEditor handle={aplusRef} onDirtyChange={setAplusDirty} productId={product?.id ?? null} allowed={richContentAllowed}
                 editable={product ? canEditAplus(product) : true} copy={aplusCopy}
                 initial={product ? readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id }) : []} />
             </div>
@@ -1720,9 +1729,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         <div className="sticky bottom-0 z-20 mt-2.5 flex flex-wrap items-center gap-2 rounded-lg border border-ink-200 bg-white/95 px-3 py-2 shadow-[0_-2px_12px_rgba(15,23,42,0.08)] backdrop-blur">
           <Link href="/supplier/portal/products" className="text-[13px] font-semibold text-ink-600 hover:text-ink-900">{copy.footer.cancel}</Link>
           <span className="hidden min-w-0 items-center gap-1.5 truncate text-[12px] text-ink-500 sm:flex">
-            <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${dirty ? "bg-amber-500" : review === "changes_requested" ? "bg-rose-500" : "bg-emerald-500"}`} />
+            <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${anyDirty ? "bg-amber-500" : review === "changes_requested" ? "bg-rose-500" : "bg-emerald-500"}`} />
             <span className="truncate">
-              {dirty ? copy.footer.dirty : product ? fill(copy.footer.savedInfo, { count: media.length }) : copy.footer.unsaved}
+              {anyDirty ? copy.footer.dirty : product ? fill(copy.footer.savedInfo, { count: media.length }) : copy.footer.unsaved}
             </span>
           </span>
 
@@ -1732,7 +1741,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               className="inline-flex items-center gap-1.5 rounded-md border border-ink-300 bg-white px-3 py-1.5 text-[12.5px] font-bold text-ink-800 hover:bg-ink-50">
               <Eye className="size-3.5" aria-hidden="true" /> {copy.footer.preview}
             </button>
-            {!locked && dirty &&
+            {!locked && anyDirty &&
               <button type="submit" form="product-info" disabled={busy}
                 className="inline-flex items-center gap-1.5 rounded-md border border-ink-300 bg-white px-3 py-1.5 text-[12.5px] font-bold text-ink-800 hover:bg-ink-50 disabled:opacity-50">
                 <Save className="size-3.5" aria-hidden="true" /> {review === "approved" ? copy.footer.saveChanges : copy.footer.saveDraft}
