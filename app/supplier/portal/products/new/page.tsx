@@ -60,7 +60,7 @@ export default async function NewSupplierProductPage() {
       sub={copy.sub}
       breadcrumbs={<nav aria-label={copy.breadcrumbAria} className="flex items-center gap-1.5 text-xs text-ink-500"><Link href="/supplier/portal/products" className="hover:text-brand-700">{copy.products}</Link><ChevronRight className="size-3.5" aria-hidden="true" /><span className="font-semibold text-ink-800">{copy.breadcrumb}</span></nav>}
     />
-    <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} mediaAllowed={supplierPlanRules(access.supplier, new Date(), planCatalog).mediaAllowed} quantityPolicies={quantityPolicies} bankMedia={bankMedia} certificateInheritance={certificateInheritance}
+    <SupplierProductEditor categories={options} categoryScope={categoryScope} supplier={access.supplier} aplusCopy={m.aplus} richContentAllowed={supplierPlanRules(access.supplier, new Date(), planCatalog).richContent} quantityPolicies={quantityPolicies} bankMedia={bankMedia} certificateInheritance={certificateInheritance}
       messages={m.productEditor.editor} shared={m.productEditor.shared} statuses={m.products.statuses} lang={locale} />
   </>;
 }

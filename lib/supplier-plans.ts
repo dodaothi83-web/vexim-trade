@@ -19,15 +19,18 @@ export interface SupplierPlanRules {
   maxProducts: number | null;
   video: boolean;
   premiumStorefront: boolean;
-  /** Được tải ảnh/video cho sản phẩm. Basic là tin chữ; ảnh đã có từ trước vẫn giữ. */
-  mediaAllowed: boolean;
+  /**
+   * Nội dung A+ trong mô tả chi tiết (khối ảnh, ảnh + chữ, lưới ảnh, video). Basic chỉ có mô tả
+   * bằng chữ; ảnh sản phẩm chính thì mọi gói đều có.
+   */
+  richContent: boolean;
 }
 
 /** Giá trị mặc định khi chưa đọc được bảng gói trong CSDL; khớp nội dung khởi tạo của migration 20261129. */
 export const SUPPLIER_PLAN_RULES: Record<SupplierPlan, SupplierPlanRules> = {
-  basic: { maxProducts: 5, video: false, premiumStorefront: false, mediaAllowed: false },
-  premium: { maxProducts: 20, video: true, premiumStorefront: true, mediaAllowed: true },
-  pro: { maxProducts: null, video: true, premiumStorefront: true, mediaAllowed: true },
+  basic: { maxProducts: 5, video: false, premiumStorefront: false, richContent: false },
+  premium: { maxProducts: 20, video: true, premiumStorefront: true, richContent: true },
+  pro: { maxProducts: null, video: true, premiumStorefront: true, richContent: true },
 };
 
 export interface SupplierPlanPrice { months: number; price_vnd: number }
@@ -40,20 +43,21 @@ export interface SupplierPlanCatalogEntry {
   features: string[];
   prices: SupplierPlanPrice[];
   maxProducts: number | null;
-  mediaAllowed: boolean;
+  /** Mở nội dung A+ (ảnh, video) trong mô tả chi tiết. */
+  richContent: boolean;
   updatedAt?: string | null;
 }
 export type SupplierPlanCatalog = Record<SupplierPlan, SupplierPlanCatalogEntry>;
 
 export const DEFAULT_PLAN_CATALOG: SupplierPlanCatalog = {
-  basic: { plan: "basic", name: "Basic", summary: "Miễn phí", maxProducts: 5, mediaAllowed: false, prices: [],
-    features: ["Đăng tối đa 5 sản phẩm", "Tin sản phẩm chỉ gồm nội dung chữ, không bao gồm hình ảnh và video", "Hồ sơ nhà cung cấp cơ bản trên nền tảng"] },
-  premium: { plan: "premium", name: "Premium", summary: "", maxProducts: 20, mediaAllowed: true,
+  basic: { plan: "basic", name: "Basic", summary: "Miễn phí", maxProducts: 5, richContent: false, prices: [],
+    features: ["Đăng tối đa 5 sản phẩm", "Mô tả chi tiết sản phẩm chỉ gồm nội dung chữ, không có ảnh và video A+", "Hồ sơ nhà cung cấp cơ bản trên nền tảng"] },
+  premium: { plan: "premium", name: "Premium", summary: "", maxProducts: 20, richContent: true,
     prices: [{ months: 3, price_vnd: 1_399_000 }, { months: 6, price_vnd: 2_499_000 }],
     features: ["Đăng tối đa 20 sản phẩm, bao gồm hình ảnh và video", "1 bài SEO tiếng Anh mỗi tháng trên website Vexim Trade",
       "1 bài SEO mỗi tháng trên website của doanh nghiệp (nếu có)", "Nhân viên Vexim tư vấn tối ưu gian hàng và hồ sơ năng lực",
       "Dùng thử 15 ngày cho khách hàng đã dùng dịch vụ FDA/GACC của Vexim Global"] },
-  pro: { plan: "pro", name: "Pro", summary: "", maxProducts: null, mediaAllowed: true,
+  pro: { plan: "pro", name: "Pro", summary: "", maxProducts: null, richContent: true,
     prices: [{ months: 3, price_vnd: 1_999_000 }, { months: 6, price_vnd: 3_499_000 }],
     features: ["Đăng không giới hạn sản phẩm, bao gồm hình ảnh và video", "2 bài SEO tiếng Anh mỗi tháng trên website Vexim Trade",
       "2 bài SEO mỗi tháng trên website của doanh nghiệp (nếu có)", "Nhân viên Vexim tư vấn tối ưu gian hàng và hồ sơ năng lực",
@@ -89,7 +93,7 @@ export function effectiveSupplierPlan(
 
 /**
  * Quyền của gói đang có hiệu lực. Truyền `catalog` (đọc từ CRM) để số sản phẩm và quyền
- * đăng ảnh theo đúng bảng gói hiện hành; thiếu thì dùng giá trị mặc định.
+ * nội dung A+ theo đúng bảng gói hiện hành; thiếu thì dùng giá trị mặc định.
  */
 export function supplierPlanRules(
   supplier: { plan?: string | null; plan_expires_at?: string | null },
@@ -98,19 +102,7 @@ export function supplierPlanRules(
 ): SupplierPlanRules & { plan: SupplierPlan } {
   const plan = effectiveSupplierPlan(supplier, now);
   const entry = catalog?.[plan];
-  return { plan, ...SUPPLIER_PLAN_RULES[plan], ...(entry ? { maxProducts: entry.maxProducts, mediaAllowed: entry.mediaAllowed } : {}) };
-}
-
-/**
- * Tin sản phẩm của nhà cung cấp này là tin chữ (gói không có ảnh/video): sản phẩm không
- * cần ảnh để được duyệt và hiển thị. Ảnh đã có từ trước vẫn hiện bình thường.
- */
-export function textOnlyListing(
-  supplier: { plan?: string | null; plan_expires_at?: string | null },
-  catalog?: SupplierPlanCatalog | null,
-  now: Date = new Date(),
-): boolean {
-  return !supplierPlanRules(supplier, now, catalog).mediaAllowed;
+  return { plan, ...SUPPLIER_PLAN_RULES[plan], ...(entry ? { maxProducts: entry.maxProducts, richContent: entry.richContent } : {}) };
 }
 
 /** Còn thêm được sản phẩm mới không (đếm mọi sản phẩm của nhà cung cấp, kể cả bản nháp). */

@@ -298,8 +298,8 @@ export async function notifySupplierPlanChange(input: {
     const title = !paid ? "Gói của bạn đã chuyển về Basic"
       : renewal ? `Gói ${label} đã được gia hạn` : `Gói ${label} đã được kích hoạt`;
     const explanation = paid
-      ? `Bạn đăng được ${limit}, có hình ảnh, video và trang nhà cung cấp cao cấp.${date ? ` Gói có hiệu lực đến ${date}.` : ""}`
-      : `Sản phẩm đã đăng vẫn hiển thị. Tin gói Basic chỉ gồm nội dung chữ, ${limit}.`;
+      ? `Bạn đăng được ${limit}, có nội dung A+ (ảnh, video) trong mô tả chi tiết và trang nhà cung cấp cao cấp.${date ? ` Gói có hiệu lực đến ${date}.` : ""}`
+      : `Sản phẩm đã đăng vẫn hiển thị. Gói Basic cho đăng ${limit}, mô tả chi tiết chỉ gồm chữ.`;
     const path = paid ? "/supplier/portal/storefront" : "/supplier/portal/products";
     const cta = paid ? "Thiết lập trang nhà cung cấp" : "Mở danh sách sản phẩm";
     const url = `${notificationOrigin()}${path}`;

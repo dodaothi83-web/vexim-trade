@@ -1,5 +1,3 @@
-import { supplierPlanRules } from "@/lib/supplier-plans";
-import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
@@ -37,9 +35,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const file = form.get("file");
   const kind = String(form.get("kind") ?? "image") as MediaKind;
   if (!(file instanceof File) || !["image", "catalogue"].includes(kind)) return fail("Chỉ nhận ảnh sản phẩm hoặc catalogue PDF.");
-  // Gói Basic là tin chữ: không thêm ảnh mới (ảnh đã có vẫn giữ). Catalogue PDF vẫn được.
-  if (kind === "image" && !supplierPlanRules(access.supplier, new Date(), await readPlanCatalog()).mediaAllowed)
-    return fail("Gói hiện tại chỉ đăng tin sản phẩm dạng chữ. Nâng cấp gói để thêm hình ảnh.", 403);
   const bytes = new Uint8Array(await file.arrayBuffer());
   const checked = validateUpload(kind, bytes, file.name);
   if (!checked.ok || !checked.mime) return fail(checked.message ?? "Tệp không hợp lệ.");

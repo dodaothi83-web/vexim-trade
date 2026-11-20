@@ -12,7 +12,7 @@ export type PlanCatalogResult = { ok: boolean; message: string } | null;
 
 /**
  * Quản trị sửa nội dung một gói: tên, mô tả ngắn, quyền lợi, bảng giá, số sản phẩm tối đa và
- * quyền đăng ảnh/video. Số sản phẩm tối đa có hiệu lực ngay (trigger tạo sản phẩm đọc bảng này);
+ * quyền dùng nội dung A+ (ảnh, video trong mô tả chi tiết). Số sản phẩm tối đa có hiệu lực ngay (trigger tạo sản phẩm đọc bảng này);
  * hạ mức không ẩn sản phẩm đã có.
  */
 export async function savePlanCatalogAction(_previous: PlanCatalogResult, form: FormData): Promise<PlanCatalogResult> {
@@ -31,7 +31,7 @@ export async function savePlanCatalogAction(_previous: PlanCatalogResult, form: 
   if (rawMax && !/^\d{1,6}$/.test(rawMax)) return { ok: false, message: "Số sản phẩm tối đa chỉ gồm chữ số; để trống là không giới hạn." };
   const maxProducts = rawMax ? Number(rawMax) : null;
   if (maxProducts !== null && maxProducts < 1) return { ok: false, message: "Số sản phẩm tối đa phải từ 1 trở lên." };
-  const mediaAllowed = form.get("media_allowed") === "yes";
+  const richContent = form.get("rich_content") === "yes";
 
   const months = form.getAll("price_months").map((v) => String(v).trim());
   const amounts = form.getAll("price_vnd").map((v) => String(v).replace(/[^\d]/g, ""));
@@ -49,7 +49,7 @@ export async function savePlanCatalogAction(_previous: PlanCatalogResult, form: 
 
   const db = getSupabaseClient();
   if (!db) return { ok: false, message: "Chưa kết nối cơ sở dữ liệu." };
-  const row = { plan, name, summary, features, prices, max_products: maxProducts, media_allowed: mediaAllowed,
+  const row = { plan, name, summary, features, prices, max_products: maxProducts, rich_content: richContent,
     updated_at: new Date().toISOString(), updated_by: /^[0-9a-f-]{36}$/i.test(session.uid) ? session.uid : null };
   const { error } = await db.from("supplier_plan_catalog").upsert(row, { onConflict: "plan" });
   if (error) {

@@ -2,8 +2,6 @@
  * Helpers cho trang công khai (SSR). Mọi hàm ở đây đều an toàn import ở server
  * components; KHÔNG import từ client components.
  */
-import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
-import { textOnlyListing } from "@/lib/supplier-plans";
 import "server-only";
 
 import { getStore } from "@/lib/db";
@@ -221,8 +219,7 @@ export async function getSupplierStorefront(supplier: Supplier & Partial<PublicS
     if (!mediaByProduct.has(asset.product_id)) mediaByProduct.set(asset.product_id, group);
     group.push(asset);
   }
-  const textOnly = textOnlyListing(supplier, await readPlanCatalog());
-  const publicProducts = eligible.filter((p) => supplier.is_demo || textOnly || productReadiness(mediaByProduct.get(p.id) ?? []).ready);
+  const publicProducts = eligible.filter((p) => supplier.is_demo || productReadiness(mediaByProduct.get(p.id) ?? []).ready);
   const productImagePaths: Record<string, string> = {};
   const productCardImagePaths: Record<string, string> = {};
   for (const p of publicProducts) {

@@ -26,6 +26,10 @@ import { StickyProductColumn } from "@/components/sticky-product-column";
 import { ProductTradeLabels } from "@/components/product-trade-labels";
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { ProductDescription } from "@/components/public/product-description";
+import { supplierPlanRules } from "@/lib/supplier-plans";
+import { ProductAplus } from "@/components/public/product-aplus";
+import { readAplusModules } from "@/lib/products/aplus";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { QuantityPriceTable } from "@/components/public/quantity-price-table";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { movedProductDestination } from "@/lib/public/product-category-redirect";
@@ -184,6 +188,9 @@ export default async function PublicProductDetail({ params }: Props) {
   const samplePrice = samplePriceEnglish(p);
   const samplePriceDisplay = p.sample_price_usd === 0 ? "Free sample" : samplePrice;
   const enDetail = p.description_detail_i18n?.en?.trim() || p.description_detail;
+  // Nội dung A+ chỉ hiện khi gói nhà cung cấp còn quyền; gói hết hạn thì nội dung giữ nhưng ẩn.
+  const aplus = supplier && supplierPlanRules(supplier, new Date(), await readPlanCatalog()).richContent
+    ? readAplusModules(p.aplus_content, { supplierId: p.supplier_id, productId: p.id }) : [];
   const parsedSpecifications = parseProductSpecification(enSpec);
   const detailRows = parsedSpecifications.filter((row) => !["grade", "minimum order quantity (moq)", "packaging specification"].includes(row.key));
   const detailedPackaging = parsedSpecifications.find((row) => row.key === "packaging specification")?.value;
@@ -443,9 +450,10 @@ export default async function PublicProductDetail({ params }: Props) {
         {additionalSpecs.map(([key, value]) => <Spec key={key} label={key} value={String(value)} />)}
       </dl>
     </section>}
-    {enDetail && <section aria-labelledby="product-description-heading" className="mt-10 border-t border-ink-200 pt-8">
+    {(enDetail || aplus.length > 0) && <section aria-labelledby="product-description-heading" className="mt-10 border-t border-ink-200 pt-8">
       <h2 id="product-description-heading" className="text-2xl font-black text-ink-900">Product description</h2>
-      <ProductDescription value={enDetail} className="mt-4 max-w-3xl" />
+      {enDetail && <ProductDescription value={enDetail} className="mt-4 max-w-3xl" />}
+      <ProductAplus modules={aplus} productName={card.name} />
     </section>}
     {relatedProducts.length > 0 && <section aria-labelledby="related-products-heading" className="mt-12 border-t border-ink-200 pt-8">
       <div className="flex flex-wrap items-end justify-between gap-3">

@@ -9,8 +9,8 @@ const now = new Date("2026-11-15T00:00:00Z");
 assert.equal(plans.SUPPLIER_PLAN_RULES.basic.maxProducts, 5);
 assert.equal(plans.SUPPLIER_PLAN_RULES.premium.maxProducts, 20);
 assert.equal(plans.SUPPLIER_PLAN_RULES.pro.maxProducts, null, "Pro không giới hạn sản phẩm");
-assert.equal(plans.SUPPLIER_PLAN_RULES.basic.mediaAllowed, false, "Basic là tin chữ");
-assert.equal(plans.SUPPLIER_PLAN_RULES.premium.mediaAllowed && plans.SUPPLIER_PLAN_RULES.pro.mediaAllowed, true);
+assert.equal(plans.SUPPLIER_PLAN_RULES.basic.richContent, false, "Basic: mô tả chi tiết chỉ có chữ");
+assert.equal(plans.SUPPLIER_PLAN_RULES.premium.richContent && plans.SUPPLIER_PLAN_RULES.pro.richContent, true, "Premium/Pro mở nội dung A+");
 assert.equal(plans.SUPPLIER_PLAN_RULES.basic.video, false, "Basic không có video");
 assert.equal(plans.SUPPLIER_PLAN_RULES.premium.video && plans.SUPPLIER_PLAN_RULES.pro.video, true);
 
@@ -46,15 +46,15 @@ assert.doesNotMatch(migration, /\nimmutable\n/, "Hàm dùng now() không đượ
 const catalogMigration = read("supabase/migrations/20261129_supplier_plan_catalog.sql");
 assert.match(catalogMigration, /create table if not exists public\.supplier_plan_catalog/);
 assert.match(catalogMigration, /\('pro', 'Pro'[\s\S]*?, null, true\)/, "Pro khởi tạo không giới hạn");
-assert.match(catalogMigration, /\('basic', 'Basic'[\s\S]*?, 5, false\)/, "Basic 5 sản phẩm, không ảnh");
+assert.match(catalogMigration, /\('basic', 'Basic'[\s\S]*?, 5, false\)/, "Basic 5 sản phẩm, không có nội dung A+");
 assert.match(catalogMigration, /if v_limit is null then\s+return new;/, "Không giới hạn thì không chặn");
 assert.match(catalogMigration, /on conflict \(plan\) do nothing/, "Chạy lại không ghi đè nội dung đã sửa");
 assert.equal(plans.canAddSupplierProduct({ plan: "pro" }, 10_000, now), true, "Pro không giới hạn");
 const customCatalog = { ...plans.DEFAULT_PLAN_CATALOG, premium: { ...plans.DEFAULT_PLAN_CATALOG.premium, maxProducts: 3 } };
 assert.equal(plans.canAddSupplierProduct({ plan: "premium" }, 3, now, customCatalog), false, "Giới hạn theo bảng gói CRM");
-assert.equal(plans.textOnlyListing({ plan: "basic" }), true);
-assert.equal(plans.textOnlyListing({ plan: "premium", plan_expires_at: "2026-01-01T00:00:00Z" }, null, now), true, "Gói hết hạn về tin chữ");
-assert.equal(plans.textOnlyListing({ plan: "pro" }, null, now), false);
+assert.equal(plans.supplierPlanRules({ plan: "basic" }, now).richContent, false);
+assert.equal(plans.supplierPlanRules({ plan: "premium", plan_expires_at: "2026-01-01T00:00:00Z" }, now).richContent, false, "Gói hết hạn không còn A+");
+assert.equal(plans.supplierPlanRules({ plan: "pro" }, now).richContent, true);
 
 // 6. Ứng dụng báo trước ở cả hai đường tạo, và trang tạo mới chặn khi hết chỗ.
 const portal = read("app/supplier/portal/product-actions.ts");
@@ -135,7 +135,7 @@ assert.match(action, /isSupplierPlan\(plan\)/);
   await actionExports.setSupplierPlanAction(form("basic"));
   assert.equal(mails[3].subject, "Gói của bạn đã chuyển về Basic");
   assert.match(mails[3].text, /Sản phẩm đã đăng vẫn hiển thị/);
-  assert.match(mails[3].text, /chỉ gồm nội dung chữ/);
+  assert.match(mails[3].text, /mô tả chi tiết chỉ gồm chữ/);
   assert.match(mails[2].text, /không giới hạn sản phẩm/, "Pro không giới hạn");
   assert.equal(activations.filter((a) => a.plan === "pro").length, 1, "Về Basic không ghi doanh thu");
   store.listUsers = async () => [];
@@ -144,4 +144,4 @@ assert.match(action, /isSupplierPlan\(plan\)/);
   assert.match(result.message, /Chưa gửi được email/);
 }
 
-console.log("✅ Gói nhà cung cấp: Basic 5 (tin chữ), Premium 20, Pro không giới hạn, hết hạn về Basic, chặn ở CSDL và ứng dụng, CRM đổi gói có audit và báo nhà cung cấp.");
+console.log("✅ Gói nhà cung cấp: Basic 5 (mô tả chữ), Premium 20 (A+), Pro không giới hạn, hết hạn về Basic, chặn ở CSDL và ứng dụng, CRM đổi gói có audit và báo nhà cung cấp.");

@@ -1,0 +1,69 @@
+// node --experimental-strip-types --no-warnings scripts/check-product-aplus.mjs
+// Nội dung A+ (Premium/Pro): khối hợp lệ, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp,
+// Basic chỉ có mô tả chữ, ảnh A+ chỉ công khai khi đang dùng và gói còn quyền.
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const a = await import("../lib/products/aplus.ts");
+const plans = await import("../lib/supplier-plans.ts");
+const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+const sid = "11111111-1111-1111-1111-111111111111", pid = "22222222-2222-2222-2222-222222222222";
+const ctx = { supplierId: sid, productId: pid };
+const img = (n = 3) => `aplus/${sid}/${pid}/${String(n).repeat(8)}-${String(n).repeat(4)}-${String(n).repeat(4)}-${String(n).repeat(4)}-${String(n).repeat(12)}.webp`;
+
+// 1. Năm loại khối hợp lệ.
+const good = [
+  { id: "m-000001", type: "image", image_path: img(3), caption: "Our drying yard" },
+  { id: "m-000002", type: "image_text", image_path: img(4), title: "Grown in Dak Lak", body: "Hand-picked cherries.", image_side: "right" },
+  { id: "m-000003", type: "gallery", items: [{ image_path: img(5), caption: "" }, { image_path: img(6), caption: "Sorting" }] },
+  { id: "m-000004", type: "text", title: "Quality control", body: "Moisture checked per lot." },
+  { id: "m-000005", type: "video", video_uid: "ab".repeat(16), title: "Factory tour" },
+];
+const ok = a.validateAplusModules(good, ctx);
+assert.equal(ok.ok, true);
+assert.equal(ok.modules.length, 5);
+assert.deepEqual(a.aplusImagePaths(ok.modules), [img(3), img(4), img(5), img(6)]);
+
+// 2. Từ chối: ảnh của sản phẩm/nhà cung cấp khác, thiếu tiêu đề, quá dài, lưới sai số ảnh, video sai mã.
+const bad = (module) => a.validateAplusModules([module], ctx);
+assert.equal(bad({ ...good[0], image_path: img(3).replace(pid, sid) }).problem.code, "imageRequired", "Ảnh phải thuộc đúng sản phẩm");
+assert.equal(bad({ ...good[1], title: "" }).problem.code, "titleRequired");
+assert.equal(bad({ ...good[3], body: "x".repeat(a.APLUS_BODY_MAX + 1) }).problem.code, "tooLong");
+assert.equal(bad({ ...good[2], items: [good[2].items[0]] }).problem.code, "galleryCount");
+assert.equal(bad({ ...good[4], video_uid: "not-a-uid" }).problem.code, "video");
+assert.equal(a.validateAplusModules(Array.from({ length: a.APLUS_MAX_MODULES + 1 }, (_, i) => ({ id: `t-${String(i).padStart(6, "0")}`, type: "text", title: "Hi", body: "" })), ctx).problem.code, "tooMany");
+
+// 3. Người mua là khách quốc tế; liên hệ đi qua Vexim.
+assert.equal(bad({ ...good[3], title: "Kiểm soát chất lượng từng lô" }).problem.code, "language");
+assert.equal(bad({ ...good[3], body: "Email sales@farm.vn for prices" }).problem.code, "contact");
+assert.equal(bad({ ...good[3], body: "Call +84 912 345 678" }).problem.code, "contact");
+assert.equal(bad({ ...good[3], body: "See www.farm.vn" }).problem.code, "contact");
+
+// 4. Đọc dữ liệu hỏng không làm hỏng trang: bỏ đúng khối hỏng.
+assert.equal(a.readAplusModules([good[0], { id: "x", type: "evil" }], ctx).length, 1);
+assert.deepEqual(a.readAplusModules(null, ctx), []);
+
+// 5. Quyền theo gói: Basic chỉ mô tả chữ; Premium/Pro có A+; gói hết hạn mất A+.
+assert.equal(plans.supplierPlanRules({ plan: "basic" }).richContent, false);
+assert.equal(plans.supplierPlanRules({ plan: "premium" }).richContent, true);
+assert.equal(plans.supplierPlanRules({ plan: "pro", plan_expires_at: "2020-01-01T00:00:00Z" }).richContent, false);
+
+// 6. Máy chủ: lưu và tải lên kiểm tra quyền gói từ phiên; ảnh công khai chỉ khi đang dùng và gói còn quyền.
+const action = read("app/supplier/portal/aplus-actions.ts");
+assert.match(action, /supplierPortalAccess\(\)/);
+assert.match(action, /\.richContent\) return \{ ok: false, message: e\.plan \}/);
+assert.match(action, /canEditAplus\(product\)/);
+const upload = read("app/api/supplier-portal/products/[id]/aplus/route.ts");
+assert.match(upload, /\.richContent\) return fail\(e\.plan, 403\)/);
+assert.match(upload, /CLOUDFLARE_STREAM_API_TOKEN/);
+assert.match(upload, /stream\/direct_upload/);
+assert.doesNotMatch(upload, /NEXT_PUBLIC_CLOUDFLARE/, "Khoá Cloudflare chỉ ở máy chủ");
+const media = read("app/public-media/[...path]/route.ts");
+assert.match(media, /aplusImagePaths\(readAplusModules\(product\.aplus_content/, "Ảnh A+ chỉ phục vụ khi đang nằm trong nội dung");
+assert.match(media, /\.richContent\)\s*\n\s*return new NextResponse\("Not found"/, "Gói hết quyền thì ảnh A+ không công khai");
+const page = read("app/(public)/products/[slug]/[productId]/page.tsx");
+assert.match(page, /richContent\s*\n?\s*\? readAplusModules/, "Trang người mua chỉ dựng A+ khi gói còn quyền");
+const migration = read("supabase/migrations/20261130_product_aplus_content.sql");
+assert.match(migration, /add column if not exists aplus_content jsonb not null default '\[\]'::jsonb/);
+assert.match(migration, /rename column media_allowed to rich_content/);
+console.log("✅ Nội dung A+: 5 loại khối, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói.");

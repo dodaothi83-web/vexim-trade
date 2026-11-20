@@ -18,6 +18,7 @@ import { quantityMessages, type QuantityMessages } from "./quantity";
 import { evidenceMessages, type EvidenceMessages } from "./evidence";
 import { chatMessages, type ChatMessages } from "./chat";
 import { servicesMessages, type ServicesMessages } from "./services";
+import { aplusMessages, type AplusMessages } from "./aplus";
 import { showcaseMessages, type ShowcaseMessages } from "./showcase";
 
 /**
@@ -47,6 +48,7 @@ export type PortalMessages = {
   chat: ChatMessages;
   services: ServicesMessages;
   showcase: ShowcaseMessages;
+  aplus: AplusMessages;
 };
 
 export const portalMessages: Record<Locale, PortalMessages> = {
@@ -71,6 +73,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     chat: chatMessages.en,
     services: servicesMessages.en,
     showcase: showcaseMessages.en,
+    aplus: aplusMessages.en,
   },
   vi: {
     shared: sharedMessages.vi,
@@ -93,6 +96,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     chat: chatMessages.vi,
     services: servicesMessages.vi,
     showcase: showcaseMessages.vi,
+    aplus: aplusMessages.vi,
   },
 };
 

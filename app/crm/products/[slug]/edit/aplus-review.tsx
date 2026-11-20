@@ -1,0 +1,48 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import type { AplusModule } from "@/lib/products/aplus";
+import { removeAplusModuleAction } from "./aplus-actions";
+
+const TYPE_LABEL: Record<AplusModule["type"], string> = { image: "Ảnh lớn", image_text: "Ảnh kèm chữ", gallery: "Lưới ảnh", text: "Đoạn chữ", video: "Video" };
+
+/** Nội dung A+ nhà cung cấp đã lưu (hiện ngay cho người mua). Nhân viên gỡ được từng khối. */
+export function CrmAplusReview({ productId, modules, visible, canManage }: { productId: string; modules: AplusModule[]; visible: boolean; canManage: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const img = (path: string) => `/api/crm/aplus?path=${encodeURIComponent(path)}`;
+  if (!modules.length) return null;
+  return <section id="product-aplus" className="card scroll-mt-24 p-5" aria-label="Nội dung A+">
+    <h2 className="text-sm font-bold text-ink-900">Nội dung A+ ({modules.length} khối)</h2>
+    <p className="mt-0.5 text-xs text-ink-500">{visible ? "Đang hiện cho người mua dưới mô tả sản phẩm." : "Gói nhà cung cấp không còn quyền A+: nội dung đang ẩn với người mua."} Gỡ khối có liên hệ trực tiếp hoặc nội dung sai.</p>
+    <ul className="mt-3 space-y-2">
+      {modules.map((m, index) => {
+        const paths = m.type === "image" || m.type === "image_text" ? [m.image_path] : m.type === "gallery" ? m.items.map((i) => i.image_path) : [];
+        const text = m.type === "image" ? m.caption : m.type === "gallery" ? m.items.map((i) => i.caption).filter(Boolean).join(" · ") : m.type === "video" ? m.title : `${m.title}${m.body ? ` — ${m.body}` : ""}`;
+        return <li key={m.id} className="flex flex-wrap items-start gap-3 rounded-lg border border-ink-200 p-2.5">
+          <div className="flex shrink-0 gap-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {paths.slice(0, 4).map((p) => <img key={p} src={img(p)} alt="" className="h-14 w-20 rounded object-cover ring-1 ring-ink-200" />)}
+            {m.type === "video" && <span className="flex h-14 w-20 items-center justify-center rounded bg-ink-900 text-[10px] font-mono text-white">{m.video_uid.slice(0, 8)}…</span>}
+          </div>
+          <div className="min-w-0 flex-1 text-xs">
+            <p className="font-semibold text-ink-900">{index + 1}. {TYPE_LABEL[m.type]}</p>
+            {text && <p className="mt-0.5 line-clamp-3 break-words text-ink-600">{text}</p>}
+          </div>
+          {canManage && <button type="button" disabled={!!busy} className="btn btn-soft btn-sm"
+            onClick={async () => {
+              if (!window.confirm("Gỡ khối này khỏi trang sản phẩm?")) return;
+              setBusy(m.id); setMessage(null);
+              const result = await removeAplusModuleAction(productId, m.id);
+              setMessage({ ok: result.ok, text: result.message }); setBusy(null);
+              if (result.ok) router.refresh();
+            }}>{busy === m.id ? "Đang gỡ…" : "Gỡ khối"}</button>}
+        </li>;
+      })}
+    </ul>
+    {message && <p role={message.ok ? "status" : "alert"} className={`mt-2 text-xs ${message.ok ? "text-emerald-700" : "text-rose-700"}`}>{message.text}</p>}
+  </section>;
+}
