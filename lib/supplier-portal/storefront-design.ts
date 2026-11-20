@@ -137,12 +137,26 @@ export function layoutProblemMessage(problem: LayoutProblem, e: DesignerMessages
  */
 export async function verifyLayoutVideos(layout: StorefrontLayout, supplier: Pick<Supplier, "id" | "storefront_layout" | "storefront_layout_draft">):
   Promise<{ ok: true; layout: StorefrontLayout } | { ok: false; index: number | null }> {
-  const known = new Map<string, Extract<LayoutBlock, { type: "video" }>>();
+  const known = new Map<string, { duration?: number; uploaded_at?: string }>();
   for (const saved of [readStorefrontLayout(supplier.storefront_layout, supplier.id), readStorefrontLayout(supplier.storefront_layout_draft, supplier.id)])
-    for (const block of saved?.blocks ?? []) if (block.type === "video" && !known.has(block.video_uid)) known.set(block.video_uid, block);
+    for (const block of saved?.blocks ?? []) {
+      const uid = block.type === "video" ? block.video_uid : block.type === "company" ? block.video_uid : undefined;
+      if (uid && !known.has(uid)) known.set(uid, block as { duration?: number; uploaded_at?: string });
+    }
   const blocks: LayoutBlock[] = [];
   for (let index = 0; index < layout.blocks.length; index++) {
     const block = layout.blocks[index];
+    // Video giới thiệu trong khối Giới thiệu công ty: kiểm tra như video nhà máy.
+    if (block.type === "company" && block.video_uid) {
+      const checked = await verifyLayoutVideos({ ...layout, blocks: [{ id: block.id, type: "video", video_uid: block.video_uid, title: block.video_title ?? "",
+        ...(block.duration ? { duration: block.duration } : {}), ...(block.uploaded_at ? { uploaded_at: block.uploaded_at } : {}) }] }, supplier);
+      if (!checked.ok) return { ok: false, index: checked.index === null ? null : index };
+      const video = checked.layout.blocks[0] as Extract<LayoutBlock, { type: "video" }>;
+      const { duration: _d, uploaded_at: _u, ...rest } = block;
+      void _d; void _u;
+      blocks.push({ ...rest, ...(video.duration ? { duration: video.duration } : {}), ...(video.uploaded_at ? { uploaded_at: video.uploaded_at } : {}) });
+      continue;
+    }
     if (block.type !== "video") { blocks.push(block); continue; }
     const base = { id: block.id, type: "video" as const, ...(block.hidden ? { hidden: true as const } : {}), video_uid: block.video_uid, title: block.title };
     const old = known.get(block.video_uid);

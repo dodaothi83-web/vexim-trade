@@ -64,7 +64,7 @@ export default async function CrmSupplierDesignPage({ params }: { params: Promis
   // Nội dung các mục chung dựng từ cùng component với trang thật (nút trong bản xem trước không bấm được).
   const designCertificates = publicSupplierCertificates(supplier.id, rawCertificates, supplierMedia);
   const designSections = {
-    company: <CompanySection s={card} />,
+    company: <CompanySection s={card} premium />,
     checks: <ChecksSection s={card} />,
     trade: <TradeSection s={card} rfqActions={false} synthetic={false} premium />,
     companyDetails: <CompanyDetailsSection s={card} rfqActions={false} premium />,

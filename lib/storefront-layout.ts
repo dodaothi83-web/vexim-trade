@@ -40,6 +40,7 @@ export const LAYOUT_MAX_BLOCKS = 16;
 export const LAYOUT_MAX_ABOUT = 6;
 export const BANNER_MAX_IMAGES = 3;
 export const GALLERY_MAX_IMAGES = 12;
+export const COMPANY_MAX_IMAGES = 3;
 export const BANNER_EYEBROW_MAX = 60;
 export const BANNER_HEADLINE_MAX = 120;
 export const FEATURED_MAX_PRODUCTS = 8;
@@ -59,7 +60,13 @@ export type LayoutBlock =
   /** Chứng nhận Vexim đã kiểm tra, còn hiệu lực; tự lấy, không nhập tay. */
   | { id: string; type: "certificates"; hidden?: boolean }
   /** Giới thiệu và chi tiết kinh doanh, lấy từ hồ sơ. */
-  | { id: string; type: "company"; hidden?: boolean }
+  | {
+    id: string; type: "company"; hidden?: boolean;
+    /** Ảnh giới thiệu (tối đa 3, gói Premium/Pro). */
+    images?: string[];
+    /** Video giới thiệu (gói Pro), giống khối Video nhà máy. */
+    video_uid?: string; video_title?: string; duration?: number; uploaded_at?: string;
+  }
   /** Xác minh của Vexim (bắt buộc, không ẩn). */
   | { id: string; type: "checks"; hidden?: boolean }
   /** Điều kiện giao dịch và nút gửi yêu cầu qua Vexim. */
@@ -166,7 +173,25 @@ export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string
       case "markets":
       case "categories":
       case "certificates":
-      case "company":
+        block = { id: item.id, type, ...hidden };
+        break;
+      case "company": {
+        const raw = Array.isArray(item.images) ? item.images : [];
+        const images = raw.filter((path) => isLayoutImagePath(path, ctx.supplierId)) as string[];
+        if (images.length !== raw.length || images.length > COMPANY_MAX_IMAGES) return { ok: false, problem: { code: "imageRequired", index } };
+        const company: Extract<LayoutBlock, { type: "company" }> = { id: item.id, type, ...hidden, ...(images.length ? { images: [...new Set(images)] } : {}) };
+        if (item.video_uid !== undefined && item.video_uid !== "") {
+          if (typeof item.video_uid !== "string" || !/^[a-f0-9]{32}$/i.test(item.video_uid)) return { ok: false, problem: { code: "video", index } };
+          if (ctx.pro === false) return { ok: false, problem: { code: "plan", index } };
+          company.video_uid = item.video_uid.toLowerCase();
+          company.video_title = text(item.video_title);
+          if (typeof item.duration === "number" && Number.isFinite(item.duration) && item.duration > 0 && item.duration <= 86400) company.duration = Math.round(item.duration);
+          if (typeof item.uploaded_at === "string" && !Number.isNaN(Date.parse(item.uploaded_at))) company.uploaded_at = new Date(item.uploaded_at).toISOString();
+          strings = [[company.video_title ?? "", VIDEO_TITLE_MAX]];
+        }
+        block = company;
+        break;
+      }
       case "trade":
       case "details":
         block = { id: item.id, type, ...hidden };
@@ -246,19 +271,26 @@ export function defaultCommonBlocks(): LayoutBlock[] {
 /** Mã video Cloudflare trong bố cục. */
 export function layoutVideoUids(layout: StorefrontLayout | null): string[] {
   if (!layout) return [];
-  return layout.blocks.flatMap((block) => block.type === "video" ? [block.video_uid] : []);
+  return layout.blocks.flatMap((block) => block.type === "video" ? [block.video_uid] : block.type === "company" && block.video_uid ? [block.video_uid] : []);
 }
 
 /** Bỏ khối chỉ dành cho gói Pro khi gói hiện tại không phải Pro (gói hạ thì khối ẩn, không xoá). */
 export function layoutForPlan(layout: StorefrontLayout, pro: boolean): StorefrontLayout {
-  return pro ? layout : { ...layout, blocks: layout.blocks.filter((block) => !PRO_ONLY_BLOCKS.includes(block.type)) };
+  if (pro) return layout;
+  return { ...layout, blocks: layout.blocks.filter((block) => !PRO_ONLY_BLOCKS.includes(block.type)).map((block) => {
+    if (block.type !== "company" || !block.video_uid) return block;
+    // Video giới thiệu là quyền gói Pro: gói hạ thì ẩn video, giữ ảnh và chữ.
+    const { video_uid: _uid, video_title: _title, duration: _d, uploaded_at: _u, ...rest } = block;
+    void _uid; void _title; void _d; void _u;
+    return rest;
+  }) };
 }
 
 /** Mọi ảnh bố cục đang dùng. */
 export function layoutImagePaths(layout: StorefrontLayout | null): string[] {
   if (!layout) return [];
   return layout.blocks.flatMap((block) => block.type === "banner" ? block.images : block.type === "about" ? [block.image_path]
-    : block.type === "gallery" ? block.images ?? [] : []);
+    : block.type === "gallery" || block.type === "company" ? block.images ?? [] : []);
 }
 
 export function newLayoutBlockId(): string {

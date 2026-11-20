@@ -149,8 +149,27 @@ function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: numb
         </ul>
       </section>;
     }
-    case "company":
-      return <Shell id="about" eyebrow="About" title="About this supplier">{data.sections?.company}</Shell>;
+    case "company": {
+      // Giới thiệu công ty (Premium/Pro): chữ bên trái, ảnh bên phải (1 ảnh lớn hoặc 1 lớn + 2 nhỏ),
+      // video giới thiệu (gói Pro) trải rộng bên dưới. Điện thoại: ảnh trên, chữ dưới.
+      const images = block.images ?? [];
+      return <section id="about" className="scroll-mt-24 overflow-hidden rounded-2xl border border-ink-200 bg-white" aria-labelledby="about-title">
+        <div className={images.length ? "grid @3xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" : undefined}>
+          {images.length > 0 && <AboutMedia images={images.map(data.imageUrl)} />}
+          <div className="min-w-0 p-6 @2xl:p-10 @3xl:order-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">About</p>
+            <h2 id="about-title" className="mt-1.5 text-2xl font-bold tracking-tight text-ink-900 @2xl:text-3xl">About this supplier</h2>
+            <div className="mt-4 h-0.5 w-12 bg-[var(--sf-accent)]" aria-hidden="true" />
+            {data.sections?.company}
+          </div>
+        </div>
+        {block.video_uid && <div className="border-t border-ink-100 bg-[var(--sf-tint)]/40 p-6 @2xl:p-10">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">Company video</p>
+          <h3 className="mt-1 text-xl font-bold tracking-tight text-ink-900">{block.video_title || "Meet the company"}</h3>
+          <div className="mt-4 max-w-4xl"><AplusVideo uid={block.video_uid} title={block.video_title || "Company video"} className="rounded-2xl" /></div>
+        </div>}
+      </section>;
+    }
     case "checks":
       return <Shell id="verification" eyebrow="Verification" title="Supplier checks" sub="See what has been reviewed and what each check covers.">{data.sections?.checks}</Shell>;
     case "trade":
@@ -204,4 +223,21 @@ function Shell({ id, eyebrow, title, sub, children }: { id: string; eyebrow: str
     {sub && <p className="mt-1 text-sm leading-6 text-ink-600">{sub}</p>}
     {children}
   </section>;
+}
+
+/** Ảnh giới thiệu: 1 ảnh lớn; 2 ảnh chồng nhau; 3 ảnh thì 1 lớn bên trái và 2 nhỏ bên phải. */
+function AboutMedia({ images }: { images: string[] }) {
+  const img = (src: string, className: string) => (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img key={src} src={src} alt="" loading="lazy" decoding="async" className={`h-full w-full object-cover ${className}`} />
+  );
+  return <div className="relative h-64 bg-[var(--sf-tint)] @2xl:h-80 @3xl:order-2 @3xl:h-auto @3xl:min-h-[440px]">
+    {images.length === 1 ? <div className="absolute inset-0">{img(images[0], "")}</div>
+      : images.length === 2 ? <div className="absolute inset-0 grid grid-rows-2 gap-1">{images.map((src) => img(src, ""))}</div>
+        : <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-1">
+          <div className="row-span-2">{img(images[0], "")}</div>
+          {img(images[1], "")}
+          {img(images[2], "")}
+        </div>}
+  </div>;
 }
