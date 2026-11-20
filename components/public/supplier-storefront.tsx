@@ -24,7 +24,7 @@ import { publicShowcaseBlocks, type ShowcaseBlock } from "@/lib/supplier-showcas
 import { storefrontStatValue } from "@/components/public/premium-storefront";
 import { PremiumHeader } from "@/components/public/premium-header";
 import { StorefrontBlocks, type StorefrontBlockProduct } from "@/components/public/storefront-blocks";
-import { readStorefrontLayout, type StorefrontLayout } from "@/lib/storefront-layout";
+import { layoutForPlan, readStorefrontLayout, type StorefrontLayout } from "@/lib/storefront-layout";
 import { normalizeStorefrontTheme, STOREFRONT_STATS, STOREFRONT_TONE_COLORS, type StorefrontTheme } from "@/lib/storefront-theme";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
@@ -233,7 +233,11 @@ export function SupplierStorefront({
     </>}
 
     {premium && sectionNav}
-    {layout && <StorefrontBlocks layout={sanitizeLayout(layout)} data={{
+    {layout && <StorefrontBlocks layout={sanitizeLayout(layoutForPlan(layout, supplierPlanRules(s).plan === "pro"))} data={{
+      categories: storefrontCategoryGroups(s.main_products, productCategory, productLinks && !synthetic,
+        (id) => { const form = s.form_product_cards?.[id]; const image = form ? form.cardImagePath ?? form.imagePaths[0] : s.product_card_image_paths[id]; return image ? mediaUrl(image) : null; }),
+      certificates: certificates.map((c) => ({ name: safe(c.shortName || c.name),
+        detail: [c.holderMatch === "partner" ? "Held by a partner facility" : "", c.validUntil ? `Valid until ${c.validUntil}` : ""].filter(Boolean).join(" · ") })),
       statValues: Object.fromEntries(STOREFRONT_STATS.map((stat) => [stat, storefrontStatValue(s, stat)])),
       markets: supplierExportMarketsDisplay(s).map((market) => safe(market)).filter(Boolean),
       products: Object.fromEntries(s.main_products.map((p): [string, StorefrontBlockProduct] => {
@@ -537,4 +541,19 @@ function legacyLayout(theme: StorefrontTheme, showcase: ShowcaseBlock[]): Storef
     ...(theme.stats.length ? [{ id: "legacy-stats", type: "stats" as const, stats: theme.stats }] : []),
     ...showcase.map((block) => ({ id: `legacy-${block.id}`.slice(0, 40), type: "about" as const, image_path: block.image_path, title: block.title, body: block.body })),
   ] };
+}
+
+/** Nhóm sản phẩm đang đăng theo danh mục cho khối Nhóm sản phẩm (gói Pro). */
+function storefrontCategoryGroups<P extends { id: string }>(products: P[], categoryOf: (p: P) => Category | undefined, linkable: boolean,
+  imageOf: (id: string) => string | null): { name: string; href: string | null; count: number; imageUrl: string | null }[] {
+  const groups = new Map<string, { name: string; href: string | null; count: number; imageUrl: string | null }>();
+  for (const p of products) {
+    const category = categoryOf(p);
+    if (!category) continue;
+    const group = groups.get(category.slug) ?? { name: safe(category.name_i18n?.en || category.slug), href: linkable ? `/products/${encodeURIComponent(category.slug)}` : null, count: 0, imageUrl: null };
+    group.count++;
+    group.imageUrl ??= imageOf(p.id);
+    groups.set(category.slug, group);
+  }
+  return [...groups.values()].sort((a, b) => b.count - a.count);
 }

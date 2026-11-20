@@ -7,6 +7,7 @@ import { StorefrontDesigner } from "@/components/storefront-designer/storefront-
 import { StorefrontVersionHistory } from "@/components/storefront-designer/version-history";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { getSupplierStorefront } from "@/lib/public/catalog";
+import { publicSupplierCertificates } from "@/lib/public/certificates";
 import { readStorefrontLayout } from "@/lib/storefront-layout";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -43,7 +44,14 @@ export default async function StorefrontDesignPage() {
   const avatarUrl = supplier.profile_image ? `/public-media/${supplier.profile_image.replace(/^\/+/, "")}` : null;
   const [card, versions] = await Promise.all([getSupplierStorefront(supplier), listStorefrontVersions(supplier.id)]);
   const coverUrl = supplier.cover_image ? `/public-media/${supplier.cover_image.replace(/^\/+/, "")}` : null;
-  const data = designerDataFromCard(card, { avatarUrl, coverUrl });
+  const [designCategories, rawCertificates, supplierMedia] = await Promise.all([
+    access.store.listCategories({ publishedOnly: true }).catch(() => []),
+    access.store.listCertificates(supplier.id).catch(() => []),
+    access.store.listMedia("supplier", supplier.id).catch(() => []),
+  ]);
+  const data = designerDataFromCard(card, { avatarUrl, coverUrl, pro: supplierPlanRules(supplier).plan === "pro",
+    categories: designCategories.filter((c) => c.status === "published" && c.is_published),
+    certificates: publicSupplierCertificates(supplier.id, rawCertificates, supplierMedia) });
   const published = readStorefrontLayout(supplier.storefront_layout, supplier.id);
   const theme = normalizeStorefrontTheme(supplier.storefront_theme);
   const initial = draftLayoutOf(supplier) ?? data.quick ?? { tone: theme.tone, tagline: "", blocks: [] };
@@ -53,7 +61,7 @@ export default async function StorefrontDesignPage() {
   return <>
     {back}
     <PageHeader title={copy.title} sub={copy.sub} />
-    <StorefrontDesigner initial={initial} quick={data.quick} live={live} header={data.header} statValues={data.statValues}
+    <StorefrontDesigner pro={data.pro} categories={data.categories} certificates={data.certificates} initial={initial} quick={data.quick} live={live} header={data.header} statValues={data.statValues}
       markets={data.markets} products={data.products} imagePreviewBase="/api/supplier-portal/showcase?path="
       uploadUrl="/api/supplier-portal/storefront-image" saveDraft={saveStorefrontDraftAction} apply={applyStorefrontLayoutAction}
       copy={copy} previewHref="/supplier/portal/storefront?draft=1" />

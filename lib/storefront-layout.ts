@@ -22,7 +22,10 @@ import {
 import { normalizeShowcaseBlocks, showcaseHasContact } from "./supplier-showcase.ts";
 import { looksVietnamese } from "./vietnamese-text.ts";
 
-export const LAYOUT_BLOCK_TYPES = ["banner", "stats", "products", "about", "markets"] as const;
+export const LAYOUT_BLOCK_TYPES = ["banner", "stats", "products", "about", "markets", "video", "categories", "certificates"] as const;
+/** Khối chỉ gói Pro (giai đoạn 2, theo bản mẫu duyệt 2026-11-20). */
+export const PRO_ONLY_BLOCKS: readonly LayoutBlockType[] = ["video", "categories"];
+export const VIDEO_TITLE_MAX = 120;
 export type LayoutBlockType = (typeof LAYOUT_BLOCK_TYPES)[number];
 
 export const LAYOUT_MAX_BLOCKS = 12;
@@ -39,7 +42,13 @@ export type LayoutBlock =
   | { id: string; type: "stats"; hidden?: boolean; stats: StorefrontStat[] }
   | { id: string; type: "products"; hidden?: boolean; product_ids: string[] }
   | { id: string; type: "about"; hidden?: boolean; image_path: string; title: string; body: string }
-  | { id: string; type: "markets"; hidden?: boolean };
+  | { id: string; type: "markets"; hidden?: boolean }
+  /** Video nhà máy (Cloudflare Stream); thời lượng, ngày tải lên do máy chủ lấy từ Cloudflare. */
+  | { id: string; type: "video"; hidden?: boolean; video_uid: string; title: string; duration?: number; uploaded_at?: string }
+  /** Nhóm sản phẩm đang đăng theo danh mục, tự dựng từ sản phẩm. */
+  | { id: string; type: "categories"; hidden?: boolean }
+  /** Chứng nhận Vexim đã kiểm tra, còn hiệu lực; tự lấy, không nhập tay. */
+  | { id: string; type: "certificates"; hidden?: boolean };
 
 export interface StorefrontLayout {
   tone: StorefrontTone;
@@ -57,7 +66,9 @@ export type LayoutProblem =
   | { code: "tooLong"; index: number }
   | { code: "contact"; index: number }
   | { code: "language"; index: number }
-  | { code: "tagline" };
+  | { code: "tagline" }
+  | { code: "plan"; index: number }
+  | { code: "video"; index: number };
 
 const ID = /^[a-z0-9-]{6,40}$/i;
 const PRODUCT_ID = /^[a-z0-9-]{8,64}$/i;
@@ -76,7 +87,7 @@ const isOneOf = <T extends string>(list: readonly T[], value: unknown): value is
  * Chuẩn hoá và kiểm tra bố cục trước khi lưu. `productIds` là sản phẩm của chính nhà cung cấp
  * (sản phẩm nổi bật chỉ chọn trong danh sách này).
  */
-export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string; productIds: ReadonlySet<string> }):
+export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string; productIds: ReadonlySet<string>; pro?: boolean }):
   { ok: true; layout: StorefrontLayout } | { ok: false; problem: LayoutProblem } {
   const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
   if (!value || !Array.isArray(value.blocks)) return { ok: false, problem: { code: "invalid", index: 0 } };
@@ -96,6 +107,7 @@ export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string
     if (type === "about") { if (++aboutCount > LAYOUT_MAX_ABOUT) return { ok: false, problem: { code: "tooMany" } }; }
     else if (seenTypes.has(type)) return { ok: false, problem: { code: "duplicate", index } };
     seenTypes.add(type);
+    if (ctx.pro === false && PRO_ONLY_BLOCKS.includes(type)) return { ok: false, problem: { code: "plan", index } };
     const hidden = item.hidden === true ? { hidden: true as const } : {};
     let block: LayoutBlock;
     let strings: Array<[string, number]> = [];
@@ -128,8 +140,19 @@ export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string
         break;
       }
       case "markets":
+      case "categories":
+      case "certificates":
         block = { id: item.id, type, ...hidden };
         break;
+      case "video": {
+        if (typeof item.video_uid !== "string" || !/^[a-f0-9]{32}$/i.test(item.video_uid)) return { ok: false, problem: { code: "video", index } };
+        const video: LayoutBlock = { id: item.id, type, ...hidden, video_uid: item.video_uid.toLowerCase(), title: text(item.title) };
+        if (typeof item.duration === "number" && Number.isFinite(item.duration) && item.duration > 0 && item.duration <= 86400) video.duration = Math.round(item.duration);
+        if (typeof item.uploaded_at === "string" && !Number.isNaN(Date.parse(item.uploaded_at))) video.uploaded_at = new Date(item.uploaded_at).toISOString();
+        block = video;
+        strings = [[video.title, VIDEO_TITLE_MAX]];
+        break;
+      }
     }
     if (strings.some(([value, max]) => value.length > max)) return { ok: false, problem: { code: "tooLong", index } };
     const joined = strings.map(([value]) => value).join(" ").trim();
@@ -169,6 +192,17 @@ export function readStorefrontLayout(raw: unknown, supplierId: string): Storefro
   };
 }
 
+/** Mã video Cloudflare trong bố cục. */
+export function layoutVideoUids(layout: StorefrontLayout | null): string[] {
+  if (!layout) return [];
+  return layout.blocks.flatMap((block) => block.type === "video" ? [block.video_uid] : []);
+}
+
+/** Bỏ khối chỉ dành cho gói Pro khi gói hiện tại không phải Pro (gói hạ thì khối ẩn, không xoá). */
+export function layoutForPlan(layout: StorefrontLayout, pro: boolean): StorefrontLayout {
+  return pro ? layout : { ...layout, blocks: layout.blocks.filter((block) => !PRO_ONLY_BLOCKS.includes(block.type)) };
+}
+
 /** Mọi ảnh bố cục đang dùng. */
 export function layoutImagePaths(layout: StorefrontLayout | null): string[] {
   if (!layout) return [];
@@ -189,6 +223,10 @@ export interface ProfileLayoutInput {
   /** Có số liệu (giá trị khác rỗng) cho từng loại; quyết định khối Năng lực. */
   statValues: Partial<Record<StorefrontStat, string>>;
   hasMarkets: boolean;
+  /** Có chứng nhận Vexim đã kiểm tra, còn hiệu lực. */
+  hasCertificates?: boolean;
+  /** Gói Pro và sản phẩm thuộc từ 2 danh mục trở lên: thêm khối Nhóm sản phẩm. */
+  categoryGroups?: boolean;
   province: string;
   foundedYear: number | null;
 }
@@ -215,6 +253,8 @@ export function buildLayoutFromProfile(input: ProfileLayoutInput): StorefrontLay
   if (input.productIds.length) blocks.push({ id: newLayoutBlockId(), type: "products", product_ids: input.productIds.slice(0, 4) });
   for (const block of showcase.slice(0, LAYOUT_MAX_ABOUT))
     blocks.push({ id: newLayoutBlockId(), type: "about", image_path: block.image_path, title: block.title.slice(0, ABOUT_TITLE_MAX), body: block.body.slice(0, ABOUT_BODY_MAX) });
+  if (input.categoryGroups) blocks.push({ id: newLayoutBlockId(), type: "categories" });
+  if (input.hasCertificates) blocks.push({ id: newLayoutBlockId(), type: "certificates" });
   if (input.hasMarkets) blocks.push({ id: newLayoutBlockId(), type: "markets" });
   return { tone: theme.tone, tagline, blocks };
 }

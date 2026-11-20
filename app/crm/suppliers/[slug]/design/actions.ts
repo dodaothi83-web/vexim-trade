@@ -9,7 +9,7 @@ import { validateStorefrontLayout } from "@/lib/storefront-layout";
 import { notifySupplierStorefrontDesigned } from "@/lib/supplier-portal/notify";
 import {
   activeDesignConsent, applyStorefrontLayout, CONSENT_METHODS, CONSENT_SCOPES, getStorefrontVersion, layoutProblemMessage,
-  recordDesignConsent, revokeDesignConsent, saveStorefrontDraft,
+  recordDesignConsent, revokeDesignConsent, saveStorefrontDraft, verifyLayoutVideos,
 } from "@/lib/supplier-portal/storefront-design";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 
@@ -93,9 +93,12 @@ async function prepare(supplierId: string, raw: unknown) {
   const consent = await activeDesignConsent(supplierId);
   if (!consent) return { ok: false as const, message: "Chưa ghi nhận nhà cung cấp đồng ý cho Vexim thiết kế hộ." };
   const products = await store.listProductsBySupplier(supplierId);
-  const checked = validateStorefrontLayout(raw, { supplierId, productIds: new Set(products.filter((p) => p.supplier_id === supplierId).map((p) => p.id)) });
+  const checked = validateStorefrontLayout(raw, { supplierId, productIds: new Set(products.filter((p) => p.supplier_id === supplierId).map((p) => p.id)),
+    pro: supplierPlanRules(supplier).plan === "pro" });
   if (!checked.ok) return { ok: false as const, message: layoutProblemMessage(checked.problem, copy.errors) };
-  return { ok: true as const, who, store, supplier, consent, layout: checked.layout };
+  const videos = await verifyLayoutVideos(checked.layout, supplier);
+  if (!videos.ok) return { ok: false as const, message: videos.index === null ? copy.errors.videoUnavailable : layoutProblemMessage({ code: "video", index: videos.index }, copy.errors) };
+  return { ok: true as const, who, store, supplier, consent, layout: videos.layout };
 }
 
 export async function saveDesignDraftAction(supplierId: string, raw: unknown): Promise<Result> {

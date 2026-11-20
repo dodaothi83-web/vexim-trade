@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
-import { SupplierPhotoButton } from "@/components/supplier-photo-button";
+import { SupplierCoverDeleteButton, SupplierPhotoButton } from "@/components/supplier-photo-button";
 import { SupplierStorefront } from "@/components/public/supplier-storefront";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
@@ -138,14 +138,17 @@ export default async function SupplierStorefrontPreviewPage({ searchParams }: { 
       nameTag="h2"
       showcaseImageUrl={showcasePreviewUrl}
       layoutOverride={showDraft && planRules.premiumStorefront ? draftLayoutOf(supplier) : undefined}
-      coverAction={<SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
-        className="absolute right-4 bottom-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />}
+      coverAction={<div className="absolute right-4 bottom-3 z-10 flex items-center gap-2">
+        {coverUrl && <SupplierCoverDeleteButton />}
+        <SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />
+      </div>}
       avatarAction={<SupplierPhotoButton kind="profile" hasImage={!!avatarUrl}
         className="absolute -right-2 -bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-white shadow-md ring-2 ring-white transition hover:bg-brand-800 disabled:opacity-60" />}
       verificationActions={<StorefrontVerificationActions progress={progress} />}
       nameAside={<StorefrontPlanBadge plan={planRules.plan} expiresOn={planExpiresOn} publicHref={publicHref} copy={copy.owner} />}
       ownerActions={<StorefrontUpgradeButton plan={planRules.plan} catalog={planCatalog} expiresOn={planExpiresOn} requestOpen={upgradeRequestOpen} email={user.email} copy={copy.owner} />}
-      coverHint={<p className="pointer-events-none absolute right-16 bottom-3 z-10 rounded-lg bg-white/95 px-2.5 py-1 text-right text-[11px] leading-4 text-ink-700 shadow-sm">
+      coverHint={<p className={`pointer-events-none absolute ${coverUrl ? "right-28" : "right-16"} bottom-3 z-10 rounded-lg bg-white/95 px-2.5 py-1 text-right text-[11px] leading-4 text-ink-700 shadow-sm`}>
         <span className="block font-semibold text-ink-900">{coverUrl ? copy.owner.coverChange : copy.owner.coverAdd}</span>{copy.owner.coverHint}
       </p>}
     />

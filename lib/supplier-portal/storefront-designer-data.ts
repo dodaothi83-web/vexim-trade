@@ -7,7 +7,10 @@ import { storefrontStatValue } from "@/components/public/premium-storefront";
 import type { DesignerProduct } from "@/components/storefront-designer/storefront-designer";
 import type { PublicSupplierCard } from "@/lib/public/catalog";
 import { publicProductTitle } from "@/lib/public/display-name";
-import { withoutDirectContacts } from "@/lib/public/product-selection";
+import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
+import type { PublicSupplierCertificate } from "@/lib/public/certificates";
+import type { StorefrontBlockCategory, StorefrontBlockCertificate } from "@/components/public/storefront-blocks";
+import type { Category } from "@/lib/types";
 import { supplierShortName } from "@/lib/public/supplier-name";
 import { supplierExportMarketsDisplay, supplierProvinceDisplay } from "@/lib/public/supplier-english";
 import { buildLayoutFromProfile, type StorefrontLayout } from "@/lib/storefront-layout";
@@ -24,9 +27,14 @@ export interface DesignerData {
   products: DesignerProduct[];
   header: { name: string; location: string; checks: string[]; avatarUrl: string | null; coverUrl: string | null };
   quick: StorefrontLayout | null;
+  pro: boolean;
+  categories: StorefrontBlockCategory[];
+  certificates: StorefrontBlockCertificate[];
 }
 
-export function designerDataFromCard(card: PublicSupplierCard, opts: { avatarUrl: string | null; coverUrl: string | null }): DesignerData {
+export function designerDataFromCard(card: PublicSupplierCard, opts: {
+  avatarUrl: string | null; coverUrl: string | null; pro: boolean; categories: Category[]; certificates: PublicSupplierCertificate[];
+}): DesignerData {
   const statValues = Object.fromEntries(STOREFRONT_STATS.map((stat) => [stat, storefrontStatValue(card, stat)]).filter(([, value]) => value)) as Partial<Record<StorefrontStat, string>>;
   const markets = supplierExportMarketsDisplay(card).map((market) => safe(market)).filter(Boolean);
   // Ảnh sản phẩm đã duyệt công khai; bản xem trước trong cổng hiển thị qua /public-media như trang thật.
@@ -35,11 +43,25 @@ export function designerDataFromCard(card: PublicSupplierCard, opts: { avatarUrl
     const image = form ? form.cardImagePath ?? form.imagePaths[0] : card.product_card_image_paths[p.id];
     return { id: p.id, name: safe(form ? form.name : publicProductTitle(p)), imageUrl: image ? mediaUrl(image) : null };
   });
+  // Nhóm sản phẩm theo danh mục (giống trang thật) và chứng nhận đã kiểm tra.
+  const groups = new Map<string, StorefrontBlockCategory>();
+  for (const p of card.main_products) {
+    const category = opts.categories.find((c) => productBelongsToCategory(p, c, opts.categories));
+    if (!category) continue;
+    const group = groups.get(category.slug) ?? { name: safe(category.name_i18n?.en || category.slug), href: null, count: 0, imageUrl: null };
+    group.count++;
+    group.imageUrl ??= products.find((x) => x.id === p.id)?.imageUrl ?? null;
+    groups.set(category.slug, group);
+  }
+  const categories = [...groups.values()].sort((a, b) => b.count - a.count);
+  const certificates = opts.certificates.map((c) => ({ name: safe(c.shortName || c.name),
+    detail: [c.holderMatch === "partner" ? "Held by a partner facility" : "", c.validUntil ? `Valid until ${c.validUntil}` : ""].filter(Boolean).join(" · ") }));
   const province = safe(supplierProvinceDisplay(card));
   const quick = buildLayoutFromProfile({
     supplierId: card.id, theme: card.storefront_theme, showcase: card.showcase_blocks,
     productIds: products.map((p) => p.id), statValues, hasMarkets: markets.length > 0,
     province: province ? `${province}, Vietnam` : "Vietnam", foundedYear: card.founded_year ?? null,
+    hasCertificates: certificates.length > 0, categoryGroups: opts.pro && categories.length >= 2,
   });
   return {
     statValues, markets, products,
@@ -52,5 +74,6 @@ export function designerDataFromCard(card: PublicSupplierCard, opts: { avatarUrl
       coverUrl: opts.coverUrl,
     },
     quick: quick.blocks.length ? quick : null,
+    pro: opts.pro, categories, certificates,
   };
 }

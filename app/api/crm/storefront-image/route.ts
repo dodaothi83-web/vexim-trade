@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getStore } from "@/lib/db";
+import { createStreamDirectUpload, streamConfig } from "@/lib/media/cloudflare-stream";
 import { getObject, putObject } from "@/lib/media/storage";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { isLayoutImagePath } from "@/lib/storefront-layout";
@@ -29,6 +30,18 @@ export async function POST(request: Request) {
   if (!supplier) return fail("Không tìm thấy nhà cung cấp.", 404);
   if (!supplierPlanRules(supplier).premiumStorefront) return fail("Nhà cung cấp chưa có gói Premium/Pro còn hiệu lực.", 403);
   if (!(await activeDesignConsent(supplierId))) return fail("Chưa ghi nhận đồng ý thiết kế hộ.", 403);
+  if (form.get("kind") === "video") {
+    if (supplierPlanRules(supplier).plan !== "pro") return fail("Video nhà máy có ở gói Pro.", 403);
+    if (!streamConfig()) return fail("Chức năng tải video chưa được thiết lập.", 503);
+    try {
+      const upload = await createStreamDirectUpload({ supplierId, productId: null, purpose: "storefront" });
+      if (!upload) return fail("Chức năng tải video chưa được thiết lập.", 503);
+      return NextResponse.json({ ok: true, uploadURL: upload.uploadURL, uid: upload.uid });
+    } catch (error) {
+      console.error("[crm-storefront-video] direct upload", error);
+      return fail("Chưa xin được đường tải video.", 502);
+    }
+  }
   const file = form.get("file");
   if (!(file instanceof File) || file.size === 0 || file.size > 3 * 1024 * 1024) return fail("Chọn ảnh JPG, PNG hoặc WebP, tối đa 3 MB.", 413);
   const bytes = new Uint8Array(await file.arrayBuffer());
