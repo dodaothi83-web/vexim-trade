@@ -108,7 +108,14 @@ export default async function SupplierStorefrontPreviewPage() {
 
   return <>
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
-    {planRules.premiumStorefront && <ThemeEditor initial={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme} />}
+    {planRules.premiumStorefront && <ThemeEditor initial={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme}
+      videoErrors={m.aplus.errors}
+      // Chỉ ghim được sản phẩm đang hiện cho người mua trên trang (cùng danh sách với khu sản phẩm).
+      products={card.main_products.map((p) => {
+        const form = card.form_product_cards?.[p.id];
+        const image = form ? form.cardImagePath ?? form.imagePaths[0] : card.product_card_image_paths?.[p.id] ?? card.product_image_paths[p.id];
+        return { id: p.id, name: form?.name || p.name_i18n?.en || p.name, imageUrl: image ? `/public-media/${image.replace(/^\/+/, "")}` : null };
+      })} />}
     {/* Gói Basic không còn thẻ khoá ở đây; lời mời nâng gói là nút dưới link website. Gói đã hết
         hạn mà còn khối cũ thì vẫn thấy để gỡ. */}
     {/* Gói cao cấp: A+ doanh nghiệp thay cho khối Showcase (có nút chuyển khối cũ sang). Gói đã hết

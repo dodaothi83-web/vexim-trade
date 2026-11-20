@@ -38,10 +38,12 @@ type Img = (item: { image_path: string; alt?: string; fx?: number; fy?: number }
 function renderModule(module: AplusModule, productName: string, img: Img): ReactNode {
   switch (module.type) {
     case "hero":
-      return <section className="relative overflow-hidden rounded-2xl bg-ink-900 text-white">
-        {img(module, module.headline || productName, "aspect-[4/5] @xl:aspect-[97/36]")}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E16]/85 via-[#0A0E16]/35 to-transparent @xl:bg-gradient-to-r @xl:from-[#0A0E16]/80 @xl:via-[#0A0E16]/30" aria-hidden="true" />
-        <div className="absolute inset-x-0 bottom-0 p-5 @xl:max-w-[68%] @xl:p-8">
+      // Điện thoại: banner thấp (cao tối thiểu 16rem, chỉ cao thêm khi chữ dài) thay vì khung đứng 4:5.
+      // Máy tính: khung ngang 97:36.
+      return <section className="relative flex min-h-64 flex-col justify-end overflow-hidden rounded-2xl bg-ink-900 text-white @xl:block @xl:min-h-0 @xl:aspect-[97/36]">
+        {img(module, module.headline || productName, "absolute inset-0 h-full")}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E16]/85 via-[#0A0E16]/40 to-transparent @xl:bg-gradient-to-r @xl:from-[#0A0E16]/80 @xl:via-[#0A0E16]/30" aria-hidden="true" />
+        <div className="relative p-5 @xl:absolute @xl:inset-x-0 @xl:bottom-0 @xl:max-w-[68%] @xl:p-8">
           {module.eyebrow && <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/85">{module.eyebrow}</p>}
           <h3 className="mt-1.5 break-words text-xl font-bold leading-snug @xl:text-[28px]">{module.headline}</h3>
           {module.sub && <p className="mt-2 break-words text-sm leading-6 text-white/90 @xl:text-[15px]">{module.sub}</p>}

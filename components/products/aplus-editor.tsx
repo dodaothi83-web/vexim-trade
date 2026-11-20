@@ -51,7 +51,12 @@ const RATIO: Partial<Record<AplusModuleType, { css: string; label: string }>> = 
  * `productId`): ảnh, video tải vào khu chờ và cả nội dung đi theo form qua ô ẩn `pending_aplus_json`.
  * Không có ô nào mang `name` khác, để form sản phẩm bao quanh không gửi kèm các trường này.
  */
-export function AplusEditor({ productId, allowed, editable, initial, copy, handle, onDirtyChange, api, templateIds = APLUS_TEMPLATE_IDS, heading, standalone = false, lockedHref = "/supplier/portal/storefront" }: {
+export function AplusEditor({ productId, allowed, editable, initial, copy, handle, onDirtyChange, api, templateIds = APLUS_TEMPLATE_IDS, heading, standalone = false, lockedHref = "/supplier/portal/storefront", previewWidths = { desktop: 1088, mobile: 350 } }: {
+  /**
+   * Bề rộng nội dung A+ trên trang thật (px): mặc định trang sản phẩm (khung 72rem, lề 2rem: 1088;
+   * điện thoại 390 trừ lề: 350). A+ doanh nghiệp nằm trong cột trái trang nhà cung cấp: 824 / 318.
+   */
+  previewWidths?: { desktop: number; mobile: number };
   /** A+ doanh nghiệp: nơi lưu, dịch, tải tệp riêng (mặc định: A+ sản phẩm `productId`). */
   api?: AplusEditorApi;
   /** Bộ mẫu hiện trong "Bộ mẫu". */
@@ -290,7 +295,10 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
                 {d === "desktop" ? <Monitor className="size-3.5" aria-hidden="true" /> : <Smartphone className="size-3.5" aria-hidden="true" />}{copy.device[d]}</button>)}
             </div>
           </div>
-          <div className={`mx-auto max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl bg-white p-4 shadow-sm ring-1 ring-ink-200 transition-[max-width] ${device === "mobile" ? "max-w-[390px]" : ""}`}>
+          {/* Dựng đúng bề rộng nội dung trên trang thật (máy tính / điện thoại) rồi thu nhỏ cho vừa cột. */}
+          <div className="max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl bg-ink-100/60 p-2 ring-1 ring-ink-200">
+            <ScaledPreview key={device} width={device === "desktop" ? previewWidths.desktop + 48 : 390 + 20} label={`${copy.device[device]} · ${device === "desktop" ? previewWidths.desktop : 390} px`}
+              frame={device === "mobile" ? "phone" : "page"} padding={device === "desktop" ? 24 : (390 - previewWidths.mobile) / 2}>
             {modules.length ? <ProductAplus modules={previewModules} productName="Product" imageUrl={preview}
               decorate={(module, node) => <div role="button" tabIndex={0} onClick={() => setOpenId(module.id)} onKeyDown={(e) => { if (e.key === "Enter") setOpenId(module.id); }}
                 className={`relative cursor-pointer rounded-xl outline outline-2 outline-offset-4 transition ${openId === module.id ? "outline-brand-500" : "outline-transparent hover:outline-brand-200"}`}>
@@ -298,6 +306,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
                 {node}
               </div>} />
               : <p className="py-16 text-center text-sm text-ink-400">{copy.templates.note}</p>}
+            </ScaledPreview>
           </div>
         </div>
       </div>
@@ -507,6 +516,40 @@ function BlockCard(p: BlockProps) {
       </div>}
     </div>}
   </section>;
+}
+
+/**
+ * Khung xem trước đúng kích thước thật: nội dung dựng ở bề rộng `width` (như trên trang người mua)
+ * rồi thu nhỏ theo tỉ lệ cho vừa cột xem trước, nên bố cục máy tính không bị ép thành bố cục hẹp.
+ */
+function ScaledPreview({ width, padding, frame, label, children }: { width: number; padding: number; frame: "page" | "phone"; label: string; children: ReactNode }) {
+  const outer = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const measure = () => {
+      const available = outer.current?.clientWidth ?? width;
+      const next = Math.min(1, available / width);
+      setScale(next);
+      setHeight((inner.current?.offsetHeight ?? 0) * next);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (outer.current) observer.observe(outer.current);
+    if (inner.current) observer.observe(inner.current);
+    return () => observer.disconnect();
+  }, [width]);
+  return <div ref={outer} className="w-full">
+    <p className="mb-1.5 text-center text-[10.5px] text-ink-400">{label}{scale < 1 ? ` · ${Math.round(scale * 100)}%` : ""}</p>
+    <div style={{ height: height || undefined }} className="relative mx-auto" >
+      <div ref={inner} style={{ width, transform: `scale(${scale})`, transformOrigin: "top left", padding,
+        left: scale < 1 ? 0 : `calc(50% - ${width / 2}px)` }}
+        className={`absolute top-0 bg-white ${frame === "phone" ? "rounded-[2rem] border-[10px] border-ink-900 shadow-lg" : "rounded-xl shadow-sm ring-1 ring-ink-200"}`}>
+        {children}
+      </div>
+    </div>
+  </div>;
 }
 
 /** Ô ảnh: khung đúng tỉ lệ hiển thị, bấm vào ảnh để chọn điểm giữa khung, mô tả ảnh ngay bên dưới. */

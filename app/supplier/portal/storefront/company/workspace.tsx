@@ -46,6 +46,8 @@ export function CompanyAplusWorkspace({ initial, allowed, showcaseCount, publicH
     </div>}
     <AplusEditor key={version} productId={null} allowed={allowed} editable initial={modules} copy={copy} standalone
       templateIds={APLUS_COMPANY_TEMPLATE_IDS} lockedHref="/supplier/portal/storefront"
+      // A+ doanh nghiệp nằm trong cột trái trang nhà cung cấp (khung 80rem, cột 320px, lề khối 1.5rem).
+      previewWidths={{ desktop: 824, mobile: 318 }}
       heading={{ title: c.title, sub: c.sub, lockedTitle: c.lockedTitle, lockedBody: c.lockedBody, save: c.save }}
       api={{ endpoint: "/api/supplier-portal/company-aplus", save: saveCompanyAplusAction, translate: translateCompanyAplusPreviewAction }} />
   </div>;

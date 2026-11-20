@@ -22,7 +22,8 @@ import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { publicShowcaseBlocks } from "@/lib/supplier-showcase";
 import { ProductAplus } from "@/components/public/product-aplus";
-import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
+import { PremiumProductGrid } from "@/components/public/premium-product-grid";
+import { aplusImagePaths, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 import { PremiumStorefront } from "@/components/public/premium-storefront";
 
@@ -126,111 +127,8 @@ export function SupplierStorefront({
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
 
-  return <>
-    {premium ? <PremiumStorefront
-      supplier={s}
-      theme={theme}
-      name={name}
-      nameTag={nameTag}
-      typeBadge={<span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}{s.private_label ? " · Private label stated" : ""}</span>}
-      location={safe(supplierProvinceDisplay(s)) ? `${safe(supplierProvinceDisplay(s))}, Vietnam` : "Vietnam"}
-      checks={<div className="flex flex-wrap items-center gap-2" aria-label="Published supplier checks">
-        {VERIFICATION_DISPLAY_ORDER.filter((level) => steps.includes(level)).map((level) => {
-          const Icon = VERIFICATION_LEVEL_ICONS[level];
-          return <span key={level} className="inline-flex items-center gap-1.5 rounded-full bg-success-surface px-3 py-1 text-xs font-semibold text-success">
-            <Icon className="h-3.5 w-3.5" aria-hidden="true" />{level === 1 ? "Business registration checked" : verificationLabel(level, l2Scope)}
-          </span>;
-        })}
-        <a href="#verification" className="text-xs font-semibold text-brand-700 underline underline-offset-4">View supplier checks</a>
-      </div>}
-      actions={!synthetic ? <>
-        {rfqActions
-          ? <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--sf-dark)]">Request a quote <ArrowRight className="h-4 w-4" /></Link>
-          : <span className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
-        {chatAction && <div className="flex-1 rounded-lg bg-white text-ink-900 [&>*]:w-full">{chatAction}</div>}
-      </> : null}
-      coverUrl={coverUrl}
-      avatarUrl={avatarUrl}
-      coverAction={coverAction}
-      avatarAction={avatarAction}
-      avatarHint={avatarHint}
-      nameAside={nameAside}
-      ownerActions={ownerActions}
-      showcase={showcase}
-      imageUrl={showcaseImageUrl ?? mediaUrl}
-    /> : <>
-    <section className="mt-5 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-card" aria-labelledby="supplier-name">
-      {(coverUrl || coverAction) && <div className={`relative bg-ink-50 ${coverUrl ? "h-32 sm:h-44" : "h-16"}`}>
-        {coverUrl && <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
-        {coverAction}
-      </div>}
-      <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:gap-6 sm:p-8">
-        <div className="flex w-fit shrink-0 flex-col items-center">
-          <div className="relative w-fit">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-ink-200 bg-ink-50 text-3xl font-bold text-ink-400 sm:h-24 sm:w-24">
-              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : name.slice(0, 1).toUpperCase()}
-            </div>
-            {avatarAction}
-          </div>
-          {avatarHint}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}</span>
-            {s.private_label && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">Private label stated</span>}
-          </div>
-          {nameAside
-            ? <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <NameTag id="supplier-name" className="break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>
-              {nameAside}
-            </div>
-            : <NameTag id="supplier-name" className="mt-2 break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>}
-          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-600">
-            {supplierProvinceDisplay(s) && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-brand-700" />{safe(supplierProvinceDisplay(s))}, Vietnam</span>}
-            {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
-            {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Published supplier checks">
-            {VERIFICATION_DISPLAY_ORDER.filter((level) => steps.includes(level)).map((level) => {
-              const Icon = VERIFICATION_LEVEL_ICONS[level];
-              return <span key={level} className="inline-flex items-center gap-1.5 rounded-full bg-success-surface px-3 py-1 text-xs font-semibold text-success">
-                <Icon className="h-3.5 w-3.5" aria-hidden="true" />{level === 1 ? "Business registration checked" : verificationLabel(level, l2Scope)}
-              </span>;
-            })}
-            <a href="#verification" className="text-xs font-semibold text-brand-700 underline underline-offset-4">View supplier checks</a>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-col gap-2">
-          {rfqActions && !synthetic && <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>}
-          {!rfqActions && !synthetic && <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
-          {!synthetic && chatAction}
-          {!synthetic && <SupplierWebsiteLink website={s.website} plain className="justify-center sm:max-w-64" />}
-          {ownerActions}
-        </div>
-      </div>
-    </section>
-    </>}
-
-    <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
-      {[
-        ["Products", "products"],
-        ...(showcase.length > 0 ? [["Showcase", "showcase"] as const] : []),
-        ["About", "about"],
-        ...(companyAplus.length > 0 ? [["Capabilities", "capabilities"] as const] : []),
-        ["Supplier checks", "verification"],
-        ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
-        ...(!synthetic ? [["Company details", "company-details"] as const] : []),
-      ].map(([label, id]) =>
-        <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
-    </nav>
-
-    <section id="products" className="mt-10 scroll-mt-24 border-t border-ink-200 pt-10" aria-labelledby="products-title">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><p className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplier catalogue</p>
-          <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Products <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
-          <p className="mt-1 text-sm text-ink-600">{synthetic ? "Test entries on this profile are not commercial offers." : "Listings ready to share with buyers. Prices, where shown, are references; request a quote for current terms."}</p></div>
-      </div>
-      {s.main_products.length ? <SupplierProductRail productCount={s.main_products.length}>
-        {s.main_products.map((p) => {
+  /** Thẻ một sản phẩm (dùng chung cho dải ngang gói Basic và lưới gói cao cấp). */
+  const productCard = (p: typeof s.main_products[number], itemClass: string) => {
           const category = productCategory(p);
           const href = synthetic
             ? `/suppliers/${encodeURIComponent(s.slug || s.id)}/products/${encodeURIComponent(p.id)}`
@@ -239,7 +137,7 @@ export function SupplierStorefront({
           const approvedForm = s.form_product_cards?.[p.id];
           if (approvedForm) {
             const productName = safe(approvedForm.name);
-            return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
+            return <li key={p.id} className={itemClass}>
               <PublicProductCard href={href} imagePath={approvedForm.cardImagePath ?? approvedForm.imagePaths[0]}
                 name={productName} grades={cardTitleGrades(approvedForm)} gradeRows={approvedForm.gradeRows}
                 moq={approvedForm.moq} price={synthetic ? null : approvedForm.price} incoterm={approvedForm.incoterm}
@@ -369,7 +267,7 @@ export function SupplierStorefront({
             }
             return "On request";
           })();
-          return <li key={p.id} className="min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0">
+          return <li key={p.id} className={itemClass}>
             <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
               name={productName} grades={[...storefrontGrades, ...(legacyGradeText ? [legacyGradeText] : [])]} gradeRows={storefrontGradeRows} moq={storefrontMoq}
               price={storefrontPrice} incoterm={storefrontIncoterm} fob={storefrontIncoterm?.toUpperCase() === "FOB"}
@@ -377,8 +275,122 @@ export function SupplierStorefront({
               supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
               verificationSteps={steps} l2Scope={l2Scope} certificates={productCertificates[p.id]} test={synthetic} linkable={productLinks} />
           </li>;
+  };
+
+  return <>
+    {premium ? <PremiumStorefront
+      supplier={s}
+      theme={theme}
+      name={name}
+      nameTag={nameTag}
+      typeBadge={<span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}{s.private_label ? " · Private label stated" : ""}</span>}
+      location={safe(supplierProvinceDisplay(s)) ? `${safe(supplierProvinceDisplay(s))}, Vietnam` : "Vietnam"}
+      checks={<div className="flex flex-wrap items-center gap-2" aria-label="Published supplier checks">
+        {VERIFICATION_DISPLAY_ORDER.filter((level) => steps.includes(level)).map((level) => {
+          const Icon = VERIFICATION_LEVEL_ICONS[level];
+          return <span key={level} className="inline-flex items-center gap-1.5 rounded-full bg-success-surface px-3 py-1 text-xs font-semibold text-success">
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />{level === 1 ? "Business registration checked" : verificationLabel(level, l2Scope)}
+          </span>;
         })}
-      </SupplierProductRail> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic
+        <a href="#verification" className="text-xs font-semibold text-brand-700 underline underline-offset-4">View supplier checks</a>
+      </div>}
+      actions={!synthetic ? <>
+        {rfqActions
+          ? <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--sf-dark)]">Request a quote <ArrowRight className="h-4 w-4" /></Link>
+          : <span className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
+        {chatAction && <div className="flex-1 rounded-lg bg-white text-ink-900 [&>*]:w-full">{chatAction}</div>}
+      </> : null}
+      coverUrl={coverUrl}
+      avatarUrl={avatarUrl}
+      coverAction={coverAction}
+      avatarAction={avatarAction}
+      avatarHint={avatarHint}
+      nameAside={nameAside}
+      ownerActions={ownerActions}
+      showcase={showcase}
+      fallbackImageUrl={aplusImagePaths(companyAplus).slice(0, 1).map(companyAplusImageUrl ?? ((path) => `/public-media/${path}`))[0] ?? null}
+      imageUrl={showcaseImageUrl ?? mediaUrl}
+    /> : <>
+    <section className="mt-5 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-card" aria-labelledby="supplier-name">
+      {(coverUrl || coverAction) && <div className={`relative bg-ink-50 ${coverUrl ? "h-32 sm:h-44" : "h-16"}`}>
+        {coverUrl && <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+        {coverAction}
+      </div>}
+      <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:gap-6 sm:p-8">
+        <div className="flex w-fit shrink-0 flex-col items-center">
+          <div className="relative w-fit">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-ink-200 bg-ink-50 text-3xl font-bold text-ink-400 sm:h-24 sm:w-24">
+              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : name.slice(0, 1).toUpperCase()}
+            </div>
+            {avatarAction}
+          </div>
+          {avatarHint}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}</span>
+            {s.private_label && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">Private label stated</span>}
+          </div>
+          {nameAside
+            ? <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <NameTag id="supplier-name" className="break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>
+              {nameAside}
+            </div>
+            : <NameTag id="supplier-name" className="mt-2 break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>}
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-600">
+            {supplierProvinceDisplay(s) && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-brand-700" />{safe(supplierProvinceDisplay(s))}, Vietnam</span>}
+            {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
+            {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Published supplier checks">
+            {VERIFICATION_DISPLAY_ORDER.filter((level) => steps.includes(level)).map((level) => {
+              const Icon = VERIFICATION_LEVEL_ICONS[level];
+              return <span key={level} className="inline-flex items-center gap-1.5 rounded-full bg-success-surface px-3 py-1 text-xs font-semibold text-success">
+                <Icon className="h-3.5 w-3.5" aria-hidden="true" />{level === 1 ? "Business registration checked" : verificationLabel(level, l2Scope)}
+              </span>;
+            })}
+            <a href="#verification" className="text-xs font-semibold text-brand-700 underline underline-offset-4">View supplier checks</a>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col gap-2">
+          {rfqActions && !synthetic && <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>}
+          {!rfqActions && !synthetic && <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
+          {!synthetic && chatAction}
+          {!synthetic && <SupplierWebsiteLink website={s.website} plain className="justify-center sm:max-w-64" />}
+          {ownerActions}
+        </div>
+      </div>
+    </section>
+    </>}
+
+    <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
+      {[
+        ["Products", "products"],
+        ...(showcase.length > 0 ? [["Showcase", "showcase"] as const] : []),
+        ["About", "about"],
+        ...(companyAplus.length > 0 ? [["Capabilities", "capabilities"] as const] : []),
+        ["Supplier checks", "verification"],
+        ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
+        ...(!synthetic ? [["Company details", "company-details"] as const] : []),
+      ].map(([label, id]) =>
+        <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
+    </nav>
+
+    <section id="products" className="mt-10 scroll-mt-24 border-t border-ink-200 pt-10" aria-labelledby="products-title">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div><p className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplier catalogue</p>
+          <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Products <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
+          <p className="mt-1 text-sm text-ink-600">{synthetic ? "Test entries on this profile are not commercial offers." : "Listings ready to share with buyers. Prices, where shown, are references; request a quote for current terms."}</p></div>
+      </div>
+      {s.main_products.length ? (premium
+        // Gói cao cấp: sản phẩm ghim, lọc theo danh mục khi nhiều sản phẩm, lưới tự cân đối.
+        ? <PremiumProductGrid featuredIds={theme.featured} items={s.main_products.map((p) => {
+            const category = productCategory(p);
+            return { id: p.id, category: category ? { key: category.slug, label: category.name_i18n?.en || category.name_i18n?.vi || category.slug } : null,
+              node: productCard(p, "min-w-0 h-full") };
+          })} />
+        : <SupplierProductRail productCount={s.main_products.length}>
+          {s.main_products.map((p) => productCard(p, "min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0"))}
+        </SupplierProductRail>) : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic
         ? "No individual product listings are available yet. See the main products below or ask Vexim about specifications and availability."
         : "No buyer-ready products are available on this profile yet. Products appear here only after the listing and shareable media meet publication requirements."}</p></div>}
     </section>
