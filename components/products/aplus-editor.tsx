@@ -8,6 +8,7 @@ import { ArrowDown, ArrowUp, Columns2, GalleryHorizontal, Image as ImageIcon, Lo
 import { fill } from "@/lib/i18n/format";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
 import { prepareImage } from "@/lib/media/client-image";
+import { checkVideoFile, uploadStreamVideo } from "@/lib/media/stream-upload-client";
 import { APLUS_BODY_MAX, APLUS_CAPTION_MAX, APLUS_GALLERY_MAX, APLUS_MAX_MODULES, APLUS_TITLE_MAX, aplusVideoEmbedUrl,
   type AplusModule, type AplusModuleType } from "@/lib/products/aplus";
 import { saveProductAplusAction } from "@/app/supplier/portal/aplus-actions";
@@ -52,6 +53,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
   const [saved, setSaved] = useState(JSON.stringify(initial));
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [adding, setAdding] = useState(false);
   const dirty = JSON.stringify(modules) !== saved;
@@ -94,23 +96,16 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
 
   async function uploadVideo(id: string, file: File) {
     if (!productId) return;
-    if (!/^video\//.test(file.type) || file.size > 200 * 1024 * 1024) { setMessage({ ok: false, text: copy.errors.video }); return; }
-    setUploading(id); setMessage(null);
+    const problem = await checkVideoFile(file, copy.errors, fill);
+    if (problem) { setMessage({ ok: false, text: problem }); return; }
+    setUploading(id); setProgress(0); setMessage(null);
     try {
-      const body = new FormData();
-      body.append("kind", "video");
-      const res = await fetch(`/api/supplier-portal/products/${productId}/aplus`, { method: "POST", body });
-      const data = await res.json().catch(() => null) as { ok?: boolean; uploadURL?: string; uid?: string; message?: string } | null;
-      if (!res.ok || !data?.ok || !data.uploadURL || !data.uid) throw new Error(data?.message || copy.errors.upload);
-      const upload = new FormData();
-      upload.append("file", file);
-      const sent = await fetch(data.uploadURL, { method: "POST", body: upload });
-      if (!sent.ok) throw new Error(copy.errors.upload);
-      update(id, { video_uid: data.uid });
+      const uid = await uploadStreamVideo(productId, file, setProgress, copy.errors.upload);
+      update(id, { video_uid: uid });
       setMessage({ ok: true, text: copy.fields.videoProcessing });
     } catch (error) {
       setMessage({ ok: false, text: error instanceof Error ? error.message : copy.errors.upload });
-    } finally { setUploading(null); }
+    } finally { setUploading(null); setProgress(null); }
   }
 
   async function save() {
@@ -201,7 +196,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
               : null}
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink-800 hover:bg-ink-50">
               {uploading === module.id ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Video className="size-4" aria-hidden="true" />}
-              {uploading === module.id ? copy.uploading : copy.fields.chooseVideo}
+              {uploading === module.id ? (progress !== null ? fill(copy.uploadingPct, { pct: progress }) : copy.uploading) : copy.fields.chooseVideo}
               <input type="file" accept="video/mp4,video/quicktime,video/webm" disabled={disabled} className="sr-only"
                 onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void uploadVideo(module.id, file); }} />
             </label>
@@ -251,3 +246,4 @@ function ImagePicker({ src, busy, disabled, label, onFile }: { src: string; busy
       onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onFile(file); }} />
   </div>;
 }
+

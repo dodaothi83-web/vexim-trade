@@ -59,10 +59,10 @@ export function PlanCatalogEditor({ entry, canEdit }: { entry: SupplierPlanCatal
         </label>
         <label className="mt-5 flex items-start gap-2 text-xs font-semibold text-ink-700">
           <input type="checkbox" name="rich_content" value="yes" defaultChecked={entry.richContent} disabled={disabled} className="mt-0.5 size-4 accent-brand-700" />
-          Mở nội dung A+ (ảnh, video trong mô tả chi tiết)
+          Mở video sản phẩm và nội dung A+ (ảnh, video trong mô tả chi tiết)
         </label>
       </div>
-      <p className="text-[11px] leading-4 text-ink-500">Số sản phẩm và nội dung A+ có hiệu lực ngay khi lưu. Hạ mức không xoá sản phẩm hay nội dung đã có.</p>
+      <p className="text-[11px] leading-4 text-ink-500">Số sản phẩm, video và nội dung A+ có hiệu lực ngay khi lưu. Hạ mức không xoá sản phẩm, video hay nội dung đã có (chỉ ẩn với người mua).</p>
       {canEdit && <button type="submit" disabled={pending} className="btn btn-primary btn-sm self-start">{pending ? "Đang lưu…" : "Lưu gói"}</button>}
       {state && <p role={state.ok ? "status" : "alert"} className={`text-xs ${state.ok ? "text-emerald-700" : "text-rose-700"}`}>{state.message}</p>}
     </form>

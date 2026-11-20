@@ -28,7 +28,7 @@ import { cardTitleGrades, PublicProductCard } from "@/components/public-product-
 import { ProductDescription } from "@/components/public/product-description";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { ProductAplus } from "@/components/public/product-aplus";
-import { readAplusModules } from "@/lib/products/aplus";
+import { aplusVideoEmbedUrl, aplusVideoThumbnailUrl, isoDuration, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { QuantityPriceTable } from "@/components/public/quantity-price-table";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
@@ -189,8 +189,11 @@ export default async function PublicProductDetail({ params }: Props) {
   const samplePriceDisplay = p.sample_price_usd === 0 ? "Free sample" : samplePrice;
   const enDetail = p.description_detail_i18n?.en?.trim() || p.description_detail;
   // Nội dung A+ chỉ hiện khi gói nhà cung cấp còn quyền; gói hết hạn thì nội dung giữ nhưng ẩn.
-  const aplus = supplier && supplierPlanRules(supplier, new Date(), await readPlanCatalog()).richContent
+  const planRules = supplier ? supplierPlanRules(supplier, new Date(), await readPlanCatalog()) : null;
+  const aplus = planRules?.richContent
     ? readAplusModules(p.aplus_content, { supplierId: p.supplier_id, productId: p.id }) : [];
+  // Video sản phẩm (Premium/Pro) nằm cuối dãy ảnh; gói hết quyền thì video giữ nhưng ẩn.
+  const galleryVideo = planRules?.video ? readGalleryVideo(p.gallery_video) : null;
   const parsedSpecifications = parseProductSpecification(enSpec);
   const detailRows = parsedSpecifications.filter((row) => !["grade", "minimum order quantity (moq)", "packaging specification"].includes(row.key));
   const detailedPackaging = parsedSpecifications.find((row) => row.key === "packaging specification")?.value;
@@ -232,6 +235,20 @@ export default async function PublicProductDetail({ params }: Props) {
   for (const f of fieldsFor(category)) {
     if (approvedAttributes[f.key]) pushProperty(f.label, approvedAttributes[f.key]);
   }
+  // Video A+ khai báo dạng VideoObject để Google/AI hiểu trang có video sản phẩm. Chỉ video đã có
+  // ngày tải lên (máy chủ lấy từ Cloudflare khi lưu), vì uploadDate là trường bắt buộc.
+  const videoJsonLd = [
+    ...(galleryVideo ? [{ video_uid: galleryVideo.video_uid, title: "", duration: galleryVideo.duration, uploaded_at: galleryVideo.uploaded_at }] : []),
+    ...aplus.flatMap((module) => module.type === "video" ? [module] : []),
+  ].flatMap((video) => video.uploaded_at ? [{
+    "@type": "VideoObject",
+    name: video.title || `${card.name} video`,
+    description: video.title ? `${video.title} — ${card.name}` : `${card.name} by ${card.supplierName}`,
+    thumbnailUrl: aplusVideoThumbnailUrl(video.video_uid),
+    uploadDate: video.uploaded_at,
+    embedUrl: aplusVideoEmbedUrl(video.video_uid),
+    ...(video.duration ? { duration: isoDuration(video.duration) } : {}),
+  }] : []);
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -246,6 +263,7 @@ export default async function PublicProductDetail({ params }: Props) {
       ...(card.supplierSlug ? { url: `${SITE_URL}/suppliers/${encodeURIComponent(card.supplierSlug)}` } : {}),
     },
     ...(structuredProperties.length ? { additionalProperty: structuredProperties } : {}),
+    ...(videoJsonLd.length ? { subjectOf: videoJsonLd } : {}),
     // Chỉ chứng nhận đã được duyệt gắn cho sản phẩm và còn hiệu lực; không suy ra
     // chứng nhận của nhà cung cấp sang từng sản phẩm.
     ...(productCertificates.length
@@ -283,6 +301,7 @@ export default async function PublicProductDetail({ params }: Props) {
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
       <StickyProductColumn>
         <ProductMediaGallery name={card.name} images={images} thumbnails={thumbnails} video={video}
+          streamVideo={galleryVideo ? { uid: galleryVideo.video_uid, title: `${card.name} video` } : null}
           actions={!preview && !card.isDemo ? <>
             <SaveProductButton id={card.id} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(card.id)}`} iconOnly />
             <ShareProductButton title={card.name} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(card.id)}`} isVi={isVi} />

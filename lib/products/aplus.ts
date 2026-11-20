@@ -16,6 +16,9 @@ export const APLUS_BODY_MAX = 1200;
 export const APLUS_CAPTION_MAX = 160;
 export const APLUS_GALLERY_MIN = 2;
 export const APLUS_GALLERY_MAX = 4;
+/** Video A+ dài tối đa 15 phút, tệp tối đa 200 MB (giới hạn tải lên cơ bản của Cloudflare Stream). */
+export const APLUS_VIDEO_MAX_SECONDS = 900;
+export const APLUS_VIDEO_MAX_BYTES = 200 * 1024 * 1024;
 
 export const APLUS_MODULE_TYPES = ["image", "image_text", "gallery", "text", "video"] as const;
 export type AplusModuleType = (typeof APLUS_MODULE_TYPES)[number];
@@ -25,7 +28,7 @@ export type AplusModule =
   | { id: string; type: "image_text"; image_path: string; title: string; body: string; image_side: "left" | "right" }
   | { id: string; type: "gallery"; items: Array<{ image_path: string; caption: string }> }
   | { id: string; type: "text"; title: string; body: string }
-  | { id: string; type: "video"; video_uid: string; title: string };
+  | { id: string; type: "video"; video_uid: string; title: string; duration?: number; uploaded_at?: string };
 
 export type AplusProblem =
   | { code: "tooMany" } | { code: "invalid"; index: number } | { code: "imageRequired"; index: number }
@@ -101,6 +104,9 @@ export function validateAplusModules(raw: unknown, ctx: { supplierId: string; pr
       case "video": {
         if (typeof item.video_uid !== "string" || !VIDEO_UID.test(item.video_uid)) return { ok: false, problem: { code: "video", index } };
         module = { id: item.id, type: "video", video_uid: item.video_uid.toLowerCase(), title: text(item.title, APLUS_TITLE_MAX) };
+        // Thời lượng và ngày tải lên do máy chủ lấy từ Cloudflare khi lưu (dùng cho dữ liệu SEO VideoObject).
+        if (typeof item.duration === "number" && Number.isFinite(item.duration) && item.duration > 0 && item.duration <= 86400) module.duration = Math.round(item.duration);
+        if (typeof item.uploaded_at === "string" && !Number.isNaN(Date.parse(item.uploaded_at))) module.uploaded_at = new Date(item.uploaded_at).toISOString();
         break;
       }
     }
@@ -158,7 +164,45 @@ export function canEditAplus(product: { supplier_review_status?: string | null; 
     ((product.supplier_review_status === "approved" || product.supplier_review_status === "paused") && product.supplier_originated === true);
 }
 
-/** Trang nhúng video Cloudflare Stream. */
-export function aplusVideoEmbedUrl(uid: string): string {
-  return `https://iframe.videodelivery.net/${encodeURIComponent(uid)}`;
+/**
+ * Video sản phẩm: một video nằm cùng dãy ảnh sản phẩm (cột `gallery_video`), chỉ gói có quyền
+ * video (Premium/Pro). Thời lượng và ngày tải lên do máy chủ lấy từ Cloudflare.
+ */
+export type ProductGalleryVideo = { video_uid: string; duration?: number; uploaded_at?: string };
+
+export function readGalleryVideo(raw: unknown): ProductGalleryVideo | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const item = raw as Record<string, unknown>;
+  if (typeof item.video_uid !== "string" || !VIDEO_UID.test(item.video_uid)) return null;
+  const video: ProductGalleryVideo = { video_uid: item.video_uid.toLowerCase() };
+  if (typeof item.duration === "number" && Number.isFinite(item.duration) && item.duration > 0 && item.duration <= 86400) video.duration = Math.round(item.duration);
+  if (typeof item.uploaded_at === "string" && !Number.isNaN(Date.parse(item.uploaded_at))) video.uploaded_at = new Date(item.uploaded_at).toISOString();
+  return video;
+}
+
+/** Mọi mã video mà nội dung đang dùng. */
+export function aplusVideoUids(modules: readonly AplusModule[]): string[] {
+  return modules.flatMap((module) => module.type === "video" ? [module.video_uid] : []);
+}
+
+/** Ảnh bìa video do Cloudflare tạo (ảnh tĩnh, nhẹ hơn nhiều so với nạp trình phát). */
+export function aplusVideoThumbnailUrl(uid: string, height = 720): string {
+  return `https://videodelivery.net/${encodeURIComponent(uid)}/thumbnails/thumbnail.jpg?height=${height}`;
+}
+
+/**
+ * Trang nhúng video Cloudflare Stream. `poster` dùng ảnh bìa ở trên; `autoplay` khi người mua đã
+ * bấm phát (iframe chỉ nạp sau cú bấm đó); mặc định `preload=none` để không tải trước video.
+ */
+export function aplusVideoEmbedUrl(uid: string, options: { autoplay?: boolean } = {}): string {
+  const params = new URLSearchParams({ poster: aplusVideoThumbnailUrl(uid), preload: "none" });
+  if (options.autoplay) params.set("autoplay", "true");
+  return `https://iframe.videodelivery.net/${encodeURIComponent(uid)}?${params}`;
+}
+
+/** Thời lượng theo ISO 8601 (PT1M30S) cho VideoObject. */
+export function isoDuration(seconds: number): string {
+  const total = Math.max(1, Math.round(seconds));
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+  return `PT${h ? `${h}H` : ""}${m ? `${m}M` : ""}${s ? `${s}S` : ""}`;
 }

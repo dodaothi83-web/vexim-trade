@@ -54,7 +54,7 @@ assert.ok(page.indexOf('<SaveProductButton') < page.indexOf('<ShareProductButton
 assert.doesNotMatch(page, /className="mt-3"><SaveProductButton/);
 const gallery = read('components/product-media-gallery.tsx');
 assert.match(gallery, /absolute right-3 top-3 z-20 flex flex-col/);
-assert.ok(gallery.indexOf('{actions &&') < gallery.indexOf('{selected ? <button'), 'Actions are siblings, not nested inside the zoom button');
+assert.ok(gallery.indexOf('{actions &&') < gallery.indexOf('selected ? <button ref={heroRef}'), 'Actions are siblings, not nested inside the zoom button');
 console.log('✓ Product image actions: top-right save/share, native sharing, cancellation, clipboard and manual fallback.');
 
 const shareButton = render().props.children[0];

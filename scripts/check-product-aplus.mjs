@@ -55,15 +55,64 @@ assert.match(action, /\.richContent\) return \{ ok: false, message: e\.plan \}/)
 assert.match(action, /canEditAplus\(product\)/);
 const upload = read("app/api/supplier-portal/products/[id]/aplus/route.ts");
 assert.match(upload, /\.richContent\) return fail\(e\.plan, 403\)/);
-assert.match(upload, /CLOUDFLARE_STREAM_API_TOKEN/);
-assert.match(upload, /stream\/direct_upload/);
+assert.match(upload, /createStreamDirectUpload\(/);
 assert.doesNotMatch(upload, /NEXT_PUBLIC_CLOUDFLARE/, "Khoá Cloudflare chỉ ở máy chủ");
+
+// 7. Tối ưu Cloudflare Stream: chỉ phát trên tên miền Vexim, giới hạn thời lượng, kiểm tra video khi lưu,
+// xoá video bị bỏ, ảnh bìa thay iframe cho tới khi bấm phát, VideoObject cho SEO.
+const stream = read("lib/media/cloudflare-stream.ts");
+assert.match(stream, /CLOUDFLARE_STREAM_API_TOKEN/);
+assert.doesNotMatch(stream, /NEXT_PUBLIC_/, "Khoá Cloudflare chỉ ở máy chủ");
+assert.match(stream, /stream\$\{path\}/);
+assert.match(stream, /"\/direct_upload"/);
+assert.match(stream, /allowedOrigins: streamAllowedOrigins\(\)/);
+assert.match(stream, /maxDurationSeconds: APLUS_VIDEO_MAX_SECONDS/);
+assert.match(stream, /product_id: input\.productId/);
+assert.match(stream, /method: "DELETE"/);
+assert.match(action, /video\.meta\.product_id !== ctx\.productId/, "Video mới phải do Vexim xin tải lên cho đúng sản phẩm");
+assert.match(action, /after\(\(\) => Promise\.all\(droppedVideos\.map\(deleteStreamVideo\)\)\)/, "Video bị bỏ thì xoá trên Cloudflare");
+assert.match(read("app/crm/products/[slug]/edit/aplus-actions.ts"), /deleteStreamVideo/, "CRM gỡ khối video thì xoá video");
+assert.match(a.aplusVideoEmbedUrl("ab".repeat(16)), /preload=none/);
+assert.match(a.aplusVideoEmbedUrl("ab".repeat(16), { autoplay: true }), /autoplay=true/);
+assert.equal(a.aplusVideoThumbnailUrl("ab".repeat(16)), `https://videodelivery.net/${"ab".repeat(16)}/thumbnails/thumbnail.jpg?height=720`);
+assert.equal(a.isoDuration(95), "PT1M35S");
+assert.equal(a.isoDuration(3600), "PT1H");
+const withMeta = a.validateAplusModules([{ ...good[4], duration: 95.4, uploaded_at: "2026-11-20T01:02:03Z" }], ctx);
+assert.equal(withMeta.modules[0].duration, 95);
+assert.equal(withMeta.modules[0].uploaded_at, "2026-11-20T01:02:03.000Z");
+assert.deepEqual(a.aplusVideoUids(ok.modules), ["ab".repeat(16)]);
+const facade = read("components/public/aplus-video.tsx");
+assert.match(facade, /playing\s*\n?\s*\? <iframe/, "Iframe chỉ nạp khi người mua bấm phát");
+assert.match(read("components/public/product-aplus.tsx"), /<AplusVideo /);
 const media = read("app/public-media/[...path]/route.ts");
 assert.match(media, /aplusImagePaths\(readAplusModules\(product\.aplus_content/, "Ảnh A+ chỉ phục vụ khi đang nằm trong nội dung");
 assert.match(media, /\.richContent\)\s*\n\s*return new NextResponse\("Not found"/, "Gói hết quyền thì ảnh A+ không công khai");
 const page = read("app/(public)/products/[slug]/[productId]/page.tsx");
+assert.match(page, /"@type": "VideoObject"/);
+assert.match(page, /subjectOf: videoJsonLd/);
 assert.match(page, /richContent\s*\n?\s*\? readAplusModules/, "Trang người mua chỉ dựng A+ khi gói còn quyền");
 const migration = read("supabase/migrations/20261130_product_aplus_content.sql");
 assert.match(migration, /add column if not exists aplus_content jsonb not null default '\[\]'::jsonb/);
 assert.match(migration, /rename column media_allowed to rich_content/);
-console.log("✅ Nội dung A+: 5 loại khối, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói.");
+// 8. Video sản phẩm trong dãy ảnh: chỉ gói có quyền video; Basic không thấy ô video.
+assert.deepEqual(a.readGalleryVideo({ video_uid: "AB".repeat(16), duration: 12.6, uploaded_at: "2026-11-20T00:00:00Z" }),
+  { video_uid: "ab".repeat(16), duration: 13, uploaded_at: "2026-11-20T00:00:00.000Z" });
+assert.equal(a.readGalleryVideo({ video_uid: "nope" }), null);
+assert.equal(a.readGalleryVideo(null), null);
+assert.equal(plans.supplierPlanRules({ plan: "basic" }).video, false);
+assert.equal(plans.supplierPlanRules({ plan: "premium" }).video, true);
+const offCatalog = { ...plans.DEFAULT_PLAN_CATALOG, premium: { ...plans.DEFAULT_PLAN_CATALOG.premium, richContent: false } };
+assert.equal(plans.supplierPlanRules({ plan: "premium" }, new Date(), offCatalog).video, false, "Video đi cùng công tắc A+ trong CRM");
+assert.match(action, /export async function saveProductVideoAction/);
+assert.match(action, /\.video\) return \{ ok: false, message: v\.plan \}/, "Lưu video kiểm tra quyền gói từ phiên");
+assert.match(action, /video\.meta\.product_id !== productId/);
+assert.match(action, /after\(\(\) => deleteStreamVideo\(before\.video_uid\)\)/, "Video cũ bị thay hoặc xoá thì xoá trên Cloudflare");
+const editor = read("app/supplier/portal/products/product-editor.tsx");
+assert.match(editor, /\(richContentAllowed \|\| !!readGalleryVideo\(product\?\.gallery_video\)\) && <Row label=\{aplusCopy\.productVideo\.label\}>/, "Basic không thấy ô video");
+assert.match(page, /const galleryVideo = planRules\?\.video \? readGalleryVideo\(p\.gallery_video\) : null/, "Trang người mua chỉ hiện video khi gói còn quyền");
+assert.match(page, /streamVideo=\{galleryVideo \?/);
+assert.match(read("components/product-media-gallery.tsx"), /aria-label=\{`Play product video of \$\{name\}`\}/);
+assert.match(read("app/crm/products/[slug]/edit/aplus-actions.ts"), /export async function removeGalleryVideoAction/);
+const videoMigration = read("supabase/migrations/20261201_product_gallery_video.sql");
+assert.match(videoMigration, /add column if not exists gallery_video jsonb/);
+console.log("✅ Nội dung A+: 5 loại khối, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói, video sản phẩm chỉ Premium/Pro.");

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 
 import { getPortalMessages } from "@/lib/i18n/server";
+import { createStreamDirectUpload, streamConfig } from "@/lib/media/cloudflare-stream";
 import { getObject, putObject } from "@/lib/media/storage";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { canEditAplus, isAplusImagePath } from "@/lib/products/aplus";
@@ -16,13 +17,6 @@ export const dynamic = "force-dynamic";
 const fail = (message: string, status = 400) => NextResponse.json({ ok: false, message }, { status });
 const IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MIME: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
-
-/** Cloudflare Stream: cần CLOUDFLARE_ACCOUNT_ID và CLOUDFLARE_STREAM_API_TOKEN (quyền Stream:Edit). */
-function streamConfig(): { account: string; token: string } | null {
-  const account = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
-  const token = process.env.CLOUDFLARE_STREAM_API_TOKEN?.trim();
-  return account && token ? { account, token } : null;
-}
 
 /**
  * Tải lên cho nội dung A+ của một sản phẩm. `kind=image` lưu ảnh và trả đường dẫn; `kind=video`
@@ -43,22 +37,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try { form = await request.formData(); } catch { return fail(e.upload); }
 
   if (form.get("kind") === "video") {
-    const config = streamConfig();
-    if (!config) return fail(e.videoUnavailable, 503);
+    if (!streamConfig()) return fail(e.videoUnavailable, 503);
     try {
-      const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(config.account)}/stream/direct_upload`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${config.token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ maxDurationSeconds: 900, creator: access.supplier.id, meta: { name: `vexim-aplus-${id}`, product_id: id } }),
-        signal: AbortSignal.timeout(15000),
-      });
-      const data = await res.json().catch(() => null) as { success?: boolean; result?: { uploadURL?: string; uid?: string } } | null;
-      const uploadURL = data?.result?.uploadURL, uid = data?.result?.uid;
-      if (!res.ok || !data?.success || typeof uploadURL !== "string" || !/^https:\/\//.test(uploadURL) || typeof uid !== "string" || !/^[a-f0-9]{32}$/i.test(uid)) {
-        console.error("[aplus] stream direct upload failed", res.status, data);
-        return fail(e.upload, 502);
-      }
-      return NextResponse.json({ ok: true, uploadURL, uid: uid.toLowerCase() });
+      const upload = await createStreamDirectUpload({ supplierId: access.supplier.id, productId: id });
+      if (!upload) return fail(e.videoUnavailable, 503);
+      return NextResponse.json({ ok: true, uploadURL: upload.uploadURL, uid: upload.uid });
     } catch (error) {
       console.error("[aplus] stream direct upload", error);
       return fail(e.upload, 502);

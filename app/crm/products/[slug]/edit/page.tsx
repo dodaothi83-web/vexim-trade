@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { CrmAplusReview } from "./aplus-review";
-import { readAplusModules } from "@/lib/products/aplus";
+import { readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import Link from "next/link";
@@ -225,7 +225,7 @@ export default async function EditProductPage({
             savedTranslationCurrent={translationState.current}
           />
           {!supplierReviewedListing && <ReadyHint ready={readiness.ready} shareable={readiness.shareable} />}
-          <CrmAplusReview productId={product.id} canManage
+          <CrmAplusReview productId={product.id} canManage galleryVideo={readGalleryVideo(product.gallery_video)}
             modules={readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id })}
             visible={supplierPlanRules(supplier, new Date(), await readPlanCatalog()).richContent} />
           <div id="product-media" className="scroll-mt-24">
