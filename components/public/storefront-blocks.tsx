@@ -38,13 +38,18 @@ export interface StorefrontBlocksData {
 
 const NOT_EVIDENCE = "Images and text shared by the supplier. They are not evidence of a Vexim check.";
 
-export function StorefrontBlocks({ layout, data, selectedId, onSelect, showHidden = false }: {
+export function StorefrontBlocks({ layout, data, selectedId, onSelect, showHidden = false, emptyBlock }: {
   layout: StorefrontLayout;
   data: StorefrontBlocksData;
   /** Chỉ trình thiết kế: khối đang chọn và chọn khối khi bấm. */
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   showHidden?: boolean;
+  /**
+   * Chỉ trình thiết kế: khối chưa có nội dung (ví dụ thư viện ảnh khi chưa có ảnh) vẫn hiện một ô
+   * giữ chỗ để bấm chọn được; người mua không thấy ô này.
+   */
+  emptyBlock?: (block: LayoutBlock) => ReactNode;
 }) {
   const tone = STOREFRONT_TONE_COLORS[layout.tone];
   const style = { "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties;
@@ -52,12 +57,13 @@ export function StorefrontBlocks({ layout, data, selectedId, onSelect, showHidde
   const hasSupplierMedia = visible.some((block) => block.type === "banner" || block.type === "about");
   return <div style={style} className="@container mt-6 space-y-8" data-storefront-blocks>
     {visible.map((block, index) => {
-      const content = renderBlock(block, data, index);
+      const rendered = renderBlock(block, data, index);
+      if (!onSelect) return rendered ? <div key={block.id}>{rendered}</div> : null;
+      const content = rendered ?? emptyBlock?.(block);
       if (!content) return null;
-      if (!onSelect) return <div key={block.id}>{content}</div>;
-      return <div key={block.id} role="button" tabIndex={0} aria-pressed={selectedId === block.id}
+      return <div key={block.id} data-block-id={block.id} role="button" tabIndex={0} aria-pressed={selectedId === block.id}
         onClick={() => onSelect(block.id)} onKeyDown={(event) => { if (event.key === "Enter") onSelect(block.id); }}
-        className={`cursor-pointer rounded-xl outline outline-2 outline-offset-4 transition ${selectedId === block.id ? "outline-brand-600" : "outline-transparent hover:outline-brand-200"} ${block.hidden ? "opacity-40" : ""}`}>
+        className={`scroll-mt-28 cursor-pointer rounded-xl outline outline-2 outline-offset-4 transition ${selectedId === block.id ? "outline-brand-600" : "outline-transparent hover:outline-brand-200"} ${block.hidden ? "opacity-40" : ""}`}>
         {content}
       </div>;
     })}
