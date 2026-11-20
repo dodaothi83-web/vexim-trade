@@ -450,7 +450,9 @@ export function SupplierStorefront({
 function sanitizeLayout(layout: StorefrontLayout): StorefrontLayout {
   return { ...layout, tagline: safe(layout.tagline), blocks: layout.blocks.map((block) =>
     block.type === "banner" ? { ...block, eyebrow: safe(block.eyebrow), headline: safe(block.headline) }
-      : block.type === "about" ? { ...block, title: safe(block.title), body: safe(block.body) } : block) };
+      : block.type === "about" ? { ...block, title: safe(block.title), body: safe(block.body) }
+        : block.type === "text" ? { ...block, nodes: block.nodes.map((node) => node.kind === "img" ? { ...node, caption: safe(node.caption) }
+          : { ...node, runs: node.runs.map((run) => ({ ...run, t: safe(run.t) })) }) } : block) };
 }
 
 /** Trang Premium/Pro chưa áp dụng bố cục mới: số liệu đã chọn và khối ảnh cũ hiện thành khối. */

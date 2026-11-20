@@ -22,7 +22,9 @@ import {
 import { normalizeShowcaseBlocks, showcaseHasContact } from "./supplier-showcase.ts";
 import { looksVietnamese } from "./vietnamese-text.ts";
 
-export const LAYOUT_BLOCK_TYPES = ["banner", "stats", "products", "about", "markets", "video", "categories", "certificates", "company", "checks", "trade", "details", "gallery"] as const;
+export const LAYOUT_BLOCK_TYPES = ["banner", "stats", "products", "about", "markets", "video", "categories", "certificates", "company", "checks", "trade", "details", "gallery", "text"] as const;
+/** Khối mục (lấy từ hồ sơ hoặc có bố cục riêng); "text" là đoạn văn tự do của trình soạn. */
+export const SECTION_BLOCK_TYPES = LAYOUT_BLOCK_TYPES.filter((type) => type !== "text");
 /**
  * Các mục chung của trang (giới thiệu, xác minh, điều kiện giao dịch, thư viện ảnh) thành khối
  * sắp xếp được (chủ sàn yêu cầu 2026-11-20). "checks" (xác minh của Vexim) là khối bắt buộc:
@@ -36,7 +38,8 @@ export const PRO_ONLY_BLOCKS: readonly LayoutBlockType[] = ["video", "categories
 export const VIDEO_TITLE_MAX = 120;
 export type LayoutBlockType = (typeof LAYOUT_BLOCK_TYPES)[number];
 
-export const LAYOUT_MAX_BLOCKS = 16;
+/** Tối đa khối trên trang (đoạn văn tự do giữa các mục cũng tính là khối). */
+export const LAYOUT_MAX_BLOCKS = 30;
 export const LAYOUT_MAX_ABOUT = 6;
 export const BANNER_MAX_IMAGES = 3;
 export const GALLERY_MAX_IMAGES = 12;
@@ -46,6 +49,20 @@ export const BANNER_HEADLINE_MAX = 120;
 export const FEATURED_MAX_PRODUCTS = 8;
 export const ABOUT_TITLE_MAX = 80;
 export const ABOUT_BODY_MAX = 600;
+/**
+ * Đoạn văn tự do (trình soạn kiểu Notion, chủ sàn chốt 2026-11-20): đoạn văn, tiêu đề H2/H3,
+ * danh sách, ảnh kèm chú thích. Chỉ chữ đậm, nghiêng; không link, không màu, không cỡ chữ, để
+ * trang thống nhất và HTML sạch cho SEO.
+ */
+export const TEXT_NODE_KINDS = ["p", "h2", "h3", "ul", "ol", "img"] as const;
+export const TEXT_MAX_NODES = 60;
+export const TEXT_MAX_CHARS = 5000;
+export const TEXT_MAX_IMAGES = 6;
+export const TEXT_CAPTION_MAX = 140;
+export type TextRun = { t: string; b?: true; i?: true };
+export type TextNode =
+  | { kind: "p" | "h2" | "h3" | "ul" | "ol"; runs: TextRun[] }
+  | { kind: "img"; path: string; caption: string };
 
 export type LayoutBlock =
   | { id: string; type: "banner"; hidden?: boolean; images: string[]; eyebrow: string; headline: string }
@@ -77,7 +94,9 @@ export type LayoutBlock =
    * Thư viện ảnh: ảnh nhà cung cấp tự tải trong "Thiết kế trang" (tối đa 12). Chưa có ảnh riêng
    * thì hiện ảnh công ty Vexim đã chia sẻ cho người mua.
    */
-  | { id: string; type: "gallery"; hidden?: boolean; images?: string[] };
+  | { id: string; type: "gallery"; hidden?: boolean; images?: string[] }
+  /** Đoạn văn tự do viết bằng trình soạn. */
+  | { id: string; type: "text"; hidden?: boolean; nodes: TextNode[] };
 
 export interface StorefrontLayout {
   /** 2: các mục chung đã là khối. Thiếu thì là bố cục cũ. */
@@ -136,7 +155,7 @@ export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string
     seenIds.add(item.id);
     const type = item.type;
     if (type === "about") { if (++aboutCount > LAYOUT_MAX_ABOUT) return { ok: false, problem: { code: "tooMany" } }; }
-    else if (seenTypes.has(type)) return { ok: false, problem: { code: "duplicate", index } };
+    else if (type !== "text" && seenTypes.has(type)) return { ok: false, problem: { code: "duplicate", index } };
     seenTypes.add(type);
     if (ctx.pro === false && PRO_ONLY_BLOCKS.includes(type)) return { ok: false, problem: { code: "plan", index } };
     const hidden = item.hidden === true ? { hidden: true as const } : {};
@@ -206,6 +225,18 @@ export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string
       case "checks":
         block = { id: item.id, type };
         break;
+      case "text": {
+        const nodes = readTextNodes(item.nodes, ctx.supplierId);
+        if (!nodes) return { ok: false, problem: { code: "invalid", index } };
+        if (nodes.filter((node) => node.kind === "img").length > TEXT_MAX_IMAGES) return { ok: false, problem: { code: "tooMany" } };
+        const captions = nodes.flatMap((node) => node.kind === "img" ? [node.caption] : []);
+        if (captions.some((caption) => caption.length > TEXT_CAPTION_MAX)) return { ok: false, problem: { code: "tooLong", index } };
+        const body = textNodesPlain(nodes);
+        if (body.length > TEXT_MAX_CHARS) return { ok: false, problem: { code: "tooLong", index } };
+        block = { id: item.id, type, ...hidden, nodes };
+        strings = [[body, TEXT_MAX_CHARS]];
+        break;
+      }
       case "video": {
         if (typeof item.video_uid !== "string" || !/^[a-f0-9]{32}$/i.test(item.video_uid)) return { ok: false, problem: { code: "video", index } };
         const video: LayoutBlock = { id: item.id, type, ...hidden, video_uid: item.video_uid.toLowerCase(), title: text(item.title) };
@@ -286,11 +317,43 @@ export function layoutForPlan(layout: StorefrontLayout, pro: boolean): Storefron
   }) };
 }
 
+/**
+ * Đọc danh sách đoạn của khối văn bản: bỏ kiểu không cho phép, gộp chữ trống. Ảnh phải là ảnh của
+ * đúng nhà cung cấp; ảnh lạ làm cả khối hỏng (null) thay vì âm thầm bỏ.
+ */
+export function readTextNodes(raw: unknown, supplierId: string): TextNode[] | null {
+  if (!Array.isArray(raw) || raw.length > TEXT_MAX_NODES) return null;
+  const nodes: TextNode[] = [];
+  for (const item of raw) {
+    const node = item && typeof item === "object" ? item as Record<string, unknown> : null;
+    if (!node || !isOneOf(TEXT_NODE_KINDS, node.kind)) return null;
+    if (node.kind === "img") {
+      if (!isLayoutImagePath(node.path, supplierId)) return null;
+      nodes.push({ kind: "img", path: node.path, caption: text(node.caption).replace(/\s+/g, " ") });
+      continue;
+    }
+    const runs: TextRun[] = (Array.isArray(node.runs) ? node.runs : []).flatMap((run) => {
+      const r = run && typeof run === "object" ? run as Record<string, unknown> : null;
+      if (!r || typeof r.t !== "string" || !r.t) return [];
+      return [{ t: r.t.replace(/\r\n?/g, "\n").slice(0, TEXT_MAX_CHARS), ...(r.b === true ? { b: true as const } : {}), ...(r.i === true ? { i: true as const } : {}) }];
+    });
+    if (!runs.some((run) => run.t.trim())) continue;
+    nodes.push({ kind: node.kind, runs });
+  }
+  return nodes.length ? nodes : null;
+}
+
+/** Chữ thuần của khối văn bản (kiểm tra độ dài, tiếng Anh, thông tin liên hệ; mô tả SEO). */
+export function textNodesPlain(nodes: TextNode[]): string {
+  return nodes.map((node) => node.kind === "img" ? node.caption : node.runs.map((run) => run.t).join("")).filter(Boolean).join("\n").trim();
+}
+
 /** Mọi ảnh bố cục đang dùng. */
 export function layoutImagePaths(layout: StorefrontLayout | null): string[] {
   if (!layout) return [];
   return layout.blocks.flatMap((block) => block.type === "banner" ? block.images : block.type === "about" ? [block.image_path]
-    : block.type === "gallery" || block.type === "company" ? block.images ?? [] : []);
+    : block.type === "gallery" || block.type === "company" ? block.images ?? []
+      : block.type === "text" ? block.nodes.flatMap((node) => node.kind === "img" ? [node.path] : []) : []);
 }
 
 export function newLayoutBlockId(): string {
