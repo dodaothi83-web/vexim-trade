@@ -39,6 +39,7 @@ export type LayoutBlockType = (typeof LAYOUT_BLOCK_TYPES)[number];
 export const LAYOUT_MAX_BLOCKS = 16;
 export const LAYOUT_MAX_ABOUT = 6;
 export const BANNER_MAX_IMAGES = 3;
+export const GALLERY_MAX_IMAGES = 12;
 export const BANNER_EYEBROW_MAX = 60;
 export const BANNER_HEADLINE_MAX = 120;
 export const FEATURED_MAX_PRODUCTS = 8;
@@ -65,8 +66,11 @@ export type LayoutBlock =
   | { id: string; type: "trade"; hidden?: boolean }
   /** Thông tin công ty: tên pháp lý, địa chỉ đăng ký lấy từ hồ sơ Vexim giữ. */
   | { id: string; type: "details"; hidden?: boolean }
-  /** Ảnh nhà cung cấp chia sẻ cho người mua. */
-  | { id: string; type: "gallery"; hidden?: boolean };
+  /**
+   * Thư viện ảnh: ảnh nhà cung cấp tự tải trong "Thiết kế trang" (tối đa 12). Chưa có ảnh riêng
+   * thì hiện ảnh công ty Vexim đã chia sẻ cho người mua.
+   */
+  | { id: string; type: "gallery"; hidden?: boolean; images?: string[] };
 
 export interface StorefrontLayout {
   /** 2: các mục chung đã là khối. Thiếu thì là bố cục cũ. */
@@ -165,9 +169,15 @@ export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string
       case "company":
       case "trade":
       case "details":
-      case "gallery":
         block = { id: item.id, type, ...hidden };
         break;
+      case "gallery": {
+        const raw = Array.isArray(item.images) ? item.images : [];
+        const images = raw.filter((path) => isLayoutImagePath(path, ctx.supplierId)) as string[];
+        if (images.length !== raw.length || images.length > GALLERY_MAX_IMAGES) return { ok: false, problem: { code: "imageRequired", index } };
+        block = { id: item.id, type, ...hidden, ...(images.length ? { images: [...new Set(images)] } : {}) };
+        break;
+      }
       case "checks":
         block = { id: item.id, type };
         break;
@@ -247,7 +257,8 @@ export function layoutForPlan(layout: StorefrontLayout, pro: boolean): Storefron
 /** Mọi ảnh bố cục đang dùng. */
 export function layoutImagePaths(layout: StorefrontLayout | null): string[] {
   if (!layout) return [];
-  return layout.blocks.flatMap((block) => block.type === "banner" ? block.images : block.type === "about" ? [block.image_path] : []);
+  return layout.blocks.flatMap((block) => block.type === "banner" ? block.images : block.type === "about" ? [block.image_path]
+    : block.type === "gallery" ? block.images ?? [] : []);
 }
 
 export function newLayoutBlockId(): string {

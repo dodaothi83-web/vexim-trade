@@ -65,6 +65,24 @@ const en = {
     gallery: { name: "Photo gallery", desc: "Shared company photos" },
   },
   required: "Required",
+  photos: {
+    title: "Header photos",
+    note: "Changing a photo updates your page straight away.",
+    cover: "Cover photo",
+    coverHint: "Landscape, at least 1600 × 400 px",
+    avatar: "Profile photo",
+    avatarHint: "Square, at least 400 × 400 px",
+  },
+  gallery: {
+    images: "Photos (up to {max})",
+    hint: "Factory, warehouse, team or products. JPG, PNG or WebP, up to 3 MB. Do not put phone numbers or emails in photos.",
+    shared: "No photos added here yet, so the page shows the company photos Vexim has shared. Add photos to replace them.",
+  },
+  links: {
+    certificates: "Open Documents and certificates",
+    products: "Open my products",
+    checks: "See my verification steps",
+  },
   profile: {
     title: "Profile information",
     note: "Saving updates your company profile and shows on your page straight away, even before you apply the design. You may write in Vietnamese; it is translated to English automatically.",
@@ -76,6 +94,7 @@ const en = {
     listHint: "Separate items with commas.",
     readOnly: "Kept by Vexim from your registration documents. Contact Vexim to correct it.",
     fields: {
+      display_name: "Display name",
       intro_source: "Introduction",
       products: "Main products",
       markets: "Markets served or targeted",
@@ -101,7 +120,7 @@ const en = {
     tone: "Colour tone",
     tones: { champagne: "Champagne", terracotta: "Terracotta", graphite: "Graphite", steel: "Steel" },
     tagline: "Introduction (English)",
-    headerHelp: "The name, verification shield and request button are managed by Vexim. You choose the colour tone and introduction.",
+    headerHelp: "The verification shield and request button are managed by Vexim. You can change the colour tone, introduction, photos and display name.",
     images: "Images (1–3)",
     imageHint: "1600 × 600 px, JPG, PNG or WebP, up to 3 MB. Do not put phone numbers, emails or other logos in images.",
     image: "Image",
@@ -241,6 +260,24 @@ const vi: DesignerMessages = {
     gallery: { name: "Thư viện ảnh", desc: "Ảnh công ty đã chia sẻ" },
   },
   required: "Bắt buộc",
+  photos: {
+    title: "Ảnh đầu trang",
+    note: "Đổi ảnh là cập nhật ngay trên trang.",
+    cover: "Ảnh bìa",
+    coverHint: "Ảnh ngang, tối thiểu 1600 × 400 px",
+    avatar: "Ảnh đại diện",
+    avatarHint: "Ảnh vuông, tối thiểu 400 × 400 px",
+  },
+  gallery: {
+    images: "Ảnh (tối đa {max})",
+    hint: "Nhà xưởng, kho, đội ngũ hoặc sản phẩm. JPG, PNG hoặc WebP, tối đa 3 MB. Không chèn số điện thoại, email vào ảnh.",
+    shared: "Chưa thêm ảnh ở đây nên trang đang hiện ảnh công ty Vexim đã chia sẻ. Thêm ảnh để thay.",
+  },
+  links: {
+    certificates: "Mở Giấy tờ và chứng nhận",
+    products: "Mở danh sách sản phẩm",
+    checks: "Xem các bước xác minh",
+  },
   profile: {
     title: "Thông tin hồ sơ",
     note: "Lưu là cập nhật Hồ sơ công ty và hiện ngay trên trang, kể cả khi chưa bấm Áp dụng thiết kế. Có thể viết tiếng Việt, hệ thống tự dịch sang tiếng Anh.",
@@ -252,6 +289,7 @@ const vi: DesignerMessages = {
     listHint: "Ngăn cách bằng dấu phẩy.",
     readOnly: "Vexim giữ theo giấy tờ đăng ký. Liên hệ Vexim nếu cần sửa.",
     fields: {
+      display_name: "Tên hiển thị",
       intro_source: "Giới thiệu công ty",
       products: "Sản phẩm chính",
       markets: "Thị trường phục vụ hoặc hướng tới",
@@ -277,7 +315,7 @@ const vi: DesignerMessages = {
     tone: "Tông màu",
     tones: { champagne: "Champagne", terracotta: "Đất nung", graphite: "Than chì", steel: "Xanh thép" },
     tagline: "Câu giới thiệu (tiếng Anh)",
-    headerHelp: "Tên công ty, khiên xác minh và nút gửi yêu cầu do Vexim quản lý. Bạn chọn tông màu và câu giới thiệu.",
+    headerHelp: "Khiên xác minh và nút gửi yêu cầu do Vexim quản lý. Bạn đổi được tông màu, câu giới thiệu, ảnh và tên hiển thị.",
     images: "Ảnh (1–3)",
     imageHint: "1600 × 600 px, JPG, PNG hoặc WebP, tối đa 3 MB. Không chèn số điện thoại, email, logo nơi khác vào ảnh.",
     image: "Ảnh",

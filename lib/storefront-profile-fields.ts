@@ -4,6 +4,7 @@
  * địa chỉ đăng ký và MOQ là dữ liệu Vexim giữ, chỉ hiện để xem.
  */
 export const STOREFRONT_PROFILE_FIELDS = {
+  display_name: { kind: "text", max: 180 },
   intro_source: { kind: "text", max: 1500 },
   products: { kind: "text", max: 1000, required: true },
   markets: { kind: "text", max: 800 },
@@ -24,7 +25,8 @@ export type StorefrontProfilePatch = Partial<Record<StorefrontProfileField, stri
 /** Trường hồ sơ theo khối, theo thứ tự hiện trong bảng chỉnh. */
 export const PROFILE_FIELDS_BY_BLOCK: Record<string, StorefrontProfileField[]> = {
   company: ["intro_source", "products", "markets"],
-  stats: ["annual_output", "founded_year", "employees", "lead_time_days"],
+  header: ["display_name"],
+  stats: ["annual_output", "founded_year", "employees", "lead_time_days", "incoterms", "export_markets"],
   trade: ["ports", "incoterms", "lead_time_days", "annual_output", "payment_terms", "export_markets"],
   details: ["trade_name"],
   markets: ["export_markets"],

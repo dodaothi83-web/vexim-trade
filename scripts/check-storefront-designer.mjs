@@ -147,4 +147,14 @@ assert.match(profileAction, /STOREFRONT_PROFILE_FIELDS\[key/, "Chỉ nhận trư
 assert.match(profileAction, /ensureSupplierProfileEnglish\(/, "Lưu xong dịch sang tiếng Anh như Hồ sơ công ty");
 assert.match(read("app/supplier/portal/storefront/design/page.tsx"), /profile=\{\{ save: saveStorefrontProfileFieldsAction/);
 assert.doesNotMatch(read("app/crm/suppliers/[slug]/design/page.tsx"), /profile=\{\{/, "CRM không sửa hồ sơ qua trình thiết kế");
+// 13. Mọi khối đều có chỗ sửa: thư viện ảnh tự tải ảnh, đầu trang đổi ảnh và tên hiển thị, khối tự lấy có đường dẫn.
+const gallery = { id: "b-gallery1", type: "gallery", images: [img(3), img(4)] };
+assert.deepEqual(L.validateStorefrontLayout(layout([gallery]), ctx).layout.blocks[0].images, [img(3), img(4)]);
+assert.equal(L.validateStorefrontLayout(layout([{ ...gallery, images: [img(3).replace(sid, pid)] }]), ctx).problem.code, "imageRequired", "Ảnh thư viện phải của đúng nhà cung cấp");
+assert.equal(L.validateStorefrontLayout(layout([{ ...gallery, images: Array.from({ length: 13 }, (_, i) => img(i % 10)) }]), ctx).ok, false);
+assert.ok(L.layoutImagePaths(L.validateStorefrontLayout(layout([gallery]), ctx).layout).includes(img(4)), "Ảnh thư viện công khai khi đã áp dụng");
+assert.match(designer, /<HeaderPhotos header=\{props\.header\}/);
+assert.match(designer, /PROFILE_FIELDS_BY_BLOCK\.header/);
+for (const href of ["/supplier/portal/documents#chung-nhan", "/supplier/portal/products", "/supplier/portal/storefront#supplier-verification-actions"]) assert.ok(designer.includes(href), `Có đường dẫn ${href}`);
+assert.match(fieldsLib, /stats: \[[^\]]*"incoterms", "export_markets"\]/);
 console.log("✅ Thiết kế trang: 5 loại khối, ảnh và sản phẩm đúng nhà cung cấp, tiếng Anh, không liên hệ, Tạo nhanh không bịa nội dung, bản nháp không công khai, CRM cần đồng ý, video và nhóm sản phẩm chỉ Pro.");
