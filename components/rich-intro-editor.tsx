@@ -77,7 +77,12 @@ function trimRuns(runs: RichIntroRun[]): RichIntroRun[] {
  * ảnh. Dán vào luôn thành chữ thường. Giá trị là chữ có dấu định dạng (lib/rich-intro), gửi kèm
  * biểu mẫu qua ô ẩn `name` khi có.
  */
-export function RichIntroEditor({ value, onChange, name, max, placeholder, copy, minHeight = 180 }: {
+export function RichIntroEditor({ value, onChange, name, max, placeholder, copy, minHeight = 180, variant = "boxed" }: {
+  /**
+   * "inline": sửa ngay trên trang (trình thiết kế): không khung, cùng cỡ chữ với trang, thanh định
+   * dạng nổi chỉ hiện khi đang soạn.
+   */
+  variant?: "boxed" | "inline";
   value: string;
   onChange?: (value: string) => void;
   name?: string;
@@ -123,8 +128,19 @@ export function RichIntroEditor({ value, onChange, name, max, placeholder, copy,
   };
 
   const button = (on: boolean) => `inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition ${on ? "bg-brand-700 text-white" : "text-ink-700 hover:bg-ink-100"}`;
-  return <div className="rounded-lg border border-ink-200 bg-white focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
-    <div role="toolbar" aria-label="Formatting" className="flex flex-wrap items-center gap-1 border-b border-ink-100 px-1.5 py-1">
+  const inline = variant === "inline";
+  const [focused, setFocused] = useState(false);
+  const content = inline
+    ? "px-3 py-2 text-[15.5px] leading-8 text-ink-700 [&_h3]:mb-1 [&_h3]:mt-5 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:tracking-tight [&_h3]:text-ink-900 [&_li]:my-1 [&_p]:my-3 [&_strong]:font-semibold [&_strong]:text-ink-900 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:pl-1 [&_ul]:marker:text-[var(--sf-accent)]"
+    : "px-3 py-2.5 text-sm leading-6 text-ink-800 [&_h3]:mb-1 [&_h3]:mt-3 [&_h3]:text-[15px] [&_h3]:font-bold [&_h3]:text-ink-900 [&_li]:my-0.5 [&_p]:my-1.5 [&_strong]:font-bold [&_ul]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5";
+  return <div onFocus={() => setFocused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}
+    className={inline
+      ? `relative rounded-xl outline-dashed outline-1 outline-offset-4 transition ${focused ? "bg-white outline-2 outline-solid outline-brand-500" : "outline-transparent hover:outline-brand-300"}`
+      : "rounded-lg border border-ink-200 bg-white focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100"}>
+    <div role="toolbar" aria-label="Formatting" className={inline
+      // Nổi phía trên ô, không chiếm chỗ: ẩn hiện không làm xô lệch nút bên dưới.
+      ? `absolute bottom-full left-0 z-20 mb-2 flex w-max items-center whitespace-nowrap gap-1 rounded-lg border border-ink-200 bg-white px-1.5 py-1 shadow-md transition ${focused ? "" : "pointer-events-none invisible opacity-0"}`
+      : "flex flex-wrap items-center gap-1 border-b border-ink-100 px-1.5 py-1"}>
       <button type="button" className={button(!active.h3 && !active.ul)} onMouseDown={(e) => e.preventDefault()} onClick={() => { if (active.ul) run("insertUnorderedList"); run("formatBlock", "p"); }}>
         <Pilcrow className="size-3.5" aria-hidden="true" />{copy.paragraph}</button>
       <button type="button" className={button(active.h3)} aria-pressed={active.h3} onMouseDown={(e) => e.preventDefault()}
@@ -137,18 +153,18 @@ export function RichIntroEditor({ value, onChange, name, max, placeholder, copy,
         <Bold className="size-3.5" aria-hidden="true" />{copy.bold}</button>
     </div>
     <div className="relative">
-      {empty && placeholder && <p className="pointer-events-none absolute left-3 top-2.5 text-sm text-ink-400">{placeholder}</p>}
+      {empty && placeholder && <p className={`pointer-events-none absolute left-3 ${inline ? "top-2 text-[15.5px] leading-8" : "top-2.5 text-sm"} text-ink-400`}>{placeholder}</p>}
       <div ref={ref} contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label={placeholder}
         onFocus={() => document.execCommand("defaultParagraphSeparator", false, "p")}
         onInput={sync} onKeyUp={refreshActive} onMouseUp={refreshActive}
         onPaste={(event) => { event.preventDefault(); document.execCommand("insertText", false, event.clipboardData.getData("text/plain")); }}
         onDrop={(event) => event.preventDefault()}
         style={{ minHeight }}
-        className="max-w-none px-3 py-2.5 text-sm leading-6 text-ink-800 outline-none [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mb-1 [&_h3]:mt-3 [&_h3]:text-[15px] [&_h3]:font-bold [&_h3]:text-ink-900 [&_li]:my-0.5 [&_p]:my-1.5 [&_strong]:font-bold [&_ul]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5" />
+        className={`max-w-none outline-none ${content}`} />
     </div>
-    <p className={`border-t border-ink-100 px-3 py-1 text-[11px] ${text.length > max ? "font-semibold text-rose-700" : "text-ink-400"}`}>
+    {<p className={`${inline ? `px-3 pb-1 ${focused || text.length > max ? "" : "invisible"}` : "border-t border-ink-100 px-3 py-1"} text-[11px] ${text.length > max ? "font-semibold text-rose-700" : "text-ink-400"}`}>
       {copy.chars.replace("{count}", String(text.length)).replace("{max}", String(max))}
-    </p>
+    </p>}
     {name && <input type="hidden" name={name} value={text} />}
   </div>;
 }

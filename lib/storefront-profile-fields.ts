@@ -24,7 +24,8 @@ export type StorefrontProfilePatch = Partial<Record<StorefrontProfileField, stri
 
 /** Trường hồ sơ theo khối, theo thứ tự hiện trong bảng chỉnh. */
 export const PROFILE_FIELDS_BY_BLOCK: Record<string, StorefrontProfileField[]> = {
-  company: ["intro_source", "products", "markets"],
+  // Đoạn giới thiệu sửa trực tiếp trong khối (trình soạn tại chỗ), không ở bảng bên.
+  company: ["products", "markets"],
   header: ["display_name"],
   stats: ["annual_output", "founded_year", "employees", "lead_time_days", "incoterms", "export_markets"],
   trade: ["ports", "incoterms", "lead_time_days", "annual_output", "payment_terms", "export_markets"],
