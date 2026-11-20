@@ -63,7 +63,6 @@ const en = {
     trade: { name: "Trade terms", desc: "Terms and request buttons" },
     details: { name: "Company details", desc: "Legal name, address" },
     gallery: { name: "Photo gallery", desc: "Shared company photos" },
-    text: { name: "Text", desc: "Paragraphs, headings, lists and photos" },
   },
   required: "Required",
   about: {
@@ -195,14 +194,6 @@ const en = {
     staff: "Designed by Vexim",
     empty: "No versions yet.",
   },
-  editor: {
-    locale: "en",
-    placeholder: "Write in English, or type \"/\" to add a heading, list, photo or page section",
-    sectionsGroup: "Page sections",
-    settings: "Settings",
-    headerSettings: "Header settings",
-    tone: "Colour tone",
-  },
   inline: {
     placeholder: "Click to write",
     tooLong: "Up to {max} characters",
@@ -221,7 +212,7 @@ const en = {
     redo: "Redo (Ctrl+Shift+Z)",
     insert: "Add a section here",
     insertTitle: "Add section",
-    hint: "Write directly on the page. Type \"/\" to add text, photos or page sections; drag the handle on the left to reorder.",
+    hint: "Click text or photos on the page to edit them directly.",
     introEdit: "Edit introduction",
     introNote: "Write in Vietnamese. Vexim translates it to English automatically for buyers and saves it to your company profile.",
     introSave: "Save introduction",
@@ -299,7 +290,6 @@ const vi: DesignerMessages = {
     trade: { name: "Điều kiện giao dịch", desc: "Điều kiện và nút gửi yêu cầu" },
     details: { name: "Thông tin công ty", desc: "Tên pháp lý, địa chỉ" },
     gallery: { name: "Thư viện ảnh", desc: "Ảnh công ty đã chia sẻ" },
-    text: { name: "Văn bản", desc: "Đoạn văn, tiêu đề, danh sách và ảnh" },
   },
   required: "Bắt buộc",
   about: {
@@ -431,14 +421,6 @@ const vi: DesignerMessages = {
     staff: "Vexim thiết kế",
     empty: "Chưa có phiên bản nào.",
   },
-  editor: {
-    locale: "vi",
-    placeholder: "Viết bằng tiếng Anh, hoặc gõ \"/\" để thêm tiêu đề, danh sách, ảnh hay mục của trang",
-    sectionsGroup: "Mục của trang",
-    settings: "Cài đặt",
-    headerSettings: "Cài đặt đầu trang",
-    tone: "Tông màu",
-  },
   inline: {
     placeholder: "Bấm để viết",
     tooLong: "Tối đa {max} ký tự",
@@ -457,7 +439,7 @@ const vi: DesignerMessages = {
     redo: "Làm lại (Ctrl+Shift+Z)",
     insert: "Thêm khối vào đây",
     insertTitle: "Thêm khối",
-    hint: "Viết thẳng trên trang. Gõ \"/\" để thêm chữ, ảnh hoặc mục của trang; kéo tay nắm bên trái để đổi chỗ.",
+    hint: "Bấm vào chữ hoặc ảnh trên trang để sửa trực tiếp.",
     introEdit: "Sửa phần giới thiệu",
     introNote: "Viết bằng tiếng Việt. Vexim tự dịch sang tiếng Anh cho người mua và lưu vào Hồ sơ công ty.",
     introSave: "Lưu giới thiệu",
