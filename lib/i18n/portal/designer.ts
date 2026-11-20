@@ -65,6 +65,13 @@ const en = {
     gallery: { name: "Photo gallery", desc: "Shared company photos" },
   },
   required: "Required",
+  about: {
+    images: "Photos (up to {max})",
+    imagesHint: "Factory, team or office. Landscape works best, at least 1200 px wide; JPG, PNG or WebP, up to 3 MB.",
+    removeVideo: "Remove video",
+    videoPro: "A company introduction video is available on the Pro plan.",
+    tip: "Tip: with photos and video, keep the introduction to 3–5 sentences about your story. Figures such as year founded, staff and certificates already appear in other sections.",
+  },
   photos: {
     title: "Header photos",
     note: "Changing a photo updates your page straight away.",
@@ -260,6 +267,13 @@ const vi: DesignerMessages = {
     gallery: { name: "Thư viện ảnh", desc: "Ảnh công ty đã chia sẻ" },
   },
   required: "Bắt buộc",
+  about: {
+    images: "Ảnh (tối đa {max})",
+    imagesHint: "Nhà xưởng, đội ngũ hoặc văn phòng. Ảnh ngang đẹp nhất, nên rộng từ 1200 px; JPG, PNG hoặc WebP, tối đa 3 MB.",
+    removeVideo: "Xóa video",
+    videoPro: "Video giới thiệu công ty có ở gói Pro.",
+    tip: "Gợi ý: khi đã có ảnh và video, nên viết phần giới thiệu 3–5 câu về câu chuyện công ty. Năm thành lập, số nhân viên, chứng nhận đã có ở các khối khác.",
+  },
   photos: {
     title: "Ảnh đầu trang",
     note: "Đổi ảnh là cập nhật ngay trên trang.",

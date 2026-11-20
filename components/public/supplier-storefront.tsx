@@ -219,7 +219,7 @@ export function SupplierStorefront({
       categories: storefrontCategoryGroups(s.main_products, productCategory, productLinks && !synthetic,
         (id) => { const form = s.form_product_cards?.[id]; const image = form ? form.cardImagePath ?? form.imagePaths[0] : s.product_card_image_paths[id]; return image ? mediaUrl(image) : null; }),
       sections: {
-        company: <CompanySection s={s} />,
+        company: <CompanySection s={s} premium />,
         checks: <ChecksSection s={s} reportAction={reportAction} />,
         trade: <TradeSection s={s} rfqActions={rfqActions} synthetic={synthetic} premium />,
         companyDetails: synthetic ? undefined : <CompanyDetailsSection s={s} rfqActions={rfqActions} premium />,

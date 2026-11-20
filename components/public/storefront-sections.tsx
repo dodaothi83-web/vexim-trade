@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
 import { VeximMinimumOrderIcon, VeximExportPortIcon, VeximLeadTimeIcon, VeximCapacityIcon, VeximPaymentIcon, VeximMarketsIcon } from "@/components/brand/vexim-icons";
+import { ExpandableText } from "@/components/public/expandable-text";
 import { SupplierCertificateRail } from "@/components/public/supplier-certificate-rail";
 import type { PublicSupplierCard } from "@/lib/public/catalog";
 import type { PublicSupplierCertificate } from "@/lib/public/certificates";
@@ -40,12 +41,28 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
 }
 
 /** Giới thiệu và chi tiết kinh doanh do nhà cung cấp cung cấp. */
-export function CompanySection({ s }: { s: PublicSupplierCard }) {
+export function CompanySection({ s, premium = false }: { s: PublicSupplierCard; premium?: boolean }) {
   const summary = safe(supplierSummaryDisplay(s));
   const businessDetails = [
     { label: "Main products", value: safe(supplierProductsDisplay(s)), wide: true },
     { label: "Markets served or targeted", value: safe(supplierMarketsDisplay(s)), wide: false },
   ].filter((item) => item.value);
+  // Trang Premium/Pro: đoạn giới thiệu chữ lớn, thoáng, có "Read more"; chi tiết kinh doanh hai cột.
+  if (premium) return <>
+    {summary
+      ? <ExpandableText text={summary} className="mt-5 text-[15.5px] leading-8 text-ink-700" />
+      : <p className="mt-5 text-sm leading-7 text-ink-500">This supplier has not added an introduction yet. Ask Vexim for more information.</p>}
+    {businessDetails.length > 0 && <div className="mt-7 border-t border-ink-100 pt-6">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink-500">Business details</p>
+      <dl className="mt-4 grid gap-x-8 gap-y-4 @2xl:grid-cols-2">
+        {businessDetails.map((item) => <div key={item.label} className="min-w-0 border-l-[3px] border-[var(--sf-accent)] pl-3">
+          <dt className="text-xs text-ink-500">{item.label}</dt>
+          <dd className="mt-0.5 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-ink-900">{item.value}</dd>
+        </div>)}
+      </dl>
+      <p className="mt-4 text-xs leading-5 text-ink-500">Provided by the supplier. Confirm details when requesting a quote.</p>
+    </div>}
+  </>;
   return <>
           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{summary || (businessDetails.length
             ? "This supplier has not added an introduction yet. See the business details below or ask Vexim for more information."

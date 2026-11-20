@@ -10,7 +10,7 @@ import type { DesignerMessages } from "@/lib/i18n/portal/designer";
 import { prepareImage } from "@/lib/media/client-image";
 import {
   ABOUT_BODY_MAX, ABOUT_TITLE_MAX, BANNER_EYEBROW_MAX, BANNER_HEADLINE_MAX, BANNER_MAX_IMAGES, FEATURED_MAX_PRODUCTS,
-  GALLERY_MAX_IMAGES, LAYOUT_BLOCK_TYPES, LAYOUT_MAX_ABOUT, LAYOUT_MAX_BLOCKS, newLayoutBlockId, PRO_ONLY_BLOCKS, REQUIRED_BLOCKS, VIDEO_TITLE_MAX,
+  COMPANY_MAX_IMAGES, GALLERY_MAX_IMAGES, LAYOUT_BLOCK_TYPES, LAYOUT_MAX_ABOUT, LAYOUT_MAX_BLOCKS, newLayoutBlockId, PRO_ONLY_BLOCKS, REQUIRED_BLOCKS, VIDEO_TITLE_MAX,
   type LayoutBlock, type LayoutBlockType, type StorefrontLayout,
 } from "@/lib/storefront-layout";
 import {
@@ -254,7 +254,7 @@ export function StorefrontDesigner(props: {
           </>
             : block ? <BlockSettings block={block} patch={patch} copy={copy} statValues={props.statValues} markets={props.markets}
               products={props.products} previewUrl={previewUrl} upload={upload} uploading={uploading}
-              categories={props.categories} certificates={props.certificates} hasGallery={!!props.sections?.gallery} profile={props.profile}
+              categories={props.categories} certificates={props.certificates} hasGallery={!!props.sections?.gallery} profile={props.profile} pro={props.pro}
               uploadVideo={async (file, onProgress) => {
                 const problem = await checkVideoFile(file, { video: copy.errors.videoFile, videoTooLong: copy.errors.videoTooLong, upload: copy.errors.upload }, fill);
                 if (problem) throw new Error(problem);
@@ -398,7 +398,9 @@ function ReadOnly({ label, value, hint }: { label: string; value: string; hint: 
   </div>;
 }
 
-function BlockSettingsInner({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading, categories, certificates, uploadVideo, hasGallery, portal = false }: {
+function BlockSettingsInner({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading, categories, certificates, uploadVideo, hasGallery, portal = false, pro = true }: {
+  /** Gói Pro: mở video giới thiệu trong khối Giới thiệu công ty. */
+  pro?: boolean;
   /** Cổng nhà cung cấp: hiện đường dẫn tới trang sửa nội dung tự lấy (chứng nhận, sản phẩm, xác minh). */
   portal?: boolean;
   block: LayoutBlock;
@@ -506,7 +508,9 @@ function BlockSettingsInner({ block, patch, copy, statValues, markets, products,
     </>;
     case "video": return <>
       {title}
-      <VideoSettings block={block} patch={patch} copy={copy} uploadVideo={uploadVideo} />
+      <VideoSettings uid={block.video_uid} title={block.title} copy={copy} uploadVideo={uploadVideo}
+        onUid={(uid) => patch(block.id, { video_uid: uid, duration: undefined, uploaded_at: undefined })}
+        onTitle={(title) => patch(block.id, { title })} />
     </>;
     case "categories": return <>
       {title}
@@ -514,7 +518,33 @@ function BlockSettingsInner({ block, patch, copy, statValues, markets, products,
       {categories.length >= 2 && <ul className="space-y-1 text-ink-800">{categories.map((c) => <li key={c.name}>{c.name} · {c.count}</li>)}</ul>}
       {portal && <PortalLink href="/supplier/portal/products" label={copy.links.products} />}
     </>;
-    case "company": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.companyHelp}</p></>;
+    case "company": {
+      const images = block.images ?? [];
+      return <>
+        {title}
+        <p className="leading-5 text-ink-600">{copy.fields.companyHelp}</p>
+        <div>
+          <p className="mb-1 font-semibold text-ink-700">{fill(copy.about.images, { max: COMPANY_MAX_IMAGES })}</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {images.map((path) => <div key={path} className="relative aspect-square overflow-hidden rounded-md border border-ink-200 bg-ink-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewUrl(path)} alt="" className="h-full w-full object-cover" />
+              <button type="button" aria-label={copy.fields.removeImage} onClick={() => patch(block.id, { images: images.filter((x) => x !== path) })}
+                className="absolute right-1 top-1 rounded-full bg-white/95 p-0.5 text-rose-700 shadow"><X className="size-3" /></button>
+            </div>)}
+            {images.length < COMPANY_MAX_IMAGES && <ImageInput label={copy.fields.addImage} busy={uploading === block.id}
+              onFile={async (file) => { const path = await upload(block.id, file); if (path) patch(block.id, { images: [...images, path] }); }} />}
+          </div>
+          <p className="mt-1 text-[11px] leading-4 text-ink-500">{copy.about.imagesHint}</p>
+        </div>
+        {pro ? <VideoSettings uid={block.video_uid ?? ""} title={block.video_title ?? ""} copy={copy} uploadVideo={uploadVideo}
+            onUid={(uid) => patch(block.id, { video_uid: uid, duration: undefined, uploaded_at: undefined })}
+            onTitle={(videoTitle) => patch(block.id, { video_title: videoTitle })}
+            onRemove={() => patch(block.id, { video_uid: undefined, video_title: undefined, duration: undefined, uploaded_at: undefined })} />
+          : <p className="rounded-md bg-brand-50 p-2 text-[11.5px] leading-5 text-brand-900">{copy.about.videoPro}</p>}
+        <p className="rounded-md bg-ink-50 p-2 text-[11.5px] leading-5 text-ink-600">{copy.about.tip}</p>
+      </>;
+    }
     case "checks": return <>{title}<p className="rounded-md bg-ink-50 p-2 leading-5 text-ink-600">{copy.requiredHint}</p>
       {portal && <PortalLink href="/supplier/portal/storefront#supplier-verification-actions" label={copy.links.checks} />}</>;
     case "trade": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.tradeHelp}</p></>;
@@ -549,9 +579,13 @@ function BlockSettingsInner({ block, patch, copy, statValues, markets, products,
   }
 }
 
-function VideoSettings({ block, patch, copy, uploadVideo }: {
-  block: Extract<LayoutBlock, { type: "video" }>;
-  patch: (id: string, change: Partial<LayoutBlock>) => void;
+/** Tải, thay và xoá video (dùng cho khối Video nhà máy và video giới thiệu trong khối Giới thiệu). */
+function VideoSettings({ uid, title, onUid, onTitle, onRemove, copy, uploadVideo }: {
+  uid: string;
+  title: string;
+  onUid: (uid: string) => void;
+  onTitle: (title: string) => void;
+  onRemove?: () => void;
   copy: DesignerMessages;
   uploadVideo: (file: File, onProgress: (pct: number) => void) => Promise<string>;
 }) {
@@ -561,20 +595,22 @@ function VideoSettings({ block, patch, copy, uploadVideo }: {
   return <>
     <div>
       <p className="mb-1 font-semibold text-ink-700">{copy.fields.video}</p>
-      {block.video_uid && <div className="aspect-video overflow-hidden rounded-md border border-ink-200 bg-black">
-        <iframe src={aplusVideoEmbedUrl(block.video_uid)} title={block.title || copy.fields.video} allow="accelerometer; gyroscope; encrypted-media; picture-in-picture" allowFullScreen className="h-full w-full border-0" />
+      {uid && <div className="aspect-video overflow-hidden rounded-md border border-ink-200 bg-black">
+        <iframe src={aplusVideoEmbedUrl(uid)} title={title || copy.fields.video} allow="accelerometer; gyroscope; encrypted-media; picture-in-picture" allowFullScreen className="h-full w-full border-0" />
       </div>}
-      <button type="button" disabled={progress !== null} onClick={() => input.current?.click()} className="btn btn-soft btn-sm mt-1.5">
-        {progress !== null ? <><Loader2 className="size-3.5 animate-spin" aria-hidden="true" />{fill(copy.fields.uploadingPct, { pct: progress })}</> : block.video_uid ? copy.fields.replaceVideo : copy.fields.chooseVideo}
-      </button>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        <button type="button" disabled={progress !== null} onClick={() => input.current?.click()} className="btn btn-soft btn-sm">
+          {progress !== null ? <><Loader2 className="size-3.5 animate-spin" aria-hidden="true" />{fill(copy.fields.uploadingPct, { pct: progress })}</> : uid ? copy.fields.replaceVideo : copy.fields.chooseVideo}
+        </button>
+        {uid && onRemove && <button type="button" disabled={progress !== null} onClick={onRemove} className="btn btn-sm border-rose-200 text-rose-700">{copy.about.removeVideo}</button>}
+      </div>
       <input ref={input} type="file" accept="video/mp4,video/quicktime,video/webm" className="sr-only" tabIndex={-1}
         onChange={async (e) => {
           const file = e.target.files?.[0]; e.target.value = "";
           if (!file) return;
           setNote(null); setProgress(0);
           try {
-            const uid = await uploadVideo(file, setProgress);
-            patch(block.id, { video_uid: uid, duration: undefined, uploaded_at: undefined });
+            onUid(await uploadVideo(file, setProgress));
             setNote({ ok: true, text: copy.fields.videoProcessing });
           } catch (error) { setNote({ ok: false, text: error instanceof Error ? error.message : copy.errors.upload }); }
           finally { setProgress(null); }
@@ -582,10 +618,10 @@ function VideoSettings({ block, patch, copy, uploadVideo }: {
       <p className="mt-1 text-[11px] leading-4 text-ink-500">{copy.fields.videoHint}</p>
       {note && <p role={note.ok ? "status" : "alert"} className={`mt-1 text-[11.5px] font-semibold ${note.ok ? "text-emerald-700" : "text-rose-700"}`}>{note.text}</p>}
     </div>
-    <label className="block font-semibold text-ink-700">{copy.fields.videoTitle}
-      <input value={block.title} onChange={(e) => patch(block.id, { title: e.target.value })} className="input mt-1 w-full font-normal" />
-      <Counter value={block.title} max={VIDEO_TITLE_MAX} copy={copy} />
-    </label>
+    {uid && <label className="block font-semibold text-ink-700">{copy.fields.videoTitle}
+      <input value={title} onChange={(e) => onTitle(e.target.value)} className="input mt-1 w-full font-normal" />
+      <Counter value={title} max={VIDEO_TITLE_MAX} copy={copy} />
+    </label>}
   </>;
 }
 
