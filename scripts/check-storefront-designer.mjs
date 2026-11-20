@@ -187,4 +187,25 @@ assert.match(designer, /target\.tagName === "TEXTAREA"/, "Ctrl+Z trong ô chữ 
 assert.match(designer, /props\.profile \? \(\) => <CompanyIntroEditor/, "Sửa giới thiệu từ hồ sơ chỉ ở cổng nhà cung cấp");
 assert.match(designer, /photos=\{!!props\.profile\}/, "Nút ảnh bìa, ảnh đại diện chỉ ở cổng nhà cung cấp");
 assert.match(designer, /REQUIRED_BLOCKS\.includes\(b\.type\)[\s\S]{0,200}copy\.required/, "Khối bắt buộc không có nút ẩn, xóa trên thanh nổi");
+// 16. "About this supplier" soạn kiểu blog (Premium/Pro): viết tiếng Việt có tiêu đề phụ, gạch đầu dòng, chữ đậm; AI dịch giữ định dạng.
+const RI = await import("../lib/rich-intro.ts");
+const richSample = "We are a **processor**.\nSecond line.\n\n### Capacity\n- Factory\n- 120 workers";
+assert.deepEqual(RI.parseRichIntro(richSample).map((n) => n.kind), ["p", "h3", "li", "li"]);
+assert.deepEqual(RI.parseRichIntro(richSample)[0].runs, [{ t: "We are a " }, { t: "processor", b: true }, { t: ".\nSecond line." }]);
+assert.equal(RI.richIntroPlain(richSample), "We are a processor.\nSecond line.\n\nCapacity\n\n• Factory\n• 120 workers", "Nơi không có định dạng thì bỏ dấu");
+assert.equal(RI.richIntroPlain("Plain intro\nkept"), "Plain intro\nkept", "Giới thiệu cũ dạng chữ thường giữ nguyên");
+assert.equal(RI.richIntroFromNodes(RI.parseRichIntro(richSample)), "We are a **processor**.\nSecond line.\n\n### Capacity\n\n- Factory\n- 120 workers");
+assert.equal(RI.cleanRichIntro("a   b\r\n\r\n\r\n- c ", 100), "a b\n\n- c", "Bản dịch giữ xuống dòng");
+const translateSrc = read("lib/ai/translate-supplier.ts");
+assert.match(translateSrc, /summary_en: cleanRichIntro\(payload\.summary_en, 1500\)/, "Không gộp dòng phần giới thiệu tiếng Anh");
+assert.match(translateSrc, /Keep exactly the same markers, line breaks/, "AI giữ định dạng khi dịch");
+const englishSrc = read("lib/public/supplier-english.ts");
+assert.match(englishSrc, /return richIntroPlain\(supplierSummaryRich\(supplier\)\)/, "Tìm kiếm, SEO, Basic dùng chữ thường");
+const sectionsSrc = read("components/public/storefront-sections.tsx");
+assert.match(sectionsSrc, /const rich = premium \? safe\(supplierSummaryRich\(s\)\) : ""/, "Chỉ Premium/Pro hiện định dạng, vẫn lọc liên hệ");
+for (const tag of ["<h3", "<ul", "<li", "<strong"]) assert.ok(read("components/public/rich-intro.tsx").includes(tag), `HTML ngữ nghĩa ${tag}`);
+const editorSrc = read("components/rich-intro-editor.tsx");
+assert.match(editorSrc, /clipboardData\.getData\("text\/plain"\)/, "Dán vào thành chữ thường");
+assert.doesNotMatch(editorSrc, /createLink|foreColor|fontSize|insertImage/, "Không link, màu, cỡ chữ, ảnh");
+assert.match(read("app/supplier/portal/profile/edit/page.tsx"), /richIntro=\{supplierPlanRules\(access\.supplier\)\.plan !== "basic"\}/, "Basic vẫn là ô chữ thường");
 console.log("✅ Thiết kế trang: 5 loại khối, ảnh và sản phẩm đúng nhà cung cấp, tiếng Anh, không liên hệ, Tạo nhanh không bịa nội dung, bản nháp không công khai, CRM cần đồng ý, video và nhóm sản phẩm chỉ Pro.");

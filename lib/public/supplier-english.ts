@@ -1,4 +1,5 @@
 import type { Supplier } from "@/lib/types";
+import { richIntroPlain } from "@/lib/rich-intro";
 import {
   publicExportPortDisplay,
   publicProductCapacityDisplay,
@@ -7,12 +8,21 @@ import {
   publicProductPlaceDisplay,
 } from "@/lib/public/product-detail-display";
 
-/** Giới thiệu cho buyer: ưu tiên bản dịch, nhưng không bỏ trống khi NCC đã có nội dung gốc. */
-export function supplierSummaryDisplay(supplier: Pick<Supplier, "summary_i18n" | "intro_source">): string {
+/**
+ * Giới thiệu cho buyer, giữ định dạng (tiêu đề phụ, gạch đầu dòng, chữ đậm; lib/rich-intro):
+ * ưu tiên bản dịch, nhưng không bỏ trống khi NCC đã có nội dung gốc. Chỉ trang Premium/Pro hiện
+ * định dạng; nơi khác dùng supplierSummaryDisplay (chữ thường).
+ */
+export function supplierSummaryRich(supplier: Pick<Supplier, "summary_i18n" | "intro_source">): string {
   const english = supplier.summary_i18n?.en?.trim();
   if (english) return english;
   const existing = Object.values(supplier.summary_i18n ?? {}).map((value) => value?.trim()).find(Boolean);
   return existing || supplier.intro_source?.trim() || "";
+}
+
+/** Giới thiệu dạng chữ thường (thẻ tìm kiếm, mô tả SEO, trang Basic): bỏ dấu định dạng. */
+export function supplierSummaryDisplay(supplier: Pick<Supplier, "summary_i18n" | "intro_source">): string {
+  return richIntroPlain(supplierSummaryRich(supplier));
 }
 
 /** Tên pháp lý gốc vẫn nằm trong supplier.name; chỉ ưu tiên bản hiển thị tiếng Anh đã lưu. */
