@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 
 /**
- * Đầu trang nhà cung cấp gói Premium/Pro: một kiểu chung cho mọi nhà cung cấp (bản mẫu
- * docs/storefront-designer, chủ sàn chốt 2026-11-20). Tên, khiên xác minh và nút gửi yêu cầu
- * luôn ở cùng chỗ để người mua so sánh nhanh; nhà cung cấp chỉ chọn tông màu (biến --sf-*) và
- * câu giới thiệu. Component thuần, chữ đã lọc sẵn ở nơi gọi, để trình thiết kế dùng lại đúng
- * component này khi xem trước.
+ * Đầu trang nhà cung cấp gói Premium/Pro: kiểu "Hiện đại" là kiểu duy nhất (chủ sàn chốt
+ * 2026-11-20; bỏ "Thanh lịch" và "Trưng bày"). Ảnh bìa làm nền lớn với lớp phủ tối, tên công
+ * ty chữ trắng, khiên xác minh và loại hình ngay dưới. Nhà cung cấp chỉ chọn tông màu (biến
+ * --sf-*) và câu giới thiệu. Component thuần, chữ đã lọc sẵn ở nơi gọi, để trình thiết kế dùng
+ * lại đúng component này khi xem trước.
  */
 export function PremiumHeader(p: {
   name: string;
@@ -16,48 +16,42 @@ export function PremiumHeader(p: {
   tagline: string;
   checks: ReactNode;
   actions: ReactNode;
-  /** Ảnh bìa: chỉ hiện khi trang chưa có khối Banner (banner thay ảnh bìa). */
+  /** Ảnh nền đầu trang: ảnh bìa, thiếu thì ảnh banner đầu tiên; không có thì nền tông màu đậm. */
   coverUrl: string | null;
   avatarUrl: string | null;
   coverAction?: ReactNode;
-  avatarAction?: ReactNode;
   /** Chỉ cổng nhà cung cấp: nhãn và kích thước gợi ý cạnh nút thêm ảnh bìa. */
   coverHint?: ReactNode;
+  avatarAction?: ReactNode;
   nameAside?: ReactNode;
   ownerActions?: ReactNode;
 }) {
   const NameTag = p.nameTag ?? "h1";
-  return <section className="@container mt-5 overflow-hidden rounded-2xl bg-white ring-1 ring-ink-200" aria-labelledby="supplier-name">
-    {(p.coverUrl || p.coverAction) && <div className={`relative bg-[var(--sf-tint)] ${p.coverUrl ? "h-36 @2xl:h-52" : "h-14"}`}>
+  return <section className="@container mt-5" aria-labelledby="supplier-name">
+    <div className="relative overflow-hidden rounded-2xl bg-[var(--sf-dark)] text-white">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {p.coverUrl && <img src={p.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+      <div className="absolute inset-0 bg-[#0F1216]/60" aria-hidden="true" />
       {p.coverAction}
       {p.coverHint}
-    </div>}
-    <div className="flex flex-col gap-5 p-5 @2xl:flex-row @2xl:items-start @2xl:p-7">
-      <div className="flex min-w-0 flex-1 gap-4">
-        <div className="shrink-0">
-          <div className="relative w-fit">
-            <div className="flex size-16 items-center justify-center overflow-hidden rounded-full bg-[var(--sf-tint)] text-2xl font-bold text-[var(--sf-dark)] ring-1 ring-ink-200 @2xl:size-20">
+      <div className="relative flex min-h-[340px] flex-col justify-end gap-4 p-6 @2xl:min-h-[440px] @2xl:p-12">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <div className="flex size-14 items-center justify-center overflow-hidden rounded-xl bg-white text-2xl font-bold text-[var(--sf-accent)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {p.avatarUrl ? <img src={p.avatarUrl} alt="" className="h-full w-full object-cover" /> : p.name.slice(0, 1).toUpperCase()}
             </div>
             {p.avatarAction}
           </div>
+          <span className="rounded-md bg-[var(--sf-accent)] px-3 py-1 text-xs font-bold">{p.location}</span>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">{p.location}</p>
-          <NameTag id="supplier-name" className="mt-1 break-words text-2xl font-bold leading-tight tracking-tight text-ink-900 @2xl:text-3xl">{p.name}</NameTag>
-          {p.nameAside && <div className="mt-2 flex flex-wrap items-center gap-2">{p.nameAside}</div>}
-          {p.tagline && <p className="mt-2 max-w-2xl text-[15px] leading-7 text-ink-600">{p.tagline}</p>}
-          <div className="mt-3 flex flex-wrap items-center gap-2">{p.typeBadge}</div>
-          <div className="mt-3">{p.checks}</div>
-        </div>
+        <NameTag id="supplier-name" className="max-w-3xl break-words text-3xl font-extrabold leading-tight tracking-tight @2xl:text-5xl">{p.name}</NameTag>
+        {p.nameAside && <div className="flex flex-wrap items-center gap-2">{p.nameAside}</div>}
+        {p.tagline && <p className="max-w-2xl text-[15px] leading-7 text-white/90 @2xl:text-lg">{p.tagline}</p>}
+        {p.actions && <div className="flex max-w-md flex-col gap-2 @2xl:flex-row">{p.actions}</div>}
+        {p.ownerActions && <div>{p.ownerActions}</div>}
       </div>
-      {(p.actions || p.ownerActions) && <div className="flex w-full shrink-0 flex-col gap-2 @2xl:w-60">
-        {p.actions}
-        {p.ownerActions}
-      </div>}
     </div>
+    <div className="mt-5 flex flex-wrap items-center justify-between gap-3">{p.checks}{p.typeBadge}</div>
   </section>;
 }

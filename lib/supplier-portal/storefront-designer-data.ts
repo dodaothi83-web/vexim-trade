@@ -22,11 +22,11 @@ export interface DesignerData {
   statValues: Partial<Record<StorefrontStat, string>>;
   markets: string[];
   products: DesignerProduct[];
-  header: { name: string; location: string; checks: string[]; avatarUrl: string | null };
+  header: { name: string; location: string; checks: string[]; avatarUrl: string | null; coverUrl: string | null };
   quick: StorefrontLayout | null;
 }
 
-export function designerDataFromCard(card: PublicSupplierCard, opts: { avatarUrl: string | null }): DesignerData {
+export function designerDataFromCard(card: PublicSupplierCard, opts: { avatarUrl: string | null; coverUrl: string | null }): DesignerData {
   const statValues = Object.fromEntries(STOREFRONT_STATS.map((stat) => [stat, storefrontStatValue(card, stat)]).filter(([, value]) => value)) as Partial<Record<StorefrontStat, string>>;
   const markets = supplierExportMarketsDisplay(card).map((market) => safe(market)).filter(Boolean);
   // Ảnh sản phẩm đã duyệt công khai; bản xem trước trong cổng hiển thị qua /public-media như trang thật.
@@ -49,6 +49,7 @@ export function designerDataFromCard(card: PublicSupplierCard, opts: { avatarUrl
       checks: VERIFICATION_DISPLAY_ORDER.filter((level) => card.approved_verification_steps.includes(level))
         .map((level) => level === 1 ? "Business registration checked" : verificationLabel(level, card.approved_l2_scope ?? null)),
       avatarUrl: opts.avatarUrl,
+      coverUrl: opts.coverUrl,
     },
     quick: quick.blocks.length ? quick : null,
   };

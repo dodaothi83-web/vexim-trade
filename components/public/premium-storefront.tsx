@@ -7,7 +7,7 @@ import type { StorefrontStat } from "@/lib/storefront-theme";
 
 /**
  * Số liệu nổi bật trên trang nhà cung cấp Premium/Pro (khối Năng lực sản xuất). Đầu trang chung
- * ở components/public/premium-header.tsx; 3 mẫu cũ (Thanh lịch, Hiện đại, Trưng bày) đã bỏ
+ * kiểu "Hiện đại" ở components/public/premium-header.tsx; "Thanh lịch" và "Trưng bày" đã bỏ
  * ngày 2026-11-20.
  */
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");

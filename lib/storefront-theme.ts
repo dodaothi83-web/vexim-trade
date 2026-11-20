@@ -1,8 +1,8 @@
 /**
  * Giao diện trang nhà cung cấp gói Premium/Pro.
  *
- * Một kiểu đầu trang chung (chủ sàn chốt 2026-11-20, bỏ 3 mẫu Thanh lịch / Hiện đại / Trưng bày
- * từng duyệt ngày 2026-11-15) và 4 tông màu chỉ dùng cho trang Premium/Pro: champagne,
+ * Một kiểu đầu trang chung là mẫu "Hiện đại" (chủ sàn chốt 2026-11-20, bỏ "Thanh lịch" và
+ * "Trưng bày" từng duyệt ngày 2026-11-15) và 4 tông màu chỉ dùng cho trang Premium/Pro: champagne,
  * terracotta, graphite, steel. Không có xanh lá hay đỏ đô vì hai màu này mang nghĩa "đã xác
  * minh" trên khiên của Vexim. Bản mẫu: docs/storefront-designer/index.html.
  *

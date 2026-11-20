@@ -73,6 +73,8 @@ const storefront = read("components/public/supplier-storefront.tsx");
 assert.match(storefront, /const layout: StorefrontLayout \| null = !premium \? null/, "Chỉ Premium/Pro còn hạn mới dùng bố cục");
 assert.match(storefront, /readStorefrontLayout\(s\.storefront_layout, s\.id\)/);
 assert.doesNotMatch(storefront, /storefront_layout_draft/);
+assert.match(storefront, /!\(premium && featuredAll\) && <section id="products"/, "Sản phẩm nổi bật đã gồm mọi sản phẩm thì không lặp danh mục");
+assert.match(storefront, /premium \? "All products" : "Products"/, "Danh mục sản phẩm theo giao diện Premium");
 assert.match(read("components/public/storefront-blocks.tsx"), /They are not evidence of a Vexim check/, "Ảnh, chữ nhà cung cấp không phải bằng chứng xác minh");
 
 // 7. Cổng nhà cung cấp: lưu nháp / áp dụng kiểm quyền gói và nội dung; phiên bản được lưu.

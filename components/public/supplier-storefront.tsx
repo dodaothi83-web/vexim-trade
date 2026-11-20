@@ -131,8 +131,23 @@ export function SupplierStorefront({
     : (layoutOverride !== undefined ? layoutOverride : readStorefrontLayout(s.storefront_layout, s.id)) ?? legacyLayout(savedTheme, showcase);
   const tone = STOREFRONT_TONE_COLORS[layout?.tone ?? savedTheme.tone];
   const toneStyle = { "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties;
-  // Banner thay ảnh bìa; chưa có banner thì đầu trang vẫn hiện ảnh bìa.
-  const hasBanner = !!layout?.blocks.some((block) => block.type === "banner" && !block.hidden);
+  // Ảnh nền đầu trang: ảnh bìa, chưa có thì ảnh banner đầu tiên.
+  const firstBanner = layout?.blocks.find((block) => block.type === "banner" && !block.hidden);
+  const heroUrl = coverUrl ?? (firstBanner?.type === "banner" && firstBanner.images[0] ? (showcaseImageUrl ?? mediaUrl)(firstBanner.images[0]) : null);
+  // Sản phẩm nổi bật đã gồm mọi sản phẩm thì không lặp lại danh mục sản phẩm bên dưới.
+  const featuredBlock = layout?.blocks.find((block) => block.type === "products" && !block.hidden);
+  const featuredAll = featuredBlock?.type === "products" && s.main_products.length > 0 &&
+    s.main_products.every((p) => featuredBlock.product_ids.includes(p.id));
+  const sectionNav = <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
+      {[
+        ["Products", featuredAll ? "featured" : "products"],
+        ["About", "about"],
+        ["Supplier checks", "verification"],
+        ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
+        ...(!synthetic ? [["Company details", "company-details"] as const] : []),
+      ].map(([label, id]) =>
+        <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
+    </nav>;
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
 
@@ -158,7 +173,7 @@ export function SupplierStorefront({
           : <span className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
         {chatAction && <div className="flex-1 rounded-lg bg-white text-ink-900 [&>*]:w-full">{chatAction}</div>}
       </> : null}
-      coverUrl={hasBanner ? null : coverUrl}
+      coverUrl={heroUrl}
       avatarUrl={avatarUrl}
       coverAction={coverAction}
       avatarAction={avatarAction}
@@ -217,6 +232,7 @@ export function SupplierStorefront({
     </section>
     </>}
 
+    {premium && sectionNav}
     {layout && <StorefrontBlocks layout={sanitizeLayout(layout)} data={{
       statValues: Object.fromEntries(STOREFRONT_STATS.map((stat) => [stat, storefrontStatValue(s, stat)])),
       markets: supplierExportMarketsDisplay(s).map((market) => safe(market)).filter(Boolean),
@@ -233,21 +249,13 @@ export function SupplierStorefront({
       imageUrl: showcaseImageUrl ?? mediaUrl,
     }} />}
 
-    <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
-      {[
-        ["Products", "products"],
-        ["About", "about"],
-        ["Supplier checks", "verification"],
-        ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
-        ...(!synthetic ? [["Company details", "company-details"] as const] : []),
-      ].map(([label, id]) =>
-        <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
-    </nav>
+    {!premium && sectionNav}
 
-    <section id="products" className="mt-10 scroll-mt-24 border-t border-ink-200 pt-10" aria-labelledby="products-title">
+    {!(premium && featuredAll) && <section id="products" style={premium ? toneStyle : undefined}
+      className={premium ? "mt-10 scroll-mt-24" : "mt-10 scroll-mt-24 border-t border-ink-200 pt-10"} aria-labelledby="products-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><p className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplier catalogue</p>
-          <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Products <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
+        <div><p className={`text-xs font-bold uppercase tracking-widest ${premium ? "text-[var(--sf-accent)]" : "text-brand-700"}`}>{premium ? "Catalogue" : "Supplier catalogue"}</p>
+          <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">{premium ? "All products" : "Products"} <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
           <p className="mt-1 text-sm text-ink-600">{synthetic ? "Test entries on this profile are not commercial offers." : "Listings ready to share with buyers. Prices, where shown, are references; request a quote for current terms."}</p></div>
       </div>
       {s.main_products.length ? <SupplierProductRail productCount={s.main_products.length}>
@@ -402,7 +410,7 @@ export function SupplierStorefront({
       </SupplierProductRail> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic
         ? "No individual product listings are available yet. See the main products below or ask Vexim about specifications and availability."
         : "No buyer-ready products are available on this profile yet. Products appear here only after the listing and shareable media meet publication requirements."}</p></div>}
-    </section>
+    </section>}
 
     <div className="mt-10 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-6">

@@ -37,7 +37,7 @@ export function StorefrontDesigner(props: {
   quick: StorefrontLayout | null;
   /** Bản nháp hiện trùng bản đang công khai. */
   live: boolean;
-  header: { name: string; location: string; checks: string[]; avatarUrl: string | null };
+  header: { name: string; location: string; checks: string[]; avatarUrl: string | null; coverUrl?: string | null };
   statValues: Partial<Record<StorefrontStat, string>>;
   markets: string[];
   products: DesignerProduct[];
@@ -194,8 +194,8 @@ export function StorefrontDesigner(props: {
           style={{ "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties}>
           <button type="button" onClick={() => setSelected(HEADER)}
             className={`relative block w-full rounded-xl text-left outline outline-2 outline-offset-4 ${selected === HEADER ? "outline-brand-600" : "outline-transparent hover:outline-brand-200"}`}>
-            <HeaderPreview layout={layout} header={props.header} />
-            <span className="absolute bottom-1 right-2 text-[10.5px] text-ink-400">{copy.headerLockHint}</span>
+            <HeaderPreview layout={layout} header={props.header} previewUrl={previewUrl} />
+            <span className="absolute right-3 top-3 z-10 rounded-md bg-white/90 px-1.5 py-0.5 text-[10.5px] text-ink-600">{copy.headerLockHint}</span>
           </button>
           <StorefrontBlocks layout={layout} selectedId={selected} onSelect={setSelected} showHidden
             data={{ statValues: props.statValues, markets: props.markets, products: productMap, imageUrl: previewUrl }} />
@@ -223,8 +223,11 @@ function Tool({ label, disabled, onClick, children }: { label: string; disabled?
 }
 
 /** Đầu trang dùng đúng component của trang thật, nên xem trước khớp với trang công khai. */
-function HeaderPreview({ layout, header }: { layout: StorefrontLayout; header: { name: string; location: string; checks: string[]; avatarUrl: string | null } }) {
-  return <PremiumHeader name={header.name} nameTag="h2" location={header.location} tagline={layout.tagline} coverUrl={null} avatarUrl={header.avatarUrl}
+function HeaderPreview({ layout, header, previewUrl }: { layout: StorefrontLayout; header: { name: string; location: string; checks: string[]; avatarUrl: string | null; coverUrl?: string | null }; previewUrl: (path: string) => string }) {
+  // Giống trang thật: ảnh bìa làm nền, chưa có thì ảnh banner đầu tiên.
+  const banner = layout.blocks.find((block) => block.type === "banner" && !block.hidden);
+  const cover = header.coverUrl ?? (banner?.type === "banner" && banner.images[0] ? previewUrl(banner.images[0]) : null);
+  return <PremiumHeader name={header.name} nameTag="h2" location={header.location} tagline={layout.tagline} coverUrl={cover} avatarUrl={header.avatarUrl}
     checks={<div className="flex flex-wrap gap-2">{header.checks.map((check) => <span key={check} className="rounded-full bg-success-surface px-3 py-1 text-xs font-semibold text-success">{check}</span>)}</div>}
     actions={<span className="inline-flex items-center justify-center rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote</span>} />;
 }
