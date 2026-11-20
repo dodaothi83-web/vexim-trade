@@ -44,7 +44,7 @@ assert.equal(bad([], { tagline: "Chuyên hạt điều xuất khẩu chất lư�
 
 // 4. Dữ liệu hỏng không làm hỏng trang: bỏ đúng khối hỏng.
 const read1 = L.readStorefrontLayout({ ...layout(good), blocks: [good[1], { id: "x", type: "evil" }, good[4]] }, sid);
-assert.deepEqual(read1.blocks.map((b) => b.type), ["stats", "markets", "company", "checks", "certificates", "gallery", "trade"], "Bố cục cũ được thêm các mục chung, không mất nội dung");
+assert.deepEqual(read1.blocks.map((b) => b.type), ["stats", "markets", "company", "checks", "certificates", "gallery", "trade", "details"], "Bố cục cũ được thêm các mục chung, không mất nội dung");
 assert.equal(L.readStorefrontLayout(null, sid), null);
 
 // 5. Tạo nhanh từ hồ sơ: chỉ dùng ảnh, chữ sẵn có; bỏ khối tiếng Việt hoặc có liên hệ; số liệu có giá trị mới hiện.
@@ -58,13 +58,13 @@ const quick = L.buildLayoutFromProfile({
   ],
   productIds: [pid], statValues: { capacity: "1,200 MT", founded: "2009" }, hasMarkets: true, province: "Binh Phuoc, Vietnam", foundedYear: 2009,
 });
-assert.deepEqual(quick.blocks.map((b) => b.type), ["banner", "stats", "products", "about", "markets", "company", "checks", "trade"]);
+assert.deepEqual(quick.blocks.map((b) => b.type), ["banner", "stats", "products", "about", "markets", "company", "checks", "trade", "details"]);
 assert.deepEqual(quick.blocks[0].images, [img(7)], "Banner chỉ dùng ảnh khối hợp lệ");
 assert.deepEqual(quick.blocks[1].stats, ["capacity", "founded"], "Không đưa số liệu trống");
 assert.equal(quick.tone, "graphite");
 assert.equal("template" in quick, false, "Không còn chọn mẫu");
 assert.equal(L.validateStorefrontLayout(quick, ctx).ok, true, "Bố cục dựng nhanh hợp lệ");
-assert.deepEqual(L.buildLayoutFromProfile({ supplierId: sid, theme: null, showcase: [], productIds: [], statValues: {}, hasMarkets: false, province: "", foundedYear: null }).blocks.map((b) => b.type), ["company", "checks", "trade"]);
+assert.deepEqual(L.buildLayoutFromProfile({ supplierId: sid, theme: null, showcase: [], productIds: [], statValues: {}, hasMarkets: false, province: "", foundedYear: null }).blocks.map((b) => b.type), ["company", "checks", "trade", "details"]);
 
 // 6. Máy chủ: bản nháp không công khai; ảnh công khai chỉ khi nằm trong bố cục đã áp dụng; gói hết hạn về giao diện cũ.
 const media = read("app/public-media/[...path]/route.ts");
@@ -128,4 +128,6 @@ assert.match(storefront, /checks: <ChecksSection s=\{s\} reportAction=\{reportAc
 const designer = read("components/storefront-designer/storefront-designer.tsx");
 assert.match(designer, /REQUIRED_BLOCKS\.includes\(b\.type\)\s*\n?\s*\? <span/, "Khối bắt buộc không có nút ẩn, xoá");
 assert.match(read("components/public/storefront-sections.tsx"), /export function ChecksSection/);
+assert.match(read("components/public/storefront-blocks.tsx"), /case "details":/, "Thông tin công ty là khối riêng");
+assert.match(read("components/public/storefront-sections.tsx"), /function PremiumTrade\(/, "Điều kiện giao dịch trình bày lưới thẻ trên trang Premium");
 console.log("✅ Thiết kế trang: 5 loại khối, ảnh và sản phẩm đúng nhà cung cấp, tiếng Anh, không liên hệ, Tạo nhanh không bịa nội dung, bản nháp không công khai, CRM cần đồng ý, video và nhóm sản phẩm chỉ Pro.");

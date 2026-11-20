@@ -22,7 +22,7 @@ import {
 import { normalizeShowcaseBlocks, showcaseHasContact } from "./supplier-showcase.ts";
 import { looksVietnamese } from "./vietnamese-text.ts";
 
-export const LAYOUT_BLOCK_TYPES = ["banner", "stats", "products", "about", "markets", "video", "categories", "certificates", "company", "checks", "trade", "gallery"] as const;
+export const LAYOUT_BLOCK_TYPES = ["banner", "stats", "products", "about", "markets", "video", "categories", "certificates", "company", "checks", "trade", "details", "gallery"] as const;
 /**
  * Các mục chung của trang (giới thiệu, xác minh, điều kiện giao dịch, thư viện ảnh) thành khối
  * sắp xếp được (chủ sàn yêu cầu 2026-11-20). "checks" (xác minh của Vexim) là khối bắt buộc:
@@ -61,8 +61,10 @@ export type LayoutBlock =
   | { id: string; type: "company"; hidden?: boolean }
   /** Xác minh của Vexim (bắt buộc, không ẩn). */
   | { id: string; type: "checks"; hidden?: boolean }
-  /** Điều kiện giao dịch và thông tin công ty, nút gửi yêu cầu qua Vexim. */
+  /** Điều kiện giao dịch và nút gửi yêu cầu qua Vexim. */
   | { id: string; type: "trade"; hidden?: boolean }
+  /** Thông tin công ty: tên pháp lý, địa chỉ đăng ký lấy từ hồ sơ Vexim giữ. */
+  | { id: string; type: "details"; hidden?: boolean }
   /** Ảnh nhà cung cấp chia sẻ cho người mua. */
   | { id: string; type: "gallery"; hidden?: boolean };
 
@@ -162,6 +164,7 @@ export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string
       case "certificates":
       case "company":
       case "trade":
+      case "details":
       case "gallery":
         block = { id: item.id, type, ...hidden };
         break;
@@ -226,7 +229,7 @@ export function readStorefrontLayout(raw: unknown, supplierId: string): Storefro
 export function defaultCommonBlocks(): LayoutBlock[] {
   return [
     { id: "b-company", type: "company" }, { id: "b-checks", type: "checks" }, { id: "b-certificates", type: "certificates" },
-    { id: "b-gallery", type: "gallery" }, { id: "b-trade", type: "trade" },
+    { id: "b-gallery", type: "gallery" }, { id: "b-trade", type: "trade" }, { id: "b-details", type: "details" },
   ];
 }
 
@@ -299,6 +302,6 @@ export function buildLayoutFromProfile(input: ProfileLayoutInput): StorefrontLay
   blocks.push({ id: newLayoutBlockId(), type: "company" }, { id: newLayoutBlockId(), type: "checks" });
   if (input.hasCertificates) blocks.push({ id: newLayoutBlockId(), type: "certificates" });
   if (input.hasGallery) blocks.push({ id: newLayoutBlockId(), type: "gallery" });
-  blocks.push({ id: newLayoutBlockId(), type: "trade" });
+  blocks.push({ id: newLayoutBlockId(), type: "trade" }, { id: newLayoutBlockId(), type: "details" });
   return { v: LAYOUT_VERSION, tone: theme.tone, tagline, blocks };
 }

@@ -125,7 +125,8 @@ export function SupplierStorefront({
         ...(shown("company") ? [["About", "about"] as const] : []),
         ["Supplier checks", "verification"],
         ...(certificates.length > 0 && shown("certificates") ? [["Certificates", "certificates"] as const] : []),
-        ...(!synthetic && shown("trade") ? [["Company details", "company-details"] as const] : []),
+        ...(shown("trade") ? [["Trade terms", "trade"] as const] : []),
+        ...(!synthetic && shown("details") ? [["Company details", "company-details"] as const] : []),
       ].map(([label, id]) =>
         <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
     </nav>;
@@ -221,7 +222,7 @@ export function SupplierStorefront({
         company: <CompanySection s={s} />,
         checks: <ChecksSection s={s} reportAction={reportAction} />,
         trade: <TradeSection s={s} rfqActions={rfqActions} synthetic={synthetic} premium />,
-        companyDetails: synthetic ? undefined : <CompanyDetailsSection s={s} rfqActions={rfqActions} />,
+        companyDetails: synthetic ? undefined : <CompanyDetailsSection s={s} rfqActions={rfqActions} premium />,
         certificates: certificates.length ? <CertificatesSection certificates={certificates} /> : undefined,
         gallery: s.gallery_images.length ? <GallerySection s={s} /> : undefined,
       },

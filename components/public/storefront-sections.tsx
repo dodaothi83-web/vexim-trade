@@ -110,8 +110,75 @@ export function ChecksSection({ s, reportAction }: { s: PublicSupplierCard; repo
   </>;
 }
 
+/** Các điều kiện giao dịch do nhà cung cấp khai (dùng chung cho hai kiểu trình bày). */
+function tradeFacts(s: PublicSupplierCard) {
+  return [
+    { icon: VeximMinimumOrderIcon, label: "Minimum order", value: supplierMoqDisplay(s) },
+    { icon: VeximExportPortIcon, label: "Export ports / Incoterms", value: [...supplierPortsDisplay(s), ...supplierIncotermsDisplay(s)].join(" · ") },
+    { icon: VeximLeadTimeIcon, label: "Lead time", value: s.lead_time_days ? `${s.lead_time_days} days` : "" },
+    { icon: VeximCapacityIcon, label: s.annual_output?.trim() ? "Annual revenue" : "Monthly capacity", value: s.annual_output?.trim() ? supplierAnnualOutputDisplay(s) : supplierCapacityDisplay(s) },
+    { icon: VeximPaymentIcon, label: "Payment terms", value: supplierPaymentTermsDisplay(s) },
+    { icon: VeximMarketsIcon, label: "Export markets", value: supplierExportMarketsDisplay(s).join(", ") },
+  ];
+}
+
+/** Đường dẫn gửi yêu cầu qua Vexim; bản xem trước của nhà cung cấp không bấm được. */
+function EnquiryButtons({ s, rfqActions, premium }: { s: PublicSupplierCard; rfqActions: boolean; premium: boolean }) {
+  const primary = `flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold text-white ${premium ? "bg-[var(--sf-accent)] hover:bg-[var(--sf-dark)]" : "bg-brand-700 hover:bg-brand-800"}`;
+  const secondary = "flex items-center justify-center rounded-lg border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50";
+  return rfqActions
+    ? <><Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className={primary}>Request a quote <ArrowRight className="h-4 w-4" /></Link>
+      <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}&sample=1`} className={secondary}>Ask about samples</Link></>
+    : <><span className={primary}>Request a quote <ArrowRight className="h-4 w-4" /></span><span className={secondary}>Ask about samples</span></>;
+}
+
+/** Trang Premium/Pro: lưới thẻ điều kiện giao dịch và khung gửi yêu cầu bên cạnh. */
+function PremiumTrade({ s, rfqActions, synthetic }: { s: PublicSupplierCard; rfqActions: boolean; synthetic: boolean }) {
+  return <>
+    <p className="mt-1 text-sm leading-6 text-ink-600">Provided by the supplier. Confirm terms when requesting a quote.</p>
+    <div className="mt-5 grid gap-4 @3xl:grid-cols-[minmax(0,1fr)_250px]">
+      <dl className="grid gap-3 @lg:grid-cols-2 @4xl:grid-cols-3">
+        {tradeFacts(s).map(({ icon: Icon, label, value }) => <div key={label} className="flex min-w-0 gap-3 rounded-xl bg-[var(--sf-tint)] p-4">
+          <Icon aria-hidden size={22} strokeWidth={2.6} className="mt-0.5 h-[22px] w-[22px] shrink-0 text-[var(--sf-dark)]" />
+          <div className="min-w-0"><dt className="text-xs text-ink-500">{label}</dt><dd className="mt-0.5 break-words text-sm font-bold text-ink-900">{safe(value) || "On request"}</dd></div>
+        </div>)}
+      </dl>
+      {!synthetic && <div className="flex flex-col justify-center gap-2 rounded-xl border border-ink-200 p-4">
+        <p className="text-sm font-bold text-ink-900">Ready to source?</p>
+        <EnquiryButtons s={s} rfqActions={rfqActions} premium />
+        <p className="text-xs leading-5 text-ink-500">Enquiries go through Vexim Trade. Supplier email and phone are not displayed publicly.</p>
+      </div>}
+    </div>
+  </>;
+}
+
+/** Trang Premium/Pro: thông tin công ty xếp hai cột, ghi chú nguồn và báo cáo ở chân khối. */
+function PremiumCompanyDetails({ s, rfqActions }: { s: PublicSupplierCard; rfqActions: boolean }) {
+  const rows = [
+    { label: "Legal name", value: safe(supplierLegalNameDisplay(s)) },
+    ...(s.trade_name && s.trade_name !== s.name ? [{ label: "Trade name", value: safe(s.trade_name) }] : []),
+    { label: "Registered address", value: safe(supplierAddressDisplay(s)) || (supplierProvinceDisplay(s) ? `${safe(supplierProvinceDisplay(s))}, Vietnam` : "Ask Vexim for the registered address before contracting.") },
+    { label: "Contact", value: "Request an introduction through Vexim" },
+  ];
+  return <>
+    <dl className="mt-5 grid gap-x-8 gap-y-4 @2xl:grid-cols-2">
+      {rows.map((row) => <div key={row.label} className="min-w-0 border-l-[3px] border-[var(--sf-accent)] pl-3">
+        <dt className="text-xs text-ink-500">{row.label}</dt>
+        <dd className="mt-0.5 break-words text-sm font-semibold text-ink-900">{row.value}</dd>
+      </div>)}
+    </dl>
+    <div className="mt-5 flex flex-col gap-3 border-t border-ink-100 pt-4 @2xl:flex-row @2xl:items-center @2xl:justify-between">
+      <p className="max-w-2xl text-xs leading-5 text-ink-500">Legal name and registered address come from the supplier record held by Vexim. The company website is supplier-provided, not verified by Vexim. Email, phone and internal verification documents are not published.</p>
+      {rfqActions
+        ? <Link href={`/khieu-nai?supplier=${encodeURIComponent(s.slug || s.id)}`} className="shrink-0 text-sm font-semibold text-brand-700 underline">Report this supplier</Link>
+        : <span className="shrink-0 text-sm font-semibold text-brand-700 underline">Report this supplier</span>}
+    </div>
+  </>;
+}
+
 /** Điều kiện giao dịch do nhà cung cấp khai và nút gửi yêu cầu qua Vexim. */
 export function TradeSection({ s, rfqActions, synthetic, premium = false }: { s: PublicSupplierCard; rfqActions: boolean; synthetic: boolean; premium?: boolean }) {
+  if (premium) return <PremiumTrade s={s} rfqActions={rfqActions} synthetic={synthetic} />;
   return <>
     <p className="mt-2 text-xs leading-5 text-ink-500">Provided by the supplier. Confirm terms when requesting a quote.</p>
           <dl className="mt-2"><Fact icon={VeximMinimumOrderIcon} label="Minimum order" value={supplierMoqDisplay(s)} />
@@ -129,7 +196,8 @@ export function TradeSection({ s, rfqActions, synthetic, premium = false }: { s:
 }
 
 /** Tên pháp lý, địa chỉ đăng ký lấy từ hồ sơ Vexim giữ; liên hệ đi qua Vexim. */
-export function CompanyDetailsSection({ s, rfqActions }: { s: PublicSupplierCard; rfqActions: boolean }) {
+export function CompanyDetailsSection({ s, rfqActions, premium = false }: { s: PublicSupplierCard; rfqActions: boolean; premium?: boolean }) {
+  if (premium) return <PremiumCompanyDetails s={s} rfqActions={rfqActions} />;
   return <>
           <dl className="mt-2">
             <div className="border-b border-ink-100 py-3"><dt className="text-xs text-ink-500">Legal name</dt><dd className="mt-0.5 break-words text-sm font-semibold text-ink-800">{safe(supplierLegalNameDisplay(s))}</dd></div>

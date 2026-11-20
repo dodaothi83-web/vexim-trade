@@ -393,6 +393,7 @@ function BlockSettings({ block, patch, copy, statValues, markets, products, prev
     case "company": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.companyHelp}</p></>;
     case "checks": return <>{title}<p className="rounded-md bg-ink-50 p-2 leading-5 text-ink-600">{copy.requiredHint}</p></>;
     case "trade": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.tradeHelp}</p></>;
+    case "details": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.detailsHelp}</p></>;
     case "gallery": return <>{title}<p className="leading-5 text-ink-600">{hasGallery ? copy.fields.galleryHelp : copy.fields.galleryEmpty}</p></>;
     case "certificates": return <>
       {title}

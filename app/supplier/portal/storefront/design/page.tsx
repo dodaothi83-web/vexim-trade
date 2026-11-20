@@ -56,7 +56,7 @@ export default async function StorefrontDesignPage() {
     company: <CompanySection s={card} />,
     checks: <ChecksSection s={card} />,
     trade: <TradeSection s={card} rfqActions={false} synthetic={false} premium />,
-    companyDetails: <CompanyDetailsSection s={card} rfqActions={false} />,
+    companyDetails: <CompanyDetailsSection s={card} rfqActions={false} premium />,
     certificates: designCertificates.length ? <CertificatesSection certificates={designCertificates} /> : undefined,
     gallery: card.gallery_images.length ? <GallerySection s={card} /> : undefined,
   };
