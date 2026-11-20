@@ -279,8 +279,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       // Ảnh trong kho ảnh được gắn vào sản phẩm vừa tạo, nên người bán tải ảnh
       // trước khi có sản phẩm mà không phải lưu nháp. Ảnh gắn vào là chung với người mua
       // (không còn bước duyệt ảnh); người mua chỉ thấy khi sản phẩm được đăng.
-      // Gói Basic là tin chữ: không gắn ảnh từ kho vào sản phẩm mới.
-      const bankIds = planRules.mediaAllowed ? parseBankMediaIds(form.get("bank_media_ids")) : [];
+      const bankIds = parseBankMediaIds(form.get("bank_media_ids"));
       let bankOrder = 0;
       for (const mediaId of bankIds) {
         if (bankOrder >= 6) break;
@@ -429,9 +428,7 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
     if (!proposal || !options.some((c) => c.slug === proposal))
       return { ok: false, message: a.submitNeedCategory };
     const media = await store.listMedia("product", id);
-    // Gói không có ảnh (Basic) gửi duyệt tin chữ được.
-    const textOnly = !supplierPlanRules(access.supplier, new Date(), await readPlanCatalog()).mediaAllowed;
-    if (!textOnly && !media.some((m) => m.kind === "image" && m.storage_path &&
+    if (!media.some((m) => m.kind === "image" && m.storage_path &&
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {
       return { ok: false, message: a.submitNeedImage };
     }

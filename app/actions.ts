@@ -75,7 +75,7 @@ import type {
   Category,
   MediaOwnerType,
 } from "@/lib/types";
-import { canAddSupplierProduct, isProductLimitError, SUPPLIER_PLAN_LABELS, supplierPlanRules, textOnlyListing } from "@/lib/supplier-plans";
+import { canAddSupplierProduct, isProductLimitError, SUPPLIER_PLAN_LABELS, supplierPlanRules } from "@/lib/supplier-plans";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 
 export interface ActionResult {
@@ -110,12 +110,6 @@ function bool(v: unknown, fallback = false): boolean {
   if (v === "true" || v === "on" || v === "1") return true;
   if (v === "false" || v === "off" || v === "0") return false;
   return fallback;
-}
-
-/** Sản phẩm của nhà cung cấp gói tin chữ (Basic) không mất trạng thái "sẵn sàng" khi hết ảnh. */
-async function textOnlySupplierProduct(supplierId: string): Promise<boolean> {
-  const supplier = await getStore().getSupplier(supplierId).catch(() => null);
-  return !!supplier && textOnlyListing(supplier, await readPlanCatalog());
 }
 
 function revalidateAll() {
@@ -1705,8 +1699,7 @@ export async function updateProductAction(
           return { ok: false, message: "Danh mục đã chốt không còn xuất bản; Vexim cần chọn lại." };
       }
       const readiness = productReadiness(await store.listMedia("product", id));
-      const readinessSupplier = await store.getSupplier(existing.supplier_id);
-      if (!readiness.ready && !(readinessSupplier && textOnlyListing(readinessSupplier, await readPlanCatalog()))) return { ok: false, message: `Chưa thể đánh dấu “Sẵn sàng gửi người mua”: ${readiness.message}` };
+      if (!readiness.ready) return { ok: false, message: `Chưa thể đánh dấu “Sẵn sàng gửi người mua”: ${readiness.message}` };
       // Trang buyer chỉ hiển thị bản tiếng Anh: chưa có bản dịch thì AI dịch ngay tại bước này;
       // không dịch được và cũng chưa có bản dịch nào thì không cho công khai để tránh lộ nội dung tiếng Việt.
       const merged = { ...existing, ...input };
@@ -2325,8 +2318,7 @@ export async function updateMediaAction(
       const product = await store.getProduct(current.product_id);
       const revokeCover = product?.featured_media_id === id &&
         (updated.audience !== "buyer" || updated.kind !== "image" || isExpired(updated));
-      const revokeReady = product?.ready_for_buyer && !productReadiness(await store.listMedia("product", current.product_id)).ready &&
-        !(await textOnlySupplierProduct(product.supplier_id));
+      const revokeReady = product?.ready_for_buyer && !productReadiness(await store.listMedia("product", current.product_id)).ready;
       if (revokeCover || revokeReady) await store.updateProduct(current.product_id, {
         ...(revokeCover ? { featured_media_id: null } : {}), ...(revokeReady ? { ready_for_buyer: false } : {}),
       });
@@ -2373,7 +2365,7 @@ export async function deleteMediaAction(id: string): Promise<ActionResult> {
     if (asset.product_id) {
       const product = await store.getProduct(asset.product_id);
       const revokeReady = product?.ready_for_buyer &&
-        !productReadiness(await store.listMedia("product", asset.product_id)).ready && !(await textOnlySupplierProduct(product.supplier_id));
+        !productReadiness(await store.listMedia("product", asset.product_id)).ready;
       const revokeCover = product?.featured_media_id === id;
       if (revokeReady || revokeCover) await store.updateProduct(asset.product_id, {
         ...(revokeReady ? { ready_for_buyer: false } : {}), ...(revokeCover ? { featured_media_id: null } : {}),

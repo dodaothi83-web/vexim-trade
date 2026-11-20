@@ -1,0 +1,37 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
+import { guard, getSession } from "@/lib/auth/session";
+import { getStore } from "@/lib/db";
+import { deleteObject } from "@/lib/media/storage";
+import { aplusImagePaths, readAplusModules } from "@/lib/products/aplus";
+
+/** Nhân viên gỡ một khối A+ vi phạm (liên hệ trực tiếp, nội dung sai...). Ghi nhật ký. */
+export async function removeAplusModuleAction(productId: string, moduleId: string): Promise<{ ok: boolean; message: string }> {
+  const denied = await guard("products.manage");
+  if (denied) return { ok: false, message: denied.message };
+  const session = await getSession();
+  const store = getStore();
+  const product = await store.getProduct(productId);
+  if (!product || !session) return { ok: false, message: "Không tìm thấy sản phẩm." };
+  const ctx = { supplierId: product.supplier_id, productId };
+  const modules = readAplusModules(product.aplus_content, ctx);
+  const removed = modules.find((m) => m.id === moduleId);
+  if (!removed) return { ok: false, message: "Khối đã được gỡ hoặc đã thay đổi. Tải lại trang." };
+  const next = modules.filter((m) => m.id !== moduleId);
+  try {
+    await store.updateProduct(productId, { aplus_content: next });
+  } catch (error) {
+    console.error("[crm-aplus] remove", error);
+    return { ok: false, message: "Chưa gỡ được khối. Thử lại sau ít phút." };
+  }
+  const kept = new Set(aplusImagePaths(next));
+  await Promise.all(aplusImagePaths([removed]).filter((p) => !kept.has(p)).map((p) => deleteObject(p).catch(() => null)));
+  await store.addAuditLog({ actor_id: session.uid, actor_email: session.email, entity: "product", entity_id: productId,
+    action: "staff.product_aplus_removed", before: { module: removed }, after: { modules: next.length } })
+    .catch((error) => console.error("[crm-aplus] audit", error));
+  revalidatePath(`/crm/products/${productId}/edit`);
+  revalidatePath("/products", "layout");
+  return { ok: true, message: "Đã gỡ khối A+." };
+}

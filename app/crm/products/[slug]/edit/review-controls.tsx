@@ -30,7 +30,7 @@ export function SupplierProductReviewControls({
   const selected = categories.find((c) => c.slug === selectedSlug);
   const inferred = categories.find((c) => c.slug === inferredCategory);
   const outsideScope = !!selected && scope.length > 0 && !scope.includes(selected.slug);
-  const mediaBlocker = !mediaReview.ready
+  const mediaBlocker = mediaReview.buyerImages === 0
     ? "Cần ít nhất một ảnh chia sẻ cho người mua."
     : null;
 

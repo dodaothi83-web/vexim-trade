@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
+import { CrmAplusReview } from "./aplus-review";
+import { readAplusModules } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
-import { textOnlyListing } from "@/lib/supplier-plans";
+import { supplierPlanRules } from "@/lib/supplier-plans";
 import Link from "next/link";
 import { CheckCircle2, Minus } from "lucide-react";
 
@@ -104,12 +106,8 @@ export default async function EditProductPage({
       console.error("[product-certificate] crm list", error);
       return [];
     });
-  // Gói tin chữ (Basic): sản phẩm không cần ảnh để duyệt và hiển thị.
-  const textOnly = textOnlyListing(supplier, await readPlanCatalog());
-  const rawReadiness = productReadiness(media);
-  const readiness = textOnly ? { ...rawReadiness, ready: true } : rawReadiness;
-  const rawPublicationMedia = productPublicationMediaState(media, product.id, product.supplier_id);
-  const publicationMedia = textOnly ? { ...rawPublicationMedia, ready: true } : rawPublicationMedia;
+  const readiness = productReadiness(media);
+  const publicationMedia = productPublicationMediaState(media, product.id, product.supplier_id);
   const links = await store.listSupplierCategories(supplier.id).catch(() => []);
   const supplierCategories = links.length
     ? links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug)
@@ -167,7 +165,7 @@ export default async function EditProductPage({
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đang xuất bản` },
     { done: supplier.status === "published", label: "Hồ sơ nhà cung cấp đang công khai" },
     { done: commercialSupplier, label: "Hồ sơ không phải dữ liệu thử nghiệm" },
-    { done: textOnly || publicationMedia.buyerImages > 0, label: textOnly ? "Gói Basic: tin chữ, không cần ảnh" : "Có ít nhất một ảnh người mua thấy được", href: "#product-media" },
+    { done: publicationMedia.buyerImages > 0, label: "Có ít nhất một ảnh người mua thấy được", href: "#product-media" },
     { done: productReviewApproved(product) && !!product.ready_for_buyer, label: "Sản phẩm đã được duyệt và đăng", automatic: needsPublicationAction },
     { done: !isTestOnlyProduct(product.name), label: "Tên sản phẩm không phải dữ liệu thử nghiệm" },
   ] : [
@@ -176,7 +174,7 @@ export default async function EditProductPage({
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đã đăng` },
     { done: supplier.status === "published", label: "Nhà cung cấp đã đăng (không tự đổi trạng thái khi lưu)" },
     { done: commercialSupplier, label: "Hồ sơ nhà cung cấp không phải dữ liệu thử nghiệm (không có TEST / DO NOT CONTACT)." + " Hồ sơ demo chỉ xem khi bật chế độ demo." },
-    { done: readiness.ready, label: textOnly ? "Gói Basic: tin chữ, không cần ảnh" : "Thêm ít nhất một ảnh hoặc catalogue chia sẻ cho người mua", href: "#product-media" },
+    { done: readiness.ready, label: "Thêm ít nhất một ảnh hoặc catalogue chia sẻ cho người mua", href: "#product-media" },
     { done: productReviewApproved(product), label: "Vexim đã xác nhận nội dung và danh mục sản phẩm" },
     { done: !!product.ready_for_buyer, label: "Đã bật “Sẵn sàng gửi người mua” và lưu hồ sơ" },
     { done: !isTestOnlyProduct(product.name), label: "Tên không bắt đầu bằng TEST ONLY" },
@@ -227,6 +225,9 @@ export default async function EditProductPage({
             savedTranslationCurrent={translationState.current}
           />
           {!supplierReviewedListing && <ReadyHint ready={readiness.ready} shareable={readiness.shareable} />}
+          <CrmAplusReview productId={product.id} canManage
+            modules={readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id })}
+            visible={supplierPlanRules(supplier, new Date(), await readPlanCatalog()).richContent} />
           <div id="product-media" className="scroll-mt-24">
             <MediaManager
               ownerType="product"

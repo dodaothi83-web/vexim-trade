@@ -196,8 +196,6 @@ const en = {
       descriptionPlaceholder: "A short introduction to the product...",
     },
     media: {
-      textOnlyPlan: "Your Basic plan lists products as text only, without photos or video. Photos added earlier are kept.",
-      textOnlyUpgrade: "Upgrade plan",
       aria: "Photos and files",
       title: "Photos & files",
       cover: "Cover photo",
@@ -789,8 +787,6 @@ const vi: ProductEditorMessages = {
       descriptionPlaceholder: "Giới thiệu ngắn gọn về sản phẩm...",
     },
     media: {
-      textOnlyPlan: "Gói Basic chỉ đăng tin sản phẩm dạng chữ, không có hình ảnh và video. Ảnh đã có từ trước vẫn được giữ.",
-      textOnlyUpgrade: "Nâng cấp gói",
       aria: "Ảnh và tệp",
       title: "Ảnh & tệp",
       cover: "Ảnh đại diện",

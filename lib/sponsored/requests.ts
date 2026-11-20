@@ -1,6 +1,5 @@
 import "server-only";
 
-import { textOnlyListing } from "@/lib/supplier-plans";
 import { localStore } from "@/lib/db/local";
 import { supabaseConfigured, supabaseStore } from "@/lib/db/supabase";
 import type { DataStore } from "@/lib/db/types";
@@ -54,13 +53,11 @@ export async function eligibleSupplierPushProducts(
     byProduct.set(item.product_id, rows);
   }
   const candidates: PushCandidate[] = [];
-  // Gói tin chữ (Basic): sản phẩm không cần ảnh, cùng cổng với trang danh mục.
-  const textOnly = textOnlyListing(supplier);
   for (const p of own) {
     const slug = publicProductCategorySlug(p, categories);
     const category = categories.find((c) => c.slug === slug && c.status === "published" && c.is_published);
     const files = byProduct.get(p.id) ?? [];
-    if (!category || !(productReadiness(files).ready || textOnly)) continue;
+    if (!category || !productReadiness(files).ready) continue;
     candidates.push({
       productId: p.id,
       name: withoutDirectContacts(publicProductTitle(p)).trim() || "Sản phẩm",
