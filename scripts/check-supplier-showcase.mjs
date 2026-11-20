@@ -48,7 +48,7 @@ assert.match(media, /const aclGated = isProductImage \|\| supplierImage \|\| sho
 const storefront = read("components/public/supplier-storefront.tsx");
 assert.match(storefront, /const premium = supplierPlanRules\(s\)\.premiumStorefront;/);
 assert.match(storefront, /const showcase = premium \? publicShowcaseBlocks\(s\.showcase_blocks\) : \[\];/);
-assert.match(read("components/public/premium-storefront.tsx"), /They are not evidence of a Vexim check\./);
+assert.match(read("components/public/storefront-blocks.tsx"), /They are not evidence of a Vexim check\./);
 assert.doesNotMatch(storefront, /Premium supplier|Pro supplier/, "Không gắn nhãn gói cho người mua (gói không phải xác minh)");
 
 console.log("✅ Trang nhà cung cấp cao cấp: khối nội dung tiếng Anh, chặn liên hệ, tối đa 6, ảnh chỉ công khai khi gói còn hiệu lực.");

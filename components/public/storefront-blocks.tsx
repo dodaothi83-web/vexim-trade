@@ -69,7 +69,7 @@ function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: numb
     case "products": {
       const items = block.product_ids.map((id) => ({ id, product: data.products[id] })).filter((item) => item.product);
       if (!items.length) return null;
-      return <section aria-labelledby={`featured-${block.id}`}>
+      return <section id="featured" className="scroll-mt-24" aria-labelledby={`featured-${block.id}`}>
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">Featured</p>
         <h2 id={`featured-${block.id}`} className="mt-1 text-xl font-bold tracking-tight text-ink-900">Featured products</h2>
         <ul className="mt-4 grid grid-cols-2 gap-3 @2xl:grid-cols-4">

@@ -53,9 +53,10 @@ export default async function CrmSupplierDesignPage({ params }: { params: Promis
 
   const card = await getSupplierStorefront(supplier);
   const avatarUrl = supplier.profile_image ? `/public-media/${supplier.profile_image.replace(/^\/+/, "")}` : null;
-  const data = designerDataFromCard(card, { avatarUrl });
+  const coverUrl = supplier.cover_image ? `/public-media/${supplier.cover_image.replace(/^\/+/, "")}` : null;
+  const data = designerDataFromCard(card, { avatarUrl, coverUrl });
   const theme = normalizeStorefrontTheme(supplier.storefront_theme);
-  const initial = draftLayoutOf(supplier) ?? data.quick ?? { template: theme.template, tone: theme.tone, tagline: "", blocks: [] };
+  const initial = draftLayoutOf(supplier) ?? data.quick ?? { tone: theme.tone, tagline: "", blocks: [] };
   const live = !!published && JSON.stringify(published) === JSON.stringify(initial);
 
   return <>

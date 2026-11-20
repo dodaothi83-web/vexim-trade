@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock3, Info, MapPin, Package, Users } from "lucide-react";
 import { supplierTypeIcon, VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
 import { VeximMinimumOrderIcon, VeximExportPortIcon, VeximLeadTimeIcon, VeximCapacityIcon, VeximPaymentIcon, VeximMarketsIcon } from "@/components/brand/vexim-icons";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { SupplierProductRail } from "@/components/public/supplier-product-rail";
@@ -20,12 +20,12 @@ import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } f
 import { supplierAddressDisplay, supplierCapacityDisplay, supplierAnnualOutputDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 import { supplierPlanRules } from "@/lib/supplier-plans";
-import { publicShowcaseBlocks } from "@/lib/supplier-showcase";
-import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
-import { PremiumStorefront, storefrontStatValue } from "@/components/public/premium-storefront";
+import { publicShowcaseBlocks, type ShowcaseBlock } from "@/lib/supplier-showcase";
+import { storefrontStatValue } from "@/components/public/premium-storefront";
+import { PremiumHeader } from "@/components/public/premium-header";
 import { StorefrontBlocks, type StorefrontBlockProduct } from "@/components/public/storefront-blocks";
 import { readStorefrontLayout, type StorefrontLayout } from "@/lib/storefront-layout";
-import { STOREFRONT_STATS } from "@/lib/storefront-theme";
+import { normalizeStorefrontTheme, STOREFRONT_STATS, STOREFRONT_TONE_COLORS, type StorefrontTheme } from "@/lib/storefront-theme";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
@@ -67,7 +67,7 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
 export function SupplierStorefront({
   supplier: s, certificates, productCertificates = {}, categories, coverUrl, avatarUrl, synthetic,
   productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1", reportAction,
-  showcaseImageUrl, nameAside, ownerActions, avatarHint, layoutOverride,
+  showcaseImageUrl, nameAside, ownerActions, coverHint, layoutOverride,
 }: {
   /**
    * Chỉ cổng nhà cung cấp: xem trước bản nháp "Thiết kế trang" thay cho bản đang công khai.
@@ -78,8 +78,8 @@ export function SupplierStorefront({
   nameAside?: ReactNode;
   /** Chỉ cổng nhà cung cấp: nút nâng cấp gói, đặt dưới link website. */
   ownerActions?: ReactNode;
-  /** Chỉ cổng nhà cung cấp: nhãn và kích thước gợi ý dưới ảnh đại diện. */
-  avatarHint?: ReactNode;
+  /** Chỉ cổng nhà cung cấp: nhãn và kích thước gợi ý cạnh nút thêm ảnh bìa. */
+  coverHint?: ReactNode;
   /** Đường dẫn ảnh khối nội dung; cổng nhà cung cấp dùng bản xem trước có đăng nhập. */
   showcaseImageUrl?: (path: string) => string;
   /** Nút tải báo cáo xác minh nhà máy (PDF) cho từng mã báo cáo; trang công khai truyền vào. */
@@ -124,20 +124,37 @@ export function SupplierStorefront({
   // về bản thường, nội dung vẫn giữ trong hồ sơ.
   const premium = supplierPlanRules(s).premiumStorefront;
   const showcase = premium ? publicShowcaseBlocks(s.showcase_blocks) : [];
-  // "Thiết kế trang": có bố cục đã áp dụng thì phần đầu theo mẫu trong bố cục, số liệu và khối
-  // nội dung chuyển thành các khối sắp xếp được bên dưới; chưa có thì giữ giao diện cũ.
-  const layout = premium ? (layoutOverride !== undefined ? layoutOverride : readStorefrontLayout(s.storefront_layout, s.id)) : null;
+  // Một kiểu đầu trang chung cho mọi trang Premium/Pro, rồi các khối "Thiết kế trang" đã áp dụng.
+  // Nhà cung cấp chưa áp dụng bố cục mới: số liệu và khối ảnh cũ hiện thành khối tương ứng.
   const savedTheme = normalizeStorefrontTheme(s.storefront_theme);
-  const theme = layout ? { template: layout.template, tone: layout.tone, tagline: layout.tagline, stats: [] } : savedTheme;
-  const premiumShowcase = layout ? [] : showcase;
+  const layout: StorefrontLayout | null = !premium ? null
+    : (layoutOverride !== undefined ? layoutOverride : readStorefrontLayout(s.storefront_layout, s.id)) ?? legacyLayout(savedTheme, showcase);
+  const tone = STOREFRONT_TONE_COLORS[layout?.tone ?? savedTheme.tone];
+  const toneStyle = { "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties;
+  // Ảnh nền đầu trang: ảnh bìa, chưa có thì ảnh banner đầu tiên.
+  const firstBanner = layout?.blocks.find((block) => block.type === "banner" && !block.hidden);
+  const heroUrl = coverUrl ?? (firstBanner?.type === "banner" && firstBanner.images[0] ? (showcaseImageUrl ?? mediaUrl)(firstBanner.images[0]) : null);
+  // Sản phẩm nổi bật đã gồm mọi sản phẩm thì không lặp lại danh mục sản phẩm bên dưới.
+  const featuredBlock = layout?.blocks.find((block) => block.type === "products" && !block.hidden);
+  const featuredAll = featuredBlock?.type === "products" && s.main_products.length > 0 &&
+    s.main_products.every((p) => featuredBlock.product_ids.includes(p.id));
+  const sectionNav = <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
+      {[
+        ["Products", featuredAll ? "featured" : "products"],
+        ["About", "about"],
+        ["Supplier checks", "verification"],
+        ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
+        ...(!synthetic ? [["Company details", "company-details"] as const] : []),
+      ].map(([label, id]) =>
+        <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
+    </nav>;
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
 
   return <>
-    {premium ? <PremiumStorefront
-      supplier={s}
-      theme={theme}
+    {premium ? <div style={toneStyle}><PremiumHeader
       name={name}
+      tagline={safe(layout?.tagline ?? "")}
       nameTag={nameTag}
       typeBadge={<span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}{s.private_label ? " · Private label stated" : ""}</span>}
       location={safe(supplierProvinceDisplay(s)) ? `${safe(supplierProvinceDisplay(s))}, Vietnam` : "Vietnam"}
@@ -156,20 +173,19 @@ export function SupplierStorefront({
           : <span className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
         {chatAction && <div className="flex-1 rounded-lg bg-white text-ink-900 [&>*]:w-full">{chatAction}</div>}
       </> : null}
-      coverUrl={coverUrl}
+      coverUrl={heroUrl}
       avatarUrl={avatarUrl}
       coverAction={coverAction}
       avatarAction={avatarAction}
-      avatarHint={avatarHint}
+      coverHint={coverHint}
       nameAside={nameAside}
       ownerActions={ownerActions}
-      showcase={premiumShowcase}
-      imageUrl={showcaseImageUrl ?? mediaUrl}
-    /> : <>
+    /></div> : <>
     <section className="mt-5 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-card" aria-labelledby="supplier-name">
       {(coverUrl || coverAction) && <div className={`relative bg-ink-50 ${coverUrl ? "h-32 sm:h-44" : "h-16"}`}>
         {coverUrl && <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
         {coverAction}
+        {coverHint}
       </div>}
       <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:gap-6 sm:p-8">
         <div className="flex w-fit shrink-0 flex-col items-center">
@@ -179,7 +195,6 @@ export function SupplierStorefront({
             </div>
             {avatarAction}
           </div>
-          {avatarHint}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}</span>
@@ -217,6 +232,7 @@ export function SupplierStorefront({
     </section>
     </>}
 
+    {premium && sectionNav}
     {layout && <StorefrontBlocks layout={sanitizeLayout(layout)} data={{
       statValues: Object.fromEntries(STOREFRONT_STATS.map((stat) => [stat, storefrontStatValue(s, stat)])),
       markets: supplierExportMarketsDisplay(s).map((market) => safe(market)).filter(Boolean),
@@ -233,22 +249,13 @@ export function SupplierStorefront({
       imageUrl: showcaseImageUrl ?? mediaUrl,
     }} />}
 
-    <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
-      {[
-        ["Products", "products"],
-        ...(premiumShowcase.length > 0 ? [["Showcase", "showcase"] as const] : []),
-        ["About", "about"],
-        ["Supplier checks", "verification"],
-        ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
-        ...(!synthetic ? [["Company details", "company-details"] as const] : []),
-      ].map(([label, id]) =>
-        <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
-    </nav>
+    {!premium && sectionNav}
 
-    <section id="products" className="mt-10 scroll-mt-24 border-t border-ink-200 pt-10" aria-labelledby="products-title">
+    {!(premium && featuredAll) && <section id="products" style={premium ? toneStyle : undefined}
+      className={premium ? "mt-10 scroll-mt-24" : "mt-10 scroll-mt-24 border-t border-ink-200 pt-10"} aria-labelledby="products-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><p className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplier catalogue</p>
-          <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Products <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
+        <div><p className={`text-xs font-bold uppercase tracking-widest ${premium ? "text-[var(--sf-accent)]" : "text-brand-700"}`}>{premium ? "Catalogue" : "Supplier catalogue"}</p>
+          <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">{premium ? "All products" : "Products"} <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
           <p className="mt-1 text-sm text-ink-600">{synthetic ? "Test entries on this profile are not commercial offers." : "Listings ready to share with buyers. Prices, where shown, are references; request a quote for current terms."}</p></div>
       </div>
       {s.main_products.length ? <SupplierProductRail productCount={s.main_products.length}>
@@ -403,7 +410,7 @@ export function SupplierStorefront({
       </SupplierProductRail> : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic
         ? "No individual product listings are available yet. See the main products below or ask Vexim about specifications and availability."
         : "No buyer-ready products are available on this profile yet. Products appear here only after the listing and shareable media meet publication requirements."}</p></div>}
-    </section>
+    </section>}
 
     <div className="mt-10 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-6">
@@ -522,4 +529,12 @@ function sanitizeLayout(layout: StorefrontLayout): StorefrontLayout {
   return { ...layout, tagline: safe(layout.tagline), blocks: layout.blocks.map((block) =>
     block.type === "banner" ? { ...block, eyebrow: safe(block.eyebrow), headline: safe(block.headline) }
       : block.type === "about" ? { ...block, title: safe(block.title), body: safe(block.body) } : block) };
+}
+
+/** Trang Premium/Pro chưa áp dụng bố cục mới: số liệu đã chọn và khối ảnh cũ hiện thành khối. */
+function legacyLayout(theme: StorefrontTheme, showcase: ShowcaseBlock[]): StorefrontLayout {
+  return { tone: theme.tone, tagline: theme.tagline, blocks: [
+    ...(theme.stats.length ? [{ id: "legacy-stats", type: "stats" as const, stats: theme.stats }] : []),
+    ...showcase.map((block) => ({ id: `legacy-${block.id}`.slice(0, 40), type: "about" as const, image_path: block.image_path, title: block.title, body: block.body })),
+  ] };
 }

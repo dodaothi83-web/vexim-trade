@@ -3,7 +3,7 @@
  * docs/storefront-designer/index.html).
  *
  * Trang gồm phần đầu cố định do Vexim quản lý (tên, khiên xác minh, nút RFQ; nhà cung cấp chỉ
- * chọn mẫu, tông màu, câu giới thiệu) và danh sách khối sắp xếp được: banner, năng lực sản
+ * chọn tông màu và câu giới thiệu; một kiểu đầu trang chung cho mọi nhà cung cấp) và danh sách khối sắp xếp được: banner, năng lực sản
  * xuất, sản phẩm nổi bật, ảnh kèm chữ, thị trường xuất khẩu.
  *
  * Nhà cung cấp (hoặc nhân viên Vexim thiết kế hộ khi đã ghi nhận đồng ý) sửa bản nháp
@@ -16,8 +16,8 @@
  * Tệp chỉ import tệp thuần để script kiểm tra nạp thẳng bằng Node.
  */
 import {
-  STOREFRONT_MAX_STATS, STOREFRONT_STATS, STOREFRONT_TAGLINE_MAX, STOREFRONT_TEMPLATES, STOREFRONT_TONES,
-  normalizeStorefrontTheme, type StorefrontStat, type StorefrontTemplate, type StorefrontTone,
+  STOREFRONT_MAX_STATS, STOREFRONT_STATS, STOREFRONT_TAGLINE_MAX, STOREFRONT_TONES,
+  normalizeStorefrontTheme, type StorefrontStat, type StorefrontTone,
 } from "./storefront-theme.ts";
 import { normalizeShowcaseBlocks, showcaseHasContact } from "./supplier-showcase.ts";
 import { looksVietnamese } from "./vietnamese-text.ts";
@@ -42,7 +42,6 @@ export type LayoutBlock =
   | { id: string; type: "markets"; hidden?: boolean };
 
 export interface StorefrontLayout {
-  template: StorefrontTemplate;
   tone: StorefrontTone;
   tagline: string;
   blocks: LayoutBlock[];
@@ -141,7 +140,6 @@ export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string
   return {
     ok: true,
     layout: {
-      template: isOneOf(STOREFRONT_TEMPLATES, value.template) ? value.template : "elegant",
       tone: isOneOf(STOREFRONT_TONES, value.tone) ? value.tone : "champagne",
       tagline,
       blocks,
@@ -165,7 +163,6 @@ export function readStorefrontLayout(raw: unknown, supplierId: string): Storefro
   }
   const tagline = text(value.tagline);
   return {
-    template: isOneOf(STOREFRONT_TEMPLATES, value.template) ? value.template : "elegant",
     tone: isOneOf(STOREFRONT_TONES, value.tone) ? value.tone : "champagne",
     tagline: tagline.length <= STOREFRONT_TAGLINE_MAX && !showcaseHasContact(tagline) && !looksVietnamese(tagline) ? tagline : "",
     blocks,
@@ -219,5 +216,5 @@ export function buildLayoutFromProfile(input: ProfileLayoutInput): StorefrontLay
   for (const block of showcase.slice(0, LAYOUT_MAX_ABOUT))
     blocks.push({ id: newLayoutBlockId(), type: "about", image_path: block.image_path, title: block.title.slice(0, ABOUT_TITLE_MAX), body: block.body.slice(0, ABOUT_BODY_MAX) });
   if (input.hasMarkets) blocks.push({ id: newLayoutBlockId(), type: "markets" });
-  return { template: theme.template, tone: theme.tone, tagline, blocks };
+  return { tone: theme.tone, tagline, blocks };
 }

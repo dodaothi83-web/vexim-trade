@@ -42,10 +42,11 @@ export default async function StorefrontDesignPage() {
 
   const avatarUrl = supplier.profile_image ? `/public-media/${supplier.profile_image.replace(/^\/+/, "")}` : null;
   const [card, versions] = await Promise.all([getSupplierStorefront(supplier), listStorefrontVersions(supplier.id)]);
-  const data = designerDataFromCard(card, { avatarUrl });
+  const coverUrl = supplier.cover_image ? `/public-media/${supplier.cover_image.replace(/^\/+/, "")}` : null;
+  const data = designerDataFromCard(card, { avatarUrl, coverUrl });
   const published = readStorefrontLayout(supplier.storefront_layout, supplier.id);
   const theme = normalizeStorefrontTheme(supplier.storefront_theme);
-  const initial = draftLayoutOf(supplier) ?? data.quick ?? { template: theme.template, tone: theme.tone, tagline: "", blocks: [] };
+  const initial = draftLayoutOf(supplier) ?? data.quick ?? { tone: theme.tone, tagline: "", blocks: [] };
   const live = !!published && JSON.stringify(published) === JSON.stringify(initial);
   const dateFormat = new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "vi-VN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" });
 

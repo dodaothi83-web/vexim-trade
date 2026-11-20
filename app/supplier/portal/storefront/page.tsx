@@ -145,8 +145,8 @@ export default async function SupplierStorefrontPreviewPage({ searchParams }: { 
       verificationActions={<StorefrontVerificationActions progress={progress} />}
       nameAside={<StorefrontPlanBadge plan={planRules.plan} expiresOn={planExpiresOn} publicHref={publicHref} copy={copy.owner} />}
       ownerActions={<StorefrontUpgradeButton plan={planRules.plan} catalog={planCatalog} expiresOn={planExpiresOn} requestOpen={upgradeRequestOpen} email={user.email} copy={copy.owner} />}
-      avatarHint={<p className="mx-auto mt-2 w-32 text-center text-[11px] leading-4 opacity-80">
-        <span className="block font-semibold">{avatarUrl ? copy.owner.avatarChange : copy.owner.avatarAdd}</span>{copy.owner.avatarHint}
+      coverHint={<p className="pointer-events-none absolute right-16 bottom-3 z-10 rounded-lg bg-white/95 px-2.5 py-1 text-right text-[11px] leading-4 text-ink-700 shadow-sm">
+        <span className="block font-semibold text-ink-900">{coverUrl ? copy.owner.coverChange : copy.owner.coverAdd}</span>{copy.owner.coverHint}
       </p>}
     />
   </>;

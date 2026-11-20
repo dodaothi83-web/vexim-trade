@@ -43,7 +43,7 @@ export async function saveStorefrontDraft(store: Store, supplierId: string, layo
 }
 
 /**
- * Áp dụng bố cục: người mua thấy ngay. Lưu một phiên bản để khôi phục và đồng bộ mẫu, tông màu,
+ * Áp dụng bố cục: người mua thấy ngay. Lưu một phiên bản để khôi phục và đồng bộ tông màu,
  * câu giới thiệu, số liệu sang storefront_theme (giao diện cũ đọc từ đây).
  */
 export async function applyStorefrontLayout(store: Store, supplier: Supplier, layout: StorefrontLayout, actor: {
@@ -54,7 +54,7 @@ export async function applyStorefrontLayout(store: Store, supplier: Supplier, la
   await store.updateSupplier(supplier.id, {
     storefront_layout: layout,
     storefront_layout_draft: layout,
-    storefront_theme: { template: layout.template, tone: layout.tone, tagline: layout.tagline,
+    storefront_theme: { tone: layout.tone, tagline: layout.tagline,
       stats: statsBlock?.type === "stats" ? statsBlock.stats : previous.stats },
   });
   const db = getSupabaseClient();
