@@ -70,7 +70,10 @@ function parseProduct(form: FormData, supplierId: string, existing: SupplierProd
   return {
     supplier_id: supplierId, name, slug: null, name_i18n: {}, category: null,
     description: text(form, "description", 1500) || null,
-    description_detail: sanitizeProductDescriptionForSave(String(form.get("description_detail") ?? "")) || null,
+    // Gói có A+ không còn ô mô tả chữ ở mục 7: form không gửi ô này thì giữ mô tả cũ (hiện lại khi gói hết hạn).
+    description_detail: form.has("description_detail")
+      ? sanitizeProductDescriptionForSave(String(form.get("description_detail") ?? "")) || null
+      : existing?.description_detail ?? null,
     // Dòng mẫu gợi ý chưa điền (vd. "Màu sắc: ") không được lưu ra trang công khai.
     spec: stripEmptySpecLines(text(form, "spec", 800)) || null,
     specs: {}, unit: existing?.unit ?? null, moq: existing?.moq ?? null,

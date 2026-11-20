@@ -1,10 +1,11 @@
 /**
- * Chuỗi khu "Nội dung A+" dưới mô tả chi tiết trong trình soạn sản phẩm của cổng nhà cung cấp.
+ * Chuỗi khu "Nội dung A+" (mục Mô tả chi tiết của gói Premium/Pro) trong trình soạn sản phẩm của cổng nhà cung cấp.
  * Nội dung người mua đọc viết bằng tiếng Anh; phần hướng dẫn theo ngôn ngữ đang chọn.
  */
 const en = {
   title: "A+ content",
-  sub: "Image and video sections shown under the product description. Write in English: buyers are international.",
+  sub: "A+ content replaces the text description on the product page. Write in English: buyers are international.",
+  legacyText: "Your earlier text description stays on the product page until you save A+ content. It also comes back if your plan expires.",
   lockedTitle: "A+ content comes with Premium and Pro",
   lockedBody: "The Basic plan includes product photos and a text description. Upgrade to add a product video and A+ content: images, image-and-text sections, galleries and video.",
   lockedCta: "Upgrade plan",
@@ -82,7 +83,8 @@ export type AplusMessages = DeepStrings<typeof en>;
 
 const vi: AplusMessages = {
   title: "Nội dung A+",
-  sub: "Các khối ảnh và video hiện dưới mô tả sản phẩm. Viết bằng tiếng Anh vì người mua là khách quốc tế.",
+  sub: "Nội dung A+ thay cho mô tả bằng chữ trên trang sản phẩm. Viết bằng tiếng Anh vì người mua là khách quốc tế.",
+  legacyText: "Mô tả bằng chữ trước đây vẫn hiện trên trang sản phẩm cho tới khi bạn lưu nội dung A+, và hiện lại nếu gói hết hạn.",
   lockedTitle: "Nội dung A+ có ở gói Premium và Pro",
   lockedBody: "Gói Basic có ảnh sản phẩm và mô tả bằng chữ. Nâng gói để thêm video sản phẩm và nội dung A+: khối ảnh, ảnh kèm chữ, lưới ảnh, video.",
   lockedCta: "Nâng cấp gói",
