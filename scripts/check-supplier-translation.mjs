@@ -13,7 +13,6 @@ import {
   publicProductPaymentTermsDisplay,
   publicProductPlaceDisplay,
 } from '../lib/public/product-detail-display.ts';
-import * as richIntro from '../lib/rich-intro.ts';
 
 const portalCopy = loadPortalDictionary();
 const realRequire = createRequire(import.meta.url);
@@ -36,7 +35,6 @@ function load(file, mocks, globals = {}) {
 }
 
 const ai = load('../lib/ai/translate-supplier.ts', {
-  '@/lib/rich-intro': richIntro,
   '@/lib/ai/company-introduction': { readOutputText: () => '' },
   '@/lib/types': {},
 });
@@ -69,7 +67,6 @@ assert.throws(() => ai.parseSupplierProfileTranslation(JSON.stringify({ moq_en: 
 
 // Kiểm tra chính hàm gọi OpenAI dùng strict mode, với fetch giả lập và không phát sinh request thật.
 const liveAi = load('../lib/ai/translate-supplier.ts', {
-  '@/lib/rich-intro': richIntro,
   '@/lib/ai/company-introduction': { readOutputText: (payload) => payload.output_text ?? '' },
   '@/lib/types': {},
 }, {
@@ -125,7 +122,6 @@ assert.equal(ai.supplierProfileTranslationState({ ...legalSource, ...legalPatch,
   'Sửa tên pháp lý gốc phải làm bản hiển thị tiếng Anh cũ hết hạn');
 
 const english = load('../lib/public/supplier-english.ts', {
-  '@/lib/rich-intro': richIntro,
   '@/lib/types': {},
   '@/lib/public/product-detail-display': {
     publicExportPortDisplay,
@@ -284,7 +280,7 @@ assert.match(service, /supplierProfileHasSource\(source\) && !state\.current/, '
 assert.match(service, /fields: supplier\.profile_translation_meta\?\.fields/, 'lưu bản giới thiệu thủ công không được xóa cache các trường khác');
 
 const profilePage = fs.readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8') +
-  fs.readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8') + fs.readFileSync(new URL('../components/public/storefront-sections.tsx', import.meta.url), 'utf8');
+  fs.readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
 assert.match(profilePage, /supplierSummaryDisplay\(s\)/, 'trang NCC phải hiển thị giới thiệu bản dịch hoặc nội dung gốc đã có');
 assert.match(profilePage, /supplierLegalNameDisplay\(s\)/, 'trang NCC phải hiển thị tên pháp lý bằng bản tiếng Anh đã lưu');
 assert.match(profilePage, /supplierMoqDisplay\(s\)/, 'trang NCC phải hiển thị MOQ bản tiếng Anh');

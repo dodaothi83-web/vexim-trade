@@ -8,7 +8,7 @@ import { ArrowDown, ArrowUp, Columns2, GalleryHorizontal, Image as ImageIcon, Lo
 import { fill } from "@/lib/i18n/format";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
 import { prepareImage } from "@/lib/media/client-image";
-import { aplusUploadEndpoint, checkVideoFile, uploadStreamVideo, uploadStreamVideoTo } from "@/lib/media/stream-upload-client";
+import { aplusUploadEndpoint, checkVideoFile, uploadStreamVideo } from "@/lib/media/stream-upload-client";
 import { APLUS_BODY_MAX, APLUS_CAPTION_MAX, APLUS_GALLERY_MAX, APLUS_MAX_MODULES, APLUS_TITLE_MAX, aplusVideoEmbedUrl,
   type AplusModule, type AplusModuleType } from "@/lib/products/aplus";
 import { saveProductAplusAction } from "@/app/supplier/portal/aplus-actions";
@@ -43,18 +43,13 @@ function newDraft(type: AplusModuleType): Draft {
  * Sản phẩm mới (chưa có `productId`): ảnh, video tải vào khu chờ và cả nội dung đi theo form sản
  * phẩm qua ô ẩn `pending_aplus_json`; lưu sản phẩm là lưu luôn A+.
  */
-export function AplusEditor({ productId, allowed, editable, initial, copy, staff }: {
+export function AplusEditor({ productId, allowed, editable, initial, copy }: {
   /** null khi sản phẩm chưa được tạo. */
   productId: string | null;
   allowed: boolean;
   editable: boolean;
   initial: AplusModule[];
   copy: AplusMessages;
-  /**
-   * CRM sửa hộ (nhà cung cấp đã đồng ý phạm vi "Trang + A+"): đường tải lên và hàm lưu của nhân
-   * viên thay cho của nhà cung cấp.
-   */
-  staff?: { upload: string; fields: Record<string, string>; save: (modules: unknown) => Promise<{ ok: boolean; message: string }> };
 }) {
   const router = useRouter();
   const [modules, setModules] = useState<Draft[]>(initial as Draft[]);
@@ -83,8 +78,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, staff
     return next;
   });
   const pending = !productId;
-  const endpoint = staff?.upload ?? aplusUploadEndpoint(productId);
-  const preview = (path: string) => path ? `${endpoint}?path=${encodeURIComponent(path)}` : "";
+  const preview = (path: string) => path ? `${aplusUploadEndpoint(productId)}?path=${encodeURIComponent(path)}` : "";
 
   async function uploadImage(key: string, file: File): Promise<string | null> {
     setUploading(key); setMessage(null);
@@ -93,8 +87,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, staff
       const body = new FormData();
       body.append("kind", "image");
       body.append("file", new File([prepared.main], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
-      for (const [name, value] of Object.entries(staff?.fields ?? {})) body.append(name, value);
-      const res = await fetch(endpoint, { method: "POST", body });
+      const res = await fetch(aplusUploadEndpoint(productId), { method: "POST", body });
       const data = await res.json().catch(() => null) as { ok?: boolean; path?: string; message?: string } | null;
       if (!res.ok || !data?.ok || !data.path) throw new Error(data?.message || copy.errors.upload);
       return data.path;
@@ -109,8 +102,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, staff
     if (problem) { setMessage({ ok: false, text: problem }); return; }
     setUploading(id); setProgress(0); setMessage(null);
     try {
-      const uid = staff ? await uploadStreamVideoTo(staff.upload, staff.fields, file, setProgress, copy.errors.upload)
-        : await uploadStreamVideo(productId, file, setProgress, copy.errors.upload);
+      const uid = await uploadStreamVideo(productId, file, setProgress, copy.errors.upload);
       update(id, { video_uid: uid });
       setMessage({ ok: true, text: copy.fields.videoProcessing });
     } catch (error) {
@@ -122,7 +114,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, staff
     if (!productId || disabled) return;
     setBusy(true); setMessage(null);
     try {
-      const result = staff ? await staff.save(modules) : await saveProductAplusAction(productId, modules);
+      const result = await saveProductAplusAction(productId, modules);
       setMessage({ ok: result.ok, text: result.message });
       if (result.ok) { setSaved(JSON.stringify(modules)); router.refresh(); }
     } catch { setMessage({ ok: false, text: copy.errors.failed }); }
