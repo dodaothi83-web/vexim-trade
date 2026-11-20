@@ -16,6 +16,57 @@
   --radius-card: 0.875rem;
 }
 
+/*
+ * Trình soạn trang (BlockNote, giao diện shadcn): Tailwind quét lớp của thư viện. Màu shadcn
+ * trỏ tới biến chỉ đặt bên trong .bn-shadcn, nên ngoài trình soạn các lớp này không có màu.
+ */
+@source "../node_modules/@blocknote/shadcn/dist";
+@theme inline {
+  --color-background: var(--sh-background);
+  --color-foreground: var(--sh-foreground);
+  --color-popover: var(--sh-popover);
+  --color-popover-foreground: var(--sh-foreground);
+  --color-accent: var(--sh-accent);
+  --color-accent-foreground: var(--sh-foreground);
+  --color-muted: var(--sh-muted);
+  --color-muted-foreground: var(--sh-muted-foreground);
+  --color-primary: var(--sh-primary);
+  --color-primary-foreground: var(--sh-primary-foreground);
+  --color-secondary: var(--sh-muted);
+  --color-secondary-foreground: var(--sh-foreground);
+  --color-destructive: var(--sh-destructive);
+  --color-border: var(--sh-border);
+  --color-input: var(--sh-border);
+  --color-ring: var(--sh-ring);
+}
+
+.bn-shadcn {
+  --sh-background: #ffffff;
+  --sh-foreground: var(--color-ink-900);
+  --sh-popover: #ffffff;
+  --sh-accent: var(--color-brand-50);
+  --sh-muted: var(--color-ink-50);
+  --sh-muted-foreground: var(--color-ink-500);
+  --sh-primary: var(--color-brand-700);
+  --sh-primary-foreground: #ffffff;
+  --sh-destructive: #be123c;
+  --sh-border: var(--color-ink-200);
+  --sh-ring: var(--color-brand-600);
+  --bn-font-family: var(--font-sans);
+  font-family: var(--font-sans);
+}
+.vexim-page-editor .bn-editor {
+  font-family: var(--font-sans);
+  color: var(--color-ink-700);
+  background: transparent;
+  padding-inline: 0;
+}
+/* Cỡ chữ trong trình soạn khớp trang công khai (StorefrontText). */
+.vexim-page-editor .bn-block-content[data-content-type="heading"] { color: var(--color-ink-900); font-weight: 700; letter-spacing: -0.01em; }
+.vexim-page-editor .bn-block-content[data-content-type="heading"]:has(> h2) { --level: 1.75rem; }
+.vexim-page-editor .bn-block-content[data-content-type="heading"]:has(> h3) { --level: 1.125rem; }
+.vexim-page-editor .bn-block-content:not([data-content-type="section"]) { font-size: 16px; line-height: 1.75; }
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
