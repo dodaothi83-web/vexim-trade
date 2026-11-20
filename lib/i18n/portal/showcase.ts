@@ -4,7 +4,7 @@
 const en = {
   theme: {
     title: "Page design",
-    sub: "Your page uses the Modern header: a full-width cover photo with your name on top. Choose the colour tone, introduction, factory video, highlight figures and pinned products. The preview below updates after you save.",
+    sub: "Your page uses the Modern header: a full-width cover photo with your name on top. Choose the colour tone, introduction and factory video. Add highlight figures and pinned products. The preview below updates after you save.",
     tone: "Colour tone",
     tones: { champagne: "Champagne", terracotta: "Terracotta", graphite: "Graphite", steel: "Steel blue" },
     tagline: "Short introduction (write in Vietnamese)",
@@ -87,7 +87,7 @@ export type ShowcaseMessages = DeepStrings<typeof en>;
 const vi: ShowcaseMessages = {
   theme: {
     title: "Giao diện trang",
-    sub: "Trang dùng đầu trang Hiện đại: ảnh bìa tràn khung, tên công ty đặt trên ảnh. Chọn tông màu, câu giới thiệu, video nhà máy, số liệu nổi bật và sản phẩm ghim. Bản xem trước bên dưới cập nhật sau khi lưu.",
+    sub: "Đầu trang Hiện đại, ảnh bìa tràn khung. Chọn tông màu, câu giới thiệu, video nhà máy, số liệu nổi bật, sản phẩm ghim.",
     tone: "Tông màu",
     tones: { champagne: "Champagne", terracotta: "Đất nung", graphite: "Xám than", steel: "Xanh thép" },
     tagline: "Câu giới thiệu ngắn (viết tiếng Việt)",
