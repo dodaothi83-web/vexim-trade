@@ -187,13 +187,15 @@ export default async function PublicProductDetail({ params }: Props) {
   const structuredPackaging = packagingSummaryEnglish(p);
   const samplePrice = samplePriceEnglish(p);
   const samplePriceDisplay = p.sample_price_usd === 0 ? "Free sample" : samplePrice;
-  const enDetail = p.description_detail_i18n?.en?.trim() || p.description_detail;
+  const textDetail = p.description_detail_i18n?.en?.trim() || p.description_detail;
   // Nội dung A+ chỉ hiện khi gói nhà cung cấp còn quyền; gói hết hạn thì nội dung giữ nhưng ẩn.
   const planRules = supplier ? supplierPlanRules(supplier, new Date(), await readPlanCatalog()) : null;
   const aplus = planRules?.richContent
     ? readAplusModules(p.aplus_content, { supplierId: p.supplier_id, productId: p.id }) : [];
   // Video sản phẩm (Premium/Pro) nằm cuối dãy ảnh; gói hết quyền thì video giữ nhưng ẩn.
   const galleryVideo = planRules?.video ? readGalleryVideo(p.gallery_video) : null;
+  // Nội dung A+ thay cho mô tả bằng chữ; chưa có A+ hoặc gói hết hạn thì hiện mô tả chữ.
+  const enDetail = aplus.length ? null : textDetail;
   const parsedSpecifications = parseProductSpecification(enSpec);
   const detailRows = parsedSpecifications.filter((row) => !["grade", "minimum order quantity (moq)", "packaging specification"].includes(row.key));
   const detailedPackaging = parsedSpecifications.find((row) => row.key === "packaging specification")?.value;

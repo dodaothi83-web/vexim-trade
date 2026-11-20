@@ -35,7 +35,7 @@ import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
 import { AplusEditor } from "@/components/products/aplus-editor";
 import { ProductVideoField } from "@/components/products/product-video-field";
-import { canEditAplus, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
+import { APLUS_MAX_MODULES, canEditAplus, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { aplusMessages, type AplusMessages } from "@/lib/i18n/portal/aplus";
 import { ProductDescriptionPreview } from "@/components/products/product-description-preview";
 import { QuantityPricingInline } from "@/components/products/quantity-pricing-inline";
@@ -349,6 +349,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const submitReady = !!(snapshot.name ?? "").trim() && !!selectedCategory && hasDetails && hasAnyImage &&
     priceIssueCount === 0 && (!!product || !!quantityPreview);
   const catalogueAssets = media.filter((asset) => asset.kind !== "image");
+  // Mục 7: Basic tính theo mô tả chữ, gói có A+ tính theo số khối A+ đã lưu.
+  const aplusCount = product ? readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id }).length : 0;
+  const detailFilled = richContentAllowed ? aplusCount > 0 : (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim().length > 0;
   const basicFilled = [snapshot.name, snapshot.keywords, snapshot.description].filter((value) => (value ?? "").trim()).length;
   const specFilled = [snapshot.spec, snapshot.monthly_capacity, snapshot.raw_material_region, snapshot.input_material_origin]
     .filter((value) => (value ?? "").trim()).length;
@@ -363,7 +366,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       case "sec-spec": return { text: fill(copy.pill.fields, { filled: specFilled, total: 4 }), tone: "muted" as const };
       case "sec-price": return priceIssueCount > 0 ? { text: fill(copy.pill.errors, { count: priceIssueCount }), tone: "error" as const } : { text: copy.pill.done, tone: "ok" as const };
       case "sec-shipping": return { text: fill(copy.pill.fields, { filled: shippingFilled, total: 9 }), tone: "muted" as const };
-      case "sec-detail": return { text: (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim() ? copy.pill.hasContent : copy.pill.empty, tone: "muted" as const };
+      case "sec-detail": return { text: detailFilled ? copy.pill.hasContent : copy.pill.empty, tone: "muted" as const };
       default: return undefined;
     }
   };
@@ -1012,7 +1015,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
         ? product.ref_price != null || !!quantityEditor
         : !!newQuantity?.tiers.some((tier) => tier.priceUsdPerKg.trim());
       case "sec-shipping": return !!((snapshot.packaging ?? "") || (snapshot.package_type ?? "") || (snapshot.payment_terms ?? ""));
-      case "sec-detail": return (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim().length > 0;
+      case "sec-detail": return detailFilled;
       default: return false;
     }
   }
@@ -1540,12 +1543,16 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="7" title={copy.detail.title} pill={sectionPill("sec-detail")} />
             <div className="px-4 py-4 sm:px-5">
-              <div className="text-[12px]">
+              {/* Basic: mô tả bằng chữ. Premium/Pro: nội dung A+ thay cho ô chữ; mô tả cũ vẫn lưu và
+                  hiện cho người mua tới khi có A+, hoặc khi gói hết hạn. */}
+              {!richContentAllowed && <div className="text-[12px]">
                 <span className="mb-1.5 block text-[13px] font-semibold text-ink-700">{copy.detail.label}</span>
                 <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
                   value={snapshot.description_detail} onChange={onDescriptionDetailChange} disabled={locked || busy}
                   copy={shared.description} />
-              </div>
+              </div>}
+              {richContentAllowed && !!(product?.description_detail ?? "").replace(/<[^>]*>/g, "").trim() && aplusCount === 0 &&
+                <p className="mb-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[12px] leading-5 text-brand-900">{aplusCopy.legacyText}</p>}
               <AplusEditor productId={product?.id ?? null} allowed={richContentAllowed}
                 editable={!!product && canEditAplus(product)} copy={aplusCopy}
                 initial={product ? readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id }) : []} />
@@ -1605,7 +1612,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 )}
                 <div className="min-w-0 sm:col-span-2">
                   <dt className="text-[11px] font-semibold text-ink-500">{copy.review.detailLabel}</dt>
-                  <dd className="mt-1 rounded-lg bg-ink-50 px-2.5 py-1.5"><ProductDescriptionPreview value={snapshot.description_detail} /></dd>
+                  <dd className="mt-1 rounded-lg bg-ink-50 px-2.5 py-1.5">{richContentAllowed
+                    ? <span className="text-[12px] text-ink-700">{aplusCount > 0 ? `${aplusCopy.title}: ${fill(aplusCopy.count, { count: aplusCount, max: APLUS_MAX_MODULES })}` : copy.review.notEntered}</span>
+                    : <ProductDescriptionPreview value={snapshot.description_detail} />}</dd>
                 </div>
               </dl>
             </div>
@@ -1838,7 +1847,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       hasEnglishTitle: !!buyerPreviewNameEn,
       categoryLabel: activeCategory?.label ?? copy.review.notChosen,
       description: (snapshot.description ?? "").trim(),
-      detail: snapshot.description_detail ?? "",
+      // Gói có A+: A+ thay mô tả chữ (xem trước chưa dựng A+); chưa có A+ thì vẫn hiện mô tả chữ cũ.
+      detail: richContentAllowed && aplusCount > 0 ? "" : snapshot.description_detail ?? "",
       images: imageSlots.filter((asset): asset is MediaAsset => !!asset)
         .map((asset) => privateMediaUrl(asset)).filter((url): url is string => !!url),
       offer: quantityPreview ? draftPublicQuantityOffer(quantityPreview, {

@@ -115,4 +115,9 @@ assert.match(read("components/product-media-gallery.tsx"), /aria-label=\{`Play p
 assert.match(read("app/crm/products/[slug]/edit/aplus-actions.ts"), /export async function removeGalleryVideoAction/);
 const videoMigration = read("supabase/migrations/20261201_product_gallery_video.sql");
 assert.match(videoMigration, /add column if not exists gallery_video jsonb/);
+// 9. Gói có A+: A+ thay ô mô tả chữ ở mục 7. Mô tả cũ vẫn lưu, hiện cho người mua khi chưa có A+ hoặc gói hết hạn.
+assert.match(editor, /\{!richContentAllowed && <div className="text-\[12px\]">\s*<span[^>]*>\{copy\.detail\.label\}/, "Premium/Pro không còn ô mô tả chữ");
+assert.match(page, /const enDetail = aplus\.length \? null : textDetail;/, "Có A+ thì không hiện mô tả chữ");
+const productActions = read("app/supplier/portal/product-actions.ts");
+assert.match(productActions, /description_detail: form\.has\("description_detail"\)[\s\S]{0,160}: existing\?\.description_detail \?\? null/, "Form không gửi ô chữ thì giữ mô tả cũ");
 console.log("✅ Nội dung A+: 5 loại khối, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói, video sản phẩm chỉ Premium/Pro.");
