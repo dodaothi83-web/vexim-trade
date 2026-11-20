@@ -13,15 +13,9 @@ import { parseAplusRich, type AplusModule } from "@/lib/products/aplus";
  * đọc được. Dùng container query nên trình soạn xem trước đúng cả khung máy tính và điện thoại.
  * Trình soạn truyền `imageUrl` (ảnh chưa công khai) và `decorate` (đánh dấu khối đang sửa).
  */
-export function ProductAplus({ modules, productName, imageUrl = (path) => `/public-media/${path}`, decorate, bleed }: {
+export function ProductAplus({ modules, productName, imageUrl = (path) => `/public-media/${path}`, decorate }: {
   modules: AplusModule[];
   productName: string;
-  /**
-   * Lề hai bên (px) quanh khối A+ trên điện thoại. Banner và ảnh lớn tràn qua lề này để chạm sát mép
-   * màn hình, không bo góc (chủ sàn chốt 2026-11-20). Máy tính giữ khung bo góc. Không truyền thì
-   * lấy biến CSS `--aplus-bleed` của khung bao ngoài (trang công khai đặt theo lề từng cỡ màn hình).
-   */
-  bleed?: number;
   imageUrl?: (path: string) => string;
   decorate?: (module: AplusModule, node: ReactNode) => ReactNode;
 }) {
@@ -31,16 +25,13 @@ export function ProductAplus({ modules, productName, imageUrl = (path) => `/publ
     // eslint-disable-next-line @next/next/no-img-element
     ? <img src={imageUrl(item.image_path)} alt={item.alt || fallbackAlt} loading="lazy" decoding="async" style={pos(item)} className={`w-full object-cover ${className}`} />
     : <div aria-hidden="true" className={`w-full bg-ink-100 ${className}`} />;
-  return <div className="@container mt-6 space-y-10" style={bleed === undefined ? undefined : { "--aplus-bleed": `${bleed}px` } as CSSProperties}>
+  return <div className="@container mt-6 space-y-10">
     {modules.map((module) => {
       const node = renderModule(module, productName, img);
       return <Fragment key={module.id}>{decorate ? decorate(module, node) : node}</Fragment>;
     })}
   </div>;
 }
-
-/** Điện thoại: tràn qua lề trang, chạm sát mép màn hình, không bo góc. Máy tính: khung bo góc. */
-const FULL_BLEED = "-mx-[var(--aplus-bleed,0px)] w-[calc(100%+2*var(--aplus-bleed,0px))] rounded-none @xl:mx-0 @xl:w-auto @xl:rounded-2xl";
 
 type Img = (item: { image_path: string; alt?: string; fx?: number; fy?: number }, fallbackAlt: string, className: string) => ReactNode;
 
@@ -49,7 +40,7 @@ function renderModule(module: AplusModule, productName: string, img: Img): React
     case "hero":
       // Điện thoại: banner thấp (cao tối thiểu 16rem, chỉ cao thêm khi chữ dài) thay vì khung đứng 4:5.
       // Máy tính: khung ngang 97:36.
-      return <section className={`relative flex min-h-64 flex-col justify-end overflow-hidden bg-ink-900 text-white @xl:block @xl:min-h-0 @xl:aspect-[97/36] ${FULL_BLEED}`}>
+      return <section className="relative flex min-h-64 flex-col justify-end overflow-hidden rounded-2xl bg-ink-900 text-white @xl:block @xl:min-h-0 @xl:aspect-[97/36]">
         {img(module, module.headline || productName, "absolute inset-0 h-full")}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E16]/85 via-[#0A0E16]/40 to-transparent @xl:bg-gradient-to-r @xl:from-[#0A0E16]/80 @xl:via-[#0A0E16]/30" aria-hidden="true" />
         <div className="relative p-5 @xl:absolute @xl:inset-x-0 @xl:bottom-0 @xl:max-w-[68%] @xl:p-8">
@@ -108,7 +99,7 @@ function renderModule(module: AplusModule, productName: string, img: Img): React
       </section>;
     case "image":
       return <figure>
-        <div className={`overflow-hidden ${FULL_BLEED}`}>{img(module, module.caption || productName, "")}</div>
+        {img(module, module.caption || productName, "rounded-2xl")}
         {module.caption && <figcaption className="mt-2 text-sm text-ink-600">{module.caption}</figcaption>}
       </figure>;
     case "image_text":

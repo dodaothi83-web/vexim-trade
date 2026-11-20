@@ -474,8 +474,7 @@ export default async function PublicProductDetail({ params }: Props) {
     {(enDetail || aplus.length > 0) && <section aria-labelledby="product-description-heading" className="mt-10 border-t border-ink-200 pt-8">
       <h2 id="product-description-heading" className="text-2xl font-black text-ink-900">Product description</h2>
       {enDetail && <ProductDescription value={enDetail} className="mt-4 max-w-3xl" />}
-      {/* Lề khung trang (1.25rem, từ 640px là 1.5rem): banner, ảnh lớn tràn qua lề này trên điện thoại. */}
-      <div className="[--aplus-bleed:20px] sm:[--aplus-bleed:24px]"><ProductAplus modules={aplus} productName={card.name} /></div>
+      <ProductAplus modules={aplus} productName={card.name} />
     </section>}
     {relatedProducts.length > 0 && <section aria-labelledby="related-products-heading" className="mt-12 border-t border-ink-200 pt-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
