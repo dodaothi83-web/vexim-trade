@@ -1,4 +1,5 @@
-import { aplusVideoEmbedUrl, type AplusModule } from "@/lib/products/aplus";
+import { AplusVideo } from "@/components/public/aplus-video";
+import type { AplusModule } from "@/lib/products/aplus";
 
 /**
  * Nội dung A+ của sản phẩm trên trang người mua, dưới phần mô tả. Chỉ dựng khi gói nhà cung
@@ -43,10 +44,7 @@ export function ProductAplus({ modules, productName }: { modules: AplusModule[];
           </div>;
         case "video":
           return <figure key={module.id}>
-            <div className="aspect-video overflow-hidden rounded-xl bg-black">
-              <iframe src={aplusVideoEmbedUrl(module.video_uid)} title={module.title || `${productName} video`} loading="lazy"
-                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowFullScreen className="h-full w-full border-0" />
-            </div>
+            <AplusVideo uid={module.video_uid} title={module.title || `${productName} video`} />
             {module.title && <figcaption className="mt-2 text-sm text-ink-600">{module.title}</figcaption>}
           </figure>;
       }

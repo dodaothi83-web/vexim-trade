@@ -8,7 +8,7 @@ import { ArrowDown, ArrowUp, Columns2, GalleryHorizontal, Image as ImageIcon, Lo
 import { fill } from "@/lib/i18n/format";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
 import { prepareImage } from "@/lib/media/client-image";
-import { APLUS_BODY_MAX, APLUS_CAPTION_MAX, APLUS_GALLERY_MAX, APLUS_MAX_MODULES, APLUS_TITLE_MAX, aplusVideoEmbedUrl,
+import { APLUS_BODY_MAX, APLUS_CAPTION_MAX, APLUS_GALLERY_MAX, APLUS_MAX_MODULES, APLUS_TITLE_MAX, APLUS_VIDEO_MAX_BYTES, APLUS_VIDEO_MAX_SECONDS, aplusVideoEmbedUrl,
   type AplusModule, type AplusModuleType } from "@/lib/products/aplus";
 import { saveProductAplusAction } from "@/app/supplier/portal/aplus-actions";
 
@@ -52,6 +52,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
   const [saved, setSaved] = useState(JSON.stringify(initial));
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [adding, setAdding] = useState(false);
   const dirty = JSON.stringify(modules) !== saved;
@@ -94,8 +95,14 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
 
   async function uploadVideo(id: string, file: File) {
     if (!productId) return;
-    if (!/^video\//.test(file.type) || file.size > 200 * 1024 * 1024) { setMessage({ ok: false, text: copy.errors.video }); return; }
-    setUploading(id); setMessage(null);
+    if (!/^video\//.test(file.type) || file.size > APLUS_VIDEO_MAX_BYTES) { setMessage({ ok: false, text: copy.errors.video }); return; }
+    // Đọc thời lượng ngay trên máy trước khi tải, để không mất công tải video mà Cloudflare sẽ từ chối.
+    const seconds = await videoDuration(file);
+    if (seconds !== null && seconds > APLUS_VIDEO_MAX_SECONDS) {
+      setMessage({ ok: false, text: fill(copy.errors.videoTooLong, { minutes: APLUS_VIDEO_MAX_SECONDS / 60 }) });
+      return;
+    }
+    setUploading(id); setProgress(0); setMessage(null);
     try {
       const body = new FormData();
       body.append("kind", "video");
@@ -104,13 +111,12 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
       if (!res.ok || !data?.ok || !data.uploadURL || !data.uid) throw new Error(data?.message || copy.errors.upload);
       const upload = new FormData();
       upload.append("file", file);
-      const sent = await fetch(data.uploadURL, { method: "POST", body: upload });
-      if (!sent.ok) throw new Error(copy.errors.upload);
+      await sendWithProgress(data.uploadURL, upload, setProgress).catch(() => { throw new Error(copy.errors.upload); });
       update(id, { video_uid: data.uid });
       setMessage({ ok: true, text: copy.fields.videoProcessing });
     } catch (error) {
       setMessage({ ok: false, text: error instanceof Error ? error.message : copy.errors.upload });
-    } finally { setUploading(null); }
+    } finally { setUploading(null); setProgress(null); }
   }
 
   async function save() {
@@ -201,7 +207,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
               : null}
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink-800 hover:bg-ink-50">
               {uploading === module.id ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Video className="size-4" aria-hidden="true" />}
-              {uploading === module.id ? copy.uploading : copy.fields.chooseVideo}
+              {uploading === module.id ? (progress !== null ? fill(copy.uploadingPct, { pct: progress }) : copy.uploading) : copy.fields.chooseVideo}
               <input type="file" accept="video/mp4,video/quicktime,video/webm" disabled={disabled} className="sr-only"
                 onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void uploadVideo(module.id, file); }} />
             </label>
@@ -250,4 +256,30 @@ function ImagePicker({ src, busy, disabled, label, onFile }: { src: string; busy
     <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
       onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onFile(file); }} />
   </div>;
+}
+
+/** Thời lượng video (giây) đọc từ siêu dữ liệu trên máy; null khi trình duyệt không đọc được. */
+function videoDuration(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    const done = (value: number | null) => { URL.revokeObjectURL(url); resolve(value); };
+    const timer = window.setTimeout(() => done(null), 8000);
+    video.preload = "metadata";
+    video.onloadedmetadata = () => { window.clearTimeout(timer); done(Number.isFinite(video.duration) ? video.duration : null); };
+    video.onerror = () => { window.clearTimeout(timer); done(null); };
+    video.src = url;
+  });
+}
+
+/** Gửi tệp tới Cloudflare kèm phần trăm đã tải (fetch chưa báo được tiến độ tải lên). */
+function sendWithProgress(url: string, body: FormData, onProgress: (pct: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.upload.onprogress = (event) => { if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100))); };
+    xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error("upload_failed"));
+    xhr.onerror = () => reject(new Error("upload_failed"));
+    xhr.send(body);
+  });
 }

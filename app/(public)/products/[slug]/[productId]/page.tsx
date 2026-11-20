@@ -28,7 +28,7 @@ import { cardTitleGrades, PublicProductCard } from "@/components/public-product-
 import { ProductDescription } from "@/components/public/product-description";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { ProductAplus } from "@/components/public/product-aplus";
-import { readAplusModules } from "@/lib/products/aplus";
+import { aplusVideoEmbedUrl, aplusVideoThumbnailUrl, isoDuration, readAplusModules } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { QuantityPriceTable } from "@/components/public/quantity-price-table";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
@@ -232,6 +232,17 @@ export default async function PublicProductDetail({ params }: Props) {
   for (const f of fieldsFor(category)) {
     if (approvedAttributes[f.key]) pushProperty(f.label, approvedAttributes[f.key]);
   }
+  // Video A+ khai báo dạng VideoObject để Google/AI hiểu trang có video sản phẩm. Chỉ video đã có
+  // ngày tải lên (máy chủ lấy từ Cloudflare khi lưu), vì uploadDate là trường bắt buộc.
+  const videoJsonLd = aplus.flatMap((module) => module.type === "video" && module.uploaded_at ? [{
+    "@type": "VideoObject",
+    name: module.title || `${card.name} video`,
+    description: module.title ? `${module.title} — ${card.name}` : `${card.name} by ${card.supplierName}`,
+    thumbnailUrl: aplusVideoThumbnailUrl(module.video_uid),
+    uploadDate: module.uploaded_at,
+    embedUrl: aplusVideoEmbedUrl(module.video_uid),
+    ...(module.duration ? { duration: isoDuration(module.duration) } : {}),
+  }] : []);
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -246,6 +257,7 @@ export default async function PublicProductDetail({ params }: Props) {
       ...(card.supplierSlug ? { url: `${SITE_URL}/suppliers/${encodeURIComponent(card.supplierSlug)}` } : {}),
     },
     ...(structuredProperties.length ? { additionalProperty: structuredProperties } : {}),
+    ...(videoJsonLd.length ? { subjectOf: videoJsonLd } : {}),
     // Chỉ chứng nhận đã được duyệt gắn cho sản phẩm và còn hiệu lực; không suy ra
     // chứng nhận của nhà cung cấp sang từng sản phẩm.
     ...(productCertificates.length

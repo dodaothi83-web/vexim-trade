@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
+import { deleteStreamVideo } from "@/lib/media/cloudflare-stream";
 import { deleteObject } from "@/lib/media/storage";
-import { aplusImagePaths, readAplusModules } from "@/lib/products/aplus";
+import { aplusImagePaths, aplusVideoUids, readAplusModules } from "@/lib/products/aplus";
 
 /** Nhân viên gỡ một khối A+ vi phạm (liên hệ trực tiếp, nội dung sai...). Ghi nhật ký. */
 export async function removeAplusModuleAction(productId: string, moduleId: string): Promise<{ ok: boolean; message: string }> {
@@ -28,6 +30,9 @@ export async function removeAplusModuleAction(productId: string, moduleId: strin
   }
   const kept = new Set(aplusImagePaths(next));
   await Promise.all(aplusImagePaths([removed]).filter((p) => !kept.has(p)).map((p) => deleteObject(p).catch(() => null)));
+  const keptVideos = new Set(aplusVideoUids(next));
+  const droppedVideos = aplusVideoUids([removed]).filter((uid) => !keptVideos.has(uid));
+  if (droppedVideos.length) after(() => Promise.all(droppedVideos.map(deleteStreamVideo)));
   await store.addAuditLog({ actor_id: session.uid, actor_email: session.email, entity: "product", entity_id: productId,
     action: "staff.product_aplus_removed", before: { module: removed }, after: { modules: next.length } })
     .catch((error) => console.error("[crm-aplus] audit", error));
