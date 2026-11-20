@@ -1,0 +1,386 @@
+"use client";
+
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowDown, ArrowUp, Eye, EyeOff, ExternalLink, ImagePlus, Loader2, Lock, Monitor, Smartphone, Sparkles, Trash2, X } from "lucide-react";
+
+import { StorefrontBlocks } from "@/components/public/storefront-blocks";
+import { fill } from "@/lib/i18n/format";
+import type { DesignerMessages } from "@/lib/i18n/portal/designer";
+import { prepareImage } from "@/lib/media/client-image";
+import {
+  ABOUT_BODY_MAX, ABOUT_TITLE_MAX, BANNER_EYEBROW_MAX, BANNER_HEADLINE_MAX, BANNER_MAX_IMAGES, FEATURED_MAX_PRODUCTS,
+  LAYOUT_BLOCK_TYPES, LAYOUT_MAX_ABOUT, LAYOUT_MAX_BLOCKS, newLayoutBlockId,
+  type LayoutBlock, type LayoutBlockType, type StorefrontLayout,
+} from "@/lib/storefront-layout";
+import {
+  STOREFRONT_MAX_STATS, STOREFRONT_STATS, STOREFRONT_TAGLINE_MAX, STOREFRONT_TEMPLATES, STOREFRONT_TONE_COLORS, STOREFRONT_TONES,
+  type StorefrontStat,
+} from "@/lib/storefront-theme";
+import { STOREFRONT_STAT_LABELS } from "@/components/public/storefront-blocks";
+
+export type DesignerProduct = { id: string; name: string; imageUrl: string | null; detail?: string };
+export type DesignerResult = { ok: boolean; message: string };
+
+const HEADER = "__header__";
+
+/**
+ * Trình "Thiết kế trang" (bản mẫu duyệt 2026-11-20, docs/storefront-designer). Cột trái: Tạo
+ * nhanh, danh sách khối, thư viện khối. Giữa: xem trước trực tiếp (máy tính / điện thoại).
+ * Phải: chỉnh khối đang chọn. Dùng chung cho cổng nhà cung cấp và CRM thiết kế hộ: nơi gọi
+ * truyền hàm lưu nháp, áp dụng và đường tải ảnh của mình.
+ */
+export function StorefrontDesigner(props: {
+  initial: StorefrontLayout;
+  /** Bố cục dựng từ hồ sơ cho nút Tạo nhanh; null khi hồ sơ chưa đủ nội dung. */
+  quick: StorefrontLayout | null;
+  /** Bản nháp hiện trùng bản đang công khai. */
+  live: boolean;
+  header: { name: string; location: string; checks: string[]; avatarUrl: string | null };
+  statValues: Partial<Record<StorefrontStat, string>>;
+  markets: string[];
+  products: DesignerProduct[];
+  /** Tiền tố xem trước ảnh, nối thêm đường dẫn đã mã hoá. */
+  imagePreviewBase: string;
+  uploadUrl: string;
+  uploadFields?: Record<string, string>;
+  saveDraft: (layout: StorefrontLayout) => Promise<DesignerResult>;
+  apply: (layout: StorefrontLayout) => Promise<DesignerResult>;
+  copy: DesignerMessages;
+  applyLabel?: string;
+  previewHref?: string | null;
+  /** Khối chèn trên cùng cột trái (ví dụ ghi chú CRM). */
+  aside?: ReactNode;
+}) {
+  const { copy } = props;
+  const router = useRouter();
+  const [layout, setLayout] = useState<StorefrontLayout>(props.initial);
+  const [baseline, setBaseline] = useState(JSON.stringify(props.initial));
+  const [live, setLive] = useState(props.live);
+  const [selected, setSelected] = useState<string>(props.initial.blocks[0]?.id ?? HEADER);
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [busy, setBusy] = useState<"save" | "apply" | null>(null);
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const dirty = JSON.stringify(layout) !== baseline;
+  const previewUrl = (path: string) => `${props.imagePreviewBase}${encodeURIComponent(path)}`;
+  const productMap = useMemo(() => Object.fromEntries(props.products.map((p) => [p.id, { name: p.name, imageUrl: p.imageUrl, href: null, detail: p.detail }])), [props.products]);
+  const block = layout.blocks.find((b) => b.id === selected) ?? null;
+
+  const setBlocks = (fn: (blocks: LayoutBlock[]) => LayoutBlock[]) => setLayout((l) => ({ ...l, blocks: fn(l.blocks) }));
+  const patch = (id: string, change: Partial<LayoutBlock>) => setBlocks((all) => all.map((b) => b.id === id ? { ...b, ...change } as LayoutBlock : b));
+  const move = (index: number, step: -1 | 1) => setBlocks((all) => {
+    const next = [...all]; const target = index + step;
+    if (target < 0 || target >= next.length) return all;
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
+  const used = new Set(layout.blocks.map((b) => b.type));
+  const aboutCount = layout.blocks.filter((b) => b.type === "about").length;
+  const canAdd = (type: LayoutBlockType) => layout.blocks.length < LAYOUT_MAX_BLOCKS && (type === "about" ? aboutCount < LAYOUT_MAX_ABOUT : !used.has(type));
+
+  function add(type: LayoutBlockType) {
+    const id = newLayoutBlockId();
+    const firstProducts = props.products.slice(0, 4).map((p) => p.id);
+    const statDefaults = STOREFRONT_STATS.filter((stat) => props.statValues[stat]).slice(0, STOREFRONT_MAX_STATS);
+    const next: LayoutBlock = type === "banner" ? { id, type, images: [], eyebrow: "", headline: "" }
+      : type === "stats" ? { id, type, stats: statDefaults.length ? statDefaults : ["capacity"] }
+        : type === "products" ? { id, type, product_ids: firstProducts }
+          : type === "about" ? { id, type, image_path: "", title: "", body: "" } : { id, type };
+    setBlocks((all) => [...all, next]);
+    setSelected(id);
+  }
+
+  async function upload(key: string, file: File): Promise<string | null> {
+    setUploading(key); setMessage(null);
+    try {
+      const prepared = await prepareImage(file);
+      const body = new FormData();
+      for (const [name, value] of Object.entries(props.uploadFields ?? {})) body.append(name, value);
+      body.append("file", new File([prepared.main], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+      const res = await fetch(props.uploadUrl, { method: "POST", body });
+      const data = await res.json().catch(() => null) as { ok?: boolean; path?: string; message?: string } | null;
+      if (!res.ok || !data?.ok || !data.path) throw new Error(data?.message || copy.errors.upload);
+      return data.path;
+    } catch (error) {
+      setMessage({ ok: false, text: error instanceof Error ? error.message : copy.errors.upload });
+      return null;
+    } finally { setUploading(null); }
+  }
+
+  async function run(kind: "save" | "apply") {
+    if (kind === "apply" && !window.confirm(copy.confirmApply)) return;
+    setBusy(kind); setMessage(null);
+    try {
+      const result = await (kind === "save" ? props.saveDraft(layout) : props.apply(layout));
+      setMessage({ ok: result.ok, text: result.message });
+      if (result.ok) { setBaseline(JSON.stringify(layout)); setLive(kind === "apply"); router.refresh(); }
+    } catch { setMessage({ ok: false, text: copy.failed }); }
+    finally { setBusy(null); }
+  }
+
+  function quickBuild() {
+    if (!props.quick || !props.quick.blocks.length) { setMessage({ ok: false, text: copy.quick.empty }); return; }
+    if (layout.blocks.length && !window.confirm(copy.quick.confirm)) return;
+    setLayout(props.quick);
+    setSelected(props.quick.blocks[0]?.id ?? HEADER);
+    setMessage({ ok: true, text: fill(copy.quick.done, { count: props.quick.blocks.length }) });
+  }
+
+  const status = dirty ? copy.status.dirty : live ? copy.status.live : copy.status.draft;
+  const tone = STOREFRONT_TONE_COLORS[layout.tone];
+
+  return <div className="overflow-hidden rounded-xl border border-ink-200 bg-white">
+    {/* Thanh trạng thái và nút lưu */}
+    <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 px-4 py-3">
+      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${dirty || !live ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>{status}</span>
+      {message && <span role={message.ok ? "status" : "alert"} className={`text-xs font-semibold ${message.ok ? "text-emerald-700" : "text-rose-700"}`}>{message.text}</span>}
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        {props.previewHref && <a href={props.previewHref} target="_blank" rel="noopener noreferrer" className="btn btn-soft btn-sm">{copy.preview}<ExternalLink className="size-3.5" aria-hidden="true" /></a>}
+        <button type="button" className="btn btn-soft btn-sm" disabled={!!busy || !!uploading || !dirty} onClick={() => void run("save")}>{busy === "save" ? copy.saving : copy.save}</button>
+        <button type="button" className="btn btn-primary btn-sm" disabled={!!busy || !!uploading || (live && !dirty)} onClick={() => void run("apply")}>{busy === "apply" ? copy.applying : props.applyLabel ?? copy.apply}</button>
+      </div>
+    </div>
+
+    <div className="grid lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_300px]">
+      {/* Cột trái */}
+      <aside className="border-b border-ink-200 lg:border-b-0 lg:border-r">
+        {props.aside}
+        <div className="m-3 rounded-xl border border-dashed border-brand-200 bg-brand-50/70 p-3">
+          <p className="flex items-center gap-1.5 text-[13px] font-bold text-brand-800"><Sparkles className="size-4" aria-hidden="true" />{copy.quick.title}</p>
+          <p className="mt-1 text-xs leading-5 text-ink-600">{copy.quick.body}</p>
+          <button type="button" onClick={quickBuild} className="btn btn-primary btn-sm mt-2 w-full justify-center">{copy.quick.button}</button>
+        </div>
+        <p className="px-4 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wide text-ink-500">{copy.listTitle}</p>
+        <ul className="space-y-0.5 px-2">
+          <li>
+            <button type="button" onClick={() => setSelected(HEADER)}
+              className={`flex w-full items-center gap-2 rounded-lg border px-2 py-2 text-left text-[12.5px] font-semibold ${selected === HEADER ? "border-brand-600 bg-brand-50" : "border-transparent bg-ink-50 hover:bg-ink-100"}`}>
+              <Lock className="size-3.5 shrink-0 text-ink-500" aria-hidden="true" /><span className="min-w-0 flex-1">{copy.header}</span>
+              <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] text-ink-500">{copy.headerLocked}</span>
+            </button>
+          </li>
+          {layout.blocks.map((b, index) => <li key={b.id}
+            className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 ${selected === b.id ? "border-brand-600 bg-brand-50" : "border-transparent hover:bg-ink-50"}`}>
+            <button type="button" onClick={() => setSelected(b.id)} className={`min-w-0 flex-1 truncate text-left text-[12.5px] font-semibold ${b.hidden ? "text-ink-400 line-through" : "text-ink-900"}`}>{copy.types[b.type].name}</button>
+            <Tool label={copy.moveUp} disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp className="size-3.5" /></Tool>
+            <Tool label={copy.moveDown} disabled={index === layout.blocks.length - 1} onClick={() => move(index, 1)}><ArrowDown className="size-3.5" /></Tool>
+            <Tool label={b.hidden ? copy.show : copy.hide} onClick={() => patch(b.id, { hidden: !b.hidden || undefined })}>{b.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}</Tool>
+            <Tool label={copy.remove} onClick={() => { if (window.confirm(copy.confirmRemove)) { setBlocks((all) => all.filter((x) => x.id !== b.id)); if (selected === b.id) setSelected(HEADER); } }}><Trash2 className="size-3.5" /></Tool>
+          </li>)}
+        </ul>
+        <p className="px-4 pb-1 pt-4 text-[11px] font-bold uppercase tracking-wide text-ink-500">{copy.addTitle}</p>
+        <div className="grid grid-cols-2 gap-2 px-3 pb-4">
+          {LAYOUT_BLOCK_TYPES.map((type) => <button key={type} type="button" disabled={!canAdd(type)} onClick={() => add(type)}
+            className="rounded-lg border border-ink-200 bg-white p-2 text-left text-xs font-semibold text-ink-900 transition hover:border-brand-500 disabled:cursor-not-allowed disabled:opacity-50">
+            {copy.types[type].name}<span className="mt-0.5 block text-[11px] font-normal text-ink-500">{canAdd(type) ? copy.types[type].desc : copy.already}</span>
+          </button>)}
+        </div>
+      </aside>
+
+      {/* Xem trước */}
+      <main className="min-w-0 bg-ink-50 p-3 sm:p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <span className="text-xs text-ink-500">{copy.previewLabel}</span>
+          <div role="group" aria-label={copy.device.label} className="inline-flex rounded-lg border border-ink-200 bg-white p-0.5">
+            {(["desktop", "mobile"] as const).map((d) => <button key={d} type="button" aria-pressed={device === d} onClick={() => setDevice(d)}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold ${device === d ? "bg-brand-700 text-white" : "text-ink-600"}`}>
+              {d === "desktop" ? <Monitor className="size-3.5" aria-hidden="true" /> : <Smartphone className="size-3.5" aria-hidden="true" />}{copy.device[d]}
+            </button>)}
+          </div>
+        </div>
+        <div className={`mx-auto overflow-hidden rounded-xl bg-white p-3 shadow-sm ring-1 ring-ink-200 transition-[max-width] sm:p-5 ${device === "mobile" ? "max-w-[390px]" : "max-w-[980px]"}`}
+          style={{ "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties}>
+          <button type="button" onClick={() => setSelected(HEADER)}
+            className={`relative block w-full rounded-xl text-left outline outline-2 outline-offset-4 ${selected === HEADER ? "outline-brand-600" : "outline-transparent hover:outline-brand-200"}`}>
+            <HeaderPreview layout={layout} header={props.header} mobile={device === "mobile"} />
+            <span className="absolute bottom-1 right-2 text-[10.5px] text-ink-400">{copy.headerLockHint}</span>
+          </button>
+          <StorefrontBlocks layout={layout} selectedId={selected} onSelect={setSelected} showHidden
+            data={{ statValues: props.statValues, markets: props.markets, products: productMap, imageUrl: previewUrl }} />
+          {!layout.blocks.length && <p className="mt-6 rounded-lg border border-dashed border-ink-300 p-6 text-center text-sm text-ink-500">{copy.quick.body}</p>}
+        </div>
+      </main>
+
+      {/* Chỉnh khối */}
+      <aside className="border-t border-ink-200 lg:col-span-2 xl:col-span-1 xl:border-l xl:border-t-0">
+        <p className="px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-ink-500">{copy.editTitle}</p>
+        <div className="space-y-3 px-4 pb-5 text-[12.5px]">
+          {selected === HEADER ? <HeaderSettings layout={layout} setLayout={setLayout} copy={copy} />
+            : block ? <BlockSettings block={block} patch={patch} copy={copy} statValues={props.statValues} markets={props.markets}
+              products={props.products} previewUrl={previewUrl} upload={upload} uploading={uploading} />
+              : <p className="text-ink-500">{copy.pick}</p>}
+        </div>
+      </aside>
+    </div>
+  </div>;
+}
+
+function Tool({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
+  return <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick}
+    className="rounded-md p-1 text-ink-500 hover:bg-white hover:text-ink-900 disabled:opacity-30">{children}</button>;
+}
+
+function HeaderPreview({ layout, header, mobile }: { layout: StorefrontLayout; header: { name: string; location: string; checks: string[]; avatarUrl: string | null }; mobile: boolean }) {
+  const dark = layout.template === "modern";
+  const centered = layout.template === "elegant";
+  return <div className={`rounded-xl p-5 ${dark ? "bg-[var(--sf-dark)] text-white" : layout.template === "gallery" ? "bg-[var(--sf-tint)]" : "bg-[#FBF9F5]"} ${centered ? "text-center" : ""}`}>
+    <div className={`flex gap-3 ${centered ? "flex-col items-center" : "items-center"} ${mobile ? "flex-col items-start" : ""}`}>
+      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-xl font-bold text-[var(--sf-accent)] ring-1 ring-ink-200">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {header.avatarUrl ? <img src={header.avatarUrl} alt="" className="h-full w-full object-cover" /> : header.name.slice(0, 1).toUpperCase()}
+      </div>
+      <div className="min-w-0">
+        <p className={`text-[11px] font-bold uppercase tracking-[0.18em] ${dark ? "text-white/80" : "text-[var(--sf-accent)]"}`}>{header.location}</p>
+        <p className={`mt-1 break-words text-xl font-bold leading-tight ${dark ? "" : "text-ink-900"}`}>{header.name}</p>
+      </div>
+    </div>
+    {layout.tagline && <p className={`mt-3 text-sm leading-6 ${dark ? "text-white/90" : "text-ink-600"}`}>{layout.tagline}</p>}
+    <div className={`mt-3 flex flex-wrap gap-1.5 ${centered ? "justify-center" : ""}`}>
+      {header.checks.map((check) => <span key={check} className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">{check}</span>)}
+      <span className="rounded-lg bg-[var(--sf-accent)] px-3 py-1 text-[11px] font-bold text-white">Request a quote</span>
+    </div>
+  </div>;
+}
+
+function Counter({ value, max, copy }: { value: string; max: number; copy: DesignerMessages }) {
+  return <span className={`mt-1 block text-[11px] ${value.length > max ? "text-rose-700" : "text-ink-400"}`}>{fill(copy.fields.chars, { count: value.length, max })}</span>;
+}
+
+function HeaderSettings({ layout, setLayout, copy }: { layout: StorefrontLayout; setLayout: (fn: (l: StorefrontLayout) => StorefrontLayout) => void; copy: DesignerMessages }) {
+  return <>
+    <p className="font-bold text-ink-900">{copy.header}</p>
+    <p className="leading-5 text-ink-600">{copy.fields.headerHelp}</p>
+    <fieldset>
+      <legend className="mb-1 font-semibold text-ink-700">{copy.fields.template}</legend>
+      <div className="grid grid-cols-3 gap-1.5">
+        {STOREFRONT_TEMPLATES.map((t) => <button key={t} type="button" aria-pressed={layout.template === t} onClick={() => setLayout((l) => ({ ...l, template: t }))}
+          className={`rounded-lg border px-2 py-1.5 text-xs font-semibold ${layout.template === t ? "border-brand-600 bg-brand-50 text-brand-800" : "border-ink-200 text-ink-700"}`}>{copy.fields.templates[t]}</button>)}
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend className="mb-1 font-semibold text-ink-700">{copy.fields.tone}</legend>
+      <div className="grid grid-cols-2 gap-1.5">
+        {STOREFRONT_TONES.map((t) => <button key={t} type="button" aria-pressed={layout.tone === t} onClick={() => setLayout((l) => ({ ...l, tone: t }))}
+          className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold ${layout.tone === t ? "border-brand-600 bg-brand-50" : "border-ink-200"}`}>
+          <span className="size-3.5 rounded-full" style={{ background: STOREFRONT_TONE_COLORS[t].accent }} />{copy.fields.tones[t]}</button>)}
+      </div>
+    </fieldset>
+    <label className="block font-semibold text-ink-700">{copy.fields.tagline}
+      <textarea rows={3} value={layout.tagline} maxLength={STOREFRONT_TAGLINE_MAX + 20} onChange={(e) => setLayout((l) => ({ ...l, tagline: e.target.value }))} className="input mt-1 w-full font-normal" />
+      <Counter value={layout.tagline} max={STOREFRONT_TAGLINE_MAX} copy={copy} />
+    </label>
+  </>;
+}
+
+function BlockSettings({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading }: {
+  block: LayoutBlock;
+  patch: (id: string, change: Partial<LayoutBlock>) => void;
+  copy: DesignerMessages;
+  statValues: Partial<Record<StorefrontStat, string>>;
+  markets: string[];
+  products: DesignerProduct[];
+  previewUrl: (path: string) => string;
+  upload: (key: string, file: File) => Promise<string | null>;
+  uploading: string | null;
+}) {
+  const title = <p className="font-bold text-ink-900">{copy.types[block.type].name}</p>;
+  const field = "input mt-1 w-full font-normal";
+  switch (block.type) {
+    case "banner": return <>
+      {title}
+      <div>
+        <p className="mb-1 font-semibold text-ink-700">{copy.fields.images}</p>
+        <div className="grid grid-cols-3 gap-1.5">
+          {block.images.map((path) => <div key={path} className="relative aspect-[16/10] overflow-hidden rounded-md border border-ink-200 bg-ink-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewUrl(path)} alt="" className="h-full w-full object-cover" />
+            <button type="button" aria-label={copy.fields.removeImage} onClick={() => patch(block.id, { images: block.images.filter((x) => x !== path) })}
+              className="absolute right-1 top-1 rounded-full bg-white/95 p-0.5 text-rose-700 shadow"><X className="size-3" /></button>
+          </div>)}
+          {block.images.length < BANNER_MAX_IMAGES && <ImageInput label={copy.fields.addImage} busy={uploading === block.id}
+            onFile={async (file) => { const path = await upload(block.id, file); if (path) patch(block.id, { images: [...block.images, path] }); }} />}
+        </div>
+        <p className="mt-1 text-[11px] leading-4 text-ink-500">{copy.fields.imageHint}</p>
+      </div>
+      <label className="block font-semibold text-ink-700">{copy.fields.eyebrow}
+        <input value={block.eyebrow} onChange={(e) => patch(block.id, { eyebrow: e.target.value })} className={field} />
+        <Counter value={block.eyebrow} max={BANNER_EYEBROW_MAX} copy={copy} />
+      </label>
+      <label className="block font-semibold text-ink-700">{copy.fields.headline}
+        <textarea rows={3} value={block.headline} onChange={(e) => patch(block.id, { headline: e.target.value })} className={field} />
+        <Counter value={block.headline} max={BANNER_HEADLINE_MAX} copy={copy} />
+      </label>
+    </>;
+    case "stats": return <>
+      {title}
+      <p className="leading-5 text-ink-600">{copy.fields.statsHelp}</p>
+      <div className="space-y-1.5">
+        {STOREFRONT_STATS.map((stat) => {
+          const checked = block.stats.includes(stat);
+          const value = statValues[stat];
+          return <label key={stat} className={`flex items-start gap-2 ${value ? "" : "opacity-60"}`}>
+            <input type="checkbox" checked={checked} disabled={!checked && (block.stats.length >= STOREFRONT_MAX_STATS || !value)}
+              onChange={() => patch(block.id, { stats: checked ? block.stats.filter((x) => x !== stat) : [...block.stats, stat] })} className="mt-0.5 size-4 accent-brand-700" />
+            <span><span className="font-semibold text-ink-800">{STOREFRONT_STAT_LABELS[stat]}</span> · <span className="text-ink-600">{value || copy.fields.statsEmpty}</span></span>
+          </label>;
+        })}
+      </div>
+      <p className="rounded-md bg-ink-50 p-2 text-[11.5px] leading-5 text-ink-600">{copy.fields.profileHint}</p>
+    </>;
+    case "products": return <>
+      {title}
+      <p className="leading-5 text-ink-600">{copy.fields.productsHelp}</p>
+      {products.length === 0 ? <p className="text-ink-500">{copy.fields.productsNone}</p>
+        : <ul className="divide-y divide-ink-100 rounded-lg border border-ink-200">
+          {products.map((product) => {
+            const checked = block.product_ids.includes(product.id);
+            return <li key={product.id}><label className="flex items-center gap-2 px-2 py-1.5">
+              <input type="checkbox" checked={checked} disabled={!checked && block.product_ids.length >= FEATURED_MAX_PRODUCTS}
+                onChange={() => patch(block.id, { product_ids: checked ? block.product_ids.filter((x) => x !== product.id) : [...block.product_ids, product.id] })} className="size-4 accent-brand-700" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {product.imageUrl ? <img src={product.imageUrl} alt="" className="size-8 rounded object-cover" /> : <span className="size-8 rounded bg-ink-100" />}
+              <span className="min-w-0 flex-1 truncate">{product.name}</span>
+            </label></li>;
+          })}
+        </ul>}
+    </>;
+    case "about": return <>
+      {title}
+      <div>
+        <p className="mb-1 font-semibold text-ink-700">{copy.fields.image}</p>
+        {block.image_path
+          ? <div className="relative aspect-[4/3] overflow-hidden rounded-md border border-ink-200">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewUrl(block.image_path)} alt="" className="h-full w-full object-cover" />
+          </div> : null}
+        <div className="mt-1.5 w-1/2"><ImageInput label={block.image_path ? copy.fields.replaceImage : copy.fields.addImage} busy={uploading === block.id}
+          onFile={async (file) => { const path = await upload(block.id, file); if (path) patch(block.id, { image_path: path }); }} /></div>
+        <p className="mt-1 text-[11px] leading-4 text-ink-500">{copy.fields.aboutImageHint}</p>
+      </div>
+      <label className="block font-semibold text-ink-700">{copy.fields.title}
+        <input value={block.title} onChange={(e) => patch(block.id, { title: e.target.value })} className={field} />
+        <Counter value={block.title} max={ABOUT_TITLE_MAX} copy={copy} />
+      </label>
+      <label className="block font-semibold text-ink-700">{copy.fields.body}
+        <textarea rows={6} value={block.body} onChange={(e) => patch(block.id, { body: e.target.value })} className={field} />
+        <Counter value={block.body} max={ABOUT_BODY_MAX} copy={copy} />
+      </label>
+    </>;
+    case "markets": return <>
+      {title}
+      <p className="leading-5 text-ink-600">{markets.length ? copy.fields.marketsHelp : copy.fields.marketsEmpty}</p>
+      {markets.length > 0 && <p className="text-ink-800">{markets.join(", ")}</p>}
+    </>;
+  }
+}
+
+function ImageInput({ label, busy, onFile }: { label: string; busy: boolean; onFile: (file: File) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  return <button type="button" disabled={busy} onClick={() => input.current?.click()}
+    className="flex aspect-[16/10] w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed border-ink-300 bg-white text-[11px] font-semibold text-ink-500 hover:border-brand-500 hover:text-brand-700 disabled:opacity-60">
+    {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ImagePlus className="size-4" aria-hidden="true" />}{label}
+    <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" tabIndex={-1}
+      onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onFile(file); }} />
+  </button>;
+}

@@ -8,6 +8,7 @@ import { isExpired } from "@/lib/media/readiness";
 import { isTestOnlyProduct, productReviewApproved } from "@/lib/public/product-selection";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
+import { layoutImagePaths, readStorefrontLayout } from "@/lib/storefront-layout";
 import { aplusImagePaths, readAplusModules } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 
@@ -143,7 +144,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
     // Ảnh khối nội dung chỉ công khai khi đang nằm trong hồ sơ đã đăng và gói còn quyền.
     const store = getStore();
     const supplier = await store.getSupplier(rel.split("/")[1]);
-    const listed = normalizeShowcaseBlocks(supplier?.showcase_blocks).some((block) => block.image_path === rel);
+    // Ảnh dùng trong khối nội dung cũ hoặc trong bố cục "Thiết kế trang" đang công khai (không phải bản nháp).
+    const listed = normalizeShowcaseBlocks(supplier?.showcase_blocks).some((block) => block.image_path === rel) ||
+      (!!supplier && layoutImagePaths(readStorefrontLayout(supplier.storefront_layout, supplier.id)).includes(rel));
     if (!supplier || !listed || supplier.status !== "published" || !supplierPlanRules(supplier).premiumStorefront ||
         (supplier.is_demo && process.env.VEXIM_SHOW_DEMO !== "true")) return new NextResponse("Not found", { status: 404 });
   }

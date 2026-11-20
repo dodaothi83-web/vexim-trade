@@ -1,0 +1,114 @@
+import type { CSSProperties } from "react";
+
+import { StorefrontBannerCarousel } from "@/components/public/storefront-banner-carousel";
+import { STOREFRONT_TONE_COLORS, type StorefrontStat } from "@/lib/storefront-theme";
+import type { LayoutBlock, StorefrontLayout } from "@/lib/storefront-layout";
+
+/**
+ * Các khối "Thiết kế trang" (Premium/Pro) dưới phần đầu trang nhà cung cấp. Component thuần:
+ * nhận dữ liệu đã chuẩn bị sẵn (số liệu, thị trường, sản phẩm) để dùng chung cho trang công
+ * khai, "Trang của tôi" và bản xem trước trực tiếp trong trình thiết kế.
+ */
+export const STOREFRONT_STAT_LABELS: Record<StorefrontStat, string> = {
+  capacity: "Capacity", founded: "Founded", employees: "Employees", markets: "Export markets",
+  lead_time: "Lead time", moq: "Minimum order", incoterms: "Incoterms",
+};
+
+export type StorefrontBlockProduct = { name: string; imageUrl: string | null; href: string | null; detail?: string };
+
+export interface StorefrontBlocksData {
+  statValues: Partial<Record<StorefrontStat, string>>;
+  markets: string[];
+  products: Record<string, StorefrontBlockProduct>;
+  imageUrl: (path: string) => string;
+}
+
+const NOT_EVIDENCE = "Images and text shared by the supplier. They are not evidence of a Vexim check.";
+
+export function StorefrontBlocks({ layout, data, selectedId, onSelect, showHidden = false }: {
+  layout: StorefrontLayout;
+  data: StorefrontBlocksData;
+  /** Chỉ trình thiết kế: khối đang chọn và chọn khối khi bấm. */
+  selectedId?: string | null;
+  onSelect?: (id: string) => void;
+  showHidden?: boolean;
+}) {
+  const tone = STOREFRONT_TONE_COLORS[layout.tone];
+  const style = { "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties;
+  const visible = layout.blocks.filter((block) => showHidden || !block.hidden);
+  const hasSupplierMedia = visible.some((block) => block.type === "banner" || block.type === "about");
+  return <div style={style} className="@container mt-6 space-y-8" data-storefront-blocks>
+    {visible.map((block, index) => {
+      const content = renderBlock(block, data, index);
+      if (!content) return null;
+      if (!onSelect) return <div key={block.id}>{content}</div>;
+      return <div key={block.id} role="button" tabIndex={0} aria-pressed={selectedId === block.id}
+        onClick={() => onSelect(block.id)} onKeyDown={(event) => { if (event.key === "Enter") onSelect(block.id); }}
+        className={`cursor-pointer rounded-xl outline outline-2 outline-offset-4 transition ${selectedId === block.id ? "outline-brand-600" : "outline-transparent hover:outline-brand-200"} ${block.hidden ? "opacity-40" : ""}`}>
+        {content}
+      </div>;
+    })}
+    {hasSupplierMedia && <p className="text-xs text-ink-500">{NOT_EVIDENCE}</p>}
+  </div>;
+}
+
+function renderBlock(block: LayoutBlock, data: StorefrontBlocksData, index: number) {
+  switch (block.type) {
+    case "banner":
+      return <StorefrontBannerCarousel images={block.images.map(data.imageUrl)} eyebrow={block.eyebrow} headline={block.headline} />;
+    case "stats": {
+      const items = block.stats.map((stat) => ({ stat, value: data.statValues[stat] ?? "" })).filter((item) => item.value);
+      if (!items.length) return null;
+      return <dl className="grid grid-cols-2 overflow-hidden rounded-2xl border border-ink-200 bg-ink-200 @2xl:grid-cols-4" style={{ gap: 1 }}>
+        {items.map((item) => <div key={item.stat} className="bg-white p-4 @2xl:p-5">
+          <dd className="break-words text-xl font-bold text-[var(--sf-dark)] @2xl:text-2xl">{item.value}</dd>
+          <dt className="mt-1 text-xs text-ink-500">{STOREFRONT_STAT_LABELS[item.stat]}</dt>
+        </div>)}
+      </dl>;
+    }
+    case "products": {
+      const items = block.product_ids.map((id) => ({ id, product: data.products[id] })).filter((item) => item.product);
+      if (!items.length) return null;
+      return <section aria-labelledby={`featured-${block.id}`}>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">Featured</p>
+        <h2 id={`featured-${block.id}`} className="mt-1 text-xl font-bold tracking-tight text-ink-900">Featured products</h2>
+        <ul className="mt-4 grid grid-cols-2 gap-3 @2xl:grid-cols-4">
+          {items.map(({ id, product }) => {
+            const body = <>
+              <div className="aspect-square overflow-hidden bg-ink-50">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {product.imageUrl && <img src={product.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition group-hover:scale-105" />}
+              </div>
+              <p className="line-clamp-2 px-3 pt-2.5 text-sm font-semibold text-ink-900">{product.name}</p>
+              {product.detail && <p className="px-3 pb-3 pt-0.5 text-xs text-ink-500">{product.detail}</p>}
+              {!product.detail && <div className="pb-3" />}
+            </>;
+            return <li key={id} className="group min-w-0 overflow-hidden rounded-xl border border-ink-200 bg-white">
+              {product.href ? <a href={product.href} className="block">{body}</a> : body}
+            </li>;
+          })}
+        </ul>
+      </section>;
+    }
+    case "about":
+      return <article className="grid items-center gap-5 @2xl:grid-cols-2 @2xl:gap-10">
+        <div className={`overflow-hidden rounded-2xl ${index % 2 ? "@2xl:order-2" : ""}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={data.imageUrl(block.image_path)} alt={block.title} loading="lazy" decoding="async" className="aspect-[4/3] w-full object-cover" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="break-words text-xl font-bold leading-snug text-ink-900 @2xl:text-2xl">{block.title}</h2>
+          {block.body && <p className="mt-3 whitespace-pre-line break-words text-[15px] leading-7 text-ink-600">{block.body}</p>}
+        </div>
+      </article>;
+    case "markets":
+      if (!data.markets.length) return null;
+      return <section aria-labelledby={`markets-${block.id}`}>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">Export markets</p>
+        <h2 id={`markets-${block.id}`} className="mt-1 text-xl font-bold tracking-tight text-ink-900">Where we ship</h2>
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {data.markets.map((market) => <li key={market} className="rounded-full bg-[var(--sf-tint)] px-3 py-1.5 text-sm font-semibold text-[var(--sf-dark)]">{market}</li>)}
+        </ul>
+      </section>;
+  }
+}

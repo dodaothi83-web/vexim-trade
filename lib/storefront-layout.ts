@@ -1,0 +1,223 @@
+/**
+ * Bố cục trang nhà cung cấp gói Premium/Pro ("Thiết kế trang", bản mẫu duyệt 2026-11-20 ở
+ * docs/storefront-designer/index.html).
+ *
+ * Trang gồm phần đầu cố định do Vexim quản lý (tên, khiên xác minh, nút RFQ; nhà cung cấp chỉ
+ * chọn mẫu, tông màu, câu giới thiệu) và danh sách khối sắp xếp được: banner, năng lực sản
+ * xuất, sản phẩm nổi bật, ảnh kèm chữ, thị trường xuất khẩu.
+ *
+ * Nhà cung cấp (hoặc nhân viên Vexim thiết kế hộ khi đã ghi nhận đồng ý) sửa bản nháp
+ * `storefront_layout_draft`; bấm Áp dụng thì bản nháp thành `storefront_layout`, người mua
+ * mới thấy. Chữ viết bằng tiếng Anh, không có thông tin liên hệ. Số liệu và thị trường lấy
+ * từ hồ sơ, không nhập tay.
+ *
+ * Ảnh dùng chung thư mục ảnh khối nội dung cũ: `suppliers/<supplierId>/showcase-<uuid>.<ext>`.
+ *
+ * Tệp chỉ import tệp thuần để script kiểm tra nạp thẳng bằng Node.
+ */
+import {
+  STOREFRONT_MAX_STATS, STOREFRONT_STATS, STOREFRONT_TAGLINE_MAX, STOREFRONT_TEMPLATES, STOREFRONT_TONES,
+  normalizeStorefrontTheme, type StorefrontStat, type StorefrontTemplate, type StorefrontTone,
+} from "./storefront-theme.ts";
+import { normalizeShowcaseBlocks, showcaseHasContact } from "./supplier-showcase.ts";
+import { looksVietnamese } from "./vietnamese-text.ts";
+
+export const LAYOUT_BLOCK_TYPES = ["banner", "stats", "products", "about", "markets"] as const;
+export type LayoutBlockType = (typeof LAYOUT_BLOCK_TYPES)[number];
+
+export const LAYOUT_MAX_BLOCKS = 12;
+export const LAYOUT_MAX_ABOUT = 6;
+export const BANNER_MAX_IMAGES = 3;
+export const BANNER_EYEBROW_MAX = 60;
+export const BANNER_HEADLINE_MAX = 120;
+export const FEATURED_MAX_PRODUCTS = 8;
+export const ABOUT_TITLE_MAX = 80;
+export const ABOUT_BODY_MAX = 600;
+
+export type LayoutBlock =
+  | { id: string; type: "banner"; hidden?: boolean; images: string[]; eyebrow: string; headline: string }
+  | { id: string; type: "stats"; hidden?: boolean; stats: StorefrontStat[] }
+  | { id: string; type: "products"; hidden?: boolean; product_ids: string[] }
+  | { id: string; type: "about"; hidden?: boolean; image_path: string; title: string; body: string }
+  | { id: string; type: "markets"; hidden?: boolean };
+
+export interface StorefrontLayout {
+  template: StorefrontTemplate;
+  tone: StorefrontTone;
+  tagline: string;
+  blocks: LayoutBlock[];
+}
+
+export type LayoutProblem =
+  | { code: "invalid"; index: number }
+  | { code: "tooMany" }
+  | { code: "duplicate"; index: number }
+  | { code: "imageRequired"; index: number }
+  | { code: "titleRequired"; index: number }
+  | { code: "productsRequired"; index: number }
+  | { code: "tooLong"; index: number }
+  | { code: "contact"; index: number }
+  | { code: "language"; index: number }
+  | { code: "tagline" };
+
+const ID = /^[a-z0-9-]{6,40}$/i;
+const PRODUCT_ID = /^[a-z0-9-]{8,64}$/i;
+
+/** Ảnh trang của đúng nhà cung cấp này (chung thư mục với ảnh khối nội dung cũ). */
+export function isLayoutImagePath(path: unknown, supplierId: string): path is string {
+  if (typeof path !== "string") return false;
+  const prefix = `suppliers/${supplierId}/showcase-`;
+  return path.startsWith(prefix) && !path.includes("..") && /^[a-f0-9-]{20,}\.(jpe?g|png|webp)$/i.test(path.slice(prefix.length));
+}
+
+const text = (value: unknown) => typeof value === "string" ? value.replace(/\r\n/g, "\n").trim() : "";
+const isOneOf = <T extends string>(list: readonly T[], value: unknown): value is T => typeof value === "string" && (list as readonly string[]).includes(value);
+
+/**
+ * Chuẩn hoá và kiểm tra bố cục trước khi lưu. `productIds` là sản phẩm của chính nhà cung cấp
+ * (sản phẩm nổi bật chỉ chọn trong danh sách này).
+ */
+export function validateStorefrontLayout(raw: unknown, ctx: { supplierId: string; productIds: ReadonlySet<string> }):
+  { ok: true; layout: StorefrontLayout } | { ok: false; problem: LayoutProblem } {
+  const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
+  if (!value || !Array.isArray(value.blocks)) return { ok: false, problem: { code: "invalid", index: 0 } };
+  if (value.blocks.length > LAYOUT_MAX_BLOCKS) return { ok: false, problem: { code: "tooMany" } };
+  const tagline = text(value.tagline);
+  if (tagline.length > STOREFRONT_TAGLINE_MAX || (tagline && (showcaseHasContact(tagline) || looksVietnamese(tagline)))) return { ok: false, problem: { code: "tagline" } };
+  const blocks: LayoutBlock[] = [];
+  const seenIds = new Set<string>();
+  const seenTypes = new Set<LayoutBlockType>();
+  let aboutCount = 0;
+  for (let index = 0; index < value.blocks.length; index++) {
+    const item = value.blocks[index] as Record<string, unknown> | null;
+    if (!item || typeof item !== "object" || typeof item.id !== "string" || !ID.test(item.id) || seenIds.has(item.id) || !isOneOf(LAYOUT_BLOCK_TYPES, item.type))
+      return { ok: false, problem: { code: "invalid", index } };
+    seenIds.add(item.id);
+    const type = item.type;
+    if (type === "about") { if (++aboutCount > LAYOUT_MAX_ABOUT) return { ok: false, problem: { code: "tooMany" } }; }
+    else if (seenTypes.has(type)) return { ok: false, problem: { code: "duplicate", index } };
+    seenTypes.add(type);
+    const hidden = item.hidden === true ? { hidden: true as const } : {};
+    let block: LayoutBlock;
+    let strings: Array<[string, number]> = [];
+    switch (type) {
+      case "banner": {
+        const images = Array.isArray(item.images) ? item.images.filter((path) => isLayoutImagePath(path, ctx.supplierId)) as string[] : [];
+        if (!images.length || images.length > BANNER_MAX_IMAGES || images.length !== (item.images as unknown[]).length)
+          return { ok: false, problem: { code: "imageRequired", index } };
+        block = { id: item.id, type, ...hidden, images: [...new Set(images)], eyebrow: text(item.eyebrow), headline: text(item.headline) };
+        strings = [[block.eyebrow, BANNER_EYEBROW_MAX], [block.headline, BANNER_HEADLINE_MAX]];
+        break;
+      }
+      case "stats": {
+        const stats = Array.isArray(item.stats) ? [...new Set(item.stats.filter((stat): stat is StorefrontStat => isOneOf(STOREFRONT_STATS, stat)))] : [];
+        if (!stats.length || stats.length > STOREFRONT_MAX_STATS) return { ok: false, problem: { code: "invalid", index } };
+        block = { id: item.id, type, ...hidden, stats };
+        break;
+      }
+      case "products": {
+        const ids = Array.isArray(item.product_ids) ? [...new Set(item.product_ids.filter((id): id is string => typeof id === "string" && PRODUCT_ID.test(id) && ctx.productIds.has(id)))] : [];
+        if (!ids.length || ids.length > FEATURED_MAX_PRODUCTS) return { ok: false, problem: { code: "productsRequired", index } };
+        block = { id: item.id, type, ...hidden, product_ids: ids };
+        break;
+      }
+      case "about": {
+        if (!isLayoutImagePath(item.image_path, ctx.supplierId)) return { ok: false, problem: { code: "imageRequired", index } };
+        block = { id: item.id, type, ...hidden, image_path: item.image_path, title: text(item.title), body: text(item.body) };
+        if (!block.title) return { ok: false, problem: { code: "titleRequired", index } };
+        strings = [[block.title, ABOUT_TITLE_MAX], [block.body, ABOUT_BODY_MAX]];
+        break;
+      }
+      case "markets":
+        block = { id: item.id, type, ...hidden };
+        break;
+    }
+    if (strings.some(([value, max]) => value.length > max)) return { ok: false, problem: { code: "tooLong", index } };
+    const joined = strings.map(([value]) => value).join(" ").trim();
+    if (joined && showcaseHasContact(joined)) return { ok: false, problem: { code: "contact", index } };
+    if (joined && looksVietnamese(joined)) return { ok: false, problem: { code: "language", index } };
+    blocks.push(block);
+  }
+  return {
+    ok: true,
+    layout: {
+      template: isOneOf(STOREFRONT_TEMPLATES, value.template) ? value.template : "elegant",
+      tone: isOneOf(STOREFRONT_TONES, value.tone) ? value.tone : "champagne",
+      tagline,
+      blocks,
+    },
+  };
+}
+
+/**
+ * Đọc bố cục đã lưu (bản nháp hoặc bản đang hiện). Khối hỏng bị bỏ thay vì làm hỏng cả trang;
+ * sản phẩm không còn thuộc nhà cung cấp được lọc lúc hiển thị.
+ */
+export function readStorefrontLayout(raw: unknown, supplierId: string): StorefrontLayout | null {
+  const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
+  if (!value || !Array.isArray(value.blocks)) return null;
+  const blocks: LayoutBlock[] = [];
+  const allIds = new Set(value.blocks.flatMap((b) => b && typeof b === "object" && Array.isArray((b as { product_ids?: unknown }).product_ids)
+    ? ((b as { product_ids: unknown[] }).product_ids.filter((id): id is string => typeof id === "string")) : []));
+  for (const item of value.blocks.slice(0, LAYOUT_MAX_BLOCKS)) {
+    const checked = validateStorefrontLayout({ ...value, tagline: "", blocks: [...blocks, item] }, { supplierId, productIds: allIds });
+    if (checked.ok) blocks.push(checked.layout.blocks.at(-1)!);
+  }
+  const tagline = text(value.tagline);
+  return {
+    template: isOneOf(STOREFRONT_TEMPLATES, value.template) ? value.template : "elegant",
+    tone: isOneOf(STOREFRONT_TONES, value.tone) ? value.tone : "champagne",
+    tagline: tagline.length <= STOREFRONT_TAGLINE_MAX && !showcaseHasContact(tagline) && !looksVietnamese(tagline) ? tagline : "",
+    blocks,
+  };
+}
+
+/** Mọi ảnh bố cục đang dùng. */
+export function layoutImagePaths(layout: StorefrontLayout | null): string[] {
+  if (!layout) return [];
+  return layout.blocks.flatMap((block) => block.type === "banner" ? block.images : block.type === "about" ? [block.image_path] : []);
+}
+
+export function newLayoutBlockId(): string {
+  const random = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `b-${random}`.slice(0, 40);
+}
+
+export interface ProfileLayoutInput {
+  supplierId: string;
+  theme: unknown;
+  showcase: unknown;
+  /** Sản phẩm đang công khai, theo thứ tự ưu tiên hiển thị. */
+  productIds: string[];
+  /** Có số liệu (giá trị khác rỗng) cho từng loại; quyết định khối Năng lực. */
+  statValues: Partial<Record<StorefrontStat, string>>;
+  hasMarkets: boolean;
+  province: string;
+  foundedYear: number | null;
+}
+
+/**
+ * "Tạo nhanh từ hồ sơ": dựng bố cục từ dữ liệu sẵn có. Không bịa nội dung: chỉ dùng ảnh và chữ
+ * nhà cung cấp đã có (khối nội dung cũ, câu giới thiệu), số liệu và thị trường lấy từ hồ sơ.
+ */
+export function buildLayoutFromProfile(input: ProfileLayoutInput): StorefrontLayout {
+  const theme = normalizeStorefrontTheme(input.theme);
+  const showcase = normalizeShowcaseBlocks(input.showcase)
+    .filter((block) => isLayoutImagePath(block.image_path, input.supplierId) && !looksVietnamese(`${block.title} ${block.body}`) && !showcaseHasContact(`${block.title} ${block.body}`));
+  const tagline = theme.tagline && !looksVietnamese(theme.tagline) && !showcaseHasContact(theme.tagline) ? theme.tagline : "";
+  const blocks: LayoutBlock[] = [];
+  if (showcase.length) {
+    const eyebrow = [input.province, input.foundedYear ? `Since ${input.foundedYear}` : ""].filter(Boolean).join(" · ").slice(0, BANNER_EYEBROW_MAX);
+    blocks.push({ id: newLayoutBlockId(), type: "banner", images: showcase.slice(0, BANNER_MAX_IMAGES).map((block) => block.image_path),
+      eyebrow: looksVietnamese(eyebrow) ? "" : eyebrow, headline: tagline.slice(0, BANNER_HEADLINE_MAX) });
+  }
+  const stats = (theme.stats.length ? theme.stats : STOREFRONT_STATS).filter((stat) => input.statValues[stat]);
+  const fallbackStats = STOREFRONT_STATS.filter((stat) => input.statValues[stat] && !stats.includes(stat));
+  const chosenStats = [...stats, ...fallbackStats].slice(0, STOREFRONT_MAX_STATS);
+  if (chosenStats.length) blocks.push({ id: newLayoutBlockId(), type: "stats", stats: chosenStats });
+  if (input.productIds.length) blocks.push({ id: newLayoutBlockId(), type: "products", product_ids: input.productIds.slice(0, 4) });
+  for (const block of showcase.slice(0, LAYOUT_MAX_ABOUT))
+    blocks.push({ id: newLayoutBlockId(), type: "about", image_path: block.image_path, title: block.title.slice(0, ABOUT_TITLE_MAX), body: block.body.slice(0, ABOUT_BODY_MAX) });
+  if (input.hasMarkets) blocks.push({ id: newLayoutBlockId(), type: "markets" });
+  return { template: theme.template, tone: theme.tone, tagline, blocks };
+}

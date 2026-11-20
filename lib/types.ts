@@ -59,6 +59,9 @@ export interface Supplier {
   showcase_blocks?: { id: string; image_path: string; title: string; body: string }[] | null;
   /** Giao diện Premium/Pro (mẫu, tông màu, câu giới thiệu, số liệu), xem lib/storefront-theme.ts. */
   storefront_theme?: Record<string, unknown> | null;
+  /** Bố cục "Thiết kế trang" đang công khai và bản nháp, xem lib/storefront-layout.ts. */
+  storefront_layout?: unknown;
+  storefront_layout_draft?: unknown;
   id: string;
   /** Tên pháp nhân */
   name: string;

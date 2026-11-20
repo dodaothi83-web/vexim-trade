@@ -22,7 +22,10 @@ import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { publicShowcaseBlocks } from "@/lib/supplier-showcase";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
-import { PremiumStorefront } from "@/components/public/premium-storefront";
+import { PremiumStorefront, storefrontStatValue } from "@/components/public/premium-storefront";
+import { StorefrontBlocks, type StorefrontBlockProduct } from "@/components/public/storefront-blocks";
+import { readStorefrontLayout, type StorefrontLayout } from "@/lib/storefront-layout";
+import { STOREFRONT_STATS } from "@/lib/storefront-theme";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
@@ -64,8 +67,13 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
 export function SupplierStorefront({
   supplier: s, certificates, productCertificates = {}, categories, coverUrl, avatarUrl, synthetic,
   productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1", reportAction,
-  showcaseImageUrl, nameAside, ownerActions, avatarHint,
+  showcaseImageUrl, nameAside, ownerActions, avatarHint, layoutOverride,
 }: {
+  /**
+   * Chỉ cổng nhà cung cấp: xem trước bản nháp "Thiết kế trang" thay cho bản đang công khai.
+   * undefined thì dùng bản đang công khai.
+   */
+  layoutOverride?: StorefrontLayout | null;
   /** Chỉ cổng nhà cung cấp: badge gói + nút xem trang, đặt cạnh tên công ty. */
   nameAside?: ReactNode;
   /** Chỉ cổng nhà cung cấp: nút nâng cấp gói, đặt dưới link website. */
@@ -116,7 +124,12 @@ export function SupplierStorefront({
   // về bản thường, nội dung vẫn giữ trong hồ sơ.
   const premium = supplierPlanRules(s).premiumStorefront;
   const showcase = premium ? publicShowcaseBlocks(s.showcase_blocks) : [];
-  const theme = normalizeStorefrontTheme(s.storefront_theme);
+  // "Thiết kế trang": có bố cục đã áp dụng thì phần đầu theo mẫu trong bố cục, số liệu và khối
+  // nội dung chuyển thành các khối sắp xếp được bên dưới; chưa có thì giữ giao diện cũ.
+  const layout = premium ? (layoutOverride !== undefined ? layoutOverride : readStorefrontLayout(s.storefront_layout, s.id)) : null;
+  const savedTheme = normalizeStorefrontTheme(s.storefront_theme);
+  const theme = layout ? { template: layout.template, tone: layout.tone, tagline: layout.tagline, stats: [] } : savedTheme;
+  const premiumShowcase = layout ? [] : showcase;
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
 
@@ -150,7 +163,7 @@ export function SupplierStorefront({
       avatarHint={avatarHint}
       nameAside={nameAside}
       ownerActions={ownerActions}
-      showcase={showcase}
+      showcase={premiumShowcase}
       imageUrl={showcaseImageUrl ?? mediaUrl}
     /> : <>
     <section className="mt-5 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-card" aria-labelledby="supplier-name">
@@ -204,10 +217,26 @@ export function SupplierStorefront({
     </section>
     </>}
 
+    {layout && <StorefrontBlocks layout={sanitizeLayout(layout)} data={{
+      statValues: Object.fromEntries(STOREFRONT_STATS.map((stat) => [stat, storefrontStatValue(s, stat)])),
+      markets: supplierExportMarketsDisplay(s).map((market) => safe(market)).filter(Boolean),
+      products: Object.fromEntries(s.main_products.map((p): [string, StorefrontBlockProduct] => {
+        const category = productCategory(p);
+        const href = !productLinks ? null : synthetic
+          ? `/suppliers/${encodeURIComponent(s.slug || s.id)}/products/${encodeURIComponent(p.id)}`
+          : category ? `/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}` : null;
+        const form = s.form_product_cards?.[p.id];
+        const image = form ? form.cardImagePath ?? form.imagePaths[0] : s.product_card_image_paths[p.id];
+        return [p.id, { name: safe(form ? form.name : publicProductTitle(p)), imageUrl: image ? mediaUrl(image) : null, href,
+          detail: category ? safe(category.name_i18n?.en || "") : undefined }];
+      })),
+      imageUrl: showcaseImageUrl ?? mediaUrl,
+    }} />}
+
     <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
       {[
         ["Products", "products"],
-        ...(showcase.length > 0 ? [["Showcase", "showcase"] as const] : []),
+        ...(premiumShowcase.length > 0 ? [["Showcase", "showcase"] as const] : []),
         ["About", "about"],
         ["Supplier checks", "verification"],
         ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
@@ -486,4 +515,11 @@ export function SupplierStorefront({
 
 
   </>;
+}
+
+/** Chữ trong bố cục đã kiểm khi lưu; lọc liên hệ thêm một lần lúc hiển thị như mọi chữ công khai. */
+function sanitizeLayout(layout: StorefrontLayout): StorefrontLayout {
+  return { ...layout, tagline: safe(layout.tagline), blocks: layout.blocks.map((block) =>
+    block.type === "banner" ? { ...block, eyebrow: safe(block.eyebrow), headline: safe(block.headline) }
+      : block.type === "about" ? { ...block, title: safe(block.title), body: safe(block.body) } : block) };
 }
