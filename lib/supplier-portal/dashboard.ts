@@ -295,6 +295,9 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
       plan === "basic" ? fill(t.plan.basicDetail, { limit }) : `${fill(t.plan.paidDetail, { limit })}${until}`,
       planChangedAt, "plan", plan === "basic" ? "/supplier/portal/products" : "/supplier/portal/storefront");
   }
+  // Vexim thiết kế hộ và áp dụng trang mới (dịch vụ thiết kế bán ngoài hệ thống).
+  const designedAt = input.supplier?.id === supplierId ? input.supplier.storefront_staff_applied_at : null;
+  if (designedAt) add(`storefront-staff:${Date.parse(designedAt)}`, t.storefrontStaff.title, t.storefrontStaff.detail, designedAt, "plan", "/supplier/portal/storefront/design");
   for (const m of relevant) {
     add(`rfq:${m.id}`, fill(t.rfqSent.title, { code: m.rfq!.code }), t.rfqSent.detail, m.sent_to_supplier_at!, "rfq", "/supplier/portal/rfqs");
     if (m.status === "selected") add(`selected:${m.id}`, fill(t.rfqSelected.title, { code: m.rfq!.code }), t.rfqSelected.detail, m.updated_at, "rfq", "/supplier/portal/rfqs");

@@ -35,6 +35,7 @@ const supplierShowcase = await import('../lib/supplier-showcase.ts');
 const mocks = {
   '@/lib/supplier-plans': supplierPlans,
   '@/lib/supplier-showcase': supplierShowcase,
+  '@/lib/storefront-layout': await import('../lib/storefront-layout.ts'),
   '@/lib/products/aplus': await import('../lib/products/aplus.ts'),
   '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => null },
   'next/server': { NextResponse },
