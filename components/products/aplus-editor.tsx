@@ -300,6 +300,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
             <ScaledPreview key={device} width={device === "desktop" ? previewWidths.desktop + 48 : 390 + 20} label={`${copy.device[device]} · ${device === "desktop" ? previewWidths.desktop : 390} px`}
               frame={device === "mobile" ? "phone" : "page"} padding={device === "desktop" ? 24 : (390 - previewWidths.mobile) / 2}>
             {modules.length ? <ProductAplus modules={previewModules} productName="Product" imageUrl={preview}
+              bleed={device === "mobile" ? (390 - previewWidths.mobile) / 2 : 0}
               decorate={(module, node) => <div role="button" tabIndex={0} onClick={() => setOpenId(module.id)} onKeyDown={(e) => { if (e.key === "Enter") setOpenId(module.id); }}
                 className={`relative cursor-pointer rounded-xl outline outline-2 outline-offset-4 transition ${openId === module.id ? "outline-brand-500" : "outline-transparent hover:outline-brand-200"}`}>
                 {aplusNeedsTranslation(module) && <span className="absolute right-2 top-2 z-10 rounded-full bg-amber-50 px-2 py-0.5 text-[10.5px] font-bold text-amber-900 ring-1 ring-amber-200">{copy.previewPending}</span>}

@@ -415,7 +415,10 @@ export function SupplierStorefront({
         </section>
         {companyAplus.length > 0 && <section id="capabilities" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="capabilities-title">
           <h2 id="capabilities-title" className="text-lg font-bold text-ink-900">Inside the company</h2>
-          <ProductAplus modules={companyAplus} productName={name} imageUrl={companyAplusImageUrl ?? ((path) => `/public-media/${path}`)} />
+          {/* Điện thoại: lề trang + viền 1px + lề khung (16+1+20px, từ 640px là 24+1+24px); banner, ảnh lớn tràn qua để sát mép màn hình. */}
+          <div className="[--aplus-bleed:37px] sm:[--aplus-bleed:49px]">
+            <ProductAplus modules={companyAplus} productName={name} imageUrl={companyAplusImageUrl ?? ((path) => `/public-media/${path}`)} />
+          </div>
           <p className="mt-6 text-xs leading-5 text-ink-500">Content provided by the supplier. It is not evidence of a Vexim check; see Supplier checks for what has been reviewed.</p>
         </section>}
         <section id="verification" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="verification-title">
