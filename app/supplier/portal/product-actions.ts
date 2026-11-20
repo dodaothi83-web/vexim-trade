@@ -34,6 +34,9 @@ import type { ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 import { fill } from "@/lib/i18n/format";
 import { canAddSupplierProduct, isProductLimitError, SUPPLIER_PLAN_LABELS, supplierPlanRules } from "@/lib/supplier-plans";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
+import { attachPendingMedia, readPendingMediaForm, type PendingMediaInput } from "@/lib/supplier-portal/pending-media";
+import { APLUS_MAX_MODULES, type AplusProblem } from "@/lib/products/aplus";
+import type { AplusMessages } from "@/lib/i18n/portal/aplus";
 
 type Result = { ok: boolean; message: string; id?: string; warning?: boolean };
 const text = (form: FormData, key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
@@ -170,6 +173,13 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     // Validate everything against live category and policy, not client defaults.
     let newQuantity: { grade: string; incoterm: string; currency?: string; tiers: { minKg: number; priceUsdPerKg: number; incoterm?: string; currency?: string }[] | QuantityRevisionTierV2[]; warnings: unknown[]; requestId: string } | null = null;
     let consentSupplier = access.supplier;
+    // Sản phẩm mới: A+ và video tải lên trước khi lưu. Kiểm tra nội dung trước khi tạo sản phẩm.
+    let pendingMedia: PendingMediaInput | null = null;
+    if (!existing) {
+      const pending = readPendingMediaForm(form, access.supplier.id);
+      if (!pending.ok) return { ok: false, message: pending.problem ? aplusProblemMessage(pending.problem, m.aplus.errors) : m.aplus.errors.upload };
+      if (pending.value.aplus.length || pending.value.videoUid) pendingMedia = pending.value;
+    }
     if (!existing) {
       const strictAccess = await supplierPortalAccess(supabaseStore);
       if (!strictAccess || !portalApproved(strictAccess.supplier) || strictAccess.supplier.id !== access.supplier.id || strictAccess.user.id !== access.user.id || !getSupabaseClient() || !category)
@@ -304,6 +314,14 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
       }
     }
     if (!saved) return { ok: false, message: a.stateChangedSave };
+    // Gắn A+ và video đã tải lên khi tạo sản phẩm (chỉ khi gói còn quyền). Gắn thiếu thì báo, sản phẩm vẫn lưu.
+    let pendingWarning = "";
+    if (!existing && pendingMedia && supplierPlanRules(access.supplier, new Date(), await readPlanCatalog()).richContent) {
+      const productId = saved.id;
+      const attached = await attachPendingMedia(pendingMedia, { supplierId: access.supplier.id, productId,
+        updateProduct: (patch) => store.updateProduct(productId, patch) }).catch((error) => { console.error("[supplier-product] pending media", error); return false; });
+      if (!attached) pendingWarning = m.aplus.errors.pendingAttach;
+    }
     // Ảnh gắn từ kho bằng bản cũ bị mất chủ sở hữu và nằm sai namespace: sửa ngay lần lưu này.
     await repairAttachedBankMedia(store, access.supplier.id, await store.listMedia("product", saved.id));
     // Preserve the approved English name when Vietnamese content changes.
@@ -349,7 +367,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
           ? `${a.savedPlain}${translationWarning}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
           : existingReview === "changes_requested"
             ? `${a.savedResubmit}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
-            : `${a.savedDraft}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}` };
+            : `${a.savedDraft}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}${pendingWarning ? ` ${pendingWarning}` : ""}` };
   } catch (error) {
     if (createdId) return { ok: true, id: createdId, warning: true, message: a.createdPartial };
     return { ok: false, message: error instanceof Error ? error.message : a.saveFailed };
@@ -609,4 +627,11 @@ export async function pauseSupplierProductAction(id: string): Promise<Result> {
     console.error("[supplier-product] pause", error);
     return { ok: false, message: a.pauseFailed };
   }
+}
+
+/** Câu báo lỗi nội dung A+ (dùng khi tạo sản phẩm kèm A+ soạn trước). */
+function aplusProblemMessage(problem: AplusProblem, e: AplusMessages["errors"]): string {
+  if (problem.code === "tooMany") return fill(e.tooMany, { max: APLUS_MAX_MODULES });
+  const key = problem.code === "video" ? "videoMissing" : problem.code;
+  return fill(e[key], { index: problem.index + 1 });
 }

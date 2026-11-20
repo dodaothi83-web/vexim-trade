@@ -38,7 +38,7 @@ export type StreamVideo = {
 };
 
 /** Xin một đường tải lên một lần cho trình duyệt. */
-export async function createStreamDirectUpload(input: { supplierId: string; productId: string }):
+export async function createStreamDirectUpload(input: { supplierId: string; productId: string | null }):
   Promise<{ uploadURL: string; uid: string } | null> {
   const config = streamConfig();
   if (!config) return null;
@@ -51,7 +51,10 @@ export async function createStreamDirectUpload(input: { supplierId: string; prod
       allowedOrigins: streamAllowedOrigins(),
       // Ảnh bìa lấy ở 10% thời lượng thay vì khung đầu (thường đen hoặc đang mờ dần).
       thumbnailTimestampPct: 0.1,
-      meta: { name: `vexim-aplus-${input.productId}`, product_id: input.productId, supplier_id: input.supplierId },
+      // Sản phẩm mới chưa lưu: video đánh dấu "pending" và gắn mã sản phẩm khi sản phẩm được lưu.
+      meta: input.productId
+        ? { name: `vexim-product-${input.productId}`, product_id: input.productId, supplier_id: input.supplierId }
+        : { name: `vexim-pending-${input.supplierId}`, pending: "true", supplier_id: input.supplierId },
     }),
     signal: AbortSignal.timeout(15000),
   });
@@ -87,6 +90,23 @@ export async function getStreamVideo(uid: string): Promise<StreamVideo | null> {
     creator: typeof r.creator === "string" ? r.creator : null,
     meta: r.meta && typeof r.meta === "object" ? r.meta as Record<string, unknown> : {},
   };
+}
+
+/** Ghi lại meta của video (gắn mã sản phẩm sau khi sản phẩm mới được lưu). Lỗi chỉ ghi log. */
+export async function setStreamVideoMeta(uid: string, meta: Record<string, string>): Promise<void> {
+  const config = streamConfig();
+  if (!config) return;
+  try {
+    const res = await fetch(api(config.account, `/${encodeURIComponent(uid)}`), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${config.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ meta }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) console.error("[stream] set meta failed", uid, res.status);
+  } catch (error) {
+    console.error("[stream] set meta", uid, error);
+  }
 }
 
 /** Xoá video không còn dùng để không tốn phút lưu trữ. Lỗi chỉ ghi log. */

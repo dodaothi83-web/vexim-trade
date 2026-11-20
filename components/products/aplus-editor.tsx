@@ -8,7 +8,7 @@ import { ArrowDown, ArrowUp, Columns2, GalleryHorizontal, Image as ImageIcon, Lo
 import { fill } from "@/lib/i18n/format";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
 import { prepareImage } from "@/lib/media/client-image";
-import { checkVideoFile, uploadStreamVideo } from "@/lib/media/stream-upload-client";
+import { aplusUploadEndpoint, checkVideoFile, uploadStreamVideo } from "@/lib/media/stream-upload-client";
 import { APLUS_BODY_MAX, APLUS_CAPTION_MAX, APLUS_GALLERY_MAX, APLUS_MAX_MODULES, APLUS_TITLE_MAX, aplusVideoEmbedUrl,
   type AplusModule, type AplusModuleType } from "@/lib/products/aplus";
 import { saveProductAplusAction } from "@/app/supplier/portal/aplus-actions";
@@ -39,6 +39,9 @@ function newDraft(type: AplusModuleType): Draft {
  * sắp xếp, sửa và xoá khối. Ảnh tải lên ngay khi chọn, video gửi thẳng tới Cloudflare Stream;
  * nội dung chỉ đổi cho người mua khi bấm Lưu. Không có ô nào mang `name`, để form sản phẩm
  * bao quanh không gửi kèm các trường này.
+ *
+ * Sản phẩm mới (chưa có `productId`): ảnh, video tải vào khu chờ và cả nội dung đi theo form sản
+ * phẩm qua ô ẩn `pending_aplus_json`; lưu sản phẩm là lưu luôn A+.
  */
 export function AplusEditor({ productId, allowed, editable, initial, copy }: {
   /** null khi sản phẩm chưa được tạo. */
@@ -74,17 +77,17 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
     [next[index], next[target]] = [next[target], next[index]];
     return next;
   });
-  const preview = (path: string) => productId && path ? `/api/supplier-portal/products/${productId}/aplus?path=${encodeURIComponent(path)}` : "";
+  const pending = !productId;
+  const preview = (path: string) => path ? `${aplusUploadEndpoint(productId)}?path=${encodeURIComponent(path)}` : "";
 
   async function uploadImage(key: string, file: File): Promise<string | null> {
-    if (!productId) return null;
     setUploading(key); setMessage(null);
     try {
       const prepared = await prepareImage(file);
       const body = new FormData();
       body.append("kind", "image");
       body.append("file", new File([prepared.main], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
-      const res = await fetch(`/api/supplier-portal/products/${productId}/aplus`, { method: "POST", body });
+      const res = await fetch(aplusUploadEndpoint(productId), { method: "POST", body });
       const data = await res.json().catch(() => null) as { ok?: boolean; path?: string; message?: string } | null;
       if (!res.ok || !data?.ok || !data.path) throw new Error(data?.message || copy.errors.upload);
       return data.path;
@@ -95,7 +98,6 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
   }
 
   async function uploadVideo(id: string, file: File) {
-    if (!productId) return;
     const problem = await checkVideoFile(file, copy.errors, fill);
     if (problem) { setMessage({ ok: false, text: problem }); return; }
     setUploading(id); setProgress(0); setMessage(null);
@@ -134,7 +136,9 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
       </div>
       <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-800">{fill(copy.count, { count: modules.length, max: APLUS_MAX_MODULES })}</span>
     </div>
-    {!productId ? <p className="px-4 py-3 text-xs text-ink-600">{copy.saveFirst}</p> : <div className="space-y-3 px-4 py-3">
+    {pending && <input type="hidden" name="pending_aplus_json" value={JSON.stringify(modules)} />}
+    <div className="space-y-3 px-4 py-3">
+      {pending && <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs leading-5 text-brand-900">{copy.savedWithProduct}</p>}
       {!editable && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">{copy.locked}</p>}
       {modules.map((module, index) => {
         const Icon = ICONS[module.type];
@@ -217,12 +221,12 @@ export function AplusEditor({ productId, allowed, editable, initial, copy }: {
           className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-700 hover:underline"><Plus className="size-4" aria-hidden="true" />{copy.add}</button>)}
 
       <p className="text-[11px] leading-4 text-ink-500">{copy.hint}</p>
-      <div className="flex flex-wrap items-center gap-3">
+      {!pending && <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={() => void save()} disabled={disabled || !dirty} className="btn btn-primary btn-sm">{busy ? copy.saving : copy.save}</button>
         {dirty && !busy && <span className="text-xs font-semibold text-amber-800">{copy.unsaved}</span>}
-      </div>
+      </div>}
       {message && <p role={message.ok ? "status" : "alert"} className={`text-xs ${message.ok ? "text-emerald-700" : "text-rose-700"}`}>{message.text}</p>}
-    </div>}
+    </div>
   </div>;
 }
 

@@ -61,6 +61,8 @@ const mocks = {
   '@/lib/i18n/format': { fill: (text, values) => text.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? '') },
   '@/lib/products/quantity-v2-validation': v2Validation,
   'next/cache': { revalidatePath() {} }, '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => null, recordPlanActivation: async () => {} }, 
+  '@/lib/supplier-portal/pending-media': { readPendingMediaForm: () => ({ ok: true, value: { aplus: [], videoUid: null } }), attachPendingMedia: async () => true },
+  '@/lib/products/aplus': { APLUS_MAX_MODULES: 10 }, 
   '@/lib/supplier-portal/access': { supplierPortalAccess: async (which) => which && !strict ? null : ({ supplier, user, store }) },
   '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   '@/lib/supplier-portal/product-price-options': { isSupplierPriceCurrency: () => true, isSupplierPriceUnit: () => true, normalizeSupplierPriceCurrency: (s) => s, normalizeSupplierPriceUnit: (s) => s },

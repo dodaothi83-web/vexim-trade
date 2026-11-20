@@ -14,11 +14,19 @@ export async function checkVideoFile(file: File, errors: StreamUploadErrors, fil
   return null;
 }
 
-/** Xin đường tải lên cho sản phẩm rồi gửi tệp; trả mã video Cloudflare. */
-export async function uploadStreamVideo(productId: string, file: File, onProgress: (pct: number) => void, uploadError: string): Promise<string> {
+/**
+ * Nơi tải ảnh, video A+ của một sản phẩm. Sản phẩm mới chưa lưu (productId null) tải vào khu chờ,
+ * được gắn vào sản phẩm khi lưu.
+ */
+export function aplusUploadEndpoint(productId: string | null): string {
+  return productId ? `/api/supplier-portal/products/${encodeURIComponent(productId)}/aplus` : "/api/supplier-portal/pending-media";
+}
+
+/** Xin đường tải lên rồi gửi tệp thẳng tới Cloudflare; trả mã video. */
+export async function uploadStreamVideo(productId: string | null, file: File, onProgress: (pct: number) => void, uploadError: string): Promise<string> {
   const body = new FormData();
   body.append("kind", "video");
-  const res = await fetch(`/api/supplier-portal/products/${encodeURIComponent(productId)}/aplus`, { method: "POST", body });
+  const res = await fetch(aplusUploadEndpoint(productId), { method: "POST", body });
   const data = await res.json().catch(() => null) as { ok?: boolean; uploadURL?: string; uid?: string; message?: string } | null;
   if (!res.ok || !data?.ok || !data.uploadURL || !data.uid) throw new Error(data?.message || uploadError);
   const upload = new FormData();

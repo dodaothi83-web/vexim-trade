@@ -22,6 +22,7 @@ import { rfqChannel } from "@/lib/rfq/channel";
 import { runDirectRfqFollowUps } from "@/lib/rfq/direct-followup";
 import { sendCertificateExpiryReminders } from "@/lib/certificate-service";
 import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
+import { cleanupPendingUploads } from "@/lib/supplier-portal/pending-media";
 
 export const dynamic = "force-dynamic";
 
@@ -138,6 +139,15 @@ export async function GET(req: Request) {
     console.error("[cron] supplier reminders failed", err);
   }
 
+  // Dọn ảnh A+ và video tải lên cho sản phẩm mới nhưng không được lưu (quá 24 giờ).
+  let pendingMedia: { images: number; videos: number; errors: number } | { error: string };
+  try {
+    pendingMedia = await cleanupPendingUploads();
+  } catch (err) {
+    pendingMedia = { error: err instanceof Error ? err.message : String(err) };
+    console.error("[cron] pending media cleanup failed", err);
+  }
+
   return NextResponse.json({
     ok: errors.length === 0,
     provider: "cron-job.org (external)",
@@ -148,6 +158,7 @@ export async function GET(req: Request) {
     certificatesReminded,
     supplierReminders,
     supplierReminderError: supplierReminderError ?? undefined,
+    pendingMedia,
     errors: errors.length ? errors : undefined,
   }, { status: errors.length ? 503 : 200 });
 }
