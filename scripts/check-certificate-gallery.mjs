@@ -173,7 +173,7 @@ assert.match(holderLine, /Third-party holder · Dong Nai Factory/, 'Giấy đứ
 assert.doesNotMatch(holderLine, /Registered to supplier/, 'Không gán nhầm giấy đối tác cho nhà cung cấp');
 
 /* 6. Trang hồ sơ dùng danh sách trưng bày thay cho lưới chữ cũ. */
-const storefront = read('components/public/supplier-storefront.tsx');
+const storefront = read('components/public/supplier-storefront.tsx') + read('components/public/storefront-sections.tsx');
 assert.match(storefront, /<SupplierCertificateRail certificates=\{certificates\} \/>/, 'Hồ sơ công khai dùng danh sách trưng bày');
 assert.doesNotMatch(storefront, /grid gap-3 sm:grid-cols-2">\s*\{certificates\.map/, 'Lưới hai cột cũ đã bỏ');
 

@@ -12,6 +12,7 @@ import { getStore } from "@/lib/db";
 import { designerMessages } from "@/lib/i18n/portal/designer";
 import { getSupplierStorefront } from "@/lib/public/catalog";
 import { publicSupplierCertificates } from "@/lib/public/certificates";
+import { CertificatesSection, ChecksSection, CompanyDetailsSection, CompanySection, GallerySection, TradeSection } from "@/components/public/storefront-sections";
 import { readStorefrontLayout } from "@/lib/storefront-layout";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 import { activeDesignConsent, draftLayoutOf, listStorefrontVersions } from "@/lib/supplier-portal/storefront-design";
@@ -60,6 +61,16 @@ export default async function CrmSupplierDesignPage({ params }: { params: Promis
     getStore().listCertificates(supplier.id).catch(() => []),
     getStore().listMedia("supplier", supplier.id).catch(() => []),
   ]);
+  // Nội dung các mục chung dựng từ cùng component với trang thật (nút trong bản xem trước không bấm được).
+  const designCertificates = publicSupplierCertificates(supplier.id, rawCertificates, supplierMedia);
+  const designSections = {
+    company: <CompanySection s={card} />,
+    checks: <ChecksSection s={card} />,
+    trade: <TradeSection s={card} rfqActions={false} synthetic={false} premium />,
+    companyDetails: <CompanyDetailsSection s={card} rfqActions={false} premium />,
+    certificates: designCertificates.length ? <CertificatesSection certificates={designCertificates} /> : undefined,
+    gallery: card.gallery_images.length ? <GallerySection s={card} /> : undefined,
+  };
   const data = designerDataFromCard(card, { avatarUrl, coverUrl, pro: supplierPlanRules(supplier).plan === "pro",
     categories: designCategories.filter((c) => c.status === "published" && c.is_published),
     certificates: publicSupplierCertificates(supplier.id, rawCertificates, supplierMedia) });
@@ -77,7 +88,7 @@ export default async function CrmSupplierDesignPage({ params }: { params: Promis
     </div>
     <h2 className="mb-2 mt-6 text-sm font-bold text-ink-900">2. Thiết kế</h2>
     {consent && canManage
-      ? <StorefrontDesigner pro={data.pro} categories={data.categories} certificates={data.certificates} initial={initial} quick={data.quick} live={live} header={data.header} statValues={data.statValues}
+      ? <StorefrontDesigner sections={designSections} pro={data.pro} categories={data.categories} certificates={data.certificates} initial={initial} quick={data.quick} live={live} header={data.header} statValues={data.statValues}
           markets={data.markets} products={data.products} imagePreviewBase={`/api/crm/storefront-image?supplier=${id}&path=`}
           uploadUrl="/api/crm/storefront-image" uploadFields={{ supplier_id: id }}
           saveDraft={saveDesignDraftAction.bind(null, id)} apply={applyDesignAction.bind(null, id)}

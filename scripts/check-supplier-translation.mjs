@@ -280,7 +280,7 @@ assert.match(service, /supplierProfileHasSource\(source\) && !state\.current/, '
 assert.match(service, /fields: supplier\.profile_translation_meta\?\.fields/, 'lưu bản giới thiệu thủ công không được xóa cache các trường khác');
 
 const profilePage = fs.readFileSync(new URL('../app/(public)/suppliers/[slug]/page.tsx', import.meta.url), 'utf8') +
-  fs.readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8');
+  fs.readFileSync(new URL('../components/public/supplier-storefront.tsx', import.meta.url), 'utf8') + fs.readFileSync(new URL('../components/public/storefront-sections.tsx', import.meta.url), 'utf8');
 assert.match(profilePage, /supplierSummaryDisplay\(s\)/, 'trang NCC phải hiển thị giới thiệu bản dịch hoặc nội dung gốc đã có');
 assert.match(profilePage, /supplierLegalNameDisplay\(s\)/, 'trang NCC phải hiển thị tên pháp lý bằng bản tiếng Anh đã lưu');
 assert.match(profilePage, /supplierMoqDisplay\(s\)/, 'trang NCC phải hiển thị MOQ bản tiếng Anh');

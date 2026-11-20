@@ -10,14 +10,14 @@ import type { DesignerMessages } from "@/lib/i18n/portal/designer";
 import { prepareImage } from "@/lib/media/client-image";
 import {
   ABOUT_BODY_MAX, ABOUT_TITLE_MAX, BANNER_EYEBROW_MAX, BANNER_HEADLINE_MAX, BANNER_MAX_IMAGES, FEATURED_MAX_PRODUCTS,
-  LAYOUT_BLOCK_TYPES, LAYOUT_MAX_ABOUT, LAYOUT_MAX_BLOCKS, newLayoutBlockId, PRO_ONLY_BLOCKS, VIDEO_TITLE_MAX,
+  LAYOUT_BLOCK_TYPES, LAYOUT_MAX_ABOUT, LAYOUT_MAX_BLOCKS, newLayoutBlockId, PRO_ONLY_BLOCKS, REQUIRED_BLOCKS, VIDEO_TITLE_MAX,
   type LayoutBlock, type LayoutBlockType, type StorefrontLayout,
 } from "@/lib/storefront-layout";
 import {
   STOREFRONT_MAX_STATS, STOREFRONT_STATS, STOREFRONT_TAGLINE_MAX, STOREFRONT_TONE_COLORS, STOREFRONT_TONES,
   type StorefrontStat,
 } from "@/lib/storefront-theme";
-import { STOREFRONT_STAT_LABELS, type StorefrontBlockCategory, type StorefrontBlockCertificate } from "@/components/public/storefront-blocks";
+import { STOREFRONT_STAT_LABELS, type StorefrontBlockCategory, type StorefrontBlockCertificate, type StorefrontBlocksData } from "@/components/public/storefront-blocks";
 import { checkVideoFile, uploadStreamVideoTo } from "@/lib/media/stream-upload-client";
 import { aplusVideoEmbedUrl } from "@/lib/products/aplus";
 import { PremiumHeader } from "@/components/public/premium-header";
@@ -58,6 +58,8 @@ export function StorefrontDesigner(props: {
   pro: boolean;
   categories: StorefrontBlockCategory[];
   certificates: StorefrontBlockCertificate[];
+  /** Nội dung các mục chung dựng sẵn ở máy chủ (cùng component với trang thật). */
+  sections: StorefrontBlocksData["sections"];
 }) {
   const { copy } = props;
   const router = useRouter();
@@ -174,8 +176,12 @@ export function StorefrontDesigner(props: {
             <button type="button" onClick={() => setSelected(b.id)} className={`min-w-0 flex-1 truncate text-left text-[12.5px] font-semibold ${b.hidden ? "text-ink-400 line-through" : "text-ink-900"}`}>{copy.types[b.type].name}</button>
             <Tool label={copy.moveUp} disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp className="size-3.5" /></Tool>
             <Tool label={copy.moveDown} disabled={index === layout.blocks.length - 1} onClick={() => move(index, 1)}><ArrowDown className="size-3.5" /></Tool>
-            <Tool label={b.hidden ? copy.show : copy.hide} onClick={() => patch(b.id, { hidden: !b.hidden || undefined })}>{b.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}</Tool>
-            <Tool label={copy.remove} onClick={() => { if (window.confirm(copy.confirmRemove)) { setBlocks((all) => all.filter((x) => x.id !== b.id)); if (selected === b.id) setSelected(HEADER); } }}><Trash2 className="size-3.5" /></Tool>
+            {REQUIRED_BLOCKS.includes(b.type)
+              ? <span title={copy.requiredHint} className="rounded-full bg-ink-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-600">{copy.required}</span>
+              : <>
+                <Tool label={b.hidden ? copy.show : copy.hide} onClick={() => patch(b.id, { hidden: !b.hidden || undefined })}>{b.hidden ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}</Tool>
+                <Tool label={copy.remove} onClick={() => { if (window.confirm(copy.confirmRemove)) { setBlocks((all) => all.filter((x) => x.id !== b.id)); if (selected === b.id) setSelected(HEADER); } }}><Trash2 className="size-3.5" /></Tool>
+              </>}
           </li>)}
         </ul>
         <p className="px-4 pb-1 pt-4 text-[11px] font-bold uppercase tracking-wide text-ink-500">{copy.addTitle}</p>
@@ -209,7 +215,7 @@ export function StorefrontDesigner(props: {
           </button>
           <StorefrontBlocks layout={layout} selectedId={selected} onSelect={setSelected} showHidden
             data={{ statValues: props.statValues, markets: props.markets, products: productMap, imageUrl: previewUrl,
-              categories: props.categories, certificates: props.certificates }} />
+              categories: props.categories, certificates: props.certificates, sections: props.sections }} />
           {!layout.blocks.length && <p className="mt-6 rounded-lg border border-dashed border-ink-300 p-6 text-center text-sm text-ink-500">{copy.quick.body}</p>}
         </div>
       </main>
@@ -221,7 +227,7 @@ export function StorefrontDesigner(props: {
           {selected === HEADER ? <HeaderSettings layout={layout} setLayout={setLayout} copy={copy} />
             : block ? <BlockSettings block={block} patch={patch} copy={copy} statValues={props.statValues} markets={props.markets}
               products={props.products} previewUrl={previewUrl} upload={upload} uploading={uploading}
-              categories={props.categories} certificates={props.certificates}
+              categories={props.categories} certificates={props.certificates} hasGallery={!!props.sections?.gallery}
               uploadVideo={async (file, onProgress) => {
                 const problem = await checkVideoFile(file, { video: copy.errors.videoFile, videoTooLong: copy.errors.videoTooLong, upload: copy.errors.upload }, fill);
                 if (problem) throw new Error(problem);
@@ -272,7 +278,7 @@ function HeaderSettings({ layout, setLayout, copy }: { layout: StorefrontLayout;
   </>;
 }
 
-function BlockSettings({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading, categories, certificates, uploadVideo }: {
+function BlockSettings({ block, patch, copy, statValues, markets, products, previewUrl, upload, uploading, categories, certificates, uploadVideo, hasGallery }: {
   block: LayoutBlock;
   patch: (id: string, change: Partial<LayoutBlock>) => void;
   copy: DesignerMessages;
@@ -285,6 +291,7 @@ function BlockSettings({ block, patch, copy, statValues, markets, products, prev
   categories: StorefrontBlockCategory[];
   certificates: StorefrontBlockCertificate[];
   uploadVideo: (file: File, onProgress: (pct: number) => void) => Promise<string>;
+  hasGallery: boolean;
 }) {
   const title = <p className="font-bold text-ink-900">{copy.types[block.type].name}</p>;
   const field = "input mt-1 w-full font-normal";
@@ -383,6 +390,11 @@ function BlockSettings({ block, patch, copy, statValues, markets, products, prev
       <p className="leading-5 text-ink-600">{categories.length >= 2 ? copy.fields.categoriesHelp : copy.fields.categoriesEmpty}</p>
       {categories.length >= 2 && <ul className="space-y-1 text-ink-800">{categories.map((c) => <li key={c.name}>{c.name} · {c.count}</li>)}</ul>}
     </>;
+    case "company": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.companyHelp}</p></>;
+    case "checks": return <>{title}<p className="rounded-md bg-ink-50 p-2 leading-5 text-ink-600">{copy.requiredHint}</p></>;
+    case "trade": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.tradeHelp}</p></>;
+    case "details": return <>{title}<p className="leading-5 text-ink-600">{copy.fields.detailsHelp}</p></>;
+    case "gallery": return <>{title}<p className="leading-5 text-ink-600">{hasGallery ? copy.fields.galleryHelp : copy.fields.galleryEmpty}</p></>;
     case "certificates": return <>
       {title}
       <p className="leading-5 text-ink-600">{certificates.length ? copy.fields.certificatesHelp : copy.fields.certificatesEmpty}</p>

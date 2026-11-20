@@ -22,7 +22,8 @@ const good = [
 ];
 const ok = L.validateStorefrontLayout(layout(good), ctx);
 assert.equal(ok.ok, true);
-assert.deepEqual(ok.layout.blocks.map((b) => b.type), ["banner", "stats", "products", "about", "markets"]);
+assert.deepEqual(ok.layout.blocks.map((b) => b.type), ["banner", "stats", "products", "about", "markets", "checks"], "Luôn có khối Xác minh của Vexim");
+assert.equal(ok.layout.v, 2);
 assert.equal(ok.layout.blocks[3].hidden, true);
 assert.deepEqual(L.layoutImagePaths(ok.layout), [img(3), img(4), img(5)]);
 
@@ -43,7 +44,7 @@ assert.equal(bad([], { tagline: "Chuyên hạt điều xuất khẩu chất lư�
 
 // 4. Dữ liệu hỏng không làm hỏng trang: bỏ đúng khối hỏng.
 const read1 = L.readStorefrontLayout({ ...layout(good), blocks: [good[1], { id: "x", type: "evil" }, good[4]] }, sid);
-assert.deepEqual(read1.blocks.map((b) => b.type), ["stats", "markets"]);
+assert.deepEqual(read1.blocks.map((b) => b.type), ["stats", "markets", "company", "checks", "certificates", "gallery", "trade", "details"], "Bố cục cũ được thêm các mục chung, không mất nội dung");
 assert.equal(L.readStorefrontLayout(null, sid), null);
 
 // 5. Tạo nhanh từ hồ sơ: chỉ dùng ảnh, chữ sẵn có; bỏ khối tiếng Việt hoặc có liên hệ; số liệu có giá trị mới hiện.
@@ -57,13 +58,13 @@ const quick = L.buildLayoutFromProfile({
   ],
   productIds: [pid], statValues: { capacity: "1,200 MT", founded: "2009" }, hasMarkets: true, province: "Binh Phuoc, Vietnam", foundedYear: 2009,
 });
-assert.deepEqual(quick.blocks.map((b) => b.type), ["banner", "stats", "products", "about", "markets"]);
+assert.deepEqual(quick.blocks.map((b) => b.type), ["banner", "stats", "products", "about", "markets", "company", "checks", "trade", "details"]);
 assert.deepEqual(quick.blocks[0].images, [img(7)], "Banner chỉ dùng ảnh khối hợp lệ");
 assert.deepEqual(quick.blocks[1].stats, ["capacity", "founded"], "Không đưa số liệu trống");
 assert.equal(quick.tone, "graphite");
 assert.equal("template" in quick, false, "Không còn chọn mẫu");
 assert.equal(L.validateStorefrontLayout(quick, ctx).ok, true, "Bố cục dựng nhanh hợp lệ");
-assert.deepEqual(L.buildLayoutFromProfile({ supplierId: sid, theme: null, showcase: [], productIds: [], statValues: {}, hasMarkets: false, province: "", foundedYear: null }).blocks, []);
+assert.deepEqual(L.buildLayoutFromProfile({ supplierId: sid, theme: null, showcase: [], productIds: [], statValues: {}, hasMarkets: false, province: "", foundedYear: null }).blocks.map((b) => b.type), ["company", "checks", "trade", "details"]);
 
 // 6. Máy chủ: bản nháp không công khai; ảnh công khai chỉ khi nằm trong bố cục đã áp dụng; gói hết hạn về giao diện cũ.
 const media = read("app/public-media/[...path]/route.ts");
@@ -107,7 +108,7 @@ assert.equal(L.validateStorefrontLayout(layout([{ id: "b-cat00001", type: "categ
 assert.equal(L.validateStorefrontLayout(layout([{ id: "b-cert0001", type: "certificates" }]), { ...ctx, pro: false }).ok, true, "Chứng nhận có ở cả Premium");
 assert.equal(L.validateStorefrontLayout(layout([{ ...video, video_uid: "x" }]), { ...ctx, pro: true }).problem.code, "video");
 assert.equal(L.validateStorefrontLayout(layout([{ ...video, title: "Liên hệ Zalo 0912345678" }]), { ...ctx, pro: true }).ok, false);
-assert.deepEqual(L.layoutForPlan(L.validateStorefrontLayout(layout([video, good[1]]), { ...ctx, pro: true }).layout, false).blocks.map((b) => b.type), ["stats"], "Hạ gói thì khối Pro ẩn");
+assert.deepEqual(L.layoutForPlan(L.validateStorefrontLayout(layout([video, good[1]]), { ...ctx, pro: true }).layout, false).blocks.map((b) => b.type), ["stats", "checks"], "Hạ gói thì khối Pro ẩn");
 assert.match(lib, /video\.meta\.purpose !== "storefront" \|\| video\.meta\.supplier_id !== supplier\.id/);
 assert.match(read("lib/media/cloudflare-stream.ts"), /purpose: "storefront", supplier_id: input\.supplierId/);
 assert.match(read("app/api/supplier-portal/storefront-image/route.ts"), /plan !== "pro"\) return/, "Chỉ Pro xin được đường tải video nhà máy");
@@ -116,4 +117,17 @@ assert.match(storefront, /layoutForPlan\(layout, supplierPlanRules\(s\)\.plan ==
 const profileImage = read("app/api/supplier-portal/profile-image/route.ts");
 assert.match(profileImage, /export async function DELETE/);
 assert.match(profileImage, /previous\.startsWith\(`suppliers\/\$\{supplier\.id\}\/cover-`\)/);
+// 10. Các mục chung thành khối: xác minh của Vexim bắt buộc (không ẩn, không xoá), trang Premium bỏ khung cố định kiểu Basic.
+const withHiddenChecks = L.validateStorefrontLayout(layout([{ id: "b-checks01", type: "checks", hidden: true }, { id: "b-trade001", type: "trade", hidden: true }]), ctx);
+assert.equal(withHiddenChecks.layout.blocks[0].hidden, undefined, "Không ẩn được khối xác minh");
+assert.equal(withHiddenChecks.layout.blocks[1].hidden, true, "Các mục khác ẩn được");
+assert.equal(L.validateStorefrontLayout(layout([{ id: "b-checks01", type: "checks" }, { id: "b-checks02", type: "checks" }]), ctx).problem.code, "duplicate");
+assert.deepEqual([...L.REQUIRED_BLOCKS], ["checks"]);
+assert.match(storefront, /\{premium \? verificationActions && <div className="mt-8">\{verificationActions\}<\/div>/, "Trang Premium không còn khung cố định kiểu Basic");
+assert.match(storefront, /checks: <ChecksSection s=\{s\} reportAction=\{reportAction\} \/>/);
+const designer = read("components/storefront-designer/storefront-designer.tsx");
+assert.match(designer, /REQUIRED_BLOCKS\.includes\(b\.type\)\s*\n?\s*\? <span/, "Khối bắt buộc không có nút ẩn, xoá");
+assert.match(read("components/public/storefront-sections.tsx"), /export function ChecksSection/);
+assert.match(read("components/public/storefront-blocks.tsx"), /case "details":/, "Thông tin công ty là khối riêng");
+assert.match(read("components/public/storefront-sections.tsx"), /function PremiumTrade\(/, "Điều kiện giao dịch trình bày lưới thẻ trên trang Premium");
 console.log("✅ Thiết kế trang: 5 loại khối, ảnh và sản phẩm đúng nhà cung cấp, tiếng Anh, không liên hệ, Tạo nhanh không bịa nội dung, bản nháp không công khai, CRM cần đồng ý, video và nhóm sản phẩm chỉ Pro.");
