@@ -67,7 +67,7 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Package; label: strin
 export function SupplierStorefront({
   supplier: s, certificates, productCertificates = {}, categories, coverUrl, avatarUrl, synthetic,
   productLinks = true, rfqActions = true, chatAction, coverAction, avatarAction, verificationActions, nameTag = "h1", reportAction,
-  showcaseImageUrl, nameAside, ownerActions, avatarHint, layoutOverride,
+  showcaseImageUrl, nameAside, ownerActions, coverHint, layoutOverride,
 }: {
   /**
    * Chỉ cổng nhà cung cấp: xem trước bản nháp "Thiết kế trang" thay cho bản đang công khai.
@@ -78,8 +78,8 @@ export function SupplierStorefront({
   nameAside?: ReactNode;
   /** Chỉ cổng nhà cung cấp: nút nâng cấp gói, đặt dưới link website. */
   ownerActions?: ReactNode;
-  /** Chỉ cổng nhà cung cấp: nhãn và kích thước gợi ý dưới ảnh đại diện. */
-  avatarHint?: ReactNode;
+  /** Chỉ cổng nhà cung cấp: nhãn và kích thước gợi ý cạnh nút thêm ảnh bìa. */
+  coverHint?: ReactNode;
   /** Đường dẫn ảnh khối nội dung; cổng nhà cung cấp dùng bản xem trước có đăng nhập. */
   showcaseImageUrl?: (path: string) => string;
   /** Nút tải báo cáo xác minh nhà máy (PDF) cho từng mã báo cáo; trang công khai truyền vào. */
@@ -162,7 +162,7 @@ export function SupplierStorefront({
       avatarUrl={avatarUrl}
       coverAction={coverAction}
       avatarAction={avatarAction}
-      avatarHint={avatarHint}
+      coverHint={coverHint}
       nameAside={nameAside}
       ownerActions={ownerActions}
     /></div> : <>
@@ -170,6 +170,7 @@ export function SupplierStorefront({
       {(coverUrl || coverAction) && <div className={`relative bg-ink-50 ${coverUrl ? "h-32 sm:h-44" : "h-16"}`}>
         {coverUrl && <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
         {coverAction}
+        {coverHint}
       </div>}
       <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:gap-6 sm:p-8">
         <div className="flex w-fit shrink-0 flex-col items-center">
@@ -179,7 +180,6 @@ export function SupplierStorefront({
             </div>
             {avatarAction}
           </div>
-          {avatarHint}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}</span>

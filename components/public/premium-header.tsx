@@ -21,7 +21,8 @@ export function PremiumHeader(p: {
   avatarUrl: string | null;
   coverAction?: ReactNode;
   avatarAction?: ReactNode;
-  avatarHint?: ReactNode;
+  /** Chỉ cổng nhà cung cấp: nhãn và kích thước gợi ý cạnh nút thêm ảnh bìa. */
+  coverHint?: ReactNode;
   nameAside?: ReactNode;
   ownerActions?: ReactNode;
 }) {
@@ -31,6 +32,7 @@ export function PremiumHeader(p: {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {p.coverUrl && <img src={p.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
       {p.coverAction}
+      {p.coverHint}
     </div>}
     <div className="flex flex-col gap-5 p-5 @2xl:flex-row @2xl:items-start @2xl:p-7">
       <div className="flex min-w-0 flex-1 gap-4">
@@ -42,7 +44,6 @@ export function PremiumHeader(p: {
             </div>
             {p.avatarAction}
           </div>
-          {p.avatarHint}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--sf-accent)]">{p.location}</p>

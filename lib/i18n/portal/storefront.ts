@@ -31,9 +31,9 @@ const en = {
     contactLine: "Vexim will contact {email}.",
     free: "Free",
     months: "{months} months",
-    avatarAdd: "Add profile photo",
-    avatarChange: "Change profile photo",
-    avatarHint: "Square image, at least 400 × 400 px",
+    coverAdd: "Add cover photo",
+    coverChange: "Change cover photo",
+    coverHint: "Landscape image, at least 1600 × 400 px",
   },
 };
 
@@ -74,9 +74,9 @@ const vi: StorefrontMessages = {
     contactLine: "Vexim sẽ liên hệ qua {email}.",
     free: "Miễn phí",
     months: "{months} tháng",
-    avatarAdd: "Thêm ảnh đại diện",
-    avatarChange: "Đổi ảnh đại diện",
-    avatarHint: "Ảnh vuông, tối thiểu 400 × 400 px",
+    coverAdd: "Thêm ảnh bìa",
+    coverChange: "Đổi ảnh bìa",
+    coverHint: "Ảnh ngang, tối thiểu 1600 × 400 px",
   },
 };
 
