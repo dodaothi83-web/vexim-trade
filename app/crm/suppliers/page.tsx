@@ -14,19 +14,39 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Nhà cung cấp" };
 
-export default async function SuppliersPage() {
+/** Đoán gói xin nâng từ ghi chú "Nâng lên gói …" mà form gửi kèm; không đoán được thì để null. */
+function requestedPlanOf(note: string | null): "premium" | "pro" | null {
+  if (!note) return null;
+  if (/premium/i.test(note)) return "premium";
+  if (/\bpro\b/i.test(note)) return "pro";
+  return null;
+}
+
+export default async function SuppliersPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
+  const { plan: initialPlanFilter } = await searchParams;
   const session = await requireSession();
   const canManage = hasPermission(session.role, "suppliers.manage");
 
   const store = getStore();
-  const [suppliers, buyers, reviewDecisions] = await Promise.all([
+  const [suppliers, buyers, reviewDecisions, serviceRequests] = await Promise.all([
     store.listSuppliers(),
     hasPermission(session.role, "buyers.view") ? listBuyersWithSupplier(ownerScopeOf(session)) : Promise.resolve([]),
     store.listSupplierOnboardingDecisions().catch((error) => {
       console.error("[crm-suppliers] cannot load onboarding review times", error);
       return [];
     }),
+    store.listSupplierServiceRequests({ limit: 500 }).catch((error) => {
+      console.error("[crm-suppliers] cannot load plan upgrade requests", error);
+      return [];
+    }),
   ]);
+
+  // Yêu cầu nâng gói còn mở (chưa đóng) theo nhà cung cấp, để bảng gắn nhãn "Xin nâng …".
+  const upgradeRequests: Record<string, { plan: "premium" | "pro" | null; status: string; createdAt: string }> = {};
+  for (const r of serviceRequests) {
+    if (r.service_key !== "plan_upgrade" || r.status === "closed" || upgradeRequests[r.supplier_id]) continue;
+    upgradeRequests[r.supplier_id] = { plan: requestedPlanOf(r.note), status: r.status, createdAt: r.created_at };
+  }
 
   const usage = buildSupplierOrderUsage(buyers);
   const reviewedAt = buildSupplierReviewTimes(suppliers, reviewDecisions);
@@ -67,7 +87,8 @@ export default async function SuppliersPage() {
           <IndustryRequests groups={industryGroups} supplierNames={supplierNames} options={categoryOptions} />
         </div>
       </details>}
-      <SupplierTable suppliers={suppliers} usage={usage} reviewedAt={reviewedAt} canManage={canManage} />
+      <SupplierTable key={initialPlanFilter ?? "all"} suppliers={suppliers} usage={usage} reviewedAt={reviewedAt} canManage={canManage}
+        upgradeRequests={upgradeRequests} initialPlanFilter={initialPlanFilter} />
     </>
   );
 }

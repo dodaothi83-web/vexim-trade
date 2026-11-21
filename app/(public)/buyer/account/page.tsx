@@ -5,6 +5,7 @@ import { sourcingStore } from "@/lib/sourcing/store";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Headphones, PackageSearch } from "lucide-react";
+import { Suspense } from "react";
 import { requireBuyerSession } from "@/lib/auth/buyer-session";
 import { getStore } from "@/lib/db";
 import { getLocale } from "@/lib/i18n/server";
@@ -69,7 +70,8 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
   const [requests, savedGroups] = await Promise.all([
     store.listBuyerRfqsByEmail(session.email),
     Promise.all(Array.from({ length: Math.ceil(account.saved.products.length / 20) }, (_, i) =>
-      getPublicProductRecordsByIds(account.saved.products.slice(i * 20, i * 20 + 20).map((p) => p.id)))),
+      // Chỉ để hiển thị: dùng bản catalogue cache 60 giây (như trang chủ, trang sản phẩm).
+      getPublicProductRecordsByIds(account.saved.products.slice(i * 20, i * 20 + 20).map((p) => p.id), { cachedCatalog: true }))),
   ]);
   let sourcingUnavailable = false;
   const sourcing = await (async () => {
@@ -202,15 +204,16 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
         </div>
         <aside className="min-w-0 space-y-5 lg:col-start-2 xl:col-start-auto">{tab !== "saved" && savedSection(true)}</aside>
       </div>
-      <div className="mt-8 lg:ml-[220px] xl:ml-[230px]"><Recommendations savedIds={account.saved.products.map((p) => p.id)} categorySlugs={[...new Set(savedRecords.map((r) => r.category.slug))]} vi={vi} /></div>
+      <div className="mt-8 lg:ml-[220px] xl:ml-[230px]"><Suspense fallback={<div className="h-72 animate-pulse rounded-2xl bg-ink-100/60" aria-busy="true" />}><Recommendations savedIds={account.saved.products.map((p) => p.id)} categorySlugs={[...new Set(savedRecords.map((r) => r.category.slug))]} vi={vi} /></Suspense></div>
     </div>
   </div>;
 }
 
 async function Recommendations({ savedIds, categorySlugs, vi }: { savedIds: string[]; categorySlugs: string[]; vi: boolean }) {
   try {
-    const categories = (await getStore().listCategories({ publishedOnly: true })).filter((c) => !categorySlugs.length || categorySlugs.includes(c.slug));
-    const snapshot = await loadPublicProductCatalogSnapshot({ categories });
+    // Cùng bản catalogue cache 60 giây với trang chủ/trang sản phẩm (trước đây dựng lại toàn bộ mỗi lần mở).
+    const snapshot = await loadPublicProductCatalogSnapshot();
+    const categories = snapshot.categories.filter((c) => c.status === "published" && c.is_published && (!categorySlugs.length || categorySlugs.includes(c.slug)));
     const groups = await Promise.all(categories.map(async (category) => (await listPublicCategoryProducts(category, { snapshot })).map((p) => ({ ...p, categorySlug: category.slug }))));
     const items = buyerRecommendations(groups.flat(), savedIds, categorySlugs);
     return <section className="pb-8"><h2 className="text-xl font-bold">{categorySlugs.length ? (vi ? "Sản phẩm cùng ngành hàng" : "Products in the same categories") : (vi ? "Khám phá thêm sản phẩm" : "Explore more products")}</h2><p className="mt-2 text-sm leading-6 text-ink-500">{categorySlugs.length ? (vi ? "Cùng ngành hàng với sản phẩm đã lưu. Hãy kiểm tra quy cách trước khi gửi yêu cầu." : "From the same categories as your saved products. Check specifications before requesting a quote.") : (vi ? "Các sản phẩm công khai trên Vexim Trade." : "Public products on Vexim Trade.")}</p>{items.length ? <HomeProductFeed items={items} isVi={vi} perPage={10} /> : <p className="mt-5 rounded-xl bg-white p-6 text-sm text-ink-500">{vi ? "Chưa có sản phẩm khác để gợi ý." : "No other products to suggest yet."} <Link href="/#categories" className="font-semibold text-brand-700 underline">{vi ? "Xem ngành hàng" : "Browse categories"}</Link></p>}</section>;

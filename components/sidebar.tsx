@@ -93,6 +93,8 @@ export function Sidebar({
   pendingSponsoredRequests = 0,
   pendingSourcing = 0,
   pendingSupport = 0,
+  pendingPlanUpgrades = 0,
+  pendingServiceRequests = 0,
 }: {
   dataMode: "supabase" | "local";
   dataDegraded?: boolean;
@@ -116,6 +118,10 @@ export function Sidebar({
   pendingSourcing?: number | null;
   /** Cuộc chat người mua nhắn Vexim mà nhân viên chưa đọc — badge ở menu Chat với người mua */
   pendingSupport?: number;
+  /** Yêu cầu nâng gói mới chưa nhận xử lý — badge ở menu Gói nhà cung cấp */
+  pendingPlanUpgrades?: number;
+  /** Yêu cầu dịch vụ khác (không phải nâng gói) mới chưa nhận xử lý — badge ở menu Yêu cầu dịch vụ */
+  pendingServiceRequests?: number;
   session: { name: string; email: string; role: UserRole };
   permissions: Permission[];
 }) {
@@ -157,6 +163,8 @@ export function Sidebar({
                     : item.href === "/crm/support" ? (pendingSupport > 0 ? { text: String(pendingSupport), title: "Người mua đang chờ trả lời" } : null)
                     : item.href === "/crm/buyers" ? (newBuyers > 0 ? { text: String(newBuyers), title: "Người mua mới chưa xử lý" } : null)
                     : item.href === "/crm/suppliers" ? (pendingSuppliers > 0 ? { text: String(pendingSuppliers), title: "Tài khoản nhà cung cấp chưa nộp hồ sơ hoặc chờ xác nhận" } : null)
+                    : item.href === "/crm/plans" ? (pendingPlanUpgrades > 0 ? { text: String(pendingPlanUpgrades), title: "Nhà cung cấp xin nâng gói, chưa nhận xử lý" } : null)
+                    : item.href === "/crm/service-requests" ? (pendingServiceRequests > 0 ? { text: String(pendingServiceRequests), title: "Yêu cầu dịch vụ mới chưa nhận xử lý" } : null)
                     : item.href === "/crm/products" ? (pendingProducts > 0 ? { text: String(pendingProducts), title: "Sản phẩm chờ duyệt" } : null)
                     : item.href === "/crm/verifications" ? (pendingReviews > 0 ? { text: String(pendingReviews), title: "Đợt kiểm chờ duyệt" } : null)
                     : item.href === "/crm/verifications/submissions" ? (pendingSubmissions > 0 ? { text: String(pendingSubmissions), title: "Hồ sơ nhà cung cấp tự gửi chờ đối chiếu" } : null)

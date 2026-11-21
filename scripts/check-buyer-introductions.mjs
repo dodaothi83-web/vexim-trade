@@ -57,7 +57,7 @@ assert.equal(picked[1].id, "id11");
 
 // 8. Máy chủ: ngành đọc từ danh mục đang đăng; link ký; không theo dõi mở thư; thư có "Don't ask me again".
 const server = read("lib/buyer/introductions-server.ts");
-assert.match(server, /listCategories\(\{ publishedOnly: true \}\)\)\.filter\(\(c\) => !c\.parent_id && c\.status === "published" && c\.is_published\)/, "Ngành lấy từ danh mục đang đăng, không gắn cứng");
+assert.match(server, /snapshot\.categories\.filter\(\(c\) => !c\.parent_id && c\.status === "published" && c\.is_published\)/, "Ngành lấy từ danh mục đang đăng, không gắn cứng");
 assert.match(server, /createHmac\("sha256", getAuthSecret\(\)\)\.update\(`buyer-intro:\$\{body\}`\)/);
 assert.match(server, /timingSafeEqual/);
 assert.match(server, /Don't ask me again/);

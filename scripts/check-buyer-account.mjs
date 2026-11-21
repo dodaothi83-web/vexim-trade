@@ -93,6 +93,7 @@ const buyerNav = load('components/buyer-account-nav.tsx', {
 });
 const dashboard = load('app/(public)/buyer/account/page.tsx', {
   '@/components/buyer-account-nav': buyerNav,
+  react: React,
   '@/components/brand/account-role-icons': roleIcons,
   '@/components/brand/buyer-dashboard-icons': dashboardIcons,
   '@/components/buyer-sourcing-history': SourcingHistory,
@@ -216,6 +217,10 @@ for (lang of ['en', 'vi']) {
 }
 emptyDashboard = false;
 const dashboardSource = read('app/(public)/buyer/account/page.tsx');
+// Tốc độ: phần chỉ hiển thị dùng bản catalogue cache 60 giây như trang chủ/trang sản phẩm; gợi ý tải sau.
+assert.match(dashboardSource, /getPublicProductRecordsByIds\(account\.saved\.products[\s\S]{0,120}\{ cachedCatalog: true \}/, 'Sản phẩm đã lưu đọc từ catalogue đã cache');
+assert.match(dashboardSource, /const snapshot = await loadPublicProductCatalogSnapshot\(\);/, 'Gợi ý dùng catalogue đã cache');
+assert.match(dashboardSource, /<Suspense fallback=\{[^}]*\}><Recommendations/, 'Gợi ý không chặn cả trang');
 const navSource = read('components/buyer-account-nav.tsx');
 assert.match(navSource, /\{ id: "overview", icon: LayoutDashboard \}, \{ id: "messages", icon: MessageCircle \}, \{ id: "requests", icon: ClipboardList \},\s*\{ id: "vexim", icon: Headphones \}, \{ id: "saved", icon: Heart \}, \{ id: "profile", icon: UserRound \}/);
 assert.match(navSource, /id === "messages" \? "\/buyer\/account\/messages"/, 'Mục Tin nhắn mở trang chat của người mua');

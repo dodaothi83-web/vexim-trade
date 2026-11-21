@@ -1,6 +1,7 @@
 import "server-only";
 
 import crypto from "node:crypto";
+import { unstable_cache } from "next/cache";
 
 import brandColors from "@/lib/brand/colors.json";
 import { getAuthSecret } from "@/lib/auth/secret";
@@ -20,21 +21,22 @@ import { emailCategories, readIntroductions } from "./introductions";
  */
 export type IntroCategory = { id: string; slug: string; name: string; products: number };
 
-/** Ngành lớn đang đăng, kèm số sản phẩm đang hiện; ngành mới đăng tự xuất hiện. */
-export async function introCategories(): Promise<IntroCategory[]> {
-  const store = getStore();
-  const categories = (await store.listCategories({ publishedOnly: true })).filter((c) => !c.parent_id && c.status === "published" && c.is_published);
-  const snapshot = await loadPublicProductCatalogSnapshot().catch(() => null);
-  const counts = await Promise.all(categories.map((c: Category) => snapshot
-    ? listPublicCategoryProducts(c, { snapshot }).then((list) => list.length).catch(() => 0) : Promise.resolve(0)));
+/**
+ * Ngành lớn đang đăng, kèm số sản phẩm đang hiện; ngành mới đăng tự xuất hiện. Cache 5 phút (dùng ở
+ * trang tài khoản, lời mời, thư), dựa trên bản catalogue cache 60 giây của trang chủ.
+ */
+export const introCategories = unstable_cache(async (): Promise<IntroCategory[]> => {
+  const snapshot = await loadPublicProductCatalogSnapshot();
+  const categories = snapshot.categories.filter((c) => !c.parent_id && c.status === "published" && c.is_published);
+  const counts = await Promise.all(categories.map((c: Category) => listPublicCategoryProducts(c, { snapshot }).then((list) => list.length).catch(() => 0)));
   return categories.map((c, i) => ({ id: c.id, slug: c.slug, name: c.name_i18n?.en || c.name_i18n?.vi || c.slug, products: counts[i] }))
     .sort((a, b) => a.name.localeCompare(b.name));
-}
+}, ["buyer-intro-categories"], { revalidate: 300, tags: ["public-catalog"] });
 
 /** Ngành lớn chứa một ngành (ngành con thì đi lên cha). */
 export async function topCategoryOf(categoryId: string | null | undefined): Promise<IntroCategory | null> {
   if (!categoryId) return null;
-  const all = await getStore().listCategories({ publishedOnly: true }).catch(() => []);
+  const all = (await loadPublicProductCatalogSnapshot().catch(() => null))?.categories ?? [];
   const own = all.find((c) => c.id === categoryId);
   const top = own?.parent_id ? all.find((c) => c.id === own.parent_id) : own;
   return top && top.status === "published" && top.is_published ? { id: top.id, slug: top.slug, name: top.name_i18n?.en || top.slug, products: 0 } : null;

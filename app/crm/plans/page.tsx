@@ -112,7 +112,7 @@ export default async function SupplierPlansPage() {
         </ul>
       </section>
 
-      <section aria-labelledby="upgrades-title" className="rounded-xl border border-ink-200 bg-white p-4 shadow-sm xl:col-span-2">
+      <section id="upgrades" aria-labelledby="upgrades-title" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-4 shadow-sm xl:col-span-2">
         <div className="flex items-center justify-between gap-2">
           <h2 id="upgrades-title" className="text-sm font-bold text-ink-900">Yêu cầu nâng gói đang mở</h2>
           <Link href="/crm/service-requests" className="text-xs font-semibold text-brand-700 hover:underline">Mở hàng yêu cầu dịch vụ →</Link>
