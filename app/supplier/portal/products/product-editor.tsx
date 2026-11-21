@@ -23,6 +23,7 @@ import {
   Trash2,
   X,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
 import { productPriceBlockers, productPriceBlockersEn, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
@@ -33,7 +34,6 @@ import { useToast } from "@/components/toast";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
-import { saveProductContentModeAction } from "../aplus-actions";
 import { ProductVideoField } from "@/components/products/product-video-field";
 import { APLUS_MAX_MODULES, canEditAplus, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { aplusMessages, type AplusMessages } from "@/lib/i18n/portal/aplus";
@@ -353,12 +353,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const catalogueAssets = media.filter((asset) => asset.kind !== "image");
   // Mục 7: Basic tính theo mô tả chữ, gói có A+ tính theo số khối A+ đã lưu.
   const aplusCount = product ? readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id }).length : 0;
-  // Nội dung hiển thị (gói Premium/Pro): mặc định "cơ bản"; chưa có cột chọn thì có A+ là đang hiện A+.
-  const [contentMode, setContentMode] = useState<"basic" | "aplus">(() =>
-    !richContentAllowed ? "basic" : product?.content_mode ?? (aplusCount > 0 ? "aplus" : "basic"));
-  const [modeBusy, setModeBusy] = useState(false);
-  const [modeNote, setModeNote] = useState<{ ok: boolean; message: string } | null>(null);
-  const modeEditable = product ? canEditAplus(product) : true;
+  // Nội dung hiển thị (gói Premium/Pro): mặc định "cơ bản", bật A+ ở trang soạn A+; chưa có cột chọn thì có A+ là hiện A+.
+  const contentMode = product?.content_mode ?? (aplusCount > 0 ? "aplus" : "basic");
+  const [openingAplus, setOpeningAplus] = useState(false);
   const showsAplus = richContentAllowed && contentMode === "aplus" && aplusCount > 0;
   const detailFilled = showsAplus || (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim().length > 0;
   const basicFilled = [snapshot.name, snapshot.keywords, snapshot.description].filter((value) => (value ?? "").trim()).length;
@@ -622,23 +619,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     }
   }
 
-  /** Chọn nội dung hiển thị. Sản phẩm đã có thì lưu ngay; sản phẩm mới chỉ đổi ô đang soạn. */
-  async function chooseContentMode(mode: "basic" | "aplus") {
-    if (mode === contentMode) return;
-    if (!product) { setContentMode(mode); return; }
-    const previous = contentMode;
-    setContentMode(mode); setModeBusy(true); setModeNote(null);
-    const result = await saveProductContentModeAction(product.id, mode).catch(() => ({ ok: false, message: aplusCopy.errors.failed }));
-    setModeBusy(false); setModeNote(result);
-    if (!result.ok) setContentMode(previous); else router.refresh();
-  }
-
-  /** Sản phẩm mới chọn A+: lưu nháp, chọn A+ rồi sang trang soạn A+. */
+  /** Sản phẩm mới bấm "Nội dung A+": lưu nháp rồi sang trang soạn A+ (cần có sản phẩm trước). */
   async function openAplusForNew() {
+    setOpeningAplus(true);
     const id = await persist();
-    if (!id) return;
-    setModeBusy(true);
-    await saveProductContentModeAction(id, "aplus").catch(() => null);
+    if (!id) { setOpeningAplus(false); return; }
     router.push(`/supplier/portal/products/${id}/aplus`);
   }
 
@@ -1572,43 +1557,25 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="7" title={copy.detail.title} pill={sectionPill("sec-detail")} />
             <div className="px-4 py-4 sm:px-5">
-              {/* Basic: chỉ mô tả bằng chữ. Premium/Pro: chọn "Nội dung cơ bản" (mặc định) hoặc "Nội dung A+"
-                  (soạn ở trang riêng). Lựa chọn quyết định trang sản phẩm hiện nội dung nào. */}
-              {richContentAllowed && <div className="mb-4">
-                <p className="mb-1.5 text-[13px] font-semibold text-ink-700">{aplusCopy.contentTabs.label}</p>
-                <div role="radiogroup" aria-label={aplusCopy.contentTabs.label} className="grid gap-2 sm:grid-cols-2">
-                  {(["basic", "aplus"] as const).map((mode) => {
-                    const on = contentMode === mode;
-                    return <button key={mode} type="button" role="radio" aria-checked={on} disabled={busy || modeBusy || !modeEditable}
-                      onClick={() => void chooseContentMode(mode)}
-                      className={`rounded-lg border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${on ? "border-brand-600 bg-brand-50 ring-2 ring-brand-100" : "border-ink-200 bg-white hover:border-brand-300"}`}>
-                      <span className="flex items-center gap-2 text-[13.5px] font-bold text-ink-900">
-                        <span aria-hidden="true" className={`flex size-4 items-center justify-center rounded-full border ${on ? "border-brand-700" : "border-ink-300"}`}>{on && <span className="size-2 rounded-full bg-brand-700" />}</span>
-                        {mode === "basic" ? aplusCopy.contentTabs.basic : aplusCopy.contentTabs.aplus}</span>
-                      <span className="mt-0.5 block pl-6 text-[11.5px] leading-5 text-ink-500">{mode === "basic" ? aplusCopy.contentTabs.basicHint : aplusCopy.contentTabs.aplusHint}</span>
-                    </button>;
-                  })}
+              {/* Mặc định: mô tả bằng chữ (nội dung cơ bản). Gói Premium/Pro có thêm nút "Nội dung A+" mở
+                  trang soạn riêng, rộng rãi hơn; trang sản phẩm hiện A+ khi nhà cung cấp bật trên trang đó. */}
+              <div className="text-[12px]">
+                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[13px] font-semibold text-ink-700">{copy.detail.label}</span>
+                  {richContentAllowed && (product
+                    ? <Link href={`/supplier/portal/products/${product.id}/aplus`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-800 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm hover:bg-brand-900">
+                      <Sparkles className="size-3.5" aria-hidden="true" />{aplusCopy.aplusPage.aplus}</Link>
+                    : <button type="button" disabled={busy || openingAplus} onClick={() => void openAplusForNew()}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-800 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm hover:bg-brand-900 disabled:opacity-60">
+                      <Sparkles className="size-3.5" aria-hidden="true" />{aplusCopy.aplusPage.aplus}</button>)}
                 </div>
-                {!modeEditable && product && <p className="mt-1.5 text-[11.5px] text-ink-500">{aplusCopy.contentTabs.lockedNote}</p>}
-                {modeNote && <p role={modeNote.ok ? "status" : "alert"} className={`mt-1.5 text-[11.5px] font-semibold ${modeNote.ok ? "text-emerald-700" : "text-rose-700"}`}>{modeNote.message}</p>}
-              </div>}
-              {(!richContentAllowed || contentMode === "basic") && <div className="text-[12px]">
-                <span className="mb-1.5 block text-[13px] font-semibold text-ink-700">{copy.detail.label}</span>
+                {showsAplus && <p className="mb-2 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[12px] leading-5 text-brand-900">
+                  {fill(aplusCopy.aplusPage.showingAplusCount, { count: aplusCount })}</p>}
                 <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
                   value={snapshot.description_detail} onChange={onDescriptionDetailChange} disabled={locked || busy}
                   copy={shared.description} />
-              </div>}
-              {richContentAllowed && contentMode === "aplus" && <div className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-ink-50 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13.5px] font-bold text-ink-900">{aplusCount > 0 ? fill(aplusCopy.contentTabs.aplusSummary, { count: aplusCount }) : aplusCopy.contentTabs.aplus}</p>
-                  <p className="mt-0.5 text-[11.5px] leading-5 text-ink-600">{aplusCount > 0 ? aplusCopy.contentTabs.showingAplus : aplusCopy.contentTabs.aplusEmpty}</p>
-                </div>
-                {product
-                  ? <Link href={`/supplier/portal/products/${product.id}/aplus`} className="btn btn-primary btn-sm">{aplusCopy.contentTabs.open}</Link>
-                  : <button type="button" disabled={busy || modeBusy} onClick={() => void openAplusForNew()} className="btn btn-primary btn-sm">{aplusCopy.contentTabs.saveFirst}</button>}
-                {/* Mô tả chữ vẫn gửi kèm để không mất khi lưu (ẩn khỏi ô soạn lúc chọn A+). */}
-                <input type="hidden" name="description_detail" value={snapshot.description_detail ?? ""} />
-              </div>}
+              </div>
             </div>
           </section>
         </form>

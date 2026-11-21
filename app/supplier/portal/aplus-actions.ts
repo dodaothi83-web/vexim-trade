@@ -192,7 +192,7 @@ export async function saveProductContentModeAction(productId: string, mode: "bas
       revalidatePath(`/supplier/portal/products/${productId}`);
       revalidatePath("/products", "layout");
     }
-    return { ok: true, message: mode === "aplus" ? m.aplus.contentTabs.showingAplus : m.aplus.contentTabs.showingBasic };
+    return { ok: true, message: mode === "aplus" ? m.aplus.aplusPage.showingAplus : m.aplus.aplusPage.showingBasic };
   } catch (error) {
     console.error("[aplus] content mode", error);
     return { ok: false, message: e.failed };
