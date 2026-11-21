@@ -44,10 +44,10 @@ assert.match(actions, /prepareAplusForSave\(modules, ctx/, "Viết tiếng Việ
 assert.match(actions, /verifyAplusVideos\(checked\.modules, before, ctx\)/, "Video kiểm tra bằng hàm dùng chung");
 assert.match(read("lib/products/aplus-video-verify.ts"), /video\?\.meta\.purpose !== "company" \|\| video\?\.meta\.supplier_id !== ctx\.supplierId/, "Video mới phải đúng nhà cung cấp");
 assert.match(actions, /updateSupplier\(access\.supplier\.id, \{ company_aplus: verified\.modules \}\)/);
-assert.match(actions, /deleteObject/);
+assert.match(actions, /deleteAplusImages\(aplusImagePaths\(before\)/, "Ảnh bị bỏ thì xoá cả bản nhỏ");
 const upload = read("app/api/supplier-portal/company-aplus/route.ts");
 assert.match(upload, /\.premiumStorefront\) return fail/);
-assert.match(upload, /aplus\/\$\{access\.supplier\.id\}\/\$\{COMPANY_APLUS_ID\}\//);
+assert.match(upload, /storeAplusImage\(`aplus\/\$\{access\.supplier\.id\}\/\$\{COMPANY_APLUS_ID\}`, bytes\)/, "Ảnh vào thư mục A+ doanh nghiệp, WebP + bản nhỏ");
 assert.match(upload, /purpose: "company"/);
 assert.match(read("lib/media/cloudflare-stream.ts"), /purpose: "company", supplier_id: input\.supplierId/);
 

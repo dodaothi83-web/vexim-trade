@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { getSession, guard } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { deleteStreamVideo } from "@/lib/media/cloudflare-stream";
-import { deleteObject } from "@/lib/media/storage";
+import { deleteAplusImages } from "@/lib/products/aplus-image-store";
 import { aplusImagePaths, aplusVideoUids, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 
 /** Nhân viên gỡ một khối A+ doanh nghiệp vi phạm (liên hệ trực tiếp, nội dung sai...). Ghi nhật ký. */
@@ -28,7 +28,7 @@ export async function removeCompanyAplusModuleAction(supplierId: string, moduleI
     return { ok: false, message: "Chưa gỡ được khối. Thử lại sau ít phút." };
   }
   const kept = new Set(aplusImagePaths(next));
-  await Promise.all(aplusImagePaths([removed]).filter((p) => !kept.has(p)).map((p) => deleteObject(p).catch(() => null)));
+  await deleteAplusImages(aplusImagePaths([removed]).filter((p) => !kept.has(p)));
   const keptVideos = new Set(aplusVideoUids(next));
   const dropped = aplusVideoUids([removed]).filter((uid) => !keptVideos.has(uid));
   if (dropped.length) after(() => Promise.all(dropped.map(deleteStreamVideo)));

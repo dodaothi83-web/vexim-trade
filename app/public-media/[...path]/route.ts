@@ -8,7 +8,7 @@ import { isExpired } from "@/lib/media/readiness";
 import { isTestOnlyProduct, productReviewApproved } from "@/lib/public/product-selection";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
-import { aplusImagePaths, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
+import { aplusImagePaths, aplusMainPath, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 
 export const runtime = "nodejs";
@@ -27,6 +27,8 @@ export const dynamic = "force-dynamic";
  * 3. Widget gallery preload ảnh kề cạnh + crossfade (xem product-media-gallery).
  *
  * Ảnh tĩnh công khai (categories/blog/profile-cover) giữ cache 7 ngày immutable.
+ * Ảnh A+ (sản phẩm và doanh nghiệp) đi qua ACL như ảnh sản phẩm nên dùng chung cache ngắn
+ * 60 giây + ETag: gỡ ảnh khỏi nội dung hoặc gói hết hạn là ảnh ẩn trong khoảng một phút.
  */
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -95,7 +97,8 @@ function cachePut(rel: string, entry: ObjectCacheEntry) {
 function relAllowed(rel: string): boolean {
   if (rel.startsWith("categories/") || rel.startsWith("blog/")) return PUBLIC_IMAGE_EXT.test(rel);
   if (rel.startsWith("products/")) return /^products\/[a-z0-9_-]+\/[a-z0-9_-]+\.(jpe?g|png|webp)$/i.test(rel);
-  if (rel.startsWith("aplus/")) return /^aplus\/[a-f0-9-]{36}\/(?:[a-f0-9-]{36}|company)\/[a-f0-9-]{36}\.(jpe?g|png|webp)$/i.test(rel);
+  // Ảnh A+ chính (WebP; JPEG/PNG cũ) hoặc bản nhỏ 640px `<uuid>-thumb.webp` của nó.
+  if (rel.startsWith("aplus/")) return /^aplus\/[a-f0-9-]{36}\/(?:[a-f0-9-]{36}|company)\/[a-f0-9-]{36}(?:\.(jpe?g|png|webp)|-thumb\.webp)$/i.test(rel);
   if (rel.startsWith("product-form-images/")) return /^product-form-images\/[a-f0-9-]{36}\/[a-f0-9-]{36}(?:-thumb)?\.webp$/i.test(rel);
   if (rel.startsWith("suppliers/")) {
     // Chỉ cho ảnh (đuôi ảnh), chặn PDF/doc và mọi file khác.
@@ -126,6 +129,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
   const isProductImage = rel.startsWith("products/") || formImage;
   const showcaseImage = rel.startsWith("suppliers/") && /^showcase-/i.test(rel.split("/").at(-1) ?? "");
   const supplierImage = rel.startsWith("suppliers/") && !/^(profile-|cover-|showcase-)/i.test(rel.split("/").at(-1) ?? "");
+  const aplusImage = rel.startsWith("aplus/");
+  // Bản nhỏ chỉ mở khi đúng ảnh chính của nó đang nằm trong nội dung A+.
+  const aplusContentPath = aplusImage ? aplusMainPath(rel) : rel;
   if (rel.startsWith("aplus/") && rel.split("/")[2] === COMPANY_APLUS_ID) {
     // Ảnh A+ doanh nghiệp chỉ công khai khi đang nằm trong nội dung của hồ sơ đã đăng và gói còn
     // quyền trang cao cấp. Gỡ khỏi nội dung hoặc hết gói thì đường dẫn không còn mở.
@@ -133,7 +139,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
     const supplier = await getStore().getSupplier(supplierId);
     if (!supplier || supplier.status !== "published" || (supplier.is_demo && process.env.VEXIM_SHOW_DEMO !== "true") ||
         !supplierPlanRules(supplier, new Date(), await readPlanCatalog()).premiumStorefront ||
-        !aplusImagePaths(readAplusModules(supplier.company_aplus, { supplierId, productId: COMPANY_APLUS_ID })).includes(rel))
+        !aplusImagePaths(readAplusModules(supplier.company_aplus, { supplierId, productId: COMPANY_APLUS_ID })).includes(aplusContentPath))
       return new NextResponse("Not found", { status: 404 });
   } else if (rel.startsWith("aplus/")) {
     // Ảnh nội dung A+ chỉ công khai khi đang nằm trong nội dung của một sản phẩm đã đăng và gói
@@ -142,7 +148,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
     const store = getStore();
     const product = await store.getProduct(productId);
     if (!product || product.supplier_id !== supplierId || !productReviewApproved(product) || isTestOnlyProduct(product.name) ||
-        !aplusImagePaths(readAplusModules(product.aplus_content, { supplierId, productId })).includes(rel)) return new NextResponse("Not found", { status: 404 });
+        !aplusImagePaths(readAplusModules(product.aplus_content, { supplierId, productId })).includes(aplusContentPath)) return new NextResponse("Not found", { status: 404 });
     const supplier = await store.getSupplier(supplierId);
     if (!supplier || supplier.status !== "published" || (supplier.is_demo && process.env.VEXIM_SHOW_DEMO !== "true") ||
         (!product.ready_for_buyer && !supplier.is_demo) || !supplierPlanRules(supplier, new Date(), await readPlanCatalog()).richContent)
@@ -185,10 +191,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
 
   const ext = rel.split(".").pop()?.toLowerCase() ?? "";
   const mime = MIME_BY_EXT[ext] ?? "application/octet-stream";
-  // Ảnh qua ACL (sản phẩm + gallery chia sẻ buyer) có thể bị thu hồi → chỉ browser
+  // Ảnh qua ACL (sản phẩm, A+, gallery chia sẻ buyer) có thể bị thu hồi → chỉ browser
   // được cache 60 giây rồi bắt buộc xác nhận lại bằng ETag. Ảnh danh mục/blog/
   // profile-cover là tĩnh công khai → immutable 7 ngày.
-  const aclGated = isProductImage || supplierImage || showcaseImage;
+  const aclGated = isProductImage || supplierImage || showcaseImage || aplusImage;
   const cacheControl = aclGated
     ? "private, max-age=60, must-revalidate"
     : "public, max-age=604800, immutable";

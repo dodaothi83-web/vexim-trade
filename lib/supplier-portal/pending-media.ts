@@ -2,7 +2,7 @@
  * Ảnh A+ và video tải lên khi sản phẩm mới chưa được lưu lần đầu (giống cách Shopee cho đăng
  * video ngay khi tạo sản phẩm).
  *
- * - Tải lên: ảnh nằm ở `aplus/<supplierId>/pending/<uuid>.<ext>`, video Cloudflare mang meta
+ * - Tải lên: ảnh nằm ở `aplus/<supplierId>/pending/<uuid>.webp` (kèm bản nhỏ `-thumb.webp`), video Cloudflare mang meta
  *   `pending` và `supplier_id`. Mỗi tệp ghi một dòng trong `supplier_pending_uploads`.
  * - Lưu sản phẩm: ảnh được chép sang thư mục sản phẩm, video được kiểm tra đúng chủ rồi gắn mã
  *   sản phẩm; dòng chờ bị xoá.
@@ -10,7 +10,7 @@
  */
 import { getSupabaseClient } from "@/lib/db/supabase";
 import { deleteStreamVideo, getStreamVideo, setStreamVideoMeta, streamConfig } from "@/lib/media/cloudflare-stream";
-import { deleteObject, getObject, putObject } from "@/lib/media/storage";
+import { copyAplusImage, deleteAplusImages } from "@/lib/products/aplus-image-store";
 import { aplusImagePaths, mapAplusImages, validateAplusModules, type AplusModule, type AplusProblem, type ProductGalleryVideo } from "@/lib/products/aplus";
 
 export const PENDING_PRODUCT_ID = "pending";
@@ -18,10 +18,9 @@ export const PENDING_PRODUCT_ID = "pending";
 export const PENDING_UPLOADS_PER_DAY = 80;
 const PENDING_TTL_HOURS = 24;
 const TABLE = "supplier_pending_uploads";
-const MIME: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
-
-export function pendingImagePath(supplierId: string, file: string): string {
-  return `aplus/${supplierId}/${PENDING_PRODUCT_ID}/${file}`;
+/** Thư mục ảnh A+ chờ của một nhà cung cấp. */
+export function pendingImageFolder(supplierId: string): string {
+  return `aplus/${supplierId}/${PENDING_PRODUCT_ID}`;
 }
 
 export async function registerPendingUpload(supplierId: string, kind: "image" | "video", ref: string): Promise<void> {
@@ -125,10 +124,8 @@ export async function attachPendingMedia(input: PendingMediaInput, ctx: {
         for (const from of aplusImagePaths([module])) {
           if (moved.has(from)) continue;
           const to = `aplus/${supplierId}/${productId}/${from.split("/").pop()}`;
-          const object = await getObject(from).catch(() => null);
-          const mime = MIME[from.split(".").pop()?.toLowerCase() ?? ""];
-          if (!object || !mime) { failed = true; break; }
-          await putObject(to, object.data, mime);
+          // Chép cả bản nhỏ 640px đi cùng ảnh chính.
+          if (!await copyAplusImage(from, to)) { failed = true; break; }
           moved.set(from, to);
         }
         if (failed) { complete = false; continue; }
@@ -141,10 +138,8 @@ export async function attachPendingMedia(input: PendingMediaInput, ctx: {
     }
     if (modules.length) patch.aplus_content = modules;
     // Ảnh chờ đã chép xong thì xoá bản tạm.
-    for (const from of moved.keys()) {
-      released.push(from);
-      await deleteObject(from).catch(() => null);
-    }
+    released.push(...moved.keys());
+    await deleteAplusImages([...moved.keys()]);
   }
 
   if (patch.aplus_content || patch.gallery_video) {
@@ -172,7 +167,7 @@ export async function cleanupPendingUploads(): Promise<{ images: number; videos:
   for (const row of (data ?? []) as Array<{ id: string; kind: string; ref: string }>) {
     try {
       if (row.kind === "video") { await deleteStreamVideo(row.ref); result.videos++; }
-      else if (row.ref.split("/")[2] === PENDING_PRODUCT_ID) { await deleteObject(row.ref).catch(() => null); result.images++; }
+      else if (row.ref.split("/")[2] === PENDING_PRODUCT_ID) { await deleteAplusImages([row.ref]); result.images++; }
       await db.from(TABLE).delete().eq("id", row.id);
     } catch (cleanupError) {
       console.error("[pending-media] cleanup", row.ref, cleanupError);

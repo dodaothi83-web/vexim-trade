@@ -53,6 +53,8 @@ jobs:
             command: check:supplier-profile
           - label: Đa ngôn ngữ khu vực tài khoản
             command: check:i18n
+          - label: Nội dung và ảnh A+
+            command: check:aplus
     steps:
       - uses: actions/checkout@v4
 

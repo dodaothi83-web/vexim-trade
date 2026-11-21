@@ -99,6 +99,38 @@ export function isAplusImagePath(path: unknown, supplierId: string, productId: s
     /^[a-f0-9-]{36}\.(jpg|jpeg|png|webp)$/i.test(parts[3]);
 }
 
+/**
+ * Ảnh A+ lưu dạng WebP (≤1600px) kèm bản nhỏ 640px cùng tên: `<uuid>.webp` + `<uuid>-thumb.webp`.
+ * Nội dung chỉ ghi đường dẫn ảnh chính; bản nhỏ suy ra từ đó. Ảnh JPEG/PNG cũ không có bản nhỏ.
+ */
+const APLUS_THUMB = /-thumb\.webp$/i;
+
+/** Bản nhỏ 640px của một ảnh A+ chính, hoặc null khi ảnh không có bản nhỏ (ảnh cũ chưa chuyển WebP). */
+export function aplusThumbPath(path: string): string | null {
+  return /\.webp$/i.test(path) && !APLUS_THUMB.test(path) ? path.replace(/\.webp$/i, "-thumb.webp") : null;
+}
+
+/** Ảnh chính của một đường dẫn A+ (bản nhỏ → ảnh chính; ảnh chính giữ nguyên). */
+export function aplusMainPath(path: string): string {
+  return path.replace(APLUS_THUMB, ".webp");
+}
+
+/** Mọi tệp lưu trữ của một ảnh A+: ảnh chính và bản nhỏ (nếu có). Dùng khi chép hoặc xoá. */
+export function aplusImageFiles(path: string): string[] {
+  const thumb = aplusThumbPath(path);
+  return thumb ? [path, thumb] : [path];
+}
+
+/**
+ * Tệp A+ được phép đọc qua đường xem trước/công khai: ảnh chính hợp lệ hoặc đúng bản nhỏ của nó.
+ * Nội dung A+ vẫn chỉ chấp nhận ảnh chính (isAplusImagePath), không bao giờ ghi bản nhỏ.
+ */
+export function isAplusImageFile(path: unknown, supplierId: string, productId: string): path is string {
+  if (typeof path !== "string") return false;
+  const main = aplusMainPath(path);
+  return isAplusImagePath(main, supplierId, productId) && (path === main || aplusThumbPath(main) === path);
+}
+
 const text = (value: unknown, max: number) => typeof value === "string" ? value.replace(/\r\n/g, "\n").trim().slice(0, max + 1) : "";
 
 /**

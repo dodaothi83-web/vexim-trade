@@ -42,7 +42,7 @@ assert.match(actions, /startsWith\(`suppliers\/\$\{access\.supplier\.id\}\/showc
 const media = read("app/public-media/[...path]/route.ts");
 assert.match(media, /normalizeShowcaseBlocks\(supplier\?\.showcase_blocks\)\.some\(\(block\) => block\.image_path === rel\)/);
 assert.match(media, /supplier\.status !== "published" \|\| !supplierPlanRules\(supplier\)\.premiumStorefront/);
-assert.match(media, /const aclGated = isProductImage \|\| supplierImage \|\| showcaseImage;/, "Ảnh thu hồi được thì không cache lâu");
+assert.match(media, /const aclGated = isProductImage \|\| supplierImage \|\| showcaseImage \|\| aplusImage;/, "Ảnh thu hồi được thì không cache lâu");
 
 // 7. Trang công khai: giao diện cao cấp và khối nội dung chỉ khi gói còn hiệu lực, kèm ghi chú không phải bằng chứng.
 const storefront = read("components/public/supplier-storefront.tsx");

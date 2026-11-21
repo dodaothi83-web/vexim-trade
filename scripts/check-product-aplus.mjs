@@ -145,7 +145,7 @@ const pendingRoute = read("app/api/supplier-portal/pending-media/route.ts");
 assert.match(pendingRoute, /\.richContent\) return fail\(e\.plan, 403\)/, "Khu chờ chỉ cho gói có quyền video và A+");
 assert.match(pendingRoute, /PENDING_UPLOADS_PER_DAY\) return fail\(e\.tooManyUploads, 429\)/, "Giới hạn số tệp chờ mỗi ngày");
 assert.match(pendingRoute, /productId: null/, "Video chờ chưa gắn mã sản phẩm");
-assert.match(pendingRoute, /isAplusImagePath\(path, access\.supplier\.id, PENDING_PRODUCT_ID\)/, "Chỉ chính nhà cung cấp xem được ảnh chờ của mình");
+assert.match(pendingRoute, /isAplusImageFile\(path, access\.supplier\.id, PENDING_PRODUCT_ID\)/, "Chỉ chính nhà cung cấp xem được ảnh chờ của mình");
 assert.match(stream, /pending: "true", supplier_id: input\.supplierId/);
 assert.match(pendingLib, /video\.meta\.supplier_id !== supplierId \|\| video\.meta\.pending !== "true"/, "Video chờ phải đúng nhà cung cấp và chưa gắn sản phẩm");
 assert.match(pendingLib, /validateAplusModules\(parsed, \{ supplierId, productId: PENDING_PRODUCT_ID \}, \{ draft: true \}\)/, "A+ soạn trước chỉ dùng ảnh trong khu chờ của chính nhà cung cấp");

@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { fill } from "@/lib/i18n/format";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { deleteStreamVideo, getStreamVideo, streamConfig } from "@/lib/media/cloudflare-stream";
-import { deleteObject } from "@/lib/media/storage";
+import { deleteAplusImages } from "@/lib/products/aplus-image-store";
 import { aplusTranslationConfigured, translateAplusModules } from "@/lib/ai/translate-aplus";
 import { APLUS_MAX_MODULES, APLUS_MAX_VIDEOS, aplusVideoLimitExceeded, aplusImagePaths, aplusVideoUids, canEditAplus, readAplusModules, readGalleryVideo, validateAplusModules,
   type AplusModule, type AplusProblem, type ProductGalleryVideo } from "@/lib/products/aplus";
@@ -47,7 +47,7 @@ export async function saveProductAplusAction(productId: string, modules: unknown
     const mode = verified.modules.length ? "aplus" as const : "basic" as const;
     await access.store.updateProduct(productId, { aplus_content: verified.modules, content_mode: mode });
     const kept = new Set(aplusImagePaths(verified.modules));
-    await Promise.all(previous.filter((path) => !kept.has(path)).map((path) => deleteObject(path).catch(() => null)));
+    await deleteAplusImages(previous.filter((path) => !kept.has(path)));
     // Video bị bỏ khỏi nội dung thì xoá trên Cloudflare (chạy sau khi trả lời, không làm chậm nút Lưu).
     const keptVideos = new Set(aplusVideoUids(verified.modules));
     const droppedVideos = aplusVideoUids(before).filter((uid) => !keptVideos.has(uid));

@@ -17,9 +17,9 @@ assert.doesNotMatch(actions, /aplus_drafts|pending/, "Không có bước chờ n
 
 const upload = read("lib/products/aplus-staff-upload.ts");
 assert.match(upload, /hasPermission\(session\.role, permission\)/);
-assert.match(upload, /`aplus\/\$\{target\.supplierId\}\/\$\{target\.productId \?\? COMPANY_APLUS_ID\}\/\$\{randomUUID\(\)\}/, "Ảnh vào thư mục A+ của đúng nhà cung cấp");
+assert.match(upload, /storeAplusImage\(`aplus\/\$\{target\.supplierId\}\/\$\{target\.productId \?\? COMPANY_APLUS_ID\}`, bytes\)/, "Ảnh vào thư mục A+ của đúng nhà cung cấp");
 assert.match(upload, /purpose: "company"/, "Video A+ doanh nghiệp gắn mục đích company");
-assert.match(upload, /isAplusImagePath\(path, target\.supplierId, target\.productId \?\? COMPANY_APLUS_ID\)/, "Chỉ xem ảnh của đúng chỗ đang soạn");
+assert.match(upload, /isAplusImageFile\(path, target\.supplierId, target\.productId \?\? COMPANY_APLUS_ID\)/, "Chỉ xem ảnh của đúng chỗ đang soạn");
 assert.match(read("app/api/crm/aplus/product/[id]/route.ts"), /staffAplusUpload\(request, t, "products\.manage"\)/);
 assert.match(read("app/api/crm/aplus/company/[supplierId]/route.ts"), /staffAplusUpload\(request, t, "suppliers\.manage"\)/);
 
