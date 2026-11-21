@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { Play, X } from "lucide-react";
 
 import { AplusVideo } from "@/components/public/aplus-video";
+import { preconnectStream, streamIntentHandlers } from "@/components/public/stream-warmup";
 
 /**
  * Nút "Watch factory video" ở đầu trang nhà cung cấp gói cao cấp: bấm mới mở khung phát (chủ sàn
- * chốt 2026-11-20), trang không tải trình phát hay tự phát video.
+ * chốt 2026-11-20), trang không tải trình phát hay tự phát video. Kết nối sẵn tới Stream và nạp
+ * ngầm trình phát khi người mua rê chuột/chạm vào nút, để bấm là phát gần như ngay.
  */
 export function HeroVideoButton({ uid, title }: { uid: string; title: string }) {
   const [open, setOpen] = useState(false);
+  preconnectStream();
   const close = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -20,7 +23,7 @@ export function HeroVideoButton({ uid, title }: { uid: string; title: string }) 
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
   return <>
-    <button type="button" onClick={() => setOpen(true)}
+    <button type="button" {...streamIntentHandlers(uid)} onClick={() => setOpen(true)}
       className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/60 bg-white/10 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20">
       <span className="flex size-6 items-center justify-center rounded-full bg-white text-[var(--sf-dark)]"><Play className="ml-0.5 size-3.5 fill-current" aria-hidden="true" /></span>
       Watch factory video
