@@ -23,6 +23,7 @@ import { runDirectRfqFollowUps } from "@/lib/rfq/direct-followup";
 import { sendCertificateExpiryReminders } from "@/lib/certificate-service";
 import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
 import { cleanupPendingUploads } from "@/lib/supplier-portal/pending-media";
+import { runIntroductionMail } from "@/lib/buyer/introductions-server";
 
 export const dynamic = "force-dynamic";
 
@@ -148,6 +149,15 @@ export async function GET(req: Request) {
     console.error("[cron] pending media cleanup failed", err);
   }
 
+  // Người mua: thư chào mừng (sau 24 giờ, kèm lời mời nếu chưa chọn ngành) và thư nhắc lời mời một lần.
+  let buyerIntroductions: { welcome: number; reminders: number; failed: number } | { error: string };
+  try {
+    buyerIntroductions = await runIntroductionMail();
+  } catch (err) {
+    buyerIntroductions = { error: err instanceof Error ? err.message : String(err) };
+    console.error("[cron] buyer introductions mail failed", err);
+  }
+
   return NextResponse.json({
     ok: errors.length === 0,
     provider: "cron-job.org (external)",
@@ -158,6 +168,7 @@ export async function GET(req: Request) {
     certificatesReminded,
     supplierReminders,
     supplierReminderError: supplierReminderError ?? undefined,
+    buyerIntroductions,
     pendingMedia,
     errors: errors.length ? errors : undefined,
   }, { status: errors.length ? 503 : 200 });

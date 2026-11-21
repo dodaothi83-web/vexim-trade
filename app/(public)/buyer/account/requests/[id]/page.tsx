@@ -7,6 +7,10 @@ import { rfqChannel } from "@/lib/rfq/channel";
 import { RfqMediatedThread } from "@/components/rfq-mediated-thread";
 import { canUseMediatedDesk, safeMediatedMessages } from "@/lib/rfq/mediated";
 import { buyerVeximMessageAction, buyerVeximReadAction } from "./actions";
+import { IntroPrompt } from "@/components/buyer-introductions";
+import { getBuyerSession } from "@/lib/auth/buyer-session";
+import { canPromptIntroductions } from "@/lib/buyer/introductions";
+import { topCategoryOf } from "@/lib/buyer/introductions-server";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My enquiry | Vexim Trade", robots: { index: false, follow: false } };
@@ -77,7 +81,15 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
         {locale === "vi" ? "Tạm thời chưa mở được trao đổi với Vexim. Vui lòng thử lại sau." : "The Vexim conversation is temporarily unavailable. Please try again later."}</p>;
     }
   }
+  // Người mua chưa nhận giới thiệu: mời nhận nhà cung cấp cùng ngành với yêu cầu (một bấm).
+  let introPrompt: React.ReactNode = null;
+  try {
+    const session = await getBuyerSession();
+    const account = session ? await store.getBuyerUserByEmail(session.email) : null;
+    const category = account && canPromptIntroductions(account, new Date()) ? await topCategoryOf(rfq.category_id) : null;
+    if (category) introPrompt = <IntroPrompt category={{ id: category.id, slug: category.slug, name: category.name }} source="rfq" />;
+  } catch (error) { console.error("[buyer-intro] rfq prompt", error); }
   return <BuyerEnquiryDetail rfq={rfq} buyer={buyer} quotes={quotes} preQuoteThreads={preQuoteThreads}
-    declined={declined} directOutcome={directOutcome}
+    declined={declined} directOutcome={directOutcome} introPrompt={introPrompt}
     quotesUnavailable={quotesUnavailable} locale={locale} mediatedThread={mediatedThread} />;
 }

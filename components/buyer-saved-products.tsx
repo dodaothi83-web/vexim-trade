@@ -3,7 +3,8 @@
 import { createContext, Suspense, useContext, useEffect, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Heart, Trash2 } from "lucide-react";
+import { Heart, Trash2, X } from "lucide-react";
+import { IntroPrompt, type IntroCategoryOption } from "@/components/buyer-introductions";
 import { getSavedProductsState, setSavedProductAction } from "@/app/(public)/buyer/account/actions";
 import { usePublicSession } from "@/lib/buyer/public-session-context";
 
@@ -65,6 +66,7 @@ export function SaveProductButton({ id, href, compact = false, iconOnly = false,
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState(false);
+  const [invite, setInvite] = useState<IntroCategoryOption | null>(null);
   if (!context) return null;
   const { state, update, isVi } = context;
   if (context.loadError) return <button type="button" className="cursor-pointer rounded-lg border border-ink-200 bg-white p-2 text-xs text-brand-700" onClick={context.reload}>{isVi ? "Tải lại mục đã lưu" : "Retry saved products"}</button>;
@@ -77,10 +79,15 @@ export function SaveProductButton({ id, href, compact = false, iconOnly = false,
     <button type="button" className={classes} aria-label={label} title={label} aria-pressed={removeOnly ? undefined : saved} disabled={pending || !state} onClick={() => {
       setError(false);
       startTransition(async () => {
-        const result = await setSavedProductAction(id, removeOnly ? false : !saved).catch(() => ({ ok: false }));
-        if (result.ok) { update(id, removeOnly ? false : !saved); router.refresh(); } else setError(true);
+        const result: { ok: boolean; invite?: IntroCategoryOption | null } = await setSavedProductAction(id, removeOnly ? false : !saved).catch(() => ({ ok: false }));
+        if (result.ok) { update(id, removeOnly ? false : !saved); setInvite(result.invite ?? null); router.refresh(); } else setError(true);
       });
     }}>{removeOnly ? <Trash2 className="h-4 w-4" aria-hidden /> : <Heart className={`${iconOnly ? "h-5 w-5" : "h-4 w-4"} ${saved ? "fill-current" : ""}`} aria-hidden />}{!compact && !iconOnly && !removeOnly && label}</button>
+    {/* Sau khi lưu: mời nhận nhà cung cấp cùng ngành (thẻ nổi góc màn hình, đóng được). */}
+    {invite && <div className="fixed inset-x-4 bottom-4 z-50 sm:inset-x-auto sm:right-4 sm:w-[380px]">
+      <button type="button" aria-label={isVi ? "Đóng" : "Close"} onClick={() => setInvite(null)} className="absolute -right-2 -top-2 z-10 flex size-7 items-center justify-center rounded-full border border-ink-200 bg-white text-ink-500 shadow-sm"><X className="size-3.5" aria-hidden="true" /></button>
+      <IntroPrompt category={invite} source="saved" compact />
+    </div>}
     {error && <span role="alert" className={iconOnly ? "absolute right-14 top-0 w-60 rounded-lg border border-ink-200 bg-white p-3 text-xs text-red-700 shadow-sm" : compact ? "absolute bottom-2 left-2 right-2 z-20 rounded bg-white p-2 text-xs text-red-700" : "block text-xs text-red-700"}>{removeOnly ? (isVi ? "Chưa bỏ lưu được. Vui lòng thử lại." : "Could not remove. Please try again.") : isVi ? "Chưa lưu được thay đổi. Tối đa 100 sản phẩm. Vui lòng thử lại." : "Could not update. Save up to 100 products. Please try again."}</span>}
   </>;
 }
