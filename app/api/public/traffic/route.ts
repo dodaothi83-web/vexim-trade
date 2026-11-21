@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth/session";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { listPublicCategoryProducts } from "@/lib/public/product-catalog";
 import { getStore } from "@/lib/db";
-import { recordPageView, verifyTrafficToken } from "@/lib/traffic/server";
+import { recordCountryView, recordPageView, verifyTrafficToken } from "@/lib/traffic/server";
 
 export const runtime = "nodejs";
 
@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
       if (!supplier || isSyntheticSupplier(supplier)) return new NextResponse(null, { status: 204 });
     }
     await recordPageView(page);
+    // Quốc gia người xem: chỉ mã quốc gia Vercel gắn sẵn, không đọc hay lưu IP.
+    await recordCountryView(page.supplierId, request.headers.get("x-vercel-ip-country")).catch(() => null);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error("supplier traffic collection unavailable", error);

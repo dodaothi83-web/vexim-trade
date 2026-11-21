@@ -27,3 +27,19 @@ export function buildTrafficReport(rows: TrafficRow[], supplierId: string, days:
   return { trend, profile, product, total: profile + product,
     products: [...products].map(([id, views]) => ({ id, views })).sort((a, b) => b.views - a.views || a.id.localeCompare(b.id)) };
 }
+
+/** % thay đổi so với kỳ trước (làm tròn); null khi kỳ trước bằng 0 (không so được). */
+export function percentChange(current: number, previous: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous <= 0) return null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+/** Khoảng ngày UTC của kỳ hiện tại và kỳ liền trước (cùng độ dài), dạng YYYY-MM-DD. */
+export function periodRanges(days: number, now = new Date()) {
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+  return {
+    current: { from: iso(today - (days - 1) * 86400_000), to: iso(today) },
+    previous: { from: iso(today - (2 * days - 1) * 86400_000), to: iso(today - days * 86400_000) },
+  };
+}

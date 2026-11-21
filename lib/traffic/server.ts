@@ -35,6 +35,18 @@ export function verifyTrafficToken(token: unknown): TrafficPage | null {
   } catch { return null; }
 }
 
+/**
+ * Lượt xem theo quốc gia (mã 2 chữ Vercel gắn vào yêu cầu). Không lưu IP hay danh tính; lỗi ở đây không
+ * làm hỏng việc đếm lượt xem chính.
+ */
+export async function recordCountryView(supplierId: string, country: string | null): Promise<void> {
+  const db = getSupabaseClient();
+  const code = (country ?? "").trim().toUpperCase();
+  if (!db || !/^[A-Z]{2}$/.test(code) || code === "XX" || code === "T1") return;
+  const { error } = await db.rpc("record_supplier_country_view", { p_supplier_id: supplierId, p_country: code });
+  if (error) console.error("supplier country view", error.message);
+}
+
 export async function recordPageView(page: TrafficPage): Promise<void> {
   const db = getSupabaseClient();
   if (!db) return; // No local/demo analytics: never imply counters are persisted in preview.

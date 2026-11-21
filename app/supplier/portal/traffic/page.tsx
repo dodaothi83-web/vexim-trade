@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Activity, ArrowUpRight, Eye, Package, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Eye, ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 
@@ -8,6 +8,8 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { readSupplierTraffic } from "@/lib/traffic/server";
 import { buildTrafficReport } from "@/lib/supplier-portal/traffic-report";
+import { TrafficCountries, TrafficSummary } from "./summary";
+import { readSupplierPerformance } from "@/lib/supplier-portal/performance";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { getPortalMessages } from "@/lib/i18n/server";
@@ -33,6 +35,9 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
   try { rows = await readSupplierTraffic(supplier.id, days); }
   catch (error) { console.error("supplier traffic dashboard unavailable", error); }
   const report = rows ? buildTrafficReport(rows, supplier.id, days) : null;
+  // Kỳ trước để so sánh, RFQ nhận được, lượt bấm từ email marketing, quốc gia (số tổng, không danh tính).
+  const performance = rows ? await readSupplierPerformance(supplier.id, days).catch((error) => { console.error("supplier performance unavailable", error); return null; }) : null;
+
   const products = report?.products.length ? await store.listProductsBySupplier(supplier.id) : [];
   const names = new Map(products.filter((p) => p.supplier_id === supplier.id).map((p) => [p.id, withoutDirectContacts(p.name)]));
   const chunk = days === 7 ? 1 : days === 30 ? 5 : 10;
@@ -61,17 +66,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
       <h2 className="font-bold">{copy.noData.title}</h2>
       <p className="mt-2 text-sm leading-6">{copy.noData.body}</p>
     </div> : <>
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        {[
-          { label: copy.kpi.total, value: report.total, icon: Activity, color: "text-brand-700", bg: "bg-brand-50" },
-          { label: copy.kpi.profile, value: report.profile, icon: Eye, color: "text-sky-700", bg: "bg-sky-50" },
-          { label: copy.kpi.product, value: report.product, icon: Package, color: "text-amber-700", bg: "bg-amber-50" },
-        ].map(({ label, value, icon: Icon, color, bg }) => <div key={label} className="rounded-xl border border-ink-200 bg-white p-5 shadow-sm sm:p-6">
-          <span className={`inline-flex size-10 items-center justify-center rounded-xl ${bg} ${color}`}><Icon className="size-5" aria-hidden="true" /></span>
-          <p className="mt-5 text-3xl font-black tabular-nums text-ink-900">{format(value)}</p>
-          <p className="mt-1 text-sm font-medium text-ink-600">{label}</p>
-        </div>)}
-      </div>
+      <TrafficSummary report={report} performance={performance} copy={copy} days={days} intl={intl} />
       {report.total === 0 ? <div role="status" className="mt-6 rounded-xl border border-ink-200 bg-white p-8 text-center sm:p-12">
         <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><Eye className="size-6" /></div>
         <h2 className="mt-4 text-lg font-bold text-ink-900">{fill(copy.empty.title, { days })}</h2>
@@ -112,6 +107,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
           </ol> : <p className="mt-8 text-sm text-ink-500">{copy.top.empty}</p>}
         </section>
       </div>}
+      {report.total > 0 && <TrafficCountries performance={performance} copy={copy} days={days} intl={intl} />}
     </>}
     <aside className="mt-6 flex items-start gap-3 rounded-xl border border-ink-200 bg-ink-50 p-5 text-sm leading-6 text-ink-600">
       <ShieldCheck className="mt-0.5 size-5 shrink-0 text-brand-700" aria-hidden="true" />
