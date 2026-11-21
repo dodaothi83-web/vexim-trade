@@ -245,7 +245,7 @@ const en = {
   hint: "Images: JPG, PNG or WebP, up to 3 MB, at least 1200 px wide. Video: MP4, MOV or WebM, up to 200 MB and 2 minutes.",
   productVideo: {
     label: "Product video",
-    hint: "Shown after your product photos. MP4, MOV or WebM, up to 200 MB and 2 minutes.",
+    hint: "Shown first, before your product photos. MP4, MOV or WebM, up to 2 minutes and 200 MB.",
     add: "Add video",
     replace: "Replace video",
     remove: "Remove video",
@@ -529,7 +529,7 @@ const vi: AplusMessages = {
   hint: "Ảnh: JPG, PNG hoặc WebP, tối đa 3 MB, nên rộng từ 1200 px. Video: MP4, MOV hoặc WebM, tối đa 200 MB và 2 phút.",
   productVideo: {
     label: "Video sản phẩm",
-    hint: "Hiện sau ảnh sản phẩm. MP4, MOV hoặc WebM, tối đa 200 MB và 2 phút.",
+    hint: "Hiện ở ô đầu, trước ảnh sản phẩm. MP4, MOV hoặc WebM, dài tối đa 2 phút, tệp tối đa 200 MB.",
     add: "Thêm video",
     replace: "Thay video",
     remove: "Xóa video",
