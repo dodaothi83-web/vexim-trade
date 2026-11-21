@@ -106,7 +106,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     : 0;
 
   // Yêu cầu nhà cung cấp gửi mà Vexim chưa nhận xử lý (trạng thái "submitted").
-  // Nâng gói tách riêng vì đó là doanh thu, cần thấy ngay ở menu Gói nhà cung cấp.
+  // Nâng gói tách riêng vì đó là doanh thu, cần thấy ngay ở menu Gói thành viên.
   const newServiceRequests = canSuppliers
     ? await store.listSupplierServiceRequests({ status: "submitted", limit: 500 })
       .catch((error) => { console.error("[crm] đếm yêu cầu dịch vụ lỗi", error); return []; })

@@ -61,7 +61,7 @@ const NAV: {
   { href: "/crm/categories", label: "Danh mục sản phẩm", icon: FolderTree, perm: "categories.view", group: "marketplace" },
   { href: "/crm/sponsored", label: "Đẩy sản phẩm", icon: Megaphone, perm: "sponsored.view", group: "marketplace" },
   { href: "/crm/service-requests", label: "Yêu cầu dịch vụ", icon: BriefcaseBusiness, perm: "suppliers.view", group: "marketplace" },
-  { href: "/crm/plans", label: "Gói nhà cung cấp", icon: Crown, perm: "suppliers.view", group: "marketplace" },
+  { href: "/crm/plans", label: "Gói thành viên", icon: Crown, perm: "suppliers.view", group: "marketplace" },
   { href: "/crm/traffic", label: "Lưu lượng truy cập", icon: ChartNoAxesColumn, perm: "traffic.view", group: "marketplace" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
   { href: "/crm/buyers", label: "Người mua", icon: Globe2, perm: "buyers.view", group: "sales" },
@@ -118,7 +118,7 @@ export function Sidebar({
   pendingSourcing?: number | null;
   /** Cuộc chat người mua nhắn Vexim mà nhân viên chưa đọc — badge ở menu Chat với người mua */
   pendingSupport?: number;
-  /** Yêu cầu nâng gói mới chưa nhận xử lý — badge ở menu Gói nhà cung cấp */
+  /** Yêu cầu nâng gói mới chưa nhận xử lý — badge ở menu Gói thành viên */
   pendingPlanUpgrades?: number;
   /** Yêu cầu dịch vụ khác (không phải nâng gói) mới chưa nhận xử lý — badge ở menu Yêu cầu dịch vụ */
   pendingServiceRequests?: number;

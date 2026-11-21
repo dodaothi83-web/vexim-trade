@@ -21,10 +21,11 @@ export function CrmCompanyAplusReview({ supplierId, modules, visible, canManage 
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   // Soạn A+ hộ nhà cung cấp (dịch vụ Vexim): mở trang soạn riêng, lưu là đăng ngay.
-  const editLink = canManage && <Link href={`/crm/suppliers/${supplierId}/aplus`} className="btn btn-primary btn-sm shrink-0">{modules.length ? "Sửa A+ hộ nhà cung cấp" : "Soạn A+ hộ nhà cung cấp"}</Link>;
-  if (!modules.length) return canManage ? <section id="company-aplus" className="card mb-4 flex flex-wrap items-center gap-3 p-5" aria-label="Nội dung A+ doanh nghiệp">
+  const editLink = canManage && <Link href={`/crm/suppliers/${supplierId}/aplus`} className="btn btn-primary btn-sm shrink-0">{modules.length ? "Sửa content A+" : "Soạn content A+"}</Link>;
+  // A+ chỉ có ở gói Premium/Pro: gói Basic chưa có nội dung thì không hiện khối này.
+  if (!modules.length) return canManage && visible ? <section id="company-aplus" className="card mb-4 flex flex-wrap items-center gap-3 p-5" aria-label="Nội dung A+ doanh nghiệp">
     <div className="min-w-0 flex-1"><h2 className="text-sm font-bold text-ink-900">Nội dung A+ doanh nghiệp</h2>
-      <p className="mt-0.5 text-xs text-ink-500">Chưa có A+ doanh nghiệp. Nhân viên soạn hộ được khi nhà cung cấp mua dịch vụ; lưu là đăng ngay.</p></div>
+      <p className="mt-0.5 text-xs text-ink-500">Chưa có content A+ doanh nghiệp. Nhân viên hỗ trợ soạn cho doanh nghiệp và đăng.</p></div>
     {editLink}
   </section> : null;
   const img = (path: string) => `/api/crm/aplus?path=${encodeURIComponent(path)}`;

@@ -58,7 +58,7 @@ export const SUPPLIER_SERVICE_LABELS_VI: Record<SupplierServiceKeyValue, string>
   international_website: "Website xuất khẩu",
   featured_ads: "Quảng cáo nổi bật",
   fda_compliance: "Tuân thủ FDA Hoa Kỳ",
-  plan_upgrade: "Nâng gói Premium/Pro",
+  plan_upgrade: "Gói thành viên",
 };
 
 export const SUPPLIER_SERVICE_STATUS_LABELS_VI: Record<SupplierServiceStatusValue, string> = {

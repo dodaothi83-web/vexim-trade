@@ -4,13 +4,13 @@ import { PageHeader } from "@/components/page-header";
 import { requirePagePermission } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { listPlanActivations, readPlanCatalog, type PlanActivation } from "@/lib/supplier-plan-catalog";
-import { effectiveSupplierPlan, formatVnd, isSupplierPlan, SUPPLIER_PLANS, type SupplierPlan } from "@/lib/supplier-plans";
+import { effectiveSupplierPlan, isSupplierPlan, SUPPLIER_PLANS, type SupplierPlan } from "@/lib/supplier-plans";
 import { SUPPLIER_SERVICE_STATUS_LABELS_VI } from "@/lib/supplier-services";
 import type { SupplierServiceRequest } from "@/lib/types";
 import { PlanCatalogEditor } from "./catalog-editor";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Gói nhà cung cấp", robots: { index: false, follow: false } };
+export const metadata = { title: "Gói thành viên", robots: { index: false, follow: false } };
 
 const DAY = 86_400_000;
 const vnDate = (value: string) => new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
@@ -55,22 +55,22 @@ export default async function SupplierPlansPage() {
 
   const activations = activationsResult.rows.filter((a) => supplierById.has(a.supplier_id));
   const thisMonth = vnMonthKey(new Date().toISOString());
-  const sum = (rows: PlanActivation[]) => rows.reduce((total, row) => total + (row.amount_vnd ?? 0), 0);
+  // Doanh thu do kế toán tính ngoài hệ thống; ở đây chỉ đếm số lần bật hoặc gia hạn gói.
   const monthly = new Map<string, number>();
-  for (const a of activations) monthly.set(vnMonthKey(a.created_at), (monthly.get(vnMonthKey(a.created_at)) ?? 0) + (a.amount_vnd ?? 0));
+  for (const a of activations) monthly.set(vnMonthKey(a.created_at), (monthly.get(vnMonthKey(a.created_at)) ?? 0) + 1);
   const months: string[] = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - i);
     months.push(vnMonthKey(d.toISOString()));
   }
   const monthMax = Math.max(1, ...months.map((m) => monthly.get(m) ?? 0));
-  const yearRevenue = sum(activations.filter((a) => now - Date.parse(a.created_at) <= 365 * DAY));
+  const yearActivations = activations.filter((a) => now - Date.parse(a.created_at) <= 365 * DAY).length;
   const lastActivation = new Map<string, PlanActivation>();
   for (const a of activations) if (!lastActivation.has(a.supplier_id)) lastActivation.set(a.supplier_id, a);
 
   const kpi = "rounded-xl border border-ink-200 bg-white p-4 shadow-sm";
   return <>
-    <PageHeader title="Gói nhà cung cấp" sub="Báo cáo tổng quan và nội dung, giá, giới hạn của các gói Basic, Premium, Pro." />
+    <PageHeader title="Gói thành viên" sub="Tổng quan, nội dung, giá và giới hạn của gói thành viên Basic, Premium, Pro." />
 
     <section aria-label="Tổng quan" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <div className={kpi}>
@@ -90,22 +90,22 @@ export default async function SupplierPlansPage() {
         <p className="text-xs text-ink-600">{upgradeCounts.active} đã mở · {upgradeCounts.cancelled} đã huỷ · {upgradeCounts.expired} hết hạn</p>
       </div>
       <div className={kpi}>
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Doanh thu ước tính</p>
-        <p className="mt-2 text-2xl font-bold tabular-nums text-ink-900">{formatVnd(monthly.get(thisMonth) ?? 0)}</p>
-        <p className="text-xs text-ink-600">Tháng này · 12 tháng: {formatVnd(yearRevenue)}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Lượt bật / gia hạn gói</p>
+        <p className="mt-2 text-2xl font-bold tabular-nums text-ink-900">{monthly.get(thisMonth) ?? 0} <span className="text-sm font-semibold text-ink-600">tháng này</span></p>
+        <p className="text-xs text-ink-600">12 tháng: {yearActivations}</p>
       </div>
     </section>
     {activationsResult.failed && <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">Chưa đọc được lịch sử bật gói. Hãy chạy migration 20261129_supplier_plan_catalog.sql.</p>}
 
     <div className="mt-6 grid gap-6 xl:grid-cols-3">
       <section aria-labelledby="revenue-title" className="rounded-xl border border-ink-200 bg-white p-4 shadow-sm">
-        <h2 id="revenue-title" className="text-sm font-bold text-ink-900">Doanh thu ước tính 6 tháng</h2>
-        <p className="mt-0.5 text-xs text-ink-500">Cộng số tiền ghi nhận khi bật hoặc gia hạn gói, không phải số tiền thực thu.</p>
+        <h2 id="revenue-title" className="text-sm font-bold text-ink-900">Bật / gia hạn gói 6 tháng</h2>
+        <p className="mt-0.5 text-xs text-ink-500">Số lần bật hoặc gia hạn gói trả phí mỗi tháng.</p>
         <ul className="mt-3 space-y-2">
           {months.map((m) => {
             const value = monthly.get(m) ?? 0;
             return <li key={m} className="text-xs">
-              <div className="flex justify-between gap-2"><span className="text-ink-600">{m.split("-").reverse().join("/")}</span><span className="font-semibold tabular-nums text-ink-900">{formatVnd(value)}</span></div>
+              <div className="flex justify-between gap-2"><span className="text-ink-600">{m.split("-").reverse().join("/")}</span><span className="font-semibold tabular-nums text-ink-900">{value}</span></div>
               <div className="mt-1 h-1.5 rounded-full bg-ink-100"><div className="h-1.5 rounded-full bg-brand-600" style={{ width: `${(value / monthMax) * 100}%` }} /></div>
             </li>;
           })}
@@ -149,7 +149,7 @@ export default async function SupplierPlansPage() {
                 <td className="px-4 py-2.5">{catalog[plan].name}</td>
                 <td className={`px-4 py-2.5 tabular-nums ${soon ? "font-semibold text-amber-800" : "text-ink-700"}`}>{s.plan_expires_at ? vnDate(s.plan_expires_at) : "Không hết hạn"}</td>
                 <td className="px-4 py-2.5 tabular-nums text-ink-700">{productCount.get(s.id) ?? 0}{max === null ? " · không giới hạn" : `/${max}`}</td>
-                <td className="px-4 py-2.5 text-ink-700">{last ? `${last.months ? `${last.months} tháng · ` : ""}${formatVnd(last.amount_vnd ?? 0)} · ${vnDate(last.created_at)}` : "—"}</td>
+                <td className="px-4 py-2.5 text-ink-700">{last ? `${last.months ? `${last.months} tháng · ` : ""}${vnDate(last.created_at)}` : "—"}</td>
               </tr>;
             })}
           </tbody>

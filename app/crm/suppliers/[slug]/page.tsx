@@ -514,7 +514,7 @@ Chỉ nhân viên CRM thấy danh sách này. Chỉ nhà cung cấp được ch�
 
         <aside className="space-y-4 xl:sticky xl:top-6">
           <div id="plan" className="scroll-mt-24"><Card className="p-4">
-            <SectionHead icon={UserRound} title="Gói nhà cung cấp" />
+            <SectionHead icon={UserRound} title="Gói thành viên" />
             <SupplierPlanControls
               supplierId={id}
               storedPlan={isSupplierPlan(supplier.plan) ? supplier.plan : "basic"}
