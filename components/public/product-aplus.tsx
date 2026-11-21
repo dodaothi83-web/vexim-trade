@@ -2,7 +2,7 @@ import { Fragment, type CSSProperties, type ReactNode } from "react";
 
 import { VeximIcon } from "@/components/brand/vexim-icons";
 import { AplusVideo } from "@/components/public/aplus-video";
-import { parseAplusRich, type AplusModule } from "@/lib/products/aplus";
+import { parseAplusRich, type AplusModule, type AplusRichRun } from "@/lib/products/aplus";
 
 /**
  * Nội dung A+ của sản phẩm trên trang người mua, dưới phần mô tả (bản duyệt docs/aplus-editor,
@@ -130,12 +130,14 @@ function renderModule(module: AplusModule, productName: string, img: Img): React
   }
 }
 
-/** Đoạn chữ có **đậm** và gạch đầu dòng. */
+/** Đoạn chữ có **đậm**, *nghiêng* và gạch đầu dòng. */
 function Rich({ value, className }: { value: string; className?: string }) {
   const nodes = parseAplusRich(value);
   const out: ReactNode[] = [];
-  const runs = (list: Array<{ t: string; b?: true }>) => list.map((run, i) => run.b
-    ? <strong key={i} className="font-semibold text-ink-900">{run.t}</strong> : <Fragment key={i}>{run.t}</Fragment>);
+  const runs = (list: AplusRichRun[]) => list.map((run, i) => {
+    const text = run.i ? <em className="italic">{run.t}</em> : run.t;
+    return run.b ? <strong key={i} className="font-semibold text-ink-900">{text}</strong> : <Fragment key={i}>{text}</Fragment>;
+  });
   for (let i = 0; i < nodes.length; i++) {
     if (nodes[i].kind === "li") {
       const items = [];

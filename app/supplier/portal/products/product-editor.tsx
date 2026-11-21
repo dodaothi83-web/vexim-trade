@@ -32,8 +32,8 @@ import { addSupplierGradeOptionAction, deleteSupplierDraftProductAction, pauseSu
 import { useToast } from "@/components/toast";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
+import { VeximIcon } from "@/components/brand/vexim-icons";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
-import { AplusEditor, type AplusEditorHandle } from "@/components/products/aplus-editor";
 import { ProductVideoField } from "@/components/products/product-video-field";
 import { APLUS_MAX_MODULES, canEditAplus, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { aplusMessages, type AplusMessages } from "@/lib/i18n/portal/aplus";
@@ -297,9 +297,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const locked = review === "pending" || legacyManaged;
   const dirty = baseline !== null && !snapshotsEqual(snapshot, baseline);
   // Nội dung A+ lưu cùng nút Lưu sản phẩm (bản duyệt docs/aplus-editor): chỉ sửa A+ cũng hiện nút Lưu.
-  const aplusRef = useRef<AplusEditorHandle>(null);
-  const [aplusDirty, setAplusDirty] = useState(false);
-  const anyDirty = dirty || aplusDirty;
+  const anyDirty = dirty;
   const ownedCount = media.filter((m) => m.created_by === userId).length;
   const imageCount = media.filter((m) => m.kind === "image").length;
   /** Ảnh trong kho ảnh của chính tài khoản này; kho là chỗ ảnh dừng trước khi gắn sản phẩm. */
@@ -355,7 +353,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const catalogueAssets = media.filter((asset) => asset.kind !== "image");
   // Mục 7: Basic tính theo mô tả chữ, gói có A+ tính theo số khối A+ đã lưu.
   const aplusCount = product ? readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id }).length : 0;
-  const detailFilled = richContentAllowed ? aplusCount > 0 : (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim().length > 0;
+  // Nội dung hiển thị (gói Premium/Pro): mặc định "cơ bản", bật A+ ở trang soạn A+; chưa có cột chọn thì có A+ là hiện A+.
+  const contentMode = product?.content_mode ?? (aplusCount > 0 ? "aplus" : "basic");
+  const [openingAplus, setOpeningAplus] = useState(false);
+  const showsAplus = richContentAllowed && contentMode === "aplus" && aplusCount > 0;
+  const detailFilled = showsAplus || (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim().length > 0;
   const basicFilled = [snapshot.name, snapshot.keywords, snapshot.description].filter((value) => (value ?? "").trim()).length;
   const specFilled = [snapshot.spec, snapshot.monthly_capacity, snapshot.raw_material_region, snapshot.input_material_origin]
     .filter((value) => (value ?? "").trim()).length;
@@ -607,11 +609,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       const saved = snapshotFromForm(formElement, snapshot);
       setSnapshot(saved);
       setBaseline(saved);
-      // Sản phẩm đã có: lưu luôn nội dung A+ (dịch bản tiếng Việt) trong cùng lần bấm Lưu.
-      if (product && aplusRef.current?.dirty()) {
-        const aplusOk = await aplusRef.current.save();
-        if (!aplusOk) { scrollToSection("sec-detail"); return null; }
-      }
       if (product) router.refresh();
       return response.id ?? product?.id ?? null;
     } catch (error) {
@@ -620,6 +617,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Sản phẩm mới bấm "Nội dung A+": lưu nháp rồi sang trang soạn A+ (cần có sản phẩm trước). */
+  async function openAplusForNew() {
+    setOpeningAplus(true);
+    const id = await persist();
+    if (!id) { setOpeningAplus(false); return; }
+    router.push(`/supplier/portal/products/${id}/aplus`);
   }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
@@ -1552,19 +1557,25 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="7" title={copy.detail.title} pill={sectionPill("sec-detail")} />
             <div className="px-4 py-4 sm:px-5">
-              {/* Basic: mô tả bằng chữ. Premium/Pro: nội dung A+ thay cho ô chữ; mô tả cũ vẫn lưu và
-                  hiện cho người mua tới khi có A+, hoặc khi gói hết hạn. */}
-              {!richContentAllowed && <div className="text-[12px]">
-                <span className="mb-1.5 block text-[13px] font-semibold text-ink-700">{copy.detail.label}</span>
+              {/* Mặc định: mô tả bằng chữ (nội dung cơ bản). Gói Premium/Pro có thêm nút "Nội dung A+" mở
+                  trang soạn riêng, rộng rãi hơn; trang sản phẩm hiện A+ khi nhà cung cấp bật trên trang đó. */}
+              <div className="text-[12px]">
+                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[13px] font-semibold text-ink-700">{copy.detail.label}</span>
+                  {richContentAllowed && (product
+                    ? <Link href={`/supplier/portal/products/${product.id}/aplus`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-brand-900 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:from-brand-700 hover:to-ink-900">
+                      <VeximIcon name="document" className="size-4" aria-hidden="true" />{aplusCopy.aplusPage.aplus}</Link>
+                    : <button type="button" disabled={busy || openingAplus} onClick={() => void openAplusForNew()}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-brand-900 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:from-brand-700 hover:to-ink-900 disabled:opacity-60">
+                      <VeximIcon name="document" className="size-4" aria-hidden="true" />{aplusCopy.aplusPage.aplus}</button>)}
+                </div>
+                {showsAplus && <p className="mb-2 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[12px] leading-5 text-brand-900">
+                  {fill(aplusCopy.aplusPage.showingAplusCount, { count: aplusCount })}</p>}
                 <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
                   value={snapshot.description_detail} onChange={onDescriptionDetailChange} disabled={locked || busy}
                   copy={shared.description} />
-              </div>}
-              {richContentAllowed && !!(product?.description_detail ?? "").replace(/<[^>]*>/g, "").trim() && aplusCount === 0 &&
-                <p className="mb-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[12px] leading-5 text-brand-900">{aplusCopy.legacyText}</p>}
-              <AplusEditor handle={aplusRef} onDirtyChange={setAplusDirty} productId={product?.id ?? null} allowed={richContentAllowed}
-                editable={product ? canEditAplus(product) : true} copy={aplusCopy}
-                initial={product ? readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id }) : []} />
+              </div>
             </div>
           </section>
         </form>
@@ -1621,8 +1632,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 )}
                 <div className="min-w-0 sm:col-span-2">
                   <dt className="text-[11px] font-semibold text-ink-500">{copy.review.detailLabel}</dt>
-                  <dd className="mt-1 rounded-lg bg-ink-50 px-2.5 py-1.5">{richContentAllowed
-                    ? <span className="text-[12px] text-ink-700">{aplusCount > 0 ? `${aplusCopy.title}: ${fill(aplusCopy.count, { count: aplusCount, max: APLUS_MAX_MODULES })}` : copy.review.notEntered}</span>
+                  <dd className="mt-1 rounded-lg bg-ink-50 px-2.5 py-1.5">{showsAplus
+                    ? <span className="text-[12px] text-ink-700">{`${aplusCopy.title}: ${fill(aplusCopy.count, { count: aplusCount, max: APLUS_MAX_MODULES })}`}</span>
                     : <ProductDescriptionPreview value={snapshot.description_detail} />}</dd>
                 </div>
               </dl>
@@ -1856,8 +1867,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       hasEnglishTitle: !!buyerPreviewNameEn,
       categoryLabel: activeCategory?.label ?? copy.review.notChosen,
       description: (snapshot.description ?? "").trim(),
-      // Gói có A+: A+ thay mô tả chữ (xem trước chưa dựng A+); chưa có A+ thì vẫn hiện mô tả chữ cũ.
-      detail: richContentAllowed && aplusCount > 0 ? "" : snapshot.description_detail ?? "",
+      // Đang chọn A+ (và có khối): A+ thay mô tả chữ (xem trước chưa dựng A+); còn lại hiện mô tả chữ.
+      detail: showsAplus ? "" : snapshot.description_detail ?? "",
       images: imageSlots.filter((asset): asset is MediaAsset => !!asset)
         .map((asset) => privateMediaUrl(asset)).filter((url): url is string => !!url),
       offer: quantityPreview ? draftPublicQuantityOffer(quantityPreview, {

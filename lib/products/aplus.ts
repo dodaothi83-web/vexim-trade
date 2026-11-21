@@ -169,6 +169,11 @@ export function aplusSourceHash(vi: readonly string[]): string {
 }
 
 /** Khối cần dịch khi lưu: có bản tiếng Việt, bản tiếng Anh chưa dịch theo bản đó và chưa sửa tay. */
+/** Khối có bản tiếng Việt để dịch (khối không có là khối viết thẳng tiếng Anh, không cần dịch). */
+export function aplusHasVietnamese(module: AplusModule): boolean {
+  return !!module.vi?.some((value) => value.trim());
+}
+
 export function aplusNeedsTranslation(module: AplusModule): boolean {
   if (!module.vi?.some((value) => value.trim())) return false;
   if (module.en_edited) return false;
@@ -177,7 +182,7 @@ export function aplusNeedsTranslation(module: AplusModule): boolean {
 
 /** Đã sửa tay bản tiếng Anh nhưng bản tiếng Việt đổi sau đó: nên bấm "Dịch lại từ tiếng Việt". */
 export function aplusTranslationStale(module: AplusModule): boolean {
-  return !!module.en_edited && !!module.vi && module.src !== aplusSourceHash(module.vi);
+  return !!module.en_edited && !!module.vi?.some((value) => value.trim()) && module.src !== aplusSourceHash(module.vi);
 }
 
 /**
@@ -435,6 +440,15 @@ export function aplusCompleteness(modules: readonly AplusModule[]): Array<{ key:
   ];
 }
 
+/**
+ * Trang sản phẩm hiện nội dung A+ hay mô tả chữ: nhà cung cấp chọn "Nội dung A+", gói còn quyền và
+ * có khối A+. Chưa có cột chọn (CSDL chưa cập nhật) thì giữ cách cũ: có A+ là hiện A+.
+ */
+export function productShowsAplus(product: { content_mode?: string | null }, modules: readonly AplusModule[], richContent: boolean): boolean {
+  if (!richContent || !modules.length) return false;
+  return product.content_mode == null ? true : product.content_mode === "aplus";
+}
+
 /** Cùng điều kiện với ảnh sản phẩm: bản nháp, bản cần sửa, hoặc sản phẩm nhà cung cấp tự đăng đang hiện/tạm ẩn. */
 export function canEditAplus(product: { supplier_review_status?: string | null; supplier_originated?: boolean | null }): boolean {
   return product.supplier_review_status === "draft" || product.supplier_review_status === "changes_requested" ||
@@ -484,29 +498,66 @@ export function isoDuration(seconds: number): string {
   return `PT${h ? `${h}H` : ""}${m ? `${m}M` : ""}${s ? `${s}S` : ""}`;
 }
 
-/** Chữ có định dạng nhẹ: dòng "- " là gạch đầu dòng, **chữ** là chữ đậm. */
-export type AplusRichNode = { kind: "p" | "li"; runs: Array<{ t: string; b?: true }> };
+/**
+ * Chữ có định dạng nhẹ: dòng "- " là gạch đầu dòng, **chữ** là chữ đậm, *chữ* là chữ nghiêng,
+ * ***chữ*** là đậm nghiêng; "\\*" là dấu sao thật. Ô soạn (aplus-rich-editor) ghi đúng dạng này.
+ */
+export type AplusRichRun = { t: string; b?: true; i?: true };
+export type AplusRichNode = { kind: "p" | "li"; runs: AplusRichRun[] };
+const RICH_MARK = /(\*\*\*|\*\*|\*)(?=\S)((?:\\\*|[^*])*?\S)\1(?!\*)/g;
+const unescapeStar = (text: string) => text.replace(/\\\*/g, "*");
+function richRuns(line: string): AplusRichRun[] {
+  const out: AplusRichRun[] = [];
+  let last = 0;
+  for (const m of line.matchAll(RICH_MARK)) {
+    if (m.index! > 0 && line[m.index! - 1] === "\\") continue;
+    if (m.index! > last) out.push({ t: unescapeStar(line.slice(last, m.index)) });
+    const level = m[1].length;
+    out.push({ t: unescapeStar(m[2]), ...(level >= 2 ? { b: true as const } : {}), ...(level !== 2 ? { i: true as const } : {}) });
+    last = m.index! + m[0].length;
+  }
+  if (last < line.length) out.push({ t: unescapeStar(line.slice(last)) });
+  return out.filter((run) => run.t);
+}
 export function parseAplusRich(value: string): AplusRichNode[] {
-  const runs = (line: string) => {
-    const out: Array<{ t: string; b?: true }> = [];
-    let last = 0;
-    for (const m of line.matchAll(/\*\*(.+?)\*\*/g)) {
-      if (m.index! > last) out.push({ t: line.slice(last, m.index) });
-      out.push({ t: m[1], b: true });
-      last = m.index! + m[0].length;
-    }
-    if (last < line.length) out.push({ t: line.slice(last) });
-    return out.filter((run) => run.t);
-  };
   const nodes: AplusRichNode[] = [];
   let paragraph: string[] = [];
-  const flush = () => { if (paragraph.length) nodes.push({ kind: "p", runs: runs(paragraph.join("\n")) }); paragraph = []; };
+  const flush = () => { if (paragraph.length) nodes.push({ kind: "p", runs: richRuns(paragraph.join("\n")) }); paragraph = []; };
   for (const raw of value.replace(/\r\n?/g, "\n").split("\n")) {
     const line = raw.trim();
     if (!line) { flush(); continue; }
-    if (/^[-•*]\s+/.test(line)) { flush(); nodes.push({ kind: "li", runs: runs(line.replace(/^[-•*]\s+/, "")) }); continue; }
+    if (/^[-•*]\s+/.test(line)) { flush(); nodes.push({ kind: "li", runs: richRuns(line.replace(/^[-•*]\s+/, "")) }); continue; }
     paragraph.push(line);
   }
   flush();
   return nodes.filter((node) => node.runs.some((run) => run.t.trim()));
+}
+
+/** Ghi lại chữ có định dạng từ các đoạn/dòng gạch đầu dòng (ngược với parseAplusRich). */
+export function serializeAplusRich(nodes: AplusRichNode[]): string {
+  const run = (r: AplusRichRun) => {
+    const text = r.t.replace(/\*/g, "\\*");
+    const mark = r.b && r.i ? "***" : r.b ? "**" : r.i ? "*" : "";
+    if (!mark || !text.trim()) return text;
+    // Dấu đánh dấu phải sát chữ: khoảng trắng đầu/cuối để ra ngoài.
+    const lead = text.match(/^\s*/)![0], trail = text.match(/\s*$/)![0];
+    return `${lead}${mark}${text.trim()}${mark}${trail}`;
+  };
+  const merged = (runs: AplusRichRun[]) => runs.reduce<AplusRichRun[]>((acc, r) => {
+    const prev = acc[acc.length - 1];
+    if (prev && !prev.b === !r.b && !prev.i === !r.i) prev.t += r.t; else acc.push({ ...r });
+    return acc;
+  }, []).map(run).join("");
+  const out: string[] = [];
+  nodes.forEach((node, index) => {
+    const text = merged(node.runs);
+    if (node.kind === "li") {
+      if (index > 0 && nodes[index - 1].kind !== "li") out.push("");
+      out.push(`- ${text.replace(/\n/g, " ")}`);
+    } else {
+      if (index > 0) out.push("");
+      out.push(text);
+    }
+  });
+  return out.join("\n").trim();
 }

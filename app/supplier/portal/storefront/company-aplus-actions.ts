@@ -10,7 +10,7 @@ import { getPortalMessages } from "@/lib/i18n/server";
 import { deleteStreamVideo, getStreamVideo, streamConfig } from "@/lib/media/cloudflare-stream";
 import { deleteObject, getObject, putObject } from "@/lib/media/storage";
 import {
-  APLUS_MAX_MODULES, aplusImagePaths, aplusModuleText, aplusSourceHash, aplusVideoUids, COMPANY_APLUS_ID, readAplusModules, validateAplusModules,
+  APLUS_MAX_MODULES, aplusImagePaths, aplusVideoUids, COMPANY_APLUS_ID, readAplusModules, validateAplusModules,
   type AplusModule, type AplusProblem,
 } from "@/lib/products/aplus";
 import { prepareAplusForSave } from "@/lib/products/aplus-server";
@@ -115,9 +115,8 @@ export async function migrateShowcaseToCompanyAplusAction(): Promise<CompanyAplu
       await putObject(path, object.data, MIME[ext]);
       const module: AplusModule = { id: randomUUID(), type: "image_text", image_path: path, alt: block.title.slice(0, 160),
         title: block.title.slice(0, 120), body: block.body.slice(0, 1200), image_side: index % 2 ? "right" : "left" };
-      // Nội dung Showcase vốn là tiếng Anh: dùng làm bản tiếng Việt để sửa, coi như đã dịch.
-      const english = aplusModuleText(module);
-      modules.push({ ...module, vi: english, src: aplusSourceHash(english) });
+      // Nội dung Showcase vốn là tiếng Anh: giữ là khối viết thẳng tiếng Anh (sửa ở tab English, không dịch).
+      modules.push(module);
     }
     if (!modules.length) return { ok: false, message: m.aplus.errors.upload };
     return { ok: true, message: m.aplus.company.migrated, modules };

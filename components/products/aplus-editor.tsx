@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, Bold, ChevronDown, ChevronUp, Image as ImageIcon, LayoutTemplate, List, Loader2, Lock, Monitor, Plus, Smartphone, Trash2, Video, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronUp, Image as ImageIcon, LayoutTemplate, Loader2, Lock, Monitor, Plus, Smartphone, Trash2, Video, X } from "lucide-react";
 
 import { VeximIcon } from "@/components/brand/vexim-icons";
+import { AplusRichEditor } from "./aplus-rich-editor";
 import { ProductAplus } from "@/components/public/product-aplus";
 import { fill } from "@/lib/i18n/format";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
@@ -12,7 +13,7 @@ import { prepareImage } from "@/lib/media/client-image";
 import { aplusUploadEndpoint, checkVideoFile, uploadStreamVideoAt } from "@/lib/media/stream-upload-client";
 import {
   APLUS_B2B_TYPES, APLUS_HIGHLIGHT_ICONS, APLUS_ITEM_RANGE, APLUS_MAX_MODULES, APLUS_MODULE_TYPES, aplusBlockIssues, aplusCompleteness,
-  aplusModuleText, aplusNeedsTranslation, aplusNumberDrift, aplusSlots, aplusSourceHash, aplusTranslationStale, findContact, withAplusText,
+  aplusModuleText, aplusNeedsTranslation, aplusNumberDrift, aplusSlots, aplusHasVietnamese, aplusTranslationStale, findContact, withAplusText,
   type AplusHighlightIcon, type AplusModule, type AplusModuleType,
 } from "@/lib/products/aplus";
 import { APLUS_TEMPLATE_IDS, APLUS_TEMPLATES, buildAplusTemplate, emptyAplusModule, type AplusTemplateId } from "@/lib/products/aplus-templates";
@@ -76,12 +77,13 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
   copy: AplusMessages;
   handle?: Ref<AplusEditorHandle>;
 }) {
-  // Nội dung cũ chỉ có tiếng Anh: dùng luôn làm bản tiếng Việt để sửa, coi như đã dịch (không gọi AI).
-  const [modules, setModules] = useState<AplusModule[]>(() => initial.map((module) => module.vi ? module
-    : { ...module, vi: aplusModuleText(module), src: aplusSourceHash(aplusModuleText(module)) }));
+  // Khối không có bản tiếng Việt là khối viết thẳng tiếng Anh: sửa ở tab English, không cần dịch.
+  const [modules, setModules] = useState<AplusModule[]>(initial);
   const [saved, setSaved] = useState(() => JSON.stringify(modules));
   const [retranslate, setRetranslate] = useState<string[]>([]);
-  const [mode, setMode] = useState<"vi" | "en">("vi");
+  // Tab mở đầu: theo nội dung đã có; trang trống thì theo ngôn ngữ cổng (nhà cung cấp nước ngoài viết tiếng Anh).
+  const [mode, setMode] = useState<"vi" | "en">(() => initial.some(aplusHasVietnamese) ? "vi"
+    : initial.length ? "en" : copy.defaultMode === "en" ? "en" : "vi");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [openId, setOpenId] = useState<string | null>(modules[0]?.id ?? null);
   const [panel, setPanel] = useState<"library" | "templates" | null>(null);
@@ -257,13 +259,13 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
       </details>
       <button type="button" disabled={disabled} onClick={() => setPanel("templates")} className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-800 hover:bg-brand-100 disabled:opacity-60">
         <LayoutTemplate className="size-4" aria-hidden="true" />{copy.templates.button}</button>
-      <button type="button" disabled={disabled || !modules.length} onClick={() => void translate()} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-semibold text-ink-800 hover:bg-ink-50 disabled:opacity-60">
-        {busy === "translate" && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}{busy === "translate" ? copy.translate.working : copy.translate.now}</button>
+      {modules.some(aplusHasVietnamese) && <button type="button" disabled={disabled} onClick={() => void translate()} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-semibold text-ink-800 hover:bg-ink-50 disabled:opacity-60">
+        {busy === "translate" && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}{busy === "translate" ? copy.translate.working : copy.translate.now}</button>}
     </div>
 
     {pending && <p className="mx-4 mt-3 rounded-lg bg-brand-50 px-3 py-2 text-xs leading-5 text-brand-900">{copy.savedWithProduct}</p>}
     {!editable && <p className="mx-4 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">{copy.locked}</p>}
-    {mode === "en" && <p className="mx-4 mt-3 rounded-lg bg-ink-50 px-3 py-2 text-xs leading-5 text-ink-600">{copy.lang.enHint}</p>}
+    <p className="mx-4 mt-3 rounded-lg bg-ink-50 px-3 py-2 text-xs leading-5 text-ink-600">{mode === "en" ? copy.lang.enHint : copy.lang.viHint}</p>
 
     <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       {/* Trái: danh sách khối */}
@@ -365,14 +367,19 @@ function BlockCard(p: BlockProps) {
   const hintTemplate = module.hint?.split(":")[0] as AplusTemplateId | undefined;
   const hint = hintTemplate && copy.templates.items[hintTemplate]?.hints[hintIndex];
   const field = "input mt-1 w-full";
-  const text = (key: string, label: string, max: number, options: { area?: boolean; rich?: boolean; placeholder?: string; rows?: number } = {}) =>
-    <label className="block text-[11.5px] font-semibold text-ink-600">{label}
-      {options.rich
-        ? <RichArea value={p.value(key)} onChange={(v) => p.onSlot(key, v)} max={max} disabled={p.disabled} copy={copy} rows={options.rows ?? 5} placeholder={options.placeholder} />
-        : options.area
-          ? <textarea value={p.value(key)} rows={options.rows ?? 3} maxLength={max + 50} disabled={p.disabled} placeholder={options.placeholder} onChange={(e) => p.onSlot(key, e.target.value)} className={`${field} font-normal`} />
-          : <input value={p.value(key)} maxLength={max + 50} disabled={p.disabled} placeholder={options.placeholder} onChange={(e) => p.onSlot(key, e.target.value)} className={`${field} font-normal`} />}
-      <span className={`mt-0.5 block text-right text-[10.5px] font-normal ${p.value(key).length > max ? "font-semibold text-rose-700" : "text-ink-300"}`}>{p.value(key).length}/{max}</span>
+  const counter = (key: string, max: number) =>
+    <span className={`mt-0.5 block text-right text-[10.5px] font-normal ${p.value(key).length > max ? "font-semibold text-rose-700" : "text-ink-300"}`}>{p.value(key).length}/{max}</span>;
+  const text = (key: string, label: string, max: number, options: { area?: boolean; rich?: boolean; placeholder?: string; rows?: number } = {}) => options.rich
+    // Ô soạn có thanh công cụ: không bọc trong <label> (bấm vào nhãn sẽ bấm nhầm nút Đậm).
+    ? <div className="block text-[11.5px] font-semibold text-ink-600"><span id={`${module.id}-${key}-label`}>{label}</span>
+      <AplusRichEditor value={p.value(key)} onChange={(v) => p.onSlot(key, v)} disabled={p.disabled} rows={options.rows ?? 5} placeholder={options.placeholder}
+        labelledBy={`${module.id}-${key}-label`} labels={{ bold: copy.fields.bold, italic: copy.fields.italic, bullets: copy.fields.bullets }} />
+      {counter(key, max)}</div>
+    : <label className="block text-[11.5px] font-semibold text-ink-600">{label}
+      {options.area
+        ? <textarea value={p.value(key)} rows={options.rows ?? 3} maxLength={max + 50} disabled={p.disabled} placeholder={options.placeholder} onChange={(e) => p.onSlot(key, e.target.value)} className={`${field} font-normal`} />
+        : <input value={p.value(key)} maxLength={max + 50} disabled={p.disabled} placeholder={options.placeholder} onChange={(e) => p.onSlot(key, e.target.value)} className={`${field} font-normal`} />}
+      {counter(key, max)}
     </label>;
   const image = (key: string, item: { image_path: string; fx?: number; fy?: number }, apply: (m: AplusModule, path: string) => AplusModule,
     focusPatch: (fx: number, fy: number) => void, altKey: string, onClear?: () => void) =>
@@ -409,7 +416,9 @@ function BlockCard(p: BlockProps) {
     {p.open && <div className="space-y-3 border-t border-ink-100 px-3 pb-3 pt-3">
       {hint && <p className="rounded-lg bg-brand-50 px-3 py-2 text-[11.5px] leading-5 text-brand-900">{hint}</p>}
       {contact && <p role="alert" className="flex items-start gap-1.5 rounded-lg bg-rose-50 px-3 py-2 text-[11.5px] font-semibold leading-5 text-rose-800"><AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{copy.contactWarn[contact]}</p>}
-      {mode === "en" && (stale || module.en_edited || aplusNeedsTranslation(module)) && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-ink-50 px-3 py-2 text-[11.5px] text-ink-600">
+      {mode === "vi" && !aplusHasVietnamese(module) && aplusModuleText(module).some((value) => value.trim()) &&
+        <p className="rounded-lg bg-ink-50 px-3 py-2 text-[11.5px] leading-5 text-ink-600">{copy.lang.englishOnly}</p>}
+      {mode === "en" && aplusHasVietnamese(module) && (stale || module.en_edited || aplusNeedsTranslation(module)) && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-ink-50 px-3 py-2 text-[11.5px] text-ink-600">
         <span className="font-semibold">{stale ? copy.translate.stale : aplusNeedsTranslation(module) ? copy.translate.pending : copy.translate.edited}</span>
         <button type="button" disabled={p.disabled} onClick={p.onRetranslate} className="ml-auto inline-flex items-center gap-1 rounded-md border border-ink-200 bg-white px-2 py-1 font-semibold text-brand-800 hover:bg-brand-50 disabled:opacity-60">
           {p.translating && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}{copy.translate.again}</button>
@@ -585,36 +594,6 @@ function ImageField({ src, ratio, fx = 50, fy = 50, busy, disabled, copy, onFile
     </div>
     <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
       onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onFile(file); }} />
-  </div>;
-}
-
-/** Đoạn chữ có nút In đậm (bọc **) và Gạch đầu dòng (thêm "- " đầu dòng). */
-function RichArea({ value, onChange, max, disabled, copy, rows, placeholder }: {
-  value: string; onChange: (value: string) => void; max: number; disabled: boolean; copy: AplusMessages; rows: number; placeholder?: string;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const apply = (kind: "bold" | "bullets") => {
-    const el = ref.current;
-    if (!el) return;
-    const { selectionStart: a, selectionEnd: b } = el;
-    if (kind === "bold") {
-      const selected = value.slice(a, b) || "";
-      onChange(`${value.slice(0, a)}**${selected}**${value.slice(b)}`);
-    } else {
-      const start = value.lastIndexOf("\n", a - 1) + 1;
-      const block = value.slice(start, b);
-      const toggled = block.split("\n").every((line) => line.startsWith("- ")) ? block.replace(/^- /gm, "") : block.replace(/^(?!- )/gm, "- ");
-      onChange(`${value.slice(0, start)}${toggled}${value.slice(b)}`);
-    }
-    requestAnimationFrame(() => el.focus());
-  };
-  return <div className="mt-1">
-    <div className="flex gap-1 rounded-t-lg border border-b-0 border-ink-200 bg-ink-50 px-1.5 py-1">
-      <button type="button" disabled={disabled} onMouseDown={(e) => e.preventDefault()} onClick={() => apply("bold")} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-bold text-ink-600 hover:bg-white"><Bold className="size-3" aria-hidden="true" />{copy.fields.bold}</button>
-      <button type="button" disabled={disabled} onMouseDown={(e) => e.preventDefault()} onClick={() => apply("bullets")} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-bold text-ink-600 hover:bg-white"><List className="size-3" aria-hidden="true" />{copy.fields.bullets}</button>
-    </div>
-    <textarea ref={ref} value={value} rows={rows} maxLength={max + 50} disabled={disabled} placeholder={placeholder} onChange={(e) => onChange(e.target.value)}
-      className="input w-full rounded-t-none font-normal" />
   </div>;
 }
 

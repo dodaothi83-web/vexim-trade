@@ -218,6 +218,8 @@ export interface SupplierProduct {
   description_detail_i18n?: I18nString;
   /** Khối nội dung A+ (xem lib/products/aplus.ts); chỉ hiện khi gói có nội dung A+. */
   aplus_content?: unknown;
+  /** Nội dung hiển thị: mô tả chữ ("basic", mặc định) hay nội dung A+ ("aplus", cần gói có A+). */
+  content_mode?: "basic" | "aplus" | null;
   /** Video sản phẩm trong dãy ảnh (xem readGalleryVideo); chỉ hiện khi gói có quyền video. */
   gallery_video?: unknown;
   spec: string | null;

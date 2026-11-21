@@ -169,3 +169,32 @@ async function verifyVideos(modules: AplusModule[], before: AplusModule[], ctx: 
   }
   return { ok: true, modules: out };
 }
+
+/**
+ * Chọn nội dung hiển thị trên trang sản phẩm: "basic" (mô tả chữ, mặc định) hoặc "aplus" (cần gói
+ * có A+). Cùng điều kiện sửa với nội dung A+; không đổi trạng thái duyệt, giá hay dữ liệu khác.
+ */
+export async function saveProductContentModeAction(productId: string, mode: "basic" | "aplus"): Promise<{ ok: boolean; message: string }> {
+  const { m } = await getPortalMessages();
+  const e = m.aplus.errors;
+  try {
+    if (mode !== "basic" && mode !== "aplus") return { ok: false, message: e.failed };
+    const access = await supplierPortalAccess();
+    if (!access || !portalApproved(access.supplier)) return { ok: false, message: e.noAccess };
+    const product = await access.store.getProduct(productId);
+    if (!product || product.supplier_id !== access.supplier.id || !canEditAplus(product)) return { ok: false, message: e.noAccess };
+    if (mode === "aplus" && !supplierPlanRules(access.supplier, new Date(), await readPlanCatalog()).richContent) return { ok: false, message: e.plan };
+    if ((product.content_mode ?? "basic") !== mode) {
+      await access.store.updateProduct(productId, { content_mode: mode });
+      await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email, entity: "product", entity_id: productId,
+        action: "supplier.product_content_mode", before: { mode: product.content_mode ?? null }, after: { mode } })
+        .catch((error) => console.error("[aplus] audit mode", error));
+      revalidatePath(`/supplier/portal/products/${productId}`);
+      revalidatePath("/products", "layout");
+    }
+    return { ok: true, message: mode === "aplus" ? m.aplus.aplusPage.showingAplus : m.aplus.aplusPage.showingBasic };
+  } catch (error) {
+    console.error("[aplus] content mode", error);
+    return { ok: false, message: e.failed };
+  }
+}
