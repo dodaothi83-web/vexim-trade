@@ -39,7 +39,7 @@ export function buildWeeklyReportMail(supplierName: string, to: string[], perf: 
       ${note ? `<p style="margin:2px 0 0;font-size:13px;color:${brandColors.muted};">${escapeHtml(note)}</p>` : ""}</td></tr>`;
   const subject = `Gian hàng tuần qua: ${nf.format(perf.views.current)} lượt xem, ${nf.format(perf.rfqs.current)} yêu cầu báo giá`;
   const link = `${SITE_URL}/supplier/portal/traffic?range=7`;
-  const viewNote = [views, perf.emailClicks ? `trong đó ${nf.format(perf.emailClicks)} lượt từ email marketing của Vexim` : ""].filter(Boolean).join(" · ");
+  const viewNote = [views, perf.emailClicks ? `trong đó ${nf.format(perf.emailClicks)} lượt từ email marketing của Vexim` : ""].filter(Boolean).join(", ");
   const body = `
     <p style="margin:0;font-size:20px;font-weight:800;color:#141C2E;">Báo cáo tuần của ${escapeHtml(supplierName)}</p>
     <p style="margin:4px 0 0;font-size:13px;color:${brandColors.muted};">7 ngày qua</p>

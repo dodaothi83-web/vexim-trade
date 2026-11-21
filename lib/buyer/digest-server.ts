@@ -27,7 +27,9 @@ import { issueIntroToken, listVerifiedBuyerUsers } from "./introductions-server"
  * Thư giới thiệu cho người mua (đợt 2): hệ thống tự tổng hợp từ nội dung đã duyệt trên sàn và tự gửi.
  * Nhân viên chỉ làm nội dung (sản phẩm, bài blog, lịch mùa vụ) và có nút tạm dừng khẩn cấp trong CRM.
  */
-export type DigestData = { categories: DigestCategory[]; products: DigestProduct[]; suppliers: DigestSupplier[]; posts: DigestPost[] };
+export type DigestData = { categories: DigestCategory[]; products: DigestProduct[]; suppliers: DigestSupplier[]; posts: DigestPost[];
+  /** Mọi nhà cung cấp công khai có sản phẩm (không chỉ gói Pro), cho gợi ý trong thư theo hành vi. */
+  directory?: DigestSupplier[]; parentOf?: Record<string, string> };
 
 export async function loadDigestData(now = new Date()): Promise<DigestData> {
   const snapshot = await loadPublicProductCatalogSnapshot();
@@ -48,19 +50,22 @@ export async function loadDigestData(now = new Date()): Promise<DigestData> {
       supplierCategories.set(p.supplierId, (supplierCategories.get(p.supplierId) ?? new Set()).add(c.id));
       products.push({ id: p.id, name: p.name, href: `/products/${encodeURIComponent(c.slug)}/${encodeURIComponent(p.id)}`, imagePath: p.cardImagePath ?? p.imagePaths[0] ?? null,
         categoryId: c.id, supplierId: p.supplierId, pro: pro(p.supplierId), moq: p.moq || "On request", leadTime: p.leadTimeText || "On request", price: p.price,
-        createdAt: source.created_at, updatedAt: source.updated_at });
+        createdAt: source.created_at, updatedAt: source.updated_at, certificates: p.certificates ?? [], imageCount: p.imagePaths.length });
     }
   }
   const featured: DigestSupplier[] = [];
+  const directory: DigestSupplier[] = [];
   for (const [id, cats] of supplierCategories) {
     const s = suppliers.get(id);
-    if (!s || !pro(id) || s.status !== "published") continue;
-    featured.push({ id, name: s.display_name || s.name, href: `/suppliers/${encodeURIComponent(s.slug || s.id)}`, location: supplierProvinceDisplay(s) ? `${supplierProvinceDisplay(s)}, Vietnam` : "Vietnam",
-      type: supplierTypeLabel(s), products: products.filter((p) => p.supplierId === id).slice(0, 3).map((p) => p.name).join(" · "),
+    if (!s || s.status !== "published") continue;
+    (pro(id) ? featured : directory).push({ id, name: s.display_name || s.name, href: `/suppliers/${encodeURIComponent(s.slug || s.id)}`, location: supplierProvinceDisplay(s) ? `${supplierProvinceDisplay(s)}, Vietnam` : "Vietnam",
+      type: supplierTypeLabel(s), products: products.filter((p) => p.supplierId === id).slice(0, 3).map((p) => p.name).join(", "),
       checks: VERIFICATION_DISPLAY_ORDER.filter((level) => s.approved_verification_steps.includes(level)).map((level) => level === 1 ? "Business registration checked" : verificationLabel(level, s.approved_l2_scope ?? null)),
       categoryIds: [...cats] });
   }
-  return { categories, products, suppliers: featured, posts: await loadPosts(categories) };
+  const parentOf: Record<string, string> = {};
+  for (const c of snapshot.categories) if (c.parent_id) parentOf[c.id] = c.parent_id;
+  return { categories, products, suppliers: featured, directory: [...featured, ...directory], parentOf, posts: await loadPosts(categories) };
 }
 
 async function loadPosts(categories: DigestCategory[]): Promise<DigestPost[]> {
@@ -95,7 +100,7 @@ async function recentShown(): Promise<Map<string, RecentShown>> {
 }
 
 // ----- Link đếm lượt bấm (không chứa mã người mua) -----
-type ClickPayload = { k: DigestKind; t: "product" | "supplier" | "post" | "category" | "rfq"; i: string; s?: string; u: string };
+type ClickPayload = { k: DigestKind | "alerts"; t: "product" | "supplier" | "post" | "category" | "rfq"; i: string; s?: string; u: string };
 const sign = (body: string) => crypto.createHmac("sha256", getAuthSecret()).update(`digest-click:${body}`).digest("base64url");
 
 export function clickUrl(payload: ClickPayload): string {
@@ -124,13 +129,35 @@ export async function recordClick(p: ClickPayload): Promise<void> {
 }
 
 // ----- Thư -----
-const unsubscribeUrl = (token: string) => `${SITE_URL}/buyer/introductions/unsubscribe?t=${encodeURIComponent(token)}`;
-const link = (href: string, label: string) => `<a href="${escapeHtml(href)}" style="color:${brandColors.primary};font-weight:700;text-decoration:none;">${label}</a>`;
-const section = (title: string, body: string, note = "") => `<div style="margin:26px 0 0;"><p style="margin:0 0 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:${brandColors.muted};font-weight:700;">${escapeHtml(title)}${note}</p>${body}</div>`;
+export const unsubscribeUrl = (token: string) => `${SITE_URL}/buyer/introductions/unsubscribe?t=${encodeURIComponent(token)}`;
+export const link = (href: string, label: string) => `<a href="${escapeHtml(href)}" style="color:${brandColors.primary};font-weight:700;text-decoration:none;">${label}</a>`;
+export const section = (title: string, body: string, note = "") => `<div style="margin:26px 0 0;"><p style="margin:0 0 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:${brandColors.muted};font-weight:700;">${escapeHtml(title)}${note}</p>${body}</div>`;
 
 function seasonsHtml(d: { seasons: ProductsDigest["seasons"] }): string {
   if (!d.seasons.length) return "";
-  return section("Season watch", d.seasons.map((s) => `<p style="margin:0 0 8px;font-size:14px;"><b>${escapeHtml(s.categoryName)}</b> · ${escapeHtml(s.label)}: ${escapeHtml(s.months)}${s.now ? " (now)" : " (starts soon)"}${s.regions.length ? `<br><span style="color:${brandColors.muted};font-size:13px;">${escapeHtml(s.regions.join(", "))}</span>` : ""}</p>`).join(""));
+  return section("Season watch", d.seasons.map((s) => `<p style="margin:0 0 8px;font-size:14px;"><b>${escapeHtml(s.categoryName)}</b>, ${escapeHtml(s.label)}: ${escapeHtml(s.months)}${s.now ? " (now)" : " (starts soon)"}${s.regions.length ? `<br><span style="color:${brandColors.muted};font-size:13px;">${escapeHtml(s.regions.join(", "))}</span>` : ""}</p>`).join(""));
+}
+
+/** Lưới thẻ ảnh 3 cột (bảng HTML để hiện đúng trên Gmail/Outlook): ảnh vuông, tên 2 dòng, giá hoặc MOQ. */
+export function productGridHtml(products: Array<DigestProduct & { badge?: string }>, kind: DigestKind | "alerts"): string {
+  const card = (p: DigestProduct & { badge?: string }) => {
+    const href = clickUrl({ k: kind, t: "product", i: p.id, s: p.supplierId, u: p.href });
+    const img = p.imagePath
+      ? `<img src="${escapeHtml(`${SITE_URL}/public-media/${p.imagePath.replace(/^\//, "")}`)}" width="180" height="180" alt="${escapeHtml(p.name)}" style="display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid #DFE5EE;">`
+      : `<div style="width:100%;padding-top:100%;border-radius:10px;background:#E8EEF8;"></div>`;
+    return `<td width="33%" valign="top" style="padding:0 5px 16px;"><a href="${escapeHtml(href)}" style="text-decoration:none;color:#141C2E;display:block;">
+      ${img}
+      ${p.badge ? `<p style="margin:8px 0 0;font-size:10.5px;font-weight:800;color:${brandColors.primary};">${p.badge}</p>` : ""}
+      <p style="margin:${p.badge ? "2px" : "8px"} 0 0;font-size:13px;line-height:18px;font-weight:600;color:#141C2E;height:36px;overflow:hidden;">${escapeHtml(p.name)}</p>
+      <p style="margin:4px 0 0;font-size:13px;font-weight:800;color:#141C2E;">${escapeHtml(p.price ?? `MOQ ${p.moq}`)}</p></a></td>`;
+  };
+  const rows: string[] = [];
+  for (let i = 0; i < products.length; i += 3) {
+    const cells = products.slice(i, i + 3).map(card);
+    while (cells.length < 3) cells.push('<td width="33%" style="padding:0 5px 16px;"></td>');
+    rows.push(`<tr>${cells.join("")}</tr>`);
+  }
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;table-layout:fixed;margin:0 -5px;">${rows.join("")}</table>`;
 }
 
 export function buildDigestMail(digest: ProductsDigest | BriefDigest, buyer: Pick<BuyerUser, "email">, chosen: string[], weekLabel: string) {
@@ -144,30 +171,11 @@ export function buildDigestMail(digest: ProductsDigest | BriefDigest, buyer: Pic
     title = "Your weekly Vietnam sourcing brief";
     const featured = digest.featured.length ? section("Featured suppliers", digest.featured.map((s) => `<div style="border:1px solid #DFE5EE;border-radius:12px;padding:14px;margin:0 0 10px;">
         <p style="margin:0;font-weight:700;color:#141C2E;">${escapeHtml(s.name)}</p>
-        <p style="margin:2px 0 6px;font-size:13px;color:${brandColors.muted};">${escapeHtml([s.location, s.type, s.products].filter(Boolean).join(" · "))}</p>
-        ${s.checks.map((c) => `<span style="display:inline-block;margin:0 4px 6px 0;padding:2px 8px;border-radius:999px;background:#E7F5EF;color:#0E7A4E;font-size:12px;font-weight:700;">✓ ${escapeHtml(c)}</span>`).join("")}
-        <p style="margin:4px 0 0;">${link(clickUrl({ k: "products", t: "supplier", i: s.id, s: s.id, u: s.href }), "View supplier →")}</p></div>`).join(""),
+        <p style="margin:2px 0 6px;font-size:13px;color:${brandColors.muted};">${escapeHtml([s.location, s.type, s.products].filter(Boolean).join(". "))}</p>
+        ${s.checks.map((c) => `<span style="display:inline-block;margin:0 4px 6px 0;padding:2px 8px;border-radius:999px;background:#E7F5EF;color:#0E7A4E;font-size:12px;font-weight:700;">${escapeHtml(c)}</span>`).join("")}
+        <p style="margin:4px 0 0;">${link(clickUrl({ k: "products", t: "supplier", i: s.id, s: s.id, u: s.href }), "View supplier")}</p></div>`).join(""),
       ` <span style="text-transform:none;letter-spacing:0;color:#93370D;background:#FFF4DE;border-radius:999px;padding:2px 8px;font-size:11px;">Sponsored</span>`) : "";
-    // Lưới thẻ ảnh 3 cột (bảng HTML để hiện đúng trên Gmail/Outlook): ảnh vuông, tên 2 dòng, giá hoặc MOQ.
-    const card = (p: (typeof digest.products)[number]) => {
-      const href = clickUrl({ k: "products", t: "product", i: p.id, s: p.supplierId, u: p.href });
-      const img = p.imagePath
-        ? `<img src="${escapeHtml(`${SITE_URL}/public-media/${p.imagePath.replace(/^\//, "")}`)}" width="180" height="180" alt="${escapeHtml(p.name)}" style="display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid #DFE5EE;">`
-        : `<div style="width:100%;padding-top:100%;border-radius:10px;background:#E8EEF8;"></div>`;
-      return `<td width="33%" valign="top" style="padding:0 5px 16px;"><a href="${escapeHtml(href)}" style="text-decoration:none;color:#141C2E;display:block;">
-        ${img}
-        <p style="margin:8px 0 0;font-size:10.5px;font-weight:800;color:${brandColors.primary};">${p.badge}</p>
-        <p style="margin:2px 0 0;font-size:13px;line-height:18px;font-weight:600;color:#141C2E;height:36px;overflow:hidden;">${escapeHtml(p.name)}</p>
-        <p style="margin:4px 0 0;font-size:13px;font-weight:800;color:#141C2E;">${escapeHtml(p.price ?? `MOQ ${p.moq}`)}</p></a></td>`;
-    };
-    const rows: string[] = [];
-    for (let i = 0; i < digest.products.length; i += 3) {
-      const cells = digest.products.slice(i, i + 3).map(card);
-      while (cells.length < 3) cells.push('<td width="33%" style="padding:0 5px 16px;"></td>');
-      rows.push(`<tr>${cells.join("")}</tr>`);
-    }
-    const products = digest.products.length ? section("New products this week",
-      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;table-layout:fixed;margin:0 -5px;">${rows.join("")}</table>`) : "";
+    const products = digest.products.length ? section("New products this week", productGridHtml(digest.products, "products")) : "";
     body = `${featured}${products}${seasonsHtml(digest)}`;
   } else {
     subject = `${digest.post.title}`;
@@ -176,19 +184,19 @@ export function buildDigestMail(digest: ProductsDigest | BriefDigest, buyer: Pic
         ${digest.post.imageUrl ? `<img src="${escapeHtml(digest.post.imageUrl)}" width="100%" alt="" style="display:block;border-radius:8px;margin:0 0 10px;max-height:260px;object-fit:cover;">` : ""}
         <p style="margin:0 0 6px;font-weight:700;color:#141C2E;font-size:16px;">${escapeHtml(digest.post.title)}</p>
         ${digest.post.excerpt ? `<p style="margin:0 0 8px;font-size:14px;">${escapeHtml(digest.post.excerpt)}</p>` : ""}
-        ${link(clickUrl({ k: "brief", t: "post", i: digest.post.id, u: digest.post.href }), "Read the article →")}</div>`) + seasonsHtml(digest);
+        ${link(clickUrl({ k: "brief", t: "post", i: digest.post.id, u: digest.post.href }), "Read the article")}</div>`) + seasonsHtml(digest);
   }
   const html = wrapPlainEmail({ title, preheader: subject, body: `
     <p style="margin:0;font-size:20px;font-weight:800;color:#141C2E;">${escapeHtml(title)}</p>
-    <p style="margin:4px 0 0;font-size:13px;color:${brandColors.muted};">${escapeHtml(weekLabel)} · For ${escapeHtml(names)}</p>
+    <p style="margin:4px 0 0;font-size:13px;color:${brandColors.muted};">${escapeHtml(weekLabel)}. For ${escapeHtml(names)}.</p>
     ${body}
     <div style="margin:26px 0 0;padding:16px;border:1px solid #DFE5EE;border-radius:12px;background:#F2F5FA;">
       <p style="margin:0;font-weight:700;color:#141C2E;">Need a quote?</p>
       <p style="margin:2px 0 10px;font-size:14px;">Send one request. Vexim matches checked suppliers and keeps your contact private.</p>
       <a href="${escapeHtml(rfq)}" style="display:inline-block;padding:10px 16px;background:${brandColors.primary};color:#ffffff;border-radius:8px;font-weight:700;text-decoration:none;">Request a quote</a></div>
     <p style="margin:24px 0 0;font-size:12px;color:${brandColors.muted};">You get this because you chose ${escapeHtml(names)} on Vexim Trade.${digest.kind === "products" && digest.featured.length ? " Featured suppliers pay for placement; checks are shown exactly as Vexim reviewed them." : ""}<br>
-      <a href="${escapeHtml(`${SITE_URL}/buyer/introductions?t=${encodeURIComponent(token)}`)}" style="color:${brandColors.muted};">Change my products</a> · <a href="${escapeHtml(unsubscribeUrl(token))}" style="color:${brandColors.muted};">Unsubscribe</a></p>` });
-  const text = [title, `${weekLabel} · For ${names}`, "", ...(digest.kind === "products"
+      <a href="${escapeHtml(`${SITE_URL}/buyer/introductions?t=${encodeURIComponent(token)}`)}" style="color:${brandColors.muted};">Change my products</a> | <a href="${escapeHtml(unsubscribeUrl(token))}" style="color:${brandColors.muted};">Unsubscribe</a></p>` });
+  const text = [title, `${weekLabel}. For ${names}.`, "", ...(digest.kind === "products"
     ? [...digest.featured.map((s) => `${s.name} (${s.location}): ${clickUrl({ k: "products", t: "supplier", i: s.id, s: s.id, u: s.href })}`), ...digest.products.map((p) => `${p.badge} ${p.name}: ${clickUrl({ k: "products", t: "product", i: p.id, s: p.supplierId, u: p.href })}`)]
     : [`${digest.post.title}: ${clickUrl({ k: "brief", t: "post", i: digest.post.id, u: digest.post.href })}`]),
     "", `Request a quote: ${rfq}`, "", `Unsubscribe: ${unsubscribeUrl(token)}`].join("\n");

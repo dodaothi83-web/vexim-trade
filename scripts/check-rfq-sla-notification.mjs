@@ -61,6 +61,7 @@ const { GET } = load('../app/api/cron/rfq-sla/route.ts', {
   '@/lib/buyer/digest-server': { runBuyerDigest: async () => ({ kinds: [], sent: 0, skipped: 0, failed: 0, paused: false }) },
   '@/lib/supplier-portal/weekly-report': { runSupplierWeeklyReport: async () => ({ sent: 0, skipped: 0, failed: 0 }) },
   '@/lib/supplier-portal/plan-expiry-server': { runPlanExpiry: async () => ({ reminded: 0, failed: 0, expiredRequests: 0 }) },
+  '@/lib/buyer/alerts-server': { runBuyerAlerts: async () => ({ sent: 0, skipped: 0, failed: 0, capped: 0, paused: false }) },
 }, { CRON_SECRET: 'only-for-test' });
 const request = new Request('https://example.com/api/cron/rfq-sla', { headers: { authorization: 'Bearer only-for-test' } });
 assert.equal((await GET(new Request(request.url))).status, 401);
