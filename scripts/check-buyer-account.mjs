@@ -86,7 +86,13 @@ const SourcingHistory = load('components/buyer-sourcing-history.tsx', {
   'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
   '@/lib/sourcing/status': sourcingStatus,
 });
+const buyerNav = load('components/buyer-account-nav.tsx', {
+  'react/jsx-runtime': jsx,
+  'next/link': { default: ({ children, prefetch, ...props }) => React.createElement('a', props, children) },
+  'lucide-react': new Proxy({}, { get: () => icon }),
+});
 const dashboard = load('app/(public)/buyer/account/page.tsx', {
+  '@/components/buyer-account-nav': buyerNav,
   '@/components/brand/account-role-icons': roleIcons,
   '@/components/brand/buyer-dashboard-icons': dashboardIcons,
   '@/components/buyer-sourcing-history': SourcingHistory,
@@ -210,8 +216,11 @@ for (lang of ['en', 'vi']) {
 }
 emptyDashboard = false;
 const dashboardSource = read('app/(public)/buyer/account/page.tsx');
-assert.match(dashboardSource, /const nav = \[\{ id: "overview", icon: LayoutDashboard \}, \{ id: "messages", icon: MessageCircle \}, \{ id: "requests", icon: ClipboardList \}, \{ id: "vexim", icon: Headphones \}, \{ id: "saved", icon: Heart \}, \{ id: "profile", icon: UserRound \}\]/);
-assert.match(dashboardSource, /id === "messages" \? "\/buyer\/account\/messages"/, 'Mục Tin nhắn mở trang chat của người mua');
+const navSource = read('components/buyer-account-nav.tsx');
+assert.match(navSource, /\{ id: "overview", icon: LayoutDashboard \}, \{ id: "messages", icon: MessageCircle \}, \{ id: "requests", icon: ClipboardList \},\s*\{ id: "vexim", icon: Headphones \}, \{ id: "saved", icon: Heart \}, \{ id: "profile", icon: UserRound \}/);
+assert.match(navSource, /id === "messages" \? "\/buyer\/account\/messages"/, 'Mục Tin nhắn mở trang chat của người mua');
+assert.match(dashboardSource, /<BuyerAccountNav active=/, 'Tài khoản người mua dùng menu chung');
+assert.match(read('app/(public)/buyer/account/messages/page.tsx'), /<BuyerAccountNav active="messages"/, 'Trang Tin nhắn giữ cột menu tài khoản');
 redirectAttempt = true;
 await assert.rejects(dashboard.default({ searchParams: Promise.resolve({ tab: 'saved' }) }), /redirect/);
 
