@@ -2056,7 +2056,7 @@ export const localStore: DataStore = {
   async addSupplierServiceRequest(input) {
     const rows = load().supplier_service_requests ?? [];
     // Giống chỉ mục unique trong CSDL: một yêu cầu đang mở cho mỗi dịch vụ.
-    if (rows.some((r) => r.supplier_id === input.supplier_id && r.service_key === input.service_key && r.status !== "closed")) {
+    if (rows.some((r) => r.supplier_id === input.supplier_id && r.service_key === input.service_key && r.status === "submitted")) {
       throw new Error("addSupplierServiceRequest: duplicate key value violates unique constraint supplier_service_requests_one_open");
     }
     const now = new Date().toISOString();

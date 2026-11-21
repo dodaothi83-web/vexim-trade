@@ -26,6 +26,7 @@ import { cleanupPendingUploads } from "@/lib/supplier-portal/pending-media";
 import { runIntroductionMail } from "@/lib/buyer/introductions-server";
 import { runBuyerDigest } from "@/lib/buyer/digest-server";
 import { runSupplierWeeklyReport } from "@/lib/supplier-portal/weekly-report";
+import { runPlanExpiry } from "@/lib/supplier-portal/plan-expiry-server";
 
 export const dynamic = "force-dynamic";
 
@@ -178,6 +179,15 @@ export async function GET(req: Request) {
     console.error("[cron] supplier weekly report failed", err);
   }
 
+  // Gói trả phí: nhắc gia hạn (30 ngày, 7 ngày, đã hết hạn) và chuyển yêu cầu nâng gói đã hết sang "Hết hạn".
+  let planExpiry: Awaited<ReturnType<typeof runPlanExpiry>> | { error: string };
+  try {
+    planExpiry = await runPlanExpiry();
+  } catch (err) {
+    planExpiry = { error: err instanceof Error ? err.message : String(err) };
+    console.error("[cron] plan expiry failed", err);
+  }
+
   return NextResponse.json({
     ok: errors.length === 0,
     provider: "cron-job.org (external)",
@@ -191,6 +201,7 @@ export async function GET(req: Request) {
     buyerIntroductions,
     buyerDigest,
     supplierWeeklyReport,
+    planExpiry,
     pendingMedia,
     errors: errors.length ? errors : undefined,
   }, { status: errors.length ? 503 : 200 });

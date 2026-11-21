@@ -6,6 +6,7 @@ import { requirePagePermission } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import {
   isSupplierServiceStatus,
+  manualServiceStatuses,
   SUPPLIER_SERVICE_LABELS_VI,
   SUPPLIER_SERVICE_STATUS_LABELS_VI,
   SUPPLIER_SERVICE_STATUSES,
@@ -17,10 +18,10 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Yêu cầu dịch vụ", robots: { index: false, follow: false } };
 
 const STATUS_CLASS: Record<SupplierServiceRequest["status"], string> = {
-  submitted: "bg-sky-50 text-sky-800",
-  in_consultation: "bg-amber-50 text-amber-800",
-  quoted: "bg-emerald-50 text-emerald-800",
-  closed: "bg-ink-100 text-ink-600",
+  submitted: "bg-amber-50 text-amber-800",
+  active: "bg-emerald-50 text-emerald-800",
+  cancelled: "bg-ink-100 text-ink-600",
+  expired: "bg-rose-50 text-rose-700",
 };
 
 /** Yêu cầu tư vấn dịch vụ Vexim mà nhà cung cấp gửi từ cổng ("Dịch vụ Vexim"). */
@@ -44,7 +45,7 @@ export default async function ServiceRequestsPage({ searchParams }: { searchPara
   const date = (value: string) => new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
 
   return <>
-    <PageHeader title="Yêu cầu dịch vụ" sub="Nhà cung cấp gửi yêu cầu tư vấn từ mục Dịch vụ Vexim trong cổng. Đổi trạng thái để họ theo dõi." />
+    <PageHeader title="Yêu cầu dịch vụ" sub="Yêu cầu nhà cung cấp gửi từ cổng. Nâng gói: bấm Mở gói, yêu cầu tự chuyển sang Đã mở. Không chốt thì chọn Đã huỷ." />
     <nav aria-label="Lọc theo trạng thái" className="mb-4 flex flex-wrap gap-1.5">
       {[undefined, ...SUPPLIER_SERVICE_STATUSES].map((value) => (
         <Link key={value ?? "all"} href={value ? `/crm/service-requests?status=${value}` : "/crm/service-requests"}
@@ -79,14 +80,20 @@ export default async function ServiceRequestsPage({ searchParams }: { searchPara
                 </p>
                 {request.note && <p className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-ink-50 px-3 py-2 text-sm leading-6 text-ink-700">{request.note}</p>}
               </div>
-              {canManage ? (
+              {canManage && request.service_key === "plan_upgrade" && request.status !== "submitted" ? (
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_CLASS[request.status]}`}>{SUPPLIER_SERVICE_STATUS_LABELS_VI[request.status]}</span>
+              ) : canManage ? (
                 <form action={updateServiceRequestStatusAction} className="flex shrink-0 items-center gap-2">
                   <input type="hidden" name="id" value={request.id} />
                   <label className="sr-only" htmlFor={`status-${request.id}`}>Trạng thái</label>
                   <select id={`status-${request.id}`} name="status" defaultValue={request.status} className="input py-1.5 text-sm">
-                    {SUPPLIER_SERVICE_STATUSES.map((value) => <option key={value} value={value}>{SUPPLIER_SERVICE_STATUS_LABELS_VI[value]}</option>)}
+                    {manualServiceStatuses(request.service_key).map((value) => <option key={value} value={value}>{SUPPLIER_SERVICE_STATUS_LABELS_VI[value]}</option>)}
                   </select>
-                  <button type="submit" className="rounded-lg bg-brand-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-900">Lưu</button>
+                  <button type="submit" className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-semibold text-ink-800 hover:bg-ink-50">Lưu</button>
+                  {request.service_key === "plan_upgrade" && supplier && (
+                    <Link href={`/crm/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}#plan`}
+                      className="rounded-lg bg-brand-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-900">Mở gói</Link>
+                  )}
                 </form>
               ) : (
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_CLASS[request.status]}`}>{SUPPLIER_SERVICE_STATUS_LABELS_VI[request.status]}</span>

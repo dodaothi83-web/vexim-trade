@@ -8,19 +8,12 @@ import { PageHeader } from "@/components/page-header";
 import { SupplierTable } from "@/components/supplier-table";
 import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 import { groupPendingCategoryRequests } from "@/lib/supplier-portal/requested-category";
+import { isRenewalNote, requestedPlanOf } from "@/lib/supplier-services";
 import { IndustryRequests } from "./industry-requests";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Nhà cung cấp" };
-
-/** Đoán gói xin nâng từ ghi chú "Nâng lên gói …" mà form gửi kèm; không đoán được thì để null. */
-function requestedPlanOf(note: string | null): "premium" | "pro" | null {
-  if (!note) return null;
-  if (/premium/i.test(note)) return "premium";
-  if (/\bpro\b/i.test(note)) return "pro";
-  return null;
-}
 
 export default async function SuppliersPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
   const { plan: initialPlanFilter } = await searchParams;
@@ -42,10 +35,10 @@ export default async function SuppliersPage({ searchParams }: { searchParams: Pr
   ]);
 
   // Yêu cầu nâng gói còn mở (chưa đóng) theo nhà cung cấp, để bảng gắn nhãn "Xin nâng …".
-  const upgradeRequests: Record<string, { plan: "premium" | "pro" | null; status: string; createdAt: string }> = {};
+  const upgradeRequests: Record<string, { plan: "premium" | "pro" | null; renewal: boolean; status: string; createdAt: string }> = {};
   for (const r of serviceRequests) {
-    if (r.service_key !== "plan_upgrade" || r.status === "closed" || upgradeRequests[r.supplier_id]) continue;
-    upgradeRequests[r.supplier_id] = { plan: requestedPlanOf(r.note), status: r.status, createdAt: r.created_at };
+    if (r.service_key !== "plan_upgrade" || r.status !== "submitted" || upgradeRequests[r.supplier_id]) continue;
+    upgradeRequests[r.supplier_id] = { plan: requestedPlanOf(r.note), renewal: isRenewalNote(r.note), status: r.status, createdAt: r.created_at };
   }
 
   const usage = buildSupplierOrderUsage(buyers);

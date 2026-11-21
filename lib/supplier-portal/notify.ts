@@ -310,6 +310,43 @@ export async function notifySupplierPlanChange(input: {
   } catch (error) { console.error("[supplier-notify] plan change", error); return "failed"; }
 }
 
+/** Email nhắc gia hạn gói (còn 30 ngày, còn 7 ngày) hoặc báo gói đã hết hạn. Gọi từ tác vụ hằng ngày. */
+export async function notifySupplierPlanExpiry(input: {
+  supplierId: string;
+  plan: "premium" | "pro";
+  kind: "d30" | "d7" | "expired";
+  /** ISO, lưu 23:59:59 +07:00 của ngày hết hạn. */
+  expiresAt: string;
+  now: number;
+}): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const users = await getStore().listUsers();
+    const recipients = [...new Set(users.filter((u) => u.is_active && u.role === "supplier" && u.supplier_id === input.supplierId)
+      .map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+    if (!recipients.length) return "failed";
+    const catalog = await readPlanCatalog();
+    const label = catalog[input.plan].name || SUPPLIER_PLAN_LABELS[input.plan];
+    const day = new Date(Date.parse(input.expiresAt) + 7 * 3_600_000).toISOString().slice(0, 10);
+    const date = formatCertificateDate(day, "vi");
+    const daysLeft = Math.max(0, Math.ceil((Date.parse(input.expiresAt) - input.now) / 86_400_000));
+    const basicMax = catalog.basic.maxProducts;
+    const basicLimit = basicMax === null ? "không giới hạn sản phẩm" : `tối đa ${basicMax} sản phẩm`;
+    const expired = input.kind === "expired";
+    const title = expired ? `Gói ${label} đã hết hạn ngày ${date}`
+      : `Gói ${label} còn ${daysLeft} ngày, hết hạn ngày ${date}`;
+    const explanation = expired
+      ? `Tài khoản đã chuyển về Basic. Sản phẩm đã đăng vẫn hiển thị. Gói Basic cho đăng ${basicLimit}, mô tả chi tiết chỉ gồm chữ. Gia hạn để dùng lại nội dung A+ và trang nhà cung cấp cao cấp.`
+      : `Gia hạn trước ngày ${date} để giữ nội dung A+ và trang nhà cung cấp cao cấp. Sau ngày này, tài khoản chuyển về Basic: sản phẩm đã đăng vẫn hiển thị, nhưng chỉ đăng ${basicLimit} và mô tả chỉ gồm chữ.`;
+    const cta = expired ? `Gia hạn gói ${label}` : "Gửi yêu cầu gia hạn";
+    const url = `${notificationOrigin()}/supplier/portal/storefront#plans`;
+    const body = `<p>${escapeHtml(explanation)}</p><p><a href="${url}">${escapeHtml(cta)}</a></p><p>Vexim sẽ liên hệ để xác nhận. Không có khoản phí nào được trừ tự động.</p>`;
+    const res = await transport({ to: recipients, from: SERVICE_FROM_ADDRESS, subject: title,
+      html: wrapPlainEmail({ title: escapeHtml(title), body }),
+      text: `${title}\n${explanation}\n${cta}: ${url}\nVexim sẽ liên hệ để xác nhận. Không có khoản phí nào được trừ tự động.` });
+    return res.ok ? res.status : "failed";
+  } catch (error) { console.error("[supplier-notify] plan expiry", error); return "failed"; }
+}
+
 export async function notifySupplierDecision(input: {
   supplierId: string; decision: SupplierDecision; name?: string; entityId?: string; note?: string;
 }): Promise<"sent" | "simulated" | "failed"> {

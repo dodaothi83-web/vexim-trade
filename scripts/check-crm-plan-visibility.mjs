@@ -20,8 +20,29 @@ assert.match(table, /effectiveSupplierPlan\(s, new Date\(now\)\)/);
 for (const key of ["basic", "premium", "pro", "upgrade", "expiring"]) assert.ok(table.includes(`"${key}"`), key);
 assert.match(table, /<th className="table-th">Gói<\/th>/);
 assert.match(table, /Xin nâng/);
-assert.match(page, /r\.service_key !== "plan_upgrade" \|\| r\.status === "closed"/);
+assert.match(page, /r\.service_key !== "plan_upgrade" \|\| r\.status !== "submitted"/);
 assert.match(page, /initialPlanFilter=\{initialPlanFilter\}/);
 // Chỉ hiển thị: bảng không ghi gói hay yêu cầu.
 assert.doesNotMatch(table, /updateSupplier|"use server"/);
+
+// Mở gói trả phí tự chuyển yêu cầu "Mới" sang "Đã mở"; tác vụ hằng ngày nhắc gia hạn và đặt "Hết hạn".
+const planAction = read("app/crm/suppliers/[slug]/plan-actions.ts");
+assert.match(planAction, /if \(plan !== "basic"\) await closeUpgradeRequests/);
+assert.match(planAction, /status: "active", handled_by: session\.uid/);
+const expiry = await import("../lib/supplier-plan-expiry.ts");
+const now = Date.parse("2026-12-01T00:00:00Z"), day = 86_400_000;
+const at = (d) => new Date(now + d * day).toISOString();
+assert.equal(expiry.planReminderKind(at(40), now), null);
+assert.equal(expiry.planReminderKind(at(30), now), "d30");
+assert.equal(expiry.planReminderKind(at(8), now), "d30");
+assert.equal(expiry.planReminderKind(at(7), now), "d7");
+assert.equal(expiry.planReminderKind(at(0.2), now), "d7");
+assert.equal(expiry.planReminderKind(at(-1), now), "expired");
+assert.equal(expiry.planReminderKind(at(-20), now), null, "Không báo gói hết hạn đã lâu");
+assert.equal(expiry.planReminderKind(null, now), null);
+const server = read("lib/supplier-portal/plan-expiry-server.ts");
+assert.match(server, /ignoreDuplicates: true/, "Mỗi mốc gửi một lần");
+assert.match(server, /status: "expired"/);
+assert.match(read("app/api/cron/rfq-sla/route.ts"), /await runPlanExpiry\(\)/);
+assert.match(layout, /href: "\/crm\/suppliers\?plan=expiring"/);
 console.log("check-crm-plan-visibility: ok");

@@ -1,4 +1,5 @@
 import { supportHasUnread } from "@/lib/chat/support-core";
+import { countPaidPlansExpiring } from "@/lib/supplier-portal/plan-expiry-server";
 import { sourcingStore } from "@/lib/sourcing/store";
 import { rfqChannel, UNCLAIMED_RFQ_STATUSES } from "@/lib/rfq/channel";
 import type { ReactNode } from "react";
@@ -112,12 +113,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     : [];
   const pendingPlanUpgrades = newServiceRequests.filter((r) => r.service_key === "plan_upgrade").length;
   const pendingServiceRequests = newServiceRequests.length - pendingPlanUpgrades;
+  const expiringPlans = canSuppliers ? await countOrZero("gói sắp hết hạn", () => countPaidPlansExpiring()) : 0;
 
   // Chuông thông báo của CRM: cùng nguồn số với huy hiệu sidebar, nên hai nơi
   // không bao giờ lệch nhau. Chỉ đưa vào chuông hàng đang có việc.
   const queues = [
     { href: "/crm/suppliers?plan=upgrade", label: "Nhà cung cấp xin nâng gói", count: pendingPlanUpgrades },
     { href: "/crm/service-requests", label: "Yêu cầu dịch vụ mới", count: pendingServiceRequests },
+    { href: "/crm/suppliers?plan=expiring", label: "Gói trả phí hết hạn trong 30 ngày", count: expiringPlans },
     { href: "/crm/sourcing", label: "Yêu cầu tìm nguồn chờ tiếp nhận", count: pendingSourcing ?? 0 },
     { href: "/crm/support", label: "Người mua đang chờ trả lời chat", count: pendingSupport },
     { href: "/crm/suppliers", label: "Nhà cung cấp chờ xác nhận quyền cổng", count: pendingSuppliers },

@@ -10,6 +10,20 @@ import { recordPlanActivation } from "@/lib/supplier-plan-catalog";
 
 type Result = { ok: boolean; message: string };
 
+async function closeUpgradeRequests(store: ReturnType<typeof getStore>, supplierId: string, session: { uid: string; email: string }) {
+  const open = (await store.listSupplierServiceRequests({ supplierId, status: "submitted", limit: 10 }))
+    .filter((r) => r.service_key === "plan_upgrade");
+  for (const r of open) {
+    const updated = await store.updateSupplierServiceRequest(r.id, { status: "active", handled_by: session.uid });
+    if (!updated) continue;
+    await store.addAuditLog({
+      actor_id: session.uid, actor_email: session.email, entity: "supplier", entity_id: supplierId,
+      action: "supplier.service_request_status",
+      before: { request_id: r.id, status: r.status }, after: { request_id: r.id, status: "active", via: "plan_activated" },
+    }).catch((error) => console.error("[supplier-plan] audit request", error));
+  }
+}
+
 /**
  * Nhân viên đổi gói nhà cung cấp sau khi đã thu phí ngoài hệ thống.
  * Hạ gói không ẩn sản phẩm đã có; chỉ chặn thêm mới khi vượt số sản phẩm của gói.
@@ -66,7 +80,11 @@ export async function setSupplierPlanAction(form: FormData): Promise<Result> {
   // Mỗi lần bật/gia hạn gói trả phí là một dòng cho báo cáo doanh thu ở /crm/plans.
   if (plan !== "basic") await recordPlanActivation({ supplierId, plan, months, amountVnd, expiresAt, actorId: session.uid })
     .catch((error) => console.error("[supplier-plan] activation log", error));
+  // Mở gói trả phí là xong việc của yêu cầu nâng gói đang "Mới": tự chuyển sang "Đã mở"
+  // để chuông, nhãn CRM và dòng chờ trong cổng nhà cung cấp cùng biến mất.
+  if (plan !== "basic") await closeUpgradeRequests(store, supplierId, session).catch((error) => console.error("[supplier-plan] close request", error));
   revalidatePath(`/crm/suppliers/${supplierId}`);
+  revalidatePath("/crm/service-requests");
   revalidatePath("/supplier/portal", "layout");
   // Báo nhà cung cấp qua email; chuông trong cổng đọc plan_updated_at. Thư lỗi không làm hỏng việc lưu gói.
   const mail = await notifySupplierPlanChange({ supplierId, plan, previousPlan, expiresOn: plan !== "basic" && rawDate ? rawDate : null })

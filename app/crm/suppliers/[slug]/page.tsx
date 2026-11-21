@@ -45,6 +45,7 @@ import { CrmCompanyAplusReview } from "./company-aplus-review";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { effectiveSupplierPlan, isSupplierPlan } from "@/lib/supplier-plans";
+import { isRenewalNote, requestedPlanOf } from "@/lib/supplier-services";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 
 export const dynamic = "force-dynamic";
@@ -122,6 +123,10 @@ export default async function SupplierDetailPage({
     if (!m.product_id || m.kind !== "image" || m.audience !== "buyer") continue;
     if (!thumbByProduct.has(m.product_id)) thumbByProduct.set(m.product_id, m);
   }
+  // Yêu cầu nâng gói còn "Mới": hiện ngay trên ô chọn gói để mở gói trong một bước.
+  const upgradeRequest = (await store.listSupplierServiceRequests({ supplierId: supplier.id, status: "submitted", limit: 10 })
+    .catch((error) => { console.error("[supplier-plan] cannot read upgrade request", error); return []; }))
+    .find((r) => r.service_key === "plan_upgrade") ?? null;
   const accountUser = await store.getUserBySupplierId(id).catch((error) => {
     console.error("[supplier-account] cannot read linked account", error);
     return null;
@@ -508,7 +513,7 @@ Chỉ nhân viên CRM thấy danh sách này. Chỉ nhà cung cấp được ch�
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-6">
-          <Card className="p-4">
+          <div id="plan" className="scroll-mt-24"><Card className="p-4">
             <SectionHead icon={UserRound} title="Gói nhà cung cấp" />
             <SupplierPlanControls
               supplierId={id}
@@ -519,8 +524,9 @@ Chỉ nhân viên CRM thấy danh sách này. Chỉ nhà cung cấp được ch�
               productCount={products.filter((p) => p.supplier_id === id).length}
               canManage={canManage}
               catalog={await readPlanCatalog()}
+              request={upgradeRequest ? { plan: requestedPlanOf(upgradeRequest.note), renewal: isRenewalNote(upgradeRequest.note), reference: upgradeRequest.reference, createdAt: upgradeRequest.created_at } : null}
             />
-          </Card>
+          </Card></div>
           <Card className="p-4">
             <SectionHead icon={UserRound} title="Tài khoản cổng nhà cung cấp" />
             <p className="text-sm leading-6 text-ink-600">{accountUser

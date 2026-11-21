@@ -95,6 +95,8 @@ export default async function SupplierStorefrontPreviewPage() {
   const planExpiresOn = planRules.plan !== "basic" && supplier.plan_expires_at && Number.isFinite(Date.parse(supplier.plan_expires_at))
     ? formatCertificateDate(new Date(Date.parse(supplier.plan_expires_at) + 7 * 3_600_000).toISOString().slice(0, 10), locale === "en" ? "en" : "vi")
     : null;
+  // Còn ≤ 30 ngày thì hiện nút gia hạn chính gói đang dùng (cùng mốc với email nhắc).
+  const planRenewable = planRules.plan !== "basic" && !!supplier.plan_expires_at && Date.parse(supplier.plan_expires_at) - Date.now() <= 30 * 86_400_000;
   const publicHref = published ? `/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}` : null;
   const coverUrl = supplier.cover_image ? `/public-media/${supplier.cover_image.replace(/^\/+/, "")}` : null;
   const avatarUrl = supplier.profile_image ? `/public-media/${supplier.profile_image.replace(/^\/+/, "")}` : null;
@@ -140,7 +142,7 @@ export default async function SupplierStorefrontPreviewPage() {
         className="absolute -right-2 -bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-white shadow-md ring-2 ring-white transition hover:bg-brand-800 disabled:opacity-60" />}
       verificationActions={<StorefrontVerificationActions progress={progress} />}
       nameAside={<StorefrontPlanBadge plan={planRules.plan} expiresOn={planExpiresOn} publicHref={publicHref} copy={copy.owner} />}
-      ownerActions={<StorefrontUpgradeButton plan={planRules.plan} catalog={planCatalog} expiresOn={planExpiresOn} requestOpen={upgradeRequestOpen} email={user.email} copy={copy.owner} />}
+      ownerActions={<StorefrontUpgradeButton plan={planRules.plan} catalog={planCatalog} expiresOn={planExpiresOn} requestOpen={upgradeRequestOpen} renewable={planRenewable} email={user.email} copy={copy.owner} />}
       avatarHint={<p className="mx-auto mt-2 w-32 text-center text-[11px] leading-4 opacity-80">
         <span className="block font-semibold">{avatarUrl ? copy.owner.avatarChange : copy.owner.avatarAdd}</span>{copy.owner.avatarHint}
       </p>}

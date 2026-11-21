@@ -9,19 +9,26 @@ const { servicesMessages } = await import("../lib/i18n/portal/services.ts");
 assert.deepEqual([...services.SUPPLIER_SERVICE_KEYS], ["international_website", "featured_ads", "fda_compliance", "plan_upgrade"]);
 assert.equal(services.isSupplierServiceKey("free_listing"), false, "Nhà cung cấp đã ở trong cổng, không đăng ký lại");
 assert.equal(services.isSupplierServiceKey("fda_compliance"), true);
-assert.equal(services.isSupplierServiceStatus("quoted"), true);
+assert.deepEqual([...services.SUPPLIER_SERVICE_STATUSES], ["submitted", "active", "cancelled", "expired"], "Chỉ 4 trạng thái: Mới, Đã mở, Đã huỷ, Hết hạn");
+assert.equal(services.isSupplierServiceStatus("quoted"), false, "Bỏ các bước tư vấn / báo giá");
+assert.deepEqual([...services.manualServiceStatuses("plan_upgrade")], ["submitted", "cancelled"], "Nâng gói: Đã mở và Hết hạn do hệ thống đặt");
+assert.equal(services.requestedPlanOf("Nâng lên gói Pro"), "pro");
+assert.equal(services.requestedPlanOf("Gia hạn gói Premium"), "premium");
+assert.equal(services.isRenewalNote("Gia hạn gói Premium"), true);
+assert.equal(services.isRenewalNote("Nâng lên gói Pro"), false);
 assert.equal(services.isSupplierServiceStatus("paid"), false, "Không có trạng thái thanh toán");
 
-// 2. Một yêu cầu đang mở cho mỗi dịch vụ; yêu cầu đã đóng thì được gửi lại.
-assert.equal(services.hasOpenServiceRequest([{ service_key: "featured_ads", status: "in_consultation" }], "featured_ads"), true);
-assert.equal(services.hasOpenServiceRequest([{ service_key: "featured_ads", status: "closed" }], "featured_ads"), false);
+// 2. Chỉ yêu cầu "Mới" chặn gửi trùng; đã mở, huỷ hay hết hạn thì được gửi lại (nâng tiếp, gia hạn).
+assert.equal(services.hasOpenServiceRequest([{ service_key: "featured_ads", status: "submitted" }], "featured_ads"), true);
+for (const status of ["active", "cancelled", "expired"]) assert.equal(services.hasOpenServiceRequest([{ service_key: "featured_ads", status }], "featured_ads"), false, status);
 assert.equal(services.hasOpenServiceRequest([{ service_key: "fda_compliance", status: "submitted" }], "featured_ads"), false);
 
 // 3. CSDL khớp mã nguồn: cùng bộ mã dịch vụ, cùng bộ trạng thái, chỉ mục chặn gửi trùng.
-const migration = read("supabase/migrations/20261123_supplier_service_requests.sql") + read("supabase/migrations/20261128_supplier_plan_upgrade_requests.sql");
+const migration = read("supabase/migrations/20261123_supplier_service_requests.sql") + read("supabase/migrations/20261128_supplier_plan_upgrade_requests.sql")
+  + read("supabase/migrations/20261201_service_request_simple_statuses.sql");
 for (const key of services.SUPPLIER_SERVICE_KEYS) assert.match(migration, new RegExp(`'${key}'`), `Migration có mã ${key}`);
 for (const status of services.SUPPLIER_SERVICE_STATUSES) assert.match(migration, new RegExp(`'${status}'`), `Migration có trạng thái ${status}`);
-assert.match(migration, /unique index if not exists supplier_service_requests_one_open[\s\S]*where status <> 'closed'/, "Chặn hai yêu cầu đang mở");
+assert.match(migration, /drop index if exists public\.supplier_service_requests_one_open;[\s\S]*unique index if not exists supplier_service_requests_one_open[\s\S]*where status = 'submitted'/, "Chặn hai yêu cầu đang mở");
 assert.match(migration, /revoke all on table public\.supplier_service_requests from public, anon, authenticated/, "Trình duyệt không đọc thẳng bảng");
 
 // 4. Server action lấy danh tính từ phiên, không tin form.
