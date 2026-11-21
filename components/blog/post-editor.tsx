@@ -25,6 +25,8 @@ const MIN_PUBLISH_LENGTH = 50;
 
 interface PostEditorProps {
   post: Post | null;
+  /** Ngành hàng đang đăng (để gắn bài với ngành; thư Market Brief gửi đúng người mua ngành đó). */
+  productCategories?: Array<{ id: string; name: string }>;
   /** Các bài khác trong mục, để kiểm tra trùng chủ đề */
   otherPosts: OtherPostRef[];
 }
@@ -44,10 +46,11 @@ function initialStateOf(post: Post | null) {
     authorName: post?.author_name ?? "",
     reviewerName: post?.reviewer_name ?? "",
     status: (post?.status ?? "draft") as PostStatus,
+    relatedCategories: post?.related_categories ?? [],
   };
 }
 
-export function PostEditor({ post, otherPosts }: PostEditorProps) {
+export function PostEditor({ post, otherPosts, productCategories = [] }: PostEditorProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -70,6 +73,7 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
   const [authorName, setAuthorName] = useState(initial.authorName);
   const [reviewerName, setReviewerName] = useState(initial.reviewerName);
   const [status, setStatus] = useState<PostStatus>(initial.status);
+  const [relatedCategories, setRelatedCategories] = useState<string[]>(initial.relatedCategories);
   const [uploadingCover, setUploadingCover] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
@@ -124,6 +128,7 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
     focus_keyword: focusKeyword,
     author_name: authorName,
     reviewer_name: reviewerName,
+    ...(productCategories.length ? { related_categories: relatedCategories } : {}),
     status: nextStatus,
   });
 
@@ -304,6 +309,18 @@ export function PostEditor({ post, otherPosts }: PostEditorProps) {
                 ))}
               </select>
             </div>
+            {productCategories.length > 0 && <fieldset>
+              <legend className="text-[12px] font-semibold text-ink-700">Ngành hàng liên quan</legend>
+              <p className="mt-0.5 text-[11px] leading-4 text-ink-500">Bài được gửi trong thư Market Brief tới người mua chọn ngành này.</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {productCategories.map((c) => {
+                  const on = relatedCategories.includes(c.id);
+                  return <button key={c.id} type="button" aria-pressed={on}
+                    onClick={() => setRelatedCategories(on ? relatedCategories.filter((id) => id !== c.id) : [...relatedCategories, c.id])}
+                    className={`rounded-full border px-2.5 py-1 text-[12px] font-semibold ${on ? "border-brand-700 bg-brand-50 text-brand-900" : "border-ink-200 text-ink-700 hover:bg-ink-50"}`}>{c.name}</button>;
+                })}
+              </div>
+            </fieldset>}
             <div>
               <Label htmlFor="post-author">Tác giả</Label>
               <Input

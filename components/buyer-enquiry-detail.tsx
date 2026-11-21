@@ -134,10 +134,12 @@ export type BuyerQuote = { id: string; supplier: string; location: string | null
 export type BuyerPreQuoteThread = Pick<BuyerQuote, "id" | "supplier" | "location" | "href" | "unread"> & { noReply?: boolean };
 
 export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = [], declined = [], directOutcome = null,
-  quotesUnavailable = false, locale = "en", mediatedThread }: {
+  quotesUnavailable = false, locale = "en", mediatedThread, introPrompt }: {
   rfq: Rfq; buyer: Buyer; quotes?: BuyerQuote[]; preQuoteThreads?: BuyerPreQuoteThread[];
   declined?: Array<{ id: string; supplier: string }>; directOutcome?: "declined" | "no_response" | null;
   quotesUnavailable?: boolean; locale?: Locale; mediatedThread?: React.ReactNode;
+  /** Lời mời nhận giới thiệu nhà cung cấp cùng ngành (chỉ khi người mua chưa bật). */
+  introPrompt?: React.ReactNode;
 }) {
   const copy = quotePortalCopy[locale];
   const isQuestion = rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
@@ -158,6 +160,7 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = 
           { label: rfq.code },
         ]}
       />
+      {introPrompt && <div className="mt-4">{introPrompt}</div>}
 
       <div className="mt-6 rounded-2xl border border-ink-200 bg-white p-7 shadow-sm">
         <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-500">

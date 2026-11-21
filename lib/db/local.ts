@@ -1396,6 +1396,7 @@ export const localStore: DataStore = {
         company_name: input.company_name ?? null,
         verified_at: input.verified_at ?? null,
         marketing_opt_in: input.marketing_opt_in ?? false,
+        introductions: input.introductions ?? {},
         saved: normalizeBuyerSaved(input.saved),
         created_at: now,
         last_seen_at: input.last_seen_at ?? null,
@@ -1411,6 +1412,7 @@ export const localStore: DataStore = {
       if (patch.company_name !== undefined) row.company_name = patch.company_name;
       if (patch.verified_at !== undefined) row.verified_at = patch.verified_at;
       if (patch.marketing_opt_in !== undefined) row.marketing_opt_in = patch.marketing_opt_in;
+      if (patch.introductions !== undefined) row.introductions = patch.introductions;
       if (patch.last_seen_at !== undefined) row.last_seen_at = patch.last_seen_at;
       if (patch.saved !== undefined) row.saved = normalizeBuyerSaved(patch.saved);
       return row;

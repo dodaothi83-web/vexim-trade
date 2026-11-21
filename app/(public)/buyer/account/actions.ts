@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getBuyerSession } from "@/lib/auth/buyer-session";
 import { getStore } from "@/lib/db";
 import { getPublicProductRecordsByIds } from "@/lib/public/product-catalog";
+import { canPromptIntroductions } from "@/lib/buyer/introductions";
+import { topCategoryOf } from "@/lib/buyer/introductions-server";
 
 async function currentAccount() {
   const session = await getBuyerSession();
@@ -34,7 +36,10 @@ export async function setSavedProductAction(id: string, saved: boolean) {
     } : { id, name: "", href: "", imagePath: null, categorySlug: "" };
     await store.setBuyerSavedProduct(account.id, product, saved);
     revalidatePath("/buyer/account");
-    return { ok: true };
+    // Người mua chưa nhận giới thiệu: mời nhận nhà cung cấp cùng ngành (thẻ nhỏ sau khi lưu).
+    const invite = saved && record && canPromptIntroductions(account, new Date())
+      ? await topCategoryOf(record.category.id).catch(() => null) : null;
+    return { ok: true, invite: invite ? { id: invite.id, slug: invite.slug, name: invite.name } : null };
   } catch (error) {
     console.error("[buyer-saved] update failed", error instanceof Error ? error.message : "unknown");
     return { ok: false };

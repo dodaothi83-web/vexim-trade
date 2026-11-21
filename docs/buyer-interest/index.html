@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giới thiệu nhà cung cấp · Vexim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Bản mẫu duyệt giao diện đợt 1: người mua đồng ý nhận giới thiệu và chọn ngành hàng quan tâm.
+     Email, tên công ty, số liệu đều là MẪU, không phải dữ liệu thật. */
+  :root {
+    --brand-50:#F2F5FA; --brand-100:#E8EEF8; --brand-200:#DFE5EE; --brand-300:#B8CAE3; --brand-500:#4471AC; --brand-600:#2F5793; --brand-700:#1F3E74; --brand-800:#162E58; --brand-900:#10244A; --brand-950:#0D1C36;
+    --ink-50:#F5F7FB; --ink-100:#E8EEF8; --ink-200:#DFE5EE; --ink-300:#9AA5B8; --ink-400:#657187; --ink-500:#4E586B; --ink-700:#2B3447; --ink-900:#141C2E;
+    --success:#0E7A4E; --success-s:#E7F5EF; --warning:#93370D; --warning-s:#FFF4DE;
+  }
+  :root:not([data-theme="light"]) { color-scheme: light; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Be Vietnam Pro", system-ui, sans-serif; color:var(--ink-900); background:#EEF2F8; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1200px; margin:0 auto; padding:32px 16px 80px; }
+  h1 { font-size:28px; margin:0; letter-spacing:-.01em; }
+  .lead { color:var(--ink-500); max-width:880px; line-height:1.7; margin:8px 0 0; }
+  .sample { display:inline-block; font-size:11px; font-weight:700; color:var(--warning); background:var(--warning-s); border-radius:999px; padding:3px 10px; margin-left:8px; vertical-align:middle; }
+  .toc { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 0; }
+  .toc a { text-decoration:none; color:var(--brand-700); background:#fff; border:1px solid var(--brand-200); padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600; }
+  section.screen { margin-top:48px; }
+  .screen-title { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .screen-title h2 { font-size:21px; margin:0; }
+  .num { font-size:12px; font-weight:800; color:#fff; background:var(--brand-700); border-radius:999px; padding:3px 10px; }
+  .screen-sub { color:var(--ink-500); font-size:14px; margin:6px 0 16px; line-height:1.6; max-width:900px; }
+  .frame { background:#fff; border:1px solid var(--ink-200); border-radius:18px; box-shadow:0 10px 30px -12px rgb(15 23 42 / .18); overflow:hidden; }
+  .notes { margin-top:14px; display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+  .note { background:#fff; border:1px solid var(--ink-200); border-radius:12px; padding:10px 12px; font-size:13px; line-height:1.55; color:var(--ink-500); }
+  .note b { color:var(--ink-900); }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; border-radius:10px; font:700 14px/1 inherit; padding:12px 18px; border:1px solid var(--ink-200); background:#fff; color:var(--ink-900); text-decoration:none; white-space:nowrap; }
+  .btn.primary { background:var(--brand-700); border-color:var(--brand-700); color:#fff; }
+  .btn.sm { padding:8px 12px; font-size:13px; border-radius:8px; }
+  .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--ink-200); background:#fff; border-radius:999px; padding:9px 14px; font-size:14px; font-weight:600; color:var(--ink-700); }
+  .chip.on { border-color:var(--brand-700); background:var(--brand-50); color:var(--brand-900); box-shadow:0 0 0 2px var(--brand-100); }
+  .chip .tick { width:16px; height:16px; border-radius:999px; border:1.5px solid var(--ink-300); display:inline-flex; align-items:center; justify-content:center; font-size:10px; }
+  .chip.on .tick { background:var(--brand-700); border-color:var(--brand-700); color:#fff; }
+  .switch { width:40px; height:22px; border-radius:999px; background:var(--ink-200); position:relative; flex:none; }
+  .switch::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:999px; background:#fff; box-shadow:0 1px 2px rgb(0 0 0 / .2); }
+  .switch.on { background:var(--brand-700); }
+  .switch.on::after { left:21px; }
+  .muted { color:var(--ink-500); }
+  .grid2 { display:grid; gap:20px; grid-template-columns:1fr; }
+  @media (min-width: 900px) { .grid2 { grid-template-columns:1fr 1fr; } }
+  /* Email */
+  .mailbar { background:var(--ink-50); border-bottom:1px solid var(--ink-200); padding:12px 18px; font-size:13px; color:var(--ink-500); line-height:1.7; }
+  .mailbar b { color:var(--ink-900); }
+  .mail { max-width:600px; margin:0 auto; padding:28px 20px 32px; }
+  .logo { display:flex; align-items:center; gap:8px; font-weight:800; color:var(--brand-800); letter-spacing:.02em; }
+  .logo span { width:28px; height:28px; border-radius:8px; background:var(--brand-800); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:14px; }
+  .mail h3 { font-size:22px; line-height:1.35; margin:22px 0 10px; }
+  .mail p { font-size:15px; line-height:1.7; color:var(--ink-700); margin:0 0 14px; }
+  .mail .chips { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 20px; }
+  .mail .chips a { text-decoration:none; }
+  .foot { border-top:1px solid var(--ink-200); margin-top:24px; padding-top:14px; font-size:12px; line-height:1.6; color:var(--ink-400); }
+  .foot a { color:var(--ink-500); }
+  /* Site */
+  .site-head { display:flex; align-items:center; justify-content:space-between; padding:14px 22px; border-bottom:1px solid var(--ink-200); }
+  .page { max-width:720px; margin:0 auto; padding:32px 20px 40px; }
+  .page h3 { font-size:26px; margin:0 0 8px; letter-spacing:-.01em; }
+  .chips { display:flex; flex-wrap:wrap; gap:10px; }
+  .row { display:flex; align-items:flex-start; gap:12px; padding:14px; border:1px solid var(--ink-200); border-radius:12px; background:var(--ink-50); }
+  .ok { display:flex; gap:12px; align-items:flex-start; background:var(--success-s); border:1px solid #bfe3d2; color:#0b5c3b; border-radius:12px; padding:14px; font-size:14px; line-height:1.6; }
+  .card { border:1px solid var(--ink-200); border-radius:16px; padding:20px; background:#fff; }
+  .rules td, .rules th { text-align:left; vertical-align:top; padding:10px 12px; border-bottom:1px solid var(--ink-200); font-size:14px; line-height:1.6; }
+  .rules th { width:28%; color:var(--ink-900); }
+  .rules td { color:var(--ink-500); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Đợt 1: người mua đồng ý nhận giới thiệu <span class="sample">BẢN MẪU</span></h1>
+  <p class="lead">Mục tiêu: có được danh sách người mua đã <b>tự đồng ý</b> nhận giới thiệu nhà cung cấp và <b>tự chọn ngành hàng</b> quan tâm, làm nền cho thư giới thiệu hằng tuần (đợt 2) và báo cáo cho nhà cung cấp gói Pro (đợt 3). Vì người mua ít vào tài khoản, cách chính là <b>thư mời bấm một lần</b>, cộng lời mời ở những lúc họ đang có nhu cầu. Phần người mua thấy viết tiếng Anh; email, công ty trong bản mẫu là giả.</p>
+  <div class="toc">
+    <a href="#s1">1. Thư mời</a><a href="#s2">2. Trang bấm từ thư</a><a href="#s3">3. Trong tài khoản</a><a href="#s4">4. Lời mời đúng lúc</a><a href="#s5">5. Quy tắc gửi</a>
+  </div>
+
+  <!-- 1 -->
+  <section class="screen" id="s1">
+    <div class="screen-title"><span class="num">1</span><h2>Thư mời (gửi một lần cho người mua đã có tài khoản)</h2></div>
+    <p class="screen-sub">Người mua bấm thẳng vào ngành hàng trong thư là xong một nửa: sang trang xác nhận đã chọn sẵn ngành đó. Không cần mật khẩu, không cần đăng nhập. Chưa bấm gì thì <b>không</b> được tính là đồng ý.</p>
+    <div class="frame">
+      <div class="mailbar">Từ: <b>Vexim Trade</b> &lt;hello@veximtrade.com&gt;<br>Tới: buyer@example.com<br>Tiêu đề: <b>Which Vietnamese products do you source? We'll match suppliers for you</b></div>
+      <div class="mail">
+        <div class="logo"><span>V</span>VEXIM TRADE</div>
+        <h3>Get matched suppliers for the products you source</h3>
+        <p>Hi, you have a buyer account on Vexim Trade. Tell us what you source and we'll send you a short note when checked Vietnamese suppliers list matching products. At most one email a week.</p>
+        <p style="margin-bottom:8px"><b>Tap what you source:</b></p>
+        <div class="chips">
+          <a class="chip">Cashew kernels</a><a class="chip">Pepper</a><a class="chip">Coffee, Tea &amp; Beverages</a><a class="chip">Cinnamon and star anise</a>
+          <a class="chip">Dried Fruits</a><a class="chip">Frozen Fruits</a><a class="chip">Rice &amp; Grain Products</a><a class="chip">Juices &amp; Canned Foods</a>
+        </div>
+        <a class="btn primary">Choose my products</a>
+        <p class="muted" style="font-size:13px;margin-top:16px">Nothing changes unless you confirm. Supplier introductions only, never your contact details: suppliers do not see who you are.</p>
+        <div class="foot">You receive this one-time invitation because you created a buyer account on Vexim Trade.<br><a>Don't ask me again</a> · <a>Privacy</a> · Vexim Trade, Vietnam</div>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note"><b>Mỗi ngành hàng là một link</b> mang mã ký riêng của người mua (hết hạn sau 30 ngày), mở trang 2 với ngành đó đã chọn sẵn.</div>
+      <div class="note"><b>Gửi một lần</b>, nhắc lại tối đa một lần sau 14 ngày nếu chưa bấm. "Don't ask me again" là không gửi lời mời nữa.</div>
+      <div class="note"><b>Không theo dõi mở thư</b>: chỉ biết ai đã bấm xác nhận.</div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="screen" id="s2">
+    <div class="screen-title"><span class="num">2</span><h2>Trang bấm từ thư: xác nhận trong 1 bước</h2></div>
+    <p class="screen-sub">Trang công khai, mở bằng link trong thư (không cần đăng nhập). Ngành đã bấm trong thư được chọn sẵn; người mua thêm/bỏ rồi bấm một nút. Bên phải: trạng thái sau khi xác nhận.</p>
+    <div class="grid2">
+      <div class="frame">
+        <div class="site-head"><div class="logo"><span>V</span>VEXIM TRADE</div><span class="muted" style="font-size:13px">buyer@example.com</span></div>
+        <div class="page">
+          <h3>What do you source?</h3>
+          <p class="muted" style="margin:0 0 18px;line-height:1.6">Pick the products you buy. We'll introduce matching suppliers, at most once a week.</p>
+          <div class="chips">
+            <span class="chip on"><span class="tick">✓</span>Cashew kernels</span><span class="chip on"><span class="tick">✓</span>Pepper</span>
+            <span class="chip"><span class="tick"></span>Coffee, Tea &amp; Beverages</span><span class="chip"><span class="tick"></span>Cinnamon and star anise</span>
+            <span class="chip"><span class="tick"></span>Dried Fruits</span><span class="chip"><span class="tick"></span>Frozen Fruits</span>
+            <span class="chip"><span class="tick"></span>Rice &amp; Grain Products</span><span class="chip"><span class="tick"></span>Juices &amp; Canned Foods</span>
+          </div>
+          <div class="row" style="margin-top:20px">
+            <span class="switch on"></span>
+            <div style="font-size:14px;line-height:1.6"><b>Send me supplier introductions</b><br><span class="muted">At most one email a week. Unsubscribe in one click from any email.</span></div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px"><a class="btn primary">Confirm</a><a class="btn">Not now</a></div>
+        </div>
+      </div>
+      <div class="frame">
+        <div class="site-head"><div class="logo"><span>V</span>VEXIM TRADE</div><span class="muted" style="font-size:13px">buyer@example.com</span></div>
+        <div class="page">
+          <div class="ok"><span style="font-size:18px">✓</span><div><b>You're set.</b><br>We'll introduce suppliers of <b>Cashew kernels</b> and <b>Pepper</b>, at most once a week. Change this anytime in your account.</div></div>
+          <h3 style="font-size:18px;margin:24px 0 10px">Browse now</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn sm">Cashew kernels suppliers →</a><a class="btn sm">Pepper suppliers →</a></div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note"><b>Phải bấm Confirm</b> mới lưu đồng ý (ghi ngày giờ và nguồn: thư mời). Bấm "Not now" không lưu gì.</div>
+      <div class="note"><b>Link hết hạn hoặc đã dùng</b> thì hiện nút "Send me a new link" về đúng email đó.</div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="screen" id="s3">
+    <div class="screen-title"><span class="num">3</span><h2>Trong tài khoản người mua (tab Profile)</h2></div>
+    <p class="screen-sub">Cho người mua đã đăng nhập tự bật/tắt và đổi ngành hàng bất cứ lúc nào.</p>
+    <div class="frame" style="padding:24px">
+      <div class="card" style="max-width:760px">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="flex:1"><div style="font-size:16px;font-weight:700">Supplier introductions</div>
+            <div class="muted" style="font-size:14px;line-height:1.6;margin-top:2px">We email checked suppliers that match what you source. At most once a week.</div></div>
+          <span class="switch on" aria-label="On"></span>
+        </div>
+        <div style="font-size:13px;font-weight:700;margin:18px 0 10px">Products you source</div>
+        <div class="chips">
+          <span class="chip on"><span class="tick">✓</span>Cashew kernels</span><span class="chip on"><span class="tick">✓</span>Pepper</span>
+          <span class="chip"><span class="tick"></span>Coffee, Tea &amp; Beverages</span><span class="chip"><span class="tick"></span>Cinnamon and star anise</span>
+          <span class="chip"><span class="tick"></span>Dried Fruits</span><span class="chip"><span class="tick"></span>Frozen Fruits</span>
+          <span class="chip"><span class="tick"></span>Rice &amp; Grain Products</span><span class="chip"><span class="tick"></span>Juices &amp; Canned Foods</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:18px"><a class="btn primary sm">Save</a><span class="muted" style="font-size:12px">Suppliers never see your name or email.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="screen" id="s4">
+    <div class="screen-title"><span class="num">4</span><h2>Lời mời đúng lúc (khi người mua đang có nhu cầu)</h2></div>
+    <p class="screen-sub">Chỉ hiện với người mua chưa bật nhận giới thiệu. Ngành hàng lấy từ chính việc họ vừa làm, nên chỉ cần một lần bấm.</p>
+    <div class="grid2">
+      <div class="frame" style="padding:24px">
+        <div class="muted" style="font-size:12px;font-weight:700;margin-bottom:10px">SAU KHI GỬI YÊU CẦU BÁO GIÁ / TÌM NGUỒN</div>
+        <div class="ok" style="margin-bottom:14px"><span style="font-size:18px">✓</span><div><b>Request sent.</b> Vexim will follow up within one business day.</div></div>
+        <div class="row" style="background:#fff">
+          <div style="flex:1;font-size:14px;line-height:1.6"><b>Get more Cashew kernels suppliers?</b><br><span class="muted">We'll introduce matching checked suppliers, at most once a week.</span></div>
+          <a class="btn primary sm">Yes, send me</a>
+        </div>
+      </div>
+      <div class="frame" style="padding:24px">
+        <div class="muted" style="font-size:12px;font-weight:700;margin-bottom:10px">SAU KHI LƯU SẢN PHẨM</div>
+        <div style="display:flex;align-items:center;gap:12px;border:1px solid var(--ink-200);border-radius:12px;padding:12px;box-shadow:0 8px 20px -10px rgb(15 23 42 / .25)">
+          <span style="width:40px;height:40px;border-radius:8px;background:var(--ink-100);flex:none"></span>
+          <div style="flex:1;font-size:13px;line-height:1.5"><b>Saved.</b> Want new Pepper suppliers by email?<br><span class="muted">At most once a week.</span></div>
+          <a class="btn primary sm">Yes</a><a class="btn sm">No</a>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note"><b>Bấm "Yes" là đồng ý</b> và thêm đúng ngành đó; ghi nguồn đồng ý (báo giá / lưu sản phẩm).</div>
+      <div class="note"><b>Bấm "No"</b> thì không hỏi lại trong 30 ngày.</div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="screen" id="s5">
+    <div class="screen-title"><span class="num">5</span><h2>Quy tắc (để duyệt)</h2></div>
+    <div class="frame" style="padding:8px 12px">
+      <table class="rules" style="width:100%;border-collapse:collapse">
+        <tr><th>Ai nhận thư mời</th><td>Người mua đã xác thực email, chưa bật nhận giới thiệu, chưa bấm "Don't ask me again". Gửi một lần, nhắc tối đa một lần sau 14 ngày. Nhân viên bấm gửi đợt từ CRM (xem trước số người nhận).</td></tr>
+        <tr><th>Thế nào là đồng ý</th><td>Chỉ khi người mua bấm Confirm / Yes / bật trong tài khoản. Lưu: bật/tắt, ngành hàng, thời điểm và nguồn đồng ý. Mặc định vẫn TẮT.</td></tr>
+        <tr><th>Huỷ</th><td>Một bấm ở cuối mọi thư giới thiệu, hoặc tắt trong tài khoản. Huỷ là ngừng ngay.</td></tr>
+        <tr><th>Riêng tư</th><td>Nhà cung cấp không thấy tên, email người mua; chỉ thấy số tổng (đợt 3). Không theo dõi mở thư, không theo dõi hành vi.</td></tr>
+        <tr><th>Đợt 1 chưa gửi gì cho nhà cung cấp</th><td>Đợt 1 chỉ thu đồng ý và ngành hàng. Thư giới thiệu hằng tuần là đợt 2.</td></tr>
+        <tr><th>Trong CRM</th><td>Trang "Người mua nhận giới thiệu": số người đã đồng ý theo từng ngành, nút gửi thư mời (có xem trước), lịch sử đợt gửi.</td></tr>
+      </table>
+    </div>
+  </section>
+</div>
+</body>
+</html>

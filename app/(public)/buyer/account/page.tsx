@@ -13,6 +13,9 @@ import { buyerRecommendations } from "@/lib/public/buyer-recommendations";
 import { HomeProductFeed } from "@/components/home-product-feed";
 import { SaveProductButton } from "@/components/buyer-saved-products";
 import { BuyerAccountProfile } from "@/components/buyer-account-profile";
+import { IntroAccountCard, IntroOnboardingCard } from "@/components/buyer-introductions";
+import { introFrequency, readIntroductions, showOnboarding } from "@/lib/buyer/introductions";
+import { introCategories } from "@/lib/buyer/introductions-server";
 import { COMPANY } from "@/lib/config";
 import type { Rfq } from "@/lib/types";
 import { buyerDirectOutcome, buyerMatchHasUpdate, buyerMatchHasNewQuote } from "@/lib/rfq/portal-core";
@@ -59,6 +62,9 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
   const store = getStore();
   const account = await store.getBuyerUserByEmail(session.email);
   if (!account?.verified_at) throw new Error("Buyer account unavailable");
+  // Ngành hàng nhận giới thiệu: đọc từ bảng categories (ngành đang đăng), chỉ khi cần hiện.
+  const introOptions = (tab === "profile" || (tab === "overview" && showOnboarding(account)))
+    ? (await introCategories().catch(() => [])).map(({ id, slug, name }) => ({ id, slug, name })) : [];
   const [requests, savedGroups] = await Promise.all([
     store.listBuyerRfqsByEmail(session.email),
     Promise.all(Array.from({ length: Math.ceil(account.saved.products.length / 20) }, (_, i) =>
@@ -174,6 +180,9 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
             </div>
             <div className="mt-5 grid grid-cols-3 divide-x divide-ink-200 border-t border-ink-100 pt-4">{[{ value: sourcingUnavailable ? `${countedRfqs.length}+` : countedRfqs.length + unlinkedSourcing.length, label: vi ? "RFQ và tìm nguồn" : "RFQs & sourcing" }, { value: sourcingUnavailable ? `${activeRequests}+` : activeRequests + activeSourcing, label: vi ? "Đang mở" : "Open requests" }, { value: account.saved.products.length, label: titles.saved }].map((stat, i) => <p key={i} className="px-2 text-center"><strong className="block text-2xl text-ink-900">{stat.value}</strong><span className="mt-1 block text-xs text-ink-500 sm:text-sm">{stat.label}</span></p>)}</div>
           </section>
+          {/* Ngay sau khi đăng ký: bước chọn ngành hàng nhận giới thiệu (một lần; Skip là thôi). */}
+          {tab === "overview" && showOnboarding(account) && <IntroOnboardingCard categories={introOptions}
+            initial={(account.saved.products ?? []).map((p) => introOptions.find((c) => c.slug === p.categorySlug)?.id).filter((id): id is string => !!id)} />}
           {(tab === "overview" || tab === "requests") && <section className={panel} aria-label={titles.requests}>
             <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">{titles.requests}</h2>{tab === "overview" && directRequests.length > 5 && viewAll("/buyer/account?tab=requests", directRequests.length)}</div>
             {!directRequests.length ? <div className="py-12 text-center"><VeximBuyerEnquiriesIcon className="mx-auto h-12 w-12 text-brand-700" /><p className="mt-4 font-semibold">{vi ? "Chưa có yêu cầu báo giá hoặc câu hỏi sản phẩm." : "No quote or product enquiries yet."}</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-500">{vi ? "Chọn nhà cung cấp hoặc sản phẩm để gửi RFQ trực tiếp. Tìm nguồn chung nằm ở mục Tìm nguồn." : "Choose a supplier or product for a direct RFQ. General sourcing is in the Sourcing tab."}</p></div> : <ul className="mt-2 divide-y divide-ink-100">{(tab === "overview" ? directRequests.slice(0, 5) : directRequests).map((r) => {
@@ -201,6 +210,8 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
           {(tab === "overview" || tab === "vexim") && <BuyerSourcingHistory rows={sourcing} vi={vi} unavailable={sourcingUnavailable} preview={tab === "overview"} linkedRfqs={linkedRfqs} />}
           {tab === "saved" && savedSection(false)}
           {tab === "profile" && <section className={panel}><h2 className="font-bold">{titles.profile}</h2><BuyerAccountProfile email={account.email} company={account.company_name ?? ""} isVi={vi} /></section>}
+          {tab === "profile" && <IntroAccountCard categories={introOptions} optIn={account.marketing_opt_in}
+            initial={readIntroductions(account.introductions).categories ?? []} frequency={introFrequency(readIntroductions(account.introductions))} />}
         </div>
         <aside className="min-w-0 space-y-5 lg:col-start-2 xl:col-start-auto">{tab !== "saved" && savedSection(true)}</aside>
       </div>

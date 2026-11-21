@@ -940,6 +940,7 @@ export const supabaseStore: DataStore = {
         company_name: input.company_name ?? null,
         verified_at: input.verified_at ?? null,
         marketing_opt_in: input.marketing_opt_in ?? false,
+        ...(input.introductions ? { introductions: input.introductions } : {}),
         saved: input.saved ?? { products: [], comparisons: [] },
         last_seen_at: input.last_seen_at ?? null,
       })
@@ -953,6 +954,7 @@ export const supabaseStore: DataStore = {
     if (patch.company_name !== undefined) body.company_name = patch.company_name;
     if (patch.verified_at !== undefined) body.verified_at = patch.verified_at;
     if (patch.marketing_opt_in !== undefined) body.marketing_opt_in = patch.marketing_opt_in;
+    if (patch.introductions !== undefined) body.introductions = patch.introductions;
     if (patch.last_seen_at !== undefined) body.last_seen_at = patch.last_seen_at;
     if (patch.saved !== undefined) body.saved = patch.saved satisfies BuyerSavedList;
     const { data, error } = await must()

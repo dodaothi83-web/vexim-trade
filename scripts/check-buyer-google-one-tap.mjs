@@ -198,6 +198,7 @@ try {
     'next/link': { default: () => null },
     'lucide-react': {},
     '@/app/(public)/buyer/account/actions': { getSavedProductsState: () => new Promise((resolve) => queued.push(resolve)) },
+    '@/components/buyer-introductions': { IntroPrompt: () => null },
     '@/lib/buyer/public-session-context': { usePublicSession: () => ({ buyerEmail: currentAccountEmail, buyerCompanyName: null, oneTapClientId: null, showOneTap: false }) },
   }, { window: { addEventListener() {}, removeEventListener() {} } });
   const children = { unfinishedQuote: 'keep this instance' };

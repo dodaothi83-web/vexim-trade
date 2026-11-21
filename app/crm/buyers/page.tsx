@@ -42,6 +42,8 @@ export default async function BuyersPage({
         sub={`${buyers.length} khách hàng · đổi trạng thái ngay trên dòng để gửi email cập nhật cho người mua và nhà cung cấp`}
         actions={
           <>
+            <Link href="/crm/buyers/introductions" className="btn btn-ghost">Người mua nhận giới thiệu</Link>
+            <Link href="/crm/buyers/digest" className="btn btn-ghost">Thư giới thiệu</Link>
             <Link href="/crm/pipeline" className="btn btn-ghost">
               <KanbanSquare className="h-4 w-4" />
               Xem pipeline

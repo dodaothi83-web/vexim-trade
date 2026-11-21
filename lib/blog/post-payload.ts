@@ -22,6 +22,7 @@ const POST_COLUMNS = [
   "focus_keyword",
   "author_name",
   "reviewer_name",
+  "related_categories",
   "status",
   "published_at",
 ] as const
@@ -250,6 +251,13 @@ export function buildPostPayload(body: Record<string, unknown>, options: BuildPa
     const category = asString(body.category).trim()
     if (!category) errors.push("Danh mục không được để trống")
     payload.category = category.slice(0, 100)
+  }
+
+  if (shouldInclude("related_categories") && body.related_categories !== undefined) {
+    // Ngành hàng liên quan: chỉ nhận mã dạng UUID, bỏ trùng, tối đa 20.
+    const list = Array.isArray(body.related_categories) ? body.related_categories : []
+    payload.related_categories = [...new Set(list.filter((id): id is string => typeof id === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)).map((id) => id.toLowerCase()))].slice(0, 20)
   }
 
   if (shouldInclude("content")) {

@@ -1403,13 +1403,37 @@ export interface BuyerUser {
   verified_at: string | null;
   /** Mặc định TẮT: chỉ nhận thư khi tự bật. */
   marketing_opt_in: boolean;
+  /** Ngành hàng quan tâm và trạng thái đồng ý nhận giới thiệu (lib/buyer/introductions.ts). */
+  introductions?: BuyerIntroductions;
   saved: BuyerSavedList;
   created_at: string;
   last_seen_at: string | null;
 }
 
 export type BuyerUserInput = Pick<BuyerUser, "email"> &
-  Partial<Pick<BuyerUser, "company_name" | "verified_at" | "marketing_opt_in" | "saved" | "last_seen_at">>;
+  Partial<Pick<BuyerUser, "company_name" | "verified_at" | "marketing_opt_in" | "introductions" | "saved" | "last_seen_at">>;
+
+/**
+ * Người mua đồng ý nhận giới thiệu nhà cung cấp: ngành hàng tự chọn (mã ngành) và các mốc thời gian.
+ * Công tắc bật/tắt là `marketing_opt_in`. Không chứa hành vi xem trang.
+ */
+export interface BuyerIntroductions {
+  categories?: string[];
+  /** Mức nhận thư: "weekly" (chỉ thư sản phẩm thứ Ba), "twice" (thêm thư thị trường thứ Sáu, mặc định). */
+  frequency?: "weekly" | "twice";
+  /** Lần gần nhất người mua bấm đồng ý, và từ đâu (thư mời, tài khoản, sau báo giá...). */
+  consent_at?: string;
+  consent_source?: "invite" | "welcome" | "account" | "onboarding" | "rfq" | "saved";
+  invite_sent_at?: string;
+  invite_reminded_at?: string;
+  /** Người mua bấm "Don't ask me again": không gửi lời mời nữa. */
+  invite_declined_at?: string;
+  welcome_sent_at?: string;
+  /** Bước chọn ngành sau khi đăng ký đã xong hoặc bấm Skip. */
+  onboarding_done_at?: string;
+  /** Bấm "No" ở lời mời đúng lúc: 30 ngày không hỏi lại. */
+  prompt_dismissed_at?: string;
+}
 
 /**
  * Một lần phát thư đăng nhập: link và mã 6 số nằm cùng dòng nên cả hai
@@ -1791,6 +1815,8 @@ export interface Post {
   author_name: string | null;
   /** Người kiểm duyệt nội dung chuyên môn (tùy chọn) */
   reviewer_name: string | null;
+  /** Mã ngành hàng (categories.id) bài viết liên quan, dùng cho thư Market Brief gửi người mua. */
+  related_categories?: string[];
   status: PostStatus;
   published_at: string | null;
   created_at: string;

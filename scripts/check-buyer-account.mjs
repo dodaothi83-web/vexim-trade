@@ -41,6 +41,9 @@ const actions = load('app/(public)/buyer/account/actions.ts', {
   '@/lib/auth/buyer-session': { getBuyerSession: async () => session },
   '@/lib/db': { getStore: () => store },
   '@/lib/public/product-catalog': { getPublicProductRecordsByIds: async () => published ? [record] : [] },
+  '@/lib/buyer/introductions': { canPromptIntroductions: () => false, readIntroductions: () => ({}), showOnboarding: () => false, introFrequency: () => 'twice' },
+  '@/lib/buyer/introductions-server': { topCategoryOf: async () => null, introCategories: async () => [] },
+  '@/components/buyer-introductions': { IntroAccountCard: () => null, IntroOnboardingCard: () => null, IntroPrompt: () => null },
 });
 assert.equal((await actions.getSavedProductsState()).authenticated, false);
 assert.equal((await actions.setSavedProductAction('public', true)).ok, false);
@@ -118,6 +121,9 @@ const dashboard = load('app/(public)/buyer/account/page.tsx', {
   }) },
   '@/lib/i18n/server': { getLocale: async () => lang },
   '@/lib/public/product-catalog': { getPublicProductRecordsByIds: async () => [], listPublicCategoryProducts: async () => [], loadPublicProductCatalogSnapshot: async () => ({}) },
+  '@/lib/buyer/introductions': { canPromptIntroductions: () => false, readIntroductions: () => ({}), showOnboarding: () => false, introFrequency: () => 'twice' },
+  '@/lib/buyer/introductions-server': { topCategoryOf: async () => null, introCategories: async () => [] },
+  '@/components/buyer-introductions': { IntroAccountCard: () => null, IntroOnboardingCard: () => null, IntroPrompt: () => null },
   '@/lib/public/buyer-recommendations': { buyerRecommendations },
   '@/components/home-product-feed': { HomeProductFeed: icon },
   '@/components/buyer-saved-products': { SaveProductButton: ({ id }) => React.createElement('button', { 'data-remove-id': id }, 'Remove') },
@@ -214,6 +220,7 @@ let pendingRemoval;
 let removeArgs;
 let savedContext = { state: { authenticated: true, ids: [] }, isVi: false, update: () => {} };
 const removal = load('components/buyer-saved-products.tsx', {
+  '@/components/buyer-introductions': { IntroPrompt: () => null },
   react: { createContext: () => ({}), useContext: () => savedContext, useState: () => [false, () => {}], useTransition: () => [false, (callback) => { pendingRemoval = callback(); }] },
   'react/jsx-runtime': jsx,
   'next/navigation': { useRouter: () => ({ refresh() {} }) },
