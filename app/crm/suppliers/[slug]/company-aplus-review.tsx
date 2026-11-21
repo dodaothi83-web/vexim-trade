@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -19,10 +20,16 @@ export function CrmCompanyAplusReview({ supplierId, modules, visible, canManage 
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  if (!modules.length) return null;
+  // Soạn A+ hộ nhà cung cấp (dịch vụ Vexim): mở trang soạn riêng, lưu là đăng ngay.
+  const editLink = canManage && <Link href={`/crm/suppliers/${supplierId}/aplus`} className="btn btn-primary btn-sm shrink-0">{modules.length ? "Sửa A+ hộ nhà cung cấp" : "Soạn A+ hộ nhà cung cấp"}</Link>;
+  if (!modules.length) return canManage ? <section id="company-aplus" className="card mb-4 flex flex-wrap items-center gap-3 p-5" aria-label="Nội dung A+ doanh nghiệp">
+    <div className="min-w-0 flex-1"><h2 className="text-sm font-bold text-ink-900">Nội dung A+ doanh nghiệp</h2>
+      <p className="mt-0.5 text-xs text-ink-500">Chưa có A+ doanh nghiệp. Nhân viên soạn hộ được khi nhà cung cấp mua dịch vụ; lưu là đăng ngay.</p></div>
+    {editLink}
+  </section> : null;
   const img = (path: string) => `/api/crm/aplus?path=${encodeURIComponent(path)}`;
   return <section id="company-aplus" className="card mb-4 scroll-mt-24 p-5" aria-label="Nội dung A+ doanh nghiệp">
-    <h2 className="text-sm font-bold text-ink-900">Nội dung A+ doanh nghiệp ({modules.length} khối)</h2>
+    <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-bold text-ink-900">Nội dung A+ doanh nghiệp ({modules.length} khối)</h2>{editLink}</div>
     <p className="mt-0.5 text-xs text-ink-500">{visible ? "Đang hiện dưới mục About trên trang nhà cung cấp." : "Gói không còn trang cao cấp: đang ẩn với người mua."} Gỡ khối có liên hệ trực tiếp hoặc nội dung sai.</p>
     <ul className="mt-3 space-y-2">
       {modules.map((m, index) => {
