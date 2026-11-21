@@ -23,7 +23,6 @@ import {
   Trash2,
   X,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import type { MediaAsset, SupplierProduct, Supplier } from "@/lib/types";
 import { productPriceBlockers, productPriceBlockersEn, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
@@ -33,6 +32,7 @@ import { addSupplierGradeOptionAction, deleteSupplierDraftProductAction, pauseSu
 import { useToast } from "@/components/toast";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
+import { VeximIcon } from "@/components/brand/vexim-icons";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
 import { ProductVideoField } from "@/components/products/product-video-field";
 import { APLUS_MAX_MODULES, canEditAplus, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
@@ -1564,11 +1564,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   <span className="text-[13px] font-semibold text-ink-700">{copy.detail.label}</span>
                   {richContentAllowed && (product
                     ? <Link href={`/supplier/portal/products/${product.id}/aplus`}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-800 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm hover:bg-brand-900">
-                      <Sparkles className="size-3.5" aria-hidden="true" />{aplusCopy.aplusPage.aplus}</Link>
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-brand-900 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:from-brand-700 hover:to-ink-900">
+                      <VeximIcon name="document" className="size-4" aria-hidden="true" />{aplusCopy.aplusPage.aplus}</Link>
                     : <button type="button" disabled={busy || openingAplus} onClick={() => void openAplusForNew()}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-800 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm hover:bg-brand-900 disabled:opacity-60">
-                      <Sparkles className="size-3.5" aria-hidden="true" />{aplusCopy.aplusPage.aplus}</button>)}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-brand-900 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:from-brand-700 hover:to-ink-900 disabled:opacity-60">
+                      <VeximIcon name="document" className="size-4" aria-hidden="true" />{aplusCopy.aplusPage.aplus}</button>)}
                 </div>
                 {showsAplus && <p className="mb-2 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[12px] leading-5 text-brand-900">
                   {fill(aplusCopy.aplusPage.showingAplusCount, { count: aplusCount })}</p>}
