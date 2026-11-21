@@ -7,7 +7,7 @@ import { listPlanActivations, readPlanCatalog, type PlanActivation } from "@/lib
 import { effectiveSupplierPlan, isSupplierPlan, SUPPLIER_PLANS, type SupplierPlan } from "@/lib/supplier-plans";
 import { SUPPLIER_SERVICE_STATUS_LABELS_VI } from "@/lib/supplier-services";
 import type { SupplierServiceRequest } from "@/lib/types";
-import { PlanCatalogEditor } from "./catalog-editor";
+import { PlansTabs } from "./plans-tabs";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Gói thành viên", robots: { index: false, follow: false } };
@@ -17,13 +17,11 @@ const vnDate = (value: string) => new Intl.DateTimeFormat("vi-VN", { day: "2-dig
 const vnMonthKey = (value: string) => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
 
 /**
- * Quản lý gói nhà cung cấp: báo cáo tổng quan (số nhà cung cấp theo gói, gói sắp hết hạn,
- * yêu cầu nâng gói, doanh thu ước tính) và chỉnh nội dung, giá, giới hạn của từng gói.
- * Doanh thu cộng từ số tiền CRM ghi nhận khi bật/gia hạn gói, không phải số tiền thực thu.
+ * Tổng quan gói thành viên: số nhà cung cấp theo gói, gói sắp hết hạn, yêu cầu nâng gói, lượt bật/gia hạn.
+ * Nội dung, giá và giới hạn của từng gói nằm ở trang riêng /crm/plans/catalog.
  */
 export default async function SupplierPlansPage() {
   const session = await requirePagePermission("suppliers.view", "/crm");
-  const canEdit = session.role === "admin";
   const store = getStore();
   const [catalog, suppliers, products, requestsResult, activationsResult] = await Promise.all([
     readPlanCatalog(),
@@ -70,7 +68,8 @@ export default async function SupplierPlansPage() {
 
   const kpi = "rounded-xl border border-ink-200 bg-white p-4 shadow-sm";
   return <>
-    <PageHeader title="Gói thành viên" sub="Tổng quan, nội dung, giá và giới hạn của gói thành viên Basic, Premium, Pro." />
+    <PageHeader title="Gói thành viên" sub="Nhà cung cấp theo gói, yêu cầu nâng gói và gói sắp hết hạn." />
+    <PlansTabs active="overview" />
 
     <section aria-label="Tổng quan" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <div className={kpi}>
@@ -157,12 +156,5 @@ export default async function SupplierPlansPage() {
       )}
     </section>
 
-    <section aria-labelledby="catalog-title" className="mt-6">
-      <h2 id="catalog-title" className="text-sm font-bold text-ink-900">Nội dung và giá gói</h2>
-      <p className="mt-0.5 text-xs text-ink-500">Hiện trong bảng “Nâng cấp gói” ở cổng nhà cung cấp.{canEdit ? "" : " Chỉ quản trị viên được sửa."}</p>
-      <div className="mt-3 grid gap-4 lg:grid-cols-3">
-        {SUPPLIER_PLANS.map((plan) => <PlanCatalogEditor key={plan} entry={catalog[plan]} canEdit={canEdit} />)}
-      </div>
-    </section>
   </>;
 }
