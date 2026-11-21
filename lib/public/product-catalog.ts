@@ -439,3 +439,57 @@ export async function getPublicProductRecordsByIds(ids: readonly string[], optio
   }))).catch((error) => { console.error("[catalog] certificate labels", error); return new Map<string, string[]>(); });
   return labels.size ? records.map((record) => labels.has(record.card.id) ? { ...record, card: { ...record.card, certificates: labels.get(record.card.id) } } : record) : records;
 }
+
+/** Một sản phẩm khác của cùng nhà cung cấp, kèm danh mục để dựng đúng đường dẫn trang chi tiết. */
+export interface SupplierSiblingProduct {
+  card: PublicCategoryProduct;
+  categorySlug: string;
+}
+
+/**
+ * "More from this supplier": tối đa `limit` sản phẩm công khai KHÁC của cùng nhà cung cấp,
+ * loại trừ sản phẩm đang xem. Ưu tiên cùng danh mục (đã có sẵn, đúng thứ tự xếp hạng), rồi bổ
+ * sung từ các danh mục khác qua đúng cổng công khai của getPublicProductRecordsByIds. Trả mảng
+ * rỗng khi nhà cung cấp chỉ có một sản phẩm, để trang ẩn hẳn khối này.
+ */
+export async function listMoreFromSupplier(
+  current: PublicCategoryProduct,
+  categorySlug: string,
+  categoryProducts: readonly PublicCategoryProduct[],
+  options?: { limit?: number },
+): Promise<SupplierSiblingProduct[]> {
+  const limit = options?.limit ?? 5;
+  const picked: SupplierSiblingProduct[] = categoryProducts
+    .filter((item) => item.supplierId === current.supplierId && item.id !== current.id && item.isDemo === current.isDemo)
+    .slice(0, limit)
+    .map((card) => ({ card, categorySlug }));
+  // Hồ sơ demo không có trang ở danh mục khác; đủ số lượng thì không đọc thêm.
+  if (picked.length >= limit || current.isDemo) return picked;
+  try {
+    const { products, categories } = await getCachedPublicCatalogBase();
+    const seen = new Set([current.id, ...picked.map((item) => item.card.id)]);
+    const ids = products
+      .filter((p) => p.supplier_id === current.supplierId && !seen.has(p.id) &&
+        p.ready_for_buyer && productReviewApproved(p) && !isTestOnlyProduct(p.name) &&
+        publicProductCategorySlug(p, categories) !== categorySlug)
+      .map((p) => p.id)
+      // Đọc dư một chút vì vài sản phẩm có thể chưa đủ ảnh để công khai.
+      .slice(0, Math.min(20, (limit - picked.length) * 2));
+    if (!ids.length) return picked;
+    const records = await getPublicProductRecordsByIds(ids, { cachedCatalog: true });
+    for (const record of records) {
+      if (picked.length >= limit) break;
+      if (seen.has(record.card.id) || record.card.supplierId !== current.supplierId) continue;
+      seen.add(record.card.id);
+      // Cùng nhà cung cấp: dùng đúng cấp xác minh đã đối chiếu bằng chứng của thẻ đang xem.
+      picked.push({
+        card: { ...record.card, verificationSteps: current.verificationSteps, l2Scope: current.l2Scope },
+        categorySlug: record.category.slug,
+      });
+    }
+  } catch (error) {
+    // Gợi ý thêm không được làm hỏng trang sản phẩm.
+    console.error("[catalog] more from supplier", error);
+  }
+  return picked;
+}

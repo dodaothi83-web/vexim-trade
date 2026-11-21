@@ -40,12 +40,19 @@ assert.equal(lib.similarOffers(current, [current, card('x', 's0', ['W320'])], { 
 
 const page = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(page, /Similar offers from other suppliers/);
-assert.ok(page.indexOf('id="similar-offers"') < page.indexOf('full-specifications-heading'), 'Mục so sánh đứng trên Full specifications');
-assert.match(page, /similar\.length \? \[\] : categoryProducts/, 'Không có nhà cung cấp khác thì quay về gợi ý cùng danh mục');
+assert.ok(page.indexOf('id="similar-offers"') > page.indexOf('product-description-heading'), 'Similar offers nằm cuối trang, sau phần mô tả (A+)');
+assert.match(page, /\{similar\.length > 0 && <section id="similar-offers"/, 'Không có nhà cung cấp khác thì ẩn khối Similar offers');
+assert.doesNotMatch(page, /relatedProducts|Related products/, 'Bỏ khối Related products dự phòng');
+assert.match(page, /More from this supplier/);
+assert.match(page, /\{moreFromSupplier\.length > 0 && <section id="more-from-supplier"/, 'Nhà cung cấp chỉ có một sản phẩm thì ẩn hẳn khối này');
+assert.ok(page.indexOf('id="more-from-supplier"') < page.indexOf('full-specifications-heading'), 'More from this supplier đứng trên Full specifications');
+assert.match(page, /listMoreFromSupplier\(card, slug, categoryProducts, \{ limit: 5 \}\)/, 'Tối đa 5 sản phẩm của cùng nhà cung cấp');
+const catalog = fs.readFileSync(new URL('../lib/public/product-catalog.ts', import.meta.url), 'utf8');
+assert.match(catalog, /item\.supplierId === current\.supplierId && item\.id !== current\.id/, 'Chỉ sản phẩm khác của cùng nhà cung cấp');
 assert.doesNotMatch(page, /Same grade · |Compare reference price, MOQ|View all suppliers/, 'Bỏ dòng mô tả, nhãn grade và link View all suppliers');
 assert.match(page, /<SimilarOffersRail/);
 const rail = fs.readFileSync(new URL('../components/public/similar-offers-rail.tsx', import.meta.url), 'utf8');
 assert.match(rail, /lg:w-\[calc\(\(100%-4rem\)\/5\)\]/, 'Máy tính: 5 thẻ mỗi lượt');
 assert.match(rail, /i >= 4 && "hidden lg:block"/, 'Điện thoại giữ lưới cũ, tối đa 4 thẻ');
 assert.match(rail, /hidden gap-2 lg:flex/, 'Nút trượt chỉ có trên máy tính');
-console.log('✅ Similar offers: nhà cung cấp khác, ưu tiên cùng grade, một sản phẩm mỗi nhà cung cấp, giữ thứ tự xếp hạng, đứng trên thông số.');
+console.log('✅ Similar offers: nhà cung cấp khác, ưu tiên cùng grade, một sản phẩm mỗi nhà cung cấp, giữ thứ tự xếp hạng, nằm cuối trang; More from this supplier đứng trên thông số.');
