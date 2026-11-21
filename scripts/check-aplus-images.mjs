@@ -202,4 +202,85 @@ assert.equal(content[0].image_path, jpg(3), "Không sửa tại chỗ dữ liệ
 assert.equal(a.validateAplusModules(rewritten.value, { supplierId: sid, productId: pid }).problem?.code === "imageRequired", false);
 assert.equal(migrate.rewriteAplusPaths(rewritten.value, new Map([[jpg(3), webp(3)]])).changed, 0, "Chạy lại không đổi gì");
 
+const refs = migrate.referencedPaths([content, null, [{ items: [{ image_path: jpg(9) }] }]]);
+assert.ok(refs.has(jpg(3)) && refs.has(jpg(6)) && refs.has(jpg(9)));
+assert.deepEqual(migrate.splitOrphans([jpg(3), jpg(8, a.COMPANY_APLUS_ID)], refs), { used: [jpg(3)], orphans: [jpg(8, a.COMPANY_APLUS_ID)] },
+  "Ảnh không nội dung nào dùng là ảnh mồ côi: không chuyển, chỉ xoá khi được yêu cầu");
+
+// 8. Chạy cả script trên Supabase giả mô phỏng đúng dữ liệu thật: 6 ảnh JPEG của một sản phẩm đang dùng,
+//    2 ảnh doanh nghiệp mồ côi. Chạy thử không ghi; chạy thật chuyển 6 ảnh, đổi 6 đường dẫn, xoá 8 JPEG.
+function fakeSupabase(files, rows) {
+  const objects = new Map(files);
+  const tables = structuredClone(rows);
+  const writes = [];
+  const storage = {
+    async list(prefix) {
+      const level = new Map();
+      for (const name of objects.keys()) {
+        if (!name.startsWith(`${prefix}/`)) continue;
+        const [head, ...rest] = name.slice(prefix.length + 1).split("/");
+        level.set(head, rest.length ? { name: head, id: null } : { name: head, id: "file" });
+      }
+      return { data: [...level.values()], error: null };
+    },
+    async download(path) { return objects.has(path) ? { data: new Blob([objects.get(path)]), error: null } : { data: null, error: { message: "missing" } }; },
+    async upload(path, bytes, options) { writes.push(["upload", path, options.contentType]); objects.set(path, bytes); return { error: null }; },
+    async remove(paths) { writes.push(["remove", ...paths]); paths.forEach((path) => objects.delete(path)); return { error: null }; },
+  };
+  const db = {
+    from(table) {
+      return {
+        select: (columns) => ({ not: async (column) => ({ data: (tables[table] ?? []).filter((row) => row[column] != null).map((row) => ({ id: row.id, [column]: row[column] })), error: null }) }),
+        update: (patch) => ({ eq: async (_key, id) => { writes.push(["update", table, id]); Object.assign(tables[table].find((row) => row.id === id), patch); return { error: null }; } }),
+      };
+    },
+  };
+  return { db, storage, objects, tables, writes };
+}
+{
+  const realSupplier = "84c09357-3ddc-4ec2-b730-dc8a867284ee", realProduct = "e18c6ecc-f8ac-40f0-99ae-8cc5084c02b4";
+  const companySupplier = "280864a2-63d3-44cb-8ea4-10d84eabc657";
+  const ids = ["0ba11d63-fa12-4cf0-a6d2-7c811d6bb745", "0d19176e-2233-444f-9487-5d1ee472bf1b", "3f98ed11-45bd-4a16-8fea-8d9e2ef19424", "54f418e9-e170-4d73-b55c-1eacc1419018", "68293cc2-6f2f-42a4-a656-b32a5519db4d", "81e02552-7660-402f-8674-2890221ee434"];
+  const productJpgs = ids.map((id) => `aplus/${realSupplier}/${realProduct}/${id}.jpg`);
+  const orphanJpgs = ["49816dcf-fad0-485a-81ec-7e23aef9572f", "ef6df1f7-6b71-47e5-b7a2-f8803b69178f"].map((id) => `aplus/${companySupplier}/company/${id}.jpg`);
+  const small = await sharp(source).resize(1600).jpeg({ quality: 85 }).toBuffer();
+  const aplus = [
+    { id: "m-1", type: "hero", image_path: productJpgs[0], title: "W240" },
+    { id: "m-2", type: "gallery", items: productJpgs.slice(1, 5).map((image_path) => ({ image_path, caption: "" })) },
+    { id: "m-3", type: "image", image_path: productJpgs[5], caption: "Packing" },
+  ];
+  const rows = { supplier_products: [{ id: realProduct, aplus_content: aplus }, { id: "other", aplus_content: null }], suppliers: [{ id: companySupplier, company_aplus: [] }] };
+  const quiet = { log: () => {}, error: () => {} };
+
+  const dry = fakeSupabase([...productJpgs, ...orphanJpgs].map((path) => [path, small]), rows);
+  const planned = await migrate.runMigration({ ...dry, prepare: prepareSupplierProductImage, log: quiet });
+  assert.deepEqual(dry.writes, [], "Chạy thử không ghi gì");
+  assert.equal(planned.converted.length, 6);
+  assert.deepEqual(planned.orphans, orphanJpgs);
+
+  const run = fakeSupabase([...productJpgs, ...orphanJpgs].map((path) => [path, small]), rows);
+  await migrate.runMigration({ ...run, prepare: prepareSupplierProductImage, apply: true, deleteOriginals: true, deleteOrphans: true, log: quiet });
+  const migrated = run.tables.supplier_products[0].aplus_content;
+  const migratedPaths = a.aplusImagePaths(migrated);
+  assert.deepEqual(migratedPaths, ids.map((id) => `aplus/${realSupplier}/${realProduct}/${id}.webp`), "Nội dung trỏ sang WebP, giữ thứ tự");
+  assert.ok(migratedPaths.every((path) => a.isAplusImagePath(path, realSupplier, realProduct)), "Đường dẫn mới hợp lệ cho đúng sản phẩm");
+  assert.deepEqual(migrated.map(({ id, type }) => [id, type]), aplus.map(({ id, type }) => [id, type]), "Giữ nguyên các khối, chỉ đổi đường dẫn ảnh");
+  assert.deepEqual([...run.objects.keys()].sort(), migratedPaths.flatMap(a.aplusImageFiles).sort(), "Còn đúng 6 WebP + 6 bản nhỏ; 8 JPEG đã xoá");
+  for (const path of migratedPaths) assert.equal((await sharp(run.objects.get(a.aplusThumbPath(path))).metadata()).width, 640);
+  const firstRemove = run.writes.findIndex(([kind]) => kind === "remove");
+  const lastUpload = run.writes.findLastIndex(([kind]) => kind === "upload");
+  const update = run.writes.findIndex(([kind]) => kind === "update");
+  assert.ok(lastUpload < update && update < firstRemove, "Thứ tự an toàn: tải WebP → đổi nội dung → xoá JPEG");
+  assert.equal(run.writes.filter(([kind]) => kind === "update").length, 1, "Chỉ cập nhật sản phẩm có ảnh cũ");
+
+  // Chạy lại: không còn gì để làm.
+  const again = await migrate.runMigration({ ...run, prepare: prepareSupplierProductImage, apply: true, deleteOriginals: true, deleteOrphans: true, log: quiet });
+  assert.deepEqual([again.converted.length, again.orphans.length], [0, 0], "Chạy lại an toàn");
+
+  // Không có cờ xoá: giữ JPEG gốc và ảnh mồ côi.
+  const keep = fakeSupabase([...productJpgs, ...orphanJpgs].map((path) => [path, small]), rows);
+  await migrate.runMigration({ ...keep, prepare: prepareSupplierProductImage, apply: true, log: quiet });
+  assert.ok([...productJpgs, ...orphanJpgs].every((path) => keep.objects.has(path)), "Không xoá nếu không yêu cầu");
+}
+
 console.log("✅ Ảnh A+: WebP ≤1600px + bản nhỏ 640px ở máy chủ, ô nhỏ tải bản nhỏ, ảnh đơn giữ khung 16:9, cache ngắn + ETag như ảnh sản phẩm, script chuyển ảnh cũ.");

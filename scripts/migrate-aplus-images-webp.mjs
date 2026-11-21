@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // node --experimental-strip-types --no-warnings scripts/migrate-aplus-images-webp.mjs            (chạy thử, không ghi)
 // node --experimental-strip-types --no-warnings scripts/migrate-aplus-images-webp.mjs --apply    (chuyển đổi + cập nhật nội dung)
-// node --experimental-strip-types --no-warnings scripts/migrate-aplus-images-webp.mjs --apply --delete-originals
+// node --experimental-strip-types --no-warnings scripts/migrate-aplus-images-webp.mjs --apply --delete-originals --delete-orphans
+// (hoặc: npm run migrate:aplus-webp -- --apply --delete-originals --delete-orphans)
 //
 // Chuyển ảnh A+ cũ (JPEG/PNG do trình duyệt nén) sang đúng định dạng ảnh A+ mới:
 //   aplus/<ncc>/<sản phẩm|company>/<uuid>.jpg  →  <uuid>.webp (≤1600px) + <uuid>-thumb.webp (≤640px)
@@ -11,6 +12,7 @@
 // - Chạy lại an toàn: ảnh WebP đã có thì không mã hoá lại; nội dung đã đổi thì bỏ qua.
 // - Không đụng thư mục `pending` (tệp chờ tự dọn sau 24 giờ, đang được bảng chờ tham chiếu).
 // - Ảnh gốc chỉ bị xoá khi có --delete-originals, sau khi WebP đã lên và không còn nội dung nào trỏ tới.
+// - Ảnh mồ côi (không nội dung nào dùng) không chuyển; chỉ xoá khi có --delete-orphans.
 //
 // Cần SUPABASE_URL và SUPABASE_SERVICE_ROLE_KEY (đọc từ môi trường hoặc .env.local / .env).
 
@@ -51,6 +53,23 @@ export function rewriteAplusPaths(value, replacements) {
   return { value: changed ? next : value, changed };
 }
 
+/** Mọi chuỗi trong nội dung A+ (để biết ảnh nào đang được dùng). */
+export function referencedPaths(values) {
+  const found = new Set();
+  const walk = (node) => {
+    if (typeof node === "string") found.add(node);
+    else if (Array.isArray(node)) node.forEach(walk);
+    else if (node && typeof node === "object") Object.values(node).forEach(walk);
+  };
+  values.forEach(walk);
+  return found;
+}
+
+/** Tách ảnh cũ thành ảnh đang dùng (cần chuyển) và ảnh mồ côi (không nội dung nào trỏ tới). */
+export function splitOrphans(legacy, referenced) {
+  return { used: legacy.filter((path) => referenced.has(path)), orphans: legacy.filter((path) => !referenced.has(path)) };
+}
+
 function loadEnv() {
   for (const file of [".env.local", ".env"]) {
     const full = path.join(process.cwd(), file);
@@ -77,9 +96,22 @@ async function listAll(storage, prefix) {
   return out;
 }
 
+const CONTENT_COLUMNS = [
+  { table: "supplier_products", column: "aplus_content" },
+  { table: "suppliers", column: "company_aplus" },
+];
+
+async function loadContent(db) {
+  const rows = [];
+  for (const { table, column } of CONTENT_COLUMNS) {
+    const { data, error } = await db.from(table).select(`id, ${column}`).not(column, "is", null);
+    if (error) throw error;
+    for (const row of data ?? []) rows.push({ table, column, id: row.id, value: row[column] });
+  }
+  return rows;
+}
+
 async function main() {
-  const apply = process.argv.includes("--apply");
-  const deleteOriginals = process.argv.includes("--delete-originals");
   loadEnv();
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -87,26 +119,41 @@ async function main() {
   const { createClient } = await import("@supabase/supabase-js");
   const { prepareSupplierProductImage } = await import("../lib/media/prepare-supplier-product-image.ts");
   const db = createClient(url, key, { auth: { persistSession: false } });
-  const storage = db.storage.from(process.env.SUPABASE_MEDIA_BUCKET || "vexim-media");
+  await runMigration({
+    db,
+    storage: db.storage.from(process.env.SUPABASE_MEDIA_BUCKET || "vexim-media"),
+    prepare: prepareSupplierProductImage,
+    apply: process.argv.includes("--apply"),
+    deleteOriginals: process.argv.includes("--delete-originals"),
+    deleteOrphans: process.argv.includes("--delete-orphans"),
+  });
+}
+
+/** Phần chạy thật, nhận client từ ngoài để kiểm thử được với Supabase giả. */
+export async function runMigration({ db, storage, prepare, apply = false, deleteOriginals = false, deleteOrphans = false, log = console }) {
+  const prepareSupplierProductImage = prepare;
 
   const names = await listAll(storage, "aplus");
   const existing = new Set(names);
   const legacy = legacyAplusImages(names);
-  console.log(`${apply ? "Chạy thật" : "Chạy thử"}: ${legacy.length} ảnh A+ cũ cần chuyển.`);
+  const content = await loadContent(db);
+  const referenced = referencedPaths(content.map((row) => row.value));
+  const { used, orphans } = splitOrphans(legacy, referenced);
+  log.log(`${apply ? "Chạy thật" : "Chạy thử"}: ${legacy.length} ảnh A+ cũ, ${used.length} đang dùng cần chuyển, ${orphans.length} ảnh mồ côi.`);
 
   const replacements = new Map();
-  for (const from of legacy) {
+  for (const from of used) {
     const { main: to, thumb } = webpTargets(from);
     if (existing.has(to) && existing.has(thumb)) {
-      console.log(`  = ${from} → đã có WebP`);
+      log.log(`  = ${from} → đã có WebP`);
       replacements.set(from, to);
       continue;
     }
     const { data, error } = await storage.download(from);
-    if (error || !data) { console.error(`  ✖ ${from}: không tải được`, error?.message ?? ""); continue; }
+    if (error || !data) { log.error(`  ✖ ${from}: không tải được`, error?.message ?? ""); continue; }
     const original = new Uint8Array(await data.arrayBuffer());
     const prepared = await prepareSupplierProductImage(original);
-    console.log(`  → ${from}: ${Math.round(original.length / 1024)} KB → ${Math.round(prepared.main.length / 1024)} KB WebP ${prepared.width}×${prepared.height} + bản nhỏ ${Math.round(prepared.thumb.length / 1024)} KB`);
+    log.log(`  → ${from}: ${Math.round(original.length / 1024)} KB → ${Math.round(prepared.main.length / 1024)} KB WebP ${prepared.width}×${prepared.height} + bản nhỏ ${Math.round(prepared.thumb.length / 1024)} KB`);
     if (apply) {
       for (const [target, bytes] of [[to, prepared.main], [thumb, prepared.thumb]]) {
         const { error: uploadError } = await storage.upload(target, bytes, { contentType: "image/webp", upsert: true });
@@ -116,36 +163,32 @@ async function main() {
     replacements.set(from, to);
   }
 
-  const targets = [
-    { table: "supplier_products", column: "aplus_content" },
-    { table: "suppliers", column: "company_aplus" },
-  ];
-  const stillReferenced = new Set();
-  for (const { table, column } of targets) {
-    const { data, error } = await db.from(table).select(`id, ${column}`).not(column, "is", null);
+  // Chỉ đổi nội dung sau khi WebP + bản nhỏ đã lên đủ.
+  for (const row of content) {
+    const { value, changed } = rewriteAplusPaths(row.value, replacements);
+    if (!changed) continue;
+    log.log(`  ✎ ${row.table}.${row.column} ${row.id}: ${changed} đường dẫn`);
+    if (!apply) continue;
+    const { error } = await db.from(row.table).update({ [row.column]: value }).eq("id", row.id);
     if (error) throw error;
-    for (const row of data ?? []) {
-      const { value, changed } = rewriteAplusPaths(row[column], replacements);
-      if (!changed) continue;
-      console.log(`  ✎ ${table}.${column} ${row.id}: ${changed} đường dẫn`);
-      if (!apply) continue;
-      const { error: updateError } = await db.from(table).update({ [column]: value }).eq("id", row.id);
-      if (updateError) throw updateError;
-    }
-    // Sau khi cập nhật: còn chỗ nào trỏ tới ảnh cũ thì không xoá ảnh đó.
-    const { data: after } = await db.from(table).select(column).not(column, "is", null);
-    for (const row of after ?? []) for (const from of replacements.keys()) if (JSON.stringify(row[column]).includes(from)) stillReferenced.add(from);
   }
 
-  if (apply && deleteOriginals) {
-    const removable = [...replacements.keys()].filter((from) => !stillReferenced.has(from));
+  if (orphans.length) {
+    for (const path of orphans) log.log(`  ∅ ${path}: không nội dung nào dùng${deleteOrphans ? " → xoá" : " (thêm --delete-orphans để xoá)"}`);
+  }
+  if (apply && (deleteOriginals || deleteOrphans)) {
+    // Đọc lại nội dung: ảnh nào vẫn còn được trỏ tới thì không xoá (có người vừa lưu A+ trong lúc chạy).
+    const stillReferenced = referencedPaths((await loadContent(db)).map((row) => row.value));
+    const candidates = [...(deleteOriginals ? replacements.keys() : []), ...(deleteOrphans ? orphans : [])];
+    const removable = candidates.filter((path) => !stillReferenced.has(path));
     if (removable.length) {
       const { error } = await storage.remove(removable);
       if (error) throw error;
     }
-    console.log(`  🗑 Đã xoá ${removable.length} ảnh gốc${stillReferenced.size ? `, giữ ${stillReferenced.size} ảnh còn được tham chiếu` : ""}.`);
+    log.log(`  🗑 Đã xoá ${removable.length} ảnh cũ${candidates.length > removable.length ? `, giữ ${candidates.length - removable.length} ảnh còn được dùng` : ""}.`);
   }
-  console.log(apply ? "✅ Xong." : "Chạy thử xong. Thêm --apply để ghi.");
+  log.log(apply ? "✅ Xong." : "Chạy thử xong, chưa ghi gì. Thêm --apply để chạy thật.");
+  return { converted: [...replacements.keys()], orphans };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
