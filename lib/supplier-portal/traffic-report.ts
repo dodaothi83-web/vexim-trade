@@ -43,3 +43,9 @@ export function periodRanges(days: number, now = new Date()) {
     previous: { from: iso(today - (2 * days - 1) * 86400_000), to: iso(today - days * 86400_000) },
   };
 }
+
+/** Tỷ lệ chuyển đổi: yêu cầu báo giá trên lượt xem (%, 1 chữ số thập phân); null khi chưa có lượt xem. */
+export function conversionRate(rfqs: number, views: number): number | null {
+  if (!Number.isFinite(rfqs) || !Number.isFinite(views) || views <= 0 || rfqs < 0) return null;
+  return Math.round((rfqs / views) * 1000) / 10;
+}

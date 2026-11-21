@@ -13,6 +13,9 @@ assert.equal(r.percentChange(50, 100), -50);
 assert.equal(r.percentChange(10, 0), null);
 assert.equal(r.percentChange(0, 0), null);
 
+assert.equal(r.conversionRate(3, 125), 2.4, "Tỷ lệ chuyển đổi: RFQ trên lượt xem");
+assert.equal(r.conversionRate(0, 0), null, "Chưa có lượt xem thì không tính");
+
 // 2. Kỳ hiện tại và kỳ liền trước cùng độ dài, không chồng nhau.
 const p = r.periodRanges(7, new Date("2026-12-14T10:00:00Z"));
 assert.deepEqual(p.current, { from: "2026-12-08", to: "2026-12-14" });
@@ -31,6 +34,8 @@ assert.match(read("lib/traffic/server.ts"), /code === "XX" \|\| code === "T1"/, 
 const summary = read("app/supplier/portal/traffic/summary.tsx");
 assert.match(summary, /copy\.kpi\.rfqs/);
 assert.match(summary, /copy\.kpi\.email/);
+assert.match(summary, /copy\.kpi\.conversion\b/);
+assert.doesNotMatch(summary, /copy\.kpi\.profile/, "Bỏ thẻ chia hồ sơ / sản phẩm");
 assert.match(read("lib/i18n/portal/traffic.ts"), /email marketing của Vexim/);
 assert.match(read("lib/i18n/portal/traffic.ts"), /chỉ đếm theo quốc gia/);
 assert.match(read("lib/supplier-portal/performance.ts"), /\.from\("rfq_matches"\)[\s\S]{0,160}sent_to_supplier_at/, "RFQ tính theo lúc chuyển tới nhà cung cấp");
