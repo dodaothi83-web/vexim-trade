@@ -18,6 +18,7 @@ export function PlanCatalogEditor({ entry, canEdit }: { entry: SupplierPlanCatal
   const [features, setFeatures] = useState(entry.features.join("\n"));
   const [maxProducts, setMaxProducts] = useState(entry.maxProducts === null ? "" : String(entry.maxProducts));
   const [richContent, setRichContent] = useState(entry.richContent);
+  const [videoMinutes, setVideoMinutes] = useState(entry.videoMinutes === null ? "" : String(entry.videoMinutes));
   const [prices, setPrices] = useState(entry.prices.length ? entry.prices.map((p) => ({ months: String(p.months), price: String(p.price_vnd) })) : []);
   const disabled = !canEdit || pending;
   const field = "input mt-1 w-full";
@@ -30,7 +31,8 @@ export function PlanCatalogEditor({ entry, canEdit }: { entry: SupplierPlanCatal
     .filter((p) => Number.isInteger(p.months) && p.months > 0 && Number.isFinite(p.price))
     .sort((a, b) => a.months - b.months);
   const previewFeatures = features.split("\n").map((f) => f.trim()).filter(Boolean);
-  const limitChanged = (maxProducts.trim() || null) !== (entry.maxProducts === null ? null : String(entry.maxProducts)) || richContent !== entry.richContent;
+  const limitChanged = (maxProducts.trim() || null) !== (entry.maxProducts === null ? null : String(entry.maxProducts)) || richContent !== entry.richContent
+    || (videoMinutes.trim() || null) !== (entry.videoMinutes === null ? null : String(entry.videoMinutes));
 
   return (
     <form action={action} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
@@ -87,9 +89,15 @@ export function PlanCatalogEditor({ entry, canEdit }: { entry: SupplierPlanCatal
               <input type="checkbox" name="rich_content" value="yes" checked={richContent} onChange={(e) => setRichContent(e.target.checked)} disabled={disabled} className="mt-0.5 size-4 accent-brand-700" />
               Mở video sản phẩm và nội dung A+
             </label>
+            {!richContent && <input type="hidden" name="video_minutes" value={videoMinutes} />}
+            {richContent && <label className="text-xs font-semibold text-ink-700">Tổng số phút video
+              <input name="video_minutes" inputMode="numeric" value={videoMinutes} onChange={(e) => setVideoMinutes(e.target.value)} placeholder="Để trống là không giới hạn" disabled={disabled} className={`${field} tabular-nums`} />
+              <span className="mt-1 block font-normal text-ink-500">Cộng mọi video đang lưu của một nhà cung cấp: video nhà máy, video sản phẩm, video A+.</span>
+            </label>}
           </div>
+          {richContent && <p className="mt-3 text-xs leading-5 text-ink-500">Mỗi video: nhà máy tối đa 3 phút, sản phẩm và A+ tối đa 2 phút. Mỗi trang A+ tối đa 2 video.</p>}
           {limitChanged && <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-            Hạ mức không xoá sản phẩm, video hay nội dung A+ đã có; phần vượt mức chỉ ẩn với người mua.
+            Hạ mức không xoá sản phẩm, video hay nội dung A+ đã có. Sản phẩm vượt mức chỉ ẩn với người mua; vượt số phút video thì không tải thêm video mới.
           </p>}
         </section>
 
@@ -118,7 +126,7 @@ export function PlanCatalogEditor({ entry, canEdit }: { entry: SupplierPlanCatal
           </ul>
         </div>
         <p className="mt-2 text-xs leading-5 text-ink-500">
-          Áp dụng: {maxProducts.trim() ? `tối đa ${maxProducts.trim()} sản phẩm` : "không giới hạn sản phẩm"}, {richContent ? "có" : "không có"} video và A+.
+          Áp dụng: {maxProducts.trim() ? `tối đa ${maxProducts.trim()} sản phẩm` : "không giới hạn sản phẩm"}, {richContent ? `có video và A+, ${videoMinutes.trim() ? `${videoMinutes.trim()} phút video` : "không giới hạn phút video"}` : "không có video và A+"}.
         </p>
       </aside>
     </form>

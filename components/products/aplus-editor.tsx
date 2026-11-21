@@ -12,7 +12,7 @@ import type { AplusMessages } from "@/lib/i18n/portal/aplus";
 import { prepareImage } from "@/lib/media/client-image";
 import { aplusUploadEndpoint, checkVideoFile, uploadStreamVideoAt } from "@/lib/media/stream-upload-client";
 import {
-  APLUS_B2B_TYPES, APLUS_HIGHLIGHT_ICONS, APLUS_ITEM_RANGE, APLUS_MAX_MODULES, APLUS_MODULE_TYPES, aplusBlockIssues, aplusCompleteness,
+  APLUS_B2B_TYPES, APLUS_HIGHLIGHT_ICONS, APLUS_ITEM_RANGE, APLUS_MAX_MODULES, APLUS_MAX_VIDEOS, APLUS_MODULE_TYPES, aplusVideoCount, aplusBlockIssues, aplusCompleteness,
   aplusModuleText, aplusNeedsTranslation, aplusNumberDrift, aplusSlots, aplusHasVietnamese, aplusTranslationStale, findContact, withAplusText,
   type AplusHighlightIcon, type AplusModule, type AplusModuleType,
 } from "@/lib/products/aplus";
@@ -327,14 +327,15 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
       {[{ label: copy.library.b2b, types: APLUS_B2B_TYPES }, { label: copy.library.basic, types: APLUS_MODULE_TYPES.filter((t) => !APLUS_B2B_TYPES.includes(t)) }].map((group) => <div key={group.label}>
         <p className="mb-2 mt-1 text-[11px] font-bold uppercase tracking-wider text-ink-400">{group.label}</p>
         <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-          {group.types.map((type) => <button key={type} type="button" onClick={() => addModule(type)}
-            className="grid content-start gap-1.5 rounded-xl border border-ink-200 p-2.5 text-left transition hover:border-brand-500 hover:shadow-sm">
+          {group.types.map((type) => { const full = type === "video" && aplusVideoCount(modules) >= APLUS_MAX_VIDEOS; return <button key={type} type="button" onClick={() => addModule(type)}
+            disabled={full} title={full ? fill(copy.errors.tooManyVideos, { max: APLUS_MAX_VIDEOS }) : undefined}
+            className="grid content-start gap-1.5 rounded-xl border border-ink-200 p-2.5 text-left transition hover:border-brand-500 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-ink-200 disabled:hover:shadow-none">
             <Wireframe type={type} />
             <span className="flex items-center justify-between gap-1 text-[12.5px] font-bold text-ink-900">{copy.types[type]}
               {APLUS_B2B_TYPES.includes(type) && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">{copy.newBadge}</span>}</span>
-            <span className="text-[11px] leading-4 text-ink-500">{copy.typeDesc[type]}</span>
+            <span className="text-[11px] leading-4 text-ink-500">{full ? fill(copy.errors.tooManyVideos, { max: APLUS_MAX_VIDEOS }) : copy.typeDesc[type]}</span>
             <span className="text-[10.5px] text-ink-400">{copy.imageSize[type]}</span>
-          </button>)}
+          </button>; })}
         </div>
       </div>)}
     </Modal>}

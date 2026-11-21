@@ -36,11 +36,11 @@ export function ProductVideoField({ productId, videoUid, editable, canUpload, co
   const disabled = !editable || busy;
 
   async function choose(file: File) {
-    const problem = await checkVideoFile(file, copy.errors, fill);
+    const problem = await checkVideoFile(file, copy.errors, fill, "product");
     if (problem) { setMessage({ ok: false, text: problem }); return; }
     setBusy(true); setProgress(0); setMessage(null);
     try {
-      const uid = await uploadStreamVideo(productId, file, setProgress, copy.errors.upload);
+      const uid = await uploadStreamVideo(productId, file, setProgress, copy.errors.upload, "product");
       setProgress(null);
       if (!productId) { setPendingUid(uid); setMessage({ ok: true, text: t.savedWithProduct }); return; }
       const result = await saveProductVideoAction(productId, uid);

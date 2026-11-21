@@ -46,19 +46,21 @@ export interface SupplierPlanCatalogEntry {
   maxProducts: number | null;
   /** Mở video sản phẩm (trong dãy ảnh) và nội dung A+ (ảnh, video) trong mô tả chi tiết. */
   richContent: boolean;
+  /** Tổng số phút video được lưu (mọi loại video của nhà cung cấp); null là không giới hạn. */
+  videoMinutes: number | null;
   updatedAt?: string | null;
 }
 export type SupplierPlanCatalog = Record<SupplierPlan, SupplierPlanCatalogEntry>;
 
 export const DEFAULT_PLAN_CATALOG: SupplierPlanCatalog = {
-  basic: { plan: "basic", name: "Basic", summary: "Miễn phí", maxProducts: 5, richContent: false, prices: [],
+  basic: { plan: "basic", name: "Basic", summary: "Miễn phí", maxProducts: 5, richContent: false, videoMinutes: 0, prices: [],
     features: ["Đăng tối đa 5 sản phẩm", "Ảnh sản phẩm và mô tả bằng chữ; không có video và nội dung A+", "Hồ sơ nhà cung cấp cơ bản trên nền tảng"] },
-  premium: { plan: "premium", name: "Premium", summary: "", maxProducts: 20, richContent: true,
+  premium: { plan: "premium", name: "Premium", summary: "", maxProducts: 20, richContent: true, videoMinutes: 60,
     prices: [{ months: 3, price_vnd: 1_399_000 }, { months: 6, price_vnd: 2_499_000 }],
     features: ["Đăng tối đa 20 sản phẩm, có video sản phẩm và nội dung A+ (ảnh, video)", "1 bài SEO tiếng Anh mỗi tháng trên website Vexim Trade",
       "1 bài SEO mỗi tháng trên website của doanh nghiệp (nếu có)", "Nhân viên Vexim tư vấn tối ưu gian hàng và hồ sơ năng lực",
       "Dùng thử 15 ngày cho khách hàng đã dùng dịch vụ FDA/GACC của Vexim Global"] },
-  pro: { plan: "pro", name: "Pro", summary: "", maxProducts: null, richContent: true,
+  pro: { plan: "pro", name: "Pro", summary: "", maxProducts: null, richContent: true, videoMinutes: 180,
     prices: [{ months: 3, price_vnd: 1_999_000 }, { months: 6, price_vnd: 3_499_000 }],
     features: ["Đăng không giới hạn sản phẩm, có video sản phẩm và nội dung A+ (ảnh, video)", "2 bài SEO tiếng Anh mỗi tháng trên website Vexim Trade",
       "2 bài SEO mỗi tháng trên website của doanh nghiệp (nếu có)", "Nhân viên Vexim tư vấn tối ưu gian hàng và hồ sơ năng lực",

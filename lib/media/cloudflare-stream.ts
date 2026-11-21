@@ -38,7 +38,7 @@ export type StreamVideo = {
 };
 
 /** Xin một đường tải lên một lần cho trình duyệt. */
-export async function createStreamDirectUpload(input: { supplierId: string; productId: string | null; purpose?: "company" }):
+export async function createStreamDirectUpload(input: { supplierId: string; productId: string | null; purpose?: "company"; maxSeconds?: number }):
   Promise<{ uploadURL: string; uid: string } | null> {
   const config = streamConfig();
   if (!config) return null;
@@ -46,7 +46,7 @@ export async function createStreamDirectUpload(input: { supplierId: string; prod
     method: "POST",
     headers: { Authorization: `Bearer ${config.token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      maxDurationSeconds: APLUS_VIDEO_MAX_SECONDS,
+      maxDurationSeconds: Math.max(1, Math.floor(input.maxSeconds ?? APLUS_VIDEO_MAX_SECONDS)),
       creator: input.supplierId,
       allowedOrigins: streamAllowedOrigins(),
       // Ảnh bìa lấy ở 10% thời lượng thay vì khung đầu (thường đen hoặc đang mờ dần).
@@ -124,4 +124,30 @@ export async function deleteStreamVideo(uid: string): Promise<void> {
   } catch (error) {
     console.error("[stream] delete", uid, error);
   }
+}
+
+/**
+ * Tổng số giây video đang lưu của một nhà cung cấp (mọi video Vexim xin tải lên đều gắn `creator`
+ * là mã nhà cung cấp). Video đang xử lý chưa có thời lượng thì chưa tính.
+ */
+export async function supplierStreamSeconds(supplierId: string): Promise<number> {
+  const config = streamConfig();
+  if (!config) throw new Error("stream_not_configured");
+  let total = 0;
+  let before: string | null = null;
+  for (let page = 0; page < 10; page++) {
+    const query = new URLSearchParams({ creator: supplierId, limit: "1000" });
+    if (before) query.set("end", before);
+    const res = await fetch(`${api(config.account, "")}?${query}`, {
+      headers: { Authorization: `Bearer ${config.token}` }, signal: AbortSignal.timeout(10000), cache: "no-store",
+    });
+    const data = await res.json().catch(() => null) as { success?: boolean; result?: Array<{ duration?: unknown; created?: unknown; creator?: unknown }> } | null;
+    if (!res.ok || !data?.success || !Array.isArray(data.result)) throw new Error(`stream_list_failed_${res.status}`);
+    for (const v of data.result) if (v.creator === supplierId && typeof v.duration === "number" && v.duration > 0) total += v.duration;
+    if (data.result.length < 1000) break;
+    const last = data.result[data.result.length - 1]?.created;
+    if (typeof last !== "string") break;
+    before = last;
+  }
+  return total;
 }

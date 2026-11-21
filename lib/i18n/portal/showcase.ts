@@ -21,7 +21,7 @@ const en = {
     taglineNote: "Write in English or Vietnamese. Vietnamese is translated when you save.",
     video: {
       title: "Factory video",
-      hint: "Shows a “Watch factory video” button in your header; buyers click to play. MP4, MOV or WebM, up to 200 MB and 15 minutes.",
+      hint: "Shows a “Watch factory video” button in your header; buyers click to play. MP4, MOV or WebM, up to 200 MB and 3 minutes.",
       upload: "Upload video", replace: "Replace video", remove: "Remove video", uploading: "Uploading {pct}%",
       saved: "Video saved. It is being processed and appears for buyers once ready, usually within a few minutes.",
       removed: "Video removed.", invalid: "The video did not finish uploading. Please upload it again.", confirmRemove: "Remove the factory video?",
@@ -112,7 +112,7 @@ const vi: ShowcaseMessages = {
     taglineNote: "Viết tiếng Việt hoặc tiếng Anh. Tiếng Việt được dịch khi lưu.",
     video: {
       title: "Video nhà máy",
-      hint: "Hiện nút “Watch factory video” ở đầu trang; người mua bấm mới phát. MP4, MOV hoặc WebM, tối đa 200 MB và 15 phút.",
+      hint: "Hiện nút “Watch factory video” ở đầu trang; người mua bấm mới phát. MP4, MOV hoặc WebM, tối đa 200 MB và 3 phút.",
       upload: "Tải video lên", replace: "Thay video", remove: "Xóa video", uploading: "Đang tải {pct}%",
       saved: "Đã lưu video. Video đang được xử lý và hiện cho người mua khi xong, thường trong vài phút.",
       removed: "Đã xóa video.", invalid: "Video chưa tải lên xong. Vui lòng tải lại.", confirmRemove: "Xóa video nhà máy?",

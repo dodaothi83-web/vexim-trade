@@ -26,7 +26,9 @@ export function normalizePlanRow(row: Record<string, unknown>): SupplierPlanCata
   return {
     plan: row.plan, name: row.name.trim().slice(0, 60), summary: typeof row.summary === "string" ? row.summary.trim().slice(0, 300) : "",
     features, prices, maxProducts: max !== null && Number.isInteger(max) && max > 0 ? max : null,
-    richContent: row.rich_content === true, updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
+    richContent: row.rich_content === true,
+    videoMinutes: row.video_minutes === null ? null : Number.isInteger(Number(row.video_minutes)) && Number(row.video_minutes) >= 0 ? Number(row.video_minutes) : DEFAULT_PLAN_CATALOG[row.plan].videoMinutes,
+    updatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
   };
 }
 
@@ -39,7 +41,7 @@ export const readPlanCatalog = cache(async function readPlanCatalog(): Promise<S
   const db = getSupabaseClient();
   if (!db) return catalog;
   try {
-    const { data, error } = await db.from("supplier_plan_catalog").select("plan,name,summary,features,prices,max_products,rich_content,updated_at");
+    const { data, error } = await db.from("supplier_plan_catalog").select("plan,name,summary,features,prices,max_products,rich_content,video_minutes,updated_at");
     if (error || !Array.isArray(data)) throw new Error(error?.message ?? "no data");
     for (const row of data) {
       const entry = normalizePlanRow(row as Record<string, unknown>);

@@ -71,11 +71,11 @@ export function ThemeEditor({ initial, copy, products, videoErrors, tab, onTab, 
   });
 
   async function uploadVideo(file: File) {
-    const problem = await checkVideoFile(file, videoErrors, fill);
+    const problem = await checkVideoFile(file, videoErrors, fill, "factory");
     if (problem) { setVideoNote({ ok: false, message: problem }); return; }
     setProgress(0); setVideoNote(null);
     try {
-      const uid = await uploadStreamVideoAt("/api/supplier-portal/company-aplus", file, setProgress, videoErrors.upload);
+      const uid = await uploadStreamVideoAt("/api/supplier-portal/company-aplus", file, setProgress, videoErrors.upload, "factory");
       const response = await saveHeroVideoAction(uid);
       setVideoNote(response);
       if (response.ok) { setVideo(uid); router.refresh(); }
