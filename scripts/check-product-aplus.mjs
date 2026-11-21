@@ -212,6 +212,14 @@ assert.match(editor, /aplusRef\.current\.save\(\)/, "Lưu sản phẩm là lưu 
   assert.equal(a.serializeAplusRich(nodes), rich, "Ghi lại giữ nguyên");
   assert.equal(a.serializeAplusRich([{ kind: "p", runs: [{ t: "chữ ", b: true }, { t: "x" }] }]), "**chữ** x", "Khoảng trắng nằm ngoài dấu đậm");
 }
+// Viết thẳng tiếng Anh (nhà cung cấp nước ngoài): không cần dịch, không báo "cần dịch lại".
+{
+  const english = { id: "m-en0001", type: "text", title: "Quality control", body: "Moisture checked per lot.", en_edited: true, vi: ["", ""] };
+  assert.equal(a.aplusHasVietnamese(english), false);
+  assert.equal(a.aplusNeedsTranslation(english), false);
+  assert.equal(a.aplusTranslationStale(english), false, "Khối tiếng Anh không bị coi là cần dịch lại");
+  assert.equal(a.aplusCompleteness([english]).find((c) => c.key === "english").done, true);
+}
 const editorSrc = read("components/products/aplus-rich-editor.tsx");
 assert.match(editorSrc, /toggleItalic/, "Ô soạn có nút nghiêng");
 assert.doesNotMatch(read("components/products/aplus-editor.tsx"), /<label[^>]*>\{label\}\s*<AplusRichEditor/, "Ô soạn có thanh công cụ không nằm trong label");

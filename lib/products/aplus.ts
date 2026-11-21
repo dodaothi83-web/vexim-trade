@@ -169,6 +169,11 @@ export function aplusSourceHash(vi: readonly string[]): string {
 }
 
 /** Khối cần dịch khi lưu: có bản tiếng Việt, bản tiếng Anh chưa dịch theo bản đó và chưa sửa tay. */
+/** Khối có bản tiếng Việt để dịch (khối không có là khối viết thẳng tiếng Anh, không cần dịch). */
+export function aplusHasVietnamese(module: AplusModule): boolean {
+  return !!module.vi?.some((value) => value.trim());
+}
+
 export function aplusNeedsTranslation(module: AplusModule): boolean {
   if (!module.vi?.some((value) => value.trim())) return false;
   if (module.en_edited) return false;
@@ -177,7 +182,7 @@ export function aplusNeedsTranslation(module: AplusModule): boolean {
 
 /** Đã sửa tay bản tiếng Anh nhưng bản tiếng Việt đổi sau đó: nên bấm "Dịch lại từ tiếng Việt". */
 export function aplusTranslationStale(module: AplusModule): boolean {
-  return !!module.en_edited && !!module.vi && module.src !== aplusSourceHash(module.vi);
+  return !!module.en_edited && !!module.vi?.some((value) => value.trim()) && module.src !== aplusSourceHash(module.vi);
 }
 
 /**

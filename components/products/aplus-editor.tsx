@@ -13,7 +13,7 @@ import { prepareImage } from "@/lib/media/client-image";
 import { aplusUploadEndpoint, checkVideoFile, uploadStreamVideoAt } from "@/lib/media/stream-upload-client";
 import {
   APLUS_B2B_TYPES, APLUS_HIGHLIGHT_ICONS, APLUS_ITEM_RANGE, APLUS_MAX_MODULES, APLUS_MODULE_TYPES, aplusBlockIssues, aplusCompleteness,
-  aplusModuleText, aplusNeedsTranslation, aplusNumberDrift, aplusSlots, aplusSourceHash, aplusTranslationStale, findContact, withAplusText,
+  aplusModuleText, aplusNeedsTranslation, aplusNumberDrift, aplusSlots, aplusHasVietnamese, aplusTranslationStale, findContact, withAplusText,
   type AplusHighlightIcon, type AplusModule, type AplusModuleType,
 } from "@/lib/products/aplus";
 import { APLUS_TEMPLATE_IDS, APLUS_TEMPLATES, buildAplusTemplate, emptyAplusModule, type AplusTemplateId } from "@/lib/products/aplus-templates";
@@ -77,12 +77,13 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
   copy: AplusMessages;
   handle?: Ref<AplusEditorHandle>;
 }) {
-  // Nội dung cũ chỉ có tiếng Anh: dùng luôn làm bản tiếng Việt để sửa, coi như đã dịch (không gọi AI).
-  const [modules, setModules] = useState<AplusModule[]>(() => initial.map((module) => module.vi ? module
-    : { ...module, vi: aplusModuleText(module), src: aplusSourceHash(aplusModuleText(module)) }));
+  // Khối không có bản tiếng Việt là khối viết thẳng tiếng Anh: sửa ở tab English, không cần dịch.
+  const [modules, setModules] = useState<AplusModule[]>(initial);
   const [saved, setSaved] = useState(() => JSON.stringify(modules));
   const [retranslate, setRetranslate] = useState<string[]>([]);
-  const [mode, setMode] = useState<"vi" | "en">("vi");
+  // Tab mở đầu: theo nội dung đã có; trang trống thì theo ngôn ngữ cổng (nhà cung cấp nước ngoài viết tiếng Anh).
+  const [mode, setMode] = useState<"vi" | "en">(() => initial.some(aplusHasVietnamese) ? "vi"
+    : initial.length ? "en" : copy.defaultMode === "en" ? "en" : "vi");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [openId, setOpenId] = useState<string | null>(modules[0]?.id ?? null);
   const [panel, setPanel] = useState<"library" | "templates" | null>(null);
@@ -258,13 +259,13 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
       </details>
       <button type="button" disabled={disabled} onClick={() => setPanel("templates")} className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-800 hover:bg-brand-100 disabled:opacity-60">
         <LayoutTemplate className="size-4" aria-hidden="true" />{copy.templates.button}</button>
-      <button type="button" disabled={disabled || !modules.length} onClick={() => void translate()} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-semibold text-ink-800 hover:bg-ink-50 disabled:opacity-60">
-        {busy === "translate" && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}{busy === "translate" ? copy.translate.working : copy.translate.now}</button>
+      {modules.some(aplusHasVietnamese) && <button type="button" disabled={disabled} onClick={() => void translate()} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-semibold text-ink-800 hover:bg-ink-50 disabled:opacity-60">
+        {busy === "translate" && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}{busy === "translate" ? copy.translate.working : copy.translate.now}</button>}
     </div>
 
     {pending && <p className="mx-4 mt-3 rounded-lg bg-brand-50 px-3 py-2 text-xs leading-5 text-brand-900">{copy.savedWithProduct}</p>}
     {!editable && <p className="mx-4 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">{copy.locked}</p>}
-    {mode === "en" && <p className="mx-4 mt-3 rounded-lg bg-ink-50 px-3 py-2 text-xs leading-5 text-ink-600">{copy.lang.enHint}</p>}
+    <p className="mx-4 mt-3 rounded-lg bg-ink-50 px-3 py-2 text-xs leading-5 text-ink-600">{mode === "en" ? copy.lang.enHint : copy.lang.viHint}</p>
 
     <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       {/* Trái: danh sách khối */}
@@ -415,7 +416,9 @@ function BlockCard(p: BlockProps) {
     {p.open && <div className="space-y-3 border-t border-ink-100 px-3 pb-3 pt-3">
       {hint && <p className="rounded-lg bg-brand-50 px-3 py-2 text-[11.5px] leading-5 text-brand-900">{hint}</p>}
       {contact && <p role="alert" className="flex items-start gap-1.5 rounded-lg bg-rose-50 px-3 py-2 text-[11.5px] font-semibold leading-5 text-rose-800"><AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />{copy.contactWarn[contact]}</p>}
-      {mode === "en" && (stale || module.en_edited || aplusNeedsTranslation(module)) && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-ink-50 px-3 py-2 text-[11.5px] text-ink-600">
+      {mode === "vi" && !aplusHasVietnamese(module) && aplusModuleText(module).some((value) => value.trim()) &&
+        <p className="rounded-lg bg-ink-50 px-3 py-2 text-[11.5px] leading-5 text-ink-600">{copy.lang.englishOnly}</p>}
+      {mode === "en" && aplusHasVietnamese(module) && (stale || module.en_edited || aplusNeedsTranslation(module)) && <div className="flex flex-wrap items-center gap-2 rounded-lg bg-ink-50 px-3 py-2 text-[11.5px] text-ink-600">
         <span className="font-semibold">{stale ? copy.translate.stale : aplusNeedsTranslation(module) ? copy.translate.pending : copy.translate.edited}</span>
         <button type="button" disabled={p.disabled} onClick={p.onRetranslate} className="ml-auto inline-flex items-center gap-1 rounded-md border border-ink-200 bg-white px-2 py-1 font-semibold text-brand-800 hover:bg-brand-50 disabled:opacity-60">
           {p.translating && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}{copy.translate.again}</button>
