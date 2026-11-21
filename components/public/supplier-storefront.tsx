@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { SupplierProductRail } from "@/components/public/supplier-product-rail";
+import { SUPPLIER_RAIL_ITEM } from "@/components/public/supplier-rail-item";
 import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
 import { SupplierCertificateRail } from "@/components/public/supplier-certificate-rail";
 import { VERIFICATION_LEVEL_ICONS } from "@/components/verification-tier";
@@ -375,10 +376,13 @@ export function SupplierStorefront({
         <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
     </nav>
 
-    <section id="products" className="mt-10 scroll-mt-24 border-t border-ink-200 pt-10" aria-labelledby="products-title">
+    {/* Hai cột từ mục Sản phẩm: cột phải (Trade overview, hỏi giá) đứng ngay đầu, bám theo khi cuộn. */}
+    <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0 space-y-6">
+        <section id="products" className="min-w-0 scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="products-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><p className="text-xs font-bold uppercase tracking-widest text-brand-700">Supplier catalogue</p>
-          <h2 id="products-title" className="mt-1 text-2xl font-bold tracking-tight text-ink-900">Products <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
+          <h2 id="products-title" className="mt-1 text-xl font-bold tracking-tight text-ink-900">Products <span className="text-base font-medium text-ink-500">({s.main_products.length})</span></h2>
           <p className="mt-1 text-sm text-ink-600">{synthetic ? "Test entries on this profile are not commercial offers." : "Listings ready to share with buyers. Prices, where shown, are references; request a quote for current terms."}</p></div>
       </div>
       {s.main_products.length ? (premium
@@ -386,17 +390,15 @@ export function SupplierStorefront({
         ? <PremiumProductGrid featuredIds={theme.featured} items={s.main_products.map((p) => {
             const category = productCategory(p);
             return { id: p.id, category: category ? { key: category.slug, label: category.name_i18n?.en || category.name_i18n?.vi || category.slug } : null,
-              node: productCard(p, "min-w-0 h-full") };
+              node: productCard(p, `min-w-0 ${SUPPLIER_RAIL_ITEM}`), gridNode: productCard(p, "min-w-0 h-full") };
           })} />
         : <SupplierProductRail productCount={s.main_products.length}>
-          {s.main_products.map((p) => productCard(p, "min-w-0 lg:w-[calc((100%_-_4rem)/5)] lg:shrink-0"))}
+          {s.main_products.map((p) => productCard(p, `min-w-0 ${SUPPLIER_RAIL_ITEM}`))}
         </SupplierProductRail>) : <div className="mt-5 flex items-center gap-4 rounded-xl border border-dashed border-ink-300 bg-white p-6 text-sm text-ink-600"><Package className="h-8 w-8 shrink-0 text-ink-400" /><p>{statedProducts && !synthetic
         ? "No individual product listings are available yet. See the main products below or ask Vexim about specifications and availability."
         : "No buyer-ready products are available on this profile yet. Products appear here only after the listing and shareable media meet publication requirements."}</p></div>}
     </section>
 
-    <div className="mt-10 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="space-y-6">
         <section id="about" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="about-title">
           <h2 id="about-title" className="text-lg font-bold text-ink-900">About this supplier</h2>
           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{summary || (businessDetails.length
