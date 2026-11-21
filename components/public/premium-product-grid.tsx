@@ -13,14 +13,14 @@ type Item = { id: string; category: { key: string; label: string } | null; node:
  * Khu sản phẩm trang nhà cung cấp gói cao cấp (chủ sàn chốt 2026-11-20):
  * - tối đa 4 sản phẩm ghim trên thanh "Featured products" nhỏ gọn (2 thẻ một lượt, quá 2 thì tự chuyển);
  * - từ 8 sản phẩm trở lên và có từ 2 danh mục thì có nút lọc theo danh mục;
- * - mọi sản phẩm (kể cả sản phẩm ghim) nằm trên thanh trượt (3 thẻ và một phần thẻ thứ 4).
+ * - các sản phẩm còn lại nằm trên thanh trượt (3 thẻ và một phần thẻ thứ 4).
  * Mọi thẻ vẫn nằm trong trang (chỉ ẩn bằng CSS khi lọc) để máy tìm kiếm đọc đủ.
  */
 export function PremiumProductGrid({ items, featuredIds }: { items: Item[]; featuredIds: string[] }) {
   const byId = new Map(items.map((item) => [item.id, item]));
   const featured = featuredIds.map((id) => byId.get(id)).filter((item): item is Item => !!item).slice(0, STOREFRONT_MAX_FEATURED);
-  // Thanh trượt luôn có đủ mọi sản phẩm (kể cả sản phẩm ghim): ghim hết vẫn còn danh sách để xem.
-  const rest = items;
+  const pinned = new Set(featured.map((item) => item.id));
+  const rest = items.filter((item) => !pinned.has(item.id));
   const groups = [...new Map(rest.flatMap((item) => item.category ? [[item.category.key, item.category.label] as const] : [])).entries()];
   const filterable = items.length >= STOREFRONT_GROUP_MIN_PRODUCTS && groups.length >= 2;
   const [active, setActive] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export function PremiumProductGrid({ items, featuredIds }: { items: Item[]; feat
   return <div className="mt-5 space-y-8">
     {featured.length > 0 && <FeaturedStrip>{featured.map((item) => <Fragment key={item.id}>{item.featuredNode}</Fragment>)}</FeaturedStrip>}
     {rest.length > 0 && <div>
-      {featured.length > 0 && <h3 className="text-sm font-bold uppercase tracking-wider text-ink-500">{filterable ? "Browse by category" : "All products"}</h3>}
+      {featured.length > 0 && <h3 className="text-sm font-bold uppercase tracking-wider text-ink-500">{filterable ? "Browse by category" : "More products"}</h3>}
       {filterable && <div role="group" aria-label="Filter products by category" className="mt-3 flex gap-2 overflow-x-auto pb-1">
         <button type="button" aria-pressed={active === null} onClick={() => setActive(null)} className={chip(active === null)}>All ({rest.length})</button>
         {groups.map(([key, label]) => <button key={key} type="button" aria-pressed={active === key} onClick={() => setActive(key)} className={chip(active === key)}>
