@@ -412,3 +412,20 @@
 .product-description-input:focus-visible {
   outline: none;
 }
+
+/* ---------- Ô soạn đoạn chữ A+ ---------- */
+.aplus-rich-input.product-description {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.aplus-rich-input.product-description p,
+.aplus-rich-input.product-description ul {
+  margin-bottom: 0.5rem;
+}
+.aplus-rich-input p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--color-ink-400);
+  pointer-events: none;
+}

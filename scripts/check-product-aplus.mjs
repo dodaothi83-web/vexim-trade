@@ -202,6 +202,19 @@ assert.match(read("lib/ai/translate-aplus.ts"), /Keep every number, unit/);
 assert.match(read("lib/ai/translate-aplus.ts"), /Keep formatting markers exactly/);
 assert.match(create, /prepareAplusForSave\(pending\.value\.aplus/, "Sản phẩm mới: dịch A+ trước khi tạo");
 assert.match(editor, /aplusRef\.current\.save\(\)/, "Lưu sản phẩm là lưu luôn A+");
+// Chữ có định dạng: đậm, nghiêng, đậm nghiêng, gạch đầu dòng, dấu sao thật; ghi lại không đổi nội dung.
+{
+  const rich = "Hôm nay **đẹp** và *mát*, ***rất*** tốt\n\n- **Mục** một\n- mục *hai*\n\nGiá 5\\* sao";
+  const nodes = a.parseAplusRich(rich);
+  assert.deepEqual(nodes[0].runs, [{ t: "Hôm nay " }, { t: "đẹp", b: true }, { t: " và " }, { t: "mát", i: true }, { t: ", " }, { t: "rất", b: true, i: true }, { t: " tốt" }]);
+  assert.deepEqual(nodes.map((n) => n.kind), ["p", "li", "li", "p"]);
+  assert.equal(nodes[3].runs[0].t, "Giá 5* sao");
+  assert.equal(a.serializeAplusRich(nodes), rich, "Ghi lại giữ nguyên");
+  assert.equal(a.serializeAplusRich([{ kind: "p", runs: [{ t: "chữ ", b: true }, { t: "x" }] }]), "**chữ** x", "Khoảng trắng nằm ngoài dấu đậm");
+}
+const editorSrc = read("components/products/aplus-rich-editor.tsx");
+assert.match(editorSrc, /toggleItalic/, "Ô soạn có nút nghiêng");
+assert.doesNotMatch(read("components/products/aplus-editor.tsx"), /<label[^>]*>\{label\}\s*<AplusRichEditor/, "Ô soạn có thanh công cụ không nằm trong label");
 const render = read("components/public/product-aplus.tsx");
 for (const type of a.APLUS_MODULE_TYPES) assert.match(render, new RegExp(`case "${type}":`), `Trang người mua dựng khối ${type}`);
 assert.match(render, /alt=\{item\.alt \|\| fallbackAlt\}/, "Ảnh dùng mô tả ảnh");

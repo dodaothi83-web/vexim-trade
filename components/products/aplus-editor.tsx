@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, Bold, ChevronDown, ChevronUp, Image as ImageIcon, LayoutTemplate, List, Loader2, Lock, Monitor, Plus, Smartphone, Trash2, Video, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronUp, Image as ImageIcon, LayoutTemplate, Loader2, Lock, Monitor, Plus, Smartphone, Trash2, Video, X } from "lucide-react";
 
 import { VeximIcon } from "@/components/brand/vexim-icons";
+import { AplusRichEditor } from "./aplus-rich-editor";
 import { ProductAplus } from "@/components/public/product-aplus";
 import { fill } from "@/lib/i18n/format";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
@@ -365,14 +366,19 @@ function BlockCard(p: BlockProps) {
   const hintTemplate = module.hint?.split(":")[0] as AplusTemplateId | undefined;
   const hint = hintTemplate && copy.templates.items[hintTemplate]?.hints[hintIndex];
   const field = "input mt-1 w-full";
-  const text = (key: string, label: string, max: number, options: { area?: boolean; rich?: boolean; placeholder?: string; rows?: number } = {}) =>
-    <label className="block text-[11.5px] font-semibold text-ink-600">{label}
-      {options.rich
-        ? <RichArea value={p.value(key)} onChange={(v) => p.onSlot(key, v)} max={max} disabled={p.disabled} copy={copy} rows={options.rows ?? 5} placeholder={options.placeholder} />
-        : options.area
-          ? <textarea value={p.value(key)} rows={options.rows ?? 3} maxLength={max + 50} disabled={p.disabled} placeholder={options.placeholder} onChange={(e) => p.onSlot(key, e.target.value)} className={`${field} font-normal`} />
-          : <input value={p.value(key)} maxLength={max + 50} disabled={p.disabled} placeholder={options.placeholder} onChange={(e) => p.onSlot(key, e.target.value)} className={`${field} font-normal`} />}
-      <span className={`mt-0.5 block text-right text-[10.5px] font-normal ${p.value(key).length > max ? "font-semibold text-rose-700" : "text-ink-300"}`}>{p.value(key).length}/{max}</span>
+  const counter = (key: string, max: number) =>
+    <span className={`mt-0.5 block text-right text-[10.5px] font-normal ${p.value(key).length > max ? "font-semibold text-rose-700" : "text-ink-300"}`}>{p.value(key).length}/{max}</span>;
+  const text = (key: string, label: string, max: number, options: { area?: boolean; rich?: boolean; placeholder?: string; rows?: number } = {}) => options.rich
+    // Ô soạn có thanh công cụ: không bọc trong <label> (bấm vào nhãn sẽ bấm nhầm nút Đậm).
+    ? <div className="block text-[11.5px] font-semibold text-ink-600"><span id={`${module.id}-${key}-label`}>{label}</span>
+      <AplusRichEditor value={p.value(key)} onChange={(v) => p.onSlot(key, v)} disabled={p.disabled} rows={options.rows ?? 5} placeholder={options.placeholder}
+        labelledBy={`${module.id}-${key}-label`} labels={{ bold: copy.fields.bold, italic: copy.fields.italic, bullets: copy.fields.bullets }} />
+      {counter(key, max)}</div>
+    : <label className="block text-[11.5px] font-semibold text-ink-600">{label}
+      {options.area
+        ? <textarea value={p.value(key)} rows={options.rows ?? 3} maxLength={max + 50} disabled={p.disabled} placeholder={options.placeholder} onChange={(e) => p.onSlot(key, e.target.value)} className={`${field} font-normal`} />
+        : <input value={p.value(key)} maxLength={max + 50} disabled={p.disabled} placeholder={options.placeholder} onChange={(e) => p.onSlot(key, e.target.value)} className={`${field} font-normal`} />}
+      {counter(key, max)}
     </label>;
   const image = (key: string, item: { image_path: string; fx?: number; fy?: number }, apply: (m: AplusModule, path: string) => AplusModule,
     focusPatch: (fx: number, fy: number) => void, altKey: string, onClear?: () => void) =>
@@ -585,36 +591,6 @@ function ImageField({ src, ratio, fx = 50, fy = 50, busy, disabled, copy, onFile
     </div>
     <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
       onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onFile(file); }} />
-  </div>;
-}
-
-/** Đoạn chữ có nút In đậm (bọc **) và Gạch đầu dòng (thêm "- " đầu dòng). */
-function RichArea({ value, onChange, max, disabled, copy, rows, placeholder }: {
-  value: string; onChange: (value: string) => void; max: number; disabled: boolean; copy: AplusMessages; rows: number; placeholder?: string;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const apply = (kind: "bold" | "bullets") => {
-    const el = ref.current;
-    if (!el) return;
-    const { selectionStart: a, selectionEnd: b } = el;
-    if (kind === "bold") {
-      const selected = value.slice(a, b) || "";
-      onChange(`${value.slice(0, a)}**${selected}**${value.slice(b)}`);
-    } else {
-      const start = value.lastIndexOf("\n", a - 1) + 1;
-      const block = value.slice(start, b);
-      const toggled = block.split("\n").every((line) => line.startsWith("- ")) ? block.replace(/^- /gm, "") : block.replace(/^(?!- )/gm, "- ");
-      onChange(`${value.slice(0, start)}${toggled}${value.slice(b)}`);
-    }
-    requestAnimationFrame(() => el.focus());
-  };
-  return <div className="mt-1">
-    <div className="flex gap-1 rounded-t-lg border border-b-0 border-ink-200 bg-ink-50 px-1.5 py-1">
-      <button type="button" disabled={disabled} onMouseDown={(e) => e.preventDefault()} onClick={() => apply("bold")} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-bold text-ink-600 hover:bg-white"><Bold className="size-3" aria-hidden="true" />{copy.fields.bold}</button>
-      <button type="button" disabled={disabled} onMouseDown={(e) => e.preventDefault()} onClick={() => apply("bullets")} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-bold text-ink-600 hover:bg-white"><List className="size-3" aria-hidden="true" />{copy.fields.bullets}</button>
-    </div>
-    <textarea ref={ref} value={value} rows={rows} maxLength={max + 50} disabled={disabled} placeholder={placeholder} onChange={(e) => onChange(e.target.value)}
-      className="input w-full rounded-t-none font-normal" />
   </div>;
 }
 
