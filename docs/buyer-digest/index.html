@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thư giới thiệu hằng tuần · Vexim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Bản mẫu duyệt giao diện đợt 2. Nhà cung cấp, sản phẩm, bài viết, số liệu đều là MẪU. */
+  :root { --b50:#F2F5FA; --b100:#E8EEF8; --b200:#DFE5EE; --b700:#1F3E74; --b800:#162E58; --b900:#10244A;
+    --i50:#F5F7FB; --i200:#DFE5EE; --i300:#9AA5B8; --i500:#4E586B; --i700:#2B3447; --i900:#141C2E; --ok:#0E7A4E; --oks:#E7F5EF; --wa:#93370D; --was:#FFF4DE; }
+  * { box-sizing:border-box; } body { margin:0; font-family:"Be Vietnam Pro",system-ui,sans-serif; color:var(--i900); background:#EEF2F8; }
+  .wrap { max-width:1200px; margin:0 auto; padding:32px 16px 80px; }
+  h1 { font-size:28px; margin:0; } .lead { color:var(--i500); line-height:1.7; max-width:900px; margin:8px 0 0; }
+  .sample { font-size:11px; font-weight:700; color:var(--wa); background:var(--was); border-radius:999px; padding:3px 10px; margin-left:8px; vertical-align:middle; }
+  .toc { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; } .toc a { text-decoration:none; color:var(--b700); background:#fff; border:1px solid var(--b200); padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600; }
+  section.s { margin-top:44px; } .st { display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; } .st h2 { font-size:21px; margin:0; }
+  .num { font-size:12px; font-weight:800; color:#fff; background:var(--b700); border-radius:999px; padding:3px 10px; }
+  .sub { color:var(--i500); font-size:14px; line-height:1.6; margin:6px 0 16px; max-width:920px; }
+  .frame { background:#fff; border:1px solid var(--i200); border-radius:18px; box-shadow:0 10px 30px -12px rgb(15 23 42 / .18); overflow:hidden; }
+  .notes { margin-top:14px; display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+  .note { background:#fff; border:1px solid var(--i200); border-radius:12px; padding:10px 12px; font-size:13px; line-height:1.55; color:var(--i500); } .note b { color:var(--i900); }
+  .pin { display:inline-flex; width:20px; height:20px; border-radius:999px; background:var(--b700); color:#fff; font-size:11px; font-weight:800; align-items:center; justify-content:center; margin-right:6px; }
+  .cols { display:grid; gap:20px; grid-template-columns:1fr; } @media (min-width:980px){ .cols { grid-template-columns:minmax(0,1fr) 380px; } }
+  /* Email */
+  .mailbar { background:var(--i50); border-bottom:1px solid var(--i200); padding:12px 18px; font-size:13px; color:var(--i500); line-height:1.7; } .mailbar b { color:var(--i900); }
+  .mail { max-width:620px; margin:0 auto; padding:24px 20px 28px; font-size:15px; line-height:1.6; color:var(--i700); }
+  .logo { display:flex; align-items:center; gap:8px; font-weight:800; color:var(--b800); } .logo i { font-style:normal; width:26px; height:26px; border-radius:7px; background:var(--b800); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
+  .hello { font-size:21px; font-weight:800; color:var(--i900); margin:18px 0 4px; line-height:1.35; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 4px; } .tag { font-size:12px; font-weight:700; background:var(--b50); color:var(--b800); border-radius:999px; padding:3px 10px; }
+  .sec { margin-top:26px; } .sec h3 { font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--i500); margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+  .spon { font-size:10px; letter-spacing:0; text-transform:none; font-weight:700; color:var(--wa); background:var(--was); border-radius:999px; padding:2px 8px; }
+  .sup { border:1px solid var(--i200); border-radius:14px; padding:14px; display:flex; gap:12px; margin-bottom:10px; }
+  .ava { width:48px; height:48px; border-radius:10px; background:var(--b100); flex:none; display:flex; align-items:center; justify-content:center; font-weight:800; color:var(--b700); }
+  .sup b { color:var(--i900); } .meta { font-size:13px; color:var(--i500); }
+  .check { display:inline-flex; gap:4px; align-items:center; font-size:11.5px; font-weight:700; color:var(--ok); background:var(--oks); border-radius:999px; padding:2px 8px; margin-top:6px; }
+  .lnk { font-weight:700; color:var(--b700); text-decoration:none; font-size:14px; }
+  .prods { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .prod { border:1px solid var(--i200); border-radius:12px; overflow:hidden; } .prod .img { aspect-ratio:4/3; background:linear-gradient(135deg,#E8EEF8,#DFE5EE); }
+  .prod .bd { padding:10px; font-size:13px; } .prod b { display:block; color:var(--i900); font-size:14px; line-height:1.35; }
+  .new { font-size:10.5px; font-weight:800; color:var(--b700); }
+  .art { display:flex; gap:12px; border:1px solid var(--i200); border-radius:12px; padding:12px; } .art .th { width:84px; height:64px; border-radius:8px; background:var(--b100); flex:none; }
+  .cta { background:var(--b50); border:1px solid var(--b200); border-radius:14px; padding:16px; margin-top:26px; }
+  .btn { display:inline-block; background:var(--b700); color:#fff; border-radius:8px; padding:10px 16px; font-weight:700; font-size:14px; text-decoration:none; margin-top:8px; }
+  .foot { border-top:1px solid var(--i200); margin-top:26px; padding-top:14px; font-size:12px; color:var(--i300); line-height:1.7; } .foot a { color:var(--i500); }
+  .phone { width:360px; margin:0 auto; border:10px solid #141C2E; border-radius:34px; overflow:hidden; background:#fff; }
+  .phone .mail { padding:18px 14px; font-size:14px; } .phone .prods { grid-template-columns:1fr; }
+  /* CRM */
+  .crm { padding:22px; } .grid4 { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); }
+  .stat { border:1px solid var(--i200); border-radius:12px; padding:12px; } .stat p { margin:0; font-size:12px; color:var(--i500); font-weight:600; } .stat b { font-size:22px; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; } td,th { padding:9px 10px; border-bottom:1px solid var(--i200); text-align:left; } th { font-size:12px; color:var(--i500); }
+  .pill { font-size:11px; font-weight:700; border-radius:999px; padding:2px 8px; } .pill.ok { background:var(--oks); color:var(--ok); } .pill.wa { background:var(--was); color:var(--wa); }
+  textarea { width:100%; border:1px solid var(--i200); border-radius:10px; padding:10px; font:inherit; font-size:14px; min-height:70px; }
+  .rules td { vertical-align:top; line-height:1.6; } .rules th { width:26%; font-size:14px; color:var(--i900); }
+</style>
+</head>
+<body><div class="wrap">
+  <h1>Đợt 2: thư giới thiệu hằng tuần cho người mua <span class="sample">BẢN MẪU</span></h1>
+  <p class="lead">Mỗi tuần, người mua đã đồng ý (đợt 1) nhận <b>một thư ngắn theo đúng ngành họ chọn</b>. Thư phải có ích cho người mua thì họ mới mở tiếp các tuần sau, và nhà cung cấp mới có lượt xem thật. Vì vậy ngoài sản phẩm, thư có thêm <b>tin thị trường lấy từ bài viết của Vexim</b> và một lời mời gửi yêu cầu báo giá. Phần người mua đọc viết tiếng Anh.</p>
+  <div class="toc"><a href="#s1">1. Thư (máy tính)</a><a href="#s2">2. Thư (điện thoại)</a><a href="#s3">3. Chọn nội dung</a><a href="#s4">4. Trong CRM</a><a href="#s5">5. Quy tắc</a></div>
+
+  <section class="s" id="s1">
+    <div class="st"><span class="num">1</span><h2>Thư hằng tuần</h2></div>
+    <p class="sub">Bốn phần, theo thứ tự người mua cần: nhà cung cấp nổi bật, sản phẩm mới, tin thị trường, và một nút gửi yêu cầu báo giá. Phần nào tuần đó không có thì bỏ, không để trống.</p>
+    <div class="cols">
+      <div class="frame">
+        <div class="mailbar">Từ: <b>Vexim Trade</b> &lt;hello@veximtrade.com&gt;<br>Tiêu đề: <b>Cashew kernels &amp; Pepper: 2 checked suppliers, 6 new products this week</b></div>
+        <div class="mail">
+          <div class="logo"><i>V</i>VEXIM TRADE</div>
+          <div class="hello">Your weekly Vietnam sourcing brief</div>
+          <div class="meta">Week of 7 December · Picked for what you source</div>
+          <div class="tags"><span class="tag">Cashew kernels</span><span class="tag">Pepper</span></div>
+
+          <div class="sec"><h3><span class="pin">1</span>Featured suppliers <span class="spon">Sponsored</span></h3>
+            <div class="sup"><div class="ava">S</div><div style="flex:1"><b>Sample Cashew Co., Ltd</b><div class="meta">Binh Phuoc · Manufacturer · Cashew kernels W240, W320</div>
+              <span class="check">✓ Business registration checked</span> <span class="check">✓ Delivery history reviewed</span><div style="margin-top:6px"><a class="lnk">View supplier →</a></div></div></div>
+            <div class="sup"><div class="ava">T</div><div style="flex:1"><b>Sample Spice Trading JSC</b><div class="meta">Dak Lak · Trading company · Black pepper 500–580 g/L</div>
+              <span class="check">✓ Business registration checked</span><div style="margin-top:6px"><a class="lnk">View supplier →</a></div></div></div>
+          </div>
+
+          <div class="sec"><h3><span class="pin">2</span>New products this week</h3>
+            <div class="prods">
+              <div class="prod"><div class="img"></div><div class="bd"><span class="new">NEW</span><b>Cashew kernels W320, vacuum packed</b>MOQ 1 × 20ft · Lead time 14 days</div></div>
+              <div class="prod"><div class="img"></div><div class="bd"><span class="new">NEW</span><b>Black pepper 550 g/L, cleaned</b>MOQ 10 MT · Lead time 10 days</div></div>
+              <div class="prod"><div class="img"></div><div class="bd"><span class="new">UPDATED</span><b>Cashew kernels WW240</b>Reference price $6.10–6.40/kg FOB</div></div>
+              <div class="prod"><div class="img"></div><div class="bd"><span class="new">NEW</span><b>White pepper 630 g/L</b>MOQ 5 MT · Lead time 15 days</div></div>
+            </div>
+            <div style="margin-top:8px"><a class="lnk">See all Cashew kernels products →</a></div>
+          </div>
+
+          <div class="sec"><h3><span class="pin">3</span>Market notes from Vexim</h3>
+            <div class="art"><div class="th"></div><div><b style="color:var(--i900)">Vietnam cashew exports: what changed in November</b><div class="meta">4 min read · Vexim Trade insights</div><a class="lnk">Read →</a></div></div>
+          </div>
+
+          <div class="cta"><b style="color:var(--i900)">Need a quote?</b><div class="meta">Send one request. Vexim matches checked suppliers and keeps your contact private.</div><a class="btn">Request a quote</a></div>
+
+          <div class="foot">You get this because you chose Cashew kernels and Pepper on Vexim Trade. Sponsored suppliers pay for placement; Vexim checks are shown exactly as reviewed.<br><a>Change my products</a> · <a>Unsubscribe</a> · Vexim Trade, Vietnam</div>
+        </div>
+      </div>
+      <div class="notes" style="grid-template-columns:1fr;align-content:start;margin-top:0">
+        <div class="note"><b>Tiêu đề thư nói con số thật</b> của tuần (bao nhiêu nhà cung cấp, sản phẩm mới) để người mua biết có gì trước khi mở.</div>
+        <div class="note"><b><span class="pin">1</span>Nhà cung cấp nổi bật</b>: tối đa 2, nhà cung cấp gói Pro luân phiên công bằng; ghi rõ "Sponsored". Dấu xác minh hiện đúng phạm vi đã duyệt.</div>
+        <div class="note"><b><span class="pin">2</span>Sản phẩm mới / cập nhật</b>: 4–6 sản phẩm trong ngành người mua chọn, đã sẵn sàng hiển thị; sản phẩm gói Pro được xếp trước. Chỉ hiện giá khi nhà cung cấp công khai.</div>
+        <div class="note"><b><span class="pin">3</span>Tin thị trường</b>: 1 bài viết mới của Vexim đúng ngành (đang có 15 bài trong 30 ngày qua). Không có bài đúng ngành thì bỏ phần này.</div>
+        <div class="note"><b>Mỗi link</b> đi qua đường đếm lượt bấm của Vexim (chỉ đếm tổng theo nhà cung cấp/sản phẩm cho báo cáo đợt 3), không lưu ai bấm.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="s" id="s2">
+    <div class="st"><span class="num">2</span><h2>Trên điện thoại</h2></div>
+    <p class="sub">Phần lớn người mua đọc thư trên điện thoại: sản phẩm xếp một cột, nút đủ lớn để bấm.</p>
+    <div class="phone"><div class="mail">
+      <div class="logo"><i>V</i>VEXIM TRADE</div>
+      <div class="hello" style="font-size:19px">Your weekly Vietnam sourcing brief</div>
+      <div class="tags"><span class="tag">Cashew kernels</span><span class="tag">Pepper</span></div>
+      <div class="sec"><h3>Featured suppliers <span class="spon">Sponsored</span></h3>
+        <div class="sup"><div class="ava">S</div><div><b>Sample Cashew Co., Ltd</b><div class="meta">Binh Phuoc · Manufacturer</div><span class="check">✓ Business registration checked</span></div></div></div>
+      <div class="sec"><h3>New products this week</h3><div class="prods"><div class="prod"><div class="img"></div><div class="bd"><span class="new">NEW</span><b>Cashew kernels W320, vacuum packed</b>MOQ 1 × 20ft</div></div></div></div>
+      <div class="cta"><b>Need a quote?</b><br><a class="btn">Request a quote</a></div>
+    </div></div>
+  </section>
+
+  <section class="s" id="s3">
+    <div class="st"><span class="num">3</span><h2>Có nên gửi nội dung khác ngoài sản phẩm?</h2></div>
+    <div class="frame" style="padding:8px 14px"><table class="rules">
+      <tr><th>Nên có</th><td><b>Tin thị trường</b> từ bài viết Vexim đúng ngành (lý do để người mua mở thư cả khi tuần đó ít sản phẩm mới).<br><b>Lời mời gửi yêu cầu báo giá</b> (hành động có giá trị nhất cho cả hai bên).<br><b>Nhà cung cấp mới được xác minh</b> trong ngành (đúng phạm vi đã duyệt).</td></tr>
+      <tr><th>Có thể thêm sau</th><td><b>Ghi chú mùa vụ</b> do nhân viên viết theo ngành (ví dụ "vụ điều mới bắt đầu tháng 2"): ô soạn tuỳ chọn trong CRM, để trống thì không hiện.</td></tr>
+      <tr><th>Không nên</th><td>Quảng cáo khuyến mãi, giá chưa công khai, cam kết chất lượng chưa kiểm chứng, tin không liên quan ngành; thông tin liên hệ trực tiếp của nhà cung cấp (mọi liên hệ qua Vexim).</td></tr>
+    </table></div>
+  </section>
+
+  <section class="s" id="s4">
+    <div class="st"><span class="num">4</span><h2>Trong CRM: "Thư giới thiệu hằng tuần"</h2></div>
+    <p class="sub">Tự gửi mỗi thứ Ba. Nhân viên xem trước thư theo từng ngành, thêm ghi chú mùa vụ nếu muốn, tạm dừng một tuần khi cần.</p>
+    <div class="frame crm">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px"><b style="font-size:16px">Thư tuần 7/12</b><span class="pill ok">Tự gửi thứ Ba 15:00 (giờ VN)</span><span style="flex:1"></span><span class="btn" style="margin:0;background:#fff;color:var(--i900);border:1px solid var(--i200)">Tạm dừng tuần này</span><span class="btn" style="margin:0">Xem trước thư</span></div>
+      <div class="grid4">
+        <div class="stat"><p>Người mua sẽ nhận</p><b>34</b></div><div class="stat"><p>Bỏ qua (tuần này ít nội dung)</p><b>5</b></div>
+        <div class="stat"><p>Tuần trước: lượt bấm</p><b>58</b></div><div class="stat"><p>Tuần trước: yêu cầu báo giá từ thư</p><b>3</b></div>
+      </div>
+      <table style="margin-top:16px"><thead><tr><th>Ngành hàng</th><th>Người mua</th><th>Nhà cung cấp nổi bật (Pro)</th><th>Sản phẩm mới</th><th>Tin thị trường</th><th></th></tr></thead><tbody>
+        <tr><td>Cashew kernels</td><td>18</td><td>2</td><td>6</td><td><span class="pill ok">1 bài</span></td><td><a class="lnk">Xem trước</a></td></tr>
+        <tr><td>Pepper</td><td>11</td><td>1</td><td>3</td><td><span class="pill ok">1 bài</span></td><td><a class="lnk">Xem trước</a></td></tr>
+        <tr><td>Dried Fruits</td><td>5</td><td>0</td><td>1</td><td><span class="pill wa">Chưa có</span></td><td><span class="pill wa">Bỏ qua tuần này</span></td></tr>
+      </tbody></table>
+      <div style="margin-top:16px"><b style="font-size:14px">Ghi chú mùa vụ (tuỳ chọn) · Cashew kernels</b><textarea placeholder="Ví dụ: Vụ điều mới ở Bình Phước bắt đầu từ tháng 2; giá hạt thô đang ổn định."></textarea></div>
+    </div>
+  </section>
+
+  <section class="s" id="s5">
+    <div class="st"><span class="num">5</span><h2>Quy tắc (để duyệt)</h2></div>
+    <div class="frame" style="padding:8px 14px"><table class="rules">
+      <tr><th>Ai nhận</th><td>Chỉ người mua đã đồng ý ở đợt 1 (đã bật, có ngành). Tối đa 1 thư/tuần, cùng một ngày cố định.</td></tr>
+      <tr><th>Khi nào bỏ qua</th><td>Tuần đó người mua có ít hơn 2 mục mới (nhà cung cấp, sản phẩm, bài viết) trong ngành họ chọn thì không gửi, tránh thư rỗng.</td></tr>
+      <tr><th>Không lặp lại</th><td>Một nhà cung cấp/sản phẩm không xuất hiện lại với cùng người mua trong 4 tuần (trừ khi có cập nhật mới).</td></tr>
+      <tr><th>Công bằng cho gói Pro</th><td>Vị trí "Featured suppliers" chỉ dành cho gói Pro, luân phiên để mọi nhà cung cấp Pro cùng ngành đều có lượt; ghi rõ "Sponsored".</td></tr>
+      <tr><th>Riêng tư</th><td>Nhà cung cấp không thấy ai nhận, ai bấm. Đếm lượt bấm theo tổng (cho báo cáo đợt 3). Không đếm mở thư. Có "Unsubscribe" một bấm và header huỷ đăng ký chuẩn của Gmail/Outlook.</td></tr>
+      <tr><th>Hiện tại</th><td>Sàn chưa có nhà cung cấp gói Pro, nên phần "Featured suppliers" tạm ẩn; thư vẫn có ích nhờ sản phẩm mới và tin thị trường.</td></tr>
+    </table></div>
+  </section>
+</div></body></html>
