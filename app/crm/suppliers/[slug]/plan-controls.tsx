@@ -93,7 +93,6 @@ export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, ex
       </p>
       {request && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
         <p className="font-semibold">{request.renewal ? "Xin gia hạn" : "Xin nâng"} {request.plan ? catalog[request.plan].name || SUPPLIER_PLAN_LABELS[request.plan] : "gói"} · <span className="font-mono">{request.reference}</span> · {request.createdAt.slice(0, 10).split("-").reverse().join("/")}</p>
-        {canManage && <p>Đã thu tiền thì chọn thời hạn và bấm Lưu gói. Yêu cầu tự chuyển sang Đã mở.</p>}
       </div>}
       {canManage ? <>
         <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Chọn gói">
@@ -129,7 +128,7 @@ export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, ex
         )}
         <button type="button" onClick={save} disabled={busy}
           className="rounded-lg bg-brand-800 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-900 disabled:opacity-60">
-          {busy ? "Đang lưu…" : "Lưu gói"}
+          {busy ? "Đang xác nhận…" : "Xác nhận"}
         </button>
         {result && <p role={result.ok ? "status" : "alert"} className={`text-xs ${result.ok ? "text-emerald-800" : "text-rose-800"}`}>{result.message}</p>}
       </> : <p className="text-xs text-ink-500">Bạn không có quyền đổi gói.</p>}

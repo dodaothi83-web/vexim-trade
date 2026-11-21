@@ -20,14 +20,14 @@ export function CrmAplusReview({ productId, modules, galleryVideo = null, visibl
   productId: string; modules: AplusModule[]; galleryVideo?: ProductGalleryVideo | null; visible: boolean; canManage: boolean;
 }) {
   // Soạn A+ hộ nhà cung cấp (dịch vụ Vexim): mở trang soạn riêng, lưu là đăng ngay.
-  const editLink = canManage && <Link href={`/crm/products/${productId}/aplus`} className="btn btn-primary btn-sm shrink-0">{modules.length ? "Sửa A+ hộ nhà cung cấp" : "Soạn A+ hộ nhà cung cấp"}</Link>;
+  const editLink = canManage && <Link href={`/crm/products/${productId}/aplus`} className="btn btn-primary btn-sm shrink-0">{modules.length ? "Sửa content A+" : "Soạn content A+"}</Link>;
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const img = (path: string) => `/api/crm/aplus?path=${encodeURIComponent(path)}`;
-  if (!modules.length && !galleryVideo) return canManage ? <section id="product-aplus" className="card flex flex-wrap items-center gap-3 p-5" aria-label="Nội dung A+">
+  if (!modules.length && !galleryVideo) return canManage && visible ? <section id="product-aplus" className="card flex flex-wrap items-center gap-3 p-5" aria-label="Nội dung A+">
     <div className="min-w-0 flex-1"><h2 className="text-sm font-bold text-ink-900">Nội dung A+</h2>
-      <p className="mt-0.5 text-xs text-ink-500">Sản phẩm chưa có A+. Nhân viên soạn hộ được khi nhà cung cấp mua dịch vụ; lưu là đăng ngay.</p></div>
+      <p className="mt-0.5 text-xs text-ink-500">Sản phẩm chưa có content A+. Nhân viên hỗ trợ soạn cho doanh nghiệp và đăng.</p></div>
     {editLink}
   </section> : null;
   return <section id="product-aplus" className="card scroll-mt-24 p-5" aria-label="Video và nội dung A+">
