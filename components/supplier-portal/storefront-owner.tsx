@@ -42,13 +42,15 @@ export function StorefrontPlanBadge({ plan, expiresOn, publicHref, copy }: {
 }
 
 /** Nút "Nâng cấp gói" dưới link website; mở bảng so sánh gói và gửi yêu cầu nâng gói. */
-export function StorefrontUpgradeButton({ plan, catalog, expiresOn, requestOpen, email, copy }: {
+export function StorefrontUpgradeButton({ plan, catalog, expiresOn, requestOpen, renewable = false, email, copy }: {
   plan: SupplierPlan;
   /** Tên, giá và quyền lợi từng gói, chỉnh trong CRM (/crm/plans). */
   catalog: SupplierPlanCatalog;
   expiresOn: string | null;
   /** Đã có yêu cầu nâng gói chưa đóng: không gửi thêm. */
   requestOpen: boolean;
+  /** Gói trả phí còn ≤ 30 ngày: cho gửi yêu cầu gia hạn chính gói đang dùng. */
+  renewable?: boolean;
   email: string;
   copy: OwnerCopy;
 }) {
@@ -56,6 +58,8 @@ export function StorefrontUpgradeButton({ plan, catalog, expiresOn, requestOpen,
   const router = useRouter();
   const [state, action, pending] = useActionState<ServiceRequestResult, FormData>(submitServiceRequestAction, null);
   useEffect(() => { if (state?.ok) router.refresh(); }, [state, router]);
+  // Link "#plans" trong email nhắc gia hạn mở thẳng bảng gói.
+  useEffect(() => { if (window.location.hash === "#plans") dialog.current?.showModal(); }, []);
   const rank = SUPPLIER_PLANS.indexOf(plan);
 
   return <>
@@ -101,6 +105,14 @@ export function StorefrontUpgradeButton({ plan, catalog, expiresOn, requestOpen,
               {entry.features.map((item) => <li key={item} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />{item}</li>)}
             </ul>
             <div className="mt-auto pt-4">
+              {current && renewable && !requestOpen && <form action={action}>
+                <input type="hidden" name="service_key" value="plan_upgrade" />
+                <input type="hidden" name="note" value={fill(copy.renewNote, { plan: entry.name || SUPPLIER_PLAN_LABELS[key] })} />
+                <button type="submit" disabled={pending || !!state?.ok}
+                  className="w-full rounded-lg bg-brand-700 px-3 py-2 text-sm font-bold text-white transition hover:bg-brand-800 disabled:opacity-60">
+                  {fill(copy.renew, { plan: entry.name || SUPPLIER_PLAN_LABELS[key] })}
+                </button>
+              </form>}
               {higher && !requestOpen && <form action={action}>
                 <input type="hidden" name="service_key" value="plan_upgrade" />
                 <input type="hidden" name="note" value={fill(copy.requestNote, { plan: entry.name || SUPPLIER_PLAN_LABELS[key] })} />

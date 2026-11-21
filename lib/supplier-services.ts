@@ -10,7 +10,11 @@
 export const SUPPLIER_SERVICE_KEYS = ["international_website", "featured_ads", "fda_compliance", "plan_upgrade"] as const;
 export type SupplierServiceKeyValue = (typeof SUPPLIER_SERVICE_KEYS)[number];
 
-export const SUPPLIER_SERVICE_STATUSES = ["submitted", "in_consultation", "quoted", "closed"] as const;
+/**
+ * Bốn trạng thái: Mới → Đã mở hoặc Đã huỷ → Hết hạn.
+ * Với nâng gói, "Đã mở" do kích hoạt gói đặt và "Hết hạn" do tác vụ hằng ngày đặt; nhân viên chỉ chọn Mới / Đã huỷ.
+ */
+export const SUPPLIER_SERVICE_STATUSES = ["submitted", "active", "cancelled", "expired"] as const;
 export type SupplierServiceStatusValue = (typeof SUPPLIER_SERVICE_STATUSES)[number];
 
 export const SUPPLIER_SERVICE_NOTE_MAX = 1200;
@@ -23,12 +27,30 @@ export function isSupplierServiceStatus(value: unknown): value is SupplierServic
   return typeof value === "string" && (SUPPLIER_SERVICE_STATUSES as readonly string[]).includes(value);
 }
 
-/** Yêu cầu chưa đóng thì nhà cung cấp không gửi thêm cho cùng dịch vụ. */
+/** Trạng thái nhân viên được tự chọn. Nâng gói không cho chọn tay "Đã mở"/"Hết hạn" để nhãn luôn khớp gói thật. */
+export function manualServiceStatuses(key: string): readonly SupplierServiceStatusValue[] {
+  return key === "plan_upgrade" ? ["submitted", "cancelled"] : SUPPLIER_SERVICE_STATUSES;
+}
+
+/** Yêu cầu còn "Mới" thì nhà cung cấp không gửi thêm cho cùng dịch vụ. */
 export function hasOpenServiceRequest(
   requests: ReadonlyArray<{ service_key: string; status: string }>,
   key: string,
 ): boolean {
-  return requests.some((request) => request.service_key === key && request.status !== "closed");
+  return requests.some((request) => request.service_key === key && request.status === "submitted");
+}
+
+/** Đoán gói xin nâng từ ghi chú "Nâng lên gói …" mà form gửi kèm; không đoán được thì null. */
+export function requestedPlanOf(note: string | null | undefined): "premium" | "pro" | null {
+  if (!note) return null;
+  if (/premium/i.test(note)) return "premium";
+  if (/\bpro\b/i.test(note)) return "pro";
+  return null;
+}
+
+/** Ghi chú "Gia hạn gói …" (gửi từ nút gia hạn) thay vì nâng lên gói cao hơn. */
+export function isRenewalNote(note: string | null | undefined): boolean {
+  return !!note && /gia hạn|renew/i.test(note);
 }
 
 /** Nhãn tiếng Việt cho CRM. */
@@ -40,8 +62,8 @@ export const SUPPLIER_SERVICE_LABELS_VI: Record<SupplierServiceKeyValue, string>
 };
 
 export const SUPPLIER_SERVICE_STATUS_LABELS_VI: Record<SupplierServiceStatusValue, string> = {
-  submitted: "Mới gửi",
-  in_consultation: "Đang tư vấn",
-  quoted: "Đã báo giá",
-  closed: "Đã đóng",
+  submitted: "Mới",
+  active: "Đã mở",
+  cancelled: "Đã huỷ",
+  expired: "Hết hạn",
 };

@@ -24,7 +24,7 @@ function addMonths(day: string, months: number): string {
  * Chọn gói cho nhà cung cấp. Gói trả phí chọn thời hạn theo bảng giá (ngày hết hạn tự tính,
  * gia hạn cùng gói thì nối tiếp hạn cũ) hoặc tự chọn ngày, kèm số tiền ghi nhận cho báo cáo.
  */
-export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, expiresOn, expired, productCount, canManage, catalog }: {
+export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, expiresOn, expired, productCount, canManage, catalog, request = null }: {
   supplierId: string;
   storedPlan: SupplierPlan;
   effectivePlan: SupplierPlan;
@@ -34,12 +34,15 @@ export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, ex
   productCount: number;
   canManage: boolean;
   catalog: SupplierPlanCatalog;
+  /** Yêu cầu nâng gói "Mới" của nhà cung cấp; có thì chọn sẵn gói họ xin. */
+  request?: { plan: "premium" | "pro" | null; renewal?: boolean; reference: string; createdAt: string } | null;
 }) {
   const router = useRouter();
-  const [plan, setPlan] = useState<SupplierPlan>(storedPlan);
-  const [term, setTerm] = useState<string>(() => String(catalog[storedPlan].prices[0]?.months ?? "custom"));
+  const initialPlan: SupplierPlan = request?.plan ?? storedPlan;
+  const [plan, setPlan] = useState<SupplierPlan>(initialPlan);
+  const [term, setTerm] = useState<string>(() => String(catalog[initialPlan].prices[0]?.months ?? "custom"));
   const [date, setDate] = useState(expiresOn);
-  const [amount, setAmount] = useState<string>(() => String(catalog[storedPlan].prices[0]?.price_vnd ?? ""));
+  const [amount, setAmount] = useState<string>(() => String(catalog[initialPlan].prices[0]?.price_vnd ?? ""));
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const limitLabel = (value: SupplierPlan) => catalog[value].maxProducts === null ? "Không giới hạn" : `${catalog[value].maxProducts} sản phẩm`;
@@ -88,6 +91,10 @@ export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, ex
         Đang dùng: <strong className="text-ink-900">{catalog[effectivePlan].name}</strong> · {productCount}{max === null ? " sản phẩm · không giới hạn" : `/${max} sản phẩm`}
         {expired && <span className="ml-1 text-amber-800">(gói {catalog[storedPlan].name} đã hết hạn)</span>}
       </p>
+      {request && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+        <p className="font-semibold">{request.renewal ? "Xin gia hạn" : "Xin nâng"} {request.plan ? catalog[request.plan].name || SUPPLIER_PLAN_LABELS[request.plan] : "gói"} · <span className="font-mono">{request.reference}</span> · {request.createdAt.slice(0, 10).split("-").reverse().join("/")}</p>
+        {canManage && <p>Đã thu tiền thì chọn thời hạn và bấm Lưu gói. Yêu cầu tự chuyển sang Đã mở.</p>}
+      </div>}
       {canManage ? <>
         <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Chọn gói">
           {SUPPLIER_PLANS.map((value) => (

@@ -49,8 +49,8 @@ export default async function SupplierPlansPage() {
   const lapsed = real.filter((s) => isSupplierPlan(s.plan) && s.plan !== "basic" && effectiveSupplierPlan(s) === "basic");
 
   const upgrades = requestsResult.rows.filter((r) => r.service_key === "plan_upgrade");
-  const openUpgrades = upgrades.filter((r) => r.status !== "closed");
-  const upgradeCounts = { submitted: 0, in_consultation: 0, quoted: 0, closed: 0 } as Record<SupplierServiceRequest["status"], number>;
+  const openUpgrades = upgrades.filter((r) => r.status === "submitted");
+  const upgradeCounts = { submitted: 0, active: 0, cancelled: 0, expired: 0 } as Record<SupplierServiceRequest["status"], number>;
   for (const r of upgrades) upgradeCounts[r.status]++;
 
   const activations = activationsResult.rows.filter((a) => supplierById.has(a.supplier_id));
@@ -86,8 +86,8 @@ export default async function SupplierPlansPage() {
       </div>
       <div className={kpi}>
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Yêu cầu nâng gói</p>
-        <p className="mt-2 text-2xl font-bold tabular-nums text-ink-900">{openUpgrades.length} <span className="text-sm font-semibold text-ink-600">đang mở</span></p>
-        <p className="text-xs text-ink-600">{upgradeCounts.submitted} mới · {upgradeCounts.in_consultation} đang tư vấn · {upgradeCounts.quoted} đã báo giá · {upgradeCounts.closed} đã đóng</p>
+        <p className="mt-2 text-2xl font-bold tabular-nums text-ink-900">{upgradeCounts.submitted} <span className="text-sm font-semibold text-ink-600">mới</span></p>
+        <p className="text-xs text-ink-600">{upgradeCounts.active} đã mở · {upgradeCounts.cancelled} đã huỷ · {upgradeCounts.expired} hết hạn</p>
       </div>
       <div className={kpi}>
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Doanh thu ước tính</p>
@@ -114,18 +114,18 @@ export default async function SupplierPlansPage() {
 
       <section id="upgrades" aria-labelledby="upgrades-title" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-4 shadow-sm xl:col-span-2">
         <div className="flex items-center justify-between gap-2">
-          <h2 id="upgrades-title" className="text-sm font-bold text-ink-900">Yêu cầu nâng gói đang mở</h2>
+          <h2 id="upgrades-title" className="text-sm font-bold text-ink-900">Yêu cầu nâng gói mới</h2>
           <Link href="/crm/service-requests" className="text-xs font-semibold text-brand-700 hover:underline">Mở hàng yêu cầu dịch vụ →</Link>
         </div>
         {requestsResult.failed ? <p className="mt-3 text-sm text-amber-900">Chưa đọc được yêu cầu dịch vụ.</p>
-          : openUpgrades.length === 0 ? <p className="mt-3 text-sm text-ink-600">Không có yêu cầu nâng gói đang mở.</p>
+          : openUpgrades.length === 0 ? <p className="mt-3 text-sm text-ink-600">Không có yêu cầu nâng gói mới.</p>
           : <ul className="mt-3 divide-y divide-ink-100">
             {openUpgrades.slice(0, 20).map((r) => <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5 text-sm">
               <div className="min-w-0">
                 <Link href={`/crm/suppliers/${r.supplier_id}`} className="font-semibold text-ink-900 hover:text-brand-700">{supplierById.get(r.supplier_id)?.name ?? "Nhà cung cấp"}</Link>
                 <p className="text-xs text-ink-600">{r.note || "Nâng gói"} · <span className="font-mono">{r.reference}</span> · {vnDate(r.created_at)}</p>
               </div>
-              <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800">{SUPPLIER_SERVICE_STATUS_LABELS_VI[r.status]}</span>
+              <Link href={`/crm/suppliers/${r.supplier_id}#plan`} className="rounded-lg bg-brand-800 px-3 py-1 text-xs font-semibold text-white hover:bg-brand-900">Mở gói</Link>
             </li>)}
           </ul>}
       </section>

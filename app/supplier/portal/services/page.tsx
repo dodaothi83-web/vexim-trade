@@ -17,10 +17,10 @@ export async function generateMetadata() {
 }
 
 const STATUS_CLASS: Record<SupplierServiceRequest["status"], string> = {
-  submitted: "bg-sky-50 text-sky-800",
-  in_consultation: "bg-amber-50 text-amber-800",
-  quoted: "bg-emerald-50 text-emerald-800",
-  closed: "bg-ink-100 text-ink-600",
+  submitted: "bg-amber-50 text-amber-800",
+  active: "bg-emerald-50 text-emerald-800",
+  cancelled: "bg-ink-100 text-ink-600",
+  expired: "bg-rose-50 text-rose-700",
 };
 
 /**
@@ -43,7 +43,7 @@ export default async function SupplierServicesPage() {
     console.error("[supplier-services] list failed", error);
   }
   const ownRequests = requests.filter((request) => request.supplier_id === supplier.id);
-  const openKeys = [...new Set(ownRequests.filter((r) => r.status !== "closed").map((r) => r.service_key))] as SupplierServiceKeyValue[];
+  const openKeys = [...new Set(ownRequests.filter((r) => r.status === "submitted").map((r) => r.service_key))] as SupplierServiceKeyValue[];
   const date = (value: string) => new Intl.DateTimeFormat(intl, { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
 
   return <>

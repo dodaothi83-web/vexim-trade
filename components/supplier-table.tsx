@@ -27,7 +27,7 @@ const DAY_MS = 86_400_000;
 /** Gói trả phí còn ≤ 30 ngày thì coi là sắp hết hạn, để sale kịp gọi gia hạn. */
 const EXPIRING_DAYS = 30;
 
-type UpgradeRequest = { plan: "premium" | "pro" | null; status: string; createdAt: string };
+type UpgradeRequest = { plan: "premium" | "pro" | null; renewal?: boolean; status: string; createdAt: string };
 
 /** Màu gói: Basic xám trung tính, Premium vàng, Pro navy đậm. Ba màu khác hẳn nhau để nhìn lướt là phân biệt. */
 const PLAN_STYLE: Record<SupplierPlan, string> = {
@@ -55,7 +55,7 @@ function planInfo(s: Supplier, now: number) {
 const PLAN_FILTERS = ["all", "basic", "premium", "pro", "upgrade", "expiring"] as const;
 type PlanFilter = (typeof PLAN_FILTERS)[number];
 const PLAN_FILTER_LABEL: Record<PlanFilter, string> = {
-  all: "Mọi gói", basic: "Basic", premium: "Premium", pro: "Pro", upgrade: "Xin nâng gói", expiring: "Sắp hết hạn",
+  all: "Mọi gói", basic: "Basic", premium: "Premium", pro: "Pro", upgrade: "Xin nâng / gia hạn", expiring: "Sắp hết hạn",
 };
 
 /** Nhóm lọc theo việc cần làm thay cho danh sách trạng thái (kể cả trạng thái cũ). */
@@ -279,12 +279,11 @@ export function SupplierTable({
                       )}
                       {upgrade && (
                         <Link
-                          href="/crm/plans#upgrades"
-                          title={upgrade.status === "submitted" ? "Yêu cầu mới, chưa ai nhận xử lý" : "Đang tư vấn hoặc đã báo giá"}
-                          className={cx("mt-1 flex w-fit items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold",
-                            upgrade.status === "submitted" ? "bg-amber-100 text-amber-800 hover:bg-amber-200" : "bg-brand-50 text-brand-700 hover:bg-brand-100")}
+                          href={`/crm/suppliers/${s.id}#plan`}
+                          title="Yêu cầu mới. Đã thu tiền thì mở gói ở trang nhà cung cấp."
+                          className="mt-1 flex w-fit items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800 hover:bg-amber-200"
                         >
-                          {upgrade.plan ? `Xin nâng ${SUPPLIER_PLAN_LABELS[upgrade.plan]}` : "Xin nâng gói"}
+                          {`${upgrade.renewal ? "Xin gia hạn" : "Xin nâng"} ${upgrade.plan ? SUPPLIER_PLAN_LABELS[upgrade.plan] : "gói"}`}
                           <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
                         </Link>
                       )}

@@ -49,9 +49,9 @@ const en = {
   },
   status: {
     submitted: "Sent",
-    in_consultation: "In consultation",
-    quoted: "Quote sent",
-    closed: "Closed",
+    active: "Active",
+    cancelled: "Cancelled",
+    expired: "Expired",
   },
   result: {
     sent: "Request {reference} sent. Vexim will contact you within one business day.",
@@ -119,9 +119,9 @@ const vi: ServicesMessages = {
   },
   status: {
     submitted: "Đã gửi",
-    in_consultation: "Đang tư vấn",
-    quoted: "Đã báo giá",
-    closed: "Đã đóng",
+    active: "Đã mở",
+    cancelled: "Đã huỷ",
+    expired: "Hết hạn",
   },
   result: {
     sent: "Đã gửi yêu cầu {reference}. Vexim sẽ liên hệ trong vòng 1 ngày làm việc.",
