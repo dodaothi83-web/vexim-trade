@@ -37,12 +37,13 @@ function HeaderLogo() {
  * tránh một hàng menu phụ chiếm diện tích màn hình nhỏ; các mục này vẫn có thể tới được từ
  * trang chủ hoặc chân trang trên điện thoại.
  */
-function PrimaryNav({ pathname, isVi }: { pathname: string; isVi: boolean }) {
+function PrimaryNav({ pathname, isVi, buyer = false }: { pathname: string; isVi: boolean; buyer?: boolean }) {
+  // Người mua đã đăng nhập không cần mục "Dành cho nhà cung cấp" (vẫn có ở chân trang).
   const items = [
     { href: isVi ? "/?lang=vi#categories" : "/#categories", label: isVi ? "Danh mục" : "Categories", active: pathname.startsWith("/products") },
     { href: isVi ? "/how-it-works?lang=vi" : "/how-it-works", label: isVi ? "Cách hoạt động" : "How it works", active: pathname.startsWith("/how-it-works") },
     { href: "/how-we-verify", label: isVi ? "Quy trình xác thực" : "How we verify", active: pathname.startsWith("/how-we-verify") || pathname.startsWith("/verify") },
-    { href: "/for-suppliers", label: isVi ? "Dành cho nhà cung cấp" : "For suppliers", active: pathname.startsWith("/for-suppliers") },
+    ...(buyer ? [] : [{ href: "/for-suppliers", label: isVi ? "Dành cho nhà cung cấp" : "For suppliers", active: pathname.startsWith("/for-suppliers") }]),
   ];
   return (
     <nav aria-label={isVi ? "Điều hướng chính" : "Main navigation"}
@@ -206,7 +207,7 @@ function HeaderControlsInner() {
       </div>
 
       {/* Hàng 2: menu chính — tách riêng khỏi hàng tìm kiếm/logo, không còn chen vào giữa. */}
-      <PrimaryNav pathname={pathname} isVi={isVi} />
+      <PrimaryNav pathname={pathname} isVi={isVi} buyer={!!buyerEmail} />
     </>
   );
 }
@@ -241,7 +242,7 @@ function HeaderControlsFallback() {
         </div>
       </div>
 
-      <PrimaryNav pathname="/" isVi={false} />
+      <PrimaryNav pathname="/" isVi={false} buyer={!!buyerEmail} />
     </>
   );
 }

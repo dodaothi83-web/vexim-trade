@@ -4,7 +4,7 @@ import { BuyerSourcingHistory } from "@/components/buyer-sourcing-history";
 import { sourcingStore } from "@/lib/sourcing/store";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LayoutDashboard, ClipboardList, Heart, UserRound, ArrowRight, Search, Headphones, PackageSearch, MessageCircle } from "lucide-react";
+import { ArrowRight, Headphones, PackageSearch } from "lucide-react";
 import { requireBuyerSession } from "@/lib/auth/buyer-session";
 import { getStore } from "@/lib/db";
 import { getLocale } from "@/lib/i18n/server";
@@ -13,6 +13,7 @@ import { buyerRecommendations } from "@/lib/public/buyer-recommendations";
 import { HomeProductFeed } from "@/components/home-product-feed";
 import { SaveProductButton } from "@/components/buyer-saved-products";
 import { BuyerAccountProfile } from "@/components/buyer-account-profile";
+import { BuyerAccountNav, type BuyerAccountTab } from "@/components/buyer-account-nav";
 import { IntroAccountCard, IntroOnboardingCard } from "@/components/buyer-introductions";
 import { introFrequency, readIntroductions, showOnboarding } from "@/lib/buyer/introductions";
 import { introCategories } from "@/lib/buyer/introductions-server";
@@ -112,16 +113,6 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
     saved: vi ? "Sản phẩm đã lưu" : "Saved products",
     profile: vi ? "Thông tin tài khoản" : "Account details",
   };
-  // The menu uses short labels so six items fit a narrow rail (and a phone row) without
-  // wrapping; the page heading keeps the full title.
-  const navLabels = {
-    overview: titles.overview, messages: titles.messages,
-    requests: vi ? "RFQ trực tiếp" : "Direct RFQs",
-    vexim: vi ? "Tìm nguồn" : "Sourcing",
-    saved: vi ? "Đã lưu" : "Saved",
-    profile: vi ? "Tài khoản" : "Account",
-  };
-  const nav = [{ id: "overview", icon: LayoutDashboard }, { id: "messages", icon: MessageCircle }, { id: "requests", icon: ClipboardList }, { id: "vexim", icon: Headphones }, { id: "saved", icon: Heart }, { id: "profile", icon: UserRound }] as const;
   // A converted free-form request and its linked RFQ are one buyer request.
   // Historical product questions are not RFQs and cannot still be "in progress".
   const activeSourcing = unlinkedSourcing.filter((r) => r.status !== "closed").length;
@@ -163,11 +154,7 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
   return <div lang={vi ? "vi" : "en"} className="bg-slate-50">
     <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
       <div className="grid items-start gap-5 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[210px_minmax(0,1fr)_290px]">
-        <aside className="min-w-0 lg:sticky lg:top-24">
-          <p className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-ink-500 lg:mb-4">{vi ? "Tài khoản người mua" : "Buyer account"}</p>
-          <nav aria-label={vi ? "Điều hướng tài khoản" : "Account navigation"} className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">{nav.map(({ id, icon: Icon }) => <Link key={id} href={id === "overview" ? "/buyer/account" : id === "messages" ? "/buyer/account/messages" : `/buyer/account?tab=${id}`} aria-current={tab === id ? "page" : undefined} className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold lg:gap-3 ${tab === id ? "bg-white text-brand-700 shadow-sm" : "text-ink-600 hover:bg-white"}`}><Icon className="h-4 w-4 shrink-0" aria-hidden />{navLabels[id]}{(id === "requests" ? unreadDirect : id === "vexim" ? unreadVexim : 0) > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-900 lg:ml-auto" aria-label={vi ? `${id === "vexim" ? unreadVexim : unreadDirect} yêu cầu có cập nhật mới` : `${id === "vexim" ? unreadVexim : unreadDirect} enquiries with new updates`}>{id === "vexim" ? unreadVexim : unreadDirect}</span>}</Link>)}</nav>
-          <Link href="/#categories" className="mt-5 hidden items-center gap-2 px-3 text-sm font-semibold text-brand-700 lg:flex"><Search className="h-4 w-4" />{vi ? "Khám phá sản phẩm" : "Explore products"}</Link>
-        </aside>
+        <BuyerAccountNav active={tab as BuyerAccountTab} vi={vi} unread={{ requests: unreadDirect, vexim: unreadVexim }} />
         <div className="min-w-0 space-y-5">
           <section className={panel}>
             <div className="flex flex-wrap items-center justify-between gap-4">
