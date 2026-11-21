@@ -18,7 +18,7 @@ import { publicProductExportPortDisplay } from "@/lib/public/product-export-port
 import { getStore } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { listPublicCategoryProducts, shareableProductImages } from "@/lib/public/product-catalog";
+import { listMoreFromSupplier, listPublicCategoryProducts, shareableProductImages } from "@/lib/public/product-catalog";
 import { fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
@@ -65,10 +65,9 @@ async function getDetail(slug: string, productId: string) {
   const categories = await store.listCategories({ publishedOnly: false });
   if (!productBelongsToCategory(product, category, categories)) return null;
   // Cùng mặt hàng từ nhà cung cấp khác, ưu tiên cùng grade, theo thứ tự xếp hạng danh mục.
+  // Không có nhà cung cấp khác thì khối này ẩn; hàng cùng nhà cung cấp đã nằm ở "More from this supplier".
   const similar = similarOffers(card, categoryProducts, { limit: 12, window: categoryTieWindow(Date.now()) });
-  // Không có nhà cung cấp khác thì quay về gợi ý cùng danh mục như trước.
-  const relatedProducts = similar.length ? [] : categoryProducts.filter((item) => item.id !== card.id && !item.isDemo).slice(0, 4);
-  return { category, card, product, relatedProducts, similar, preview: !published };
+  return { category, card, categoryProducts, product, similar, preview: !published };
 }
 
 /**
@@ -149,13 +148,15 @@ export default async function PublicProductDetail({ params }: Props) {
   const { slug, productId } = await params;
   const detail = await getDetailOrRedirect(slug, productId);
   if (!detail) notFound();
-  const { category, card, product: p, relatedProducts, similar, preview } = detail;
+  const { category, card, categoryProducts, product: p, similar, preview } = detail;
   // Product eligibility was checked above. Read the website only for this
   // supplier card; don't put raw supplier contact fields in the product catalogue.
   const store = getStore();
-  const [media, supplier] = await Promise.all([
+  const [media, supplier, moreFromSupplier] = await Promise.all([
     store.listMedia("product", p.id),
     card.isDemo ? Promise.resolve(null) : store.getSupplier(card.supplierId).catch(() => null),
+    // Tối đa 5 sản phẩm khác của cùng nhà cung cấp; chỉ có một sản phẩm thì khối này ẩn hẳn.
+    listMoreFromSupplier(card, slug, categoryProducts, { limit: 5 }),
   ]);
   const supplierWebsite = supplier?.status === "published" ? supplier.website : null;
   const parentCategory = category.parent_id ? await store.getCategory(category.parent_id) : null;
@@ -209,9 +210,21 @@ export default async function PublicProductDetail({ params }: Props) {
   ]);
   const additionalSpecs = specs.filter(([label]) => !occupiedSpecKeys.has(productSpecificationKey(label)));
   const supplierImageUrl = card.supplierProfileImage ? `/public-media/${card.supplierProfileImage.replace(/^\/+/, "")}` : null;
-  const relatedComparisonOffers = [card, ...relatedProducts, ...similar.map((s) => s.offer)].map((product) => ({
-    id: product.id, supplierId: product.supplierId, categorySlug: slug, isDemo: product.isDemo,
+  const relatedComparisonOffers = [
+    ...[card, ...similar.map((s) => s.offer)].map((product) => ({ product, categorySlug: slug })),
+    ...moreFromSupplier.map(({ card: product, categorySlug }) => ({ product, categorySlug })),
+  ].map(({ product, categorySlug }) => ({
+    id: product.id, supplierId: product.supplierId, categorySlug, isDemo: product.isDemo,
   }));
+  const offerCard = (offer: typeof card, offerSlug: string) => <PublicProductCard key={offer.id} href={`/products/${encodeURIComponent(offerSlug)}/${encodeURIComponent(offer.id)}`}
+    imagePath={offer.cardImagePath ?? offer.imagePaths[0]} name={offer.name} grades={cardTitleGrades(offer)} gradeRows={offer.gradeRows} moq={offer.moq}
+    volumePricing={offer.quantityOffer?.hasVolumePricing}
+    price={offer.price} incoterm={offer.incoterm} fob={offer.incoterm?.toUpperCase() === "FOB"} leadTimeDays={offer.leadTimeDays} leadTimeText={offer.leadTimeText}
+    supplierName={offer.supplierName} supplierHref={`/suppliers/${encodeURIComponent(offer.supplierSlug || offer.supplierId)}`}
+    verificationSteps={offer.verificationSteps} l2Scope={offer.l2Scope} certificates={offer.certificates}
+    comparison={!preview && hasProductComparisonPeer(relatedComparisonOffers, {
+      id: offer.id, supplierId: offer.supplierId, categorySlug: offerSlug, isDemo: offer.isDemo,
+    }) ? { id: offer.id, categorySlug: offerSlug } : undefined} />;
 
   const countView = !preview && !card.isDemo && !(await getSession());
   // Nút chat chỉ hiện khi nhà cung cấp có tài khoản cổng đang hoạt động để trả lời.
@@ -452,17 +465,9 @@ export default async function PublicProductDetail({ params }: Props) {
         <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>
       </div>
     </div>
-    {similar.length > 0 && <section id="similar-offers" className="mt-12 scroll-mt-24 border-t border-ink-200 pt-8">
-      <SimilarOffersRail title="Similar offers from other suppliers" titleId="similar-offers-heading">
-        {similar.map(({ offer }) => <PublicProductCard key={offer.id} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(offer.id)}`}
-            imagePath={offer.cardImagePath ?? offer.imagePaths[0]} name={offer.name} grades={cardTitleGrades(offer)} gradeRows={offer.gradeRows} moq={offer.moq}
-            volumePricing={offer.quantityOffer?.hasVolumePricing}
-            price={offer.price} incoterm={offer.incoterm} fob={offer.incoterm?.toUpperCase() === "FOB"} leadTimeDays={offer.leadTimeDays} leadTimeText={offer.leadTimeText}
-            supplierName={offer.supplierName} supplierHref={`/suppliers/${encodeURIComponent(offer.supplierSlug || offer.supplierId)}`}
-            verificationSteps={offer.verificationSteps} l2Scope={offer.l2Scope} certificates={offer.certificates}
-            comparison={!preview && hasProductComparisonPeer(relatedComparisonOffers, {
-              id: offer.id, supplierId: offer.supplierId, categorySlug: slug, isDemo: offer.isDemo,
-            }) ? { id: offer.id, categorySlug: slug } : undefined} />)}
+    {moreFromSupplier.length > 0 && <section id="more-from-supplier" className="mt-12 scroll-mt-24 border-t border-ink-200 pt-8">
+      <SimilarOffersRail title="More from this supplier" titleId="more-from-supplier-heading">
+        {moreFromSupplier.map(({ card: offer, categorySlug }) => offerCard(offer, categorySlug))}
       </SimilarOffersRail>
     </section>}
     {(detailRows.length > 0 || additionalSpecs.length > 0) && <section aria-labelledby="full-specifications-heading" className="mt-12 border-t border-ink-200 pt-8">
@@ -478,27 +483,10 @@ export default async function PublicProductDetail({ params }: Props) {
       {enDetail && <ProductDescription value={enDetail} className="mt-4 max-w-3xl" />}
       <ProductAplus modules={aplus} productName={card.name} />
     </section>}
-    {relatedProducts.length > 0 && <section aria-labelledby="related-products-heading" className="mt-12 border-t border-ink-200 pt-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 id="related-products-heading" className="text-2xl font-black text-ink-900">Related products</h2>
-          <p className="mt-1 text-sm text-ink-500">Explore more products in {category.name_i18n.en || slug}.</p>
-        </div>
-        <Link href={`/products/${encodeURIComponent(slug)}`} className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-700 hover:underline">View all products <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
-      </div>
-      <ul className="mt-5 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {relatedProducts.map((related) => <li key={related.id} className="min-w-0">
-          <PublicProductCard href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(related.id)}`}
-            imagePath={related.cardImagePath ?? related.imagePaths[0]} name={related.name} grades={cardTitleGrades(related)} gradeRows={related.gradeRows} moq={related.moq}
-              volumePricing={related.quantityOffer?.hasVolumePricing}
-            price={related.price} incoterm={related.incoterm} fob={related.incoterm?.toUpperCase() === "FOB"} leadTimeDays={related.leadTimeDays} leadTimeText={related.leadTimeText}
-            supplierName={related.supplierName} supplierHref={`/suppliers/${encodeURIComponent(related.supplierSlug || related.supplierId)}`}
-            verificationSteps={related.verificationSteps} l2Scope={related.l2Scope} certificates={related.certificates}
-            comparison={!preview && hasProductComparisonPeer(relatedComparisonOffers, {
-              id: related.id, supplierId: related.supplierId, categorySlug: slug, isDemo: related.isDemo,
-            }) ? { id: related.id, categorySlug: slug } : undefined} />
-        </li>)}
-      </ul>
+    {similar.length > 0 && <section id="similar-offers" className="mt-12 scroll-mt-24 border-t border-ink-200 pt-8">
+      <SimilarOffersRail title="Similar offers from other suppliers" titleId="similar-offers-heading">
+        {similar.map(({ offer }) => offerCard(offer, slug))}
+      </SimilarOffersRail>
     </section>}
   </div>;
 }

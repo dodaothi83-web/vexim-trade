@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "re
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ImageIcon, Play, PlayCircle, X, ZoomIn } from "lucide-react";
 import { AplusVideo } from "@/components/public/aplus-video";
+import { preconnectStream, streamIntentHandlers } from "@/components/public/stream-warmup";
 import { aplusVideoThumbnailUrl } from "@/lib/products/aplus";
 import type { PublicProductVideo } from "@/lib/public/product-video";
 
@@ -46,6 +47,8 @@ export function ProductMediaGallery({ name, images, thumbnails, video, streamVid
   const suppressClick = useRef(false);
   const selected = images[index] ?? images[0];
   const hasThumbnails = images.length + (streamVideo ? 1 : 0) > 1;
+  // Có video thì mở sẵn kết nối tới Cloudflare Stream ngay lúc tải trang (gần như không tốn gì).
+  if (streamVideo) preconnectStream();
 
   useEffect(() => {
     const target = images[index] ?? images[0] ?? null;
@@ -178,7 +181,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video, streamVid
         <h2 className="sr-only">Product photos ({images.length}){streamVideo ? " and video" : ""}</h2>
         <div className="w-full min-w-0 overflow-x-auto pb-1 sm:absolute sm:inset-0 sm:overflow-x-hidden sm:overflow-y-auto sm:overscroll-contain sm:pb-0 sm:pr-1" role="group" aria-label="Choose a product photo">
           <div className="flex w-max gap-2 sm:w-full sm:flex-col">
-            {streamVideo && <button type="button" onClick={() => { setVideoChosen(true); setIndex(videoIndex); }}
+            {streamVideo && <button type="button" {...streamIntentHandlers(streamVideo.uid)} onClick={() => { setVideoChosen(true); setIndex(videoIndex); }}
               aria-label={`Play product video of ${name}`} aria-pressed={onVideo}
               className={`relative aspect-square w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-ink-900 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full ${onVideo ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}

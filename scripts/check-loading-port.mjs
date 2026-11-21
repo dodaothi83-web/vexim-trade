@@ -105,6 +105,7 @@ const card = {
   rawMaterialRegion: '', inputMaterialOrigin: '', imagePaths: [], cardImagePath: null,
 };
 let currentProduct = base;
+let moreFromSupplier = [];
 let currentSupplier = { id: base.supplier_id, status: 'published', website: 'https://www.example-supplier.vn/about', email: 'private@example.com' };
 const store = {
   getCategoryBySlug: async () => category,
@@ -133,6 +134,11 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   ...common,
   'react': React,
   '@/components/brand/vexim-icons': { VeximTradeIcon: Null },
+  '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => ({}) },
+  '@/lib/products/aplus': { aplusVideoEmbedUrl: () => '', aplusVideoThumbnailUrl: () => '', isoDuration: () => '', productShowsAplus: () => false, readAplusModules: () => [], readGalleryVideo: () => null },
+  '@/components/public/product-aplus': { ProductAplus: Null },
+  '@/lib/supplier-plans': { supplierPlanRules: () => null },
+  '@/components/public/product-certificate-cards': { ProductCertificateCards: Null },
   '@/components/products/ask-supplier-dialog': { AskSupplierDialog: Null },
   'next/link': { default: Link },
   'next/navigation': { notFound: () => { throw new Error('unexpected notFound'); } },
@@ -142,7 +148,7 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   '@/components/verification-tier': { VerificationTierBadge: Null },
   '@/lib/auth/session': { getSession: async () => null },
   '@/lib/auth/permissions': { hasPermission: () => false },
-  '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [card], shareableProductImages: () => [] },
+  '@/lib/public/product-catalog': { listMoreFromSupplier: async () => moreFromSupplier, listPublicCategoryProducts: async () => [card], shareableProductImages: () => [] },
   '@/lib/product-attributes': { fieldsFor: () => [], publicProductAttributes: () => ({}), supplierFieldsFor: () => [] },
   '@/lib/public/product-video': { shareableProductVideo: () => null },
   '@/components/product-media-gallery': { ProductMediaGallery: Null },
@@ -206,5 +212,13 @@ assert.doesNotMatch(pageHtml, /Company website:|javascript:alert/, 'Invalid link
 currentSupplier = { ...currentSupplier, status: 'draft', website: 'https://hidden.example.vn/' };
 pageHtml = renderToStaticMarkup(await detailPage.default(pageParams));
 assert.doesNotMatch(pageHtml, /hidden\.example\.vn/, 'A supplier that is no longer public gets no external link');
+
+// Nhà cung cấp chỉ có một sản phẩm, không có nhà cung cấp khác: cả hai khối gợi ý đều ẩn.
+assert.doesNotMatch(pageHtml, /id="more-from-supplier"|id="similar-offers"/, 'No sibling or similar products: both rails are hidden');
+moreFromSupplier = [{ card: { ...card, id: 'sibling-1', name: 'Sibling' }, categorySlug: 'pepper' }];
+pageHtml = renderToStaticMarkup(await detailPage.default(pageParams));
+assert.match(pageHtml, /id="more-from-supplier"/, 'Supplier with other products shows More from this supplier');
+assert.doesNotMatch(pageHtml, /id="similar-offers"/);
+moreFromSupplier = [];
 
 console.log('✅ Loading port and product supplier website: safe, current supplier data on the detail card.');

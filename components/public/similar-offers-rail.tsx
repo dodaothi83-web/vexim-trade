@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cx } from "@/components/ui";
 
 /**
- * Danh sách "Similar offers". Máy tính (lg trở lên): một hàng trượt ngang, 5 thẻ mỗi lượt,
+ * Hàng thẻ sản phẩm ("More from this supplier", "Similar offers"). Máy tính (lg trở lên): một hàng trượt ngang, 5 thẻ mỗi lượt,
  * hai nút mũi tên ở góc phải tiêu đề. Điện thoại và máy tính bảng: giữ lưới như cũ, tối đa 4 thẻ.
  */
 export function SimilarOffersRail({ title, titleId, children }: { title: string; titleId: string; children: ReactNode }) {
