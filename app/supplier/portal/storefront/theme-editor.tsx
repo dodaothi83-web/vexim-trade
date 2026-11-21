@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useRef, useState, useTransition } from "react";
-import { Check, Loader2, Pin, Trash2, Video } from "lucide-react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { Check, Loader2, Pin, Trash2, Video, X } from "lucide-react";
 
 import { fill } from "@/lib/i18n/format";
 import type { ShowcaseMessages } from "@/lib/i18n/portal/showcase";
@@ -16,18 +16,31 @@ import { saveHeroVideoAction, saveStorefrontThemeAction } from "./theme-actions"
 
 export type ThemeProductOption = { id: string; name: string; imageUrl: string | null };
 
+export type ThemeTab = "header" | "pins";
+
 /**
- * Giao diện trang gói Premium/Pro (đầu trang Hiện đại, chủ sàn chốt 2026-11-20): tông màu, câu
- * giới thiệu viết tiếng Việt (dịch khi lưu), video nhà máy (bấm mới phát), số liệu nổi bật từ hồ
- * sơ, tối đa 4 sản phẩm ghim.
+ * Ngăn trượt "Thiết kế trang" (gói Premium/Pro, mở từ khu Thiết kế trang): tab Đầu trang (tông màu,
+ * câu giới thiệu viết tiếng Việt hoặc tiếng Anh, video nhà máy, số liệu nổi bật) và tab Sản phẩm
+ * ghim (tối đa 4). Một nút Lưu cho cả hai tab; video lưu ngay khi tải lên xong.
  */
-export function ThemeEditor({ initial, copy, products, videoErrors }: {
+export function ThemeEditor({ initial, copy, products, videoErrors, tab, onTab, onClose }: {
   initial: StorefrontTheme;
   copy: ShowcaseMessages["theme"];
   /** Sản phẩm đang hiện cho người mua (chỉ những sản phẩm này ghim được). */
   products: ThemeProductOption[];
   videoErrors: { video: string; videoTooLong: string; upload: string };
+  tab: ThemeTab;
+  onTab: (tab: ThemeTab) => void;
+  onClose: () => void;
 }) {
+  const d = copy.hub.drawer;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; };
+  }, [onClose]);
   const router = useRouter();
   const [tone, setTone] = useState<StorefrontTone>(initial.tone);
   // Câu cũ chỉ có bản tiếng Anh: hiện bản đó để sửa (lưu lại sẽ dịch theo câu mới).
@@ -71,12 +84,23 @@ export function ThemeEditor({ initial, copy, products, videoErrors }: {
     } finally { setProgress(null); }
   }
 
+  const tabClass = (on: boolean) => `flex-1 rounded-md px-3 py-1.5 text-sm font-semibold transition ${on ? "bg-white text-brand-800 shadow-sm" : "text-ink-500 hover:text-ink-800"}`;
   return (
-    <section aria-labelledby="theme-editor-title" className="mb-6 rounded-xl border border-ink-200 bg-white p-5 shadow-sm">
-      <h2 id="theme-editor-title" className="text-[15px] font-bold text-ink-900">{copy.title}</h2>
-      <p className="mt-0.5 text-xs leading-5 text-ink-500">{copy.sub}</p>
-
-      <fieldset className="mt-4">
+    <div role="dialog" aria-modal="true" aria-labelledby="theme-editor-title" className="fixed inset-0 z-50 flex justify-end bg-[#0D1C36]/40" onClick={onClose}>
+      <div className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-3 border-b border-ink-200 px-5 py-4">
+          <h2 id="theme-editor-title" className="mr-auto text-base font-bold text-ink-900">{d.title}</h2>
+          <button type="button" onClick={onClose} aria-label={d.close} className="flex size-9 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-50 hover:text-ink-900"><X className="size-5" aria-hidden="true" /></button>
+        </div>
+        <div className="border-b border-ink-200 px-5 py-3">
+          <div role="tablist" className="flex rounded-lg bg-ink-100 p-0.5">
+            <button type="button" role="tab" aria-selected={tab === "header"} onClick={() => onTab("header")} className={tabClass(tab === "header")}>{d.header}</button>
+            <button type="button" role="tab" aria-selected={tab === "pins"} onClick={() => onTab("pins")} className={tabClass(tab === "pins")}>{d.pins} <span className="text-ink-400">{featured.length}/{STOREFRONT_MAX_FEATURED}</span></button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {tab === "header" ? <>
+      <fieldset>
         <legend className="text-xs font-semibold text-ink-800">{copy.tone}</legend>
         <div className="mt-2 flex flex-wrap gap-2">
           {STOREFRONT_TONES.map((value) => <button key={value} type="button" aria-pressed={tone === value} onClick={() => setTone(value)}
@@ -115,6 +139,7 @@ export function ThemeEditor({ initial, copy, products, videoErrors }: {
           <input ref={fileInput} type="file" accept="video/mp4,video/quicktime,video/webm" className="sr-only"
             onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadVideo(file); }} />
         </div>
+        <p className="mt-1.5 text-[11px] text-ink-500">{d.videoNote}</p>
         {videoNote && <p role={videoNote.ok ? "status" : "alert"} className={`mt-1.5 text-xs ${videoNote.ok ? "text-emerald-800" : "text-rose-800"}`}>{videoNote.message}</p>}
       </div>
 
@@ -132,10 +157,11 @@ export function ThemeEditor({ initial, copy, products, videoErrors }: {
         </div>
       </fieldset>
 
-      <fieldset className="mt-5">
+          </> : <>
+      <fieldset>
         <legend className="text-xs font-semibold text-ink-800">{copy.featured.title}</legend>
         <p className="text-[11px] leading-4 text-ink-500">{copy.featured.hint}</p>
-        {products.length ? <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {products.length ? <div className="mt-2 grid gap-2 sm:grid-cols-2">
           {products.map((product) => {
             const order = featured.indexOf(product.id);
             const on = order >= 0;
@@ -151,11 +177,14 @@ export function ThemeEditor({ initial, copy, products, videoErrors }: {
         </div> : <p className="mt-2 text-xs text-ink-500">{copy.featured.empty}</p>}
       </fieldset>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={save} disabled={pending} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-900 disabled:opacity-60">
-          {pending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Check className="size-4" aria-hidden="true" />}{pending ? copy.saving : copy.save}</button>
-        {result && <p role={result.ok ? "status" : "alert"} className={`text-xs ${result.ok ? "text-emerald-800" : "text-rose-800"}`}>{result.message}</p>}
+          </>}
+        </div>
+        <div className="flex flex-wrap items-center gap-3 border-t border-ink-200 bg-ink-50/60 px-5 py-3">
+          {result && <p role={result.ok ? "status" : "alert"} className={`min-w-0 flex-1 text-xs ${result.ok ? "text-emerald-800" : "text-rose-800"}`}>{result.message}</p>}
+          <button type="button" onClick={save} disabled={pending} className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-900 disabled:opacity-60">
+            {pending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Check className="size-4" aria-hidden="true" />}{pending ? copy.saving : copy.save}</button>
+        </div>
       </div>
-    </section>
+    </div>
   );
 }

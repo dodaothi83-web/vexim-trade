@@ -61,7 +61,12 @@ const hero = read("components/public/hero-video-button.tsx");
 assert.doesNotMatch(hero, /autoPlay|autoplay/, "Không tự phát");
 const grid = read("components/public/premium-product-grid.tsx");
 assert.match(grid, /items\.length >= STOREFRONT_GROUP_MIN_PRODUCTS && groups\.length >= 2/, "Lọc theo danh mục từ 8 sản phẩm");
-assert.match(grid, /if \(count === 3\) return "grid-cols-1 sm:grid-cols-3"/, "3 sản phẩm chia đều 3 cột");
+assert.match(grid, /<SupplierProductRail productCount=\{shown\.length\}>/, "Sản phẩm còn lại nằm trên thanh trượt");
+assert.match(grid, /tiles\.slice\(i \* 2, i \* 2 \+ 2\)/, "Thanh sản phẩm ghim: 2 thẻ một lượt");
+assert.match(grid, /prefers-reduced-motion: reduce/, "Tự chuyển lượt tắt khi người dùng tắt chuyển động");
+assert.match(grid, /inert=\{page !== i\}/, "Lượt đang ẩn không bấm được nhưng vẫn nằm trong trang");
+assert.match(read("components/public/supplier-storefront.tsx"), /featuredNode: productCard\(p, "", true\)/, "Sản phẩm ghim dùng thẻ nhỏ");
+assert.doesNotMatch(read("components/public/premium-storefront.tsx"), /\{p\.avatarHint\}/, "Trang cao cấp không hiện dòng hướng dẫn ảnh đại diện");
 assert.match(storefront, /premium\s*\n?\s*\/\/[^\n]*\n\s*\? <PremiumProductGrid featuredIds=\{theme\.featured\}/);
 assert.match(premium, /bg-success-surface|checks/, "Dải xác minh dùng chung");
 

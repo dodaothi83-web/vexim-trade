@@ -19,9 +19,8 @@ import { hasOpenServiceRequest } from "@/lib/supplier-services";
 import { StorefrontPlanBadge, StorefrontUpgradeButton } from "@/components/supplier-portal/storefront-owner";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
 import { ShowcaseEditor } from "./showcase-editor";
-import { ThemeEditor } from "./theme-editor";
+import { StorefrontDesignHub } from "./design-hub";
 import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
-import { CompanyAplusCard } from "./company/card";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
 
 export const dynamic = "force-dynamic";
@@ -108,20 +107,17 @@ export default async function SupplierStorefrontPreviewPage() {
 
   return <>
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
-    {planRules.premiumStorefront && <ThemeEditor initial={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme}
+    {/* Gói cao cấp: khu Thiết kế trang (đầu trang, sản phẩm ghim, A+ doanh nghiệp thay khối Showcase cũ).
+        Gói Basic không có thẻ khoá ở đây; lời mời nâng gói là nút dưới link website. */}
+    {planRules.premiumStorefront && <StorefrontDesignHub theme={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme}
       videoErrors={m.aplus.errors}
+      aplusCount={readAplusModules(supplier.company_aplus, { supplierId: supplier.id, productId: COMPANY_APLUS_ID }).length}
       // Chỉ ghim được sản phẩm đang hiện cho người mua trên trang (cùng danh sách với khu sản phẩm).
       products={card.main_products.map((p) => {
         const form = card.form_product_cards?.[p.id];
         const image = form ? form.cardImagePath ?? form.imagePaths[0] : card.product_card_image_paths?.[p.id] ?? card.product_image_paths[p.id];
         return { id: p.id, name: form?.name || p.name_i18n?.en || p.name, imageUrl: image ? `/public-media/${image.replace(/^\/+/, "")}` : null };
       })} />}
-    {/* Gói Basic không còn thẻ khoá ở đây; lời mời nâng gói là nút dưới link website. Gói đã hết
-        hạn mà còn khối cũ thì vẫn thấy để gỡ. */}
-    {/* Gói cao cấp: A+ doanh nghiệp thay cho khối Showcase (có nút chuyển khối cũ sang). Gói đã hết
-        hạn mà còn khối Showcase cũ thì vẫn thấy để gỡ. */}
-    {planRules.premiumStorefront && <CompanyAplusCard copy={m.aplus.company}
-      count={readAplusModules(supplier.company_aplus, { supplierId: supplier.id, productId: COMPANY_APLUS_ID }).length} />}
     {!planRules.premiumStorefront && showcaseBlocks.length > 0 &&
       <ShowcaseEditor blocks={showcaseBlocks} enabled={false} copy={m.showcase} />}
 
@@ -137,8 +133,9 @@ export default async function SupplierStorefrontPreviewPage() {
       nameTag="h2"
       showcaseImageUrl={showcasePreviewUrl}
       companyAplusImageUrl={(path) => `/api/supplier-portal/company-aplus?path=${encodeURIComponent(path)}`}
+      // Trang cao cấp: ô số liệu đè lên đáy ảnh bìa nên nút đổi ảnh bìa nằm góc trên.
       coverAction={<SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
-        className="absolute right-4 bottom-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />}
+        className={`absolute right-4 ${planRules.premiumStorefront ? "top-4" : "bottom-3"} z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60`} />}
       avatarAction={<SupplierPhotoButton kind="profile" hasImage={!!avatarUrl}
         className="absolute -right-2 -bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-white shadow-md ring-2 ring-white transition hover:bg-brand-800 disabled:opacity-60" />}
       verificationActions={<StorefrontVerificationActions progress={progress} />}

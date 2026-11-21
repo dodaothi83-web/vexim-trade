@@ -3,6 +3,14 @@
  */
 const en = {
   theme: {
+    hub: {
+      title: "Page design",
+      sub: "Set up your header, pinned products and company A+ content. Changes appear in the preview below.",
+      header: { title: "Header", noTagline: "No introduction yet", video: "Factory video added", noVideo: "No factory video", stats: "{count} highlight figures", noStats: "No highlight figures", edit: "Edit header" },
+      pins: { title: "Pinned products", count: "{count}/4 pinned", empty: "No pinned products", edit: "Choose products" },
+      aplus: { title: "Company A+ content", count: "{count} sections", empty: "No A+ content yet", hint: "Shown under About on your page.", open: "Edit A+ content" },
+      drawer: { title: "Page design", close: "Close", header: "Header", pins: "Pinned products", videoNote: "The video saves as soon as it uploads." },
+    },
     title: "Page design",
     sub: "Your page uses the Modern header: a full-width cover photo with your name on top. Choose the colour tone, introduction and factory video. Add highlight figures and pinned products. The preview below updates after you save.",
     tone: "Colour tone",
@@ -86,6 +94,14 @@ export type ShowcaseMessages = DeepStrings<typeof en>;
 
 const vi: ShowcaseMessages = {
   theme: {
+    hub: {
+      title: "Thiết kế trang",
+      sub: "Chỉnh đầu trang, chọn sản phẩm ghim và soạn A+ doanh nghiệp. Thay đổi hiện ở bản xem trước bên dưới.",
+      header: { title: "Đầu trang", noTagline: "Chưa có câu giới thiệu", video: "Đã có video nhà máy", noVideo: "Chưa có video nhà máy", stats: "{count} số liệu nổi bật", noStats: "Chưa chọn số liệu nổi bật", edit: "Chỉnh đầu trang" },
+      pins: { title: "Sản phẩm ghim", count: "Đã ghim {count}/4", empty: "Chưa ghim sản phẩm nào", edit: "Chọn sản phẩm" },
+      aplus: { title: "Nội dung A+ doanh nghiệp", count: "{count} khối", empty: "Chưa có nội dung A+", hint: "Hiện dưới mục About trên trang của bạn.", open: "Soạn A+ doanh nghiệp" },
+      drawer: { title: "Thiết kế trang", close: "Đóng", header: "Đầu trang", pins: "Sản phẩm ghim", videoNote: "Video được lưu ngay khi tải lên xong." },
+    },
     title: "Giao diện trang",
     sub: "Đầu trang Hiện đại, ảnh bìa tràn khung. Chọn tông màu, câu giới thiệu, video nhà máy, số liệu nổi bật, sản phẩm ghim.",
     tone: "Tông màu",

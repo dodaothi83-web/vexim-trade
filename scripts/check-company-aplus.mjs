@@ -65,7 +65,8 @@ assert.match(media, /premiumStorefront \|\|\s*\n?\s*!aplusImagePaths\(readAplusM
 const workspace = read("app/supplier/portal/storefront/company/workspace.tsx");
 assert.match(workspace, /templateIds=\{APLUS_COMPANY_TEMPLATE_IDS\}/);
 assert.match(workspace, /migrateShowcaseToCompanyAplusAction/, "Chuyển khối Showcase cũ, không mất nội dung");
-assert.match(read("app/supplier/portal/storefront/page.tsx"), /<CompanyAplusCard/);
+assert.match(read("app/supplier/portal/storefront/page.tsx"), /<StorefrontDesignHub[\s\S]*aplusCount=/);
+assert.match(read("app/supplier/portal/storefront/design-hub.tsx"), /href="\/supplier\/portal\/storefront\/company"/, "Khu Thiết kế trang mở trang soạn A+ doanh nghiệp");
 assert.match(read("components/products/aplus-editor.tsx"), /standalone && <button/);
 assert.match(read("app/crm/suppliers/[slug]/company-aplus-actions.ts"), /guard\("suppliers\.manage"\)/);
 assert.match(read("app/crm/suppliers/[slug]/company-aplus-review.tsx"), /Bản tiếng Việt/);

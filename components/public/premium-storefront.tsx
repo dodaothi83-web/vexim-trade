@@ -119,7 +119,6 @@ function Modern(p: Shared) {
             <Avatar avatarUrl={p.avatarUrl} name={p.name} className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white text-2xl font-bold text-[var(--sf-accent)]" />
             {p.avatarAction}
           </div>
-          {p.avatarHint}
           <span className="rounded-md bg-[var(--sf-accent)] px-3 py-1 text-xs font-bold">{p.location}</span>
         </div>
         <NameTag id="supplier-name" className="max-w-3xl break-words text-3xl font-extrabold leading-tight tracking-tight sm:text-6xl">{p.name}</NameTag>
