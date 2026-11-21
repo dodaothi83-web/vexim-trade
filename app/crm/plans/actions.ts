@@ -32,6 +32,9 @@ export async function savePlanCatalogAction(_previous: PlanCatalogResult, form: 
   const maxProducts = rawMax ? Number(rawMax) : null;
   if (maxProducts !== null && maxProducts < 1) return { ok: false, message: "Số sản phẩm tối đa phải từ 1 trở lên." };
   const richContent = form.get("rich_content") === "yes";
+  const rawVideo = String(form.get("video_minutes") ?? "").trim();
+  if (rawVideo && !/^\d{1,5}$/.test(rawVideo)) return { ok: false, message: "Tổng số phút video chỉ gồm chữ số; để trống là không giới hạn." };
+  const videoMinutes = rawVideo ? Number(rawVideo) : null;
 
   const months = form.getAll("price_months").map((v) => String(v).trim());
   const amounts = form.getAll("price_vnd").map((v) => String(v).replace(/[^\d]/g, ""));
@@ -49,7 +52,7 @@ export async function savePlanCatalogAction(_previous: PlanCatalogResult, form: 
 
   const db = getSupabaseClient();
   if (!db) return { ok: false, message: "Chưa kết nối cơ sở dữ liệu." };
-  const row = { plan, name, summary, features, prices, max_products: maxProducts, rich_content: richContent,
+  const row = { plan, name, summary, features, prices, max_products: maxProducts, rich_content: richContent, video_minutes: videoMinutes,
     updated_at: new Date().toISOString(), updated_by: /^[0-9a-f-]{36}$/i.test(session.uid) ? session.uid : null };
   const { error } = await db.from("supplier_plan_catalog").upsert(row, { onConflict: "plan" });
   if (error) {

@@ -66,7 +66,7 @@ assert.doesNotMatch(stream, /NEXT_PUBLIC_/, "Khoá Cloudflare chỉ ở máy ch�
 assert.match(stream, /stream\$\{path\}/);
 assert.match(stream, /"\/direct_upload"/);
 assert.match(stream, /allowedOrigins: streamAllowedOrigins\(\)/);
-assert.match(stream, /maxDurationSeconds: APLUS_VIDEO_MAX_SECONDS/);
+assert.match(stream, /maxDurationSeconds: Math.max\(1, Math.floor\(input.maxSeconds \?\? APLUS_VIDEO_MAX_SECONDS\)\)/);
 assert.match(stream, /product_id: input\.productId/);
 assert.match(stream, /method: "DELETE"/);
 assert.match(action, /verifyAplusVideos\(checked\.modules, before, ctx\)/, "Video kiểm tra bằng hàm dùng chung");

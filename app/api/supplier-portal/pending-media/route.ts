@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { prepareVideoUpload } from "@/lib/media/video-quota";
 import { randomUUID } from "node:crypto";
 
 import { getPortalMessages } from "@/lib/i18n/server";
@@ -25,7 +26,7 @@ const MIME: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", pn
  * Chỉ gói có quyền video và A+.
  */
 export async function POST(request: Request) {
-  const { m } = await getPortalMessages();
+  const { m, locale } = await getPortalMessages();
   const e = m.aplus.errors;
   const access = await supplierPortalAccess().catch(() => null);
   if (!access || !portalApproved(access.supplier)) return fail(e.noAccess, 403);
@@ -38,10 +39,13 @@ export async function POST(request: Request) {
   if (form.get("kind") === "video") {
     if (!streamConfig()) return fail(e.videoUnavailable, 503);
     try {
-      const upload = await createStreamDirectUpload({ supplierId: access.supplier.id, productId: null });
+      const kind = form.get("video_kind") === "product" ? "product" : "aplus";
+      const allowance = await prepareVideoUpload(access.supplier, kind, e, locale === "en" ? "en" : "vi");
+      if (!allowance.ok) return fail(allowance.message, 409);
+      const upload = await createStreamDirectUpload({ supplierId: access.supplier.id, productId: null, maxSeconds: allowance.maxSeconds });
       if (!upload) return fail(e.videoUnavailable, 503);
       await registerPendingUpload(access.supplier.id, "video", upload.uid);
-      return NextResponse.json({ ok: true, uploadURL: upload.uploadURL, uid: upload.uid });
+      return NextResponse.json({ ok: true, uploadURL: upload.uploadURL, uid: upload.uid, maxSeconds: allowance.maxSeconds, tooLongMessage: allowance.tooLongMessage });
     } catch (error) {
       console.error("[pending-media] stream direct upload", error);
       return fail(e.upload, 502);

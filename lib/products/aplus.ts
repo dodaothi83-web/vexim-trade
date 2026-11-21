@@ -33,8 +33,18 @@ export const APLUS_CAPTION_MAX = 160;
 export const APLUS_ALT_MAX = 160;
 export const APLUS_GALLERY_MIN = 2;
 export const APLUS_GALLERY_MAX = 4;
-/** Video A+ dài tối đa 15 phút, tệp tối đa 200 MB (giới hạn tải lên cơ bản của Cloudflare Stream). */
-export const APLUS_VIDEO_MAX_SECONDS = 900;
+/**
+ * Thời lượng tối đa theo loại video (Cloudflare Stream tính tiền theo phút lưu và phút xem).
+ * Người mua B2B hiếm khi xem quá 2 đến 3 phút, nên video ngắn vừa đủ thông tin vừa đỡ tốn phí.
+ * Video đã tải trước khi đổi giới hạn vẫn giữ nguyên.
+ */
+export const VIDEO_LIMIT_SECONDS = { factory: 180, product: 120, aplus: 120 } as const;
+export type VideoKind = keyof typeof VIDEO_LIMIT_SECONDS;
+export const isVideoKind = (value: unknown): value is VideoKind => typeof value === "string" && value in VIDEO_LIMIT_SECONDS;
+/** Mặc định cho video A+; tệp tối đa 200 MB (giới hạn tải lên cơ bản của Cloudflare Stream). */
+export const APLUS_VIDEO_MAX_SECONDS = VIDEO_LIMIT_SECONDS.aplus;
+/** Một trang A+ (sản phẩm hoặc doanh nghiệp) có tối đa ngần này khối video. */
+export const APLUS_MAX_VIDEOS = 2;
 export const APLUS_VIDEO_MAX_BYTES = 200 * 1024 * 1024;
 
 /** Số mục tối thiểu, tối đa của các khối có danh sách. */
@@ -560,4 +570,13 @@ export function serializeAplusRich(nodes: AplusRichNode[]): string {
     }
   });
   return out.join("\n").trim();
+}
+
+/** Số khối video trong trang A+. */
+export const aplusVideoCount = (modules: readonly { type: string }[]) => modules.filter((m) => m.type === "video").length;
+
+/** Vượt số video cho phép. Trang đã có nhiều hơn từ trước vẫn lưu được, miễn không thêm video mới. */
+export function aplusVideoLimitExceeded(next: readonly { type: string }[], previous: readonly { type: string }[]): boolean {
+  const count = aplusVideoCount(next);
+  return count > APLUS_MAX_VIDEOS && count > aplusVideoCount(previous);
 }

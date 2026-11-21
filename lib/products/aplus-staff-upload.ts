@@ -1,5 +1,8 @@
 import "server-only";
 
+import { getStore } from "@/lib/db";
+import { aplusMessages } from "@/lib/i18n/portal/aplus";
+import { prepareVideoUpload } from "@/lib/media/video-quota";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 
@@ -28,11 +31,15 @@ export async function staffAplusUpload(request: Request, target: { supplierId: s
   if (form.get("kind") === "video") {
     if (!streamConfig()) return fail("Chức năng tải video chưa được thiết lập.", 503);
     try {
+      const supplier = await getStore().getSupplier(target.supplierId);
+      if (!supplier) return fail("Không tìm thấy nhà cung cấp.", 404);
+      const allowance = await prepareVideoUpload(supplier, "aplus", aplusMessages.vi.errors, "vi");
+      if (!allowance.ok) return fail(allowance.message, 409);
       const upload = await createStreamDirectUpload(target.productId
-        ? { supplierId: target.supplierId, productId: target.productId }
-        : { supplierId: target.supplierId, productId: null, purpose: "company" });
+        ? { supplierId: target.supplierId, productId: target.productId, maxSeconds: allowance.maxSeconds }
+        : { supplierId: target.supplierId, productId: null, purpose: "company", maxSeconds: allowance.maxSeconds });
       if (!upload) return fail("Chức năng tải video chưa được thiết lập.", 503);
-      return NextResponse.json({ ok: true, uploadURL: upload.uploadURL, uid: upload.uid });
+      return NextResponse.json({ ok: true, uploadURL: upload.uploadURL, uid: upload.uid, maxSeconds: allowance.maxSeconds, tooLongMessage: allowance.tooLongMessage });
     } catch (error) {
       console.error("[crm-aplus] stream direct upload", error);
       return fail("Chưa tải được video. Thử lại.", 502);

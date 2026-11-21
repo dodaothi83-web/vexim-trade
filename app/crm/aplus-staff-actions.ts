@@ -11,7 +11,7 @@ import { aplusMessages } from "@/lib/i18n/portal/aplus";
 import { deleteStreamVideo } from "@/lib/media/cloudflare-stream";
 import { deleteObject } from "@/lib/media/storage";
 import {
-  APLUS_MAX_MODULES, aplusImagePaths, aplusVideoUids, COMPANY_APLUS_ID, readAplusModules, validateAplusModules, type AplusModule, type AplusProblem,
+  APLUS_MAX_MODULES, APLUS_MAX_VIDEOS, aplusVideoLimitExceeded, aplusImagePaths, aplusVideoUids, COMPANY_APLUS_ID, readAplusModules, validateAplusModules, type AplusModule, type AplusProblem,
 } from "@/lib/products/aplus";
 import { prepareAplusForSave } from "@/lib/products/aplus-server";
 import { verifyAplusVideos } from "@/lib/products/aplus-video-verify";
@@ -70,6 +70,7 @@ async function save(target: Target | { error: string }, modules: unknown, retran
   try {
     const checked = await prepareAplusForSave(modules, ctx, ids(retranslate));
     if (!checked.ok) return { ok: false, message: checked.translation ? e.translation : problemText(checked.problem!) };
+    if (aplusVideoLimitExceeded(checked.modules, target.before)) return { ok: false, message: fill(e.tooManyVideos, { max: APLUS_MAX_VIDEOS }) };
     const verified = await verifyAplusVideos(checked.modules, target.before, ctx);
     if (!verified.ok) return { ok: false, message: verified.index === null ? e.videoUnavailable : fill(e.videoMissing, { index: verified.index + 1 }) };
     await target.write(verified.modules);

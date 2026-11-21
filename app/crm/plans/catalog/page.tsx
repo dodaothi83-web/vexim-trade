@@ -40,7 +40,7 @@ export default async function PlanCatalogPage({ searchParams }: { searchParams: 
           </p>
           <p className="mt-1 text-sm font-semibold text-ink-800">{from ? `Từ ${formatVnd(from.price_vnd)} / ${from.months} tháng` : entry.summary || "Miễn phí"}</p>
           <p className="mt-0.5 text-xs text-ink-500">
-            {entry.maxProducts === null ? "Không giới hạn sản phẩm" : `Tối đa ${entry.maxProducts} sản phẩm`}, {entry.richContent ? "có" : "không có"} video và A+
+            {entry.maxProducts === null ? "Không giới hạn sản phẩm" : `Tối đa ${entry.maxProducts} sản phẩm`}, {entry.richContent ? `có video và A+ (${entry.videoMinutes === null ? "không giới hạn phút" : `${entry.videoMinutes} phút video`})` : "không có video và A+"}
           </p>
           {entry.updatedAt && <p className="mt-2 text-[11px] text-ink-400">Sửa lần cuối {vnDate(entry.updatedAt)}</p>}
         </Link>;
