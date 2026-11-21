@@ -10,9 +10,9 @@ import type { AplusModule } from "@/lib/products/aplus";
 import { saveProductContentModeAction } from "../../../aplus-actions";
 
 /**
- * Trang soạn A+ của một sản phẩm (mở bằng nút "Nội dung A+" ở mục Nội dung chi tiết): trình soạn A+
- * đầy đủ chiều rộng, nút Lưu riêng. Mặc định trang sản phẩm hiện nội dung cơ bản; nhà cung cấp bật
- * "Hiện A+ trên trang sản phẩm" ở đây, và tắt được để quay về nội dung cơ bản.
+ * Trang soạn A+ của một sản phẩm (mở bằng nút "Tạo content A+" ở mục Nội dung chi tiết): trình soạn A+
+ * đầy đủ chiều rộng, nút Lưu riêng. Lưu A+ là trang sản phẩm hiện A+ ngay; nút ở đầu trang chuyển qua lại
+ * giữa A+ và nội dung cơ bản mà không mất nội dung.
  */
 export function ProductAplusWorkspace({ productId, initial, allowed, editable, copy, mode, publicHref }: {
   productId: string; initial: AplusModule[]; allowed: boolean; editable: boolean; copy: AplusMessages;
@@ -42,6 +42,7 @@ export function ProductAplusWorkspace({ productId, initial, allowed, editable, c
       {note && !note.ok && <p role="alert" className="w-full text-xs font-semibold text-rose-700">{note.message}</p>}
     </div>}
     <AplusEditor productId={productId} allowed={allowed} editable={editable} initial={initial} copy={copy} standalone
+      onSaved={(modules) => setCurrent(modules.length ? "aplus" : "basic")}
       lockedHref="/supplier/portal/services" />
   </div>;
 }

@@ -42,7 +42,10 @@ export async function saveProductAplusAction(productId: string, modules: unknown
     const previous = aplusImagePaths(before);
     const verified = await verifyAplusVideos(checked.modules, before, ctx);
     if (!verified.ok) return { ok: false, message: verified.index === null ? e.videoUnavailable : fill(e.videoMissing, { index: verified.index + 1 }) };
-    await access.store.updateProduct(productId, { aplus_content: verified.modules });
+    // Lưu A+ là đăng A+: còn khối thì trang sản phẩm hiện A+; xoá hết khối thì quay về nội dung cơ bản.
+    // Muốn giữ mô tả chữ thì bấm "Tạo content basic" ở trang sửa sản phẩm (A+ vẫn được giữ).
+    const mode = verified.modules.length ? "aplus" as const : "basic" as const;
+    await access.store.updateProduct(productId, { aplus_content: verified.modules, content_mode: mode });
     const kept = new Set(aplusImagePaths(verified.modules));
     await Promise.all(previous.filter((path) => !kept.has(path)).map((path) => deleteObject(path).catch(() => null)));
     // Video bị bỏ khỏi nội dung thì xoá trên Cloudflare (chạy sau khi trả lời, không làm chậm nút Lưu).
@@ -50,11 +53,11 @@ export async function saveProductAplusAction(productId: string, modules: unknown
     const droppedVideos = aplusVideoUids(before).filter((uid) => !keptVideos.has(uid));
     if (droppedVideos.length) after(() => Promise.all(droppedVideos.map(deleteStreamVideo)));
     await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email, entity: "product", entity_id: productId,
-      action: "supplier.product_aplus_saved", before: { modules: previous.length }, after: { modules: verified.modules.length, types: verified.modules.map((x) => x.type) } })
+      action: "supplier.product_aplus_saved", before: { modules: previous.length, mode: product.content_mode ?? null }, after: { modules: verified.modules.length, types: verified.modules.map((x) => x.type), mode } })
       .catch((error) => console.error("[aplus] audit", error));
     revalidatePath(`/supplier/portal/products/${productId}`);
     revalidatePath("/products", "layout");
-    return { ok: true, message: checked.translationFailed ? m.aplus.savedTranslateLater : m.aplus.saved, modules: verified.modules };
+    return { ok: true, message: checked.translationFailed ? m.aplus.savedTranslateLater : verified.modules.length ? m.aplus.saved : m.aplus.aplusPage.showingBasic, modules: verified.modules };
   } catch (error) {
     console.error("[aplus] save", error);
     return { ok: false, message: e.failed };
