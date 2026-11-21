@@ -3,7 +3,7 @@
  * script kiểm tra nạp thẳng bằng Node; phần đọc dữ liệu và gửi thư ở digest-server.ts.
  *
  * - Thư "products" (thứ Ba): nhà cung cấp gói Pro nổi bật (tối đa 2, luân phiên) và sản phẩm mới/cập
- *   nhật trong ngành người mua chọn (tối đa 6, gói Pro xếp trước), kèm mùa vụ.
+ *   nhật trong ngành người mua chọn (tối đa 9, lưới thẻ ảnh 3 cột, gói Pro xếp trước), kèm mùa vụ.
  * - Thư "brief" (thứ Sáu, mức "twice"): một bài blog của Vexim đúng ngành (hoặc bài tin chung), kèm mùa vụ.
  * - Không lặp lại cùng mục với cùng người mua trong 4 tuần (trừ khi vừa cập nhật); không gửi thư rỗng.
  */
@@ -26,7 +26,8 @@ export const DIGEST_REPEAT_DAYS = 28;
 export const DIGEST_NEW_DAYS = 14;
 export const DIGEST_UPDATED_DAYS = 7;
 export const DIGEST_POST_DAYS = 21;
-export const DIGEST_MAX_PRODUCTS = 6;
+/** Lưới thẻ ảnh 3 cột trong thư: tối đa 3 hàng. */
+export const DIGEST_MAX_PRODUCTS = 9;
 export const DIGEST_MAX_FEATURED = 2;
 /** Thư sản phẩm cần ít nhất ngần này mục (nhà cung cấp + sản phẩm), không thì bỏ tuần đó. */
 export const DIGEST_MIN_ITEMS = 2;

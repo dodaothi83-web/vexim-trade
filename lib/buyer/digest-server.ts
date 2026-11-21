@@ -148,12 +148,26 @@ export function buildDigestMail(digest: ProductsDigest | BriefDigest, buyer: Pic
         ${s.checks.map((c) => `<span style="display:inline-block;margin:0 4px 6px 0;padding:2px 8px;border-radius:999px;background:#E7F5EF;color:#0E7A4E;font-size:12px;font-weight:700;">✓ ${escapeHtml(c)}</span>`).join("")}
         <p style="margin:4px 0 0;">${link(clickUrl({ k: "products", t: "supplier", i: s.id, s: s.id, u: s.href }), "View supplier →")}</p></div>`).join(""),
       ` <span style="text-transform:none;letter-spacing:0;color:#93370D;background:#FFF4DE;border-radius:999px;padding:2px 8px;font-size:11px;">Sponsored</span>`) : "";
-    const products = digest.products.length ? section("New products this week", digest.products.map((p) => `<table role="presentation" width="100%" style="border-collapse:collapse;border:1px solid #DFE5EE;border-radius:12px;margin:0 0 10px;"><tr>
-        ${p.imagePath ? `<td width="96" style="padding:10px;"><img src="${escapeHtml(`${SITE_URL}/public-media/${p.imagePath.replace(/^\//, "")}`)}" width="84" height="84" alt="" style="display:block;border-radius:8px;object-fit:cover;"></td>` : ""}
-        <td style="padding:10px;vertical-align:top;"><p style="margin:0;font-size:11px;font-weight:800;color:${brandColors.primary};">${p.badge}</p>
-        <p style="margin:2px 0;font-weight:700;color:#141C2E;font-size:14px;">${escapeHtml(p.name)}</p>
-        <p style="margin:0 0 4px;font-size:13px;color:${brandColors.muted};">MOQ: ${escapeHtml(p.moq)} · Lead time: ${escapeHtml(p.leadTime)}${p.price ? ` · ${escapeHtml(p.price)}` : ""}</p>
-        ${link(clickUrl({ k: "products", t: "product", i: p.id, s: p.supplierId, u: p.href }), "View product →")}</td></tr></table>`).join("")) : "";
+    // Lưới thẻ ảnh 3 cột (bảng HTML để hiện đúng trên Gmail/Outlook): ảnh vuông, tên 2 dòng, giá hoặc MOQ.
+    const card = (p: (typeof digest.products)[number]) => {
+      const href = clickUrl({ k: "products", t: "product", i: p.id, s: p.supplierId, u: p.href });
+      const img = p.imagePath
+        ? `<img src="${escapeHtml(`${SITE_URL}/public-media/${p.imagePath.replace(/^\//, "")}`)}" width="180" height="180" alt="${escapeHtml(p.name)}" style="display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid #DFE5EE;">`
+        : `<div style="width:100%;padding-top:100%;border-radius:10px;background:#E8EEF8;"></div>`;
+      return `<td width="33%" valign="top" style="padding:0 5px 16px;"><a href="${escapeHtml(href)}" style="text-decoration:none;color:#141C2E;display:block;">
+        ${img}
+        <p style="margin:8px 0 0;font-size:10.5px;font-weight:800;color:${brandColors.primary};">${p.badge}</p>
+        <p style="margin:2px 0 0;font-size:13px;line-height:18px;font-weight:600;color:#141C2E;height:36px;overflow:hidden;">${escapeHtml(p.name)}</p>
+        <p style="margin:4px 0 0;font-size:13px;font-weight:800;color:#141C2E;">${escapeHtml(p.price ?? `MOQ ${p.moq}`)}</p></a></td>`;
+    };
+    const rows: string[] = [];
+    for (let i = 0; i < digest.products.length; i += 3) {
+      const cells = digest.products.slice(i, i + 3).map(card);
+      while (cells.length < 3) cells.push('<td width="33%" style="padding:0 5px 16px;"></td>');
+      rows.push(`<tr>${cells.join("")}</tr>`);
+    }
+    const products = digest.products.length ? section("New products this week",
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;table-layout:fixed;margin:0 -5px;">${rows.join("")}</table>`) : "";
     body = `${featured}${products}${seasonsHtml(digest)}`;
   } else {
     subject = `${digest.post.title}`;
