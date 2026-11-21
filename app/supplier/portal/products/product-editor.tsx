@@ -33,7 +33,7 @@ import { useToast } from "@/components/toast";
 import { SupplierAttributeInputs } from "@/components/supplier-attribute-inputs";
 import { RawMaterialRegionInput } from "@/components/raw-material-region-input";
 import { ProductDescriptionEditor } from "@/components/products/product-description-editor";
-import { AplusEditor, type AplusEditorHandle } from "@/components/products/aplus-editor";
+import { saveProductContentModeAction } from "../aplus-actions";
 import { ProductVideoField } from "@/components/products/product-video-field";
 import { APLUS_MAX_MODULES, canEditAplus, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { aplusMessages, type AplusMessages } from "@/lib/i18n/portal/aplus";
@@ -297,9 +297,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const locked = review === "pending" || legacyManaged;
   const dirty = baseline !== null && !snapshotsEqual(snapshot, baseline);
   // Nội dung A+ lưu cùng nút Lưu sản phẩm (bản duyệt docs/aplus-editor): chỉ sửa A+ cũng hiện nút Lưu.
-  const aplusRef = useRef<AplusEditorHandle>(null);
-  const [aplusDirty, setAplusDirty] = useState(false);
-  const anyDirty = dirty || aplusDirty;
+  const anyDirty = dirty;
   const ownedCount = media.filter((m) => m.created_by === userId).length;
   const imageCount = media.filter((m) => m.kind === "image").length;
   /** Ảnh trong kho ảnh của chính tài khoản này; kho là chỗ ảnh dừng trước khi gắn sản phẩm. */
@@ -355,7 +353,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const catalogueAssets = media.filter((asset) => asset.kind !== "image");
   // Mục 7: Basic tính theo mô tả chữ, gói có A+ tính theo số khối A+ đã lưu.
   const aplusCount = product ? readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id }).length : 0;
-  const detailFilled = richContentAllowed ? aplusCount > 0 : (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim().length > 0;
+  // Nội dung hiển thị (gói Premium/Pro): mặc định "cơ bản"; chưa có cột chọn thì có A+ là đang hiện A+.
+  const [contentMode, setContentMode] = useState<"basic" | "aplus">(() =>
+    !richContentAllowed ? "basic" : product?.content_mode ?? (aplusCount > 0 ? "aplus" : "basic"));
+  const [modeBusy, setModeBusy] = useState(false);
+  const [modeNote, setModeNote] = useState<{ ok: boolean; message: string } | null>(null);
+  const modeEditable = product ? canEditAplus(product) : true;
+  const showsAplus = richContentAllowed && contentMode === "aplus" && aplusCount > 0;
+  const detailFilled = showsAplus || (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim().length > 0;
   const basicFilled = [snapshot.name, snapshot.keywords, snapshot.description].filter((value) => (value ?? "").trim()).length;
   const specFilled = [snapshot.spec, snapshot.monthly_capacity, snapshot.raw_material_region, snapshot.input_material_origin]
     .filter((value) => (value ?? "").trim()).length;
@@ -607,11 +612,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       const saved = snapshotFromForm(formElement, snapshot);
       setSnapshot(saved);
       setBaseline(saved);
-      // Sản phẩm đã có: lưu luôn nội dung A+ (dịch bản tiếng Việt) trong cùng lần bấm Lưu.
-      if (product && aplusRef.current?.dirty()) {
-        const aplusOk = await aplusRef.current.save();
-        if (!aplusOk) { scrollToSection("sec-detail"); return null; }
-      }
       if (product) router.refresh();
       return response.id ?? product?.id ?? null;
     } catch (error) {
@@ -620,6 +620,26 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Chọn nội dung hiển thị. Sản phẩm đã có thì lưu ngay; sản phẩm mới chỉ đổi ô đang soạn. */
+  async function chooseContentMode(mode: "basic" | "aplus") {
+    if (mode === contentMode) return;
+    if (!product) { setContentMode(mode); return; }
+    const previous = contentMode;
+    setContentMode(mode); setModeBusy(true); setModeNote(null);
+    const result = await saveProductContentModeAction(product.id, mode).catch(() => ({ ok: false, message: aplusCopy.errors.failed }));
+    setModeBusy(false); setModeNote(result);
+    if (!result.ok) setContentMode(previous); else router.refresh();
+  }
+
+  /** Sản phẩm mới chọn A+: lưu nháp, chọn A+ rồi sang trang soạn A+. */
+  async function openAplusForNew() {
+    const id = await persist();
+    if (!id) return;
+    setModeBusy(true);
+    await saveProductContentModeAction(id, "aplus").catch(() => null);
+    router.push(`/supplier/portal/products/${id}/aplus`);
   }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
@@ -1552,19 +1572,43 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             className="mt-3 scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="7" title={copy.detail.title} pill={sectionPill("sec-detail")} />
             <div className="px-4 py-4 sm:px-5">
-              {/* Basic: mô tả bằng chữ. Premium/Pro: nội dung A+ thay cho ô chữ; mô tả cũ vẫn lưu và
-                  hiện cho người mua tới khi có A+, hoặc khi gói hết hạn. */}
-              {!richContentAllowed && <div className="text-[12px]">
+              {/* Basic: chỉ mô tả bằng chữ. Premium/Pro: chọn "Nội dung cơ bản" (mặc định) hoặc "Nội dung A+"
+                  (soạn ở trang riêng). Lựa chọn quyết định trang sản phẩm hiện nội dung nào. */}
+              {richContentAllowed && <div className="mb-4">
+                <p className="mb-1.5 text-[13px] font-semibold text-ink-700">{aplusCopy.contentTabs.label}</p>
+                <div role="radiogroup" aria-label={aplusCopy.contentTabs.label} className="grid gap-2 sm:grid-cols-2">
+                  {(["basic", "aplus"] as const).map((mode) => {
+                    const on = contentMode === mode;
+                    return <button key={mode} type="button" role="radio" aria-checked={on} disabled={busy || modeBusy || !modeEditable}
+                      onClick={() => void chooseContentMode(mode)}
+                      className={`rounded-lg border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${on ? "border-brand-600 bg-brand-50 ring-2 ring-brand-100" : "border-ink-200 bg-white hover:border-brand-300"}`}>
+                      <span className="flex items-center gap-2 text-[13.5px] font-bold text-ink-900">
+                        <span aria-hidden="true" className={`flex size-4 items-center justify-center rounded-full border ${on ? "border-brand-700" : "border-ink-300"}`}>{on && <span className="size-2 rounded-full bg-brand-700" />}</span>
+                        {mode === "basic" ? aplusCopy.contentTabs.basic : aplusCopy.contentTabs.aplus}</span>
+                      <span className="mt-0.5 block pl-6 text-[11.5px] leading-5 text-ink-500">{mode === "basic" ? aplusCopy.contentTabs.basicHint : aplusCopy.contentTabs.aplusHint}</span>
+                    </button>;
+                  })}
+                </div>
+                {!modeEditable && product && <p className="mt-1.5 text-[11.5px] text-ink-500">{aplusCopy.contentTabs.lockedNote}</p>}
+                {modeNote && <p role={modeNote.ok ? "status" : "alert"} className={`mt-1.5 text-[11.5px] font-semibold ${modeNote.ok ? "text-emerald-700" : "text-rose-700"}`}>{modeNote.message}</p>}
+              </div>}
+              {(!richContentAllowed || contentMode === "basic") && <div className="text-[12px]">
                 <span className="mb-1.5 block text-[13px] font-semibold text-ink-700">{copy.detail.label}</span>
                 <ProductDescriptionEditor id="supplier-product-description-detail" name="description_detail"
                   value={snapshot.description_detail} onChange={onDescriptionDetailChange} disabled={locked || busy}
                   copy={shared.description} />
               </div>}
-              {richContentAllowed && !!(product?.description_detail ?? "").replace(/<[^>]*>/g, "").trim() && aplusCount === 0 &&
-                <p className="mb-3 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[12px] leading-5 text-brand-900">{aplusCopy.legacyText}</p>}
-              <AplusEditor handle={aplusRef} onDirtyChange={setAplusDirty} productId={product?.id ?? null} allowed={richContentAllowed}
-                editable={product ? canEditAplus(product) : true} copy={aplusCopy}
-                initial={product ? readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id }) : []} />
+              {richContentAllowed && contentMode === "aplus" && <div className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-ink-50 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13.5px] font-bold text-ink-900">{aplusCount > 0 ? fill(aplusCopy.contentTabs.aplusSummary, { count: aplusCount }) : aplusCopy.contentTabs.aplus}</p>
+                  <p className="mt-0.5 text-[11.5px] leading-5 text-ink-600">{aplusCount > 0 ? aplusCopy.contentTabs.showingAplus : aplusCopy.contentTabs.aplusEmpty}</p>
+                </div>
+                {product
+                  ? <Link href={`/supplier/portal/products/${product.id}/aplus`} className="btn btn-primary btn-sm">{aplusCopy.contentTabs.open}</Link>
+                  : <button type="button" disabled={busy || modeBusy} onClick={() => void openAplusForNew()} className="btn btn-primary btn-sm">{aplusCopy.contentTabs.saveFirst}</button>}
+                {/* Mô tả chữ vẫn gửi kèm để không mất khi lưu (ẩn khỏi ô soạn lúc chọn A+). */}
+                <input type="hidden" name="description_detail" value={snapshot.description_detail ?? ""} />
+              </div>}
             </div>
           </section>
         </form>
@@ -1621,8 +1665,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                 )}
                 <div className="min-w-0 sm:col-span-2">
                   <dt className="text-[11px] font-semibold text-ink-500">{copy.review.detailLabel}</dt>
-                  <dd className="mt-1 rounded-lg bg-ink-50 px-2.5 py-1.5">{richContentAllowed
-                    ? <span className="text-[12px] text-ink-700">{aplusCount > 0 ? `${aplusCopy.title}: ${fill(aplusCopy.count, { count: aplusCount, max: APLUS_MAX_MODULES })}` : copy.review.notEntered}</span>
+                  <dd className="mt-1 rounded-lg bg-ink-50 px-2.5 py-1.5">{showsAplus
+                    ? <span className="text-[12px] text-ink-700">{`${aplusCopy.title}: ${fill(aplusCopy.count, { count: aplusCount, max: APLUS_MAX_MODULES })}`}</span>
                     : <ProductDescriptionPreview value={snapshot.description_detail} />}</dd>
                 </div>
               </dl>
@@ -1856,8 +1900,8 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       hasEnglishTitle: !!buyerPreviewNameEn,
       categoryLabel: activeCategory?.label ?? copy.review.notChosen,
       description: (snapshot.description ?? "").trim(),
-      // Gói có A+: A+ thay mô tả chữ (xem trước chưa dựng A+); chưa có A+ thì vẫn hiện mô tả chữ cũ.
-      detail: richContentAllowed && aplusCount > 0 ? "" : snapshot.description_detail ?? "",
+      // Đang chọn A+ (và có khối): A+ thay mô tả chữ (xem trước chưa dựng A+); còn lại hiện mô tả chữ.
+      detail: showsAplus ? "" : snapshot.description_detail ?? "",
       images: imageSlots.filter((asset): asset is MediaAsset => !!asset)
         .map((asset) => privateMediaUrl(asset)).filter((url): url is string => !!url),
       offer: quantityPreview ? draftPublicQuantityOffer(quantityPreview, {

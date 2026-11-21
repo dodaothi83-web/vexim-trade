@@ -115,8 +115,24 @@ assert.match(read("components/product-media-gallery.tsx"), /aria-label=\{`Play p
 assert.match(read("app/crm/products/[slug]/edit/aplus-actions.ts"), /export async function removeGalleryVideoAction/);
 const videoMigration = read("supabase/migrations/20261201_product_gallery_video.sql");
 assert.match(videoMigration, /add column if not exists gallery_video jsonb/);
-// 9. Gói có A+: A+ thay ô mô tả chữ ở mục 7. Mô tả cũ vẫn lưu, hiện cho người mua khi chưa có A+ hoặc gói hết hạn.
-assert.match(editor, /\{!richContentAllowed && <div className="text-\[12px\]">\s*<span[^>]*>\{copy\.detail\.label\}/, "Premium/Pro không còn ô mô tả chữ");
+// 9. Gói có A+: chọn "Nội dung cơ bản" (mặc định) hoặc "Nội dung A+" (soạn ở trang riêng). Trang người
+//    mua hiện A+ chỉ khi chọn A+, gói còn quyền và có khối; còn lại hiện mô tả chữ.
+assert.match(editor, /\{\(!richContentAllowed \|\| contentMode === "basic"\) && <div className="text-\[12px\]">/, "Nội dung cơ bản: ô mô tả chữ");
+assert.match(editor, /href=\{`\/supplier\/portal\/products\/\$\{product\.id\}\/aplus`\}/, "Nội dung A+ mở trang soạn riêng");
+assert.match(editor, /product\?\.content_mode \?\? \(aplusCount > 0 \? "aplus" : "basic"\)/, "Mặc định nội dung cơ bản");
+assert.doesNotMatch(editor, /<AplusEditor/, "Trang sửa sản phẩm không nhúng trình soạn A+");
+assert.match(read("app/supplier/portal/products/[id]/aplus/workspace.tsx"), /<AplusEditor productId=\{productId\}[^>]*standalone/);
+assert.equal(a.productShowsAplus({ content_mode: "basic" }, good, true), false, "Chọn cơ bản thì không hiện A+");
+assert.equal(a.productShowsAplus({ content_mode: "aplus" }, good, true), true);
+assert.equal(a.productShowsAplus({ content_mode: "aplus" }, good, false), false, "Gói hết quyền thì không hiện A+");
+assert.equal(a.productShowsAplus({ content_mode: "aplus" }, [], true), false, "Chưa có khối thì hiện mô tả chữ");
+assert.equal(a.productShowsAplus({}, good, true), true, "Chưa có cột chọn: giữ cách cũ");
+assert.match(page, /productShowsAplus\(p, aplusAll, !!planRules\?\.richContent\)/);
+const modeAction = read("app/supplier/portal/aplus-actions.ts");
+assert.match(modeAction, /export async function saveProductContentModeAction[\s\S]{0,900}!canEditAplus\(product\)[\s\S]{0,300}mode === "aplus" && !supplierPlanRules/, "Đổi nội dung hiển thị: đúng sản phẩm, quyền sửa, gói có A+");
+const modeMigration = read("supabase/migrations/20261221_product_content_mode.sql");
+assert.match(modeMigration, /content_mode text not null default 'basic'/);
+assert.match(modeMigration, /set content_mode = 'aplus'\s+where content_mode = 'basic' and jsonb_array_length\(aplus_content\) > 0/, "Sản phẩm đang có A+ giữ hiển thị A+");
 assert.match(page, /const enDetail = aplus\.length \? null : textDetail;/, "Có A+ thì không hiện mô tả chữ");
 const productActions = read("app/supplier/portal/product-actions.ts");
 assert.match(productActions, /description_detail: form\.has\("description_detail"\)[\s\S]{0,160}: existing\?\.description_detail \?\? null/, "Form không gửi ô chữ thì giữ mô tả cũ");
@@ -195,13 +211,13 @@ assert.equal(built.length, 6);
 assert.ok(built.every((m, i) => m.hint === `cashew:${i}` && a.aplusModuleText(m).every((t) => t === "")), "Chữ để trống");
 const i18n = read("lib/i18n/portal/aplus.ts");
 for (const id of T.APLUS_TEMPLATE_IDS) assert.equal((i18n.match(new RegExp(`${id}: \\{ name:`, "g")) ?? []).length, 2, `Gợi ý mẫu ${id} có cả hai ngôn ngữ`);
-// Dịch khi lưu, một nút Lưu chung với sản phẩm, trang người mua dựng đủ 10 loại khối.
+// Dịch khi lưu, trang soạn A+ riêng có nút Lưu của mình, trang người mua dựng đủ 10 loại khối.
 assert.match(action, /prepareAplusForSave\(modules, ctx/);
 assert.match(read("lib/products/aplus-server.ts"), /validateAplusModules\(raw, ctx, \{ draft: true \}\)[\s\S]*translateAplusModules[\s\S]*validateAplusModules\(modules, ctx\)/);
 assert.match(read("lib/ai/translate-aplus.ts"), /Keep every number, unit/);
 assert.match(read("lib/ai/translate-aplus.ts"), /Keep formatting markers exactly/);
 assert.match(create, /prepareAplusForSave\(pending\.value\.aplus/, "Sản phẩm mới: dịch A+ trước khi tạo");
-assert.match(editor, /aplusRef\.current\.save\(\)/, "Lưu sản phẩm là lưu luôn A+");
+assert.match(editor, /async function openAplusForNew\(\)[\s\S]{0,200}await persist\(\)[\s\S]{0,300}\/aplus`\)/, "Sản phẩm mới: lưu nháp rồi mở trang soạn A+");
 // Chữ có định dạng: đậm, nghiêng, đậm nghiêng, gạch đầu dòng, dấu sao thật; ghi lại không đổi nội dung.
 {
   const rich = "Hôm nay **đẹp** và *mát*, ***rất*** tốt\n\n- **Mục** một\n- mục *hai*\n\nGiá 5\\* sao";

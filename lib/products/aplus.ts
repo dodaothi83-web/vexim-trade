@@ -440,6 +440,15 @@ export function aplusCompleteness(modules: readonly AplusModule[]): Array<{ key:
   ];
 }
 
+/**
+ * Trang sản phẩm hiện nội dung A+ hay mô tả chữ: nhà cung cấp chọn "Nội dung A+", gói còn quyền và
+ * có khối A+. Chưa có cột chọn (CSDL chưa cập nhật) thì giữ cách cũ: có A+ là hiện A+.
+ */
+export function productShowsAplus(product: { content_mode?: string | null }, modules: readonly AplusModule[], richContent: boolean): boolean {
+  if (!richContent || !modules.length) return false;
+  return product.content_mode == null ? true : product.content_mode === "aplus";
+}
+
 /** Cùng điều kiện với ảnh sản phẩm: bản nháp, bản cần sửa, hoặc sản phẩm nhà cung cấp tự đăng đang hiện/tạm ẩn. */
 export function canEditAplus(product: { supplier_review_status?: string | null; supplier_originated?: boolean | null }): boolean {
   return product.supplier_review_status === "draft" || product.supplier_review_status === "changes_requested" ||

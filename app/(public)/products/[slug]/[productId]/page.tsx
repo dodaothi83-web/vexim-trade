@@ -28,7 +28,7 @@ import { cardTitleGrades, PublicProductCard } from "@/components/public-product-
 import { ProductDescription } from "@/components/public/product-description";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { ProductAplus } from "@/components/public/product-aplus";
-import { aplusVideoEmbedUrl, aplusVideoThumbnailUrl, isoDuration, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
+import { aplusVideoEmbedUrl, aplusVideoThumbnailUrl, isoDuration, productShowsAplus, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { QuantityPriceTable } from "@/components/public/quantity-price-table";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
@@ -190,8 +190,10 @@ export default async function PublicProductDetail({ params }: Props) {
   const textDetail = p.description_detail_i18n?.en?.trim() || p.description_detail;
   // Nội dung A+ chỉ hiện khi gói nhà cung cấp còn quyền; gói hết hạn thì nội dung giữ nhưng ẩn.
   const planRules = supplier ? supplierPlanRules(supplier, new Date(), await readPlanCatalog()) : null;
-  const aplus = planRules?.richContent
+  const aplusAll = planRules?.richContent
     ? readAplusModules(p.aplus_content, { supplierId: p.supplier_id, productId: p.id }) : [];
+  // Nhà cung cấp chọn "Nội dung cơ bản" thì trang hiện mô tả chữ, A+ vẫn được giữ để bật lại.
+  const aplus = productShowsAplus(p, aplusAll, !!planRules?.richContent) ? aplusAll : [];
   // Video sản phẩm (Premium/Pro) nằm cuối dãy ảnh; gói hết quyền thì video giữ nhưng ẩn.
   const galleryVideo = planRules?.video ? readGalleryVideo(p.gallery_video) : null;
   // Nội dung A+ thay cho mô tả bằng chữ; chưa có A+ hoặc gói hết hạn thì hiện mô tả chữ.
