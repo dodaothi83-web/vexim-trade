@@ -58,7 +58,7 @@ export const SERVICE_TITLES: Record<string, { vi: string; en: string }> = {
     en: "US FDA regulatory compliance",
   },
   plan_upgrade: {
-    vi: "Nâng gói Premium/Pro",
+    vi: "Gói thành viên",
     en: "Premium or Pro plan upgrade",
   },
 };

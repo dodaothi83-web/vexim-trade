@@ -10,7 +10,7 @@ import type { SupplierServiceRequest } from "@/lib/types";
 import { PlanCatalogEditor } from "./catalog-editor";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Gói nhà cung cấp", robots: { index: false, follow: false } };
+export const metadata = { title: "Gói thành viên", robots: { index: false, follow: false } };
 
 const DAY = 86_400_000;
 const vnDate = (value: string) => new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
@@ -70,7 +70,7 @@ export default async function SupplierPlansPage() {
 
   const kpi = "rounded-xl border border-ink-200 bg-white p-4 shadow-sm";
   return <>
-    <PageHeader title="Gói nhà cung cấp" sub="Báo cáo tổng quan và nội dung, giá, giới hạn của các gói Basic, Premium, Pro." />
+    <PageHeader title="Gói thành viên" sub="Tổng quan, nội dung, giá và giới hạn của gói thành viên Basic, Premium, Pro." />
 
     <section aria-label="Tổng quan" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <div className={kpi}>
