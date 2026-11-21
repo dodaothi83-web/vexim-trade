@@ -104,9 +104,20 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       .catch((error) => { console.error("[crm] đếm chat người mua lỗi", error); return 0; })
     : 0;
 
+  // Yêu cầu nhà cung cấp gửi mà Vexim chưa nhận xử lý (trạng thái "submitted").
+  // Nâng gói tách riêng vì đó là doanh thu, cần thấy ngay ở menu Gói nhà cung cấp.
+  const newServiceRequests = canSuppliers
+    ? await store.listSupplierServiceRequests({ status: "submitted", limit: 500 })
+      .catch((error) => { console.error("[crm] đếm yêu cầu dịch vụ lỗi", error); return []; })
+    : [];
+  const pendingPlanUpgrades = newServiceRequests.filter((r) => r.service_key === "plan_upgrade").length;
+  const pendingServiceRequests = newServiceRequests.length - pendingPlanUpgrades;
+
   // Chuông thông báo của CRM: cùng nguồn số với huy hiệu sidebar, nên hai nơi
   // không bao giờ lệch nhau. Chỉ đưa vào chuông hàng đang có việc.
   const queues = [
+    { href: "/crm/suppliers?plan=upgrade", label: "Nhà cung cấp xin nâng gói", count: pendingPlanUpgrades },
+    { href: "/crm/service-requests", label: "Yêu cầu dịch vụ mới", count: pendingServiceRequests },
     { href: "/crm/sourcing", label: "Yêu cầu tìm nguồn chờ tiếp nhận", count: pendingSourcing ?? 0 },
     { href: "/crm/support", label: "Người mua đang chờ trả lời chat", count: pendingSupport },
     { href: "/crm/suppliers", label: "Nhà cung cấp chờ xác nhận quyền cổng", count: pendingSuppliers },
@@ -151,6 +162,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         pendingSponsoredRequests={pendingSponsoredRequests}
         pendingSourcing={pendingSourcing}
         pendingSupport={pendingSupport}
+        pendingPlanUpgrades={pendingPlanUpgrades}
+        pendingServiceRequests={pendingServiceRequests}
       />
       <div className="lg:pl-60">
         <CrmTopbar queues={queues} />
