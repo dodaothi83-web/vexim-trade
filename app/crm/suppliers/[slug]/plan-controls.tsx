@@ -22,7 +22,7 @@ function addMonths(day: string, months: number): string {
 
 /**
  * Chọn gói cho nhà cung cấp. Gói trả phí chọn thời hạn theo bảng giá (ngày hết hạn tự tính,
- * gia hạn cùng gói thì nối tiếp hạn cũ) hoặc tự chọn ngày, kèm số tiền ghi nhận cho báo cáo.
+ * gia hạn cùng gói thì nối tiếp hạn cũ) hoặc tự chọn ngày. Số tiền do kế toán tính ngoài hệ thống.
  */
 export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, expiresOn, expired, productCount, canManage, catalog, request = null }: {
   supplierId: string;
@@ -42,7 +42,6 @@ export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, ex
   const [plan, setPlan] = useState<SupplierPlan>(initialPlan);
   const [term, setTerm] = useState<string>(() => String(catalog[initialPlan].prices[0]?.months ?? "custom"));
   const [date, setDate] = useState(expiresOn);
-  const [amount, setAmount] = useState<string>(() => String(catalog[initialPlan].prices[0]?.price_vnd ?? ""));
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const limitLabel = (value: SupplierPlan) => catalog[value].maxProducts === null ? "Không giới hạn" : `${catalog[value].maxProducts} sản phẩm`;
@@ -60,12 +59,9 @@ export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, ex
     setPlan(value);
     const first = catalog[value].prices[0];
     setTerm(first ? String(first.months) : "custom");
-    setAmount(first ? String(first.price_vnd) : "");
   }
   function chooseTerm(value: string) {
     setTerm(value);
-    const price = prices.find((p) => String(p.months) === value);
-    setAmount(price ? String(price.price_vnd) : "");
   }
 
   async function save() {
@@ -77,7 +73,6 @@ export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, ex
     form.set("expires_on", plan === "basic" ? "" : computedDate);
     if (plan !== "basic") {
       if (months) form.set("months", String(months));
-      form.set("amount_vnd", amount.replace(/[^\d]/g, ""));
     }
     const response = await setSupplierPlanAction(form);
     setResult(response);
@@ -116,10 +111,6 @@ export function SupplierPlanControls({ supplierId, storedPlan, effectivePlan, ex
             </label>
             : <p className="text-xs text-ink-600">Hết hạn ngày <strong className="text-ink-900">{computedDate.split("-").reverse().join("/")}</strong>
               {start !== today && " (nối tiếp hạn hiện tại)"}</p>}
-          <label className="block text-xs font-medium text-ink-700">Số tiền ghi nhận (₫)
-            <input inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0 nếu dùng thử hoặc tặng" className="input mt-1 w-full tabular-nums" />
-            <span className="mt-1 block font-normal text-ink-500">Dùng cho báo cáo doanh thu ước tính. Để 0 khi dùng thử hoặc tặng.</span>
-          </label>
         </>}
         {overNewLimit && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">

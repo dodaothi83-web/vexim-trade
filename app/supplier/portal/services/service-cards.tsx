@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock3, Crown, Globe2, Megaphone, Send, ShieldCheck } from "lucide-react";
+import { Check, CheckCircle2, Clock3, Crown, Globe2, Megaphone, Send, ShieldCheck } from "lucide-react";
 
 import { fill } from "@/lib/i18n/format";
 import type { ServicesMessages } from "@/lib/i18n/portal/services";
@@ -17,12 +17,14 @@ const ICONS: Record<SupplierServiceKeyValue, typeof Globe2> = {
   plan_upgrade: Crown,
 };
 
-export function ServiceCards({ services, openKeys, email, copy }: {
+export function ServiceCards({ services, openKeys, email, copy, planLimits }: {
   services: readonly SupplierServiceKeyValue[];
   /** Dịch vụ đang có yêu cầu chưa đóng: nút gửi khoá lại để không gửi trùng. */
   openKeys: SupplierServiceKeyValue[];
   email: string;
   copy: ServicesMessages;
+  /** Số sản phẩm tối đa của Premium/Pro theo bảng gói CRM; null là không giới hạn. */
+  planLimits: { premium: number | null; pro: number | null };
 }) {
   const [active, setActive] = useState<SupplierServiceKeyValue | null>(null);
   const open = new Set(openKeys);
@@ -30,19 +32,20 @@ export function ServiceCards({ services, openKeys, email, copy }: {
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {services.map((key) => (
         <ServiceCard key={key} serviceKey={key} expanded={active === key} hasOpen={open.has(key)}
-          onToggle={(next) => setActive(next ? key : null)} email={email} copy={copy} />
+          onToggle={(next) => setActive(next ? key : null)} email={email} copy={copy} planLimits={planLimits} />
       ))}
     </div>
   );
 }
 
-function ServiceCard({ serviceKey, expanded, hasOpen, onToggle, email, copy }: {
+function ServiceCard({ serviceKey, expanded, hasOpen, onToggle, email, copy, planLimits }: {
   serviceKey: SupplierServiceKeyValue;
   expanded: boolean;
   hasOpen: boolean;
   onToggle: (open: boolean) => void;
   email: string;
   copy: ServicesMessages;
+  planLimits: { premium: number | null; pro: number | null };
 }) {
   const [state, action, pending] = useActionState<ServiceRequestResult, FormData>(submitServiceRequestAction, null);
   const router = useRouter();
@@ -51,6 +54,9 @@ function ServiceCard({ serviceKey, expanded, hasOpen, onToggle, email, copy }: {
   const titleId = useId();
   const service = copy.services[serviceKey];
   const Icon = ICONS[serviceKey];
+  const isPlan = serviceKey === "plan_upgrade";
+  const limit = (value: number | null) => value === null ? copy.unlimited : String(value);
+  const points = service.points.map((point) => fill(point, { premium: limit(planLimits.premium), pro: limit(planLimits.pro) }));
 
   // onToggle là hàm mới mỗi lần cha render; giữ qua ref để hiệu ứng chỉ chạy khi có kết quả mới.
   const toggleRef = useRef(onToggle);
@@ -63,11 +69,17 @@ function ServiceCard({ serviceKey, expanded, hasOpen, onToggle, email, copy }: {
   }, [state, router]);
 
   return (
-    <section aria-labelledby={titleId} className="flex flex-col rounded-xl border border-ink-200 bg-white p-5 shadow-sm">
-      <span className="flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><Icon className="size-5" aria-hidden="true" /></span>
+    <section aria-labelledby={titleId}
+      className={`flex flex-col rounded-xl border bg-white p-5 shadow-sm ${isPlan ? "border-amber-300 ring-1 ring-amber-200" : "border-ink-200"}`}>
+      <span className={`flex size-10 items-center justify-center rounded-xl ${isPlan ? "bg-amber-50 text-amber-700" : "bg-brand-50 text-brand-700"}`}><Icon className="size-5" aria-hidden="true" /></span>
       <h2 id={titleId} className="mt-4 text-[15px] font-bold text-ink-900">{service.title}</h2>
-      <p className="mt-1.5 text-sm leading-6 text-ink-600">{service.body}</p>
-      <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-xs leading-5 text-ink-700">
+      <p className="mt-1.5 text-sm font-semibold leading-6 text-brand-800">{service.tagline}</p>
+      <ul className="mt-3 space-y-2">
+        {points.map((point) => <li key={point} className="flex gap-2 text-sm leading-5 text-ink-700">
+          <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />{point}
+        </li>)}
+      </ul>
+      <p className="mt-4 rounded-lg bg-ink-50 px-3 py-2 text-xs leading-5 text-ink-700">
         <strong className="font-semibold text-ink-900">{copy.fitLabel}:</strong> {service.fit}
       </p>
 
@@ -99,7 +111,7 @@ function ServiceCard({ serviceKey, expanded, hasOpen, onToggle, email, copy }: {
         ) : (
           <button type="button" onClick={() => onToggle(true)} aria-expanded={false}
             className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3.5 py-2 text-sm font-semibold text-brand-800 hover:border-brand-400">
-            {copy.request}
+            {isPlan ? copy.requestPlan : copy.request}
           </button>
         )}
       </div>

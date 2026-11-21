@@ -7,6 +7,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { SUPPLIER_SERVICE_KEYS, type SupplierServiceKeyValue } from "@/lib/supplier-services";
 import type { SupplierServiceRequest } from "@/lib/types";
+import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { ServiceCards } from "./service-cards";
 
 export const dynamic = "force-dynamic";
@@ -44,11 +45,13 @@ export default async function SupplierServicesPage() {
   }
   const ownRequests = requests.filter((request) => request.supplier_id === supplier.id);
   const openKeys = [...new Set(ownRequests.filter((r) => r.status === "submitted").map((r) => r.service_key))] as SupplierServiceKeyValue[];
+  const planCatalog = await readPlanCatalog();
   const date = (value: string) => new Intl.DateTimeFormat(intl, { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
 
   return <>
     <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
-    <ServiceCards services={SUPPLIER_SERVICE_KEYS} openKeys={openKeys} email={user.email} copy={copy} />
+    <ServiceCards services={SUPPLIER_SERVICE_KEYS} openKeys={openKeys} email={user.email} copy={copy}
+      planLimits={{ premium: planCatalog.premium.maxProducts, pro: planCatalog.pro.maxProducts }} />
 
     <section aria-labelledby="my-service-requests" className="mt-8 rounded-xl border border-ink-200 bg-white shadow-sm">
       <h2 id="my-service-requests" className="border-b border-ink-100 px-5 py-4 text-[15px] font-bold text-ink-900 sm:px-6">{copy.mine.title}</h2>
