@@ -1,15 +1,15 @@
-import { Activity, Eye, MessageSquareQuote } from "lucide-react";
+import { Activity, MessageSquareQuote, Percent } from "lucide-react";
 
 import { fill } from "@/lib/i18n/format";
 import type { TrafficMessages } from "@/lib/i18n/portal/traffic";
 import type { SupplierPerformance } from "@/lib/supplier-portal/performance";
-import { percentChange } from "@/lib/supplier-portal/traffic-report";
+import { conversionRate, percentChange } from "@/lib/supplier-portal/traffic-report";
 
 type Report = { total: number; profile: number; product: number };
 
 /**
  * Ba số chính của trang "Lượt xem gian hàng": lượt xem (tăng/giảm so với kỳ trước, phần đến từ email
- * marketing của Vexim), yêu cầu báo giá nhận được, và chia hồ sơ / sản phẩm.
+ * marketing của Vexim), yêu cầu báo giá nhận được, và tỷ lệ chuyển đổi (yêu cầu báo giá trên lượt xem).
  */
 export function TrafficSummary({ report, performance, copy, days, intl }: { report: Report; performance: SupplierPerformance | null; copy: TrafficMessages; days: number; intl: string }) {
   const format = (n: number) => new Intl.NumberFormat(intl).format(n);
@@ -23,6 +23,16 @@ export function TrafficSummary({ report, performance, copy, days, intl }: { repo
   const icon = (Icon: typeof Activity, tone: string) => <span className={`inline-flex size-10 items-center justify-center rounded-xl ${tone}`}><Icon className="size-5" aria-hidden="true" /></span>;
   const views = performance ? change(performance.views.current, performance.views.previous) : null;
   const rfqs = performance ? change(performance.rfqs.current, performance.rfqs.previous) : null;
+  // Tỷ lệ chuyển đổi: yêu cầu báo giá trên lượt xem; so với kỳ trước theo điểm phần trăm.
+  const viewCount = performance?.views.current ?? report.total;
+  const rfqCount = performance?.rfqs.current ?? 0;
+  const rate = conversionRate(rfqCount, viewCount);
+  const before = performance ? conversionRate(performance.rfqs.previous, performance.views.previous) : null;
+  const pct = (n: number) => new Intl.NumberFormat(intl, { maximumFractionDigits: 1 }).format(n);
+  const diff = rate !== null && before !== null ? Math.round((rate - before) * 10) / 10 : null;
+  const rateDelta = diff === null || diff === 0 ? null : diff > 0
+    ? { text: `▲ ${fill(copy.kpi.conversionUp, { pts: pct(diff), days })}`, tone: "text-emerald-700" }
+    : { text: `▼ ${fill(copy.kpi.conversionDown, { pts: pct(Math.abs(diff)), days })}`, tone: "text-rose-700" };
   return <div className="mt-6 grid gap-4 sm:grid-cols-3">
     <div className={card}>
       {icon(Activity, "bg-brand-50 text-brand-700")}
@@ -38,11 +48,11 @@ export function TrafficSummary({ report, performance, copy, days, intl }: { repo
       {rfqs && <p className={`mt-2 text-xs font-semibold ${rfqs.tone}`}>{rfqs.text}</p>}
     </div>
     <div className={card}>
-      {icon(Eye, "bg-sky-50 text-sky-700")}
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <div><p className="text-3xl font-black tabular-nums text-ink-900">{format(report.profile)}</p><p className="mt-1 text-sm font-medium text-ink-600">{copy.kpi.profile}</p></div>
-        <div><p className="text-3xl font-black tabular-nums text-ink-900">{format(report.product)}</p><p className="mt-1 text-sm font-medium text-ink-600">{copy.kpi.product}</p></div>
-      </div>
+      {icon(Percent, "bg-sky-50 text-sky-700")}
+      <p className="mt-5 text-3xl font-black tabular-nums text-ink-900">{rate === null ? "—" : `${pct(rate)}%`}</p>
+      <p className="mt-1 text-sm font-medium text-ink-600">{copy.kpi.conversion}</p>
+      <p className="mt-2 text-xs text-ink-600">{rate === null ? copy.kpi.conversionEmpty : fill(copy.kpi.conversionDetail, { rfqs: format(rfqCount), views: format(viewCount) })}</p>
+      {rateDelta && <p className={`mt-1 text-xs font-semibold ${rateDelta.tone}`}>{rateDelta.text}</p>}
     </div>
   </div>;
 }
