@@ -12,6 +12,8 @@ export type DigestKind = "products" | "brief";
 export type DigestProduct = {
   id: string; name: string; href: string; imagePath: string | null; categoryId: string; supplierId: string; pro: boolean;
   moq: string; leadTime: string; price: string | null; createdAt: string; updatedAt: string;
+  /** Dùng cho thư theo hành vi (so sánh sản phẩm đã lưu). */
+  certificates?: string[]; imageCount?: number;
 };
 export type DigestSupplier = { id: string; name: string; href: string; location: string; type: string; products: string; checks: string[]; categoryIds: string[] };
 export type DigestPost = { id: string; title: string; href: string; excerpt: string; imageUrl: string | null; publishedAt: string; categoryIds: string[] };
@@ -114,7 +116,7 @@ export function seasonWatch(categories: string[], all: DigestCategory[], now: Da
       const active = inWindow(month, w.start_month, w.end_month);
       const starting = !active && w.start_month === next;
       if (!active && !starting) continue;
-      out.push({ categoryId: c.id, categoryName: c.name, label: w.label, months: `${MONTHS[w.start_month - 1]}–${MONTHS[w.end_month - 1]}`, regions: w.regions ?? [], now: active });
+      out.push({ categoryId: c.id, categoryName: c.name, label: w.label, months: w.start_month === w.end_month ? MONTHS[w.start_month - 1] : `${MONTHS[w.start_month - 1]} to ${MONTHS[w.end_month - 1]}`, regions: w.regions ?? [], now: active });
     }
   }
   return out.slice(0, 3);

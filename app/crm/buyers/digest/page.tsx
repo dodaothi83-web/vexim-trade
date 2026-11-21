@@ -44,6 +44,8 @@ export default async function BuyerDigestPage({ searchParams }: { searchParams: 
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-ink-900">{paused ? "Đang tạm dừng" : "Đang tự gửi"}</p>
         <p className="mt-0.5 text-xs text-ink-500">Thứ Ba: thư sản phẩm. Thứ Sáu: thư thị trường (người mua chọn 2 thư/tuần). Giờ Việt Nam.</p>
+        <p className="mt-0.5 text-xs text-ink-500">Hằng ngày: thư theo hành vi, gộp các cập nhật về sản phẩm đã lưu, nhà cung cấp, RFQ và mùa vụ.</p>
+        <p className="mt-0.5 text-xs text-ink-500">Mỗi người mua nhận tối đa 1 thư/ngày và 4 thư/tuần, tính cả thư thứ Ba và thứ Sáu.</p>
       </div>
       <PauseButton paused={paused} canManage={hasPermission(session.role, "buyers.manage")} />
     </section>

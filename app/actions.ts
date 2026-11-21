@@ -829,7 +829,7 @@ async function ensureCompanyScan(options: {
  */
 function statedNeedLine(buyer: Buyer | null): string | null {
   if (!buyer) return null;
-  const product = toEnglishProduct([buyer.product, buyer.spec].filter(Boolean).join(" — "));
+  const product = toEnglishProduct([buyer.product, buyer.spec].filter(Boolean).join(", "));
   if (!product) return null;
   const quantity = (buyer.quantity ?? "").trim();
   const asciiOnly = Boolean(quantity) && !/[^\x00-\x7F]/.test(quantity);
@@ -977,7 +977,7 @@ export async function generateFirstTouchDraftAction(input: {
   }
 
   // ---- 2. Dựng thư theo khung cố định ----
-  const productInterest = [str(buyer?.product), str(prospect?.target_product)].filter(Boolean).join(" · ") || null;
+  const productInterest = [str(buyer?.product), str(prospect?.target_product)].filter(Boolean).join(", ") || null;
   const productsText = joinProducts(scan.products) || null;
   const group = scan.group || toEnglishProduct(productInterest) || null;
   const avoidSubjectForm = await lastBuyerSubjectForm({
@@ -2612,14 +2612,14 @@ export async function submitQuoteLeadAction(input: {
           : `Người mua mới từ website: ${input.company.trim()}`;
         const body =
           `<p><strong>${escapeHtml(title)}</strong></p>` +
-          `<p>Người gửi: ${escapeHtml(input.name.trim() || "—")} &lt;${escapeHtml(email)}&gt;<br/>` +
+          `<p>Người gửi: ${escapeHtml(input.name.trim() || "Không ghi")} &lt;${escapeHtml(email)}&gt;<br/>` +
           `Công ty: ${escapeHtml(input.company.trim())}<br/>` +
-          `Quốc gia: ${escapeHtml(input.country.trim() || "—")}<br/>` +
+          `Quốc gia: ${escapeHtml(input.country.trim() || "Không ghi")}<br/>` +
           `Trang nguồn: ${escapeHtml(leadSource)}` +
           `${campaign ? `<br/>Campaign: ${escapeHtml(campaign)}` : ""}</p>` +
           `<p>${requestLines.map((l) => escapeHtml(l)).join("<br/>")}</p>` +
           `<p>${escapeHtml(input.message.trim()).replace(/\n/g, "<br/>")}</p>` +
-          `<p>Vào CRM &rarr; Người mua để xử lý.</p>`;
+          `<p>Mở CRM, mục Người mua, để xử lý.</p>`;
         await transport({
           to: recipients,
           subject: title,
@@ -2634,16 +2634,16 @@ export async function submitQuoteLeadAction(input: {
     // Mail cảm ơn best-effort (chế độ demo / lỗi Resend không làm mất lead)
     try {
       const html = wrapPlainEmail({
-        title: "Thank you for your enquiry – Vexim Trade",
+        title: "Thank you for your enquiry",
         body:
           `<p>Dear ${escapeHtml(input.name.trim() || input.company.trim())},</p>` +
           `<p>Thank you for contacting Vexim Trade. Your enquiry has reached our export desk, ` +
           `and you will have a written reply by the start of your next business day.</p>` +
-          `<p>Best regards,<br/>Export Department &middot; Vexim Trade</p>`,
+          `<p>Best regards,<br/>Export Department<br/>Vexim Trade</p>`,
       });
       await transport({
         to: [email],
-        subject: "Thank you for your enquiry – Vexim Trade",
+        subject: "Thank you for your enquiry",
         html,
         text: "Thank you for contacting Vexim Trade. Our export desk will reply by the start of your next business day.",
       });

@@ -25,6 +25,7 @@ import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
 import { cleanupPendingUploads } from "@/lib/supplier-portal/pending-media";
 import { runIntroductionMail } from "@/lib/buyer/introductions-server";
 import { runBuyerDigest } from "@/lib/buyer/digest-server";
+import { runBuyerAlerts } from "@/lib/buyer/alerts-server";
 import { runSupplierWeeklyReport } from "@/lib/supplier-portal/weekly-report";
 import { runPlanExpiry } from "@/lib/supplier-portal/plan-expiry-server";
 
@@ -170,6 +171,15 @@ export async function GET(req: Request) {
     console.error("[cron] buyer digest failed", err);
   }
 
+  // Thư theo hành vi của người mua: chạy sau thư hằng tuần để giới hạn 1 thư/ngày tính cả thư đó.
+  let buyerAlerts: Awaited<ReturnType<typeof runBuyerAlerts>> | { error: string };
+  try {
+    buyerAlerts = await runBuyerAlerts();
+  } catch (err) {
+    buyerAlerts = { error: err instanceof Error ? err.message : String(err) };
+    console.error("[cron] buyer alerts failed", err);
+  }
+
   // Email báo cáo hằng tuần cho doanh nghiệp (thứ Hai): lượt xem, RFQ, quốc gia.
   let supplierWeeklyReport: Awaited<ReturnType<typeof runSupplierWeeklyReport>> | { error: string };
   try {
@@ -200,6 +210,7 @@ export async function GET(req: Request) {
     supplierReminderError: supplierReminderError ?? undefined,
     buyerIntroductions,
     buyerDigest,
+    buyerAlerts,
     supplierWeeklyReport,
     planExpiry,
     pendingMedia,
