@@ -61,6 +61,7 @@ export async function savePlanCatalogAction(_previous: PlanCatalogResult, form: 
   await getStore().addAuditLog({ actor_id: session.uid, actor_email: session.email, entity: "supplier_plan", entity_id: plan,
     action: "supplier_plan.catalog_updated", before: null, after: row }).catch((e) => console.error("[plan-catalog] audit", e));
   revalidatePath("/crm/plans");
+  revalidatePath("/crm/plans/catalog");
   revalidatePath("/supplier/portal", "layout");
   return { ok: true, message: `Đã lưu gói ${name}.` };
 }
