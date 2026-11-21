@@ -25,6 +25,7 @@ import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
 import { cleanupPendingUploads } from "@/lib/supplier-portal/pending-media";
 import { runIntroductionMail } from "@/lib/buyer/introductions-server";
 import { runBuyerDigest } from "@/lib/buyer/digest-server";
+import { runSupplierWeeklyReport } from "@/lib/supplier-portal/weekly-report";
 
 export const dynamic = "force-dynamic";
 
@@ -168,6 +169,15 @@ export async function GET(req: Request) {
     console.error("[cron] buyer digest failed", err);
   }
 
+  // Email báo cáo hằng tuần cho doanh nghiệp (thứ Hai): lượt xem, RFQ, quốc gia.
+  let supplierWeeklyReport: Awaited<ReturnType<typeof runSupplierWeeklyReport>> | { error: string };
+  try {
+    supplierWeeklyReport = await runSupplierWeeklyReport();
+  } catch (err) {
+    supplierWeeklyReport = { error: err instanceof Error ? err.message : String(err) };
+    console.error("[cron] supplier weekly report failed", err);
+  }
+
   return NextResponse.json({
     ok: errors.length === 0,
     provider: "cron-job.org (external)",
@@ -180,6 +190,7 @@ export async function GET(req: Request) {
     supplierReminderError: supplierReminderError ?? undefined,
     buyerIntroductions,
     buyerDigest,
+    supplierWeeklyReport,
     pendingMedia,
     errors: errors.length ? errors : undefined,
   }, { status: errors.length ? 503 : 200 });
