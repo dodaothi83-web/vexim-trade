@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { prepareVideoUpload } from "@/lib/media/video-quota";
-import { randomUUID } from "node:crypto";
 
 import { getPortalMessages } from "@/lib/i18n/server";
 import { createStreamDirectUpload, streamConfig } from "@/lib/media/cloudflare-stream";
-import { getObject, putObject } from "@/lib/media/storage";
-import { extensionFor, validateUpload } from "@/lib/media/validate";
-import { isAplusImagePath } from "@/lib/products/aplus";
+import { getObject } from "@/lib/media/storage";
+import { validateUpload } from "@/lib/media/validate";
+import { isAplusImageFile } from "@/lib/products/aplus";
+import { storeAplusImage } from "@/lib/products/aplus-image-store";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
-import { countRecentPendingUploads, pendingImagePath, PENDING_PRODUCT_ID, PENDING_UPLOADS_PER_DAY, registerPendingUpload } from "@/lib/supplier-portal/pending-media";
+import { countRecentPendingUploads, pendingImageFolder, PENDING_PRODUCT_ID, PENDING_UPLOADS_PER_DAY, registerPendingUpload } from "@/lib/supplier-portal/pending-media";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 
@@ -57,15 +57,16 @@ export async function POST(request: Request) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const check = validateUpload("image", bytes, file.name);
   if (!check.ok || !check.mime || !IMAGE_MIME.has(check.mime)) return fail(e.image);
-  const path = pendingImagePath(access.supplier.id, `${randomUUID()}.${extensionFor(check.mime)}`);
+  // WebP ≤1600px + bản nhỏ 640px, cùng cách xử lý với ảnh sản phẩm.
+  const stored = await storeAplusImage(pendingImageFolder(access.supplier.id), bytes);
+  if (!stored.ok) return stored.reason === "image" ? fail(e.image) : fail(e.upload, 500);
   try {
-    await putObject(path, bytes, check.mime);
-    await registerPendingUpload(access.supplier.id, "image", path);
+    await registerPendingUpload(access.supplier.id, "image", stored.path);
   } catch (error) {
     console.error("[pending-media] image upload", error);
     return fail(e.upload, 500);
   }
-  return NextResponse.json({ ok: true, path });
+  return NextResponse.json({ ok: true, path: stored.path });
 }
 
 /** Xem trước ảnh chờ cho chính nhà cung cấp đã tải lên. */
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
   const access = await supplierPortalAccess().catch(() => null);
   if (!access) return new NextResponse("Not found", { status: 404 });
   const path = new URL(request.url).searchParams.get("path") ?? "";
-  if (!isAplusImagePath(path, access.supplier.id, PENDING_PRODUCT_ID)) return new NextResponse("Not found", { status: 404 });
+  if (!isAplusImageFile(path, access.supplier.id, PENDING_PRODUCT_ID)) return new NextResponse("Not found", { status: 404 });
   const object = await getObject(path).catch(() => null);
   const mime = MIME[path.split(".").pop()?.toLowerCase() ?? ""];
   if (!object || !mime) return new NextResponse("Not found", { status: 404 });

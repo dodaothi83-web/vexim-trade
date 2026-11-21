@@ -39,6 +39,8 @@ export type AplusEditorHandle = {
 const RATIO: Partial<Record<AplusModuleType, { css: string; label: string }>> = {
   hero: { css: "97 / 36", label: "97:36" }, packing: { css: "4 / 3", label: "4:3" }, image_text: { css: "4 / 3", label: "4:3" },
   gallery: { css: "1 / 1", label: "1:1" }, steps: { css: "1 / 1", label: "1:1" },
+  // Ảnh đơn hiện trong khung 16:9 trên trang người mua (giữ chỗ trước, không nhảy trang).
+  image: { css: "16 / 9", label: "16:9" },
 };
 
 /**

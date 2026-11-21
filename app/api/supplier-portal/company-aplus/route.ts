@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prepareVideoUpload } from "@/lib/media/video-quota";
-import { randomUUID } from "node:crypto";
 
 import { getPortalMessages } from "@/lib/i18n/server";
 import { createStreamDirectUpload, streamConfig } from "@/lib/media/cloudflare-stream";
-import { getObject, putObject } from "@/lib/media/storage";
-import { extensionFor, validateUpload } from "@/lib/media/validate";
-import { COMPANY_APLUS_ID, isAplusImagePath } from "@/lib/products/aplus";
+import { getObject } from "@/lib/media/storage";
+import { validateUpload } from "@/lib/media/validate";
+import { COMPANY_APLUS_ID, isAplusImageFile } from "@/lib/products/aplus";
+import { storeAplusImage } from "@/lib/products/aplus-image-store";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
@@ -54,14 +54,10 @@ export async function POST(request: Request) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const check = validateUpload("image", bytes, file.name);
   if (!check.ok || !check.mime || !IMAGE_MIME.has(check.mime)) return fail(e.image);
-  const path = `aplus/${access.supplier.id}/${COMPANY_APLUS_ID}/${randomUUID()}.${extensionFor(check.mime)}`;
-  try {
-    await putObject(path, bytes, check.mime);
-  } catch (error) {
-    console.error("[company-aplus] image upload", error);
-    return fail(e.upload, 500);
-  }
-  return NextResponse.json({ ok: true, path });
+  // WebP ≤1600px + bản nhỏ 640px, cùng cách xử lý với ảnh sản phẩm.
+  const stored = await storeAplusImage(`aplus/${access.supplier.id}/${COMPANY_APLUS_ID}`, bytes);
+  if (!stored.ok) return stored.reason === "image" ? fail(e.image) : fail(e.upload, 500);
+  return NextResponse.json({ ok: true, path: stored.path });
 }
 
 /** Xem trước ảnh A+ doanh nghiệp cho chính nhà cung cấp, kể cả khi chưa lưu. */
@@ -69,7 +65,7 @@ export async function GET(request: Request) {
   const access = await supplierPortalAccess().catch(() => null);
   if (!access) return new NextResponse("Not found", { status: 404 });
   const path = new URL(request.url).searchParams.get("path") ?? "";
-  if (!isAplusImagePath(path, access.supplier.id, COMPANY_APLUS_ID)) return new NextResponse("Not found", { status: 404 });
+  if (!isAplusImageFile(path, access.supplier.id, COMPANY_APLUS_ID)) return new NextResponse("Not found", { status: 404 });
   const object = await getObject(path).catch(() => null);
   const mime = MIME[path.split(".").pop()?.toLowerCase() ?? ""];
   if (!object || !mime) return new NextResponse("Not found", { status: 404 });

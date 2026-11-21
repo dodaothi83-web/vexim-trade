@@ -8,7 +8,8 @@ import { aplusTranslationConfigured, translateAplusModules } from "@/lib/ai/tran
 import { fill } from "@/lib/i18n/format";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { deleteStreamVideo } from "@/lib/media/cloudflare-stream";
-import { deleteObject, getObject, putObject } from "@/lib/media/storage";
+import { getObject } from "@/lib/media/storage";
+import { deleteAplusImages, storeAplusImage } from "@/lib/products/aplus-image-store";
 import {
   APLUS_MAX_MODULES, APLUS_MAX_VIDEOS, aplusVideoLimitExceeded, aplusImagePaths, aplusVideoUids, COMPANY_APLUS_ID, readAplusModules, validateAplusModules,
   type AplusModule, type AplusProblem,
@@ -62,7 +63,7 @@ export async function saveCompanyAplusAction(modules: unknown, retranslate: stri
     await access.store.updateSupplier(access.supplier.id, { company_aplus: verified.modules });
     // Ảnh, video bị bỏ khỏi nội dung thì xoá (video chạy sau khi trả lời, không làm chậm nút Lưu).
     const kept = new Set(aplusImagePaths(verified.modules));
-    await Promise.all(aplusImagePaths(before).filter((path) => !kept.has(path)).map((path) => deleteObject(path).catch(() => null)));
+    await deleteAplusImages(aplusImagePaths(before).filter((path) => !kept.has(path)));
     const keptVideos = new Set(aplusVideoUids(verified.modules));
     const dropped = aplusVideoUids(before).filter((uid) => !keptVideos.has(uid));
     if (dropped.length) after(() => Promise.all(dropped.map(deleteStreamVideo)));
@@ -113,9 +114,10 @@ export async function migrateShowcaseToCompanyAplusAction(): Promise<CompanyAplu
       const ext = block.image_path.split(".").pop()?.toLowerCase() ?? "";
       const object = MIME[ext] ? await getObject(block.image_path).catch(() => null) : null;
       if (!object) continue;
-      const path = `aplus/${access.supplier.id}/${COMPANY_APLUS_ID}/${randomUUID()}.${ext === "jpeg" ? "jpg" : ext}`;
-      await putObject(path, object.data, MIME[ext]);
-      const module: AplusModule = { id: randomUUID(), type: "image_text", image_path: path, alt: block.title.slice(0, 160),
+      // Ảnh Showcase đi qua cùng bước WebP + bản nhỏ 640px như ảnh A+ tải lên.
+      const stored = await storeAplusImage(`aplus/${access.supplier.id}/${COMPANY_APLUS_ID}`, object.data);
+      if (!stored.ok) continue;
+      const module: AplusModule = { id: randomUUID(), type: "image_text", image_path: stored.path, alt: block.title.slice(0, 160),
         title: block.title.slice(0, 120), body: block.body.slice(0, 1200), image_side: index % 2 ? "right" : "left" };
       // Nội dung Showcase vốn là tiếng Anh: giữ là khối viết thẳng tiếng Anh (sửa ở tab English, không dịch).
       modules.push(module);

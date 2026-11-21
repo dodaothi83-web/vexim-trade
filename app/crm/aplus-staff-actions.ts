@@ -9,7 +9,7 @@ import { getStore } from "@/lib/db";
 import { fill } from "@/lib/i18n/format";
 import { aplusMessages } from "@/lib/i18n/portal/aplus";
 import { deleteStreamVideo } from "@/lib/media/cloudflare-stream";
-import { deleteObject } from "@/lib/media/storage";
+import { deleteAplusImages } from "@/lib/products/aplus-image-store";
 import {
   APLUS_MAX_MODULES, APLUS_MAX_VIDEOS, aplusVideoLimitExceeded, aplusImagePaths, aplusVideoUids, COMPANY_APLUS_ID, readAplusModules, validateAplusModules, type AplusModule, type AplusProblem,
 } from "@/lib/products/aplus";
@@ -75,7 +75,7 @@ async function save(target: Target | { error: string }, modules: unknown, retran
     if (!verified.ok) return { ok: false, message: verified.index === null ? e.videoUnavailable : fill(e.videoMissing, { index: verified.index + 1 }) };
     await target.write(verified.modules);
     const kept = new Set(aplusImagePaths(verified.modules));
-    await Promise.all(aplusImagePaths(target.before).filter((path) => !kept.has(path)).map((path) => deleteObject(path).catch(() => null)));
+    await deleteAplusImages(aplusImagePaths(target.before).filter((path) => !kept.has(path)));
     const keptVideos = new Set(aplusVideoUids(verified.modules));
     const dropped = aplusVideoUids(target.before).filter((uid) => !keptVideos.has(uid));
     if (dropped.length) after(() => Promise.all(dropped.map(deleteStreamVideo)));

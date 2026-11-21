@@ -4,14 +4,14 @@ import { getStore } from "@/lib/db";
 import { aplusMessages } from "@/lib/i18n/portal/aplus";
 import { prepareVideoUpload } from "@/lib/media/video-quota";
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
 
 import { getSession } from "@/lib/auth/session";
 import { hasPermission, type Permission } from "@/lib/auth/permissions";
 import { createStreamDirectUpload, streamConfig } from "@/lib/media/cloudflare-stream";
-import { getObject, putObject } from "@/lib/media/storage";
-import { extensionFor, validateUpload } from "@/lib/media/validate";
-import { COMPANY_APLUS_ID, isAplusImagePath } from "@/lib/products/aplus";
+import { getObject } from "@/lib/media/storage";
+import { validateUpload } from "@/lib/media/validate";
+import { COMPANY_APLUS_ID, isAplusImageFile } from "@/lib/products/aplus";
+import { storeAplusImage } from "@/lib/products/aplus-image-store";
 
 const IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MIME: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
@@ -50,12 +50,12 @@ export async function staffAplusUpload(request: Request, target: { supplierId: s
   const bytes = new Uint8Array(await file.arrayBuffer());
   const check = validateUpload("image", bytes, file.name);
   if (!check.ok || !check.mime || !IMAGE_MIME.has(check.mime)) return fail("Chọn ảnh JPG, PNG hoặc WebP, tối đa 3 MB.");
-  const path = `aplus/${target.supplierId}/${target.productId ?? COMPANY_APLUS_ID}/${randomUUID()}.${extensionFor(check.mime)}`;
-  try { await putObject(path, bytes, check.mime); } catch (error) {
-    console.error("[crm-aplus] image upload", error);
-    return fail("Chưa tải được ảnh. Thử lại.", 500);
-  }
-  return NextResponse.json({ ok: true, path });
+  // WebP ≤1600px + bản nhỏ 640px, cùng cách xử lý với ảnh sản phẩm.
+  const stored = await storeAplusImage(`aplus/${target.supplierId}/${target.productId ?? COMPANY_APLUS_ID}`, bytes);
+  if (!stored.ok) return stored.reason === "image"
+    ? fail("Chọn ảnh JPG, PNG hoặc WebP, tối đa 3 MB.")
+    : fail("Chưa tải được ảnh. Thử lại.", 500);
+  return NextResponse.json({ ok: true, path: stored.path });
 }
 
 /** Nhân viên xem ảnh A+ của đúng chỗ đang soạn. */
@@ -63,7 +63,7 @@ export async function staffAplusPreview(request: Request, target: { supplierId: 
   const session = await getSession();
   if (!session || !hasPermission(session.role, permission)) return new NextResponse("Not found", { status: 404 });
   const path = new URL(request.url).searchParams.get("path") ?? "";
-  if (!isAplusImagePath(path, target.supplierId, target.productId ?? COMPANY_APLUS_ID)) return new NextResponse("Not found", { status: 404 });
+  if (!isAplusImageFile(path, target.supplierId, target.productId ?? COMPANY_APLUS_ID)) return new NextResponse("Not found", { status: 404 });
   const object = await getObject(path).catch(() => null);
   const mime = MIME[path.split(".").pop()?.toLowerCase() ?? ""];
   if (!object || !mime) return new NextResponse("Not found", { status: 404 });
