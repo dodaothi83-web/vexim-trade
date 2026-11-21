@@ -7,13 +7,14 @@ import { after } from "next/server";
 import { aplusTranslationConfigured, translateAplusModules } from "@/lib/ai/translate-aplus";
 import { fill } from "@/lib/i18n/format";
 import { getPortalMessages } from "@/lib/i18n/server";
-import { deleteStreamVideo, getStreamVideo, streamConfig } from "@/lib/media/cloudflare-stream";
+import { deleteStreamVideo } from "@/lib/media/cloudflare-stream";
 import { deleteObject, getObject, putObject } from "@/lib/media/storage";
 import {
   APLUS_MAX_MODULES, aplusImagePaths, aplusVideoUids, COMPANY_APLUS_ID, readAplusModules, validateAplusModules,
   type AplusModule, type AplusProblem,
 } from "@/lib/products/aplus";
 import { prepareAplusForSave } from "@/lib/products/aplus-server";
+import { verifyAplusVideos } from "@/lib/products/aplus-video-verify";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
@@ -55,7 +56,7 @@ export async function saveCompanyAplusAction(modules: unknown, retranslate: stri
     const checked = await prepareAplusForSave(modules, ctx, ids(retranslate));
     if (!checked.ok) return { ok: false, message: checked.translation ? e.translation : problemText(checked.problem!, m) };
     const before = readAplusModules(access.supplier.company_aplus, ctx);
-    const verified = await verifyCompanyVideos(checked.modules, before, access.supplier.id);
+    const verified = await verifyAplusVideos(checked.modules, before, ctx);
     if (!verified.ok) return { ok: false, message: verified.index === null ? e.videoUnavailable : fill(e.videoMissing, { index: verified.index + 1 }) };
     await access.store.updateSupplier(access.supplier.id, { company_aplus: verified.modules });
     // Ảnh, video bị bỏ khỏi nội dung thì xoá (video chạy sau khi trả lời, không làm chậm nút Lưu).
@@ -126,33 +127,3 @@ export async function migrateShowcaseToCompanyAplusAction(): Promise<CompanyAplu
   }
 }
 
-/**
- * Video mới phải là video Vexim xin tải lên cho A+ doanh nghiệp của đúng nhà cung cấp này (meta
- * purpose "company"). Video đã có trước đó giữ thông tin cũ. Thời lượng, ngày tải lên lấy từ Cloudflare.
- */
-async function verifyCompanyVideos(modules: AplusModule[], before: AplusModule[], supplierId: string):
-  Promise<{ ok: true; modules: AplusModule[] } | { ok: false; index: number | null }> {
-  const known = new Map(before.flatMap((x) => x.type === "video" ? [[x.video_uid, x] as const] : []));
-  const out: AplusModule[] = [];
-  for (let index = 0; index < modules.length; index++) {
-    const module = modules[index];
-    if (module.type !== "video") { out.push(module); continue; }
-    const old = known.get(module.video_uid);
-    const { duration: _d, uploaded_at: _u, ...base } = module;
-    void _d; void _u;
-    const keepOld = () => ({ ...base, ...(old?.type === "video" && old.duration ? { duration: old.duration } : {}),
-      ...(old?.type === "video" && old.uploaded_at ? { uploaded_at: old.uploaded_at } : {}) });
-    if (old?.type === "video" && old.duration && old.uploaded_at) { out.push(keepOld()); continue; }
-    if (!streamConfig()) { if (old) { out.push(keepOld()); continue; } return { ok: false, index: null }; }
-    let video;
-    try { video = await getStreamVideo(module.video_uid); } catch (error) {
-      console.error("[company-aplus] stream verify", error);
-      if (old) { out.push(keepOld()); continue; }
-      return { ok: false, index: null };
-    }
-    if (!old && (!video || video.meta.purpose !== "company" || video.meta.supplier_id !== supplierId ||
-        (video.creator && video.creator !== supplierId) || video.state === "error")) return { ok: false, index };
-    out.push({ ...base, ...(video?.duration ? { duration: Math.round(video.duration) } : {}), ...(video?.uploaded ? { uploaded_at: video.uploaded } : {}) });
-  }
-  return { ok: true, modules: out };
-}
