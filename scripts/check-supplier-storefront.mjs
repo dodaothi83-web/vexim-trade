@@ -146,8 +146,9 @@ assert.match(supplierHeader, /View supplier checks/);
 assert.doesNotMatch(supplierHeader, /VerificationTierBadge|VerificationCoverSeal|\/3 approved/);
 assert.match(shared, /const reviewStatus = approvedStep \? "Checked" : "No completed check shown"/,
   'Do not infer a failed or unstarted review from the absence of published approval');
-assert.match(shared, /bg-success-surface text-success/);
-assert.match(shared, /bg-ink-50 text-ink-500/);
+assert.match(shared, /approvedStep \? "bg-success text-white" : "bg-ink-100 text-ink-500"/, "Thẻ xác minh: nhãn Checked nổi bật, chưa có thì trung tính");
+assert.match(shared, /\{VERIFICATION_ITEMS\.filter\(\(\{ level \}\) => steps\.includes\(level\)\)\.length\} of \{VERIFICATION_ITEMS\.length\} checks completed/, "Đếm số bước đã xác minh");
+assert.match(shared, /<div className="mt-5 grid gap-3 md:grid-cols-3">/, "Ba thẻ xác minh nằm ngang");
 assert.ok(shared.indexOf('<section id="products"') < shared.indexOf('<section id="about"'), 'Products precede profile details');
 assert.match(shared, /supplierShortName\(s\)/, 'Heading uses the normalised display or trade name');
 assert.doesNotMatch(shared, /checks approved|Not approved|Level \$\{level\}|bg-gradient-to-br/);
@@ -181,27 +182,27 @@ const verificationBlock = shared.slice(shared.indexOf('<section id="verification
 assert.doesNotMatch(verificationBlock, /Target markets|supplierExportMarketsDisplay/,
   'Supplier-stated markets are not presented as delivery evidence');
 assert.match(shared, /Provided by the supplier. Confirm terms when requesting a quote/);
-assert.match(shared, /divide-y divide-ink-200/, 'Checks are readable rows rather than ranked cards');
 assert.match(shared, /<SupplierProductRail productCount=\{s\.main_products\.length\}>/,
   'Supplier catalogue uses the shared product rail');
-assert.match(shared, /lg:w-\[calc\(\(100%_-_4rem\)\/5\)\] lg:shrink-0/,
-  'Each desktop rail item takes one fifth of the visible width after gaps');
+assert.match(read('components/public/supplier-rail-item.ts'), /sm:w-\[calc\(\(100%_-_1rem\)\/2\.3\)\][^"]*lg:w-\[calc\(\(100%_-_2rem\)\/3\.3\)\]/,
+  'Desktop rail shows three cards and part of the fourth; tablet two and part of the third');
+assert.match(shared, /productCard\(p, `min-w-0 \$\{SUPPLIER_RAIL_ITEM\}`\)/, 'Basic and premium catalogue cards use the rail width');
+assert.ok(shared.indexOf('id="products"') > shared.indexOf('lg:grid-cols-[minmax(0,1fr)_320px]'), 'Trade overview column starts beside the products');
 const { SupplierProductRail } = load('components/public/supplier-product-rail.tsx', {
   react: React, 'react/jsx-runtime': jsxRuntime, '@/components/brand/vexim-icons': brandIcons,
   'lucide-react': { ChevronLeft, ChevronRight },
 });
 const railItems = (count) => Array.from({ length: count }, (_, index) => React.createElement('li', { key: index }, `Product ${index + 1}`));
 const sixProductRail = renderToStaticMarkup(React.createElement(SupplierProductRail, { productCount: 6 }, railItems(6)));
-assert.match(sixProductRail, /grid-cols-1[^"\n]*sm:grid-cols-2[^"\n]*md:grid-cols-3/,
-  'Phone and tablet catalogue grids remain unchanged');
-assert.match(sixProductRail, /lg:flex[^"\n]*lg:overflow-x-auto/, 'Desktop enables native horizontal scrolling');
-assert.match(sixProductRail, /Scroll horizontally to explore all 6 products/);
+assert.match(sixProductRail, /grid grid-cols-1[^"\n]*sm:flex[^"\n]*sm:overflow-x-auto/,
+  'Phones stack the cards; tablet and desktop scroll horizontally');
+assert.match(sixProductRail, /Scroll to see all 6 products/);
 assert.match(sixProductRail, /aria-label="Show previous products"/);
 assert.match(sixProductRail, /aria-label="Show next products"/);
 assert.equal((sixProductRail.match(/<li/g) ?? []).length, 6, 'The rail keeps all products in document order');
-const fiveProductRail = renderToStaticMarkup(React.createElement(SupplierProductRail, { productCount: 5 }, railItems(5)));
-assert.doesNotMatch(fiveProductRail, /Show previous products|Show next products|Scroll horizontally/,
-  'Five or fewer products do not show unnecessary carousel controls');
+const threeProductRail = renderToStaticMarkup(React.createElement(SupplierProductRail, { productCount: 3 }, railItems(3)));
+assert.doesNotMatch(threeProductRail, /Show previous products|Show next products|Scroll to see/,
+  'Three or fewer products do not show unnecessary carousel controls');
 assert.match(publicPage, /r\.profile_image \? mediaUrl\(r\.profile_image\)/,
   'Related suppliers use their own stored profile image');
 assert.match(publicPage, /src=\{relatedLogoUrl\}/, 'Related supplier logos use the safe public-media URL');

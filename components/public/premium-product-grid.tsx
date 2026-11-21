@@ -2,9 +2,11 @@
 
 import { cloneElement, isValidElement, useState, type ReactNode } from "react";
 
+import { SupplierProductRail } from "./supplier-product-rail";
 import { STOREFRONT_GROUP_MIN_PRODUCTS, STOREFRONT_MAX_FEATURED } from "@/lib/storefront-theme";
 
-type Item = { id: string; category: { key: string; label: string } | null; node: ReactNode };
+/** `node`: thẻ cho thanh trượt; `gridNode`: cùng thẻ cho lưới sản phẩm ghim. */
+type Item = { id: string; category: { key: string; label: string } | null; node: ReactNode; gridNode: ReactNode };
 
 /**
  * Lưới cột theo số thẻ, để ít sản phẩm (1–3) vẫn cân đối, không để ô trống: 1 thẻ rộng vừa phải,
@@ -23,7 +25,7 @@ function columns(count: number): string {
  * Khu sản phẩm trang nhà cung cấp gói cao cấp (chủ sàn chốt 2026-11-20):
  * - tối đa 4 sản phẩm ghim hiện trước ("Featured products");
  * - từ 8 sản phẩm trở lên và có từ 2 danh mục thì có nút lọc theo danh mục;
- * - lưới tự cân đối theo số thẻ.
+ * - các sản phẩm còn lại nằm trên thanh trượt (3 thẻ và một phần thẻ thứ 4).
  * Mọi thẻ vẫn nằm trong trang (chỉ ẩn bằng CSS khi lọc) để máy tìm kiếm đọc đủ.
  */
 export function PremiumProductGrid({ items, featuredIds }: { items: Item[]; featuredIds: string[] }) {
@@ -39,7 +41,7 @@ export function PremiumProductGrid({ items, featuredIds }: { items: Item[]; feat
   return <div className="mt-5 space-y-8">
     {featured.length > 0 && <div>
       <h3 className="text-sm font-bold uppercase tracking-wider text-ink-500">Featured products</h3>
-      <ul aria-label="Featured products" className={`mt-3 grid items-stretch gap-4 ${columns(featured.length)}`}>{featured.map((item) => item.node)}</ul>
+      <ul aria-label="Featured products" className={`mt-3 grid items-stretch gap-4 ${columns(featured.length)}`}>{featured.map((item) => item.gridNode)}</ul>
     </div>}
     {rest.length > 0 && <div>
       {featured.length > 0 && <h3 className="text-sm font-bold uppercase tracking-wider text-ink-500">{filterable ? "Browse by category" : "More products"}</h3>}
@@ -48,9 +50,9 @@ export function PremiumProductGrid({ items, featuredIds }: { items: Item[]; feat
         {groups.map(([key, label]) => <button key={key} type="button" aria-pressed={active === key} onClick={() => setActive(key)} className={chip(active === key)}>
           {label} ({rest.filter((item) => item.category?.key === key).length})</button>)}
       </div>}
-      <ul aria-label="Supplier products" className={`mt-3 grid items-stretch gap-4 ${columns(shown.length)}`}>
+      <SupplierProductRail productCount={shown.length}>
         {rest.map((item) => <ProductSlot key={item.id} hidden={active !== null && item.category?.key !== active}>{item.node}</ProductSlot>)}
-      </ul>
+      </SupplierProductRail>
     </div>}
   </div>;
 }
