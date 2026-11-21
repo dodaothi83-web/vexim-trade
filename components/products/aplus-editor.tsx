@@ -52,7 +52,7 @@ const RATIO: Partial<Record<AplusModuleType, { css: string; label: string }>> = 
  * `productId`): ảnh, video tải vào khu chờ và cả nội dung đi theo form qua ô ẩn `pending_aplus_json`.
  * Không có ô nào mang `name` khác, để form sản phẩm bao quanh không gửi kèm các trường này.
  */
-export function AplusEditor({ productId, allowed, editable, initial, copy, handle, onDirtyChange, api, templateIds = APLUS_TEMPLATE_IDS, heading, standalone = false, lockedHref = "/supplier/portal/storefront", previewWidths = { desktop: 1088, mobile: 350 } }: {
+export function AplusEditor({ productId, allowed, editable, initial, copy, handle, onDirtyChange, onSaved, api, templateIds = APLUS_TEMPLATE_IDS, heading, standalone = false, lockedHref = "/supplier/portal/storefront", previewWidths = { desktop: 1088, mobile: 350 } }: {
   /**
    * Bề rộng nội dung A+ trên trang thật (px): mặc định trang sản phẩm (khung 72rem, lề 2rem: 1088;
    * điện thoại 390 trừ lề: 350). A+ doanh nghiệp nằm trong cột trái trang nhà cung cấp: 824 / 318.
@@ -69,6 +69,8 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
   lockedHref?: string;
   /** Báo trang sửa sản phẩm có thay đổi A+ chưa lưu (hiện nút Lưu, nhắc khi rời trang). */
   onDirtyChange?: (dirty: boolean) => void;
+  /** Gọi sau khi lưu thành công, kèm danh sách khối đã lưu. */
+  onSaved?: (modules: AplusModule[]) => void;
   /** null khi sản phẩm chưa được tạo. */
   productId: string | null;
   allowed: boolean;
@@ -109,7 +111,7 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
     try {
       const result = await saveApi(modulesRef.current, retranslate);
       setMessage({ ok: result.ok, text: result.message });
-      if (result.ok && result.modules) { setModules(result.modules); setSaved(JSON.stringify(result.modules)); setRetranslate([]); }
+      if (result.ok && result.modules) { setModules(result.modules); setSaved(JSON.stringify(result.modules)); setRetranslate([]); onSaved?.(result.modules); }
       return result.ok;
     } catch { setMessage({ ok: false, text: copy.errors.failed }); return false; }
     finally { setBusy(null); }
