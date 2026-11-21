@@ -42,13 +42,14 @@ async function consent(userId: string, ids: string[], source: NonNullable<BuyerI
 }
 
 /** Trang mở từ thư: chọn ngành rồi bấm Confirm. */
-export async function confirmIntroductionsWithTokenAction(token: string, categoryIds: string[]): Promise<Result> {
+export async function confirmIntroductionsWithTokenAction(token: string, categoryIds: string[], frequency: "weekly" | "twice" = "twice"): Promise<Result> {
   try {
     const account = await tokenAccount(token);
     if (!account) return { ok: false, message: "This link has expired. Sign in to choose your products." };
     const ids = await publishedIds(categoryIds);
     if (!ids.length) return { ok: false, message: "Pick at least one product." };
-    await consent(account.id, ids, account.introductions?.welcome_sent_at && !account.introductions?.invite_sent_at ? "welcome" : "invite");
+    await consent(account.id, ids, account.introductions?.welcome_sent_at && !account.introductions?.invite_sent_at ? "welcome" : "invite", "replace",
+      (i) => ({ ...i, frequency: frequency === "weekly" ? "weekly" : "twice" }));
     return { ok: true };
   } catch (error) {
     console.error("[buyer-intro] confirm", error);
@@ -69,8 +70,21 @@ export async function stopInvitesWithTokenAction(token: string): Promise<Result>
   }
 }
 
+/** Huỷ nhận thư giới thiệu (link "Unsubscribe" trong thư, sau khi bấm xác nhận). */
+export async function unsubscribeWithTokenAction(token: string): Promise<Result> {
+  try {
+    const account = await tokenAccount(token);
+    if (!account) return { ok: false, message: "This link has expired. Sign in to change your settings." };
+    await patchIntroductions(account.id, (current) => current, { marketing_opt_in: false });
+    return { ok: true };
+  } catch (error) {
+    console.error("[buyer-intro] unsubscribe", error);
+    return { ok: false, message: FAILED };
+  }
+}
+
 /** Trong tài khoản: bật/tắt và đổi ngành. */
-export async function saveIntroductionsAction(optIn: boolean, categoryIds: string[]): Promise<Result> {
+export async function saveIntroductionsAction(optIn: boolean, categoryIds: string[], frequency: "weekly" | "twice" = "twice"): Promise<Result> {
   try {
     const account = await sessionAccount();
     if (!account) return { ok: false, message: "Please sign in again." };
@@ -81,7 +95,7 @@ export async function saveIntroductionsAction(optIn: boolean, categoryIds: strin
     }
     const ids = await publishedIds(categoryIds);
     if (!ids.length) return { ok: false, message: "Pick at least one product." };
-    await consent(account.id, ids, "account");
+    await consent(account.id, ids, "account", "replace", (i) => ({ ...i, frequency: frequency === "weekly" ? "weekly" : "twice" }));
     return { ok: true, message: "Saved." };
   } catch (error) {
     console.error("[buyer-intro] account", error);
@@ -123,7 +137,7 @@ export async function answerIntroPromptAction(categoryId: string, yes: boolean, 
     const ids = await publishedIds([categoryId]);
     if (!ids.length) return { ok: false, message: FAILED };
     await consent(account.id, ids, source, "add");
-    return { ok: true, message: "Done. We'll introduce matching suppliers, at most once a week." };
+    return { ok: true, message: "Done. We'll introduce matching suppliers, up to twice a week." };
   } catch (error) {
     console.error("[buyer-intro] prompt", error);
     return { ok: false, message: FAILED };

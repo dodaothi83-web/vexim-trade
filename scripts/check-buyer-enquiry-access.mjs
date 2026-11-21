@@ -69,7 +69,7 @@ const detail = load('app/(public)/buyer/account/requests/[id]/page.tsx', {
   '@/components/rfq-mediated-thread': { RfqMediatedThread: () => React.createElement('div', { 'data-vexim-desk': true }) },
   '@/lib/rfq/mediated': { canUseMediatedDesk: () => true, safeMediatedMessages: (items) => items },
   './actions': { buyerVeximMessageAction: async () => null, buyerVeximReadAction: async () => {} },
-  '@/lib/buyer/introductions': { canPromptIntroductions: () => false, readIntroductions: () => ({}), showOnboarding: () => false },
+  '@/lib/buyer/introductions': { canPromptIntroductions: () => false, readIntroductions: () => ({}), showOnboarding: () => false, introFrequency: () => 'twice' },
   '@/lib/buyer/introductions-server': { topCategoryOf: async () => null, introCategories: async () => [] },
   '@/components/buyer-introductions': { IntroAccountCard: () => null, IntroOnboardingCard: () => null, IntroPrompt: () => null },
   '@/lib/auth/buyer-session': { getBuyerSession: async () => null },

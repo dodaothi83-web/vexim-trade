@@ -41,7 +41,7 @@ const actions = load('app/(public)/buyer/account/actions.ts', {
   '@/lib/auth/buyer-session': { getBuyerSession: async () => session },
   '@/lib/db': { getStore: () => store },
   '@/lib/public/product-catalog': { getPublicProductRecordsByIds: async () => published ? [record] : [] },
-  '@/lib/buyer/introductions': { canPromptIntroductions: () => false, readIntroductions: () => ({}), showOnboarding: () => false },
+  '@/lib/buyer/introductions': { canPromptIntroductions: () => false, readIntroductions: () => ({}), showOnboarding: () => false, introFrequency: () => 'twice' },
   '@/lib/buyer/introductions-server': { topCategoryOf: async () => null, introCategories: async () => [] },
   '@/components/buyer-introductions': { IntroAccountCard: () => null, IntroOnboardingCard: () => null, IntroPrompt: () => null },
 });
@@ -121,7 +121,7 @@ const dashboard = load('app/(public)/buyer/account/page.tsx', {
   }) },
   '@/lib/i18n/server': { getLocale: async () => lang },
   '@/lib/public/product-catalog': { getPublicProductRecordsByIds: async () => [], listPublicCategoryProducts: async () => [], loadPublicProductCatalogSnapshot: async () => ({}) },
-  '@/lib/buyer/introductions': { canPromptIntroductions: () => false, readIntroductions: () => ({}), showOnboarding: () => false },
+  '@/lib/buyer/introductions': { canPromptIntroductions: () => false, readIntroductions: () => ({}), showOnboarding: () => false, introFrequency: () => 'twice' },
   '@/lib/buyer/introductions-server': { topCategoryOf: async () => null, introCategories: async () => [] },
   '@/components/buyer-introductions': { IntroAccountCard: () => null, IntroOnboardingCard: () => null, IntroPrompt: () => null },
   '@/lib/public/buyer-recommendations': { buyerRecommendations },

@@ -14,7 +14,7 @@ import { HomeProductFeed } from "@/components/home-product-feed";
 import { SaveProductButton } from "@/components/buyer-saved-products";
 import { BuyerAccountProfile } from "@/components/buyer-account-profile";
 import { IntroAccountCard, IntroOnboardingCard } from "@/components/buyer-introductions";
-import { readIntroductions, showOnboarding } from "@/lib/buyer/introductions";
+import { introFrequency, readIntroductions, showOnboarding } from "@/lib/buyer/introductions";
 import { introCategories } from "@/lib/buyer/introductions-server";
 import { COMPANY } from "@/lib/config";
 import type { Rfq } from "@/lib/types";
@@ -211,7 +211,7 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
           {tab === "saved" && savedSection(false)}
           {tab === "profile" && <section className={panel}><h2 className="font-bold">{titles.profile}</h2><BuyerAccountProfile email={account.email} company={account.company_name ?? ""} isVi={vi} /></section>}
           {tab === "profile" && <IntroAccountCard categories={introOptions} optIn={account.marketing_opt_in}
-            initial={readIntroductions(account.introductions).categories ?? []} />}
+            initial={readIntroductions(account.introductions).categories ?? []} frequency={introFrequency(readIntroductions(account.introductions))} />}
         </div>
         <aside className="min-w-0 space-y-5 lg:col-start-2 xl:col-start-auto">{tab !== "saved" && savedSection(true)}</aside>
       </div>

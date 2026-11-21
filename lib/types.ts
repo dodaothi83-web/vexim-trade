@@ -1419,6 +1419,8 @@ export type BuyerUserInput = Pick<BuyerUser, "email"> &
  */
 export interface BuyerIntroductions {
   categories?: string[];
+  /** Mức nhận thư: "weekly" (chỉ thư sản phẩm thứ Ba), "twice" (thêm thư thị trường thứ Sáu, mặc định). */
+  frequency?: "weekly" | "twice";
   /** Lần gần nhất người mua bấm đồng ý, và từ đâu (thư mời, tài khoản, sau báo giá...). */
   consent_at?: string;
   consent_source?: "invite" | "welcome" | "account" | "onboarding" | "rfq" | "saved";
@@ -1813,6 +1815,8 @@ export interface Post {
   author_name: string | null;
   /** Người kiểm duyệt nội dung chuyên môn (tùy chọn) */
   reviewer_name: string | null;
+  /** Mã ngành hàng (categories.id) bài viết liên quan, dùng cho thư Market Brief gửi người mua. */
+  related_categories?: string[];
   status: PostStatus;
   published_at: string | null;
   created_at: string;

@@ -29,7 +29,13 @@ export function readIntroductions(raw: unknown): BuyerIntroductions {
   if (Array.isArray(value.categories)) out.categories = normalizeCategoryIds(value.categories);
   for (const key of DATES) if (typeof value[key] === "string" && !Number.isNaN(Date.parse(value[key] as string))) out[key] = value[key] as string;
   if (typeof value.consent_source === "string" && SOURCES.has(value.consent_source)) out.consent_source = value.consent_source as BuyerIntroductions["consent_source"];
+  if (value.frequency === "weekly" || value.frequency === "twice") out.frequency = value.frequency;
   return out;
+}
+
+/** Mức nhận thư; mặc định hai thư mỗi tuần (sản phẩm thứ Ba, thị trường thứ Sáu). */
+export function introFrequency(intro: BuyerIntroductions): "weekly" | "twice" {
+  return intro.frequency ?? "twice";
 }
 
 export function normalizeCategoryIds(list: unknown[]): string[] {

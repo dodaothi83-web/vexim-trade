@@ -76,13 +76,13 @@ export function buildIntroMail(kind: IntroMailKind, email: string, categories: I
   const button = (href: string, label: string) => `<p style="margin:6px 0 18px;"><a href="${escapeHtml(href)}" style="display:inline-block;padding:11px 20px;background:${brandColors.primary};color:#ffffff;border-radius:8px;font-weight:700;text-decoration:none;">${label}</a></p>`;
   const intro = {
     invite: { subject: "Which Vietnamese products do you source? We'll match suppliers for you", title: "Get matched suppliers for the products you source",
-      lead: "You have a buyer account on Vexim Trade. Tell us what you source and we'll send you a short note when checked Vietnamese suppliers list matching products. At most one email a week." },
+      lead: "You have a buyer account on Vexim Trade. Tell us what you source and we'll send you a short note when checked Vietnamese suppliers list matching products. Up to two emails a week; you choose." },
     reminder: { subject: "Still sourcing from Vietnam? Pick your products", title: "Pick the products you source",
-      lead: "A quick reminder: choose what you source and we'll introduce matching checked Vietnamese suppliers. At most one email a week." },
+      lead: "A quick reminder: choose what you source and we'll introduce matching checked Vietnamese suppliers. Up to two emails a week; you choose." },
     welcome: { subject: "Welcome to Vexim Trade", title: "Welcome to Vexim Trade",
-      lead: "Thanks for creating a buyer account. You can send quote requests, save products and talk to checked Vietnamese suppliers through Vexim. Tell us what you source and we'll introduce matching suppliers, at most once a week." },
+      lead: "Thanks for creating a buyer account. You can send quote requests, save products and talk to checked Vietnamese suppliers through Vexim. Tell us what you source and we'll introduce matching suppliers, up to twice a week." },
     "welcome-plain": { subject: "Welcome to Vexim Trade", title: "Welcome to Vexim Trade",
-      lead: "Thanks for creating a buyer account. You can send quote requests, save products and talk to checked Vietnamese suppliers through Vexim. We'll introduce suppliers for the products you chose, at most once a week." },
+      lead: "Thanks for creating a buyer account. You can send quote requests, save products and talk to checked Vietnamese suppliers through Vexim. We'll introduce suppliers for the products you chose, up to twice a week." },
   }[kind];
   const body = invite ? `
     <p style="margin:0 0 14px;">${escapeHtml(intro.lead)}</p>
