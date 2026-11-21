@@ -1,5 +1,6 @@
 "use client";
 
+import { saveProductContentModeAction } from "@/app/supplier/portal/aplus-actions";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -356,6 +357,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   // Nội dung hiển thị (gói Premium/Pro): mặc định "cơ bản", bật A+ ở trang soạn A+; chưa có cột chọn thì có A+ là hiện A+.
   const contentMode = product?.content_mode ?? (aplusCount > 0 ? "aplus" : "basic");
   const [openingAplus, setOpeningAplus] = useState(false);
+  const [switchingBasic, setSwitchingBasic] = useState(false);
   const showsAplus = richContentAllowed && contentMode === "aplus" && aplusCount > 0;
   const detailFilled = showsAplus || (snapshot.description_detail ?? "").replace(/<[^>]*>/g, "").trim().length > 0;
   const basicFilled = [snapshot.name, snapshot.keywords, snapshot.description].filter((value) => (value ?? "").trim()).length;
@@ -620,6 +622,21 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   }
 
   /** Sản phẩm mới bấm "Nội dung A+": lưu nháp rồi sang trang soạn A+ (cần có sản phẩm trước). */
+  /** "Tạo content basic": người mua đang thấy A+ thì chuyển về mô tả chữ (A+ vẫn giữ), rồi đưa con trỏ vào ô mô tả. */
+  async function chooseBasic() {
+    if (product && showsAplus) {
+      if (!window.confirm(aplusCopy.aplusPage.switchBasicConfirm)) return;
+      setSwitchingBasic(true);
+      const result = await saveProductContentModeAction(product.id, "basic").catch(() => null);
+      setSwitchingBasic(false);
+      if (!result?.ok) { window.alert(result?.message ?? aplusCopy.errors.upload); return; }
+      router.refresh();
+    }
+    const editor = document.getElementById("supplier-product-description-detail");
+    editor?.scrollIntoView({ behavior: "smooth", block: "center" });
+    editor?.focus({ preventScroll: true });
+  }
+
   async function openAplusForNew() {
     setOpeningAplus(true);
     const id = await persist();
@@ -1562,13 +1579,21 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
               <div className="text-[12px]">
                 <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[13px] font-semibold text-ink-700">{copy.detail.label}</span>
-                  {richContentAllowed && (product
-                    ? <Link href={`/supplier/portal/products/${product.id}/aplus`}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-brand-900 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:from-brand-700 hover:to-ink-900">
-                      <VeximIcon name="document" className="size-4" aria-hidden="true" />{aplusCopy.aplusPage.aplus}</Link>
-                    : <button type="button" disabled={busy || openingAplus} onClick={() => void openAplusForNew()}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-brand-900 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:from-brand-700 hover:to-ink-900 disabled:opacity-60">
-                      <VeximIcon name="document" className="size-4" aria-hidden="true" />{aplusCopy.aplusPage.aplus}</button>)}
+                  {/* Hai lựa chọn đặt cạnh nhau để không nhầm: content basic (mô tả chữ ngay bên dưới) và
+                      content A+ (trang soạn riêng). Nút đang được người mua thấy có viền đậm. */}
+                  {richContentAllowed && <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" disabled={busy || switchingBasic} onClick={() => void chooseBasic()} aria-pressed={!showsAplus}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-bold transition disabled:opacity-60 ${!showsAplus
+                        ? "border-brand-600 bg-brand-50 text-brand-800" : "border-ink-300 bg-white text-ink-700 hover:border-brand-400 hover:text-brand-800"}`}>
+                      {aplusCopy.aplusPage.createBasic}</button>
+                    {product
+                      ? <Link href={`/supplier/portal/products/${product.id}/aplus`} aria-current={showsAplus ? "true" : undefined}
+                        className={`inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-brand-900 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:from-brand-700 hover:to-ink-900 ${showsAplus ? "ring-2 ring-brand-300 ring-offset-1" : ""}`}>
+                        <VeximIcon name="document" className="size-4" aria-hidden="true" />{aplusCopy.aplusPage.createAplus}</Link>
+                      : <button type="button" disabled={busy || openingAplus} onClick={() => void openAplusForNew()}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-brand-900 px-3 py-1.5 text-[12px] font-bold text-white shadow-sm transition hover:from-brand-700 hover:to-ink-900 disabled:opacity-60">
+                        <VeximIcon name="document" className="size-4" aria-hidden="true" />{aplusCopy.aplusPage.createAplus}</button>}
+                  </div>}
                 </div>
                 {showsAplus && <p className="mb-2 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[12px] leading-5 text-brand-900">
                   {fill(aplusCopy.aplusPage.showingAplusCount, { count: aplusCount })}</p>}

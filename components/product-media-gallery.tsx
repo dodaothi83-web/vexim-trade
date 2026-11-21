@@ -25,9 +25,10 @@ export function ProductMediaGallery({ name, images, thumbnails, video, streamVid
   streamVideo?: { uid: string; title: string } | null;
   actions?: ReactNode;
 }) {
-  const [index, setIndex] = useState(0);
-  // Ô video đứng sau ảnh cuối; sản phẩm chỉ có video thì video ở ô đầu.
+  // Video đứng đầu dãy và hiện trước (chưa tự phát, người mua bấm mới phát nên không tốn phút xem).
+  // Ảnh giữ chỉ số 0..n-1; ô video dùng chỉ số n để không lẫn với ảnh.
   const videoIndex = streamVideo ? images.length : -1;
+  const [index, setIndex] = useState(streamVideo ? images.length : 0);
   const onVideo = index === videoIndex;
   const [videoChosen, setVideoChosen] = useState(false);
   const [open, setOpen] = useState(false);
@@ -177,12 +178,6 @@ export function ProductMediaGallery({ name, images, thumbnails, video, streamVid
         <h2 className="sr-only">Product photos ({images.length}){streamVideo ? " and video" : ""}</h2>
         <div className="w-full min-w-0 overflow-x-auto pb-1 sm:absolute sm:inset-0 sm:overflow-x-hidden sm:overflow-y-auto sm:overscroll-contain sm:pb-0 sm:pr-1" role="group" aria-label="Choose a product photo">
           <div className="flex w-max gap-2 sm:w-full sm:flex-col">
-            {images.map((path, photoIndex) => <button key={path} type="button" onClick={() => { setIndex(photoIndex); setZoomPoint("50% 50%"); }}
-              aria-label={`Show photo ${photoIndex + 1} of ${name}`} aria-pressed={index === photoIndex}
-              className={`aspect-square w-16 shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={publicPhotoUrl(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
-            </button>)}
             {streamVideo && <button type="button" onClick={() => { setVideoChosen(true); setIndex(videoIndex); }}
               aria-label={`Play product video of ${name}`} aria-pressed={onVideo}
               className={`relative aspect-square w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-ink-900 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full ${onVideo ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
@@ -193,6 +188,12 @@ export function ProductMediaGallery({ name, images, thumbnails, video, streamVid
               </span>
               <span className="absolute inset-x-0 bottom-0 bg-ink-900/70 py-0.5 text-center text-[9px] font-bold uppercase tracking-wide text-white">Video</span>
             </button>}
+            {images.map((path, photoIndex) => <button key={path} type="button" onClick={() => { setIndex(photoIndex); setZoomPoint("50% 50%"); }}
+              aria-label={`Show photo ${photoIndex + 1} of ${name}`} aria-pressed={index === photoIndex}
+              className={`aspect-square w-16 shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={publicPhotoUrl(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
+            </button>)}
           </div>
         </div>
       </section>}

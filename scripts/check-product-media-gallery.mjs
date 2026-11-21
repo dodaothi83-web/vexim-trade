@@ -86,13 +86,14 @@ const { ProductMediaGallery, productGallerySwipeStep } = load('../components/pro
   '@/components/public/aplus-video': { AplusVideo: ({ uid, title }) => React.createElement('div', { 'data-stream': uid, title }) },
   '@/lib/products/aplus': { aplusVideoThumbnailUrl: (uid, h = 720) => `https://videodelivery.net/${uid}/thumbnails/thumbnail.jpg?height=${h}` },
 });
-// Video sản phẩm (Premium/Pro) nằm cuối dãy ảnh; sản phẩm chỉ có video thì video ở khung chính.
+// Video sản phẩm (Premium/Pro) đứng đầu dãy và hiện trước trong khung chính (chưa tự phát).
 const streamUid = 'ab'.repeat(16);
 const withVideo = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
   name: 'Cashew W320', images: ['products/abc/cover.jpg'], video: null, streamVideo: { uid: streamUid, title: 'Cashew W320 video' },
 }));
 assert.match(withVideo, /aria-label="Play product video of Cashew W320"/, 'One photo plus a video still shows the thumbnail strip');
-assert.ok(withVideo.indexOf('products/abc/cover.jpg') < withVideo.indexOf(`${streamUid}/thumbnails`), 'Video thumbnail comes after the photos');
+assert.ok(withVideo.indexOf(`${streamUid}/thumbnails`) < withVideo.indexOf('products/abc/cover.jpg'), 'Video thumbnail comes before the photos');
+assert.match(withVideo, new RegExp(`data-stream="${streamUid}"`), 'The main frame opens on the video');
 const onlyVideo = renderToStaticMarkup(React.createElement(ProductMediaGallery, {
   name: 'Cashew W320', images: [], video: null, streamVideo: { uid: streamUid, title: 'Cashew W320 video' },
 }));
