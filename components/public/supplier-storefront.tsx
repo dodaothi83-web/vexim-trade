@@ -110,7 +110,7 @@ export function SupplierStorefront({
   const summary = safe(supplierSummaryDisplay(s));
   const statedProducts = safe(supplierProductsDisplay(s));
   const businessDetails = [
-    { label: "Main products", value: statedProducts, wide: true },
+    { label: "Main products", value: statedProducts, wide: false },
     { label: "Markets served or targeted", value: safe(supplierMarketsDisplay(s)), wide: false },
   ].filter((item) => item.value);
   const steps = s.approved_verification_steps;
@@ -402,13 +402,15 @@ export function SupplierStorefront({
           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-ink-700">{summary || (businessDetails.length
             ? "This supplier has not added an introduction yet. See the business details below or ask Vexim for more information."
             : "Supplier information has not been provided yet. Ask Vexim for details before making a sourcing decision.")}</p>
-          {businessDetails.length > 0 && <div className="mt-5 rounded-xl bg-ink-50/70 p-4 sm:p-5">
-            <h3 className="text-sm font-bold text-ink-900">Business details</h3>
-            <p className="mt-1 text-xs leading-5 text-ink-500">Provided by the supplier. Confirm details when requesting a quote.</p>
+          {businessDetails.length > 0 && <div className="mt-5 rounded-xl border border-ink-200 bg-ink-50/70 p-4 sm:p-5">
+            <div className="border-b border-ink-200 pb-3">
+              <h3 className="text-sm font-bold text-ink-900">Business details</h3>
+              <p className="mt-0.5 text-xs leading-5 text-ink-500">Provided by the supplier. Confirm details when requesting a quote.</p>
+            </div>
             <dl className="mt-4 grid gap-4 sm:grid-cols-2">
               {businessDetails.map((item) => <div key={item.label} className={item.wide ? "sm:col-span-2" : undefined}>
-                <dt className="text-xs font-semibold text-ink-500">{item.label}</dt>
-                <dd className="mt-1 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-ink-800">{item.value}</dd>
+                <dt className="text-xs text-ink-500">{item.label}</dt>
+                <dd className="mt-1 whitespace-pre-wrap break-words text-sm font-bold leading-6 text-ink-900">{item.value}</dd>
               </div>)}
             </dl>
           </div>}
@@ -419,9 +421,16 @@ export function SupplierStorefront({
           <p className="mt-6 text-xs leading-5 text-ink-500">Content provided by the supplier. It is not evidence of a Vexim check; see Supplier checks for what has been reviewed.</p>
         </section>}
         <section id="verification" className="scroll-mt-24 rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="verification-title">
-          <h2 id="verification-title" className="text-lg font-bold text-ink-900">Supplier checks</h2>
-          <p className="mt-1 text-sm leading-6 text-ink-600">See what has been reviewed and what each check covers.</p>
-          <div className="mt-5 divide-y divide-ink-200">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id="verification-title" className="text-lg font-bold text-ink-900">Supplier checks</h2>
+              <p className="mt-1 text-sm leading-6 text-ink-600">See what has been reviewed and what each check covers.</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-success/25 bg-success-surface px-3 py-1 text-xs font-semibold text-success">
+              {VERIFICATION_ITEMS.filter(({ level }) => steps.includes(level)).length} of {VERIFICATION_ITEMS.length} checks completed</span>
+          </div>
+          {/* Ba thẻ ngang (điện thoại xếp dọc); nội dung, phạm vi từng bước xác minh giữ nguyên. */}
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
               {VERIFICATION_ITEMS.map(({ level, label: defaultLabel, pending: defaultPending, Icon }) => {
                 const approvedStep = steps.includes(level);
                 const scope = level === 2 ? approvedStep ? l2Scope : plannedL2Scope : null;
@@ -429,16 +438,16 @@ export function SupplierStorefront({
                 const pending = level === 2 && scope === "partner_contract" ? "Covers a contract with a partner factory; not a factory inspection." : level === 2 && scope === null ? "The review scope is not specified." : defaultPending;
                 const reviewStatus = approvedStep ? "Checked" : "No completed check shown";
                 return <article key={level} id={level === 2 ? scope === "partner_contract" ? "partner-factory-contract" : "factory-visit" : level === 3 ? "delivery-history" : undefined}
-                  className="min-w-0 scroll-mt-24 py-5 first:pt-0">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="flex items-center gap-2 text-sm font-bold text-ink-900">
-                      <Icon aria-hidden="true" className={`h-5 w-5 shrink-0 ${approvedStep ? "text-success" : "text-ink-400"}`} />{level === 1 ? "Business registration" : label}
-                    </h3>
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${approvedStep ? "bg-success-surface text-success" : "bg-ink-50 text-ink-500"}`}>
+                  className={`min-w-0 scroll-mt-24 rounded-xl border p-4 ${approvedStep ? "border-success/30 bg-success-surface/60" : "border-ink-200 bg-white"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg border ${approvedStep ? "border-success/30 bg-white text-success" : "border-ink-200 bg-ink-50 text-ink-500"}`}>
+                      <Icon aria-hidden="true" className="size-5" /></span>
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${approvedStep ? "bg-success text-white" : "bg-ink-100 text-ink-500"}`}>
                       {approvedStep ? <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" /> : <Info aria-hidden="true" className="h-3.5 w-3.5" />}{reviewStatus}
                     </span>
                   </div>
-                  <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">
+                  <h3 className="mt-3 text-sm font-bold text-ink-900">{level === 1 ? "Business registration" : label}</h3>
+                  <p className="mt-1.5 whitespace-pre-wrap break-words text-[13px] leading-5 text-ink-600">
                     {level === 1 && (approvedStep ? "Business registration documents reviewed by Vexim." : pending)}
                     {level === 2 && !approvedStep && pending}
                     {level === 2 && approvedStep && (scope === "factory" || scope === "both") && <span className="block">{scope === "both" && <strong className="block">Factory review</strong>}{safe(s.public_review_summaries[2]) || "Detailed factory review scope is available on request."}</span>}
@@ -446,7 +455,7 @@ export function SupplierStorefront({
                     {level === 2 && approvedStep && scope === null && "Review scope is available on request."}
                     {level === 3 && (approvedStep ? (safe(s.public_review_summaries[3]) || "Detailed delivery scope is available on request.") : pending)}
                   </p>
-                  {level === 2 && approvedStep && (s.factory_reviews ?? []).map((review) => <div key={review.code} className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-ink-50 px-3 py-2">
+                  {level === 2 && approvedStep && (s.factory_reviews ?? []).map((review) => <div key={review.code} className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-white/80 px-3 py-2 ring-1 ring-ink-200">
                     <span className="text-xs font-semibold text-ink-800">{factoryReviewLabel(review)}</span>
                     <span className="text-xs text-ink-500">Reviewed by {safe(review.inspectorName)}</span>
                     {reportAction?.(review.code)}

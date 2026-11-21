@@ -146,8 +146,9 @@ assert.match(supplierHeader, /View supplier checks/);
 assert.doesNotMatch(supplierHeader, /VerificationTierBadge|VerificationCoverSeal|\/3 approved/);
 assert.match(shared, /const reviewStatus = approvedStep \? "Checked" : "No completed check shown"/,
   'Do not infer a failed or unstarted review from the absence of published approval');
-assert.match(shared, /bg-success-surface text-success/);
-assert.match(shared, /bg-ink-50 text-ink-500/);
+assert.match(shared, /approvedStep \? "bg-success text-white" : "bg-ink-100 text-ink-500"/, "Thẻ xác minh: nhãn Checked nổi bật, chưa có thì trung tính");
+assert.match(shared, /\{VERIFICATION_ITEMS\.filter\(\(\{ level \}\) => steps\.includes\(level\)\)\.length\} of \{VERIFICATION_ITEMS\.length\} checks completed/, "Đếm số bước đã xác minh");
+assert.match(shared, /<div className="mt-5 grid gap-3 md:grid-cols-3">/, "Ba thẻ xác minh nằm ngang");
 assert.ok(shared.indexOf('<section id="products"') < shared.indexOf('<section id="about"'), 'Products precede profile details');
 assert.match(shared, /supplierShortName\(s\)/, 'Heading uses the normalised display or trade name');
 assert.doesNotMatch(shared, /checks approved|Not approved|Level \$\{level\}|bg-gradient-to-br/);
