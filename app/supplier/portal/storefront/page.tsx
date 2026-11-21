@@ -133,8 +133,9 @@ export default async function SupplierStorefrontPreviewPage() {
       nameTag="h2"
       showcaseImageUrl={showcasePreviewUrl}
       companyAplusImageUrl={(path) => `/api/supplier-portal/company-aplus?path=${encodeURIComponent(path)}`}
+      // Trang cao cấp: ô số liệu đè lên đáy ảnh bìa nên nút đổi ảnh bìa nằm góc trên.
       coverAction={<SupplierPhotoButton kind="cover" hasImage={!!coverUrl}
-        className="absolute right-4 bottom-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60" />}
+        className={`absolute right-4 ${planRules.premiumStorefront ? "top-4" : "bottom-3"} z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60`} />}
       avatarAction={<SupplierPhotoButton kind="profile" hasImage={!!avatarUrl}
         className="absolute -right-2 -bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-white shadow-md ring-2 ring-white transition hover:bg-brand-800 disabled:opacity-60" />}
       verificationActions={<StorefrontVerificationActions progress={progress} />}

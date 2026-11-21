@@ -1,29 +1,17 @@
 "use client";
 
-import { cloneElement, isValidElement, useState, type ReactNode } from "react";
+import { Children, Fragment, cloneElement, isValidElement, useEffect, useState, type ReactNode } from "react";
+import { Pin } from "lucide-react";
 
 import { SupplierProductRail } from "./supplier-product-rail";
 import { STOREFRONT_GROUP_MIN_PRODUCTS, STOREFRONT_MAX_FEATURED } from "@/lib/storefront-theme";
 
-/** `node`: thẻ cho thanh trượt; `gridNode`: cùng thẻ cho lưới sản phẩm ghim. */
-type Item = { id: string; category: { key: string; label: string } | null; node: ReactNode; gridNode: ReactNode };
-
-/**
- * Lưới cột theo số thẻ, để ít sản phẩm (1–3) vẫn cân đối, không để ô trống: 1 thẻ rộng vừa phải,
- * 2–3 thẻ chia đều, 4 thẻ 4 cột, 5–6 thẻ 3 cột, từ 7 thẻ 4 cột.
- */
-function columns(count: number): string {
-  if (count <= 1) return "grid-cols-1 sm:max-w-sm";
-  if (count === 2) return "grid-cols-1 sm:grid-cols-2 lg:max-w-3xl";
-  if (count === 3) return "grid-cols-1 sm:grid-cols-3";
-  if (count === 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
-  if (count <= 6) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
-  return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
-}
+/** `node`: thẻ đầy đủ cho thanh trượt; `featuredNode`: thẻ nhỏ cho thanh sản phẩm ghim. */
+type Item = { id: string; category: { key: string; label: string } | null; node: ReactNode; featuredNode: ReactNode };
 
 /**
  * Khu sản phẩm trang nhà cung cấp gói cao cấp (chủ sàn chốt 2026-11-20):
- * - tối đa 4 sản phẩm ghim hiện trước ("Featured products");
+ * - tối đa 4 sản phẩm ghim trên thanh "Featured products" nhỏ gọn (2 thẻ một lượt, quá 2 thì tự chuyển);
  * - từ 8 sản phẩm trở lên và có từ 2 danh mục thì có nút lọc theo danh mục;
  * - các sản phẩm còn lại nằm trên thanh trượt (3 thẻ và một phần thẻ thứ 4).
  * Mọi thẻ vẫn nằm trong trang (chỉ ẩn bằng CSS khi lọc) để máy tìm kiếm đọc đủ.
@@ -39,10 +27,7 @@ export function PremiumProductGrid({ items, featuredIds }: { items: Item[]; feat
   const shown = active ? rest.filter((item) => item.category?.key === active) : rest;
   const chip = (on: boolean) => `whitespace-nowrap rounded-full border px-3 py-1.5 text-[13px] font-semibold transition ${on ? "border-[var(--sf-accent,#1F3E74)] bg-[var(--sf-accent,#1F3E74)] text-white" : "border-ink-200 bg-white text-ink-700 hover:border-ink-300"}`;
   return <div className="mt-5 space-y-8">
-    {featured.length > 0 && <div>
-      <h3 className="text-sm font-bold uppercase tracking-wider text-ink-500">Featured products</h3>
-      <ul aria-label="Featured products" className={`mt-3 grid items-stretch gap-4 ${columns(featured.length)}`}>{featured.map((item) => item.gridNode)}</ul>
-    </div>}
+    {featured.length > 0 && <FeaturedStrip>{featured.map((item) => <Fragment key={item.id}>{item.featuredNode}</Fragment>)}</FeaturedStrip>}
     {rest.length > 0 && <div>
       {featured.length > 0 && <h3 className="text-sm font-bold uppercase tracking-wider text-ink-500">{filterable ? "Browse by category" : "More products"}</h3>}
       {filterable && <div role="group" aria-label="Filter products by category" className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -61,4 +46,39 @@ export function PremiumProductGrid({ items, featuredIds }: { items: Item[]; feat
 function ProductSlot({ hidden, children }: { hidden: boolean; children: ReactNode }) {
   if (!hidden || !isValidElement<{ className?: string }>(children)) return <>{children}</>;
   return cloneElement(children, { className: `${children.props.className ?? ""} hidden` });
+}
+
+const ROTATE_MS = 5000;
+
+/**
+ * Thanh "Featured products": mỗi lượt 2 thẻ nhỏ. Quá 2 sản phẩm thì tự chuyển lượt sau vài giây bằng
+ * hiệu ứng mờ dần (dừng khi rê chuột, bấm vào, hoặc khi người dùng tắt chuyển động); chấm bên dưới
+ * để chọn lượt. Mọi thẻ vẫn nằm trong trang (lượt ẩn chỉ mờ đi) để máy tìm kiếm đọc đủ.
+ */
+function FeaturedStrip({ children }: { children: ReactNode }) {
+  const tiles = Children.toArray(children);
+  const pages = Array.from({ length: Math.ceil(tiles.length / 2) }, (_, i) => tiles.slice(i * 2, i * 2 + 2));
+  const [page, setPage] = useState(0);
+  const [paused, setPaused] = useState(false);
+  useEffect(() => {
+    if (pages.length < 2 || paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setPage((current) => (current + 1) % pages.length), ROTATE_MS);
+    return () => window.clearInterval(timer);
+  }, [pages.length, paused]);
+  return <section aria-label="Featured products" className="rounded-2xl border border-brand-200 bg-brand-50/50 p-4"
+    onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <h3 className="flex items-center gap-1.5 text-sm font-bold text-ink-900"><Pin aria-hidden="true" className="size-4 text-brand-700" />Featured products</h3>
+      {pages.length > 1 && <div className="flex items-center gap-1.5">
+        {pages.map((_, i) => <button key={i} type="button" aria-label={`Show featured products ${i * 2 + 1}–${Math.min(i * 2 + 2, tiles.length)}`} aria-pressed={page === i}
+          onClick={() => setPage(i)} className={`h-1.5 rounded-full transition-all ${page === i ? "w-5 bg-brand-700" : "w-1.5 bg-brand-200 hover:bg-brand-300"}`} />)}
+      </div>}
+    </div>
+    <div className="grid">
+      {pages.map((group, i) => <ul key={i} aria-hidden={page !== i} inert={page !== i}
+        className={`col-start-1 row-start-1 grid gap-3 transition-opacity duration-700 sm:grid-cols-2 ${page === i ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+        {group.map((tile, k) => <li key={k} className="min-w-0">{tile}</li>)}
+      </ul>)}
+    </div>
+  </section>;
 }

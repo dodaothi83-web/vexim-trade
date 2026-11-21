@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { SupplierProductRail } from "@/components/public/supplier-product-rail";
 import { SUPPLIER_RAIL_ITEM } from "@/components/public/supplier-rail-item";
+import { FeaturedProductTile } from "@/components/public/featured-product-tile";
 import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
 import { SupplierCertificateRail } from "@/components/public/supplier-certificate-rail";
 import { VERIFICATION_LEVEL_ICONS } from "@/components/verification-tier";
@@ -25,7 +26,7 @@ import { publicShowcaseBlocks } from "@/lib/supplier-showcase";
 import { ProductAplus } from "@/components/public/product-aplus";
 import { PremiumProductGrid } from "@/components/public/premium-product-grid";
 import { aplusImagePaths, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
-import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
+import { normalizeStorefrontTheme, STOREFRONT_MAX_FEATURED } from "@/lib/storefront-theme";
 import { PremiumStorefront } from "@/components/public/premium-storefront";
 
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
@@ -129,7 +130,12 @@ export function SupplierStorefront({
     categories.find((c) => productBelongsToCategory(p, c, categories));
 
   /** Thẻ một sản phẩm (dùng chung cho dải ngang gói Basic và lưới gói cao cấp). */
-  const productCard = (p: typeof s.main_products[number], itemClass: string) => {
+  // Thứ tự ghim trong các sản phẩm đang hiện (giống thanh "Featured products"): #1, #2…
+  const visibleFeatured = theme.featured.filter((id) => s.main_products.some((p) => p.id === id)).slice(0, STOREFRONT_MAX_FEATURED);
+  const featuredRank = (id: string) => visibleFeatured.indexOf(id) + 1 || undefined;
+  /** `featured`: thẻ nhỏ cho thanh sản phẩm ghim (gói cao cấp) thay cho thẻ đầy đủ. */
+  const productCard = (p: typeof s.main_products[number], itemClass: string, featured = false) => {
+          const rank = featured ? featuredRank(p.id) : undefined;
           const category = productCategory(p);
           const href = synthetic
             ? `/suppliers/${encodeURIComponent(s.slug || s.id)}/products/${encodeURIComponent(p.id)}`
@@ -138,6 +144,8 @@ export function SupplierStorefront({
           const approvedForm = s.form_product_cards?.[p.id];
           if (approvedForm) {
             const productName = safe(approvedForm.name);
+            if (featured) return <FeaturedProductTile key={p.id} href={href} name={productName} imagePath={approvedForm.cardImagePath ?? approvedForm.imagePaths[0]}
+              moq={approvedForm.moq || "On request"} leadTime={approvedForm.leadTimeText || (approvedForm.leadTimeDays ? `${approvedForm.leadTimeDays} days` : "On request")} linkable={productLinks} rank={rank} />;
             return <li key={p.id} className={itemClass}>
               <PublicProductCard href={href} imagePath={approvedForm.cardImagePath ?? approvedForm.imagePaths[0]}
                 name={productName} grades={cardTitleGrades(approvedForm)} gradeRows={approvedForm.gradeRows}
@@ -268,6 +276,8 @@ export function SupplierStorefront({
             }
             return "On request";
           })();
+          if (featured) return <FeaturedProductTile key={p.id} href={href} name={productName} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
+            moq={storefrontMoq} leadTime={storefrontLeadTime} linkable={productLinks} rank={rank} />;
           return <li key={p.id} className={itemClass}>
             <PublicProductCard href={href} imagePath={s.product_card_image_paths?.[p.id] ?? s.product_image_paths[p.id]}
               name={productName} grades={[...storefrontGrades, ...(legacyGradeText ? [legacyGradeText] : [])]} gradeRows={storefrontGradeRows} moq={storefrontMoq}
@@ -390,7 +400,7 @@ export function SupplierStorefront({
         ? <PremiumProductGrid featuredIds={theme.featured} items={s.main_products.map((p) => {
             const category = productCategory(p);
             return { id: p.id, category: category ? { key: category.slug, label: category.name_i18n?.en || category.name_i18n?.vi || category.slug } : null,
-              node: productCard(p, `min-w-0 ${SUPPLIER_RAIL_ITEM}`), gridNode: productCard(p, "min-w-0 h-full") };
+              node: productCard(p, `min-w-0 ${SUPPLIER_RAIL_ITEM}`), featuredNode: productCard(p, "", true) };
           })} />
         : <SupplierProductRail productCount={s.main_products.length}>
           {s.main_products.map((p) => productCard(p, `min-w-0 ${SUPPLIER_RAIL_ITEM}`))}
