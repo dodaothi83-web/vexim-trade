@@ -67,25 +67,79 @@ export async function buyerLabel(store: DataStore, email: string): Promise<strin
   return crm?.company?.trim() || "Người mua";
 }
 
+/**
+ * Tên và đường dẫn bên kia trong danh sách: danh sách được hỏi lại 15 giây/lần, mỗi cuộc trước
+ * đây tốn 1–2 truy vấn tra nhà cung cấp / công ty người mua. Những nhãn này hiếm khi đổi nên giữ
+ * trong bộ nhớ của máy chủ một lúc (có thì 5 phút, chưa có thì 1 phút). Chỉ để hiển thị, không
+ * dùng để kiểm quyền (quyền xem cuộc luôn kiểm theo bản ghi cuộc trò chuyện).
+ */
+const LABEL_TTL_MS = 5 * 60_000;
+const LABEL_MISS_TTL_MS = 60_000;
+const LABEL_CACHE_MAX = 2000;
+type Cached<T> = { value: T; expires: number };
+type Counterpart = { name: string; href: string | null };
+const supplierLabels = new Map<string, Cached<Counterpart | null>>();
+const buyerLabels = new Map<string, Cached<string>>();
+
+async function remember<T>(cache: Map<string, Cached<T>>, key: string, load: () => Promise<T>, hit: (value: T) => boolean): Promise<T> {
+  const nowMs = Date.now();
+  const cached = cache.get(key);
+  if (cached && cached.expires > nowMs) return cached.value;
+  const value = await load();
+  if (cache.size >= LABEL_CACHE_MAX) cache.clear();
+  cache.set(key, { value, expires: nowMs + (hit(value) ? LABEL_TTL_MS : LABEL_MISS_TTL_MS) });
+  return value;
+}
+
+/** Quên nhãn đã nhớ (kiểm thử, hoặc khi vừa biết dữ liệu đổi). */
+export function forgetChatLabels(): void { supplierLabels.clear(); buyerLabels.clear(); }
+
+async function counterpartOf(store: DataStore, c: ChatConversation, side: ChatSender): Promise<Counterpart> {
+  if (side === "supplier") {
+    const name = await remember(buyerLabels, c.buyer_email.trim().toLowerCase(), () => buyerLabel(store, c.buyer_email), (v) => v !== "Người mua");
+    return { name, href: null };
+  }
+  const supplier = await remember(supplierLabels, c.supplier_id, async () => {
+    const s = await store.getSupplier(c.supplier_id).catch(() => null);
+    return s ? { name: supplierName(s), href: s.status === "published" ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : null } : null;
+  }, (v) => v !== null);
+  return supplier ?? { name: "Supplier", href: null };
+}
+
+const otherKeyOf = (c: ChatConversation, side: ChatSender) => side === "buyer" ? presenceKey.supplier(c.supplier_id) : presenceKey.buyer(c.buyer_email);
+
+/** Phần của một dòng danh sách đổi theo thời gian mà không cần có tin mới: chưa đọc, đã xem, online. */
+export type ChatConversationListStatus = Pick<ChatConversationView, "id" | "lastMessageAt" | "unread" | "counterpartReadAt" | "counterpartLastSeen" | "veximFollowingUp">;
+
+function listStatus(c: ChatConversation, side: ChatSender, seen: Record<string, string>): ChatConversationListStatus {
+  return { id: c.id, lastMessageAt: c.last_message_at ?? c.created_at, unread: hasUnread(c, side),
+    counterpartReadAt: side === "buyer" ? c.supplier_last_read_at : c.buyer_last_read_at,
+    counterpartLastSeen: seen[otherKeyOf(c, side)] ?? null,
+    // Nhà cung cấp không thấy cờ này: đó là việc giữa người mua và Vexim.
+    veximFollowingUp: side === "buyer" && unansweredEscalated(c) };
+}
+
+async function fullView(store: DataStore, c: ChatConversation, side: ChatSender, seen: Record<string, string>): Promise<ChatConversationView> {
+  const other = await counterpartOf(store, c, side);
+  return { ...listStatus(c, side, seen), counterpart: other.name, counterpartHref: other.href, productName: c.product_name, preview: c.last_message_preview };
+}
+
 export async function conversationViews(store: DataStore, rows: ChatConversation[], side: ChatSender): Promise<ChatConversationView[]> {
-  const otherKey = (c: ChatConversation) => side === "buyer" ? presenceKey.supplier(c.supplier_id) : presenceKey.buyer(c.buyer_email);
-  const seen = await readPresence(store, rows.map(otherKey));
-  return Promise.all(rows.map(async (c) => {
-    let counterpart = "";
-    let counterpartHref: string | null = null;
-    if (side === "buyer") {
-      const supplier = await store.getSupplier(c.supplier_id).catch(() => null);
-      counterpart = supplier ? supplierName(supplier) : "Supplier";
-      counterpartHref = supplier?.status === "published" ? `/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}` : null;
-    } else {
-      counterpart = await buyerLabel(store, c.buyer_email);
-    }
-    return { id: c.id, counterpart, counterpartHref, productName: c.product_name, preview: c.last_message_preview,
-      lastMessageAt: c.last_message_at ?? c.created_at, unread: hasUnread(c, side),
-      counterpartReadAt: side === "buyer" ? c.supplier_last_read_at : c.buyer_last_read_at,
-      counterpartLastSeen: seen[otherKey(c)] ?? null,
-      // Nhà cung cấp không thấy cờ này: đó là việc giữa người mua và Vexim.
-      veximFollowingUp: side === "buyer" && unansweredEscalated(c) };
+  const seen = await readPresence(store, rows.map((c) => otherKeyOf(c, side)));
+  return Promise.all(rows.map((c) => fullView(store, c, side, seen)));
+}
+
+/**
+ * Lượt hỏi lại danh sách (`?since=`): cuộc có tin mới hơn mốc (hoặc mới tạo) trả đủ; các cuộc
+ * khác chỉ trả phần đổi theo thời gian, trình duyệt giữ tên, sản phẩm và câu xem trước đã có.
+ * Thứ tự vẫn là thứ tự của máy chủ, cuộc không còn trong danh sách thì trình duyệt bỏ đi.
+ */
+export async function conversationListUpdate(store: DataStore, rows: ChatConversation[], side: ChatSender, since: string): Promise<Array<ChatConversationView | ChatConversationListStatus>> {
+  const seen = await readPresence(store, rows.map((c) => otherKeyOf(c, side)));
+  const sinceMs = Date.parse(since);
+  return Promise.all(rows.map((c) => {
+    const changed = !(Date.parse(c.last_message_at ?? c.created_at) <= sinceMs);
+    return changed ? fullView(store, c, side, seen) : listStatus(c, side, seen);
   }));
 }
 

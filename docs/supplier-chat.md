@@ -62,6 +62,17 @@ Mã nguồn: `lib/chat/core.ts` (quy tắc), `lib/chat/service.ts`, `lib/chat/vi
 - **Không giật cuộn:** người đọc đang kéo lên xem tin cũ thì tin mới không kéo khung xuống, chỉ hiện nút "Tin nhắn mới".
 - Kiểm tra: `scripts/check-chat-polling.mjs` (trong `check:rfq`).
 
+## Danh sách cuộc trò chuyện ở trang Tin nhắn hỏi lại nhẹ (2026-11)
+
+Cột danh sách của trang Tin nhắn người mua (`/buyer/account/messages`), cổng nhà cung cấp và khung chat bám cạnh (`components/chat/chat-workspace.tsx`) vẫn hỏi lại 15 giây/lần, nhưng:
+
+- **Chỉ cuộc có tin mới mới trả đủ.** Lượt hỏi lại gửi `GET /api/chat?side=…&since=<mốc>`: mốc là tin mới nhất trong danh sách đang có, lùi 10 giây. Máy chủ (`conversationListUpdate`) trả đủ cuộc có tin mới hơn mốc hoặc mới tạo: tên bên kia, sản phẩm, câu xem trước. Các cuộc khác chỉ trả phần đổi theo thời gian: chưa đọc, bên kia đã xem tới đâu, online, cờ Vexim đang theo dõi. Kèm `partial: true`. Thứ tự vẫn là thứ tự của máy chủ; cuộc không còn trong danh sách thì bỏ. `since` sai định dạng thì trả đủ như cũ.
+- **Tải đủ khi cần.** Lần đầu mở trang, cứ 5 phút một lần (để tên bên kia đổi cũng hiện ra), và khi gặp dòng gọn của một cuộc trình duyệt chưa biết.
+- **Cuộc đang mở không bật lại chấm đỏ.** Danh sách về muộn hơn lượt đánh dấu đã đọc thì cuộc đang mở vẫn là đã đọc, huy hiệu không nhảy.
+- **Nhớ tên bên kia ở máy chủ.** Tên ngắn và link trang nhà cung cấp (phía người mua), tên công ty người mua (phía nhà cung cấp, không lộ email) được giữ trong bộ nhớ máy chủ: 5 phút nếu tìm thấy, 1 phút nếu chưa có, tối đa 2000 mục (`forgetChatLabels()` để xoá). Danh sách đầy đủ vì vậy cũng chỉ còn 2 truy vấn (cuộc trò chuyện + online) thay vì 1–2 truy vấn mỗi cuộc. Quyền xem vẫn kiểm theo bản ghi cuộc trò chuyện, không theo nhãn đã nhớ.
+- Huy hiệu thanh công cụ / menu cổng vẫn dùng `?peek=1` (chỉ đếm), không đổi.
+- Kiểm tra: `scripts/check-chat-list-polling.mjs` (trong `npm run check:rfq`).
+
 ## Hộp "Chat với người mua" trong CRM hỏi lại nhẹ (2026-11)
 
 Hộp chat của nhân viên (`components/crm/support-inbox.tsx`) làm giống chat người mua ↔ NCC ở trên:
