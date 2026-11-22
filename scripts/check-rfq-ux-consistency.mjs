@@ -1,6 +1,6 @@
 // Public, buyer and CRM entry points must describe the same direct-vs-Vexim RFQ flow.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import React from 'react';
@@ -55,24 +55,35 @@ for (const locale of ['en', 'vi']) {
   assert.match(question, vi ? /Sản phẩm[\s\S]*Câu hỏi/ : /Product[\s\S]*Question/);
 }
 
-// Legacy buyer–supplier conversations embedded in sourcing RFQs are read-only;
-// an empty archive should not impersonate a live direct conversation.
-const thread = load('components/rfq-thread.tsx', { react: React, 'lucide-react': icons });
+// Một kênh nhắn tin duy nhất giữa người mua và nhà cung cấp: Tin nhắn. RFQ trực tiếp không còn
+// khung trao đổi riêng; phía nhà cung cấp chỉ có thẻ mở/gửi vào Tin nhắn.
+const chatStart = load('components/rfq-chat-start.tsx', { react: { ...React, useActionState: (_action, initial) => [initial, () => {}, false] },
+  'next/link': link, 'lucide-react': icons });
 for (const locale of ['en', 'vi']) {
-  const copyForLocale = copy.quotePortalCopy[locale];
-  const html = renderToStaticMarkup(React.createElement(thread.RfqThread, {
-    rfqId: 'rfq-1', matchId: 'match-1', side: 'buyer', messages: [{ id: 'msg-1', sender: 'buyer',
-      body: 'Historical message', created_at: '2026-11-08T12:00:00Z' }],
-    lastVisibleAt: '2026-11-08T12:00:00Z', canPost: false, sourcingArchive: true,
-    locale, copy: copyForLocale, sendAction: async () => ({}), markRead: async () => {},
-  }));
-  assert.match(html, locale === 'vi' ? /Lịch sử trao đổi trực tiếp cũ chỉ để xem/ : /Read-only history from the old buyer/);
-  assert.match(html, locale === 'vi' ? /Nếu RFQ còn mở, hãy dùng mạch Vexim/ : /continue in the Vexim conversation/);
-  assert.doesNotMatch(html, locale === 'vi' ? /Chỉ bạn và nhà cung cấp này gửi tin/ : /Only you and this supplier can reply here/);
+  const labels = copy.quotePortalCopy[locale].chat;
+  const render = (props) => renderToStaticMarkup(React.createElement(chatStart.RfqChatStart, {
+    matchId: 'match-1', conversationHref: null, canStart: true, labels, action: async (s) => s, ...props }));
+  const open = render({ conversationHref: '/supplier/portal/messages?c=conv-1' });
+  assert.match(open, /href="\/supplier\/portal\/messages\?c=conv-1"/, 'An existing chat with this buyer is reopened, not duplicated');
+  assert.doesNotMatch(open, /<form/);
+  const first = render({});
+  assert.match(first, /<form/); assert.match(first, /name="match_id" value="match-1"/); assert.match(first, /name="body"/);
+  assert.match(first, locale === 'vi' ? /Gửi và mở Tin nhắn/ : /Send and open Messages/);
+  const closed = render({ canStart: false });
+  assert.doesNotMatch(closed, /<form/);
+  assert.match(closed, locale === 'vi' ? /RFQ này đã đóng/ : /This RFQ is closed/);
 }
-assert.match(read('app/(public)/buyer/account/requests/[id]/offers/[matchId]/page.tsx'),
-  /readable && \(!sourcing \|\| messages\.length > 0\)/);
-assert.match(read('app/supplier/portal/rfqs/[matchId]/page.tsx'), /canPost=\{false\} sourcingArchive/);
+for (const path of ['app/(public)/buyer/account/requests/[id]/offers/[matchId]/page.tsx', 'app/supplier/portal/rfqs/[matchId]/page.tsx',
+  'components/buyer-enquiry-detail.tsx', 'app/crm/rfqs/[id]/page.tsx']) {
+  assert.doesNotMatch(read(path), /\bRfqThread\b|listRfqThreadMessages|buyerSupplierThreadMessages|sourcingArchive/, `${path}: private RFQ thread removed`);
+}
+assert.ok(!existsSync(new URL('../components/rfq-thread.tsx', import.meta.url)), 'components/rfq-thread.tsx is deleted');
+assert.match(read('app/(public)/buyer/account/requests/[id]/offers/[matchId]/page.tsx'), /buyerRfqChatHref\(supplier\.id, rfq\.code\)/);
+assert.match(read('app/(public)/buyer/account/requests/[id]/page.tsx'), /chatHref: buyerRfqChatHref\(match\.supplier_id, rfq\.code\)/);
+assert.match(read('app/supplier/portal/rfqs/[matchId]/page.tsx'), /<RfqChatStart[\s\S]*action=\{supplierRfqChatAction\}/);
+const chatLink = load('lib/rfq/chat-link.ts');
+assert.equal(chatLink.buyerRfqChatHref('s-1', 'RFQ-20261122-00001'), '/buyer/account/messages?supplier=s-1&rfq=RFQ-20261122-00001');
+assert.equal(chatLink.buyerRfqChatHref('s-1', '"><script>'), '/buyer/account/messages?supplier=s-1', 'Only a real RFQ code is carried into the draft');
 
 // Trang này cũng dựng tiêu đề qua `pageTitle` của lib/site, nên nạp đúng module
 // thật thay vì để `require` ném lỗi "unexpected @/lib/site".

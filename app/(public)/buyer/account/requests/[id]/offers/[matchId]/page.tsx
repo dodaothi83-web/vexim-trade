@@ -1,17 +1,19 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Clock3, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock3, MessageCircle, ShieldCheck } from "lucide-react";
 import { Breadcrumbs } from "@/components/ui";
-import { RfqThread, RfqReadTracker } from "@/components/rfq-thread";
+import { RfqReadTracker } from "@/components/rfq-read-tracker";
 import { getLocale } from "@/lib/i18n/server";
 import { buyerOfferAccess } from "@/lib/rfq/portal-access";
-import { buyerSupplierThreadMessages, canReadRfqThread, canUseRfqThread, lastPublishedQuote } from "@/lib/rfq/portal-core";
+import { lastPublishedQuote } from "@/lib/rfq/portal-core";
 import { quotePortalCopy } from "@/lib/rfq/portal-copy";
 import { rfqChannel } from "@/lib/rfq/channel";
 import type { RfqQuoteVersion } from "@/lib/types";
-import { buyerRfqMessageAction, buyerRfqReadAction } from "../actions";
+import { buyerRfqReadAction } from "../actions";
+import { buyerRfqChatHref } from "@/lib/rfq/chat-link";
+import { supplierChatAvailable } from "@/lib/chat/service";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Quote & conversation | Vexim Trade", robots: { index: false, follow: false } };
+export const metadata = { title: "Supplier quote | Vexim Trade", robots: { index: false, follow: false } };
 
 export default async function BuyerOfferPage({ params }: { params: Promise<{ id: string; matchId: string }> }) {
   const { id, matchId } = await params;
@@ -21,8 +23,8 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
   const sourcing = rfqChannel(rfq) === "sourcing";
   const versions = await store.listRfqQuoteVersions([match.id]);
   const quote = lastPublishedQuote(versions, match);
-  const readable = canReadRfqThread(rfq, match);
-  const messages = readable ? buyerSupplierThreadMessages(await store.listRfqThreadMessages(match.id)) : [];
+  // Hỏi đáp với nhà cung cấp đi qua Tin nhắn (một kênh duy nhất); RFQ tìm nguồn thì qua Vexim.
+  const chatHref = !sourcing && supplier && await supplierChatAvailable(store, supplier.id) ? buyerRfqChatHref(supplier.id, rfq.code) : null;
   const markRead = buyerRfqReadAction.bind(null, rfq.id, match.id);
   const supplierName = supplier?.display_name ?? supplier?.trade_name ?? supplier?.name ?? (locale === "vi" ? "Nhà cung cấp" : "Supplier");
   const requestUrl = `/buyer/account/requests/${encodeURIComponent(rfq.id)}`;
@@ -74,10 +76,16 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
         {sourcing && <Link href={`${requestUrl}#vexim-conversation`} className="block rounded-xl border border-brand-200 bg-brand-50 p-4 text-[13px] font-semibold leading-6 text-brand-900 hover:border-brand-400">
           {locale === "vi" ? "Trao đổi về tất cả báo giá trong nhóm này với Vexim. Nhà cung cấp không đọc được các tin nhắn này." : "Discuss all quotes in this group with Vexim. Suppliers cannot read these messages."} <ArrowRight className="inline h-4 w-4" aria-hidden="true" />
         </Link>}
-        {readable && (!sourcing || messages.length > 0) ? <div>{sourcing && <p className="mb-3 text-[13px] font-semibold text-ink-600">{locale === "vi" ? "Lịch sử trao đổi trực tiếp trước đây (chỉ đọc)" : "Previous direct conversation (read-only archive)"}</p>}
-          <RfqThread rfqId={rfq.id} matchId={match.id} side="buyer" messages={messages} lastVisibleAt={messages.at(-1)?.created_at ?? null}
-            canPost={canUseRfqThread(rfq, match)} sourcingArchive={sourcing} locale={locale} copy={copy} sendAction={buyerRfqMessageAction} markRead={markRead} /></div>
-          : null}
+        {chatHref && <section aria-labelledby="supplier-chat-title" data-testid="buyer-rfq-chat" className="flex flex-col gap-4 rounded-2xl border border-ink-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"><MessageCircle className="h-5 w-5" aria-hidden="true" /></span>
+            <div className="min-w-0">
+              <h2 id="supplier-chat-title" className="text-[15px] font-bold text-ink-900">{copy.chat.buyerTitle}</h2>
+              <p className="mt-1 text-[13px] leading-5 text-ink-600">{copy.chat.buyerBody}</p>
+            </div>
+          </div>
+          <Link href={chatHref} prefetch={false} className="btn btn-primary min-h-11 w-full shrink-0 justify-center sm:w-auto"><MessageCircle className="h-4 w-4" aria-hidden="true" />{copy.chat.buyerAction}</Link>
+        </section>}
       </div>
       <aside className="space-y-4 lg:sticky lg:top-24">
         <section className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
@@ -89,7 +97,7 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
           </dl>
           <Link href={requestUrl} className="mt-5 inline-flex min-h-10 items-center gap-1 text-[13px] font-bold text-brand-700 hover:underline">{copy.backToRequest}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
         </section>
-        <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] leading-5 text-ink-600"><Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{copy.emailFallback}</p>
+        {!sourcing && <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] leading-5 text-ink-600"><Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{copy.emailFallback}</p>}
       </aside>
     </div>
   </div>;

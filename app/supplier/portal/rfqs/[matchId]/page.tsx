@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Clock3, ImageIcon, MessageCircle, ShieldCheck } from "lucide-react";
-import { RfqThread } from "@/components/rfq-thread";
+import { RfqChatStart } from "@/components/rfq-chat-start";
 import { RfqMediatedThread } from "@/components/rfq-mediated-thread";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { buildSupplierRfqBoard } from "@/lib/supplier-portal/dashboard";
 import { supplierOfferAccess } from "@/lib/rfq/portal-access";
-import { buyerSupplierThreadMessages, canReadRfqThread, canUseRfqThread, lastPublishedQuote, lastVisibleEventAt } from "@/lib/rfq/portal-core";
+import { canReadRfqThread, canSupplierChatAboutRfq, lastPublishedQuote } from "@/lib/rfq/portal-core";
 import { quotePortalCopy } from "@/lib/rfq/portal-copy";
 import { rfqChannel } from "@/lib/rfq/channel";
 import { canReadMediatedDesk, canUseMediatedDesk, safeMediatedMessages } from "@/lib/rfq/mediated";
@@ -18,7 +18,7 @@ import { SupplierQuoteForm } from "../quote-form";
 import type { MediaAsset } from "@/lib/types";
 import { privateMediaUrl, supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view";
 import { publicProductCategorySlug } from "@/lib/public/product-selection";
-import { supplierRfqMessageAction, supplierRfqReadAction, supplierVeximMessageAction, supplierVeximReadAction } from "./actions";
+import { supplierRfqChatAction, supplierVeximMessageAction, supplierVeximReadAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "RFQ & conversation | Vexim Trade", robots: { index: false, follow: false } };
@@ -60,15 +60,19 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
   const selectedProductImage = featuredImage ?? productImages.find((asset) => privateMediaUrl(asset));
   const productImage = selectedProductImage ? privateMediaUrl(selectedProductImage) : null;
   const quote = lastPublishedQuote(versions, match);
-  const readable = canReadRfqThread(rfq, match);
-  const messages = readable ? buyerSupplierThreadMessages(await store.listRfqThreadMessages(match.id)) : [];
-  const lastVisibleAt = lastVisibleEventAt(null, messages);
+  // RFQ trực tiếp có đồng ý chia sẻ liên hệ: hỏi đáp với người mua đi qua Tin nhắn. Có sẵn cuộc
+  // trò chuyện với người mua này thì mở lại đúng cuộc đó.
+  const readable = !sourcing && canReadRfqThread(rfq, match);
+  const buyerChat = readable ? await (async () => {
+    const buyer = rfq.buyer_id ? await store.getBuyer(rfq.buyer_id).catch(() => null) : null;
+    const email = buyer?.email?.trim().toLowerCase() || item.buyerContact?.email?.trim().toLowerCase() || "";
+    return email ? await store.findChatConversation(email, supplier.id).catch(() => null) : null;
+  })() : null;
   const deskReadable = sourcing && canReadMediatedDesk(rfq, match);
   const deskMessages = deskReadable ? safeMediatedMessages(await store.listRfqMediatedMessages(match.id)) : [];
   const date = (value: string) => new Intl.DateTimeFormat(intl, {
     dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(value));
-  const canPost = canUseRfqThread(rfq, match);
   // Private supplier -> Vexim signal. `undefined` = could not be loaded: hide the block
   // rather than offer a form that may overwrite a rating the supplier cannot see.
   const canRateLead = canRateRfqLead(rfq, match);
@@ -147,13 +151,8 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
             lastVisibleAt={deskMessages.at(-1)?.created_at ?? null} canPost={canUseMediatedDesk(rfq, match)} locale={locale}
             sendAction={supplierVeximMessageAction} markRead={supplierVeximReadAction.bind(null, match.id)} />
             : <p className="rounded-xl border border-ink-200 bg-ink-50 p-4 text-[13px] text-ink-700">{copy.noConsent}</p>}
-          {readable && messages.length > 0 && <div><p className="mb-3 text-[13px] font-semibold text-ink-600">{locale === "vi" ? "Lịch sử trao đổi trực tiếp trước đây (chỉ đọc)" : "Previous direct conversation (read-only archive)"}</p>
-            <RfqThread rfqId={rfq.id} matchId={match.id} side="supplier" messages={messages} lastVisibleAt={lastVisibleAt}
-              canPost={false} sourcingArchive locale={locale} copy={copy} sendAction={supplierRfqMessageAction}
-              markRead={supplierRfqReadAction.bind(null, match.id)} /></div>}
-        </> : readable ? <RfqThread rfqId={rfq.id} matchId={match.id} side="supplier" messages={messages} lastVisibleAt={lastVisibleAt}
-          canPost={canPost} locale={locale} copy={copy} sendAction={supplierRfqMessageAction}
-          markRead={supplierRfqReadAction.bind(null, match.id)} />
+        </> : readable ? <RfqChatStart matchId={match.id} canStart={canSupplierChatAboutRfq(rfq, match)} labels={copy.chat} action={supplierRfqChatAction}
+          conversationHref={buyerChat ? `/supplier/portal/messages?c=${encodeURIComponent(buyerChat.id)}` : null} />
           : <div className="flex items-start gap-3 rounded-2xl border border-ink-200 bg-ink-50 p-5 text-[13px] leading-6 text-ink-700"><MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden="true" />{copy.noConsent}</div>}
       </div>
       {/* Scrolls on its own when the open rating form is taller than a short laptop screen. */}
@@ -172,7 +171,7 @@ export default async function SupplierOfferPage({ params }: { params: Promise<{ 
           : !sourcing && item.buyerContact && !canRateLead && <p className="rounded-xl bg-ink-50 p-4 text-[12px] leading-5 text-ink-600">
             <span className="block font-semibold text-ink-800">{m.rfqs.leadRating.title}</span>{m.rfqs.leadRating.notYet}</p>}
         {item.dueAt && <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] text-ink-700"><Clock3 className="h-4 w-4 shrink-0" aria-hidden="true" />{m.rfqs.tasks.due} {date(item.dueAt)}</p>}
-        <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] leading-5 text-ink-600"><ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />{copy.emailFallback}</p>
+        {!sourcing && <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-4 text-[12px] leading-5 text-ink-600"><ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />{copy.emailFallback}</p>}
       </aside>
     </div>
   </div>;

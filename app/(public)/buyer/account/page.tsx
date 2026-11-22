@@ -20,7 +20,7 @@ import { introFrequency, readIntroductions, showOnboarding } from "@/lib/buyer/i
 import { introCategories } from "@/lib/buyer/introductions-server";
 import { COMPANY } from "@/lib/config";
 import type { Rfq } from "@/lib/types";
-import { buyerDirectOutcome, buyerMatchHasUpdate, buyerMatchHasNewQuote } from "@/lib/rfq/portal-core";
+import { buyerDirectOutcome, buyerMatchHasNewQuote } from "@/lib/rfq/portal-core";
 import { deskHasNewReply } from "@/lib/rfq/mediated";
 import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
 
@@ -94,7 +94,8 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
   const unreadByRequest = new Map<string, number>();
   for (const update of updates) {
     const request = rfqById.get(update.rfq_id);
-    if (!request || !(rfqChannel(request) === "sourcing" ? buyerMatchHasNewQuote(update) : buyerMatchHasUpdate(update))) continue;
+    // Chỉ báo giá mới; tin nhắn với nhà cung cấp có huy hiệu riêng ở mục Tin nhắn.
+    if (!request || !buyerMatchHasNewQuote(update)) continue;
     unreadByRequest.set(update.rfq_id, (unreadByRequest.get(update.rfq_id) ?? 0) + 1);
   }
   let deskUnavailable = false;

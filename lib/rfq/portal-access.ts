@@ -14,7 +14,9 @@ export async function buyerOfferAccess(rfqId: string, matchId: string) {
     next: `/buyer/account/requests/${encodeURIComponent(rfqId)}/offers/${encodeURIComponent(matchId)}` });
   const store = getStore();
   const match = await store.getRfqMatch(matchId);
-  if (!match || !canBuyerOpenRfqMatch(rfq, match)) notFound();
+  if (!match || match.rfq_id !== rfq.id) notFound();
+  // Trang trao đổi trước báo giá đã bỏ (hỏi đáp qua Tin nhắn): link cũ quay về trang yêu cầu.
+  if (!canBuyerOpenRfqMatch(rfq, match)) redirect(`/buyer/account/requests/${encodeURIComponent(rfq.id)}`);
   const supplier = await store.getSupplier(match.supplier_id);
   return { store, rfq, buyer, match, supplier };
 }

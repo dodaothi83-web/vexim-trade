@@ -232,14 +232,7 @@ export default async function RfqDetailPage({
     }
   }
 
-  // RFQ portal conversations live separately from email; only staff with rfq.view
-  // sees the per-match thread, and only inside this RFQ's actual matches.
-  const portalThreads = new Map(await Promise.all(matches.filter((m) => !!m.sent_to_supplier_at).map(async (m) => [
-    m.id, await store.listRfqThreadMessages(m.id).catch((error) => {
-      console.error("[crm] RFQ portal conversation unavailable", error);
-      return [];
-    }),
-  ] as const)));
+  // Người mua và nhà cung cấp trao đổi qua Tin nhắn (chat chung, xem ở /crm/messages), không còn mạch riêng theo RFQ.
   const isMediated = channel === "sourcing";
   let mediationUnavailable = false;
   const mediationThreads = isMediated ? await store.listRfqMediatedThreads([rfq.id])
@@ -535,7 +528,6 @@ export default async function RfqDetailPage({
                 const versions = quoteVersionsByMatch.get(m.id) ?? [];
                 const canDecide = m.status === "presented_to_buyer" && versions.length > 0 && rfq.status !== "sampling";
                 const thread = messagesByMatch.get(m.id) ?? [];
-                const portalThread = portalThreads.get(m.id) ?? [];
                 const passed = reviewedSteps.get(m.supplier_id) ?? [];
                 const quote = quoteSummary(m);
                 return (
@@ -589,7 +581,6 @@ export default async function RfqDetailPage({
                       {versions.length > 0 && m.sent_to_buyer_at && <> · <span className="text-emerald-700">công bố trên tài khoản người mua {fmtDate(m.sent_to_buyer_at)}</span></>}
                       {m.status === "quoted" && <> · <span className="font-semibold text-amber-800">{versions.length > 0 ? "Bản điều chỉnh chưa công bố" : "Báo giá chưa công bố"}</span></>}
                       {thread.length > 0 && <> · {thread.length} thư</>}
-                      {portalThread.length > 0 && <> · {portalThread.length} tin trực tiếp trên cổng</>}
                     </p>
                     {versions.length > 0 && <details className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50/40 px-3 py-2">
                       <summary className="cursor-pointer text-[12px] font-semibold text-emerald-800">Báo giá đã công bố ({versions.length} phiên bản)</summary>
@@ -603,14 +594,6 @@ export default async function RfqDetailPage({
                       <strong>Lời nhắn nhà cung cấp gửi người mua{m.status === "quoted" ? " (chờ trình)" : ""}:</strong>
                       <p className="mt-1 whitespace-pre-wrap break-words">{m.quote_buyer_note}</p>
                     </div>}
-                    {portalThread.length > 0 && <details className="mt-2 rounded-lg border border-ink-200 bg-ink-50/40 px-3 py-2">
-                      <summary className="cursor-pointer text-[12px] font-semibold text-brand-700">{isSourcing ? "Lịch sử trao đổi người mua và nhà cung cấp (chỉ đọc)" : "Trao đổi trực tiếp giữa người mua và nhà cung cấp"} ({portalThread.length})</summary>
-                      <ol className="mt-2 space-y-2 border-t border-ink-100 pt-2">{portalThread.map((msg) => <li key={msg.id} className="text-[12px] leading-5 text-ink-700">
-                        <span className="font-semibold text-ink-900">{msg.sender === "buyer" ? "Người mua" : "Nhà cung cấp"}</span>
-                        <span className="text-ink-500"> · {fmtDate(msg.created_at)}</span>
-                        <p className="whitespace-pre-wrap break-words">{msg.body}</p>
-                      </li>)}</ol>
-                    </details>}
 
                     {canManageRfq && !isClosed && (
                       <details className="group mt-1.5">

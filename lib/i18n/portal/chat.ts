@@ -4,9 +4,9 @@
 export const en = {
   metaTitle: "Messages",
   title: "Messages",
-  sub: "Chat with buyers who ask about your products.",
+  sub: "Chat with buyers about your products and RFQs.",
   empty: "No messages yet",
-  emptyHint: "When a buyer clicks Chat with supplier on one of your products, the conversation appears here.",
+  emptyHint: "When a buyer clicks Chat with supplier, or you ask a buyer about an RFQ, the conversation appears here.",
   pick: "Choose a conversation to read and reply.",
   placeholder: "Type your reply…",
   send: "Send",
@@ -27,9 +27,9 @@ export type ChatMessages = typeof en;
 export const vi: ChatMessages = {
   metaTitle: "Tin nhắn",
   title: "Tin nhắn",
-  sub: "Trao đổi với người mua hỏi về sản phẩm của bạn.",
+  sub: "Trao đổi với người mua về sản phẩm và RFQ của bạn.",
   empty: "Chưa có tin nhắn",
-  emptyHint: "Khi người mua bấm Chat with supplier trên sản phẩm của bạn, cuộc trò chuyện sẽ hiện ở đây.",
+  emptyHint: "Khi người mua bấm Chat với nhà cung cấp, hoặc bạn hỏi người mua về một RFQ, cuộc trò chuyện sẽ hiện ở đây.",
   pick: "Chọn một cuộc trò chuyện để đọc và trả lời.",
   placeholder: "Nhập câu trả lời…",
   send: "Gửi",

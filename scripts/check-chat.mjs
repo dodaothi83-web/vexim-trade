@@ -122,6 +122,19 @@ assert.equal(fromProfile.id, conversations[0].id, 'Mở lại đúng cuộc cũ 
 const fresh = await chat.startSupplierConversation({ store, buyerEmail: 'profile@buyer.com', supplierId: 's2', body: 'Which markets do you export to?' });
 assert.equal(fresh.product_id, null, 'Cuộc mở từ trang nhà cung cấp không gắn sản phẩm');
 assert.equal(await chat.existingConversationForSupplier(store, 'profile@buyer.com', 's2'), fresh.id);
+// Nhà cung cấp hỏi người mua về RFQ trực tiếp: vào chung Tin nhắn, mở lại cuộc sẵn có, tin gửi với tư cách nhà cung cấp.
+const rfqChat = await chat.startSupplierRfqConversation({ store, supplierId: 's2', supplierEmail: 'Other@X.vn', buyerEmail: ' Profile@Buyer.com ',
+  label: 'RFQ-20261122-00001 · Passion fruit', body: '  What packing do you need?  ' });
+assert.equal(rfqChat.id, fresh.id, 'Không tạo cuộc thứ hai với cùng người mua');
+const rfqMsg = messages.filter((m) => m.conversation_id === fresh.id).at(-1);
+assert.equal(rfqMsg.sender, 'supplier'); assert.equal(rfqMsg.sender_email, 'other@x.vn'); assert.equal(rfqMsg.body, 'What packing do you need?');
+assert.equal(conversations.find((c) => c.id === fresh.id).last_sender, 'supplier');
+const rfqNew = await chat.startSupplierRfqConversation({ store, supplierId: 's1', supplierEmail: 'owner@mekong.vn', buyerEmail: 'rfq-only@buyer.com',
+  label: 'RFQ-20261122-00002 · Cashew', body: 'Hello' });
+assert.equal(rfqNew.product_id, null); assert.equal(rfqNew.product_name, 'RFQ-20261122-00002 · Cashew', 'Cuộc mới mang mã RFQ làm tiêu đề');
+assert.equal(rfqNew.buyer_email, 'rfq-only@buyer.com');
+await assert.rejects(chat.startSupplierRfqConversation({ store, supplierId: 's1', supplierEmail: 'owner@mekong.vn', buyerEmail: 'x@buyer.com', label: 'RFQ', body: '   ' }), /empty/);
+assert.equal(conversations.filter((c) => c.buyer_email === 'x@buyer.com').length, 0, 'Tin rỗng không tạo cuộc trò chuyện');
 
 /* ---------- 3. API và giao diện ---------- */
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { RfqReadTracker } from "@/components/rfq-thread";
+import { RfqReadTracker } from "@/components/rfq-read-tracker";
 import { MessageCircle, Send } from "lucide-react";
 import type { SafeMediatedMessage, MediatedError } from "@/lib/rfq/mediated";
 

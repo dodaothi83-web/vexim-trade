@@ -66,6 +66,7 @@ const detail = load('app/(public)/buyer/account/requests/[id]/page.tsx', {
   '@/lib/buyer/enquiry-access': access, '@/components/buyer-enquiry-detail': detailComponent,
   '@/lib/db': { getStore: () => quoteStore }, '@/lib/i18n/server': { getLocale: async () => 'en' },
   '@/lib/rfq/portal-core': core, '@/lib/rfq/channel': channel,
+  '@/lib/rfq/chat-link': load('lib/rfq/chat-link.ts', {}), '@/lib/chat/service': { supplierChatAvailable: async () => true },
   '@/components/rfq-mediated-thread': { RfqMediatedThread: () => React.createElement('div', { 'data-vexim-desk': true }) },
   '@/lib/rfq/mediated': { canUseMediatedDesk: () => true, safeMediatedMessages: (items) => items },
   './actions': { buyerVeximMessageAction: async () => null, buyerVeximReadAction: async () => {} },
