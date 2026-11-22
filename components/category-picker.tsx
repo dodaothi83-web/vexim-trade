@@ -1,8 +1,9 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Check, ChevronLeft, ChevronRight, Pencil, Search } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Layers, Pencil, Search, X } from "lucide-react";
 import { suggestProductCategories, type CategoryChoice } from "@/lib/public/category-assignment";
 import { fill } from "@/lib/i18n/format";
 
@@ -14,6 +15,11 @@ import { fill } from "@/lib/i18n/format";
  *  - Chỉ chọn được danh mục LÁ. Nhóm lớn đã chia nhóm nhỏ chỉ để mở nhóm nhỏ.
  *  - Dòng "Đã chọn: A › B" luôn hiện trước nút Xác nhận; chọn xong thu gọn còn một dòng + nút Sửa.
  *  - Ngành ngoài phạm vi đã đăng ký vẫn hiện (mờ, có nhãn) để NCC biết cần đăng ký thêm.
+ *
+ * Hai cách trình bày, cùng một logic chọn:
+ *  - "inline" (mặc định, CRM): khung chọn mở ngay trên form.
+ *  - "modal" (form sản phẩm của NCC): trên form chỉ còn một ô 1 dòng; bấm vào mở cửa sổ nổi
+ *    chứa ô tìm + cây 2 cột, Huỷ / Xác nhận. Cửa sổ gắn vào <body> nên không đẩy bố cục form.
  *
  * Chỉ là giao diện: server vẫn tự kiểm tra danh mục lá và phạm vi (category-proposals.ts).
  */
@@ -46,6 +52,12 @@ export type CategoryPickerCopy = {
   registerMore: string;
   needLeaf: string;
   confirmChange: string;
+  /** Chế độ modal: chữ trong ô khi chưa chọn, nút mở, tiêu đề cửa sổ, nút đóng. */
+  triggerPlaceholder?: string;
+  choose?: string;
+  changeShort?: string;
+  dialogTitle?: string;
+  close?: string;
 };
 
 export const CATEGORY_PICKER_COPY_VI: CategoryPickerCopy = {
@@ -65,6 +77,11 @@ export const CATEGORY_PICKER_COPY_VI: CategoryPickerCopy = {
   registerMore: "Đăng ký thêm ngành",
   needLeaf: "Danh mục này đã chia nhóm nhỏ. Chọn nhóm nhỏ phù hợp với sản phẩm.",
   confirmChange: "Đổi danh mục sẽ xoá grade và thông số đã nhập theo danh mục cũ. Tiếp tục?",
+  triggerPlaceholder: "Bấm để chọn ngành hàng...",
+  choose: "Chọn",
+  changeShort: "Đổi",
+  dialogTitle: "Chọn ngành hàng",
+  close: "Đóng",
 };
 
 const normalize = (value: string) => value.normalize("NFD")
@@ -83,6 +100,7 @@ export function CategoryPicker({
   copy = CATEGORY_PICKER_COPY_VI,
   invalid = false,
   emptyLabel,
+  variant = "inline",
 }: {
   options: CategoryPickerOption[];
   value: string;
@@ -100,7 +118,10 @@ export function CategoryPicker({
   invalid?: boolean;
   /** Cho phép để trống (CRM: "Tự nhận diện theo tên/quy cách"); có nhãn này thì ô bắt đầu thu gọn. */
   emptyLabel?: string;
+  /** "modal": ô chọn 1 dòng trên form, bấm mở cửa sổ nổi. Mặc định mở ngay trên form. */
+  variant?: "inline" | "modal";
 }) {
+  const modal = variant === "modal";
   const uid = useId();
   const bySlug = useMemo(() => new Map(options.map((o) => [o.slug, o])), [options]);
   const childrenOf = useMemo(() => {
@@ -121,7 +142,10 @@ export function CategoryPicker({
 
   const current = value ? bySlug.get(value) : undefined;
   const needsLeaf = !!current && !isLeaf(current);
-  const [open, setOpen] = useState((!value && !emptyLabel) || needsLeaf);
+  // Modal không tự bật lên khi tải trang: người dùng bấm vào ô chọn mới mở.
+  const [open, setOpen] = useState(!modal && ((!value && !emptyLabel) || needsLeaf));
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState(current && isLeaf(current) ? value : "");
   const [activeGroup, setActiveGroup] = useState(() => {
     if (needsLeaf) return value;
@@ -192,25 +216,35 @@ export function CategoryPicker({
     setOpen(false);
   }
 
-  const hidden = name && !disabled ? <input type="hidden" name={name} value={value} /> : null;
-
-  if (!open || disabled) {
-    return (
-      <div>
-        {hidden}
-        <div className={`flex min-h-9 items-center gap-2 rounded-md border px-3 py-1.5 ${invalid ? "border-rose-300 bg-rose-50" : "border-ink-200 bg-ink-50"}`}>
-          <span className={`min-w-0 flex-1 truncate text-[12.5px] ${value ? "font-semibold text-ink-900" : "text-ink-500"}`}>
-            {value ? pathOf(value) : emptyLabel ?? copy.none}
-          </span>
-          {!disabled && <button type="button" onClick={() => { setOpen(true); setPending(current && isLeaf(current) ? value : ""); }}
-            className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[12px] font-semibold text-brand-700 hover:bg-brand-50">
-            <Pencil className="size-3.5" aria-hidden="true" /> {copy.change}
-          </button>}
-        </div>
-        {needsLeaf && !disabled && <p className="mt-1.5 text-[11.5px] font-semibold text-amber-800">{copy.needLeaf}</p>}
-      </div>
-    );
+  function openPicker(preselect?: string) {
+    setPending(preselect ?? (current && isLeaf(current) ? value : ""));
+    const target = preselect ? bySlug.get(preselect) : current;
+    if (target?.parent_slug && bySlug.has(target.parent_slug)) setActiveGroup(target.parent_slug);
+    else if (needsLeaf) setActiveGroup(value);
+    setOpen(true);
   }
+
+  // Cửa sổ nổi: khoá cuộn trang phía sau, Esc để huỷ, đóng thì trả focus về ô chọn.
+  const showModal = modal && open && !disabled;
+  useEffect(() => {
+    if (!showModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const trigger = triggerRef.current;
+    const focusTimer = window.setTimeout(() => searchRef.current?.focus(), 0);
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); cancel(); } };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      trigger?.focus();
+    };
+    // cancel() chỉ đặt lại state theo giá trị hiện tại; không cần chạy lại effect khi nó đổi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal]);
+
+  const hidden = name && !disabled ? <input type="hidden" name={name} value={value} /> : null;
 
   const row = (option: CategoryPickerOption, { showPath = false, active = false } = {}) => {
     const leaf = isLeaf(option);
@@ -238,14 +272,17 @@ export function CategoryPicker({
   const group = activeGroup ? bySlug.get(activeGroup) : undefined;
   const pendingOption = pending ? bySlug.get(pending) : undefined;
 
-  return (
-    <div className={`overflow-hidden rounded-md border bg-white ${invalid && !pending ? "border-rose-300" : "border-ink-200"}`}>
-      {hidden}
+
+  // Phần thân chung của khung chọn: ô tìm, gợi ý, cây 2 cột và thanh Huỷ / Xác nhận.
+  // Modal cao hơn (danh sách cuộn trong cửa sổ) và luôn có nút Huỷ để đóng.
+  function panel() {
+    const listMax = modal ? "max-h-[min(52vh,420px)]" : "max-h-72";
+    return <>
       <div className="border-b border-ink-200 p-2">
         <label htmlFor={`${uid}-search`} className="sr-only">{copy.searchLabel}</label>
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
-          <input id={`${uid}-search`} type="search" autoComplete="off" value={query} placeholder={copy.searchPlaceholder}
+          <input ref={searchRef} id={`${uid}-search`} type="search" autoComplete="off" value={query} placeholder={copy.searchPlaceholder}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               // Enter trong ô tìm không được gửi cả form sản phẩm.
@@ -265,11 +302,11 @@ export function CategoryPicker({
 
       {query ? (
         results.length
-          ? <ul className="max-h-72 divide-y divide-ink-100 overflow-y-auto">{results.map((option) => row(option, { showPath: true }))}</ul>
+          ? <ul className={`${listMax} divide-y divide-ink-100 overflow-y-auto`}>{results.map((option) => row(option, { showPath: true }))}</ul>
           : <p className="px-3 py-4 text-[12px] text-ink-500">{copy.noResults}</p>
       ) : (
         <div className="grid md:grid-cols-2 md:divide-x md:divide-ink-200">
-          <ul className={`max-h-72 overflow-y-auto ${group ? "hidden md:block" : ""}`}>
+          <ul className={`${listMax} overflow-y-auto ${group ? "hidden md:block" : ""}`}>
             {roots.map((option) => row(option, { active: option.slug === activeGroup }))}
           </ul>
           <div className={group ? "" : "hidden md:block"}>
@@ -279,7 +316,7 @@ export function CategoryPicker({
                 <ChevronLeft className="size-4" aria-hidden="true" /> {copy.back}
                 <span className="ml-1 truncate font-normal text-ink-500">{group.label}</span>
               </button>
-              <ul className="max-h-72 overflow-y-auto">{(childrenOf.get(group.slug) ?? []).map((option) => row(option))}</ul>
+              <ul className={`${listMax} overflow-y-auto`}>{(childrenOf.get(group.slug) ?? []).map((option) => row(option))}</ul>
             </> : <p className="px-3 py-4 text-[12px] text-ink-400">{copy.pickGroupHint}</p>}
           </div>
         </div>
@@ -296,9 +333,94 @@ export function CategoryPicker({
         </p>
         {emptyLabel && value && <button type="button" onClick={() => { onChange(""); setPending(""); setQuery(""); setOpen(false); }}
           className="btn btn-ghost btn-sm">{emptyLabel}</button>}
-        {(value || emptyLabel) && !needsLeaf && <button type="button" onClick={cancel} className="btn btn-ghost btn-sm">{copy.cancel}</button>}
+        {(modal || ((value || emptyLabel) && !needsLeaf)) && <button type="button" onClick={cancel} className="btn btn-ghost btn-sm">{copy.cancel}</button>}
         <button type="button" onClick={confirm} disabled={!pending} className="btn btn-primary btn-sm">{copy.confirm}</button>
       </div>
+    </>;
+  }
+
+  if (modal) {
+    const outside = !!current && !inScope(current);
+    const parent = current?.parent_slug ? bySlug.get(current.parent_slug) : undefined;
+    return (
+      <div>
+        {hidden}
+        <button ref={triggerRef} type="button" disabled={disabled} onClick={() => openPicker()}
+          aria-haspopup="dialog" aria-expanded={showModal}
+          className={`group flex min-h-11 w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition ${disabled
+            ? "cursor-not-allowed border-ink-200 bg-ink-50"
+            : invalid ? "border-rose-300 bg-rose-50 hover:border-rose-400" : "border-ink-300 bg-white hover:border-brand-400 hover:bg-brand-50/30"} focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500`}>
+          <Layers className={`size-4 shrink-0 ${value ? "text-brand-700" : "text-ink-400"}`} aria-hidden="true" />
+          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+            {current ? (
+              <span className="min-w-0 truncate text-[13px] text-ink-900">
+                {parent && <><span className="text-ink-500">{parent.label}</span><span className="px-1 text-ink-400" aria-hidden="true">›</span></>}
+                <span className="font-semibold">{current.label}</span>
+              </span>
+            ) : (
+              <span className="truncate text-[13px] text-ink-500">{value || (emptyLabel ?? copy.triggerPlaceholder ?? copy.none)}</span>
+            )}
+            {outside && <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">{copy.outOfScope}</span>}
+          </span>
+          {!disabled && <span className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-[12px] font-semibold ${value
+            ? "text-brand-700 group-hover:bg-brand-50" : "bg-brand-700 text-white group-hover:bg-brand-800"}`}>
+            {value ? <><Pencil className="size-3.5" aria-hidden="true" /> {copy.changeShort ?? copy.change}</> : copy.choose ?? copy.confirm}
+          </span>}
+        </button>
+        {needsLeaf && !disabled && <p className="mt-1.5 text-[11.5px] font-semibold text-amber-800">{copy.needLeaf}</p>}
+        {outside && registerHref && !disabled && <p className="mt-1.5 text-[11.5px] text-ink-600">
+          <Link href={registerHref} className="font-semibold text-brand-700 underline">{copy.registerMore}</Link>
+        </p>}
+        {!value && !disabled && suggestions.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11.5px] text-ink-500">{copy.suggested}</span>
+          {suggestions.map((option) => <button key={option.slug} type="button" onClick={() => openPicker(option.slug)}
+            className="rounded-full border border-ink-200 bg-white px-2.5 py-0.5 text-[11.5px] font-semibold text-ink-700 hover:border-brand-300 hover:text-brand-800">
+            {pathOf(option.slug)}
+          </button>)}
+        </div>}
+        {showModal && typeof document !== "undefined" && createPortal(
+          <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink-950/50 sm:items-center sm:p-6" onMouseDown={cancel}>
+            <div role="dialog" aria-modal="true" aria-labelledby={`${uid}-title`}
+              className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[85vh] sm:max-w-3xl sm:rounded-2xl"
+              onMouseDown={(event) => event.stopPropagation()}>
+              <div className="flex items-center gap-3 border-b border-ink-200 px-4 py-3">
+                <h2 id={`${uid}-title`} className="min-w-0 flex-1 text-[15px] font-bold text-ink-900">{copy.dialogTitle ?? copy.searchLabel}</h2>
+                <button type="button" onClick={cancel} aria-label={copy.close ?? copy.cancel}
+                  className="flex size-8 items-center justify-center rounded-md text-ink-500 hover:bg-ink-100 hover:text-ink-900">
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+              {panel()}
+            </div>
+          </div>,
+          document.body,
+        )}
+      </div>
+    );
+  }
+
+  if (!open || disabled) {
+    return (
+      <div>
+        {hidden}
+        <div className={`flex min-h-9 items-center gap-2 rounded-md border px-3 py-1.5 ${invalid ? "border-rose-300 bg-rose-50" : "border-ink-200 bg-ink-50"}`}>
+          <span className={`min-w-0 flex-1 truncate text-[12.5px] ${value ? "font-semibold text-ink-900" : "text-ink-500"}`}>
+            {value ? pathOf(value) : emptyLabel ?? copy.none}
+          </span>
+          {!disabled && <button type="button" onClick={() => { setOpen(true); setPending(current && isLeaf(current) ? value : ""); }}
+            className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[12px] font-semibold text-brand-700 hover:bg-brand-50">
+            <Pencil className="size-3.5" aria-hidden="true" /> {copy.change}
+          </button>}
+        </div>
+        {needsLeaf && !disabled && <p className="mt-1.5 text-[11.5px] font-semibold text-amber-800">{copy.needLeaf}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`overflow-hidden rounded-md border bg-white ${invalid && !pending ? "border-rose-300" : "border-ink-200"}`}>
+      {hidden}
+      {panel()}
     </div>
   );
 }
