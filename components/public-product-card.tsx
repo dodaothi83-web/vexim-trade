@@ -317,8 +317,12 @@ export function PublicProductCard({
     </div>
   );
 
+  const mobileCertificateCount = certificates.length > 2 ? 1 : 2;
   const thumb = (
-    <div className="relative aspect-square w-full overflow-hidden rounded-tl-xl rounded-bl-xl bg-ink-50 sm:rounded-bl-none sm:rounded-tr-xl">
+    // Điện thoại (thẻ ngang): ảnh vuông, phần chữ được thu gọn để vừa chiều cao ảnh (không cắt ảnh,
+    // không hở dưới ảnh). Nếu chữ vẫn cao hơn (màn rất hẹp + Volume pricing) khung giãn theo thẻ
+    // thay vì để hở trắng. Từ sm (thẻ dọc): khung vuông như cũ.
+    <div className="relative aspect-square h-full w-full overflow-hidden rounded-tl-xl rounded-bl-xl bg-ink-50 sm:rounded-bl-none sm:rounded-tr-xl sm:h-auto">
       {linkable ? (
         <Link
           href={href}
@@ -338,16 +342,33 @@ export function PublicProductCard({
         </span>
       )}
       {comparisonItem && <ProductCompareCheckbox product={comparisonItem} />}
+      {/* Điện thoại (thẻ ngang): nhãn chứng nhận nằm đè góc dưới ảnh để phần chữ vừa chiều cao ảnh vuông.
+          Hai chứng nhận thì hiện cả hai; từ ba trở lên hiện nhãn đầu + "+N" để chữ không bị cắt.
+          Từ sm (thẻ dọc): nhãn ở dòng trên tiêu đề như cũ. */}
+      {certificates.length > 0 && (
+        <div className="absolute inset-x-1.5 bottom-1.5 z-10 flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden sm:hidden" aria-label={`Certificates: ${certificates.join(", ")}`}>
+          {certificates.slice(0, mobileCertificateCount).map((label) => (
+            <span key={label} title={`${label} certified`} className="min-w-0 truncate rounded bg-white/95 px-1 text-[9.5px] font-bold leading-[14px] text-emerald-800 shadow-sm ring-1 ring-emerald-300">
+              {label}
+            </span>
+          ))}
+          {certificates.length > mobileCertificateCount && (
+            <span title={certificates.slice(mobileCertificateCount).join(", ")} className="shrink-0 rounded bg-emerald-600 px-1 text-[9.5px] font-bold leading-[14px] text-white shadow-sm">
+              +{certificates.length - mobileCertificateCount}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 
   const title = (
     <h3
       title={displayName}
-      // Có chứng nhận: tiêu đề hai dòng dưới dòng badge. Không có: tiêu đề ba dòng, dùng luôn
-      // chỗ của dòng badge. Wrapper bên ngoài giữ min-height cố định để lưới thẳng hàng.
-      className={`text-[13px] font-semibold leading-[18px] text-ink-900 group-hover/card:text-brand-700 sm:text-sm sm:leading-5 ${
-        certificates.length ? "line-clamp-2 overflow-hidden break-words" : "line-clamp-3 overflow-hidden break-words"}`}
+      // Điện thoại (thẻ ngang): luôn hai dòng rồi "…". Từ sm (thẻ dọc): có chứng nhận thì hai dòng
+      // dưới dòng badge, không có thì ba dòng. Wrapper bên ngoài giữ min-height để lưới thẳng hàng.
+      className={`line-clamp-2 overflow-hidden break-words text-[13px] font-semibold leading-4 text-ink-900 group-hover/card:text-brand-700 sm:text-sm sm:leading-5 ${
+        certificates.length ? "" : "sm:line-clamp-3"}`}
     >
       {displayName}
     </h3>
@@ -359,8 +380,9 @@ export function PublicProductCard({
         linkable ? "cursor-pointer hover:border-brand-400 hover:shadow-md" : ""
       }`}
     >
-      <div className="w-[38%] shrink-0 self-start sm:w-full">{thumb}</div>
-      <div className="@container flex min-w-0 flex-1 flex-col p-2.5 sm:px-3.5 sm:pb-3.5 sm:pt-3">
+      <div className="w-[40%] shrink-0 self-stretch sm:w-full sm:self-auto">{thumb}</div>
+      {/* Điện thoại: ảnh vuông cao hơn chữ thì khoảng dư chia đều giữa các nhóm (justify-between), không dồn một chỗ. */}
+      <div className="@container flex min-w-0 flex-1 flex-col px-2 py-1.5 max-sm:justify-between sm:px-3.5 sm:pb-3.5 sm:pt-3">
         {sponsored && (
           <div className="relative z-20">
             <SponsoredDisclosure />
@@ -369,8 +391,8 @@ export function PublicProductCard({
 
         {/* Chứng nhận + tiêu đề: wrapper giữ min-height cố định để thẻ có/không badge
             vẫn cao bằng nhau trên lưới. Có badge: tiêu đề 2 dòng; không: tiêu đề 3 dòng. */}
-        <div className="flex min-h-[60px] flex-col sm:min-h-16">
-          {certificates.length > 0 && <div className="mb-1 flex h-5 min-w-0 flex-nowrap items-center gap-1 overflow-hidden" aria-label={`Certificates: ${certificates.join(", ")}`}>
+        <div className="flex min-h-8 flex-col sm:min-h-16">
+          {certificates.length > 0 && <div className="mb-1 flex h-5 min-w-0 flex-nowrap items-center gap-1 overflow-hidden max-sm:hidden" aria-label={`Certificates: ${certificates.join(", ")}`}>
             {certificates.slice(0, 3).map((label) => (
               <span key={label} title={`${label} certified`} className="min-w-0 truncate rounded bg-emerald-50 px-1.5 py-px text-[10.5px] font-bold leading-4 text-emerald-800 ring-1 ring-emerald-300">
                 {label}
@@ -399,31 +421,36 @@ export function PublicProductCard({
         </div>
 
         {/* Prominent price with inline Incoterm (e.g. USD 7.55–7.80/kg FOB) */}
-        <div title={fullPriceTitle} className="mt-2">
+        <div title={fullPriceTitle} className="mt-1 sm:mt-2">
           <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 tabular-nums">
             <span
               className={
                 test
                   ? "text-xs font-semibold leading-5 text-ink-500"
                   : hasPrice
-                    ? "break-words text-[16px] font-extrabold leading-6 tracking-[-0.01em] text-brand-900 @[19rem]:text-[19px] @[19rem]:leading-7"
-                    : "text-sm font-semibold leading-5 text-ink-500"
+                    ? "break-words text-[15px] font-extrabold leading-[18px] tracking-[-0.01em] text-brand-900 sm:text-[16px] sm:leading-6 @[19rem]:text-[19px] @[19rem]:leading-7"
+                    : "text-[13px] font-semibold leading-[18px] text-ink-500 sm:text-sm sm:leading-5"
               }
             >
               {pricePrimary}
             </span>
             {hasPrice && incotermText && (
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-400">
+              <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-ink-400 sm:text-[10px]">
                 {incotermText}
               </span>
             )}
+            {/* Điện thoại: "N grades" đứng ngay sau giá (đủ chỗ thì không tốn thêm một dòng). */}
+            {gradeCountLabel && (
+              <span className="text-[10px] font-medium text-ink-500 sm:hidden">· {gradeCountLabel}</span>
+            )}
           </p>
           {(gradeCountLabel || (hasPrice && volumePricing)) && (
-            <p className="mt-0.5 truncate text-[11px] font-medium leading-4 text-ink-500">
-              {gradeCountLabel && <span>{gradeCountLabel}</span>}
+            <p className={`truncate text-[10px] font-medium leading-[14px] text-ink-500 sm:mt-0.5 sm:text-[11px] sm:leading-4 ${
+              hasPrice && volumePricing ? "" : "max-sm:hidden"}`}>
+              {gradeCountLabel && <span className="max-sm:hidden">{gradeCountLabel}</span>}
               {hasPrice && volumePricing && (
-                <span className={gradeCountLabel ? "ml-1.5" : undefined}>
-                  {gradeCountLabel ? `· Volume pricing` : "Volume pricing"}
+                <span className={gradeCountLabel ? "sm:ml-1.5" : undefined}>
+                  {gradeCountLabel ? <><span className="max-sm:hidden">· </span>Volume pricing</> : "Volume pricing"}
                 </span>
               )}
             </p>
@@ -432,25 +459,27 @@ export function PublicProductCard({
 
 
         {/* Two-column commercial terms: MOQ & Lead time */}
-        <dl className="mt-2 grid grid-cols-2 gap-x-3 text-ink-600 sm:mt-2.5">
+        {/* Điện thoại: MOQ / Lead time nhỏ hơn hai cỡ (nhãn 10→9px, giá trị 13→11px). */}
+        <dl className="mt-1 grid grid-cols-2 gap-x-3 text-ink-600 max-sm:mb-1.5 sm:mt-2.5">
           <div className="min-w-0">
-            <dt className="text-[10px] font-semibold uppercase leading-4 tracking-[0.1em] text-ink-500">MOQ</dt>
-            <dd title={moqText} className="mt-0.5 truncate text-[13px] font-bold leading-5 tabular-nums text-ink-900">
+            <dt className="text-[9px] font-semibold uppercase leading-3 tracking-[0.1em] text-ink-500 sm:text-[10px] sm:leading-4">MOQ</dt>
+            <dd title={moqText} className="truncate text-[11px] font-bold leading-[14px] tabular-nums text-ink-900 sm:mt-0.5 sm:text-[13px] sm:leading-5">
               {moqText}
             </dd>
           </div>
           <div className="min-w-0">
-            <dt className="text-[10px] font-semibold uppercase leading-4 tracking-[0.1em] text-ink-500">Lead time</dt>
-            <dd className="mt-0.5 truncate text-[13px] font-bold leading-5 tabular-nums text-ink-900">
+            <dt className="text-[9px] font-semibold uppercase leading-3 tracking-[0.1em] text-ink-500 sm:text-[10px] sm:leading-4">Lead time</dt>
+            <dd className="truncate text-[11px] font-bold leading-[14px] tabular-nums text-ink-900 sm:mt-0.5 sm:text-[13px] sm:leading-5">
               {leadTimeDisplay}
             </dd>
           </div>
         </dl>
 
         {/* Đáy thẻ: một đường kẻ, rồi nhà cung cấp và ba khiên xác minh trên cùng một hàng. */}
-        <div className="mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2.5">
+        {/* Thẻ dọc (sm+): mt-auto đẩy hàng nhà cung cấp xuống đáy thẻ. Điện thoại: justify-between ở trên. */}
+        <div className="border-t border-ink-100 pt-1.5 sm:mt-auto sm:pt-2.5">
           {/* Tên giữ một dòng và tự cắt bằng dấu ba chấm; khiên đứng ngay sau tên, không xuống hàng. */}
-          <div className="relative z-20 flex min-w-0 items-center gap-2">
+          <div className="relative z-20 flex min-w-0 items-center gap-1.5 sm:gap-2">
             {supplierHref && linkable ? (
               <Link
                 href={supplierHref}
@@ -458,17 +487,18 @@ export function PublicProductCard({
                 rel="noopener noreferrer"
                 title={supplierName}
                 aria-label={`${supplierName} (opens in a new tab)`}
-                className="min-w-0 flex-1 truncate text-[11px] font-bold leading-5 text-brand-700 hover:underline sm:text-xs"
+                className="min-w-0 flex-1 truncate text-[10px] font-bold leading-4 text-brand-700 hover:underline sm:text-xs sm:leading-5"
               >
                 {supplierName}
               </Link>
             ) : (
-              <span title={supplierName} className="min-w-0 flex-1 truncate text-[11px] font-bold leading-5 text-ink-800 sm:text-xs">
+              <span title={supplierName} className="min-w-0 flex-1 truncate text-[10px] font-bold leading-4 text-ink-800 sm:text-xs sm:leading-5">
                 {supplierName}
               </span>
             )}
-            <span className="shrink-0">
-              <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} variant="marketplace" shortTooltips />
+            {/* flex trên điện thoại: hàng chỉ cao đúng 16px của khiên, không ăn theo line-height 24px. */}
+            <span className="flex shrink-0 sm:inline">
+              <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} variant="marketplace" shortTooltips dense />
             </span>
           </div>
           {partnerContractReviewed && (
