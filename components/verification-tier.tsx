@@ -141,13 +141,15 @@ export function VerificationTierBadge({ levels, className = "" }: {
  * use success green, while unapproved checks remain muted grey outlines and
  * each shield's tooltip names the specific check without "Level 1/2/3" labels.
  */
-export function VerificationPips({ levels, compact = false, shortTooltips = false, l2Scope, variant = "default" }: {
+export function VerificationPips({ levels, compact = false, shortTooltips = false, l2Scope, variant = "default", dense = false }: {
   levels: readonly VerificationLevel[];
   compact?: boolean;
   l2Scope?: PublicL2Scope;
   /** Compact per-shield hover/focus tooltip used on product offer cards. */
   shortTooltips?: boolean;
   variant?: "default" | "marketplace";
+  /** Thẻ sản phẩm ngang trên điện thoại: khiên 16px để cả thẻ vừa chiều cao ảnh vuông. Từ `sm` như thường. */
+  dense?: boolean;
 }) {
   const approved = VERIFICATION_DISPLAY_ORDER.filter((level) => levels.includes(level));
   const tier = verificationTier(approved);
@@ -155,8 +157,9 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
   const marketplace = variant === "marketplace";
   // Trong lưới sản phẩm, ba khiên đứng chung một hàng với tên người bán nên phải nhỏ và đều:
   // 18px trên điện thoại, 20px từ `sm`. To hơn thì hàng cuối phình ra và đẩy tên bị cắt sớm.
-  const pipSize = marketplace ? "h-[18px] w-[18px] sm:h-5 sm:w-5" : compact ? "h-5 w-5" : "h-6 w-6";
-  const iconSize = marketplace ? "h-[18px] w-[18px] sm:h-5 sm:w-5" : compact ? "h-3 w-3" : "h-3.5 w-3.5";
+  const marketplaceSize = dense ? "h-4 w-4 sm:h-5 sm:w-5" : "h-[18px] w-[18px] sm:h-5 sm:w-5";
+  const pipSize = marketplace ? marketplaceSize : compact ? "h-5 w-5" : "h-6 w-6";
+  const iconSize = marketplace ? marketplaceSize : compact ? "h-3 w-3" : "h-3.5 w-3.5";
   return (
     <span className={`inline-flex items-center ${marketplace ? "gap-0.5" : "gap-1"}`} role="group"
       aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => verificationLabel(l, l2Scope)).join(", ")}` : "No verification checks approved yet"}>
