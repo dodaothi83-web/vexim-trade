@@ -3,24 +3,39 @@
 import { useState } from "react";
 import { FileDown, Loader2 } from "lucide-react";
 import type { FactoryReportData, FactoryReportPhoto } from "@/lib/public/factory-report";
+import { useBuyerEnquiryAuth } from "@/components/buyer-enquiry-auth";
 
 /**
  * Tải báo cáo xác minh nhà máy (PDF). Chưa đăng nhập thì đưa tới trang đăng nhập người mua
  * và quay lại đúng trang đang xem. PDF dựng trong trình duyệt bằng font Unicode đóng gói sẵn.
+ *
+ * `signedIn` bỏ trống (trang hồ sơ NCC dựng sẵn/ISR, không đọc cookie): trạng thái đăng nhập lấy ở
+ * trình duyệt qua useBuyerEnquiryAuth; bấm khi chưa đăng nhập thì mở hộp đăng nhập nhanh rồi tải
+ * tiếp. API báo cáo vẫn tự bắt buộc đăng nhập.
  */
 export function DownloadFactoryReport({ code, signedIn, nextPath, label = "Download factory review (PDF)", className = "" }: {
   code: string;
-  signedIn: boolean;
+  signedIn?: boolean;
   nextPath: string;
   label?: string;
   className?: string;
 }) {
+  const { email, requireBuyer } = useBuyerEnquiryAuth();
+  const isSignedIn = signedIn ?? Boolean(email);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const classes = "inline-flex min-h-9 items-center gap-2 rounded-lg border border-brand-700 bg-white px-3 py-1.5 text-xs font-bold text-brand-800 hover:bg-brand-50 disabled:cursor-wait disabled:opacity-60 " + className;
 
-  if (!signedIn) {
-    return <a href={`/buyer/sign-in?next=${encodeURIComponent(nextPath)}`} className={classes}>
+  if (!isSignedIn) {
+    // Thẻ <a> vẫn chạy khi chưa có JS; có JS (và trang có BuyerEnquiryAuthProvider) thì mở hộp
+    // đăng nhập nhanh tại chỗ, đăng nhập xong tải luôn.
+    const quickSignIn = signedIn === undefined;
+    return <a href={`/buyer/sign-in?next=${encodeURIComponent(nextPath)}`} className={classes}
+      onClick={quickSignIn ? (event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        event.preventDefault();
+        requireBuyer(nextPath, () => void download());
+      } : undefined}>
       <FileDown className="size-4" aria-hidden="true" />{label}<span className="font-normal text-ink-500">· sign in</span>
     </a>;
   }

@@ -129,7 +129,10 @@ export function SupplierStorefront({
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
 
-  /** Thẻ một sản phẩm (dùng chung cho dải ngang gói Basic và lưới gói cao cấp). */
+  /**
+   * Thẻ một sản phẩm (dùng chung cho dải ngang gói Basic và lưới gói cao cấp). Không truyền
+   * `supplierHref`: tên nhà cung cấp trên thẻ chỉ là chữ, không phải link mở tab mới về chính trang này.
+   */
   // Thứ tự ghim trong các sản phẩm đang hiện (giống thanh "Featured products"): #1, #2…
   const visibleFeatured = theme.featured.filter((id) => s.main_products.some((p) => p.id === id)).slice(0, STOREFRONT_MAX_FEATURED);
   const featuredRank = (id: string) => visibleFeatured.indexOf(id) + 1 || undefined;
@@ -152,7 +155,6 @@ export function SupplierStorefront({
                 moq={approvedForm.moq} price={synthetic ? null : approvedForm.price} incoterm={approvedForm.incoterm}
                 fob={approvedForm.incoterm?.toUpperCase() === "FOB"} volumePricing={approvedForm.quantityOffer?.hasVolumePricing}
                 leadTimeDays={approvedForm.leadTimeDays} leadTimeText={approvedForm.leadTimeText} supplierName={name}
-                supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
                 verificationSteps={steps} l2Scope={l2Scope} certificates={productCertificates[p.id]} test={synthetic} linkable={productLinks} />
             </li>;
           }
@@ -283,7 +285,6 @@ export function SupplierStorefront({
               name={productName} grades={[...storefrontGrades, ...(legacyGradeText ? [legacyGradeText] : [])]} gradeRows={storefrontGradeRows} moq={storefrontMoq}
               price={storefrontPrice} incoterm={storefrontIncoterm} fob={storefrontIncoterm?.toUpperCase() === "FOB"}
               leadTimeDays={p.lead_time_days ?? null} leadTimeText={storefrontLeadTime} supplierName={name}
-              supplierHref={productLinks ? `/suppliers/${encodeURIComponent(s.slug || s.id)}` : undefined}
               verificationSteps={steps} l2Scope={l2Scope} certificates={productCertificates[p.id]} test={synthetic} linkable={productLinks} />
           </li>;
   };
@@ -324,7 +325,7 @@ export function SupplierStorefront({
     /> : <>
     <section className="mt-5 overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-card" aria-labelledby="supplier-name">
       {(coverUrl || coverAction) && <div className={`relative bg-ink-50 ${coverUrl ? "h-32 sm:h-44" : "h-16"}`}>
-        {coverUrl && <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+        {coverUrl && <img src={coverUrl} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover" />}
         {coverAction}
       </div>}
       <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:gap-6 sm:p-8">

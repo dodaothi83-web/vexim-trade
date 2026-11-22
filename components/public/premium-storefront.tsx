@@ -36,12 +36,19 @@ export function storefrontStatValue(s: PublicSupplierCard, stat: StorefrontStat)
     case "employees": return typeof s.employees === "number" && s.employees > 0 ? String(s.employees) : "";
     case "markets": {
       const markets = supplierExportMarketsDisplay(s);
-      return markets.length > 2 ? `${markets.length} countries` : safe(markets.join(", "));
+      // Hồ sơ thường ghi vùng (Southeast Asia, Middle East…) chứ không phải quốc gia → "markets".
+      return markets.length > 2 ? `${markets.length} markets` : safe(markets.join(", "));
     }
     case "lead_time": return s.lead_time_days ? `${s.lead_time_days} days` : "";
     case "moq": return safe(supplierMoqDisplay(s));
     case "incoterms": return safe(supplierIncotermsDisplay(s).join(", "));
   }
+}
+
+/** Nhãn số liệu: công suất ghi rõ theo tháng hay doanh thu năm, khớp mục Trade overview. */
+export function storefrontStatLabel(s: PublicSupplierCard, stat: StorefrontStat): string {
+  if (stat === "capacity") return s.annual_output?.trim() ? "Annual revenue" : "Monthly capacity";
+  return STAT_LABELS[stat];
 }
 
 export interface PremiumStorefrontProps {
@@ -75,7 +82,7 @@ export function PremiumStorefront(props: PremiumStorefrontProps) {
   const tone = STOREFRONT_TONE_COLORS[props.theme.tone];
   const style = { "--sf-accent": tone.accent, "--sf-dark": tone.dark, "--sf-tint": tone.tint } as CSSProperties;
   const stats = props.theme.stats
-    .map((stat) => ({ stat, label: STAT_LABELS[stat], value: storefrontStatValue(props.supplier, stat) }))
+    .map((stat) => ({ stat, label: storefrontStatLabel(props.supplier, stat), value: storefrontStatValue(props.supplier, stat) }))
     .filter((item) => item.value);
   // Câu giới thiệu cũ viết bằng tiếng Việt (lưu trước khi có kiểm tra) không hiện cho người mua.
   const tagline = looksVietnamese(props.theme.tagline) ? "" : safe(props.theme.tagline);
@@ -109,7 +116,7 @@ function Modern(p: Shared) {
   return <section className="mt-5" aria-labelledby="supplier-name">
     <div className="relative overflow-hidden rounded-2xl bg-[var(--sf-dark)] text-white">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {heroImage && <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+      {heroImage && <img src={heroImage} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover" />}
       {!heroImage && <span aria-hidden="true" className="pointer-events-none absolute -right-6 -top-16 select-none text-[16rem] font-black leading-none text-white/[0.06] sm:text-[22rem]">{p.name.slice(0, 1).toUpperCase()}</span>}
       <div className={`absolute inset-0 ${heroImage ? "bg-[#0F1216]/60" : "bg-gradient-to-br from-transparent to-black/30"}`} aria-hidden="true" />
       {p.coverAction}

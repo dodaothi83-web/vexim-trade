@@ -15,17 +15,29 @@ import { getStore } from "@/lib/db";
 import { publicSupplierCertificates } from "@/lib/public/certificates";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { publicProductTitle } from "@/lib/public/display-name";
-import { supplierNameCase } from "@/lib/public/supplier-name";
+import { supplierNameCase, supplierShortName } from "@/lib/public/supplier-name";
 import { supplierAddressDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 import { isSyntheticSupplier, safeJsonLd, supplierProfileIndexable } from "@/lib/public/supplier-seo";
 import { SITE_URL } from "@/lib/site";
-import { getSession } from "@/lib/auth/session";
-import { getBuyerSession } from "@/lib/auth/buyer-session";
-import { createTrafficToken } from "@/lib/traffic/server";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
 import { listCachedPublicSuppliers } from "@/lib/public/product-catalog";
 
-export const dynamic = "force-dynamic";
+/**
+ * Trang dựng sẵn (ISR) phục vụ từ CDN thay vì render lại mỗi lượt xem (từng là force-dynamic chỉ
+ * vì đọc hai cookie phiên). Bản này KHÔNG đọc cookie/phiên — đọc là Next.js buộc render động:
+ *  - Đếm lượt xem: beacon gửi id + slug nhà cung cấp; /api/public/traffic tự tra lại hồ sơ
+ *    (đã công khai, đúng slug, không phải hồ sơ thử) và tự bỏ qua người có phiên nhân viên/NCC.
+ *    Không nhúng mã ký có hạn vào HTML vì HTML được giữ trong cache.
+ *  - Nút tải báo cáo nhà máy tự biết người mua đã đăng nhập hay chưa ở trình duyệt
+ *    (useBuyerEnquiryAuth); API báo cáo vẫn bắt buộc đăng nhập.
+ * Làm mới mỗi phút và ngay khi CRM/cổng NCC gọi revalidatePath("/suppliers/<slug>").
+ */
+export const revalidate = 60;
+
+/** Không dựng sẵn lúc build (cần CSDL): mỗi hồ sơ được dựng ở lượt xem đầu rồi giữ trong cache. */
+export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
+  return [];
+}
 
 type PageProps = { params: Promise<{ slug: string }> };
 const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
@@ -42,7 +54,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const s = await supplierBySlug(slug);
   if (!s) return { title: "Supplier not found", robots: { index: false } };
-  const name = safe(s.display_name || s.name);
+  // Cùng cách viết tên với tiêu đề H1 (không để "TINIMEX COMPANY LIMITED" viết hoa toàn bộ).
+  const name = safe(supplierShortName(s));
   const url = `${SITE_URL}/suppliers/${encodeURIComponent(s.slug || s.id)}`;
   const summary = safe(supplierSummaryDisplay(s)).replace(/\s+/g, " ").trim();
   const description = summary.length > 155 ? `${summary.slice(0, 152).trimEnd()}…` :
@@ -76,7 +89,7 @@ export default async function SupplierProfile({ params }: PageProps) {
     const category = productCategory(p);
     return category ? [{ id: p.id, supplierId: s.id, categoryPath: categoryPathOf(category.id, categories) }] : [];
   })).catch(() => new Map<string, string[]>()));
-  const name = safe(s.display_name || s.name);
+  const name = safe(supplierShortName(s));
   const summary = safe(supplierSummaryDisplay(s));
   const synthetic = isSyntheticSupplier(s);
   const structured = supplierProfileIndexable(s);
@@ -112,11 +125,9 @@ export default async function SupplierProfile({ params }: PageProps) {
     ],
   };
 
-  const countView = !synthetic && !(await getSession());
-  const buyerSignedIn = Boolean(await getBuyerSession());
+  const countView = !synthetic; // Lượt xem của nhân viên/NCC do /api/public/traffic loại (đọc phiên ở đó).
   return <div className="mx-auto max-w-7xl px-4 pb-20 pt-7 sm:px-6 lg:px-8">
-    {countView && <SupplierTrafficBeacon pageKey={`profile:${s.id}`}
-      token={createTrafficToken({ kind: "profile", supplierId: s.id, resourceId: s.id, slug })} />}
+    {countView && <SupplierTrafficBeacon pageKey={`profile:${s.id}`} profile={{ supplierId: s.id, slug: s.slug || s.id }} />}
     {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />}
     <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: name }]} />
     {synthetic && <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">Test profile · Not a commercial supplier offer. Do not use these details to place an order.</p>}
@@ -129,7 +140,7 @@ export default async function SupplierProfile({ params }: PageProps) {
       coverUrl={coverUrl}
       avatarUrl={avatarUrl}
       synthetic={synthetic}
-      reportAction={synthetic ? undefined : (code) => <DownloadFactoryReport code={code} signedIn={buyerSignedIn} nextPath={`/suppliers/${encodeURIComponent(slug)}#factory-visit`} />}
+      reportAction={synthetic ? undefined : (code) => <DownloadFactoryReport code={code} nextPath={`/suppliers/${encodeURIComponent(slug)}#factory-visit`} />}
       chatAction={canChat ? <Suspense fallback={null}><SupplierChatButton supplierId={s.id} supplierName={name} /></Suspense> : undefined}
     />
 
