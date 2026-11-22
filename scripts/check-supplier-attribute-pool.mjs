@@ -116,7 +116,6 @@ function load(file, mocks) {
 const { SupplierAttributeInputs } = load('../components/supplier-attribute-inputs.tsx', {
   react: React,
   'react/jsx-runtime': jsx,
-  '@/lib/product-attribute-labels': await import('../lib/product-attribute-labels.ts'),
   '@/lib/i18n/format': await import('../lib/i18n/format.ts'),
   '@/lib/i18n/portal/product-editor': await import('../lib/i18n/portal/product-editor.ts'),
   '@/lib/product-attributes': {
@@ -141,7 +140,7 @@ assert.match(html, /name="attribute:product_type"/);
 assert.match(html, /value="13,5%"/);
 assert.match(html, /Cassia powder hạt mịn/, 'Lựa chọn NCC khác đã thêm vẫn hiện trong danh sách chọn');
 
-// Một thông số: nhãn "Phân loại sản phẩm", lựa chọn hiện tiếng Việt, giá trị gửi đi giữ nguyên.
+// Một thông số: nhãn "Phân loại sản phẩm", lựa chọn hiện đúng chữ nhập trong CRM (không dịch).
 const coffeeFields = [{ key: 'coffee_form', type: 'select', label: 'Product form', filterable: true,
   options: ['Green beans', 'Roasted beans', 'Ground coffee', 'Instant coffee'] }];
 const coffeeHtml = renderToStaticMarkup(React.createElement(SupplierAttributeInputs, {
@@ -149,11 +148,12 @@ const coffeeHtml = renderToStaticMarkup(React.createElement(SupplierAttributeInp
 }));
 assert.match(coffeeHtml, /<label[^>]*for="attribute-coffee_form"[^>]*>Phân loại sản phẩm<\/label>/);
 assert.doesNotMatch(coffeeHtml, /Product form/);
-assert.match(coffeeHtml, /<option value="Green beans">Cà phê nhân \(chưa rang\)<\/option>/);
-assert.match(coffeeHtml, /<option value="Roasted beans" selected="">Cà phê hạt rang<\/option>/);
-assert.match(coffeeHtml, /<option value="Instant coffee">Cà phê hoà tan<\/option>/);
+assert.match(coffeeHtml, /<option value="Green beans">Green beans<\/option>/);
+assert.match(coffeeHtml, /<option value="Roasted beans" selected="">Roasted beans<\/option>/);
+assert.match(coffeeHtml, /<option value="Instant coffee">Instant coffee<\/option>/);
+assert.doesNotMatch(coffeeHtml, /Cà phê/, 'Không dịch lựa chọn trong code');
 const coffeeEn = renderToStaticMarkup(React.createElement(SupplierAttributeInputs, {
-  officialFields: coffeeFields, supplierFields: [], values: {}, lang: 'en',
+  officialFields: coffeeFields, supplierFields: [], values: {},
   copy: { ...(await import('../lib/i18n/portal/product-editor.ts')).productEditorMessages.en.shared.attributes },
 }));
 assert.match(coffeeEn, />Product classification<\/label>/);
@@ -183,4 +183,4 @@ assert.match(specGrid, /grid border-t border-ink-100 sm:grid-cols-2/);
 assert.ok(editor.indexOf('<SupplierAttributeInputs') < editor.indexOf('name="monthly_capacity"'), 'Phân loại đứng trước (bên trái) năng lực');
 assert.doesNotMatch(editor, /copy\.spec\.attributes/, 'Bỏ nhãn hàng "Thông số riêng ngành hàng"');
 
-console.log('✅ Thông số theo nhóm hàng: ô "Phân loại sản phẩm" gọn cạnh năng lực mỗi tháng, lựa chọn tiếng Việt, pool cũ được giữ, không tự lên trang buyer.');
+console.log('✅ Thông số theo nhóm hàng: ô "Phân loại sản phẩm" gọn cạnh năng lực mỗi tháng, lựa chọn đúng chữ CRM, pool cũ được giữ, không tự lên trang buyer.');

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ProductAttributeField } from "@/lib/types";
 import { mergeAttributeFields } from "@/lib/product-attributes";
-import { attributeFieldLabel, attributeOptionLabel } from "@/lib/product-attribute-labels";
 import { fill } from "@/lib/i18n/format";
 import { productEditorMessages, type ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 
@@ -17,14 +16,14 @@ import { productEditorMessages, type ProductEditorMessages } from "@/lib/i18n/po
  *
  * Hiển thị gọn: không khung, không tiêu đề/ghi chú, không nút "Thêm" giá trị mới
  * (chủ sàn yêu cầu 2026-11-22 vì NCC không hiểu cách dùng). Danh mục chỉ có 1 thông
- * số thì nhãn là "Phân loại sản phẩm"; lựa chọn hiện tiếng Việt nhưng giá trị gửi đi
- * vẫn là chuỗi gốc Vexim cấu hình (bộ lọc người mua đọc chuỗi đó).
+ * số thì nhãn là "Phân loại sản phẩm"; lựa chọn hiện đúng chữ Vexim nhập trong CRM
+ * (không dịch trong code — chủ sàn yêu cầu 2026-11-22).
  *
  * Thông số NCC đã tự thêm trước đây vẫn được giữ: pool cũ gửi lại nguyên vẹn trong
  * ô ẩn `attribute_pool` để server không làm mất.
  */
 export function SupplierAttributeInputs({ officialFields, supplierFields = [], values, disabled = false, onCommit,
-  copy = productEditorMessages.vi.shared.attributes, lang = "vi" }: {
+  copy = productEditorMessages.vi.shared.attributes }: {
   officialFields: ProductAttributeField[];
   supplierFields?: ProductAttributeField[];
   values?: Record<string, unknown> | null;
@@ -37,8 +36,6 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
   onCommit?: (poolJson: string, draft: Record<string, string>) => void;
   /** Nhãn hiển thị. CRM không truyền nên dùng bản tiếng Việt. */
   copy?: ProductEditorMessages["shared"]["attributes"];
-  /** Ngôn ngữ giao diện: tiếng Việt thì dịch nhãn lựa chọn, giá trị lưu không đổi. */
-  lang?: "vi" | "en";
 }) {
   const [pool] = useState<ProductAttributeField[]>(supplierFields);
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(
@@ -56,7 +53,7 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
     setDraft((previous) => ({ ...previous, [key]: value }));
   }
   const labelFor = (field: ProductAttributeField) =>
-    visible.length === 1 ? copy.classification : attributeFieldLabel(field.label, lang);
+    visible.length === 1 ? copy.classification : field.label;
 
   return <div className="space-y-3">
     {visible.map((field) => <div key={field.key} className="min-w-0">
@@ -67,7 +64,7 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
         ? <select id={`attribute-${field.key}`} className="input" name={`attribute:${field.key}`} disabled={disabled}
           value={draft[field.key] ?? ""} onChange={(event) => set(field.key, event.target.value)}>
           <option value="">{copy.none}</option>
-          {field.options.map((option) => <option key={option} value={option}>{attributeOptionLabel(option, lang)}</option>)}
+          {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
         : <input id={`attribute-${field.key}`} className="input" name={`attribute:${field.key}`} disabled={disabled}
           maxLength={200} placeholder={copy.valuePlaceholder} value={draft[field.key] ?? ""}
@@ -75,8 +72,8 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
     </div>)}
 
     {hiddenWithValues.map((field) => <div key={field.key} className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-950">
-      <p>{fill(copy.hiddenWarn, { label: attributeFieldLabel(field.label, lang), value: draft[field.key] })}</p>
-      <button type="button" disabled={disabled} className="mt-1 min-h-10 font-semibold text-brand-800 disabled:opacity-50" onClick={() => set(field.key, "")}>{fill(copy.clearValue, { label: attributeFieldLabel(field.label, lang) })}</button>
+      <p>{fill(copy.hiddenWarn, { label: field.label, value: draft[field.key] })}</p>
+      <button type="button" disabled={disabled} className="mt-1 min-h-10 font-semibold text-brand-800 disabled:opacity-50" onClick={() => set(field.key, "")}>{fill(copy.clearValue, { label: field.label })}</button>
     </div>)}
 
     <input type="hidden" name="attribute_pool" value={poolJson} />
