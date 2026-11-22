@@ -22,19 +22,9 @@ export function PriceRangeStrip({
   categoryName: string;
   rfqHref: string;
 }) {
-  if (outcome.status === "none") return null;
-
-  if (outcome.status === "too_few" || outcome.status === "too_few_suppliers") {
-    return (
-      <section className="mt-6 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3.5">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Reference price</p>
-        <p className="mt-1 text-[13px] leading-relaxed text-ink-600">
-          Not enough data yet. Send your {categoryName.toLowerCase()} specification and volume to get an accurate
-          quote.
-        </p>
-      </section>
-    );
-  }
+  // Chưa đủ dữ liệu thì không chiếm chỗ đầu trang: lưới sản phẩm lên cao hơn (giống Shopee/Alibaba).
+  // Người mua vẫn có nút "Request a quote" ở đầu trang và thanh dưới trên điện thoại.
+  if (outcome.status === "none" || outcome.status === "too_few" || outcome.status === "too_few_suppliers") return null;
 
   const rows = outcome.rows;
   const totalSamples = rows.reduce((sum, r) => sum + r.sampleSize, 0);

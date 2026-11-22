@@ -12,7 +12,6 @@ import {
   ClipboardCheck,
   Factory,
   FileCheck2,
-  FolderTree,
   PackageCheck,
   Scale,
   ShieldCheck,
@@ -34,7 +33,7 @@ import { pilotPlacement, type PilotPlacement } from "@/lib/sponsored/pilot";
 import { categorySlotConfig, categorySponsoredSlots } from "@/lib/sponsored/category-slots";
 import { getStore } from "@/lib/db";
 import { pickSponsoredBand, type SponsoredBandItem } from "@/lib/public/sponsored-band";
-import { listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
+import { listPublicCategoryFamilyProducts, listPublicCategoryProducts, type PublicCategoryProduct } from "@/lib/public/product-catalog";
 import { categoryTieWindow, compareRankedProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { hasTranslation, t } from "@/lib/public/i18n";
 import { normalizeCategoryFilters } from "@/lib/category-filters";
@@ -76,6 +75,15 @@ interface PageProps {
   params: Promise<{ slug: string }>;
   /** `?cert=haccp,halal` — bộ lọc chứng nhận đã kiểm cho danh sách sản phẩm. */
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}
+
+/** Một tab nhóm nhỏ trong thanh 1 dòng phía trên lưới sản phẩm. */
+interface SubcategoryTab {
+  key: string;
+  label: string;
+  href: string;
+  count: number;
+  active: boolean;
 }
 
 interface ChildCategoryWithCount {
@@ -366,6 +374,33 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   const tieBreak = { window: categoryTieWindow(Date.now()) };
   products.sort((a, b) => compareRankedProducts(a, b, SPEC_RANKING_WEIGHTS, undefined, tieBreak));
 
+  // Thanh nhóm nhỏ gọn 1 dòng ngay trên lưới sản phẩm (kiểu Shopee/Alibaba), thay cho khối thẻ to.
+  // Danh mục lớn: "All" đang chọn + từng nhóm nhỏ. Nhóm nhỏ: "All" trỏ về danh mục lớn + các nhóm cùng cấp.
+  // Mỗi tab là một liên kết thường tới trang danh mục riêng nên URL, routing và SEO giữ nguyên.
+  const allTabLabel = isVi ? "Tất cả" : "All";
+  let subcategoryTabs: SubcategoryTab[] = [];
+  if (childGroups.length > 0) {
+    subcategoryTabs = [
+      { key: cat.id, label: allTabLabel, href: categoryPath(cat.slug, { lang }), count: products.length, active: true },
+      ...childGroups.map(({ category: child, name, productCount }) => ({
+        key: child.id, label: name, href: categoryPath(child.slug, { lang }), count: productCount, active: false,
+      })),
+    ];
+  } else if (parentCategory && siblingCategories.length > 0) {
+    const family = await listPublicCategoryFamilyProducts(parentCategory).catch(() => []);
+    const countBySlug = new Map<string, number>();
+    for (const item of family) countBySlug.set(item.categorySlug, (countBySlug.get(item.categorySlug) ?? 0) + 1);
+    subcategoryTabs = [
+      { key: parentCategory.id, label: allTabLabel, href: categoryPath(parentCategory.slug, { lang }), count: family.length, active: false },
+      ...siblingCategories.map((sib) => ({
+        key: sib.id, label: categoryDisplayName(sib, lang), href: categoryPath(sib.slug, { lang }),
+        count: sib.id === cat.id ? products.length : (countBySlug.get(sib.slug) ?? 0), active: sib.id === cat.id,
+      })),
+    ];
+  }
+  // Nhóm nhỏ chưa có sản phẩm nào thì không hiện tab (tránh dẫn người mua vào trang trống).
+  subcategoryTabs = subcategoryTabs.filter((tab, index) => index === 0 || tab.active || tab.count > 0);
+
   /*
    * Bộ lọc chứng nhận: chỉ chứng nhận đã duyệt, công khai, còn hạn và được gắn cho
    * đúng sản phẩm mới vào danh sách; số đếm trên chip tính từ tập sản phẩm này.
@@ -527,39 +562,6 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       <div className="mx-auto w-full max-w-7xl px-5 pb-16 pt-6 sm:px-6 lg:px-8">
         <Breadcrumbs items={breadcrumbItems} />
 
-        {/* Thanh chuyển nhanh giữa Nhóm cha và các Nhóm nhỏ cùng cấp (khi đang ở trang Nhóm nhỏ) */}
-        {parentCategory && parentName && siblingCategories.length > 0 && (
-          <nav
-            aria-label={`Sub-categories in ${parentName}`}
-            className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs"
-          >
-            <Link
-              href={`/products/${parentCategory.slug}`}
-              className="inline-flex items-center gap-1.5 font-bold text-brand-800 hover:underline"
-            >
-              <FolderTree className="h-3.5 w-3.5" />
-              All {parentName}:
-            </Link>
-            {siblingCategories.map((sib) => {
-              const active = sib.id === cat.id;
-              return (
-                <Link
-                  key={sib.id}
-                  href={`/products/${sib.slug}`}
-                  aria-current={active ? "page" : undefined}
-                  className={`rounded-full px-3 py-1 font-semibold transition ${
-                    active
-                      ? "bg-brand-800 text-white shadow-2xs"
-                      : "border border-slate-200 bg-white text-ink-700 hover:border-brand-400 hover:text-brand-800"
-                  }`}
-                >
-                  {categoryDisplayName(sib, lang)}
-                </Link>
-              );
-            })}
-          </nav>
-        )}
-
         {hasProducts ? (
           <StateA
             cat={cat}
@@ -574,6 +576,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             h1={h1}
             intro={intro}
             childGroups={childGroups}
+            subcategoryTabs={subcategoryTabs}
             body={body}
             columns={columns}
             rows={rows}
@@ -592,7 +595,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             categoryName={categoryName}
             h1={h1}
             intro={intro}
-            childGroups={childGroups}
+            subcategoryTabs={subcategoryTabs}
             rfqHref={rfqHref}
             columns={columns}
             rows={rows}
@@ -612,61 +615,31 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   );
 }
 
-/* ============ Khu vực hiển thị các Nhóm nhỏ trên Trang Danh mục lớn (Nhóm cha) ============ */
+/* ============ Thanh nhóm nhỏ 1 dòng (danh mục lớn và các nhóm nhỏ cùng cấp) ============ */
 
-function SubcategoryDirectory({
-  parentName,
-  childGroups,
-}: {
-  parentName: string;
-  childGroups: ChildCategoryWithCount[];
-}) {
-  if (childGroups.length === 0) return null;
+function SubcategoryTabs({ tabs, label }: { tabs: SubcategoryTab[]; label: string }) {
+  if (tabs.length < 2) return null;
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-[11px] font-extrabold uppercase tracking-wider text-brand-700">
-            Sub-categories in {parentName}
-          </p>
-          <h2 className="mt-0.5 text-base font-bold text-ink-900">
-            Select a product sub-category to filter by specific technical grades &amp; parameters
-          </h2>
-        </div>
-      </div>
-
-      <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {childGroups.map(({ category: child, name, intro, productCount }) => (
-          <li key={child.id} className="flex">
+    <nav aria-label={label} className="-mx-5 mt-4 px-5 sm:mx-0 sm:px-0">
+      <ul className="flex gap-2 overflow-x-auto whitespace-nowrap pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {tabs.map((tab) => (
+          <li key={tab.key} className="shrink-0">
             <Link
-              href={`/products/${child.slug}`}
-              className="group flex w-full flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-brand-400 hover:shadow-md"
+              href={tab.href}
+              aria-current={tab.active ? "page" : undefined}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold transition ${
+                tab.active
+                  ? "bg-brand-800 text-white shadow-2xs"
+                  : "border border-ink-200 bg-white text-ink-700 hover:border-brand-400 hover:text-brand-800"
+              }`}
             >
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-sm font-black text-ink-900 group-hover:text-brand-800">
-                    {name}
-                  </h3>
-                  {productCount > 0 && (
-                    <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-200">
-                      {productCount} product{productCount > 1 ? "s" : ""}
-                    </span>
-                  )}
-                </div>
-                {intro && (
-                  <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-ink-600">
-                    {intro}
-                  </p>
-                )}
-              </div>
-              <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-brand-700 group-hover:text-brand-900">
-                View {name.toLowerCase()} &amp; filters <ArrowRight className="h-3.5 w-3.5" />
-              </span>
+              {tab.label}
+              <span className={`font-medium ${tab.active ? "text-white/75" : "text-ink-400"}`}>({tab.count})</span>
             </Link>
           </li>
         ))}
       </ul>
-    </div>
+    </nav>
   );
 }
 
@@ -674,7 +647,7 @@ function SubcategoryDirectory({
 
 function StateA({
   cat, products, productCount, certificateFacets, selectedCertificateSchemes,
-  sponsored, sponsoredBand, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref, comparisonEnabled,
+  sponsored, sponsoredBand, categoryName, h1, intro, childGroups, subcategoryTabs, body, columns, rows, facts, faqs, filters, rfqHref, comparisonEnabled,
   page, keepQuery, lang, productCategorySlugs,
 }: {
   cat: Category;
@@ -685,6 +658,7 @@ function StateA({
   certificateFacets: CertificateFacet[];
   selectedCertificateSchemes: CertificateScheme[]; sponsored: PilotPlacement | null; sponsoredBand: SponsoredBandItem[];
   categoryName: string; h1: string; intro: string; childGroups: ChildCategoryWithCount[]; body: string | null;
+  subcategoryTabs: SubcategoryTab[];
   comparisonEnabled: boolean;
   columns: CategoryColumn[];
   rows: CategoryRow[];
@@ -745,9 +719,6 @@ function StateA({
           </div>
         </div>
 
-        {/* Nếu đây là Trang Danh mục lớn (Nhóm cha), hiển thị danh sách các Nhóm nhỏ trực thuộc lấy từ CRM */}
-        <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
-
         <PriceRangeStrip outcome={priceRange} categoryName={categoryName} rfqHref={rfqHref} />
 
         {relatedSearches.length > 0 && (
@@ -764,6 +735,8 @@ function StateA({
 
         <CertificateFacetChips slug={cat.slug} facets={certificateFacets} selected={selectedCertificateSchemes} />
 
+        <SubcategoryTabs tabs={subcategoryTabs} label={`Sub-categories in ${categoryName}`} />
+
         {products.length === 0 ? (
           <div className="mt-4 rounded-xl border border-ink-200 bg-white p-6 text-center">
             <p className="text-[15px] font-bold text-ink-900">No products match these certificates yet.</p>
@@ -777,7 +750,9 @@ function StateA({
           </div>
         ) : (
           <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored}
-            sponsoredBand={sponsoredBand} productFields={cat.product_fields ?? []} comparisonEnabled={comparisonEnabled}
+            sponsoredBand={sponsoredBand} comparisonEnabled={comparisonEnabled}
+            // Danh mục lớn đã có tab nhóm nhỏ ở trên: bỏ bộ lọc "Product type" chung chung trùng ý nghĩa.
+            productFields={(cat.product_fields ?? []).filter((field) => !(childGroups.length > 0 && field.key === "product_type"))}
             page={page} keepQuery={keepQuery} productCategorySlugs={productCategorySlugs} />
         )}
       </section>
@@ -880,8 +855,8 @@ function CategoryContentSections({ columns, rows, facts, faqs, body, categoryNam
 
 /* ================== STATE B — chưa có NCC ================== */
 
-function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, rows, facts, faqs, body, lang }: {
-  cat: Category; categoryName: string; h1: string; intro: string; childGroups: ChildCategoryWithCount[]; rfqHref: string;
+function StateB({ cat, categoryName, h1, intro, subcategoryTabs, rfqHref, columns, rows, facts, faqs, body, lang }: {
+  cat: Category; categoryName: string; h1: string; intro: string; subcategoryTabs: SubcategoryTab[]; rfqHref: string;
   columns: CategoryColumn[]; rows: CategoryRow[]; facts: CategoryFact[];
   faqs: Array<{ q: string; a: string }>; body: string | null; lang: "en" | "vi";
 }) {
@@ -939,7 +914,7 @@ function StateB({ cat, categoryName, h1, intro, childGroups, rfqHref, columns, r
       </div>
     </section>
 
-    <SubcategoryDirectory parentName={categoryName} childGroups={childGroups} />
+    <SubcategoryTabs tabs={subcategoryTabs} label={`Sub-categories in ${categoryName}`} />
 
     {harvest && (
       <HarvestCalendarSection

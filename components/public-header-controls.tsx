@@ -67,10 +67,22 @@ function PrimaryNav({ pathname, isVi, buyer = false }: { pathname: string; isVi:
  * chữ "Tìm kiếm"/"Search" cho rõ nghĩa.
  */
 function HeaderSearchBar({ isVi, isHome }: { isVi: boolean; isHome: boolean }) {
+  const router = useRouter();
   if (isHome) return null;
   const label = isVi ? "Tìm kiếm" : "Search";
+  // Điều hướng phía client (không tải lại cả trang): khung chờ của /search hiện ngay khi
+  // bấm Tìm. Không có JavaScript thì form GET bình thường vẫn chạy như cũ.
+  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+    const params = new URLSearchParams();
+    new FormData(event.currentTarget).forEach((value, key) => {
+      if (typeof value === "string") params.append(key, value);
+    });
+    event.preventDefault();
+    router.push(`/search?${params.toString()}`);
+  };
   return (
-    <form action="/search" method="get" role="search" aria-label={label}
+    <form action="/search" method="get" role="search" aria-label={label} onSubmit={submit}
+      onFocus={() => router.prefetch("/search")}
       className="min-w-0 flex-1">
       <input type="hidden" name="lang" value={isVi ? "vi" : "en"} />
       <label className="sr-only" htmlFor="header-search-query">{label}</label>

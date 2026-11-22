@@ -14,7 +14,9 @@ import { gradeFromAttributes } from "@/lib/public/grade-resolution";
 import {
   listPublicCategoryProducts,
   loadPublicProductCatalogSnapshot,
+  loadPublicSearchIndex,
   type PublicCategoryProduct,
+  type PublicSearchIndex,
 } from "@/lib/public/product-catalog";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 import {
@@ -108,18 +110,34 @@ function categoryScope(categories: Category[], selected: Category | undefined): 
   return categories.filter((category) => included.has(category.id));
 }
 
-/** Một mặt hàng con cũng có thể được tìm bằng tên nhóm cha công khai. */
-function categorySearchText(category: Category, byId: Map<string, Category>): string {
-  const values: string[] = [];
-  const visited = new Set<string>();
-  let current: Category | undefined = category;
+function categoryNameValues(category: Category): string[] {
+  return [category.slug, getCategoryTitle(category, "en"), getCategoryTitle(category, "vi"), ...Object.values(category.name_i18n ?? {})];
+}
+
+function searchWords(text: string): string[] {
+  return text.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+}
+
+/**
+ * Một mặt hàng con cũng có thể được tìm bằng tên nhóm cha công khai, trừ những từ là tên
+ * của một nhóm con anh em. Ví dụ nhóm cha "Coffee, Tea & Beverages": sản phẩm trà vẫn
+ * khớp "beverages"/"đồ uống" nhưng không khớp "coffee"/"cà phê" (đó là nhóm "Coffee").
+ */
+function categorySearchText(category: Category, byId: Map<string, Category>, childrenByParent: Map<string, Category[]>): string {
+  const values = [searchText(categoryNameValues(category))];
+  const visited = new Set<string>([category.id]);
+  let child = category;
+  let current = category.parent_id ? byId.get(category.parent_id) : undefined;
   while (current && !visited.has(current.id)) {
     visited.add(current.id);
-    values.push(current.slug, getCategoryTitle(current, "en"), getCategoryTitle(current, "vi"),
-      ...Object.values(current.name_i18n ?? {}));
+    const siblingWords = new Set((childrenByParent.get(current.id) ?? [])
+      .filter((sibling) => sibling.id !== child.id)
+      .flatMap((sibling) => searchWords(searchText(categoryNameValues(sibling)))));
+    values.push(searchWords(searchText(categoryNameValues(current))).filter((word) => !siblingWords.has(word)).join(" "));
+    child = current;
     current = current.parent_id ? byId.get(current.parent_id) : undefined;
   }
-  return searchText(values);
+  return values.join(" ");
 }
 
 function supplierSearchText(supplier: Pick<Supplier, "province" | "profile_translation_meta" | "display_name" | "trade_name" | "name" | "slug">): string {
@@ -154,11 +172,23 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
   const isVi = lang === "vi";
   const tokens = normalize(query).split(/\s+/).filter(Boolean);
 
-  let allCategories: Category[] | null = null;
-  try {
-    allCategories = await getStore().listCategories({ publishedOnly: false });
-  } catch (error) {
-    console.error("[search] could not load categories", error);
+  // Có từ khoá/danh mục: dùng chỉ mục tìm kiếm đã cache 60 giây (gồm cả danh sách danh
+  // mục), nên lượt tìm không phải chờ thêm truy vấn nào. Chỉ mục lỗi thì quay về cách cũ.
+  let index: PublicSearchIndex | null = null;
+  if (query || categorySlug) {
+    try {
+      index = await loadPublicSearchIndex();
+    } catch (error) {
+      console.error("[search] search index unavailable, reading categories directly", error);
+    }
+  }
+  let allCategories: Category[] | null = index?.categories ?? null;
+  if (!allCategories) {
+    try {
+      allCategories = await getStore().listCategories({ publishedOnly: false });
+    } catch (error) {
+      console.error("[search] could not load categories", error);
+    }
   }
   const visibleCategories = (allCategories ?? [])
     .filter((category) => category.status === "published" && category.is_published)
@@ -176,7 +206,7 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
   let failed = !allCategories;
   if (allCategories && !invalidCategory && (query || selected)) {
     try {
-      results = await findResults(tokens, visibleCategories, selected, allCategories, lang);
+      results = await findResults(tokens, visibleCategories, selected, allCategories, lang, index);
     } catch (error) {
       console.error("[search] could not load public catalogue", error);
       failed = true;
@@ -238,15 +268,24 @@ function BrowsePrompt({ categories, lang }: { categories: Category[]; lang: Loca
   </section>;
 }
 
-async function findResults(tokens: string[], categories: Category[], selected: Category | undefined, allCategories: Category[], lang: Locale): Promise<Results> {
+async function findResults(tokens: string[], categories: Category[], selected: Category | undefined, allCategories: Category[], lang: Locale, index: PublicSearchIndex | null): Promise<Results> {
   // Dùng đúng cổng duyệt, media, giá và xếp hạng của catalogue hiện tại. Chỉ chia
   // sẻ dữ liệu gốc giữa các danh mục ở server; không gửi bản ghi gốc sang trình duyệt.
   // Bản cache 60 giây dùng chung với trang chủ (cùng danh mục publishedOnly: false), thay vì
   // đọc lại toàn bộ nhà cung cấp + sản phẩm ở mỗi lượt tìm.
-  const snapshot = await loadPublicProductCatalogSnapshot();
+  // Nhanh: thẻ công khai lấy từ chỉ mục đã cache. Dự phòng: đọc từng danh mục như trước.
+  const snapshot = index ? null : await loadPublicProductCatalogSnapshot();
+  const publicSuppliers = index?.suppliers ?? snapshot!.suppliers;
   const scoped = categoryScope(categories, selected);
   const byCategoryId = new Map(categories.map((category) => [category.id, category]));
-  const supplierText = new Map(snapshot.suppliers.map((supplier) => [supplier.id, supplierSearchText(supplier)]));
+  const childrenByParent = new Map<string, Category[]>();
+  for (const category of categories) {
+    if (!category.parent_id) continue;
+    const children = childrenByParent.get(category.parent_id) ?? [];
+    if (!childrenByParent.has(category.parent_id)) childrenByParent.set(category.parent_id, children);
+    children.push(category);
+  }
+  const supplierText = new Map(publicSuppliers.map((supplier) => [supplier.id, supplierSearchText(supplier)]));
   const eligibleSupplierIds = new Set<string>();
   const eligibleProductIds = new Set<string>();
   const eligibleProductsBySupplier = new Map<string, PublicCategoryProduct[]>();
@@ -260,8 +299,9 @@ async function findResults(tokens: string[], categories: Category[], selected: C
   // Giới hạn số danh mục xử lý đồng thời để không tạo bão truy vấn media/chứng nhận.
   for (let i = 0; i < scoped.length; i += CATEGORY_BATCH_SIZE) {
     const batch = scoped.slice(i, i + CATEGORY_BATCH_SIZE);
-    const settled = await Promise.allSettled(batch.map((category) =>
-      listPublicCategoryProducts(category, { snapshot, today })));
+    const settled: Array<PromiseSettledResult<PublicCategoryProduct[]>> = index
+      ? batch.map((category) => ({ status: "fulfilled", value: index.productsByCategory[category.slug] ?? [] }))
+      : await Promise.allSettled(batch.map((category) => listPublicCategoryProducts(category, { snapshot: snapshot!, today })));
     for (let j = 0; j < batch.length; j++) {
       const outcome = settled[j];
       if (outcome.status === "rejected") {
@@ -270,7 +310,7 @@ async function findResults(tokens: string[], categories: Category[], selected: C
         continue;
       }
       const category = batch[j];
-      const categoryText = categorySearchText(category, byCategoryId);
+      const categoryText = categorySearchText(category, byCategoryId, childrenByParent);
       for (const product of outcome.value) {
         // Demo/test không phải là kết quả mua bán, kể cả khi môi trường bật preview.
         if (product.isDemo || product.isDemoSupplier) continue;
@@ -302,7 +342,7 @@ async function findResults(tokens: string[], categories: Category[], selected: C
     }
   }
 
-  const availableSuppliers = snapshot.suppliers.filter((supplier) => !supplier.is_demo && !isSyntheticSupplier(supplier) &&
+  const availableSuppliers = publicSuppliers.filter((supplier) => !supplier.is_demo && !isSyntheticSupplier(supplier) &&
     (!selected || eligibleSupplierIds.has(supplier.id)));
   const directSupplierMatch = tokens.length > 0 && availableSuppliers.some((supplier) => matchesTokens(supplierText.get(supplier.id) ?? "", tokens));
   const exactSupplierNameMatch = tokens.length > 1 && availableSuppliers.some((supplier) =>

@@ -437,13 +437,13 @@ const fewHtml = renderToStaticMarkup(
   React.createElement(strip.PriceRangeStrip, { outcome: spreadThin, categoryName: "Cashew", rfqHref: "/rfq" }),
 );
 assert.ok(!/\d+\.\d{2}\/kg/.test(fewHtml), "No price number appears when grades are too thin");
-assert.ok(fewHtml.includes("Not enough data yet"), "The block explains why it is empty");
+assert.equal(fewHtml, "", "Too few prices: the block is hidden so the product grid moves up");
 
 const tooFewSuppliersHtml = renderToStaticMarkup(
   React.createElement(strip.PriceRangeStrip, { outcome: supplierDuplication, categoryName: "Cashew", rfqHref: "/rfq" }),
 );
 assert.ok(!/\d+\.\d{2}\/kg/.test(tooFewSuppliersHtml), "No price number appears when no grade has enough distinct suppliers");
-assert.ok(tooFewSuppliersHtml.includes("Not enough data yet"), "The block gives one short reason regardless of whether the cause is sample count or supplier diversity");
+assert.equal(tooFewSuppliersHtml, "", "Too few distinct suppliers: hidden the same way as too few prices");
 
 const pendingSuppliersHtml = renderToStaticMarkup(
   React.createElement(strip.PriceRangeStrip, { outcome: partialSupplierCoverage, categoryName: "Cashew", rfqHref: "/rfq" }),
