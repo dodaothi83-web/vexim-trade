@@ -17,6 +17,7 @@ const middlewareMocks = {
   '@/lib/auth/session-token-edge': { verifySessionTokenEdge: async () => null },
   '@/lib/public/home-route': { homeRenderPath: (lang) => `/homepage/${lang}`, publicHomeUrlFor: () => null },
   '@/lib/public/product-route': { publicProductUrlFor: () => null, staffProductViewPath: () => null },
+  '@/lib/public/category-route': { publicCategoryUrlFor: () => null, categoryRenderTarget: (path) => path === '/products/cashew-kernels' ? '/products/category-render/en/cashew-kernels' : null },
 };
 const robotsMocks = { '@/lib/site': { SITE_URL: 'https://example.invalid' } };
 const sitemapMocks = { ...robotsMocks, '@/lib/blog/queries': {}, '@/lib/db': {}, '@/lib/public/catalog': {},

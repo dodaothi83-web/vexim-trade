@@ -24,6 +24,10 @@
  *    xem của chính mình). Cùng kiểu kiểm tra "lạc quan" như trên: trang động vẫn tự tra phiên
  *    đầy đủ bằng getSession(), cookie sai chỉ nhận đúng bản công khai.
  *
+ *  - Trang danh mục /products/<slug> (không ?cert=, không ?page= > 1): khách được viết lại — URL
+ *    giữ nguyên — sang bản dựng sẵn /products/category-render/<lang>/<slug>. Người có cookie phiên
+ *    hợp lệ giữ bản động (xem trước danh mục nháp). Xem lib/public/category-route.ts.
+ *
  * Không can thiệp vào API hay static assets.
  */
 import { NextResponse } from "next/server";
@@ -32,6 +36,7 @@ import type { NextRequest } from "next/server";
 import { verifySessionTokenEdge } from "@/lib/auth/session-token-edge";
 import { homeRenderPath, publicHomeUrlFor } from "@/lib/public/home-route";
 import { publicProductUrlFor, staffProductViewPath } from "@/lib/public/product-route";
+import { categoryRenderTarget, publicCategoryUrlFor } from "@/lib/public/category-route";
 
 // Edge runtime (mặc định của middleware.ts): chạy ở điểm CDN gần người dùng. Trước đây
 // file này đặt runtime = "nodejs" chỉ để xác minh cookie bằng node:crypto — middleware Node
@@ -121,6 +126,26 @@ export function middleware(req: NextRequest): NextResponse | Promise<NextRespons
   // Bản động của trang sản phẩm chỉ đến được qua viết lại bên dưới, không gõ thẳng URL.
   const publicProduct = publicProductUrlFor(pathname);
   if (publicProduct) return NextResponse.redirect(new URL(publicProduct, req.url), 308);
+
+  // Route nội bộ của trang danh mục dựng sẵn: không để lộ thành URL thứ hai (trùng nội dung).
+  const publicCategory = publicCategoryUrlFor(pathname);
+  if (publicCategory) return NextResponse.redirect(new URL(publicCategory, req.url), 308);
+
+  // Trang danh mục: khách nhận bản dựng sẵn; người có phiên hợp lệ giữ bản động.
+  const categoryTarget = req.method === "GET" || req.method === "HEAD"
+    ? categoryRenderTarget(pathname, req.nextUrl.searchParams) : null;
+  if (categoryTarget) {
+    const rewrite = () => {
+      const target = req.nextUrl.clone();
+      target.pathname = categoryTarget;
+      // Ngôn ngữ đã nằm trong đường dẫn; bỏ query (utm_*, gclid…) để mọi lượt xem dùng chung một bản cache.
+      target.search = "";
+      return finish(req, target);
+    };
+    const token = req.cookies.get(SESSION_COOKIE)?.value;
+    if (!token) return rewrite();
+    return verifySessionTokenEdge(token).then((session) => session ? finish(req, null) : rewrite());
+  }
 
   // Trang sản phẩm: khách nhận bản dựng sẵn từ CDN; chỉ request có cookie phiên mới phải xác minh.
   const staffProduct = req.method === "GET" || req.method === "HEAD" ? staffProductViewPath(pathname) : null;

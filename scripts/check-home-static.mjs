@@ -99,7 +99,8 @@ assert.doesNotMatch(middlewareSource, /from "@\/lib\/auth\/session-token"/, "Mid
 
 const AUTH_ENV = { AUTH_SECRET: "a-very-long-auth-secret-for-tests-0123456789", PUBLIC_SITE_INDEXABLE: "true", VERCEL_ENV: "production" };
 const productRoute = load("lib/public/product-route.ts");
-const homeRoute = load("lib/public/home-route.ts", { mocks: { "@/lib/public/product-route": productRoute } });
+const categoryRoute = load("lib/public/category-route.ts");
+const homeRoute = load("lib/public/home-route.ts", { mocks: { "@/lib/public/product-route": productRoute, "@/lib/public/category-route": categoryRoute } });
 const NextResponse = {
   next: () => ({ kind: "next", headers: new Headers() }),
   rewrite: (url) => ({ kind: "rewrite", url: String(url), headers: new Headers() }),
@@ -112,6 +113,7 @@ const { middleware } = load("middleware.ts", {
     "@/lib/auth/session-token-edge": edgeSession(AUTH_ENV),
     "@/lib/public/home-route": homeRoute,
     "@/lib/public/product-route": productRoute,
+    "@/lib/public/category-route": categoryRoute,
   },
 });
 function request(url, { method = "GET", host = "www.veximtrade.com", cookie } = {}) {

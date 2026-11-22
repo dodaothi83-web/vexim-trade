@@ -2,6 +2,7 @@
 
 import { stripEmptySpecLines } from "@/lib/products/spec-template";
 import { revalidatePath } from "next/cache";
+import { revalidateCategoryPage } from "@/lib/public/revalidate-category";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
@@ -366,7 +367,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     revalidatePath(`/supplier/portal/products/${saved.id}`);
     revalidatePath(`/crm/products/${saved.id}/edit`);
     if (keepPublished && saved.category) {
-      revalidatePath(`/products/${saved.category}`);
+      revalidateCategoryPage(saved.category);
       revalidatePath(`/products/${saved.category}/${saved.id}`);
     }
     return { ok: true, id: saved.id, message: keepPaused

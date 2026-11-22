@@ -5,6 +5,7 @@ import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { notifyIndexNow } from "@/lib/seo/indexnow";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
+import { revalidateCategoryPage } from "@/lib/public/revalidate-category";
 
 /** Only public visibility may change; category copy and filters remain with the preparer. */
 export async function decideCategoryPublicationAction(id: string, publish: boolean) {
@@ -37,7 +38,7 @@ export async function decideCategoryPublicationAction(id: string, publish: boole
       .catch((error) => console.error("[category-publication] audit log failed after decision", error));
     revalidatePath("/crm/categories");
     revalidateHomePage();
-    revalidatePath(`/products/${category.slug}`);
+    revalidateCategoryPage(category.slug);
     // Báo cả khi ẩn: máy tìm kiếm quét lại sẽ thấy trang đã gỡ.
     if (category.seo_indexable) notifyIndexNow([`/products/${category.slug}`]);
     return { ok: true, message: publish ? "Đã công khai danh mục." : "Đã ẩn danh mục khỏi trang công khai." };
