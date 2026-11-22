@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
+import { registrationCategoryOptions, type CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import type { CategoryRequestView } from "@/lib/supplier-portal/requested-category";
 import { fill } from "@/lib/i18n/format";
 import type { OnboardingMessages } from "@/lib/i18n/portal/onboarding";
@@ -26,11 +26,13 @@ export function SupplierCategoryPicker({ categories, initial = [], other = "", r
   messages: OnboardingMessages["picker"];
 }) {
   const [selected, setSelected] = useState(() => initial.filter((slug) => categories.some((c) => c.slug === slug)));
+  // Chỉ ngành chính là lựa chọn (nhóm con đi theo ngành cha, không tính vào trần 5).
+  const choices = registrationCategoryOptions(categories, initial);
   const [note, setNote] = useState(other);
-  const available = categories.filter((c) => !selected.includes(c.slug));
+  const available = choices.filter((c) => !selected.includes(c.slug));
   const atLimit = selected.length >= 5;
   function add(slug: string) {
-    if (!slug || atLimit || selected.includes(slug) || !categories.some((c) => c.slug === slug)) return;
+    if (!slug || atLimit || selected.includes(slug) || !choices.some((c) => c.slug === slug)) return;
     setSelected((old) => [...old, slug]);
   }
   const labelOf = (slug: string) => categories.find((c) => c.slug === slug)?.label ?? slug;

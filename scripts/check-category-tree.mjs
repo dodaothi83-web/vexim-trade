@@ -107,6 +107,29 @@ assert.equal(proposals.isProductCategoryChoice("tea", options), true);
 assert.equal(proposals.isProductCategoryChoice("coffee-tea-specialty-beverages", options), false);
 assert.equal(proposals.isProductCategoryChoice("pepper", proposals.categoryProposalOptions(base)), true);
 
+// 2b. Phạm vi kinh doanh: trần 5 chỉ đếm NGÀNH CHÍNH; nhóm con đi theo ngành cha, không bị đếm.
+//     (Ca Tinimex: lưu 4 ngành chính, trang từng hiện 7/5 và không lưu được.)
+const tinimex = { requested_category_slugs: ["cashew-kernels", "pepper", "cinnamon-star-anise", "dried-fruits"], categories_reviewed_at: null };
+assert.deepEqual(plain(proposals.registeredSupplierCategorySlugs(tinimex, options, [])), tinimex.requested_category_slugs,
+  "trang phạm vi nhận đúng 4 ngành đã lưu, không bung nhóm con");
+assert.deepEqual(plain(proposals.registrationCategoryOptions(options).map((o) => o.slug)).sort(),
+  ["cashew-kernels", "cinnamon-star-anise", "coffee-tea-specialty-beverages", "dried-fruits", "pepper", "rice-grain-products"],
+  "dòng để tích chỉ là ngành chính");
+assert.ok(proposals.registrationCategoryOptions(options, ["tea"]).some((o) => o.slug === "tea"), "hồ sơ cũ lưu riêng nhóm con vẫn giữ được");
+const scopeForm = (slugs) => { const f = new FormData(); for (const slug of slugs) f.append("requested_category_slugs", slug); return f; };
+const expanded = ["cashew-kernels", "raw-cashew-kernels", "roasted-cashews", "pepper", "cinnamon-star-anise", "cassia-cinnamon", "star-anise", "dried-fruits"];
+assert.deepEqual(plain(proposals.parseSupplierCategoryProposals(scopeForm(expanded), options).requested_category_slugs),
+  tinimex.requested_category_slugs, "trang cũ gửi cả nhóm con (8 mục) vẫn lưu được: nhóm con kèm ngành cha bị bỏ trước khi đếm");
+const fiveMain = ["cashew-kernels", "pepper", "cinnamon-star-anise", "coffee-tea-specialty-beverages", "dried-fruits"];
+assert.equal(proposals.parseSupplierCategoryProposals(scopeForm(fiveMain), options).requested_category_slugs.length, 5);
+assert.throws(() => proposals.parseSupplierCategoryProposals(scopeForm([...fiveMain, "rice-grain-products"]), options), /1-5/,
+  "6 ngành chính vẫn bị chặn");
+assert.deepEqual(plain(proposals.supplierCategoryScope(["cashew-kernels"], options)).sort(), ["cashew-kernels", "raw-cashew-kernels", "roasted-cashews"],
+  "sản phẩm ở nhóm con nằm trong phạm vi khi chọn ngành cha");
+assert.match(src("app/supplier/portal/categories/actions.ts"), /supplierCategoryScope\(selected, options\)/,
+  "lưu phạm vi: sản phẩm ở nhóm con không bị coi là ngoài phạm vi");
+assert.match(src("app/supplier/portal/categories/page.tsx"), /registeredSupplierCategorySlugs/, "trang phạm vi không đếm nhóm con");
+
 // 3. Nhóm nhỏ chép cấu hình nhóm lớn khi chưa khai.
 const parent = { product_fields: [{ key: "grade", label: "Grade", type: "select", options: ["W320"] }], supplier_product_fields: [],
   supplier_grade_options: ["W240 roasted"], price_unit: "kg", moq_units: ["kg", "container"], harvest: { months: [2, 3] } };

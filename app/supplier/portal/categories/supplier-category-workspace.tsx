@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Check, FolderTree, Info, Package, Search, X } from "lucide-react";
 
-import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
+import {
+  MAX_SUPPLIER_CATEGORIES as MAX_CATEGORIES,
+  registrationCategoryOptions,
+  supplierCategoryScope,
+  type CategoryProposalOption,
+} from "@/lib/supplier-portal/category-proposals";
 import type { CategoriesMessages } from "@/lib/i18n/portal/categories";
 import { PRODUCT_STATUS } from "@/lib/supplier-portal/product-view";
 import type { ProductsMessages } from "@/lib/i18n/portal/products";
@@ -13,8 +18,6 @@ import { fill } from "@/lib/i18n/format";
 
 import { saveSupplierCategoriesAction } from "./actions";
 
-/** Trần phạm vi NCC được chọn - phải khớp `parseSupplierCategoryProposals`. */
-const MAX_CATEGORIES = 5;
 
 export type WorkspaceProduct = {
   id: string;
@@ -30,6 +33,9 @@ export type WorkspaceProduct = {
  *
  * Danh mục là thứ để đọc và tích chọn, không phải để ngắm ảnh: bỏ ảnh bìa cho danh sách
  * ngắn lại một nửa và quét nhanh hơn nhiều so với lưới thẻ.
+ *
+ * Chỉ NGÀNH CHÍNH là dòng để tích và bị tính vào trần 5. Nhóm con (vd. "Nhân điều thô") đi
+ * theo ngành cha: hiện dạng "Gồm: …" dưới ngành cha, không phải dòng riêng, không bị đếm.
  *
  * Toàn bộ hành vi cũ giữ nguyên: chọn 1-5 danh mục Vexim đã mở, gửi qua
  * `saveSupplierCategoriesAction`, server vẫn là nơi kiểm tra cuối cùng (không tự
@@ -49,27 +55,40 @@ export function SupplierCategoryWorkspace({
   products: WorkspaceProduct[];
 }) {
   const router = useRouter();
-  const [selected, setSelected] = useState(() => initial.filter((slug) => options.some((c) => c.slug === slug)));
+  // Dòng để tích: ngành chính (+ nhóm con hồ sơ cũ đã lưu riêng, để không bị mất khi lưu lại).
+  const choices = useMemo(() => registrationCategoryOptions(options, initial), [options, initial]);
+  const [selected, setSelected] = useState(() => initial.filter((slug) => choices.some((c) => c.slug === slug)));
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const bySlug = useMemo(() => new Map(options.map((c) => [c.slug, c])), [options]);
+  const childrenOf = useMemo(() => {
+    const map = new Map<string, CategoryProposalOption[]>();
+    for (const option of options) if (option.parent_slug) map.set(option.parent_slug, [...(map.get(option.parent_slug) ?? []), option]);
+    return map;
+  }, [options]);
+  // Số sản phẩm của một ngành chính gồm cả sản phẩm ở các nhóm con của nó.
   const productCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const product of products) {
       if (!product.categorySlug) continue;
-      counts.set(product.categorySlug, (counts.get(product.categorySlug) ?? 0) + 1);
+      const parent = bySlug.get(product.categorySlug)?.parent_slug;
+      const key = parent && !choices.some((c) => c.slug === product.categorySlug) ? parent : product.categorySlug;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return counts;
-  }, [products]);
+  }, [products, bySlug, choices]);
+  const scope = useMemo(() => supplierCategoryScope(selected, options), [selected, options]);
 
   const atLimit = selected.length >= MAX_CATEGORIES;
   const needle = query.trim().toLocaleLowerCase("vi");
+  // Tìm cả theo tên nhóm con: gõ "hoa hồi" vẫn ra ngành "Quế và hồi".
   const visible = useMemo(
-    () => options.filter((c) => !needle ||
-      `${c.label} ${c.group ?? ""} ${c.intro ?? ""} ${c.slug}`.toLocaleLowerCase("vi").includes(needle)),
-    [options, needle],
+    () => choices.filter((c) => !needle ||
+      `${c.label} ${c.group ?? ""} ${c.intro ?? ""} ${c.slug} ${(childrenOf.get(c.slug) ?? []).map((k) => `${k.label} ${k.label_en ?? ""}`).join(" ")}`
+        .toLocaleLowerCase("vi").includes(needle)),
+    [choices, childrenOf, needle],
   );
   const groups = useMemo(() => {
     const map = new Map<string, CategoryProposalOption[]>();
@@ -83,12 +102,12 @@ export function SupplierCategoryWorkspace({
       .map(([name, items]) => ({ name, items }));
   }, [visible]);
 
-  const inScope = products.filter((p) => p.categorySlug && selected.includes(p.categorySlug));
-  const outside = products.filter((p) => p.categorySlug && !selected.includes(p.categorySlug));
+  const inScope = products.filter((p) => p.categorySlug && scope.includes(p.categorySlug));
+  const outside = products.filter((p) => p.categorySlug && !scope.includes(p.categorySlug));
   const unassigned = products.filter((p) => !p.categorySlug);
 
   function toggle(slug: string) {
-    if (!options.some((c) => c.slug === slug)) return;
+    if (!choices.some((c) => c.slug === slug)) return;
     setResult(null);
     setSelected((old) => old.includes(slug)
       ? old.filter((item) => item !== slug)
@@ -110,9 +129,15 @@ export function SupplierCategoryWorkspace({
     }
   }
 
+  const categoryPath = (slug: string) => {
+    const option = bySlug.get(slug);
+    const parent = option?.parent_slug ? bySlug.get(option.parent_slug) : undefined;
+    return option ? (parent ? `${parent.label} › ${option.label}` : option.label) : slug;
+  };
+
   const summary = [
     { key: "picked", label: copy.summary.picked, value: `${selected.length}/${MAX_CATEGORIES}`, note: copy.summary.pickedNote },
-    { key: "open", label: copy.summary.open, value: String(options.length), note: copy.summary.openNote },
+    { key: "open", label: copy.summary.open, value: String(choices.length), note: copy.summary.openNote },
     { key: "inside", label: copy.summary.inside, value: `${inScope.length}/${products.length}`, note: copy.summary.insideNote },
     { key: "outside", label: copy.summary.outside, value: String(outside.length), note: outside.length ? copy.summary.outsideNote : copy.summary.outsideNone },
   ];
@@ -164,6 +189,7 @@ export function SupplierCategoryWorkspace({
                       const isSelected = selected.includes(category.slug);
                       const blocked = !isSelected && atLimit;
                       const count = productCounts.get(category.slug) ?? 0;
+                      const kids = childrenOf.get(category.slug) ?? [];
                       return <li key={category.slug}>
                         <button type="button" onClick={() => toggle(category.slug)} disabled={blocked}
                           aria-pressed={isSelected}
@@ -174,6 +200,9 @@ export function SupplierCategoryWorkspace({
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className={`block truncate text-[13px] ${isSelected ? "font-bold text-brand-900" : "font-semibold text-ink-900"}`}>{category.label}</span>
+                            {kids.length > 0 && <span className={`mt-0.5 block truncate text-[11px] font-semibold ${isSelected ? "text-brand-800" : "text-ink-600"}`}>
+                              {fill(copy.catalog.includes, { names: kids.map((k) => k.label).join(", ") })}
+                            </span>}
                             {category.intro && <span className="mt-0.5 block truncate text-[11px] text-ink-500">{category.intro}</span>}
                           </span>
                           {count > 0 && <span className="shrink-0 rounded-full bg-ink-100 px-2 py-0.5 text-[10.5px] font-semibold text-ink-700">{fill(copy.catalog.perCategory, { count })}</span>}
@@ -184,7 +213,7 @@ export function SupplierCategoryWorkspace({
                   </ul>
                 </div>;
               })}
-              <p className="border-t border-ink-100 px-4 py-2 text-[11px] font-semibold text-ink-500">{fill(copy.catalog.shown, { shown: visible.length, total: options.length })}</p>
+              <p className="border-t border-ink-100 px-4 py-2 text-[11px] font-semibold text-ink-500">{fill(copy.catalog.shown, { shown: visible.length, total: choices.length })}</p>
             </div>}
         </section>
 
@@ -205,11 +234,11 @@ export function SupplierCategoryWorkspace({
               {products.slice(0, 6).map((product) => {
                 const statusLabel = product.review === "approved" && product.readyForBuyer === false
                   ? copy.products.pendingPublish : statuses[product.review] ?? copy.products.pendingPublish;
-                const inScopeProduct = !!product.categorySlug && selected.includes(product.categorySlug);
+                const inScopeProduct = !!product.categorySlug && scope.includes(product.categorySlug);
                 return <li key={product.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                   <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink-900">{product.name}</span>
                   <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-700">
-                    {product.categorySlug ? bySlug.get(product.categorySlug)?.label ?? product.categorySlug : copy.products.noCategory}
+                    {product.categorySlug ? categoryPath(product.categorySlug) : copy.products.noCategory}
                   </span>
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${(PRODUCT_STATUS[product.review] ?? PRODUCT_STATUS.draft).tone}`}>{statusLabel}</span>
                   {product.categorySlug && !inScopeProduct && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900">{copy.products.outside}</span>}
@@ -240,7 +269,12 @@ export function SupplierCategoryWorkspace({
           {selected.length
             ? <ul className="mt-2.5 divide-y divide-ink-100">
               {selected.map((slug) => <li key={slug} className="flex items-center gap-2 py-1.5">
-                <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-ink-900">{bySlug.get(slug)?.label ?? slug}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[12.5px] font-semibold text-ink-900">{bySlug.get(slug)?.label ?? slug}</span>
+                  {(childrenOf.get(slug)?.length ?? 0) > 0 && <span className="block truncate text-[11px] text-ink-500">
+                    {fill(copy.scope.includesCount, { count: childrenOf.get(slug)?.length ?? 0 })}
+                  </span>}
+                </span>
                 <button type="button" onClick={() => toggle(slug)} aria-label={fill(copy.scope.removeAria, { name: bySlug.get(slug)?.label ?? slug })}
                   className="rounded-full p-1 text-ink-500 hover:bg-rose-50 hover:text-rose-700">
                   <X className="size-3.5" aria-hidden="true" />
