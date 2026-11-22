@@ -22,6 +22,8 @@ const copy = load('lib/rfq/portal-copy.ts');
 const detail = load('components/buyer-enquiry-detail.tsx', {
   'next/link': link, 'lucide-react': icons, '@/components/ui': { Breadcrumbs: () => null },
   '@/lib/rfq/portal-copy': copy, '@/lib/rfq/channel': channel,
+  '@/components/rfq-supplier-chat-button': { RfqSupplierChatButton: ({ children, href, testId, supplierId, draft }) =>
+    React.createElement('a', { href, 'data-testid': testId, 'data-supplier': supplierId, 'data-draft': draft }, children) },
 });
 const buyer = { email: 'buyer@example.com', company: 'Buyer Co' };
 const quote = { id: 'match-1', supplier: 'Chosen Supplier', price: '$6.25/kg' };
@@ -81,6 +83,26 @@ assert.ok(!existsSync(new URL('../components/rfq-thread.tsx', import.meta.url)),
 assert.match(read('app/(public)/buyer/account/requests/[id]/offers/[matchId]/page.tsx'), /buyerRfqChatHref\(supplier\.id, rfq\.code\)/);
 assert.match(read('app/(public)/buyer/account/requests/[id]/page.tsx'), /chatHref: buyerRfqChatHref\(match\.supplier_id, rfq\.code\)/);
 assert.match(read('app/supplier/portal/rfqs/[matchId]/page.tsx'), /<RfqChatStart[\s\S]*action=\{supplierRfqChatAction\}/);
+// Người mua bấm chat trên trang RFQ: mở khung chat nhanh ngay tại trang (không chuyển trang),
+// vẫn là liên kết tới trang Tin nhắn đầy đủ cho Ctrl/⌘-click hoặc khi JS chưa chạy.
+const pre = renderToStaticMarkup(React.createElement(detail.BuyerEnquiryDetail, { rfq: { ...base, status: 'matching' }, buyer, locale: 'vi',
+  preQuoteSuppliers: [{ id: 'match-9', supplierId: 'supplier-1', supplier: 'Chosen Supplier', chatHref: '/buyer/account/messages?supplier=supplier-1&rfq=RFQ-1' }] }));
+assert.match(pre, /data-testid="rfq-supplier-chat" data-supplier="supplier-1" data-draft="Về yêu cầu RFQ-1: "/);
+assert.match(pre, /Chosen Supplier · Chat với nhà cung cấp này/);
+assert.match(read('app/(public)/buyer/account/requests/[id]/offers/[matchId]/page.tsx'), /<RfqSupplierChatButton supplierId=\{supplier\.id\}[\s\S]*href=\{chatHref\}/);
+const quickChat = load('components/rfq-supplier-chat-button.tsx', {
+  react: React, '@/components/chat/dock': { CHAT_DOCK_CLASS: 'dock', useChatDock: () => {} },
+  '@/components/chat/chat-workspace': { ChatWorkspace: () => React.createElement('div', { 'data-workspace': true }) },
+  '@/lib/chat/buyer-labels': { BUYER_CHAT_LABELS: { vi: {}, en: {} } },
+});
+const quick = renderToStaticMarkup(React.createElement(quickChat.RfqSupplierChatButton, { supplierId: 's-1', supplierName: 'Mekong', draft: 'Về yêu cầu RFQ-1: ',
+  locale: 'vi', href: '/buyer/account/messages?supplier=s-1&rfq=RFQ-1', testId: 'x' }, 'Chat'));
+assert.match(quick, /<a href="\/buyer\/account\/messages\?supplier=s-1&amp;rfq=RFQ-1" aria-haspopup="dialog"/, 'No-JS / new-tab fallback is the full Messages page');
+assert.match(quick, /<dialog[^>]*class="dock"/);
+assert.doesNotMatch(quick, /data-workspace/, 'The chat loads only when the buyer opens it');
+const quickSrc = read('components/rfq-supplier-chat-button.tsx');
+assert.match(quickSrc, /event\.metaKey \|\| event\.ctrlKey/, 'Ctrl/⌘-click still opens the full page in a new tab');
+assert.match(quickSrc, /variant="popup"[\s\S]*supplier=\{supplier\} initialDraft=\{draft\}/);
 const chatLink = load('lib/rfq/chat-link.ts');
 assert.equal(chatLink.buyerRfqChatHref('s-1', 'RFQ-20261122-00001'), '/buyer/account/messages?supplier=s-1&rfq=RFQ-20261122-00001');
 assert.equal(chatLink.buyerRfqChatHref('s-1', '"><script>'), '/buyer/account/messages?supplier=s-1', 'Only a real RFQ code is carried into the draft');

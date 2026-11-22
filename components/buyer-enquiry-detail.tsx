@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock, MessageCircle, ShieldCheck, Timer } from "lucide-react";
 import { Breadcrumbs } from "@/components/ui";
+import { RfqSupplierChatButton } from "@/components/rfq-supplier-chat-button";
 import type { Buyer, Rfq } from "@/lib/types";
 import { quotePortalCopy } from "@/lib/rfq/portal-copy";
 import type { Locale } from "@/lib/i18n/config";
@@ -132,7 +133,7 @@ export type BuyerQuote = { id: string; supplier: string; location: string | null
   newQuote?: boolean; price: string; incoterm: string | null; leadTimeDays: number | null; validUntil: string | null;
   version?: number; note?: string | null };
 /** Nhà cung cấp trực tiếp chưa báo giá: nút mở Tin nhắn với họ. */
-export type BuyerPreQuoteSupplier = { id: string; supplier: string; chatHref: string; noReply?: boolean };
+export type BuyerPreQuoteSupplier = { id: string; supplierId: string; supplier: string; chatHref: string; noReply?: boolean };
 
 export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteSuppliers = [], declined = [], directOutcome = null,
   quotesUnavailable = false, locale = "en", mediatedThread, introPrompt }: {
@@ -218,12 +219,14 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteSuppliers 
           {!!preQuoteSuppliers.length && <div className="mt-5 border-t border-ink-100 pt-4">
             <p className="text-[13px] text-ink-600">{copy.pendingDirect}</p>
             <ul className="mt-3 space-y-2">{preQuoteSuppliers.map((item) => <li key={item.id}>
-              <Link href={item.chatHref} prefetch={false} data-testid="rfq-supplier-chat"
+              {/* Mở khung chat nhanh ngay trên trang này; trang Tin nhắn đầy đủ vẫn mở được từ khung. */}
+              <RfqSupplierChatButton supplierId={item.supplierId} supplierName={item.supplier} href={item.chatHref} locale={locale}
+                draft={copy.chat.buyerDraft.replace("{code}", rfq.code)} testId="rfq-supplier-chat"
                 className="flex min-h-12 items-center gap-2 rounded-lg border border-ink-200 px-4 py-2 text-[13px] font-semibold text-brand-700 hover:border-brand-300 hover:bg-brand-50">
                 <MessageCircle className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 flex-1 break-words">{item.supplier} · {copy.discussBeforeQuote}</span>
                 {item.noReply && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900">{copy.noReply}</span>}
                 <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-              </Link>
+              </RfqSupplierChatButton>
             </li>)}</ul>
           </div>}
           {!!declined.length && <div className="mt-5 border-t border-ink-100 pt-4">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, Clock3, MessageCircle, ShieldCheck } from "lucide-react";
 import { Breadcrumbs } from "@/components/ui";
 import { RfqReadTracker } from "@/components/rfq-read-tracker";
+import { RfqSupplierChatButton } from "@/components/rfq-supplier-chat-button";
 import { getLocale } from "@/lib/i18n/server";
 import { buyerOfferAccess } from "@/lib/rfq/portal-access";
 import { lastPublishedQuote } from "@/lib/rfq/portal-core";
@@ -84,7 +85,9 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
               <p className="mt-1 text-[13px] leading-5 text-ink-600">{copy.chat.buyerBody}</p>
             </div>
           </div>
-          <Link href={chatHref} prefetch={false} className="btn btn-primary min-h-11 w-full shrink-0 justify-center sm:w-auto"><MessageCircle className="h-4 w-4" aria-hidden="true" />{copy.chat.buyerAction}</Link>
+          {supplier && <RfqSupplierChatButton supplierId={supplier.id} supplierName={supplierName} href={chatHref} locale={locale}
+            draft={copy.chat.buyerDraft.replace("{code}", rfq.code)} className="btn btn-primary min-h-11 w-full shrink-0 justify-center sm:w-auto">
+            <MessageCircle className="h-4 w-4" aria-hidden="true" />{copy.chat.buyerAction}</RfqSupplierChatButton>}
         </section>}
       </div>
       <aside className="space-y-4 lg:sticky lg:top-24">
