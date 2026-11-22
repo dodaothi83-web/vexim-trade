@@ -1397,7 +1397,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                       officialFields={officialAttributeFields}
                       supplierFields={supplierAttributeFields}
                       values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}}
-                      onCommit={onAttributesCommit} copy={shared.attributes} lang={lang === "en" ? "en" : "vi"} />
+                      onCommit={onAttributesCommit} copy={shared.attributes} />
                   </div>}
                 <Row label={copy.spec.capacity}>
                   <input className="input" name="monthly_capacity" maxLength={180} placeholder={copy.spec.capacityPlaceholder}
