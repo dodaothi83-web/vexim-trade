@@ -113,6 +113,30 @@ for (const [index, notice] of mail.entries()) {
 }
 assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 0, 'Retry cannot duplicate an invitation or mail');
 assert.equal(mail.length, 2);
+
+// Background notice (submit.ts passes afterResponse): the invitation is durable before the
+// response, its notice is pre-logged as failed and the deferred send records the real outcome.
+// A deferred task that never runs leaves a failed log for the follow-up sweep to resend.
+{
+  for (const m of matches) Object.assign(m, { status: 'proposed', sent_to_supplier_at: null, response_due_at: null });
+  rfq.status = 'new'; mail.length = 0; inviteLog.length = 0; mailOk = true;
+  const deferred = [];
+  const updates = [];
+  store.addMessage = async (row) => { const saved = { ...row, id: `log-${inviteLog.length + 1}` }; inviteLog.push(saved); return saved; };
+  store.updateMessage = async (id, patch) => { updates.push([id, patch]); Object.assign(inviteLog.find((m) => m.id === id), patch); };
+  const released = await publisher.releaseTargetedQuoteToPortal(store, rfq, { deferNotice: async (_label, task) => { deferred.push(task); } });
+  assert.equal(released, 2, 'Deferred notices do not delay or block the invitation');
+  assert.ok(matches.every((m) => m.status === 'sent_to_supplier'), 'Match update stays synchronous');
+  assert.equal(mail.length, 0, 'No email is sent before the response');
+  assert.equal(inviteLog.length, 2);
+  assert.ok(inviteLog.every((m) => m.status === 'failed' && m.error === publisher.DIRECT_INVITE_QUEUED && /^direct_invite:m\d$/.test(m.stage)),
+    'Each notice is pre-logged as failed so a lost background task is still retried');
+  for (const task of deferred) await task();
+  assert.equal(mail.length, 2);
+  assert.ok(inviteLog.every((m) => m.status === 'sent' && m.error === null && m.sent_at), 'Background send records the real outcome');
+  assert.equal(updates.length, 2);
+}
+
 const invite = { ...matches[0], rfq: { code: rfq.code, source_page: rfq.source_page, source_product_id: null,
   preferred_supplier_ids: rfq.preferred_supplier_ids, status: rfq.status, quantity: rfq.quantity, unit: rfq.unit,
   product_text: rfq.product_text, ...consent } };

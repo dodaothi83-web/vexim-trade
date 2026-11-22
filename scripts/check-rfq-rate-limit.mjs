@@ -74,7 +74,9 @@ function makeHarness({ buyers = [], rfqs = [] } = {}) {
     '@/lib/email/rfq': { sendRfqAckBuyer: async () => null, sendRfqNewInternal: async () => null },
     './buyer-contact': contact,
     '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
-    '@/lib/security/challenge': { verifyFormChallenge: () => ({ ok: true }) },
+    './background': { afterResponse: async (_label, task) => { await task(); } },
+  './submit-input': { parseSubmitRfqInput: (raw) => ({ ok: true, data: raw }) },
+  '@/lib/security/challenge': { consumeFormChallenge: () => {}, verifyFormChallenge: () => ({ ok: true }) },
     '.': {
       emailDomain: () => 'example.com', fingerprint: () => 'unused', generateAccessToken: () => 'tok',
       rfqDayKey: () => '20261108', generateRfqCode: (seq, dayKey) => `RFQ-${dayKey}-${seq}`, hasMxRecord: async () => ({ ok: true }),

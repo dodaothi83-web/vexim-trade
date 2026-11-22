@@ -57,6 +57,10 @@ function replyToHeader(value: OutgoingMail["replyTo"]): string | string[] | unde
   return value?.trim() || undefined;
 }
 
+/** Một lần gọi Resend chậm hơn mức này được ghi là thất bại (luồng gửi lại sẽ xử lý), thay vì
+ * treo request tới khi hết thời gian của hàm serverless. */
+export const RESEND_TIMEOUT_MS = 15_000;
+
 /** Lớp vận chuyển duy nhất: có RESEND_API_KEY thì gửi thật, không thì ở chế độ demo */
 export async function transport(mail: OutgoingMail): Promise<TransportResult> {
   const recipients = mail.to.filter(Boolean);
@@ -80,9 +84,13 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
     };
     return { ok: true, status: "simulated", provider: "local", error: null };
   }
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const { error } = await resend.emails.send({
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Resend không phản hồi sau ${RESEND_TIMEOUT_MS / 1000} giây`)), RESEND_TIMEOUT_MS);
+    });
+    const { error } = await Promise.race([timeout, resend.emails.send({
       from: mail.from?.trim() || FROM_ADDRESS,
       replyTo: replyToHeader(mail.replyTo),
       to,
@@ -93,7 +101,7 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
       text: mail.text,
       attachments: mail.attachments?.length ? mail.attachments : undefined,
       headers: mail.headers && Object.keys(mail.headers).length ? mail.headers : undefined,
-    });
+    })]);
     if (error) {
       return { ok: false, status: "failed", provider: "resend", error: `${error.name}: ${error.message}` };
     }
@@ -105,6 +113,8 @@ export async function transport(mail: OutgoingMail): Promise<TransportResult> {
       provider: "resend",
       error: err instanceof Error ? err.message : String(err),
     };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

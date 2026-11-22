@@ -27,6 +27,7 @@ const mocks = {
   './actions': { submitRfqAction: async () => ({ ok: true }) },
   '@/components/form-challenge': { FormChallenge: () => null },
   '@/components/ui': { cx: (...parts) => parts.filter(Boolean).join(' ') },
+  '@/lib/rfq/input-limits': await import('../lib/rfq/input-limits.ts'),
 };
 const mod = { exports: {} };
 vm.runInNewContext(output, {

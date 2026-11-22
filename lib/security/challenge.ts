@@ -148,11 +148,18 @@ export function verifyFormChallenge({
   token,
   maxAgeMs = DEFAULT_MAX_AGE_MS,
   nowMs = Date.now(),
+  consume = true,
 }: {
   purpose: ChallengePurpose;
   token: string | null | undefined;
   maxAgeMs?: number;
   nowMs?: number;
+  /**
+   * false → chỉ kiểm tra, CHƯA đánh dấu đã dùng. Dành cho form mà yêu cầu còn có thể bị từ
+   * chối ở bước sau (RFQ: MX hỏng, nhà cung cấp hết khả dụng…): người dùng sửa rồi gửi lại
+   * phải dùng tiếp được token cũ. Nơi gọi tự gọi consumeFormChallenge() khi yêu cầu đã lưu.
+   */
+  consume?: boolean;
 }): FormChallengeCheck {
   if (isFormChallengeDisabled()) return { ok: true };
   const clean = (token ?? "").trim();
@@ -179,8 +186,19 @@ export function verifyFormChallenge({
   if (!powHex(salt, nonce).startsWith("0".repeat(difficulty))) {
     return { ok: false, reason: "unsolved" };
   }
-  markConsumed(salt, issuedMs + maxAgeMs);
+  if (consume) markConsumed(salt, issuedMs + maxAgeMs);
   return { ok: true };
+}
+
+/**
+ * Đánh dấu token đã dùng sau khi yêu cầu được lưu (cặp với `consume: false` ở trên). Chỉ nhận
+ * token đúng định dạng; không kiểm lại chữ ký — token đã được verifyFormChallenge() chấp nhận.
+ */
+export function consumeFormChallenge(token: string | null | undefined, maxAgeMs = DEFAULT_MAX_AGE_MS): void {
+  if (isFormChallengeDisabled()) return;
+  const parts = (token ?? "").trim().split(".");
+  if (parts.length !== 5 || !/^[0-9a-f]{16,64}$/.test(parts[0]) || !/^\d{1,15}$/.test(parts[1])) return;
+  markConsumed(parts[0], Number(parts[1]) + maxAgeMs);
 }
 
 /** Đơn giản hoà cho các nơi chỉ cần boolean (spam score của RFQ). */

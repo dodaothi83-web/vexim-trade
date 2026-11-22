@@ -57,7 +57,7 @@ function makeStore(existing = []) {
 const submit = fs.readFileSync(new URL('../lib/rfq/submit.ts', import.meta.url), 'utf8');
 assert.match(submit, /createPreferredSupplierMatches\(store, rfq\.id, preferredIds\)/, 'submit RFQ phải tự tạo lượt khớp cho NCC chỉ định');
 assert.match(submit, /if \(direct && rfqStatus !== "new"\)/, 'RFQ đích danh nghi spam bị từ chối trước khi tạo, không chuyển sang hàng Vexim');
-assert.match(submit, /releaseTargetedQuoteToPortal\(store, rfq\)/, 'phát lời mời trực tiếp không cần nhân viên');
+assert.match(submit, /releaseTargetedQuoteToPortal\(store, rfq(?:, \{ deferNotice: afterResponse \})?\)/, 'phát lời mời trực tiếp không cần nhân viên');
 
 // Trang RFQ trong CRM phải cho nhân viên thấy chỉ định của người mua.
 const rfqPage = fs.readFileSync(new URL('../app/crm/rfqs/[id]/page.tsx', import.meta.url), 'utf8');

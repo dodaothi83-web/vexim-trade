@@ -219,7 +219,9 @@ const submit = load('../lib/rfq/submit.ts', {
     sendSupplierQuestionExceptionInternal: async () => null,
   },
   './rate-limit': { gcRateLimit() {}, rateLimit: () => ({ ok: true }) },
-  '@/lib/security/challenge': { verifyFormChallenge: () => ({ ok: true }) },
+  './background': { afterResponse: async (_label, task) => { await task(); } },
+  './submit-input': { parseSubmitRfqInput: (raw) => ({ ok: true, data: raw }) },
+  '@/lib/security/challenge': { consumeFormChallenge: () => {}, verifyFormChallenge: () => ({ ok: true }) },
   // Đây là kịch bản xấu nhất: mã AI ném lỗi đồng bộ ngay tại dòng gọi.
   './enrich': { scheduleRfqEnrichment: () => { throw new Error('AI module exploded'); } },
 }, { RFQ_REJECT_WEBMAIL: 'false' });

@@ -17,6 +17,7 @@ import {
 
 import { submitRfqAction } from "./actions";
 import { FormChallenge } from "@/components/form-challenge";
+import { RFQ_FIELD_LIMITS as LIMITS } from "@/lib/rfq/input-limits";
 import { cx } from "@/components/ui";
 import type { RfqProductContext } from "@/lib/public/rfq-product-context";
 
@@ -98,6 +99,8 @@ export function RfqForm({
   // Yêu cầu đã lưu nhưng bị giữ lại để kiểm tra (không có trang theo dõi): phải báo rõ, không để form đứng yên.
   const [heldMsg, setHeldMsg] = useState<string | null>(null);
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  // +1 sau mỗi lần gửi không thành công → widget lấy challenge mới (token cũ có thể đã hết hạn).
+  const [challengeRound, setChallengeRound] = useState(0);
   // Mở sẵn mục chi tiết khi đã có dữ liệu điền trước, để người mua không bỏ sót.
   const [detailsOpen, setDetailsOpen] = useState(Boolean(initialGrade) || wantsSamples);
   const [data, setData] = useState(() => ({
@@ -237,9 +240,10 @@ export function RfqForm({
         utm_campaign: params.get("utm_campaign"),
         honeypot: data.websiteHp,
         challenge_token: challengeToken,
-      });
-      if (!res.ok) {
-        setServerMsg(res.message);
+      }).catch(() => null);
+      if (!res?.ok) {
+        setServerMsg(res?.message ?? "We could not send your request. Please check your connection and try again.");
+        setChallengeRound((round) => round + 1);
         return;
       }
       if (res.statusPageUrl) {
@@ -268,7 +272,7 @@ export function RfqForm({
     </div>
   );
   const challengeControl = (
-    <FormChallenge purpose="rfq" onChange={setChallengeToken} />
+    <FormChallenge purpose="rfq" onChange={setChallengeToken} refreshKey={challengeRound} />
   );
 
   return (
@@ -413,6 +417,7 @@ export function RfqForm({
                   autoComplete="country-name"
                   className="input"
                   value={data.destination_country}
+                  maxLength={LIMITS.destination_country}
                   onChange={(e) => update("destination_country", e.target.value)}
                   placeholder="Search country"
                 />
@@ -429,6 +434,7 @@ export function RfqForm({
                 <input
                   className="input"
                   value={data.destination_port}
+                  maxLength={LIMITS.destination_port}
                   onChange={(e) => update("destination_port", e.target.value)}
                   placeholder="e.g. Rotterdam"
                 />
@@ -440,13 +446,13 @@ export function RfqForm({
             <p className="text-[11.5px] font-bold uppercase tracking-wider text-ink-500">Your details</p>
             <div className="mt-3 grid gap-4 sm:grid-cols-3">
               <Field label="Company" required error={errors.company} id="rfq-company">
-                <input id="rfq-company" autoComplete="organization" className="input" value={data.company} onChange={(e) => update("company", e.target.value)} />
+                <input id="rfq-company" autoComplete="organization" maxLength={LIMITS.company} className="input" value={data.company} onChange={(e) => update("company", e.target.value)} />
               </Field>
               <Field label="Your name" required error={errors.contact_name} id="rfq-contact_name">
-                <input id="rfq-contact_name" autoComplete="name" className="input" value={data.contact_name} onChange={(e) => update("contact_name", e.target.value)} />
+                <input id="rfq-contact_name" autoComplete="name" maxLength={LIMITS.contact_name} className="input" value={data.contact_name} onChange={(e) => update("contact_name", e.target.value)} />
               </Field>
               <Field label="Work email" required error={errors.email} id="rfq-email">
-                <input id="rfq-email" readOnly={Boolean(buyerEmail)} autoComplete="email" type="email" className="input" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="name@company.com" />
+                <input id="rfq-email" readOnly={Boolean(buyerEmail)} autoComplete="email" type="email" maxLength={LIMITS.email} className="input" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="name@company.com" />
               </Field>
             </div>
           </div>
@@ -506,7 +512,7 @@ export function RfqForm({
                   </select>
                 </Field>
                 <Field label="Packaging / labelling">
-                  <input className="input" value={data.packaging} onChange={(e) => update("packaging", e.target.value)} placeholder="e.g. vacuum tins, private label" />
+                  <input className="input" maxLength={LIMITS.packaging} value={data.packaging} onChange={(e) => update("packaging", e.target.value)} placeholder="e.g. vacuum tins, private label" />
                 </Field>
               </div>
 
@@ -539,6 +545,7 @@ export function RfqForm({
                     id="rfq-grade"
                     className={cx("input", categorySpecs[data.category_slug]?.grades?.length ? "mt-2" : "")}
                     value={data.grade === "__custom__" ? "" : data.grade}
+                    maxLength={LIMITS.grade}
                     onChange={(e) => update("grade", e.target.value)}
                     placeholder="W320, WW240, LP, other spec..."
                   />
@@ -563,6 +570,7 @@ export function RfqForm({
                 <input
                   className="input mt-2"
                   value={data.certOther as string}
+                  maxLength={LIMITS.certifications}
                   onChange={(e) => update("certOther", e.target.value)}
                   placeholder="Other certificate: BRC, organic, ISO..."
                 />
@@ -614,10 +622,10 @@ export function RfqForm({
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="Phone / WhatsApp">
-                  <input id="rfq-phone" className="input" value={data.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+1 555 ..." />
+                  <input id="rfq-phone" maxLength={LIMITS.phone} className="input" value={data.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+1 555 ..." />
                 </Field>
                 <Field label="Website">
-                  <input id="rfq-website" className="input" value={data.website} onChange={(e) => update("website", e.target.value)} placeholder="company.com" />
+                  <input id="rfq-website" maxLength={LIMITS.website} className="input" value={data.website} onChange={(e) => update("website", e.target.value)} placeholder="company.com" />
                 </Field>
                 <Field label="Business type">
                   <select className="input" value={data.business_type} onChange={(e) => update("business_type", e.target.value)}>

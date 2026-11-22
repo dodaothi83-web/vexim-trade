@@ -6,7 +6,7 @@ import { getBuyerSession } from "@/lib/auth/buyer-session";
 import { headers } from "next/headers";
 
 import { getStore } from "@/lib/db";
-import { listPublicSuppliers } from "@/lib/public/catalog";
+import { listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catalog";
 import { listPublicCategoryProducts } from "@/lib/public/product-catalog";
 import {
   sendRfqAckBuyer,
@@ -29,8 +29,10 @@ import { buyerContactConsentSpec } from "./buyer-contact";
 import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import { createPreferredSupplierMatches } from "./auto-match";
 import { scheduleRfqEnrichment } from "./enrich";
-import { verifyFormChallenge, type ChallengePurpose } from "@/lib/security/challenge";
+import { consumeFormChallenge, verifyFormChallenge, type ChallengePurpose } from "@/lib/security/challenge";
 import { gcRateLimit, rateLimit } from "./rate-limit";
+import { afterResponse } from "./background";
+import { parseSubmitRfqInput } from "./submit-input";
 
 export interface SubmitRfqInput {
   // Step 1 – product
@@ -112,9 +114,14 @@ async function firstHeader(name: string): Promise<string | null> {
 /**
  * Challenge chống bot tự chủ: pass/fail thành tín hiệu mềm cho chấm điểm spam —
  * RFQ thiếu challenge không bị từ chối thẳng mà rơi vào needs_review như trước.
+ *
+ * Chỉ KIỂM TRA ở đây; token được đánh dấu đã dùng sau khi RFQ lưu xong (consumeFormChallenge
+ * bên dưới). Trước đây token bị tiêu ngay cả khi bước sau từ chối (MX, nhà cung cấp hết khả
+ * dụng, thiếu đồng ý…): người mua sửa rồi gửi lại thì bị +60 điểm spam — RFQ trực tiếp kẹt ở
+ * "please complete the security check", RFQ tìm nguồn rơi vào needs_review.
  */
 function verifyFormChallengeForRfq(purpose: ChallengePurpose, token: string | null | undefined): boolean {
-  return verifyFormChallenge({ purpose, token }).ok;
+  return verifyFormChallenge({ purpose, token, consume: false }).ok;
 }
 
 function rejectWebmail(): boolean {
@@ -148,10 +155,27 @@ async function countRecentRfqsForBuyer(buyerId: string, windowMs: number): Promi
 }
 
 export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
+  try {
+    return await submitRfqChecked(raw);
+  } catch (error) {
+    // Lỗi CSDL/hạ tầng (tra buyer, ghi buyer, sinh mã, ghi RFQ): trả thông báo dễ hiểu thay vì
+    // lỗi 500 của Server Action. Token chống bot chưa bị tiêu nên người mua gửi lại được ngay.
+    console.error("[rfq] submit failed before the request was saved:", error);
+    return { ok: false, message: "We could not save your request right now. Please try again in a minute." };
+  }
+}
+
+async function submitRfqChecked(input: SubmitRfqInput): Promise<SubmitRfqResult> {
   // The shared service protects both server actions and any route-handler callers.
   // Identity comes from the signed buyer session, never from a typed email or staff cookie.
   const session = await getBuyerSession();
   if (!session) return { ok: false, message: "Please sign in to send your enquiry." };
+  // Server Action là endpoint công khai: kiểm kiểu + trần độ dài trước khi đụng tới dữ liệu.
+  const parsed = parseSubmitRfqInput(input);
+  if (!parsed.ok) {
+    return { ok: false, message: "Some details are missing or too long. Please review the form and try again." };
+  }
+  let raw = parsed.data;
   if (typeof raw.email !== "string" || raw.email.trim().toLowerCase() !== session.email) {
     return { ok: false, message: "Please use your signed-in email address." };
   }
@@ -179,11 +203,11 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   }
   // 1b) Giới hạn THẬT theo buyer đã đăng nhập, đếm trên dữ liệu dùng chung — đúng trên mọi
   //     lambda instance, không phụ thuộc IP/UA (NAT/VPN/đổi trình duyệt không né được).
-  const rateLimitBuyer = await getStore()
-    .getBuyerByEmail(session.email)
-    .catch(() => null);
-  if (rateLimitBuyer) {
-    const recentCount = await countRecentRfqsForBuyer(rateLimitBuyer.id, 60 * 60 * 1000);
+  // Tra cứu đích danh MỘT lần, dùng cho cả giới hạn tần suất lẫn bước upsert buyer (6). Không
+  // nuốt lỗi: tra cứu hỏng mà vẫn đi tiếp sẽ sinh hồ sơ trùng — lỗi được submitRfq() bắt lại.
+  const knownBuyer: Buyer | null = await getStore().getBuyerByEmail(session.email);
+  if (knownBuyer) {
+    const recentCount = await countRecentRfqsForBuyer(knownBuyer.id, 60 * 60 * 1000);
     if (recentCount >= 5) {
       return {
         ok: false,
@@ -236,9 +260,13 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   const category = raw.category_slug ? await store.getCategoryBySlug(raw.category_slug).catch(() => null) : null;
   const categoryId = category?.id ?? null;
 
+  // Danh sách nhà cung cấp công khai đọc tối đa một lần cho cả hai bước kiểm tra bên dưới.
+  let publicSuppliersOnce: Promise<PublicSupplierCard[]> | null = null;
+  const publicSuppliers = () => publicSuppliersOnce ??= listPublicSuppliers().catch(() => []);
+
   let preferredIds: string[] = [];
   if (raw.preferred_supplier_ids && raw.preferred_supplier_ids.length > 0) {
-    const publ = await listPublicSuppliers().catch(() => []);
+    const publ = await publicSuppliers();
     const pubIds = new Set(publ.map((s) => s.id));
     preferredIds = [...new Set(raw.preferred_supplier_ids.filter((id) => pubIds.has(id)))];
   }
@@ -247,8 +275,7 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
     ? (await listPublicCategoryProducts(category).catch(() => [])).find((p) => p.id === raw.source_product_id) ?? null : null;
   // Resolve a missing supplier from the published product, never from buyer-entered text.
   if (publishedSource && !(raw.preferred_supplier_ids?.length)) {
-    const publicSuppliers = await listPublicSuppliers().catch(() => []);
-    if (publicSuppliers.some((supplier) => supplier.id === publishedSource.supplierId)) preferredIds = [publishedSource.supplierId];
+    if ((await publicSuppliers()).some((supplier) => supplier.id === publishedSource.supplierId)) preferredIds = [publishedSource.supplierId];
   }
   // Never silently turn an invalid/disabled named RFQ into a Vexim sourcing job.
   // Only suppliers with an approved active portal may receive a NEW RFQ.
@@ -314,10 +341,9 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   // 6) Upsert buyer theo email
   const web = normalizeCompanyWebsite(raw.website ?? null);
 
-  // Tìm buyer theo email bằng truy vấn đích danh. Không quét listBuyers(): danh sách đó bị
-  // PostgREST cắt ở 1000 dòng, khách cũ nằm ngoài sẽ bị tạo hồ sơ trùng và chia đôi lịch sử.
-  // Không nuốt lỗi ở đây: tra cứu hỏng mà vẫn đi tiếp cũng sinh hồ sơ trùng.
-  let buyer: Buyer | null = await store.getBuyerByEmail(raw.email);
+  // Buyer đã tra theo email ở bước 1b bằng truy vấn đích danh. Không quét listBuyers(): danh
+  // sách đó bị PostgREST cắt ở 1000 dòng, khách cũ nằm ngoài sẽ bị tạo hồ sơ trùng.
+  let buyer: Buyer | null = knownBuyer;
 
   const buyerInput = {
     company: raw.company.trim(),
@@ -466,6 +492,8 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
       rfqInput.code = generateRfqCode(seq, dayKey);
     }
   }
+  // RFQ đã lưu: giờ mới tiêu token chống bot (không dùng lại cho yêu cầu khác).
+  consumeFormChallenge(raw.challenge_token);
 
   // Audit log — ghi nhận mọi RFQ submit vào hệ thống (người gửi là "buyer:email").
   try {
@@ -488,7 +516,8 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   if (direct) {
     try {
       await createPreferredSupplierMatches(store, rfq.id, preferredIds);
-      portalReleased = await releaseTargetedQuoteToPortal(store, rfq);
+      // Ghi match + mở portal ngay (đồng bộ); chỉ email thông báo chạy sau response.
+      portalReleased = await releaseTargetedQuoteToPortal(store, rfq, { deferNotice: afterResponse });
     } catch (err) {
       console.error("[rfq] saved direct RFQ awaiting automatic portal retry:", err);
     }
@@ -497,10 +526,11 @@ export async function submitRfq(raw: SubmitRfqInput): Promise<SubmitRfqResult> {
   const finalStatus: Rfq["status"] = portalReleased ? "matching" : rfqStatus;
 
   // Link-only notifications are best-effort; the account/portal is the source of truth.
-  try {
-    if (ackBuyer) await sendRfqAckBuyer({ rfq: { ...rfq, status: finalStatus }, buyer });
-    if (!direct) await sendRfqNewInternal({ rfq, buyer });
-  } catch (err) { console.warn("[rfq] notification failed; request already saved:", err); }
+  // Sent after the response: the buyer does not wait for the email provider.
+  const savedRfq = rfq;
+  const savedBuyer = buyer;
+  if (ackBuyer) await afterResponse("buyer acknowledgement", () => sendRfqAckBuyer({ rfq: { ...savedRfq, status: finalStatus }, buyer: savedBuyer }));
+  if (!direct) await afterResponse("internal RFQ notice", () => sendRfqNewInternal({ rfq: savedRfq, buyer: savedBuyer }));
 
   let message = direct
     ? portalReleased === preferredIds.length ? "Your request is available to the selected supplier(s) in their portals."
