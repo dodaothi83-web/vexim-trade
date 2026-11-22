@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Share2 } from "lucide-react";
 
-export function ShareProductButton({ title, href, isVi = false }: { title: string; href: string; isVi?: boolean }) {
+import { LOCALE_COOKIE } from "@/lib/i18n/config";
+
+/**
+ * `isVi` bỏ trống → tự đọc cookie ngôn ngữ sau khi hydrate. Trang sản phẩm là bản dựng sẵn
+ * dùng chung cho mọi người nên máy chủ không đọc cookie; nhãn mặc định tiếng Anh như trang.
+ */
+export function ShareProductButton({ title, href, isVi: isViProp }: { title: string; href: string; isVi?: boolean }) {
   const [status, setStatus] = useState<"idle" | "copied" | "manual">("idle");
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
+  const [cookieVi, setCookieVi] = useState(false);
+  useEffect(() => {
+    if (isViProp !== undefined) return;
+    setCookieVi(document.cookie.split(/;\s*/).includes(`${LOCALE_COOKIE}=vi`));
+  }, [isViProp]);
+  const isVi = isViProp ?? cookieVi;
   const label = isVi ? "Chia sẻ sản phẩm" : "Share product";
   async function share() {
     setBusy(true);

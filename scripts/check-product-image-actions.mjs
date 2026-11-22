@@ -9,7 +9,8 @@ let index = 0;
 const navigator = {};
 const mod = { exports: {} };
 const mocks = {
-  react: { useState: (initial) => { const i = index++; if (!(i in states)) states[i] = initial; return [states[i], (value) => { states[i] = value; }]; } },
+  '@/lib/i18n/config': { LOCALE_COOKIE: 'vexim_locale' },
+  react: { useEffect: () => {}, useState: (initial) => { const i = index++; if (!(i in states)) states[i] = initial; return [states[i], (value) => { states[i] = value; }]; } },
   'react/jsx-runtime': jsx,
   'lucide-react': { Check: () => null, Share2: () => null },
 };

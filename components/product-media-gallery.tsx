@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
+import { getImageProps } from "next/image";
 import { ChevronLeft, ChevronRight, ImageIcon, Play, PlayCircle, X, ZoomIn } from "lucide-react";
 import { AplusVideo } from "@/components/public/aplus-video";
 import { preconnectStream, streamIntentHandlers } from "@/components/public/stream-warmup";
@@ -10,6 +11,39 @@ import type { PublicProductVideo } from "@/lib/public/product-video";
 
 /** URL ảnh công khai — dùng chung cho hero, lightbox và preloader. */
 export const publicPhotoUrl = (path: string) => `/public-media/${path}`;
+
+/**
+ * Bề rộng thật của khung ảnh chính: cả khung trừ lề trang (mobile), trừ thêm cột thumbnail 4rem
+ * (từ sm), và ~2/5 của khung 6xl trên desktop. Trình duyệt dựa vào đây để chọn bản thu nhỏ vừa
+ * khung thay vì tải ảnh gốc 1000–1600px cho một ô 350–650px.
+ */
+export const PRODUCT_HERO_SIZES = "(min-width: 1024px) 440px, (min-width: 640px) calc(100vw - 124px), calc(100vw - 40px)";
+
+/**
+ * Khung ảnh chính rộng ~340–650 CSS px; màn hình mật độ 1–3x cần bản 384–1920px. Bỏ các bản
+ * 32–256px và 2048–3840px Next.js sinh sẵn: không bao giờ được chọn mà làm HTML nặng thêm.
+ */
+const HERO_MIN_WIDTH = 384;
+const HERO_MAX_WIDTH = 1920;
+const HERO_FALLBACK_WIDTH = 1080;
+
+/** src/srcSet/sizes của ảnh chính qua trình tối ưu ảnh Next.js (bản WebP đúng bề rộng khung). */
+export function productHeroImage(path: string): { src: string; srcSet?: string; sizes?: string } {
+  const { props } = getImageProps({ src: publicPhotoUrl(path), alt: "", fill: true, sizes: PRODUCT_HERO_SIZES });
+  const candidates = (props.srcSet ?? "").split(", ").map((entry) => {
+    const [url, descriptor] = entry.split(" ");
+    return { url, width: Number.parseInt(descriptor ?? "", 10) };
+  }).filter((c) => c.url && c.width >= HERO_MIN_WIDTH && c.width <= HERO_MAX_WIDTH);
+  if (!candidates.length) return { src: props.src, srcSet: props.srcSet, sizes: props.sizes };
+  const fallback = candidates.find((c) => c.width >= HERO_FALLBACK_WIDTH) ?? candidates[candidates.length - 1];
+  return { src: fallback.url, srcSet: candidates.map((c) => `${c.url} ${c.width}w`).join(", "), sizes: props.sizes };
+}
+
+/** Thumbnail 64px: bản 64/128px (1x/2x) thay vì ảnh nhỏ 640px của kho ảnh. */
+export function productThumbImage(path: string): { src: string; srcSet?: string } {
+  const { props } = getImageProps({ src: publicPhotoUrl(path), alt: "", width: 64, height: 64 });
+  return { src: props.src, srcSet: props.srcSet };
+}
 
 /** Chỉ nhận cử chỉ ngang rõ ràng; vuốt dọc hoặc rung nhẹ vẫn để trang cuộn tự nhiên. */
 export function productGallerySwipeStep(startX: number, startY: number, endX: number, endY: number): -1 | 0 | 1 {
@@ -80,7 +114,11 @@ export function ProductMediaGallery({ name, images, thumbnails, video, streamVid
       if (!path || path === shown) continue;
       const preload = new Image();
       preload.decoding = "async";
-      preload.src = publicPhotoUrl(path);
+      // Cùng srcset/sizes với ảnh chính để trình duyệt tải đúng bản mà hero sẽ dùng.
+      const hero = productHeroImage(path);
+      if (hero.sizes) preload.sizes = hero.sizes;
+      if (hero.srcSet) preload.srcset = hero.srcSet;
+      preload.src = hero.src;
     }
   }, [index, images, shown]);
 
@@ -151,7 +189,9 @@ export function ProductMediaGallery({ name, images, thumbnails, video, streamVid
           <div className="absolute inset-0 transition-transform duration-200 group-hover:scale-150 motion-reduce:transition-none" style={{ transformOrigin: zoomPoint }}>
             {shown && (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={publicPhotoUrl(shown)} alt={incoming ? "" : `${name}, photo ${index + 1} of ${images.length}`}
+              <img {...productHeroImage(shown)} alt={incoming ? "" : `${name}, photo ${index + 1} of ${images.length}`}
+                // Ảnh đầu tiên là LCP của trang: tải ngay với ưu tiên cao, không xếp sau JS.
+                loading="eager" fetchPriority={shown === images[0] ? "high" : undefined}
                 decoding="async" aria-hidden={incoming ? true : undefined}
                 className="absolute inset-0 h-full w-full object-cover" />
             )}
@@ -159,7 +199,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video, streamVid
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 key={incoming}
-                src={publicPhotoUrl(incoming)}
+                {...productHeroImage(incoming)}
                 alt={`${name}, photo ${index + 1} of ${images.length}`}
                 decoding="async"
                 onLoad={() => setFadedIn(true)}
@@ -195,7 +235,7 @@ export function ProductMediaGallery({ name, images, thumbnails, video, streamVid
               aria-label={`Show photo ${photoIndex + 1} of ${name}`} aria-pressed={index === photoIndex}
               className={`aspect-square w-16 shrink-0 overflow-hidden rounded-lg border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:w-full ${index === photoIndex ? "border-brand-700" : "border-ink-200 hover:border-brand-400"}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={publicPhotoUrl(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" className="h-full w-full object-cover" />
+              <img {...productThumbImage(thumbnails?.[photoIndex] ?? path)} alt="" loading="lazy" width={64} height={64} className="h-full w-full object-cover" />
             </button>)}
           </div>
         </div>

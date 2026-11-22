@@ -156,6 +156,7 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   '@/components/product-trade-labels': { ProductTradeLabels: Null },
   '@/components/share-product-button': { ShareProductButton: () => null },
   '@/lib/i18n/server': { getLocale: async () => 'en' },
+  '@/lib/public/product-staff-view': { isStaffProductView: () => false },
   '@/components/buyer-saved-products': { SaveProductButton: () => null },
   '@/components/public-product-card': { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard: Null },
   '@/components/public/product-description': { ProductDescription: Null },

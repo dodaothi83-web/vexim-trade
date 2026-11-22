@@ -13,6 +13,13 @@ const PUBLIC_SITE_INDEXABLE = process.env.PUBLIC_SITE_INDEXABLE === "true";
 const nextConfig: NextConfig = {
   // Cho phép dev server nhận request từ host preview của sandbox
   allowedDevOrigins: ["*.e2b.app", "localhost", "127.0.0.1"],
+  images: {
+    // Bắt buộc từ Next 16: chỉ cho phép chất lượng mặc định, tránh bị lợi dụng tạo vô số biến thể.
+    qualities: [75],
+    // Bản thu nhỏ của ảnh sản phẩm (/public-media, CDN giữ 1 giờ) không được sống lâu hơn ảnh gốc:
+    // ảnh bị gỡ phải hết hiện trong khoảng 1 giờ. Ảnh tĩnh immutable vẫn theo Cache-Control gốc (7 ngày).
+    minimumCacheTTL: 3600,
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "4mb",

@@ -27,8 +27,9 @@ export const dynamic = "force-dynamic";
  * 3. Widget gallery preload ảnh kề cạnh + crossfade (xem product-media-gallery).
  *
  * Ảnh tĩnh công khai (categories/blog/profile-cover) giữ cache 7 ngày immutable.
- * Ảnh A+ (sản phẩm và doanh nghiệp) đi qua ACL như ảnh sản phẩm nên dùng chung cache ngắn
- * 60 giây + ETag: gỡ ảnh khỏi nội dung hoặc gói hết hạn là ảnh ẩn trong khoảng một phút.
+ * Ảnh sản phẩm và ảnh A+ của sản phẩm (đã qua ACL) được CDN giữ 1 giờ — xem cacheControl
+ * trong GET. Ảnh A+ doanh nghiệp, showcase và ảnh kho NCC giữ cache riêng 60 giây + ETag: gỡ
+ * ảnh khỏi nội dung hoặc gói hết hạn là ảnh ẩn trong khoảng một phút.
  */
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -53,6 +54,9 @@ const MIME_BY_EXT: Record<string, string> = {
  *
  * Cache 7 ngày (ảnh tĩnh).
  */
+/** Ảnh sản phẩm đã qua ACL: CDN + trình duyệt giữ 1 giờ (khớp images.minimumCacheTTL ở next.config.ts). */
+const PRODUCT_IMAGE_CACHE_SECONDS = 3600;
+
 const PUBLIC_IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif)$/i;
 
 type ObjectCacheEntry = { data: Uint8Array; etag: string; at: number };
@@ -191,13 +195,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
 
   const ext = rel.split(".").pop()?.toLowerCase() ?? "";
   const mime = MIME_BY_EXT[ext] ?? "application/octet-stream";
-  // Ảnh qua ACL (sản phẩm, A+, gallery chia sẻ buyer) có thể bị thu hồi → chỉ browser
-  // được cache 60 giây rồi bắt buộc xác nhận lại bằng ETag. Ảnh danh mục/blog/
+  // Ảnh qua ACL có thể bị thu hồi. Ảnh sản phẩm (gallery, ảnh form, A+ của sản phẩm) đã qua ACL
+  // ở trên được CDN và trình duyệt giữ 1 giờ: trước đây mỗi lượt xem trang sản phẩm đều phải chờ
+  // route này tra Supabase rồi mới tải ảnh chính (LCP), và trình tối ưu ảnh của Next.js không thể
+  // thu nhỏ ảnh theo khung hiển thị. Đổi lại, ảnh bị gỡ/ẩn vẫn có thể mở bằng link trực tiếp tối
+  // đa khoảng 1 giờ (đã được chủ sản phẩm duyệt). Ảnh hồ sơ/kho NCC (có thể chứa bản scan giấy
+  // tờ), khối showcase và A+ doanh nghiệp giữ cache riêng 60 giây + ETag. Ảnh danh mục/blog/
   // profile-cover là tĩnh công khai → immutable 7 ngày.
+  const productAplusImage = aplusImage && rel.split("/")[2] !== COMPANY_APLUS_ID;
+  const cdnProductImage = isProductImage || productAplusImage;
   const aclGated = isProductImage || supplierImage || showcaseImage || aplusImage;
-  const cacheControl = aclGated
-    ? "private, max-age=60, must-revalidate"
-    : "public, max-age=604800, immutable";
+  const cacheControl = cdnProductImage
+    ? `public, max-age=${PRODUCT_IMAGE_CACHE_SECONDS}, s-maxage=${PRODUCT_IMAGE_CACHE_SECONDS}`
+    : aclGated
+      ? "private, max-age=60, must-revalidate"
+      : "public, max-age=604800, immutable";
   const responseHeaders = (etag: string): Record<string, string> => ({
     "Content-Type": mime,
     "Cache-Control": cacheControl,

@@ -57,6 +57,8 @@ jobs:
             command: check:aplus
           - label: Trang chủ tĩnh và middleware
             command: check:home-static
+          - label: Trang sản phẩm tĩnh và ảnh sản phẩm
+            command: check:product-static
     steps:
       - uses: actions/checkout@v4
 

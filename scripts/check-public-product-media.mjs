@@ -66,8 +66,8 @@ assert.equal(cached.status, 200);
 assert.equal(downloads, 2, 'Xem lại ảnh đã phục vụ: đệm trong-process thay vì gọi Storage lại');
 const etag = cached.headers.get('etag');
 assert.ok(etag, 'ETag phải có để trình duyệt xác nhận lại bằng 304');
-assert.equal(cached.headers.get('cache-control'), 'private, max-age=60, must-revalidate',
-  'Ảnh qua ACL: browser cache 60 giây rồi bắt buộc xác nhận lại — thu hồi vẫn áp dụng');
+assert.equal(cached.headers.get('cache-control'), 'public, max-age=3600, s-maxage=3600',
+  'Ảnh sản phẩm đã qua ACL: CDN + trình duyệt giữ 1 giờ (chủ sản phẩm chấp nhận cửa sổ thu hồi 1 giờ để trang tải nhanh)');
 assert.equal((await get(['products', 'prod-1', 'photo.jpg'], { 'if-none-match': etag })).status, 304,
   'ETag khớp → 304, không chảy byte nào khi đổi qua lại giữa các ảnh');
 assert.equal((await get(['products', 'prod-1', 'photo.jpg'], { 'if-none-match': '"khac-nhau"' })).status, 200);
