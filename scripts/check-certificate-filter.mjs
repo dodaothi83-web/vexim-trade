@@ -175,7 +175,8 @@ assert.match(page, /parseCertificateSchemeQuery\(query\.cert\)/, "Đọc lựa c
 assert.match(page, /robots: \{ index: indexable && !filtered/, "Trang đã lọc không được index");
 const chips = fs.readFileSync(path.join(ROOT, "components/certificate-facet-chips.tsx"), "utf8");
 assert.match(chips, /aria-pressed/, "Chip cho biết trạng thái bật/tắt");
-assert.match(chips, /Self-declared standards are not counted/, "Nói rõ không tính chứng nhận tự khai");
+assert.match(chips, /Certificates verified by Vexim, currently valid and applicable to the product\./, "Ghi chú: chứng nhận Vexim xác minh, còn hiệu lực, áp dụng cho sản phẩm");
+assert.doesNotMatch(chips, /rounded-xl border/, "Không còn khung riêng: cùng kiểu hàng Related searches");
 const facetSource = fs.readFileSync(path.join(ROOT, "lib/public/certificate-facets.ts"), "utf8");
 assert.doesNotMatch(facetSource, /certifications/i, "Bộ lọc không đọc ô tự khai của sản phẩm");
 const actions = fs.readFileSync(path.join(ROOT, "app/crm/suppliers/[slug]/audit/[step]/certificate-actions.ts"), "utf8");

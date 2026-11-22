@@ -20,17 +20,11 @@ export function CertificateFacetChips({ slug, facets, selected }: {
   selected: CertificateScheme[];
 }) {
   if (facets.length === 0) return null;
+  // Cùng kiểu hàng "Related searches" ngay trên: nhãn + chip trên một dòng, ghi chú nhỏ bên dưới.
   return (
-    <nav aria-label="Filter products by certificate" className="mt-5 rounded-xl border border-ink-200 bg-white p-3.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] font-bold tracking-[0.12em] text-ink-500 uppercase">Certificates</p>
-        {selected.length > 0 && (
-          <Link href={certificateFilterHref(slug, [])} className="text-[12px] font-semibold text-brand-700 underline">
-            Clear filter
-          </Link>
-        )}
-      </div>
-      <ul className="mt-2 flex flex-wrap gap-1.5">
+    <nav aria-label="Filter products by certificate" className="mt-3 text-[12.5px]">
+      <ul className="flex flex-wrap items-center gap-2">
+        <li className="font-semibold text-ink-500">Certificates:</li>
         {facets.map((facet) => {
           const active = selected.includes(facet.code);
           return (
@@ -38,9 +32,9 @@ export function CertificateFacetChips({ slug, facets, selected }: {
               <Link
                 href={certificateFilterHref(slug, toggleCertificateScheme(selected, facet.code))}
                 aria-pressed={active}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-semibold transition ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-medium transition ${
                   active
-                    ? "bg-brand-800 text-white"
+                    ? "border border-brand-800 bg-brand-800 text-white"
                     : "border border-ink-200 bg-white text-ink-700 hover:border-brand-400 hover:text-brand-800"
                 }`}
               >
@@ -50,9 +44,16 @@ export function CertificateFacetChips({ slug, facets, selected }: {
             </li>
           );
         })}
+        {selected.length > 0 && (
+          <li>
+            <Link href={certificateFilterHref(slug, [])} className="font-semibold text-brand-700 underline">
+              Clear filter
+            </Link>
+          </li>
+        )}
       </ul>
-      <p className="mt-2 text-[11px] leading-4 text-ink-500">
-        Counted from certificates Vexim has checked, still valid and linked to the product. Self-declared standards are not counted.
+      <p className="mt-1.5 text-[11.5px] leading-4 text-ink-500">
+        Certificates verified by Vexim, currently valid and applicable to the product.
       </p>
     </nav>
   );
