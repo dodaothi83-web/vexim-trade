@@ -10,6 +10,7 @@ import { prepareSupplierProductImage } from "@/lib/media/prepare-supplier-produc
 import { isExpired } from "@/lib/media/readiness";
 import { privateMediaUrl } from "@/lib/supplier-portal/product-view";
 import type { MediaKind } from "@/lib/types";
+import { revalidateHomePage } from "@/lib/public/revalidate-home";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -196,7 +197,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     revalidatePath(`/crm/products/${id}/edit`);
     revalidatePath("/products", "layout");
     revalidatePath("/suppliers", "layout");
-    revalidatePath("/");
+    revalidateHomePage();
     return NextResponse.json({ ok: true, warning: pendingPaths.length > 0, message: pendingPaths.length
       ? "Đã gỡ tệp khỏi sản phẩm, nhưng chưa dọn hết tệp trong kho. Vui lòng liên hệ bộ phận hỗ trợ để hoàn tất."
       : "Đã xóa tệp khỏi sản phẩm." });

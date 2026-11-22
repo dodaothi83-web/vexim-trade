@@ -11,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePublicPathname } from "@/hooks/use-public-pathname";
 import { Cookie, Settings2, X } from "lucide-react";
 
 import {
@@ -115,7 +115,7 @@ function ConsentToggle({
 }
 
 export function CookieConsentProvider({ children }: { children: ReactNode }) {
-  const pathname = usePathname() ?? "";
+  const pathname = usePublicPathname() ?? "";
   const publicSurface = !isInternalPath(pathname);
   const [record, setRecord] = useState<CookieConsentRecord | null>(null);
   const [ready, setReady] = useState(false);

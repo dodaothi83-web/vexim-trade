@@ -13,6 +13,7 @@ import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifyStaffVerificationSubmission, notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { type AuditEvidenceKey, type Verification, type VerificationStatus } from "@/lib/types";
 import { looksVietnamese } from "@/lib/vietnamese-text";
+import { revalidateHomePage } from "@/lib/public/revalidate-home";
 
 function refreshAudit(v: Verification) {
   revalidatePath(auditHref(v.supplier_id, v.target_level));
@@ -344,7 +345,7 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
   if (supplier?.status === "published") await softEffect("làm mới trang nhà cung cấp công khai", () => {
     revalidatePath(`/suppliers/${supplier.slug || supplier.id}`);
     revalidatePath("/suppliers");
-    revalidatePath("/");
+    revalidateHomePage();
   });
   const message = publication ? "Đã duyệt bước kiểm tra và công khai tóm tắt cho người mua."
     : before.target_level === 1 ? supplier?.status === "published"

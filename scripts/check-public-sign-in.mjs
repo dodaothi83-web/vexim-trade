@@ -53,7 +53,7 @@ const nav = {
 // Biến có thể điều khiển được này đóng vai trò phiên hiện tại cho cả hai trong bài kiểm tra.
 let headerSession = { buyerEmail: null, buyerCompanyName: null };
 const { PublicHeaderControls } = load('../components/public-header-controls.tsx', {
-  ...common, 'next/navigation': nav, '@/components/public-sign-in-link': signIn, '@/components/sourcing-composer': sourcingComposer,
+  ...common, 'next/navigation': nav, '@/hooks/use-public-pathname': { usePublicPathname: () => nav.usePathname() }, '@/components/public-sign-in-link': signIn, '@/components/sourcing-composer': sourcingComposer,
   '@/lib/buyer/public-session-context': { usePublicSession: () => ({ buyerEmail: headerSession.buyerEmail, buyerCompanyName: headerSession.buyerCompanyName, oneTapClientId: null, showOneTap: false }) },
 });
 

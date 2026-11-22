@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePublicPathname } from "@/hooks/use-public-pathname";
 import { ArrowRight, ChevronUp, ImageIcon, X } from "lucide-react";
 
 import { useProductComparison } from "@/components/product-comparison-provider";
@@ -24,7 +24,7 @@ function CompareAction({ href, count, mobile = false }: { href: string; count: n
 
 function ProductComparisonTrayInner() {
   const { items, ready, notice, removeProduct, clearProducts } = useProductComparison();
-  const pathname = usePathname();
+  const pathname = usePublicPathname();
   const [mobileExpanded, setMobileExpanded] = useState(false);
 
   // The comparison page has its own table and remove controls. Keep the saved

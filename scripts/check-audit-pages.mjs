@@ -73,6 +73,7 @@ const store = {
 };
 const mocks = {
   'next/cache': { revalidatePath: () => { if (revalidateThrows) throw new Error('invariant: static generation store missing'); } },
+  '@/lib/public/revalidate-home': { revalidateHomePage: () => { if (revalidateThrows) throw new Error('invariant: static generation store missing'); } },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': {
     guard: async (permission) => permission === 'verifications.approve' && !['admin', 'reviewer'].includes(auditor.role) ? { message: 'Bạn không có quyền xét duyệt' } : null,

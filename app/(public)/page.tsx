@@ -15,15 +15,11 @@ import { HOME_META_DESCRIPTION, HOME_META_DESCRIPTION_VI } from "@/lib/public/me
 // cache — nên bản thân trang này không còn lý do gì phải buộc render động nữa
 // (đã bỏ "force-dynamic" cũ từng nằm ở đây).
 //
-// KHÔNG đặt `export const revalidate` (ISR) ở đây: trang vẫn đọc `searchParams`
-// (q/cat/lang) để dựng bản tiếng Việt khi có "?lang=vi" — và việc đọc searchParams
-// tự nó LUÔN buộc Next.js render động (bất kể có revalidate hay không), vì bản
-// tĩnh được chốt lúc build nên không thể tuỳ biến theo query string của từng
-// request. Gỡ "?lang=vi" để đổi sang ISR toàn trang sẽ làm mất bản tiếng Việt của
-// trang chủ — không đánh đổi. Thay vào đó, phần TỐN KÉM thật sự (liệt kê + xếp
-// hạng danh mục/nhà cung cấp) được cache riêng bằng unstable_cache ngay trong
-// home.tsx — vẫn đạt mục tiêu giảm tải, không phải dựng lại từ đầu mỗi request,
-// mà không phải hy sinh tính năng song ngữ.
+// Bản này chỉ còn phục vụ "/" khi có ?q= hoặc ?cat= (lọc ngay trên trang chủ) — đọc
+// `searchParams` nên luôn render động. Lượt xem thông thường ("/", "/?lang=vi", kể cả kèm
+// utm_*/fbclid) được middleware viết lại sang bản dựng sẵn app/(public)/homepage/[lang]
+// (ISR) — bản đó gọi lại CHÍNH component và generateMetadata ở file này với ngôn ngữ cố định,
+// nên nội dung, metadata và JSON-LD chỉ có một nguồn. Xem lib/public/home-route.ts.
 
 /**
  * Ảnh nền trang chủ do mình tự đặt: thả một trong các tệp dưới vào đúng thư mục là trang
@@ -105,9 +101,8 @@ export default async function PublicHomePage({
   searchParams?: Promise<{ q?: string; cat?: string; lang?: string }>;
 }) {
   // Đọc mỗi lần render: thả ảnh vào public/images/home là trang đổi ngay, không phải restart.
-  // Lưu ý: với revalidate=300, "mỗi lần render" ở đây là mỗi lần tái tạo trang tĩnh
-  // (tối đa 1 lần/5 phút khi có traffic), không phải mỗi request — vẫn đổi ảnh được
-  // ngay vì ISR revalidate theo thời gian, không cache vĩnh viễn.
+  // Với bản dựng sẵn (/homepage/[lang]), "mỗi lần render" là mỗi lần ISR tái tạo trang
+  // (khoảng 1 phút/lần khi có traffic), không phải mỗi request.
   const heroLocal = HOME_HERO_LOCAL_FILES.find((file) =>
     existsSync(join(process.cwd(), "public", file))) ?? null;
   const params = searchParams ? await searchParams : {};

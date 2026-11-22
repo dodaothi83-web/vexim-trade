@@ -15,6 +15,7 @@ import { sanitizeProductDescriptionForSave } from "@/lib/products/product-descri
 import { productPublicationMediaState } from "@/lib/media/readiness";
 import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
+import { revalidateHomePage } from "@/lib/public/revalidate-home";
 
 type Result = {
   ok: boolean;
@@ -125,7 +126,7 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     revalidatePath("/supplier/portal/products");
     revalidatePath("/products", "layout");
     revalidatePath("/suppliers", "layout");
-    revalidatePath("/");
+    revalidateHomePage();
     refreshCrmBadges();
     if (decision === "approved" && reviewedCategory) {
       const owner = await store.getSupplier(product.supplier_id).catch(() => null);

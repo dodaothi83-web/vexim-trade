@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { usePublicPathname } from "@/hooks/use-public-pathname";
 import { useCookieConsent } from "@/components/cookie-consent";
 import { ONE_TAP_COOLDOWN_MS, ONE_TAP_DISMISS_KEY, oneTapCooldownActive, oneTapPublicPath } from "@/lib/buyer/one-tap";
 import { usePublicSessionActions } from "@/lib/buyer/public-session-context";
@@ -18,7 +19,7 @@ type IdentityWindow = Window & { google?: { accounts?: { id?: GoogleIdentity } }
 
 /** Google owns the prompt. No custom imitation, auto-selection or internal-account session. */
 export function BuyerGoogleOneTap({ clientId, isVi }: { clientId: string; isVi: boolean }) {
-  const pathname = usePathname();
+  const pathname = usePublicPathname();
   const router = useRouter();
   const { refresh: refreshPublicSession } = usePublicSessionActions();
   const { ready, record } = useCookieConsent();

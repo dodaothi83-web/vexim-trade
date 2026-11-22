@@ -55,6 +55,8 @@ jobs:
             command: check:i18n
           - label: Nội dung và ảnh A+
             command: check:aplus
+          - label: Trang chủ tĩnh và middleware
+            command: check:home-static
     steps:
       - uses: actions/checkout@v4
 

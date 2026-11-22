@@ -410,6 +410,7 @@ const { ProductComparisonTray } = compile("../components/product-comparison-tray
   "react/jsx-runtime": jsx,
   "next/link": { default: ({ href, children, ...props }) => React.createElement("a", { href, ...props }, children) },
   "next/navigation": { usePathname: () => trayState.pathname },
+  "@/hooks/use-public-pathname": { usePublicPathname: () => trayState.pathname },
   "lucide-react": new Proxy({}, { get: () => () => null }),
   "@/components/product-comparison-provider": { useProductComparison: () => ({
     ...trayState,

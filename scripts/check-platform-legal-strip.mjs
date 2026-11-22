@@ -98,6 +98,7 @@ function renderStrip(lang, pathname = "/", variant = "strip") {
       useSearchParams: () => ({ get: (key) => key === "lang" ? lang : null }),
       usePathname: () => pathname,
     },
+    "@/hooks/use-public-pathname": { usePublicPathname: () => pathname },
     "@/lib/config": { COMPANY: company },
     "@/components/cookie-consent": { CookieSettingsButton: ({ children, ...props }) => React.createElement("button", props, children) },
     "@/components/social-links": { SocialLinks: () => React.createElement("nav", { "aria-label": "social media" }) },

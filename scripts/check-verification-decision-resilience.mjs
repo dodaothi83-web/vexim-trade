@@ -59,6 +59,9 @@ const mocks = {
   'next/cache': {
     revalidatePath: () => { if (revalidateError) throw revalidateError; },
   },
+  '@/lib/public/revalidate-home': {
+    revalidateHomePage: () => { if (revalidateError) throw revalidateError; },
+  },
   '@/lib/db': { getStore: () => store },
   '@/lib/auth/session': {
     getSession: async () => { if (sessionError) throw sessionError; return admin; },
