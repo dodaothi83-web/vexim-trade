@@ -1581,6 +1581,21 @@ export const supabaseStore: DataStore = {
     if (res.error) fail("updateCategory", res.error);
     return res.data as Category;
   },
+  async followCategorySlug(oldSlug, newSlug) {
+    if (!oldSlug || !newSlug || oldSlug === newSlug) return 0;
+    const { data, error } = await must().rpc("follow_category_slug", { p_old: oldSlug, p_new: newSlug });
+    if (!error) return typeof data === "number" ? data : Number(data ?? 0);
+    // Chưa chạy migration 20261225: vẫn chuyển sản phẩm để không mất khỏi website
+    // (trigger sẽ đặt lại ngày cập nhật — chấp nhận cho tới khi có hàm SQL).
+    if (!/follow_category_slug|PGRST202|42883/i.test(`${error.code ?? ""} ${error.message ?? ""}`)) fail("followCategorySlug", error);
+    const ids = new Set<string>();
+    for (const column of ["category", "reviewed_category_slug", "supplier_category_proposal"] as const) {
+      const res = await must().from("supplier_products").update({ [column]: newSlug }).eq(column, oldSlug).select("id");
+      if (res.error) fail("followCategorySlug", res.error);
+      for (const row of (res.data ?? []) as { id: string }[]) ids.add(row.id);
+    }
+    return ids.size;
+  },
   async deleteCategory(id) {
     const { error } = await must().from("categories").delete().eq("id", id);
     if (error) fail("deleteCategory", error);

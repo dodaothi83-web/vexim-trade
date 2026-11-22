@@ -2277,6 +2277,20 @@ export const localStore: DataStore = {
       return row;
     });
   },
+  async followCategorySlug(oldSlug, newSlug) {
+    if (!oldSlug || !newSlug || oldSlug === newSlug) return 0;
+    return mutate((db) => {
+      let moved = 0;
+      for (const product of db.products) {
+        let touched = false;
+        if (product.category === oldSlug) { product.category = newSlug; touched = true; }
+        if (product.reviewed_category_slug === oldSlug) { product.reviewed_category_slug = newSlug; touched = true; }
+        if (product.supplier_category_proposal === oldSlug) { product.supplier_category_proposal = newSlug; touched = true; }
+        if (touched) moved += 1;
+      }
+      return moved;
+    });
+  },
   async deleteCategory(id) {
     return mutate((db) => {
       db.categories = (db.categories ?? []).filter((c) => c.id !== id);

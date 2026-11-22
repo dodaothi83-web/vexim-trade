@@ -354,6 +354,11 @@ export interface DataStore {
   getCategoryBySlug(slug: string): Promise<Category | null>;
   createCategory(input: Partial<Category>): Promise<Category>;
   updateCategory(id: string, patch: Partial<Category>): Promise<Category>;
+  /**
+   * Danh mục vừa đổi slug: chuyển mọi sản phẩm (và chỗ khác lưu slug dạng chữ) từ slug cũ
+   * sang slug mới, không đổi ngày cập nhật của sản phẩm. Trả về số sản phẩm đã chuyển.
+   */
+  followCategorySlug(oldSlug: string, newSlug: string): Promise<number>;
   deleteCategory(id: string): Promise<void>;
 
   // Supplier – category link
