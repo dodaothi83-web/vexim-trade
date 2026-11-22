@@ -52,23 +52,28 @@ assert.ok(!quoteKeys.includes('phone'), 'Số điện thoại không được b�
 // Dùng thẻ div thật (không phải aria-controls của nút) để mốc so sánh đúng.
 const detailsAt = form.indexOf('<div id="rfq-details"');
 assert.ok(detailsAt > 0, 'Có mục chi tiết thu gọn');
-for (const heavy of ['label="Grade / spec"', 'label="Target price"', 'label="Incoterm"', 'label="Shipment month"', 'label="Packaging / labelling"', 'label="Required certificates"', 'label="Website"', 'label="Business type"', 'label="Purchase frequency"', 'label={directForm ? "Private note" : "Additional notes"}']) {
+for (const heavy of ['label="Grade / spec"', 'label="Incoterm"', 'label="Shipment month"', 'label="Packaging / labelling"', 'label="Required certificates"', 'label="Website"', 'label="Business type"', 'label="Purchase frequency"', 'label={directForm ? "Private note" : "Additional notes"}']) {
   const at = form.indexOf(heavy);
   assert.ok(at > detailsAt, `${heavy} phải nằm trong mục chi tiết (sau id="rfq-details")`);
 }
 assert.match(form, /aria-expanded=\{detailsOpen\}/, 'Nút chi tiết phải công bố trạng thái cho trình đọc màn hình');
-assert.match(form, /useState\(Boolean\(initialGrade\) \|\| wantsSamples\)/, 'Mục chi tiết tự mở khi URL đã điền sẵn dữ liệu');
+assert.match(form, /const \[detailsOpen, setDetailsOpen\] = useState\(false\)/, 'Mục "Add details" luôn đóng khi mở trang, chỉ mở khi người mua bấm');
+assert.doesNotMatch(form, /useState\(Boolean\(initialGrade\)/, 'Không tự mở mục chi tiết theo dữ liệu điền sẵn');
 
 /* 4. Trường lõi vẫn hiển thị trực tiếp, không cần mở chi tiết */
-for (const core of ['What do you need?', 'label="Quantity"', 'label="Destination"', 'label="Company"', 'label="Your name"', 'label="Work email"']) {
+for (const core of ['What do you need?', 'label="Quantity"', 'label="Destination"', 'label="Company"', 'label="Your name"', 'label="Work email"', 'label="Phone / WhatsApp (optional)"']) {
   const at = form.indexOf(core);
   assert.ok(at > 0 && at < detailsAt, `${core} phải hiện ngay, không nằm trong mục chi tiết`);
 }
 
 /* 5. Không mất dữ liệu khi submit: mọi trường vẫn được gửi dù bị ẩn */
 const submitPayload = form.slice(form.indexOf('submitRfqAction({'), form.indexOf('});', form.indexOf('submitRfqAction({')));
-for (const field of ['quantity', 'unit', 'frequency', 'incoterm', 'destination_country', 'destination_port', 'needed_by', 'shipment_month', 'target_price', 'target_price_currency', 'target_price_unit', 'share_target_price', 'marketing_opt_in', 'packaging', 'certifications', 'message', 'phone', 'website', 'business_type', 'wants_samples', 'wants_inspection', 'wants_video_call', 'preferred_supplier_ids', 'honeypot', 'challenge_token']) {
+for (const field of ['quantity', 'unit', 'frequency', 'incoterm', 'destination_country', 'destination_port', 'needed_by', 'shipment_month', 'marketing_opt_in', 'packaging', 'certifications', 'message', 'phone', 'website', 'business_type', 'wants_samples', 'wants_inspection', 'wants_video_call', 'preferred_supplier_ids', 'honeypot', 'challenge_token']) {
   assert.ok(new RegExp(`\\b${field}:`).test(submitPayload), `Payload còn gửi "${field}"`);
+}
+
+for (const removed of ['target_price', 'target_price_currency', 'target_price_unit', 'share_target_price']) {
+  assert.ok(!new RegExp(`\\b${removed}:`).test(submitPayload), `Form không còn gửi "${removed}" (đã bỏ giá mục tiêu)`);
 }
 
 /* 6. Chống spam và prefill không bị mất */
@@ -118,8 +123,8 @@ for (const key of ['product_text', 'quantity', 'destination_country', 'company',
   assert.match(form, new RegExp(`key: "${key}"`), `Thanh tiến độ theo dõi "${key}"`);
 }
 assert.match(form, /\{completed\}\/\{requiredChecks\.length\} required/, 'Hiện số ô đã điền trên tổng số');
-assert.match(form, /share_target_price: false/, 'Giá mục tiêu mặc định KHÔNG chia sẻ cho nhà cung cấp');
-assert.match(form, /Share my target price with suppliers/, 'Có ô chọn chia sẻ giá mục tiêu');
+// Giá mục tiêu đã bỏ hẳn khỏi form (cả ô giá lẫn ô chia sẻ cho nhà cung cấp).
+assert.doesNotMatch(form, /target_price|Target price|Share my target price/, 'Form không còn giá mục tiêu');
 assert.match(form, /maxLength=\{4000\}/, 'Mô tả sản phẩm bị giới hạn 4.000 ký tự');
 
 /* 10. Ô tháng giao hàng và câu chú thích giá mục tiêu */
@@ -129,6 +134,19 @@ assert.match(form, /maxLength=\{4000\}/, 'Mô tả sản phẩm bị giới hạ
 assert.match(form, /<input type="month"[^>]*value=\{data\.shipment_month\}/, 'Shipment month là ô chọn tháng của trình duyệt');
 assert.doesNotMatch(form, /shipmentMonths/, 'Không còn danh sách tháng tự dựng');
 assert.doesNotMatch(form, /Only Vexim sees it unless you tick this box/, 'Đã bỏ câu chú thích dưới ô chia sẻ giá mục tiêu');
-assert.match(form, /Share my target price with suppliers/, 'Vẫn giữ ô chia sẻ giá mục tiêu');
+
+/* 11. Ẩn thông minh khi hỏi về một sản phẩm cụ thể */
+assert.match(form, /const productTargeted = Boolean\(contextProduct\) \|\| Boolean\(initialProductId && initialCategory\)/, 'Nhận biết RFQ theo sản phẩm');
+assert.match(form, /\{showCategory && \(\s*<Field label="Category">/, 'Ô Category chỉ hiện ở RFQ chung');
+assert.match(form, /\{showGrade && \(\s*<Field\s+label="Grade \/ spec"/, 'Ô Grade / spec ẩn khi sản phẩm đã có grade');
+assert.match(form, /category_slug: initialCategory \?\? ""/, 'Danh mục của sản phẩm vẫn được gửi dù ô bị ẩn');
+assert.match(form, /relevantGradeTags\(/, 'Chip grade được lọc theo đúng ngành hàng');
+assert.doesNotMatch(form, /categorySpecs\[data\.category_slug\]\.grades\.map/, 'Không render thẳng toàn bộ grade của danh mục');
+assert.doesNotMatch(form, /W320, WW240, LP/, 'Placeholder grade không còn thiên về hạt điều');
+
+/* 12. Placeholder: ghi chú riêng không lặp "target port" (đã có ô Port) */
+assert.doesNotMatch(form, /target port/i, 'Private note không nhắc target port nữa');
+const phoneAt = form.indexOf('id="rfq-phone"');
+assert.ok(phoneAt > 0 && phoneAt < detailsAt, 'Phone / WhatsApp nằm trong nhóm YOUR DETAILS, ngoài mục chi tiết');
 
 console.log(`✅ RFQ form compact: một trang, ${visibleFields} ô hiện ngay, mọi ô bị validate đều nhìn thấy được, chi tiết đóng mặc định.`);

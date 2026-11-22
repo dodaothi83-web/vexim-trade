@@ -18,6 +18,7 @@ import {
 import { submitRfqAction } from "./actions";
 import { FormChallenge } from "@/components/form-challenge";
 import { RFQ_FIELD_LIMITS as LIMITS } from "@/lib/rfq/input-limits";
+import { relevantGradeTags } from "@/lib/rfq/grade-tags";
 import { cx } from "@/components/ui";
 import type { RfqProductContext } from "@/lib/public/rfq-product-context";
 
@@ -69,9 +70,13 @@ const DEFAULT_CERTS = ["HACCP", "BRCGS", "ISO 22000", "FSSC 22000", "Halal", "Ko
 /**
  * Form RFQ: **một trang, không chia bước**.
  *
- * Chỉ 6 nhóm trường bắt buộc hiện ra; phần còn lại (quy cách, incoterm, giá mục tiêu,
- * chứng chỉ, liên hệ phụ) nằm trong mục "Thêm chi tiết" — mở sẵn khi URL đã điền sẵn
- * grade hoặc khi người mua đến từ link yêu cầu mẫu.
+ * Chỉ 6 nhóm trường bắt buộc (cộng số điện thoại tuỳ chọn) hiện ra; phần còn lại (quy cách,
+ * incoterm, chứng chỉ, liên hệ phụ) nằm trong mục "Thêm chi tiết" — LUÔN đóng khi mở trang,
+ * chỉ mở khi người mua bấm (hoặc khi cần cuộn tới một ô lỗi bên trong).
+ *
+ * Hỏi về một sản phẩm cụ thể thì danh mục suy ra từ sản phẩm nên ô Category bị ẩn; sản phẩm đã
+ * có grade thì ô Grade / spec cũng ẩn (grade vẫn được gửi). Chip grade gợi ý chỉ thuộc đúng
+ * ngành hàng đang hỏi (xem lib/rfq/grade-tags.ts).
  *
  * Trước đây form chia 3 bước nhưng `validateStep(2)` lại kiểm company/contact/email/consent
  * trong khi các ô đó chỉ render ở bước 3 → bấm Continue không đi tiếp được và không có
@@ -101,8 +106,8 @@ export function RfqForm({
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   // +1 sau mỗi lần gửi không thành công → widget lấy challenge mới (token cũ có thể đã hết hạn).
   const [challengeRound, setChallengeRound] = useState(0);
-  // Mở sẵn mục chi tiết khi đã có dữ liệu điền trước, để người mua không bỏ sót.
-  const [detailsOpen, setDetailsOpen] = useState(Boolean(initialGrade) || wantsSamples);
+  // Mục chi tiết luôn đóng khi mở trang; dữ liệu điền sẵn (grade, yêu cầu mẫu) vẫn được gửi.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [data, setData] = useState(() => ({
     // Product
     category_slug: initialCategory ?? "",
@@ -119,10 +124,6 @@ export function RfqForm({
     destination_port: "",
     needed_by: "",
     shipment_month: "",
-    target_price: "",
-    target_price_currency: "USD",
-    target_price_unit: "kg",
-    share_target_price: false,
     wants_samples: wantsSamples,
     wants_inspection: false,
     wants_video_call: false,
@@ -175,7 +176,7 @@ export function RfqForm({
     const first = Object.keys(found)[0];
     if (!first) return;
     // Ô lỗi có thể nằm trong mục chi tiết đang đóng → mở ra trước khi cuộn tới.
-    if (["grade", "target_price", "incoterm", "needed_by", "packaging", "phone", "country", "website", "business_type"].includes(first)) {
+    if (["grade", "incoterm", "needed_by", "packaging", "country", "website", "business_type"].includes(first)) {
       setDetailsOpen(true);
     }
     requestAnimationFrame(() => {
@@ -208,10 +209,6 @@ export function RfqForm({
         destination_port: data.destination_port || null,
         needed_by: data.needed_by || null,
         shipment_month: data.shipment_month || null,
-        target_price: data.target_price ? Number(data.target_price) : null,
-        target_price_currency: data.target_price_currency,
-        target_price_unit: data.target_price_unit || null,
-        share_target_price: data.share_target_price,
         marketing_opt_in: data.marketing_opt_in,
         wants_samples: data.wants_samples,
         wants_inspection: data.wants_inspection,
@@ -253,6 +250,29 @@ export function RfqForm({
       }
     });
   }
+
+  // Hỏi về một sản phẩm cụ thể: danh mục đi theo sản phẩm, không cho chọn lại.
+  const productTargeted = Boolean(contextProduct) || Boolean(initialProductId && initialCategory);
+  const showCategory = !productTargeted;
+  // Sản phẩm đã có grade → không hỏi lại; grade đó vẫn nằm trong `data.grade` và được gửi đi.
+  const productGrade = (contextProduct?.grade ?? (productTargeted ? initialGrade : "")).trim();
+  const showGrade = !productGrade;
+  // Chip grade chỉ thuộc đúng ngành đang hỏi: theo tên sản phẩm nếu có, không thì theo mô tả đã gõ.
+  const gradeTags = relevantGradeTags(categorySpecs[data.category_slug]?.grades ?? [], {
+    categorySlug: data.category_slug,
+    context: productTargeted ? contextProduct?.name ?? initialProduct : data.product_text,
+    strict: productTargeted,
+  });
+  const detailTopics = [
+    showCategory && "category",
+    showGrade && "grade",
+    "incoterm",
+    "shipment month",
+    "certificates",
+  ].filter(Boolean) as string[];
+  const capitalize = (text: string) => text.replace(/^./, (c) => c.toUpperCase());
+  const detailsSummary = capitalize(`${detailTopics.join(", ")}, packing`);
+  const optionalSummary = capitalize(`${detailTopics.slice(0, -1).join(", ")} and ${detailTopics[detailTopics.length - 1]}`);
 
   // Tiến độ các ô bắt buộc — hiển thị ngay để người mua biết còn thiếu gì.
   const requiredChecks = [
@@ -369,8 +389,8 @@ export function RfqForm({
               value={data.product_text}
               onChange={(e) => update("product_text", e.target.value)}
               placeholder={contextProduct
-                ? "Anything specific about this product? Packing, certificates, shipment month..."
-                : "e.g. Cashew kernels W320, vacuum tins, HACCP required, shipment January"}
+                ? "Anything specific about this product? e.g. moisture, size or taste preferences"
+                : "Describe the product you are looking for, e.g. Cashew kernels W320 for snack brands"}
             />
             <span className="mt-1 flex justify-end text-[11px] tabular-nums text-ink-400">{data.product_text.length}/4000</span>
           </Field>
@@ -444,7 +464,7 @@ export function RfqForm({
 
           <div className="border-t border-ink-100 pt-4">
             <p className="text-[11.5px] font-bold uppercase tracking-wider text-ink-500">Your details</p>
-            <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <Field label="Company" required error={errors.company} id="rfq-company">
                 <input id="rfq-company" autoComplete="organization" maxLength={LIMITS.company} className="input" value={data.company} onChange={(e) => update("company", e.target.value)} />
               </Field>
@@ -453,6 +473,9 @@ export function RfqForm({
               </Field>
               <Field label="Work email" required error={errors.email} id="rfq-email">
                 <input id="rfq-email" readOnly={Boolean(buyerEmail)} autoComplete="email" type="email" maxLength={LIMITS.email} className="input" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="name@company.com" />
+              </Field>
+              <Field label="Phone / WhatsApp (optional)" id="rfq-phone">
+                <input id="rfq-phone" type="tel" autoComplete="tel" maxLength={LIMITS.phone} className="input" value={data.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+1 555 ..." />
               </Field>
             </div>
           </div>
@@ -470,8 +493,11 @@ export function RfqForm({
             <span>
               <span className="text-[14px] font-bold text-ink-900">Add details <span className="font-normal text-ink-500">(optional)</span></span>
               <span className="mt-1 block text-[12.5px] leading-relaxed text-ink-600">
-                Grade, incoterm, shipment month, certificates, packing. Helps suppliers quote accurately.
+                {detailsSummary}. Helps suppliers quote accurately.
               </span>
+              {!detailsOpen && data.wants_samples && (
+                <span className="mt-2 inline-block rounded-full border border-brand-200 bg-brand-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-brand-700">Samples requested</span>
+              )}
             </span>
             <span aria-hidden="true" className="mt-0.5 text-lg leading-none text-ink-400">{detailsOpen ? "–" : "+"}</span>
           </button>
@@ -479,14 +505,17 @@ export function RfqForm({
           {detailsOpen && (
             <div id="rfq-details" className="space-y-4 border-t border-ink-100 px-5 pb-5 pt-4 sm:px-6 sm:pb-6">
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Category">
-                  <select className="input" value={data.category_slug} onChange={(e) => update("category_slug", e.target.value)}>
-                    <option value="">Select...</option>
-                    {categories.map((c) => (
-                      <option key={c.slug} value={c.slug}>{c.name}</option>
-                    ))}
-                  </select>
-                </Field>
+                {/* Chỉ RFQ chung mới chọn danh mục; RFQ theo sản phẩm giữ danh mục của sản phẩm. */}
+                {showCategory && (
+                  <Field label="Category">
+                    <select className="input" value={data.category_slug} onChange={(e) => update("category_slug", e.target.value)}>
+                      <option value="">Select...</option>
+                      {categories.map((c) => (
+                        <option key={c.slug} value={c.slug}>{c.name}</option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
                 <Field
                   label="Incoterm"
                   hint={contextProduct?.incoterm
@@ -498,9 +527,6 @@ export function RfqForm({
                     {INCOTERMS.map((i) => <option key={i}>{i}</option>)}
                   </select>
                 </Field>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="Shipment month">
                   {/* Ô chọn tháng của trình duyệt. Placeholder ("---- month ----" / "---- năm ----")
                       do ngôn ngữ máy người dùng quyết định, không do trang; giá trị vẫn là YYYY-MM. */}
@@ -511,46 +537,49 @@ export function RfqForm({
                     {FREQUENCIES.map((f) => <option key={f}>{f}</option>)}
                   </select>
                 </Field>
-                <Field label="Packaging / labelling">
-                  <input className="input" maxLength={LIMITS.packaging} value={data.packaging} onChange={(e) => update("packaging", e.target.value)} placeholder="e.g. vacuum tins, private label" />
-                </Field>
+                <div className={showCategory ? "sm:col-span-2" : undefined}>
+                  <Field label="Packaging / labelling">
+                    <input className="input" maxLength={LIMITS.packaging} value={data.packaging} onChange={(e) => update("packaging", e.target.value)} placeholder="e.g. vacuum tins, private label" />
+                  </Field>
+                </div>
               </div>
 
-              <Field
-                label="Grade / spec"
-                hint={categorySpecs[data.category_slug]?.grades?.length ? "Tap a common grade for this category, or type your own." : undefined}
-                id="rfq-grade"
-              >
-                {categorySpecs[data.category_slug]?.grades?.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {categorySpecs[data.category_slug].grades.map((g) => (
-                      <button key={g} type="button" onClick={() => update("grade", data.grade === g ? "" : g)}
+              {showGrade && (
+                <Field
+                  label="Grade / spec"
+                  hint={gradeTags.length ? `Tap a common grade for this ${productTargeted ? "product" : "category"}, or type your own.` : undefined}
+                  id="rfq-grade"
+                >
+                  {gradeTags.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {gradeTags.map((g) => (
+                        <button key={g} type="button" onClick={() => update("grade", data.grade === g ? "" : g)}
+                          className={cx(
+                            "rounded-full border px-3 py-1 text-[12.5px] font-medium transition",
+                            data.grade === g ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-600 hover:border-ink-400",
+                          )}>{g}</button>
+                      ))}
+                      <button type="button" onClick={() => update("grade", "__custom__")}
                         className={cx(
                           "rounded-full border px-3 py-1 text-[12.5px] font-medium transition",
-                          data.grade === g ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-600 hover:border-ink-400",
-                        )}>{g}</button>
-                    ))}
-                    <button type="button" onClick={() => update("grade", "__custom__")}
-                      className={cx(
-                        "rounded-full border px-3 py-1 text-[12.5px] font-medium transition",
-                        data.grade && !categorySpecs[data.category_slug].grades.includes(data.grade)
-                          ? "border-brand-600 bg-brand-50 text-brand-700"
-                          : "border-dashed border-ink-300 text-ink-500 hover:border-ink-500",
-                      )}>Other…</button>
-                  </div>
-                ) : null}
-                {(!categorySpecs[data.category_slug]?.grades?.length || data.grade === "__custom__" ||
-                  (data.grade && !categorySpecs[data.category_slug].grades.includes(data.grade))) && (
-                  <input
-                    id="rfq-grade"
-                    className={cx("input", categorySpecs[data.category_slug]?.grades?.length ? "mt-2" : "")}
-                    value={data.grade === "__custom__" ? "" : data.grade}
-                    maxLength={LIMITS.grade}
-                    onChange={(e) => update("grade", e.target.value)}
-                    placeholder="W320, WW240, LP, other spec..."
-                  />
-                )}
-              </Field>
+                          data.grade && !gradeTags.includes(data.grade)
+                            ? "border-brand-600 bg-brand-50 text-brand-700"
+                            : "border-dashed border-ink-300 text-ink-500 hover:border-ink-500",
+                        )}>Other…</button>
+                    </div>
+                  ) : null}
+                  {(!gradeTags.length || data.grade === "__custom__" || (data.grade && !gradeTags.includes(data.grade))) && (
+                    <input
+                      id="rfq-grade"
+                      className={cx("input", gradeTags.length ? "mt-2" : "")}
+                      value={data.grade === "__custom__" ? "" : data.grade}
+                      maxLength={LIMITS.grade}
+                      onChange={(e) => update("grade", e.target.value)}
+                      placeholder={gradeTags.length ? "Type another grade or spec" : "e.g. Grade A, size, moisture, purity"}
+                    />
+                  )}
+                </Field>
+              )}
 
               <Field label="Required certificates">
                 <div className="flex flex-wrap gap-2">
@@ -585,45 +614,7 @@ export function RfqForm({
                 </div>
               </div>
 
-              <Field label="Target price">
-                <div className="flex max-w-sm">
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="input rounded-r-none"
-                    value={data.target_price}
-                    onChange={(e) => update("target_price", e.target.value)}
-                    placeholder="e.g. 6.90"
-                  />
-                  <select
-                    aria-label="Currency"
-                    className="input w-[84px] shrink-0 rounded-none border-l-0"
-                    value={data.target_price_currency}
-                    onChange={(e) => update("target_price_currency", e.target.value)}
-                  >
-                    <option>USD</option><option>EUR</option><option>GBP</option>
-                  </select>
-                  <select
-                    aria-label="Price unit"
-                    className="input w-[92px] shrink-0 rounded-l-none border-l-0"
-                    value={data.target_price_unit}
-                    onChange={(e) => update("target_price_unit", e.target.value)}
-                  >
-                    <option value="kg">/ kg</option>
-                    <option value="MT">/ MT</option>
-                    <option value="lb">/ lb</option>
-                  </select>
-                </div>
-                <label className="mt-2 flex items-start gap-2 text-[12.5px] text-ink-700">
-                  <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={data.share_target_price} onChange={(e) => update("share_target_price", e.target.checked)} />
-                  <span>Share my target price with suppliers</span>
-                </label>
-              </Field>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="Phone / WhatsApp">
-                  <input id="rfq-phone" maxLength={LIMITS.phone} className="input" value={data.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+1 555 ..." />
-                </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Website">
                   <input id="rfq-website" maxLength={LIMITS.website} className="input" value={data.website} onChange={(e) => update("website", e.target.value)} placeholder="company.com" />
                 </Field>
@@ -637,7 +628,7 @@ export function RfqForm({
 
               <Field label={directForm ? "Private note" : "Additional notes"}
                 hint={directForm ? "Not sent to your chosen supplier. Put requirements in the main description." : "Not sent to invited suppliers."}>
-                <textarea rows={3} maxLength={4000} className="input resize-y" value={data.message} onChange={(e) => update("message", e.target.value)} placeholder="Timeline, target port, existing suppliers, anything we should know." />
+                <textarea rows={3} maxLength={4000} className="input resize-y" value={data.message} onChange={(e) => update("message", e.target.value)} placeholder="Timeline, current suppliers, or anything else we should know." />
               </Field>
             </div>
           )}
@@ -707,7 +698,7 @@ export function RfqForm({
           ))}
         </ul>
         <p className="mt-4 border-t border-ink-100 pt-3 text-[11.5px] leading-relaxed text-ink-500">
-          Grade, incoterm, shipment month and certificates are optional but lead to more accurate quotes.
+          {optionalSummary} are optional but lead to more accurate quotes.
         </p>
       </aside>
     </form>
