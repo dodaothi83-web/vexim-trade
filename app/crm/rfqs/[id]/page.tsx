@@ -67,6 +67,7 @@ import { staffVeximMessageAction, staffVeximReadAction } from "./mediation-actio
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { LEAD_RATING_STAFF_NOTE, LeadRatingList } from "@/components/crm/lead-ratings";
 import { migrationHint } from "@/lib/db/migration-hints";
+import { rfqProductParts } from "@/lib/rfq/product-text";
 
 export const dynamic = "force-dynamic";
 
@@ -248,6 +249,7 @@ export default async function RfqDetailPage({
     [...(quoteVersionsByMatch.get(version.match_id) ?? []), version]);
 
   const specs = (rfq.specs as Record<string, unknown> | null) ?? {};
+  const productParts = rfqProductParts(rfq);
   const isSupplierQuestion = isSupplierQuestionRfq(rfq);
   // RFQ không chọn nhà cung cấp (hoặc tạo từ yêu cầu tìm nguồn) thuộc hộp thư Tìm nguồn.
   const isSourcing = isMediated;
@@ -404,13 +406,19 @@ export default async function RfqDetailPage({
             <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Yêu cầu</h2>
             <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-2">
               <Field icon={<Package className="h-4 w-4" />} label="Sản phẩm" wide>
-                {rfq.product_text}
+                {productParts.product}
                 {category && (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-brand-50 px-1.5 py-0.5 text-[11px] text-brand-700">
                     <Tag className="h-3 w-3" /> {String(category.name_i18n.en ?? category.name_i18n.vi ?? "")}
                   </span>
                 )}
               </Field>
+              {productParts.requirements && (
+                <div className="sm:col-span-2">
+                  <dt className="text-[11px] uppercase tracking-wider text-ink-400">Yêu cầu của người mua</dt>
+                  <dd className="mt-1 whitespace-pre-line rounded-md bg-ink-50 p-3 text-[13px] text-ink-700">{productParts.requirements}</dd>
+                </div>
+              )}
               <Field icon={<Tag className="h-4 w-4" />} label="Số lượng">
                 {rfq.quantity && rfq.unit ? `${rfq.quantity} ${rfq.unit}` : "—"}
                 {rfq.frequency ? <span className="ml-1 text-ink-500">/ {rfq.frequency}</span> : null}

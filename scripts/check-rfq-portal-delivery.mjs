@@ -76,8 +76,9 @@ const outreach = load('lib/rfq/outreach.ts', {
   '@/lib/site': { SITE_URL: 'https://example.com' }, '@/lib/db': { getStore: () => store },
   '@/lib/supplier-portal/onboarding': onboarding, './buyer-contact': contact, './channel': channel,
 });
+const attachBuyer = load('lib/rfq/attach-buyer.ts', { './channel': channel, './buyer-contact': contact });
 const publisher = load('lib/rfq/targeted-portal.ts', {
-  './outreach': outreach, '@/lib/email/send': { transport: notify },
+  './outreach': outreach, './attach-buyer': attachBuyer, '@/lib/email/send': { transport: notify },
   '@/lib/config': { FROM_ADDRESS: 'Vexim <system@example.com>' },
   '@/lib/site': { SITE_URL: 'https://example.com' },
   '@/lib/supplier-portal/onboarding': onboarding, './buyer-contact': contact, './channel': channel,
@@ -146,4 +147,37 @@ assert.equal(board.tasks.length, 1);
 assert.equal(board.invites[0].buyerContact.email, 'buyer@example.com');
 assert.ok(board.notices.some((n) => n.key === 'rfq:m1' && n.href === '/supplier/portal/rfqs'));
 assert.doesNotMatch(JSON.stringify(board), /SECRET|PRIVATE-TOKEN|private\.io/);
-console.log('✅ Direct portal: multiple named suppliers, no staff/email fallback, eligibility & consent gates, link-only notice, SMTP failure and idempotence.');
+// Buyer CRM auto-link: the single named supplier of a direct RFQ is attached right after
+// the invitation is persisted; several named suppliers never pick one; a CRM outage
+// cannot undo the delivery.
+{
+  const buyers = { b1: { id: 'b1', supplier_id: null } };
+  const crmLinks = [], activities = [];
+  Object.assign(store, {
+    getRfqMatch: async (id) => matches.find((m) => m.id === id) ?? null,
+    getBuyer: async (id) => buyers[id] ?? null,
+    attachBuyerIfUnassigned: async (buyerId, supplierId) => {
+      if (buyers[buyerId].supplier_id) return false;
+      buyers[buyerId].supplier_id = supplierId; crmLinks.push([buyerId, supplierId]); return true;
+    },
+    addActivity: async (row) => { activities.push(row); },
+  });
+  const reset = () => { for (const m of matches) Object.assign(m, { status: 'proposed', sent_to_supplier_at: null, response_due_at: null }); rfq.status = 'new'; };
+  reset();
+  assert.equal(await publisher.releaseTargetedQuoteToPortal(store, rfq), 2);
+  assert.equal(buyers.b1.supplier_id, null, 'A multi-supplier RFQ never attaches the buyer to one of them');
+  reset();
+  const single = { ...rfq, preferred_supplier_ids: ['s2'] };
+  assert.equal(await publisher.releaseTargetedQuoteToPortal(store, single), 1);
+  assert.deepEqual(crmLinks, [['b1', 's2']], 'Single-supplier direct RFQ attaches its buyer to that supplier');
+  assert.equal(activities.length, 1);
+  assert.match(activities[0].message, /RFQ-1/);
+  reset(); buyers.b1.supplier_id = null; crmLinks.length = 0;
+  const realAttach = store.attachBuyerIfUnassigned;
+  store.attachBuyerIfUnassigned = async () => { throw Error('crm down'); };
+  assert.equal(await publisher.releaseTargetedQuoteToPortal(store, single), 1, 'A Buyer CRM failure does not revoke the delivered invitation');
+  assert.equal(matches[1].status, 'sent_to_supplier');
+  store.attachBuyerIfUnassigned = realAttach;
+}
+
+console.log('✅ Direct portal: multiple named suppliers, no staff/email fallback, Buyer CRM link for one named supplier, eligibility & consent gates, link-only notice, SMTP failure and idempotence.');

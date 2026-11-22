@@ -162,7 +162,7 @@ export default async function BuyerDetailPage({
                 value={buyer.payment_terms}
                 className="col-span-2 sm:col-span-2"
               />
-              <Info label="Quy cách" value={buyer.spec} className="col-span-2 sm:col-span-3" />
+              <Info label="Quy cách / yêu cầu" value={buyer.spec} className="col-span-2 sm:col-span-3" />
             </dl>
             <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-3">
               <Info label="Email" value={buyer.email} icon={<Mail className="h-3 w-3" />} />

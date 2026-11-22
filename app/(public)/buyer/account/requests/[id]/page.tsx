@@ -52,7 +52,7 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
       }
       if (direct && named.has(match.supplier_id) && !match.sent_to_buyer_at && canSupplierChatAboutRfq(rfq, match)) {
         // Nhà cung cấp chưa có tài khoản cổng hoạt động thì không ai trả lời chat: không hiện nút.
-        if (await supplierChatAvailable(store, match.supplier_id)) preQuoteSuppliers.push({ id: match.id, supplier: supplierName, chatHref: buyerRfqChatHref(match.supplier_id, rfq.code), noReply: match.status === "no_response" });
+        if (await supplierChatAvailable(store, match.supplier_id)) preQuoteSuppliers.push({ id: match.id, supplierId: match.supplier_id, supplier: supplierName, chatHref: buyerRfqChatHref(match.supplier_id, rfq.code), noReply: match.status === "no_response" });
         continue;
       }
       if (!canBuyerOpenRfqMatch(rfq, match)) continue;

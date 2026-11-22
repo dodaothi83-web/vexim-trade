@@ -104,4 +104,10 @@ const localCas = local.match(/async attachBuyerIfUnassigned\([\s\S]*?\n  },/)?.[
 assert.ok(remoteCas?.includes('.is("supplier_id", null)') && remoteCas.includes('.eq("id", buyerId)'));
 assert.ok(localCas?.includes('if (!buyer || buyer.supplier_id) return false;'));
 assert.doesNotMatch(remoteCas + localCas, /hide_buyer_from_supplier|sendSupplierAssignedEmail/, 'Linking must not disclose other CRM data or send duplicate mail');
+// Wired into real delivery: the helper is called by the direct portal release right after
+// each match is persisted as sent (submit + retry both use releaseTargetedQuoteToPortal).
+const portalSource = readFileSync(new URL('../lib/rfq/targeted-portal.ts', import.meta.url), 'utf8');
+assert.match(portalSource, /import \{ attachBuyerAfterDirectRfqDelivery \} from "\.\/attach-buyer";/);
+assert.match(portalSource, /status: "sent_to_supplier", sent_to_supplier_at[\s\S]*?sent\+\+;[\s\S]*?await attachBuyerAfterDirectRfqDelivery\(store, rfq, match\.id\)\s*\.catch\(/,
+  'Direct delivery links the buyer after the sent write, and a CRM failure cannot revoke the invitation');
 console.log('✅ RFQ buyer contact/CRM: direct + explicit historical grants only, sent match before atomic single-supplier link; no proposals, foreign link, legacy flag change or duplicate mail.');

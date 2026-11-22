@@ -23,6 +23,7 @@ import type { Rfq } from "@/lib/types";
 import { buyerDirectOutcome, buyerMatchHasNewQuote } from "@/lib/rfq/portal-core";
 import { deskHasNewReply } from "@/lib/rfq/mediated";
 import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
+import { rfqProductParts } from "@/lib/rfq/product-text";
 
 export const metadata: Metadata = { title: "Buyer account | Vexim Trade", robots: { index: false, follow: false } };
 const panel = "rounded-2xl border border-ink-200 bg-white p-5 shadow-sm sm:p-6";
@@ -126,7 +127,7 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
     <Link prefetch={false} href={`/buyer/account/requests/${encodeURIComponent(r.id)}`}
       className="group -mx-2 flex flex-col gap-2 rounded-lg px-2 py-3 hover:bg-ink-50 sm:flex-row sm:items-center sm:gap-3 focus-visible:outline-2 focus-visible:outline-brand-600">
       <span className="min-w-0 flex-1">
-        <span className="line-clamp-2 break-words text-sm font-semibold text-ink-900 group-hover:text-brand-700">{r.product_text}</span>
+        <span className="line-clamp-2 break-words text-sm font-semibold text-ink-900 group-hover:text-brand-700">{rfqProductParts(r).product}</span>
         <span className="mt-0.5 block text-xs text-ink-500">{r.code} · {day(r.created_at)}{input.kind ? ` · ${input.kind}` : ""}</span>
       </span>
       <span className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">

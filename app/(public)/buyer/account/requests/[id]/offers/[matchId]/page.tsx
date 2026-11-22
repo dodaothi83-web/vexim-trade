@@ -2,11 +2,13 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, Clock3, MessageCircle, ShieldCheck } from "lucide-react";
 import { Breadcrumbs } from "@/components/ui";
 import { RfqReadTracker } from "@/components/rfq-read-tracker";
+import { RfqSupplierChatButton } from "@/components/rfq-supplier-chat-button";
 import { getLocale } from "@/lib/i18n/server";
 import { buyerOfferAccess } from "@/lib/rfq/portal-access";
 import { lastPublishedQuote } from "@/lib/rfq/portal-core";
 import { quotePortalCopy } from "@/lib/rfq/portal-copy";
 import { rfqChannel } from "@/lib/rfq/channel";
+import { rfqProductParts } from "@/lib/rfq/product-text";
 import type { RfqQuoteVersion } from "@/lib/types";
 import { buyerRfqReadAction } from "../actions";
 import { buyerRfqChatHref } from "@/lib/rfq/chat-link";
@@ -21,6 +23,7 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
   const locale = await getLocale();
   const copy = quotePortalCopy[locale];
   const sourcing = rfqChannel(rfq) === "sourcing";
+  const productParts = rfqProductParts(rfq);
   const versions = await store.listRfqQuoteVersions([match.id]);
   const quote = lastPublishedQuote(versions, match);
   // Hỏi đáp với nhà cung cấp đi qua Tin nhắn (một kênh duy nhất); RFQ tìm nguồn thì qua Vexim.
@@ -84,13 +87,16 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
               <p className="mt-1 text-[13px] leading-5 text-ink-600">{copy.chat.buyerBody}</p>
             </div>
           </div>
-          <Link href={chatHref} prefetch={false} className="btn btn-primary min-h-11 w-full shrink-0 justify-center sm:w-auto"><MessageCircle className="h-4 w-4" aria-hidden="true" />{copy.chat.buyerAction}</Link>
+          {supplier && <RfqSupplierChatButton supplierId={supplier.id} supplierName={supplierName} href={chatHref} locale={locale}
+            draft={copy.chat.buyerDraft.replace("{code}", rfq.code)} className="btn btn-primary min-h-11 w-full shrink-0 justify-center sm:w-auto">
+            <MessageCircle className="h-4 w-4" aria-hidden="true" />{copy.chat.buyerAction}</RfqSupplierChatButton>}
         </section>}
       </div>
       <aside className="space-y-4 lg:sticky lg:top-24">
         <section className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
           <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink-600">{copy.requestDetails}</h2>
-          <p className="mt-3 break-words text-[14px] font-semibold leading-6 text-ink-900">{rfq.product_text}</p>
+          <p className="mt-3 break-words text-[14px] font-semibold leading-6 text-ink-900">{productParts.product}</p>
+          {productParts.requirements && <p className="mt-1 whitespace-pre-line break-words text-[13px] leading-5 text-ink-600">{productParts.requirements}</p>}
           <dl className="mt-4 space-y-3 border-t border-ink-100 pt-4 text-[13px]">
             {rfq.quantity && rfq.unit && <div><dt className="text-ink-500">{copy.quantity}</dt><dd className="font-semibold text-ink-900">{rfq.quantity} {rfq.unit}</dd></div>}
             {rfq.destination_country && <div><dt className="text-ink-500">{copy.destination}</dt><dd className="font-semibold text-ink-900">{rfq.destination_country}</dd></div>}

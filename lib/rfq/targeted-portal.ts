@@ -7,6 +7,7 @@ import { SITE_URL } from "@/lib/site";
 import type { EmailMessage, Rfq } from "@/lib/types";
 import { rfqBuyerContact } from "./buyer-contact";
 import { rfqChannel } from "./channel";
+import { attachBuyerAfterDirectRfqDelivery } from "./attach-buyer";
 
 /** Email log stage of the invitation notice for one match. */
 export const directInviteStage = (matchId: string) => `direct_invite:${matchId}`;
@@ -45,6 +46,11 @@ export async function releaseTargetedQuoteToPortal(store: DataStore, rfq: Rfq, o
     await store.updateRfqMatch(match.id, { status: "sent_to_supplier", sent_to_supplier_at: now.toISOString(),
       response_due_at: deadline.toISOString() });
     sent++;
+    // Buyer CRM: a single-supplier direct RFQ links its buyer to that supplier only now that
+    // the invitation is persisted as sent (rules live in attach-buyer.ts). A CRM failure
+    // cannot revoke the delivered invitation or block its notice.
+    await attachBuyerAfterDirectRfqDelivery(store, rfq, match.id)
+      .catch((error) => console.error("[rfq] direct RFQ delivered; Buyer CRM link failed", error));
     // The only notification target is the active portal account, not an arbitrary
     // email on a legacy supplier record. Delivery errors cannot revoke the invite.
     const account = await store.getUserBySupplierId(supplierIds[index]);
