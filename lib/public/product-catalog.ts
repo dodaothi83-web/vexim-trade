@@ -378,6 +378,45 @@ export async function listPublicCategoryProducts(category: Category, options?: {
   return labels.size ? ranked.map((card) => labels.has(card.id) ? { ...card, certificates: labels.get(card.id) } : card) : ranked;
 }
 
+/**
+ * Chỉ mục cho trang tìm kiếm: thẻ công khai của mọi danh mục đang công khai, đã qua đúng
+ * cổng duyệt/ảnh/giá/xếp hạng của listPublicCategoryProducts. Phần này KHÔNG phụ thuộc từ
+ * khoá, nên mỗi lượt tìm chỉ còn lọc trong bộ nhớ thay vì đọc ảnh + chứng nhận của từng
+ * danh mục. Dữ liệu cũ tối đa 60 giây, đúng như trang danh mục (ISR 60 giây).
+ */
+export interface PublicSearchIndex {
+  categories: Category[];
+  suppliers: PublicSupplierCard[];
+  productsByCategory: Record<string, PublicCategoryProduct[]>;
+}
+
+const SEARCH_INDEX_BATCH_SIZE = 6;
+
+async function buildPublicSearchIndex(today: string): Promise<PublicSearchIndex> {
+  const snapshot = await loadPublicProductCatalogSnapshot();
+  const visible = snapshot.categories.filter((category) => category.status === "published" && category.is_published);
+  const productsByCategory: Record<string, PublicCategoryProduct[]> = {};
+  // Giới hạn số danh mục đọc đồng thời để không tạo bão truy vấn ảnh/chứng nhận.
+  // Một danh mục lỗi làm hỏng cả lượt dựng: lỗi không được lưu vào cache, và trang tìm
+  // kiếm tự quay về cách đọc từng danh mục để báo "một số kết quả chưa tải được".
+  for (let i = 0; i < visible.length; i += SEARCH_INDEX_BATCH_SIZE) {
+    const batch = visible.slice(i, i + SEARCH_INDEX_BATCH_SIZE);
+    const lists = await Promise.all(batch.map((category) => listPublicCategoryProducts(category, { snapshot, today })));
+    batch.forEach((category, j) => { productsByCategory[category.slug] = lists[j]; });
+  }
+  return { categories: snapshot.categories, suppliers: snapshot.suppliers, productsByCategory };
+}
+
+const getCachedPublicSearchIndex = unstable_cache(
+  async (today: string) => buildPublicSearchIndex(today),
+  ["public-search-index-v1"],
+  { revalidate: 60, tags: ["public-catalog"] },
+);
+
+export async function loadPublicSearchIndex(): Promise<PublicSearchIndex> {
+  return getCachedPublicSearchIndex(new Date().toISOString().slice(0, 10));
+}
+
 export type PublicCategoryFamilyProduct = PublicCategoryProduct & {
   /** Danh mục lá chứa sản phẩm: dùng cho đường dẫn sản phẩm và các lượt đếm. */
   categorySlug: string;

@@ -238,6 +238,12 @@ const searchCatalog = {
     if (failure === `category:${c.slug}`) throw new Error("simulated category failure");
     return productCatalog.listPublicCategoryProducts(c, opts);
   },
+  // Thật: một danh mục lỗi làm hỏng lượt dựng chỉ mục (không được cache), trang quay về
+  // đọc từng danh mục và báo kết quả chưa đầy đủ.
+  loadPublicSearchIndex: async () => {
+    if (failure.startsWith("category:")) throw new Error("simulated category failure while building the search index");
+    return productCatalog.loadPublicSearchIndex();
+  },
 };
 const searchFilters = load("../lib/public/search-filters.ts", {
   "@/lib/product-attributes": attributes,
@@ -250,6 +256,7 @@ const page = load("../app/(public)/search/page.tsx", {
   "next/link": { default: Link },
   "lucide-react": icons,
   "@/components/ui": { Breadcrumbs: () => null },
+  "@/lib/site": { pageTitle: (title) => `${title} · Vexim Trade` },
   "@/components/public-product-card": { cardTitleGrades: (p) => [...(p?.cardGrades ?? []), ...(p?.grade ? [p.grade] : [])], PublicProductCard: Card },
   "@/components/public/search-filter-form": { SearchFilterForm: ({ children }) => React.createElement("form", { action: "/search", method: "get" }, children) },
   "@/components/public/search-supplier-card": supplierCard,
@@ -507,7 +514,8 @@ for (const query of ["private-spec-marker", "private-review-marker", "private-ra
 }
 html = await render({ q: "W320", cat: "draft-category", lang: "vi" });
 assert.match(html, /không tồn tại hoặc chưa được công khai/);
-assert.equal(counts.products ?? 0, 0, "Invalid/private categories never silently fall back to all results");
+// The keyword-independent search index may be read (it is cached), but its rows must not leak in.
+assert.equal(ids(html).length, 0, "Invalid/private categories never silently fall back to all results");
 html = await render({ q: ["W320", "rice"], cat: ["cashew", "rice"], lang: ["vi", "en"] });
 assert.equal(ids(html).length, 4, "Repeated parameters use their first value safely");
 assert.match(html, /Kết quả tìm kiếm/);
@@ -540,6 +548,43 @@ failure = "certificate";
 html = await render({ q: "W320", cat: "cashew", lang: "vi" });
 assert.match(html, /Một số kết quả chưa tải được/, "A failed certificate page cannot silently change the existing ranking");
 failure = "";
+
+// Một nhóm cha gộp tên các nhóm con ("Coffee, Tea & Beverages") không được kéo sản phẩm
+// của nhóm con này vào khi người mua gõ tên nhóm con kia.
+{
+  const added = [
+    category("coffee-tea-specialty-beverages", "Coffee, Tea & Beverages", "Cà phê, Trà & Đồ uống"),
+    category("coffee", "Coffee", "Cà phê", "coffee-tea-specialty-beverages"),
+    category("tea", "Tea", "Trà", "coffee-tea-specialty-beverages"),
+    category("cinnamon-star-anise", "Cinnamon and star anise", "Quế và hồi"),
+    category("cassia-cinnamon", "Cassia cinnamon", "Quế", "cinnamon-star-anise"),
+    category("star-anise", "Star anise", "Hoa hồi", "cinnamon-star-anise"),
+  ];
+  const addedProducts = [
+    product("bev-robusta", "alpha", "coffee", "Robusta roasted beans"),
+    product("bev-black-tea", "beta", "tea", "Black tea OP"),
+    product("spice-cassia", "alpha", "cassia-cinnamon", "Split cassia bark"),
+    product("spice-anise", "beta", "star-anise", "Autumn crop whole flower"),
+  ];
+  categories.push(...added);
+  rows.push(...addedProducts);
+  media.push(...addedProducts.map((p) => mediaFor(p)));
+  const found = async (q, lang = "en") => new Set(ids(await render({ q, lang })));
+  assert.deepEqual(await found("coffee"), new Set(["bev-robusta"]), "Searching coffee does not return tea through the parent name");
+  assert.deepEqual(await found("cà phê", "vi"), new Set(["bev-robusta"]), "Searching cà phê does not return trà through the parent name");
+  assert.deepEqual(await found("tea"), new Set(["bev-black-tea"]), "Searching tea does not return coffee through the parent name");
+  assert.deepEqual(await found("beverages"), new Set(["bev-robusta", "bev-black-tea"]), "The parent-only word still finds every child");
+  assert.deepEqual(await found("đồ uống", "vi"), new Set(["bev-robusta", "bev-black-tea"]), "The Vietnamese parent-only word still finds every child");
+  assert.deepEqual(await found("cinnamon"), new Set(["spice-cassia"]), "Searching cinnamon does not return star anise");
+  assert.deepEqual(await found("anise"), new Set(["spice-anise"]), "Searching anise does not return cassia");
+  assert.deepEqual(await found("quế", "vi"), new Set(["spice-cassia"]), "Searching quế does not return hoa hồi");
+  html = await render({ q: "coffee", cat: "coffee-tea-specialty-beverages" });
+  assert.deepEqual(new Set(ids(html)), new Set(["bev-robusta"]), "The same rule applies inside a selected parent category");
+  categories.splice(categories.length - added.length, added.length);
+  rows = rows.filter((row) => !addedProducts.includes(row));
+  media = media.filter((asset) => !addedProducts.some((p) => asset.product_id === p.id));
+}
+
 const sharedSnapshot = await productCatalog.loadPublicProductCatalogSnapshot({ categories });
 counts = {};
 const [concurrentA, concurrentB] = await Promise.all([

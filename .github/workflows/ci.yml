@@ -61,6 +61,8 @@ jobs:
             command: check:product-static
           - label: Cây danh mục và ô chọn ngành hàng
             command: check:category-tree
+          - label: Tìm kiếm sản phẩm và nhà cung cấp
+            command: check:search-results
     steps:
       - uses: actions/checkout@v4
 
