@@ -23,7 +23,7 @@ import { productEditorMessages, type ProductEditorMessages } from "@/lib/i18n/po
  * ô ẩn `attribute_pool` để server không làm mất.
  */
 export function SupplierAttributeInputs({ officialFields, supplierFields = [], values, disabled = false, onCommit,
-  copy = productEditorMessages.vi.shared.attributes }: {
+  copy = productEditorMessages.vi.shared.attributes, columns = 1 }: {
   officialFields: ProductAttributeField[];
   supplierFields?: ProductAttributeField[];
   values?: Record<string, unknown> | null;
@@ -36,6 +36,8 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
   onCommit?: (poolJson: string, draft: Record<string, string>) => void;
   /** Nhãn hiển thị. CRM không truyền nên dùng bản tiếng Việt. */
   copy?: ProductEditorMessages["shared"]["attributes"];
+  /** 2 = xếp lưới 2 cột (danh mục có nhiều ô phân loại, khối nằm riêng một hàng). */
+  columns?: 1 | 2;
 }) {
   const [pool] = useState<ProductAttributeField[]>(supplierFields);
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(
@@ -55,7 +57,7 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
   const labelFor = (field: ProductAttributeField) =>
     visible.length === 1 ? copy.classification : field.label;
 
-  return <div className="space-y-3">
+  return <div className={columns === 2 ? "grid gap-3 sm:grid-cols-2" : "space-y-3"}>
     {visible.map((field) => <div key={field.key} className="min-w-0">
       <label className="mb-1.5 block text-[12.5px] font-semibold text-ink-700" htmlFor={`attribute-${field.key}`}>
         {labelFor(field)}
@@ -71,7 +73,7 @@ export function SupplierAttributeInputs({ officialFields, supplierFields = [], v
           onChange={(event) => set(field.key, event.target.value)} />}
     </div>)}
 
-    {hiddenWithValues.map((field) => <div key={field.key} className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-950">
+    {hiddenWithValues.map((field) => <div key={field.key} className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-950">
       <p>{fill(copy.hiddenWarn, { label: field.label, value: draft[field.key] })}</p>
       <button type="button" disabled={disabled} className="mt-1 min-h-10 font-semibold text-brand-800 disabled:opacity-50" onClick={() => set(field.key, "")}>{fill(copy.clearValue, { label: field.label })}</button>
     </div>)}

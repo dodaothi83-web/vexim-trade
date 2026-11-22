@@ -171,16 +171,40 @@ assert.match(component, /if \(!fields\.length\) return null;/, 'Không có thôn
 
 /* 9. Trang sản phẩm truyền cả trường CMS và thông số NCC khác đã thêm. */
 const editor = read('../app/supplier/portal/products/product-editor.tsx');
-assert.match(editor, /selectedCategory && \(officialAttributeFields\.length > 0 \|\| supplierAttributeFields\.length > 0\)/,
-  'Danh mục chưa khai thông số thì không hiện khối trống ở bước 1');
+assert.match(editor, /!selectedCategory \|\| attributeFieldCount === 0 \? "none"/,
+  'Danh mục chưa khai thông số thì không hiện khối trống');
 assert.match(editor, /supplierFields=\{supplierAttributeFields\}/);
 assert.match(editor, /officialFields=\{officialAttributeFields\}/);
 assert.match(editor, /const officialAttributeFields = nonGradeProductFields\(fieldsFor\(activeCategory\)\)/);
 assert.match(editor, /const supplierAttributeFields = nonGradeProductFields\(supplierFieldsFor\(activeCategory\)\)/);
-// Ô phân loại nằm bên trái ô năng lực mỗi tháng, cùng một hàng (sm: 2 cột).
-const specGrid = editor.slice(editor.indexOf('<SupplierAttributeInputs') - 600, editor.indexOf('name="monthly_capacity"'));
-assert.match(specGrid, /grid border-t border-ink-100 sm:grid-cols-2/);
-assert.ok(editor.indexOf('<SupplierAttributeInputs') < editor.indexOf('name="monthly_capacity"'), 'Phân loại đứng trước (bên trái) năng lực');
+// Một ô phân loại: bên trái năng lực mỗi tháng cùng một hàng; nhiều ô: hàng riêng lưới 2 cột ngay trên.
+const capIdx = editor.indexOf('name="monthly_capacity"');
+const specBlock = editor.slice(editor.indexOf('{attributeLayout === "row" &&'), capIdx);
+assert.match(specBlock, /attributeLayout === "row" &&\s*<div className="border-t border-ink-100 px-4 py-3 sm:px-5">\{attributeInputs\(2\)\}<\/div>/);
+assert.match(specBlock, /grid border-t border-ink-100 sm:grid-cols-2[\s\S]*attributeLayout === "inline" &&\s*<div className="min-w-0 px-4 py-3 sm:px-5">\{attributeInputs\(1\)\}<\/div>/);
+assert.match(editor, /attributeFieldCount === 1 \? "inline"\s*: "row"/);
 assert.doesNotMatch(editor, /copy\.spec\.attributes/, 'Bỏ nhãn hàng "Thông số riêng ngành hàng"');
+
+/* 10. CRM: chọn thông số bằng tên, mã tự sinh. */
+{
+  const { productFieldKeyFor, productFieldRole } = await import('../lib/product-attributes.ts');
+  assert.equal(productFieldRole('grade'), 'grade');
+  assert.equal(productFieldRole('product_type'), 'grade', 'Mã cũ product_type vẫn là Grade trong bảng giá');
+  assert.equal(productFieldRole('coffee_form'), 'own');
+  const fs3 = [{ key: 'grade' }, { key: 'field2' }];
+  assert.equal(productFieldKeyFor('own', 'Độ rang', fs3, 1), 'do_rang', 'Mã sinh từ tên hiển thị, bỏ dấu');
+  assert.equal(productFieldKeyFor('own', 'Grade', fs3, 1), 'grade_info', 'Ô riêng không bao giờ thành mã Grade');
+  assert.equal(productFieldKeyFor('own', 'Product type', fs3, 1), 'product_type_info');
+  assert.equal(productFieldKeyFor('own', '', fs3, 1), 'field2', 'Chưa đặt tên thì giữ mã tạm');
+  assert.equal(productFieldKeyFor('own', 'Roast', [{ key: 'roast' }, { key: 'x' }], 1), 'roast_2', 'Không trùng trường khác');
+  assert.equal(productFieldKeyFor('grade', 'Tea type', fs3, 1), 'grade');
+  const crm = read('../app/crm/categories/categories-manager.tsx');
+  assert.match(crm, /<Field label="Chọn thông số"/, 'Nhãn ô chọn: Chọn thông số');
+  assert.match(crm, /Phân loại sản phẩm \(ô riêng\)/);
+  assert.match(crm, /Grade trong bảng giá/);
+  assert.doesNotMatch(crm, /Mã trường \(không đổi khi đã có sản phẩm\)/, 'Bỏ ô gõ mã trường');
+  assert.match(crm, /disabled=\{saved\}/, 'Trường đã lưu không đổi loại được');
+  assert.match(crm, /savedKeys=\{\(savedCategory\.product_fields \?\? \[\]\)\.map\(\(f\) => f\.key\)\}/);
+}
 
 console.log('✅ Thông số theo nhóm hàng: ô "Phân loại sản phẩm" gọn cạnh năng lực mỗi tháng, lựa chọn đúng chữ CRM, pool cũ được giữ, không tự lên trang buyer.');
