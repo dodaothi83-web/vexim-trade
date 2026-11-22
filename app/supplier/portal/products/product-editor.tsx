@@ -1149,11 +1149,11 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             <SectionHead index="1" title={copy.category.title} pill={sectionPill("sec-category")} />
             <div>
               <Row label={copy.category.field} required error={!categoryChosen}>
-                {/* Chọn ngành kiểu Shopee: gợi ý theo tên, tìm, duyệt nhóm lớn › nhóm nhỏ, chỉ chọn nhóm cuối. */}
+                {/* Chọn ngành kiểu Shopee: ô 1 dòng trên form, bấm mở cửa sổ (tìm, nhóm lớn › nhóm nhỏ, chỉ chọn nhóm cuối). */}
                 <CategoryPicker options={pickerOptions} value={selectedCategory} onChange={onCategorySelect}
                   name="supplier_category_proposal" disabled={locked || categoryLocked || !categories.length}
                   scope={categoryScope} registerHref="/supplier/portal/categories" suggestFrom={snapshot.name ?? ""}
-                  hasDependentInput={hasCategoryDependentInput} copy={copy.category.picker} invalid={!categoryChosen} />
+                  hasDependentInput={hasCategoryDependentInput} copy={copy.category.picker} invalid={!categoryChosen} variant="modal" />
                 {categoryLocked && <input type="hidden" name="supplier_category_proposal" value={selectedCategory} />}
                 {categoryLocked && <p className="mt-1 text-[11.5px] text-ink-500">{copy.category.lockedNote}</p>}
                 {/* Một dòng nổi bật: mỗi tên là một chứng nhận áp dụng theo danh mục đã chọn (11/2026). */}

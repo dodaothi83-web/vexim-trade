@@ -6,6 +6,9 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   CornerDownRight,
   ExternalLink,
   Eye,
@@ -251,6 +254,14 @@ export function CategoriesManager({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  // Ngành tổng hợp đang mở để xem nhóm con. Mặc định thu gọn: bảng chỉ còn các ngành
+  // lớn, nhóm con nằm bên trong ngành của nó (giống cây thư mục), bấm để mở.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const toggleExpanded = (id: string) => setExpanded((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   // Đồng bộ bản nháp với dữ liệu server sau mỗi lần tải lại:
   // - Chưa có bản nháp → tạo từ bản đã lưu.
@@ -439,19 +450,64 @@ export function CategoriesManager({
     };
   }, [initialCategories]);
 
+  const filtering = filter !== "all" || level !== "all" || !!query.trim();
+
+  /*
+   * Dòng hiển thị. Không lọc: chỉ ngành tổng hợp, nhóm con hiện bên trong khi ngành được mở.
+   * Đang lọc/tìm: ngành có nhóm con khớp tự mở ra; nếu chỉ nhóm con khớp thì ngành cha
+   * vẫn hiện (mờ) làm ngữ cảnh. Lọc "Ngành con": danh sách phẳng, ghi rõ thuộc ngành nào.
+   */
   const visibleRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return treeRows.filter(({ cat, depth }) => {
-      if (level === "root" && depth !== 0) return false;
-      if (level === "child" && depth !== 1) return false;
+    const matches = (cat: Category) => {
       if (filter === "published" && !isPublished(cat)) return false;
       if (filter === "draft" && isPublished(cat)) return false;
       if (filter === "noimg" && cat.hero_image) return false;
       if (filter === "incomplete" && missingLabels(cat).length === 0) return false;
       if (q && !`${i18n(cat.name_i18n)} ${cat.slug}`.toLowerCase().includes(q)) return false;
       return true;
-    });
-  }, [treeRows, query, filter, level]);
+    };
+    type Row = { cat: Category; depth: 0 | 1; childCount: number; context?: boolean; open?: boolean; lastChild?: boolean; parentName?: string };
+    const out: Row[] = [];
+    const byId = new Map(initialCategories.map((c) => [c.id, c]));
+    if (level === "child") {
+      for (const r of treeRows) if (r.depth === 1 && matches(r.cat)) {
+        const parent = r.cat.parent_id ? byId.get(r.cat.parent_id) : undefined;
+        out.push({ ...r, parentName: parent ? i18n(parent.name_i18n) || parent.slug : undefined });
+      }
+      return out;
+    }
+    for (let i = 0; i < treeRows.length; i++) {
+      const r = treeRows[i];
+      if (r.depth !== 0) continue;
+      const kids: Category[] = [];
+      for (let j = i + 1; j < treeRows.length && treeRows[j].depth === 1; j++) kids.push(treeRows[j].cat);
+      const selfMatch = matches(r.cat);
+      if (level === "root") { if (selfMatch) out.push({ ...r, open: false }); continue; }
+      const shownKids = filtering ? kids.filter(matches) : kids;
+      if (filtering && !selfMatch && shownKids.length === 0) continue;
+      const open = filtering ? shownKids.length > 0 : expanded.has(r.cat.id);
+      out.push({ ...r, context: filtering && !selfMatch, open });
+      if (open) shownKids.forEach((kid, k) => out.push({ cat: kid, depth: 1, childCount: 0, lastChild: k === shownKids.length - 1 }));
+    }
+    return out;
+  }, [treeRows, query, filter, level, filtering, expanded, initialCategories]);
+
+  // Tóm tắt nhóm con cho dòng ngành cha khi đang thu gọn: còn bao nhiêu nhóm cần bổ sung.
+  const childIssues = useMemo(() => {
+    const map = new Map<string, { incomplete: number; draft: number }>();
+    for (const c of initialCategories) {
+      if (!c.parent_id) continue;
+      const entry = map.get(c.parent_id) ?? { incomplete: 0, draft: 0 };
+      if (missingLabels(c).length > 0) entry.incomplete++;
+      if (!isPublished(c)) entry.draft++;
+      map.set(c.parent_id, entry);
+    }
+    return map;
+  }, [initialCategories]);
+
+  const parentIds = useMemo(() => treeRows.filter((r) => r.depth === 0 && r.childCount > 0).map((r) => r.cat.id), [treeRows]);
+  const allExpanded = parentIds.length > 0 && parentIds.every((id) => expanded.has(id));
 
   const dragEnabled = filter === "all" && level === "all" && !query.trim();
 
@@ -600,6 +656,12 @@ export function CategoriesManager({
               <option value="root">Ngành tổng hợp</option>
               <option value="child">Ngành con</option>
             </select>
+            {parentIds.length > 0 && !filtering && (
+              <Button type="button" onClick={() => setExpanded(allExpanded ? new Set() : new Set(parentIds))} aria-pressed={allExpanded}>
+                {allExpanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />}
+                {allExpanded ? "Thu gọn tất cả" : "Mở tất cả nhóm con"}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -618,16 +680,19 @@ export function CategoriesManager({
               </tr>
             </thead>
             <tbody>
-              {visibleRows.map(({ cat: c, depth, childCount }) => {
+              {visibleRows.map(({ cat: c, depth, childCount, context, open, lastChild, parentName }) => {
                 const published = isPublished(c);
                 const draft = drafts[c.id];
                 const pct = completenessOf(draft ?? fromCategory(c));
                 const missing = missingLabels(c);
                 const st = statsFor(c);
                 const isDirty = dirtyIds.has(c.id);
+                const issues = depth === 0 && childCount > 0 ? childIssues.get(c.id) : undefined;
+                const nested = depth === 1 && level !== "child";
                 return (
                   <tr
                     key={c.id}
+                    id={`cat-row-${c.id}`}
                     draggable={dragEnabled}
                     onDragStart={() => setDragId(c.id)}
                     onDragEnd={() => setDragId(null)}
@@ -646,29 +711,76 @@ export function CategoriesManager({
                       setDragId(null);
                       void onReorder(siblings);
                     }}
-                    className={`${dragId === c.id ? "opacity-40" : ""} hover:bg-ink-50/60`}
+                    className={`${dragId === c.id ? "opacity-40" : ""} ${nested ? "bg-ink-50/50 hover:bg-ink-50" : "hover:bg-ink-50/60"} ${context ? "text-ink-400" : ""}`}
                   >
                     <td className="table-td">
                       <GripVertical className={`h-4 w-4 ${dragEnabled ? "cursor-grab text-ink-300" : "text-ink-200"}`} aria-label={dragEnabled ? "Kéo để sắp xếp" : "Tắt bộ lọc để kéo sắp xếp"} />
                     </td>
                     <td className="table-td">
-                      <div className={`flex items-center gap-3 ${depth === 1 ? "pl-8" : ""}`}>
+                      {nested ? (
+                        /* Nhóm con nằm bên trong ngành cha: đường dọc nối về ngành cha, ảnh nhỏ hơn. */
+                        <div className="relative flex items-center gap-2.5 pl-11">
+                          <span aria-hidden="true" className={`absolute left-[18px] top-[-14px] w-px bg-ink-200 ${lastChild ? "h-[calc(50%+14px)]" : "bottom-[-14px]"}`} />
+                          <span aria-hidden="true" className="absolute left-[18px] top-1/2 h-px w-4 bg-ink-200" />
+                          {c.hero_image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={c.hero_image} alt="" className="h-8 w-11 shrink-0 rounded-md object-cover" />
+                          ) : (
+                            <span className="flex h-8 w-11 shrink-0 items-center justify-center rounded-md border border-dashed border-ink-200 bg-white text-ink-300"><ImageIcon className="h-3.5 w-3.5" /></span>
+                          )}
+                          <span className="min-w-0">
+                            <span className="block truncate text-[13.5px] font-semibold text-ink-800">{i18n(c.name_i18n) || c.slug}</span>
+                            <span className="block truncate text-xs text-ink-500">
+                              /products/{c.slug}
+                              {isDirty && <span className="ml-1.5 font-semibold text-amber-600">● Đang sửa chưa lưu</span>}
+                            </span>
+                          </span>
+                        </div>
+                      ) : (
+                      <div className="flex items-center gap-3">
+                        {depth === 0 && (childCount > 0 && level !== "root" ? (
+                          <button
+                            type="button"
+                            onClick={() => { if (!filtering) toggleExpanded(c.id); }}
+                            disabled={filtering}
+                            aria-expanded={!!open}
+                            aria-label={`${open ? "Thu gọn" : "Mở"} ${childCount} nhóm con của ${i18n(c.name_i18n) || c.slug}`}
+                            title={filtering ? "Đang lọc: nhóm con khớp bộ lọc tự hiện" : undefined}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-500 transition hover:bg-ink-100 hover:text-ink-900 disabled:cursor-default disabled:hover:bg-transparent"
+                          >
+                            <ChevronRight className={`h-4 w-4 transition-transform ${open ? "rotate-90" : ""}`} />
+                          </button>
+                        ) : <span className="w-7 shrink-0" aria-hidden="true" />)}
                         {depth === 1 && <CornerDownRight className="h-4 w-4 shrink-0 text-ink-300" />}
                         {c.hero_image ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={c.hero_image} alt="" className="h-10 w-14 shrink-0 rounded-lg object-cover" />
+                          <img src={c.hero_image} alt="" className={`h-10 w-14 shrink-0 rounded-lg object-cover ${context ? "opacity-50" : ""}`} />
                         ) : (
                           <span className="flex h-10 w-14 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-400"><ImageIcon className="h-4 w-4" /></span>
                         )}
                         <span className="min-w-0">
-                          <span className="block truncate font-semibold text-ink-900">{i18n(c.name_i18n) || c.slug}</span>
+                          <span className={`block truncate font-semibold ${context ? "text-ink-500" : "text-ink-900"}`}>{i18n(c.name_i18n) || c.slug}</span>
                           <span className="block truncate text-xs text-ink-500">
                             /products/{c.slug}
-                            {depth === 0 ? ` · Ngành tổng hợp${childCount ? ` · ${childCount} ngành con` : ""}` : " · Ngành con"}
+                            {depth === 1 ? ` · Ngành con${parentName ? ` của ${parentName}` : ""}` : childCount ? "" : " · Ngành tổng hợp"}
                             {isDirty && <span className="ml-1.5 font-semibold text-amber-600">● Đang sửa chưa lưu</span>}
                           </span>
+                          {depth === 0 && childCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => { if (!filtering) toggleExpanded(c.id); }}
+                              className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2 py-0.5 text-[11.5px] font-semibold text-ink-600 transition hover:border-brand-300 hover:text-brand-700"
+                              aria-expanded={!!open}
+                            >
+                              {childCount} nhóm con
+                              {issues && issues.incomplete > 0 && <span className="font-medium text-amber-600">· {issues.incomplete} cần bổ sung</span>}
+                              {issues && issues.draft > 0 && <span className="font-medium text-ink-400">· {issues.draft} nháp</span>}
+                              {context && <span className="font-normal text-ink-400">· hiện vì nhóm con khớp bộ lọc</span>}
+                            </button>
+                          )}
                         </span>
                       </div>
+                      )}
                     </td>
                     <td className="table-td">
                       {published
@@ -756,7 +868,7 @@ export function CategoriesManager({
           {dragEnabled
             ? "Kéo biểu tượng ⠿ ở đầu dòng để đổi thứ tự hiển thị (chỉ kéo trong cùng nhóm ngành) — hệ thống tự lưu."
             : "Đang lọc/tìm kiếm: tắt bộ lọc để kéo–thả sắp xếp."}
-          {" "}Danh mục con hiển thị thụt cấp dưới ngành tổng hợp.
+          {" "}Nhóm con nằm bên trong ngành tổng hợp: bấm mũi tên hoặc nhãn «nhóm con» để mở.
         </p>
       </div>
 

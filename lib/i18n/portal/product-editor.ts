@@ -202,6 +202,11 @@ const en = {
         registerMore: "Register another group",
         needLeaf: "This category is split into sub-categories. Choose the one that fits the product.",
         confirmChange: "Changing the category clears the grade and specifications entered for the old category. Continue?",
+        triggerPlaceholder: "Click to choose a category...",
+        choose: "Choose",
+        changeShort: "Change",
+        dialogTitle: "Choose a product category",
+        close: "Close",
       },
     },
     basic: {
@@ -813,6 +818,11 @@ const vi: ProductEditorMessages = {
         registerMore: "Đăng ký thêm ngành",
         needLeaf: "Danh mục này đã chia nhóm nhỏ. Chọn nhóm nhỏ phù hợp với sản phẩm.",
         confirmChange: "Đổi danh mục sẽ xoá grade và thông số đã nhập theo danh mục cũ. Tiếp tục?",
+        triggerPlaceholder: "Bấm để chọn ngành hàng...",
+        choose: "Chọn",
+        changeShort: "Đổi",
+        dialogTitle: "Chọn ngành hàng",
+        close: "Đóng",
       },
     },
     basic: {
