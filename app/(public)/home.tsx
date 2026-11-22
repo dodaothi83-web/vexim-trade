@@ -50,6 +50,21 @@ function i18n(
  * Chỉ lấy các danh mục con thực tế được cấu hình trong CRM (parent_id === cat.id),
  * không dùng bất kỳ dữ liệu nhóm con demo cứng nào.
  */
+/** Thẻ danh mục trang chủ hiện tối đa 3 dòng nhóm con để các thẻ cao bằng nhau. */
+const HOME_CARD_CHILD_ROWS = 3;
+
+/**
+ * Chọn nhóm con hiện trên thẻ: ≤3 nhóm thì hiện hết; nhiều hơn thì hiện 2 nhóm đầu
+ * và dòng thứ 3 là "+N nhóm khác" (dẫn về trang danh mục cha). Nhóm đã có sản phẩm
+ * công khai được ưu tiên, giữ nguyên thứ tự CRM trong từng nhóm.
+ */
+function pickHomeCardChildren(children: Category[]): { shown: Category[]; hidden: number } {
+  if (children.length <= HOME_CARD_CHILD_ROWS) return { shown: children, hidden: 0 };
+  const ordered = [...children].sort((a, b) => Number(!!b.public_page_ready) - Number(!!a.public_page_ready));
+  const shown = ordered.slice(0, HOME_CARD_CHILD_ROWS - 1);
+  return { shown, hidden: children.length - shown.length };
+}
+
 function getChildCategories(cat: Category, allCategories: Category[]): Category[] {
   return allCategories
     .filter((c) => c.parent_id === cat.id)
@@ -225,7 +240,7 @@ export default async function HomeContent({
       {productFeedSection}
 
       {/* =====================================================================
-          SECTION 2: DANH MỤC SẢN PHẨM (4 CARD / HÀNG + 3-4 NHÓM CON + XEM THÊM)
+          SECTION 2: DANH MỤC SẢN PHẨM (4 CARD / HÀNG + TỐI ĐA 3 DÒNG NHÓM CON + XEM THÊM)
          ===================================================================== */}
       <section id="categories" className="py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
@@ -289,7 +304,7 @@ export default async function HomeContent({
             {categoriesToRender.map((c) => {
               const href = `/products/${c.slug}`;
               const childCategories = getChildCategories(c, allCategories);
-              const visibleChildren = childCategories.slice(0, 4);
+              const { shown: visibleChildren, hidden: hiddenChildCount } = pickHomeCardChildren(childCategories);
               // Readiness alone does not mean a supplier has a public offer.
               const categoryIds = new Set([c.id, ...childCategories.map((child) => child.id)]);
               const primaryTitle = getCategoryTitle(c, lang);
@@ -349,6 +364,19 @@ export default async function HomeContent({
                                 </Link>
                               </li>
                             ))}
+                            {hiddenChildCount > 0 && (
+                              <li>
+                                <Link
+                                  href={href}
+                                  className="flex items-center gap-2 rounded-lg px-1.5 py-1 text-[13px] font-semibold leading-snug text-brand-700 transition hover:bg-brand-50 hover:text-brand-900"
+                                >
+                                  <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-[13px] font-bold text-brand-600" aria-hidden="true">+</span>
+                                  <span className="line-clamp-1">
+                                    {isVi ? `${hiddenChildCount} nhóm khác` : `${hiddenChildCount} more`}
+                                  </span>
+                                </Link>
+                              </li>
+                            )}
                           </ul>
                         </div>
                       ) : introText ? (
