@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import type { ProductAttributeField } from "@/lib/types";
+import { attributeFieldLabel, attributeOptionLabel } from "@/lib/product-attribute-labels";
 
-/** Optional category-specific inputs. No field ever implies independent verification. */
+/**
+ * Optional category-specific inputs (CRM). No field ever implies independent verification.
+ * Một thông số thì nhãn "Phân loại sản phẩm"; lựa chọn hiện tiếng Việt, giá trị lưu giữ nguyên.
+ */
 export function ProductAttributeInputs({ fields, values, onChange, disabled = false }: {
   fields: ProductAttributeField[];
   values: Record<string, unknown>;
@@ -18,13 +22,11 @@ export function ProductAttributeInputs({ fields, values, onChange, disabled = fa
     const next = { ...current, [key]: value } as Record<string, string>;
     if (onChange) onChange(next); else setLocal(next);
   };
-  return <section className="rounded-xl border border-ink-200 bg-ink-50/50 p-4">
-    <h3 className="font-bold text-ink-900">Thông số theo nhóm hàng</h3>
-    <p className="mt-1 text-xs text-ink-600">Chỉ khai giá trị đúng với sản phẩm này; để trống nếu chưa rõ. Bảng tham khảo của danh mục không tự điền vào đây.</p>
-    <div className="mt-4 grid gap-4 sm:grid-cols-2">{fields.filter((f) => !f.showWhen || current[f.showWhen.key] === f.showWhen.value).map((field) => <label key={field.key} className="block text-sm font-semibold text-ink-800">
-      {field.label}
-      {field.type === "select" ? <select className="input mt-1" name={`attribute:${field.key}`} disabled={disabled} value={String(current[field.key] ?? "")} onChange={(e) => set(field.key, e.target.value)}><option value="">Chưa chọn</option>{field.options.map((value) => <option key={value} value={value}>{value}</option>)}</select>
-        : <input className="input mt-1" name={`attribute:${field.key}`} disabled={disabled} maxLength={200} value={String(current[field.key] ?? "")} onChange={(e) => set(field.key, e.target.value)} />}
-    </label>)}</div>
-  </section>;
+  const visible = fields.filter((f) => !f.showWhen || current[f.showWhen.key] === f.showWhen.value);
+  // Trả về các ô rời (không khung, không tiêu đề) để form cha xếp chung lưới, cạnh ô công suất.
+  return <>{visible.map((field) => <label key={field.key} className="block min-w-0 text-[12.5px]">
+    <span className="mb-1 block font-semibold text-ink-800">{visible.length === 1 ? "Phân loại sản phẩm" : attributeFieldLabel(field.label)}</span>
+    {field.type === "select" ? <select className="input" name={`attribute:${field.key}`} disabled={disabled} value={String(current[field.key] ?? "")} onChange={(e) => set(field.key, e.target.value)}><option value="">Chưa chọn</option>{field.options.map((value) => <option key={value} value={value}>{attributeOptionLabel(value)}</option>)}</select>
+      : <input className="input" name={`attribute:${field.key}`} disabled={disabled} maxLength={200} value={String(current[field.key] ?? "")} onChange={(e) => set(field.key, e.target.value)} />}
+  </label>)}</>;
 }

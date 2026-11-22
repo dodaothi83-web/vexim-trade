@@ -445,13 +445,8 @@ export function ProductForm({
       {tab === "spec" && (
         <section id="product-panel-spec" role="tabpanel" aria-labelledby="product-tab-spec" className="card p-5">
           <h2 className="mb-4 text-sm font-bold text-ink-900">Quy cách &amp; năng lực</h2>
-          {attributeInputFields.length > 0 && (
-            <div className="mb-5">
-              <ProductAttributeInputs fields={attributeInputFields} values={attributes} onChange={setAttributes} />
-            </div>
-          )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Thông tin kỹ thuật bổ sung" hint="Nhập thông tin chưa có trường cấu trúc ở trên." className="sm:col-span-2 lg:col-span-3">
+            <Field label="Thông tin kỹ thuật bổ sung" hint="Nhập thông tin chưa có ô riêng." className="sm:col-span-2 lg:col-span-3">
               <input
                 className="input"
                 value={v("spec")}
@@ -477,6 +472,8 @@ export function ProductForm({
                 />
               </Field>
             </div>
+            {/* Phân loại sản phẩm (thông số theo nhóm hàng) đứng bên trái công suất / tháng. */}
+            <ProductAttributeInputs fields={attributeInputFields} values={attributes} onChange={setAttributes} />
             <Field label="Công suất / tháng">
               <input
                 className="input"
