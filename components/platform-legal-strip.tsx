@@ -2,7 +2,8 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { usePublicPathname } from "@/hooks/use-public-pathname";
 
 import { CookieSettingsButton } from "@/components/cookie-consent";
 import { SocialLinks } from "@/components/social-links";
@@ -156,7 +157,7 @@ function PlatformLegalStripContent({
 }
 
 function LocalizedPlatformLegalStrip(props: PlatformLegalStripProps) {
-  const pathname = usePathname();
+  const pathname = usePublicPathname();
   const searchParams = useSearchParams();
   const vietnameseRoutes = ["/quy-che-hoat-dong", "/dieu-khoan-su-dung", "/chinh-sach-bao-mat", "/thong-tin-chu-quan", "/khieu-nai"];
   const englishRoutes = ["/platform-rules", "/terms-of-service", "/privacy-policy"];

@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, Suspense, useContext, useEffect, useState, useTransition, type ReactNode } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { usePublicPathname } from "@/hooks/use-public-pathname";
 import Link from "next/link";
 import { Heart, Trash2, X } from "lucide-react";
 import { IntroPrompt, type IntroCategoryOption } from "@/components/buyer-introductions";
@@ -46,7 +47,7 @@ function BuyerSavedProductsProviderInner({ children }: { children: ReactNode }) 
   const state = snapshot?.owner === sessionKey ? snapshot.state : null;
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
-  const pathname = usePathname();
+  const pathname = usePublicPathname();
   useEffect(() => {
     const refresh = () => setRetry((value) => value + 1);
     window.addEventListener("focus", refresh);

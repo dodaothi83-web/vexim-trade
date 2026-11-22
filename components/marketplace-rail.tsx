@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { usePublicPathname } from "@/hooks/use-public-pathname";
 import { VeximMessagesIcon, VeximPlatformSupportIcon, VeximSourcingRequestIcon } from "@/components/brand/vexim-icons";
 import { useBuyerEnquiryAuth } from "@/components/buyer-enquiry-auth";
 import { SourcingComposerTrigger } from "@/components/sourcing-composer";
@@ -25,7 +26,7 @@ const COPY = {
  * hệ thống (nhân viên kinh doanh trả lời trong CRM, mục Chat với người mua).
  */
 export function MarketplaceRail() {
-  const pathname = usePathname();
+  const pathname = usePublicPathname();
   const { email, requireBuyer } = useBuyerEnquiryAuth();
   const dialog = useRef<HTMLDialogElement>(null);
   const [chatOpen, setChatOpen] = useState(false);

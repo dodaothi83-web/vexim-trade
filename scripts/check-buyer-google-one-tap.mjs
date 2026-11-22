@@ -195,6 +195,7 @@ try {
   const provider = load('components/buyer-saved-products.tsx', {
     react: hooks, 'react/jsx-runtime': require('react/jsx-runtime'),
     'next/navigation': { usePathname: () => '/rfq', useSearchParams: () => new URLSearchParams() },
+    '@/hooks/use-public-pathname': { usePublicPathname: () => '/rfq' },
     'next/link': { default: () => null },
     'lucide-react': {},
     '@/app/(public)/buyer/account/actions': { getSavedProductsState: () => new Promise((resolve) => queued.push(resolve)) },

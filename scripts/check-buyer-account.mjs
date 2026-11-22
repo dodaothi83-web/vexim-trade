@@ -238,6 +238,7 @@ const removal = load('components/buyer-saved-products.tsx', {
   react: { createContext: () => ({}), useContext: () => savedContext, useState: () => [false, () => {}], useTransition: () => [false, (callback) => { pendingRemoval = callback(); }] },
   'react/jsx-runtime': jsx,
   'next/navigation': { useRouter: () => ({ refresh() {} }) },
+  '@/hooks/use-public-pathname': { usePublicPathname: () => '/' },
   'next/link': { default: icon },
   'lucide-react': { Heart: icon, Trash2: () => React.createElement('svg', { 'data-trash': true }) },
   '@/app/(public)/buyer/account/actions': { setSavedProductAction: async (...args) => { removeArgs = args; return { ok: true }; } },

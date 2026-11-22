@@ -6,6 +6,7 @@ import { getStore } from "@/lib/db";
 import { notifyIndexNow } from "@/lib/seo/indexnow";
 import { nextStatusOptions, statusMeta } from "@/lib/supplier";
 import type { SupplierStatus } from "@/lib/types";
+import { revalidateHomePage } from "@/lib/public/revalidate-home";
 
 /** Publication decision only. Reviewers never submit supplier profile fields with this action. */
 export async function decideSupplierPublicationAction(id: string, status: SupplierStatus) {
@@ -30,7 +31,7 @@ export async function decideSupplierPublicationAction(id: string, status: Suppli
       .catch((error) => console.error("[supplier-publication] audit log failed after decision", error));
     revalidatePath(`/crm/suppliers/${id}`);
     revalidatePath("/crm/suppliers");
-    revalidatePath("/");
+    revalidateHomePage();
     if ((status === "published") !== (supplier.status === "published") && !supplier.is_demo) {
       notifyIndexNow([`/suppliers/${(supplier.slug ?? "").trim() || supplier.id}`]);
     }

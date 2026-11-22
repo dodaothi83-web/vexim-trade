@@ -14,7 +14,7 @@ const db = { rpc: async (name, args) => { requests.push({ name, args }); return 
 const supplierPlans = await import('../lib/supplier-plans.ts');
 const mocks = {
   '@/lib/supplier-plans': supplierPlans,
-  'next/cache': { revalidatePath() {} }, '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => null, recordPlanActivation: async () => {} },  '@/lib/seo/indexnow': { notifyIndexNow() {} }, '@/lib/auth/session': { guard: async () => null, getSession: async () => session },
+  'next/cache': { revalidatePath() {} }, '@/lib/public/revalidate-home': { revalidateHomePage() {} },  '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => null, recordPlanActivation: async () => {} },  '@/lib/seo/indexnow': { notifyIndexNow() {} }, '@/lib/auth/session': { guard: async () => null, getSession: async () => session },
   '@/lib/db': { getStore: () => store }, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
   '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: (v) => v }, '@/lib/crm/badges': { refreshCrmBadges() {} },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent' },

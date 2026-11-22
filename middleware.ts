@@ -11,7 +11,7 @@
  *    được đẩy đi đúng chỗ TRƯỚC khi chạm vào bất kỳ cache nào.
  *
  *    Đây là kiểm tra "lạc quan": chỉ xác minh chữ ký + hạn dùng cookie
- *    (verifySessionToken), KHÔNG tra CSDL để biết tài khoản có bị khoá hay đổi vai
+ *    (verifySessionTokenEdge), KHÔNG tra CSDL để biết tài khoản có bị khoá hay đổi vai
  *    trò hay không — làm vậy trên middleware (chạy mọi request) sẽ chậm hơn chính
  *    vấn đề đang muốn sửa. /crm/dashboard (qua requireSession() ở app/crm/layout.tsx)
  *    vẫn luôn tra CSDL đầy đủ và tự đá về /login nếu phiên không còn hợp lệ, nên
@@ -23,11 +23,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/session-token";
+import { verifySessionTokenEdge } from "@/lib/auth/session-token-edge";
+import { homeRenderPath, publicHomeUrlFor } from "@/lib/public/home-route";
 
-// Cookie phiên dùng HMAC (node:crypto) qua getAuthSecret() (có thể đọc file khoá
-// trên đĩa) — cần Node.js runtime, không chạy được trên Edge runtime mặc định.
-export const runtime = "nodejs";
+// Edge runtime (mặc định của middleware.ts): chạy ở điểm CDN gần người dùng. Trước đây
+// file này đặt runtime = "nodejs" chỉ để xác minh cookie bằng node:crypto — middleware Node
+// chạy ở vùng máy chủ của Functions, nên MỌI request (kể cả trang đã cache sẵn trên CDN)
+// đều phải đi một vòng tới đó trước khi nhận byte đầu tiên. Cookie giờ được xác minh bằng
+// Web Crypto (lib/auth/session-token-edge.ts), cho cùng kết quả với lib/auth/session-token.ts.
+//
+// Tên cookie viết thẳng ở đây (không import từ session-token.ts vì file đó dùng node:crypto
+// và "server-only"); scripts/check-home-static.mjs giữ hai nơi khớp nhau.
+const SESSION_COOKIE = "vxt_session";
 
 const NON_PRODUCTION = ["preview", "development"].includes(process.env.VERCEL_ENV ?? "") || process.env.VEXIM_DEPLOY_ENV === "staging";
 const INDEXABLE = !NON_PRODUCTION && process.env.PUBLIC_SITE_INDEXABLE === "true";
@@ -65,26 +72,55 @@ function isAlwaysNoIndex(pathname: string): boolean {
   return false;
 }
 
-export function middleware(req: NextRequest) {
+/**
+ * "/" không có ?q= / ?cat= → bản trang chủ dựng sẵn theo ngôn ngữ (lib/public/home-route.ts).
+ * Chỉ GET/HEAD: POST (Server Action) vẫn đi đúng route gốc.
+ */
+function homeRewriteTarget(req: NextRequest): URL | null {
+  if (req.method !== "GET" && req.method !== "HEAD") return null;
+  const params = req.nextUrl.searchParams;
+  if (params.get("q")?.trim() || params.get("cat")?.trim()) return null;
+  const target = req.nextUrl.clone();
+  target.pathname = homeRenderPath(params.get("lang") === "vi" ? "vi" : "en");
+  return target;
+}
+
+function homeResponse(req: NextRequest): NextResponse {
+  const host = (req.headers.get("host") ?? "").toLowerCase();
+  if (host.startsWith("crm.") || host.endsWith(".vercel.app")) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+  return finish(req, homeRewriteTarget(req));
+}
+
+export function middleware(req: NextRequest): NextResponse | Promise<NextResponse> {
   const { pathname } = req.nextUrl;
 
   // Giữ đúng phạm vi cũ: chỉ trang chủ "/" từng có hai chuyển hướng này
   // (app/(public)/page.tsx), các trang công khai khác không bị ảnh hưởng.
   if (pathname === "/") {
     const token = req.cookies.get(SESSION_COOKIE)?.value;
-    if (verifySessionToken(token)) {
-      return NextResponse.redirect(new URL("/crm/dashboard", req.url));
-    }
-    const host = (req.headers.get("host") ?? "").toLowerCase();
-    if (host.startsWith("crm.") || host.endsWith(".vercel.app")) {
-      return NextResponse.redirect(new URL("/login", req.url));
-    }
+    // Khách (không có cookie phiên) — tuyệt đại đa số — không phải chờ bước xác minh nào.
+    if (!token) return homeResponse(req);
+    return verifySessionTokenEdge(token).then((session) => session
+      ? NextResponse.redirect(new URL("/crm/dashboard", req.url))
+      : homeResponse(req));
   }
 
+  // Route nội bộ của trang chủ dựng sẵn: không để lộ thành URL thứ hai (trùng nội dung).
+  const publicHome = publicHomeUrlFor(pathname);
+  if (publicHome) return NextResponse.redirect(new URL(publicHome, req.url), 308);
+
+  return finish(req, null);
+}
+
+function finish(req: NextRequest, rewriteTo: URL | null): NextResponse {
+  const { pathname } = req.nextUrl;
   // Root layout đọc x-pathname để đặt <html lang> đúng khu vực (EN công khai / VI nội bộ).
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-pathname", pathname);
-  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  const init = { request: { headers: requestHeaders } };
+  const res = rewriteTo ? NextResponse.rewrite(rewriteTo, init) : NextResponse.next(init);
 
   const noindex = !(LEGAL_CRAWLABLE && LEGAL_PATHS.has(pathname)) && (!INDEXABLE || isAlwaysNoIndex(pathname));
   if (noindex) {

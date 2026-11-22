@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { usePublicPathname } from "@/hooks/use-public-pathname";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { VeximLanguageIcon } from "@/components/brand/vexim-icons";
 
@@ -89,7 +90,7 @@ function HeaderSearchBar({ isVi, isHome }: { isVi: boolean; isHome: boolean }) {
 
 function HeaderControlsInner() {
   const { buyerEmail, buyerCompanyName } = usePublicSession();
-  const pathname = usePathname() || "/";
+  const pathname = usePublicPathname() || "/";
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = searchParams?.get("lang") === "vi" ? "vi" : "en";

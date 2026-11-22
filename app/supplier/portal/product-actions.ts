@@ -38,6 +38,7 @@ import { attachPendingMedia, PENDING_PRODUCT_ID, readPendingMediaForm, type Pend
 import { prepareAplusForSave } from "@/lib/products/aplus-server";
 import { APLUS_MAX_MODULES, type AplusProblem } from "@/lib/products/aplus";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
+import { revalidateHomePage } from "@/lib/public/revalidate-home";
 
 type Result = { ok: boolean; message: string; id?: string; warning?: boolean };
 const text = (form: FormData, key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
@@ -553,7 +554,7 @@ function revalidateProductManagement(id: string) {
   revalidatePath(`/crm/products/${id}/edit`);
   revalidatePath("/products", "layout");
   revalidatePath("/suppliers", "layout");
-  revalidatePath("/");
+  revalidateHomePage();
 }
 
 /** Xóa hẳn nháp do NCC tạo; không được xóa sản phẩm đã duyệt hoặc có lịch sử liên quan. */

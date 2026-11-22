@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
+import { revalidateHomePage } from "@/lib/public/revalidate-home";
 
 /**
  * Kéo–thả sắp xếp danh mục ở màn hình danh sách.
@@ -38,7 +39,7 @@ export async function reorderCategoriesAction(updates: Array<{ id: string; sort_
       }).catch((error) => console.error("[category-reorder] audit log failed", error));
     }
     revalidatePath("/crm/categories");
-    revalidatePath("/");
+    revalidateHomePage();
     return { ok: true, message: "Đã lưu thứ tự danh mục." };
   } catch (error) {
     console.error("[category-reorder] failed", error);

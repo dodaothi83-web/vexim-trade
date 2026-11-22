@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { notifyIndexNow } from "@/lib/seo/indexnow";
+import { revalidateHomePage } from "@/lib/public/revalidate-home";
 
 /** Only public visibility may change; category copy and filters remain with the preparer. */
 export async function decideCategoryPublicationAction(id: string, publish: boolean) {
@@ -35,7 +36,7 @@ export async function decideCategoryPublicationAction(id: string, publish: boole
       after: { status: publish ? "published" : "draft", is_published: publish } })
       .catch((error) => console.error("[category-publication] audit log failed after decision", error));
     revalidatePath("/crm/categories");
-    revalidatePath("/");
+    revalidateHomePage();
     revalidatePath(`/products/${category.slug}`);
     // Báo cả khi ẩn: máy tìm kiếm quét lại sẽ thấy trang đã gỡ.
     if (category.seo_indexable) notifyIndexNow([`/products/${category.slug}`]);
