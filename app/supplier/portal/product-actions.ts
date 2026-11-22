@@ -6,7 +6,7 @@ import { revalidateCategoryPage } from "@/lib/public/revalidate-category";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
-import { allowedSupplierCategories, categoryProposalOptions, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
+import { allowedSupplierCategories, categoryProposalOptions, isProductCategoryChoice, parseProductCategoryProposal } from "@/lib/supplier-portal/category-proposals";
 import {
   attributesFromForm, mergeSupplierAttributePool, sanitizeSupplierAttributePool, saveProductAttributes,
   supplierAttributePoolSignature,
@@ -155,7 +155,12 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     const options = categoryProposalOptions(allCategories);
     // NCC có thể chọn danh mục gần nhất. Phạm vi đăng ký và gợi ý từ khóa
     // chỉ hỗ trợ kiểm tra; staff chốt danh mục khi duyệt.
-    input.supplier_category_proposal = parseProductCategoryProposal(form, options);
+    // Chỉ nhận danh mục lá. Sản phẩm cũ đang nằm ở nhóm lớn (trước khi tách) vẫn
+    // lưu được với đúng danh mục đó; gửi duyệt lại mới bắt chọn nhóm nhỏ.
+    input.supplier_category_proposal = parseProductCategoryProposal(form, options, {
+      current: existing ? existing.reviewed_category_slug || existing.supplier_category_proposal || existing.category : null,
+      invalid: a.categoryInvalid, needLeaf: a.categoryNeedLeaf,
+    });
     input.category = input.supplier_category_proposal;
     if (keepReviewed && existing?.supplier_originated && !existing.reviewed_category_slug)
       return { ok: false, message: a.categoryNotReviewed };
@@ -457,6 +462,10 @@ export async function submitSupplierProductAction(form: FormData): Promise<Resul
       : product.supplier_category_proposal;
     if (!proposal || !options.some((c) => c.slug === proposal))
       return { ok: false, message: a.submitNeedCategory };
+    // Danh mục đã chia nhóm nhỏ: phải chọn nhóm nhỏ trước khi gửi duyệt. Sản phẩm
+    // tạm ẩn giữ danh mục Vexim đã duyệt; staff chuyển nhóm khi duyệt lại.
+    if (product.supplier_review_status !== "paused" && !isProductCategoryChoice(proposal, options))
+      return { ok: false, message: a.categoryNeedLeaf };
     const media = await store.listMedia("product", id);
     if (!media.some((m) => m.kind === "image" && m.storage_path &&
       m.supplier_id === access.supplier.id && (m.created_by === access.user.id || m.audience === "buyer"))) {

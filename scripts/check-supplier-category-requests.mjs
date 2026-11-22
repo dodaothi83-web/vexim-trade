@@ -92,6 +92,7 @@ assert.equal(rc.parseRequestedCategory({ note: "http://evil.example", selected: 
 /* 5. Không có danh mục nào mở: ngành tự khai vẫn gửi được (ca dừa từng treo). */
 const proposals = load("lib/supplier-portal/category-proposals.ts", {
   "./requested-category": rc,
+  "../categories/tree.ts": load("lib/categories/tree.ts", {}),
 });
 const form = () => {
   const data = new Map();

@@ -45,6 +45,9 @@ export function relevantGradeTags(
 ): string[] {
   const mentioned = familiesIn(context ?? "");
   const scope = familiesIn(categorySlug ?? "");
+  // Nhóm nhỏ một ngành (ví dụ "tea" tách từ "Cà phê, Trà & Đồ uống") có thể còn grade
+  // ngành kia chép từ danh mục cha: chỉ giữ grade đúng ngành của nhóm nhỏ.
+  const own = mentioned.size === 0 && scope.size === 1 ? [...scope][0] : null;
   for (const grade of grades) {
     const family = gradeFamily(grade);
     if (family) scope.add(family);
@@ -52,6 +55,7 @@ export function relevantGradeTags(
   return grades.filter((grade) => {
     const family = gradeFamily(grade);
     if (!family) return true;
+    if (own) return family === own;
     if (mentioned.size > 0) return mentioned.has(family);
     return !(strict && scope.size >= 2);
   });

@@ -8,6 +8,8 @@ import { ArrowLeft, ImageIcon, Loader2, Save } from "lucide-react";
 import { createProductAction, updateProductAction } from "@/app/actions";
 import type { Category, Supplier, SupplierProduct } from "@/lib/types";
 import { assignProductCategory } from "@/lib/public/category-assignment";
+import { expandCategoryScope, isLeafCategory } from "@/lib/categories/tree";
+import { CategoryPicker, type CategoryPickerOption } from "@/components/category-picker";
 import { isTestOnlyProduct, supplierPriceConsentCurrent } from "@/lib/public/product-selection";
 import { Button, Field, cx } from "@/components/ui";
 import { useToast } from "@/components/toast";
@@ -119,7 +121,7 @@ export function ProductForm({
   supplier: Supplier;
   product?: SupplierProduct | null;
   quantityEditor?: QuantityEditorData | null;
-  categories: Pick<Category, "id" | "slug" | "name_i18n" | "price_unit" | "moq_units" | "product_fields" | "supplier_product_fields">[];
+  categories: (Pick<Category, "id" | "slug" | "name_i18n" | "price_unit" | "moq_units" | "product_fields" | "supplier_product_fields"> & Partial<Pick<Category, "parent_id" | "status" | "is_published">>)[];
   supplierCategories?: string[];
   /** Trạng thái media cho sản phẩm do staff quản lý. */
   mediaState?: { ready: boolean; shareable: number };
@@ -174,6 +176,14 @@ export function ProductForm({
   const unitMeta = categoryMarketPriceUnit(activeCategory?.slug ?? selectedCategory, activeCategory?.price_unit);
   const suggestedCategory = !selectedCategory && assignedCategory &&
     (!supplierCategories.length || supplierCategories.includes(assignedCategory.slug)) ? assignedCategory : null;
+
+  // Ô chọn danh mục: chỉ nhóm cuối trong phạm vi NCC (được bán nhóm lớn thì được bán nhóm nhỏ) và nhóm lớn chứa chúng.
+  const scopedSlugs = expandCategoryScope(supplierCategories, categories);
+  const scopedLeaves = categories.filter((c) => scopedSlugs.includes(c.slug) && isLeafCategory(c, categories));
+  const categoryPickerOptions: CategoryPickerOption[] = categories
+    .filter((c) => scopedLeaves.includes(c) || scopedLeaves.some((leaf) => leaf.parent_id === c.id))
+    .map((c) => ({ id: c.id, slug: c.slug, label: c.name_i18n.vi || c.name_i18n.en || c.slug, label_en: c.name_i18n.en || null,
+      parent_slug: categories.find((p) => p.id === c.parent_id)?.slug ?? null, leaf: isLeafCategory(c, categories) }));
 
   function onCategoryChange(nextSlug: string) {
     setSelectedCategory(nextSlug);
@@ -422,10 +432,11 @@ export function ProductForm({
 
           {supplierCategories.length > 0 && (
             <Field label="Danh mục cho sản phẩm" hint={"Chỉ chọn trong phạm vi nhà cung cấp đã đăng ký. Đổi danh mục thì danh sách grade đổi theo." + " Nếu tên, quy cách cho thấy ngành khác, hệ thống ưu tiên nhận diện từ sản phẩm; chọn không tự duyệt."}>
-              <select className="input mt-1" value={selectedCategory} onChange={(e) => onCategoryChange(e.target.value)}>
-                <option value="">Tự nhận diện theo tên/quy cách</option>
-                {categories.filter((category) => supplierCategories.includes(category.slug)).map((category) => <option key={category.id} value={category.slug}>{category.name_i18n.en || category.slug}</option>)}
-              </select>
+              <div className="mt-1">
+                <CategoryPicker options={categoryPickerOptions} value={selectedCategory} onChange={onCategoryChange}
+                  suggestFrom={v("name")} emptyLabel="Tự nhận diện theo tên/quy cách"
+                  hasDependentInput={gradeRows.some((row) => !!row.selectedGrade) || Object.values(attributes).some((value) => !!String(value ?? "").trim())} />
+              </div>
             </Field>
           )}
         </section>

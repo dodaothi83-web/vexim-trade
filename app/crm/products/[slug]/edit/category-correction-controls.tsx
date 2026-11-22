@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
 import { correctSupplierProductCategoryAction } from "./review-actions";
+import { CategoryPicker } from "@/components/category-picker";
+import { toPickerOption } from "./review-controls";
 
 /**
  * Cho phép staff đổi danh mục sản phẩm đã được duyệt mà không làm thay đổi
@@ -25,7 +27,8 @@ export function CategoryCorrectionControls({
   const [selectedSlug, setSelectedSlug] = useState(currentSlug ?? "");
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
-  const hasChanges = selectedSlug && selectedSlug !== currentSlug;
+  const hasChanges = selectedSlug && selectedSlug !== currentSlug &&
+    categories.some((c) => c.slug === selectedSlug && c.leaf !== false);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -50,27 +53,21 @@ export function CategoryCorrectionControls({
     <div className="rounded-xl border border-brand-200 bg-brand-50/40 px-4 py-3">
       <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
         <input type="hidden" name="product_id" value={id} />
-        <label className="min-w-0 flex-1 text-sm">
+        <div className="min-w-0 flex-1 basis-72 text-sm">
           <span className="block text-[11px] font-semibold uppercase tracking-wide text-brand-700">Danh mục</span>
-          <select
-            name="reviewed_category_slug"
-            required
-            disabled={busy}
-            className="input mt-1"
-            value={selectedSlug}
-            onChange={(e) => {
-              setSelectedSlug(e.target.value);
-              setResult(null);
-            }}
-          >
-            <option value="" disabled>Chọn danh mục</option>
-            {categories.map((category) => (
-              <option key={category.slug} value={category.slug}>
-                {category.group ? `${category.group} / ${category.label}` : category.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <div className="mt-1">
+            <CategoryPicker
+              name="reviewed_category_slug"
+              options={categories.map(toPickerOption)}
+              value={selectedSlug}
+              disabled={busy}
+              onChange={(slug) => {
+                setSelectedSlug(slug);
+                setResult(null);
+              }}
+            />
+          </div>
+        </div>
         <button
           type="submit"
           disabled={busy || !hasChanges}

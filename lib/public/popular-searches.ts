@@ -27,11 +27,15 @@ export interface PopularSearchChip {
 /** Nhãn thương mại cho những slug quen thuộc. Slug lạ vẫn có chip, dùng tên danh mục. */
 export const POPULAR_SEARCH_LABELS: Record<string, PopularSearchLabel> = {
   cashew: { en: "Cashew W320", vi: "Hạt điều W320" },
+  "raw-cashew-kernels": { en: "Cashew W320", vi: "Hạt điều W320" },
   coffee: { en: "Robusta Coffee", vi: "Cà phê Robusta" },
   pepper: { en: "Black Pepper ASTA", vi: "Hồ tiêu đen ASTA" },
   spices: { en: "Dried spices", vi: "Gia vị khô" },
   "dried-spices": { en: "Dried spices", vi: "Gia vị khô" },
   cinnamon: { en: "Cassia Cinnamon", vi: "Quế ống Yên Bái" },
+  "cassia-cinnamon": { en: "Cassia Cinnamon", vi: "Quế ống Yên Bái" },
+  "star-anise": { en: "Star Anise", vi: "Hoa hồi" },
+  tea: { en: "Vietnamese Tea", vi: "Trà Việt Nam" },
   coconut: { en: "Desiccated Coconut", vi: "Cơm dừa sấy khô" },
   rice: { en: "ST25 Fragrant Rice", vi: "Gạo thơm ST25" },
   seafood: { en: "Frozen seafood", vi: "Thủy hải sản đông lạnh" },

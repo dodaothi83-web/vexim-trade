@@ -68,7 +68,7 @@ const mocks = {
   '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   '@/lib/supplier-portal/product-price-options': { isSupplierPriceCurrency: () => true, isSupplierPriceUnit: () => true, normalizeSupplierPriceCurrency: (s) => s, normalizeSupplierPriceUnit: (s) => s },
   '@/lib/public/product-selection': { supplierPriceConsentCurrent: (s) => !!s.fob_publicly_visible },
-  '@/lib/supplier-portal/category-proposals': { allowedSupplierCategories: (_s, c) => c, categoryProposalOptions: (c) => c, parseProductCategoryProposal: (f) => f.get('supplier_category_proposal') },
+  '@/lib/supplier-portal/category-proposals': { allowedSupplierCategories: (_s, c) => c, categoryProposalOptions: (c) => c, isProductCategoryChoice: () => true, parseProductCategoryProposal: (f) => f.get('supplier_category_proposal') },
   '@/lib/product-attributes': { attributesFromForm: () => ({}), mergeSupplierAttributePool: () => [], sanitizeSupplierAttributePool: () => [], saveProductAttributes: () => ({}), supplierAttributePoolSignature: () => '', effectiveFieldsFor: () => [] },
   '@/lib/supplier-portal/notify': { notifyStaffProductSubmission: async () => 'sent' },
   '@/lib/products/product-description': { sanitizeProductDescriptionForSave: (v) => v },

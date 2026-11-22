@@ -33,6 +33,10 @@ export const PRICE_UNIT_LABEL: Record<PriceUnit, { short: string; long: string }
 export const MARKET_PRICE_UNITS: Record<string, { primary: PriceUnit; secondary?: PriceUnit }> = {
   cashew: { primary: "kg" },
   "cashew-kernels": { primary: "kg" },
+  "raw-cashew-kernels": { primary: "kg" },
+  "roasted-cashews": { primary: "kg" },
+  "coffee-tea-specialty-beverages": { primary: "mt" },
+  tea: { primary: "mt" },
   "cinnamon-star-anise": { primary: "mt" },
   coffee: { primary: "mt" },
   rice: { primary: "mt" },

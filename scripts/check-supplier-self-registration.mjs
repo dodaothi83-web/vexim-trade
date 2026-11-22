@@ -19,7 +19,8 @@ const keys = ['business_license', 'food_safety', 'haccp_or_brc', 'product_certs'
 const isL1BusinessLicense = (key) => key === 'business_license';
 // `category-proposals` nay đọc `../requested-category`; nạp cả hai để hàm thật vẫn chạy.
 const requestedCategory = load('../lib/supplier-portal/requested-category.ts', {});
-const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', { './requested-category': requestedCategory });
+const categoryTree = load('../lib/categories/tree.ts', {});
+const categoryProposals = load('../lib/supplier-portal/category-proposals.ts', { './requested-category': requestedCategory, '../categories/tree.ts': categoryTree });
 const categories = [
   { id: 'c1', slug: 'cashew', parent_id: null, name_i18n: { vi: 'Hạt điều' }, status: 'published', is_published: true, sort_order: 1 },
   { id: 'c2', slug: 'rice', parent_id: null, name_i18n: { vi: 'Gạo' }, status: 'published', is_published: true, sort_order: 2 },
