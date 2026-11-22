@@ -116,6 +116,9 @@ function load(file, mocks) {
 const { SupplierAttributeInputs } = load('../components/supplier-attribute-inputs.tsx', {
   react: React,
   'react/jsx-runtime': jsx,
+  '@/lib/product-attribute-labels': await import('../lib/product-attribute-labels.ts'),
+  '@/lib/i18n/format': await import('../lib/i18n/format.ts'),
+  '@/lib/i18n/portal/product-editor': await import('../lib/i18n/portal/product-editor.ts'),
   '@/lib/product-attributes': {
     SUPPLIER_ATTRIBUTE_FIELD_LIMIT: 12, attributeKeyFromLabel, cleanSupplierAttributeText, mergeAttributeFields: (official, pool) =>
       effectiveFieldsFor({ product_fields: official, supplier_product_fields: pool }),
@@ -127,62 +130,57 @@ const html = renderToStaticMarkup(React.createElement(SupplierAttributeInputs, {
   supplierFields: category.supplier_product_fields,
   values: { do_am: '13,5%' },
 }));
-assert.match(html, /Thông số theo nhóm hàng/);
-assert.match(html, /Chọn đúng thông số cho lô hàng này, nếu không có thông số nào phù hợp nhà cung cấp có thể tự thêm\./,
-  'Mô tả đúng câu yêu cầu, không dài dòng');
-assert.doesNotMatch(html, /viết theo cách nhà máy vẫn gọi/, 'Bỏ mô tả dài cũ');
-assert.doesNotMatch(html, /để nhà cung cấp khác dùng lại/, 'Bỏ mô tả dài cũ');
-assert.doesNotMatch(html, /Thêm thông số chưa có trong danh sách/, 'Bỏ tiêu đề khối thêm thông số');
-assert.doesNotMatch(html, /Ví dụ: Độ ẩm, Tỷ lệ hạt vỡ/, 'Bỏ dòng ví dụ dài');
-assert.doesNotMatch(html, /Chưa có trong danh sách\? Thêm giá trị/, 'Bỏ nút chữ dài dưới ô chọn');
-assert.doesNotMatch(html, /Thêm thông số khác|Tên thông số|Giá trị cho sản phẩm này/,
-  'Không còn ô thêm thông số tự do: độ ẩm/tỷ lệ vỡ đã khai ở ô Quy cách / tiêu chuẩn');
-assert.doesNotMatch(html, /attributeKeyFromLabel|Tên thông số mới/);
-assert.match(html, /Chọn đúng thông số cho lô hàng này, nếu không có thông số nào phù hợp nhà cung cấp có thể tự thêm\./,
-  'Giữ câu mô tả: không phù hợp thì tự thêm giá trị');
-assert.match(html, />Thêm<\/button>/, 'Chữ Thêm ngay dưới ô Grade để bổ sung mã chưa có trong danh sách');
-assert.equal((html.match(/class="input min-w-0 flex-1" name="attribute:product_type"/) ?? []).length, 1,
-  'Ô Grade được nới rộng để chứa ô nhập mới bên cạnh');
-assert.match(html, /name="attribute_pool"/, 'Pool được gửi kèm form');
-assert.match(html, /name="attribute:do_am"/);
+// 2026-11-22: khối gọn, không khung/tiêu đề/ghi chú, không nút "Thêm" giá trị mới.
+assert.doesNotMatch(html, /Thông số theo nhóm hàng|Không bắt buộc|nhà cung cấp có thể tự thêm|không tạo nhãn xác minh/,
+  'Bỏ hết chữ xung quanh ô thông số');
+assert.doesNotMatch(html, />Thêm<\/button>|Giá trị mới/, 'Không còn nút Thêm giá trị mới');
+assert.doesNotMatch(html, /<section/, 'Không còn khung riêng');
+assert.match(html, /name="attribute_pool"/, 'Pool cũ vẫn gửi kèm form để server không làm mất');
+assert.match(html, /name="attribute:do_am"/, 'Thông số NCC đã thêm trước đây vẫn sửa được');
 assert.match(html, /name="attribute:product_type"/);
 assert.match(html, /value="13,5%"/);
-assert.match(html, /Tự thêm/, 'Thông số của NCC khác được đánh dấu');
-assert.match(html, /Cassia powder hạt mịn/, 'Lựa chọn NCC khác đã thêm hiện trong danh sách chọn');
-assert.match(html, /không tạo nhãn xác minh/, 'Nói rõ không phải xác minh');
+assert.match(html, /Cassia powder hạt mịn/, 'Lựa chọn NCC khác đã thêm vẫn hiện trong danh sách chọn');
 
-// Nhóm hàng chưa khai thông số: không hiện khối trống (quy cách đã nằm ở ô bên dưới).
+// Một thông số: nhãn "Phân loại sản phẩm", lựa chọn hiện tiếng Việt, giá trị gửi đi giữ nguyên.
+const coffeeFields = [{ key: 'coffee_form', type: 'select', label: 'Product form', filterable: true,
+  options: ['Green beans', 'Roasted beans', 'Ground coffee', 'Instant coffee'] }];
+const coffeeHtml = renderToStaticMarkup(React.createElement(SupplierAttributeInputs, {
+  officialFields: coffeeFields, supplierFields: [], values: { coffee_form: 'Roasted beans' },
+}));
+assert.match(coffeeHtml, /<label[^>]*for="attribute-coffee_form"[^>]*>Phân loại sản phẩm<\/label>/);
+assert.doesNotMatch(coffeeHtml, /Product form/);
+assert.match(coffeeHtml, /<option value="Green beans">Cà phê nhân \(chưa rang\)<\/option>/);
+assert.match(coffeeHtml, /<option value="Roasted beans" selected="">Cà phê hạt rang<\/option>/);
+assert.match(coffeeHtml, /<option value="Instant coffee">Cà phê hoà tan<\/option>/);
+const coffeeEn = renderToStaticMarkup(React.createElement(SupplierAttributeInputs, {
+  officialFields: coffeeFields, supplierFields: [], values: {}, lang: 'en',
+  copy: { ...(await import('../lib/i18n/portal/product-editor.ts')).productEditorMessages.en.shared.attributes },
+}));
+assert.match(coffeeEn, />Product classification<\/label>/);
+assert.match(coffeeEn, /<option value="Green beans">Green beans<\/option>/);
+
+// Nhóm hàng chưa khai thông số: không hiện gì.
 const noFieldHtml = renderToStaticMarkup(React.createElement(SupplierAttributeInputs, {
   officialFields: [], supplierFields: [], values: {},
 }));
 assert.equal(noFieldHtml, '', 'Danh mục chưa có thông số thì không hiện khối nào');
 
-const lockedHtml = renderToStaticMarkup(React.createElement(SupplierAttributeInputs, {
-  officialFields: category.product_fields, supplierFields: [], values: {}, disabled: true,
-}));
-assert.doesNotMatch(lockedHtml, />Thêm<\/button>/, 'Sản phẩm đang chờ duyệt thì không thêm giá trị mới');
-
-// Chữ "Thêm" dưới ô chọn mở ô nhập ngay cạnh ô đó (không phải link chữ dài).
 const component = read('../components/supplier-attribute-inputs.tsx');
-assert.match(component, /optionFor === field\.key && <>/, 'Ô nhập mới nằm cùng hàng với ô chọn');
-assert.match(component, /className="input min-w-0 flex-1" autoFocus maxLength=\{60\} placeholder="Giá trị mới"/,
-  'Ô nhập mới gọn, có nhãn cho trình đọc màn hình');
-assert.match(component, /className="btn btn-primary btn-sm shrink-0" onClick=\{\(\) => addOption\(field, optionDraft\)\}>Thêm<\/button>/,
-  'Nút Thêm nằm ngay cạnh ô nhập mới');
-assert.doesNotMatch(component, /function addField\(/, 'Đã bỏ hàm thêm thông số tự do');
+assert.doesNotMatch(component, /function addOption\(|function addField\(/, 'Đã bỏ luồng tự thêm giá trị/thông số');
 assert.match(component, /if \(!fields\.length\) return null;/, 'Không có thông số thì không render khối');
-
-
 
 /* 9. Trang sản phẩm truyền cả trường CMS và thông số NCC khác đã thêm. */
 const editor = read('../app/supplier/portal/products/product-editor.tsx');
 assert.match(editor, /selectedCategory && \(officialAttributeFields\.length > 0 \|\| supplierAttributeFields\.length > 0\)/,
   'Danh mục chưa khai thông số thì không hiện khối trống ở bước 1');
-assert.match(editor, /Quy cách \/ tiêu chuẩn/, 'Mô tả dài đã có ô Quy cách / tiêu chuẩn');
 assert.match(editor, /supplierFields=\{supplierAttributeFields\}/);
 assert.match(editor, /officialFields=\{officialAttributeFields\}/);
 assert.match(editor, /const officialAttributeFields = nonGradeProductFields\(fieldsFor\(activeCategory\)\)/);
 assert.match(editor, /const supplierAttributeFields = nonGradeProductFields\(supplierFieldsFor\(activeCategory\)\)/);
-assert.match(editor, /Thông số theo nhóm hàng/, 'Bước 3 đọc lại thông số theo nhãn');
+// Ô phân loại nằm bên trái ô năng lực mỗi tháng, cùng một hàng (sm: 2 cột).
+const specGrid = editor.slice(editor.indexOf('<SupplierAttributeInputs') - 600, editor.indexOf('name="monthly_capacity"'));
+assert.match(specGrid, /grid border-t border-ink-100 sm:grid-cols-2/);
+assert.ok(editor.indexOf('<SupplierAttributeInputs') < editor.indexOf('name="monthly_capacity"'), 'Phân loại đứng trước (bên trái) năng lực');
+assert.doesNotMatch(editor, /copy\.spec\.attributes/, 'Bỏ nhãn hàng "Thông số riêng ngành hàng"');
 
-console.log('✅ Thông số theo nhóm hàng: NCC tự thêm thông số/giá trị còn thiếu, lưu vào danh mục cho NCC khác dùng lại, không tự lên bộ lọc hay trang buyer.');
+console.log('✅ Thông số theo nhóm hàng: ô "Phân loại sản phẩm" gọn cạnh năng lực mỗi tháng, lựa chọn tiếng Việt, pool cũ được giữ, không tự lên trang buyer.');

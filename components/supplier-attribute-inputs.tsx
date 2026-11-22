@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ProductAttributeField } from "@/lib/types";
-import { cleanSupplierAttributeText, mergeAttributeFields } from "@/lib/product-attributes";
+import { mergeAttributeFields } from "@/lib/product-attributes";
+import { attributeFieldLabel, attributeOptionLabel } from "@/lib/product-attribute-labels";
 import { fill } from "@/lib/i18n/format";
 import { productEditorMessages, type ProductEditorMessages } from "@/lib/i18n/portal/product-editor";
 
@@ -14,120 +15,70 @@ import { productEditorMessages, type ProductEditorMessages } from "@/lib/i18n/po
  * như độ ẩm, tỷ lệ hạt vỡ đã có ô "Quy cách / tiêu chuẩn" phía dưới, nên không lặp
  * lại ở đây.
  *
- * Giá trị NCC thêm (mã hàng chưa có trong danh sách) được gửi kèm form trong
- * `attribute_pool` và server lưu vào danh mục để NCC khác dùng lại. Thông số tự thêm
- * không tạo nhãn xác minh và không tự hiện cho buyer; Vexim xem khi duyệt.
+ * Hiển thị gọn: không khung, không tiêu đề/ghi chú, không nút "Thêm" giá trị mới
+ * (chủ sàn yêu cầu 2026-11-22 vì NCC không hiểu cách dùng). Danh mục chỉ có 1 thông
+ * số thì nhãn là "Phân loại sản phẩm"; lựa chọn hiện tiếng Việt nhưng giá trị gửi đi
+ * vẫn là chuỗi gốc Vexim cấu hình (bộ lọc người mua đọc chuỗi đó).
+ *
+ * Thông số NCC đã tự thêm trước đây vẫn được giữ: pool cũ gửi lại nguyên vẹn trong
+ * ô ẩn `attribute_pool` để server không làm mất.
  */
 export function SupplierAttributeInputs({ officialFields, supplierFields = [], values, disabled = false, onCommit,
-  copy = productEditorMessages.vi.shared.attributes }: {
+  copy = productEditorMessages.vi.shared.attributes, lang = "vi" }: {
   officialFields: ProductAttributeField[];
   supplierFields?: ProductAttributeField[];
   values?: Record<string, unknown> | null;
   disabled?: boolean;
   /**
-   * Báo lại pool + giá trị đang chọn mỗi khi thay đổi. Ô ẩn attribute_pool và các ô
-   * attribute:* do state React quản nên giá trị DOM cập nhật SAU sự kiện change;
-   * riêng flow "Thêm giá trị mới" dùng nút type="button" nên không bao giờ làm nổ
-   * event change của form — form cha cần được báo trực tiếp để cờ "có thay đổi"
-   * không bỏ sót (bỏ sót thì thay đổi mất khi chuyển bước mà không tự lưu).
+   * Báo lại pool + giá trị đang chọn mỗi khi thay đổi. Ô attribute:* do state React
+   * quản nên giá trị DOM cập nhật SAU sự kiện change; form cha cần được báo trực tiếp
+   * để cờ "có thay đổi" không bỏ sót.
    */
   onCommit?: (poolJson: string, draft: Record<string, string>) => void;
   /** Nhãn hiển thị. CRM không truyền nên dùng bản tiếng Việt. */
   copy?: ProductEditorMessages["shared"]["attributes"];
+  /** Ngôn ngữ giao diện: tiếng Việt thì dịch nhãn lựa chọn, giá trị lưu không đổi. */
+  lang?: "vi" | "en";
 }) {
-  const [pool, setPool] = useState<ProductAttributeField[]>(supplierFields);
+  const [pool] = useState<ProductAttributeField[]>(supplierFields);
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(
     Object.entries(values ?? {}).filter(([, value]) => typeof value === "string") as [string, string][]));
-  const [optionFor, setOptionFor] = useState<string | null>(null);
-  const [optionDraft, setOptionDraft] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   const fields = useMemo(() => mergeAttributeFields(officialFields, pool), [officialFields, pool]);
   const poolJson = JSON.stringify(pool);
   useEffect(() => { onCommit?.(poolJson, draft); }, [poolJson, draft, onCommit]);
   const visible = fields.filter((field) => !field.showWhen || draft[field.showWhen.key] === field.showWhen.value);
   const hiddenWithValues = fields.filter((field) => field.showWhen && draft[field.showWhen.key] !== field.showWhen.value && draft[field.key]);
-  // Danh mục chưa có thông số nào: không hiện khối trống, quy cách đã nằm ở ô bên dưới.
+  // Danh mục chưa có thông số nào: không hiện gì.
   if (!fields.length) return null;
 
   function set(key: string, value: string) {
     setDraft((previous) => ({ ...previous, [key]: value }));
   }
+  const labelFor = (field: ProductAttributeField) =>
+    visible.length === 1 ? copy.classification : attributeFieldLabel(field.label, lang);
 
-  /** Ghi một giá trị mới vào pool của nhóm hàng để NCC sau chọn lại được. */
-  function addOption(field: ProductAttributeField, raw: string) {
-    const value = cleanSupplierAttributeText(raw, 60);
-    if (!value) { setError(copy.errorChars); return; }
-    if (!field.options.includes(value)) {
-      if (field.options.length + 1 > 20) { setError(copy.errorOptions); return; }
-      setPool((previous) => {
-        const hit = previous.find((item) => item.key === field.key);
-        if (hit && hit.options.length) {
-          return previous.map((item) => item.key === field.key
-            ? { ...item, options: [...item.options, value] } : item);
-        }
-        // Trường CMS: giữ nguyên nhãn của danh mục, chỉ bổ sung lựa chọn.
-        return [...previous.filter((item) => item.key !== field.key),
-          { key: field.key, label: field.label, type: "select", options: [value], supplier_added: true }];
-      });
-    }
-    set(field.key, value);
-    setOptionFor(null);
-    setOptionDraft("");
-    setError(null);
-  }
-
-  return <section className="rounded-xl border border-ink-200 bg-white p-4">
-    <div className="flex flex-wrap items-baseline justify-between gap-2">
-      <h3 className="text-[13.5px] font-bold text-ink-900">{copy.title}</h3>
-      <span className="text-[11px] font-semibold text-ink-500">{fill(copy.optional, { count: fields.length })}</span>
-    </div>
-    <p className="mt-1 text-[12px] leading-5 text-ink-600">
-      {copy.intro}
-    </p>
-
-    {!!visible.length && <div className="mt-3 grid gap-3 sm:grid-cols-2">
-      {visible.map((field) => <div key={field.key} className="min-w-0">
-        <label className="block text-[12px] font-semibold text-ink-800" htmlFor={`attribute-${field.key}`}>
-          {field.label}
-          {field.supplier_added && <span className="ml-1.5 rounded bg-ink-100 px-1 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-500 uppercase">{copy.addedBadge}</span>}
-        </label>
-
-        {field.type === "select"
-          ? <>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <select id={`attribute-${field.key}`} className="input min-w-0 flex-1" name={`attribute:${field.key}`} disabled={disabled}
-                value={draft[field.key] ?? ""} onChange={(event) => set(field.key, event.target.value)}>
-                <option value="">{copy.none}</option>
-                {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-              {optionFor === field.key && <>
-                <input className="input min-w-0 flex-1" autoFocus maxLength={60} placeholder={copy.newValue}
-                  aria-label={fill(copy.newValueAria, { label: field.label })} value={optionDraft}
-                  onChange={(event) => setOptionDraft(event.target.value)}
-                  onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addOption(field, optionDraft); } }} />
-                <button type="button" className="btn btn-primary btn-sm shrink-0" onClick={() => addOption(field, optionDraft)}>{copy.add}</button>
-              </>}
-            </div>
-            {!disabled && optionFor !== field.key && <button type="button"
-              onClick={() => { setOptionFor(field.key); setOptionDraft(""); setError(null); }}
-              className="mt-1 text-[11.5px] font-semibold text-brand-800 hover:underline">{copy.add}</button>}
-          </>
-          : <input id={`attribute-${field.key}`} className="input mt-1" name={`attribute:${field.key}`} disabled={disabled}
-            maxLength={200} placeholder={copy.valuePlaceholder} value={draft[field.key] ?? ""}
-            onChange={(event) => set(field.key, event.target.value)} />}
-      </div>)}
-    </div>}
-
-    {hiddenWithValues.map((field) => <div key={field.key} className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-950">
-      <p>{fill(copy.hiddenWarn, { label: field.label, value: draft[field.key] })}</p>
-      <button type="button" disabled={disabled} className="mt-1 min-h-10 font-semibold text-brand-800 disabled:opacity-50" onClick={() => set(field.key, "")}>{fill(copy.clearValue, { label: field.label })}</button>
+  return <div className="space-y-3">
+    {visible.map((field) => <div key={field.key} className="min-w-0">
+      <label className="mb-1.5 block text-[12.5px] font-semibold text-ink-700" htmlFor={`attribute-${field.key}`}>
+        {labelFor(field)}
+      </label>
+      {field.type === "select"
+        ? <select id={`attribute-${field.key}`} className="input" name={`attribute:${field.key}`} disabled={disabled}
+          value={draft[field.key] ?? ""} onChange={(event) => set(field.key, event.target.value)}>
+          <option value="">{copy.none}</option>
+          {field.options.map((option) => <option key={option} value={option}>{attributeOptionLabel(option, lang)}</option>)}
+        </select>
+        : <input id={`attribute-${field.key}`} className="input" name={`attribute:${field.key}`} disabled={disabled}
+          maxLength={200} placeholder={copy.valuePlaceholder} value={draft[field.key] ?? ""}
+          onChange={(event) => set(field.key, event.target.value)} />}
     </div>)}
-    {error && <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-[11.5px] font-semibold text-rose-800">{error}</p>}
-    {pool.some((field) => field.supplier_added) && <p className="mt-2 text-[10.5px] leading-4 text-ink-500">
-      {copy.note}
-    </p>}
 
-    <input type="hidden" name="attribute_pool" value={JSON.stringify(pool)} />
-  </section>;
+    {hiddenWithValues.map((field) => <div key={field.key} className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-950">
+      <p>{fill(copy.hiddenWarn, { label: attributeFieldLabel(field.label, lang), value: draft[field.key] })}</p>
+      <button type="button" disabled={disabled} className="mt-1 min-h-10 font-semibold text-brand-800 disabled:opacity-50" onClick={() => set(field.key, "")}>{fill(copy.clearValue, { label: attributeFieldLabel(field.label, lang) })}</button>
+    </div>)}
+
+    <input type="hidden" name="attribute_pool" value={poolJson} />
+  </div>;
 }

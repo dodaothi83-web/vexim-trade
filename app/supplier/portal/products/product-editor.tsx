@@ -1387,10 +1387,23 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   {copy.spec.specUseTemplate}
                 </button>}
               </Row>
-              <Row label={copy.spec.capacity}>
-                <input className="input max-w-[280px]" name="monthly_capacity" maxLength={180} placeholder={copy.spec.capacityPlaceholder}
-                  defaultValue={product?.monthly_capacity ?? ""} disabled={locked} />
-              </Row>
+              {/* Phân loại sản phẩm (thông số theo nhóm hàng, ngoài Grade) nằm bên trái năng lực mỗi
+                  tháng trên cùng một hàng. Ô năng lực luôn ở cùng vị trí trong cây React nên đổi danh
+                  mục không làm mất chữ đang gõ. */}
+              <div className="grid border-t border-ink-100 sm:grid-cols-2 [&>div]:border-t-0 [&>div+div]:border-t sm:[&>div+div]:border-l sm:[&>div+div]:border-t-0">
+                {!!selectedCategory && (officialAttributeFields.length > 0 || supplierAttributeFields.length > 0) &&
+                  <div className="min-w-0 px-4 py-3 sm:px-5">
+                    <SupplierAttributeInputs key={selectedCategory} disabled={locked}
+                      officialFields={officialAttributeFields}
+                      supplierFields={supplierAttributeFields}
+                      values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}}
+                      onCommit={onAttributesCommit} copy={shared.attributes} lang={lang === "en" ? "en" : "vi"} />
+                  </div>}
+                <Row label={copy.spec.capacity}>
+                  <input className="input" name="monthly_capacity" maxLength={180} placeholder={copy.spec.capacityPlaceholder}
+                    defaultValue={product?.monthly_capacity ?? ""} disabled={locked} />
+                </Row>
+              </div>
               {/* Vùng nguyên liệu và xuất xứ đầu vào chung một hàng, hai cột đều nhau (điện thoại xếp dọc). */}
               <div className="grid border-t border-ink-100 sm:grid-cols-2 [&>div]:border-t-0 [&>div+div]:border-t sm:[&>div+div]:border-l sm:[&>div+div]:border-t-0">
                 <Row label={copy.spec.region}>
@@ -1401,15 +1414,6 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                     placeholder={copy.spec.originPlaceholder} defaultValue={product?.input_material_origin ?? ""} disabled={locked} />
                 </Row>
               </div>
-              {!!selectedCategory && (officialAttributeFields.length > 0 || supplierAttributeFields.length > 0) &&
-                <Row label={copy.spec.attributes}>
-                  {/* Chỉ hiện thêm khối thông số khi danh mục còn thông số khác ngoài Grade. */}
-                  <SupplierAttributeInputs key={selectedCategory} disabled={locked}
-                    officialFields={officialAttributeFields}
-                    supplierFields={supplierAttributeFields}
-                    values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}}
-                    onCommit={onAttributesCommit} copy={shared.attributes} />
-                </Row>}
               <Row label={copy.spec.services}>
                 <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12.5px] text-ink-700">
                   <label className="inline-flex items-center gap-2"><input type="checkbox" name="oem" value="yes" defaultChecked={product?.oem ?? false} disabled={locked} className="size-4 accent-brand-700" /> {copy.spec.oem}</label>

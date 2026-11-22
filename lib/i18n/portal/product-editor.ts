@@ -504,6 +504,7 @@ const en = {
     regionPlaceholder: "Choose a province or type a specific region",
     attributes: {
       title: "Attributes for this category",
+      classification: "Product classification",
       optional: "Optional · {count} attributes",
       intro: "Pick the attributes that fit this batch. If none fit, you can add your own value.",
       addedBadge: "Added",
@@ -1120,6 +1121,7 @@ const vi: ProductEditorMessages = {
     regionPlaceholder: "Chọn tỉnh/thành hoặc nhập vùng cụ thể",
     attributes: {
       title: "Thông số theo nhóm hàng",
+      classification: "Phân loại sản phẩm",
       optional: "Không bắt buộc · {count} thông số",
       intro: "Chọn đúng thông số cho lô hàng này, nếu không có thông số nào phù hợp nhà cung cấp có thể tự thêm.",
       addedBadge: "Tự thêm",

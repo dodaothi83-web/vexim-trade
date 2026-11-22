@@ -19,6 +19,9 @@ function load(path, mocks) {
 const attributes = load('../lib/product-attributes.ts', {});
 const { SupplierAttributeInputs } = load('../components/supplier-attribute-inputs.tsx', {
   react: React, 'react/jsx-runtime': jsx, '@/lib/product-attributes': attributes,
+  '@/lib/product-attribute-labels': load('../lib/product-attribute-labels.ts', {}),
+  '@/lib/i18n/format': await import('../lib/i18n/format.ts'),
+  '@/lib/i18n/portal/product-editor': await import('../lib/i18n/portal/product-editor.ts'),
 });
 const officialFields = [{ key: 'kind', label: 'Loại', type: 'select', options: ['A', 'B'] },
   { key: 'moisture', label: 'Độ ẩm', type: 'text', options: [], showWhen: { key: 'kind', value: 'A' } }];
