@@ -148,15 +148,24 @@ export function scoreSpam(input: {
  * Kiểm tra MX record của domain. Khi không chạy được DNS (ví dụ Edge runtime hoặc
  * mạng chặn), trả về { ok: true, skipReason } để không chặn nhầm người dùng.
  */
-export async function hasMxRecord(domain: string): Promise<{ ok: boolean; skipReason?: string; exchange?: string }> {
+/** DNS chậm/treo không được giữ người mua chờ: quá hạn này thì cho qua (fail-open). */
+export const MX_LOOKUP_TIMEOUT_MS = 1_500;
+
+export async function hasMxRecord(domain: string, timeoutMs = MX_LOOKUP_TIMEOUT_MS): Promise<{ ok: boolean; skipReason?: string; exchange?: string }> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const records = await dns.resolveMx(domain);
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("dns_timeout")), timeoutMs);
+    });
+    const records = await Promise.race([dns.resolveMx(domain), timeout]);
     if (!records || records.length === 0) return { ok: false };
     records.sort((a, b) => a.priority - b.priority);
     return { ok: true, exchange: records[0]?.exchange };
   } catch (err) {
     // Không block người dùng nếu DNS lookup fail (do runtime/network)
     return { ok: true, skipReason: String((err as Error)?.message ?? "dns_unavailable") };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

@@ -57,10 +57,18 @@ export async function solveFormChallenge(challenge: string): Promise<string | nu
  * Giao diện HOÀN TOÀN ẨN khi chạy bình thường (chỉ còn sr-only cho trình đọc màn
  * hình); một dòng lỗi + thử lại chỉ xuất hiện khi challenge không chạy được.
  */
-export function FormChallenge({ purpose, onChange, messages }: {
+/**
+ * Server nhận token trong 15 phút (lib/security/challenge.ts). Giải lại ngầm trước hạn để người
+ * điền form lâu không bị coi là "thiếu challenge" lúc bấm gửi.
+ */
+export const FORM_CHALLENGE_REFRESH_MS = 12 * 60_000;
+
+export function FormChallenge({ purpose, onChange, messages, refreshKey = 0 }: {
   messages?: { loading: string; success: string; error: string; retry: string };
   purpose: string;
   onChange: (token: string | null) => void;
+  /** Đổi giá trị (ví dụ +1 sau một lần gửi bị từ chối) → lấy và giải challenge mới. */
+  refreshKey?: number;
 }) {
   const onChangeRef = useRef(onChange);
   const [status, setStatus] = useState<ChallengeStatus>("loading");
@@ -77,6 +85,7 @@ export function FormChallenge({ purpose, onChange, messages }: {
 
   useEffect(() => {
     let cancelled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     setStatus("loading");
     onChangeRef.current(null);
 
@@ -100,14 +109,15 @@ export function FormChallenge({ purpose, onChange, messages }: {
         if (!solvedToken) throw new Error("challenge-unsolved");
         onChangeRef.current(solvedToken);
         setStatus("success");
+        refreshTimer = setTimeout(() => { if (!cancelled) setAttempt((value) => value + 1); }, FORM_CHALLENGE_REFRESH_MS);
         return;
       } catch {
         if (!cancelled) fail();
       }
     })();
 
-    return () => { cancelled = true; };
-  }, [attempt, fail, purpose]);
+    return () => { cancelled = true; if (refreshTimer) clearTimeout(refreshTimer); };
+  }, [attempt, fail, purpose, refreshKey]);
 
   const retry = () => setAttempt((value) => value + 1);
 

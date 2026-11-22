@@ -28,7 +28,7 @@ const sentMail = [];
 let failMail = false;
 const followup = load('lib/rfq/direct-followup.ts', {
   'server-only': {}, './channel': channel, './buyer-contact': contact,
-  './targeted-portal': { directInviteStage: (id) => `direct_invite:${id}` },
+  './targeted-portal': { directInviteStage: (id) => `direct_invite:${id}`, DIRECT_INVITE_QUEUED: 'Queued: sending after the response' },
   './outreach': { buildRfqSupplierEmail: ({ rfq, portalUrl }) => ({ subject: `[${rfq.code}] invite`, html: portalUrl, text: portalUrl }) },
   '@/lib/config': { FROM_ADDRESS: 'Vexim <no-reply@vexim.test>' },
   '@/lib/site': { SITE_URL: 'https://vexim.test' },
@@ -233,6 +233,23 @@ const reset = () => { sentMail.length = 0; failMail = false; };
   assert.equal(second.invitesResent, 0);
   assert.equal(second.reminded, 1, 'The reminder follows on a later run');
   assert.equal(sentMail.length, 2);
+}
+
+// 6c) A notice queued for a background send is left alone while that send can still finish;
+//     once stale (the background task was lost) it is resent like any failed notice.
+{
+  reset();
+  const store = makeStore();
+  store.db.rfqs.push(rfq('r11'));
+  store.db.matches.push(match('m11', 'r11', { response_due_at: iso(now + 2 * DAY) }));
+  store.db.messages.push({ id: 'invite-q', rfq_id: 'r11', rfq_match_id: 'm11', kind: 'rfq_outreach',
+    stage: 'direct_invite:m11', status: 'failed', error: 'Queued: sending after the response', created_at: iso(now - 60_000) });
+  const fresh = await followup.runDirectRfqFollowUps(store, { nowMs: now });
+  assert.equal(fresh.invitesResent, 0, 'A queued notice is not duplicated while its background send may still finish');
+  assert.equal(sentMail.length, 0);
+  const stale = await followup.runDirectRfqFollowUps(store, { nowMs: now + followup.DIRECT_INVITE_QUEUE_GRACE_MS });
+  assert.equal(stale.invitesResent, 1, 'A lost background send is recovered by the sweep');
+  assert.equal(sentMail.length, 1);
 }
 
 // 7) Emails are link-only: no request contents, contact, price or reply alias.

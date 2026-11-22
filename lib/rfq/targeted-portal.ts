@@ -11,11 +11,17 @@ import { rfqChannel } from "./channel";
 /** Email log stage of the invitation notice for one match. */
 export const directInviteStage = (matchId: string) => `direct_invite:${matchId}`;
 
+/** Placeholder error on an invitation notice logged before a background send finishes. */
+export const DIRECT_INVITE_QUEUED = "Queued: sending after the response";
+
+/** Runs a notice after the response (lib/rfq/background.ts); omitted → send inline. */
+export type DeferNotice = (label: string, task: () => Promise<unknown>) => Promise<void>;
+
 /** Direct RFQs are delivered inside each named supplier's portal without staff review.
  * Email is a link-only optional notice after the match is persisted, never a fallback.
  * This also supports a buyer naming several suppliers: each gets its own match/thread.
  */
-export async function releaseTargetedQuoteToPortal(store: DataStore, rfq: Rfq): Promise<number> {
+export async function releaseTargetedQuoteToPortal(store: DataStore, rfq: Rfq, options: { deferNotice?: DeferNotice } = {}): Promise<number> {
   if (!["new", "matching", "quoted"].includes(rfq.status) || rfqChannel(rfq) !== "direct") return 0;
   const supplierIds = [...new Set(rfq.preferred_supplier_ids ?? [])];
   if (!supplierIds.length) return 0;
@@ -46,21 +52,38 @@ export async function releaseTargetedQuoteToPortal(store: DataStore, rfq: Rfq): 
     try {
       const email = buildRfqSupplierEmail({ rfq, supplier, deadline,
         portalUrl: `${SITE_URL}/supplier/portal/rfqs/${encodeURIComponent(match.id)}` });
-      const result = await transport({ to: [account.email], from: FROM_ADDRESS, subject: email.subject,
+      const send = () => transport({ to: [account.email], from: FROM_ADDRESS, subject: email.subject,
         html: email.html, text: email.text }).catch((error) => {
         console.error("[rfq] direct portal invitation saved; notification failed", error);
         return null;
       });
-      // Log the outcome: the follow-up sweep resends an invitation whose notice failed.
-      await store.addMessage({
+      const outcome = (result: Awaited<ReturnType<typeof send>>) => ({
+        status: result?.status ?? "failed", provider: result?.provider ?? "resend",
+        error: result?.error ?? (result ? null : "Lỗi khi gọi dịch vụ gửi email"),
+        sent_at: result?.ok ? new Date().toISOString() : null,
+      });
+      const logRow = (fields: ReturnType<typeof outcome>) => ({
         buyer_id: null, supplier_id: supplier.id, rfq_id: rfq.id, rfq_match_id: match.id,
         kind: "rfq_outreach", stage: directInviteStage(match.id), direction: "supplier",
         thread_id: `rfq-${rfq.id}-match-${match.id}`, subject: email.subject, to_emails: [account.email],
         cc_emails: [], bcc_emails: [], body_html: email.html, body_text: email.text, attachments: [],
-        rfc_message_id: null, read_at: null, status: result?.status ?? "failed",
-        provider: result?.provider ?? "resend", error: result?.error ?? (result ? null : "Lỗi khi gọi dịch vụ gửi email"),
-        created_by: null, sent_at: result?.ok ? new Date().toISOString() : null,
+        rfc_message_id: null, read_at: null, created_by: null, ...fields,
       } as unknown as Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null });
+      // Gửi sau khi trả kết quả cho người mua: ghi log TRƯỚC ở trạng thái "failed" (bi quan), tác vụ
+      // nền cập nhật kết quả thật. Tác vụ nền không chạy được thì log vẫn là "failed" và lượt quét
+      // theo dõi (direct-followup) sẽ gửi lại — thông báo không bao giờ mất lặng lẽ.
+      const queued = options.deferNotice
+        ? await store.addMessage(logRow({ status: "failed", provider: "resend", error: DIRECT_INVITE_QUEUED, sent_at: null }))
+          .catch((error) => { console.error("[rfq] invitation notice not queued; sending inline", error); return null; })
+        : null;
+      if (queued && options.deferNotice) {
+        await options.deferNotice("direct portal invitation notice", async () => {
+          await store.updateMessage(queued.id, outcome(await send()));
+        });
+      } else {
+        // Log the outcome: the follow-up sweep resends an invitation whose notice failed.
+        await store.addMessage(logRow(outcome(await send())));
+      }
     } catch (error) { console.error("[rfq] direct portal invitation saved; notification not logged", error); }
   }
   if (sent > 0 && rfq.status === "new") await store.updateRfq(rfq.id, { status: "matching" });

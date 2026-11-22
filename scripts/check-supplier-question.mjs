@@ -60,7 +60,9 @@ const submit = load('../lib/rfq/submit.ts', {
   './auto-match': { createPreferredSupplierMatches: async () => { autoMatches++; return []; } },
   './enrich': { scheduleRfqEnrichment: () => {} },
   './rate-limit': { gcRateLimit() {}, rateLimit: () => ({ ok: true }) },
-  '@/lib/security/challenge': { verifyFormChallenge: ({ token }) => (token ? { ok: true } : { ok: false, reason: 'missing' }) },
+  './background': { afterResponse: async (_label, task) => { await task(); } },
+  './submit-input': { parseSubmitRfqInput: (raw) => ({ ok: true, data: raw }) },
+  '@/lib/security/challenge': { consumeFormChallenge: () => {}, verifyFormChallenge: ({ token }) => (token ? { ok: true } : { ok: false, reason: 'missing' }) },
 });
 const rawQuestion = {
   company: 'Buyer Co', contact_name: 'Jane Doe', email: 'buyer@example.com', consent: true, challenge_token: 'solved-token',

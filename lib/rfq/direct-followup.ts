@@ -9,7 +9,7 @@ import type { EmailMessage, Rfq, RfqMatch } from "@/lib/types";
 import { rfqBuyerContact } from "./buyer-contact";
 import { rfqChannel } from "./channel";
 import { buildRfqSupplierEmail } from "./outreach";
-import { directInviteStage } from "./targeted-portal";
+import { DIRECT_INVITE_QUEUED, directInviteStage } from "./targeted-portal";
 
 /** Direct RFQs have no Vexim desk watching them. When the named supplier declines or
  * stays silent past the response date, the buyer must still learn the outcome, and the
@@ -25,6 +25,8 @@ export const DIRECT_REMINDER_LEAD_MS = DAY;
 export const DIRECT_FOLLOWUP_RFQ_AGE_MS = 45 * DAY;
 /** A failed buyer notice is retried while the outcome is still recent. */
 export const DIRECT_NOTICE_RETRY_MS = 14 * DAY;
+/** A queued invitation notice older than this without a result is treated as failed. */
+export const DIRECT_INVITE_QUEUE_GRACE_MS = 15 * 60_000;
 
 type Mail = { subject: string; html: string; text: string };
 type NewMessage = Omit<EmailMessage, "id" | "created_at" | "sent_at"> & { sent_at?: string | null };
@@ -121,9 +123,13 @@ async function remindSupplier(store: DataStore, rfq: Rfq, match: RfqMatch, histo
 
 /** The invitation itself is already in the portal. Resend only a notice that is on
  * record as failed: an invitation sent before notices were logged is never repeated. */
-async function resendFailedInvite(store: DataStore, rfq: Rfq, match: RfqMatch, history: EmailMessage[]) {
+async function resendFailedInvite(store: DataStore, rfq: Rfq, match: RfqMatch, history: EmailMessage[], now = Date.now()) {
   const stage = directInviteStage(match.id);
-  if (!history.some((m) => m.kind === "rfq_outreach" && m.stage === stage && m.status === "failed")) return "skipped";
+  const failed = history.find((m) => m.kind === "rfq_outreach" && m.stage === stage && m.status === "failed");
+  if (!failed) return "skipped";
+  // Logged as failed just before a background send (lib/rfq/targeted-portal.ts): give that
+  // send time to finish and record the real outcome instead of sending a duplicate.
+  if (failed.error === DIRECT_INVITE_QUEUED && now - Date.parse(failed.created_at) < DIRECT_INVITE_QUEUE_GRACE_MS) return "skipped";
   const [account, supplier] = await Promise.all([store.getUserBySupplierId(match.supplier_id), store.getSupplier(match.supplier_id)]);
   if (!supplier || !account?.is_active || account.role !== "supplier" || account.supplier_id !== match.supplier_id) return "skipped";
   const mail = buildRfqSupplierEmail({ rfq, supplier, deadline: new Date(match.response_due_at!),
@@ -170,7 +176,7 @@ export async function runDirectRfqFollowUps(store: DataStore, options: { nowMs?:
           report.noResponse++;
           count(await notifyBuyerDirectMatch(store, rfq, saved, "no_response", await messages()));
         } else {
-          const invite = await resendFailedInvite(store, rfq, match, await messages());
+          const invite = await resendFailedInvite(store, rfq, match, await messages(), now);
           if (invite === "sent") report.invitesResent++;
           else if (invite === "failed") report.failed++;
           // One email per run: a supplier just (re)invited is not reminded in the same sweep.
