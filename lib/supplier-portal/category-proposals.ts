@@ -2,6 +2,12 @@ import type { Category, Supplier, SupplierCategory, SupplierProduct } from "@/li
 import { parseRequestedCategory } from "./requested-category";
 import { expandCategoryScope } from "../categories/tree.ts";
 
+/**
+ * Trần phạm vi bán hàng: tối đa 5 NGÀNH CHÍNH. Chọn ngành cha là gồm luôn mọi nhóm con
+ * của nó (xem `expandCategoryScope`), nên nhóm con không bao giờ bị tính vào trần này.
+ */
+export const MAX_SUPPLIER_CATEGORIES = 5;
+
 /** Kết quả đọc phạm vi NCC: danh mục đã chọn (quyền) + yêu cầu ngành chưa mở (chỉ là yêu cầu). */
 export type SupplierCategoryProposalParseResult = {
   requested_category_slugs: string[];
@@ -94,22 +100,26 @@ export function parseSupplierCategoryProposals(
     otherEmpty: "Tên ngành có ký tự không đọc được. Dùng chữ và số.",
     nothing: "Chọn ít nhất một danh mục đang mở, hoặc ghi ngành bạn bán.",
   };
-  if (submitted.length > 5 ||
+  if (submitted.length > options.length ||
       submitted.some((v) => typeof v !== "string" || !options.some((c) => c.slug === v)) ||
       new Set(submitted).size !== submitted.length) throw new Error(messages.tooMany);
+  // Nhóm con gửi kèm ngành cha là thừa (ngành cha đã gồm nó): bỏ đi trước khi đếm, để trần
+  // 5 chỉ tính ngành chính và trang cũ còn mở (gửi cả nhóm con) vẫn lưu được.
+  const chosen = registrationSlugs(submitted as string[], options);
+  if (chosen.length > MAX_SUPPLIER_CATEGORIES) throw new Error(messages.tooMany);
 
-  const other = parseRequestedCategory({ note: pageText(form.get("requested_category_other")), selected: submitted as string[] },
+  const other = parseRequestedCategory({ note: pageText(form.get("requested_category_other")), selected: chosen },
     options.map((option) => ({ slug: option.slug, name_i18n: { vi: option.label, en: option.label } })));
   if (!other.ok) throw new Error(other.reason === "too_many" ? messages.otherTooMany
     : other.reason === "too_long" ? messages.otherTooLong
     : other.reason === "already_open" ? messages.otherOpen
     : messages.otherEmpty);
 
-  if (!submitted.length && !other.note) throw new Error(options.length ? messages.nothing : messages.none);
+  if (!chosen.length && !other.note) throw new Error(options.length ? messages.nothing : messages.none);
   // A free-text 'other' field from a stale client must never expand the supplier's allowed scope:
   // the note is stored as a REQUEST only, never as a category link.
   return {
-    requested_category_slugs: submitted as string[],
+    requested_category_slugs: chosen,
     requested_category_other: other.note,
     category_requests: other.requests,
   };
@@ -120,17 +130,50 @@ function pageText(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/**
+ * Danh mục NCC đã đăng ký, đúng như đã lưu (CHƯA bung nhóm con) — đây là thứ NCC chọn và
+ * bị tính vào trần 5. Hồ sơ cũ chưa có `requested_category_slugs` dùng liên kết staff đã chốt.
+ */
+export function registeredSupplierCategorySlugs(
+  supplier: Pick<Supplier, "requested_category_slugs" | "categories_reviewed_at">,
+  options: CategoryProposalOption[], linked: Pick<SupplierCategory, "category_id">[] = [],
+): string[] {
+  const slugs = supplier.requested_category_slugs?.length ? supplier.requested_category_slugs :
+    supplier.categories_reviewed_at ? options.filter((c) => linked.some((row) => row.category_id === c.id)).map((c) => c.slug) : [];
+  return registrationSlugs(slugs.filter((slug) => options.some((c) => c.slug === slug)), options);
+}
+
+/** Bỏ nhóm con đã nằm trong một ngành cha cũng được chọn; giữ nguyên thứ tự. */
+export function registrationSlugs(slugs: readonly string[], options: CategoryProposalOption[]): string[] {
+  const picked = new Set(slugs);
+  return slugs.filter((slug, index) => {
+    const parent = options.find((c) => c.slug === slug)?.parent_slug;
+    return slugs.indexOf(slug) === index && (!parent || !picked.has(parent));
+  });
+}
+
+/**
+ * Danh mục để NCC tích chọn phạm vi: chỉ ngành chính. Nhóm con đi theo ngành cha nên không
+ * hiện thành dòng riêng — trừ khi hồ sơ cũ đã lưu riêng một nhóm con (`keep`), để không mất.
+ */
+export function registrationCategoryOptions(options: CategoryProposalOption[], keep: readonly string[] = []): CategoryProposalOption[] {
+  return options.filter((c) => !c.parent_slug || !options.some((p) => p.slug === c.parent_slug) || keep.includes(c.slug));
+}
+
+/** Phạm vi thực tế: danh mục đã đăng ký + mọi nhóm con đang mở của chúng. */
+export function supplierCategoryScope(slugs: readonly string[], options: CategoryProposalOption[]): string[] {
+  // Được bán ở nhóm lớn thì được bán ở các nhóm nhỏ của nó (khi Vexim tách danh mục).
+  return expandCategoryScope(slugs, options.map((c) => ({
+    id: c.id, slug: c.slug, parent_id: c.parent_slug ? options.find((p) => p.slug === c.parent_slug)?.id ?? null : null,
+  })));
+}
+
 /** Historical confirmed supplier_categories remain selectable until the supplier saves a new selection. */
 export function allowedSupplierCategories(
   supplier: Pick<Supplier, "requested_category_slugs" | "categories_reviewed_at">,
   options: CategoryProposalOption[], linked: Pick<SupplierCategory, "category_id">[] = [],
 ): CategoryProposalOption[] {
-  const slugs = supplier.requested_category_slugs?.length ? supplier.requested_category_slugs :
-    supplier.categories_reviewed_at ? options.filter((c) => linked.some((row) => row.category_id === c.id)).map((c) => c.slug) : [];
-  // Được bán ở nhóm lớn thì được bán ở các nhóm nhỏ của nó (khi Vexim tách danh mục).
-  const scope = expandCategoryScope(slugs, options.map((c) => ({
-    id: c.id, slug: c.slug, parent_id: c.parent_slug ? options.find((p) => p.slug === c.parent_slug)?.id ?? null : null,
-  })));
+  const scope = supplierCategoryScope(registeredSupplierCategorySlugs(supplier, options, linked), options);
   return options.filter((c) => scope.includes(c.slug));
 }
 

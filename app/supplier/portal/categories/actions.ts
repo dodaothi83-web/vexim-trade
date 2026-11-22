@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
-import { categoryProposalOptions, parseSupplierCategoryProposals, productCategorySlug } from "@/lib/supplier-portal/category-proposals";
+import { categoryProposalOptions, parseSupplierCategoryProposals, productCategorySlug, supplierCategoryScope } from "@/lib/supplier-portal/category-proposals";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
 
@@ -17,9 +17,11 @@ export async function saveSupplierCategoriesAction(form: FormData): Promise<{ ok
     const options = categoryProposalOptions(await access.store.listCategories({ publishedOnly: true }));
     const selected = parseSupplierCategoryProposals(form, options).requested_category_slugs;
     const products = await access.store.listProductsBySupplier(access.supplier.id);
+    // Sản phẩm ở nhóm con (vd. "Nhân điều thô") vẫn nằm trong phạm vi khi ngành cha được chọn.
+    const scope = supplierCategoryScope(selected, options);
     const outside = products.find((p) => {
       const slug = productCategorySlug(p);
-      return slug && !selected.includes(slug);
+      return slug && !scope.includes(slug);
     });
     if (outside) return { ok: false, message: fill(copy.productOutside, { name: outside.name }) };
     const before = access.supplier.requested_category_slugs ?? [];

@@ -19,7 +19,11 @@ vm.runInNewContext(ts.transpileModule(source, {
 }).outputText, {
   exports, React, console,
   require: (key) => key === 'react/jsx-runtime' ? jsx : key === 'react' ? React
-    : key === '@/lib/i18n/format' ? loadFormat() : null,
+    : key === '@/lib/i18n/format' ? loadFormat()
+    // Chỉ ngành chính là lựa chọn; mock đúng quy tắc của registrationCategoryOptions.
+    : key === '@/lib/supplier-portal/category-proposals' ? { registrationCategoryOptions: (list, keep = []) =>
+      list.filter((c) => !c.parent_slug || !list.some((p) => p.slug === c.parent_slug) || keep.includes(c.slug)) }
+    : null,
 });
 
 const categories = [
@@ -41,6 +45,10 @@ const chosen = render(['cashew-kernels']);
 assert.match(chosen, /name="requested_category_slugs" value="cashew-kernels"/);
 assert.match(chosen, /Đã chọn 1\/5/);
 assert.match(chosen, /Bỏ cashew-kernels/);
+
+// Nhóm con không phải lựa chọn riêng: chọn ngành cha là gồm nhóm con, không tính vào trần 5.
+const withChild = [...categories, { id: 'k1', slug: 'raw-cashew-kernels', label: 'Nhân điều thô', group: 'Hạt điều nhân', parent_slug: 'cashew-kernels' }];
+assert.doesNotMatch(render([], 'vi', withChild), /Nhân điều thô/, 'Nhóm con không hiện trong ô chọn ngành');
 
 // Đủ 5 thì khoá ô chọn thay vì cho bấm tiếp.
 const five = ['a', 'b', 'c', 'd', 'e'].map((slug) => ({ id: slug, slug, label: slug, group: null }));

@@ -6,9 +6,9 @@ import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import {
-  allowedSupplierCategories,
   categoryProposalOptions,
   productCategorySlug,
+  registeredSupplierCategorySlugs,
 } from "@/lib/supplier-portal/category-proposals";
 import { productReview } from "@/lib/supplier-portal/product-view";
 import { getPortalMessages } from "@/lib/i18n/server";
@@ -23,7 +23,7 @@ export async function generateMetadata() {
 
 /**
  * Phạm vi bán hàng của NCC. Trang chỉ ĐỌC dữ liệu rồi chuyển cho một client component
- * duy nhất; mọi quy tắc (CMS-only, 1-5 danh mục, không bỏ danh mục còn sản phẩm) vẫn
+ * duy nhất; mọi quy tắc (CMS-only, 1-5 ngành chính, không bỏ danh mục còn sản phẩm) vẫn
  * nằm ở `saveSupplierCategoriesAction`.
  */
 export default async function SupplierCategoriesPage() {
@@ -36,7 +36,8 @@ export default async function SupplierCategoriesPage() {
   const options = categoryProposalOptions(await access.store.listCategories({ publishedOnly: true }));
   // Hồ sơ cũ chưa có `requested_category_slugs` chỉ được dùng liên kết staff từng chốt.
   const linked = access.supplier.requested_category_slugs?.length ? [] : await access.store.listSupplierCategories(access.supplier.id);
-  const allowed = allowedSupplierCategories(access.supplier, options, linked).map((c) => c.slug);
+  // Đúng những ngành NCC đã chọn (chưa bung nhóm con): trần 5 chỉ đếm ngành chính.
+  const registered = registeredSupplierCategorySlugs(access.supplier, options, linked);
   const products = options.length ? await access.store.listProductsBySupplier(access.supplier.id) : [];
 
   return <>
@@ -52,7 +53,7 @@ export default async function SupplierCategoriesPage() {
         copy={copy}
         statuses={m.products.statuses}
         options={options}
-        initial={allowed}
+        initial={registered}
         products={products.map((product) => ({
           id: product.id,
           name: product.name,
