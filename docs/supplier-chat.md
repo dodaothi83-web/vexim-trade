@@ -61,3 +61,14 @@ Mã nguồn: `lib/chat/core.ts` (quy tắc), `lib/chat/service.ts`, `lib/chat/vi
 - **Không nhân đôi tin đang gửi** (cả Chat với Vexim) khi lượt hỏi lại về trước lời đáp gửi tin.
 - **Không giật cuộn:** người đọc đang kéo lên xem tin cũ thì tin mới không kéo khung xuống, chỉ hiện nút "Tin nhắn mới".
 - Kiểm tra: `scripts/check-chat-polling.mjs` (trong `check:rfq`).
+
+## Hộp "Chat với người mua" trong CRM hỏi lại nhẹ (2026-11)
+
+Hộp chat của nhân viên (`components/crm/support-inbox.tsx`) làm giống chat người mua ↔ NCC ở trên:
+
+- **Chỉ tải tin mới.** Mở cuộc mới tải đủ (tối đa 500 tin). Các lượt hỏi lại gửi `GET /api/crm/support/{id}?after=<mốc>`: mốc là tin cuối đã lưu lùi 10 giây để không sót tin ghi cùng lúc. Máy chủ (`listSupportMessages(id, 500, after)`) chỉ đọc tin mới hơn mốc và trả `partial: true` kèm bản gọn của cuộc (`supportConversationStatus`): phụ trách, đã xem, online. Bản gọn không tra lại người mua; tên công ty và link hồ sơ CRM giữ nguyên từ lần tải đủ. `?after=` sai định dạng thì bị bỏ qua (tải đủ).
+- **Nhịp hỏi tự điều chỉnh.** 6 giây khi đang trao đổi (2 phút sau lúc mở cuộc, có tin mới, gõ hoặc gửi), 15 giây khi để yên, dừng khi ẩn tab và hỏi ngay khi quay lại. Nhận xử lý, trả về, và gửi tin đều chỉ hỏi phần mới, không tải lại cả cuộc.
+- **Không trùng, không giật cuộn.** Tin ghép theo id. Tin đang gửi được thay bằng bản đã lưu (cùng nội dung, của mình, trong 60 giây), dù lượt hỏi lại về trước hay sau lời đáp gửi tin. Đang kéo lên đọc tin cũ thì tin mới không kéo xuống, mà hiện nút "Tin nhắn mới" (`data-testid="crm-support-new-messages"`).
+- **Nhớ nhãn người mua / nhân viên.** `lib/chat/support.ts` nhớ tên công ty, link hồ sơ CRM và tên nhân viên phụ trách trong bộ nhớ máy chủ: 5 phút nếu tìm thấy, 1 phút nếu chưa có, tối đa 2000 mục. Danh sách cuộc (`/api/crm/support`, 15 giây/lần) vì vậy không tra lại mỗi lượt. Trạng thái online vẫn đọc mỗi lượt. Đổi tên công ty hay tên nhân viên thì sau tối đa 5 phút mới hiện (mỗi máy chủ nhớ riêng).
+- Không cần migration: bảng `support_messages` đã có chỉ mục theo `(conversation_id, created_at)`.
+- Kiểm tra: `scripts/check-crm-support-polling.mjs` (nằm trong `npm run check:rfq`).

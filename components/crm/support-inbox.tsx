@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Headset, Loader2, Send, UserCheck, UserMinus } from "lucide-react";
+import { ArrowDown, ArrowLeft, ExternalLink, Headset, Loader2, Send, UserCheck, UserMinus } from "lucide-react";
 import { cx } from "@/components/ui";
 import { DeliveryTicks, PRESENCE_LABELS, PresenceDot, PresenceLine, deliveryStatus } from "@/components/chat/presence";
 
@@ -24,6 +24,10 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 const LIST_POLL_MS = 15_000;
 const THREAD_POLL_MS = 6_000;
+const THREAD_IDLE_POLL_MS = 15_000;
+const ACTIVE_WINDOW_MS = 2 * 60_000;
+/** Hỏi tin mới lùi chừng này so với tin cuối, phòng tin ghi gần như cùng lúc; trùng bỏ theo id. */
+const OVERLAP_MS = 10_000;
 
 function when(iso: string | null) {
   if (!iso) return "";
@@ -47,7 +51,18 @@ export function SupportInbox({ initialId = null }: { initialId?: string | null }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  const count = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Đang kéo lên đọc tin cũ thì tin mới không giật khung xuống, chỉ hiện nút "Tin nhắn mới".
+  const atBottom = useRef(true);
+  const [unseen, setUnseen] = useState(false);
+  const lastTail = useRef<{ conversation: string | null; message: string | null }>({ conversation: null, message: null });
+  const activeRef = useRef(activeId);
+  const threadRef = useRef(thread);
+  useEffect(() => { activeRef.current = activeId; }, [activeId]);
+  useEffect(() => { threadRef.current = thread; }, [thread]);
+  // Còn trao đổi trong 2 phút (mở cuộc, tin mới, đang gõ, vừa gửi) thì hỏi 6 giây/lần, im lặng thì 15 giây/lần.
+  const lastActivity = useRef(Date.now());
+  const bump = useCallback(() => { lastActivity.current = Date.now(); }, []);
 
   const loadList = useCallback(async () => {
     const res = await fetch("/api/crm/support", { cache: "no-store" }).catch(() => null);
@@ -55,32 +70,87 @@ export function SupportInbox({ initialId = null }: { initialId?: string | null }
     const data = await res.json() as { conversations: ConversationView[]; me: string };
     setList(data.conversations); setMe(data.me);
   }, []);
-  const loadThread = useCallback(async (id: string) => {
-    const res = await fetch(`/api/crm/support/${encodeURIComponent(id)}`, { cache: "no-store" }).catch(() => null);
-    if (!res?.ok) { setError("Chưa tải được cuộc trò chuyện. Tải lại trang để thử lại."); return; }
-    const data = await res.json() as { conversation: ConversationView; messages: MessageView[]; canReply: boolean };
-    setThread((t) => ({ ...data, messages: [...data.messages, ...(t?.conversation.id === id ? t.messages.filter((m) => m.pending) : [])] }));
+  /**
+   * Lần đầu tải đủ cuộc; các lần hỏi lại (`incremental`) chỉ xin tin mới hơn tin cuối đang có
+   * (lùi 10 giây cho chắc, trùng bỏ theo id) và bản gọn của cuộc, giữ tên người mua từ lần đầu.
+   */
+  const loadThread = useCallback(async (id: string, incremental = false) => {
+    const current = threadRef.current;
+    const tail = incremental && current?.conversation.id === id ? [...current.messages].reverse().find((m) => !m.pending) : undefined;
+    const after = tail && Number.isFinite(Date.parse(tail.createdAt)) ? new Date(Date.parse(tail.createdAt) - OVERLAP_MS).toISOString() : null;
+    const res = await fetch(`/api/crm/support/${encodeURIComponent(id)}${after ? `?after=${encodeURIComponent(after)}` : ""}`, { cache: "no-store" }).catch(() => null);
+    // Đã chuyển sang cuộc khác trong lúc chờ: bỏ kết quả cũ.
+    if (activeRef.current !== id) return;
+    if (!res?.ok) { if (!incremental) setError("Chưa tải được cuộc trò chuyện. Tải lại trang để thử lại."); return; }
+    const data = await res.json() as { conversation: ConversationView; messages: MessageView[]; canReply: boolean; partial?: boolean };
+    if (activeRef.current !== id) return;
+    setThread((t) => {
+      const same = t?.conversation.id === id ? t : null;
+      let pending = same ? same.messages.filter((m) => m.pending) : [];
+      // Tin của mình máy chủ đã lưu trước khi lời đáp gửi tin về: thay đúng bản đang gửi, không hiện hai lần.
+      const dropTwins = (incoming: MessageView[]) => incoming.forEach((m) => {
+        const twin = m.mine ? pending.find((p) => p.body === m.body && Date.parse(m.createdAt) >= Date.parse(p.createdAt) - 60_000) : undefined;
+        if (twin) pending = pending.filter((p) => p !== twin);
+      });
+      if (!data.partial) { dropTwins(data.messages); return { ...data, messages: [...data.messages, ...pending] }; }
+      // Phần tin mới của một lượt hỏi cũ về sau khi đã đổi cuộc: không ghép vào đâu.
+      if (!same) return t;
+      const known = new Set(same.messages.map((m) => m.id));
+      const fresh = data.messages.filter((m) => !known.has(m.id));
+      dropTwins(fresh);
+      const conversation = { ...same.conversation, ...data.conversation };
+      if (!fresh.length) return { ...same, conversation, canReply: data.canReply };
+      bump();
+      return { conversation, canReply: data.canReply, messages: [...same.messages.filter((m) => !m.pending), ...fresh, ...pending] };
+    });
     setList((rows) => rows?.map((r) => r.id === id ? { ...r, unread: false } : r) ?? rows);
-  }, []);
+  }, [bump]);
 
+  // Danh sách: 15 giây/lần khi tab đang mở; quay lại tab thì hỏi ngay.
   useEffect(() => {
     void loadList();
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void loadList(); }, LIST_POLL_MS);
-    return () => window.clearInterval(timer);
+    const tick = () => { if (document.visibilityState === "visible") void loadList(); };
+    const timer = window.setInterval(tick, LIST_POLL_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
   }, [loadList]);
   useEffect(() => {
     if (!activeId) { setThread(null); return; }
-    setError(null); setThread(null);
+    setError(null); setThread(null); setUnseen(false); bump();
     void loadThread(activeId);
     const url = new URL(window.location.href); url.searchParams.set("c", activeId); window.history.replaceState(null, "", url);
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void loadThread(activeId); }, THREAD_POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [activeId, loadThread]);
+    let timer = 0;
+    let stopped = false;
+    const delay = () => Date.now() - lastActivity.current < ACTIVE_WINDOW_MS ? THREAD_POLL_MS : THREAD_IDLE_POLL_MS;
+    const tick = async () => {
+      if (document.visibilityState === "visible") await loadThread(activeId, true);
+      if (!stopped) timer = window.setTimeout(tick, delay());
+    };
+    timer = window.setTimeout(tick, delay());
+    const onVisible = () => { if (document.visibilityState === "visible") { bump(); void loadThread(activeId, true); } };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { stopped = true; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [activeId, loadThread, bump]);
+  // Cuộn: mở cuộc thì xuống cuối; tin mới chỉ cuộn khi đang ở cuối hoặc do mình gửi.
   useEffect(() => {
-    const n = thread?.messages.length ?? 0;
-    if (n !== count.current) endRef.current?.scrollIntoView({ block: "end" });
-    count.current = n;
+    const conversation = thread?.conversation.id ?? null;
+    const last = thread?.messages[thread.messages.length - 1] ?? null;
+    const previous = lastTail.current;
+    lastTail.current = { conversation, message: last?.id ?? null };
+    if (!thread || (previous.conversation === conversation && previous.message === (last?.id ?? null))) return;
+    if (previous.conversation !== conversation || !last || last.mine || atBottom.current) {
+      endRef.current?.scrollIntoView({ block: "end" });
+      setUnseen(false);
+    } else {
+      setUnseen(true);
+    }
   }, [thread]);
+  function onScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (atBottom.current) setUnseen(false);
+  }
 
   const rows = useMemo(() => (list ?? []).filter((c) =>
     tab === "all" ? true : tab === "mine" ? c.assignedTo === me : tab === "unassigned" ? !c.assignedTo : c.lastSender === "buyer"), [list, tab, me]);
@@ -97,13 +167,14 @@ export function SupportInbox({ initialId = null }: { initialId?: string | null }
     const res = await fetch(`/api/crm/support/${encodeURIComponent(activeId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) }).catch(() => null);
     setBusy(false);
     if (!res?.ok) { setError(action === "claim" ? "Chưa nhận được cuộc này. Hãy thử lại." : "Chưa trả được cuộc này. Hãy thử lại."); return; }
-    await Promise.all([loadThread(activeId), loadList()]);
+    // Bản gọn đã có người phụ trách mới; không cần tải lại cả cuộc.
+    await Promise.all([loadThread(activeId, true), loadList()]);
   }
 
   async function send() {
     const body = draft.trim();
     if (!body || !activeId || busy) return;
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); bump();
     const temp: MessageView = { id: `tmp-${Date.now()}`, mine: true, body, author: null, pagePath: null, createdAt: new Date().toISOString(), pending: true };
     setThread((t) => t ? { ...t, messages: [...t.messages, temp] } : t);
     setDraft("");
@@ -116,9 +187,11 @@ export function SupportInbox({ initialId = null }: { initialId?: string | null }
       return;
     }
     const data = await res.json().catch(() => null) as { message?: MessageView } | null;
-    // Thay tin tạm bằng tin đã lưu trước khi tải lại, để tin không hiện hai lần.
-    setThread((t) => t ? { ...t, messages: t.messages.flatMap((m) => m.id !== temp.id ? [m] : data?.message ? [data.message] : []) } : t);
-    await Promise.all([loadThread(activeId), loadList()]);
+    // Thay tin tạm bằng tin đã lưu; lượt hỏi lại đã mang tin này về trước thì chỉ bỏ bản tạm.
+    setThread((t) => t ? { ...t, messages: data?.message && t.messages.some((m) => m.id === data.message!.id) ? t.messages.filter((m) => m.id !== temp.id)
+      : t.messages.flatMap((m) => m.id !== temp.id ? [m] : data?.message ? [data.message] : []) } : t);
+    // Phụ trách (tự nhận khi trả lời) và tin mới: hỏi gọn phần mới, không tải lại cả cuộc.
+    await Promise.all([loadThread(activeId, true), loadList()]);
   }
 
   const c = thread?.conversation;
@@ -172,7 +245,8 @@ export function SupportInbox({ initialId = null }: { initialId?: string | null }
               ? <button type="button" onClick={() => void act("claim")} disabled={busy} className="btn btn-soft h-9 px-3 text-[13px]"><UserCheck className="h-4 w-4" />Nhận xử lý</button>
               : <button type="button" onClick={() => void act("release")} disabled={busy} className="btn btn-ghost h-9 px-3 text-[13px]"><UserMinus className="h-4 w-4" />Trả về chưa ai nhận</button>)}
           </header>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink-50/60 px-4 py-4">
+          <div className="relative flex min-h-0 flex-1 flex-col">
+          <div ref={scrollRef} onScroll={onScroll} role="log" className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink-50/60 px-4 py-4">
             {thread.messages.map((m, i, all) => <div key={m.id} className={cx("flex flex-col", m.mine ? "items-end" : "items-start")}>
               {m.author && <span className="mb-0.5 px-1 text-[11px] font-semibold text-ink-500">{m.author}</span>}
               <div className={cx("max-w-[75%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm",
@@ -185,10 +259,15 @@ export function SupportInbox({ initialId = null }: { initialId?: string | null }
             </div>)}
             <div ref={endRef} />
           </div>
+          {unseen && <button type="button" data-testid="crm-support-new-messages" onClick={() => { endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" }); setUnseen(false); }}
+            className="absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-brand-700 px-3.5 py-1.5 text-[12.5px] font-semibold text-white shadow-lg shadow-brand-900/20 hover:bg-brand-800">
+            <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />Tin nhắn mới
+          </button>}
+          </div>
           {thread.canReply ? <form className="border-t border-ink-100 p-3" onSubmit={(e) => { e.preventDefault(); void send(); }}>
             {error && <p role="alert" className="mb-2 rounded-md bg-red-50 px-3 py-1.5 text-[12.5px] text-red-800">{error}</p>}
             <div className="flex items-end gap-2">
-              <textarea id="crm-support-reply" value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} maxLength={4000} placeholder="Trả lời người mua…" aria-label="Trả lời người mua"
+              <textarea id="crm-support-reply" value={draft} onChange={(e) => { setDraft(e.target.value); bump(); }} rows={2} maxLength={4000} placeholder="Trả lời người mua…" aria-label="Trả lời người mua"
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }}
                 className="input min-h-[44px] flex-1 resize-none text-[14px] leading-6" />
               <button type="submit" disabled={!draft.trim() || busy} className="btn btn-primary h-11 shrink-0 px-4 disabled:opacity-60">

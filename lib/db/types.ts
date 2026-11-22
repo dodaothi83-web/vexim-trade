@@ -286,7 +286,8 @@ export interface DataStore {
   createSupportConversation(buyerEmail: string): Promise<SupportConversation>;
   updateSupportConversation(id: string, patch: Partial<Omit<SupportConversation, "id" | "buyer_email" | "created_at">>): Promise<void>;
   listSupportConversations(filter?: { assignedTo?: string | null; limit?: number }): Promise<SupportConversation[]>;
-  listSupportMessages(conversationId: string, limit?: number): Promise<SupportMessage[]>;
+  /** Cũ trước, mới sau. `after` (ISO): chỉ lấy tin mới hơn mốc — hộp chat CRM hỏi lại chỉ tải phần mới. */
+  listSupportMessages(conversationId: string, limit?: number, after?: string): Promise<SupportMessage[]>;
   addSupportMessage(input: Omit<SupportMessage, "id" | "created_at">): Promise<SupportMessage>;
   // Yêu cầu tư vấn dịch vụ Vexim từ cổng nhà cung cấp.
   listSupplierServiceRequests(filter?: { supplierId?: string; status?: SupplierServiceRequest["status"]; limit?: number }): Promise<SupplierServiceRequest[]>;
