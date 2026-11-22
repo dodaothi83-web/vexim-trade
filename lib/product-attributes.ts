@@ -181,3 +181,35 @@ export function publicProductAttributes(category: Pick<Category, "product_fields
   }
   return result;
 }
+
+/* ------------------------------------------------------------------ *
+ * CRM: nhân viên chọn "thông số" bằng tên, không gõ mã kỹ thuật.
+ *
+ * - "grade": trường nằm trong ô Grade của bảng giá (mã `grade`; trường cũ dùng
+ *   `product_type` vẫn được coi là loại này).
+ * - "own": ô "Phân loại sản phẩm" riêng ở mục Quy cách; mã tự sinh từ tên hiển thị,
+ *   không bao giờ trùng `grade`/`product_type` hay trường khác trong danh mục.
+ * ------------------------------------------------------------------ */
+export type ProductFieldRole = "grade" | "own";
+const GRADE_KEYS = new Set(["grade", "product_type"]);
+
+export function productFieldRole(key: string | null | undefined): ProductFieldRole {
+  return GRADE_KEYS.has((key ?? "").trim().toLowerCase()) ? "grade" : "own";
+}
+
+/** Mã cho trường thứ `index` khi đổi loại hoặc đổi tên (chỉ dùng cho trường chưa lưu). */
+export function productFieldKeyFor(role: ProductFieldRole, label: string, fields: readonly Pick<ProductAttributeField, "key">[],
+  index: number): string {
+  const others = new Set(fields.filter((_, j) => j !== index).map((f) => f.key));
+  if (role === "grade") return "grade";
+  const current = fields[index]?.key ?? "";
+  let base = label.trim() ? attributeKeyFromLabel(label) : (GRADE_KEYS.has(current) || !current ? "field" : current);
+  if (GRADE_KEYS.has(base)) base = `${base}_info`;
+  base = base.slice(0, 28);
+  if (!others.has(base) && KEY.test(base)) return base;
+  for (let n = 2; n < 100; n++) {
+    const candidate = `${base}_${n}`;
+    if (!others.has(candidate) && KEY.test(candidate)) return candidate;
+  }
+  return `field_${Date.now().toString(36)}`.slice(0, 32);
+}

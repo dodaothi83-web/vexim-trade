@@ -482,6 +482,15 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       return next;
     });
   }, []);
+  // Số ô phân loại (trường CRM + trường NCC đã thêm trước đây, không tính trùng mã).
+  const attributeFieldCount = new Set([...officialAttributeFields, ...supplierAttributeFields].map((field) => field.key)).size;
+  const attributeLayout: "none" | "inline" | "row" = !selectedCategory || attributeFieldCount === 0 ? "none"
+    : attributeFieldCount === 1 ? "inline" : "row";
+  const attributeInputs = (columns: 1 | 2) => <SupplierAttributeInputs key={selectedCategory} disabled={locked} columns={columns}
+    officialFields={officialAttributeFields}
+    supplierFields={supplierAttributeFields}
+    values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}}
+    onCommit={onAttributesCommit} copy={shared.attributes} />;
 
   const computedLeadTimeDays = (() => {
     if (leadTimeUnit === "on_request") return "";
@@ -1387,18 +1396,15 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   {copy.spec.specUseTemplate}
                 </button>}
               </Row>
-              {/* Phân loại sản phẩm (thông số theo nhóm hàng, ngoài Grade) nằm bên trái năng lực mỗi
-                  tháng trên cùng một hàng. Ô năng lực luôn ở cùng vị trí trong cây React nên đổi danh
-                  mục không làm mất chữ đang gõ. */}
+              {/* Phân loại sản phẩm (thông số theo nhóm hàng, ngoài Grade). Một ô: nằm bên trái
+                  năng lực mỗi tháng trên cùng một hàng. Nhiều ô: một hàng riêng, lưới 2 cột, ngay
+                  trên năng lực. Ô năng lực luôn ở cùng vị trí trong cây React nên đổi danh mục
+                  không làm mất chữ đang gõ. */}
+              {attributeLayout === "row" &&
+                <div className="border-t border-ink-100 px-4 py-3 sm:px-5">{attributeInputs(2)}</div>}
               <div className="grid border-t border-ink-100 sm:grid-cols-2 [&>div]:border-t-0 [&>div+div]:border-t sm:[&>div+div]:border-l sm:[&>div+div]:border-t-0">
-                {!!selectedCategory && (officialAttributeFields.length > 0 || supplierAttributeFields.length > 0) &&
-                  <div className="min-w-0 px-4 py-3 sm:px-5">
-                    <SupplierAttributeInputs key={selectedCategory} disabled={locked}
-                      officialFields={officialAttributeFields}
-                      supplierFields={supplierAttributeFields}
-                      values={product?.supplier_category_proposal === selectedCategory || product?.reviewed_category_slug === selectedCategory ? product?.specs ?? {} : {}}
-                      onCommit={onAttributesCommit} copy={shared.attributes} />
-                  </div>}
+                {attributeLayout === "inline" &&
+                  <div className="min-w-0 px-4 py-3 sm:px-5">{attributeInputs(1)}</div>}
                 <Row label={copy.spec.capacity}>
                   <input className="input" name="monthly_capacity" maxLength={180} placeholder={copy.spec.capacityPlaceholder}
                     defaultValue={product?.monthly_capacity ?? ""} disabled={locked} />

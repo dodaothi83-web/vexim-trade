@@ -45,6 +45,7 @@ import {
   normalizeMoqUnitsConfig,
   type MoqUnit,
 } from "@/lib/products/grade-pricing";
+import { productFieldKeyFor, productFieldRole, type ProductFieldRole } from "@/lib/product-attributes";
 import type {
   Category,
   CategoryColumn,
@@ -1398,10 +1399,10 @@ function CategoryEditor({
               <h2 className="text-base font-bold text-ink-900">Trường dữ liệu cho từng sản phẩm <span className="ml-1 rounded bg-ink-100 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-ink-500">Nâng cao</span></h2>
               <div className="mb-4 mt-2 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-amber-800">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>Thay đổi ở đây làm thay đổi <b>form nhập sản phẩm của nhà cung cấp/nhân viên</b>. Mã trường đã có sản phẩm sử dụng thì không nên đổi; đổi lựa chọn cũ cần đối chiếu lại sản phẩm.{" "}
+                <p>Thay đổi ở đây làm thay đổi <b>form nhập sản phẩm của nhà cung cấp/nhân viên</b>. Đổi tên lựa chọn cũ cần đối chiếu lại sản phẩm đang dùng.{" "}
                   Khai báo ở đây không tự cấp chứng nhận hay tự đăng sản phẩm.</p>
               </div>
-              <ProductFieldsEditor draft={draft} setDraft={setDraft} />
+              <ProductFieldsEditor draft={draft} setDraft={setDraft} savedKeys={(savedCategory.product_fields ?? []).map((f) => f.key)} />
             </section>
           )}
 
@@ -1798,31 +1799,59 @@ function FaqsEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u: (
 }
 
 /** Vexim supplies the options for each commodity; this is NOT the reference-spec table above. */
-function ProductFieldsEditor({ draft, setDraft }: { draft: CategoryDraft; setDraft: (u: (d: CategoryDraft) => CategoryDraft) => void }) {
+function ProductFieldsEditor({ draft, setDraft, savedKeys }: {
+  draft: CategoryDraft; setDraft: (u: (d: CategoryDraft) => CategoryDraft) => void;
+  /** Mã các trường đã lưu: không đổi loại được nữa vì sản phẩm có thể đang dùng. */
+  savedKeys: readonly string[];
+}) {
   const fields = draft.product_fields;
   const update = (i: number, patch: Partial<ProductAttributeField>) => setDraft((d) => ({ ...d,
     product_fields: d.product_fields.map((field, j) => j === i ? { ...field, ...patch } : field),
   }));
+  /** Đổi mã của trường chưa lưu, kéo theo các điều kiện "chỉ hiện khi" đang trỏ tới mã cũ. */
+  const rekey = (i: number, patch: Partial<ProductAttributeField>, role: ProductFieldRole) => setDraft((d) => {
+    const next = d.product_fields.map((field, j) => j === i ? { ...field, ...patch } : field);
+    const oldKey = d.product_fields[i].key;
+    const newKey = productFieldKeyFor(role, next[i].label, next, i);
+    return { ...d, product_fields: next.map((field, j) => j === i ? { ...field, key: newKey }
+      : field.showWhen?.key === oldKey ? { ...field, showWhen: { ...field.showWhen, key: newKey } } : field) };
+  });
   return (
     <div className="space-y-4">
-      {fields.map((field, i) => (
-        <div key={i} className="rounded-xl border border-ink-200 p-4">
+      {fields.map((field, i) => {
+        const saved = savedKeys.includes(field.key);
+        const role = productFieldRole(field.key);
+        // Mỗi danh mục chỉ một trường kiểu Grade (ô Grade trong bảng giá chỉ có một).
+        const gradeTaken = fields.some((other, j) => j !== i && productFieldRole(other.key) === "grade");
+        return <div key={i} className="rounded-xl border border-ink-200 p-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Tên hiển thị (người mua thấy)"><input className="input" value={field.label} onChange={(e) => update(i, { label: e.target.value })} placeholder="Grade / Type / Origin" /></Field>
-            <Field label="Mã trường (không đổi khi đã có sản phẩm)" hint="Chỉ gồm a-z, số, _. Ví dụ: grade, product_type"><input className="input" value={field.key} onChange={(e) => update(i, { key: e.target.value.toLowerCase() })} /></Field>
+            <Field label="Tên hiển thị (người mua thấy)"><input className="input" value={field.label}
+              onChange={(e) => saved || role === "grade" ? update(i, { label: e.target.value }) : rekey(i, { label: e.target.value }, role)}
+              placeholder="Grade / Type / Origin" /></Field>
+            <Field label="Chọn thông số"
+              hint={saved ? "Đã lưu nên không đổi được (sản phẩm có thể đang dùng). Muốn đổi: xoá trường này rồi thêm trường mới."
+                : role === "grade" ? "Nhà cung cấp chọn ở ô Grade trong mục Giá & điều kiện bán."
+                : "Hiện thành ô riêng ở mục Quy cách & năng lực, cạnh Năng lực mỗi tháng."}>
+              <select className="input" value={role} disabled={saved} aria-label="Chọn thông số"
+                onChange={(e) => rekey(i, {}, e.target.value as ProductFieldRole)}>
+                <option value="own">Phân loại sản phẩm (ô riêng)</option>
+                <option value="grade" disabled={gradeTaken && role !== "grade"}>Grade trong bảng giá{gradeTaken && role !== "grade" ? " (danh mục đã có)" : ""}</option>
+              </select>
+            </Field>
             <Field label="Kiểu nhập"><select className="input" value={field.type} onChange={(e) => update(i, { type: e.target.value as ProductAttributeField["type"], options: e.target.value === "text" ? [] : field.options, filterable: false })}><option value="select">Chọn từ danh sách</option><option value="text">Nhập văn bản</option></select></Field>
             {field.type === "select" && <Field label="Lựa chọn (mỗi dòng một giá trị)"><textarea className="input" rows={3} value={field.options.join("\n")} onChange={(e) => update(i, { options: e.target.value.split("\n").map((v) => v.trim()).filter(Boolean) })} placeholder={"W240\nW320\nW450"} /></Field>}
           </div>
           {field.type === "select" && <label className="mt-3 flex items-center gap-2 text-sm text-ink-700"><input type="checkbox" checked={!!field.filterable} onChange={(e) => update(i, { filterable: e.target.checked })} /> Cho người mua lọc theo trường này khi có sản phẩm phù hợp</label>}
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-700">
             <span>Chỉ hiện khi trường trước chọn:</span>
-            <select className="input w-auto" value={field.showWhen?.key ?? ""} onChange={(e) => update(i, { showWhen: e.target.value ? { key: e.target.value, value: "" } : undefined })} aria-label="Trường điều kiện"><option value="">Luôn hiện</option>{fields.slice(0, i).filter((f) => f.type === "select").map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}</select>
+            <select className="input w-auto" value={field.showWhen?.key ?? ""} onChange={(e) => update(i, { showWhen: e.target.value ? { key: e.target.value, value: "" } : undefined })} aria-label="Trường điều kiện"><option value="">Luôn hiện</option>{fields.slice(0, i).filter((f) => f.type === "select").map((f) => <option key={f.key} value={f.key}>{f.label || "Trường chưa đặt tên"}</option>)}</select>
             {field.showWhen && <select className="input w-auto" value={field.showWhen.value} onChange={(e) => update(i, { showWhen: { key: field.showWhen!.key, value: e.target.value } })} aria-label="Giá trị điều kiện"><option value="">Chọn giá trị</option>{fields.find((f) => f.key === field.showWhen?.key)?.options.map((value) => <option key={value} value={value}>{value}</option>)}</select>}
           </div>
           <button type="button" className="mt-3 text-sm font-semibold text-rose-700 hover:underline" onClick={() => setDraft((d) => ({ ...d, product_fields: d.product_fields.filter((_, j) => j !== i) }))}>Xoá trường này</button>
-        </div>
-      ))}
+        </div>;
+      })}
       <Button type="button" disabled={fields.length >= 16} onClick={() => setDraft((d) => { let n = d.product_fields.length + 1; while (d.product_fields.some((f) => f.key === `field${n}`)) n++; return { ...d, product_fields: [...d.product_fields, { key: `field${n}`, label: "", type: "select", options: [], filterable: false }] }; })}><Plus className="h-4 w-4" /> Thêm trường sản phẩm</Button>
+      <p className="text-xs text-ink-500">Tối đa 16 trường, mỗi trường 30 lựa chọn. Chỉ một trường &quot;Grade trong bảng giá&quot;.</p>
     </div>
   );
 }
