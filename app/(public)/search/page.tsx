@@ -30,6 +30,7 @@ import { orderSearchProducts, productSearchRelevance, searchTokenMatches, type S
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 import type { Category, Supplier } from "@/lib/types";
+import { searchCategoryFacets, type SearchCategoryFacets } from "@/lib/public/search-category-facets";
 
 export const metadata: Metadata = {
   title: pageTitle("Search products & suppliers"),
@@ -212,6 +213,29 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
       failed = true;
     }
   }
+  // Ô lọc danh mục chỉ liệt kê danh mục có sản phẩm khớp từ khoá. Đang chọn một danh mục
+  // thì đếm trên toàn sàn (cùng chỉ mục đã cache, không tốn thêm truy vấn) để người mua
+  // vẫn đổi sang danh mục khác được; không có chỉ mục thì chỉ đếm trong danh mục đang chọn.
+  let categoryFacets: SearchCategoryFacets = { show: false, facets: [], allCount: null };
+  if (results) {
+    let facetMatches = results.products;
+    let matchesAllCategories = !selected;
+    if (selected && tokens.length > 0 && index && allCategories) {
+      try {
+        facetMatches = (await findResults(tokens, visibleCategories, undefined, allCategories, lang, index)).products;
+        matchesAllCategories = true;
+      } catch (error) {
+        console.error("[search] could not count matches per category", error);
+      }
+    }
+    categoryFacets = searchCategoryFacets({
+      matches: facetMatches, matchesAllCategories, selected: selected ?? null,
+      selectedCount: results.products.length, name: (category) => categoryName(category, lang),
+    });
+  }
+  const clearCategoryParams = new URLSearchParams();
+  if (query) clearCategoryParams.set("q", query);
+  clearCategoryParams.set("lang", lang);
 
   return (
     <div lang={lang} className="mx-auto w-full max-w-7xl px-5 pb-16 pt-6 sm:px-6 lg:px-8">
@@ -235,12 +259,15 @@ export default async function SearchPage({ searchParams }: { searchParams?: Prom
       {selected && <p className="mt-4 text-sm text-ink-600">
         {isVi ? "Danh mục: " : "Category: "}<strong className="text-ink-900">{categoryName(selected, lang)}</strong>
         {isVi ? " (bao gồm danh mục con)." : " (including subcategories)."}
+        {" "}<Link href={`/search?${clearCategoryParams.toString()}`} className="font-semibold text-brand-700 underline">
+          {isVi ? "Bỏ lọc danh mục" : "Remove category"}
+        </Link>
       </p>}
       {failed ? <SearchError lang={lang} />
         : invalidCategory ? <div role="alert" className="mt-8 rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-950">
           {isVi ? "Danh mục này không tồn tại hoặc chưa được công khai. Hãy chọn lại danh mục để tìm kiếm." : "This category is unavailable or not public. Please choose another category and search again."}
         </div>
-          : results ? <SearchResults results={results} state={state} params={params} categories={visibleCategories} selected={selected ?? null} />
+          : results ? <SearchResults results={results} state={state} params={params} categoryFacets={categoryFacets} selected={selected ?? null} />
             : <BrowsePrompt categories={visibleCategories} lang={lang} />}
     </div>
   );
@@ -373,8 +400,8 @@ async function findResults(tokens: string[], categories: Category[], selected: C
   return { products, suppliers, eligibleProductsBySupplier, categorySlugByProductId, directSupplierMatch, exactSupplierNameMatch, incomplete };
 }
 
-function SearchResults({ results, state, params, categories, selected }: {
-  results: Results; state: SearchRequestState; params?: SearchParams; categories: Category[]; selected: Category | null;
+function SearchResults({ results, state, params, categoryFacets, selected }: {
+  results: Results; state: SearchRequestState; params?: SearchParams; categoryFacets: SearchCategoryFacets; selected: Category | null;
 }) {
   const { products, suppliers, eligibleProductsBySupplier, categorySlugByProductId, directSupplierMatch, exactSupplierNameMatch, incomplete } = results;
   const isVi = state.lang === "vi";
@@ -490,7 +517,7 @@ function SearchResults({ results, state, params, categories, selected }: {
     { key: "suppliers" as const, label: isVi ? "Nhà cung cấp" : "Suppliers", count: totalSuppliers, Icon: Users },
   ];
   const activeFilters = hasSearchFilters(filters);
-  const fieldProps = { filters, options, categories, state: linkState, clearHref };
+  const fieldProps = { filters, options, categoryFacets, state: linkState, clearHref };
   const activeTotal = tab === "products" ? totalProducts : totalSuppliers;
   const otherTab: SearchTab = tab === "products" ? "suppliers" : "products";
   const otherCount = tab === "products" ? totalSuppliers : totalProducts;
@@ -567,8 +594,8 @@ function SearchResults({ results, state, params, categories, selected }: {
   </>;
 }
 
-function SearchFilterFields({ filters, options, categories, state, clearHref }: {
-  filters: SearchFilters; options: SearchFilterOptions; categories: Category[]; state: SearchLinkState; clearHref: string;
+function SearchFilterFields({ filters, options, categoryFacets, state, clearHref }: {
+  filters: SearchFilters; options: SearchFilterOptions; categoryFacets: SearchCategoryFacets; state: SearchLinkState; clearHref: string;
 }) {
   const vi = state.lang === "vi";
   const label = "mb-2 block text-xs font-bold uppercase tracking-widest text-ink-500";
@@ -587,12 +614,24 @@ function SearchFilterFields({ filters, options, categories, state, clearHref }: 
     {state.query && <input type="hidden" name="q" value={state.query} />}
     <input type="hidden" name="lang" value={state.lang} />
     <input type="hidden" name="tab" value={state.tab} />
-    <label className="block"><span className={label}>{vi ? "Danh mục" : "Category"}</span>
-      <select name="cat" className="input text-sm" defaultValue={state.category}>
-        <option value="">{vi ? "Tất cả danh mục" : "All categories"}</option>
-        {categories.map((category) => <option key={category.id} value={category.slug}>{categoryName(category, state.lang)}</option>)}
-      </select>
-    </label>
+    {/* Chỉ danh mục có sản phẩm khớp, bấm một chạm là lọc (form tự áp dụng khi đổi lựa chọn).
+        Kết quả chỉ thuộc một danh mục thì ẩn khối này, nhưng vẫn giữ danh mục đang chọn
+        khi người mua đổi bộ lọc khác. */}
+    {categoryFacets.show ? <fieldset><legend className={label}>{vi ? "Danh mục" : "Category"}</legend>
+      <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+        <label className="flex cursor-pointer items-start gap-2 text-ink-700">
+          <input type="radio" name="cat" value="" defaultChecked={!state.category} className="mt-0.5 shrink-0" />
+          <span className={`min-w-0 flex-1 ${!state.category ? "font-semibold text-ink-900" : ""}`}>{vi ? "Tất cả danh mục" : "All categories"}</span>
+          {categoryFacets.allCount !== null && <span className="shrink-0 text-xs tabular-nums text-ink-500">{categoryFacets.allCount}</span>}
+        </label>
+        {categoryFacets.facets.map((facet) => <label key={facet.slug} className="flex cursor-pointer items-start gap-2 text-ink-700">
+          <input type="radio" name="cat" value={facet.slug} defaultChecked={facet.selected} className="mt-0.5 shrink-0" />
+          <span className={`min-w-0 flex-1 break-words ${facet.selected ? "font-semibold text-ink-900" : ""}`}>{facet.name}</span>
+          {facet.count !== null && <span className="shrink-0 text-xs tabular-nums text-ink-500">{facet.count}</span>}
+        </label>)}
+      </div>
+    </fieldset>
+      : state.category ? <input type="hidden" name="cat" value={state.category} /> : null}
     {visibleAttributes.map((field) =>
       <label key={field.key} className="block"><span className={label}>{field.label}</span>
         <select name={`attr.${field.key}`} className="input text-sm" defaultValue={filters.attributes[field.key] ?? ""}>

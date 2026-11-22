@@ -24,6 +24,7 @@ import * as comparison from "../lib/public/product-comparison.ts";
 import * as supplierSeo from "../lib/public/supplier-seo.ts";
 import * as priceDisplay from "../lib/products/price-display.ts";
 import { supplierNameCase } from "../lib/public/supplier-name.ts";
+import * as categoryFacets from "../lib/public/search-category-facets.ts";
 
 const require = createRequire(import.meta.url);
 const jsx = require("react/jsx-runtime");
@@ -268,6 +269,7 @@ const page = load("../app/(public)/search/page.tsx", {
   "@/lib/public/product-comparison": comparison,
   "@/lib/public/product-selection": selection,
   "@/lib/public/search-filters": searchFilters,
+  "@/lib/public/search-category-facets": categoryFacets,
   "@/lib/public/ranking": ranking,
   "@/lib/public/search-ranking": searchRanking,
   "@/lib/public/supplier-seo": supplierSeo,
@@ -316,7 +318,8 @@ assert.doesNotMatch(html, /href="\/products\/rice(?:\?|")/,
   "The English rice result has no redundant category row");
 assert.ok(cardProps.some((card) => card.href === "/products/rice/rice-st25"),
   "The rice product still links to its detail page");
-assert.match(html, /name="cat"/, "Category navigation remains available in the search filter");
+assert.doesNotMatch(html, /name="cat"/, "Results from a single category have nothing to narrow: the category block is hidden");
+assert.doesNotMatch(html, /<select name="cat"/, "The long native category dropdown is gone");
 html = await render({ q: "rice", lang: "en", tab: "suppliers" });
 assert.deepEqual(supplierCards(html), ["rice-supplier"], "A Price-only supplier is not a rice supplier");
 html = await render({ q: "price", lang: "en", tab: "products" });
@@ -363,6 +366,23 @@ assert.ok(ids(html).includes("b-snack"), "A parent includes a published grandchi
 assert.ok(ids(html).includes("a-w320"), "A parent includes its published child");
 assert.ok(ids(html).includes("root-item"), "A parent includes its own products");
 assert.ok(!ids(html).includes("rice-st25"), "A different category cannot leak into results");
+// Category facet: only categories with matching products, one tap (radio), with counts.
+{
+  const facetHtml = await render({ cat: "nuts", lang: "en" });
+  const radios = [...facetHtml.matchAll(/<input type="radio"[^>]*name="cat"[^>]*value="([^"]*)"/g)].map((m) => m[1]);
+  assert.ok(radios.includes("") && radios.includes("nuts") && radios.includes("cashew"),
+    "A parent browse lists itself, its matching child and an All option");
+  assert.ok(!radios.includes("rice") && !radios.includes("pepper"), "Categories without matching products are not listed");
+  assert.match(facetHtml, /name="cat" checked="" value="nuts"/, "The selected category is checked");
+  assert.doesNotMatch(facetHtml, /name="cat" checked="" value="(?!nuts)/, "Only the selected category is checked");
+  assert.match(facetHtml, /Remove category/, "The selected category can always be removed");
+}
+{
+  const emptyHtml = await render({ q: "rice", cat: "nuts", lang: "en" });
+  assert.doesNotMatch(emptyHtml, /type="radio"[^>]*name="cat"/, "Matches in just one other category leave nothing to choose between");
+  assert.match(emptyHtml, /<input type="hidden" name="cat" value="nuts"\/>/, "Changing other filters keeps the selected category");
+  assert.match(emptyHtml, /href="\/search\?q=rice&amp;lang=en"[^>]*>Remove category/, "Removing the category keeps the keyword");
+}
 html = await render({ cat: "nuts", lang: "vi", tab: "suppliers" });
 assert.ok(supplierCards(html).includes("beta"));
 assert.ok(!supplierCards(html).includes("rice-supplier"), "Supplier category filter uses genuinely public products");
