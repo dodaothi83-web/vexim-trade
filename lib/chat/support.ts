@@ -65,17 +65,70 @@ export function supportMessageViews(messages: SupportMessage[], viewer: SupportS
   }));
 }
 
+/**
+ * Tên công ty và hồ sơ CRM của người mua, tên nhân viên phụ trách: hộp chat CRM hỏi lại danh
+ * sách 15 giây/lần, mỗi cuộc trước đây tốn 2 truy vấn tra người mua. Những thông tin này hiếm khi
+ * đổi nên giữ trong bộ nhớ của máy chủ một lúc (có thì 5 phút, chưa có thì 1 phút để hồ sơ mới
+ * tạo sớm hiện ra). Chỉ là nhãn hiển thị, không dùng để kiểm quyền.
+ */
+const LABEL_TTL_MS = 5 * 60_000;
+const LABEL_MISS_TTL_MS = 60_000;
+const LABEL_CACHE_MAX = 2000;
+type Cached<T> = { value: T; expires: number };
+const buyerCache = new Map<string, Cached<{ company: string | null; crmId: string | null }>>();
+const staffCache = new Map<string, Cached<string | null>>();
+
+async function remember<T>(cache: Map<string, Cached<T>>, key: string, load: () => Promise<T>, hit: (value: T) => boolean, nowMs = Date.now()): Promise<T> {
+  const cached = cache.get(key);
+  if (cached && cached.expires > nowMs) return cached.value;
+  const value = await load();
+  if (cache.size >= LABEL_CACHE_MAX) cache.clear();
+  cache.set(key, { value, expires: nowMs + (hit(value) ? LABEL_TTL_MS : LABEL_MISS_TTL_MS) });
+  return value;
+}
+
+/** Quên nhãn đã nhớ (kiểm thử, hoặc khi vừa biết dữ liệu đổi). */
+export function forgetSupportLabels(): void { buyerCache.clear(); staffCache.clear(); }
+
+async function buyerIdentity(store: DataStore, email: string): Promise<{ company: string | null; crmId: string | null }> {
+  return remember(buyerCache, email.trim().toLowerCase(), async () => {
+    const [account, crm] = await Promise.all([
+      store.getBuyerUserByEmail(email).catch(() => null),
+      typeof store.getBuyerByEmail === "function" ? store.getBuyerByEmail(email).catch(() => null) : Promise.resolve(null),
+    ]);
+    return { company: account?.company_name?.trim() || crm?.company?.trim() || null, crmId: crm?.id ?? null };
+  }, (v) => Boolean(v.company || v.crmId));
+}
+
+async function staffName(store: DataStore, id: string): Promise<string | null> {
+  return remember(staffCache, id, async () => {
+    const user = await store.getUser(id).catch(() => null);
+    return user ? user.name || user.email : null;
+  }, (v) => v !== null);
+}
+
+/** Phần đổi theo thời gian của một cuộc (phụ trách, đã xem, online); không tra lại người mua. */
+export type SupportConversationStatus = Pick<SupportConversationView, "id" | "assignedTo" | "assignedName" | "preview" | "lastMessageAt" | "lastSender" | "buyerReadAt" | "buyerLastSeen">;
+
+/** Bản gọn cho các lần hộp chat CRM hỏi lại tin mới: tên và hồ sơ người mua đã có từ lần tải đầu. */
+export async function supportConversationStatus(store: DataStore, c: SupportConversation): Promise<SupportConversationStatus> {
+  const key = presenceKey.buyer(c.buyer_email);
+  const [seen, assignedName] = await Promise.all([readPresence(store, [key]), c.assigned_to ? staffName(store, c.assigned_to) : null]);
+  return { id: c.id, assignedTo: c.assigned_to, assignedName, preview: c.last_message_preview, lastMessageAt: c.last_message_at ?? c.created_at,
+    lastSender: c.last_sender, buyerReadAt: c.buyer_last_read_at, buyerLastSeen: seen[key] ?? null };
+}
+
 export async function supportConversationViews(store: DataStore, rows: SupportConversation[]): Promise<SupportConversationView[]> {
   const staffIds = [...new Set(rows.map((r) => r.assigned_to).filter((id): id is string => Boolean(id)))];
-  const staff = new Map((await Promise.all(staffIds.map((id) => store.getUser(id).catch(() => null))))
-    .filter((u): u is NonNullable<typeof u> => Boolean(u)).map((u) => [u.id, u.name || u.email]));
-  const seen = await readPresence(store, rows.map((r) => presenceKey.buyer(r.buyer_email)));
+  const [names, seen] = await Promise.all([
+    Promise.all(staffIds.map(async (id) => [id, await staffName(store, id)] as const)),
+    readPresence(store, rows.map((r) => presenceKey.buyer(r.buyer_email))),
+  ]);
+  const staff = new Map(names);
   return Promise.all(rows.map(async (c) => {
-    const account = await store.getBuyerUserByEmail(c.buyer_email).catch(() => null);
-    const crm = typeof store.getBuyerByEmail === "function" ? await store.getBuyerByEmail(c.buyer_email).catch(() => null) : null;
-    const company = account?.company_name?.trim() || crm?.company?.trim() || null;
+    const { company, crmId } = await buyerIdentity(store, c.buyer_email);
     return {
-      id: c.id, buyerEmail: c.buyer_email, buyerLabel: company ?? c.buyer_email, buyerCompany: company, buyerCrmId: crm?.id ?? null,
+      id: c.id, buyerEmail: c.buyer_email, buyerLabel: company ?? c.buyer_email, buyerCompany: company, buyerCrmId: crmId,
       assignedTo: c.assigned_to, assignedName: c.assigned_to ? staff.get(c.assigned_to) ?? null : null,
       preview: c.last_message_preview, lastMessageAt: c.last_message_at ?? c.created_at, lastSender: c.last_sender,
       unread: supportHasUnread(c, "staff"),

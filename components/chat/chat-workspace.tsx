@@ -37,6 +37,8 @@ export interface ChatLabels {
 }
 
 interface ConversationView { id: string; counterpart: string; counterpartHref: string | null; productName: string | null; preview: string | null; lastMessageAt: string | null; unread: boolean; counterpartReadAt?: string | null; counterpartLastSeen?: string | null; veximFollowingUp?: boolean }
+/** Dòng danh sách không có tin mới trong lượt hỏi lại: chỉ phần đổi theo thời gian. */
+type ConversationStatus = Pick<ConversationView, "id" | "lastMessageAt" | "unread" | "counterpartReadAt" | "counterpartLastSeen" | "veximFollowingUp">;
 interface ProductCardView { id: string; name: string; imageUrl: string | null; href: string | null; price: string | null }
 interface MessageView { id: string; mine: boolean; body: string; productName: string | null; product?: ProductCardView | null; createdAt: string; pending?: boolean }
 
@@ -47,6 +49,8 @@ export interface ChatDraftProduct { id: string; name: string; imageUrl: string |
 const NEW_ID = "new";
 
 const LIST_POLL_MS = 15_000;
+/** Danh sách hỏi lại chỉ xin cuộc có tin mới; cứ chừng này lại tải đủ một lần để tên bên kia đổi cũng hiện ra. */
+const LIST_FULL_MS = 5 * 60_000;
 const THREAD_POLL_MS = 6_000;
 /** Cuộc im lặng quá 2 phút (không tin mới, mình không gõ) thì hỏi lại thưa hơn. */
 const THREAD_IDLE_POLL_MS = 15_000;
@@ -134,12 +138,42 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
   const lastActivity = useRef(Date.now());
   const bump = useCallback(() => { lastActivity.current = Date.now(); }, []);
 
-  const loadList = useCallback(async () => {
-    const res = await fetch(`/api/chat?side=${side}`, { cache: "no-store" }).catch(() => null);
+  const listRef = useRef(list);
+  useEffect(() => { listRef.current = list; }, [list]);
+  const lastFullList = useRef(0);
+  /**
+   * Danh sách cuộc. Lần đầu (và 5 phút một lần) tải đủ; các lần hỏi lại gửi `since` = tin mới nhất
+   * đang có lùi 10 giây: máy chủ chỉ trả đủ các cuộc có tin mới, cuộc khác chỉ trả chưa đọc / đã xem
+   * / online, tên và câu xem trước giữ nguyên ở đây.
+   */
+  const loadList = useCallback(async (full = false) => {
+    const known = listRef.current;
+    const newest = known?.reduce((max, r) => Math.max(max, Date.parse(r.lastMessageAt ?? "") || 0), 0) ?? 0;
+    const since = !full && known?.length && newest > 0 && Date.now() - lastFullList.current < LIST_FULL_MS ? new Date(newest - OVERLAP_MS).toISOString() : null;
+    const res = await fetch(`/api/chat?side=${side}${since ? `&since=${encodeURIComponent(since)}` : ""}`, { cache: "no-store" }).catch(() => null);
     if (!res?.ok) { setList((rows) => rows ?? []); return; }
-    const data = await res.json() as { conversations: ConversationView[] };
-    setList(data.conversations);
-    if (!product && !supplier) setActiveId((current) => current ?? (window.matchMedia("(min-width: 768px)").matches ? data.conversations[0]?.id ?? null : null));
+    const data = await res.json() as { conversations: Array<ConversationView | ConversationStatus>; partial?: boolean };
+    // Cuộc đang mở được đánh dấu đã đọc ở mỗi lượt hỏi tin: không để danh sách về muộn bật lại chấm đỏ.
+    const read = <T extends ConversationStatus>(r: T): T => r.id === activeRef.current ? { ...r, unread: false } : r;
+    if (!data.partial) {
+      lastFullList.current = Date.now();
+      const rows = (data.conversations as ConversationView[]).map(read);
+      setList(rows);
+      if (!product && !supplier) setActiveId((current) => current ?? (window.matchMedia("(min-width: 768px)").matches ? rows[0]?.id ?? null : null));
+      return;
+    }
+    // Có dòng gọn mà ở đây chưa biết cuộc đó (vừa đổi danh sách): tải đủ lại cho chắc.
+    const knownIds = new Set((listRef.current ?? []).map((r) => r.id));
+    const missing = data.conversations.some((c) => !("counterpart" in c) && !knownIds.has(c.id));
+    setList((rows) => {
+      const byId = new Map((rows ?? []).map((r) => [r.id, r]));
+      return data.conversations.flatMap((c) => {
+        if ("counterpart" in c) return [read(c)];
+        const previous = byId.get(c.id);
+        return previous ? [read({ ...previous, ...c })] : [];
+      });
+    });
+    if (missing) void loadList(true);
   }, [side, product, supplier]);
 
   /**
