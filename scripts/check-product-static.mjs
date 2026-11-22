@@ -148,7 +148,7 @@ const route = load("app/api/public/traffic/route.ts", {
     "next/server": { NextResponse: class extends Response {} },
     "@/lib/auth/session": { getSession: async () => session },
     "@/lib/public/supplier-seo": { isSyntheticSupplier: (s) => !!s.synthetic },
-    "@/lib/public/product-catalog": { listPublicCategoryProducts: async () => cards },
+    "@/lib/public/product-catalog": { listPublicCategoryFamilyProducts: async () => cards },
     "@/lib/db": { getStore: () => ({ getCategoryBySlug: async (slug) => (slug === category.slug ? category : null), getSupplier: async () => supplier }) },
     "@/lib/traffic/server": {
       recordPageView: async (pageView) => { recorded.push(pageView); },

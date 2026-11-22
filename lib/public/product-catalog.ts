@@ -19,7 +19,7 @@ import {
   type MoqUnit,
   type PublicProductGradeRow,
 } from "@/lib/products/grade-pricing";
-import { evidenceValidVerificationSteps, rankPublicCategoryProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
+import { categoryTieWindow, evidenceValidVerificationSteps, rankPublicCategoryProducts, SPEC_RANKING_WEIGHTS } from "@/lib/public/ranking";
 import { publicProductTitle } from "@/lib/public/display-name";
 import { publicProductMoqDisplay, publicProductPlaceDisplay, publicProductPriceDisplay, UNSPECIFIED_SOURCING_REGION } from "@/lib/public/product-detail-display";
 import type { Certificate, Category, MediaAsset, SupplierProduct, VerificationLevel } from "@/lib/types";
@@ -376,6 +376,34 @@ export async function listPublicCategoryProducts(category: Category, options?: {
     options?.snapshot ? snapshot.certificateBadgeData : undefined)
     .catch((error) => { console.error("[catalog] certificate labels", error); return new Map<string, string[]>(); });
   return labels.size ? ranked.map((card) => labels.has(card.id) ? { ...card, certificates: labels.get(card.id) } : card) : ranked;
+}
+
+export type PublicCategoryFamilyProduct = PublicCategoryProduct & {
+  /** Danh mục lá chứa sản phẩm: dùng cho đường dẫn sản phẩm và các lượt đếm. */
+  categorySlug: string;
+};
+
+/**
+ * Sản phẩm của danh mục cùng các nhóm nhỏ đang công khai, xếp hạng lại chung một danh sách.
+ * Mỗi thẻ mang slug danh mục lá của nó để đường dẫn trỏ thẳng tới trang sản phẩm (không
+ * qua chuyển hướng 301) và để các lượt đếm phía server tra đúng danh mục.
+ */
+export async function listPublicCategoryFamilyProducts(category: Category, options?: {
+  today?: string;
+  snapshot?: PublicProductCatalogSnapshot;
+}): Promise<PublicCategoryFamilyProduct[]> {
+  const snapshot = options?.snapshot ?? await loadPublicProductCatalogSnapshot();
+  const children = snapshot.categories
+    .filter((c) => c.parent_id === category.id && c.status === "published" && c.is_published);
+  const family = [category, ...children];
+  const lists = await Promise.all(family.map(async (member) =>
+    (await listPublicCategoryProducts(member, { ...options, snapshot }))
+      .map((product): PublicCategoryFamilyProduct => ({ ...product, categorySlug: member.slug }))));
+  if (lists.length === 1) return lists[0];
+  const seen = new Set<string>();
+  const merged = lists.flat().filter((product) => !seen.has(product.id) && !!seen.add(product.id));
+  // Mỗi danh mục đã xếp hạng riêng; gộp lại phải xếp hạng lại cả danh sách (giống trang danh mục).
+  return rankPublicCategoryProducts(merged, SPEC_RANKING_WEIGHTS, undefined, { window: categoryTieWindow(Date.now()) });
 }
 
 export interface PublicProductRecord {

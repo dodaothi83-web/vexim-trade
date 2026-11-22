@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { listPublishedNews } from "@/lib/blog/queries";
-import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, type PublicCategoryProduct } from "@/lib/public/product-catalog";
+import { listPublicCategoryFamilyProducts, loadPublicProductCatalogSnapshot, type PublicCategoryFamilyProduct } from "@/lib/public/product-catalog";
 import { balanceHomepageCategories, HOME_FEED_PER_SUPPLIER, homeRotationWindow, rotateForWindow, rotateWithinVerificationTiers } from "@/lib/public/supplier-product-order";
 import { HomeProductFeed } from "@/components/home-product-feed";
 import { buildPopularSearches } from "@/lib/public/popular-searches";
@@ -436,7 +436,7 @@ function formatPostDate(iso: string, lang: HomeLocale): string {
 }
 
 /** Khối "Sản phẩm nổi bật": đọc ảnh, chứng nhận và giá của các danh mục trang chủ. */
-type HomeProductGroup = { category: Category; products: PublicCategoryProduct[] };
+type HomeProductGroup = { category: Category; products: PublicCategoryFamilyProduct[] };
 
 /** Một lần tải cho mỗi lượt xem trang; khối sản phẩm và nhãn danh mục dùng chung. */
 function loadHomeProductGroups(homeCategories: Category[], snapshot: Awaited<ReturnType<typeof loadPublicProductCatalogSnapshot>>): Promise<HomeProductGroup[]> {
@@ -444,7 +444,8 @@ function loadHomeProductGroups(homeCategories: Category[], snapshot: Awaited<Ret
   // once for each homepage category. Ranking and per-supplier caps stay unchanged.
   return Promise.all(homeCategories.map(async (category) => ({
     category,
-    products: await listPublicCategoryProducts(category, { snapshot }),
+    // Danh mục lớn gồm cả sản phẩm của các nhóm nhỏ (thẻ trang chủ là thẻ của danh mục lớn).
+    products: await listPublicCategoryFamilyProducts(category, { snapshot }),
   })));
 }
 
@@ -478,7 +479,7 @@ async function HomeFeedSection({ productGroups: productGroupsPromise, isVi }: {
     rotateForWindow(productGroups, ({ category }) => category.slug, rotationWindow).map(({ category, products }) =>
       rotateWithinVerificationTiers(products, rotationWindow)
       .filter((product) => !product.isDemo)
-      .map((product) => ({ ...product, categorySlug: category.slug }))),
+      .map((product) => ({ ...product, categorySlug: product.categorySlug || category.slug }))),
     HOME_FEED_PER_SUPPLIER,
   );
   // Điều kiện duy nhất để hiện khối: có ít nhất một sản phẩm. Số thẻ mỗi trang do

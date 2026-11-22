@@ -75,7 +75,7 @@ const route = load('../app/api/public/sponsored-pilot/route.ts', {
   'next/server': { NextResponse: class { constructor(body, opts) { this.status = opts.status; } } },
   '@/lib/auth/session': { getSession: async () => session },
   '@/lib/db': { getStore: () => ({ getCategoryBySlug: async () => category, getSupplier: async () => supplier }) },
-  '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => cards },
+  '@/lib/public/product-catalog': { listPublicCategoryFamilyProducts: async () => cards },
   '@/lib/public/supplier-seo': { isSyntheticSupplier: (s) => s.is_demo },
   '@/lib/sponsored/pilot': pilot,
 }, { env });

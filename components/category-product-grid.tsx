@@ -57,8 +57,10 @@ function productMatchesMoqGroup(product: PublicCategoryProduct, targetGroup: str
 }
 
 export function CategoryProductGrid({ products, categorySlug, grades, sponsored, sponsoredBand = [], productFields = [],
-  comparisonEnabled = true, page: initialPage = 1, keepQuery = "" }: {
+  comparisonEnabled = true, page: initialPage = 1, keepQuery = "", productCategorySlugs }: {
   products: PublicCategoryProduct[]; categorySlug: string; grades: string[]; productFields?: ProductAttributeField[];
+  /** Danh mục lớn: slug nhóm nhỏ của từng sản phẩm, để thẻ trỏ thẳng tới trang sản phẩm. */
+  productCategorySlugs?: Record<string, string>;
   sponsored?: PilotPlacement | null; sponsoredBand?: SponsoredBandItem[]; comparisonEnabled?: boolean;
   /** Trang đọc từ `?page=`, để máy tìm kiếm và người tắt JS vẫn nhận đúng trang. */
   page?: number;
@@ -171,8 +173,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
     }
   };
   const comparisonOffers = useMemo(() => visible.map((product) => ({
-    id: product.id, supplierId: product.supplierId, categorySlug, isDemo: product.isDemo,
-  })), [visible, categorySlug]);
+    id: product.id, supplierId: product.supplierId, categorySlug: productCategorySlugs?.[product.id] ?? categorySlug, isDemo: product.isDemo,
+  })), [visible, categorySlug, productCategorySlugs]);
   const reset = () => {
     setSelectedAttributes({});
     setSelectedGrades([]);
@@ -282,8 +284,9 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
               campaignId={sponsored.campaignId} categorySlug={categorySlug} />)}
         {visible.length ? <div id="category-products" className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 scroll-mt-24">
           {paged.items.map((p) => {
+            const productSlug = productCategorySlugs?.[p.id] ?? categorySlug;
             return <div key={p.id} className="min-w-0">
-              <PublicProductCard href={`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(p.id)}`}
+              <PublicProductCard href={`/products/${encodeURIComponent(productSlug)}/${encodeURIComponent(p.id)}`}
                 imagePath={p.cardImagePath ?? p.imagePaths[0]} name={p.name} grades={productGradesOf(p)} gradeRows={p.gradeRows}
               volumePricing={p.quantityOffer?.hasVolumePricing}
                 highlightedGrades={activeGrades} moq={p.moq} price={p.price} incoterm={p.incoterm} fob={p.incoterm?.toUpperCase() === "FOB"}
@@ -291,8 +294,8 @@ export function CategoryProductGrid({ products, categorySlug, grades, sponsored,
                 supplierHref={`/suppliers/${encodeURIComponent(p.supplierSlug || p.supplierId)}`}
                 verificationSteps={p.verificationSteps} l2Scope={p.l2Scope} certificates={p.certificates} test={p.isDemo}
                 comparison={comparisonEnabled && hasProductComparisonPeer(comparisonOffers, {
-                  id: p.id, supplierId: p.supplierId, categorySlug, isDemo: p.isDemo,
-                }) ? { id: p.id, categorySlug } : undefined} />
+                  id: p.id, supplierId: p.supplierId, categorySlug: productSlug, isDemo: p.isDemo,
+                }) ? { id: p.id, categorySlug: productSlug } : undefined} />
             </div>;
           })}
         </div> : <div className="rounded-xl border border-ink-200 bg-white p-8 text-center">
