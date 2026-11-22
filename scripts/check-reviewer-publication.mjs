@@ -22,7 +22,7 @@ function load(relative) {
   const js = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const exports = {};
   const mocks = {
-    'next/cache': { revalidatePath() {} }, '@/lib/public/revalidate-home': { revalidateHomePage() {} },  '@/lib/seo/indexnow': { notifyIndexNow() {} },
+    'next/cache': { revalidatePath() {} }, '@/lib/public/revalidate-home': { revalidateHomePage() {} }, '@/lib/public/revalidate-category': { revalidateCategoryPage() {} },  '@/lib/seo/indexnow': { notifyIndexNow() {} },
     '@/lib/auth/session': {
       guard: async (perm) => {
         if (perm === 'suppliers.manage') return ['admin', 'sourcing'].includes(user.role) ? null : { message: 'denied' };

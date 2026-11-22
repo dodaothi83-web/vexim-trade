@@ -49,6 +49,7 @@ import {
 import type { CertificateScheme } from "@/lib/certificate-scheme";
 import type { Category, CategoryColumn, CategoryFact, CategoryFilter, CategoryRow } from "@/lib/types";
 import { getSession } from "@/lib/auth/session";
+import { isPrebuiltCategoryRender } from "@/lib/public/category-render-mode";
 import { hasPermission } from "@/lib/auth/permissions";
 import { sanitizeHtml } from "@/lib/public/sanitize";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -63,6 +64,12 @@ import {
   hasOpenRequestPath,
 } from "@/lib/public/meta-copy";
 
+/**
+ * Bản ĐỘNG của trang danh mục: lọc chứng nhận (?cert=), trang 2 trở đi (?page=) và người có cookie
+ * phiên (nhân viên xem trước danh mục nháp). Lượt xem "trần" của khách được middleware viết lại sang
+ * bản dựng sẵn app/(public)/products/category-render/[lang]/[slug] — dùng chung component này, xem
+ * lib/public/category-route.ts.
+ */
 export const dynamic = "force-dynamic";
 
 interface PageProps {
@@ -260,7 +267,8 @@ function withoutPageParam(query: Record<string, string | string[] | undefined>):
 /** Một lần cho mỗi request: generateMetadata và trang dùng chung (React cache). */
 const resolveCategory = cache(async (slug: string) => {
   const store = (await import("@/lib/db")).getStore();
-  const session = await getSession();
+  // Bản dựng sẵn cho khách không đọc phiên (đọc cookie sẽ buộc render động, mất cache CDN).
+  const session = isPrebuiltCategoryRender() ? null : await getSession();
   const isStaff = !!(session && hasPermission(session.role, "categories.manage"));
   const all = typeof store.listCategories === "function" ? ((await store.listCategories({ publishedOnly: false })) as Category[]) : [];
   let cat = all.find((c) => c.slug === slug);

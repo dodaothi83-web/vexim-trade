@@ -1,3 +1,4 @@
+import { publicCategoryPathFor } from "@/lib/public/category-route";
 import { publicProductUrlFor } from "@/lib/public/product-route";
 
 /**
@@ -35,6 +36,7 @@ export function publicHomeUrlFor(pathname: string): string | null {
  */
 export function toPublicPathname(pathname: string): string {
   if (publicHomeUrlFor(pathname) !== null) return "/";
-  // Bản động của trang sản phẩm cho người có phiên (xem lib/public/product-route.ts).
-  return publicProductUrlFor(pathname) ?? pathname;
+  // Bản động của trang sản phẩm cho người có phiên (xem lib/public/product-route.ts) và bản
+  // dựng sẵn của trang danh mục (lib/public/category-route.ts).
+  return publicProductUrlFor(pathname) ?? publicCategoryPathFor(pathname) ?? pathname;
 }

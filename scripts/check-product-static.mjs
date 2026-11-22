@@ -54,7 +54,8 @@ assert.equal(productRoute.publicProductUrlFor("/staff-product-view/odd"), "/prod
 assert.equal(productRoute.publicProductUrlFor("/staff-product-viewer"), null, "Only the exact internal prefix");
 assert.equal(productRoute.publicProductUrlFor(`/products/dried-fruits/${PID}`), null);
 
-const homeRoute = load("lib/public/home-route.ts", { mocks: { "@/lib/public/product-route": productRoute } });
+const categoryRoute = load("lib/public/category-route.ts");
+const homeRoute = load("lib/public/home-route.ts", { mocks: { "@/lib/public/product-route": productRoute, "@/lib/public/category-route": categoryRoute } });
 assert.equal(homeRoute.toPublicPathname(`/staff-product-view/dried-fruits/${PID}`), `/products/dried-fruits/${PID}`,
   "Client components see the public product URL in the staff render too");
 assert.equal(homeRoute.toPublicPathname("/homepage/en"), "/");
@@ -76,6 +77,7 @@ const { middleware } = load("middleware.ts", {
     "@/lib/auth/session-token-edge": edgeSession,
     "@/lib/public/home-route": homeRoute,
     "@/lib/public/product-route": productRoute,
+    "@/lib/public/category-route": categoryRoute,
   },
 });
 function request(url, { method = "GET", cookie } = {}) {
