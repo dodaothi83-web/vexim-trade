@@ -317,9 +317,10 @@ export function PublicProductCard({
     </div>
   );
 
+  const mobileCertificateCount = certificates.length > 2 ? 1 : 2;
   const thumb = (
     // Điện thoại (thẻ ngang): ảnh vuông, phần chữ được thu gọn để vừa chiều cao ảnh (không cắt ảnh,
-    // không hở dưới ảnh). Nếu chữ vẫn cao hơn (màn rất hẹp, nhiều chứng nhận) khung giãn theo thẻ
+    // không hở dưới ảnh). Nếu chữ vẫn cao hơn (màn rất hẹp + Volume pricing) khung giãn theo thẻ
     // thay vì để hở trắng. Từ sm (thẻ dọc): khung vuông như cũ.
     <div className="relative aspect-square h-full w-full overflow-hidden rounded-tl-xl rounded-bl-xl bg-ink-50 sm:rounded-bl-none sm:rounded-tr-xl sm:h-auto">
       {linkable ? (
@@ -341,6 +342,23 @@ export function PublicProductCard({
         </span>
       )}
       {comparisonItem && <ProductCompareCheckbox product={comparisonItem} />}
+      {/* Điện thoại (thẻ ngang): nhãn chứng nhận nằm đè góc dưới ảnh để phần chữ vừa chiều cao ảnh vuông.
+          Hai chứng nhận thì hiện cả hai; từ ba trở lên hiện nhãn đầu + "+N" để chữ không bị cắt.
+          Từ sm (thẻ dọc): nhãn ở dòng trên tiêu đề như cũ. */}
+      {certificates.length > 0 && (
+        <div className="absolute inset-x-1.5 bottom-1.5 z-10 flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden sm:hidden" aria-label={`Certificates: ${certificates.join(", ")}`}>
+          {certificates.slice(0, mobileCertificateCount).map((label) => (
+            <span key={label} title={`${label} certified`} className="min-w-0 truncate rounded bg-white/95 px-1 text-[9.5px] font-bold leading-[14px] text-emerald-800 shadow-sm ring-1 ring-emerald-300">
+              {label}
+            </span>
+          ))}
+          {certificates.length > mobileCertificateCount && (
+            <span title={certificates.slice(mobileCertificateCount).join(", ")} className="shrink-0 rounded bg-emerald-600 px-1 text-[9.5px] font-bold leading-[14px] text-white shadow-sm">
+              +{certificates.length - mobileCertificateCount}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -374,14 +392,14 @@ export function PublicProductCard({
         {/* Chứng nhận + tiêu đề: wrapper giữ min-height cố định để thẻ có/không badge
             vẫn cao bằng nhau trên lưới. Có badge: tiêu đề 2 dòng; không: tiêu đề 3 dòng. */}
         <div className="flex min-h-8 flex-col sm:min-h-16">
-          {certificates.length > 0 && <div className="mb-0.5 flex h-4 min-w-0 flex-nowrap items-center gap-1 overflow-hidden sm:mb-1 sm:h-5" aria-label={`Certificates: ${certificates.join(", ")}`}>
+          {certificates.length > 0 && <div className="mb-1 flex h-5 min-w-0 flex-nowrap items-center gap-1 overflow-hidden max-sm:hidden" aria-label={`Certificates: ${certificates.join(", ")}`}>
             {certificates.slice(0, 3).map((label) => (
-              <span key={label} title={`${label} certified`} className="min-w-0 truncate rounded bg-emerald-50 px-1 py-0 text-[9.5px] font-bold leading-[14px] text-emerald-800 ring-1 ring-emerald-300 sm:px-1.5 sm:py-px sm:text-[10.5px] sm:leading-4">
+              <span key={label} title={`${label} certified`} className="min-w-0 truncate rounded bg-emerald-50 px-1.5 py-px text-[10.5px] font-bold leading-4 text-emerald-800 ring-1 ring-emerald-300">
                 {label}
               </span>
             ))}
             {certificates.length > 3 && (
-              <span title={certificates.slice(3).join(", ")} className="shrink-0 rounded bg-emerald-600 px-1 py-0 text-[9.5px] font-bold leading-[14px] text-white sm:px-1.5 sm:py-px sm:text-[10.5px] sm:leading-4">
+              <span title={certificates.slice(3).join(", ")} className="shrink-0 rounded bg-emerald-600 px-1.5 py-px text-[10.5px] font-bold leading-4 text-white">
                 +{certificates.length - 3}
               </span>
             )}

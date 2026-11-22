@@ -111,6 +111,16 @@ const multiGrade = render({ imagePath: 'products/a.webp', price: null, gradeRows
   { grade: 'W240', priceMin: 6.1, priceMax: 6.4, priceText: '$6.1–6.4/kg' }, { grade: 'W320', priceMin: 5.8, priceMax: 6, priceText: '$5.8–6/kg' }] });
 assert.match(multiGrade, /<span class="text-\[10px\] font-medium text-ink-500 sm:hidden">· 2 grades<\/span>/, 'Điện thoại: "N grades" đứng cạnh giá');
 assert.match(multiGrade, /<p class="truncate[^"]*max-sm:hidden"><span class="max-sm:hidden">2 grades<\/span><\/p>/, 'Thẻ dọc: "N grades" vẫn ở dòng riêng như cũ');
+// Điện thoại: nhãn chứng nhận đè góc dưới ảnh (không tốn dòng trong cột chữ); thẻ dọc giữ dòng nhãn trên tiêu đề.
+const twoCerts = render({ imagePath: 'products/a.webp', certificates: ['ISO 22000', 'HACCP'] });
+const overlay = twoCerts.match(/<div class="absolute inset-x-1\.5 bottom-1\.5 z-10[^"]*sm:hidden"[^>]*>(.*?)<\/div>/)?.[1] ?? '';
+assert.ok(overlay.includes('ISO 22000') && overlay.includes('HACCP'), 'Hai chứng nhận: cả hai nằm trên ảnh');
+assert.match(twoCerts, /<div class="mb-1 flex h-5 min-w-0 flex-nowrap items-center gap-1 overflow-hidden max-sm:hidden"/, 'Dòng nhãn trong cột chữ chỉ hiện từ sm, giữ cỡ cũ');
+assert.equal(twoCerts.match(/aria-label="Certificates: ISO 22000, HACCP"/g)?.length, 2, 'Mỗi cỡ màn chỉ hiện một bản (bản còn lại display:none)');
+const manyCerts = render({ imagePath: 'products/a.webp', certificates: ['ISO 22000', 'HACCP', 'BRC', 'Organic'] });
+const manyOverlay = manyCerts.match(/<div class="absolute inset-x-1\.5 bottom-1\.5 z-10[^"]*sm:hidden"[^>]*>(.*?)<\/div>/)?.[1] ?? '';
+assert.ok(manyOverlay.includes('>ISO 22000<') && !manyOverlay.includes('>HACCP<') && manyOverlay.includes('>+3<'), 'Từ ba chứng nhận: nhãn đầu + "+N" để chữ không bị cắt');
+assert.doesNotMatch(render({ imagePath: 'products/a.webp' }), /absolute inset-x-1\.5 bottom-1\.5/, 'Không chứng nhận thì không có lớp đè');
 console.log('✓ Mobile horizontal card: square image (not cropped), title 2 lines, smaller price/MOQ/lead time/supplier/shields to fit the image height.');
 
 assert.doesNotMatch(readFileSync(new URL('../components/public-product-card.tsx', import.meta.url), 'utf8'), /SaveProductButton|saveProduct/, 'Listing cards do not expose save controls');
