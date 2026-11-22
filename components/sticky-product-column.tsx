@@ -19,9 +19,11 @@ export function StickyProductColumn({ children }: { children: ReactNode }) {
     const update = () => {
       setTop(desktop.matches ? productColumnStickyTop(panel.offsetHeight, window.innerHeight) : null);
     };
-    update();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
-    observer?.observe(panel);
+    // ResizeObserver tự gọi update() lần đầu sau khi trình duyệt dàn trang xong; đo ngay trong
+    // effect (offsetHeight) sẽ ép dàn trang đồng bộ lúc tải trang (PageSpeed: "forced reflow").
+    if (observer) observer.observe(panel);
+    else update();
     window.addEventListener("resize", update);
     desktop.addEventListener("change", update);
     return () => {

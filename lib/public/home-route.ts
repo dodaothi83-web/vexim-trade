@@ -1,3 +1,5 @@
+import { publicProductUrlFor } from "@/lib/public/product-route";
+
 /**
  * Trang chủ tĩnh (ISR) theo ngôn ngữ — hằng số dùng chung cho middleware.ts, route
  * app/(public)/homepage/[lang] và các component đọc pathname.
@@ -32,5 +34,7 @@ export function publicHomeUrlFor(pathname: string): string | null {
  * hai về "/" để HTML dựng sẵn và lúc hydrate khớp nhau (ẩn footer phụ, đánh dấu trang chủ...).
  */
 export function toPublicPathname(pathname: string): string {
-  return publicHomeUrlFor(pathname) === null ? pathname : "/";
+  if (publicHomeUrlFor(pathname) !== null) return "/";
+  // Bản động của trang sản phẩm cho người có phiên (xem lib/public/product-route.ts).
+  return publicProductUrlFor(pathname) ?? pathname;
 }

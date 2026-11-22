@@ -18,6 +18,12 @@
  *    không phát sinh lỗ hổng — chỉ là một bước chuyển hướng sớm, có thể "lạc quan sai"
  *    theo hướng an toàn (thừa một vòng chuyển hướng, không thiếu một lớp kiểm tra).
  *
+ *  - Trang chi tiết sản phẩm /products/<slug>/<id> cũng là bản dựng sẵn (ISR). Người có
+ *    cookie phiên hợp lệ (nhân viên / nhà cung cấp) được viết lại — URL giữ nguyên — sang bản
+ *    động /staff-product-view/<slug>/<id> (xem trước danh mục chưa công khai, không đếm lượt
+ *    xem của chính mình). Cùng kiểu kiểm tra "lạc quan" như trên: trang động vẫn tự tra phiên
+ *    đầy đủ bằng getSession(), cookie sai chỉ nhận đúng bản công khai.
+ *
  * Không can thiệp vào API hay static assets.
  */
 import { NextResponse } from "next/server";
@@ -25,6 +31,7 @@ import type { NextRequest } from "next/server";
 
 import { verifySessionTokenEdge } from "@/lib/auth/session-token-edge";
 import { homeRenderPath, publicHomeUrlFor } from "@/lib/public/home-route";
+import { publicProductUrlFor, staffProductViewPath } from "@/lib/public/product-route";
 
 // Edge runtime (mặc định của middleware.ts): chạy ở điểm CDN gần người dùng. Trước đây
 // file này đặt runtime = "nodejs" chỉ để xác minh cookie bằng node:crypto — middleware Node
@@ -110,6 +117,22 @@ export function middleware(req: NextRequest): NextResponse | Promise<NextRespons
   // Route nội bộ của trang chủ dựng sẵn: không để lộ thành URL thứ hai (trùng nội dung).
   const publicHome = publicHomeUrlFor(pathname);
   if (publicHome) return NextResponse.redirect(new URL(publicHome, req.url), 308);
+
+  // Bản động của trang sản phẩm chỉ đến được qua viết lại bên dưới, không gõ thẳng URL.
+  const publicProduct = publicProductUrlFor(pathname);
+  if (publicProduct) return NextResponse.redirect(new URL(publicProduct, req.url), 308);
+
+  // Trang sản phẩm: khách nhận bản dựng sẵn từ CDN; chỉ request có cookie phiên mới phải xác minh.
+  const staffProduct = req.method === "GET" || req.method === "HEAD" ? staffProductViewPath(pathname) : null;
+  const sessionToken = staffProduct ? req.cookies.get(SESSION_COOKIE)?.value : undefined;
+  if (staffProduct && sessionToken) {
+    return verifySessionTokenEdge(sessionToken).then((session) => {
+      if (!session) return finish(req, null);
+      const target = req.nextUrl.clone();
+      target.pathname = staffProduct;
+      return finish(req, target);
+    });
+  }
 
   return finish(req, null);
 }

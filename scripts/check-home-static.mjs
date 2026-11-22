@@ -98,7 +98,8 @@ assert.doesNotMatch(middlewareSource, /export const runtime\s*=\s*["']nodejs["']
 assert.doesNotMatch(middlewareSource, /from "@\/lib\/auth\/session-token"/, "Middleware does not pull node:crypto into the Edge bundle");
 
 const AUTH_ENV = { AUTH_SECRET: "a-very-long-auth-secret-for-tests-0123456789", PUBLIC_SITE_INDEXABLE: "true", VERCEL_ENV: "production" };
-const homeRoute = load("lib/public/home-route.ts");
+const productRoute = load("lib/public/product-route.ts");
+const homeRoute = load("lib/public/home-route.ts", { mocks: { "@/lib/public/product-route": productRoute } });
 const NextResponse = {
   next: () => ({ kind: "next", headers: new Headers() }),
   rewrite: (url) => ({ kind: "rewrite", url: String(url), headers: new Headers() }),
@@ -110,6 +111,7 @@ const { middleware } = load("middleware.ts", {
     "next/server": { NextResponse },
     "@/lib/auth/session-token-edge": edgeSession(AUTH_ENV),
     "@/lib/public/home-route": homeRoute,
+    "@/lib/public/product-route": productRoute,
   },
 });
 function request(url, { method = "GET", host = "www.veximtrade.com", cookie } = {}) {

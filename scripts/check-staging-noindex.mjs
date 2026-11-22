@@ -16,6 +16,7 @@ const middlewareMocks = {
   'next/server': { NextResponse: { next: response, rewrite: response, redirect: response } },
   '@/lib/auth/session-token-edge': { verifySessionTokenEdge: async () => null },
   '@/lib/public/home-route': { homeRenderPath: (lang) => `/homepage/${lang}`, publicHomeUrlFor: () => null },
+  '@/lib/public/product-route': { publicProductUrlFor: () => null, staffProductViewPath: () => null },
 };
 const robotsMocks = { '@/lib/site': { SITE_URL: 'https://example.invalid' } };
 const sitemapMocks = { ...robotsMocks, '@/lib/blog/queries': {}, '@/lib/db': {}, '@/lib/public/catalog': {},

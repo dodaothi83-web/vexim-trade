@@ -1,7 +1,6 @@
 import { VeximTradeIcon } from "@/components/brand/vexim-icons";
 import { ProductCertificateCards } from "@/components/public/product-certificate-cards";
 import { ShareProductButton } from "@/components/share-product-button";
-import { getLocale } from "@/lib/i18n/server";
 import { SaveProductButton } from "@/components/buyer-saved-products";
 import { cache, Suspense } from "react";
 import { AskSupplierDialog } from "@/components/products/ask-supplier-dialog";
@@ -33,7 +32,7 @@ import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { QuantityPriceTable } from "@/components/public/quantity-price-table";
 import { productBelongsToCategory, withoutDirectContacts } from "@/lib/public/product-selection";
 import { movedProductDestination } from "@/lib/public/product-category-redirect";
-import { createTrafficToken } from "@/lib/traffic/server";
+import { isStaffProductView } from "@/lib/public/product-staff-view";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
 import { pageTitle, SITE_NAME, SITE_URL } from "@/lib/site";
 import { safeJsonLd } from "@/lib/public/supplier-seo";
@@ -46,7 +45,20 @@ import { SimilarOffersRail } from "@/components/public/similar-offers-rail";
 import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
 import { categoryTieWindow } from "@/lib/public/ranking";
 
-export const dynamic = "force-dynamic";
+/**
+ * Trang dựng sẵn (ISR) phục vụ từ CDN thay vì render lại mỗi lượt xem (từng là force-dynamic).
+ * Bản này KHÔNG được đọc cookie/phiên — đọc là Next.js buộc render động và mất cache. Việc cần
+ * phiên (xem trước danh mục chưa công khai, không đếm lượt xem của chính mình) chỉ chạy ở bản
+ * động app/(public)/staff-product-view, nơi middleware.ts đưa người có cookie phiên tới (URL
+ * không đổi, xem lib/public/product-route.ts). Làm mới mỗi phút và ngay khi CRM/cổng NCC gọi
+ * revalidatePath("/products", "layout").
+ */
+export const revalidate = 60;
+
+/** Không dựng sẵn lúc build: mỗi trang được dựng ở lượt xem đầu tiên rồi giữ trong cache. */
+export async function generateStaticParams(): Promise<Array<{ slug: string; productId: string }>> {
+  return [];
+}
 
 type Props = { params: Promise<{ slug: string; productId: string }> };
 
@@ -55,7 +67,8 @@ async function getDetail(slug: string, productId: string) {
   const category = await store.getCategoryBySlug(slug);
   if (!category) return null;
   const published = category.status === "published" && category.is_published;
-  const session = !published ? await getSession() : null;
+  // Chỉ bản động cho người có phiên mới đọc cookie (bản tĩnh coi danh mục chưa công khai là 404).
+  const session = !published && isStaffProductView() ? await getSession() : null;
   if (!published && !(session && hasPermission(session.role, "categories.manage"))) return null;
   const categoryProducts = await listPublicCategoryProducts(category);
   const card = categoryProducts.find((p) => p.id === productId);
@@ -144,7 +157,6 @@ function renderGradeRowPrice(rawPriceText: string | null | undefined) {
 }
 
 export default async function PublicProductDetail({ params }: Props) {
-  const isVi = (await getLocale()) === "vi";
   const { slug, productId } = await params;
   const detail = await getDetailOrRedirect(slug, productId);
   if (!detail) notFound();
@@ -226,7 +238,9 @@ export default async function PublicProductDetail({ params }: Props) {
       id: offer.id, supplierId: offer.supplierId, categorySlug: offerSlug, isDemo: offer.isDemo,
     }) ? { id: offer.id, categorySlug: offerSlug } : undefined} />;
 
-  const countView = !preview && !card.isDemo && !(await getSession());
+  // Người có phiên (nhân viên/NCC) luôn đi bản động staff-product-view: không đếm lượt xem của chính họ.
+  // /api/public/traffic vẫn tự kiểm tra lại phiên, danh mục, sản phẩm và nhà cung cấp trước khi đếm.
+  const countView = !preview && !card.isDemo && !isStaffProductView();
   // Nút chat chỉ hiện khi nhà cung cấp có tài khoản cổng đang hoạt động để trả lời.
   const canChat = await supplierChatAvailable(store, card.supplierId).catch(() => false);
   // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
@@ -309,8 +323,7 @@ export default async function PublicProductDetail({ params }: Props) {
   return <div className="mx-auto max-w-6xl px-5 pb-24 pt-7 sm:px-6 lg:px-8">
     {indexable && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }} />}
     {indexable && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productBreadcrumbJsonLd) }} />}
-    {countView && <SupplierTrafficBeacon pageKey={`product:${p.id}`}
-      token={createTrafficToken({ kind: "product", supplierId: p.supplier_id, resourceId: p.id, slug })} />}
+    {countView && <SupplierTrafficBeacon pageKey={`product:${p.id}`} product={{ slug, productId: p.id }} />}
     {preview && <p className="mb-4 rounded-lg bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">Staff preview — this category is not public yet.</p>}
     {card.isDemo && <p className="mb-4 rounded-lg bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">DEMO DATA · Sample product, not a real supplier offer.</p>}
     <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: category.name_i18n.en || slug, href: `/products/${slug}` }, { label: card.name }]} />
@@ -321,7 +334,7 @@ export default async function PublicProductDetail({ params }: Props) {
           streamVideo={galleryVideo ? { uid: galleryVideo.video_uid, title: `${card.name} video` } : null}
           actions={!preview && !card.isDemo ? <>
             <SaveProductButton id={card.id} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(card.id)}`} iconOnly />
-            <ShareProductButton title={card.name} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(card.id)}`} isVi={isVi} />
+            <ShareProductButton title={card.name} href={`/products/${encodeURIComponent(slug)}/${encodeURIComponent(card.id)}`} />
           </> : undefined} />
         <aside className="mt-6 overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card" aria-labelledby="supplier-card-title">
           <div className="border-b border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5">
