@@ -5,8 +5,8 @@ import type { HarvestCalendar } from "@/lib/types";
 import {
   HARVEST_MONTH_FULL,
   HARVEST_MONTH_LABELS,
-  buildHarvestChartGeometry,
   buildMonthStates,
+  type HarvestMonthState,
   formatReviewedOn,
   harvestHeadline,
   sortHarvestWindows,
@@ -15,12 +15,24 @@ import {
 } from "@/lib/public/harvest";
 
 /**
- * Biểu đồ mùa vụ trên trang danh mục.
+ * Lịch mùa vụ trên trang danh mục — dạng gọn: một hàng 12 ô tháng.
  *
- * SVG giữ nhãn hai trục và đường cong ở cùng một hệ tọa độ. Trên màn hình hẹp,
- * khung cuộn ngang để chữ không bị thu nhỏ. Nội dung mùa vụ vẫn có dạng văn bản
- * cho công cụ tìm kiếm và trình đọc màn hình.
+ * Bỏ đồ thị đường cong (2026-11-22, chủ sàn yêu cầu gọn nhất). Màu ô từ nhạt đến
+ * đậm: ngoài vụ (xám nhạt) → trong vụ phụ (navy nhạt) → vụ chính (navy đậm), kèm
+ * chú thích để buyer biết vụ nào là chính. Điện thoại xếp 2 hàng × 6 tháng để chữ
+ * không bị thu nhỏ. Nội dung mùa vụ vẫn có dạng văn bản cho công cụ tìm kiếm và
+ * trình đọc màn hình.
  */
+const MONTH_CELL: Record<HarvestMonthState, string> = {
+  peak: "bg-brand-800 font-bold text-white",
+  harvest: "bg-brand-400 font-bold text-brand-900",
+  none: "bg-ink-50 font-medium text-ink-500",
+};
+const MONTH_STATE_LABEL: Record<HarvestMonthState, string> = {
+  peak: "Main harvest",
+  harvest: "Secondary harvest",
+  none: "Outside the season",
+};
 export function HarvestCalendarSection({
   categoryName,
   harvest,
@@ -37,111 +49,42 @@ export function HarvestCalendarSection({
   if (windows.length === 0) return null;
 
   const states = buildMonthStates(windows);
-  const chart = buildHarvestChartGeometry(states);
+  const hasSecondary = states.includes("harvest");
   const headline = harvestHeadline(windows);
   const reviewed = formatReviewedOn(harvest.reviewed_on);
   const sources = harvest.sources ?? [];
   const sourceChecked = harvest.review_origin === "ai" && sources.length > 0;
 
   return (
-    <section id="crop-calendar" className="mt-14 rounded-2xl border border-ink-200 bg-white p-5 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-brand-700">Crop calendar</p>
-          {/* Tránh "cashew kernels is harvested": tên danh mục có thể số nhiều, nên đặt tên làm tân ngữ. */}
-          <h2 className="mt-2 max-w-2xl text-[22px] font-bold leading-tight text-ink-900 sm:text-[26px]">
-            Crop calendar for {categoryName.toLowerCase()} in Vietnam
-          </h2>
-        </div>
+    <section id="crop-calendar" className="mt-10 rounded-2xl border border-ink-200 bg-white p-5 sm:p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        {/* Tránh "cashew kernels is harvested": tên danh mục có thể số nhiều, nên đặt tên làm tân ngữ. */}
+        <h2 className="text-[18px] font-bold leading-tight text-ink-900 sm:text-[20px]">
+          Crop calendar for {categoryName.toLowerCase()} in Vietnam
+        </h2>
         <p className="text-[12.5px] font-semibold text-ink-600">{headline}</p>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-xl border border-ink-100 bg-ink-50/40 px-2 py-3">
-        <svg
-          viewBox={`0 0 ${chart.width} ${chart.height}`}
-          className="block h-auto w-full min-w-[720px]"
-          role="img"
-          aria-label={`Harvest activity by month for ${categoryName}. ${headline}. The vertical axis shows outside the season, in season and main harvest. The horizontal axis shows January to December.`}
-        >
-          <title>{`Harvest activity by month for ${categoryName}`}</title>
-          <path d={chart.areaPath} fill="var(--color-brand-700)" opacity={0.08} />
+      <ol className="mt-4 grid grid-cols-6 gap-1.5 sm:grid-cols-12" aria-label={`Harvest months for ${categoryName}. ${headline}.`}>
+        {states.map((state, index) => (
+          <li key={HARVEST_MONTH_LABELS[index]} title={`${HARVEST_MONTH_FULL[index]}: ${MONTH_STATE_LABEL[state]}`}
+            className={`rounded-lg py-2.5 text-center text-[13px] ${MONTH_CELL[state]}`}>
+            {HARVEST_MONTH_LABELS[index]}
+            <span className="sr-only">: {MONTH_STATE_LABEL[state]}</span>
+          </li>
+        ))}
+      </ol>
 
-          {chart.ticks.map((tick) => (
-            <g key={tick.state}>
-              <line
-                x1={chart.left} x2={chart.right} y1={tick.y} y2={tick.y}
-                stroke="var(--color-ink-200)" strokeWidth={1} strokeDasharray={tick.state === "none" ? undefined : "4 5"}
-              />
-              <line
-                x1={chart.left - 6} x2={chart.left} y1={tick.y} y2={tick.y}
-                stroke="var(--color-ink-400)" strokeWidth={1.2}
-              />
-              <text
-                x={chart.left - 12} y={tick.y + 4} textAnchor="end"
-                fontSize={12} fontWeight={600} fill="var(--color-ink-500)"
-              >
-                {tick.label}
-              </text>
-            </g>
-          ))}
-
-          <line
-            x1={chart.left} x2={chart.left} y1={chart.top} y2={chart.bottom}
-            stroke="var(--color-ink-400)" strokeWidth={1.2}
-          />
-          <line
-            x1={chart.left} x2={chart.right} y1={chart.bottom} y2={chart.bottom}
-            stroke="var(--color-ink-400)" strokeWidth={1.2}
-          />
-          <path
-            d={chart.path} fill="none" stroke="var(--color-brand-700)"
-            strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"
-          />
-
-          {chart.points.map((point) => (
-            <g key={`month-${point.month}`}>
-              <line
-                x1={point.x} x2={point.x} y1={chart.bottom} y2={chart.bottom + 6}
-                stroke="var(--color-ink-400)" strokeWidth={1}
-              />
-              <text
-                x={point.x} y={205} textAnchor="middle"
-                fontSize={12} fontWeight={600} fill="var(--color-ink-500)"
-              >
-                {HARVEST_MONTH_LABELS[point.month - 1]}
-              </text>
-            </g>
-          ))}
-
-          {chart.points.map((point) => (
-            <circle
-              key={`point-${point.month}`} cx={point.x} cy={point.y} r={5}
-              fill={point.state === "peak" ? "var(--color-brand-700)" : point.state === "harvest" ? "var(--color-brand-300)" : "#fff"}
-              stroke={point.state === "none" ? "var(--color-ink-400)" : "var(--color-brand-700)"} strokeWidth={2}
-            >
-              <title>{`${HARVEST_MONTH_FULL[point.month - 1]}: ${point.label}`}</title>
-            </circle>
-          ))}
-
-          <text
-            transform={`translate(22 ${(chart.top + chart.bottom) / 2}) rotate(-90)`} textAnchor="middle"
-            fontSize={12} fontWeight={700} fill="var(--color-ink-600)"
-          >
-            Harvest activity
-          </text>
-          <text
-            x={(chart.left + chart.right) / 2} y={239} textAnchor="middle"
-            fontSize={12} fontWeight={700} fill="var(--color-ink-600)"
-          >
-            Month
-          </text>
-        </svg>
+      {/* Chú thích màu: đậm = vụ chính, nhạt = vụ phụ (chỉ hiện khi có). */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-ink-600" aria-hidden="true">
+        <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded-sm bg-brand-800" />Main harvest</span>
+        {hasSecondary && <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded-sm bg-brand-400" />Secondary harvest</span>}
+        <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded-sm border border-ink-200 bg-ink-50" />Outside the season</span>
       </div>
-      <p className="mt-2 text-[11px] text-ink-500 md:hidden">Scroll to see all months.</p>
 
-      <ul className="mt-5 divide-y divide-ink-100 border-t border-ink-100 text-[13px] text-ink-700">
+      <ul className="mt-3 space-y-1 text-[13px] text-ink-700">
         {windows.map((window) => (
-          <li key={window.id ?? `${window.label}-${window.start_month}`} className="py-2.5">
+          <li key={window.id ?? `${window.label}-${window.start_month}`}>
             <span className="font-semibold text-ink-900">{window.label}</span>
             <span className="text-ink-500"> · {windowRangeText(window)}</span>
             {window.regions && window.regions.length > 0 && (

@@ -161,16 +161,28 @@ const html = renderToStaticMarkup(
   }),
 );
 
-assert.ok(!/<img/i.test(html), "The chart is inline SVG, not an image");
-assert.ok(html.includes("<svg") && html.includes('viewBox="0 0 840 250"'), "The curve renders in a responsive SVG frame");
-assert.ok(html.includes(" C "), "The rendered line uses smooth curve segments");
-assert.equal((html.match(/<circle/g) ?? []).length, 12, "The SVG shows twelve monthly data points");
-assert.ok(html.includes('role="img"'), "The chart exposes a single label to assistive tech");
-for (const label of ["Harvest activity", "Month", "Main harvest", "In season", "Outside the season"]) {
-  assert.ok(html.includes(label), `The axes show ${label}`);
-}
-assert.ok(html.includes("overflow-x-auto") && html.includes("min-w-[720px]"), "Small screens scroll instead of shrinking the axis labels");
-assert.ok(html.includes("Scroll to see all months"), "Mobile visitors receive a scroll cue");
+assert.ok(!/<img/i.test(html), "The calendar is HTML, not an image");
+// 2026-11-22: bỏ đồ thị đường cong, chỉ còn một hàng 12 ô tháng tô nhạt → đậm.
+assert.ok(!html.includes("<svg"), "No line chart any more");
+assert.ok(!html.includes("Scroll to see all months"), "No horizontal scroll needed");
+const cells = [...html.matchAll(/<li title="([A-Za-z]+): ([A-Za-z ]+)" class="([^"]+)"/g)];
+assert.equal(cells.length, 12, "Twelve month cells");
+assert.deepEqual(cells.map((m) => m[2]), ["Outside the season", "Main harvest", "Main harvest", "Main harvest", "Main harvest",
+  ...Array(7).fill("Outside the season")], "Feb-May is the main harvest");
+assert.ok(cells[1][3].includes("bg-brand-800") && cells[0][3].includes("bg-ink-50"), "Main harvest is dark, outside is light");
+assert.ok(html.includes("grid-cols-6") && html.includes("sm:grid-cols-12"), "Phones show two rows of six months");
+assert.ok(html.includes("Main harvest") && html.includes("Outside the season"), "Legend explains the colours");
+assert.ok(!html.includes("Secondary harvest</span>"), "No secondary legend when there is no secondary crop");
+const twoCrops = renderToStaticMarkup(React.createElement(section.HarvestCalendarSection, {
+  categoryName: "Cassia", harvest: { windows: [
+    { id: "s", label: "Spring crop", start_month: 3, end_month: 5, regions: [], peak: true },
+    { id: "a", label: "Autumn crop", start_month: 8, end_month: 11, regions: [], peak: false },
+  ], reviewed_on: null },
+}));
+const twoCells = [...twoCrops.matchAll(/<li title="([A-Za-z]+): ([A-Za-z ]+)" class="([^"]+)"/g)];
+assert.equal(twoCells[7][2], "Secondary harvest", "A non-peak window is the lighter secondary shade");
+assert.ok(twoCells[7][3].includes("bg-brand-400"), "Secondary harvest uses the light navy");
+assert.ok(twoCrops.includes("Secondary harvest</span>"), "Legend shows the secondary shade when used");
 assert.ok(html.includes("February to May"), "The chart states the season in words");
 assert.ok(html.includes("sr-only"), "A screen-reader description accompanies the chart");
 assert.ok(html.includes("Binh Phuoc, Dong Nai"), "Regions reach the page");
