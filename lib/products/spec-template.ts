@@ -23,6 +23,17 @@ const GENERIC: Pair = {
 };
 
 const BY_CATEGORY: { match: RegExp; template: Pair }[] = [
+  // Nhóm nhỏ "Hạt điều rang & tẩm vị" bán theo vị và gói lẻ, không theo độ ẩm nhân thô.
+  { match: /roasted-cashew|flavou?red-cashew/, template: {
+    vi: { fields: ["Grade nhân (W240, W320...)", "Cách chế biến, hương vị", "Độ ẩm tối đa", "Hạn sử dụng", "Tiêu chuẩn (HACCP, ISO 22000)", "Quy cách đóng gói"],
+      example: "Grade nhân: W320\nCách chế biến, hương vị: rang muối\nĐộ ẩm tối đa: 3%\nHạn sử dụng: 12 tháng\nTiêu chuẩn: HACCP\nQuy cách đóng gói: túi zip 500 g, 20 túi/thùng" },
+    en: { fields: ["Kernel grade (W240, W320...)", "Processing, flavour", "Max moisture", "Shelf life", "Standard (HACCP, ISO 22000)", "Packing"],
+      example: "Kernel grade: W320\nProcessing, flavour: roasted, salted\nMax moisture: 3%\nShelf life: 12 months\nStandard: HACCP\nPacking: 500 g zip bag, 20 bags/carton" } } },
+  { match: /(?:^|-)teas?(?:-|$)/, template: {
+    vi: { fields: ["Loại trà (xanh, đen, oolong, thảo mộc)", "Dạng (lá, túi lọc, bột)", "Độ ẩm tối đa", "Vùng nguyên liệu", "Tiêu chuẩn", "Quy cách đóng gói"],
+      example: "Loại trà: trà xanh Thái Nguyên\nDạng: lá\nĐộ ẩm tối đa: 7%\nVùng nguyên liệu: Thái Nguyên\nTiêu chuẩn: ISO 22000\nQuy cách đóng gói: thùng carton 20 kg" },
+    en: { fields: ["Tea type (green, black, oolong, herbal)", "Form (leaf, tea bag, powder)", "Max moisture", "Origin", "Standard", "Packing"],
+      example: "Tea type: Thai Nguyen green tea\nForm: loose leaf\nMax moisture: 7%\nOrigin: Thai Nguyen\nStandard: ISO 22000\nPacking: 20 kg carton" } } },
   { match: /cashew/, template: {
     vi: { fields: ["Grade (W180, W240, W320...)", "Độ ẩm tối đa", "Hạt vỡ, hạt lỗi tối đa", "Màu sắc", "Tiêu chuẩn (AFI, Vinacas)", "Quy cách đóng gói"],
       example: "Grade: W320\nĐộ ẩm tối đa: 5%\nHạt vỡ, hạt lỗi tối đa: 5%\nMàu sắc: trắng ngà\nTiêu chuẩn: AFI\nQuy cách đóng gói: thùng carton hút chân không 22,68 kg" },

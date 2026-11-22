@@ -3,7 +3,8 @@
 import { saveProductContentModeAction } from "@/app/supplier/portal/aplus-actions";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CategoryPicker, type CategoryPickerOption } from "@/components/category-picker";
 import { specTemplateFor, specTemplateText } from "@/lib/products/spec-template";
 import {
   AlertCircle,
@@ -325,6 +326,9 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const canDeleteDraft = !!product && review === "draft" && product.supplier_originated === true &&
     !product.ready_for_buyer && product.reviewed_category_slug == null;
   const categoryLocked = review === "approved" || (review === "paused" && !!product?.reviewed_category_slug);
+  // Danh mục đã chọn phải là nhóm cuối; nhóm lớn đã chia nhóm nhỏ thì coi như chưa chọn xong
+  // (trừ khi Vexim đã khoá danh mục của sản phẩm).
+  const categoryChosen = !!selectedCategory && (categoryLocked || categories.find((c) => c.slug === selectedCategory)?.leaf !== false);
   const activeCategorySlug = selectedCategory || product?.category || "";
   // Chèn các mục của mẫu theo ngành hàng; mục đã có trong ô thì không chèn lại.
   function insertSpecTemplate() {
@@ -349,7 +353,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   const priceIssueCount = (quantityPreview ? (quantityPreview.grade.trim() ? 0 : 1) : 0) +
     (quantityPreview && quantityPreview.tiers.every((tier) => !tier.priceUsdPerKg.trim()) ? 1 : 0);
   /** Đủ nội dung để gửi duyệt: nút gửi tự lưu trước nên không đòi bản đã lưu. */
-  const submitReady = !!(snapshot.name ?? "").trim() && !!selectedCategory && hasDetails && hasAnyImage &&
+  const submitReady = !!(snapshot.name ?? "").trim() && categoryChosen && hasDetails && hasAnyImage &&
     priceIssueCount === 0 && (!!product || !!quantityPreview);
   const catalogueAssets = media.filter((asset) => asset.kind !== "image");
   // Mục 7: Basic tính theo mô tả chữ, gói có A+ tính theo số khối A+ đã lưu.
@@ -368,7 +372,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
     .filter((value) => (value ?? "").trim()).length;
   const sectionPill = (id: string) => {
     switch (id) {
-      case "sec-category": return selectedCategory ? { text: copy.pill.done, tone: "ok" as const } : { text: copy.pill.notChosen, tone: "muted" as const };
+      case "sec-category": return categoryChosen ? { text: copy.pill.done, tone: "ok" as const } : { text: copy.pill.notChosen, tone: "muted" as const };
       case "sec-basic": return { text: fill(copy.pill.fields, { filled: basicFilled, total: 3 }), tone: "muted" as const };
       case "sec-media": return { text: fill(copy.pill.images, { shown: Math.min(shownImageCount, 6) }), tone: "muted" as const };
       case "sec-spec": return { text: fill(copy.pill.fields, { filled: specFilled, total: 4 }), tone: "muted" as const };
@@ -380,7 +384,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   };
   const sectionBlocked = (id: string) => {
     switch (id) {
-      case "sec-category": return !selectedCategory;
+      case "sec-category": return !categoryChosen;
       case "sec-basic": return !(snapshot.name ?? "").trim();
       case "sec-media": return !hasAnyImage;
       case "sec-price": return priceIssueCount > 0;
@@ -507,6 +511,14 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       lead_time_days: days,
     }));
   }
+
+  const pickerOptions = useMemo<CategoryPickerOption[]>(() => categories.map((c) => ({
+    id: c.id, slug: c.slug, label: lang === "en" ? c.label_en || c.label : c.label, label_en: c.label_en,
+    parent_slug: c.parent_slug ?? null, leaf: c.leaf,
+  })), [categories, lang]);
+  // Đổi danh mục làm mất grade/thông số đã nhập theo danh mục cũ: picker hỏi lại trước.
+  const hasCategoryDependentInput = !!quantityPreview?.grade ||
+    Object.entries(snapshot).some(([key, value]) => key.startsWith("attribute:") && !!value.trim());
 
   function onCategorySelect(nextSlug: string) {
     setSelectedCategory(nextSlug);
@@ -676,7 +688,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
       if (!hasAnyImage) { scrollToSection("sec-media"); return; }
       if (!hasDetails) { scrollToSection("sec-basic"); return; }
       if (priceIssueCount > 0) { scrollToSection("sec-price"); return; }
-      if (!selectedCategory) { scrollToSection("sec-category"); return; }
+      if (!categoryChosen) { scrollToSection("sec-category"); return; }
       return;
     }
     void submit();
@@ -1038,7 +1050,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
   /** Mục đích của từng khối: dùng cho mục lục bên trái và nút "Sửa" ở phần xem lại. */
   function sectionDone(id: string): boolean {
     switch (id) {
-      case "sec-category": return !!selectedCategory;
+      case "sec-category": return categoryChosen;
       case "sec-basic": return !!(snapshot.name ?? "").trim();
       case "sec-media": return hasAnyImage;
       case "sec-spec": return !!((snapshot.spec ?? "").trim() || (snapshot.description ?? "").trim());
@@ -1136,16 +1148,13 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
             className="scroll-mt-24 rounded-lg border border-ink-200 bg-white">
             <SectionHead index="1" title={copy.category.title} pill={sectionPill("sec-category")} />
             <div>
-              <Row label={copy.category.field} required error={!selectedCategory}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <select name="supplier_category_proposal" className="input min-w-0 flex-1" required value={selectedCategory}
-                    onChange={(e) => onCategorySelect(e.target.value)} disabled={locked || categoryLocked || !categories.length}>
-                    <option value="" disabled>{copy.category.placeholder}</option>
-                    {categories.map((c) => <option key={c.id} value={c.slug}>{c.group ? `${c.group} / ` : ""}{c.label}</option>)}
-                  </select>
-                  {categoryLocked && <input type="hidden" name="supplier_category_proposal" value={selectedCategory} />}
-                  <Link href="/supplier/portal/categories" className="btn btn-ghost btn-sm">{copy.category.suggest}</Link>
-                </div>
+              <Row label={copy.category.field} required error={!categoryChosen}>
+                {/* Chọn ngành kiểu Shopee: gợi ý theo tên, tìm, duyệt nhóm lớn › nhóm nhỏ, chỉ chọn nhóm cuối. */}
+                <CategoryPicker options={pickerOptions} value={selectedCategory} onChange={onCategorySelect}
+                  name="supplier_category_proposal" disabled={locked || categoryLocked || !categories.length}
+                  scope={categoryScope} registerHref="/supplier/portal/categories" suggestFrom={snapshot.name ?? ""}
+                  hasDependentInput={hasCategoryDependentInput} copy={copy.category.picker} invalid={!categoryChosen} />
+                {categoryLocked && <input type="hidden" name="supplier_category_proposal" value={selectedCategory} />}
                 {categoryLocked && <p className="mt-1 text-[11.5px] text-ink-500">{copy.category.lockedNote}</p>}
                 {/* Một dòng nổi bật: mỗi tên là một chứng nhận áp dụng theo danh mục đã chọn (11/2026). */}
                 {selectedCategory && (certificateInheritance[selectedCategory] ?? []).length > 0 && <p className="mt-2 flex items-start gap-2 rounded-lg border border-success bg-success-surface px-3 py-2 text-[13px] font-bold text-success">
@@ -1619,7 +1628,7 @@ export function SupplierProductEditor({ product, quantityEditor, quantityPolicie
                   action: fill(copy.review.goSection, { index: 3 }), run: () => scrollToSection("sec-media") },
                 { ok: priceIssueCount === 0 && (!!product || !!quantityPreview), label: copy.review.checkPrice,
                   action: fill(copy.review.goSection, { index: 5 }), run: () => scrollToSection("sec-price") },
-                { ok: !!(snapshot.name ?? "").trim() && !!selectedCategory, label: copy.review.checkName,
+                { ok: !!(snapshot.name ?? "").trim() && categoryChosen, label: copy.review.checkName,
                   action: copy.review.edit, run: () => scrollToSection("sec-category") },
               ]).map((row) => <li key={row.label}
                 className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-md border border-ink-200 px-3 py-2.5">

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
-import { listPublicCategoryProducts } from "@/lib/public/product-catalog";
+import { listPublicCategoryFamilyProducts } from "@/lib/public/product-catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { eligiblePilotCampaign, readPilotCampaign, recordPilotEvent, sponsoredPilotEnabled, verifyPilotTicket } from "@/lib/sponsored/pilot";
 
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const store = getStore();
     const category = await store.getCategoryBySlug(verified.categorySlug);
     if (!category || category.status !== "published" || !category.is_published) return new NextResponse(null, { status: 204 });
-    const product = (await listPublicCategoryProducts(category)).find((p) => p.id === verified.productId);
+    const product = (await listPublicCategoryFamilyProducts(category)).find((p) => p.id === verified.productId);
     if (!eligiblePilotCampaign(campaign, product, category.slug)) return new NextResponse(null, { status: 204 });
     const supplier = await store.getSupplier(verified.supplierId);
     if (!supplier || isSyntheticSupplier(supplier)) return new NextResponse(null, { status: 204 });

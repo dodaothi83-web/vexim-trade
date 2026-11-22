@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { productExtrasFromForm } from '../lib/products/product-extras.ts';
+import * as categoryTree from '../lib/categories/tree.ts';
 let denied = false, writes = 0;
 const category = { id: 'cat', slug: 'cashew', name_i18n: { en: 'Cashew' }, status: 'published', is_published: true };
 let product = { id: 'p', supplier_id: 's', name: 'Nhân điều', spec: 'Quy cách', description: null, description_detail: null,
@@ -23,6 +24,7 @@ const mocks = {
   '@/lib/public/category-assignment': { assignProductCategory: () => category, assignSupplierCategories: () => ({ slugs: ['cashew'], ids: [] }) },
   '@/lib/public/display-name': { isPlaceholderDisplayName: () => false },
   '@/lib/products/product-extras': { productExtrasFromForm },
+  '@/lib/categories/tree': categoryTree,
 };
 const exports = {};
 const code = ts.transpileModule(readFileSync(new URL('../app/actions.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;

@@ -348,12 +348,15 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       categoryPathByProduct.set(item.id, parentPath);
     }
   }
+  // Thẻ của nhóm nhỏ trỏ thẳng tới đường dẫn của nhóm nhỏ (không qua chuyển hướng 301).
+  const productCategorySlugs: Record<string, string> = {};
   for (const { child, products: items } of childProductsList) {
     for (const item of items) {
       if (!seenProductIds.has(item.id)) {
         seenProductIds.add(item.id);
         products.push(item);
         categoryPathByProduct.set(item.id, [child.id, ...parentPath]);
+        productCategorySlugs[item.id] = child.slug;
       }
     }
   }
@@ -480,7 +483,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     name: `${categoryName} products`,
     itemListElement: visibleProducts.map((p, index) => ({
       "@type": "ListItem", position: index + 1, name: p.name,
-      url: `${SITE_URL}/products/${encodeURIComponent(cat.slug)}/${encodeURIComponent(p.id)}`,
+      url: `${SITE_URL}/products/${encodeURIComponent(productCategorySlugs[p.id] ?? cat.slug)}/${encodeURIComponent(p.id)}`,
       ...(productImageUrl(p) ? { image: productImageUrl(p) } : {}),
     })),
   } : null;
@@ -561,6 +564,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
           <StateA
             cat={cat}
             products={visibleProducts}
+            productCategorySlugs={productCategorySlugs}
             productCount={products.length}
             certificateFacets={certificateFacets}
             selectedCertificateSchemes={selectedSchemes}
@@ -671,10 +675,11 @@ function SubcategoryDirectory({
 function StateA({
   cat, products, productCount, certificateFacets, selectedCertificateSchemes,
   sponsored, sponsoredBand, categoryName, h1, intro, childGroups, body, columns, rows, facts, faqs, filters, rfqHref, comparisonEnabled,
-  page, keepQuery, lang,
+  page, keepQuery, lang, productCategorySlugs,
 }: {
   cat: Category;
   products: PublicCategoryProduct[];
+  productCategorySlugs: Record<string, string>;
   /** Số sản phẩm của danh mục trước khi lọc, để báo "không có sản phẩm khớp". */
   productCount: number;
   certificateFacets: CertificateFacet[];
@@ -773,7 +778,7 @@ function StateA({
         ) : (
           <CategoryProductGrid products={products} categorySlug={cat.slug} grades={grades} sponsored={sponsored}
             sponsoredBand={sponsoredBand} productFields={cat.product_fields ?? []} comparisonEnabled={comparisonEnabled}
-            page={page} keepQuery={keepQuery} />
+            page={page} keepQuery={keepQuery} productCategorySlugs={productCategorySlugs} />
         )}
       </section>
 

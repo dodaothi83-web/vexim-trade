@@ -50,13 +50,14 @@ export function withoutDirectContacts(value: string): string {
 /**
  * Danh mục có quy cách đọc được bằng máy.
  *
- * "cashew" là slug cũ, "cashew-kernels" là slug ra mắt ngày 23/10/2026. Giữ cả hai
- * để sản phẩm cũ chưa chuyển slug vẫn tách được quy cách trong khối giá.
+ * "cashew" là slug cũ, "cashew-kernels" là slug ra mắt ngày 23/10/2026, nhóm nhỏ
+ * ("raw-cashew-kernels", "roasted-cashews") có từ khi tách danh mục. Nhận mọi slug
+ * hạt điều để sản phẩm cũ lẫn mới vẫn tách được quy cách trong khối giá.
  */
-const GRADED_CATEGORY_SLUGS = new Set(["cashew", "cashew-kernels"]);
+const isGradedCategorySlug = (slug: string) => /(?:^|-)cashews?(?:-|$)/i.test(slug);
 
 export function productGrade(name: string, spec: string | null, categorySlug: string): string | null {
-  if (!GRADED_CATEGORY_SLUGS.has(categorySlug)) return null;
+  if (!isGradedCategorySlug(categorySlug)) return null;
   const text = `${name} ${spec ?? ""}`.toUpperCase();
   const code = /\b(W180|W240|W320|W450|SW|WS|LP|SP)\b/.exec(text)?.[1];
   if (code) return code;

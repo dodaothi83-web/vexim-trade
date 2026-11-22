@@ -16,7 +16,7 @@ const mocks = {
   '@/lib/supplier-plans': supplierPlans,
   'next/cache': { revalidatePath() {} }, '@/lib/public/revalidate-home': { revalidateHomePage() {} },  '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => null, recordPlanActivation: async () => {} },  '@/lib/seo/indexnow': { notifyIndexNow() {} }, '@/lib/auth/session': { guard: async () => null, getSession: async () => session },
   '@/lib/db': { getStore: () => store }, '@/lib/db/supabase': { getSupabaseClient: () => db, supabaseStore: store },
-  '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: (v) => v }, '@/lib/crm/badges': { refreshCrmBadges() {} },
+  '@/lib/supplier-portal/category-proposals': { categoryProposalOptions: (v) => v, isProductCategoryChoice: () => true }, '@/lib/crm/badges': { refreshCrmBadges() {} },
   '@/lib/supplier-portal/notify': { notifySupplierDecision: async () => 'sent' },
   '@/lib/ai/product-translation-service': {}, '@/lib/ai/translate-content': {}, '@/lib/products/product-description': {},
   '@/lib/products/grade-pricing': { standardGradesForCategory: () => ['W320'] }, '@/lib/products/quantity-pricing': { nameContainsGrade: (name, grades) => grades.some((grade) => name.includes(grade)) },

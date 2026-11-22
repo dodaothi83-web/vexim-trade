@@ -3,9 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { CategoryProposalOption } from "@/lib/supplier-portal/category-proposals";
+import { CategoryPicker, type CategoryPickerOption } from "@/components/category-picker";
 import type { ProductPublicationMediaState } from "@/lib/media/readiness";
 import { decideSupplierProductAction } from "./review-actions";
 import { useProductEditWorkspace } from "./edit-workspace";
+
+export const toPickerOption = (c: CategoryProposalOption): CategoryPickerOption => ({
+  id: c.id, slug: c.slug, label: c.label, label_en: c.label_en, parent_slug: c.parent_slug ?? null, leaf: c.leaf,
+});
 
 /** Staff chọn danh mục cuối cùng và đăng sản phẩm trong một thao tác. */
 export function SupplierProductReviewControls({
@@ -27,7 +32,8 @@ export function SupplierProductReviewControls({
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [selectedSlug, setSelectedSlug] = useState((reviewed || proposal) ?? "");
-  const selected = categories.find((c) => c.slug === selectedSlug);
+  // Chỉ danh mục lá mới đăng được (nhóm lớn đã chia nhóm nhỏ thì chọn nhóm nhỏ).
+  const selected = categories.find((c) => c.slug === selectedSlug && c.leaf !== false);
   const inferred = categories.find((c) => c.slug === inferredCategory);
   const outsideScope = !!selected && scope.length > 0 && !scope.includes(selected.slug);
   const mediaBlocker = mediaReview.buyerImages === 0
@@ -68,12 +74,12 @@ export function SupplierProductReviewControls({
     <form onSubmit={(e) => void decide(e)} className="flex flex-wrap items-end gap-3">
       <input type="hidden" name="product_id" value={id} />
       <input type="hidden" name="decision" value="approved" />
-      <label className="min-w-0 flex-1 text-sm font-semibold">Danh mục đăng
-        <select name="reviewed_category_slug" required disabled={busy} className="input mt-1" value={selectedSlug} onChange={(e) => setSelectedSlug(e.target.value)}>
-          <option value="" disabled>Chọn danh mục</option>
-          {categories.map((category) => <option key={category.slug} value={category.slug}>{category.group ? `${category.group} / ${category.label}` : category.label}</option>)}
-        </select>
-      </label>
+      <div className="min-w-0 flex-1 basis-72 text-sm font-semibold">Danh mục đăng
+        <div className="mt-1 font-normal">
+          <CategoryPicker name="reviewed_category_slug" options={categories.map(toPickerOption)} value={selectedSlug}
+            onChange={setSelectedSlug} disabled={busy} scope={scope} invalid={!selected} />
+        </div>
+      </div>
       <button disabled={busy || !selected || dirty || !mediaReview.ready} className="btn btn-primary">{busy ? "Đang đăng..." : "Duyệt và đăng"}</button>
     </form>
     {dirty && <p role="alert" className="text-xs font-semibold text-amber-900">Lưu thay đổi trong hồ sơ và bản dịch trước khi duyệt và đăng.</p>}

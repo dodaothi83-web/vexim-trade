@@ -1,5 +1,6 @@
 import type { Category, Supplier, SupplierCategory, SupplierProduct } from "@/lib/types";
 import { parseRequestedCategory } from "./requested-category";
+import { expandCategoryScope } from "../categories/tree.ts";
 
 /** Kết quả đọc phạm vi NCC: danh mục đã chọn (quyền) + yêu cầu ngành chưa mở (chỉ là yêu cầu). */
 export type SupplierCategoryProposalParseResult = {
@@ -13,6 +14,13 @@ export type CategoryProposalOption = {
   slug: string;
   label: string;
   group: string | null;
+  /** Tên tiếng Anh (portal EN và ô tìm ngành hàng đọc được cả hai thứ tiếng). */
+  label_en?: string | null;
+  group_en?: string | null;
+  /** Nhóm lớn đang mở chứa danh mục này; null là danh mục cấp 1. */
+  parent_slug?: string | null;
+  /** Danh mục lá (không còn nhóm nhỏ đang mở): chỉ lá mới gắn được cho sản phẩm. */
+  leaf?: boolean;
   price_unit?: Category["price_unit"];
   moq_units?: Category["moq_units"];
   product_fields?: Category["product_fields"];
@@ -40,7 +48,11 @@ export function categoryProposalOptions(categories: Category[]): CategoryProposa
     .map((c) => {
       const parent = c.parent_id ? byId.get(c.parent_id) : null;
       return { id: c.id, slug: c.slug, label: c.name_i18n.vi || c.name_i18n.en || c.slug,
-        group: parent?.name_i18n.vi || parent?.name_i18n.en || null, price_unit: c.price_unit ?? null,
+        group: parent?.name_i18n.vi || parent?.name_i18n.en || null,
+        label_en: c.name_i18n.en || null, group_en: parent ? parent.name_i18n.en || null : null,
+        parent_slug: parent?.slug ?? null,
+        leaf: !published.some((child) => child.parent_id === c.id),
+        price_unit: c.price_unit ?? null,
         moq_units: c.moq_units ?? null,
         product_fields: c.product_fields ?? [],
         supplier_product_fields: c.supplier_product_fields ?? [],
@@ -115,7 +127,17 @@ export function allowedSupplierCategories(
 ): CategoryProposalOption[] {
   const slugs = supplier.requested_category_slugs?.length ? supplier.requested_category_slugs :
     supplier.categories_reviewed_at ? options.filter((c) => linked.some((row) => row.category_id === c.id)).map((c) => c.slug) : [];
-  return options.filter((c) => slugs.includes(c.slug));
+  // Được bán ở nhóm lớn thì được bán ở các nhóm nhỏ của nó (khi Vexim tách danh mục).
+  const scope = expandCategoryScope(slugs, options.map((c) => ({
+    id: c.id, slug: c.slug, parent_id: c.parent_slug ? options.find((p) => p.slug === c.parent_slug)?.id ?? null : null,
+  })));
+  return options.filter((c) => scope.includes(c.slug));
+}
+
+/** Gắn được cho sản phẩm: danh mục đang mở và là lá. */
+export function isProductCategoryChoice(slug: string | null | undefined, options: CategoryProposalOption[]): boolean {
+  const option = slug ? options.find((c) => c.slug === slug) : undefined;
+  return !!option && option.leaf !== false;
 }
 
 /**
@@ -128,8 +150,17 @@ export function productCategorySlug(
   return product.reviewed_category_slug || product.supplier_category_proposal || product.category || null;
 }
 
-export function parseProductCategoryProposal(form: FormData, options: CategoryProposalOption[]): string {
+/**
+ * Danh mục NCC chọn cho sản phẩm. Phải là danh mục lá (giống Shopee: nhóm lớn đã
+ * có nhóm nhỏ thì phải chọn nhóm nhỏ). Ngoại lệ duy nhất: giữ nguyên danh mục
+ * sản phẩm đang có, để sản phẩm đã duyệt trước khi tách vẫn lưu được.
+ */
+export function parseProductCategoryProposal(form: FormData, options: CategoryProposalOption[], rules: {
+  current?: string | null; invalid?: string; needLeaf?: string;
+} = {}): string {
   const raw = String(form.get("supplier_category_proposal") ?? "").trim();
-  if (!raw || !options.some((c) => c.slug === raw)) throw new Error("Chọn danh mục sản phẩm đang xuất bản.");
+  if (!raw || !options.some((c) => c.slug === raw)) throw new Error(rules.invalid ?? "Chọn danh mục sản phẩm đang xuất bản.");
+  if (!isProductCategoryChoice(raw, options) && raw !== rules.current)
+    throw new Error(rules.needLeaf ?? "Danh mục này đã chia nhóm nhỏ. Chọn nhóm nhỏ phù hợp với sản phẩm.");
   return raw;
 }

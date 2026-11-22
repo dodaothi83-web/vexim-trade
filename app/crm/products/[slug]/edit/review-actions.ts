@@ -6,7 +6,7 @@ import { getStore } from "@/lib/db";
 import { notifyIndexNow } from "@/lib/seo/indexnow";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import type { SupplierProduct } from "@/lib/types";
-import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
+import { categoryProposalOptions, isProductCategoryChoice } from "@/lib/supplier-portal/category-proposals";
 import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
@@ -76,6 +76,9 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
       // The category selected by staff is the final decision.
       if (!options.some((c) => c.slug === reviewedCategory))
         return { ok: false, message: "Chọn danh mục đang xuất bản trước khi duyệt và đăng." };
+      // Nhóm lớn đã chia nhóm nhỏ thì phải chốt nhóm nhỏ (đăng lại sản phẩm cũ giữ nguyên danh mục đã duyệt).
+      if (!isProductCategoryChoice(reviewedCategory, options) && !(retryApprovedPublication && reviewedCategory === product.reviewed_category_slug))
+        return { ok: false, message: "Danh mục này đã chia nhóm nhỏ. Chọn nhóm nhỏ phù hợp trước khi duyệt." };
       if (!product.name || !(product.spec || product.description)) {
         return { ok: false, message: "Cần tên và mô tả hoặc quy cách trước khi duyệt và đăng." };
       }
@@ -250,6 +253,8 @@ export async function correctSupplierProductCategoryAction(form: FormData): Prom
     const options = categoryProposalOptions(categories);
     if (!options.some((c) => c.slug === slug))
       return { ok: false, message: "Chọn danh mục đang xuất bản." };
+    if (!isProductCategoryChoice(slug, options))
+      return { ok: false, message: "Danh mục này đã chia nhóm nhỏ. Chọn nhóm nhỏ phù hợp." };
     if (product.reviewed_category_slug === slug) return { ok: true, message: "Danh mục không thay đổi." };
     await store.updateProduct(id, { reviewed_category_slug: slug, category: slug, ready_for_buyer: product.ready_for_buyer });
     await store.addAuditLog({ actor_id: session.uid, actor_email: session.email, entity: "product", entity_id: id,

@@ -166,16 +166,25 @@ export function mergeSupplierGradeOptions(saved: unknown, incoming: unknown): st
 
 const BUILTIN_CATEGORY_GRADES: Array<{ match: RegExp; grades: readonly string[] }> = [
   {
-    match: /(?:^|-)cashew(?:-|$)/i,
+    match: /(?:^|-)cashews?(?:-|$)/i,
     grades: ["W180", "W210", "W240", "W320", "W450", "SW", "WS", "LP", "SP"],
   },
   {
     match: /(?:^|-)pepper(?:-|$)|^spices$/i,
     grades: ["500 g/L", "550 g/L", "570 g/L", "580 g/L", "White pepper"],
   },
+  // Nhóm nhỏ chỉ nhận grade của mặt hàng mình; danh mục gộp "Quế và hồi" giữ cả hai.
   {
-    match: /cinnamon|anise|cassia/i,
+    match: /^(?=.*(?:cinnamon|cassia))(?=.*anise)/i,
     grades: ["Cassia whole", "Cassia split", "Cassia powder", "Star anise", "Star anise oil"],
+  },
+  {
+    match: /anise/i,
+    grades: ["Star anise", "Star anise oil"],
+  },
+  {
+    match: /cinnamon|cassia/i,
+    grades: ["Cassia whole", "Cassia split", "Cassia powder"],
   },
   {
     match: /(?:^|-)rice(?:-|$)/i,

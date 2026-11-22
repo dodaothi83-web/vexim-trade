@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/session";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
-import { listPublicCategoryProducts } from "@/lib/public/product-catalog";
+import { listPublicCategoryFamilyProducts } from "@/lib/public/product-catalog";
 import { getStore } from "@/lib/db";
 import { recordCountryView, recordPageView, verifyTrafficToken } from "@/lib/traffic/server";
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       // nhà cung cấp lấy từ chính thẻ sản phẩm công khai chứ không tin dữ liệu trình duyệt gửi.
       const category = await getStore().getCategoryBySlug(productRef.slug);
       if (!category || category.status !== "published" || !category.is_published) return new NextResponse(null, { status: 204 });
-      const card = (await listPublicCategoryProducts(category)).find((p) => p.id === productRef.productId);
+      const card = (await listPublicCategoryFamilyProducts(category)).find((p) => p.id === productRef.productId);
       if (!card || card.isDemo) return new NextResponse(null, { status: 204 });
       const supplier = await getStore().getSupplier(card.supplierId);
       if (!supplier || isSyntheticSupplier(supplier)) return new NextResponse(null, { status: 204 });
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     } else if (signed) {
       const category = await getStore().getCategoryBySlug(signed.slug);
       if (!category || category.status !== "published" || !category.is_published) return new NextResponse(null, { status: 204 });
-      const card = (await listPublicCategoryProducts(category)).find((p) => p.id === signed.resourceId);
+      const card = (await listPublicCategoryFamilyProducts(category)).find((p) => p.id === signed.resourceId);
       if (!card || card.supplierId !== signed.supplierId || card.isDemo) return new NextResponse(null, { status: 204 });
       const supplier = await getStore().getSupplier(signed.supplierId);
       if (!supplier || isSyntheticSupplier(supplier)) return new NextResponse(null, { status: 204 });

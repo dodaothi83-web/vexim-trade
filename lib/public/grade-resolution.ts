@@ -34,7 +34,8 @@ export interface GradeResolution {
 }
 
 /** Slug có quy cách đọc được bằng máy. "cashew" là slug cũ, giữ để đọc dữ liệu cũ. */
-const CASHEW_GRADE_SLUGS = new Set(["cashew", "cashew-kernels"]);
+/** Hạt điều và các nhóm nhỏ của nó (nhân điều thô, điều rang…): slug chứa "cashew"/"cashews". */
+export const isCashewCategorySlug = (slug: string) => /(?:^|-)cashews?(?:-|$)/i.test(slug);
 
 /**
  * Chuẩn hoá để so sánh: không phân biệt hoa thường, gộp khoảng trắng, và coi
@@ -69,8 +70,8 @@ export function pepperGradeFromText(name: string, spec: string | null): string |
 
 /** Quy cách suy ra từ tên, theo đúng danh mục. */
 export function gradeFromName(name: string, spec: string | null, categorySlug: string): string | null {
-  if (CASHEW_GRADE_SLUGS.has(categorySlug)) return cashewGradeFromText(name, spec);
-  if (categorySlug === "pepper") return pepperGradeFromText(name, spec);
+  if (isCashewCategorySlug(categorySlug)) return cashewGradeFromText(name, spec);
+  if (/(?:^|-)pepper(?:-|$)/i.test(categorySlug)) return pepperGradeFromText(name, spec);
   return null;
 }
 

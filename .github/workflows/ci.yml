@@ -59,6 +59,8 @@ jobs:
             command: check:home-static
           - label: Trang sản phẩm tĩnh và ảnh sản phẩm
             command: check:product-static
+          - label: Cây danh mục và ô chọn ngành hàng
+            command: check:category-tree
     steps:
       - uses: actions/checkout@v4
 

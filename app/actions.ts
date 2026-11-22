@@ -21,6 +21,7 @@ import {
   summarizeGradeRowsForProduct,
 } from "@/lib/products/grade-pricing";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
+import { expandCategoryScope, inheritParentCategoryConfig, isLeafCategory } from "@/lib/categories/tree";
 import { parseHarvestInput } from "@/lib/crm/harvest-input";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
@@ -1528,11 +1529,18 @@ async function autoAssignProduct(input: SupplierProductInput, requestedSlug?: st
   const inferred = assignProductCategory(input, categories, fallback);
   // An explicit choice is used only if text inference cannot identify a category;
   // never let a forged or out-of-scope form value override a known commodity.
-  const allowed = supplier.requested_category_slugs?.length ? supplier.requested_category_slugs : fallback;
+  const allowed = expandCategoryScope(supplier.requested_category_slugs?.length ? supplier.requested_category_slugs : fallback, categories);
+  const requested = requestedSlug ? categories.find((category) => category.slug === requestedSlug) ?? null : null;
+  // Chỉ nhận lựa chọn là danh mục lá (nhóm lớn đã chia nhóm nhỏ thì phải chọn nhóm nhỏ).
+  const requestedLeaf = requested && allowed.includes(requested.slug) && isLeafCategory(requested, categories) ? requested : null;
+  // Tên chỉ khớp nhóm lớn (ví dụ "hạt điều") mà nhân viên đã chọn nhóm nhỏ của chính nhóm đó: dùng nhóm nhỏ.
+  if (inferred && requestedLeaf && requestedLeaf.parent_id === inferred.id) {
+    input.category = requestedLeaf.slug;
+    return requestedLeaf;
+  }
   const ambiguous = !inferred && requestedSlug && categories.filter((category) =>
     assignProductCategory({ ...input, category: null }, [category])?.id === category.id).length > 1;
-  const chosen = !inferred && !ambiguous && requestedSlug && allowed.includes(requestedSlug)
-    ? categories.find((category) => category.slug === requestedSlug) ?? null : null;
+  const chosen = !inferred && !ambiguous ? requestedLeaf : null;
   const match = inferred ?? chosen;
   input.category = match?.slug ?? null;
   return categories.find((category) => category.id === match?.id) ?? null;
@@ -2751,6 +2759,11 @@ function parseCategoryInput(raw: Record<string, unknown>) {
   };
 }
 
+/** Cây danh mục chỉ 2 cấp: danh mục cha phải là danh mục cấp 1. */
+function categoryTreeError(parent: Category): string | null {
+  return parent.parent_id ? "Chỉ hỗ trợ 2 cấp: chọn danh mục cấp 1 làm danh mục cha." : null;
+}
+
 export async function createCategoryAction(raw: Record<string, unknown>) {
   // Tạo mới mặc định là nháp; không cần quyền publish.
   const gate = await guard("categories.manage");
@@ -2764,9 +2777,19 @@ export async function createCategoryAction(raw: Record<string, unknown>) {
   if (!input.slug) return { ok: false, message: "Slug không được để trống." };
   if (!input.name_i18n?.en) return { ok: false, message: "Vui lòng nhập tên danh mục (tiếng Anh)." };
   if (await store.getCategoryBySlug(input.slug)) return { ok: false, message: `Slug "${input.slug}" đã tồn tại. Chọn slug khác.` };
+  let createInput: Partial<Category> = input as Partial<Category>;
+  if (input.parent_id) {
+    const parent = await store.getCategory(input.parent_id);
+    if (!parent) return { ok: false, message: "Danh mục cha không tồn tại." };
+    const treeError = categoryTreeError(parent);
+    if (treeError) return { ok: false, message: treeError };
+    // Nhóm nhỏ mới nhận cấu hình của nhóm lớn (thông số, grade NCC đã thêm, đơn vị giá,
+    // MOQ, mùa vụ) để tách danh mục không làm mất bộ lọc hay đơn vị đang dùng.
+    createInput = inheritParentCategoryConfig(createInput, parent);
+  }
   try {
     const created = await store.createCategory({
-      ...(input as Partial<Category>),
+      ...createInput,
       created_by: session?.uid ?? null,
       updated_by: session?.uid ?? null,
     });
@@ -2797,6 +2820,15 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
 
   const input = parseCategoryInput(raw);
   if (!Object.hasOwn(raw, "product_fields")) input.product_fields = existing.product_fields ?? [];
+  if (input.parent_id && input.parent_id !== existing.parent_id) {
+    if (input.parent_id === id) return { ok: false, message: "Danh mục không thể là cha của chính nó." };
+    const parent = await store.getCategory(input.parent_id);
+    if (!parent) return { ok: false, message: "Danh mục cha không tồn tại." };
+    const treeError = categoryTreeError(parent);
+    if (treeError) return { ok: false, message: treeError };
+    const all = await store.listCategories({ publishedOnly: false });
+    if (all.some((c) => c.parent_id === id)) return { ok: false, message: "Danh mục đang có nhóm nhỏ nên không thể chuyển vào danh mục khác (chỉ 2 cấp)." };
+  }
 
   // Content saves cannot also approve publication. Keep a separate status-only decision.
   const wasPublished = existing.is_published && existing.status === "published";

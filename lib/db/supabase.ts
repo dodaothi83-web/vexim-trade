@@ -350,6 +350,12 @@ async function decorateCategoryReadiness(rows: Category[]): Promise<Category[]> 
     const slug = publicProductCategorySlug(p, rows);
     if (slug) readySlugs.add(slug);
   }
+  // Danh mục lớn hiển thị luôn sản phẩm của nhóm nhỏ, nên một nhóm nhỏ sẵn sàng thì nhóm lớn cũng vậy.
+  const slugById = new Map(rows.map((c) => [c.id, c.slug]));
+  for (const c of rows) {
+    const parentSlug = c.parent_id ? slugById.get(c.parent_id) : undefined;
+    if (parentSlug && readySlugs.has(c.slug)) readySlugs.add(parentSlug);
+  }
   return rows.map((c) => ({ ...c, public_page_ready: readySlugs.has(c.slug) }));
 }
 
