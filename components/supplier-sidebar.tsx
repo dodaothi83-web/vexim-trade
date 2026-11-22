@@ -102,12 +102,18 @@ export function SupplierSidebar({
     let alive = true;
     const load = async () => {
       if (document.visibilityState !== "visible") return;
-      const res = await fetch("/api/chat?side=supplier", { cache: "no-store" }).catch(() => null);
+      const res = await fetch("/api/chat?side=supplier&peek=1", { cache: "no-store" }).catch(() => null);
       if (alive && res?.ok) setUnreadChats(((await res.json()) as { unread?: number }).unread ?? 0);
+    };
+    // Trang Tin nhắn đang mở báo số mới ngay khi đọc xong một cuộc, khỏi chờ tới phút sau.
+    const onUnread = (event: Event) => {
+      const detail = (event as CustomEvent<{ side?: string; unread?: number }>).detail;
+      if (alive && detail?.side === "supplier" && typeof detail.unread === "number") setUnreadChats(detail.unread);
     };
     void load();
     const timer = window.setInterval(load, 60_000);
-    return () => { alive = false; window.clearInterval(timer); };
+    window.addEventListener("vexim:chat-unread", onUnread);
+    return () => { alive = false; window.clearInterval(timer); window.removeEventListener("vexim:chat-unread", onUnread); };
   }, [approved, pathname]);
   // Mỗi mục là một trang thật; mục dài nhất khớp tiền tố đường dẫn sẽ được chọn.
   const activeHref = NAV.map((item) => item.href)

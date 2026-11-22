@@ -101,6 +101,12 @@ export function hasUnread(conversation: Pick<ChatConversation, "last_message_at"
 }
 
 
+/** Mốc `?after=` khung chat gửi khi hỏi lại tin mới: ISO có múi giờ, ngoài ra coi như không có (trả đủ tin). */
+export function chatAfterParam(raw: string | null | undefined): string | undefined {
+  if (!raw || raw.length > 40 || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:?\d{2})$/.test(raw)) return undefined;
+  return Number.isFinite(Date.parse(raw)) ? raw : undefined;
+}
+
 export function chatPreview(body: string, max = 140): string {
   const flat = body.replace(/\s+/g, " ").trim();
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;

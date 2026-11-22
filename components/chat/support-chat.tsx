@@ -65,14 +65,26 @@ export function SupportChat({ isVi = false, onClose }: { isVi?: boolean; onClose
     if (!res?.ok) { setMessages((m) => m ?? []); setError((e) => e ?? t.loadError); return; }
     const data = await res.json() as { messages: SupportMessageView[]; staffReadAt?: string | null; staffLastSeen?: string | null };
     setStaffReadAt(data.staffReadAt ?? null); setStaffLastSeen(data.staffLastSeen ?? null);
-    setMessages((current) => [...data.messages, ...(current ?? []).filter((m) => m.pending)]);
+    // Giữ các tin đang gửi, trừ tin máy chủ đã có (lượt hỏi về trước lời đáp POST): không hiện hai lần.
+    setMessages((current) => {
+      let pending = (current ?? []).filter((m) => m.pending);
+      for (const m of data.messages) {
+        // Chỉ so với tin lưu sau lúc bấm gửi (trừ hao lệch giờ), để tin cũ trùng chữ như "ok" không xoá nhầm.
+        const twin = m.mine ? pending.find((p) => p.body === m.body && Date.parse(m.createdAt) >= Date.parse(p.createdAt) - 60_000) : undefined;
+        if (twin) pending = pending.filter((p) => p !== twin);
+      }
+      return [...data.messages, ...pending];
+    });
   }, [t.loadError]);
 
   useEffect(() => {
     void load();
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void load(); }, POLL_MS);
+    const tick = () => { if (document.visibilityState === "visible") void load(); };
+    const timer = window.setInterval(tick, POLL_MS);
+    // Quay lại tab thì hỏi ngay, không chờ lượt sau.
+    document.addEventListener("visibilitychange", tick);
     inputRef.current?.focus();
-    return () => { window.clearInterval(timer); };
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
   }, [load, onClose]);
 
   useEffect(() => {
@@ -101,7 +113,8 @@ export function SupportChat({ isVi = false, onClose }: { isVi?: boolean; onClose
       return;
     }
     const data = await res.json() as { message: SupportMessageView };
-    setMessages((m) => (m ?? []).map((x) => x.id === temp.id ? data.message : x));
+    setMessages((m) => (m ?? []).some((x) => x.id === data.message.id) ? (m ?? []).filter((x) => x.id !== temp.id)
+      : (m ?? []).map((x) => x.id === temp.id ? data.message : x));
   }
 
   return <section role="dialog" aria-modal="false" aria-labelledby="vexim-support-title" lang={isVi ? "vi" : "en"}
