@@ -28,6 +28,7 @@ const mocks = {
   '@/components/form-challenge': { FormChallenge: () => null },
   '@/components/ui': { cx: (...parts) => parts.filter(Boolean).join(' ') },
   '@/lib/rfq/input-limits': await import('../lib/rfq/input-limits.ts'),
+  '@/lib/rfq/grade-tags': await import('../lib/rfq/grade-tags.ts'),
 };
 const mod = { exports: {} };
 vm.runInNewContext(output, {
@@ -57,7 +58,7 @@ const contextProduct = {
 
 const withCard = renderToStaticMarkup(React.createElement(RfqForm, { ...baseProps, contextProduct }));
 // Vào từ menu: không chỉ định nhà cung cấp, cũng không có sản phẩm nguồn.
-const menuOnly = renderToStaticMarkup(React.createElement(RfqForm, { ...baseProps, initialSupplierIds: [], initialSuppliers: [] }));
+const menuOnly = renderToStaticMarkup(React.createElement(RfqForm, { ...baseProps, initialProductId: null, initialGrade: '', initialSupplierIds: [], initialSuppliers: [] }));
 
 /* Trạng thái 1: mở từ trang sản phẩm */
 for (const needle of [
@@ -73,7 +74,6 @@ for (const needle of [
   'Anything specific about this product?',
   'Supplier MOQ: 1 MT',
   'Your destination port. Supplier ships from Cat Lai, HCMC.',
-  'reference price is FOB', // HTML escape dấu nháy trong chuỗi gợi ý
   'Packaging and lead time',
   '$6.90–7.10/kg',
   'updated 2 Nov 2026',
@@ -84,17 +84,47 @@ for (const needle of [
   assert.ok(withCard.includes(needle), `Thẻ sản phẩm phải render "${needle}"`);
 }
 assert.ok(!withCard.includes('1/3 approved'), 'Không được hiện "x/3 approved"');
-assert.ok(withCard.includes('type="month"'), 'Shipment month dùng ô chọn tháng của trình duyệt');
+// Shipment month (ô type="month") nằm trong mục chi tiết đang đóng; check-rfq-form-compact kiểm nguồn.
 assert.ok(!withCard.includes('Only Vexim sees it'), 'Đã bỏ câu chú thích dưới ô chia sẻ giá mục tiêu');
 assert.ok(!withCard.includes('What do you need?'), 'Có thẻ sản phẩm thì không còn nhãn mô tả sản phẩm');
 assert.match(withCard, /Your requirements<\/label>|Your requirements/, 'Ô yêu cầu đổi nhãn');
 
+// Mục "Add details" đóng khi mở trang, kể cả khi URL đã có grade (W320).
+assert.ok(withCard.includes('aria-expanded="false"'), 'Mục chi tiết đóng mặc định');
+assert.ok(!withCard.includes('id="rfq-details"'), 'Nội dung chi tiết chưa render khi đang đóng');
+assert.ok(withCard.includes('Phone / WhatsApp (optional)'), 'Phone / WhatsApp hiện ngay trong YOUR DETAILS');
+assert.ok(!/target price/i.test(withCard), 'Không còn giá mục tiêu');
+// Sản phẩm đã có danh mục + grade → tóm tắt mục chi tiết không nhắc Category/Grade.
+assert.ok(withCard.includes('Incoterm, shipment month, certificates, packing.'), 'Tóm tắt bỏ Category/Grade khi đã biết từ sản phẩm');
+
 /* Trạng thái 2: vào từ menu */
-for (const needle of ['What do you need?', 'What you need', '0/6 required', 'Not sure which supplier fits?']) {
+for (const needle of ['What do you need?', 'What you need', '0/6 required', 'Not sure which supplier fits?', 'Category, grade, incoterm, shipment month, certificates, packing.']) {
   assert.ok(menuOnly.includes(needle), `Trạng thái menu phải render "${needle}"`);
 }
 for (const absent of ['You are asking about', 'Your requirements', 'Supplier holds:', 'Supplier MOQ:']) {
   assert.ok(!menuOnly.includes(absent), `Trạng thái menu không được có "${absent}"`);
 }
+
+/* Chip grade chỉ thuộc đúng ngành hàng đang hỏi */
+const { relevantGradeTags } = await import('../lib/rfq/grade-tags.ts');
+const coffeeTea = ['Robusta G1 S18', 'Robusta G2 S16', 'Arabica S18'];
+const slug = 'coffee-tea-specialty-beverages';
+assert.deepEqual(
+  relevantGradeTags(coffeeTea, { categorySlug: slug, context: 'Vietnam Special Thai Nguyen Green Tea Assam Type', strict: true }),
+  [], 'Sản phẩm trà không nhận chip grade cà phê');
+assert.deepEqual(
+  relevantGradeTags(coffeeTea, { categorySlug: slug, context: 'Vietnam Green Robusta Coffee Beans Grade 1', strict: true }),
+  coffeeTea, 'Sản phẩm cà phê vẫn có chip grade cà phê');
+assert.deepEqual(
+  relevantGradeTags(coffeeTea, { categorySlug: slug, context: 'Premium Vietnam beverage', strict: true }),
+  [], 'Sản phẩm trong danh mục gộp mà tên không rõ ngành → không đoán');
+assert.deepEqual(relevantGradeTags(coffeeTea, { categorySlug: slug, context: '' }), coffeeTea, 'RFQ chung chưa gõ gì → giữ grade của danh mục');
+assert.deepEqual(relevantGradeTags(coffeeTea, { categorySlug: slug, context: 'Black tea OP for blending' }), [], 'RFQ chung gõ "tea" → bỏ grade cà phê');
+const anise = ['Cassia whole', 'Cassia split', 'Star anise', 'Star anise oil'];
+assert.deepEqual(
+  relevantGradeTags(anise, { categorySlug: 'cinnamon-star-anise', context: 'Premium Star Anise Vietnam Autumn Crop', strict: true }),
+  ['Star anise', 'Star anise oil'], 'Hoa hồi không nhận chip quế');
+const cashew = ['W180', 'W240', 'W320', 'LP'];
+assert.deepEqual(relevantGradeTags(cashew, { categorySlug: 'cashew-kernels', context: 'Cashew kernels', strict: true }), cashew, 'Grade trung tính giữ nguyên');
 
 console.log('✅ RFQ form states: có thẻ sản phẩm thì "Your requirements" tuỳ chọn + Product tự tick; vào từ menu vẫn bắt buộc mô tả.');
