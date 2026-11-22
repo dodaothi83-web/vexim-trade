@@ -11,7 +11,6 @@ import { rfqsMessages } from "@/lib/i18n/portal/rfqs";
 import { rfqBuyerContact, sourcingInviteConsent, type RfqBuyerContact } from "@/lib/rfq/buyer-contact";
 import { deskHasNewReply } from "@/lib/rfq/mediated";
 import { rfqChannel } from "@/lib/rfq/channel";
-import { rfqEventAfter, supplierMatchHasReply } from "@/lib/rfq/portal-core";
 
 export interface PortalNotice {
   key: string;
@@ -181,7 +180,8 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
       buyerContact: directContact,
       canQuote: authorized && ["sent_to_supplier", "no_response", "quoted", "presented_to_buyer"].includes(m.status) && open,
       blocked,
-      newBuyerMessage: direct && supplierMatchHasReply(m),
+      // RFQ trực tiếp: tin của người mua nằm ở Tin nhắn (huy hiệu riêng). Chỉ còn mạch Vexim của RFQ tìm nguồn.
+      newBuyerMessage: false,
       publishedAt: m.sent_to_buyer_at ?? null,
       directToBuyer: direct && !!directContact,
       viaVexim: !direct,
@@ -298,15 +298,6 @@ export function buildSupplierNotices(input: NoticeInput): PortalNotice[] {
   for (const m of relevant) {
     add(`rfq:${m.id}`, fill(t.rfqSent.title, { code: m.rfq!.code }), t.rfqSent.detail, m.sent_to_supplier_at!, "rfq", "/supplier/portal/rfqs");
     if (m.status === "selected") add(`selected:${m.id}`, fill(t.rfqSelected.title, { code: m.rfq!.code }), t.rfqSelected.detail, m.updated_at, "rfq", "/supplier/portal/rfqs");
-    const replyAt = m.last_buyer_message_at ?? (m.last_thread_sender === "buyer" ? m.last_thread_message_at : null);
-    if (replyAt && rfqChannel({ source_page: m.rfq!.source_page, source_product_id: m.rfq!.source_product_id,
-      preferred_supplier_ids: m.rfq!.preferred_supplier_ids ?? [], specs: { sourcing_request_id: m.rfq!.sourcing_request_id } }) === "direct") {
-      const key = `rfq-reply:${m.id}:${replyAt}`;
-      add(key, fill(t.rfqReply.title, { code: m.rfq!.code }), t.rfqReply.detail, replyAt,
-        "rfq", `/supplier/portal/rfqs/${encodeURIComponent(m.id)}`);
-      const notice = notices.find((n) => n.key === key);
-      if (notice) notice.read = notice.read || (!!m.supplier_last_read_at && !rfqEventAfter(replyAt, m.supplier_last_read_at));
-    }
   }
   for (const v of reviews.filter((v) => v.supplier_id === supplierId)) {
     const label = levelLabel(v.target_level);

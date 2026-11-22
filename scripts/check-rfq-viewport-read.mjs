@@ -39,8 +39,8 @@ function load(path, mocks = {}) {
       assert.ok(id in mocks, `Unexpected ${id} in ${path}`); return mocks[id]; } });
   return module.exports;
 }
-const direct = load('components/rfq-thread.tsx');
-const mediated = load('components/rfq-mediated-thread.tsx', { '@/components/rfq-thread': direct });
+const direct = load('components/rfq-read-tracker.tsx');
+const mediated = load('components/rfq-mediated-thread.tsx', { '@/components/rfq-read-tracker': direct });
 const root = createRoot(document.getElementById('root'));
 const calls = [];
 const mark = async (at) => { calls.push(at); };
@@ -101,7 +101,7 @@ const legacyCalls = [];
 // The module was loaded with an IO implementation; the fallback is tested by an
 // isolated load where IntersectionObserver is undefined, not by mutating the global.
 const mod = { exports: {} };
-vm.runInNewContext(ts.transpileModule(read('components/rfq-thread.tsx'), { compilerOptions: {
+vm.runInNewContext(ts.transpileModule(read('components/rfq-read-tracker.tsx'), { compilerOptions: {
   module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
 } }).outputText, { module: mod, exports: mod.exports, window, document, IntersectionObserver: undefined,
   require(id) { if (id === 'react') return React; if (id === 'react/jsx-runtime') return jsx;
@@ -116,6 +116,6 @@ await act(async () => legacyRoot.unmount());
 
 const buyerPage = read('app/(public)/buyer/account/requests/[id]/offers/[matchId]/page.tsx');
 assert.match(buyerPage, /<RfqReadTracker at=\{quote\.published_at\}/, 'Quote is read only when its own content is visible');
-assert.match(buyerPage, /lastVisibleAt=\{messages\.at\(-1\)\?\.created_at \?\? null\}/, 'Old messages cannot mark an unseen newer quote read');
+assert.doesNotMatch(buyerPage, /\bRfqThread\b|listRfqThreadMessages/, 'The private RFQ thread is gone: buyer and supplier talk in Messages');
 assert.doesNotMatch(buyerPage, /<RfqReadTracker at=\{lastVisibleAt\}/);
 console.log('✅ RFQ viewport reads: visible latest message/quote only, hidden tabs, multiple CRM desks and no-IO scroll fallback.');

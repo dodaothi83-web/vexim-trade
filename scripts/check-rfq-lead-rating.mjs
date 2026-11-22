@@ -106,7 +106,8 @@ let access = { store: { saveRfqLeadRating: async (row) => { saved.push(row); ret
 const mod = load('app/supplier/portal/rfqs/[matchId]/actions.ts', {
   'next/cache': { revalidatePath: (p) => revalidated.push(p) },
   '@/lib/rfq/portal-access': { supplierOfferAccess: async (id) => { if (id !== 'm1') throw new Error('NOT_FOUND'); return access; } },
-  '@/lib/rfq/portal-core': {}, '@/lib/rfq/portal-conversation': {}, '@/lib/rfq/mediated': {},
+  'next/navigation': { redirect: (p) => { throw new Error(`REDIRECT:${p}`); } },
+  '@/lib/rfq/portal-core': {}, '@/lib/rfq/buyer-contact': {}, '@/lib/chat/service': {}, '@/lib/rfq/mediated': {},
   '@/lib/rfq/lead-rating': rating, '@/lib/db/migration-hints': { migrationHint: () => null },
 });
 const submit = (fields, state = { error: null, saved: false, seq: 0 }) => {

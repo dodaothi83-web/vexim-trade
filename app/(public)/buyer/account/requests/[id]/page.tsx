@@ -1,8 +1,10 @@
-import { BuyerEnquiryDetail, type BuyerQuote } from "@/components/buyer-enquiry-detail";
+import { BuyerEnquiryDetail, type BuyerPreQuoteSupplier, type BuyerQuote } from "@/components/buyer-enquiry-detail";
 import { requireOwnedBuyerEnquiry } from "@/lib/buyer/enquiry-access";
 import { getStore } from "@/lib/db";
 import { getLocale } from "@/lib/i18n/server";
-import { canBuyerOpenRfqMatch, buyerDirectOutcome, buyerMatchHasNewQuote, buyerMatchHasUpdate, lastPublishedQuote } from "@/lib/rfq/portal-core";
+import { canBuyerOpenRfqMatch, canSupplierChatAboutRfq, buyerDirectOutcome, buyerMatchHasNewQuote, lastPublishedQuote } from "@/lib/rfq/portal-core";
+import { buyerRfqChatHref } from "@/lib/rfq/chat-link";
+import { supplierChatAvailable } from "@/lib/chat/service";
 import { rfqChannel } from "@/lib/rfq/channel";
 import { RfqMediatedThread } from "@/components/rfq-mediated-thread";
 import { canUseMediatedDesk, safeMediatedMessages } from "@/lib/rfq/mediated";
@@ -25,7 +27,8 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
   const sourcing = rfqChannel(rfq) === "sourcing";
   let quotesUnavailable = false;
   let quotes: BuyerQuote[] = [];
-  let preQuoteThreads: Array<Pick<BuyerQuote, "id" | "supplier" | "location" | "href" | "unread"> & { noReply?: boolean }> = [];
+  // Nhà cung cấp trực tiếp chưa báo giá: người mua hỏi thêm qua Tin nhắn (không còn khung riêng theo RFQ).
+  const preQuoteSuppliers: BuyerPreQuoteSupplier[] = [];
   // Direct only: named suppliers who declined, and whether nobody is left to quote.
   const declined: Array<{ id: string; supplier: string }> = [];
   let directOutcome: "declined" | "no_response" | null = null;
@@ -47,18 +50,20 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
         declined.push({ id: match.id, supplier: supplierName });
         continue;
       }
+      if (direct && named.has(match.supplier_id) && !match.sent_to_buyer_at && canSupplierChatAboutRfq(rfq, match)) {
+        // Nhà cung cấp chưa có tài khoản cổng hoạt động thì không ai trả lời chat: không hiện nút.
+        if (await supplierChatAvailable(store, match.supplier_id)) preQuoteSuppliers.push({ id: match.id, supplier: supplierName, chatHref: buyerRfqChatHref(match.supplier_id, rfq.code), noReply: match.status === "no_response" });
+        continue;
+      }
       if (!canBuyerOpenRfqMatch(rfq, match)) continue;
       const details = {
         id: match.id, supplier: supplierName,
         location: s?.province ?? s?.country ?? null,
         href: `/buyer/account/requests/${encodeURIComponent(rfq.id)}/offers/${encodeURIComponent(match.id)}`,
-        unread: sourcing ? buyerMatchHasNewQuote(match) : buyerMatchHasUpdate(match),
+        unread: buyerMatchHasNewQuote(match),
       };
       const offer = lastPublishedQuote(versions, match);
-      if (!offer) {
-        if (direct) preQuoteThreads.push({ ...details, noReply: match.status === "no_response" });
-        continue;
-      }
+      if (!offer) continue;
       quotes.push({ ...details, newQuote: buyerMatchHasNewQuote(match), version: offer.version, note: offer.buyer_note,
         price: `${offer.quote_price} ${offer.quote_currency} / ${offer.quote_unit}`,
         incoterm: offer.quote_incoterm, leadTimeDays: offer.quote_lead_time_days,
@@ -89,7 +94,7 @@ export default async function BuyerEnquiryPage({ params }: { params: Promise<{ i
     const category = account && canPromptIntroductions(account, new Date()) ? await topCategoryOf(rfq.category_id) : null;
     if (category) introPrompt = <IntroPrompt category={{ id: category.id, slug: category.slug, name: category.name }} source="rfq" />;
   } catch (error) { console.error("[buyer-intro] rfq prompt", error); }
-  return <BuyerEnquiryDetail rfq={rfq} buyer={buyer} quotes={quotes} preQuoteThreads={preQuoteThreads}
+  return <BuyerEnquiryDetail rfq={rfq} buyer={buyer} quotes={quotes} preQuoteSuppliers={preQuoteSuppliers}
     declined={declined} directOutcome={directOutcome} introPrompt={introPrompt}
     quotesUnavailable={quotesUnavailable} locale={locale} mediatedThread={mediatedThread} />;
 }

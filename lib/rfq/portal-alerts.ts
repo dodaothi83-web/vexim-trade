@@ -80,9 +80,9 @@ export async function runRfqPortalAlerts(store: DataStore, options: { matchIds?:
       const body = buyerSide
         ? `<p>${sourced ? "A supplier quote is ready for you to review" : quote ? "A supplier has published a quote" : "A supplier replied to your request"} on Vexim Trade.</p>`
         : `<p>${quote ? "Báo giá đã được công bố" : "Có cập nhật mới"} trong yêu cầu của bạn trên Vexim Trade.</p>`;
-      const html = wrapPlainEmail({ title: escapeHtml(subject), body: `${body}<p><a href="${escapeHtml(link)}">${buyerSide ? "View quote and conversation" : "Xem yêu cầu và trao đổi"}</a></p><p>${buyerSide ? "This email is a notification; the quote and conversation are saved in your account." : "Email chỉ để thông báo; báo giá và trao đổi được lưu trong tài khoản."}</p>` });
+      const html = wrapPlainEmail({ title: escapeHtml(subject), body: `${body}<p><a href="${escapeHtml(link)}">${buyerSide ? "View quote" : "Xem yêu cầu"}</a></p><p>${buyerSide ? "This email is a notification; the quote is saved in your account." : "Email chỉ để thông báo; báo giá được lưu trong tài khoản."}</p>` });
       const result = await transport({ to: [to], from: FROM_ADDRESS,
-        subject, html, text: `${subject}\n${link}\n${buyerSide ? "Sign in to view your quote and conversation." : "Đăng nhập để xem báo giá và trao đổi."}`,
+        subject, html, text: `${subject}\n${link}\n${buyerSide ? "Sign in to view your quote." : "Đăng nhập để xem báo giá."}`,
       });
       if (result.ok && result.status === "sent") await finish(unread, "sent");
       else await finish(unread, "failed", result.error ?? "Email chưa gửi thật");

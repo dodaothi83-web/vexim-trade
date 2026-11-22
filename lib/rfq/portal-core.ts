@@ -1,9 +1,9 @@
-import type { Rfq, RfqMatch, RfqQuoteVersion, RfqThreadMessage } from "@/lib/types";
+import type { Rfq, RfqMatch, RfqQuoteVersion } from "@/lib/types";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { rfqBuyerContact } from "./buyer-contact";
 import { rfqChannel } from "./channel";
 
-/** Only an invited party with an RFQ-specific consent grant may read this thread. */
+/** Only an invited party with an RFQ-specific consent grant may see this match's read markers. */
 export function canReadRfqThread(rfq: Rfq, match: RfqMatch): boolean {
   if (match.rfq_id !== rfq.id || !match.sent_to_supplier_at || rfqChannel(rfq) === "question" ||
       !rfqBuyerContact(rfq, match.supplier_id)) return false;
@@ -11,9 +11,13 @@ export function canReadRfqThread(rfq: Rfq, match: RfqMatch): boolean {
   return rfqChannel(rfq) === "direct" || !!match.sent_to_buyer_at;
 }
 
-export function canUseRfqThread(rfq: Rfq, match: RfqMatch): boolean {
-  // Legacy sourcing messages remain readable to their original participants,
-  // but no new buyer/supplier direct conversation may be appended.
+/**
+ * Người mua và nhà cung cấp chỉ còn một kênh nhắn tin: Tin nhắn (chat chung). Khung trao đổi
+ * riêng theo RFQ đã bỏ. Nhà cung cấp được người mua chọn đích danh trong RFQ trực tiếp (đã
+ * đồng ý chia sẻ liên hệ với đúng nhà cung cấp này) được mở chat để hỏi lại trước khi báo giá;
+ * RFQ đã chốt, bị từ chối hay spam thì không.
+ */
+export function canSupplierChatAboutRfq(rfq: Rfq, match: RfqMatch): boolean {
   return rfqChannel(rfq) === "direct" && canReadRfqThread(rfq, match) &&
     !["proposed", "declined", "not_selected"].includes(match.status) &&
     !["won", "lost", "spam"].includes(rfq.status);
@@ -25,11 +29,9 @@ export function canDirectPublishRfqQuote(rfq: Rfq, match: RfqMatch): boolean {
     !!match.sent_to_supplier_at && !!rfqBuyerContact(rfq, match.supplier_id);
 }
 
-/** A buyer may see a published offer or the invited direct supplier's pre-quote thread. */
+/** A buyer may open a published offer. Before a quote there is nothing to open: questions go to Messages. */
 export function canBuyerOpenRfqMatch(rfq: Rfq, match: RfqMatch): boolean {
-  return match.rfq_id === rfq.id && rfqChannel(rfq) !== "question" && (
-    !!match.sent_to_buyer_at || (rfqChannel(rfq) === "direct" && canUseRfqThread(rfq, match))
-  );
+  return match.rfq_id === rfq.id && rfqChannel(rfq) !== "question" && !!match.sent_to_buyer_at;
 }
 
 /** What a buyer should be told when a direct RFQ has no published quote: every named
@@ -79,35 +81,7 @@ export function rfqEventAfter(eventAt: string, readAt: string): boolean {
   return micros(eventAt) > micros(readAt);
 }
 
-/** Quote publication and a supplier reply are different badge labels for the buyer. */
+/** A published quote the buyer has not opened yet. */
 export function buyerMatchHasNewQuote(m: Pick<RfqMatch, "sent_to_buyer_at" | "buyer_last_read_at">): boolean {
   return !!m.sent_to_buyer_at && (!m.buyer_last_read_at || rfqEventAfter(m.sent_to_buyer_at, m.buyer_last_read_at));
-}
-
-/** Distinguish the quote from messages; an unpresented sourcing draft is never an update. */
-export function buyerMatchHasUpdate(m: Pick<RfqMatch, "sent_to_supplier_at" | "sent_to_buyer_at" |
-  "buyer_last_read_at" | "last_thread_message_at" | "last_thread_sender" | "last_supplier_message_at">): boolean {
-  const read = m.buyer_last_read_at ?? null;
-  const published = buyerMatchHasNewQuote(m);
-  const replyAt = m.last_supplier_message_at ?? (m.last_thread_sender === "supplier" ? m.last_thread_message_at : null);
-  const reply = m.sent_to_supplier_at && replyAt && (!read || rfqEventAfter(replyAt, read));
-  return !!(published || reply);
-}
-
-export function supplierMatchHasReply(m: Pick<RfqMatch, "last_thread_message_at" | "last_thread_sender" |
-  "last_buyer_message_at" | "supplier_last_read_at">): boolean {
-  const replyAt = m.last_buyer_message_at ?? (m.last_thread_sender === "buyer" ? m.last_thread_message_at : null);
-  return !!replyAt && (!m.supplier_last_read_at || rfqEventAfter(replyAt, m.supplier_last_read_at));
-}
-
-/** Read markers may advance only through events actually rendered in a scoped thread. */
-export function buyerSupplierThreadMessages(messages: RfqThreadMessage[]): Pick<RfqThreadMessage, "id" | "sender" | "body" | "created_at">[] {
-  // Local storage returns sender_email; never serialize the other party's address
-  // (or future audit fields) into either side's client component props.
-  return messages.map(({ id, sender, body, created_at }) => ({ id, sender, body, created_at }));
-}
-
-export function lastVisibleEventAt(quote: RfqQuoteVersion | null, messages: Pick<RfqThreadMessage, "created_at">[]): string | null {
-  const timestamps = [quote?.published_at, ...messages.map((m) => m.created_at)].filter((s): s is string => !!s);
-  return timestamps.reduce<string | null>((last, at) => !last || rfqEventAfter(at, last) ? at : last, null);
 }

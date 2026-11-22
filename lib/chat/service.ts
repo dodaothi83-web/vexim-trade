@@ -235,6 +235,24 @@ export async function startSupplierConversation(input: { store: DataStore; buyer
   return conversation;
 }
 
+/**
+ * Nhà cung cấp hỏi lại người mua về một RFQ trực tiếp (thay khung trao đổi riêng theo RFQ đã
+ * bỏ): mở lại cuộc chat sẵn có giữa hai bên, chưa có thì tạo, rồi gửi tin đầu. Quyền (người
+ * mua chọn đích danh nhà cung cấp này và đồng ý chia sẻ liên hệ) kiểm ở nơi gọi; cuộc chat chỉ
+ * hiện tên công ty người mua cho nhà cung cấp, không thêm thông tin liên hệ nào.
+ */
+export async function startSupplierRfqConversation(input: { store: DataStore; supplierId: string; supplierEmail: string; buyerEmail: string; label: string; body: string }): Promise<ChatConversation> {
+  const checked = cleanChatBody(input.body);
+  if (!checked.ok) throw new ChatError(checked.error);
+  const buyerEmail = input.buyerEmail.trim().toLowerCase();
+  const existing = await input.store.findChatConversation(buyerEmail, input.supplierId);
+  const conversation = existing ?? await input.store.createChatConversation({
+    buyer_email: buyerEmail, supplier_id: input.supplierId, product_id: null, product_name: input.label.slice(0, 200) || null,
+  });
+  await postMessage({ store: input.store, conversation, sender: "supplier", senderEmail: input.supplierEmail, body: checked.body });
+  return conversation;
+}
+
 export async function existingConversationForSupplier(store: DataStore, buyerEmail: string, supplierId: string): Promise<string | null> {
   return (await store.findChatConversation(buyerEmail, supplierId))?.id ?? null;
 }

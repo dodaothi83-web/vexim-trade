@@ -1,40 +1,41 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supplierOfferAccess } from "@/lib/rfq/portal-access";
-import { canReadRfqThread } from "@/lib/rfq/portal-core";
-import { markVisibleRfqThreadRead, sendRfqThreadMessage, type RfqThreadError } from "@/lib/rfq/portal-conversation";
+import { canSupplierChatAboutRfq } from "@/lib/rfq/portal-core";
+import { rfqBuyerContact } from "@/lib/rfq/buyer-contact";
+import { ChatError, startSupplierRfqConversation } from "@/lib/chat/service";
 import { canRateRfqLead, cleanLeadRating, type LeadRatingError } from "@/lib/rfq/lead-rating";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { canReadMediatedDesk, markMediatedRfqRead, sendMediatedRfqMessage, type MediatedError } from "@/lib/rfq/mediated";
 
-export type ThreadFormState = { error: RfqThreadError | "unknown" | null; body: string; sent: boolean; seq: number };
+export type RfqChatState = { error: "unavailable" | "empty" | "too_long" | "rate_limited" | "unknown" | null; body: string };
 
-export async function supplierRfqMessageAction(previous: ThreadFormState, fd: FormData): Promise<ThreadFormState> {
+/**
+ * Nhà cung cấp hỏi lại người mua trước khi báo giá: tin đi vào Tin nhắn (chat chung), không còn
+ * khung trao đổi riêng theo RFQ. Chỉ RFQ trực tiếp có tên nhà cung cấp này và người mua đã đồng ý
+ * chia sẻ liên hệ với họ; gửi xong mở ngay cuộc trò chuyện.
+ */
+export async function supplierRfqChatAction(_previous: RfqChatState, fd: FormData): Promise<RfqChatState> {
   const matchId = String(fd.get("match_id") ?? "");
   const access = await supplierOfferAccess(matchId);
   const body = String(fd.get("body") ?? "").slice(0, 4001);
+  if (!canSupplierChatAboutRfq(access.rfq, access.match)) return { error: "unavailable", body };
+  let conversationId: string;
   try {
-    const result = await sendRfqThreadMessage({ store: access.store, rfq: access.rfq, match: access.match,
-      side: "supplier", email: access.user.email, body });
-    if (!result.ok) return { error: result.error, body, sent: false, seq: previous.seq };
+    const buyer = await access.store.getBuyer(access.rfq.buyer_id).catch(() => null);
+    const buyerEmail = buyer?.email?.trim() || rfqBuyerContact(access.rfq, access.supplier.id)?.email || "";
+    if (!buyerEmail) return { error: "unavailable", body };
+    const conversation = await startSupplierRfqConversation({ store: access.store, supplierId: access.supplier.id,
+      supplierEmail: access.user.email, buyerEmail, label: [access.rfq.code, access.rfq.product_text?.trim()].filter(Boolean).join(" · ").slice(0, 120), body });
+    conversationId = conversation.id;
   } catch (error) {
-    console.error("[rfq-portal] supplier message not saved", error);
-    return { error: "unknown", body, sent: false, seq: previous.seq };
+    if (error instanceof ChatError && (error.code === "empty" || error.code === "too_long" || error.code === "rate_limited")) return { error: error.code, body };
+    console.error("[rfq-chat] supplier message not saved", error);
+    return { error: "unknown", body };
   }
-  revalidatePath(`/supplier/portal/rfqs/${matchId}`);
-  revalidatePath(`/buyer/account/requests/${access.rfq.id}/offers/${matchId}`);
-  revalidatePath(`/buyer/account/requests/${access.rfq.id}`);
-  revalidatePath("/buyer/account");
-  return { error: null, body: "", sent: true, seq: previous.seq + 1 };
-}
-
-export async function supplierRfqReadAction(matchId: string, visibleAt: string): Promise<void> {
-  const access = await supplierOfferAccess(matchId);
-  if (!canReadRfqThread(access.rfq, access.match)) return;
-  await markVisibleRfqThreadRead({ store: access.store, matchId: access.match.id, side: "supplier", visibleAt });
-  revalidatePath("/supplier/portal/rfqs");
-  revalidatePath("/supplier/portal");
+  redirect(`/supplier/portal/messages?c=${encodeURIComponent(conversationId)}`);
 }
 
 export type SupplierDeskState = { error: MediatedError | "unknown" | null; body: string; sent: boolean; seq: number };

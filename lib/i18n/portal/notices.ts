@@ -38,10 +38,6 @@ const en = {
     title: "Quote {code} was selected",
     detail: "Open your RFQ to discuss next steps with Vexim. Sourcing buyer contact remains private.",
   },
-  rfqReply: {
-    title: "The buyer replied to RFQ {code}",
-    detail: "Read the conversation in this RFQ. Other suppliers cannot see it.",
-  },
   reviewReturned: {
     title: "{label} needs more evidence",
     detail: "Open that step to see the reason and upload the missing documents again.",
@@ -121,15 +117,11 @@ const vi: NoticesMessages = {
   },
   rfqSent: {
     title: "Yêu cầu báo giá {code} đã được chuyển tới",
-    detail: "Mở RFQ trong cổng để xem hạn phản hồi và trao đổi hoặc nộp báo giá tại đó. Email chỉ để thông báo.",
+    detail: "Mở RFQ trong cổng để xem hạn phản hồi và nộp báo giá. Câu hỏi cho người mua gửi qua Tin nhắn. Email chỉ để thông báo.",
   },
   rfqSelected: {
     title: "Hồ sơ {code} đã được chọn",
     detail: "Mở RFQ để trao đổi bước tiếp theo với Vexim. Liên hệ người mua trong RFQ tìm nguồn vẫn riêng tư.",
-  },
-  rfqReply: {
-    title: "Người mua đã trả lời RFQ {code}",
-    detail: "Xem mạch trao đổi của RFQ này. Nhà cung cấp khác không thấy nội dung.",
   },
   reviewReturned: {
     title: "{label} cần bổ sung",

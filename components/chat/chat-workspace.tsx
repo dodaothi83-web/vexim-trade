@@ -96,12 +96,14 @@ function ProductCard({ card, label, mine }: { card: ProductCardView; label: stri
  * chỉ hiện một cột. Tin mới được hỏi lại máy chủ định kỳ khi tab đang mở, không cần kết nối
  * thời gian thực. Enter để gửi, Shift+Enter để xuống dòng.
  */
-export function ChatWorkspace({ side, labels, locale, initialId = null, product = null, supplier = null, quickQuestions = [], variant = "page", onClose, closeLabel = "Close", expandHref, expandLabel = "Open full page" }: {
+export function ChatWorkspace({ side, labels, locale, initialId = null, product = null, supplier = null, initialDraft = "", quickQuestions = [], variant = "page", onClose, closeLabel = "Close", expandHref, expandLabel = "Open full page" }: {
   side: "buyer" | "supplier"; labels: ChatLabels; locale: string; initialId?: string | null;
   /** Có khi mở từ trang sản phẩm: thẻ sản phẩm được đính kèm sẵn phía trên ô nhập. */
   product?: ChatDraftProduct | null;
   /** Có khi mở từ trang nhà cung cấp: cuộc trò chuyện với nhà cung cấp này, không gắn sản phẩm. */
   supplier?: { id: string; name: string } | null;
+  /** Câu mở đầu điền sẵn (vd. mã RFQ khi mở từ trang yêu cầu); người dùng sửa được trước khi gửi. */
+  initialDraft?: string;
   quickQuestions?: string[];
   variant?: "page" | "popup";
   onClose?: () => void;
@@ -118,7 +120,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
   const [productThreadId, setProductThreadId] = useState<string | null>(null);
   const [attached, setAttached] = useState<ChatDraftProduct | null>(product);
   const [thread, setThread] = useState<{ conversation: ConversationView; messages: MessageView[] } | null>(null);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(initialDraft);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -462,7 +464,9 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
             {activeId !== NEW_ID && <button type="button" onClick={() => setAttached(null)} aria-label={labels.removeAttached} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><X className="h-4 w-4" /></button>}
           </div>}
           <div className="flex items-end gap-2">
-            <textarea id={popup ? "ask-supplier-message" : undefined} autoFocus={popup} value={draft} onChange={(e) => { setDraft(e.target.value); bump(); }} rows={2} maxLength={MAX} placeholder={labels.placeholder}
+            <textarea id={popup ? "ask-supplier-message" : undefined} autoFocus={popup || !!initialDraft} value={draft}
+              // Câu mở đầu điền sẵn: con trỏ đặt sau câu đó để gõ tiếp, không chèn lên trước.
+              onFocus={(e) => { const el = e.currentTarget; if (initialDraft && el.value === initialDraft) el.setSelectionRange(el.value.length, el.value.length); }} onChange={(e) => { setDraft(e.target.value); bump(); }} rows={2} maxLength={MAX} placeholder={labels.placeholder}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }}
               className="input min-h-[44px] flex-1 resize-none text-[14px] leading-6" aria-label={labels.placeholder} />
             <button type="submit" disabled={!draft.trim() || sending} className="btn btn-primary h-11 shrink-0 px-4 disabled:opacity-60">

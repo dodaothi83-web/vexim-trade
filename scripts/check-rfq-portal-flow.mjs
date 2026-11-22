@@ -38,25 +38,19 @@ const matches = {
   question: { id: 'question', rfq_id: 'r3', supplier_id: 's1', status: 'presented_to_buyer',
     sent_to_supplier_at: '2026-11-06T00:00:00Z', sent_to_buyer_at: '2026-11-07T00:00:00Z' },
 };
-const notes = [];
 const reads = [];
 let count = 0;
 const store = {
   getRfq: async (id) => requests[id] ?? null, getRfqMatch: async (id) => { count++; return matches[id] ?? null; },
   getSupplier: async (id) => ({ id, display_name: 'Only display name', email: 'private-supplier@example.com' }),
-  listRfqThreadMessages: async (id) => notes.filter((m) => m.match_id === id),
-  addRfqThreadMessage: async (input) => {
-    const row = { ...input, id: `msg-${notes.length}`, created_at: new Date(Date.now() + notes.length * 1000).toISOString() };
-    notes.push(row);
-    Object.assign(matches[input.match_id], { last_thread_message_at: row.created_at, last_thread_sender: input.sender,
-      [input.sender === 'buyer' ? 'last_buyer_message_at' : 'last_supplier_message_at']: row.created_at });
-    return row;
-  },
+  getBuyer: async (id) => id === 'b1' ? { id, email: 'Buyer@Example.com', company: 'Buyer Co' } : null,
+  listRfqThreadMessages: async () => assert.fail('The private RFQ thread is gone; nothing may read it'),
+  addRfqThreadMessage: async () => assert.fail('The private RFQ thread is gone; nothing may write to it'),
   markRfqThreadRead: async (id, side, at) => { reads.push({ id, side, at });
     matches[id][side === 'buyer' ? 'buyer_last_read_at' : 'supplier_last_read_at'] = at; },
 };
 let owned = true, access = { store, supplier: { id: 's1', onboarding_status: 'approved' }, user: { email: 'owner@example.com' } };
-const navigation = { notFound: () => { throw Error('NOT_FOUND'); }, redirect: () => { throw Error('REDIRECT'); } };
+const navigation = { notFound: () => { throw Error('NOT_FOUND'); }, redirect: (to) => { throw Error(`REDIRECT ${to ?? ''}`); } };
 const buyerAccess = load('lib/rfq/portal-access.ts', {
   'next/navigation': navigation, '@/lib/db': { getStore: () => store },
   '@/lib/buyer/enquiry-access': { requireOwnedBuyerEnquiry: async ({ id }) => {
@@ -67,15 +61,17 @@ const buyerAccess = load('lib/rfq/portal-access.ts', {
   '@/lib/supplier-portal/onboarding': { portalApproved: (supplier) => supplier.onboarding_status === 'approved' },
   './channel': channel, './portal-core': core,
 });
-assert.equal((await buyerAccess.buyerOfferAccess('r1', 'm1')).match.id, 'm1', 'Direct buyer can clarify before a quote');
+// Một kênh nhắn tin duy nhất: trước báo giá không còn trang trao đổi riêng, link cũ về trang yêu cầu.
+await assert.rejects(buyerAccess.buyerOfferAccess('r1', 'm1'), /^Error: REDIRECT \/buyer\/account\/requests\/r1$/);
 const before = count;
 owned = false;
 await assert.rejects(buyerAccess.buyerOfferAccess('r1', 'm1'), /NOT_FOUND/);
 assert.equal(count, before, 'Buyer authentication/ownership precedes match lookup');
 owned = true;
-for (const id of ['m2', 'm3', 'proposed']) await assert.rejects(buyerAccess.buyerOfferAccess('r1', id), /NOT_FOUND/);
-await assert.rejects(buyerAccess.buyerOfferAccess('r2', 'm3'), /NOT_FOUND/, 'Sourcing draft invisible');
-await assert.rejects(buyerAccess.buyerOfferAccess('r3', 'question'), /NOT_FOUND/, 'Legacy question-only RFQs cannot enter the quote portal');
+for (const id of ['m2', 'proposed']) await assert.rejects(buyerAccess.buyerOfferAccess('r1', id), /REDIRECT \/buyer\/account\/requests\/r1/);
+for (const id of ['m3', 'absent']) await assert.rejects(buyerAccess.buyerOfferAccess('r1', id), /NOT_FOUND/, 'Another RFQ’s match is not found');
+await assert.rejects(buyerAccess.buyerOfferAccess('r2', 'm3'), /REDIRECT/, 'Sourcing draft invisible');
+await assert.rejects(buyerAccess.buyerOfferAccess('r3', 'question'), /REDIRECT/, 'Legacy question-only RFQs cannot enter the quote portal');
 assert.equal((await buyerAccess.supplierOfferAccess('m1')).supplier.id, 's1');
 for (const id of ['m2', 'proposed', 'absent']) await assert.rejects(buyerAccess.supplierOfferAccess(id), /NOT_FOUND/);
 access = null;
@@ -84,10 +80,17 @@ access = { store, supplier: { id: 's1', onboarding_status: 'approved' }, user: {
 
 const conversation = load('lib/rfq/portal-conversation.ts', { './portal-core': core });
 const revalidated = [];
+class ChatError extends Error { constructor(code) { super(code); this.code = code; } }
+const chats = [];
+const chatService = { ChatError, startSupplierRfqConversation: async (input) => {
+  if (!input.body.trim()) throw new ChatError('empty');
+  if (input.body.length > 4000) throw new ChatError('too_long');
+  chats.push(input); return { id: 'conv-1' };
+} };
 const supplierActions = load('app/supplier/portal/rfqs/[matchId]/actions.ts', {
-  'next/cache': { revalidatePath: (p) => revalidated.push(p) },
+  'next/cache': { revalidatePath: (p) => revalidated.push(p) }, 'next/navigation': navigation,
   '@/lib/rfq/portal-access': { supplierOfferAccess: buyerAccess.supplierOfferAccess },
-  '@/lib/rfq/portal-core': core, '@/lib/rfq/portal-conversation': conversation,
+  '@/lib/rfq/portal-core': core, '@/lib/rfq/buyer-contact': contact, '@/lib/chat/service': chatService,
   // Lead ratings have their own check (check-rfq-lead-rating.mjs).
   '@/lib/rfq/lead-rating': { canRateRfqLead: () => false, cleanLeadRating: () => ({ ok: false, error: 'rating' }) },
   '@/lib/db/migration-hints': { migrationHint: () => null },
@@ -97,59 +100,62 @@ const supplierActions = load('app/supplier/portal/rfqs/[matchId]/actions.ts', {
 const buyerActions = load('app/(public)/buyer/account/requests/[id]/offers/actions.ts', {
   'next/cache': { revalidatePath: (p) => revalidated.push(p) },
   '@/lib/rfq/portal-access': { buyerOfferAccess: buyerAccess.buyerOfferAccess },
-  '@/lib/rfq/portal-core': core, '@/lib/rfq/portal-conversation': conversation,
+  '@/lib/rfq/portal-conversation': conversation,
 });
-const fd = (rfq, match, body) => { const form = new FormData(); form.set('rfq_id', rfq); form.set('match_id', match); form.set('body', body); return form; };
-const initial = { error: null, sent: false, body: '', seq: 0 };
-assert.equal((await supplierActions.supplierRfqMessageAction(initial, fd('r1', 'm1', ' Can you confirm the MOQ? '))).sent, true);
-assert.equal(notes[0].body, 'Can you confirm the MOQ?');
-assert.equal(notes[0].sender_email, 'owner@example.com');
+assert.equal(typeof buyerActions.buyerRfqMessageAction, 'undefined', 'Buyers no longer post into a per-RFQ thread');
+assert.equal(typeof supplierActions.supplierRfqMessageAction, 'undefined', 'Suppliers no longer post into a per-RFQ thread');
+const fd = (match, body) => { const form = new FormData(); form.set('match_id', match); form.set('body', body);
+  form.set('buyer_email', 'attacker@example.com'); form.set('supplier_id', 's9'); return form; };
+const initial = { error: null, body: '' };
+// Nhà cung cấp hỏi người mua: tin vào Tin nhắn (chat chung) rồi mở đúng cuộc đó.
+await assert.rejects(supplierActions.supplierRfqChatAction(initial, fd('m1', 'Can you confirm the MOQ?')), /^Error: REDIRECT \/supplier\/portal\/messages\?c=conv-1$/);
+assert.equal(chats.length, 1);
+assert.equal(chats[0].supplierId, 's1', 'Supplier comes from the session, never the form');
+assert.equal(chats[0].supplierEmail, 'owner@example.com');
+assert.equal(chats[0].buyerEmail, 'Buyer@Example.com', 'Buyer comes from the RFQ owner, never the form');
+assert.equal(chats[0].label, 'RFQ-1', 'The chat is labelled with the RFQ code');
+assert.equal(chats[0].body, 'Can you confirm the MOQ?');
 assert.equal(matches.m1.quote_price, null, 'A message cannot silently edit a quote');
-assert.ok(revalidated.includes('/buyer/account/requests/r1/offers/m1'));
-assert.equal((await buyerActions.buyerRfqMessageAction(initial, fd('r1', 'm1', 'At least 10 MT.'))).sent, true);
-assert.equal(notes[1].sender_email, 'buyer@example.com');
-assert.equal((await buyerActions.buyerRfqMessageAction(initial, fd('r1', 'm1', ' '))).error, 'empty');
-assert.equal((await buyerActions.buyerRfqMessageAction(initial, fd('r1', 'm1', 'x'.repeat(2001)))).error, 'too_long');
-await assert.rejects(supplierActions.supplierRfqMessageAction(initial, fd('r1', 'm2', 'Hello')), /NOT_FOUND/);
-await assert.rejects(buyerActions.buyerRfqMessageAction(initial, fd('r2', 'm3', 'Hello')), /NOT_FOUND/);
+assert.deepEqual({ ...(await supplierActions.supplierRfqChatAction(initial, fd('m1', ' '))) }, { error: 'empty', body: ' ' }, 'Typed text is kept on error');
+await assert.rejects(supplierActions.supplierRfqChatAction(initial, fd('m2', 'Hello')), /NOT_FOUND/);
 assert.equal(core.canReadRfqThread(requests.r2, matches.m3), false);
 Object.assign(matches.m3, { status: 'presented_to_buyer', sent_to_buyer_at: '2026-11-07T00:00:00Z' });
 assert.equal((await buyerAccess.buyerOfferAccess('r2', 'm3')).match.id, 'm3');
-assert.equal(core.canUseRfqThread(requests.r2, matches.m3), false, 'New direct conversation is blocked even after Vexim publishes a sourcing offer');
-assert.equal((await supplierActions.supplierRfqMessageAction(initial, fd('r2', 'm3', 'Hello buyer'))).error, 'unavailable');
+assert.equal(core.canSupplierChatAboutRfq(requests.r2, matches.m3), false, 'Sourcing RFQs stay mediated by Vexim, even after an offer is published');
+assert.equal((await supplierActions.supplierRfqChatAction(initial, fd('m3', 'Hello buyer'))).error, 'unavailable');
+assert.equal(chats.length, 1, 'No chat is opened for a sourcing RFQ');
 assert.equal(core.lastPublishedQuote([], { ...matches.m3, status: 'quoted' }), null, 'Pending revisions never fall back to the draft');
 assert.equal(core.lastPublishedQuote([], { ...matches.m3, status: 'presented_to_buyer' }), null, 'A timestamp alone is not a published snapshot');
-assert.equal(core.supplierMatchHasReply({ ...matches.m1, last_thread_sender: 'supplier' }), true,
-  'A supplier response does not hide an earlier unread buyer message');
 const parsed = core.cleanRfqMessage('Message sent, price is 6.50 USD/kg');
 assert.equal(parsed.ok, true);
 assert.equal(matches.m3.quote_price, 9.99, 'Conversations never mutate official quote data');
-requests.r2.status = 'lost';
-assert.equal((await supplierActions.supplierRfqMessageAction(initial, fd('r2', 'm3', 'Hello'))).error, 'unavailable');
-requests.r2.status = 'quoted';
+for (const status of ['lost', 'won', 'spam']) {
+  requests.r1.status = status;
+  assert.equal((await supplierActions.supplierRfqChatAction(initial, fd('m1', 'Hello'))).error, 'unavailable', `${status} RFQ is closed for new chats`);
+}
+requests.r1.status = 'matching';
+for (const status of ['declined', 'not_selected']) {
+  const saved = matches.m1.status; matches.m1.status = status;
+  assert.equal(core.canSupplierChatAboutRfq(requests.r1, matches.m1), false, `${status} supplier cannot open a chat from the RFQ`);
+  matches.m1.status = saved;
+}
+assert.equal(core.canSupplierChatAboutRfq({ ...requests.r1, specs: {} }, matches.m1), false, 'No buyer consent, no chat');
+assert.equal(chats.length, 1);
 
-const lastSeen = notes.at(-1).created_at;
-await supplierActions.supplierRfqReadAction('m1', lastSeen);
-assert.equal(reads.at(-1).side, 'supplier');
+// Read marker: only a published quote, clamped to what was actually shown.
+const lastSeen = '2026-11-07T00:00:00.123456Z';
+Object.assign(matches.m1, { status: 'presented_to_buyer', sent_to_buyer_at: lastSeen });
 await buyerActions.buyerRfqReadAction('r1', 'm1', '2999-01-01T00:00:00Z');
 assert.equal(reads.at(-1).side, 'buyer');
-assert.ok(Date.parse(reads.at(-1).at) <= Date.parse(lastSeen), 'Forged future timestamp cannot mark an unseen future event');
-assert.equal(core.buyerMatchHasUpdate({ ...matches.m1, last_supplier_message_at: '2026-11-07T00:00:00.123456+00:00', buyer_last_read_at: '2026-11-07T00:00:00.123Z' }), true,
-  'Unread PostgreSQL microseconds are not truncated by JS Date.parse');
+assert.equal(reads.at(-1).at, lastSeen, 'Forged future timestamp cannot mark an unseen future event; PostgreSQL precision kept');
+Object.assign(matches.m1, { status: 'sent_to_supplier', sent_to_buyer_at: null });
 assert.equal(core.buyerMatchHasNewQuote({ sent_to_buyer_at: '2026-11-07T00:00:00.123Z',
-  buyer_last_read_at: '2026-11-07T00:00:00.123456Z' }), false, 'A reply badge is not mislabeled as a new quote');
+  buyer_last_read_at: '2026-11-07T00:00:00.123456Z' }), false, 'A read quote is not badged as new');
+assert.equal(core.buyerMatchHasNewQuote({ sent_to_buyer_at: '2026-11-07T00:00:00.123456Z',
+  buyer_last_read_at: '2026-11-07T00:00:00.123Z' }), true, 'Unread PostgreSQL microseconds are not truncated by JS Date.parse');
 assert.equal(core.rfqEventAfter('2026-11-07T07:00:00.123456+07:00', '2026-11-07T00:00:00.123456Z'), false);
-assert.equal(core.lastVisibleEventAt({ published_at: '2026-11-07T00:00:00.123456Z' },
-  [{ created_at: '2026-11-07T00:00:00.123789Z' }]), '2026-11-07T00:00:00.123789Z');
-const publicMessages = core.buyerSupplierThreadMessages(notes);
-assert.equal(publicMessages.length, notes.length);
-assert.deepEqual(Object.keys(publicMessages[0]).sort().join(','), 'body,created_at,id,sender',
-  'Only message text and sender role, never either party email or audit columns, reach the client');
-assert.doesNotMatch(JSON.stringify(publicMessages), /owner@example\.com|buyer@example\.com/);
-matches.m1.last_thread_message_at = '2026-11-07T00:00:00.123456+00:00';
-await conversation.markVisibleRfqThreadRead({ store, matchId: 'm1', side: 'supplier', visibleAt: matches.m1.last_thread_message_at });
-assert.equal(reads.at(-1).at, matches.m1.last_thread_message_at, 'Read marker preserves PostgreSQL precision');
-matches.m1.last_thread_message_at = lastSeen;
+for (const name of ['buyerMatchHasUpdate', 'supplierMatchHasReply', 'buyerSupplierThreadMessages', 'canUseRfqThread'])
+  assert.equal(typeof core[name], 'undefined', `${name} belonged to the removed RFQ thread`);
 
 // Alert outbox: independent from publication/messages; failed transport retries, reading
 // before the worker runs skips the mail, claiming concurrently cannot send twice.

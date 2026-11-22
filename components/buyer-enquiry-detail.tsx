@@ -37,8 +37,8 @@ function directStatusInfo(rfq: Rfq, locale: Locale, hasQuote: boolean, outcome: 
   };
   if (rfq.status === "quoted" && hasQuote) return { ...base,
     title: vi ? "Có báo giá từ nhà cung cấp" : "Supplier quote available",
-    body: vi ? "Mở báo giá bên dưới để trao đổi trực tiếp với nhà cung cấp. Vexim không điều phối giao dịch này."
-      : "Open the quote below and discuss it with the supplier. Vexim does not manage this transaction.",
+    body: vi ? "Mở báo giá bên dưới để xem điều kiện, hỏi thêm nhà cung cấp qua Tin nhắn. Vexim không điều phối giao dịch này."
+      : "Open the quote below for the terms, and ask the supplier in Messages. Vexim does not manage this transaction.",
   };
   if (rfq.status === "matching" || rfq.status === "quoted") return { ...base,
     title: vi ? "Đã chuyển tới nhà cung cấp" : "Sent directly to supplier",
@@ -131,11 +131,12 @@ function questionStatusInfo(status: Rfq["status"], locale: Locale) {
 export type BuyerQuote = { id: string; supplier: string; location: string | null; href?: string; unread?: boolean;
   newQuote?: boolean; price: string; incoterm: string | null; leadTimeDays: number | null; validUntil: string | null;
   version?: number; note?: string | null };
-export type BuyerPreQuoteThread = Pick<BuyerQuote, "id" | "supplier" | "location" | "href" | "unread"> & { noReply?: boolean };
+/** Nhà cung cấp trực tiếp chưa báo giá: nút mở Tin nhắn với họ. */
+export type BuyerPreQuoteSupplier = { id: string; supplier: string; chatHref: string; noReply?: boolean };
 
-export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = [], declined = [], directOutcome = null,
+export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteSuppliers = [], declined = [], directOutcome = null,
   quotesUnavailable = false, locale = "en", mediatedThread, introPrompt }: {
-  rfq: Rfq; buyer: Buyer; quotes?: BuyerQuote[]; preQuoteThreads?: BuyerPreQuoteThread[];
+  rfq: Rfq; buyer: Buyer; quotes?: BuyerQuote[]; preQuoteSuppliers?: BuyerPreQuoteSupplier[];
   declined?: Array<{ id: string; supplier: string }>; directOutcome?: "declined" | "no_response" | null;
   quotesUnavailable?: boolean; locale?: Locale; mediatedThread?: React.ReactNode;
   /** Lời mời nhận giới thiệu nhà cung cấp cùng ngành (chỉ khi người mua chưa bật). */
@@ -214,14 +215,13 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteThreads = 
               <span className="mt-3 inline-flex items-center gap-1 text-[13px] font-bold text-brand-700 group-hover:underline">{copy.viewOffer}<ArrowRight className="h-4 w-4" aria-hidden="true" /></span>
             </Link>
           </li>)}</ul>
-          {!!preQuoteThreads.length && <div className="mt-5 border-t border-ink-100 pt-4">
+          {!!preQuoteSuppliers.length && <div className="mt-5 border-t border-ink-100 pt-4">
             <p className="text-[13px] text-ink-600">{copy.pendingDirect}</p>
-            <ul className="mt-3 space-y-2">{preQuoteThreads.map((item) => <li key={item.id}>
-              <Link href={item.href ?? `/buyer/account/requests/${encodeURIComponent(rfq.id)}/offers/${encodeURIComponent(item.id)}`}
-                prefetch={false} className="flex min-h-12 items-center gap-2 rounded-lg border border-ink-200 px-4 py-2 text-[13px] font-semibold text-brand-700 hover:border-brand-300 hover:bg-brand-50">
+            <ul className="mt-3 space-y-2">{preQuoteSuppliers.map((item) => <li key={item.id}>
+              <Link href={item.chatHref} prefetch={false} data-testid="rfq-supplier-chat"
+                className="flex min-h-12 items-center gap-2 rounded-lg border border-ink-200 px-4 py-2 text-[13px] font-semibold text-brand-700 hover:border-brand-300 hover:bg-brand-50">
                 <MessageCircle className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 flex-1 break-words">{item.supplier} · {copy.discussBeforeQuote}</span>
-                {item.noReply && !item.unread && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900">{copy.noReply}</span>}
-                {item.unread && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900">{copy.newUpdate}</span>}
+                {item.noReply && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900">{copy.noReply}</span>}
                 <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
               </Link>
             </li>)}</ul>
