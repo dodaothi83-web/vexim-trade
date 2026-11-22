@@ -22,6 +22,7 @@ import {
 } from "@/lib/products/grade-pricing";
 import { assignProductCategory, assignSupplierCategories } from "@/lib/public/category-assignment";
 import { expandCategoryScope, inheritParentCategoryConfig, isLeafCategory } from "@/lib/categories/tree";
+import { keepCategoryTranslations, previousSlugsAfterRename, slugReservedByOtherCategory } from "@/lib/categories/slug-rename";
 import { parseHarvestInput } from "@/lib/crm/harvest-input";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
@@ -2850,9 +2851,15 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
   }
 
   // Slug unique check
-  if (input.slug && input.slug !== existing.slug) {
+  const slugChanged = !!input.slug && input.slug !== existing.slug;
+  if (input.slug && slugChanged) {
     const dup = await store.getCategoryBySlug(input.slug);
     if (dup && dup.id !== id) return { ok: false, message: `Slug "${input.slug}" đã được dùng bởi danh mục khác.` };
+    // Đường dẫn cũ của danh mục khác đang tự chuyển tiếp về danh mục đó; dùng lại sẽ làm hỏng link cũ.
+    const reserved = slugReservedByOtherCategory(await store.listCategories({ publishedOnly: false }), id, input.slug);
+    if (reserved) {
+      return { ok: false, message: `Slug "${input.slug}" là đường dẫn cũ của danh mục «${reserved.name_i18n?.en || reserved.slug}» (đang tự chuyển tiếp). Chọn slug khác.` };
+    }
   }
 
   // Body sanitize (chỉ cho phép p/h2-h4/ul/ol/li/a/strong/em/br).
@@ -2861,10 +2868,49 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
     input.body_i18n = { en: sanitizeHtml(input.body_i18n.en as string) };
   }
 
-  const patch: Partial<Category> = { ...(input as Partial<Category>), updated_by: session?.uid ?? null };
+  const patch: Partial<Category> = {
+    ...(input as Partial<Category>),
+    // Form chỉ có ô tiếng Anh: giữ bản dịch có sẵn (vd tiếng Việt) khi bản tiếng Anh không đổi.
+    ...keepCategoryTranslations(existing, input as Partial<Category>),
+    // Đổi slug: giữ slug cũ để link cũ tự chuyển tiếp (301).
+    ...(slugChanged && input.slug ? { previous_slugs: previousSlugsAfterRename(existing, input.slug) } : {}),
+    updated_by: session?.uid ?? null,
+  };
 
+  let slugNotice = "";
   try {
     const updated = await store.updateCategory(id, patch);
+    if (slugChanged && existing.slug && updated.slug !== existing.slug) {
+      // Sản phẩm lưu slug dạng chữ: phải đi theo slug mới, nếu không sẽ biến mất khỏi website.
+      let moved = 0;
+      try {
+        moved = await store.followCategorySlug(existing.slug, updated.slug);
+      } catch (err) {
+        // Không để danh mục mang slug mới trong khi sản phẩm còn ở slug cũ: trả lại slug cũ.
+        await store.updateCategory(id, { slug: existing.slug, previous_slugs: existing.previous_slugs ?? [] }).catch(() => undefined);
+        await store.addAuditLog({
+          actor_id: session?.uid ?? null,
+          actor_email: session?.email ?? null,
+          entity: "category",
+          entity_id: id,
+          action: "update",
+          before: pickForAudit(existing),
+          after: { ...pickForAudit({ ...updated, slug: existing.slug, previous_slugs: existing.previous_slugs }), slug_change_rejected: updated.slug },
+        }).catch(() => undefined);
+        revalidateAll();
+        return { ok: false, message: `Chưa đổi được slug vì không chuyển được sản phẩm sang slug mới (${err instanceof Error ? err.message : "lỗi"}). Danh mục giữ slug cũ, các nội dung khác đã lưu.` };
+      }
+      await store.addAuditLog({
+        actor_id: session?.uid ?? null,
+        actor_email: session?.email ?? null,
+        entity: "category",
+        entity_id: id,
+        action: "category.slug_followed",
+        before: { slug: existing.slug },
+        after: { slug: updated.slug, products_moved: moved },
+      });
+      slugNotice = ` Link cũ /products/${existing.slug} tự chuyển tiếp${moved > 0 ? `; đã chuyển ${moved} sản phẩm sang slug mới` : ""}.`;
+    }
     await store.addAuditLog({
       actor_id: session?.uid ?? null,
       actor_email: session?.email ?? null,
@@ -2879,7 +2925,7 @@ export async function updateCategoryAction(id: string, raw: Record<string, unkno
     if (wasPublished && (existing.seo_indexable || updated.seo_indexable)) {
       notifyIndexNow([`/products/${updated.slug}`, existing.slug !== updated.slug ? `/products/${existing.slug}` : null]);
     }
-    return { ok: true, message: "Đã lưu danh mục." };
+    return { ok: true, message: `Đã lưu danh mục.${slugNotice}` };
   } catch (err) {
     return { ok: false, message: categorySchemaError(err) ?? (err instanceof Error ? err.message : "Lỗi") };
   }
