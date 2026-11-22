@@ -41,6 +41,7 @@ const detailComponent = load('components/buyer-enquiry-detail.tsx', {
   '@/components/ui': { Breadcrumbs: () => null },
   '@/lib/rfq/portal-copy': copy,
   '@/lib/rfq/channel': channel,
+  '@/lib/rfq/product-text': load('lib/rfq/product-text.ts', {}),
   '@/components/rfq-supplier-chat-button': { RfqSupplierChatButton: ({ children, href }) => React.createElement('a', { href }, children) },
 });
 const contact = load('lib/rfq/buyer-contact.ts', {});

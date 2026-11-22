@@ -8,6 +8,7 @@ import { buyerOfferAccess } from "@/lib/rfq/portal-access";
 import { lastPublishedQuote } from "@/lib/rfq/portal-core";
 import { quotePortalCopy } from "@/lib/rfq/portal-copy";
 import { rfqChannel } from "@/lib/rfq/channel";
+import { rfqProductParts } from "@/lib/rfq/product-text";
 import type { RfqQuoteVersion } from "@/lib/types";
 import { buyerRfqReadAction } from "../actions";
 import { buyerRfqChatHref } from "@/lib/rfq/chat-link";
@@ -22,6 +23,7 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
   const locale = await getLocale();
   const copy = quotePortalCopy[locale];
   const sourcing = rfqChannel(rfq) === "sourcing";
+  const productParts = rfqProductParts(rfq);
   const versions = await store.listRfqQuoteVersions([match.id]);
   const quote = lastPublishedQuote(versions, match);
   // Hỏi đáp với nhà cung cấp đi qua Tin nhắn (một kênh duy nhất); RFQ tìm nguồn thì qua Vexim.
@@ -93,7 +95,8 @@ export default async function BuyerOfferPage({ params }: { params: Promise<{ id:
       <aside className="space-y-4 lg:sticky lg:top-24">
         <section className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
           <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink-600">{copy.requestDetails}</h2>
-          <p className="mt-3 break-words text-[14px] font-semibold leading-6 text-ink-900">{rfq.product_text}</p>
+          <p className="mt-3 break-words text-[14px] font-semibold leading-6 text-ink-900">{productParts.product}</p>
+          {productParts.requirements && <p className="mt-1 whitespace-pre-line break-words text-[13px] leading-5 text-ink-600">{productParts.requirements}</p>}
           <dl className="mt-4 space-y-3 border-t border-ink-100 pt-4 text-[13px]">
             {rfq.quantity && rfq.unit && <div><dt className="text-ink-500">{copy.quantity}</dt><dd className="font-semibold text-ink-900">{rfq.quantity} {rfq.unit}</dd></div>}
             {rfq.destination_country && <div><dt className="text-ink-500">{copy.destination}</dt><dd className="font-semibold text-ink-900">{rfq.destination_country}</dd></div>}

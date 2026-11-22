@@ -356,8 +356,10 @@ async function submitRfqChecked(input: SubmitRfqInput): Promise<SubmitRfqResult>
     website: web,
     linkedin: null,
     instagram: null,
-    product: productText,
-    spec: [raw.grade, raw.packaging, raw.certifications].filter(Boolean).join(" · ") || null,
+    // CRM "Mặt hàng" holds only the product; what the buyer typed under a product-page
+    // RFQ is its own requirement line, never glued onto the product name.
+    product: sourceProduct ? sourceProduct.name : productText,
+    spec: [raw.grade, raw.packaging, raw.certifications, sourceProduct ? extraText : null].filter(Boolean).join(" · ") || null,
     quantity: raw.quantity && raw.unit ? `${raw.quantity} ${raw.unit}` : null,
     target_price:
       raw.target_price && raw.target_price_currency

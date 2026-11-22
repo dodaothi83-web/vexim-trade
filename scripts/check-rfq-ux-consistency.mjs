@@ -19,9 +19,10 @@ const link = { default: ({ children, prefetch: _prefetch, ...props }) => React.c
 const icons = new Proxy({}, { get: () => () => null });
 const channel = load('lib/rfq/channel.ts');
 const copy = load('lib/rfq/portal-copy.ts');
+const productText = load('lib/rfq/product-text.ts');
 const detail = load('components/buyer-enquiry-detail.tsx', {
   'next/link': link, 'lucide-react': icons, '@/components/ui': { Breadcrumbs: () => null },
-  '@/lib/rfq/portal-copy': copy, '@/lib/rfq/channel': channel,
+  '@/lib/rfq/portal-copy': copy, '@/lib/rfq/channel': channel, '@/lib/rfq/product-text': productText,
   '@/components/rfq-supplier-chat-button': { RfqSupplierChatButton: ({ children, href, testId, supplierId, draft }) =>
     React.createElement('a', { href, 'data-testid': testId, 'data-supplier': supplierId, 'data-draft': draft }, children) },
 });
@@ -30,6 +31,25 @@ const quote = { id: 'match-1', supplier: 'Chosen Supplier', price: '$6.25/kg' };
 const base = { id: 'rfq-1', code: 'RFQ-1', status: 'quoted', product_text: 'Cashew W320',
   source_page: '/rfq', preferred_supplier_ids: ['supplier-1'], source_product_id: null, specs: {} };
 const view = (rfq, locale, quotes = []) => renderToStaticMarkup(React.createElement(detail.BuyerEnquiryDetail, { rfq, buyer, locale, quotes }));
+// A product-page RFQ stores "<product>. <buyer requirements>": screens show them apart.
+{
+  const name = 'IQF Frozen Passion Fruit - OEM Private Label';
+  const split = (text, ref) => ({ ...productText.splitRfqProductText(text, ref) });
+  assert.deepEqual(split(`${name}. Tôi muốn mua việt quất`, name), { product: name, requirements: 'Tôi muốn mua việt quất' });
+  assert.deepEqual(split(name, name), { product: name, requirements: null }, 'Nothing typed → no requirement row');
+  assert.deepEqual(split('Cashew W320 for EU', null), { product: 'Cashew W320 for EU', requirements: null }, 'General RFQ text is the product');
+  assert.deepEqual(split('Other product. note', name), { product: 'Other product. note', requirements: null }, 'Edited text never loses words');
+  assert.equal(productText.rfqProductRefName({ product_ref: { id: 'p', name } }), name);
+  const html = renderToStaticMarkup(React.createElement(detail.BuyerEnquiryDetail, { rfq: { ...base, status: 'matching',
+    product_text: `${name}. Tôi muốn mua việt quất`, specs: { product_ref: { id: 'p', name } } }, buyer, locale: 'en' }));
+  assert.ok(html.includes(`>${name}</dd>`), 'Product row shows only the product');
+  assert.match(html, /Your requirements<\/dt><dd[^>]*>Tôi muốn mua việt quất<\/dd>/);
+  const submit = read('lib/rfq/submit.ts');
+  assert.match(submit, /product: sourceProduct \? sourceProduct\.name : productText,/, 'CRM Mặt hàng is the product only');
+  assert.match(submit, /raw\.certifications, sourceProduct \? extraText : null\]/, 'Buyer requirements go to the CRM requirement line');
+  for (const path of ['app/crm/rfqs/[id]/page.tsx', 'app/(public)/buyer/account/requests/[id]/offers/[matchId]/page.tsx',
+    'app/(public)/buyer/account/page.tsx', 'app/crm/rfqs/page.tsx']) assert.match(read(path), /rfqProductParts\(/, `${path} splits product/requirements`);
+}
 for (const locale of ['en', 'vi']) {
   const vi = locale === 'vi';
   const direct = view(base, locale, [quote]);

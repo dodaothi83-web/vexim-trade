@@ -7,6 +7,7 @@ import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
 import { assigneeLabel } from "@/lib/rfq/assignees";
 import { rfqChannel } from "@/lib/rfq/channel";
+import { rfqProductParts } from "@/lib/rfq/product-text";
 import type { AppUser, Buyer, Rfq } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -158,7 +159,7 @@ export default async function RfqsPage({
                   <tr key={r.id} className="align-top transition hover:bg-ink-50/60">
                     <td className="max-w-[340px] px-4 py-2.5">
                       <Link href={`/crm/rfqs/${r.id}`} className="block truncate text-[13.5px] font-semibold text-ink-900 hover:text-brand-700">
-                        {r.product_text || r.code}
+                        {rfqProductParts(r).product || r.code}
                       </Link>
                       <div className="mt-0.5 truncate text-[11.5px] text-ink-500">
                         <span className="font-mono">{r.code}</span>

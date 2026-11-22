@@ -123,7 +123,7 @@ const outreach = load('lib/rfq/outreach.ts', {
   './buyer-contact': contact, './channel': channel,
 });
 const portal = load('lib/rfq/targeted-portal.ts', {
-  './outreach': outreach, '@/lib/email/send': { transport: async (args) => { notice.push(args); return { ok: true, status: 'sent' }; } },
+  './outreach': outreach, './attach-buyer': load('lib/rfq/attach-buyer.ts', { './channel': channel, './buyer-contact': contact }), '@/lib/email/send': { transport: async (args) => { notice.push(args); return { ok: true, status: 'sent' }; } },
   '@/lib/config': { FROM_ADDRESS: 'Vexim <no-reply@vexim.test>' }, '@/lib/site': { SITE_URL: 'https://vexim.test' },
   '@/lib/supplier-portal/onboarding': { canInviteSupplier: async (s, store) =>
     s.status === 'published' && s.onboarding_status === 'approved' && (await store.getUserBySupplierId(s.id))?.is_active },
@@ -136,6 +136,7 @@ const retry = load('lib/rfq/retry-direct.ts', {
 }).retryPendingDirectRfqs;
 const published = [];
 const inviteLog = [];
+const crmBuyers = {}, crmLinks = [];
 const store = {
   listRetryableDirectRfqs: supabase.listRetryableDirectRfqs.bind(supabase),
   listRfqMatches: supabase.listRfqMatches.bind(supabase),
@@ -147,6 +148,14 @@ const store = {
   addMessage: async (row) => { inviteLog.push(row); return row; },
   updateRfqMatch: async (matchId, patch) => Object.assign(matches.find((m) => m.id === matchId), patch),
   updateRfq: async (rfqId, patch) => Object.assign(rfqs.find((r) => r.id === rfqId), patch),
+  // Buyer CRM auto-link after a retried delivery (rules tested in check-rfq-contact-attachment).
+  getRfqMatch: async (matchId) => matches.find((m) => m.id === matchId) ?? null,
+  getBuyer: async (buyerId) => (crmBuyers[buyerId] ??= { id: buyerId, supplier_id: null }),
+  attachBuyerIfUnassigned: async (buyerId, supplierId) => {
+    if (crmBuyers[buyerId]?.supplier_id) return false;
+    crmBuyers[buyerId].supplier_id = supplierId; crmLinks.push([buyerId, supplierId]); return true;
+  },
+  addActivity: async () => {},
   publishRfqQuotes: async (rfqId, mids, expected) => mids.flatMap((mid) => {
     const m = matches.find((r) => r.id === mid);
     assert.equal(m?.rfq_id, rfqId);
@@ -156,6 +165,8 @@ const store = {
   }),
 };
 const first = await retry(store);
+assert.ok(crmLinks.length > 0 && crmLinks.every(([, sid]) => sid === supplier.id), 'Retried single-supplier deliveries link the buyer in CRM');
+const linksAfterFirst = crmLinks.length;
 assert.equal(first.checked, 66, 'All 65 new direct RFQs and one unpresented quote are retried, including the oldest');
 assert.equal(first.released, 65);
 assert.equal(first.published, 1);
@@ -169,6 +180,7 @@ assert.doesNotMatch(JSON.stringify(inviteLog), /PRIVATE CRM NOTE|private@example
 assert.ok(notice.every((m) => m.to[0] === account.email && m.html.includes('/supplier/portal/rfqs/')));
 assert.doesNotMatch(JSON.stringify(notice), /PRIVATE CRM NOTE|private@example\.test|1234567890|replyTo/);
 const second = await retry(store);
+assert.equal(crmLinks.length, linksAfterFirst, 'A repeated cron never relinks a buyer');
 assert.equal(second.checked, 66);
 assert.equal(second.released, 0);
 assert.equal(second.published, 0);

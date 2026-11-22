@@ -138,6 +138,7 @@ const dashboard = load('app/(public)/buyer/account/page.tsx', {
   '@/lib/config': { COMPANY: { contactEmail: 'support@example.com' } },
   '@/lib/rfq/portal-core': portalCore,
   '@/lib/rfq/channel': load('lib/rfq/channel.ts', {}),
+  '@/lib/rfq/product-text': load('lib/rfq/product-text.ts', {}),
   '@/lib/rfq/mediated': { deskHasNewReply: (thread, side) => !!thread && side === 'party' && !thread.party_last_read_at && !!thread.last_staff_message_at },
 });
 async function resolve(element) {

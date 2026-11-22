@@ -6,6 +6,7 @@ import type { Buyer, Rfq } from "@/lib/types";
 import { quotePortalCopy } from "@/lib/rfq/portal-copy";
 import type { Locale } from "@/lib/i18n/config";
 import { linkedSourcingRequestId, rfqChannel } from "@/lib/rfq/channel";
+import { rfqProductParts } from "@/lib/rfq/product-text";
 
 function directStatusInfo(rfq: Rfq, locale: Locale, hasQuote: boolean, outcome: "declined" | "no_response" | null = null) {
   const vi = locale === "vi";
@@ -147,6 +148,7 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteSuppliers 
   const isQuestion = rfq.source_page === "/rfq?intent=question" || rfq.specs?.inquiry_kind === "supplier_question";
   const channel = rfqChannel(rfq);
   const sourcing = channel === "sourcing";
+  const productParts = rfqProductParts(rfq);
   const originalSourcingId = sourcing ? linkedSourcingRequestId(rfq) : null;
   const accountHref = sourcing ? "/buyer/account?tab=vexim" : "/buyer/account?tab=requests";
   const info = isQuestion ? questionStatusInfo(rfq.status, locale) : channel === "direct"
@@ -242,7 +244,8 @@ export function BuyerEnquiryDetail({ rfq, buyer, quotes = [], preQuoteSuppliers 
         {mediatedThread && <div className="mt-6">{mediatedThread}</div>}
 
         <dl className="mt-6 grid gap-3 border-t border-ink-100 pt-5 text-[13.5px] sm:grid-cols-2">
-          <Row k={locale === "vi" ? "Sản phẩm" : "Product"} v={rfq.product_text} />
+          <Row k={locale === "vi" ? "Sản phẩm" : "Product"} v={productParts.product} />
+          {productParts.requirements && <Row k={locale === "vi" ? "Yêu cầu của bạn" : "Your requirements"} v={productParts.requirements} />}
           {isQuestion ? <Row k={locale === "vi" ? "Câu hỏi" : "Question"} v={String(rfq.specs?.notes ?? "—")} /> : <>
             <Row k={locale === "vi" ? "Số lượng" : "Quantity"} v={rfq.quantity && rfq.unit ? `${rfq.quantity} ${rfq.unit}` : "—"} />
             <Row k={locale === "vi" ? "Nơi giao" : "Destination"} v={rfq.destination_country ?? "—"} />
