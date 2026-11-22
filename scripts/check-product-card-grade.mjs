@@ -71,7 +71,7 @@ const cardSource = readFileSync(new URL('../components/public-product-card.tsx',
 assert.doesNotMatch(cardSource, /quoteHref/, 'Thẻ không nhận quoteHref nữa');
 assert.doesNotMatch(cardSource, /min-h-9/, 'Bỏ min-h-9: chiều cao hàng cuối do huy hiệu quyết định, không do nút');
 // Đáy thẻ: đường kẻ ở trên, rồi nhà cung cấp và ba khiên trên đúng một hàng.
-assert.match(cardSource, /mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2\.5/, 'Đáy thẻ có đường kẻ phía trên nhà cung cấp');
+assert.match(cardSource, /mt-auto border-t border-ink-100 pt-2 sm:pt-2\.5/, 'Đáy thẻ có đường kẻ phía trên nhà cung cấp');
 assert.ok(cardSource.includes("flex min-w-0 items-center gap-2"),
   'Tên người bán và huy hiệu nằm chung một hàng, không xuống dòng');
 assert.match(cardSource, /min-w-0 flex-1 truncate text-\[11px\] font-bold leading-5/, 'Tên tự cắt bằng dấu ba chấm để nhường chỗ cho khiên');
@@ -83,6 +83,20 @@ assert.match(clean, /overflow-hidden rounded-tl-xl rounded-bl-xl bg-ink-50 sm:ro
 assert.doesNotMatch(clean, /sm:rounded-l-none/);
 assert.match(clean, /overflow-visible rounded-xl/, 'Verification tooltips remain unclipped by the card');
 console.log('✓ Product image corners: top-left retained on desktop, mobile left corners and tooltip overflow preserved.');
+
+// Thẻ ngang trên điện thoại: khung ảnh cao bằng cả thẻ (tối thiểu vuông), không hở trắng dưới ảnh;
+// từ sm (thẻ dọc) giữ khung vuông. Hàng nhà cung cấp luôn bám đáy thẻ.
+const markup = render({ imagePath: 'products/a.webp' });
+const thumbColumn = markup.match(/<article[^>]*>\s*<div class="([^"]+)"/)?.[1] ?? '';
+assert.match(thumbColumn, /\bw-\[38%\]/);
+assert.match(thumbColumn, /\bself-stretch\b/, 'Cột ảnh giãn theo chiều cao thẻ trên điện thoại');
+assert.match(thumbColumn, /\bsm:self-auto\b/);
+assert.doesNotMatch(thumbColumn, /(^|\s)self-start\b/, 'Không neo ảnh lên đầu (gây hở dưới ảnh)');
+assert.match(markup, /class="relative aspect-square h-full w-full overflow-hidden[^"]*sm:h-auto/, 'Khung ảnh: tối thiểu vuông, cao bằng thẻ trên điện thoại, vuông từ sm');
+assert.match(markup, /<img[^>]*class="h-full w-full object-cover"/, 'Ảnh phủ kín khung, đồng nhất mọi thẻ');
+assert.match(markup, /class="mt-auto border-t border-ink-100 pt-2 sm:pt-2\.5"/, 'Hàng nhà cung cấp bám đáy thẻ');
+assert.match(markup, /max-sm:mb-2/, 'Giữ khoảng cách tối thiểu trên hàng nhà cung cấp ở điện thoại');
+console.log('✓ Mobile horizontal card: image frame fills the card height (min square), no blank gap under the image.');
 
 assert.doesNotMatch(readFileSync(new URL('../components/public-product-card.tsx', import.meta.url), 'utf8'), /SaveProductButton|saveProduct/, 'Listing cards do not expose save controls');
 const detailSource = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');

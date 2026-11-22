@@ -318,7 +318,9 @@ export function PublicProductCard({
   );
 
   const thumb = (
-    <div className="relative aspect-square w-full overflow-hidden rounded-tl-xl rounded-bl-xl bg-ink-50 sm:rounded-bl-none sm:rounded-tr-xl">
+    // Điện thoại (thẻ ngang): khung ảnh cao bằng cả thẻ, tối thiểu vuông (aspect-square), ảnh object-cover,
+    // nên đáy ảnh không bao giờ hở so với cột thông tin. Từ sm (thẻ dọc): khung vuông như cũ.
+    <div className="relative aspect-square h-full w-full overflow-hidden rounded-tl-xl rounded-bl-xl bg-ink-50 sm:rounded-bl-none sm:rounded-tr-xl sm:h-auto">
       {linkable ? (
         <Link
           href={href}
@@ -359,7 +361,7 @@ export function PublicProductCard({
         linkable ? "cursor-pointer hover:border-brand-400 hover:shadow-md" : ""
       }`}
     >
-      <div className="w-[38%] shrink-0 self-start sm:w-full">{thumb}</div>
+      <div className="w-[38%] shrink-0 self-stretch sm:w-full sm:self-auto">{thumb}</div>
       <div className="@container flex min-w-0 flex-1 flex-col p-2.5 sm:px-3.5 sm:pb-3.5 sm:pt-3">
         {sponsored && (
           <div className="relative z-20">
@@ -432,7 +434,7 @@ export function PublicProductCard({
 
 
         {/* Two-column commercial terms: MOQ & Lead time */}
-        <dl className="mt-2 grid grid-cols-2 gap-x-3 text-ink-600 sm:mt-2.5">
+        <dl className="mt-2 grid grid-cols-2 gap-x-3 text-ink-600 max-sm:mb-2 sm:mt-2.5">
           <div className="min-w-0">
             <dt className="text-[10px] font-semibold uppercase leading-4 tracking-[0.1em] text-ink-500">MOQ</dt>
             <dd title={moqText} className="mt-0.5 truncate text-[13px] font-bold leading-5 tabular-nums text-ink-900">
@@ -448,7 +450,8 @@ export function PublicProductCard({
         </dl>
 
         {/* Đáy thẻ: một đường kẻ, rồi nhà cung cấp và ba khiên xác minh trên cùng một hàng. */}
-        <div className="mt-2 border-t border-ink-100 pt-2 sm:mt-auto sm:pt-2.5">
+        {/* mt-auto: khi khung ảnh vuông cao hơn chữ (màn rộng gần sm), hàng nhà cung cấp vẫn nằm sát đáy thẻ. */}
+        <div className="mt-auto border-t border-ink-100 pt-2 sm:pt-2.5">
           {/* Tên giữ một dòng và tự cắt bằng dấu ba chấm; khiên đứng ngay sau tên, không xuống hàng. */}
           <div className="relative z-20 flex min-w-0 items-center gap-2">
             {supplierHref && linkable ? (
