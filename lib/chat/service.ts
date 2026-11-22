@@ -89,6 +89,21 @@ export async function conversationViews(store: DataStore, rows: ChatConversation
   }));
 }
 
+/** Phần của cuộc trò chuyện đổi theo thời gian; tên và đường dẫn bên kia thì không. */
+export type ChatConversationStatus = Pick<ChatConversationView, "id" | "productName" | "preview" | "lastMessageAt" | "counterpartReadAt" | "counterpartLastSeen" | "veximFollowingUp">;
+
+/**
+ * Bản gọn cho các lần khung chat hỏi lại tin mới: chỉ đọc trạng thái online của bên kia, không
+ * tra lại tên nhà cung cấp / công ty người mua mỗi 6 giây (khung chat giữ tên từ lần tải đầu).
+ */
+export async function conversationStatus(store: DataStore, c: ChatConversation, side: ChatSender): Promise<ChatConversationStatus> {
+  const key = side === "buyer" ? presenceKey.supplier(c.supplier_id) : presenceKey.buyer(c.buyer_email);
+  const seen = await readPresence(store, [key]);
+  return { id: c.id, productName: c.product_name, preview: c.last_message_preview, lastMessageAt: c.last_message_at ?? c.created_at,
+    counterpartReadAt: side === "buyer" ? c.supplier_last_read_at : c.buyer_last_read_at,
+    counterpartLastSeen: seen[key] ?? null, veximFollowingUp: side === "buyer" && unansweredEscalated(c) };
+}
+
 /** Ảnh, giá và đường dẫn của các sản phẩm còn công khai, qua đúng cổng công bố của trang danh mục. */
 async function productCards(ids: string[]): Promise<Map<string, ChatProductCard>> {
   const unique = [...new Set(ids.filter(Boolean))].slice(0, 30);

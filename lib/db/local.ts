@@ -1995,8 +1995,8 @@ export const localStore: DataStore = {
       .sort((a, b) => (b.last_message_at ?? b.created_at).localeCompare(a.last_message_at ?? a.created_at))
       .slice(0, filter.limit ?? 200);
   },
-  async listChatMessages(conversationId, limit = 500) {
-    return (load().chat_messages ?? []).filter((m) => m.conversation_id === conversationId)
+  async listChatMessages(conversationId, limit = 500, after) {
+    return (load().chat_messages ?? []).filter((m) => m.conversation_id === conversationId && (!after || m.created_at > after))
       .sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(-limit);
   },
   async addChatMessage(input) {

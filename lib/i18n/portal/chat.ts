@@ -19,6 +19,7 @@ export const en = {
   loadError: "Could not load this conversation. Reload the page to try again.",
   enterHint: "Enter to send, Shift + Enter for a new line.",
   notice: "Messages are kept in this chat. The buyer gets an email when you reply.",
+  newMessages: "New messages",
 };
 
 export type ChatMessages = typeof en;
@@ -41,6 +42,7 @@ export const vi: ChatMessages = {
   loadError: "Chưa tải được cuộc trò chuyện. Tải lại trang để thử lại.",
   enterHint: "Enter để gửi, Shift + Enter để xuống dòng.",
   notice: "Tin nhắn được lưu trong mục chat này. Người mua nhận email khi bạn trả lời.",
+  newMessages: "Tin nhắn mới",
 };
 
 export const chatMessages = { en, vi } as const;

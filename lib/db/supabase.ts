@@ -1227,9 +1227,10 @@ export const supabaseStore: DataStore = {
     if (error) fail("listChatConversations", error);
     return (data ?? []) as ChatConversation[];
   },
-  async listChatMessages(conversationId, limit = 500) {
-    const { data, error } = await must().from("chat_messages").select("*")
-      .eq("conversation_id", conversationId).order("created_at", { ascending: false }).limit(limit);
+  async listChatMessages(conversationId, limit = 500, after) {
+    let query = must().from("chat_messages").select("*").eq("conversation_id", conversationId);
+    if (after) query = query.gt("created_at", after);
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(limit);
     if (error) fail("listChatMessages", error);
     return ((data ?? []) as ChatMessage[]).reverse();
   },

@@ -18,6 +18,15 @@ function readProductRef(value: unknown): { slug: string; productId: string } | n
   return { slug, productId };
 }
 
+/** Hồ sơ NCC (trang ISR): id nhà cung cấp + slug công khai (slug, hoặc chính id khi chưa có slug). */
+function readProfileRef(value: unknown): { supplierId: string; slug: string } | null {
+  if (!value || typeof value !== "object") return null;
+  const { supplierId, slug } = value as { supplierId?: unknown; slug?: unknown };
+  if (typeof supplierId !== "string" || !UUID.test(supplierId)) return null;
+  if (typeof slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,159}$/i.test(slug)) return null;
+  return { supplierId, slug };
+}
+
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
   let sameOrigin = false;
@@ -30,7 +39,7 @@ export async function POST(request: NextRequest) {
   const ua = request.headers.get("user-agent") || "";
   if (!ua || /bot|crawler|spider|preview|lighthouse|headless|curl|wget/i.test(ua)) return new NextResponse(null, { status: 204 });
   if (await getSession()) return new NextResponse(null, { status: 204 }); // exclude staff/supplier self-views
-  let parsed: { token?: unknown; product?: unknown };
+  let parsed: { token?: unknown; product?: unknown; profile?: unknown };
   try {
     const body = await request.text();
     if (body.length > 1200) return new NextResponse(null, { status: 413 });
@@ -38,8 +47,10 @@ export async function POST(request: NextRequest) {
   } catch { return new NextResponse(null, { status: 400 }); }
   const productRef = parsed.product === undefined ? null : readProductRef(parsed.product);
   if (parsed.product !== undefined && !productRef) return new NextResponse(null, { status: 400 });
-  const signed = productRef ? null : verifyTrafficToken(parsed.token);
-  if (!productRef && !signed) return new NextResponse(null, { status: 400 });
+  const profileRef = productRef || parsed.profile === undefined ? null : readProfileRef(parsed.profile);
+  if (!productRef && parsed.profile !== undefined && !profileRef) return new NextResponse(null, { status: 400 });
+  const signed = productRef || profileRef ? null : verifyTrafficToken(parsed.token);
+  if (!productRef && !profileRef && !signed) return new NextResponse(null, { status: 400 });
   try {
     let page = signed;
     if (productRef) {
@@ -52,6 +63,12 @@ export async function POST(request: NextRequest) {
       const supplier = await getStore().getSupplier(card.supplierId);
       if (!supplier || isSyntheticSupplier(supplier)) return new NextResponse(null, { status: 204 });
       page = { kind: "product", supplierId: card.supplierId, resourceId: card.id, slug: productRef.slug, exp: Date.now() };
+    } else if (profileRef) {
+      // Trang hồ sơ cũng là bản dựng sẵn: cùng phép kiểm như mã ký "profile" bên dưới, tra lại từ CSDL.
+      const supplier = await getStore().getSupplier(profileRef.supplierId);
+      if (!supplier || supplier.status !== "published" ||
+          (supplier.slug || supplier.id) !== profileRef.slug || isSyntheticSupplier(supplier)) return new NextResponse(null, { status: 204 });
+      page = { kind: "profile", supplierId: supplier.id, resourceId: supplier.id, slug: profileRef.slug, exp: Date.now() };
     } else if (signed?.kind === "profile") {
       const supplier = await getStore().getSupplier(signed.supplierId);
       if (!supplier || supplier.status !== "published" ||

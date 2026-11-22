@@ -48,7 +48,7 @@ export function MarketplaceRail() {
       const data = await res.json().catch(() => null) as { unread?: number } | null;
       return typeof data?.unread === "number" ? data.unread : 0;
     };
-    const [chat, support] = await Promise.all([read("/api/chat?side=buyer"), read("/api/support?peek=1")]);
+    const [chat, support] = await Promise.all([read("/api/chat?side=buyer&peek=1"), read("/api/support?peek=1")]);
     if (chat !== null) setUnread(chat);
     if (support !== null) setSupportUnread(support);
   }, [email]);
@@ -61,6 +61,16 @@ export function MarketplaceRail() {
     document.addEventListener("visibilitychange", tick);
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
   }, [refreshUnread]);
+
+  // Khung chat đang mở vừa tải danh sách (hoặc đọc một cuộc): cập nhật huy hiệu ngay, khỏi chờ lượt hỏi sau.
+  useEffect(() => {
+    const onUnread = (event: Event) => {
+      const detail = (event as CustomEvent<{ side?: string; unread?: number }>).detail;
+      if (detail?.side === "buyer" && typeof detail.unread === "number") setUnread(detail.unread);
+    };
+    window.addEventListener("vexim:chat-unread", onUnread);
+    return () => window.removeEventListener("vexim:chat-unread", onUnread);
+  }, []);
 
   // Khung tin nhắn bám cạnh phải, không chặn trang (như Alibaba).
   useEffect(() => {

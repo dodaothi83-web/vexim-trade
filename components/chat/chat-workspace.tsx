@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Maximize2, MessageCircle, Package, Send, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, Loader2, Maximize2, MessageCircle, Package, Send, X } from "lucide-react";
 import { VeximPlatformSupportIcon } from "@/components/brand/vexim-icons";
 import { cx } from "@/components/ui";
 import { DeliveryTicks, PRESENCE_LABELS, PresenceDot, PresenceLine, deliveryStatus } from "@/components/chat/presence";
@@ -29,6 +29,8 @@ export interface ChatLabels {
   quickTitle?: string;
   newConversation?: string;
   productUnavailable?: string;
+  /** Nút hiện khi có tin mới trong lúc người đọc đang kéo lên xem tin cũ. */
+  newMessages?: string;
   /** Phía người mua: nhà cung cấp chưa trả lời quá 48 giờ, Vexim đang liên hệ. */
   followUp?: string;
   followUpAction?: string;
@@ -46,6 +48,11 @@ const NEW_ID = "new";
 
 const LIST_POLL_MS = 15_000;
 const THREAD_POLL_MS = 6_000;
+/** Cuộc im lặng quá 2 phút (không tin mới, mình không gõ) thì hỏi lại thưa hơn. */
+const THREAD_IDLE_POLL_MS = 15_000;
+const ACTIVE_WINDOW_MS = 2 * 60_000;
+/** Hỏi tin mới lùi lại chừng này so với tin cuối, phòng tin ghi gần như cùng lúc; trùng thì bỏ theo id. */
+const OVERLAP_MS = 10_000;
 const MAX = 4000;
 
 function shortTime(iso: string | null, locale: string) {
@@ -111,23 +118,71 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-  const lastCount = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Người đọc đang ở cuối khung tin: có tin mới thì cuộn theo; đang kéo lên đọc tin cũ thì
+  // không giật xuống, chỉ hiện nút "Tin nhắn mới".
+  const atBottom = useRef(true);
+  const [unseen, setUnseen] = useState(false);
+  const lastSeenTail = useRef<{ conversation: string | null; message: string | null }>({ conversation: null, message: null });
+  // Cuộc đang mở và tin đã có, đọc trong các lần hỏi lại mà không phải dựng lại vòng hỏi.
+  const activeRef = useRef(activeId);
+  const threadRef = useRef(thread);
+  useEffect(() => { activeRef.current = activeId; }, [activeId]);
+  useEffect(() => { threadRef.current = thread; }, [thread]);
+  // Lần cuối có trao đổi (mở cuộc, tin mới, mình gõ hoặc gửi): còn trong 2 phút thì hỏi lại
+  // 6 giây/lần, lâu hơn thì giãn ra 15 giây/lần cho đỡ tải.
+  const lastActivity = useRef(Date.now());
+  const bump = useCallback(() => { lastActivity.current = Date.now(); }, []);
 
   const loadList = useCallback(async () => {
     const res = await fetch(`/api/chat?side=${side}`, { cache: "no-store" }).catch(() => null);
-    if (!res?.ok) { if (list === null) setList([]); return; }
+    if (!res?.ok) { setList((rows) => rows ?? []); return; }
     const data = await res.json() as { conversations: ConversationView[] };
     setList(data.conversations);
     if (!product && !supplier) setActiveId((current) => current ?? (window.matchMedia("(min-width: 768px)").matches ? data.conversations[0]?.id ?? null : null));
-  }, [side, list, product, supplier]);
+  }, [side, product, supplier]);
 
-  const loadThread = useCallback(async (id: string) => {
-    const res = await fetch(`/api/chat/${encodeURIComponent(id)}?side=${side}`, { cache: "no-store" }).catch(() => null);
-    if (!res?.ok) { setError(labels.loadError); return; }
-    const data = await res.json() as { conversation: ConversationView; messages: MessageView[] };
-    setThread(data);
+  /**
+   * Tải một cuộc. Lần đầu tải đủ; các lần hỏi lại (`incremental`) chỉ xin tin mới hơn tin cuối
+   * đang có (lùi 10 giây cho chắc, trùng thì bỏ theo id), máy chủ không phải trả lại cả cuộc.
+   */
+  const loadThread = useCallback(async (id: string, incremental = false) => {
+    const current = threadRef.current;
+    const tail = incremental && current?.conversation.id === id ? [...current.messages].reverse().find((m) => !m.pending) : undefined;
+    const after = tail && Number.isFinite(Date.parse(tail.createdAt)) ? new Date(Date.parse(tail.createdAt) - OVERLAP_MS).toISOString() : null;
+    const res = await fetch(`/api/chat/${encodeURIComponent(id)}?side=${side}${after ? `&after=${encodeURIComponent(after)}` : ""}`, { cache: "no-store" }).catch(() => null);
+    // Người dùng đã chuyển sang cuộc khác trong lúc chờ: bỏ kết quả cũ.
+    if (activeRef.current !== id) return;
+    if (!res?.ok) { if (!incremental) setError(labels.loadError); return; }
+    const data = await res.json() as { conversation: ConversationView; messages: MessageView[]; partial?: boolean };
+    if (activeRef.current !== id) return;
+    setThread((t) => {
+      if (!data.partial) return { conversation: data.conversation, messages: data.messages };
+      // Phần tin mới của một lượt hỏi cũ về sau khi đã đổi cuộc: không ghép vào đâu cả.
+      if (!t || t.conversation.id !== id) return t;
+      const known = new Set(t.messages.map((m) => m.id));
+      let pending = t.messages.filter((m) => m.pending);
+      const fresh = data.messages.filter((m) => {
+        if (known.has(m.id)) return false;
+        // Tin của mình đã lưu trước khi lời đáp POST về: thay đúng bản đang gửi, không hiện hai lần.
+        const twin = m.mine ? pending.find((p) => p.body === m.body) : undefined;
+        if (twin) pending = pending.filter((p) => p !== twin);
+        return true;
+      });
+      // Bản gọn không có tên bên kia: giữ tên từ lần tải đầu, chỉ cập nhật trạng thái.
+      const conversation = { ...t.conversation, ...data.conversation };
+      if (!fresh.length) return { ...t, conversation };
+      bump();
+      return { conversation, messages: [...t.messages.filter((m) => !m.pending), ...fresh, ...pending] };
+    });
     setList((rows) => rows?.map((r) => r.id === id ? { ...r, unread: false } : r) ?? rows);
-  }, [side, labels.loadError]);
+  }, [side, labels.loadError, bump]);
+
+  // Số cuộc chưa đọc đổi thì báo thanh công cụ / menu cổng cập nhật huy hiệu ngay.
+  const unreadCount = list ? list.filter((c) => c.unread).length : null;
+  useEffect(() => {
+    if (unreadCount !== null) window.dispatchEvent(new CustomEvent("vexim:chat-unread", { detail: { side, unread: unreadCount } }));
+  }, [unreadCount, side]);
 
   useEffect(() => { void loadList(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Mở từ trang sản phẩm: nếu đã từng hỏi nhà cung cấp này thì mở lại đúng cuộc đó,
@@ -146,27 +201,42 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
     })();
     return () => { cancelled = true; };
   }, [product, supplier]);
+  // Danh sách: hỏi lại 15 giây/lần khi tab đang mở; quay lại tab thì hỏi ngay, không chờ lượt sau.
   useEffect(() => {
     const tick = () => { if (document.visibilityState === "visible") void loadList(); };
     const timer = window.setInterval(tick, LIST_POLL_MS);
-    return () => window.clearInterval(timer);
+    document.addEventListener("visibilitychange", tick);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
   }, [loadList]);
   useEffect(() => {
     if (!activeId) { setThread(null); return; }
     setError(null);
+    setUnseen(false);
+    bump();
     if (activeId === NEW_ID) {
       setThread({ conversation: { id: NEW_ID, counterpart: product?.supplierName ?? supplier?.name ?? "", counterpartHref: null, productName: product?.name ?? null, preview: null, lastMessageAt: null, unread: false }, messages: [] });
       return;
     }
+    // Chuyển cuộc: không để nội dung cuộc trước hiện dưới tên cuộc mới trong lúc tải.
+    setThread((t) => t?.conversation.id === activeId ? t : null);
     void loadThread(activeId);
     if (!popup) {
       const url = new URL(window.location.href);
       url.searchParams.set("c", activeId);
       window.history.replaceState(null, "", url);
     }
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void loadThread(activeId); }, THREAD_POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [activeId, loadThread, popup, product, supplier]);
+    let timer = 0;
+    let stopped = false;
+    const delay = () => Date.now() - lastActivity.current < ACTIVE_WINDOW_MS ? THREAD_POLL_MS : THREAD_IDLE_POLL_MS;
+    const tick = async () => {
+      if (document.visibilityState === "visible") await loadThread(activeId, true);
+      if (!stopped) timer = window.setTimeout(tick, delay());
+    };
+    timer = window.setTimeout(tick, delay());
+    const onVisible = () => { if (document.visibilityState === "visible") { bump(); void loadThread(activeId, true); } };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { stopped = true; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [activeId, loadThread, popup, product, supplier, bump]);
   // Mở lại cuộc cũ đang nói về đúng sản phẩm này thì không đính kèm lại, tránh thẻ lặp.
   const attachChecked = useRef(false);
   useEffect(() => {
@@ -175,17 +245,36 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
     const lastProduct = [...thread.messages].reverse().find((m) => m.product)?.product;
     if (lastProduct?.id === attached.id) setAttached(null);
   }, [thread, attached, activeId, productThreadId]);
+  // Cuộn: mở cuộc thì xuống cuối; tin mới thì chỉ cuộn khi đang ở cuối hoặc tin do mình gửi.
   useEffect(() => {
-    const count = thread?.messages.length ?? 0;
-    if (count !== lastCount.current) endRef.current?.scrollIntoView({ block: "end" });
-    lastCount.current = count;
+    const conversation = thread?.conversation.id ?? null;
+    const last = thread?.messages[thread.messages.length - 1] ?? null;
+    const previous = lastSeenTail.current;
+    lastSeenTail.current = { conversation, message: last?.id ?? null };
+    if (!thread || (previous.conversation === conversation && previous.message === (last?.id ?? null))) return;
+    if (previous.conversation !== conversation || !last || last.mine || atBottom.current) {
+      endRef.current?.scrollIntoView({ block: "end" });
+      setUnseen(false);
+    } else {
+      setUnseen(true);
+    }
   }, [thread]);
+  function onScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (atBottom.current) setUnseen(false);
+  }
+  function jumpToLatest() {
+    endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+    setUnseen(false);
+  }
 
   async function send() {
     const body = draft.trim();
     if (!body || !activeId || sending) return;
     if (body.length > MAX) { setError(labels.tooLong); return; }
-    setSending(true); setError(null);
+    setSending(true); setError(null); bump();
     const withProduct = attached && activeId === productThreadId ? attached : null;
     const temp: MessageView = { id: `tmp-${Date.now()}`, mine: true, body, productName: withProduct?.name ?? null,
       product: withProduct ? { id: withProduct.id, name: withProduct.name, imageUrl: withProduct.imageUrl, href: null, price: null } : null,
@@ -216,7 +305,9 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
       return;
     }
     const data = await res.json() as { message: MessageView };
-    setThread((t) => t ? { ...t, messages: t.messages.map((m) => m.id === temp.id ? data.message : m) } : t);
+    // Lượt hỏi lại có thể đã mang tin này về trước: khi đó chỉ bỏ bản đang gửi.
+    setThread((t) => t ? { ...t, messages: t.messages.some((m) => m.id === data.message.id) ? t.messages.filter((m) => m.id !== temp.id)
+      : t.messages.map((m) => m.id === temp.id ? data.message : m) } : t);
     setList((rows) => rows ? [{ ...rows.find((r) => r.id === activeId)!, preview: body, lastMessageAt: data.message.createdAt, ...(withProduct ? { productName: withProduct.name } : {}) }, ...rows.filter((r) => r.id !== activeId)] : rows);
   }
 
@@ -285,7 +376,8 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
           </div>
           {popup && onClose && <button type="button" onClick={onClose} aria-label={closeLabel} className="ml-auto rounded-md p-1.5 text-ink-500 hover:bg-ink-100 md:hidden"><X className="h-5 w-5" /></button>}
         </header>
-        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto bg-ink-50/60 px-4 py-4">
+        <div className="relative flex min-h-0 flex-1 flex-col">
+        <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto bg-ink-50/60 px-4 py-4" role="log">
           <p className="mx-auto max-w-md rounded-lg bg-white px-3 py-2 text-center text-[11.5px] leading-4 text-ink-500 shadow-sm">{labels.notice}</p>
           {(() => {
             // Thẻ sản phẩm chỉ hiện khi cuộc trò chuyện chuyển sang một sản phẩm khác.
@@ -319,6 +411,11 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
           </div>}
           <div ref={endRef} />
         </div>
+        {unseen && <button type="button" onClick={jumpToLatest} data-testid="chat-new-messages"
+          className="absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-brand-700 px-3.5 py-1.5 text-[12.5px] font-semibold text-white shadow-lg shadow-brand-900/20 hover:bg-brand-800">
+          <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />{labels.newMessages ?? "New messages"}
+        </button>}
+        </div>
         <form className="border-t border-ink-100 p-3" onSubmit={(e) => { e.preventDefault(); void send(); }}>
           {error && <p role="alert" className="mb-2 rounded-md bg-red-50 px-3 py-1.5 text-[12.5px] text-red-800">{error}</p>}
           {showAttached && <div className="mb-2 flex items-center gap-3 rounded-xl border border-ink-200 bg-ink-50/70 p-2 pr-1.5" data-testid="chat-attached-product">
@@ -331,7 +428,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
             {activeId !== NEW_ID && <button type="button" onClick={() => setAttached(null)} aria-label={labels.removeAttached} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><X className="h-4 w-4" /></button>}
           </div>}
           <div className="flex items-end gap-2">
-            <textarea id={popup ? "ask-supplier-message" : undefined} autoFocus={popup} value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} maxLength={MAX} placeholder={labels.placeholder}
+            <textarea id={popup ? "ask-supplier-message" : undefined} autoFocus={popup} value={draft} onChange={(e) => { setDraft(e.target.value); bump(); }} rows={2} maxLength={MAX} placeholder={labels.placeholder}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }}
               className="input min-h-[44px] flex-1 resize-none text-[14px] leading-6" aria-label={labels.placeholder} />
             <button type="submit" disabled={!draft.trim() || sending} className="btn btn-primary h-11 shrink-0 px-4 disabled:opacity-60">

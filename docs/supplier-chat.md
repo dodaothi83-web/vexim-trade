@@ -52,3 +52,12 @@ Mã nguồn: `lib/chat/core.ts` (quy tắc), `lib/chat/service.ts`, `lib/chat/vi
 3. **Nhắc một lần:** chưa đọc sau 24 giờ kể từ thư đầu thì nhắc đúng một lần, rồi dừng tới khi người nhận đọc (cột `*_reminded_at`, migration `20261113_chat_notify_reminders.sql`, **cần chạy**; thiếu cột thì bỏ qua lần nhắc, thư đầu vẫn gửi).
 - Chạy bằng `/api/cron/chat-notify` (cron-job.org, **5 phút một lần**, header `Authorization: Bearer <CRON_SECRET>`). Chưa cài lịch thì các lần người dùng tự hỏi tin mới cũng kích hoạt bộ quét, tối đa 3 phút một lần.
 - Mỗi cuộc được "nhận việc" bằng cập nhật có điều kiện trước khi gửi, nên quét trùng không gửi trùng; gửi lỗi thì trả mốc lại để lần sau gửi.
+
+## Hỏi lại tin mới nhẹ hơn (2026-11)
+
+- **Chỉ tải tin mới:** khung chat hỏi lại với `GET /api/chat/{id}?after=<mốc>` (mốc = tin cuối lùi 10 giây, trùng thì bỏ theo id). Máy chủ chỉ đọc tin mới hơn mốc và trả bản gọn của cuộc (đã xem, online), không tra lại tên nhà cung cấp / công ty người mua, không tra lại thẻ sản phẩm khi không có tin mới.
+- **Giãn nhịp khi im lặng:** 6 giây/lần khi vừa có trao đổi (mở cuộc, tin mới, đang gõ, vừa gửi) trong 2 phút; quá thì 15 giây/lần. Quay lại tab là hỏi ngay.
+- **Huy hiệu chỉ đếm:** thanh công cụ người mua và menu cổng nhà cung cấp gọi `GET /api/chat?side=…&peek=1`, chỉ nhận `{ unread }`. Khung chat đang mở phát sự kiện `vexim:chat-unread` để huy hiệu cập nhật ngay khi đọc xong một cuộc.
+- **Không nhân đôi tin đang gửi** (cả Chat với Vexim) khi lượt hỏi lại về trước lời đáp gửi tin.
+- **Không giật cuộn:** người đọc đang kéo lên xem tin cũ thì tin mới không kéo khung xuống, chỉ hiện nút "Tin nhắn mới".
+- Kiểm tra: `scripts/check-chat-polling.mjs` (trong `check:rfq`).

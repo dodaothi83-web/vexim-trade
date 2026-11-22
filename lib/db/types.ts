@@ -276,7 +276,8 @@ export interface DataStore {
   updateChatConversation(id: string, patch: Partial<Omit<ChatConversation, "id" | "buyer_email" | "supplier_id" | "created_at">>): Promise<void>;
   /** Mới nhất trước. `buyerEmail` hoặc `supplierId`; bỏ trống cả hai là toàn bộ (CRM). */
   listChatConversations(filter: { buyerEmail?: string; supplierId?: string; limit?: number }): Promise<ChatConversation[]>;
-  listChatMessages(conversationId: string, limit?: number): Promise<ChatMessage[]>;
+  /** Cũ trước, mới sau. `after` (ISO): chỉ lấy tin mới hơn mốc này — khung chat hỏi lại định kỳ chỉ tải phần mới. */
+  listChatMessages(conversationId: string, limit?: number, after?: string): Promise<ChatMessage[]>;
   addChatMessage(input: Omit<ChatMessage, "id" | "created_at">): Promise<ChatMessage>;
   /* Chat người mua ↔ đội Vexim (một cuộc cho mỗi người mua). */
   getSupportConversationByBuyer(buyerEmail: string): Promise<SupportConversation | null>;
