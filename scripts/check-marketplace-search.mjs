@@ -26,6 +26,7 @@ import * as cacheCodec from "../lib/public/catalog-cache-codec.ts";
 import * as priceDisplay from "../lib/products/price-display.ts";
 import { supplierNameCase } from "../lib/public/supplier-name.ts";
 import * as categoryFacets from "../lib/public/search-category-facets.ts";
+import * as publicUrl from "../lib/media/public-url.ts";
 
 const require = createRequire(import.meta.url);
 const jsx = require("react/jsx-runtime");
@@ -274,6 +275,7 @@ const verificationUi = load("../components/verification-tier.tsx", {
 });
 const supplierCard = load("../components/public/search-supplier-card.tsx", {
   "react/jsx-runtime": jsx,
+  "@/lib/media/public-url": publicUrl,
   "next/link": { default: Link },
   "lucide-react": icons,
   "@/components/brand/vexim-icons": brandIcons,

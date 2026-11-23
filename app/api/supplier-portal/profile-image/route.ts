@@ -3,8 +3,10 @@ import { randomUUID } from "node:crypto";
 
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
-import { validateUpload, extensionFor } from "@/lib/media/validate";
-import { deleteObject, putObject } from "@/lib/media/storage";
+import { validateUpload } from "@/lib/media/validate";
+import { deleteObject, putObject, supplierProfileImagePath } from "@/lib/media/storage";
+import { prepareSupplierProfileImage } from "@/lib/media/prepare-supplier-profile-image";
+import { publicMediaUrl } from "@/lib/media/public-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,9 +47,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: check.message ?? "Ảnh không hợp lệ." }, { status: 400 });
   }
 
-  const path = `suppliers/${supplier.id}/${kind}-${randomUUID()}.${extensionFor(check.mime)}`;
+  // Nén WebP trước khi lưu: nhẹ hơn nhiều cho buyer ở xa, giữ nền trong suốt của logo.
+  let prepared: Awaited<ReturnType<typeof prepareSupplierProfileImage>>;
   try {
-    await putObject(path, bytes, check.mime);
+    prepared = await prepareSupplierProfileImage(bytes, kind);
+  } catch {
+    return NextResponse.json({ ok: false, message: "Không đọc được ảnh. Hãy chọn ảnh JPG, PNG hoặc WebP khác." }, { status: 400 });
+  }
+  const path = supplierProfileImagePath(supplier.id, kind, randomUUID());
+  try {
+    await putObject(path, prepared.data, "image/webp");
     try {
       await store.updateSupplier(supplier.id, kind === "cover" ? { cover_image: path } : { profile_image: path });
     } catch (error) {
@@ -55,7 +64,7 @@ export async function POST(request: Request) {
       await deleteObject(path).catch(() => null);
       throw error;
     }
-    return NextResponse.json({ ok: true, path });
+    return NextResponse.json({ ok: true, path, url: publicMediaUrl(path) });
   } catch (error) {
     console.error("[supplier-portal] tải ảnh hồ sơ thất bại", error);
     return NextResponse.json({ ok: false, message: error instanceof Error ? error.message : "Không lưu được ảnh." }, { status: 500 });

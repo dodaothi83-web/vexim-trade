@@ -52,6 +52,7 @@ import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
 import { ownerScopeOf } from "@/lib/auth/scope";
 import { ownerCandidates } from "@/lib/crm/supplier-owner-rules";
 import { SupplierOwnerCard } from "../owner-controls";
+import { publicMediaUrl } from "@/lib/media/public-url";
 
 export const dynamic = "force-dynamic";
 
@@ -162,7 +163,7 @@ export default async function SupplierDetailPage({
   const approvedLevels = verifications.filter((v) => v.status === "approved").map((v) => v.target_level);
   const displayName = supplier.display_name || supplier.name;
   // profile_image/cover_image lưu đường dẫn trong kho tệp, phải chuyển thành URL công khai mới hiển thị được.
-  const supplierImageUrl = (path: string) => (path.startsWith("http") ? path : `/public-media/${path.replace(/^\//, "")}`);
+  const supplierImageUrl = (path: string) => (path.startsWith("http") ? path : publicMediaUrl(path));
   const coverUrl = supplier.cover_image ? supplierImageUrl(supplier.cover_image) : null;
   const avatarUrl = supplier.profile_image ? supplierImageUrl(supplier.profile_image) : null;
   const typeLabel = supplier.onboarding_status === "not_started" ? "Chưa khai loại hình" : supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : roleLabel(supplier.role);

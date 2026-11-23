@@ -5,6 +5,8 @@ import path from "node:path";
 
 import { getSupabaseClient, supabaseConfigured } from "@/lib/db/supabase";
 import { localFallbackAllowed } from "@/lib/db";
+import { r2Delete, r2Get, r2PrivateBucket, r2Put, r2PutNew, r2PublicBucket } from "@/lib/media/r2";
+import { R2_PUBLIC_FILE } from "@/lib/media/public-url";
 
 /**
  * Kho tệp media: tự chọn nơi lưu theo đúng triết lý của tầng dữ liệu.
@@ -12,9 +14,34 @@ import { localFallbackAllowed } from "@/lib/db";
  *  - Đã cấu hình Supabase  → bucket `vexim-media` (đặt tên qua SUPABASE_MEDIA_BUCKET)
  *  - Chỉ ở local/E2B khi fallback được phép → `data/media`.
  *    Preview/staging/production phải báo lỗi thay vì ghi vào ổ đĩa serverless.
+ *  - Ảnh mới lưu ở Cloudflare R2 khi đã cấu hình (xem lib/media/r2.ts):
+ *      ảnh đại diện/ảnh bìa `profile-r2-…`/`cover-r2-…` → bucket R2 công khai;
+ *      ảnh sản phẩm, ảnh form sản phẩm, ảnh A+ → bucket R2 riêng tư (vẫn qua /public-media).
+ *    Đường dẫn lưu trong DB giữ nguyên dạng tương đối. Khi đọc, tệp chưa có trên R2 (ảnh cũ)
+ *    được lấy từ Supabase như trước, nên không phải di chuyển hay sửa dữ liệu cũ.
  */
 
-export type MediaDriver = "supabase" | "local";
+export type MediaDriver = "supabase" | "local" | "r2";
+
+/** Ảnh sản phẩm và ảnh A+: cần kiểm tra quyền trước khi phát nên chỉ lưu ở bucket riêng tư. */
+const R2_PRIVATE_PREFIX = /^(?:products|product-form-images|aplus)\//;
+
+/** Bucket R2 cho một đường dẫn, hoặc null nếu đường dẫn đó vẫn dùng Supabase. */
+function r2BucketFor(rel: string): string | null {
+  if (R2_PUBLIC_FILE.test(rel)) return r2PublicBucket();
+  if (R2_PRIVATE_PREFIX.test(rel)) return r2PrivateBucket();
+  return null;
+}
+
+/** Đường dẫn ảnh đại diện/ảnh bìa mới: lưu thẳng lên R2 công khai khi đã cấu hình. */
+export function supplierProfileImagePath(supplierId: string, kind: "profile" | "cover", id: string): string {
+  return r2PublicBucket()
+    ? `suppliers/${supplierId}/${kind}-r2-${id}.webp`
+    : `suppliers/${supplierId}/${kind}-${id}.webp`;
+}
+
+/** Ảnh trên bucket công khai có tên ngẫu nhiên, không bao giờ bị ghi đè: cho CDN giữ lâu. */
+const R2_PUBLIC_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 export interface MediaStorageStatus {
   driver: MediaDriver;
@@ -126,6 +153,12 @@ export async function putObject(
   // Form-review images are write-once. Generic legacy uploads must not overwrite them.
   if (clean.startsWith("product-form-images/")) throw new Error("Không thể ghi đè ảnh sản phẩm đã lưu.");
 
+  const r2Bucket = r2BucketFor(clean);
+  if (r2Bucket) {
+    await r2Put(r2Bucket, clean, data, contentType, R2_PUBLIC_FILE.test(clean) ? R2_PUBLIC_CACHE_CONTROL : undefined);
+    return { driver: "r2", path: clean };
+  }
+
   if (supabaseUsable()) {
     try {
       const { error } = await getSupabaseClient()!
@@ -155,6 +188,11 @@ export async function putObject(
  */
 export async function putNewObject(rel: string, data: Uint8Array, contentType: string): Promise<void> {
   const clean = safePath(rel);
+  const r2Bucket = r2BucketFor(clean);
+  if (r2Bucket) {
+    await r2PutNew(r2Bucket, clean, data, contentType);
+    return;
+  }
   if (supabaseConfigured()) {
     const client = getSupabaseClient();
     if (!client) throw new Error("Supabase Storage không khả dụng");
@@ -172,6 +210,18 @@ export async function getObject(
   rel: string,
 ): Promise<{ data: Uint8Array; driver: MediaDriver } | null> {
   const clean = safePath(rel);
+
+  const r2Bucket = r2BucketFor(clean);
+  if (r2Bucket) {
+    try {
+      const data = await r2Get(r2Bucket, clean);
+      if (data) return { data, driver: "r2" };
+      // Không có trên R2: ảnh cũ lưu ở Supabase, đọc tiếp như trước.
+    } catch (error) {
+      // R2 tạm lỗi: ảnh cũ vẫn phải hiển thị từ Supabase.
+      console.error("[media] R2 read failed", clean, error);
+    }
+  }
 
   if (supabaseUsable()) {
     try {
@@ -199,6 +249,12 @@ export async function deleteObject(rel: string): Promise<void> {
   const clean = safePath(rel);
   // Cleanup for this namespace needs a separate reference-checked workflow.
   if (clean.startsWith("product-form-images/")) throw new Error("Không thể xóa ảnh sản phẩm theo đường dẫn này.");
+  const r2Bucket = r2BucketFor(clean);
+  if (r2Bucket) {
+    await r2Delete(r2Bucket, clean);
+    // Ảnh mới chỉ nằm trên R2. Ảnh cũ (cùng dạng đường dẫn) vẫn được xoá ở Supabase bên dưới.
+    if (R2_PUBLIC_FILE.test(clean)) return;
+  }
   if (supabaseUsable()) {
     try {
       const { error } = await getSupabaseClient()!.storage.from(mediaBucket()).remove([clean]);

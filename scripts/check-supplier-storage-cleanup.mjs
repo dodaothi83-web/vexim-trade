@@ -19,6 +19,9 @@ function load({ configured, fallback, remove }) {
     '@/lib/db/supabase': { supabaseConfigured: () => configured,
       getSupabaseClient: () => ({ storage: { from: () => ({ remove }) } }) },
     '@/lib/db': { localFallbackAllowed: () => fallback },
+    // R2 chưa cấu hình: hành vi xoá trên Supabase giữ nguyên (luồng R2 có check-r2-media-storage.mjs).
+    '@/lib/media/r2': { r2PublicBucket: () => null, r2PrivateBucket: () => null },
+    '@/lib/media/public-url': { R2_PUBLIC_FILE: /^suppliers\/[A-Za-z0-9_-]+\/(?:profile|cover)-r2-[a-f0-9-]{36}\.webp$/i },
   };
   vm.runInNewContext(source, { module: mod, exports: mod.exports, console, Date, Uint8Array,
     process: { cwd: () => '/virtual', env: {} },

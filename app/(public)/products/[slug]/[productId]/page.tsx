@@ -44,6 +44,7 @@ import { supplierChatAvailable } from "@/lib/chat/service";
 import { SimilarOffersRail } from "@/components/public/similar-offers-rail";
 import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
 import { categoryTieWindow } from "@/lib/public/ranking";
+import { publicMediaUrl } from "@/lib/media/public-url";
 
 /**
  * Trang dựng sẵn (ISR) phục vụ từ CDN thay vì render lại mỗi lượt xem (từng là force-dynamic).
@@ -221,7 +222,7 @@ export default async function PublicProductDetail({ params }: Props) {
     "reference price", "lead time", "incoterm", "export port", "loading port",
   ]);
   const additionalSpecs = specs.filter(([label]) => !occupiedSpecKeys.has(productSpecificationKey(label)));
-  const supplierImageUrl = card.supplierProfileImage ? `/public-media/${card.supplierProfileImage.replace(/^\/+/, "")}` : null;
+  const supplierImageUrl = card.supplierProfileImage ? publicMediaUrl(card.supplierProfileImage) : null;
   const relatedComparisonOffers = [
     ...[card, ...similar.map((s) => s.offer)].map((product) => ({ product, categorySlug: slug })),
     ...moreFromSupplier.map(({ card: product, categorySlug }) => ({ product, categorySlug })),
