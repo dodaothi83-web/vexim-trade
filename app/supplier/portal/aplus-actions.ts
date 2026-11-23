@@ -43,7 +43,7 @@ export async function saveProductAplusAction(productId: string, modules: unknown
     const verified = await verifyAplusVideos(checked.modules, before, ctx);
     if (!verified.ok) return { ok: false, message: verified.index === null ? e.videoUnavailable : fill(e.videoMissing, { index: verified.index + 1 }) };
     // Lưu A+ là đăng A+: còn khối thì trang sản phẩm hiện A+; xoá hết khối thì quay về nội dung cơ bản.
-    // Muốn giữ mô tả chữ thì bấm "Tạo content basic" ở trang sửa sản phẩm (A+ vẫn được giữ).
+    // Muốn người mua thấy lại mô tả chữ thì bấm "Hiện nội dung cơ bản" ở trang soạn A+ (A+ vẫn được giữ).
     const mode = verified.modules.length ? "aplus" as const : "basic" as const;
     await access.store.updateProduct(productId, { aplus_content: verified.modules, content_mode: mode });
     const kept = new Set(aplusImagePaths(verified.modules));
