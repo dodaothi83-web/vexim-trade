@@ -14,12 +14,19 @@ const entry = (id, supplierId, verificationCount, relevance, extra = {}) => ({
 });
 const order = (entries) => orderSearchProducts(entries, compare).map(({ product }) => product.id);
 const exact = find('W320', { product: 'Cashew W320', grade: 'W320' });
-const other = find('W320', { product: 'Cashew W240', grade: 'W240', supplier: 'W320 Export' });
-const misleading = find('W320', { product: 'Cashew W320', grade: 'W240' });
+const other = find('W320', { product: 'Cashew lot', supplier: 'W320 Export' });
 const partial = find('W320', { product: 'Cashew W3200', grade: '' });
-assert.ok(exact && other && misleading && partial, 'Existing name, supplier and partial matches are retained');
-assert.ok(compareSearchRelevance(exact, other) < 0, 'Actual W320 beats W240 from supplier W320 Export');
-assert.ok(compareSearchRelevance(exact, misleading) < 0, 'A conflicting structured grade beats a misleading title');
+assert.ok(exact && other && partial, 'Existing name, supplier and partial matches are retained');
+assert.ok(compareSearchRelevance(exact, other) < 0, 'Actual W320 beats a supplier-only W320 mention');
+assert.equal(find('W320', { product: 'Cashew W320', grade: 'W240' }), null,
+  'A conflicting structured grade excludes the product even when its title mentions the code');
+assert.equal(find('W320', { product: 'Cashew W240', grade: 'W240', supplier: 'W320 Export' }), null,
+  'A supplier name cannot bring back a product whose structured grade conflicts');
+assert.equal(find('W240', { product: 'Salted Cashew Kernels W320 W240 W180', grade: 'W320', category: 'Roasted cashews' }), null,
+  'A multi-grade title does not override the structured grade');
+assert.equal(find('WW240', { product: 'Cashew W240 lot', grade: 'W320' }), null, 'The W/WW alias also applies to conflicts');
+assert.ok(find('W240 W320', { product: 'Cashew W240 W320', grade: 'W320' }), 'Typing two grades keeps a product matching one of them');
+assert.ok(find('W240', { product: 'Roasted cashew W240 snack', grade: 'Nut Snack' }), 'A non-code structured grade does not conflict');
 assert.deepEqual(find('W320', { product: 'Cashew W240 and W320', grade: 'W240', structuredGrade: '' }), exact,
   'A grade inferred from a multi-grade name is not treated as an authoritative conflict');
 assert.ok(compareSearchRelevance(exact, partial) < 0, 'W320 is more exact than W3200');
@@ -41,7 +48,7 @@ assert.ok(compareSearchRelevance(exact, find('W320', { product: 'Cashew PremiumW
 
 const categoryMatch = find('hạt điều W320', { product: 'Whole W320', grade: 'W320', category: 'hạt điều' });
 const titleMatch = find('hat dieu w320', { product: 'Hạt điều W320', grade: 'W320', category: 'hạt điều' });
-const supplierFallback = find('hat dieu w320', { product: 'Hạt điều W240', grade: 'W240', category: 'hạt điều', supplier: 'W320 Export' });
+const supplierFallback = find('hat dieu w320', { product: 'Hạt điều nguyên hạt', category: 'hạt điều', supplier: 'W320 Export' });
 assert.deepEqual(categoryMatch, titleMatch, 'A public category can supply a keyword without penalizing its products');
 assert.ok(compareSearchRelevance(categoryMatch, supplierFallback) < 0, 'A grade match outranks more title words plus a supplier-only grade');
 assert.ok(find('van phuoc', { supplier: 'Vạn Phước', product: 'Mặt hàng' }), 'Accent-insensitive supplier searches remain available');

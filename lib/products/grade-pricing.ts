@@ -188,11 +188,12 @@ const BUILTIN_CATEGORY_GRADES: Array<{ match: RegExp; grades: readonly string[] 
   },
   {
     match: /(?:^|-)rice(?:-|$)/i,
-    grades: ["ST25", "Jasmine 5% broken", "White rice 5% broken", "White rice 15% broken", "White rice 25% broken", "Glutinous rice"],
+    grades: ["ST25", "Jasmine 5% broken", "White rice 5% broken", "White rice 15% broken", "White rice 25% broken", "Glutinous rice", "Japonica (Calrose)"],
   },
   {
     match: /coffee/i,
-    grades: ["Robusta G1 S18", "Robusta G2 S16", "Robusta G2 5% BB", "Arabica S18", "Arabica S16"],
+    // Cỡ sàng (S16/S18) chỉ có nghĩa với cà phê hạt; cà phê bột/hoà tan dùng giống cà phê.
+    grades: ["Robusta G1 S18", "Robusta G2 S16", "Robusta G2 5% BB", "Arabica S18", "Arabica S16", "Robusta", "Arabica", "Arabica & Robusta blend"],
   },
 ];
 
@@ -768,6 +769,13 @@ export function standardGradesForCategory(category: CategoryGradeSource): string
   for (const option of supplierGradeOptions(category)) push(option);
 
   return result;
+}
+
+/** Grade thuộc bộ chuẩn của một ngành hàng nào đó (vd. W450 là grade hạt điều). */
+export function isBuiltinCategoryGrade(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const key = gradeKey(value);
+  return !!key && BUILTIN_CATEGORY_GRADES.some((entry) => entry.grades.some((grade) => gradeKey(grade) === key));
 }
 
 export function matchStandardGrade(value: string | null | undefined, standardGrades: readonly string[]): string | null {

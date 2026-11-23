@@ -33,6 +33,7 @@ import { productTranslationState } from "@/lib/ai/translate-content";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { ProductEditWorkspace } from "./edit-workspace";
 import { QuantityPreviewCard } from "@/components/products/quantity-preview-card";
+import { currentProductGrade, gradeOutsideCategory, gradeOutsideCategoryMessage } from "@/lib/products/grade-category-check";
 import type { QuantityPreviewSnapshot } from "@/components/products/quantity-preview-store";
 
 export const dynamic = "force-dynamic";
@@ -160,6 +161,12 @@ export default async function EditProductPage({
     buyerPriceUnit: quantityEditor.buyerPriceUnit,
     pricePubliclyVisible: quantityEditor.pricePubliclyVisible,
   } : null;
+  // Chỉ cảnh báo khi đã đọc được bảng giá: không đọc được thì không đoán từ thông số cũ.
+  const currentGrade = !quantityEditor ? null : quantityEditor.grade
+    ? { grade: quantityEditor.grade, custom: quantityEditor.v2?.customGrade === true, source: "price" as const }
+    : currentProductGrade(product.specs, null);
+  const outsideGrade = category ? gradeOutsideCategory(currentGrade, category) : null;
+  const gradeWarning = outsideGrade && currentGrade ? gradeOutsideCategoryMessage(outsideGrade, currentGrade) : null;
   const translationState = productTranslationState(product);
   const websiteChecks: Array<{ done: boolean; label: string; automatic?: boolean; href?: string }> = supplierReviewedListing ? [
     { done: categoryPublished, label: `Danh mục ${category?.name_i18n.en || category?.slug || "chưa nhận diện"} đang xuất bản` },
@@ -206,6 +213,11 @@ export default async function EditProductPage({
       />
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="order-2 min-w-0 space-y-5 xl:order-1">
+          {gradeWarning && (
+            <p role="alert" data-grade-warning className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+              {gradeWarning}
+            </p>
+          )}
           {product.supplier_review_status === "approved" && (
             <CategoryCorrectionControls
               id={product.id}
