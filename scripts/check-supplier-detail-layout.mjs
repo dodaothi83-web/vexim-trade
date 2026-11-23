@@ -14,8 +14,8 @@ assert.match(page, /supplier\.cover_image/, 'đầu trang phải hiện ảnh b�
 assert.match(page, /supplier\.profile_image/, 'đầu trang phải hiện ảnh đại diện của NCC');
 assert.match(page, /VerificationCoverSeal/, 'phải có huy chương xác minh trên ảnh bìa');
 // profile_image/cover_image lưu đường dẫn kho tệp (suppliers/<id>/profile-*.jpg),
-// bắt buộc chuyển qua /public-media/ như trang công khai, không được dùng thẳng làm src.
-assert.match(page, /`\/public-media\/\$\{path\.replace/, 'phải chuyển đường dẫn kho tệp thành URL /public-media/');
+// bắt buộc chuyển qua publicMediaUrl (/public-media/ hoặc R2 công khai) như trang công khai, không được dùng thẳng làm src.
+assert.match(page, /publicMediaUrl\(path\)/, 'phải chuyển đường dẫn kho tệp thành URL ảnh công khai');
 assert.match(page, /src=\{coverUrl\}/, 'ảnh bìa phải dùng URL đã chuyển đổi');
 assert.match(page, /src=\{avatarUrl\}/, 'ảnh đại diện phải dùng URL đã chuyển đổi');
 assert.ok(!page.includes('src={supplier.cover_image}') && !page.includes('src={supplier.profile_image}'),

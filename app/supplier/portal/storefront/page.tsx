@@ -22,6 +22,7 @@ import { ShowcaseEditor } from "./showcase-editor";
 import { StorefrontDesignHub } from "./design-hub";
 import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
+import { publicMediaUrl } from "@/lib/media/public-url";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -98,8 +99,8 @@ export default async function SupplierStorefrontPreviewPage() {
   // Còn ≤ 30 ngày thì hiện nút gia hạn chính gói đang dùng (cùng mốc với email nhắc).
   const planRenewable = planRules.plan !== "basic" && !!supplier.plan_expires_at && Date.parse(supplier.plan_expires_at) - Date.now() <= 30 * 86_400_000;
   const publicHref = published ? `/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}` : null;
-  const coverUrl = supplier.cover_image ? `/public-media/${supplier.cover_image.replace(/^\/+/, "")}` : null;
-  const avatarUrl = supplier.profile_image ? `/public-media/${supplier.profile_image.replace(/^\/+/, "")}` : null;
+  const coverUrl = supplier.cover_image ? publicMediaUrl(supplier.cover_image) : null;
+  const avatarUrl = supplier.profile_image ? publicMediaUrl(supplier.profile_image) : null;
 
   // Ảnh khối nội dung trong cổng đi qua bản xem trước có đăng nhập, vì trang công khai chỉ
   // phục vụ khi hồ sơ đã đăng và gói còn hiệu lực.

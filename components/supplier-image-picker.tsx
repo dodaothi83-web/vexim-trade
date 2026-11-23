@@ -6,6 +6,7 @@ import { Loader2, Trash2, Upload } from "lucide-react";
 
 import { prepareImage } from "@/lib/media/client-image";
 import { readUploadResponse } from "@/lib/media/upload-response";
+import { publicMediaUrl } from "@/lib/media/public-url";
 
 interface Props {
   supplierId: string;
@@ -30,7 +31,7 @@ export function SupplierImagePicker({ supplierId, kind, current, label, hint, ra
   const publicUrl = (p: string) => {
     if (!p) return "";
     if (p.startsWith("http")) return p;
-    return `/public-media/${p.replace(/^\//, "")}`;
+    return publicMediaUrl(p);
   };
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {

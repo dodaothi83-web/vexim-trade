@@ -10,6 +10,7 @@ import ts from 'typescript';
 import * as display from '../lib/public/product-detail-display.ts';
 import * as priceDisplay from '../lib/products/price-display.ts';
 import { publicSupplierWebsite } from '../lib/public/supplier-website.ts';
+import * as publicUrl from '../lib/media/public-url.ts';
 import { loadProductDescription } from './product-description-test-utils.mjs';
 
 const require = createRequire(import.meta.url);
@@ -135,6 +136,7 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   'react': React,
   '@/components/brand/vexim-icons': { VeximTradeIcon: Null },
   '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => ({}) },
+  '@/lib/media/public-url': publicUrl,
   '@/lib/products/aplus': { aplusVideoEmbedUrl: () => '', aplusVideoThumbnailUrl: () => '', isoDuration: () => '', productShowsAplus: () => false, readAplusModules: () => [], readGalleryVideo: () => null },
   '@/components/public/product-aplus': { ProductAplus: Null },
   '@/lib/supplier-plans': { supplierPlanRules: () => null },

@@ -10,12 +10,29 @@ const isProduction = process.env.NODE_ENV === "production";
  */
 const PUBLIC_SITE_INDEXABLE = process.env.PUBLIC_SITE_INDEXABLE === "true";
 
+/**
+ * Tên miền công khai của bucket R2 (ảnh đại diện/ảnh bìa nhà cung cấp). Đưa vào bundle dưới tên
+ * NEXT_PUBLIC_R2_PUBLIC_URL để cả trang server lẫn component trình duyệt dựng được link ảnh
+ * (lib/media/public-url.ts). Đây là địa chỉ công khai, không phải khoá bí mật.
+ */
+const R2_PUBLIC_URL = (process.env.R2_PUBLIC_URL ?? "").trim().replace(/\/+$/, "");
+const R2_PUBLIC_HOST = (() => {
+  try { return R2_PUBLIC_URL ? new URL(R2_PUBLIC_URL).hostname : ""; } catch { return ""; }
+})();
+
 const nextConfig: NextConfig = {
   // Cho phép dev server nhận request từ host preview của sandbox
   allowedDevOrigins: ["*.e2b.app", "localhost", "127.0.0.1"],
   images: {
     // Bắt buộc từ Next 16: chỉ cho phép chất lượng mặc định, tránh bị lợi dụng tạo vô số biến thể.
     qualities: [75],
+    // Ảnh trên R2 công khai chỉ gồm ảnh đại diện/ảnh bìa nhà cung cấp (thư mục suppliers/).
+    remotePatterns: [
+      { protocol: "https", hostname: "media.veximtrade.com", pathname: "/suppliers/**", search: "" },
+      ...(R2_PUBLIC_HOST && R2_PUBLIC_HOST !== "media.veximtrade.com"
+        ? [{ protocol: "https" as const, hostname: R2_PUBLIC_HOST, pathname: "/suppliers/**", search: "" }]
+        : []),
+    ],
     // Bản thu nhỏ của ảnh sản phẩm (/public-media, CDN giữ 1 giờ) không được sống lâu hơn ảnh gốc:
     // ảnh bị gỡ phải hết hiện trong khoảng 1 giờ. Ảnh tĩnh immutable vẫn theo Cache-Control gốc (7 ngày).
     minimumCacheTTL: 3600,
@@ -51,6 +68,8 @@ const nextConfig: NextConfig = {
   // Biến môi trường công khai cho middleware
   env: {
     PUBLIC_SITE_INDEXABLE: PUBLIC_SITE_INDEXABLE ? "true" : isProduction ? "false" : "false",
+    // Link trực tiếp tới ảnh đại diện/ảnh bìa trên R2 (lib/media/public-url.ts).
+    NEXT_PUBLIC_R2_PUBLIC_URL: R2_PUBLIC_URL,
   },
 };
 

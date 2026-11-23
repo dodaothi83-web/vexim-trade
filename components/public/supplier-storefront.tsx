@@ -28,8 +28,9 @@ import { PremiumProductGrid } from "@/components/public/premium-product-grid";
 import { aplusImagePaths, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { normalizeStorefrontTheme, STOREFRONT_MAX_FEATURED } from "@/lib/storefront-theme";
 import { PremiumStorefront } from "@/components/public/premium-storefront";
+import { publicMediaUrl } from "@/lib/media/public-url";
 
-const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
+const mediaUrl = publicMediaUrl;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
 
 // Keep structured MOQ authoritative on storefront cards, including unsupported

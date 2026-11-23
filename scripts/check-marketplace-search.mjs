@@ -26,6 +26,7 @@ import * as cacheCodec from "../lib/public/catalog-cache-codec.ts";
 import * as priceDisplay from "../lib/products/price-display.ts";
 import { supplierNameCase } from "../lib/public/supplier-name.ts";
 import * as categoryFacets from "../lib/public/search-category-facets.ts";
+import * as publicUrl from "../lib/media/public-url.ts";
 
 const require = createRequire(import.meta.url);
 const jsx = require("react/jsx-runtime");
@@ -163,10 +164,13 @@ const gradePricing = load("../lib/products/grade-pricing.ts", {
   "@/lib/public/price-units": priceUnits,
   "@/lib/public/grade-resolution": grade,
 });
+const sentryMessages = [];
+const sentry = { captureMessage: (message, context) => { sentryMessages.push({ message, context }); } };
 let badgeLabels = new Map();
 const productCatalog = load("../lib/public/product-catalog.ts", {
   "next/cache": { unstable_cache: (fn) => fn },
   "@/lib/public/catalog-cache-codec": cacheCodec,
+  "@sentry/nextjs": sentry,
   "@/lib/db": db,
   "@/lib/product-attributes": attributes,
   "@/lib/media/readiness": readiness,
@@ -219,6 +223,28 @@ for (const supplier of cachedSnapshot.suppliers) {
   assert.deepEqual(cacheCodec.decodeCachePayload(cacheCodec.encodeCachePayload({ a: [1, "Hạt điều"] })), { a: [1, "Hạt điều"] });
   assert.throws(() => cacheCodec.decodeCachePayload("{}"), /Unknown catalogue cache payload/);
 }
+{
+  // Cảnh báo dung lượng: im lặng dưới 60%, cảnh báo từ 60%, khẩn từ 90% giới hạn 2 MB.
+  const limit = cacheCodec.CACHE_ITEM_LIMIT_BYTES;
+  assert.equal(limit, 2 * 1024 * 1024);
+  assert.equal(cacheCodec.cacheSizeAlert("public-catalog-snapshot", "x".repeat(Math.floor(limit * 0.59))), null);
+  const warning = cacheCodec.cacheSizeAlert("public-catalog-snapshot", "x".repeat(Math.ceil(limit * 0.6)));
+  assert.equal(warning.level, "warning");
+  assert.equal(warning.percent, 60);
+  const critical = cacheCodec.cacheSizeAlert("public-catalog-snapshot", "x".repeat(Math.ceil(limit * 0.95)));
+  assert.equal(critical.level, "error");
+  assert.ok(!/\d{4,}/.test(warning.message + critical.message), "Alert messages stay constant so Sentry groups them into one issue");
+  // Dữ liệu thử nhỏ, không được gửi cảnh báo nào.
+  assert.deepEqual(sentryMessages, [], "A small catalogue cache never alerts");
+  const big = "x".repeat(Math.ceil(limit * 0.7));
+  assert.equal(productCatalog.watchCacheSize("test-cache", big), big, "The watcher returns the payload unchanged");
+  productCatalog.watchCacheSize("test-cache", big);
+  assert.equal(sentryMessages.length, 1, "One alert per cache every 6 hours per server process");
+  assert.equal(sentryMessages[0].context.level, "warning");
+  assert.equal(sentryMessages[0].context.tags.cache, "test-cache");
+  assert.equal(sentryMessages[0].context.extra.bytes, big.length);
+  sentryMessages.length = 0;
+}
 const allowed = new Set(shared.map((p) => p.id));
 for (const id of ["a-w320", "a-w240", "a-w320b", "a-w320c", "a-w320d", "hidden-source"]) assert.ok(allowed.has(id), id);
 for (const id of ["paused", "not-ready", "not-approved", "no-category-review", "no-buyer-media", "expired-media", "draft-owner", "demo-product", "synthetic-product", "test-only", "draft-category-product"]) {
@@ -249,6 +275,7 @@ const verificationUi = load("../components/verification-tier.tsx", {
 });
 const supplierCard = load("../components/public/search-supplier-card.tsx", {
   "react/jsx-runtime": jsx,
+  "@/lib/media/public-url": publicUrl,
   "next/link": { default: Link },
   "lucide-react": icons,
   "@/components/brand/vexim-icons": brandIcons,

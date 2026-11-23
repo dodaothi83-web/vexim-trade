@@ -8,6 +8,7 @@ import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { supplierNameCase } from "@/lib/public/supplier-name";
 import { VERIFICATION_DISPLAY_ORDER, type SupplierType, type VerificationLevel } from "@/lib/types";
 import { verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
+import { publicMediaUrl } from "@/lib/media/public-url";
 
 /** Search only passes buyer-facing supplier fields and already-gated public offers. */
 export type SearchSupplierCardSupplier = {
@@ -40,7 +41,7 @@ function supplierAvatar(path: string | null, id: string): string | null {
   // Profile photos uploaded through Vexim have this public route. Do not turn a
   // supplier-authored URL or an unrelated vault path into an image on search.
   return relative.startsWith(`suppliers/${id}/profile-`) && /\.(jpe?g|png|webp|gif|avif)$/i.test(relative)
-    ? `/public-media/${relative}` : null;
+    ? publicMediaUrl(relative) : null;
 }
 
 export function SearchSupplierCard({ supplier, offers, offerCount, lang }: {

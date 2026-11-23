@@ -21,6 +21,7 @@ import { isSyntheticSupplier, safeJsonLd, supplierProfileIndexable } from "@/lib
 import { SITE_URL } from "@/lib/site";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
 import { listCachedPublicSuppliers } from "@/lib/public/product-catalog";
+import { absolutePublicMediaUrl, publicMediaUrl } from "@/lib/media/public-url";
 
 /**
  * Trang dựng sẵn (ISR) phục vụ từ CDN thay vì render lại mỗi lượt xem (từng là force-dynamic chỉ
@@ -40,7 +41,8 @@ export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
 }
 
 type PageProps = { params: Promise<{ slug: string }> };
-const mediaUrl = (path: string) => `/public-media/${path.replace(/^\//, "")}`;
+// Ảnh đại diện/ảnh bìa mới trỏ thẳng tới R2; ảnh khác vẫn qua /public-media (xem lib/media/public-url.ts).
+const mediaUrl = publicMediaUrl;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
 
 /**
@@ -67,7 +69,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: { canonical: url },
     robots: { index, follow: index },
     openGraph: { type: "profile", title, description, url, siteName: "Vexim Trade",
-      ...(s.profile_image ? { images: [{ url: `${SITE_URL}${mediaUrl(s.profile_image)}`, alt: name }] } : {}) },
+      ...(s.profile_image ? { images: [{ url: absolutePublicMediaUrl(s.profile_image, SITE_URL), alt: name }] } : {}) },
   };
 }
 
