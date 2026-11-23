@@ -8,6 +8,7 @@ import type { Supplier } from "@/lib/types";
 import { roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
 import { Badge, Button, EmptyState, cx } from "@/components/ui";
 import { SUPPLIER_PLAN_LABELS, effectiveSupplierPlan, isSupplierPlan, type SupplierPlan } from "@/lib/supplier-plans";
+import { duplicateTaxIds, formatTaxId, taxIdKey, taxIdMatches, taxIdNeedle } from "@/lib/crm/supplier-tax-id";
 
 const reviewDateFormatter = new Intl.DateTimeFormat("vi-VN", {
   day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh",
@@ -116,19 +117,27 @@ export function SupplierTable({
   };
   const planCounts = Object.fromEntries(PLAN_FILTERS.map((key) => [key, suppliers.filter((s) => planMatch(s, key)).length])) as Record<PlanFilter, number>;
 
-  const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) => [f.key, suppliers.filter(f.match).length])), [suppliers]);
+  // MST trùng (cùng 10 số đầu) giữa các nhà cung cấp: gắn nhãn và có tab lọc riêng để gộp hồ sơ.
+  const duplicateTax = useMemo(() => duplicateTaxIds(suppliers), [suppliers]);
+  const filters = useMemo(() => [...FILTERS, {
+    key: "duplicate_tax", label: "Trùng MST",
+    match: (s: Supplier) => { const key = taxIdKey(s.tax_id); return !!key && duplicateTax.has(key); },
+  }], [duplicateTax]);
+  const counts = useMemo(() => Object.fromEntries(filters.map((f) => [f.key, suppliers.filter(f.match).length])), [suppliers, filters]);
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    const match = FILTERS.find((f) => f.key === filter)?.match ?? (() => true);
+    const taxNeedle = taxIdNeedle(q);
+    const match = filters.find((f) => f.key === filter)?.match ?? (() => true);
     return suppliers.filter((s) => {
       if (!match(s)) return false;
       if (!planMatch(s, planFilter)) return false;
       if (!needle) return true;
-      return [s.name, s.products, s.province, s.contact_name, s.email]
+      if (taxIdMatches(s.tax_id, taxNeedle)) return true;
+      return [s.name, s.products, s.province, s.contact_name, s.email, s.tax_id]
         .filter(Boolean)
         .some((x) => (x as string).toLowerCase().includes(needle));
     });
-  }, [suppliers, q, filter, planFilter, plans, upgradeRequests]);
+  }, [suppliers, q, filter, filters, planFilter, plans, upgradeRequests]);
 
   return (
     <div className="card overflow-hidden">
@@ -137,7 +146,8 @@ export function SupplierTable({
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-400" />
           <input
             className="input pl-9"
-            placeholder="Tìm xưởng, mặt hàng, tỉnh, người liên hệ..."
+            placeholder="Tìm xưởng, mã số thuế, mặt hàng, tỉnh, người liên hệ..."
+            aria-label="Tìm nhà cung cấp theo tên, mã số thuế, mặt hàng, tỉnh hoặc người liên hệ"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -150,7 +160,7 @@ export function SupplierTable({
         )}
       </div>
       <div role="tablist" aria-label="Lọc nhà cung cấp" className="flex gap-1 overflow-x-auto border-b border-ink-200 px-2">
-        {FILTERS.filter((f) => f.key === "all" || counts[f.key] > 0).map((f) => (
+        {filters.filter((f) => f.key === "all" || counts[f.key] > 0).map((f) => (
           <button
             key={f.key}
             type="button"
@@ -164,7 +174,8 @@ export function SupplierTable({
           >
             {f.label}
             <span className={cx("rounded-full px-1.5 text-[11px]",
-              (f.key === "portal_pending" || f.key === "changes") ? "bg-amber-100 font-bold text-amber-800" : "bg-ink-100 text-ink-500")}>
+              f.key === "duplicate_tax" ? "bg-rose-100 font-bold text-rose-800"
+                : (f.key === "portal_pending" || f.key === "changes") ? "bg-amber-100 font-bold text-amber-800" : "bg-ink-100 text-ink-500")}>
               {counts[f.key]}
             </span>
           </button>
@@ -250,6 +261,8 @@ export function SupplierTable({
                 const plan = plans[s.id];
                 const upgrade = upgradeRequests[s.id];
                 const kind = s.onboarding_status === "not_started" ? "Chưa khai loại hình" : s.supplier_type ? supplierTypeLabel(s.supplier_type) : roleLabel(s.role);
+                const taxKey = taxIdKey(s.tax_id);
+                const taxDuplicates = taxKey ? duplicateTax.get(taxKey) ?? 0 : 0;
                 return (
                   <tr key={s.id} className="group align-top transition hover:bg-brand-50/40">
                     <td className="table-td max-w-[300px]">
@@ -260,6 +273,21 @@ export function SupplierTable({
                         {s.name}
                       </Link>
                       <p className="mt-0.5 truncate text-[11.5px] text-ink-500">{kind}{s.province ? ` · ${s.province}` : ""}</p>
+                      <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-ink-500">
+                        {s.tax_id?.trim()
+                          ? <span>MST <span className="font-medium tabular-nums text-ink-700">{formatTaxId(s.tax_id)}</span></span>
+                          : <span className="text-amber-700">Chưa có MST</span>}
+                        {taxKey && taxDuplicates > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => { setQ(taxKey); setFilter("all"); setPlanFilter("all"); }}
+                            title="Xem các nhà cung cấp cùng mã số thuế"
+                            className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800 hover:bg-rose-200"
+                          >
+                            {`Trùng MST · ${taxDuplicates}`}
+                          </button>
+                        )}
+                      </p>
                       {badge && <Badge className={`mt-1 ${badge.className}`}>{badge.label}</Badge>}
                     </td>
                     <td className="table-td whitespace-nowrap">
