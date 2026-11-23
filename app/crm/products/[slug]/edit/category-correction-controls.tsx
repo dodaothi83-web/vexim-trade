@@ -25,7 +25,7 @@ export function CategoryCorrectionControls({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [selectedSlug, setSelectedSlug] = useState(currentSlug ?? "");
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string; warning?: string } | null>(null);
 
   const hasChanges = selectedSlug && selectedSlug !== currentSlug &&
     categories.some((c) => c.slug === selectedSlug && c.leaf !== false);
@@ -82,6 +82,11 @@ export function CategoryCorrectionControls({
           className={`mt-2 text-xs ${result.ok ? "text-emerald-700" : "text-rose-700"}`}
         >
           {result.message}
+        </p>
+      )}
+      {result?.warning && (
+        <p role="alert" className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          {result.warning}
         </p>
       )}
     </div>

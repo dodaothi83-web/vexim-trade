@@ -98,7 +98,8 @@ function hasCashewContext(fields: ProductSearchFields): boolean {
  * Require all query tokens at word starts (including typed prefixes), while retaining
  * partial specification-code matches and W/WW cashew aliases in product fields. The tuple orders results:
  * product codes first, then product/category coverage, then whole-word matches.
- * Supplier-only matches stay available but rank lower.
+ * Supplier-only matches stay available but rank lower; a typed code that conflicts with the
+ * structured grade (same family, different code) excludes the product.
  */
 export function productSearchRelevance(tokens: readonly string[], fields: ProductSearchFields): SearchRelevance | null {
   const core = `${fields.product} ${fields.grade}`;
@@ -108,11 +109,19 @@ export function productSearchRelevance(tokens: readonly string[], fields: Produc
   if (!tokens.every((token) => searchTokenMatches(all, token) ||
     (cashewAliases && parseCode(token, true)?.family === "w" && codeMatches(core, token, true)))) return null;
   const gradeCodes = codesIn(fields.structuredGrade, cashewAliases);
+  // Mã quy cách người mua gõ (vd. W240) mà cùng họ nhưng khác grade có cấu trúc của sản phẩm
+  // (W320) thì sản phẩm KHÔNG phải kết quả, dù tên/nhà cung cấp có nhắc W240: grade có cấu trúc
+  // là sự thật. Chỉ loại khi mọi mã cùng họ trong truy vấn đều lệch (gõ "W240 W320" vẫn giữ W320).
+  // Grade suy ra từ tên (structuredGrade rỗng) không đủ căn cứ để loại.
+  const familyCodeTokens = tokens.filter((token) => {
+    const requested = parseCode(token, cashewAliases);
+    return requested !== null && gradeCodes.some((code) => code.family === requested.family);
+  });
+  if (familyCodeTokens.length > 0 && familyCodeTokens.every((token) => conflictingGrade(token, gradeCodes, cashewAliases))) return null;
   const relevance: SearchRelevance = { productCodes: 0, coreTokens: 0, wholeCoreTokens: 0 };
   for (const token of tokens) {
-    // A title or supplier may mention W320 even though the structured grade is
-    // W240. Retain the result as a weak match, but never count that as W320.
-    // A grade inferred from a name is not authoritative: names can list several.
+    // With several codes typed, a code that differs from the structured grade
+    // still never counts as a product-code match.
     if (conflictingGrade(token, gradeCodes, cashewAliases)) continue;
     const wholeProduct = codeMatches(core, token, cashewAliases);
     if (parseCode(token) && wholeProduct) relevance.productCodes++;

@@ -16,10 +16,13 @@ import { productPublicationMediaState } from "@/lib/media/readiness";
 import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
+import { currentProductGrade, gradeOutsideCategory, gradeOutsideCategoryMessage } from "@/lib/products/grade-category-check";
 
 type Result = {
   ok: boolean;
   message: string;
+  /** Cảnh báo không chặn lưu, ví dụ grade cũ không thuộc danh mục mới. */
+  warning?: string;
   english?: {
     name: string;
     description: string;
@@ -234,6 +237,29 @@ export async function saveProductEnglishAction(form: FormData): Promise<Result> 
   }
 }
 
+/**
+ * Grade đang dùng không còn thuộc danh mục mới (dấu vết hay gặp khi đổi danh mục) thì báo cho
+ * nhân viên sửa. Chỉ cảnh báo: lỗi đọc bảng giá không được làm hỏng thao tác đổi danh mục.
+ */
+async function categoryGradeWarning(product: SupplierProduct, category: Parameters<typeof gradeOutsideCategory>[1]): Promise<string | undefined> {
+  try {
+    const db = getSupabaseClient();
+    let revision: { grade?: unknown; tiers?: unknown } | null = null;
+    if (db) {
+      const { data, error } = await db.from("product_quantity_price_revisions").select("grade,tiers")
+        .eq("product_id", product.id).eq("status", "approved").limit(1);
+      if (error) throw error;
+      revision = data?.[0] ?? null;
+    }
+    const current = currentProductGrade(product.specs, revision);
+    const grade = gradeOutsideCategory(current, category);
+    return grade && current ? gradeOutsideCategoryMessage(grade, current) : undefined;
+  } catch (error) {
+    console.error("[supplier-product-review] grade check", error);
+    return undefined;
+  }
+}
+
 /** Staff may correct a reviewed product's category without changing its current publication decision. */
 export async function correctSupplierProductCategoryAction(form: FormData): Promise<Result> {
   const denied = await guard("products.manage");
@@ -262,6 +288,7 @@ export async function correctSupplierProductCategoryAction(form: FormData): Prom
       after: { category: slug, ready: product.ready_for_buyer } }).catch((error) => console.error("[supplier-product-review] audit", error));
     revalidatePath(`/crm/products/${id}/edit`);
     revalidatePath(`/supplier/portal/products/${id}`);
-    return { ok: true, message: "Đã chốt danh mục mới cho sản phẩm." };
+    const warning = await categoryGradeWarning(product, categories.find((c) => c.slug === slug) ?? null);
+    return { ok: true, message: "Đã chốt danh mục mới cho sản phẩm.", warning };
   } catch (error) { console.error("[supplier-product-review] category", error); return { ok: false, message: "Không lưu được danh mục." }; }
 }
