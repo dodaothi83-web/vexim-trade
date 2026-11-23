@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+import { staffHomePath } from "@/lib/auth/permissions";
 import { checkAuthRateLimit } from "@/lib/auth/abuse-protection";
 import { GOOGLE_FLOW_AGE, GOOGLE_FLOW_COOKIE, googleClient, googleCookieOptions, googleRequestOrigin, googleOriginAllowed } from "@/lib/auth/google-oauth";
 import { supabaseUrl } from "@/lib/db/supabase";
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
     return `${retry}?${params.toString()}`;
   };
   const session = await getSession();
-  if (session) return NextResponse.redirect(new URL(session.role === "supplier" ? "/supplier/portal" : "/crm/dashboard", origin));
+  if (session) return NextResponse.redirect(new URL(staffHomePath(session.role), origin));
   // Never hand an OAuth code back to an origin supplied by an arbitrary Host header.
   if (!googleOriginAllowed(origin)) return NextResponse.redirect(new URL(retryUrl("origin"), origin));
   const rate = await checkAuthRateLimit({

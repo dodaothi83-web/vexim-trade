@@ -1725,7 +1725,7 @@ export interface ProspectActivity {
 
 /* ------------------------------- NGƯỜI DÙNG ------------------------------ */
 
-export type UserRole = "admin" | "sale" | "sourcing" | "reviewer" | "viewer" | "supplier";
+export type UserRole = "admin" | "sale" | "sourcing" | "reviewer" | "editor" | "viewer" | "supplier";
 
 /** Cách tài khoản được xác thực */
 export type AuthProvider = "supabase" | "local";

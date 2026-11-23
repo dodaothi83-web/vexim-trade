@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight, Boxes, ClipboardCheck, FileQuestion, FolderTree, PackageCheck,
@@ -8,7 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card } from "@/components/ui";
 import { getStore } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
-import { hasPermission } from "@/lib/auth/permissions";
+import { hasPermission, staffHomePath } from "@/lib/auth/permissions";
 import { buildMarketplaceSnapshot } from "@/lib/dashboard/marketplace";
 import { readSiteTraffic } from "@/lib/traffic/site";
 import { buildSiteTrafficReport } from "@/lib/traffic/site-report";
@@ -23,6 +24,8 @@ export const metadata = { title: "Vận hành sàn | Vexim Trade" };
 
 export default async function DashboardPage() {
   const session = await requireSession();
+  // Vai trò không dùng trang tổng quan (vd. Biên tập nội dung) về trang việc của mình.
+  if (staffHomePath(session.role) !== "/crm/dashboard") redirect(staffHomePath(session.role));
   const canSuppliers = hasPermission(session.role, "suppliers.view");
   const canProducts = hasPermission(session.role, "products.view");
   const canCategories = hasPermission(session.role, "categories.manage");

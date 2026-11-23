@@ -1,5 +1,5 @@
 import { getStore } from "@/lib/db";
-import { requireSession } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { Breadcrumbs, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Nhập sản phẩm từ Excel" };
 
 export default async function ProductExcelImportPage() {
-  const session = await requireSession();
+  const session = await requirePagePermission("products.view", "/crm/dashboard");
   const canManage = hasPermission(session.role, "products.manage");
 
   if (!canManage) {

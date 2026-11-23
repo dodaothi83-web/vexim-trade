@@ -14,7 +14,7 @@ import {
 } from "@/lib/auth/authenticate";
 import { endSession, getSession, guard, startSession } from "@/lib/auth/session";
 import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
-import { ROLES } from "@/lib/auth/permissions";
+import { ROLES, staffHomePath } from "@/lib/auth/permissions";
 import { MAIL_DOMAIN } from "@/lib/config";
 import { checkSenderAddress, senderAddressFor } from "@/lib/email/sender";
 import type { UserRole } from "@/lib/types";
@@ -67,7 +67,7 @@ export async function loginAction(email: string, password: string, challengeToke
     }
 
     revalidatePath("/", "layout");
-    return { ok: true, message: result.notice ?? "Đăng nhập thành công.", redirectTo: result.user.role === "supplier" ? "/supplier/portal" : "/crm/dashboard" };
+    return { ok: true, message: result.notice ?? "Đăng nhập thành công.", redirectTo: staffHomePath(result.user.role) };
   } catch (err) {
     console.error("[auth] login action failed", err);
     return { ok: false, message: "Không đăng nhập được lúc này. Vui lòng thử lại sau." };
