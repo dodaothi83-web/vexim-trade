@@ -7,6 +7,7 @@ import { notifyIndexNow } from "@/lib/seo/indexnow";
 import { nextStatusOptions, statusMeta } from "@/lib/supplier";
 import type { SupplierStatus } from "@/lib/types";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 /** Publication decision only. Reviewers never submit supplier profile fields with this action. */
 export async function decideSupplierPublicationAction(id: string, status: SupplierStatus) {
@@ -14,6 +15,8 @@ export async function decideSupplierPublicationAction(id: string, status: Suppli
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
   if (!session || !/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Yêu cầu không hợp lệ." };
+  const scopeGate = await supplierGate(id);
+  if (scopeGate) return { ok: false, message: scopeGate.message };
   try {
     const store = getStore();
     const supplier = await store.getSupplier(id);
@@ -48,6 +51,8 @@ export async function decideSupplierPreparationAction(id: string, status: Suppli
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
   if (!session || !/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Yêu cầu không hợp lệ." };
+  const scopeGate = await supplierGate(id);
+  if (scopeGate) return { ok: false, message: scopeGate.message };
   if (!(["draft", "submitted", "in_verification"] as SupplierStatus[]).includes(status)) {
     return { ok: false, message: "Thao tác này chỉ dành cho các bước chuẩn bị hồ sơ." };
   }

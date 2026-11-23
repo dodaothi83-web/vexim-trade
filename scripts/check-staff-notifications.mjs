@@ -36,7 +36,7 @@ for (const fragment of ['countSupplierAccountsPending', 'countProductsPendingRev
 // 5. Hai kho dữ liệu đều cài đủ ba phép đếm.
 const types = read('lib/db/types.ts');
 for (const fragment of ['countSupplierAccountsPending', 'countProductsPendingReview', 'countReviewsAwaitingApproval'])
-  assert.match(types, new RegExp(`${fragment}\\(\\): Promise<number>`), `DataStore khai báo ${fragment}`);
+  assert.match(types, new RegExp(`${fragment}\\((supplierIds\\?: readonly string\\[\\] \\| null)?\\): Promise<number>`), `DataStore khai báo ${fragment}`);
 for (const store of ['lib/db/supabase.ts', 'lib/db/local.ts'])
   for (const fragment of ['countSupplierAccountsPending', 'countProductsPendingReview', 'countReviewsAwaitingApproval'])
     assert.match(read(store), new RegExp(`async ${fragment}\\(`), `${store} cài ${fragment}`);

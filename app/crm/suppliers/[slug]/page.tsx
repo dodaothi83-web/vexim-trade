@@ -47,6 +47,11 @@ import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { effectiveSupplierPlan, isSupplierPlan } from "@/lib/supplier-plans";
 import { isRenewalNote, requestedPlanOf } from "@/lib/supplier-services";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
+import { requireSupplierInScope } from "@/lib/auth/supplier-access";
+import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
+import { ownerScopeOf } from "@/lib/auth/scope";
+import { ownerCandidates } from "@/lib/crm/supplier-owner-rules";
+import { SupplierOwnerCard } from "../owner-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -106,11 +111,18 @@ export default async function SupplierDetailPage({
   const store = getStore();
   const supplier = await store.getSupplier(id);
   if (!supplier) notFound();
+  // Kinh doanh chỉ mở được nhà cung cấp mình phụ trách.
+  await requireSupplierInScope(session, supplier.id);
+  const canAssignOwner = hasPermission(session.role, "suppliers.assign");
 
-  const [buyers, products] = await Promise.all([
-    canSeeBuyers ? listBuyersWithSupplier() : Promise.resolve([]),
+  const [buyers, products, staffUsers] = await Promise.all([
+    canSeeBuyers ? listBuyersWithSupplier(ownerScopeOf(session)) : Promise.resolve([]),
     store.listProductsBySupplier(id),
+    store.listUsers().catch((error) => { console.error("[supplier-owner] cannot load staff", error); return []; }),
   ]);
+  const ownerCandidatesList = ownerCandidates(staffUsers).map((u) => ({ id: u.id, name: u.name?.trim() || u.email }));
+  const ownerUser = supplier.owner_user_id ? staffUsers.find((u) => u.id === supplier.owner_user_id) ?? null : null;
+  const ownerActive = !!ownerUser && ownerCandidatesList.some((u) => u.id === ownerUser.id);
   const [supplierMedia, productMedia, verifications, requests] = await Promise.all([
     store.listMedia("supplier", id),
     store.listMediaForProducts(products.map((p) => p.id)),
@@ -326,7 +338,7 @@ export default async function SupplierDetailPage({
             supplierStatus={supplier.status}
             autoPublishL1={!!supplier.auto_publish_after_l1}
             canManage={canManage}
-            canDecideOnboarding={canManage && (session.role === "admin" || session.role === "reviewer")}
+            canDecideOnboarding={canManage && canDecideSupplierRole(session.role)}
             canPublish={canPublish}
           />
         </div>
@@ -513,6 +525,15 @@ Chỉ nhân viên CRM thấy danh sách này. Chỉ nhà cung cấp được ch�
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-6">
+          <SupplierOwnerCard
+            supplierId={id}
+            ownerId={supplier.owner_user_id ?? null}
+            ownerName={ownerUser ? (ownerUser.name?.trim() || ownerUser.email) : null}
+            ownerActive={ownerActive}
+            assignedAt={ownerActive && supplier.owner_assigned_at ? formatDate(supplier.owner_assigned_at) : ""}
+            staff={canAssignOwner ? ownerCandidatesList : []}
+            canAssign={canAssignOwner}
+          />
           <div id="plan" className="scroll-mt-24"><Card className="p-4">
             <SectionHead icon={UserRound} title="Gói thành viên" />
             <SupplierPlanControls
@@ -542,8 +563,8 @@ Chỉ nhân viên CRM thấy danh sách này. Chỉ nhà cung cấp được ch�
                 lastLoginLabel: accountUser.last_login_at ? formatDate(accountUser.last_login_at) : "Chưa đăng nhập lần nào",
                 createdLabel: formatDate(accountUser.created_at),
               } : null}
-              canProvision={canManage && (session.role === "admin" || session.role === "reviewer")}
-              canHandOver={canManage && (session.role === "admin" || session.role === "reviewer")}
+              canProvision={canManage && canDecideSupplierRole(session.role)}
+              canHandOver={canManage && canDecideSupplierRole(session.role)}
             />
           </Card>
 

@@ -7,6 +7,7 @@ import { sniffMime } from "@/lib/media/validate";
 import { readOutputText } from "@/lib/ai/company-introduction";
 import { MAX_AI_DOCUMENTS, MAX_AI_FILE_BYTES, MAX_AI_TOTAL_BYTES, parseDocumentReview } from "@/lib/ai/document-audit";
 import { rateLimit } from "@/lib/rfq/rate-limit";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const store = getStore();
   const review = await store.getVerification(id);
   if (!review) return NextResponse.json({ message: "Không tìm thấy đợt kiểm." }, { status: 404 });
+  const scopeDenied = await supplierGate(review.supplier_id);
+  if (scopeDenied) return NextResponse.json({ message: scopeDenied.message }, { status: 403 });
   if (review.target_level !== 1) return NextResponse.json({ message: "AI kiểm giấy tờ chỉ áp dụng cho bước giấy tờ." }, { status: 400 });
   if (!["in_progress", "scheduled", "returned"].includes(review.status)) {
     return NextResponse.json({ message: "Đợt kiểm đã nộp hoặc được duyệt, không thể chạy AI lại." }, { status: 409 });

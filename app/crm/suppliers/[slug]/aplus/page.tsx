@@ -7,6 +7,7 @@ import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { CrmAplusWorkspace } from "../../../aplus-workspace";
+import { requireSupplierInScope } from "@/lib/auth/supplier-access";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Soạn A+ doanh nghiệp", robots: { index: false, follow: false } };
@@ -14,9 +15,10 @@ export const metadata = { title: "Soạn A+ doanh nghiệp", robots: { index: fa
 /** CRM: soạn A+ doanh nghiệp hộ nhà cung cấp (lưu là đăng ngay, dưới mục About). */
 export default async function CrmCompanyAplusPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: id } = await params;
-  await requirePagePermission("suppliers.manage", "/crm/suppliers");
+  const session = await requirePagePermission("suppliers.manage", "/crm/suppliers");
   const supplier = await getStore().getSupplier(id);
   if (!supplier) notFound();
+  await requireSupplierInScope(session, supplier.id);
   const visible = supplierPlanRules(supplier, new Date(), await readPlanCatalog()).premiumStorefront;
   return <>
     <PageHeader eyebrow={supplier.name} title="Soạn A+ doanh nghiệp" sub="Hiện dưới mục About trên trang nhà cung cấp." />

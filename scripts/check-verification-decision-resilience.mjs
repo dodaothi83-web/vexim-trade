@@ -83,6 +83,7 @@ const mocks = {
   '@/lib/crm/badges': { refreshCrmBadges: () => {} },
   '@/lib/verification-evidence': { hasDocumentAuditEvidence: () => true, hasDeliveryAuditEvidence: () => true },
   '@/lib/media/verification-access': { verificationMediaEditError: async () => null },
+  '@/lib/auth/supplier-access': { supplierGate: async () => null, verificationGate: async () => null },
   '@/lib/supplier-portal/notify': {
     notifyStaffVerificationSubmission: async () => { staffMails++; return 'sent'; },
     notifySupplierDecision: async (input) => {

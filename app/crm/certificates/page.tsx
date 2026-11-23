@@ -11,6 +11,7 @@ import { Badge, Card } from "@/components/ui";
 import { Breadcrumbs } from "@/components/ui";
 import { certificateSchemeLabel, isUnclassifiedCertificateScheme } from "@/lib/certificate-scheme";
 import type { Certificate } from "@/lib/types";
+import { filterOwnedSuppliers } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +36,11 @@ export default async function CertificateQueuePage() {
   const today = new Date().toISOString().slice(0, 10);
   const canInspect = hasPermission(session.role, "verifications.inspect");
 
-  const suppliers = await store.listSuppliers().catch((error) => {
+  // Kinh doanh chỉ thấy giấy tờ của nhà cung cấp mình phụ trách.
+  const suppliers = filterOwnedSuppliers(session, await store.listSuppliers().catch((error) => {
     console.error("[crm] không đọc được nhà cung cấp để gom giấy tờ", error);
     return [];
-  });
+  }));
   const supplierName = new Map(suppliers.map((supplier) => [supplier.id, supplier.name]));
   const certificates: Certificate[] = suppliers.length
     ? await store.listCertificatesForSuppliers(suppliers.map((supplier) => supplier.id))

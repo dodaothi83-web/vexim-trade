@@ -176,19 +176,23 @@ export interface DataStore {
    * Việc phía NCC đang chờ Vexim: tài khoản đã tạo mà chưa nộp hồ sơ, cộng hồ sơ đã nộp
    * nhưng chưa được xác nhận quyền cổng. Badge menu Nhà cung cấp.
    */
-  countSupplierAccountsPending(): Promise<number>;
+  /**
+   * Các phép đếm huy hiệu nhận `supplierIds` để kinh doanh chỉ đếm NCC mình phụ trách;
+   * null/undefined = đếm tất cả. Có danh sách thì không đếm tài khoản chưa nộp hồ sơ (chưa có chủ).
+   */
+  countSupplierAccountsPending(supplierIds?: readonly string[] | null): Promise<number>;
   /** Sản phẩm NCC đã gửi, chờ Vexim kiểm nội dung — badge menu Sản phẩm. */
-  countProductsPendingReview(): Promise<number>;
+  countProductsPendingReview(supplierIds?: readonly string[] | null): Promise<number>;
   /** Đợt kiểm đã nộp, chờ người có quyền duyệt — badge menu Xác minh. */
-  countReviewsAwaitingApproval(): Promise<number>;
+  countReviewsAwaitingApproval(supplierIds?: readonly string[] | null): Promise<number>;
   /** Hồ sơ NCC tự gửi đang chờ đối chiếu — badge riêng của menu Hồ sơ NCC tự gửi. */
-  countSubmissionsPendingReview(): Promise<number>;
+  countSubmissionsPendingReview(supplierIds?: readonly string[] | null): Promise<number>;
   /**
    * Giấy chứng nhận NCC đã tải, chờ nhân viên duyệt — badge menu Giấy tờ & chứng nhận.
    * Chỉ đếm giấy `pending`; giấy chưa phân loại và yêu cầu mở rộng phạm vi là hàng đợi
    * nằm trong trang `/crm/certificates`, không cộng vào huy hiệu.
    */
-  countCertificatesPendingReview(): Promise<number>;
+  countCertificatesPendingReview(supplierIds?: readonly string[] | null): Promise<number>;
   getUser(id: string): Promise<AppUserRecord | null>;
   getUserByEmail(email: string): Promise<AppUserRecord | null>;
   /** Tài khoản đăng nhập đang gắn với một hồ sơ NCC (mỗi hồ sơ tối đa một tài khoản). */

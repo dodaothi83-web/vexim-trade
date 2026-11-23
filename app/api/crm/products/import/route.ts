@@ -5,6 +5,7 @@ import { getStore } from "@/lib/db";
 import { guard } from "@/lib/auth/session";
 import { fieldsFor, saveProductAttributes } from "@/lib/product-attributes";
 import { parseImportWorkbook, rowToProductRaw } from "@/lib/products/excel-import";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,8 @@ export async function POST(request: Request) {
   if (!supplierId || !categorySlug) {
     return NextResponse.json({ ok: false, message: "Hãy chọn nhà cung cấp và danh mục trước." }, { status: 400 });
   }
+  const scopeDenied = await supplierGate(supplierId);
+  if (scopeDenied) return NextResponse.json({ ok: false, message: scopeDenied.message }, { status: 403 });
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ ok: false, message: "Chưa chọn file Excel." }, { status: 400 });
   }

@@ -70,6 +70,8 @@ export async function recordPlanActivation(input: {
 export interface PlanActivation {
   id: string; supplier_id: string; plan: "premium" | "pro"; months: number | null;
   amount_vnd: number | null; starts_at: string; expires_at: string | null; created_at: string;
+  /** Nhân viên bấm Mở gói (null với dòng cũ hoặc do hệ thống). */
+  created_by: string | null;
 }
 
 /** Các lần bật/gia hạn gói gần nhất (mới nhất trước), cho báo cáo ở /crm/plans. */
@@ -77,7 +79,7 @@ export async function listPlanActivations(limit = 1000): Promise<PlanActivation[
   const db = getSupabaseClient();
   if (!db) return [];
   const { data, error } = await db.from("supplier_plan_activations")
-    .select("id,supplier_id,plan,months,amount_vnd,starts_at,expires_at,created_at")
+    .select("id,supplier_id,plan,months,amount_vnd,starts_at,expires_at,created_at,created_by")
     .order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => ({ ...row, amount_vnd: row.amount_vnd === null ? null : Number(row.amount_vnd) })) as PlanActivation[];

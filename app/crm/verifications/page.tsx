@@ -9,6 +9,7 @@ import { isPartnerL2, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
 import { inVnBounds } from "@/lib/verification";
 import type { AppUser, Verification } from "@/lib/types";
 import { auditHref, auditItems, auditStep } from "@/lib/verification";
+import { filterBySupplierIds, filterOwnedSuppliers, supplierOwnerScope } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -46,18 +47,24 @@ export default async function VerificationsPage({
 }: {
   searchParams?: Promise<{ tab?: string }>;
 }) {
-  await requirePagePermission("verifications.view", "/crm/dashboard");
+  const session = await requirePagePermission("verifications.view", "/crm/dashboard");
   const sp = await searchParams;
   const tabKey = sp?.tab ?? "submitted";
 
   const store = getStore();
-  const [vers, suppliers, users, requests, submissions] = await Promise.all([
+  const [allVers, allSuppliers, users, allRequests, allSubmissions] = await Promise.all([
     store.listVerifications(),
     store.listSuppliers(),
     store.listUsers().catch(() => [] as AppUser[]),
     store.listSupplierVerificationRequests().catch((error) => { console.error("[verification-requests] migration/query failed", error); return []; }),
     store.listSubmissions().catch((error) => { console.error("[self-submissions] chưa đọc được bảng supplier_submissions (chưa cấu hình?)", error); return []; }),
   ]);
+  // Kinh doanh chỉ thấy đợt kiểm, yêu cầu và hồ sơ của nhà cung cấp mình phụ trách.
+  const suppliers = filterOwnedSuppliers(session, allSuppliers);
+  const allowedSupplierSet = supplierOwnerScope(session) === null ? null : new Set(suppliers.map((s) => s.id));
+  const vers = filterBySupplierIds(allowedSupplierSet, allVers);
+  const requests = filterBySupplierIds(allowedSupplierSet, allRequests);
+  const submissions = filterBySupplierIds(allowedSupplierSet, allSubmissions);
   const supMap = new Map(suppliers.map((s) => [s.id, s]));
   const userMap = new Map(users.map((u) => [u.id, u]));
   const supplierName = (id: string) => supMap.get(id)?.name ?? "(Nhà cung cấp đã xoá)";

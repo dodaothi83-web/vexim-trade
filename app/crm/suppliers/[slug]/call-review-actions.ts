@@ -12,6 +12,7 @@ import { callItems, callReviewBlockers, callReviewImages, isCallReview, isReview
 import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { L2_PUBLIC_PHOTOS_MAX, L2_REVIEW_METHOD_LABELS, type Verification } from "@/lib/types";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 /**
  * L2 xác minh qua cuộc gọi video / thực địa. Trưởng kiểm duyệt (hoặc admin) vừa gọi
@@ -47,6 +48,8 @@ async function loadEditable(id: string) {
   const store = getStore();
   const before = await store.getVerification(id);
   if (!before || !isCallReview(before)) return { error: "Không tìm thấy đợt kiểm qua cuộc gọi." } as const;
+  const scopeGate = await supplierGate(before.supplier_id);
+  if (scopeGate) return { error: scopeGate.message } as const;
   // `submitted` chỉ là trạng thái tạm giữa hai bước nộp-duyệt của một người; nếu bước duyệt
   // lỗi giữa chừng, người kiểm vẫn mở lại được để lưu hoặc duyệt lần nữa.
   if (!["scheduled", "in_progress", "returned", "submitted"].includes(before.status)) {
@@ -127,13 +130,13 @@ export async function saveCallReviewAction(fd: FormData): Promise<Result> {
 }
 
 /** Tóm tắt công khai sinh từ dữ liệu đã ghi, tiếng Anh; không chứa liên hệ, giá hay mã lô. */
-function publicSummary(v: Verification, inspectorName: string): string {
+function publicSummary(v: Verification, inspectorName: string, inspectorTitle = "Vexim review lead"): string {
   const method = L2_REVIEW_METHOD_LABELS[v.review_method ?? "video_call"].en.toLowerCase();
   const date = v.call_started_at ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", day: "numeric", month: "short", year: "numeric" }).format(new Date(v.call_started_at)) : "";
   const seen = callItems(v.l2_scope).filter((item) => v.checklist[item.key] === true && item.group !== "E").map((item) => item.labelEn.toLowerCase());
   const partner = isPartnerL2(v);
   return [
-    `${partner ? "Partner factory" : "Facility"} reviewed by ${inspectorName} (Vexim review lead) via ${method}${date ? ` on ${date}` : ""}.`,
+    `${partner ? "Partner factory" : "Facility"} reviewed by ${inspectorName} (${inspectorTitle}) via ${method}${date ? ` on ${date}` : ""}.`,
     seen.length ? `Observed: ${seen.join(", ")}.` : "",
     partner ? "The contract between the supplier and this partner factory was also reviewed; this does not mean the supplier owns the factory." : "",
     "This is Vexim's own review, not an independent third-party audit or product certification.",
@@ -147,7 +150,7 @@ export async function approveCallReviewAction(fd: FormData): Promise<Result> {
     if (gate) return { ok: false, message: gate.message ?? "Bạn không có quyền duyệt." };
     const session = await getSession();
     if (!session || !hasPermission(session.role, "verifications.inspect") || !canSelfApproveVerification(session.role)) {
-      return { ok: false, message: "Chỉ trưởng kiểm duyệt hoặc admin vừa kiểm vừa duyệt được đợt kiểm qua cuộc gọi." };
+      return { ok: false, message: "Tài khoản của bạn không vừa kiểm vừa duyệt được đợt kiểm qua cuộc gọi." };
     }
     const loaded = await loadEditable(String(fd.get("id") ?? ""));
     if ("error" in loaded) return { ok: false, message: loaded.error! };
@@ -172,7 +175,8 @@ export async function approveCallReviewAction(fd: FormData): Promise<Result> {
     const now = new Date().toISOString();
     const reportCode = before.report_code || issueReportCode();
     const merged = { ...before, ...read.patch } as Verification;
-    const summary = publicSummary(merged, inspectorName);
+    // Chức danh công khai đúng với người thật sự kiểm, không gọi nhân viên kinh doanh là trưởng kiểm duyệt.
+    const summary = publicSummary(merged, inspectorName, session.role === "sale" ? "Vexim reviewer" : "Vexim review lead");
     // CSDL chỉ cho duyệt từ `submitted`; một người kiểm và duyệt nên nộp rồi duyệt liền.
     await store.updateVerification(before.id, { status: "submitted", inspector_id: before.inspector_id ?? session.uid });
     await store.updateVerification(before.id, {

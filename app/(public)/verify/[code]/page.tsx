@@ -49,7 +49,7 @@ export default async function VerifyReportPage({ params }: { params: Promise<{ c
       <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         <Meta label="Method" value={loaded.report.method} />
         <Meta label="Review date" value={loaded.report.reviewedAt + (loaded.report.durationMinutes ? ` · ${loaded.report.durationMinutes} min` : "")} />
-        <Meta label="Reviewed by" value={`${loaded.report.inspectorName}, Vexim review lead`} />
+        <Meta label="Reviewed by" value={`${loaded.report.inspectorName}, Vexim reviewer`} />
         {loaded.report.region && <Meta label="Province / city" value={loaded.report.region} />}
       </dl>
       <h2 className="mt-6 text-sm font-bold text-ink-900">What was observed</h2>

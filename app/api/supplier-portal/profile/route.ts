@@ -11,6 +11,7 @@ import { notifyStaffCategoryRequest, notifySupplierRegistration } from "@/lib/su
 import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-service";
 import type { SupplierInput } from "@/lib/types";
 import { isL1BusinessLicense } from "@/lib/verification";
+import { autoAssignSupplierOwner } from "@/lib/crm/supplier-owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,6 +135,11 @@ export async function POST(request: Request) {
       categories_reviewed_at: null,
       onboarding_status: "pending", onboarding_note: null,
     });
+    // Hồ sơ NCC tự đăng ký: hệ thống tự chia đều cho nhân viên kinh doanh. Lỗi không chặn hồ sơ.
+    if (!supplier.owner_user_id) {
+      const ownerId = await autoAssignSupplierOwner(store, supplier.id);
+      if (ownerId) supplier = { ...supplier, owner_user_id: ownerId };
+    }
     await store.addAuditLog({ actor_id: user.id, actor_email: user.email,
       entity: "supplier", entity_id: supplier.id, action: created ? "supplier.first_profile_submitted" : "supplier.profile_submitted",
       before: { onboarding_status: created ? null : previousStatus },

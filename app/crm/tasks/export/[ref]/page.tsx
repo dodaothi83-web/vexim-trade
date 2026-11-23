@@ -13,6 +13,7 @@ import { submissionFileHref } from "@/lib/supplier-portal/submission-view";
 import { auditHref } from "@/lib/verification";
 import { canSelfApproveVerification } from "@/lib/verification-policy";
 import { DecisionPanel } from "./decision-panel";
+import { requireSupplierInScope } from "@/lib/auth/supplier-access";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Xét chứng từ xuất khẩu" };
@@ -57,6 +58,7 @@ export default async function ExportReviewPage({ params }: { params: Promise<{ r
   } else {
     const v = await store.getVerification(id);
     if (!v || v.target_level !== 3) notFound();
+    await requireSupplierInScope(session, v.supplier_id);
     const supplier = await store.getSupplier(v.supplier_id);
     supplierId = v.supplier_id; supplierName = supplier?.name ?? "Nhà cung cấp";
     files = (await store.listMedia("verification", v.id)).filter((m) => m.storage_path && ["image", "document", "certificate"].includes(m.kind)).map((m, index) => ({

@@ -6,6 +6,7 @@ import { getSession, guard } from "@/lib/auth/session";
 import { effectiveL2Scope, l2ScopeForSupplier } from "@/lib/l2-scope";
 import { auditHref, auditItems, auditStep } from "@/lib/verification";
 import type { VerificationLevel } from "@/lib/types";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const gate = await guard("verifications.inspect");
   if (gate) return NextResponse.json({ ok: false, message: gate.message }, { status: 403 });
   const { id: supplierId } = await params;
+  const scopeDenied = await supplierGate(supplierId);
+  if (scopeDenied) return NextResponse.json({ ok: false, message: scopeDenied.message }, { status: 403 });
   let payload: unknown;
   try {
     payload = await request.json();

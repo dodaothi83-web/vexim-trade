@@ -6,7 +6,8 @@ import { getSession, guard } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { isSupplierPlan, SUPPLIER_PLAN_LABELS } from "@/lib/supplier-plans";
 import { notifySupplierPlanChange } from "@/lib/supplier-portal/notify";
-import { recordPlanActivation } from "@/lib/supplier-plan-catalog";
+import { readPlanCatalog, recordPlanActivation } from "@/lib/supplier-plan-catalog";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 type Result = { ok: boolean; message: string };
 
@@ -37,6 +38,8 @@ export async function setSupplierPlanAction(form: FormData): Promise<Result> {
   const supplierId = String(form.get("supplier_id") ?? "");
   const plan = form.get("plan");
   if (!supplierId || !isSupplierPlan(plan)) return { ok: false, message: "Gói không hợp lệ." };
+  const scopeGate = await supplierGate(supplierId);
+  if (scopeGate) return scopeGate;
   const rawDate = String(form.get("expires_on") ?? "").trim();
   let expiresAt: string | null = null;
   if (plan !== "basic" && rawDate) {
@@ -52,7 +55,12 @@ export async function setSupplierPlanAction(form: FormData): Promise<Result> {
   const months = plan !== "basic" && /^\d{1,3}$/.test(rawMonths) && Number(rawMonths) >= 1 && Number(rawMonths) <= 120 ? Number(rawMonths) : null;
   const rawAmount = String(form.get("amount_vnd") ?? "").trim();
   if (rawAmount && !/^\d{1,12}$/.test(rawAmount)) return { ok: false, message: "Số tiền ghi nhận chỉ gồm chữ số." };
-  const amountVnd = plan !== "basic" && rawAmount ? Number(rawAmount) : null;
+  // Không nhập số tiền thì ghi theo giá niêm yết của thời hạn đã chọn, để quản trị biết ai bán gói nào, bao nhiêu.
+  const listPrice = plan !== "basic" && months
+    ? (await readPlanCatalog().catch(() => null))?.[plan]?.prices.find((p) => p.months === months)?.price_vnd ?? null
+    : null;
+  const amountVnd = plan !== "basic" ? (rawAmount ? Number(rawAmount) : listPrice) : null;
+  const amountSource = plan === "basic" ? null : rawAmount ? "entered" : listPrice !== null ? "list_price" : null;
 
   const store = getStore();
   const before = await store.getSupplier(supplierId);
@@ -75,7 +83,8 @@ export async function setSupplierPlanAction(form: FormData): Promise<Result> {
     actor_id: session.uid, actor_email: session.email, entity: "supplier", entity_id: supplierId,
     action: "supplier.plan_changed",
     before: { plan: before.plan ?? "basic", plan_expires_at: before.plan_expires_at ?? null },
-    after: { plan, plan_expires_at: expiresAt, months, amount_vnd: amountVnd },
+    after: { plan, plan_expires_at: expiresAt, months, amount_vnd: amountVnd, amount_source: amountSource,
+      actor_role: session.role, owner_user_id: before.owner_user_id ?? null },
   }).catch((error) => console.error("[supplier-plan] audit", error));
   // Mỗi lần bật/gia hạn gói trả phí là một dòng cho báo cáo doanh thu ở /crm/plans.
   if (plan !== "basic") await recordPlanActivation({ supplierId, plan, months, amountVnd, expiresAt, actorId: session.uid })

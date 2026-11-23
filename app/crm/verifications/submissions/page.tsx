@@ -10,6 +10,7 @@ import { readiness, submissionStatusLabel } from "@/lib/verification-submission"
 import type { Supplier, SupplierSubmission, SupplierSubmissionItem } from "@/lib/types";
 import { Breadcrumbs, Badge, Card, EmptyState } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
+import { filterBySupplierIds, filterOwnedSuppliers, supplierOwnerScope } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,9 @@ export default async function SubmissionQueuePage({ searchParams }: { searchPara
   let migrationMissing = false;
   try {
     [submissions, suppliers] = await Promise.all([store.listSubmissions(), store.listSuppliers()]);
+    // Kinh doanh chỉ thấy hồ sơ của nhà cung cấp mình phụ trách.
+    suppliers = filterOwnedSuppliers(session, suppliers);
+    if (supplierOwnerScope(session) !== null) submissions = filterBySupplierIds(new Set(suppliers.map((s) => s.id)), submissions);
     const itemLists = await Promise.all(submissions.slice(0, 60).map(async (s) => [s.id, await store.listSubmissionItems(s.id)] as const));
     itemsBySubmission = new Map(itemLists.map(([id, items]) => [id, items]));
   } catch (error) {

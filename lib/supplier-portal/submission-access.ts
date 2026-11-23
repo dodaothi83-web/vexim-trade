@@ -8,6 +8,7 @@ import { portalApproved } from "./onboarding";
 import { supplierAccountAccess } from "./access";
 import { loadSubmissionBundle, type SubmissionBundle } from "@/lib/verification-submission-service";
 import type { SupplierSubmission } from "@/lib/types";
+import { canAccessSupplierId } from "@/lib/auth/supplier-access";
 
 /**
  * Quyền truy cập cổng tự gửi bằng chứng L2/L3.
@@ -60,6 +61,8 @@ export async function staffSubmissionAccess(submissionId: string): Promise<Staff
   const store = getStore();
   const bundle = await loadSubmissionBundle(store, submissionId);
   if (!bundle) return null;
+  // Kinh doanh chỉ mở hồ sơ của nhà cung cấp mình phụ trách.
+  if (!(await canAccessSupplierId(session, bundle.submission.supplier_id))) return null;
   return {
     ...bundle,
     store,

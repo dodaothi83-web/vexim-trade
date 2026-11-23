@@ -45,7 +45,7 @@ export async function loadFactoryReport(rawCode: string): Promise<{ verification
     method: L2_REVIEW_METHOD_LABELS[verification.review_method ?? "video_call"].en,
     reviewedAt: englishDate(verification.call_started_at, true),
     durationMinutes: callDurationMinutes(verification),
-    inspectorName: verification.inspector_name ?? "Vexim review lead",
+    inspectorName: verification.inspector_name ?? "Vexim reviewer",
     approvedAt: englishDate(verification.approved_at),
     items,
     verifyUrl: `${SITE_URL}/verify/${verification.report_code}`,

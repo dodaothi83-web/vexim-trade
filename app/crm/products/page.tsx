@@ -13,6 +13,7 @@ import { productReadiness } from "@/lib/media/readiness";
 import { completenessSummary, productCompleteness } from "@/lib/products/completeness";
 import { auditProductStructuredUnits } from "@/lib/products/grade-pricing";
 import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
+import { supplierOwnerScope } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,12 @@ export default async function ProductsPage({
     listProductsWithSupplier(),
     store.listCategories({ publishedOnly: false }),
   ]);
-  const all = products.map((product) => ({ ...product, pendingReview: product.supplier_review_status === "pending" }));
+  // Kinh doanh: chỉ sản phẩm của NCC mình phụ trách. Khi đang so khớp cho người mua của mình thì
+  // thấy thêm sản phẩm đã sẵn sàng gửi người mua của NCC khác (chỉ xem, không mở trang sửa).
+  const ownerScope = supplierOwnerScope(session);
+  const ownedProduct = (product: ProductWithSupplier) => ownerScope === null || (product.supplier?.owner_user_id ?? "") === ownerScope;
+  const scopedProducts = products.filter((product) => ownedProduct(product) || (!!buyer && product.ready_for_buyer));
+  const all = scopedProducts.map((product) => ({ ...product, pendingReview: product.supplier_review_status === "pending" }));
   const isPrivateShell = (product: ProductWithSupplier) => !product.name.trim() && !product.ready_for_buyer;
   const categoryBySlug = new Map(allCategories.map((c) => [c.slug, c]));
   const unitAuditByProduct = new Map(
@@ -272,15 +278,18 @@ export default async function ProductsPage({
               const displayName = nameFor(r) || "Sản phẩm chưa có tên";
               const displayCategory = categoryFor(r) || "Chưa phân loại";
               const reviewHref = `/crm/products/${r.id}/edit`;
+              const owned = ownedProduct(r);
               return (
                 <li key={r.id} className={`px-4 py-4 ${matched ? "bg-brand-50/40" : ""}`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                     <div className="flex min-w-0 flex-1 items-start gap-3">
                       <MediaThumb asset={thumbByProduct.get(r.id) ?? null} size="h-14 w-14" />
                       <div className="min-w-0 flex-1">
-                        <Link href={`/crm/products/${r.id}/edit`} className="break-words text-sm font-bold text-ink-900 hover:text-brand-700 hover:underline">{displayName}</Link>
+                        {owned
+                          ? <Link href={`/crm/products/${r.id}/edit`} className="break-words text-sm font-bold text-ink-900 hover:text-brand-700 hover:underline">{displayName}</Link>
+                          : <p className="break-words text-sm font-bold text-ink-900">{displayName}</p>}
                         <p className="mt-1 break-words text-xs leading-5 text-ink-500">
-                          {r.supplier ? (
+                          {r.supplier && !owned ? <span className="font-semibold text-ink-700">{r.supplier.name}</span> : r.supplier ? (
                             <Link className="font-semibold text-ink-700 hover:text-brand-700 hover:underline" href={`/crm/suppliers/${r.supplier.id}`}>
                               {r.supplier.name}
                             </Link>
@@ -320,7 +329,7 @@ export default async function ProductsPage({
                           <p className="break-words text-[13px] font-bold text-ink-900"><span className="font-mono tabular-nums">{formatMoney(r.ref_price)}</span> <span className="font-normal text-ink-500">/ {r.unit || "đv"}</span></p>
                         </> : <p className="text-xs text-ink-500">Chưa có giá</p>}
                       </div>
-                      {canManage && (
+                      {canManage && owned && (
                         <Link href={reviewHref} aria-label={`Kiểm tra ${displayName}`} className="btn btn-soft shrink-0 px-3 py-2 text-[13px]">
                           <ClipboardCheck className="h-4 w-4" aria-hidden="true" /> Kiểm tra
                         </Link>

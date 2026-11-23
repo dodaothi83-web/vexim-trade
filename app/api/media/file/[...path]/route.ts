@@ -6,6 +6,8 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { getObject } from "@/lib/media/storage";
 import { ownsDocumentReview } from "@/lib/supplier-portal/policy";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { mediaAssetAllowed } from "@/lib/auth/supplier-access";
+import { isSupplierScopedRole } from "@/lib/auth/supplier-scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,6 +61,10 @@ export async function GET(
     }
   }
 
+  // Kinh doanh chỉ mở tài liệu nội bộ của nhà cung cấp mình phụ trách.
+  if (asset.audience === "internal" && isSupplierScopedRole(session.role) && !(await mediaAssetAllowed(session, asset))) {
+    return new NextResponse("Bạn không có quyền xem tài liệu nội bộ", { status: 403 });
+  }
   if (asset.audience === "internal" && !hasPermission(session.role, "media.internal")) {
     const store = getStore();
     const user = session.role === "supplier" ? await store.getUser(session.uid) : null;

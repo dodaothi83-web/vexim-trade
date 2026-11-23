@@ -5,6 +5,7 @@ import { Breadcrumbs, Card } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 
 import { ImportClient } from "./import-client";
+import { filterOwnedSuppliers } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function ProductExcelImportPage() {
         sub="Nhân viên Vexim nhập hộ sản phẩm của nhà cung cấp. File mẫu sinh theo danh mục; sản phẩm nhập vào là bản nháp chờ duyệt."
       />
       <ImportClient
-        suppliers={suppliers.map((s) => ({ id: s.id, name: s.display_name || s.name, province: s.province ?? null }))}
+        suppliers={filterOwnedSuppliers(session, suppliers).map((s) => ({ id: s.id, name: s.display_name || s.name, province: s.province ?? null }))}
         categories={categories.map((c) => ({ slug: c.slug, name: c.name_i18n?.en || c.slug }))}
       />
     </>

@@ -611,6 +611,12 @@ create unique index if not exists suppliers_slug_key on public.suppliers (slug) 
 create index if not exists suppliers_status_idx on public.suppliers (status);
 create index if not exists suppliers_verification_level_idx on public.suppliers (verification_level desc);
 
+-- Người phụ trách nhà cung cấp (migrations/20261226_supplier_owner.sql).
+alter table public.suppliers
+  add column if not exists owner_user_id uuid references public.app_users(id) on delete set null,
+  add column if not exists owner_assigned_at timestamptz;
+create index if not exists suppliers_owner_user_id_idx on public.suppliers (owner_user_id);
+
 -- ---------------------------------------------------------------------------
 -- 1b. SUPPLIER_PRODUCTS – mở rộng
 -- ---------------------------------------------------------------------------

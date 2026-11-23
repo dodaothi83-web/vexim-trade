@@ -5,6 +5,8 @@ import { getStore } from "@/lib/db";
 import { guard, getSession } from "@/lib/auth/session";
 import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
+import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 type Result = { ok: boolean; message: string };
 
@@ -13,11 +15,13 @@ export async function decideSupplierOnboardingAction(form: FormData): Promise<Re
   const denied = await guard("suppliers.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "reviewer")) return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được xác nhận tài khoản nhà cung cấp." };
+  if (!session || !canDecideSupplierRole(session.role)) return { ok: false, message: "Tài khoản của bạn không được xác nhận tài khoản nhà cung cấp." };
   const id = String(form.get("supplier_id") ?? "");
   const decision = String(form.get("decision") ?? "");
   const note = String(form.get("note") ?? "").trim().slice(0, 1000);
   if (!/^[0-9a-f-]{36}$/i.test(id) || !["approved", "changes_requested"].includes(decision)) return { ok: false, message: "Yêu cầu không hợp lệ." };
+  const scopeGate = await supplierGate(id);
+  if (scopeGate) return { ok: false, message: scopeGate.message };
   if (decision === "changes_requested" && !note) return { ok: false, message: "Vui lòng ghi rõ thông tin cần bổ sung." };
   try {
     const store = getStore();

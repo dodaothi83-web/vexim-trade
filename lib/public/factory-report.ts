@@ -93,7 +93,7 @@ export function factoryReportPdfDefinition(report: FactoryReportData, photos: Fa
       { canvas: [{ type: "line", x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: "#CBD5E1" }], margin: [0, 10, 0, 8] },
       meta("Method", report.method),
       meta("Review date", report.reviewedAt + (report.durationMinutes ? ` · ${report.durationMinutes} min` : "")),
-      meta("Reviewed by", `${report.inspectorName}, Vexim review lead`),
+      meta("Reviewed by", `${report.inspectorName}, Vexim reviewer`),
       ...(report.region ? [meta("Province / city", report.region)] : []),
       meta("Approved", report.approvedAt),
       { text: "What was observed", bold: true, fontSize: 12, margin: [0, 14, 0, 0] },

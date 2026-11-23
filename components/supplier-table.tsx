@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { ArrowUpRight, Crown, MailWarning, Package, Plus, Search } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ArrowUpRight, Crown, MailWarning, Package, Plus, Search, UserRound } from "lucide-react";
 
 import type { Supplier } from "@/lib/types";
 import { roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
@@ -87,6 +87,9 @@ export function SupplierTable({
   canManage = false,
   upgradeRequests = {},
   initialPlanFilter,
+  owners,
+  ownerNames = {},
+  distributeSlot,
 }: {
   suppliers: Supplier[];
   usage: Record<string, { total: number; active: number }>;
@@ -98,6 +101,15 @@ export function SupplierTable({
   upgradeRequests?: Record<string, UpgradeRequest>;
   /** Bộ lọc gói từ URL (?plan=upgrade), ví dụ khi bấm từ chuông thông báo. */
   initialPlanFilter?: string;
+  /**
+   * Nhân viên kinh doanh nhận được NCC, để lọc theo người phụ trách. Bỏ trống với tài khoản
+   * kinh doanh: họ chỉ thấy NCC của mình nên không cần bộ lọc này.
+   */
+  owners?: { id: string; name: string }[];
+  /** Tên người phụ trách theo id (kể cả người đã nghỉ) để hiện dưới tên NCC. */
+  ownerNames?: Record<string, string>;
+  /** Nút "Chia đều" của quản trị, hiện cạnh bộ lọc người phụ trách. */
+  distributeSlot?: ReactNode;
 }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
@@ -106,6 +118,21 @@ export function SupplierTable({
   );
   // Mốc thời gian cố định trong một lần mở trang để số ngày còn lại không nhảy giữa server và trình duyệt.
   const [now] = useState(() => Date.now());
+  const [ownerFilter, setOwnerFilter] = useState<string>("all");
+  const ownerIds = useMemo(() => new Set((owners ?? []).map((o) => o.id)), [owners]);
+  const ownerMatch = (s: Supplier, key: string) => {
+    if (!owners || key === "all") return true;
+    if (key === "unassigned") return !s.owner_user_id || !ownerIds.has(s.owner_user_id);
+    return s.owner_user_id === key;
+  };
+  const ownerCounts = useMemo(() => {
+    const out: Record<string, number> = { all: suppliers.length, unassigned: 0 };
+    for (const s of suppliers) {
+      if (!s.owner_user_id || !ownerIds.has(s.owner_user_id)) out.unassigned += 1;
+      else out[s.owner_user_id] = (out[s.owner_user_id] ?? 0) + 1;
+    }
+    return out;
+  }, [suppliers, ownerIds]);
 
   const plans = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, planInfo(s, now)])), [suppliers, now]);
   const planMatch = (s: Supplier, key: PlanFilter) => {
@@ -131,13 +158,14 @@ export function SupplierTable({
     return suppliers.filter((s) => {
       if (!match(s)) return false;
       if (!planMatch(s, planFilter)) return false;
+      if (!ownerMatch(s, ownerFilter)) return false;
       if (!needle) return true;
       if (taxIdMatches(s.tax_id, taxNeedle)) return true;
       return [s.name, s.products, s.province, s.contact_name, s.email, s.tax_id]
         .filter(Boolean)
         .some((x) => (x as string).toLowerCase().includes(needle));
     });
-  }, [suppliers, q, filter, filters, planFilter, plans, upgradeRequests]);
+  }, [suppliers, q, filter, filters, planFilter, plans, upgradeRequests, ownerFilter, ownerIds, owners]);
 
   return (
     <div className="card overflow-hidden">
@@ -207,6 +235,37 @@ export function SupplierTable({
           );
         })}
       </div>
+      {owners && (
+        <div role="group" aria-label="Lọc theo người phụ trách" className="flex flex-wrap items-center gap-1.5 border-b border-ink-200 bg-ink-50/60 px-3 py-2">
+          <span className="mr-1 text-[11.5px] font-semibold text-ink-500">Phụ trách</span>
+          {[{ id: "all", name: "Tất cả" }, { id: "unassigned", name: "Chưa giao" }, ...owners]
+            .filter((o) => o.id === "all" || (ownerCounts[o.id] ?? 0) > 0 || o.id !== "unassigned")
+            .map((o) => {
+              const active = ownerFilter === o.id;
+              const count = ownerCounts[o.id] ?? 0;
+              const attention = o.id === "unassigned" && count > 0;
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setOwnerFilter(o.id)}
+                  className={cx(
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ring-1 transition",
+                    active ? "bg-brand-700 text-white ring-brand-700" : "bg-white text-ink-700 ring-ink-200 hover:ring-brand-300",
+                  )}
+                >
+                  {o.name}
+                  <span className={cx("rounded-full px-1.5 text-[11px]",
+                    active ? "bg-white/20 text-white" : attention ? "bg-amber-100 font-bold text-amber-800" : "bg-ink-100 text-ink-500")}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          {distributeSlot}
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <EmptyState
@@ -231,6 +290,7 @@ export function SupplierTable({
                   setQ("");
                   setFilter("all");
                   setPlanFilter("all");
+                  setOwnerFilter("all");
                 }}
               >
                 Xoá bộ lọc
@@ -263,6 +323,8 @@ export function SupplierTable({
                 const kind = s.onboarding_status === "not_started" ? "Chưa khai loại hình" : s.supplier_type ? supplierTypeLabel(s.supplier_type) : roleLabel(s.role);
                 const taxKey = taxIdKey(s.tax_id);
                 const taxDuplicates = taxKey ? duplicateTax.get(taxKey) ?? 0 : 0;
+                const ownerName = s.owner_user_id ? ownerNames[s.owner_user_id] : null;
+                const ownerActive = !!s.owner_user_id && ownerIds.has(s.owner_user_id);
                 return (
                   <tr key={s.id} className="group align-top transition hover:bg-brand-50/40">
                     <td className="table-td max-w-[300px]">
@@ -288,6 +350,12 @@ export function SupplierTable({
                           </button>
                         )}
                       </p>
+                      {owners && (
+                        <p className={cx("mt-0.5 flex items-center gap-1 truncate text-[11.5px]", ownerActive ? "text-ink-500" : "font-semibold text-amber-700")}>
+                          <UserRound className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          {ownerActive ? ownerName : ownerName ? `${ownerName} (đã nghỉ) · Chưa giao` : "Chưa giao"}
+                        </p>
+                      )}
                       {badge && <Badge className={`mt-1 ${badge.className}`}>{badge.label}</Badge>}
                     </td>
                     <td className="table-td whitespace-nowrap">
