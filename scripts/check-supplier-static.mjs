@@ -121,4 +121,15 @@ assert.match(premium, /fetchPriority="high"/, "The hero image loads first");
 const storefront = read("components/public/supplier-storefront.tsx");
 assert.doesNotMatch(storefront, /supplierHref=/, "Product cards on the profile do not link back to the same profile in a new tab");
 
-console.log("✅ Supplier profile static: ISR without cookies, server-verified view counting, browser-side report sign-in, copy fixes.");
+// 5. Địa chỉ cũ theo id (/suppliers/<id>, dùng khi hồ sơ chưa có slug và đã được Google lưu)
+//    chuyển hướng vĩnh viễn sang /suppliers/<slug> thay vì 404; chỉ với hồ sơ đang công khai.
+assert.match(page, /async function redirectLegacySupplierUrl\(param: string\)/);
+assert.match(page, /\(await publicSuppliersForRequest\(\)\)\.find\(\(s\) => s\.id === param && s\.slug && s\.slug !== param\)/,
+  "Only a public profile that now has a slug is redirected");
+assert.match(page, /permanentRedirect\(`\/suppliers\/\$\{encodeURIComponent\(supplier\.slug\)\}`\)/, "The old id URL redirects permanently");
+const pageBody = page.slice(page.indexOf("export default async function SupplierProfile"));
+assert.match(pageBody, /if \(!s\) \{\n    await redirectLegacySupplierUrl\(slug\);\n    notFound\(\);/, "Redirect before 404 on the page");
+const metaBody = page.slice(page.indexOf("export async function generateMetadata"), page.indexOf("export default async function SupplierProfile"));
+assert.match(metaBody, /await redirectLegacySupplierUrl\(slug\);/, "Redirect in metadata so crawlers get a real 308");
+
+console.log("✅ Supplier profile static: ISR without cookies, server-verified view counting, browser-side report sign-in, copy fixes, old id URLs redirect to the slug.");

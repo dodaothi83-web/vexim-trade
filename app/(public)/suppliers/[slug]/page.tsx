@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { categoryPathOf, certificateLabelsForProducts } from "@/lib/public/certificate-badges";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 
 import { Breadcrumbs } from "@/components/ui";
@@ -52,10 +52,23 @@ const safe = (value: string | null | undefined) => withoutDirectContacts(value |
 const publicSuppliersForRequest = cache(() => listCachedPublicSuppliers());
 const supplierBySlug = cache(async (slug: string) => getPublicSupplierBySlug(slug, await publicSuppliersForRequest()));
 
+/**
+ * Hồ sơ chưa có slug dùng địa chỉ theo id (/suppliers/<id>); Google và người mua có thể đã lưu
+ * địa chỉ đó. Khi hồ sơ được đặt slug sau này, chuyển hướng vĩnh viễn (308) sang địa chỉ slug
+ * thay vì báo 404. Chỉ áp dụng cho hồ sơ đang công khai.
+ */
+async function redirectLegacySupplierUrl(param: string): Promise<void> {
+  const supplier = (await publicSuppliersForRequest()).find((s) => s.id === param && s.slug && s.slug !== param);
+  if (supplier?.slug) permanentRedirect(`/suppliers/${encodeURIComponent(supplier.slug)}`);
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const s = await supplierBySlug(slug);
-  if (!s) return { title: "Supplier not found", robots: { index: false } };
+  if (!s) {
+    await redirectLegacySupplierUrl(slug);
+    return { title: "Supplier not found", robots: { index: false } };
+  }
   // Cùng cách viết tên với tiêu đề H1 (không để "TINIMEX COMPANY LIMITED" viết hoa toàn bộ).
   const name = safe(supplierShortName(s));
   const url = `${SITE_URL}/suppliers/${encodeURIComponent(s.slug || s.id)}`;
@@ -76,7 +89,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function SupplierProfile({ params }: PageProps) {
   const { slug } = await params;
   const s = await supplierBySlug(slug);
-  if (!s) notFound();
+  if (!s) {
+    await redirectLegacySupplierUrl(slug);
+    notFound();
+  }
 
   const store = getStore();
   const categories = (await store.listCategories({ publishedOnly: true }))
