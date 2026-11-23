@@ -22,6 +22,7 @@ import * as verification from "../lib/verification-status.ts";
 import * as categoryNames from "../lib/public/category-names.ts";
 import * as comparison from "../lib/public/product-comparison.ts";
 import * as supplierSeo from "../lib/public/supplier-seo.ts";
+import * as cacheCodec from "../lib/public/catalog-cache-codec.ts";
 import * as priceDisplay from "../lib/products/price-display.ts";
 import { supplierNameCase } from "../lib/public/supplier-name.ts";
 import * as categoryFacets from "../lib/public/search-category-facets.ts";
@@ -165,6 +166,7 @@ const gradePricing = load("../lib/products/grade-pricing.ts", {
 let badgeLabels = new Map();
 const productCatalog = load("../lib/public/product-catalog.ts", {
   "next/cache": { unstable_cache: (fn) => fn },
+  "@/lib/public/catalog-cache-codec": cacheCodec,
   "@/lib/db": db,
   "@/lib/product-attributes": attributes,
   "@/lib/media/readiness": readiness,
@@ -194,6 +196,29 @@ const baseline = await productCatalog.listPublicCategoryProducts(cashew, { today
 const snapshot = await productCatalog.loadPublicProductCatalogSnapshot({ categories });
 const shared = await productCatalog.listPublicCategoryProducts(cashew, { today: "2026-10-28", snapshot });
 assert.equal(JSON.stringify(shared), JSON.stringify(baseline), "The shared snapshot preserves every public card, gate and ranked order");
+// Bản chụp đi qua cache (đóng gói gọn + nén) cho đúng các thẻ, cổng duyệt và thứ tự như đọc thẳng.
+const cachedSnapshot = await productCatalog.loadPublicProductCatalogSnapshot();
+const viaCache = await productCatalog.listPublicCategoryProducts(cashew, { today: "2026-10-28", snapshot: cachedSnapshot });
+assert.equal(JSON.stringify(viaCache), JSON.stringify(baseline), "The packed cache snapshot preserves every public card, gate and ranked order");
+for (const supplier of cachedSnapshot.suppliers) {
+  for (const product of supplier.main_products) {
+    assert.ok(cachedSnapshot.products.includes(product), "Main products are restored from the shared product list, not stored twice");
+    for (const field of cacheCodec.CACHE_DROPPED_PRODUCT_FIELDS) assert.ok(!(field in product), `${field} stays out of the shared cache`);
+  }
+}
+{
+  const product = { id: "p1", name: "Cashew", description: "short", description_detail: "long".repeat(500), description_detail_i18n: { en: "x" }, aplus_content: [{ type: "text" }] };
+  const changed = { id: "p2", name: "Changed copy" };
+  const original = { id: "p2", name: "Original" };
+  const payload = cacheCodec.packCatalogBase({ suppliers: [{ id: "s1", main_products: [product, changed] }], products: [product, original], categories: [{ id: "c1" }] });
+  assert.ok(payload.startsWith("gz1:") && payload.length < JSON.stringify({ product }).length, "The cache payload is compressed");
+  const restored = cacheCodec.unpackCatalogBase(payload);
+  assert.deepEqual(restored.suppliers[0].main_products.map((p) => p.name), ["Cashew", "Changed copy"], "A modified main product copy is kept as is");
+  assert.equal(restored.suppliers[0].main_products[0], restored.products[0], "An identical main product is stored once and restored by id");
+  assert.deepEqual({ ...restored.products[0] }, { id: "p1", name: "Cashew", description: "short" }, "Only detail-page fields are dropped");
+  assert.deepEqual(cacheCodec.decodeCachePayload(cacheCodec.encodeCachePayload({ a: [1, "Hạt điều"] })), { a: [1, "Hạt điều"] });
+  assert.throws(() => cacheCodec.decodeCachePayload("{}"), /Unknown catalogue cache payload/);
+}
 const allowed = new Set(shared.map((p) => p.id));
 for (const id of ["a-w320", "a-w240", "a-w320b", "a-w320c", "a-w320d", "hidden-source"]) assert.ok(allowed.has(id), id);
 for (const id of ["paused", "not-ready", "not-approved", "no-category-review", "no-buyer-media", "expired-media", "draft-owner", "demo-product", "synthetic-product", "test-only", "draft-category-product"]) {

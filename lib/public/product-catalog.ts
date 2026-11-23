@@ -4,6 +4,7 @@ import { readCategoryCertificateData } from "@/lib/public/category-certificate-d
 import "server-only";
 
 import { unstable_cache } from "next/cache";
+import { packCatalogBase, unpackCatalogBase, encodeCachePayload, decodeCachePayload, slimSupplierCards } from "@/lib/public/catalog-cache-codec";
 import { getStore } from "@/lib/db";
 import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
@@ -237,18 +238,23 @@ export interface PublicProductCatalogSnapshot {
  * Promise<...>> (categoryByProduct/mediaByProduct/certificatesBySupplier) vốn được tạo mới,
  * rỗng, cho từng lượt gọi để dùng làm bộ nhớ đệm NỘI BỘ của một request.
  */
-const getCachedPublicCatalogBase = unstable_cache(
+const getCachedPublicCatalogPayload = unstable_cache(
   async () => {
     const store = getStore();
     const [rawSuppliers, products, categories] = await Promise.all([
       store.listSuppliers(), store.listProducts(), store.listCategories({ publishedOnly: false }),
     ]);
     const suppliers = await listPublicSuppliers({ source: { suppliers: rawSuppliers, products, categories } });
-    return { suppliers, products, categories };
+    // Đóng gói gọn và nén để mục cache luôn dưới giới hạn 2 MB của Vercel (xem catalog-cache-codec.ts).
+    return packCatalogBase({ suppliers, products, categories });
   },
-  ["public-catalog-snapshot"],
+  ["public-catalog-snapshot-v2"],
   { revalidate: 60, tags: ["public-catalog"] },
 );
+
+async function getCachedPublicCatalogBase(): Promise<{ suppliers: PublicSupplierCard[]; products: SupplierProduct[]; categories: Category[] }> {
+  return unpackCatalogBase<PublicSupplierCard, SupplierProduct, Category>(await getCachedPublicCatalogPayload());
+}
 
 export async function loadPublicProductCatalogSnapshot(options?: { categories?: Category[] }): Promise<PublicProductCatalogSnapshot> {
   let suppliers: PublicSupplierCard[];
@@ -408,13 +414,17 @@ async function buildPublicSearchIndex(today: string): Promise<PublicSearchIndex>
 }
 
 const getCachedPublicSearchIndex = unstable_cache(
-  async (today: string) => buildPublicSearchIndex(today),
-  ["public-search-index-v1"],
+  async (today: string) => {
+    const index = await buildPublicSearchIndex(today);
+    // Cùng lý do với bản chụp catalogue: bỏ trường nặng của sản phẩm chính rồi nén.
+    return encodeCachePayload({ ...index, suppliers: slimSupplierCards(index.suppliers) });
+  },
+  ["public-search-index-v2"],
   { revalidate: 60, tags: ["public-catalog"] },
 );
 
 export async function loadPublicSearchIndex(): Promise<PublicSearchIndex> {
-  return getCachedPublicSearchIndex(new Date().toISOString().slice(0, 10));
+  return decodeCachePayload<PublicSearchIndex>(await getCachedPublicSearchIndex(new Date().toISOString().slice(0, 10)));
 }
 
 export type PublicCategoryFamilyProduct = PublicCategoryProduct & {
