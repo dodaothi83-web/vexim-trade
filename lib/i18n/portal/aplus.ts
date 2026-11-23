@@ -198,9 +198,8 @@ const en = {
   },
   aplusPage: {
     aplus: "A+ content",
-    createBasic: "Create basic content",
+    basicEditorNote: "You are in the basic editor. To create A+ content, click Create A+ content.",
     createAplus: "Create A+ content",
-    switchBasicConfirm: "Buyers will see the text description instead of A+ content. Your A+ content is kept. Continue?",
     showingBasic: "The product page shows basic content.",
     showingAplus: "The product page shows A+ content.",
     showingAplusCount: "The product page shows A+ content ({count} sections). The description below is kept as basic content.",
@@ -482,9 +481,8 @@ const vi: AplusMessages = {
   },
   aplusPage: {
     aplus: "Nội dung A+",
-    createBasic: "Tạo content basic",
+    basicEditorNote: "Bạn đang ở trình soạn thảo basic, nếu muốn tạo nội dung A+ hãy nhấn vào nút Tạo content A+.",
     createAplus: "Tạo content A+",
-    switchBasicConfirm: "Người mua sẽ thấy mô tả bằng chữ thay cho nội dung A+. Nội dung A+ vẫn được giữ. Tiếp tục?",
     showingBasic: "Trang sản phẩm đang hiện nội dung cơ bản.",
     showingAplus: "Trang sản phẩm đang hiện nội dung A+.",
     showingAplusCount: "Trang sản phẩm đang hiện nội dung A+ ({count} khối). Mô tả dưới đây vẫn được giữ làm nội dung cơ bản.",

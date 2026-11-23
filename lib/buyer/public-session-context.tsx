@@ -40,7 +40,8 @@ const Context = createContext<PublicSessionContextValue | null>(null);
 export function PublicSessionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PublicSessionState>(GUEST);
   const active = useRef(true);
-  useEffect(() => () => { active.current = false; }, []);
+  // Bật lại khi gắn lại: React dev (StrictMode) gắn, gỡ rồi gắn lại; thiếu dòng này trạng thái kẹt ở khách.
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
 
   const refresh = useCallback(() => {
     fetch("/api/public/session", { cache: "no-store" })
