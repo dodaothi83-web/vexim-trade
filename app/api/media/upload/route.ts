@@ -9,6 +9,7 @@ import { verificationMediaEditError } from "@/lib/media/verification-access";
 import { auditUploadKind } from "@/lib/verification";
 import { defaultCertificateLabelForKey, ingestCertificateScan, isL1CertificateKey } from "@/lib/certificate-service";
 import type { AuditEvidenceKey, MediaAudience, MediaInput, MediaKind, MediaOwnerType } from "@/lib/types";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,6 +106,9 @@ export async function POST(request: Request) {
     // verification media luôn internal
     audience = "internal";
   }
+
+  const scopeDenied = await supplierGate(mediaSupplierId);
+  if (scopeDenied) return NextResponse.json({ ok: false, message: scopeDenied.message }, { status: 403 });
 
   // Giấy tờ nội bộ (giấy phép, xác minh NCC) luôn chỉ nội bộ, không chia sẻ buyer
   if (kind === "document") audience = "internal";

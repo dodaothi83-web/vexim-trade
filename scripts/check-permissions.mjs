@@ -162,8 +162,22 @@ for (const perm of ["users.manage", "suppliers.delete", "products.delete", "cate
 for (const perm of ["verifications.inspect", "verifications.approve"]) {
   if (roleSection('sourcing').includes(`"${perm}"`)) errors.push(`Sourcing không được có quyền ${perm}.`);
 }
-for (const perm of ["suppliers.manage", "products.manage", "categories.manage", "verifications.approve"]) {
+// Quyết định 2026-11-23: kinh doanh quản lý trọn vẹn NCC MÌNH PHỤ TRÁCH (duyệt tài khoản, giấy tờ,
+// xác minh, sản phẩm). Phạm vi do lib/auth/supplier-access.ts chặn ở máy chủ, nên ở đây kiểm cả hai.
+for (const perm of ["categories.manage", "suppliers.delete", "products.delete", "suppliers.assign", "users.manage"]) {
   if (roleSection('sale').includes(`"${perm}"`)) errors.push(`Sale không được có quyền ${perm}.`);
+}
+if (roleSection('sale').includes('"suppliers.manage"')) {
+  const access = read(join(ROOT, "lib/auth/supplier-access.ts"));
+  if (!/export async function supplierGate/.test(access)) errors.push('Sale có quyền NCC thì phải có supplierGate giới hạn theo người phụ trách.');
+  for (const file of ["app/crm/suppliers/[slug]/onboarding-actions.ts", "app/crm/suppliers/[slug]/plan-actions.ts",
+    "app/crm/suppliers/[slug]/account-actions.ts", "app/crm/suppliers/[slug]/verification-actions.ts",
+    "app/crm/products/[slug]/certificate-actions.ts", "app/crm/products/[slug]/edit/review-actions.ts"]) {
+    if (!/supplierGate|productGate|certificateGate|verificationGate/.test(read(join(ROOT, file))))
+      errors.push(`${file} phải kiểm phạm vi NCC của người phụ trách.`);
+  }
+  if (!/requireSupplierInScope/.test(read(join(ROOT, "app/crm/suppliers/[slug]/page.tsx"))))
+    errors.push('Trang chi tiết NCC phải chặn kinh doanh mở NCC không phụ trách.');
 }
 
 // New reviewer cannot browse buyer/mail pages via a guessed URL.

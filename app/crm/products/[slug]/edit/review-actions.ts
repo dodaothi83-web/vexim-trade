@@ -17,6 +17,8 @@ import { isTestOnlyProduct } from "@/lib/public/product-selection";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
 import { currentProductGrade, gradeOutsideCategory, gradeOutsideCategoryMessage } from "@/lib/products/grade-category-check";
+import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
+import { productGate } from "@/lib/auth/supplier-access";
 
 type Result = {
   ok: boolean;
@@ -44,12 +46,14 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
   const denied = await guard("products.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "reviewer")) return { ok: false, message: "Chỉ quản trị hoặc trưởng kiểm duyệt được xét sản phẩm của nhà cung cấp." };
+  if (!session || !canDecideSupplierRole(session.role)) return { ok: false, message: "Tài khoản của bạn không được xét sản phẩm của nhà cung cấp." };
   const id = String(form.get("product_id") ?? "");
   const decision = String(form.get("decision") ?? "");
   const note = String(form.get("note") ?? "").trim().slice(0, 1000);
   if (!/^[0-9a-f-]{36}$/i.test(id) || !["approved", "changes_requested"].includes(decision)) return { ok: false, message: "Yêu cầu không hợp lệ." };
   if (decision === "changes_requested" && !note) return { ok: false, message: "Cần ghi nội dung yêu cầu bổ sung." };
+  const scopeGate = await productGate(id);
+  if (scopeGate) return { ok: false, message: scopeGate.message };
   try {
     const store = getStore();
     const product = await store.getProduct(id);
@@ -153,6 +157,8 @@ export async function translateProductEnglishAction(productId: string): Promise<
   const session = await getSession();
   if (!session) return { ok: false, message: "Vui lòng đăng nhập." };
   if (!/^[0-9a-f-]{36}$/i.test(productId)) return { ok: false, message: "Sản phẩm không hợp lệ." };
+  const scopeGate = await productGate(productId);
+  if (scopeGate) return { ok: false, message: scopeGate.message };
   try {
     const store = getStore();
     const product = await store.getProduct(productId);
@@ -196,6 +202,8 @@ export async function saveProductEnglishAction(form: FormData): Promise<Result> 
   if (!session) return { ok: false, message: "Vui lòng đăng nhập." };
   const id = String(form.get("product_id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Sản phẩm không hợp lệ." };
+  const scopeGate = await productGate(id);
+  if (scopeGate) return { ok: false, message: scopeGate.message };
   const read = (key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
   let descriptionDetail: string;
   try {
@@ -265,10 +273,12 @@ export async function correctSupplierProductCategoryAction(form: FormData): Prom
   const denied = await guard("products.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "reviewer")) return { ok: false, message: "Chỉ Vexim được điều chỉnh danh mục đã duyệt." };
+  if (!session || !canDecideSupplierRole(session.role)) return { ok: false, message: "Chỉ Vexim được điều chỉnh danh mục đã duyệt." };
   const id = String(form.get("product_id") ?? "");
   const slug = String(form.get("reviewed_category_slug") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Sản phẩm không hợp lệ." };
+  const scopeGate = await productGate(id);
+  if (scopeGate) return { ok: false, message: scopeGate.message };
   try {
     const store = getStore();
     const product = await store.getProduct(id);

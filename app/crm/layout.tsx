@@ -15,6 +15,7 @@ import { loadMailboxData } from "@/lib/mail/mailbox-access";
 import { Sidebar } from "@/components/sidebar";
 import { sponsoredRequestStore } from "@/lib/sponsored/requests";
 import { CrmTopbar } from "@/components/crm-topbar";
+import { filterOwnedSuppliers, isSupplierScopedRole } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -77,12 +78,20 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       return null; // unknown is not zero; the menu shows a warning instead
     }
   };
+  // Kinh doanh chỉ đếm việc của nhà cung cấp mình phụ trách, khớp với danh sách họ thấy.
+  const scopedSuppliers = isSupplierScopedRole(session.role)
+    ? filterOwnedSuppliers(session, await store.listSuppliers().catch((error) => {
+        console.error("[crm] không đọc được nhà cung cấp để đếm huy hiệu", error);
+        return [];
+      }))
+    : null;
+  const badgeScope = scopedSuppliers ? scopedSuppliers.map((s) => s.id) : null;
   const [pendingSuppliers, pendingProductContent, pendingReviews, pendingSubmissions, pendingCertificates, pendingSponsoredRequests] = await Promise.all([
-    canSuppliers ? countOrZero("nhà cung cấp", () => store.countSupplierAccountsPending()) : 0,
-    canProducts ? countOrZero("sản phẩm", () => store.countProductsPendingReview()) : 0,
-    canReviews ? countOrZero("đợt kiểm", () => store.countReviewsAwaitingApproval()) : 0,
-    canReviews ? countOrZero("hồ sơ tự gửi", () => store.countSubmissionsPendingReview()) : 0,
-    canReviews ? countOrZero("giấy chứng nhận", () => store.countCertificatesPendingReview()) : 0,
+    canSuppliers ? countOrZero("nhà cung cấp", () => store.countSupplierAccountsPending(badgeScope)) : 0,
+    canProducts ? countOrZero("sản phẩm", () => store.countProductsPendingReview(badgeScope)) : 0,
+    canReviews ? countOrZero("đợt kiểm", () => store.countReviewsAwaitingApproval(badgeScope)) : 0,
+    canReviews ? countOrZero("hồ sơ tự gửi", () => store.countSubmissionsPendingReview(badgeScope)) : 0,
+    canReviews ? countOrZero("giấy chứng nhận", () => store.countCertificatesPendingReview(badgeScope)) : 0,
     countSponsoredRequests(),
   ]);
   const pendingProducts = pendingProductContent;
@@ -109,11 +118,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Nâng gói tách riêng vì đó là doanh thu, cần thấy ngay ở menu Gói thành viên.
   const newServiceRequests = canSuppliers
     ? await store.listSupplierServiceRequests({ status: "submitted", limit: 500 })
+      .then((rows) => badgeScope ? rows.filter((r) => badgeScope.includes(r.supplier_id)) : rows)
       .catch((error) => { console.error("[crm] đếm yêu cầu dịch vụ lỗi", error); return []; })
     : [];
   const pendingPlanUpgrades = newServiceRequests.filter((r) => r.service_key === "plan_upgrade").length;
   const pendingServiceRequests = newServiceRequests.length - pendingPlanUpgrades;
-  const expiringPlans = canSuppliers ? await countOrZero("gói sắp hết hạn", () => countPaidPlansExpiring()) : 0;
+  const expiringPlans = canSuppliers ? await countOrZero("gói sắp hết hạn", () => countPaidPlansExpiring(Date.now(), badgeScope)) : 0;
 
   // Chuông thông báo của CRM: cùng nguồn số với huy hiệu sidebar, nên hai nơi
   // không bao giờ lệch nhau. Chỉ đưa vào chuông hàng đang có việc.

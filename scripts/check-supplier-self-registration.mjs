@@ -223,6 +223,8 @@ const profile = load('../app/api/supplier-portal/profile/route.ts', {
   '@/lib/supplier-portal/notify': mocks['@/lib/supplier-portal/notify'],
   '@/lib/i18n/server': { getPortalMessages: async () => ({ locale: 'vi', intl: 'vi-VN', m: {} }) },
   '@/lib/verification': { isL1BusinessLicense },
+  // Hồ sơ tự đăng ký được chia đều cho kinh doanh; kiểm riêng ở check-supplier-ownership.mjs.
+  '@/lib/crm/supplier-owner': { autoAssignSupplierOwner: async (_store, id) => { state.autoAssigned = [...(state.autoAssigned ?? []), id]; return null; } },
   '@/lib/ai/supplier-translation-service': {
     ensureSupplierProfileEnglish: async (storeArg, id) => {
       const s = await storeArg.getSupplier(id);
@@ -420,6 +422,8 @@ const media = load('../app/api/media/file/[...path]/route.ts', {
   '@/lib/media/storage': { getObject: async () => ({ data: new Uint8Array([37, 80, 68, 70]) }) },
   '@/lib/supplier-portal/policy': policy,
   '@/lib/supplier-portal/onboarding': onboarding,
+  '@/lib/auth/supplier-access': { mediaAssetAllowed: async () => true },
+  '@/lib/auth/supplier-scope': { isSupplierScopedRole: (role) => role === 'sale' },
 });
 const fileRequest = new Request('https://example.com/api/media/file/verifications/v1/test.pdf');
 const fileParams = { params: Promise.resolve({ path: ['verifications', 'v1', 'test.pdf'] }) };
@@ -467,6 +471,8 @@ const decisions = load('../app/crm/suppliers/[slug]/onboarding-actions.ts', {
   }) },
   '@/lib/auth/session': { guard: async () => denyApproval ? { message: 'denied' } : null,
     getSession: async () => ({ uid: 'staff-1', email: 'staff@example.com', role: 'reviewer' }) },
+  '@/lib/auth/supplier-scope': { canDecideSupplierRole: (role) => ['admin', 'reviewer', 'sale'].includes(role) },
+  '@/lib/auth/supplier-access': { supplierGate: async () => null },
 });
 const approval = new FormData(); approval.set('supplier_id', staffSupplierId); approval.set('decision', 'approved');
 assert.equal((await decisions.decideSupplierOnboardingAction(approval)).ok, false);

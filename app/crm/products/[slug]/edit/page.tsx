@@ -35,6 +35,8 @@ import { ProductEditWorkspace } from "./edit-workspace";
 import { QuantityPreviewCard } from "@/components/products/quantity-preview-card";
 import { currentProductGrade, gradeOutsideCategory, gradeOutsideCategoryMessage } from "@/lib/products/grade-category-check";
 import type { QuantityPreviewSnapshot } from "@/components/products/quantity-preview-store";
+import { requireSupplierInScope } from "@/lib/auth/supplier-access";
+import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +54,7 @@ export default async function EditProductPage({
   if (!product) notFound();
   const supplier = await store.getSupplier(product.supplier_id);
   if (!supplier) notFound();
+  await requireSupplierInScope(session, supplier.id);
   const [media, categories] = await Promise.all([store.listMedia("product", id), store.listCategories({ publishedOnly: false })]);
   // Chứng nhận áp cho sản phẩm: giấy chất lượng có phạm vi phủ sản phẩm/danh mục (thừa
   // hưởng) hoặc giấy nhà cung cấp xin gắn. Một dòng "Thừa hưởng …" là đủ để người duyệt
@@ -296,7 +299,7 @@ export default async function EditProductPage({
                 ? "Sản phẩm đang ẩn. Nhà cung cấp phải gửi duyệt lại trước khi có thể đăng."
                 : "Sản phẩm chưa được đăng. Nhà cung cấp cần chỉnh sửa và gửi duyệt lại."}</p>
             {product.supplier_review_note && <p className="mt-2">Ghi chú: {product.supplier_review_note}</p>}
-            {needsPublicationAction && (session.role === "admin" || session.role === "reviewer") &&
+            {needsPublicationAction && canDecideSupplierRole(session.role) &&
               <SupplierProductReviewControls
                 id={product.id}
                 proposal={product.supplier_category_proposal}

@@ -15,6 +15,8 @@ export type Permission =
   | "suppliers.manage"
   | "suppliers.delete"
   | "suppliers.publish"
+  /** Giao / chuyển người phụ trách nhà cung cấp, chia đều NCC chưa giao (chỉ admin). */
+  | "suppliers.assign"
   | "products.view"
   | "products.manage"
   | "products.delete"
@@ -76,7 +78,7 @@ export const ROLES: {
     value: "sale",
     label: "Kinh doanh",
     description:
-      "Người mua, prospect, pipeline, email và chat với người mua. Xem nhà cung cấp/sản phẩm nhưng không sửa.",
+      "Người mua, email, chat. Quản lý trọn vẹn nhà cung cấp mình phụ trách, từ duyệt tài khoản, giấy tờ đến gói dịch vụ.",
     badge: "bg-brand-600 text-white",
   },
   {
@@ -126,6 +128,7 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "suppliers.manage",
     "suppliers.delete",
     "suppliers.publish",
+    "suppliers.assign",
     "products.view",
     "products.manage",
     "products.delete",
@@ -151,13 +154,23 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "sponsored.manage",
     "support.manage",
   ],
+  // Quyền nhà cung cấp của kinh doanh chỉ áp dụng cho NCC mình phụ trách:
+  // máy chủ kiểm tra thêm phạm vi ở lib/auth/supplier-access.ts.
   sale: [
     "buyers.view",
     "buyers.manage",
     "prospects.manage",
     "suppliers.view",
+    "suppliers.manage",
+    "suppliers.publish",
     "products.view",
+    "products.manage",
     "media.view",
+    "media.manage",
+    "media.internal",
+    "verifications.view",
+    "verifications.inspect",
+    "verifications.approve",
     "mail.view",
     "mail.send",
     "kpi.view",

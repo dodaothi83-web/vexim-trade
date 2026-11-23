@@ -8,6 +8,8 @@ import { passwordProblem } from "@/lib/auth/password";
 import { provisionSupplierAccount } from "@/lib/supplier-portal/provision-account";
 import { handOverSupplierAccount } from "@/lib/supplier-portal/handover-account";
 import { refreshCrmBadges } from "@/lib/crm/badges";
+import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 type Result = { ok: boolean; message: string };
 
@@ -19,11 +21,13 @@ export async function provisionSupplierAccountAction(form: FormData): Promise<Re
   const denied = await guard("suppliers.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "reviewer")) {
-    return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được cấp tài khoản nhà cung cấp." };
+  if (!session || !canDecideSupplierRole(session.role)) {
+    return { ok: false, message: "Tài khoản của bạn không được cấp tài khoản nhà cung cấp." };
   }
   const id = String(form.get("supplier_id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Yêu cầu không hợp lệ." };
+  const scopeGate = await supplierGate(id);
+  if (scopeGate) return { ok: false, message: scopeGate.message };
   const email = String(form.get("email") ?? "");
   const name = String(form.get("name") ?? "");
   const secretField = "temp_password";
@@ -71,11 +75,13 @@ export async function handOverSupplierAccountAction(form: FormData): Promise<Res
   const denied = await guard("suppliers.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "reviewer")) {
-    return { ok: false, message: "Chỉ quản trị và trưởng kiểm duyệt được bàn giao tài khoản nhà cung cấp." };
+  if (!session || !canDecideSupplierRole(session.role)) {
+    return { ok: false, message: "Tài khoản của bạn không được bàn giao tài khoản nhà cung cấp." };
   }
   const id = String(form.get("supplier_id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, message: "Yêu cầu không hợp lệ." };
+  const scopeGate = await supplierGate(id);
+  if (scopeGate) return { ok: false, message: scopeGate.message };
   const email = String(form.get("new_email") ?? "");
   const password = String(form.get("new_password") ?? "");
   try {

@@ -13,6 +13,7 @@ import {
 } from "@/lib/supplier-services";
 import type { SupplierServiceRequest } from "@/lib/types";
 import { updateServiceRequestStatusAction } from "./actions";
+import { filterBySupplierIds, filterOwnedSuppliers, supplierOwnerScope } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Yêu cầu dịch vụ", robots: { index: false, follow: false } };
@@ -40,7 +41,9 @@ export default async function ServiceRequestsPage({ searchParams }: { searchPara
     console.error("[crm service-requests] list failed", error);
     unavailable = true;
   }
-  const suppliers = requests.length ? await store.listSuppliers().catch(() => []) : [];
+  const suppliers = filterOwnedSuppliers(session, requests.length ? await store.listSuppliers().catch(() => []) : []);
+  // Kinh doanh chỉ thấy yêu cầu của nhà cung cấp mình phụ trách.
+  if (supplierOwnerScope(session) !== null) requests = filterBySupplierIds(new Set(suppliers.map((s) => s.id)), requests);
   const supplierById = new Map(suppliers.map((supplier) => [supplier.id, supplier]));
   const date = (value: string) => new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
 

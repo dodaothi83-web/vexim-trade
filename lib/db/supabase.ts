@@ -541,7 +541,15 @@ export const supabaseStore: DataStore = {
     if (error) fail("countUsers", error);
     return count ?? 0;
   },
-  async countSupplierAccountsPending() {
+  async countSupplierAccountsPending(supplierIds) {
+    if (supplierIds && supplierIds.length === 0) return 0;
+    if (supplierIds) {
+      // Kinh doanh: chỉ hồ sơ mình phụ trách; tài khoản chưa nộp hồ sơ chưa có chủ nên không tính.
+      const { count, error } = await must().from("suppliers").select("id", { count: "exact", head: true })
+        .eq("onboarding_status", "pending").or("is_demo.is.null,is_demo.eq.false").in("id", [...supplierIds]);
+      if (error) fail("countSupplierAccountsPending", error);
+      return count ?? 0;
+    }
     const [profiles, logins] = await Promise.all([
       must().from("suppliers").select("id", { count: "exact", head: true })
         .eq("onboarding_status", "pending").or("is_demo.is.null,is_demo.eq.false"),
@@ -552,35 +560,47 @@ export const supabaseStore: DataStore = {
     if (logins.error) fail("countSupplierAccountsPending", logins.error);
     return (profiles.count ?? 0) + (logins.count ?? 0);
   },
-  async countProductsPendingReview() {
+  async countProductsPendingReview(supplierIds) {
+    if (supplierIds && supplierIds.length === 0) return 0;
     // Bảng thật là supplier_products. Trước đây truy vấn gõ "products" nên production
     // trả lỗi "relation does not exist"; layout bắt lỗi và trả 0, thành ra sản phẩm NCC
     // gửi lên không bao giờ hiện huy hiệu chờ duyệt dù email đã gửi.
-    const { count, error } = await must()
+    let query = must()
       .from("supplier_products")
       .select("id", { count: "exact", head: true })
       .eq("supplier_review_status", "pending");
+    if (supplierIds) query = query.in("supplier_id", [...supplierIds]);
+    const { count, error } = await query;
     if (error) fail("countProductsPendingReview", error);
     return count ?? 0;
   },
-  async countReviewsAwaitingApproval() {
-    const { count, error } = await must()
+  async countReviewsAwaitingApproval(supplierIds) {
+    if (supplierIds && supplierIds.length === 0) return 0;
+    let query = must()
       .from("verifications").select("id", { count: "exact", head: true }).eq("status", "submitted");
+    if (supplierIds) query = query.in("supplier_id", [...supplierIds]);
+    const { count, error } = await query;
     if (error) fail("countReviewsAwaitingApproval", error);
     return count ?? 0;
   },
-  async countSubmissionsPendingReview() {
-    const { count, error } = await must()
+  async countSubmissionsPendingReview(supplierIds) {
+    if (supplierIds && supplierIds.length === 0) return 0;
+    let query = must()
       .from("supplier_submissions").select("id", { count: "exact", head: true }).eq("status", "pending_review");
+    if (supplierIds) query = query.in("supplier_id", [...supplierIds]);
+    const { count, error } = await query;
     // Bảng chưa có trên bản chưa chạy migration: không có việc gì để hiện, không làm hỏng badge khác.
     if (error) return 0;
     return count ?? 0;
   },
-  async countCertificatesPendingReview() {
-    const { count, error } = await must()
+  async countCertificatesPendingReview(supplierIds) {
+    if (supplierIds && supplierIds.length === 0) return 0;
+    let query = must()
       .from("certificates").select("id", { count: "exact", head: true }).eq("review_status", "pending")
       // Giấy hết hạn không duyệt đăng được nên không tính là việc chờ duyệt (khớp trang /crm/certificates).
       .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString().slice(0, 10)}`);
+    if (supplierIds) query = query.in("supplier_id", [...supplierIds]);
+    const { count, error } = await query;
     if (error) fail("countCertificatesPendingReview", error);
     return count ?? 0;
   },

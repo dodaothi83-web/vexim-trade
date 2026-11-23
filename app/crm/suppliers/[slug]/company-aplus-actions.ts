@@ -8,10 +8,11 @@ import { getStore } from "@/lib/db";
 import { deleteStreamVideo } from "@/lib/media/cloudflare-stream";
 import { deleteAplusImages } from "@/lib/products/aplus-image-store";
 import { aplusImagePaths, aplusVideoUids, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 /** Nhân viên gỡ một khối A+ doanh nghiệp vi phạm (liên hệ trực tiếp, nội dung sai...). Ghi nhật ký. */
 export async function removeCompanyAplusModuleAction(supplierId: string, moduleId: string): Promise<{ ok: boolean; message: string }> {
-  const denied = await guard("suppliers.manage");
+  const denied = (await guard("suppliers.manage")) ?? (await supplierGate(supplierId));
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
   const store = getStore();

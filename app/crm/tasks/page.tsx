@@ -6,6 +6,7 @@ import { getStore } from "@/lib/db";
 import { isPartnerL2, l2ScopeMatchesSupplier } from "@/lib/l2-scope";
 import { auditHref } from "@/lib/verification";
 import { isOverdue, TASK_ORDER, TaskList, type Task, type TaskType } from "./task-list";
+import { filterBySupplierIds, filterOwnedSuppliers, supplierOwnerScope } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Việc cần làm" };
@@ -20,7 +21,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const type: TaskType | "all" = TASK_ORDER.includes(sp.type as TaskType) ? sp.type as TaskType : "all";
   const session = await requirePagePermission("verifications.view", "/crm/dashboard");
   const store = getStore();
-  const [verifications, submissions, suppliers, requests, chats] = await Promise.all([
+  const [allVerifications, allSubmissions, allSuppliers, allRequests, chats] = await Promise.all([
     store.listVerifications(),
     store.listSubmissions().catch(() => []),
     store.listSuppliers(),
@@ -28,6 +29,12 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
     // Chat người mua ↔ nhà cung cấp chỉ dành cho người có quyền xem RFQ (như trang Tin nhắn).
     hasPermission(session.role, "rfq.view") ? store.listChatConversations({ limit: 1000 }).catch(() => []) : [],
   ]);
+  // Kinh doanh chỉ thấy việc của nhà cung cấp mình phụ trách.
+  const suppliers = filterOwnedSuppliers(session, allSuppliers);
+  const allowedSupplierSet = supplierOwnerScope(session) === null ? null : new Set(suppliers.map((s) => s.id));
+  const verifications = filterBySupplierIds(allowedSupplierSet, allVerifications);
+  const submissions = filterBySupplierIds(allowedSupplierSet, allSubmissions);
+  const requests = filterBySupplierIds(allowedSupplierSet, allRequests);
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
   const name = (id: string) => supplierById.get(id)?.name ?? "Nhà cung cấp";
   const open = (status: string) => ["in_progress", "scheduled", "submitted"].includes(status);

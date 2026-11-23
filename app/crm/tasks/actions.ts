@@ -13,6 +13,7 @@ import { acceptSubmissionIntoVerification, returnSubmission } from "@/lib/verifi
 import { canSelfApproveVerification } from "@/lib/verification-policy";
 import type { Verification } from "@/lib/types";
 import { approveVerificationAction, returnVerificationAction } from "../suppliers/[slug]/verification-actions";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 /**
  * Xét nhanh chứng từ xuất khẩu (cấp L2 hiển thị, mã target_level = 3) trong một trang.
@@ -38,7 +39,7 @@ async function decider(): Promise<{ uid: string; email: string | null } | string
   const session = await getSession();
   if (!session) return "Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.";
   if (!canSelfApproveVerification(session.role) || !hasPermission(session.role, "media.internal")) {
-    return "Chỉ quản trị viên hoặc trưởng kiểm duyệt được bấm Duyệt hoặc Trả lại.";
+    return "Tài khoản của bạn không được bấm Duyệt hoặc Trả lại.";
   }
   return { uid: session.uid, email: session.email };
 }
@@ -58,6 +59,8 @@ async function openReview(kind: string, id: string, staff: { uid: string; email:
   }
   const verification = await store.getVerification(id);
   if (!verification || verification.target_level !== 3) return "Không tìm thấy đợt kiểm chứng từ xuất khẩu này.";
+  const scopeDenied = await supplierGate(verification.supplier_id);
+  if (scopeDenied) return scopeDenied.message;
   if (!OPEN_STATUSES.has(verification.status)) return "Đợt kiểm này đã được xử lý. Tải lại trang Việc cần làm.";
   return verification;
 }

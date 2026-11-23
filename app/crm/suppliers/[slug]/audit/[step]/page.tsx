@@ -18,6 +18,7 @@ import { AuditForm } from "./audit-form";
 import { isPartnerContractDocument } from "@/lib/certificate-service";
 import { CallReviewForm } from "./call-review-form";
 import { isCallReview } from "@/lib/l2-call-review";
+import { requireSupplierInScope } from "@/lib/auth/supplier-access";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export default async function AuditStepPage({ params, searchParams }: { params: 
       .catch((error) => { console.error("[certificates] query failed", error); return []; }) : Promise.resolve([]),
   ]);
   if (!supplier) notFound();
+  await requireSupplierInScope(session, supplier.id);
   // Phạm vi đã xác nhận của từng giấy + danh mục để chọn phạm vi + sản phẩm mà nhà
   // cung cấp xin mở rộng. Lỗi đọc chỉ làm trống phần phạm vi, không chặn trang.
   const [certificateScopes, scopeCategories] = step.level === 1

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSession, guard } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { isSupplierServiceStatus, manualServiceStatuses } from "@/lib/supplier-services";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 /** Nhân viên đổi trạng thái yêu cầu tư vấn; nhà cung cấp thấy trạng thái mới trong cổng. */
 export async function updateServiceRequestStatusAction(form: FormData): Promise<void> {
@@ -18,6 +19,7 @@ export async function updateServiceRequestStatusAction(form: FormData): Promise<
   const store = getStore();
   const before = (await store.listSupplierServiceRequests({ limit: 500 })).find((request) => request.id === id);
   if (!before || before.status === status) return;
+  if (await supplierGate(before.supplier_id)) return;
   // Nâng gói: "Đã mở" chỉ do kích hoạt gói đặt, "Hết hạn" do tác vụ hằng ngày đặt.
   if (!manualServiceStatuses(before.service_key).includes(status)) return;
   const updated = await store.updateSupplierServiceRequest(id, { status, handled_by: session.uid });

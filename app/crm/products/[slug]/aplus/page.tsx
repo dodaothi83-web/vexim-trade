@@ -8,6 +8,7 @@ import { publicProductCategorySlug } from "@/lib/public/product-selection";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { CrmAplusWorkspace } from "../../../aplus-workspace";
+import { requireSupplierInScope } from "@/lib/auth/supplier-access";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Soạn A+ sản phẩm", robots: { index: false, follow: false } };
@@ -15,12 +16,13 @@ export const metadata = { title: "Soạn A+ sản phẩm", robots: { index: fals
 /** CRM: soạn A+ hộ nhà cung cấp cho một sản phẩm (lưu là đăng ngay). */
 export default async function CrmProductAplusPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: id } = await params;
-  await requirePagePermission("products.manage", "/crm/products");
+  const session = await requirePagePermission("products.manage", "/crm/products");
   const store = getStore();
   const product = await store.getProduct(id);
   if (!product?.supplier_id) notFound();
   const supplier = await store.getSupplier(product.supplier_id);
   if (!supplier) notFound();
+  await requireSupplierInScope(session, supplier.id);
   const visible = supplierPlanRules(supplier, new Date(), await readPlanCatalog()).richContent;
   const categories = product.supplier_review_status === "approved" ? await store.listCategories({ publishedOnly: true }).catch(() => []) : [];
   const slug = categories.length ? publicProductCategorySlug(product, categories) : null;

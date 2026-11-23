@@ -14,6 +14,7 @@ import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { transferRenewalScope } from "@/lib/certificate-renewal";
 import { refreshCrmBadges } from "@/lib/crm/badges";
 import { encodeRejectionReason, staffRejectionLabel, supplierRejectionMessage } from "@/lib/certificate-rejection";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const result = (ok: boolean, message: string) => ({ ok, message });
@@ -60,6 +61,8 @@ async function rescanCertificate(supplierId: string, certificateId: string) {
   if (!session || !hasPermission(session.role, "verifications.inspect")) {
     return result(false, "Bạn không có quyền quét lại chứng nhận L1.");
   }
+  const scopeDenied = await supplierGate(supplierId);
+  if (scopeDenied) return result(false, scopeDenied.message);
   const store = getStore();
   const [supplier, cert] = await Promise.all([
     store.getSupplier(supplierId),
@@ -150,6 +153,8 @@ async function approveCertificate(supplierId: string, certificateId: string, opt
   if (!session || !hasPermission(session.role, "suppliers.publish")) {
     return result(false, "Bạn không có quyền duyệt đăng chứng nhận trên trang công khai.");
   }
+  const scopeDenied = await supplierGate(supplierId);
+  if (scopeDenied) return result(false, scopeDenied.message);
   if (!uuid.test(certificateId)) {
     return result(false, "Mã chứng nhận không hợp lệ.");
   }
@@ -277,6 +282,8 @@ async function setCertificateScheme(supplierId: string, certificateId: string, s
   if (!session || !hasPermission(session.role, "verifications.inspect")) {
     return result(false, "Bạn không có quyền phân loại chứng nhận.");
   }
+  const scopeDenied = await supplierGate(supplierId);
+  if (scopeDenied) return result(false, scopeDenied.message);
   if (!uuid.test(certificateId)) return result(false, "Mã chứng nhận không hợp lệ.");
   const next = scheme.trim() === "" ? null : scheme.trim();
   if (next !== null && !isCertificateScheme(next)) return result(false, "Loại chứng nhận không hợp lệ.");
@@ -334,6 +341,8 @@ async function toggleCertificateHidden(
   if (!session || !hasPermission(session.role, "suppliers.publish")) {
     return result(false, "Bạn không có quyền ẩn/hiện chứng nhận trên trang công khai.");
   }
+  const scopeDenied = await supplierGate(supplierId);
+  if (scopeDenied) return result(false, scopeDenied.message);
   if (!uuid.test(certificateId)) {
     return result(false, "Mã chứng nhận không hợp lệ.");
   }
@@ -399,6 +408,8 @@ export async function rejectCertificateAction(supplierId: string, certificateId:
     if ((await guard("suppliers.publish")) !== null) return result(false, "Bạn không có quyền từ chối chứng nhận.");
     const session = await getSession();
     if (!session || !hasPermission(session.role, "suppliers.publish")) return result(false, "Bạn không có quyền từ chối chứng nhận.");
+    const scopeDenied = await supplierGate(supplierId);
+    if (scopeDenied) return result(false, scopeDenied.message);
     if (!uuid.test(certificateId)) return result(false, "Mã chứng nhận không hợp lệ.");
     const reason = encodeRejectionReason(String(code ?? ""), String(otherText ?? ""));
     if (!reason) return result(false, code === "other" ? "Ghi lý do gửi nhà cung cấp trước khi từ chối." : "Chọn lý do từ chối.");
@@ -447,6 +458,8 @@ export async function reopenCertificateAction(supplierId: string, certificateId:
     if ((await guard("suppliers.publish")) !== null) return result(false, "Bạn không có quyền đổi trạng thái chứng nhận.");
     const session = await getSession();
     if (!session || !hasPermission(session.role, "suppliers.publish")) return result(false, "Bạn không có quyền đổi trạng thái chứng nhận.");
+    const scopeDenied = await supplierGate(supplierId);
+    if (scopeDenied) return result(false, scopeDenied.message);
     if (!uuid.test(certificateId)) return result(false, "Mã chứng nhận không hợp lệ.");
     const store = getStore();
     const [supplier, cert] = await Promise.all([store.getSupplier(supplierId), store.getCertificate(certificateId)]);

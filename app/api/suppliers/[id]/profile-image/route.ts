@@ -5,6 +5,7 @@ import { getStore } from "@/lib/db";
 import { guard } from "@/lib/auth/session";
 import { validateUpload, extensionFor } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,8 @@ export async function POST(
   const gate = await guard("suppliers.manage");
   if (gate) return NextResponse.json({ ok: false, message: gate.message }, { status: 403 });
   const { id } = await params;
+  const scopeDenied = await supplierGate(id);
+  if (scopeDenied) return NextResponse.json({ ok: false, message: scopeDenied.message }, { status: 403 });
   const store = getStore();
   const sup = await store.getSupplier(id);
   if (!sup) return NextResponse.json({ ok: false, message: "Không tìm thấy nhà cung cấp." }, { status: 404 });
@@ -70,6 +73,8 @@ export async function DELETE(
   const gate = await guard("suppliers.manage");
   if (gate) return NextResponse.json({ ok: false, message: gate.message }, { status: 403 });
   const { id } = await params;
+  const scopeDenied = await supplierGate(id);
+  if (scopeDenied) return NextResponse.json({ ok: false, message: scopeDenied.message }, { status: 403 });
   const store = getStore();
   const sup = await store.getSupplier(id);
   if (!sup) return NextResponse.json({ ok: false, message: "Không tìm thấy nhà cung cấp." }, { status: 404 });

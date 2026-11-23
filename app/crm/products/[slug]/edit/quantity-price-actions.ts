@@ -8,6 +8,7 @@ import { standardGradesForCategory } from "@/lib/products/grade-pricing";
 import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config";
 import { entryCurrencyIssue, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
+import { productGate } from "@/lib/auth/supplier-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: boolean; message: string };
@@ -24,6 +25,8 @@ export async function submitStaffQuantityPriceAction(form: FormData): Promise<Re
     }
     const id = String(form.get("product_id") ?? "");
     if (!UUID.test(id)) return { ok: false, message: "Sản phẩm không hợp lệ." };
+    const scopeDenied = await productGate(id);
+    if (scopeDenied) return { ok: false, message: scopeDenied.message };
     const product = await supabaseStore.getProduct(id);
     if (!product || !["draft", "approved", "changes_requested", "paused"].includes(product.supplier_review_status ?? "approved")) {
       return { ok: false, message: "Sản phẩm không ở trạng thái cho phép gửi bảng giá." };

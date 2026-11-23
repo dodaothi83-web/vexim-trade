@@ -61,13 +61,17 @@ export async function runPlanExpiry(now = Date.now()): Promise<{ reminded: numbe
 }
 
 /** Số nhà cung cấp có gói trả phí còn hiệu lực và hết hạn trong 30 ngày (cho chuông CRM). */
-export async function countPaidPlansExpiring(now = Date.now()): Promise<number> {
+export async function countPaidPlansExpiring(now = Date.now(), supplierIds: readonly string[] | null = null): Promise<number> {
   const db = getSupabaseClient();
   if (!db) return 0;
-  const { count, error } = await db.from("suppliers").select("id", { count: "exact", head: true })
+  // supplierIds: kinh doanh chỉ đếm nhà cung cấp mình phụ trách; null = tất cả.
+  if (supplierIds && supplierIds.length === 0) return 0;
+  let query = db.from("suppliers").select("id", { count: "exact", head: true })
     .in("plan", ["premium", "pro"]).eq("is_demo", false)
     .gt("plan_expires_at", new Date(now).toISOString())
     .lte("plan_expires_at", new Date(now + PLAN_EXPIRING_DAYS * 86_400_000).toISOString());
+  if (supplierIds) query = query.in("id", [...supplierIds]);
+  const { count, error } = await query;
   if (error) throw new Error(error.message);
   return count ?? 0;
 }

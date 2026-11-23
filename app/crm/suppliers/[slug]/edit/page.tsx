@@ -10,6 +10,7 @@ import { MediaManager } from "@/components/media-manager";
 import { SupplierImagePicker } from "@/components/supplier-image-picker";
 import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { requireSupplierInScope } from "@/lib/auth/supplier-access";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,7 @@ export default async function EditSupplierPage({ params }: { params: Promise<{ s
   const store = getStore();
   const supplier = await store.getSupplier(id);
   if (!supplier) notFound();
+  await requireSupplierInScope(session, supplier.id);
   const [media, products, categories] = await Promise.all([
     store.listMedia("supplier", id), store.listProductsBySupplier(id), store.listCategories({ publishedOnly: false }),
   ]);

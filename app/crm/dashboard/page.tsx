@@ -16,6 +16,7 @@ import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { productReviewApproved, productBelongsToCategory } from "@/lib/public/product-selection";
 import type { MediaAsset } from "@/lib/types";
 import { rfqChannel } from "@/lib/rfq/channel";
+import { filterBySupplierIds, filterOwnedSuppliers, supplierOwnerScope } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Vận hành sàn | Vexim Trade" };
@@ -35,7 +36,7 @@ export default async function DashboardPage() {
   const canRfqs = hasPermission(session.role, "rfq.view");
   const canTraffic = hasPermission(session.role, "traffic.view");
   const store = getStore();
-  const [suppliers, products, categories, verifications, requests, rfqs, trafficRows, supplierLogins] = await Promise.all([
+  const [allSuppliers, allProducts, categories, allVerifications, allRequests, rfqs, trafficRows, supplierLogins] = await Promise.all([
     canSuppliers ? store.listSuppliers() : Promise.resolve([]),
     canProducts ? store.listProducts() : Promise.resolve([]),
     store.listCategories({ publishedOnly: false }),
@@ -55,7 +56,14 @@ export default async function DashboardPage() {
       return [];
     }) : Promise.resolve([]),
   ]);
-  const accountsWithoutProfile = supplierLogins.filter((u) => u.is_active && u.role === "supplier" && !u.supplier_id);
+  // Kinh doanh: số liệu và hàng việc chỉ tính nhà cung cấp mình phụ trách.
+  const suppliers = filterOwnedSuppliers(session, allSuppliers);
+  const allowedSupplierSet = supplierOwnerScope(session) === null ? null : new Set(suppliers.map((s) => s.id));
+  const products = filterBySupplierIds(allowedSupplierSet, allProducts);
+  const verifications = filterBySupplierIds(allowedSupplierSet, allVerifications);
+  const requests = allRequests === null ? null : filterBySupplierIds(allowedSupplierSet, allRequests);
+  // Tài khoản chưa nộp hồ sơ chưa có người phụ trách: chỉ quản trị/kiểm duyệt theo dõi.
+  const accountsWithoutProfile = allowedSupplierSet ? [] : supplierLogins.filter((u) => u.is_active && u.role === "supplier" && !u.supplier_id);
   // Only fetch media for plausible live offers, in bounded batches. Drafts and
   // internal files never become public merely because they are present in storage.
   const publishedIds = new Set(suppliers.filter((s) => s.status === "published" && !isSyntheticSupplier(s)).map((s) => s.id));

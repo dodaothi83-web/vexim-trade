@@ -8,6 +8,7 @@ import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { certificateSchemeLabel, isScopeableCertificateScheme } from "@/lib/certificate-scheme";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const result = (ok: boolean, message: string) => ({ ok, message });
@@ -38,6 +39,8 @@ async function authorize(supplierId: string, certificateId: string) {
   if (!uuid.test(supplierId) || !uuid.test(certificateId)) {
     return { error: result(false, "Mã chứng nhận không hợp lệ.") };
   }
+  const scopeDenied = await supplierGate(supplierId);
+  if (scopeDenied) return { error: result(false, scopeDenied.message) };
   const store = getStore();
   const [supplier, certificate] = await Promise.all([
     store.getSupplier(supplierId),

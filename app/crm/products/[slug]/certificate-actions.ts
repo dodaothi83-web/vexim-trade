@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
+import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
+import { certificateGate, productGate } from "@/lib/auth/supplier-access";
 import { getStore } from "@/lib/db";
 import { withApprovedProduct } from "@/lib/products/product-certificates";
 
@@ -17,8 +19,8 @@ export async function decideProductCertificateAction(form: FormData): Promise<Pr
   const denied = await guard("products.manage");
   if (denied) return { ok: false, message: denied.message };
   const session = await getSession();
-  if (!session || (session.role !== "admin" && session.role !== "reviewer")) {
-    return { ok: false, message: "Chỉ quản trị hoặc trưởng kiểm duyệt được duyệt liên kết chứng nhận." };
+  if (!session || !canDecideSupplierRole(session.role)) {
+    return { ok: false, message: "Tài khoản của bạn không được duyệt liên kết chứng nhận." };
   }
 
   const productId = String(form.get("product_id") ?? "").trim();
@@ -26,6 +28,8 @@ export async function decideProductCertificateAction(form: FormData): Promise<Pr
   const decision = String(form.get("decision") ?? "");
   if (!productId || !certificateId) return { ok: false, message: "Yêu cầu không hợp lệ." };
   if (decision !== "approve" && decision !== "revoke") return { ok: false, message: "Yêu cầu không hợp lệ." };
+  const scopeGate = (await productGate(productId)) ?? (await certificateGate(certificateId));
+  if (scopeGate) return { ok: false, message: scopeGate.message };
 
   try {
     const store = getStore();

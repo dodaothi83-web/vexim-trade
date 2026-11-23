@@ -16,7 +16,7 @@ assert.ok(!/from\("products"\)/.test(productCount), 'Không còn truy vấn bả
 
 /* 2. Mỗi menu có việc riêng phải có huy hiệu riêng: hồ sơ NCC tự gửi tách khỏi đợt kiểm. */
 const layout = read('app/crm/layout.tsx');
-assert.match(layout, /countSubmissionsPendingReview\(\)/);
+assert.match(layout, /countSubmissionsPendingReview\((badgeScope)?\)/);
 assert.match(layout, /pendingSubmissions=\{pendingSubmissions\}/);
 assert.match(layout, /console\.error\(`\[crm\] đếm việc chờ/, 'Lỗi đếm phải ghi log, không nuốt im lặng');
 
@@ -26,8 +26,8 @@ assert.match(sidebar, /item\.href === "\/crm\/verifications\/submissions"[\s\S]{
   'Huy hiệu hồ sơ tự gửi gắn đúng menu');
 
 const types = read('lib/db/types.ts');
-assert.match(types, /countSubmissionsPendingReview\(\): Promise<number>;/);
-assert.match(read('lib/db/local.ts'), /async countSubmissionsPendingReview\(\)/);
+assert.match(types, /countSubmissionsPendingReview\((supplierIds\?: readonly string\[\] \| null)?\): Promise<number>;/);
+assert.match(read('lib/db/local.ts'), /async countSubmissionsPendingReview\((supplierIds)?\)/);
 
 /* 3. Xử lý xong thì huy hiệu phải tự trừ: làm mới cả layout /crm, không chỉ trang con. */
 assert.match(read('lib/crm/badges.ts'), /revalidatePath\("\/crm", "layout"\)/);
@@ -71,12 +71,12 @@ assert.match(notify, /Chưa có gì được duyệt/, 'Thư báo không đượ
 
 /* 6. Giấy chứng nhận cũng là một hàng chờ: đếm giấy pending, gắn menu Giấy tờ & chứng nhận,
    và tự trừ khi nhân viên duyệt. Giấy chưa phân loại / yêu cầu phạm vi nằm trong trang hub. */
-assert.match(types, /countCertificatesPendingReview\(\): Promise<number>;/, 'Store có đếm giấy chờ duyệt');
+assert.match(types, /countCertificatesPendingReview\((supplierIds\?: readonly string\[\] \| null)?\): Promise<number>;/, 'Store có đếm giấy chờ duyệt');
 const certCount = supabase.slice(supabase.indexOf('async countCertificatesPendingReview'));
 assert.match(certCount.slice(0, 400), /from\("certificates"\)[\s\S]{0,120}review_status/, 'Đếm trên bảng certificates theo review_status');
 assert.match(certCount.slice(0, 400), /head: true/, 'Đếm bằng head-count, không tải cả bảng');
-assert.match(read('lib/db/local.ts'), /async countCertificatesPendingReview\(\)/, 'Bản local cũng đếm được');
-assert.match(layout, /countCertificatesPendingReview\(\)/, 'Layout /crm đếm giấy chờ duyệt');
+assert.match(read('lib/db/local.ts'), /async countCertificatesPendingReview\((supplierIds)?\)/, 'Bản local cũng đếm được');
+assert.match(layout, /countCertificatesPendingReview\((badgeScope)?\)/, 'Layout /crm đếm giấy chờ duyệt');
 assert.match(layout, /pendingCertificates=\{pendingCertificates\}/, 'Layout truyền số giấy cho sidebar');
 assert.match(layout, /href: "\/crm\/certificates", label: "Giấy chứng nhận chờ duyệt"/, 'Chuông CRM có hàng giấy chờ duyệt');
 assert.match(sidebar, /pendingCertificates\?: number;/, 'Sidebar nhận số giấy chờ duyệt');

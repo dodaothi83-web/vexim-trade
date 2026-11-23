@@ -8,6 +8,7 @@ import { effectiveSupplierPlan, isSupplierPlan, SUPPLIER_PLANS, type SupplierPla
 import { SUPPLIER_SERVICE_STATUS_LABELS_VI } from "@/lib/supplier-services";
 import type { SupplierServiceRequest } from "@/lib/types";
 import { PlansTabs } from "./plans-tabs";
+import { filterOwnedSuppliers } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Gói thành viên", robots: { index: false, follow: false } };
@@ -23,7 +24,7 @@ const vnMonthKey = (value: string) => new Intl.DateTimeFormat("en-CA", { year: "
 export default async function SupplierPlansPage() {
   const session = await requirePagePermission("suppliers.view", "/crm");
   const store = getStore();
-  const [catalog, suppliers, products, requestsResult, activationsResult] = await Promise.all([
+  const [catalog, allSuppliers, products, requestsResult, activationsResult, users] = await Promise.all([
     readPlanCatalog(),
     store.listSuppliers(),
     store.listProducts(),
@@ -32,7 +33,12 @@ export default async function SupplierPlansPage() {
       console.error("[crm plans] activations", error);
       return { rows: [] as PlanActivation[], failed: true };
     }),
+    store.listUsers().catch(() => []),
   ]);
+  // Kinh doanh chỉ xem gói của nhà cung cấp mình phụ trách.
+  const suppliers = filterOwnedSuppliers(session, allSuppliers);
+  const staffName = new Map(users.map((u) => [u.id, u.name?.trim() || u.email]));
+  const vnd = (value: number) => `${new Intl.NumberFormat("vi-VN").format(value)} đ`;
   const now = Date.now();
   const real = suppliers.filter((s) => !s.is_demo);
   const supplierById = new Map(real.map((s) => [s.id, s]));
@@ -46,7 +52,7 @@ export default async function SupplierPlansPage() {
   const expiringSoon = paid.filter((s) => s.plan_expires_at && Date.parse(s.plan_expires_at) - now <= 30 * DAY);
   const lapsed = real.filter((s) => isSupplierPlan(s.plan) && s.plan !== "basic" && effectiveSupplierPlan(s) === "basic");
 
-  const upgrades = requestsResult.rows.filter((r) => r.service_key === "plan_upgrade");
+  const upgrades = requestsResult.rows.filter((r) => r.service_key === "plan_upgrade" && supplierById.has(r.supplier_id));
   const openUpgrades = upgrades.filter((r) => r.status === "submitted");
   const upgradeCounts = { submitted: 0, active: 0, cancelled: 0, expired: 0 } as Record<SupplierServiceRequest["status"], number>;
   for (const r of upgrades) upgradeCounts[r.status]++;
@@ -148,7 +154,12 @@ export default async function SupplierPlansPage() {
                 <td className="px-4 py-2.5">{catalog[plan].name}</td>
                 <td className={`px-4 py-2.5 tabular-nums ${soon ? "font-semibold text-amber-800" : "text-ink-700"}`}>{s.plan_expires_at ? vnDate(s.plan_expires_at) : "Không hết hạn"}</td>
                 <td className="px-4 py-2.5 tabular-nums text-ink-700">{productCount.get(s.id) ?? 0}{max === null ? " · không giới hạn" : `/${max}`}</td>
-                <td className="px-4 py-2.5 text-ink-700">{last ? `${last.months ? `${last.months} tháng · ` : ""}${vnDate(last.created_at)}` : "—"}</td>
+                <td className="px-4 py-2.5 text-ink-700">{last ? <>
+                  {`${last.months ? `${last.months} tháng · ` : ""}${vnDate(last.created_at)}`}
+                  {(last.amount_vnd !== null || last.created_by) && <span className="block text-[11.5px] text-ink-500">
+                    {[last.amount_vnd !== null ? vnd(last.amount_vnd) : null, last.created_by ? staffName.get(last.created_by) ?? null : null].filter(Boolean).join(" · ")}
+                  </span>}
+                </> : "—"}</td>
               </tr>;
             })}
           </tbody>

@@ -918,6 +918,13 @@ function ensureDemoSuppliers(db: LocalShape) {
   });
 }
 
+/** Bộ lọc phạm vi cho các phép đếm huy hiệu: null/undefined = tất cả nhà cung cấp. */
+function scopeTest(supplierIds: readonly string[] | null | undefined): (id: string | null | undefined) => boolean {
+  if (!supplierIds) return () => true;
+  const allowed = new Set(supplierIds);
+  return (id) => !!id && allowed.has(id);
+}
+
 function load(): LocalShape {
   // Hiệu năng: khi đã nạp vào RAM trong tiến trình này (g.__veximLocal tồn tại), dữ liệu
   // CHẮC CHẮN đã qua đúng một lượt chuẩn hoá/di trú bên dưới rồi — các hàm migrate*()/
@@ -1630,24 +1637,30 @@ export const localStore: DataStore = {
   async countUsers() {
     return load().users.length;
   },
-  async countSupplierAccountsPending() {
-    const profiles = load().suppliers.filter((s) => s.onboarding_status === "pending" && !s.is_demo).length;
+  async countSupplierAccountsPending(supplierIds) {
+    const inScope = scopeTest(supplierIds);
+    const profiles = load().suppliers.filter((s) => s.onboarding_status === "pending" && !s.is_demo && inScope(s.id)).length;
+    if (supplierIds) return profiles;
     // Tài khoản đã đăng ký nhưng chưa nộp hồ sơ: chưa có hàng suppliers để đếm.
     const logins = load().users.filter((u) => u.role === "supplier" && u.is_active && !u.supplier_id).length;
     return profiles + logins;
   },
-  async countProductsPendingReview() {
-    return load().products.filter((p) => p.supplier_review_status === "pending").length;
+  async countProductsPendingReview(supplierIds) {
+    const inScope = scopeTest(supplierIds);
+    return load().products.filter((p) => p.supplier_review_status === "pending" && inScope(p.supplier_id)).length;
   },
-  async countReviewsAwaitingApproval() {
-    return (load().verifications ?? []).filter((v) => v.status === "submitted").length;
+  async countReviewsAwaitingApproval(supplierIds) {
+    const inScope = scopeTest(supplierIds);
+    return (load().verifications ?? []).filter((v) => v.status === "submitted" && inScope(v.supplier_id)).length;
   },
-  async countSubmissionsPendingReview() {
-    return (load().supplier_submissions ?? []).filter((s) => s.status === "pending_review").length;
+  async countSubmissionsPendingReview(supplierIds) {
+    const inScope = scopeTest(supplierIds);
+    return (load().supplier_submissions ?? []).filter((s) => s.status === "pending_review" && inScope(s.supplier_id)).length;
   },
-  async countCertificatesPendingReview() {
+  async countCertificatesPendingReview(supplierIds) {
     const today = new Date().toISOString().slice(0, 10);
-    return (load().certificates ?? []).filter((c) => c.review_status === "pending" && !(c.valid_until && c.valid_until < today)).length;
+    const inScope = scopeTest(supplierIds);
+    return (load().certificates ?? []).filter((c) => c.review_status === "pending" && !(c.valid_until && c.valid_until < today) && inScope(c.supplier_id)).length;
   },
   async getUser(id) {
     return load().users.find((u) => u.id === id) ?? null;

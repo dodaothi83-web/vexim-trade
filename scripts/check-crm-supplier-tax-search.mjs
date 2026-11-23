@@ -48,7 +48,7 @@ const icon = () => React.createElement('svg');
 const mocks = {
   react: React, 'react/jsx-runtime': jsx,
   'next/link': { default: ({ children, href, ...props }) => React.createElement('a', { href, ...props }, children) },
-  'lucide-react': { ArrowUpRight: icon, Crown: icon, MailWarning: icon, Package: icon, Plus: icon, Search: icon },
+  'lucide-react': { ArrowUpRight: icon, Crown: icon, MailWarning: icon, Package: icon, Plus: icon, Search: icon, UserRound: icon },
   '@/lib/supplier': { roleLabel: () => 'Xưởng', supplierTypeLabel: () => 'Nhà sản xuất', statusMeta: () => ({ label: 'Nháp', badge: '' }) },
   '@/components/ui': {
     Badge: ({ children }) => React.createElement('span', null, children),

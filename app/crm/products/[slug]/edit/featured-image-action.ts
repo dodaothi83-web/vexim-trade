@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { isExpired } from "@/lib/media/readiness";
+import { productGate } from "@/lib/auth/supplier-access";
 
 type Result = { ok: boolean; message: string };
 
 /** Only staff can select a PUBLIC product-owned photo; selection cannot publish a product. */
 export async function setFeaturedProductImageAction(productId: string, mediaId: string | null): Promise<Result> {
-  const denied = await guard("products.manage");
+  const denied = (await guard("products.manage")) ?? (await productGate(productId));
   if (denied) return { ok: false, message: denied.message };
   if (!/^[0-9a-f-]{36}$/i.test(productId) || (mediaId && !/^[0-9a-f-]{36}$/i.test(mediaId)))
     return { ok: false, message: "Sản phẩm hoặc ảnh không hợp lệ." };

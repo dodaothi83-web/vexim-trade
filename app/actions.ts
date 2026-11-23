@@ -26,6 +26,9 @@ import { keepCategoryTranslations, previousSlugsAfterRename, slugReservedByOther
 import { parseHarvestInput } from "@/lib/crm/harvest-input";
 import { getSession, guard } from "@/lib/auth/session";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
+import { canAccessSupplierId, mediaGate, productGate, supplierGate, verificationGate } from "@/lib/auth/supplier-access";
+import { isSupplierScopedRole } from "@/lib/auth/supplier-scope";
+import { autoAssignSupplierOwner, setSupplierOwner, taxIdConflict, taxIdConflictMessage } from "@/lib/crm/supplier-owner";
 import { MAX_FILES_PER_MAIL, MAX_TOTAL_BYTES, loadForSend, toRef } from "@/lib/mail/attachments";
 import { deleteObject } from "@/lib/media/storage";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
@@ -1314,8 +1317,31 @@ export async function createSupplierAction(
   if (input.email && !EMAIL_RE.test(input.email)) {
     return { ok: false, message: "Email nhà cung cấp không hợp lệ." };
   }
+  // Người tạo không tự chọn người phụ trách qua form.
+  delete input.owner_user_id;
+  delete input.owner_assigned_at;
   try {
-    const created = await getStore().createSupplier(input);
+    const store = getStore();
+    const session = await getSession();
+    if (!session) return { ok: false, message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." };
+    // Một doanh nghiệp chỉ có một hồ sơ: chặn trùng MST ngay ở máy chủ.
+    const conflict = await taxIdConflict(store, input.tax_id);
+    if (conflict) {
+      const visible = await canAccessSupplierId(session, conflict.supplier.id);
+      return { ok: false, message: taxIdConflictMessage(conflict, visible, conflict.supplier.name) };
+    }
+    const created = await store.createSupplier(input);
+    // Kinh doanh tạo thì tự phụ trách; quản trị / kiểm duyệt tạo thì hệ thống chia đều.
+    if (isSupplierScopedRole(session.role)) {
+      await setSupplierOwner(store, created, session.uid, { id: session.uid, email: session.email }, "created_by_staff");
+    } else {
+      await autoAssignSupplierOwner(store, created.id);
+    }
+    await store.addAuditLog({
+      actor_id: session.uid, actor_email: session.email,
+      entity: "supplier", entity_id: created.id, action: "supplier.created_by_staff",
+      before: null, after: { name: created.name, tax_id: created.tax_id ?? null },
+    }).catch((error) => console.error("[supplier] create audit failed", error));
     const warning = await syncSupplierIndustries(created.id);
     revalidateAll();
     return {
@@ -1334,11 +1360,16 @@ export async function updateSupplierAction(
 ): Promise<SupplierSaveResult> {
   const gate = await guard("suppliers.manage");
   if (gate) return gate;
+  const scopeGate = await supplierGate(id);
+  if (scopeGate) return scopeGate;
   const input = parseSupplierInput(raw);
   if (!input.name) return { ok: false, message: "Vui lòng nhập tên nhà cung cấp." };
   if (input.email && !EMAIL_RE.test(input.email)) {
     return { ok: false, message: "Email nhà cung cấp không hợp lệ." };
   }
+  // Người phụ trách chỉ đổi qua thao tác giao việc riêng.
+  delete input.owner_user_id;
+  delete input.owner_assigned_at;
   try {
     const store = getStore();
     const existing = await store.getSupplier(id);
@@ -1354,6 +1385,13 @@ export async function updateSupplierAction(
     if (existing.tax_id && existing.tax_id !== input.tax_id) {
       const [reviews, submissions] = await Promise.all([store.listVerifications(id), store.listSubmissions(id)]);
       if (reviews.length || submissions.length) return { ok: false, message: "Hồ sơ đã có lịch sử xác minh nên không đổi được mã số thuế. Tạo hồ sơ mới cho pháp nhân khác và giữ hồ sơ cũ." };
+    }
+    if ((existing.tax_id ?? null) !== (input.tax_id ?? null)) {
+      const conflict = await taxIdConflict(store, input.tax_id, id);
+      if (conflict) {
+        const visible = await canAccessSupplierId(await getSession(), conflict.supplier.id);
+        return { ok: false, message: taxIdConflictMessage(conflict, visible, conflict.supplier.name) };
+      }
     }
     // Không tự cấp quyền công khai giá khi chỉ sửa hồ sơ. Chỉ một lần xác nhận mới
     // (bật từ trạng thái tắt) ghi ngày đồng ý; sự đồng ý không có hạn dùng.
@@ -1559,6 +1597,8 @@ export async function createProductAction(
     return { ok: false, message: err instanceof Error ? err.message : "Nội dung sản phẩm không hợp lệ." };
   }
   if (!input.supplier_id) return { ok: false, message: "Thiếu nhà cung cấp." };
+  const scopeGate = await supplierGate(input.supplier_id);
+  if (scopeGate) return scopeGate;
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
   const rangeError = priceRangeInputError(raw, input);
   if (rangeError) return { ok: false, message: rangeError };
@@ -1621,6 +1661,8 @@ export async function updateProductAction(
 ): Promise<ActionResult> {
   const gate = await guard("products.manage");
   if (gate) return gate;
+  const scopeGate = await productGate(id);
+  if (scopeGate) return scopeGate;
   let input: SupplierProductInput;
   try {
     input = parseProductInput(raw);
@@ -1628,6 +1670,10 @@ export async function updateProductAction(
     return { ok: false, message: err instanceof Error ? err.message : "Nội dung sản phẩm không hợp lệ." };
   }
   if (!input.name.trim()) return { ok: false, message: "Vui lòng nhập tên sản phẩm." };
+  if (input.supplier_id) {
+    const targetGate = await supplierGate(input.supplier_id);
+    if (targetGate) return targetGate;
+  }
   const store = getStore();
   try {
     const existing = await store.getProduct(id);
@@ -2263,6 +2309,9 @@ export async function addMediaLinkAction(input: {
       // addSourceLinkAction, không nhận link video ở đây.
       return { ok: false, message: "Loại hồ sơ không hỗ trợ thêm link video." };
     }
+    const ownerGate = input.ownerType === "verification" ? await verificationGate(verificationId)
+      : input.ownerType === "product" ? await productGate(productId) : await supplierGate(supplierId);
+    if (ownerGate) return ownerGate;
     const created = await store.createMedia({
       owner_type: input.ownerType,
       product_id: productId,
@@ -2303,6 +2352,8 @@ export async function updateMediaAction(
 ): Promise<ActionResult> {
   const gate = await guard("media.manage");
   if (gate) return gate;
+  const scopeGate = await mediaGate(id);
+  if (scopeGate) return scopeGate;
   const store = getStore();
   try {
     const current = await store.getMedia(id);
@@ -2343,6 +2394,8 @@ export async function updateMediaAction(
 export async function deleteMediaAction(id: string): Promise<ActionResult> {
   const gate = await guard("media.manage");
   if (gate) return gate;
+  const scopeGate = await mediaGate(id);
+  if (scopeGate) return scopeGate;
   const store = getStore();
   try {
     const asset = await store.getMedia(id);

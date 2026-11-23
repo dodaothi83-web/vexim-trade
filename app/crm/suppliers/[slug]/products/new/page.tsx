@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { ProductForm } from "@/components/product-form";
 import { assignSupplierCategories } from "@/lib/public/category-assignment";
 import { requirePagePermission } from "@/lib/auth/session";
+import { requireSupplierInScope } from "@/lib/auth/supplier-access";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,11 @@ export default async function NewProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug: id } = await params;
-  await requirePagePermission("products.manage", "/crm/suppliers");
+  const session = await requirePagePermission("products.manage", "/crm/suppliers");
   const store = getStore();
   const [supplier, categories] = await Promise.all([store.getSupplier(id), store.listCategories({ publishedOnly: false })]);
   if (!supplier) notFound();
+  await requireSupplierInScope(session, supplier.id);
   const links = await store.listSupplierCategories(id).catch(() => []);
   const supplierCategories = links.length
     ? links.map((link) => categories.find((c) => c.id === link.category_id)?.slug).filter((slug): slug is string => !!slug)

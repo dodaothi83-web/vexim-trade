@@ -14,6 +14,7 @@ import { notifyStaffVerificationSubmission, notifySupplierDecision } from "@/lib
 import { type AuditEvidenceKey, type Verification, type VerificationStatus } from "@/lib/types";
 import { looksVietnamese } from "@/lib/vietnamese-text";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 function refreshAudit(v: Verification) {
   revalidatePath(auditHref(v.supplier_id, v.target_level));
@@ -117,6 +118,8 @@ async function saveChecklist(fd: FormData, markCommitted: () => void) {
   const store = getStore();
   const before = await store.getVerification(id);
   if (!before) return { ok: false, message: "Không tìm thấy đợt kiểm." };
+  const scopeDenied = await supplierGate(before.supplier_id);
+  if (scopeDenied) return { ok: false, message: scopeDenied.message };
   if ((await store.listVerifications(before.supplier_id)).some((v) => sameVerificationScope(v, before) && v.status === "approved")) {
     return { ok: false, message: "Bước này đã được duyệt; không thể sửa đợt kiểm cũ." };
   }
@@ -212,6 +215,8 @@ async function getReviewable(id: string) {
   const store = getStore();
   const before = await store.getVerification(id);
   if (!before || before.status !== "submitted") return { ok: false as const, message: "Chỉ xét duyệt đợt đã nộp." };
+  const scopeDenied = await supplierGate(before.supplier_id);
+  if (scopeDenied) return { ok: false as const, message: scopeDenied.message };
   if ((await store.listVerifications(before.supplier_id)).some((v) => sameVerificationScope(v, before) && v.status === "approved")) {
     return { ok: false as const, message: "Bước này đã được duyệt ở đợt kiểm khác." };
   }
@@ -374,6 +379,8 @@ async function savePublicSummary(fd: FormData) {
   if (!before || before.status !== "approved" || ![2, 3].includes(before.target_level)) {
     return { ok: false, message: "Chỉ bản kiểm nhà máy hoặc giao hàng đã duyệt mới có thể công khai tóm tắt." };
   }
+  const scopeDenied = await supplierGate(before.supplier_id);
+  if (scopeDenied) return { ok: false, message: scopeDenied.message };
   const mode = String(fd.get("mode") || "");
   if (!["draft", "publish", "hide"].includes(mode)) return { ok: false, message: "Thao tác không hợp lệ." };
   const summary = String(fd.get("summary") || "").trim();
@@ -423,6 +430,8 @@ async function assignEvidence(mediaId: string, key: AuditEvidenceKey | null) {
     return { ok: false, message: "Tệp không thuộc đợt kiểm." };
   }
   const v = await store.getVerification(asset.verification_id);
+  const scopeDenied = await supplierGate(v?.supplier_id);
+  if (scopeDenied) return { ok: false, message: scopeDenied.message };
   if (!v || asset.supplier_id !== v.supplier_id || (key && !auditUploadKind(v.target_level, key, v.l2_scope))) {
     return { ok: false, message: "Mục bằng chứng không thuộc bước kiểm này." };
   }

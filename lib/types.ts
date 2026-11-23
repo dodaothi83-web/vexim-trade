@@ -49,6 +49,9 @@ export type SupplierProfileEnglishFields = {
 };
 
 export interface Supplier {
+  /** Nhân viên phụ trách (app_users.id). Vai trò kinh doanh chỉ thấy và thao tác NCC của mình. NULL = chưa giao. */
+  owner_user_id?: string | null;
+  owner_assigned_at?: string | null;
   /** Gói nhà cung cấp (basic | premium | pro). Thiếu cột (chưa chạy migration) là basic. */
   plan?: "basic" | "premium" | "pro" | null;
   /** Ngày hết hạn gói trả phí; hết hạn thì tính là basic. */

@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getObject } from "@/lib/media/storage";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
+import { canAccessSupplierId } from "@/lib/auth/supplier-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pat
         submission.supplier_id !== user.supplier_id) {
       return new NextResponse("Bạn không có quyền xem bằng chứng này", { status: 403 });
     }
-  } else if (!hasPermission(session.role, "media.internal")) {
+  } else if (!hasPermission(session.role, "media.internal") || !(await canAccessSupplierId(session, submission.supplier_id))) {
     return new NextResponse("Bạn không có quyền xem tài liệu nội bộ", { status: 403 });
   }
 

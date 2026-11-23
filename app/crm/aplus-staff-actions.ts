@@ -15,6 +15,7 @@ import {
 } from "@/lib/products/aplus";
 import { prepareAplusForSave } from "@/lib/products/aplus-server";
 import { verifyAplusVideos } from "@/lib/products/aplus-video-verify";
+import { supplierGate } from "@/lib/auth/supplier-access";
 
 /**
  * Nhân viên Vexim soạn A+ hộ nhà cung cấp (dịch vụ thu phí bên ngoài, chủ sàn chốt 2026-11-21):
@@ -39,6 +40,8 @@ async function productTarget(productId: string): Promise<Target | { error: strin
   const store = getStore();
   const product = await store.getProduct(productId);
   if (!product?.supplier_id) return { error: "Không tìm thấy sản phẩm." };
+  const scopeDenied = await supplierGate(product.supplier_id);
+  if (scopeDenied) return { error: scopeDenied.message };
   return {
     supplierId: product.supplier_id, productId: product.id,
     before: readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id }),
@@ -54,6 +57,8 @@ async function companyTarget(supplierId: string): Promise<Target | { error: stri
   const store = getStore();
   const supplier = await store.getSupplier(supplierId);
   if (!supplier) return { error: "Không tìm thấy nhà cung cấp." };
+  const scopeDenied = await supplierGate(supplier.id);
+  if (scopeDenied) return { error: scopeDenied.message };
   return {
     supplierId: supplier.id, productId: null,
     before: readAplusModules(supplier.company_aplus, { supplierId: supplier.id, productId: COMPANY_APLUS_ID }),
