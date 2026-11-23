@@ -27,7 +27,9 @@ as $$
   );
 $$;
 -- Chỉ trả đúng/sai; chạy với quyền chủ hàm để trigger không phụ thuộc RLS của người gọi.
-revoke all on function public.supplier_owned_by(uuid, uuid) from public;
+-- Trigger chạy với quyền người gọi nên các vai trò ghi dữ liệu phải gọi được hàm này.
+revoke all on function public.supplier_owned_by(uuid, uuid) from public, anon;
+grant execute on function public.supplier_owned_by(uuid, uuid) to authenticated, service_role;
 
 create or replace function public.check_verification_self_approval()
 returns trigger

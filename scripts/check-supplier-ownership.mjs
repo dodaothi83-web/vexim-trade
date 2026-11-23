@@ -96,6 +96,7 @@ assert.match(read('app/crm/suppliers/[slug]/plan-actions.ts'), /amount_vnd: amou
 // 7. CSDL: kinh doanh chỉ tự duyệt được đợt kiểm của nhà cung cấp mình phụ trách.
 const db = new PGlite();
 await db.exec(`
+create role anon; create role authenticated; create role service_role;
 create table public.app_users (id uuid primary key, email text not null, role text not null, is_active boolean not null);
 create table public.suppliers (id uuid primary key, name text);
 create table public.supplier_products (id uuid primary key, supplier_id uuid not null);
