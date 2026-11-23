@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
 import { notifyStaffSupplierAccount } from "@/lib/supplier-portal/notify";
 import { createSessionToken, SESSION_COOKIE } from "@/lib/auth/session";
+import { staffHomePath } from "@/lib/auth/permissions";
 import { GOOGLE_FLOW_COOKIE, GOOGLE_SIGNUP_COOKIE, googleClient, googleCookieOptions, isVerifiedGoogleUser, parseGoogleFlow, googleRequestOrigin, googleOriginAllowed } from "@/lib/auth/google-oauth";
 
 export const runtime = "nodejs";
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
         .catch((error) => console.error("[google-oauth] staff notification failed", error));
     }
     if (!user || !user.is_active || user.role === "sourcing") return clear(target("/login?oauth=not_allowed"));
-    const res = clear(target(user.role === "supplier" ? "/supplier/portal" : "/crm/dashboard"));
+    const res = clear(target(staffHomePath(user.role)));
     res.cookies.set(GOOGLE_SIGNUP_COOKIE, "", googleCookieOptions(origin.startsWith("https:"), 0));
     res.cookies.set(SESSION_COOKIE, createSessionToken({ uid: user.id, email: user.email,
       name: user.name ?? user.email, role: user.role, via: "supabase" }),

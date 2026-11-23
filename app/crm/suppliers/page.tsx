@@ -1,7 +1,7 @@
 import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStore } from "@/lib/db";
 import { buildSupplierOrderUsage, buildSupplierReviewTimes } from "@/lib/crm/supplier-list";
-import { requireSession } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/session";
 import { ownerScopeOf } from "@/lib/auth/scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/page-header";
@@ -20,7 +20,7 @@ export const metadata = { title: "Nhà cung cấp" };
 
 export default async function SuppliersPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
   const { plan: initialPlanFilter } = await searchParams;
-  const session = await requireSession();
+  const session = await requirePagePermission("suppliers.view", "/crm/dashboard");
   const canManage = hasPermission(session.role, "suppliers.manage");
 
   const store = getStore();

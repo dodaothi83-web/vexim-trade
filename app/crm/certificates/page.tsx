@@ -31,7 +31,7 @@ function daysLeft(iso: string | null, today: string): number | null {
  * tiến độ, kèm số đếm — không tự chốt loại giấy cho bất kỳ giấy nào.
  */
 export default async function CertificateQueuePage() {
-  const session = await requirePagePermission("verifications.view", "/crm/certificates");
+  const session = await requirePagePermission("verifications.view", "/crm/dashboard");
   const store = getStore();
   const today = new Date().toISOString().slice(0, 10);
   const canInspect = hasPermission(session.role, "verifications.inspect");

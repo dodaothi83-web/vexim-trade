@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
+import { staffHomePath } from "@/lib/auth/permissions";
 import { AuthSplitShell } from "@/components/auth-split-shell";
 import { getAuthMessages } from "@/lib/i18n/server";
 import { SupplierAccountForm } from "./supplier-account-form";
@@ -13,7 +14,7 @@ export async function generateMetadata() {
 
 export default async function SupplierRegisterPage({ searchParams }: { searchParams: Promise<{ oauth?: string; type?: string }> }) {
   const session = await getSession();
-  if (session) redirect(session.role === "supplier" ? "/supplier/portal" : "/crm/dashboard");
+  if (session) redirect(staffHomePath(session.role));
   const { oauth, type } = await searchParams;
   // Bước 1 luôn là chọn loại tài khoản. Vào thẳng URL này (bookmark, link cũ) thì quay về
   // màn chọn để người mua không rơi nhầm vào biểu mẫu đăng ký bán hàng.

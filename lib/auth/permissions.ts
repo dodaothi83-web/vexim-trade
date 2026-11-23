@@ -95,6 +95,12 @@ export const ROLES: {
     badge: "bg-violet-700 text-white",
   },
   {
+    value: "editor",
+    label: "Biên tập nội dung",
+    description: "Chỉ viết, sửa và đăng bài blog. Không xem người mua, email hay nhà cung cấp.",
+    badge: "bg-amber-600 text-white",
+  },
+  {
     value: "supplier",
     label: "Doanh nghiệp",
     description: "Chỉ xem hồ sơ của mình và bổ sung giấy tờ bước đầu qua cổng nhà cung cấp; không vào CRM.",
@@ -200,9 +206,18 @@ const MATRIX: Record<UserRole, Permission[]> = {
     "sponsored.view",
     "sponsored.requests.manage",
   ],
+  // Biên tập nội dung chỉ làm blog; không nhận nhà cung cấp tự giao (chỉ vai trò sale nhận).
+  editor: ["blog.manage"],
   viewer: VIEW_ONLY,
   supplier: [],
 };
+
+/** Trang mở đầu sau khi đăng nhập theo vai trò. */
+export function staffHomePath(role: UserRole | string | null | undefined): string {
+  if (role === "supplier") return "/supplier/portal";
+  if (role === "editor") return "/crm/posts";
+  return "/crm/dashboard";
+}
 
 export function permissionsFor(role: UserRole): Permission[] {
   return MATRIX[role] ?? []; // Unknown/invalid roles fail closed.

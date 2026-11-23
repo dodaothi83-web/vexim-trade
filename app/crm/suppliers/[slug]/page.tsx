@@ -28,7 +28,7 @@ import {
 
 import { listBuyersWithSupplier } from "@/lib/queries";
 import { getStore } from "@/lib/db";
-import { requireSession } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
 import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
@@ -98,7 +98,7 @@ export default async function SupplierDetailPage({
   const [{ slug: id }, sp] = await Promise.all([params, searchParams]);
   const requestedPage = Number(sp.page ?? "1");
   const activeTab = sp.tab === "review" ? "review" : "overview";
-  const session = await requireSession();
+  const session = await requirePagePermission("suppliers.view", "/crm/dashboard");
   const canManage = hasPermission(session.role, "suppliers.manage");
   const canPublish = hasPermission(session.role, "suppliers.publish");
   const canManageProducts = hasPermission(session.role, "products.manage");

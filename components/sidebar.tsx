@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
-import { hasPermission, roleMeta, type Permission } from "@/lib/auth/permissions";
+import { hasPermission, roleMeta, type Permission, staffHomePath } from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/types";
 import { cx } from "@/components/ui";
 import { Logo } from "@/components/brand-logo";
@@ -148,7 +148,9 @@ export function Sidebar({
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-1">
         {NAV_GROUPS.map((group) => {
-          const items = NAV.filter((item) => item.group === group.key && (!item.perm || permissions.includes(item.perm) || hasPermission(session.role, item.perm)));
+          const items = NAV.filter((item) => item.group === group.key && (!item.perm || permissions.includes(item.perm) || hasPermission(session.role, item.perm)) &&
+            // Tổng quan sàn chỉ hiện cho vai trò lấy nó làm trang mở đầu.
+            (item.href !== "/crm/dashboard" || staffHomePath(session.role) === "/crm/dashboard"));
           if (!items.length) return null;
           return (
             <div key={group.key}>
