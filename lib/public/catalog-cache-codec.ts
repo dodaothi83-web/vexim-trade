@@ -73,3 +73,34 @@ export function unpackCatalogBase<S extends SupplierLike<P>, P extends ProductLi
 export function slimSupplierCards<S extends SupplierLike<P>, P extends object>(suppliers: S[]): S[] {
   return suppliers.map((supplier) => ({ ...supplier, main_products: supplier.main_products.map(slimCachedProduct) }));
 }
+
+/** Vercel không lưu mục cache lớn hơn 2 MB (và không báo lỗi). */
+export const CACHE_ITEM_LIMIT_BYTES = 2 * 1024 * 1024;
+/** Báo sớm từ 60% giới hạn để còn thời gian chia nhỏ cache; từ 90% là mức khẩn. */
+export const CACHE_WARN_RATIO = 0.6;
+export const CACHE_CRITICAL_RATIO = 0.9;
+
+export interface CacheSizeAlert {
+  level: "warning" | "error";
+  /** Câu cố định để Sentry gộp các lần báo vào cùng một issue. */
+  message: string;
+  bytes: number;
+  percent: number;
+}
+
+/** Trả về cảnh báo khi mục cache đã đóng gói chạm ngưỡng; dưới ngưỡng trả về null. */
+export function cacheSizeAlert(name: string, payload: string): CacheSizeAlert | null {
+  // Chuỗi base64 chỉ có ký tự ASCII nên độ dài chuỗi bằng số byte.
+  const bytes = payload.length;
+  const ratio = bytes / CACHE_ITEM_LIMIT_BYTES;
+  if (ratio < CACHE_WARN_RATIO) return null;
+  const critical = ratio >= CACHE_CRITICAL_RATIO;
+  return {
+    level: critical ? "error" : "warning",
+    message: critical
+      ? `Cache "${name}" is close to the 2 MB Vercel limit: split the cache now`
+      : `Cache "${name}" passed 60% of the 2 MB Vercel limit: plan to split the cache`,
+    bytes,
+    percent: Math.round(ratio * 1000) / 10,
+  };
+}

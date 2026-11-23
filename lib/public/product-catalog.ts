@@ -4,7 +4,8 @@ import { readCategoryCertificateData } from "@/lib/public/category-certificate-d
 import "server-only";
 
 import { unstable_cache } from "next/cache";
-import { packCatalogBase, unpackCatalogBase, encodeCachePayload, decodeCachePayload, slimSupplierCards } from "@/lib/public/catalog-cache-codec";
+import * as Sentry from "@sentry/nextjs";
+import { packCatalogBase, unpackCatalogBase, encodeCachePayload, decodeCachePayload, slimSupplierCards, cacheSizeAlert } from "@/lib/public/catalog-cache-codec";
 import { getStore } from "@/lib/db";
 import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
@@ -238,6 +239,34 @@ export interface PublicProductCatalogSnapshot {
  * Promise<...>> (categoryByProduct/mediaByProduct/certificatesBySupplier) vốn được tạo mới,
  * rỗng, cho từng lượt gọi để dùng làm bộ nhớ đệm NỘI BỘ của một request.
  */
+/** Mỗi cache báo tối đa một lần mỗi 6 giờ trên một tiến trình server, để không tốn quota Sentry. */
+const CACHE_ALERT_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const lastCacheAlertAt = new Map<string, number>();
+
+/**
+ * Đo dung lượng thật của mục cache mỗi lần tạo lại (60 giây một lần). Khi chạm 60% giới hạn
+ * 2 MB của Vercel thì ghi log và gửi Sentry, để kịp chia nhỏ cache trước khi Vercel âm thầm
+ * ngừng lưu. Chỉ đo và báo, không thay đổi dữ liệu trả về.
+ */
+export function watchCacheSize(name: string, payload: string): string {
+  try {
+    const alert = cacheSizeAlert(name, payload);
+    if (!alert) return payload;
+    const now = Date.now();
+    if (now - (lastCacheAlertAt.get(name) ?? 0) < CACHE_ALERT_INTERVAL_MS) return payload;
+    lastCacheAlertAt.set(name, now);
+    console.warn(`[cache-size] ${alert.message} (${alert.bytes} bytes, ${alert.percent}%)`);
+    Sentry.captureMessage(alert.message, {
+      level: alert.level,
+      tags: { cache: name },
+      extra: { bytes: alert.bytes, percent: alert.percent },
+    });
+  } catch {
+    // Đo/báo lỗi thì bỏ qua: không bao giờ được làm hỏng trang công khai.
+  }
+  return payload;
+}
+
 const getCachedPublicCatalogPayload = unstable_cache(
   async () => {
     const store = getStore();
@@ -246,7 +275,7 @@ const getCachedPublicCatalogPayload = unstable_cache(
     ]);
     const suppliers = await listPublicSuppliers({ source: { suppliers: rawSuppliers, products, categories } });
     // Đóng gói gọn và nén để mục cache luôn dưới giới hạn 2 MB của Vercel (xem catalog-cache-codec.ts).
-    return packCatalogBase({ suppliers, products, categories });
+    return watchCacheSize("public-catalog-snapshot", packCatalogBase({ suppliers, products, categories }));
   },
   ["public-catalog-snapshot-v2"],
   { revalidate: 60, tags: ["public-catalog"] },
@@ -417,7 +446,7 @@ const getCachedPublicSearchIndex = unstable_cache(
   async (today: string) => {
     const index = await buildPublicSearchIndex(today);
     // Cùng lý do với bản chụp catalogue: bỏ trường nặng của sản phẩm chính rồi nén.
-    return encodeCachePayload({ ...index, suppliers: slimSupplierCards(index.suppliers) });
+    return watchCacheSize("public-search-index", encodeCachePayload({ ...index, suppliers: slimSupplierCards(index.suppliers) }));
   },
   ["public-search-index-v2"],
   { revalidate: 60, tags: ["public-catalog"] },
