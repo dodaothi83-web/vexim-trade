@@ -122,15 +122,16 @@ function Modern(p: Shared) {
       {p.coverAction}
       {/* Có ô số liệu: chừa đáy khung (pb-14) cho phần ô đè lên, để ô không che hai nút. */}
       <div className={`relative flex min-h-[360px] flex-col justify-end gap-4 p-6 sm:min-h-[460px] sm:p-12 ${p.stats.length > 0 ? "pb-14 sm:pb-16" : ""}`}>
-        {/* Logo bên trái; tên công ty bên phải, địa chỉ ngay dưới tên. Cỡ tên giống trang gói cơ bản. */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        {/* Logo bên trái, canh theo dòng đầu của tên; tên công ty bên phải, địa chỉ (chữ trơn) ngay dưới tên.
+            Cỡ tên giống trang gói cơ bản. */}
+        <div className="flex items-start gap-3 sm:gap-4">
           <div className="relative shrink-0">
             <Avatar avatarUrl={p.avatarUrl} name={p.name} className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-white text-2xl font-bold text-[var(--sf-accent)] sm:h-20 sm:w-20" />
             {p.avatarAction}
           </div>
           <div className="min-w-0 flex-1">
             <NameTag id="supplier-name" className="max-w-3xl break-words text-xl font-bold leading-7 tracking-tight sm:text-2xl sm:leading-8">{p.name}</NameTag>
-            <span className="mt-2 inline-block rounded-md bg-[var(--sf-accent)] px-3 py-1 text-xs font-bold">{p.location}</span>
+            <p className="mt-1 text-sm font-medium leading-5 text-white/80 sm:text-[15px] sm:leading-6">{p.location}</p>
           </div>
         </div>
         {p.nameAside && <div className="flex flex-wrap items-center gap-2">{p.nameAside}</div>}
