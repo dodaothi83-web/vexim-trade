@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requirePagePermission } from "@/lib/auth/session";
 import { unansweredEscalated, unansweredNeedsStaff } from "@/lib/chat/core";
+import { attachmentsByMessage } from "@/lib/chat/attachments";
+import { MessageFiles } from "@/components/chat/chat-attachments";
+import { CHAT_FILE_LABELS } from "@/lib/chat/attachment-labels";
 import { getStore } from "@/lib/db";
 import { markUnansweredHandledAction } from "./actions";
 
@@ -21,6 +24,7 @@ export default async function CrmConversationPage({ params }: { params: Promise<
   const conversation = /^[0-9a-f-]{8,64}$/i.test(id) ? await store.getChatConversation(id) : null;
   if (!conversation) notFound();
   const [messages, supplier] = await Promise.all([store.listChatMessages(conversation.id), store.getSupplier(conversation.supplier_id).catch(() => null)]);
+  const files = await attachmentsByMessage(store, messages.map((m) => m.id), "staff");
   return <div className="min-w-0 max-w-3xl space-y-4">
     <Link href="/crm/messages" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700"><ArrowLeft className="h-4 w-4" /> Tin nhắn</Link>
     <header className="card p-4 sm:p-5">
@@ -47,7 +51,8 @@ export default async function CrmConversationPage({ params }: { params: Promise<
       {messages.length === 0 && <p className="text-sm text-ink-500">Chưa có tin nhắn.</p>}
       {messages.map((m) => <div key={m.id} className={`flex flex-col ${m.sender === "supplier" ? "items-end" : "items-start"}`}>
         <span className="mb-0.5 px-1 text-[11px] font-semibold text-ink-500">{m.sender === "supplier" ? "Nhà cung cấp" : "Người mua"}{m.product_name ? ` · về ${m.product_name}` : ""}</span>
-        <div className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm ${m.sender === "supplier" ? "bg-emerald-50 text-ink-900 ring-1 ring-emerald-100" : "bg-white text-ink-900 ring-1 ring-ink-100"}`}>{m.body}</div>
+        {(files.get(m.id)?.length ?? 0) > 0 && <MessageFiles files={files.get(m.id)!} mine={m.sender === "supplier"} labels={CHAT_FILE_LABELS.vi} locale="vi-VN" />}
+        {m.body && <div className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm ${m.sender === "supplier" ? "bg-emerald-50 text-ink-900 ring-1 ring-emerald-100" : "bg-white text-ink-900 ring-1 ring-ink-100"}`}>{m.body}</div>}
         <span className="mt-0.5 px-1 text-[10.5px] text-ink-400">{when(m.created_at)}</span>
       </div>)}
     </section>

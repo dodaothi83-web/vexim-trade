@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessage, SourcingRequest, SupplierServiceRequest, SupportConversation, SupportMessage } from "@/lib/types";
+import type { ChatAttachment, ChatConversation, ChatMessage, SourcingRequest, SupplierServiceRequest, SupportConversation, SupportMessage } from "@/lib/types";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -97,6 +97,7 @@ interface LocalShape {
   sourcing_requests?: SourcingRequest[];
   chat_conversations?: ChatConversation[];
   chat_messages?: ChatMessage[];
+  chat_attachments?: ChatAttachment[];
   support_conversations?: SupportConversation[];
   support_messages?: SupportMessage[];
   supplier_service_requests?: SupplierServiceRequest[];
@@ -2016,6 +2017,56 @@ export const localStore: DataStore = {
     const row: ChatMessage = { ...input, id: randomUUID(), created_at: new Date().toISOString() };
     mutate((db) => { (db.chat_messages ??= []).push(row); });
     return row;
+  },
+  async createChatAttachment(input) {
+    const row: ChatAttachment = { ...input, id: randomUUID(), created_at: new Date().toISOString(), deleted_at: null };
+    mutate((db) => { (db.chat_attachments ??= []).push(row); });
+    return row;
+  },
+  async getChatAttachment(id) {
+    return (load().chat_attachments ?? []).find((a) => a.id === id) ?? null;
+  },
+  async updateChatAttachment(id, patch) {
+    mutate((db) => { const row = (db.chat_attachments ?? []).find((a) => a.id === id); if (row) Object.assign(row, patch); });
+  },
+  async deleteChatAttachment(id) {
+    mutate((db) => { db.chat_attachments = (db.chat_attachments ?? []).filter((a) => a.id !== id); });
+  },
+  async findReadyChatAttachment(uploaderKey, sha256, sizeBytes) {
+    return (load().chat_attachments ?? []).filter((a) => a.uploader_key === uploaderKey && a.sha256 === sha256 && a.size_bytes === sizeBytes && a.status === "ready")
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
+  },
+  async listChatAttachmentsForMessages(messageIds) {
+    const ids = new Set(messageIds);
+    return (load().chat_attachments ?? []).filter((a) => a.message_id && ids.has(a.message_id)).sort((a, b) => a.created_at.localeCompare(b.created_at));
+  },
+  async listChatAttachmentUsage(uploaderKey) {
+    return (load().chat_attachments ?? []).filter((a) => a.uploader_key === uploaderKey && a.status !== "deleted")
+      .map((a) => ({ storage_key: a.storage_key, size_bytes: a.size_bytes }));
+  },
+  async countChatAttachmentsSince(uploaderKey, sinceIso) {
+    return (load().chat_attachments ?? []).filter((a) => a.uploader_key === uploaderKey && a.created_at >= sinceIso).length;
+  },
+  async linkChatAttachments(input) {
+    let linked = 0;
+    mutate((db) => {
+      for (const row of db.chat_attachments ?? []) {
+        if (!input.ids.includes(row.id) || row.conversation_id !== input.conversationId || row.uploader_key !== input.uploaderKey) continue;
+        if (row.status !== "ready" || row.message_id) continue;
+        row.message_id = input.messageId; row.expires_at = input.expiresAt; linked++;
+      }
+    });
+    return linked;
+  },
+  async listChatAttachmentsToClean(input) {
+    const rows = load().chat_attachments ?? [];
+    return {
+      unsent: rows.filter((a) => !a.message_id && a.status !== "deleted" && a.created_at < input.unsentBefore).slice(0, input.limit),
+      expired: rows.filter((a) => a.message_id && a.status === "ready" && a.expires_at && a.expires_at < input.now).slice(0, input.limit),
+    };
+  },
+  async countChatAttachmentRefs(storageKey, excludeIds) {
+    return (load().chat_attachments ?? []).filter((a) => a.storage_key === storageKey && a.status !== "deleted" && !excludeIds.includes(a.id)).length;
   },
   async getSupportConversationByBuyer(buyerEmail) {
     const email = buyerEmail.trim().toLowerCase();

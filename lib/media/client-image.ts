@@ -92,5 +92,14 @@ export async function prepareImage(file: File): Promise<PreparedImage> {
   };
 }
 
+/**
+ * Chỉ nén một ảnh (không tạo ảnh nhỏ): dùng cho ảnh gửi trong chat. Vẽ lại qua canvas nên mọi
+ * thông tin EXIF (vị trí GPS, máy chụp) bị bỏ đi.
+ */
+export async function compressImage(file: File, maxSide = IMAGE_MAX_SIDE, quality = 0.85): Promise<Blob> {
+  const { width, height, draw } = await loadBitmap(file);
+  return render(draw, width, height, maxSide, quality);
+}
+
 /** Nhãn hiển thị trong ô chọn tệp — chỉ nhận ảnh và PDF */
 export const MEDIA_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf";

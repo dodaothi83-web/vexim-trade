@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import * as core from '../lib/chat/core.ts';
+import * as fileCore from '../lib/chat/attachments-core.ts';
 
 /* ---------- 1. Quy tắc thuần ---------- */
 assert.deepEqual({ ...core.cleanChatBody('  hello \r\n world  ') }, { ok: true, body: 'hello\n world' });
@@ -49,6 +50,7 @@ const store = {
 };
 const records = { p1: { card: { id: 'p1', name: 'Cashew W320', cardImagePath: 'p1/cover.jpg', imagePaths: [], price: '6.20 USD/kg' }, product: { id: 'p1', name: 'Cashew W320' }, supplier: { id: 's1' }, category: { slug: 'cashew' } } };
 const chat = load('../lib/chat/service.ts', {
+  './attachments': { attachmentsByMessage: async () => new Map(), readyAttachmentsFor: async () => [] }, './attachments-core': fileCore,
   'server-only': {},
   '@/lib/config': { FROM_ADDRESS: 'Vexim <hello@veximtrade.com>', SERVICE_FROM_ADDRESS: 'Vexim <service@veximtrade.com>' },
   '@/lib/email/send': { transport: async (m) => { sent.push(m); return { ok: true, status: 'sent' }; } },

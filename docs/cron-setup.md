@@ -108,6 +108,8 @@ Response có `updated`, `unchanged` và chi tiết `results[].code`. `unchanged`
   mở chat. Email báo tin nhắn RFQ sẽ không đi, và RFQ trực tiếp bị lỗi lúc chuyển sẽ
   không bao giờ tới nhà cung cấp.
 - Một nhánh lỗi trả `503` nhưng các nhánh khác vẫn chạy. Bật **Notify on failure**.
+- Cùng lượt này dọn tệp đính kèm chat (`attachments` trong response): tệp tải lên mà không gửi
+  quá 24 giờ, tệp đã gửi quá 6 tháng. Lỗi dọn tệp chỉ ghi log, không làm job trả `503`.
 
 ## Theo dõi RFQ trực tiếp (chạy gộp trong `/api/cron/rfq-sla`)
 - Không cần job mới. Mỗi lần `/api/cron/rfq-sla` chạy sẽ nhắc nhà cung cấp trước hạn

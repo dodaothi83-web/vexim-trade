@@ -1965,6 +1965,31 @@ export interface ChatMessage {
   created_at: string;
 }
 
+/**
+ * Tệp đính kèm một tin chat (lib/chat/attachments-core.ts). Một dòng cho mỗi lần đính kèm; nhiều
+ * dòng của cùng một bên có thể trỏ cùng một tệp trên kho (`storage_key`) khi nội dung giống hệt.
+ */
+export interface ChatAttachment {
+  id: string;
+  conversation_id: string;
+  /** null khi đã tải lên nhưng chưa gửi kèm tin nào. */
+  message_id: string | null;
+  uploader: ChatSender;
+  /** "supplier:<id>" hoặc "buyer:<email>": tính hạn mức và gộp tệp trùng theo bên tải lên. */
+  uploader_key: string;
+  file_name: string;
+  content_type: string;
+  size_bytes: number;
+  sha256: string;
+  storage_key: string;
+  status: "pending" | "ready" | "deleted";
+  created_at: string;
+  uploaded_at: string | null;
+  /** Gửi kèm tin lúc nào thì hết hạn sau 6 tháng tính từ lúc đó. */
+  expires_at: string | null;
+  deleted_at: string | null;
+}
+
 /* --------- CHAT NGƯỜI MUA ↔ ĐỘI VEXIM (thay nút WhatsApp "Chat with us") --------- */
 
 export type SupportSender = "buyer" | "staff";

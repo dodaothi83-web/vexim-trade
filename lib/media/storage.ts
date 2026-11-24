@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { getSupabaseClient, supabaseConfigured } from "@/lib/db/supabase";
 import { localFallbackAllowed } from "@/lib/db";
-import { r2Delete, r2Get, r2PrivateBucket, r2Put, r2PutNew, r2PublicBucket } from "@/lib/media/r2";
+import { r2Delete, r2Get, r2GetHead, r2PresignGet, r2PresignPut, r2PrivateBucket, r2Put, r2PutNew, r2PublicBucket, r2Size } from "@/lib/media/r2";
 import { R2_PUBLIC_FILE } from "@/lib/media/public-url";
 
 /**
@@ -24,7 +24,7 @@ import { R2_PUBLIC_FILE } from "@/lib/media/public-url";
 export type MediaDriver = "supabase" | "local" | "r2";
 
 /** Ảnh sản phẩm và ảnh A+: cần kiểm tra quyền trước khi phát nên chỉ lưu ở bucket riêng tư. */
-const R2_PRIVATE_PREFIX = /^(?:products|product-form-images|aplus)\//;
+const R2_PRIVATE_PREFIX = /^(?:products|product-form-images|aplus|chat)\//;
 
 /** Bucket R2 cho một đường dẫn, hoặc null nếu đường dẫn đó vẫn dùng Supabase. */
 function r2BucketFor(rel: string): string | null {
@@ -268,4 +268,34 @@ export async function deleteObject(rel: string): Promise<void> {
     throw new Error("Supabase Storage không khả dụng; chưa thể xóa tệp.");
   }
   await localDelete(clean);
+}
+
+/* ---------- Tệp chat (`chat/…`): luôn ở bucket R2 riêng tư khi đã cấu hình ---------- */
+
+/** Link tải thẳng lên kho cho trình duyệt; null khi kho không phải R2 (khi đó tải qua máy chủ). */
+export async function presignedUpload(rel: string, contentType: string): Promise<string | null> {
+  const clean = safePath(rel);
+  const bucket = r2BucketFor(clean);
+  return bucket ? r2PresignPut(bucket, clean, contentType) : null;
+}
+
+/** Link đọc có hạn ngắn; null khi kho không phải R2 (khi đó máy chủ tự phát nội dung tệp). */
+export async function presignedDownload(rel: string, options: { contentType: string; disposition: string }): Promise<string | null> {
+  const clean = safePath(rel);
+  const bucket = r2BucketFor(clean);
+  return bucket ? r2PresignGet(bucket, clean, options) : null;
+}
+
+/** Dung lượng và vài KB đầu của tệp đã tải lên, để kiểm tra trước khi cho gửi. null khi chưa có tệp. */
+export async function inspectObject(rel: string, headBytes = 4096): Promise<{ size: number; head: Uint8Array } | null> {
+  const clean = safePath(rel);
+  const bucket = r2BucketFor(clean);
+  if (bucket) {
+    const size = await r2Size(bucket, clean);
+    if (size === null) return null;
+    const head = await r2GetHead(bucket, clean, headBytes);
+    return head ? { size, head } : null;
+  }
+  const object = await getObject(clean);
+  return object ? { size: object.data.byteLength, head: object.data.slice(0, headBytes) } : null;
 }

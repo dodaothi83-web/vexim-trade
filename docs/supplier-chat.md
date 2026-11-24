@@ -83,3 +83,58 @@ Hộp chat của nhân viên (`components/crm/support-inbox.tsx`) làm giống c
 - **Nhớ nhãn người mua / nhân viên.** `lib/chat/support.ts` nhớ tên công ty, link hồ sơ CRM và tên nhân viên phụ trách trong bộ nhớ máy chủ: 5 phút nếu tìm thấy, 1 phút nếu chưa có, tối đa 2000 mục. Danh sách cuộc (`/api/crm/support`, 15 giây/lần) vì vậy không tra lại mỗi lượt. Trạng thái online vẫn đọc mỗi lượt. Đổi tên công ty hay tên nhân viên thì sau tối đa 5 phút mới hiện (mỗi máy chủ nhớ riêng).
 - Không cần migration: bảng `support_messages` đã có chỉ mục theo `(conversation_id, created_at)`.
 - Kiểm tra: `scripts/check-crm-support-polling.mjs` (nằm trong `npm run check:rfq`).
+
+## Tệp đính kèm (2026-11)
+
+Chủ dự án duyệt 24/11/2026. Người mua và nhà cung cấp gửi được tệp trong cuộc trò chuyện đã có
+(cuộc mới tạo khi gửi tin chữ đầu tiên, sau đó mới hiện nút kẹp giấy).
+
+- **Loại tệp:** PDF, ảnh JPG/PNG/WebP, Excel `.xlsx`, Word `.docx`, CSV. Không nhận tệp chạy được,
+  tệp nén (.zip, .rar), `.doc`/`.xls` cũ hay loại khác. Máy chủ kiểm **nội dung thật** (vài KB
+  đầu), không chỉ đuôi tệp: tệp `.exe` đổi tên thành `.pdf` bị từ chối và xoá.
+- **Giới hạn:** 10 MB mỗi tệp, 5 tệp mỗi tin, 40 lần tải mỗi giờ mỗi bên.
+- **Hạn mức lưu trữ** (theo bên tải lên, tệp trùng chỉ tính một lần): Basic 200 MB, Premium 2 GB,
+  Pro 10 GB; người mua 200 MB. Đổi số ở `lib/chat/attachments-core.ts`.
+- **Giữ tệp 6 tháng** kể từ lúc gửi. Quá hạn thì tệp bị xoá khỏi kho, tin vẫn còn và hiện
+  "Tệp đã hết hạn". Tệp tải lên mà không gửi bị dọn sau 24 giờ. Việc dọn chạy trong
+  `/api/cron/chat-notify` (5 phút/lần), không cần job mới.
+- **Ai mở được:** hai bên của cuộc trò chuyện, và nhân viên có quyền xem tin nhắn (`rfq.view`) ở
+  CRM › Tin nhắn. Tệp chưa gửi chỉ người tải lên mở được. Mỗi lần mở, máy chủ kiểm quyền rồi
+  chuyển sang link R2 có hạn 5 phút. Word, Excel, CSV luôn tải về; ảnh và PDF mở ngay.
+
+### Tải lên nhanh, tốn ít dung lượng
+
+1. Chọn tệp (hoặc kéo thả, dán ảnh chụp màn hình) là tải lên ngay, có thanh tiến độ và nút
+   Thử lại. Bấm Gửi là đi liền vì tệp đã lên xong.
+2. Ảnh được nén trên trình duyệt (cạnh dài 1600px, JPEG 0,85) nên bỏ luôn EXIF (vị trí GPS).
+3. Trình duyệt tính SHA-256 của tệp. Cùng một bên gửi lại tệp giống hệt (vd. catalogue gửi cho
+   nhiều người mua) thì dùng lại tệp đã lưu, không tải lần nữa và không tính thêm dung lượng.
+4. Máy chủ cấp link PUT có chữ ký (10 phút) để trình duyệt **tải thẳng lên bucket R2 riêng tư**,
+   tệp không đi qua Vercel. Tải xong, máy chủ kiểm dung lượng và nội dung thật rồi mới cho gửi.
+5. Nếu trình duyệt không tải thẳng được (bucket chưa mở CORS), tệp tới 4 MB tự chuyển sang tải
+   qua máy chủ; tệp lớn hơn báo lỗi.
+
+### Cài đặt một lần
+
+- **Migration:** `supabase/migrations/20261228_chat_attachments.sql` (bảng `chat_attachments`, nới
+  điều kiện `chat_messages.body` để tin chỉ có tệp được để trống chữ). Chạy trước khi deploy.
+- **CORS cho bucket R2 riêng tư** (`R2_PRIVATE_BUCKET_NAME`), Cloudflare › R2 › bucket › Settings ›
+  CORS Policy:
+
+  ```json
+  [
+    {
+      "AllowedOrigins": ["https://www.veximtrade.com", "https://veximtrade.com"],
+      "AllowedMethods": ["PUT"],
+      "AllowedHeaders": ["content-type"],
+      "MaxAgeSeconds": 3600
+    }
+  ]
+  ```
+
+  Muốn thử trên bản preview Vercel thì thêm tên miền preview vào `AllowedOrigins`.
+- Tệp nằm dưới `chat/<mã băm của bên tải lên>/<sha256>.<đuôi>`; đường dẫn không chứa email hay mã
+  nhà cung cấp.
+- Kiểm thử offline: `node --experimental-strip-types --no-warnings scripts/check-chat-attachments.mjs`
+  (nằm trong `npm run check:rfq`).
+

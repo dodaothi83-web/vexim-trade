@@ -9,6 +9,7 @@ import React, { act } from 'react';
 import * as jsx from 'react/jsx-runtime';
 import { JSDOM } from 'jsdom';
 import * as core from '../lib/chat/core.ts';
+import * as fileCore from '../lib/chat/attachments-core.ts';
 
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
@@ -47,6 +48,7 @@ const store = new Proxy({ getChatPresence: async (keys) => { calls.push('presenc
   get: (target, key) => target[key] ?? (async () => { calls.push(String(key)); return null; }),
 });
 const service = load('../lib/chat/service.ts', {
+  './attachments': { attachmentsByMessage: async () => new Map(), readyAttachmentsFor: async () => [] }, './attachments-core': fileCore,
   'server-only': {}, '@/lib/public/product-catalog': { getPublicProductRecordsByIds: async () => [] },
   '@/lib/public/supplier-name': { supplierShortName: (s) => s.name }, '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
   './core': core, './presence': load('../lib/chat/presence.ts', {}),
@@ -91,6 +93,9 @@ const { ChatWorkspace } = load('../components/chat/chat-workspace.tsx', {
   '@/components/brand/vexim-icons': { VeximPlatformSupportIcon: icon },
   '@/components/ui': { cx: (...v) => v.filter(Boolean).join(' ') },
   '@/components/chat/presence': { PRESENCE_LABELS: { en: {}, vi: {} }, PresenceDot: icon, PresenceLine: icon, DeliveryTicks: icon, deliveryStatus: () => 'sent' },
+  '@/components/chat/chat-attachments': { ComposerFiles: icon, MessageFiles: icon, chatFileLabels: () => ({ hint: '', attach: '', waitUploads: '', attachmentGone: '', drop: '' }),
+    useChatUploads: () => ({ drafts: [], notice: null, addFiles() {}, retry() {}, remove() {}, take: () => [], restore() {}, busy: false, readyCount: 0 }) },
+  '@/lib/chat/attachments-core': fileCore,
 }, { window, document, CustomEvent: dom.window.CustomEvent, fetch: fetchMock, Set, Number });
 const unreadEvents = [];
 window.addEventListener('vexim:chat-unread', (e) => unreadEvents.push(e.detail));

@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowLeft, Loader2, Maximize2, MessageCircle, Package, Send, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, Loader2, Maximize2, MessageCircle, Package, Paperclip, Send, X } from "lucide-react";
 import { VeximPlatformSupportIcon } from "@/components/brand/vexim-icons";
 import { cx } from "@/components/ui";
 import { DeliveryTicks, PRESENCE_LABELS, PresenceDot, PresenceLine, deliveryStatus } from "@/components/chat/presence";
+import { ComposerFiles, MessageFiles, chatFileLabels, useChatUploads, type ChatFileView } from "@/components/chat/chat-attachments";
+import { CHAT_FILE_ACCEPT } from "@/lib/chat/attachments-core";
 
 export interface ChatLabels {
   title: string;
@@ -40,7 +42,13 @@ interface ConversationView { id: string; counterpart: string; counterpartHref: s
 /** Dòng danh sách không có tin mới trong lượt hỏi lại: chỉ phần đổi theo thời gian. */
 type ConversationStatus = Pick<ConversationView, "id" | "lastMessageAt" | "unread" | "counterpartReadAt" | "counterpartLastSeen" | "veximFollowingUp">;
 interface ProductCardView { id: string; name: string; imageUrl: string | null; href: string | null; price: string | null }
-interface MessageView { id: string; mine: boolean; body: string; productName: string | null; product?: ProductCardView | null; createdAt: string; pending?: boolean }
+interface MessageView { id: string; mine: boolean; body: string; productName: string | null; product?: ProductCardView | null; attachments?: ChatFileView[]; createdAt: string; pending?: boolean }
+
+/** Tin của mình đang gửi và tin máy chủ trả về là một khi cùng chữ và cùng tên các tệp. */
+function sameMessage(a: MessageView, b: MessageView) {
+  const names = (m: MessageView) => (m.attachments ?? []).map((f) => f.name).join("\n");
+  return a.body === b.body && names(a) === names(b);
+}
 
 /** Sản phẩm người mua đang xem khi mở cửa sổ chat từ trang sản phẩm. */
 export interface ChatDraftProduct { id: string; name: string; imageUrl: string | null; supplierName: string; detail?: string }
@@ -123,6 +131,12 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
   const [draft, setDraft] = useState(initialDraft);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const fileLabels = chatFileLabels(locale);
+  // Tệp chỉ gửi trong cuộc đã có; cuộc mới tạo khi gửi tin chữ đầu tiên.
+  const canAttach = Boolean(activeId && activeId !== NEW_ID);
+  const uploads = useChatUploads(canAttach ? activeId : null, side, fileLabels);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Người đọc đang ở cuối khung tin: có tin mới thì cuộn theo; đang kéo lên đọc tin cũ thì
@@ -201,7 +215,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
       const fresh = data.messages.filter((m) => {
         if (known.has(m.id)) return false;
         // Tin của mình đã lưu trước khi lời đáp POST về: thay đúng bản đang gửi, không hiện hai lần.
-        const twin = m.mine ? pending.find((p) => p.body === m.body) : undefined;
+        const twin = m.mine ? pending.find((p) => sameMessage(p, m)) : undefined;
         if (twin) pending = pending.filter((p) => p !== twin);
         return true;
       });
@@ -301,6 +315,12 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
     atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     if (atBottom.current) setUnseen(false);
   }
+  function keepAtBottom() {
+    if (atBottom.current) endRef.current?.scrollIntoView({ block: "end" });
+  }
+  // Hàng tệp đang soạn hiện ra làm khung tin thấp lại: giữ tin cuối trong tầm nhìn.
+  const draftCount = uploads.drafts.length;
+  useEffect(() => { keepAtBottom(); }, [draftCount]); // eslint-disable-line react-hooks/exhaustive-deps
   function jumpToLatest() {
     endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
     setUnseen(false);
@@ -308,12 +328,16 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
 
   async function send() {
     const body = draft.trim();
-    if (!body || !activeId || sending) return;
+    if (!activeId || sending) return;
+    if (canAttach && uploads.busy) { setError(fileLabels.waitUploads); return; }
+    if (!body && !(canAttach && uploads.readyCount)) return;
     if (body.length > MAX) { setError(labels.tooLong); return; }
     setSending(true); setError(null); bump();
     const withProduct = attached && activeId === productThreadId ? attached : null;
+    const files = canAttach ? uploads.take() : [];
     const temp: MessageView = { id: `tmp-${Date.now()}`, mine: true, body, productName: withProduct?.name ?? null,
       product: withProduct ? { id: withProduct.id, name: withProduct.name, imageUrl: withProduct.imageUrl, href: null, price: null } : null,
+      attachments: files.map((f) => ({ id: f.localId, name: f.name, size: f.size, kind: f.kind, expired: false, url: null, previewUrl: f.previewUrl })),
       createdAt: new Date().toISOString(), pending: true };
     setThread((t) => t ? { ...t, messages: [...t.messages, temp] } : t);
     setDraft("");
@@ -321,13 +345,16 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
     const res = await fetch(creating ? "/api/chat/start" : `/api/chat/${encodeURIComponent(activeId)}?side=${side}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(creating ? (withProduct ? { productId: withProduct.id, body } : { supplierId: supplier!.id, body })
-        : { body, ...(withProduct ? { productId: withProduct.id } : {}) }),
+        : { body, ...(withProduct ? { productId: withProduct.id } : {}), ...(files.length ? { attachmentIds: files.map((f) => f.attachmentId) } : {}) }),
     }).catch(() => null);
     setSending(false);
     if (!res?.ok) {
       setThread((t) => t ? { ...t, messages: t.messages.filter((m) => m.id !== temp.id) } : t);
       setDraft(body);
-      setError(res?.status === 429 ? labels.rateLimited : res?.status === 400 && withProduct ? labels.productUnavailable ?? labels.failed : labels.failed);
+      if (files.length) uploads.restore(files);
+      const code = res?.status === 400 ? (await res.json().catch(() => ({})) as { error?: string }).error : undefined;
+      setError(res?.status === 429 ? labels.rateLimited : code === "attachment" ? fileLabels.attachmentGone
+        : res?.status === 400 && withProduct ? labels.productUnavailable ?? labels.failed : labels.failed);
       return;
     }
     // Thẻ sản phẩm chỉ đi kèm tin đầu tiên sau khi mở cửa sổ; các tin sau là chat thường.
@@ -344,7 +371,8 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
     // Lượt hỏi lại có thể đã mang tin này về trước: khi đó chỉ bỏ bản đang gửi.
     setThread((t) => t ? { ...t, messages: t.messages.some((m) => m.id === data.message.id) ? t.messages.filter((m) => m.id !== temp.id)
       : t.messages.map((m) => m.id === temp.id ? data.message : m) } : t);
-    setList((rows) => rows ? [{ ...rows.find((r) => r.id === activeId)!, preview: body, lastMessageAt: data.message.createdAt, ...(withProduct ? { productName: withProduct.name } : {}) }, ...rows.filter((r) => r.id !== activeId)] : rows);
+    const preview = body || `📎 ${files.map((f) => f.name).join(", ")}`;
+    setList((rows) => rows ? [{ ...rows.find((r) => r.id === activeId)!, preview, lastMessageAt: data.message.createdAt, ...(withProduct ? { productName: withProduct.name } : {}) }, ...rows.filter((r) => r.id !== activeId)] : rows);
   }
 
   const active = useMemo(() => list?.find((c) => c.id === activeId) ?? null, [list, activeId]);
@@ -425,8 +453,9 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
               if (card) shownProduct = card.id;
               return <div key={m.id} className={cx("flex flex-col", m.mine ? "items-end" : "items-start")}>
                 {showCard && <ProductCard card={card} label={labels.about} mine={m.mine} />}
-                <div title={fullTime(m.createdAt, locale)} className={cx("max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm",
-                  m.mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100", m.pending && "opacity-70")}>{m.body}</div>
+                {m.attachments && m.attachments.length > 0 && <MessageFiles files={m.attachments} mine={m.mine} labels={fileLabels} locale={locale} onMediaLoad={keepAtBottom} />}
+                {m.body && <div title={fullTime(m.createdAt, locale)} className={cx("max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm",
+                  m.mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100", m.pending && "opacity-70")}>{m.body}</div>}
                 <span className="mt-0.5 flex items-center gap-1 px-1 text-[10.5px] text-ink-400">
                   {shortTime(m.createdAt, locale)}
                   {m.mine && <DeliveryTicks status={deliveryStatus(m, thread.conversation.counterpartReadAt)} labels={presence} showText={m.id === lastMine} />}
@@ -452,8 +481,14 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
           <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />{labels.newMessages ?? "New messages"}
         </button>}
         </div>
-        <form className="border-t border-ink-100 p-3" onSubmit={(e) => { e.preventDefault(); void send(); }}>
+        <form className={cx("relative border-t border-ink-100 p-3", dragging && "bg-brand-50/60")} onSubmit={(e) => { e.preventDefault(); void send(); }}
+          onDragOver={canAttach ? (e) => { if (Array.from(e.dataTransfer.types).includes("Files")) { e.preventDefault(); setDragging(true); } } : undefined}
+          onDragLeave={canAttach ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false); } : undefined}
+          onDrop={canAttach ? (e) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length) { setError(null); void uploads.addFiles(e.dataTransfer.files); } } : undefined}>
+          {dragging && <p className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-brand-300 bg-white/90 text-[13px] font-semibold text-brand-800">{fileLabels.drop}</p>}
           {error && <p role="alert" className="mb-2 rounded-md bg-red-50 px-3 py-1.5 text-[12.5px] text-red-800">{error}</p>}
+          {canAttach && uploads.notice && <p role="alert" className="mb-2 rounded-md bg-amber-50 px-3 py-1.5 text-[12.5px] text-amber-900">{uploads.notice}</p>}
+          {canAttach && <ComposerFiles drafts={uploads.drafts} labels={fileLabels} locale={locale} onRetry={uploads.retry} onRemove={uploads.remove} />}
           {showAttached && <div className="mb-2 flex items-center gap-3 rounded-xl border border-ink-200 bg-ink-50/70 p-2 pr-1.5" data-testid="chat-attached-product">
             {attached.imageUrl ? <img src={attached.imageUrl} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" /> : <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-ink-100"><Package className="h-5 w-5 text-ink-400" /></span>}
             <div className="min-w-0 flex-1">
@@ -464,16 +499,27 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
             {activeId !== NEW_ID && <button type="button" onClick={() => setAttached(null)} aria-label={labels.removeAttached} className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><X className="h-4 w-4" /></button>}
           </div>}
           <div className="flex items-end gap-2">
+            {canAttach && <>
+              <input ref={fileInput} type="file" multiple accept={CHAT_FILE_ACCEPT} className="hidden" data-testid="chat-file-input"
+                onChange={(e) => { const picked = e.currentTarget.files; if (picked?.length) { setError(null); void uploads.addFiles(Array.from(picked)); } e.currentTarget.value = ""; }} />
+              <button type="button" onClick={() => fileInput.current?.click()} aria-label={fileLabels.attach} title={`${fileLabels.attach}. ${fileLabels.hint}`}
+                className="flex h-11 w-10 shrink-0 items-center justify-center rounded-lg text-ink-500 transition hover:bg-ink-100 hover:text-brand-800" data-testid="chat-attach">
+                <Paperclip className="h-5 w-5" />
+              </button>
+            </>}
             <textarea id={popup ? "ask-supplier-message" : undefined} autoFocus={popup || !!initialDraft} value={draft}
               // Câu mở đầu điền sẵn: con trỏ đặt sau câu đó để gõ tiếp, không chèn lên trước.
               onFocus={(e) => { const el = e.currentTarget; if (initialDraft && el.value === initialDraft) el.setSelectionRange(el.value.length, el.value.length); }} onChange={(e) => { setDraft(e.target.value); bump(); }} rows={2} maxLength={MAX} placeholder={labels.placeholder}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }}
+              // Dán ảnh chụp màn hình vào ô nhập: đính kèm như chọn tệp. Chép chữ từ Word/Excel cũng kèm một
+              // ảnh của vùng chọn, nên có chữ thì vẫn dán chữ như thường.
+              onPaste={canAttach ? (e) => { const pasted = Array.from(e.clipboardData.files); if (pasted.length && !e.clipboardData.getData("text/plain")) { e.preventDefault(); setError(null); void uploads.addFiles(pasted.map((f, i) => f.name && f.name !== "image.png" ? f : new File([f], `screenshot-${Date.now()}${i ? `-${i}` : ""}.${f.type === "image/jpeg" ? "jpg" : f.type === "image/webp" ? "webp" : "png"}`, { type: f.type }))); } } : undefined}
               className="input min-h-[44px] flex-1 resize-none text-[14px] leading-6" aria-label={labels.placeholder} />
-            <button type="submit" disabled={!draft.trim() || sending} className="btn btn-primary h-11 shrink-0 px-4 disabled:opacity-60">
+            <button type="submit" disabled={(!draft.trim() && !(canAttach && uploads.readyCount)) || sending} className="btn btn-primary h-11 shrink-0 px-4 disabled:opacity-60">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}<span className="hidden sm:inline">{labels.send}</span>
             </button>
           </div>
-          <p className="mt-1 text-[11px] text-ink-400">{labels.enterHint}</p>
+          <p className="mt-1 text-[11px] text-ink-400">{labels.enterHint}{canAttach && <span className="hidden sm:inline"> {fileLabels.hint}</span>}</p>
         </form>
       </>}
     </section>

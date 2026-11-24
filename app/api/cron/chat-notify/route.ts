@@ -7,12 +7,16 @@
  *   - Schedule: mỗi 5 phút (*\/5 * * * *)
  *   - Headers:  Authorization: Bearer <CRON_SECRET>
  *
+ * Cùng lượt này dọn tệp đính kèm chat: tệp tải lên mà không gửi quá 24 giờ, tệp đã gửi quá
+ * 6 tháng (lib/chat/attachments.ts). Lỗi dọn tệp chỉ ghi log, không làm lượt nhắc báo lỗi.
+ *
  * Gọi bao nhiêu lần cũng không gửi trùng: mỗi cuộc được nhận việc trước khi gửi. Khi chưa cài
  * lịch, các lần người dùng tự hỏi tin mới cũng kích hoạt bộ quét (tối đa 3 phút một lần).
  */
 import { NextResponse } from "next/server";
 import { getStore } from "@/lib/db";
 import { runChatNotifications, runUnansweredEscalations } from "@/lib/chat/notify";
+import { cleanChatAttachments } from "@/lib/chat/attachments";
 import { runRfqPortalAlerts } from "@/lib/rfq/portal-alerts";
 import { runRfqMediatedAlerts } from "@/lib/rfq/mediated-alerts";
 import { retryPendingDirectRfqs } from "@/lib/rfq/retry-direct";
@@ -35,10 +39,11 @@ export async function GET(req: Request) {
   try {
     const store = getStore();
     // A chat outage must not block RFQ notifications (or vice versa).
-    const [chat, rfq, mediated, direct, unanswered] = await Promise.allSettled([
+    const [chat, rfq, mediated, direct, unanswered, files] = await Promise.allSettled([
       runChatNotifications(store), runRfqPortalAlerts(store), runRfqMediatedAlerts(store), retryPendingDirectRfqs(store),
-      runUnansweredEscalations(store),
+      runUnansweredEscalations(store), cleanChatAttachments(store),
     ]);
+    if (files.status === "rejected") console.error("[chat-notify] chat attachment cleanup failed", files.reason);
     if (unanswered.status === "rejected") console.error("[chat-notify] unanswered escalation failed", unanswered.reason);
     if (chat.status === "rejected") console.error("[chat-notify] chat alerts failed", chat.reason);
     if (rfq.status === "rejected") console.error("[chat-notify] RFQ alerts failed", rfq.reason);
@@ -48,7 +53,8 @@ export async function GET(req: Request) {
       rfq: rfq.status === "fulfilled" ? rfq.value : { error: "unavailable" },
       mediated: mediated.status === "fulfilled" ? mediated.value : { error: "unavailable" },
       direct: direct.status === "fulfilled" ? direct.value : { error: "unavailable" },
-      unanswered: unanswered.status === "fulfilled" ? unanswered.value : { error: "unavailable" } },
+      unanswered: unanswered.status === "fulfilled" ? unanswered.value : { error: "unavailable" },
+      attachments: files.status === "fulfilled" ? files.value : { error: "unavailable" } },
     { status: [chat, rfq, mediated, direct, unanswered].some((result) => result.status === "rejected") ? 503 : 200,
       headers: { "Cache-Control": "no-store" } });
   } catch (error) {

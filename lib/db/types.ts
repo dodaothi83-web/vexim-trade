@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessage, SourcingRequest, SupplierServiceRequest, SupportConversation, SupportMessage } from "@/lib/types";
+import type { ChatAttachment, ChatConversation, ChatMessage, SourcingRequest, SupplierServiceRequest, SupportConversation, SupportMessage } from "@/lib/types";
 import type {
   Activity,
   ActivityType,
@@ -283,6 +283,26 @@ export interface DataStore {
   /** Cũ trước, mới sau. `after` (ISO): chỉ lấy tin mới hơn mốc này — khung chat hỏi lại định kỳ chỉ tải phần mới. */
   listChatMessages(conversationId: string, limit?: number, after?: string): Promise<ChatMessage[]>;
   addChatMessage(input: Omit<ChatMessage, "id" | "created_at">): Promise<ChatMessage>;
+  /* Tệp đính kèm trong chat (lib/chat/attachments.ts). */
+  createChatAttachment(input: Omit<ChatAttachment, "id" | "created_at" | "deleted_at">): Promise<ChatAttachment>;
+  getChatAttachment(id: string): Promise<ChatAttachment | null>;
+  updateChatAttachment(id: string, patch: Partial<Pick<ChatAttachment, "status" | "uploaded_at" | "deleted_at" | "expires_at">>): Promise<void>;
+  deleteChatAttachment(id: string): Promise<void>;
+  /** Bản đã tải xong của cùng bên, cùng nội dung: dùng lại, không tải lần nữa. */
+  findReadyChatAttachment(uploaderKey: string, sha256: string, sizeBytes: number): Promise<ChatAttachment | null>;
+  listChatAttachmentsForMessages(messageIds: string[]): Promise<ChatAttachment[]>;
+  /** Tệp của một bên đang chiếm chỗ: các dòng chưa xoá, mỗi tệp trên kho tính một lần. */
+  listChatAttachmentUsage(uploaderKey: string): Promise<Array<Pick<ChatAttachment, "storage_key" | "size_bytes">>>;
+  countChatAttachmentsSince(uploaderKey: string, sinceIso: string): Promise<number>;
+  /**
+   * Gắn tệp vào tin vừa gửi. Chỉ gắn dòng đã tải xong, chưa thuộc tin nào, đúng cuộc và đúng bên
+   * tải lên; trả số dòng đã gắn (hai tin cùng giành một tệp thì chỉ một tin được).
+   */
+  linkChatAttachments(input: { ids: string[]; messageId: string; conversationId: string; uploaderKey: string; expiresAt: string }): Promise<number>;
+  /** Việc dọn: dòng chưa gửi quá hạn (tải dở hoặc tải xong mà không gửi) và tệp đã gửi quá 6 tháng. */
+  listChatAttachmentsToClean(input: { unsentBefore: string; now: string; limit: number }): Promise<{ unsent: ChatAttachment[]; expired: ChatAttachment[] }>;
+  /** Số dòng còn dùng một tệp trên kho (chưa xoá, trừ các id truyền vào). */
+  countChatAttachmentRefs(storageKey: string, excludeIds: string[]): Promise<number>;
   /* Chat người mua ↔ đội Vexim (một cuộc cho mỗi người mua). */
   getSupportConversationByBuyer(buyerEmail: string): Promise<SupportConversation | null>;
   getSupportConversation(id: string): Promise<SupportConversation | null>;
