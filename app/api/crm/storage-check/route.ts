@@ -54,6 +54,21 @@ async function presignProbe(bucket: string) {
   return { key, put, delete: remove };
 }
 
+/** Độ dài và dạng của một khoá, không trả nội dung khoá. */
+function shape(value: string | undefined, expected: number) {
+  const raw = value ?? "";
+  const v = raw.trim();
+  const hex = /^[0-9a-f]+$/i.test(v);
+  return {
+    length: v.length,
+    expected,
+    hex,
+    looksRight: v.length === expected && hex,
+    ...(raw !== v ? { note: "có khoảng trắng hoặc xuống dòng ở đầu/cuối (đã tự bỏ)" } : {}),
+    ...(/["'\s]/.test(v) ? { warning: "có dấu nháy hoặc khoảng trắng bên trong" } : {}),
+  };
+}
+
 function mask(value: string | undefined): string | null {
   const v = (value ?? "").trim();
   if (!v) return null;
@@ -77,6 +92,9 @@ export async function GET(request: Request) {
     config: {
       endpoint,
       accessKeyId: mask(process.env.R2_ACCESS_KEY_ID),
+      // Không lộ khoá: chỉ độ dài và dạng. Khoá R2 đúng: Access Key ID 32 ký tự hex, Secret 64 ký tự hex.
+      accessKeyShape: shape(process.env.R2_ACCESS_KEY_ID, 32),
+      secretShape: shape(process.env.R2_SECRET_ACCESS_KEY, 64),
       privateBucket: privateBucket ?? `(chưa cấu hình: "${(process.env.R2_PRIVATE_BUCKET_NAME ?? "").trim()}")`,
       publicBucket: publicBucket ?? "(chưa cấu hình)",
     },
