@@ -71,6 +71,37 @@ assert.deepEqual([...sample.matchAll(pattern)].map((m) => m[1]), [
 ], 'chỉ lấy ảnh PNG/JPG cũ, bỏ qua WebP');
 assert.ok(route.includes(pattern.source), 'route dùng đúng mẫu đã kiểm tra');
 
+// Giới hạn tải lên dùng chung cho máy chủ và 3 chỗ tải ảnh trong trình soạn thảo.
+const limits = load('lib/blog/image-limits.ts', {});
+assert.equal(limits.BLOG_IMAGE_MAX_BYTES, 2 * 1024 * 1024);
+assert.equal(limits.BLOG_IMAGE_ACCEPT, 'image/jpeg,image/png,image/webp');
+assert.equal(limits.blogImageProblem({ type: 'image/jpeg', size: 2 * 1024 * 1024 }), null, 'đúng 2 MB vẫn nhận');
+assert.equal(limits.blogImageProblem({ type: 'image/png', size: 2.4 * 1024 * 1024 }),
+  'Ảnh nặng 2,4 MB, vượt giới hạn 2 MB. Hãy thu nhỏ ảnh còn rộng tối đa 1600px rồi tải lại.');
+assert.equal(limits.blogImageProblem({ type: 'image/png', size: 2 * 1024 * 1024 + 1 }).startsWith('Ảnh nặng 2,1 MB'), true, 'làm tròn lên, không báo "2,0 MB vượt 2 MB"');
+for (const type of ['image/gif', 'image/avif', 'image/svg+xml', 'application/pdf', '']) {
+  assert.equal(limits.blogImageProblem({ type, size: 1000 }), 'Chỉ nhận ảnh JPG, PNG hoặc WebP.', `từ chối ${type || 'không rõ loại'}`);
+}
+for (const message of [limits.BLOG_IMAGE_HINT, limits.blogImageTooLargeMessage(9.9 * 1024 * 1024)]) {
+  assert.ok(message.length <= 120 && !message.includes('—'), `câu ngắn, không dùng gạch dài: ${message}`);
+}
+assert.match(upload, /if \(file\.size > BLOG_IMAGE_MAX_BYTES\)/, 'máy chủ chặn theo cùng giới hạn');
+assert.match(upload, /blogImageTooLargeMessage\(file\.size\)/);
+const imageBlock = read('components/block-editor/blocks/image-block.tsx');
+const postEditor = read('components/blog/post-editor.tsx');
+const blockEditor = read('components/block-editor/block-editor.tsx');
+for (const [name, source] of [['khối ảnh', imageBlock], ['ảnh bìa', postEditor], ['dán/kéo thả', blockEditor]]) {
+  assert.match(source, /blogImageProblem\(file\)/, `${name} kiểm tra giới hạn trước khi gửi`);
+  assert.doesNotMatch(source, /5 \* 1024 \* 1024|5MB/, `${name} không còn giới hạn 5MB cũ`);
+}
+for (const source of [imageBlock, postEditor]) {
+  assert.match(source, /accept=\{BLOG_IMAGE_ACCEPT\}/);
+  assert.match(source, /\{BLOG_IMAGE_HINT\}/);
+  assert.doesNotMatch(source, /GIF|AVIF/, 'không hứa định dạng máy chủ không nhận');
+}
+assert.match(blockEditor, /setPastedImageError\(problem\)/, 'ảnh dán quá nặng được báo, không bị bỏ qua im lặng');
+assert.match(blockEditor, /role="alert"/);
+
 // Ảnh bìa là ảnh lớn nhất trang bài viết: tải sớm.
 assert.match(read('app/blog/[slug]/page.tsx'), /fetchPriority="high"/);
 

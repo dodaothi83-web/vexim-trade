@@ -19,6 +19,7 @@ import { runSeoChecks, type OtherPostRef, type SeoInput } from "@/lib/blog/seo-c
 import { SeoPanel } from "@/components/blog/seo-panel";
 import { useImageDimensions } from "@/hooks/use-image-dimensions";
 import { VIEW_BUTTON_CLASS, VIEW_BUTTON_DISABLED_CLASS } from "@/lib/blog/view-button";
+import { BLOG_IMAGE_ACCEPT, BLOG_IMAGE_HINT, blogImageProblem } from "@/lib/blog/image-limits";
 import type { Post, PostStatus } from "@/lib/types";
 
 const MIN_PUBLISH_LENGTH = 50;
@@ -176,12 +177,10 @@ export function PostEditor({ post, otherPosts, productCategories = [] }: PostEdi
 
   const uploadCover = async (file: File) => {
     setMessage(null);
-    if (!file.type.startsWith("image/")) {
-      setMessage({ kind: "error", text: "Vui lòng chọn tệp ảnh (JPG, PNG, WebP, GIF, AVIF)." });
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage({ kind: "error", text: "Ảnh vượt quá 5MB, vui lòng chọn ảnh nhỏ hơn." });
+    const problem = blogImageProblem(file);
+    if (problem) {
+      setMessage({ kind: "error", text: problem });
+      if (coverInputRef.current) coverInputRef.current.value = "";
       return;
     }
     setUploadingCover(true);
@@ -386,13 +385,13 @@ export function PostEditor({ post, otherPosts, productCategories = [] }: PostEdi
                 className="flex w-full flex-col items-center justify-center rounded-md border border-dashed border-ink-300 px-4 py-8 text-center text-[13px] text-ink-500 hover:border-ink-500 hover:text-ink-800 disabled:opacity-60"
               >
                 <span className="font-semibold text-ink-800">{uploadingCover ? "Đang tải ảnh…" : "Tải ảnh bìa lên"}</span>
-                <span className="mt-1 text-[12px]">JPG, PNG, WebP, GIF, AVIF · tối đa 5MB</span>
+                <span className="mt-1 text-[12px]">{BLOG_IMAGE_HINT}</span>
               </button>
             )}
             <input
               ref={coverInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+              accept={BLOG_IMAGE_ACCEPT}
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];

@@ -5,12 +5,11 @@ import { guard } from "@/lib/auth/session";
 import { putObject } from "@/lib/media/storage";
 import { validateUpload } from "@/lib/media/validate";
 import { optimizeBlogImage } from "@/lib/media/blog-image";
+import { BLOG_IMAGE_MAX_BYTES, blogImageTooLargeMessage } from "@/lib/blog/image-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Ảnh tối đa cho bài viết (trình soạn khối chặn 5MB ở phía trình duyệt) */
-const MAX_BYTES = 5 * 1024 * 1024;
 
 /**
  * Tải ảnh cho bài viết (ảnh bìa và ảnh trong nội dung khối).
@@ -35,8 +34,9 @@ export async function POST(request: Request) {
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ ok: false, error: "Chưa chọn ảnh nào." }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ ok: false, error: "Ảnh vượt quá 5MB." }, { status: 413 });
+  // Giới hạn chung với trình soạn thảo (lib/blog/image-limits.ts): chặn ảnh quá nặng từ đầu.
+  if (file.size > BLOG_IMAGE_MAX_BYTES) {
+    return NextResponse.json({ ok: false, error: blogImageTooLargeMessage(file.size) }, { status: 413 });
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
