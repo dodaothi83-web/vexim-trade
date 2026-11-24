@@ -2125,8 +2125,9 @@ export const supabaseStore: DataStore = {
     const all = await readAllById<SupplierRfqInvitation>("listSupplierRfqInvitations", (after) => {
       let query = must().from("rfq_matches")
         .select("id,rfq_id,supplier_id,status,sent_to_supplier_at,response_due_at,supplier_replied_at,quote_price,quote_currency,quote_unit,quote_incoterm,quote_lead_time_days,quote_valid_until,quote_buyer_note,sent_to_buyer_at,buyer_last_read_at,supplier_last_read_at,last_thread_message_at,last_thread_sender,last_buyer_message_at,last_supplier_message_at,created_at,updated_at,rfq:rfqs!inner(" +
-          "code,product_text,quantity,unit,frequency,destination_country,incoterm,needed_by,wants_samples,wants_inspection,wants_video_call,source_product_id,source_page,status,preferred_supplier_ids," +
+          "code,product_text,quantity,unit,frequency,destination_country,incoterm,needed_by,target_price,target_price_currency,wants_samples,wants_inspection,wants_video_call,source_product_id,source_page,status,preferred_supplier_ids," +
           "grade:specs->>grade,packaging:specs->>packaging,certifications:specs->>certifications,destination_port:specs->>destination_port,shipment_month:specs->>shipment_month,sourcing_request_id:specs->>sourcing_request_id," +
+          "shipping_method:specs->>shipping_method,target_price_unit:specs->>target_price_unit,share_target_price:specs->share_target_price," +
           "buyer_contact:specs->buyer_contact,buyer_contact_policy_version:specs->>buyer_contact_policy_version,buyer_contact_consent_at:specs->>buyer_contact_consent_at,buyer_contact_consent_source:specs->>buyer_contact_consent_source,buyer_contact_supplier_ids:specs->buyer_contact_supplier_ids)")
         .eq("supplier_id", supplierId).not("sent_to_supplier_at", "is", null).neq("status", "proposed")
         .order("id", { ascending: true }).limit(READ_PAGE_SIZE);

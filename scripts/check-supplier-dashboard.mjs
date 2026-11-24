@@ -5,6 +5,7 @@ import { loadFormat } from './lib/i18n-format.mjs';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as rfqShippingModule from "../lib/rfq/shipping.ts";
 
 function load(path, mocks) {
   const output = ts.transpileModule(fs.readFileSync(new URL(path, import.meta.url), 'utf8'), {
@@ -35,6 +36,7 @@ const dashboard = load('../lib/supplier-portal/dashboard.ts', {
   '@/lib/certificate-rejection': rejection,
   '@/lib/rfq/buyer-contact': contact,
   '@/lib/rfq/channel': channel,
+  '@/lib/rfq/shipping': rfqShippingModule,
   '@/lib/rfq/mediated': { deskHasNewReply: (thread, side) => !!thread && !!(side === 'staff' ? thread.last_party_message_at : thread.last_staff_message_at) },
   '@/lib/rfq/portal-core': core,
   '@/lib/public/display-name': displayName,
@@ -250,6 +252,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   './background': { afterResponse: async (_label, task) => { await task(); } },
   './submit-input': { parseSubmitRfqInput: (raw) => ({ ok: true, data: raw }) },
+  './shipping': rfqShippingModule,
   '@/lib/security/challenge': { consumeFormChallenge: () => {}, verifyFormChallenge: () => ({ ok: true }) },
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => null, sendRfqNewInternal: async () => null },
   './buyer-contact': contact,

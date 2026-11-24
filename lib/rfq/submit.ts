@@ -33,6 +33,7 @@ import { consumeFormChallenge, verifyFormChallenge, type ChallengePurpose } from
 import { gcRateLimit, rateLimit } from "./rate-limit";
 import { afterResponse } from "./background";
 import { parseSubmitRfqInput } from "./submit-input";
+import { isShippingMethod } from "./shipping";
 
 export interface SubmitRfqInput {
   // Step 1 – product
@@ -55,10 +56,13 @@ export interface SubmitRfqInput {
   /** Đơn vị của giá mục tiêu (kg, MT...) để "6.90 USD/kg" không bị hiểu thành giá theo tấn. */
   target_price_unit?: string | null;
   /**
-   * Người mua có đồng ý cho NCC thấy giá mục tiêu hay không.
-   * Mặc định FALSE: giá mục tiêu chỉ để Vexim tham khảo nội bộ.
+   * NCC có thấy giá mục tiêu hay không. Form RFQ công khai luôn gửi TRUE khi người mua điền giá
+   * (chủ dự án quyết định 24/11/2026: giá mục tiêu luôn hiện cho NCC báo giá). Nguồn khác
+   * (AI, chuyển từ sourcing) không gửi cờ này thì mặc định FALSE như cũ.
    */
   share_target_price?: boolean;
+  /** Mã phương thức vận chuyển (lib/rfq/shipping.ts), lưu trong specs. */
+  shipping_method?: string | null;
   wants_samples?: boolean;
   wants_inspection?: boolean;
   wants_video_call?: boolean;
@@ -445,6 +449,7 @@ async function submitRfqChecked(input: SubmitRfqInput): Promise<SubmitRfqResult>
       destination_port: raw.destination_port?.trim() || null,
       shipment_month: /^\d{4}-\d{2}$/.test(raw.shipment_month ?? "") ? raw.shipment_month : null,
       target_price_unit: raw.target_price_unit?.trim() || null,
+      shipping_method: isShippingMethod(raw.shipping_method) ? raw.shipping_method : null,
       notes: raw.message?.trim() || null, // Desk-only RFQ message; never in supplier projections.
       // Mặc định không chia sẻ: chỉ Vexim thấy giá mục tiêu cho tới khi người mua đồng ý.
       share_target_price: raw.share_target_price === true,

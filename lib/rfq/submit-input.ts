@@ -43,6 +43,8 @@ const schema = z.object({
   target_price_currency: text(8),
   target_price_unit: text(20),
   share_target_price: flag,
+  // Mã phương thức vận chuyển (lib/rfq/shipping.ts); mã lạ bị bỏ ở submit.ts, không chặn yêu cầu.
+  shipping_method: text(20),
   wants_samples: flag,
   wants_inspection: flag,
   wants_video_call: flag,

@@ -163,7 +163,7 @@ This is an owner-approved exception to "palette remains navy" for these pages on
 
 ## Product card: "Verified L1" badge and compact layout (approved 2026-11-24)
 
-Owner decision (option A, Freshdi style): on `PublicProductCard` only (Home, category, search, storefront, related products) the three marketplace shield pips are replaced by one badge: the word "Verified" followed by a small shield holding the tier number ("L1", "L2", "L3"). Component: `components/verified-badge.tsx`. The shield uses the navy tier ramp below (`VERIFICATION_TIER_TONES`). Tier 0 shows no badge.
+Owner decision (option A, Freshdi style): on `PublicProductCard` only (Home, category, search, storefront, related products) the three marketplace shield pips are replaced by one badge: the word "Verified" followed by a small shield holding the tier number ("L1", "L2", "L3"). Component: `components/verified-badge.tsx`. Since 2026-11-24 (later decision) this badge uses its own colour set, see "Product card Verified pill colours" at the end; the navy ramp still applies everywhere else. Tier 0 shows no badge.
 
 The tier is the number of approved checks, not a sequence, so the badge always opens a "Supplier checks" panel listing all three checks in `VERIFICATION_DISPLAY_ORDER` with "Approved" or "Not approved" and a "How we verify" link. Desktop: hover or keyboard focus. Phones: tap to open, tap outside or Esc to close. The supplier row sits above the card's stretched link (`z-20`), so a tap on the badge never opens the product. Test/demo rows pass no levels and show no badge.
 
@@ -181,3 +181,14 @@ Owner decision (option A): yellow and burgundy read as warnings, not trust, so e
 
 Tokens: `VERIFICATION_TIER_TONES`, `VERIFICATION_SHIELD_FILL`, `BADGE_CLASSES`, `SEAL_CLASSES` in `components/verification-tier.tsx`. Applies everywhere these are used: the product-card "Verified L1" badge, marketplace pips (supplier page, compare page), tier pills (product page, comparison table, search supplier cards, CRM) and the CRM cover seal. CRM compact circular pips keep the shared success colour. The yellow exception above no longer applies. Verification rules, labels and data are unchanged.
 
+## Product card Verified pill colours (approved 2026-11-24)
+
+Owner decision, superseding the navy ramp for this one badge only: on `PublicProductCard` the "Verified" badge is a small pill (light background, thin border) with the word and a solid shield in the same colour. The shield holds the tier number in white. Tier = number of approved checks, as before.
+
+| Tier | Text and shield | Background | Border |
+|---|---|---|---|
+| L1 | #0F766E (deep teal) | #F0FDFA | #99F6E4 |
+| L2 | #1D4ED8 (deep blue) | #EFF6FF | #BFDBFE |
+| L3 | #B45309 (deep amber) | #FFFBEB | #FDE68A |
+
+Sizes: 10.5px text and 16px shield on mobile, 11px text and 18px shield from `sm`. Token: `CARD_BADGE_TONES` in `components/verified-badge.tsx`. Marketplace pips, tier pills (product page, comparison table, search supplier cards, CRM) and the cover seal keep the navy ramp. Tooltip, labels and verification rules are unchanged.

@@ -11,6 +11,7 @@ import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as jsx from 'react/jsx-runtime';
+import * as rfqShippingModule from "../lib/rfq/shipping.ts";
 
 const file = 'app/(public)/rfq/rfq-form.tsx';
 const output = ts.transpileModule(readFileSync(new URL('../' + file, import.meta.url), 'utf8'), {
@@ -29,6 +30,7 @@ const mocks = {
   '@/components/ui': { cx: (...parts) => parts.filter(Boolean).join(' ') },
   '@/lib/rfq/input-limits': await import('../lib/rfq/input-limits.ts'),
   '@/lib/rfq/grade-tags': await import('../lib/rfq/grade-tags.ts'),
+  '@/lib/rfq/shipping': rfqShippingModule,
 };
 const mod = { exports: {} };
 vm.runInNewContext(output, {
@@ -93,7 +95,9 @@ assert.match(withCard, /Your requirements<\/label>|Your requirements/, 'Ô yêu 
 assert.ok(withCard.includes('aria-expanded="false"'), 'Mục chi tiết đóng mặc định');
 assert.ok(!withCard.includes('id="rfq-details"'), 'Nội dung chi tiết chưa render khi đang đóng');
 assert.ok(withCard.includes('Phone / WhatsApp (optional)'), 'Phone / WhatsApp hiện ngay trong YOUR DETAILS');
-assert.ok(!/target price/i.test(withCard), 'Không còn giá mục tiêu');
+assert.ok(withCard.includes('Target price (optional)') && withCard.includes('Shipping method (optional)'), 'Giá mục tiêu và phương thức vận chuyển ở form chính');
+assert.ok(withCard.includes('Express courier (DHL, FedEx, UPS)'), 'Danh sách phương thức vận chuyển');
+assert.ok(!withCard.includes('Private note'), 'Form gửi thẳng NCC không có ghi chú riêng cho Vexim');
 // Sản phẩm đã có danh mục + grade → tóm tắt mục chi tiết không nhắc Category/Grade.
 assert.ok(withCard.includes('Incoterm, shipment month, certificates, packing.'), 'Tóm tắt bỏ Category/Grade khi đã biết từ sản phẩm');
 

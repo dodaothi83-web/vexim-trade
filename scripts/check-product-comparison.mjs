@@ -23,7 +23,7 @@ import {
 import { approvedProductCertificateIds } from "../lib/public/product-certificate-links.ts";
 import { publicSupplierWebsite } from "../lib/public/supplier-website.ts";
 import * as priceDisplay from "../lib/products/price-display.ts";
-import { VERIFICATION_LABELS, verificationLabel } from "../lib/verification-status.ts";
+import { VERIFICATION_LABELS, verificationCheckLabel, verificationLabel } from "../lib/verification-status.ts";
 import {
   publicExportPortDisplay,
   publicProductCapacityDisplay,
@@ -348,7 +348,7 @@ const tableModule = compile("../components/public/product-comparison-table.tsx",
   "@/components/verification-tier": { VerificationTierBadge: () => React.createElement("span", null, "Level 2") },
   "@/components/public/supplier-website-link": { SupplierWebsiteLink },
   "@/lib/public/product-comparison": { productComparisonWarnings },
-  "@/lib/verification-status": { VERIFICATION_LABELS, verificationLabel },
+  "@/lib/verification-status": { VERIFICATION_LABELS, verificationCheckLabel, verificationLabel },
   "@/lib/types": { VERIFICATION_DISPLAY_ORDER: [1, 3, 2] },
   "@/lib/public/product-detail-display": { publicProductLocationDisplay: (region) => region === "Not specified" ? region : `${region}, Vietnam` },
 });
@@ -356,7 +356,7 @@ const tableHtml = renderToStaticMarkup(React.createElement(tableModule.ProductCo
   products: [compared("a"), compared("b", { price: null, priceCurrency: null, priceUnit: null, priceUpdatedAt: null, certificates: [], inputMaterialOrigin: null })],
 }));
 for (const text of ["Reference price", "USD 7/kg", "On request", "Price updated", "MOQ", "Packaging", "Named place",
-  "Vexim verification", "Documents checked: Approved", "Delivery history reviewed: Approved", "L3 review: Not approved",
+  "Vexim verification", "Documents checked: Approved", "Delivery history reviewed: Approved", "Factory verification: Not approved",
   "HACCP", "No public certificates", "Raw material region", "Binh Phuoc and Dak Lak", "Input material origin", "Vietnam and Cambodia", "Not provided",
   "Copy comparison link", "Request a quote", "do not certify these products or a specific lot"]) {
   assert.ok(tableHtml.includes(text), `Comparison table includes ${text}`);

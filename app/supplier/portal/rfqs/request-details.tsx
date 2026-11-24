@@ -8,8 +8,9 @@ export function RequestDetails({ item, copy, className = "rounded-xl border bord
   item: PortalInvite; copy: RfqsMessages["request"]; className?: string;
 }) {
   const groups: Array<[string, Array<[string, string | null]>]> = [
-    [copy.terms, [[copy.quantity, item.quantity], [copy.frequency, item.request.frequency],
-      [copy.incoterm, item.request.incoterm], [copy.destination, item.destination], [copy.delivery, item.request.delivery]]],
+    [copy.terms, [[copy.quantity, item.quantity], [copy.targetPrice, item.request.targetPrice], [copy.frequency, item.request.frequency],
+      [copy.incoterm, item.request.incoterm], [copy.shippingMethod, item.request.shippingMethod],
+      [copy.destination, item.destination], [copy.delivery, item.request.delivery]]],
     [copy.specs, [[copy.grade, item.request.grade], [copy.packaging, item.request.packaging],
       [copy.certifications, item.request.certifications]]],
   ];

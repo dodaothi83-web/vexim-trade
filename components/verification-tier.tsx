@@ -2,7 +2,7 @@ import { HelpCircle, ShieldCheck } from "lucide-react";
 import { VeximInspectionIcon as Factory, VeximDocumentIcon as FileCheck2, VeximDeliveryIcon as Truck } from "@/components/brand/vexim-icons";
 
 import { VERIFICATION_DISPLAY_ORDER, type VerificationLevel } from "@/lib/types";
-import { verificationExplanation, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
+import { verificationCheckExplanation, verificationCheckLabel, verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
 
 export type VerificationTier = 0 | 1 | 2 | 3;
 
@@ -174,9 +174,9 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
       aria-label={approved.length ? `Verification checks approved: ${approved.map((l) => verificationLabel(l, l2Scope)).join(", ")}` : "No verification checks approved yet"}>
       {VERIFICATION_DISPLAY_ORDER.map((level, index) => {
         const on = levels.includes(level);
-        const label = verificationLabel(level, l2Scope);
+        const label = verificationCheckLabel(level, l2Scope, on);
         const status = on ? "Approved" : "Not approved";
-        const explanation = verificationExplanation(level, l2Scope);
+        const explanation = verificationCheckExplanation(level, l2Scope, on);
         const accessibleName = `${label}: ${status}. ${explanation}`;
         // Thẻ công khai: khiên trơn, đã duyệt thì tô đặc màu theo cấp, dấu tích trắng (VERIFICATION_SHIELD_FILL).
         const appearance = marketplace

@@ -75,6 +75,19 @@ export function verificationExplanation(level: VerificationLevel, scope?: Public
   return product ? PRODUCT_VERIFICATION_EXPLANATIONS[level] : VERIFICATION_LEVEL_EXPLANATIONS[level];
 }
 
+/**
+ * Tên một bước trong danh sách có trạng thái Approved / Not approved. Bước đã duyệt giữ phạm vi
+ * (kể cả "L3 review" khi phạm vi không rõ, để không thành tuyên bố đã kiểm nhà máy). Bước CHƯA duyệt
+ * không có phạm vi nào, nên luôn dùng tên chuẩn ("Factory verification: Not approved").
+ */
+export function verificationCheckLabel(level: VerificationLevel, scope: PublicL2Scope | undefined, approved: boolean): string {
+  return approved ? verificationLabel(level, scope) : VERIFICATION_LABELS[level];
+}
+
+export function verificationCheckExplanation(level: VerificationLevel, scope: PublicL2Scope | undefined, approved: boolean): string {
+  return approved ? verificationExplanation(level, scope) : VERIFICATION_LEVEL_EXPLANATIONS[level];
+}
+
 /** Filter 2 is specifically factory, filter 4 specifically partner contract. */
 export function matchesVerificationFilter(levels: readonly number[], scope: PublicL2Scope | undefined, filter: number): boolean {
   if (!filter) return true;

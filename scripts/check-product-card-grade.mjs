@@ -137,10 +137,16 @@ const badgeSource = readFileSync(new URL('../components/verified-badge.tsx', imp
 assert.match(badgeSource, /if \(tier === 0\) return null/, 'Chưa có bước nào duyệt: không hiện nhãn');
 assert.match(badgeSource, /VERIFICATION_DISPLAY_ORDER\.map/, 'Bảng chi tiết liệt kê cả ba bước');
 assert.match(badgeSource, /"Approved" : "Not approved"/);
+assert.match(badgeSource, /label: verificationCheckLabel\(level, l2Scope, on\)/, 'Bước chưa duyệt dùng tên chuẩn, không hiện "L3 review"');
 assert.match(badgeSource, /aria-expanded=\{open\}/, 'Chạm để mở trên điện thoại');
 assert.match(badgeSource, /addEventListener\("pointerdown"/, 'Chạm ra ngoài để đóng');
 assert.match(badgeSource, /event\.key === "Escape"/, 'Esc để đóng');
 assert.match(badgeSource, /href="\/how-we-verify"/);
+// Màu pill theo cấp (chủ dự án duyệt 24/11/2026): L1 xanh ngọc, L2 xanh dương, L3 hổ phách.
+assert.match(badgeSource, /1: \{ color: "#0F766E", bg: "#F0FDFA", border: "#99F6E4" \}/, 'L1 xanh ngọc');
+assert.match(badgeSource, /2: \{ color: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE" \}/, 'L2 xanh dương');
+assert.match(badgeSource, /3: \{ color: "#B45309", bg: "#FFFBEB", border: "#FDE68A" \}/, 'L3 hổ phách');
+assert.match(badgeSource, /rounded-full border/, 'Dạng pill có viền mảnh');
 assert.match(cardSource, /relative z-20 flex min-w-0 items-center/, 'Hàng nhà cung cấp nằm trên link phủ thẻ: chạm nhãn không mở sản phẩm');
 console.log('✓ Verified badge: tier shield, three checks with status, tap/escape handling, link to How we verify.');
 

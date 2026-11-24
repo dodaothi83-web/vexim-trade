@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as rfqShippingModule from "../lib/rfq/shipping.ts";
 
 function load(path, mocks) {
   const output = ts.transpileModule(fs.readFileSync(new URL(path, import.meta.url), 'utf8'), {
@@ -62,6 +63,7 @@ const submit = load('../lib/rfq/submit.ts', {
   './rate-limit': { gcRateLimit() {}, rateLimit: () => ({ ok: true }) },
   './background': { afterResponse: async (_label, task) => { await task(); } },
   './submit-input': { parseSubmitRfqInput: (raw) => ({ ok: true, data: raw }) },
+  './shipping': rfqShippingModule,
   '@/lib/security/challenge': { consumeFormChallenge: () => {}, verifyFormChallenge: ({ token }) => (token ? { ok: true } : { ok: false, reason: 'missing' }) },
 });
 const rawQuestion = {
