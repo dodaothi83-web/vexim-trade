@@ -14,13 +14,25 @@ import { verificationCheckLabel, type PublicL2Scope } from "@/lib/verification-s
  * Cấp = số bước kiểm tra đã duyệt, không phải bậc nối tiếp (L2 có thể là giấy tờ + giao hàng,
  * chưa kiểm nhà máy). Vì vậy bảng chi tiết luôn liệt kê đủ ba bước và trạng thái từng bước.
  * Desktop: di chuột hoặc focus để xem. Điện thoại: chạm để mở, chạm ra ngoài hoặc Esc để đóng.
- * Màu khiên: thang navy đậm dần dùng chung toàn site (VERIFICATION_TIER_TONES).
+ * Màu: riêng nhãn này trên thẻ sản phẩm dùng ba sắc độ đậm (chủ dự án duyệt 24/11/2026):
+ * L1 xanh ngọc, L2 xanh dương, L3 hổ phách, dạng pill nền nhạt + viền mảnh. Các nơi khác
+ * (khiên nhỏ, pill cấp ở trang sản phẩm/so sánh/CRM) vẫn dùng thang navy VERIFICATION_TIER_TONES.
  */
+
+/** Pill "Verified" trên thẻ sản phẩm: chữ + khiên đặc cùng màu, nền nhạt, viền mảnh. */
+export const CARD_BADGE_TONES: Record<Exclude<VerificationTier, 0>, { color: string; bg: string; border: string }> = {
+  1: { color: "#0F766E", bg: "#F0FDFA", border: "#99F6E4" },
+  2: { color: "#1D4ED8", bg: "#EFF6FF", border: "#BFDBFE" },
+  3: { color: "#B45309", bg: "#FFFBEB", border: "#FDE68A" },
+};
 
 const SHIELD_PATH = "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z";
 
-export function TierShield({ tier, className = "h-[18px] w-[18px] sm:h-5 sm:w-5" }: { tier: Exclude<VerificationTier, 0>; className?: string }) {
-  const tone = VERIFICATION_TIER_TONES[tier];
+export function TierShield({ tier, className = "h-[18px] w-[18px] sm:h-5 sm:w-5", tone = VERIFICATION_TIER_TONES[tier] }: {
+  tier: Exclude<VerificationTier, 0>;
+  className?: string;
+  tone?: { fill: string; stroke: string; text: string };
+}) {
   return (
     <span className={`relative inline-flex shrink-0 items-center justify-center ${className}`} aria-hidden="true">
       <svg viewBox="0 0 24 24" className="absolute inset-0 h-full w-full" fill={tone.fill} stroke={tone.stroke} strokeWidth={1.8} strokeLinejoin="round">
@@ -62,6 +74,8 @@ export function VerifiedBadge({ levels, l2Scope }: { levels: readonly Verificati
   const tier = verificationTier(approved);
   // Chưa có bước nào được duyệt: thẻ không hiện nhãn (không có "Verified L0").
   if (tier === 0) return null;
+  const shieldTier = tier as Exclude<VerificationTier, 0>;
+  const tone = CARD_BADGE_TONES[shieldTier];
 
   // Bước chưa duyệt luôn mang tên chuẩn ("Factory verification"), không hiện "L3 review".
   const rows = VERIFICATION_DISPLAY_ORDER.map((level) => {
@@ -78,10 +92,16 @@ export function VerifiedBadge({ levels, l2Scope }: { levels: readonly Verificati
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => { place(); setOpen((value) => !value); }}
-        className="inline-flex cursor-help items-center gap-1 rounded-md text-[11px] font-semibold leading-4 text-ink-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:text-xs sm:leading-5"
+        style={{ color: tone.color, backgroundColor: tone.bg, borderColor: tone.border }}
+        className="inline-flex cursor-help items-center gap-[3px] rounded-full border py-px pl-1.5 pr-1 text-[10.5px] font-semibold leading-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:pl-2 sm:pr-[5px] sm:text-[11px]"
       >
         <span>Verified</span>
-        <TierShield tier={tier as Exclude<VerificationTier, 0>} />
+        {/* Khiên đặc + số trắng: nét gọn, đọc rõ ở 14–16px, không cần viền phụ. */}
+        <TierShield
+          tier={shieldTier}
+          tone={{ fill: tone.color, stroke: tone.color, text: "#FFFFFF" }}
+          className="h-4 w-4 sm:h-[18px] sm:w-[18px]"
+        />
       </button>
       {/* pb-2/pt-2 thay cho margin để con trỏ đi từ nhãn sang bảng không bị mất hover. */}
       <span
