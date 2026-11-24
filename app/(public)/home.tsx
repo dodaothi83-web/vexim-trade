@@ -212,7 +212,7 @@ export default async function HomeContent({
                 <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-ink-400 sm:block" />
                 <input id="home-search-query" type="search" name="q" maxLength={120} defaultValue={query}
                   placeholder={isVi ? "Tìm sản phẩm hoặc quy cách, ví dụ: W320, 550 g/l, quế" : "Search a product or grade, e.g. W320, 550 g/l, cassia"}
-                  className="h-11 w-full min-w-0 flex-1 bg-white px-2 text-base text-ink-900 sm:h-14 sm:rounded-xl sm:pl-11 sm:pr-3 sm:text-[15px] placeholder:text-ink-500 focus-visible:outline-offset-[-3px]" />
+                  className="h-11 w-full min-w-0 flex-1 bg-white px-2 text-base text-ink-900 outline-none focus-visible:outline-none sm:h-14 sm:rounded-xl sm:pl-11 sm:pr-3 sm:text-[15px] placeholder:text-ink-500 sm:focus-visible:ring-2 sm:focus-visible:ring-inset sm:focus-visible:ring-brand-300" />
               </div>
               <button type="submit" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand-700 px-3 sm:h-14 sm:w-auto sm:rounded-xl sm:px-8 text-sm font-bold text-white transition hover:bg-brand-800 sm:text-[15px] sm:shadow-[0_8px_20px_-10px_rgba(31,62,116,0.8)] focus-visible:outline-offset-[-3px]">
                 <Search className="hidden h-4 w-4 sm:block" aria-hidden="true" /><span>{isVi ? "Tìm kiếm" : "Search"}</span>
@@ -221,17 +221,20 @@ export default async function HomeContent({
           </form>
           <p className="mt-4 text-sm text-white/75">
             {isVi ? "Chưa biết tìm gì? " : "Not sure what to search for? "}
-            <Link href="/rfq" className="font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">
+            <Link href="/rfq" className="whitespace-nowrap font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white">
               {isVi ? "Cho biết bạn cần gì" : "Tell us what you need"} <span aria-hidden="true">→</span>
             </Link>
           </p>
-          {homeCategories.length > 0 && <nav aria-label={isVi ? "Tìm nhiều" : "Popular searches"} className="mt-6 flex flex-wrap items-center gap-2 text-sm">
-            <span className="mr-1 font-semibold text-white/70">{isVi ? "Tìm nhiều:" : "Popular searches:"}</span>
-            {homeCategories.slice(0, 5).map((category) => <Link key={category.id}
-              href={`/search?cat=${encodeURIComponent(category.slug)}&lang=${lang}`}
-              className="inline-flex min-h-11 items-center rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition hover:border-white hover:bg-white hover:text-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-              {getCategoryTitle(category, lang)}
-            </Link>)}
+          {homeCategories.length > 0 && <nav aria-label={isVi ? "Tìm nhiều" : "Popular searches"} className="mt-5 text-sm sm:mt-6 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+            <span className="block text-xs font-semibold text-white/70 sm:mr-1 sm:inline sm:text-sm">{isVi ? "Tìm nhiều:" : "Popular searches:"}</span>
+            {/* Mobile: một hàng chip nhỏ, trượt ngang (không bẻ dòng, không rớt lẻ chip). Desktop: xuống dòng như cũ. */}
+            <div className="-mx-5 mt-2 flex snap-x scroll-px-5 gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-0 sm:contents">
+              {homeCategories.slice(0, 5).map((category) => <Link key={category.id}
+                href={`/search?cat=${encodeURIComponent(category.slug)}&lang=${lang}`}
+                className="inline-flex min-h-9 shrink-0 snap-start items-center whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[13px] font-medium leading-5 text-white backdrop-blur-sm transition hover:border-white hover:bg-white hover:text-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:min-h-11 sm:px-4 sm:py-2 sm:text-sm">
+                {getCategoryTitle(category, lang)}
+              </Link>)}
+            </div>
           </nav>}
         </div>
       </section>
