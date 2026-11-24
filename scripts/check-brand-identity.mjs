@@ -61,8 +61,8 @@ for (const levels of [[], [1], [1, 2, 3]]) {
   assert.match(html, /Check 2/);
   assert.equal((html.match(/: Approved\./g) ?? []).length, levels.length);
 }
-// Product cards: plain frameless shields; approved ones are filled with the tier colour (green, light yellow, burgundy) and a white tick.
-for (const [levels, bg] of [[[], null], [[1], 'fill-\\[#2FA35A\\]'], [[1, 2], 'fill-\\[#E9C64A\\]'], [[1, 2, 3], 'fill-\\[#8E1B2C\\]']]) {
+// Public listings: plain frameless shields; approved ones use the navy tier ramp (pale, light navy, solid navy with a white tick).
+for (const [levels, bg] of [[[], null], [[1], 'fill-\\[#F2F5FA\\]'], [[1, 2], 'fill-\\[#B8CAE3\\]'], [[1, 2, 3], 'fill-\\[#1F3E74\\]']]) {
   const html = render(mod.exports.VerificationPips, { levels, variant: 'marketplace', shortTooltips: true });
   assert.equal((html.match(/data-standard-shield/g) ?? []).length, 3);
   const buttons = [...html.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);

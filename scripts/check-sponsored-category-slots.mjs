@@ -58,7 +58,8 @@ const card = load('../components/public-product-card.tsx', {
   '@/components/buyer-saved-products': { SaveProductButton: () => null },
   '@/components/product-compare-checkbox': { ProductCompareCheckbox: icon },
   '@/components/product-trade-labels': { ProductTradeLabels: icon },
-  '@/components/verification-tier': { VerificationPips: icon, VerificationTierBadge: icon },
+  '@/components/verified-badge': { VerifiedBadge: icon },
+  '@/components/brand/vexim-icons': new Proxy({}, { get: () => icon }),
 });
 const props = { href: '/product', name: 'Product', moq: '', price: null, leadTimeDays: null, supplierName: 'Supplier', verificationSteps: [] };
 const paid = renderToStaticMarkup(React.createElement(card.PublicProductCard, { ...props, sponsored: true }));

@@ -4,7 +4,8 @@ import { ImageIcon } from "lucide-react";
 
 import { SponsoredDisclosure } from "@/components/sponsored-disclosure";
 import { ProductCompareCheckbox } from "@/components/product-compare-checkbox";
-import { VerificationPips } from "@/components/verification-tier";
+import { VerifiedBadge } from "@/components/verified-badge";
+import { VeximLeadTimeIcon } from "@/components/brand/vexim-icons";
 import type { ProductComparisonSelection } from "@/lib/public/product-comparison";
 import type { VerificationLevel } from "@/lib/types";
 import { priceAmountText, priceCurrencySymbol } from "@/lib/products/price-display";
@@ -342,19 +343,25 @@ export function PublicProductCard({
         </span>
       )}
       {comparisonItem && <ProductCompareCheckbox product={comparisonItem} />}
-      {/* Điện thoại (thẻ ngang): nhãn chứng nhận nằm đè góc dưới ảnh để phần chữ vừa chiều cao ảnh vuông.
-          Hai chứng nhận thì hiện cả hai; từ ba trở lên hiện nhãn đầu + "+N" để chữ không bị cắt.
-          Từ sm (thẻ dọc): nhãn ở dòng trên tiêu đề như cũ. */}
+      {/* Nhãn chứng nhận nằm đè góc dưới ảnh ở mọi cỡ màn hình, để mọi thẻ có cùng hai dòng tiêu đề
+          và giá thẳng hàng. Điện thoại: hai chứng nhận thì hiện cả hai, từ ba trở lên hiện nhãn đầu + "+N".
+          Từ sm: tối đa ba nhãn, còn lại gộp "+N". */}
       {certificates.length > 0 && (
-        <div className="absolute inset-x-1.5 bottom-1.5 z-10 flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden sm:hidden" aria-label={`Certificates: ${certificates.join(", ")}`}>
-          {certificates.slice(0, mobileCertificateCount).map((label) => (
-            <span key={label} title={`${label} certified`} className="min-w-0 truncate rounded bg-white/95 px-1 text-[9.5px] font-bold leading-[14px] text-emerald-800 shadow-sm ring-1 ring-emerald-300">
+        <div className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-10 flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden sm:inset-x-2 sm:bottom-2" aria-label={`Certificates: ${certificates.join(", ")}`}>
+          {certificates.slice(0, 3).map((label, index) => (
+            <span key={label} title={`${label} certified`} className={`pointer-events-auto min-w-0 truncate rounded bg-white/95 px-1 text-[9.5px] font-bold leading-[14px] text-emerald-800 shadow-sm ring-1 ring-emerald-300 sm:px-1.5 sm:text-[10.5px] sm:leading-4 ${
+              index >= mobileCertificateCount ? "max-sm:hidden" : ""}`}>
               {label}
             </span>
           ))}
           {certificates.length > mobileCertificateCount && (
-            <span title={certificates.slice(mobileCertificateCount).join(", ")} className="shrink-0 rounded bg-emerald-600 px-1 text-[9.5px] font-bold leading-[14px] text-white shadow-sm">
+            <span title={certificates.slice(mobileCertificateCount).join(", ")} className="pointer-events-auto shrink-0 rounded bg-emerald-600 px-1 text-[9.5px] font-bold leading-[14px] text-white shadow-sm sm:hidden">
               +{certificates.length - mobileCertificateCount}
+            </span>
+          )}
+          {certificates.length > 3 && (
+            <span title={certificates.slice(3).join(", ")} className="pointer-events-auto shrink-0 rounded bg-emerald-600 px-1.5 text-[10.5px] font-bold leading-4 text-white shadow-sm max-sm:hidden">
+              +{certificates.length - 3}
             </span>
           )}
         </div>
@@ -365,10 +372,9 @@ export function PublicProductCard({
   const title = (
     <h3
       title={displayName}
-      // Điện thoại (thẻ ngang): luôn hai dòng rồi "…". Từ sm (thẻ dọc): có chứng nhận thì hai dòng
-      // dưới dòng badge, không có thì ba dòng. Wrapper bên ngoài giữ min-height để lưới thẳng hàng.
-      className={`line-clamp-2 overflow-hidden break-words text-[13px] font-semibold leading-4 text-ink-900 group-hover/card:text-brand-700 sm:text-sm sm:leading-5 ${
-        certificates.length ? "" : "sm:line-clamp-3"}`}
+      // Mọi cỡ màn hình: tối đa hai dòng rồi "…" (tên đầy đủ ở thuộc tính title và trang chi tiết).
+      // Wrapper bên ngoài giữ đúng hai dòng để giá trên lưới thẳng hàng.
+      className="line-clamp-2 overflow-hidden break-words text-[13px] font-semibold leading-4 text-ink-900 group-hover/card:text-brand-700 sm:text-sm sm:leading-5"
     >
       {displayName}
     </h3>
@@ -382,28 +388,15 @@ export function PublicProductCard({
     >
       <div className="w-[40%] shrink-0 self-stretch sm:w-full sm:self-auto">{thumb}</div>
       {/* Điện thoại: ảnh vuông cao hơn chữ thì khoảng dư chia đều giữa các nhóm (justify-between), không dồn một chỗ. */}
-      <div className="@container flex min-w-0 flex-1 flex-col px-2 py-1.5 max-sm:justify-between sm:px-3.5 sm:pb-3.5 sm:pt-3">
+      <div className="@container flex min-w-0 flex-1 flex-col px-2 py-1.5 max-sm:justify-between sm:px-3 sm:pb-3 sm:pt-2.5">
         {sponsored && (
           <div className="relative z-20">
             <SponsoredDisclosure />
           </div>
         )}
 
-        {/* Chứng nhận + tiêu đề: wrapper giữ min-height cố định để thẻ có/không badge
-            vẫn cao bằng nhau trên lưới. Có badge: tiêu đề 2 dòng; không: tiêu đề 3 dòng. */}
-        <div className="flex min-h-8 flex-col sm:min-h-16">
-          {certificates.length > 0 && <div className="mb-1 flex h-5 min-w-0 flex-nowrap items-center gap-1 overflow-hidden max-sm:hidden" aria-label={`Certificates: ${certificates.join(", ")}`}>
-            {certificates.slice(0, 3).map((label) => (
-              <span key={label} title={`${label} certified`} className="min-w-0 truncate rounded bg-emerald-50 px-1.5 py-px text-[10.5px] font-bold leading-4 text-emerald-800 ring-1 ring-emerald-300">
-                {label}
-              </span>
-            ))}
-            {certificates.length > 3 && (
-              <span title={certificates.slice(3).join(", ")} className="shrink-0 rounded bg-emerald-600 px-1.5 py-px text-[10.5px] font-bold leading-4 text-white">
-                +{certificates.length - 3}
-              </span>
-            )}
-          </div>}
+        {/* Tiêu đề: wrapper giữ đúng hai dòng để mọi thẻ cao bằng nhau và giá thẳng hàng. */}
+        <div className="flex min-h-8 flex-col sm:min-h-10">
 
           {linkable ? (
             <Link
@@ -421,7 +414,7 @@ export function PublicProductCard({
         </div>
 
         {/* Prominent price with inline Incoterm (e.g. USD 7.55–7.80/kg FOB) */}
-        <div title={fullPriceTitle} className="mt-1 sm:mt-2">
+        <div title={fullPriceTitle} className="mt-1 sm:mt-1.5">
           <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 tabular-nums">
             <span
               className={
@@ -458,27 +451,26 @@ export function PublicProductCard({
         </div>
 
 
-        {/* Two-column commercial terms: MOQ & Lead time */}
-        {/* Điện thoại: MOQ / Lead time nhỏ hơn hai cỡ (nhãn 10→9px, giá trị 13→11px). */}
-        <dl className="mt-1 grid grid-cols-2 gap-x-3 text-ink-600 max-sm:mb-1.5 sm:mt-2.5">
-          <div className="min-w-0">
-            <dt className="text-[9px] font-semibold uppercase leading-3 tracking-[0.1em] text-ink-500 sm:text-[10px] sm:leading-4">MOQ</dt>
-            <dd title={moqText} className="truncate text-[11px] font-bold leading-[14px] tabular-nums text-ink-900 sm:mt-0.5 sm:text-[13px] sm:leading-5">
-              {moqText}
-            </dd>
+        {/* MOQ và thời gian giao trên một dòng: "MOQ 5 MT · (đồng hồ) 18 days". */}
+        <dl className="mt-1 flex min-w-0 items-center gap-x-1.5 whitespace-nowrap text-ink-900 max-sm:mb-1.5 sm:mb-1 sm:mt-1.5">
+          <div title={`MOQ: ${moqText}`} className="flex min-w-0 items-baseline gap-1">
+            <dt className="shrink-0 text-[11px] font-semibold leading-4 text-ink-500 sm:leading-5">MOQ</dt>
+            <dd className="truncate text-[11px] font-bold leading-4 tabular-nums sm:text-[13px] sm:leading-5">{moqText}</dd>
           </div>
-          <div className="min-w-0">
-            <dt className="text-[9px] font-semibold uppercase leading-3 tracking-[0.1em] text-ink-500 sm:text-[10px] sm:leading-4">Lead time</dt>
-            <dd className="truncate text-[11px] font-bold leading-[14px] tabular-nums text-ink-900 sm:mt-0.5 sm:text-[13px] sm:leading-5">
-              {leadTimeDisplay}
-            </dd>
+          <span aria-hidden="true" className="shrink-0 text-ink-300">·</span>
+          <div title={`Lead time: ${leadTimeDisplay}`} className="flex shrink-0 items-center gap-1">
+            <dt className="shrink-0 text-ink-500">
+              <VeximLeadTimeIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={3} />
+              <span className="sr-only">Lead time</span>
+            </dt>
+            <dd className="text-[11px] font-bold leading-4 tabular-nums sm:text-[13px] sm:leading-5">{leadTimeDisplay}</dd>
           </div>
         </dl>
 
-        {/* Đáy thẻ: một đường kẻ, rồi nhà cung cấp và ba khiên xác minh trên cùng một hàng. */}
+        {/* Đáy thẻ: một đường kẻ, rồi nhà cung cấp và nhãn "Verified L1/L2/L3" trên cùng một hàng. */}
         {/* Thẻ dọc (sm+): mt-auto đẩy hàng nhà cung cấp xuống đáy thẻ. Điện thoại: justify-between ở trên. */}
-        <div className="border-t border-ink-100 pt-1.5 sm:mt-auto sm:pt-2.5">
-          {/* Tên giữ một dòng và tự cắt bằng dấu ba chấm; khiên đứng ngay sau tên, không xuống hàng. */}
+        <div className="border-t border-ink-100 pt-1.5 sm:mt-auto sm:pt-2">
+          {/* Tên giữ một dòng và tự cắt bằng dấu ba chấm; nhãn xác minh đứng ngay sau tên, không xuống hàng. */}
           <div className="relative z-20 flex min-w-0 items-center gap-1.5 sm:gap-2">
             {supplierHref && linkable ? (
               <Link
@@ -487,18 +479,18 @@ export function PublicProductCard({
                 rel="noopener noreferrer"
                 title={supplierName}
                 aria-label={`${supplierName} (opens in a new tab)`}
-                className="min-w-0 flex-1 truncate text-[10px] font-bold leading-4 text-brand-700 hover:underline sm:text-xs sm:leading-5"
+                className="min-w-0 flex-1 truncate text-[11px] font-bold leading-4 text-brand-700 hover:underline sm:text-xs sm:leading-5"
               >
                 {supplierName}
               </Link>
             ) : (
-              <span title={supplierName} className="min-w-0 flex-1 truncate text-[10px] font-bold leading-4 text-ink-800 sm:text-xs sm:leading-5">
+              <span title={supplierName} className="min-w-0 flex-1 truncate text-[11px] font-bold leading-4 text-ink-800 sm:text-xs sm:leading-5">
                 {supplierName}
               </span>
             )}
-            {/* flex trên điện thoại: hàng chỉ cao đúng 16px của khiên, không ăn theo line-height 24px. */}
-            <span className="flex shrink-0 sm:inline">
-              <VerificationPips levels={test ? [] : verificationSteps} l2Scope={l2Scope} variant="marketplace" shortTooltips dense />
+            {/* Một nhãn thay cho ba khiên; bấm/di chuột để xem từng bước kiểm tra. */}
+            <span className="flex shrink-0">
+              <VerifiedBadge levels={test ? [] : verificationSteps} l2Scope={l2Scope} />
             </span>
           </div>
           {partnerContractReviewed && (

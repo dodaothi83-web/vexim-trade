@@ -43,7 +43,7 @@ The preview's document mark included a completion tick. Production has a neutral
 
 The shared domain set is used in account entry/registration, public supplier type labels and verification descriptions, product-detail supplier fallback, supplier verification tabs/overview/panels/documents, and CRM verification/certificate/supplier sections. Existing text, scopes and routes remain unchanged.
 
-The **small circular shield pips, cover seals, tier badges and their restored borders/backgrounds are retained**. The tiny pips are a deliberate compact exception: the 48px domain art is too detailed at a 10px glyph size. Do not remove their circles or silently convert every shield into a factory. Their existing status mapping and tooltips remain authoritative.
+The **small circular shield pips, cover seals, tier badges and their restored borders/backgrounds are retained** (outside the public product card, which uses the "Verified L1" badge since 2026-11-24, see the section at the end). The tiny pips are a deliberate compact exception: the 48px domain art is too detailed at a 10px glyph size. Do not remove their circles or silently convert every shield into a factory. Their existing status mapping and tooltips remain authoritative.
 
 This is not a global change to every card, button, heading, company-building icon, category illustration or document attachment icon. Replace semantic instances deliberately, not by a repository-wide name replacement. Provider contracts and historical records do not change.
 
@@ -141,7 +141,9 @@ Header controls (same approval): the language switcher and buyer account entry u
 
 The frameless `variant="marketplace"` pips, first approved for product cards, also apply to the public supplier cards in "Explore other suppliers" (`/suppliers/[slug]`) and to the comparison page (`/compare`), so every public listing card shows the same shields. CRM and other default contexts keep the circular pips.
 
-## Tier-coloured filled shields on public listings (approved 2026-11-07)
+## Tier-coloured filled shields on public listings (approved 2026-11-07, colours replaced 2026-11-24)
+
+> **Superseded colours (2026-11-24):** the green / yellow / burgundy ramp below was replaced by a single navy ramp, see "Navy verification tier ramp" at the end. Shape, size and behaviour rules in this section still apply.
 
 Owner decision: on `variant="marketplace"` pips the plain ShieldCheck shape and size stay (no circle, no outer ring). An approved shield is **filled, outline included, with the supplier's tier colour; only the tick is white**, so a filled shield is exactly as large as an unapproved one. The colour follows the supplier tier (number of approved checks), so all approved shields on one card share it:
 
@@ -158,3 +160,24 @@ This is an owner-approved exception to "no decorative yellow" for these tier shi
 The owner approved three public supplier page templates for suppliers on an active Premium or Pro plan: **Elegant** (ivory, centred name, large cover), **Modern** (full-width cover with the name on top, floating figure cards) and **Gallery** (company details on the left, photo mosaic on the right). Reference: `docs/storefront-templates/index.html`; implementation: `components/public/premium-storefront.tsx`, rules in `lib/storefront-theme.ts`.
 
 This is an owner-approved exception to "palette remains navy" for these pages only. The supplier picks one of four accent tones: Champagne `#9C7A4B`, Terracotta `#B5532E`, Graphite `#33383D`, Steel blue `#2C5F7C`. Green and burgundy are excluded because they mean verification on Vexim shields. The tone applies only inside the premium header and showcase; the Vexim header, logo, Be Vietnam Pro typography, green verification pills, shared sections and Basic pages are unchanged. No plan badge is shown to buyers: a paid plan is not a verification. Supplier-written tagline and showcase text must be English and free of contact details.
+
+## Product card: "Verified L1" badge and compact layout (approved 2026-11-24)
+
+Owner decision (option A, Freshdi style): on `PublicProductCard` only (Home, category, search, storefront, related products) the three marketplace shield pips are replaced by one badge: the word "Verified" followed by a small shield holding the tier number ("L1", "L2", "L3"). Component: `components/verified-badge.tsx`. The shield uses the navy tier ramp below (`VERIFICATION_TIER_TONES`). Tier 0 shows no badge.
+
+The tier is the number of approved checks, not a sequence, so the badge always opens a "Supplier checks" panel listing all three checks in `VERIFICATION_DISPLAY_ORDER` with "Approved" or "Not approved" and a "How we verify" link. Desktop: hover or keyboard focus. Phones: tap to open, tap outside or Esc to close. The supplier row sits above the card's stretched link (`z-20`), so a tap on the badge never opens the product. Test/demo rows pass no levels and show no badge.
+
+Compact card rules: title at most two lines on every breakpoint (full name stays in the `title` tooltip and on the product page); certificate chips overlay the bottom-left of the square image on every breakpoint (two on phones then "+N", three from sm then "+N"), away from the Compare control at top-right; MOQ and lead time share one line ("MOQ 5 MT · clock 18 days"); new or changed card text is at least 11px; price size unchanged. `VerificationPips` stays in use on the supplier page, compare page, supplier search cards and CRM. Verification rules, labels and data are unchanged.
+
+## Navy verification tier ramp (approved 2026-11-24)
+
+Owner decision (option A): yellow and burgundy read as warnings, not trust, so every verification tier colour is now the Vexim navy, getting darker as the tier rises. Level is shown by weight, not hue, so no legend is needed and it stays readable for colour-blind buyers. Green is reserved for product certificates and for the "Approved" state of each check.
+
+| Tier | Shield / seal | Tier pill |
+|---|---|---|
+| 1 check | fill #F2F5FA, navy #1F3E74 outline and text | bg #F2F5FA, text #1F3E74, ring #B8CAE3 |
+| 2 checks | fill #B8CAE3, navy #1F3E74 outline, text #14284D | bg #DCE5F2, text #14284D, ring #8FA8CF |
+| all 3 checks | solid navy #1F3E74, white text or tick | bg #1F3E74, white text |
+
+Tokens: `VERIFICATION_TIER_TONES`, `VERIFICATION_SHIELD_FILL`, `BADGE_CLASSES`, `SEAL_CLASSES` in `components/verification-tier.tsx`. Applies everywhere these are used: the product-card "Verified L1" badge, marketplace pips (supplier page, compare page), tier pills (product page, comparison table, search supplier cards, CRM) and the CRM cover seal. CRM compact circular pips keep the shared success colour. The yellow exception above no longer applies. Verification rules, labels and data are unchanged.
+

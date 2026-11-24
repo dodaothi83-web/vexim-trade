@@ -90,32 +90,41 @@ export const VERIFICATION_TIER_SHIELD_TONES: Record<Exclude<VerificationTier, 0>
 };
 
 /**
- * Thẻ công khai (variant "marketplace"): giữ hình khiên trơn, cùng kích thước khiên chưa duyệt.
- * Khiên đã duyệt được TÔ ĐẶC (cả viền) màu theo cấp nhà cung cấp, chỉ dấu tích màu trắng:
- * 1 bước xanh lá #2FA35A · 2 bước vàng nhạt #E9C64A · đủ 3 bước đỏ đô #8E1B2C.
- * Khiên chưa duyệt giữ nét xám, không tô. Chủ dự án duyệt 11/2026.
+ * Thang màu cấp xác minh: navy thương hiệu, cấp càng cao càng đậm (chủ dự án duyệt 24/11/2026,
+ * thay thang xanh lá / vàng / đỏ đô vì vàng và đỏ gợi cảnh báo). Cấp 1 chỉ viền navy trên nền rất nhạt,
+ * cấp 2 tô xanh navy nhạt, cấp 3 tô đặc navy với chữ hoặc dấu tích trắng. Xanh lá để riêng cho
+ * chứng nhận sản phẩm và chữ "Approved" của từng bước.
+ */
+export const VERIFICATION_TIER_TONES: Record<Exclude<VerificationTier, 0>, { fill: string; stroke: string; text: string }> = {
+  1: { fill: "#F2F5FA", stroke: "#1F3E74", text: "#1F3E74" },
+  2: { fill: "#B8CAE3", stroke: "#1F3E74", text: "#14284D" },
+  3: { fill: "#1F3E74", stroke: "#1F3E74", text: "#FFFFFF" },
+};
+
+/**
+ * Khiên trơn trên danh sách công khai (variant "marketplace"): cùng kích thước khiên chưa duyệt.
+ * Khiên đã duyệt tô theo cấp nhà cung cấp (VERIFICATION_TIER_TONES); khiên chưa duyệt giữ nét xám, không tô.
  */
 const TICK_WHITE = "[&>path:last-child]:stroke-white";
 export const VERIFICATION_SHIELD_FILL: Record<Exclude<VerificationTier, 0>, string> = {
-  1: `fill-[#2FA35A] text-[#2FA35A] ${TICK_WHITE}`,
-  2: `fill-[#E9C64A] text-[#E9C64A] ${TICK_WHITE}`,
-  3: `fill-[#8E1B2C] text-[#8E1B2C] ${TICK_WHITE}`,
+  1: "fill-[#F2F5FA] text-[#1F3E74]",
+  2: "fill-[#B8CAE3] text-[#1F3E74]",
+  3: `fill-[#1F3E74] text-[#1F3E74] ${TICK_WHITE}`,
 };
 
-// Nhãn cấp và dấu trên ảnh bìa dùng cùng thang màu với khiên trên thẻ (VERIFICATION_SHIELD_FILL):
-// cấp 1 xanh lá, cấp 2 vàng nhạt, cấp 3 đỏ đô. Chữ trên nền nhạt đạt tương phản ≥ 4.5:1.
+// Nhãn cấp và dấu trên ảnh bìa dùng cùng thang navy. Chữ đạt tương phản ≥ 4.5:1 trên nền của nó.
 const BADGE_CLASSES: Record<VerificationTier, string> = {
   0: "bg-ink-100 text-ink-500 ring-ink-200",
-  1: "bg-[#EAF6EE] text-[#1F7A43] ring-[#9FD5B2]",
-  2: "bg-[#FDF6DC] text-[#6E5200] ring-[#E9C64A]",
-  3: "bg-[#F8E9EC] text-[#8E1B2C] ring-[#D9A3AD]",
+  1: "bg-[#F2F5FA] text-[#1F3E74] ring-[#B8CAE3]",
+  2: "bg-[#DCE5F2] text-[#14284D] ring-[#8FA8CF]",
+  3: "bg-[#1F3E74] text-white ring-[#1F3E74]",
 };
 
 const SEAL_CLASSES: Record<VerificationTier, string> = {
   0: "bg-ink-400 text-white ring-white/70",
-  1: "bg-[#2FA35A] text-white ring-white/70",
-  2: "bg-[#E9C64A] text-[#4A3700] ring-white/70",
-  3: "bg-[#8E1B2C] text-white ring-white/70",
+  1: "bg-[#F2F5FA] text-[#1F3E74] ring-white/70",
+  2: "bg-[#B8CAE3] text-[#14284D] ring-white/70",
+  3: "bg-[#1F3E74] text-white ring-white/70",
 };
 
 /** Compact pill shown next to the supplier name, product page or list row. */

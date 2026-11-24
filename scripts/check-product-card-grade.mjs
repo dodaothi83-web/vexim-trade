@@ -32,7 +32,8 @@ const { PublicProductCard } = load('../components/public-product-card.tsx', {
   '@/components/buyer-saved-products': { SaveProductButton: icon },
   '@/components/product-compare-checkbox': { ProductCompareCheckbox: icon },
   '@/components/product-trade-labels': { ProductTradeLabels: icon },
-  '@/components/verification-tier': { VerificationPips: icon, VerificationTierBadge: icon },
+  '@/components/verified-badge': { VerifiedBadge: ({ levels }) => React.createElement('span', { 'data-verified-badge': levels.join(',') }) },
+  '@/components/brand/vexim-icons': new Proxy({}, { get: () => icon }),
 });
 
 const base = { href: '/p/1', moq: '1 MT', price: '$1,500–2,000/MT', incoterm: 'FOB', leadTimeDays: 19, supplierName: 'Supplier', verificationSteps: [1] };
@@ -70,11 +71,11 @@ assert.match(plain, /Minh Long Coffee/, 'Tên người bán vẫn hiện trên t
 const cardSource = readFileSync(new URL('../components/public-product-card.tsx', import.meta.url), 'utf8');
 assert.doesNotMatch(cardSource, /quoteHref/, 'Thẻ không nhận quoteHref nữa');
 assert.doesNotMatch(cardSource, /min-h-9/, 'Bỏ min-h-9: chiều cao hàng cuối do huy hiệu quyết định, không do nút');
-// Đáy thẻ: đường kẻ ở trên, rồi nhà cung cấp và ba khiên trên đúng một hàng.
-assert.match(cardSource, /border-t border-ink-100 pt-1\.5 sm:mt-auto sm:pt-2\.5/, 'Đáy thẻ có đường kẻ phía trên nhà cung cấp');
+// Đáy thẻ: đường kẻ ở trên, rồi nhà cung cấp và nhãn "Verified L1" trên đúng một hàng.
+assert.match(cardSource, /border-t border-ink-100 pt-1\.5 sm:mt-auto sm:pt-2"/, 'Đáy thẻ có đường kẻ phía trên nhà cung cấp');
 assert.ok(cardSource.includes("flex min-w-0 items-center gap-1.5 sm:gap-2"),
   'Tên người bán và huy hiệu nằm chung một hàng, không xuống dòng');
-assert.match(cardSource, /min-w-0 flex-1 truncate text-\[10px\] font-bold leading-4/, 'Tên tự cắt bằng dấu ba chấm để nhường chỗ cho khiên');
+assert.match(cardSource, /min-w-0 flex-1 truncate text-\[11px\] font-bold leading-4/, 'Tên tự cắt bằng dấu ba chấm để nhường chỗ cho nhãn xác minh');
 
 console.log('✅ Thẻ sản phẩm: không chip grade, giữ grade trong tên và tooltip, hàng cuối chỉ còn tên người bán + huy hiệu.');
 
@@ -85,8 +86,8 @@ assert.match(clean, /overflow-visible rounded-xl/, 'Verification tooltips remain
 console.log('✓ Product image corners: top-left retained on desktop, mobile left corners and tooltip overflow preserved.');
 
 // Thẻ ngang trên điện thoại: ảnh vuông không bị cắt, phần chữ thu gọn để vừa chiều cao ảnh
-// (tiêu đề 2 dòng, giá nhỏ hơn, MOQ/Lead time nhỏ hơn hai cỡ, nhà cung cấp + khiên nhỏ hơn).
-// Từ sm (thẻ dọc) giữ nguyên kích thước cũ.
+// (tiêu đề 2 dòng, giá nhỏ hơn, MOQ · Lead time một dòng, nhà cung cấp + nhãn "Verified L1").
+// Thẻ gọn 2026-11-24: mọi cỡ màn tiêu đề tối đa hai dòng, chứng nhận đè góc dưới ảnh, chữ nhỏ nhất 11px.
 const markup = render({ imagePath: 'products/a.webp' });
 const thumbColumn = markup.match(/<article[^>]*>\s*<div class="([^"]+)"/)?.[1] ?? '';
 assert.match(thumbColumn, /\bw-\[40%\]/, 'Cột ảnh 40% để ảnh vuông đủ cao cho phần chữ');
@@ -95,33 +96,53 @@ assert.match(markup, /class="relative aspect-square h-full w-full overflow-hidde
 assert.match(markup, /<img[^>]*class="h-full w-full object-cover"/, 'Ảnh phủ kín khung, đồng nhất mọi thẻ');
 const titleClass = markup.match(/<h3[^>]*class="([^"]+)"/)?.[1] ?? '';
 assert.match(titleClass, /(^|\s)line-clamp-2(\s|$)/, 'Điện thoại: tiêu đề hai dòng rồi dấu …');
-assert.match(titleClass, /sm:line-clamp-3/, 'Thẻ dọc không chứng nhận vẫn ba dòng');
+assert.doesNotMatch(titleClass, /line-clamp-3/, 'Thẻ dọc cũng chỉ hai dòng, giá thẳng hàng giữa các thẻ');
+assert.match(markup, /<div class="flex min-h-8 flex-col sm:min-h-10">/, 'Luôn giữ đúng hai dòng tiêu đề');
 assert.match(titleClass, /text-\[13px\][^"]*leading-4[^"]*sm:text-sm sm:leading-5/);
 assert.doesNotMatch(render({ imagePath: 'products/a.webp', certificates: ['HACCP'] }).match(/<h3[^>]*class="([^"]+)"/)?.[1] ?? '', /line-clamp-3/, 'Có chứng nhận: hai dòng ở mọi cỡ');
 assert.match(markup, /text-\[15px\] font-extrabold leading-\[18px\][^"]*sm:text-\[16px\] sm:leading-6/, 'Giá nhỏ hơn trên điện thoại, giữ cỡ cũ từ sm');
-assert.equal(markup.match(/<dt class="text-\[9px\][^"]*sm:text-\[10px\] sm:leading-4"/g)?.length, 2, 'Nhãn MOQ / Lead time 10→9px');
-assert.equal(markup.match(/<dd[^>]*class="truncate text-\[11px\][^"]*sm:text-\[13px\] sm:leading-5"/g)?.length, 2, 'Giá trị MOQ / Lead time 13→11px');
-assert.match(markup, /text-\[10px\] font-bold leading-4 text-(?:brand-700|ink-800)[^"]*sm:text-xs sm:leading-5/, 'Tên nhà cung cấp nhỏ hơn trên điện thoại');
-assert.match(markup, /class="flex shrink-0 sm:inline"/, 'Hàng khiên chỉ cao đúng cỡ khiên, không ăn line-height 24px');
-assert.match(cardSource, /variant="marketplace" shortTooltips dense/, 'Khiên 16px trên thẻ ngang');
-assert.match(readFileSync(new URL('../components/verification-tier.tsx', import.meta.url), 'utf8'), /dense \? "h-4 w-4 sm:h-5 sm:w-5"/);
+const terms = markup.match(/<dl class="mt-1 flex min-w-0 items-center[^"]*whitespace-nowrap[^"]*">(.*?)<\/dl>/)?.[1] ?? '';
+assert.match(terms, /<dt[^>]*>MOQ<\/dt><dd[^>]*>1 MT<\/dd>.*·.*<span class="sr-only">Lead time<\/span><\/dt><dd[^>]*>19 days<\/dd>/, 'MOQ · Lead time trên một dòng');
+assert.match(terms, /<dt class="shrink-0 text-\[11px\]/, 'Nhãn MOQ tối thiểu 11px');
+assert.equal(terms.match(/<dd[^>]*class="[^"]*text-\[11px\][^"]*sm:text-\[13px\] sm:leading-5"/g)?.length, 2, 'Giá trị MOQ / Lead time 11px, 13px từ sm');
+assert.match(markup, /text-\[11px\] font-bold leading-4 text-(?:brand-700|ink-800)[^"]*sm:text-xs sm:leading-5/, 'Tên nhà cung cấp tối thiểu 11px');
+assert.match(markup, /data-verified-badge="1"/, 'Nhãn "Verified L1" nhận đúng các bước đã duyệt');
+assert.doesNotMatch(cardSource, /VerificationPips/, 'Thẻ sản phẩm không còn ba khiên');
+assert.doesNotMatch(render({ imagePath: 'products/a.webp', test: true }), /data-verified-badge="1"/, 'Dữ liệu thử không hiện cấp xác minh');
 assert.match(markup, /max-sm:justify-between/, 'Ảnh cao hơn chữ: khoảng dư chia đều, không dồn một chỗ');
-assert.match(markup, /class="border-t border-ink-100 pt-1\.5 sm:mt-auto sm:pt-2\.5"/, 'Thẻ dọc: hàng nhà cung cấp bám đáy thẻ');
+assert.match(markup, /class="border-t border-ink-100 pt-1\.5 sm:mt-auto sm:pt-2"/, 'Thẻ dọc: hàng nhà cung cấp bám đáy thẻ');
 const multiGrade = render({ imagePath: 'products/a.webp', price: null, gradeRows: [
   { grade: 'W240', priceMin: 6.1, priceMax: 6.4, priceText: '$6.1–6.4/kg' }, { grade: 'W320', priceMin: 5.8, priceMax: 6, priceText: '$5.8–6/kg' }] });
 assert.match(multiGrade, /<span class="text-\[10px\] font-medium text-ink-500 sm:hidden">· 2 grades<\/span>/, 'Điện thoại: "N grades" đứng cạnh giá');
 assert.match(multiGrade, /<p class="truncate[^"]*max-sm:hidden"><span class="max-sm:hidden">2 grades<\/span><\/p>/, 'Thẻ dọc: "N grades" vẫn ở dòng riêng như cũ');
-// Điện thoại: nhãn chứng nhận đè góc dưới ảnh (không tốn dòng trong cột chữ); thẻ dọc giữ dòng nhãn trên tiêu đề.
+// Mọi cỡ màn: nhãn chứng nhận đè góc dưới ảnh (không tốn dòng trong cột chữ), tránh ô Compare ở góc trên phải.
 const twoCerts = render({ imagePath: 'products/a.webp', certificates: ['ISO 22000', 'HACCP'] });
-const overlay = twoCerts.match(/<div class="absolute inset-x-1\.5 bottom-1\.5 z-10[^"]*sm:hidden"[^>]*>(.*?)<\/div>/)?.[1] ?? '';
+const overlayRe = /<div class="pointer-events-none absolute inset-x-1\.5 bottom-1\.5 z-10[^"]*sm:bottom-2"[^>]*>(.*?)<\/div>/;
+const overlay = twoCerts.match(overlayRe)?.[1] ?? '';
 assert.ok(overlay.includes('ISO 22000') && overlay.includes('HACCP'), 'Hai chứng nhận: cả hai nằm trên ảnh');
-assert.match(twoCerts, /<div class="mb-1 flex h-5 min-w-0 flex-nowrap items-center gap-1 overflow-hidden max-sm:hidden"/, 'Dòng nhãn trong cột chữ chỉ hiện từ sm, giữ cỡ cũ');
-assert.equal(twoCerts.match(/aria-label="Certificates: ISO 22000, HACCP"/g)?.length, 2, 'Mỗi cỡ màn chỉ hiện một bản (bản còn lại display:none)');
+assert.doesNotMatch(overlay, /max-sm:hidden|sm:hidden/, 'Hai chứng nhận: hiện cả hai ở mọi cỡ');
+assert.doesNotMatch(twoCerts, /mb-1 flex h-5 min-w-0/, 'Không còn dòng nhãn trên tiêu đề');
+assert.equal(twoCerts.match(/aria-label="Certificates: ISO 22000, HACCP"/g)?.length, 1, 'Một bản duy nhất cho mọi cỡ màn');
 const manyCerts = render({ imagePath: 'products/a.webp', certificates: ['ISO 22000', 'HACCP', 'BRC', 'Organic'] });
-const manyOverlay = manyCerts.match(/<div class="absolute inset-x-1\.5 bottom-1\.5 z-10[^"]*sm:hidden"[^>]*>(.*?)<\/div>/)?.[1] ?? '';
-assert.ok(manyOverlay.includes('>ISO 22000<') && !manyOverlay.includes('>HACCP<') && manyOverlay.includes('>+3<'), 'Từ ba chứng nhận: nhãn đầu + "+N" để chữ không bị cắt');
+const manyOverlay = manyCerts.match(overlayRe)?.[1] ?? '';
+assert.match(manyOverlay, /class="[^"]*max-sm:hidden"[^>]*>HACCP</, 'Điện thoại: chứng nhận thứ hai ẩn');
+assert.match(manyOverlay, /sm:hidden">\+3</, 'Điện thoại: nhãn đầu + "+3"');
+assert.match(manyOverlay, />BRC<.*max-sm:hidden">\+1</, 'Từ sm: ba nhãn + "+1"');
+assert.doesNotMatch(manyOverlay, />Organic</, 'Chứng nhận thứ tư gộp vào "+N"');
 assert.doesNotMatch(render({ imagePath: 'products/a.webp' }), /absolute inset-x-1\.5 bottom-1\.5/, 'Không chứng nhận thì không có lớp đè');
-console.log('✓ Mobile horizontal card: square image (not cropped), title 2 lines, smaller price/MOQ/lead time/supplier/shields to fit the image height.');
+console.log('✓ Compact card: square image (not cropped), title 2 lines everywhere, certificates on the image, MOQ · lead time on one line, "Verified L1" badge.');
+
+// Nhãn "Verified L1": khiên có số cấp, bảng chi tiết liệt kê đủ ba bước.
+const badgeSource = readFileSync(new URL('../components/verified-badge.tsx', import.meta.url), 'utf8');
+assert.match(badgeSource, /if \(tier === 0\) return null/, 'Chưa có bước nào duyệt: không hiện nhãn');
+assert.match(badgeSource, /VERIFICATION_DISPLAY_ORDER\.map/, 'Bảng chi tiết liệt kê cả ba bước');
+assert.match(badgeSource, /"Approved" : "Not approved"/);
+assert.match(badgeSource, /aria-expanded=\{open\}/, 'Chạm để mở trên điện thoại');
+assert.match(badgeSource, /addEventListener\("pointerdown"/, 'Chạm ra ngoài để đóng');
+assert.match(badgeSource, /event\.key === "Escape"/, 'Esc để đóng');
+assert.match(badgeSource, /href="\/how-we-verify"/);
+assert.match(cardSource, /relative z-20 flex min-w-0 items-center/, 'Hàng nhà cung cấp nằm trên link phủ thẻ: chạm nhãn không mở sản phẩm');
+console.log('✓ Verified badge: tier shield, three checks with status, tap/escape handling, link to How we verify.');
 
 assert.doesNotMatch(readFileSync(new URL('../components/public-product-card.tsx', import.meta.url), 'utf8'), /SaveProductButton|saveProduct/, 'Listing cards do not expose save controls');
 const detailSource = readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
