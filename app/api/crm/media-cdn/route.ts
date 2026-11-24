@@ -5,7 +5,8 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { getAuthSecret } from "@/lib/auth/secret";
 import { getSupabaseClient } from "@/lib/db/supabase";
-import { cdnOwnerOf, publishMediaToCdn } from "@/lib/media/cdn";
+import { cdnOwnerOf, publishMediaToCdn, publishSupplierImageToCdn, supplierImageNeedsCdn } from "@/lib/media/cdn";
+import { supplierImageCdnBase, type SupplierImageFields, type SupplierImageKind } from "@/lib/media/public-image-path";
 import { r2PublicBucket } from "@/lib/media/r2";
 import type { MediaAsset } from "@/lib/types";
 
@@ -54,6 +55,49 @@ async function readBuyerImages(): Promise<MediaAsset[]> {
   return rows;
 }
 
+const SUPPLIER_COLUMNS = "id, profile_image, cover_image, profile_image_cdn_key, cover_image_cdn_key";
+
+/** Ảnh đại diện/ảnh bìa lưu ở bảng suppliers (không có dòng media_assets). */
+async function readSupplierImages(): Promise<SupplierImageFields[]> {
+  const db = getSupabaseClient();
+  if (!db) throw new Error("Chưa kết nối Supabase.");
+  const { data, error } = await db.from("suppliers").select(SUPPLIER_COLUMNS)
+    .or("profile_image.not.is.null,cover_image.not.is.null").order("id", { ascending: true }).limit(5000);
+  if (error) {
+    if (/cdn_key/.test(error.message)) throw new Error("Chưa chạy migration 20261230_supplier_image_cdn_key.sql (thiếu cột profile_image_cdn_key/cover_image_cdn_key).");
+    throw new Error(`Không đọc được suppliers: ${error.message}`);
+  }
+  return (data ?? []) as unknown as SupplierImageFields[];
+}
+
+type SupplierImageJob = { supplier: SupplierImageFields; kind: SupplierImageKind; path: string };
+type SupplierPlan = { pending: SupplierImageJob[]; done: SupplierImageJob[]; skipped: { id: string; kind: SupplierImageKind; reason: string; path: string }[] };
+
+function planSupplierImages(rows: SupplierImageFields[]): SupplierPlan {
+  const result: SupplierPlan = { pending: [], done: [], skipped: [] };
+  for (const supplier of rows) {
+    for (const kind of ["profile", "cover"] as const) {
+      const path = kind === "cover" ? supplier.cover_image : supplier.profile_image;
+      if (!path) continue;
+      const job = { supplier, kind, path };
+      if (supplierImageNeedsCdn(supplier, kind)) result.pending.push(job);
+      else if (supplierImageCdnBase(supplier.id, path, kind)) result.done.push(job);
+      else result.skipped.push({ id: supplier.id, kind, path, reason: /-r2-/.test(path)
+        ? "đã nằm ở bucket công khai (ảnh tải lên sau khi có R2)" : "không phải ảnh trong thư mục của nhà cung cấp" });
+    }
+  }
+  return result;
+}
+
+function supplierSummary(p: SupplierPlan) {
+  const count = (list: { kind: SupplierImageKind }[], kind: SupplierImageKind) => list.filter((j) => j.kind === kind).length;
+  return {
+    pending: { total: p.pending.length, profile: count(p.pending, "profile"), cover: count(p.pending, "cover") },
+    alreadyOnCdn: { total: p.done.length, profile: count(p.done, "profile"), cover: count(p.done, "cover") },
+    skipped: p.skipped,
+  };
+}
+
 type Plan = { pending: MediaAsset[]; done: MediaAsset[]; skipped: { id: string; reason: string; path: string | null }[] };
 
 function plan(rows: MediaAsset[]): Plan {
@@ -81,7 +125,8 @@ function summary(p: Plan) {
 }
 
 /**
- * Chỉ Quản trị: chép ảnh sản phẩm và ảnh nhà máy công khai đang có lên CDN (bucket R2 công khai).
+ * Chỉ Quản trị: chép ảnh sản phẩm, ảnh nhà máy công khai và ảnh đại diện/ảnh bìa cũ của nhà cung
+ * cấp (bảng suppliers) lên CDN (bucket R2 công khai).
  *
  *  - Không tham số: báo cáo dry-run (không ghi gì), kèm link chạy một đợt.
  *  - `?run=1&limit=50&confirm=<mã trong báo cáo>`: chép tối đa 50 ảnh chưa có bản CDN rồi trả
@@ -96,9 +141,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const bucket = r2PublicBucket();
   let rows: MediaAsset[];
-  try { rows = await readBuyerImages(); }
+  let supplierRows: SupplierImageFields[];
+  try { [rows, supplierRows] = await Promise.all([readBuyerImages(), readSupplierImages()]); }
   catch (error) { return json({ ok: false, error: error instanceof Error ? error.message : String(error) }, 503); }
   const current = plan(rows);
+  const suppliers = planSupplierImages(supplierRows);
+  const pendingTotal = current.pending.length + suppliers.pending.length;
   const token = confirmToken(session.uid);
   const limit = Math.min(MAX_BATCH, Math.max(1, Number(url.searchParams.get("limit")) || MAX_BATCH));
   const runUrl = `${url.origin}${url.pathname}?run=1&limit=${limit}&confirm=${token}`;
@@ -110,30 +158,41 @@ export async function GET(request: Request) {
       ...summary(current),
       sample: current.pending.slice(0, 10).map((a) => ({ id: a.id, owner: a.owner_type, path: a.storage_path, bytes: a.bytes })),
       skippedList: current.skipped.slice(0, 50),
-      next: current.pending.length && bucket ? { runBatch: runUrl } : null,
+      // Ảnh đại diện/ảnh bìa ở bảng suppliers, chép sau ảnh sản phẩm/nhà máy trong cùng link chạy.
+      supplierImages: {
+        ...supplierSummary(suppliers),
+        sample: suppliers.pending.slice(0, 10).map((j) => ({ supplierId: j.supplier.id, kind: j.kind, path: j.path })),
+      },
+      remainingTotal: pendingTotal,
+      next: pendingTotal && bucket ? { runBatch: runUrl } : null,
     });
   }
 
   if (!tokenMatches(session.uid, url.searchParams.get("confirm"))) return json({ ok: false, error: "Mã xác nhận sai hoặc đã sang ngày mới. Mở lại báo cáo dry-run để lấy link." }, 403);
   if (!bucket) return json({ ok: false, error: "Chưa cấu hình bucket R2 công khai." }, 503);
 
-  const batch = current.pending.slice(0, limit);
-  const results: { id: string; ok: boolean; cdnKey?: string | null; error?: string; ms: number }[] = [];
+  type Job = { id: string; kind?: SupplierImageKind; run: () => Promise<string | null> };
+  const jobs: Job[] = [
+    ...current.pending.map((asset) => ({ id: asset.id, run: async () => (await publishMediaToCdn(asset)).cdn_key ?? null })),
+    ...suppliers.pending.map((j) => ({ id: j.supplier.id, kind: j.kind, run: () => publishSupplierImageToCdn(j.supplier, j.kind) })),
+  ];
+  const batch = jobs.slice(0, limit);
+  const results: { id: string; kind?: SupplierImageKind; ok: boolean; cdnKey?: string | null; error?: string; ms: number }[] = [];
   let cursor = 0;
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, batch.length) }, async () => {
     while (cursor < batch.length) {
-      const asset = batch[cursor++];
+      const job = batch[cursor++];
       const start = Date.now();
       try {
-        const updated = await publishMediaToCdn(asset);
-        results.push({ id: asset.id, ok: true, cdnKey: updated.cdn_key ?? null, ms: Date.now() - start });
+        const cdnKey = await job.run();
+        results.push({ id: job.id, ...(job.kind ? { kind: job.kind } : {}), ok: true, cdnKey, ms: Date.now() - start });
       } catch (error) {
-        results.push({ id: asset.id, ok: false, error: (error instanceof Error ? error.message : String(error)).slice(0, 300), ms: Date.now() - start });
+        results.push({ id: job.id, ...(job.kind ? { kind: job.kind } : {}), ok: false, error: (error instanceof Error ? error.message : String(error)).slice(0, 300), ms: Date.now() - start });
       }
     }
   }));
   const copied = results.filter((r) => r.ok).length;
-  const remaining = current.pending.length - copied;
+  const remaining = jobs.length - copied;
   return json({
     ok: results.every((r) => r.ok), mode: "run", copied, failed: results.length - copied, remaining,
     results,

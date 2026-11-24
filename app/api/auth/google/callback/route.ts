@@ -58,7 +58,10 @@ export async function GET(request: Request) {
       name: user.name ?? user.email, role: user.role, via: "supabase" }),
       { httpOnly: true, sameSite: "lax", secure: origin.startsWith("https:"), path: "/", maxAge: 7 * 24 * 60 * 60 });
     await store.touchUserLogin(user.id).catch(() => null);
-    revalidatePath("/", "layout");
+    // Chỉ làm mới khu vực cần phiên; giữ cache 1 giờ của trang công khai (xem auth-actions.ts).
+    revalidatePath("/crm", "layout");
+    revalidatePath("/supplier/portal", "layout");
+    revalidatePath("/buyer", "layout");
     return res;
   } catch (error) {
     console.error("[google-oauth] callback", error);

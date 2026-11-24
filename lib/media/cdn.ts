@@ -9,7 +9,8 @@ import { isExpired } from "@/lib/media/readiness";
 import { getObject } from "@/lib/media/storage";
 import { r2Delete, r2Put, r2PublicBucket } from "@/lib/media/r2";
 import { CDN_IMAGE_SIZES, CDN_KEY_BASE, cdnImagePath, type CdnImageSize } from "@/lib/media/public-url";
-import type { MediaAsset } from "@/lib/types";
+import { supplierImageCdnBase, type SupplierImageFields, type SupplierImageKind } from "@/lib/media/public-image-path";
+import type { MediaAsset, Supplier } from "@/lib/types";
 
 /**
  * Bản sao CDN của ảnh sản phẩm và ảnh nhà máy công khai (chủ dự án duyệt 24/11/2026).
@@ -23,6 +24,9 @@ import type { MediaAsset } from "@/lib/types";
  *    nhiên nên không đoán được, và trang không còn hiện link đó. Gỡ ảnh (xoá, chuyển sang nội bộ,
  *    hết hạn) thì xoá tệp trên R2; bản đã nằm trong cache CDN/trình duyệt hết hạn tự nhiên
  *    (chưa có token purge cache Cloudflare).
+ *  - Ảnh đại diện/ảnh bìa cũ của nhà cung cấp (cột suppliers.profile_image/cover_image, tệp
+ *    `profile-<uuid>`/`cover-<uuid>` ở Supabase) cũng được chép, khoá `s/<supplierId>/<uuid bỏ gạch>`,
+ *    xem publishSupplierImageToCdn ở cuối tệp.
  *  - Không bao giờ chép: giấy tờ, chứng nhận, ảnh nội bộ, ảnh đợt kiểm/hồ sơ NCC gửi, tệp chat,
  *    ảnh A+ và sản phẩm thử nghiệm ed3a38eb.
  *
@@ -144,5 +148,63 @@ export async function removeDeletedMediaFromCdn(asset: Pick<MediaAsset, "id" | "
     await removeMediaFromCdn(asset, { rowDeleted: true });
   } catch (error) {
     console.error("[media-cdn] delete failed", asset.id, error);
+  }
+}
+
+/* ------------------ Ảnh đại diện / ảnh bìa của nhà cung cấp ------------------ */
+
+const SUPPLIER_CDN_COLUMN = { profile: "profile_image_cdn_key", cover: "cover_image_cdn_key" } as const;
+
+/** Ảnh đại diện/bìa cũ cần chép: chưa có bản CDN khớp với tệp hiện tại. */
+export function supplierImageNeedsCdn(supplier: SupplierImageFields, kind: SupplierImageKind): string | null {
+  const path = kind === "cover" ? supplier.cover_image : supplier.profile_image;
+  const base = supplierImageCdnBase(supplier.id, path, kind);
+  const stored = supplier[SUPPLIER_CDN_COLUMN[kind]];
+  return base && stored !== base ? base : null;
+}
+
+/**
+ * Chép ảnh đại diện/bìa cũ (Supabase) lên CDN thành 3 cỡ WebP và ghi gốc khoá vào cột
+ * `<profile|cover>_image_cdn_key`. Tệp gốc giữ nguyên. Ghi DB lỗi thì xoá tệp vừa chép.
+ */
+export async function publishSupplierImageToCdn(supplier: SupplierImageFields, kind: SupplierImageKind): Promise<string> {
+  const bucket = r2PublicBucket();
+  if (!bucket) throw new Error("Chưa cấu hình bucket R2 công khai.");
+  const path = kind === "cover" ? supplier.cover_image : supplier.profile_image;
+  const base = supplierImageCdnBase(supplier.id, path, kind);
+  if (!base || !path) throw new Error("Ảnh này không được chép lên CDN.");
+  const bytes = (await getObject(path))?.data;
+  if (!bytes) throw new Error(`Không đọc được ảnh gốc ${path}`);
+  const variants = await makeCdnVariants(bytes);
+  try {
+    await Promise.all(CDN_IMAGE_SIZES.map((size) =>
+      r2Put(bucket, cdnImagePath(base, size), variants[size], "image/webp", CDN_CACHE_CONTROL)));
+    await getStore().updateSupplier(supplier.id, { [SUPPLIER_CDN_COLUMN[kind]]: base } as Partial<Supplier>);
+    return base;
+  } catch (error) {
+    await deleteCdnObjects(base).catch(() => null);
+    throw error;
+  }
+}
+
+/**
+ * Sau khi đổi/xoá ảnh đại diện hoặc ảnh bìa: xoá bản chép CDN của ảnh cũ và xoá gốc khoá.
+ * Chỉ chạy khi nhà cung cấp đang có bản chép (cột đã tồn tại), nên không làm hỏng việc tải ảnh
+ * nếu migration chưa chạy. Lỗi chỉ được ghi log; trang đã tự bỏ bản chép không còn khớp.
+ */
+export async function removeSupplierImageFromCdn(
+  supplier: SupplierImageFields | null | undefined,
+  kind: SupplierImageKind,
+  options?: { rowDeleted?: boolean },
+): Promise<void> {
+  const stored = supplier?.[SUPPLIER_CDN_COLUMN[kind]];
+  if (!supplier || !stored || !r2PublicBucket()) return;
+  try {
+    await deleteCdnObjects(stored);
+    if (!options?.rowDeleted) {
+      await getStore().updateSupplier(supplier.id, { [SUPPLIER_CDN_COLUMN[kind]]: null } as Partial<Supplier>);
+    }
+  } catch (error) {
+    console.error("[media-cdn] supplier image cleanup failed", supplier.id, kind, error);
   }
 }

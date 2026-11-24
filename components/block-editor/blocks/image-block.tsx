@@ -7,6 +7,7 @@ import { Label } from "@/components/editor-ui/label"
 import { Upload, AlertTriangle, Loader2, ImageIcon } from "lucide-react"
 import type { ImageData } from "../types"
 import { useImageDimensions } from "@/hooks/use-image-dimensions"
+import { BLOG_IMAGE_ACCEPT, BLOG_IMAGE_HINT, blogImageProblem } from "@/lib/blog/image-limits"
 
 interface ImageBlockProps {
   data: ImageData
@@ -37,13 +38,9 @@ export function ImageBlock({ data, onChange }: ImageBlockProps) {
   const uploadFile = async (file: File) => {
     setUploadError(null)
 
-    if (!file.type.startsWith("image/")) {
-      setUploadError("Vui lòng chọn file hình ảnh (JPG, PNG, WebP, GIF, AVIF)")
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("Kích thước file không được vượt quá 5MB")
+    const problem = blogImageProblem(file)
+    if (problem) {
+      setUploadError(problem)
       return
     }
 
@@ -138,7 +135,7 @@ export function ImageBlock({ data, onChange }: ImageBlockProps) {
             <p className="text-sm font-medium">
               {uploading ? "Đang tải hình ảnh lên..." : "Kéo thả ảnh vào đây, dán (Ctrl+V) hoặc chọn từ máy tính"}
             </p>
-            <p className="text-xs text-ink-500">Hỗ trợ JPG, PNG, WebP, GIF (tối đa 5MB, khuyến nghị ≥ 1200px)</p>
+            <p className="text-xs text-ink-500">{BLOG_IMAGE_HINT}</p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
@@ -156,7 +153,7 @@ export function ImageBlock({ data, onChange }: ImageBlockProps) {
               ref={fileInputRef}
               id={fileInputId}
               type="file"
-              accept="image/*"
+              accept={BLOG_IMAGE_ACCEPT}
               className="hidden"
               onChange={handleFileUpload}
               disabled={uploading}

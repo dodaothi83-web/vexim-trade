@@ -49,6 +49,7 @@ import {
 } from "@/lib/blog/content-parsers"
 import { blocksToHTML } from "@/lib/blocks-to-html"
 import { stripHtml } from "@/lib/blog/sanitize"
+import { blogImageProblem } from "@/lib/blog/image-limits"
 
 interface BlockEditorProps {
   value: Block[]
@@ -97,6 +98,8 @@ export function BlockEditor({ value, onChange, onSelectBlock }: BlockEditorProps
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false)
   const [uploadingPastedImage, setUploadingPastedImage] = useState(false)
+  // Ảnh dán/kéo thả bị từ chối (sai định dạng, quá nặng, máy chủ báo lỗi): báo cho người viết.
+  const [pastedImageError, setPastedImageError] = useState<string | null>(null)
 
   /**
    * Tự động chuyển cú pháp Markdown khi gõ (## , - , 1. , > ).
@@ -849,14 +852,20 @@ export function BlockEditor({ value, onChange, onSelectBlock }: BlockEditorProps
 
   /** Upload file ảnh khi người dùng Ctrl+V hoặc kéo thả ảnh trực tiếp vào trình soạn thảo */
   const handleUploadAndInsertImage = async (file: File, targetIndex: number, sourceBlockId?: string) => {
-    if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) return
+    if (!file.type.startsWith("image/")) return
+    const problem = blogImageProblem(file)
+    setPastedImageError(problem)
+    if (problem) return
     setUploadingPastedImage(true)
     try {
       const formData = new FormData()
       formData.append("file", file)
       const res = await fetch("/api/upload-image", { method: "POST", body: formData })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.url) return
+      if (!res.ok || !data?.url) {
+        setPastedImageError(typeof data?.error === "string" && data.error ? data.error : "Không tải được ảnh lên. Vui lòng thử lại.")
+        return
+      }
 
       const current = blocksRef.current
       const imgBlock: Block = {
@@ -880,6 +889,7 @@ export function BlockEditor({ value, onChange, onSelectBlock }: BlockEditorProps
       selectBlock(imgBlock.id)
     } catch {
       // Ảnh dán lỗi: không chèn khối nào, nội dung hiện tại giữ nguyên
+      setPastedImageError("Mất kết nối khi tải ảnh. Vui lòng thử lại.")
       return
     } finally {
       setUploadingPastedImage(false)
@@ -1360,6 +1370,12 @@ export function BlockEditor({ value, onChange, onSelectBlock }: BlockEditorProps
 
         {/* Trạng thái tải ảnh dán & Nút xem mẹo gõ nhanh */}
         <div className="flex items-center gap-2">
+          {pastedImageError && !uploadingPastedImage && (
+            <span role="alert" className="flex max-w-md items-center gap-1.5 text-xs font-medium text-red-700">
+              {pastedImageError}
+              <button type="button" className="text-ink-500 hover:text-ink-900" onClick={() => setPastedImageError(null)} aria-label="Đóng thông báo">×</button>
+            </span>
+          )}
           {uploadingPastedImage && (
             <span className="flex items-center gap-1.5 text-xs text-brand-700 font-medium">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />

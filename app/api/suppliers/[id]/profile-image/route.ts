@@ -8,6 +8,7 @@ import { deleteObject, putObject, supplierProfileImagePath } from "@/lib/media/s
 import { prepareSupplierProfileImage } from "@/lib/media/prepare-supplier-profile-image";
 import { publicMediaUrl } from "@/lib/media/public-url";
 import { supplierGate } from "@/lib/auth/supplier-access";
+import { removeSupplierImageFromCdn } from "@/lib/media/cdn";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,6 +68,8 @@ export async function POST(
       await deleteObject(path).catch(() => null);
       throw error;
     }
+    // Ảnh cũ có bản chép CDN: xoá bản chép, link CDN cũ không còn dùng.
+    await removeSupplierImageFromCdn(sup, kind);
     return NextResponse.json({ ok: true, path, url: publicMediaUrl(path) });
   } catch (error) {
     console.error("[supplier-image] upload failed:", error);
@@ -92,6 +95,7 @@ export async function DELETE(
   patch[kind === "cover" ? "cover_image" : "profile_image"] = null;
   try {
     await store.updateSupplier(id, patch);
+    await removeSupplierImageFromCdn(sup, kind);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[supplier-image] delete failed:", error);

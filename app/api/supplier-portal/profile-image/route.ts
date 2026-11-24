@@ -7,6 +7,7 @@ import { validateUpload } from "@/lib/media/validate";
 import { deleteObject, putObject, supplierProfileImagePath } from "@/lib/media/storage";
 import { prepareSupplierProfileImage } from "@/lib/media/prepare-supplier-profile-image";
 import { publicMediaUrl } from "@/lib/media/public-url";
+import { removeSupplierImageFromCdn } from "@/lib/media/cdn";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,6 +65,8 @@ export async function POST(request: Request) {
       await deleteObject(path).catch(() => null);
       throw error;
     }
+    // Ảnh cũ có bản chép CDN: xoá bản chép, link CDN cũ không còn dùng.
+    await removeSupplierImageFromCdn(supplier, kind);
     return NextResponse.json({ ok: true, path, url: publicMediaUrl(path) });
   } catch (error) {
     console.error("[supplier-portal] tải ảnh hồ sơ thất bại", error);

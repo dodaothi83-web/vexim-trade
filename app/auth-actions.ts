@@ -32,6 +32,18 @@ function isRole(value: unknown): value is UserRole {
   return ROLES.some((r) => r.value === value);
 }
 
+/**
+ * Đăng nhập/đăng xuất chỉ đổi phần cần phiên: CRM, cổng nhà cung cấp, tài khoản người mua.
+ * Trang công khai (trang chủ, danh mục, sản phẩm, nhà cung cấp) không đọc phiên vì middleware
+ * đưa người có phiên sang bản động, nên KHÔNG gọi revalidatePath("/", "layout") ở đây: lệnh đó
+ * xoá cả cache 1 giờ của toàn bộ trang công khai mỗi lần nhân viên đăng nhập.
+ */
+function revalidateSignedInAreas() {
+  revalidatePath("/crm", "layout");
+  revalidatePath("/supplier/portal", "layout");
+  revalidatePath("/buyer", "layout");
+}
+
 /* ------------------------------ ĐĂNG NHẬP ------------------------------ */
 
 export async function loginAction(email: string, password: string, challengeToken = ""): Promise<AuthResult> {
@@ -66,7 +78,7 @@ export async function loginAction(email: string, password: string, challengeToke
       /* không quan trọng */
     }
 
-    revalidatePath("/", "layout");
+    revalidateSignedInAreas();
     return { ok: true, message: result.notice ?? "Đăng nhập thành công.", redirectTo: staffHomePath(result.user.role) };
   } catch (err) {
     console.error("[auth] login action failed", err);
@@ -76,7 +88,7 @@ export async function loginAction(email: string, password: string, challengeToke
 
 export async function logoutAction(): Promise<void> {
   await endSession();
-  revalidatePath("/", "layout");
+  revalidateSignedInAreas();
   redirect("/login");
 }
 
