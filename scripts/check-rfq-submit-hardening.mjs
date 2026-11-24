@@ -123,6 +123,7 @@ function makeSubmit({ afterImpl }) {
     '@/lib/public/catalog': { listPublicSuppliers: async () => [] },
     '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [] },
     '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
+    '@/lib/buyer/request-summary': { buyerProductTitle: (text) => String(text ?? '').trim(), buyerRequestMessage: () => null },
     '@/lib/email/rfq': {
       sendRfqAckBuyer: async () => { state.acks.push(1); },
       sendRfqNewInternal: async () => { state.internal.push(1); throw new Error('provider down'); },

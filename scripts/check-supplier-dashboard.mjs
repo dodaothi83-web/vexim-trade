@@ -248,6 +248,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/db': { getStore: () => submitStore },
   '@/lib/public/catalog': { listPublicSuppliers: async () => [{ id: 's-a' }, { id: 's-b' }] },
   '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
+  '@/lib/buyer/request-summary': { buyerProductTitle: (text) => String(text ?? '').trim(), buyerRequestMessage: () => null },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [{ id: 'p-a', name: 'Cashew W320', supplierId: 's-a' }] },
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   './background': { afterResponse: async (_label, task) => { await task(); } },
