@@ -1,5 +1,6 @@
 // node scripts/check-supplier-storage-cleanup.mjs
 // Ensure Storage errors do not silently turn failed remote cleanup into success.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,11 +22,11 @@ function load({ configured, fallback, remove }) {
     '@/lib/db': { localFallbackAllowed: () => fallback },
     // R2 chưa cấu hình: hành vi xoá trên Supabase giữ nguyên (luồng R2 có check-r2-media-storage.mjs).
     '@/lib/media/r2': { r2PublicBucket: () => null, r2PrivateBucket: () => null },
-    '@/lib/media/public-url': { R2_PUBLIC_FILE: /^suppliers\/[A-Za-z0-9_-]+\/(?:profile|cover)-r2-[a-f0-9-]{36}\.webp$/i },
+    '@/lib/media/public-url': mediaMocks['@/lib/media/public-url'],
   };
   vm.runInNewContext(source, { module: mod, exports: mod.exports, console, Date, Uint8Array,
     process: { cwd: () => '/virtual', env: {} },
-    require: (id) => { assert.ok(id in mocks, `Unexpected storage import: ${id}`); return mocks[id]; },
+    require: (id) => { assert.ok((id in mocks || id in mediaMocks), `Unexpected storage import: ${id}`); return id in mocks ? mocks[id] : mediaMocks[id]; },
   }, { filename: 'lib/media/storage.ts' });
   return { storage: mod.exports, localRemoved };
 }

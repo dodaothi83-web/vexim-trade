@@ -9,6 +9,7 @@ import { deleteStreamVideo } from "@/lib/media/cloudflare-stream";
 import { deleteAplusImages } from "@/lib/products/aplus-image-store";
 import { aplusImagePaths, aplusVideoUids, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { supplierGate } from "@/lib/auth/supplier-access";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 /** Nhân viên gỡ một khối A+ doanh nghiệp vi phạm (liên hệ trực tiếp, nội dung sai...). Ghi nhật ký. */
 export async function removeCompanyAplusModuleAction(supplierId: string, moduleId: string): Promise<{ ok: boolean; message: string }> {
@@ -37,6 +38,7 @@ export async function removeCompanyAplusModuleAction(supplierId: string, moduleI
     action: "staff.company_aplus_removed", before: { module: removed }, after: { modules: next.length } })
     .catch((error) => console.error("[crm-company-aplus] audit", error));
   revalidatePath(`/crm/suppliers/${supplierId}`);
+  revalidatePublicCatalog();
   if (supplier.slug) revalidatePath(`/suppliers/${supplier.slug}`);
   return { ok: true, message: "Đã gỡ khối A+ doanh nghiệp." };
 }

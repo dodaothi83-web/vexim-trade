@@ -15,6 +15,7 @@ import { type AuditEvidenceKey, type Verification, type VerificationStatus } fro
 import { looksVietnamese } from "@/lib/vietnamese-text";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
 import { supplierGate } from "@/lib/auth/supplier-access";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 function refreshAudit(v: Verification) {
   revalidatePath(auditHref(v.supplier_id, v.target_level));
@@ -348,6 +349,7 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
   const supplier = (publication || before.target_level === 1)
     ? await softEffect("đọc hồ sơ nhà cung cấp", () => store.getSupplier(before.supplier_id)) : null;
   if (supplier?.status === "published") await softEffect("làm mới trang nhà cung cấp công khai", () => {
+    revalidatePublicCatalog();
     revalidatePath(`/suppliers/${supplier.slug || supplier.id}`);
     revalidatePath("/suppliers");
     revalidateHomePage();
@@ -407,7 +409,7 @@ async function savePublicSummary(fd: FormData) {
   const supplier = await softEffect("đọc hồ sơ nhà cung cấp",
     () => store.getSupplier(before.supplier_id));
   if (supplier?.status === "published") await softEffect("làm mới trang công khai",
-    () => revalidatePath(`/suppliers/${supplier.slug || supplier.id}`));
+    () => { revalidatePublicCatalog(); revalidatePath(`/suppliers/${supplier.slug || supplier.id}`); });
   return { ok: true, message: mode === "publish" ? "Đã duyệt và công khai tóm tắt." : mode === "hide" ? "Đã ẩn tóm tắt." : "Đã lưu nháp; chưa công khai." };
 }
 

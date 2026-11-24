@@ -7,6 +7,7 @@ import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
 import { supplierGate } from "@/lib/auth/supplier-access";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 type Result = { ok: boolean; message: string };
 
@@ -46,6 +47,7 @@ export async function decideSupplierOnboardingAction(form: FormData): Promise<Re
     const mail = await notifySupplierDecision({ supplierId: id,
       decision: decision === "approved" ? "onboarding_approved" : "onboarding_changes_requested", note });
     if (mail !== "sent") console.warn("[supplier-onboarding] supplier email not sent; decision saved", mail);
+    revalidatePublicCatalog();
     revalidatePath(`/crm/suppliers/${id}`);
     revalidatePath("/crm/suppliers");
     revalidatePath("/supplier/portal");

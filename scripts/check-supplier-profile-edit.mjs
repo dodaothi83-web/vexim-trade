@@ -1,4 +1,5 @@
 // node scripts/check-supplier-profile-edit.mjs — owner edit is linked-account only and refreshes English text.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -32,6 +33,7 @@ vm.runInNewContext(js, {
     if (id === '@/lib/supplier-portal/access') return { supplierPortalAccess: async () => access };
     if (id === '@/lib/supplier-portal/onboarding') return { portalApproved: (value) => value.onboarding_status === 'approved' };
     if (id === '@/lib/ai/supplier-translation-service') return { ensureSupplierProfileEnglish: async () => { translationCalls += 1; return { status: 'translated', supplier }; } };
+    if (id in mediaMocks) return mediaMocks[id];
     throw new Error(`Unexpected import ${id}`);
   },
 }, { filename: 'profile-actions.ts' });

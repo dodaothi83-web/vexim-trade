@@ -1351,6 +1351,12 @@ export interface MediaAsset {
   storage_path: string | null;
   /** Đường dẫn ảnh xem trước cỡ nhỏ */
   thumb_path: string | null;
+  /**
+   * Gốc khoá ảnh trên CDN công khai (bucket R2 `veximtrade-media`), dạng `p/<productId>/<32 hex>`
+   * hoặc `s/<supplierId>/<32 hex>`; các cỡ nằm ở `<gốc>/400.webp`, `/1024.webp`, `/1600.webp`.
+   * null: ảnh chưa chép lên CDN, trang vẫn dùng storage_path/thumb_path qua /public-media.
+   */
+  cdn_key?: string | null;
   /** Link ngoài (video) */
   external_url: string | null;
   mime: string | null;

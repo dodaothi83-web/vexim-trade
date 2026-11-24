@@ -1,5 +1,6 @@
 "use client";
 
+import { publicMediaUrlAt } from "@/lib/media/public-url";
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePublicPathname } from "@/hooks/use-public-pathname";
@@ -78,10 +79,10 @@ function ProductComparisonTrayInner() {
                 <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white text-ink-300 ring-1 ring-ink-100">
                   {item.imagePath ? <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/public-media/${item.imagePath}`} alt="" className="h-full w-full object-cover" />
+                    <img src={publicMediaUrlAt(item.imagePath, 400)} alt="" className="h-full w-full object-cover" />
                   </> : <ImageIcon className="size-4" aria-hidden="true" />}
                 </span>
-                <Link href={item.href} target="_blank" rel="noopener noreferrer" title={item.name}
+                <Link prefetch={false} href={item.href} target="_blank" rel="noopener noreferrer" title={item.name}
                   className="min-w-0 flex-1 line-clamp-2 text-xs font-bold leading-4 text-ink-800 hover:text-brand-700 lg:line-clamp-none lg:truncate">{item.name}</Link>
                 <button type="button" onClick={() => remove(item.id)} aria-label={`Remove ${item.name} from comparison`}
                   className="flex size-11 shrink-0 items-center justify-center rounded-md text-ink-400 hover:bg-white hover:text-ink-900 lg:size-7">

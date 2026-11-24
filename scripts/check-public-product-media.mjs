@@ -1,4 +1,5 @@
 // node scripts/check-public-product-media.mjs — mocked storage/DB, no network.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -30,7 +31,7 @@ const mocks = {
   },
 };
 const runtimeEnv = {};
-vm.runInNewContext(code, { exports, require: (key) => mocks[key], Response, Uint8Array, Headers, process: { env: runtimeEnv } });
+vm.runInNewContext(code, { exports, require: (key) => key in mocks ? mocks[key] : mediaMocks[key], Response, Uint8Array, Headers, process: { env: runtimeEnv } });
 const get = (path = ['products', 'prod-1', 'photo.jpg'], headers = {}) =>
   exports.GET(new Request('https://test.local', { headers }), { params: Promise.resolve({ path }) });
 assert.equal((await get()).status, 200);

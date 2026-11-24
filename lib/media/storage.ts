@@ -6,7 +6,7 @@ import path from "node:path";
 import { getSupabaseClient, supabaseConfigured } from "@/lib/db/supabase";
 import { localFallbackAllowed } from "@/lib/db";
 import { r2Delete, r2Get, r2GetHead, r2PresignGet, r2PresignPut, r2PrivateBucket, r2Put, r2PutNew, r2PublicBucket, r2Size } from "@/lib/media/r2";
-import { R2_PUBLIC_FILE } from "@/lib/media/public-url";
+import { CDN_IMAGE_FILE, R2_PUBLIC_FILE } from "@/lib/media/public-url";
 
 /**
  * Kho tệp media: tự chọn nơi lưu theo đúng triết lý của tầng dữ liệu.
@@ -28,7 +28,7 @@ const R2_PRIVATE_PREFIX = /^(?:products|product-form-images|aplus|chat)\//;
 
 /** Bucket R2 cho một đường dẫn, hoặc null nếu đường dẫn đó vẫn dùng Supabase. */
 function r2BucketFor(rel: string): string | null {
-  if (R2_PUBLIC_FILE.test(rel)) return r2PublicBucket();
+  if (R2_PUBLIC_FILE.test(rel) || CDN_IMAGE_FILE.test(rel)) return r2PublicBucket();
   if (R2_PRIVATE_PREFIX.test(rel)) return r2PrivateBucket();
   return null;
 }
@@ -155,7 +155,7 @@ export async function putObject(
 
   const r2Bucket = r2BucketFor(clean);
   if (r2Bucket) {
-    await r2Put(r2Bucket, clean, data, contentType, R2_PUBLIC_FILE.test(clean) ? R2_PUBLIC_CACHE_CONTROL : undefined);
+    await r2Put(r2Bucket, clean, data, contentType, R2_PUBLIC_FILE.test(clean) || CDN_IMAGE_FILE.test(clean) ? R2_PUBLIC_CACHE_CONTROL : undefined);
     return { driver: "r2", path: clean };
   }
 
@@ -216,6 +216,8 @@ export async function getObject(
     try {
       const data = await r2Get(r2Bucket, clean);
       if (data) return { data, driver: "r2" };
+      // Bản sao CDN chỉ có trên R2 công khai: không có thì thôi, không hỏi Supabase.
+      if (CDN_IMAGE_FILE.test(clean)) return null;
       // Không có trên R2: ảnh cũ lưu ở Supabase, đọc tiếp như trước.
     } catch (error) {
       // R2 tạm lỗi: ảnh cũ vẫn phải hiển thị từ Supabase.
@@ -253,7 +255,7 @@ export async function deleteObject(rel: string): Promise<void> {
   if (r2Bucket) {
     await r2Delete(r2Bucket, clean);
     // Ảnh mới chỉ nằm trên R2. Ảnh cũ (cùng dạng đường dẫn) vẫn được xoá ở Supabase bên dưới.
-    if (R2_PUBLIC_FILE.test(clean)) return;
+    if (R2_PUBLIC_FILE.test(clean) || CDN_IMAGE_FILE.test(clean)) return;
   }
   if (supabaseUsable()) {
     try {

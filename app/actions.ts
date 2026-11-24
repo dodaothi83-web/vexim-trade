@@ -1,6 +1,8 @@
 "use server";
 
+import { removeDeletedMediaFromCdn, syncMediaCdn } from "@/lib/media/cdn";
 import { revalidatePath } from "next/cache";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 import { refreshCrmBadges } from "@/lib/crm/badges";
 
@@ -118,6 +120,8 @@ function bool(v: unknown, fallback = false): boolean {
 }
 
 function revalidateAll() {
+  // Trang công khai và bản cache catalog giữ 1 giờ: sửa trong CRM thì làm mới cả hai ngay.
+  revalidatePublicCatalog();
   revalidatePath("/", "layout");
 }
 
@@ -1474,7 +1478,15 @@ export async function deleteSupplierAction(id: string): Promise<ActionResult> {
   const gate = await guard("suppliers.delete");
   if (gate) return gate;
   try {
-    await getStore().deleteSupplier(id);
+    const store = getStore();
+    const products = await store.listProductsBySupplier(id).catch(() => []);
+    const cdnMedia = [
+      ...await store.listMedia("supplier", id).catch(() => []),
+      ...(products.length ? await store.listMediaForProducts(products.map((p) => p.id)).catch(() => []) : []),
+    ].filter((asset) => asset.cdn_key);
+    await store.deleteSupplier(id);
+    // Ảnh của nhà cung cấp và sản phẩm bị xoá theo: xoá luôn bản chép trên CDN công khai.
+    for (const asset of cdnMedia) await removeDeletedMediaFromCdn(asset);
     revalidateAll();
     return { ok: true, message: "Đã xoá nhà cung cấp." };
   } catch (err) {
@@ -1794,7 +1806,10 @@ export async function deleteProductAction(id: string): Promise<ActionResult> {
     const store = getStore();
     const existing = await store.getProduct(id);
     if (!existing) return { ok: false, message: "Không tìm thấy sản phẩm." };
+    const cdnMedia = await store.listMedia("product", id).catch(() => []);
     await store.deleteProduct(id);
+    // Dòng media bị xoá theo sản phẩm: xoá luôn bản chép trên CDN công khai.
+    for (const asset of cdnMedia) await removeDeletedMediaFromCdn(asset);
     const warning = await syncSupplierIndustries(existing.supplier_id);
     revalidateAll();
     return { ok: true, message: `Đã xoá sản phẩm.${warning ? ` ${warning}` : ""}` };
@@ -2373,6 +2388,8 @@ export async function updateMediaAction(
     if (current.kind === "document") next.audience = "internal";
 
     const updated = await store.updateMedia(id, next);
+    // Chuyển sang nội bộ/hết hạn thì gỡ bản CDN; chia sẻ lại cho người mua thì chép lên.
+    await syncMediaCdn(updated);
     if (verification) await logEvidenceChange(verification, id, "update");
     if (current.product_id) {
       const product = await store.getProduct(current.product_id);
@@ -2411,6 +2428,7 @@ export async function deleteMediaAction(id: string): Promise<ActionResult> {
 
     // Nếu sản phẩm đang ở trạng thái "sẵn sàng gửi buyer" thì kiểm tra lại sau khi xoá
     await store.deleteMedia(id);
+    await removeDeletedMediaFromCdn(asset);
     if (verification) await logEvidenceChange(verification, id, "delete");
     for (const path of [asset.storage_path, asset.thumb_path]) {
       if (!path) continue;

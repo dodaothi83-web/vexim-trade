@@ -79,7 +79,7 @@ function readUnit(value: QuantityPricingInput): SalesUnit {
 /** Chèn link Quy chế hoạt động vào câu luật; nhãn link nằm riêng trong từ điển. */
 function renderPolicyNote(copy: ProductEditorMessages["shared"]["quantityEditor"]) {
   const [before, after = ""] = copy.policyNote.split("{link}");
-  return <>{before}<Link href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">{copy.policyLink}</Link>{after}</>;
+  return <>{before}<Link prefetch={false} href="/quy-che-hoat-dong" target="_blank" rel="noopener noreferrer" className="font-semibold underline">{copy.policyLink}</Link>{after}</>;
 }
 
 /** Read-only live preview, reusable in the supplier sidebar and standalone editor.

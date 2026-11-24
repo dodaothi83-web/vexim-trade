@@ -9,7 +9,8 @@ import PublicHomePage, { generateMetadata as generateHomeMetadata } from "../../
  * lib/public/home-route.ts). Nội dung, metadata và JSON-LD dùng CHUNG mã với app/(public)/page.tsx
  * — chỉ khác là ngôn ngữ đến từ params cố định thay vì query string, nên Next.js dựng tĩnh được.
  */
-export const revalidate = 300;
+// 1 giờ (chủ dự án duyệt 24/11/2026); NCC/nhân viên sửa thì làm mới ngay (revalidatePath/Tag).
+export const revalidate = 3600;
 export const dynamicParams = false;
 
 export function generateStaticParams(): Array<{ lang: HomeRenderLang }> {

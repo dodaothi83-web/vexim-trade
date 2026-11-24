@@ -15,9 +15,10 @@ import { VerificationTierBadge } from "@/components/verification-tier";
 import { parseProductSpecification, productSpecificationKey, publicProductLocationDisplay, publicProductMoqDisplay } from "@/lib/public/product-detail-display";
 import { publicProductExportPortDisplay } from "@/lib/public/product-export-port";
 import { getStore } from "@/lib/db";
+import { readTopViewedProductIds } from "@/lib/traffic/server";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { listMoreFromSupplier, listPublicCategoryProducts, shareableProductImages } from "@/lib/public/product-catalog";
+import { listMoreFromSupplier, listPublicCategoryProducts, publicProductRouteParams, shareableProductImages } from "@/lib/public/product-catalog";
 import { fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
@@ -39,26 +40,39 @@ import { safeJsonLd } from "@/lib/public/supplier-seo";
 import { hasProductComparisonPeer } from "@/lib/public/product-comparison";
 import { packagingSummaryEnglish, samplePriceEnglish } from "@/lib/public/product-extras-display";
 import { productCertificatesFor } from "@/lib/public/product-certificates";
+import type { CategoryCertificateData } from "@/lib/public/category-certificate-data";
 import { similarOffers } from "@/lib/public/similar-offers";
 import { supplierChatAvailable } from "@/lib/chat/service";
 import { SimilarOffersRail } from "@/components/public/similar-offers-rail";
 import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
 import { categoryTieWindow } from "@/lib/public/ranking";
-import { publicMediaUrl } from "@/lib/media/public-url";
+import { absolutePublicMediaUrl, cdnVariant, publicMediaUrl, publicMediaUrlAt } from "@/lib/media/public-url";
 
 /**
  * Trang dựng sẵn (ISR) phục vụ từ CDN thay vì render lại mỗi lượt xem (từng là force-dynamic).
  * Bản này KHÔNG được đọc cookie/phiên — đọc là Next.js buộc render động và mất cache. Việc cần
  * phiên (xem trước danh mục chưa công khai, không đếm lượt xem của chính mình) chỉ chạy ở bản
  * động app/(public)/staff-product-view, nơi middleware.ts đưa người có cookie phiên tới (URL
- * không đổi, xem lib/public/product-route.ts). Làm mới mỗi phút và ngay khi CRM/cổng NCC gọi
+ * không đổi, xem lib/public/product-route.ts). Làm mới mỗi giờ và ngay khi CRM/cổng NCC gọi
  * revalidatePath("/products", "layout").
  */
-export const revalidate = 60;
+// 1 giờ (chủ dự án duyệt 24/11/2026); NCC/nhân viên sửa thì làm mới ngay (revalidatePath/Tag).
+export const revalidate = 3600;
 
-/** Không dựng sẵn lúc build: mỗi trang được dựng ở lượt xem đầu tiên rồi giữ trong cache. */
+const PREBUILT_PRODUCT_PAGES = 50;
+
+/**
+ * Dựng sẵn lúc build 50 sản phẩm được xem nhiều nhất 90 ngày qua (chủ dự án duyệt 24/11/2026).
+ * Các trang khác vẫn dựng ở lượt xem đầu tiên rồi giữ trong cache. Đọc lỗi thì không dựng sẵn
+ * trang nào, không làm hỏng bản build.
+ */
 export async function generateStaticParams(): Promise<Array<{ slug: string; productId: string }>> {
-  return [];
+  try {
+    return await publicProductRouteParams(await readTopViewedProductIds(PREBUILT_PRODUCT_PAGES));
+  } catch (error) {
+    console.error("[product-page] top products for prebuild", error);
+    return [];
+  }
 }
 
 type Props = { params: Promise<{ slug: string; productId: string }> };
@@ -71,7 +85,8 @@ async function getDetail(slug: string, productId: string) {
   // Chỉ bản động cho người có phiên mới đọc cookie (bản tĩnh coi danh mục chưa công khai là 404).
   const session = !published && isStaffProductView() ? await getSession() : null;
   if (!published && !(session && hasPermission(session.role, "categories.manage"))) return null;
-  const categoryProducts = await listPublicCategoryProducts(category);
+  let certificateData: Promise<CategoryCertificateData> | undefined;
+  const categoryProducts = await listPublicCategoryProducts(category, { onCertificateData: (data) => { certificateData = data; } });
   const card = categoryProducts.find((p) => p.id === productId);
   if (!card) return null;
   const product = await store.getProduct(productId);
@@ -81,7 +96,7 @@ async function getDetail(slug: string, productId: string) {
   // Cùng mặt hàng từ nhà cung cấp khác, ưu tiên cùng grade, theo thứ tự xếp hạng danh mục.
   // Không có nhà cung cấp khác thì khối này ẩn; hàng cùng nhà cung cấp đã nằm ở "More from this supplier".
   const similar = similarOffers(card, categoryProducts, { limit: 12, window: categoryTieWindow(Date.now()) });
-  return { category, card, categoryProducts, product, similar, preview: !published };
+  return { category, card, categoryProducts, product, similar, preview: !published, certificateData };
 }
 
 /**
@@ -116,7 +131,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = pageTitle(`${detail.card.name} – ${categoryName}, Vietnam`);
   const description = `${detail.card.name}. MOQ ${detail.card.moq}. Supplied in ${publicProductLocationDisplay(detail.card.province)}. Request a quote from ${SITE_NAME}.`;
   const ogImagePath = detail.card.cardImagePath ?? detail.card.imagePaths[0];
-  const ogImage = ogImagePath ? `${SITE_URL}/public-media/${ogImagePath.replace(/^\//, "")}` : null;
+  const ogImage = ogImagePath ? absolutePublicMediaUrl(cdnVariant(ogImagePath, 1024) ?? ogImagePath, SITE_URL) : null;
   return {
     title,
     description,
@@ -161,7 +176,7 @@ export default async function PublicProductDetail({ params }: Props) {
   const { slug, productId } = await params;
   const detail = await getDetailOrRedirect(slug, productId);
   if (!detail) notFound();
-  const { category, card, categoryProducts, product: p, similar, preview } = detail;
+  const { category, card, categoryProducts, product: p, similar, preview, certificateData } = detail;
   // Product eligibility was checked above. Read the website only for this
   // supplier card; don't put raw supplier contact fields in the product catalogue.
   const store = getStore();
@@ -174,7 +189,8 @@ export default async function PublicProductDetail({ params }: Props) {
   const supplierWebsite = supplier?.status === "published" ? supplier.website : null;
   const parentCategory = category.parent_id ? await store.getCategory(category.parent_id) : null;
   const categoryPath = [category.id, ...(parentCategory ? [parentCategory.id] : [])];
-  const productCertificates = await productCertificatesFor(p.id, p.supplier_id, categoryPath);
+  // Dùng lại chứng nhận đã đọc cho danh sách danh mục ở getDetail, không đọc lần thứ ba.
+  const productCertificates = await productCertificatesFor(p.id, p.supplier_id, categoryPath, certificateData);
   const images = card.usesFormGallery ? card.imagePaths : shareableProductImages(media, p.id, p.featured_media_id, 24);
   const thumbnails = card.usesFormGallery ? (card.imageThumbnailPaths ?? card.imagePaths) : shareableProductImages(media, p.id, p.featured_media_id, 24, true);
   const video = shareableProductVideo(media, p.id);
@@ -243,7 +259,7 @@ export default async function PublicProductDetail({ params }: Props) {
   // /api/public/traffic vẫn tự kiểm tra lại phiên, danh mục, sản phẩm và nhà cung cấp trước khi đếm.
   const countView = !preview && !card.isDemo && !isStaffProductView();
   // Nút chat chỉ hiện khi nhà cung cấp có tài khoản cổng đang hoạt động để trả lời.
-  const canChat = await supplierChatAvailable(store, card.supplierId).catch(() => false);
+  const canChat = await supplierChatAvailable(store, card.supplierId, card.isDemo ? undefined : supplier).catch(() => false);
   // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
   // giá trên trang là giá tham khảo qua RFQ, không phải chào bán giao dịch trực tiếp.
   // Đóng gói và giá mẫu vì vậy nằm trong additionalProperty, không nằm trong Offer.
@@ -286,7 +302,7 @@ export default async function PublicProductDetail({ params }: Props) {
     "@type": "Product",
     name: card.name,
     url: `${SITE_URL}/products/${slug}/${productId}`,
-    ...(images.length ? { image: images.map((path) => `${SITE_URL}/public-media/${path.replace(/^\//, "")}`) } : {}),
+    ...(images.length ? { image: images.map((path) => absolutePublicMediaUrl(path, SITE_URL)) } : {}),
     ...(enDescription ? { description: withoutDirectContacts(enDescription) } : {}),
     category: category.name_i18n.en || slug,
     brand: {
@@ -340,7 +356,7 @@ export default async function PublicProductDetail({ params }: Props) {
         <aside className="mt-6 overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-card" aria-labelledby="supplier-card-title">
           <div className="border-b border-brand-100 bg-gradient-to-br from-brand-50 to-white p-5">
             <div className="flex items-start gap-3">
-              <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" aria-label={`View ${card.supplierName} supplier profile (opens in a new tab)`}
+              <Link prefetch={false} href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" aria-label={`View ${card.supplierName} supplier profile (opens in a new tab)`}
                 className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-brand-100 bg-white text-brand-700 shadow-sm">
                 {supplierImageUrl ? <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -349,7 +365,7 @@ export default async function PublicProductDetail({ params }: Props) {
               </Link>
               <div className="min-w-0 flex-1">
                 <h2 id="supplier-card-title" className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">Supplied by</h2>
-                <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" className="mt-1 block break-words text-base font-bold leading-6 text-ink-900 hover:text-brand-800">{card.supplierName}</Link>
+                <Link prefetch={false} href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" className="mt-1 block break-words text-base font-bold leading-6 text-ink-900 hover:text-brand-800">{card.supplierName}</Link>
                 {/* Website nằm cùng hàng với dấu xác minh; hết chỗ thì tự xuống dòng. */}
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <VerificationTierBadge levels={card.verificationSteps} />
@@ -369,11 +385,11 @@ export default async function PublicProductDetail({ params }: Props) {
             </div>
             <div className="mt-2"><ProductVerificationIcons levels={card.verificationSteps} l2Scope={card.l2Scope} /></div>
             {(card.verificationSteps.includes(2) || card.verificationSteps.includes(3)) && <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-              {card.verificationSteps.includes(2) && (card.l2Scope === "factory" || card.l2Scope === "both") && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#factory-visit`} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">Factory verification scope</Link>}
-              {card.verificationSteps.includes(2) && (card.l2Scope === "partner_contract" || card.l2Scope === "both") && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#partner-factory-contract`} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">Partner contract review scope</Link>}
-              {card.verificationSteps.includes(3) && <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">Delivery review scope</Link>}
+              {card.verificationSteps.includes(2) && (card.l2Scope === "factory" || card.l2Scope === "both") && <Link prefetch={false} href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#factory-visit`} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">Factory verification scope</Link>}
+              {card.verificationSteps.includes(2) && (card.l2Scope === "partner_contract" || card.l2Scope === "both") && <Link prefetch={false} href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#partner-factory-contract`} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">Partner contract review scope</Link>}
+              {card.verificationSteps.includes(3) && <Link prefetch={false} href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#delivery-history`} target="_blank" rel="noopener noreferrer" className="text-brand-700 underline">Delivery review scope</Link>}
             </div>}
-            <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand-800 hover:underline">View supplier profile <ArrowRight className="h-4 w-4" /></Link>
+            <Link prefetch={false} href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand-800 hover:underline">View supplier profile <ArrowRight className="h-4 w-4" /></Link>
             <p className="mt-3 text-xs leading-5 text-ink-500">Ask this supplier directly through an RFQ in your account. Vexim coordinates only general sourcing requests. The website is supplier-provided.</p>
             <Link href={`/khieu-nai?product=${encodeURIComponent(card.id)}`} className="mt-3 inline-block text-xs font-semibold text-brand-700 underline">Report this listing</Link>
           </div>
@@ -464,7 +480,7 @@ export default async function PublicProductDetail({ params }: Props) {
               <ProductCertificateCards certificates={productCertificates} />
             </div>
             <p className="mt-4 text-xs leading-5 text-ink-600">
-              <Link href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#certificates`} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">All certificates on the supplier profile</Link>
+              <Link prefetch={false} href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}#certificates`} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 underline">All certificates on the supplier profile</Link>
             </p>
           </section>
         )}
@@ -473,7 +489,7 @@ export default async function PublicProductDetail({ params }: Props) {
           <Link href={rfq} className="btn btn-primary min-h-12 w-full justify-center px-2 text-sm font-bold shadow-lg shadow-brand-900/20 sm:px-4 sm:text-base">Request a quote <ArrowRight className="hidden h-5 w-5 sm:block" /></Link>
           {canChat && <Suspense fallback={<button disabled className="btn btn-soft min-h-12 w-full justify-center">Chat with supplier</button>}>
             <AskSupplierDialog category={slug} productId={card.id} productName={card.name} supplierId={card.supplierId} supplierName={card.supplierName} grade={rfqGrade}
-              imageUrl={images[0] ? `/public-media/${images[0].replace(/^\/+/, "")}` : null} quoteHref={rfq} />
+              imageUrl={images[0] ? publicMediaUrlAt(images[0], 400) : null} quoteHref={rfq} />
           </Suspense>}
         </div>
         <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>

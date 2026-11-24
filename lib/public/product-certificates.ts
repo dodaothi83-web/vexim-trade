@@ -1,4 +1,5 @@
 import { getStore } from "@/lib/db";
+import type { CategoryCertificateData } from "@/lib/public/category-certificate-data";
 import { publicProductCertificates, type PublicSupplierCertificate } from "@/lib/public/certificates";
 
 /**
@@ -13,7 +14,24 @@ export async function productCertificatesFor(
   productId: string,
   supplierId: string,
   categoryPath: readonly string[],
+  /** Dữ liệu chứng nhận của danh mục đã đọc trong cùng lượt tải trang (có nhà cung cấp này). */
+  preloaded?: Promise<CategoryCertificateData>,
 ): Promise<PublicSupplierCertificate[]> {
+  if (preloaded) {
+    const data = await preloaded.catch(() => null);
+    if (data) {
+      const own = data.certificates.filter((certificate) => certificate.supplier_id === supplierId);
+      if (own.length === 0) return [];
+      const ownIds = new Set(own.map((certificate) => certificate.id));
+      return publicProductCertificates(supplierId, productId, own,
+        data.media.filter((asset) => asset.owner_type === "supplier" && asset.supplier_id === supplierId), undefined, {
+          scopes: data.scopes.filter((scope) => ownIds.has(scope.certificate_id)),
+          optouts: data.optouts.filter((optout) => optout.supplier_id === supplierId),
+          categoryId: categoryPath[0] ?? null,
+          categoryPath,
+        });
+    }
+  }
   const store = getStore();
   if (typeof store.listCertificates !== "function") return [];
   const raw = await store.listCertificates(supplierId).catch(() => []);

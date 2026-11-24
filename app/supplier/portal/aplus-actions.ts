@@ -17,6 +17,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { supplierPlanRules } from "@/lib/supplier-plans";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 export type AplusSaveResult = { ok: boolean; message: string; modules?: AplusModule[] };
 
@@ -56,6 +57,7 @@ export async function saveProductAplusAction(productId: string, modules: unknown
       action: "supplier.product_aplus_saved", before: { modules: previous.length, mode: product.content_mode ?? null }, after: { modules: verified.modules.length, types: verified.modules.map((x) => x.type), mode } })
       .catch((error) => console.error("[aplus] audit", error));
     revalidatePath(`/supplier/portal/products/${productId}`);
+    revalidatePublicCatalog();
     revalidatePath("/products", "layout");
     return { ok: true, message: checked.translationFailed ? m.aplus.savedTranslateLater : verified.modules.length ? m.aplus.saved : m.aplus.aplusPage.showingBasic, modules: verified.modules };
   } catch (error) {
@@ -129,6 +131,7 @@ export async function saveProductVideoAction(productId: string, videoUid: string
       action: next ? "supplier.product_video_saved" : "supplier.product_video_removed", before: { video: before?.video_uid ?? null }, after: { video: next?.video_uid ?? null } })
       .catch((error) => console.error("[product-video] audit", error));
     revalidatePath(`/supplier/portal/products/${productId}`);
+    revalidatePublicCatalog();
     revalidatePath("/products", "layout");
     return { ok: true, message: next ? v.saved : v.removed };
   } catch (error) {
@@ -158,6 +161,7 @@ export async function saveProductContentModeAction(productId: string, mode: "bas
         action: "supplier.product_content_mode", before: { mode: product.content_mode ?? null }, after: { mode } })
         .catch((error) => console.error("[aplus] audit mode", error));
       revalidatePath(`/supplier/portal/products/${productId}`);
+      revalidatePublicCatalog();
       revalidatePath("/products", "layout");
     }
     return { ok: true, message: mode === "aplus" ? m.aplus.aplusPage.showingAplus : m.aplus.aplusPage.showingBasic };

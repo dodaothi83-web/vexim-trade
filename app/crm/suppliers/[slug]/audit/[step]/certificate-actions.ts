@@ -15,6 +15,7 @@ import { transferRenewalScope } from "@/lib/certificate-renewal";
 import { refreshCrmBadges } from "@/lib/crm/badges";
 import { encodeRejectionReason, staffRejectionLabel, supplierRejectionMessage } from "@/lib/certificate-rejection";
 import { supplierGate } from "@/lib/auth/supplier-access";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const result = (ok: boolean, message: string) => ({ ok, message });
@@ -33,6 +34,7 @@ function refresh(supplierId: string, slug?: string | null) {
   revalidatePath(`/crm/suppliers/${supplierId}/audit/documents`);
   revalidatePath("/crm/certificates");
   revalidatePath("/supplier/portal");
+  revalidatePublicCatalog();
   if (slug) revalidatePath(`/suppliers/${slug}`);
   // Duyệt/ẩn/đổi trạng thái làm đổi số giấy chờ duyệt: huy hiệu ở layout /crm phải tự trừ.
   refreshCrmBadges();

@@ -7,6 +7,7 @@ import { getSupabaseClient } from "@/lib/db/supabase";
 import { getStore } from "@/lib/db";
 import { PLAN_FEATURE_LENGTH, PLAN_FEATURE_MAX, PLAN_PRICE_MAX } from "@/lib/supplier-plan-catalog";
 import { isSupplierPlan } from "@/lib/supplier-plans";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 export type PlanCatalogResult = { ok: boolean; message: string } | null;
 
@@ -63,6 +64,7 @@ export async function savePlanCatalogAction(_previous: PlanCatalogResult, form: 
   }
   await getStore().addAuditLog({ actor_id: session.uid, actor_email: session.email, entity: "supplier_plan", entity_id: plan,
     action: "supplier_plan.catalog_updated", before: null, after: row }).catch((e) => console.error("[plan-catalog] audit", e));
+  revalidatePublicCatalog();
   revalidatePath("/crm/plans");
   revalidatePath("/crm/plans/catalog");
   revalidatePath("/supplier/portal", "layout");

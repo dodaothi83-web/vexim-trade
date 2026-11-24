@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { matchStandardGrade, standardGradesForCategory, supplierGradeOptions } from "@/lib/products/grade-pricing";
 import { parseGradeBounds, parseQuantityPriceSettings } from "@/lib/products/quantity-price-settings";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 export type PricingSettingsResult = { ok: boolean; message: string };
 
@@ -32,6 +33,7 @@ export async function saveQuantityPriceSettings(_previous: PricingSettingsResult
     await supabaseStore.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "settings", entity_id: "quantity_pricing", action: "quantity_pricing.settings_updated", before, after: values,
     }).catch((error) => console.error("[quantity-pricing] settings audit", error));
+    revalidatePublicCatalog();
     revalidatePath("/crm/settings/quantity-pricing");
     return { ok: true, message: "Đã lưu cấu hình chuẩn bị. Mô hình giá mới chưa được bật." };
   } catch (error) {
@@ -66,6 +68,7 @@ export async function saveGradePriceBounds(_previous: PricingSettingsResult, fd:
     await supabaseStore.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "category", entity_id: categoryId, action: "quantity_pricing.grade_bounds_updated", before, after: { grade, bounds: parsed.bounds },
     }).catch((error) => console.error("[quantity-pricing] grade bounds audit", error));
+    revalidatePublicCatalog();
     revalidatePath("/crm/settings/quantity-pricing");
     return { ok: true, message: parsed.bounds ? `Đã lưu ngưỡng cho ${grade}. Mô hình giá mới chưa được bật.` : `Đã xóa ngưỡng cho ${grade}.` };
   } catch (error) {
@@ -98,6 +101,7 @@ export async function removeSupplierGradeOption(_previous: PricingSettingsResult
       entity: "category", entity_id: category.id, action: "quantity_pricing.supplier_grade_removed",
       before: { supplier_grade_options: before }, after: { supplier_grade_options: pool },
     }).catch((error) => console.error("[quantity-pricing] supplier grade removal audit", error));
+    revalidatePublicCatalog();
     revalidatePath("/crm/settings/quantity-pricing");
     revalidatePath("/supplier/portal/products", "layout");
     revalidatePath("/rfq");

@@ -5,6 +5,7 @@
  *  - chỉ hai bên của cuộc và nhân viên có quyền xem tin mới mở được tệp; Word/Excel luôn tải về
  *  - tệp không gửi dọn sau 24 giờ; tệp đã gửi xoá sau 6 tháng, tin vẫn hiện "tệp đã hết hạn"
  */
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -19,7 +20,7 @@ function load(file, mocks) {
   const out = ts.transpileModule(read(file), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const module = { exports: {} };
   vm.runInNewContext(out, { module, exports: module.exports, console: { ...console, error() {} }, Date, Promise, Map, Set, Uint8Array, TextDecoder, URL, encodeURIComponent, require: (id) => {
-    assert.ok(id in mocks, `Unexpected ${id} in ${file}`); return mocks[id];
+    assert.ok((id in mocks || id in mediaMocks), `Unexpected ${id} in ${file}`); return id in mocks ? mocks[id] : mediaMocks[id];
   } });
   return module.exports;
 }

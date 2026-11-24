@@ -1,6 +1,7 @@
 // node --experimental-strip-types --no-warnings scripts/check-chat.mjs
 // Chat người mua ↔ nhà cung cấp (thay luồng email của Ask supplier): nội dung, chống spam,
 // chưa đọc, giới hạn email báo tin mới, quyền xem, không lộ email người mua cho nhà cung cấp.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -29,7 +30,7 @@ function load(file, mocks) {
   const module = { exports: {} };
   vm.runInNewContext(out, { module, exports: module.exports, console: { ...console, error() {} }, Date, Promise, require: (id) => {
     if (id === '@/lib/brand/colors.json') return { default: { primary: '#123', surface: '#eee', muted: '#999' } };
-    assert.ok(id in mocks, `Unexpected ${id} in ${file}`); return mocks[id];
+    assert.ok((id in mocks || id in mediaMocks), `Unexpected ${id} in ${file}`); return id in mocks ? mocks[id] : mediaMocks[id];
   } });
   return module.exports;
 }

@@ -26,7 +26,8 @@ const nextConfig: NextConfig = {
   images: {
     // Bắt buộc từ Next 16: chỉ cho phép chất lượng mặc định, tránh bị lợi dụng tạo vô số biến thể.
     qualities: [75],
-    // Ảnh trên R2 công khai chỉ gồm ảnh đại diện/ảnh bìa nhà cung cấp (thư mục suppliers/).
+    // Chỉ ảnh đại diện/ảnh bìa nhà cung cấp (suppliers/) đi qua trình tối ưu ảnh. Bản CDN của ảnh sản phẩm
+    // (p/…, s/…) đã có sẵn cỡ 400/1024/1600 nên trang dùng thẳng <img>, không qua /_next/image.
     remotePatterns: [
       { protocol: "https", hostname: "media.veximtrade.com", pathname: "/suppliers/**", search: "" },
       ...(R2_PUBLIC_HOST && R2_PUBLIC_HOST !== "media.veximtrade.com"

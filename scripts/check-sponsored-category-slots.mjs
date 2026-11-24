@@ -1,4 +1,5 @@
 // Run with node --experimental-strip-types --no-warnings.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -45,7 +46,7 @@ function load(file, mocks) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   const module = { exports: {} };
-  vm.runInNewContext(source, { module, exports: module.exports, require(id) { assert.ok(id in mocks, id); return mocks[id]; } });
+  vm.runInNewContext(source, { module, exports: module.exports, require(id) { assert.ok((id in mocks || id in mediaMocks), id); return id in mocks ? mocks[id] : mediaMocks[id]; } });
   return module.exports;
 }
 const disclosure = load('../components/sponsored-disclosure.tsx', { 'react/jsx-runtime': jsx });

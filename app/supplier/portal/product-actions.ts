@@ -1,5 +1,6 @@
 "use server";
 
+import { removeDeletedMediaFromCdn, syncMediaCdn } from "@/lib/media/cdn";
 import { stripEmptySpecLines } from "@/lib/products/spec-template";
 import { revalidatePath } from "next/cache";
 import { revalidateCategoryPage } from "@/lib/public/revalidate-category";
@@ -40,6 +41,7 @@ import { prepareAplusForSave } from "@/lib/products/aplus-server";
 import { APLUS_MAX_MODULES, type AplusProblem } from "@/lib/products/aplus";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 type Result = { ok: boolean; message: string; id?: string; warning?: boolean };
 const text = (form: FormData, key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
@@ -317,9 +319,10 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
           // Ảnh phải nằm trong thư mục sản phẩm mới đến được người mua; chép hỏng thì để nguyên trong kho.
           const moved = await moveBankImageIntoProduct(asset, saved.id);
           if (!moved) continue;
-          await store.updateMedia(mediaId, { owner_type: "product", product_id: saved.id,
+          const attached = await store.updateMedia(mediaId, { owner_type: "product", product_id: saved.id,
             supplier_id: access.supplier.id, audience: "buyer", sort_order: bankOrder,
             storage_path: moved.storage_path, thumb_path: moved.thumb_path });
+          await syncMediaCdn(attached);
           await removeBankOriginals(asset);
           bankOrder++;
         } catch (error) {
@@ -373,6 +376,7 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     revalidatePath(`/crm/products/${saved.id}/edit`);
     if (keepPublished && saved.category) {
       revalidateCategoryPage(saved.category);
+      revalidatePublicCatalog();
       revalidatePath(`/products/${saved.category}/${saved.id}`);
     }
     return { ok: true, id: saved.id, message: keepPaused
@@ -562,6 +566,7 @@ function revalidateProductManagement(id: string) {
   revalidatePath(`/supplier/portal/products/${id}`);
   revalidatePath("/crm/products");
   revalidatePath(`/crm/products/${id}/edit`);
+  revalidatePublicCatalog();
   revalidatePath("/products", "layout");
   revalidatePath("/suppliers", "layout");
   revalidateHomePage();
@@ -580,11 +585,13 @@ export async function deleteSupplierDraftProductAction(id: string): Promise<Resu
     if (product.supplier_review_status !== "draft" || product.supplier_originated !== true ||
         product.ready_for_buyer || product.reviewed_category_slug != null)
       return { ok: false, message: a.draftNotAllowed };
+    const cdnMedia = (await access.store.listMedia("product", id).catch(() => [])).filter((m) => m.cdn_key);
     // Thao tác CSDL khóa và kiểm tra lại trạng thái + các liên kết trong một giao dịch.
     const result = await access.store.deleteSupplierDraftProduct(id, access.supplier.id);
     if (result.status !== "deleted") return { ok: false, message: result.status === "has_links"
       ? a.draftBlockedRelated
       : a.draftStateChanged };
+    for (const asset of cdnMedia) await removeDeletedMediaFromCdn(asset);
 
     const pendingPaths: string[] = [];
     await Promise.all(result.paths.map(async (path) => {

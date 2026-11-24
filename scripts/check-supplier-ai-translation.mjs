@@ -1,4 +1,5 @@
 // node --experimental-strip-types --no-warnings scripts/check-supplier-ai-translation.mjs
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -9,8 +10,8 @@ function compile(path, mocks) {
   const exports = {};
   const code = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   vm.runInNewContext(code, { exports, console, process, Date, FormData, require: (key) => {
-    if (!(key in mocks)) throw Error(`Unexpected import ${key}`);
-    return mocks[key];
+    if (!((key in mocks || key in mediaMocks))) throw Error(`Unexpected import ${key}`);
+    return key in mocks ? mocks[key] : mediaMocks[key];
   } });
   return exports;
 }

@@ -13,6 +13,7 @@ import { refreshCrmBadges } from "@/lib/crm/badges";
 import { notifySupplierDecision } from "@/lib/supplier-portal/notify";
 import { L2_PUBLIC_PHOTOS_MAX, L2_REVIEW_METHOD_LABELS, type Verification } from "@/lib/types";
 import { supplierGate } from "@/lib/auth/supplier-access";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 /**
  * L2 xác minh qua cuộc gọi video / thực địa. Trưởng kiểm duyệt (hoặc admin) vừa gọi
@@ -40,6 +41,7 @@ function refresh(v: Verification, slug?: string | null) {
   revalidatePath("/crm/verifications");
   revalidatePath("/crm/verifications/submissions");
   revalidatePath("/supplier/portal/verification/factory");
+  revalidatePublicCatalog();
   if (slug) revalidatePath(`/suppliers/${slug}`);
   refreshCrmBadges();
 }

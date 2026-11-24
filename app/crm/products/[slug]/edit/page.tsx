@@ -329,7 +329,7 @@ export default async function EditProductPage({
                 ))}
               </ul>}
             {(!supplierReviewedListing || canView) && readiness.ready && !productImages.length && <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">{supplierReviewedListing ? "Sản phẩm chỉ có catalogue. Thêm ảnh để thẻ sản phẩm có hình." : "Catalogue đã đủ điều kiện nhưng thẻ chưa có ảnh. Thêm ảnh chia sẻ cho người mua để thẻ có hình."}</p>}
-            {canView && category && <p className="mt-3 border-t border-ink-100 pt-3"><Link className="text-[13px] font-semibold text-brand-700 underline" href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`} target="_blank">{supplierReviewedListing ? "Xem sản phẩm đã đăng" : "Xem trang sản phẩm công khai ↗"}</Link></p>}
+            {canView && category && <p className="mt-3 border-t border-ink-100 pt-3"><Link prefetch={false} className="text-[13px] font-semibold text-brand-700 underline" href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`} target="_blank">{supplierReviewedListing ? "Xem sản phẩm đã đăng" : "Xem trang sản phẩm công khai ↗"}</Link></p>}
           </section>}
           <div className="order-2 contents xl:block">
             <QuantityPreviewCard initial={quantityPreviewInitial} imageUrl={previewImage} />

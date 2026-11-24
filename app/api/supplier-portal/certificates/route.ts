@@ -15,6 +15,7 @@ import {
   PARTNER_CONTRACT_CAPTION,
 } from "@/lib/certificate-service";
 import { refreshCrmBadges } from "@/lib/crm/badges";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -146,6 +147,7 @@ export async function POST(request: Request) {
     revalidatePath(`/crm/suppliers/${access.supplier.id}`);
     revalidatePath(`/crm/suppliers/${access.supplier.id}/audit/documents`);
     if (currentSupplier.slug) {
+      revalidatePublicCatalog();
       revalidatePath(`/suppliers/${currentSupplier.slug}`);
     }
     revalidatePath("/crm/certificates");

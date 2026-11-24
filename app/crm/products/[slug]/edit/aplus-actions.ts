@@ -9,6 +9,7 @@ import { deleteStreamVideo } from "@/lib/media/cloudflare-stream";
 import { deleteAplusImages } from "@/lib/products/aplus-image-store";
 import { aplusImagePaths, aplusVideoUids, readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { productGate } from "@/lib/auth/supplier-access";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 /** Nhân viên gỡ một khối A+ vi phạm (liên hệ trực tiếp, nội dung sai...). Ghi nhật ký. */
 export async function removeAplusModuleAction(productId: string, moduleId: string): Promise<{ ok: boolean; message: string }> {
@@ -38,6 +39,7 @@ export async function removeAplusModuleAction(productId: string, moduleId: strin
     action: "staff.product_aplus_removed", before: { module: removed }, after: { modules: next.length } })
     .catch((error) => console.error("[crm-aplus] audit", error));
   revalidatePath(`/crm/products/${productId}/edit`);
+  revalidatePublicCatalog();
   revalidatePath("/products", "layout");
   return { ok: true, message: "Đã gỡ khối A+." };
 }
@@ -63,6 +65,7 @@ export async function removeGalleryVideoAction(productId: string): Promise<{ ok:
     action: "staff.product_video_removed", before: { video: video.video_uid }, after: { video: null } })
     .catch((error) => console.error("[crm-product-video] audit", error));
   revalidatePath(`/crm/products/${productId}/edit`);
+  revalidatePublicCatalog();
   revalidatePath("/products", "layout");
   return { ok: true, message: "Đã gỡ video." };
 }

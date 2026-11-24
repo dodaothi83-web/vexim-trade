@@ -1,4 +1,5 @@
 import { SITE_URL } from "@/lib/site";
+import { publicMediaUrlAt } from "@/lib/media/public-url";
 
 /**
  * Ảnh dùng cho máy tìm kiếm và hệ thống AI (og:image, JSON-LD, image sitemap).
@@ -24,9 +25,12 @@ export function absoluteSiteUrl(path: string): string {
   return `${SITE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
-/** Đường dẫn công khai của một ảnh sản phẩm trong kho media. */
+/**
+ * Đường dẫn công khai của một ảnh sản phẩm trong kho media. Ảnh đã chép lên CDN trả link CDN
+ * tuyệt đối cỡ 1024px (thẻ 400px quá nhỏ cho og:image); ảnh khác đi qua /public-media.
+ */
 export function publicMediaPath(storagePath: string): string {
-  return `/public-media/${storagePath.replace(/^\/+/, "")}`;
+  return publicMediaUrlAt(storagePath.replace(/^\/+/, ""), 1024);
 }
 
 /** Ảnh đại diện (tuyệt đối) của một sản phẩm thật, hoặc null nếu không có/là dữ liệu mẫu. */

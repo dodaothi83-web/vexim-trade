@@ -12,6 +12,7 @@ import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-serv
 import type { SupplierInput } from "@/lib/types";
 import { isL1BusinessLicense } from "@/lib/verification";
 import { autoAssignSupplierOwner } from "@/lib/crm/supplier-owner";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -166,6 +167,7 @@ export async function POST(request: Request) {
     let notification: "sent" | "simulated" | "failed" = "failed";
     try { notification = await notifySupplierRegistration(supplier, parsed.requested); }
     catch (error) { console.error("[supplier-profile] staff notification failed", error); }
+    revalidatePublicCatalog();
     revalidatePath("/supplier/portal");
     revalidatePath(`/crm/suppliers/${supplier.id}`);
     return NextResponse.json({ ok: true, notification, message: "Đã gửi hồ sơ doanh nghiệp cho Vexim. Bạn có thể đăng nhập xem trạng thái nhưng chưa dùng được các chức năng cho đến khi Vexim mở quyền." });

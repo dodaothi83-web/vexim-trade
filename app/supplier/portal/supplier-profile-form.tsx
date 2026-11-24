@@ -154,7 +154,7 @@ export function SupplierProfileFields({ supplier, email, categories, categoryReq
       <div className="mt-3 space-y-3">
         <label className="flex items-start gap-2 text-sm leading-6 text-ink-700">
           <input type="checkbox" name="consent" value="yes" required className="mt-1 h-4 w-4 shrink-0 accent-brand-700" />
-          <span>{m.commitments.termsBefore} <Link href="/dieu-khoan-su-dung" target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">{m.commitments.termsLink}</Link> {m.commitments.termsAfter}</span>
+          <span>{m.commitments.termsBefore} <Link prefetch={false} href="/dieu-khoan-su-dung" target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">{m.commitments.termsLink}</Link> {m.commitments.termsAfter}</span>
         </label>
         <label className="flex items-start gap-2 text-sm leading-6 text-ink-700">
           <input type="checkbox" name="information_accuracy" value="yes" required className="mt-1 h-4 w-4 shrink-0 accent-brand-700" />

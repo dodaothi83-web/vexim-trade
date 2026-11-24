@@ -1,4 +1,5 @@
 // node --experimental-strip-types --no-warnings scripts/check-supplier-certificate-upload.mjs
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -174,8 +175,8 @@ const routeCode = ts.transpileModule(route, {
 }).outputText;
 const routeModule = { exports: {} };
 vm.runInThisContext(`(function(exports, require, module) { ${routeCode}\n })`)(routeModule.exports, (id) => {
-  assert.ok(id in routeMocks, `Unexpected upload route import ${id}`);
-  return routeMocks[id];
+  assert.ok(id in routeMocks || id in mediaMocks, `Unexpected upload route import ${id}`);
+  return id in routeMocks ? routeMocks[id] : mediaMocks[id];
 }, routeModule);
 const { POST } = routeModule.exports;
 function uploadRequest(checklistKey) {

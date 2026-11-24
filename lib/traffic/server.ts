@@ -75,3 +75,29 @@ export async function readSupplierTraffic(supplierId: string, days: 7 | 30 | 90)
   }
   return rows;
 }
+
+/**
+ * Sản phẩm được xem nhiều nhất trong `days` ngày gần đây (lượt xem trang sản phẩm công khai),
+ * dùng để dựng sẵn trang lúc build. Không có Supabase hoặc lỗi đọc thì trả mảng rỗng.
+ */
+export async function readTopViewedProductIds(limit: number, days = 90): Promise<string[]> {
+  const db = getSupabaseClient();
+  if (!db) return [];
+  const cutoff = new Date();
+  cutoff.setUTCHours(0, 0, 0, 0);
+  cutoff.setUTCDate(cutoff.getUTCDate() - days + 1);
+  const views = new Map<string, number>();
+  for (let start = 0; start < 20_000; start += 1000) {
+    const { data, error } = await db.from("supplier_traffic_daily")
+      .select("resource_id,views").eq("page_kind", "product")
+      .gte("day", cutoff.toISOString().slice(0, 10))
+      .order("day").order("resource_id").range(start, start + 999);
+    if (error) throw new Error(`top products read: ${error.message}`);
+    for (const row of (data ?? []) as Array<{ resource_id: string | null; views: number | null }>) {
+      if (!row.resource_id || !uuid.test(row.resource_id)) continue;
+      views.set(row.resource_id, (views.get(row.resource_id) ?? 0) + Number(row.views ?? 0));
+    }
+    if (!data || data.length < 1000) break;
+  }
+  return [...views.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit).map(([id]) => id);
+}

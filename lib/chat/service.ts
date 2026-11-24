@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { DataStore } from "@/lib/db/types";
+import { publicMediaUrlAt } from "@/lib/media/public-url";
 import { getPublicProductRecordsByIds } from "@/lib/public/product-catalog";
 import { presenceKey, readPresence } from "./presence";
 import { supplierShortName } from "@/lib/public/supplier-name";
@@ -172,7 +173,7 @@ async function productCards(ids: string[]): Promise<Map<string, ChatProductCard>
     return [r.product.id, {
       id: r.product.id,
       name: (r.card.name || r.product.name).slice(0, 200),
-      imageUrl: path ? `/public-media/${path.replace(/^\/+/, "")}` : null,
+      imageUrl: path ? publicMediaUrlAt(path, 400) : null,
       href: `/products/${encodeURIComponent(r.category.slug)}/${encodeURIComponent(r.card.id)}`,
       price: r.card.price ?? null,
     }];
@@ -220,8 +221,10 @@ export async function markConversationRead(store: DataStore, conversation: ChatC
  * ít nhất một tài khoản cổng đang hoạt động. Hồ sơ Vexim tự tạo chưa có tài khoản thì không
  * mở chat (người mua sẽ chờ mãi); khi đó chỉ còn Request a quote để Vexim xử lý thay.
  */
-export async function supplierChatAvailable(store: DataStore, supplierId: string): Promise<boolean> {
-  const supplier = await store.getSupplier(supplierId).catch(() => null);
+export async function supplierChatAvailable(store: DataStore, supplierId: string, known?: Supplier | null): Promise<boolean> {
+  // Trang đã đọc nhà cung cấp thì truyền vào để khỏi đọc lại.
+  const supplier = known !== undefined && (known === null || known.id === supplierId)
+    ? known : await store.getSupplier(supplierId).catch(() => null);
   if (!supplier || supplier.status !== "published" || !portalApproved(supplier)) return false;
   const users = await store.listUsers().catch(() => []);
   return users.some((u) => u.is_active && u.role === "supplier" && u.supplier_id === supplierId);

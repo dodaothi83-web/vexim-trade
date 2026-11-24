@@ -9,6 +9,7 @@ import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config"
 import { entryCurrencyIssue, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 import { getPortalMessages } from "@/lib/i18n/server";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: boolean; message: string; revisionId?: string; warnings?: string[] };
@@ -102,6 +103,7 @@ const salesUnit = String(form.get("quantity_sales_unit") ?? "").trim().slice(0, 
     }).catch((error) => console.error("[quantity-pricing] price submission audit", error));
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
+    revalidatePublicCatalog();
     revalidatePath("/products", "layout");
     revalidatePath("/suppliers", "layout");
     return { ok: true, revisionId: result.revisionId, warnings: validation.warnings.map((issue) => issue.message), message: copy.submitted };

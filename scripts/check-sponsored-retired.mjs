@@ -1,4 +1,5 @@
 // PGlite and mocked actions: no production data. Does not prove real concurrency/RLS.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
@@ -37,7 +38,7 @@ try {
 function load(path,mocks) {
   const code=ts.transpileModule(readFileSync(new URL(`../${path}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
   const module={exports:{}};
-  vm.runInNewContext(code,{module,exports:module.exports,console,FormData,require(id){assert.ok(id in mocks,`Unexpected ${id}`);return mocks[id];}});
+  vm.runInNewContext(code,{module,exports:module.exports,console,FormData,require(id){assert.ok((id in mocks || id in mediaMocks),`Unexpected ${id}`);return id in mocks ? mocks[id] : mediaMocks[id];}});
   return module.exports;
 }
 let role='admin',isActive=true,errors=false,success=true,calls=0;

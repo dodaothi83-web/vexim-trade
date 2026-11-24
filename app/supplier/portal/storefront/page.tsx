@@ -22,7 +22,7 @@ import { ShowcaseEditor } from "./showcase-editor";
 import { StorefrontDesignHub } from "./design-hub";
 import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { normalizeStorefrontTheme } from "@/lib/storefront-theme";
-import { publicMediaUrl } from "@/lib/media/public-url";
+import { publicMediaUrl, publicMediaUrlAt } from "@/lib/media/public-url";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -119,7 +119,7 @@ export default async function SupplierStorefrontPreviewPage() {
       products={card.main_products.map((p) => {
         const form = card.form_product_cards?.[p.id];
         const image = form ? form.cardImagePath ?? form.imagePaths[0] : card.product_card_image_paths?.[p.id] ?? card.product_image_paths[p.id];
-        return { id: p.id, name: form?.name || p.name_i18n?.en || p.name, imageUrl: image ? `/public-media/${image.replace(/^\/+/, "")}` : null };
+        return { id: p.id, name: form?.name || p.name_i18n?.en || p.name, imageUrl: image ? publicMediaUrlAt(image, 400) : null };
       })} />}
     {!planRules.premiumStorefront && showcaseBlocks.length > 0 &&
       <ShowcaseEditor blocks={showcaseBlocks} enabled={false} copy={m.showcase} />}

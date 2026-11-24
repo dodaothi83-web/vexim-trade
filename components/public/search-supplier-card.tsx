@@ -8,7 +8,7 @@ import { withoutDirectContacts } from "@/lib/public/product-selection";
 import { supplierNameCase } from "@/lib/public/supplier-name";
 import { VERIFICATION_DISPLAY_ORDER, type SupplierType, type VerificationLevel } from "@/lib/types";
 import { verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
-import { publicMediaUrl } from "@/lib/media/public-url";
+import { publicMediaUrl, publicMediaUrlAt } from "@/lib/media/public-url";
 
 /** Search only passes buyer-facing supplier fields and already-gated public offers. */
 export type SearchSupplierCardSupplier = {
@@ -76,7 +76,7 @@ export function SearchSupplierCard({ supplier, offers, offerCount, lang }: {
         </div>
         <div className="min-w-0">
           <h3 className="break-words text-lg font-bold leading-snug tracking-tight text-ink-900 sm:text-xl">
-            <Link href={profileHref} target="_blank" rel="noopener noreferrer"
+            <Link prefetch={false} href={profileHref} target="_blank" rel="noopener noreferrer"
               aria-label={vi ? `Xem hồ sơ ${name} (mở tab mới)` : `View ${name} profile (opens in a new tab)`}
               className="hover:text-brand-700 hover:underline focus-visible:rounded-sm">
               {name}
@@ -95,7 +95,7 @@ export function SearchSupplierCard({ supplier, offers, offerCount, lang }: {
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2 sm:pl-[4.875rem] xl:pl-0">
-        <Link href={profileHref} target="_blank" rel="noopener noreferrer"
+        <Link prefetch={false} href={profileHref} target="_blank" rel="noopener noreferrer"
           aria-label={vi ? `Xem hồ sơ ${name} (mở tab mới)` : `View ${name} profile (opens in a new tab)`}
           className="inline-flex min-h-10 items-center justify-center rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-xs font-bold text-brand-700 transition hover:border-brand-500 hover:bg-brand-50 sm:text-sm">
           {vi ? "Xem hồ sơ" : "View profile"}
@@ -114,7 +114,7 @@ export function SearchSupplierCard({ supplier, offers, offerCount, lang }: {
         className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2.5 py-1 text-[11px] font-semibold leading-4 text-ink-800">
         <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />{checkLabel(level, supplier.l2Scope, vi)}
       </span>) : <span className="text-xs text-ink-600">{vi ? "Chưa có nội dung xác minh được công bố" : "No checks published yet"}</span>}
-      <Link href={`${profileHref}#verification`} target="_blank" rel="noopener noreferrer"
+      <Link prefetch={false} href={`${profileHref}#verification`} target="_blank" rel="noopener noreferrer"
         aria-label={vi ? `Xem xác minh của ${name} (mở tab mới)` : `Review ${name} checks (opens in a new tab)`}
         className="inline-flex w-full items-center gap-1 text-xs font-semibold text-brand-700 hover:underline sm:ml-auto sm:w-auto">
         {vi ? "Xem chi tiết" : "Review details"}<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -156,11 +156,11 @@ export function SearchSupplierCard({ supplier, offers, offerCount, lang }: {
           {offers.map(({ product, categorySlug }, index) => {
             const image = product.cardImagePath ?? product.imagePaths[0];
             const href = localHref(`/products/${encodeURIComponent(categorySlug)}/${encodeURIComponent(product.id)}`);
-            return <Link key={product.id} href={href} target="_blank" rel="noopener noreferrer"
+            return <Link prefetch={false} key={product.id} href={href} target="_blank" rel="noopener noreferrer"
               aria-label={vi ? `Xem sản phẩm ${product.name} (mở tab mới)` : `View ${product.name} (opens in a new tab)`}
               className={`group/offer flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-ink-50 transition hover:border-brand-500 focus-visible:z-10 ${offers.length === 3 && index === 0 ? "row-span-2" : ""}`}>
               <div className="min-h-0 flex-1 overflow-hidden bg-ink-50">
-                {image ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={`/public-media/${image.replace(/^\//, "")}`} alt={product.name} loading="lazy"
+                {image ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={publicMediaUrlAt(image, 400)} alt={product.name} loading="lazy"
                   className="h-full w-full object-cover transition duration-300 group-hover/offer:scale-105" /></>
                   : <div className="flex h-full flex-col items-center justify-center gap-1 px-2 text-center text-ink-500"><ImageOff className="h-6 w-6" aria-hidden="true" /><span className="text-[10px]">{vi ? "Chưa có ảnh" : "No photo"}</span></div>}
               </div>
@@ -172,7 +172,7 @@ export function SearchSupplierCard({ supplier, offers, offerCount, lang }: {
         </div> : <div className="mt-3 flex h-[230px] flex-col items-center justify-center rounded-xl border border-dashed border-ink-200 bg-ink-50 px-5 text-center sm:h-[260px]">
           <PackageSearch className="h-8 w-8 text-ink-300" aria-hidden="true" />
           <p className="mt-2 text-sm font-medium text-ink-600">{vi ? "Chưa có sản phẩm công khai trong tìm kiếm này." : "No public offers in this search."}</p>
-          <Link href={profileHref} target="_blank" rel="noopener noreferrer"
+          <Link prefetch={false} href={profileHref} target="_blank" rel="noopener noreferrer"
             aria-label={vi ? `Xem hồ sơ ${name} (mở tab mới)` : `View ${name} profile (opens in a new tab)`}
             className="mt-2 text-xs font-semibold text-brand-700 underline underline-offset-2">
             {vi ? "Xem hồ sơ nhà cung cấp" : "View supplier profile"}

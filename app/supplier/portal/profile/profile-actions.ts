@@ -7,6 +7,7 @@ import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { getPortalMessages } from "@/lib/i18n/server";
 import type { SupplierInput } from "@/lib/types";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 type Result = { ok: boolean; message: string };
 
@@ -90,6 +91,7 @@ export async function saveSupplierProfileEditAction(form: FormData): Promise<Res
     revalidatePath("/supplier/portal/profile");
     revalidatePath("/supplier/portal/profile/edit");
     revalidatePath("/supplier/portal/storefront");
+    revalidatePublicCatalog();
     revalidatePath(`/suppliers/${supplier.slug || supplier.id}`);
     revalidatePath(`/crm/suppliers/${supplier.slug || supplier.id}`);
     revalidatePath(`/crm/suppliers/${supplier.id}`);

@@ -1,4 +1,5 @@
 // node --experimental-strip-types --no-warnings scripts/check-new-quantity-product.mjs
+import { mediaMocks } from './lib/media-mocks.mjs';
 import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 import { v2Validation } from './quantity-v2-test-utils.mjs';
 import assert from 'node:assert/strict';
@@ -91,7 +92,7 @@ const mocks = {
 };
 const exports = {};
 const source = ts.transpileModule(readFileSync(new URL('../app/supplier/portal/product-actions.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-vm.runInNewContext(source, { exports, console, Date, FormData, require: (id) => { if (!(id in mocks)) throw Error(`Unexpected ${id}`); return mocks[id]; } });
+vm.runInNewContext(source, { exports, console, Date, FormData, require: (id) => { if (!((id in mocks || id in mediaMocks))) throw Error(`Unexpected ${id}`); return id in mocks ? mocks[id] : mediaMocks[id]; } });
 function form(changes = {}) {
   const f = new FormData();
   for (const [k,v] of Object.entries({ name: 'Nhân điều', spec: 'Quy cách', supplier_category_proposal: 'cashew', price_publicly_visible: 'yes', confirm_quantity_price_consent: 'yes', quantity_creation_request_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', quantity_grade: 'W320', quantity_incoterm: 'FOB', quantity_name_en: 'Cashew kernels', quantity_tiers_json: JSON.stringify([{ minKg: '1000', priceUsdPerKg: '6.40' }, { minKg: '5000', priceUsdPerKg: '6.00' }]), ...changes })) f.set(k, v);
