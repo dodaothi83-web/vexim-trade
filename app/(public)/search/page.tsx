@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight, ChevronDown, Filter, PackageSearch, Users } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/ui";
+import { publicSupplierImagePath } from "@/lib/media/public-image-path";
 import { pageTitle } from "@/lib/site";
 import { cardTitleGrades, PublicProductCard } from "@/components/public-product-card";
 import { SearchFilterForm } from "@/components/public/search-filter-form";
@@ -385,7 +386,7 @@ async function findResults(tokens: string[], categories: Category[], selected: C
       location: withoutDirectContacts(supplierProvinceDisplay(supplier)),
       type: supplier.supplier_type ?? null,
       typeLabel: supplierTypeLabel(supplier),
-      profileImage: supplier.profile_image ?? null,
+      profileImage: publicSupplierImagePath(supplier, "profile"),
       summary: withoutDirectContacts(supplierSummaryDisplay(supplier)),
       mainProducts: withoutDirectContacts(supplierProductsDisplay(supplier)),
       verificationSteps: supplier.approved_verification_steps,

@@ -1,6 +1,6 @@
 "use server";
 
-import { removeDeletedMediaFromCdn, syncMediaCdn } from "@/lib/media/cdn";
+import { removeDeletedMediaFromCdn, removeSupplierImageFromCdn, syncMediaCdn } from "@/lib/media/cdn";
 import { revalidatePath } from "next/cache";
 import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
@@ -1484,9 +1484,12 @@ export async function deleteSupplierAction(id: string): Promise<ActionResult> {
       ...await store.listMedia("supplier", id).catch(() => []),
       ...(products.length ? await store.listMediaForProducts(products.map((p) => p.id)).catch(() => []) : []),
     ].filter((asset) => asset.cdn_key);
+    const supplier = await store.getSupplier(id).catch(() => null);
     await store.deleteSupplier(id);
     // Ảnh của nhà cung cấp và sản phẩm bị xoá theo: xoá luôn bản chép trên CDN công khai.
     for (const asset of cdnMedia) await removeDeletedMediaFromCdn(asset);
+    await removeSupplierImageFromCdn(supplier, "profile", { rowDeleted: true });
+    await removeSupplierImageFromCdn(supplier, "cover", { rowDeleted: true });
     revalidateAll();
     return { ok: true, message: "Đã xoá nhà cung cấp." };
   } catch (err) {

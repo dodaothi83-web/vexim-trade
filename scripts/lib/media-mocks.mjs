@@ -26,6 +26,9 @@ export const mediaCdn = {
   removeDeletedMediaFromCdn: async () => {},
   removeMediaFromCdn: async () => {},
   publishMediaToCdn: async (asset) => asset,
+  supplierImageNeedsCdn: () => null,
+  publishSupplierImageToCdn: async () => null,
+  removeSupplierImageFromCdn: async () => {},
 };
 export const revalidatePublic = { PUBLIC_CATALOG_TAG: 'public-catalog', revalidatePublicCatalog() {} };
 

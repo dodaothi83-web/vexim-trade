@@ -9,7 +9,7 @@ import { packCatalogBase, unpackCatalogBase, encodeCachePayload, decodeCachePayl
 import { getStore } from "@/lib/db";
 import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
-import { publicImagePath } from "@/lib/media/public-image-path";
+import { publicImagePath, publicSupplierImagePath } from "@/lib/media/public-image-path";
 import { listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { isTestOnlyProduct, productBelongsToCategory, productPriceBlockers, productReviewApproved, publicProductCategorySlug, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
@@ -198,7 +198,7 @@ export function projectPublicCategoryProduct(
     l2Scope: s.approved_l2_scope ?? null,
     evidenceValidSteps: evidenceValidSteps ?? s.approved_verification_steps.length,
     supplierName: withoutDirectContacts(s.display_name || s.trade_name || s.name),
-    supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: s.profile_image ?? null, supplierFoundedYear: s.founded_year ?? null,
+    supplierId: s.id, supplierSlug: s.slug || null, supplierProfileImage: publicSupplierImagePath(s, "profile"), supplierFoundedYear: s.founded_year ?? null,
     leadTimeDays: p.lead_time_days ?? null, leadTimeText: formatLeadTimeBuyer(p), incoterm: effectiveIncoterm, oem: !!p.oem, odm: !!p.odm, samples: !!p.samples,
     isDemo: !!s.is_demo,
     // Giữ tại chỗ, không import thêm: form đã chuẩn hoá từ khoá khi lưu; ở đây chỉ

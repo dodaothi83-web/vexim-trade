@@ -157,6 +157,10 @@ export interface Supplier {
   profile_image?: string | null;
   /** Ảnh bìa trang chi tiết NCC */
   cover_image?: string | null;
+  /** Gốc khoá bản chép CDN của ảnh đại diện cũ (`s/<id>/<32 hex>`), xem lib/media/public-image-path.ts. */
+  profile_image_cdn_key?: string | null;
+  /** Gốc khoá bản chép CDN của ảnh bìa cũ. */
+  cover_image_cdn_key?: string | null;
   /** Cấp xác minh 0–3, 0 = chưa xác minh */
   verification_level?: number;
   verified_at?: string | null;

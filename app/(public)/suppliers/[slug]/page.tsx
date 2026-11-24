@@ -23,6 +23,7 @@ import { SITE_URL } from "@/lib/site";
 import { SupplierTrafficBeacon } from "@/components/supplier-traffic-beacon";
 import { listCachedPublicSuppliers } from "@/lib/public/product-catalog";
 import { absolutePublicMediaUrl, publicMediaUrl } from "@/lib/media/public-url";
+import { publicSupplierImagePath } from "@/lib/media/public-image-path";
 
 /**
  * Trang dựng sẵn (ISR) phục vụ từ CDN thay vì render lại mỗi lượt xem (từng là force-dynamic chỉ
@@ -84,7 +85,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: { canonical: url },
     robots: { index, follow: index },
     openGraph: { type: "profile", title, description, url, siteName: "Vexim Trade",
-      ...(s.profile_image ? { images: [{ url: absolutePublicMediaUrl(s.profile_image, SITE_URL), alt: name }] } : {}) },
+      ...(s.profile_image ? { images: [{ url: absolutePublicMediaUrl(publicSupplierImagePath(s, "profile", 1024)!, SITE_URL), alt: name }] } : {}) },
   };
 }
 
@@ -117,8 +118,10 @@ export default async function SupplierProfile({ params }: PageProps) {
   const synthetic = isSyntheticSupplier(s);
   const structured = supplierProfileIndexable(s);
   const profileUrl = `${SITE_URL}/suppliers/${encodeURIComponent(s.slug || s.id)}`;
-  const coverUrl = s.cover_image ? mediaUrl(s.cover_image) : null;
-  const avatarUrl = s.profile_image ? mediaUrl(s.profile_image) : null;
+  const coverPath = publicSupplierImagePath(s, "cover");
+  const avatarPath = publicSupplierImagePath(s, "profile");
+  const coverUrl = coverPath ? mediaUrl(coverPath) : null;
+  const avatarUrl = avatarPath ? mediaUrl(avatarPath) : null;
   const steps = s.approved_verification_steps;
   // Chỉ mở chat khi nhà cung cấp có tài khoản cổng đang hoạt động để trả lời.
   const canChat = await supplierChatAvailable(store, s.id).catch(() => false);
@@ -171,7 +174,8 @@ export default async function SupplierProfile({ params }: PageProps) {
       <h2 id="related-title" className="text-left text-base font-semibold text-ink-900">Explore other suppliers</h2>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{related.map((r) => {
         const relatedName = supplierNameCase(safe(r.display_name || r.name));
-        const relatedLogoUrl = r.profile_image ? mediaUrl(r.profile_image) : null;
+        const relatedLogoPath = publicSupplierImagePath(r, "profile");
+        const relatedLogoUrl = relatedLogoPath ? mediaUrl(relatedLogoPath) : null;
         // Thẻ cao bằng nhau: tên tối đa 2 dòng, hàng huy hiệu ghim đáy nên bốn thẻ luôn thẳng hàng.
         return <li key={r.id} className="h-full"><Link href={`/suppliers/${encodeURIComponent(r.slug || r.id)}`}
           className="flex h-full flex-col rounded-xl border border-ink-200 bg-white p-4 text-left transition hover:border-brand-200 hover:shadow-card">
