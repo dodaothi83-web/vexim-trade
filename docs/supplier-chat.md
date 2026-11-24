@@ -116,7 +116,7 @@ Chủ dự án duyệt 24/11/2026. Người mua và nhà cung cấp gửi đư�
 
 ### Cài đặt một lần
 
-- **Migration:** `supabase/migrations/20261228_chat_attachments.sql` (bảng `chat_attachments`, nới
+- **Migration:** `supabase/migrations/20261124_chat_attachments.sql` (bảng `chat_attachments`, nới
   điều kiện `chat_messages.body` để tin chỉ có tệp được để trống chữ). Chạy trước khi deploy.
 - **CORS cho bucket R2 riêng tư** (`R2_PRIVATE_BUCKET_NAME`), Cloudflare › R2 › bucket › Settings ›
   CORS Policy:
