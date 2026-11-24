@@ -134,6 +134,8 @@ export default async function BlogPostPage({ params }: PageProps) {
           <img
             src={post.featured_image}
             alt={post.featured_image_alt ?? post.title}
+            fetchPriority="high"
+            decoding="async"
             className="mt-8 w-full rounded-lg object-cover"
           />
         )}

@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 
 import { guard } from "@/lib/auth/session";
 import { putObject } from "@/lib/media/storage";
-import { extensionFor, validateUpload } from "@/lib/media/validate";
+import { validateUpload } from "@/lib/media/validate";
+import { optimizeBlogImage } from "@/lib/media/blog-image";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
 
 /**
  * Tải ảnh cho bài viết (ảnh bìa và ảnh trong nội dung khối).
+ * Ảnh được chuyển sang WebP, cạnh dài tối đa 1600px trước khi lưu (lib/media/blog-image.ts).
  * Yêu cầu quyền `blog.manage`. Ảnh lưu dưới tiền tố `blog/` và được phục vụ
  * công khai qua /blog-media/... (không dùng kho media riêng tư của NCC).
  *
@@ -43,9 +45,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: check.message ?? "Tệp không phải ảnh hợp lệ." }, { status: 400 });
   }
 
-  const rel = `blog/${randomUUID()}.${extensionFor(check.mime)}`;
+  let image: Awaited<ReturnType<typeof optimizeBlogImage>>;
   try {
-    await putObject(rel, bytes, check.mime);
+    image = await optimizeBlogImage(bytes, check.mime);
+  } catch {
+    return NextResponse.json({ ok: false, error: "Không đọc được ảnh. Hãy chọn ảnh JPG, PNG hoặc WebP khác." }, { status: 400 });
+  }
+
+  const rel = `blog/${randomUUID()}.${image.ext}`;
+  try {
+    await putObject(rel, image.data, image.mime);
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Không lưu được ảnh." },
