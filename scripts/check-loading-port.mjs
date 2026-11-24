@@ -148,7 +148,7 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   'lucide-react': require('lucide-react'),
   '@/components/ui': { Breadcrumbs: Null },
   '@/components/product-verification-icons': { ProductVerificationIcons: Null },
-  '@/components/verification-tier': { VerificationTierBadge: Null },
+  '@/components/verified-badge': { VerifiedBadge: Null },
   '@/lib/auth/session': { getSession: async () => null },
   '@/lib/auth/permissions': { hasPermission: () => false },
   '@/lib/public/product-catalog': { listMoreFromSupplier: async () => moreFromSupplier, listPublicCategoryProducts: async () => [card], shareableProductImages: () => [] },

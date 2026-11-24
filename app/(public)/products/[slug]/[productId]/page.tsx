@@ -11,7 +11,7 @@ import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin } from "lucide-r
 
 import { Breadcrumbs } from "@/components/ui";
 import { ProductVerificationIcons } from "@/components/product-verification-icons";
-import { VerificationTierBadge } from "@/components/verification-tier";
+import { VerifiedBadge } from "@/components/verified-badge";
 import { parseProductSpecification, productSpecificationKey, publicProductLocationDisplay, publicProductMoqDisplay } from "@/lib/public/product-detail-display";
 import { publicProductExportPortDisplay } from "@/lib/public/product-export-port";
 import { getStore } from "@/lib/db";
@@ -396,7 +396,8 @@ export default async function PublicProductDetail({ params }: Props) {
                 <Link prefetch={false} href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" className="mt-1 block break-words text-base font-bold leading-6 text-ink-900 hover:text-brand-800">{card.supplierName}</Link>
                 {/* Website nằm cùng hàng với dấu xác minh; hết chỗ thì tự xuống dòng. */}
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <VerificationTierBadge levels={card.verificationSteps} />
+                  {/* Cùng nhãn "Verified L1/L2/L3" như thẻ sản phẩm (chủ sàn chốt 24/11/2026). */}
+                  <VerifiedBadge levels={card.verificationSteps} l2Scope={card.l2Scope} />
                   <SupplierWebsiteLink website={supplierWebsite} plain className="min-h-8" />
                 </div>
               </div>
