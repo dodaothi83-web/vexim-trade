@@ -3,6 +3,7 @@
 // Thẻ "You are asking about" ở đầu form RFQ chỉ được xuất hiện khi sản phẩm đã qua cổng
 // công bố. Kiểm này chạy loader thật với dữ liệu giả để chặn ba lỗi: hiện sản phẩm chưa
 // duyệt, lấy nhầm sản phẩm của nhà cung cấp khác, và ghi "x/3 approved" thay vì tên bước.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -18,8 +19,8 @@ function load(relativePath, mocks) {
   vm.runInNewContext(output, {
     module: mod, exports: mod.exports, process, console, Date, Map, Set, Number, String, RegExp, JSON,
     require: (key) => {
-      assert.ok(key in mocks, `Unexpected import ${key} in ${relativePath}`);
-      return mocks[key];
+      assert.ok((key in mocks || key in mediaMocks), `Unexpected import ${key} in ${relativePath}`);
+      return key in mocks ? mocks[key] : mediaMocks[key];
     },
   }, { filename: relativePath });
   return mod.exports;

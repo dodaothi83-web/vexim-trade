@@ -54,7 +54,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
       eyebrow={copy.eyebrow}
       title={copy.title}
       sub={copy.sub}
-      actions={live ? <Link href={`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`} target="_blank" rel="noopener noreferrer"
+      actions={live ? <Link prefetch={false} href={`/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`} target="_blank" rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-semibold text-brand-800 hover:border-brand-400">{copy.viewPublic} <ArrowUpRight className="size-4" /></Link> : undefined}
     />
     <nav aria-label={copy.rangeAria} className="mb-5 inline-flex gap-1 rounded-lg border border-ink-200 bg-white p-1">

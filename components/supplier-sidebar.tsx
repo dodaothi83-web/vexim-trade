@@ -174,7 +174,7 @@ export function SupplierSidebar({
 
       <div className="border-t border-white/10 p-3">
         {publicUrl && (
-          <Link
+          <Link prefetch={false}
             href={publicUrl}
             target="_blank"
             rel="noopener noreferrer"

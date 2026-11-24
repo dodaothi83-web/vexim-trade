@@ -1,3 +1,4 @@
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -11,7 +12,7 @@ function load(file, mocks = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText, {
     module: mod, exports: mod.exports, console, Date, FormData,
-    require(id) { assert.ok(id in mocks, `Unexpected import: ${id}`); return mocks[id]; },
+    require(id) { assert.ok((id in mocks || id in mediaMocks), `Unexpected import: ${id}`); return id in mocks ? mocks[id] : mediaMocks[id]; },
   }, { filename: file });
   return mod.exports;
 }

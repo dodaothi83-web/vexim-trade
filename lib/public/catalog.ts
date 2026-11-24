@@ -6,6 +6,7 @@ import "server-only";
 
 import { getStore } from "@/lib/db";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
+import { publicImagePath } from "@/lib/media/public-image-path";
 import type { Category, MediaAsset, Supplier, SupplierProduct, SupplierType, Verification, VerificationLevel } from "@/lib/types";
 import { approvedFactoryReviews, approvedL2Scope, approvedPartnerReviewSummary, approvedPublicReviewSummaries, approvedVerificationSteps, type PublicFactoryReview, type PublicL2Scope, type PublicReviewSummaries } from "@/lib/verification-status";
 import { isTestOnlyProduct, productBelongsToCategory, productReviewApproved, publicProductCategorySlug } from "@/lib/public/product-selection";
@@ -147,7 +148,7 @@ export async function listPublicSuppliers(options?: {
       c.gallery_images = media
         .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
         .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
-        .map((m) => m.storage_path!)
+        .map((m) => publicImagePath(m, "detail")!)
         .slice(0, 6);
       // Even demo listings must not imply a check from the legacy numeric maximum.
       c.approved_verification_steps = approvedVerificationSteps(vers);
@@ -228,14 +229,14 @@ export async function getSupplierStorefront(supplier: Supplier & Partial<PublicS
       .sort((a, b) => Number(b.id === p.featured_media_id) - Number(a.id === p.featured_media_id) ||
         a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))[0];
     if (image?.storage_path) {
-      productImagePaths[p.id] = image.storage_path;
-      productCardImagePaths[p.id] = image.thumb_path || image.storage_path;
+      productImagePaths[p.id] = publicImagePath(image, "detail")!;
+      productCardImagePaths[p.id] = publicImagePath(image, "card")!;
     }
   }
   const gallery = media
     .filter((m) => m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
     .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
-    .map((m) => m.storage_path!)
+    .map((m) => publicImagePath(m, "detail")!)
     .slice(0, 12);
   const storefront: PublicSupplierCard = {
     ...supplier,

@@ -9,6 +9,7 @@ import { getSession, guard } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { certificateSchemeLabel, isScopeableCertificateScheme } from "@/lib/certificate-scheme";
 import { supplierGate } from "@/lib/auth/supplier-access";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const result = (ok: boolean, message: string) => ({ ok, message });
@@ -19,6 +20,7 @@ function refresh(supplierId: string, slug?: string | null) {
   revalidatePath("/crm/certificates");
   revalidatePath("/supplier/portal");
   revalidatePath("/supplier/portal/documents");
+  revalidatePublicCatalog();
   if (slug) revalidatePath(`/suppliers/${slug}`);
   refreshCrmBadges();
 }

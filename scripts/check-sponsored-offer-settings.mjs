@@ -1,4 +1,5 @@
 // Isolated settings migration and server-action tests, not a real Supabase/RLS client.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -35,7 +36,7 @@ try {
 function load(file, mocks) {
   const source = ts.transpileModule(readFileSync(new URL(file, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const module = { exports: {} };
-  vm.runInNewContext(source, { module, exports: module.exports, require(id) { assert.ok(id in mocks, id); return mocks[id]; }, console });
+  vm.runInNewContext(source, { module, exports: module.exports, require(id) { assert.ok((id in mocks || id in mediaMocks), id); return id in mocks ? mocks[id] : mediaMocks[id]; }, console });
   return module.exports;
 }
 const makeForm = (price, hold='20', count='4') => { const f = new FormData(); f.set('price_vnd',price); f.set('hold_minutes',hold); f.set('packages_per_slot',count); return f; };

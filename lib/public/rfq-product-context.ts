@@ -1,3 +1,4 @@
+import { publicMediaUrlAt } from "@/lib/media/public-url";
 import { getStore } from "@/lib/db";
 import { verificationLabels } from "@/lib/verification-status";
 import { listPublicCategoryProducts } from "./product-catalog";
@@ -74,7 +75,7 @@ export async function loadRfqProductContext(input: {
   return {
     id: card.id,
     name: card.name,
-    imageUrl: imagePath ? `/public-media/${imagePath.replace(/^\/+/, "")}` : null,
+    imageUrl: imagePath ? publicMediaUrlAt(imagePath, 400) : null,
     supplierName: supplierShortName({ name: card.supplierName }),
     supplierHref: `/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`,
     checks: verificationLabels(card.verificationSteps ?? []),

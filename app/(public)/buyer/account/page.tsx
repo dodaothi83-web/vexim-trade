@@ -1,3 +1,4 @@
+import { publicMediaUrlAt } from "@/lib/media/public-url";
 import { VeximBuyerAccountIcon } from "@/components/brand/account-role-icons";
 import { VeximBuyerEnquiriesIcon, VeximBuyerSavedProductsIcon } from "@/components/brand/buyer-dashboard-icons";
 import { BuyerSourcingHistory } from "@/components/buyer-sourcing-history";
@@ -146,7 +147,7 @@ export default async function BuyerAccountPage({ searchParams }: { searchParams:
         const href = record ? `/products/${encodeURIComponent(record.category.slug)}/${encodeURIComponent(record.card.id)}` : "/buyer/account?tab=saved";
         const image = record?.card.cardImagePath ?? record?.card.imagePaths[0];
         return <li key={saved.id} className="flex min-w-0 gap-3 rounded-xl border border-ink-100 p-3">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink-50">{image ? <img src={`/public-media/${image.replace(/^\//, "")}`} alt="" className="h-full w-full object-cover" loading="lazy" /> : <PackageSearch className="h-6 w-6 text-ink-300" />}</div>
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink-50">{image ? <img src={publicMediaUrlAt(image, 400)} alt="" className="h-full w-full object-cover" loading="lazy" /> : <PackageSearch className="h-6 w-6 text-ink-300" />}</div>
           <div className="min-w-0 flex-1">{record ? <Link href={href} className="line-clamp-2 text-sm font-semibold hover:text-brand-700">{record.card.name}</Link> : <p className="text-sm text-ink-500">{vi ? "Sản phẩm không còn công khai." : "This product is no longer public."}</p>}
             <div className="mt-2"><SaveProductButton id={saved.id} href={href} removeOnly /></div>
           </div>

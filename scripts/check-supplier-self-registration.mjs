@@ -1,4 +1,5 @@
 // node scripts/check-supplier-self-registration.mjs — account-first signup, first company form and manual gate.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -11,7 +12,7 @@ function load(path, mocks, extra = {}) {
   }).outputText;
   vm.runInNewContext(js, { module: mod, exports: mod.exports, require: (key) => {
     if (key === 'server-only') return {};
-    assert.ok(key in mocks, `Unexpected ${key} in ${path}`); return mocks[key];
+    assert.ok((key in mocks || key in mediaMocks), `Unexpected ${key} in ${path}`); return key in mocks ? mocks[key] : mediaMocks[key];
   }, Request, Response, Headers, FormData, File, Date, URL, console: { error() {}, warn() {} }, process: { env: { SUPABASE_SERVICE_ROLE_KEY: 'mock' } }, ...extra }, { filename: path });
   return mod.exports;
 }

@@ -7,6 +7,7 @@ import { certificateLinkable, withRequestedProduct } from "@/lib/products/produc
 import { certificateAppliesToCategory } from "@/lib/certificate-scope";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { fill } from "@/lib/i18n/format";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 export type CertificateRequestResult = { ok: boolean; message: string };
 
@@ -122,6 +123,7 @@ export async function setProductCertificateOptoutAction(form: FormData): Promise
     changed += 1;
   }
 
+  revalidatePublicCatalog();
   revalidatePath(`/supplier/portal/products/${productId}`);
   if (!changed) return { ok: true, message: a.certificateUnchanged };
   return {

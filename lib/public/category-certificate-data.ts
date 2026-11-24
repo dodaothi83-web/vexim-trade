@@ -52,11 +52,16 @@ async function safe<T>(read: () => Promise<T[]>): Promise<T[]> {
 export async function readCategoryCertificateData(
   store: CertificateFacetStore,
   supplierIds: readonly string[],
+  /** Giấy của đúng các nhà cung cấp này đã đọc trong cùng lượt tải trang: không đọc lại. */
+  options?: { certificates?: readonly Certificate[]; media?: readonly MediaAsset[] },
 ): Promise<CategoryCertificateData> {
   const ids = [...new Set(supplierIds.filter((id) => typeof id === "string" && id.trim() !== ""))];
   if (ids.length === 0) return empty();
 
-  const certificates = typeof store.listCertificatesForSuppliers === "function"
+  const wanted = new Set(ids);
+  const certificates = options?.certificates
+    ? options.certificates.filter((certificate) => wanted.has(certificate.supplier_id))
+    : typeof store.listCertificatesForSuppliers === "function"
     ? await safe(() => store.listCertificatesForSuppliers!(ids))
     : (await Promise.all(ids.map((supplierId) => (
       typeof store.listCertificates === "function" ? safe(() => store.listCertificates!(supplierId)) : []
@@ -69,7 +74,9 @@ export async function readCategoryCertificateData(
   const certificateIds = certificates.map((certificate) => certificate.id).filter(Boolean);
 
   const [media, scopes, optouts] = await Promise.all([
-    typeof store.listMedia === "function"
+    options?.media
+      ? Promise.resolve(options.media.filter((asset) => withCertificates.includes(asset.supplier_id ?? "")))
+      : typeof store.listMedia === "function"
       ? Promise.all(withCertificates.map((supplierId) => safe(() => store.listMedia!("supplier", supplierId))))
         .then((rows) => rows.flat())
       : Promise.resolve([] as MediaAsset[]),

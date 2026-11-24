@@ -1,6 +1,7 @@
 // node --experimental-strip-types --no-warnings scripts/check-marketplace-search.mjs
 // Exercises the real public catalogue gates and ranked projection, then renders
 // the search page with a local in-memory store (no network or production data).
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -40,8 +41,8 @@ function load(path, mocks, globals = {}) {
     exports, console: silentConsole, process, Date, Map, Set, URLSearchParams, ...globals,
     require: (name) => {
       if (name === "server-only") return {};
-      assert.ok(name in mocks, `${path}: unexpected import ${name}`);
-      return mocks[name];
+      assert.ok((name in mocks || name in mediaMocks), `${path}: unexpected import ${name}`);
+      return name in mocks ? mocks[name] : mediaMocks[name];
     },
   }, { filename: path });
   return exports;

@@ -7,10 +7,12 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import { prepareSupplierProductImage } from "@/lib/media/prepare-supplier-product-image";
+import { removeDeletedMediaFromCdn, syncMediaCdn } from "@/lib/media/cdn";
 import { isExpired } from "@/lib/media/readiness";
 import { privateMediaUrl } from "@/lib/supplier-portal/product-view";
 import type { MediaKind } from "@/lib/types";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,11 +97,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
       row = await access.store.createMedia(asset);
     }
+    // Ảnh người mua: chép bản WebP 400/1024/1600 lên CDN công khai (lỗi chỉ ghi log).
+    if (row.kind === "image") await syncMediaCdn(row, prepared?.main);
     await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
       entity: "product", entity_id: id, action: "supplier.product_media_uploaded",
       before: null, after: { media_id: row.id, kind, audience: row.audience } }).catch((error) => console.error("[supplier-product-media] audit", error));
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
+    if (row.audience === "buyer") { revalidatePublicCatalog(); revalidatePath("/products", "layout"); }
     return NextResponse.json({ ok: true, message: row.audience === "buyer"
       ? "Đã tải tệp; tệp này chia sẻ cho người mua."
       : "Đã tải tệp nội bộ; tệp chưa chia sẻ cho người mua.",
@@ -148,6 +153,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .catch((error) => console.error("[supplier-product-media] audit", error));
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
+    revalidatePublicCatalog();
     revalidatePath("/products", "layout");
     return NextResponse.json({ ok: true, message: "Đã đặt ảnh đại diện; ảnh cũ về lại danh sách." });
   } catch (error) { console.error("[supplier-product-media] featured", error); return fail("Không lưu được ảnh đại diện.", 503); }
@@ -185,6 +191,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
           await access.store.getMediaByPath(path)) throw new Error("Tệp nằm ngoài phạm vi sản phẩm hoặc còn được tham chiếu.");
       await deleteObject(path);
     }));
+    await removeDeletedMediaFromCdn(asset);
     const pendingPaths = paths.filter((_, index) => cleanup[index].status === "rejected");
     for (const path of pendingPaths) console.error("[supplier-product-media] storage cleanup failed", path);
     await access.store.addAuditLog({ actor_id: access.user.id, actor_email: access.user.email,
@@ -195,6 +202,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath("/supplier/portal/products");
     revalidatePath(`/crm/products/${id}/edit`);
+    revalidatePublicCatalog();
     revalidatePath("/products", "layout");
     revalidatePath("/suppliers", "layout");
     revalidateHomePage();

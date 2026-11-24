@@ -11,6 +11,7 @@
 //   3. Product images: the CDN keeps them for 1 hour (the owner accepted this revocation window).
 //      The hero image loads with high priority at the frame width (srcset), and thumbnails use
 //      64/128px versions.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -30,8 +31,8 @@ function load(file, { env = {}, mocks = {}, globals = {}, strict = true } = {}) 
     Buffer, Date, URL, Headers, Request, Response, TextEncoder, TextDecoder, Uint8Array, Array, String, JSON, Promise, Error,
     require: (key) => {
       if (key === "server-only") return {};
-      if (strict) assert.ok(key in mocks, `Unexpected import ${key} in ${file}`);
-      return mocks[key];
+      if (strict) assert.ok(key in mocks || key in mediaMocks, `Unexpected import ${key} in ${file}`);
+      return key in mocks ? mocks[key] : mediaMocks[key];
     },
     ...globals,
   }, { filename: file });
@@ -113,7 +114,10 @@ assert.deepEqual([res.kind, pathOf(res)], ["redirect", "/products"]);
 const page = read("app/(public)/products/[slug]/[productId]/page.tsx");
 assert.doesNotMatch(page, /export const dynamic\b/, "The public product page is not force-dynamic");
 assert.match(page, /export const revalidate = \d+;/, "The prebuilt page refreshes on a timer");
-assert.match(page, /export async function generateStaticParams\(\)[^\n]*\{\n\s*return \[\];/, "Pages are built on first visit");
+// Dựng sẵn lúc build 50 sản phẩm được xem nhiều nhất (chủ dự án duyệt 24/11/2026); trang khác dựng ở lượt xem đầu.
+assert.match(page, /const PREBUILT_PRODUCT_PAGES = 50;/, "Only the 50 most-viewed products are prebuilt");
+assert.match(page, /export async function generateStaticParams\(\)[\s\S]*?publicProductRouteParams\(await readTopViewedProductIds\(PREBUILT_PRODUCT_PAGES\)\)[\s\S]*?catch[\s\S]*?return \[\];/, "Prebuild reads the top viewed products and never fails the build");
+assert.doesNotMatch(page, /export const dynamicParams = false/, "Other product pages are still built on first visit");
 assert.doesNotMatch(page, /getLocale|from "next\/headers"|cookies\(\)|headers\(\)|createTrafficToken/,
   "The static page reads no cookie/header and embeds no expiring token");
 const sessionReads = page.match(/getSession\(\)/g) ?? [];

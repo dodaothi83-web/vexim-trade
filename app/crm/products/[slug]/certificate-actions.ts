@@ -6,6 +6,7 @@ import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
 import { certificateGate, productGate } from "@/lib/auth/supplier-access";
 import { getStore } from "@/lib/db";
 import { withApprovedProduct } from "@/lib/products/product-certificates";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 export type ProductCertificateDecisionResult = { ok: boolean; message: string };
 
@@ -41,6 +42,7 @@ export async function decideProductCertificateAction(form: FormData): Promise<Pr
     }
     const patch = withApprovedProduct(certificate, productId, decision === "approve");
     await store.updateCertificate(certificateId, patch);
+    revalidatePublicCatalog();
     revalidatePath(`/crm/products/${encodeURIComponent(product.slug ?? product.id)}/edit`);
     revalidatePath(`/crm/suppliers/${encodeURIComponent(certificate.supplier_id)}/audit/documents`);
     return {

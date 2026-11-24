@@ -1,4 +1,5 @@
 // Staff actions, fresh identity and local durability against isolated mocks.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,7 +9,7 @@ import ts from 'typescript';
 import { hasPermission } from '../lib/auth/permissions.ts';
 function load(file,mocks,extra={}) {
  const js=ts.transpileModule(fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
- const module={exports:{}}; vm.runInNewContext(js,{module,exports:module.exports,FormData,console,Date,structuredClone,...extra,require:(id)=>{assert.ok(id in mocks,`Unexpected ${id}`);return mocks[id];}},{filename:file});return module.exports;
+ const module={exports:{}}; vm.runInNewContext(js,{module,exports:module.exports,FormData,console,Date,structuredClone,...extra,require:(id)=>{assert.ok((id in mocks || id in mediaMocks),`Unexpected ${id}`);return id in mocks ? mocks[id] : mediaMocks[id];}},{filename:file});return module.exports;
 }
 let session={uid:'s',role:'sale',email:'s@example.com'}, user={id:'s',role:'sale',email:'s@example.com',is_active:true};
 let row={id:'r',status:'new'}, fail=false, writes=0, revalidated=[];

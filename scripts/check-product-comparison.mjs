@@ -1,4 +1,5 @@
 // node --experimental-strip-types --no-warnings scripts/check-product-comparison.mjs
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
@@ -46,8 +47,8 @@ function compile(path, mocks) {
   vm.runInNewContext(code, {
     exports,
     require: (key) => {
-      if (!(key in mocks)) throw new Error(`Unexpected import: ${key}`);
-      return mocks[key];
+      if (!((key in mocks || key in mediaMocks))) throw new Error(`Unexpected import: ${key}`);
+      return key in mocks ? mocks[key] : mediaMocks[key];
     },
     process, console, Date, React, Intl, URL, Set, Map,
   });

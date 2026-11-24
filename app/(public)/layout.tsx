@@ -12,9 +12,10 @@ import { SiteTrafficBeacon } from "@/components/site-traffic-beacon";
 import { ProductComparisonProvider } from "@/components/product-comparison-provider";
 import { ProductComparisonTray } from "@/components/product-comparison-tray";
 
-// revalidate=300 (5 phút): layout không còn đọc cookie/phiên lúc render (xem ghi chú dưới) nên có thể
-// cache/ISR như mọi trang công khai khác, cùng cửa sổ làm mới với app/(public)/page.tsx.
-export const revalidate = 300;
+// Layout không đọc cookie/phiên lúc render (xem ghi chú dưới) nên cache/ISR như mọi trang công khai.
+// Layout giữ revalidate thấp hơn sẽ kéo cả trang con xuống theo, nên phải bằng trang con.
+// 1 giờ (chủ dự án duyệt 24/11/2026); NCC/nhân viên sửa thì làm mới ngay (revalidatePath/Tag).
+export const revalidate = 3600;
 
 /**
  * Public site layout.

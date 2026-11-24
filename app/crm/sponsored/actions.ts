@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 const PATH = "/crm/sponsored";
 function back(code: string, kind: "ok" | "err" = "ok"): never {
@@ -35,6 +36,7 @@ export async function pausePushAction(fd: FormData) {
     back("stop-error", "err");
   }
   if (!stopped) back("changed", "err");
+  revalidatePublicCatalog();
   revalidatePath(PATH);
   revalidatePath("/supplier/portal/boost");
   back("paused");

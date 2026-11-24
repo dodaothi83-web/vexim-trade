@@ -1,3 +1,4 @@
+import { publicMediaUrlAt } from "@/lib/media/public-url";
 import { Pin } from "lucide-react";
 
 /**
@@ -10,7 +11,7 @@ export function FeaturedProductTile({ href, name, imagePath, moq, leadTime, link
   const body = <>
     {imagePath
       // eslint-disable-next-line @next/next/no-img-element
-      ? <img src={`/public-media/${imagePath.replace(/^\//, "")}`} alt="" loading="lazy" className="size-16 shrink-0 rounded-lg object-cover ring-1 ring-ink-200" />
+      ? <img src={publicMediaUrlAt(imagePath, 400)} alt="" loading="lazy" className="size-16 shrink-0 rounded-lg object-cover ring-1 ring-ink-200" />
       : <span aria-hidden="true" className="size-16 shrink-0 rounded-lg bg-ink-100" />}
     <span className="min-w-0 flex-1">
       <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-900 ring-1 ring-amber-200">

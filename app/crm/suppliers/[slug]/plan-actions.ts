@@ -8,6 +8,7 @@ import { isSupplierPlan, SUPPLIER_PLAN_LABELS } from "@/lib/supplier-plans";
 import { notifySupplierPlanChange } from "@/lib/supplier-portal/notify";
 import { readPlanCatalog, recordPlanActivation } from "@/lib/supplier-plan-catalog";
 import { supplierGate } from "@/lib/auth/supplier-access";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 type Result = { ok: boolean; message: string };
 
@@ -92,6 +93,7 @@ export async function setSupplierPlanAction(form: FormData): Promise<Result> {
   // Mở gói trả phí là xong việc của yêu cầu nâng gói đang "Mới": tự chuyển sang "Đã mở"
   // để chuông, nhãn CRM và dòng chờ trong cổng nhà cung cấp cùng biến mất.
   if (plan !== "basic") await closeUpgradeRequests(store, supplierId, session).catch((error) => console.error("[supplier-plan] close request", error));
+  revalidatePublicCatalog();
   revalidatePath(`/crm/suppliers/${supplierId}`);
   revalidatePath("/crm/service-requests");
   revalidatePath("/supplier/portal", "layout");

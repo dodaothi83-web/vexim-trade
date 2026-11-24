@@ -128,7 +128,7 @@ assert.doesNotMatch(page, /from "next\/headers"|cookies\(\)|headers\(\)/, "The s
 
 const prebuilt = read("app/(public)/products/category-render/[lang]/[slug]/page.tsx");
 assert.doesNotMatch(prebuilt, /export const dynamic\b/, "The prebuilt render is not force-dynamic");
-assert.match(prebuilt, /export const revalidate = 60;/, "The prebuilt page refreshes every minute");
+assert.match(prebuilt, /export const revalidate = 3600;/, "The prebuilt page refreshes every hour (and on edit)");
 assert.match(prebuilt, /export function generateStaticParams\(\)[^\n]*\{\n\s*return \[\];/, "Pages are built on first visit");
 assert.equal((prebuilt.match(/enablePrebuiltCategoryRender\(\);/g) ?? []).length, 2, "Both metadata and page enable the prebuilt render");
 assert.match(prebuilt, /from "\.\.\/\.\.\/\.\.\/\[slug\]\/page"/, "The prebuilt render reuses the category page");
@@ -147,10 +147,10 @@ assert.equal(mode.isPrebuiltCategoryRender(), false, "The flag does not leak int
 // ---- 4. Revalidation ---------------------------------------------------------------------
 const revalidated = [];
 const revalidate = load("lib/public/revalidate-category.ts", {
-  mocks: { "next/cache": { revalidatePath: (p, type) => revalidated.push(type ? `${p}|${type}` : p) }, "@/lib/public/category-route": categoryRoute },
+  mocks: { "next/cache": { revalidatePath: (p, type) => revalidated.push(type ? `${p}|${type}` : p) }, "@/lib/public/category-route": categoryRoute, "@/lib/public/revalidate-public": { revalidatePublicCatalog: () => revalidated.push("tag:public-catalog") } },
 });
 revalidate.revalidateCategoryPage("cashew-kernels");
-assert.deepEqual(revalidated, ["/products/cashew-kernels", "/products/category-render/en/cashew-kernels", "/products/category-render/vi/cashew-kernels"]);
+assert.deepEqual(revalidated, ["tag:public-catalog", "/products/cashew-kernels", "/products/category-render/en/cashew-kernels", "/products/category-render/vi/cashew-kernels"]);
 const root = new URL("../", import.meta.url);
 const sources = ["app", "lib"].flatMap((dir) => fs.readdirSync(new URL(dir, root), { recursive: true })
   .filter((file) => /\.tsx?$/.test(file)).map((file) => `${dir}/${file}`));

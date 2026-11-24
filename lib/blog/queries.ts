@@ -16,16 +16,16 @@ import { titleSimilarity } from "@/lib/blog/seo-check";
 export const PUBLISHED_POSTS_TAG = "published-posts";
 
 /**
- * Trang chủ và /blog đọc danh sách này ở mọi lượt xem. Cache 60 giây dùng chung cho mọi
- * người xem (bảng posts từng là một trong các truy vấn tốn nhất); lưu/xoá bài trong CRM xoá
- * cache ngay nên bài mới hiện ở lượt xem kế tiếp.
+ * Trang chủ và /blog đọc danh sách này ở mọi lượt xem. Cache 1 giờ dùng chung cho mọi người
+ * xem, khớp trang chủ ISR 1 giờ (cache ngắn hơn sẽ kéo trang chủ xuống làm mới theo); lưu/xoá
+ * bài trong CRM xoá cache ngay nên bài mới hiện ở lượt xem kế tiếp.
  */
 const cachedPublishedNews = unstable_cache(async (): Promise<Post[]> => {
   const posts = await getStore().listPosts({ status: "published" });
   return posts
     .filter((post) => post.category === DEFAULT_BLOG_CATEGORY && post.status === "published")
     .sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? ""));
-}, ["published-news"], { revalidate: 60, tags: [PUBLISHED_POSTS_TAG] });
+}, ["published-news"], { revalidate: 3600, tags: [PUBLISHED_POSTS_TAG] });
 
 export async function listPublishedNews(): Promise<Post[]> {
   return cachedPublishedNews();

@@ -1,5 +1,6 @@
 "use client";
 
+import { publicMediaUrlAt } from "@/lib/media/public-url";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -138,6 +139,6 @@ export function RequestForm({ candidates, openProductIds, candidatesAvailable, r
 function ProductImage({ candidate }: { candidate: PushCandidate }) {
   return <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink-50 text-brand-700 ring-1 ring-ink-100">
     <Package className="size-5" aria-hidden="true" />
-    {candidate.imagePath && <img key={candidate.productId} src={`/public-media/${candidate.imagePath.replace(/^\//, "")}`} alt="" className="absolute inset-0 size-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
+    {candidate.imagePath && <img key={candidate.productId} src={publicMediaUrlAt(candidate.imagePath, 400)} alt="" className="absolute inset-0 size-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
   </span>;
 }

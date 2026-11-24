@@ -1,6 +1,7 @@
 // node --experimental-strip-types --no-warnings scripts/check-chat-polling.mjs
 // Khung chat hỏi lại nhẹ: chỉ tải tin mới (?after=), bản gọn không tra lại tên bên kia, huy hiệu
 // chỉ đếm (?peek=1), không hiện trùng tin đang gửi, không giật cuộn khi người đọc đang xem tin cũ.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -39,7 +40,7 @@ function load(file, mocks, extra = {}) {
   const out = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const module = { exports: {} };
   vm.runInNewContext(out, { module, exports: module.exports, console, Date, Promise, URL, ...extra, require: (id) => {
-    assert.ok(id in mocks, `Unexpected ${id} in ${file}`); return mocks[id];
+    assert.ok((id in mocks || id in mediaMocks), `Unexpected ${id} in ${file}`); return id in mocks ? mocks[id] : mediaMocks[id];
   } });
   return module.exports;
 }

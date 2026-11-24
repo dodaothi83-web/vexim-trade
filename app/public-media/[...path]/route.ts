@@ -10,6 +10,7 @@ import { supplierPlanRules } from "@/lib/supplier-plans";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
 import { aplusImagePaths, aplusMainPath, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
+import { CDN_IMAGE_FILE } from "@/lib/media/public-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,6 +100,9 @@ function cachePut(rel: string, entry: ObjectCacheEntry) {
 }
 
 function relAllowed(rel: string): boolean {
+  // Bản chép CDN (bucket công khai): trang thường đọc thẳng từ media.veximtrade.com; route này chỉ
+  // là đường dự phòng khi bản build chưa có R2_PUBLIC_URL hoặc link đã lưu từ trước.
+  if (CDN_IMAGE_FILE.test(rel)) return true;
   if (rel.startsWith("categories/") || rel.startsWith("blog/")) return PUBLIC_IMAGE_EXT.test(rel);
   if (rel.startsWith("products/")) return /^products\/[a-z0-9_-]+\/[a-z0-9_-]+\.(jpe?g|png|webp)$/i.test(rel);
   // Ảnh A+ chính (WebP; JPEG/PNG cũ) hoặc bản nhỏ 640px `<uuid>-thumb.webp` của nó.
@@ -205,7 +209,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
   const productAplusImage = aplusImage && rel.split("/")[2] !== COMPANY_APLUS_ID;
   const cdnProductImage = isProductImage || productAplusImage;
   const aclGated = isProductImage || supplierImage || showcaseImage || aplusImage;
-  const cacheControl = cdnProductImage
+  const cacheControl = CDN_IMAGE_FILE.test(rel)
+    ? "public, max-age=31536000, immutable"
+    : cdnProductImage
     ? `public, max-age=${PRODUCT_IMAGE_CACHE_SECONDS}, s-maxage=${PRODUCT_IMAGE_CACHE_SECONDS}`
     : aclGated
       ? "private, max-age=60, must-revalidate"

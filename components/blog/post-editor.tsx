@@ -450,7 +450,7 @@ export function PostEditor({ post, otherPosts, productCategories = [] }: PostEdi
           </section>
 
           {postId && (
-            <Link href={`/blog/${slug}`} target="_blank" className="block text-center text-[13px] font-semibold text-brand-700 hover:underline">
+            <Link prefetch={false} href={`/blog/${slug}`} target="_blank" className="block text-center text-[13px] font-semibold text-brand-700 hover:underline">
               Xem trang công khai
             </Link>
           )}

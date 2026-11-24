@@ -16,6 +16,7 @@ import {
 import { prepareAplusForSave } from "@/lib/products/aplus-server";
 import { verifyAplusVideos } from "@/lib/products/aplus-video-verify";
 import { supplierGate } from "@/lib/auth/supplier-access";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 /**
  * Nhân viên Vexim soạn A+ hộ nhà cung cấp (dịch vụ thu phí bên ngoài, chủ sàn chốt 2026-11-21):
@@ -89,6 +90,7 @@ async function save(target: Target | { error: string }, modules: unknown, retran
       action: target.productId ? "staff.product_aplus_saved" : "staff.company_aplus_saved",
       before: { modules: target.before.length }, after: { modules: verified.modules.length, types: verified.modules.map((x) => x.type) } })
       .catch((error) => console.error("[crm-aplus] audit", error));
+    revalidatePublicCatalog();
     for (const path of target.paths) revalidatePath(path, path === "/products" ? "layout" : undefined);
     return { ok: true, message: checked.translationFailed ? "Đã lưu và đăng. Một số khối chưa dịch được, lưu lại sau để dịch." : "Đã lưu và đăng nội dung A+.", modules: verified.modules };
   } catch (error) {

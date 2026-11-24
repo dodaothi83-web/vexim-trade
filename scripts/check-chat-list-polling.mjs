@@ -2,6 +2,7 @@
 // Danh sách cuộc trò chuyện ở trang Tin nhắn (người mua và nhà cung cấp) hỏi lại nhẹ: chỉ cuộc có
 // tin mới mới trả đủ (?since=), cuộc khác chỉ trả chưa đọc / đã xem / online; tên bên kia được nhớ
 // ở máy chủ thay vì tra lại mỗi 15 giây.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -17,7 +18,7 @@ function load(file, mocks, extra = {}) {
   const out = ts.transpileModule(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const module = { exports: {} };
   vm.runInNewContext(out, { module, exports: module.exports, console, Date, Promise, URL, ...extra, require: (id) => {
-    assert.ok(id in mocks, `Unexpected ${id} in ${file}`); return mocks[id];
+    assert.ok((id in mocks || id in mediaMocks), `Unexpected ${id} in ${file}`); return id in mocks ? mocks[id] : mediaMocks[id];
   } });
   return module.exports;
 }

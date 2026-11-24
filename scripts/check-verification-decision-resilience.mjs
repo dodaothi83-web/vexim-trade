@@ -2,6 +2,7 @@
 // Mục tiêu: mọi lỗi CSDL/bên thứ ba đều trả về { ok: false, message } đọc được,
 // không bao giờ ném lỗi (ném lỗi trong server action = HTTP 500 + mã React lạ trên production).
 // Run: node scripts/check-verification-decision-resilience.mjs
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
@@ -99,8 +100,8 @@ const mocks = {
 const exported = {};
 const run = new Function('exports', 'require', 'console', 'FormData', `${source}\n`);
 run(exported, (name) => {
-  assert.ok(name in mocks, `Unexpected import ${name}`);
-  return mocks[name];
+  assert.ok((name in mocks || name in mediaMocks), `Unexpected import ${name}`);
+  return name in mocks ? mocks[name] : mediaMocks[name];
 }, { error: () => {}, warn: () => {}, log: () => {} }, FormData);
 
 const fd = (fields) => {

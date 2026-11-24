@@ -28,7 +28,7 @@ import { PremiumProductGrid } from "@/components/public/premium-product-grid";
 import { aplusImagePaths, COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { normalizeStorefrontTheme, STOREFRONT_MAX_FEATURED } from "@/lib/storefront-theme";
 import { PremiumStorefront } from "@/components/public/premium-storefront";
-import { publicMediaUrl } from "@/lib/media/public-url";
+import { publicMediaUrl, publicMediaUrlAt } from "@/lib/media/public-url";
 
 const mediaUrl = publicMediaUrl;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
@@ -494,8 +494,8 @@ export function SupplierStorefront({
         {s.gallery_images.length > 0 && <section className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6" aria-labelledby="gallery-title">
           <h2 id="gallery-title" className="text-lg font-bold text-ink-900">Supplier gallery</h2>
           <p className="mt-1 text-xs text-ink-500">Shared supplier images; not evidence of factory verification.</p>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{s.gallery_images.map((path) => <a key={path} href={mediaUrl(path)} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg bg-ink-50 ring-1 ring-ink-200">
-            {/* eslint-disable-next-line @next/next/no-img-element */}<img src={mediaUrl(path)} alt={`${name} gallery`} loading="lazy" className="h-32 w-full object-cover transition hover:scale-105 sm:h-40" />
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">{s.gallery_images.map((path) => <a key={path} href={publicMediaUrlAt(path, 1600)} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg bg-ink-50 ring-1 ring-ink-200">
+            {/* eslint-disable-next-line @next/next/no-img-element */}<img src={publicMediaUrlAt(path, 400)} alt={`${name} gallery`} loading="lazy" className="h-32 w-full object-cover transition hover:scale-105 sm:h-40" />
           </a>)}</div>
         </section>}
       </div>

@@ -9,6 +9,7 @@ const context = {
   name: 'Example supplier', summary: 'Supplier directory', avatarUrl: null, steps: [],
   safe: (value) => value ?? '', supplierAddressDisplay: () => '', supplierProvinceDisplay: () => '',
   publicProductTitle: (p) => p.name, mediaUrl: (path) => `/public-media/${path}`,
+  absolutePublicMediaUrl: (path, site) => `${site}/public-media/${path}`,
   productCategory: (p) => p.id === 'hidden' ? null : { slug: 'cashew' },
   s: { main_products: [{ id: 'hidden' }, { id: 'p1', name: 'Cashew kernels' }, { id: 'p2', name: 'Cashew W320' }],
     form_product_cards: { p1: { name: 'Approved card title' } }, product_image_paths: { p1: 'products/p1.webp' } },

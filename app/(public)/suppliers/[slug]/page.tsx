@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { categoryPathOf, certificateLabelsForProducts } from "@/lib/public/certificate-badges";
+import { readCategoryCertificateData } from "@/lib/public/category-certificate-data";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -31,9 +32,10 @@ import { absolutePublicMediaUrl, publicMediaUrl } from "@/lib/media/public-url";
  *    Không nhúng mã ký có hạn vào HTML vì HTML được giữ trong cache.
  *  - Nút tải báo cáo nhà máy tự biết người mua đã đăng nhập hay chưa ở trình duyệt
  *    (useBuyerEnquiryAuth); API báo cáo vẫn bắt buộc đăng nhập.
- * Làm mới mỗi phút và ngay khi CRM/cổng NCC gọi revalidatePath("/suppliers/<slug>").
+ * Làm mới mỗi giờ và ngay khi CRM/cổng NCC gọi revalidatePath("/suppliers/<slug>").
  */
-export const revalidate = 60;
+// 1 giờ (chủ dự án duyệt 24/11/2026); NCC/nhân viên sửa thì làm mới ngay (revalidatePath/Tag).
+export const revalidate = 3600;
 
 /** Không dựng sẵn lúc build (cần CSDL): mỗi hồ sơ được dựng ở lượt xem đầu rồi giữ trong cache. */
 export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
@@ -95,10 +97,12 @@ export default async function SupplierProfile({ params }: PageProps) {
   }
 
   const store = getStore();
-  const categories = (await store.listCategories({ publishedOnly: true }))
-    .filter((c) => c.status === "published" && c.is_published);
-  const rawCerts = store.listCertificates ? await store.listCertificates(s.id).catch(() => []) : [];
-  const rawSupplierMedia = store.listMedia ? await store.listMedia("supplier", s.id).catch(() => []) : [];
+  const [allCategories, rawCerts, rawSupplierMedia] = await Promise.all([
+    store.listCategories({ publishedOnly: true }),
+    store.listCertificates ? store.listCertificates(s.id).catch(() => []) : [],
+    store.listMedia ? store.listMedia("supplier", s.id).catch(() => []) : [],
+  ]);
+  const categories = allCategories.filter((c) => c.status === "published" && c.is_published);
   const supplierCertificates = publicSupplierCertificates(s.id, rawCerts, rawSupplierMedia);
   const productCategory = (p: typeof s.main_products[number]) =>
     categories.find((c) => productBelongsToCategory(p, c, categories));
@@ -106,7 +110,8 @@ export default async function SupplierProfile({ params }: PageProps) {
   const productCertificates = Object.fromEntries(await certificateLabelsForProducts(store, s.main_products.flatMap((p) => {
     const category = productCategory(p);
     return category ? [{ id: p.id, supplierId: s.id, categoryPath: categoryPathOf(category.id, categories) }] : [];
-  })).catch(() => new Map<string, string[]>()));
+  }), readCategoryCertificateData(store, [s.id], { certificates: rawCerts, media: rawSupplierMedia }))
+    .catch(() => new Map<string, string[]>()));
   const name = safe(supplierShortName(s));
   const summary = safe(supplierSummaryDisplay(s));
   const synthetic = isSyntheticSupplier(s);
@@ -124,7 +129,7 @@ export default async function SupplierProfile({ params }: PageProps) {
     "@context": "https://schema.org",
     "@graph": [
       { "@type": "Organization", "@id": `${profileUrl}#organization`, name, url: profileUrl,
-        description: summary, ...(avatarUrl ? { image: `${SITE_URL}${avatarUrl}` } : {}),
+        description: summary, ...(avatarUrl ? { image: avatarUrl.startsWith("/") ? `${SITE_URL}${avatarUrl}` : avatarUrl } : {}),
         // Năm thành lập và quy mô nhân sự chỉ đưa vào khi vòng kiểm tra giấy tờ
         // đã được phê duyệt, tức hai dữ kiện này đã đối chiếu với hồ sơ doanh nghiệp.
         ...(steps.includes(1) && s.founded_year ? { foundingDate: String(s.founded_year) } : {}),
@@ -138,7 +143,7 @@ export default async function SupplierProfile({ params }: PageProps) {
         const category = productCategory(p);
         return category ? [{ "@type": "ListItem", name: safe(s.form_product_cards?.[p.id]?.name ?? publicProductTitle(p)),
             url: `${SITE_URL}/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(p.id)}`,
-            ...(s.product_image_paths[p.id] ? { image: `${SITE_URL}${mediaUrl(s.product_image_paths[p.id])}` } : {}) }] : [];
+            ...(s.product_image_paths[p.id] ? { image: absolutePublicMediaUrl(s.product_image_paths[p.id], SITE_URL) } : {}) }] : [];
       }).map((item, index) => ({ ...item, position: index + 1 })) },
     ],
   };

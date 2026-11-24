@@ -11,6 +11,7 @@ import { supplierPlanRules } from "@/lib/supplier-plans";
 import {
   moveShowcaseBlock, normalizeShowcaseBlocks, SHOWCASE_BODY_MAX, SHOWCASE_TITLE_MAX, showcaseTextProblem,
 } from "@/lib/supplier-showcase";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 type Result = { ok: boolean; message?: string };
 
@@ -24,6 +25,7 @@ async function context() {
 
 function refresh(slug: string) {
   revalidatePath("/supplier/portal/storefront");
+  revalidatePublicCatalog();
   revalidatePath(`/suppliers/${slug}`);
 }
 

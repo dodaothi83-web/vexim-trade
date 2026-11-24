@@ -1,6 +1,7 @@
 // node --experimental-strip-types --no-warnings scripts/check-public-supplier-gallery.mjs
 // Ảnh gallery nhà cung cấp trên danh mục công khai: đọc gộp một lượt (không N+1),
 // chỉ lấy ảnh hồ sơ nhà cung cấp dành cho người mua, vẫn chạy với kho chỉ có listMedia.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -19,7 +20,7 @@ const mocks = {
 };
 const module = { exports: {} };
 vm.runInNewContext(out, { module, exports: module.exports, process, console,
-  require: (id) => { if (id in mocks) return mocks[id]; return new Proxy({}, { get: () => () => [] }); } });
+  require: (id) => { if (id in mocks) return mocks[id]; if (id in mediaMocks) return mediaMocks[id]; return new Proxy({}, { get: () => () => [] }); } });
 const { listPublicSuppliers } = module.exports;
 
 const suppliers = Array.from({ length: 60 }, (_, i) => ({ id: `s${i}`, name: `Supplier ${i}`, slug: `s${i}`, status: 'published', is_demo: false }));

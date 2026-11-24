@@ -1,4 +1,5 @@
 // node scripts/check-product-card-grade.mjs — giữ grade trong tên và tooltip, không tự thêm chip.
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -17,7 +18,7 @@ function load(file, mocks) {
   const module = { exports: {} };
   vm.runInNewContext(source, {
     module, exports: module.exports, console, Date, Number, RegExp, Set, Map, Array, Object, String, Math,
-    require(id) { assert.ok(id in mocks, `unexpected import ${id}`); return mocks[id]; },
+    require(id) { assert.ok((id in mocks || id in mediaMocks), `unexpected import ${id}`); return id in mocks ? mocks[id] : mediaMocks[id]; },
   });
   return module.exports;
 }

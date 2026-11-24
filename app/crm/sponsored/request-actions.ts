@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { sponsoredRequestStore } from "@/lib/sponsored/requests";
 import type { SponsoredRequestStatus } from "@/lib/types";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 const PATH = "/crm/sponsored";
 function back(code: string, bad = false): never { redirect(`${PATH}?${bad ? "err" : "ok"}=${code}#yeu-cau-ncc`); }
@@ -34,6 +35,7 @@ export async function updateSponsoredRequestAction(form: FormData) {
   try { updated = !!await store.updateSponsoredRequestIfStatus(id, expected, status, user.id); }
   catch (error) { console.error("[sponsored] could not update request", error); back("request-error", true); }
   if (!updated) back("request-changed", true);
+  revalidatePublicCatalog();
   revalidatePath(PATH);
   revalidatePath("/supplier/portal/boost");
   back(status === "contacted" ? "request-contacted" : "request-closed");

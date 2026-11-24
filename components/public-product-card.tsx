@@ -1,3 +1,5 @@
+import { cdnVariant, publicMediaUrl, publicMediaUrlAt } from "@/lib/media/public-url";
+
 import type { PublicL2Scope } from "@/lib/verification-status";
 import Link from "next/link";
 import { ImageIcon } from "lucide-react";
@@ -9,6 +11,12 @@ import { VeximLeadTimeIcon } from "@/components/brand/vexim-icons";
 import type { ProductComparisonSelection } from "@/lib/public/product-comparison";
 import type { VerificationLevel } from "@/lib/types";
 import { priceAmountText, priceCurrencySymbol } from "@/lib/products/price-display";
+
+/** Ảnh CDN: srcset 400w/1024w cho thẻ; ảnh chưa chép lên CDN thì null. */
+const cardSrcSet = (path: string) => {
+  const small = cdnVariant(path, 400);
+  return small ? `${publicMediaUrl(small)} 400w, ${publicMediaUrl(cdnVariant(path, 1024)!)} 1024w` : null;
+};
 
 /** Giá gốc của sản phẩm và bảng grade cũ được lưu bằng USD. */
 const CARD_CURRENCY = "USD";
@@ -306,7 +314,9 @@ export function PublicProductCard({
     <>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`/public-media/${imagePath.replace(/^\//, "")}`}
+        src={publicMediaUrlAt(imagePath, 400)}
+        // Ảnh CDN: màn hình thường lấy bản 400px, màn hình độ nét cao lấy bản 1024px.
+        {...(cardSrcSet(imagePath) ? { srcSet: cardSrcSet(imagePath)!, sizes: "(max-width: 639px) 50vw, 280px" } : {})}
         alt={displayName}
         loading="lazy"
         className="h-full w-full object-cover"
@@ -325,7 +335,7 @@ export function PublicProductCard({
     // thay vì để hở trắng. Từ sm (thẻ dọc): khung vuông như cũ.
     <div className="relative aspect-square h-full w-full overflow-hidden rounded-tl-xl rounded-bl-xl bg-ink-50 sm:rounded-bl-none sm:rounded-tr-xl sm:h-auto">
       {linkable ? (
-        <Link
+        <Link prefetch={false}
           href={href}
           target="_blank"
           rel="noopener noreferrer"
@@ -399,7 +409,7 @@ export function PublicProductCard({
         <div className="flex min-h-8 flex-col sm:min-h-10">
 
           {linkable ? (
-            <Link
+            <Link prefetch={false}
               href={href}
               target="_blank"
               rel="noopener noreferrer"
@@ -473,7 +483,7 @@ export function PublicProductCard({
           {/* Tên giữ một dòng và tự cắt bằng dấu ba chấm; nhãn xác minh đứng ngay sau tên, không xuống hàng. */}
           <div className="relative z-20 flex min-w-0 items-center gap-1.5 sm:gap-2">
             {supplierHref && linkable ? (
-              <Link
+              <Link prefetch={false}
                 href={supplierHref}
                 target="_blank"
                 rel="noopener noreferrer"

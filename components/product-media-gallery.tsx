@@ -8,9 +8,16 @@ import { AplusVideo } from "@/components/public/aplus-video";
 import { preconnectStream, streamIntentHandlers } from "@/components/public/stream-warmup";
 import { aplusVideoThumbnailUrl } from "@/lib/products/aplus";
 import type { PublicProductVideo } from "@/lib/public/product-video";
+import { cdnImageSrcSet, isCdnImagePath, publicMediaUrlAt } from "@/lib/media/public-url";
 
-/** URL ảnh công khai — dùng chung cho hero, lightbox và preloader. */
-export const publicPhotoUrl = (path: string) => `/public-media/${path}`;
+/**
+ * Ảnh đã chép lên CDN (`p/<id>/<khoá>/<cỡ>.webp`) đọc thẳng từ media.veximtrade.com với đủ 3 cỡ
+ * 400/1024/1600, không qua trình tối ưu ảnh Next.js. Ảnh chưa chép vẫn qua /public-media.
+ */
+const legacyPhotoUrl = (path: string) => `/public-media/${path}`;
+
+/** URL ảnh cỡ lớn nhất (xem phóng to). */
+export const publicPhotoUrl = (path: string) => isCdnImagePath(path) ? publicMediaUrlAt(path, 1600) : legacyPhotoUrl(path);
 
 /**
  * Bề rộng thật của khung ảnh chính: cả khung trừ lề trang (mobile), trừ thêm cột thumbnail 4rem
@@ -29,7 +36,8 @@ const HERO_FALLBACK_WIDTH = 1080;
 
 /** src/srcSet/sizes của ảnh chính qua trình tối ưu ảnh Next.js (bản WebP đúng bề rộng khung). */
 export function productHeroImage(path: string): { src: string; srcSet?: string; sizes?: string } {
-  const { props } = getImageProps({ src: publicPhotoUrl(path), alt: "", fill: true, sizes: PRODUCT_HERO_SIZES });
+  if (isCdnImagePath(path)) return { src: publicMediaUrlAt(path, 1024), srcSet: cdnImageSrcSet(path)!, sizes: PRODUCT_HERO_SIZES };
+  const { props } = getImageProps({ src: legacyPhotoUrl(path), alt: "", fill: true, sizes: PRODUCT_HERO_SIZES });
   const candidates = (props.srcSet ?? "").split(", ").map((entry) => {
     const [url, descriptor] = entry.split(" ");
     return { url, width: Number.parseInt(descriptor ?? "", 10) };
@@ -39,9 +47,10 @@ export function productHeroImage(path: string): { src: string; srcSet?: string; 
   return { src: fallback.url, srcSet: candidates.map((c) => `${c.url} ${c.width}w`).join(", "), sizes: props.sizes };
 }
 
-/** Thumbnail 64px: bản 64/128px (1x/2x) thay vì ảnh nhỏ 640px của kho ảnh. */
+/** Thumbnail 64px: bản 64/128px (1x/2x) thay vì ảnh nhỏ 640px của kho ảnh; ảnh CDN dùng bản 400px. */
 export function productThumbImage(path: string): { src: string; srcSet?: string } {
-  const { props } = getImageProps({ src: publicPhotoUrl(path), alt: "", width: 64, height: 64 });
+  if (isCdnImagePath(path)) return { src: publicMediaUrlAt(path, 400) };
+  const { props } = getImageProps({ src: legacyPhotoUrl(path), alt: "", width: 64, height: 64 });
   return { src: props.src, srcSet: props.srcSet };
 }
 

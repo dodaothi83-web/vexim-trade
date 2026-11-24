@@ -21,6 +21,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 export type CompanyAplusResult = { ok: boolean; message: string; modules?: AplusModule[] };
 type Messages = Awaited<ReturnType<typeof getPortalMessages>>["m"];
@@ -72,6 +73,7 @@ export async function saveCompanyAplusAction(modules: unknown, retranslate: stri
       .catch((error) => console.error("[company-aplus] audit", error));
     revalidatePath("/supplier/portal/storefront");
     revalidatePath("/supplier/portal/storefront/company");
+    revalidatePublicCatalog();
     revalidatePath(`/suppliers/${access.supplier.slug || access.supplier.id}`);
     return { ok: true, message: checked.translationFailed ? m.aplus.savedTranslateLater : m.aplus.companySaved, modules: verified.modules };
   } catch (error) {

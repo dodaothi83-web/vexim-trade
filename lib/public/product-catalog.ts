@@ -1,6 +1,6 @@
 import type { PublicL2Scope } from "@/lib/verification-status";
 import { categoryPathOf, certificateLabelsForProducts } from "@/lib/public/certificate-badges";
-import { readCategoryCertificateData } from "@/lib/public/category-certificate-data";
+import { readCategoryCertificateData, type CategoryCertificateData } from "@/lib/public/category-certificate-data";
 import "server-only";
 
 import { unstable_cache } from "next/cache";
@@ -9,6 +9,7 @@ import { packCatalogBase, unpackCatalogBase, encodeCachePayload, decodeCachePayl
 import { getStore } from "@/lib/db";
 import { publicProductAttributes } from "@/lib/product-attributes";
 import { isExpired, productReadiness } from "@/lib/media/readiness";
+import { publicImagePath } from "@/lib/media/public-image-path";
 import { listPublicSuppliers, type PublicSupplierCard } from "@/lib/public/catalog";
 import { isSyntheticSupplier } from "@/lib/public/supplier-seo";
 import { isTestOnlyProduct, productBelongsToCategory, productPriceBlockers, productReviewApproved, publicProductCategorySlug, publicProductPrice, publicProductPricePoint, withoutDirectContacts } from "@/lib/public/product-selection";
@@ -111,7 +112,7 @@ export function shareableProductImages(media: MediaAsset[], productId: string, f
     m.kind === "image" && m.audience === "buyer" && m.storage_path && !isExpired(m))
     .sort((a, b) => Number(b.id === featuredMediaId) - Number(a.id === featuredMediaId) ||
       a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
-    .map((m) => thumbnail ? (m.thumb_path || m.storage_path!) : m.storage_path!)
+    .map((m) => publicImagePath(m, thumbnail ? "card" : "detail")!)
     .slice(0, limit);
 }
 
@@ -231,7 +232,7 @@ export interface PublicProductCatalogSnapshot {
  * từng trả trên mỗi request. Trang danh mục (app/(public)/products/[slug]/page.tsx) vẫn phải
  * render động (kiểm tra `isStaff` để cho xem trước danh mục nháp — một tính năng có thật,
  * không chỉ là hiển thị), nên không dùng ISR ở tầng trang được; bọc riêng phần tính toán này
- * bằng unstable_cache để nhiều request (nhiều danh mục, nhiều người xem) trong cùng 60 giây
+ * bằng unstable_cache để nhiều request (nhiều danh mục, nhiều người xem) trong cùng 1 giờ
  * dùng chung một kết quả thay vì mỗi request tự liệt kê + xếp hạng lại từ đầu.
  *
  * Lưu ý: unstable_cache yêu cầu kết quả tuần tự hoá được (JSON) — vì vậy chỉ cache ba mảng dữ
@@ -244,7 +245,7 @@ const CACHE_ALERT_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const lastCacheAlertAt = new Map<string, number>();
 
 /**
- * Đo dung lượng thật của mục cache mỗi lần tạo lại (60 giây một lần). Khi chạm 60% giới hạn
+ * Đo dung lượng thật của mục cache mỗi lần tạo lại (tối đa 1 giờ một lần). Khi chạm 60% giới hạn
  * 2 MB của Vercel thì ghi log và gửi Sentry, để kịp chia nhỏ cache trước khi Vercel âm thầm
  * ngừng lưu. Chỉ đo và báo, không thay đổi dữ liệu trả về.
  */
@@ -278,7 +279,7 @@ const getCachedPublicCatalogPayload = unstable_cache(
     return watchCacheSize("public-catalog-snapshot", packCatalogBase({ suppliers, products, categories }));
   },
   ["public-catalog-snapshot-v2"],
-  { revalidate: 60, tags: ["public-catalog"] },
+  { revalidate: 3600, tags: ["public-catalog"] },
 );
 
 async function getCachedPublicCatalogBase(): Promise<{ suppliers: PublicSupplierCard[]; products: SupplierProduct[]; categories: Category[] }> {
@@ -304,7 +305,7 @@ export async function loadPublicProductCatalogSnapshot(options?: { categories?: 
 }
 
 /**
- * Danh sách nhà cung cấp công khai từ cùng bản cache 60 giây của trang chủ/danh mục. Dùng cho
+ * Danh sách nhà cung cấp công khai từ cùng bản cache 1 giờ của trang chủ/danh mục. Dùng cho
  * trang chỉ đọc (hồ sơ nhà cung cấp, sitemap, form RFQ); thao tác ghi vẫn dùng listPublicSuppliers().
  */
 export async function listCachedPublicSuppliers(): Promise<PublicSupplierCard[]> {
@@ -338,6 +339,8 @@ async function cachedByOwner<T>(
 export async function listPublicCategoryProducts(category: Category, options?: {
   today?: string;
   snapshot?: PublicProductCatalogSnapshot;
+  /** Nhận dữ liệu chứng nhận đã đọc cho danh sách này (trang sản phẩm dùng lại, không đọc lần nữa). */
+  onCertificateData?: (data: Promise<CategoryCertificateData>) => void;
 }): Promise<PublicCategoryProduct[]> {
   const store = getStore();
   const snapshot = options?.snapshot ?? await loadPublicProductCatalogSnapshot();
@@ -370,10 +373,11 @@ export async function listPublicCategoryProducts(category: Category, options?: {
   }
   // Only L1 needs the existing certificate validity check. Failed pages must be
   // surfaced, not treated as "no certificates" and silently change ranking.
-  const l1SupplierIds = [...new Set(candidates
-    .filter((p) => byId.get(p.supplier_id)?.approved_verification_steps.includes(1))
-    .map((p) => p.supplier_id))];
-  const certificates = await cachedByOwner(l1SupplierIds, snapshot.certificatesBySupplier, async (ids) => {
+  // Đọc giấy của mọi nhà cung cấp trong danh mục trong cùng một lượt: kết quả dùng lại cho
+  // chứng nhận trên thẻ bên dưới (trước đây đọc hai lần). Nhà cung cấp chưa có L1 thì
+  // evidenceValidVerificationSteps bỏ qua giấy, nên thứ hạng không đổi.
+  const certificateSupplierIds = [...new Set(candidates.map((p) => p.supplier_id))];
+  const certificates = await cachedByOwner(certificateSupplierIds, snapshot.certificatesBySupplier, async (ids) => {
     if (typeof store.listCertificatesForSuppliers === "function") return store.listCertificatesForSuppliers(ids);
     const rows: Certificate[] = [];
     for (let i = 0; i < ids.length; i += 40) {
@@ -407,8 +411,11 @@ export async function listPublicCategoryProducts(category: Category, options?: {
   if (options?.snapshot && !snapshot.certificateBadgeData) {
     snapshot.certificateBadgeData = readCategoryCertificateData(store, suppliers.map((supplier) => supplier.id));
   }
+  const badgeData = options?.snapshot ? snapshot.certificateBadgeData
+    : readCategoryCertificateData(store, ranked.map((card) => card.supplierId), { certificates });
+  if (badgeData) options?.onCertificateData?.(badgeData);
   const labels = await certificateLabelsForProducts(store, ranked.map((card) => ({ id: card.id, supplierId: card.supplierId, categoryPath: path })),
-    options?.snapshot ? snapshot.certificateBadgeData : undefined)
+    badgeData)
     .catch((error) => { console.error("[catalog] certificate labels", error); return new Map<string, string[]>(); });
   return labels.size ? ranked.map((card) => labels.has(card.id) ? { ...card, certificates: labels.get(card.id) } : card) : ranked;
 }
@@ -449,7 +456,7 @@ const getCachedPublicSearchIndex = unstable_cache(
     return watchCacheSize("public-search-index", encodeCachePayload({ ...index, suppliers: slimSupplierCards(index.suppliers) }));
   },
   ["public-search-index-v2"],
-  { revalidate: 60, tags: ["public-catalog"] },
+  { revalidate: 3600, tags: ["public-catalog"] },
 );
 
 export async function loadPublicSearchIndex(): Promise<PublicSearchIndex> {
@@ -544,6 +551,28 @@ export async function getPublicProductRecordsByIds(ids: readonly string[], optio
     id: card.id, supplierId: card.supplierId, categoryPath: categoryPathOf(category.id, categories),
   }))).catch((error) => { console.error("[catalog] certificate labels", error); return new Map<string, string[]>(); });
   return labels.size ? records.map((record) => labels.has(record.card.id) ? { ...record, card: { ...record.card, certificates: labels.get(record.card.id) } } : record) : records;
+}
+
+/**
+ * Đường dẫn trang chi tiết (danh mục + id) của các sản phẩm đang công khai, giữ đúng thứ tự `ids`.
+ * Dùng cho generateStaticParams: chỉ đọc bản cache catalog, bỏ qua sản phẩm không còn công khai.
+ */
+export async function publicProductRouteParams(ids: readonly string[]): Promise<Array<{ slug: string; productId: string }>> {
+  if (!ids.length) return [];
+  const { suppliers, products, categories } = await getCachedPublicCatalogBase();
+  const productById = new Map(products.map((product) => [product.id, product]));
+  const supplierById = new Map(suppliers.map((supplier) => [supplier.id, supplier]));
+  const params: Array<{ slug: string; productId: string }> = [];
+  for (const id of ids) {
+    const product = productById.get(id);
+    const supplier = product ? supplierById.get(product.supplier_id) : undefined;
+    if (!product || !supplier || supplier.is_demo || isSyntheticSupplier(supplier) ||
+      !productReviewApproved(product) || isTestOnlyProduct(product.name) || !product.ready_for_buyer) continue;
+    const slug = publicProductCategorySlug(product, categories);
+    if (!slug || !categories.some((category) => category.slug === slug && category.status === "published" && category.is_published)) continue;
+    params.push({ slug, productId: product.id });
+  }
+  return params;
 }
 
 /** Một sản phẩm khác của cùng nhà cung cấp, kèm danh mục để dựng đúng đường dẫn trang chi tiết. */

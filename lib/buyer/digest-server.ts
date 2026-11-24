@@ -1,5 +1,6 @@
 import "server-only";
 
+import { absolutePublicMediaUrl, cdnVariant } from "@/lib/media/public-url";
 import crypto from "node:crypto";
 
 import brandColors from "@/lib/brand/colors.json";
@@ -143,7 +144,7 @@ export function productGridHtml(products: Array<DigestProduct & { badge?: string
   const card = (p: DigestProduct & { badge?: string }) => {
     const href = clickUrl({ k: kind, t: "product", i: p.id, s: p.supplierId, u: p.href });
     const img = p.imagePath
-      ? `<img src="${escapeHtml(`${SITE_URL}/public-media/${p.imagePath.replace(/^\//, "")}`)}" width="180" height="180" alt="${escapeHtml(p.name)}" style="display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid #DFE5EE;">`
+      ? `<img src="${escapeHtml(absolutePublicMediaUrl(cdnVariant(p.imagePath, 400) ?? p.imagePath, SITE_URL))}" width="180" height="180" alt="${escapeHtml(p.name)}" style="display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid #DFE5EE;">`
       : `<div style="width:100%;padding-top:100%;border-radius:10px;background:#E8EEF8;"></div>`;
     return `<td width="33%" valign="top" style="padding:0 5px 16px;"><a href="${escapeHtml(href)}" style="text-decoration:none;color:#141C2E;display:block;">
       ${img}

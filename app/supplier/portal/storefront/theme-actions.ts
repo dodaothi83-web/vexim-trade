@@ -14,6 +14,7 @@ import {
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPlanRules } from "@/lib/supplier-plans";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 type Result = { ok: boolean; message: string; tagline?: string };
 
@@ -66,6 +67,7 @@ export async function saveStorefrontThemeAction(input: { tone: unknown; tagline:
     action: "supplier.storefront_theme_changed", before: access.supplier.storefront_theme ?? null, after: theme,
   }).catch((error) => console.error("[storefront-theme] audit", error));
   revalidatePath("/supplier/portal/storefront");
+  revalidatePublicCatalog();
   revalidatePath(`/suppliers/${access.supplier.slug || access.supplier.id}`);
   return { ok: true, message: copy.saved, tagline };
 }
@@ -107,6 +109,7 @@ export async function saveHeroVideoAction(videoUid: string | null): Promise<Resu
     action: next ? "supplier.hero_video_saved" : "supplier.hero_video_removed", before: { video: before.hero_video?.video_uid ?? null }, after: { video: next?.video_uid ?? null },
   }).catch((error) => console.error("[storefront-theme] audit", error));
   revalidatePath("/supplier/portal/storefront");
+  revalidatePublicCatalog();
   revalidatePath(`/suppliers/${access.supplier.slug || access.supplier.id}`);
   return { ok: true, message: next ? copy.video.saved : copy.video.removed };
 }

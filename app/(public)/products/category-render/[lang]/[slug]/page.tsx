@@ -12,10 +12,11 @@ import CategoryPage, { generateMetadata as generateCategoryMetadata } from "../.
  * CHUNG mã với app/(public)/products/[slug]/page.tsx — chỉ khác là ngôn ngữ đến từ params cố định
  * thay vì query string, và trang không đọc phiên, nên Next.js dựng tĩnh được.
  *
- * Làm mới mỗi phút (khớp trang chi tiết sản phẩm) và ngay khi CRM/cổng NCC gọi
+ * Làm mới mỗi giờ (khớp trang chi tiết sản phẩm) và ngay khi CRM/cổng NCC gọi
  * revalidatePath("/products", "layout").
  */
-export const revalidate = 60;
+// 1 giờ (chủ dự án duyệt 24/11/2026); NCC/nhân viên sửa thì làm mới ngay (revalidatePath/Tag).
+export const revalidate = 3600;
 
 /** Không dựng trước lúc build (cần CSDL); trang được dựng ở lượt xem đầu rồi cache. */
 export function generateStaticParams(): Array<{ lang: CategoryRenderLang; slug: string }> {

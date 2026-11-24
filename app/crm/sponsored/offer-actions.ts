@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth/session";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
 import { parseOfferSettings } from "@/lib/sponsored/offer-settings";
 import { revalidatePath } from "next/cache";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 export interface OfferActionResult { ok: boolean; message: string }
 export async function updateOfferSettingsAction(_previous: OfferActionResult, fd: FormData): Promise<OfferActionResult> {
@@ -21,6 +22,7 @@ export async function updateOfferSettingsAction(_previous: OfferActionResult, fd
     if (!values) return { ok: false, message: "Giá phải là số nguyên từ 1 đến 1 tỷ đồng (hoặc để trống); thời gian giữ chỗ 1–1440 phút; số gói mỗi ô 1–20." };
     const { data, error } = await db.from("sponsored_offer_settings").update({ ...values, updated_by: user.id }).eq("id", true).select("id").single();
     if (error || !data) throw new Error(error?.message ?? "missing settings row");
+    revalidatePublicCatalog();
     revalidatePath("/crm/sponsored");
     revalidatePath("/supplier/portal/boost");
     return { ok: true, message: "Đã lưu cấu hình. Chức năng mua và giữ chỗ chưa được mở." };

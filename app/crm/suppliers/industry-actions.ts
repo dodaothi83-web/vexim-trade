@@ -6,6 +6,7 @@ import { getStore } from "@/lib/db";
 import { getSession, guard } from "@/lib/auth/session";
 import { categoryProposalOptions } from "@/lib/supplier-portal/category-proposals";
 import { notifyCategoryRequestDecision } from "@/lib/supplier-portal/notify";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 type Result = { ok: boolean; message: string };
 
@@ -68,6 +69,7 @@ export async function decideCategoryRequestAction(form: FormData): Promise<Resul
       status: decision as "opened" | "rejected", note: decided.note, categoryLabel })
       .catch((error) => { console.error("[category-request] supplier email failed", error); return "failed" as const; });
 
+    revalidatePublicCatalog();
     revalidatePath("/crm/suppliers");
     revalidatePath("/crm/categories");
     revalidatePath("/supplier/portal");

@@ -1,3 +1,4 @@
+import { publicMediaUrlAt } from "@/lib/media/public-url";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -39,7 +40,7 @@ export default async function TestSupplierProductPreview({ params }: Props) {
   if (!found) notFound();
   const { supplier, product } = found;
   const image = supplier.product_image_paths[product.id]; // only approved buyer-shareable product image
-  const mediaUrl = image ? `/public-media/${image.replace(/^\//, "")}` : null;
+  const mediaUrl = image ? publicMediaUrlAt(image, 1024) : null;
   const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
   const profileHref = `/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}`;
 

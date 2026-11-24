@@ -14,12 +14,13 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
  *
  * Hai bucket, tách theo quyền xem:
  *  - R2_BUCKET_NAME (veximtrade-media): gắn tên miền R2_PUBLIC_URL nên MỌI tệp trong đó đều
- *    công khai. Chỉ chứa ảnh luôn công khai: ảnh đại diện/logo và ảnh bìa nhà cung cấp.
- *  - R2_PRIVATE_BUCKET_NAME: không gắn tên miền. Chứa ảnh sản phẩm và ảnh A+; buyer chỉ xem
- *    được qua /public-media, nơi kiểm tra duyệt, ẩn sản phẩm và quyền gói như trước.
+ *    công khai. Chứa ảnh đại diện/logo, ảnh bìa nhà cung cấp và bản sao WebP 400/1024/1600 của
+ *    ảnh sản phẩm + ảnh nhà máy công khai (khoá ngẫu nhiên `p/…`, `s/…`, xem lib/media/cdn.ts).
+ *  - R2_PRIVATE_BUCKET_NAME: không gắn tên miền. Chứa bản gốc ảnh sản phẩm, ảnh A+, tệp chat;
+ *    buyer chỉ xem được qua /public-media hoặc link có chữ ký, nơi kiểm tra quyền như trước.
  *
  * Thiếu biến nào thì phần tương ứng tắt và ảnh tiếp tục lưu ở Supabase Storage như cũ.
- * Không bao giờ đưa ảnh cần kiểm tra quyền vào bucket công khai.
+ * Giấy tờ, chứng nhận, ảnh nội bộ và tệp chat không bao giờ vào bucket công khai.
  */
 
 function env(name: string): string {

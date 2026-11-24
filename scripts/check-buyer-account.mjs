@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -11,7 +12,7 @@ function load(file, mocks = {}, globals = {}) {
   const mod = { exports: {} };
   const code = ts.transpileModule(read(file), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: false } }).outputText;
   vm.runInNewContext(code, { module: mod, exports: mod.exports, console: { error() {} }, Date, Intl, ...globals,
-    require(id) { assert.ok(id in mocks, `Unexpected import in ${file}: ${id}`); return mocks[id]; } });
+    require(id) { assert.ok((id in mocks || id in mediaMocks), `Unexpected import in ${file}: ${id}`); return id in mocks ? mocks[id] : mediaMocks[id]; } });
   return mod.exports;
 }
 const { buyerRecommendations } = load('lib/public/buyer-recommendations.ts');

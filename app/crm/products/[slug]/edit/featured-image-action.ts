@@ -5,6 +5,7 @@ import { guard, getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
 import { isExpired } from "@/lib/media/readiness";
 import { productGate } from "@/lib/auth/supplier-access";
+import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
 
 type Result = { ok: boolean; message: string };
 
@@ -33,6 +34,7 @@ export async function setFeaturedProductImageAction(productId: string, mediaId: 
       before: { featured_media_id: product.featured_media_id ?? null }, after: { featured_media_id: mediaId },
     }).catch((error) => console.error("[product-cover] audit", error));
     revalidatePath(`/crm/products/${productId}/edit`);
+    revalidatePublicCatalog();
     revalidatePath("/products", "layout");
     return { ok: true, message: mediaId ? "Đã chọn ảnh đại diện. Sản phẩm chỉ hiện khi các điều kiện công khai khác đã đạt." : "Đã bỏ lựa chọn; hệ thống dùng ảnh chia sẻ người mua đầu tiên." };
   } catch (error) {
