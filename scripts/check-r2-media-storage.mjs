@@ -43,6 +43,7 @@ function harness({ env = {}, supabaseFiles = {} } = {}) {
   const fullEnv = { R2_ACCOUNT_ID: "acc", R2_ACCESS_KEY_ID: "key", R2_SECRET_ACCESS_KEY: "secret", ...env };
   const r2Module = load("../lib/media/r2.ts", {
     "@aws-sdk/client-s3": fakeS3(r2, log),
+    "@aws-sdk/s3-request-presigner": { getSignedUrl: async (_client, command, { expiresIn }) => `https://signed.example/${command.input.Bucket}/${command.input.Key}?expires=${expiresIn}` },
   }, fullEnv);
   const supabaseClient = {
     storage: {

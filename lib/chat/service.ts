@@ -7,6 +7,8 @@ import { supplierShortName } from "@/lib/public/supplier-name";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import type { ChatConversation, ChatMessage, ChatSender, Supplier } from "@/lib/types";
 import { chatPreview, chatRateLimited, cleanChatBody, hasUnread, tooManyNewConversations, unansweredEscalated } from "./core";
+import { attachmentsByMessage, readyAttachmentsFor, type ChatAttachmentView } from "./attachments";
+import { attachmentsPreview, chatFileExpiresAt } from "./attachments-core";
 
 /**
  * Chat người mua ↔ nhà cung cấp. Thay luồng email trực tiếp của "Ask supplier": cuộc trò
@@ -51,6 +53,8 @@ export interface ChatMessageView {
   body: string;
   productName: string | null;
   product: ChatProductCard | null;
+  /** Tệp gửi kèm tin (có thể rỗng). */
+  attachments: ChatAttachmentView[];
   createdAt: string;
 }
 
@@ -175,10 +179,14 @@ async function productCards(ids: string[]): Promise<Map<string, ChatProductCard>
   }));
 }
 
-export async function messageViews(messages: ChatMessage[], side: ChatSender): Promise<ChatMessageView[]> {
-  const cards = await productCards(messages.map((m) => m.product_id ?? ""));
+export async function messageViews(messages: ChatMessage[], side: ChatSender, store?: DataStore): Promise<ChatMessageView[]> {
+  const [cards, files] = await Promise.all([
+    productCards(messages.map((m) => m.product_id ?? "")),
+    store ? attachmentsByMessage(store, messages.map((m) => m.id), side) : Promise.resolve(new Map<string, ChatAttachmentView[]>()),
+  ]);
   return messages.map((m) => ({
     id: m.id, mine: m.sender === side, body: m.body, productName: m.product_name, createdAt: m.created_at,
+    attachments: files.get(m.id) ?? [],
     product: m.product_id ? cards.get(m.product_id) ?? { id: m.product_id, name: m.product_name ?? "", imageUrl: null, href: null, price: null } : null,
   }));
 }
@@ -297,18 +305,29 @@ export async function existingConversationForProduct(store: DataStore, buyerEmai
 export async function postMessage(input: {
   store: DataStore; conversation: ChatConversation; sender: ChatSender; senderEmail: string; body: string;
   product?: { id: string; name: string } | null;
+  /** Mã các tệp đã tải xong (tối đa 5); có tệp thì phần chữ được để trống. */
+  attachmentIds?: unknown;
+  /** "supplier:<id>" | "buyer:<email>": bắt buộc khi có tệp. */
+  uploaderKey?: string;
 }): Promise<ChatMessage> {
   const { store, conversation, sender } = input;
+  const files = input.uploaderKey ? await readyAttachmentsFor(store, conversation, input.uploaderKey, input.attachmentIds) : [];
   const checked = cleanChatBody(input.body);
-  if (!checked.ok) throw new ChatError(checked.error);
+  if (!checked.ok && !(checked.error === "empty" && files.length)) throw new ChatError(checked.error);
+  const body = checked.ok ? checked.body : "";
   const recent = await store.listChatMessages(conversation.id, 60);
   if (chatRateLimited(recent, sender)) throw new ChatError("rate_limited");
   const message = await store.addChatMessage({
-    conversation_id: conversation.id, sender, sender_email: input.senderEmail.trim().toLowerCase(), body: checked.body,
+    conversation_id: conversation.id, sender, sender_email: input.senderEmail.trim().toLowerCase(), body,
     product_id: input.product?.id ?? null, product_name: input.product?.name ?? null,
   });
+  if (files.length) {
+    await store.linkChatAttachments({ ids: files.map((f) => f.id), messageId: message.id, conversationId: conversation.id, uploaderKey: input.uploaderKey!, expiresAt: chatFileExpiresAt(message.created_at) });
+  }
+  // Tin chỉ có tệp: danh sách cuộc và email báo tin hiện tên tệp kèm biểu tượng kẹp giấy.
+  const preview = body ? chatPreview(body) : `📎 ${attachmentsPreview(files.map((f) => f.file_name), 136)}`;
   const patch: Partial<ChatConversation> = {
-    last_message_at: message.created_at, last_message_preview: chatPreview(checked.body), last_sender: sender,
+    last_message_at: message.created_at, last_message_preview: preview, last_sender: sender,
     // Người gửi đương nhiên đã đọc tới tin của mình.
     ...(sender === "buyer" ? { buyer_last_read_at: message.created_at } : { supplier_last_read_at: message.created_at }),
     ...(input.product ? { product_id: input.product.id, product_name: input.product.name } : {}),

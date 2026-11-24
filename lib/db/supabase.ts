@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessage, SourcingRequest, SupplierServiceRequest, SupportConversation, SupportMessage } from "@/lib/types";
+import type { ChatAttachment, ChatConversation, ChatMessage, SourcingRequest, SupplierServiceRequest, SupportConversation, SupportMessage } from "@/lib/types";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { PRODUCT_EXTRAS_COLUMNS, type ProductExtrasColumn } from "@/lib/products/product-extras";
 
@@ -1264,6 +1264,78 @@ export const supabaseStore: DataStore = {
     const { data, error } = await must().from("chat_messages").insert(input).select("*").single();
     if (error) fail("addChatMessage", error);
     return data as ChatMessage;
+  },
+  async createChatAttachment(input) {
+    const { data, error } = await must().from("chat_attachments").insert(input).select("*").single();
+    if (error) fail("createChatAttachment", error);
+    return data as ChatAttachment;
+  },
+  async getChatAttachment(id) {
+    const { data, error } = await must().from("chat_attachments").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getChatAttachment", error);
+    return (data ?? null) as ChatAttachment | null;
+  },
+  async updateChatAttachment(id, patch) {
+    const { error } = await must().from("chat_attachments").update(patch).eq("id", id);
+    if (error) fail("updateChatAttachment", error);
+  },
+  async deleteChatAttachment(id) {
+    const { error } = await must().from("chat_attachments").delete().eq("id", id);
+    if (error) fail("deleteChatAttachment", error);
+  },
+  async findReadyChatAttachment(uploaderKey, sha256, sizeBytes) {
+    const { data, error } = await must().from("chat_attachments").select("*")
+      .eq("uploader_key", uploaderKey).eq("sha256", sha256).eq("size_bytes", sizeBytes).eq("status", "ready")
+      .order("created_at", { ascending: false }).limit(1);
+    if (error) fail("findReadyChatAttachment", error);
+    return ((data ?? [])[0] ?? null) as ChatAttachment | null;
+  },
+  async listChatAttachmentsForMessages(messageIds) {
+    const ids = [...new Set(messageIds.filter(Boolean))];
+    if (!ids.length) return [];
+    const { data, error } = await must().from("chat_attachments").select("*").in("message_id", ids).order("created_at", { ascending: true });
+    if (error) fail("listChatAttachmentsForMessages", error);
+    return (data ?? []) as ChatAttachment[];
+  },
+  async listChatAttachmentUsage(uploaderKey) {
+    const { data, error } = await must().from("chat_attachments").select("storage_key,size_bytes")
+      .eq("uploader_key", uploaderKey).in("status", ["pending", "ready"]).limit(20000);
+    if (error) fail("listChatAttachmentUsage", error);
+    return (data ?? []) as Array<Pick<ChatAttachment, "storage_key" | "size_bytes">>;
+  },
+  async countChatAttachmentsSince(uploaderKey, sinceIso) {
+    const { count, error } = await must().from("chat_attachments").select("id", { count: "exact", head: true })
+      .eq("uploader_key", uploaderKey).gte("created_at", sinceIso);
+    if (error) fail("countChatAttachmentsSince", error);
+    return count ?? 0;
+  },
+  async linkChatAttachments(input) {
+    if (!input.ids.length) return 0;
+    const { data, error } = await must().from("chat_attachments")
+      .update({ message_id: input.messageId, expires_at: input.expiresAt })
+      .in("id", input.ids).eq("conversation_id", input.conversationId).eq("uploader_key", input.uploaderKey)
+      .eq("status", "ready").is("message_id", null).select("id");
+    if (error) fail("linkChatAttachments", error);
+    return (data ?? []).length;
+  },
+  async listChatAttachmentsToClean(input) {
+    const [unsent, expired] = await Promise.all([
+      must().from("chat_attachments").select("*").is("message_id", null).in("status", ["pending", "ready"])
+        .lt("created_at", input.unsentBefore).order("created_at", { ascending: true }).limit(input.limit),
+      must().from("chat_attachments").select("*").eq("status", "ready").not("message_id", "is", null)
+        .lt("expires_at", input.now).order("expires_at", { ascending: true }).limit(input.limit),
+    ]);
+    if (unsent.error) fail("listChatAttachmentsToClean", unsent.error);
+    if (expired.error) fail("listChatAttachmentsToClean", expired.error);
+    return { unsent: (unsent.data ?? []) as ChatAttachment[], expired: (expired.data ?? []) as ChatAttachment[] };
+  },
+  async countChatAttachmentRefs(storageKey, excludeIds) {
+    let query = must().from("chat_attachments").select("id", { count: "exact", head: true })
+      .eq("storage_key", storageKey).in("status", ["pending", "ready"]);
+    if (excludeIds.length) query = query.not("id", "in", `(${excludeIds.join(",")})`);
+    const { count, error } = await query;
+    if (error) fail("countChatAttachmentRefs", error);
+    return count ?? 0;
   },
   async getSupportConversationByBuyer(buyerEmail) {
     const { data, error } = await must().from("support_conversations").select("*")

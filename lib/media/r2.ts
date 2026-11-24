@@ -7,6 +7,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
  * Cloudflare R2 (giao thức S3) cho ảnh mới.
@@ -117,4 +118,51 @@ export async function r2Get(bucket: string, key: string): Promise<Uint8Array | n
 
 export async function r2Delete(bucket: string, key: string): Promise<void> {
   await client().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+/**
+ * Link tải lên một lần (PUT) cho trình duyệt, hết hạn sau `expiresSeconds`. Content-Type được ký
+ * kèm nên trình duyệt phải gửi đúng loại đã khai. Bucket cần CORS cho phép PUT từ tên miền site
+ * (docs/supplier-chat.md); chưa có thì trình duyệt tự chuyển sang tải qua máy chủ.
+ */
+export async function r2PresignPut(bucket: string, key: string, contentType: string, expiresSeconds = 600): Promise<string> {
+  return getSignedUrl(client(), new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }), { expiresIn: expiresSeconds });
+}
+
+/** Link đọc có hạn ngắn; tên tệp và cách mở (xem ngay hay tải về) ghi vào tiêu đề trả về. */
+export async function r2PresignGet(
+  bucket: string,
+  key: string,
+  options: { contentType: string; disposition: string; expiresSeconds?: number },
+): Promise<string> {
+  return getSignedUrl(client(), new GetObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ResponseContentType: options.contentType,
+    ResponseContentDisposition: options.disposition,
+    ResponseCacheControl: "private, max-age=300",
+  }), { expiresIn: options.expiresSeconds ?? 300 });
+}
+
+/** Dung lượng tệp trên R2 (null khi chưa có). */
+export async function r2Size(bucket: string, key: string): Promise<number | null> {
+  try {
+    const res = await client().send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+    return typeof res.ContentLength === "number" ? res.ContentLength : null;
+  } catch (error) {
+    if (notFound(error)) return null;
+    throw error;
+  }
+}
+
+/** Đọc `bytes` byte đầu của tệp (kiểm tra nội dung thật mà không tải cả tệp). */
+export async function r2GetHead(bucket: string, key: string, bytes: number): Promise<Uint8Array | null> {
+  try {
+    const res = await client().send(new GetObjectCommand({ Bucket: bucket, Key: key, Range: `bytes=0-${Math.max(0, bytes - 1)}` }));
+    if (!res.Body) return null;
+    return await res.Body.transformToByteArray();
+  } catch (error) {
+    if (notFound(error)) return null;
+    throw error;
+  }
 }
