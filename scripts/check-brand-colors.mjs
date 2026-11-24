@@ -32,8 +32,11 @@ function scan(directory) {
 scan('app'); scan('components');
 const verification = read('components/verification-tier.tsx');
 for (const tier of [1,2,3]) assert.match(verification, new RegExp(`${tier}: \\{ pip: VERIFICATION_PIP_ON`), 'Compact CRM pips share one approved colour');
-// 11/2026 (chủ dự án duyệt): khiên trơn trên thẻ công khai tô đặc theo cấp: xanh lá, vàng nhạt, đỏ đô; dấu tích trắng.
-for (const [tier, hex] of [[1, '2FA35A'], [2, 'E9C64A'], [3, '8E1B2C']]) assert.match(verification, new RegExp(`${tier}: \`fill-\\[#${hex}\\] text-\\[#${hex}\\] \\$\\{TICK_WHITE\\}\``), `Tier ${tier} shield is filled with #${hex}`);
+// 24/11/2026 (chủ dự án duyệt, phương án A): thang cấp xác minh là navy đậm dần, không còn vàng/đỏ đô.
+assert.match(verification, /1: "fill-\[#F2F5FA\] text-\[#1F3E74\]"/, 'Tier 1 shield: pale fill, navy outline');
+assert.match(verification, /2: "fill-\[#B8CAE3\] text-\[#1F3E74\]"/, 'Tier 2 shield: light navy fill');
+assert.match(verification, /3: `fill-\[#1F3E74\] text-\[#1F3E74\] \$\{TICK_WHITE\}`/, 'Tier 3 shield: solid navy, white tick');
+assert.doesNotMatch(verification, /#2FA35A|#E9C64A|#8E1B2C/, 'Old green / yellow / burgundy tier ramp is gone');
 assert.match(verification, /VERIFICATION_PIP_OFF = "border border-ink-300 bg-ink-50 text-ink-500"/);
 assert.doesNotMatch(read('app/(public)/home.tsx'), /(?:amber|yellow)-\d/);
 // The minimal RFQ notices share the branded wrapper instead of importing the
