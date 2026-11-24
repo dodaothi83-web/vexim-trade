@@ -311,7 +311,7 @@ export function SupplierStorefront({
         {rfqActions
           ? <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--sf-dark)]">Request a quote <ArrowRight className="h-4 w-4" /></Link>
           : <span className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
-        {chatAction && <div className="flex-1 rounded-lg bg-white text-ink-900 [&>*]:w-full">{chatAction}</div>}
+        {chatAction && <div className="flex-1 rounded-lg bg-white text-ink-900 [&>button]:w-full">{chatAction}</div>}
       </> : null}
       coverUrl={coverUrl}
       avatarUrl={avatarUrl}

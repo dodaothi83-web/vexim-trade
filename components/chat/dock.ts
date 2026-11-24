@@ -11,6 +11,8 @@ import { lockDialogScroll } from "@/lib/browser/dialog-scroll-lock";
 export const CHAT_DOCK_CLASS = [
   "fixed inset-0 z-50 m-0 h-[100dvh] max-h-none w-screen max-w-none overflow-hidden bg-white p-0 text-ink-900",
   "md:inset-auto md:bottom-4 md:right-20 md:top-24 md:h-auto md:w-[min(760px,calc(100vw-7rem))]",
+  // Chặn cứng bề ngang: khối bọc ngoài có đặt width cho con (ví dụ [&>*]:w-full) cũng không kéo khung tràn màn hình.
+  "md:max-w-[min(760px,calc(100vw-7rem))]",
   "md:rounded-2xl md:border md:border-ink-200 md:shadow-2xl md:shadow-brand-900/20 lg:right-24",
 ].join(" ");
 
