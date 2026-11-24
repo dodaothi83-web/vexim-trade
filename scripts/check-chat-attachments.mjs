@@ -207,7 +207,7 @@ assert.match(item, /CHAT_SERVER_UPLOAD_MAX_BYTES/);
 assert.match(read('app/api/crm/chat-attachments/[attachmentId]/route.ts'), /hasPermission\(session\.role, "rfq\.view"\)[\s\S]*!row\.message_id/);
 assert.match(read('app/api/chat/[id]/route.ts'), /attachmentIds: payload\.attachmentIds, uploaderKey: uploaderKey\(viewer\)/);
 assert.match(read('app/api/cron/chat-notify/route.ts'), /cleanChatAttachments\(store\)/);
-const sql = read('supabase/migrations/20261124_chat_attachments.sql');
+const sql = read('supabase/migrations/20261228_chat_attachments.sql');
 assert.match(sql, /create table if not exists public\.chat_attachments/);
 assert.match(sql, /enable row level security[\s\S]*revoke all on table public\.chat_attachments from public, anon, authenticated/);
 assert.match(sql, /size_bytes <= 10485760/);
