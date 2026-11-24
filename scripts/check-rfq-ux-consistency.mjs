@@ -45,7 +45,8 @@ const view = (rfq, locale, quotes = []) => renderToStaticMarkup(React.createElem
   assert.ok(html.includes(`>${name}</dd>`), 'Product row shows only the product');
   assert.match(html, /Your requirements<\/dt><dd[^>]*>Tôi muốn mua việt quất<\/dd>/);
   const submit = read('lib/rfq/submit.ts');
-  assert.match(submit, /product: sourceProduct \? sourceProduct\.name : productText,/, 'CRM Mặt hàng is the product only');
+  assert.match(submit, /product: sourceProduct \? sourceProduct\.name : buyerProductTitle\(productText\) \|\| productText,/, 'CRM Mặt hàng is the product only');
+  assert.match(submit, /sourceProduct \? null : buyerRequestMessage\(productText\)/, 'A general RFQ letter goes to the CRM requirement line');
   assert.match(submit, /raw\.certifications, sourceProduct \? extraText : null\]/, 'Buyer requirements go to the CRM requirement line');
   for (const path of ['app/crm/rfqs/[id]/page.tsx', 'app/(public)/buyer/account/requests/[id]/offers/[matchId]/page.tsx',
     'app/(public)/buyer/account/page.tsx', 'app/crm/rfqs/page.tsx']) assert.match(read(path), /rfqProductParts\(/, `${path} splits product/requirements`);

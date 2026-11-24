@@ -51,6 +51,7 @@ const submit = load('../lib/rfq/submit.ts', {
   '@/lib/db': { getStore: () => submitStore },
   '@/lib/public/catalog': { listPublicSuppliers: async () => [{ id: supplier.id }] },
   '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
+  '@/lib/buyer/request-summary': { buyerProductTitle: (text) => String(text ?? '').trim(), buyerRequestMessage: () => null },
   '@/lib/public/product-catalog': { listPublicCategoryProducts: async () => [{ id: 'p-a', name: 'Cashew W320', supplierId: supplier.id }] },
   '@/lib/email/rfq': { sendRfqAckBuyer: async () => { genericAcks++; }, sendRfqNewInternal: async () => { genericInternal++; } },
   '.': { emailDomain: () => 'example.com', fingerprint: () => 'test', generateAccessToken: () => 'private-token', rfqDayKey: () => '20261017', generateRfqCode: () => 'RFQ-Q-1',

@@ -3,6 +3,7 @@ import { COMPANY, type CompanyInfo } from "@/lib/config";
 import { STAGE_CONTENT, type StageCopy } from "@/lib/email/stage-content";
 import { FUNNEL_STAGES, getStage, stageIndex, type StageKey } from "@/lib/pipeline";
 import type { Buyer, Supplier } from "@/lib/types";
+import { buyerOrderSummary } from "@/lib/buyer/request-summary";
 
 export interface EmailPayload {
   subject: string;
@@ -55,7 +56,7 @@ export function fill(
   ref?: string | null,
 ): string {
   const map: Record<string, string> = {
-    product: buyer.product || "your order",
+    product: buyerOrderSummary(buyer).title || "your order",
     quantity: buyer.quantity || "as discussed",
     spec: buyer.spec || "as agreed",
     country: buyer.country || "overseas",
@@ -251,11 +252,12 @@ export function buildBuyerEmail(opts: {
   const name = buyer.contact_name?.trim() || buyer.company;
   const refCode = opts.refCode?.trim() || null;
   const ref = refCode ?? shortCode(buyer.id);
+  const order = buyerOrderSummary(buyer);
 
   const summary = summaryTable(
     [
-      { label: "Product", value: buyer.product ?? "N/A" },
-      { label: "Specification", value: buyer.spec ?? "N/A" },
+      { label: "Product", value: order.title || "N/A" },
+      { label: "Specification", value: order.request ?? "N/A" },
       { label: "Quantity", value: buyer.quantity ?? "N/A" },
       { label: "Price term", value: buyer.incoterm ?? "N/A" },
       { label: "Destination port", value: buyer.port ?? "N/A" },
@@ -293,8 +295,8 @@ export function buildBuyerEmail(opts: {
       "",
       `Status: ${getStage(stage).labelEn}`,
       "",
-      `Product: ${buyer.product ?? "-"}`,
-      `Specification: ${buyer.spec ?? "-"}`,
+      `Product: ${order.title || "-"}`,
+      `Specification: ${order.request ?? "-"}`,
       `Quantity: ${buyer.quantity ?? "-"}`,
       `Price term: ${buyer.incoterm ?? "-"}`,
       `Port: ${buyer.port ?? "-"}`,
@@ -330,6 +332,7 @@ export function buildSupplierEmail(opts: {
   const copy = (opts.content ?? STAGE_CONTENT[stage]).supplier;
   const ref = opts.refCode?.trim() || shortCode(buyer.id);
   const stageDef = getStage(stage);
+  const order = buyerOrderSummary(buyer);
   const hidden = buyer.hide_buyer_from_supplier !== false;
   const buyerLabel = hidden
     ? `Khách hàng thị trường ${buyer.country || "nước ngoài"} (ẩn danh)`
@@ -338,8 +341,8 @@ export function buildSupplierEmail(opts: {
   const summary = summaryTable(
     [
       { label: "Người mua", value: buyerLabel },
-      { label: "Mặt hàng", value: buyer.product ?? "Chưa có" },
-      { label: "Quy cách", value: buyer.spec ?? "Chưa có" },
+      { label: "Mặt hàng", value: order.title || "Chưa có" },
+      { label: "Quy cách", value: order.request ?? "Chưa có" },
       { label: "Số lượng", value: buyer.quantity ?? "Chưa có" },
       { label: "Điều kiện giao", value: buyer.incoterm ?? "Chưa có" },
       { label: "Ngày giao dự kiến", value: fmtDate(buyer.expected_ship_date, "vi-VN") || "Chờ xác nhận" },
@@ -391,8 +394,8 @@ export function buildSupplierEmail(opts: {
       ...copy.body.map((p) => fill(p, buyer, supplier, ref)),
       "",
       `Người mua: ${buyerLabel}`,
-      `Mặt hàng: ${buyer.product ?? "-"}`,
-      `Quy cách: ${buyer.spec ?? "-"}`,
+      `Mặt hàng: ${order.title || "-"}`,
+      `Quy cách: ${order.request ?? "-"}`,
       `Số lượng: ${buyer.quantity ?? "-"}`,
       "",
       "VIỆC CẦN LÀM:",
@@ -441,6 +444,7 @@ export function buildSupplierAssignedEmail(opts: {
 }): EmailPayload {
   const { buyer, supplier } = opts;
   const ref = opts.refCode?.trim() || shortCode(buyer.id);
+  const order = buyerOrderSummary(buyer);
   const hidden = buyer.hide_buyer_from_supplier !== false;
   const buyerLabel = hidden
     ? `Khách hàng thị trường ${buyer.country || "nước ngoài"} (ẩn danh)`
@@ -449,8 +453,8 @@ export function buildSupplierAssignedEmail(opts: {
   const summary = summaryTable(
     [
       { label: "Người mua", value: buyerLabel },
-      { label: "Mặt hàng", value: buyer.product ?? "Chưa có" },
-      { label: "Quy cách", value: buyer.spec ?? "Chưa có" },
+      { label: "Mặt hàng", value: order.title || "Chưa có" },
+      { label: "Quy cách", value: order.request ?? "Chưa có" },
       { label: "Số lượng", value: buyer.quantity ?? "Chưa có" },
       { label: "Điều kiện giao", value: buyer.incoterm ?? "Chưa có" },
       { label: "Cảng đến", value: buyer.port ?? "Chưa có" },
@@ -503,8 +507,8 @@ export function buildSupplierAssignedEmail(opts: {
       `Phòng sale ${COMPANY.name} vừa kết nối một người mua mới với xưởng.`,
       "",
       `Người mua: ${buyerLabel}`,
-      `Mặt hàng: ${buyer.product ?? "-"}`,
-      `Quy cách: ${buyer.spec ?? "-"}`,
+      `Mặt hàng: ${order.title || "-"}`,
+      `Quy cách: ${order.request ?? "-"}`,
       `Số lượng: ${buyer.quantity ?? "-"}`,
       "",
       "Việc cần làm:",

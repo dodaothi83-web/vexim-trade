@@ -157,6 +157,7 @@ const table = runTs(read('components/buyer-table.tsx'), {
   '@/app/actions': { attachSupplierAction: () => { attaches++; throw Error('No automatic CRM attachment'); } },
   '@/lib/pipeline': { STAGES: [], getStage: () => ({ color: '#123', terminal: false }) },
   '@/lib/rfq/buyer-outreach': helpers,
+  '@/lib/buyer/request-summary': runTs(read('lib/buyer/request-summary.ts')),
   '@/components/stage-select': { StageSelect: () => null },
   '@/components/ui': ui,
   '@/components/toast': { useToast: () => ({ push() {} }) },

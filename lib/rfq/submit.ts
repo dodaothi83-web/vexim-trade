@@ -34,6 +34,7 @@ import { gcRateLimit, rateLimit } from "./rate-limit";
 import { afterResponse } from "./background";
 import { parseSubmitRfqInput } from "./submit-input";
 import { isShippingMethod } from "./shipping";
+import { buyerProductTitle, buyerRequestMessage } from "@/lib/buyer/request-summary";
 
 export interface SubmitRfqInput {
   // Step 1 – product
@@ -361,9 +362,14 @@ async function submitRfqChecked(input: SubmitRfqInput): Promise<SubmitRfqResult>
     linkedin: null,
     instagram: null,
     // CRM "Mặt hàng" holds only the product; what the buyer typed under a product-page
-    // RFQ is its own requirement line, never glued onto the product name.
-    product: sourceProduct ? sourceProduct.name : productText,
-    spec: [raw.grade, raw.packaging, raw.certifications, sourceProduct ? extraText : null].filter(Boolean).join(" · ") || null,
+    // RFQ is its own requirement line, never glued onto the product name. A general RFQ
+    // has one free-text box, often a whole letter: "Mặt hàng" keeps a short product title
+    // and the letter, verbatim, goes to "Quy cách / yêu cầu". The RFQ keeps the full text.
+    product: sourceProduct ? sourceProduct.name : buyerProductTitle(productText) || productText,
+    spec: [
+      [raw.grade, raw.packaging, raw.certifications, sourceProduct ? extraText : null].filter(Boolean).join(" · "),
+      sourceProduct ? null : buyerRequestMessage(productText),
+    ].filter(Boolean).join("\n\n") || null,
     quantity: raw.quantity && raw.unit ? `${raw.quantity} ${raw.unit}` : null,
     target_price:
       raw.target_price && raw.target_price_currency

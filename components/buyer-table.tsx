@@ -18,6 +18,7 @@ import {
 
 import { attachSupplierAction } from "@/app/actions";
 import { STAGES, getStage } from "@/lib/pipeline";
+import { buyerProductTitle } from "@/lib/buyer/request-summary";
 import { groupBuyerRfqOutreach, hasBuyerSupplierRelation } from "@/lib/rfq/buyer-outreach";
 import type { BuyerRfqOutreach, BuyerWithSupplier, Supplier } from "@/lib/types";
 import { StageSelect, type StageTarget } from "@/components/stage-select";
@@ -445,8 +446,8 @@ export function BuyerTable({
                       </div>
                     </td>
                     <td className="table-td max-w-[210px]">
-                      <p className="truncate text-[13px] font-medium text-ink-800">
-                        {b.product || <span className="text-ink-400">—</span>}
+                      <p className="truncate text-[13px] font-medium text-ink-800" title={b.product ?? undefined}>
+                        {buyerProductTitle(b.product) || <span className="text-ink-400">—</span>}
                       </p>
                       <p className="truncate text-[11.5px] text-ink-500">{b.quantity || ""}</p>
                     </td>
