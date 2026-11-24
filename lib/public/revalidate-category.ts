@@ -12,6 +12,15 @@ import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
  */
 export function revalidateCategoryPage(slug: string): void {
   revalidatePublicCatalog();
+  revalidateCategoryPaths(slug);
+}
+
+/**
+ * Chỉ dựng lại các trang của một danh mục, không xoá bản cache catalog. Dùng cùng
+ * revalidateProductEdit() (đã làm mới bản cache catalog ở nền): Next.js tự chờ dữ liệu catalog
+ * mới trước khi lưu bản dựng lại của trang danh mục.
+ */
+export function revalidateCategoryPaths(slug: string): void {
   revalidatePath(`/products/${slug}`);
   for (const lang of CATEGORY_RENDER_LANGS) revalidatePath(categoryRenderPath(slug, lang));
 }

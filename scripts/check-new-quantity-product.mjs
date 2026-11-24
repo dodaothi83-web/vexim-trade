@@ -61,7 +61,7 @@ const mocks = {
   '@/lib/i18n/server': { getPortalMessages: async () => ({ locale: 'vi', m: loadPortalDictionary().vi }) },
   '@/lib/i18n/format': { fill: (text, values) => text.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? '') },
   '@/lib/products/quantity-v2-validation': v2Validation,
-  'next/cache': { revalidatePath() {} }, '@/lib/public/revalidate-home': { revalidateHomePage() {} }, '@/lib/public/revalidate-category': { revalidateCategoryPage() {} },  '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => null, recordPlanActivation: async () => {} }, 
+  'next/cache': { revalidatePath() {} }, '@/lib/public/revalidate-home': { revalidateHomePage() {} }, '@/lib/public/revalidate-category': { revalidateCategoryPage() {}, revalidateCategoryPaths() {} },  '@/lib/supplier-plan-catalog': { readPlanCatalog: async () => null, recordPlanActivation: async () => {} }, 
   '@/lib/supplier-portal/pending-media': { readPendingMediaForm: () => ({ ok: true, value: { aplus: [], videoUid: null } }), attachPendingMedia: async () => true, PENDING_PRODUCT_ID: 'pending' },
   '@/lib/products/aplus-server': { prepareAplusForSave: async (modules) => ({ ok: true, modules, translationFailed: false }) },
   '@/lib/products/aplus': { APLUS_MAX_MODULES: 10 }, 

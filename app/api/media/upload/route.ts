@@ -7,7 +7,7 @@ import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import { syncMediaCdn } from "@/lib/media/cdn";
 import { revalidatePath } from "next/cache";
-import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
+import { revalidatePublicCatalog, revalidateProductEdit } from "@/lib/public/revalidate-public";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
 import { auditUploadKind } from "@/lib/verification";
 import { defaultCertificateLabelForKey, ingestCertificateScan, isL1CertificateKey } from "@/lib/certificate-service";
@@ -239,8 +239,13 @@ export async function POST(request: Request) {
   const okCount = results.filter((r) => r.ok).length;
   // Tệp chia sẻ người mua hiện ngay trên trang công khai (cache 1 giờ): làm mới bản cache catalog.
   if (okCount > 0 && audience === "buyer" && ownerType !== "verification") {
-    revalidatePublicCatalog();
-    revalidatePath("/products", "layout");
+    if (ownerType === "product") {
+      // Ảnh sản phẩm: chỉ trang sản phẩm này dựng lại ngay, trang khác làm mới ở nền.
+      revalidateProductEdit(ownerId);
+    } else {
+      revalidatePublicCatalog();
+      revalidatePath("/products", "layout");
+    }
     revalidatePath("/suppliers", "layout");
   }
   return NextResponse.json(

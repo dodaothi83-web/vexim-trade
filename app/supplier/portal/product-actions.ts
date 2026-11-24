@@ -3,7 +3,7 @@
 import { removeDeletedMediaFromCdn, syncMediaCdn } from "@/lib/media/cdn";
 import { stripEmptySpecLines } from "@/lib/products/spec-template";
 import { revalidatePath } from "next/cache";
-import { revalidateCategoryPage } from "@/lib/public/revalidate-category";
+import { revalidateCategoryPaths } from "@/lib/public/revalidate-category";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { supplierPriceConsentCurrent } from "@/lib/public/product-selection";
@@ -41,7 +41,7 @@ import { prepareAplusForSave } from "@/lib/products/aplus-server";
 import { APLUS_MAX_MODULES, type AplusProblem } from "@/lib/products/aplus";
 import type { AplusMessages } from "@/lib/i18n/portal/aplus";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
-import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
+import { revalidateProductEdit } from "@/lib/public/revalidate-public";
 
 type Result = { ok: boolean; message: string; id?: string; warning?: boolean };
 const text = (form: FormData, key: string, limit: number) => String(form.get(key) ?? "").trim().slice(0, limit);
@@ -375,9 +375,9 @@ export async function saveSupplierProductAction(form: FormData): Promise<Result>
     revalidatePath(`/supplier/portal/products/${saved.id}`);
     revalidatePath(`/crm/products/${saved.id}/edit`);
     if (keepPublished && saved.category) {
-      revalidateCategoryPage(saved.category);
-      revalidatePublicCatalog();
-      revalidatePath(`/products/${saved.category}/${saved.id}`);
+      // Trang sản phẩm này và trang danh mục của nó dựng lại ngay; trang khác làm mới ở nền.
+      revalidateProductEdit(saved.id);
+      revalidateCategoryPaths(saved.category);
     }
     return { ok: true, id: saved.id, message: keepPaused
       ? `${a.savedPaused}${consentWarning ? fill(a.afterSentence, { warning: consentWarning }) : ""}`
@@ -566,8 +566,7 @@ function revalidateProductManagement(id: string) {
   revalidatePath(`/supplier/portal/products/${id}`);
   revalidatePath("/crm/products");
   revalidatePath(`/crm/products/${id}/edit`);
-  revalidatePublicCatalog();
-  revalidatePath("/products", "layout");
+  revalidateProductEdit(id);
   revalidatePath("/suppliers", "layout");
   revalidateHomePage();
 }

@@ -30,7 +30,7 @@ export const mediaCdn = {
   publishSupplierImageToCdn: async () => null,
   removeSupplierImageFromCdn: async () => {},
 };
-export const revalidatePublic = { PUBLIC_CATALOG_TAG: 'public-catalog', revalidatePublicCatalog() {} };
+export const revalidatePublic = { PUBLIC_CATALOG_TAG: 'public-catalog', revalidatePublicCatalog() {}, revalidateProductEdit() {} };
 
 /** Gộp vào bảng mock: `{ ...mediaMocks, ...mocks }`. */
 export const mediaMocks = {

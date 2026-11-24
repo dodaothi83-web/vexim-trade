@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { prerender } from 'react-dom/static';
 import ts from 'typescript';
 import * as display from '../lib/public/product-detail-display.ts';
 import * as priceDisplay from '../lib/products/price-display.ts';
@@ -118,7 +119,7 @@ const store = {
 };
 const Null = () => null;
 const Wrapper = ({ children }) => React.createElement('div', null, children);
-const Link = ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children);
+const Link = ({ href, children, prefetch: _prefetch, ...props }) => React.createElement('a', { href, ...props }, children);
 const { SupplierWebsiteLink } = compile('../components/public/supplier-website-link.tsx', {
   'react/jsx-runtime': require('react/jsx-runtime'),
   'lucide-react': require('lucide-react'),
@@ -151,6 +152,7 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   '@/lib/auth/session': { getSession: async () => null },
   '@/lib/auth/permissions': { hasPermission: () => false },
   '@/lib/public/product-catalog': { listMoreFromSupplier: async () => moreFromSupplier, listPublicCategoryProducts: async () => [card], shareableProductImages: () => [] },
+  '@/lib/public/product-page-tag': { tagProductPage: async () => {} },
   '@/lib/product-attributes': { fieldsFor: () => [], publicProductAttributes: () => ({}), supplierFieldsFor: () => [] },
   '@/lib/public/product-video': { shareableProductVideo: () => null },
   '@/components/product-media-gallery': { ProductMediaGallery: Null },
@@ -188,9 +190,14 @@ const comparison = compile('../lib/public/product-comparison-data.ts', {
   '@/lib/public/supplier-website': { publicSupplierWebsite },
 });
 
+async function renderPage(element) {
+  const { prelude } = await prerender(element);
+  return await new Response(prelude).text();
+}
+
 async function checkSurfaces(product, expected) {
   currentProduct = product;
-  const html = renderToStaticMarkup(await detailPage.default({ params: Promise.resolve({ slug: 'cashew', productId: base.id }) }));
+  const html = await renderPage(await detailPage.default({ params: Promise.resolve({ slug: 'cashew', productId: base.id }) }));
   const value = html.match(/<dt[^>]*>Loading port<\/dt><dd[^>]*>(.*?)<\/dd>/)?.[1] ?? null;
   assert.equal(value, expected, 'Product detail renders the expected loading port');
   const [projected] = await comparison.getPublicProductsForComparison([base.id]);
@@ -205,21 +212,21 @@ await checkSurfaces({ ...base, export_port: 'Nam Đình Vũ, supplier@example.co
 await checkSurfaces(withTranslation(base, 'Nam Dinh Vu, supplier@example.com'), 'Nam Dinh Vu, [contact via Vexim]');
 
 const pageParams = { params: Promise.resolve({ slug: 'cashew', productId: base.id }) };
-let pageHtml = renderToStaticMarkup(await detailPage.default(pageParams));
+let pageHtml = await renderPage(await detailPage.default(pageParams));
 assert.match(pageHtml, /href="https:\/\/www\.example-supplier\.vn\/about"/, 'Product supplier card links to the website');
 assert.match(pageHtml, /Company website: example-supplier\.vn \(opens in a new tab\)/);
 assert.doesNotMatch(pageHtml, /private@example\.com/);
 currentSupplier = { ...currentSupplier, website: 'javascript:alert(1)' };
-pageHtml = renderToStaticMarkup(await detailPage.default(pageParams));
+pageHtml = await renderPage(await detailPage.default(pageParams));
 assert.doesNotMatch(pageHtml, /Company website:|javascript:alert/, 'Invalid links are not displayed on product details');
 currentSupplier = { ...currentSupplier, status: 'draft', website: 'https://hidden.example.vn/' };
-pageHtml = renderToStaticMarkup(await detailPage.default(pageParams));
+pageHtml = await renderPage(await detailPage.default(pageParams));
 assert.doesNotMatch(pageHtml, /hidden\.example\.vn/, 'A supplier that is no longer public gets no external link');
 
 // Nhà cung cấp chỉ có một sản phẩm, không có nhà cung cấp khác: cả hai khối gợi ý đều ẩn.
 assert.doesNotMatch(pageHtml, /id="more-from-supplier"|id="similar-offers"/, 'No sibling or similar products: both rails are hidden');
 moreFromSupplier = [{ card: { ...card, id: 'sibling-1', name: 'Sibling' }, categorySlug: 'pepper' }];
-pageHtml = renderToStaticMarkup(await detailPage.default(pageParams));
+pageHtml = await renderPage(await detailPage.default(pageParams));
 assert.match(pageHtml, /id="more-from-supplier"/, 'Supplier with other products shows More from this supplier');
 assert.doesNotMatch(pageHtml, /id="similar-offers"/);
 moreFromSupplier = [];
