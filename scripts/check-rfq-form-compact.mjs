@@ -52,7 +52,7 @@ assert.ok(!quoteKeys.includes('phone'), 'Số điện thoại không được b�
 // Dùng thẻ div thật (không phải aria-controls của nút) để mốc so sánh đúng.
 const detailsAt = form.indexOf('<div id="rfq-details"');
 assert.ok(detailsAt > 0, 'Có mục chi tiết thu gọn');
-for (const heavy of ['label="Grade / spec"', 'label="Incoterm"', 'label="Shipment month"', 'label="Packaging / labelling"', 'label="Required certificates"', 'label="Website"', 'label="Business type"', 'label="Purchase frequency"', 'label={directForm ? "Private note" : "Additional notes"}']) {
+for (const heavy of ['label="Grade / spec"', 'label="Incoterm"', 'label="Shipment month"', 'label="Packaging / labelling"', 'label="Required certificates"', 'label="Website"', 'label="Business type"', 'label="Purchase frequency"', 'label="Additional notes"']) {
   const at = form.indexOf(heavy);
   assert.ok(at > detailsAt, `${heavy} phải nằm trong mục chi tiết (sau id="rfq-details")`);
 }
@@ -72,9 +72,11 @@ for (const field of ['quantity', 'unit', 'frequency', 'incoterm', 'destination_c
   assert.ok(new RegExp(`\\b${field}:`).test(submitPayload), `Payload còn gửi "${field}"`);
 }
 
-for (const removed of ['target_price', 'target_price_currency', 'target_price_unit', 'share_target_price']) {
-  assert.ok(!new RegExp(`\\b${removed}:`).test(submitPayload), `Form không còn gửi "${removed}" (đã bỏ giá mục tiêu)`);
-}
+// 24/11/2026 (chủ dự án): giá mục tiêu và phương thức vận chuyển quay lại form chính, luôn chia sẻ cho NCC.
+assert.match(submitPayload, /\.\.\.targetPricePayload\(data\.target_price, data\.target_price_basis\)/, 'Payload gửi giá mục tiêu');
+assert.match(submitPayload, /shipping_method: data\.shipping_method \|\| null/, 'Payload gửi phương thức vận chuyển');
+assert.match(form, /share_target_price: true \}/, 'Có giá mục tiêu thì luôn chia sẻ cho NCC');
+assert.match(form, /target_price: null, target_price_currency: null, target_price_unit: null, share_target_price: false/, 'Bỏ trống giá thì không gửi gì');
 
 /* 6. Chống spam và prefill không bị mất */
 assert.match(form, /<FormChallenge purpose="rfq"/);
@@ -87,7 +89,8 @@ assert.match(form, /source_product_id/, 'Liên kết sản phẩm nguồn vẫn 
 // Chỉ đếm phần báo giá; chế độ câu hỏi ở phía trên có bộ ô riêng.
 const quoteStart = form.indexOf("{/* Khối 1: sản phẩm");
 const visibleFields = (form.slice(quoteStart, detailsAt).match(/<Field\b/g) ?? []).length;
-assert.ok(visibleFields <= 9, `Chỉ nên còn tối đa 9 ô hiện ngay, đang có ${visibleFields}`);
+// 10 = 9 ô cũ + hàng "Target price | Shipping method" (2 ô tuỳ chọn) chủ dự án yêu cầu đưa lên 24/11/2026, trừ không ô nào.
+assert.ok(visibleFields <= 10, `Chỉ nên còn tối đa 10 ô hiện ngay, đang có ${visibleFields}`);
 
 /* 8b. Bố cục cột: trang rộng 1120px, sidebar 280-300px, hàng số lượng theo container query */
 const rfqPublicPage = readFileSync(path.join(root, 'app/(public)/rfq/page.tsx'), 'utf8');
@@ -123,8 +126,15 @@ for (const key of ['product_text', 'quantity', 'destination_country', 'company',
   assert.match(form, new RegExp(`key: "${key}"`), `Thanh tiến độ theo dõi "${key}"`);
 }
 assert.match(form, /\{completed\}\/\{requiredChecks\.length\} required/, 'Hiện số ô đã điền trên tổng số');
-// Giá mục tiêu đã bỏ hẳn khỏi form (cả ô giá lẫn ô chia sẻ cho nhà cung cấp).
-assert.doesNotMatch(form, /target_price|Target price|Share my target price/, 'Form không còn giá mục tiêu');
+// Giá mục tiêu + phương thức vận chuyển: tuỳ chọn, nằm ở form chính giữa Quantity và Destination.
+const targetAt = form.indexOf('label="Target price (optional)"');
+const shippingAt = form.indexOf('label="Shipping method (optional)"');
+assert.ok(targetAt > form.indexOf('label="Quantity"') && targetAt < form.indexOf('label="Destination"') && targetAt < detailsAt, 'Target price ở form chính, sau Quantity');
+assert.ok(shippingAt > targetAt && shippingAt < form.indexOf('label="Destination"'), 'Shipping method đứng ngay cạnh Target price');
+assert.doesNotMatch(form, /Share my target price/, 'Không có ô tích chia sẻ: giá mục tiêu luôn hiện cho NCC');
+// RFQ gửi thẳng NCC không qua Vexim: không có ô ghi chú chỉ Vexim đọc.
+assert.match(form, /\{!directForm && \(\s*<Field label="Additional notes"/, 'Form gửi thẳng NCC không có ghi chú riêng');
+assert.match(form, /message: directForm \? null : data\.message \|\| null/, 'Form gửi thẳng NCC không gửi ghi chú riêng');
 assert.match(form, /maxLength=\{4000\}/, 'Mô tả sản phẩm bị giới hạn 4.000 ký tự');
 
 /* 10. Ô tháng giao hàng và câu chú thích giá mục tiêu */

@@ -6,7 +6,7 @@ import { Check } from "lucide-react";
 
 import { VERIFICATION_TIER_TONES, verificationTier, type VerificationTier } from "@/components/verification-tier";
 import { VERIFICATION_DISPLAY_ORDER, type VerificationLevel } from "@/lib/types";
-import { verificationLabel, type PublicL2Scope } from "@/lib/verification-status";
+import { verificationCheckLabel, type PublicL2Scope } from "@/lib/verification-status";
 
 /**
  * Nhãn xác minh gọn trên thẻ sản phẩm: "Verified" + khiên nhỏ có số cấp (L1/L2/L3).
@@ -63,11 +63,11 @@ export function VerifiedBadge({ levels, l2Scope }: { levels: readonly Verificati
   // Chưa có bước nào được duyệt: thẻ không hiện nhãn (không có "Verified L0").
   if (tier === 0) return null;
 
-  const rows = VERIFICATION_DISPLAY_ORDER.map((level) => ({
-    level,
-    label: verificationLabel(level, l2Scope),
-    on: levels.includes(level),
-  }));
+  // Bước chưa duyệt luôn mang tên chuẩn ("Factory verification"), không hiện "L3 review".
+  const rows = VERIFICATION_DISPLAY_ORDER.map((level) => {
+    const on = levels.includes(level);
+    return { level, on, label: verificationCheckLabel(level, l2Scope, on) };
+  });
   const accessibleName = `Verified L${tier}. Supplier checks: ${rows.map((r) => `${r.label}: ${r.on ? "Approved" : "Not approved"}`).join("; ")}`;
 
   return (

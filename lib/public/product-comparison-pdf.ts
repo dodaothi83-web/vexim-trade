@@ -1,7 +1,7 @@
 import type { Content, TableCell, TDocumentDefinitions } from "pdfmake/interfaces";
 import type { PublicComparedProduct } from "@/lib/public/product-comparison-data";
 import { productComparisonWarnings } from "@/lib/public/product-comparison";
-import { verificationLabel } from "@/lib/verification-status";
+import { verificationCheckLabel } from "@/lib/verification-status";
 import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 import { publicProductLocationDisplay } from "@/lib/public/product-detail-display";
 import { publicSupplierWebsite } from "@/lib/public/supplier-website";
@@ -54,7 +54,7 @@ export function comparisonPdfDefinition(products: PublicComparedProduct[], origi
   row("Location", (p) => publicProductLocationDisplay(p.province));
   row("Raw material region", (p) => value(p.rawMaterialRegion));
   row("Input material origin", (p) => value(p.inputMaterialOrigin));
-  row("Vexim verification", (p) => VERIFICATION_DISPLAY_ORDER.map((level) => `${verificationLabel(level, p.l2Scope)}: ${p.verificationSteps.includes(level) ? "Approved" : "Not approved"}`).join("\n"));
+  row("Vexim verification", (p) => VERIFICATION_DISPLAY_ORDER.map((level) => `${verificationCheckLabel(level, p.l2Scope, p.verificationSteps.includes(level))}: ${p.verificationSteps.includes(level) ? "Approved" : "Not approved"}`).join("\n"));
   row("Public supplier certificates", (p) => p.certificates.length ? p.certificates.map((c) => `${c.name}\nValid until ${c.validUntil}\n${c.holderMatch === "owner" ? "Registered to supplier" : `Third-party holder: ${c.holderName}`}`).join("\n\n") : "No public certificates");
   row("Product link", (p) => new URL(p.href, origin).href);
   const warnings = productComparisonWarnings(products);

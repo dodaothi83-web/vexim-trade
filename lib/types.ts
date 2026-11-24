@@ -1240,13 +1240,17 @@ export type SupplierRfqInvitation = Pick<RfqMatch,
     "last_buyer_message_at" | "last_supplier_message_at">> & {
   rfq: Pick<Rfq, "code" | "product_text" | "quantity" | "unit" | "frequency" | "destination_country" |
     "incoterm" | "needed_by" | "wants_samples" | "wants_inspection" | "wants_video_call" |
-    "source_product_id" | "source_page"> & Partial<Pick<Rfq, "status" | "preferred_supplier_ids">> & {
+    "source_product_id" | "source_page"> & Partial<Pick<Rfq, "status" | "preferred_supplier_ids" | "target_price" | "target_price_currency">> & {
       /** Whitelisted request fields from specs; never select the whole JSON object or desk-only notes. */
       grade?: unknown;
       packaging?: unknown;
       certifications?: unknown;
       destination_port?: unknown;
       shipment_month?: unknown;
+      shipping_method?: unknown;
+      target_price_unit?: unknown;
+      /** Target price is shown to the supplier only when this is true (the public form always sets it). */
+      share_target_price?: unknown;
       /** Internal channel marker for correct quote-delivery copy; not returned to the client. */
       sourcing_request_id?: unknown;
       /** Whitelisted contact snapshot; the board only uses it after verifying RFQ-specific consent. */

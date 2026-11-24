@@ -15,6 +15,7 @@ import { createRequire } from 'node:module';
 import { TextEncoder } from 'node:util';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as rfqShippingModule from "../lib/rfq/shipping.ts";
 
 const requireHost = createRequire(import.meta.url);
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
@@ -139,6 +140,7 @@ function makeSubmit({ afterImpl }) {
     '@/lib/security/challenge': challenge,
     './background': background,
     './submit-input': inputMod,
+    './shipping': rfqShippingModule,
   }, { RFQ_REJECT_WEBMAIL: 'false' });
   return { submit, state };
 }

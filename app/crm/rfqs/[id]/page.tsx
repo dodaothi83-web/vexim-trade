@@ -68,6 +68,7 @@ import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { LEAD_RATING_STAFF_NOTE, LeadRatingList } from "@/components/crm/lead-ratings";
 import { migrationHint } from "@/lib/db/migration-hints";
 import { rfqProductParts } from "@/lib/rfq/product-text";
+import { shippingMethodLabel } from "@/lib/rfq/shipping";
 
 export const dynamic = "force-dynamic";
 
@@ -427,6 +428,7 @@ export default async function RfqDetailPage({
                 {rfq.destination_country ?? "—"}
                 {String(specs.destination_port ?? "") && <span className="text-ink-500"> · {String(specs.destination_port)}</span>}
                 <span className="text-ink-500"> · {rfq.incoterm ?? "—"}</span>
+                {shippingMethodLabel(specs.shipping_method, "vi") && <span className="text-ink-500"> · {shippingMethodLabel(specs.shipping_method, "vi")}</span>}
               </Field>
               <Field icon={<CalendarClock className="h-4 w-4" />} label="Giao hàng">{deliveryText}</Field>
               <Field icon={<Tag className="h-4 w-4" />} label="Giá mục tiêu">

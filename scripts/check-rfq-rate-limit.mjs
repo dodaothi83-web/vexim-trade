@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as rfqShippingModule from "../lib/rfq/shipping.ts";
 
 function load(file, mocks = {}, env = {}) {
   const module = { exports: {} };
@@ -76,6 +77,7 @@ function makeHarness({ buyers = [], rfqs = [] } = {}) {
     '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
     './background': { afterResponse: async (_label, task) => { await task(); } },
   './submit-input': { parseSubmitRfqInput: (raw) => ({ ok: true, data: raw }) },
+  './shipping': rfqShippingModule,
   '@/lib/security/challenge': { consumeFormChallenge: () => {}, verifyFormChallenge: () => ({ ok: true }) },
     '.': {
       emailDomain: () => 'example.com', fingerprint: () => 'unused', generateAccessToken: () => 'tok',

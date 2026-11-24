@@ -137,6 +137,7 @@ const badgeSource = readFileSync(new URL('../components/verified-badge.tsx', imp
 assert.match(badgeSource, /if \(tier === 0\) return null/, 'Chưa có bước nào duyệt: không hiện nhãn');
 assert.match(badgeSource, /VERIFICATION_DISPLAY_ORDER\.map/, 'Bảng chi tiết liệt kê cả ba bước');
 assert.match(badgeSource, /"Approved" : "Not approved"/);
+assert.match(badgeSource, /label: verificationCheckLabel\(level, l2Scope, on\)/, 'Bước chưa duyệt dùng tên chuẩn, không hiện "L3 review"');
 assert.match(badgeSource, /aria-expanded=\{open\}/, 'Chạm để mở trên điện thoại');
 assert.match(badgeSource, /addEventListener\("pointerdown"/, 'Chạm ra ngoài để đóng');
 assert.match(badgeSource, /event\.key === "Escape"/, 'Esc để đóng');

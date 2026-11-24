@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 import { loadFormat } from './lib/i18n-format.mjs';
+import * as rfqShippingModule from "../lib/rfq/shipping.ts";
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 function load(file, mocks = {}) {
   const mod = { exports: {} };
@@ -37,6 +38,7 @@ const certificateRejection = load('lib/certificate-rejection.ts');
 const certificateCopy = load('lib/certificate-supplier-copy.ts', { './certificate-rejection.ts': certificateRejection });
 const dashboard = load('lib/supplier-portal/dashboard.ts', {
   '@/lib/rfq/buyer-contact': contact, '@/lib/rfq/channel': channel,
+  '@/lib/rfq/shipping': rfqShippingModule,
   '@/lib/rfq/mediated': { deskHasNewReply: () => false }, '@/lib/rfq/portal-core': core,
   '@/lib/public/display-name': load('lib/public/display-name.ts'),
   '@/lib/public/product-selection': { withoutDirectContacts: (s) => String(s).replace(/[\w.+-]+@[\w.-]+/g, '[redacted]') },

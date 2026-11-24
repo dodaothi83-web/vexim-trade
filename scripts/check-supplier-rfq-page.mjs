@@ -11,6 +11,7 @@ import { createRoot } from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 import { loadPortalDictionary } from './lib/portal-dictionary.mjs';
 import { loadFormat } from './lib/i18n-format.mjs';
+import * as rfqShippingModule from "../lib/rfq/shipping.ts";
 
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const detailPageSource = read('app/supplier/portal/rfqs/[matchId]/page.tsx');
@@ -45,6 +46,7 @@ const core = loadTs(read('lib/rfq/portal-core.ts'), {
 const boardModule = loadTs(read('lib/supplier-portal/dashboard.ts'), {
   '@/lib/rfq/buyer-contact': contact,
   '@/lib/rfq/channel': channel,
+  '@/lib/rfq/shipping': rfqShippingModule,
   '@/lib/rfq/mediated': { deskHasNewReply: (thread, side) => !!thread && !!(side === 'staff' ? thread.last_party_message_at : thread.last_staff_message_at) },
   '@/lib/rfq/portal-core': core,
   '@/lib/public/display-name': displayName,
@@ -115,8 +117,11 @@ assert.match(select, /rfq:rfqs!inner\([\s\S]{0,80}product_text/);
 assert.match(select, /grade:specs->>grade,packaging:specs->>packaging,certifications:specs->>certifications/);
 assert.match(select, /destination_port:specs->>destination_port,shipment_month:specs->>shipment_month/);
 assert.match(select, /\.eq\("supplier_id", supplierId\)\.not\("sent_to_supplier_at", "is", null\)\.neq\("status", "proposed"\)/);
-assert.doesNotMatch(select, /(?:\bspecs\b\s*[,)]|\bnotes\b|\baccess_token\b|\bbuyer_id\b|\btarget_price\b)/,
-  'No full specs, internal notes, buyer row or private budget may reach the supplier');
+assert.doesNotMatch(select, /(?:\bspecs\b\s*[,)]|\bnotes\b|\baccess_token\b|\bbuyer_id\b)/,
+  'No full specs, internal notes or buyer row may reach the supplier');
+// Giá mục tiêu chỉ hiện cho NCC khi RFQ cho phép (form công khai luôn bật từ 24/11/2026).
+assert.match(select, /shipping_method:specs->>shipping_method,target_price_unit:specs->>target_price_unit,share_target_price:specs->share_target_price/);
+assert.match(read('lib/supplier-portal/dashboard.ts'), /targetPrice: rfq\.share_target_price === true \|\| rfq\.share_target_price === "true"\s*\? targetPriceText\(/, 'Target price is gated by share_target_price');
 
 const products = [
   { id: 'p1', supplier_id: supplierId, name: 'Mixed dried fruit chips',

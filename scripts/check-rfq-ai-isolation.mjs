@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as rfqShippingModule from "../lib/rfq/shipping.ts";
 
 function load(file, mocks = {}, env = {}) {
   const module = { exports: {} };
@@ -221,6 +222,7 @@ const submit = load('../lib/rfq/submit.ts', {
   './rate-limit': { gcRateLimit() {}, rateLimit: () => ({ ok: true }) },
   './background': { afterResponse: async (_label, task) => { await task(); } },
   './submit-input': { parseSubmitRfqInput: (raw) => ({ ok: true, data: raw }) },
+  './shipping': rfqShippingModule,
   '@/lib/security/challenge': { consumeFormChallenge: () => {}, verifyFormChallenge: () => ({ ok: true }) },
   // Đây là kịch bản xấu nhất: mã AI ném lỗi đồng bộ ngay tại dòng gọi.
   './enrich': { scheduleRfqEnrichment: () => { throw new Error('AI module exploded'); } },

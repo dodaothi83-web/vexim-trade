@@ -20,6 +20,7 @@ import { FormChallenge } from "@/components/form-challenge";
 import { RFQ_FIELD_LIMITS as LIMITS } from "@/lib/rfq/input-limits";
 import { relevantGradeTags } from "@/lib/rfq/grade-tags";
 import { cx } from "@/components/ui";
+import { SHIPPING_METHODS, SHIPPING_METHOD_LABELS, TARGET_PRICE_BASES } from "@/lib/rfq/shipping";
 import type { RfqProductContext } from "@/lib/public/rfq-product-context";
 
 interface Option {
@@ -120,6 +121,10 @@ export function RfqForm({
     unit: "MT",
     frequency: "One-time",
     incoterm: "",
+    // Giá mục tiêu: ô số + "tiền tệ/đơn vị" (mặc định theo giá tham khảo của sản phẩm nếu có).
+    target_price: "",
+    target_price_basis: defaultTargetPriceBasis(contextProduct?.referencePrice ?? null),
+    shipping_method: "",
     destination_country: "",
     destination_port: "",
     needed_by: "",
@@ -163,6 +168,7 @@ export function RfqForm({
     // Có thẻ sản phẩm thì server tự dựng tên sản phẩm; ô này chỉ là yêu cầu thêm.
     if (!contextProduct && !data.product_text.trim()) e.product_text = "Describe the product and grade you need.";
     if (!data.quantity || Number(data.quantity) <= 0) e.quantity = "Enter a quantity.";
+    if (data.target_price && !(Number(data.target_price) > 0)) e.target_price = "Enter a price above 0, or leave it empty.";
     if (!data.destination_country) e.destination_country = "Pick a destination.";
     if (!data.company.trim()) e.company = "Enter your company name.";
     if (!data.contact_name.trim()) e.contact_name = "Enter your name.";
@@ -205,6 +211,8 @@ export function RfqForm({
         unit: data.unit,
         frequency: data.frequency,
         incoterm: data.incoterm,
+        ...targetPricePayload(data.target_price, data.target_price_basis),
+        shipping_method: data.shipping_method || null,
         destination_country: data.destination_country || null,
         destination_port: data.destination_port || null,
         needed_by: data.needed_by || null,
@@ -219,7 +227,7 @@ export function RfqForm({
           ...(data.certifications as string[]),
           ...((data.certOther as string) ? String(data.certOther).split(/[,;]/).map((s) => s.trim()).filter(Boolean) : []),
         ].join(", ") || null,
-        message: data.message || null,
+        message: directForm ? null : data.message || null,
         company: data.company,
         contact_name: data.contact_name,
         email: data.email,
@@ -430,6 +438,43 @@ export function RfqForm({
                   </div>
                 </Field>
               </div>
+              {/* Giá mục tiêu và phương thức vận chuyển: tuỳ chọn, cùng một hàng từ 640px. */}
+              <Field
+                label="Target price (optional)"
+                error={errors.target_price}
+                id="rfq-target_price"
+                hint={contextProduct?.referencePrice
+                  ? `Supplier's reference: ${contextProduct.referencePrice}${contextProduct.incoterm ? ` ${contextProduct.incoterm}` : ""}.`
+                  : undefined}
+              >
+                <div className="flex">
+                  <input
+                    id="rfq-target_price"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="any"
+                    className="input min-w-0 flex-1 rounded-r-none"
+                    value={data.target_price}
+                    onChange={(e) => update("target_price", e.target.value)}
+                    placeholder="e.g. 6.8"
+                  />
+                  <select
+                    aria-label="Target price currency and unit"
+                    className="input w-[112px] shrink-0 rounded-l-none border-l-0"
+                    value={data.target_price_basis}
+                    onChange={(e) => update("target_price_basis", e.target.value)}
+                  >
+                    {TARGET_PRICE_BASES.map((basis) => <option key={basis}>{basis}</option>)}
+                  </select>
+                </div>
+              </Field>
+              <Field label="Shipping method (optional)" id="rfq-shipping_method">
+                <select id="rfq-shipping_method" className="input" value={data.shipping_method} onChange={(e) => update("shipping_method", e.target.value)}>
+                  <option value="">Not sure yet</option>
+                  {SHIPPING_METHODS.map((method) => <option key={method} value={method}>{SHIPPING_METHOD_LABELS.en[method]}</option>)}
+                </select>
+              </Field>
               <Field label="Destination" required error={errors.destination_country} id="rfq-destination_country">
                 <input
                   id="rfq-destination_country"
@@ -626,10 +671,13 @@ export function RfqForm({
                 </Field>
               </div>
 
-              <Field label={directForm ? "Private note" : "Additional notes"}
-                hint={directForm ? "Not sent to your chosen supplier. Put requirements in the main description." : "Not sent to invited suppliers."}>
-                <textarea rows={3} maxLength={4000} className="input resize-y" value={data.message} onChange={(e) => update("message", e.target.value)} placeholder="Timeline, current suppliers, or anything else we should know." />
-              </Field>
+              {/* RFQ gửi thẳng NCC không qua Vexim, nên không có ô ghi chú chỉ Vexim đọc:
+                  mọi yêu cầu nằm ở ô mô tả chính. Chỉ RFQ chung (Vexim điều phối) mới có ghi chú riêng. */}
+              {!directForm && (
+                <Field label="Additional notes" hint="Not sent to invited suppliers.">
+                  <textarea rows={3} maxLength={4000} className="input resize-y" value={data.message} onChange={(e) => update("message", e.target.value)} placeholder="Timeline, current suppliers, or anything else we should know." />
+                </Field>
+              )}
             </div>
           )}
         </section>
@@ -755,4 +803,20 @@ function ToggleChip({
       {children}
     </button>
   );
+}
+
+/** Đơn vị giá mục tiêu mặc định theo giá tham khảo của sản phẩm ("€6.5/MT" → EUR/MT); không có thì USD/kg. */
+function defaultTargetPriceBasis(referencePrice: string | null): string {
+  const ref = (referencePrice ?? "").toLowerCase();
+  const currency = ref.includes("€") || ref.includes("eur") ? "EUR" : "USD";
+  const unit = /\/\s*(mt|ton|tonne|tấn)\b/.test(ref) ? "MT" : "kg";
+  return `${currency}/${unit}`;
+}
+
+/** Form luôn chia sẻ giá mục tiêu cho NCC báo giá (chủ dự án quyết định 24/11/2026). */
+function targetPricePayload(price: string, basis: string) {
+  const amount = Number(price);
+  if (!price || !(amount > 0)) return { target_price: null, target_price_currency: null, target_price_unit: null, share_target_price: false };
+  const [currency, unit] = basis.split("/");
+  return { target_price: amount, target_price_currency: currency || "USD", target_price_unit: unit || null, share_target_price: true };
 }

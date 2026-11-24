@@ -11,6 +11,7 @@ import { rfqsMessages } from "@/lib/i18n/portal/rfqs";
 import { rfqBuyerContact, sourcingInviteConsent, type RfqBuyerContact } from "@/lib/rfq/buyer-contact";
 import { deskHasNewReply } from "@/lib/rfq/mediated";
 import { rfqChannel } from "@/lib/rfq/channel";
+import { shippingMethodLabel, targetPriceText } from "@/lib/rfq/shipping";
 
 export interface PortalNotice {
   key: string;
@@ -48,6 +49,9 @@ export interface PortalInvite {
     frequency: string | null;
     incoterm: string | null;
     delivery: string | null;
+    /** Buyer's target price, only when the RFQ allows suppliers to see it. */
+    targetPrice: string | null;
+    shippingMethod: string | null;
     wantsSamples: boolean;
     wantsInspection: boolean;
     wantsVideoCall: boolean;
@@ -174,6 +178,9 @@ function projectInvites(relevant: SupplierRfqInvitation[], products: SupplierPro
         grade: text(rfq.grade), packaging: text(rfq.packaging, 500),
         certifications: text(rfq.certifications, 500), frequency: text(rfq.frequency, 100),
         incoterm: text(rfq.incoterm, 30), delivery: deliveryMonth || text(rfq.needed_by, 100),
+        targetPrice: rfq.share_target_price === true || rfq.share_target_price === "true"
+          ? targetPriceText(rfq.target_price, rfq.target_price_currency, rfq.target_price_unit) : null,
+        shippingMethod: shippingMethodLabel(rfq.shipping_method, language === "vi" ? "vi" : "en"),
         wantsSamples: rfq.wants_samples === true, wantsInspection: rfq.wants_inspection === true,
         wantsVideoCall: rfq.wants_video_call === true,
       },

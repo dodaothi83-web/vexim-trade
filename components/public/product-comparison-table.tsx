@@ -8,7 +8,7 @@ import { VerificationTierBadge } from "@/components/verification-tier";
 import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
 import { productComparisonWarnings, type ProductComparisonSelection } from "@/lib/public/product-comparison";
 import type { PublicComparedProduct } from "@/lib/public/product-comparison-data";
-import { verificationLabel } from "@/lib/verification-status";
+import { verificationCheckLabel } from "@/lib/verification-status";
 import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 import { publicProductLocationDisplay } from "@/lib/public/product-detail-display";
 
@@ -169,7 +169,7 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
                     return (
                       <li key={level} className="flex items-start gap-2 text-xs leading-5">
                         {approved ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" aria-hidden="true" /> : <Minus className="mt-0.5 size-3.5 shrink-0 text-ink-300" aria-hidden="true" />}
-                        <span className={approved ? "text-ink-800" : "text-ink-400"}>{verificationLabel(level, product.l2Scope)}: {approved ? "Approved" : "Not approved"}</span>
+                        <span className={approved ? "text-ink-800" : "text-ink-400"}>{verificationCheckLabel(level, product.l2Scope, approved)}: {approved ? "Approved" : "Not approved"}</span>
                       </li>
                     );
                   })}
