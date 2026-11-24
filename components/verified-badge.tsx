@@ -45,7 +45,17 @@ export function TierShield({ tier, className = "h-[18px] w-[18px] sm:h-5 sm:w-5"
   );
 }
 
-export function VerifiedBadge({ levels, l2Scope }: { levels: readonly VerificationLevel[]; l2Scope?: PublicL2Scope }) {
+export function VerifiedBadge({ levels, l2Scope, align = "right" }: {
+  levels: readonly VerificationLevel[];
+  l2Scope?: PublicL2Scope;
+  /**
+   * Mép neo bảng chi tiết. "right" (mặc định): nhãn nằm sát mép phải thẻ sản phẩm, bảng mở sang trái.
+   * "left": nhãn nằm ở bên trái khung (khối Supplied by trên trang sản phẩm), bảng mở sang phải để
+   * không bị khung có overflow-hidden cắt mất. Khi đó bảng luôn mở xuống dưới (phía trên chỉ có tên
+   * nhà cung cấp, không đủ chỗ).
+   */
+  align?: "left" | "right";
+}) {
   const [open, setOpen] = useState(false);
   // Thẻ nằm sát mép trên màn hình (dưới thanh menu dính): mở bảng xuống dưới thay vì lên trên.
   const [below, setBelow] = useState(false);
@@ -107,7 +117,7 @@ export function VerifiedBadge({ levels, l2Scope }: { levels: readonly Verificati
       <span
         id={panelId}
         role="tooltip"
-        className={`absolute right-0 z-40 w-60 max-w-[calc(100vw-2rem)] ${below ? "top-full pt-2" : "bottom-full pb-2"} ${
+        className={`absolute ${align === "left" ? "left-0" : "right-0"} z-40 w-60 max-w-[calc(100vw-2rem)] ${below || align === "left" ? "top-full pt-2" : "bottom-full pb-2"} ${
           open ? "block" : "hidden group-hover/vb:block group-focus-within/vb:block"}`}
       >
         <span className="block rounded-lg border border-ink-200 bg-white p-3 text-left shadow-xl">

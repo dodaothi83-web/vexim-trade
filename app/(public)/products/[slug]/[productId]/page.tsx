@@ -397,7 +397,7 @@ export default async function PublicProductDetail({ params }: Props) {
                 {/* Website nằm cùng hàng với dấu xác minh; hết chỗ thì tự xuống dòng. */}
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                   {/* Cùng nhãn "Verified L1/L2/L3" như thẻ sản phẩm (chủ sàn chốt 24/11/2026). */}
-                  <VerifiedBadge levels={card.verificationSteps} l2Scope={card.l2Scope} />
+                  <VerifiedBadge levels={card.verificationSteps} l2Scope={card.l2Scope} align="left" />
                   <SupplierWebsiteLink website={supplierWebsite} plain className="min-h-8" />
                 </div>
               </div>
