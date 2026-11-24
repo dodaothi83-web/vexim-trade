@@ -9,7 +9,7 @@ import { readQuantityPricingPolicy } from "@/lib/products/quantity-price-config"
 import { entryCurrencyIssue, validateQuantityPricing } from "@/lib/products/quantity-pricing";
 import { validateV2Form, v2StagingEnabled } from "@/lib/products/quantity-v2-validation";
 import { productGate } from "@/lib/auth/supplier-access";
-import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
+import { revalidateProductEdit } from "@/lib/public/revalidate-public";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Result = { ok: boolean; message: string };
@@ -82,8 +82,7 @@ export async function submitStaffQuantityPriceAction(form: FormData): Promise<Re
     }).catch((error) => console.error("[quantity-pricing] staff submission audit", error));
     revalidatePath(`/crm/products/${id}/edit`);
     revalidatePath(`/supplier/portal/products/${id}`);
-    revalidatePublicCatalog();
-    revalidatePath("/products", "layout");
+    revalidateProductEdit(id);
     revalidatePath("/suppliers", "layout");
     return { ok: true, message: "Đã cập nhật bảng giá." };
   } catch (error) {

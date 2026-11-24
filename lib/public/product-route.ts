@@ -5,8 +5,8 @@
  *
  * Vì sao: /products/[slug]/[productId] từng là force-dynamic (đọc cookie ngôn ngữ + phiên),
  * nên mỗi lượt xem đều chờ máy chủ dựng lại trang và tra Supabase. Giờ trang được dựng một lần
- * rồi phục vụ từ CDN (làm mới mỗi phút và ngay khi CRM/cổng NCC gọi revalidatePath("/products",
- * "layout")). Người có cookie phiên hợp lệ được middleware viết lại (URL không đổi) sang
+ * rồi phục vụ từ CDN (làm mới mỗi giờ; sửa sản phẩm thì trang đó làm mới ngay, xem
+ * revalidateProductEdit trong lib/public/revalidate-public.ts). Người có cookie phiên hợp lệ được middleware viết lại (URL không đổi) sang
  * /staff-product-view/... — render động như trước: xem trước danh mục chưa công khai, không đếm
  * lượt xem của chính mình. Gõ thẳng /staff-product-view/... sẽ được chuyển về URL công khai.
  */

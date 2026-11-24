@@ -19,7 +19,7 @@ import { revalidateHomePage } from "@/lib/public/revalidate-home";
 import { currentProductGrade, gradeOutsideCategory, gradeOutsideCategoryMessage } from "@/lib/products/grade-category-check";
 import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
 import { productGate } from "@/lib/auth/supplier-access";
-import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
+import { revalidateProductEdit } from "@/lib/public/revalidate-public";
 
 type Result = {
   ok: boolean;
@@ -135,8 +135,7 @@ export async function decideSupplierProductAction(form: FormData): Promise<Resul
     revalidatePath(`/crm/products/${id}/edit`);
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath("/supplier/portal/products");
-    revalidatePublicCatalog();
-    revalidatePath("/products", "layout");
+    revalidateProductEdit(id);
     revalidatePath("/suppliers", "layout");
     revalidateHomePage();
     refreshCrmBadges();

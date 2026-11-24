@@ -12,7 +12,7 @@ import { isExpired } from "@/lib/media/readiness";
 import { privateMediaUrl } from "@/lib/supplier-portal/product-view";
 import type { MediaKind } from "@/lib/types";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
-import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
+import { revalidateProductEdit } from "@/lib/public/revalidate-public";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -104,7 +104,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       before: null, after: { media_id: row.id, kind, audience: row.audience } }).catch((error) => console.error("[supplier-product-media] audit", error));
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
-    if (row.audience === "buyer") { revalidatePublicCatalog(); revalidatePath("/products", "layout"); }
+    if (row.audience === "buyer") revalidateProductEdit(id);
     return NextResponse.json({ ok: true, message: row.audience === "buyer"
       ? "Đã tải tệp; tệp này chia sẻ cho người mua."
       : "Đã tải tệp nội bộ; tệp chưa chia sẻ cho người mua.",
@@ -153,8 +153,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .catch((error) => console.error("[supplier-product-media] audit", error));
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath(`/crm/products/${id}/edit`);
-    revalidatePublicCatalog();
-    revalidatePath("/products", "layout");
+    revalidateProductEdit(id);
     return NextResponse.json({ ok: true, message: "Đã đặt ảnh đại diện; ảnh cũ về lại danh sách." });
   } catch (error) { console.error("[supplier-product-media] featured", error); return fail("Không lưu được ảnh đại diện.", 503); }
 }
@@ -202,8 +201,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     revalidatePath(`/supplier/portal/products/${id}`);
     revalidatePath("/supplier/portal/products");
     revalidatePath(`/crm/products/${id}/edit`);
-    revalidatePublicCatalog();
-    revalidatePath("/products", "layout");
+    revalidateProductEdit(id);
     revalidatePath("/suppliers", "layout");
     revalidateHomePage();
     return NextResponse.json({ ok: true, warning: pendingPaths.length > 0, message: pendingPaths.length

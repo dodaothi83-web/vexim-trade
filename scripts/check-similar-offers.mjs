@@ -40,12 +40,15 @@ assert.equal(lib.similarOffers(current, [current, card('x', 's0', ['W320'])], { 
 
 const page = fs.readFileSync(new URL('../app/(public)/products/[slug]/[productId]/page.tsx', import.meta.url), 'utf8');
 assert.match(page, /Similar offers from other suppliers/);
-assert.ok(page.indexOf('id="similar-offers"') > page.indexOf('product-description-heading'), 'Similar offers nằm cuối trang, sau phần mô tả (A+)');
+// Hai khối gợi ý là component riêng (tải sau phần chính, trong Suspense): vị trí trên trang là chỗ đặt component.
+assert.ok(page.indexOf('<SimilarOffersSection ') > page.indexOf('product-description-heading'), 'Similar offers nằm cuối trang, sau phần mô tả (A+)');
 assert.match(page, /\{similar\.length > 0 && <section id="similar-offers"/, 'Không có nhà cung cấp khác thì ẩn khối Similar offers');
 assert.doesNotMatch(page, /relatedProducts|Related products/, 'Bỏ khối Related products dự phòng');
 assert.match(page, /More from this supplier/);
 assert.match(page, /\{moreFromSupplier\.length > 0 && <section id="more-from-supplier"/, 'Nhà cung cấp chỉ có một sản phẩm thì ẩn hẳn khối này');
-assert.ok(page.indexOf('id="more-from-supplier"') < page.indexOf('full-specifications-heading'), 'More from this supplier đứng trên Full specifications');
+assert.ok(page.indexOf('<MoreFromSupplierSection ') < page.indexOf('full-specifications-heading'), 'More from this supplier đứng trên Full specifications');
+assert.match(page, /<Suspense fallback=\{null\}>\s*<MoreFromSupplierSection /, 'More from this supplier tải sau phần chính');
+assert.match(page, /<Suspense fallback=\{null\}>\s*<SimilarOffersSection /, 'Similar offers tải sau phần chính');
 assert.match(page, /listMoreFromSupplier\(card, slug, categoryProducts, \{ limit: 5 \}\)/, 'Tối đa 5 sản phẩm của cùng nhà cung cấp');
 const catalog = fs.readFileSync(new URL('../lib/public/product-catalog.ts', import.meta.url), 'utf8');
 assert.match(catalog, /item\.supplierId === current\.supplierId && item\.id !== current\.id/, 'Chỉ sản phẩm khác của cùng nhà cung cấp');

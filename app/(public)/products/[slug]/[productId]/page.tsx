@@ -2,7 +2,7 @@ import { VeximTradeIcon } from "@/components/brand/vexim-icons";
 import { ProductCertificateCards } from "@/components/public/product-certificate-cards";
 import { ShareProductButton } from "@/components/share-product-button";
 import { SaveProductButton } from "@/components/buyer-saved-products";
-import { cache, Suspense } from "react";
+import { cache, Suspense, type ReactNode } from "react";
 import { AskSupplierDialog } from "@/components/products/ask-supplier-dialog";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -18,7 +18,9 @@ import { getStore } from "@/lib/db";
 import { readTopViewedProductIds } from "@/lib/traffic/server";
 import { getSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
-import { listMoreFromSupplier, listPublicCategoryProducts, publicProductRouteParams, shareableProductImages } from "@/lib/public/product-catalog";
+import { allPublicProductRouteParams, listMoreFromSupplier, listPublicCategoryProducts, loadPublicProductCatalogSnapshot, publicProductRouteParams, shareableProductImages } from "@/lib/public/product-catalog";
+import type { PublicCategoryProduct } from "@/lib/public/product-catalog";
+import { tagProductPage } from "@/lib/public/product-page-tag";
 import { fieldsFor, supplierFieldsFor } from "@/lib/product-attributes";
 import { shareableProductVideo } from "@/lib/public/product-video";
 import { ProductMediaGallery } from "@/components/product-media-gallery";
@@ -53,21 +55,25 @@ import { absolutePublicMediaUrl, cdnVariant, publicMediaUrl, publicMediaUrlAt } 
  * Bản này KHÔNG được đọc cookie/phiên — đọc là Next.js buộc render động và mất cache. Việc cần
  * phiên (xem trước danh mục chưa công khai, không đếm lượt xem của chính mình) chỉ chạy ở bản
  * động app/(public)/staff-product-view, nơi middleware.ts đưa người có cookie phiên tới (URL
- * không đổi, xem lib/public/product-route.ts). Làm mới mỗi giờ và ngay khi CRM/cổng NCC gọi
- * revalidatePath("/products", "layout").
+ * không đổi, xem lib/public/product-route.ts). Làm mới mỗi giờ; sửa sản phẩm thì trang của sản
+ * phẩm đó làm mới ngay, trang khác làm mới ở nền (lib/public/revalidate-public.ts).
  */
-// 1 giờ (chủ dự án duyệt 24/11/2026); NCC/nhân viên sửa thì làm mới ngay (revalidatePath/Tag).
+// 1 giờ (chủ dự án duyệt 24/11/2026); sửa sản phẩm thì trang đó làm mới ngay (revalidateProductEdit).
 export const revalidate = 3600;
 
-const PREBUILT_PRODUCT_PAGES = 50;
+/** Tối đa bấy nhiêu trang sản phẩm được dựng sẵn mỗi lần deploy. */
+const PREBUILT_PRODUCT_PAGES = 500;
 
 /**
- * Dựng sẵn lúc build 50 sản phẩm được xem nhiều nhất 90 ngày qua (chủ dự án duyệt 24/11/2026).
- * Các trang khác vẫn dựng ở lượt xem đầu tiên rồi giữ trong cache. Đọc lỗi thì không dựng sẵn
- * trang nào, không làm hỏng bản build.
+ * Dựng sẵn lúc deploy để người mua không phải chờ dựng trang ở lượt xem đầu (mỗi lần deploy cache
+ * trang bắt đầu lại từ đầu). Còn ít hơn PREBUILT_PRODUCT_PAGES sản phẩm công khai thì dựng sẵn hết;
+ * nhiều hơn thì chỉ dựng những sản phẩm được xem nhiều nhất 90 ngày qua, trang khác dựng ở lượt
+ * xem đầu rồi giữ trong cache. Đọc lỗi thì không dựng sẵn trang nào, không làm hỏng bản build.
  */
 export async function generateStaticParams(): Promise<Array<{ slug: string; productId: string }>> {
   try {
+    const all = await allPublicProductRouteParams();
+    if (all.length <= PREBUILT_PRODUCT_PAGES) return all;
     return await publicProductRouteParams(await readTopViewedProductIds(PREBUILT_PRODUCT_PAGES));
   } catch (error) {
     console.error("[product-page] top products for prebuild", error);
@@ -79,24 +85,37 @@ type Props = { params: Promise<{ slug: string; productId: string }> };
 
 async function getDetail(slug: string, productId: string) {
   const store = getStore();
-  const category = await store.getCategoryBySlug(slug);
+  // Đọc cùng lúc thay vì lần lượt. Danh mục lấy từ danh sách đầy đủ: mỗi lần đọc danh mục ở
+  // Supabase kèm một lượt quét sản phẩm/nhà cung cấp (decorateCategoryReadiness), đọc một lần đủ.
+  const productRead = store.getProduct(productId);
+  // Ảnh, nhà cung cấp và quyền chat chỉ cần sản phẩm: đọc luôn trong lúc chờ danh mục, trang dùng
+  // khi sản phẩm qua hết các bước kiểm tra bên dưới (không qua thì kết quả bị bỏ, không hiện gì).
+  const mediaRead = store.listMedia("product", productId);
+  const supplierRead = productRead.then((row) => row ? store.getSupplier(row.supplier_id).catch(() => null) : null);
+  const chatRead = supplierRead.then((row) => row ? supplierChatAvailable(store, row.id, row) : false).catch(() => false);
+  // Lỗi vẫn ném ra ở dòng await; mấy dòng này chỉ tránh lỗi "unhandled" khi trả 404 sớm.
+  for (const read of [productRead, mediaRead, supplierRead]) read.catch(() => undefined);
+  const categories = await store.listCategories({ publishedOnly: false });
+  const category = categories.find((candidate) => candidate.slug === slug) ?? null;
   if (!category) return null;
   const published = category.status === "published" && category.is_published;
   // Chỉ bản động cho người có phiên mới đọc cookie (bản tĩnh coi danh mục chưa công khai là 404).
   const session = !published && isStaffProductView() ? await getSession() : null;
   if (!published && !(session && hasPermission(session.role, "categories.manage"))) return null;
   let certificateData: Promise<CategoryCertificateData> | undefined;
-  const categoryProducts = await listPublicCategoryProducts(category, { onCertificateData: (data) => { certificateData = data; } });
+  // Nhân viên/nhà cung cấp (bản động) đọc thẳng dữ liệu mới, không qua bản cache catalog: vừa sửa
+  // xong mở trang là thấy ngay, kể cả khi bản cache đang được làm mới ở nền.
+  const snapshot = isStaffProductView() ? await loadPublicProductCatalogSnapshot({ categories }) : undefined;
+  const categoryProducts = await listPublicCategoryProducts(category, { snapshot, onCertificateData: (data) => { certificateData = data; } });
   const card = categoryProducts.find((p) => p.id === productId);
   if (!card) return null;
-  const product = await store.getProduct(productId);
+  const product = await productRead;
   if (!product || product.supplier_id !== card.supplierId) return null;
-  const categories = await store.listCategories({ publishedOnly: false });
   if (!productBelongsToCategory(product, category, categories)) return null;
   // Cùng mặt hàng từ nhà cung cấp khác, ưu tiên cùng grade, theo thứ tự xếp hạng danh mục.
   // Không có nhà cung cấp khác thì khối này ẩn; hàng cùng nhà cung cấp đã nằm ở "More from this supplier".
   const similar = similarOffers(card, categoryProducts, { limit: 12, window: categoryTieWindow(Date.now()) });
-  return { category, card, categoryProducts, product, similar, preview: !published, certificateData };
+  return { category, categories, card, categoryProducts, product, similar, preview: !published, certificateData, reads: { media: mediaRead, supplier: supplierRead, chat: chatRead } };
 }
 
 /**
@@ -176,21 +195,29 @@ export default async function PublicProductDetail({ params }: Props) {
   const { slug, productId } = await params;
   const detail = await getDetailOrRedirect(slug, productId);
   if (!detail) notFound();
-  const { category, card, categoryProducts, product: p, similar, preview, certificateData } = detail;
+  const { category, categories, card, categoryProducts, product: p, similar, preview, certificateData, reads } = detail;
   // Product eligibility was checked above. Read the website only for this
   // supplier card; don't put raw supplier contact fields in the product catalogue.
   const store = getStore();
-  const [media, supplier, moreFromSupplier] = await Promise.all([
-    store.listMedia("product", p.id),
-    card.isDemo ? Promise.resolve(null) : store.getSupplier(card.supplierId).catch(() => null),
-    // Tối đa 5 sản phẩm khác của cùng nhà cung cấp; chỉ có một sản phẩm thì khối này ẩn hẳn.
-    listMoreFromSupplier(card, slug, categoryProducts, { limit: 5 }),
+  // Trang mang thẻ riêng của sản phẩm: sửa sản phẩm này chỉ dựng lại trang này (revalidateProductEdit).
+  const pageTagged = tagProductPage(p.id);
+  // Tối đa 5 sản phẩm khác của cùng nhà cung cấp; chỉ có một sản phẩm thì khối này ẩn hẳn.
+  // Không chờ ở đây: hai khối gợi ý cuối trang tự tải sau (Suspense), phần chính hiện trước.
+  const moreFromSupplierRead = listMoreFromSupplier(card, slug, categoryProducts, { limit: 5 });
+  const parentCategory = category.parent_id ? categories.find((candidate) => candidate.id === category.parent_id) ?? null : null;
+  const categoryPath = [category.id, ...(parentCategory ? [parentCategory.id] : [])];
+  // Phần lớn đã đọc sẵn trong getDetail. Chứng nhận dùng lại dữ liệu đã đọc cho danh sách danh mục.
+  const [media, supplier, productCertificates, canChat] = await Promise.all([
+    reads.media,
+    // Hồ sơ demo: không đọc website/gói của nhà cung cấp.
+    card.isDemo ? Promise.resolve(null) : reads.supplier,
+    productCertificatesFor(p.id, p.supplier_id, categoryPath, certificateData),
+    // Nút chat chỉ hiện khi nhà cung cấp có tài khoản cổng đang hoạt động để trả lời.
+    card.isDemo ? supplierChatAvailable(store, card.supplierId).catch(() => false) : reads.chat,
+    readPlanCatalog(),
+    pageTagged,
   ]);
   const supplierWebsite = supplier?.status === "published" ? supplier.website : null;
-  const parentCategory = category.parent_id ? await store.getCategory(category.parent_id) : null;
-  const categoryPath = [category.id, ...(parentCategory ? [parentCategory.id] : [])];
-  // Dùng lại chứng nhận đã đọc cho danh sách danh mục ở getDetail, không đọc lần thứ ba.
-  const productCertificates = await productCertificatesFor(p.id, p.supplier_id, categoryPath, certificateData);
   const images = card.usesFormGallery ? card.imagePaths : shareableProductImages(media, p.id, p.featured_media_id, 24);
   const thumbnails = card.usesFormGallery ? (card.imageThumbnailPaths ?? card.imagePaths) : shareableProductImages(media, p.id, p.featured_media_id, 24, true);
   const video = shareableProductVideo(media, p.id);
@@ -239,13 +266,16 @@ export default async function PublicProductDetail({ params }: Props) {
   ]);
   const additionalSpecs = specs.filter(([label]) => !occupiedSpecKeys.has(productSpecificationKey(label)));
   const supplierImageUrl = card.supplierProfileImage ? publicMediaUrl(card.supplierProfileImage) : null;
-  const relatedComparisonOffers = [
-    ...[card, ...similar.map((s) => s.offer)].map((product) => ({ product, categorySlug: slug })),
-    ...moreFromSupplier.map(({ card: product, categorySlug }) => ({ product, categorySlug })),
-  ].map(({ product, categorySlug }) => ({
-    id: product.id, supplierId: product.supplierId, categorySlug, isDemo: product.isDemo,
-  }));
-  const offerCard = (offer: typeof card, offerSlug: string) => <PublicProductCard key={offer.id} href={`/products/${encodeURIComponent(offerSlug)}/${encodeURIComponent(offer.id)}`}
+  const relatedOffers = moreFromSupplierRead.then((moreFromSupplier) => {
+    const relatedComparisonOffers = [
+      ...[card, ...similar.map((s) => s.offer)].map((product) => ({ product, categorySlug: slug })),
+      ...moreFromSupplier.map(({ card: product, categorySlug }) => ({ product, categorySlug })),
+    ].map(({ product, categorySlug }) => ({
+      id: product.id, supplierId: product.supplierId, categorySlug, isDemo: product.isDemo,
+    }));
+    return { moreFromSupplier, relatedComparisonOffers };
+  });
+  const offerCard = (offer: typeof card, offerSlug: string, relatedComparisonOffers: ComparisonPeer[]) => <PublicProductCard key={offer.id} href={`/products/${encodeURIComponent(offerSlug)}/${encodeURIComponent(offer.id)}`}
     imagePath={offer.cardImagePath ?? offer.imagePaths[0]} name={offer.name} grades={cardTitleGrades(offer)} gradeRows={offer.gradeRows} moq={offer.moq}
     volumePricing={offer.quantityOffer?.hasVolumePricing}
     price={offer.price} incoterm={offer.incoterm} fob={offer.incoterm?.toUpperCase() === "FOB"} leadTimeDays={offer.leadTimeDays} leadTimeText={offer.leadTimeText}
@@ -258,8 +288,6 @@ export default async function PublicProductDetail({ params }: Props) {
   // Người có phiên (nhân viên/NCC) luôn đi bản động staff-product-view: không đếm lượt xem của chính họ.
   // /api/public/traffic vẫn tự kiểm tra lại phiên, danh mục, sản phẩm và nhà cung cấp trước khi đếm.
   const countView = !preview && !card.isDemo && !isStaffProductView();
-  // Nút chat chỉ hiện khi nhà cung cấp có tài khoản cổng đang hoạt động để trả lời.
-  const canChat = await supplierChatAvailable(store, card.supplierId, card.isDemo ? undefined : supplier).catch(() => false);
   // Product schema chỉ cho trang đủ điều kiện index. Không khai offers/aggregateRating:
   // giá trên trang là giá tham khảo qua RFQ, không phải chào bán giao dịch trực tiếp.
   // Đóng gói và giá mẫu vì vậy nằm trong additionalProperty, không nằm trong Offer.
@@ -495,11 +523,9 @@ export default async function PublicProductDetail({ params }: Props) {
         <p className="mt-2 text-xs leading-5 text-ink-600">Your request goes to this supplier first. If they can’t meet it, we’ll ask you before suggesting anyone else.</p>
       </div>
     </div>
-    {moreFromSupplier.length > 0 && <section id="more-from-supplier" className="mt-12 scroll-mt-24 border-t border-ink-200 pt-8">
-      <SimilarOffersRail title="More from this supplier" titleId="more-from-supplier-heading">
-        {moreFromSupplier.map(({ card: offer, categorySlug }) => offerCard(offer, categorySlug))}
-      </SimilarOffersRail>
-    </section>}
+    <Suspense fallback={null}>
+      <MoreFromSupplierSection related={relatedOffers} offerCard={offerCard} />
+    </Suspense>
     {(detailRows.length > 0 || additionalSpecs.length > 0) && <section aria-labelledby="full-specifications-heading" className="mt-12 border-t border-ink-200 pt-8">
       <h2 id="full-specifications-heading" className="text-2xl font-black text-ink-900">Full specifications</h2>
       <p className="mt-1 text-sm text-ink-500">Technical details from the listing</p>
@@ -513,10 +539,41 @@ export default async function PublicProductDetail({ params }: Props) {
       {enDetail && <ProductDescription value={enDetail} className="mt-4 max-w-3xl" />}
       <ProductAplus modules={aplus} productName={card.name} />
     </section>}
-    {similar.length > 0 && <section id="similar-offers" className="mt-12 scroll-mt-24 border-t border-ink-200 pt-8">
-      <SimilarOffersRail title="Similar offers from other suppliers" titleId="similar-offers-heading">
-        {similar.map(({ offer }) => offerCard(offer, slug))}
+    <Suspense fallback={null}>
+      <SimilarOffersSection related={relatedOffers} similar={similar} slug={slug} offerCard={offerCard} />
+    </Suspense>
+  </div>;
+}
+
+type ComparisonPeer = { id: string; supplierId: string; categorySlug: string; isDemo: boolean };
+type RelatedOffers = Promise<{ moreFromSupplier: Awaited<ReturnType<typeof listMoreFromSupplier>>; relatedComparisonOffers: ComparisonPeer[] }>;
+type OfferCardRenderer = (offer: PublicCategoryProduct, offerSlug: string, relatedComparisonOffers: ComparisonPeer[]) => ReactNode;
+
+/**
+ * Hai khối gợi ý cuối trang tải sau phần chính: "More from this supplier" có thể phải đọc thêm sản
+ * phẩm ở danh mục khác. Trang đã dựng sẵn thì HTML có đủ cả hai khối như trước; chỉ lượt dựng
+ * trang đầu tiên mới gửi phần chính trước rồi gửi tiếp hai khối này.
+ */
+async function MoreFromSupplierSection({ related, offerCard }: { related: RelatedOffers; offerCard: OfferCardRenderer }) {
+  const { moreFromSupplier, relatedComparisonOffers } = await related;
+  return <>
+    {moreFromSupplier.length > 0 && <section id="more-from-supplier" className="mt-12 scroll-mt-24 border-t border-ink-200 pt-8">
+      <SimilarOffersRail title="More from this supplier" titleId="more-from-supplier-heading">
+        {moreFromSupplier.map(({ card: offer, categorySlug }) => offerCard(offer, categorySlug, relatedComparisonOffers))}
       </SimilarOffersRail>
     </section>}
-  </div>;
+  </>;
+}
+
+async function SimilarOffersSection({ related, similar, slug, offerCard }: {
+  related: RelatedOffers; similar: Array<{ offer: PublicCategoryProduct }>; slug: string; offerCard: OfferCardRenderer;
+}) {
+  const { relatedComparisonOffers } = await related;
+  return <>
+    {similar.length > 0 && <section id="similar-offers" className="mt-12 scroll-mt-24 border-t border-ink-200 pt-8">
+      <SimilarOffersRail title="Similar offers from other suppliers" titleId="similar-offers-heading">
+        {similar.map(({ offer }) => offerCard(offer, slug, relatedComparisonOffers))}
+      </SimilarOffersRail>
+    </section>}
+  </>;
 }

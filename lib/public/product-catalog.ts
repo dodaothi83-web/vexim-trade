@@ -362,22 +362,16 @@ export async function listPublicCategoryProducts(category: Category, options?: {
     productReviewApproved(p) && !isTestOnlyProduct(p.name) &&
     (p.ready_for_buyer || byId.get(p.supplier_id)?.is_demo) &&
     categoryFor(p) === category.slug);
-  const media = await cachedByOwner(candidates.map((p) => p.id), snapshot.mediaByProduct,
+  // Ảnh và giấy chứng nhận không phụ thuộc nhau: đọc cùng lúc thay vì đợi lần lượt.
+  const mediaRead = cachedByOwner(candidates.map((p) => p.id), snapshot.mediaByProduct,
     (ids) => store.listMediaForProducts(ids), (asset) => asset.product_id);
-  const byProduct = new Map<string, MediaAsset[]>();
-  for (const asset of media) {
-    if (!asset.product_id) continue;
-    const group = byProduct.get(asset.product_id) ?? [];
-    if (!byProduct.has(asset.product_id)) byProduct.set(asset.product_id, group);
-    group.push(asset);
-  }
   // Only L1 needs the existing certificate validity check. Failed pages must be
   // surfaced, not treated as "no certificates" and silently change ranking.
   // Đọc giấy của mọi nhà cung cấp trong danh mục trong cùng một lượt: kết quả dùng lại cho
   // chứng nhận trên thẻ bên dưới (trước đây đọc hai lần). Nhà cung cấp chưa có L1 thì
   // evidenceValidVerificationSteps bỏ qua giấy, nên thứ hạng không đổi.
   const certificateSupplierIds = [...new Set(candidates.map((p) => p.supplier_id))];
-  const certificates = await cachedByOwner(certificateSupplierIds, snapshot.certificatesBySupplier, async (ids) => {
+  const certificateRead = cachedByOwner(certificateSupplierIds, snapshot.certificatesBySupplier, async (ids) => {
     if (typeof store.listCertificatesForSuppliers === "function") return store.listCertificatesForSuppliers(ids);
     const rows: Certificate[] = [];
     for (let i = 0; i < ids.length; i += 40) {
@@ -385,6 +379,14 @@ export async function listPublicCategoryProducts(category: Category, options?: {
     }
     return rows;
   }, (cert) => cert.supplier_id);
+  const [media, certificates] = await Promise.all([mediaRead, certificateRead]);
+  const byProduct = new Map<string, MediaAsset[]>();
+  for (const asset of media) {
+    if (!asset.product_id) continue;
+    const group = byProduct.get(asset.product_id) ?? [];
+    if (!byProduct.has(asset.product_id)) byProduct.set(asset.product_id, group);
+    group.push(asset);
+  }
   const certsBySupplier = new Map<string, Certificate[]>();
   for (const cert of certificates) {
     const group = certsBySupplier.get(cert.supplier_id) ?? [];
@@ -551,6 +553,15 @@ export async function getPublicProductRecordsByIds(ids: readonly string[], optio
     id: card.id, supplierId: card.supplierId, categoryPath: categoryPathOf(category.id, categories),
   }))).catch((error) => { console.error("[catalog] certificate labels", error); return new Map<string, string[]>(); });
   return labels.size ? records.map((record) => labels.has(record.card.id) ? { ...record, card: { ...record.card, certificates: labels.get(record.card.id) } } : record) : records;
+}
+
+/**
+ * Đường dẫn trang chi tiết của MỌI sản phẩm đang công khai (đọc bản cache catalog), dùng để dựng
+ * sẵn khi deploy. Sản phẩm chưa đủ ảnh vẫn có thể lọt vào danh sách: trang đó tự trả 404 như cũ.
+ */
+export async function allPublicProductRouteParams(): Promise<Array<{ slug: string; productId: string }>> {
+  const { products } = await getCachedPublicCatalogBase();
+  return publicProductRouteParams(products.map((product) => product.id));
 }
 
 /**

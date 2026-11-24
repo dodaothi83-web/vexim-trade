@@ -11,6 +11,9 @@
 //   3. Product images: the CDN keeps them for 1 hour (the owner accepted this revocation window).
 //      The hero image loads with high priority at the frame width (srcset), and thumbnails use
 //      64/128px versions.
+//   4. Speed: every public product is prebuilt while there are at most 500, a render reads its data
+//      in parallel, and editing a product refreshes that product page now and other pages in the
+//      background (lib/public/revalidate-public.ts revalidateProductEdit).
 import { mediaMocks } from './lib/media-mocks.mjs';
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
@@ -114,9 +117,61 @@ assert.deepEqual([res.kind, pathOf(res)], ["redirect", "/products"]);
 const page = read("app/(public)/products/[slug]/[productId]/page.tsx");
 assert.doesNotMatch(page, /export const dynamic\b/, "The public product page is not force-dynamic");
 assert.match(page, /export const revalidate = \d+;/, "The prebuilt page refreshes on a timer");
-// Dựng sẵn lúc build 50 sản phẩm được xem nhiều nhất (chủ dự án duyệt 24/11/2026); trang khác dựng ở lượt xem đầu.
-assert.match(page, /const PREBUILT_PRODUCT_PAGES = 50;/, "Only the 50 most-viewed products are prebuilt");
-assert.match(page, /export async function generateStaticParams\(\)[\s\S]*?publicProductRouteParams\(await readTopViewedProductIds\(PREBUILT_PRODUCT_PAGES\)\)[\s\S]*?catch[\s\S]*?return \[\];/, "Prebuild reads the top viewed products and never fails the build");
+// Dựng sẵn mọi sản phẩm công khai khi còn ≤ 500 (đợt 1 tối ưu tốc độ, chủ dự án duyệt); nhiều hơn thì
+// chỉ dựng 500 sản phẩm được xem nhiều nhất, trang khác dựng ở lượt xem đầu.
+assert.match(page, /const PREBUILT_PRODUCT_PAGES = 500;/, "At most 500 product pages are prebuilt per deploy");
+assert.match(page, /export async function generateStaticParams\(\)[\s\S]*?const all = await allPublicProductRouteParams\(\);\s*if \(all\.length <= PREBUILT_PRODUCT_PAGES\) return all;\s*return await publicProductRouteParams\(await readTopViewedProductIds\(PREBUILT_PRODUCT_PAGES\)\)[\s\S]*?catch[\s\S]*?return \[\];/,
+  "Prebuild every public product while there are few, otherwise the most viewed; never fails the build");
+// Lượt dựng trang: đọc cùng lúc, không đọc lại danh mục (mỗi lần đọc danh mục kèm một lượt quét bảng).
+assert.doesNotMatch(page, /getCategoryBySlug\(|store\.getCategory\(/, "Category and parent come from the one category list");
+assert.equal((page.match(/store\.listCategories\(\{ publishedOnly: false \}\)/g) ?? []).length, 1, "One full category read per render");
+assert.match(page, /const productRead = store\.getProduct\(productId\);[\s\S]*?const categories = await store\.listCategories/, "The product is read while the categories load");
+assert.match(page, /isStaffProductView\(\) \? await loadPublicProductCatalogSnapshot\(\{ categories \}\) : undefined/,
+  "Staff/supplier renders read fresh catalogue data, not the shared cache");
+assert.match(page, /const \[media, supplier, productCertificates, canChat\] = await Promise\.all\(\[/, "Media, supplier, certificates and chat are read together");
+assert.match(page, /const pageTagged = tagProductPage\(p\.id\);/, "The page carries its own product tag");
+const catalogSource = read("lib/public/product-catalog.ts");
+assert.match(catalogSource, /const \[media, certificates\] = await Promise\.all\(\[mediaRead, certificateRead\]\);/, "Category media and certificates are read together");
+
+// Sửa sản phẩm: trang của sản phẩm đó dựng lại ngay, bản cache catalog và trang khác làm mới ở nền.
+const tagCalls = [];
+const pageTag = load("lib/public/product-page-tag.ts", { mocks: { "next/cache": {
+  unstable_cache: (fn, keys, options) => async () => { tagCalls.push({ keys, options }); return fn(); },
+} } });
+assert.equal(pageTag.productPageTag(PID), `product-page:${PID}`);
+await pageTag.tagProductPage(PID);
+assert.equal(JSON.stringify(tagCalls), JSON.stringify([{ keys: ["product-page-tag", PID], options: { revalidate: false, tags: [`product-page:${PID}`] } }]),
+  "The tag entry never expires on a timer, so it does not shorten the page's 1 hour refresh");
+const revalidations = [];
+const revalidatePublic = load("lib/public/revalidate-public.ts", { mocks: {
+  "next/cache": { revalidateTag: (tag, profile) => revalidations.push([tag, profile]) },
+  "@/lib/public/product-page-tag": pageTag,
+} });
+revalidatePublic.revalidateProductEdit(PID);
+assert.equal(JSON.stringify(revalidations), JSON.stringify([[`product-page:${PID}`, { expire: 0 }], ["public-catalog", "max"]]),
+  "Edited product page: refreshed now; catalogue and other pages: refreshed in the background");
+revalidations.length = 0;
+revalidatePublic.revalidatePublicCatalog();
+assert.equal(JSON.stringify(revalidations), JSON.stringify([["public-catalog", { expire: 0 }]]), "Other catalogue changes keep the immediate refresh");
+for (const file of [
+  "app/api/supplier-portal/products/[id]/media/route.ts",
+  "app/crm/products/[slug]/edit/aplus-actions.ts",
+  "app/crm/products/[slug]/edit/featured-image-action.ts",
+  "app/crm/products/[slug]/edit/quantity-price-actions.ts",
+  "app/crm/products/[slug]/edit/review-actions.ts",
+  "app/supplier/portal/aplus-actions.ts",
+  "app/supplier/portal/product-actions.ts",
+  "app/supplier/portal/quantity-revision-actions.ts",
+]) {
+  const source = read(file);
+  assert.doesNotMatch(source, /revalidatePath\("\/products", "layout"\)|revalidatePublicCatalog\(\)/, `${file}: a product edit no longer clears every product page`);
+  assert.match(source, /revalidateProductEdit\((?:id|productId|saved\.id)\)/, `${file}: the edited product page is refreshed`);
+}
+const upload = read("app/api/media/upload/route.ts");
+assert.match(upload, /if \(ownerType === "product"\) \{[\s\S]*?revalidateProductEdit\(ownerId\);[\s\S]*?\} else \{\s*revalidatePublicCatalog\(\);\s*revalidatePath\("\/products", "layout"\);/,
+  "CRM upload: product images refresh that product; supplier files keep the full refresh");
+assert.match(read("app/supplier/portal/product-actions.ts"), /revalidateProductEdit\(saved\.id\);\s*revalidateCategoryPaths\(saved\.category\);/,
+  "Supplier save: the product page and its category page are refreshed now");
 assert.doesNotMatch(page, /export const dynamicParams = false/, "Other product pages are still built on first visit");
 assert.doesNotMatch(page, /getLocale|from "next\/headers"|cookies\(\)|headers\(\)|createTrafficToken/,
   "The static page reads no cookie/header and embeds no expiring token");
