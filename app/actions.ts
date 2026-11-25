@@ -45,6 +45,8 @@ import {
   type SubjectForm,
 } from "@/lib/ai/first-touch-draft";
 import { extractCompanyProducts, type CompanyProducts } from "@/lib/ai/company-products";
+import { buyerRequestReply } from "@/lib/mail/buyer-request-reply";
+import { buyerProductTitle, isBuyerLetter } from "@/lib/buyer/request-summary";
 import { productTranslationState } from "@/lib/ai/translate-content";
 import { ensureProductEnglishTranslation } from "@/lib/ai/product-translation-service";
 import { ensureSupplierProfileEnglish, type EnsureSupplierTranslationResult } from "@/lib/ai/supplier-translation-service";
@@ -838,7 +840,10 @@ async function ensureCompanyScan(options: {
  */
 function statedNeedLine(buyer: Buyer | null): string | null {
   if (!buyer) return null;
-  const product = toEnglishProduct([buyer.product, buyer.spec].filter(Boolean).join(", "));
+  // Hồ sơ cũ có thể chứa cả lá thư người mua: chỉ lấy tên hàng, bỏ quy cách nếu là lá thư.
+  const product = toEnglishProduct(
+    [buyerProductTitle(buyer.product), isBuyerLetter(buyer.spec) ? null : buyer.spec].filter(Boolean).join(", "),
+  );
   if (!product) return null;
   const quantity = (buyer.quantity ?? "").trim();
   const asciiOnly = Boolean(quantity) && !/[^\x00-\x7F]/.test(quantity);
@@ -903,9 +908,11 @@ export async function generateFirstTouchDraftAction(input: {
   words?: number;
   who?: string;
   missing?: string[];
-  mode?: FirstTouchMode;
+  mode?: FirstTouchMode | "reply";
   scanned?: boolean;
   scanNote?: string | null;
+  /** true = không viết thư, chỉ là ghi chú cho nhân viên (RFQ gửi thẳng nhà cung cấp). */
+  info?: boolean;
 }> {
   const gate = await guard("mail.send");
   if (gate) return gate;
@@ -956,6 +963,29 @@ export async function generateFirstTouchDraftAction(input: {
     return { ok: false, message: "Hồ sơ chưa có tên công ty hay người nhận để viết thư." };
   }
 
+  // ---- 0. Người mua đã gửi RFQ trên sàn (quyết định 24/11/2026) ----
+  // Có yêu cầu tìm nguồn: thư phản hồi theo mẫu đã duyệt. Chỉ có RFQ gửi thẳng nhà cung cấp:
+  // không viết thư, chỉ ghi chú. Chưa có RFQ: giữ thư tiếp cận cũ bên dưới.
+  if (buyer) {
+    const reply = await buyerRequestReply(store, buyer);
+    if (reply?.kind === "direct") return { ok: false, info: true, message: reply.message };
+    if (reply?.kind === "letter") {
+      const asks = reply.asks.length ? ` Hỏi thêm ${reply.asks.length} ô người mua chưa ghi.` : "";
+      return {
+        ok: true,
+        message: `Thư phản hồi yêu cầu ${reply.rfqCode} theo mẫu cố định, ${reply.questions.length} câu người mua hỏi.${asks} Bản nháp ${reply.words} từ.`,
+        subject: reply.subject,
+        body: reply.body,
+        words: reply.words,
+        who: company || "buyer",
+        missing: [],
+        mode: "reply",
+        scanned: false,
+        scanNote: null,
+      };
+    }
+  }
+
   // ---- 1. Buyer đã để lại nhu cầu thì nhắc lại nhu cầu; chưa có thì đọc website của họ ----
   const need = statedNeedLine(buyer);
   const mode: FirstTouchMode = need ? "demand" : "target";
@@ -986,7 +1016,7 @@ export async function generateFirstTouchDraftAction(input: {
   }
 
   // ---- 2. Dựng thư theo khung cố định ----
-  const productInterest = [str(buyer?.product), str(prospect?.target_product)].filter(Boolean).join(", ") || null;
+  const productInterest = [str(buyerProductTitle(buyer?.product)), str(prospect?.target_product)].filter(Boolean).join(", ") || null;
   const productsText = joinProducts(scan.products) || null;
   const group = scan.group || toEnglishProduct(productInterest) || null;
   const avoidSubjectForm = await lastBuyerSubjectForm({
@@ -1007,7 +1037,7 @@ export async function generateFirstTouchDraftAction(input: {
     },
     {
       // Chỉ tên hàng — quy cách/số lượng dài sẽ làm tiêu đề vụn khi cắt còn 8 từ
-      product: toEnglishProduct(buyer?.product ?? "") || group,
+      product: toEnglishProduct(buyerProductTitle(buyer?.product)) || group,
       company: company || null,
       moq: buyer?.quantity ?? null,
       avoidForm: avoidSubjectForm,

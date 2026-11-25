@@ -87,3 +87,14 @@ export function buyerOrderSummary(buyer: { product?: string | null; spec?: strin
   const request = [buyer.spec?.trim(), buyerRequestMessage(buyer.product)].filter(Boolean).join("\n\n");
   return { title: buyerProductTitle(buyer.product), request: request || null };
 }
+
+/** Nguồn người mua: đường dẫn kỹ thuật ("/rfq") đổi thành tên dễ hiểu, giữ nguyên giá trị lạ. */
+export function buyerSourceLabel(source: string | null | undefined): string | null {
+  const value = (source ?? "").trim();
+  if (!value) return null;
+  if (value === "/rfq" || value === "rfq_form") return "Form yêu cầu báo giá";
+  if (value === "/sourcing" || value === "sourcing_request") return "Form tìm nguồn hàng";
+  if (value.startsWith("/products/")) return "Trang sản phẩm";
+  if (value.startsWith("/suppliers/")) return "Trang nhà cung cấp";
+  return value;
+}

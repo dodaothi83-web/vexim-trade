@@ -27,7 +27,7 @@ import { migrationHint } from "@/lib/db/migration-hints";
 import { uniqueRfqSuppliers, rfqOutreachStatusLabel } from "@/lib/rfq/buyer-outreach";
 import { stageIndex, FUNNEL_STAGES } from "@/lib/pipeline";
 import { COMPANY } from "@/lib/config";
-import { buyerOrderSummary } from "@/lib/buyer/request-summary";
+import { buyerOrderSummary, buyerSourceLabel } from "@/lib/buyer/request-summary";
 import { Breadcrumbs, Card, EmptyState, cx, formatDate, formatMoney, relativeTime } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { StageBadge, StageSelect } from "@/components/stage-select";
@@ -517,14 +517,4 @@ function ContactRow({
       </dd>
     </div>
   );
-}
-
-/** Nguồn người mua: đường dẫn kỹ thuật ("/rfq") đổi thành tên dễ hiểu, giữ nguyên giá trị lạ. */
-function buyerSourceLabel(source: string | null): string | null {
-  if (!source) return null;
-  if (source === "/rfq" || source === "rfq_form") return "Form yêu cầu báo giá";
-  if (source === "/sourcing" || source === "sourcing_request") return "Form tìm nguồn hàng";
-  if (source.startsWith("/products/")) return "Trang sản phẩm";
-  if (source.startsWith("/suppliers/")) return "Trang nhà cung cấp";
-  return source;
 }

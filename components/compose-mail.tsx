@@ -172,6 +172,8 @@ export function ComposeMail({
   const [aiBusy, setAiBusy] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
   const [aiHasDraft, setAiHasDraft] = useState(false);
+  // Thư phản hồi yêu cầu tìm nguồn không đọc website, nên không có nút "Quét lại website".
+  const [aiReply, setAiReply] = useState(false);
   /** Chỗ AI không tìm thấy dữ liệu — giữ nguyên placeholder để nhân viên điền tay */
   const [aiMissing, setAiMissing] = useState<string[]>([]);
   const [aiNote, setAiNote] = useState<string | null>(null);
@@ -478,12 +480,13 @@ export function ComposeMail({
       });
       setAiBusy(false);
       if (!res.ok || !res.body) {
-        toast.push({ kind: "error", title: res.message });
+        toast.push({ kind: res.info ? "info" : "error", title: res.message });
         setAiNote(res.message);
         return;
       }
       setSubject(res.subject ?? "");
       setAiHasDraft(true);
+      setAiReply(res.mode === "reply");
       setAiMissing(Array.isArray(res.missing) ? res.missing : []);
       setAiNote(res.message);
       typeIntoEditor(res.body);
@@ -689,7 +692,7 @@ export function ComposeMail({
               )}
               {aiBusy ? "AI đang đọc website người mua…" : aiTyping ? "Chèn nốt" : aiHasDraft ? "Viết lại" : "AI viết tiếp cận"}
             </button>
-            {aiHasDraft && !aiBusy && (
+            {aiHasDraft && !aiReply && !aiBusy && (
               <button
                 type="button"
                 onClick={() => void askAi(true)}
@@ -706,7 +709,7 @@ export function ComposeMail({
               </span>
             )}
             <span className="text-[11px] text-ink-400" aria-live="polite">
-              {aiNote ?? "Thư theo mẫu cố định — AI chỉ điền sản phẩm đọc từ website + ảnh của người mua."}
+              {aiNote ?? "Thư theo mẫu cố định. Có yêu cầu tìm nguồn: AI viết thư phản hồi. Đầu mối mới: AI đọc website của họ."}
             </span>
           </div>
         )}
