@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { PublicSupplierCard } from "@/lib/public/catalog";
 import { withoutDirectContacts } from "@/lib/public/product-selection";
 import {
-  supplierAnnualOutputDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierMoqDisplay,
+  supplierAnnualFigureLabel, supplierAnnualOutputDisplay, supplierCapacityDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierMoqDisplay,
 } from "@/lib/public/supplier-english";
 import { STOREFRONT_TONE_COLORS, type StorefrontStat, type StorefrontTheme } from "@/lib/storefront-theme";
 import type { ShowcaseBlock } from "@/lib/supplier-showcase";
@@ -45,10 +45,24 @@ export function storefrontStatValue(s: PublicSupplierCard, stat: StorefrontStat)
   }
 }
 
-/** Nhãn số liệu: công suất ghi rõ theo tháng hay doanh thu năm, khớp mục Trade overview. */
+/**
+ * Nhãn số liệu: `annual_output` là doanh thu năm (form hiện hỏi "Annual revenue"), nhưng hồ sơ cũ
+ * ghi sản lượng có đơn vị khối lượng; khi đó ghi "Annual output" (supplierAnnualFigureLabel), không
+ * để "Annual revenue" cạnh "tons". Không có trường này thì là công suất tháng.
+ */
 export function storefrontStatLabel(s: PublicSupplierCard, stat: StorefrontStat): string {
-  if (stat === "capacity") return s.annual_output?.trim() ? "Annual revenue" : "Monthly capacity";
+  if (stat === "capacity") return s.annual_output?.trim() ? supplierAnnualFigureLabel(supplierAnnualOutputDisplay(s)) : "Monthly capacity";
   return STAT_LABELS[stat];
+}
+
+/**
+ * Tách giá trị số liệu thành phần số và đơn vị để hiển thị khác nhịp: "100 tons" → 100 + tons,
+ * "1,200 tons per year" → 1,200 + tons per year, "14 days" → 14 + days. Giá trị không mở đầu
+ * bằng số (ví dụ "EU, India") giữ nguyên làm phần chính.
+ */
+export function splitStatValue(value: string): { number: string; unit: string } {
+  const match = /^([<>~≈]?\s*\d[\d.,]*(?:\s*[-–]\s*\d[\d.,]*)?\+?)\s+(\S.*)$/u.exec(value.trim());
+  return match ? { number: match[1].replace(/\s+/g, ""), unit: match[2] } : { number: value, unit: "" };
 }
 
 export interface PremiumStorefrontProps {
@@ -118,34 +132,45 @@ function Modern(p: Shared) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {heroImage && <img src={heroImage} alt="" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover" />}
       {!heroImage && <span aria-hidden="true" className="pointer-events-none absolute -right-6 -top-16 select-none text-[16rem] font-black leading-none text-white/[0.06] sm:text-[22rem]">{p.name.slice(0, 1).toUpperCase()}</span>}
-      <div className={`absolute inset-0 ${heroImage ? "bg-[#0F1216]/60" : "bg-gradient-to-br from-transparent to-black/30"}`} aria-hidden="true" />
+      {/* Lớp phủ tối dần xuống dưới (nơi có tên công ty và nút) để chữ trắng luôn nổi trên ảnh bìa. */}
+      <div className={`absolute inset-0 ${heroImage ? "bg-gradient-to-b from-black/35 via-black/50 to-black/80" : "bg-gradient-to-br from-transparent to-black/30"}`} aria-hidden="true" />
       {p.coverAction}
+      {/* Nút của chủ gian hàng (Nâng cấp gói) ở góc trên bên trái, ngang hàng nút đổi ảnh bìa (góc trên
+          bên phải), để khu vực tên công ty và nút báo giá trông đúng như người mua thấy. */}
+      {p.ownerActions && <div className="absolute left-4 top-4 z-10">{p.ownerActions}</div>}
       {/* Có ô số liệu: chừa đáy khung (pb-14) cho phần ô đè lên, để ô không che hai nút. */}
       <div className={`relative flex min-h-[360px] flex-col justify-end gap-4 p-6 sm:min-h-[460px] sm:p-12 ${p.stats.length > 0 ? "pb-14 sm:pb-16" : ""}`}>
         {/* Logo bên trái, canh theo dòng đầu của tên; tên công ty bên phải, địa chỉ (chữ trơn) ngay dưới tên.
             Cỡ tên giống trang gói cơ bản. */}
-        <div className="flex items-start gap-3 sm:gap-4">
+        {/* Logo gọn bên trái (44px điện thoại, 56px desktop), căn giữa theo cụm tên công ty + địa chỉ. */}
+        <div className="flex items-center gap-3 sm:gap-4">
           <div className="relative shrink-0">
-            <Avatar avatarUrl={p.avatarUrl} name={p.name} className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-white text-2xl font-bold text-[var(--sf-accent)] sm:h-20 sm:w-20" />
+            <Avatar avatarUrl={p.avatarUrl} name={p.name} className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg bg-white text-lg font-semibold text-[var(--sf-accent)] sm:h-14 sm:w-14 sm:rounded-xl sm:text-xl" />
             {p.avatarAction}
           </div>
           <div className="min-w-0 flex-1">
-            <NameTag id="supplier-name" className="max-w-3xl break-words text-xl font-bold leading-7 tracking-tight sm:text-2xl sm:leading-8">{p.name}</NameTag>
-            <p className="mt-1 text-sm font-medium leading-5 text-white/80 sm:text-[15px] sm:leading-6">{p.location}</p>
+            <NameTag id="supplier-name" className="max-w-3xl break-words text-[21px] font-semibold leading-7 tracking-tight sm:text-[30px] sm:leading-[38px]">{p.name}</NameTag>
+            <p className="mt-0.5 text-sm leading-5 text-white/90 sm:text-[15px] sm:leading-6">{p.location}</p>
           </div>
         </div>
         {p.nameAside && <div className="flex flex-wrap items-center gap-2">{p.nameAside}</div>}
-        {p.tagline && <p className="max-w-2xl text-[15px] leading-7 text-white/90 sm:text-lg">{p.tagline}</p>}
+        {p.tagline && <p className="max-w-2xl text-[15px] leading-7 text-white/90 sm:text-[17px]">{p.tagline}</p>}
         <div className="flex max-w-xl flex-col gap-2 sm:flex-row [&>*]:sm:w-auto">{p.actions}
           {video && <HeroVideoButton uid={video.video_uid} title={`${p.name} factory video`} />}</div>
-        {p.ownerActions && <div>{p.ownerActions}</div>}
       </div>
     </div>
     {p.stats.length > 0 && <dl className="relative z-10 mx-3 -mt-8 grid grid-cols-2 gap-3 sm:mx-8 sm:grid-cols-4">
-      {p.stats.map((item) => <div key={item.stat} className="rounded-xl border-t-4 border-[var(--sf-accent)] bg-white p-4 shadow-card sm:p-5">
-        <dd className="break-words text-xl font-extrabold text-ink-900 sm:text-2xl">{item.value}</dd>
-        <dt className="mt-1 text-xs text-ink-500">{item.label}</dt>
-      </div>)}
+      {p.stats.map((item) => {
+        // Tách số và đơn vị ("100" + "tons") để số nổi bật, đơn vị nhỏ và nhạt hơn.
+        const { number, unit } = splitStatValue(item.value);
+        return <div key={item.stat} className="flex flex-col rounded-xl border-t-4 border-[var(--sf-accent)] bg-white p-4 shadow-card sm:p-5">
+          <dd className="order-1 break-words text-ink-900">
+            <span className="text-[22px] font-semibold leading-7 tracking-tight tabular-nums sm:text-[26px] sm:leading-8">{number}</span>
+            {unit && <span className="ml-1.5 text-[13px] font-medium text-ink-500 sm:text-sm">{unit}</span>}
+          </dd>
+          <dt className="order-2 mt-1.5 text-[13px] text-ink-600">{item.label}</dt>
+        </div>;
+      })}
     </dl>}
     <div className="mt-6 flex flex-wrap items-center justify-between gap-3">{p.checks}{p.typeBadge}</div>
     {p.showcase.length > 0 && <div id="showcase" className="mt-10 scroll-mt-24">

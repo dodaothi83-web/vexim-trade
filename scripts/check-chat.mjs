@@ -146,7 +146,8 @@ assert.match(read('app/api/chat/[id]/route.ts'), /ownedConversation\(/, 'Đọc 
 assert.match(read('app/api/chat/[id]/route.ts'), /viewer\.side === "buyer" && typeof payload\.productId === "string" \? await attachableProduct/);
 assert.match(read('app/api/chat/start/route.ts'), /export async function GET/);
 assert.match(read('app/api/chat/start/route.ts'), /startSupplierConversation\(/);
-assert.match(read('components/public/supplier-storefront.tsx'), /\{!synthetic && chatAction\}/);
+// Hồ sơ thử (synthetic) không có nút Chat; nút Chat ở trang Basic nằm trong khung cao 44px.
+assert.match(read('components/public/supplier-storefront.tsx'), /\{!synthetic && chatAction && <div className="\[&>button\]:h-11 \[&>button\]:w-full">\{chatAction\}<\/div>\}/);
 assert.doesNotMatch(read('components/public/supplier-storefront.tsx'), />Browse products</, 'Bỏ nút Browse products');
 assert.match(read('app/(public)/suppliers/[slug]/page.tsx'), /chatAction=\{canChat \?/);
 assert.match(read('app/(public)/products/[slug]/[productId]/page.tsx'), /\{canChat && <Suspense/, 'Trang sản phẩm cũng chỉ hiện chat khi nhà cung cấp trả lời được');

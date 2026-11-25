@@ -116,7 +116,7 @@ assert.match(reportApi, /if \(!buyer && !staffAllowed\)/, "The report API still 
 const premium = read("components/public/premium-storefront.tsx");
 assert.match(premium, /`\$\{markets\.length\} markets`/, "Export regions are counted as markets, not countries");
 assert.doesNotMatch(premium, /\$\{markets\.length\} countries/);
-assert.match(premium, /return s\.annual_output\?\.trim\(\) \? "Annual revenue" : "Monthly capacity";/, "Capacity stat says per month");
+assert.match(premium, /return s\.annual_output\?\.trim\(\) \? supplierAnnualFigureLabel\(supplierAnnualOutputDisplay\(s\)\) : "Monthly capacity";/, "Capacity stat: annual revenue/output by value, else per month");
 assert.match(premium, /fetchPriority="high"/, "The hero image loads first");
 const storefront = read("components/public/supplier-storefront.tsx");
 assert.doesNotMatch(storefront, /supplierHref=/, "Product cards on the profile do not link back to the same profile in a new tab");

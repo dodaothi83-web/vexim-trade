@@ -1,13 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense, type ReactNode } from "react";
 
-import "@fontsource/be-vietnam-pro/400.css";
-import "@fontsource/be-vietnam-pro/400-italic.css";
-import "@fontsource/be-vietnam-pro/500.css";
-import "@fontsource/be-vietnam-pro/600.css";
-import "@fontsource/be-vietnam-pro/700.css";
-import "@fontsource/be-vietnam-pro/800.css";
-import "@fontsource/be-vietnam-pro/900.css";
+import { Inter } from "next/font/google";
 import "@fontsource-variable/jetbrains-mono";
 import "./globals.css";
 import { HOME_META_DESCRIPTION } from "@/lib/public/meta-copy";
@@ -34,6 +28,18 @@ import { LOCALE_COOKIE, LOCALIZED_AUTH_PATH_RE, LOCALIZED_PORTAL_PATH_RE, LEGACY
  * cookie đã chọn. <html lang> chỉ là gợi ý cho trình đọc màn hình/máy dịch, không ảnh hưởng
  * tới nội dung hay logic trang nào, nên sửa sau vài mili-giây là an toàn.
  */
+/**
+ * Font giao diện: Inter (chủ dự án chốt 25/11/2026, thay Be Vietnam Pro). Bản variable phủ đủ
+ * 400–700 (và 800/900 cho chỗ cũ còn dùng) nên trình duyệt không phải làm đậm giả; bộ chữ
+ * vietnamese + latin-ext để dấu tiếng Việt hiển thị đúng. next/font tải font lúc build và phục vụ
+ * từ chính tên miền của sàn: trình duyệt người dùng không gọi Google.
+ */
+const inter = Inter({
+  subsets: ["latin", "latin-ext", "vietnamese"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
 function htmlLangBootScript(): string {
   return `(function(){try{
     var p=location.pathname;
@@ -83,7 +89,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   // render (CRM/cổng NCC/khu vực tài khoản) — đây là thay đổi CÓ CHỦ ĐÍCH, không phải
   // lệch dữ liệu máy chủ/trình duyệt, nên tắt cảnh báo hydration riêng cho thuộc tính này.
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={inter.variable}>
       <head>
         {/* eslint-disable-next-line react/no-danger -- xem ghi chú ở htmlLangBootScript() phía trên */}
         <script dangerouslySetInnerHTML={{ __html: htmlLangBootScript() }} />

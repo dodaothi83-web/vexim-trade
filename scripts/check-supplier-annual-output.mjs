@@ -86,7 +86,22 @@ const profile = read('app/supplier/portal/profile/page.tsx');
 assert.match(profile, /f\.annualOutput\} value=\{supplier\.annual_output/);
 assert.doesNotMatch(profile, /value=\{supplier\.(?:moq_text|capacity_per_month)\}/);
 const storefront = read('components/public/supplier-storefront.tsx');
-assert.match(storefront, /"Annual revenue" : "Monthly capacity"/);
+assert.match(storefront, /supplierAnnualFigureLabel\(supplierAnnualOutputDisplay\(s\)\) : "Monthly capacity"/);
+// Trường annual_output: tiền tệ là doanh thu; đơn vị khối lượng/số lượng (hồ sơ cũ) là sản lượng,
+// không để nhãn "Annual revenue" cạnh "tons".
+{
+  const english = read('lib/public/supplier-english.ts');
+  const start = english.indexOf('export function supplierAnnualFigureLabel');
+  const block = english.slice(start, english.indexOf('\n}\n', start) + 2).replace(/^export /, '');
+  const sandbox = {};
+  vm.runInNewContext(ts.transpileModule(`${block}\nthis.fn = supplierAnnualFigureLabel;`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, sandbox);
+  const fn = sandbox.fn;
+  for (const [value, label] of [
+    ['US$10–50 million', 'Annual revenue'], ['USD 5 million', 'Annual revenue'], ['50 tỷ đồng', 'Annual revenue'], ['Over $2M', 'Annual revenue'],
+    ['1,200 tons per year', 'Annual output'], ['1200 metric tons per year', 'Annual output'], ['500 MT', 'Annual output'], ['2.000 tấn', 'Annual output'],
+    ['300 containers', 'Annual output'], ['US$3 million (about 1,200 tons)', 'Annual revenue'],
+  ]) assert.equal(fn(value), label, value);
+}
 assert.match(storefront, /supplierAnnualOutputDisplay\(s\)/);
 assert.match(read('components/supplier-form.tsx'), /set\("annual_output", e\.target\.value\)/);
 assert.match(read('app/actions.ts'), /annual_output: str\(raw\.annual_output\)/);

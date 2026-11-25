@@ -19,7 +19,7 @@ import { factoryReviewLabel, verificationLabel, type PublicL2Scope } from "@/lib
 import { publicProductTitle } from "@/lib/public/display-name";
 import { formatMoney, priceRangeText } from "@/lib/products/price-display";
 import { productBelongsToCategory, publicProductPrice, withoutDirectContacts } from "@/lib/public/product-selection";
-import { supplierAddressDisplay, supplierCapacityDisplay, supplierAnnualOutputDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
+import { supplierAddressDisplay, supplierCapacityDisplay, supplierAnnualFigureLabel, supplierAnnualOutputDisplay, supplierExportMarketsDisplay, supplierIncotermsDisplay, supplierLegalNameDisplay, supplierMarketsDisplay, supplierMoqDisplay, supplierPaymentTermsDisplay, supplierPortsDisplay, supplierProductsDisplay, supplierProvinceDisplay, supplierSummaryDisplay } from "@/lib/public/supplier-english";
 import { VERIFICATION_DISPLAY_ORDER } from "@/lib/types";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { publicShowcaseBlocks } from "@/lib/supplier-showcase";
@@ -117,6 +117,9 @@ export function SupplierStorefront({
     { label: "Markets served or targeted", value: safe(supplierMarketsDisplay(s)), wide: false },
   ].filter((item) => item.value);
   const steps = s.approved_verification_steps;
+  // Nút ở đầu trang Premium: cao 44px; điện thoại xếp dọc, rộng cả hàng; desktop mỗi nút đúng nửa
+  // hàng, có hay không có nút Chat (bản xem trước trong cổng không có) đều cùng kích thước.
+  const rfqWidth = "h-11 w-full sm:w-auto sm:flex-none sm:basis-[calc(50%-0.25rem)]";
   const l2Scope: PublicL2Scope = s.approved_l2_scope ?? null;
   const SupplierTypeIcon = supplierTypeIcon(s.supplier_type);
   const plannedL2Scope: PublicL2Scope = s.supplier_type === "trading" ? "partner_contract" : s.supplier_type === "manufacturer" || s.supplier_type === "cooperative" ? "factory" : null;
@@ -308,10 +311,12 @@ export function SupplierStorefront({
         <a href="#verification" className="text-xs font-semibold text-brand-700 underline underline-offset-4">View supplier checks</a>
       </div>}
       actions={!synthetic ? <>
+        {/* Hai nút mỗi nút nửa hàng; không có nút Chat thì nút báo giá vẫn nửa hàng, không kéo hết khung. */}
         {rfqActions
-          ? <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--sf-dark)]">Request a quote <ArrowRight className="h-4 w-4" /></Link>
-          : <span className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
-        {chatAction && <div className="flex-1 rounded-lg bg-white text-ink-900 [&>button]:w-full">{chatAction}</div>}
+          ? <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className={`inline-flex ${rfqWidth} items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-[var(--sf-dark)] shadow-sm transition hover:bg-white/90`}>Request a quote <ArrowRight className="h-4 w-4" /></Link>
+          : <span className={`inline-flex ${rfqWidth} items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-[var(--sf-dark)] shadow-sm`}>Request a quote <ArrowRight className="h-4 w-4" /></span>}
+        {/* Nút phụ trên nền ảnh: viền trắng, chữ trắng, để không lẫn với nút báo giá (nền trắng). */}
+        {chatAction && <div className={`${rfqWidth} [&>button]:h-full [&>button]:w-full [&>button]:border-white/70 [&>button]:bg-transparent [&>button]:text-white [&>button]:hover:border-white [&>button]:hover:bg-white/10 [&>button]:hover:text-white`}>{chatAction}</div>}
       </> : null}
       coverUrl={coverUrl}
       avatarUrl={avatarUrl}
@@ -330,44 +335,46 @@ export function SupplierStorefront({
         {coverAction}
       </div>}
       <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:gap-6 sm:p-8">
-        <div className="flex w-fit shrink-0 flex-col items-center">
-          <div className="relative w-fit">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-ink-200 bg-ink-50 text-3xl font-bold text-ink-400 sm:h-24 sm:w-24">
-              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : name.slice(0, 1).toUpperCase()}
+        <div className="min-w-0 flex-1">
+          {/* Logo gọn bên trái (44px điện thoại, 56px desktop), căn giữa theo cụm tên công ty + địa chỉ. */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="relative w-fit shrink-0">
+              <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg border border-ink-200 bg-ink-50 text-lg font-semibold text-ink-400 sm:h-14 sm:w-14 sm:rounded-xl sm:text-xl">
+                {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : name.slice(0, 1).toUpperCase()}
+              </div>
+              {avatarAction}
             </div>
-            {avatarAction}
+            <div className="min-w-0 flex-1">
+              {nameAside
+                ? <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <NameTag id="supplier-name" className="break-words text-left text-[21px] font-semibold leading-7 tracking-tight text-ink-900 sm:text-[30px] sm:leading-[38px]">{name}</NameTag>
+                  {nameAside}
+                </div>
+                : <NameTag id="supplier-name" className="break-words text-left text-[21px] font-semibold leading-7 tracking-tight text-ink-900 sm:text-[30px] sm:leading-[38px]">{name}</NameTag>}
+              {supplierProvinceDisplay(s) && <p className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-ink-600"><MapPin className="h-4 w-4 text-brand-700" aria-hidden="true" />{safe(supplierProvinceDisplay(s))}, Vietnam</p>}
+            </div>
           </div>
           {avatarHint}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}</span>
-            {s.private_label && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">Private label stated</span>}
-          </div>
-          {nameAside
-            ? <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <NameTag id="supplier-name" className="break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>
-              {nameAside}
-            </div>
-            : <NameTag id="supplier-name" className="mt-2 break-words text-left text-xl font-bold leading-7 tracking-tight text-ink-900 sm:text-2xl sm:leading-8">{name}</NameTag>}
-          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-600">
-            {supplierProvinceDisplay(s) && <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-brand-700" />{safe(supplierProvinceDisplay(s))}, Vietnam</span>}
+          {(s.founded_year || (typeof s.employees === "number" && s.employees > 0)) && <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-600">
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
-          </div>
+          </div>}
           <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Published supplier checks">
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-ink-50 px-2.5 py-1 text-xs font-medium text-ink-700"><SupplierTypeIcon className="h-5 w-5 shrink-0" aria-hidden="true" />{supplierTypeLabel(s)}</span>
+            {s.private_label && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800">Private label stated</span>}
             {VERIFICATION_DISPLAY_ORDER.filter((level) => steps.includes(level)).map((level) => {
               const Icon = VERIFICATION_LEVEL_ICONS[level];
-              return <span key={level} className="inline-flex items-center gap-1.5 rounded-full bg-success-surface px-3 py-1 text-xs font-semibold text-success">
+              return <span key={level} className="inline-flex items-center gap-1.5 rounded-full bg-success-surface px-3 py-1 text-xs font-medium text-success">
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />{level === 1 ? "Business registration checked" : verificationLabel(level, l2Scope)}
               </span>;
             })}
-            <a href="#verification" className="text-xs font-semibold text-brand-700 underline underline-offset-4">View supplier checks</a>
+            <a href="#verification" className="text-xs font-medium text-brand-700 underline underline-offset-4">View supplier checks</a>
           </div>
         </div>
-        <div className="flex shrink-0 flex-col gap-2">
-          {rfqActions && !synthetic && <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>}
-          {!rfqActions && !synthetic && <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
-          {!synthetic && chatAction}
+        <div className="flex shrink-0 flex-col gap-2 sm:w-56">
+          {rfqActions && !synthetic && <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 text-sm font-semibold text-white transition hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>}
+          {!rfqActions && !synthetic && <span className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-700 px-5 text-sm font-semibold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
+          {!synthetic && chatAction && <div className="[&>button]:h-11 [&>button]:w-full">{chatAction}</div>}
           {!synthetic && <SupplierWebsiteLink website={s.website} plain className="justify-center sm:max-w-64" />}
           {ownerActions}
         </div>
@@ -375,7 +382,9 @@ export function SupplierStorefront({
     </section>
     </>}
 
-    <nav aria-label="Supplier sections" className="mt-5 flex gap-2 overflow-x-auto border-b border-ink-200 pb-3 text-sm font-semibold text-ink-600">
+    {/* Thanh mục: điện thoại cuộn ngang sát mép màn hình (không cắt chữ ở lề), ẩn thanh cuộn để không
+        lộ vệt lạ bên dưới, mờ dần ở mép phải cho biết còn mục để cuộn. */}
+    <nav aria-label="Supplier sections" className="-mx-4 mt-5 flex gap-1 overflow-x-auto border-b border-ink-200 px-4 pb-2 text-sm font-medium text-ink-600 [mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)] [scrollbar-width:none] sm:mx-0 sm:px-0 sm:[mask-image:none] [&::-webkit-scrollbar]:hidden">
       {[
         ["Products", "products"],
         ...(showcase.length > 0 ? [["Showcase", "showcase"] as const] : []),
@@ -385,7 +394,8 @@ export function SupplierStorefront({
         ...(certificates.length > 0 ? [["Certificates", "certificates"] as const] : []),
         ...(!synthetic ? [["Company details", "company-details"] as const] : []),
       ].map(([label, id]) =>
-        <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-1.5 hover:bg-white hover:text-brand-700">{label}</a>)}
+        <a key={id} href={`#${id}`} className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 leading-5 hover:bg-white hover:text-brand-700">{label}</a>)}
+      <span className="w-4 shrink-0 sm:hidden" aria-hidden="true" />
     </nav>
 
     {/* Hai cột từ mục Sản phẩm: cột phải (Trade overview, hỏi giá) đứng ngay đầu, bám theo khi cuộn. */}
@@ -506,7 +516,7 @@ export function SupplierStorefront({
           <dl className="mt-2"><Fact icon={VeximMinimumOrderIcon} label="Minimum order" value={supplierMoqDisplay(s)} />
             <Fact icon={VeximExportPortIcon} label="Export ports / Incoterms" value={[...supplierPortsDisplay(s), ...supplierIncotermsDisplay(s)].join(" · ")} />
             <Fact icon={VeximLeadTimeIcon} label="Lead time" value={s.lead_time_days ? `${s.lead_time_days} days` : ""} />
-            <Fact icon={VeximCapacityIcon} label={s.annual_output?.trim() ? "Annual revenue" : "Monthly capacity"} value={s.annual_output?.trim() ? supplierAnnualOutputDisplay(s) : supplierCapacityDisplay(s)} />
+            <Fact icon={VeximCapacityIcon} label={s.annual_output?.trim() ? supplierAnnualFigureLabel(supplierAnnualOutputDisplay(s)) : "Monthly capacity"} value={s.annual_output?.trim() ? supplierAnnualOutputDisplay(s) : supplierCapacityDisplay(s)} />
             <Fact icon={VeximPaymentIcon} label="Payment terms" value={supplierPaymentTermsDisplay(s)} />
             <Fact icon={VeximMarketsIcon} label="Export markets" value={supplierExportMarketsDisplay(s).join(", ")} /></dl>
           {rfqActions && !synthetic && <div className="mt-4 space-y-2"><Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-800">Request a quote <ArrowRight className="h-4 w-4" /></Link>

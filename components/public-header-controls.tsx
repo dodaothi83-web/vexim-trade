@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePublicPathname } from "@/hooks/use-public-pathname";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Menu, Search, X } from "lucide-react";
 import { VeximLanguageIcon } from "@/components/brand/vexim-icons";
 
 import { Logo } from "@/components/brand-logo";
@@ -19,12 +19,12 @@ const NAV_ACTIVE = "bg-brand-50 text-brand-800 hover:bg-brand-50 hover:text-bran
 function HeaderLogo() {
   return (
     <Link href="/" aria-label="Vexim Trade home" className="flex shrink-0 items-center gap-2.5">
-      <Logo className="h-10 w-10 sm:h-12 sm:w-12" />
+      <Logo className="h-9 w-9 sm:h-12 sm:w-12" />
       <span className="hidden flex-col leading-tight sm:flex md:hidden xl:flex">
-        <span className="text-[16.5px] font-black tracking-tight text-brand-700" style={{ letterSpacing: "-0.01em" }}>
+        <span className="text-[16.5px] font-semibold tracking-tight text-brand-700">
           Vexim Trade
         </span>
-        <span className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+        <span className="text-[10.5px] font-medium uppercase tracking-[0.14em] text-ink-500">
           Verified Vietnam Sourcing
         </span>
       </span>
@@ -38,17 +38,22 @@ function HeaderLogo() {
  * tránh một hàng menu phụ chiếm diện tích màn hình nhỏ; các mục này vẫn có thể tới được từ
  * trang chủ hoặc chân trang trên điện thoại.
  */
-function PrimaryNav({ pathname, isVi, buyer = false }: { pathname: string; isVi: boolean; buyer?: boolean }) {
+/** Các mục menu chính, dùng chung cho hàng menu trên desktop và menu ☰ trên điện thoại. */
+function primaryNavItems(pathname: string, isVi: boolean, buyer: boolean) {
   // Người mua đã đăng nhập không cần mục "Dành cho nhà cung cấp" (vẫn có ở chân trang).
-  const items = [
+  return [
     { href: isVi ? "/?lang=vi#categories" : "/#categories", label: isVi ? "Danh mục" : "Categories", active: pathname.startsWith("/products") },
     { href: isVi ? "/how-it-works?lang=vi" : "/how-it-works", label: isVi ? "Cách hoạt động" : "How it works", active: pathname.startsWith("/how-it-works") },
     { href: "/how-we-verify", label: isVi ? "Quy trình xác thực" : "How we verify", active: pathname.startsWith("/how-we-verify") || pathname.startsWith("/verify") },
     ...(buyer ? [] : [{ href: "/for-suppliers", label: isVi ? "Dành cho nhà cung cấp" : "For suppliers", active: pathname.startsWith("/for-suppliers") }]),
   ];
+}
+
+function PrimaryNav({ pathname, isVi, buyer = false }: { pathname: string; isVi: boolean; buyer?: boolean }) {
+  const items = primaryNavItems(pathname, isVi, buyer);
   return (
     <nav aria-label={isVi ? "Điều hướng chính" : "Main navigation"}
-      className="hidden items-center gap-0.5 whitespace-nowrap text-[12.5px] font-semibold text-ink-700 md:flex lg:gap-1 lg:text-[14px]">
+      className="hidden items-center gap-0.5 whitespace-nowrap text-[12.5px] font-medium text-ink-700 md:flex lg:gap-1 lg:text-[14px]">
       {items.map((item) => (
         <Link key={item.href} href={item.href} aria-current={item.active ? "page" : undefined}
           className={`${NAV_LINK} ${item.active ? NAV_ACTIVE : ""}`}>
@@ -86,18 +91,70 @@ function HeaderSearchBar({ isVi, isHome }: { isVi: boolean; isHome: boolean }) {
       className="min-w-0 flex-1">
       <input type="hidden" name="lang" value={isVi ? "vi" : "en"} />
       <label className="sr-only" htmlFor="header-search-query">{label}</label>
-      <div className="flex h-10 items-center rounded-full border border-ink-300 bg-white pl-3.5 transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100 sm:h-11">
+      <div className="flex h-10 min-w-0 items-center rounded-full border border-ink-300 bg-white pl-3.5 transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100 sm:h-11">
         <input id="header-search-query" type="search" name="q" maxLength={120}
           placeholder={isVi ? "Tìm sản phẩm, quy cách, nhà cung cấp..." : "Search products, grades, suppliers..."}
           className="h-full min-w-0 flex-1 bg-transparent text-[13.5px] text-ink-900 placeholder:text-ink-500 focus:outline-none sm:text-[14.5px]" />
         <button type="submit" aria-label={label}
           className="ml-1.5 flex h-8 w-8 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-brand-700 text-white transition hover:bg-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-1 sm:mr-1.5 sm:h-9 sm:w-auto sm:px-4">
           <Search className="h-4 w-4 sm:hidden" aria-hidden="true" />
-          <span className="hidden text-[13.5px] font-bold sm:inline">{label}</span>
+          <span className="hidden text-[13.5px] font-semibold sm:inline">{label}</span>
         </button>
       </div>
     </form>
   );
+}
+
+/**
+ * Menu ☰ trên điện thoại (dưới `md`): menu chính, chọn ngôn ngữ và đăng nhập/tài khoản, để hàng đầu
+ * chỉ còn logo, ô tìm kiếm, nút Sourcing và nút ☰, không bóp nghẹt ô tìm kiếm. Desktop không đổi.
+ */
+function MobileMenu({ pathname, isVi, buyerEmail, langHref }: {
+  pathname: string; isVi: boolean; buyerEmail: string | null; langHref: (lang: "en" | "vi") => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  // Đổi trang thì đóng menu (đồng bộ theo pathname, cách React khuyên thay cho useEffect).
+  const [lastPath, setLastPath] = useState(pathname);
+  if (lastPath !== pathname) { setLastPath(pathname); setOpen(false); }
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!panelRef.current?.contains(target) && !buttonRef.current?.contains(target)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { setOpen(false); buttonRef.current?.focus(); } };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onPointer); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  const items = primaryNavItems(pathname, isVi, !!buyerEmail);
+  const close = () => setOpen(false);
+  const langLink = (target: "en" | "vi", label: string) => {
+    const active = (target === "vi") === isVi;
+    return <Link href={langHref(target)} scroll={false} onClick={close} aria-current={active ? "true" : undefined}
+      className={`flex h-10 flex-1 items-center justify-center rounded-lg text-[14px] font-medium transition ${active ? "bg-brand-700 text-white" : "bg-ink-50 text-ink-800 hover:bg-ink-100"}`}>{label}</Link>;
+  };
+  return <div className="md:hidden">
+    <button ref={buttonRef} type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="public-mobile-menu"
+      aria-label={open ? (isVi ? "Đóng menu" : "Close menu") : (isVi ? "Mở menu" : "Open menu")}
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-800 transition hover:bg-ink-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-expanded:bg-ink-50">
+      {open ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+    </button>
+    {open && <div ref={panelRef} id="public-mobile-menu"
+      className="absolute inset-x-0 top-full z-40 max-h-[calc(100dvh-64px)] overflow-y-auto border-b border-ink-200 bg-white px-4 pb-5 pt-2 shadow-[0_18px_30px_-18px_rgba(15,23,42,0.35)]">
+      <nav aria-label={isVi ? "Điều hướng chính" : "Main navigation"} className="flex flex-col">
+        {items.map((item) => <Link key={item.href} href={item.href} onClick={close} aria-current={item.active ? "page" : undefined}
+          className={`flex h-11 items-center border-b border-ink-100 text-[15px] font-medium ${item.active ? "text-brand-800" : "text-ink-800"}`}>{item.label}</Link>)}
+      </nav>
+      <p className="mt-4 text-[12px] font-medium text-ink-500">{isVi ? "Ngôn ngữ" : "Language"}</p>
+      <div className="mt-2 flex gap-2">{langLink("en", "English")}{langLink("vi", "Tiếng Việt")}</div>
+      {buyerEmail
+        ? <Link href="/buyer/account" onClick={close} className="mt-4 flex h-11 items-center justify-center rounded-lg border border-ink-200 text-[15px] font-semibold text-ink-900">{isVi ? "Tài khoản của tôi" : "My account"}</Link>
+        : <Link href="/sign-in" prefetch={false} onClick={close} className="mt-4 flex h-11 items-center justify-center rounded-lg border border-ink-200 text-[15px] font-semibold text-ink-900">{isVi ? "Đăng nhập" : "Sign in"}</Link>}
+    </div>}
+  </div>;
 }
 
 function HeaderControlsInner() {
@@ -159,9 +216,9 @@ function HeaderControlsInner() {
         <HeaderSearchBar isVi={isVi} isHome={isHome} />
 
         <div className={`flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-3 ${isHome ? "ml-auto" : ""}`}>
-          {/* Nút icon quả địa cầu mở dropdown chọn ngôn ngữ (Mặc định: Tiếng Anh). Trên điện
-              thoại chỉ hiện icon (bỏ chữ EN/VI + mũi tên) để nhường chỗ cho ô tìm kiếm. */}
-          <div ref={dropdownRef} className="relative">
+          {/* Nút quả địa cầu mở dropdown chọn ngôn ngữ (mặc định Tiếng Anh). Chỉ từ `md`: trên điện
+              thoại ngôn ngữ và đăng nhập nằm trong menu ☰ để không bóp nghẹt ô tìm kiếm. */}
+          <div ref={dropdownRef} className="relative hidden md:block">
             <button
               type="button"
               onClick={() => setOpen((prev) => !prev)}
@@ -169,7 +226,7 @@ function HeaderControlsInner() {
               aria-expanded={open}
               aria-haspopup="menu"
               title={isVi ? "Đổi ngôn ngữ (Tiếng Việt / English)" : "Change language (English / Tiếng Việt)"}
-              className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2 text-[12.5px] font-bold text-ink-800 transition hover:border-brand-300 hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-expanded:border-brand-300 aria-expanded:bg-brand-50 sm:px-2.5"
+              className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2 text-[12.5px] font-semibold text-ink-800 transition hover:border-brand-300 hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-expanded:border-brand-300 aria-expanded:bg-brand-50 sm:px-2.5"
             >
               <VeximLanguageIcon size={20} strokeWidth={2.2} className="text-brand-700" />
               <span className="hidden sm:inline">{isVi ? "VI" : "EN"}</span>
@@ -213,9 +270,10 @@ function HeaderControlsInner() {
             )}
           </div>
 
-          <span className="mx-0.5 hidden h-6 w-px bg-ink-200 sm:block" aria-hidden="true" />
-          <PublicSignInLink lang={lang} buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
+          <span className="mx-0.5 hidden h-6 w-px bg-ink-200 md:block" aria-hidden="true" />
+          <div className="hidden md:block"><PublicSignInLink lang={lang} buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} /></div>
           <SourcingComposerTrigger isVi={isVi} />
+          <MobileMenu pathname={pathname} isVi={isVi} buyerEmail={buyerEmail ?? null} langHref={buildLangHref} />
         </div>
       </div>
 
@@ -242,16 +300,17 @@ function HeaderControlsFallback() {
           <button
             type="button"
             aria-label="Language switcher / Chuyển đổi ngôn ngữ"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2 text-[12.5px] font-bold text-ink-800 sm:px-2.5"
+            className="hidden h-10 items-center gap-1.5 rounded-full border border-ink-200 bg-white px-2 text-[12.5px] font-semibold text-ink-800 sm:px-2.5 md:inline-flex"
           >
             <VeximLanguageIcon size={20} strokeWidth={2.2} className="text-brand-700" />
             <span className="hidden sm:inline">EN</span>
             <ChevronDown className="hidden h-3.5 w-3.5 text-ink-500 sm:block" aria-hidden="true" />
           </button>
 
-          <span className="mx-0.5 hidden h-6 w-px bg-ink-200 sm:block" aria-hidden="true" />
-          <PublicSignInLink buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} />
+          <span className="mx-0.5 hidden h-6 w-px bg-ink-200 md:block" aria-hidden="true" />
+          <div className="hidden md:block"><PublicSignInLink buyerEmail={buyerEmail} buyerCompanyName={buyerCompanyName} /></div>
           <SourcingComposerTrigger />
+          <span className="inline-flex h-10 w-10 items-center justify-center text-ink-800 md:hidden" aria-hidden="true"><Menu className="h-5 w-5" /></span>
         </div>
       </div>
 
