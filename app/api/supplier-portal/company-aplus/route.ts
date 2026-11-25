@@ -7,6 +7,7 @@ import { getObject } from "@/lib/media/storage";
 import { validateUpload } from "@/lib/media/validate";
 import { COMPANY_APLUS_ID, isAplusImageFile } from "@/lib/products/aplus";
 import { storeAplusImage } from "@/lib/products/aplus-image-store";
+import { suggestAplusAlt } from "@/lib/ai/aplus-alt";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
@@ -57,7 +58,9 @@ export async function POST(request: Request) {
   // WebP ≤1600px + bản nhỏ 640px, cùng cách xử lý với ảnh sản phẩm.
   const stored = await storeAplusImage(`aplus/${access.supplier.id}/${COMPANY_APLUS_ID}`, bytes);
   if (!stored.ok) return stored.reason === "image" ? fail(e.image) : fail(e.upload, 500);
-  return NextResponse.json({ ok: true, path: stored.path });
+  // Gợi ý mô tả ảnh (alt) tiếng Anh theo tên công ty; trình soạn chỉ điền khi ô còn trống.
+  const alt = await suggestAplusAlt({ bytes, mime: check.mime, subject: access.supplier.display_name?.trim() || access.supplier.name });
+  return NextResponse.json({ ok: true, path: stored.path, ...(alt ? { alt } : {}) });
 }
 
 /** Xem trước ảnh A+ doanh nghiệp cho chính nhà cung cấp, kể cả khi chưa lưu. */

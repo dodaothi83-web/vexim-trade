@@ -244,6 +244,6 @@ assert.match(editorSrc, /toggleItalic/, "Ô soạn có nút nghiêng");
 assert.doesNotMatch(read("components/products/aplus-editor.tsx"), /<label[^>]*>\{label\}\s*<AplusRichEditor/, "Ô soạn có thanh công cụ không nằm trong label");
 const render = read("components/public/product-aplus.tsx");
 for (const type of a.APLUS_MODULE_TYPES) assert.match(render, new RegExp(`case "${type}":`), `Trang người mua dựng khối ${type}`);
-assert.match(render, /alt=\{item\.alt \|\| fallbackAlt\}/, "Ảnh dùng mô tả ảnh");
+assert.match(render, /alt=\{item\.alt\?\.trim\(\) \|\| fallback\(fallbackAlt\)\}/, "Ảnh dùng mô tả ảnh; để trống thì alt dự phòng không trùng (check-aplus-alt.mjs)");
 assert.match(render, /<details/, "Câu hỏi thường gặp dùng details");
 console.log("✅ Nội dung A+: 10 loại khối (5 khối B2B), viết tiếng Việt dịch khi lưu, bộ mẫu, mức hoàn thiện, ảnh đúng sản phẩm, tiếng Anh, không liên hệ trực tiếp, Basic chỉ mô tả chữ, ảnh công khai theo gói, video sản phẩm chỉ Premium/Pro, tải trước khi lưu sản phẩm.");
