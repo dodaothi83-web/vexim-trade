@@ -17,6 +17,12 @@ const plans = await import("../lib/supplier-plans.ts");
 assert.equal(plans.DEFAULT_PLAN_CATALOG.basic.videoMinutes, 0);
 assert.equal(plans.DEFAULT_PLAN_CATALOG.premium.videoMinutes, 60);
 assert.equal(plans.DEFAULT_PLAN_CATALOG.pro.videoMinutes, 180);
+// Câu chữ mặc định phải vừa giới hạn của CRM (lib/supplier-plan-catalog.ts: 12 dòng, 200 ký tự/dòng),
+// nếu không khi lưu ở /crm/plans sẽ bị từ chối hoặc khi đọc ra bị cắt cụt.
+for (const entry of Object.values(plans.DEFAULT_PLAN_CATALOG)) {
+  assert.ok(entry.features.length <= 12, `${entry.plan}: at most 12 benefit lines`);
+  for (const line of entry.features) assert.ok(line.length <= 200, `${entry.plan}: benefit line over 200 characters: ${line.slice(0, 60)}…`);
+}
 
 // Cloudflare nhận giới hạn từ máy chủ, không dùng con số cố định 15 phút.
 const stream = read("lib/media/cloudflare-stream.ts");
