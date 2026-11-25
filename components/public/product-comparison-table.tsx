@@ -54,6 +54,90 @@ function Row({ label, products, children }: {
   );
 }
 
+/** Tên ngắn cho các bước chưa duyệt, gộp một dòng để ô không dài. */
+const PENDING_SHORT: Record<number, string> = { 1: "Documents", 2: "Factory", 3: "Delivery history" };
+
+/**
+ * Xác minh Vexim, bản gọn: huy hiệu cấp, các bước đã duyệt (mỗi bước một dòng có dấu tích),
+ * các bước chưa làm gộp một dòng mờ "Not yet reviewed". Không ghi "Not approved" vì người mua
+ * dễ hiểu thành bị từ chối.
+ */
+function VerificationCell({ product }: { product: PublicComparedProduct }) {
+  const approved = VERIFICATION_DISPLAY_ORDER.filter((level) => product.verificationSteps.includes(level));
+  const pending = VERIFICATION_DISPLAY_ORDER.filter((level) => !product.verificationSteps.includes(level));
+  return (
+    <div>
+      <VerificationTierBadge levels={product.verificationSteps} />
+      {approved.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {approved.map((level) => (
+            <li key={level} className="flex items-start gap-1.5 text-xs leading-5 text-ink-800">
+              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" aria-hidden="true" />
+              <span>{verificationCheckLabel(level, product.l2Scope, true)}<span className="sr-only">: Approved</span></span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {pending.length > 0 && (
+        <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-ink-400">
+          <Minus className="mt-0.5 size-3.5 shrink-0 text-ink-300" aria-hidden="true" />
+          <span>{approved.length ? "Not yet reviewed" : "No checks completed yet"}: {pending.map((level) => PENDING_SHORT[level]).join(", ")}</span>
+        </p>
+      )}
+      <Link prefetch={false} href={`${product.supplierHref}#verification`} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-block text-xs font-bold text-brand-700 underline underline-offset-2">Verification scope</Link>
+    </div>
+  );
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2027-03-31" → "Mar 2027"; giá trị lạ giữ nguyên. */
+function shortValidity(value: string): string {
+  const match = /^(\d{4})-(\d{2})/.exec(value);
+  const month = match ? MONTHS[Number(match[2]) - 1] : undefined;
+  return match && month ? `${month} ${match[1]}` : value;
+}
+
+/**
+ * Chứng nhận công khai, bản gọn: mỗi giấy một thẻ nhỏ "HACCP · to Mar 2027", tối đa 3 thẻ rồi
+ * "+N more". Tên đầy đủ, đơn vị cấp, chủ sở hữu nằm trong tooltip. Giấy đứng tên đối tác ghi rõ
+ * ngay trên thẻ để không bị hiểu là của nhà cung cấp.
+ */
+function CertificatesCell({ product }: { product: PublicComparedProduct }) {
+  const certificates = product.certificates;
+  if (!certificates.length) return <Missing>None listed</Missing>;
+  const shown = certificates.slice(0, 3);
+  const more = certificates.length - shown.length;
+  return (
+    <div>
+      <ul className="flex flex-wrap gap-1.5">
+        {shown.map((certificate) => {
+          const label = certificate.shortName || certificate.name;
+          const partner = certificate.holderMatch !== "owner";
+          const tooltip = [
+            certificate.name,
+            certificate.issuer ? `Issued by ${certificate.issuer}` : "",
+            `Valid until ${certificate.validUntil}`,
+            partner ? `Third-party holder: ${certificate.holderName ?? "partner"}` : "Registered to supplier",
+          ].filter(Boolean).join(" · ");
+          return (
+            <li key={certificate.id} title={tooltip}
+              className={`inline-flex max-w-full flex-wrap items-baseline gap-x-1 rounded-md border px-2 py-0.5 text-xs leading-5 ${partner ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+              <strong className="break-words font-bold">{label}</strong>
+              <span className="whitespace-nowrap font-medium opacity-75">to {shortValidity(certificate.validUntil)}</span>
+              {partner && <span className="whitespace-nowrap font-semibold">· partner</span>}
+              <span className="sr-only">{tooltip}</span>
+            </li>
+          );
+        })}
+      </ul>
+      <Link prefetch={false} href={`${product.supplierHref}#certificates`} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-block text-xs font-bold text-brand-700 underline underline-offset-2">
+        {more > 0 ? `View all ${certificates.length} certificates` : "View certificates"}
+      </Link>
+    </div>
+  );
+}
+
 export function ProductComparisonTable({ products }: { products: PublicComparedProduct[] }) {
   const selections: ProductComparisonSelection[] = products.map((product) => ({
     id: product.id,
@@ -150,6 +234,10 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
             <Row label="Monthly capacity" products={products}>{(product) => <Value value={product.monthlyCapacity} />}</Row>
             <Row label="Payment terms" products={products}>{(product) => <Value value={product.paymentTerms} />}</Row>
 
+            <Section label="Verification and certificates" count={products.length} />
+            <Row label="Vexim verification" products={products}>{(product) => <VerificationCell product={product} />}</Row>
+            <Row label="Supplier certificates" products={products}>{(product) => <CertificatesCell product={product} />}</Row>
+
             <Section label="Product options stated by the supplier" count={products.length} />
             <Row label="OEM" products={products}>{(product) => <Availability available={product.oem} />}</Row>
             <Row label="ODM" products={products}>{(product) => <Availability available={product.odm} />}</Row>
@@ -161,38 +249,6 @@ export function ProductComparisonTable({ products }: { products: PublicComparedP
             <Row label="Location" products={products}>{(product) => publicProductLocationDisplay(product.province)}</Row>
             <Row label="Raw material region" products={products}>{(product) => <Value value={product.rawMaterialRegion} />}</Row>
             <Row label="Input material origin" products={products}>{(product) => <Value value={product.inputMaterialOrigin} />}</Row>
-            <Row label="Vexim verification" products={products}>{(product) => (
-              <div>
-                <VerificationTierBadge levels={product.verificationSteps} />
-                <ul className="mt-3 space-y-2">
-                  {VERIFICATION_DISPLAY_ORDER.map((level) => {
-                    const approved = product.verificationSteps.includes(level);
-                    return (
-                      <li key={level} className="flex items-start gap-2 text-xs leading-5">
-                        {approved ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" aria-hidden="true" /> : <Minus className="mt-0.5 size-3.5 shrink-0 text-ink-300" aria-hidden="true" />}
-                        <span className={approved ? "text-ink-800" : "text-ink-400"}>{verificationCheckLabel(level, product.l2Scope, approved)}: {approved ? "Approved" : "Not approved"}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <Link prefetch={false} href={`${product.supplierHref}#verification`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-xs font-bold text-brand-700 underline underline-offset-2">View verification scope</Link>
-              </div>
-            )}</Row>
-            <Row label="Public supplier certificates" products={products}>{(product) => product.certificates.length ? (
-              <div>
-                <ul className="space-y-3">
-                  {product.certificates.slice(0, 3).map((certificate) => (
-                    <li key={certificate.id} className="text-xs leading-5">
-                      <strong title={certificate.name} className="block break-words text-ink-800">{certificate.shortName}</strong>
-                      <span className="mt-0.5 block text-ink-500">Valid until {certificate.validUntil}</span>
-                      <span className="block text-ink-500">{certificate.holderMatch === "owner" ? "Registered to supplier" : `Third-party holder: ${certificate.holderName}`}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link prefetch={false} href={`${product.supplierHref}#certificates`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-xs font-bold text-brand-700 underline underline-offset-2">View certificates</Link>
-              </div>
-            ) : <Missing>No public certificates</Missing>}</Row>
-
             <tr className="bg-ink-50/70">
               <th scope="row" className="sticky left-0 z-10 w-24 min-w-24 bg-ink-50 px-3 py-3 text-left text-[11px] font-bold text-ink-600 sm:w-44 sm:min-w-44 sm:px-4 sm:py-4 sm:text-xs">Next step</th>
               {products.map((product) => (
