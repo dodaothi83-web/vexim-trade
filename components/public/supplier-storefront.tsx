@@ -117,6 +117,9 @@ export function SupplierStorefront({
     { label: "Markets served or targeted", value: safe(supplierMarketsDisplay(s)), wide: false },
   ].filter((item) => item.value);
   const steps = s.approved_verification_steps;
+  // Nút ở đầu trang Premium luôn rộng đúng nửa hàng: có hay không có nút Chat (bản xem trước trong
+  // cổng không có) thì nút báo giá vẫn cùng kích thước như người mua thấy.
+  const rfqWidth = "w-full sm:w-auto sm:flex-none sm:basis-[calc(50%-0.25rem)]";
   const l2Scope: PublicL2Scope = s.approved_l2_scope ?? null;
   const SupplierTypeIcon = supplierTypeIcon(s.supplier_type);
   const plannedL2Scope: PublicL2Scope = s.supplier_type === "trading" ? "partner_contract" : s.supplier_type === "manufacturer" || s.supplier_type === "cooperative" ? "factory" : null;
@@ -308,10 +311,11 @@ export function SupplierStorefront({
         <a href="#verification" className="text-xs font-semibold text-brand-700 underline underline-offset-4">View supplier checks</a>
       </div>}
       actions={!synthetic ? <>
+        {/* Hai nút mỗi nút nửa hàng; không có nút Chat thì nút báo giá vẫn nửa hàng, không kéo hết khung. */}
         {rfqActions
-          ? <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--sf-dark)]">Request a quote <ArrowRight className="h-4 w-4" /></Link>
-          : <span className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white">Request a quote <ArrowRight className="h-4 w-4" /></span>}
-        {chatAction && <div className="flex-1 rounded-lg bg-white text-ink-900 [&>button]:w-full">{chatAction}</div>}
+          ? <Link href={`/rfq?suppliers=${encodeURIComponent(s.id)}`} className={`inline-flex ${rfqWidth} items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--sf-dark)]`}>Request a quote <ArrowRight className="h-4 w-4" /></Link>
+          : <span className={`inline-flex ${rfqWidth} items-center justify-center gap-2 rounded-lg bg-[var(--sf-accent)] px-5 py-2.5 text-sm font-bold text-white`}>Request a quote <ArrowRight className="h-4 w-4" /></span>}
+        {chatAction && <div className={`${rfqWidth} rounded-lg bg-white text-ink-900 [&>button]:w-full`}>{chatAction}</div>}
       </> : null}
       coverUrl={coverUrl}
       avatarUrl={avatarUrl}
