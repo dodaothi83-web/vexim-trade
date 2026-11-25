@@ -149,6 +149,7 @@ const en = {
     conversation: "View quote",
     newMessage: "New message",
     replied: "Reply recorded on {at}; it will be processed next.",
+    generalRequest: "General request",
   },
   report: {
     title: "Quote statistics",
@@ -341,6 +342,7 @@ const vi: RfqsMessages = {
     conversation: "Xem báo giá",
     newMessage: "Có tin nhắn mới",
     replied: "Đã ghi nhận phản hồi ngày {at}; nội dung sẽ được xử lý tiếp.",
+    generalRequest: "Yêu cầu chung",
   },
   report: {
     title: "Thống kê báo giá",

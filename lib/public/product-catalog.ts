@@ -639,3 +639,41 @@ export async function listMoreFromSupplier(
   }
   return picked;
 }
+
+/** Một lựa chọn trong ô "Which product?" của form RFQ gửi từ trang nhà cung cấp. */
+export interface SupplierRfqProductChoice {
+  id: string;
+  name: string;
+  categorySlug: string;
+  imagePath: string | null;
+}
+
+/**
+ * Sản phẩm công khai của MỘT nhà cung cấp để người mua chọn khi gửi RFQ từ trang nhà cung cấp.
+ * Đi qua đúng cổng công khai của getPublicProductRecordsByIds (đã duyệt, đủ ảnh, đúng danh mục),
+ * nên mọi lựa chọn đều mở được thẻ sản phẩm và qua được bước kiểm tra source_product_id khi gửi.
+ * Lỗi đọc dữ liệu trả mảng rỗng: form vẫn gửi được như yêu cầu chung.
+ */
+export async function listSupplierRfqProductChoices(supplierId: string, limit = 8): Promise<SupplierRfqProductChoice[]> {
+  try {
+    const { products } = await getCachedPublicCatalogBase();
+    const ids = products
+      .filter((p) => p.supplier_id === supplierId && p.ready_for_buyer && productReviewApproved(p) && !isTestOnlyProduct(p.name))
+      .map((p) => p.id)
+      .slice(0, 20);
+    if (!ids.length) return [];
+    const records = await getPublicProductRecordsByIds(ids, { cachedCatalog: true });
+    return records
+      .filter((record) => record.card.supplierId === supplierId && !record.card.isDemo)
+      .slice(0, limit)
+      .map((record) => ({
+        id: record.card.id,
+        name: record.card.name,
+        categorySlug: record.category.slug,
+        imagePath: record.card.cardImagePath ?? record.card.imagePaths[0] ?? null,
+      }));
+  } catch (error) {
+    console.error("[catalog] supplier RFQ product choices", error);
+    return [];
+  }
+}

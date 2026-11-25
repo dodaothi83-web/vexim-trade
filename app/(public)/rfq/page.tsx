@@ -11,7 +11,8 @@ import { supplierShortName } from "@/lib/public/supplier-name";
 import { loadRfqProductContext } from "@/lib/public/rfq-product-context";
 import { canInviteSupplier } from "@/lib/supplier-portal/onboarding";
 import type { Category } from "@/lib/types";
-import { listCachedPublicSuppliers } from "@/lib/public/product-catalog";
+import { listCachedPublicSuppliers, listSupplierRfqProductChoices } from "@/lib/public/product-catalog";
+import { publicMediaUrlAt } from "@/lib/media/public-url";
 import { pageTitle } from "@/lib/site";
 
 export const metadata = {
@@ -70,6 +71,16 @@ export default async function RfqPage({
       return !!supplier && canInviteSupplier(supplier, store);
     }))).some((ok) => !ok));
 
+  // RFQ gửi từ trang nhà cung cấp (chưa gắn sản phẩm): cho người mua chọn một sản phẩm của
+  // nhà cung cấp đó, để RFQ có ảnh và tên sản phẩm. Không bắt buộc; bỏ qua vẫn gửi như cũ.
+  const productChoices = !unavailableDirect && !contextProduct && initialSuppliers.length === 1 && supplierIds.length === 1
+    ? await listSupplierRfqProductChoices(initialSuppliers[0].id) : [];
+  const choiceHref = (choice: (typeof productChoices)[number]) => {
+    const query = new URLSearchParams({ category: choice.categorySlug, suppliers: initialSuppliers[0].id, product: choice.name.slice(0, 150), product_id: choice.id });
+    if (sp?.sample === "1") query.set("sample", "1");
+    return `/rfq?${query}`;
+  };
+
   // Old question links now open the product modal, never a separate question page.
   if (sp?.intent === "question") {
     if (contextProduct && sp.category && sp.product_id) {
@@ -96,7 +107,26 @@ export default async function RfqPage({
       {unavailableDirect ? <div role="alert" className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950">
         A selected supplier does not currently have an active RFQ portal. No request has been sent.
         <Link href="/rfq" className="ml-2 font-semibold underline">Start a new general sourcing RFQ with Vexim</Link>.
-      </div> : <RfqForm buyerEmail={session.email}
+      </div> : <>
+      {productChoices.length > 0 && <section aria-labelledby="rfq-product-choice" className="mt-8 rounded-xl border border-ink-200 bg-white p-5">
+        <h2 id="rfq-product-choice" className="text-[16px] font-bold text-ink-900">Which product are you asking about?</h2>
+        <p className="mt-1 text-[13.5px] leading-relaxed text-ink-600">
+          Optional. Choose a product from {initialSuppliers[0].name} so they know exactly what to quote, or describe what you need below.
+        </p>
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {productChoices.map((choice) => <li key={choice.id}>
+            <Link href={choiceHref(choice)} prefetch={false}
+              className="flex h-full items-center gap-3 rounded-lg border border-ink-200 p-2.5 transition hover:border-brand-400 hover:bg-brand-50/40">
+              {choice.imagePath
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={publicMediaUrlAt(choice.imagePath, 400)} alt="" loading="lazy" className="size-14 shrink-0 rounded-md border border-ink-100 object-cover" />
+                : <span aria-hidden="true" className="size-14 shrink-0 rounded-md bg-ink-100" />}
+              <span className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug text-ink-900">{choice.name}</span>
+            </Link>
+          </li>)}
+        </ul>
+      </section>}
+      <RfqForm buyerEmail={session.email}
         categories={categories.map((c: Category) => ({ slug: c.slug, name: c.name_i18n?.en ?? c.slug }))}
         categorySpecs={Object.fromEntries(categories.map((c: Category) => {
           const standardGrades = standardGradesForCategory(c);
@@ -117,7 +147,7 @@ export default async function RfqPage({
         wantsSamples={sp?.sample === "1"}
         mode="quote"
         contextProduct={contextProduct}
-      />}
+      /></>}
 
       <p className="mt-6 text-[12.5px] leading-relaxed text-ink-500">
 

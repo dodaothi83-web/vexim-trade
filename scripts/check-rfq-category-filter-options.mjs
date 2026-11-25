@@ -7,7 +7,7 @@ import ts from 'typescript';
 import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 
-let categories = [], suppliers = [], listFailed = false, productContext = null;
+let categories = [], suppliers = [], listFailed = false, productContext = null, productChoices = [], choiceCalls = [];
 const RfqForm = () => null;
 let buyerSession = { uid: 'buyer-account', email: 'buyer@example.com' };
 const BuyerEnquiryEntry = () => null;
@@ -26,7 +26,9 @@ const mocks = {
   } }) },
   '@/lib/products/grade-pricing': { standardGradesForCategory: (category) => category.standardGrades ?? [] },
   '@/lib/public/catalog': { listPublicSuppliers: async () => suppliers },
-  '@/lib/public/product-catalog': { listCachedPublicSuppliers: async () => suppliers },
+  '@/lib/public/product-catalog': { listCachedPublicSuppliers: async () => suppliers,
+    listSupplierRfqProductChoices: async (id) => { choiceCalls.push(id); return productChoices; } },
+  '@/lib/media/public-url': { publicMediaUrlAt: (path, width) => `/media/${path}?w=${width}` },
   '@/lib/supplier-portal/onboarding': { canInviteSupplier: async () => true },
 };
 // Tên nhà cung cấp hiện trên banner đi qua helper thật (module thuần, không import gì),
@@ -129,6 +131,30 @@ assert.deepEqual(plain(props.contextProduct), productContext, 'Trang chuyển th
 productContext = null;
 props = await render({ category: 'cashew-kernels' });
 assert.equal(props.contextProduct, null, 'Vào từ menu không có thẻ ngữ cảnh');
+
+// RFQ từ trang nhà cung cấp: người mua chọn được sản phẩm của chính nhà cung cấp đó (không bắt buộc).
+const linkHrefs = (node, out = []) => {
+  if (!React.isValidElement(node)) return out;
+  if (typeof node.props.href === 'string') out.push(node.props.href);
+  for (const child of React.Children.toArray(node.props.children)) linkHrefs(child, out);
+  return out;
+};
+const page = async (params) => exports.default({ searchParams: Promise.resolve(params) });
+productChoices = [{ id: 'product-9', name: 'Mixed fruit chips', categorySlug: 'dried-fruit', imagePath: 'p/product-9/x' }];
+choiceCalls = [];
+let tree = await page({ suppliers: 'supplier-1', sample: '1' });
+assert.deepEqual(choiceCalls, ['supplier-1'], 'Picker reads only the named supplier');
+assert.ok(linkHrefs(tree).includes('/rfq?category=dried-fruit&suppliers=supplier-1&product=Mixed+fruit+chips&product_id=product-9&sample=1'),
+  'Each choice opens the same product RFQ link as the product page');
+assert.ok(findForm(tree), 'The RFQ form still renders under the picker');
+choiceCalls = [];
+productContext = { id: 'product-9', name: 'Mixed fruit chips', supplierName: 'Vendor', checks: [] };
+tree = await page({ category: 'dried-fruit', suppliers: 'supplier-1', product_id: 'product-9' });
+assert.deepEqual(choiceCalls, [], 'No picker once a product is attached');
+productContext = null;
+tree = await page({ category: 'cashew-kernels' });
+assert.deepEqual(choiceCalls, [], 'No picker for a general sourcing RFQ');
+productChoices = [];
 
 listFailed = true;
 props = await render();

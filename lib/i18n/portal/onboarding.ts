@@ -5,7 +5,7 @@
  * bên phải. `en` là bản gốc; `vi` khai theo kiểu suy ra từ nó.
  */
 const en = {
-  steps: ["Company information", "First documents", "Public page and submit"],
+  steps: ["Company information", "Documents", "Public page and submit"],
   progressSteps: ["Company information", "Documents", "Submit"],
   unlock: [
     "Publish products and photos to your storefront.",
@@ -63,24 +63,22 @@ const en = {
     emailHint: "Review results and every notice go to this email.",
   },
   documents: {
-    title: "First documents · Documents check",
+    title: "Company documents",
     intro: [
-      "Only the business registration certificate is needed.",
-      "The certificate must be in the name of the company you entered in step 1; one issued to another entity does not count.",
-      "Quality certificates (HACCP, ISO, BRC, Halal...) are uploaded after the account is approved.",
-      "Each file is up to 15 MB; uploading does not approve anything by itself.",
+      "Upload the business registration certificate in the name of the company you entered in step 1.",
+      "Upload quality certificates (HACCP, ISO, BRC, Halal) after your account is approved.",
     ],
-    extraTitle: "Want more checks?",
+    extraTitle: "More verification (optional)",
     extraIntro:
-      "Tick if you want to be contacted for an extra check. Each review is decided on its own; asking does not grant verification.",
+      "Tick what you want. Vexim will contact you to book the check. The badge is given only when the check passes.",
     factoryTitle: "Factory verification",
     partnerTitle: "Partner factory review",
     factoryHint:
-      "You will be contacted to arrange a check and upload evidence in a round; asking does not approve anything.",
-    partnerHint: "A contract with the partner factory is required; photos are optional. We check it, nothing is auto-approved.",
+      "Vexim checks your factory on a video call. Prepare photos and documents of your production site.",
+    partnerHint: "For trading companies. Prepare your contract with the partner factory, plus factory photos if you have them.",
     exportTitle: "Delivery history",
     exportHint:
-      "You will be contacted to arrange a check and upload evidence in a round; asking does not approve anything.",
+      "Prepare documents from shipments you exported: customs declaration, bill of lading or commercial invoice.",
   },
   publicPage: {
     title: "What shows on your company page",
@@ -163,7 +161,7 @@ const en = {
       requiredInStep: "A required field in this step is empty or malformed. Please check it again.",
       noCategory: "Choose at least one business category, or write the industry you sell in.",
       noCategorySubmit: "Choose at least one business category, or write the industry you sell in before sending.",
-      noCoreDoc: "Upload the business registration certificate for your company.",
+      noCoreDoc: "You have not uploaded the business registration certificate. Upload it to continue.",
       consent: "Please tick the box agreeing to the Terms of Service before sending.",
       accuracy:
         "Please tick the box accepting responsibility for the truthfulness of product names, prices and delivery times.",
@@ -208,7 +206,7 @@ type DeepStrings<T> = {
 export type OnboardingMessages = DeepStrings<typeof en>;
 
 const vi: OnboardingMessages = {
-  steps: ["Thông tin doanh nghiệp", "Giấy tờ bước đầu", "Hiển thị cho người mua & gửi hồ sơ"],
+  steps: ["Thông tin doanh nghiệp", "Giấy tờ", "Hiển thị cho người mua & gửi hồ sơ"],
   progressSteps: ["Thông tin doanh nghiệp", "Giấy tờ", "Gửi duyệt"],
   unlock: [
     "Đăng sản phẩm và ảnh lên gian hàng của bạn.",
@@ -266,24 +264,22 @@ const vi: OnboardingMessages = {
     emailHint: "Bạn nhận kết quả duyệt và thông báo qua email này.",
   },
   documents: {
-    title: "Giấy tờ bước đầu · Kiểm tra giấy tờ",
+    title: "Giấy tờ doanh nghiệp",
     intro: [
-      "Chỉ cần Giấy chứng nhận đăng ký kinh doanh.",
-      "Giấy phải đứng tên doanh nghiệp bạn khai ở bước 1; giấy đứng tên đơn vị khác không tính.",
-      "Chứng nhận chất lượng (HACCP, ISO, BRC, Halal…) tải sau khi tài khoản được duyệt.",
-      "Mỗi tệp tối đa 15 MB; tải lên không tự duyệt.",
+      "Tải Giấy chứng nhận đăng ký kinh doanh đứng tên doanh nghiệp bạn đã khai ở bước 1.",
+      "Chứng nhận chất lượng (HACCP, ISO, BRC, Halal) tải sau khi tài khoản được duyệt.",
     ],
-    extraTitle: "Muốn được xác minh thêm?",
+    extraTitle: "Xác minh thêm (không bắt buộc)",
     extraIntro:
-      "Chọn nếu bạn muốn được liên hệ để kiểm tra thêm. Mỗi đánh giá được xét riêng; gửi yêu cầu không tự cấp xác minh.",
+      "Chọn mục bạn muốn. Vexim sẽ liên hệ để hẹn lịch kiểm tra. Huy hiệu chỉ cấp khi kiểm tra đạt.",
     factoryTitle: "Xác thực nhà máy",
     partnerTitle: "Đối chiếu nhà máy đối tác",
     factoryHint:
-      "Bạn sẽ được liên hệ để kiểm tra và tải bằng chứng theo đợt; gửi yêu cầu không tự duyệt.",
-    partnerHint: "Cần hợp đồng với nhà máy đối tác; ảnh là tùy chọn. Hợp đồng được đối chiếu, không tự duyệt.",
+      "Vexim gọi video để xem nhà máy. Bạn chuẩn bị ảnh và giấy tờ về cơ sở sản xuất.",
+    partnerHint: "Dành cho doanh nghiệp thương mại. Bạn chuẩn bị hợp đồng với nhà máy đối tác, thêm ảnh nhà máy nếu có.",
     exportTitle: "Lịch sử giao hàng",
     exportHint:
-      "Bạn sẽ được liên hệ để kiểm tra và tải bằng chứng theo đợt; gửi yêu cầu không tự duyệt.",
+      "Bạn chuẩn bị chứng từ lô hàng đã xuất: tờ khai hải quan, vận đơn hoặc hóa đơn thương mại.",
   },
   publicPage: {
     title: "Thông tin hiển thị trên trang doanh nghiệp",
@@ -366,7 +362,7 @@ const vi: OnboardingMessages = {
       requiredInStep: "Còn trường bắt buộc chưa điền hoặc chưa đúng định dạng ở bước này. Vui lòng kiểm tra lại.",
       noCategory: "Chọn ít nhất một danh mục kinh doanh, hoặc ghi ngành bạn bán ở ô phía trên.",
       noCategorySubmit: "Chọn ít nhất một danh mục kinh doanh, hoặc ghi ngành bạn bán trước khi gửi hồ sơ.",
-      noCoreDoc: "Tải Giấy chứng nhận đăng ký kinh doanh của doanh nghiệp bạn.",
+      noCoreDoc: "Bạn chưa tải Giấy chứng nhận đăng ký kinh doanh. Tải giấy để tiếp tục.",
       consent: "Vui lòng tích ô đồng ý với Điều khoản sử dụng trước khi gửi hồ sơ.",
       accuracy:
         "Vui lòng tích ô chịu trách nhiệm về tính trung thực của tên, giá sản phẩm và thời gian giao hàng.",
