@@ -181,7 +181,7 @@ for (const file of ["app/(public)/simple-footer.tsx", "components/public-header-
 
 console.log("Home static: edge cookie check matches node, rewrites serve the prebuilt home, filters stay dynamic");
 
-// Ảnh chia sẻ trang chủ: ảnh riêng của sàn (logo V gốc, nền navy, font Be Vietnam Pro bản đầy đủ),
+// Ảnh chia sẻ trang chủ: ảnh riêng của sàn (logo V gốc, nền navy, font Inter bản tĩnh đầy đủ),
 // không dùng ảnh hạt điều; dựng sẵn lúc build cho cả bản tiếng Anh và tiếng Việt.
 {
   const fsx = await import("node:fs");
@@ -196,8 +196,9 @@ console.log("Home static: edge cookie check matches node, rewrites serve the pre
   const card = readx("lib/og/home-share-image.tsx");
   if (!card.includes('"public", "logo-vexim-white-mark.png"')) throw new Error("Share image uses the original white V logo");
   if (!card.includes("brandColors.primary")) throw new Error("Share image uses the navy brand colour");
-  for (const f of ["BeVietnamPro-SemiBold.ttf", "BeVietnamPro-ExtraBold.ttf", "OFL.txt"]) {
-    if (!fsx.existsSync(new URL(`../assets/fonts/be-vietnam-pro/${f}`, import.meta.url))) throw new Error(`Missing font file ${f}`);
+  for (const f of ["Inter-SemiBold.ttf", "Inter-ExtraBold.ttf", "OFL.txt"]) {
+    if (!fsx.existsSync(new URL(`../assets/fonts/inter/${f}`, import.meta.url))) throw new Error(`Missing font file ${f}`);
   }
+  if (!card.includes('fontFamily: "Inter"')) throw new Error("Share image uses Inter, like the site");
   console.log("home share image: brand card, en + vi, prebuilt");
 }
