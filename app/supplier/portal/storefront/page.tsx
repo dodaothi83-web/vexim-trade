@@ -14,7 +14,7 @@ import { StorefrontVerificationActions } from "../verification-progress";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
-import { formatCertificateDate } from "@/lib/certificate-supplier-copy";
+import { supplierPlanStatus } from "@/lib/supplier-portal/plan-status";
 import { hasOpenServiceRequest } from "@/lib/supplier-services";
 import { StorefrontPlanBadge, StorefrontUpgradeButton } from "@/components/supplier-portal/storefront-owner";
 import { normalizeShowcaseBlocks } from "@/lib/supplier-showcase";
@@ -92,12 +92,7 @@ export default async function SupplierStorefrontPreviewPage() {
   const synthetic = isSyntheticSupplier(supplier);
   const planCatalog = await readPlanCatalog();
   const planRules = supplierPlanRules(supplier, new Date(), planCatalog);
-  // Hạn gói hiển thị theo ngày Việt Nam; CRM lưu 23:59:59 +07:00 của ngày hết hạn.
-  const planExpiresOn = planRules.plan !== "basic" && supplier.plan_expires_at && Number.isFinite(Date.parse(supplier.plan_expires_at))
-    ? formatCertificateDate(new Date(Date.parse(supplier.plan_expires_at) + 7 * 3_600_000).toISOString().slice(0, 10), locale === "en" ? "en" : "vi")
-    : null;
-  // Còn ≤ 30 ngày thì hiện nút gia hạn chính gói đang dùng (cùng mốc với email nhắc).
-  const planRenewable = planRules.plan !== "basic" && !!supplier.plan_expires_at && Date.parse(supplier.plan_expires_at) - Date.now() <= 30 * 86_400_000;
+  const { expiresOn: planExpiresOn, renewable: planRenewable } = supplierPlanStatus(supplier, planCatalog, locale);
   const publicHref = published ? `/suppliers/${encodeURIComponent(supplier.slug || supplier.id)}` : null;
   const coverUrl = supplier.cover_image ? publicMediaUrl(supplier.cover_image) : null;
   const avatarUrl = supplier.profile_image ? publicMediaUrl(supplier.profile_image) : null;

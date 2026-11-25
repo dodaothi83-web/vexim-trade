@@ -21,7 +21,6 @@ const en = {
   noteLabel: "Your needs (optional)",
   notePlaceholder: "For example: an English website for our cashew factory, ready before the next trade fair.",
   contactLine: "A Vexim specialist will contact {email}.",
-  unlimited: "unlimited",
   services: {
     international_website: {
       title: "Export website",
@@ -57,11 +56,10 @@ const en = {
       title: "Membership plan",
       tagline: "Present your business more professionally and reach more buyers.",
       points: [
-        "List up to {premium} products on Premium, {pro} on Pro",
-        "A+ content and video for products and a premium supplier page",
-        "Monthly English SEO articles on Vexim Trade",
-        "Pro: products featured in Vexim's weekly email to buyers",
-        "Products introduced in Vexim Trade email marketing campaigns to international buyers",
+        "Unlimited product listings with Pro: your full export range in one storefront",
+        "A premium storefront with A+ content and video that lets buyers see your factory, process and quality",
+        "English articles about your business on Vexim Trade, so buyers can find you on Google",
+        "Pro: featured in Vexim's weekly email to international buyers who follow your product category",
       ],
       fit: "Businesses that need more listings or want a stronger presence with buyers.",
     },
@@ -116,7 +114,6 @@ const vi: ServicesMessages = {
   noteLabel: "Nhu cầu của doanh nghiệp (không bắt buộc)",
   notePlaceholder: "Ví dụ: website tiếng Anh cho nhà máy hạt điều, hoàn thành trước hội chợ sắp tới.",
   contactLine: "Chuyên viên Vexim sẽ liên hệ qua {email}.",
-  unlimited: "không giới hạn",
   services: {
     international_website: {
       title: "Website xuất khẩu",
@@ -152,11 +149,10 @@ const vi: ServicesMessages = {
       title: "Gói thành viên",
       tagline: "Trình bày chuyên nghiệp hơn, được người mua biết đến nhiều hơn.",
       points: [
-        "Đăng đến {premium} sản phẩm với Premium, {pro} với Pro",
-        "Nội dung A+ và video cho sản phẩm, trang nhà cung cấp cao cấp",
-        "Bài SEO tiếng Anh hằng tháng trên Vexim Trade",
-        "Gói Pro: sản phẩm có mặt trong thư giới thiệu gửi người mua hằng tuần",
-        "Được giới thiệu sản phẩm trong các chiến dịch email marketing của Vexim Trade tới người mua quốc tế",
+        "Đăng sản phẩm không giới hạn với gói Pro: đưa trọn danh mục hàng xuất khẩu lên một gian hàng",
+        "Gian hàng cao cấp với nội dung A+ và video, cho người mua thấy rõ nhà máy, quy trình và chất lượng",
+        "Bài giới thiệu doanh nghiệp bằng tiếng Anh trên Vexim Trade, giúp người mua tìm thấy bạn trên Google",
+        "Gói Pro: xuất hiện nổi bật trong thư tuần gửi người mua quốc tế đang theo dõi đúng ngành hàng của bạn",
       ],
       fit: "Doanh nghiệp cần đăng thêm sản phẩm hoặc muốn hiện diện rõ nét hơn với người mua.",
     },
