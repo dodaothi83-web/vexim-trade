@@ -357,12 +357,14 @@ const tableHtml = renderToStaticMarkup(React.createElement(tableModule.ProductCo
   products: [compared("a"), compared("b", { price: null, priceCurrency: null, priceUnit: null, priceUpdatedAt: null, certificates: [], inputMaterialOrigin: null })],
 }));
 for (const text of ["Reference price", "USD 7/kg", "On request", "Price updated", "MOQ", "Packaging", "Named place",
-  "Vexim verification", "Documents checked: Approved", "Delivery history reviewed: Approved", "Factory verification: Not approved",
-  "HACCP", "No public certificates", "Raw material region", "Binh Phuoc and Dak Lak", "Input material origin", "Vietnam and Cambodia", "Not provided",
+  "Vexim verification", "Documents checked<span class=\"sr-only\">: Approved", "Delivery history reviewed<span class=\"sr-only\">: Approved", "Not yet reviewed: Factory",
+  "Verification and certificates", "Supplier certificates", "HACCP", "to Jan 2099", "None listed", "Raw material region", "Binh Phuoc and Dak Lak", "Input material origin", "Vietnam and Cambodia", "Not provided",
   "Copy comparison link", "Request a quote", "do not certify these products or a specific lot"]) {
   assert.ok(tableHtml.includes(text), `Comparison table includes ${text}`);
 }
 assert.match(tableHtml, /data-pdf-count="2"/);
+assert.doesNotMatch(tableHtml, /Not approved|No public certificates/, "Compact trust cells: no 'Not approved' wording");
+assert.match(tableHtml, /title="HACCP · Valid until 2099-01-01 · Registered to supplier"/, "Full certificate details move into the tooltip");
 assert.match(tableHtml, /Download PDF/);
 assert.match(tableHtml, /overflow-x-auto/);
 assert.match(tableHtml, /sticky left-0/);
@@ -385,8 +387,9 @@ assert.doesNotMatch(crossCategoryHtml, />Grade</, "Cross-category comparisons do
 const partnerCompareHtml = renderToStaticMarkup(React.createElement(tableModule.ProductComparisonTable, {
   products: [compared("p", { verificationSteps: [2], l2Scope: "partner_contract" })],
 }));
-assert.match(partnerCompareHtml, /Partner factory contract reviewed: Approved/);
-assert.doesNotMatch(partnerCompareHtml, /Factory verification: Approved/);
+assert.match(partnerCompareHtml, /Partner factory contract reviewed<span class="sr-only">: Approved/);
+assert.doesNotMatch(partnerCompareHtml, /Factory verification<span class="sr-only">: Approved/);
+assert.match(partnerCompareHtml, /Not yet reviewed: Documents, Delivery history/);
 
 
 /* ---------- Route and public-surface wiring ---------- */

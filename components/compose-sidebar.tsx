@@ -24,6 +24,7 @@ import {
   type SensitiveTerm,
 } from "@/lib/email/privacy";
 import { getStage } from "@/lib/pipeline";
+import { buyerOrderSummary, buyerSourceLabel } from "@/lib/buyer/request-summary";
 import { roleLabel, statusMeta } from "@/lib/supplier";
 import type { ComposeContext, RecentMail } from "@/lib/compose-context";
 import { Badge, cx, formatDate, formatDateTime, formatMoney } from "@/components/ui";
@@ -329,7 +330,7 @@ export function ComposeSidebar({
                   label="Ưu tiên"
                   value={active.priority ? (PRIORITY_LABEL[active.priority] ?? active.priority) : null}
                 />
-                <Row label="Nguồn lead" value={active.source} />
+                <Row label="Nguồn lead" value={buyerSourceLabel(active.source)} />
                 <Row
                   label="Giá trị đơn"
                   value={active.dealValue != null ? formatMoney(active.dealValue) : null}
@@ -417,8 +418,8 @@ export function ComposeSidebar({
             <dl className="mt-1.5 space-y-1">
               {active.kind === "buyer" ? (
                 <>
-                  <Row label="Sản phẩm" value={active.product} />
-                  <Row label="Quy cách" value={active.spec} />
+                  <Row label="Sản phẩm" value={buyerOrderSummary(active).title} />
+                  <RequestRow request={buyerOrderSummary(active).request} />
                   <Row label="Số lượng" value={active.quantity} />
                   <Row label="Giá mục tiêu" value={active.targetPrice} />
                   <Row
@@ -577,6 +578,31 @@ export function ComposeSidebar({
         )}
       </section>
     </aside>
+  );
+}
+
+/** Quy cách / lời người mua: dài thì thu gọn 4 dòng, bấm để xem đủ. */
+function RequestRow({ request }: { request: string | null }) {
+  if (!request) return null;
+  const long = request.length > 160 || request.split("\n").length > 3;
+  return (
+    <div className="flex gap-2">
+      <dt className="w-[86px] shrink-0 text-ink-400">Yêu cầu</dt>
+      <dd className="min-w-0 flex-1 text-ink-700">
+        {long ? (
+          <details className="group">
+            <summary className="cursor-pointer list-none">
+              <span className="line-clamp-4 whitespace-pre-line group-open:hidden">{request}</span>
+              <span className="text-[11.5px] font-semibold text-brand-700 group-open:hidden">Xem đủ</span>
+              <span className="hidden text-[11.5px] font-semibold text-brand-700 group-open:inline">Thu gọn</span>
+            </summary>
+            <p className="mt-1 whitespace-pre-line">{request}</p>
+          </details>
+        ) : (
+          <span className="whitespace-pre-line">{request}</span>
+        )}
+      </dd>
+    </div>
   );
 }
 
