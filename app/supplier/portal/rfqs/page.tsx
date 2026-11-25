@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, ChevronDown, ImageIcon, Search, TrendingUp } from "lucide-react";
+import { ArrowRight, ChevronDown, FileText, ImageIcon, Search, TrendingUp } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -117,7 +117,12 @@ export default async function SupplierRfqPage({ searchParams }: {
             {/* Private catalog media is served with this supplier's session, not via the image optimizer. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={imageByProduct.get(item.productId)!} alt="" loading="lazy" className="size-full object-cover" />
-          </> : <ImageIcon className="size-6 text-ink-400" aria-hidden="true" />}
+          </> : item.productId ? <ImageIcon className="size-6 text-ink-400" aria-hidden="true" />
+            : <span className="flex size-full flex-col items-center justify-center gap-1.5 bg-ink-50 px-1 text-center text-ink-600">
+              {/* RFQ gửi từ trang nhà cung cấp, không gắn sản phẩm: nói rõ thay vì để khung ảnh trống như lỗi. */}
+              <FileText className="size-6 text-ink-400" aria-hidden="true" />
+              <span className="text-[11px] font-semibold leading-tight">{copy.invites.generalRequest}</span>
+            </span>}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block break-words text-[15px] font-semibold text-ink-900">{summaryTitle(item)}</span>

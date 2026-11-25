@@ -103,7 +103,7 @@ export function SupplierProfileFields({ supplier, email, categories, categoryReq
     <div data-step-panel={2} className={step === 2 ? "space-y-7" : "hidden"}>
     <section><h2 className="text-xl font-black text-ink-900">{m.documents.title}</h2>
       <p className="mt-1 text-sm text-ink-600">{m.documents.intro.map((line, index) => <span key={line}>{index > 0 && <br />}{line}</span>)}</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">{COMPANY_DOCUMENT_KEYS.map((key) => <FilePicker
+      <div className={`mt-4 grid gap-3 ${COMPANY_DOCUMENT_KEYS.length > 1 ? "sm:grid-cols-2" : ""}`}>{COMPANY_DOCUMENT_KEYS.map((key) => <FilePicker
         key={key}
         name={`doc:${key}`}
         accept=".pdf,image/jpeg,image/png,image/webp"
