@@ -180,3 +180,24 @@ for (const file of ["app/(public)/simple-footer.tsx", "components/public-header-
 }
 
 console.log("Home static: edge cookie check matches node, rewrites serve the prebuilt home, filters stay dynamic");
+
+// Ảnh chia sẻ trang chủ: ảnh riêng của sàn (logo V gốc, nền navy, font Be Vietnam Pro bản đầy đủ),
+// không dùng ảnh hạt điều; dựng sẵn lúc build cho cả bản tiếng Anh và tiếng Việt.
+{
+  const fsx = await import("node:fs");
+  const readx = (f) => fsx.readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
+  const homePage = readx("app/(public)/page.tsx");
+  if (/hero-cashew-texture/.test(homePage)) throw new Error("Home share image must not be the cashew hero");
+  if (!/url: HOME_SHARE_IMAGE_PATH\[lang\]/.test(homePage) || !/images: \[HOME_SHARE_IMAGE_PATH\[lang\]\]/.test(homePage)) throw new Error("Home openGraph/twitter images use the share image");
+  for (const lang of ["en", "vi"]) {
+    const route = readx(`app/og/home-${lang}.png/route.tsx`);
+    if (!/export const dynamic = "force-static";/.test(route) || !route.includes(`homeShareImage("${lang}")`)) throw new Error(`/og/home-${lang}.png is built once, for ${lang}`);
+  }
+  const card = readx("lib/og/home-share-image.tsx");
+  if (!card.includes('"public", "logo-vexim-white-mark.png"')) throw new Error("Share image uses the original white V logo");
+  if (!card.includes("brandColors.primary")) throw new Error("Share image uses the navy brand colour");
+  for (const f of ["BeVietnamPro-SemiBold.ttf", "BeVietnamPro-ExtraBold.ttf", "OFL.txt"]) {
+    if (!fsx.existsSync(new URL(`../assets/fonts/be-vietnam-pro/${f}`, import.meta.url))) throw new Error(`Missing font file ${f}`);
+  }
+  console.log("home share image: brand card, en + vi, prebuilt");
+}

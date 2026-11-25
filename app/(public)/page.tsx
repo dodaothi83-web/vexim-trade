@@ -9,6 +9,7 @@ import { SITE_URL } from "@/lib/site";
 import { safeJsonLd } from "@/lib/public/supplier-seo";
 import HomeContent from "./home";
 import { HOME_META_DESCRIPTION, HOME_META_DESCRIPTION_VI } from "@/lib/public/meta-copy";
+import { HOME_SHARE_IMAGE_ALT, HOME_SHARE_IMAGE_PATH, HOME_SHARE_IMAGE_SIZE } from "@/lib/og/home-share-image";
 
 // Chuyển hướng nhân viên đã đăng nhập (→ /crm/dashboard) và host nội bộ
 // (crm.*, *.vercel.app → /login) giờ nằm ở middleware.ts, chạy TRƯỚC khi chạm
@@ -37,7 +38,6 @@ const HOME_TITLE = "Vexim Trade – Find Verified Food & Agricultural Products a
 const HOME_TITLE_VI = "Vexim Trade – Tìm Nhà Cung Cấp Nông Sản & Thực Phẩm Việt Nam Đã Xác Minh";
 const HOME_DESCRIPTION = HOME_META_DESCRIPTION;
 const HOME_DESCRIPTION_VI = HOME_META_DESCRIPTION_VI;
-const HOME_IMAGE = "/images/home/hero-cashew-texture.jpg";
 
 /**
  * Trang chủ đọc `?lang=vi` để dựng bản tiếng Việt (xem HomeContent/home.tsx) — metadata
@@ -53,6 +53,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const params = searchParams ? await searchParams : {};
   const isVi = params?.lang === "vi";
+  const lang = isVi ? "vi" : "en";
   const title = isVi ? HOME_TITLE_VI : HOME_TITLE;
   const description = isVi ? HOME_DESCRIPTION_VI : HOME_DESCRIPTION;
   const canonical = isVi ? "/?lang=vi" : "/";
@@ -70,20 +71,19 @@ export async function generateMetadata({
       siteName: "Vexim Trade",
       type: "website",
       locale: isVi ? "vi_VN" : "en_US",
-      // width/height giúp LinkedIn/WhatsApp/Zalo dựng thẻ xem trước ngay lần tải
-      // đầu thay vì đợi tải ảnh để đo (ảnh thật: 1264x848).
+      // Ảnh chia sẻ riêng của sàn (logo V, nền navy), không dùng ảnh hạt điều nữa. width/height giúp
+      // LinkedIn/WhatsApp/Zalo dựng thẻ xem trước ngay lần tải đầu. Xem lib/og/home-share-image.tsx.
       images: [{
-        url: HOME_IMAGE,
-        alt: "Verified Vietnamese food & agricultural products on Vexim Trade",
-        width: 1264,
-        height: 848,
+        url: HOME_SHARE_IMAGE_PATH[lang],
+        alt: HOME_SHARE_IMAGE_ALT[lang],
+        ...HOME_SHARE_IMAGE_SIZE,
       }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [HOME_IMAGE],
+      images: [HOME_SHARE_IMAGE_PATH[lang]],
     },
   };
 }

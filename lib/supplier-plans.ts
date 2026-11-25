@@ -58,8 +58,8 @@ export type SupplierPlanCatalog = Record<SupplierPlan, SupplierPlanCatalogEntry>
  * tháng, bài lặp lại giữa các nhà cung cấp cùng ngành, và viết hàng loạt có rủi ro SEO cho cả tên miền.
  * Bài trên website riêng của doanh nghiệp không còn nằm trong gói (là dịch vụ mua thêm).
  */
-const ARTICLE_TERMS = "Bài viết dựa trên nội dung mới có thật (sản phẩm mới, chứng nhận mới, nhà máy, mùa vụ, đơn hàng xuất khẩu đã hoàn tất…); "
-  + "quyền lợi không cộng dồn sang kỳ sau; Vexim biên tập và có quyền từ chối nội dung trùng lặp hoặc chưa kiểm chứng được";
+const ARTICLE_TERMS = "Bài viết dựa trên nội dung mới có thật (sản phẩm, chứng nhận, nhà máy, mùa vụ, đơn hàng đã xuất); "
+  + "không cộng dồn sang kỳ sau; Vexim biên tập và có thể từ chối nội dung trùng lặp hoặc chưa kiểm chứng";
 
 export const DEFAULT_PLAN_CATALOG: SupplierPlanCatalog = {
   basic: { plan: "basic", name: "Basic", summary: "Miễn phí", maxProducts: 5, richContent: false, videoMinutes: 0, prices: [],
