@@ -79,6 +79,34 @@ assert.deepEqual(d.pickFeatured([C], [sup("a"), sup("b")], new Map([["supplier:a
   assert.equal(seen40.size, 40, "40 Pro suppliers, 4 slots: everyone featured within 10 weeks");
 }
 
+// 4e. Khung gọn nhà cung cấp nổi bật (chủ sàn duyệt mẫu 25/11/2026): tối đa 3 ảnh sản phẩm của chính
+// nhà cung cấp trong ngành người mua chọn, link báo giá chọn sẵn nhà cung cấp, không lặp sản phẩm ở lưới.
+{
+  const cats4 = [{ id: C, slug: "cashew-kernels", name: "Cashew kernels", harvest: null }, { id: P, slug: "pepper", name: "Pepper", harvest: null }];
+  const own = (id, over = {}) => product(id, { supplierId: "a", imagePath: `p/${id}.jpg`, createdAt: day(1), updatedAt: day(1), ...over });
+  const list4 = [own("a1", { updatedAt: day(1) }), own("a2", { updatedAt: day(3) }), own("a3", { updatedAt: day(2) }), own("a4", { updatedAt: day(5) }),
+    own("a-noimg", { imagePath: null }), own("a-pepper", { categoryId: P }), product("b1", { supplierId: "b", createdAt: day(1), updatedAt: day(1) })];
+  const card4 = d.featuredCard(sup("a"), [C], { products: list4, categories: cats4 });
+  assert.deepEqual(card4.thumbs.map((p) => p.id), ["a1", "a3", "a2"], "3 own products with a photo, in the buyer's category, newest first");
+  assert.equal(card4.rfqHref, "/rfq?category=cashew-kernels&suppliers=a", "Request a quote opens the RFQ with this supplier chosen");
+  const built = d.buildProductsDigest([C], { products: list4, suppliers: [sup("a")], categories: cats4 }, new Map(), now);
+  assert.deepEqual(built.featured[0].thumbs.map((p) => p.id), ["a1", "a3", "a2"]);
+  assert.ok(!built.products.some((p) => ["a1", "a2", "a3"].includes(p.id)), "Products already in a supplier card are not repeated in the grid");
+  assert.ok(built.products.some((p) => p.id === "a4") && built.products.some((p) => p.id === "b1"));
+
+  const html = read("lib/buyer/digest-server.ts");
+  assert.match(html, /digest\.featured\.map\(featuredSupplierHtml\)/, "Featured suppliers use the compact card");
+  assert.match(html, /Sponsored<\/span>/, "Paid placement stays labelled");
+  assert.match(html, /t: "rfq", i: "rfq", s: s\.id, u: s\.rfqHref/, "Per-supplier quote clicks are counted for that supplier");
+  assert.match(html, /#verification/, "The Verified badge links to what Vexim checked");
+  assert.doesNotMatch(html, /background:#E7F5EF;color:#0E7A4E/, "No more green check pills in the featured block");
+  assert.doesNotMatch(html, /fob_min|fob_max/, "No supplier-level FOB price in the email (not shown publicly on the marketplace)");
+  const tones = read("components/verified-badge.tsx");
+  for (const t of ["#0F766E", "#F0FDFA", "#99F6E4", "#1D4ED8", "#EFF6FF", "#BFDBFE", "#B45309", "#FFFBEB", "#FDE68A"]) {
+    assert.ok(tones.includes(t) && html.includes(t), `Verified badge colour ${t} matches the product card`);
+  }
+}
+
 // 5. Không gửi thư rỗng: thư sản phẩm cần ít nhất 2 mục; thư thị trường cần một bài.
 const data = { products: [product("new1", { createdAt: day(3), updatedAt: day(3) })], suppliers: [], categories: [{ id: C, slug: "cashew", name: "Cashew kernels", harvest: null }], posts: [] };
 assert.equal(d.buildProductsDigest([C], data, new Map(), now), null, "Chỉ 1 mục thì bỏ tuần này");

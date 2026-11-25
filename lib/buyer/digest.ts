@@ -17,7 +17,17 @@ export type DigestProduct = {
   /** Dùng cho thư theo hành vi (so sánh sản phẩm đã lưu). */
   certificates?: string[]; imageCount?: number;
 };
-export type DigestSupplier = { id: string; name: string; href: string; location: string; type: string; products: string; checks: string[]; categoryIds: string[] };
+export type DigestSupplier = { id: string; name: string; href: string; location: string; type: string; products: string; checks: string[]; categoryIds: string[];
+  /** Khung nhà cung cấp nổi bật (chủ sàn duyệt mẫu "khung gọn" 25/11/2026). Thiếu trường nào thì khung tự ẩn phần đó. */
+  logoPath?: string | null;
+  since?: number | null;
+  /** Số bước kiểm tra đã duyệt (nhãn "Verified L1/L2/L3" như thẻ sản phẩm); 0 thì không hiện nhãn. */
+  tier?: number;
+  /** Tối đa 3 số liệu ngắn: năng lực, thị trường xuất khẩu, MOQ. */
+  facts?: Array<{ label: string; value: string }>;
+};
+/** Nhà cung cấp nổi bật trong thư: kèm tối đa 3 ảnh sản phẩm của chính họ và link báo giá chọn sẵn họ. */
+export type DigestFeaturedSupplier = DigestSupplier & { thumbs: DigestProduct[]; rfqHref: string };
 export type DigestPost = { id: string; title: string; href: string; excerpt: string; imageUrl: string | null; publishedAt: string; categoryIds: string[] };
 export type HarvestLike = { windows: Array<{ label: string; start_month: number; end_month: number; regions?: string[]; peak?: boolean }> };
 export type DigestCategory = { id: string; slug: string; name: string; harvest?: HarvestLike | null };
@@ -154,13 +164,34 @@ export function seasonWatch(categories: string[], all: DigestCategory[], now: Da
   return out.slice(0, 3);
 }
 
-export type ProductsDigest = { kind: "products"; featured: DigestSupplier[]; products: Array<DigestProduct & { badge: "NEW" | "UPDATED" }>; seasons: DigestSeason[]; items: DigestItem[] };
+export type ProductsDigest = { kind: "products"; featured: DigestFeaturedSupplier[]; products: Array<DigestProduct & { badge: "NEW" | "UPDATED" }>; seasons: DigestSeason[]; items: DigestItem[] };
 export type BriefDigest = { kind: "brief"; post: DigestPost; seasons: DigestSeason[]; items: DigestItem[] };
 
 /** Thư sản phẩm cho một người mua; null khi chưa đủ nội dung (không gửi thư rỗng). */
+/** Số ảnh sản phẩm trong khung một nhà cung cấp nổi bật. */
+export const DIGEST_FEATURED_THUMBS = 3;
+
+/**
+ * Khung nhà cung cấp nổi bật: tối đa 3 sản phẩm có ảnh của chính họ trong ngành người mua chọn (mới
+ * cập nhật trước), và link báo giá chọn sẵn nhà cung cấp này trong đúng ngành đó.
+ */
+export function featuredCard(s: DigestSupplier, categories: string[], data: { products: DigestProduct[]; categories: DigestCategory[] }): DigestFeaturedSupplier {
+  const thumbs = data.products
+    .filter((p) => p.supplierId === s.id && categories.includes(p.categoryId) && !!p.imagePath)
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    .slice(0, DIGEST_FEATURED_THUMBS);
+  const categoryId = s.categoryIds.find((id) => categories.includes(id));
+  const slug = data.categories.find((c) => c.id === categoryId)?.slug;
+  const query = new URLSearchParams({ ...(slug ? { category: slug } : {}), suppliers: s.id });
+  return { ...s, thumbs, rfqHref: `/rfq?${query.toString()}` };
+}
+
 export function buildProductsDigest(categories: string[], data: { products: DigestProduct[]; suppliers: DigestSupplier[]; categories: DigestCategory[] }, recent: RecentShown, now: Date): ProductsDigest | null {
-  const featured = pickFeatured(categories, data.suppliers, recent, now);
-  const products = pickProducts(categories, data.products, recent, now, featured.length > DIGEST_MIN_FEATURED ? DIGEST_MAX_PRODUCTS_BUSY : DIGEST_MAX_PRODUCTS);
+  const featured = pickFeatured(categories, data.suppliers, recent, now).map((s) => featuredCard(s, categories, data));
+  // Sản phẩm đã có ảnh trong khung nhà cung cấp thì không lặp lại ở lưới bên dưới.
+  const inCards = new Set(featured.flatMap((s) => s.thumbs.map((p) => p.id)));
+  const products = pickProducts(categories, data.products.filter((p) => !inCards.has(p.id)), recent, now,
+    featured.length > DIGEST_MIN_FEATURED ? DIGEST_MAX_PRODUCTS_BUSY : DIGEST_MAX_PRODUCTS);
   if (featured.length + products.length < DIGEST_MIN_ITEMS) return null;
   return { kind: "products", featured, products, seasons: seasonWatch(categories, data.categories, now),
     items: [...featured.map((s) => ({ type: "supplier" as const, id: s.id })), ...products.map((p) => ({ type: "product" as const, id: p.id }))] };
