@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useId, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Check, CheckCircle2, Clock3, Crown, ExternalLink, X } from "lucide-react";
 
@@ -41,8 +41,11 @@ export function StorefrontPlanBadge({ plan, expiresOn, publicHref, copy }: {
   </span>;
 }
 
-/** Nút "Nâng cấp gói" dưới link website; mở bảng so sánh gói và gửi yêu cầu nâng gói. */
-export function StorefrontUpgradeButton({ plan, catalog, expiresOn, requestOpen, renewable = false, email, copy }: {
+/**
+ * Nút "Nâng cấp gói" dưới link website; mở bảng so sánh gói và gửi yêu cầu nâng gói. Trang "Dịch vụ
+ * Vexim" dùng lại đúng bảng này cho nút "Đăng ký nâng gói" (nhãn và kiểu nút riêng).
+ */
+export function StorefrontUpgradeButton({ plan, catalog, expiresOn, requestOpen, renewable = false, email, copy, label, triggerClassName }: {
   plan: SupplierPlan;
   /** Tên, giá và quyền lợi từng gói, chỉnh trong CRM (/crm/plans). */
   catalog: SupplierPlanCatalog;
@@ -53,8 +56,12 @@ export function StorefrontUpgradeButton({ plan, catalog, expiresOn, requestOpen,
   renewable?: boolean;
   email: string;
   copy: OwnerCopy;
+  /** Nhãn nút mở bảng; mặc định "Nâng cấp gói" / "Xem các gói". */
+  label?: string;
+  triggerClassName?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   const router = useRouter();
   const [state, action, pending] = useActionState<ServiceRequestResult, FormData>(submitServiceRequestAction, null);
   useEffect(() => { if (state?.ok) router.refresh(); }, [state, router]);
@@ -63,16 +70,16 @@ export function StorefrontUpgradeButton({ plan, catalog, expiresOn, requestOpen,
   const rank = SUPPLIER_PLANS.indexOf(plan);
 
   return <>
-    <button type="button" onClick={() => dialog.current?.showModal()}
-      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-900 transition hover:bg-amber-100">
-      <Crown className="size-4" aria-hidden="true" />{plan === "pro" ? copy.viewPlans : copy.upgrade}
+    <button type="button" onClick={() => dialog.current?.showModal()} aria-haspopup="dialog"
+      className={triggerClassName ?? "inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-900 transition hover:bg-amber-100"}>
+      <Crown className="size-4" aria-hidden="true" />{label ?? (plan === "pro" ? copy.viewPlans : copy.upgrade)}
     </button>
-    <dialog ref={dialog} aria-labelledby="storefront-plans-title"
+    <dialog ref={dialog} aria-labelledby={titleId}
       onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}
       className="m-auto max-h-[92dvh] w-[min(94vw,960px)] max-w-none overflow-y-auto rounded-2xl bg-white p-5 text-ink-900 shadow-xl backdrop:bg-black/60 sm:p-7">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 id="storefront-plans-title" className="text-lg font-bold">{copy.plansTitle}</h2>
+          <h2 id={titleId} className="text-lg font-bold">{copy.plansTitle}</h2>
           <p className="mt-1 text-sm leading-6 text-ink-600">{copy.plansSub}</p>
         </div>
         <button type="button" onClick={() => dialog.current?.close()} aria-label={copy.close}

@@ -59,3 +59,19 @@ for (const lang of ["en", "vi"]) {
 }
 
 console.log("✅ Dịch vụ Vexim trong cổng: 3 dịch vụ tư vấn, chặn gửi trùng, danh tính từ phiên, CRM đổi trạng thái theo quyền.");
+
+// "Đăng ký nâng gói" ở trang Dịch vụ mở bảng chọn gói (cùng bảng với "Trang của tôi"), không phải ô
+// ghi chú như dịch vụ tư vấn; quyền lợi viết theo gói thật, không còn "Đăng đến 20 sản phẩm".
+{
+  const cards = read("app/supplier/portal/services/service-cards.tsx");
+  const page = read("app/supplier/portal/services/page.tsx");
+  const servicesCopy = read("lib/i18n/portal/services.ts");
+  assert.match(cards, /if \(isPlan\) return \([\s\S]*?<StorefrontUpgradeButton plan=\{planPicker\.plan\} catalog=\{planPicker\.catalog\}[\s\S]*?requestOpen=\{hasOpen\}/,
+    "Plan upgrade button opens the plan picker");
+  assert.match(page, /planPicker=\{\{ \.\.\.planStatus, catalog: planCatalog, copy: m\.storefront\.owner \}\}/);
+  assert.match(read("app/supplier/portal/storefront/page.tsx"), /supplierPlanStatus\(supplier, planCatalog, locale\)/, "Both pages share the plan status");
+  assert.doesNotMatch(servicesCopy, /\{premium\}|Đăng đến|List up to|hằng tháng trên Vexim|Monthly English SEO/, "No 20-product line, no monthly-article promise");
+  assert.match(servicesCopy, /Đăng sản phẩm không giới hạn với gói Pro/);
+  assert.match(servicesCopy, /Unlimited product listings with Pro/);
+  console.log("supplier services: plan upgrade opens the plan picker");
+}

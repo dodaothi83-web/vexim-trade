@@ -6,6 +6,9 @@ import { Check, CheckCircle2, Clock3, Crown, Globe2, Megaphone, Send, ShieldChec
 
 import { fill } from "@/lib/i18n/format";
 import type { ServicesMessages } from "@/lib/i18n/portal/services";
+import type { StorefrontMessages } from "@/lib/i18n/portal/storefront";
+import type { SupplierPlan, SupplierPlanCatalog } from "@/lib/supplier-plans";
+import { StorefrontUpgradeButton } from "@/components/supplier-portal/storefront-owner";
 import { SUPPLIER_SERVICE_NOTE_MAX, type SupplierServiceKeyValue } from "@/lib/supplier-services";
 import { submitServiceRequestAction, type ServiceRequestResult } from "./actions";
 
@@ -17,14 +20,22 @@ const ICONS: Record<SupplierServiceKeyValue, typeof Globe2> = {
   plan_upgrade: Crown,
 };
 
-export function ServiceCards({ services, openKeys, email, copy, planLimits }: {
+/** Dữ liệu cho bảng chọn gói (cùng bảng với nút "Nâng cấp gói" ở "Trang của tôi"). */
+export type PlanPicker = {
+  plan: SupplierPlan;
+  catalog: SupplierPlanCatalog;
+  expiresOn: string | null;
+  renewable: boolean;
+  copy: StorefrontMessages["owner"];
+};
+
+export function ServiceCards({ services, openKeys, email, copy, planPicker }: {
   services: readonly SupplierServiceKeyValue[];
   /** Dịch vụ đang có yêu cầu chưa đóng: nút gửi khoá lại để không gửi trùng. */
   openKeys: SupplierServiceKeyValue[];
   email: string;
   copy: ServicesMessages;
-  /** Số sản phẩm tối đa của Premium/Pro theo bảng gói CRM; null là không giới hạn. */
-  planLimits: { premium: number | null; pro: number | null };
+  planPicker: PlanPicker;
 }) {
   const [active, setActive] = useState<SupplierServiceKeyValue | null>(null);
   const open = new Set(openKeys);
@@ -32,13 +43,13 @@ export function ServiceCards({ services, openKeys, email, copy, planLimits }: {
     <div className="space-y-6">
       {/* Gói thành viên là quyền gian hàng, không phải dịch vụ tư vấn: tách thành dải riêng phía trên. */}
       {services.includes("plan_upgrade") && <ServiceCard serviceKey="plan_upgrade" expanded={active === "plan_upgrade"} hasOpen={open.has("plan_upgrade")}
-        onToggle={(next) => setActive(next ? "plan_upgrade" : null)} email={email} copy={copy} planLimits={planLimits} />}
+        onToggle={(next) => setActive(next ? "plan_upgrade" : null)} email={email} copy={copy} planPicker={planPicker} />}
       <div>
         <h2 className="mb-3 text-[15px] font-bold text-ink-900">{copy.servicesTitle}</h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {services.filter((key) => key !== "plan_upgrade").map((key) => (
             <ServiceCard key={key} serviceKey={key} expanded={active === key} hasOpen={open.has(key)}
-              onToggle={(next) => setActive(next ? key : null)} email={email} copy={copy} planLimits={planLimits} />
+              onToggle={(next) => setActive(next ? key : null)} email={email} copy={copy} planPicker={planPicker} />
           ))}
         </div>
       </div>
@@ -46,14 +57,14 @@ export function ServiceCards({ services, openKeys, email, copy, planLimits }: {
   );
 }
 
-function ServiceCard({ serviceKey, expanded, hasOpen, onToggle, email, copy, planLimits }: {
+function ServiceCard({ serviceKey, expanded, hasOpen, onToggle, email, copy, planPicker }: {
   serviceKey: SupplierServiceKeyValue;
   expanded: boolean;
   hasOpen: boolean;
   onToggle: (open: boolean) => void;
   email: string;
   copy: ServicesMessages;
-  planLimits: { premium: number | null; pro: number | null };
+  planPicker: PlanPicker;
 }) {
   const [state, action, pending] = useActionState<ServiceRequestResult, FormData>(submitServiceRequestAction, null);
   const router = useRouter();
@@ -63,8 +74,7 @@ function ServiceCard({ serviceKey, expanded, hasOpen, onToggle, email, copy, pla
   const service = copy.services[serviceKey];
   const Icon = ICONS[serviceKey];
   const isPlan = serviceKey === "plan_upgrade";
-  const limit = (value: number | null) => value === null ? copy.unlimited : String(value);
-  const points = service.points.map((point) => fill(point, { premium: limit(planLimits.premium), pro: limit(planLimits.pro) }));
+  const points = service.points;
 
   // onToggle là hàm mới mỗi lần cha render; giữ qua ref để hiệu ứng chỉ chạy khi có kết quả mới.
   const toggleRef = useRef(onToggle);
@@ -124,12 +134,22 @@ function ServiceCard({ serviceKey, expanded, hasOpen, onToggle, email, copy, pla
     <strong className="font-semibold text-ink-900">{copy.fitLabel}:</strong> {service.fit}
   </p>;
 
+  // Gói thành viên: nút mở bảng chọn gói (giá, quyền lợi, gửi yêu cầu cho từng gói) thay vì ô ghi
+  // chú như dịch vụ tư vấn, để nhà cung cấp chọn đúng gói muốn nâng.
   if (isPlan) return (
     <section aria-labelledby={titleId}
       className="grid gap-5 rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50/70 to-white p-5 shadow-sm ring-1 ring-amber-200 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,0.8fr)] lg:items-center">
       <div>{header}{fit}</div>
       {list}
-      <div>{actionArea}</div>
+      <div>
+        {hasOpen && <p className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+          <Clock3 className="size-3.5" aria-hidden="true" />{copy.requestOpen}
+        </p>}
+        <StorefrontUpgradeButton plan={planPicker.plan} catalog={planPicker.catalog} expiresOn={planPicker.expiresOn}
+          requestOpen={hasOpen} renewable={planPicker.renewable} email={email} copy={planPicker.copy}
+          label={planPicker.plan === "pro" ? planPicker.copy.viewPlans : copy.requestPlan}
+          triggerClassName="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-800 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-brand-900" />
+      </div>
     </section>
   );
 
