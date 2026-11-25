@@ -144,12 +144,63 @@ assert.equal(JSON.stringify(tagCalls), JSON.stringify([{ keys: ["product-page-ta
   "The tag entry never expires on a timer, so it does not shorten the page's 1 hour refresh");
 const revalidations = [];
 const revalidatePublic = load("lib/public/revalidate-public.ts", { mocks: {
-  "next/cache": { revalidateTag: (tag, profile) => revalidations.push([tag, profile]) },
+  "next/cache": { revalidateTag: (tag, profile) => revalidations.push([tag, profile]), revalidatePath: () => {} },
   "@/lib/public/product-page-tag": pageTag,
+  "@/lib/public/warm-product-page": { warmProductPageAfterResponse: (id) => revalidations.push(["warm", id]), warmProductPagesAfterResponse: () => {} },
 } });
 revalidatePublic.revalidateProductEdit(PID);
-assert.equal(JSON.stringify(revalidations), JSON.stringify([[`product-page:${PID}`, { expire: 0 }], ["public-catalog", "max"]]),
-  "Edited product page: refreshed now; catalogue and other pages: refreshed in the background");
+assert.equal(JSON.stringify(revalidations), JSON.stringify([[`product-page:${PID}`, { expire: 0 }], ["public-catalog", "max"], ["warm", PID]]),
+  "Edited product page: refreshed now, then rebuilt by the server so the first buyer gets a cached page; catalogue and other pages: refreshed in the background");
+
+// Warm-up after an edit: runs after the response (after()), opens the public URL without cookies,
+// and only on this site's own hosts (never follows a spoofed Host header).
+{
+  const afterCalls = [];
+  const fetches = [];
+  const product = { id: PID, supplier_id: SUPPLIER };
+  const warm = load("lib/public/warm-product-page.ts", {
+    env: { VERCEL_URL: "vexim-abc.vercel.app" },
+    globals: {
+      setTimeout: (fn) => fn(), AbortSignal: { timeout: () => undefined },
+      fetch: async (url, init) => { fetches.push([url, init]); return { text: async () => "" }; },
+    },
+    mocks: {
+      "next/headers": { headers: async () => new Headers({ host: "www.veximtrade.com", "x-forwarded-proto": "https" }) },
+      "next/server": { after: (fn) => afterCalls.push(fn) },
+      "@/lib/db": { getStore: () => ({ getProduct: async (id) => id === PID ? product : null, listCategories: async () => [] }) },
+      "@/lib/public/product-selection": { publicProductCategorySlug: (row) => row === product ? "dried-fruits" : null },
+      "@/lib/site": { SITE_URL: "https://www.veximtrade.com" },
+    },
+  });
+  assert.equal(warm.warmOrigin("www.veximtrade.com", "https"), "https://www.veximtrade.com");
+  assert.equal(warm.warmOrigin("veximtrade.com", null), "https://veximtrade.com");
+  assert.equal(warm.warmOrigin("localhost:3000", null), "http://localhost:3000");
+  assert.equal(warm.warmOrigin("vexim-abc.vercel.app", "https", { VERCEL_URL: "vexim-abc.vercel.app" }), "https://vexim-abc.vercel.app");
+  for (const bad of ["evil.example", "www.veximtrade.com.evil.example", "a b", "", null]) {
+    assert.equal(warm.warmOrigin(bad, "https"), null, `Warm-up never calls host ${bad}`);
+  }
+  warm.warmProductPageAfterResponse(PID);
+  assert.equal(fetches.length, 0, "Nothing is fetched before the editor's response is sent");
+  assert.equal(afterCalls.length, 1);
+  await afterCalls[0]();
+  assert.equal(fetches.length, 1);
+  assert.equal(fetches[0][0], `https://www.veximtrade.com/products/dried-fruits/${PID}`);
+  assert.equal(fetches[0][1].headers.cookie, undefined, "Warm-up opens the guest (cached) page, never with a session");
+  assert.equal(fetches[0][1].redirect, "manual");
+  warm.warmProductPageAfterResponse("missing");
+  await afterCalls[1]();
+  assert.equal(fetches.length, 1, "A product without a public category page is not fetched");
+  warm.warmProductPagesAfterResponse([PID, "missing", PID]);
+  assert.equal(afterCalls.length, 3, "Several products: one after() callback");
+  await afterCalls[2]();
+  assert.equal(fetches.length, 3, "Several products: only the public ones are fetched");
+  warm.warmProductPagesAfterResponse([]);
+  assert.equal(afterCalls.length, 3, "Nothing to warm: nothing scheduled");
+  assert.doesNotThrow(() => load("lib/public/warm-product-page.ts", { globals: { setTimeout, AbortSignal, fetch }, mocks: {
+    "next/headers": { headers: async () => new Headers() }, "next/server": { after: () => { throw new Error("outside request"); } },
+    "@/lib/db": {}, "@/lib/public/product-selection": {}, "@/lib/site": { SITE_URL: "https://www.veximtrade.com" },
+  } }).warmProductPageAfterResponse(PID), "Outside a request the warm-up is skipped silently");
+}
 revalidations.length = 0;
 revalidatePublic.revalidatePublicCatalog();
 assert.equal(JSON.stringify(revalidations), JSON.stringify([["public-catalog", { expire: 0 }]]), "Other catalogue changes keep the immediate refresh");
@@ -168,8 +219,29 @@ for (const file of [
   assert.match(source, /revalidateProductEdit\((?:id|productId|saved\.id)\)/, `${file}: the edited product page is refreshed`);
 }
 const upload = read("app/api/media/upload/route.ts");
-assert.match(upload, /if \(ownerType === "product"\) \{[\s\S]*?revalidateProductEdit\(ownerId\);[\s\S]*?\} else \{\s*revalidatePublicCatalog\(\);\s*revalidatePath\("\/products", "layout"\);/,
-  "CRM upload: product images refresh that product; supplier files keep the full refresh");
+assert.match(upload, /if \(ownerType === "product"\) \{[\s\S]*?revalidateProductEdit\(ownerId\);\s*revalidateSupplierPage\(supplierRef\);[\s\S]*?\} else \{[\s\S]*?listProductsBySupplier\(mediaSupplierId\)[\s\S]*?revalidateSupplierMediaEdit\(supplierRef, productIds\);/,
+  "CRM upload: product images refresh that product + its supplier page; supplier files refresh that supplier's pages");
+assert.doesNotMatch(upload, /revalidatePath\("\/(?:products|suppliers)", "layout"\)|revalidatePublicCatalog\(\)/,
+  "CRM upload never clears every product/category/supplier page at once");
+{
+  const calls = [];
+  const supplierRevalidate = load("lib/public/revalidate-public.ts", { mocks: {
+    "next/cache": { revalidateTag: (tag, profile) => calls.push(["tag", tag, profile]), revalidatePath: (p, type) => calls.push(["path", p, type]) },
+    "@/lib/public/product-page-tag": pageTag,
+    "@/lib/public/warm-product-page": { warmProductPageAfterResponse: () => {}, warmProductPagesAfterResponse: (ids) => calls.push(["warm", ids.length]) },
+  } });
+  const ids = Array.from({ length: 25 }, (_, i) => `p${i}`);
+  supplierRevalidate.revalidateSupplierMediaEdit({ id: SUPPLIER, slug: "acme-foods" }, ids);
+  assert.equal(calls.filter(([kind, , profile]) => kind === "tag" && JSON.stringify(profile) === JSON.stringify({ expire: 0 })).length, 25,
+    "Every product page of that supplier is refreshed now");
+  assert.ok(calls.some(([kind, tag, profile]) => kind === "tag" && tag === "public-catalog" && profile === "max"), "Catalogue and other pages: background refresh");
+  assert.equal(JSON.stringify(calls.filter(([kind]) => kind === "path")), JSON.stringify([["path", "/suppliers/acme-foods", undefined]]),
+    "Only that supplier's profile page, never a whole /products or /suppliers layout");
+  assert.equal(JSON.stringify(calls.at(-1)), JSON.stringify(["warm", 20]), "At most 20 product pages are warmed after one upload");
+  calls.length = 0;
+  supplierRevalidate.revalidateSupplierPage({ id: SUPPLIER, slug: null });
+  assert.equal(JSON.stringify(calls), JSON.stringify([["path", `/suppliers/${SUPPLIER}`, undefined]]), "Supplier without slug: id URL");
+}
 assert.match(read("app/supplier/portal/product-actions.ts"), /revalidateProductEdit\(saved\.id\);\s*revalidateCategoryPaths\(saved\.category\);/,
   "Supplier save: the product page and its category page are refreshed now");
 assert.doesNotMatch(page, /export const dynamicParams = false/, "Other product pages are still built on first visit");
@@ -294,3 +366,12 @@ assert.match(gallery, /\{\.\.\.productThumbImage\(thumbnails\?\.\[photoIndex\] \
 assert.match(gallery, /<img src=\{publicPhotoUrl\(selected\)\}/, "The enlarged lightbox still shows the original");
 
 console.log("Product static: guests get the prebuilt page, signed-in users the dynamic render, views re-checked server-side, product images CDN-cached 1h and sized to the frame");
+
+// No loading skeleton around the product content (tried 25/11/2026, reverted): with ISR the rendered
+// fallback is stored in the CACHED HTML too, so every view would ship the skeleton and hide the real
+// content in <div hidden> until a script swaps it (see docs/seo-geo-audit-2026-11.md, raw-HTML bots).
+// A route-level loading.tsx would also stream before the 404/301 check and turn them into soft 404s.
+// First-view speed comes from the post-edit warm-up instead (lib/public/warm-product-page.ts).
+assert.ok(!fs.existsSync(new URL("../app/(public)/products/[slug]/[productId]/loading.tsx", import.meta.url)),
+  "No route-level loading.tsx on the product page");
+console.log("product static: post-edit warm-up OK");
