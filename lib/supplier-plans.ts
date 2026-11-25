@@ -52,19 +52,39 @@ export interface SupplierPlanCatalogEntry {
 }
 export type SupplierPlanCatalog = Record<SupplierPlan, SupplierPlanCatalogEntry>;
 
+/**
+ * Điều kiện chung cho bài giới thiệu doanh nghiệp (chủ sàn chốt 25/11/2026). Đổi từ "N bài mỗi tháng"
+ * sang "tối đa N bài mỗi kỳ 6 tháng, khi có nội dung mới": doanh nghiệp không đủ chuyện mới cho mỗi
+ * tháng, bài lặp lại giữa các nhà cung cấp cùng ngành, và viết hàng loạt có rủi ro SEO cho cả tên miền.
+ * Bài trên website riêng của doanh nghiệp không còn nằm trong gói (là dịch vụ mua thêm).
+ */
+const ARTICLE_TERMS = "Bài viết dựa trên nội dung mới có thật (sản phẩm mới, chứng nhận mới, nhà máy, mùa vụ, đơn hàng xuất khẩu đã hoàn tất…); "
+  + "quyền lợi không cộng dồn sang kỳ sau; Vexim biên tập và có quyền từ chối nội dung trùng lặp hoặc chưa kiểm chứng được";
+
 export const DEFAULT_PLAN_CATALOG: SupplierPlanCatalog = {
   basic: { plan: "basic", name: "Basic", summary: "Miễn phí", maxProducts: 5, richContent: false, videoMinutes: 0, prices: [],
-    features: ["Đăng tối đa 5 sản phẩm", "Ảnh sản phẩm và mô tả bằng chữ; không có video và nội dung A+", "Hồ sơ nhà cung cấp cơ bản trên nền tảng"] },
+    features: ["Đăng tối đa 5 sản phẩm", "Ảnh sản phẩm và mô tả bằng chữ; không có video và nội dung A+", "Hồ sơ nhà cung cấp cơ bản trên nền tảng",
+      "Sản phẩm mới hoặc vừa cập nhật có thể xuất hiện trong thư tuần gửi người mua cùng ngành hàng"] },
   premium: { plan: "premium", name: "Premium", summary: "", maxProducts: 20, richContent: true, videoMinutes: 60,
     prices: [{ months: 3, price_vnd: 1_399_000 }, { months: 6, price_vnd: 2_499_000 }],
-    features: ["Đăng tối đa 20 sản phẩm, có video sản phẩm và nội dung A+ (ảnh, video)", "1 bài SEO tiếng Anh mỗi tháng trên website Vexim Trade",
-      "1 bài SEO mỗi tháng trên website của doanh nghiệp (nếu có)", "Nhân viên Vexim tư vấn tối ưu gian hàng và hồ sơ năng lực",
-      "Dùng thử 15 ngày cho khách hàng đã dùng dịch vụ FDA/GACC của Vexim Global"] },
+    features: ["Đăng tối đa 20 sản phẩm, có video sản phẩm và nội dung A+ (ảnh, video)",
+      "Tối đa 1 bài giới thiệu doanh nghiệp bằng tiếng Anh trên website Vexim Trade trong mỗi kỳ 6 tháng, viết từ tư liệu doanh nghiệp cung cấp",
+      "Được nêu tên trong các bài hướng dẫn theo ngành hàng do Vexim Trade biên soạn, khi doanh nghiệp có sản phẩm phù hợp",
+      "Sản phẩm mới hoặc vừa cập nhật được ưu tiên trong thư tuần gửi người mua (sau gói Pro)",
+      "Nhân viên Vexim tư vấn tối ưu gian hàng và hồ sơ năng lực",
+      "Dùng thử 15 ngày cho khách hàng đã dùng dịch vụ FDA/GACC của Vexim Global",
+      ARTICLE_TERMS] },
   pro: { plan: "pro", name: "Pro", summary: "", maxProducts: null, richContent: true, videoMinutes: 180,
     prices: [{ months: 3, price_vnd: 1_999_000 }, { months: 6, price_vnd: 3_499_000 }],
-    features: ["Đăng không giới hạn sản phẩm, có video sản phẩm và nội dung A+ (ảnh, video)", "2 bài SEO tiếng Anh mỗi tháng trên website Vexim Trade",
-      "2 bài SEO mỗi tháng trên website của doanh nghiệp (nếu có)", "Nhân viên Vexim tư vấn tối ưu gian hàng và hồ sơ năng lực",
-      "Tặng Gói 1 · Website Health Check (khám website tổng thể) khi mua gói 6 tháng"] },
+    features: ["Đăng không giới hạn sản phẩm, có video sản phẩm và nội dung A+ (ảnh, video)",
+      "Tối đa 3 bài giới thiệu doanh nghiệp bằng tiếng Anh trên website Vexim Trade trong mỗi kỳ 6 tháng, viết từ tư liệu doanh nghiệp cung cấp",
+      "Được giới thiệu nổi bật (ảnh, tên, đường dẫn gian hàng) trong các bài hướng dẫn theo ngành hàng do Vexim Trade biên soạn",
+      "Giới thiệu nổi bật trong thư tuần Vexim Trade gửi người mua quốc tế đã xác minh, quan tâm đúng ngành hàng của doanh nghiệp (luân phiên giữa các nhà cung cấp gói Pro)",
+      "Sản phẩm mới hoặc vừa cập nhật được xếp đầu trong thư tuần gửi người mua",
+      "Ưu tiên xếp lịch viết bài trước gói Premium",
+      "Nhân viên Vexim tư vấn tối ưu gian hàng và hồ sơ năng lực",
+      "Tặng Gói 1 · Website Health Check (khám website tổng thể) khi mua gói 6 tháng",
+      ARTICLE_TERMS] },
 };
 
 /** "1.399.000₫" */

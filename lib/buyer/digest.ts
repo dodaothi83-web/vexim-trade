@@ -3,7 +3,7 @@
  * script kiểm tra nạp thẳng bằng Node; phần đọc dữ liệu và gửi thư ở digest-server.ts.
  *
  * - Thư "products" (thứ Ba): nhà cung cấp gói Pro nổi bật (tối đa 2, luân phiên) và sản phẩm mới/cập
- *   nhật trong ngành người mua chọn (tối đa 9, lưới thẻ ảnh 3 cột, gói Pro xếp trước), kèm mùa vụ.
+ *   nhật trong ngành người mua chọn (tối đa 9, lưới thẻ ảnh 3 cột; gói Pro xếp trước, rồi Premium), kèm mùa vụ.
  * - Thư "brief" (thứ Sáu, mức "twice"): một bài blog của Vexim đúng ngành (hoặc bài tin chung), kèm mùa vụ.
  * - Không lặp lại cùng mục với cùng người mua trong 4 tuần (trừ khi vừa cập nhật); không gửi thư rỗng.
  */
@@ -11,6 +11,8 @@ export type DigestKind = "products" | "brief";
 
 export type DigestProduct = {
   id: string; name: string; href: string; imagePath: string | null; categoryId: string; supplierId: string; pro: boolean;
+  /** Gói Premium: sản phẩm xếp sau gói Pro, trước gói Basic. */
+  premium?: boolean;
   moq: string; leadTime: string; price: string | null; createdAt: string; updatedAt: string;
   /** Dùng cho thư theo hành vi (so sánh sản phẩm đã lưu). */
   certificates?: string[]; imageCount?: number;
@@ -71,16 +73,29 @@ export function pickProducts(categories: string[], products: DigestProduct[], re
     if (shownRecently(recent, itemKey({ type: "product", id: p.id }), now, p.updatedAt)) continue;
     out.push({ ...p, badge: isNew ? "NEW" : "UPDATED" });
   }
-  return out.sort((a, b) => Number(b.pro) - Number(a.pro) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, DIGEST_MAX_PRODUCTS);
+  return out.sort((a, b) => planRank(b) - planRank(a) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, DIGEST_MAX_PRODUCTS);
 }
 
-/** Nhà cung cấp gói Pro trong ngành người mua chọn: chưa giới thiệu trong 4 tuần, luân phiên theo tuần. */
+/** Thứ tự ưu tiên trong thư: Pro (2) → Premium (1) → Basic (0). */
+const planRank = (p: Pick<DigestProduct, "pro" | "premium">) => p.pro ? 2 : p.premium ? 1 : 0;
+
+/**
+ * Số tuần liên tục kể từ 1970 (không quay về 1 mỗi năm như số tuần ISO). Luân phiên theo số tuần
+ * ISO (1–53) thì ngành có hơn 53 nhà cung cấp Pro sẽ có người KHÔNG BAO GIỜ tới lượt nổi bật.
+ */
+export const rotationWeek = (now: Date) => Math.floor(now.getTime() / (7 * DAY));
+
+/**
+ * Nhà cung cấp gói Pro trong ngành người mua chọn: chưa giới thiệu trong 4 tuần, luân phiên theo
+ * tuần. Mỗi tuần dịch đi đúng số suất nổi bật (2), nên với N nhà cung cấp, ai cũng tới lượt trong
+ * khoảng N/2 tuần và hai tuần liền nhau không lặp người.
+ */
 export function pickFeatured(categories: string[], suppliers: DigestSupplier[], recent: RecentShown, now: Date): DigestSupplier[] {
-  const week = Number(isoWeek(now).slice(-2));
+  const week = rotationWeek(now);
   const fresh = suppliers.filter((s) => s.categoryIds.some((id) => categories.includes(id)) && !shownRecently(recent, itemKey({ type: "supplier", id: s.id }), now))
     .sort((a, b) => a.id.localeCompare(b.id));
   if (!fresh.length) return [];
-  const start = week % fresh.length;
+  const start = (week * DIGEST_MAX_FEATURED) % fresh.length;
   return [...fresh.slice(start), ...fresh.slice(0, start)].slice(0, DIGEST_MAX_FEATURED);
 }
 

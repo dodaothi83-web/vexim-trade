@@ -39,7 +39,8 @@ export async function loadDigestData(now = new Date()): Promise<DigestData> {
   const categories: DigestCategory[] = tops.map((c) => ({ id: c.id, slug: c.slug, name: c.name_i18n?.en || c.slug, harvest: c.harvest ?? null }));
   const raw = new Map(snapshot.products.map((p) => [p.id, p]));
   const suppliers = new Map(snapshot.suppliers.map((s) => [s.id, s]));
-  const pro = (supplierId: string) => { const s = suppliers.get(supplierId); return !!s && supplierPlanRules(s, now, catalog).plan === "pro"; };
+  const planOf = (supplierId: string) => { const s = suppliers.get(supplierId); return s ? supplierPlanRules(s, now, catalog).plan : "basic"; };
+  const pro = (supplierId: string) => planOf(supplierId) === "pro";
   const products: DigestProduct[] = [];
   const supplierCategories = new Map<string, Set<string>>();
   for (const c of tops) {
@@ -50,7 +51,7 @@ export async function loadDigestData(now = new Date()): Promise<DigestData> {
       if (!source) continue;
       supplierCategories.set(p.supplierId, (supplierCategories.get(p.supplierId) ?? new Set()).add(c.id));
       products.push({ id: p.id, name: p.name, href: `/products/${encodeURIComponent(c.slug)}/${encodeURIComponent(p.id)}`, imagePath: p.cardImagePath ?? p.imagePaths[0] ?? null,
-        categoryId: c.id, supplierId: p.supplierId, pro: pro(p.supplierId), moq: p.moq || "On request", leadTime: p.leadTimeText || "On request", price: p.price,
+        categoryId: c.id, supplierId: p.supplierId, pro: pro(p.supplierId), premium: planOf(p.supplierId) === "premium", moq: p.moq || "On request", leadTime: p.leadTimeText || "On request", price: p.price,
         createdAt: source.created_at, updatedAt: source.updated_at, certificates: p.certificates ?? [], imageCount: p.imagePaths.length });
     }
   }
