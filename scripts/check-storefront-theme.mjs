@@ -83,7 +83,27 @@ console.log("✅ Giao diện Premium/Pro: chỉ mẫu Hiện đại, video nhà 
   const storefrontSrc = fsx.readFileSync(new URL("../components/public/supplier-storefront.tsx", import.meta.url), "utf8");
   if (!/\{p\.ownerActions && <div className="absolute left-4 top-4 z-10">\{p\.ownerActions\}<\/div>\}/.test(premiumSrc)) throw new Error("Owner actions sit top-left in the premium hero");
   if (/\{p\.ownerActions && <div>\{p\.ownerActions\}<\/div>\}/.test(premiumSrc)) throw new Error("Owner actions no longer sit under the quote button");
-  if (!/const rfqWidth = "w-full sm:w-auto sm:flex-none sm:basis-\[calc\(50%-0\.25rem\)\]";/.test(storefrontSrc)) throw new Error("Quote button is half a row");
-  if (!/chatAction && <div className=\{`\$\{rfqWidth\} rounded-lg bg-white/.test(storefrontSrc)) throw new Error("Chat button has the same width");
+  if (!/const rfqWidth = "h-11 w-full sm:w-auto sm:flex-none sm:basis-\[calc\(50%-0\.25rem\)\]";/.test(storefrontSrc)) throw new Error("Quote button: 44px, full width on mobile, half a row on desktop");
+  if (!/chatAction && <div className=\{`\$\{rfqWidth\} \[&>button\]:h-full \[&>button\]:w-full \[&>button\]:border-white\/70 \[&>button\]:bg-transparent \[&>button\]:text-white/.test(storefrontSrc)) throw new Error("Chat button: same size, outlined on the cover");
   console.log("storefront theme: owner actions top-left, quote button same size as the public page");
+}
+
+// Thẻ số liệu: tách phần số và đơn vị để hiển thị khác nhịp.
+{
+  const fsx = await import("node:fs");
+  const vmx = await import("node:vm");
+  const tsx = (await import("typescript")).default;
+  const src = fsx.readFileSync(new URL("../components/public/premium-storefront.tsx", import.meta.url), "utf8");
+  const start = src.indexOf("export function splitStatValue");
+  const block = src.slice(start, src.indexOf("\n}\n", start) + 2).replace(/^export /, "");
+  const box = {};
+  vmx.runInNewContext(tsx.transpileModule(`${block}\nthis.fn = splitStatValue;`, { compilerOptions: { target: tsx.ScriptTarget.ES2022 } }).outputText, box);
+  for (const [value, number, unit] of [
+    ["100 tons", "100", "tons"], ["1,200 tons per year", "1,200", "tons per year"], ["14 days", "14", "days"], ["3 markets", "3", "markets"],
+    ["2019", "2019", ""], ["EU, India", "EU, India", ""], ["10-20 tons", "10-20", "tons"], ["US$10–50 million", "US$10–50 million", ""],
+  ]) {
+    const got = box.fn(value);
+    if (got.number !== number || got.unit !== unit) throw new Error(`splitStatValue(${value}) = ${JSON.stringify(got)}`);
+  }
+  console.log("storefront theme: KPI value and unit split");
 }

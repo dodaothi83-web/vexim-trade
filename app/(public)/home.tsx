@@ -226,14 +226,16 @@ export default async function HomeContent({
             </Link>
           </p>
           {homeCategories.length > 0 && <nav aria-label={isVi ? "Tìm nhiều" : "Popular searches"} className="mt-5 text-sm sm:mt-6 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
-            <span className="block text-xs font-semibold text-white/70 sm:mr-1 sm:inline sm:text-sm">{isVi ? "Tìm nhiều:" : "Popular searches:"}</span>
-            {/* Mobile: một hàng chip nhỏ, trượt ngang (không bẻ dòng, không rớt lẻ chip). Desktop: xuống dòng như cũ. */}
-            <div className="-mx-5 mt-2 flex snap-x scroll-px-5 gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-0 sm:contents">
+            <span className="block text-xs font-medium text-white/75 sm:mr-1 sm:inline sm:text-sm">{isVi ? "Tìm nhiều:" : "Popular searches:"}</span>
+            {/* Mobile: một hàng chip gọn (cao 32px, chữ 12.5px), trượt ngang: không bẻ dòng, không rớt lẻ
+                chip ở hàng cuối; mờ dần ở mép phải để biết còn chip. Desktop: xuống dòng như cũ. */}
+            <div className="-mx-5 mt-2 flex snap-x scroll-px-5 gap-1.5 overflow-x-auto px-5 pb-1 [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mt-0 sm:contents">
               {homeCategories.slice(0, 5).map((category) => <Link key={category.id}
                 href={`/search?cat=${encodeURIComponent(category.slug)}&lang=${lang}`}
-                className="inline-flex min-h-9 shrink-0 snap-start items-center whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[13px] font-medium leading-5 text-white backdrop-blur-sm transition hover:border-white hover:bg-white hover:text-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:min-h-11 sm:px-4 sm:py-2 sm:text-sm">
+                className="inline-flex h-8 shrink-0 snap-start items-center whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-3 text-[12.5px] font-medium leading-none text-white backdrop-blur-sm transition hover:border-white hover:bg-white hover:text-brand-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:h-11 sm:px-4 sm:text-sm">
                 {getCategoryTitle(category, lang)}
               </Link>)}
+              <span className="w-3 shrink-0 sm:hidden" aria-hidden="true" />
             </div>
           </nav>}
         </div>

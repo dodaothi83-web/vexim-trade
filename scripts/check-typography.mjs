@@ -17,14 +17,14 @@ function walk(dir, out = []) {
   return out;
 }
 
-// 1. Nạp đúng 2 bộ font mở từ Google Fonts (Be Vietnam Pro + JetBrains Mono) ở layout gốc
+// 1. Font giao diện Inter qua next/font/google (chủ dự án chốt 25/11/2026), đủ bộ chữ tiếng Việt;
+//    JetBrains Mono cho mã/ô nhập số. Không còn nạp Be Vietnam Pro cho giao diện.
 const rootLayout = read("app/layout.tsx");
-for (const weight of ["400", "400-italic", "500", "600", "700", "800", "900"]) {
-  assert.ok(
-    rootLayout.includes(`@fontsource/be-vietnam-pro/${weight}.css`),
-    `Root layout imports Be Vietnam Pro ${weight}`,
-  );
-}
+assert.match(rootLayout, /import \{ Inter \} from "next\/font\/google";/, "Root layout loads Inter via next/font/google");
+assert.match(rootLayout, /subsets: \["latin", "latin-ext", "vietnamese"\]/, "Inter includes the Vietnamese subset");
+assert.match(rootLayout, /variable: "--font-inter"/);
+assert.match(rootLayout, /<html lang="en" suppressHydrationWarning className=\{inter\.variable\}>/, "Inter variable is set on <html>");
+assert.doesNotMatch(rootLayout, /@fontsource\/be-vietnam-pro/, "Be Vietnam Pro is no longer loaded for the UI");
 assert.ok(
   rootLayout.includes("@fontsource-variable/jetbrains-mono"),
   "Root layout imports JetBrains Mono Variable",
@@ -32,7 +32,12 @@ assert.ok(
 
 // 2. Token theme thống nhất trong globals.css
 const globalsCss = read("app/globals.css");
-assert.match(globalsCss, /--font-sans:\s*"Be Vietnam Pro"/, "--font-sans starts with Be Vietnam Pro");
+assert.match(globalsCss, /--font-sans:\s*var\(--font-inter\), "Inter"/, "--font-sans starts with Inter");
+// Thang độ đậm: tiêu đề/nút khoảng 600, chữ lớn khép -0.015em.
+assert.match(globalsCss, /--font-weight-bold: 600;/);
+assert.match(globalsCss, /--font-weight-extrabold: 650;/);
+assert.match(globalsCss, /--font-weight-black: 700;/);
+assert.match(globalsCss, /--tracking-tight: -0\.015em;/);
 assert.match(globalsCss, /--font-display:\s*var\(--font-sans\)/, "--font-display maps to --font-sans");
 assert.match(
   globalsCss,
@@ -52,7 +57,7 @@ for (const file of [...walk(path.join(root, "app")), ...walk(path.join(root, "co
   );
 }
 
-// 4. Toàn bộ vùng hiển thị giá phía buyer (thẻ sản phẩm, bảng Grades & reference pricing trên PDP, bảng so sánh, dải Reference price danh mục) dùng font chính Be Vietnam Pro với tabular-nums (không dùng font-mono gây thưa chữ), trong khi ô nhập số / mã code nội bộ vẫn giữ JetBrains Mono.
+// 4. Toàn bộ vùng hiển thị giá phía buyer (thẻ sản phẩm, bảng Grades & reference pricing trên PDP, bảng so sánh, dải Reference price danh mục) dùng font chính (Inter) với tabular-nums (không dùng font-mono gây thưa chữ), trong khi ô nhập số / mã code nội bộ vẫn giữ JetBrains Mono.
 for (const rel of [
   "components/public-product-card.tsx",
   "app/(public)/products/[slug]/[productId]/page.tsx",
@@ -61,7 +66,7 @@ for (const rel of [
   "components/sponsored-pilot-slot.tsx",
 ]) {
   const source = read(rel);
-  assert.doesNotMatch(source, /\bfont-mono\b/, `${rel} uses Be Vietnam Pro instead of monospace`);
+  assert.doesNotMatch(source, /\bfont-mono\b/, `${rel} uses the UI font (Inter) instead of monospace`);
   assert.match(source, /\btabular-nums\b/, `${rel} preserves aligned tabular numerals`);
 }
 
@@ -72,4 +77,4 @@ for (const [rel, pattern] of [
   assert.match(read(rel), pattern, `${rel} renders internal portal numeric fields in JetBrains Mono`);
 }
 
-console.log("✅ Typography unified: Be Vietnam Pro + tabular-nums for all buyer prices & UI text; JetBrains Mono for codes/inputs.");
+console.log("✅ Typography unified: Inter + tabular-nums for all buyer prices & UI text; JetBrains Mono for codes/inputs.");

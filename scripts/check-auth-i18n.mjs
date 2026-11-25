@@ -155,10 +155,8 @@ const { isLocalizedAuthPath } = realI18nConfig;
  * isLocalizedAuthPath/isLocalizedPortalPath/LEGACY_VIETNAMESE_PATH_RE quyết định.
  */
 const layoutMocksForBootScript = {
-  "@fontsource/be-vietnam-pro/400.css": {}, "@fontsource/be-vietnam-pro/400-italic.css": {},
-  "@fontsource/be-vietnam-pro/500.css": {}, "@fontsource/be-vietnam-pro/600.css": {},
-  "@fontsource/be-vietnam-pro/700.css": {}, "@fontsource/be-vietnam-pro/800.css": {},
-  "@fontsource/be-vietnam-pro/900.css": {}, "@fontsource-variable/jetbrains-mono": {},
+  "next/font/google": { Inter: () => ({ variable: "font-inter", className: "font-inter" }) },
+  "@fontsource-variable/jetbrains-mono": {},
   "./globals.css": {},
   "@/lib/public/meta-copy": { HOME_META_DESCRIPTION: "x" },
   "@/components/toast": { ToastProvider: ({ children }) => children },

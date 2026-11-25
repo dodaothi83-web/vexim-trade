@@ -69,6 +69,17 @@ export function supplierIncotermsDisplay(supplier: Pick<Supplier, "incoterms" | 
 }
 
 /** Annual output has its own source/cache; never reuse a monthly translation. */
+/**
+ * Nhãn cho trường `annual_output`. Form hiện hỏi "Doanh thu hàng năm" (ví dụ "US$10-50 million"),
+ * nhưng hồ sơ cũ ghi sản lượng ("1,200 tons"). Giá trị có đơn vị khối lượng/số lượng mà không có
+ * dấu hiệu tiền tệ thì là sản lượng: ghi "Annual output", không để "Annual revenue" cạnh "tons".
+ */
+export function supplierAnnualFigureLabel(value: string): "Annual revenue" | "Annual output" {
+  const money = /(US\$|\$|\bUSD\b|\bVND\b|₫|\bEUR\b|€|\bmillion\b|\bbillion\b|\btỷ\b|\btriệu\b|\brevenue\b|doanh thu)/iu;
+  const quantity = /(\d\s*(?:metric\s+)?(?:tons?|tonnes?|mt|kgs?|tấn|tan)\b|\b(?:containers?|cont|cartons?|pcs|pieces|sets)\b)/iu;
+  return quantity.test(value) && !money.test(value) ? "Annual output" : "Annual revenue";
+}
+
 export function supplierAnnualOutputDisplay(supplier: Pick<Supplier, "annual_output" | "profile_translation_meta">): string {
   if (!supplier.annual_output?.trim()) return "";
   const source = supplier.annual_output.replace(/\s+/g, " ").trim();

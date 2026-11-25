@@ -25,6 +25,10 @@ export function SupplierPhotoButton({ kind, hasImage, className }: Props) {
   const [busy, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const label = kind === "cover" ? "ảnh bìa" : "ảnh đại diện";
+  // Ảnh bìa nằm dưới tên công ty và nút báo giá (chữ trắng): ảnh đã chèn sẵn chữ sẽ chồng chữ, khó đọc.
+  const tip = kind === "cover"
+    ? `${hasImage ? "Đổi" : "Thêm"} ${label}. Nên dùng ảnh nhà máy, kho hoặc sản phẩm, ngang tối thiểu 1600px, KHÔNG chèn sẵn chữ hay logo.`
+    : `${hasImage ? "Đổi" : "Thêm"} ${label}`;
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -53,7 +57,7 @@ export function SupplierPhotoButton({ kind, hasImage, className }: Props) {
   return <>
     <button type="button" onClick={() => inputRef.current?.click()} disabled={busy}
       aria-label={hasImage ? `Đổi ${label}` : `Thêm ${label}`}
-      title={hasImage ? `Đổi ${label}` : `Thêm ${label}`}
+      title={tip}
       className={className ?? "absolute right-3 bottom-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/95 text-ink-800 shadow-md transition hover:bg-white hover:text-brand-800 disabled:opacity-60"}>
       {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}
     </button>

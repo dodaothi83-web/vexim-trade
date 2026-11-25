@@ -12,7 +12,7 @@ Approved visual reference: `docs/brand-preview/index.html`. The previous proposa
 - Standalone SVG exports: `public/brand/vexim/`.
 - Original logo remains `public/logo-vexim.png` / `public/logo-vexim-white-mark.png`. Do not redraw the V, replace it with an icon, or change its proportions.
 - Palette remains `lib/brand/colors.json`, generated into `app/brand-colors.css`. Navy 700 is `#1F3E74`. Use existing semantic success/warning/error colours, not a new palette.
-- Keep the site's existing Be Vietnam Pro typography. The standalone design study uses system fonts for convenience; do not bundle Apple's fonts or copy Apple marks/symbols.
+- Typography is **Inter** (owner decision 2026-11-25, replacing Be Vietnam Pro), loaded with `next/font/google` (latin, latin-ext, vietnamese; variable 400-700+). Headings and buttons sit around 600 (the Tailwind theme maps `font-bold` to 600, `font-extrabold` to 650, `font-black` to 700); body text and labels use 400-500. Large headings track -0.015em (`tracking-tight`), small text keeps 0; heading line-height stays at least 1.25 so Vietnamese diacritics never touch the line above. The homepage share image (`lib/og/home-share-image.tsx`) still uses its bundled Be Vietnam Pro files until it is redrawn. The standalone design study uses system fonts for convenience; do not bundle Apple's fonts or copy Apple marks/symbols.
 
 ## Visual rules
 
@@ -159,7 +159,7 @@ This is an owner-approved exception to "no decorative yellow" for these tier shi
 
 The owner approved three public supplier page templates for suppliers on an active Premium or Pro plan: **Elegant** (ivory, centred name, large cover), **Modern** (full-width cover with the name on top, floating figure cards) and **Gallery** (company details on the left, photo mosaic on the right). Reference: `docs/storefront-templates/index.html`; implementation: `components/public/premium-storefront.tsx`, rules in `lib/storefront-theme.ts`.
 
-This is an owner-approved exception to "palette remains navy" for these pages only. The supplier picks one of four accent tones: Champagne `#9C7A4B`, Terracotta `#B5532E`, Graphite `#33383D`, Steel blue `#2C5F7C`. Green and burgundy are excluded because they mean verification on Vexim shields. The tone applies only inside the premium header and showcase; the Vexim header, logo, Be Vietnam Pro typography, green verification pills, shared sections and Basic pages are unchanged. No plan badge is shown to buyers: a paid plan is not a verification. Supplier-written tagline and showcase text must be English and free of contact details.
+This is an owner-approved exception to "palette remains navy" for these pages only. The supplier picks one of four accent tones: Champagne `#9C7A4B`, Terracotta `#B5532E`, Graphite `#33383D`, Steel blue `#2C5F7C`. Green and burgundy are excluded because they mean verification on Vexim shields. The tone applies only inside the premium header and showcase; the Vexim header, logo, site typography (Inter since 2026-11-25), green verification pills, shared sections and Basic pages are unchanged. No plan badge is shown to buyers: a paid plan is not a verification. Supplier-written tagline and showcase text must be English and free of contact details.
 
 ## Product card: "Verified L1" badge and compact layout (approved 2026-11-24)
 
