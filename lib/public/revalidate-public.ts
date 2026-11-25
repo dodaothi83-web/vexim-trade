@@ -3,6 +3,7 @@ import "server-only";
 import { revalidateTag } from "next/cache";
 
 import { productPageTag } from "@/lib/public/product-page-tag";
+import { warmProductPageAfterResponse } from "@/lib/public/warm-product-page";
 
 /** Thẻ của bản cache dữ liệu catalog dùng chung (unstable_cache trong lib/public/product-catalog.ts). */
 export const PUBLIC_CATALOG_TAG = "public-catalog";
@@ -28,10 +29,14 @@ export function revalidatePublicCatalog(): void {
  *   cấp): `"max"`, tức lượt xem kế tiếp vẫn nhận ngay bản đang có rồi trang tự dựng lại ở nền.
  *   Next.js chờ dữ liệu catalog mới trước khi lưu bản dựng lại, nên bản lưu không bao giờ cũ.
  *
+ * - Sau khi phản hồi đã gửi, máy chủ tự mở lại trang sản phẩm đó một lần (warm-product-page.ts),
+ *   để người mua đầu tiên không phải chờ dựng trang.
+ *
  * Trước đây mỗi lần sửa xoá ngay mọi trang sản phẩm (revalidatePath("/products", "layout") và
  * revalidatePublicCatalog()), nên người mua phải chờ dựng lại ở hầu hết trang họ mở sau đó.
  */
 export function revalidateProductEdit(productId: string): void {
   revalidateTag(productPageTag(productId), { expire: 0 });
   revalidateTag(PUBLIC_CATALOG_TAG, "max");
+  warmProductPageAfterResponse(productId);
 }

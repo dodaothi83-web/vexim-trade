@@ -146,10 +146,55 @@ const revalidations = [];
 const revalidatePublic = load("lib/public/revalidate-public.ts", { mocks: {
   "next/cache": { revalidateTag: (tag, profile) => revalidations.push([tag, profile]) },
   "@/lib/public/product-page-tag": pageTag,
+  "@/lib/public/warm-product-page": { warmProductPageAfterResponse: (id) => revalidations.push(["warm", id]) },
 } });
 revalidatePublic.revalidateProductEdit(PID);
-assert.equal(JSON.stringify(revalidations), JSON.stringify([[`product-page:${PID}`, { expire: 0 }], ["public-catalog", "max"]]),
-  "Edited product page: refreshed now; catalogue and other pages: refreshed in the background");
+assert.equal(JSON.stringify(revalidations), JSON.stringify([[`product-page:${PID}`, { expire: 0 }], ["public-catalog", "max"], ["warm", PID]]),
+  "Edited product page: refreshed now, then rebuilt by the server so the first buyer gets a cached page; catalogue and other pages: refreshed in the background");
+
+// Warm-up after an edit: runs after the response (after()), opens the public URL without cookies,
+// and only on this site's own hosts (never follows a spoofed Host header).
+{
+  const afterCalls = [];
+  const fetches = [];
+  const product = { id: PID, supplier_id: SUPPLIER };
+  const warm = load("lib/public/warm-product-page.ts", {
+    env: { VERCEL_URL: "vexim-abc.vercel.app" },
+    globals: {
+      setTimeout: (fn) => fn(), AbortSignal: { timeout: () => undefined },
+      fetch: async (url, init) => { fetches.push([url, init]); return { text: async () => "" }; },
+    },
+    mocks: {
+      "next/headers": { headers: async () => new Headers({ host: "www.veximtrade.com", "x-forwarded-proto": "https" }) },
+      "next/server": { after: (fn) => afterCalls.push(fn) },
+      "@/lib/db": { getStore: () => ({ getProduct: async (id) => id === PID ? product : null, listCategories: async () => [] }) },
+      "@/lib/public/product-selection": { publicProductCategorySlug: (row) => row === product ? "dried-fruits" : null },
+      "@/lib/site": { SITE_URL: "https://www.veximtrade.com" },
+    },
+  });
+  assert.equal(warm.warmOrigin("www.veximtrade.com", "https"), "https://www.veximtrade.com");
+  assert.equal(warm.warmOrigin("veximtrade.com", null), "https://veximtrade.com");
+  assert.equal(warm.warmOrigin("localhost:3000", null), "http://localhost:3000");
+  assert.equal(warm.warmOrigin("vexim-abc.vercel.app", "https", { VERCEL_URL: "vexim-abc.vercel.app" }), "https://vexim-abc.vercel.app");
+  for (const bad of ["evil.example", "www.veximtrade.com.evil.example", "a b", "", null]) {
+    assert.equal(warm.warmOrigin(bad, "https"), null, `Warm-up never calls host ${bad}`);
+  }
+  warm.warmProductPageAfterResponse(PID);
+  assert.equal(fetches.length, 0, "Nothing is fetched before the editor's response is sent");
+  assert.equal(afterCalls.length, 1);
+  await afterCalls[0]();
+  assert.equal(fetches.length, 1);
+  assert.equal(fetches[0][0], `https://www.veximtrade.com/products/dried-fruits/${PID}`);
+  assert.equal(fetches[0][1].headers.cookie, undefined, "Warm-up opens the guest (cached) page, never with a session");
+  assert.equal(fetches[0][1].redirect, "manual");
+  warm.warmProductPageAfterResponse("missing");
+  await afterCalls[1]();
+  assert.equal(fetches.length, 1, "A product without a public category page is not fetched");
+  assert.doesNotThrow(() => load("lib/public/warm-product-page.ts", { globals: { setTimeout, AbortSignal, fetch }, mocks: {
+    "next/headers": { headers: async () => new Headers() }, "next/server": { after: () => { throw new Error("outside request"); } },
+    "@/lib/db": {}, "@/lib/public/product-selection": {}, "@/lib/site": { SITE_URL: "https://www.veximtrade.com" },
+  } }).warmProductPageAfterResponse(PID), "Outside a request the warm-up is skipped silently");
+}
 revalidations.length = 0;
 revalidatePublic.revalidatePublicCatalog();
 assert.equal(JSON.stringify(revalidations), JSON.stringify([["public-catalog", { expire: 0 }]]), "Other catalogue changes keep the immediate refresh");
@@ -294,3 +339,12 @@ assert.match(gallery, /\{\.\.\.productThumbImage\(thumbnails\?\.\[photoIndex\] \
 assert.match(gallery, /<img src=\{publicPhotoUrl\(selected\)\}/, "The enlarged lightbox still shows the original");
 
 console.log("Product static: guests get the prebuilt page, signed-in users the dynamic render, views re-checked server-side, product images CDN-cached 1h and sized to the frame");
+
+// No loading skeleton around the product content (tried 25/11/2026, reverted): with ISR the rendered
+// fallback is stored in the CACHED HTML too, so every view would ship the skeleton and hide the real
+// content in <div hidden> until a script swaps it (see docs/seo-geo-audit-2026-11.md, raw-HTML bots).
+// A route-level loading.tsx would also stream before the 404/301 check and turn them into soft 404s.
+// First-view speed comes from the post-edit warm-up instead (lib/public/warm-product-page.ts).
+assert.ok(!fs.existsSync(new URL("../app/(public)/products/[slug]/[productId]/loading.tsx", import.meta.url)),
+  "No route-level loading.tsx on the product page");
+console.log("product static: post-edit warm-up OK");
