@@ -53,6 +53,32 @@ assert.deepEqual(d.pickFeatured([C], [sup("a"), sup("b")], new Map([["supplier:a
   assert.equal(d.rotationWeek(new Date("2027-01-04T00:00:00Z")) - d.rotationWeek(new Date("2026-12-28T00:00:00Z")), 1, "The rotation week keeps counting across the new year");
 }
 
+// 4d. Số suất nổi bật co giãn theo số nhà cung cấp Pro trong ngành: 2 → tối đa 4; thư có từ 3 suất
+// thì lưới sản phẩm còn 6 (2 hàng) để thư không dài thêm.
+{
+  assert.deepEqual([0, 1, 10, 20, 21, 30, 31, 40, 100, 1000].map((n) => d.featuredSlots(n)), [2, 2, 2, 2, 3, 3, 4, 4, 4, 4],
+    "≤20 Pro: 2 slots; 21–30: 3; 31+: 4 (each Pro reaches the same buyer about every 10 weeks)");
+  const pros = (n) => Array.from({ length: n }, (_, k) => sup(`p${String(k).padStart(3, "0")}`));
+  assert.equal(d.pickFeatured([C], pros(5), new Map(), now).length, 2, "Few Pro suppliers: still 2 slots");
+  assert.equal(d.pickFeatured([C], [...pros(25), ...Array.from({ length: 40 }, (_, k) => sup(`o${k}`, [P]))], new Map(), now).length, 3,
+    "Only Pro suppliers in the buyer's own categories count");
+  assert.equal(d.pickFeatured([C], pros(100), new Map(), now).length, 4);
+  const recentMost = new Map(pros(40).slice(1).map((x) => [`supplier:${x.id}`, day(3)]));
+  assert.equal(d.pickFeatured([C], pros(40), recentMost, now).length, 1, "Slots never repeat a supplier shown in the last 28 days");
+  const fresh = Array.from({ length: 12 }, (_, k) => product(`f${k}`, { createdAt: day(1), updatedAt: day(1) }));
+  const base = { products: fresh, categories: [{ id: C, slug: "cashew", name: "Cashew kernels", harvest: null }], posts: [] };
+  const busy = d.buildProductsDigest([C], { ...base, suppliers: pros(100) }, new Map(), now);
+  assert.equal(busy.featured.length, 4);
+  assert.equal(busy.products.length, d.DIGEST_MAX_PRODUCTS_BUSY, "4 featured suppliers: 6 products");
+  const quiet = d.buildProductsDigest([C], { ...base, suppliers: pros(5) }, new Map(), now);
+  assert.equal(quiet.featured.length, 2);
+  assert.equal(quiet.products.length, d.DIGEST_MAX_PRODUCTS, "2 featured suppliers: 9 products as before");
+  // Với 4 suất, 40 nhà cung cấp Pro đều tới lượt trong 10 tuần.
+  const seen40 = new Set();
+  for (let w = 0; w < 10; w++) for (const x of d.pickFeatured([C], pros(40), new Map(), new Date(now.getTime() + w * 7 * 86_400_000))) seen40.add(x.id);
+  assert.equal(seen40.size, 40, "40 Pro suppliers, 4 slots: everyone featured within 10 weeks");
+}
+
 // 5. Không gửi thư rỗng: thư sản phẩm cần ít nhất 2 mục; thư thị trường cần một bài.
 const data = { products: [product("new1", { createdAt: day(3), updatedAt: day(3) })], suppliers: [], categories: [{ id: C, slug: "cashew", name: "Cashew kernels", harvest: null }], posts: [] };
 assert.equal(d.buildProductsDigest([C], data, new Map(), now), null, "Chỉ 1 mục thì bỏ tuần này");

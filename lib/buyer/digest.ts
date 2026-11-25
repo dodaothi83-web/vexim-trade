@@ -2,7 +2,7 @@
  * Thư giới thiệu cho người mua (đợt 2): chọn nội dung từ dữ liệu đã duyệt trên sàn. Tệp thuần để
  * script kiểm tra nạp thẳng bằng Node; phần đọc dữ liệu và gửi thư ở digest-server.ts.
  *
- * - Thư "products" (thứ Ba): nhà cung cấp gói Pro nổi bật (tối đa 2, luân phiên) và sản phẩm mới/cập
+ * - Thư "products" (thứ Ba): nhà cung cấp gói Pro nổi bật (2–4 tuỳ số Pro trong ngành, luân phiên) và sản phẩm mới/cập
  *   nhật trong ngành người mua chọn (tối đa 9, lưới thẻ ảnh 3 cột; gói Pro xếp trước, rồi Premium), kèm mùa vụ.
  * - Thư "brief" (thứ Sáu, mức "twice"): một bài blog của Vexim đúng ngành (hoặc bài tin chung), kèm mùa vụ.
  * - Không lặp lại cùng mục với cùng người mua trong 4 tuần (trừ khi vừa cập nhật); không gửi thư rỗng.
@@ -32,7 +32,17 @@ export const DIGEST_UPDATED_DAYS = 7;
 export const DIGEST_POST_DAYS = 21;
 /** Lưới thẻ ảnh 3 cột trong thư: tối đa 3 hàng. */
 export const DIGEST_MAX_PRODUCTS = 9;
-export const DIGEST_MAX_FEATURED = 2;
+/** Thư có từ 3 nhà cung cấp nổi bật thì lưới sản phẩm còn 2 hàng, để thư không dài thêm. */
+export const DIGEST_MAX_PRODUCTS_BUSY = 6;
+/**
+ * Số suất nhà cung cấp nổi bật (gói Pro) mỗi thư co giãn theo số nhà cung cấp Pro trong ngành người
+ * mua chọn (chủ sàn chốt 25/11/2026): ngành ít Pro giữ 2 suất (thêm suất chẳng được gì vì một người
+ * mua không thấy lại cùng nhà cung cấp trong 28 ngày), ngành đông thì tăng dần tới 4, sao cho mỗi nhà
+ * cung cấp Pro tới lại cùng một người mua khoảng DIGEST_FEATURED_TARGET_WEEKS tuần một lần.
+ */
+export const DIGEST_MIN_FEATURED = 2;
+export const DIGEST_MAX_FEATURED = 4;
+export const DIGEST_FEATURED_TARGET_WEEKS = 10;
 /** Thư sản phẩm cần ít nhất ngần này mục (nhà cung cấp + sản phẩm), không thì bỏ tuần đó. */
 export const DIGEST_MIN_ITEMS = 2;
 const DAY = 86_400_000;
@@ -63,7 +73,7 @@ const shownRecently = (recent: RecentShown, key: string, now: Date, since?: stri
 };
 
 /** Sản phẩm mới (14 ngày) hoặc vừa cập nhật (7 ngày) trong ngành người mua chọn; gói Pro xếp trước. */
-export function pickProducts(categories: string[], products: DigestProduct[], recent: RecentShown, now: Date): Array<DigestProduct & { badge: "NEW" | "UPDATED" }> {
+export function pickProducts(categories: string[], products: DigestProduct[], recent: RecentShown, now: Date, limit = DIGEST_MAX_PRODUCTS): Array<DigestProduct & { badge: "NEW" | "UPDATED" }> {
   const out: Array<DigestProduct & { badge: "NEW" | "UPDATED" }> = [];
   for (const p of products) {
     if (!categories.includes(p.categoryId)) continue;
@@ -73,7 +83,7 @@ export function pickProducts(categories: string[], products: DigestProduct[], re
     if (shownRecently(recent, itemKey({ type: "product", id: p.id }), now, p.updatedAt)) continue;
     out.push({ ...p, badge: isNew ? "NEW" : "UPDATED" });
   }
-  return out.sort((a, b) => planRank(b) - planRank(a) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, DIGEST_MAX_PRODUCTS);
+  return out.sort((a, b) => planRank(b) - planRank(a) || Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, limit);
 }
 
 /** Thứ tự ưu tiên trong thư: Pro (2) → Premium (1) → Basic (0). */
@@ -87,16 +97,23 @@ export const rotationWeek = (now: Date) => Math.floor(now.getTime() / (7 * DAY))
 
 /**
  * Nhà cung cấp gói Pro trong ngành người mua chọn: chưa giới thiệu trong 4 tuần, luân phiên theo
- * tuần. Mỗi tuần dịch đi đúng số suất nổi bật (2), nên với N nhà cung cấp, ai cũng tới lượt trong
- * khoảng N/2 tuần và hai tuần liền nhau không lặp người.
+ * tuần. Mỗi tuần dịch đi đúng số suất nổi bật (2–4, xem featuredSlots), nên với N nhà cung cấp và
+ * k suất, ai cũng tới lượt trong khoảng N/k tuần và hai tuần liền nhau không lặp người.
  */
 export function pickFeatured(categories: string[], suppliers: DigestSupplier[], recent: RecentShown, now: Date): DigestSupplier[] {
   const week = rotationWeek(now);
-  const fresh = suppliers.filter((s) => s.categoryIds.some((id) => categories.includes(id)) && !shownRecently(recent, itemKey({ type: "supplier", id: s.id }), now))
+  const pool = suppliers.filter((s) => s.categoryIds.some((id) => categories.includes(id)));
+  const slots = featuredSlots(pool.length);
+  const fresh = pool.filter((s) => !shownRecently(recent, itemKey({ type: "supplier", id: s.id }), now))
     .sort((a, b) => a.id.localeCompare(b.id));
   if (!fresh.length) return [];
-  const start = (week * DIGEST_MAX_FEATURED) % fresh.length;
-  return [...fresh.slice(start), ...fresh.slice(0, start)].slice(0, DIGEST_MAX_FEATURED);
+  const start = (week * slots) % fresh.length;
+  return [...fresh.slice(start), ...fresh.slice(0, start)].slice(0, slots);
+}
+
+/** Số suất nổi bật cho người mua có `proSuppliers` nhà cung cấp Pro trong các ngành họ chọn. */
+export function featuredSlots(proSuppliers: number): number {
+  return Math.min(DIGEST_MAX_FEATURED, Math.max(DIGEST_MIN_FEATURED, Math.ceil(proSuppliers / DIGEST_FEATURED_TARGET_WEEKS)));
 }
 
 /**
@@ -143,7 +160,7 @@ export type BriefDigest = { kind: "brief"; post: DigestPost; seasons: DigestSeas
 /** Thư sản phẩm cho một người mua; null khi chưa đủ nội dung (không gửi thư rỗng). */
 export function buildProductsDigest(categories: string[], data: { products: DigestProduct[]; suppliers: DigestSupplier[]; categories: DigestCategory[] }, recent: RecentShown, now: Date): ProductsDigest | null {
   const featured = pickFeatured(categories, data.suppliers, recent, now);
-  const products = pickProducts(categories, data.products, recent, now);
+  const products = pickProducts(categories, data.products, recent, now, featured.length > DIGEST_MIN_FEATURED ? DIGEST_MAX_PRODUCTS_BUSY : DIGEST_MAX_PRODUCTS);
   if (featured.length + products.length < DIGEST_MIN_ITEMS) return null;
   return { kind: "products", featured, products, seasons: seasonWatch(categories, data.categories, now),
     items: [...featured.map((s) => ({ type: "supplier" as const, id: s.id })), ...products.map((p) => ({ type: "product" as const, id: p.id }))] };
