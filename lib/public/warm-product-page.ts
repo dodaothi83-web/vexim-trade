@@ -50,21 +50,32 @@ export function warmOrigin(host: string | null, forwardedProto: string | null, e
   return `${proto}://${value}`;
 }
 
-async function warmNow(productId: string, origin: string): Promise<void> {
+/** Mở lần lượt (không song song) để không dồn tải lên máy chủ và CSDL cùng lúc. */
+async function warmNow(productIds: readonly string[], origin: string): Promise<void> {
   const store = getStore();
-  const [product, categories] = await Promise.all([store.getProduct(productId), store.listCategories({ publishedOnly: true })]);
-  if (!product) return;
-  const slug = publicProductCategorySlug(product, categories);
-  if (!slug) return;
+  const categories = await store.listCategories({ publishedOnly: true });
+  const paths: string[] = [];
+  for (const productId of productIds) {
+    const product = await store.getProduct(productId);
+    const slug = product ? publicProductCategorySlug(product, categories) : null;
+    if (slug) paths.push(`/products/${encodeURIComponent(slug)}/${encodeURIComponent(productId)}`);
+  }
+  if (!paths.length) return;
   await new Promise((resolve) => setTimeout(resolve, WARM_DELAY_MS));
-  const response = await fetch(`${origin}/products/${encodeURIComponent(slug)}/${encodeURIComponent(productId)}`, {
-    headers: { "user-agent": WARM_USER_AGENT, accept: "text/html" },
-    cache: "no-store",
-    redirect: "manual",
-    signal: AbortSignal.timeout(WARM_TIMEOUT_MS),
-  });
-  // Đọc hết nội dung: trang truyền dần (Suspense), bản cache chỉ được lưu khi dựng xong.
-  await response.text();
+  for (const path of paths) {
+    try {
+      const response = await fetch(`${origin}${path}`, {
+        headers: { "user-agent": WARM_USER_AGENT, accept: "text/html" },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(WARM_TIMEOUT_MS),
+      });
+      // Đọc hết nội dung: trang truyền dần (Suspense), bản cache chỉ được lưu khi dựng xong.
+      await response.text();
+    } catch (error) {
+      console.warn("[product-page] cache warm-up failed", path, error instanceof Error ? error.message : error);
+    }
+  }
 }
 
 /**
@@ -72,6 +83,12 @@ async function warmNow(productId: string, origin: string): Promise<void> {
  * Handler (nơi đọc được headers() trong `after`). Gọi ngoài request thì không làm gì.
  */
 export function warmProductPageAfterResponse(productId: string): void {
+  warmProductPagesAfterResponse([productId]);
+}
+
+/** Như trên cho nhiều sản phẩm (ví dụ mọi sản phẩm của một nhà cung cấp): một lần đọc danh mục. */
+export function warmProductPagesAfterResponse(productIds: readonly string[]): void {
+  if (!productIds.length) return;
   try {
     after(async () => {
       try {
@@ -80,9 +97,9 @@ export function warmProductPageAfterResponse(productId: string): void {
           requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host"),
           requestHeaders.get("x-forwarded-proto"),
         );
-        if (origin) await warmNow(productId, origin);
+        if (origin) await warmNow(productIds, origin);
       } catch (error) {
-        console.warn("[product-page] cache warm-up skipped", productId, error instanceof Error ? error.message : error);
+        console.warn("[product-page] cache warm-up skipped", error instanceof Error ? error.message : error);
       }
     });
   } catch {

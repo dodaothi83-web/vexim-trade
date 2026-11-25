@@ -6,8 +6,7 @@ import { getSession, guard } from "@/lib/auth/session";
 import { extensionFor, validateUpload } from "@/lib/media/validate";
 import { deleteObject, putObject } from "@/lib/media/storage";
 import { syncMediaCdn } from "@/lib/media/cdn";
-import { revalidatePath } from "next/cache";
-import { revalidatePublicCatalog, revalidateProductEdit } from "@/lib/public/revalidate-public";
+import { revalidateProductEdit, revalidateSupplierMediaEdit, revalidateSupplierPage } from "@/lib/public/revalidate-public";
 import { verificationMediaEditError } from "@/lib/media/verification-access";
 import { auditUploadKind } from "@/lib/verification";
 import { defaultCertificateLabelForKey, ingestCertificateScan, isL1CertificateKey } from "@/lib/certificate-service";
@@ -239,14 +238,19 @@ export async function POST(request: Request) {
   const okCount = results.filter((r) => r.ok).length;
   // Tệp chia sẻ người mua hiện ngay trên trang công khai (cache 1 giờ): làm mới bản cache catalog.
   if (okCount > 0 && audience === "buyer" && ownerType !== "verification") {
+    // Chỉ làm mới các trang có hiện tệp này, không xoá mọi trang sản phẩm/nhà cung cấp
+    // (lib/public/revalidate-public.ts). Trang khác đọc bản cache catalog tự làm mới ở nền.
+    const owner = await store.getSupplier(mediaSupplierId).catch(() => null);
+    const supplierRef = { id: mediaSupplierId, slug: owner?.slug };
     if (ownerType === "product") {
-      // Ảnh sản phẩm: chỉ trang sản phẩm này dựng lại ngay, trang khác làm mới ở nền.
+      // Ảnh sản phẩm: trang sản phẩm này và trang nhà cung cấp của nó dựng lại ngay.
       revalidateProductEdit(ownerId);
+      revalidateSupplierPage(supplierRef);
     } else {
-      revalidatePublicCatalog();
-      revalidatePath("/products", "layout");
+      // Tệp của nhà cung cấp: trang của họ và trang các sản phẩm của họ dựng lại ngay.
+      const productIds = (await store.listProductsBySupplier(mediaSupplierId).catch(() => [])).map((product) => product.id);
+      revalidateSupplierMediaEdit(supplierRef, productIds);
     }
-    revalidatePath("/suppliers", "layout");
   }
   return NextResponse.json(
     {

@@ -144,9 +144,9 @@ assert.equal(JSON.stringify(tagCalls), JSON.stringify([{ keys: ["product-page-ta
   "The tag entry never expires on a timer, so it does not shorten the page's 1 hour refresh");
 const revalidations = [];
 const revalidatePublic = load("lib/public/revalidate-public.ts", { mocks: {
-  "next/cache": { revalidateTag: (tag, profile) => revalidations.push([tag, profile]) },
+  "next/cache": { revalidateTag: (tag, profile) => revalidations.push([tag, profile]), revalidatePath: () => {} },
   "@/lib/public/product-page-tag": pageTag,
-  "@/lib/public/warm-product-page": { warmProductPageAfterResponse: (id) => revalidations.push(["warm", id]) },
+  "@/lib/public/warm-product-page": { warmProductPageAfterResponse: (id) => revalidations.push(["warm", id]), warmProductPagesAfterResponse: () => {} },
 } });
 revalidatePublic.revalidateProductEdit(PID);
 assert.equal(JSON.stringify(revalidations), JSON.stringify([[`product-page:${PID}`, { expire: 0 }], ["public-catalog", "max"], ["warm", PID]]),
@@ -190,6 +190,12 @@ assert.equal(JSON.stringify(revalidations), JSON.stringify([[`product-page:${PID
   warm.warmProductPageAfterResponse("missing");
   await afterCalls[1]();
   assert.equal(fetches.length, 1, "A product without a public category page is not fetched");
+  warm.warmProductPagesAfterResponse([PID, "missing", PID]);
+  assert.equal(afterCalls.length, 3, "Several products: one after() callback");
+  await afterCalls[2]();
+  assert.equal(fetches.length, 3, "Several products: only the public ones are fetched");
+  warm.warmProductPagesAfterResponse([]);
+  assert.equal(afterCalls.length, 3, "Nothing to warm: nothing scheduled");
   assert.doesNotThrow(() => load("lib/public/warm-product-page.ts", { globals: { setTimeout, AbortSignal, fetch }, mocks: {
     "next/headers": { headers: async () => new Headers() }, "next/server": { after: () => { throw new Error("outside request"); } },
     "@/lib/db": {}, "@/lib/public/product-selection": {}, "@/lib/site": { SITE_URL: "https://www.veximtrade.com" },
@@ -213,8 +219,29 @@ for (const file of [
   assert.match(source, /revalidateProductEdit\((?:id|productId|saved\.id)\)/, `${file}: the edited product page is refreshed`);
 }
 const upload = read("app/api/media/upload/route.ts");
-assert.match(upload, /if \(ownerType === "product"\) \{[\s\S]*?revalidateProductEdit\(ownerId\);[\s\S]*?\} else \{\s*revalidatePublicCatalog\(\);\s*revalidatePath\("\/products", "layout"\);/,
-  "CRM upload: product images refresh that product; supplier files keep the full refresh");
+assert.match(upload, /if \(ownerType === "product"\) \{[\s\S]*?revalidateProductEdit\(ownerId\);\s*revalidateSupplierPage\(supplierRef\);[\s\S]*?\} else \{[\s\S]*?listProductsBySupplier\(mediaSupplierId\)[\s\S]*?revalidateSupplierMediaEdit\(supplierRef, productIds\);/,
+  "CRM upload: product images refresh that product + its supplier page; supplier files refresh that supplier's pages");
+assert.doesNotMatch(upload, /revalidatePath\("\/(?:products|suppliers)", "layout"\)|revalidatePublicCatalog\(\)/,
+  "CRM upload never clears every product/category/supplier page at once");
+{
+  const calls = [];
+  const supplierRevalidate = load("lib/public/revalidate-public.ts", { mocks: {
+    "next/cache": { revalidateTag: (tag, profile) => calls.push(["tag", tag, profile]), revalidatePath: (p, type) => calls.push(["path", p, type]) },
+    "@/lib/public/product-page-tag": pageTag,
+    "@/lib/public/warm-product-page": { warmProductPageAfterResponse: () => {}, warmProductPagesAfterResponse: (ids) => calls.push(["warm", ids.length]) },
+  } });
+  const ids = Array.from({ length: 25 }, (_, i) => `p${i}`);
+  supplierRevalidate.revalidateSupplierMediaEdit({ id: SUPPLIER, slug: "acme-foods" }, ids);
+  assert.equal(calls.filter(([kind, , profile]) => kind === "tag" && JSON.stringify(profile) === JSON.stringify({ expire: 0 })).length, 25,
+    "Every product page of that supplier is refreshed now");
+  assert.ok(calls.some(([kind, tag, profile]) => kind === "tag" && tag === "public-catalog" && profile === "max"), "Catalogue and other pages: background refresh");
+  assert.equal(JSON.stringify(calls.filter(([kind]) => kind === "path")), JSON.stringify([["path", "/suppliers/acme-foods", undefined]]),
+    "Only that supplier's profile page, never a whole /products or /suppliers layout");
+  assert.equal(JSON.stringify(calls.at(-1)), JSON.stringify(["warm", 20]), "At most 20 product pages are warmed after one upload");
+  calls.length = 0;
+  supplierRevalidate.revalidateSupplierPage({ id: SUPPLIER, slug: null });
+  assert.equal(JSON.stringify(calls), JSON.stringify([["path", `/suppliers/${SUPPLIER}`, undefined]]), "Supplier without slug: id URL");
+}
 assert.match(read("app/supplier/portal/product-actions.ts"), /revalidateProductEdit\(saved\.id\);\s*revalidateCategoryPaths\(saved\.category\);/,
   "Supplier save: the product page and its category page are refreshed now");
 assert.doesNotMatch(page, /export const dynamicParams = false/, "Other product pages are still built on first visit");
