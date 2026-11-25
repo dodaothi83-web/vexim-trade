@@ -35,6 +35,24 @@ const sup = (id, cats = [C]) => ({ id, name: id, href: "/s", location: "VN", typ
 assert.equal(d.pickFeatured([C], [sup("a"), sup("b"), sup("c"), sup("x", [P])], new Map(), now).length, 2);
 assert.deepEqual(d.pickFeatured([C], [sup("a"), sup("b")], new Map([["supplier:a", day(3)]]), now).map((s) => s.id), ["b"]);
 
+// 4b. Thứ tự gói trong thư: Pro → Premium → Basic, cùng gói thì mới cập nhật trước.
+{
+  const tiers = [product("basic", { createdAt: day(1), updatedAt: day(1) }), product("prem", { createdAt: day(4), updatedAt: day(4), premium: true }),
+    product("pro2", { createdAt: day(6), updatedAt: day(6), pro: true }), product("prem2", { createdAt: day(2), updatedAt: day(2), premium: true })];
+  assert.deepEqual(d.pickProducts([C], tiers, new Map(), now).map((p) => p.id), ["pro2", "prem2", "prem", "basic"], "Pro, then Premium, then Basic");
+}
+
+// 4c. Luân phiên công bằng khi đông: 60 nhà cung cấp Pro cùng ngành (hơn 53 tuần ISO), ai cũng tới lượt.
+{
+  const many = Array.from({ length: 60 }, (_, k) => sup(`s${String(k).padStart(2, "0")}`));
+  const seen = new Set();
+  for (let w = 0; w < 30; w++) {
+    for (const s of d.pickFeatured([C], many, new Map(), new Date(now.getTime() + w * 7 * 86_400_000))) seen.add(s.id);
+  }
+  assert.equal(seen.size, 60, "With 60 Pro suppliers, every one is featured within 30 weeks (2 per week)");
+  assert.equal(d.rotationWeek(new Date("2027-01-04T00:00:00Z")) - d.rotationWeek(new Date("2026-12-28T00:00:00Z")), 1, "The rotation week keeps counting across the new year");
+}
+
 // 5. Không gửi thư rỗng: thư sản phẩm cần ít nhất 2 mục; thư thị trường cần một bài.
 const data = { products: [product("new1", { createdAt: day(3), updatedAt: day(3) })], suppliers: [], categories: [{ id: C, slug: "cashew", name: "Cashew kernels", harvest: null }], posts: [] };
 assert.equal(d.buildProductsDigest([C], data, new Map(), now), null, "Chỉ 1 mục thì bỏ tuần này");
@@ -68,7 +86,10 @@ assert.match(server, /if \(await digestPaused\(\)\) return \{ \.\.\.result, paus
 assert.match(server, /kind === "brief" && introFrequency\(intro\) !== "twice"/, "Thư thị trường chỉ cho mức hai thư");
 assert.match(server, /\.eq\("kind", kind\)\.eq\("week", week\)/, "Mỗi loại thư một lần mỗi tuần");
 assert.match(server, /"List-Unsubscribe-Post": "List-Unsubscribe=One-Click"/);
-assert.match(server, /supplierPlanRules\(s, now, catalog\)\.plan === "pro"/, "Nhà cung cấp nổi bật chỉ gói Pro");
+assert.match(server, /supplierPlanRules\(s, now, catalog\)\.plan : "basic"/, "Gói đọc từ bảng gói hiện hành; gói hết hạn tính là Basic");
+assert.match(server, /const pro = \(supplierId: string\) => planOf\(supplierId\) === "pro";/);
+assert.match(server, /\(pro\(id\) \? featured : directory\)\.push/, "Nhà cung cấp nổi bật chỉ gói Pro");
+assert.match(server, /pro: pro\(p\.supplierId\), premium: planOf\(p\.supplierId\) === "premium"/, "Sản phẩm mang gói Pro/Premium để xếp thứ tự trong thư");
 assert.doesNotMatch(server, /chờ duyệt|awaiting approval|approved_by_staff|digest_approvals/i, "Không có bước duyệt thư");
 assert.match(server, /p\.u\.startsWith\("\/"\) && !p\.u\.startsWith\("\/\/"\)/, "Link bấm chỉ chuyển về trang Vexim");
 const click = read("supabase/migrations/20261223_buyer_digest.sql");
