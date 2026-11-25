@@ -12,6 +12,7 @@ import { getObject } from "@/lib/media/storage";
 import { validateUpload } from "@/lib/media/validate";
 import { COMPANY_APLUS_ID, isAplusImageFile } from "@/lib/products/aplus";
 import { storeAplusImage } from "@/lib/products/aplus-image-store";
+import { suggestAplusAlt } from "@/lib/ai/aplus-alt";
 import { canAccessSupplierId, SUPPLIER_SCOPE_DENIED } from "@/lib/auth/supplier-access";
 
 const IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -57,7 +58,13 @@ export async function staffAplusUpload(request: Request, target: { supplierId: s
   if (!stored.ok) return stored.reason === "image"
     ? fail("Chọn ảnh JPG, PNG hoặc WebP, tối đa 3 MB.")
     : fail("Chưa tải được ảnh. Thử lại.", 500);
-  return NextResponse.json({ ok: true, path: stored.path });
+  // Gợi ý mô tả ảnh (alt) tiếng Anh theo tên sản phẩm (A+ sản phẩm) hoặc tên công ty (A+ doanh nghiệp).
+  const store = getStore();
+  const product = target.productId ? await store.getProduct(target.productId).catch(() => null) : null;
+  const supplier = product ? null : await store.getSupplier(target.supplierId).catch(() => null);
+  const subject = product ? (product.name_i18n?.en?.trim() || product.name) : (supplier?.display_name?.trim() || supplier?.name || "");
+  const alt = subject ? await suggestAplusAlt({ bytes, mime: check.mime, subject }) : null;
+  return NextResponse.json({ ok: true, path: stored.path, ...(alt ? { alt } : {}) });
 }
 
 /** Nhân viên xem ảnh A+ của đúng chỗ đang soạn. */

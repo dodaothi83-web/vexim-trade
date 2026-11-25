@@ -7,6 +7,7 @@ import { getObject } from "@/lib/media/storage";
 import { validateUpload } from "@/lib/media/validate";
 import { canEditAplus, isAplusImageFile } from "@/lib/products/aplus";
 import { storeAplusImage } from "@/lib/products/aplus-image-store";
+import { suggestAplusAlt } from "@/lib/ai/aplus-alt";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
@@ -60,7 +61,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // WebP ≤1600px + bản nhỏ 640px, cùng cách xử lý với ảnh sản phẩm.
   const stored = await storeAplusImage(`aplus/${access.supplier.id}/${id}`, bytes);
   if (!stored.ok) return stored.reason === "image" ? fail(e.image) : fail(e.upload, 500);
-  return NextResponse.json({ ok: true, path: stored.path });
+  // Gợi ý mô tả ảnh (alt) tiếng Anh; trình soạn chỉ điền khi ô còn trống. Lỗi thì bỏ qua.
+  const alt = await suggestAplusAlt({ bytes, mime: check.mime, subject: product.name_i18n?.en?.trim() || product.name });
+  return NextResponse.json({ ok: true, path: stored.path, ...(alt ? { alt } : {}) });
 }
 
 /** Xem trước ảnh A+ cho chính nhà cung cấp, kể cả khi sản phẩm chưa đăng. */

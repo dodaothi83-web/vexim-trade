@@ -187,7 +187,23 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
     setModules(next); setOpenId(next[0]?.id ?? null); setPanel(null);
   };
 
-  async function uploadImage(key: string, file: File): Promise<string | null> {
+  /**
+   * Gợi ý mô tả ảnh (alt) do AI viết khi tải ảnh: chỉ điền ô còn trống (cả bản tiếng Việt đang soạn
+   * lẫn bản tiếng Anh), không đè chữ nhà cung cấp đã nhập, không đánh dấu "đã sửa tay" bản tiếng Anh.
+   */
+  const fillAlt = (id: string, key: string, alt: string) => replace(id, (m) => {
+    const slots = aplusSlots(m);
+    const i = slots.findIndex((slot) => slot.key === key);
+    if (i < 0) return m;
+    const english = aplusModuleText(m);
+    const vi = m.vi ? [...m.vi] : undefined;
+    if (vi && vi[i]?.trim() || english[i]?.trim()) return m;
+    english[i] = alt;
+    if (vi) vi[i] = alt;
+    return { ...withAplusText(m, english), ...(vi ? { vi } : {}), ...(m.en_edited ? { en_edited: m.en_edited } : {}) } as AplusModule;
+  });
+
+  async function uploadImage(key: string, file: File): Promise<{ path: string; alt?: string } | null> {
     setUploading(key); setMessage(null);
     try {
       const prepared = await prepareImage(file);
@@ -195,9 +211,9 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
       body.append("kind", "image");
       body.append("file", new File([prepared.main], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
       const res = await fetch(endpoint, { method: "POST", body });
-      const data = await res.json().catch(() => null) as { ok?: boolean; path?: string; message?: string } | null;
+      const data = await res.json().catch(() => null) as { ok?: boolean; path?: string; alt?: string; message?: string } | null;
       if (!res.ok || !data?.ok || !data.path) throw new Error(data?.message || copy.errors.upload);
-      return data.path;
+      return { path: data.path, ...(typeof data.alt === "string" && data.alt.trim() ? { alt: data.alt.trim() } : {}) };
     } catch (error) {
       setMessage({ ok: false, text: error instanceof Error ? error.message : copy.errors.upload });
       return null;
@@ -281,7 +297,15 @@ export function AplusEditor({ productId, allowed, editable, initial, copy, handl
           value={(key) => slotValue(module, key)} onSlot={(key, value) => setSlot(module.id, key, value)}
           onPatch={(patch) => replace(module.id, (m) => ({ ...m, ...patch }) as AplusModule)}
           onRestructure={(fn, removed) => restructure(module.id, fn, removed)}
-          onImage={async (key, file, apply) => { const path = await uploadImage(key, file); if (path) replace(module.id, (m) => apply(m, path)); }}
+          onImage={async (key, file, apply, altKey) => {
+            const uploaded = await uploadImage(key, file);
+            if (!uploaded) return;
+            replace(module.id, (m) => apply(m, uploaded.path));
+            if (uploaded.alt && altKey) {
+              const current = modulesRef.current.find((m) => m.id === module.id);
+              if (current && !slotValue(current, altKey).trim()) { fillAlt(module.id, altKey, uploaded.alt); setMessage({ ok: true, text: copy.fields.altSuggested }); }
+            }
+          }}
           onVideo={(file) => void uploadVideo(module.id, file)}
           onRetranslate={() => void translate([module.id])} translating={busy === "translate"} />)}
         {modules.length < APLUS_MAX_MODULES && <button type="button" disabled={disabled} onClick={() => setPanel("library")}
@@ -355,7 +379,7 @@ type BlockProps = {
   value: (key: string) => string; onSlot: (key: string, value: string) => void;
   onPatch: (patch: Partial<AplusModule>) => void;
   onRestructure: (fn: (module: AplusModule) => AplusModule, removed?: { list: string; index: number }) => void;
-  onImage: (key: string, file: File, apply: (module: AplusModule, path: string) => AplusModule) => Promise<void>;
+  onImage: (key: string, file: File, apply: (module: AplusModule, path: string) => AplusModule, altKey?: string) => Promise<void>;
   onVideo: (file: File) => void;
   onRetranslate: () => void; translating: boolean;
 };
@@ -389,7 +413,7 @@ function BlockCard(p: BlockProps) {
   const image = (key: string, item: { image_path: string; fx?: number; fy?: number }, apply: (m: AplusModule, path: string) => AplusModule,
     focusPatch: (fx: number, fy: number) => void, altKey: string, onClear?: () => void) =>
     <ImageField src={p.preview(item.image_path)} ratio={RATIO[module.type]} fx={item.fx} fy={item.fy} busy={p.uploading === key} disabled={p.disabled} copy={copy}
-      onFile={(file) => void p.onImage(key, file, apply)} onFocus={focusPatch} onClear={onClear}
+      onFile={(file) => void p.onImage(key, file, apply, altKey)} onFocus={focusPatch} onClear={onClear}
       alt={text(altKey, copy.fields.alt, 160, { placeholder: copy.fields.altPlaceholder })} />;
   const itemCount = (list: string) => ((module as unknown as Record<string, unknown[]>)[list] ?? []).length;
   const range = (APLUS_ITEM_RANGE as Record<string, readonly [number, number]>)[module.type];

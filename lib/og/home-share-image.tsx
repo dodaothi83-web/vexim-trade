@@ -10,7 +10,7 @@ import brandColors from "@/lib/brand/colors.json";
  *
  * Trước đây trang chủ dùng ảnh hạt điều (ảnh hero dự phòng), nên link sàn đa ngành trông như trang
  * chỉ bán hạt điều. Ảnh này chỉ dùng nhận diện có sẵn: logo V gốc (không vẽ lại), nền navy 700 và
- * chữ Be Vietnam Pro (docs/brand-identity.md). Câu chữ khớp tiêu đề/mô tả trang chủ.
+ * chữ Inter (docs/brand-identity.md). Câu chữ khớp tiêu đề/mô tả trang chủ.
  *
  * Dựng một lần lúc build (route force-static). Kích thước chuẩn 1200 x 630.
  */
@@ -39,22 +39,22 @@ const COPY: Record<HomeShareLang, { headline: string; line: string; alt: string 
 export const HOME_SHARE_IMAGE_ALT: Record<HomeShareLang, string> = { en: COPY.en.alt, vi: COPY.vi.alt };
 
 /**
- * Font Be Vietnam Pro bản đầy đủ (SIL OFL, kèm OFL.txt). Không dùng hai bộ cắt nhỏ latin + tiếng
- * Việt của @fontsource: trình dựng ảnh ghép hai bộ thì đo sai khoảng trắng cạnh chữ có dấu.
+ * Font Inter bản tĩnh đầy đủ (SIL OFL, kèm OFL.txt), cùng font với giao diện từ 25/11/2026. Trình
+ * dựng ảnh cần file tĩnh cho từng độ đậm (không đọc font variable) và đủ dấu tiếng Việt.
  */
-const FONT_DIR = join(process.cwd(), "assets", "fonts", "be-vietnam-pro");
+const FONT_DIR = join(process.cwd(), "assets", "fonts", "inter");
 
 export async function homeShareImage(lang: HomeShareLang): Promise<ImageResponse> {
   const copy = COPY[lang];
   const [logo, semiBold, extraBold] = await Promise.all([
     readFile(join(process.cwd(), "public", "logo-vexim-white-mark.png"), "base64"),
-    readFile(join(FONT_DIR, "BeVietnamPro-SemiBold.ttf")),
-    readFile(join(FONT_DIR, "BeVietnamPro-ExtraBold.ttf")),
+    readFile(join(FONT_DIR, "Inter-SemiBold.ttf")),
+    readFile(join(FONT_DIR, "Inter-ExtraBold.ttf")),
   ]);
   return new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between",
-        padding: "56px 80px 64px", backgroundColor: brandColors.primary, color: "#FFFFFF", fontFamily: "Be Vietnam Pro" }}>
+        padding: "56px 80px 64px", backgroundColor: brandColors.primary, color: "#FFFFFF", fontFamily: "Inter" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 18, marginLeft: -14 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`data:image/png;base64,${logo}`} width={112} height={112} alt="" />
@@ -70,8 +70,8 @@ export async function homeShareImage(lang: HomeShareLang): Promise<ImageResponse
     {
       ...HOME_SHARE_IMAGE_SIZE,
       fonts: [
-        { name: "Be Vietnam Pro", data: semiBold, weight: 600, style: "normal" },
-        { name: "Be Vietnam Pro", data: extraBold, weight: 800, style: "normal" },
+        { name: "Inter", data: semiBold, weight: 600, style: "normal" },
+        { name: "Inter", data: extraBold, weight: 800, style: "normal" },
       ],
     },
   );

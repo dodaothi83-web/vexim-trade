@@ -35,11 +35,14 @@ export function ProductAplus({ modules, productName, imageUrl = (path) => `/publ
 }) {
   if (!modules.length) return null;
   const pos = (item: { fx?: number; fy?: number }): CSSProperties => ({ objectPosition: `${item.fx ?? 50}% ${item.fy ?? 50}%` });
+  const fallback = uniqueAltFallback();
   const img: Img = (item, fallbackAlt, className, sizes) => {
     if (!item.image_path) return <div aria-hidden="true" className={`w-full bg-ink-100 ${className}`} />;
     const thumb = sizes ? aplusThumbPath(item.image_path) : null;
+    // Mô tả nhà cung cấp nhập (hoặc AI gợi ý khi tải ảnh) đứng trước; để trống thì dùng alt dự phòng,
+    // không lặp nhau trên cùng trang.
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={imageUrl(item.image_path)} alt={item.alt || fallbackAlt} loading="lazy" decoding="async" style={pos(item)} className={`w-full object-cover ${className}`}
+    return <img src={imageUrl(item.image_path)} alt={item.alt?.trim() || fallback(fallbackAlt)} loading="lazy" decoding="async" style={pos(item)} className={`w-full object-cover ${className}`}
       {...(thumb ? { srcSet: `${imageUrl(thumb)} 640w, ${imageUrl(item.image_path)} 1600w`, sizes } : {})} />;
   };
   return <div className="@container mt-6 space-y-10">
@@ -48,6 +51,20 @@ export function ProductAplus({ modules, productName, imageUrl = (path) => `/publ
       return <Fragment key={module.id}>{decorate ? decorate(module, node) : node}</Fragment>;
     })}
   </div>;
+}
+
+/**
+ * Alt dự phòng cho ảnh không có mô tả: Google coi nhiều ảnh cùng một alt là ít giá trị, nên alt trùng
+ * với ảnh trước trên cùng trang được thêm số thứ tự ("Cashew W320 – photo", "Cashew W320 – photo 2").
+ */
+export function uniqueAltFallback(): (alt: string) => string {
+  const seen = new Map<string, number>();
+  return (alt) => {
+    const base = alt.replace(/\s+/g, " ").trim();
+    const count = (seen.get(base.toLowerCase()) ?? 0) + 1;
+    seen.set(base.toLowerCase(), count);
+    return count === 1 ? base : `${base} ${count}`;
+  };
 }
 
 /** `sizes` chỉ truyền cho ô nhỏ; bỏ trống thì dùng ảnh chính (banner, ảnh đơn tràn ngang). */
@@ -80,7 +97,7 @@ function renderModule(module: AplusModule, productName: string, img: Img): React
         <ol className={`grid gap-4 @lg:grid-cols-3 ${["", "", "", "", "@3xl:grid-cols-4", "@4xl:grid-cols-5", "@4xl:grid-cols-6"][module.items.length] ?? ""}`}>
           {module.items.map((item, i) => <li key={i} className="grid grid-cols-[88px_1fr] items-center gap-3 @lg:block">
             <div className="relative">
-              {item.image_path ? img(item, item.title, "aspect-square rounded-xl", APLUS_IMAGE_SIZES.steps) : <div className="aspect-square rounded-xl bg-brand-50" aria-hidden="true" />}
+              {item.image_path ? img(item, item.title ? `${item.title} – ${productName}` : `${productName} – step ${i + 1}`, "aspect-square rounded-xl", APLUS_IMAGE_SIZES.steps) : <div className="aspect-square rounded-xl bg-brand-50" aria-hidden="true" />}
               <span className="absolute left-2 top-2 flex size-7 items-center justify-center rounded-full bg-brand-700 text-xs font-extrabold text-white ring-[3px] ring-white" aria-hidden="true">{i + 1}</span>
             </div>
             <div className="min-w-0 @lg:mt-2.5">
@@ -92,7 +109,7 @@ function renderModule(module: AplusModule, productName: string, img: Img): React
       </section>;
     case "packing":
       return <section className="grid items-center gap-5 @xl:grid-cols-[1fr_1.15fr] @xl:gap-8">
-        <div>{img(module, module.title || `${productName} packing`, "aspect-[4/3] rounded-2xl", APLUS_IMAGE_SIZES.half)}</div>
+        <div>{img(module, module.title ? `${module.title} – ${productName}` : `${productName} – packing`, "aspect-[4/3] rounded-2xl", APLUS_IMAGE_SIZES.half)}</div>
         <div className="min-w-0">
           {module.title && <h3 className="mb-3 break-words text-xl font-bold text-ink-900">{module.title}</h3>}
           <table className="w-full border-collapse text-sm">
@@ -118,12 +135,12 @@ function renderModule(module: AplusModule, productName: string, img: Img): React
     case "image":
       // Ảnh đơn: khung 16:9 giữ chỗ trước (chọn vùng hiển thị trong trình soạn), không nhảy trang.
       return <figure>
-        {img(module, module.caption || productName, "aspect-video rounded-2xl")}
+        {img(module, module.caption || `${productName} – photo`, "aspect-video rounded-2xl")}
         {module.caption && <figcaption className="mt-2 text-sm text-ink-600">{module.caption}</figcaption>}
       </figure>;
     case "image_text":
       return <div className="grid items-center gap-5 @xl:grid-cols-2 @xl:gap-8">
-        <div className={module.image_side === "right" ? "@xl:order-2" : undefined}>{img(module, module.title, "aspect-[4/3] rounded-2xl", APLUS_IMAGE_SIZES.half)}</div>
+        <div className={module.image_side === "right" ? "@xl:order-2" : undefined}>{img(module, module.title ? `${module.title} – ${productName}` : `${productName} – photo`, "aspect-[4/3] rounded-2xl", APLUS_IMAGE_SIZES.half)}</div>
         <div className="min-w-0">
           <h3 className="break-words text-xl font-bold text-ink-900">{module.title}</h3>
           {module.body && <Rich value={module.body} className="mt-2 leading-7 text-ink-700" />}
@@ -132,7 +149,7 @@ function renderModule(module: AplusModule, productName: string, img: Img): React
     case "gallery":
       return <div className={`grid grid-cols-2 gap-4 ${module.items.length === 3 ? "@xl:grid-cols-3" : module.items.length === 4 ? "@3xl:grid-cols-4" : ""}`}>
         {module.items.map((item, index) => <figure key={index}>
-          {img(item, item.caption || productName, "aspect-square rounded-xl", APLUS_IMAGE_SIZES.gallery)}
+          {img(item, item.caption || `${productName} – gallery photo`, "aspect-square rounded-xl", APLUS_IMAGE_SIZES.gallery)}
           {item.caption && <figcaption className="mt-1.5 text-sm text-ink-600">{item.caption}</figcaption>}
         </figure>)}
       </div>;
