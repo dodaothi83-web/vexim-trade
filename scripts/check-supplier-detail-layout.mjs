@@ -12,7 +12,9 @@ const workflowControls = fs.readFileSync(new URL('../components/supplier-actions
 // Đầu trang nhận diện kiểu sàn TMĐT, giữ ảnh bìa và ảnh đại diện nổi bật.
 assert.match(page, /supplier\.cover_image/, 'đầu trang phải hiện ảnh bìa của NCC');
 assert.match(page, /supplier\.profile_image/, 'đầu trang phải hiện ảnh đại diện của NCC');
-assert.match(page, /VerificationCoverSeal/, 'phải có huy chương xác minh trên ảnh bìa');
+assert.match(page, /<VerifiedCoverSeal levels=\{approvedLevels\} \/>/, 'phải có huy chương xác minh trên ảnh bìa, cùng kiểu khiên "Verified L1/L2/L3" như thẻ sản phẩm');
+assert.match(page, /<VerifiedBadge levels=\{approvedLevels\} l2Scope=\{approvedL2Scope\(verifications\)\} align="left" size="header" \/>/, 'cạnh tên công ty dùng đúng nhãn Verified của thẻ sản phẩm');
+assert.doesNotMatch(page, /VerificationPips|VerificationCoverSeal/, 'không còn khiên tròn nhỏ và con dấu "N CHECKS" cũ ở đầu trang CRM');
 // profile_image/cover_image lưu đường dẫn kho tệp (suppliers/<id>/profile-*.jpg),
 // bắt buộc chuyển qua publicMediaUrl (/public-media/ hoặc R2 công khai) như trang công khai, không được dùng thẳng làm src.
 assert.match(page, /publicMediaUrl\(path\)/, 'phải chuyển đường dẫn kho tệp thành URL ảnh công khai');
@@ -20,8 +22,8 @@ assert.match(page, /src=\{coverUrl\}/, 'ảnh bìa phải dùng URL đã chuyể
 assert.match(page, /src=\{avatarUrl\}/, 'ảnh đại diện phải dùng URL đã chuyển đổi');
 assert.ok(!page.includes('src={supplier.cover_image}') && !page.includes('src={supplier.profile_image}'),
   'không được dùng đường dẫn kho tệp thô làm địa chỉ ảnh');
-assert.match(page, /VerificationTierBadge/, 'phải có huy hiệu mức xác minh cạnh tên');
-assert.match(page, /VerificationPips/, 'phải có ba vòng kiểm xác minh cạnh tên');
+assert.match(page, /VerificationTierBadge levels=\{\[\]\}/, 'chưa duyệt bước nào thì vẫn hiện trạng thái "Under audit" cạnh tên');
+// Ba bước kiểm (đã/chưa duyệt) nằm trong bảng chi tiết của nhãn Verified, giống thẻ sản phẩm.
 assert.match(page, /approvedLevels/, 'mức xác minh lấy từ các đợt kiểm đã duyệt thật');
 
 // Chỉ số nhanh nằm ngay trong đầu trang, không còn dải thống kê riêng phía dưới.

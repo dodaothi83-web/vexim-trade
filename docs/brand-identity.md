@@ -192,3 +192,7 @@ Owner decision, superseding the navy ramp for this one badge only: on `PublicPro
 | L3 | #B45309 (deep amber) | #FFFBEB | #FDE68A |
 
 Sizes: 10.5px text and 16px shield on mobile, 11px text and 18px shield from `sm`. Token: `CARD_BADGE_TONES` in `components/verified-badge.tsx`. Marketplace pips, tier pills (product page, comparison table, search supplier cards, CRM) and the cover seal keep the navy ramp. Tooltip, labels and verification rules are unchanged.
+
+## CRM supplier header — Verified badge (owner request 2026-11-26)
+
+On the CRM supplier detail page (`app/crm/suppliers/[slug]/page.tsx`) the owner asked for the same verification look as the product cards. The "Level N · …" pill and the three small circular pips next to the company name are replaced by `VerifiedBadge size="header"` (the product-card "Verified L1/L2/L3" pill with the tier colours and the per-check tooltip). The cover seal "N CHECKS" circle is replaced by `VerifiedCoverSeal`: the same filled tier shield with "L1/L2/L3" and "Verified". With no approved check, the header shows the neutral "Under audit" pill and the seal a grey "Chưa duyệt" shield. This supersedes the earlier "small circular pips in CRM stay unchanged" note for this header only; other CRM tables and lists keep their pips.
