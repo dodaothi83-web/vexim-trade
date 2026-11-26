@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   CRM_PRODUCTS_PAGE_SIZE,
+  crmPriceSummary,
   orderCrmProducts,
+  safeCrmProductsBack,
   paginateCrmProducts,
 } from '../lib/crm/product-list.ts';
 
@@ -62,4 +64,51 @@ assert.ok(!page.includes('name="page"'), 'Submitting a filter starts again at pa
 assert.ok(page.includes('Mỗi trang tối đa {CRM_PRODUCTS_PAGE_SIZE} sản phẩm'),
   'The page size is visible to staff');
 
-console.log('✅ CRM products: pending review first, deterministic ordering and 15-product pages with filter-safe navigation.');
+// Tóm tắt giá trong danh sách: số đầy đủ, khoảng giá, điều kiện giao, MOQ, hạn giá.
+const base = { ref_price: null, ref_price_max: null, currency: 'USD', unit: 'MT', incoterm: null, incoterm_place: null,
+  export_port: null, moq: null, moq_qty: null, moq_unit: null, price_valid_until: null };
+const full = crmPriceSummary({ ...base, ref_price: 1450, ref_price_max: 1600, incoterm: 'fob', incoterm_place: 'Cát Lái',
+  moq_qty: 1, moq_unit: 'MT', price_valid_until: '2026-12-31' }, '2026-11-26');
+assert.equal(full.price, '$1,450 – 1,600 / MT', 'Full figures, never abbreviated as 1.5K');
+assert.equal(full.terms, 'FOB Cát Lái · MOQ 1 MT');
+assert.equal(full.validUntil, 'Đến 31/12/2026');
+assert.equal(full.expired, false);
+assert.equal(full.missingValidity, false);
+const expired = crmPriceSummary({ ...base, ref_price: 1500, incoterm: 'CIF', export_port: 'Hải Phòng', moq: '1 container',
+  price_valid_until: '2026-11-01' }, '2026-11-26');
+assert.equal(expired.price, '$1,500 / MT');
+assert.equal(expired.terms, 'CIF Hải Phòng · MOQ 1 container', 'Shows the one incoterm the supplier declared, port as fallback place');
+assert.equal(expired.expired, true);
+assert.equal(crmPriceSummary({ ...base, ref_price: 2.75, unit: 'kg' }, '2026-11-26').missingValidity, true);
+assert.equal(crmPriceSummary({ ...base, ref_price: 60000, currency: 'VND', unit: 'kg' }, '2026-11-26').price, '60,000 VND / kg');
+assert.equal(crmPriceSummary({ ...base, ref_price: 1500, ref_price_max: 1500 }, '2026-11-26').price, '$1,500 / MT', 'Equal range is one price');
+const none = crmPriceSummary(base, '2026-11-26');
+assert.equal(none.price, null);
+assert.equal(none.terms, null);
+assert.equal(none.expired, false);
+assert.equal(none.missingValidity, false);
+
+// Đường quay lại danh sách chỉ nhận trang sản phẩm CRM.
+assert.equal(safeCrmProductsBack('/crm/products?view=pending&page=2'), '/crm/products?view=pending&page=2');
+assert.equal(safeCrmProductsBack('/crm/products'), '/crm/products');
+for (const bad of ['https://evil.example', '//evil.example', '/crm/products/../x', '/crm/suppliers', '/crm/productsX', '', null])
+  assert.equal(safeCrmProductsBack(bad), '/crm/products', `Rejects ${bad}`);
+
+assert.ok(page.includes('crmPriceSummary(r, today)') && page.includes('productPriceBlockers(r, r.supplier)'),
+  'List shows the price summary; public price visibility uses the same gate as the public pages');
+assert.ok(page.includes('Giá hết hạn') && page.includes('Chưa khai hạn giá') && !page.includes('formatMoney('),
+  'Expired or missing price validity is visible and prices are not abbreviated');
+assert.ok(page.includes('edit?back=${encodeURIComponent(listHref)}'), 'Review links carry the current filters, tab and page');
+
+const edit = readFileSync(new URL('../app/crm/products/[slug]/edit/page.tsx', import.meta.url), 'utf8');
+assert.ok(edit.includes('safeCrmProductsBack(') && edit.includes('Kiểm tra sản phẩm tiếp theo') &&
+  edit.includes('Xem trang công khai') && edit.includes('Về danh sách'), 'Published panel offers next, public page and back to list');
+assert.ok(edit.includes('justPublished && productReviewApproved(product) && product.ready_for_buyer'),
+  'The panel only appears for a product that is really approved and live');
+assert.ok(edit.includes('orderCrmProducts(pending)') && edit.includes('supplierOwnerScope(session)'),
+  'Next product follows the list priority and the staff member\'s supplier scope');
+const controls = readFileSync(new URL('../app/crm/products/[slug]/edit/review-controls.tsx', import.meta.url), 'utf8');
+assert.ok(controls.includes('params.set("published", "1")') && !controls.includes('router.push("/crm/products'),
+  'After approval staff stay on the product page instead of being sent back to the list');
+
+console.log('✅ CRM products: pending review first, deterministic ordering and 15-product pages with filter-safe navigation; price summary and post-publish navigation.');
