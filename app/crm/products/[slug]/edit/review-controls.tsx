@@ -57,7 +57,12 @@ export function SupplierProductReviewControls({
     try {
       const response = await decideSupplierProductAction(data);
       setResult(response);
-      if (response.ok) router.refresh();
+      if (response.ok && data.get("decision") === "approved") {
+        // Ở lại trang để kiểm tra kết quả; trang hiện khung "Đã đăng" với sản phẩm tiếp theo và đường về danh sách.
+        const params = new URLSearchParams(window.location.search);
+        params.set("published", "1");
+        router.replace(`${window.location.pathname}?${params.toString()}`);
+      } else if (response.ok) router.refresh();
     } catch {
       setResult({ ok: false, message: "Không kết nối được máy chủ." });
     } finally {

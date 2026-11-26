@@ -4,7 +4,7 @@ import { readAplusModules, readGalleryVideo } from "@/lib/products/aplus";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { supplierPlanRules } from "@/lib/supplier-plans";
 import Link from "next/link";
-import { CheckCircle2, Minus } from "lucide-react";
+import { ArrowRight, CheckCircle2, ExternalLink, List, Minus } from "lucide-react";
 
 import { getStore } from "@/lib/db";
 import { getSupabaseClient, supabaseStore } from "@/lib/db/supabase";
@@ -36,7 +36,9 @@ import { QuantityPreviewCard } from "@/components/products/quantity-preview-card
 import { currentProductGrade, gradeOutsideCategory, gradeOutsideCategoryMessage } from "@/lib/products/grade-category-check";
 import type { QuantityPreviewSnapshot } from "@/components/products/quantity-preview-store";
 import { requireSupplierInScope } from "@/lib/auth/supplier-access";
-import { canDecideSupplierRole } from "@/lib/auth/supplier-scope";
+import { canDecideSupplierRole, supplierOwnerScope } from "@/lib/auth/supplier-scope";
+import { listProductsWithSupplier } from "@/lib/queries";
+import { orderCrmProducts, safeCrmProductsBack } from "@/lib/crm/product-list";
 
 export const dynamic = "force-dynamic";
 
@@ -44,10 +46,15 @@ export const metadata = { title: "Review sản phẩm" };
 
 export default async function EditProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug: id } = await params;
+  const sp = await searchParams;
+  const backHref = safeCrmProductsBack(typeof sp.back === "string" ? sp.back : null);
+  const justPublished = sp.published === "1";
   const session = await requirePagePermission("products.manage", "/crm/products");
   const store = getStore();
   const product = await store.getProduct(id);
@@ -191,6 +198,23 @@ export default async function EditProductPage({
   ];
   // Chỉ hiển thị điều kiện còn thiếu. Sản phẩm đã đủ điều kiện dùng một trạng thái
   // ngắn, không lặp lại toàn bộ checklist đã hoàn thành.
+  // Sau "Duyệt và đăng": ở lại trang để kiểm tra kết quả, kèm lối sang sản phẩm chờ kiểm tra tiếp theo.
+  // Chỉ đọc danh sách khi vừa đăng xong; cùng phạm vi phụ trách và thứ tự ưu tiên như trang danh sách.
+  const publishedPanel = justPublished && productReviewApproved(product) && product.ready_for_buyer
+    ? await (async () => {
+      const ownerScope = supplierOwnerScope(session);
+      const pending = (await listProductsWithSupplier())
+        .filter((row) => row.id !== product.id && row.supplier_review_status === "pending" &&
+          (ownerScope === null || (row.supplier?.owner_user_id ?? "") === ownerScope))
+        .map((row) => ({ ...row, pendingReview: true }));
+      const next = orderCrmProducts(pending)[0] ?? null;
+      return { next, remaining: pending.length };
+    })().catch((error) => {
+      console.error("[product-review] next pending", error);
+      return { next: null, remaining: 0 };
+    })
+    : null;
+  const backQuery = backHref === "/crm/products" ? "" : `?back=${encodeURIComponent(backHref)}`;
   const missingWebsiteChecks = websiteChecks.filter((item) => !item.done && !(needsPublicationAction && item.automatic));
   const showWebsiteSection = canView || missingWebsiteChecks.length > 0;
 
@@ -200,8 +224,8 @@ export default async function EditProductPage({
         breadcrumbs={
           <Breadcrumbs
             items={[
-              { label: "Sản phẩm nhà cung cấp", href: "/crm/products" },
-              { label: product.name, href: `/crm/products/${product.id}/edit` },
+              { label: "Sản phẩm nhà cung cấp", href: backHref },
+              { label: product.name, href: `/crm/products/${product.id}/edit${backQuery}` },
               { label: "Review sản phẩm" },
             ]}
           />
@@ -216,6 +240,35 @@ export default async function EditProductPage({
       />
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="order-2 min-w-0 space-y-5 xl:order-1">
+          {publishedPanel && (
+            <section id="product-published" role="status" aria-label="Đã duyệt và đăng" className="card border-emerald-200 bg-emerald-50 p-5">
+              <p className="flex items-start gap-2 font-bold text-emerald-900">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />Đã duyệt và đăng sản phẩm.
+              </p>
+              <p className="mt-1 pl-7 text-[13px] text-emerald-900/80">
+                {publishedPanel.remaining > 0
+                  ? `Còn ${publishedPanel.remaining} sản phẩm chờ Vexim kiểm tra.`
+                  : "Không còn sản phẩm nào chờ Vexim kiểm tra."}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 pl-7">
+                {publishedPanel.next && (
+                  <Link href={`/crm/products/${publishedPanel.next.id}/edit${backQuery}`} className="btn btn-primary">
+                    Kiểm tra sản phẩm tiếp theo <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                )}
+                {canView && category && (
+                  <Link prefetch={false} target="_blank" className="btn btn-soft"
+                    href={`/products/${encodeURIComponent(category.slug)}/${encodeURIComponent(product.id)}`}>
+                    Xem trang công khai <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                )}
+                <Link href={backHref} className="btn btn-ghost">
+                  <List className="h-4 w-4" aria-hidden="true" /> Về danh sách
+                </Link>
+              </div>
+              {publishedPanel.next && <p className="mt-2 pl-7 text-[12px] text-emerald-900/70">Tiếp theo: {publishedPanel.next.name || "Sản phẩm chưa có tên"}{publishedPanel.next.supplier ? ` · ${publishedPanel.next.supplier.name}` : ""}</p>}
+            </section>
+          )}
           {gradeWarning && (
             <p role="alert" data-grade-warning className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
               {gradeWarning}

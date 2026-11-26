@@ -6,13 +6,14 @@ import { requirePagePermission } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isOwnedBy, ownerScopeOf } from "@/lib/auth/scope";
 import { listProductsWithSupplier, type ProductWithSupplier } from "@/lib/queries";
-import { Badge, Breadcrumbs, Card, EmptyState, formatDate, formatMoney } from "@/components/ui";
+import { Badge, Breadcrumbs, Card, EmptyState, formatDate } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { MediaThumb } from "@/components/media-gallery";
 import { productReadiness } from "@/lib/media/readiness";
 import { completenessSummary, productCompleteness } from "@/lib/products/completeness";
 import { auditProductStructuredUnits } from "@/lib/products/grade-pricing";
-import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
+import { CRM_PRODUCTS_PAGE_SIZE, crmPriceSummary, orderCrmProducts, paginateCrmProducts } from "@/lib/crm/product-list";
+import { productPriceBlockers } from "@/lib/public/product-selection";
 import { supplierOwnerScope } from "@/lib/auth/supplier-scope";
 
 export const dynamic = "force-dynamic";
@@ -142,6 +143,9 @@ export default async function ProductsPage({
     const qs = params.toString();
     return qs ? `/crm/products?${qs}` : "/crm/products";
   };
+  const listHref = productsHref(view, currentPage);
+  // Hạn giá tính theo ngày Việt Nam, cùng cách người duyệt đọc lịch.
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
   const viewTabs: Array<{ key: ProductView; label: string }> = [
     { key: "all", label: "Tất cả" },
     { key: "ready", label: "Sẵn sàng gửi người mua" },
@@ -277,7 +281,10 @@ export default async function ProductsPage({
               const privateShell = isPrivateShell(r);
               const displayName = nameFor(r) || "Sản phẩm chưa có tên";
               const displayCategory = categoryFor(r) || "Chưa phân loại";
-              const reviewHref = `/crm/products/${r.id}/edit`;
+              // Mang theo bộ lọc, tab và trang hiện tại để "Về danh sách" sau khi duyệt quay đúng chỗ.
+              const reviewHref = `/crm/products/${r.id}/edit?back=${encodeURIComponent(listHref)}`;
+              const priceSummary = crmPriceSummary(r, today);
+              const priceHiddenReason = r.supplier ? productPriceBlockers(r, r.supplier)[0] ?? null : "Chưa có nhà cung cấp.";
               const owned = ownedProduct(r);
               return (
                 <li key={r.id} className={`px-4 py-4 ${matched ? "bg-brand-50/40" : ""}`}>
@@ -286,7 +293,7 @@ export default async function ProductsPage({
                       <MediaThumb asset={thumbByProduct.get(r.id) ?? null} size="h-14 w-14" />
                       <div className="min-w-0 flex-1">
                         {owned
-                          ? <Link href={`/crm/products/${r.id}/edit`} className="break-words text-sm font-bold text-ink-900 hover:text-brand-700 hover:underline">{displayName}</Link>
+                          ? <Link href={reviewHref} className="break-words text-sm font-bold text-ink-900 hover:text-brand-700 hover:underline">{displayName}</Link>
                           : <p className="break-words text-sm font-bold text-ink-900">{displayName}</p>}
                         <p className="mt-1 break-words text-xs leading-5 text-ink-500">
                           {r.supplier && !owned ? <span className="font-semibold text-ink-700">{r.supplier.name}</span> : r.supplier ? (
@@ -325,9 +332,23 @@ export default async function ProductsPage({
                     <div className="flex items-center justify-between gap-3 border-t border-ink-100 pt-3 sm:shrink-0 sm:justify-end sm:border-t-0 sm:pt-0">
                       <div className="min-w-0 sm:text-right">
                         <p className="text-[11px] text-ink-500">Giá tham khảo</p>
-                        {r.ref_price !== null ? <>
-                          <p className="break-words text-[13px] font-bold text-ink-900"><span className="font-mono tabular-nums">{formatMoney(r.ref_price)}</span> <span className="font-normal text-ink-500">/ {r.unit || "đv"}</span></p>
-                        </> : <p className="text-xs text-ink-500">Chưa có giá</p>}
+                        {priceSummary.price ? <>
+                          <p className="break-words text-[13px] font-bold tabular-nums text-ink-900">{priceSummary.price}</p>
+                          {priceSummary.terms && <p className="break-words text-[11.5px] text-ink-600">{priceSummary.terms}</p>}
+                          <p className="mt-0.5 flex flex-wrap gap-x-2.5 text-[11px] sm:justify-end">
+                            {priceSummary.expired
+                              ? <span className="font-semibold text-rose-700">Giá hết hạn ({priceSummary.validUntil?.replace("Đến ", "")})</span>
+                              : priceSummary.validUntil
+                                ? <span className="text-ink-500">{priceSummary.validUntil}</span>
+                                : <span className="text-amber-800">Chưa khai hạn giá</span>}
+                            {priceHiddenReason
+                              ? <span className="text-ink-500" title={priceHiddenReason}>Ẩn giá</span>
+                              : <span className="font-semibold text-emerald-700">Hiện giá công khai</span>}
+                          </p>
+                        </> : <>
+                          <p className="text-xs text-ink-500">Chưa có giá</p>
+                          {priceSummary.terms && <p className="break-words text-[11.5px] text-ink-600">{priceSummary.terms}</p>}
+                        </>}
                       </div>
                       {canManage && owned && (
                         <Link href={reviewHref} aria-label={`Kiểm tra ${displayName}`} className="btn btn-soft shrink-0 px-3 py-2 text-[13px]">
