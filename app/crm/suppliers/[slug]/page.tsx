@@ -37,7 +37,8 @@ import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } fro
 import { PageHeader } from "@/components/page-header";
 import { StageBadge } from "@/components/stage-select";
 import { DeleteSupplierButton } from "@/components/supplier-actions";
-import { VerificationCoverSeal, VerificationPips, VerificationTierBadge } from "@/components/verification-tier";
+import { VerificationTierBadge } from "@/components/verification-tier";
+import { VerifiedBadge, VerifiedCoverSeal } from "@/components/verified-badge";
 import { VerificationPanel } from "./verification-panel";
 import { SupplierAccountControls } from "./account-controls";
 import { SupplierPlanControls } from "./plan-controls";
@@ -211,8 +212,10 @@ export default async function SupplierDetailPage({
         }
       />
 
-      <section className="card mb-4 overflow-hidden" aria-label="Tổng quan nhà cung cấp">
-        <div className="relative h-32 bg-gradient-to-r from-ink-900 via-brand-800 to-brand-700 sm:h-40">
+      {/* Không cắt khung ngoài (overflow-hidden) để bảng chi tiết của nhãn Verified mở ra được; chỉ
+          phần ảnh bìa bo góc trên và cắt ảnh. */}
+      <section className="card mb-4" aria-label="Tổng quan nhà cung cấp">
+        <div className="relative h-32 overflow-hidden rounded-t-[var(--radius-card)] bg-gradient-to-r from-ink-900 via-brand-800 to-brand-700 sm:h-40">
           {coverUrl && (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -221,7 +224,7 @@ export default async function SupplierDetailPage({
             </>
           )}
           <span className={"absolute left-5 top-5 rounded-full px-3 py-1 text-xs font-semibold " + st.badge}>{st.label}</span>
-          <VerificationCoverSeal levels={approvedLevels} />
+          <VerifiedCoverSeal levels={approvedLevels} />
         </div>
         <div className="relative px-5 pb-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -234,8 +237,11 @@ export default async function SupplierDetailPage({
             <div className="min-w-0 flex-1 lg:pt-3">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="break-words text-xl font-black tracking-tight text-ink-900 sm:text-2xl">{displayName}</h2>
-                <VerificationTierBadge levels={approvedLevels} />
-                <VerificationPips levels={approvedLevels} l2Scope={approvedL2Scope(verifications)} compact />
+                {/* Cùng nhãn "Verified L1/L2/L3" như thẻ sản phẩm (di chuột/chạm xem từng bước). Chưa duyệt
+                    bước nào thì thẻ công khai không có nhãn; ở CRM hiện "Under audit" để nhân viên thấy. */}
+                {approvedLevels.length > 0
+                  ? <VerifiedBadge levels={approvedLevels} l2Scope={approvedL2Scope(verifications)} align="left" size="header" />
+                  : <VerificationTierBadge levels={[]} />}
               </div>
               <p className="mt-1 text-sm text-ink-600">
                 {[supplier.trade_name, typeLabel, supplier.province, supplier.founded_year ? `Thành lập ${supplier.founded_year}` : null, typeof supplier.employees === "number" && supplier.employees > 0 ? `${supplier.employees} nhân viên` : null]

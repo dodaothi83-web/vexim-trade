@@ -28,26 +28,30 @@ export const CARD_BADGE_TONES: Record<Exclude<VerificationTier, 0>, { color: str
 
 const SHIELD_PATH = "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z";
 
-export function TierShield({ tier, className = "h-[18px] w-[18px] sm:h-5 sm:w-5", tone = VERIFICATION_TIER_TONES[tier] }: {
+export function TierShield({ tier, className = "h-[18px] w-[18px] sm:h-5 sm:w-5", tone = VERIFICATION_TIER_TONES[tier], labelClassName = "text-[7.5px] sm:text-[8px]" }: {
   tier: Exclude<VerificationTier, 0>;
   className?: string;
   tone?: { fill: string; stroke: string; text: string };
+  /** Cỡ chữ "L1/L2/L3" trong khiên; khiên lớn (con dấu trên ảnh bìa CRM) cần chữ to hơn. */
+  labelClassName?: string;
 }) {
   return (
     <span className={`relative inline-flex shrink-0 items-center justify-center ${className}`} aria-hidden="true">
       <svg viewBox="0 0 24 24" className="absolute inset-0 h-full w-full" fill={tone.fill} stroke={tone.stroke} strokeWidth={1.8} strokeLinejoin="round">
         <path d={SHIELD_PATH} />
       </svg>
-      <span className="relative -mt-px text-[7.5px] font-extrabold leading-none tracking-tight sm:text-[8px]" style={{ color: tone.text }}>
+      <span className={`relative -mt-px font-extrabold leading-none tracking-tight ${labelClassName}`} style={{ color: tone.text }}>
         L{tier}
       </span>
     </span>
   );
 }
 
-export function VerifiedBadge({ levels, l2Scope, align = "right" }: {
+export function VerifiedBadge({ levels, l2Scope, align = "right", size = "card" }: {
   levels: readonly VerificationLevel[];
   l2Scope?: PublicL2Scope;
+  /** "card": thẻ sản phẩm (mặc định). "header": cạnh tên công ty cỡ lớn (trang nhà cung cấp trong CRM). */
+  size?: "card" | "header";
   /**
    * Mép neo bảng chi tiết. "right" (mặc định): nhãn nằm sát mép phải thẻ sản phẩm, bảng mở sang trái.
    * "left": nhãn nằm ở bên trái khung (khối Supplied by trên trang sản phẩm), bảng mở sang phải để
@@ -103,14 +107,17 @@ export function VerifiedBadge({ levels, l2Scope, align = "right" }: {
         aria-controls={panelId}
         onClick={() => { place(); setOpen((value) => !value); }}
         style={{ color: tone.color, backgroundColor: tone.bg, borderColor: tone.border }}
-        className="inline-flex cursor-help items-center gap-[3px] rounded-full border py-px pl-1.5 pr-1 text-[10.5px] font-semibold leading-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:pl-2 sm:pr-[5px] sm:text-[11px]"
+        className={`inline-flex cursor-help items-center rounded-full border font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${size === "header"
+          ? "gap-1 py-0.5 pl-2.5 pr-1 text-[13px] leading-5"
+          : "gap-[3px] py-px pl-1.5 pr-1 text-[10.5px] leading-4 sm:pl-2 sm:pr-[5px] sm:text-[11px]"}`}
       >
         <span>Verified</span>
         {/* Khiên đặc + số trắng: nét gọn, đọc rõ ở 14–16px, không cần viền phụ. */}
         <TierShield
           tier={shieldTier}
           tone={{ fill: tone.color, stroke: tone.color, text: "#FFFFFF" }}
-          className="h-4 w-4 sm:h-[18px] sm:w-[18px]"
+          className={size === "header" ? "h-[22px] w-[22px]" : "h-4 w-4 sm:h-[18px] sm:w-[18px]"}
+          labelClassName={size === "header" ? "text-[9px]" : undefined}
         />
       </button>
       {/* pb-2/pt-2 thay cho margin để con trỏ đi từ nhãn sang bảng không bị mất hover. */}
@@ -146,4 +153,26 @@ export function VerifiedBadge({ levels, l2Scope, align = "right" }: {
       </span>
     </span>
   );
+}
+
+/**
+ * Con dấu xác minh trên ảnh bìa trang nhà cung cấp trong CRM: cùng khiên đặc màu cấp + "L1/L2/L3" và
+ * chữ "Verified" như nhãn trên thẻ sản phẩm (chủ dự án yêu cầu 26/11/2026, thay con dấu tròn
+ * "N CHECKS"). Chưa có bước nào duyệt thì hiện khiên xám "Chưa duyệt" để nhân viên thấy ngay.
+ */
+export function VerifiedCoverSeal({ levels }: { levels: readonly VerificationLevel[] }) {
+  const tier = verificationTier(VERIFICATION_DISPLAY_ORDER.filter((level) => levels.includes(level)));
+  const position = "absolute right-5 top-5 flex flex-col items-center gap-1 rounded-2xl border bg-white/95 px-3 pb-2 pt-2.5 shadow-lg";
+  if (tier === 0) {
+    return <span role="img" aria-label="Chưa có bước xác minh nào được duyệt" className={`${position} border-ink-200 text-ink-500`}>
+      <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round" aria-hidden="true"><path d={SHIELD_PATH} /></svg>
+      <span className="text-[11px] font-semibold leading-none">Chưa duyệt</span>
+    </span>;
+  }
+  const shieldTier = tier as Exclude<VerificationTier, 0>;
+  const tone = CARD_BADGE_TONES[shieldTier];
+  return <span role="img" aria-label={`Verified L${tier}: ${tier} of 3 checks approved`} className={position} style={{ borderColor: tone.border }}>
+    <TierShield tier={shieldTier} tone={{ fill: tone.color, stroke: tone.color, text: "#FFFFFF" }} className="h-10 w-10" labelClassName="text-[13px]" />
+    <span className="text-[11px] font-semibold leading-none" style={{ color: tone.color }}>Verified</span>
+  </span>;
 }

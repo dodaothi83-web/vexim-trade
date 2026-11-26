@@ -120,12 +120,6 @@ const BADGE_CLASSES: Record<VerificationTier, string> = {
   3: "bg-[#1F3E74] text-white ring-[#1F3E74]",
 };
 
-const SEAL_CLASSES: Record<VerificationTier, string> = {
-  0: "bg-ink-400 text-white ring-white/70",
-  1: "bg-[#F2F5FA] text-[#1F3E74] ring-white/70",
-  2: "bg-[#B8CAE3] text-[#14284D] ring-white/70",
-  3: "bg-[#1F3E74] text-white ring-white/70",
-};
 
 /** Compact pill shown next to the supplier name, product page or list row. */
 export function VerificationTierBadge({ levels, className = "" }: {
@@ -208,18 +202,6 @@ export function VerificationPips({ levels, compact = false, shortTooltips = fals
   );
 }
 
-/** Round medal placed on the cover photo corner, never over the avatar. */
-export function VerificationCoverSeal({ levels }: { levels: readonly VerificationLevel[] }) {
-  const tier = verificationTier(levels);
-  return (
-    <span className={`absolute right-5 top-5 flex h-16 w-16 flex-col items-center justify-center rounded-full text-center shadow-lg ring-4 sm:h-[70px] sm:w-[70px] ${SEAL_CLASSES[tier]}`}
-      role="img" aria-label={`Verification ${VERIFICATION_TIER_LABELS[tier]}: ${tier} of 3 checks approved`}>
-      <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-      <b className="text-lg leading-none">{tier}</b>
-      <span className="text-[7px] font-black tracking-[0.14em]">CHECKS</span>
-    </span>
-  );
-}
 
 /** Buyer-facing sentence listing exactly which checks were approved. */
 export function approvedChecksSummary(levels: readonly VerificationLevel[], l2Scope?: PublicL2Scope): string {
