@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowUpRight, Eye, ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
@@ -50,7 +51,7 @@ export default async function SupplierTrafficPage({ searchParams }: { searchPara
   const live = supplier.status === "published" && !isSyntheticSupplier(supplier);
 
   return <>
-    <PageHeader
+    <PageHeader help={<GuideHint topic="goi-dich-vu" />}
       eyebrow={copy.eyebrow}
       title={copy.title}
       sub={copy.sub}

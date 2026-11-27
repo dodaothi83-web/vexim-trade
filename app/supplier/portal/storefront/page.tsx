@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { SupplierPhotoButton } from "@/components/supplier-photo-button";
 import { SupplierStorefront } from "@/components/public/supplier-storefront";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -80,7 +81,7 @@ export default async function SupplierStorefrontPreviewPage() {
     console.error(`[supplier-portal] could not build the storefront preview. ${migrationHint(error) ?? ""}`.trim(), error);
   }
   if (!loaded) return <>
-    <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
+    <PageHeader help={<GuideHint topic="san-pham" />} eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
     <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
       <p className="font-bold">{copy.loadError.title}</p>
       <p className="mt-1 leading-6">{copy.loadError.body}</p>
@@ -104,7 +105,7 @@ export default async function SupplierStorefrontPreviewPage() {
     .map((block) => ({ id: block.id, title: block.title, body: block.body, url: showcasePreviewUrl(block.image_path) }));
 
   return <>
-    <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
+    <PageHeader help={<GuideHint topic="san-pham" />} eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
     {/* Gói cao cấp: khu Thiết kế trang (đầu trang, sản phẩm ghim, A+ doanh nghiệp thay khối Showcase cũ).
         Gói Basic không có thẻ khoá ở đây; lời mời nâng gói là nút dưới link website. */}
     {planRules.premiumStorefront && <StorefrontDesignHub theme={normalizeStorefrontTheme(supplier.storefront_theme)} copy={m.showcase.theme}

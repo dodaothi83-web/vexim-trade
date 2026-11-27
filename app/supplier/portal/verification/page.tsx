@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { VeximInspectionIcon as Factory, VeximDeliveryIcon as Ship } from "@/components/brand/vexim-icons";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buildVerificationProgress } from "@/lib/supplier-portal/verification-progress";
@@ -32,7 +33,7 @@ export default async function SupplierVerificationIndexPage() {
   const progress = buildVerificationProgress({ supplierId: supplier.id, supplierType: supplier.supplier_type, reviews, locale });
 
   return <>
-    <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
+    <PageHeader help={<GuideHint topic="ho-so-xac-minh" />} eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
     <div className="grid gap-3 sm:grid-cols-2">
       {progress.steps.filter((step) => step.level !== 1).map((step) => {
         const href = step.level === 2 ? "/supplier/portal/verification/factory" : "/supplier/portal/verification/export";

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, Clock3, Eye, Layers3, Megaphone, MousePointerClick, Package, RefreshCw, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { dayKeyDaysAgo, totalsByPush } from "@/lib/sponsored/admin";
@@ -49,7 +50,7 @@ export default async function SupplierBoostPage() {
   try { access = await supplierPortalAccess(strictStore ?? undefined); }
   catch (error) {
     console.error("[supplier-sponsored] could not verify identity", error);
-    return <><PageHeader title={copy.title} sub={copy.sub} /><div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">{copy.loadError}</div></>;
+    return <><PageHeader help={<GuideHint topic="goi-dich-vu" />} title={copy.title} sub={copy.sub} /><div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">{copy.loadError}</div></>;
   }
   if (!access) redirect("/login");
   if (!portalApproved(access.supplier)) redirect("/supplier/portal");
@@ -58,7 +59,7 @@ export default async function SupplierBoostPage() {
   // environment toggle: reopening requires review of purchase and payment gates.
   // Trang đóng không đọc dữ liệu, chỉ báo trước điều kiện để nhà cung cấp chuẩn bị.
   if (supplierBoostClosed()) return <>
-    <PageHeader title={copy.title} sub={copy.closed.sub} />
+    <PageHeader help={<GuideHint topic="goi-dich-vu" />} title={copy.title} sub={copy.closed.sub} />
     <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
       {copy.closed.body}
     </div>
@@ -117,7 +118,7 @@ export default async function SupplierBoostPage() {
   const categoryNames = new Map(categories.map((c) => [c.slug, c.name_i18n?.vi || c.name_i18n?.en || copy.packages.fallbackCategory]));
 
   return <>
-    <PageHeader title={copy.title} sub={copy.sub} />
+    <PageHeader help={<GuideHint topic="goi-dich-vu" />} title={copy.title} sub={copy.sub} />
 
     {gate && gate !== "ok" && <EligibilityNotice copy={copy.eligibility} gate={gate} />}
 

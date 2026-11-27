@@ -1,3 +1,4 @@
+import { GuideHint } from "@/components/guides/guide-hint";
 import { redirect } from "next/navigation";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
@@ -46,5 +47,6 @@ export default async function SupplierProductsPage() {
     messages={m.products}
     lang={locale}
     intl={intl}
+    guideHint={<GuideHint topic="san-pham" />}
   />;
 }

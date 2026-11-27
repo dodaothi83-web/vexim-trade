@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { BadgeCheck, Eye, FileText, Pencil, ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { effectiveL2Scope, l2ScopeForSupplier } from "@/lib/l2-scope";
@@ -84,7 +85,7 @@ export default async function SupplierProfilePage() {
   const typeLabel = supplier.supplier_type ? m.shared.supplierTypes[supplier.supplier_type] : m.shared.supplierTypes.unset;
 
   return <>
-    <PageHeader eyebrow={copy.eyebrow} title={view.title} sub={view.sub}
+    <PageHeader help={<GuideHint topic="ho-so-xac-minh" />} eyebrow={copy.eyebrow} title={view.title} sub={view.sub}
       actions={<>
         <span className="rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-800">{fill(view.nextStepBadge, { goal: nextGoal })}</span>
         <Link href="/supplier/portal/profile/edit" className="btn btn-primary">

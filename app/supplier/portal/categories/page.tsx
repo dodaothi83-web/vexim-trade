@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
@@ -41,7 +42,7 @@ export default async function SupplierCategoriesPage() {
   const products = options.length ? await access.store.listProductsBySupplier(access.supplier.id) : [];
 
   return <>
-    <PageHeader
+    <PageHeader help={<GuideHint topic="san-pham" />}
       eyebrow={copy.eyebrow}
       title={copy.title}
       sub={copy.sub}

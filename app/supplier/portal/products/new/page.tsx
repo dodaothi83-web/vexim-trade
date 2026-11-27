@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { canAddSupplierProduct, supplierPlanRules } from "@/lib/supplier-plans";
 import { readPlanCatalog } from "@/lib/supplier-plan-catalog";
 import { getPortalMessages } from "@/lib/i18n/server";
@@ -54,7 +55,7 @@ export default async function NewSupplierProductPage() {
     return [];
   })).filter((asset) => asset.kind === "image" && !!asset.storage_path);
   return <>
-    <PageHeader
+    <PageHeader help={<GuideHint topic="san-pham" />}
       eyebrow={m.products.list.eyebrow}
       title={copy.title}
       sub={copy.sub}

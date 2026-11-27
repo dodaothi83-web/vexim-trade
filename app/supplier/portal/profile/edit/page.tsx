@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { getPortalMessages } from "@/lib/i18n/server";
@@ -22,7 +23,7 @@ export default async function SupplierProfileEditPage() {
   const copy = m.profile.edit;
 
   return <>
-    <PageHeader eyebrow={m.profile.eyebrow} title={copy.title} sub={copy.sub}
+    <PageHeader help={<GuideHint topic="ho-so-xac-minh" />} eyebrow={m.profile.eyebrow} title={copy.title} sub={copy.sub}
       actions={<Link href="/supplier/portal/profile" className="btn btn-ghost"><ArrowLeft className="h-4 w-4" />{copy.back}</Link>} />
     <SupplierProfileEditForm supplier={access.supplier} email={access.user.email} messages={copy} types={m.shared.supplierTypes} lang={locale} />
   </>;

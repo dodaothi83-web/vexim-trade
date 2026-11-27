@@ -27,7 +27,7 @@ function updatedLabel(value: string | null | undefined, intl: string) {
   return new Intl.DateTimeFormat(intl, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(time));
 }
 
-export function SupplierProductStorefront({ products, media, supplierPublished, categoryLabels = {}, scope, plan, messages: m, lang, intl }: {
+export function SupplierProductStorefront({ products, media, supplierPublished, categoryLabels = {}, scope, plan, messages: m, lang, intl, guideHint }: {
   products: SupplierProduct[]; media: MediaAsset[]; supplierPublished: boolean;
   /** Gói đang hiệu lực và số sản phẩm tối đa; hết chỗ thì ẩn nút thêm sản phẩm. */
   /** max null: gói không giới hạn số sản phẩm. */
@@ -39,6 +39,8 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
   messages: ProductsMessages;
   lang: Locale;
   intl: string;
+  /** Dòng "Hướng dẫn:" dựng sẵn ở máy chủ (components/guides/guide-hint.tsx). */
+  guideHint?: React.ReactNode;
 }) {
   const copy = m.list;
   const planFull = !!plan && plan.max !== null && products.length >= plan.max;
@@ -85,6 +87,7 @@ export function SupplierProductStorefront({ products, media, supplierPublished, 
         <p className="text-[10.5px] font-bold tracking-[0.16em] text-brand-700 uppercase">{copy.eyebrow}</p>
         <h1 className="mt-0.5 text-[22px] leading-tight font-black tracking-tight text-ink-900">{copy.title}</h1>
         <p className="mt-0.5 max-w-2xl text-[12.5px] leading-5 text-ink-500">{copy.sub}</p>
+        {guideHint}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {plan && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11.5px] font-semibold text-brand-800">

@@ -1,3 +1,4 @@
+import { GuideStarter } from "@/components/guides/guide-hint";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChartNoAxesColumn, Clock3, Mail, Package, Phone, Plus } from "lucide-react";
@@ -47,6 +48,8 @@ export default async function SupplierPortal() {
     return <>
       {/* Không đặt bước ở đây: biểu mẫu đã có một chỉ báo tiến trình duy nhất ở cột phải. */}
       <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={account.user.email} />
+      {/* Nhà cung cấp mới: bài "Bắt đầu" giúp điền hồ sơ đúng ngay lần đầu (tự ẩn khi chưa có bài). */}
+      <GuideStarter />
       <div className="mt-5"><SupplierProfileForm email={account.user.email} accountName={account.user.name} categories={categories} messages={m.onboarding} types={m.shared.supplierTypes} lang={locale} /></div>
     </>;
   }
@@ -132,6 +135,7 @@ export default async function SupplierPortal() {
         </li>)}
       </ul>
     </div>}
+      <GuideStarter className="mt-4" />
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-ink-200 bg-white p-5">
           <h3 className="text-sm font-bold text-ink-900">{copy.pending.afterTitle}</h3>
@@ -232,6 +236,9 @@ export default async function SupplierPortal() {
       <p className="mt-1">{copy.degraded.body}</p>
       <ul className="mt-2 list-inside list-disc text-xs">{degraded.map((label) => <li key={label}>{label}</li>)}</ul>
     </div>}
+
+    {/* Đã mở cổng nhưng chưa có sản phẩm nào được đăng: vẫn là nhà cung cấp mới, nhắc các bài Bắt đầu. */}
+    {approvedCount === 0 && <GuideStarter className="mb-4" />}
 
     <section aria-label={copy.status.aria} className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-2 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:p-5">

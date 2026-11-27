@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, CalendarCheck2, CheckCircle2, Eye, ListChecks, LockKeyhole } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { supplierLevelAccess } from "@/lib/supplier-portal/submission-access";
 import { getOrCreateSubmission, loadSubmissionBundle } from "@/lib/verification-submission-service";
 import { submissionEditable } from "@/lib/verification-submission";
@@ -35,11 +36,11 @@ export default async function SupplierFactoryVerificationPage() {
   const scope = l2ScopeForSupplier(supplier.supplier_type);
   const partner = scope === "partner_contract";
   const level = m.verification.level;
-  const header = <PageHeader eyebrow={level.eyebrowL2} title={partner ? level.partnerTitle : level.factoryTitle}
+  const header = <PageHeader help={<GuideHint topic="ho-so-xac-minh" />} eyebrow={level.eyebrowL2} title={partner ? level.partnerTitle : level.factoryTitle}
     sub={partner ? level.partnerDescription : level.factoryDescription}
     actions={<Link href="/supplier/portal" className="btn btn-ghost btn-sm"><ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />{level.overview}</Link>} />;
   if (!scope) return <>
-    <PageHeader eyebrow={level.eyebrowL2} title={level.unknownTypeTitle} />
+    <PageHeader help={<GuideHint topic="ho-so-xac-minh" />} eyebrow={level.eyebrowL2} title={level.unknownTypeTitle} />
     <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">{level.unknownTypeBody}</div>
   </>;
 
