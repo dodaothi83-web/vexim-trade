@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, BadgeCheck, CheckCircle2, Clock, FileText } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { FilePicker } from "@/components/file-picker";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { visibleLegacyCertificateFiles } from "@/lib/supplier-portal/legacy-certificate-files";
@@ -116,7 +117,7 @@ export default async function SupplierDocumentsPage({ searchParams }: { searchPa
   });
 
   return <>
-    <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub}
+    <PageHeader help={<GuideHint topic="ho-so-xac-minh" />} eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub}
       actions={<Link href="/supplier/portal" className="btn btn-ghost btn-sm">
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />{copy.back}
       </Link>} />

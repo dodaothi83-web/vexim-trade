@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, ChevronDown, FileText, ImageIcon, Search, TrendingUp } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
 import { buildSupplierRfqBoard, type PortalInvite } from "@/lib/supplier-portal/dashboard";
@@ -144,7 +145,7 @@ export default async function SupplierRfqPage({ searchParams }: {
   };
 
   return <div className="mx-auto max-w-5xl">
-    <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
+    <PageHeader help={<GuideHint topic="bao-gia" />} eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
 
     {degraded.length > 0 && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <p className="font-bold">{copy.degraded.title}</p>

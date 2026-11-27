@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { COMPANY_APLUS_ID, readAplusModules } from "@/lib/products/aplus";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -27,7 +28,7 @@ export default async function CompanyAplusPage() {
   const allowed = supplierPlanRules(supplier, new Date(), await readPlanCatalog()).premiumStorefront;
   const published = supplier.status === "published";
   return <>
-    <PageHeader title={copy.company.title} sub={copy.company.cardBody} />
+    <PageHeader help={<GuideHint topic="ho-so-xac-minh" />} title={copy.company.title} sub={copy.company.cardBody} />
     <CompanyAplusWorkspace allowed={allowed} copy={copy}
       initial={readAplusModules(supplier.company_aplus, { supplierId: supplier.id, productId: COMPANY_APLUS_ID })}
       showcaseCount={normalizeShowcaseBlocks(supplier.showcase_blocks).length}

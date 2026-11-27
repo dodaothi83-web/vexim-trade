@@ -186,6 +186,8 @@ const page = loadTs(read('app/supplier/portal/rfqs/page.tsx'), {
   'lucide-react': new Proxy({}, { get: () => () => null }),
   '@/components/page-header': { PageHeader: ({ title, sub }) => React.createElement('header', null,
     React.createElement('h1', null, title), React.createElement('p', null, sub)) },
+  // Dòng "Hướng dẫn:" đọc bài từ CSDL; trang RFQ chỉ cần biết nó được gắn chủ đề báo giá.
+  '@/components/guides/guide-hint': { GuideHint: () => null },
   '@/lib/supplier-portal/access': { supplierPortalAccess: async () => access },
   '@/lib/supplier-portal/onboarding': { portalApproved: (supplier) => supplier.onboarding_status === 'approved' },
   '@/lib/supplier-portal/dashboard': boardModule,

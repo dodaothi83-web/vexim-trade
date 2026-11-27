@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { ChatWorkspace } from "@/components/chat/chat-workspace";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
 import { portalApproved } from "@/lib/supplier-portal/onboarding";
@@ -19,7 +20,7 @@ export default async function SupplierMessagesPage({ searchParams }: { searchPar
   const { intl, m } = await getPortalMessages();
   const { c } = await searchParams;
   return <>
-    <PageHeader title={m.chat.title} sub={m.chat.sub} />
+    <PageHeader help={<GuideHint topic="bao-gia" />} title={m.chat.title} sub={m.chat.sub} />
     <ChatWorkspace side="supplier" labels={m.chat} locale={intl} initialId={c && /^[0-9a-f-]{8,64}$/i.test(c) ? c : null} />
   </>;
 }

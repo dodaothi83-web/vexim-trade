@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { canEditAplus, readAplusModules } from "@/lib/products/aplus";
 import { publicProductCategorySlug } from "@/lib/public/product-selection";
@@ -30,7 +31,7 @@ export default async function ProductAplusPage({ params }: { params: Promise<{ i
     ? await access.store.listCategories({ publishedOnly: true }).catch(() => []) : [];
   const slug = categories.length ? publicProductCategorySlug(product, categories) : null;
   return <>
-    <PageHeader title={m.aplus.title} sub={product.display_name || product.name} />
+    <PageHeader help={<GuideHint topic="san-pham" />} title={m.aplus.title} sub={product.display_name || product.name} />
     <ProductAplusWorkspace productId={product.id} allowed={allowed} editable={canEditAplus(product)} copy={m.aplus}
       initial={readAplusModules(product.aplus_content, { supplierId: product.supplier_id, productId: product.id })}
       mode={product.content_mode ?? null}

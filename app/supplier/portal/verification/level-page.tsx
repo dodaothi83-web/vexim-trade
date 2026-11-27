@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 
 import { supplierLevelAccess } from "@/lib/supplier-portal/submission-access";
 import { getOrCreateSubmission, loadSubmissionBundle } from "@/lib/verification-submission-service";
@@ -54,7 +55,7 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
   // Nhãn từng ảnh/chứng từ là dữ liệu danh mục, phải theo ngôn ngữ đang chọn.
   const specs = level === 2 ? partner ? partnerSpecs(locale) : photoSpecs(locale) : exportSpecs(locale);
   if (level === 2 && !scope) return <>
-    <PageHeader eyebrow={m.verification.level.eyebrowL2} title={m.verification.level.unknownTypeTitle} />
+    <PageHeader help={<GuideHint topic="ho-so-xac-minh" />} eyebrow={m.verification.level.eyebrowL2} title={m.verification.level.unknownTypeTitle} />
     <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
       {m.verification.level.unknownTypeBody}
     </div>
@@ -70,7 +71,7 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
     // thay vì để trang trắng. Người vận hành đọc log để biết file migration cần chạy.
     console.error(`[supplier-portal] could not open the self-submission file. ${migrationHint(error) ?? ""}`.trim(), error);
     return <>
-      <PageHeader eyebrow={copy.eyebrow} title={copy.title} />
+      <PageHeader help={<GuideHint topic="ho-so-xac-minh" />} eyebrow={copy.eyebrow} title={copy.title} />
       <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
         <h2 className="text-base font-bold">{m.verification.level.loadErrorTitle}</h2>
         <p className="mt-2">{m.verification.level.loadErrorBody}</p>
@@ -81,7 +82,7 @@ export async function VerificationLevelPage({ level }: { level: 2 | 3 }) {
   }
 
   return <>
-    <PageHeader
+    <PageHeader help={<GuideHint topic="ho-so-xac-minh" />}
       eyebrow={copy.eyebrow}
       title={copy.title}
       sub={copy.description}

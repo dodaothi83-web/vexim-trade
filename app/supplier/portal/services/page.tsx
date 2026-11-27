@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { fill } from "@/lib/i18n/format";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { supplierPortalAccess } from "@/lib/supplier-portal/access";
@@ -51,7 +52,7 @@ export default async function SupplierServicesPage() {
   const date = (value: string) => new Intl.DateTimeFormat(intl, { dateStyle: "medium", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(value));
 
   return <>
-    <PageHeader eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
+    <PageHeader help={<GuideHint topic="goi-dich-vu" />} eyebrow={copy.eyebrow} title={copy.title} sub={copy.sub} />
     <ServiceCards services={SUPPLIER_SERVICE_KEYS} openKeys={openKeys} email={user.email} copy={copy}
       planPicker={{ ...planStatus, catalog: planCatalog, copy: m.storefront.owner }} />
 

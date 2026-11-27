@@ -28,6 +28,12 @@ const en = {
   path: { title: "Path for new suppliers", sub: "Follow these five stages in order.", stage: "Stage {n}", count: "{count} guides", soon: "Coming soon" },
   library: { title: "Guide library", all: "All guides", topicsAria: "Guide topics" },
   results: { title: "Results for '{q}'", none: "No guide matches '{q}'. Try a shorter word.", clear: "Clear search" },
+  hint: { label: "Guides:", all: "All {count} guides", aria: "Guides for this page" },
+  starter: {
+    title: "Get started with Vexim",
+    sub: "Short guides to help you use the supplier portal from day one.",
+    all: "See the guide path",
+  },
 };
 
 type DeepStrings<T> = { [K in keyof T]: T[K] extends string ? string : DeepStrings<T[K]> };
@@ -59,6 +65,12 @@ const vi: GuidesMessages = {
   path: { title: "Lộ trình cho nhà cung cấp mới", sub: "Làm lần lượt năm chặng dưới đây.", stage: "Chặng {n}", count: "{count} bài", soon: "Sắp có" },
   library: { title: "Thư viện hướng dẫn", all: "Tất cả", topicsAria: "Chủ đề hướng dẫn" },
   results: { title: "Kết quả cho '{q}'", none: "Không có bài nào khớp '{q}'. Thử từ ngắn hơn.", clear: "Xoá tìm kiếm" },
+  hint: { label: "Hướng dẫn:", all: "Xem cả {count} bài", aria: "Hướng dẫn cho trang này" },
+  starter: {
+    title: "Bắt đầu với Vexim",
+    sub: "Các bài ngắn giúp bạn dùng cổng nhà cung cấp ngay từ ngày đầu.",
+    all: "Xem lộ trình hướng dẫn",
+  },
 };
 
 export const guidesMessages = { en, vi };

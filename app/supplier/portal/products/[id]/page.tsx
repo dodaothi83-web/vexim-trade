@@ -10,6 +10,7 @@ import { supplierVisibleProductMedia } from "@/lib/supplier-portal/product-view"
 import { repairAttachedBankMedia } from "@/lib/supplier-portal/bank-media";
 import { categoryProposalOptions, allowedSupplierCategories } from "@/lib/supplier-portal/category-proposals";
 import { PageHeader } from "@/components/page-header";
+import { GuideHint } from "@/components/guides/guide-hint";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { SupplierProductEditor } from "../product-editor";
 import { readQuantityEditorData } from "@/lib/products/quantity-editor-data";
@@ -124,7 +125,7 @@ export default async function OwnProductPage({ params, searchParams }: { params:
     .filter((certificate) => certificate.applies && !certificate.optedOut && !certificate.expired)
     .map((certificate) => ({ id: certificate.id, name: certificate.name, valid_until: certificate.valid_until ?? null }));
   return <>
-    <PageHeader
+    <PageHeader help={<GuideHint topic="san-pham" />}
       eyebrow={m.products.list.eyebrow}
       title={product.name}
       sub={copy.sub}

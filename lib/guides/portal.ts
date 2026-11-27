@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { requireSession } from "@/lib/auth/session";
@@ -34,4 +35,19 @@ export async function listPublishedGuidesByTopic(options: { keepEmpty?: boolean 
       .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title, "vi"))
       .map(toGuideCard),
   })).filter((group) => options.keepEmpty || group.guides.length > 0);
+}
+
+/**
+ * Bài đã xuất bản, đọc một lần cho mỗi lượt tải trang (gợi ý theo trang và khối "Bắt đầu" dùng chung).
+ * Lỗi đọc (vd chưa có bảng) trả mảng rỗng: gợi ý chỉ ẩn đi, không làm hỏng trang đang dùng.
+ */
+export const readPublishedGuides = cache(async (): Promise<SupplierGuide[]> => {
+  try { return await getStore().listSupplierGuides({ status: "published" }); }
+  catch (error) { console.error("[supplier-guides] contextual read", error); return []; }
+});
+
+/** Bài của một chủ đề theo thứ tự Vexim đặt. */
+export async function guidesForTopic(topic: string): Promise<SupplierGuide[]> {
+  return (await readPublishedGuides()).filter((guide) => guide.topic === topic)
+    .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title, "vi"));
 }

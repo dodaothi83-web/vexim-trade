@@ -112,4 +112,26 @@ assert.ok(list.includes('role="search"') && list.includes('LearningPath') && lis
   'Guide centre: search hero, numbered path, topic menu and approved brand icons');
 for (const t of topics.GUIDE_TOPICS) assert.ok(t.icon, `${t.slug} has an approved brand icon`);
 
+// Phase 2: page-level hints and the "Bắt đầu" block on the overview.
+const hint = read('components/guides/guide-hint.tsx');
+assert.match(hint, /if \(!guides\.length\) return null;/, 'Hints and the starter hide when a topic has no published guide');
+assert.match(read('lib/guides/portal.ts'), /export const readPublishedGuides = cache\(/, 'One guide read per request, shared by every hint');
+assert.match(read('lib/guides/portal.ts'), /catch \(error\) \{ console\.error\("\[supplier-guides\] contextual read", error\); return \[\]; \}/,
+  'A failed read only hides hints, never breaks the page');
+const pageTopics = {
+  'san-pham': ['products/new/page.tsx', 'products/[id]/page.tsx', 'products/[id]/aplus/page.tsx', 'storefront/page.tsx', 'categories/page.tsx', 'products/page.tsx'],
+  'ho-so-xac-minh': ['documents/page.tsx', 'profile/page.tsx', 'profile/edit/page.tsx', 'verification/page.tsx', 'verification/level-page.tsx', 'verification/factory/page.tsx', 'storefront/company/page.tsx'],
+  'bao-gia': ['rfqs/page.tsx', 'messages/page.tsx'],
+  'goi-dich-vu': ['boost/page.tsx', 'services/page.tsx', 'traffic/page.tsx'],
+};
+for (const [topic, files] of Object.entries(pageTopics)) {
+  assert.ok(topics.GUIDE_TOPIC_SLUGS.includes(topic));
+  for (const f of files) assert.ok(read(`app/supplier/portal/${f}`).includes(`<GuideHint topic="${topic}" />`), `${f} shows ${topic} guides`);
+}
+assert.match(read('app/supplier/portal/products/product-storefront.tsx'), /\{guideHint\}/);
+const overview = read('app/supplier/portal/page.tsx');
+assert.equal((overview.match(/<GuideStarter/g) ?? []).length, 3, 'Starter on the no-profile, pending and approved overview');
+assert.match(overview, /\{approvedCount === 0 && <GuideStarter/, 'Approved suppliers see the starter only until a product is live');
+assert.match(read('components/page-header.tsx'), /\{help\}/);
+
 console.log('✅ Supplier guides: private table, CRM editor with video and callout blocks, published-only supplier pages.');
