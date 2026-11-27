@@ -20,6 +20,7 @@ const en = {
     exportHistory: "L2 export history",
     profile: "Company profile",
     services: "Vexim services",
+    guides: "Guides",
   },
   groups: {
     shop: "STOREFRONT",
@@ -84,6 +85,7 @@ const vi: ShellMessages = {
     exportHistory: "Lịch sử xuất khẩu L2",
     profile: "Hồ sơ doanh nghiệp",
     services: "Dịch vụ Vexim",
+    guides: "Hướng dẫn",
   },
   groups: {
     shop: "GIAN HÀNG",

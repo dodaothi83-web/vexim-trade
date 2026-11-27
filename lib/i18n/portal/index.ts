@@ -20,6 +20,7 @@ import { chatMessages, type ChatMessages } from "./chat";
 import { servicesMessages, type ServicesMessages } from "./services";
 import { aplusMessages, type AplusMessages } from "./aplus";
 import { showcaseMessages, type ShowcaseMessages } from "./showcase";
+import { guidesMessages, type GuidesMessages } from "./guides";
 
 /**
  * Từ điển cổng nhà cung cấp, chia theo cụm để chuyển dần (giai đoạn 2).
@@ -49,6 +50,7 @@ export type PortalMessages = {
   services: ServicesMessages;
   showcase: ShowcaseMessages;
   aplus: AplusMessages;
+  guides: GuidesMessages;
 };
 
 export const portalMessages: Record<Locale, PortalMessages> = {
@@ -74,6 +76,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     services: servicesMessages.en,
     showcase: showcaseMessages.en,
     aplus: aplusMessages.en,
+    guides: guidesMessages.en,
   },
   vi: {
     shared: sharedMessages.vi,
@@ -97,6 +100,7 @@ export const portalMessages: Record<Locale, PortalMessages> = {
     services: servicesMessages.vi,
     showcase: showcaseMessages.vi,
     aplus: aplusMessages.vi,
+    guides: guidesMessages.vi,
   },
 };
 

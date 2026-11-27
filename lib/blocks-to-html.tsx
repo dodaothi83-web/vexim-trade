@@ -1,5 +1,6 @@
 import type { Block } from "@/components/block-editor/types"
 import { escapeAttr, escapeHtml, sanitizeInlineHtml, stripHtml } from "@/lib/blog/sanitize"
+import { youTubeEmbedUrl, youTubeId } from "@/lib/guides/video"
 import { buildHeadingAnchors, injectHeadingAnchors } from "@/lib/blog/heading-anchors"
 
 // Parse HTML -> blocks (dùng cho Import HTML & bài viết định dạng cũ)
@@ -231,6 +232,26 @@ export function blocksToHTML(blocks: Block[]): string {
           return `<blockquote class="border-l-4 border-brand-700 pl-4 py-2 my-6 italic ${align}"><p class="text-lg text-gray-600">${renderInline(
             data.text,
           )}</p>${authorHtml}</blockquote>`
+        }
+
+        case "video": {
+          const id = youTubeId(data.url)
+          if (!id) return ""
+          const caption = stripHtml(String(data.caption ?? "")).trim()
+          const title = escapeAttr(caption || "Video hướng dẫn")
+          return `<figure class="my-8"><div class="aspect-video overflow-hidden rounded-lg bg-black"><iframe src="${escapeAttr(youTubeEmbedUrl(id))}" title="${title}" class="h-full w-full" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>${caption ? `<figcaption class="text-center text-sm text-gray-600 italic mt-3">${escapeHtml(caption)}</figcaption>` : ""}</figure>`
+        }
+
+        case "callout": {
+          const tones: Record<string, { label: string; cls: string }> = {
+            note: { label: "Lưu ý", cls: "border-sky-200 bg-sky-50 text-sky-950" },
+            tip: { label: "Mẹo", cls: "border-emerald-200 bg-emerald-50 text-emerald-950" },
+            warning: { label: "Cảnh báo", cls: "border-amber-300 bg-amber-50 text-amber-950" },
+          }
+          const tone = tones[String(data.tone)] ?? tones.note
+          const text = escapeHtml(String(data.text ?? "").trim()).replace(/\n/g, "<br />")
+          if (!text) return ""
+          return `<aside class="not-prose my-6 rounded-xl border px-4 py-3 ${tone.cls}" role="note"><p class="text-sm font-bold">${tone.label}</p><p class="mt-1 text-[15px] leading-relaxed">${text}</p></aside>`
         }
 
         case "list": {

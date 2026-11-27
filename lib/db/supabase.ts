@@ -57,6 +57,7 @@ import type {
   SupplierProductInput,
   TemplateOverride,
   Post,
+  SupplierGuide,
   PostInput,
   PostStatus,
   Verification,
@@ -1612,6 +1613,43 @@ export const supabaseStore: DataStore = {
   async deletePost(id) {
     const { error } = await must().from("posts").delete().eq("id", id);
     if (error) fail("deletePost", error);
+  },
+
+  /* ------------------------ hướng dẫn cho nhà cung cấp ------------------------ */
+  async listSupplierGuides(options?: { status?: PostStatus }) {
+    let query = must().from("supplier_guides").select("*")
+      .order("topic", { ascending: true }).order("sort_order", { ascending: true }).order("title", { ascending: true });
+    if (options?.status) query = query.eq("status", options.status);
+    const { data, error } = await query;
+    if (error) fail("listSupplierGuides", error);
+    return (data ?? []) as SupplierGuide[];
+  },
+  async getSupplierGuide(id) {
+    const { data, error } = await must().from("supplier_guides").select("*").eq("id", id).maybeSingle();
+    if (error) fail("getSupplierGuide", error);
+    return (data as SupplierGuide | null) ?? null;
+  },
+  async getSupplierGuideBySlug(slug, options) {
+    let query = must().from("supplier_guides").select("*").eq("slug", slug);
+    if (options?.publishedOnly) query = query.eq("status", "published");
+    const { data, error } = await query.maybeSingle();
+    if (error) fail("getSupplierGuideBySlug", error);
+    return (data as SupplierGuide | null) ?? null;
+  },
+  async createSupplierGuide(input) {
+    const { data, error } = await must().from("supplier_guides").insert(input).select("*").single();
+    if (error) fail("createSupplierGuide", error);
+    return data as SupplierGuide;
+  },
+  async updateSupplierGuide(id, patch) {
+    const { data, error } = await must().from("supplier_guides")
+      .update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id).select("*").single();
+    if (error) fail("updateSupplierGuide", error);
+    return data as SupplierGuide;
+  },
+  async deleteSupplierGuide(id) {
+    const { error } = await must().from("supplier_guides").delete().eq("id", id);
+    if (error) fail("deleteSupplierGuide", error);
   },
 
   /* ----------------------- RFQ FOUNDATION (GĐ0-GĐ2) ----------------------- */

@@ -12,6 +12,8 @@ import {
   Quote,
   Table2,
   Search,
+  PlayCircle,
+  Lightbulb,
 } from "lucide-react"
 import type { BlockType } from "./types"
 
@@ -116,6 +118,28 @@ export const SLASH_MENU_ITEMS: SlashMenuItem[] = [
   },
 ]
 
+/** Khối thêm cho bài hướng dẫn nhà cung cấp; blog không bật. */
+export const GUIDE_SLASH_ITEMS: SlashMenuItem[] = [
+  {
+    id: "video",
+    type: "video",
+    label: "Video YouTube",
+    description: "Nhúng video hướng dẫn từ YouTube",
+    keywords: ["video", "youtube", "clip", "quay man hinh"],
+    icon: PlayCircle,
+    initialData: { url: "", caption: "" },
+  },
+  {
+    id: "callout",
+    type: "callout",
+    label: "Hộp Lưu ý / Mẹo",
+    description: "Hộp màu nổi bật cho điều cần chú ý",
+    keywords: ["callout", "luu y", "meo", "canh bao", "note", "tip", "warning"],
+    icon: Lightbulb,
+    initialData: { tone: "note", text: "" },
+  },
+]
+
 function removeVietnameseTones(str: string): string {
   return str
     .normalize("NFD")
@@ -132,6 +156,8 @@ interface SlashMenuProps {
   onSelect: (item: SlashMenuItem) => void
   onClose: () => void
   position?: { top: number; left: number } | null
+  /** Mục thêm vào cuối danh sách (bài hướng dẫn bật khối video và lưu ý) */
+  extraItems?: SlashMenuItem[]
 }
 
 export function SlashMenu({
@@ -141,6 +167,7 @@ export function SlashMenu({
   onSelect,
   onClose,
   position,
+  extraItems,
 }: SlashMenuProps) {
   const [internalQuery, setInternalQuery] = useState("")
   const [activeIndex, setActiveIndex] = useState(0)
@@ -151,15 +178,16 @@ export function SlashMenu({
 
   const filteredItems = useMemo(() => {
     const q = removeVietnameseTones(effectiveQuery.trim())
-    if (!q) return SLASH_MENU_ITEMS
+    const all = extraItems?.length ? [...SLASH_MENU_ITEMS, ...extraItems] : SLASH_MENU_ITEMS
+    if (!q) return all
 
-    return SLASH_MENU_ITEMS.filter((item) => {
+    return all.filter((item) => {
       const labelMatch = removeVietnameseTones(item.label).includes(q)
       const descMatch = removeVietnameseTones(item.description).includes(q)
       const keywordMatch = item.keywords.some((kw) => removeVietnameseTones(kw).includes(q))
       return labelMatch || descMatch || keywordMatch
     })
-  }, [effectiveQuery])
+  }, [effectiveQuery, extraItems])
 
   useEffect(() => {
     setActiveIndex(0)

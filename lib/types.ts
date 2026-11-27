@@ -1840,6 +1840,30 @@ export interface Post {
   updated_at: string;
 }
 
+/**
+ * Bài hướng dẫn sử dụng cho nhà cung cấp (giai đoạn 1, 27/11/2026). Bảng riêng, tách khỏi blog:
+ * không công khai, không vào sitemap hay thư gửi người mua; chỉ hiện trong cổng nhà cung cấp.
+ */
+export interface SupplierGuide {
+  id: string;
+  title: string;
+  slug: string;
+  /** Mã chủ đề trong lib/guides/topics.ts */
+  topic: string;
+  /** Một hai câu tóm tắt hiện trên thẻ danh sách */
+  summary: string | null;
+  /** JSON các khối nội dung (cùng định dạng trình soạn thảo blog, thêm khối video và lưu ý) */
+  content: string;
+  /** Thứ tự trong chủ đề; số nhỏ đứng trước */
+  sort_order: number;
+  status: PostStatus;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SupplierGuideInput = Omit<SupplierGuide, "id" | "created_at" | "updated_at">;
+
 /** Dữ liệu ghi vào bảng posts (đã qua whitelist ở lib/blog/post-payload.ts) */
 export type PostInput = Omit<Post, "id" | "created_at" | "updated_at">;
 

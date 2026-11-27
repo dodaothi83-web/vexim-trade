@@ -36,7 +36,7 @@ function leaves(value, trail) {
   if (Array.isArray(value)) return value.flatMap((item, index) => leaves(item, `${trail}[${index}]`));
   return Object.entries(value).flatMap(([key, item]) => leaves(item, trail ? `${trail}.${key}` : key));
 }
-for (const cluster of ["shared", "shell", "overview", "profile", "onboarding", "products", "productEditor", "verification", "documents", "boost", "rfqs", "categories", "traffic", "storefront", "notices", "quantity"]) {
+for (const cluster of ["shared", "shell", "overview", "profile", "onboarding", "products", "productEditor", "verification", "documents", "boost", "rfqs", "categories", "traffic", "storefront", "notices", "quantity", "guides"]) {
   assert.deepEqual(
     shape(portal.vi[cluster], cluster),
     shape(portal.en[cluster], cluster),
