@@ -134,4 +134,9 @@ assert.equal((overview.match(/<GuideStarter/g) ?? []).length, 3, 'Starter on the
 assert.match(overview, /\{approvedCount === 0 && <GuideStarter/, 'Approved suppliers see the starter only until a product is live');
 assert.match(read('components/page-header.tsx'), /\{help\}/);
 
+// Ảnh minh hoạ của bài hướng dẫn là tệp tĩnh, không đi qua middleware.
+assert.match(read('middleware.ts'), /cashew\/\|guides-media\/\)/, 'Guide screenshots are served as static files');
+assert.ok(existsSync(path.join(root, 'public/guides-media/sp-danh-sach.webp')), 'Guide screenshots are bundled');
+assert.equal(payload.guideStepCount([{ id: 'x', type: 'heading', data: { level: 2, text: 'Một tiêu đề' } }]), 0, 'One heading alone is not a step');
+
 console.log('✅ Supplier guides: private table, CRM editor with video and callout blocks, published-only supplier pages.');

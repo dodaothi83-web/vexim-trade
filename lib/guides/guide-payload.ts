@@ -32,7 +32,9 @@ export function guideStepCount(blocks: Block[]): number {
   const ordered = blocks.filter((block) => block.type === "list" && (block.data as { style?: string })?.style === "ordered")
     .reduce((sum, block) => sum + (((block.data as { items?: string[] }).items ?? []).filter((item) => stripHtml(item).trim()).length), 0);
   if (ordered) return ordered;
-  return blocks.filter((block) => block.type === "heading" && Number((block.data as { level?: number }).level) === 2).length;
+  // Không có danh sách đánh số: chỉ coi các tiêu đề cấp 2 là bước khi có từ hai tiêu đề trở lên.
+  const headings = blocks.filter((block) => block.type === "heading" && Number((block.data as { level?: number }).level) === 2).length;
+  return headings >= 2 ? headings : 0;
 }
 
 export type BuiltGuide = { input: SupplierGuideInput; errors: string[]; plainTextLength: number };
