@@ -17,6 +17,17 @@ const en = {
   updated: "Updated {date}",
   moreInTopic: "More in this topic",
   help: "Still stuck? Contact Vexim and we will help you.",
+  hero: {
+    label: "Vexim guide centre",
+    title: "Sell to international buyers on Vexim",
+    lede: "Step-by-step guides, from your company profile to answering your first quote request.",
+    searchLabel: "Search guides",
+    searchPlaceholder: "Search guides, e.g. post a product",
+    searchButton: "Search",
+  },
+  path: { title: "Path for new suppliers", sub: "Follow these five stages in order.", stage: "Stage {n}", count: "{count} guides", soon: "Coming soon" },
+  library: { title: "Guide library", all: "All guides", topicsAria: "Guide topics" },
+  results: { title: "Results for '{q}'", none: "No guide matches '{q}'. Try a shorter word.", clear: "Clear search" },
 };
 
 type DeepStrings<T> = { [K in keyof T]: T[K] extends string ? string : DeepStrings<T[K]> };
@@ -37,6 +48,17 @@ const vi: GuidesMessages = {
   updated: "Cập nhật {date}",
   moreInTopic: "Bài khác cùng chủ đề",
   help: "Vẫn chưa làm được? Liên hệ Vexim, Vexim sẽ hỗ trợ bạn.",
+  hero: {
+    label: "Trung tâm hướng dẫn Vexim",
+    title: "Bán hàng cho người mua quốc tế trên Vexim",
+    lede: "Hướng dẫn từng bước, từ điền hồ sơ doanh nghiệp tới trả lời yêu cầu báo giá đầu tiên.",
+    searchLabel: "Tìm bài hướng dẫn",
+    searchPlaceholder: "Tìm bài hướng dẫn, ví dụ: đăng sản phẩm",
+    searchButton: "Tìm",
+  },
+  path: { title: "Lộ trình cho nhà cung cấp mới", sub: "Làm lần lượt năm chặng dưới đây.", stage: "Chặng {n}", count: "{count} bài", soon: "Sắp có" },
+  library: { title: "Thư viện hướng dẫn", all: "Tất cả", topicsAria: "Chủ đề hướng dẫn" },
+  results: { title: "Kết quả cho '{q}'", none: "Không có bài nào khớp '{q}'. Thử từ ngắn hơn.", clear: "Xoá tìm kiếm" },
 };
 
 export const guidesMessages = { en, vi };

@@ -24,7 +24,7 @@ export function toGuideCard(guide: SupplierGuide): GuideCard {
 }
 
 /** Bài đã xuất bản, nhóm theo chủ đề đúng thứ tự khai báo; chủ đề không còn bài thì bỏ. Lỗi đọc trả null. */
-export async function listPublishedGuidesByTopic(): Promise<Array<{ topic: (typeof GUIDE_TOPICS)[number]; guides: GuideCard[] }> | null> {
+export async function listPublishedGuidesByTopic(options: { keepEmpty?: boolean } = {}): Promise<Array<{ topic: (typeof GUIDE_TOPICS)[number]; guides: GuideCard[] }> | null> {
   let guides: SupplierGuide[];
   try { guides = await getStore().listSupplierGuides({ status: "published" }); }
   catch (error) { console.error("[supplier-guides] portal list", error); return null; }
@@ -33,5 +33,5 @@ export async function listPublishedGuidesByTopic(): Promise<Array<{ topic: (type
     guides: guides.filter((guide) => guide.topic === topic.slug)
       .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title, "vi"))
       .map(toGuideCard),
-  })).filter((group) => group.guides.length > 0);
+  })).filter((group) => options.keepEmpty || group.guides.length > 0);
 }

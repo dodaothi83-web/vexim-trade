@@ -104,4 +104,12 @@ assert.doesNotMatch(actions, /sitemap|indexnow|\/blog/i, 'Guides never touch the
 assert.match(read('components/guides/guide-editor.tsx'), /extraBlocks=\{\[\.\.\.GUIDE_EXTRA_BLOCKS\]\}/);
 assert.doesNotMatch(read('components/blog/post-editor.tsx'), /extraBlocks/, 'Blog editor does not offer guide-only blocks');
 
+const portal = load('lib/guides/search');
+assert.equal(portal.matchesGuideQuery({ title: 'Cách đăng sản phẩm đầu tiên', summary: null }, 'dang san pham'), true, 'Search ignores Vietnamese accents');
+assert.equal(portal.matchesGuideQuery({ title: 'Cách đăng sản phẩm', summary: 'ảnh' }, 'bao gia'), false);
+const list = read('app/supplier/portal/huong-dan/page.tsx');
+assert.ok(list.includes('role="search"') && list.includes('LearningPath') && list.includes('TopicMenu') && list.includes('<VeximIcon name={topic.icon}'),
+  'Guide centre: search hero, numbered path, topic menu and approved brand icons');
+for (const t of topics.GUIDE_TOPICS) assert.ok(t.icon, `${t.slug} has an approved brand icon`);
+
 console.log('✅ Supplier guides: private table, CRM editor with video and callout blocks, published-only supplier pages.');
