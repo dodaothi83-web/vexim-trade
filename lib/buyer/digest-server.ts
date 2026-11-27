@@ -1,3 +1,4 @@
+import { BUYER_DIGEST_BLOG_CATEGORIES } from "@/lib/blog/blog-categories";
 import "server-only";
 
 import { absolutePublicMediaUrl, cdnVariant } from "@/lib/media/public-url";
@@ -76,7 +77,9 @@ export async function loadDigestData(now = new Date()): Promise<DigestData> {
 async function loadPosts(categories: DigestCategory[]): Promise<DigestPost[]> {
   const db = getSupabaseClient();
   if (!db) return [];
-  const { data, error } = await db.from("posts").select("*").eq("status", "published").order("published_at", { ascending: false }).limit(60);
+  // Chỉ mục dành cho người mua (News tiếng Anh); bài tiếng Việt cho doanh nghiệp Việt không vào thư người mua.
+  const { data, error } = await db.from("posts").select("*").eq("status", "published").in("category", BUYER_DIGEST_BLOG_CATEGORIES)
+    .order("published_at", { ascending: false }).limit(60);
   if (error) { console.error("[digest] posts", error); return []; }
   return (data ?? []).filter((p) => p.published_at).map((p) => ({
     id: String(p.id), title: String(p.title), href: `/blog/${encodeURIComponent(String(p.slug))}`, excerpt: String(p.excerpt ?? ""),

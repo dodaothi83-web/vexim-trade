@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { getStore } from "@/lib/db";
 import { requirePagePermission } from "@/lib/auth/session";
-import { DEFAULT_BLOG_CATEGORY } from "@/lib/blog/blog-categories";
+import { BLOG_CATEGORIES, blogPostPath, getBlogCategory } from "@/lib/blog/blog-categories";
 import { Button, Card, EmptyState, formatDate } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
 import { VIEW_BUTTON_CLASS, VIEW_BUTTON_DISABLED_CLASS } from "@/lib/blog/view-button";
@@ -14,13 +14,15 @@ export const metadata = { title: "Blog" };
 export default async function BlogAdminPage() {
   await requirePagePermission("blog.manage");
 
-  const posts = (await getStore().listPosts()).filter((p) => p.category === DEFAULT_BLOG_CATEGORY);
+  // Mọi mục blog: News (tiếng Anh, cho người mua) và Kiến thức xuất khẩu (tiếng Việt, cho doanh nghiệp Việt).
+  const known = new Set(BLOG_CATEGORIES.map((c) => c.slug));
+  const posts = (await getStore().listPosts()).filter((p) => known.has(p.category));
 
   return (
     <div>
       <PageHeader
         title="Blog"
-        sub="Bài viết mục Tin tức hiển thị tại veximtrade.com/blog"
+        sub="News (tiếng Anh, veximtrade.com/blog) và Kiến thức xuất khẩu (tiếng Việt, veximtrade.com/blog/xuat-khau)"
         actions={
           <Link href="/crm/posts/new">
             <Button variant="primary">Viết bài mới</Button>
@@ -65,7 +67,12 @@ export default async function BlogAdminPage() {
                     <Link href={`/crm/posts/${post.id}`} className="font-semibold text-ink-900 hover:text-brand-700">
                       {post.title}
                     </Link>
-                    <div className="text-[12px] text-ink-400">/blog/{post.slug}</div>
+                    <div className="text-[12px] text-ink-400">
+                      <span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${getBlogCategory(post.category)?.lang === "vi" ? "bg-amber-50 text-amber-800" : "bg-ink-100 text-ink-600"}`}>
+                        {getBlogCategory(post.category)?.lang === "vi" ? "Tiếng Việt" : "News"}
+                      </span>
+                      {blogPostPath(post)}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {post.status === "published" ? (
@@ -78,7 +85,7 @@ export default async function BlogAdminPage() {
                   <td className="px-4 py-3 text-ink-600">{formatDate(post.updated_at)}</td>
                   <td className="px-4 py-3 text-right">
                     {post.status === "published" ? (
-                      <a href={`/blog/${post.slug}`} target="_blank" rel="noopener noreferrer" className={VIEW_BUTTON_CLASS}>
+                      <a href={blogPostPath(post)} target="_blank" rel="noopener noreferrer" className={VIEW_BUTTON_CLASS}>
                         Xem
                       </a>
                     ) : (

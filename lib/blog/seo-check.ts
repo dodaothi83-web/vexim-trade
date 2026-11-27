@@ -29,6 +29,8 @@ export interface OtherPostRef {
   title: string;
   slug: string;
   focus_keyword: string | null;
+  /** Mục của bài; trình soạn chỉ so trùng chủ đề trong cùng mục. */
+  category?: string;
 }
 
 export interface SeoInput {

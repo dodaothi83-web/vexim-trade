@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/session";
 import { getStore } from "@/lib/db";
-import { getPublishedNewsBySlug } from "@/lib/blog/queries";
+import { getPublishedNewsBySlug, getPublishedPostBySlug } from "@/lib/blog/queries";
+import { VI_EXPORT_BLOG_CATEGORY } from "@/lib/blog/blog-categories";
 import { publicSitePageKey } from "@/lib/traffic/site-path";
 import { recordSitePage } from "@/lib/traffic/site";
 
@@ -31,7 +32,11 @@ export async function POST(request: NextRequest) {
       const category = await getStore().getCategoryBySlug(key.slice(9));
       if (!category || category.status !== "published" || !category.is_published) return new NextResponse(null, { status: 204 });
     }
-    if (key.startsWith("article:") && !await getPublishedNewsBySlug(key.slice(8))) return new NextResponse(null, { status: 204 });
+    if (key.startsWith("article:")) {
+      const slug = key.slice(8);
+      const article = await getPublishedNewsBySlug(slug) ?? await getPublishedPostBySlug(VI_EXPORT_BLOG_CATEGORY, slug);
+      if (!article) return new NextResponse(null, { status: 204 });
+    }
     await recordSitePage(key);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
