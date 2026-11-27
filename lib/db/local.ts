@@ -34,6 +34,7 @@ import type {
   MediaOwnerType,
   Post,
   PostStatus,
+  SupplierGuide,
   Rfq,
   RfqAttachment,
   RfqMatch,
@@ -117,6 +118,7 @@ interface LocalShape {
   template_overrides: TemplateOverride[];
   prospect_outreach_template_overrides: ProspectOutreachTemplate[];
   posts: Post[];
+  supplier_guides?: SupplierGuide[];
   attachments: EmailAttachment[];
   // RFQ FOUNDATION
   categories: Category[];
@@ -394,6 +396,7 @@ function seed(): LocalShape {
     template_overrides: [],
     prospect_outreach_template_overrides: [],
     posts: [],
+    supplier_guides: [],
     categories,
     supplier_categories: [],
     supplier_verification_requests: [],
@@ -2262,6 +2265,37 @@ export const localStore: DataStore = {
     mutate((db) => {
       db.posts = (db.posts ?? []).filter((p) => p.id !== id);
     });
+  },
+
+  /* ------------------------ hướng dẫn cho nhà cung cấp ------------------------ */
+  async listSupplierGuides(options) {
+    const all = load().supplier_guides ?? [];
+    const filtered = options?.status ? all.filter((g) => g.status === options.status) : all;
+    return [...filtered].sort((a, b) => a.topic.localeCompare(b.topic) || a.sort_order - b.sort_order || a.title.localeCompare(b.title, "vi"));
+  },
+  async getSupplierGuide(id) {
+    return (load().supplier_guides ?? []).find((g) => g.id === id) ?? null;
+  },
+  async getSupplierGuideBySlug(slug, options) {
+    const guide = (load().supplier_guides ?? []).find((g) => g.slug === slug) ?? null;
+    if (!guide || (options?.publishedOnly && guide.status !== "published")) return null;
+    return guide;
+  },
+  async createSupplierGuide(input) {
+    const now = new Date().toISOString();
+    const guide: SupplierGuide = { ...input, id: randomUUID(), created_at: now, updated_at: now };
+    mutate((db) => { db.supplier_guides = [...(db.supplier_guides ?? []), guide]; });
+    return guide;
+  },
+  async updateSupplierGuide(id, patch) {
+    const current = (load().supplier_guides ?? []).find((g) => g.id === id);
+    if (!current) throw new Error("Không tìm thấy bài hướng dẫn để cập nhật.");
+    const updated: SupplierGuide = { ...current, ...patch, updated_at: new Date().toISOString() };
+    mutate((db) => { db.supplier_guides = (db.supplier_guides ?? []).map((g) => (g.id === id ? updated : g)); });
+    return updated;
+  },
+  async deleteSupplierGuide(id) {
+    mutate((db) => { db.supplier_guides = (db.supplier_guides ?? []).filter((g) => g.id !== id); });
   },
 
   /* ----------------------- RFQ FOUNDATION --------------------------------- */

@@ -38,10 +38,11 @@ export function loadPortalDictionary() {
   const storefront = load('storefront.ts').storefrontMessages;
   const notices = load('notices.ts').noticesMessages;
   const quantity = load('quantity.ts').quantityMessages;
+  const guides = load('guides.ts').guidesMessages;
   return {
     en: { shared: shared.en, shell: shell.en, overview: overview.en, profile: profile.en, onboarding: onboarding.en, products: products.en, productEditor: productEditor.en, verification: verification.en, documents: documents.en, boost: boost.en,
-      rfqs: rfqs.en, categories: categories.en, traffic: traffic.en, storefront: storefront.en, notices: notices.en, quantity: quantity.en },
+      rfqs: rfqs.en, categories: categories.en, traffic: traffic.en, storefront: storefront.en, notices: notices.en, quantity: quantity.en, guides: guides.en },
     vi: { shared: shared.vi, shell: shell.vi, overview: overview.vi, profile: profile.vi, onboarding: onboarding.vi, products: products.vi, productEditor: productEditor.vi, verification: verification.vi, documents: documents.vi, boost: boost.vi,
-      rfqs: rfqs.vi, categories: categories.vi, traffic: traffic.vi, storefront: storefront.vi, notices: notices.vi, quantity: quantity.vi },
+      rfqs: rfqs.vi, categories: categories.vi, traffic: traffic.vi, storefront: storefront.vi, notices: notices.vi, quantity: quantity.vi, guides: guides.vi },
   };
 }

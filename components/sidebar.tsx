@@ -28,6 +28,7 @@ import {
   Megaphone,
   MessageCircle,
   Headset,
+  BookOpen,
 } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
@@ -64,6 +65,7 @@ const NAV: {
   { href: "/crm/plans", label: "Gói thành viên", icon: Crown, perm: "suppliers.view", group: "marketplace" },
   { href: "/crm/traffic", label: "Lưu lượng truy cập", icon: ChartNoAxesColumn, perm: "traffic.view", group: "marketplace" },
   { href: "/crm/posts", label: "Blog", icon: Newspaper, perm: "blog.manage", group: "marketplace" },
+  { href: "/crm/guides", label: "Hướng dẫn nhà cung cấp", icon: BookOpen, perm: "blog.manage", group: "marketplace" },
   { href: "/crm/buyers", label: "Người mua", icon: Globe2, perm: "buyers.view", group: "sales" },
 
   { href: "/crm/prospects", label: "Khách hàng mục tiêu", icon: UserSearch, perm: "prospects.manage", group: "sales" },

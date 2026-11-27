@@ -64,6 +64,8 @@ import type {
   Post,
   PostInput,
   PostStatus,
+  SupplierGuide,
+  SupplierGuideInput,
   Verification,
 } from "@/lib/types";
 
@@ -370,6 +372,14 @@ export interface DataStore {
   createPost(input: PostInput): Promise<Post>;
   updatePost(id: string, patch: Partial<PostInput>): Promise<Post>;
   deletePost(id: string): Promise<void>;
+
+  /* ------------------------ hướng dẫn cho nhà cung cấp ------------------------ */
+  listSupplierGuides(options?: { status?: PostStatus }): Promise<SupplierGuide[]>;
+  getSupplierGuide(id: string): Promise<SupplierGuide | null>;
+  getSupplierGuideBySlug(slug: string, options?: { publishedOnly?: boolean }): Promise<SupplierGuide | null>;
+  createSupplierGuide(input: SupplierGuideInput): Promise<SupplierGuide>;
+  updateSupplierGuide(id: string, patch: Partial<SupplierGuideInput>): Promise<SupplierGuide>;
+  deleteSupplierGuide(id: string): Promise<void>;
 
   /* ----------------------- RFQ FOUNDATION (GĐ0-GĐ2) ----------------------- */
   // Categories (2 cấp)

@@ -1,4 +1,7 @@
-export type BlockType = "heading" | "paragraph" | "image" | "quote" | "table" | "list"
+export type BlockType = "heading" | "paragraph" | "image" | "quote" | "table" | "list" | "video" | "callout"
+
+/** Khối chỉ dùng trong bài hướng dẫn nhà cung cấp; blog bỏ qua (xem lib/blog/post-payload.ts). */
+export type ExtraBlockType = "video" | "callout"
 
 export type AlignType = "left" | "center" | "right" | "justify"
 
@@ -48,4 +51,18 @@ export interface ListData {
   style: "ordered" | "unordered"
   items: string[]
   align: AlignType
+}
+
+/** Video YouTube (chỉ bài hướng dẫn) */
+export interface VideoData {
+  url: string
+  caption: string
+}
+
+export type CalloutTone = "note" | "tip" | "warning"
+
+/** Hộp Lưu ý / Mẹo / Cảnh báo (chỉ bài hướng dẫn); chữ thuần, không định dạng */
+export interface CalloutData {
+  tone: CalloutTone
+  text: string
 }

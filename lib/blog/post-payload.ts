@@ -1,4 +1,5 @@
-import type { Block, BlockType } from "@/components/block-editor/types"
+import type { Block, BlockType, ExtraBlockType } from "@/components/block-editor/types"
+import { youTubeId } from "@/lib/guides/video"
 import { sanitizeInlineHtml, stripHtml } from "./sanitize"
 
 /**
@@ -134,20 +135,32 @@ function sanitizeBlockData(type: BlockType, data: Record<string, unknown>): Reco
         height_px: clampInt(data?.height_px, 0, 20000),
         align: asAlign(data?.align, "center"),
       }
+    case "video":
+      // Chỉ giữ link YouTube hợp lệ; link khác bị bỏ để trang hiển thị không nhúng nguồn lạ.
+      return { url: youTubeId(data?.url) ? asString(data?.url).trim().slice(0, 300) : "", caption: asPlainText(data?.caption) }
+    case "callout": {
+      const tone = asString(data?.tone)
+      return {
+        tone: tone === "tip" || tone === "warning" ? tone : "note",
+        text: stripHtml(asString(data?.text)).slice(0, 2000),
+      }
+    }
     default:
       return {}
   }
 }
 
 /** Chuẩn hoá mảng block (dùng cho cả payload JSON và dữ liệu cũ). */
-export function sanitizeBlocks(input: unknown): Block[] {
+export function sanitizeBlocks(input: unknown, options: { extraTypes?: ExtraBlockType[] } = {}): Block[] {
   if (!Array.isArray(input)) return []
+  // Blog chỉ nhận khối gốc; bài hướng dẫn nhà cung cấp bật thêm video và hộp lưu ý.
+  const allowed: BlockType[] = [...BLOCK_TYPES, ...(options.extraTypes ?? [])]
 
   return input
     .slice(0, 1000)
     .map((raw, index) => {
       const block = (raw ?? {}) as Record<string, unknown>
-      const type = BLOCK_TYPES.includes(asString(block.type) as BlockType)
+      const type = allowed.includes(asString(block.type) as BlockType)
         ? (asString(block.type) as BlockType)
         : "paragraph"
       const data = (block.data ?? {}) as Record<string, unknown>
@@ -171,9 +184,10 @@ export function sanitizeBlocks(input: unknown): Block[] {
         const content = ((block.data as Record<string, unknown>).content as string[][]) || []
         return content.some((row) => row.some((cell) => stripHtml(cell).length > 0))
       }
-      if (block.type === "image") {
+      if (block.type === "image" || block.type === "video") {
         return !!((block.data as Record<string, unknown>).url as string)
       }
+      if (block.type === "callout") return !!((block.data as Record<string, unknown>).text as string).trim()
       return true
     })
 }

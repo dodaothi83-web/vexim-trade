@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/editor-ui/button"
 import {
   Plus,
@@ -32,11 +32,13 @@ import { HeadingBlock } from "./blocks/heading-block"
 import { ParagraphBlock } from "./blocks/paragraph-block"
 import { ImageBlock } from "./blocks/image-block"
 import { QuoteBlock } from "./blocks/quote-block"
+import { VideoBlock } from "./blocks/video-block"
+import { CalloutBlock } from "./blocks/callout-block"
 import { TableBlock } from "./blocks/table-block"
 import { ListBlock } from "./blocks/list-block"
 import { InlineToolbar } from "./inline-toolbar"
-import { SlashMenu, type SlashMenuItem } from "./slash-menu"
-import type { Block, BlockType } from "./types"
+import { GUIDE_SLASH_ITEMS, SlashMenu, type SlashMenuItem } from "./slash-menu"
+import type { Block, BlockType, ExtraBlockType } from "./types"
 import {
   blocksToPlainText,
   generateBlockId,
@@ -56,6 +58,8 @@ interface BlockEditorProps {
   onChange: (blocks: Block[]) => void
   /** Báo cho trang cha biết khối nào đang được chọn (để chèn gợi ý AI/SEO ngay dưới khối đó) */
   onSelectBlock?: (blockId: string | null) => void
+  /** Bật thêm khối chỉ dành cho bài hướng dẫn nhà cung cấp (video, hộp lưu ý). Blog không truyền. */
+  extraBlocks?: ExtraBlockType[]
 }
 
 const HISTORY_LIMIT = 50
@@ -88,12 +92,20 @@ function getDefaultBlockData(type: BlockType): Record<string, unknown> {
       return { rows: 2, cols: 2, content: [["", ""], ["", ""]], hasHeader: true, align: "left" }
     case "list":
       return { style: "unordered", items: [""], align: "left" }
+    case "video":
+      return { url: "", caption: "" }
+    case "callout":
+      return { tone: "note", text: "" }
     default:
       return {}
   }
 }
 
-export function BlockEditor({ value, onChange, onSelectBlock }: BlockEditorProps) {
+export function BlockEditor({ value, onChange, onSelectBlock, extraBlocks }: BlockEditorProps) {
+  const extraSlashItems = useMemo(
+    () => GUIDE_SLASH_ITEMS.filter((item) => extraBlocks?.includes(item.type as ExtraBlockType)),
+    [extraBlocks],
+  )
   const [blocks, setBlocks] = useState<Block[]>(() => normalizeBlocks(value))
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false)
@@ -1171,6 +1183,8 @@ export function BlockEditor({ value, onChange, onSelectBlock }: BlockEditorProps
             />
           )}
           {block.type === "table" && <TableBlock data={block.data} onChange={(data) => updateBlock(block.id, data)} />}
+          {block.type === "video" && <VideoBlock data={block.data} onChange={(data) => updateBlock(block.id, data)} />}
+          {block.type === "callout" && <CalloutBlock data={block.data} onChange={(data) => updateBlock(block.id, data)} />}
           {block.type === "list" && (
             <ListBlock
               data={block.data}
@@ -1366,6 +1380,20 @@ export function BlockEditor({ value, onChange, onSelectBlock }: BlockEditorProps
           >
             <Quote className="w-4 h-4" />
           </Button>
+          {extraSlashItems.map((item) => (
+            <Button
+              key={item.id}
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 gap-1 text-xs"
+              onClick={() => addBlock(item.type, undefined, item.initialData)}
+              title={`Chèn ${item.label}`}
+            >
+              <item.icon className="w-4 h-4" />
+              <span className="hidden md:inline">{item.type === "video" ? "Video" : "Lưu ý"}</span>
+            </Button>
+          ))}
         </div>
 
         {/* Trạng thái tải ảnh dán & Nút xem mẹo gõ nhanh */}
@@ -1616,6 +1644,7 @@ export function BlockEditor({ value, onChange, onSelectBlock }: BlockEditorProps
         position={slashMenuState.position}
         onSelect={handleSelectSlashItem}
         onClose={() => setSlashMenuState((prev) => ({ ...prev, open: false }))}
+        extraItems={extraSlashItems}
       />
 
       {/* Thanh định dạng nổi khi bôi đen văn bản */}

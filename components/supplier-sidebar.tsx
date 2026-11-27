@@ -21,6 +21,7 @@ import {
   Ship,
   Store,
   X,
+  BookOpen,
 } from "lucide-react";
 
 import { logoutAction } from "@/app/auth-actions";
@@ -63,6 +64,8 @@ const NAV: {
   // Dịch vụ tư vấn của Vexim nằm sau việc hằng ngày để không chen vào phần làm việc chính.
   { href: "/supplier/portal/services", labelKey: "services", icon: BriefcaseBusiness, group: "grow", needsApproval: true },
   { href: "/supplier/portal/profile", labelKey: "profile", icon: Building2, group: "account", needsApproval: true },
+  // Hướng dẫn mở cả khi hồ sơ đang chờ duyệt: bài "Bắt đầu" giúp điền hồ sơ đúng ngay lần đầu.
+  { href: "/supplier/portal/huong-dan", labelKey: "guides", icon: BookOpen, group: "account" },
 ];
 
 const NAV_GROUPS = ["work", "shop", "verify", "grow", "account"] as const;
