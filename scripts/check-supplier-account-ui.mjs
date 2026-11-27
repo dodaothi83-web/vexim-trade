@@ -41,6 +41,7 @@ const form = load('../app/(auth)/supplier/register/supplier-account-form.tsx', {
   'react/jsx-runtime': jsx, 'react': React, 'next/link': link, '@/components/brand/vexim-icons': brandIcons,
   'lucide-react': icons,
   '@/components/form-challenge': { FormChallenge: () => null },
+  '@/components/google-g-icon': { GoogleGIcon: () => null },
 });
 const formHtml = renderToStaticMarkup(React.createElement(form.SupplierAccountForm, {
   messages: authMessages.en.supplierRegister.form,
@@ -63,6 +64,7 @@ const register = load('../app/(auth)/supplier/register/page.tsx', {
   'react/jsx-runtime': jsx, 'next/link': link,
   'next/navigation': { redirect: (href) => { throw Object.assign(Error('redirect'), { href }); } },
   '@/lib/auth/session': { getSession: async () => null }, './supplier-account-form': form,
+  '@/lib/auth/permissions': { staffHomePath: () => '/supplier/portal' },
   '@/components/auth-split-shell': { AuthSplitShell: ({ children }) => React.createElement('div', null, children) },
   '@/lib/i18n/server': i18nServer,
 });
@@ -70,13 +72,15 @@ const register = load('../app/(auth)/supplier/register/page.tsx', {
 await assert.rejects(() => register.default({ searchParams: Promise.resolve({}) }), (error) => error.href === '/register');
 await assert.rejects(() => register.default({ searchParams: Promise.resolve({ oauth: 'failed' }) }), (error) => error.href === '/register');
 const registerHtml = renderToStaticMarkup(await register.default({ searchParams: Promise.resolve({ type: 'supplier' }) }));
-assert.match(registerHtml, /Step 1 of 2/, 'Bước 1 hiển thị bằng tiếng Anh khi ngôn ngữ là en');
+assert.match(registerHtml, /Create a supplier account/, 'Tiêu đề hiển thị bằng tiếng Anh khi ngôn ngữ là en');
+assert.doesNotMatch(registerHtml, /Step \d|Bước \d/, 'Không còn nhãn bước gây hiểu nhầm');
 assert.match(registerHtml, /href="\/login"/);
 // Cùng trang, ngôn ngữ tiếng Việt: chuỗi phải đổi theo cookie chứ không cứng trong component.
 activeLocale = 'vi';
 const registerVi = renderToStaticMarkup(await register.default({ searchParams: Promise.resolve({ type: 'supplier' }) }));
 activeLocale = 'en';
-assert.match(registerVi, /Bước 1\/2/, 'Bản tiếng Việt vẫn giữ nguyên câu chữ cũ');
+assert.match(registerVi, /Tạo tài khoản nhà cung cấp/, 'Bản tiếng Việt đổi theo cookie');
+assert.doesNotMatch(registerVi, /Bước \d/, 'Không còn nhãn Bước 1/2');
 assert.match(registerVi, /href="\/register"/);
 
 const user = { id: 'unlinked', email: 'new@example.com', role: 'supplier', is_active: true, supplier_id: null };

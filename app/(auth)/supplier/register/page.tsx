@@ -16,7 +16,7 @@ export default async function SupplierRegisterPage({ searchParams }: { searchPar
   const session = await getSession();
   if (session) redirect(staffHomePath(session.role));
   const { oauth, type } = await searchParams;
-  // Bước 1 luôn là chọn loại tài khoản. Vào thẳng URL này (bookmark, link cũ) thì quay về
+  // Luôn chọn loại tài khoản trước. Vào thẳng URL này (bookmark, link cũ) thì quay về
   // màn chọn để người mua không rơi nhầm vào biểu mẫu đăng ký bán hàng.
   if (type !== "supplier") redirect("/register");
   const { locale, m } = await getAuthMessages();
@@ -28,8 +28,8 @@ export default async function SupplierRegisterPage({ searchParams }: { searchPar
     points={copy.shellPoints}
     note={copy.note}
   >
-    <p className="text-xs font-bold uppercase tracking-widest text-brand-700">{copy.step}</p>
-    <h1 className="mt-2 text-xl font-black text-ink-900">{copy.title}</h1>
+    {/* Bỏ nhãn "Bước 1/2" (chủ dự án 27/11/2026): nhà cung cấp hiểu nhầm là phải qua hai biểu mẫu liền nhau. */}
+    <h1 className="text-xl font-black text-ink-900">{copy.title}</h1>
     {/* Giải thích quy trình nằm ở màn chọn loại tài khoản; ở đây chỉ để form thuần. */}
     {oauthKey && <p role="alert" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{copy.oauth[oauthKey]}</p>}
     <SupplierAccountForm messages={copy.form} lang={locale} />

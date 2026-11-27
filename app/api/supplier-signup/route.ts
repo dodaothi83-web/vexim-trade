@@ -5,7 +5,7 @@ import { protectPasswordAuth } from "@/lib/auth/abuse-protection";
 import { getSession } from "@/lib/auth/session";
 import { passwordProblem } from "@/lib/auth/password";
 import { SITE_URL } from "@/lib/site";
-import { notifyStaffSupplierAccount } from "@/lib/supplier-portal/notify";
+import { notifyStaffSupplierAccount, notifySupplierAccountWelcome } from "@/lib/supplier-portal/notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,9 +119,17 @@ export async function POST(request: Request) {
       // này tạo trong lúc dự án tắt Confirm email hay qua thư xác nhận.
       after: { role: "supplier", supplier_id: null, email_confirmation_required: needsEmailConfirmation } })
       .catch((error) => console.error("[supplier-signup] audit log failed", error));
-    // Staff learn about the new login right away; a failed mail never blocks the account.
-    try { await notifyStaffSupplierAccount({ email, name, provider: "email" }); }
-    catch (error) { console.error("[supplier-signup] staff notification failed", error); }
+    // Staff learn about the new login right away and the supplier gets a welcome mail with the next step.
+    // When Supabase sends its own confirmation mail, skip the welcome so the supplier gets one clear mail.
+    // A failed mail never blocks the account.
+    const mails = await Promise.allSettled([
+      notifyStaffSupplierAccount({ email, name, provider: "email" }),
+      needsEmailConfirmation ? Promise.resolve("skipped" as const) : notifySupplierAccountWelcome({ email, provider: "email" }),
+    ]);
+    mails.forEach((mail, index) => {
+      if (mail.status === "rejected" || mail.value === "failed")
+        console.error(`[supplier-signup] ${index === 0 ? "staff notification" : "welcome mail"} failed`, mail.status === "rejected" ? mail.reason : "failed");
+    });
     return accepted();
   } catch (error) {
     console.error("[supplier-signup] app user failed", error);

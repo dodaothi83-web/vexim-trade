@@ -69,6 +69,53 @@ export async function notifyStaffSupplierAccount(input: { email: string; name?: 
   } catch (error) { console.error("[supplier-notify] account registered", error); return "failed"; }
 }
 
+/**
+ * Thư chào mừng gửi chính nhà cung cấp ngay khi tạo tài khoản (chủ dự án yêu cầu 27/11/2026: trước đây
+ * chỉ nhân viên nhận thư, nhà cung cấp không nhận gì). Chỉ báo tài khoản đã tạo và việc tiếp theo;
+ * không mở quyền, không duyệt gì. Lỗi gửi thư không chặn đăng ký.
+ */
+export async function notifySupplierAccountWelcome(input: { email: string; provider: "email" | "google" }): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const email = input.email.trim().toLowerCase();
+    if (!email) return "failed";
+    const url = `${notificationOrigin()}/supplier/portal`;
+    const title = "Chào mừng bạn đến với Vexim Trade";
+    const signIn = input.provider === "google" ? "đăng nhập bằng Google" : "đăng nhập bằng email và mật khẩu bạn vừa tạo";
+    const body = `<p>Tài khoản nhà cung cấp của bạn đã được tạo với email <strong>${escapeHtml(email)}</strong>.</p>
+    <p>Việc tiếp theo: ${signIn}, rồi điền hồ sơ doanh nghiệp và tải giấy đăng ký kinh doanh. Việc này mất khoảng 5 phút.</p>
+    <p>Vexim xác minh hồ sơ trong 1 ngày làm việc. Sau khi được duyệt, bạn đăng sản phẩm và nhận yêu cầu báo giá.</p>
+    <p><a href="${url}">Hoàn thiện hồ sơ doanh nghiệp</a></p>
+    <p>Nếu bạn không tạo tài khoản này, hãy bỏ qua thư này.</p>`;
+    const text = [title, `Tài khoản nhà cung cấp của bạn đã được tạo với email ${email}.`,
+      `Việc tiếp theo: ${signIn}, rồi điền hồ sơ doanh nghiệp và tải giấy đăng ký kinh doanh.`,
+      "Vexim xác minh hồ sơ trong 1 ngày làm việc.", `Hoàn thiện hồ sơ doanh nghiệp: ${url}`,
+      "Nếu bạn không tạo tài khoản này, hãy bỏ qua thư này."].join("\n");
+    const result = await transport({ to: [email], from: SERVICE_FROM_ADDRESS, subject: title,
+      html: wrapPlainEmail({ title, body, preheader: "Điền hồ sơ doanh nghiệp để Vexim xác minh trong 1 ngày làm việc." }), text });
+    return result.ok ? result.status : "failed";
+  } catch (error) { console.error("[supplier-notify] welcome", error); return "failed"; }
+}
+
+/** Xác nhận cho nhà cung cấp rằng Vexim đã nhận hồ sơ doanh nghiệp; không phải quyết định duyệt. */
+export async function notifySupplierProfileReceived(input: { email: string; supplierName: string }): Promise<"sent" | "simulated" | "failed"> {
+  try {
+    const email = input.email.trim().toLowerCase();
+    if (!email) return "failed";
+    const name = input.supplierName.replace(/[\r\n]/g, " ").trim().slice(0, 140) || "doanh nghiệp của bạn";
+    const url = `${notificationOrigin()}/supplier/portal`;
+    const title = "Vexim đã nhận hồ sơ doanh nghiệp của bạn";
+    const body = `<p>Hồ sơ của <strong>${escapeHtml(name)}</strong> đã được gửi tới Vexim.</p>
+    <p>Vexim xem hồ sơ trong 1 ngày làm việc và báo kết quả qua email này. Nếu cần bổ sung, Vexim ghi rõ nội dung cần sửa.</p>
+    <p>Trong lúc chờ, bạn có thể đăng nhập để xem trạng thái hồ sơ.</p>
+    <p><a href="${url}">Xem trạng thái hồ sơ</a></p>`;
+    const text = [title, `Hồ sơ của ${name} đã được gửi tới Vexim.`,
+      "Vexim xem hồ sơ trong 1 ngày làm việc và báo kết quả qua email này.", `Xem trạng thái hồ sơ: ${url}`].join("\n");
+    const result = await transport({ to: [email], from: SERVICE_FROM_ADDRESS, subject: title,
+      html: wrapPlainEmail({ title, body }), text });
+    return result.ok ? result.status : "failed";
+  } catch (error) { console.error("[supplier-notify] profile received", error); return "failed"; }
+}
+
 /** Pending certificate claim goes to staff inbox, never directly to buyers or publication. */
 export async function notifySupplierCertificateSubmission(supplier: Supplier, name: string): Promise<"sent" | "simulated" | "failed"> {
   const users = await getStore().listUsers();

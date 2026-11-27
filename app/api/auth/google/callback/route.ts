@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getStore } from "@/lib/db";
-import { notifyStaffSupplierAccount } from "@/lib/supplier-portal/notify";
+import { notifyStaffSupplierAccount, notifySupplierAccountWelcome } from "@/lib/supplier-portal/notify";
 import { createSessionToken, SESSION_COOKIE } from "@/lib/auth/session";
 import { staffHomePath } from "@/lib/auth/permissions";
 import { GOOGLE_FLOW_COOKIE, GOOGLE_SIGNUP_COOKIE, googleClient, googleCookieOptions, isVerifiedGoogleUser, parseGoogleFlow, googleRequestOrigin, googleOriginAllowed } from "@/lib/auth/google-oauth";
@@ -48,8 +48,13 @@ export async function GET(request: Request) {
       await store.addAuditLog({ actor_id: user.id, actor_email: user.email, entity: "user", entity_id: user.id,
         action: "supplier.account_registered", before: null, after: { role: "supplier", supplier_id: null, provider: "google" } })
         .catch((error) => console.error("[google-oauth] audit log failed", error));
-      await notifyStaffSupplierAccount({ email: user.email, name: user.name, provider: "google" })
-        .catch((error) => console.error("[google-oauth] staff notification failed", error));
+      await Promise.all([
+        notifyStaffSupplierAccount({ email: user.email, name: user.name, provider: "google" })
+          .catch((error) => console.error("[google-oauth] staff notification failed", error)),
+        // Nhà cung cấp cũng nhận thư chào mừng kèm việc tiếp theo; lỗi thư không chặn đăng nhập.
+        notifySupplierAccountWelcome({ email: user.email, provider: "google" })
+          .catch((error) => console.error("[google-oauth] welcome mail failed", error)),
+      ]);
     }
     if (!user || !user.is_active || user.role === "sourcing") return clear(target("/login?oauth=not_allowed"));
     const res = clear(target(staffHomePath(user.role)));

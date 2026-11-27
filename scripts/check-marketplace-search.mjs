@@ -386,8 +386,14 @@ assert.equal(ids(html).length, 0, "The supplier tab does not render product card
 assert.match(html, /aria-current="page"[^>]*>.*?Nhà cung cấp/, "The active supplier tab is announced");
 assert.match(html, /href="\/suppliers\/alpha\?lang=vi"/, "The company profile stays reachable");
 assert.match(html, /href="\/rfq\?suppliers=alpha&amp;lang=vi"/, "The quote action targets this supplier, not a generic RFQ");
-assert.match(html, /href="\/products\/cashew\/a-w320\?lang=vi"/, "The gallery links to the actual public product");
-assert.match(html, /src="\/public-media\/products\/a-w320\/photo.jpg"/, "The gallery uses gated buyer media");
+// Bốn offer W320 ngang điểm nhau luân phiên theo khung giờ (categoryTieWindow), nên thẻ có thể chọn
+// bất kỳ 3 trong 4: kiểm đúng tập offer khớp thay vì một id cố định (trước đây test đỏ theo giờ chạy).
+const w320Offers = new Set(["a-w320", "a-w320b", "a-w320c", "a-w320d"]);
+const galleryLinks = [...html.matchAll(/href="\/products\/cashew\/([a-z0-9-]+)\?lang=vi"/g)].map((m) => m[1]);
+assert.equal(new Set(galleryLinks).size, 3, "The gallery shows three offers");
+assert.ok(galleryLinks.every((id) => w320Offers.has(id)), "The gallery links to the actual matching public products");
+const galleryImages = [...html.matchAll(/src="\/public-media\/products\/([a-z0-9-]+)\/photo.jpg"/g)].map((m) => m[1]);
+assert.ok(galleryImages.length > 0 && galleryImages.every((id) => w320Offers.has(id)), "The gallery uses gated buyer media of those offers");
 assert.doesNotMatch(html, /href="\/products\/cashew\/a-w240\?lang=vi"/, "An unrelated grade must not appear beside a keyword result");
 assert.match(html, /4 sản phẩm công khai/, "The offer count reflects the matching public products");
 for (const check of ["Đã kiểm tra giấy tờ doanh nghiệp", "Đã kiểm tra hồ sơ giao hàng", "Đã xác minh nhà máy"]) {

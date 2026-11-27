@@ -95,8 +95,7 @@ const en = {
   },
   supplierRegister: {
     metaTitle: "Create a supplier account",
-    step: "Supplier · Step 1 of 2",
-    title: "Create an account",
+    title: "Create a supplier account",
     note: "Profiles are verified within one working day. Once approved, you list products and receive quote requests.",
     loginQuestion: "Already have an account?",
     login: "Sign in",
@@ -232,7 +231,6 @@ type AuthMessages = {
   };
   supplierRegister: {
     metaTitle: string;
-    step: string;
     title: string;
     note: string;
     loginQuestion: string;
@@ -388,8 +386,7 @@ const vi: AuthMessages = {
   },
   supplierRegister: {
     metaTitle: "Tạo tài khoản nhà cung cấp",
-    step: "Nhà cung cấp · Bước 1/2",
-    title: "Tạo tài khoản",
+    title: "Tạo tài khoản nhà cung cấp",
     note: "Hồ sơ được xác minh trong 1 ngày làm việc. Ngay khi được duyệt, bạn đăng sản phẩm và nhận yêu cầu báo giá.",
     loginQuestion: "Đã có tài khoản?",
     login: "Đăng nhập",

@@ -7,7 +7,7 @@ import { parseSupplierProfile } from "@/lib/supplier-portal/profile-input";
 import { categoryProposalOptions, parseSupplierCategoryProposals } from "@/lib/supplier-portal/category-proposals";
 import { getPortalMessages } from "@/lib/i18n/server";
 import { prepareInitialDocuments, saveInitialEvidence } from "@/lib/supplier-portal/profile-evidence";
-import { notifyStaffCategoryRequest, notifySupplierRegistration } from "@/lib/supplier-portal/notify";
+import { notifyStaffCategoryRequest, notifySupplierProfileReceived, notifySupplierRegistration } from "@/lib/supplier-portal/notify";
 import { ensureSupplierProfileEnglish } from "@/lib/ai/supplier-translation-service";
 import type { SupplierInput } from "@/lib/types";
 import { isL1BusinessLicense } from "@/lib/verification";
@@ -167,6 +167,10 @@ export async function POST(request: Request) {
     let notification: "sent" | "simulated" | "failed" = "failed";
     try { notification = await notifySupplierRegistration(supplier, parsed.requested); }
     catch (error) { console.error("[supplier-profile] staff notification failed", error); }
+    // Nhà cung cấp nhận thư xác nhận đã gửi hồ sơ (gửi về email đăng nhập). Lỗi thư không chặn hồ sơ.
+    await notifySupplierProfileReceived({ email: user.email, supplierName: supplier.name })
+      .then((status) => { if (status === "failed") console.error("[supplier-profile] supplier receipt mail failed"); })
+      .catch((error) => console.error("[supplier-profile] supplier receipt mail failed", error));
     revalidatePublicCatalog();
     revalidatePath("/supplier/portal");
     revalidatePath(`/crm/suppliers/${supplier.id}`);
