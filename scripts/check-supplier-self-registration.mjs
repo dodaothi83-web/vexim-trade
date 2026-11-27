@@ -46,7 +46,7 @@ for (const denied of [
   [{ ...owner, role: 'viewer' }, doc, 'business_license'],
 ]) assert.equal(policy.canUploadOwnDocument(...denied), false);
 
-const state = { categoryRequests: [], categoryRequestRows: [], users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], certIngest: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false, accountNotices: [] };
+const state = { categoryRequests: [], categoryRequestRows: [], users: [{ email: 'admin@veximtrade.com', role: 'admin', is_active: true }], suppliers: [], reviews: [], requests: [], media: [], certIngest: [], audit: [], authCalls: 0, lastRedirect: null, deletedAuth: 0, notify: 0, schemaMissing: false, failRequest: false, confirmed: false, failUser: false, failClaim: false, accountNotices: [], welcomes: [], receipts: [] };
 const store = {
   mode: 'supabase',
   listUsers: async () => state.users,
@@ -124,6 +124,8 @@ const mocks = {
   '@/lib/supplier-portal/notify': {
     notifyStaffSupplierAccount: async (input) => { state.accountNotices.push(input.email); return 'sent'; },
     notifySupplierRegistration: async (_supplier, requested) => { state.notify++; assert.equal(requested.length, 1); return 'sent'; },
+    notifySupplierAccountWelcome: async (input) => { state.welcomes.push(input.email); return 'sent'; },
+    notifySupplierProfileReceived: async (input) => { state.receipts.push(input.email); return 'sent'; },
     notifyStaffCategoryRequest: async (input) => { state.categoryRequests.push(...input.labels); return 'sent'; },
     notifyCategoryRequestDecision: async () => 'sent',
   },
@@ -185,6 +187,7 @@ assert.equal(state.users.at(-1).email, 'mo@example.com');
 assert.equal(state.users.at(-1).role, 'supplier');
 assert.equal(state.users.at(-1).supplier_id, null, 'Tắt xác minh vẫn không cấp quyền nhà cung cấp');
 assert.equal(state.audit.at(-1).after.email_confirmation_required, false, 'Nhật ký ghi rõ email chưa qua xác nhận');
+assert.ok(state.welcomes.includes('mo@example.com'), 'Tài khoản dùng được ngay thì nhà cung cấp nhận thư chào mừng');
 // Bỏ bản ghi thử này để các bước sau vẫn chạy trên đúng tài khoản đầu tiên.
 state.users = state.users.filter((u) => u.email !== 'mo@example.com');
 state.confirmed = false;
@@ -204,6 +207,7 @@ const duplicateSignup = await post(accountForm());
 assert.equal(duplicateSignup.status, 200, 'Duplicate email gets the same public status as a new request');
 assert.deepEqual(duplicateSignup.data, acceptedSignup.data, 'Duplicate and new registration responses do not enumerate accounts');
 assert.equal(state.accountNotices.length, noticedBefore, 'A duplicate never sends another staff email');
+assert.ok(!state.welcomes.includes('owner@example.com'), 'When Supabase sends its confirmation mail, no second welcome mail is sent');
 
 const access = load('../lib/supplier-portal/access.ts', {
   '@/lib/db': { getStore: () => store },
@@ -290,6 +294,7 @@ assert.equal(state.requests.length, 1);
 assert.equal(state.requests[0].target_level, 3);
 assert.equal(state.media[0].audience, 'internal');
 assert.equal(state.notify, 1, 'Notify staff after business profile submission');
+assert.equal(state.receipts.length, 1, 'The supplier receives a receipt after submitting the business profile');
 assert.equal(onboarding.portalApproved(state.suppliers[0]), false);
 assert.equal((await submitProfile(form())).status, 409, 'Pending profile cannot resubmit');
 state.suppliers[0].onboarding_status = 'changes_requested';
