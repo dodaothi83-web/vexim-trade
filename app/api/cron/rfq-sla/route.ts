@@ -23,6 +23,7 @@ import { runDirectRfqFollowUps } from "@/lib/rfq/direct-followup";
 import { sendCertificateExpiryReminders } from "@/lib/certificate-service";
 import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
 import { sendSupplierInactivityReminders } from "@/lib/supplier-portal/inactivity";
+import { sendFirstProductReminders } from "@/lib/supplier-portal/lifecycle-mail";
 import { cleanupPendingUploads } from "@/lib/supplier-portal/pending-media";
 import { runIntroductionMail } from "@/lib/buyer/introductions-server";
 import { runBuyerDigest } from "@/lib/buyer/digest-server";
@@ -145,6 +146,16 @@ export async function GET(req: Request) {
     console.error("[cron] supplier reminders failed", err);
   }
 
+  // Cổng đã mở mà chưa có sản phẩm: nhắc sau 3 và 10 ngày. Chạy trước thư vắng mặt để không dồn hai thư.
+  let supplierFirstProduct: { sent: number; failed: number; error: string | null } | { error: string };
+  try {
+    const firstProduct = await sendFirstProductReminders({ store });
+    supplierFirstProduct = { sent: firstProduct.sent, failed: firstProduct.failed, error: firstProduct.error };
+  } catch (err) {
+    supplierFirstProduct = { error: err instanceof Error ? err.message : String(err) };
+    console.error("[cron] supplier first product reminders failed", err);
+  }
+
   // Nhắc nhà cung cấp lâu không vào cổng: thư 1 sau 5 ngày, thư 2 sau 14 ngày, rồi thôi tới khi họ vào lại.
   let supplierInactivity: { sent: number; failed: number; error: string | null } | { error: string };
   try {
@@ -219,6 +230,7 @@ export async function GET(req: Request) {
     certificatesReminded,
     supplierReminders,
     supplierReminderError: supplierReminderError ?? undefined,
+    supplierFirstProduct,
     supplierInactivity,
     buyerIntroductions,
     buyerDigest,

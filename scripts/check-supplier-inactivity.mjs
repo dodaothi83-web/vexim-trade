@@ -139,7 +139,7 @@ assert.equal(failing.sent, 0, 'Không đọc được nhật ký thư thì bỏ 
 assert.ok(failing.error);
 
 /* ---------- 4. Nối vào hệ thống ---------- */
-assert.match(read('../lib/supplier-portal/reminders.ts'), /thread_id\?\.startsWith\("supplier-inactivity-"\)\) continue/, 'Thư nhắc hồ sơ không tính thư vắng mặt vào thời gian chờ của nó');
+assert.match(read('../lib/supplier-portal/reminders.ts'), /thread_id && !message\.thread_id\.startsWith\("supplier-reminder-"\)\) continue/, 'Thư nhắc hồ sơ không tính thư vắng mặt vào thời gian chờ của nó');
 assert.match(read('../app/api/cron/rfq-sla/route.ts'), /await sendSupplierInactivityReminders\(\{ store \}\)/);
 assert.match(read('../app/api/cron/supplier-reminders/route.ts'), /await sendSupplierInactivityReminders\(\)/);
 assert.match(read('../scripts/check-email-copy.mjs'), /lib\/supplier-portal\/inactivity\.ts/, 'Thư vắng mặt nằm trong bài kiểm tra văn phong thư');
