@@ -22,8 +22,11 @@ const FILES = [
   'lib/supplier-portal/reminders.ts',
   'lib/supplier-portal/inactivity.ts',
   'lib/supplier-portal/lifecycle-mail.ts',
+<<<<<<< HEAD
   'lib/crm/staff-digest-core.ts',
   'lib/crm/staff-digest.ts',
+=======
+>>>>>>> origin/main
   'lib/email/buyer-auth.ts',
   'lib/email/signature.ts',
   'lib/chat/notify.ts',
