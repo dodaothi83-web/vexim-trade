@@ -11,6 +11,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as translateCore from '../lib/chat/translate-core.ts';
 import * as core from '../lib/chat/attachments-core.ts';
 import * as chatCore from '../lib/chat/core.ts';
 import * as plans from '../lib/supplier-plans.ts';
@@ -172,7 +173,7 @@ const chatStore = { ...store, listChatMessages: async () => messages, addChatMes
 const service = load('lib/chat/service.ts', {
   'server-only': {}, '@/lib/public/product-catalog': { getPublicProductRecordsByIds: async () => [] },
   '@/lib/public/supplier-name': { supplierShortName: (s) => s.name }, '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
-  './core': chatCore, './presence': { presenceKey: {}, readPresence: async () => ({}) }, './attachments': files, './attachments-core': core,
+  './core': chatCore, './translate': { translateChatMessage: async () => null }, './translate-core': translateCore, './presence': { presenceKey: {}, readPresence: async () => ({}) }, './attachments': files, './attachments-core': core,
 });
 await assert.rejects(service.postMessage({ store: chatStore, conversation: conv, sender: 'supplier', senderEmail: 'a@b.c', body: '  ', uploaderKey: 'supplier:s1', attachmentIds: [] }), { code: 'empty' });
 const fileOnly = await service.postMessage({ store: chatStore, conversation: conv, sender: 'supplier', senderEmail: 'a@b.c', body: '', uploaderKey: 'supplier:s1', attachmentIds: [row1.id] });

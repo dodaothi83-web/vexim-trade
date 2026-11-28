@@ -8,8 +8,9 @@ import { transport } from "@/lib/email/send";
 import { escapeHtml, wrapPlainEmail } from "@/lib/email/templates";
 import { notificationOrigin } from "@/lib/supplier-portal/notify";
 import { SITE_URL } from "@/lib/site";
-import type { ChatConversation, SupportConversation } from "@/lib/types";
-import { notificationDue, unansweredEscalationDue, type NotifyKind } from "./core";
+import type { ChatConversation, ChatSender, SupportConversation } from "@/lib/types";
+import { chatPreview, notificationDue, unansweredEscalationDue, type NotifyKind } from "./core";
+import { messageTextFor } from "./translate-core";
 import { isOnline, presenceKey, readPresence } from "./presence";
 import { buyerLabel, supplierName } from "./service";
 import { deskInbox } from "./support";
@@ -49,6 +50,21 @@ function dueFor(table: Due["table"], id: string, kind: NotifyKind | null, side: 
   return kind === "first"
     ? { kind, table, id, column: `${side}_notified_at` as Column, expected: notified }
     : { kind, table, id, column: `${side}_reminded_at` as Column, expected: reminded ?? null };
+}
+
+/**
+ * Đoạn trích trong email báo tin: tin mới nhất của bên kia đã được dịch sang ngôn ngữ người nhận thì
+ * dùng bản dịch (nhà cung cấp đọc tiếng Việt, người mua đọc tiếng Anh). Không đọc được thì giữ đoạn trích cũ.
+ */
+async function previewFor(store: DataStore, chat: ChatConversation, recipient: ChatSender): Promise<string | null> {
+  try {
+    const [latest] = await store.listChatMessages(chat.id, 1);
+    if (latest && latest.body) {
+      const text = messageTextFor(latest, recipient);
+      if (text.original) return chatPreview(text.body);
+    }
+  } catch (error) { console.error("[chat-notify] translated preview", error); }
+  return chat.last_message_preview;
 }
 
 export async function runChatNotifications(store: DataStore, nowMs = Date.now()): Promise<NotifyRunResult> {
@@ -103,7 +119,7 @@ export async function runChatNotifications(store: DataStore, nowMs = Date.now())
       const portal = users.filter((u) => u.is_active && u.role === "supplier" && u.supplier_id === d.chat!.supplier_id).map((u) => u.email.trim().toLowerCase());
       to = [...new Set(portal.length ? portal : supplier?.email ? [supplier.email.trim().toLowerCase()] : [])].filter(Boolean);
       key = `supplier:${d.chat.supplier_id}`;
-      entry = { from: await buyerLabel(store, d.chat.buyer_email), product: d.chat.product_name, preview: d.chat.last_message_preview,
+      entry = { from: await buyerLabel(store, d.chat.buyer_email), product: d.chat.product_name, preview: await previewFor(store, d.chat, "supplier"),
         href: `${notificationOrigin()}/supplier/portal/messages?c=${encodeURIComponent(d.id)}`, kind: d.kind };
     } else if (d.audience === "staff" && d.support) {
       const assignee = d.support.assigned_to ? users.find((u) => u.id === d.support!.assigned_to) : null;
@@ -116,7 +132,7 @@ export async function runChatNotifications(store: DataStore, nowMs = Date.now())
       to = [email]; key = `buyer:${email}`;
       if (d.chat) {
         const supplier = await store.getSupplier(d.chat.supplier_id).catch(() => null);
-        entry = { from: supplier ? supplierName(supplier) : "Supplier", product: d.chat.product_name, preview: d.chat.last_message_preview,
+        entry = { from: supplier ? supplierName(supplier) : "Supplier", product: d.chat.product_name, preview: await previewFor(store, d.chat, "buyer"),
           href: `${SITE_URL}/buyer/account/messages?c=${encodeURIComponent(d.id)}`, kind: d.kind };
       } else {
         entry = { from: "Support team", product: null, preview: d.support!.last_message_preview, href: `${SITE_URL}/?support=1`, kind: d.kind };

@@ -20,7 +20,7 @@ const middlewareMocks = {
   '@/lib/public/category-route': { publicCategoryUrlFor: () => null, categoryRenderTarget: (path) => path === '/products/cashew-kernels' ? '/products/category-render/en/cashew-kernels' : null },
 };
 const robotsMocks = { '@/lib/site': { SITE_URL: 'https://example.invalid' } };
-const sitemapMocks = { ...robotsMocks, '@/lib/blog/queries': {}, '@/lib/db': {}, '@/lib/public/catalog': {},
+const sitemapMocks = { ...robotsMocks, '@/lib/blog/queries': {}, '@/lib/blog/blog-categories': { getBlogCategory: () => ({ basePath: '/blog/xuat-khau' }), VI_EXPORT_BLOG_CATEGORY: 'xuat-khau' }, '@/lib/db': {}, '@/lib/public/catalog': {},
   '@/lib/public/product-catalog': {}, '@/lib/public/supplier-seo': {}, '@/lib/public/i18n': {}, '@/lib/public/seo-images': {} };
 const request = (path) => {
   const nextUrl = new URL(path, 'https://www.example.invalid');

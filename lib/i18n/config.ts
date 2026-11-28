@@ -76,4 +76,4 @@ export function isLocalizedPath(pathname: string): boolean {
  * trang pháp lý — theo đúng tiền tố đường dẫn, không qua cookie.
  */
 export const LEGACY_VIETNAMESE_PATH_RE =
-  /^\/(?:crm|supplier|login|auth|quy-che-hoat-dong|dieu-khoan-su-dung|chinh-sach-bao-mat|khieu-nai|thong-tin-chu-quan)(?:\/|$)/;
+  /^\/(?:crm|supplier|login|auth|quy-che-hoat-dong|dieu-khoan-su-dung|chinh-sach-bao-mat|khieu-nai|thong-tin-chu-quan|blog\/xuat-khau)(?:\/|$)/;

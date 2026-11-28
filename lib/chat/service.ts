@@ -1,5 +1,8 @@
 import "server-only";
 
+import { translateChatMessage } from "./translate";
+import { messageTextFor } from "./translate-core";
+
 import type { DataStore } from "@/lib/db/types";
 import { publicMediaUrlAt } from "@/lib/media/public-url";
 import { getPublicProductRecordsByIds } from "@/lib/public/product-catalog";
@@ -57,6 +60,8 @@ export interface ChatMessageView {
   /** Tệp gửi kèm tin (có thể rỗng). */
   attachments: ChatAttachmentView[];
   createdAt: string;
+  /** Có khi `body` là bản dịch tự động: nội dung gốc người gửi đã viết. */
+  original?: string | null;
 }
 
 /** Tên ngắn (tên hiển thị, tên thương mại, rồi pháp nhân đã bỏ tiền tố, hạ kiểu chữ). */
@@ -186,7 +191,7 @@ export async function messageViews(messages: ChatMessage[], side: ChatSender, st
     store ? attachmentsByMessage(store, messages.map((m) => m.id), side) : Promise.resolve(new Map<string, ChatAttachmentView[]>()),
   ]);
   return messages.map((m) => ({
-    id: m.id, mine: m.sender === side, body: m.body, productName: m.product_name, createdAt: m.created_at,
+    id: m.id, mine: m.sender === side, ...messageTextFor(m, side), productName: m.product_name, createdAt: m.created_at,
     attachments: files.get(m.id) ?? [],
     product: m.product_id ? cards.get(m.product_id) ?? { id: m.product_id, name: m.product_name ?? "", imageUrl: null, href: null, price: null } : null,
   }));
@@ -320,9 +325,12 @@ export async function postMessage(input: {
   const body = checked.ok ? checked.body : "";
   const recent = await store.listChatMessages(conversation.id, 60);
   if (chatRateLimited(recent, sender)) throw new ChatError("rate_limited");
+  // Dịch trước khi lưu để bên nhận tải tin lần đầu đã có bản dịch. Lỗi dịch không chặn việc gửi.
+  const translated = body ? await translateChatMessage(body, sender).catch(() => null) : null;
   const message = await store.addChatMessage({
     conversation_id: conversation.id, sender, sender_email: input.senderEmail.trim().toLowerCase(), body,
     product_id: input.product?.id ?? null, product_name: input.product?.name ?? null,
+    ...(translated ?? {}),
   });
   if (files.length) {
     await store.linkChatAttachments({ ids: files.map((f) => f.id), messageId: message.id, conversationId: conversation.id, uploaderKey: input.uploaderKey!, expiresAt: chatFileExpiresAt(message.created_at) });

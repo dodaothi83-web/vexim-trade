@@ -27,7 +27,7 @@ function load(file, mocks) {
 
 const { description: productDescription, format: productDescriptionFormat } = loadProductDescription();
 const ai = load('../lib/ai/translate-content.ts', {
-  '@/lib/ai/company-introduction': { readOutputText: () => '' },
+  '@/lib/ai/trade-glossary': { glossaryInstructions: () => '' }, '@/lib/ai/company-introduction': { readOutputText: () => '' },
   '@/lib/products/product-description': productDescription,
   '@/lib/products/product-description-format': productDescriptionFormat,
   '@/lib/types': {},

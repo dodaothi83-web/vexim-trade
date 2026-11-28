@@ -6,6 +6,7 @@ import { readOutputText } from "@/lib/ai/company-introduction";
 import { hasProductDescriptionMarkup } from "@/lib/products/product-description-format";
 import { sanitizeProductDescriptionForSave, sanitizeProductDescriptionHtml } from "@/lib/products/product-description";
 import type { SupplierProduct } from "@/lib/types";
+import { glossaryInstructions } from "@/lib/ai/trade-glossary";
 
 /** Các trường chữ của sản phẩm được dịch sang tiếng Anh cho trang buyer. */
 export const PRODUCT_TRANSLATION_FIELDS = [
@@ -232,7 +233,7 @@ export async function translateProductContent(
     body: JSON.stringify({
       model,
       input: [
-        { role: "system", content: [{ type: "input_text", text: SYSTEM_PROMPT }] },
+        { role: "system", content: [{ type: "input_text", text: `${SYSTEM_PROMPT}\n\n${glossaryInstructions("vi-en")}` }] },
         {
           role: "user",
           content: [{

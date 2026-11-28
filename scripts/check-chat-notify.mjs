@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as translateCore from '../lib/chat/translate-core.ts';
 import * as core from '../lib/chat/core.ts';
 
 const T0 = Date.parse('2026-11-07T08:00:00Z');
@@ -59,6 +60,7 @@ const notify = load('../lib/chat/notify.ts', {
   '@/lib/supplier-portal/notify': { notificationOrigin: () => 'https://www.veximtrade.com' },
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   './core': core,
+  './translate': { translateChatMessage: async () => null }, './translate-core': translateCore, 
   './presence': load('../lib/chat/presence.ts', {}),
   './service': { buyerLabel: async () => 'Acme GmbH', supplierName: (s) => s.display_name },
   './support': { deskInbox: () => 'hello@veximtrade.com' },

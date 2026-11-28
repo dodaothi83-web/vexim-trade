@@ -8,18 +8,25 @@ import { getSession, guard } from "@/lib/auth/session";
 import { buildPostPayload, ensureUniqueSlug, slugify } from "@/lib/blog/post-payload";
 import type { Post, PostInput } from "@/lib/types";
 import { notifyIndexNow } from "@/lib/seo/indexnow";
+import { blogPostPath, getBlogCategory } from "@/lib/blog/blog-categories";
 
 export type BlogActionResult = { ok: true; post: Post } | { ok: false; message: string };
 
 /** Xuất bản cần nội dung thực sự, tránh đăng bài rỗng (đồng bộ với module gốc) */
 const MIN_PUBLISH_CHARS = 50;
 
-function refreshPublicPages(slug?: string) {
+function refreshPublicPages(post?: { slug: string; category: string } | null) {
   // Danh sách bài đã đăng được cache 1 giờ (lib/blog/queries.ts): xoá ngay để bài mới hiện liền.
   revalidateTag(PUBLISHED_POSTS_TAG, { expire: 0 });
   revalidatePath("/blog");
+  revalidatePath("/blog/xuat-khau");
   revalidatePath("/sitemap.xml");
-  if (slug) revalidatePath(`/blog/${slug}`);
+  if (post) revalidatePath(blogPostPath(post));
+}
+
+/** Đường dẫn gửi IndexNow cho một bài: trang bài và trang danh sách của đúng mục. */
+function indexNowPaths(post: { slug: string; category: string }): string[] {
+  return [blogPostPath(post), getBlogCategory(post.category)?.basePath ?? "/blog"];
 }
 
 /**
@@ -69,8 +76,8 @@ export async function savePostAction(
         published_at: status === "published" ? new Date().toISOString() : null,
       };
       const post = await store.createPost(input);
-      refreshPublicPages(post.slug);
-      if (post.status === "published") notifyIndexNow([`/blog/${post.slug}`, "/blog"]);
+      refreshPublicPages(post);
+      if (post.status === "published") notifyIndexNow(indexNowPaths(post));
       return { ok: true, post };
     }
 
@@ -89,10 +96,10 @@ export async function savePostAction(
     if (status === "draft") patch.published_at = current.published_at;
 
     const post = await store.updatePost(id, patch);
-    refreshPublicPages(current.slug);
-    refreshPublicPages(post.slug);
+    refreshPublicPages(current);
+    refreshPublicPages(post);
     if (post.status === "published" || current.status === "published") {
-      notifyIndexNow([`/blog/${post.slug}`, current.slug !== post.slug ? `/blog/${current.slug}` : null, "/blog"]);
+      notifyIndexNow([...indexNowPaths(post), ...(blogPostPath(current) !== blogPostPath(post) ? indexNowPaths(current) : [])]);
     }
     return { ok: true, post };
   } catch (err) {
@@ -111,8 +118,8 @@ export async function deletePostAction(id: string): Promise<{ ok: true } | { ok:
   try {
     const current = await store.getPost(id);
     await store.deletePost(id);
-    refreshPublicPages(current?.slug);
-    if (current?.status === "published") notifyIndexNow([`/blog/${current.slug}`, "/blog"]);
+    refreshPublicPages(current);
+    if (current?.status === "published") notifyIndexNow(indexNowPaths(current));
     return { ok: true };
   } catch (err) {
     return {

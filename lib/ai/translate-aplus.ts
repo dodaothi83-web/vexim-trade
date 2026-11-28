@@ -2,6 +2,7 @@ import "server-only";
 
 import { readOutputText } from "@/lib/ai/company-introduction";
 import { aplusModuleText, aplusNeedsTranslation, aplusSlots, aplusSourceHash, withAplusText, type AplusModule } from "@/lib/products/aplus";
+import { glossaryInstructions } from "@/lib/ai/trade-glossary";
 
 /**
  * Dịch nội dung A+ từ bản tiếng Việt nhà cung cấp viết sang tiếng Anh cho người mua quốc tế. Chỉ
@@ -39,7 +40,7 @@ export async function translateAplusStrings(strings: string[]): Promise<string[]
     body: JSON.stringify({
       model,
       input: [
-        { role: "system", content: [{ type: "input_text", text: SYSTEM_PROMPT }] },
+        { role: "system", content: [{ type: "input_text", text: `${SYSTEM_PROMPT}\n\n${glossaryInstructions("vi-en")}` }] },
         { role: "user", content: [{ type: "input_text", text: JSON.stringify(strings) }] },
       ],
       max_output_tokens: 6000,

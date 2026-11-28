@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
-import { listPublishedNews } from "@/lib/blog/queries";
+import { listPublishedNews, listPublishedViExport } from "@/lib/blog/queries";
+import { getBlogCategory, VI_EXPORT_BLOG_CATEGORY } from "@/lib/blog/blog-categories";
 import { getStore } from "@/lib/db";
 import { getPublicSupplierBySlug, type PublicSupplierCard } from "@/lib/public/catalog";
 import { listPublicCategoryProducts, loadPublicProductCatalogSnapshot, listCachedPublicSuppliers } from "@/lib/public/product-catalog";
@@ -24,6 +25,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (NON_PRODUCTION) return [];
   // Blog pages always stay crawlable (existing content, unchanged for MVP).
   const posts = await listPublishedNews().catch(() => []);
+  const viPosts = await listPublishedViExport().catch(() => []);
+  const viBase = getBlogCategory(VI_EXPORT_BLOG_CATEGORY)!.basePath;
   const legalRoutes: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/privacy-policy`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/cookie-policy`, changeFrequency: "yearly", priority: 0.3 },
@@ -46,6 +49,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     ...posts.map((post) => ({
       url: `${SITE_URL}/blog/${post.slug}`,
+      lastModified: new Date(post.updated_at),
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
+    // Mục Kiến thức xuất khẩu (tiếng Việt): chỉ khai khi đã có bài, tránh trang danh sách rỗng.
+    ...(viPosts.length ? [{
+      url: `${SITE_URL}${viBase}`,
+      lastModified: new Date(viPosts[0].updated_at),
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }] : []),
+    ...viPosts.map((post) => ({
+      url: `${SITE_URL}${viBase}/${post.slug}`,
       lastModified: new Date(post.updated_at),
       changeFrequency: "monthly" as const,
       priority: 0.6,

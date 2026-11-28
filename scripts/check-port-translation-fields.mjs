@@ -20,6 +20,7 @@ function load(abs) {
   }).outputText;
   const req = (id) => {
     if (id === "server-only") return {};
+    if (id === "@/lib/ai/trade-glossary") return { glossaryInstructions: () => "" };
     if (id === "@/lib/ai/company-introduction") return { readOutputText: () => "" };
     const base = id.startsWith("@/") ? path.join(root, id.slice(2)) : id.startsWith(".") ? path.resolve(path.dirname(abs), id) : null;
     if (!base) return nativeRequire(id);

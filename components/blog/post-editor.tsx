@@ -11,7 +11,7 @@ import { Button } from "@/components/editor-ui/button";
 import { Input } from "@/components/editor-ui/input";
 import { Label } from "@/components/editor-ui/label";
 import { Textarea } from "@/components/editor-ui/textarea";
-import { BLOG_CATEGORIES, DEFAULT_BLOG_CATEGORY } from "@/lib/blog/blog-categories";
+import { BLOG_CATEGORIES, DEFAULT_BLOG_CATEGORY, getBlogCategory } from "@/lib/blog/blog-categories";
 import { slugify } from "@/lib/blog/post-payload";
 import { blocksToPlainText } from "@/lib/blog/content-parsers";
 import { normalizeBlocksFromStorage } from "@/lib/blog/blocks-from-storage";
@@ -98,11 +98,12 @@ export function PostEditor({ post, otherPosts, productCategories = [] }: PostEdi
       published: status === "published",
       updatedAt: post?.updated_at ?? null,
       currentId: postId,
-      otherPosts,
+      // So trùng chủ đề trong cùng mục: bài tiếng Việt không bị so với bài News tiếng Anh.
+      otherPosts: otherPosts.filter((ref) => !ref.category || ref.category === category),
       authorName,
       reviewerName,
     }),
-    [title, metaTitle, metaDescription, excerpt, slug, slugTouched, focusKeyword, featuredImage, featuredImageAlt, coverDimensions, blocks, status, post, postId, otherPosts, authorName, reviewerName],
+    [title, metaTitle, metaDescription, excerpt, slug, slugTouched, focusKeyword, featuredImage, featuredImageAlt, coverDimensions, blocks, status, post, postId, otherPosts, category, authorName, reviewerName],
   );
   const [debouncedSeo, setDebouncedSeo] = useState(seoInput);
   useEffect(() => {
@@ -220,7 +221,7 @@ export function PostEditor({ post, otherPosts, productCategories = [] }: PostEdi
           )}
           {status === "published" && post?.slug ? (
             <a
-              href={`/blog/${post.slug}`}
+              href={`${getBlogCategory(post.category)?.basePath ?? "/blog"}/${post.slug}`}
               target="_blank"
               rel="noopener noreferrer"
               className={VIEW_BUTTON_CLASS}
@@ -308,7 +309,7 @@ export function PostEditor({ post, otherPosts, productCategories = [] }: PostEdi
                 ))}
               </select>
             </div>
-            {productCategories.length > 0 && <fieldset>
+            {productCategories.length > 0 && getBlogCategory(category)?.inBuyerDigest !== false && <fieldset>
               <legend className="text-[12px] font-semibold text-ink-700">Ngành hàng liên quan</legend>
               <p className="mt-0.5 text-[11px] leading-4 text-ink-500">Bài được gửi trong thư Market Brief tới người mua chọn ngành này.</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -343,7 +344,7 @@ export function PostEditor({ post, otherPosts, productCategories = [] }: PostEdi
             <div>
               <Label htmlFor="post-slug">Đường dẫn</Label>
               <div className="mt-1 flex items-center gap-1 text-[12px] text-ink-500">
-                <span>/blog/</span>
+                <span>{getBlogCategory(category)?.basePath ?? "/blog"}/</span>
                 <Input
                   id="post-slug"
                   value={slugTouched ? slug : slugify(title)}
@@ -449,7 +450,7 @@ export function PostEditor({ post, otherPosts, productCategories = [] }: PostEdi
           </section>
 
           {postId && (
-            <Link prefetch={false} href={`/blog/${slug}`} target="_blank" className="block text-center text-[13px] font-semibold text-brand-700 hover:underline">
+            <Link prefetch={false} href={`${getBlogCategory(category)?.basePath ?? "/blog"}/${slug}`} target="_blank" className="block text-center text-[13px] font-semibold text-brand-700 hover:underline">
               Xem trang công khai
             </Link>
           )}

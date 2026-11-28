@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as translateCore from '../lib/chat/translate-core.ts';
 import React, { act } from 'react';
 import * as jsx from 'react/jsx-runtime';
 import { JSDOM } from 'jsdom';
@@ -41,7 +42,7 @@ const service = load('../lib/chat/service.ts', {
   './attachments': { attachmentsByMessage: async () => new Map(), readyAttachmentsFor: async () => [] }, './attachments-core': fileCore,
   'server-only': {}, '@/lib/public/product-catalog': { getPublicProductRecordsByIds: async () => [] },
   '@/lib/public/supplier-name': { supplierShortName: (s) => s.name }, '@/lib/supplier-portal/onboarding': { portalApproved: () => true },
-  './core': core, './presence': load('../lib/chat/presence.ts', {}),
+  './core': core, './translate': { translateChatMessage: async () => null }, './translate-core': translateCore, './presence': load('../lib/chat/presence.ts', {}),
 });
 const row = (id, supplier, email, lastAt) => ({ id, supplier_id: supplier, buyer_email: email, product_name: 'Cashew W320', last_message_preview: `Preview ${id}`,
   last_message_at: lastAt, created_at: '2026-11-20T00:00:00Z', last_sender: 'supplier', supplier_last_read_at: '2026-11-21T09:30:00Z', buyer_last_read_at: null, escalated_at: null });

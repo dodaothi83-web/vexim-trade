@@ -20,6 +20,9 @@ export const en = {
   enterHint: "Enter to send, Shift + Enter for a new line.",
   notice: "Messages are kept in this chat. The buyer gets an email when you reply.",
   newMessages: "New messages",
+  translated: "Translated automatically",
+  seeOriginal: "See original",
+  seeTranslation: "See translation",
 };
 
 export type ChatMessages = typeof en;
@@ -43,6 +46,9 @@ export const vi: ChatMessages = {
   enterHint: "Enter để gửi, Shift + Enter để xuống dòng.",
   notice: "Tin nhắn được lưu trong mục chat này. Người mua nhận email khi bạn trả lời.",
   newMessages: "Tin nhắn mới",
+  translated: "Đã dịch tự động",
+  seeOriginal: "Xem bản gốc",
+  seeTranslation: "Xem bản dịch",
 };
 
 export const chatMessages = { en, vi } as const;

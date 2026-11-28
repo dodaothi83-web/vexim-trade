@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as translateCore from '../lib/chat/translate-core.ts';
 import * as core from '../lib/chat/core.ts';
 import * as fileCore from '../lib/chat/attachments-core.ts';
 
@@ -61,6 +62,7 @@ const chat = load('../lib/chat/service.ts', {
   '@/lib/site': { SITE_URL: 'https://www.veximtrade.com' },
   '@/lib/public/supplier-name': { supplierShortName: (s) => s.display_name || s.trade_name || s.name },
   './core': core,
+  './translate': { translateChatMessage: async () => null }, './translate-core': translateCore, 
   './presence': load('../lib/chat/presence.ts', {}),
   '@/lib/supplier-portal/onboarding': { portalApproved: (s) => s.onboarding_status === 'approved' },
 });
