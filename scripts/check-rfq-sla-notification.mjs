@@ -56,6 +56,8 @@ const { GET } = load('../app/api/cron/rfq-sla/route.ts', {
     return { checked: 0, reminded: 0, noResponse: 0, buyerNotified: 0, failed: 0 }; } },
   '@/lib/certificate-service': { sendCertificateExpiryReminders: async () => ({ checked: 0, reminded: 0, alreadyNotified: 0, failed: 0, details: [] }) },
   '@/lib/supplier-portal/reminders': { sendSupplierProgressReminders: async () => ({ checked: 0, reminded: 0, skipped: 0 }) },
+  '@/lib/supplier-portal/lifecycle-mail': { sendFirstProductReminders: async () => ({ checked: 0, sent: 0, failed: 0, error: null }) },
+  '@/lib/supplier-portal/inactivity': { sendSupplierInactivityReminders: async () => ({ checked: 0, sent: 0, failed: 0, details: [], error: null }) },
   '@/lib/supplier-portal/pending-media': { cleanupPendingUploads: async () => ({ images: 0, videos: 0, errors: 0 }) },
   '@/lib/buyer/introductions-server': { runIntroductionMail: async () => ({ welcome: 0, reminders: 0, failed: 0 }) },
   '@/lib/buyer/digest-server': { runBuyerDigest: async () => ({ kinds: [], sent: 0, skipped: 0, failed: 0, paused: false }) },

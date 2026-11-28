@@ -8,6 +8,7 @@ import { nextStatusOptions, statusMeta } from "@/lib/supplier";
 import type { SupplierStatus } from "@/lib/types";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
 import { supplierGate } from "@/lib/auth/supplier-access";
+import { notifySupplierPublished } from "@/lib/supplier-portal/lifecycle-mail";
 
 /** Publication decision only. Reviewers never submit supplier profile fields with this action. */
 export async function decideSupplierPublicationAction(id: string, status: SupplierStatus) {
@@ -37,6 +38,10 @@ export async function decideSupplierPublicationAction(id: string, status: Suppli
     revalidateHomePage();
     if ((status === "published") !== (supplier.status === "published") && !supplier.is_demo) {
       notifyIndexNow([`/suppliers/${(supplier.slug ?? "").trim() || supplier.id}`]);
+    }
+    // Lần đầu lên sàn: báo nhà cung cấp kèm đường dẫn hồ sơ (chỉ gửi một lần, lỗi không ảnh hưởng quyết định).
+    if (status === "published" && supplier.status !== "published" && !supplier.is_demo) {
+      await notifySupplierPublished(id).catch((error) => console.error("[supplier-publication] published email failed", error));
     }
     return { ok: true, message: `Đã chuyển sang ${statusMeta(status).label}.` };
   } catch (error) {

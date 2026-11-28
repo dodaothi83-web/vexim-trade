@@ -16,6 +16,7 @@ import { looksVietnamese } from "@/lib/vietnamese-text";
 import { revalidateHomePage } from "@/lib/public/revalidate-home";
 import { supplierGate } from "@/lib/auth/supplier-access";
 import { revalidatePublicCatalog } from "@/lib/public/revalidate-public";
+import { notifySupplierPublished } from "@/lib/supplier-portal/lifecycle-mail";
 
 function refreshAudit(v: Verification) {
   revalidatePath(auditHref(v.supplier_id, v.target_level));
@@ -313,6 +314,10 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
     const summaryError = publicSummaryValidationError(publicSummary, fd.get("confirm_public_summary") === "yes");
     if (summaryError) return { ok: false, message: summaryError };
   }
+  // Hồ sơ mới tự công khai khi duyệt L1: nhớ trạng thái trước để báo "đã lên sàn" đúng lần đầu.
+  const wasPublished = before.target_level === 1
+    ? (await store.getSupplier(before.supplier_id).catch(() => null))?.status === "published"
+    : true;
   const approvedAt = new Date().toISOString();
   const publication = before.target_level > 1 ? { summary: publicSummary, publishedAt: approvedAt } : null;
   const decision = { status: "approved" as const, approved_by: session?.uid ?? null, approved_at: approvedAt,
@@ -348,6 +353,9 @@ async function approveReview(fd: FormData, markCommitted: () => void) {
   await softEffect("làm mới trang kiểm tra", () => refreshAudit(before));
   const supplier = (publication || before.target_level === 1)
     ? await softEffect("đọc hồ sơ nhà cung cấp", () => store.getSupplier(before.supplier_id)) : null;
+  if (!wasPublished && supplier?.status === "published") {
+    await softEffect("email hồ sơ đã lên sàn", () => notifySupplierPublished(before.supplier_id));
+  }
   if (supplier?.status === "published") await softEffect("làm mới trang nhà cung cấp công khai", () => {
     revalidatePublicCatalog();
     revalidatePath(`/suppliers/${supplier.slug || supplier.id}`);

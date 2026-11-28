@@ -15,6 +15,8 @@
  */
 import { NextResponse } from "next/server";
 
+import { sendSupplierInactivityReminders } from "@/lib/supplier-portal/inactivity";
+import { sendFirstProductReminders } from "@/lib/supplier-portal/lifecycle-mail";
 import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
 
 export const dynamic = "force-dynamic";
@@ -34,10 +36,15 @@ export async function GET(req: Request) {
   if (!isAuthorized(req)) return new NextResponse("Unauthorized", { status: 401 });
 
   const report = await sendSupplierProgressReminders();
-  const ok = report.failed === 0 && !report.error;
+  // Thư nhắc đăng sản phẩm và thư lâu không vào chạy sau, để biết thư vừa gửi và không dồn hai thư một ngày.
+  const firstProduct = await sendFirstProductReminders();
+  const inactivity = await sendSupplierInactivityReminders();
+  const ok = report.failed === 0 && !report.error && inactivity.failed === 0 && !inactivity.error && firstProduct.failed === 0 && !firstProduct.error;
   return NextResponse.json({
     ok,
     provider: "cron-job.org (external)",
     ...report,
+    firstProduct,
+    inactivity,
   }, { status: ok ? 200 : 503 });
 }

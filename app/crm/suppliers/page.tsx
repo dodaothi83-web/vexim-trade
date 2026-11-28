@@ -13,6 +13,7 @@ import { IndustryRequests } from "./industry-requests";
 import { filterOwnedSuppliers, isSupplierScopedRole } from "@/lib/auth/supplier-scope";
 import { isUnassigned, ownerCandidates } from "@/lib/crm/supplier-owner-rules";
 import { DistributeSuppliersButton } from "./owner-controls";
+import { presenceKey, readPresence } from "@/lib/chat/presence";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,13 @@ export default async function SuppliersPage({ searchParams }: { searchParams: Pr
     upgradeRequests[r.supplier_id] = { plan: requestedPlanOf(r.note), renewal: isRenewalNote(r.note), status: r.status, createdAt: r.created_at };
   }
 
+  // Lần cuối nhà cung cấp mở cổng hoặc chat, để nhân viên thấy ai lâu không vào mà liên hệ.
+  const presence = await readPresence(store, suppliers.map((s) => presenceKey.supplier(s.id)));
+  const lastSeen = Object.fromEntries(suppliers.flatMap((s) => {
+    const at = presence[presenceKey.supplier(s.id)];
+    return at ? [[s.id, at] as const] : [];
+  }));
+
   const usage = buildSupplierOrderUsage(buyers);
   const reviewedAt = buildSupplierReviewTimes(suppliers, reviewDecisions);
 
@@ -97,7 +105,7 @@ export default async function SuppliersPage({ searchParams }: { searchParams: Pr
           <IndustryRequests groups={industryGroups} supplierNames={supplierNames} options={categoryOptions} />
         </div>
       </details>}
-      <SupplierTable key={initialPlanFilter ?? "all"} suppliers={suppliers} usage={usage} reviewedAt={reviewedAt} canManage={canManage}
+      <SupplierTable key={initialPlanFilter ?? "all"} suppliers={suppliers} usage={usage} reviewedAt={reviewedAt} lastSeen={lastSeen} canManage={canManage}
         upgradeRequests={upgradeRequests} initialPlanFilter={initialPlanFilter}
         owners={scoped ? undefined : staff} ownerNames={scoped ? {} : ownerNames}
         distributeSlot={canAssign ? <DistributeSuppliersButton unassigned={unassigned} staffCount={staff.length} /> : null} />

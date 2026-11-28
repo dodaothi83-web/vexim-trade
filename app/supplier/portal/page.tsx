@@ -24,6 +24,7 @@ import { SupplierProfileForm } from "./supplier-profile-form";
 import { Kpi, LevelChip, Panel, PortalSteps, date } from "./portal-ui";
 import { VerificationProgressPanel } from "./verification-progress";
 import { PendingProfileRefresh } from "./pending-profile-refresh";
+import { readSupplierTraffic } from "@/lib/traffic/server";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -192,6 +193,12 @@ export default async function SupplierPortal() {
     locale,
   });
   const board = buildSupplierRfqBoard({ supplierId: supplier.id, invites, products, days: 30 });
+  // Lượt xem 7 ngày cho khối nhãn hoạt động; lỗi hay chưa có số liệu thì chỉ bỏ câu này.
+  const views7d = supplier.status === "published"
+    ? await readSupplierTraffic(supplier.id, 7)
+      .then((rows) => rows ? rows.reduce((sum, row) => sum + (Number(row.views) || 0), 0) : 0)
+      .catch(() => 0)
+    : 0;
 
   const approvedCount = products.filter((p) => productReview(p) === "approved").length;
   const pendingCount = products.filter((p) => productReview(p) === "pending").length;
@@ -292,6 +299,23 @@ export default async function SupplierPortal() {
         </li>)}</ul>
       </Panel> : <p className="rounded-xl border border-ink-200 bg-white px-5 py-3 text-[13px] text-ink-500">{copy.work.empty}</p>}
     </div>
+
+    {/* Hồ sơ đã công khai: cho nhà cung cấp biết người mua thấy nhãn hoạt động và cách giữ nhãn tốt. */}
+    {publishedProfile && <section aria-label={copy.activity.title} data-testid="portal-activity-label"
+      className="mt-5 rounded-xl border border-ink-200 bg-white p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-[14px] font-bold text-ink-900">{copy.activity.title}</h2>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-emerald-800">
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-500" />Online now
+        </span>
+      </div>
+      <p className="mt-2 text-[13px] leading-5 text-ink-600">{copy.activity.body}</p>
+      <p className="mt-2 text-[13px] font-semibold leading-5 text-ink-800">{copy.activity.tip}</p>
+      {views7d > 0 && <p className="mt-2 text-[13px] leading-5 text-ink-600">
+        {fill(copy.activity.views, { count: views7d.toLocaleString(intl) })}{" "}
+        <Link href="/supplier/portal/traffic" className="font-semibold text-brand-700 underline underline-offset-2">{copy.activity.viewsLink}</Link>
+      </p>}
+    </section>}
 
     <div className="mt-5"><VerificationProgressPanel progress={verification} messages={copy.verificationPanel} lang={locale} /></div>
 
