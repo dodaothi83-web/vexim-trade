@@ -532,6 +532,8 @@ export interface DataStore {
   listSupplierOnboardingDecisions(): Promise<Pick<AuditLogEntry, "entity_id" | "action" | "created_at">[]>;
   /** Lịch sử chạy nghiên cứu mùa vụ, dùng để luân phiên danh mục và tránh chạy kẹt ở một lỗi. */
   listHarvestResearchRuns(): Promise<Pick<AuditLogEntry, "entity_id" | "action" | "created_at">[]>;
+  /** Email tổng hợp buổi sáng cho nhân viên đã gửi (audit_log entity "staff_digest"), từ mốc `sinceIso`. */
+  listStaffDigestSends(sinceIso: string): Promise<Pick<AuditLogEntry, "entity_id" | "action" | "created_at">[]>;
   addAuditLog(entry: {
     actor_id?: string | null;
     actor_email?: string | null;

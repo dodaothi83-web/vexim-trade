@@ -2492,6 +2492,18 @@ export const supabaseStore: DataStore = {
     if (error) fail("listSupplierOnboardingDecisions", error);
     return (data ?? []) as Pick<AuditLogEntry, "entity_id" | "action" | "created_at">[];
   },
+  async listStaffDigestSends(sinceIso) {
+    const { data, error } = await must()
+      .from("audit_log")
+      .select("entity_id,action,created_at")
+      .eq("entity", "staff_digest")
+      .eq("action", "staff_digest.sent")
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) fail("listStaffDigestSends", error);
+    return (data ?? []) as Pick<AuditLogEntry, "entity_id" | "action" | "created_at">[];
+  },
   async listHarvestResearchRuns() {
     const { data, error } = await must()
       .from("audit_log")

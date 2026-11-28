@@ -24,6 +24,7 @@ import { sendCertificateExpiryReminders } from "@/lib/certificate-service";
 import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
 import { sendSupplierInactivityReminders } from "@/lib/supplier-portal/inactivity";
 import { sendFirstProductReminders } from "@/lib/supplier-portal/lifecycle-mail";
+import { runStaffDigest } from "@/lib/crm/staff-digest";
 import { cleanupPendingUploads } from "@/lib/supplier-portal/pending-media";
 import { runIntroductionMail } from "@/lib/buyer/introductions-server";
 import { runBuyerDigest } from "@/lib/buyer/digest-server";
@@ -211,6 +212,16 @@ export async function GET(req: Request) {
     console.error("[cron] supplier weekly report failed", err);
   }
 
+  // Email tổng hợp buổi sáng cho admin và kinh doanh (thứ Hai đến thứ Sáu, từ 8 giờ, mỗi người một thư mỗi ngày).
+  // Chạy sau các thư tự động khác để số "email đã gửi" và hàng chờ là số mới nhất.
+  let staffDigest: Awaited<ReturnType<typeof runStaffDigest>> | { error: string };
+  try {
+    staffDigest = await runStaffDigest({ store });
+  } catch (err) {
+    staffDigest = { error: err instanceof Error ? err.message : String(err) };
+    console.error("[cron] staff digest failed", err);
+  }
+
   // Gói trả phí: nhắc gia hạn (30 ngày, 7 ngày, đã hết hạn) và chuyển yêu cầu nâng gói đã hết sang "Hết hạn".
   let planExpiry: Awaited<ReturnType<typeof runPlanExpiry>> | { error: string };
   try {
@@ -237,6 +248,7 @@ export async function GET(req: Request) {
     buyerAlerts,
     supplierWeeklyReport,
     planExpiry,
+    staffDigest,
     pendingMedia,
     errors: errors.length ? errors : undefined,
   }, { status: errors.length ? 503 : 200 });

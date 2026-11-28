@@ -3414,6 +3414,11 @@ export const localStore: DataStore = {
       .filter((entry) => entry.entity === "supplier" && actions.has(entry.action))
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
   },
+  async listStaffDigestSends(sinceIso) {
+    return (load().audit_log ?? [])
+      .filter((entry) => entry.entity === "staff_digest" && entry.action === "staff_digest.sent" && entry.created_at >= sinceIso)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
   async listHarvestResearchRuns() {
     const actions = new Set(["category.harvest_research_updated", "category.harvest_research_failed"]);
     return (load().audit_log ?? [])
