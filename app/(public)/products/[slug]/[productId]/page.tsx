@@ -49,6 +49,7 @@ import { SimilarOffersRail } from "@/components/public/similar-offers-rail";
 import { SupplierWebsiteLink } from "@/components/public/supplier-website-link";
 import { categoryTieWindow } from "@/lib/public/ranking";
 import { absolutePublicMediaUrl, cdnVariant, publicMediaUrl, publicMediaUrlAt } from "@/lib/media/public-url";
+import { SupplierActivityBadge } from "@/components/public/supplier-activity";
 
 /**
  * Trang dựng sẵn (ISR) phục vụ từ CDN thay vì render lại mỗi lượt xem (từng là force-dynamic).
@@ -405,6 +406,7 @@ export default async function PublicProductDetail({ params }: Props) {
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-ink-600">
               <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-brand-700" />{publicProductLocationDisplay(card.province)}</span>
               {card.supplierFoundedYear && <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-brand-700" />Founded {card.supplierFoundedYear}</span>}
+              {!card.isDemo && <SupplierActivityBadge supplierId={card.supplierId} />}
             </div>
           </div>
           <div className="p-5">
