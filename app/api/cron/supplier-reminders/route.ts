@@ -15,6 +15,7 @@
  */
 import { NextResponse } from "next/server";
 
+import { sendSupplierInactivityReminders } from "@/lib/supplier-portal/inactivity";
 import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
 
 export const dynamic = "force-dynamic";
@@ -34,10 +35,13 @@ export async function GET(req: Request) {
   if (!isAuthorized(req)) return new NextResponse("Unauthorized", { status: 401 });
 
   const report = await sendSupplierProgressReminders();
-  const ok = report.failed === 0 && !report.error;
+  // Thư nhắc lâu không vào cổng chạy sau, để biết thư nhắc hồ sơ vừa gửi và không dồn hai thư một ngày.
+  const inactivity = await sendSupplierInactivityReminders();
+  const ok = report.failed === 0 && !report.error && inactivity.failed === 0 && !inactivity.error;
   return NextResponse.json({
     ok,
     provider: "cron-job.org (external)",
     ...report,
+    inactivity,
   }, { status: ok ? 200 : 503 });
 }

@@ -22,6 +22,7 @@ import { rfqChannel } from "@/lib/rfq/channel";
 import { runDirectRfqFollowUps } from "@/lib/rfq/direct-followup";
 import { sendCertificateExpiryReminders } from "@/lib/certificate-service";
 import { sendSupplierProgressReminders } from "@/lib/supplier-portal/reminders";
+import { sendSupplierInactivityReminders } from "@/lib/supplier-portal/inactivity";
 import { cleanupPendingUploads } from "@/lib/supplier-portal/pending-media";
 import { runIntroductionMail } from "@/lib/buyer/introductions-server";
 import { runBuyerDigest } from "@/lib/buyer/digest-server";
@@ -144,6 +145,16 @@ export async function GET(req: Request) {
     console.error("[cron] supplier reminders failed", err);
   }
 
+  // Nhắc nhà cung cấp lâu không vào cổng: thư 1 sau 5 ngày, thư 2 sau 14 ngày, rồi thôi tới khi họ vào lại.
+  let supplierInactivity: { sent: number; failed: number; error: string | null } | { error: string };
+  try {
+    const inactivity = await sendSupplierInactivityReminders({ store });
+    supplierInactivity = { sent: inactivity.sent, failed: inactivity.failed, error: inactivity.error };
+  } catch (err) {
+    supplierInactivity = { error: err instanceof Error ? err.message : String(err) };
+    console.error("[cron] supplier inactivity reminders failed", err);
+  }
+
   // Dọn ảnh A+ và video tải lên cho sản phẩm mới nhưng không được lưu (quá 24 giờ).
   let pendingMedia: { images: number; videos: number; errors: number } | { error: string };
   try {
@@ -208,6 +219,7 @@ export async function GET(req: Request) {
     certificatesReminded,
     supplierReminders,
     supplierReminderError: supplierReminderError ?? undefined,
+    supplierInactivity,
     buyerIntroductions,
     buyerDigest,
     buyerAlerts,

@@ -20,6 +20,7 @@ const FILES = [
   'lib/rfq/buyer-notify.ts',
   'lib/supplier-portal/notify.ts',
   'lib/supplier-portal/reminders.ts',
+  'lib/supplier-portal/inactivity.ts',
   'lib/email/buyer-auth.ts',
   'lib/email/signature.ts',
   'lib/chat/notify.ts',

@@ -9,6 +9,7 @@ import { roleLabel, supplierTypeLabel, statusMeta } from "@/lib/supplier";
 import { Badge, Button, EmptyState, cx } from "@/components/ui";
 import { SUPPLIER_PLAN_LABELS, effectiveSupplierPlan, isSupplierPlan, type SupplierPlan } from "@/lib/supplier-plans";
 import { duplicateTaxIds, formatTaxId, taxIdKey, taxIdMatches, taxIdNeedle } from "@/lib/crm/supplier-tax-id";
+import { daysSinceSeen, lastSeenText, lastSeenTone } from "@/lib/supplier-portal/inactivity-core";
 
 const reviewDateFormatter = new Intl.DateTimeFormat("vi-VN", {
   day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh",
@@ -84,6 +85,7 @@ export function SupplierTable({
   suppliers,
   usage,
   reviewedAt = {},
+  lastSeen = {},
   canManage = false,
   upgradeRequests = {},
   initialPlanFilter,
@@ -95,6 +97,8 @@ export function SupplierTable({
   usage: Record<string, { total: number; active: number }>;
   /** Current onboarding decision time from the audit log, keyed by supplier. */
   reviewedAt?: Record<string, string>;
+  /** Lần cuối nhà cung cấp mở cổng hoặc chat (chat presence), theo nhà cung cấp. */
+  lastSeen?: Record<string, string>;
   /** Có quyền thêm / sửa nhà cung cấp (suppliers.manage) hay chỉ được xem */
   canManage?: boolean;
   /** Yêu cầu nâng gói còn mở, theo nhà cung cấp. */
@@ -309,6 +313,7 @@ export function SupplierTable({
                 <th className="table-th">Liên hệ</th>
                 <th className="table-th">Tổng đơn hàng</th>
                 <th className="table-th whitespace-normal">Ngày giờ xét duyệt</th>
+                <th className="table-th whitespace-normal">Truy cập gần nhất</th>
               </tr>
             </thead>
             <tbody>
@@ -415,6 +420,17 @@ export function SupplierTable({
                       ) : (
                         <span className="text-ink-500">{hasReviewDecision ? "Chưa ghi nhận" : "Chưa xét duyệt"}</span>
                       )}
+                    </td>
+                    <td className="table-td whitespace-nowrap text-[12px]">
+                      {s.onboarding_status === "approved" ? (() => {
+                        const seenAt = lastSeen[s.id] ?? null;
+                        const days = daysSinceSeen(seenAt);
+                        const tone = lastSeenTone(days);
+                        return <span title={seenAt ? new Date(seenAt).toLocaleString("vi-VN") : undefined}
+                          className={cx("font-semibold", tone === "ok" ? "text-emerald-700" : tone === "warn" ? "text-amber-700" : "text-rose-700")}>
+                          {lastSeenText(days)}
+                        </span>;
+                      })() : <span className="text-ink-400">Chưa mở cổng</span>}
                     </td>
                   </tr>
                 );

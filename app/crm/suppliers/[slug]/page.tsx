@@ -35,6 +35,8 @@ import { CRM_PRODUCTS_PAGE_SIZE, orderCrmProducts, paginateCrmProducts } from "@
 import { MediaGallery, MediaThumb } from "@/components/media-gallery";
 import { Breadcrumbs, Badge, Card, EmptyState, cx, formatDate, formatMoney } from "@/components/ui";
 import { PageHeader } from "@/components/page-header";
+import { presenceKey, readPresence } from "@/lib/chat/presence";
+import { daysSinceSeen, lastSeenAgo } from "@/lib/supplier-portal/inactivity-core";
 import { StageBadge } from "@/components/stage-select";
 import { DeleteSupplierButton } from "@/components/supplier-actions";
 import { VerificationTierBadge } from "@/components/verification-tier";
@@ -167,6 +169,11 @@ export default async function SupplierDetailPage({
   const supplierImageUrl = (path: string) => (path.startsWith("http") ? path : publicMediaUrl(path));
   const coverUrl = supplier.cover_image ? supplierImageUrl(supplier.cover_image) : null;
   const avatarUrl = supplier.profile_image ? supplierImageUrl(supplier.profile_image) : null;
+  // Lần cuối nhà cung cấp mở cổng hoặc chat (để nhân viên biết ai lâu không vào mà liên hệ).
+  const seenAt = supplier.onboarding_status === "approved"
+    ? (await readPresence(store, [presenceKey.supplier(supplier.id)]))[presenceKey.supplier(supplier.id)] ?? null
+    : null;
+  const lastSeenLabel = supplier.onboarding_status === "approved" ? `Truy cập gần nhất: ${lastSeenAgo(daysSinceSeen(seenAt))}` : null;
   const typeLabel = supplier.onboarding_status === "not_started" ? "Chưa khai loại hình" : supplier.supplier_type ? supplierTypeLabel(supplier.supplier_type) : roleLabel(supplier.role);
   const orderedProducts = orderCrmProducts(products);
   const {
@@ -192,7 +199,7 @@ export default async function SupplierDetailPage({
           />
         }
         title={supplier.name}
-        sub={[supplier.trade_name, typeLabel, supplier.province]
+        sub={[supplier.trade_name, typeLabel, supplier.province, lastSeenLabel]
           .filter(Boolean)
           .join(" · ")}
         actions={

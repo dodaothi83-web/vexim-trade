@@ -61,6 +61,7 @@ const mocks = {
     effectiveSupplierPlan: () => 'basic', isSupplierPlan: () => true,
   },
   '@/lib/crm/supplier-tax-id': taxModule,
+  '@/lib/supplier-portal/inactivity-core': { daysSinceSeen: () => null, lastSeenText: () => 'Chưa vào lần nào', lastSeenTone: () => 'bad' },
 };
 const module = { exports: {} };
 vm.runInNewContext(source, {

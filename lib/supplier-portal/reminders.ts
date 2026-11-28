@@ -261,6 +261,8 @@ export async function sendSupplierProgressReminders(opts: {
   const deliveredReminders = new Map<string, EmailMessage[]>();
   for (const message of reminders) {
     if (!message.supplier_id || !isDelivered(message.status)) continue;
+    // Thư nhắc lâu không vào (lib/supplier-portal/inactivity.ts) dùng chung kind nhưng có lịch riêng.
+    if (message.thread_id?.startsWith("supplier-inactivity-")) continue;
     const list = deliveredReminders.get(message.supplier_id) ?? [];
     list.push(message);
     deliveredReminders.set(message.supplier_id, list);
