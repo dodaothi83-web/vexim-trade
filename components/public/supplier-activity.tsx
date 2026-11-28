@@ -5,8 +5,8 @@ import { cx } from "@/components/ui";
 import { SUPPLIER_ACTIVITY_LABELS, type SupplierActivity } from "@/lib/public/supplier-activity";
 
 /**
- * Nhãn "Online now / Active today" cạnh tên nhà cung cấp. Hỏi ở trình duyệt vì
- * trang dựng sẵn; chưa có dữ liệu, lỗi mạng hoặc quá 24 giờ thì không hiện gì (không để chỗ trống).
+ * Nhãn "Online now / Active today / this week / this month" cạnh tên nhà cung cấp. Hỏi ở trình duyệt vì
+ * trang dựng sẵn; chưa có dữ liệu, lỗi mạng hoặc quá 30 ngày thì không hiện gì (không để chỗ trống).
  */
 export function SupplierActivityBadge({ supplierId, className }: { supplierId: string; className?: string }) {
   const [activity, setActivity] = useState<SupplierActivity | null>(null);
