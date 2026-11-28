@@ -36,18 +36,45 @@ export interface ChatLabels {
   /** Phía người mua: nhà cung cấp chưa trả lời quá 48 giờ, Vexim đang liên hệ. */
   followUp?: string;
   followUpAction?: string;
+  /** Tin của bên kia đã được dịch tự động sang ngôn ngữ người đọc. */
+  translated?: string;
+  seeOriginal?: string;
+  seeTranslation?: string;
 }
 
 interface ConversationView { id: string; counterpart: string; counterpartHref: string | null; productName: string | null; preview: string | null; lastMessageAt: string | null; unread: boolean; counterpartReadAt?: string | null; counterpartLastSeen?: string | null; veximFollowingUp?: boolean }
 /** Dòng danh sách không có tin mới trong lượt hỏi lại: chỉ phần đổi theo thời gian. */
 type ConversationStatus = Pick<ConversationView, "id" | "lastMessageAt" | "unread" | "counterpartReadAt" | "counterpartLastSeen" | "veximFollowingUp">;
 interface ProductCardView { id: string; name: string; imageUrl: string | null; href: string | null; price: string | null }
-interface MessageView { id: string; mine: boolean; body: string; productName: string | null; product?: ProductCardView | null; attachments?: ChatFileView[]; createdAt: string; pending?: boolean }
+interface MessageView { id: string; mine: boolean; body: string; productName: string | null; product?: ProductCardView | null; attachments?: ChatFileView[]; createdAt: string; pending?: boolean; original?: string | null }
 
 /** Tin của mình đang gửi và tin máy chủ trả về là một khi cùng chữ và cùng tên các tệp. */
 function sameMessage(a: MessageView, b: MessageView) {
   const names = (m: MessageView) => (m.attachments ?? []).map((f) => f.name).join("\n");
   return a.body === b.body && names(a) === names(b);
+}
+
+/**
+ * Bong bóng chữ của một tin. Tin bên kia đã dịch tự động có dòng nhỏ bên dưới để xem lại bản gốc:
+ * người đọc luôn kiểm tra được chính xác câu người gửi viết.
+ */
+function MessageBody({ message: m, title, labels }: { message: MessageView; title: string; labels: ChatLabels }) {
+  const [showOriginal, setShowOriginal] = useState(false);
+  const translated = !m.mine && !!m.original;
+  return <>
+    <div title={title} data-testid={translated ? "chat-translated-message" : undefined}
+      className={cx("max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm",
+        m.mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100", m.pending && "opacity-70")}>
+      {translated && showOriginal ? m.original : m.body}
+    </div>
+    {translated && <span className="mt-0.5 px-1 text-[10.5px] text-ink-400">
+      {labels.translated ?? "Translated automatically"} ·{" "}
+      <button type="button" onClick={() => setShowOriginal((v) => !v)} data-testid="chat-translation-toggle"
+        className="font-semibold text-brand-700 hover:underline">
+        {showOriginal ? (labels.seeTranslation ?? "See translation") : (labels.seeOriginal ?? "See original")}
+      </button>
+    </span>}
+  </>;
 }
 
 /** Sản phẩm người mua đang xem khi mở cửa sổ chat từ trang sản phẩm. */
@@ -454,8 +481,7 @@ export function ChatWorkspace({ side, labels, locale, initialId = null, product 
               return <div key={m.id} className={cx("flex flex-col", m.mine ? "items-end" : "items-start")}>
                 {showCard && <ProductCard card={card} label={labels.about} mine={m.mine} />}
                 {m.attachments && m.attachments.length > 0 && <MessageFiles files={m.attachments} mine={m.mine} labels={fileLabels} locale={locale} onMediaLoad={keepAtBottom} />}
-                {m.body && <div title={fullTime(m.createdAt, locale)} className={cx("max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] leading-6 shadow-sm",
-                  m.mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100", m.pending && "opacity-70")}>{m.body}</div>}
+                {m.body && <MessageBody message={m} title={fullTime(m.createdAt, locale)} labels={labels} />}
                 <span className="mt-0.5 flex items-center gap-1 px-1 text-[10.5px] text-ink-400">
                   {shortTime(m.createdAt, locale)}
                   {m.mine && <DeliveryTicks status={deliveryStatus(m, thread.conversation.counterpartReadAt)} labels={presence} showText={m.id === lastMine} />}

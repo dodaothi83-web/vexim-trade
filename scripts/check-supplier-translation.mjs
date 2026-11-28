@@ -35,7 +35,7 @@ function load(file, mocks, globals = {}) {
 }
 
 const ai = load('../lib/ai/translate-supplier.ts', {
-  '@/lib/ai/company-introduction': { readOutputText: () => '' },
+  '@/lib/ai/trade-glossary': { glossaryInstructions: () => '' }, '@/lib/ai/company-introduction': { readOutputText: () => '' },
   '@/lib/types': {},
 });
 
@@ -67,7 +67,7 @@ assert.throws(() => ai.parseSupplierProfileTranslation(JSON.stringify({ moq_en: 
 
 // Kiểm tra chính hàm gọi OpenAI dùng strict mode, với fetch giả lập và không phát sinh request thật.
 const liveAi = load('../lib/ai/translate-supplier.ts', {
-  '@/lib/ai/company-introduction': { readOutputText: (payload) => payload.output_text ?? '' },
+  '@/lib/ai/trade-glossary': { glossaryInstructions: () => '' }, '@/lib/ai/company-introduction': { readOutputText: (payload) => payload.output_text ?? '' },
   '@/lib/types': {},
 }, {
   AbortSignal,

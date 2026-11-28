@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 
 import { readOutputText } from "@/lib/ai/company-introduction";
 import type { Supplier, SupplierProfileEnglishFields } from "@/lib/types";
+import { glossaryInstructions } from "@/lib/ai/trade-glossary";
 
 /** Source text that can appear in an English buyer-facing supplier profile. */
 export type SupplierProfileSource = {
@@ -291,7 +292,7 @@ export async function translateSupplierProfile(input: {
     body: JSON.stringify({
       model,
       input: [
-        { role: "system", content: [{ type: "input_text", text: SYSTEM_PROMPT }] },
+        { role: "system", content: [{ type: "input_text", text: `${SYSTEM_PROMPT}\n\n${glossaryInstructions("vi-en")}` }] },
         {
           role: "user",
           content: [{

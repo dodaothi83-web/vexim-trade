@@ -1997,6 +1997,12 @@ export interface ChatMessage {
   product_id: string | null;
   product_name: string | null;
   created_at: string;
+  /** Dịch tự động (27/11/2026): ngôn ngữ đoán được của bản gốc ("vi" | "other"). */
+  body_lang?: string | null;
+  /** Bản dịch sang ngôn ngữ bên nhận; bản gốc vẫn ở `body`. */
+  translation?: string | null;
+  /** "vi" (cho nhà cung cấp) hoặc "en" (cho người mua). */
+  translation_lang?: string | null;
 }
 
 /**

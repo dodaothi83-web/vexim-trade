@@ -64,7 +64,7 @@ const { description, format } = loadProductDescription();
 const translationModule = compile("../lib/ai/translate-content.ts", {
   "server-only": {},
   "node:crypto": require("node:crypto"),
-  "@/lib/ai/company-introduction": { readOutputText: () => "" },
+  "@/lib/ai/trade-glossary": { glossaryInstructions: () => "" }, "@/lib/ai/company-introduction": { readOutputText: () => "" },
   "@/lib/products/product-description": description,
   "@/lib/products/product-description-format": format,
 });

@@ -1263,8 +1263,15 @@ export const supabaseStore: DataStore = {
   },
   async addChatMessage(input) {
     const { data, error } = await must().from("chat_messages").insert(input).select("*").single();
-    if (error) fail("addChatMessage", error);
-    return data as ChatMessage;
+    if (!error) return data as ChatMessage;
+    // Cột bản dịch chưa có (chưa chạy migration 20270101_chat_translation): lưu tin gốc, không làm hỏng chat.
+    if ("translation" in input && /translation|body_lang|PGRST204|42703/i.test(`${error.code} ${error.message}`)) {
+      const { body_lang: _lang, translation: _text, translation_lang: _to, ...plain } = input;
+      const retry = await must().from("chat_messages").insert(plain).select("*").single();
+      if (retry.error) fail("addChatMessage", retry.error);
+      return retry.data as ChatMessage;
+    }
+    fail("addChatMessage", error);
   },
   async createChatAttachment(input) {
     const { data, error } = await must().from("chat_attachments").insert(input).select("*").single();
