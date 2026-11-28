@@ -1,5 +1,5 @@
 // node --experimental-strip-types --no-warnings scripts/check-supplier-activity.mjs
-// Nhãn truy cập lần cuối của nhà cung cấp (28/11/2026): chỉ theo mốc, quá 30 ngày thì ẩn,
+// Nhãn hoạt động của nhà cung cấp (28/11/2026): chỉ nhãn tích cực (Online now / Active today), quá 24 giờ thì ẩn,
 // hồ sơ thử/chưa công khai không lộ, không trả giờ chính xác, không gắn với xác minh.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,12 +13,12 @@ const MIN = 60_000, DAY = 24 * 60 * MIN;
 assert.equal(supplierActivity(ago(30_000), NOW), 'online');
 assert.equal(supplierActivity(ago(5 * MIN), NOW), 'day');
 assert.equal(supplierActivity(ago(23 * 60 * MIN), NOW), 'day');
-assert.equal(supplierActivity(ago(3 * DAY), NOW), 'week');
-assert.equal(supplierActivity(ago(20 * DAY), NOW), 'month');
-assert.equal(supplierActivity(ago(31 * DAY), NOW), null, 'Quá 30 ngày thì ẩn');
+assert.equal(supplierActivity(ago(25 * 60 * MIN), NOW), null, 'Quá 24 giờ thì ẩn, không ghi tuần/tháng');
+assert.equal(supplierActivity(ago(3 * DAY), NOW), null);
+assert.equal(supplierActivity(ago(20 * DAY), NOW), null);
 assert.equal(supplierActivity(null, NOW), null, 'Chưa từng vào thì ẩn');
 assert.equal(supplierActivity('not a date', NOW), null);
-assert.deepEqual(Object.values(SUPPLIER_ACTIVITY_LABELS).join('|'), 'Online now|Active today|Active this week|Active this month');
+assert.deepEqual(Object.values(SUPPLIER_ACTIVITY_LABELS).join('|'), 'Online now|Active today');
 for (const label of Object.values(SUPPLIER_ACTIVITY_LABELS)) assert.doesNotMatch(label, /verif|ago/i, 'Không ghi giờ cụ thể, không gợi ý xác minh');
 
 assert.match(read('../lib/chat/presence.ts'), /PRESENCE_ONLINE_MS = 2 \* 60_000/, 'Cùng ngưỡng online với chat');
@@ -36,4 +36,4 @@ assert.match(badge, /if \(!activity\) return null/, 'Không có dữ liệu thì
 assert.match(read('../components/public/supplier-storefront.tsx'), /\{!synthetic && <SupplierActivityBadge supplierId=\{s\.id\} \/>\}/);
 assert.match(read('../app/(public)/products/[slug]/[productId]/page.tsx'), /\{!card\.isDemo && <SupplierActivityBadge supplierId=\{card\.supplierId\} \/>\}/);
 
-console.log('✅ Supplier activity: Online now / today / this week / this month, hidden after 30 days, public non-test suppliers only, no exact timestamps.');
+console.log('✅ Supplier activity: positive labels only (Online now / Active today), hidden after 24 hours, public non-test suppliers only, no exact timestamps.');

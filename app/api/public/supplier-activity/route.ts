@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 /**
  * Mốc hoạt động của một nhà cung cấp đang công khai. Trang hồ sơ và trang sản phẩm là trang dựng sẵn
  * (ISR 1 giờ), nên nhãn được hỏi riêng ở trình duyệt. Chỉ trả mốc ("online", "day"...), không trả
- * giờ chính xác; nhà cung cấp chưa công khai, hồ sơ thử hoặc quá 30 ngày thì trả null.
+ * giờ chính xác; nhà cung cấp chưa công khai, hồ sơ thử hoặc quá 24 giờ thì trả null.
  */
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id") ?? "";

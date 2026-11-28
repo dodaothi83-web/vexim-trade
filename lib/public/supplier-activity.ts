@@ -1,9 +1,11 @@
 /**
- * Nhãn "truy cập lần cuối" của nhà cung cấp trên trang công khai (chủ dự án duyệt 28/11/2026).
- * Chỉ hiện theo mốc, không hiện giờ chính xác. Quá 30 ngày thì ẩn hẳn (không ghi "3 tháng trước"
- * cho bất lợi nhà cung cấp); CRM vẫn thấy đủ. Đây là thông tin, không phải xác minh.
+ * Nhãn hoạt động của nhà cung cấp trên trang công khai. Chỉ hiện nhãn tích cực: "Online now" và
+ * "Active today" (chủ dự án chốt 28/11/2026). Sàn còn ít nhà cung cấp và nhiều người chưa vào hằng
+ * ngày; nhãn "Active this week/month" sẽ làm họ mất điểm với người mua, nên không vào trong 24 giờ thì
+ * không hiện gì (trông như chưa có nhãn). Không bao giờ hiện giờ chính xác. Đây là thông tin, không
+ * phải xác minh. Khi sàn đông nhà cung cấp hơn có thể thêm lại mốc tuần/tháng ở đây.
  */
-export type SupplierActivity = "online" | "day" | "week" | "month";
+export type SupplierActivity = "online" | "day";
 
 const DAY = 24 * 60 * 60_000;
 /** Bằng PRESENCE_ONLINE_MS của chat (lib/chat/presence.ts): còn thấy trong 2 phút là online. */
@@ -15,14 +17,10 @@ export function supplierActivity(lastSeenAt: string | null | undefined, nowMs = 
   const age = Math.max(0, nowMs - seen);
   if (age < ONLINE_MS) return "online";
   if (age < DAY) return "day";
-  if (age < 7 * DAY) return "week";
-  if (age < 30 * DAY) return "month";
   return null;
 }
 
 export const SUPPLIER_ACTIVITY_LABELS: Record<SupplierActivity, string> = {
   online: "Online now",
   day: "Active today",
-  week: "Active this week",
-  month: "Active this month",
 };
