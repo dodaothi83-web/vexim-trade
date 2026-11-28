@@ -166,6 +166,7 @@ const detailPage = compile('../app/(public)/products/[slug]/[productId]/page.tsx
   '@/components/public/product-description': { ProductDescription: Null },
   '@/components/public/quantity-price-table': { QuantityPriceTable: Null },
   '@/components/public/supplier-website-link': { SupplierWebsiteLink },
+  '@/components/public/supplier-activity': { SupplierActivityBadge: () => null },
   '@/components/public/similar-offers-rail': { SimilarOffersRail: Wrapper },
   '@/lib/public/product-selection': { productBelongsToCategory: () => true, withoutDirectContacts: selection.withoutDirectContacts },
   '@/lib/public/product-category-redirect': { movedProductDestination: () => null },

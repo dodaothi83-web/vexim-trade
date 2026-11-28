@@ -29,6 +29,7 @@ import { aplusImagePaths, COMPANY_APLUS_ID, readAplusModules } from "@/lib/produ
 import { normalizeStorefrontTheme, STOREFRONT_MAX_FEATURED } from "@/lib/storefront-theme";
 import { PremiumStorefront } from "@/components/public/premium-storefront";
 import { publicMediaUrl, publicMediaUrlAt } from "@/lib/media/public-url";
+import { SupplierActivityBadge } from "@/components/public/supplier-activity";
 
 const mediaUrl = publicMediaUrl;
 const safe = (value: string | null | undefined) => withoutDirectContacts(value || "");
@@ -355,7 +356,8 @@ export function SupplierStorefront({
             </div>
           </div>
           {avatarHint}
-          {(s.founded_year || (typeof s.employees === "number" && s.employees > 0)) && <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-600">
+          {(s.founded_year || (typeof s.employees === "number" && s.employees > 0) || !synthetic) && <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-600">
+            {!synthetic && <SupplierActivityBadge supplierId={s.id} />}
             {s.founded_year && <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-brand-700" />Founded {s.founded_year}</span>}
             {typeof s.employees === "number" && s.employees > 0 && <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-brand-700" />{s.employees} employees</span>}
           </div>}
