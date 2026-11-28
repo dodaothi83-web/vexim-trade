@@ -34,6 +34,6 @@ assert.match(route, /s-maxage=60/);
 const badge = read('../components/public/supplier-activity.tsx');
 assert.match(badge, /if \(!activity\) return null/, 'Không có dữ liệu thì không để chỗ trống');
 assert.match(read('../components/public/supplier-storefront.tsx'), /\{!synthetic && <SupplierActivityBadge supplierId=\{s\.id\} \/>\}/);
-assert.match(read('../app/(public)/products/[slug]/[productId]/page.tsx'), /\{!card\.isDemo && <SupplierActivityBadge supplierId=\{card\.supplierId\} \/>\}/);
+assert.match(read('../app/(public)/products/[slug]/[productId]/page.tsx'), /Supplied by<\/h2>\s*\{!card\.isDemo && <SupplierActivityBadge supplierId=\{card\.supplierId\} className=\"shrink-0 whitespace-nowrap/);
 
 console.log('✅ Supplier activity: Online now / today / this week / this month, hidden after 30 days, public non-test suppliers only, no exact timestamps.');

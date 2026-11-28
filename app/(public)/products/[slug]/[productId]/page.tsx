@@ -393,7 +393,11 @@ export default async function PublicProductDetail({ params }: Props) {
                 </> : <VeximTradeIcon className="h-6 w-6" aria-hidden="true" />}
               </Link>
               <div className="min-w-0 flex-1">
-                <h2 id="supplier-card-title" className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">Supplied by</h2>
+                {/* Nhãn hoạt động nằm cùng hàng "Supplied by" để không bị đẩy xuống dòng cùng địa chỉ (chủ dự án 28/11/2026). */}
+                <div className="flex items-center justify-between gap-2">
+                  <h2 id="supplier-card-title" className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">Supplied by</h2>
+                  {!card.isDemo && <SupplierActivityBadge supplierId={card.supplierId} className="shrink-0 whitespace-nowrap text-[11px] font-medium text-ink-600" />}
+                </div>
                 <Link prefetch={false} href={`/suppliers/${encodeURIComponent(card.supplierSlug || card.supplierId)}`} target="_blank" rel="noopener noreferrer" className="mt-1 block break-words text-base font-bold leading-6 text-ink-900 hover:text-brand-800">{card.supplierName}</Link>
                 {/* Website nằm cùng hàng với dấu xác minh; hết chỗ thì tự xuống dòng. */}
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -406,7 +410,6 @@ export default async function PublicProductDetail({ params }: Props) {
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-ink-600">
               <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-brand-700" />{publicProductLocationDisplay(card.province)}</span>
               {card.supplierFoundedYear && <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-brand-700" />Founded {card.supplierFoundedYear}</span>}
-              {!card.isDemo && <SupplierActivityBadge supplierId={card.supplierId} />}
             </div>
           </div>
           <div className="p-5">
